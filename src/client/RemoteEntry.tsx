@@ -49,10 +49,10 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     eventSource.current = undefined
   }, [])
 
-  const mint = useCallback(async (): Promise<PanelState> => {
+  const mint = useCallback(async (address?: string): Promise<PanelState> => {
     let result: IssueResponse
     try {
-      result = await issuePair(workspaceId)
+      result = await issuePair(workspaceId, address)
     } catch {
       // Fetch/network failure: show an explicit state instead of silently
       // leaving the panel on its initial banner.
@@ -60,8 +60,11 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     }
     if (!result.ok) {
       // 403 is the loopback-only fence refusing a LAN origin (the panel is a
-      // desktop control endpoint); 409 means the server never bound 0.0.0.0.
-      return result.code === 'forbidden' ? { kind: 'loopback-required' } : { kind: 'lan-required' }
+      // desktop control endpoint); 409 means the server never bound 0.0.0.0;
+      // 400 means the requested LAN literal is no longer constructible.
+      if (result.code === 'forbidden') return { kind: 'loopback-required' }
+      if (result.code === 'unknown-address') return { kind: 'unreachable' }
+      return { kind: 'lan-required' }
     }
     return {
       kind: 'ready',
@@ -71,6 +74,9 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
       phase: 'waiting',
       deviceCount: 0,
       onlineCount: 0,
+      // The issued URL names the requested (or default first) literal.
+      address: address ?? result.lanAddresses[0] ?? '',
+      lanAddresses: result.lanAddresses,
     }
   }, [workspaceId])
 
@@ -131,6 +137,11 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     void mint().then(setState)
   }, [mint])
 
+  /** Re-mint against another LAN literal (multi-homed machines). */
+  const handlePickAddress = useCallback((address: string) => {
+    void mint(address).then(setState)
+  }, [mint])
+
   const handleCopy = useCallback(() => {
     if (state.kind !== 'ready') return
     void copyText(state.url).then((ok) => {
@@ -154,6 +165,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
             onStop={handleStop}
             onRefresh={handleRefresh}
             onCopy={handleCopy}
+            onPickAddress={handlePickAddress}
           />
         </div>
       ), document.body)}

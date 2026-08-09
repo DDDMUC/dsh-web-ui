@@ -281,3 +281,33 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 13px;
 }
+
+/* Multi-homed address picker: one radio per constructible LAN literal. */
+.addresses {
+  margin: 12px 0 0;
+  padding: 0;
+  border: none;
+}
+
+.addresses legend {
+  padding: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+}
+
+.address {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.addressHint {
+  margin: 6px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}

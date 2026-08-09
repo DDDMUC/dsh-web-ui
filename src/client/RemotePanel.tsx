@@ -27,6 +27,10 @@ export type PanelState =
       phase: PairingPhase
       deviceCount: number
       onlineCount: number
+      /** The LAN literal the current QR was built from. */
+      address: string
+      /** Every constructible LAN literal (interface order). */
+      lanAddresses: string[]
     }
 
 /** Full panel props: copy + view state + actions. */
@@ -38,6 +42,8 @@ export interface RemotePanelProps {
   onStop(): void
   onRefresh(): void
   onCopy(): void
+  /** Re-mint the QR against a different LAN address. */
+  onPickAddress(address: string): void
 }
 
 /** Badge text + tone per phase (ready states only). */
@@ -59,7 +65,7 @@ function statusOf(
  * @param props - copy, state, and actions.
  * @returns the panel element tree.
  */
-export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy }: RemotePanelProps) {
+export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy, onPickAddress }: RemotePanelProps) {
   return (
     <div className={css.panel} role="dialog" aria-modal="true" aria-label={t('title')}>
       <div className={css.header}>
@@ -107,6 +113,24 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
           <p className={css.hint}>{t('pair.hint')}</p>
           <p className={css.link} title={state.url}>{state.url}</p>
           {state.phase === 'stopped' && <p className={css.stoppedHint}>{t('stopped.hint')}</p>}
+
+          {state.lanAddresses.length > 1 && (
+            <fieldset className={css.addresses}>
+              <legend>{t('address.label')}</legend>
+              {state.lanAddresses.map(address => (
+                <label key={address} className={css.address}>
+                  <input
+                    type="radio"
+                    name="lan-address"
+                    checked={address === state.address}
+                    onChange={() => onPickAddress(address)}
+                  />
+                  <span>{address}</span>
+                </label>
+              ))}
+              <p className={css.addressHint}>{t('address.hint')}</p>
+            </fieldset>
+          )}
 
           <div className={css.actions}>
             <button type="button" className={css.action} onClick={onStop}>

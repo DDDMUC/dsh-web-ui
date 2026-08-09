@@ -16,7 +16,7 @@ import type {} from '@deepseek-ai/dsh-client-connection'
 import { PairingService } from './pairing.ts'
 import { makeGateListener } from './gate.ts'
 import { makeRoutes } from './routes.ts'
-import { lanBaseUrl, lanIPv4Addresses } from './lan.ts'
+import { lanIPv4Addresses } from './lan.ts'
 
 /** Stable cordis plugin name. */
 export const name = 'remote-web-ui'
@@ -83,10 +83,15 @@ export function apply(ctx: Context, config?: Config): void {
     cookieName: resolved.cookieName,
   })
   // The bind facts are known by now (httpServer is an inject edge): the LAN
-  // base is frozen per process, matching the CLI's once-per-invocation
-  // sampling stance. The QR can only advertise addresses the fence accepts.
-  service.setLanBaseUrl(lanBaseUrl(ctx.httpServer.host, ctx.httpServer.port))
-  const lanAddresses = ctx.httpServer.host === '0.0.0.0' ? lanIPv4Addresses() : []
+  // bases are frozen per process, matching the CLI's once-per-invocation
+  // sampling stance. The QR can only advertise addresses the fence accepts;
+  // every interface gets its own base URL so a multi-homed machine can pick
+  // the network the phone can actually reach.
+  const lanBases = ctx.httpServer.host === '0.0.0.0'
+    ? lanIPv4Addresses().map(address => ({ address, base: `http://${address}:${String(ctx.httpServer.port)}` }))
+    : []
+  service.setLanBases(lanBases)
+  const lanAddresses = lanBases.map(entry => entry.address)
 
   ctx.effect(
     () => ctx.on('api/gate', makeGateListener(service, resolved.requirePairingForLan)),

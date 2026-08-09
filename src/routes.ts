@@ -11,7 +11,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { isTrustedApiRequest } from '@deepseek-ai/dsh-client-connection'
-import type { PairingService, PairingSnapshot } from './pairing.ts'
+import { UnknownLanAddressError, type PairingService, type PairingSnapshot } from './pairing.ts'
 import { readCookie } from './gate.ts'
 
 /** Cap on pairing request bodies (tokens and workspace ids are tiny). */
@@ -148,14 +148,31 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     const workspaceId = body === undefined || typeof body.workspaceId !== 'string' || body.workspaceId === ''
       ? undefined
       : body.workspaceId
+    const address = body === undefined || typeof body.address !== 'string' || body.address === ''
+      ? undefined
+      : body.address
     try {
-      const { token, expiresAt } = service.issue(workspaceId)
-      const base = service.lanBaseUrl
+      const { token, expiresAt } = service.issue(workspaceId, address)
+      const base = address === undefined ? service.lanBaseUrl : service.lanBaseUrlFor(address)
       if (base === undefined) throw new Error('remote-web-ui: lan base unavailable')
       const workspaceQuery = workspaceId === undefined ? '' : `&workspace=${encodeURIComponent(workspaceId)}`
-      writeJson(res, 200, { ok: true, url: `${base}/?pair=${token}${workspaceQuery}`, token, expiresAt })
-    } catch {
-      writeJson(res, 409, { ok: false, code: 'lan-required' })
+      writeJson(res, 200, {
+        ok: true,
+        url: `${base}/?pair=${token}${workspaceQuery}`,
+        token,
+        expiresAt,
+        // Every constructible base, so a multi-homed panel can switch the
+        // advertised network without a second round trip.
+        lanAddresses: service.lanAddresses,
+      })
+    } catch (error) {
+      // lan-required (no bind) and unknown-address are both configuration
+      // mistakes the panel should surface distinctly.
+      const unknownAddress = error instanceof UnknownLanAddressError
+      writeJson(res, unknownAddress ? 400 : 409, {
+        ok: false,
+        code: unknownAddress ? 'unknown-address' : 'lan-required',
+      })
     }
   }
 

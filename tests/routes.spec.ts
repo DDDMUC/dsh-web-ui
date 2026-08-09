@@ -17,7 +17,7 @@ function makeService(): PairingService {
     now: () => 1_000_000,
     randomToken: () => 'tok-1',
   })
-  service.setLanBaseUrl('http://192.168.1.5:3080')
+  service.setLanBases([{ address: '192.168.1.5', base: 'http://192.168.1.5:3080' }])
   return service
 }
 
@@ -97,6 +97,7 @@ describe('/api/pair routes', () => {
       const issued = await call(port, 'POST', '/api/pair/issue', { body: { workspaceId: 'ws-7' } })
       expect(issued.status).toBe(200)
       expect(issued.body.url).toMatch(/^http:\/\/192\.168\.1\.5:3080\/\?pair=tok-1&workspace=ws-7$/)
+      expect(issued.body.lanAddresses).toEqual(['192.168.1.5'])
       // A LAN phone accepts: sets the HttpOnly device cookie.
       const accepted = await call(port, 'POST', '/api/pair/accept', { host: '192.168.1.5:3080', body: { token: 'tok-1' } })
       expect(accepted.status).toBe(200)
@@ -128,6 +129,26 @@ describe('/api/pair routes', () => {
     }
   })
 
+  it('issues against a requested LAN address and refuses unknown literals', async () => {
+    const service = makeService()
+    service.setLanBases([
+      { address: '192.168.1.5', base: 'http://192.168.1.5:3080' },
+      { address: '10.0.0.3', base: 'http://10.0.0.3:3080' },
+    ])
+    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5', '10.0.0.3'] }))
+    try {
+      const chosen = await call(port, 'POST', '/api/pair/issue', { body: { address: '10.0.0.3' } })
+      expect(chosen.status).toBe(200)
+      expect(chosen.body.url).toMatch(/^http:\/\/10\.0\.0\.3:3080\/\?pair=tok-1$/)
+      expect(chosen.body.lanAddresses).toEqual(['192.168.1.5', '10.0.0.3'])
+      const unknown = await call(port, 'POST', '/api/pair/issue', { body: { address: '192.0.2.1' } })
+      expect(unknown.status).toBe(400)
+      expect(unknown.body.code).toBe('unknown-address')
+    } finally {
+      await close()
+    }
+  })
+
   it('stop revokes devices and the token from the control plane', async () => {
     const service = makeService()
     const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
@@ -150,7 +171,7 @@ describe('/api/pair routes', () => {
 
   it('reports lan-required without a LAN bind (no dead QR)', async () => {
     const service = makeService()
-    service.setLanBaseUrl(undefined)
+    service.setLanBases([])
     const { port, close } = await serve(makeRoutes({ service, lanAddresses: [] }))
     try {
       const issued = await call(port, 'POST', '/api/pair/issue', {})

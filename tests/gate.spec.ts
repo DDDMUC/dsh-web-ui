@@ -21,7 +21,7 @@ function makeService(cookieName = 'dsh_pair'): PairingService {
     now: () => 1_000_000,
     randomToken: () => 'tok-1',
   })
-  service.setLanBaseUrl('http://192.168.1.5:3080')
+  service.setLanBases([{ address: '192.168.1.5', base: 'http://192.168.1.5:3080' }])
   return service
 }
 

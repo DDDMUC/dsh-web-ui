@@ -33,12 +33,12 @@ class FakeEventSource {
 }
 
 /** fetch stub answering the pair endpoints. */
-function mockFetch(issue: { ok: boolean; status?: number; code?: string; url?: string; token?: string; expiresAt?: number }) {
+function mockFetch(issue: { ok: boolean; status?: number; code?: string; url?: string; token?: string; expiresAt?: number; lanAddresses?: string[] }) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     const status = init?.method === 'POST' && url === '/api/pair/issue' && !issue.ok ? (issue.status ?? 409) : 200
     const body = url === '/api/pair/issue' && issue.ok
-      ? { ok: true, url: issue.url, token: issue.token, expiresAt: issue.expiresAt }
+      ? { ok: true, url: issue.url, token: issue.token, expiresAt: issue.expiresAt, lanAddresses: issue.lanAddresses ?? ['192.168.1.5'] }
       : url === '/api/pair/issue'
         ? { ok: false, code: issue.code }
         : { ok: true }
@@ -46,7 +46,7 @@ function mockFetch(issue: { ok: boolean; status?: number; code?: string; url?: s
   })
 }
 
-function mount(issue: { ok: boolean; status?: number; code?: string; url?: string; token?: string; expiresAt?: number } = { ok: true, url: 'http://192.168.1.5:3080/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000 }) {
+function mount(issue: { ok: boolean; status?: number; code?: string; url?: string; token?: string; expiresAt?: number; lanAddresses?: string[] } = { ok: true, url: 'http://192.168.1.5:3080/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000, lanAddresses: ['192.168.1.5'] }) {
   const fetch = mockFetch(issue)
   vi.stubGlobal('fetch', fetch)
   vi.stubGlobal('EventSource', FakeEventSource)
@@ -120,6 +120,30 @@ describe('RemoteEntry', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
     await waitFor(() => expect(screen.getByText('Cannot reach the pairing service')).toBeTruthy())
     expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
+  })
+
+  it('renders the address picker on multi-homed hosts and re-mints on switch', async () => {
+    const { fetch } = mount({ ok: true, url: 'http://192.168.1.5:3080/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000, lanAddresses: ['192.168.1.5', '10.0.0.3'] })
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
+    await waitFor(() => expect(screen.getByText('Network to advertise')).toBeTruthy())
+    expect(screen.getByLabelText('192.168.1.5')).toBeTruthy()
+    expect(screen.getByLabelText('10.0.0.3')).toBeTruthy()
+    // Switching re-mints with the chosen literal; the first interface stays
+    // the default selection.
+    fireEvent.click(screen.getByLabelText('10.0.0.3'))
+    await waitFor(() => {
+      const calls = fetch.mock.calls.filter(call => call[0] === '/api/pair/issue')
+      expect(calls).toHaveLength(2)
+      const body = JSON.parse(String((calls[1]?.[1] as RequestInit).body))
+      expect(body).toEqual({ workspaceId: 'ws-1', address: '10.0.0.3' })
+    })
+  })
+
+  it('hides the address picker with a single constructible literal', async () => {
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
+    await waitFor(() => expect(screen.getByText('Waiting for a phone')).toBeTruthy())
+    expect(screen.queryByText('Network to advertise')).toBeNull()
   })
 
   it('reflects live status frames: connected and back to offline', async () => {

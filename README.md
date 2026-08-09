@@ -79,9 +79,10 @@ mounts both halves.
   via the LAN URL must pair like any remote device; loopback (127.0.0.1)
   is unaffected. Set `requirePairingForLan: false` in the profile patch to
   restore the open-LAN behavior while keeping tokens/status/revocation.
-- The QR link is built from the first non-internal IPv4 interface; a
-  machine with several interfaces shows one deterministic candidate (no
-  per-interface picker — see Known Limitations).
+- The QR link is built from the machine's non-internal IPv4 literals; a
+  multi-homed host (Wi-Fi + wired, or a proxy/VPN virtual adapter) shows a
+  radio picker so you can advertise the network the phone can actually
+  reach. The first literal is the default.
 
 ## Development
 
@@ -155,8 +156,6 @@ Repeat this after any change to the wire contract or the connection loop:
 
 ## Known Limitations and Deferred Work
 
-- **Multi-interface hosts**: the QR uses the first non-internal IPv4
-  address; a per-interface picker is deferred.
 - **Revocation is per-request**: a paired phone whose request is already in
   flight when 停止 lands completes that request; the next one 403s.
 - **Device sessions are in-memory**: pairing state (token + devices) resets

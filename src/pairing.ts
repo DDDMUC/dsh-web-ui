@@ -40,6 +40,8 @@ export interface TokenRecord {
   consumed: boolean
   /** Workspace the QR link should land the phone in (optional). */
   workspaceId?: string
+  /** LAN IP literal the QR link was built from (optional; default first). */
+  address?: string
 }
 
 /** One paired device session, keyed by the device id stored in its cookie. */
@@ -55,6 +57,8 @@ export interface PairingSnapshot {
   phase: PairingPhase
   /** Whether the server bind is all-interfaces (a QR is constructible). */
   lanAvailable: boolean
+  /** The LAN IP literals a QR can be built from (interface order). */
+  lanAddresses: string[]
   /** Active token id when one is live (undefined when stopped/lan-required). */
   tokenId?: string
   /** Absolute expiry of the active token. */
@@ -82,6 +86,17 @@ export type AcceptResult =
   | { ok: true; deviceId: string }
   | { ok: false; code: 'invalid' | 'used' }
 
+/** Thrown by issue() for an address outside the sampled LAN literals. */
+export class UnknownLanAddressError extends Error {
+  /**
+   * @param address - the offending literal.
+   */
+  constructor(address: string) {
+    super(`remote-web-ui: unknown LAN address ${JSON.stringify(address)}`)
+    this.name = 'UnknownLanAddressError'
+  }
+}
+
 /** Clock and entropy injection for tests. */
 export interface PairingClock {
   now(): number
@@ -106,7 +121,8 @@ export class PairingService {
   private readonly listeners = new Set<(snapshot: PairingSnapshot) => void>()
   private lastEmitted: PairingSnapshot | undefined
   private stopped = false
-  private lanBase: string | undefined
+  /** LAN base URLs keyed by the advertised IP literal (interface order). */
+  private lanBases = new Map<string, string>()
 
   /**
    * @param config - tunables.
@@ -117,14 +133,24 @@ export class PairingService {
     private readonly clock: PairingClock = defaultClock,
   ) {}
 
-  /** The LAN base URL QR links are built from (undefined = not LAN-reachable). */
+  /** The default LAN base URL (the first interface; undefined when not LAN-reachable). */
   get lanBaseUrl(): string | undefined {
-    return this.lanBase
+    return this.lanBases.values().next().value as string | undefined
   }
 
-  /** Set the LAN base URL once the server bind is known. */
-  setLanBaseUrl(base: string | undefined): void {
-    this.lanBase = base
+  /** The LAN base URL for one specific literal (undefined when not constructible). */
+  lanBaseUrlFor(address: string): string | undefined {
+    return this.lanBases.get(address)
+  }
+
+  /** The LAN IP literals QR links can be built from (interface order). */
+  get lanAddresses(): string[] {
+    return [...this.lanBases.keys()]
+  }
+
+  /** Set the LAN base URLs once the server bind is known (interface order). */
+  setLanBases(entries: readonly { address: string; base: string }[]): void {
+    this.lanBases = new Map(entries.map(entry => [entry.address, entry.base]))
     this.notify()
   }
 
@@ -132,13 +158,18 @@ export class PairingService {
    * Issue a fresh token, replacing (invalidating) any previous one. A
    * stopped service re-arms through this call (the panel's refresh button).
    * @param workspaceId - optional workspace the QR link should land in.
+   * @param address - optional LAN IP literal the QR must be built from; the
+   * default is the first interface. Unknown addresses are refused.
    * @returns the token secret and its expiry.
    * @throws {Error} when the server is not LAN-reachable — callers surface
    * this as the lan-required state instead of minting an unusable QR.
    */
-  issue(workspaceId?: string): { token: string; expiresAt: number } {
-    if (this.lanBase === undefined) {
+  issue(workspaceId?: string, address?: string): { token: string; expiresAt: number } {
+    if (this.lanBases.size === 0) {
       throw new Error('remote-web-ui: pairing requires an all-interfaces bind (--host 0.0.0.0)')
+    }
+    if (address !== undefined && !this.lanBases.has(address)) {
+      throw new UnknownLanAddressError(address)
     }
     const now = this.clock.now()
     const token = this.clock.randomToken()
@@ -149,6 +180,7 @@ export class PairingService {
       expiresAt: now + this.config.tokenTtlMs,
       consumed: false,
       ...(workspaceId !== undefined ? { workspaceId } : {}),
+      ...(address !== undefined ? { address } : {}),
     })
     this.notify()
     return { token, expiresAt: now + this.config.tokenTtlMs }
@@ -230,7 +262,8 @@ export class PairingService {
     const token = this.activeToken()
     return {
       phase: this.derivePhase(onlineCount, token !== undefined),
-      lanAvailable: this.lanBase !== undefined,
+      lanAvailable: this.lanBases.size > 0,
+      lanAddresses: [...this.lanBases.keys()],
       ...(token !== undefined ? { tokenId: token.token, tokenExpiresAt: token.record.expiresAt } : {}),
       deviceCount: this.devices.size,
       onlineCount,
@@ -259,7 +292,7 @@ export class PairingService {
   }
 
   private derivePhase(onlineCount: number, hasToken: boolean): PairingPhase {
-    if (this.lanBase === undefined) return 'lan-required'
+    if (this.lanBases.size === 0) return 'lan-required'
     if (this.stopped) return 'stopped'
     if (onlineCount > 0) return 'connected'
     if (this.devices.size > 0) return 'disconnected'
@@ -290,8 +323,14 @@ export class PairingService {
 function snapshotsEqual(a: PairingSnapshot, b: PairingSnapshot): boolean {
   return a.phase === b.phase
     && a.lanAvailable === b.lanAvailable
+    && sameStrings(a.lanAddresses, b.lanAddresses)
     && a.tokenId === b.tokenId
     && a.tokenExpiresAt === b.tokenExpiresAt
     && a.deviceCount === b.deviceCount
     && a.onlineCount === b.onlineCount
+}
+
+/** Element-wise string list equality (interface order is meaningful). */
+function sameStrings(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index])
 }
