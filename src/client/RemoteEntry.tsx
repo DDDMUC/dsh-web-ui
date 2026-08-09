@@ -120,6 +120,8 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
   useEffect(() => closeEventSource, [closeEventSource])
 
   const handleStop = useCallback(() => {
+    // A failed stop request is harmless: the optimistic phase flip below
+    // keeps the UI honest, and the status stream confirms the stopped phase.
     void stopPair().catch(() => {})
     // Optimistic fallback; the status stream confirms with the stopped phase.
     setState(previous => previous.kind === 'ready' ? { ...previous, phase: 'stopped' as PairingPhase } : previous)

@@ -88,8 +88,8 @@ mounts both halves.
 Keep this repository and the DeepSeek Harness checkout as siblings:
 
 ```text
-~/git/test-zhu1090093659   # the DSH checkout (peer API source)
-~/git/dsh-remote-web-ui
+~/code/test-zhu1090093659   # the DSH checkout (peer API source)
+~/code/dsh-remote-web-ui
 ```
 
 ```sh

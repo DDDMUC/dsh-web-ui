@@ -55,7 +55,7 @@ export const browserPage: PageSurface = {
 export function runPairBootFlow(ctx: Context, search: string, page: PageSurface = browserPage): void {
   const params = readPairParams(search)
   if (params.pair !== undefined) {
-    void runAccept(ctx, params.pair, page)
+    void runAccept(params.pair, page)
     return
   }
   if (params.workspace !== undefined) {
@@ -64,7 +64,7 @@ export function runPairBootFlow(ctx: Context, search: string, page: PageSurface 
 }
 
 /** Accept the token, then reload (the workspace param survives the reload). */
-async function runAccept(ctx: Context, token: string, page: PageSurface): Promise<void> {
+async function runAccept(token: string, page: PageSurface): Promise<void> {
   let ok = false
   try {
     const result = await acceptPair(token)
@@ -79,7 +79,6 @@ async function runAccept(ctx: Context, token: string, page: PageSurface): Promis
   url.searchParams.delete('pair')
   page.replaceState(`${url.pathname}${url.search}${url.hash}`)
   if (ok) page.reload()
-  void ctx
 }
 
 /**
