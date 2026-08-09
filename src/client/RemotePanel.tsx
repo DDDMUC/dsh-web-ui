@@ -17,6 +17,8 @@ import css from './remote.module.css'
 /** The panel's view state, owned by the entry component. */
 export type PanelState =
   | { kind: 'lan-required' }
+  | { kind: 'loopback-required' }
+  | { kind: 'unreachable' }
   | {
       kind: 'ready'
       url: string
@@ -74,6 +76,16 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
         <div className={css.banner} role="alert">
           <p className={css.bannerTitle}>{t('status.lanRequired')}</p>
           <p className={css.bannerHint}>{t('status.lanRequiredHint')}</p>
+        </div>
+      ) : state.kind === 'loopback-required' ? (
+        <div className={css.banner} role="alert">
+          <p className={css.bannerTitle}>{t('status.loopbackRequired')}</p>
+          <p className={css.bannerHint}>{t('status.loopbackRequiredHint')}</p>
+        </div>
+      ) : state.kind === 'unreachable' ? (
+        <div className={css.banner} role="alert">
+          <p className={css.bannerTitle}>{t('status.unreachable')}</p>
+          <p className={css.bannerHint}>{t('status.unreachableHint')}</p>
         </div>
       ) : (
         <>

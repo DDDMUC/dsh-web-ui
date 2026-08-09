@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
 import { RemotePanel, type PanelState } from './RemotePanel.tsx'
-import { copyText, issuePair, stopPair, type PairStateFrame } from './pair-api.ts'
+import { copyText, issuePair, stopPair, type IssueResponse, type PairStateFrame } from './pair-api.ts'
 import { PhoneIcon } from './PhoneIcon.tsx'
 import css from './remote.module.css'
 
@@ -49,13 +49,21 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     eventSource.current = undefined
   }, [])
 
-  const mint = useCallback(async (): Promise<void> => {
-    const result = await issuePair(workspaceId)
-    if (!result.ok) {
-      setState({ kind: 'lan-required' })
-      return
+  const mint = useCallback(async (): Promise<PanelState> => {
+    let result: IssueResponse
+    try {
+      result = await issuePair(workspaceId)
+    } catch {
+      // Fetch/network failure: show an explicit state instead of silently
+      // leaving the panel on its initial banner.
+      return { kind: 'unreachable' }
     }
-    setState({
+    if (!result.ok) {
+      // 403 is the loopback-only fence refusing a LAN origin (the panel is a
+      // desktop control endpoint); 409 means the server never bound 0.0.0.0.
+      return result.code === 'forbidden' ? { kind: 'loopback-required' } : { kind: 'lan-required' }
+    }
+    return {
       kind: 'ready',
       url: result.url,
       expiresAt: result.expiresAt,
@@ -63,13 +71,18 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
       phase: 'waiting',
       deviceCount: 0,
       onlineCount: 0,
-    })
+    }
   }, [workspaceId])
 
-  const openPanel = useCallback(() => {
+  const openPanel = useCallback(async (): Promise<void> => {
     setOpen(true)
-    void mint()
-    // Live status: the desktop panel mirrors the pairing service state.
+    const next = await mint()
+    setState(next)
+    // Live status: the desktop panel mirrors the pairing service state. The
+    // stream only makes sense in the ready state — on a failure banner the
+    // events endpoint is unreachable too (loopback fence), so opening it
+    // would just start a doomed reconnect loop.
+    if (next.kind !== 'ready') return
     const source = new EventSource('/api/pair/events')
     eventSource.current = source
     source.onmessage = (event) => {
@@ -113,7 +126,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
   }, [])
 
   const handleRefresh = useCallback(() => {
-    void mint()
+    void mint().then(setState)
   }, [mint])
 
   const handleCopy = useCallback(() => {

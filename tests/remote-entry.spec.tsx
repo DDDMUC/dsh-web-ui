@@ -33,10 +33,10 @@ class FakeEventSource {
 }
 
 /** fetch stub answering the pair endpoints. */
-function mockFetch(issue: { ok: boolean; code?: string; url?: string; token?: string; expiresAt?: number }) {
+function mockFetch(issue: { ok: boolean; status?: number; code?: string; url?: string; token?: string; expiresAt?: number }) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
-    const status = init?.method === 'POST' && url === '/api/pair/issue' && !issue.ok ? 409 : 200
+    const status = init?.method === 'POST' && url === '/api/pair/issue' && !issue.ok ? (issue.status ?? 409) : 200
     const body = url === '/api/pair/issue' && issue.ok
       ? { ok: true, url: issue.url, token: issue.token, expiresAt: issue.expiresAt }
       : url === '/api/pair/issue'
@@ -46,7 +46,7 @@ function mockFetch(issue: { ok: boolean; code?: string; url?: string; token?: st
   })
 }
 
-function mount(issue: { ok: boolean; code?: string; url?: string; token?: string; expiresAt?: number } = { ok: true, url: 'http://192.168.1.5:3080/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000 }) {
+function mount(issue: { ok: boolean; status?: number; code?: string; url?: string; token?: string; expiresAt?: number } = { ok: true, url: 'http://192.168.1.5:3080/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000 }) {
   const fetch = mockFetch(issue)
   vi.stubGlobal('fetch', fetch)
   vi.stubGlobal('EventSource', FakeEventSource)
@@ -95,6 +95,30 @@ describe('RemoteEntry', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
     await waitFor(() => expect(screen.getByText('This feature needs dsh web started with --host 0.0.0.0')).toBeTruthy())
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
+    expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
+  })
+
+  it('shows the loopback-required banner when the loopback-only fence rejects the mint', async () => {
+    // A LAN-origin desktop page (e.g. the GUI opened at 192.168.1.x) hits
+    // the issue endpoint's loopback fence and gets 403 — the server may be
+    // bound fine, so the banner must say "use 127.0.0.1", not "restart with
+    // --host 0.0.0.0".
+    mount({ ok: false, status: 403, code: 'forbidden' })
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
+    await waitFor(() => expect(screen.getByText('The pairing panel works on this machine only')).toBeTruthy())
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
+    expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
+    // No status stream on a failure banner: the events endpoint sits behind
+    // the same loopback fence, so opening it would only start a doomed
+    // reconnect loop.
+    expect(FakeEventSource.instances).toHaveLength(0)
+  })
+
+  it('shows the unreachable banner when the issue fetch fails', async () => {
+    const { fetch } = mount()
+    fetch.mockRejectedValueOnce(new Error('network down'))
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
+    await waitFor(() => expect(screen.getByText('Cannot reach the pairing service')).toBeTruthy())
     expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
   })
 

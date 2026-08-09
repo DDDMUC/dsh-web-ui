@@ -36,7 +36,11 @@ QR code, live device status, and stop/refresh/copy actions.
   `dsh plugin`) — the profile/bundle mechanism this package rides on.
 - The server must be reachable from the phone: start with
   `dsh web --host 0.0.0.0`. With the default `127.0.0.1` bind the panel
-  shows an explicit explanation instead of a dead QR code.
+  shows an explicit explanation instead of a dead QR code. The panel's
+  mint/stop endpoints are loopback-only by design: a desktop browser
+  opened at the LAN URL sees a "配对面板仅限本机使用" banner instead —
+  open the panel at `http://127.0.0.1` and let the phone use the paired
+  link.
 
 ## Install
 
@@ -47,7 +51,8 @@ dsh plugin --profile web add link:/path/to/dsh-remote-web-ui
 
 # From git, with no checkout: the prepare script builds lib/ during install
 # (pnpm ≥10 blocks that build until you allow it; copy the printed key into
-# the profile's pnpm-workspace.yaml allowBuilds and re-run):
+# the profile's pnpm-workspace.yaml allowBuilds and re-run). The repository
+# is private, so git access needs a credential helper with org access:
 dsh plugin --profile web add github:dsh-external/dsh-remote-web-ui
 ```
 

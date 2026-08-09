@@ -18,7 +18,13 @@ export interface IssueLanRequired {
   code: 'lan-required'
 }
 
-export type IssueResponse = IssueResult | IssueLanRequired
+/** issue() refusal: the loopback-only fence rejected this origin. */
+export interface IssueLoopbackRequired {
+  ok: false
+  code: 'forbidden'
+}
+
+export type IssueResponse = IssueResult | IssueLanRequired | IssueLoopbackRequired
 
 /** accept() refusal codes. */
 export type AcceptFailure = { ok: false; code: 'invalid' | 'used' | 'forbidden' }
@@ -38,7 +44,9 @@ export interface PairStateFrame {
  * Mint a fresh pairing token (one active token at a time — this invalidates
  * any previous link).
  * @param workspaceId - optional current workspace to deep-link the phone into.
- * @returns the issued link or the lan-required refusal.
+ * @returns the issued link, the lan-required refusal (server never bound
+ * 0.0.0.0), or the forbidden refusal (the loopback-only fence rejected this
+ * origin — the panel is a desktop control endpoint).
  */
 export async function issuePair(workspaceId?: string): Promise<IssueResponse> {
   const response = await fetch('/api/pair/issue', {
@@ -48,6 +56,7 @@ export async function issuePair(workspaceId?: string): Promise<IssueResponse> {
   })
   if (!response.ok) {
     if (response.status === 409) return { ok: false, code: 'lan-required' }
+    if (response.status === 403) return { ok: false, code: 'forbidden' }
     throw new Error(`remote-web-ui: issue failed with ${String(response.status)}`)
   }
   return await response.json() as IssueResult
