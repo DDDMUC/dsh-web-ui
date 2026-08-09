@@ -133,6 +133,26 @@ re-exported by `@deepseek-ai/dsh-client-connection` for the pairing routes.
 See the Agent Notes `api-gate-and-sidebar-remote-seat` and
 `lan-runtime-connection-fixes` in the harness checkout.
 
+## Manual E2E: LAN pairing round trip
+
+The unit/component specs cover the route family, the gate, and the panel,
+but the pairing loop involves a real browser on a non-loopback origin.
+Repeat this after any change to the wire contract or the connection loop:
+
+1. Start the server on all interfaces with a test workspace root:
+   `dsh web --host 0.0.0.0 --port 3190 --workspace-root /tmp/remote-e2e`.
+2. Open the **loopback** URL (`http://127.0.0.1:3190`) in a browser: the
+   phone icon sits in the sidebar foot; the panel mints a QR instantly.
+3. In a second tab (or a phone) open the **LAN** URL with the pair token
+   (e.g. `http://192.168.1.7:3190/?pair=<token>`): the page accepts, sets
+   the HttpOnly `dsh_pair` cookie, reloads, and boots the full UI — no
+   console errors, and a generation round trip completes.
+4. The desktop badge flips to 已连接 in real time; a LAN-origin desktop
+   page instead shows the 配对面板仅限本机使用 banner and opens no status
+   stream.
+5. 停止 on the desktop cuts the phone off: its next `/api` request 403s
+   (reconnect loops retry until a fresh QR re-pairs).
+
 ## Known Limitations and Deferred Work
 
 - **Multi-interface hosts**: the QR uses the first non-internal IPv4
