@@ -26,7 +26,7 @@ dsh-web-ui/
 │   ├── code-kline/        @deepseek-ai/dsh-code-kline                代码工作量 K 线（host）
 │   ├── ui-code-kline/     @deepseek-ai/dsh-client-ui-code-kline      代码工作量 K 线（client）
 │   ├── live-stats/        @deepseek-ai/dsh-live-stats                 实时 token 估算与吞吐
-│   ├── skins/             皮肤集合（qq98 / ths / xp / blue-fantasy / dragon-heir / skin-center / web）
+│   ├── skins/             皮肤集合（qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft / skin-center / web）
 │   ├── dsh-skins/         @deepseek-ai/dsh-skins      皮肤聚合插件（装它 = 全部皮肤包 + 皮肤中心）
 │   └── web-ui-all/        @deepseek-ai/dsh-web-ui-all  全家桶聚合插件（装它 = 全部功能插件 + 皮肤全家桶）
 ├── gallery/               皮肤试穿预览页
@@ -77,7 +77,7 @@ dsh plugin --profile web add github:dsh-external/dsh-task-board
 皮肤启用互斥由 `~/.dsh/cordis.patch.yml` managed 区段维护，切换即时生效：
 
 ```sh
-dsh-skin use blue-fantasy   # 或 qq98 / ths / xp / dragon-heir
+dsh-skin use blue-fantasy   # 或 qq98 / ths / xp / dragon-heir / minecraft
 ```
 
 > 皮肤需先安装（聚合包，或 `dsh plugin --profile web add link:<dsh-web-ui>/packages/skins/<skin>`）才能切换。
@@ -127,6 +127,18 @@ dsh-skin use blue-fantasy
 
 ```sh
 dsh-skin use xp
+```
+
+### Minecraft 方块世界
+
+复刻《我的世界》主界面氛围的方块皮肤：程序化绘制的像素全景天空盒（方块山、像素云、方块树、草方块地面）以 CSS 3D 立方体在身后缓慢旋转，界面浮在半透明石板上；按钮还原 MC 菜单按钮（灰石板、悬停变黄、按下下沉），输入框做成带钉子的木告示牌。全景图为程序化自绘，不携带 Mojang 版权素材。
+
+| 亮色试穿 | 暗色试穿 |
+| --- | --- |
+| ![Minecraft 方块世界 · 亮色试穿](docs/premium/tryon-minecraft-light.png) | ![Minecraft 方块世界 · 暗色试穿](docs/premium/tryon-minecraft-dark.png) |
+
+```sh
+dsh-skin use minecraft
 ```
 
 ## 来源与版权

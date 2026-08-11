@@ -26,7 +26,7 @@ dsh-web-ui/
 │   ├── code-kline/        @deepseek-ai/dsh-code-kline                code-workload K-line (host)
 │   ├── ui-code-kline/     @deepseek-ai/dsh-client-ui-code-kline      code-workload K-line (client)
 │   ├── live-stats/        @deepseek-ai/dsh-live-stats                live token estimate & throughput
-│   ├── skins/             skin collection (qq98 / ths / xp / blue-fantasy / dragon-heir / skin-center / web)
+│   ├── skins/             skin collection (qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft / skin-center / web)
 │   ├── dsh-skins/         @deepseek-ai/dsh-skins       skins aggregate (all skins + skin-center)
 │   └── web-ui-all/        @deepseek-ai/dsh-web-ui-all   family aggregate (all plugins + skins)
 ├── gallery/               skin try-on preview page
@@ -69,7 +69,7 @@ dsh plugin --profile web add github:dsh-external/dsh-task-board
 Skin exclusivity is maintained in the managed section of `~/.dsh/cordis.patch.yml`; switching applies immediately:
 
 ```sh
-dsh-skin use blue-fantasy   # or qq98 / ths / xp / dragon-heir
+dsh-skin use blue-fantasy   # or qq98 / ths / xp / dragon-heir / minecraft
 ```
 
 > A skin must be installed first (the aggregate, or `dsh plugin --profile web add link:<dsh-web-ui>/packages/skins/<skin>`) before it can be activated.
@@ -119,6 +119,18 @@ Retro Luna done right: blue gradient window chrome with caption buttons, a green
 
 ```sh
 dsh-skin use xp
+```
+
+### Minecraft Voxel
+
+A voxel take on the GUI, styled after the Minecraft main menu: a procedurally drawn pixel-art panorama skybox (blocky hills, pixel clouds, block trees, grass blocks) drifts slowly behind the app inside a CSS 3-D cube; buttons wear the classic MC widget sprite (gray slab, yellow hover label, press-down on click), inputs become sign posts (wooden plank with corner nails), panels float as translucent slate. The panorama is drawn from scratch — no Mojang-copyrighted textures are shipped.
+
+| Light try-on | Dark try-on |
+| --- | --- |
+| ![Minecraft Voxel light](docs/premium/tryon-minecraft-light.png) | ![Minecraft Voxel dark](docs/premium/tryon-minecraft-dark.png) |
+
+```sh
+dsh-skin use minecraft
 ```
 
 ## Sources & Licensing
