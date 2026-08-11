@@ -29,11 +29,15 @@ const SKIN_TITLE = 'Minecraft · DeepSeek 在线'
 const cls = (name: keyof typeof css): string => css[name] ?? ''
 
 /* --- Pixel-art panorama scenes --------------------------------------------------
-   One "pixel" is PX=8px in the 640x360 canvas. Ground line at y=GROUND. */
+   One "pixel" is PX=8px in the 640x640 canvas — square, so the cube faces
+   show the whole scene edge to edge (no cover-cropping). The camera looks
+   horizontally at the face centre; the horizon line sits at y=GROUND so
+   sky, hills and the meadow top all land in view. */
 
 const PX = 8
-const GROUND = 236
+const GROUND = 400
 const W = 640
+const H = 640
 
 /** One rect of the pixel scene. */
 function r(x: number, y: number, w: number, h: number, fill: string, extra = ''): string {
@@ -166,7 +170,7 @@ function ground(): string {
   for (let x = 8; x < W; x += 32) tufts += r(x, GROUND + 12, PX, PX, '#7dc94b')
   return [
     r(0, GROUND, W, 12, '#8ed458'),
-    r(0, GROUND + 12, W, 112, '#96643a'),
+    r(0, GROUND + 12, W, H - GROUND - 12, '#96643a'),
     tufts,
   ].join('')
 }
@@ -240,7 +244,7 @@ function renderScene(scene: Scene): string {
   })
 
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 360" shape-rendering="crispEdges">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges">` +
     `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">` +
     `<stop offset="0" stop-color="#84d0f6"/><stop offset="0.62" stop-color="#b4e3f9"/>` +
     `<stop offset="1" stop-color="#f0faf3"/>` +
@@ -254,7 +258,7 @@ const SCENES: Scene[] = [
     // Village: blocky houses left, a dirt path, forest right, distant hills.
     sun: [120, 64],
     clouds: [[300, 90, 1], [470, 150, 1]],
-    farClouds: [[200, 196, 90], [420, 202, 120]],
+    farClouds: [[200, 378, 90], [420, 386, 120]],
     birds: [[540, 100]],
     hills: [[60, 12, 9, '#8fa8b8'], [380, 16, 11, '#8fa8b8']],
     caps: [1],
@@ -268,7 +272,7 @@ const SCENES: Scene[] = [
     // Lakeside: a lake center-right, pines on the shore, snowy peak behind.
     sun: [480, 90],
     clouds: [[80, 120, 1], [250, 70, 2], [520, 170, 1]],
-    farClouds: [[120, 198, 100]],
+    farClouds: [[120, 384, 100]],
     birds: [[220, 80], [380, 60]],
     hills: [[30, 10, 7, '#93aabb'], [260, 14, 10, '#7d95a5'], [500, 12, 8, '#93aabb']],
     caps: [1],
@@ -282,7 +286,7 @@ const SCENES: Scene[] = [
     // Dense forest: scattered trees and woodland props.
     sun: [80, 130],
     clouds: [[360, 90, 2], [560, 60, 1]],
-    farClouds: [[40, 200, 130], [300, 196, 90]],
+    farClouds: [[40, 380, 130], [300, 388, 90]],
     hills: [[150, 18, 13, '#75899a'], [480, 14, 9, '#8fa8b8']],
     caps: [0],
     trees: [[60, 1], [300, 2], [430, 1], [600, 1]],
@@ -294,7 +298,7 @@ const SCENES: Scene[] = [
     // Mountain range: big peaks with snow caps, treeline below.
     sun: [340, 70],
     clouds: [[90, 80, 1], [200, 160, 2], [500, 120, 1]],
-    farClouds: [[160, 200, 110], [430, 196, 90]],
+    farClouds: [[160, 382, 110], [430, 388, 90]],
     birds: [[110, 90], [260, 60], [560, 110]],
     hills: [[20, 16, 13, '#7d95a5'], [200, 20, 15, '#6d8398'], [540, 17, 12, '#7d95a5']],
     caps: [1, 2],

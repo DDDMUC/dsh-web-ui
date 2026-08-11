@@ -33,7 +33,9 @@ body[data-dsh-minecraft] {
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  perspective: 1600px;
+  /* Wide FOV (≈71°) like the game's title screen: at 60vmax faces the
+     whole side scene fits in view, not a magnified centre sliver. */
+  perspective: 70vmax;
   pointer-events: none;
 }
 
@@ -56,20 +58,20 @@ body[data-dsh-minecraft] {
 
 .mcFace {
   position: absolute;
-  left: -70vmax;
-  top: -70vmax;
-  width: 140vmax;
-  height: 140vmax;
+  left: -30vmax;
+  top: -30vmax;
+  width: 60vmax;
+  height: 60vmax;
   background-size: cover;
   image-rendering: pixelated;
 }
 
-.mcFace1 { transform: translateZ(70vmax); }
-.mcFace2 { transform: rotateY(180deg) translateZ(70vmax); }
-.mcFace3 { transform: rotateY(-90deg) translateZ(70vmax); }
-.mcFace4 { transform: rotateY(90deg) translateZ(70vmax); }
-.mcFaceTop { transform: rotateX(90deg) translateZ(70vmax); }
-.mcFaceBottom { transform: rotateX(-90deg) translateZ(70vmax); }
+.mcFace1 { transform: translateZ(30vmax); }
+.mcFace2 { transform: rotateY(180deg) translateZ(30vmax); }
+.mcFace3 { transform: rotateY(-90deg) translateZ(30vmax); }
+.mcFace4 { transform: rotateY(90deg) translateZ(30vmax); }
+.mcFaceTop { transform: rotateX(90deg) translateZ(30vmax); }
+.mcFaceBottom { transform: rotateX(-90deg) translateZ(30vmax); }
 
 /* Dimming scrim so the app stays readable over the bright sky. Painted
    after the skybox (same z-index, later in DOM order). Kept faint so the
