@@ -1,0 +1,54 @@
+/**
+ * Candlestick chart palette. Colors ride CSS custom properties so skins can
+ * override the defaults (the ths skin restyles to its brand palette); the
+ * custom-property fallbacks below are the base defaults.
+ */
+.chart {
+  /* 红涨绿跌 (Chinese market idiom): up = red, down = green. */
+  --dsh-kline-up: #e60012;
+  --dsh-kline-down: #00a854;
+  --dsh-kline-ma5: #ffb300;
+  --dsh-kline-ma20: #3b82f6;
+  --dsh-kline-volume-up: rgba(230, 0, 18, 0.45);
+  --dsh-kline-volume-down: rgba(0, 168, 84, 0.45);
+  display: block;
+  overflow: visible;
+}
+
+.wickUp {
+  stroke: var(--dsh-kline-up);
+}
+
+.wickDown {
+  stroke: var(--dsh-kline-down);
+}
+
+.bodyUp {
+  fill: var(--dsh-kline-up);
+}
+
+.bodyDown {
+  fill: var(--dsh-kline-down);
+}
+
+.ma {
+  stroke: var(--dsh-kline-ma5);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.ma[data-ma-period='5'] {
+  stroke: var(--dsh-kline-ma5);
+}
+
+.ma[data-ma-period='20'] {
+  stroke: var(--dsh-kline-ma20);
+}
+
+.volumeUp {
+  fill: var(--dsh-kline-volume-up);
+}
+
+.volumeDown {
+  fill: var(--dsh-kline-volume-down);
+}
