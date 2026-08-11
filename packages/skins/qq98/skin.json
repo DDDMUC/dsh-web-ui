@@ -20,8 +20,8 @@
     "bundleWired": false
   },
   "preview": {
-    "light": "skins/qq98/preview/light.png",
-    "dark": "skins/qq98/preview/dark.png"
+    "light": "packages/skins/qq98/preview/light.png",
+    "dark": "packages/skins/qq98/preview/dark.png"
   },
   "order": 1
 }

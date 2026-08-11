@@ -20,8 +20,8 @@
     "bundleWired": true
   },
   "preview": {
-    "light": "skins/xp/preview/light.png",
-    "dark": "skins/xp/preview/dark.png"
+    "light": "packages/skins/xp/preview/light.png",
+    "dark": "packages/skins/xp/preview/dark.png"
   },
   "order": 3
 }

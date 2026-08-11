@@ -21,8 +21,8 @@
     "bundleWired": false
   },
   "preview": {
-    "light": "skins/dragon-heir/preview/light.png",
-    "dark": "skins/dragon-heir/preview/dark.png"
+    "light": "packages/skins/dragon-heir/preview/light.png",
+    "dark": "packages/skins/dragon-heir/preview/dark.png"
   },
   "order": 5
 }

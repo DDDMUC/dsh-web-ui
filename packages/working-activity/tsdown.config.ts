@@ -14,6 +14,10 @@ export default defineConfig({
   },
   format: ['esm'],
   outDir: 'lib',
+  // Keep lib/types (tsc -b output) intact: tsdown's default clean would wipe
+  // the declarations every time prepare/pack runs. The clientBundle preset
+  // pins clean: false for the same reason.
+  clean: false,
   // Declarations come from `tsc -b` (lib/types); tsdown only emits runtime js.
   dts: false,
   external: [/^@deepseek-ai\//, 'cordis', 'cosmokit', 'schemastery'],

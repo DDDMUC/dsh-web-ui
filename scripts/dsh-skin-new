@@ -5,7 +5,7 @@
  * dsh-skin-new — scaffold a new skin for the dsh-web-ui skin collection.
  *
  * Generates packages/skins/<name>/ from the official standalone bundle standard
- * (turtle-ui shape): package.json with `dsh.bundle` + `dshClient` +
+ * (turtle-ui shape): package.json with `dsh.bundle` + `dsh.client` +
  * self-contained `prepare` build, cordis.patch.yml, tsdown.config.ts,
  * skin.json, a minimal apply()/dispose client entry with a scoped stylesheet,
  * and a generic apply spec. The author then fills in the skin.json metadata
@@ -22,7 +22,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '..')
-const SKINS_DIR = path.join(ROOT, 'skins')
+const SKINS_DIR = path.join(ROOT, 'packages', 'skins')
 
 /** kebab-case per the DSH skill/package naming rule. */
 const NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -55,8 +55,10 @@ function pkgJson(name) {
       './src/*': './src/*',
       './package.json': './package.json',
     },
-    dsh: { bundle: { patch: './cordis.patch.yml' } },
-    dshClient: { inject: [], platform: 'web' },
+    dsh: {
+      bundle: { patch: './cordis.patch.yml' },
+      client: { inject: [], platform: 'web' },
+    },
     scripts: {
       build: 'tsdown',
       prepare: 'tsdown',
@@ -77,7 +79,7 @@ function pkgJson(name) {
 }
 
 function cordisPatch(name) {
-  return `# ${name} skin bundle patch: inserts its dshClient row into the web plugin roster.
+  return `# ${name} skin bundle patch: inserts its dsh.client row into the web plugin roster.
 # The bundle is the official dsh plugin shape — install it with
 # \`dsh plugin --profile <name> add <path-or-git-url>\`; mutual exclusion between
 # skins is managed by scripts/dsh-skin (home-layer disabled rows).

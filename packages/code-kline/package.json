@@ -27,8 +27,8 @@
   },
   "license": "BSD-3-Clause",
   "peerDependencies": {
-    "@deepseek-ai/dsh-invariants": "^0.0.1",
-    "@deepseek-ai/dsh-workspace": "^0.0.1",
+    "@deepseek-ai/dsh-invariants": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-workspace": "^0.0.1-rc.1",
     "cordis": "^4.0.0-rc.7"
   },
   "dependencies": {
@@ -47,7 +47,8 @@
     "lib/invariant.js",
     "lib/types/**/*.d.ts",
     "lib/types/**/*.d.ts.map",
-    "src"
+    "src",
+    "cordis.patch.yml"
   ],
   "dsh": {
     "bundle": {

@@ -47,7 +47,7 @@ QR code, live device status, and stop/refresh/copy actions.
 ```sh
 # From a local checkout (the development loop — link: picks up rebuilds
 # without reinstalling):
-dsh plugin --profile web add link:/path/to/dsh-remote-web-ui
+dsh plugin --profile web add link:/path/to/dsh-web-ui/packages/remote-web-ui
 
 # From git, with no checkout: the prepare script builds lib/ during install
 # (pnpm ≥10 blocks that build until you allow it; copy the printed key into
@@ -90,7 +90,7 @@ Keep this repository and the DeepSeek Harness checkout as siblings:
 
 ```text
 ~/code/test-zhu1090093659   # the DSH checkout (peer API source)
-~/code/dsh-remote-web-ui
+~/code/dsh-web-ui/packages/remote-web-ui
 ```
 
 ```sh

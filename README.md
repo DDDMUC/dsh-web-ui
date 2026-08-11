@@ -38,6 +38,11 @@ dsh-web-ui/
 
 前提：DSH 支持 profile/bundle 机制（`dsh plugin` 命令存在）。以下命令中 `<dsh-web-ui>` 为本仓库路径占位。
 
+> **前置（重要）：先构建产物。** 全新克隆的各包没有 `lib/` 输出，`dsh plugin add` 之前先在仓库根执行
+> `pnpm install && pnpm -r build`。构建/测试还需 DSH checkout 提供类型来源（`~/code/test-zhu1090093659`
+> 与 `~/.dsh/source/current`，类型引用见 [docs/plugins.md](docs/plugins.md)「类型引用」），缺失时
+> `pnpm -r build` / `pnpm typecheck` 会失败。
+
 ### 聚合安装（一键装齐）
 
 ```sh
@@ -53,6 +58,9 @@ dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins
 ```sh
 node scripts/link-profile.mjs
 ```
+
+> **警告：聚合安装与独立安装不要混用。** `web-ui-all` / `dsh-skins` 聚合包已包含对应插件，再单独
+> `dsh plugin add` 同款插件会产生重复插件 id（如 `ui-task-board`）互相冲突。任选一种方式装齐即可。
 
 ### 独立安装
 

@@ -24,8 +24,8 @@ window.SKIN_MANIFEST = {
         "bundleWired": false
       },
       "preview": {
-        "light": "skins/qq98/preview/light.png",
-        "dark": "skins/qq98/preview/dark.png"
+        "light": "packages/skins/qq98/preview/light.png",
+        "dark": "packages/skins/qq98/preview/dark.png"
       },
       "order": 1
     },
@@ -50,8 +50,8 @@ window.SKIN_MANIFEST = {
         "bundleWired": false
       },
       "preview": {
-        "light": "skins/ths/preview/light.png",
-        "dark": "skins/ths/preview/dark.png"
+        "light": "packages/skins/ths/preview/light.png",
+        "dark": "packages/skins/ths/preview/dark.png"
       },
       "order": 2
     },
@@ -77,8 +77,8 @@ window.SKIN_MANIFEST = {
         "bundleWired": true
       },
       "preview": {
-        "light": "skins/xp/preview/light.png",
-        "dark": "skins/xp/preview/dark.png"
+        "light": "packages/skins/xp/preview/light.png",
+        "dark": "packages/skins/xp/preview/dark.png"
       },
       "order": 3
     },
@@ -104,8 +104,8 @@ window.SKIN_MANIFEST = {
         "bundleWired": false
       },
       "preview": {
-        "light": "skins/blue-fantasy/preview/light.png",
-        "dark": "skins/blue-fantasy/preview/dark.png"
+        "light": "packages/skins/blue-fantasy/preview/light.png",
+        "dark": "packages/skins/blue-fantasy/preview/dark.png"
       },
       "order": 4
     },
@@ -132,8 +132,8 @@ window.SKIN_MANIFEST = {
         "bundleWired": false
       },
       "preview": {
-        "light": "skins/dragon-heir/preview/light.png",
-        "dark": "skins/dragon-heir/preview/dark.png"
+        "light": "packages/skins/dragon-heir/preview/light.png",
+        "dark": "packages/skins/dragon-heir/preview/dark.png"
       },
       "order": 5
     }

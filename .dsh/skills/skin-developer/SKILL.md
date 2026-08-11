@@ -12,14 +12,14 @@ whenToUse: The user wants a new skin (新建/新增/开发一个皮肤), or want
 
 ## 仓库与标准速览
 
-- `skins/<name>/` — 一个皮肤 = 一个自包含插件包；`skins/qq98/` 是成熟样例，遇到疑问先读它。
+- `packages/skins/<name>/` — 一个皮肤 = 一个自包含插件包；`packages/skins/qq98/` 是成熟样例，遇到疑问先读它。
 - 官方标准四件套（对照 DSH `docs/user/develop/basic/publish.md`，turtle-ui 为范例）：
   1. `package.json` 声明 `dsh.bundle.patch` → `cordis.patch.yml`（安装时自动插入 `ui-skin-*` dshClient 行）；
   2. `cordis.patch.yml` — bundle patch 层；
   3. `prepare` 脚本 = `tsdown`（pnpm 在 git 安装后自动运行，自包含构建 `lib/`，无项目引用、无类型检查）；
   4. devDependencies 只用真实发布版本（tsdown / lightningcss / cordis / vitest / jsdom）——
      `@deepseek-ai/dsh-*` 未发布到 npm，运行时由宿主 shell 的 module table 提供，构建时作 external。
-- 构建预设：`skins/tsdown.client.ts`（官方 `packages/client/tsdown.client.ts` 的 standalone 移植）。
+- 构建预设：`packages/skins/tsdown.client.ts`（官方 `packages/client/tsdown.client.ts` 的 standalone 移植）。
 - 仓库是 pnpm workspace：根目录 `pnpm install` 一次即可构建/测试全部皮肤。
 
 ## 0. 前置
@@ -29,7 +29,7 @@ cd <dsh-web-ui 克隆根>
 pnpm install        # 首次；顺带跑每个皮肤的 prepare
 ```
 
-先读 `skins/qq98/` 的 `src/client/index.ts` 与 `skin.json`，理解 apply 契约与元数据契约。
+先读 `packages/skins/qq98/` 的 `src/client/index.ts` 与 `skin.json`，理解 apply 契约与元数据契约。
 
 ## 1. 脚手架
 
@@ -37,7 +37,7 @@ pnpm install        # 首次；顺带跑每个皮肤的 prepare
 node scripts/dsh-skin-new <kebab-case-name>   # 如 matrix、coffee-break
 ```
 
-生成 `skins/<name>/`：package.json（官方标准）、cordis.patch.yml、tsdown.config.ts、
+生成 `packages/skins/<name>/`：package.json（官方标准）、cordis.patch.yml、tsdown.config.ts、
 tsconfig.json、skin.json（order 自动取最大值+1）、src/index.ts（无操作 host 入口）、
 src/client/index.ts（最小 apply 模板）、`<name>.module.css`（作用域样式）、tests/apply.spec.ts
 （契约测试）、README.md。随后按脚本打印的 next steps 填写。
@@ -81,14 +81,14 @@ open gallery/preview.html?skin=<name>&theme=dark
 - 重拍并提交预览图（脚本需要 playwright chromium，已装则直接跑）：
 
 ```sh
-node scripts/capture-previews    # 重写 skins/<name>/preview/{light,dark}.png（提交入库）
+node scripts/capture-previews    # 重写 packages/skins/<name>/preview/{light,dark}.png（提交入库）
 ```
 
 ## 5. 发布到皮肤中心与 gallery
 
 ```sh
-node scripts/skin-center-bundles   # 扫描 skins/*/skin.json + lib/client.js，重新生成
-                                   # skins/skin-center/src/client/generated/skins.ts（内嵌注册表）
+node scripts/skin-center-bundles   # 扫描 packages/skins/*/skin.json + lib/client.js，重新生成
+                                   # packages/skins/skin-center/src/client/generated/skins.ts（内嵌注册表）
 pnpm --filter @deepseek-ai/dsh-client-ui-skin-center build   # skin-center 重新构建以嵌入新注册表
 node scripts/gallery-build         # 重新生成 gallery/manifest.js + gallery/bundles.js
 ```

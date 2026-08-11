@@ -38,7 +38,10 @@ export const CODE_KLINE_ENTRY_KEY = 'code-kline'
 
 /** Injected actions the row component drives. */
 export interface CodeKlineInjected {
-  /** Ensure the workspace's K-line is loaded (deduplicated in-flight). */
+  /**
+   * Ensure the workspace's K-line is loaded (deduplicated in-flight);
+   * error-state entries are retried on later calls, backed off.
+   */
   ensure: (workspaceId: WorkspaceId, days?: number) => void
 }
 
@@ -55,12 +58,20 @@ export function apply(ctx: ClientContext): void {
   const store = createCodeKlineStore()
   const api = (ctx.get('connection') as ConnectionHandle | undefined)?.api
   const inflight = new Set<WorkspaceId>()
+  /** Last ensure attempt per workspace, to back off error-state retries. */
+  const lastAttempt = new Map<WorkspaceId, number>()
+  /** Minimum gap between ensure attempts for the same workspace. */
+  const ENSURE_RETRY_MS = 30_000
 
   // Baked actions arrive from the host machinery; ensure() drives the fetch
   // and commits through the same audit face components read from.
   const injected = (actions: { setEntry: (id: string, entry: WorkspaceKlineState) => void }) => ({
     ensure: (workspaceId: WorkspaceId, days?: number): void => {
       if (api === undefined || inflight.has(workspaceId)) return
+      const now = Date.now()
+      const last = lastAttempt.get(workspaceId)
+      if (last !== undefined && now - last < ENSURE_RETRY_MS) return
+      lastAttempt.set(workspaceId, now)
       inflight.add(workspaceId)
       actions.setEntry(workspaceId, { workspaceId, candles: [], state: 'loading', error: null })
       const payload = days === undefined ? { workspaceId } : { workspaceId, days }
@@ -76,10 +87,14 @@ export function apply(ctx: ClientContext): void {
             error: null,
           })
         } else {
-          actions.setEntry(workspaceId, { workspaceId, candles: [], state: 'error', error: result.error })
+          actions.setEntry(workspaceId, {
+            workspaceId, candles: [], reason: 'scan-error', state: 'error', error: result.error,
+          })
         }
       }, () => {
-        actions.setEntry(workspaceId, { workspaceId, candles: [], state: 'error', error: null })
+        actions.setEntry(workspaceId, {
+          workspaceId, candles: [], reason: 'scan-error', state: 'error', error: null,
+        })
       }).finally(() => {
         inflight.delete(workspaceId)
       })

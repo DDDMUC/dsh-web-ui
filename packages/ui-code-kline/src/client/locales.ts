@@ -10,6 +10,7 @@ export const NS = 'code-kline'
 export const zh = {
   'row.loading': '加载中',
   'row.noMarket': '停牌',
+  'row.scanError': '行情获取失败',
   'row.net': '今日净 {n} 行',
   'row.close': '收盘 {n}',
   'panel.title': '代码行情',
@@ -25,6 +26,7 @@ export type CodeKlineKey = keyof typeof zh
 export const en: Record<CodeKlineKey, string> = {
   'row.loading': 'loading',
   'row.noMarket': 'N/A',
+  'row.scanError': 'Quote fetch failed',
   'row.net': 'net {n} lines today',
   'row.close': 'close {n}',
   'panel.title': 'Code Quote',

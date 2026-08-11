@@ -41,15 +41,18 @@ function trailing(candles: readonly WorkspaceKlineState['candles'][number][]): r
  * Render the workspace-row mini K-line sparkline.
  * @param props - workspace owner, code-kline store, ensure action, and the
  * branch toggle (baked from the store's actions).
- * @returns the sparkline, a loading mark, or a muted placeholder.
+ * @returns the sparkline, a loading mark, an error mark, or a muted placeholder.
  */
 export function WorkspaceRowKline({ workspaceId, useStore, actions, ensure, useSessions, useWorkspaces, t }: WorkspaceRowKlineProps) {
   const entry = useStore(s => s.entries[workspaceId])
   // The quote card shares every seat with the row; one object keeps the
-  // three render sites (placeholder/loading/ready) in lockstep.
+  // four render sites (placeholder/loading/error/ready) in lockstep.
   const cardProps = { workspaceId, useStore, actions, ensure, useSessions, useWorkspaces, t }
-  if (entry === undefined || entry.state === 'idle') {
+  // Idle and error entries are re-fetchable (ensure backs off error retries).
+  if (entry === undefined || entry.state === 'idle' || entry.state === 'error') {
     ensure(workspaceId)
+  }
+  if (entry === undefined || entry.state === 'idle') {
     return (
       <>
         <span className={cls('placeholder')} aria-label={t('row.loading')} />
@@ -57,10 +60,15 @@ export function WorkspaceRowKline({ workspaceId, useStore, actions, ensure, useS
       </>
     )
   }
-  if (entry.state === 'loading' || entry.candles.length === 0) {
+  if (entry.state === 'loading' || entry.state === 'error' || entry.candles.length === 0) {
+    const label = entry.state === 'loading'
+      ? t('row.loading')
+      : entry.state === 'error'
+        ? t('row.scanError')
+        : t('row.noMarket')
     return (
       <>
-        <span className={cls('placeholder')} aria-label={entry.state === 'loading' ? t('row.loading') : t('row.noMarket')} />
+        <span className={cls(entry.state === 'error' ? 'error' : 'placeholder')} aria-label={label} />
         <WorkspaceKlineCard {...cardProps} />
       </>
     )

@@ -90,10 +90,10 @@
         "/Users/zcl/.dsh/source/current/packages/core/session/lib/types/types.d.ts"
       ],
       "@deepseek-ai/dsh-session-projection": [
-        "/Users/zcl/.dsh/source/current/packages/session-projection/session-projection/lib/types/index.d.ts"
+        "/Users/zcl/.dsh/source/current/packages/session/session-projection/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-session-projection/types": [
-        "/Users/zcl/.dsh/source/current/packages/session-projection/session-projection/lib/types/types.d.ts"
+        "/Users/zcl/.dsh/source/current/packages/session/session-projection/lib/types/types.d.ts"
       ],
       "@deepseek-ai/dsh-commands/brand": [
         "/Users/zcl/.dsh/source/current/packages/ui/commands/lib/types/brand.d.ts"

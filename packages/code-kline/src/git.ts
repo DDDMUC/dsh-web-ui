@@ -6,8 +6,9 @@
  * The cache is a simple in-memory LRU keyed by canonical directory path. It
  * stores the parsed commit deltas plus the wall-clock time of the last scan;
  * a refresh re-runs git with `--since` from the oldest cached commit (plus a
- * safety margin) and merges the new deltas, so steady-state polls only pay
- * for new commits. Cache misses run the full window and rebuild.
+ * safety margin), merges the new deltas, and prunes cached shas the fresh
+ * window no longer emits (amended/rebased commits), so steady-state polls
+ * only pay for new commits. Cache misses run the full window and rebuild.
  */
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -99,7 +100,7 @@ export async function scanGitLog(
       entry.scannedAt = Date.now()
       return entry.deltas
     }
-    const merged = mergeBySha(entry.deltas, fresh.deltas)
+    const merged = mergeBySha(entry.deltas, fresh.deltas, margin)
     cache.set(dir, { deltas: merged, since: entry.since, scannedAt: Date.now() })
     return merged
   }
@@ -121,10 +122,24 @@ async function runGitLog(
   return { deltas: sortChronological(parseGitLog(stdout)) }
 }
 
-/** Sort chronological, de-duplicating by sha (fresh wins for equal shas). */
-function mergeBySha(cached: CommitDelta[], fresh: CommitDelta[]): CommitDelta[] {
+/**
+ * Merge fresh deltas over cached ones, sorted chronological and de-duplicated
+ * by sha (fresh wins for equal shas). The fresh scan covers the window from
+ * `windowFrom` (the oldest cached commit minus SCAN_MARGIN_MS) onward, so a
+ * cached sha inside that window that the fresh scan no longer emits was
+ * rewritten away (amend/rebase) and is pruned; cached entries older than the
+ * window are kept untouched.
+ */
+function mergeBySha(cached: CommitDelta[], fresh: CommitDelta[], windowFrom: string): CommitDelta[] {
+  const windowStart = Date.parse(windowFrom)
+  const freshShas = new Set(fresh.map(d => d.sha))
   const bySha = new Map<string, CommitDelta>()
-  for (const delta of cached) bySha.set(delta.sha, delta)
+  for (const delta of cached) {
+    // In-window cached shas absent from the fresh scan are stale rewritten
+    // history; drop them so amended commits are not double-counted.
+    if (!freshShas.has(delta.sha) && Date.parse(delta.timestamp) > windowStart) continue
+    bySha.set(delta.sha, delta)
+  }
   for (const delta of fresh) bySha.set(delta.sha, delta)
   return sortChronological([...bySha.values()])
 }

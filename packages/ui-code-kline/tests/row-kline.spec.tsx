@@ -87,6 +87,20 @@ describe('WorkspaceRowKline', () => {
     expect(view.container.querySelector('[aria-label="停牌"]')).not.toBeNull()
   })
 
+  it('shows the scan-error mark for an error entry and refetches it', () => {
+    const ensure = vi.fn()
+    const view = renderRow({
+      entries: {
+        'ws-1': {
+          workspaceId: 'ws-1', candles: [], reason: 'scan-error', state: 'error', error: null,
+        },
+      },
+      expanded: [],
+    }, ensure)
+    expect(ensure).toHaveBeenCalledWith(wid('ws-1'))
+    expect(view.container.querySelector('[aria-label="行情获取失败"]')).not.toBeNull()
+  })
+
   it('toggles the quote branch on click', () => {
     const toggleBranch = vi.fn()
     const view = renderRow({

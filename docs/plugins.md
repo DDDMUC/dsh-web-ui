@@ -53,6 +53,11 @@ pnpm install   # workspace 链接（packages/* 与 packages/skins/*）
 pnpm -r build  # 全仓构建
 ```
 
+> **前置要求**：构建/类型检查/测试依赖 DSH checkout 提供类型来源——`~/code/test-zhu1090093659`
+> （peer API 源码，即下文「类型引用」的 `../../../test-zhu1090093659` 相对路径）与
+> `~/.dsh/source/current`（dsh 运行时类型，见 `packages/task-board/tsconfig.json` 的 paths）。
+> 缺失时 `pnpm -r build` / `pnpm typecheck` 会失败。
+
 ### 6. 本地验证
 
 ```sh

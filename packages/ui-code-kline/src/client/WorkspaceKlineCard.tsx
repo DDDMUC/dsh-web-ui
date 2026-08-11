@@ -39,17 +39,19 @@ export function WorkspaceKlineCard({ workspaceId, useStore, actions, ensure, t }
   const expanded = useStore(s => s.expanded.includes(workspaceId))
   const entry = useStore(s => s.entries[workspaceId])
   if (!expanded) return null
-  if (entry === undefined || entry.state === 'idle') {
+  if (entry === undefined || entry.state === 'idle' || entry.state === 'error') {
     ensure(workspaceId)
   }
   const loading = entry === undefined || entry.state === 'idle' || entry.state === 'loading'
   const empty = !loading && entry.candles.length === 0
   const reason = empty
-    ? entry.reason === 'not-a-git-repository'
-      ? t('panel.noGit')
-      : entry.reason === 'scan-error'
-        ? t('panel.scanError')
-        : t('panel.noHistory')
+    ? entry.state === 'error'
+      ? t('panel.scanError')
+      : entry.reason === 'not-a-git-repository'
+        ? t('panel.noGit')
+        : entry.reason === 'scan-error'
+          ? t('panel.scanError')
+          : t('panel.noHistory')
     : ''
   const last = !loading && !empty ? entry.candles[entry.candles.length - 1] : undefined
   const net = last === undefined ? 0 : candleNetChange(last)

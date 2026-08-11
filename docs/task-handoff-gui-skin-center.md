@@ -29,7 +29,7 @@ hot-pluggable client 插件，风格与现有皮肤一致。
 
 ## 2. 已有成果（可复用资产，全部已提交）
 
-- **皮肤集合** `/Users/zcl/code/dsh-web-ui/skins/<name>/`：qq98 / ths / xp / blue-fantasy，每个是
+- **皮肤集合** `/Users/zcl/code/dsh-web-ui/packages/skins/<name>/`：qq98 / ths / xp / blue-fantasy，每个是
   hot-pluggable client 插件，含 `skin.json`（id/name/tagline/tags/accent/bodyAttr/package/wiring/preview）、
   `lib/client.js`（预构建 bundle）、`preview/{light,dark}.png`。
 - **网页 Gallery + 试穿模拟器** `gallery/`：`index.html`（主题库首页）、`preview.html`（模拟器——
@@ -41,8 +41,8 @@ hot-pluggable client 插件，风格与现有皮肤一致。
     目标皮肤 `- insert: { - id: ui-skin-xxx, name: '@deepseek-ai/dsh-client-ui-skin-xxx' }`，
     其余皮肤 `- id: ui-skin-xxx\n  disabled: true`；配置 watcher 热重载，几秒生效，刷新页面即可见。
   - 维护 profile node_modules symlink：`~/.dsh/profiles/node_modules/@deepseek-ai/<pkg>` →
-    皮肤源码目录（qq98/blue-fantasy 指向仓库 `skins/<name>`，ths/xp 指向 checkout `packages/client/<name>`）。
-    皮肤中心插件源码建议同样放仓库内（如 `dsh-web-ui/skins/skin-center/`），用 symlink 解析，避免把
+    皮肤源码目录（qq98/ths/xp/blue-fantasy 均指向仓库 `packages/skins/<name>`）。
+    皮肤中心插件源码建议同样放仓库内（如 `dsh-web-ui/packages/skins/skin-center/`），用 symlink 解析，避免把
     源码塞进 checkout。
 - **`scripts/export-official-facade` / `gallery-build` / `capture-previews`**：截图与快照管线（内嵌版截图可复用）。
 
@@ -58,12 +58,12 @@ hot-pluggable client 插件，风格与现有皮肤一致。
   sidebar `:first-child`（品牌区）/`:last-child`（footer，含 `button[aria-haspopup='dialog']` 设置入口）。
 
 ### client 插件如何加载（checkout 内）
-- `packages/client/modules`：Node 侧扫描 `dshClient` 声明组合 boot manifest → 注入
+- `packages/client/modules`：Node 侧扫描 `dsh.client` 声明组合 boot manifest → 注入
   `window.__DSH_BOOT__`（entries: id/url/rev/inject/immediately）；浏览器侧 `ClientModuleLoader`
   （`ctx.modules`，有 `import(specifier)` 异步 API；bundle 端点 `/plugins/<id>/client.js?rev=<rev>`）。
 - 接入一个新 client 包需要：packages/client/ 下建包（或可解析依赖）+ `web.cordis.yml`/patch 加
-  `dshClient` 行 + `apps/cli/package.json` deps + `tsconfig.client.json` references + `pnpm install` +
-  重启 `dsh web`。参考 `skins/qq98/README.md` 的完整接线流程。
+  `dsh.client` 行 + `apps/cli/package.json` deps + `tsconfig.client.json` references + `pnpm install` +
+  重启 `dsh web`。参考 `packages/skins/qq98/README.md` 的完整接线流程。
 - 设置页注册先例：`packages/client/locale/src/client/index.ts` 用
   `ctx.slots.inject('settings.general.item', () => ctx.slots.register({ name: 'settings.general.item', ... }))`
   注册设置行（inject 拿到 actions）。皮肤中心入口可走同一 slot，或找更合适的（ui-settings 的其它 hole）。
@@ -91,13 +91,13 @@ hot-pluggable client 插件，风格与现有皮肤一致。
 3. **皮肤枚举**：列出已安装皮肤。候选：
    - 皮肤中心内置注册表（静态列表，与 `scripts/dsh-skin` 的 SKINS 一致，含 pkg/id/dir）；
    - 或读取 boot manifest 里 `ui-skin-*` 条目 + 本插件自带 manifest；
-   - 截图路径用 `skins/<name>/preview/{light,dark}.png`（本地文件，插件内联或 HTTP 可达才可用；
+   - 截图路径用 `packages/skins/<name>/preview/{light,dark}.png`（本地文件，插件内联或 HTTP 可达才可用；
      file:// 图片在 GUI 页面里引用仓库路径不可行 → 优先用内置注册表 + 描述文本，截图可选）。
 
 ## 5. 推荐实现方案（供参考，以调研结果为准）
 
 - 新包：`@deepseek-ai/dsh-client-ui-skin-center`（id：`ui-skin-center`），源码放
-  `/Users/zcl/code/dsh-web-ui/skins/skin-center/`（含 package.json/dshClient 声明/tsdown.config.ts/
+  `/Users/zcl/code/dsh-web-ui/packages/skins/skin-center/`（含 package.json/dsh.client 声明/tsdown.config.ts/
   src/client/，预构建 `lib/client.js`），checkout 内通过 profile symlink 解析（仿 qq98 的 dsh-skin 模式）。
 - 入口：设置页新增「皮肤」分区/行（settings.general.item slot 或 ui-settings 更合适的 hole），
   或 sidebar footer 旁入口；点击打开面板。
@@ -119,7 +119,7 @@ hot-pluggable client 插件，风格与现有皮肤一致。
 - [ ] 应用：按调研 2 的通道持久化并热重载生效；若无通道，复制命令可用且文案明确。
 - [ ] 回归：现有皮肤切换（dsh-skin CLI）、网页 Gallery、官方 GUI 功能不受影响。
 - [ ] e2e 证据：playwright 连 127.0.0.1:3080 的试穿/切换/还原全流程截图，提交入库
-      （放 `skins/skin-center/preview/` 或 README 引用）。
+      （放 `packages/skins/skin-center/preview/` 或 README 引用）。
 - [ ] 交付：源码 + 预构建 bundle + README（接入/构建/限制）+ 截图；提交信息清晰；不 push 未经确认的提交。
 
 ## 7. 建议的交接检查点（中途汇报时回答）
@@ -136,7 +136,7 @@ hot-pluggable client 插件，风格与现有皮肤一致。
 - 用户配置：`~/.dsh/cordis.patch.yml`、`~/.dsh/profiles/node_modules/@deepseek-ai/`
 - GUI：`http://127.0.0.1:3080`（正在运行）
 - 参考实现：`gallery/preview.html`（模拟器 loadSkin）、`scripts/dsh-skin`（patch 格式）、
-  `skins/qq98/`（插件模板）、`packages/client/locale`（settings slot 先例）、
+  `packages/skins/qq98/`（插件模板）、`packages/client/locale`（settings slot 先例）、
   `packages/client/modules`（client 模块系统）
 
 ---
@@ -149,12 +149,12 @@ hot-pluggable client 插件，风格与现有皮肤一致。
    采用路径 B 的**真实 loader 版**：`;(0, eval)(bundle)` 注册到页面自身
    `window.__ModuleLoader__`，`window.__DSH_MODULES__.import(package)` 物化（CSS 自动注入），
    `surface.apply(miniCtx)` 挂载；bundle 文本内嵌进皮肤中心自己的 client bundle
-   （`scripts/skin-center-bundles` 生成 `skins/skin-center/src/client/generated/skins.ts`）。
+   （`scripts/skin-center-bundles` 生成 `packages/skins/skin-center/src/client/generated/skins.ts`）。
 2. **应用持久化**：无干净通道——settings API 只覆盖注册命名空间（非 loader 配置）、apiProxy
    固定、无配置写端点；按约定降级为「Apply」复制 `dsh-skin use <name>` 命令（en/zh 文案）。
 3. **皮肤枚举**：内嵌注册表（skin.json 契约）+ 激活检测读 `window.__DSH_BOOT__.entries`（仅启用条目）。
 
-**实现**：`skins/skin-center/`（`@deepseek-ai/dsh-client-ui-skin-center`，id `ui-skin-center`）——
+**实现**：`packages/skins/skin-center/`（`@deepseek-ai/dsh-client-ui-skin-center`，id `ui-skin-center`）——
 设置页 `settings.section` 注册 Skins 分区；试穿引擎 `try-on.ts` 按配方收回激活皮肤视觉写面
 （body 属性 / 背景内联样式 / body 直接子 chrome / xp footer taskbar 中性化 CSS），退出后快照
 原样恢复；中性化观察器防 blue-fantasy 幽灵背景写回。接线：profile symlink +
@@ -168,4 +168,4 @@ skin-center 自身 style 标签）、dsh-skin CLI 与网页 Gallery 回归通过
 `docs/e2e/skin-center/`（12 张）入库。
 
 **维护要点**：皮肤 bundle/元数据变更后重跑 `node scripts/skin-center-bundles` 并按
-`skins/skin-center/README.md` 在 checkout worktree 重建 lib。
+`packages/skins/skin-center/README.md` 在 checkout worktree 重建 lib。

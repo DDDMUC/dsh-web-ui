@@ -110,8 +110,19 @@ function main() {
     '',
   ].join('\n')
 
-  fs.writeFileSync(OUT_FILE, out)
   const bytes = Buffer.byteLength(out)
+  const CHECK = process.argv.includes('--check')
+  if (CHECK) {
+    const current = fs.readFileSync(OUT_FILE, 'utf8')
+    if (current === out) {
+      console.log(`skin-center-bundles: check OK (${skins.length} skins, generated file in sync)`)
+      return
+    }
+    console.error(`skin-center-bundles: check FAILED — ${path.relative(ROOT, OUT_FILE)} differs from generated content`)
+    console.error('  run `node scripts/skin-center-bundles` to regenerate, then rebuild the skin-center bundle')
+    process.exit(1)
+  }
+  fs.writeFileSync(OUT_FILE, out)
   console.log(`skin-center-bundles: wrote ${path.relative(ROOT, OUT_FILE)} (${skins.length} skins, ${(bytes / 1024).toFixed(0)} KiB)`)
 }
 

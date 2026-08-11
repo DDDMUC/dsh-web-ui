@@ -42,7 +42,7 @@ async function main() {
     process.exit(1)
   }
   const maxWidth = maxWidthArg ? Number(maxWidthArg) : 1600
-  const artFile = path.join(ROOT, 'skins', skin, 'src', 'client', 'art.ts')
+  const artFile = path.join(ROOT, 'packages', 'skins', skin, 'src', 'client', 'art.ts')
   const src = fs.readFileSync(artFile, 'utf8')
   // The current value is either a single-line `'data:...'` (already-embedded
   // artwork) or a multi-line `svgUri(\n ... \n)` placeholder. Pick the

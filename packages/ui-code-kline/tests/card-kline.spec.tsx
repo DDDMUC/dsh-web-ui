@@ -70,6 +70,18 @@ describe('WorkspaceKlineCard', () => {
     expect(document.body.textContent).toContain('非 git 仓库')
   })
 
+  it('shows the scan-error reason for an error entry and refetches it', () => {
+    const ensure = vi.fn()
+    renderCard({
+      entries: {
+        'ws-1': { workspaceId: 'ws-1', candles: [], reason: 'scan-error', state: 'error', error: null },
+      },
+      expanded: ['ws-1'],
+    }, ensure)
+    expect(ensure).toHaveBeenCalledWith(wid('ws-1'))
+    expect(document.body.textContent).toContain('行情获取失败')
+  })
+
   it('closes through the toggle action', () => {
     const toggleBranch = vi.fn()
     renderCard({

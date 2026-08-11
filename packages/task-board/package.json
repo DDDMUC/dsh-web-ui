@@ -34,7 +34,7 @@
     }
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsc -p tsconfig.build.json && tsdown",
     "bundle": "tsdown",
     "watch": "tsdown --watch",
     "typecheck": "tsc --noEmit",
@@ -62,7 +62,10 @@
     "lib/index.js",
     "lib/invariant.js",
     "lib/client.js",
-    "lib/types/**/*.d.ts"
+    "lib/types/**/*.d.ts",
+    "lib/types/**/*.d.ts.map",
+    "src",
+    "cordis.patch.yml"
   ],
   "license": "BSD-3-Clause"
 }

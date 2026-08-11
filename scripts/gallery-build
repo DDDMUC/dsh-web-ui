@@ -62,6 +62,36 @@ function scanSkins() {
   return skins
 }
 
+function validatePreviews(skins) {
+  // Every skin.json preview.light/dark path must resolve (from repo root,
+  // exactly how gallery/index.html loads them: '../' + preview.light) to an
+  // existing file under packages/skins/<id>/preview/. Throw with the missing
+  // files so both --check (exit 1) and normal mode fail loudly instead of
+  // emitting a gallery whose screenshots are broken.
+  const missing = []
+  for (const { meta } of skins) {
+    const preview = meta.preview
+    if (!preview || typeof preview !== 'object') {
+      throw new Error(`skin ${meta.id}: missing skin.json "preview" object`)
+    }
+    for (const mode of ['light', 'dark']) {
+      const rel = preview[mode]
+      if (typeof rel !== 'string' || !rel) {
+        throw new Error(`skin ${meta.id}: missing skin.json preview.${mode}`)
+      }
+      if (!fs.existsSync(path.resolve(ROOT, rel))) {
+        missing.push(`  ${meta.id} (preview.${mode}): ${rel}`)
+      }
+    }
+  }
+  if (missing.length) {
+    throw new Error(
+      'preview image(s) referenced by skin.json do not exist (resolved from repo root):\n' +
+      missing.join('\n')
+    )
+  }
+}
+
 function renderManifestJs(skins) {
   const entries = skins.map(({ meta }) => meta)
   const stamp = new Date().toISOString().slice(0, 10)
@@ -98,6 +128,7 @@ function writeIfChanged(file, content) {
 
 const check = process.argv.includes('--check')
 const skins = scanSkins()
+validatePreviews(skins)
 
 const manifest = renderManifestJs(skins)
 const bundles = renderBundlesJs(skins)

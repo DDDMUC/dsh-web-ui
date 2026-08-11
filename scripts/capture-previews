@@ -85,20 +85,20 @@ async function main() {
 
   for (const skin of skins) {
     for (const theme of ['light', 'dark']) {
-      const dir = path.join(ROOT, 'skins', skin.id, 'preview')
+      const dir = path.join(ROOT, 'packages', 'skins', skin.id, 'preview')
       fs.mkdirSync(dir, { recursive: true })
       const url = `${base}/preview.html?skin=${skin.id}&theme=${theme}&chrome=0`
       await page.goto(url, { waitUntil: 'networkidle' })
-      // 等皮肤 bundle 执行完（chrome 栏注入 + 样式生效）
-      await page.waitForFunction(() => {
+      // 等皮肤 bundle 执行完（chrome 栏注入 + 样式生效）：等待该皮肤自己的
+      // body 属性出现（取 manifest/skin.json 的 bodyAttr，缺省按 id 推导）。
+      const bodyAttr = skin.bodyAttr || `data-dsh-${skin.id}`
+      // dataset 键形式：data-dsh-retro -> dshRetro
+      const datasetKey = bodyAttr.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+      await page.waitForFunction((key) => {
         const err = document.getElementById('skinErr')
         if (err && err.style.display === 'block') return true
-        return document.body.dataset.dshRetro !== undefined ||
-               document.body.dataset.dshThs !== undefined ||
-               document.body.dataset.dshXp !== undefined ||
-               document.body.dataset.dshBlueFantasy !== undefined ||
-               document.body.dataset.dshDragonHeir !== undefined
-      }, { timeout: 10000 })
+        return document.body.dataset[key] !== undefined
+      }, datasetKey, { timeout: 10000 })
       const errText = await page.evaluate(() => {
         const el = document.getElementById('skinErr')
         return el && el.style.display === 'block' ? el.textContent : null

@@ -5,7 +5,7 @@
 **真实执行**（`session.prompt`），执行状态实时回写卡片。
 
 - 不修改 DSH 源码：以 cordis 插件 + 浏览器 DOM 扩展挂载（外挂形态与
-  `dsh-web-ui/skins/skin-center` 一致）。
+  `dsh-web-ui/packages/skins/skin-center` 一致）。
 - 卸载即恢复原状，其它 managed 段（dsh-skin / skin-center / 个人配置）互不干扰。
 - 任务数据本地持久化，刷新页面、重启 DSH 均不丢失。
 
@@ -28,7 +28,7 @@
 - **定时任务**：详情面板可为任务配置定时执行——启用开关 + 5 段 cron 表达式
   （分 时 日 月 周，支持 `*` / `*/n` / `a-b` / 逗号列表）+ 常用预设（每天 09:00、
   每小时、每 10 分钟、每周一 09:00）；启用即计算并持久化「下次运行时间」，卡片显示
-  ⏰ 标识；到点自动走真实执行链路（同手动执行），执行会话照常可跳转。
+  定时 标识；到点自动走真实执行链路（同手动执行），执行会话照常可跳转。
 - **系统提示词注入**：host 半边（`src/index.ts`）通过 `SystemPrompt.section` 注册
   `plugin:task-board` 段（order 200），向每个 agent 声明本插件存在、能力与限制——
   插件在组合中（mount 后重启 DSH）即注入，移出组合（unmount 后重启）即消失，
@@ -88,7 +88,7 @@ scripts/dsh-task-board.js                          # 一键挂载/卸载/状态 
 前置：本机已安装 DSH（`~/.dsh/source/current` 存在），Node ≥ 20。
 
 ```sh
-cd ~/code/dsh-task-board
+cd ~/code/dsh-web-ui/packages/task-board
 npm install          # 首次
 npm run build        # 产出 lib/index.js + lib/client.js（tsdown + 复制的 client 预设）
 npm run typecheck    # 类型检查（types 指向 checkout 的 lib/types）
@@ -116,7 +116,7 @@ profile 清单中注册的行：
 
 ```json
 {
-  "dependencies": { "@deepseek-ai/dsh-client-ui-task-board": "link:/Users/zcl/code/dsh-task-board" },
+  "dependencies": { "@deepseek-ai/dsh-client-ui-task-board": "link:/Users/zcl/code/dsh-web-ui/packages/task-board" },
   "dsh": { "profile": { "bundles": [ "...", "@deepseek-ai/dsh-client-ui-task-board" ] } }
 }
 ```
@@ -143,7 +143,7 @@ profile 清单中注册的行：
    以任务标题命名的会话）；agent 跑完后卡片落「已完成」或「已失败」，详情执行记录
    有结果与时间，可「查看会话」跳转到真实 transcript。
 5. 定时任务：详情 →「定时运行」勾选启用，选预设「每 10 分钟」（cron `*/10 * * * *`），
-   卡片出现 ⏰ 标识；等待下一个整 10 分钟点，观察卡片自动进入「进行中」并最终完成，
+   卡片出现 定时 标识；等待下一个整 10 分钟点，观察卡片自动进入「进行中」并最终完成，
    详情「上次触发」出现时间、执行记录新增一条（会话可跳转）。
 6. 刷新页面/重启 DSH → 任务仍在；卸载插件 → GUI 恢复原状。
 
@@ -170,7 +170,7 @@ profile 清单中注册的行：
 | 截图 | 内容 |
 | --- | --- |
 | `tb-sched-2-enabled.png` | 详情「定时运行」区块：启用勾选、cron 输入、预设下拉、下次运行/上次触发信息 |
-| `tb-sched-4-executed.png` | cron `* * * * *` 到点后自动执行完成：卡片 ⏰ 标识 + 1 次执行，执行记录「成功」 |
+| `tb-sched-4-executed.png` | cron `* * * * *` 到点后自动执行完成：卡片 定时 标识 + 1 次执行，执行记录「成功」 |
 | `tb-sched-5-twice.png` | 顺延到下一分钟再次自动触发：2 次执行记录，下次运行自动顺延 |
 | `tb-sched-7-transcript.png` | 执行记录「查看会话」跳转到真实 transcript（prompt「请只回复四个字：定时OK」→ agent 回复「定时OK」，用时 2 秒） |
 | `tb-sched-8-persisted.png` | 刷新页面后：定时配置与执行记录保留，调度恢复（下次运行继续顺延） |
@@ -188,7 +188,7 @@ profile 清单中注册的行：
       详情可跳转到执行会话
 - [x] 删除有确认环节，删除后本地存储同步移除
 - [x] 定时任务：cron 配置/预设/校验、下次运行时间、到点自动真实执行、状态回写、
-      ⏰ 卡片标识、刷新后调度恢复（浏览器端调度，标签页需保持打开）
+      定时 卡片标识、刷新后调度恢复（浏览器端调度，标签页需保持打开）
 - [x] 一键挂载/卸载；卸载后 GUI 恢复原状，其它 managed 段不受影响
 - [x] README + 覆盖存储读写/状态流转/执行触发/cron 解析/调度器的自动化测试；
       真实 GUI 人工验证通过
