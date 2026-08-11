@@ -5,16 +5,19 @@
  * ever removes what it wrote): the `data-dsh-minecraft` body attribute the
  * stylesheet is scoped on, the injected panorama skybox (a CSS 3-D cube
  * whose six faces are procedurally drawn pixel-art scenes — the Mojang
- * panorama itself is copyrighted, so every face is drawn here, block by
+ * panorama itself is copyrighted, so every scene is drawn here, block by
  * block), the dimming scrim, and the document title. The CSS rides the
  * bundle's CSS-modules auto-inject (style tag owned by the loader, removed
  * on entry dispose). No services are injected: the skin needs only the DOM.
  *
  * The skybox reproduces the main-menu motion: the camera sits inside a
  * cube and the whole cube slowly rotates around the Y axis, so the horizon
- * scrolls by. Each side face is a different 640x360 pixel scene (sky,
- * blocky sun, pixel clouds, stepped hills, blocky trees, grass blocks);
- * top and bottom are the sky and a grass-block field seen from above.
+ * scrolls by. Each side face is a 640x360 pixel scene with its own biome —
+ * a village with blocky houses, a lakeside, a dense forest, a mountain
+ * range — layered with blocky sun, pixel clouds, birds, flowers, mushrooms
+ * and pumpkins; top and bottom are the sky and a grass-block field seen
+ * from above. Props scatter deterministically (seeded PRNG) so the world
+ * feels populated without ever being random per render.
  */
 import type { Context } from 'cordis'
 import css from './minecraft.module.css'
@@ -26,7 +29,7 @@ const SKIN_TITLE = 'Minecraft · DeepSeek 在线'
 const cls = (name: keyof typeof css): string => css[name] ?? ''
 
 /* --- Pixel-art panorama scenes --------------------------------------------------
-   One "pixel" is PX=8px in the 640x360 canvas. Ground line at y=280. */
+   One "pixel" is PX=8px in the 640x360 canvas. Ground line at y=GROUND. */
 
 const PX = 8
 const GROUND = 236
@@ -35,6 +38,17 @@ const W = 640
 /** One rect of the pixel scene. */
 function r(x: number, y: number, w: number, h: number, fill: string, extra = ''): string {
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${extra}/>`
+}
+
+/** Deterministic PRNG (mulberry32) so scattered props are stable per face. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
 }
 
 /** A blocky cloud: three overlapping white slabs with a top cap. */
@@ -46,6 +60,11 @@ function cloud(x: number, y: number, s: number): string {
     r(x + 3 * u, y + u, 2 * u, u, '#fdfdfd'),
     r(x + u, y + u, u, u, '#e6eef2'),
   ].join('')
+}
+
+/** A faint distant cloud slab near the horizon. */
+function farCloud(x: number, y: number, w: number): string {
+  return r(x, y, w, 6, 'rgba(255,255,255,0.55)')
 }
 
 /** A stepped blocky hill: layers shrink by two blocks every two rows. */
@@ -69,6 +88,73 @@ function tree(x: number, scale = 1): string {
   ].join('')
 }
 
+/** A blocky villager house: plank wall, glowing windows, door, stepped roof, chimney. */
+function house(x: number, s: number): string {
+  const u = PX * s
+  const wall = s >= 2 ? '#c9b28a' : '#b89d7a'
+  return [
+    r(x, GROUND - 4 * u, 5 * u, 4 * u, wall),
+    r(x + u, GROUND - 3 * u, u, u, '#f5e6a0'),
+    r(x + 3 * u, GROUND - 3 * u, u, u, '#f5e6a0'),
+    r(x + 2 * u, GROUND - 2 * u, u, 2 * u, '#5d3d22'),
+    r(x, GROUND - 6 * u, 5 * u, u, '#8a5a3a'),
+    r(x + u, GROUND - 7 * u, 3 * u, u, '#7a4f33'),
+    r(x + 4 * u, GROUND - 7 * u, u, u, '#7d7d7d'),
+  ].join('')
+}
+
+/** A lakeside: sandy shore, blue water with light ripples. */
+function lake(x: number, y: number, w: number): string {
+  return [
+    r(x, y, w, 4, '#e8d8a0'),
+    r(x, y + 4, w, 26, '#3f76e4'),
+    r(x + 10, y + 12, Math.round(w * 0.3), 3, 'rgba(255,255,255,0.4)'),
+    r(x + Math.round(w * 0.55), y + 20, Math.round(w * 0.28), 3, 'rgba(255,255,255,0.32)'),
+  ].join('')
+}
+
+/** A red mushroom with white dots. */
+function mushroom(x: number, y: number): string {
+  return [
+    r(x + 4, y + 8, 8, 8, '#f0e8d8'),
+    r(x, y, 16, 8, '#d84545'),
+    r(x + 4, y + 2, 4, 4, '#f7f2e8'),
+  ].join('')
+}
+
+/** A pumpkin with a green stem. */
+function pumpkin(x: number, y: number): string {
+  return [
+    r(x + 4, y - 4, 8, 4, '#4f8a33'),
+    r(x, y, 16, 16, '#e07a2f'),
+    r(x + 3, y + 3, 4, 4, '#c96a26'),
+  ].join('')
+}
+
+/** A small gray rock. */
+function rock(x: number, y: number): string {
+  return [
+    r(x + 8, y - 4, 8, 4, '#a5a5a5'),
+    r(x, y, 20, 12, '#8d8d8d'),
+  ].join('')
+}
+
+/** A tiny pixel bird: body and swept wing. */
+function bird(x: number, y: number): string {
+  return [
+    r(x + 4, y - 2, 8, 2, '#2e2e2e'),
+    r(x, y, 4, 4, '#2e2e2e'),
+  ].join('')
+}
+
+/** A tuft of tall grass. */
+function tallGrass(x: number, y: number): string {
+  return [
+    r(x, y, 3, 10, '#4f9e35'),
+    r(x + 3, y + 2, 3, 8, '#5fb23f'),
+  ].join('')
+}
+
 /** A tiny flower dot sitting on the grass edge. */
 function flower(x: number, y: number, fill: string): string {
   return r(x, y, 4, 4, fill)
@@ -85,57 +171,157 @@ function ground(): string {
   ].join('')
 }
 
-interface Face {
+interface Scene {
   sun?: readonly [number, number]
   clouds?: readonly (readonly [number, number, number])[]
+  farClouds?: readonly (readonly [number, number, number])[]
+  birds?: readonly (readonly [number, number])[]
   hills?: readonly (readonly [number, number, number, string])[]
-  caps?: number[]
+  caps?: readonly number[]
+  lake?: readonly [number, number, number]
+  houses?: readonly (readonly [number, number])[]
   trees?: readonly (readonly [number, number])[]
-  flowers?: readonly (readonly [number, number, string])[]
+  /** Extra trees scattered by the seeded PRNG. */
+  scatterTrees?: number
+  scatterProps?: number
+  seed?: number
 }
 
 /** Render one side-face scene (640x360). */
-function panoSvg(face: Face): string {
-  let body = ''
+function renderScene(scene: Scene): string {
+  const body: string[] = []
   // Sky: bright daytime gradient, pale near the horizon.
-  body += r(0, 0, W, GROUND, "url(#sky)")
-  if (face.sun) {
-    const [sx, sy] = face.sun
-    body += r(sx - 12, sy - 12, 36, 36, 'rgba(255,255,255,0.35)')
-    body += r(sx, sy, 12, 12, '#ffffff')
+  body.push(r(0, 0, W, GROUND, "url(#sky)"))
+  if (scene.sun) {
+    const [sx, sy] = scene.sun
+    body.push(r(sx - 12, sy - 12, 36, 36, 'rgba(255,255,255,0.35)'))
+    body.push(r(sx, sy, 12, 12, '#ffffff'))
   }
-  for (const [x, y, s] of face.clouds ?? []) body += cloud(x, y, s)
-  for (const [i, [x, b, h, fill]] of (face.hills ?? []).entries()) {
-    const cap = face.caps?.includes(i) ? '#dfeaf2' : undefined
-    body += hill(x, b, h, fill, cap)
+  for (const [x, y, s] of scene.clouds ?? []) body.push(cloud(x, y, s))
+  for (const [x, y, w] of scene.farClouds ?? []) body.push(farCloud(x, y, w))
+  for (const [x, y] of scene.birds ?? []) body.push(bird(x, y))
+  for (const [i, [x, b, h, fill]] of (scene.hills ?? []).entries()) {
+    const cap = scene.caps?.includes(i) ? '#dfeaf2' : undefined
+    body.push(hill(x, b, h, fill, cap))
   }
-  for (const [x, s] of face.trees ?? []) body += tree(x, s)
-  for (const [x, y, fill] of face.flowers ?? []) body += flower(x, y, fill)
-  body += ground()
+  body.push(ground())
+  if (scene.lake) body.push(lake(scene.lake[0], GROUND + 2, scene.lake[2]))
+
+  // Populated areas: keep scatter trees off the lake and the village.
+  const forbid: Array<[number, number]> = []
+  if (scene.lake) forbid.push([scene.lake[0] - 48, scene.lake[0] + scene.lake[2] + 48])
+  for (const [hx, hs] of scene.houses ?? []) forbid.push([hx - 40, hx + 5 * PX * hs + 40])
+
+  const rnd = mulberry32(scene.seed ?? 7)
+  const scatterAt = (count: number, place: (x: number) => void): void => {
+    let placed = 0
+    let tries = 0
+    while (placed < count && tries < count * 40) {
+      tries++
+      const x = 24 + Math.floor(rnd() * (W - 96))
+      if (forbid.some(([a, b]) => x >= a && x <= b)) continue
+      place(x)
+      placed++
+    }
+  }
+  if (scene.scatterTrees) {
+    const extra = scene.scatterTrees
+    scatterAt(extra, (x) => body.push(tree(x, 1 + Math.floor(rnd() * 2))))
+  }
+  for (const [x, s] of scene.trees ?? []) body.push(tree(x, s))
+  for (const [x, s] of scene.houses ?? []) body.push(house(x, s))
+  if (scene.scatterProps) scatterAt(scene.scatterProps, (x) => {
+    const kind = Math.floor(rnd() * 10)
+    if (kind < 3) body.push(flower(x, GROUND + 4, kind === 0 ? '#f5d442' : kind === 1 ? '#e05656' : '#f2f2f2'))
+    else if (kind < 5) body.push(mushroom(x, GROUND + 2))
+    else if (kind < 7) body.push(pumpkin(x, GROUND + 4))
+    else if (kind < 8) body.push(rock(x, GROUND + 4))
+    else body.push(tallGrass(x, GROUND + 2))
+  })
+
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 360" shape-rendering="crispEdges">` +
     `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">` +
     `<stop offset="0" stop-color="#84d0f6"/><stop offset="0.62" stop-color="#b4e3f9"/>` +
     `<stop offset="1" stop-color="#f0faf3"/>` +
-    `</linearGradient></defs>${body}</svg>`
+    `</linearGradient></defs>${body.join('')}</svg>`
   )
 }
 
-/** Top face: open sky with a couple of clouds (512x512). */
+/** The four side faces, each a different biome (Mojang's panorama has six; ours has four sides). */
+const SCENES: Scene[] = [
+  {
+    // Village: blocky houses left, a dirt path, forest right, distant hills.
+    sun: [120, 64],
+    clouds: [[300, 90, 1], [470, 150, 1]],
+    farClouds: [[200, 196, 90], [420, 202, 120]],
+    birds: [[540, 100]],
+    hills: [[60, 12, 9, '#8fa8b8'], [380, 16, 11, '#8fa8b8']],
+    caps: [1],
+    houses: [[30, 1], [110, 1], [190, 2]],
+    trees: [[420, 1], [540, 2], [600, 1]],
+    scatterTrees: 3,
+    scatterProps: 6,
+    seed: 11,
+  },
+  {
+    // Lakeside: a lake center-right, pines on the shore, snowy peak behind.
+    sun: [480, 90],
+    clouds: [[80, 120, 1], [250, 70, 2], [520, 170, 1]],
+    farClouds: [[120, 198, 100]],
+    birds: [[220, 80], [380, 60]],
+    hills: [[30, 10, 7, '#93aabb'], [260, 14, 10, '#7d95a5'], [500, 12, 8, '#93aabb']],
+    caps: [1],
+    lake: [280, GROUND + 2, 190],
+    trees: [[120, 2], [540, 1], [560, 2], [60, 1]],
+    scatterTrees: 3,
+    scatterProps: 5,
+    seed: 23,
+  },
+  {
+    // Dense forest: scattered trees and woodland props.
+    sun: [80, 130],
+    clouds: [[360, 90, 2], [560, 60, 1]],
+    farClouds: [[40, 200, 130], [300, 196, 90]],
+    hills: [[150, 18, 13, '#75899a'], [480, 14, 9, '#8fa8b8']],
+    caps: [0],
+    trees: [[60, 1], [300, 2], [430, 1], [600, 1]],
+    scatterTrees: 7,
+    scatterProps: 9,
+    seed: 37,
+  },
+  {
+    // Mountain range: big peaks with snow caps, treeline below.
+    sun: [340, 70],
+    clouds: [[90, 80, 1], [200, 160, 2], [500, 120, 1]],
+    farClouds: [[160, 200, 110], [430, 196, 90]],
+    birds: [[110, 90], [260, 60], [560, 110]],
+    hills: [[20, 16, 13, '#7d95a5'], [200, 20, 15, '#6d8398'], [540, 17, 12, '#7d95a5']],
+    caps: [1, 2],
+    trees: [[140, 1], [330, 2], [480, 1], [600, 1]],
+    scatterTrees: 3,
+    scatterProps: 7,
+    seed: 41,
+  },
+]
+
+/** Top face: open sky with clouds (512x512). */
 function topSvg(): string {
   const sky = r(0, 0, 512, 512, "url(#t)")
   const c1 = cloud(96, 160, 2)
   const c2 = cloud(280, 300, 2)
   const c3 = cloud(200, 60, 1)
+  const c4 = cloud(380, 120, 1)
+  const f1 = farCloud(60, 420, 120)
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" shape-rendering="crispEdges">` +
     `<defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1">` +
     `<stop offset="0" stop-color="#7ec3ee"/><stop offset="1" stop-color="#a9dcf7"/>` +
-    `</linearGradient></defs>${sky}${c1}${c2}${c3}</svg>`
+    `</linearGradient></defs>${sky}${c1}${c2}${c3}${c4}${f1}</svg>`
   )
 }
 
-/** Bottom face: grass block field seen from above (512x512). */
+/** Bottom face: grass block field seen from above, with flowers and a mushroom (512x512). */
 function bottomSvg(): string {
   let cells = ''
   for (let gx = 0; gx < 512; gx += 64) {
@@ -145,45 +331,16 @@ function bottomSvg(): string {
       cells += r(gx + 40, gy + 40, 8, 8, dark ? '#96da62' : '#7dc94b')
     }
   }
+  const props = [
+    flower(96, 96, '#f5d442'), flower(360, 160, '#e05656'),
+    flower(440, 400, '#f5d442'), mushroom(160, 384),
+    rock(392, 300),
+  ].join('')
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" shape-rendering="crispEdges">` +
-    `<rect width="512" height="512" fill="#8ed458"/>${cells}</svg>`
+    `<rect width="512" height="512" fill="#8ed458"/>${cells}${props}</svg>`
   )
 }
-
-/** The four distinct horizon scenes (Mojang's panorama has six, ours has four sides). */
-const FACES: Face[] = [
-  {
-    sun: [120, 64],
-    clouds: [[300, 90, 1], [470, 150, 1]],
-    hills: [[60, 12, 9, '#8fa8b8'], [380, 16, 11, '#8fa8b8']],
-    caps: [1],
-    trees: [[540, 1], [150, 1], [240, 1]],
-    flowers: [[280, 1, '#f5d442']],
-  },
-  {
-    sun: [480, 90],
-    clouds: [[80, 120, 1], [250, 70, 2], [520, 170, 1]],
-    hills: [[30, 10, 7, '#93aabb'], [260, 14, 10, '#7d95a5'], [500, 12, 8, '#93aabb']],
-    trees: [[140, 2], [420, 1], [560, 1], [330, 1]],
-    flowers: [[220, 1, '#e05656'], [360, 1, '#f5d442']],
-  },
-  {
-    sun: [80, 130],
-    clouds: [[360, 90, 2], [560, 60, 1]],
-    hills: [[150, 18, 13, '#75899a'], [480, 14, 9, '#8fa8b8']],
-    caps: [0],
-    trees: [[60, 1], [300, 1], [430, 2], [600, 1], [200, 1]],
-  },
-  {
-    sun: [340, 70],
-    clouds: [[90, 80, 1], [200, 160, 2], [500, 120, 1]],
-    hills: [[40, 14, 10, '#7d95a5'], [220, 12, 8, '#8fa8b8'], [560, 16, 11, '#7d95a5']],
-    caps: [2],
-    trees: [[330, 1], [480, 1], [120, 1], [560, 1]],
-    flowers: [[120, 1, '#f5d442'], [400, 1, '#e05656']],
-  },
-]
 
 /** One panorama face as a data-URI background image. */
 function faceImage(svg: string): string {
@@ -207,7 +364,7 @@ export function apply(ctx: Context): void {
   stage.className = cls('mcStage')
   const skybox = document.createElement('div')
   skybox.className = cls('mcSkybox')
-  const sideSvg = FACES.map(panoSvg)
+  const sideSvg = SCENES.map(renderScene)
   const sideNames = ['front', 'back', 'left', 'right']
   for (let i = 0; i < 6; i++) {
     const face = document.createElement('div')
