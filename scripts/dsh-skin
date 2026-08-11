@@ -8,7 +8,7 @@
  * turtle-ui shape: `dsh.bundle` manifest + cordis.patch.yml + self-contained
  * `prepare` build, so the canonical install is
  *
- *     dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/<skin>
+ *     dsh plugin --profile <name> add /path/to/dsh-web-ui/packages/skins/<skin>
  *     dsh-skin install <skin>        # same thing, profile auto-detected
  *
  * `use` then maintains the mutually-exclusive skin section of
@@ -36,11 +36,11 @@ const REPO = `${HOME}/code/dsh-web-ui`
 
 /** Skin registry: name -> package, cordis row id, symlink resolve target (all repo dirs). */
 const SKINS = {
-  qq98: { pkg: '@deepseek-ai/dsh-client-ui-skin-qq98', id: 'ui-skin-qq98', dir: `${REPO}/skins/qq98` },
-  ths: { pkg: '@deepseek-ai/dsh-client-ui-skin-ths', id: 'ui-skin-ths', dir: `${REPO}/skins/ths` },
-  xp: { pkg: '@deepseek-ai/dsh-client-ui-skin-xp', id: 'ui-skin-xp', dir: `${REPO}/skins/xp` },
-  'blue-fantasy': { pkg: '@deepseek-ai/dsh-client-ui-skin-blue-fantasy', id: 'ui-skin-blue-fantasy', dir: `${REPO}/skins/blue-fantasy` },
-  'dragon-heir': { pkg: '@deepseek-ai/dsh-client-ui-skin-dragon-heir', id: 'ui-skin-dragon-heir', dir: `${REPO}/skins/dragon-heir` },
+  qq98: { pkg: '@deepseek-ai/dsh-client-ui-skin-qq98', id: 'ui-skin-qq98', dir: `${REPO}/packages/skins/qq98` },
+  ths: { pkg: '@deepseek-ai/dsh-client-ui-skin-ths', id: 'ui-skin-ths', dir: `${REPO}/packages/skins/ths` },
+  xp: { pkg: '@deepseek-ai/dsh-client-ui-skin-xp', id: 'ui-skin-xp', dir: `${REPO}/packages/skins/xp` },
+  'blue-fantasy': { pkg: '@deepseek-ai/dsh-client-ui-skin-blue-fantasy', id: 'ui-skin-blue-fantasy', dir: `${REPO}/packages/skins/blue-fantasy` },
+  'dragon-heir': { pkg: '@deepseek-ai/dsh-client-ui-skin-dragon-heir', id: 'ui-skin-dragon-heir', dir: `${REPO}/packages/skins/dragon-heir` },
 }
 /** Skin wired at the bundle layer already (no insert row needed here). */
 const BUNDLE_WIRED = new Set(['xp'])

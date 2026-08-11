@@ -4,7 +4,7 @@
 /**
  * dsh-skin-new — scaffold a new skin for the dsh-web-ui skin collection.
  *
- * Generates skins/<name>/ from the official standalone bundle standard
+ * Generates packages/skins/<name>/ from the official standalone bundle standard
  * (turtle-ui shape): package.json with `dsh.bundle` + `dshClient` +
  * self-contained `prepare` build, cordis.patch.yml, tsdown.config.ts,
  * skin.json, a minimal apply()/dispose client entry with a scoped stylesheet,
@@ -233,8 +233,8 @@ function skinJson(name, order) {
     package: `@deepseek-ai/dsh-client-ui-skin-${name}`,
     wiring: { id: `ui-skin-${name}`, bundleWired: false },
     preview: {
-      light: `skins/${name}/preview/light.png`,
-      dark: `skins/${name}/preview/dark.png`,
+      light: `packages/skins/${name}/preview/light.png`,
+      dark: `packages/skins/${name}/preview/dark.png`,
     },
     order,
   }
@@ -312,7 +312,7 @@ emitted, and nothing reaches a model request.
 
 ## Installing (official bundle)
 
-1. Local path: \`dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/${name}\`
+1. Local path: \`dsh plugin --profile <name> add /path/to/dsh-web-ui/packages/skins/${name}\`
 2. Git: \`dsh plugin --profile <name> add github:<org>/dsh-web-ui#<sha>\` —
    pnpm ≥10 asks once for \`allowBuilds\` authorization (the \`prepare\` script
    self-containedly builds \`lib/\`; no monorepo reference needed).
@@ -349,7 +349,7 @@ function main() {
   }
   const dir = path.join(SKINS_DIR, name)
   if (fs.existsSync(dir)) {
-    console.error(`skins/${name} already exists — refusing to overwrite`)
+    console.error(`packages/skins/${name} already exists — refusing to overwrite`)
     process.exit(1)
   }
 
@@ -382,12 +382,12 @@ function main() {
     fs.writeFileSync(path.join(dir, rel), content)
   }
 
-  console.log(`scaffolded skins/${name}/`)
+  console.log(`scaffolded packages/skins/${name}/`)
   console.log('')
   console.log('next steps:')
-  console.log(`  1. edit skins/${name}/skin.json      — 名称 / tagline / 描述 / tags / accent`)
-  console.log(`  2. edit skins/${name}/src/client/${name}.module.css  — 你的设计（作用域 body[data-dsh-${name}]）`)
-  console.log(`  3. edit skins/${name}/src/client/index.ts           — chrome 元素 / 标题`)
+  console.log(`  1. edit packages/skins/${name}/skin.json      — 名称 / tagline / 描述 / tags / accent`)
+  console.log(`  2. edit packages/skins/${name}/src/client/${name}.module.css  — 你的设计（作用域 body[data-dsh-${name}]）`)
+  console.log(`  3. edit packages/skins/${name}/src/client/index.ts           — chrome 元素 / 标题`)
   console.log(`  4. pnpm build && pnpm test           — 构建 + 契约测试`)
   console.log(`  5. open gallery/preview.html?skin=${name}&theme=light  — 试穿`)
   console.log(`  6. node scripts/capture-previews     — 重拍 preview/{light,dark}.png`)

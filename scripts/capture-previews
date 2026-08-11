@@ -6,7 +6,7 @@
  *
  * Opens gallery/preview.html (the real skin renderer: the simulator executes
  * the actual client bundle, chrome bars and all) in headless Chromium and
- * screenshots each skin × {light, dark} into skins/<id>/preview/{light,dark}.png.
+ * screenshots each skin × {light, dark} into packages/skins/<id>/preview/{light,dark}.png.
  *
  * Requires playwright + its chromium browser:
  *   npm i -D playwright && npx playwright install chromium

@@ -14,7 +14,7 @@
  *
  * Usage:
  *   node scripts/embed-skin-art <skin> <exportName> <imagePath> [maxWidth]
- *     skin       — directory under skins/, e.g. dragon-heir
+ *     skin       — directory under packages/skins/, e.g. dragon-heir
  *     exportName — art.ts constant to replace, e.g. DARK_ART
  *     imagePath  — source image (PNG/JPG/WebP)
  *     maxWidth   — resize target width in px (default 1600; 0 = keep native)
@@ -95,7 +95,7 @@ async function main() {
     process.exit(1)
   }
   fs.writeFileSync(artFile, out)
-  console.log(`embedded ${path.basename(imagePath)} -> skins/${skin}/src/client/art.ts ${exportName} (${tw}px, ${kb} KiB WebP)`)
+  console.log(`embedded ${path.basename(imagePath)} -> packages/skins/${skin}/src/client/art.ts ${exportName} (${tw}px, ${kb} KiB WebP)`)
 }
 
 main().catch((err) => {
