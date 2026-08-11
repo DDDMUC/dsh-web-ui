@@ -93,7 +93,7 @@ pnpm --filter @deepseek-ai/dsh-client-ui-skin-center build   # skin-center 重�
 node scripts/gallery-build         # 重新生成 gallery/manifest.js + gallery/bundles.js
 ```
 
-- 若皮肤要出现在仓库 README「结构」表/「优质推荐」里，同步更新 README.md（中英）。
+- 若皮肤要出现在仓库 README「结构」表/「优质推荐」里，同步更新 README.md（中文）与 README.en.md（英文）。
 - `dsh-skin` 的 SKINS 注册表在 `scripts/dsh-skin` 顶部——新皮肤需由维护者添加（或用
   `dsh-skin install <name>` 直接官方安装）。
 - 提交全部生成产物（lib/、preview/、generated/skins.ts、gallery 产物、README），推送到
