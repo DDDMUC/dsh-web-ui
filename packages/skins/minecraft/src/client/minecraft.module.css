@@ -17,9 +17,9 @@
 body[data-dsh-minecraft] {
   --dsw-font-family: 'Courier New', 'PingFang SC', 'Microsoft YaHei', 'SimSun', monospace;
   --ds-font-family-code: 'Courier New', 'Consolas', monospace;
-  color: #e9e4d6;
+  color: #e7ead7;
   /* Fallback backdrop; normally hidden under the skybox. */
-  background-color: #151a21;
+  background-color: #18221b;
 }
 
 /* --- Panorama skybox ------------------------------------------------------------
@@ -72,17 +72,18 @@ body[data-dsh-minecraft] {
 .mcFaceBottom { transform: rotateX(-90deg) translateZ(70vmax); }
 
 /* Dimming scrim so the app stays readable over the bright sky. Painted
-   after the skybox (same z-index, later in DOM order). */
+   after the skybox (same z-index, later in DOM order). Kept faint so the
+   green meadow stays the star of the show. */
 .mcScrim {
   position: fixed;
   inset: 0;
   z-index: 0;
-  background: rgba(10, 14, 19, 0.36);
+  background: rgba(6, 10, 7, 0.12);
   pointer-events: none;
 }
 
 body[data-dsh-minecraft][data-ds-dark-theme] .mcScrim {
-  background: rgba(4, 7, 11, 0.42);
+  background: rgba(3, 6, 4, 0.35);
 }
 
 /* --- App panels: floating stone slabs over the panorama ------------------------ */
@@ -90,7 +91,7 @@ body[data-dsh-minecraft][data-ds-dark-theme] .mcScrim {
 body[data-dsh-minecraft] [id='root'] {
   position: relative;
   z-index: 1;
-  background: rgba(15, 20, 27, 0.66);
+  background: rgba(13, 24, 16, 0.42);
   border: 2px solid #0b0f14;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.05),
@@ -105,7 +106,7 @@ body[data-dsh-minecraft] [id='root'] > div {
 }
 
 body[data-dsh-minecraft][data-ds-dark-theme] [id='root'] {
-  background: rgba(7, 10, 15, 0.78);
+  background: rgba(6, 10, 7, 0.66);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.03),
     0 10px 42px rgba(0, 0, 0, 0.7);
@@ -118,7 +119,7 @@ body[data-dsh-minecraft][data-ds-dark-theme] [id='root'] > div {
 body[data-dsh-minecraft] [data-pane='sidebar'] > div,
 body[data-dsh-minecraft] [data-pane='conversation'],
 body[data-dsh-minecraft] [data-pane='details'] {
-  background: rgba(14, 19, 26, 0.48);
+  background: rgba(14, 28, 17, 0.28);
 }
 
 /* The sidebar column itself paints an opaque light panel in the light
@@ -136,7 +137,7 @@ body[data-dsh-minecraft] [data-pane='conversation'] > div {
 body[data-dsh-minecraft][data-ds-dark-theme] [data-pane='sidebar'] > div,
 body[data-dsh-minecraft][data-ds-dark-theme] [data-pane='conversation'],
 body[data-dsh-minecraft][data-ds-dark-theme] [data-pane='details'] {
-  background: rgba(5, 8, 12, 0.55);
+  background: rgba(5, 9, 6, 0.5);
 }
 
 body[data-dsh-minecraft][data-ds-dark-theme] [data-pane='conversation'] > div {
@@ -256,7 +257,7 @@ body[data-dsh-minecraft] ::-webkit-scrollbar {
 }
 
 body[data-dsh-minecraft] ::-webkit-scrollbar-track {
-  background: rgba(18, 23, 30, 0.6);
+  background: rgba(13, 22, 16, 0.6);
   border-left: 2px solid #0b0f14;
 }
 
@@ -330,9 +331,9 @@ body[data-dsh-minecraft] {
   --dsw-static-deepseek-800: #1d3a5c;
   --dsw-static-deepseek-900: #1a3350;
   --dsw-static-green-100: #d8e8c8;
-  --dsw-static-green-400: #6fa84a;
-  --dsw-static-green-500: #4f8a33;
-  --dsw-static-green-900: #2a4020;
+  --dsw-static-green-400: #83c94e;
+  --dsw-static-green-500: #5a9e38;
+  --dsw-static-green-900: #24381c;
   --dsw-static-neutral-00: #fff;
   --dsw-static-neutral-1000: #000;
   --dsw-static-neutral-100: #d6d6d6;
@@ -379,47 +380,47 @@ body[data-dsh-minecraft] {
    values as the base. */
 
 body[data-dsh-minecraft] {
-  --dsw-alias-label-primary: #ece7d9;
-  --dsw-alias-label-primary-bluish: #dce4ec;
-  --dsw-alias-label-primary-dimmed: #c6c0b2;
+  --dsw-alias-label-primary: #e7ead7;
+  --dsw-alias-label-primary-bluish: #d4e4d4;
+  --dsw-alias-label-primary-dimmed: #c4cbb2;
   --dsw-alias-label-primary-foreground: #0e1217;
   --dsw-alias-label-primary-inverted: #0e1217;
-  --dsw-alias-label-secondary: #b8b1a3;
-  --dsw-alias-label-tertiary: #8e887c;
-  --dsw-alias-label-quaternary: #6e695f;
-  --dsw-alias-label-caption: #a39c8f;
-  --dsw-alias-label-dimmed: #8e887c;
+  --dsw-alias-label-secondary: #b3bda3;
+  --dsw-alias-label-tertiary: #8b9680;
+  --dsw-alias-label-quaternary: #6b7561;
+  --dsw-alias-label-caption: #a0ab92;
+  --dsw-alias-label-dimmed: #8b9680;
   --dsw-alias-separator-primary: rgba(255, 255, 255, 0.09);
   --dsw-alias-line-secondary: rgba(255, 255, 255, 0.11);
   --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.07);
   --dsw-alias-interactive-bg-active: rgba(255, 255, 255, 0.11);
   --dsw-alias-interactive-bg-hover-solid: #2b4f78;
-  --dsw-alias-interactive-bg-hover-accent: rgba(124, 189, 75, 0.16);
+  --dsw-alias-interactive-bg-hover-accent: rgba(131, 201, 78, 0.18);
   --dsw-alias-interactive-bg-hover-danger: rgba(212, 90, 90, 0.16);
-  --dsw-alias-bg-base: #14181e;
-  --dsw-alias-bg-overlay: rgba(7, 10, 14, 0.72);
-  --dsw-alias-bg-skeleton: #232932;
-  --dsw-alias-toast-bg: #1d2229;
-  --dsw-alias-tooltip-bg: #1d2229;
-  --dsw-alias-markdown-code-block: #1a1f26;
-  --dsw-alias-markdown-code-block-banner: #232932;
-  --dsw-alias-markdown-inline-code: #262d36;
+  --dsw-alias-bg-base: #18221b;
+  --dsw-alias-bg-overlay: rgba(6, 9, 7, 0.72);
+  --dsw-alias-bg-skeleton: #273128;
+  --dsw-alias-toast-bg: #212d26;
+  --dsw-alias-tooltip-bg: #212d26;
+  --dsw-alias-markdown-code-block: #1e2620;
+  --dsw-alias-markdown-code-block-banner: #273128;
+  --dsw-alias-markdown-inline-code: #2a352c;
   --dsw-alias-markdown-tag: #2b4f78;
-  --dsw-alias-markdown-placeholder: #8e887c;
-  --dsw-alias-markdown-citation: #1d2229;
-  --dsw-alias-scrollbar-bg-l: rgba(13, 17, 23, 0.5);
+  --dsw-alias-markdown-placeholder: #8b9680;
+  --dsw-alias-markdown-citation: #212d26;
+  --dsw-alias-scrollbar-bg-l: rgba(13, 22, 16, 0.5);
   --dsw-alias-scrollbar-hover-l: #a8b9d2;
   --dsw-alias-button-primary-fill: #2b4f78;
   --dsw-alias-button-primary-hover: #38628f;
   --dsw-alias-button-primary-dimmed: rgba(43, 79, 120, 0.55);
   --dsw-alias-button-ghost-active-fill: rgba(255, 255, 255, 0.08);
   --dsw-alias-button-ghost-active-hover: rgba(255, 255, 255, 0.12);
-  --dsw-alias-brand-primary: #7cbd4b;
+  --dsw-alias-brand-primary: #83c94e;
   --dsw-alias-brand-primary-invert: #1a2413;
-  --dsw-alias-brand-text: #7cbd4b;
-  --dsw-alias-state-business-primary: #7cbd4b;
-  --dsw-alias-state-business-subtle: rgba(124, 189, 75, 0.16);
-  --dsw-alias-state-business-tertiary: rgba(124, 189, 75, 0.09);
+  --dsw-alias-brand-text: #83c94e;
+  --dsw-alias-state-business-primary: #83c94e;
+  --dsw-alias-state-business-subtle: rgba(131, 201, 78, 0.18);
+  --dsw-alias-state-business-tertiary: rgba(131, 201, 78, 0.1);
   --dsw-alias-state-success-primary: #4f8a33;
   --dsw-alias-state-success-secondary: rgba(79, 138, 51, 0.16);
   --dsw-alias-state-success-tertiary: rgba(79, 138, 51, 0.09);
@@ -435,15 +436,15 @@ body[data-dsh-minecraft] {
 /* --- Specific surfaces: bubbles, sidebar nav, menus ----------------------------- */
 
 body[data-dsh-minecraft] {
-  --dsw-specific-bubble: #23282f;
-  --dsw-specific-bubble-highlight: #2d333c;
-  --dsw-specific-sidebar-fill: rgba(13, 17, 23, 0.6);
+  --dsw-specific-bubble: #26332a;
+  --dsw-specific-bubble-highlight: #2e3d32;
+  --dsw-specific-sidebar-fill: rgba(12, 22, 15, 0.55);
   --dsw-specific-sidebar-nav-item-active: #2b4f78;
-  --dsw-specific-sidebar-nav-item-active-accent: #7cbd4b;
-  --dsw-specific-sidebar-nav-item-hover: rgba(40, 46, 54, 0.85);
-  --dsw-specific-menu: #1d2229;
-  --dsw-specific-selector: #1d2229;
-  --dsw-specific-tip: #1d2229;
-  --dsw-specific-input-major: rgba(16, 20, 26, 0.9);
-  --dsw-specific-login-input: rgba(16, 20, 26, 0.9);
+  --dsw-specific-sidebar-nav-item-active-accent: #83c94e;
+  --dsw-specific-sidebar-nav-item-hover: rgba(38, 50, 42, 0.85);
+  --dsw-specific-menu: #212d26;
+  --dsw-specific-selector: #212d26;
+  --dsw-specific-tip: #212d26;
+  --dsw-specific-input-major: rgba(15, 24, 17, 0.9);
+  --dsw-specific-login-input: rgba(15, 24, 17, 0.9);
 }

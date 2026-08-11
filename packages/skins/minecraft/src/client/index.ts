@@ -29,7 +29,7 @@ const cls = (name: keyof typeof css): string => css[name] ?? ''
    One "pixel" is PX=8px in the 640x360 canvas. Ground line at y=280. */
 
 const PX = 8
-const GROUND = 280
+const GROUND = 236
 const W = 640
 
 /** One rect of the pixel scene. */
@@ -64,8 +64,8 @@ function tree(x: number, scale = 1): string {
   const u = PX * scale
   return [
     r(x + u, GROUND - 3 * u, 2 * u, 3 * u, '#6b4a2b'),
-    r(x, GROUND - 6 * u, 4 * u, 3 * u, '#3f8f3f'),
-    r(x + u, GROUND - 7 * u, 2 * u, u, '#2f7a2f'),
+    r(x, GROUND - 6 * u, 4 * u, 3 * u, '#43ad54'),
+    r(x + u, GROUND - 7 * u, 2 * u, u, '#34a046'),
   ].join('')
 }
 
@@ -74,13 +74,13 @@ function flower(x: number, y: number, fill: string): string {
   return r(x, y, 4, 4, fill)
 }
 
-/** The shared grass-block ground strip. */
+/** The shared grass-block ground strip (tall, bright meadow). */
 function ground(): string {
   let tufts = ''
-  for (let x = 8; x < W; x += 32) tufts += r(x, GROUND + PX, PX, PX, '#6faf42')
+  for (let x = 8; x < W; x += 32) tufts += r(x, GROUND + 12, PX, PX, '#7dc94b')
   return [
-    r(0, GROUND, W, PX, '#7cbd4b'),
-    r(0, GROUND + PX, W, 80 - PX, '#8a5a32'),
+    r(0, GROUND, W, 12, '#8ed458'),
+    r(0, GROUND + 12, W, 112, '#96643a'),
     tufts,
   ].join('')
 }
@@ -115,8 +115,8 @@ function panoSvg(face: Face): string {
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 360" shape-rendering="crispEdges">` +
     `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop offset="0" stop-color="#8fd0f5"/><stop offset="0.62" stop-color="#b7e2fa"/>` +
-    `<stop offset="1" stop-color="#eef8fd"/>` +
+    `<stop offset="0" stop-color="#84d0f6"/><stop offset="0.62" stop-color="#b4e3f9"/>` +
+    `<stop offset="1" stop-color="#f0faf3"/>` +
     `</linearGradient></defs>${body}</svg>`
   )
 }
@@ -141,13 +141,13 @@ function bottomSvg(): string {
   for (let gx = 0; gx < 512; gx += 64) {
     for (let gy = 0; gy < 512; gy += 64) {
       const dark = (gx / 64 + gy / 64) % 3 === 0
-      cells += r(gx + 16, gy + 16, 16, 16, dark ? '#6faf42' : '#86c95a')
-      cells += r(gx + 40, gy + 40, 8, 8, dark ? '#86c95a' : '#6faf42')
+      cells += r(gx + 16, gy + 16, 16, 16, dark ? '#7dc94b' : '#96da62')
+      cells += r(gx + 40, gy + 40, 8, 8, dark ? '#96da62' : '#7dc94b')
     }
   }
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" shape-rendering="crispEdges">` +
-    `<rect width="512" height="512" fill="#7cbd4b"/>${cells}</svg>`
+    `<rect width="512" height="512" fill="#8ed458"/>${cells}</svg>`
   )
 }
 
@@ -158,14 +158,14 @@ const FACES: Face[] = [
     clouds: [[300, 90, 1], [470, 150, 1]],
     hills: [[60, 12, 9, '#8fa8b8'], [380, 16, 11, '#8fa8b8']],
     caps: [1],
-    trees: [[540, 1], [150, 1]],
+    trees: [[540, 1], [150, 1], [240, 1]],
     flowers: [[280, 1, '#f5d442']],
   },
   {
     sun: [480, 90],
     clouds: [[80, 120, 1], [250, 70, 2], [520, 170, 1]],
     hills: [[30, 10, 7, '#93aabb'], [260, 14, 10, '#7d95a5'], [500, 12, 8, '#93aabb']],
-    trees: [[140, 2], [420, 1], [560, 1]],
+    trees: [[140, 2], [420, 1], [560, 1], [330, 1]],
     flowers: [[220, 1, '#e05656'], [360, 1, '#f5d442']],
   },
   {
@@ -173,14 +173,14 @@ const FACES: Face[] = [
     clouds: [[360, 90, 2], [560, 60, 1]],
     hills: [[150, 18, 13, '#75899a'], [480, 14, 9, '#8fa8b8']],
     caps: [0],
-    trees: [[60, 1], [300, 1], [430, 2], [600, 1]],
+    trees: [[60, 1], [300, 1], [430, 2], [600, 1], [200, 1]],
   },
   {
     sun: [340, 70],
     clouds: [[90, 80, 1], [200, 160, 2], [500, 120, 1]],
     hills: [[40, 14, 10, '#7d95a5'], [220, 12, 8, '#8fa8b8'], [560, 16, 11, '#7d95a5']],
     caps: [2],
-    trees: [[330, 1], [480, 1]],
+    trees: [[330, 1], [480, 1], [120, 1], [560, 1]],
     flowers: [[120, 1, '#f5d442'], [400, 1, '#e05656']],
   },
 ]
