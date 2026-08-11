@@ -2,7 +2,7 @@
 
 中文 | [English](README.en.md)
 
-本仓库是 DeepSeek Harness（DSH）Web GUI 的插件全家桶 monorepo，由原「皮肤集合」仓库升级而来。多个原本独立的 web GUI 插件已迁入 `packages/`：每个插件仍是符合官方标准的独立 bundle（`dsh.bundle.patch` 清单 + `cordis.patch.yml` 插件行），可单独安装；同时提供聚合插件包（`web-ui-all` / `dsh-skins`）一键装齐。
+本仓库是 DeepSeek Harness（DSH）Web GUI 的插件全家桶 monorepo：`packages/` 下收录功能插件与皮肤集合，每个插件都是符合官方标准的独立 bundle（`dsh.bundle.patch` 清单 + `cordis.patch.yml` 插件行），可单独安装；同时提供聚合插件包（`web-ui-all` / `dsh-skins`）一键装齐。
 
 > 本仓库属于 `dsh-external` 组织，仅组织成员可见（private）。请勿提交任何凭据、密钥或内部敏感信息。
 
@@ -125,9 +125,9 @@ dsh-skin use xp
 
 | 包 | 来源 | 版权 |
 | --- | --- | --- |
-| task-board / git-graph / pet / remote-web-ui | dsh-external 组织自有，2026-08 由独立仓库迁入（git 历史随 subtree 保留） | BSD-3-Clause（dsh-external contributors） |
+| task-board / git-graph / pet / remote-web-ui | dsh-external 组织自有（git 历史随 subtree 保留） | BSD-3-Clause（dsh-external contributors） |
 | working-activity | 社区插件，作者 chimney（ccch1mneyyy），原发布于 dsh-external/dsh-working-activity | MIT（版权归作者本人，LICENSE 保留于包内） |
-| code-kline / ui-code-kline / live-stats | 原为 DSH 源码定制集成（packages/activity、packages/client），2026-08 迁入 | BSD-3-Clause |
+| code-kline / ui-code-kline / live-stats | 原为 DSH 源码内定制（packages/activity、packages/client） | BSD-3-Clause |
 | skins / dsh-skins / web-ui-all | 本仓库原生 | BSD-3-Clause |
 
 维护规则：迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。详见 [docs/plugins.md](docs/plugins.md)。

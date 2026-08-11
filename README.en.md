@@ -2,7 +2,7 @@
 
 [中文](README.md) | English
 
-dsh-web-ui is the plugin family monorepo for the DeepSeek Harness (DSH) Web GUI, evolved from the former skin collection. Previously standalone web GUI plugin repositories now live under `packages/`; each plugin remains an official-standard bundle (`dsh.bundle.patch` manifest + `cordis.patch.yml` plugin row) and installs independently, while aggregate packages (`web-ui-all` / `dsh-skins`) install everything in one shot.
+dsh-web-ui is the plugin family monorepo for the DeepSeek Harness (DSH) Web GUI: `packages/` hosts feature plugins and the skin collection. Every plugin is an official-standard bundle (`dsh.bundle.patch` manifest + `cordis.patch.yml` plugin row) and installs independently, while aggregate packages (`web-ui-all` / `dsh-skins`) install everything in one shot.
 
 > This repository is private to the `dsh-external` organization. Organization members only. Never commit credentials, keys, or sensitive material.
 
@@ -125,9 +125,9 @@ dsh-skin use xp
 
 | Package | Origin | License |
 | --- | --- | --- |
-| task-board / git-graph / pet / remote-web-ui | dsh-external org-owned, consolidated 2026-08 from standalone repos (git history preserved via subtree) | BSD-3-Clause (dsh-external contributors) |
+| task-board / git-graph / pet / remote-web-ui | dsh-external org-owned (git history preserved via subtree) | BSD-3-Clause (dsh-external contributors) |
 | working-activity | Community plugin by chimney (ccch1mneyyy), originally published at dsh-external/dsh-working-activity | MIT (copyright held by the author; LICENSE kept in the package) |
-| code-kline / ui-code-kline / live-stats | Formerly in-source customizations of the DSH checkout (packages/activity, packages/client), consolidated 2026-08 | BSD-3-Clause |
+| code-kline / ui-code-kline / live-stats | Formerly in-source customizations of the DSH checkout (packages/activity, packages/client) | BSD-3-Clause |
 | skins / dsh-skins / web-ui-all | Native to this repo | BSD-3-Clause |
 
 Policy: third-party code merged in must keep its LICENSE and attribution; active third parties with an upstream are forked or referenced as dependencies instead of vendored. See [docs/plugins.md](docs/plugins.md).
