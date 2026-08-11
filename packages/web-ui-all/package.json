@@ -1,0 +1,21 @@
+{
+  "name": "@deepseek-ai/dsh-web-ui-all",
+  "description": "DSH Web UI 全家桶聚合插件：一键安装全部功能插件（task-board / git-graph / pet / remote-web-ui / working-activity）+ 皮肤全家桶（dsh-skins）。",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "@deepseek-ai/dsh-client-ui-task-board": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-git-graph": "workspace:*",
+    "@deepseek-ai/dsh-pet": "workspace:*",
+    "@deepseek-ai/dsh-remote-web-ui": "workspace:*",
+    "@deepseek-ai/dsh-working-activity": "workspace:*",
+    "@deepseek-ai/dsh-skins": "workspace:*"
+  }
+}

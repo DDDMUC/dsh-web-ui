@@ -1,0 +1,116 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "@deepseek-ai/dsh-client-runtime": [
+        "/Users/zcl/.dsh/source/current/packages/client/runtime/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-runtime/client": [
+        "/Users/zcl/.dsh/source/current/packages/client/runtime/lib/types/client/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-connection": [
+        "/Users/zcl/.dsh/source/current/packages/client/connection/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-connection/client": [
+        "/Users/zcl/.dsh/source/current/packages/client/connection/lib/types/client/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-ui-slots": [
+        "/Users/zcl/.dsh/source/current/packages/client/ui-slots/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-locale/client": [
+        "/Users/zcl/.dsh/source/current/packages/client/locale/lib/types/client/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-type-meta": [
+        "/Users/zcl/.dsh/source/current/packages/typert/type-meta/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-brand": [
+        "/Users/zcl/.dsh/source/current/packages/util/brand/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-system-prompt": [
+        "/Users/zcl/.dsh/source/current/packages/core/system-prompt/lib/types"
+      ],
+      "@deepseek-ai/dsh-scope": [
+        "/Users/zcl/.dsh/source/current/packages/core/scope/lib/types"
+      ],
+      "cordis": [
+        "/Users/zcl/code/dsh-web-ui/packages/__NAME__/node_modules/cordis/lib/index.d.ts"
+      ],
+      "schemastery": [
+        "/Users/zcl/code/dsh-web-ui/packages/__NAME__/node_modules/schemastery/lib/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-host-apiproxy": [
+        "/Users/zcl/.dsh/source/current/packages/host/apiproxy/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-host-apiproxy/api": [
+        "/Users/zcl/.dsh/source/current/packages/host/apiproxy/lib/types/api/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-host-apiproxy/api/*": [
+        "/Users/zcl/.dsh/source/current/packages/host/apiproxy/lib/types/api/*.d.ts"
+      ],
+      "@deepseek-ai/dsh-host-apiproxy/client": [
+        "/Users/zcl/.dsh/source/current/packages/host/apiproxy/lib/types/fetch/client.d.ts"
+      ],
+      "@deepseek-ai/dsh-llm": [
+        "/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-llm/types": [
+        "/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/types.d.ts"
+      ],
+      "@deepseek-ai/dsh-llm/brand": [
+        "/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/brand.d.ts"
+      ],
+      "@deepseek-ai/dsh-llm-retry": [
+        "/Users/zcl/.dsh/source/current/packages/llm/llm-retry/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-llm-retry/types": [
+        "/Users/zcl/.dsh/source/current/packages/llm/llm-retry/lib/types/types.d.ts"
+      ],
+      "@deepseek-ai/dsh-session": [
+        "/Users/zcl/.dsh/source/current/packages/core/session/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-session/types": [
+        "/Users/zcl/.dsh/source/current/packages/core/session/lib/types/types.d.ts"
+      ],
+      "@deepseek-ai/dsh-session-projection": [
+        "/Users/zcl/.dsh/source/current/packages/session-projection/session-projection/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-session-projection/types": [
+        "/Users/zcl/.dsh/source/current/packages/session-projection/session-projection/lib/types/types.d.ts"
+      ],
+      "@deepseek-ai/dsh-commands/brand": [
+        "/Users/zcl/.dsh/source/current/packages/ui/commands/lib/types/brand.d.ts"
+      ],
+      "@deepseek-ai/dsh-tools/presentation": [
+        "/Users/zcl/.dsh/source/current/packages/core/tools/lib/types/presentation.d.ts"
+      ],
+      "@deepseek-ai/dsh-user-approval/types": [
+        "/Users/zcl/.dsh/source/current/packages/ui/user-approval/lib/types/types.d.ts"
+      ],
+      "@deepseek-ai/dsh-user-interaction/types": [
+        "/Users/zcl/.dsh/source/current/packages/ui/user-interaction/lib/types/types.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
+}
