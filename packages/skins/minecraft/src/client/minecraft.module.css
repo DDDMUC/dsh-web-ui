@@ -18,8 +18,9 @@ body[data-dsh-minecraft] {
   --dsw-font-family: 'Courier New', 'PingFang SC', 'Microsoft YaHei', 'SimSun', monospace;
   --ds-font-family-code: 'Courier New', 'Consolas', monospace;
   color: #e7ead7;
-  /* Fallback backdrop; normally hidden under the skybox. */
-  background-color: #18221b;
+  /* Fallback backdrop: sky-coloured, so any skybox seam still reads as
+     sky instead of black. */
+  background: linear-gradient(180deg, #84d0f6 0%, #b4e3f9 62%, #f0faf3 100%);
 }
 
 /* --- Panorama skybox ------------------------------------------------------------
@@ -36,6 +37,9 @@ body[data-dsh-minecraft] {
   /* Wide FOV (≈71°) like the game's title screen: at 60vmax faces the
      whole side scene fits in view, not a magnified centre sliver. */
   perspective: 70vmax;
+  /* Fallback backdrop the colour of the sky: if a seam ever peeks
+     through between cube faces it reads as sky, never as black. */
+  background: linear-gradient(180deg, #84d0f6 0%, #b4e3f9 62%, #f0faf3 100%);
   pointer-events: none;
 }
 
@@ -58,12 +62,17 @@ body[data-dsh-minecraft] {
 
 .mcFace {
   position: absolute;
-  left: -30vmax;
-  top: -30vmax;
-  width: 60vmax;
-  height: 60vmax;
+  /* 0.3vmax of overlap on every side hides the classic 3-D cube seam
+     artifacts along the face edges while rotating. The camera sits
+     inside the cube, so faces are always seen from the front and
+     backface rendering can be disabled entirely. */
+  left: -30.3vmax;
+  top: -30.3vmax;
+  width: 60.6vmax;
+  height: 60.6vmax;
   background-size: cover;
   image-rendering: pixelated;
+  backface-visibility: hidden;
 }
 
 .mcFace1 { transform: translateZ(30vmax); }
