@@ -56,8 +56,17 @@ function report(msg) {
   console.log(`[link-profile] ${msg}`)
 }
 
-const packages = familyPackages()
-report(`found ${packages.length} family package(s) under packages/`)
+/**
+ * Packages owned by the official dsh bundle layer (the dsh base/web-app
+ * bundles ship them and the loader link-layer sync pins them back to the
+ * source checkout on every boot). Linking them here would fight the sync;
+ * leave them to the official layer. dsh-client-ui-skin-xp is the default
+ * skin bundled with @deepseek-ai/dsh-web-app.
+ */
+const OFFICIAL_BUNDLE_PACKAGES = new Set(['dsh-client-ui-skin-xp'])
+
+const packages = familyPackages().filter((p) => !OFFICIAL_BUNDLE_PACKAGES.has(p.name))
+report(`found ${familyPackages().length} family package(s) under packages/ (${packages.length} managed, ${familyPackages().length - packages.length} owned by official bundles)`)
 if (DRY) report('--dry-run: no changes will be made')
 
 if (!existsSync(LINK_DIR)) {
