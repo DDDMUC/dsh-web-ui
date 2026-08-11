@@ -9,7 +9,7 @@
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
 import type { RpcError, WorkspaceId } from '@deepseek-ai/dsh-client-connection/client'
-import type { KlineCandleView } from '@deepseek-ai/dsh-host-apiproxy'
+import type { KlineCandleView } from './kline-view.ts'
 
 /** One workspace's K-line state as UI consumers see it. */
 export interface WorkspaceKlineState {

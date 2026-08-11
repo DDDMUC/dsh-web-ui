@@ -1,44 +1,31 @@
 {
-  "extends": "../../../tsconfig.base.json",
+  // Type sources are the personal profile checkout built declarations
+  // (~/.dsh/source/current — the running dsh worktree, which carries the
+  // token-meter liveTokenUsage customization this plugin registers into).
+  // paths resolve every reachable specifier against the .d.ts outputs
+  // (declaration files are exempt from rootDir); the token-meter client
+  // types and the session-projection map augmentation are localized in
+  // src/types/token-meter.d.ts.
+  "extends": "../../../test-zhu1090093659/tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "lib/types",
     "jsx": "react-jsx",
-    "lib": ["ES2024", "DOM", "DOM.Iterable"]
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "paths": {
+      "cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
+      "schemastery": ["/Users/zcl/.dsh/source/current/vendor/schemastery/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session": ["/Users/zcl/.dsh/source/current/packages/core/session/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-llm": ["/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session-projection": ["/Users/zcl/.dsh/source/current/packages/session/session-projection/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session-projection/types": ["/Users/zcl/.dsh/source/current/packages/session/session-projection/lib/types/types.d.ts"],
+      "@deepseek-ai/dsh-client-runtime/client": ["/Users/zcl/.dsh/source/current/packages/client/runtime/lib/types/client/index.d.ts"],
+      "@deepseek-ai/dsh-client-ui-conversation/client": ["/Users/zcl/.dsh/source/current/packages/client/ui-conversation/lib/types/client/index.d.ts"],
+      "@deepseek-ai/dsh-client-ui-slots": ["/Users/zcl/.dsh/source/current/packages/client/ui-slots/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-invariants": ["/Users/zcl/.dsh/source/current/packages/support/invariants/lib/types/index.d.ts"]
+    }
   },
   "include": [
     "src"
-  ],
-  "references": [
-    {
-      "path": "../../../vendor/cordis"
-    },
-    {
-      "path": "../../../vendor/schemastery"
-    },
-    {
-      "path": "../../core/session"
-    },
-    {
-      "path": "../../llm/llm"
-    },
-    {
-      "path": "../../llm/token-meter"
-    },
-    {
-      "path": "../../session/session-projection"
-    },
-    {
-      "path": "../../client/runtime"
-    },
-    {
-      "path": "../../client/ui-conversation"
-    },
-    {
-      "path": "../../client/ui-slots"
-    },
-    {
-      "path": "../../support/invariants"
-    }
   ]
 }

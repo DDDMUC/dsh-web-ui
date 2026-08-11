@@ -16,6 +16,9 @@ dsh-web-ui/
 │   ├── pet/               @deepseek-ai/dsh-pet                       鲸鱼娘宠物
 │   ├── remote-web-ui/     @deepseek-ai/dsh-remote-web-ui             手机远程控制
 │   ├── working-activity/  @deepseek-ai/dsh-working-activity          工作状态行
+│   ├── code-kline/        @deepseek-ai/dsh-code-kline                 代码工作量 K 线（host）
+│   ├── ui-code-kline/     @deepseek-ai/dsh-client-ui-code-kline       代码工作量 K 线（client）
+│   ├── live-stats/        @deepseek-ai/dsh-live-stats                 实时 token 估算与吞吐
 │   ├── skins/             皮肤集合（qq98/ths/xp/blue-fantasy/dragon-heir/skin-center/web）
 │   ├── dsh-skins/         @deepseek-ai/dsh-skins      皮肤聚合插件（装它 = 全部皮肤包 + 皮肤中心）
 │   └── web-ui-all/        @deepseek-ai/dsh-web-ui-all  全家桶聚合插件（装它 = 全部功能插件 + 皮肤全家桶）
@@ -70,6 +73,9 @@ dsh-skin use blue-fantasy   # 或 qq98 / ths / xp / dragon-heir
 | @deepseek-ai/dsh-pet | 鲸鱼娘宠物挂件 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/pet` |
 | @deepseek-ai/dsh-remote-web-ui | 手机远程控制 Web GUI | `dsh plugin --profile web add link:<dsh-web-ui>/packages/remote-web-ui` |
 | @deepseek-ai/dsh-working-activity | 工作状态行：模型实时活动（思考 / 工具 / 回合摘要） | `dsh plugin --profile web add link:<dsh-web-ui>/packages/working-activity` |
+| @deepseek-ai/dsh-code-kline | 代码工作量 K 线（host）：按工作区 git 历史聚合日线 OHLC 蜡烛 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/code-kline` |
+| @deepseek-ai/dsh-client-ui-code-kline | 代码工作量 K 线（client）：侧边栏迷你图 + 个股页图表面 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/ui-code-kline` |
+| @deepseek-ai/dsh-live-stats | 实时 token 估算与生成吞吐（composer 统计区） | `dsh plugin --profile web add link:<dsh-web-ui>/packages/live-stats` |
 | @deepseek-ai/dsh-skins | 皮肤聚合插件：全部皮肤包 + 皮肤中心一次到位 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins` |
 | @deepseek-ai/dsh-web-ui-all | 全家桶聚合插件：以上全部插件 + 皮肤全家桶 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all` |
 
@@ -181,6 +187,9 @@ dsh-skin use blue-fantasy   # or qq98 / ths / xp / dragon-heir
 | @deepseek-ai/dsh-pet | Whale pet widget | `dsh plugin --profile web add link:<dsh-web-ui>/packages/pet` |
 | @deepseek-ai/dsh-remote-web-ui | Remote control of the Web GUI from a phone | `dsh plugin --profile web add link:<dsh-web-ui>/packages/remote-web-ui` |
 | @deepseek-ai/dsh-working-activity | Working status line: live model activity (thinking / tools / turn summary) | `dsh plugin --profile web add link:<dsh-web-ui>/packages/working-activity` |
+| @deepseek-ai/dsh-code-kline | Code-workload K-line (host): daily OHLC candles over per-workspace git history | `dsh plugin --profile web add link:<dsh-web-ui>/packages/code-kline` |
+| @deepseek-ai/dsh-client-ui-code-kline | Code-workload K-line (client): sidebar mini chart + quote chart surface | `dsh plugin --profile web add link:<dsh-web-ui>/packages/ui-code-kline` |
+| @deepseek-ai/dsh-live-stats | Live token estimates + generation throughput (composer stats) | `dsh plugin --profile web add link:<dsh-web-ui>/packages/live-stats` |
 | @deepseek-ai/dsh-skins | Skins aggregate: every skin package + skin-center in one go | `dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins` |
 | @deepseek-ai/dsh-web-ui-all | Family aggregate: all of the above plugins + the skin family | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all` |
 

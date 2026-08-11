@@ -1,5 +1,9 @@
 {
-  "extends": "../../../tsconfig.base.json",
+  // Type sources are the DSH checkout at ~/code/test-zhu1090093659 (built
+  // declarations via tsc -b references). Originally developed inside the DSH
+  // monorepo; after the dsh-web-ui consolidation it builds standalone with
+  // the same references one level deeper.
+  "extends": "../../../test-zhu1090093659/tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "lib/types"
@@ -9,16 +13,16 @@
   ],
   "references": [
     {
-      "path": "../../../vendor/cordis"
+      "path": "../../../test-zhu1090093659/vendor/cordis"
     },
     {
-      "path": "../../../vendor/schemastery"
+      "path": "../../../test-zhu1090093659/vendor/schemastery"
     },
     {
-      "path": "../../workspace/workspace"
+      "path": "../../../test-zhu1090093659/packages/workspace/workspace"
     },
     {
-      "path": "../../support/invariants"
+      "path": "../../../test-zhu1090093659/packages/support/invariants"
     }
   ]
 }

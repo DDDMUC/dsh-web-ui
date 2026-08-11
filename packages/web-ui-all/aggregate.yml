@@ -7,6 +7,9 @@ patchFrom:
   - ../pet
   - ../remote-web-ui
   - ../working-activity
+  - ../code-kline
+  - ../ui-code-kline
+  - ../live-stats
   - ../dsh-skins
 deps:
   - ../task-board
@@ -14,4 +17,7 @@ deps:
   - ../pet
   - ../remote-web-ui
   - ../working-activity
+  - ../code-kline
+  - ../ui-code-kline
+  - ../live-stats
   - ../dsh-skins

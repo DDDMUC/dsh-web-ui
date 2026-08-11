@@ -51,10 +51,10 @@
         "/Users/zcl/.dsh/source/current/packages/core/scope/lib/types"
       ],
       "cordis": [
-        "/Users/zcl/code/dsh-task-board/node_modules/cordis/lib/index.d.ts"
+        "/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"
       ],
       "schemastery": [
-        "/Users/zcl/code/dsh-task-board/node_modules/schemastery/lib/index.d.ts"
+        "/Users/zcl/.dsh/source/current/vendor/schemastery/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-host-apiproxy": [
         "/Users/zcl/.dsh/source/current/packages/host/apiproxy/lib/types/index.d.ts"

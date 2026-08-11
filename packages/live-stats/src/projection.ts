@@ -1,4 +1,8 @@
 import { z } from 'zod'
+// Type-only: pulls the session-projection map table (merge-extensible) so the
+// liveTokenUsage projection key registers against it (augmentation lives in
+// @deepseek-ai/dsh-token-meter/projection).
+import type {} from '@deepseek-ai/dsh-session-projection/types'
 import type { Message, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { EpochHeader, SessionEvent, SurfaceEvent } from '@deepseek-ai/dsh-session'
 import { isSurfaceEvent } from '@deepseek-ai/dsh-session'

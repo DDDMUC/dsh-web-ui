@@ -27,6 +27,21 @@
     - id: working-activity
       name: '@deepseek-ai/dsh-working-activity'
 
+# from ../code-kline
+- insert:
+    - id: code-kline
+      name: '@deepseek-ai/dsh-code-kline'
+
+# from ../ui-code-kline
+- insert:
+    - id: ui-code-kline
+      name: '@deepseek-ai/dsh-client-ui-code-kline'
+
+# from ../live-stats
+- insert:
+    - id: live-stats
+      name: '@deepseek-ai/dsh-live-stats'
+
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:
     - id: ui-skin-center

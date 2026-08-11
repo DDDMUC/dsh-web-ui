@@ -1,6 +1,6 @@
-import { clientBundle } from '../tsdown.client.ts'
+import { clientBundle } from '../skins/tsdown.client.ts'
 
 export default clientBundle('@deepseek-ai/dsh-client-ui-code-kline', [
-  'lib/types/index.js',
-  'lib/types/invariant.js',
+  'src/index.ts',
+  'src/invariant.ts',
 ])
