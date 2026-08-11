@@ -1,0 +1,23 @@
+{
+  "extends": "../test-zhu1090093659/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "jsx": "react-jsx",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../test-zhu1090093659/vendor/cordis" },
+    { "path": "../test-zhu1090093659/vendor/schemastery" },
+    { "path": "../test-zhu1090093659/packages/client/connection" },
+    { "path": "../test-zhu1090093659/packages/client/locale" },
+    { "path": "../test-zhu1090093659/packages/client/runtime" },
+    { "path": "../test-zhu1090093659/packages/client/ui-primitives" },
+    { "path": "../test-zhu1090093659/packages/client/ui-sidebar" },
+    { "path": "../test-zhu1090093659/packages/client/ui-slots" },
+    { "path": "../test-zhu1090093659/packages/client/web-react" },
+    { "path": "../test-zhu1090093659/packages/host/webserver" },
+    { "path": "../test-zhu1090093659/packages/support/invariants" }
+  ]
+}
