@@ -366,19 +366,18 @@ body[data-dsh-minecraft] {
   --dsw-static-neutral-bluish-100: #d4d8de;
   --dsw-static-neutral-bluish-150: #c8cdd5;
   --dsw-static-neutral-bluish-200: #bcc2cc;
-  --dsw-static-neutral-bluish-250: #b0b7c2;
   --dsw-static-neutral-bluish-300: #9ea7b4;
   --dsw-static-neutral-bluish-400: #848f9f;
   --dsw-static-neutral-bluish-500: #6b7788;
   --dsw-static-neutral-bluish-50: #e8eaee;
   --dsw-static-neutral-bluish-600: #586475;
   --dsw-static-neutral-bluish-60: #e2e5ea;
-  --dsw-static-neutral-bluish-650: #4b5565;
   --dsw-static-neutral-bluish-700: #3d4654;
   --dsw-static-neutral-bluish-75: #dde1e7;
   --dsw-static-neutral-bluish-750: #333b47;
   --dsw-static-neutral-bluish-800: #2a313b;
   --dsw-static-neutral-bluish-850: #22282f;
+  --dsw-static-neutral-bluish-875: #1f252c;
   --dsw-static-neutral-bluish-900: #1c2127;
   --dsw-static-neutral-bluish-950: #14181d;
 }
@@ -394,8 +393,12 @@ body[data-dsh-minecraft] {
   --dsw-alias-label-primary: #e7ead7;
   --dsw-alias-label-primary-bluish: #d4e4d4;
   --dsw-alias-label-primary-dimmed: #c4cbb2;
-  --dsw-alias-label-primary-foreground: #0e1217;
-  --dsw-alias-label-primary-inverted: #0e1217;
+  /* Foreground of solid fills (primary buttons, error labels): those fills
+     are dark slate/lapis here, so the on-fill text must stay light. */
+  --dsw-alias-label-primary-foreground: #eef4fb;
+  /* Inverted-surface label (brand icons): surfaces are dark slate in both
+     themes here, so keep it light. */
+  --dsw-alias-label-primary-inverted: #eef4fb;
   --dsw-alias-label-secondary: #b3bda3;
   --dsw-alias-label-tertiary: #8b9680;
   --dsw-alias-label-quaternary: #6b7561;
@@ -419,8 +422,10 @@ body[data-dsh-minecraft] {
   --dsw-alias-markdown-tag: #2b4f78;
   --dsw-alias-markdown-placeholder: #8b9680;
   --dsw-alias-markdown-citation: #212d26;
-  --dsw-alias-scrollbar-bg-l: rgba(13, 22, 16, 0.5);
-  --dsw-alias-scrollbar-hover-l: #a8b9d2;
+  --dsw-alias-scrollbar-bg-l1: rgba(13, 22, 16, 0.5);
+  --dsw-alias-scrollbar-bg-l2: rgba(13, 22, 16, 0.5);
+  --dsw-alias-scrollbar-hover-l1: #a8b9d2;
+  --dsw-alias-scrollbar-hover-l2: #a8b9d2;
   --dsw-alias-button-primary-fill: #2b4f78;
   --dsw-alias-button-primary-hover: #38628f;
   --dsw-alias-button-primary-dimmed: rgba(43, 79, 120, 0.55);
