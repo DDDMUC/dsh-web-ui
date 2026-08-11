@@ -1,3 +1,11 @@
 packages:
   - 'packages/*'
   - 'packages/skins/*'
+
+# Peer APIs (@deepseek-ai/dsh-*, cordis, react) resolve at runtime from the
+# dsh profile tree, never from this repo's own install — matching the
+# turtle-ui convention used by the bundled plugins.
+autoInstallPeers: false
+
+allowBuilds:
+  esbuild: true
