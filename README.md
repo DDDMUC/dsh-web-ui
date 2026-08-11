@@ -35,6 +35,10 @@ dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all
 
 # 仅皮肤全家桶（全部皮肤包 + 皮肤中心）
 dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins
+
+# 本机 loader 解析层（~/.dsh/profiles/node_modules/@deepseek-ai）
+# 建立/刷新全家桶链接，幂等可重复运行
+node scripts/link-profile.mjs
 ```
 
 ### 独立安装
