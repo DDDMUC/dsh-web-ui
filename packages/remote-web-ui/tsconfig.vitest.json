@@ -1,5 +1,5 @@
 {
-  "extends": "../test-zhu1090093659/tsconfig.base.json",
+  "extends": "../../../test-zhu1090093659/tsconfig.base.json",
   "compilerOptions": {
     "composite": false,
     "declaration": false,

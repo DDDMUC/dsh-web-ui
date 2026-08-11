@@ -71,7 +71,8 @@ describe('ActivityTracker idle and waiting', () => {
     clock.advance(1000)
     const state = tracker.render()
     expect(state.phase).toBe('waiting')
-    expect(state.line).toContain('总1s')
+    expect(state.line).not.toContain('总')
+    expect(state.line).not.toContain('·')
   })
 
   it('moves to thinking on the first streamed reasoning delta', () => {
@@ -82,12 +83,13 @@ describe('ActivityTracker idle and waiting', () => {
     clock.advance(5000)
     const state = tracker.render()
     expect(state.phase).toBe('thinking')
-    expect(state.line).toContain('总5s')
+    expect(state.line).not.toContain('总')
+    expect(state.line).not.toContain('·')
   })
 })
 
 describe('ActivityTracker tool phases', () => {
-  it('shows the playful action, detail, and tool elapsed while a tool runs', () => {
+  it('shows the playful action and detail while a tool runs', () => {
     const clock = fixedClock()
     const tracker = new ActivityTracker(LIVE_CONFIG, clock.now)
     tracker.onSessionEvent(turnStart(clock.now()))
@@ -95,10 +97,11 @@ describe('ActivityTracker tool phases', () => {
     clock.advance(12_000)
     const state = tracker.render()
     expect(state.phase).toBe('tool')
-    // The action verb is drawn at random from the bash pool; the detail and
-    // elapsed time are deterministic.
+    // The action verb is drawn at random from the bash pool; the detail is
+    // deterministic. In-progress lines carry no elapsed time at all.
     expect(state.line).toContain('npm test')
-    expect(state.line).toContain('12s')
+    expect(state.line).not.toContain('12s')
+    expect(state.line).not.toContain('·')
     expect(state.label).toBeDefined()
     expect(state.detail).toBe('npm test')
   })
@@ -142,7 +145,7 @@ describe('ActivityTracker tool phases', () => {
     expect(state.line).toContain('config.json')
   })
 
-  it('renders a summary at turn end with thinking/tool split', () => {
+  it('renders a bare done line without the stats segment', () => {
     const clock = fixedClock()
     const tracker = new ActivityTracker(LIVE_CONFIG, clock.now)
     tracker.onSessionEvent(turnStart(clock.now()))
@@ -154,7 +157,9 @@ describe('ActivityTracker tool phases', () => {
     tracker.onSessionEvent(turnEnd(clock.now()))
     const state = tracker.render()
     expect(state.phase).toBe('done')
-    expect(state.line).toContain('1 工具')
+    // The tool/time stats segment is dropped from the done line.
+    expect(state.line).not.toContain('工具')
+    expect(state.line).not.toContain('想')
     expect(tracker.stats()).toMatchObject({ toolCount: 1, toolMs: 4000, thinkingMs: 3000 })
   })
 
@@ -174,9 +179,9 @@ describe('ActivityTracker minimal mode', () => {
     const tracker = new ActivityTracker(MINIMAL_CONFIG, clock.now)
     tracker.onSessionEvent(turnStart(clock.now()))
     clock.advance(1000)
-    expect(tracker.render().line).toBe('等待模型响应 · 总1s')
+    expect(tracker.render().line).toBe('等待模型响应')
     tracker.onSessionEvent(reasoningDelta(clock.now()))
-    expect(tracker.render().line).toBe('思考中 · 总1s')
+    expect(tracker.render().line).toBe('思考中')
     tracker.onSessionEvent(toolCall(clock.now(), 'c1', 'bash', JSON.stringify({ command: 'npm test' })))
     expect(tracker.render().line).toContain('bash npm test')
   })

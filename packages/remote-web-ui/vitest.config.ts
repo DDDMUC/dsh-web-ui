@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [tsconfigPaths({
     projects: [
       './tsconfig.vitest.json',
-      '../test-zhu1090093659/tsconfig.base.json',
+      '../../../test-zhu1090093659/tsconfig.base.json',
     ],
   })],
   test: {

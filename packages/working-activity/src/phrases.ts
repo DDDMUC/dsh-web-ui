@@ -8,7 +8,10 @@
 /** A pool of copy fragments. */
 export type PhrasePool = readonly string[]
 
-/** Pick one random entry; repeated draws avoid the previous entry when possible. */
+/** Pick one random entry; repeated draws avoid the previous entry when possible.
+ * @param entries - The copy pool to draw from.
+ * @param previous - The previously shown entry to avoid, when any.
+ * @returns A random pool entry, never `previous` when the pool has alternatives. */
 export function pickPhrase(entries: PhrasePool, previous?: string): string {
   if (entries.length === 0) throw new Error('pickPhrase() requires a non-empty pool')
   if (entries.length === 1) return entries[0] as string
@@ -38,6 +41,9 @@ export const THINKING_PHRASES: readonly string[] = [
   'ok', 'um', 'heh', 'uh', 'nah', 'mm', 'wow', 'nice', 'rgrg', 'okk', 'hhh', 'emm', 'emmm',
   'CPU烧了', '让我打个log看看', '先跑一下试试', '定位一下', '排查一下', '看看日志',
   'loading 99%', '让我捋一下逻辑',
+  // deepseek-pp 宠物台词（thinking / speaking / confused / idle）
+  '沉思中…', '推敲中…', '反复琢磨', '阐释中', '徐徐展开', '灵感涌现',
+  '大脑乱码', '重新整理中', '晃来晃去', '嬉戏中', '戳一戳', '放空中',
 ]
 
 /** Tiered phrases when thinking runs long (elapsed >= threshold). */
@@ -96,6 +102,8 @@ export const FAIL_PHRASES: readonly string[] = [
   '我本地能跑啊', '昨天还能跑', '重启试试', '清一下缓存', '删了重装', '你刷新一下', '环境问题',
   '少了个分号', '拼错了', '没保存', '又不是不能用', '绷不住了', '难绷', '卒', '裂开',
   '血压上来了', '缓存害我', '再给我一次机会', '这波大意了', '手滑', '回滚重来', '换个姿势',
+  // deepseek-pp 宠物台词（error；'出岔子了' 已在上面）
+  '卡壳了…', '系统打嗝',
 ]
 
 /** Turn-completion phrases. */
@@ -105,6 +113,8 @@ export const DONE_PHRASES: readonly string[] = [
   '搞定收工', '收！', '完事！', '下一题', '能跑！', '没报错', '过了', '上线！', '稳了', '6',
   '完工！', '完美收场', '这波不亏', '一次过', '收工摸鱼', '漂亮', '全绿', '干净利落',
   '手到擒来', '水到渠成', '下班！', '歇口气', '交接完成', '工单关闭', '收尾完毕',
+  // deepseek-pp 宠物台词（success；'收工！' 已在上面）
+  '大功告成', '搞定！',
 ]
 
 /** Night-owl phrases mixed in between 00:00 and 06:00 local time. */
@@ -112,12 +122,16 @@ export const NIGHT_PHRASES: readonly string[] = [
   '修仙中…', '深夜冒泡', '你也是夜猫子呀', '月亮不睡我不睡', '夜里脑子慢，谅解', '晚安？还早呢',
   '深夜盘东西', '熬夜冠军上线', '困了，但能行', '过了零点照样肝', '夜猫子出没', '深夜档营业',
   '星星都睡了', '凌晨还在盘', '深夜上线', '凌晨部署', '通宵了',
+  // deepseek-pp 宠物台词（sleepy）
+  'Zzz…', '困了…', '打个盹',
 ]
 
 /** Common git tool names / bash commands containing `git `. */
 export const GIT_TOOL_RE = /^(?:git|git_diff|git_commit|git_push|git_pull|git_checkout|git_branch|git_merge|git_rebase|github|gh)$/i
 
-/** Detect the 00:00–06:00 night window (local time). */
+/** Detect the 00:00–06:00 night window (local time).
+ * @param hour - Local wall-clock hour (0–23).
+ * @returns Whether the hour falls in the night window. */
 export function isNight(hour: number): boolean {
   return hour >= 0 && hour < 6
 }
@@ -127,7 +141,7 @@ export function isNight(hour: number): boolean {
  * @param elapsedMs - Milliseconds spent thinking in the current phase.
  * @param previous - Previously shown phrase, to avoid repeats.
  * @param night - Mix night-owl copy into the pool.
- */
+ * @returns A thinking phrase appropriate for the elapsed time. */
 export function thinkingPhrase(elapsedMs: number, previous?: string, night = false): string {
   let pool: readonly string[] = THINKING_PHRASES
   for (const tier of THINKING_TIERS) {
@@ -146,7 +160,7 @@ export function thinkingPhrase(elapsedMs: number, previous?: string, night = fal
  * Map a tool name to a playful action verb.
  * @param toolName - Registry tool name (unqualified).
  * @param custom - Exact-name custom action pools, matched case-insensitively.
- */
+ * @returns A playful action verb for the tool. */
 export function actionFor(toolName: string, custom?: Readonly<Record<string, readonly string[]>>): string {
   const normalized = toolName.trim().toLowerCase()
   const customPool = custom?.[normalized]
@@ -157,7 +171,10 @@ export function actionFor(toolName: string, custom?: Readonly<Record<string, rea
   return pickPhrase(FALLBACK_ACTIONS)
 }
 
-/** Whether a tool is a git operation (name match, or a shell command containing `git `). */
+/** Whether a tool is a git operation (name match, or a shell command containing `git `).
+ * @param toolName - Registry tool name (unqualified).
+ * @param args - Parsed tool arguments, when available (shell-command git detection).
+ * @returns Whether the operation is a git operation. */
 export function isGitTool(toolName: string, args?: Readonly<Record<string, unknown>>): boolean {
   if (GIT_TOOL_RE.test(toolName.trim())) return true
   if (/^(?:bash|shell|cmd|powershell|pwsh)$/i.test(toolName.trim())) {
@@ -167,7 +184,9 @@ export function isGitTool(toolName: string, args?: Readonly<Record<string, unkno
   return false
 }
 
-/** Format milliseconds as a compact human duration (`1m23s`). */
+/** Format milliseconds as a compact human duration (`1m23s`).
+ * @param ms - Elapsed milliseconds.
+ * @returns The compact duration string. */
 export function fmtDuration(ms: number): string {
   if (ms < 1000) return '0s'
   const total = Math.floor(ms / 1000)

@@ -1,5 +1,5 @@
 {
-  "extends": "../test-zhu1090093659/tsconfig.base.json",
+  "extends": "../../../test-zhu1090093659/tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "lib/types",
@@ -37,12 +37,12 @@
     "src/css-modules.d.ts"
   ],
   "references": [
-    { "path": "../test-zhu1090093659/vendor/cordis" },
-    { "path": "../test-zhu1090093659/packages/client/connection" },
-    { "path": "../test-zhu1090093659/packages/client/locale" },
-    { "path": "../test-zhu1090093659/packages/client/runtime" },
-    { "path": "../test-zhu1090093659/packages/client/ui-conversation" },
-    { "path": "../test-zhu1090093659/packages/client/ui-primitives" },
-    { "path": "../test-zhu1090093659/packages/client/ui-slots" }
+    { "path": "../../../test-zhu1090093659/vendor/cordis" },
+    { "path": "../../../test-zhu1090093659/packages/client/connection" },
+    { "path": "../../../test-zhu1090093659/packages/client/locale" },
+    { "path": "../../../test-zhu1090093659/packages/client/runtime" },
+    { "path": "../../../test-zhu1090093659/packages/client/ui-conversation" },
+    { "path": "../../../test-zhu1090093659/packages/client/ui-primitives" },
+    { "path": "../../../test-zhu1090093659/packages/client/ui-slots" }
   ]
 }

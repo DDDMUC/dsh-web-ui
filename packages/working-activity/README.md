@@ -18,6 +18,26 @@ Two optional sinks, both off by default only when their seam is absent:
 
 ## Installation
 
+As a bundle in the dsh-web-ui monorepo (this repo), install with the official profile command:
+
+```sh
+dsh plugin --profile web add link:<dsh-web-ui>/packages/working-activity
+```
+
+or install the whole family in one shot via the aggregate bundle:
+
+```sh
+dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all
+```
+
+The bundle patch inserts the host-side plugin row (`working-activity`). The Web UI
+half (TurnStatus label + WorkingLine) is integrated into the official client
+packages via `patches/webui-working-activity.patch` — apply it to the DSH source
+checkout (the file documents the exact diff) for full Web UI support; the host
+half (TUI slot + session events) works without it.
+
+Standalone installation (cordis.yml):
+
 ```yaml
 # cordis.yml
 plugins:

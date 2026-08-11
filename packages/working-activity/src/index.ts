@@ -18,7 +18,8 @@
 import type { Context } from 'cordis'
 import z from 'schemastery'
 import type { Session } from '@deepseek-ai/dsh-session'
-import type { AgentStatus } from '@deepseek-ai/dsh-agent'
+// Type-only: pulls the agent plugin's event merge (ctx.on 'agent/status').
+import type {} from '@deepseek-ai/dsh-agent'
 // Type-only: resolves ctx.systemPrompt for the narration section injection.
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import { ActivityTracker } from './status.ts'
@@ -189,7 +190,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     if (activeSession === session) activeSession = undefined
   })
 
-  ctx.on('agent/status', (agent, status: AgentStatus) => {
+  ctx.on('agent/status', ({ agent, status }) => {
     const session = agent.session
     const tracker = trackerFor(session)
     tracker.onAgentStatus(status)

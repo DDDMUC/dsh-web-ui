@@ -14,9 +14,9 @@ import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import * as WorkingActivity from '@deepseek-ai/dsh-working-activity'
+import * as WorkingActivity from '../src/index.ts'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
-import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
+import { MockAdapter, textResponse, toolCallResponse } from '../../../test-zhu1090093659/packages/core/agent-loop/tests/mock-adapter.ts'
 
 /** Wire-narrowed view of the published snapshot (host merge not needed here). */
 interface ActivitySnapshot {
@@ -63,7 +63,7 @@ async function harness(adapter: MockAdapter): Promise<Context> {
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
   return new Promise((resolve) => {
-    const dispose = ctx.on('agent/status', (subject, status) => {
+    const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
         resolve()
@@ -101,7 +101,7 @@ describe('working-activity through the agent loop', () => {
     const toolLines = events.filter(event => event.data.phase === 'tool').map(event => event.data.line)
     expect(toolLines[0]).toContain('src/dir')
     const done = events.findLast(event => event.data.phase === 'done')
-    expect(done?.data.line).toContain('1 工具')
+    expect(done?.data.line).not.toContain('工具')
   })
 
   it('a failed tool flags the done line', async () => {
@@ -136,7 +136,9 @@ describe('working-activity through the agent loop', () => {
     for (const event of activityEvents(agent.session.events)) {
       const data = event.data as Record<string, unknown>
       expect(data.phase).toBeTruthy()
-      expect(data.line).toBeTruthy()
+      // Idle snapshots hide the status line by design (line: ''); every other
+      // phase must carry a rendered line.
+      expect(data.phase === 'idle' ? data.line === '' : data.line).toBeTruthy()
       expect(JSON.stringify(data)).toBe(JSON.stringify(JSON.parse(JSON.stringify(data))))
     }
   })

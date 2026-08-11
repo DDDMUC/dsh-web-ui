@@ -8,7 +8,7 @@
 
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import {
-  actionFor, fmtDuration, isGitTool, isNight, pickPhrase, thinkingPhrase,
+  actionFor, isGitTool, isNight, pickPhrase, thinkingPhrase,
   WAITING_PHRASES, DONE_PHRASES, FAIL_PHRASES,
 } from './phrases.ts'
 
@@ -93,7 +93,8 @@ function shorten(value: string, limit: number): string {
  * Extract a displayable detail fragment from a tool call's parsed arguments.
  * @param toolName - Registry tool name.
  * @param args - Parsed tool arguments (lossless JSON by registry contract).
- */
+ * @param limit - Maximum displayed length (shortened with an ellipsis).
+ * @returns The displayable detail fragment, or '' when nothing is extractable. */
 export function detailFor(toolName: string, args: Readonly<Record<string, unknown>> | undefined, limit: number): string {
   if (args === undefined) return ''
   const pickString = (...keys: readonly string[]): string => {
@@ -152,8 +153,6 @@ export class ActivityTracker {
   private lastChunkAt = 0
   /** Rolling stream buffer (reasoning + text deltas) for `⏵` extraction. */
   private recentStream = ''
-  /** Total tokens reported across the turn's assistant messages. */
-  private turnTokens = 0
   /** Completion prefix drawn ONCE at turn end so the done line stays stable. */
   private donePrefix = '搞定 ✓'
 
@@ -168,7 +167,8 @@ export class ActivityTracker {
     private readonly customActions?: Readonly<Record<string, readonly string[]>>,
   ) {}
 
-  /** Agent transitioned to running/idle. */
+  /** Agent transitioned to running/idle.
+   * @param status - The agent's new running state. */
   onAgentStatus(status: 'idle' | 'running'): void {
     if (status === 'idle') {
       // The turn end already moved us to the done phase; idle only clears the
@@ -183,7 +183,8 @@ export class ActivityTracker {
     }
   }
 
-  /** Consume one durable session event (turn/step/tool/stream). */
+  /** Consume one durable session event (turn/step/tool/stream).
+   * @param event - One durable session event. */
   onSessionEvent(event: SessionEvent): void {
     switch (event.type) {
       case 'turn/start': {
@@ -193,7 +194,6 @@ export class ActivityTracker {
         this.thinkingMs = 0
         this.toolMs = 0
         this.toolCount = 0
-        this.turnTokens = 0
         this.activeTools.clear()
         this.doneQueue = []
         this.waitingFirstToken = true
@@ -220,14 +220,6 @@ export class ActivityTracker {
           this.recentStream = (this.recentStream + chunk.text).slice(-STREAM_BUFFER_CHARS)
           const narration = extractNarration(this.recentStream)
           if (narration !== null) this.narratedText = narration
-        }
-        return
-      }
-      case 'assistant/message': {
-        const usage = event.data.usage
-        if (usage !== undefined) {
-          this.turnTokens += usage.inputTokens + usage.outputTokens
-            + (usage.cacheReadTokens ?? 0) + (usage.cacheWriteTokens ?? 0)
         }
         return
       }
@@ -305,7 +297,9 @@ export class ActivityTracker {
     }
   }
 
-  /** Render the current status snapshot at a wall-clock instant. */
+  /** Render the current status snapshot at a wall-clock instant.
+   * @param nowMs - Wall-clock instant to render at.
+   * @returns The status snapshot at that instant. */
   render(nowMs: number = this.now()): ActivityState {
     switch (this.phase) {
       case 'idle':
@@ -333,12 +327,11 @@ export class ActivityTracker {
           return this.renderThinking(nowMs)
         }
         const fragment = toolFragment(tool)
-        const elapsed = fmtDuration(Math.max(0, nowMs - tool.startedAt))
         const git = tool.isGit ? ' · git' : ''
         const narration = this.freshNarration(nowMs)
         const line = narration === null
-          ? `${fragment} · ${elapsed}${git}`
-          : `⏵ ${narration} · ${fragment} · ${elapsed}${git}`
+          ? `${fragment}${git}`
+          : `⏵ ${narration} · ${fragment}${git}`
         return {
           phase: 'tool',
           line,
@@ -361,7 +354,8 @@ export class ActivityTracker {
     }
   }
 
-  /** Per-turn thinking/tooling split for stats consumers. */
+  /** Per-turn thinking/tooling split for stats consumers.
+   * @returns The per-turn thinking/tooling split. */
   stats(): TurnStats {
     return {
       thinkingMs: this.thinkingMs,
@@ -374,12 +368,11 @@ export class ActivityTracker {
     const thinkingMs = this.phase === 'waiting'
       ? 0
       : this.thinkingMs + Math.max(0, nowMs - this.thinkingStartedAt)
-    const elapsed = fmtDuration(this.turnElapsedMs(nowMs))
     const narration = this.freshNarration(nowMs)
     if (narration !== null) {
       return {
         phase: this.phase,
-        line: `⏵ ${narration} · 总${elapsed}`,
+        line: `⏵ ${narration}`,
         phrase: narration,
         toolCount: this.toolCount,
         turnElapsedMs: this.turnElapsedMs(nowMs),
@@ -400,7 +393,7 @@ export class ActivityTracker {
         : thinkingPhrase(thinkingMs, undefined, isNight(new Date(nowMs).getHours())))
       return {
         phase: this.phase,
-        line: `${phrase} · 总${elapsed}`,
+        line: phrase,
         phrase,
         toolCount: this.toolCount,
         turnElapsedMs: this.turnElapsedMs(nowMs),
@@ -410,7 +403,7 @@ export class ActivityTracker {
     const label = this.phase === 'waiting' ? '等待模型响应' : '思考中'
     return {
       phase: this.phase,
-      line: `${label} · 总${elapsed}`,
+      line: label,
       label,
       toolCount: this.toolCount,
       turnElapsedMs: this.turnElapsedMs(nowMs),
@@ -419,16 +412,14 @@ export class ActivityTracker {
   }
 
   private doneSummary(nowMs: number): { line: string; phrase?: string } {
-    const { thinkingMs, toolMs, toolCount } = this.stats()
-    const tokens = this.turnTokens > 0 ? ` · 🔥 ${fmtTokens(this.turnTokens)}` : ''
-    const base = `${this.donePrefix} · ${toolCount} 工具 · 想${fmtDuration(thinkingMs)} 干${fmtDuration(toolMs)}${tokens}`
+    const base = this.donePrefix
     if (!this.config.phrases) {
-      return { line: `搞定 ✓ · ${toolCount} 工具 · 想${fmtDuration(thinkingMs)} 干${fmtDuration(toolMs)}${tokens}` }
+      return { line: '搞定 ✓' }
     }
     const last = this.doneQueue.at(-1)
     if (last !== undefined && nowMs - last.endedAt < DONE_FRAGMENT_MS) {
       const fragment = toolFragment(last)
-      return { line: `${this.donePrefix} · ${fragment} · ${toolCount} 工具${tokens}`, phrase: this.donePrefix }
+      return { line: `${this.donePrefix} · ${fragment}`, phrase: this.donePrefix }
     }
     return { line: base, ...(this.donePrefix === '搞定 ✓' ? {} : { phrase: this.donePrefix }) }
   }
@@ -469,7 +460,9 @@ const STREAM_BUFFER_CHARS = 300
 /** A narration stays visible this long after the stream went quiet. */
 const NARRATE_GRACE_MS = 5000
 
-/** Extract the latest `⏵` self-narration line from a stream buffer. */
+/** Extract the latest `⏵` self-narration line from a stream buffer.
+ * @param buffer - Rolling stream text.
+ * @returns The latest narration text, or null when none is present. */
 export function extractNarration(buffer: string): string | null {
   const matches = [...buffer.matchAll(/⏵\s*([^\n⏵]{1,40})/g)]
   if (matches.length === 0) return null
@@ -477,13 +470,6 @@ export function extractNarration(buffer: string): string | null {
   if (latest === undefined) return null
   const text = latest.replace(/[。．.!！,，、;；]+$/, '').trim()
   return text.length === 0 ? null : text
-}
-
-/** Format a token count compactly (`12.3k`, `1.2M`). */
-function fmtTokens(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`
-  return String(tokens)
 }
 
 /** Parse a tool call's raw arguments JSON defensively. */

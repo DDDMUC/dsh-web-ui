@@ -32,7 +32,7 @@ export interface ActivityStatusEvent {
 /** The `activity/status` phase vocabulary, exported for wire consumers. */
 export type { ActivityPhase }
 
-declare module '@deepseek-ai/dsh-session' {
+declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
     /**
      * Log-only UI snapshot of the model's working activity (thinking copy,

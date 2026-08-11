@@ -99,8 +99,8 @@ describe('ActivityTracker narration', () => {
   })
 })
 
-describe('ActivityTracker token summary', () => {
-  it('appends the turn token total to the done line', () => {
+describe('ActivityTracker done line', () => {
+  it('keeps the output-token rate off the done line', () => {
     const clock = fixedClock()
     const tracker = new ActivityTracker(LIVE_CONFIG, clock.now)
     tracker.onSessionEvent(turnStart(clock.now()))
@@ -113,10 +113,11 @@ describe('ActivityTracker token summary', () => {
       },
       usage: { inputTokens: 100, outputTokens: 1234, cacheReadTokens: 200 },
     }))
+    clock.advance(1000)
     tracker.onSessionEvent(turnEnd(clock.now()))
     const state = tracker.render()
     expect(state.phase).toBe('done')
-    expect(state.line).toContain('🔥 1.5k')
+    expect(state.line).not.toContain('⚡')
   })
 })
 
