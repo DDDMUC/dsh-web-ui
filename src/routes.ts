@@ -10,9 +10,53 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { isTrustedApiRequest } from '@deepseek-ai/dsh-client-connection'
 import { UnknownLanAddressError, type PairingService, type PairingSnapshot } from './pairing.ts'
-import { readCookie } from './gate.ts'
+import { isLoopbackHostname, readCookie } from './gate.ts'
+
+/**
+ * Browser-trust fence for the /api/pair routes, mirroring the connection
+ * package's internal fence semantics (Host/Origin based, DNS-rebinding and
+ * cross-site defense). The connection package no longer exports its trust
+ * predicate — the fence for the /api prefix lives inside the connection
+ * plugin — so the pairing routes, which must stay reachable from LAN phones
+ * ahead of the connection prefix route (exact routes match first), carry
+ * their own copy scoped to the literals the QR links advertise.
+ * @param request - the node HTTP request.
+ * @param trustedHosts - non-loopback authorities this surface serves: exact
+ * `host:port`, or port-less `host` matching any port.
+ * @returns true when the Host is ours (loopback or trusted) and any attached
+ * browser markers are same-origin.
+ */
+function isTrustedApiRequest(request: IncomingMessage, trustedHosts: readonly string[]): boolean {
+  const host = request.headers.host
+  if (typeof host !== 'string') return false
+  let hostUrl: URL
+  try {
+    hostUrl = new URL(`http://${host}`)
+  } catch {
+    return false
+  }
+  const hostname = hostUrl.hostname
+  const trusted = isLoopbackHostname(hostname) || trustedHosts.some(entry => {
+    // A port-less entry matches the hostname on any port; an exact host:port
+    // entry matches that authority verbatim (WHATWG normalization both sides).
+    const entryUrl = new URL(`http://${entry}`)
+    return entryUrl.port === '' ? entryUrl.hostname === hostname : entryUrl.host === hostUrl.host
+  })
+  if (!trusted) return false
+  // Cross-site fence: an explicit cross-site marker is refused regardless of
+  // Origin (modern browsers label the initiator on every fetch).
+  if (request.headers['sec-fetch-site'] === 'cross-site') return false
+  // Origin fence: when a browser attaches an Origin it must be exactly this
+  // authority; absent Origin is fine — the Host fence already bound it.
+  const origin = request.headers.origin
+  if (origin === undefined) return true
+  try {
+    return new URL(origin).host === hostUrl.host
+  } catch {
+    return false
+  }
+}
 
 /** Cap on pairing request bodies (tokens and workspace ids are tiny). */
 const MAX_BODY_BYTES = 4096

@@ -45,14 +45,14 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ],
+      "platform": "web"
     }
-  },
-  "dshClient": {
-    "inject": [
-      "@deepseek-ai/dsh-client-runtime",
-      "@deepseek-ai/dsh-client-ui-sidebar"
-    ],
-    "platform": "web"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -12,8 +12,25 @@
  */
 
 import type { IncomingMessage } from 'node:http'
-import { isLoopbackHostname } from '@deepseek-ai/dsh-client-connection'
 import type { PairingService } from './pairing.ts'
+
+/**
+ * Whether a normalized URL hostname names the local loopback authority.
+ * Semantics mirror the connection package's internal predicate (localhost,
+ * IPv6 loopback, any IPv4 address in 127/8); it is reimplemented here because
+ * the connection package no longer exports it — the fence now lives inside
+ * the connection plugin, and external host plugins only need the
+ * classification, not the whole trust decision.
+ * @param hostname - WHATWG URL hostname (IPv6 literals retain brackets).
+ * @returns true for localhost, IPv6 loopback, or any IPv4 address in 127/8.
+ */
+export function isLoopbackHostname(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname === '[::1]') return true
+  const parts = hostname.split('.')
+  return parts.length === 4
+    && parts[0] === '127'
+    && parts.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+}
 
 /**
  * Read one cookie value from a Cookie header.

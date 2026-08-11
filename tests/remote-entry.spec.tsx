@@ -175,25 +175,22 @@ describe('RemoteEntry', () => {
   })
 })
 
-describe('apply compat seam', () => {
-  it('prefers slots.inject when the runtime provides it', async () => {
+describe('apply registration', () => {
+  it('registers the sidebar entry through declaration-aware slots.inject', async () => {
     const { apply } = await import('../src/client/index.ts')
     const injected: string[] = []
     const ctx = {
       effect: (fn: () => unknown) => fn(),
       locale: { register: () => () => {}, bind: () => (key: string) => key },
+      slots: {
+        inject: (key: string) => { injected.push(key); return () => {} },
+        register: () => () => {},
+      },
       get: (name: string) => {
-        if (name === 'slots') {
-          return {
-            inject: (key: string) => { injected.push(key); return () => {} },
-            register: () => () => {},
-          }
-        }
         if (name === 'connection') return { isLoopback: true }
         return undefined
       },
     }
-    // The compat branch must not call deferRegistration on a missing export.
     apply(ctx as never)
     expect(injected).toEqual(['sidebar.remote'])
   })

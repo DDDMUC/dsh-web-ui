@@ -9,14 +9,31 @@
  */
 
 import { setInterval as nodeSetInterval } from 'node:timers'
+import type { IncomingMessage } from 'node:http'
 import type { Context } from 'cordis'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import type {} from '@deepseek-ai/dsh-client-connection'
 import { PairingService } from './pairing.ts'
 import { makeGateListener } from './gate.ts'
 import { makeRoutes } from './routes.ts'
 import { lanIPv4Addresses } from './lan.ts'
+
+declare module 'cordis' {
+  interface Events {
+    /**
+     * Waterfall seam on the /api transport fence: the connection plugin
+     * fires this per /api request before bridging to the API proxy on
+     * deployments that carry the pairing/revocation seam; call `next()` to
+     * delegate, return false (without calling it) to veto with 403.
+     */
+    'api/gate'(
+      this: Context,
+      request: IncomingMessage,
+      method: string | undefined,
+      next: () => boolean | Promise<boolean>,
+    ): boolean | Promise<boolean>
+  }
+}
 
 /** Stable cordis plugin name. */
 export const name = 'remote-web-ui'

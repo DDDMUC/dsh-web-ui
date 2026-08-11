@@ -9,7 +9,6 @@
 import { createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import { deferRegistration } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale) and the
 // ui-sidebar SlotMap merge (the 'sidebar.remote' hole).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -31,6 +30,21 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** Mobile remote-control surface copy. */
     remote: RemoteKey
   }
+
+  interface SlotMap {
+    /**
+     * The sidebar foot seat beside the settings trigger, declared by the
+     * sidebar shell on deployments that carry the feature seat; the shell
+     * passes only its column display state.
+     */
+    'sidebar.remote': { kind: 'single'; scope: 'root'; owner: SidebarRemoteOwnerProps }
+  }
+}
+
+/** Owner share of the sidebar remote-control seat: the column display state the trigger renders against. */
+export interface SidebarRemoteOwnerProps {
+  /** Whether the sidebar renders wide content (false = 56px rail). */
+  wide: boolean
 }
 
 /** Dictionary namespace owned by this plugin. */
@@ -38,22 +52,6 @@ const NS = 'remote'
 
 /** Heartbeat cadence from a paired phone (presence + revocation liveness). */
 const HEARTBEAT_INTERVAL_MS = 10_000
-
-/**
- * The slots-service face this plugin needs, narrowed across harness
- * versions: the snapshot-era API registers through `deferRegistration`
- * (spec/entries/subscribe on the service), while newer checkouts add the
- * declaration-aware `slots.inject` method. The plugin detects the newer
- * surface at runtime and falls back to the deferral helper — the bundle
- * must run against whatever harness serves it.
- */
-interface RemoteSlotsCompat {
-  inject?(key: string, callback: () => () => void): () => void
-  register(options: { name: string; locale?: string }, component: unknown): () => void
-  spec?(name: string): unknown
-  entries?(name: string): readonly { component: unknown }[]
-  subscribe?(name: string, listener: () => void): () => void
-}
 
 /** Services required by this plugin. */
 export const inject = ['slots', 'locale', 'connection']
@@ -68,25 +66,12 @@ export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
 
   // Sidebar foot entry: the shell declares 'sidebar.remote' in unconstrained
-  // order, so registration is declaration-aware (slots.inject on newer
-  // harnesses, deferRegistration on the snapshot-era surface).
-  const slots = ctx.get('slots') as unknown as RemoteSlotsCompat
+  // order, so registration is declaration-aware — slots.inject waits on the
+  // declaration, removes the contribution when it collapses, and re-runs
+  // after a redeclaration.
   const registerEntry = (): (() => void) =>
-    slots.register({ name: 'sidebar.remote', locale: NS }, RemoteEntry)
-  if (typeof slots.inject === 'function') {
-    ctx.effect(
-      () => slots.inject!('sidebar.remote', registerEntry),
-      'remote-web-ui: sidebar entry',
-    )
-  } else {
-    ctx.effect(() => {
-      // The deferral branch only runs on snapshot-era harnesses, where the
-      // spec/entries/subscribe face is present (the compat type narrows it).
-      const registry = slots as unknown as Parameters<typeof deferRegistration>[0]
-      const entry = deferRegistration(registry, 'sidebar.remote', RemoteEntry, registerEntry)
-      return () => { entry.dispose() }
-    }, 'remote-web-ui: sidebar entry')
-  }
+    ctx.slots.register({ name: 'sidebar.remote', locale: NS }, RemoteEntry)
+  ctx.slots.inject('sidebar.remote', registerEntry)
 
   // Phone-side boot flow + heartbeats. Loopback pages (the desktop) never
   // heartbeat; the server ignores unpaired heartbeats anyway.

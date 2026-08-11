@@ -130,7 +130,10 @@ This plugin rides three harness seams that may not exist in older checkouts:
   run on a plain-HTTP LAN page at all (the mobile side of this feature).
 
 The fence helpers (`isTrustedApiRequest` / `isLoopbackHostname`) are
-re-exported by `@deepseek-ai/dsh-client-connection` for the pairing routes.
+reimplemented locally in `src/gate.ts` / `src/routes.ts`: the 20260810
+upstream moved the trust fence inside the connection plugin and stopped
+exporting them, so the pairing routes carry their own copy scoped to the
+literals the QR links advertise.
 See the Agent Notes `api-gate-and-sidebar-remote-seat` and
 `lan-runtime-connection-fixes` in the harness checkout.
 
