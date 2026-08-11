@@ -61,6 +61,18 @@ dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all
 
 重启 `dsh web`，确认聚合包插件行挂载生效。调试阶段也可先单独安装单包（`link:<dsh-web-ui>/packages/<name>`）验证。
 
+## 第三方插件准入原则
+
+家族仓库欢迎社区插件，但收编必须透明：
+
+1. **活跃且有上游的第三方 → 不搬代码**。优先 fork 到 dsh-external 组织维护（保留上游关联，可随时 merge 上游更新），或作为依赖引用；全家桶只注册其安装入口。
+2. **收编条件**（无活跃上游、上游已停更、或作者明确授权组织托管）：
+   - 用 `git subtree add` 迁入，保留完整 git 历史；
+   - **必须**保留上游 LICENSE 文件与作者署名（包内 LICENSE、README 作者声明）；
+   - 在包 README 记录来源仓库与迁移日期；
+   - 版权归原作者，本仓库仅托管，不主张版权。
+3. **合规红线**：无 LICENSE、作者未授权、或版权归属不明的代码，一律不收编。
+
 ## 插件规范要点
 
 - **package.json 的 `dsh.bundle.patch` 声明**：指向包内 `cordis.patch.yml`，这是官方 bundle 清单，`dsh plugin` 依赖它识别与挂载插件。

@@ -81,6 +81,17 @@ dsh-skin use blue-fantasy   # 或 qq98 / ths / xp / dragon-heir
 
 > `working-activity` 的 Web 半区有限制：浏览器端需要把其 `patches/webui-working-activity.patch` 应用到 DSH 源码（见包内 README / patches）；host 半区可直接以 bundle 安装。
 
+## 来源与版权
+
+| 包 | 来源 | 版权 |
+| --- | --- | --- |
+| task-board / git-graph / pet / remote-web-ui | dsh-external 组织自有，2026-08 由独立仓库迁入（git 历史随 subtree 保留） | BSD-3-Clause（dsh-external contributors） |
+| working-activity | 社区插件，作者 chimney（ccch1mneyyy），原发布于 dsh-external/dsh-working-activity | MIT（版权归作者本人，LICENSE 保留于包内） |
+| code-kline / ui-code-kline / live-stats | 原为 DSH 源码定制集成（packages/activity、packages/client），2026-08 迁入 | BSD-3-Clause |
+| skins / dsh-skins / web-ui-all | 本仓库原生 | BSD-3-Clause |
+
+维护规则：迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。详见 [docs/plugins.md](docs/plugins.md)。
+
 ## 新增插件
 
 新插件先用脚手架生成标准 bundle 骨架，实现后再注册进聚合包。完整流程见 [docs/plugins.md](docs/plugins.md)：
@@ -194,6 +205,19 @@ dsh-skin use blue-fantasy   # or qq98 / ths / xp / dragon-heir
 | @deepseek-ai/dsh-web-ui-all | Family aggregate: all of the above plugins + the skin family | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all` |
 
 > `working-activity` web-side caveat: its browser half requires applying `patches/webui-working-activity.patch` to the DSH source checkout (see its package README / patches); the host half installs as a plain bundle.
+
+## Sources & Licensing
+
+| Package | Origin | License |
+| --- | --- | --- |
+| task-board / git-graph / pet / remote-web-ui | dsh-external org-owned, consolidated 2026-08 from standalone repos (git history preserved via subtree) | BSD-3-Clause (dsh-external contributors) |
+| working-activity | Community plugin by chimney (ccch1mneyyy), originally published at dsh-external/dsh-working-activity | MIT (copyright held by the author; LICENSE kept in the package) |
+| code-kline / ui-code-kline / live-stats | Formerly in-source customizations of the DSH checkout (packages/activity, packages/client), consolidated 2026-08 | BSD-3-Clause |
+| skins / dsh-skins / web-ui-all | Native to this repo | BSD-3-Clause |
+
+Policy: third-party code merged in must keep its LICENSE and attribution;
+active third parties with an upstream are forked or referenced as
+dependencies instead of vendored. See [docs/plugins.md](docs/plugins.md).
 
 ## Adding a Plugin
 
