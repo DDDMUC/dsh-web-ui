@@ -50,6 +50,9 @@ body[data-dsh-minecraft] {
   width: 0;
   height: 0;
   transform-style: preserve-3d;
+  /* Promote to its own compositor layer: the cube rotates continuously,
+     so hint the browser to keep it off the main thread. */
+  will-change: transform;
   /* One panorama revolution in 90s — the same unhurried drift as the
      Minecraft main menu. */
   animation: mc-pan 90s linear infinite;
@@ -58,6 +61,17 @@ body[data-dsh-minecraft] {
 @keyframes mc-pan {
   from { transform: rotateY(0deg); }
   to { transform: rotateY(360deg); }
+}
+
+/* Motion-sensitivity: freeze the panorama and drop the haze so the app
+   stays calm for prefers-reduced-motion users. */
+@media (prefers-reduced-motion: reduce) {
+  .mcSkybox {
+    animation: none;
+  }
+  .mcScrim {
+    background: rgba(6, 10, 7, 0.3);
+  }
 }
 
 .mcFace {
@@ -111,8 +125,10 @@ body[data-dsh-minecraft] [id='root'] {
 
 /* The official layout paints an opaque panel (the .frame layer) as the
    first child of #root; it must become translucent or the panorama behind
-   the app never shows through. */
-body[data-dsh-minecraft] [id='root'] > div {
+   the app never shows through. Targeted at the frame (the direct child
+   that holds the data-pane columns) so future unrelated direct children
+   of #root are not affected. */
+body[data-dsh-minecraft] [id='root'] > div:has([data-pane]) {
   background: transparent;
 }
 
@@ -123,7 +139,7 @@ body[data-dsh-minecraft][data-ds-dark-theme] [id='root'] {
     0 10px 42px rgba(0, 0, 0, 0.7);
 }
 
-body[data-dsh-minecraft][data-ds-dark-theme] [id='root'] > div {
+body[data-dsh-minecraft][data-ds-dark-theme] [id='root'] > div:has([data-pane]) {
   background: transparent;
 }
 
