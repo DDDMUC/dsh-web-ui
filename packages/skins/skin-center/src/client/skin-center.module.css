@@ -1,33 +1,86 @@
 /* In-GUI skin center styles. Scoped under the skin-center body attribute
-   (set by apply(), removed on dispose) so the panel keeps its chrome while
+   (set by apply(), removed on dispose) so the card keeps its chrome while
    any skin is live — including during try-on, when the active skin's own
    attribute is temporarily retracted. All colors ride the GUI's --dsw-alias-*
    semantic tokens (label/bg/border/brand/state), which the shell redefines
-   under body[data-ds-dark-theme] — so the panel adapts to the dark theme and
+   under body[data-ds-dark-theme] — so the card adapts to the dark theme and
    is themed by the active (or tried-on) skin automatically. Never use bare
    hex here: a token-less rule is a light-theme-only bug. */
 
-body[data-dsh-skin-center] .section {
+/* The plugin card itself: one disclosure card in the Web UI plugin group. */
+body[data-dsh-skin-center] .pluginCard {
+  list-style: none;
+  border: 1px solid var(--dsw-alias-border-l1, #e2e8f0);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2, #ffffff);
+  overflow: hidden;
+}
+
+body[data-dsh-skin-center] .cardHeader {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+body[data-dsh-skin-center] .cardHeader:hover {
+  background: var(--dsw-alias-bg-layer-1, #f1f5f9);
+}
+
+body[data-dsh-skin-center] .headText {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 2px 0 18px;
-  color: var(--dsw-alias-label-primary, inherit);
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+body[data-dsh-skin-center] .pluginName {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, #172a45);
+}
+
+body[data-dsh-skin-center] .cardDescription {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-secondary, #6b7280);
+}
+
+body[data-dsh-skin-center] .chevron,
+body[data-dsh-skin-center] .chevronOpen {
+  flex: none;
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary, #6b7280);
+  transition: transform 120ms ease;
+}
+
+body[data-dsh-skin-center] .chevronOpen {
+  transform: rotate(180deg);
+}
+
+body[data-dsh-skin-center] .cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--dsw-alias-border-l1, #e2e8f0);
 }
 
 body[data-dsh-skin-center] .head {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-body[data-dsh-skin-center] .title {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
 }
 
 body[data-dsh-skin-center] .titleBadge {

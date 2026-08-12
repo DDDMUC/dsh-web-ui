@@ -1,7 +1,9 @@
 # Skin Center（GUI 内嵌皮肤中心）
 
 `@deepseek-ai/dsh-client-ui-skin-center`（cordis 插件 id `ui-skin-center`）把皮肤列表/试穿/应用
-内嵌进真实 dsh Web GUI 的设置页，作为独立的 Skins（皮肤）分区。
+内嵌进真实 dsh Web GUI 的插件配置页，作为「Web UI 插件」组里的一张卡片
+（设置 → 插件配置 → Web UI 插件 → 皮肤中心），与 task-board / pet / live-stats 等
+全家桶插件同一套槽位（`web-ui.plugin.item`），不占设置页一级导航。
 
 - 列表：展示仓库里全部皮肤（qq98 / ths / xp / blue-fantasy）的名称、tagline、强调色；
   当前激活的皮肤带 Active 标记。
@@ -40,8 +42,8 @@ skins/skin-center/
   package.json / tsdown.config.ts / tsconfig.json   # checkout 内构建所需的元数据
   src/index.ts                                       # host 侧（无行为）
   src/invariant.ts                                   # invariant 伴随插件（无断言）
-  src/client/index.ts                                # apply：注册 Skins 设置分区 + body 作用域
-  src/client/SkinCenter.tsx                          # 分区组件（列表/试穿/亮暗/复制命令）
+  src/client/index.ts                                # apply：注册 Web UI 插件组卡片 + body 作用域
+  src/client/SkinCenter.tsx                          # 卡片组件（列表/试穿/亮暗/复制命令）
   src/client/try-on.ts                               # 试穿引擎（真实 loader + 互斥还原）
   src/client/locales.ts                              # en/zh 文案
   src/client/skin-center.module.css                  # 面板样式（--dsw-* token，随皮肤自适应）
@@ -90,7 +92,7 @@ ln -sfn ~/code/dsh-web-ui/skins/skin-center \
 #       - id: ui-skin-center
 #         name: '@deepseek-ai/dsh-client-ui-skin-center'
 
-# 3. 配置 watcher 秒级热载入；刷新页面即出现设置页 Skins 分区
+# 3. 配置 watcher 秒级热载入；刷新页面即在 插件配置 → Web UI 插件 组里看到皮肤中心卡片
 ```
 
 ## 试穿互斥的还原配方（try-on.ts）
@@ -104,7 +106,7 @@ ln -sfn ~/code/dsh-web-ui/skins/skin-center \
 
 ## 验收对照（README 顶层契约）
 
-- [x] 设置页出现 Skins 分区，无 console 报错
+- [x] 插件配置 → Web UI 插件 组里出现皮肤中心卡片，无 console 报错
 - [x] 列表 ≥4 皮肤，当前激活有标记
 - [x] 试穿真实生效（chrome/背景/标题/favicon），亮/暗正确
 - [x] 退出完全还原；互斥（不出现两套标题栏）

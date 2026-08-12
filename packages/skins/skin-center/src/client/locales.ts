@@ -1,12 +1,15 @@
 /**
- * Skin-center locale dictionaries. The settings nav label and every control
- * of the in-GUI skin center is localized through the standard `t` seat.
+ * Skin-center locale dictionaries. The plugin-card name, its description,
+ * and every control of the in-GUI skin center is localized through the
+ * standard `t` seat.
  */
 
 /** Copy keys owned by this plugin. */
 export type SkinCenterKey =
-  | 'nav'
   | 'title'
+  | 'cardDescription'
+  | 'expand'
+  | 'collapse'
   | 'intro'
   | 'active'
   | 'tryingOn'
@@ -23,8 +26,10 @@ export type SkinCenterKey =
   | 'tryOnError'
 
 export const en: Record<SkinCenterKey, string> = {
-  nav: 'Skins',
   title: 'Skin Center',
+  cardDescription: 'Try on any installed skin live in the GUI — exit restores instantly, applying persists via one terminal command.',
+  expand: 'Expand',
+  collapse: 'Collapse',
   intro: 'Try on any skin live — it takes effect instantly, exit restores the current look. Applying persists it across restarts.',
   active: 'Active',
   tryingOn: 'Trying on',
@@ -42,8 +47,10 @@ export const en: Record<SkinCenterKey, string> = {
 }
 
 export const zh: Record<SkinCenterKey, string> = {
-  nav: '皮肤',
   title: '皮肤中心',
+  cardDescription: '在 GUI 内即时试穿任意皮肤，退出即完全还原；应用需在终端执行一条命令。',
+  expand: '展开',
+  collapse: '收起',
   intro: '任意皮肤可即时试穿，退出即完全还原；「应用」需在终端执行一条命令完成持久化。',
   active: '当前激活',
   tryingOn: '试穿中',

@@ -128,7 +128,7 @@ window.__ModuleLoader__.load({
 				"bodyAttr": "data-dsh-minecraft",
 				"package": "@deepseek-ai/dsh-client-ui-skin-minecraft",
 				"order": 6,
-				"bundle": "window.__ModuleLoader__.load({\n	id: \"@deepseek-ai/dsh-client-ui-skin-minecraft\",\n	factory: (require) => {\n		var module = { exports: {} };\n		var exports = module.exports;\n		Object.defineProperty(exports, Symbol.toStringTag, { value: \"Module\" });\n		//#region \\0dsh-css:/Users/zcl/code/dsh-web-ui/packages/skins/minecraft/src/client/minecraft.module.css.mjs\n		const css = \"body[data-dsh-minecraft]{--dsw-font-family:\\\"Courier New\\\", \\\"PingFang SC\\\", \\\"Microsoft YaHei\\\", \\\"SimSun\\\", monospace;--ds-font-family-code:\\\"Courier New\\\", \\\"Consolas\\\", monospace;color:#e9e4d6;background-color:#151a21}.IGNzMG_mcStage{z-index:0;perspective:1600px;pointer-events:none;position:fixed;inset:0;overflow:hidden}.IGNzMG_mcSkybox{width:0;height:0;transform-style:preserve-3d;animation:90s linear infinite IGNzMG_mc-pan;position:absolute;top:50%;left:50%}@keyframes IGNzMG_mc-pan{0%{transform:rotateY(0)}to{transform:rotateY(360deg)}}.IGNzMG_mcFace{width:140vmax;height:140vmax;image-rendering:pixelated;background-size:cover;position:absolute;top:-70vmax;left:-70vmax}.IGNzMG_mcFace1{transform:translateZ(70vmax)}.IGNzMG_mcFace2{transform:rotateY(180deg)translateZ(70vmax)}.IGNzMG_mcFace3{transform:rotateY(-90deg)translateZ(70vmax)}.IGNzMG_mcFace4{transform:rotateY(90deg)translateZ(70vmax)}.IGNzMG_mcFaceTop{transform:rotateX(90deg)translateZ(70vmax)}.IGNzMG_mcFaceBottom{transform:rotateX(-90deg)translateZ(70vmax)}.IGNzMG_mcScrim{z-index:0;pointer-events:none;background:#0a0e135c;position:fixed;inset:0}body[data-dsh-minecraft][data-ds-dark-theme] .IGNzMG_mcScrim{background:#04070b6b}body[data-dsh-minecraft] [id=root]{z-index:1;background:#0f141ba8;border:2px solid #0b0f14;position:relative;box-shadow:inset 0 0 0 1px #ffffff0d,0 10px 42px #0000008c}body[data-dsh-minecraft] [id=root]>div{background:0 0}body[data-dsh-minecraft][data-ds-dark-theme] [id=root]{background:#070a0fc7;box-shadow:inset 0 0 0 1px #ffffff08,0 10px 42px #000000b3}body[data-dsh-minecraft][data-ds-dark-theme] [id=root]>div{background:0 0}body[data-dsh-minecraft] [data-pane=sidebar]>div,body[data-dsh-minecraft] [data-pane=conversation],body[data-dsh-minecraft] [data-pane=details]{background:#0e131a7a}body[data-dsh-minecraft] [data-pane=sidebar],body[data-dsh-minecraft] [data-pane=conversation]>div{background:0 0}body[data-dsh-minecraft][data-ds-dark-theme] [data-pane=sidebar]>div,body[data-dsh-minecraft][data-ds-dark-theme] [data-pane=conversation],body[data-dsh-minecraft][data-ds-dark-theme] [data-pane=details]{background:#05080c8c}body[data-dsh-minecraft][data-ds-dark-theme] [data-pane=conversation]>div{background:0 0}body[data-dsh-minecraft] button{font-family:var(--dsw-font-family);color:#fff;text-shadow:1px 1px #00000080;background-color:#8b8b8b;background-image:repeating-linear-gradient(0deg,#0000001a 0 2px,#0000 2px 4px),repeating-linear-gradient(90deg,#ffffff0d 0 2px,#0000 2px 4px);border:2px solid #101418;border-radius:0;font-weight:700;box-shadow:inset 0 2px #ffffff73,inset 2px 0 #ffffff47,inset -2px 0 #0000004d,inset 0 -3px #00000073}body[data-dsh-minecraft] button:hover:not(:disabled){color:#ffffa0;background-color:#a8b9d2;box-shadow:inset 0 2px #ffffff8c,inset 2px 0 #ffffff61,inset -2px 0 #00000040,inset 0 -3px #00000059}body[data-dsh-minecraft] button:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 1px #ffffff4d,inset 0 0 0 1px #00000040,inset 0 -2px #0000008c}body[data-dsh-minecraft] button:disabled{color:#ffffff73;background-color:#6b6b6b;box-shadow:inset 0 2px #fff3,inset 0 -3px #0000004d}body[data-dsh-minecraft] input:not([type=checkbox]):not([type=radio]),body[data-dsh-minecraft] textarea,body[data-dsh-minecraft] select{font-family:var(--dsw-font-family);color:#f5ecd8;text-shadow:1px 1px #00000059;background-color:#9a6238;background-image:radial-gradient(3px at 10px 9px,#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at calc(100% - 10px) 9px,#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at 10px calc(100% - 9px),#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at calc(100% - 10px) calc(100% - 9px),#261a0ef2 2px,#0000 2.5px),repeating-linear-gradient(0deg,#3a241038 0 2px,#0000 2px 5px),linear-gradient(#b5794a 0%,#96603a 100%);border:3px solid #4a2f14;border-radius:0;font-weight:600;box-shadow:inset 0 0 0 1px #00000059}body[data-dsh-minecraft] input:not([type=checkbox]):not([type=radio]):focus,body[data-dsh-minecraft] textarea:focus,body[data-dsh-minecraft] select:focus{color:#fff;border-color:#f2ead4;box-shadow:inset 0 0 0 1px #00000059,0 0 0 2px #f2ead459}body[data-dsh-minecraft] input::placeholder,body[data-dsh-minecraft] textarea::placeholder{color:#f5ecd88c;opacity:1}body[data-dsh-minecraft] select{-webkit-appearance:none;appearance:none;background-image:radial-gradient(3px at 10px 9px,#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at calc(100% - 10px) 9px,#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at 10px calc(100% - 9px),#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at calc(100% - 10px) calc(100% - 9px),#261a0ef2 2px,#0000 2.5px),repeating-linear-gradient(0deg,#3a241038 0 2px,#0000 2px 5px),linear-gradient(#b5794a 0%,#96603a 100%),url(\\\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6'%3E%3Cpath d='M0 0h8L4 6z' fill='%23362a1c'/%3E%3C/svg%3E\\\");background-position:calc(100% - 10px);background-repeat:no-repeat;padding-right:26px}body[data-dsh-minecraft] ::-webkit-scrollbar{width:13px;height:13px}body[data-dsh-minecraft] ::-webkit-scrollbar-track{background:#12171e99;border-left:2px solid #0b0f14}body[data-dsh-minecraft] ::-webkit-scrollbar-thumb{background:#7d7d7d;border:2px solid #101418;box-shadow:inset 0 2px #ffffff59,inset 0 -2px #00000059}body[data-dsh-minecraft] ::-webkit-scrollbar-thumb:hover{background:#a8b9d2}body[data-dsh-minecraft] ::-webkit-scrollbar-corner{background:0 0}body[data-dsh-minecraft] ::selection{color:#000;background:#ffffa0}body[data-dsh-minecraft] :focus-visible{outline-offset:1px;outline:2px solid #fff}body[data-dsh-minecraft] a{color:#ffffa0}body[data-dsh-minecraft] a:visited{color:#d6d69a}body[data-dsh-minecraft]{--dsw-static-amber-100:#f3e7c8;--dsw-static-amber-400:#d9a53c;--dsw-static-amber-500:#b57e1e;--dsw-static-amber-600:#9a6a17;--dsw-static-amber-900:#4a3512;--dsw-static-blue-100:#cfe0ef;--dsw-static-blue-300:#9fb9d8;--dsw-static-blue-400:#6f95c4;--dsw-static-blue-450:#557faf;--dsw-static-blue-500:#38628f;--dsw-static-blue-50:#e8eff7;--dsw-static-blue-50p:#dce8f4;--dsw-static-blue-600:#2b4f78;--dsw-static-blue-75:#d4e2f0;--dsw-static-blue-800:#1d3a5c;--dsw-static-blue-950:#122940;--dsw-static-deepseek-100:#cfe0ef;--dsw-static-deepseek-200:#b6cde3;--dsw-static-deepseek-300:#9fb9d8;--dsw-static-deepseek-400:#6f95c4;--dsw-static-deepseek-450:#557faf;--dsw-static-deepseek-500:#38628f;--dsw-static-deepseek-50:#e8eff7;--dsw-static-deepseek-600:#2b4f78;--dsw-static-deepseek-700-delete:#1d3a5c;--dsw-static-deepseek-800:#1d3a5c;--dsw-static-deepseek-900:#1a3350;--dsw-static-green-100:#d8e8c8;--dsw-static-green-400:#6fa84a;--dsw-static-green-500:#4f8a33;--dsw-static-green-900:#2a4020;--dsw-static-neutral-00:#fff;--dsw-static-neutral-1000:#000;--dsw-static-neutral-100:#d6d6d6;--dsw-static-neutral-150:#cbcbcb;--dsw-static-neutral-200:silver;--dsw-static-neutral-250:#b5b5b5;--dsw-static-neutral-300:#a8a8a8;--dsw-static-neutral-400:#8f8f8f;--dsw-static-neutral-500:#767676;--dsw-static-neutral-50:#e6e6e6;--dsw-static-neutral-550:#6a6a6a;--dsw-static-neutral-600:#5c5c5c;--dsw-static-neutral-700:#4a4a4a;--dsw-static-neutral-800:#383838;--dsw-static-neutral-850:#2e2e2e;--dsw-static-neutral-900:#242424;--dsw-static-neutral-bluish-00:#fff;--dsw-static-neutral-bluish-1000:#000;--dsw-static-neutral-bluish-100:#d4d8de;--dsw-static-neutral-bluish-150:#c8cdd5;--dsw-static-neutral-bluish-200:#bcc2cc;--dsw-static-neutral-bluish-250:#b0b7c2;--dsw-static-neutral-bluish-300:#9ea7b4;--dsw-static-neutral-bluish-400:#848f9f;--dsw-static-neutral-bluish-500:#6b7788;--dsw-static-neutral-bluish-50:#e8eaee;--dsw-static-neutral-bluish-600:#586475;--dsw-static-neutral-bluish-60:#e2e5ea;--dsw-static-neutral-bluish-650:#4b5565;--dsw-static-neutral-bluish-700:#3d4654;--dsw-static-neutral-bluish-75:#dde1e7;--dsw-static-neutral-bluish-750:#333b47;--dsw-static-neutral-bluish-800:#2a313b;--dsw-static-neutral-bluish-850:#22282f;--dsw-static-neutral-bluish-900:#1c2127;--dsw-static-neutral-bluish-950:#14181d;--dsw-alias-label-primary:#ece7d9;--dsw-alias-label-primary-bluish:#dce4ec;--dsw-alias-label-primary-dimmed:#c6c0b2;--dsw-alias-label-primary-foreground:#0e1217;--dsw-alias-label-primary-inverted:#0e1217;--dsw-alias-label-secondary:#b8b1a3;--dsw-alias-label-tertiary:#8e887c;--dsw-alias-label-quaternary:#6e695f;--dsw-alias-label-caption:#a39c8f;--dsw-alias-label-dimmed:#8e887c;--dsw-alias-separator-primary:#ffffff17;--dsw-alias-line-secondary:#ffffff1c;--dsw-alias-interactive-bg-hover:#ffffff12;--dsw-alias-interactive-bg-active:#ffffff1c;--dsw-alias-interactive-bg-hover-solid:#2b4f78;--dsw-alias-interactive-bg-hover-accent:#7cbd4b29;--dsw-alias-interactive-bg-hover-danger:#d45a5a29;--dsw-alias-bg-base:#14181e;--dsw-alias-bg-overlay:#070a0eb8;--dsw-alias-bg-skeleton:#232932;--dsw-alias-toast-bg:#1d2229;--dsw-alias-tooltip-bg:#1d2229;--dsw-alias-markdown-code-block:#1a1f26;--dsw-alias-markdown-code-block-banner:#232932;--dsw-alias-markdown-inline-code:#262d36;--dsw-alias-markdown-tag:#2b4f78;--dsw-alias-markdown-placeholder:#8e887c;--dsw-alias-markdown-citation:#1d2229;--dsw-alias-scrollbar-bg-l:#0d111780;--dsw-alias-scrollbar-hover-l:#a8b9d2;--dsw-alias-button-primary-fill:#2b4f78;--dsw-alias-button-primary-hover:#38628f;--dsw-alias-button-primary-dimmed:#2b4f788c;--dsw-alias-button-ghost-active-fill:#ffffff14;--dsw-alias-button-ghost-active-hover:#ffffff1f;--dsw-alias-brand-primary:#7cbd4b;--dsw-alias-brand-primary-invert:#1a2413;--dsw-alias-brand-text:#7cbd4b;--dsw-alias-state-business-primary:#7cbd4b;--dsw-alias-state-business-subtle:#7cbd4b29;--dsw-alias-state-business-tertiary:#7cbd4b17;--dsw-alias-state-success-primary:#4f8a33;--dsw-alias-state-success-secondary:#4f8a3329;--dsw-alias-state-success-tertiary:#4f8a3317;--dsw-alias-state-warn-primary:#d9a53c;--dsw-alias-state-warn-label:#f3d9a0;--dsw-alias-state-warn-secondary:#d9a53c29;--dsw-alias-state-warn-tertiary:#d9a53c17;--dsw-alias-state-error-primary:#d45a5a;--dsw-alias-state-error-secondary:#d45a5a29;--dsw-alias-state-warning-primary:#d9a53c;--dsw-specific-bubble:#23282f;--dsw-specific-bubble-highlight:#2d333c;--dsw-specific-sidebar-fill:#0d111799;--dsw-specific-sidebar-nav-item-active:#2b4f78;--dsw-specific-sidebar-nav-item-active-accent:#7cbd4b;--dsw-specific-sidebar-nav-item-hover:#282e36d9;--dsw-specific-menu:#1d2229;--dsw-specific-selector:#1d2229;--dsw-specific-tip:#1d2229;--dsw-specific-input-major:#10141ae6;--dsw-specific-login-input:#10141ae6}\";\n		const tagId = \"@deepseek-ai/dsh-client-ui-skin-minecraft/minecraft.module.css\";\n		if (typeof document !== \"undefined\" && document.querySelector(\"style[data-plugin-css=\" + JSON.stringify(tagId) + \"]\") === null) {\n			const tag = document.createElement(\"style\");\n			tag.dataset.plugin = \"@deepseek-ai/dsh-client-ui-skin-minecraft\";\n			tag.dataset.pluginCss = tagId;\n			tag.textContent = css;\n			document.head.appendChild(tag);\n		}\n		var minecraft_module_css_default = {\n			\"mc-pan\": \"IGNzMG_mc-pan\",\n			\"mcFace\": \"IGNzMG_mcFace\",\n			\"mcFace1\": \"IGNzMG_mcFace1\",\n			\"mcFace2\": \"IGNzMG_mcFace2\",\n			\"mcFace3\": \"IGNzMG_mcFace3\",\n			\"mcFace4\": \"IGNzMG_mcFace4\",\n			\"mcFaceBottom\": \"IGNzMG_mcFaceBottom\",\n			\"mcFaceTop\": \"IGNzMG_mcFaceTop\",\n			\"mcScrim\": \"IGNzMG_mcScrim\",\n			\"mcSkybox\": \"IGNzMG_mcSkybox\",\n			\"mcStage\": \"IGNzMG_mcStage\"\n		};\n		//#endregion\n		//#region src/client/index.ts\n		/** The product title the skin pins (captured by the shell's DocumentTitle after settle). */\n		const SKIN_TITLE = \"Minecraft · DeepSeek 在线\";\n		/** Resolve one module class name (fallback only satisfies the indexed-access type). */\n		const cls = (name) => minecraft_module_css_default[name] ?? \"\";\n		const PX = 8;\n		const GROUND = 280;\n		const W = 640;\n		/** One rect of the pixel scene. */\n		function r(x, y, w, h, fill, extra = \"\") {\n			return `<rect x=\"${x}\" y=\"${y}\" width=\"${w}\" height=\"${h}\" fill=\"${fill}\"${extra}/>`;\n		}\n		/** A blocky cloud: three overlapping white slabs with a top cap. */\n		function cloud(x, y, s) {\n			const u = PX * s;\n			return [\n				r(x, y + u, 3 * u, u, \"#fdfdfd\"),\n				r(x + u, y, 2 * u, u, \"#fdfdfd\"),\n				r(x + 3 * u, y + u, 2 * u, u, \"#fdfdfd\"),\n				r(x + u, y + u, u, u, \"#e6eef2\")\n			].join(\"\");\n		}\n		/** A stepped blocky hill: layers shrink by two blocks every two rows. */\n		function hill(x, blocks, height, fill, cap) {\n			let out = \"\";\n			for (let i = 0; i < height; i++) {\n				const w = Math.max(blocks - Math.floor(i / 2) * 2, 2);\n				const color = i === height - 1 && cap ? cap : fill;\n				out += r(x + (blocks - w) / 2 * PX, GROUND - (i + 1) * PX, w * PX, PX, color);\n			}\n			return out;\n		}\n		/** A blocky tree: brown trunk, layered green crown. */\n		function tree(x, scale = 1) {\n			const u = PX * scale;\n			return [\n				r(x + u, GROUND - 3 * u, 2 * u, 3 * u, \"#6b4a2b\"),\n				r(x, GROUND - 6 * u, 4 * u, 3 * u, \"#3f8f3f\"),\n				r(x + u, GROUND - 7 * u, 2 * u, u, \"#2f7a2f\")\n			].join(\"\");\n		}\n		/** A tiny flower dot sitting on the grass edge. */\n		function flower(x, y, fill) {\n			return r(x, y, 4, 4, fill);\n		}\n		/** The shared grass-block ground strip. */\n		function ground() {\n			let tufts = \"\";\n			for (let x = 8; x < W; x += 32) tufts += r(x, 288, PX, PX, \"#6faf42\");\n			return [\n				r(0, GROUND, W, PX, \"#7cbd4b\"),\n				r(0, 288, W, 80 - PX, \"#8a5a32\"),\n				tufts\n			].join(\"\");\n		}\n		/** Render one side-face scene (640x360). */\n		function panoSvg(face) {\n			let body = \"\";\n			body += r(0, 0, W, GROUND, \"url(#sky)\");\n			if (face.sun) {\n				const [sx, sy] = face.sun;\n				body += r(sx - 12, sy - 12, 36, 36, \"rgba(255,255,255,0.35)\");\n				body += r(sx, sy, 12, 12, \"#ffffff\");\n			}\n			for (const [x, y, s] of face.clouds ?? []) body += cloud(x, y, s);\n			for (const [i, [x, b, h, fill]] of (face.hills ?? []).entries()) {\n				const cap = face.caps?.includes(i) ? \"#dfeaf2\" : void 0;\n				body += hill(x, b, h, fill, cap);\n			}\n			for (const [x, s] of face.trees ?? []) body += tree(x, s);\n			for (const [x, y, fill] of face.flowers ?? []) body += flower(x, y, fill);\n			body += ground();\n			return `<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ${W} 360\" shape-rendering=\"crispEdges\"><defs><linearGradient id=\"sky\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#8fd0f5\"/><stop offset=\"0.62\" stop-color=\"#b7e2fa\"/><stop offset=\"1\" stop-color=\"#eef8fd\"/></linearGradient></defs>${body}</svg>`;\n		}\n		/** Top face: open sky with a couple of clouds (512x512). */\n		function topSvg() {\n			return `<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\" shape-rendering=\"crispEdges\"><defs><linearGradient id=\"t\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#7ec3ee\"/><stop offset=\"1\" stop-color=\"#a9dcf7\"/></linearGradient></defs>${r(0, 0, 512, 512, \"url(#t)\")}${cloud(96, 160, 2)}${cloud(280, 300, 2)}${cloud(200, 60, 1)}</svg>`;\n		}\n		/** Bottom face: grass block field seen from above (512x512). */\n		function bottomSvg() {\n			let cells = \"\";\n			for (let gx = 0; gx < 512; gx += 64) for (let gy = 0; gy < 512; gy += 64) {\n				const dark = (gx / 64 + gy / 64) % 3 === 0;\n				cells += r(gx + 16, gy + 16, 16, 16, dark ? \"#6faf42\" : \"#86c95a\");\n				cells += r(gx + 40, gy + 40, 8, 8, dark ? \"#86c95a\" : \"#6faf42\");\n			}\n			return `<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\" shape-rendering=\"crispEdges\"><rect width=\"512\" height=\"512\" fill=\"#7cbd4b\"/>${cells}</svg>`;\n		}\n		/** The four distinct horizon scenes (Mojang's panorama has six, ours has four sides). */\n		const FACES = [\n			{\n				sun: [120, 64],\n				clouds: [[\n					300,\n					90,\n					1\n				], [\n					470,\n					150,\n					1\n				]],\n				hills: [[\n					60,\n					12,\n					9,\n					\"#8fa8b8\"\n				], [\n					380,\n					16,\n					11,\n					\"#8fa8b8\"\n				]],\n				caps: [1],\n				trees: [[540, 1], [150, 1]],\n				flowers: [[\n					280,\n					1,\n					\"#f5d442\"\n				]]\n			},\n			{\n				sun: [480, 90],\n				clouds: [\n					[\n						80,\n						120,\n						1\n					],\n					[\n						250,\n						70,\n						2\n					],\n					[\n						520,\n						170,\n						1\n					]\n				],\n				hills: [\n					[\n						30,\n						10,\n						7,\n						\"#93aabb\"\n					],\n					[\n						260,\n						14,\n						10,\n						\"#7d95a5\"\n					],\n					[\n						500,\n						12,\n						8,\n						\"#93aabb\"\n					]\n				],\n				trees: [\n					[140, 2],\n					[420, 1],\n					[560, 1]\n				],\n				flowers: [[\n					220,\n					1,\n					\"#e05656\"\n				], [\n					360,\n					1,\n					\"#f5d442\"\n				]]\n			},\n			{\n				sun: [80, 130],\n				clouds: [[\n					360,\n					90,\n					2\n				], [\n					560,\n					60,\n					1\n				]],\n				hills: [[\n					150,\n					18,\n					13,\n					\"#75899a\"\n				], [\n					480,\n					14,\n					9,\n					\"#8fa8b8\"\n				]],\n				caps: [0],\n				trees: [\n					[60, 1],\n					[300, 1],\n					[430, 2],\n					[600, 1]\n				]\n			},\n			{\n				sun: [340, 70],\n				clouds: [\n					[\n						90,\n						80,\n						1\n					],\n					[\n						200,\n						160,\n						2\n					],\n					[\n						500,\n						120,\n						1\n					]\n				],\n				hills: [\n					[\n						40,\n						14,\n						10,\n						\"#7d95a5\"\n					],\n					[\n						220,\n						12,\n						8,\n						\"#8fa8b8\"\n					],\n					[\n						560,\n						16,\n						11,\n						\"#7d95a5\"\n					]\n				],\n				caps: [2],\n				trees: [[330, 1], [480, 1]],\n				flowers: [[\n					120,\n					1,\n					\"#f5d442\"\n				], [\n					400,\n					1,\n					\"#e05656\"\n				]]\n			}\n		];\n		/** One panorama face as a data-URI background image. */\n		function faceImage(svg) {\n			return `url(\"data:image/svg+xml;utf8,${encodeURIComponent(svg)}\")`;\n		}\n		/**\n		* Apply the Minecraft skin: body attribute, panorama skybox (stage + cube\n		* of six faces + dimming scrim), title. All writes are retracted by the\n		* effect disposer on dispose.\n		* @param ctx - owning context (the effect lifecycle owns retraction).\n		*/\n		function apply(ctx) {\n			const body = document.body;\n			const originalTitle = document.title;\n			body.setAttribute(\"data-dsh-minecraft\", \"\");\n			const stage = document.createElement(\"div\");\n			stage.className = cls(\"mcStage\");\n			const skybox = document.createElement(\"div\");\n			skybox.className = cls(\"mcSkybox\");\n			const sideSvg = FACES.map(panoSvg);\n			const sideNames = [\n				\"front\",\n				\"back\",\n				\"left\",\n				\"right\"\n			];\n			for (let i = 0; i < 6; i++) {\n				const face = document.createElement(\"div\");\n				face.className = `${cls(\"mcFace\")} ${cls(i < 4 ? `mcFace${i + 1}` : i === 4 ? \"mcFaceTop\" : \"mcFaceBottom\")}`;\n				face.style.backgroundImage = faceImage(i < 4 ? sideSvg[i] : i === 4 ? topSvg() : bottomSvg());\n				face.dataset.skinChrome = `face-${sideNames[i] ?? (i === 4 ? \"top\" : \"bottom\")}`;\n				skybox.append(face);\n			}\n			stage.append(skybox);\n			const scrim = document.createElement(\"div\");\n			scrim.className = cls(\"mcScrim\");\n			scrim.dataset.skinChrome = \"scrim\";\n			stage.dataset.skinChrome = \"stage\";\n			document.title = SKIN_TITLE;\n			body.append(stage, scrim);\n			ctx.effect(() => () => {\n				body.removeAttribute(\"data-dsh-minecraft\");\n				stage.remove();\n				scrim.remove();\n				if (document.title === SKIN_TITLE) document.title = originalTitle;\n			}, \"ui-skin-minecraft: panorama skybox\");\n		}\n		//#endregion\n		exports.apply = apply;\n		return module.exports;\n	}\n});\n\n//# sourceMappingURL=client.js.map"
+				"bundle": "window.__ModuleLoader__.load({\n	id: \"@deepseek-ai/dsh-client-ui-skin-minecraft\",\n	factory: (require) => {\n		var module = { exports: {} };\n		var exports = module.exports;\n		Object.defineProperty(exports, Symbol.toStringTag, { value: \"Module\" });\n		//#region \\0dsh-css:/Users/zcl/code/dsh-web-ui/packages/skins/minecraft/src/client/minecraft.module.css.mjs\n		const css = \"body[data-dsh-minecraft]{--dsw-font-family:\\\"Courier New\\\", \\\"PingFang SC\\\", \\\"Microsoft YaHei\\\", \\\"SimSun\\\", monospace;--ds-font-family-code:\\\"Courier New\\\", \\\"Consolas\\\", monospace;color:#e7ead7;background:linear-gradient(#84d0f6 0%,#b4e3f9 62%,#f0faf3 100%)}.IGNzMG_mcStage{z-index:0;perspective:70vmax;pointer-events:none;background:linear-gradient(#84d0f6 0%,#b4e3f9 62%,#f0faf3 100%);position:fixed;inset:0;overflow:hidden}.IGNzMG_mcSkybox{width:0;height:0;transform-style:preserve-3d;will-change:transform;animation:90s linear infinite IGNzMG_mc-pan;position:absolute;top:50%;left:50%}@keyframes IGNzMG_mc-pan{0%{transform:rotateY(0)}to{transform:rotateY(360deg)}}@media (prefers-reduced-motion:reduce){.IGNzMG_mcSkybox{animation:none}.IGNzMG_mcScrim{background:#060a074d}}.IGNzMG_mcFace{width:60.6vmax;height:60.6vmax;image-rendering:pixelated;backface-visibility:hidden;background-size:cover;position:absolute;top:-30.3vmax;left:-30.3vmax}.IGNzMG_mcFace1{transform:translateZ(30vmax)}.IGNzMG_mcFace2{transform:rotateY(180deg)translateZ(30vmax)}.IGNzMG_mcFace3{transform:rotateY(-90deg)translateZ(30vmax)}.IGNzMG_mcFace4{transform:rotateY(90deg)translateZ(30vmax)}.IGNzMG_mcFaceTop{transform:rotateX(90deg)translateZ(30vmax)}.IGNzMG_mcFaceBottom{transform:rotateX(-90deg)translateZ(30vmax)}.IGNzMG_mcScrim{z-index:0;pointer-events:none;background:#060a071f;position:fixed;inset:0}body[data-dsh-minecraft][data-ds-dark-theme] .IGNzMG_mcScrim{background:#03060459}body[data-dsh-minecraft] [id=root]{z-index:1;background:#0d18106b;border:2px solid #0b0f14;position:relative;box-shadow:inset 0 0 0 1px #ffffff0d,0 10px 42px #0000008c}body[data-dsh-minecraft] [id=root]>div:has([data-pane]){background:0 0}body[data-dsh-minecraft][data-ds-dark-theme] [id=root]{background:#060a07a8;box-shadow:inset 0 0 0 1px #ffffff08,0 10px 42px #000000b3}body[data-dsh-minecraft][data-ds-dark-theme] [id=root]>div:has([data-pane]){background:0 0}body[data-dsh-minecraft] [data-pane=sidebar]>div,body[data-dsh-minecraft] [data-pane=conversation],body[data-dsh-minecraft] [data-pane=details]{background:#0e1c1147}body[data-dsh-minecraft] [data-pane=sidebar],body[data-dsh-minecraft] [data-pane=conversation]>div{background:0 0}body[data-dsh-minecraft][data-ds-dark-theme] [data-pane=sidebar]>div,body[data-dsh-minecraft][data-ds-dark-theme] [data-pane=conversation],body[data-dsh-minecraft][data-ds-dark-theme] [data-pane=details]{background:#05090680}body[data-dsh-minecraft][data-ds-dark-theme] [data-pane=conversation]>div{background:0 0}body[data-dsh-minecraft] button{font-family:var(--dsw-font-family);color:#fff;text-shadow:1px 1px #00000080;background-color:#8b8b8b;background-image:repeating-linear-gradient(0deg,#0000001a 0 2px,#0000 2px 4px),repeating-linear-gradient(90deg,#ffffff0d 0 2px,#0000 2px 4px);border:2px solid #101418;border-radius:0;font-weight:700;box-shadow:inset 0 2px #ffffff73,inset 2px 0 #ffffff47,inset -2px 0 #0000004d,inset 0 -3px #00000073}body[data-dsh-minecraft] button:hover:not(:disabled){color:#ffffa0;background-color:#a8b9d2;box-shadow:inset 0 2px #ffffff8c,inset 2px 0 #ffffff61,inset -2px 0 #00000040,inset 0 -3px #00000059}body[data-dsh-minecraft] button:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 1px #ffffff4d,inset 0 0 0 1px #00000040,inset 0 -2px #0000008c}body[data-dsh-minecraft] button:disabled{color:#ffffff73;background-color:#6b6b6b;box-shadow:inset 0 2px #fff3,inset 0 -3px #0000004d}body[data-dsh-minecraft] input:not([type=checkbox]):not([type=radio]),body[data-dsh-minecraft] textarea,body[data-dsh-minecraft] select{font-family:var(--dsw-font-family);color:#f5ecd8;text-shadow:1px 1px #00000059;background-color:#9a6238;background-image:radial-gradient(3px at 10px 9px,#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at calc(100% - 10px) 9px,#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at 10px calc(100% - 9px),#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at calc(100% - 10px) calc(100% - 9px),#261a0ef2 2px,#0000 2.5px),repeating-linear-gradient(0deg,#3a241038 0 2px,#0000 2px 5px),linear-gradient(#b5794a 0%,#96603a 100%);border:3px solid #4a2f14;border-radius:0;font-weight:600;box-shadow:inset 0 0 0 1px #00000059}body[data-dsh-minecraft] input:not([type=checkbox]):not([type=radio]):focus,body[data-dsh-minecraft] textarea:focus,body[data-dsh-minecraft] select:focus{color:#fff;border-color:#f2ead4;box-shadow:inset 0 0 0 1px #00000059,0 0 0 2px #f2ead459}body[data-dsh-minecraft] input::placeholder,body[data-dsh-minecraft] textarea::placeholder{color:#f5ecd88c;opacity:1}body[data-dsh-minecraft] select{-webkit-appearance:none;appearance:none;background-image:radial-gradient(3px at 10px 9px,#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at calc(100% - 10px) 9px,#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at 10px calc(100% - 9px),#261a0ef2 2px,#0000 2.5px),radial-gradient(3px at calc(100% - 10px) calc(100% - 9px),#261a0ef2 2px,#0000 2.5px),repeating-linear-gradient(0deg,#3a241038 0 2px,#0000 2px 5px),linear-gradient(#b5794a 0%,#96603a 100%),url(\\\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6'%3E%3Cpath d='M0 0h8L4 6z' fill='%23362a1c'/%3E%3C/svg%3E\\\");background-position:calc(100% - 10px);background-repeat:no-repeat;padding-right:26px}body[data-dsh-minecraft] ::-webkit-scrollbar{width:13px;height:13px}body[data-dsh-minecraft] ::-webkit-scrollbar-track{background:#0d161099;border-left:2px solid #0b0f14}body[data-dsh-minecraft] ::-webkit-scrollbar-thumb{background:#7d7d7d;border:2px solid #101418;box-shadow:inset 0 2px #ffffff59,inset 0 -2px #00000059}body[data-dsh-minecraft] ::-webkit-scrollbar-thumb:hover{background:#a8b9d2}body[data-dsh-minecraft] ::-webkit-scrollbar-corner{background:0 0}body[data-dsh-minecraft] ::selection{color:#000;background:#ffffa0}body[data-dsh-minecraft] :focus-visible{outline-offset:1px;outline:2px solid #fff}body[data-dsh-minecraft] a{color:#ffffa0}body[data-dsh-minecraft] a:visited{color:#d6d69a}body[data-dsh-minecraft]{--dsw-static-amber-100:#f3e7c8;--dsw-static-amber-400:#d9a53c;--dsw-static-amber-500:#b57e1e;--dsw-static-amber-600:#9a6a17;--dsw-static-amber-900:#4a3512;--dsw-static-blue-100:#cfe0ef;--dsw-static-blue-300:#9fb9d8;--dsw-static-blue-400:#6f95c4;--dsw-static-blue-450:#557faf;--dsw-static-blue-500:#38628f;--dsw-static-blue-50:#e8eff7;--dsw-static-blue-50p:#dce8f4;--dsw-static-blue-600:#2b4f78;--dsw-static-blue-75:#d4e2f0;--dsw-static-blue-800:#1d3a5c;--dsw-static-blue-950:#122940;--dsw-static-deepseek-100:#cfe0ef;--dsw-static-deepseek-200:#b6cde3;--dsw-static-deepseek-300:#9fb9d8;--dsw-static-deepseek-400:#6f95c4;--dsw-static-deepseek-450:#557faf;--dsw-static-deepseek-500:#38628f;--dsw-static-deepseek-50:#e8eff7;--dsw-static-deepseek-600:#2b4f78;--dsw-static-deepseek-700-delete:#1d3a5c;--dsw-static-deepseek-800:#1d3a5c;--dsw-static-deepseek-900:#1a3350;--dsw-static-green-100:#d8e8c8;--dsw-static-green-400:#83c94e;--dsw-static-green-500:#5a9e38;--dsw-static-green-900:#24381c;--dsw-static-neutral-00:#fff;--dsw-static-neutral-1000:#000;--dsw-static-neutral-100:#d6d6d6;--dsw-static-neutral-150:#cbcbcb;--dsw-static-neutral-200:silver;--dsw-static-neutral-250:#b5b5b5;--dsw-static-neutral-300:#a8a8a8;--dsw-static-neutral-400:#8f8f8f;--dsw-static-neutral-500:#767676;--dsw-static-neutral-50:#e6e6e6;--dsw-static-neutral-550:#6a6a6a;--dsw-static-neutral-600:#5c5c5c;--dsw-static-neutral-700:#4a4a4a;--dsw-static-neutral-800:#383838;--dsw-static-neutral-850:#2e2e2e;--dsw-static-neutral-900:#242424;--dsw-static-neutral-bluish-00:#fff;--dsw-static-neutral-bluish-1000:#000;--dsw-static-neutral-bluish-100:#d4d8de;--dsw-static-neutral-bluish-150:#c8cdd5;--dsw-static-neutral-bluish-200:#bcc2cc;--dsw-static-neutral-bluish-300:#9ea7b4;--dsw-static-neutral-bluish-400:#848f9f;--dsw-static-neutral-bluish-500:#6b7788;--dsw-static-neutral-bluish-50:#e8eaee;--dsw-static-neutral-bluish-600:#586475;--dsw-static-neutral-bluish-60:#e2e5ea;--dsw-static-neutral-bluish-700:#3d4654;--dsw-static-neutral-bluish-75:#dde1e7;--dsw-static-neutral-bluish-750:#333b47;--dsw-static-neutral-bluish-800:#2a313b;--dsw-static-neutral-bluish-850:#22282f;--dsw-static-neutral-bluish-875:#1f252c;--dsw-static-neutral-bluish-900:#1c2127;--dsw-static-neutral-bluish-950:#14181d;--dsw-alias-label-primary:#e7ead7;--dsw-alias-label-primary-bluish:#d4e4d4;--dsw-alias-label-primary-dimmed:#c4cbb2;--dsw-alias-label-primary-foreground:#eef4fb;--dsw-alias-label-primary-inverted:#eef4fb;--dsw-alias-label-secondary:#b3bda3;--dsw-alias-label-tertiary:#8b9680;--dsw-alias-label-quaternary:#6b7561;--dsw-alias-label-caption:#a0ab92;--dsw-alias-label-dimmed:#8b9680;--dsw-alias-separator-primary:#ffffff17;--dsw-alias-line-secondary:#ffffff1c;--dsw-alias-interactive-bg-hover:#ffffff12;--dsw-alias-interactive-bg-active:#ffffff1c;--dsw-alias-interactive-bg-hover-solid:#2b4f78;--dsw-alias-interactive-bg-hover-accent:#83c94e2e;--dsw-alias-interactive-bg-hover-danger:#d45a5a29;--dsw-alias-bg-base:#18221b;--dsw-alias-bg-overlay:#060907b8;--dsw-alias-bg-skeleton:#273128;--dsw-alias-toast-bg:#212d26;--dsw-alias-tooltip-bg:#212d26;--dsw-alias-markdown-code-block:#1e2620;--dsw-alias-markdown-code-block-banner:#273128;--dsw-alias-markdown-inline-code:#2a352c;--dsw-alias-markdown-tag:#2b4f78;--dsw-alias-markdown-placeholder:#8b9680;--dsw-alias-markdown-citation:#212d26;--dsw-alias-scrollbar-bg-l1:#0d161080;--dsw-alias-scrollbar-bg-l2:#0d161080;--dsw-alias-scrollbar-hover-l1:#a8b9d2;--dsw-alias-scrollbar-hover-l2:#a8b9d2;--dsw-alias-button-primary-fill:#2b4f78;--dsw-alias-button-primary-hover:#38628f;--dsw-alias-button-primary-dimmed:#2b4f788c;--dsw-alias-button-ghost-active-fill:#ffffff14;--dsw-alias-button-ghost-active-hover:#ffffff1f;--dsw-alias-brand-primary:#83c94e;--dsw-alias-brand-primary-invert:#1a2413;--dsw-alias-brand-text:#83c94e;--dsw-alias-state-business-primary:#83c94e;--dsw-alias-state-business-subtle:#83c94e2e;--dsw-alias-state-business-tertiary:#83c94e1a;--dsw-alias-state-success-primary:#4f8a33;--dsw-alias-state-success-secondary:#4f8a3329;--dsw-alias-state-success-tertiary:#4f8a3317;--dsw-alias-state-warn-primary:#d9a53c;--dsw-alias-state-warn-label:#f3d9a0;--dsw-alias-state-warn-secondary:#d9a53c29;--dsw-alias-state-warn-tertiary:#d9a53c17;--dsw-alias-state-error-primary:#d45a5a;--dsw-alias-state-error-secondary:#d45a5a29;--dsw-alias-state-warning-primary:#d9a53c;--dsw-specific-bubble:#26332a;--dsw-specific-bubble-highlight:#2e3d32;--dsw-specific-sidebar-fill:#0c160f8c;--dsw-specific-sidebar-nav-item-active:#2b4f78;--dsw-specific-sidebar-nav-item-active-accent:#83c94e;--dsw-specific-sidebar-nav-item-hover:#26322ad9;--dsw-specific-menu:#212d26;--dsw-specific-selector:#212d26;--dsw-specific-tip:#212d26;--dsw-specific-input-major:#0f1811e6;--dsw-specific-login-input:#0f1811e6}\";\n		const tagId = \"@deepseek-ai/dsh-client-ui-skin-minecraft/minecraft.module.css\";\n		if (typeof document !== \"undefined\" && document.querySelector(\"style[data-plugin-css=\" + JSON.stringify(tagId) + \"]\") === null) {\n			const tag = document.createElement(\"style\");\n			tag.dataset.plugin = \"@deepseek-ai/dsh-client-ui-skin-minecraft\";\n			tag.dataset.pluginCss = tagId;\n			tag.textContent = css;\n			document.head.appendChild(tag);\n		}\n		var minecraft_module_css_default = {\n			\"mc-pan\": \"IGNzMG_mc-pan\",\n			\"mcFace\": \"IGNzMG_mcFace\",\n			\"mcFace1\": \"IGNzMG_mcFace1\",\n			\"mcFace2\": \"IGNzMG_mcFace2\",\n			\"mcFace3\": \"IGNzMG_mcFace3\",\n			\"mcFace4\": \"IGNzMG_mcFace4\",\n			\"mcFaceBottom\": \"IGNzMG_mcFaceBottom\",\n			\"mcFaceTop\": \"IGNzMG_mcFaceTop\",\n			\"mcScrim\": \"IGNzMG_mcScrim\",\n			\"mcSkybox\": \"IGNzMG_mcSkybox\",\n			\"mcStage\": \"IGNzMG_mcStage\"\n		};\n		//#endregion\n		//#region src/client/index.ts\n		/** The product title the skin pins (captured by the shell's DocumentTitle after settle). */\n		const SKIN_TITLE = \"Minecraft · DeepSeek 在线\";\n		/** Resolve one module class name (fallback only satisfies the indexed-access type). */\n		const cls = (name) => minecraft_module_css_default[name] ?? \"\";\n		const PX = 8;\n		const GROUND = 400;\n		const W = 640;\n		const H = 640;\n		/** One rect of the pixel scene. */\n		function r(x, y, w, h, fill, extra = \"\") {\n			return `<rect x=\"${x}\" y=\"${y}\" width=\"${w}\" height=\"${h}\" fill=\"${fill}\"${extra}/>`;\n		}\n		/** Deterministic PRNG (mulberry32) so scattered props are stable per face. */\n		function mulberry32(seed) {\n			let a = seed >>> 0;\n			return () => {\n				a = a + 1831565813 | 0;\n				let t = Math.imul(a ^ a >>> 15, 1 | a);\n				t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;\n				return ((t ^ t >>> 14) >>> 0) / 4294967296;\n			};\n		}\n		/** A blocky cloud: three overlapping white slabs with a top cap. */\n		function cloud(x, y, s) {\n			const u = PX * s;\n			return [\n				r(x, y + u, 3 * u, u, \"#fdfdfd\"),\n				r(x + u, y, 2 * u, u, \"#fdfdfd\"),\n				r(x + 3 * u, y + u, 2 * u, u, \"#fdfdfd\"),\n				r(x + u, y + u, u, u, \"#e6eef2\")\n			].join(\"\");\n		}\n		/** A faint distant cloud slab near the horizon. */\n		function farCloud(x, y, w) {\n			return r(x, y, w, 6, \"rgba(255,255,255,0.55)\");\n		}\n		/** A stepped blocky hill: layers shrink by two blocks every two rows. */\n		function hill(x, blocks, height, fill, cap) {\n			let out = \"\";\n			for (let i = 0; i < height; i++) {\n				const w = Math.max(blocks - Math.floor(i / 2) * 2, 2);\n				const color = i === height - 1 && cap ? cap : fill;\n				out += r(x + (blocks - w) / 2 * PX, GROUND - (i + 1) * PX, w * PX, PX, color);\n			}\n			return out;\n		}\n		/** A blocky tree: brown trunk, layered green crown. */\n		function tree(x, scale = 1) {\n			const u = PX * scale;\n			return [\n				r(x + u, GROUND - 3 * u, 2 * u, 3 * u, \"#6b4a2b\"),\n				r(x, GROUND - 6 * u, 4 * u, 3 * u, \"#43ad54\"),\n				r(x + u, GROUND - 7 * u, 2 * u, u, \"#34a046\")\n			].join(\"\");\n		}\n		/** A blocky villager house: plank wall, glowing windows, door, stepped roof, chimney. */\n		function house(x, s) {\n			const u = PX * s;\n			const wall = s >= 2 ? \"#c9b28a\" : \"#b89d7a\";\n			return [\n				r(x, GROUND - 4 * u, 5 * u, 4 * u, wall),\n				r(x + u, GROUND - 3 * u, u, u, \"#f5e6a0\"),\n				r(x + 3 * u, GROUND - 3 * u, u, u, \"#f5e6a0\"),\n				r(x + 2 * u, GROUND - 2 * u, u, 2 * u, \"#5d3d22\"),\n				r(x, GROUND - 6 * u, 5 * u, u, \"#8a5a3a\"),\n				r(x + u, GROUND - 7 * u, 3 * u, u, \"#7a4f33\"),\n				r(x + 4 * u, GROUND - 7 * u, u, u, \"#7d7d7d\")\n			].join(\"\");\n		}\n		/** A lakeside: sandy shore, blue water with light ripples. */\n		function lake(x, y, w) {\n			return [\n				r(x, y, w, 4, \"#e8d8a0\"),\n				r(x, y + 4, w, 26, \"#3f76e4\"),\n				r(x + 10, y + 12, Math.round(w * .3), 3, \"rgba(255,255,255,0.4)\"),\n				r(x + Math.round(w * .55), y + 20, Math.round(w * .28), 3, \"rgba(255,255,255,0.32)\")\n			].join(\"\");\n		}\n		/** A red mushroom with white dots. */\n		function mushroom(x, y) {\n			return [\n				r(x + 4, y + 8, 8, 8, \"#f0e8d8\"),\n				r(x, y, 16, 8, \"#d84545\"),\n				r(x + 4, y + 2, 4, 4, \"#f7f2e8\")\n			].join(\"\");\n		}\n		/** A pumpkin with a green stem. */\n		function pumpkin(x, y) {\n			return [\n				r(x + 4, y - 4, 8, 4, \"#4f8a33\"),\n				r(x, y, 16, 16, \"#e07a2f\"),\n				r(x + 3, y + 3, 4, 4, \"#c96a26\")\n			].join(\"\");\n		}\n		/** A small gray rock. */\n		function rock(x, y) {\n			return [r(x + 8, y - 4, 8, 4, \"#a5a5a5\"), r(x, y, 20, 12, \"#8d8d8d\")].join(\"\");\n		}\n		/** A tiny pixel bird: body and swept wing. */\n		function bird(x, y) {\n			return [r(x + 4, y - 2, 8, 2, \"#2e2e2e\"), r(x, y, 4, 4, \"#2e2e2e\")].join(\"\");\n		}\n		/** A tuft of tall grass. */\n		function tallGrass(x, y) {\n			return [r(x, y, 3, 10, \"#4f9e35\"), r(x + 3, y + 2, 3, 8, \"#5fb23f\")].join(\"\");\n		}\n		/** A tiny flower dot sitting on the grass edge. */\n		function flower(x, y, fill) {\n			return r(x, y, 4, 4, fill);\n		}\n		/** The shared grass-block ground strip (tall, bright meadow). */\n		function ground() {\n			let tufts = \"\";\n			for (let x = 8; x < W; x += 32) tufts += r(x, 412, PX, PX, \"#7dc94b\");\n			return [\n				r(0, GROUND, W, 12, \"#8ed458\"),\n				r(0, 412, W, H - GROUND - 12, \"#96643a\"),\n				tufts\n			].join(\"\");\n		}\n		/** Render one side-face scene (640x360). */\n		function renderScene(scene) {\n			const body = [];\n			body.push(r(0, 0, W, GROUND, \"url(#sky)\"));\n			if (scene.sun) {\n				const [sx, sy] = scene.sun;\n				body.push(r(sx - 12, sy - 12, 36, 36, \"rgba(255,255,255,0.35)\"));\n				body.push(r(sx, sy, 12, 12, \"#ffffff\"));\n			}\n			for (const [x, y, s] of scene.clouds ?? []) body.push(cloud(x, y, s));\n			for (const [x, y, w] of scene.farClouds ?? []) body.push(farCloud(x, y, w));\n			for (const [x, y] of scene.birds ?? []) body.push(bird(x, y));\n			for (const [i, [x, b, h, fill]] of (scene.hills ?? []).entries()) {\n				const cap = scene.caps?.includes(i) ? \"#dfeaf2\" : void 0;\n				body.push(hill(x, b, h, fill, cap));\n			}\n			body.push(ground());\n			if (scene.lake) body.push(lake(scene.lake[0], 402, scene.lake[2]));\n			const forbid = [];\n			if (scene.lake) forbid.push([scene.lake[0] - 48, scene.lake[0] + scene.lake[2] + 48]);\n			for (const [hx, hs] of scene.houses ?? []) forbid.push([hx - 40, hx + 5 * PX * hs + 40]);\n			const rnd = mulberry32(scene.seed ?? 7);\n			const scatterAt = (count, place) => {\n				let placed = 0;\n				let tries = 0;\n				while (placed < count && tries < count * 40) {\n					tries++;\n					const x = 24 + Math.floor(rnd() * (W - 96));\n					if (forbid.some(([a, b]) => x >= a && x <= b)) continue;\n					place(x);\n					placed++;\n				}\n			};\n			if (scene.scatterTrees) {\n				const extra = scene.scatterTrees;\n				scatterAt(extra, (x) => body.push(tree(x, 1 + Math.floor(rnd() * 2))));\n			}\n			for (const [x, s] of scene.trees ?? []) body.push(tree(x, s));\n			for (const [x, s] of scene.houses ?? []) body.push(house(x, s));\n			if (scene.scatterProps) scatterAt(scene.scatterProps, (x) => {\n				const kind = Math.floor(rnd() * 10);\n				if (kind < 3) body.push(flower(x, 404, kind === 0 ? \"#f5d442\" : kind === 1 ? \"#e05656\" : \"#f2f2f2\"));\n				else if (kind < 5) body.push(mushroom(x, 402));\n				else if (kind < 7) body.push(pumpkin(x, 404));\n				else if (kind < 8) body.push(rock(x, 404));\n				else body.push(tallGrass(x, 402));\n			});\n			return `<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ${W} ${H}\" shape-rendering=\"crispEdges\"><defs><linearGradient id=\"sky\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#84d0f6\"/><stop offset=\"0.62\" stop-color=\"#b4e3f9\"/><stop offset=\"1\" stop-color=\"#f0faf3\"/></linearGradient></defs>${body.join(\"\")}</svg>`;\n		}\n		/** The four side faces, each a different biome (Mojang's panorama has six; ours has four sides). */\n		const SCENES = [\n			{\n				sun: [120, 64],\n				clouds: [[\n					300,\n					90,\n					1\n				], [\n					470,\n					150,\n					1\n				]],\n				farClouds: [[\n					200,\n					378,\n					90\n				], [\n					420,\n					386,\n					120\n				]],\n				birds: [[540, 100]],\n				hills: [[\n					60,\n					12,\n					9,\n					\"#8fa8b8\"\n				], [\n					380,\n					16,\n					11,\n					\"#8fa8b8\"\n				]],\n				caps: [1],\n				houses: [\n					[30, 1],\n					[110, 1],\n					[190, 2]\n				],\n				trees: [\n					[420, 1],\n					[540, 2],\n					[600, 1]\n				],\n				scatterTrees: 3,\n				scatterProps: 6,\n				seed: 11\n			},\n			{\n				sun: [480, 90],\n				clouds: [\n					[\n						80,\n						120,\n						1\n					],\n					[\n						250,\n						70,\n						2\n					],\n					[\n						520,\n						170,\n						1\n					]\n				],\n				farClouds: [[\n					120,\n					384,\n					100\n				]],\n				birds: [[220, 80], [380, 60]],\n				hills: [\n					[\n						30,\n						10,\n						7,\n						\"#93aabb\"\n					],\n					[\n						260,\n						14,\n						10,\n						\"#7d95a5\"\n					],\n					[\n						500,\n						12,\n						8,\n						\"#93aabb\"\n					]\n				],\n				caps: [1],\n				lake: [\n					280,\n					402,\n					190\n				],\n				trees: [\n					[120, 2],\n					[540, 1],\n					[560, 2],\n					[60, 1]\n				],\n				scatterTrees: 3,\n				scatterProps: 5,\n				seed: 23\n			},\n			{\n				sun: [80, 130],\n				clouds: [[\n					360,\n					90,\n					2\n				], [\n					560,\n					60,\n					1\n				]],\n				farClouds: [[\n					40,\n					380,\n					130\n				], [\n					300,\n					388,\n					90\n				]],\n				hills: [[\n					150,\n					18,\n					13,\n					\"#75899a\"\n				], [\n					480,\n					14,\n					9,\n					\"#8fa8b8\"\n				]],\n				caps: [0],\n				trees: [\n					[60, 1],\n					[300, 2],\n					[430, 1],\n					[600, 1]\n				],\n				scatterTrees: 7,\n				scatterProps: 9,\n				seed: 37\n			},\n			{\n				sun: [340, 70],\n				clouds: [\n					[\n						90,\n						80,\n						1\n					],\n					[\n						200,\n						160,\n						2\n					],\n					[\n						500,\n						120,\n						1\n					]\n				],\n				farClouds: [[\n					160,\n					382,\n					110\n				], [\n					430,\n					388,\n					90\n				]],\n				birds: [\n					[110, 90],\n					[260, 60],\n					[560, 110]\n				],\n				hills: [\n					[\n						20,\n						16,\n						13,\n						\"#7d95a5\"\n					],\n					[\n						200,\n						20,\n						15,\n						\"#6d8398\"\n					],\n					[\n						540,\n						17,\n						12,\n						\"#7d95a5\"\n					]\n				],\n				caps: [1, 2],\n				trees: [\n					[140, 1],\n					[330, 2],\n					[480, 1],\n					[600, 1]\n				],\n				scatterTrees: 3,\n				scatterProps: 7,\n				seed: 41\n			}\n		];\n		/** Top face: open sky with clouds (512x512). */\n		function topSvg() {\n			return `<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\" shape-rendering=\"crispEdges\"><defs><linearGradient id=\"t\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#7ec3ee\"/><stop offset=\"1\" stop-color=\"#a9dcf7\"/></linearGradient></defs>${r(0, 0, 512, 512, \"url(#t)\")}${cloud(96, 160, 2)}${cloud(280, 300, 2)}${cloud(200, 60, 1)}${cloud(380, 120, 1)}${farCloud(60, 420, 120)}</svg>`;\n		}\n		/** Bottom face: grass block field seen from above, with flowers and a mushroom (512x512). */\n		function bottomSvg() {\n			let cells = \"\";\n			for (let gx = 0; gx < 512; gx += 64) for (let gy = 0; gy < 512; gy += 64) {\n				const dark = (gx / 64 + gy / 64) % 3 === 0;\n				cells += r(gx + 16, gy + 16, 16, 16, dark ? \"#7dc94b\" : \"#96da62\");\n				cells += r(gx + 40, gy + 40, 8, 8, dark ? \"#96da62\" : \"#7dc94b\");\n			}\n			const props = [\n				flower(96, 96, \"#f5d442\"),\n				flower(360, 160, \"#e05656\"),\n				flower(440, 400, \"#f5d442\"),\n				mushroom(160, 384),\n				rock(392, 300)\n			].join(\"\");\n			return `<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\" shape-rendering=\"crispEdges\"><rect width=\"512\" height=\"512\" fill=\"#8ed458\"/>${cells}${props}</svg>`;\n		}\n		/** One panorama face as a data-URI background image. */\n		function faceImage(svg) {\n			return `url(\"data:image/svg+xml;utf8,${encodeURIComponent(svg)}\")`;\n		}\n		/**\n		* Apply the Minecraft skin: body attribute, panorama skybox (stage + cube\n		* of six faces + dimming scrim), title. All writes are retracted by the\n		* effect disposer on dispose.\n		* @param ctx - owning context (the effect lifecycle owns retraction).\n		*/\n		function apply(ctx) {\n			const body = document.body;\n			const originalTitle = document.title;\n			body.setAttribute(\"data-dsh-minecraft\", \"\");\n			const stage = document.createElement(\"div\");\n			stage.className = cls(\"mcStage\");\n			const skybox = document.createElement(\"div\");\n			skybox.className = cls(\"mcSkybox\");\n			const sideSvg = SCENES.map(renderScene);\n			const sideNames = [\n				\"front\",\n				\"back\",\n				\"left\",\n				\"right\"\n			];\n			for (let i = 0; i < 6; i++) {\n				const face = document.createElement(\"div\");\n				face.className = `${cls(\"mcFace\")} ${cls(i < 4 ? `mcFace${i + 1}` : i === 4 ? \"mcFaceTop\" : \"mcFaceBottom\")}`;\n				face.style.backgroundImage = faceImage(i < 4 ? sideSvg[i] : i === 4 ? topSvg() : bottomSvg());\n				face.dataset.skinChrome = `face-${sideNames[i] ?? (i === 4 ? \"top\" : \"bottom\")}`;\n				skybox.append(face);\n			}\n			stage.append(skybox);\n			const scrim = document.createElement(\"div\");\n			scrim.className = cls(\"mcScrim\");\n			scrim.dataset.skinChrome = \"scrim\";\n			stage.dataset.skinChrome = \"stage\";\n			document.title = SKIN_TITLE;\n			body.append(stage, scrim);\n			ctx.effect(() => () => {\n				body.removeAttribute(\"data-dsh-minecraft\");\n				stage.remove();\n				scrim.remove();\n				if (document.title === SKIN_TITLE) document.title = originalTitle;\n			}, \"ui-skin-minecraft: panorama skybox\");\n		}\n		//#endregion\n		exports.apply = apply;\n		return module.exports;\n	}\n});\n\n//# sourceMappingURL=client.js.map"
 			}
 		];
 		//#endregion
@@ -310,7 +310,7 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region \0dsh-css:/Users/zcl/code/dsh-web-ui/packages/skins/skin-center/src/client/skin-center.module.css.mjs
-		const css = "body[data-dsh-skin-center] .K3rRTW_section{color:var(--dsw-alias-label-primary,inherit);flex-direction:column;gap:14px;padding:2px 0 18px;display:flex}body[data-dsh-skin-center] .K3rRTW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .K3rRTW_title{letter-spacing:.01em;align-items:baseline;gap:8px;font-size:15px;font-weight:600;display:flex}body[data-dsh-skin-center] .K3rRTW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .K3rRTW_intro{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12.5px;line-height:1.55}body[data-dsh-skin-center] .K3rRTW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .K3rRTW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .K3rRTW_themeButton{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1}body[data-dsh-skin-center] .K3rRTW_themeButton:hover{border-color:var(--dsw-alias-border-l4,#94a3b8)}body[data-dsh-skin-center] .K3rRTW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .K3rRTW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .K3rRTW_card{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:8px;padding:12px 14px;display:flex;box-shadow:0 1px 2px #0f172a0a}body[data-dsh-skin-center] .K3rRTW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .K3rRTW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .K3rRTW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .K3rRTW_cardTagline{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.45}body[data-dsh-skin-center] .K3rRTW_badge{letter-spacing:.02em;border-radius:999px;flex:none;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .K3rRTW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .K3rRTW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .K3rRTW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .K3rRTW_button{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:7px;padding:6px 12px;font-size:12px;line-height:1}body[data-dsh-skin-center] .K3rRTW_button:hover{border-color:var(--dsw-alias-brand-primary,#2b7cd9);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .K3rRTW_buttonPrimary{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-fill,#2b7cd9);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .K3rRTW_buttonPrimary:hover{border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .K3rRTW_buttonGhost{background:0 0;border-color:#0000}body[data-dsh-skin-center] .K3rRTW_button:disabled{opacity:.55;cursor:default}body[data-dsh-skin-center] .K3rRTW_applyBlock{flex-direction:column;gap:4px;margin-top:2px;display:flex}body[data-dsh-skin-center] .K3rRTW_applyHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11.5px}body[data-dsh-skin-center] .K3rRTW_command{font-family:var(--ds-font-family-code,ui-monospace, monospace);background:var(--dsw-alias-bg-layer-1,#f1f5f9);color:var(--dsw-alias-label-primary,#172a45);overflow-wrap:anywhere;border-radius:7px;padding:6px 10px;font-size:12px}body[data-dsh-skin-center] .K3rRTW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}";
+		const css = "body[data-dsh-skin-center] .K3rRTW_pluginCard{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:8px;list-style:none;overflow:hidden}body[data-dsh-skin-center] .K3rRTW_cardHeader{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;padding:11px 14px;display:flex}body[data-dsh-skin-center] .K3rRTW_cardHeader:hover{background:var(--dsw-alias-bg-layer-1,#f1f5f9)}body[data-dsh-skin-center] .K3rRTW_headText{flex-direction:column;flex:1;gap:3px;min-width:0;display:flex}body[data-dsh-skin-center] .K3rRTW_pluginName{color:var(--dsw-alias-label-primary,#172a45);align-items:baseline;gap:8px;font-size:13.5px;font-weight:600;display:flex}body[data-dsh-skin-center] .K3rRTW_cardDescription{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.4}body[data-dsh-skin-center] .K3rRTW_chevron,body[data-dsh-skin-center] .K3rRTW_chevronOpen{color:var(--dsw-alias-label-secondary,#6b7280);flex:none;margin-left:10px;font-size:12px;transition:transform .12s}body[data-dsh-skin-center] .K3rRTW_chevronOpen{transform:rotate(180deg)}body[data-dsh-skin-center] .K3rRTW_cardBody{border-top:1px solid var(--dsw-alias-border-l1,#e2e8f0);flex-direction:column;gap:12px;padding:12px 14px 14px;display:flex}body[data-dsh-skin-center] .K3rRTW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .K3rRTW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .K3rRTW_intro{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12.5px;line-height:1.55}body[data-dsh-skin-center] .K3rRTW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .K3rRTW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .K3rRTW_themeButton{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1}body[data-dsh-skin-center] .K3rRTW_themeButton:hover{border-color:var(--dsw-alias-border-l4,#94a3b8)}body[data-dsh-skin-center] .K3rRTW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .K3rRTW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .K3rRTW_card{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:8px;padding:12px 14px;display:flex;box-shadow:0 1px 2px #0f172a0a}body[data-dsh-skin-center] .K3rRTW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .K3rRTW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .K3rRTW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .K3rRTW_cardTagline{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.45}body[data-dsh-skin-center] .K3rRTW_badge{letter-spacing:.02em;border-radius:999px;flex:none;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .K3rRTW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .K3rRTW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .K3rRTW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .K3rRTW_button{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:7px;padding:6px 12px;font-size:12px;line-height:1}body[data-dsh-skin-center] .K3rRTW_button:hover{border-color:var(--dsw-alias-brand-primary,#2b7cd9);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .K3rRTW_buttonPrimary{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-fill,#2b7cd9);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .K3rRTW_buttonPrimary:hover{border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .K3rRTW_buttonGhost{background:0 0;border-color:#0000}body[data-dsh-skin-center] .K3rRTW_button:disabled{opacity:.55;cursor:default}body[data-dsh-skin-center] .K3rRTW_applyBlock{flex-direction:column;gap:4px;margin-top:2px;display:flex}body[data-dsh-skin-center] .K3rRTW_applyHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11.5px}body[data-dsh-skin-center] .K3rRTW_command{font-family:var(--ds-font-family-code,ui-monospace, monospace);background:var(--dsw-alias-bg-layer-1,#f1f5f9);color:var(--dsw-alias-label-primary,#172a45);overflow-wrap:anywhere;border-radius:7px;padding:6px 10px;font-size:12px}body[data-dsh-skin-center] .K3rRTW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}";
 		const tagId = "@deepseek-ai/dsh-client-ui-skin-center/skin-center.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -330,44 +330,53 @@ window.__ModuleLoader__.load({
 			"buttonGhost": "K3rRTW_buttonGhost",
 			"buttonPrimary": "K3rRTW_buttonPrimary",
 			"card": "K3rRTW_card",
+			"cardBody": "K3rRTW_cardBody",
+			"cardDescription": "K3rRTW_cardDescription",
 			"cardHead": "K3rRTW_cardHead",
+			"cardHeader": "K3rRTW_cardHeader",
 			"cardName": "K3rRTW_cardName",
 			"cardTagline": "K3rRTW_cardTagline",
+			"chevron": "K3rRTW_chevron",
+			"chevronOpen": "K3rRTW_chevronOpen",
 			"command": "K3rRTW_command",
 			"error": "K3rRTW_error",
 			"head": "K3rRTW_head",
+			"headText": "K3rRTW_headText",
 			"intro": "K3rRTW_intro",
 			"list": "K3rRTW_list",
-			"section": "K3rRTW_section",
+			"pluginCard": "K3rRTW_pluginCard",
+			"pluginName": "K3rRTW_pluginName",
 			"swatch": "K3rRTW_swatch",
 			"themeButton": "K3rRTW_themeButton",
 			"themeButtonActive": "K3rRTW_themeButtonActive",
 			"themeLabel": "K3rRTW_themeLabel",
 			"themeRow": "K3rRTW_themeRow",
-			"title": "K3rRTW_title",
 			"titleBadge": "K3rRTW_titleBadge"
 		};
 		//#endregion
 		//#region src/client/SkinCenter.tsx
 		/**
-		* The skin-center settings section: every installed skin with live try-on
-		* (real bundle execution inside the GUI, light/dark preview, full restore on
-		* exit) and the one-command apply. Copy rides the standard `t` seat; the
-		* theme preview control drives the official theme service (persisted, same
-		* as the Appearance row).
+		* The skin-center plugin card: one disclosure card inside the Web UI plugin
+		* group (插件配置 → Web UI 插件), listing every installed skin with live
+		* try-on (real bundle execution inside the GUI, light/dark preview, full
+		* restore on exit) and the one-command apply. Copy rides the standard `t`
+		* seat; the theme preview control drives the official theme service
+		* (persisted, same as the Appearance row).
 		*/
 		/** The apply command the GUI copies (apply itself is terminal-side). */
 		function applyCommandFor(entry) {
 			return `dsh-skin use ${entry.id}`;
 		}
 		/**
-		* Render the skin-center section.
-		* @param props - section props.
-		* @returns the skin center content column.
+		* Render the skin-center card: a disclosure header naming the plugin, with
+		* the skin list (try-on / theme preview / copy-apply) inside its body.
+		* @param props - card props.
+		* @returns the plugin card.
 		*/
 		function SkinCenter({ t, controller, theme }) {
 			const snapshot = (0, react.useSyncExternalStore)(theme.subscribe, theme.getTheme);
 			const activePackage = (0, react.useMemo)(() => activeSkinEntry()?.package, []);
+			const [open, setOpen] = (0, react.useState)(false);
 			const [tryingId, setTryingId] = (0, react.useState)(null);
 			const [error, setError] = (0, react.useState)(null);
 			const [copiedId, setCopiedId] = (0, react.useState)(null);
@@ -387,24 +396,41 @@ window.__ModuleLoader__.load({
 				}).catch(() => setError(t("copyFailed")));
 			};
 			const dark = snapshot.active.colorScheme === "dark";
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-				className: skin_center_module_css_default.section,
-				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: skin_center_module_css_default.head,
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.title,
-								children: [t("title"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-									className: skin_center_module_css_default.titleBadge,
-									children: String(SKIN_CENTER_ENTRIES.length)
-								})]
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+				className: skin_center_module_css_default.pluginCard,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+					type: "button",
+					className: skin_center_module_css_default.cardHeader,
+					"aria-expanded": open,
+					"aria-label": `${t(open ? "collapse" : "expand")}: ${t("title")}`,
+					onClick: () => {
+						setOpen((current) => !current);
+					},
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+						className: skin_center_module_css_default.headText,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+							className: skin_center_module_css_default.pluginName,
+							children: [t("title"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: skin_center_module_css_default.titleBadge,
+								children: String(SKIN_CENTER_ENTRIES.length)
+							})]
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: skin_center_module_css_default.cardDescription,
+							children: t("cardDescription")
+						})]
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: open ? skin_center_module_css_default.chevronOpen : skin_center_module_css_default.chevron,
+						children: "▾"
+					})]
+				}), open ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: skin_center_module_css_default.cardBody,
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.head,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 								className: skin_center_module_css_default.intro,
 								children: t("intro")
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 								className: skin_center_module_css_default.themeRow,
 								children: [
 									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
@@ -428,94 +454,96 @@ window.__ModuleLoader__.load({
 										children: t("themeDark")
 									})
 								]
+							})]
+						}),
+						error !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: skin_center_module_css_default.error,
+							children: error
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: skin_center_module_css_default.list,
+							children: SKIN_CENTER_ENTRIES.map((entry) => {
+								const isActive = entry.package === activePackage;
+								const isTrying = entry.id === tryingId;
+								const badge = isActive ? t("active") : isTrying ? t("tryingOn") : null;
+								return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.card,
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+											className: skin_center_module_css_default.cardHead,
+											children: [
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: skin_center_module_css_default.swatch,
+													style: { background: entry.accent },
+													"aria-hidden": "true"
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: skin_center_module_css_default.cardName,
+													children: entry.nameEn
+												}),
+												badge !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: `${skin_center_module_css_default.badge} ${isActive ? skin_center_module_css_default.badgeActive : skin_center_module_css_default.badgeTrying}`,
+													children: badge
+												})
+											]
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+											className: skin_center_module_css_default.cardTagline,
+											children: entry.tagline
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+											className: skin_center_module_css_default.actions,
+											children: [isActive ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonGhost}`,
+												disabled: true,
+												children: t("tryOn")
+											}) : isTrying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
+												onClick: exitTryOn,
+												children: t("exitTryOn")
+											}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
+												onClick: () => {
+													tryOn(entry);
+												},
+												children: t("tryOn")
+											}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: skin_center_module_css_default.button,
+												onClick: () => {
+													copyCommand(entry);
+												},
+												children: copiedId === entry.id ? t("copied") : t("apply")
+											})]
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+											className: skin_center_module_css_default.applyBlock,
+											children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: skin_center_module_css_default.applyHint,
+												children: t("applyHint")
+											}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
+												className: skin_center_module_css_default.command,
+												children: applyCommandFor(entry)
+											})]
+										})
+									]
+								}, entry.id);
 							})
-						]
-					}),
-					error !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-						className: skin_center_module_css_default.error,
-						children: error
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-						className: skin_center_module_css_default.list,
-						children: SKIN_CENTER_ENTRIES.map((entry) => {
-							const isActive = entry.package === activePackage;
-							const isTrying = entry.id === tryingId;
-							const badge = isActive ? t("active") : isTrying ? t("tryingOn") : null;
-							return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.card,
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-										className: skin_center_module_css_default.cardHead,
-										children: [
-											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: skin_center_module_css_default.swatch,
-												style: { background: entry.accent },
-												"aria-hidden": "true"
-											}),
-											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: skin_center_module_css_default.cardName,
-												children: entry.nameEn
-											}),
-											badge !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: `${skin_center_module_css_default.badge} ${isActive ? skin_center_module_css_default.badgeActive : skin_center_module_css_default.badgeTrying}`,
-												children: badge
-											})
-										]
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-										className: skin_center_module_css_default.cardTagline,
-										children: entry.tagline
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-										className: skin_center_module_css_default.actions,
-										children: [isActive ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonGhost}`,
-											disabled: true,
-											children: t("tryOn")
-										}) : isTrying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
-											onClick: exitTryOn,
-											children: t("exitTryOn")
-										}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
-											onClick: () => {
-												tryOn(entry);
-											},
-											children: t("tryOn")
-										}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: skin_center_module_css_default.button,
-											onClick: () => {
-												copyCommand(entry);
-											},
-											children: copiedId === entry.id ? t("copied") : t("apply")
-										})]
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-										className: skin_center_module_css_default.applyBlock,
-										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-											className: skin_center_module_css_default.applyHint,
-											children: t("applyHint")
-										}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
-											className: skin_center_module_css_default.command,
-											children: applyCommandFor(entry)
-										})]
-									})
-								]
-							}, entry.id);
 						})
-					})
-				]
+					]
+				}) : null]
 			});
 		}
 		//#endregion
 		//#region src/client/locales.ts
 		const en = {
-			nav: "Skins",
 			title: "Skin Center",
+			cardDescription: "Try on any installed skin live in the GUI — exit restores instantly, applying persists via one terminal command.",
+			expand: "Expand",
+			collapse: "Collapse",
 			intro: "Try on any skin live — it takes effect instantly, exit restores the current look. Applying persists it across restarts.",
 			active: "Active",
 			tryingOn: "Trying on",
@@ -532,8 +560,10 @@ window.__ModuleLoader__.load({
 			tryOnError: "Try-on failed — see console"
 		};
 		const zh = {
-			nav: "皮肤",
 			title: "皮肤中心",
+			cardDescription: "在 GUI 内即时试穿任意皮肤，退出即完全还原；应用需在终端执行一条命令。",
+			expand: "展开",
+			collapse: "收起",
 			intro: "任意皮肤可即时试穿，退出即完全还原；「应用」需在终端执行一条命令完成持久化。",
 			active: "当前激活",
 			tryingOn: "试穿中",
@@ -553,7 +583,7 @@ window.__ModuleLoader__.load({
 		//#region src/client/index.ts
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
-		/** Required services: slots + locale (settings surface) and theme (preview toggle). */
+		/** Required services: slots + locale (plugin card) and theme (preview toggle). */
 		const inject = [
 			"slots",
 			"locale",
@@ -561,7 +591,7 @@ window.__ModuleLoader__.load({
 		];
 		/**
 		* Register the skin-center dictionaries, the body scope attribute, and the
-		* Skins settings section.
+		* Skins plugin card inside the Web UI plugin group.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
@@ -575,7 +605,6 @@ window.__ModuleLoader__.load({
 					delete document.body.dataset.dshSkinCenter;
 				};
 			}, "ui-skin-center: body scope");
-			const t = ctx.locale.bind(NS);
 			const theme = ctx.get("theme");
 			const controller = new TryOnController();
 			const injected = () => ({
@@ -586,11 +615,10 @@ window.__ModuleLoader__.load({
 					setTheme: (id) => theme.setTheme(id)
 				}
 			});
-			ctx.slots.inject("settings.section", () => ctx.slots.register({
-				name: "settings.section",
+			ctx.slots.inject("web-ui.plugin.item", () => ctx.slots.register({
+				name: "web-ui.plugin.item",
 				id: "skins",
-				order: 50,
-				label: () => t("nav"),
+				order: 110,
 				locale: NS,
 				inject: injected
 			}, SkinCenter));

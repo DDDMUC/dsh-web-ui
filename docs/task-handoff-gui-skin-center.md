@@ -155,11 +155,13 @@ hot-pluggable client 插件，风格与现有皮肤一致。
 3. **皮肤枚举**：内嵌注册表（skin.json 契约）+ 激活检测读 `window.__DSH_BOOT__.entries`（仅启用条目）。
 
 **实现**：`packages/skins/skin-center/`（`@deepseek-ai/dsh-client-ui-skin-center`，id `ui-skin-center`）——
-设置页 `settings.section` 注册 Skins 分区；试穿引擎 `try-on.ts` 按配方收回激活皮肤视觉写面
+插件配置页 Web UI 插件组（`web-ui.plugin.item` 槽，由 `packages/web-ui-settings` 的组卡声明）
+注册皮肤中心卡片；试穿引擎 `try-on.ts` 按配方收回激活皮肤视觉写面
 （body 属性 / 背景内联样式 / body 直接子 chrome / xp footer taskbar 中性化 CSS），退出后快照
 原样恢复；中性化观察器防 blue-fantasy 幽灵背景写回。接线：profile symlink +
 `cordis.patch.yml` 的独立 `# --- dsh-web-ui skin center ---` 段（dsh-skin managed 段之外，
-已回归验证重写不破坏）。
+已回归验证重写不破坏）。2026-08-12 起入口从设置页一级分区（`settings.section`）迁入
+Web UI 插件组卡片，与 task-board / pet / live-stats 同槽位，皮肤中心不再占设置页一级导航。
 
 **验收**：全部满足——设置页入口、≥4 皮肤列表 + Active 标记、qq98/xp/ths 试穿真实生效
 （像素采样验证：qq98 #4981c6/#28558e、ths #e10011、xp 渐变顶）、亮/暗、退出完全还原、
