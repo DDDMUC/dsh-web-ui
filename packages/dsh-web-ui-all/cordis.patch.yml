@@ -2,6 +2,11 @@
 # This file is derived from the aggregate.yml manifest in this package;
 # edit aggregate.yml and rerun `node scripts/aggregate.mjs`.
 
+# from ../dsh-aionui-panel
+- insert:
+    - id: ui-dsh-aionui-panel
+      name: '@deepseek-ai/dsh-client-ui-aionui-panel'
+
 # from ../dsh-task-board
 - insert:
     - id: ui-task-board

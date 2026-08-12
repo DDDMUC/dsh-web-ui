@@ -11,6 +11,7 @@
   },
   "license": "BSD-3-Clause",
   "dependencies": {
+    "@deepseek-ai/dsh-client-ui-aionui-panel": "workspace:*",
     "@deepseek-ai/dsh-client-ui-task-board": "workspace:*",
     "@deepseek-ai/dsh-client-ui-git-graph": "workspace:*",
     "@deepseek-ai/dsh-pet": "workspace:*",
