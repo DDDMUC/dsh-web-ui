@@ -16,11 +16,12 @@ QR code, live device status, and stop/refresh/copy actions.
   subtitle, a "手机扫码连接" card with the status area ("等待手机连接" + status
   badge), a large QR code, the "无法扫码？可以在手机上打开链接" hint, and three
   buttons: 停止 / 刷新二维码 / 复制链接.
-- **Phone side**: scanning the QR opens the full dsh web UI on the phone
-  (responsive small-screen rendering — no separate light client), paired
-  with a one-time, time-limited token. The link carries a `workspace`
-  parameter so the phone lands in the same workspace the desktop was
-  looking at.
+- **Phone side**: scanning the QR binds the phone with a one-time,
+  time-limited token and lands it on the **standalone mobile surface at
+  `/m`** — a thin client purpose-built for a small screen (see
+  [Screenshots](#screenshots)), not the desktop UI squeezed into a phone.
+  The link carries a `workspace` parameter so the phone lands in the same
+  workspace the desktop was looking at.
 - **Security**: one active one-time token (a refresh invalidates the old
   link; an accepted token cannot be reused; tokens expire). 停止 revokes
   every paired device and the current token — paired devices are cut off on
@@ -29,6 +30,26 @@ QR code, live device status, and stop/refresh/copy actions.
   device cookie, so the QR is the only way into a LAN-exposed dsh web.
 - **Live status**: the desktop panel mirrors the pairing state in real time
   (waiting → connected → disconnected) over an SSE stream.
+
+## Screenshots
+
+The phone surface on a 390pt viewport. Light is the default theme; a
+sun/moon toggle in every header flips to the dark palette at any time.
+
+- **Workspaces** — the roster, each row a workspace with its own sessions:
+  ![Workspaces](docs/screenshots/mobile-workspaces.png)
+- **Sessions** — one workspace's sessions, headed by the 新建会话 button
+  (creates a blank session attached to the workspace and opens it
+  immediately):
+  ![Sessions](docs/screenshots/mobile-sessions.png)
+- **Chat** — messages with the desktop fold discipline (collapsed
+  深度思考 reasoning and 工具 tool-call rows), a pinned composer with
+  模型 / 权限 chips, and a live stream while the agent works:
+  ![Chat](docs/screenshots/mobile-chat.png)
+- **Model picker** — the bottom sheet with a provider-grouped catalog and a
+  思考强度 section per model (the same `session.models` directory the
+  desktop uses):
+  ![Model sheet](docs/screenshots/mobile-model-sheet.png)
 
 ## Requirements
 
@@ -74,13 +95,28 @@ mounts both halves.
 3. Scan with the phone (or open the copied link): the phone binds and
    lands on the **standalone mobile surface at `/m`** — no desktop UI on a
    small screen. The surface is deliberately thin:
-   - workspaces straight away (no new-session homepage),
+   - workspaces straight away (a 新建会话 button lives on each workspace's
+     session list: it creates a blank session attached to that workspace via
+     the host's `session.create` and opens the new chat immediately),
    - one workspace's sessions load **incrementally** (20 rows per page,
      "加载更多会话" continues; never the whole list at once),
    - opening a session fetches its chat content **on demand** (history
-     pages, "加载更早的消息" goes further back), and
+     pages, "加载更早的消息" goes further back),
    - a live stream shows new messages as they arrive, with a prompt box
-     for sending your own.
+     for sending your own,
+   - a **light-first theme**: the surface ships a light palette by default;
+     a sun/moon toggle in every header flips to the dark palette and the
+     choice persists across visits (localStorage),
+   - messages render with the desktop fold discipline: reasoning hides
+     behind a collapsed 深度思考 disclosure, tool calls behind a collapsed
+     工具 row (tap to see each call's arguments), very long answers behind
+     an explicit 展开全文 toggle, and each row carries its time — and
+   - a composer toolbar carries the **model** picker (provider-grouped
+     catalog with a 思考强度 effort section per model) and the **权限**
+     picker (permission presets; 完全权限 requires an explicit confirm
+     step). Both ride the host's own `session.models` /
+     `session.selectModel` RPCs and the `/permission` command — the phone
+     changes the same session settings the desktop would.
 4. The desktop badge flips to 已连接 in real time; it falls back to
    offline/断开 when the phone leaves.
 5. 刷新二维码 invalidates the old link and issues a new one. 停止 revokes
@@ -94,8 +130,13 @@ plugin's `/m/api` proxy (which delegates to the host ApiProxy service and
 pages `session.list` itself), so the tunneled Host never has to enter the
 connection plugin's trust fence. The phone is gated by its paired-device
 cookie and an explicit method allowlist (settings/credentials/host-action
-domains are never reachable from the phone); the live stream arrives over
-Server-Sent Events on `/m/api/events.mux`.
+domains are never reachable from the phone; model reads/writes are limited
+to the advisory `session.models` / `session.selectModel` pair, creation to
+`session.create` (workspace id only — the phone never names a working
+directory of its own), and the permission picker only ever sends the
+mode-agnostic `/permission` command
+through the already-allowlisted `session.prompt`); the live stream arrives
+over Server-Sent Events on `/m/api/events.mux`.
 
 ### Behavior notes
 
@@ -174,7 +215,7 @@ dsh web --trusted-host xxxx-xxxx-xxxx.trycloudflare.com
 Then set `publicBaseUrl: https://xxxx-xxxx-xxxx.trycloudflare.com` in the
 profile patch (or the plugin settings card — it hot-reloads). Open the
 phone icon at `http://127.0.0.1`, scan the QR from anywhere: the phone
-binds, reloads into the full UI, and heartbeats keep it online.
+binds, reloads into the mobile surface, and heartbeats keep it online.
 
 Notes:
 
