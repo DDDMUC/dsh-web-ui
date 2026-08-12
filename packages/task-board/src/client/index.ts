@@ -9,6 +9,7 @@
  * plugin must not take the GUI down.
  */
 import type { ClientContext, SessionId, WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale) and its
 // LocaleNamespaceMap merge table.
@@ -54,7 +55,7 @@ export interface SettingsPluginItemOwnerProps {
 }
 
 /** Required services (fiber inject waiting — the runtime must be up first). */
-export const inject = ['slots', 'sessions', 'workspaces', 'settingsScope', 'locale', 'remote']
+export const inject = ['slots', 'sessions', 'workspaces', 'connection', 'settingsScope', 'locale', 'remote']
 
 /**
  * Mount the task board.
@@ -75,14 +76,16 @@ export function apply(ctx: ClientContext): void {
     inject: () => settingsCard.inject(),
   }, TaskBoardSettingsCard))
 
-  // The sidebar entry and board view mount while the plugin is enabled. The
-  // settings scope is the authority once the Host serves the namespace;
-  // before that first snapshot the composition default (enabled) applies.
+  // The sidebar entry and board view mount once the settings scope settles;
+  // while the scope is still loading, the composition default is unknown, so
+  // nothing mounts yet. Only an unavailable scope (no settings surface served)
+  // falls back to the composition default (enabled).
   let uiDisposer: (() => void) | undefined
   const mountUi = (): void => {
     if (uiDisposer !== undefined) return
     const sessions = ctx.sessions
     const workspaces = ctx.workspaces
+    const connection = ctx.get('connection') as ConnectionHandle
 
     // Core wiring: real runtime faces into the framework-free services.
     const store = new LocalStorageTaskStore()
@@ -94,6 +97,17 @@ export function apply(ctx: ClientContext): void {
       workspaces: {
         list: workspaces.list,
         connectWorkspace: id => workspaces.connectWorkspace(id as WorkspaceId),
+      },
+      history: {
+        loadTail: async sessionId => {
+          const response = await connection.api.sessions.history({
+            sessionId: sessionId as SessionId,
+            maxMessages: 20,
+          })
+          return response.result.ok
+            ? { events: response.result.value.events.map(entry => entry.event) }
+            : undefined
+        },
       },
     })
     const controller = new BoardController({
@@ -144,7 +158,7 @@ export function apply(ctx: ClientContext): void {
     const snapshot = settingsScope.getSnapshot()
     const enabled = snapshot.status === 'ready'
       ? snapshot.value?.enabled ?? true
-      : true
+      : snapshot.status === 'unavailable'
     if (enabled) mountUi()
     else uiDisposer?.()
   }

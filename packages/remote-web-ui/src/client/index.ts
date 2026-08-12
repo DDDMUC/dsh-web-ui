@@ -88,7 +88,9 @@ export function apply(ctx: ClientContext): void {
   const settingsScope = ctx.settingsScope.bind<RemoteSettings>({ namespace: REMOTE_WEB_UI_NS })
   const enabled = (): boolean => {
     const snapshot = settingsScope.getSnapshot()
-    return snapshot.status === 'ready' ? snapshot.value?.enabled ?? true : true
+    return snapshot.status === 'ready'
+      ? snapshot.value?.enabled ?? true
+      : snapshot.status === 'unavailable'
   }
 
   // Sidebar foot entry: the shell declares 'sidebar.remote' in unconstrained

@@ -149,6 +149,8 @@ export class PetService extends Service {
   private readonly persistDir: string
   private persist: PetPersist
   private lastTurnRewardAt = 0
+  private enabled: boolean
+  private disposeActivity: (() => void) | undefined
 
   constructor(ctx: Context, config: PetConfig = {}) {
     super(ctx, 'pet')
@@ -160,26 +162,14 @@ export class PetService extends Service {
       ...(config.state ?? {}),
     })
     this.persist = loadPetPersist(this.persistDir)
+    this.enabled = config.enabled ?? true
 
-    ctx.on('session/event', (_session: Session, event: { type: string; data?: unknown }) => {
-      if (event.type !== 'activity/status') return
-      const payload = (event.data ?? {}) as ActivityStatusEventLike
-      if (payload.phase === undefined) return
-      const phase = payload.phase as PetStateSnapshot['phase']
-      // Guard against unknown phases from newer activity trackers.
-      if (!['idle', 'waiting', 'thinking', 'tool', 'done'].includes(phase)) return
-      this.machine.onActivityStatus({
-        phase,
-        ...(typeof payload.line === 'string' ? { line: payload.line } : {}),
-        ...(typeof payload.phrase === 'string' ? { phrase: payload.phrase } : {}),
-      })
-      this.machine.onSessionActive()
-      if (phase === 'done') this.rewardTurn()
-    })
+    this.syncActivity()
+  }
 
-    ctx.on('session/disposed', () => {
-      this.machine.onSessionDisposed()
-    })
+  /** Whether the pet service consumes session activity while enabled. */
+  isEnabled(): boolean {
+    return this.enabled
   }
 
   /** RPC: current pet state snapshot. */
@@ -195,6 +185,43 @@ export class PetService extends Service {
   /** Current persisted pet name (read-only view). */
   petName(): string {
     return this.persist.name
+  }
+
+  /** Start or stop the session-activity listeners that drive the pet. */
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled
+    this.syncActivity()
+  }
+
+  private syncActivity(): void {
+    if (this.disposeActivity !== undefined) {
+      this.disposeActivity()
+      this.disposeActivity = undefined
+    }
+    if (!this.enabled) return
+    this.disposeActivity = (() => {
+      const disposers = [
+        this.ctx.on('session/event', (_session: Session, event: { type: string; data?: unknown }) => {
+          if (event.type !== 'activity/status') return
+          const payload = (event.data ?? {}) as ActivityStatusEventLike
+          if (payload.phase === undefined) return
+          const phase = payload.phase as PetStateSnapshot['phase']
+          // Guard against unknown phases from newer activity trackers.
+          if (!['idle', 'waiting', 'thinking', 'tool', 'done'].includes(phase)) return
+          this.machine.onActivityStatus({
+            phase,
+            ...(typeof payload.line === 'string' ? { line: payload.line } : {}),
+            ...(typeof payload.phrase === 'string' ? { phrase: payload.phrase } : {}),
+          })
+          this.machine.onSessionActive()
+          if (phase === 'done') this.rewardTurn()
+        }),
+        this.ctx.on('session/disposed', () => {
+          this.machine.onSessionDisposed()
+        }),
+      ]
+      return () => { for (const dispose of disposers) dispose() }
+    })()
   }
 
   /** RPC: pet or feed the pet. */
@@ -272,7 +299,7 @@ export class PetService extends Service {
     next.size = Math.round(Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, section.size)))
     next.right = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, section.right)))
     next.bottom = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, section.bottom)))
-    this.persist = { ...this.persist, display: next, name: section.name }
+    this.persist = { ...this.persist, display: next, name: section.name.trim() }
     this.flush()
   }
 

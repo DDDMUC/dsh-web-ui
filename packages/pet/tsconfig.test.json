@@ -12,13 +12,18 @@
     "jsx": "react-jsx",
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "types": ["node"],
-    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.test.tsbuildinfo"
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.test.tsbuildinfo",
+    "paths": {
+      "@deepseek-ai/cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session": ["/Users/zcl/.dsh/source/current/packages/core/session/lib/types/index.d.ts"]
+    }
   },
   "include": [
     "src/**/*.test.ts",
     "src/affinity.ts",
     "src/treats.ts",
     "src/persist.ts",
-    "src/state.ts"
+    "src/state.ts",
+    "tests/**/*.spec.ts"
   ]
 }

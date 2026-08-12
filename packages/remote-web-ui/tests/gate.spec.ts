@@ -85,6 +85,49 @@ describe('makeGateListener', () => {
     expect(result).toBe(true)
   })
 
+  it('re-reads requirePairingForLan per request', () => {
+    const service = makeService()
+    let require = true
+    const gate = makeGateListener(service, () => require)
+    let delegated = false
+    expect(gate(request({ host: '192.168.1.5:3080' }), 'session.list', () => { delegated = true; return true })).toBe(false)
+    require = false
+    expect(gate(request({ host: '192.168.1.5:3080' }), 'session.list', () => { delegated = true; return true })).toBe(true)
+    expect(delegated).toBe(true)
+  })
+
+  it('vetoes non-loopback requests while the plugin is disabled', () => {
+    const service = makeService()
+    const gate = makeGateListener(service, true, () => false)
+    let delegated = false
+    const result = gate(request({ host: '192.168.1.5:3080' }), 'session.list', () => { delegated = true; return true })
+    expect(result).toBe(false)
+    expect(delegated).toBe(false)
+  })
+
+  it('keeps loopback available while the plugin is disabled', () => {
+    const service = makeService()
+    const gate = makeGateListener(service, true, () => false)
+    let delegated = false
+    const result = gate(request({ host: '127.0.0.1:3080' }), 'session.list', () => { delegated = true; return true })
+    expect(result).toBe(true)
+    expect(delegated).toBe(true)
+  })
+
+  it('re-enabling restores pairing after stop', () => {
+    const service = makeService()
+    const gate = makeGateListener(service, true, () => true)
+    service.stop()
+    const { token } = service.issue()
+    const accepted = service.accept(token)
+    expect(accepted.ok).toBe(true)
+    const deviceId = accepted.ok ? accepted.deviceId : ''
+    let delegated = false
+    const result = gate(request({ host: '192.168.1.5:3080', cookie: `dsh_pair=${deviceId}` }), 'session.list', () => { delegated = true; return true })
+    expect(result).toBe(true)
+    expect(delegated).toBe(true)
+  })
+
   it('vetoes a request with an unparsable Host', () => {
     const service = makeService()
     const gate = makeGateListener(service)

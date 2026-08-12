@@ -39,6 +39,17 @@ export interface WorkspacesExecutionFace {
   connectWorkspace(workspaceId: string): Promise<string>
 }
 
+/** One raw session-history event narrowed to the failure signal reconcile needs. */
+export interface ExecutionHistoryEvent {
+  type: string
+  data?: unknown
+}
+
+/** Optional raw-history face used to detect failures of never-opened sessions. */
+export interface HistoryExecutionFace {
+  loadTail(sessionId: string): Promise<{ events: readonly ExecutionHistoryEvent[] } | undefined>
+}
+
 /** The behavior verbs the service invokes on an execution session. */
 export interface SessionDriver {
   rename(title: string): Promise<unknown>
@@ -54,6 +65,8 @@ export interface SessionDriver {
 export interface ExecutionEnvironment {
   sessions: SessionsExecutionFace
   workspaces: WorkspacesExecutionFace
+  /** Raw-history reader for failure detection of never-opened sessions. */
+  history?: HistoryExecutionFace
 }
 
 /** Outcome events the service emits to the controller. */
@@ -65,6 +78,14 @@ export type ExecutionEvent =
 function messageOf(error: unknown): string {
   if (error instanceof Error) return error.message
   return String(error)
+}
+
+/** Whether a `turn/end` payload closed the turn with an error reason. */
+function isErrorTurnEnd(data: unknown): boolean {
+  if (typeof data !== 'object' || data === null) return false
+  const reason = (data as { reason?: unknown }).reason
+  return typeof reason === 'object' && reason !== null
+    && (reason as { kind?: unknown }).kind === 'error'
 }
 
 /**
@@ -121,7 +142,9 @@ export class ExecutionService {
    * settled outcome is decided by the strongest available signal, in order:
    * 1. the list summary — missing session → cancelled; still running → pending;
    * 2. a warm conversation snapshot → `lastAgentError` decides failed/succeeded;
-   * 3. otherwise a finished session counts as succeeded.
+   * 3. the raw history tail (when a history face is wired) — a `turn/end`
+   *    error reason proves failure;
+   * 4. otherwise a finished session counts as succeeded.
    *
    * @param task - a task whose latest execution has no endedAt.
    * @returns a settled event when the session state proves completion, else undefined.
@@ -149,7 +172,26 @@ export class ExecutionService {
         }
       }
     }
+    const failed = await this.historyShowsFailure(execution.sessionId)
+    if (failed) {
+      return { kind: 'settled', taskId: task.id, executionId: execution.id, outcome: 'failed', error: 'agent turn failed' }
+    }
     return { kind: 'settled', taskId: task.id, executionId: execution.id, outcome: 'succeeded' }
+  }
+
+  /** Best-effort failure probe over the raw history tail (false when unavailable). */
+  private async historyShowsFailure(sessionId: string): Promise<boolean> {
+    const history = this.env.history
+    if (history === undefined) return false
+    try {
+      const tail = await history.loadTail(sessionId)
+      if (tail === undefined) return false
+      return tail.events.some(event => event.type === 'turn/end' && isErrorTurnEnd(event.data))
+    } catch (error) {
+      // A failed history read must not block settlement; fall back to success.
+      console.error('[dsh-task-board] history failure probe failed', error)
+      return false
+    }
   }
 
   private async connectSession(): Promise<string> {

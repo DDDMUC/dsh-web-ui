@@ -232,6 +232,46 @@ describe('ExecutionService.reconcile', () => {
     expect(await service.reconcile(withSession)).toMatchObject({ kind: 'settled', outcome: 'succeeded' })
   })
 
+  it('detects failure of a cold session from the raw history tail', async () => {
+    const { env, summaries } = makeEnv()
+    summaries.set('s-1', { running: false })
+    const service = new ExecutionService({
+      ...env,
+      history: {
+        loadTail: async () => ({
+          events: [
+            { type: 'user/message' },
+            { type: 'turn/end', data: { reason: { kind: 'error' } } },
+          ],
+        }),
+      },
+    })
+    const task = sampleTask()
+    const { task: running } = startExecution(task, NOW, 'exec-1')
+    const withSession = { ...running, executions: running.executions.map(e => ({ ...e, sessionId: 's-1' })) }
+    expect(await service.reconcile(withSession)).toMatchObject({ kind: 'settled', outcome: 'failed' })
+  })
+
+  it('falls back to succeeded when the history tail has no error turn', async () => {
+    const { env, summaries } = makeEnv()
+    summaries.set('s-1', { running: false })
+    const service = new ExecutionService({
+      ...env,
+      history: {
+        loadTail: async () => ({
+          events: [
+            { type: 'user/message' },
+            { type: 'turn/end', data: { reason: { kind: 'completed' } } },
+          ],
+        }),
+      },
+    })
+    const task = sampleTask()
+    const { task: running } = startExecution(task, NOW, 'exec-1')
+    const withSession = { ...running, executions: running.executions.map(e => ({ ...e, sessionId: 's-1' })) }
+    expect(await service.reconcile(withSession)).toMatchObject({ kind: 'settled', outcome: 'succeeded' })
+  })
+
   it('stays pending while the session is still running', async () => {
     const { env, drivers, summaries } = makeEnv()
     drivers.set('s-1', new FakeDriver())

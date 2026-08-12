@@ -71,17 +71,24 @@ export function hostnameOf(request: IncomingMessage): string | undefined {
  * without a device cookie (the feature then only manages tokens/status;
  * revocation of paired devices still holds). A function is re-read per
  * request, so a settings edit takes effect without a restart. Defaults to true.
+ * @param enabled - when false, every non-loopback request is vetoed while
+ * loopback stays available. A function is re-read per request so the fence
+ * stays mounted for the plugin lifetime and disabling the plugin cannot open
+ * a LAN-exposed /api. Defaults to true.
  * @returns the cordis waterfall listener: call `next()` to delegate,
  * return false (without calling it) to veto with 403.
  */
 export function makeGateListener(
   service: PairingService,
   requirePairingForLan: boolean | (() => boolean) = true,
+  enabled: boolean | (() => boolean) = true,
 ): (request: IncomingMessage, method: string | undefined, next: () => boolean | Promise<boolean>) => boolean | Promise<boolean> {
   return (request, _method, next) => {
     const hostname = hostnameOf(request)
     if (hostname === undefined) return false
     if (isLoopbackHostname(hostname)) return next()
+    const active = typeof enabled === 'function' ? enabled() : enabled
+    if (!active) return false
     const require = typeof requirePairingForLan === 'function' ? requirePairingForLan() : requirePairingForLan
     if (!require) return next()
     const deviceId = readCookie(request.headers.cookie, service.config.cookieName)

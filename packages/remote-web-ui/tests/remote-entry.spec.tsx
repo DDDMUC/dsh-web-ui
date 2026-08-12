@@ -202,4 +202,50 @@ describe('apply registration', () => {
     apply(ctx as never)
     expect(injected).toEqual(['sidebar.remote', 'web-ui.plugin.item'])
   })
+
+  it('waits for the settings snapshot before mounting the sidebar entry and runtime', async () => {
+    const { apply } = await import('../src/client/index.ts')
+    const injected: string[] = []
+    const registered: string[] = []
+    let snapshot = { status: 'loading' as const, writable: false, value: undefined }
+    const listeners = new Set<() => void>()
+    const notify = (): void => { for (const fn of [...listeners]) fn() }
+    const ctx = {
+      effect: (fn: () => unknown) => fn(),
+      locale: { register: () => () => {}, bind: () => (key: string) => key },
+      slots: {
+        inject: (key: string, factory?: () => unknown) => {
+          injected.push(key)
+          factory?.()
+          return () => {}
+        },
+        register: (entry: { name: string }) => {
+          registered.push(entry.name)
+          return () => {}
+        },
+      },
+      settingsScope: {
+        bind: () => ({
+          getSnapshot: () => snapshot,
+          subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } },
+          set: async () => {},
+          unset: async () => {},
+        }),
+      },
+      get: (name: string) => {
+        if (name === 'connection') return { isLoopback: true }
+        return undefined
+      },
+    }
+    apply(ctx as never)
+    expect(registered).toEqual(['web-ui.plugin.item'])
+
+    snapshot = { status: 'ready' as const, writable: true, value: { enabled: false } }
+    notify()
+    expect(registered).toEqual(['web-ui.plugin.item'])
+
+    snapshot = { status: 'ready' as const, writable: true, value: { enabled: true } }
+    notify()
+    expect(registered).toEqual(['web-ui.plugin.item', 'sidebar.remote'])
+  })
 })

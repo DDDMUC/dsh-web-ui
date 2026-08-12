@@ -141,12 +141,15 @@ export function apply(ctx: Context, config?: Config): void {
   // Push a committed settings section into the service and gate. The service
   // config object is read per operation (token mint, touch, sweep), and the
   // gate re-reads its fence flag per request, so a live edit takes effect
-  // without a restart. When `enabled` turns off, the pairing routes, gate
-  // listener, and sweep timer are dropped so the feature is fully dormant.
-  let disposeGate: (() => void) | undefined
+  // without a restart. When `enabled` turns off, the pairing routes and
+  // sweep timer are dropped and all device/token state is revoked, but the
+  // gate listener stays mounted so a LAN-exposed /api stays behind pairing
+  // (now vetoing every non-loopback request) instead of opening the fence.
   let disposeRoutes: (() => void) | undefined
   let disposeSweep: (() => void) | undefined
   const routes = makeRoutes({ service, lanAddresses })
+  const gate = makeGateListener(service, () => resolve().requirePairingForLan, () => resolve().enabled)
+  ctx.effect(() => ctx.on('api/gate', gate), 'remote-web-ui: api gate')
   const sync = (): void => {
     const value = resolve()
     service.config = {
@@ -156,15 +159,7 @@ export function apply(ctx: Context, config?: Config): void {
       cookieName: value.cookieName,
     }
     const enabled = value.enabled
-    if (disposeGate === undefined && enabled) {
-      disposeGate = ctx.effect(
-        () => ctx.on('api/gate', makeGateListener(service, () => resolve().requirePairingForLan)),
-        'remote-web-ui: api gate',
-      )
-    } else if (disposeGate !== undefined && !enabled) {
-      disposeGate()
-      disposeGate = undefined
-    }
+    if (!enabled) service.stop()
     if (disposeRoutes === undefined && enabled) {
       disposeRoutes = ctx.effect(
         () => {

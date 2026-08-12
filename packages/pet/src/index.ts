@@ -88,7 +88,7 @@ export const PET_SETTINGS_SCHEMA = z.object({
   size: z.number().step(1).min(DISPLAY_SIZE_MIN).max(DISPLAY_SIZE_MAX).default(160),
   right: z.number().step(1).min(0).max(DISPLAY_INSET_MAX).default(24),
   bottom: z.number().step(1).min(0).max(DISPLAY_INSET_MAX).default(20),
-  name: z.string().min(1).max(PET_NAME_MAX_LENGTH).default(DEFAULT_PET_NAME),
+  name: z.string().min(1).max(PET_NAME_MAX_LENGTH).pattern(/\S/).default(DEFAULT_PET_NAME),
   enabled: z.boolean().default(true),
 })
 
@@ -110,6 +110,7 @@ export function apply(ctx: Context, config: PetConfig = {}): void {
     right: service.display().right,
     bottom: service.display().bottom,
     name: service.petName(),
+    enabled: config.enabled ?? true,
   }
   // The browser half talks to the pet through same-origin JSON endpoints and
   // loads the atlas from the pet's own media route (RPC domains are
@@ -136,7 +137,12 @@ export function apply(ctx: Context, config: PetConfig = {}): void {
   }
   installSettingsSection(ctx, settingsNamespace(PET_SETTINGS_NAMESPACE), PET_SETTINGS_SCHEMA, base, {
     setSource: (source) => { current = source },
-    onChange: () => { service.applySettingsSection(current()); syncRoutes() },
+    onChange: () => {
+      const section = current()
+      service.applySettingsSection(section)
+      service.setEnabled(section.enabled ?? true)
+      syncRoutes()
+    },
   })
   syncRoutes()
 }

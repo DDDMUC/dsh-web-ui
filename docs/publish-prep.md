@@ -1,6 +1,6 @@
 # dsh-web-ui 插件包发布准备（内测阶段，仅供内部参考）
 
-> **快照说明（重要）**：本文档是**当前时点（2026-08-11）**的发布前检查快照。
+> **快照说明（重要）**：本文档是**当前时点（2026-08-12）**的发布前检查快照。
 > 插件全家桶仍处内测、**清单与版本都不固定**：包可能增删、版本可能调整、
 > 字段可能变动。本文档需随仓库变更**重新核对**，不得当作永久事实使用。
 >
@@ -10,7 +10,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 13 个插件包（截至快照日）：
+`packages/` 与 `packages/skins/` 下共 15 个插件包（截至快照日）：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
@@ -19,6 +19,7 @@
 | packages/pet | @deepseek-ai/dsh-pet | 0.1.0 | true |
 | packages/remote-web-ui | @deepseek-ai/dsh-remote-web-ui | 0.1.0 | true |
 | packages/live-stats | @deepseek-ai/dsh-live-stats | 0.0.1 | true |
+| packages/web-ui-settings | @deepseek-ai/dsh-client-ui-web-ui-settings | 0.0.1 | true |
 | packages/dsh-skins | @deepseek-ai/dsh-skins（聚合） | 0.1.0 | true |
 | packages/web-ui-all | @deepseek-ai/dsh-web-ui-all（聚合） | 0.1.0 | true |
 | packages/skins/qq98 | @deepseek-ai/dsh-client-ui-skin-qq98 | 0.0.1 | true |
@@ -26,20 +27,21 @@
 | packages/skins/xp | @deepseek-ai/dsh-client-ui-skin-xp | 0.0.1 | true |
 | packages/skins/blue-fantasy | @deepseek-ai/dsh-client-ui-skin-blue-fantasy | 0.1.0 | true |
 | packages/skins/dragon-heir | @deepseek-ai/dsh-client-ui-skin-dragon-heir | 0.0.1 | true |
+| packages/skins/minecraft | @deepseek-ai/dsh-client-ui-skin-minecraft | 0.0.1 | true |
 | packages/skins/skin-center | @deepseek-ai/dsh-client-ui-skin-center | 0.1.0 | true |
 
 ## 二、发布前检查结论（2026-08-11，已修复项标注 [已确认]）
 
 ### [阻断] 阻断项（不修复无法发布/无法被消费）
 
-1. **全部 13 包 `private: true`** — npm 直接拒绝发布 private 包
+1. **全部 15 包 `private: true`** — npm 直接拒绝发布 private 包
    （`This package has been marked as private`）。发布前需逐个移除。
    **（按内测红线保留，未改动）**
-2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 6 处、web-ui-all 6 处）—
+2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 6 处、web-ui-all 7 处）—
    [已确认] **已确认修复方式**：实测 `pnpm pack` 会把 `workspace:*` 改写为真实版本号
-   （dsh-skins 6 处、web-ui-all 6 处全部改写为 0.1.0/0.0.1，无残留）。
+   （dsh-skins 6 处、web-ui-all 7 处全部改写为 0.1.0/0.0.1，无残留）。
    发布时必须用 **`pnpm publish`**（不要用 `npm publish`），`npm pack` 不改写。
-3. **类型产物缺失（2 包）** — [已确认] **已修复**：
+3. **类型产物缺失（1 包）** — [已确认] **已修复**：
    - task-board：新增 `tsconfig.build.json`（emitDeclarationOnly → lib/types），
      build 脚本改为 `tsc -p tsconfig.build.json && tsdown`；已产出 18 个 .d.ts；
 4. **`@deepseek-ai/dsh-code-kline` 未发布** — 原为 ui-code-kline 与 web-ui-all
@@ -82,7 +84,7 @@ npm 侧已发布 @deepseek-ai 核心包 18 个（全 `0.0.1-rc.1`），插件包
 ## 四、建议的发布流程（批准后执行）
 
 1. 同步官方预发布版本号节奏（`0.0.1-rc.x`，与 @deepseek-ai/dsh 对齐）；
-2. 发布前仍需处理：移除 `private: true`（13 包）；
+2. 发布前仍需处理：移除 `private: true`（15 包）；
 3. 按依赖顺序发布（用 **`pnpm publish`**，自动改写 workspace:*）：
    各功能包 > 皮肤包 > dsh-skins > web-ui-all；
 4. 逐包 `pnpm pack --dry-run` 复核 tarball 内容（注意：dry-run 仍会执行

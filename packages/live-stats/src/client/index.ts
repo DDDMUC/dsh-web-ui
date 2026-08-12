@@ -42,7 +42,7 @@ const NS = 'live-stats'
 const LIVE_STATS_NS = 'live-stats'
 
 /** Services required by this plugin. */
-export const inject = ['slots', 'locale', 'settingsScope', 'remote']
+export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote']
 
 /**
  * Register the live-stats surface: the generation-throughput TPS group lives

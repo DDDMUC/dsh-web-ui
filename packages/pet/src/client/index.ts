@@ -71,7 +71,7 @@ const POLL_MS = 800
 const PET_SETTINGS_NS = 'pet'
 
 /** Required services. */
-export const inject = ['slots', 'locale', 'settingsScope', 'remote']
+export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote']
 
 /** Re-exported for consumers that type against the injected face. */
 export type { PetInjected, PetDockEntryProps } from './PetDockEntry.tsx'
@@ -108,7 +108,9 @@ export function apply(ctx: ClientContext): void {
   const settingsScope = ctx.settingsScope.bind<PetSettings>({ namespace: PET_SETTINGS_NS })
   const enabled = (): boolean => {
     const snapshot = settingsScope.getSnapshot()
-    return snapshot.status === 'ready' ? snapshot.value?.enabled ?? true : true
+    return snapshot.status === 'ready'
+      ? snapshot.value?.enabled ?? true
+      : snapshot.status === 'unavailable'
   }
 
   // Plugin configuration card: one staged form over the `pet` settings
