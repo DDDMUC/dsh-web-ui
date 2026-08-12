@@ -17,13 +17,17 @@ export const inject = ['sessionProjections']
 export const LIVE_STATS_SETTINGS_NAMESPACE = settingsNamespace('live-stats')
 
 /** Plugin configuration for provider-independent token estimation. */
-export type Config = EstimatorConfig
+export interface Config extends EstimatorConfig {
+  /** Master switch for the plugin (browser half + host projection). */
+  enabled?: boolean
+}
 
 /** Runtime schema for {@link Config}. */
 export const Config: z<Config> = z.object({
   charsPerToken: z.number().min(0.01).default(4),
   blockOverhead: z.number().step(1).min(0).default(4),
   roleOverhead: z.number().step(1).min(0).default(4),
+  enabled: z.boolean().default(true),
 })
 
 /**
@@ -46,10 +50,17 @@ export function apply(ctx: Context, config: Config = {}): void {
   let disposeProjection: (() => void) | undefined
 
   const rebuild = (): void => {
-    const spec = resolveEstimatorConfig(current())
     if (disposeProjection !== undefined) {
       disposeProjection()
+      disposeProjection = undefined
     }
+    if ((current().enabled ?? true) === false) return
+    const source = current()
+    const spec = resolveEstimatorConfig({
+      ...(source.charsPerToken === undefined ? {} : { charsPerToken: source.charsPerToken }),
+      ...(source.blockOverhead === undefined ? {} : { blockOverhead: source.blockOverhead }),
+      ...(source.roleOverhead === undefined ? {} : { roleOverhead: source.roleOverhead }),
+    })
     disposeProjection = ctx.sessionProjections.register(createLiveTokenUsageProjectionDefinition(spec))
   }
 

@@ -12,12 +12,16 @@ import { CardForm, booleanField, type CardActions, type CardShell, type FieldSta
 
 /** The task-board fields this card edits (the namespace's full schema). */
 export interface TaskBoardSettings {
+  /** Master switch for the plugin. */
+  enabled?: boolean
   /** Whether the board announces itself in every agent's system prompt. */
   announceToAgent?: boolean
 }
 
 /** What the task-board card renders. */
 export interface TaskBoardSettingsCardState extends CardShell {
+  /** Master switch. */
+  enabled: CardFieldState
   /** System-prompt announcement flag. */
   announceToAgent: CardFieldState
 }
@@ -38,6 +42,7 @@ export class TaskBoardSettingsCardController {
   /** @param scope - the bound settings scope for the `task-board` namespace. */
   constructor(scope: SettingsScope<TaskBoardSettings>) {
     this.form = new CardForm(scope, [
+      booleanField('enabled'),
       booleanField('announceToAgent'),
     ])
     this.store = this.form.bind(() => this.projection())
@@ -46,6 +51,7 @@ export class TaskBoardSettingsCardController {
   private projection(): TaskBoardSettingsCardState {
     return {
       ...this.form.shell(),
+      enabled: this.form.field('enabled'),
       announceToAgent: this.form.field('announceToAgent'),
     }
   }
@@ -61,7 +67,7 @@ export class TaskBoardSettingsCardController {
 
 /** Props the renderer binds for the task-board card. */
 export type TaskBoardSettingsCardProps =
-  PropsRuntime<'settings.plugin.item'>
+  PropsRuntime<'web-ui.plugin.item'>
   & PropsLocale<'task-board'>
   & InjectFace<TaskBoardSettingsCardFace>
 
@@ -89,6 +95,18 @@ export function TaskBoardSettingsCard(props: TaskBoardSettingsCardProps) {
       onSave={props.save}
       onDiscard={props.discard}
     >
+      <BooleanField
+        id="settings-task-board-enabled"
+        label={t('settings.enabled')}
+        hint={t('settings.enabledHint')}
+        inheritLabel={t('settings.inherit')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.enabled}
+        onEdit={(text) => { props.edit('enabled', text) }}
+        onReset={() => { props.resetField('enabled') }}
+      />
       <BooleanField
         id="settings-task-board-announce"
         label={t('settings.announceToAgent')}

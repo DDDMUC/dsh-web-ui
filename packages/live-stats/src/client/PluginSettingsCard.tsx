@@ -160,3 +160,48 @@ export function ValueField(props: FieldProps & {
     </div>
   )
 }
+
+/** A staged boolean field: 继承 / 开 / 关. */
+export function BooleanField(props: FieldProps & {
+  /** Copy for the inherit option. */
+  inheritLabel: string
+  /** Copy for the on option. */
+  onLabel: string
+  /** Copy for the off option. */
+  offLabel: string
+}) {
+  return (
+    <div className={css.field}>
+      <div className={css.head}>
+        <label className={css.label} htmlFor={props.id}>{props.label}</label>
+        {props.overridden
+          ? (
+            <span className={css.badges}>
+              <span className={css.badge}>{props.overriddenLabel}</span>
+              <button
+                type="button"
+                className={css.reset}
+                disabled={props.disabled}
+                onClick={props.onReset}
+              >
+                {props.resetLabel}
+              </button>
+            </span>
+          )
+          : null}
+      </div>
+      <select
+        id={props.id}
+        className={css.select}
+        value={props.text}
+        disabled={props.disabled}
+        onChange={(event) => { props.onEdit(event.target.value) }}
+      >
+        <option value="">{props.inheritLabel}</option>
+        <option value="true">{props.onLabel}</option>
+        <option value="false">{props.offLabel}</option>
+      </select>
+      <p className={css.hint}>{props.hint}</p>
+    </div>
+  )
+}

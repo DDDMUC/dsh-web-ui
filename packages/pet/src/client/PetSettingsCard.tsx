@@ -11,6 +11,8 @@ import { CardForm, booleanField, numberField, textField, type CardActions, type 
 
 /** The pet's settings fields this card edits (the namespace's full schema). */
 export interface PetSettings {
+  /** Master switch for the plugin. */
+  enabled?: boolean
   /** Master switch. */
   visible?: boolean
   /** Scale of the rendered pet in px (sprite cell height). */
@@ -25,6 +27,8 @@ export interface PetSettings {
 
 /** What the pet settings card renders. */
 export interface PetSettingsCardState extends CardShell {
+  /** Plugin master switch. */
+  enabled: CardFieldState
   /** Master switch. */
   visible: CardFieldState
   /** Pet scale. */
@@ -53,6 +57,7 @@ export class PetSettingsCardController {
   /** @param scope - the bound settings scope for the `pet` namespace. */
   constructor(scope: SettingsScope<PetSettings>) {
     this.form = new CardForm(scope, [
+      booleanField('enabled'),
       booleanField('visible'),
       numberField('size'),
       numberField('right'),
@@ -65,6 +70,7 @@ export class PetSettingsCardController {
   private projection(): PetSettingsCardState {
     return {
       ...this.form.shell(),
+      enabled: this.form.field('enabled'),
       visible: this.form.field('visible'),
       size: this.form.field('size'),
       right: this.form.field('right'),
@@ -84,7 +90,7 @@ export class PetSettingsCardController {
 
 /** Props the renderer binds for the pet settings card. */
 export type PetSettingsCardProps =
-  PropsRuntime<'settings.plugin.item'>
+  PropsRuntime<'web-ui.plugin.item'>
   & PropsLocale<'pet'>
   & InjectFace<PetSettingsCardFace>
 
@@ -112,6 +118,18 @@ export function PetSettingsCard(props: PetSettingsCardProps) {
       onSave={props.save}
       onDiscard={props.discard}
     >
+      <BooleanField
+        id="settings-pet-enabled"
+        label={t('settings.enabled')}
+        hint={t('settings.enabledHint')}
+        inheritLabel={t('settings.inherit')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.enabled}
+        onEdit={(text) => { props.edit('enabled', text) }}
+        onReset={() => { props.resetField('enabled') }}
+      />
       <BooleanField
         id="settings-pet-visible"
         label={t('settings.visible')}

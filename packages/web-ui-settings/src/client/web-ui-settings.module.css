@@ -1,0 +1,63 @@
+.groupCard {
+  list-style: none;
+  border: 1px solid var(--dsh-color-border, #d8d8dc);
+  border-radius: 6px;
+  background: var(--dsh-color-surface, #ffffff);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.description {
+  color: var(--dsh-color-text-2, #6b6b73);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.chevron,
+.chevronOpen {
+  color: var(--dsh-color-text-2, #6b6b73);
+  font-size: 13px;
+  flex: none;
+  margin-left: 10px;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.body {
+  padding: 2px 12px 12px;
+  border-top: 1px solid var(--dsh-color-border, #e4e4e8);
+}
+
+.subcards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}

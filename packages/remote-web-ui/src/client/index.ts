@@ -19,7 +19,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { RemoteEntry } from './RemoteEntry.tsx'
 import { PairFailedNotice } from './PairFailedNotice.tsx'
-import { RemoteSettingsCard, RemoteSettingsCardController } from './RemoteSettingsCard.tsx'
+import { RemoteSettingsCard, RemoteSettingsCardController, type RemoteSettings } from './RemoteSettingsCard.tsx'
 import { en, zh, type RemoteKey } from './locales.ts'
 import { PAIR_FAILED_MARKER, runPairBootFlow } from './deep-link.ts'
 import { sendHeartbeat } from './pair-api.ts'
@@ -44,11 +44,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'sidebar.remote': { kind: 'single'; scope: 'root'; owner: SidebarRemoteOwnerProps }
     /**
-     * The plugin configuration section's card seat, declared by
-     * ui-plugin-config. Spelled here with the same shape so this package can
-     * register its card without depending on the sibling UI package.
+     * The child slot the Web UI plugin group declares; this card registers
+     * into the group instead of the top-level `settings.plugin.item` list.
+     * Spelled here with the same shape so this package can register without
+     * depending on the sibling UI package.
      */
-    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+    'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
 }
 
@@ -84,22 +85,40 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'remote-web-ui: dictionaries')
 
   const t = ctx.locale.bind(NS)
+  const settingsScope = ctx.settingsScope.bind<RemoteSettings>({ namespace: REMOTE_WEB_UI_NS })
+  const enabled = (): boolean => {
+    const snapshot = settingsScope.getSnapshot()
+    return snapshot.status === 'ready' ? snapshot.value?.enabled ?? true : true
+  }
 
   // Sidebar foot entry: the shell declares 'sidebar.remote' in unconstrained
   // order, so registration is declaration-aware — slots.inject waits on the
   // declaration, removes the contribution when it collapses, and re-runs
-  // after a redeclaration.
-  const registerEntry = (): (() => void) =>
-    ctx.slots.register({ name: 'sidebar.remote', locale: NS }, RemoteEntry)
-  ctx.slots.inject('sidebar.remote', registerEntry)
+  // after a redeclaration. The entry follows the plugin's enabled setting:
+  // toggling it off removes the trigger, toggling it back on re-registers it.
+  ctx.slots.inject('sidebar.remote', () => {
+    let disposeEntry: (() => void) | undefined
+    const syncEntry = (): void => {
+      if (enabled() && disposeEntry === undefined) {
+        disposeEntry = ctx.slots.register({ name: 'sidebar.remote', locale: NS }, RemoteEntry)
+      } else if (!enabled() && disposeEntry !== undefined) {
+        disposeEntry()
+        disposeEntry = undefined
+      }
+    }
+    const unsubscribe = settingsScope.subscribe(syncEntry)
+    syncEntry()
+    return () => {
+      unsubscribe()
+      disposeEntry?.()
+    }
+  })
 
   // Plugin configuration card: one staged form over the `remote-web-ui`
-  // settings namespace, contributed to the plugin-configuration section.
-  const remoteSettings = new RemoteSettingsCardController(
-    ctx.settingsScope.bind({ namespace: REMOTE_WEB_UI_NS }),
-  )
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-    name: 'settings.plugin.item',
+  // settings namespace, contributed to the Web UI plugin group.
+  const remoteSettings = new RemoteSettingsCardController(settingsScope)
+  ctx.slots.inject('web-ui.plugin.item', () => ctx.slots.register({
+    name: 'web-ui.plugin.item',
     id: 'remote-web-ui',
     order: 90,
     locale: NS,
@@ -107,15 +126,26 @@ export function apply(ctx: ClientContext): void {
   }, RemoteSettingsCard))
 
   // Phone-side boot flow + heartbeats. Loopback pages (the desktop) never
-  // heartbeat; the server ignores unpaired heartbeats anyway.
-  const connection = ctx.get('connection') as ConnectionHandle | undefined
-  const loopback = connection?.isLoopback ?? true
-  ctx.effect(() => {
-    runPairBootFlow(ctx, window.location.search)
-    if (loopback) return () => {}
-    const timer = window.setInterval(() => { void sendHeartbeat().catch(() => {}) }, HEARTBEAT_INTERVAL_MS)
-    return () => { window.clearInterval(timer) }
-  }, 'remote-web-ui: pair flow + heartbeats')
+  // heartbeat; the server ignores unpaired heartbeats anyway. Both run only
+  // while the plugin is enabled.
+  let disposeRuntime: (() => void) | undefined
+  const syncRuntime = (): void => {
+    if (enabled() && disposeRuntime === undefined) {
+      disposeRuntime = ctx.effect(() => {
+        const connection = ctx.get('connection') as ConnectionHandle | undefined
+        const loopback = connection?.isLoopback ?? true
+        runPairBootFlow(ctx, window.location.search)
+        if (loopback) return () => {}
+        const timer = window.setInterval(() => { void sendHeartbeat().catch(() => {}) }, HEARTBEAT_INTERVAL_MS)
+        return () => { window.clearInterval(timer) }
+      }, 'remote-web-ui: pair flow + heartbeats')
+    } else if (!enabled() && disposeRuntime !== undefined) {
+      disposeRuntime()
+      disposeRuntime = undefined
+    }
+  }
+  settingsScope.subscribe(syncRuntime)
+  syncRuntime()
 
   // One-time failed-pair toast. The accept result lands asynchronously, so
   // the marker check is deferred past the accept round trip.

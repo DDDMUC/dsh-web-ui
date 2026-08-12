@@ -200,6 +200,6 @@ describe('apply registration', () => {
       },
     }
     apply(ctx as never)
-    expect(injected).toEqual(['sidebar.remote', 'settings.plugin.item'])
+    expect(injected).toEqual(['sidebar.remote', 'web-ui.plugin.item'])
   })
 })

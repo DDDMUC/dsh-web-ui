@@ -76,6 +76,8 @@ export const zh = {
   // 插件设置卡片（settings.plugin.item 席位）。
   'settings.title': '任务看板',
   'settings.description': '控制看板在 agent 系统提示中的播报行为。',
+  'settings.enabled': '启用任务看板',
+  'settings.enabledHint': '关闭后隐藏侧边栏入口与看板视图。',
   'settings.announceToAgent': '向 agent 播报任务看板',
   'settings.announceToAgentHint': '开启：每条 agent 系统提示都会包含本看板的说明；关闭：不播报，agent 仅在用户主动提及时了解看板。',
   'settings.inherit': '继承',
@@ -165,6 +167,8 @@ export const en: Record<keyof typeof zh, string> = {
   // Plugin settings card (the `settings.plugin.item` seat).
   'settings.title': 'Task Board',
   'settings.description': 'How the board announces itself in each agent system prompt.',
+  'settings.enabled': 'Enable the task board',
+  'settings.enabledHint': 'When off, the sidebar entry and board view are hidden.',
   'settings.announceToAgent': 'Announce the task board to agents',
   'settings.announceToAgentHint': 'On: every agent system prompt includes a note about this board. Off: no announcement; agents learn about the board only when you mention it.',
   'settings.inherit': 'Inherit',

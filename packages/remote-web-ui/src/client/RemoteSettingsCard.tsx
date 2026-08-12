@@ -11,6 +11,8 @@ import { CardForm, booleanField, numberField, textField, type CardActions, type 
 
 /** The remote-control fields this card edits (the namespace's full schema). */
 export interface RemoteSettings {
+  /** Master switch for the plugin. */
+  enabled?: boolean
   /** Token lifetime in ms; the QR link dies after this. */
   tokenTtlMs?: number
   /** A device is "online" while its lastSeenAt is newer than this (ms). */
@@ -25,6 +27,8 @@ export interface RemoteSettings {
 
 /** What the remote-control card renders. */
 export interface RemoteSettingsCardState extends CardShell {
+  /** Master switch. */
+  enabled: CardFieldState
   /** Token lifetime. */
   tokenTtlMs: CardFieldState
   /** Device offline threshold. */
@@ -53,6 +57,7 @@ export class RemoteSettingsCardController {
   /** @param scope - the bound settings scope for the `remote-web-ui` namespace. */
   constructor(scope: SettingsScope<RemoteSettings>) {
     this.form = new CardForm(scope, [
+      booleanField('enabled'),
       numberField('tokenTtlMs'),
       numberField('offlineAfterMs'),
       numberField('maxDevices'),
@@ -65,6 +70,7 @@ export class RemoteSettingsCardController {
   private projection(): RemoteSettingsCardState {
     return {
       ...this.form.shell(),
+      enabled: this.form.field('enabled'),
       tokenTtlMs: this.form.field('tokenTtlMs'),
       offlineAfterMs: this.form.field('offlineAfterMs'),
       maxDevices: this.form.field('maxDevices'),
@@ -84,7 +90,7 @@ export class RemoteSettingsCardController {
 
 /** Props the renderer binds for the remote-control card. */
 export type RemoteSettingsCardProps =
-  PropsRuntime<'settings.plugin.item'>
+  PropsRuntime<'web-ui.plugin.item'>
   & PropsLocale<'remote'>
   & InjectFace<RemoteSettingsCardFace>
 
@@ -112,6 +118,18 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
       onSave={props.save}
       onDiscard={props.discard}
     >
+      <BooleanField
+        id="settings-remote-enabled"
+        label={t('settings.enabled')}
+        hint={t('settings.enabledHint')}
+        inheritLabel={t('settings.inherit')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.enabled}
+        onEdit={(text) => { props.edit('enabled', text) }}
+        onReset={() => { props.resetField('enabled') }}
+      />
       <ValueField
         id="settings-remote-token-ttl"
         label={t('settings.tokenTtlMs')}

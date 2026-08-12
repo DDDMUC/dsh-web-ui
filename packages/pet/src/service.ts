@@ -52,6 +52,8 @@ export interface PetConfig {
   treats?: Partial<TreatConfig>
   /** Persistence directory override (defaults to $DSH_HOME). */
   persistDir?: string
+  /** Master switch for the plugin (browser half + host routes). */
+  enabled?: boolean
 }
 
 /**
@@ -70,6 +72,8 @@ export interface PetSettingsSection {
   bottom: number
   /** User-customizable pet display name. */
   name: string
+  /** Master switch for the plugin (browser half + host routes). */
+  enabled?: boolean
 }
 
 /** Settings namespace of the pet capability. Spelled here rather than imported: the browser half spells the same value. */
@@ -264,7 +268,7 @@ export class PetService extends Service {
    */
   applySettingsSection(section: PetSettingsSection): void {
     const next = { ...this.persist.display }
-    next.visible = section.visible
+    next.visible = section.visible && (section.enabled ?? true)
     next.size = Math.round(Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, section.size)))
     next.right = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, section.right)))
     next.bottom = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, section.bottom)))

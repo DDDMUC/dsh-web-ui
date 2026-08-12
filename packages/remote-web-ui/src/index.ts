@@ -66,6 +66,8 @@ export interface Config {
    * the fence's open-LAN behavior and use pairing only for tokens/status.
    */
   requirePairingForLan?: boolean
+  /** Master switch for the plugin (browser half + host pairing surfaces). */
+  enabled?: boolean
 }
 
 export const Config: z<Config> = z.object({
@@ -74,6 +76,7 @@ export const Config: z<Config> = z.object({
   maxDevices: z.number().step(1).min(1).max(64).default(4),
   cookieName: z.string().min(1).default('dsh_pair'),
   requirePairingForLan: z.boolean().default(true),
+  enabled: z.boolean().default(true),
 })
 
 /** Presence sweep cadence (a stale device flips to disconnected within two sweeps). */
@@ -86,6 +89,7 @@ const DEFAULTS: Required<Omit<Config, never>> = {
   maxDevices: 4,
   cookieName: 'dsh_pair',
   requirePairingForLan: true,
+  enabled: true,
 }
 
 /**
@@ -100,6 +104,7 @@ export function apply(ctx: Context, config?: Config): void {
     maxDevices: config?.maxDevices ?? DEFAULTS.maxDevices,
     cookieName: config?.cookieName ?? DEFAULTS.cookieName,
     requirePairingForLan: config?.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
+    enabled: config?.enabled ?? DEFAULTS.enabled,
   }
   // The live source the pairing service and the gate read: the settings
   // section once the web settings surface is served, the composition entry
@@ -113,6 +118,7 @@ export function apply(ctx: Context, config?: Config): void {
       maxDevices: value.maxDevices ?? DEFAULTS.maxDevices,
       cookieName: value.cookieName ?? DEFAULTS.cookieName,
       requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
+      enabled: value.enabled ?? DEFAULTS.enabled,
     }
   }
   const service = new PairingService({
@@ -135,7 +141,12 @@ export function apply(ctx: Context, config?: Config): void {
   // Push a committed settings section into the service and gate. The service
   // config object is read per operation (token mint, touch, sweep), and the
   // gate re-reads its fence flag per request, so a live edit takes effect
-  // without a restart.
+  // without a restart. When `enabled` turns off, the pairing routes, gate
+  // listener, and sweep timer are dropped so the feature is fully dormant.
+  let disposeGate: (() => void) | undefined
+  let disposeRoutes: (() => void) | undefined
+  let disposeSweep: (() => void) | undefined
+  const routes = makeRoutes({ service, lanAddresses })
   const sync = (): void => {
     const value = resolve()
     service.config = {
@@ -143,6 +154,41 @@ export function apply(ctx: Context, config?: Config): void {
       offlineAfterMs: value.offlineAfterMs,
       maxDevices: value.maxDevices,
       cookieName: value.cookieName,
+    }
+    const enabled = value.enabled
+    if (disposeGate === undefined && enabled) {
+      disposeGate = ctx.effect(
+        () => ctx.on('api/gate', makeGateListener(service, () => resolve().requirePairingForLan)),
+        'remote-web-ui: api gate',
+      )
+    } else if (disposeGate !== undefined && !enabled) {
+      disposeGate()
+      disposeGate = undefined
+    }
+    if (disposeRoutes === undefined && enabled) {
+      disposeRoutes = ctx.effect(
+        () => {
+          const disposers = routes.map(route => ctx.httpServer.register(route))
+          return () => { for (const dispose of disposers) dispose() }
+        },
+        'remote-web-ui: pairing routes',
+      )
+    } else if (disposeRoutes !== undefined && !enabled) {
+      disposeRoutes()
+      disposeRoutes = undefined
+    }
+    if (disposeSweep === undefined && enabled) {
+      disposeSweep = ctx.effect(
+        () => {
+          const timer = nodeSetInterval(() => { service.sweep() }, SWEEP_INTERVAL_MS)
+          timer.unref()
+          return () => { clearInterval(timer) }
+        },
+        'remote-web-ui: presence sweep',
+      )
+    } else if (disposeSweep !== undefined && !enabled) {
+      disposeSweep()
+      disposeSweep = undefined
     }
   }
   installSettingsSection(ctx, REMOTE_WEB_UI_SETTINGS_NAMESPACE, Config, config ?? {}, {
@@ -153,27 +199,4 @@ export function apply(ctx: Context, config?: Config): void {
     onChange: sync,
   })
   sync()
-
-  ctx.effect(
-    () => ctx.on('api/gate', makeGateListener(service, () => resolve().requirePairingForLan)),
-    'remote-web-ui: api gate',
-  )
-
-  const routes = makeRoutes({ service, lanAddresses })
-  ctx.effect(
-    () => {
-      const disposers = routes.map(route => ctx.httpServer.register(route))
-      return () => { for (const dispose of disposers) dispose() }
-    },
-    'remote-web-ui: pairing routes',
-  )
-
-  ctx.effect(
-    () => {
-      const timer = nodeSetInterval(() => { service.sweep() }, SWEEP_INTERVAL_MS)
-      timer.unref()
-      return () => { clearInterval(timer) }
-    },
-    'remote-web-ui: presence sweep',
-  )
 }

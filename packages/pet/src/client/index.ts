@@ -21,7 +21,7 @@ import type { PetInteractResult, PetStateView } from '../service.ts'
 import type { PetInteraction } from '../affinity.ts'
 import { createPetStore, type PetFeedback, type PetUiState } from './pet-store.ts'
 import { PetDockEntry, type PetInjected } from './PetDockEntry.tsx'
-import { PetSettingsCard, PetSettingsCardController } from './PetSettingsCard.tsx'
+import { PetSettingsCard, PetSettingsCardController, type PetSettings } from './PetSettingsCard.tsx'
 import { NS, en, zh } from './locales.ts'
 
 /** The host pet API as the browser sees it (same-origin JSON endpoints). */
@@ -81,127 +81,151 @@ export type { PetSettingsCardFace, PetSettingsCardState } from './PetSettingsCar
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /**
-     * The plugin configuration section's card seat, declared by
-     * ui-plugin-config. Spelled here with the same shape so this package can
-     * register its card without depending on the sibling UI package.
+     * The child slot the Web UI plugin group declares; this card registers
+     * into the group instead of the top-level `settings.plugin.item` list.
+     * Spelled here with the same shape so this package can register without
+     * depending on the sibling UI package.
      */
-    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+    'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
 }
 
-/** Owner share of a plugin card (the section supplies nothing). */
+/** Owner share of a plugin card (the group card supplies nothing). */
 export interface SettingsPluginItemOwnerProps {
   /** Marker field: card owner props are intentionally empty. */
   children?: never
 }
 
 /**
- * Client plugin body: register dictionaries, seed the store, poll the host
- * snapshot, and seat the dock entry once its hole is on the ledger.
+ * Client plugin body: register dictionaries, mount the dock entry and poll
+ * loop while the plugin is enabled, and seat the settings card in the Web UI
+ * plugin group.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'pet: dictionaries')
 
-  const store = createPetStore()
-
-  // Baked actions are only available after the slot registration mints the
-  // store instance; the inject factory captures them for the poll loop.
-  let baked: PetBakedActions | null = null
-
-  const pollNow = (): void => {
-    petApi.state().then((snapshot) => {
-      baked?.setSnapshot(snapshot)
-    }, () => {
-      baked?.setState('error', 'pet.state transport error')
-    })
+  const settingsScope = ctx.settingsScope.bind<PetSettings>({ namespace: PET_SETTINGS_NS })
+  const enabled = (): boolean => {
+    const snapshot = settingsScope.getSnapshot()
+    return snapshot.status === 'ready' ? snapshot.value?.enabled ?? true : true
   }
-
-  ctx.effect(() => {
-    const timer = window.setInterval(pollNow, POLL_MS)
-    return () => window.clearInterval(timer)
-  }, 'pet: poll')
-
-  const injected = (_sessionId: SessionId, actions: PetBakedActions): PetInjected => {
-    baked = actions
-    return {
-      ensure: pollNow,
-      pet: () => {
-        petApi.interact('pet').then((result) => {
-          actions.setFeedback({
-            text: result.reaction,
-            kind: 'pet',
-            at: Date.now(),
-          })
-        }, () => {
-          // Ignore transport errors on interactions; the next poll resyncs.
-        })
-      },
-      feed: () => {
-        petApi.interact('feed').then((result) => {
-          actions.setFeedback({
-            text: result.reaction,
-            kind: 'feed',
-            at: Date.now(),
-          })
-        }, () => {
-          // Ignore transport errors on interactions; the next poll resyncs.
-        })
-      },
-      hide: () => {
-        petApi.setVisible(false).then(() => {
-          pollNow()
-        }, () => {
-          // Ignore; next poll resyncs.
-        })
-      },
-      summon: () => {
-        petApi.setVisible(true).then(() => {
-          pollNow()
-        }, () => {
-          // Ignore; next poll resyncs.
-        })
-      },
-      dragEnd: (right, bottom) => {
-        petApi.setConfig({ right, bottom }).then(() => {
-          pollNow()
-        }, () => {
-          // Ignore; next poll resyncs.
-        })
-      },
-      rename: (name) => {
-        petApi.setName(name).then((result) => {
-          if (result.ok) pollNow()
-        }, () => {
-          // Ignore; next poll resyncs.
-        })
-      },
-      feedbackDone: () => {
-        actions.setFeedback(null)
-      },
-    }
-  }
-
-  ctx.slots.inject('conversation.composer.dock', () =>
-    ctx.slots.register({
-      name: 'conversation.composer.dock',
-      id: 'pet',
-      order: 10,
-      store,
-      inject: injected,
-      locale: NS,
-    }, PetDockEntry))
 
   // Plugin configuration card: one staged form over the `pet` settings
-  // namespace, contributed to the plugin-configuration section.
-  const petSettings = new PetSettingsCardController(
-    ctx.settingsScope.bind({ namespace: PET_SETTINGS_NS }),
-  )
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-    name: 'settings.plugin.item',
+  // namespace, contributed to the Web UI plugin group.
+  const petSettings = new PetSettingsCardController(settingsScope)
+  ctx.slots.inject('web-ui.plugin.item', () => ctx.slots.register({
+    name: 'web-ui.plugin.item',
     id: 'pet-settings',
     order: 140,
     locale: NS,
     inject: () => petSettings.inject(),
   }, PetSettingsCard))
+
+  // The dock entry, its store, and the poll loop live while the plugin is
+  // enabled; toggling the setting off hides the pet and stops polling.
+  let disposeUi: (() => void) | undefined
+  const syncUi = (): void => {
+    if (enabled() && disposeUi === undefined) {
+      const store = createPetStore()
+
+      // Baked actions are only available after the slot registration mints
+      // the store instance; the inject factory captures them for the poll loop.
+      let baked: PetBakedActions | null = null
+
+      const pollNow = (): void => {
+        petApi.state().then((snapshot) => {
+          baked?.setSnapshot(snapshot)
+        }, () => {
+          baked?.setState('error', 'pet.state transport error')
+        })
+      }
+
+      const disposePoll = ctx.effect(() => {
+        const timer = window.setInterval(pollNow, POLL_MS)
+        return () => window.clearInterval(timer)
+      }, 'pet: poll')
+
+      const injected = (_sessionId: SessionId, actions: PetBakedActions): PetInjected => {
+        baked = actions
+        return {
+          ensure: pollNow,
+          pet: () => {
+            petApi.interact('pet').then((result) => {
+              actions.setFeedback({
+                text: result.reaction,
+                kind: 'pet',
+                at: Date.now(),
+              })
+            }, () => {
+              // Ignore transport errors on interactions; the next poll resyncs.
+            })
+          },
+          feed: () => {
+            petApi.interact('feed').then((result) => {
+              actions.setFeedback({
+                text: result.reaction,
+                kind: 'feed',
+                at: Date.now(),
+              })
+            }, () => {
+              // Ignore transport errors on interactions; the next poll resyncs.
+            })
+          },
+          hide: () => {
+            petApi.setVisible(false).then(() => {
+              pollNow()
+            }, () => {
+              // Ignore; next poll resyncs.
+            })
+          },
+          summon: () => {
+            petApi.setVisible(true).then(() => {
+              pollNow()
+            }, () => {
+              // Ignore; next poll resyncs.
+            })
+          },
+          dragEnd: (right, bottom) => {
+            petApi.setConfig({ right, bottom }).then(() => {
+              pollNow()
+            }, () => {
+              // Ignore; next poll resyncs.
+            })
+          },
+          rename: (name) => {
+            petApi.setName(name).then((result) => {
+              if (result.ok) pollNow()
+            }, () => {
+              // Ignore; next poll resyncs.
+            })
+          },
+          feedbackDone: () => {
+            actions.setFeedback(null)
+          },
+        }
+      }
+
+      const disposeDock = ctx.slots.inject('conversation.composer.dock', () =>
+        ctx.slots.register({
+          name: 'conversation.composer.dock',
+          id: 'pet',
+          order: 10,
+          store,
+          inject: injected,
+          locale: NS,
+        }, PetDockEntry))
+
+      disposeUi = () => {
+        disposeDock()
+        disposePoll()
+        disposeUi = undefined
+      }
+    } else if (!enabled() && disposeUi !== undefined) {
+      disposeUi()
+      disposeUi = undefined
+    }
+  }
+  settingsScope.subscribe(syncUi)
+  syncUi()
 }

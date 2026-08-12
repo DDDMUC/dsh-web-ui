@@ -6,11 +6,13 @@
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import { PluginSettingsCard, ValueField } from './PluginSettingsCard.tsx'
-import { CardForm, numberField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
+import { PluginSettingsCard, ValueField, BooleanField } from './PluginSettingsCard.tsx'
+import { CardForm, booleanField, numberField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
 
 /** The live-stats fields this card edits (the namespace's full schema). */
 export interface LiveStatsSettings {
+  /** Master switch for the plugin. */
+  enabled?: boolean
   /** Approximate text characters represented by one token. */
   charsPerToken?: number
   /** Fixed framing tokens assigned to each content block. */
@@ -21,6 +23,8 @@ export interface LiveStatsSettings {
 
 /** What the live-stats card renders. */
 export interface LiveStatsSettingsCardState extends CardShell {
+  /** Master switch. */
+  enabled: CardFieldState
   /** Characters per token. */
   charsPerToken: CardFieldState
   /** Per-content-block framing tokens. */
@@ -45,6 +49,7 @@ export class LiveStatsSettingsCardController {
   /** @param scope - the bound settings scope for the `live-stats` namespace. */
   constructor(scope: SettingsScope<LiveStatsSettings>) {
     this.form = new CardForm(scope, [
+      booleanField('enabled'),
       numberField('charsPerToken'),
       numberField('blockOverhead'),
       numberField('roleOverhead'),
@@ -55,6 +60,7 @@ export class LiveStatsSettingsCardController {
   private projection(): LiveStatsSettingsCardState {
     return {
       ...this.form.shell(),
+      enabled: this.form.field('enabled'),
       charsPerToken: this.form.field('charsPerToken'),
       blockOverhead: this.form.field('blockOverhead'),
       roleOverhead: this.form.field('roleOverhead'),
@@ -72,7 +78,7 @@ export class LiveStatsSettingsCardController {
 
 /** Props the renderer binds for the live-stats card. */
 export type LiveStatsSettingsCardProps =
-  PropsRuntime<'settings.plugin.item'>
+  PropsRuntime<'web-ui.plugin.item'>
   & PropsLocale<'live-stats'>
   & InjectFace<LiveStatsSettingsCardFace>
 
@@ -100,6 +106,18 @@ export function LiveStatsSettingsCard(props: LiveStatsSettingsCardProps) {
       onSave={props.save}
       onDiscard={props.discard}
     >
+      <BooleanField
+        id="settings-live-stats-enabled"
+        label={t('settings.enabled')}
+        hint={t('settings.enabledHint')}
+        inheritLabel={t('settings.inherit')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.enabled}
+        onEdit={(text) => { props.edit('enabled', text) }}
+        onReset={() => { props.resetField('enabled') }}
+      />
       <ValueField
         id="settings-live-stats-chars"
         label={t('settings.charsPerToken')}

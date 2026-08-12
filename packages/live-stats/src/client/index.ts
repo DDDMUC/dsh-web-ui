@@ -6,11 +6,11 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-token-meter/client'
-import { LiveStatsSettingsCard, LiveStatsSettingsCardController } from './LiveStatsSettingsCard.tsx'
+import { LiveStatsSettingsCard, LiveStatsSettingsCardController, type LiveStatsSettings } from './LiveStatsSettingsCard.tsx'
 import { en, zh, type SettingsCardKey } from './locales.ts'
 
 export { TpsLine, formatTokensPerSecond } from './TpsLine.tsx'
-export type { LiveStatsSettingsCardFace, LiveStatsSettingsCardState } from './LiveStatsSettingsCard.tsx'
+export type { LiveStatsSettings, LiveStatsSettingsCardFace, LiveStatsSettingsCardState } from './LiveStatsSettingsCard.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -20,11 +20,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
   interface SlotMap {
     /**
-     * The plugin configuration section's card seat, declared by
-     * ui-plugin-config. Spelled here with the same shape so this package can
-     * register its card without depending on the sibling UI package.
+     * The child slot the Web UI plugin group declares; this card registers
+     * into the group instead of the top-level `settings.plugin.item` list.
+     * Spelled here with the same shape so this package can register without
+     * depending on the sibling UI package.
      */
-    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+    'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
 }
 
@@ -56,10 +57,10 @@ export function apply(ctx: ClientContext): void {
   // Plugin configuration card: one staged form over the `live-stats` settings
   // namespace, contributed to the plugin-configuration section.
   const liveStatsSettings = new LiveStatsSettingsCardController(
-    ctx.settingsScope.bind({ namespace: LIVE_STATS_NS }),
+    ctx.settingsScope.bind<LiveStatsSettings>({ namespace: LIVE_STATS_NS }),
   )
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-    name: 'settings.plugin.item',
+  ctx.slots.inject('web-ui.plugin.item', () => ctx.slots.register({
+    name: 'web-ui.plugin.item',
     id: 'live-stats',
     order: 110,
     locale: NS,

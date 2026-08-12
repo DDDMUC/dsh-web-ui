@@ -89,6 +89,7 @@ export const PET_SETTINGS_SCHEMA = z.object({
   right: z.number().step(1).min(0).max(DISPLAY_INSET_MAX).default(24),
   bottom: z.number().step(1).min(0).max(DISPLAY_INSET_MAX).default(20),
   name: z.string().min(1).max(PET_NAME_MAX_LENGTH).default(DEFAULT_PET_NAME),
+  enabled: z.boolean().default(true),
 })
 
 /** Register the pet service and its API + asset routes on the context. */
@@ -110,21 +111,32 @@ export function apply(ctx: Context, config: PetConfig = {}): void {
     bottom: service.display().bottom,
     name: service.petName(),
   }
-  installSettingsSection(ctx, settingsNamespace(PET_SETTINGS_NAMESPACE), PET_SETTINGS_SCHEMA, base, {
-    setSource: (source) => { current = source },
-    onChange: () => { service.applySettingsSection(current()) },
-  })
-
   // The browser half talks to the pet through same-origin JSON endpoints and
   // loads the atlas from the pet's own media route (RPC domains are
   // platform-registered, so the pet serves its own API — the same pattern as
-  // dsh-remote-web-ui's /api/pair family).
+  // dsh-remote-web-ui's /api/pair family). The routes are registered while
+  // the plugin is enabled; toggling the setting off makes the pet API
+  // disappear until it is re-enabled.
   const routes = makePetRoutes({ service, packageRoot: petPackageRoot(import.meta.url) })
-  ctx.effect(
-    () => {
-      const disposers = routes.map((route) => ctx.httpServer.register(route))
-      return () => { for (const dispose of disposers) dispose() }
-    },
-    'pet: routes',
-  )
+  let disposeRoutes: (() => void) | undefined
+  const syncRoutes = (): void => {
+    const enabled = current().enabled ?? true
+    if (disposeRoutes === undefined && enabled) {
+      disposeRoutes = ctx.effect(
+        () => {
+          const disposers = routes.map((route) => ctx.httpServer.register(route))
+          return () => { for (const dispose of disposers) dispose() }
+        },
+        'pet: routes',
+      )
+    } else if (disposeRoutes !== undefined && !enabled) {
+      disposeRoutes()
+      disposeRoutes = undefined
+    }
+  }
+  installSettingsSection(ctx, settingsNamespace(PET_SETTINGS_NAMESPACE), PET_SETTINGS_SCHEMA, base, {
+    setSource: (source) => { current = source },
+    onChange: () => { service.applySettingsSection(current()); syncRoutes() },
+  })
+  syncRoutes()
 }

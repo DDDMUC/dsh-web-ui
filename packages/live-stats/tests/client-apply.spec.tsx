@@ -21,8 +21,8 @@ describe('live-stats client apply', () => {
       },
     }
     apply(ctx as never)
-    // The card mounts into the plugin-configuration seat; the TPS group lives
-    // in the ui-conversation stats line, so nothing targets a conversation seat.
-    expect(injected).toEqual(['settings.plugin.item'])
+    // The card mounts into the Web UI plugin group; the TPS group lives in the
+    // ui-conversation stats line, so nothing targets a conversation seat.
+    expect(injected).toEqual(['web-ui.plugin.item'])
   })
 })

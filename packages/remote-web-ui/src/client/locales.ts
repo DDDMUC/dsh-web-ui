@@ -32,6 +32,8 @@ export const zh = {
   // 插件设置卡片（settings.plugin.item 席位）。
   'settings.title': '移动端远程控制',
   'settings.description': '配对安全与设备限额。',
+  'settings.enabled': '启用移动端远程控制',
+  'settings.enabledHint': '关闭后移除侧边栏入口并停用配对路由与局域网栅栏。',
   'settings.tokenTtlMs': '配对令牌有效期（毫秒）',
   'settings.tokenTtlMsHint': '新生成的二维码链接在此时间后失效。',
   'settings.offlineAfterMs': '设备离线判定（毫秒）',
@@ -96,6 +98,8 @@ export const en = {
   // Plugin settings card (the `settings.plugin.item` seat).
   'settings.title': 'Mobile remote control',
   'settings.description': 'Pairing security and device limits.',
+  'settings.enabled': 'Enable mobile remote control',
+  'settings.enabledHint': 'When off, the sidebar entry is removed and pairing routes plus the LAN fence stop.',
   'settings.tokenTtlMs': 'Pairing token lifetime (ms)',
   'settings.tokenTtlMsHint': 'How long a minted QR link stays valid before it dies.',
   'settings.offlineAfterMs': 'Device offline threshold (ms)',

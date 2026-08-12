@@ -21,7 +21,7 @@ import { SchedulerService } from '../core/scheduler.ts'
 import { LocalStorageTaskStore } from '../core/store.ts'
 import { mountBoard } from './board-mount.tsx'
 import { mountSidebarEntry } from './sidebar-entry.ts'
-import { TaskBoardSettingsCard, TaskBoardSettingsCardController } from './TaskBoardSettingsCard.tsx'
+import { TaskBoardSettingsCard, TaskBoardSettingsCardController, type TaskBoardSettings } from './TaskBoardSettingsCard.tsx'
 import { en, zh, type TaskBoardKey } from './locales.ts'
 
 /** Locale namespace this plugin owns. */
@@ -38,11 +38,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
   interface SlotMap {
     /**
-     * The plugin configuration section's card seat, declared by
-     * ui-plugin-config. Spelled here with the same shape so this package can
-     * register its card without depending on the sibling UI package.
+     * The child slot the Web UI plugin group declares; this card registers
+     * into the group instead of the top-level `settings.plugin.item` list.
+     * Spelled here with the same shape so this package can register without
+     * depending on the sibling UI package.
      */
-    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+    'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
 }
 
@@ -63,19 +64,23 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'task-board: dictionaries')
 
   // Plugin configuration card: one staged form over the `task-board` settings
-  // namespace, contributed to the plugin-configuration section.
-  const settingsCard = new TaskBoardSettingsCardController(
-    ctx.settingsScope.bind({ namespace: TASK_BOARD_NS }),
-  )
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-    name: 'settings.plugin.item',
+  // namespace, contributed to the Web UI plugin group.
+  const settingsScope = ctx.settingsScope.bind<TaskBoardSettings>({ namespace: TASK_BOARD_NS })
+  const settingsCard = new TaskBoardSettingsCardController(settingsScope)
+  ctx.slots.inject('web-ui.plugin.item', () => ctx.slots.register({
+    name: 'web-ui.plugin.item',
     id: 'task-board',
     order: 110,
     locale: NS,
     inject: () => settingsCard.inject(),
   }, TaskBoardSettingsCard))
 
-  ctx.effect(() => {
+  // The sidebar entry and board view mount while the plugin is enabled. The
+  // settings scope is the authority once the Host serves the namespace;
+  // before that first snapshot the composition default (enabled) applies.
+  let uiDisposer: (() => void) | undefined
+  const mountUi = (): void => {
+    if (uiDisposer !== undefined) return
     const sessions = ctx.sessions
     const workspaces = ctx.workspaces
 
@@ -128,10 +133,21 @@ export function apply(ctx: ClientContext): void {
       console.error('[dsh-task-board] mount failed:', error)
     }
 
-    return () => {
+    uiDisposer = () => {
       for (const dispose of disposers.splice(0)) dispose()
       scheduler.dispose()
       controller.dispose()
+      uiDisposer = undefined
     }
-  }, 'ui-task-board: controller + mounts')
+  }
+  const syncEnabled = (): void => {
+    const snapshot = settingsScope.getSnapshot()
+    const enabled = snapshot.status === 'ready'
+      ? snapshot.value?.enabled ?? true
+      : true
+    if (enabled) mountUi()
+    else uiDisposer?.()
+  }
+  settingsScope.subscribe(syncEnabled)
+  syncEnabled()
 }

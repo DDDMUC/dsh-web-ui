@@ -24,6 +24,7 @@ dsh-web-ui/
 │   ├── pet/               @deepseek-ai/dsh-pet                       whale pet
 │   ├── remote-web-ui/     @deepseek-ai/dsh-remote-web-ui             phone remote control
 │   ├── live-stats/        @deepseek-ai/dsh-live-stats                live token estimate & throughput
+│   ├── web-ui-settings/   @deepseek-ai/dsh-client-ui-web-ui-settings  settings Web UI plugin group
 │   ├── skins/             skin collection (qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft / skin-center / web)
 │   ├── dsh-skins/         @deepseek-ai/dsh-skins       skins aggregate (all skins + skin-center)
 │   └── web-ui-all/        @deepseek-ai/dsh-web-ui-all   family aggregate (all plugins + skins)
@@ -81,6 +82,7 @@ dsh-skin use blue-fantasy   # or qq98 / ths / xp / dragon-heir / minecraft
 | @deepseek-ai/dsh-pet | Whale pet widget | `dsh plugin --profile web add link:<dsh-web-ui>/packages/pet` |
 | @deepseek-ai/dsh-remote-web-ui | Remote control of the Web GUI from a phone | `dsh plugin --profile web add link:<dsh-web-ui>/packages/remote-web-ui` |
 | @deepseek-ai/dsh-live-stats | Live token estimates + generation throughput (composer stats) | `dsh plugin --profile web add link:<dsh-web-ui>/packages/live-stats` |
+| @deepseek-ai/dsh-client-ui-web-ui-settings | Settings Web UI plugin group: one place for the family plugins' enable switches and configs | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-settings` |
 | @deepseek-ai/dsh-skins | Skins aggregate: every skin package + skin-center in one go | `dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins` |
 | @deepseek-ai/dsh-web-ui-all | Family aggregate: all of the above plugins + the skin family | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all` |
 

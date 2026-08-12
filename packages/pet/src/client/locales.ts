@@ -22,6 +22,8 @@ export const zh = {
   // 插件设置卡片（settings.plugin.item 席位）。
   'settings.title': '宠物',
   'settings.description': '鲸鱼娘的显示布局与名字。',
+  'settings.enabled': '启用宠物',
+  'settings.enabledHint': '关闭后隐藏宠物并停止轮询，可在设置里重新启用。',
   'settings.visible': '显示宠物',
   'settings.visibleHint': '关闭后宠物隐藏，可从聊天输入区重新召唤。',
   'settings.size': '大小（px）',
@@ -64,6 +66,8 @@ export const en = {
   // Plugin settings card (the `settings.plugin.item` seat).
   'settings.title': 'Pet',
   'settings.description': 'The whale girl\u2019s display layout and name.',
+  'settings.enabled': 'Enable the pet',
+  'settings.enabledHint': 'When off, the pet hides and polling stops; re-enable it here.',
   'settings.visible': 'Show the pet',
   'settings.visibleHint': 'When off, the pet hides; summon it again from the composer dock.',
   'settings.size': 'Size (px)',

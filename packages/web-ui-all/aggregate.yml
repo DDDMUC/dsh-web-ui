@@ -7,6 +7,7 @@ patchFrom:
   - ../pet
   - ../remote-web-ui
   - ../live-stats
+  - ../web-ui-settings
   - ../dsh-skins
 deps:
   - ../task-board
@@ -14,4 +15,5 @@ deps:
   - ../pet
   - ../remote-web-ui
   - ../live-stats
+  - ../web-ui-settings
   - ../dsh-skins

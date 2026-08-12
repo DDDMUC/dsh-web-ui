@@ -39,10 +39,13 @@ export interface Config {
    * about it only when the user mentions it.
    */
   announceToAgent?: boolean
+  /** Master switch for the plugin (browser half + host announcement). */
+  enabled?: boolean
 }
 
 export const Config: z<Config> = z.object({
   announceToAgent: z.boolean().default(true),
+  enabled: z.boolean().default(true),
 })
 
 /** Schema default, re-read for hand-built test contexts (the loader applies them normally). */
@@ -71,6 +74,7 @@ export function apply(ctx: Context, config?: Config): void {
       disposeSection()
       disposeSection = undefined
     }
+    if ((current().enabled ?? true) === false) return
     if ((current().announceToAgent ?? DEFAULT_ANNOUNCE) === false) return
     disposeSection = ctx.systemPrompt.section({
       name: 'plugin:task-board',

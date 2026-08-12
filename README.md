@@ -24,6 +24,7 @@ dsh-web-ui/
 │   ├── pet/               @deepseek-ai/dsh-pet                       鲸鱼娘宠物
 │   ├── remote-web-ui/     @deepseek-ai/dsh-remote-web-ui             手机远程控制
 │   ├── live-stats/        @deepseek-ai/dsh-live-stats                 实时 token 估算与吞吐
+│   ├── web-ui-settings/   @deepseek-ai/dsh-client-ui-web-ui-settings  设置页 Web UI 插件分组
 │   ├── skins/             皮肤集合（qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft / skin-center / web）
 │   ├── dsh-skins/         @deepseek-ai/dsh-skins      皮肤聚合插件（装它 = 全部皮肤包 + 皮肤中心）
 │   └── web-ui-all/        @deepseek-ai/dsh-web-ui-all  全家桶聚合插件（装它 = 全部功能插件 + 皮肤全家桶）
@@ -89,6 +90,7 @@ dsh-skin use blue-fantasy   # 或 qq98 / ths / xp / dragon-heir / minecraft
 | @deepseek-ai/dsh-pet | 鲸鱼娘宠物挂件 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/pet` |
 | @deepseek-ai/dsh-remote-web-ui | 手机远程控制 Web GUI | `dsh plugin --profile web add link:<dsh-web-ui>/packages/remote-web-ui` |
 | @deepseek-ai/dsh-live-stats | 实时 token 估算与生成吞吐（composer 统计区） | `dsh plugin --profile web add link:<dsh-web-ui>/packages/live-stats` |
+| @deepseek-ai/dsh-client-ui-web-ui-settings | 设置页 Web UI 插件分组：在「插件配置」中统一展示全家桶插件的开关与配置 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-settings` |
 | @deepseek-ai/dsh-skins | 皮肤聚合插件：全部皮肤包 + 皮肤中心一次到位 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins` |
 | @deepseek-ai/dsh-web-ui-all | 全家桶聚合插件：以上全部插件 + 皮肤全家桶 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all` |
 
