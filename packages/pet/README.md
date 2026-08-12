@@ -19,7 +19,7 @@
 | 亲密度 | 每完成一个回合 +1；4 个等级：幼鲸 → 伙伴 → 挚友 → 深海羁绊（100 点封顶） |
 | 自定义命名 | 悬浮面板「改名」→ 1–20 字符，持久化，召唤按钮/面板同步显示 |
 | 拖动 | 按住鲸鱼娘拖动重新摆放，位置持久化 |
-| 隐藏/召唤 | 悬浮面板「隐藏」；隐藏后 composer dock 出现「召唤{名字}」按钮 |
+| 隐藏/召唤 | 悬浮面板「隐藏」；隐藏后输入选择行出现「召唤{名字}」按钮 |
 | 状态气泡 | 工作时显示模型当前状态短语 |
 
 ## 动画演示
@@ -48,7 +48,7 @@ dsh-pet/
 |   |-- routes.ts       # /api/pet/* JSON API + /pet/whale/* 素材静态路由
 |   `-- client/         # 浏览器半区
 |       |-- index.ts    # slots 注册 + 轮询（800ms）+ 交互接线（fetch）
-|       |-- PetDockEntry.tsx  # conversation.composer.dock 挂载点
+|       |-- PetDockEntry.tsx  # conversation.input.selector.context 挂载点
 |       |-- WhalePet.tsx      # 浮层组件（portal + rAF 帧动画 + 拖动）
 |       |-- spritesheet.ts    # 图集几何 + 每状态动画轨道（帧/时长）
 |       `-- pet.module.css
@@ -61,13 +61,13 @@ dsh-pet/
 ```
 activity/status session 事件（原 working-activity 插件发布） --> PetService（host）
                                                               | /api/pet/* JSON
-conversation.composer.dock 槽位 <-- 轮询 800ms -- pet-client（浏览器）
+conversation.input.selector.context 槽位 <-- 轮询 800ms -- pet-client（浏览器）
                                                               |
                                                    WhalePet 浮层（portal + rAF）
 ```
 
 - **状态源**：监听 `activity/status` 会话事件（phase: idle/waiting/thinking/tool/done + 状态短语），由 host 半区消费；该事件曾由 working-activity 插件发布，插件已从本仓库移除，未安装时宠物只随会话生命周期变化。
-- **挂载点**：`conversation.composer.dock`（list 槽位，与 live-stats 同区），组件内部 `createPortal` 渲染全局浮层。
+- **挂载点**：`conversation.input.selector.context`（list 槽位，输入选择行，无会话/新会话/会话中全程挂载——旧挂载点 `conversation.composer.dock` 只在活跃会话渲染，导致新会话界面看不到宠物），组件内部 `createPortal` 渲染全局浮层。
 - **渲染**：CSS sprite（background-position）逐帧动画，帧时长来自 `spritesheet.ts` 的轨道定义。
 - **通信**：浏览器 ↔ host 走同源 `/api/pet/*` JSON 端点（state/interact/set-visible/set-config），图集从 `/pet/whale/spritesheet.webp` 加载——RPC 域与 `/plugins/` 静态服务都是平台注册的，插件自足地提供自己的 API 与素材（与 dsh-remote-web-ui 的 `/api/pair` 同一模式）。
 

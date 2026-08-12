@@ -7,7 +7,7 @@
  */
 
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
-import type { EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
+import type { EngineStoreHandle, EngineStoreInstance } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PetStateView } from '../service.ts'
 import type { PetInteraction } from '../affinity.ts'
 
@@ -70,3 +70,11 @@ export function createPetStore(): EngineStoreHandle<PetUiState, PetUiActions> {
 }
 
 export type { PetInteraction }
+
+/**
+ * A live pet store instance (one per host, owned by the plugin apply body —
+ * the pet itself is host-global, so its UI state must not ride the slot
+ * system's per-session store scoping).
+ */
+export type PetStoreInstance = EngineStoreInstance<PetUiState, PetUiActions>
+

@@ -69,7 +69,7 @@ export const en = {
   'settings.enabled': 'Enable the pet',
   'settings.enabledHint': 'When off, the pet hides and polling stops; re-enable it here.',
   'settings.visible': 'Show the pet',
-  'settings.visibleHint': 'When off, the pet hides; summon it again from the composer dock.',
+  'settings.visibleHint': 'When off, the pet hides; summon it again from the input row.',
   'settings.size': 'Size (px)',
   'settings.sizeHint': 'Sprite cell height, 32\u2013512.',
   'settings.right': 'Right inset (px)',

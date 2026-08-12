@@ -1,15 +1,16 @@
 /**
  * dsh-pet browser half — registers the whale-girl into the conversation
- * composer dock (the same list slot the live-stats line uses) and drives it
- * from the host's same-origin `/api/pet/*` JSON endpoints: poll the host
- * snapshot (~800 ms), forward interactions, persist drag positions. The dock
- * anchor mounts the floating pet via portal; when the pet is hidden the
- * anchor becomes the summon button.
+ * input selector row (the same every-phase row the git branch chip uses) and
+ * drives it from the host's same-origin `/api/pet/*` JSON endpoints: poll the
+ * host snapshot (~800 ms), forward interactions, persist drag positions. The
+ * row anchor mounts the floating pet via portal; when the pet is hidden the
+ * anchor becomes the summon button. Anchoring in the selector row (rather
+ * than the session-only composer dock band) keeps the pet floating on the
+ * new-conversation screen too, where no session exists to scope a slot by.
  * @module @deepseek-ai/dsh-pet/client
  */
 
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
@@ -19,7 +20,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { PetDisplayConfig } from '../persist.ts'
 import type { PetInteractResult, PetStateView } from '../service.ts'
 import type { PetInteraction } from '../affinity.ts'
-import { createPetStore, type PetFeedback, type PetUiState } from './pet-store.ts'
+import { createPetStore, type PetStoreInstance } from './pet-store.ts'
 import { PetDockEntry, type PetInjected } from './PetDockEntry.tsx'
 import { PetSettingsCard, PetSettingsCardController, type PetSettings } from './PetSettingsCard.tsx'
 import { NS, en, zh } from './locales.ts'
@@ -55,13 +56,6 @@ const petApi: PetHttpApi = {
   setVisible: (visible) => petFetch('/api/pet/set-visible', { visible }),
   setConfig: (patch) => petFetch('/api/pet/set-config', patch),
   setName: (name) => petFetch('/api/pet/set-name', { name }),
-}
-
-/** Baked store actions the inject factory receives (draft pre-applied). */
-interface PetBakedActions {
-  setSnapshot: (snapshot: PetStateView) => void
-  setState: (state: PetUiState['state'], error: string | null) => void
-  setFeedback: (feedback: PetFeedback | null) => void
 }
 
 /** Poll interval for the host snapshot. */
@@ -129,17 +123,21 @@ export function apply(ctx: ClientContext): void {
   let disposeUi: (() => void) | undefined
   const syncUi = (): void => {
     if (enabled() && disposeUi === undefined) {
-      const store = createPetStore()
-
-      // Baked actions are only available after the slot registration mints
-      // the store instance; the inject factory captures them for the poll loop.
-      let baked: PetBakedActions | null = null
+      // ONE store instance for the whole app, owned by this apply body. The
+      // pet is host-global (state/display/interactions are /api/pet/*
+      // endpoints with no session dimension), so the slot system's per-session
+      // store scoping would only reset the pet on session switches and leave
+      // it stateless on the new-conversation screen (no session to scope by).
+      const petStore: PetStoreInstance = createPetStore().create()
+      const setSnapshot = petStore.actions.setSnapshot
+      const setState = petStore.actions.setState
+      const setFeedback = petStore.actions.setFeedback
 
       const pollNow = (): void => {
         petApi.state().then((snapshot) => {
-          baked?.setSnapshot(snapshot)
+          setSnapshot(snapshot)
         }, () => {
-          baked?.setState('error', 'pet.state transport error')
+          setState('error', 'pet.state transport error')
         })
       }
 
@@ -177,72 +175,73 @@ export function apply(ctx: ClientContext): void {
         }
       }, 'pet: poll')
 
-      const injected = (_sessionId: SessionId, actions: PetBakedActions): PetInjected => {
-        baked = actions
-        return {
-          ensure: pollNow,
-          pet: () => {
-            petApi.interact('pet').then((result) => {
-              actions.setFeedback({
-                text: result.reaction,
-                kind: 'pet',
-                at: Date.now(),
-              })
-            }, () => {
-              // Ignore transport errors on interactions; the next poll resyncs.
+      const injected = (): PetInjected => ({
+        store: petStore,
+        ensure: pollNow,
+        pet: () => {
+          petApi.interact('pet').then((result) => {
+            setFeedback({
+              text: result.reaction,
+              kind: 'pet',
+              at: Date.now(),
             })
-          },
-          feed: () => {
-            petApi.interact('feed').then((result) => {
-              actions.setFeedback({
-                text: result.reaction,
-                kind: 'feed',
-                at: Date.now(),
-              })
-            }, () => {
-              // Ignore transport errors on interactions; the next poll resyncs.
+          }, () => {
+            // Ignore transport errors on interactions; the next poll resyncs.
+          })
+        },
+        feed: () => {
+          petApi.interact('feed').then((result) => {
+            setFeedback({
+              text: result.reaction,
+              kind: 'feed',
+              at: Date.now(),
             })
-          },
-          hide: () => {
-            petApi.setVisible(false).then(() => {
-              pollNow()
-            }, () => {
-              // Ignore; next poll resyncs.
-            })
-          },
-          summon: () => {
-            petApi.setVisible(true).then(() => {
-              pollNow()
-            }, () => {
-              // Ignore; next poll resyncs.
-            })
-          },
-          dragEnd: (right, bottom) => {
-            petApi.setConfig({ right, bottom }).then(() => {
-              pollNow()
-            }, () => {
-              // Ignore; next poll resyncs.
-            })
-          },
-          rename: (name) => {
-            petApi.setName(name).then((result) => {
-              if (result.ok) pollNow()
-            }, () => {
-              // Ignore; next poll resyncs.
-            })
-          },
-          feedbackDone: () => {
-            actions.setFeedback(null)
-          },
-        }
-      }
+          }, () => {
+            // Ignore transport errors on interactions; the next poll resyncs.
+          })
+        },
+        hide: () => {
+          petApi.setVisible(false).then(() => {
+            pollNow()
+          }, () => {
+            // Ignore; next poll resyncs.
+          })
+        },
+        summon: () => {
+          petApi.setVisible(true).then(() => {
+            pollNow()
+          }, () => {
+            // Ignore; next poll resyncs.
+          })
+        },
+        dragEnd: (right, bottom) => {
+          petApi.setConfig({ right, bottom }).then(() => {
+            pollNow()
+          }, () => {
+            // Ignore; next poll resyncs.
+          })
+        },
+        rename: (name) => {
+          petApi.setName(name).then((result) => {
+            if (result.ok) pollNow()
+          }, () => {
+            // Ignore; next poll resyncs.
+          })
+        },
+        feedbackDone: () => {
+          setFeedback(null)
+        },
+      })
 
-      const disposeDock = ctx.slots.inject('conversation.composer.dock', () =>
+      // The input selector row mounts in EVERY conversation phase (cold
+      // start, blank-session hero, active seat) — the composer dock band
+      // only renders for an active session, which is why the pet used to
+      // vanish on the new-conversation screen.
+      const disposeDock = ctx.slots.inject('conversation.input.selector.context', () =>
         ctx.slots.register({
-          name: 'conversation.composer.dock',
+          name: 'conversation.input.selector.context',
           id: 'pet',
-          order: 10,
-          store,
+          order: 110,
           inject: injected,
           locale: NS,
         }, PetDockEntry))
