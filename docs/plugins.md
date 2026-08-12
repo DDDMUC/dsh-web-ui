@@ -1,6 +1,6 @@
 # 如何把新插件加入全家桶
 
-本指南说明如何把一个新插件加入 dsh-web-ui 全家桶，使其可以被聚合插件包（`web-ui-all` / `dsh-skins`）一键装齐，也可独立安装。
+本指南说明如何把一个新插件加入 dsh-web-ui 全家桶，使其可以被聚合插件包（`dsh-web-ui-all` / `dsh-skins`）一键装齐，也可独立安装。
 
 ## 流程
 
@@ -10,7 +10,7 @@
 node scripts/dsh-plugin-new <name>
 ```
 
-在 `packages/<name>/` 生成标准 bundle 骨架（`<name>` 限小写字母、数字、单连字符，如 `task-board`），并替换模板中的 `__NAME__` 占位。生成的结构：
+在 `packages/<name>/` 生成标准 bundle 骨架（`<name>` 限小写字母、数字、单连字符，如 `dsh-task-board`），并替换模板中的 `__NAME__` 占位。生成的结构：
 
 ```text
 packages/<name>/
@@ -28,11 +28,11 @@ packages/<name>/
 
 - host 半区 `src/index.ts`：导出 cordis 插件，运行在 dsh host 进程（例如系统提示词公告、真实任务执行等）。
 - browser 半区 `src/client.ts`：Web GUI 侧的 UI 逻辑，经 package.json 的 `dsh.client` 声明注入运行时。
-- 形态参照 `packages/task-board/`：`dsh.bundle.patch` 指向包内 `cordis.patch.yml`；`dsh.client` 声明 `inject: ["@deepseek-ai/dsh-client-runtime"]` 与 `platform: "web"`。
+- 形态参照 `packages/dsh-task-board/`：`dsh.bundle.patch` 指向包内 `cordis.patch.yml`；`dsh.client` 声明 `inject: ["@deepseek-ai/dsh-client-runtime"]` 与 `platform: "web"`。
 
 ### 3. 注册进聚合包
 
-把 `- ../<name>` 追加到 `packages/web-ui-all/aggregate.yml` 的 `patchFrom` 和 `deps` 两段：
+把 `- ../<name>` 追加到 `packages/dsh-web-ui-all/aggregate.yml` 的 `patchFrom` 和 `deps` 两段：
 
 - `patchFrom`：该包的 `cordis.patch.yml` insert 行会被汇总进聚合包 patch；
 - `deps`：解析为包名写入聚合包 `package.json` 的 `dependencies`（`workspace:*`）。
@@ -67,7 +67,7 @@ pnpm -r build  # 全仓构建
 ### 6. 本地验证
 
 ```sh
-dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all
+dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-web-ui-all
 ```
 
 重启 `dsh web`，确认聚合包插件行挂载生效。调试阶段也可先单独安装单包（`link:<dsh-web-ui>/packages/<name>`）验证。
@@ -102,21 +102,21 @@ dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all
   checkout（历史形态：`../../../test-zhu1090093659` 相对路径、`~/.dsh/source/current` 绝对
   paths —— 均已废除）。tsconfig 为自包含单项目：`moduleResolution: "bundler"` +
   `allowImportingTsExtensions`（emit 项目另加 `rewriteRelativeImportExtensions: true`，
-  参照 `packages/task-board/tsconfig.json`）。构建/类型/测试全部以 node_modules 的 SDK 包为
+  参照 `packages/dsh-task-board/tsconfig.json`）。构建/类型/测试全部以 node_modules 的 SDK 包为
   唯一类型来源，克隆后无需任何源码 checkout 即可构建。
 - **浏览器 client 半区**：`@deepseek-ai/*/client` 子路径由 SDK 包 exports 提供（闭包工厂产物，
   运行时经 `window.__ModuleLoader__` 加载）。官方 SDK 尚未发布的槽位（如
   `conversation.input.selector.*`）用**模块形式**的本地 augmentation 补齐类型
   （`import type {}` + `declare module '@deepseek-ai/dsh-client-ui-slots'`，参照
-  `packages/git-graph/src/client/slots-augment.ts`），SDK 发布对应槽位后移除。
+  `packages/dsh-git-graph/src/client/slots-augment.ts`），SDK 发布对应槽位后移除。
 - **构建预设**：统一走仓库内单一共享副本 `shared/tsdown.client.ts`（平台模块表
   `shared/web-platform.ts`），各包 `tsdown.config.ts` 引用它并传参（`libExternal` /
   `companions` 等）。**禁止**再复制预设到包内。
 - **测试基建**：vitest 配置需 `server.deps.inline: [/@deepseek-ai\//]`（SDK 包走 vite 转译，
   处理 CSS）；client 半区闭包工厂在测试中不可直接 import——用 `vitest.setup.ts` 的最小
-  `__ModuleLoader__` stub（`packages/live-stats/vitest.setup.ts`）或 `vi.mock` 替换
-  （`packages/remote-web-ui/tests/remote-entry.spec.tsx` 的 `createSnapshotStore` mock）。
-- **设置页插件配置（20260811+ 可选能力）**：DSH web 设置的「插件配置」区（`ui-plugin-config` 注册的 `settings.section`）展示每插件一张卡片（`settings.plugin.item` 槽）。全家桶插件先由 `web-ui-settings` 的父卡（`settings.plugin.item`）声明 `web-ui.plugin.item` 子槽，各功能插件把卡片注册进子槽，从而在设置页收拢为一张「Web UI 插件」卡，内含各插件的启用开关与配置表单。插件接入只需两步：
+  `__ModuleLoader__` stub（`packages/dsh-live-stats/vitest.setup.ts`）或 `vi.mock` 替换
+  （`packages/dsh-remote-web-ui/tests/remote-entry.spec.tsx` 的 `createSnapshotStore` mock）。
+- **设置页插件配置（20260811+ 可选能力）**：DSH web 设置的「插件配置」区（`ui-plugin-config` 注册的 `settings.section`）展示每插件一张卡片（`settings.plugin.item` 槽）。全家桶插件先由 `dsh-web-ui-settings` 的父卡（`settings.plugin.item`）声明 `web-ui.plugin.item` 子槽，各功能插件把卡片注册进子槽，从而在设置页收拢为一张「Web UI 插件」卡，内含各插件的启用开关与配置表单。插件接入只需两步：
   1. **host 半区**：`installSettingsSection(ctx, settingsNamespace('<ns>'), <z-schema>, <composition entry>, { setSource, onChange })`（`@deepseek-ai/dsh-settings`）注册命名空间；`setSource` 注入动态读取器，`onChange` 让已派生的行为跟随已提交的修改，无需重启。
-  2. **browser 半区**：注入 `settingsScope`（`@deepseek-ai/dsh-client-ui-settings` 提供 `ctx.settingsScope`；`bind()` 还要求调用方注入 `connection` 与 `remote`），`ctx.settingsScope.bind({ namespace })` 读写该命名空间，并注册 `web-ui.plugin.item` 卡片（自行 `declare module '@deepseek-ai/dsh-client-ui-slots'` 声明该槽，shape 与 `ui-plugin-config` 一致；slot `order` 用 100+ 避开内置卡片）。样板实现见 `packages/remote-web-ui`（`src/client/settings-form.ts` + `PluginSettingsCard.tsx` + `*SettingsCard.tsx`，自包含的 staged 表单，不依赖兄弟 UI 包）。
-- **皮肤类插件**：改用 `scripts/dsh-skin-new` 脚手架（皮肤规范见 skin-center / 各皮肤包 README），不经过本流程第 3-4 步的 `web-ui-all` 注册。皮肤中心（skin-center）虽是皮肤聚合，其 GUI 卡片与功能插件一样注册进 `web-ui.plugin.item` 组（设置 → 插件配置 → Web UI 插件），不占设置页一级分区。
+  2. **browser 半区**：注入 `settingsScope`（`@deepseek-ai/dsh-client-ui-settings` 提供 `ctx.settingsScope`；`bind()` 还要求调用方注入 `connection` 与 `remote`），`ctx.settingsScope.bind({ namespace })` 读写该命名空间，并注册 `web-ui.plugin.item` 卡片（自行 `declare module '@deepseek-ai/dsh-client-ui-slots'` 声明该槽，shape 与 `ui-plugin-config` 一致；slot `order` 用 100+ 避开内置卡片）。样板实现见 `packages/dsh-remote-web-ui`（`src/client/settings-form.ts` + `PluginSettingsCard.tsx` + `*SettingsCard.tsx`，自包含的 staged 表单，不依赖兄弟 UI 包）。
+- **皮肤类插件**：改用 `scripts/dsh-skin-new` 脚手架（皮肤规范见 skin-center / 各皮肤包 README），不经过本流程第 3-4 步的 `dsh-web-ui-all` 注册。皮肤中心（skin-center）虽是皮肤聚合，其 GUI 卡片与功能插件一样注册进 `web-ui.plugin.item` 组（设置 → 插件配置 → Web UI 插件），不占设置页一级分区。

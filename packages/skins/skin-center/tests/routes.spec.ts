@@ -2,7 +2,7 @@
  * Host route tests for the skin-center API family: real HTTP server, stubbed
  * dsh-skin runner (so no real CLI or ~/.dsh is ever touched), asserting the
  * argument sequences the CLI receives, the same-origin fence, and every
- * error path. Mirrors packages/remote-web-ui/tests/routes.spec.ts.
+ * error path. Mirrors packages/dsh-remote-web-ui/tests/routes.spec.ts.
  */
 import { createServer, request as httpRequest } from 'node:http'
 import { describe, expect, it } from 'vitest'

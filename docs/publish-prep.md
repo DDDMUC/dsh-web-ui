@@ -14,14 +14,14 @@
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
-| packages/task-board | @deepseek-ai/dsh-client-ui-task-board | 0.1.0 | true |
-| packages/git-graph | @deepseek-ai/dsh-client-ui-git-graph | 0.1.0 | true |
-| packages/pet | @deepseek-ai/dsh-pet | 0.1.0 | true |
-| packages/remote-web-ui | @deepseek-ai/dsh-remote-web-ui | 0.1.0 | true |
-| packages/live-stats | @deepseek-ai/dsh-live-stats | 0.0.1 | true |
-| packages/web-ui-settings | @deepseek-ai/dsh-client-ui-web-ui-settings | 0.0.1 | true |
+| packages/dsh-task-board | @deepseek-ai/dsh-client-ui-task-board | 0.1.0 | true |
+| packages/dsh-git-graph | @deepseek-ai/dsh-client-ui-git-graph | 0.1.0 | true |
+| packages/dsh-pet | @deepseek-ai/dsh-pet | 0.1.0 | true |
+| packages/dsh-remote-web-ui | @deepseek-ai/dsh-remote-web-ui | 0.1.0 | true |
+| packages/dsh-live-stats | @deepseek-ai/dsh-live-stats | 0.0.1 | true |
+| packages/dsh-web-ui-settings | @deepseek-ai/dsh-client-ui-web-ui-settings | 0.0.1 | true |
 | packages/dsh-skins | @deepseek-ai/dsh-skins（聚合） | 0.1.0 | true |
-| packages/web-ui-all | @deepseek-ai/dsh-web-ui-all（聚合） | 0.1.0 | true |
+| packages/dsh-web-ui-all | @deepseek-ai/dsh-web-ui-all（聚合） | 0.1.0 | true |
 | packages/skins/qq98 | @deepseek-ai/dsh-client-ui-skin-qq98 | 0.0.1 | true |
 | packages/skins/ths | @deepseek-ai/dsh-client-ui-skin-ths | 0.0.1 | true |
 | packages/skins/xp | @deepseek-ai/dsh-client-ui-skin-xp | 0.0.1 | true |
@@ -37,14 +37,14 @@
 1. **全部 15 包 `private: true`** — npm 直接拒绝发布 private 包
    （`This package has been marked as private`）。发布前需逐个移除。
    **（按内测红线保留，未改动）**
-2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 6 处、web-ui-all 7 处）—
+2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 6 处、dsh-web-ui-all 7 处）—
    [已确认] **已确认修复方式**：实测 `pnpm pack` 会把 `workspace:*` 改写为真实版本号
-   （dsh-skins 6 处、web-ui-all 7 处全部改写为 0.1.0/0.0.1，无残留）。
+   （dsh-skins 6 处、dsh-web-ui-all 7 处全部改写为 0.1.0/0.0.1，无残留）。
    发布时必须用 **`pnpm publish`**（不要用 `npm publish`），`npm pack` 不改写。
 3. **类型产物缺失（1 包）** — [已确认] **已修复**：
-   - task-board：新增 `tsconfig.build.json`（emitDeclarationOnly → lib/types），
+   - dsh-task-board：新增 `tsconfig.build.json`（emitDeclarationOnly → lib/types），
      build 脚本改为 `tsc -p tsconfig.build.json && tsdown`；已产出 18 个 .d.ts；
-4. **`@deepseek-ai/dsh-code-kline` 未发布** — 原为 ui-code-kline 与 web-ui-all
+4. **`@deepseek-ai/dsh-code-kline` 未发布** — 原为 ui-code-kline 与 dsh-web-ui-all
    的依赖方（peerDeps/deps 引用），需在依赖它的包之前发布。
    **（发布动作本身，无法提前修复；发布顺序已排定）**
    [已确认] **已失效**：2026-08-12 调整移除 code-kline / ui-code-kline 包后，

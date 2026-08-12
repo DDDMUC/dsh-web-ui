@@ -18,28 +18,7 @@ importers:
         specifier: ^0.22.2
         version: 0.22.14(typescript@6.0.3)
 
-  packages/dsh-skins:
-    dependencies:
-      '@deepseek-ai/dsh-client-ui-skin-blue-fantasy':
-        specifier: workspace:*
-        version: link:../skins/blue-fantasy
-      '@deepseek-ai/dsh-client-ui-skin-center':
-        specifier: workspace:*
-        version: link:../skins/skin-center
-      '@deepseek-ai/dsh-client-ui-skin-dragon-heir':
-        specifier: workspace:*
-        version: link:../skins/dragon-heir
-      '@deepseek-ai/dsh-client-ui-skin-qq98':
-        specifier: workspace:*
-        version: link:../skins/qq98
-      '@deepseek-ai/dsh-client-ui-skin-ths':
-        specifier: workspace:*
-        version: link:../skins/ths
-      '@deepseek-ai/dsh-client-ui-skin-xp':
-        specifier: workspace:*
-        version: link:../skins/xp
-
-  packages/git-graph:
+  packages/dsh-git-graph:
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1-rc.1
@@ -94,7 +73,7 @@ importers:
         version: 29.1.1
       lightningcss:
         specifier: ^1.32.0
-        version: 1.33.0
+        version: 1.32.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -103,7 +82,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@6.0.3)
+        version: 0.22.2(typescript@6.0.3)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -114,7 +93,7 @@ importers:
         specifier: ^4.1.8
         version: 4.1.10(@types/node@22.20.1)(esbuild@0.28.2)(jsdom@29.1.1)
 
-  packages/live-stats:
+  packages/dsh-live-stats:
     dependencies:
       schemastery:
         specifier: ^3.18.0
@@ -208,7 +187,7 @@ importers:
         specifier: ^4.1.1
         version: 4.1.10(@types/node@22.20.1)(esbuild@0.28.2)(jsdom@26.1.0)
 
-  packages/pet:
+  packages/dsh-pet:
     dependencies:
       clsx:
         specifier: ^2.1.1
@@ -264,7 +243,7 @@ importers:
         version: 29.1.1
       lightningcss:
         specifier: ^1.32.0
-        version: 1.33.0
+        version: 1.32.0
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -273,7 +252,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@6.0.3)
+        version: 0.22.2(typescript@6.0.3)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -284,7 +263,7 @@ importers:
         specifier: ^4.1.8
         version: 4.1.10(@types/node@22.20.1)(esbuild@0.28.2)(jsdom@29.1.1)
 
-  packages/remote-web-ui:
+  packages/dsh-remote-web-ui:
     dependencies:
       cloudflared:
         specifier: ^0.7.3
@@ -358,7 +337,7 @@ importers:
         version: 29.1.1
       lightningcss:
         specifier: ^1.32.0
-        version: 1.33.0
+        version: 1.32.0
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -367,7 +346,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@6.0.3)
+        version: 0.22.2(typescript@6.0.3)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -377,6 +356,145 @@ importers:
       vitest:
         specifier: ^4.1.8
         version: 4.1.10(@types/node@22.20.1)(esbuild@0.28.2)(jsdom@29.1.1)
+
+  packages/dsh-skins:
+    dependencies:
+      '@deepseek-ai/dsh-client-ui-skin-blue-fantasy':
+        specifier: workspace:*
+        version: link:../skins/blue-fantasy
+      '@deepseek-ai/dsh-client-ui-skin-center':
+        specifier: workspace:*
+        version: link:../skins/skin-center
+      '@deepseek-ai/dsh-client-ui-skin-dragon-heir':
+        specifier: workspace:*
+        version: link:../skins/dragon-heir
+      '@deepseek-ai/dsh-client-ui-skin-qq98':
+        specifier: workspace:*
+        version: link:../skins/qq98
+      '@deepseek-ai/dsh-client-ui-skin-ths':
+        specifier: workspace:*
+        version: link:../skins/ths
+      '@deepseek-ai/dsh-client-ui-skin-xp':
+        specifier: workspace:*
+        version: link:../skins/xp
+
+  packages/dsh-task-board:
+    dependencies:
+      schemastery:
+        specifier: ^3.18.0
+        version: 3.18.0
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: ^4.0.1-rc.1
+        version: 4.0.1-rc.1
+      '@deepseek-ai/dsh-client-connection':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(95c8eb84bc796a7d3a1952fb29ae94b8)
+      '@deepseek-ai/dsh-client-locale':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(a3cc4298cf12574c741d0ccb8166289f)
+      '@deepseek-ai/dsh-client-runtime':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(0ee3801c6b512803ccac2c8412cabc9d)
+      '@deepseek-ai/dsh-client-ui-settings':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-api-remotes@0.0.1-rc.2(d7ef67cb784946f55551cd585dcd0e74))(@deepseek-ai/dsh-client-connection@0.0.1-rc.2(95c8eb84bc796a7d3a1952fb29ae94b8))(@deepseek-ai/dsh-client-runtime@0.0.1-rc.2(0ee3801c6b512803ccac2c8412cabc9d))(@deepseek-ai/dsh-client-ui-slots@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/dsh-settings@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/schemastery@3.18.1-rc.1))(react@18.3.1)
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))
+      '@deepseek-ai/dsh-settings':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/schemastery@3.18.1-rc.1)
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/dsh-llm@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-attachment@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/dsh-timeout@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))))(@deepseek-ai/dsh-scope@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.5
+        version: 18.3.7(@types/react@18.3.31)
+      jsdom:
+        specifier: ^25.0.0
+        version: 25.0.1
+      lightningcss:
+        specifier: 1.32.0
+        version: 1.32.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      tsdown:
+        specifier: 0.22.2
+        version: 0.22.2(typescript@5.7.3)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jsdom@25.0.1)(lightningcss@1.32.0)
+
+  packages/dsh-web-ui-all:
+    dependencies:
+      '@deepseek-ai/dsh-client-ui-git-graph':
+        specifier: workspace:*
+        version: link:../dsh-git-graph
+      '@deepseek-ai/dsh-client-ui-task-board':
+        specifier: workspace:*
+        version: link:../dsh-task-board
+      '@deepseek-ai/dsh-client-ui-web-ui-settings':
+        specifier: workspace:*
+        version: link:../dsh-web-ui-settings
+      '@deepseek-ai/dsh-live-stats':
+        specifier: workspace:*
+        version: link:../dsh-live-stats
+      '@deepseek-ai/dsh-pet':
+        specifier: workspace:*
+        version: link:../dsh-pet
+      '@deepseek-ai/dsh-remote-web-ui':
+        specifier: workspace:*
+        version: link:../dsh-remote-web-ui
+      '@deepseek-ai/dsh-skins':
+        specifier: workspace:*
+        version: link:../dsh-skins
+
+  packages/dsh-web-ui-settings:
+    devDependencies:
+      '@deepseek-ai/dsh-client-locale':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(a3cc4298cf12574c741d0ccb8166289f)
+      '@deepseek-ai/dsh-client-runtime':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(0ee3801c6b512803ccac2c8412cabc9d)
+      '@deepseek-ai/dsh-client-ui-settings':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-api-remotes@0.0.1-rc.2(d7ef67cb784946f55551cd585dcd0e74))(@deepseek-ai/dsh-client-connection@0.0.1-rc.2(95c8eb84bc796a7d3a1952fb29ae94b8))(@deepseek-ai/dsh-client-runtime@0.0.1-rc.2(0ee3801c6b512803ccac2c8412cabc9d))(@deepseek-ai/dsh-client-ui-slots@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/dsh-settings@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/schemastery@3.18.1-rc.1))(react@18.3.1)
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: ^0.0.1-rc.2
+        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.5
+        version: 18.3.7(@types/react@18.3.31)
+      lightningcss:
+        specifier: 1.32.0
+        version: 1.32.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      tsdown:
+        specifier: 0.22.2
+        version: 0.22.2(typescript@5.7.3)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
 
   packages/skins/blue-fantasy:
     devDependencies:
@@ -391,7 +509,7 @@ importers:
         version: 1.33.0
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@6.0.3)
+        version: 0.22.14(typescript@5.9.3)
       vite-tsconfig-paths:
         specifier: ^6.1.1
         version: 6.1.1(typescript@5.9.3)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2))
@@ -412,7 +530,7 @@ importers:
         version: 1.33.0
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@6.0.3)
+        version: 0.22.14(typescript@5.9.3)
       vite-tsconfig-paths:
         specifier: ^6.1.1
         version: 6.1.1(typescript@5.9.3)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2))
@@ -433,7 +551,7 @@ importers:
         version: 1.32.0
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.2(typescript@6.0.3)
+        version: 0.22.2(typescript@5.9.3)
       vite-tsconfig-paths:
         specifier: ^6.1.1
         version: 6.1.1(typescript@5.9.3)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2))
@@ -454,7 +572,7 @@ importers:
         version: 1.33.0
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@6.0.3)
+        version: 0.22.14(typescript@5.9.3)
       vite-tsconfig-paths:
         specifier: ^6.1.1
         version: 6.1.1(typescript@5.9.3)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2))
@@ -514,7 +632,7 @@ importers:
         version: 1.33.0
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@6.0.3)
+        version: 0.22.14(typescript@5.9.3)
       vite-tsconfig-paths:
         specifier: ^6.1.1
         version: 6.1.1(typescript@5.9.3)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2))
@@ -535,131 +653,13 @@ importers:
         version: 1.33.0
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@6.0.3)
+        version: 0.22.14(typescript@5.9.3)
       vite-tsconfig-paths:
         specifier: ^6.1.1
         version: 6.1.1(typescript@5.9.3)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2))
       vitest:
         specifier: ^4.1.8
         version: 4.1.10(@types/node@22.20.1)(esbuild@0.28.2)(jsdom@29.1.1)
-
-  packages/task-board:
-    dependencies:
-      schemastery:
-        specifier: ^3.18.0
-        version: 3.18.0
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: ^4.0.1-rc.1
-        version: 4.0.1-rc.1
-      '@deepseek-ai/dsh-client-connection':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(95c8eb84bc796a7d3a1952fb29ae94b8)
-      '@deepseek-ai/dsh-client-locale':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(a3cc4298cf12574c741d0ccb8166289f)
-      '@deepseek-ai/dsh-client-runtime':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(0ee3801c6b512803ccac2c8412cabc9d)
-      '@deepseek-ai/dsh-client-ui-settings':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-api-remotes@0.0.1-rc.2(d7ef67cb784946f55551cd585dcd0e74))(@deepseek-ai/dsh-client-connection@0.0.1-rc.2(95c8eb84bc796a7d3a1952fb29ae94b8))(@deepseek-ai/dsh-client-runtime@0.0.1-rc.2(0ee3801c6b512803ccac2c8412cabc9d))(@deepseek-ai/dsh-client-ui-slots@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/dsh-settings@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/schemastery@3.18.1-rc.1))(react@18.3.1)
-      '@deepseek-ai/dsh-client-ui-slots':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))
-      '@deepseek-ai/dsh-settings':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/schemastery@3.18.1-rc.1)
-      '@deepseek-ai/dsh-system-prompt':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/dsh-llm@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-attachment@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/dsh-timeout@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))))(@deepseek-ai/dsh-scope@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))
-      '@types/react':
-        specifier: ~18.3.1
-        version: 18.3.31
-      '@types/react-dom':
-        specifier: ^18.3.5
-        version: 18.3.7(@types/react@18.3.31)
-      jsdom:
-        specifier: ^25.0.0
-        version: 25.0.1
-      lightningcss:
-        specifier: 1.32.0
-        version: 1.32.0
-      react:
-        specifier: ^18.3.1
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
-      tsdown:
-        specifier: 0.22.2
-        version: 0.22.2(typescript@5.7.3)
-      typescript:
-        specifier: ~5.7.2
-        version: 5.7.3
-      vitest:
-        specifier: ^3.0.0
-        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jsdom@25.0.1)(lightningcss@1.32.0)
-
-  packages/web-ui-all:
-    dependencies:
-      '@deepseek-ai/dsh-client-ui-git-graph':
-        specifier: workspace:*
-        version: link:../git-graph
-      '@deepseek-ai/dsh-client-ui-task-board':
-        specifier: workspace:*
-        version: link:../task-board
-      '@deepseek-ai/dsh-client-ui-web-ui-settings':
-        specifier: workspace:*
-        version: link:../web-ui-settings
-      '@deepseek-ai/dsh-live-stats':
-        specifier: workspace:*
-        version: link:../live-stats
-      '@deepseek-ai/dsh-pet':
-        specifier: workspace:*
-        version: link:../pet
-      '@deepseek-ai/dsh-remote-web-ui':
-        specifier: workspace:*
-        version: link:../remote-web-ui
-      '@deepseek-ai/dsh-skins':
-        specifier: workspace:*
-        version: link:../dsh-skins
-
-  packages/web-ui-settings:
-    devDependencies:
-      '@deepseek-ai/dsh-client-locale':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(a3cc4298cf12574c741d0ccb8166289f)
-      '@deepseek-ai/dsh-client-runtime':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(0ee3801c6b512803ccac2c8412cabc9d)
-      '@deepseek-ai/dsh-client-ui-settings':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-api-remotes@0.0.1-rc.2(d7ef67cb784946f55551cd585dcd0e74))(@deepseek-ai/dsh-client-connection@0.0.1-rc.2(95c8eb84bc796a7d3a1952fb29ae94b8))(@deepseek-ai/dsh-client-runtime@0.0.1-rc.2(0ee3801c6b512803ccac2c8412cabc9d))(@deepseek-ai/dsh-client-ui-slots@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/dsh-settings@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-brand@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)))(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))(@deepseek-ai/schemastery@3.18.1-rc.1))(react@18.3.1)
-      '@deepseek-ai/dsh-client-ui-slots':
-        specifier: ^0.0.1-rc.2
-        version: 0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1)(@deepseek-ai/dsh-invariants@0.0.1-rc.2(@deepseek-ai/cordis@4.0.1-rc.1))
-      '@types/react':
-        specifier: ~18.3.1
-        version: 18.3.31
-      '@types/react-dom':
-        specifier: ^18.3.5
-        version: 18.3.7(@types/react@18.3.31)
-      lightningcss:
-        specifier: 1.32.0
-        version: 1.32.0
-      react:
-        specifier: ^18.3.1
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
-      tsdown:
-        specifier: 0.22.2
-        version: 0.22.2(typescript@5.7.3)
-      typescript:
-        specifier: ~5.7.2
-        version: 5.7.3
 
 packages:
 
@@ -5659,6 +5659,20 @@ snapshots:
     transitivePeerDependencies:
       - oxc-resolver
 
+  rolldown-plugin-dts@0.27.14(rolldown@1.2.3)(typescript@5.9.3):
+    dependencies:
+      dts-resolver: 3.0.0
+      get-tsconfig: 5.0.0-beta.5
+      obug: 2.1.4
+      rolldown: 1.2.3
+      yuku-ast: 0.8.4
+      yuku-codegen: 0.8.4
+      yuku-parser: 0.8.4
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - oxc-resolver
+
   rolldown-plugin-dts@0.27.14(rolldown@1.2.3)(typescript@6.0.3):
     dependencies:
       dts-resolver: 3.0.0
@@ -5859,6 +5873,31 @@ snapshots:
   tsconfck@3.1.6(typescript@6.0.3):
     optionalDependencies:
       typescript: 6.0.3
+
+  tsdown@0.22.14(typescript@5.9.3):
+    dependencies:
+      ansis: 4.3.1
+      cac: 7.0.0
+      defu: 6.1.7
+      empathic: 2.0.1
+      hookable: 6.1.1
+      import-without-cache: 0.4.0
+      obug: 2.1.4
+      picomatch: 4.0.5
+      rolldown: 1.2.3
+      rolldown-plugin-dts: 0.27.14(rolldown@1.2.3)(typescript@5.9.3)
+      tinyexec: 1.3.0
+      tinyglobby: 0.2.17
+      tree-kill: 1.2.2
+      unconfig-core: 7.5.0
+      verkit: 0.3.2
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - '@typescript/native-preview'
+      - '@volar/typescript'
+      - oxc-resolver
+      - vue-tsc
 
   tsdown@0.22.14(typescript@6.0.3):
     dependencies:

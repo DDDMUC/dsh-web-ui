@@ -1,7 +1,7 @@
 # dsh-task-board bundle patch: inserts the dual-face plugin row into the web
 # profile roster. Applied as a profile bundle layer (the `dsh.bundle.patch`
 # manifest field) over dsh-base; activate with
-# `dsh plugin --profile <name> add link:~/code/dsh-web-ui/packages/task-board`.
+# `dsh plugin --profile <name> add link:~/code/dsh-web-ui/packages/dsh-task-board`.
 #
 # The row is a bare plugin by package name: the node half (exports ".") runs
 # in the host process (the system-prompt announcement section), and the

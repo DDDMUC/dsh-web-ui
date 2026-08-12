@@ -54,7 +54,7 @@ QR code, live device status, and stop/refresh/copy actions.
 ```sh
 # From a local checkout (the development loop — link: picks up rebuilds
 # without reinstalling):
-dsh plugin --profile web add link:/path/to/dsh-web-ui/packages/remote-web-ui
+dsh plugin --profile web add link:/path/to/dsh-web-ui/packages/dsh-remote-web-ui
 
 # From git, with no checkout: the prepare script builds lib/ during install
 # (pnpm ≥10 blocks that build until you allow it; copy the printed key into

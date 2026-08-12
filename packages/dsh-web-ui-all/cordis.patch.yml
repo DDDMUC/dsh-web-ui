@@ -2,32 +2,32 @@
 # This file is derived from the aggregate.yml manifest in this package;
 # edit aggregate.yml and rerun `node scripts/aggregate.mjs`.
 
-# from ../task-board
+# from ../dsh-task-board
 - insert:
     - id: ui-task-board
       name: '@deepseek-ai/dsh-client-ui-task-board'
 
-# from ../git-graph
+# from ../dsh-git-graph
 - insert:
     - id: ui-git-graph
       name: '@deepseek-ai/dsh-client-ui-git-graph'
 
-# from ../pet
+# from ../dsh-pet
 - insert:
     - id: pet
       name: '@deepseek-ai/dsh-pet'
 
-# from ../remote-web-ui
+# from ../dsh-remote-web-ui
 - insert:
     - id: remote-web-ui
       name: '@deepseek-ai/dsh-remote-web-ui'
 
-# from ../live-stats
+# from ../dsh-live-stats
 - insert:
     - id: live-stats
       name: '@deepseek-ai/dsh-live-stats'
 
-# from ../web-ui-settings
+# from ../dsh-web-ui-settings
 - insert:
     - id: ui-web-ui-settings
       name: '@deepseek-ai/dsh-client-ui-web-ui-settings'

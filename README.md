@@ -74,13 +74,13 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 ## 安装
 
-通过聚合包一次装齐：`web-ui-all` 包含全部插件与皮肤，`dsh-skins` 仅包含皮肤。技术细节见 [docs/plugins.md](docs/plugins.md)。
+通过聚合包一次装齐：`dsh-web-ui-all` 包含全部插件与皮肤，`dsh-skins` 仅包含皮肤。技术细节见 [docs/plugins.md](docs/plugins.md)。
 
 ## 来源与版权
 
 | 包 | 来源 | 版权 |
 | --- | --- | --- |
-| task-board / git-graph / pet / remote-web-ui / live-stats | dsh-external 组织自有 | BSD-3-Clause（dsh-external contributors） |
-| skins / dsh-skins / web-ui-all | 本仓库原生 | BSD-3-Clause |
+| dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-live-stats | dsh-external 组织自有 | BSD-3-Clause（dsh-external contributors） |
+| skins / dsh-skins / dsh-web-ui-all | 本仓库原生 | BSD-3-Clause |
 
 迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。

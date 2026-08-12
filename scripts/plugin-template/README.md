@@ -17,9 +17,9 @@ dsh plugin --profile web add link:<本仓库绝对路径>/packages/__NAME__
 dsh plugin --profile web add link:/Users/zcl/code/dsh-web-ui/packages/__NAME__
 ```
 
-若已把 `- ../__NAME__` 加入 `packages/web-ui-all/aggregate.yml`（patchFrom 与
+若已把 `- ../__NAME__` 加入 `packages/dsh-web-ui-all/aggregate.yml`（patchFrom 与
 deps），跑 `node scripts/aggregate.mjs` 后装聚合包
-（`dsh plugin --profile web add link:/Users/zcl/code/dsh-web-ui/packages/web-ui-all`）
+（`dsh plugin --profile web add link:/Users/zcl/code/dsh-web-ui/packages/dsh-web-ui-all`）
 即可连同本插件一次到位。
 
 ## 结构

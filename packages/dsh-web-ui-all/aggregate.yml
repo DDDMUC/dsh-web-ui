@@ -2,18 +2,18 @@
 # deps 的包进 package.json dependencies（workspace:*）
 # dsh-skins 的 patch 行只有 ui-skin-center，汇总后自然展开
 patchFrom:
-  - ../task-board
-  - ../git-graph
-  - ../pet
-  - ../remote-web-ui
-  - ../live-stats
-  - ../web-ui-settings
+  - ../dsh-task-board
+  - ../dsh-git-graph
+  - ../dsh-pet
+  - ../dsh-remote-web-ui
+  - ../dsh-live-stats
+  - ../dsh-web-ui-settings
   - ../dsh-skins
 deps:
-  - ../task-board
-  - ../git-graph
-  - ../pet
-  - ../remote-web-ui
-  - ../live-stats
-  - ../web-ui-settings
+  - ../dsh-task-board
+  - ../dsh-git-graph
+  - ../dsh-pet
+  - ../dsh-remote-web-ui
+  - ../dsh-live-stats
+  - ../dsh-web-ui-settings
   - ../dsh-skins

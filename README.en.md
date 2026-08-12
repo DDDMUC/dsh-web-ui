@@ -74,13 +74,13 @@ Three more: QQ2008 Retro (crystal blue with penguin motifs), Tonghuashun Trading
 
 ## Installation
 
-Install everything at once through the aggregate packages: `web-ui-all` includes all plugins and skins, `dsh-skins` includes skins only. Technical details live in [docs/plugins.md](docs/plugins.md).
+Install everything at once through the aggregate packages: `dsh-web-ui-all` includes all plugins and skins, `dsh-skins` includes skins only. Technical details live in [docs/plugins.md](docs/plugins.md).
 
 ## Sources & Licensing
 
 | Package | Origin | License |
 | --- | --- | --- |
-| task-board / git-graph / pet / remote-web-ui / live-stats | dsh-external org-owned | BSD-3-Clause (dsh-external contributors) |
-| skins / dsh-skins / web-ui-all | Native to this repo | BSD-3-Clause |
+| dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-live-stats | dsh-external org-owned | BSD-3-Clause (dsh-external contributors) |
+| skins / dsh-skins / dsh-web-ui-all | Native to this repo | BSD-3-Clause |
 
 Third-party code merged in must keep its LICENSE and attribution; active third parties with an upstream are forked or referenced as dependencies instead of vendored.

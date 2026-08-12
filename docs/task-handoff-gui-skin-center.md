@@ -155,7 +155,7 @@ hot-pluggable client 插件，风格与现有皮肤一致。
 3. **皮肤枚举**：内嵌注册表（skin.json 契约）+ 激活检测读 `window.__DSH_BOOT__.entries`（仅启用条目）。
 
 **实现**：`packages/skins/skin-center/`（`@deepseek-ai/dsh-client-ui-skin-center`，id `ui-skin-center`）——
-插件配置页 Web UI 插件组（`web-ui.plugin.item` 槽，由 `packages/web-ui-settings` 的组卡声明）
+插件配置页 Web UI 插件组（`web-ui.plugin.item` 槽，由 `packages/dsh-web-ui-settings` 的组卡声明）
 注册皮肤中心卡片；试穿引擎 `try-on.ts` 按配方收回激活皮肤视觉写面
 （body 属性 / 背景内联样式 / body 直接子 chrome / xp footer taskbar 中性化 CSS），退出后快照
 原样恢复；中性化观察器防 blue-fantasy 幽灵背景写回。接线：profile symlink +

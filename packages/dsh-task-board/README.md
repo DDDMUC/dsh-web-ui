@@ -90,7 +90,7 @@ scripts/dsh-task-board.js                          # 一键挂载/卸载/状态 
 devDependencies），**无需任何 DSH 源码 checkout**。
 
 ```sh
-cd ~/code/dsh-web-ui/packages/task-board
+cd ~/code/dsh-web-ui/packages/dsh-task-board
 pnpm install        # 首次（workspace 根执行 pnpm install）
 pnpm run build      # 产出 lib/index.js + lib/client.js（tsdown + shared/tsdown.client.ts 预设）
 pnpm run typecheck  # 类型检查（node_modules 的 SDK 包类型）
@@ -118,7 +118,7 @@ profile 清单中注册的行：
 
 ```json
 {
-  "dependencies": { "@deepseek-ai/dsh-client-ui-task-board": "link:/Users/zcl/code/dsh-web-ui/packages/task-board" },
+  "dependencies": { "@deepseek-ai/dsh-client-ui-task-board": "link:/Users/zcl/code/dsh-web-ui/packages/dsh-task-board" },
   "dsh": { "profile": { "bundles": [ "...", "@deepseek-ai/dsh-client-ui-task-board" ] } }
 }
 ```

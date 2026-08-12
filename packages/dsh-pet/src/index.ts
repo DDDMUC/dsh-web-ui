@@ -3,7 +3,7 @@
  * browser half (the `./client` entry) renders the whale-girl companion and
  * drives it through the same-origin `/api/pet/*` JSON endpoints plus the
  * `/pet/whale/*` media route. Install via `dsh plugin --profile web add
- * link:<dsh-web-ui>/packages/pet`; the cordis.patch.yml inserts this plugin row.
+ * link:<dsh-web-ui>/packages/dsh-pet`; the cordis.patch.yml inserts this plugin row.
  * @module @deepseek-ai/dsh-pet
  */
 
