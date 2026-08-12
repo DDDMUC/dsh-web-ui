@@ -6,9 +6,6 @@ patchFrom:
   - ../git-graph
   - ../pet
   - ../remote-web-ui
-  - ../working-activity
-  - ../code-kline
-  - ../ui-code-kline
   - ../live-stats
   - ../dsh-skins
 deps:
@@ -16,8 +13,5 @@ deps:
   - ../git-graph
   - ../pet
   - ../remote-web-ui
-  - ../working-activity
-  - ../code-kline
-  - ../ui-code-kline
   - ../live-stats
   - ../dsh-skins

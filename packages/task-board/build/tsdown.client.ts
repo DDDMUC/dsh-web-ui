@@ -155,6 +155,13 @@ function clientLibraryConfig(
     fixedExtension: false,
     dts: false,
     clean: false,
+    // Host-framework packages resolve at runtime from the dsh profile tree,
+    // never from this repo's install; their built declarations carry
+    // .ts-suffixed relative imports rolldown cannot follow, so those imports
+    // must stay external. Same scope for dsh-settings: the task-board host
+    // half registers its settings namespace through it, and the runtime
+    // module table answers the bare require at load.
+    external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-settings'],
     ...overrides,
   }
 }

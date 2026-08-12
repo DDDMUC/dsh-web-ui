@@ -7,10 +7,19 @@
  * @module @deepseek-ai/dsh-pet
  */
 
-import { Context } from 'cordis'
+import { Context } from '@deepseek-ai/cordis'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import { PetService, type PetConfig } from './service.ts'
+import z from 'schemastery'
+import { PetService, PET_SETTINGS_NAMESPACE, type PetConfig, type PetSettingsSection } from './service.ts'
 import { makePetRoutes, petPackageRoot } from './routes.ts'
+import {
+  DEFAULT_PET_NAME,
+  DISPLAY_INSET_MAX,
+  DISPLAY_SIZE_MAX,
+  DISPLAY_SIZE_MIN,
+  PET_NAME_MAX_LENGTH,
+} from './persist.ts'
 
 export { PetService } from './service.ts'
 export type {
@@ -73,9 +82,38 @@ export const name = 'pet'
 /** Services required before the pet can mount its surfaces. */
 export const inject = ['httpServer']
 
+/** Settings section schema: the display fields and name the web settings surface edits. */
+export const PET_SETTINGS_SCHEMA = z.object({
+  visible: z.boolean().default(true),
+  size: z.number().step(1).min(DISPLAY_SIZE_MIN).max(DISPLAY_SIZE_MAX).default(160),
+  right: z.number().step(1).min(0).max(DISPLAY_INSET_MAX).default(24),
+  bottom: z.number().step(1).min(0).max(DISPLAY_INSET_MAX).default(20),
+  name: z.string().min(1).max(PET_NAME_MAX_LENGTH).default(DEFAULT_PET_NAME),
+})
+
 /** Register the pet service and its API + asset routes on the context. */
 export function apply(ctx: Context, config: PetConfig = {}): void {
   const service = new PetService(ctx, config)
+
+  // The settings surface edits the display config through the `pet`
+  // namespace. The composition `base` starts as the persisted pet.json
+  // values (clamped to schema bounds), so an empty user layer resolves to
+  // exactly what the pet already shows — a fresh deployment never
+  // overwrites a customized layout, and reset re-inherits it. Runtime drag
+  // interactions mirror back into the settings document through the service
+  // (see syncSettingsFromPet), keeping both views consistent.
+  let current: () => PetSettingsSection = () => base
+  const base: PetSettingsSection = {
+    visible: service.display().visible,
+    size: service.display().size,
+    right: service.display().right,
+    bottom: service.display().bottom,
+    name: service.petName(),
+  }
+  installSettingsSection(ctx, settingsNamespace(PET_SETTINGS_NAMESPACE), PET_SETTINGS_SCHEMA, base, {
+    setSource: (source) => { current = source },
+    onChange: () => { service.applySettingsSection(current()) },
+  })
 
   // The browser half talks to the pet through same-origin JSON endpoints and
   // loads the atlas from the pet's own media route (RPC domains are

@@ -10,6 +10,7 @@
 
 - 全家桶 monorepo：功能插件与皮肤集合单仓维护，每个包可独立安装，也可用聚合包一键装齐
 - 官方标准 bundle：每个插件包都符合 DSH profile/bundle 规范，`dsh plugin --profile web add ...` 直接可用
+- 设置页插件配置：功能插件的配置接入 DSH web「设置 > 插件配置」区（与内置终端 / Agent 循环 / 网页搜索同款卡片体验），修改即时生效
 - 皮肤中心：皮肤启用互斥由 `~/.dsh/cordis.patch.yml` managed 区段维护，`dsh-skin use` 即时切换
 - 试穿预览：`gallery/preview.html` 提供皮肤实机试穿，亮/暗主题所见即所得
 
@@ -22,9 +23,6 @@ dsh-web-ui/
 │   ├── git-graph/         @deepseek-ai/dsh-client-ui-git-graph       Git 分支/图谱
 │   ├── pet/               @deepseek-ai/dsh-pet                       鲸鱼娘宠物
 │   ├── remote-web-ui/     @deepseek-ai/dsh-remote-web-ui             手机远程控制
-│   ├── working-activity/  @deepseek-ai/dsh-working-activity          工作状态行
-│   ├── code-kline/        @deepseek-ai/dsh-code-kline                代码工作量 K 线（host）
-│   ├── ui-code-kline/     @deepseek-ai/dsh-client-ui-code-kline      代码工作量 K 线（client）
 │   ├── live-stats/        @deepseek-ai/dsh-live-stats                 实时 token 估算与吞吐
 │   ├── skins/             皮肤集合（qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft / skin-center / web）
 │   ├── dsh-skins/         @deepseek-ai/dsh-skins      皮肤聚合插件（装它 = 全部皮肤包 + 皮肤中心）
@@ -90,14 +88,9 @@ dsh-skin use blue-fantasy   # 或 qq98 / ths / xp / dragon-heir / minecraft
 | @deepseek-ai/dsh-client-ui-git-graph | Git 分支 / 图谱可视化 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/git-graph` |
 | @deepseek-ai/dsh-pet | 鲸鱼娘宠物挂件 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/pet` |
 | @deepseek-ai/dsh-remote-web-ui | 手机远程控制 Web GUI | `dsh plugin --profile web add link:<dsh-web-ui>/packages/remote-web-ui` |
-| @deepseek-ai/dsh-working-activity | 工作状态行：模型实时活动（思考 / 工具 / 回合摘要） | `dsh plugin --profile web add link:<dsh-web-ui>/packages/working-activity` |
-| @deepseek-ai/dsh-code-kline | 代码工作量 K 线（host）：按工作区 git 历史聚合日线 OHLC 蜡烛 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/code-kline` |
-| @deepseek-ai/dsh-client-ui-code-kline | 代码工作量 K 线（client）：侧边栏迷你图 + 个股页图表面 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/ui-code-kline` |
 | @deepseek-ai/dsh-live-stats | 实时 token 估算与生成吞吐（composer 统计区） | `dsh plugin --profile web add link:<dsh-web-ui>/packages/live-stats` |
 | @deepseek-ai/dsh-skins | 皮肤聚合插件：全部皮肤包 + 皮肤中心一次到位 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins` |
 | @deepseek-ai/dsh-web-ui-all | 全家桶聚合插件：以上全部插件 + 皮肤全家桶 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all` |
-
-> `working-activity` 的 Web 半区有限制：浏览器端需要把其 `patches/webui-working-activity.patch` 应用到 DSH 源码（见包内 README / patches）；host 半区可直接以 bundle 安装。
 
 ## 优质推荐
 
@@ -145,9 +138,7 @@ dsh-skin use minecraft
 
 | 包 | 来源 | 版权 |
 | --- | --- | --- |
-| task-board / git-graph / pet / remote-web-ui | dsh-external 组织自有（git 历史随 subtree 保留） | BSD-3-Clause（dsh-external contributors） |
-| working-activity | 社区插件，作者 chimney（ccch1mneyyy），原发布于 dsh-external/dsh-working-activity | MIT（版权归作者本人，LICENSE 保留于包内） |
-| code-kline / ui-code-kline / live-stats | 原为 DSH 源码内定制（packages/activity、packages/client） | BSD-3-Clause |
+| task-board / git-graph / pet / remote-web-ui / live-stats | dsh-external 组织自有（git 历史随 subtree 保留） | BSD-3-Clause（dsh-external contributors） |
 | skins / dsh-skins / web-ui-all | 本仓库原生 | BSD-3-Clause |
 
 维护规则：迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。详见 [docs/plugins.md](docs/plugins.md)。

@@ -36,7 +36,7 @@ const CSS_VIRTUAL_SUFFIX = '.mjs'
  * store exemption. Anything else is inlined into the bundle.
  */
 const CLIENT_EXTERNALS: readonly string[] = [
-  'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'cordis',
+  'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-web-react',
   '@deepseek-ai/dsh-client-ui-primitives',
@@ -76,6 +76,11 @@ export function clientBundle(id: string, libEntry: readonly string[]): UserConfi
     fixedExtension: false,
     dts: false,
     clean: false,
+    // The cordis framework and settings seam resolve at runtime from the dsh
+    // profile tree, never from this repo's install; their built declarations
+    // carry .ts-suffixed relative imports rolldown cannot follow, so the
+    // imports must stay external (the same stance as the peer APIs above).
+    external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-settings'],
   }, clientConfig(id)]
 }
 

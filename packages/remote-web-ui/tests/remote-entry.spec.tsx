@@ -176,7 +176,7 @@ describe('RemoteEntry', () => {
 })
 
 describe('apply registration', () => {
-  it('registers the sidebar entry through declaration-aware slots.inject', async () => {
+  it('registers the sidebar entry and the plugin settings card', async () => {
     const { apply } = await import('../src/client/index.ts')
     const injected: string[] = []
     const ctx = {
@@ -186,12 +186,20 @@ describe('apply registration', () => {
         inject: (key: string) => { injected.push(key); return () => {} },
         register: () => () => {},
       },
+      settingsScope: {
+        bind: () => ({
+          getSnapshot: () => ({ status: 'unavailable' as const, writable: false }),
+          subscribe: () => () => {},
+          set: async () => {},
+          unset: async () => {},
+        }),
+      },
       get: (name: string) => {
         if (name === 'connection') return { isLoopback: true }
         return undefined
       },
     }
     apply(ctx as never)
-    expect(injected).toEqual(['sidebar.remote'])
+    expect(injected).toEqual(['sidebar.remote', 'settings.plugin.item'])
   })
 })

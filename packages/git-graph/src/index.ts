@@ -10,7 +10,7 @@
  */
 
 import { realpath } from 'node:fs/promises'
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-subprocess'
 import type {} from '@deepseek-ai/dsh-workspace'

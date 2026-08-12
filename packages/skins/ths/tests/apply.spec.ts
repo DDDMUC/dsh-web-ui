@@ -8,7 +8,7 @@
  * carry their direction attribute for the 红涨绿跌 coloring.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context, type Fiber } from 'cordis'
+import { Context, type Fiber } from '@deepseek-ai/cordis'
 import { apply } from '../src/client/index.ts'
 
 let fiber: Fiber | undefined

@@ -8,7 +8,7 @@
     // ui-conversation customizations the web profile boots against). paths
     // replaces the base table wholesale; every reachable specifier is listed.
     "paths": {
-      "cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
+      "@deepseek-ai/cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
       "cosmokit": ["/Users/zcl/.dsh/source/current/vendor/cosmokit/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-brand": ["/Users/zcl/.dsh/source/current/packages/util/brand/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-host-webserver": ["/Users/zcl/.dsh/source/current/packages/host/webserver/lib/types/index.d.ts"],

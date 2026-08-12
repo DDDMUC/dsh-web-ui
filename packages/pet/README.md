@@ -59,14 +59,14 @@ dsh-pet/
 ### 数据流
 
 ```
-working-activity 插件 -- activity/status session 事件 --> PetService（host）
+activity/status session 事件（原 working-activity 插件发布） --> PetService（host）
                                                               | /api/pet/* JSON
 conversation.composer.dock 槽位 <-- 轮询 800ms -- pet-client（浏览器）
                                                               |
                                                    WhalePet 浮层（portal + rAF）
 ```
 
-- **状态源**：`working-activity` 插件发布的 `activity/status` 会话事件（phase: idle/waiting/thinking/tool/done + 状态短语），由 host 半区监听。
+- **状态源**：监听 `activity/status` 会话事件（phase: idle/waiting/thinking/tool/done + 状态短语），由 host 半区消费；该事件曾由 working-activity 插件发布，插件已从本仓库移除，未安装时宠物只随会话生命周期变化。
 - **挂载点**：`conversation.composer.dock`（list 槽位，与 live-stats 同区），组件内部 `createPortal` 渲染全局浮层。
 - **渲染**：CSS sprite（background-position）逐帧动画，帧时长来自 `spritesheet.ts` 的轨道定义。
 - **通信**：浏览器 ↔ host 走同源 `/api/pet/*` JSON 端点（state/interact/set-visible/set-config），图集从 `/pet/whale/spritesheet.webp` 加载——RPC 域与 `/plugins/` 静态服务都是平台注册的，插件自足地提供自己的 API 与素材（与 dsh-remote-web-ui 的 `/api/pair` 同一模式）。

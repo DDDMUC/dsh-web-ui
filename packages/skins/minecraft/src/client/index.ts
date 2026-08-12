@@ -19,7 +19,7 @@
  * from above. Props scatter deterministically (seeded PRNG) so the world
  * feels populated without ever being random per render.
  */
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import css from './minecraft.module.css'
 
 /** The product title the skin pins (captured by the shell's DocumentTitle after settle). */

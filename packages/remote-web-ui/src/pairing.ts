@@ -125,11 +125,13 @@ export class PairingService {
   private lanBases = new Map<string, string>()
 
   /**
-   * @param config - tunables.
+   * @param config - tunables. The settings surface replaces the object (a
+   * fresh literal) when a committed section changes; every operation reads
+   * the current one.
    * @param clock - clock/entropy source (injectable for tests).
    */
   constructor(
-    public readonly config: PairingConfig,
+    public config: PairingConfig,
     private readonly clock: PairingClock = defaultClock,
   ) {}
 

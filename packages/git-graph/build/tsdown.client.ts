@@ -68,6 +68,11 @@ export function clientBundle(id: string, libEntry: readonly string[]): UserConfi
     fixedExtension: false,
     dts: false,
     clean: false,
+    // The cordis framework resolves at runtime from the dsh profile tree, never
+    // from this repo's install; its built declarations carry .ts-suffixed
+    // relative imports rolldown cannot follow, so the import must stay
+    // external (the same stance as the peer APIs above).
+    external: ['@deepseek-ai/cordis'],
   }, {
     entry: { client: 'src/client/index.ts' },
     // Browser bundle lands next to the node half (single lib/ artifact dir;

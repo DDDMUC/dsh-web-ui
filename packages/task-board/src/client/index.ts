@@ -9,21 +9,72 @@
  * plugin must not take the GUI down.
  */
 import type { ClientContext, SessionId, WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
+import type {} from '@deepseek-ai/dsh-client-ui-slots'
+// Type-only: pulls the locale plugin's Context merge (ctx.locale) and its
+// LocaleNamespaceMap merge table.
+import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { BoardController } from '../core/controller.ts'
 import { ExecutionService } from '../core/execution.ts'
 import { SchedulerService } from '../core/scheduler.ts'
 import { LocalStorageTaskStore } from '../core/store.ts'
 import { mountBoard } from './board-mount.tsx'
 import { mountSidebarEntry } from './sidebar-entry.ts'
+import { TaskBoardSettingsCard, TaskBoardSettingsCardController } from './TaskBoardSettingsCard.tsx'
+import { en, zh, type TaskBoardKey } from './locales.ts'
+
+/** Locale namespace this plugin owns. */
+const NS = 'task-board'
+
+/** Settings namespace the settings card edits (the Host plugin registers it). */
+const TASK_BOARD_NS = 'task-board'
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** Task-board surface copy. */
+    'task-board': TaskBoardKey
+  }
+
+  interface SlotMap {
+    /**
+     * The plugin configuration section's card seat, declared by
+     * ui-plugin-config. Spelled here with the same shape so this package can
+     * register its card without depending on the sibling UI package.
+     */
+    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+  }
+}
+
+/** Owner share of a plugin card (the section supplies nothing). */
+export interface SettingsPluginItemOwnerProps {
+  /** Marker field: card owner props are intentionally empty. */
+  children?: never
+}
 
 /** Required services (fiber inject waiting — the runtime must be up first). */
-export const inject = ['sessions', 'workspaces']
+export const inject = ['slots', 'sessions', 'workspaces', 'settingsScope', 'locale', 'remote']
 
 /**
  * Mount the task board.
  * @param ctx - client root context (services: sessions, workspaces).
  */
 export function apply(ctx: ClientContext): void {
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'task-board: dictionaries')
+
+  // Plugin configuration card: one staged form over the `task-board` settings
+  // namespace, contributed to the plugin-configuration section.
+  const settingsCard = new TaskBoardSettingsCardController(
+    ctx.settingsScope.bind({ namespace: TASK_BOARD_NS }),
+  )
+  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
+    name: 'settings.plugin.item',
+    id: 'task-board',
+    order: 110,
+    locale: NS,
+    inject: () => settingsCard.inject(),
+  }, TaskBoardSettingsCard))
+
   ctx.effect(() => {
     const sessions = ctx.sessions
     const workspaces = ctx.workspaces
@@ -38,9 +89,6 @@ export function apply(ctx: ClientContext): void {
       workspaces: {
         list: workspaces.list,
         connectWorkspace: id => workspaces.connectWorkspace(id as WorkspaceId),
-      },
-      history: {
-        source: id => ctx.sessionHistory.source(id as SessionId),
       },
     })
     const controller = new BoardController({

@@ -7,7 +7,7 @@
  * @module @deepseek-ai/dsh-pet/service
  */
 
-import { Context, Service } from 'cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import type { Session } from '@deepseek-ai/dsh-session'
 import {
   applyInteraction,
@@ -54,6 +54,27 @@ export interface PetConfig {
   persistDir?: string
 }
 
+/**
+ * The pet's settings-namespace section: the display fields and name the web
+ * settings surface edits. `right`/`bottom` are also updated by drag
+ * interactions, which keep the settings document in sync through the service.
+ */
+export interface PetSettingsSection {
+  /** Master switch. */
+  visible: boolean
+  /** Scale of the rendered pet in px (sprite cell height). */
+  size: number
+  /** Horizontal inset from the viewport right edge, px. */
+  right: number
+  /** Vertical inset from the viewport bottom edge, px. */
+  bottom: number
+  /** User-customizable pet display name. */
+  name: string
+}
+
+/** Settings namespace of the pet capability. Spelled here rather than imported: the browser half spells the same value. */
+export const PET_SETTINGS_NAMESPACE = 'pet'
+
 /** Snapshot returned by `pet.state`. */
 export interface PetStateView {
   animation: PetStateSnapshot['animation']
@@ -96,7 +117,7 @@ export interface PetInteractResult {
   affinity: PetStateView['affinity']
 }
 
-declare module 'cordis' {
+declare module '@deepseek-ai/cordis' {
   interface Context {
     pet: PetService
   }
@@ -162,6 +183,16 @@ export class PetService extends Service {
     return this.view()
   }
 
+  /** Current persisted display config (read-only view). */
+  display(): PetDisplayConfig {
+    return { ...this.persist.display }
+  }
+
+  /** Current persisted pet name (read-only view). */
+  petName(): string {
+    return this.persist.name
+  }
+
   /** RPC: pet or feed the pet. */
   async interact(kind: PetInteraction): Promise<PetInteractResult> {
     const nowMs = Date.now()
@@ -198,17 +229,19 @@ export class PetService extends Service {
   async setVisible(visible: boolean): Promise<{ ok: true; display: PetDisplayConfig }> {
     this.persist = { ...this.persist, display: { ...this.persist.display, visible } }
     this.flush()
+    this.syncSettingsFromPet()
     return { ok: true, display: this.persist.display }
   }
 
-  /** RPC: update display config (size / position). Values are clamped. */
+  /** RPC: update display config (size / position). Values are clamped to whole pixels. */
   async setConfig(patch: Partial<PetDisplayConfig>): Promise<{ ok: true; display: PetDisplayConfig }> {
     const next = { ...this.persist.display, ...patch }
-    next.size = Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, next.size))
-    next.right = Math.min(DISPLAY_INSET_MAX, Math.max(0, next.right))
-    next.bottom = Math.min(DISPLAY_INSET_MAX, Math.max(0, next.bottom))
+    next.size = Math.round(Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, next.size)))
+    next.right = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, next.right)))
+    next.bottom = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, next.bottom)))
     this.persist = { ...this.persist, display: next }
     this.flush()
+    this.syncSettingsFromPet()
     return { ok: true, display: this.persist.display }
   }
 
@@ -219,7 +252,39 @@ export class PetService extends Service {
     if (trimmed.length > PET_NAME_MAX_LENGTH) return { ok: false, error: 'name-too-long' }
     this.persist = { ...this.persist, name: trimmed }
     this.flush()
+    this.syncSettingsFromPet()
     return { ok: true, name: trimmed }
+  }
+
+  /**
+   * Apply a committed settings section to the persisted display config. Called
+   * by the settings surface on every change; values are clamped exactly like
+   * the setConfig RPC so both write paths converge.
+   * @param section - the resolved settings section.
+   */
+  applySettingsSection(section: PetSettingsSection): void {
+    const next = { ...this.persist.display }
+    next.visible = section.visible
+    next.size = Math.round(Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, section.size)))
+    next.right = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, section.right)))
+    next.bottom = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, section.bottom)))
+    this.persist = { ...this.persist, display: next, name: section.name }
+    this.flush()
+  }
+
+  /** Mirror the persisted display config into the settings document (best-effort). */
+  private syncSettingsFromPet(): void {
+    const settings = this.ctx.get('settings', false) as { update(ns: string, patch: object): Promise<void> } | undefined
+    if (settings === undefined) return
+    void settings.update(PET_SETTINGS_NAMESPACE, {
+      visible: this.persist.display.visible,
+      size: this.persist.display.size,
+      right: this.persist.display.right,
+      bottom: this.persist.display.bottom,
+      name: this.persist.name,
+    }).catch(() => {
+      // A settings write failure must not break the pet's own persistence.
+    })
   }
 
   /** Award the turn reward once per done phase (idempotent per transition). */

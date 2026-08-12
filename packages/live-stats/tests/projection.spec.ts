@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from 'cordis'
+import { Context } from '@deepseek-ai/cordis'
 import {
   createMessage, createToolResultMessage, createUserMessage,
 } from '@deepseek-ai/dsh-llm'

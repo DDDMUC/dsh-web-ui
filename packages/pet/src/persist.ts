@@ -99,9 +99,11 @@ export function loadPetPersist(dir: string = petHomeDir()): PetPersist {
     const rawDisplay = (parsed.display ?? {}) as Partial<PetDisplayConfig>
     const display: PetDisplayConfig = {
       visible: typeof rawDisplay.visible === 'boolean' ? rawDisplay.visible : base.display.visible,
-      size: Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, finiteNum(rawDisplay.size, base.display.size))),
-      right: clamp(finiteNum(rawDisplay.right, base.display.right), DISPLAY_INSET_MAX),
-      bottom: clamp(finiteNum(rawDisplay.bottom, base.display.bottom), DISPLAY_INSET_MAX),
+      // The settings schema requires whole pixels; drag positions are
+      // clamped but not integral, so round at the persistence boundary.
+      size: Math.round(Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, finiteNum(rawDisplay.size, base.display.size)))),
+      right: Math.round(clamp(finiteNum(rawDisplay.right, base.display.right), DISPLAY_INSET_MAX)),
+      bottom: Math.round(clamp(finiteNum(rawDisplay.bottom, base.display.bottom), DISPLAY_INSET_MAX)),
     }
     return {
       name: typeof parsed.name === 'string' && parsed.name.trim() !== ''

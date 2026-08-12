@@ -9,7 +9,7 @@
  * auto-inject (style tag owned by the loader, removed on entry dispose).
  * No services are injected: the skin needs only the DOM.
  */
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import css from './xp.module.css'
 
 /** The product title the skin pins (captured by the shell's DocumentTitle after settle). */

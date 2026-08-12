@@ -69,19 +69,21 @@ export function hostnameOf(request: IncomingMessage): string | undefined {
  * @param service - the pairing service.
  * @param requirePairingForLan - when false, non-loopback requests pass
  * without a device cookie (the feature then only manages tokens/status;
- * revocation of paired devices still holds). Defaults to true.
+ * revocation of paired devices still holds). A function is re-read per
+ * request, so a settings edit takes effect without a restart. Defaults to true.
  * @returns the cordis waterfall listener: call `next()` to delegate,
  * return false (without calling it) to veto with 403.
  */
 export function makeGateListener(
   service: PairingService,
-  requirePairingForLan = true,
+  requirePairingForLan: boolean | (() => boolean) = true,
 ): (request: IncomingMessage, method: string | undefined, next: () => boolean | Promise<boolean>) => boolean | Promise<boolean> {
   return (request, _method, next) => {
     const hostname = hostnameOf(request)
     if (hostname === undefined) return false
     if (isLoopbackHostname(hostname)) return next()
-    if (!requirePairingForLan) return next()
+    const require = typeof requirePairingForLan === 'function' ? requirePairingForLan() : requirePairingForLan
+    if (!require) return next()
     const deviceId = readCookie(request.headers.cookie, service.config.cookieName)
     if (deviceId === undefined) return false
     return service.touchDevice(deviceId) ? next() : false

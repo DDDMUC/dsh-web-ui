@@ -9,7 +9,7 @@
  * loader, removed on entry dispose). No services are injected: the skin needs
  * only the DOM.
  */
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import css from './ths.module.css'
 

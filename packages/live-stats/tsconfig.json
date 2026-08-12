@@ -13,7 +13,7 @@
     "jsx": "react-jsx",
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "paths": {
-      "cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
+      "@deepseek-ai/cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
       "schemastery": ["/Users/zcl/.dsh/source/current/vendor/schemastery/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-session": ["/Users/zcl/.dsh/source/current/packages/core/session/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-llm": ["/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/index.d.ts"],
@@ -22,6 +22,11 @@
       "@deepseek-ai/dsh-client-runtime/client": ["/Users/zcl/.dsh/source/current/packages/client/runtime/lib/types/client/index.d.ts"],
       "@deepseek-ai/dsh-client-ui-conversation/client": ["/Users/zcl/.dsh/source/current/packages/client/ui-conversation/lib/types/client/index.d.ts"],
       "@deepseek-ai/dsh-client-ui-slots": ["/Users/zcl/.dsh/source/current/packages/client/ui-slots/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-client-ui-settings": ["/Users/zcl/.dsh/source/current/packages/client/ui-settings/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-client-ui-settings/client": ["/Users/zcl/.dsh/source/current/packages/client/ui-settings/lib/types/client/index.d.ts"],
+      "@deepseek-ai/dsh-client-locale/client": ["/Users/zcl/.dsh/source/current/packages/client/locale/lib/types/client/index.d.ts"],
+      "@deepseek-ai/dsh-settings": ["/Users/zcl/.dsh/source/current/packages/settings/settings/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-settings/types": ["/Users/zcl/.dsh/source/current/packages/settings/settings/lib/types/types.d.ts"],
       "@deepseek-ai/dsh-invariants": ["/Users/zcl/.dsh/source/current/packages/support/invariants/lib/types/index.d.ts"]
     }
   },

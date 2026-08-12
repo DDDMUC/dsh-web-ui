@@ -7,7 +7,7 @@
  * which registers a SystemPrompt.section so every agent knows the plugin
  * exists. The actual UI lives in the browser half (src/client.ts).
  */
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 
 /** Apply the host half. */
 export function apply(ctx: Context): void {

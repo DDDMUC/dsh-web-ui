@@ -10,6 +10,7 @@ dsh-web-ui is the plugin family monorepo for the DeepSeek Harness (DSH) Web GUI:
 
 - Family monorepo: feature plugins and the skin collection live in one repo; every package installs standalone, or all at once via the aggregate packages
 - Official-standard bundles: each package follows the DSH profile/bundle convention and works directly with `dsh plugin --profile web add ...`
+- Plugin settings in the web GUI: feature-plugin configuration is editable from Settings > Plugin config (the same card experience as the built-in Shell / Agent loop / Web search), applied live
 - Skin center: skin exclusivity is maintained in the managed section of `~/.dsh/cordis.patch.yml`; `dsh-skin use` switches instantly
 - Try-on preview: `gallery/preview.html` renders every skin live, light and dark, what you see is what you get
 
@@ -22,9 +23,6 @@ dsh-web-ui/
 │   ├── git-graph/         @deepseek-ai/dsh-client-ui-git-graph       git branch / graph
 │   ├── pet/               @deepseek-ai/dsh-pet                       whale pet
 │   ├── remote-web-ui/     @deepseek-ai/dsh-remote-web-ui             phone remote control
-│   ├── working-activity/  @deepseek-ai/dsh-working-activity          working status line
-│   ├── code-kline/        @deepseek-ai/dsh-code-kline                code-workload K-line (host)
-│   ├── ui-code-kline/     @deepseek-ai/dsh-client-ui-code-kline      code-workload K-line (client)
 │   ├── live-stats/        @deepseek-ai/dsh-live-stats                live token estimate & throughput
 │   ├── skins/             skin collection (qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft / skin-center / web)
 │   ├── dsh-skins/         @deepseek-ai/dsh-skins       skins aggregate (all skins + skin-center)
@@ -82,14 +80,9 @@ dsh-skin use blue-fantasy   # or qq98 / ths / xp / dragon-heir / minecraft
 | @deepseek-ai/dsh-client-ui-git-graph | Git branch / graph visualization | `dsh plugin --profile web add link:<dsh-web-ui>/packages/git-graph` |
 | @deepseek-ai/dsh-pet | Whale pet widget | `dsh plugin --profile web add link:<dsh-web-ui>/packages/pet` |
 | @deepseek-ai/dsh-remote-web-ui | Remote control of the Web GUI from a phone | `dsh plugin --profile web add link:<dsh-web-ui>/packages/remote-web-ui` |
-| @deepseek-ai/dsh-working-activity | Working status line: live model activity (thinking / tools / turn summary) | `dsh plugin --profile web add link:<dsh-web-ui>/packages/working-activity` |
-| @deepseek-ai/dsh-code-kline | Code-workload K-line (host): daily OHLC candles over per-workspace git history | `dsh plugin --profile web add link:<dsh-web-ui>/packages/code-kline` |
-| @deepseek-ai/dsh-client-ui-code-kline | Code-workload K-line (client): sidebar mini chart + quote chart surface | `dsh plugin --profile web add link:<dsh-web-ui>/packages/ui-code-kline` |
 | @deepseek-ai/dsh-live-stats | Live token estimates + generation throughput (composer stats) | `dsh plugin --profile web add link:<dsh-web-ui>/packages/live-stats` |
 | @deepseek-ai/dsh-skins | Skins aggregate: every skin package + skin-center in one go | `dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins` |
 | @deepseek-ai/dsh-web-ui-all | Family aggregate: all of the above plugins + the skin family | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all` |
-
-> `working-activity` web-side caveat: its browser half requires applying `patches/webui-working-activity.patch` to the DSH source checkout (see its package README / patches); the host half installs as a plain bundle.
 
 ## Premium Picks
 
@@ -137,9 +130,7 @@ dsh-skin use minecraft
 
 | Package | Origin | License |
 | --- | --- | --- |
-| task-board / git-graph / pet / remote-web-ui | dsh-external org-owned (git history preserved via subtree) | BSD-3-Clause (dsh-external contributors) |
-| working-activity | Community plugin by chimney (ccch1mneyyy), originally published at dsh-external/dsh-working-activity | MIT (copyright held by the author; LICENSE kept in the package) |
-| code-kline / ui-code-kline / live-stats | Formerly in-source customizations of the DSH checkout (packages/activity, packages/client) | BSD-3-Clause |
+| task-board / git-graph / pet / remote-web-ui / live-stats | dsh-external org-owned (git history preserved via subtree) | BSD-3-Clause (dsh-external contributors) |
 | skins / dsh-skins / web-ui-all | Native to this repo | BSD-3-Clause |
 
 Policy: third-party code merged in must keep its LICENSE and attribution; active third parties with an upstream are forked or referenced as dependencies instead of vendored. See [docs/plugins.md](docs/plugins.md).

@@ -12,10 +12,14 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale) and the
 // ui-sidebar SlotMap merge (the 'sidebar.remote' hole).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls the settings-surface SlotMap merge (the 'settings.section'
+// entry) and the ctx.settingsScope Context merge.
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { RemoteEntry } from './RemoteEntry.tsx'
 import { PairFailedNotice } from './PairFailedNotice.tsx'
+import { RemoteSettingsCard, RemoteSettingsCardController } from './RemoteSettingsCard.tsx'
 import { en, zh, type RemoteKey } from './locales.ts'
 import { PAIR_FAILED_MARKER, runPairBootFlow } from './deep-link.ts'
 import { sendHeartbeat } from './pair-api.ts'
@@ -24,6 +28,7 @@ export type { RemoteEntryProps } from './RemoteEntry.tsx'
 export type { PanelState, RemotePanelProps } from './RemotePanel.tsx'
 export type { PairFailedNoticeProps } from './PairFailedNotice.tsx'
 export type { RemoteKey } from './locales.ts'
+export type { RemoteSettingsCardFace, RemoteSettingsCardState } from './RemoteSettingsCard.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -38,6 +43,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * passes only its column display state.
      */
     'sidebar.remote': { kind: 'single'; scope: 'root'; owner: SidebarRemoteOwnerProps }
+    /**
+     * The plugin configuration section's card seat, declared by
+     * ui-plugin-config. Spelled here with the same shape so this package can
+     * register its card without depending on the sibling UI package.
+     */
+    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
 }
 
@@ -47,14 +58,23 @@ export interface SidebarRemoteOwnerProps {
   wide: boolean
 }
 
+/** Owner share of a plugin card (the section supplies nothing). */
+export interface SettingsPluginItemOwnerProps {
+  /** Marker field: card owner props are intentionally empty. */
+  children?: never
+}
+
 /** Dictionary namespace owned by this plugin. */
 const NS = 'remote'
+
+/** Settings namespace the remote-control card edits (the Host plugin registers it). */
+const REMOTE_WEB_UI_NS = 'remote-web-ui'
 
 /** Heartbeat cadence from a paired phone (presence + revocation liveness). */
 const HEARTBEAT_INTERVAL_MS = 10_000
 
 /** Services required by this plugin. */
-export const inject = ['slots', 'locale', 'connection']
+export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote']
 
 /**
  * Register the remote-control surface.
@@ -72,6 +92,19 @@ export function apply(ctx: ClientContext): void {
   const registerEntry = (): (() => void) =>
     ctx.slots.register({ name: 'sidebar.remote', locale: NS }, RemoteEntry)
   ctx.slots.inject('sidebar.remote', registerEntry)
+
+  // Plugin configuration card: one staged form over the `remote-web-ui`
+  // settings namespace, contributed to the plugin-configuration section.
+  const remoteSettings = new RemoteSettingsCardController(
+    ctx.settingsScope.bind({ namespace: REMOTE_WEB_UI_NS }),
+  )
+  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
+    name: 'settings.plugin.item',
+    id: 'remote-web-ui',
+    order: 90,
+    locale: NS,
+    inject: () => remoteSettings.inject(),
+  }, RemoteSettingsCard))
 
   // Phone-side boot flow + heartbeats. Loopback pages (the desktop) never
   // heartbeat; the server ignores unpaired heartbeats anyway.

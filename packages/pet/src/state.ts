@@ -1,6 +1,6 @@
 /**
- * Pet state machine — pure, clock-injected. Maps the working-activity phase
- * vocabulary (`activity/status` session events) onto the 9-state Codex pet
+ * Pet state machine — pure, clock-injected. Maps the DSH `activity/status`
+ * phase vocabulary (session events) onto the 9-state Codex pet
  * animation contract, plus the session lifecycle transitions the web UI
  * exposes (turn end celebration, no-session idle).
  *
@@ -11,7 +11,7 @@
  * @module @deepseek-ai/dsh-pet/state
  */
 
-/** The working-activity phase vocabulary (wire contract of `activity/status`). */
+/** The DSH `activity/status` phase vocabulary (wire contract of session events). */
 export type ActivityPhase = 'idle' | 'waiting' | 'thinking' | 'tool' | 'done'
 
 /** The Codex-compatible 9-state animation contract (spritesheet rows). */
@@ -28,7 +28,7 @@ export type PetAnimation =
 
 /** One input snapshot consumed by the machine. */
 export interface PetStateInput {
-  /** Current working-activity phase of the active session. */
+  /** Current activity/status phase of the active session. */
   phase: ActivityPhase
   /** Human-readable status line (plain text). */
   line?: string

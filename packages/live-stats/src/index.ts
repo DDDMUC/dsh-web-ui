@@ -1,4 +1,5 @@
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import { resolveEstimatorConfig } from './estimator.ts'
@@ -7,6 +8,13 @@ import { createLiveTokenUsageProjectionDefinition } from './projection.ts'
 
 /** Services required by the host projection plugin. */
 export const inject = ['sessionProjections']
+
+/**
+ * Settings namespace of the live-stats capability — the section the web
+ * settings surface edits. Spelled here rather than imported so the browser
+ * half can spell the same value without depending on a Host package.
+ */
+export const LIVE_STATS_SETTINGS_NAMESPACE = settingsNamespace('live-stats')
 
 /** Plugin configuration for provider-independent token estimation. */
 export type Config = EstimatorConfig
@@ -18,10 +26,38 @@ export const Config: z<Config> = z.object({
   roleOverhead: z.number().step(1).min(0).default(4),
 })
 
-/** Register the replayable live-token projection. */
+/**
+ * Register the replayable live-token projection.
+ *
+ * The projection definition freezes its estimator spec into the fold's
+ * closure at construction, so a settings edit takes effect by re-registering
+ * the definition against the authoritative source. `sessionProjections.register`
+ * returns the exact disposer, letting us drop the stale fold and fold the
+ * session log afresh with the new parameters — the live-estimate row simply
+ * re-derives without a restart.
+ * @param ctx - host plugin context carrying sessionProjections.
+ * @param config - resolved plugin config (schema defaults applied by the loader).
+ */
 export function apply(ctx: Context, config: Config = {}): void {
-  const spec = resolveEstimatorConfig(config)
-  ctx.sessionProjections.register(createLiveTokenUsageProjectionDefinition(spec))
+  // The authoritative estimation source: the settings scope once the web
+  // settings surface serves the namespace, the composition entry otherwise
+  // (installSettingsSection swaps it on attach and detach).
+  let current: () => Config = () => config ?? {}
+  let disposeProjection: (() => void) | undefined
+
+  const rebuild = (): void => {
+    const spec = resolveEstimatorConfig(current())
+    if (disposeProjection !== undefined) {
+      disposeProjection()
+    }
+    disposeProjection = ctx.sessionProjections.register(createLiveTokenUsageProjectionDefinition(spec))
+  }
+
+  installSettingsSection(ctx, LIVE_STATS_SETTINGS_NAMESPACE, Config, config ?? {}, {
+    setSource: (source) => { current = source },
+    onChange: rebuild,
+  })
+  rebuild()
 }
 
 export { createLiveTokenUsageProjectionDefinition } from './projection.ts'

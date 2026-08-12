@@ -10,7 +10,7 @@
  * one-time notice.
  */
 
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import type { WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
 import { acceptPair, readPairParams } from './pair-api.ts'
 

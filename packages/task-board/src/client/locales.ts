@@ -73,6 +73,25 @@ export const zh = {
   'detail.schedule.notScheduled': '尚未排程',
   'detail.schedule.dueSoon': '即将运行',
   'card.scheduled': '定时',
+  // 插件设置卡片（settings.plugin.item 席位）。
+  'settings.title': '任务看板',
+  'settings.description': '控制看板在 agent 系统提示中的播报行为。',
+  'settings.announceToAgent': '向 agent 播报任务看板',
+  'settings.announceToAgentHint': '开启：每条 agent 系统提示都会包含本看板的说明；关闭：不播报，agent 仅在用户主动提及时了解看板。',
+  'settings.inherit': '继承',
+  'settings.on': '开',
+  'settings.off': '关',
+  'settings.overridden': '已覆盖',
+  'settings.reset': '恢复默认',
+  'settings.readOnly': '当前部署的设置只读。',
+  'settings.expand': '展开设置',
+  'settings.collapse': '收起设置',
+  'settings.save': '保存',
+  'settings.saving': '保存中…',
+  'settings.discard': '放弃',
+  'settings.unsaved': '未保存',
+  'settings.saveFailed': '部署未接受这些值，已保留供你修改。',
+  'settings.invalidNumber': '请输入数字，留空则使用默认值。',
 } satisfies Record<string, string>
 
 /** en dictionary, complete against the zh key set. */
@@ -143,10 +162,32 @@ export const en: Record<keyof typeof zh, string> = {
   'detail.schedule.notScheduled': 'Not scheduled yet',
   'detail.schedule.dueSoon': 'Due soon',
   'card.scheduled': 'scheduled',
+  // Plugin settings card (the `settings.plugin.item` seat).
+  'settings.title': 'Task Board',
+  'settings.description': 'How the board announces itself in each agent system prompt.',
+  'settings.announceToAgent': 'Announce the task board to agents',
+  'settings.announceToAgentHint': 'On: every agent system prompt includes a note about this board. Off: no announcement; agents learn about the board only when you mention it.',
+  'settings.inherit': 'Inherit',
+  'settings.on': 'On',
+  'settings.off': 'Off',
+  'settings.overridden': 'Overridden',
+  'settings.reset': 'Reset to default',
+  'settings.readOnly': 'This deployment stores settings read-only.',
+  'settings.expand': 'Show settings',
+  'settings.collapse': 'Hide settings',
+  'settings.save': 'Save',
+  'settings.saving': 'Saving…',
+  'settings.discard': 'Discard',
+  'settings.unsaved': 'Unsaved',
+  'settings.saveFailed': 'The deployment did not accept these values; they were left for you to correct.',
+  'settings.invalidNumber': 'Enter a number, or leave blank to use the default.',
 }
 
 /** The dictionary key union. */
 export type TaskBoardKey = keyof typeof zh
+
+/** The settings-card slice of the task-board dictionary. */
+export type SettingsCardKey = TaskBoardKey
 
 /** Active dictionary, picked by the document language at call time. */
 export function dictionary(): Record<TaskBoardKey, string> {

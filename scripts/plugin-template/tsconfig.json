@@ -50,8 +50,8 @@
       "@deepseek-ai/dsh-scope": [
         "/Users/zcl/.dsh/source/current/packages/core/scope/lib/types"
       ],
-      "cordis": [
-        "/Users/zcl/code/dsh-web-ui/packages/__NAME__/node_modules/cordis/lib/index.d.ts"
+      "@deepseek-ai/cordis": [
+        "/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"
       ],
       "schemastery": [
         "/Users/zcl/code/dsh-web-ui/packages/__NAME__/node_modules/schemastery/lib/index.d.ts"

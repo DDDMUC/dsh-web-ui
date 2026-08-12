@@ -28,17 +28,6 @@ export interface SessionsExecutionFace {
   binding(id: string): { session: SessionDriver } | undefined
 }
 
-/** Optional raw-history face used to detect failures of never-opened sessions. */
-export interface HistoryExecutionFace {
-  source(id: string): {
-    loadTail(): Promise<void>
-    getSnapshot(): {
-      state: 'cold' | 'loading' | 'ready' | 'error'
-      inspection: { eventNodes: readonly { kind: string }[] }
-    }
-  }
-}
-
 /** The narrow workspaces face the service needs. */
 export interface WorkspacesExecutionFace {
   list: {
@@ -65,8 +54,6 @@ export interface SessionDriver {
 export interface ExecutionEnvironment {
   sessions: SessionsExecutionFace
   workspaces: WorkspacesExecutionFace
-  /** Raw-history reader for failure detection of never-opened sessions. */
-  history?: HistoryExecutionFace
 }
 
 /** Outcome events the service emits to the controller. */
@@ -134,9 +121,7 @@ export class ExecutionService {
    * settled outcome is decided by the strongest available signal, in order:
    * 1. the list summary — missing session → cancelled; still running → pending;
    * 2. a warm conversation snapshot → `lastAgentError` decides failed/succeeded;
-   * 3. the raw history tail (when a history face is wired) — a turn-error
-   *    node proves failure;
-   * 4. otherwise a finished session counts as succeeded.
+   * 3. otherwise a finished session counts as succeeded.
    *
    * @param task - a task whose latest execution has no endedAt.
    * @returns a settled event when the session state proves completion, else undefined.
@@ -164,26 +149,7 @@ export class ExecutionService {
         }
       }
     }
-    const failed = await this.historyShowsFailure(execution.sessionId)
-    if (failed) {
-      return { kind: 'settled', taskId: task.id, executionId: execution.id, outcome: 'failed', error: 'agent turn failed' }
-    }
     return { kind: 'settled', taskId: task.id, executionId: execution.id, outcome: 'succeeded' }
-  }
-
-  /** Best-effort failure probe over the raw history tail (false when unavailable). */
-  private async historyShowsFailure(sessionId: string): Promise<boolean> {
-    const history = this.env.history
-    if (history === undefined) return false
-    try {
-      const source = history.source(sessionId)
-      if (source.getSnapshot().state !== 'ready') await source.loadTail()
-      return source.getSnapshot().inspection.eventNodes.some(node => node.kind === 'turn-error')
-    } catch (error) {
-      // A failed history read must not block settlement; fall back to success.
-      console.error('[dsh-task-board] history failure probe failed', error)
-      return false
-    }
   }
 
   private async connectSession(): Promise<string> {

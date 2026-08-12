@@ -8,7 +8,7 @@
  * and that the Start button forwards its click to the settings trigger.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context, type Fiber } from 'cordis'
+import { Context, type Fiber } from '@deepseek-ai/cordis'
 import { apply } from '../src/client/index.ts'
 
 let fiber: Fiber | undefined

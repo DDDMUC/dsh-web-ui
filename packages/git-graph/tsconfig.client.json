@@ -9,7 +9,7 @@
     // personalized ui-conversation SlotMap this plugin registers into). paths
     // replaces the base table wholesale; every reachable specifier is listed.
     "paths": {
-      "cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
+      "@deepseek-ai/cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
       "cosmokit": ["/Users/zcl/.dsh/source/current/vendor/cosmokit/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-attachment": ["/Users/zcl/.dsh/source/current/packages/client/attachment/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-brand": ["/Users/zcl/.dsh/source/current/packages/util/brand/lib/types/index.d.ts"],

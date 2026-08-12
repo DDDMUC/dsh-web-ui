@@ -12,6 +12,8 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { PetDisplayConfig } from '../persist.ts'
@@ -19,6 +21,7 @@ import type { PetInteractResult, PetStateView } from '../service.ts'
 import type { PetInteraction } from '../affinity.ts'
 import { createPetStore, type PetFeedback, type PetUiState } from './pet-store.ts'
 import { PetDockEntry, type PetInjected } from './PetDockEntry.tsx'
+import { PetSettingsCard, PetSettingsCardController } from './PetSettingsCard.tsx'
 import { NS, en, zh } from './locales.ts'
 
 /** The host pet API as the browser sees it (same-origin JSON endpoints). */
@@ -64,12 +67,33 @@ interface PetBakedActions {
 /** Poll interval for the host snapshot. */
 const POLL_MS = 800
 
+/** Settings namespace the pet settings card edits (the Host plugin registers it). */
+const PET_SETTINGS_NS = 'pet'
+
 /** Required services. */
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'settingsScope', 'remote']
 
 /** Re-exported for consumers that type against the injected face. */
 export type { PetInjected, PetDockEntryProps } from './PetDockEntry.tsx'
 export type { PetUiState, PetFeedback } from './pet-store.ts'
+export type { PetSettingsCardFace, PetSettingsCardState } from './PetSettingsCard.tsx'
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SlotMap {
+    /**
+     * The plugin configuration section's card seat, declared by
+     * ui-plugin-config. Spelled here with the same shape so this package can
+     * register its card without depending on the sibling UI package.
+     */
+    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+  }
+}
+
+/** Owner share of a plugin card (the section supplies nothing). */
+export interface SettingsPluginItemOwnerProps {
+  /** Marker field: card owner props are intentionally empty. */
+  children?: never
+}
 
 /**
  * Client plugin body: register dictionaries, seed the store, poll the host
@@ -167,4 +191,17 @@ export function apply(ctx: ClientContext): void {
       inject: injected,
       locale: NS,
     }, PetDockEntry))
+
+  // Plugin configuration card: one staged form over the `pet` settings
+  // namespace, contributed to the plugin-configuration section.
+  const petSettings = new PetSettingsCardController(
+    ctx.settingsScope.bind({ namespace: PET_SETTINGS_NS }),
+  )
+  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
+    name: 'settings.plugin.item',
+    id: 'pet-settings',
+    order: 140,
+    locale: NS,
+    inject: () => petSettings.inject(),
+  }, PetSettingsCard))
 }

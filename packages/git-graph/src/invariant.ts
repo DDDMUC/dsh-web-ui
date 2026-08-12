@@ -6,7 +6,7 @@
  */
 
 /* jscpd:ignore-start */
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 
 const PACKAGE_NAME = '@deepseek-ai/dsh-client-ui-git-graph'

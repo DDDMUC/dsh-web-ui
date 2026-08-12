@@ -29,10 +29,40 @@ export const zh = {
   'action.copied': '已复制',
   'stopped.hint': '已停止移动端访问。点击"刷新二维码"重新开启。',
   'close.label': '关闭移动端远程控制面板',
+  // 插件设置卡片（settings.plugin.item 席位）。
+  'settings.title': '移动端远程控制',
+  'settings.description': '配对安全与设备限额。',
+  'settings.tokenTtlMs': '配对令牌有效期（毫秒）',
+  'settings.tokenTtlMsHint': '新生成的二维码链接在此时间后失效。',
+  'settings.offlineAfterMs': '设备离线判定（毫秒）',
+  'settings.offlineAfterMsHint': '配对设备超过该时长未上报心跳即视为离线。',
+  'settings.maxDevices': '已配对设备上限',
+  'settings.maxDevicesHint': '超过上限时淘汰最旧的设备会话。',
+  'settings.cookieName': '设备 Cookie 名',
+  'settings.cookieNameHint': '携带已配对设备标识的 Cookie 名称。',
+  'settings.requirePairingForLan': '局域网访问要求配对',
+  'settings.requirePairingForLanHint': '开启：所有非本机回环的 /api 请求必须携带有效配对 Cookie；关闭：局域网栅栏放开，配对仅用于令牌与状态管理。',
+  'settings.inherit': '继承',
+  'settings.on': '开',
+  'settings.off': '关',
+  'settings.overridden': '已覆盖',
+  'settings.reset': '恢复默认',
+  'settings.readOnly': '当前部署的设置只读。',
+  'settings.expand': '展开设置',
+  'settings.collapse': '收起设置',
+  'settings.save': '保存',
+  'settings.saving': '保存中…',
+  'settings.discard': '放弃',
+  'settings.unsaved': '未保存',
+  'settings.saveFailed': '部署未接受这些值，已保留供你修改。',
+  'settings.invalidNumber': '请输入数字，留空则使用默认值。',
 } satisfies Record<string, string>
 
 /** The remote namespace key union. */
 export type RemoteKey = keyof typeof zh
+
+/** The settings-card slice of the remote dictionary. */
+export type SettingsCardKey = RemoteKey
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
@@ -63,4 +93,31 @@ export const en = {
   'action.copied': 'Copied',
   'stopped.hint': 'Mobile access is stopped. Click "Refresh QR" to re-enable it.',
   'close.label': 'Close mobile remote control panel',
+  // Plugin settings card (the `settings.plugin.item` seat).
+  'settings.title': 'Mobile remote control',
+  'settings.description': 'Pairing security and device limits.',
+  'settings.tokenTtlMs': 'Pairing token lifetime (ms)',
+  'settings.tokenTtlMsHint': 'How long a minted QR link stays valid before it dies.',
+  'settings.offlineAfterMs': 'Device offline threshold (ms)',
+  'settings.offlineAfterMsHint': 'A paired device flips to offline when it has not been seen for this long.',
+  'settings.maxDevices': 'Paired device cap',
+  'settings.maxDevicesHint': 'Hard cap on paired device sessions; the oldest is evicted when full.',
+  'settings.cookieName': 'Device cookie name',
+  'settings.cookieNameHint': 'Cookie that carries the paired device id.',
+  'settings.requirePairingForLan': 'Require pairing for LAN access',
+  'settings.requirePairingForLanHint': 'On: every non-loopback /api request must carry a live paired-device cookie. Off: the LAN fence is open and pairing only manages tokens/status.',
+  'settings.inherit': 'Inherit',
+  'settings.on': 'On',
+  'settings.off': 'Off',
+  'settings.overridden': 'Overridden',
+  'settings.reset': 'Reset to default',
+  'settings.readOnly': 'This deployment stores settings read-only.',
+  'settings.expand': 'Show settings',
+  'settings.collapse': 'Hide settings',
+  'settings.save': 'Save',
+  'settings.saving': 'Saving…',
+  'settings.discard': 'Discard',
+  'settings.unsaved': 'Unsaved',
+  'settings.saveFailed': 'The deployment did not accept these values; they were left for you to correct.',
+  'settings.invalidNumber': 'Enter a number, or leave blank to use the default.',
 } satisfies Record<RemoteKey, string>

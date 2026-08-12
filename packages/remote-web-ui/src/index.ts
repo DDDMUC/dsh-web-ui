@@ -10,7 +10,8 @@
 
 import { setInterval as nodeSetInterval } from 'node:timers'
 import type { IncomingMessage } from 'node:http'
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { PairingService } from './pairing.ts'
@@ -18,7 +19,7 @@ import { makeGateListener } from './gate.ts'
 import { makeRoutes } from './routes.ts'
 import { lanIPv4Addresses } from './lan.ts'
 
-declare module 'cordis' {
+declare module '@deepseek-ai/cordis' {
   interface Events {
     /**
      * Waterfall seam on the /api transport fence: the connection plugin
@@ -40,6 +41,13 @@ export const name = 'remote-web-ui'
 
 /** Services required before the pairing surfaces can mount. */
 export const inject = ['httpServer']
+
+/**
+ * Settings namespace of the remote-control capability — the section the web
+ * settings surface edits. Spelled here rather than imported: the browser
+ * half spells the same value and must not depend on a Host package.
+ */
+export const REMOTE_WEB_UI_SETTINGS_NAMESPACE = settingsNamespace('remote-web-ui')
 
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
@@ -93,6 +101,20 @@ export function apply(ctx: Context, config?: Config): void {
     cookieName: config?.cookieName ?? DEFAULTS.cookieName,
     requirePairingForLan: config?.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
   }
+  // The live source the pairing service and the gate read: the settings
+  // section once the web settings surface is served, the composition entry
+  // otherwise (installSettingsSection swaps it when the namespace registers).
+  let current: () => Config = () => config ?? {}
+  const resolve = (): Required<Omit<Config, never>> => {
+    const value = current()
+    return {
+      tokenTtlMs: value.tokenTtlMs ?? DEFAULTS.tokenTtlMs,
+      offlineAfterMs: value.offlineAfterMs ?? DEFAULTS.offlineAfterMs,
+      maxDevices: value.maxDevices ?? DEFAULTS.maxDevices,
+      cookieName: value.cookieName ?? DEFAULTS.cookieName,
+      requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
+    }
+  }
   const service = new PairingService({
     tokenTtlMs: resolved.tokenTtlMs,
     offlineAfterMs: resolved.offlineAfterMs,
@@ -110,8 +132,30 @@ export function apply(ctx: Context, config?: Config): void {
   service.setLanBases(lanBases)
   const lanAddresses = lanBases.map(entry => entry.address)
 
+  // Push a committed settings section into the service and gate. The service
+  // config object is read per operation (token mint, touch, sweep), and the
+  // gate re-reads its fence flag per request, so a live edit takes effect
+  // without a restart.
+  const sync = (): void => {
+    const value = resolve()
+    service.config = {
+      tokenTtlMs: value.tokenTtlMs,
+      offlineAfterMs: value.offlineAfterMs,
+      maxDevices: value.maxDevices,
+      cookieName: value.cookieName,
+    }
+  }
+  installSettingsSection(ctx, REMOTE_WEB_UI_SETTINGS_NAMESPACE, Config, config ?? {}, {
+    setSource: (source) => {
+      current = source
+      sync()
+    },
+    onChange: sync,
+  })
+  sync()
+
   ctx.effect(
-    () => ctx.on('api/gate', makeGateListener(service, resolved.requirePairingForLan)),
+    () => ctx.on('api/gate', makeGateListener(service, () => resolve().requirePairingForLan)),
     'remote-web-ui: api gate',
   )
 

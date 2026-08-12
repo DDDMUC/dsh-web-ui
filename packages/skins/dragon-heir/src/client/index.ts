@@ -16,7 +16,7 @@
  * CSS-modules auto-inject (style tag owned by the loader, removed on entry
  * dispose). No services are injected: the skin needs only the DOM.
  */
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import { DARK_ART, DARK_ICON, LIGHT_ART, LIGHT_ICON } from './art.ts'
 // The palette remap + the frosted panes (incl. the [id='root'] transparency
 // that lets the dragon art show through) ride this stylesheet; the bundle

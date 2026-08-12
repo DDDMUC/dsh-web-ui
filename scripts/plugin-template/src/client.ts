@@ -7,7 +7,7 @@
  * of DOM injection, runtime wiring and React views, see task-board's
  * src/client/index.ts or the skins under packages/skins/.
  */
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 
 /** Apply the browser half. */
 export function apply(ctx: Context): void {

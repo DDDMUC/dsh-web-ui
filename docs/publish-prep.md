@@ -10,7 +10,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 16 个插件包（截至快照日）：
+`packages/` 与 `packages/skins/` 下共 13 个插件包（截至快照日）：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
@@ -18,9 +18,6 @@
 | packages/git-graph | @deepseek-ai/dsh-client-ui-git-graph | 0.1.0 | true |
 | packages/pet | @deepseek-ai/dsh-pet | 0.1.0 | true |
 | packages/remote-web-ui | @deepseek-ai/dsh-remote-web-ui | 0.1.0 | true |
-| packages/working-activity | @deepseek-ai/dsh-working-activity | 0.0.1 | true |
-| packages/code-kline | @deepseek-ai/dsh-code-kline | 0.0.1 | true |
-| packages/ui-code-kline | @deepseek-ai/dsh-client-ui-code-kline | 0.0.1 | true |
 | packages/live-stats | @deepseek-ai/dsh-live-stats | 0.0.1 | true |
 | packages/dsh-skins | @deepseek-ai/dsh-skins（聚合） | 0.1.0 | true |
 | packages/web-ui-all | @deepseek-ai/dsh-web-ui-all（聚合） | 0.1.0 | true |
@@ -35,27 +32,26 @@
 
 ### [阻断] 阻断项（不修复无法发布/无法被消费）
 
-1. **全部 16 包 `private: true`** — npm 直接拒绝发布 private 包
+1. **全部 13 包 `private: true`** — npm 直接拒绝发布 private 包
    （`This package has been marked as private`）。发布前需逐个移除。
    **（按内测红线保留，未改动）**
-2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 6 处、web-ui-all 9 处）—
+2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 6 处、web-ui-all 6 处）—
    [已确认] **已确认修复方式**：实测 `pnpm pack` 会把 `workspace:*` 改写为真实版本号
-   （dsh-skins 6 处、web-ui-all 9 处全部改写为 0.1.0/0.0.1，无残留）。
+   （dsh-skins 6 处、web-ui-all 6 处全部改写为 0.1.0/0.0.1，无残留）。
    发布时必须用 **`pnpm publish`**（不要用 `npm publish`），`npm pack` 不改写。
 3. **类型产物缺失（2 包）** — [已确认] **已修复**：
    - task-board：新增 `tsconfig.build.json`（emitDeclarationOnly → lib/types），
      build 脚本改为 `tsc -p tsconfig.build.json && tsdown`；已产出 18 个 .d.ts；
-   - working-activity：tsdown.config.ts 加 `clean: false`（此前 tsdown 默认
-     clean 会把 tsc 产出的 lib/types 清掉），已产出 5 个 .d.ts；打包验证
-     tarball 含全部类型且磁盘产物保留。
-4. **`@deepseek-ai/dsh-code-kline` 未发布** — 它是 ui-code-kline 与 web-ui-all
+4. **`@deepseek-ai/dsh-code-kline` 未发布** — 原为 ui-code-kline 与 web-ui-all
    的依赖方（peerDeps/deps 引用），需在依赖它的包之前发布。
    **（发布动作本身，无法提前修复；发布顺序已排定）**
+   [已确认] **已失效**：2026-08-12 调整移除 code-kline / ui-code-kline 包后，
+   该发布依赖不再存在，无需处理。
 
 ### [建议] 建议项（registry 安装兼容性）— [已确认] 已修复
 
-5. **peerDeps 版本声明不匹配**：git-graph / live-stats / pet / remote-web-ui /
-   ui-code-kline / working-activity / code-kline 的 `@deepseek-ai/*` peerDeps
+5. **peerDeps 版本声明不匹配**：git-graph / live-stats / pet / remote-web-ui
+   的 `@deepseek-ai/*` peerDeps
    已从 `^0.0.1` 改为 **`^0.0.1-rc.1`**（与 npm 已发布版本匹配，避免 ERESOLVE）。
 
 ### [卫生] 卫生项
@@ -63,8 +59,8 @@
 6. **LICENSE 文件缺失 11 包** — [已确认] **已补全**（BSD-3-Clause，dsh-external
    contributors），打包验证 LICENSE 已进 tarball。
 7. **files 缺 `cordis.patch.yml`**（发布后 bundle patch 缺失会装不上）—
-   [已确认] **已补全**：task-board / code-kline / live-stats / ui-code-kline /
-   working-activity 的 files 均加入 `cordis.patch.yml`（task-board 同时补齐
+   [已确认] **已补全**：task-board / live-stats
+   的 files 均加入 `cordis.patch.yml`（task-board 同时补齐
    `src` 与 `lib/types/**/*.d.ts.map`）。打包验证全部进 tarball。
 8. **blue-fantasy 打包警告**：`MODULE_TYPELESS_PACKAGE_JSON`（packages/skins/
    无 package.json，`tsdown.client.ts` 被按 CJS 重解析）与 tsdown
@@ -86,9 +82,9 @@ npm 侧已发布 @deepseek-ai 核心包 18 个（全 `0.0.1-rc.1`），插件包
 ## 四、建议的发布流程（批准后执行）
 
 1. 同步官方预发布版本号节奏（`0.0.1-rc.x`，与 @deepseek-ai/dsh 对齐）；
-2. 发布前仍需处理：移除 `private: true`（16 包）；
+2. 发布前仍需处理：移除 `private: true`（13 包）；
 3. 按依赖顺序发布（用 **`pnpm publish`**，自动改写 workspace:*）：
-   code-kline → 各功能包 → 皮肤包 → dsh-skins → web-ui-all；
+   各功能包 > 皮肤包 > dsh-skins > web-ui-all；
 4. 逐包 `pnpm pack --dry-run` 复核 tarball 内容（注意：dry-run 仍会执行
    prepack/prepare 脚本）；
 5. 发布动作前**必须**经维护者确认（内测红线）。
