@@ -1,4 +1,4 @@
-# dsh-web-ui · DSH Web UI 插件全家桶
+# dsh-web-ui · DSH Web UI
 
 中文 | [English](README.en.md)
 

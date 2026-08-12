@@ -1,4 +1,4 @@
-# dsh-web-ui · DSH Web UI Plugin Family
+# dsh-web-ui · DSH Web UI
 
 [中文](README.md) | English
 
