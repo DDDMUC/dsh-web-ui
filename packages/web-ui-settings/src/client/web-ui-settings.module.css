@@ -1,8 +1,8 @@
 .groupCard {
   list-style: none;
-  border: 1px solid var(--dsh-color-border, #d8d8dc);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
-  background: var(--dsh-color-surface, #ffffff);
+  background: var(--dsw-alias-bg-layer-2);
   overflow: hidden;
 }
 
@@ -20,6 +20,10 @@
   cursor: pointer;
 }
 
+.header:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
 .headText {
   display: flex;
   flex-direction: column;
@@ -29,17 +33,18 @@
 
 .name {
   font-weight: 600;
+  color: var(--dsw-alias-label-primary);
 }
 
 .description {
-  color: var(--dsh-color-text-2, #6b6b73);
+  color: var(--dsw-alias-label-tertiary);
   font-size: 13px;
   line-height: 1.35;
 }
 
 .chevron,
 .chevronOpen {
-  color: var(--dsh-color-text-2, #6b6b73);
+  color: var(--dsw-alias-label-tertiary);
   font-size: 13px;
   flex: none;
   margin-left: 10px;
@@ -51,7 +56,7 @@
 
 .body {
   padding: 2px 12px 12px;
-  border-top: 1px solid var(--dsh-color-border, #e4e4e8);
+  border-top: 1px solid var(--dsw-alias-border-l2);
 }
 
 .subcards {

@@ -428,7 +428,15 @@ body[data-dsh-minecraft] {
   --dsw-alias-interactive-bg-hover-accent: rgba(131, 201, 78, 0.18);
   --dsw-alias-interactive-bg-hover-danger: rgba(212, 90, 90, 0.16);
   --dsw-alias-bg-base: #18221b;
+  --dsw-alias-bg-layer-1: #1a251d;
+  --dsw-alias-bg-layer-2: #1d2920;
+  --dsw-alias-bg-layer-3: #212e24;
   --dsw-alias-bg-overlay: rgba(6, 9, 7, 0.72);
+  --dsw-alias-border-l1: rgba(255, 255, 255, 0.06);
+  --dsw-alias-border-l2-darkmode-thin: rgba(255, 255, 255, 0.08);
+  --dsw-alias-border-l2: rgba(255, 255, 255, 0.12);
+  --dsw-alias-border-l3: rgba(255, 255, 255, 0.16);
+  --dsw-alias-border-l4: rgba(255, 255, 255, 0.2);
   --dsw-alias-bg-skeleton: #273128;
   --dsw-alias-toast-bg: #212d26;
   --dsw-alias-tooltip-bg: #212d26;
