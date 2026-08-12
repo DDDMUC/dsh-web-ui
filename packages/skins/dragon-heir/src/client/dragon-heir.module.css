@@ -473,3 +473,133 @@ body[data-dsh-dragon-heir][data-ds-dark-theme] :focus-visible {
   outline: 2px solid rgba(200, 162, 74, 0.6);
   outline-offset: 0;
 }
+
+/* --- aionui 右侧面板适配（dsh-aionui-panel） -----------------------------
+   The Explorer / Changes / Preview side panels ride on the dragon backdrop
+   through the same translucent discipline as the rest of the skin. The
+   panel UI is fully driven by the --aion-* token system; the two rules below
+   remap the complete token table (light + dark), then a small set of
+   structural overrides owns the column / root layers and the interaction
+   chrome. Like the main interface, there is deliberately NO backdrop-filter:
+   the panels let the ink-wash / wall art glow through translucent surfaces
+   instead. Inner tab bars, tree rows and search boxes are CSS-module hashed
+   and are styled purely via the token remap. */
+
+/* --- Token remap: light (paper + ink + 朱砂 vermilion) -------------------- */
+
+body[data-dsh-dragon-heir] {
+  --aion-bg-base: rgba(250, 247, 240, 0.88);
+  --aion-bg-1: rgba(244, 239, 228, 0.45);
+  --aion-bg-2: rgba(237, 229, 213, 0.5);
+  --aion-bg-3: rgba(208, 198, 172, 0.55);
+  --aion-bg-hover: rgba(195, 39, 43, 0.08);
+  --aion-bg-active: rgba(195, 39, 43, 0.14);
+  --aion-text-primary: #262319;
+  --aion-text-secondary: #544c3c;
+  --aion-text-tertiary: #6b624e;
+  --aion-text-disabled: #a89c82;
+  --aion-primary: #c3272b;
+  --aion-success: #2e8e52;
+  --aion-warning: #c8912f;
+  --aion-danger: #c00000;
+  --aion-brand: #c3272b;
+  --aion-aou-1: #fbeceb;
+  --aion-aou-2: #f2cdcc;
+  --aion-aou-3: #dd8f8c;
+  --aion-aou-4: #d2605c;
+  --aion-aou-5: #c9443f;
+  --aion-aou-6: #a81f22;
+  --aion-fill-2: rgba(195, 39, 43, 0.1);
+  --aion-fill-3: rgba(195, 39, 43, 0.16);
+  --aion-border-base: rgba(84, 76, 60, 0.22);
+  --aion-overlay-shadow: 0 8px 24px rgba(38, 35, 25, 0.16);
+  --aion-font-sans: -apple-system, "system-ui", "Segoe UI", Roboto, "Helvetica Neue",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --aion-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
+/* --- Token remap: dark (万里长城 青黛 + 金晖) ------------------------------ */
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] {
+  --aion-bg-base: rgba(24, 30, 44, 0.9);
+  --aion-bg-1: rgba(26, 33, 48, 0.5);
+  --aion-bg-2: rgba(40, 50, 71, 0.55);
+  --aion-bg-3: rgba(147, 168, 197, 0.28);
+  --aion-bg-hover: rgba(255, 255, 255, 0.07);
+  --aion-bg-active: rgba(200, 162, 74, 0.16);
+  --aion-text-primary: #eef1f6;
+  --aion-text-secondary: #d2dae6;
+  --aion-text-tertiary: #b2c0d3;
+  --aion-text-disabled: #687b99;
+  --aion-primary: #c8a24a;
+  --aion-success: #58b058;
+  --aion-warning: #d9a94f;
+  --aion-danger: #e07070;
+  --aion-brand: #c8a24a;
+  --aion-aou-1: #20283a;
+  --aion-aou-2: #2a344c;
+  --aion-aou-3: #35415e;
+  --aion-aou-4: #5d6f8d;
+  --aion-aou-5: #8fa2bf;
+  --aion-aou-6: #c8a24a;
+  --aion-fill-2: rgba(255, 255, 255, 0.08);
+  --aion-fill-3: rgba(200, 162, 74, 0.18);
+  --aion-border-base: rgba(147, 168, 197, 0.26);
+  --aion-overlay-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --aion-font-sans: -apple-system, "system-ui", "Segoe UI", Roboto, "Helvetica Neue",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --aion-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
+/* --- Panel columns and roots ---------------------------------------------
+   The frame-level columns are DOM-created with their own inline border
+   reading var(--aion-bg-3); the remap above already colors that border and
+   the column background (var(--aion-bg-1)) with translucent paper / stone,
+   so the dragon art glows through. The .aionui-root sits on that background,
+   so we drop it to transparent to avoid double-layering the translucency. */
+
+body[data-dsh-dragon-heir] [data-aionui-explorer-col],
+body[data-dsh-dragon-heir] [data-aionui-preview-col] {
+  background-color: var(--aion-bg-1);
+}
+
+body[data-dsh-dragon-heir] :global(.aionui-root) {
+  background: transparent;
+}
+
+/* --- Interaction chrome --------------------------------------------------
+   Frosted overlays, warm vermilion scrim on light / deep dusk scrim on dark,
+   and a vermilion / gold accent on hoverable chrome that flows from the
+   remapped brand and state tokens. */
+
+body[data-dsh-dragon-heir] :global(.aionui-overlay) {
+  background: rgba(38, 35, 25, 0.34);
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-overlay) {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+body[data-dsh-dragon-heir] :global(.aionui-btn-primary) {
+  background: #c3272b;
+  border-color: #c3272b;
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-btn-primary) {
+  background: #96702a;
+  border-color: #96702a;
+}
+
+body[data-dsh-dragon-heir] :global(.aionui-floating-expand):hover,
+body[data-dsh-dragon-heir] :global(.aionui-collapse-chevron):hover {
+  color: #a81f22;
+  background-color: rgba(195, 39, 43, 0.12);
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-floating-expand):hover,
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-collapse-chevron):hover {
+  color: #f0dcac;
+  background-color: rgba(200, 162, 74, 0.18);
+}

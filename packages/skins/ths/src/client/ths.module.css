@@ -750,3 +750,303 @@ body[data-dsh-ths][data-ds-dark-theme] [role='dialog'] > div > div:first-child {
   background: #1a222d;
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
+
+/* --- aionui 右侧面板适配 (dsh-aionui-panel) -----------------------------------
+   The aionui right-side panels (Explorer file tree / SCM changes / Preview)
+   are driven entirely by their own --aion-* token set. We remap it onto the
+   ths palette so the panel reads as a quote-terminal surface: gray-blue
+   plates, brand-red focus/primary accents, terminal fonts. Light and dark
+   each get a full token set so no aionui default leaks through. A few
+   structural overrides then reskin the draggable columns, handle, collapse
+   chrome, menus, dialogs and toasts. */
+
+body[data-dsh-ths] {
+  /* Dialog / menu / search surface: the same white quote plate as #root. */
+  --aion-bg-base: #ffffff;
+  /* Panel column / root background. */
+  --aion-bg-1: #f4f6f9;
+  /* Active tab, toolbar, code-line surfacing. */
+  --aion-bg-2: #eef1f5;
+  /* Borders, scrollbar, hovered buttons. */
+  --aion-bg-3: #e3e8ee;
+  --aion-bg-hover: #f0f3f6;
+  --aion-bg-active: #e7ebf0;
+
+  --aion-text-primary: #1f2733;
+  --aion-text-secondary: #4a5564;
+  --aion-text-tertiary: #6b7888;
+  --aion-text-disabled: #a7b1bd;
+
+  /* Focus ring / active state / primary button: the brand red of the app.
+     Keep the base plate neutral so the red reads as an accent. */
+  --aion-primary: #e60012;
+  /* Diff semantics stay intuitive and distinguishable even though the skin
+     colors rises red: add = green, modify = amber, delete = red. */
+  --aion-success: #0d9b4f;
+  --aion-warning: #b07600;
+  --aion-danger: #e60012;
+  /* Drag-handle hover highlight: a cool data-terminal blue. */
+  --aion-brand: #56799a;
+
+  /* aou gradient scale: the skin's blue ramp, lightest to deepest. */
+  --aion-aou-1: #e2e9f1;
+  --aion-aou-2: #aec3d6;
+  --aion-aou-3: #8aa7c0;
+  --aion-aou-4: #6f92b0;
+  --aion-aou-5: #56799a;
+  --aion-aou-6: #46627f;
+
+  --aion-fill-2: #f0f3f6;
+  --aion-fill-3: #e7ebf0;
+  --aion-border-base: #e3e8ee;
+  --aion-overlay-shadow: 0 4px 20px rgba(23, 32, 45, 0.18), 0 1px 3px rgba(23, 32, 45, 0.12);
+  --aion-font-sans: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 'Segoe UI', sans-serif;
+  --aion-font-mono: 'SFMono-Regular', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] {
+  --aion-bg-base: #141a22;
+  --aion-bg-1: #161d27;
+  --aion-bg-2: #1c2531;
+  --aion-bg-3: #252e3b;
+  --aion-bg-hover: #1a222d;
+  --aion-bg-active: #1f2834;
+
+  --aion-text-primary: #e2e9f2;
+  --aion-text-secondary: #b3c0d0;
+  --aion-text-tertiary: #8d9bad;
+  --aion-text-disabled: #55647a;
+
+  --aion-primary: #ff5a5a;
+  --aion-success: #2fbf71;
+  --aion-warning: #d69a3a;
+  --aion-danger: #ff5252;
+  --aion-brand: #5f81a4;
+
+  --aion-aou-1: #1f2d3d;
+  --aion-aou-2: #2f445c;
+  --aion-aou-3: #3d5875;
+  --aion-aou-4: #4b6a8b;
+  --aion-aou-5: #5f81a4;
+  --aion-aou-6: #7398bb;
+
+  --aion-fill-2: rgba(255, 255, 255, 0.08);
+  --aion-fill-3: rgba(255, 255, 255, 0.12);
+  --aion-border-base: #252e3b;
+  --aion-overlay-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --aion-font-sans: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 'Segoe UI', sans-serif;
+  --aion-font-mono: 'SFMono-Regular', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+}
+
+/* --- Columns and roots ---------------------------------------------------- */
+
+body[data-dsh-ths] [data-aionui-explorer-col],
+body[data-dsh-ths] [data-aionui-preview-col] {
+  background: #f4f6f9;
+  border-left-color: #ccd4dd;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] [data-aionui-explorer-col],
+body[data-dsh-ths][data-ds-dark-theme] [data-aionui-preview-col] {
+  background: #12181f;
+  border-left-color: #2a3442;
+}
+
+body[data-dsh-ths] :global(.aionui-root) {
+  font-family: var(--aion-font-sans);
+  color: var(--aion-text-primary);
+}
+
+/* --- Drag handles, collapse and floating expand ----------------------------- */
+
+body[data-dsh-ths] :global(.aionui-explorer-handle),
+body[data-dsh-ths] :global(.aionui-preview-handle) {
+  background: #ccd4dd;
+}
+
+body[data-dsh-ths] :global(.aionui-explorer-handle):hover,
+body[data-dsh-ths] :global(.aionui-preview-handle):hover {
+  background: var(--aion-brand);
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-explorer-handle),
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-preview-handle) {
+  background: #2a3442;
+}
+
+body[data-dsh-ths] :global(.aionui-collapse-chevron) {
+  color: var(--aion-text-tertiary);
+}
+
+body[data-dsh-ths] :global(.aionui-collapse-chevron):hover {
+  color: var(--aion-primary);
+}
+
+body[data-dsh-ths] :global(.aionui-floating-expand) {
+  background: #ffffff;
+  border: 1px solid #ccd4dd;
+  color: #46627f;
+  box-shadow: 0 1px 3px rgba(23, 32, 45, 0.14);
+}
+
+body[data-dsh-ths] :global(.aionui-floating-expand):hover {
+  border-color: #e60012;
+  color: #e60012;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-floating-expand) {
+  background: #1a222d;
+  border-color: #2a3442;
+  color: #a8c0d8;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-floating-expand):hover {
+  border-color: #ff5a5a;
+  color: #ff5a5a;
+}
+
+/* --- Overlay, dialog and buttons ------------------------------------------- */
+
+body[data-dsh-ths] :global(.aionui-overlay) {
+  background: rgba(16, 24, 36, 0.42);
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-overlay) {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+body[data-dsh-ths] :global(.aionui-dialog) {
+  background: #ffffff;
+  border: 1px solid #b7bfc9;
+  box-shadow: var(--aion-overlay-shadow);
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-dialog) {
+  background: #141a22;
+  border-color: #242e3b;
+}
+
+body[data-dsh-ths] :global(.aionui-btn) {
+  background: #f5f7f9;
+  border: 1px solid #ccd4dd;
+  color: #1f2733;
+}
+
+body[data-dsh-ths] :global(.aionui-btn):hover {
+  background: #eef1f5;
+  border-color: #aab5c1;
+}
+
+body[data-dsh-ths] :global(.aionui-btn-primary) {
+  background: linear-gradient(180deg, #c80010, #a5000d);
+  border: 1px solid #8a0009;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+body[data-dsh-ths] :global(.aionui-btn-primary):hover {
+  background: linear-gradient(180deg, #d40012, #b0000e);
+}
+
+body[data-dsh-ths] :global(.aionui-btn-danger) {
+  background: #fdf0ef;
+  border: 1px solid #e6544a;
+  color: #c4000f;
+}
+
+body[data-dsh-ths] :global(.aionui-btn-danger):hover {
+  background: #fadcd9;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn) {
+  background: #1a222d;
+  border-color: #2a3442;
+  color: #e2e9f2;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn):hover {
+  background: #252e3b;
+  border-color: #3a485a;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn-primary) {
+  background: #e60012;
+  border-color: #8a0009;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn-primary):hover {
+  background: #ff1a2b;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn-danger) {
+  background: #3a1c1e;
+  border-color: #e6544a;
+  color: #ff5a5a;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn-danger):hover {
+  background: #4a2224;
+}
+
+/* --- Context menu and toast ------------------------------------------------ */
+
+body[data-dsh-ths] :global(.aionui-menu) {
+  background: #f5f7f9;
+  border: 1px solid #ccd4dd;
+  box-shadow: var(--aion-overlay-shadow);
+}
+
+body[data-dsh-ths] :global(.aionui-menu-item) {
+  color: var(--aion-text-primary);
+}
+
+body[data-dsh-ths] :global(.aionui-menu-item):hover {
+  background: var(--aion-bg-hover);
+}
+
+body[data-dsh-ths] :global(.aionui-menu-item-disabled) {
+  color: var(--aion-text-disabled);
+}
+
+body[data-dsh-ths] :global(.aionui-menu-sep) {
+  background: rgba(16, 24, 36, 0.1);
+}
+
+body[data-dsh-ths] :global(.aionui-toast) {
+  background: #2b3648;
+  color: #ffffff;
+  box-shadow: var(--aion-overlay-shadow);
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-menu) {
+  background: #1a222d;
+  border-color: #2a3442;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-menu-item):hover {
+  background: var(--aion-bg-hover);
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-menu-sep) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-toast) {
+  background: #3a4657;
+  color: #ffffff;
+}
+
+/* --- Preview enter animation ------------------------------------------------- */
+
+body[data-dsh-ths] :global(.aionui-preview-enter) {
+  animation: aionPreviewIn 0.18s ease-out;
+}
+
+@keyframes aionPreviewIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

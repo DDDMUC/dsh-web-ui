@@ -741,3 +741,310 @@ body[data-dsh-retro] [data-pane='details'] {
 body[data-dsh-retro][data-ds-dark-theme] [data-pane='details'] {
   background: #14233a;
 }
+
+/* --- aionui 右侧面板适配（dsh-aionui-panel） ---
+   The aionui-panel host plugin paints its Explorer / SCM / Preview panes
+   from an independent --aion-* token system (defined on :root in light and
+   body[data-ds-dark-theme] in dark). This skin remaps every one of those
+   tokens inside the retro body scope to the QQ2008 crystal-blue palette, so
+   the right-hand panels read as part of the chat window rather than as a
+   stock modern widget. Two full token sets (light: pale crystal blue, dark:
+   deep night navy) plus a few structural overlays for the column chrome,
+   drag handles, floating expand button and the shared overlay/menu/toast
+   affordances. Pure presentation — no JS, no events, no external assets. */
+
+/* --- aionui tokens: light -------------------------------------------------- */
+
+body[data-dsh-retro] {
+  --aion-bg-base: #ffffff;
+  --aion-bg-1: #f2f7fc;
+  --aion-bg-2: #e8f1fa;
+  --aion-bg-3: #dce9f5;
+  --aion-bg-hover: #eef4fa;
+  --aion-bg-active: #dcecfb;
+  --aion-text-primary: #17293c;
+  --aion-text-secondary: #3d566e;
+  --aion-text-tertiary: #5f7890;
+  --aion-text-disabled: #94a8bf;
+  --aion-primary: #2b7cd9;
+  --aion-primary-hover: #3f8ee6;
+  --aion-success: #2e8b2e;
+  --aion-success-soft: #dff0df;
+  --aion-warning: #b07600;
+  --aion-warning-soft: #f8ecd9;
+  --aion-danger: #c00000;
+  --aion-danger-soft: #fbecec;
+  --aion-brand: #2b7cd9;
+  --aion-aou-1: #eef6fd;
+  --aion-aou-2: #dcecfb;
+  --aion-aou-3: #b6d6f4;
+  --aion-aou-4: #6fa9e4;
+  --aion-aou-5: #2b7cd9;
+  --aion-aou-6: #0d3d75;
+  --aion-fill-2: #e4f0fc;
+  --aion-fill-3: #dcecfb;
+  --aion-border-base: #d5e0ec;
+  --aion-overlay-shadow: 0 8px 28px rgba(8, 30, 64, 0.4), 0 2px 8px rgba(8, 30, 64, 0.2);
+  --aion-font-sans: 'Microsoft YaHei', 'PingFang SC', 'SimSun', 'Songti SC', 'MS Sans Serif', sans-serif;
+  --aion-font-mono: 'Consolas', 'Courier New', 'SimSun', 'Songti SC', monospace;
+}
+
+/* --- aionui tokens: dark ---------------------------------------------------- */
+
+body[data-dsh-retro][data-ds-dark-theme] {
+  --aion-bg-base: #101c2b;
+  --aion-bg-1: #15233a;
+  --aion-bg-2: #1a2a42;
+  --aion-bg-3: #1f324d;
+  --aion-bg-hover: #182b45;
+  --aion-bg-active: #1b3554;
+  --aion-text-primary: #d8e6f4;
+  --aion-text-secondary: #a9c0d8;
+  --aion-text-tertiary: #7f9ab5;
+  --aion-text-disabled: #557091;
+  --aion-primary: #5d9fe8;
+  --aion-primary-hover: #6aa8f0;
+  --aion-success: #58b058;
+  --aion-success-soft: #243f24;
+  --aion-warning: #d69a3a;
+  --aion-warning-soft: #3a2d14;
+  --aion-danger: #e05c5c;
+  --aion-danger-soft: #4a2222;
+  --aion-brand: #6aa8f0;
+  --aion-aou-1: #14263e;
+  --aion-aou-2: #1b3554;
+  --aion-aou-3: #2b4f7d;
+  --aion-aou-4: #3a63a0;
+  --aion-aou-5: #5d9fe8;
+  --aion-aou-6: #0e3a75;
+  --aion-fill-2: #1b3554;
+  --aion-fill-3: #224064;
+  --aion-border-base: #2b4f7d;
+  --aion-overlay-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --aion-font-sans: 'Microsoft YaHei', 'PingFang SC', 'SimSun', 'Songti SC', 'MS Sans Serif', sans-serif;
+  --aion-font-mono: 'Consolas', 'Courier New', 'SimSun', 'Songti SC', monospace;
+}
+
+/* --- aionui columns and roots -----------------------------------------------
+   The two pane columns sit at the tail of the frame grid, each with a 1px
+   left border (default --aion-bg-3). Rebind the border to the crystal blue
+   and give the pane roots the pale-blue / night-navy gradient surfaces that
+   match the conversation window. */
+
+body[data-dsh-retro] [data-aionui-explorer-col],
+body[data-dsh-retro] [data-aionui-preview-col] {
+  border-left-color: #9cc9ef;
+  background: var(--aion-bg-1);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] [data-aionui-explorer-col],
+body[data-dsh-retro][data-ds-dark-theme] [data-aionui-preview-col] {
+  border-left-color: #2b4f7d;
+  background: var(--aion-bg-1);
+}
+
+body[data-dsh-retro] :global(.aionui-root) {
+  background: linear-gradient(180deg, #eef6fd 0%, #f7fbff 100%);
+  color: var(--aion-text-primary);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-root) {
+  background: linear-gradient(180deg, #15233a 0%, #12243e 100%);
+  color: var(--aion-text-primary);
+}
+
+/* Explorer header band: read as the QQ2008 panel title strip (glassy navy).
+   Reposition only the top strip so the tree below stays on the pale body. */
+body[data-dsh-retro] [data-aionui-explorer-col] > div > :first-child {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 60%), linear-gradient(180deg, #1a56a6, #2b7cd9);
+  border-bottom: 1px solid #0d3d75;
+  color: #fff;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] [data-aionui-explorer-col] > div > :first-child {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 60%), linear-gradient(180deg, #0e3a75, #15559f);
+  border-bottom-color: #081f42;
+  color: #d8e6f4;
+}
+
+/* --- aionui drag handles, chevrons, floating expand --------------------------
+   The 2px splitter lines and the collapsed-expand affordance stay slim and
+   glow with the skin's main blue on hover. */
+
+body[data-dsh-retro] :global(.aionui-explorer-handle),
+body[data-dsh-retro] :global(.aionui-preview-handle) {
+  background: #cfe4f8;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body[data-dsh-retro] :global(.aionui-explorer-handle):hover,
+body[data-dsh-retro] :global(.aionui-preview-handle):hover {
+  background: #2b7cd9;
+  box-shadow: 0 0 6px rgba(43, 124, 217, 0.5);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-explorer-handle),
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-preview-handle) {
+  background: #2b4f7d;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-explorer-handle):hover,
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-preview-handle):hover {
+  background: #6aa8f0;
+  box-shadow: 0 0 6px rgba(106, 168, 240, 0.5);
+}
+
+body[data-dsh-retro] :global(.aionui-floating-expand) {
+  background: linear-gradient(180deg, #eef6fd, #dcecfb);
+  border: 1px solid #9cc9ef;
+  color: #1e63b8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 6px rgba(8, 30, 64, 0.25);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-floating-expand) {
+  background: linear-gradient(180deg, #1a2e4a, #152338);
+  border-color: #2b4f7d;
+  color: #6aa8f0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+body[data-dsh-retro] :global(.aionui-collapse-chevron) {
+  color: #3d566e;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-collapse-chevron) {
+  color: #7f9ab5;
+}
+
+/* --- aionui overlays, dialogs, buttons ---------------------------------------
+   Confirmation dialogs and the shared chrome re-read the window's crystal
+   surface and blue buttons. */
+
+body[data-dsh-retro] :global(.aionui-overlay) {
+  background: rgba(4, 20, 44, 0.45);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-overlay) {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+body[data-dsh-retro] :global(.aionui-dialog) {
+  background: linear-gradient(180deg, #f4f9fe, #ffffff);
+  border: 1px solid #9cc9ef;
+  box-shadow: var(--aion-overlay-shadow);
+  color: var(--aion-text-primary);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-dialog) {
+  background: linear-gradient(180deg, #1a2e4a, #152338);
+  border-color: #2b4f7d;
+  box-shadow: var(--aion-overlay-shadow);
+  color: var(--aion-text-primary);
+}
+
+body[data-dsh-retro] :global(.aionui-btn) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12) 45%, rgba(255, 255, 255, 0));
+  border: 1px solid #9cc9ef;
+  color: #17293c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 1px 2px rgba(10, 40, 80, 0.12);
+}
+
+body[data-dsh-retro] :global(.aionui-btn)::selection {
+  background: #2b7cd9;
+  color: #fff;
+}
+
+body[data-dsh-retro] :global(.aionui-btn-primary) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #2b7cd9, #1e63b8);
+  border-color: #164a8c;
+  color: #fff;
+}
+
+body[data-dsh-retro] :global(.aionui-btn-danger) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #e05c5c, #c00000);
+  border-color: #930000;
+  color: #fff;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 45%);
+  border-color: #2b4f7d;
+  color: #d8e6f4;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn-primary) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #1e63b8, #15559f);
+  border-color: #0d3d75;
+  color: #fff;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn-danger) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #e07070, #b84040);
+  border-color: #5c1010;
+  color: #fff;
+}
+
+/* --- aionui menu and toast --------------------------------------------------- */
+
+body[data-dsh-retro] :global(.aionui-menu) {
+  background: #f2f7fc;
+  border: 1px solid #9cc9ef;
+  box-shadow: var(--aion-overlay-shadow);
+  color: var(--aion-text-primary);
+}
+
+body[data-dsh-retro] :global(.aionui-menu-item:hover) {
+  background: #dcecfb;
+}
+
+body[data-dsh-retro] :global(.aionui-menu-item-disabled) {
+  color: var(--aion-text-disabled);
+}
+
+body[data-dsh-retro] :global(.aionui-menu-sep) {
+  background: #cfe4f8;
+}
+
+body[data-dsh-retro] :global(.aionui-toast) {
+  background: #1e63b8;
+  border: 1px solid #164a8c;
+  box-shadow: 0 4px 12px rgba(8, 30, 64, 0.35);
+  color: #fff;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-menu) {
+  background: #1a2a42;
+  border-color: #2b4f7d;
+  box-shadow: var(--aion-overlay-shadow);
+  color: var(--aion-text-primary);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-menu-item:hover) {
+  background: #224064;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-menu-item-disabled) {
+  color: var(--aion-text-disabled);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-menu-sep) {
+  background: #2b4f7d;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-toast) {
+  background: #224064;
+  border-color: #2b4f7d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  color: #eef6fd;
+}
+
+/* --- aionui preview enter (settle to the themed state, no conflicting
+   animation) ---------------------------------------------------------------- */
+
+body[data-dsh-retro] :global(.aionui-preview-enter),
+body[data-dsh-retro] :global(.aionui-preview-enter-active),
+body[data-dsh-retro] :global(.aionui-preview-enter-done) {
+  opacity: 1;
+  transform: none;
+}

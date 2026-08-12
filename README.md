@@ -4,7 +4,7 @@
 
 ![dsh-web-ui](docs/dsh-web-ui-banner.png)
 
-dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务看板、Git 图谱、鲸鱼娘宠物、实时令牌统计，以及皮肤中心。所有插件既可独立安装，也可通过聚合包一次装齐。
+dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务看板、Git 图谱、右侧面板、鲸鱼娘宠物、实时令牌统计，以及皮肤中心。所有插件既可独立安装，也可通过聚合包一次装齐。
 
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
 
@@ -25,6 +25,18 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 输入框上方的分支选择器，支持切换分支与查看提交历史；Git 图谱将分支泳道与提交历史可视化，仓库再大也能顺着时间线快速定位变更。
 
 ![Git 图谱](docs/screenshots/04-git-graph.png)
+
+### 右侧面板
+
+项目会话打开时，聊天区右侧出现「预览」与「文件/变更」两块面板：
+
+- **文件树**：浏览工作目录，点击文件即在预览面板打开，整行点击展开文件夹，支持按文件名搜索定位；
+- **预览**：多标签预览 markdown、HTML、代码、diff、CSV、PDF、Office、图片与文本等格式，支持源码 / 预览切换、分屏编辑与保存；
+- **变更（SCM）**：真实 git 变更面板，支持 stage / unstage / discard；
+- 面板宽度可拖拽调整，双击把手复位默认宽度，折叠状态与宽度按项目持久化；
+- 6 款皮肤全部适配右侧面板，换肤后面板随之融入主题。
+
+![右侧面板](docs/screenshots/19-right-panel.png)
 
 ### 鲸鱼娘宠物
 
@@ -80,7 +92,7 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 | 包 | 来源 | 版权 |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-live-stats | 作者 zhu1090093659 个人开发 | BSD-3-Clause（zhu1090093659） |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats | 作者 zhu1090093659 个人开发 | BSD-3-Clause（zhu1090093659） |
 | skins / dsh-skins / dsh-web-ui-all | 作者 zhu1090093659 个人开发 | BSD-3-Clause（zhu1090093659） |
 
 迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。

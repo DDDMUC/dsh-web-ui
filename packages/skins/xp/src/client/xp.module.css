@@ -831,3 +831,246 @@ body[data-dsh-xp][data-ds-dark-theme] [role='dialog'] > div > div:first-child {
   background: #1b1d21;
   border-bottom-color: #3a3d42;
 }
+
+/* --- aionui 右侧面板适配（dsh-aionui-panel） ----------------------------------
+   The right-side Preview / Files panel system (Explorer tree + SCM + Preview)
+   is driven entirely by its own --aion-* token set, defined globally on
+   :root (light) and body[data-ds-dark-theme] (dark). We re-map those tokens
+   inside the skin's own body scope so the panel surfaces read as XP Luna
+   内容区：cream window bodies, the XP blue #316ac5 as the focus/active/primary
+   color, XP button gradients, beveled borders, and square corners everywhere
+   (the global border-radius:0 !important already squares the panel chrome).
+   Because every rule below is keyed to body[data-dsh-xp] with higher
+   specificity than the host's :root definitions, the panel follows the skin
+   with no panel code changes. Diff red/green/amber semantics are preserved.
+   ---------------------------------------------------------------------------- */
+
+/* --- Token remap: light -------------------------------------------------------
+   Cream panel surface (matches the sidebar / status bar), XP border brown,
+   XP blue primary. The aou ramp re-lights the blue-purple brand gradient into
+   the Luna blue scale. */
+body[data-dsh-xp] {
+  --aion-bg-base: #ece9d8;
+  --aion-bg-1: #f6f4ec;
+  --aion-bg-2: #ece9d8;
+  --aion-bg-3: #b3ad95;
+  --aion-bg-hover: #dbe9fc;
+  --aion-bg-active: #dbe9fc;
+  --aion-text-primary: #000;
+  --aion-text-secondary: #3d4a5c;
+  --aion-text-tertiary: #5d6b7e;
+  --aion-text-disabled: #7f8d9f;
+  --aion-primary: #316ac5;
+  --aion-success: #3d9f43;
+  --aion-warning: #b07600;
+  --aion-danger: #e33e2b;
+  --aion-brand: #316ac5;
+  --aion-aou-1: #fff;
+  --aion-aou-2: #dbe9fc;
+  --aion-aou-3: #a8c8f0;
+  --aion-aou-4: #7fa9e0;
+  --aion-aou-5: #2558a8;
+  --aion-aou-6: #0a246a;
+  --aion-fill-2: #dbe9fc;
+  --aion-fill-3: #9db9e0;
+  --aion-border-base: #b3ad95;
+  --aion-overlay-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --aion-font-sans: Tahoma, 'Microsoft YaHei', 'PingFang SC', 'SimSun', '宋体', sans-serif;
+  --aion-font-mono: 'Courier New', 'SimSun', monospace;
+}
+
+/* --- Token remap: dark --------------------------------------------------------
+   Zune variant: black panel body with the skin's own dark surfaces and the
+   lighter Zune-blue accent. */
+body[data-dsh-xp][data-ds-dark-theme] {
+  --aion-bg-base: #1b1d21;
+  --aion-bg-1: #17191d;
+  --aion-bg-2: #202227;
+  --aion-bg-3: #3a3d42;
+  --aion-bg-hover: #232a36;
+  --aion-bg-active: #232a36;
+  --aion-text-primary: #e8eaed;
+  --aion-text-secondary: #c8ccd2;
+  --aion-text-tertiary: #9aa0a8;
+  --aion-text-disabled: #6f747e;
+  --aion-primary: #6da8e8;
+  --aion-success: #2fbf71;
+  --aion-warning: #b07600;
+  --aion-danger: #ff5252;
+  --aion-brand: #6da8e8;
+  --aion-aou-1: #1f2d3d;
+  --aion-aou-2: #26374b;
+  --aion-aou-3: #2f445c;
+  --aion-aou-4: #3d5875;
+  --aion-aou-5: #4b6a8b;
+  --aion-aou-6: #6da8e8;
+  --aion-fill-2: #232a36;
+  --aion-fill-3: #3d5875;
+  --aion-border-base: #3a3d42;
+  --aion-overlay-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  --aion-font-sans: Tahoma, 'Microsoft YaHei', 'PingFang SC', 'SimSun', '宋体', sans-serif;
+  --aion-font-mono: 'Courier New', 'SimSun', monospace;
+}
+
+/* --- Columns and roots --------------------------------------------------------
+   The two panel columns are frame grid items with a 1px left divider (drawn
+   from --aion-bg-3 by the panel). Keep the XP content surface and hint a
+   beveled divider: a light inner edge beside the brown border line. */
+body[data-dsh-xp] [data-aionui-preview-col] {
+  background-color: var(--aion-bg-1);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.55);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] [data-aionui-preview-col] {
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+body[data-dsh-xp] [data-aionui-explorer-col] {
+  background-color: var(--aion-bg-1);
+}
+
+/* The panel React root inherits the skin font and the cream/dark surface. */
+body[data-dsh-xp] :global(.aionui-root) {
+  font-family: var(--aion-font-sans);
+  font-size: 13px;
+}
+
+/* Drag handles stay square (global radius reset) and glint XP blue on
+   hover/active instead of the default lilac brand. */
+body[data-dsh-xp] :global(.aionui-explorer-handle:hover)::after,
+body[data-dsh-xp] :global(.aionui-explorer-handle:active)::after,
+body[data-dsh-xp] :global(.aionui-preview-handle:hover)::after,
+body[data-dsh-xp] :global(.aionui-preview-handle:active)::after {
+  background-color: var(--aion-brand);
+  box-shadow: 0 0 0 1px var(--aion-primary);
+}
+
+/* The floating re-expand chip reads as a small XP toolbar plate. */
+body[data-dsh-xp] :global(.aionui-floating-expand) {
+  background: linear-gradient(180deg, #fdfdfd 0%, #f1efe9 45%, #d8d7cf 100%);
+  border: 1px solid #b3ad95;
+  border-right: none;
+  color: var(--aion-text-secondary);
+}
+
+body[data-dsh-xp] :global(.aionui-floating-expand:hover) {
+  background: linear-gradient(180deg, #fff3d6 0%, #ffe38e 100%);
+  color: var(--aion-text-primary);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-floating-expand) {
+  background: linear-gradient(180deg, #3f444b 0%, #23262b 100%);
+  border-color: #000;
+  color: #fff;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-floating-expand:hover) {
+  background: linear-gradient(180deg, #4a5058 0%, #2c3036 100%);
+}
+
+/* --- Interactive controls ------------------------------------------------------
+   Buttons become XP command buttons: beveled cream plate with the navy
+   border and white top highlight; primary is the XP blue plate, danger the
+   red plate. Hover tints gold like the skin's own command buttons. */
+body[data-dsh-xp] :global(.aionui-btn) {
+  background: linear-gradient(180deg, #fdfdfd 0%, #f1efe9 45%, #d8d7cf 100%);
+  border: 1px solid #003c74;
+  box-shadow: inset 0 1px 0 #fff;
+  color: #000;
+}
+
+body[data-dsh-xp] :global(.aionui-btn:hover) {
+  background: linear-gradient(180deg, #fff3d6 0%, #ffe38e 100%);
+}
+
+body[data-dsh-xp] :global(.aionui-btn:active) {
+  background: linear-gradient(180deg, #d8d7cf 0%, #f1efe9 55%, #fdfdfd 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn) {
+  background: linear-gradient(180deg, #3f444b 0%, #23262b 100%);
+  border-color: #000;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn:hover) {
+  background: linear-gradient(180deg, #4a5058 0%, #2c3036 100%);
+}
+
+body[data-dsh-xp] :global(.aionui-btn-primary),
+body[data-dsh-xp] :global(.aionui-btn-primary:hover) {
+  background: linear-gradient(180deg, #4f8fe0 0%, #1e5fd0 100%);
+  border-color: #0831d9;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: #fff;
+  opacity: 1;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn-primary),
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn-primary:hover) {
+  background: linear-gradient(180deg, #4a7fd0 0%, #316ac5 100%);
+  border-color: #000;
+}
+
+body[data-dsh-xp] :global(.aionui-btn-danger),
+body[data-dsh-xp] :global(.aionui-btn-danger:hover) {
+  background: linear-gradient(180deg, #ff9d8a 0%, #e83b2b 100%);
+  border-color: #b3291c;
+  color: #fff;
+  opacity: 1;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn-danger),
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn-danger:hover) {
+  background: linear-gradient(180deg, #ff8a80 0%, #c62828 100%);
+  border-color: #000;
+}
+
+/* Confirm dialog: an XP window with the navy frame and deep drop shadow. The
+   overlay keeps the panel's dimming scrim; the cream card comes from the
+   --aion-bg-base remap plus the XP border. */
+body[data-dsh-xp] :global(.aionui-dialog) {
+  border: 1px solid #0831d9;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-dialog) {
+  border-color: #000;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* Context menu: the classic cream drop-down with the brown border. */
+body[data-dsh-xp] :global(.aionui-menu) {
+  background: #ece9d8;
+  border: 1px solid #b3ad95;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+body[data-dsh-xp] :global(.aionui-menu-item:hover) {
+  background: #dbe9fc;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-menu) {
+  background: #1b1d21;
+  border-color: #3a3d42;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-menu-item:hover) {
+  background: #232a36;
+}
+
+/* Toast: a navy info plate with white text (matches the skin's toast color),
+   or the dark Zune surface at night. */
+body[data-dsh-xp] :global(.aionui-toast) {
+  background: #0f2d5c;
+  border: 1px solid #0831d9;
+  color: #fff;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-toast) {
+  background: #2b2e33;
+  border-color: #000;
+}

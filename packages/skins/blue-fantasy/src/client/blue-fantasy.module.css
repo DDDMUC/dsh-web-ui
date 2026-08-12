@@ -470,3 +470,109 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] :focus-visible {
   outline: 2px solid rgba(127, 150, 210, 0.6);
   outline-offset: 0;
 }
+
+/* --- aionui 右侧面板适配（dsh-aionui-panel）-------------------------------
+   The host right-hand panel system (Explorer 文件树 + SCM 变更 + Preview
+   预览) rides its own `--aion-*` token set, remapped here into the
+   blue-fantasy periwinkle-indigo palette so the panel floats on the whale
+   art exactly like the main interface: translucent frosted surfaces with a
+   backdrop blur. All token values share the skin's palette (blue-* /
+   neutral-bluish-* above). The panel's own overlays (dialog, context menu,
+   toast) are React-portaled to document.body, so applying backdrop-filter on
+   the columns cannot trap them — the skin's usual no-blur discipline does
+   not apply here and the frosted glass is safe. Divided into 1) token remap,
+   2) columns & roots (frost + readability), 3) interactive controls.
+
+   --- 1) token remap: light (periwinkle-indigo translucent) ------------- */
+
+body[data-dsh-blue-fantasy] {
+  --aion-bg-base: rgba(255, 255, 255, 0.6);
+  --aion-bg-1: rgba(243, 245, 251, 0.5);
+  --aion-bg-2: rgba(233, 237, 247, 0.62);
+  --aion-bg-3: rgba(74, 95, 168, 0.22);
+  --aion-bg-hover: rgba(74, 95, 168, 0.08);
+  --aion-bg-active: rgba(74, 95, 168, 0.14);
+  --aion-text-primary: #1d2539;
+  --aion-text-secondary: #3e4b6d;
+  --aion-text-tertiary: #5f6e93;
+  --aion-text-disabled: #909dbb;
+  --aion-primary: #4a5fa8;
+  --aion-success: #2e8e52;
+  --aion-warning: #c08a33;
+  --aion-danger: #c00000;
+  --aion-brand: #a5b7e2;
+  --aion-aou-1: #eef1fb;
+  --aion-aou-2: #dce3f7;
+  --aion-aou-3: #a5b7e2;
+  --aion-aou-4: #647ebf;
+  --aion-aou-5: #4a5fa8;
+  --aion-aou-6: #33417a;
+  --aion-fill-2: rgba(74, 95, 168, 0.06);
+  --aion-fill-3: rgba(74, 95, 168, 0.14);
+  --aion-border-base: rgba(44, 58, 115, 0.18);
+  --aion-overlay-shadow: 0 8px 24px rgba(28, 37, 70, 0.25);
+  --aion-font-sans: -apple-system, "system-ui", "Segoe UI", Roboto,
+    "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --aion-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
+/* --- 1) token remap: dark (deeper indigo frosted) ------------------------ */
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] {
+  --aion-bg-base: rgba(26, 34, 56, 0.82);
+  --aion-bg-1: rgba(26, 34, 56, 0.5);
+  --aion-bg-2: rgba(32, 42, 68, 0.6);
+  --aion-bg-3: rgba(160, 180, 230, 0.2);
+  --aion-bg-hover: rgba(160, 185, 235, 0.12);
+  --aion-bg-active: rgba(160, 185, 235, 0.2);
+  --aion-text-primary: #dbe2f2;
+  --aion-text-secondary: #a9b7d0;
+  --aion-text-tertiary: #8b9cbc;
+  --aion-text-disabled: #6276a5;
+  --aion-primary: #7f96d2;
+  --aion-success: #58b058;
+  --aion-warning: #d9a94f;
+  --aion-danger: #e05c5c;
+  --aion-brand: #a5b7e2;
+  --aion-aou-1: #202a44;
+  --aion-aou-2: #26304f;
+  --aion-aou-3: #33417a;
+  --aion-aou-4: #4a5fa8;
+  --aion-aou-5: #647ebf;
+  --aion-aou-6: #94a8dc;
+  --aion-fill-2: rgba(160, 185, 235, 0.12);
+  --aion-fill-3: rgba(160, 185, 235, 0.2);
+  --aion-border-base: rgba(160, 180, 230, 0.15);
+  --aion-overlay-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* --- 2) columns & roots: frosted glass over the whale art --------------- */
+
+body[data-dsh-blue-fantasy] [data-aionui-explorer-col],
+body[data-dsh-blue-fantasy] [data-aionui-preview-col] {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+body[data-dsh-blue-fantasy] :global(.aionui-root) {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* --- 3) interactive controls: portal'd frosted floaters + theme mask ----- */
+
+body[data-dsh-blue-fantasy] :global(.aionui-dialog),
+body[data-dsh-blue-fantasy] :global(.aionui-menu),
+body[data-dsh-blue-fantasy] :global(.aionui-toast) {
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+body[data-dsh-blue-fantasy] :global(.aionui-overlay) {
+  background: rgba(28, 37, 70, 0.4);
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-overlay) {
+  background: rgba(0, 0, 0, 0.55);
+}

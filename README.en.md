@@ -4,7 +4,7 @@
 
 ![dsh-web-ui](docs/dsh-web-ui-banner.png)
 
-dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web UI: a task board, a Git graph, a whale-girl pet, live token statistics, and the Skin Center. Every plugin can be installed individually, or all at once through the aggregate packages.
+dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web UI: a task board, a Git graph, the right panel, a whale-girl pet, live token statistics, and the Skin Center. Every plugin can be installed individually, or all at once through the aggregate packages.
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
@@ -25,6 +25,18 @@ Tasks also support scheduled execution: configure a cron expression in the detai
 The branch picker above the input box handles branch switching and commit history browsing; the Git graph visualizes branch lanes and commit history, making it easy to trace changes along the timeline even in large repositories.
 
 ![Git graph](docs/screenshots/04-git-graph.png)
+
+### Right Panel
+
+When a project session is open, two panels appear to the right of the chat area — "Preview" and "Files/Changes":
+
+- **File tree**: browse the working directory; click a file to open it in the preview panel, click a folder row to expand it, and search for files by name;
+- **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and plain text, with source/preview switching, split-screen editing and saving;
+- **Changes (SCM)**: a real git changes panel with stage / unstage / discard;
+- Panel widths are draggable (double-click a handle to reset), and the collapsed state plus widths persist per project;
+- All six skins adapt the right panel — switching skins restyles the panels to match the theme.
+
+![Right panel](docs/screenshots/19-right-panel.png)
 
 ### Whale-Girl Pet
 
@@ -80,7 +92,7 @@ Install everything at once through the aggregate packages: `dsh-web-ui-all` incl
 
 | Package | Origin | License |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-live-stats | Authored by zhu1090093659 | BSD-3-Clause (zhu1090093659) |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats | Authored by zhu1090093659 | BSD-3-Clause (zhu1090093659) |
 | skins / dsh-skins / dsh-web-ui-all | Authored by zhu1090093659 | BSD-3-Clause (zhu1090093659) |
 
 Third-party code merged in must keep its LICENSE and attribution; active third parties with an upstream are forked or referenced as dependencies instead of vendored.

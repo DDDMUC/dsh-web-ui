@@ -42,6 +42,19 @@ async function collect() {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
     await page.goto(url, { waitUntil: 'networkidle', timeout: 25000 })
     await page.waitForTimeout(2500)
+    // 展开 aionui 预览列（若处于折叠态）：试穿模拟器需要展示右侧面板的完整
+    // 区域（预览 tabs/toolbar/内容）。宽度取 aionui 默认预览宽 480px；
+    // 折叠态 preview track=0px 且列带 visibility:hidden，一并恢复。
+    await page.evaluate(() => {
+      const frame = document.querySelector('[data-dsh-frame]')
+      const previewCol = document.querySelector('[data-aionui-preview-col]')
+      if (frame && previewCol && previewCol.getBoundingClientRect().width < 10) {
+        const inline = frame.style.gridTemplateColumns
+        if (inline) frame.style.gridTemplateColumns = inline.replace(/(^|\s)0px(\s+\d+(?:\.\d+)?px)$/, '$1480px$2')
+        previewCol.style.visibility = 'visible'
+      }
+    })
+    await page.waitForTimeout(500)
     return await page.evaluate(() => {
       // --- 官方 CSS（跳过皮肤样式标签，按规则文本去重） ---
       const isSkin = (el) => !!(el && (el.getAttribute('data-plugin') || '').includes('ui-skin'))
