@@ -12,6 +12,12 @@
 - 环境：npm 私有 scope 需要 `NPM_TOKEN` 环境变量（项目 `.npmrc` 只写 `${NPM_TOKEN}`
   占位符，真实令牌只放环境变量，详见 `docs/plugins.md`）。
 
+## 新包命名统一 dsh- 前缀
+
+**此后新建的插件包（`packages/` 下新目录）一律以 `dsh-` 开头**（如 `dsh-aionui-panel`、
+`dsh-task-board`）。既有包已全部更名对齐，新包直接沿用，不允许再出现不带 `dsh-` 前缀的
+包目录。npm 包名沿用 `@deepseek-ai/dsh-*`（UI 类插件按惯例用 `@deepseek-ai/dsh-client-ui-*`）。
+
 ## 禁止使用 emoji
 
 本仓库**禁止出现任何 emoji 字符**（含 Emoji_Presentation、变化选择符 U+FE0F、ZWJ 序列、
