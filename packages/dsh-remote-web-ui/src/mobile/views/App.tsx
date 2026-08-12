@@ -131,6 +131,19 @@ export function errorText(error: unknown): string {
   return String(error)
 }
 
+/**
+ * Actionable hint for transport-level 403s on host-gated channels (model
+ * picker, session creation): the phone's UI bundle is served fresh from disk
+ * per request, while the host-side allowlist lives in the long-running
+ * process — a rebuild without a restart shows the new surface against the
+ * old allowlist (HTTP 403 forbidden).
+ */
+export function staleHostHint(message: string): string | undefined {
+  return /^HTTP 403/.test(message)
+    ? '宿主端插件可能仍在运行旧版本：请重启 dsh web 后再试。'
+    : undefined
+}
+
 /** Fetch one history page (tail by default) — thin wrapper so views share the call shape. */
 export function loadHistory(sessionId: string, beforeSeq?: number) {
   return fetchHistory(sessionId, beforeSeq)

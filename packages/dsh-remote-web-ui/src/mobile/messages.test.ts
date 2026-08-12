@@ -97,12 +97,67 @@ describe('foldEvents', () => {
       makeEvent('user/message', userMessageData('u-1', '改文件'), 0),
       textChunk(0, 0, '正在处理', 1),
       makeEvent('tool/call', { turn: 0, step: 0, callId: 'c1', name: 'bash', arguments: '{}' }, 2),
-      makeEvent('tool/call', { turn: 0, step: 0, callId: 'c2', name: 'read', arguments: '{}' }, 3),
+      makeEvent('tool/call', { turn: 0, step: 0, callId: 'c2', name: 'read', arguments: '{"path":"a.txt"}' }, 3),
       makeEvent('assistant/message', assistantMessageData('a-1', 0, 0, '已完成'), 4),
     ]
     const result = foldEvents(events)
     const assistant = result.find(message => message.kind === 'assistant')
     expect(assistant?.toolSummary).toBe('使用 bash / read')
+    expect(assistant?.tools).toEqual([
+      { callId: 'c1', name: 'bash', arguments: '{}' },
+      { callId: 'c2', name: 'read', arguments: '{"path":"a.txt"}' },
+    ])
+  })
+
+  it('keeps reasoning text apart from the message body and folds reasoning-delta chunks', () => {
+    const events: WireEvent[] = [
+      makeEvent('user/message', userMessageData('u-1', '复杂问题'), 0),
+      makeEvent('assistant/chunk', { turn: 0, step: 0, chunk: { type: 'reasoning-delta', index: 0, text: '先分析' } }, 1),
+      makeEvent('assistant/chunk', { turn: 0, step: 0, chunk: { type: 'reasoning-delta', index: 0, text: '再行动' } }, 2),
+      makeEvent('assistant/chunk', { turn: 0, step: 0, chunk: { type: 'text-delta', index: 1, text: '结论' } }, 3),
+      makeEvent('assistant/message', {
+        turn: 0,
+        step: 0,
+        message: {
+          id: 'a-1',
+          role: 'assistant',
+          content: [
+            { type: 'reasoning', text: '先分析再行动' },
+            { type: 'text', text: '结论' },
+          ],
+          source: { kind: 'model', provider: 'fx', model: 'fx-1' },
+        },
+      }, 4),
+    ]
+    const result = foldEvents(events)
+    const assistant = result.find(message => message.kind === 'assistant')
+    expect(assistant).toMatchObject({ text: '结论', reasoning: '先分析再行动', pending: false })
+  })
+
+  it('keeps streamed reasoning when the final assistant message omits the reasoning block', () => {
+    const streamed = foldEvents([
+      makeEvent('user/message', userMessageData('u-1', 'hi'), 0),
+      makeEvent('assistant/chunk', { turn: 0, step: 0, chunk: { type: 'reasoning-delta', index: 0, text: '思考过程' } }, 1),
+    ])
+    const finalized = foldEvents(
+      [makeEvent('assistant/message', assistantMessageData('a-1', 0, 0, '回答'), 2)],
+      streamed,
+    )
+    const assistant = finalized.find(message => message.kind === 'assistant')
+    expect(assistant).toMatchObject({ text: '回答', reasoning: '思考过程', pending: false })
+  })
+
+  it('dedupes repeated tool/call events by callId', () => {
+    const events: WireEvent[] = [
+      makeEvent('user/message', userMessageData('u-1', '跑测试'), 0),
+      textChunk(0, 0, '开始', 1),
+      makeEvent('tool/call', { turn: 0, step: 0, callId: 'c1', name: 'bash', arguments: '{"cmd":"a"}' }, 2),
+      makeEvent('tool/call', { turn: 0, step: 0, callId: 'c1', name: 'bash', arguments: '{"cmd":"a"}' }, 3),
+      makeEvent('assistant/message', assistantMessageData('a-1', 0, 0, 'done'), 4),
+    ]
+    const result = foldEvents(events)
+    const assistant = result.find(message => message.kind === 'assistant')
+    expect(assistant?.tools).toEqual([{ callId: 'c1', name: 'bash', arguments: '{"cmd":"a"}' }])
   })
 
   it('marks the assistant message failed when turn/end ends in an error', () => {

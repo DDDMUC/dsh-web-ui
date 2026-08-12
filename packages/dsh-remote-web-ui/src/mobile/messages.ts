@@ -15,11 +15,17 @@
  *
  * - `user/message`      data = `{ id, role, content: ContentBlock[], source }`
  * - `assistant/message` data = `{ turn, step, message: { id, content }, usage? }`
- * - `assistant/chunk`   data = `{ turn, step, chunk: { type: 'text-delta', text } }`
+ * - `assistant/chunk`   data = `{ turn, step, chunk: { type: 'text-delta' | 'reasoning-delta', text } }`
  * - `turn/start`        data = `{ turn }`
  * - `turn/end`          data = `{ turn, reason: { kind: 'error' | ... } }`
  * - `tool/call`         data = `{ turn, step, callId, name, arguments }`
  * - `session/end-seed`  empty data (skipped)
+ *
+ * Assistant content blocks (`text` vs `reasoning`) fold into two separate
+ * fields — `text` and `reasoning` — so the surface can show reasoning behind
+ * a collapsed disclosure instead of dumping it into the message body. Tool
+ * calls accumulate ordered details (`tools`) in addition to the plain
+ * `toolSummary` name list.
  *
  * The mobile message-level aliases `message/chunk`, `message/update` and
  * `message/delete` are also accepted (assumed shapes documented below).
@@ -42,6 +48,16 @@ export interface RenderMessage {
   readonly kind: 'user' | 'assistant'
   /** The fully folded text (assistant chunks aggregate into their message). */
   readonly text: string
+  /**
+   * Folded reasoning text, kept separate from `text` so the surface can
+   * hide it behind a collapsed Think disclosure (web-UI parity).
+   */
+  readonly reasoning?: string
+  /**
+   * Ordered tool calls of this assistant message, in first-seen order,
+   * driving the collapsible tool disclosure (name + raw arguments).
+   */
+  readonly tools?: ToolCallInfo[]
   /** Seq of the latest event that touched this message (used for loadOlder). */
   readonly seq: number
   /** Epoch ms of the latest touch. */
@@ -52,6 +68,16 @@ export interface RenderMessage {
   readonly toolSummary?: string
   /** Set when the owning turn ended in an error. */
   readonly failed?: boolean
+}
+
+/** One tool call attached to an assistant message (callId dedupes repeats). */
+export interface ToolCallInfo {
+  /** Tool-call id (synthetic `${name}#${seq}` when the wire omitted it). */
+  readonly callId: string
+  /** Tool name, e.g. "bash". */
+  readonly name: string
+  /** Raw arguments JSON, when the event carried it. */
+  readonly arguments?: string
 }
 
 /**
@@ -87,12 +113,23 @@ function syntheticId(prefix: string, seq: number): string {
   return `${prefix}#${String(seq)}`
 }
 
-/** Concatenate the plain text of every text/reasoning content block. */
+/** Concatenate the plain text of every `text` content block. */
 function textFromContent(content: unknown): string {
+  return blocksOfType(content, 'text')
+}
+
+/** Concatenate the plain text of every `reasoning` content block. */
+function reasoningFromContent(content: unknown): string {
+  return blocksOfType(content, 'reasoning')
+}
+
+/** Concatenate the plain text of every content block of one type. */
+function blocksOfType(content: unknown, type: string): string {
   if (!Array.isArray(content)) return ''
   let out = ''
   for (const block of content) {
     if (!isRecord(block)) continue
+    if (block['type'] !== type) continue
     const text = pickString(block['text'])
     if (text !== undefined) out += text
   }
@@ -111,9 +148,10 @@ function textFromContent(content: unknown): string {
  *
  * Returns null for non-text chunk variants (usage / finish / block-start).
  */
-function chunkTarget(data: unknown): { text: string; id?: string; turn?: number; step?: number } | null {
+function chunkTarget(data: unknown): { text: string; kind: 'text' | 'reasoning'; id?: string; turn?: number; step?: number } | null {
   if (!isRecord(data)) return null
   let text: string | undefined
+  let kind: 'text' | 'reasoning' = 'text'
   let idValue: string | undefined
   let turn: number | undefined
   let step: number | undefined
@@ -121,16 +159,18 @@ function chunkTarget(data: unknown): { text: string; id?: string; turn?: number;
   if (isRecord(chunk)) {
     if (chunk['type'] !== 'text-delta' && chunk['type'] !== 'reasoning-delta') return null
     text = pickString(chunk['text'])
+    kind = chunk['type'] === 'reasoning-delta' ? 'reasoning' : 'text'
     turn = pickNumber(data['turn'])
     step = pickNumber(data['step'])
   } else {
     text = pickString(data['text'])
+    kind = pickString(data['kind']) === 'reasoning' ? 'reasoning' : 'text'
     idValue = pickString(data['messageId']) ?? pickString(data['id'])
     turn = pickNumber(data['turn'])
     step = pickNumber(data['step'])
   }
   if (text === undefined) return null
-  const result: { text: string; id?: string; turn?: number; step?: number } = { text }
+  const result: { text: string; kind: 'text' | 'reasoning'; id?: string; turn?: number; step?: number } = { text, kind }
   if (idValue !== undefined) result.id = idValue
   if (turn !== undefined) result.turn = turn
   if (step !== undefined) result.step = step
@@ -282,6 +322,7 @@ function applyAssistantMessage(state: FoldState, event: WireEvent): void {
   const turn = pickNumber(data['turn'])
   const step = pickNumber(data['step'])
   const finalText = textFromContent(messageData['content'])
+  const finalReasoning = reasoningFromContent(messageData['content'])
   const key = tsKey(turn, step)
 
   // Finalize the matching assistant message (by id, or by turn/step for the
@@ -294,6 +335,9 @@ function applyAssistantMessage(state: FoldState, event: WireEvent): void {
       ...target,
       id,
       text: finalText,
+      // The final content block list is authoritative; an adapter that omits
+      // reasoning from the final message keeps the streamed reasoning text.
+      ...(finalReasoning !== '' ? { reasoning: finalReasoning } : {}),
       seq: event.seq,
       time: event.time,
       pending: false,
@@ -304,7 +348,14 @@ function applyAssistantMessage(state: FoldState, event: WireEvent): void {
     return
   }
 
-  const message: RenderMessage = { id, kind: 'assistant', text: finalText, seq: event.seq, time: event.time }
+  const message: RenderMessage = {
+    id,
+    kind: 'assistant',
+    text: finalText,
+    ...(finalReasoning !== '' ? { reasoning: finalReasoning } : {}),
+    seq: event.seq,
+    time: event.time,
+  }
   state.messages.push(message)
   state.byId.set(id, message)
   if (key !== undefined) {
@@ -326,7 +377,9 @@ function applyChunk(state: FoldState, event: WireEvent): void {
   }
 
   if (message !== undefined && message.kind === 'assistant') {
-    const next: RenderMessage = { ...message, text: message.text + target.text, seq: event.seq, time: event.time }
+    const next: RenderMessage = target.kind === 'reasoning'
+      ? { ...message, reasoning: (message.reasoning ?? '') + target.text, seq: event.seq, time: event.time }
+      : { ...message, text: message.text + target.text, seq: event.seq, time: event.time }
     replaceMessage(state, message, next)
     retargetTurnStep(state, key, message, next)
     return
@@ -334,7 +387,9 @@ function applyChunk(state: FoldState, event: WireEvent): void {
 
   const id = target.id
     ?? (key !== undefined ? syntheticId(`assistant,${key}`, event.seq) : syntheticId('assistant', event.seq))
-  const created: RenderMessage = { id, kind: 'assistant', text: target.text, seq: event.seq, time: event.time, pending: true }
+  const created: RenderMessage = target.kind === 'reasoning'
+    ? { id, kind: 'assistant', text: '', reasoning: target.text, seq: event.seq, time: event.time, pending: true }
+    : { id, kind: 'assistant', text: target.text, seq: event.seq, time: event.time, pending: true }
   state.messages.push(created)
   state.byId.set(id, created)
   if (key !== undefined) {
@@ -427,9 +482,20 @@ function applyToolCall(state: FoldState, event: WireEvent): void {
     names.add(name)
     state.toolNames.set(target.id, names)
   }
+  const callId = pickString(data['callId']) ?? `${name}#${String(event.seq)}`
+  const args = pickString(data['arguments'])
+  const tools = target.tools ?? []
+  const existingIndex = tools.findIndex(tool => tool.callId === callId)
+  const isNewCall = existingIndex === -1
+  const nextTools: ToolCallInfo[] = isNewCall
+    ? [...tools, { callId, name, ...(args !== undefined ? { arguments: args } : {}) }]
+    : tools.map((tool, index) => index === existingIndex
+      ? { ...tool, ...(args !== undefined ? { arguments: args } : {}) }
+      : tool)
   const next: RenderMessage = {
     ...target,
     ...(isNewName ? { toolSummary: `使用 ${[...names].join(' / ')}` } : {}),
+    ...(isNewCall || args !== undefined ? { tools: nextTools } : {}),
     seq: event.seq,
     time: event.time,
   }

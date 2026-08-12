@@ -27,7 +27,7 @@ function pageHtml(bundleUrl: string): string {
     '<head>',
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">',
-    '<meta name="theme-color" content="#111418">',
+    '<meta name="theme-color" content="#f3f5f9">',
     '<title>移动端远程控制</title>',
     '</head>',
     '<body>',

@@ -10,6 +10,11 @@
 import { createRoot } from 'react-dom/client'
 import { App } from './views/App.tsx'
 import { mobileCss } from './mobile-styles.ts'
+import { initMobileTheme } from './mobile-theme.ts'
+
+// Apply the persisted (or default light) theme before first paint, so the
+// page never flashes the wrong palette.
+initMobileTheme()
 
 // Inject the standalone stylesheet (the page has no shell to load it for us).
 const style = document.createElement('style')

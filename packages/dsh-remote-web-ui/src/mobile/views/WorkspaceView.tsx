@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import type { WorkspaceView as WorkspaceRow } from '@deepseek-ai/dsh-host-apiproxy/api/workspace'
 import { listWorkspaces } from '../api.ts'
 import { errorText } from './App.tsx'
+import { ThemeToggle } from '../theme-toggle.tsx'
 
 /** Props for the workspace roster. */
 export interface WorkspaceViewProps {
@@ -45,6 +46,7 @@ export function WorkspaceView({ onPick }: WorkspaceViewProps) {
       <div className="mobile">
         <header className="mobile-header">
           <h1 className="mobile-title">工作区</h1>
+          <ThemeToggle />
         </header>
         <div className="mobile-empty">
           <p className="mobile-error">加载失败：{error}</p>
@@ -61,6 +63,7 @@ export function WorkspaceView({ onPick }: WorkspaceViewProps) {
       <div className="mobile">
         <header className="mobile-header">
           <h1 className="mobile-title">工作区</h1>
+          <ThemeToggle />
         </header>
         <div className="mobile-empty">
           <p className="mobile-muted">加载中…</p>
@@ -74,6 +77,7 @@ export function WorkspaceView({ onPick }: WorkspaceViewProps) {
       <div className="mobile">
         <header className="mobile-header">
           <h1 className="mobile-title">工作区</h1>
+          <ThemeToggle />
         </header>
         <div className="mobile-empty">
           <p className="mobile-muted">暂无工作区</p>
@@ -86,6 +90,7 @@ export function WorkspaceView({ onPick }: WorkspaceViewProps) {
     <div className="mobile">
       <header className="mobile-header">
         <h1 className="mobile-title">工作区</h1>
+        <ThemeToggle />
       </header>
       <ul className="mobile-list">
         {items.map(workspace => (

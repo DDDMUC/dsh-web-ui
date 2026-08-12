@@ -31,9 +31,11 @@ const apiProxy = {
   },
   sessions: {
     list: async () => ({ rpcId: 'r', result: { ok: true, value: { items: [] } } }),
+    create: async () => ({ rpcId: 'r', result: { ok: true, value: { sessionId: 's-created' } } }),
     history: async () => ({ rpcId: 'r', result: { ok: true, value: { items: [] } } }),
     search: async () => ({ rpcId: 'r', result: { ok: true, value: { items: [] } } }),
     prompt: async () => ({ rpcId: 'r', result: { ok: true, value: { queued: true } } }),
+    models: async () => ({ rpcId: 'r', result: { ok: true, value: { current: { provider: 'fx', model: 'fx-1' } } } }),
     selectModel: async () => ({ rpcId: 'r', result: { ok: true, value: { ok: true } } }),
     rename: async () => ({ rpcId: 'r', result: { ok: true, value: { ok: true } } }),
   },
@@ -88,10 +90,12 @@ describe('mobile api envelope', () => {
     try {
       for (const method of [
         'workspace.list',
+        'session.create',
         'session.list',
         'session.history',
         'session.search',
         'session.prompt',
+        'session.models',
         'session.selectModel',
         'session.rename',
       ]) {

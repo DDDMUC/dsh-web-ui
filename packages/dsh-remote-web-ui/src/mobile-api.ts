@@ -30,10 +30,12 @@ import { readCookie } from './gate.ts'
 /** Methods the phone surface may call. Everything else is refused. */
 const MOBILE_ALLOWLIST = new Set([
   'workspace.list',
+  'session.create',
   'session.list',
   'session.history',
   'session.search',
   'session.prompt',
+  'session.models',
   'session.selectModel',
   'session.rename',
 ])
@@ -239,9 +241,11 @@ async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rp
     result: response.result,
   })
   if (method === 'workspace.list') return wrap(await apiProxy.workspace.list(request as never))
+  if (method === 'session.create') return wrap(await apiProxy.sessions.create(request as never))
   if (method === 'session.history') return wrap(await apiProxy.sessions.history(request as never))
   if (method === 'session.search') return wrap(await apiProxy.sessions.search(request as never, new AbortController().signal))
   if (method === 'session.prompt') return wrap(await apiProxy.sessions.prompt(request as never))
+  if (method === 'session.models') return wrap(await apiProxy.sessions.models(request as never))
   if (method === 'session.selectModel') return wrap(await apiProxy.sessions.selectModel(request as never))
   if (method === 'session.rename') return wrap(await apiProxy.sessions.rename(request as never))
   throw new Error(`unhandled allowlisted method ${method}`)
