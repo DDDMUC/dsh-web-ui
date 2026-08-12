@@ -121,6 +121,13 @@ export class TryOnController {
     active: ActiveVisuals
   } | null = null
 
+  /**
+   * Generation counter. A newer try-on or exit increments it, so an in-flight
+   * `tryOn` (awaiting the real bundle load) can detect it was superseded and
+   * drop only what it mounted instead of clobbering the newer session.
+   */
+  private epoch = 0
+
   /** The skin currently being tried on, if any. */
   get trying(): SkinCenterEntry | null {
     return this.session?.entry ?? null
@@ -135,15 +142,24 @@ export class TryOnController {
   async tryOn(entry: SkinCenterEntry): Promise<void> {
     if (entry.package === activeSkinEntry()?.package) return
     this.exit()
+    const epoch = ++this.epoch
 
     const active: ActiveVisuals = this.captureAndRetractActive()
+    let dispose: (() => void) | undefined
     try {
-      const dispose = await this.loadAndApply(entry)
-      this.session = { entry, dispose, active }
+      dispose = await this.loadAndApply(entry)
     } catch (error) {
-      this.restoreActive(active)
+      if (epoch === this.epoch) this.restoreActive(active)
       throw error
     }
+    if (epoch !== this.epoch) {
+      // Superseded while loading (a newer try-on or exit started): drop only
+      // what this attempt mounted — the newer operation owns the surface and
+      // captured the active-skin visuals it needs on exit.
+      dispose()
+      return
+    }
+    this.session = { entry, dispose, active }
   }
 
   /**
@@ -154,6 +170,7 @@ export class TryOnController {
   tryOnOfficial(): void {
     if (activeSkinEntry() === null) return
     this.exit()
+    this.epoch += 1
     const active: ActiveVisuals = this.captureAndRetractActive()
     this.session = { entry: null, dispose: () => {}, active }
   }
@@ -162,6 +179,7 @@ export class TryOnController {
   exit(): void {
     const session = this.session
     if (session === null) return
+    this.epoch += 1
     this.session = null
     session.dispose()
     if (session.entry !== null) this.cleanupModule(session.entry)

@@ -8,6 +8,11 @@ import { execFile } from "node:child_process";
 * the GUI is exactly `dsh-skin use <name>` — the config watcher hot-reloads
 * the patch within seconds and the frontend reloads the page to pick up the
 * new boot graph. Same pattern as dsh-pet's `/api/pet` family.
+*
+* Unlike pet's behavioral endpoints, `/apply` writes the user's boot config,
+* so every route also rejects cross-site requests (Sec-Fetch-Site / Origin
+* fence) — a malicious webpage must not be able to switch the user's skin
+* through a localhost CSRF post.
 * @module @deepseek-ai/dsh-client-ui-skin-center/routes
 */
 /** Browser-facing base path of the skin-center API. */
@@ -25,6 +30,38 @@ function requireMethod(req, res, method) {
 	json(res, 405, {
 		ok: false,
 		error: "method-not-allowed"
+	});
+	return false;
+}
+/**
+* Same-origin fence. Browsers send `Sec-Fetch-Site` on every fetch: same-site
+* and cross-site pages both resolve their `Origin` here, so the checks are:
+* a `cross-site` fetch is always rejected, and an `Origin` that does not
+* match the request `Host` is rejected. Requests without either header
+* (curl, node http, old browsers) pass — this is a local single-user tool,
+* and the fence only targets the cross-site browser vector.
+*/
+function isSameOriginRequest(req) {
+	const site = req.headers["sec-fetch-site"];
+	if (typeof site === "string" && site === "cross-site") return false;
+	const origin = req.headers.origin;
+	if (typeof origin === "string" && origin !== "" && origin !== "null") {
+		const host = req.headers.host;
+		if (typeof host !== "string" || host === "") return false;
+		try {
+			if (new URL(origin).host !== host) return false;
+		} catch {
+			return false;
+		}
+	}
+	return true;
+}
+/** Reject cross-site requests with 403. */
+function requireSameOrigin(req, res) {
+	if (isSameOriginRequest(req)) return true;
+	json(res, 403, {
+		ok: false,
+		error: "cross-site-request-rejected"
 	});
 	return false;
 }
@@ -69,22 +106,24 @@ function runDshSkin(args) {
 				resolve(stdout);
 				return;
 			}
-			const detail = (stderr ?? "").trim() || error.message;
+			const spawnError = error;
+			if (spawnError.code === "ENOENT") {
+				reject(/* @__PURE__ */ new Error("dsh-skin CLI not found on PATH — install it from dsh-web-ui/scripts/dsh-skin"));
+				return;
+			}
+			const detail = (stderr ?? "").trim() || spawnError.message;
 			reject(new Error(detail || `dsh-skin ${args.join(" ")} failed`));
 		});
 	});
 }
-/** The active skin as the CLI sees it ('none' = official stock look). */
-function activeName() {
-	return runDshSkin(["current"]).then((out) => out.trim() || "none");
-}
-/** A GET route wrapping one async call. */
+/** A GET route wrapping one async call, fenced to same-origin requests. */
 function getRoute(path, run) {
 	return {
 		kind: "exact",
 		path,
 		handler: (req, res) => {
 			if (!requireMethod(req, res, "GET")) return;
+			if (!requireSameOrigin(req, res)) return;
 			run().then((value) => json(res, 200, value), (error) => {
 				json(res, 500, {
 					ok: false,
@@ -94,13 +133,14 @@ function getRoute(path, run) {
 		}
 	};
 }
-/** A POST JSON route wrapping one async call. */
+/** A POST JSON route wrapping one async call, fenced to same-origin requests. */
 function postRoute(path, run) {
 	return {
 		kind: "exact",
 		path,
 		handler: (req, res) => {
 			if (!requireMethod(req, res, "POST")) return Promise.resolve();
+			if (!requireSameOrigin(req, res)) return Promise.resolve();
 			return readJsonBody(req).then((body) => {
 				return run(typeof body === "object" && body !== null ? body : {}).then((value) => json(res, 200, value), (error) => {
 					json(res, 400, {
@@ -117,21 +157,26 @@ function postRoute(path, run) {
 		}
 	};
 }
-/** Build the skin-center route family. */
-function makeSkinCenterRoutes() {
+/**
+* Build the skin-center route family.
+* @param deps - optional runner override (tests).
+*/
+function makeSkinCenterRoutes(deps = {}) {
+	const run = deps.run ?? runDshSkin;
+	const current = () => run(["current"]).then((out) => out.trim() || "none");
 	return [getRoute(`${SKIN_CENTER_API_PREFIX}/state`, async () => ({
 		ok: true,
-		active: await activeName()
+		active: await current()
 	})), postRoute(`${SKIN_CENTER_API_PREFIX}/apply`, async (body) => {
 		const skin = body.skin;
 		const official = body.official === true;
 		if (typeof skin !== "string" || skin === "") {
 			if (!official) throw new Error("invalid-skin: pass a skin name or official: true");
-		}
-		const out = await runDshSkin(["use", official ? "official" : skin]);
+		} else if (official) throw new Error("invalid-skin: skin and official are mutually exclusive");
+		const out = await run(["use", official ? "official" : skin]);
 		return {
 			ok: true,
-			active: await activeName(),
+			active: await current(),
 			message: out.trim()
 		};
 	})];
@@ -154,7 +199,13 @@ function apply(ctx) {
 	const routes = makeSkinCenterRoutes();
 	try {
 		ctx.effect(() => {
-			const disposers = routes.map((route) => ctx.httpServer.register(route));
+			const disposers = [];
+			try {
+				for (const route of routes) disposers.push(ctx.httpServer.register(route));
+			} catch (error) {
+				for (const dispose of disposers) dispose();
+				throw error;
+			}
 			return () => {
 				for (const dispose of disposers) dispose();
 			};

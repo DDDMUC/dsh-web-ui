@@ -25,6 +25,7 @@
  */
 
 const fs = require('node:fs')
+const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const HOME = process.env.HOME
@@ -179,7 +180,9 @@ function ensureSymlink(name) {
     if (cur === dir) return false
     fs.unlinkSync(target)
   }
-  fs.mkdirSync(PROFILE_MODULES, { recursive: true })
+  // The link's parent scoped dir may not exist on a fresh machine (the
+  // profiles/node_modules/@deepseek-ai tree is created incrementally).
+  fs.mkdirSync(path.dirname(target), { recursive: true })
   fs.symlinkSync(dir, target)
   return true
 }
@@ -200,7 +203,12 @@ function cmdUse(name) {
 
   const patch = stripLegacySkinRows(stripManaged(readPatch()))
   const next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(official ? null : name)}\n`
-  fs.writeFileSync(PATCH, next)
+  // Atomic replace: write a sibling temp file then rename over the target, so
+  // a crash mid-write can never leave a half-written boot patch, and the
+  // config watcher only ever sees complete content.
+  const tmp = `${PATCH}.tmp-${process.pid}`
+  fs.writeFileSync(tmp, next)
+  fs.renameSync(tmp, PATCH)
   console.log(`wrote ${PATCH}`)
   console.log(official
     ? 'restored the official stock look — the config watcher applies it within seconds; refresh the page to see it.'
@@ -229,22 +237,39 @@ function cmdCurrent() {
   console.log(active ?? 'none')
 }
 
-const [,, cmd, arg] = process.argv
-switch (cmd) {
-  case 'use': cmdUse(arg); break
-  case 'install': cmdInstall(arg); break
-  case 'list': cmdList(); break
-  case 'current': cmdCurrent(); break
-  default:
-    console.log('dsh-skin — one-command skin switching for the DSH web GUI')
-    console.log('')
-    console.log('usage:')
-    console.log('  dsh-skin install <name>   install a skin into the web profile the official way (dsh plugin add)')
-    console.log('  dsh-skin use <name>       switch skins (writes the hot-reloaded patch + symlink)')
-    console.log('  dsh-skin use official     restore the official stock look (disable every skin)')
-    console.log('  dsh-skin list             show skins, the active one, and symlink state')
-    console.log('  dsh-skin current          print the active skin name (or "none")')
-    console.log('')
-    console.log(`skins: ${Object.keys(SKINS).join(', ')}`)
-    process.exit(cmd ? 1 : 0)
+// Pure helpers exported so tests can assert the managed-section rendering
+// and parsing without touching the real ~/.dsh (the entry-script guard below
+// keeps an import side-effect free).
+module.exports = {
+  SKINS,
+  MANAGED_START,
+  MANAGED_END,
+  renderManaged,
+  stripManaged,
+  stripLegacySkinRows,
+  currentActive,
+}
+
+// Run only when invoked as the entry script (as a CLI), so the module can be
+// imported by tests without executing any command.
+if (require.main === module) {
+  const [,, cmd, arg] = process.argv
+  switch (cmd) {
+    case 'use': cmdUse(arg); break
+    case 'install': cmdInstall(arg); break
+    case 'list': cmdList(); break
+    case 'current': cmdCurrent(); break
+    default:
+      console.log('dsh-skin — one-command skin switching for the DSH web GUI')
+      console.log('')
+      console.log('usage:')
+      console.log('  dsh-skin install <name>   install a skin into the web profile the official way (dsh plugin add)')
+      console.log('  dsh-skin use <name>       switch skins (writes the hot-reloaded patch + symlink)')
+      console.log('  dsh-skin use official     restore the official stock look (disable every skin)')
+      console.log('  dsh-skin list             show skins, the active one, and symlink state')
+      console.log('  dsh-skin current          print the active skin name (or "none")')
+      console.log('')
+      console.log(`skins: ${Object.keys(SKINS).join(', ')}`)
+      process.exit(cmd ? 1 : 0)
+  }
 }

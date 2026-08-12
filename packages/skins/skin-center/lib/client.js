@@ -202,6 +202,12 @@ window.__ModuleLoader__.load({
 		*/
 		var TryOnController = class {
 			session = null;
+			/**
+			* Generation counter. A newer try-on or exit increments it, so an in-flight
+			* `tryOn` (awaiting the real bundle load) can detect it was superseded and
+			* drop only what it mounted instead of clobbering the newer session.
+			*/
+			epoch = 0;
 			/** The skin currently being tried on, if any. */
 			get trying() {
 				return this.session?.entry ?? null;
@@ -214,18 +220,24 @@ window.__ModuleLoader__.load({
 			async tryOn(entry) {
 				if (entry.package === activeSkinEntry()?.package) return;
 				this.exit();
+				const epoch = ++this.epoch;
 				const active = this.captureAndRetractActive();
+				let dispose;
 				try {
-					const dispose = await this.loadAndApply(entry);
-					this.session = {
-						entry,
-						dispose,
-						active
-					};
+					dispose = await this.loadAndApply(entry);
 				} catch (error) {
-					this.restoreActive(active);
+					if (epoch === this.epoch) this.restoreActive(active);
 					throw error;
 				}
+				if (epoch !== this.epoch) {
+					dispose();
+					return;
+				}
+				this.session = {
+					entry,
+					dispose,
+					active
+				};
 			}
 			/**
 			* Try on the official stock look: retract the active skin's visual writes
@@ -235,6 +247,7 @@ window.__ModuleLoader__.load({
 			tryOnOfficial() {
 				if (activeSkinEntry() === null) return;
 				this.exit();
+				this.epoch += 1;
 				const active = this.captureAndRetractActive();
 				this.session = {
 					entry: null,
@@ -246,6 +259,7 @@ window.__ModuleLoader__.load({
 			exit() {
 				const session = this.session;
 				if (session === null) return;
+				this.epoch += 1;
 				this.session = null;
 				session.dispose();
 				if (session.entry !== null) this.cleanupModule(session.entry);
@@ -403,11 +417,21 @@ window.__ModuleLoader__.load({
 				controller.tryOn(entry).then(() => {
 					setTryingId(entry.id);
 					setTryingOfficial(false);
-				}).catch(() => setError(t("tryOnError")));
+				}).catch(() => {
+					setError(t("tryOnError"));
+					setTryingId(null);
+					setTryingOfficial(false);
+				});
 			};
 			const tryOnOfficial = () => {
 				setError(null);
-				controller.tryOnOfficial();
+				try {
+					controller.tryOnOfficial();
+				} catch {
+					setError(t("tryOnError"));
+					setTryingOfficial(false);
+					return;
+				}
 				setTryingId(null);
 				setTryingOfficial(true);
 			};
@@ -416,6 +440,32 @@ window.__ModuleLoader__.load({
 				setTryingId(null);
 				setTryingOfficial(false);
 			};
+			/**
+			* Poll the host state until the config watcher reports the target active
+			* (the patch write lands before the watcher re-applies it), or time out.
+			* @param target - skin id, or `official` for the stock look.
+			* @returns whether the target became active within the poll budget.
+			*/
+			const confirmActive = (target) => new Promise((resolve) => {
+				const expected = target === OFFICIAL ? "none" : target;
+				let tries = 0;
+				const tick = () => {
+					tries += 1;
+					fetch("/api/skin-center/state").then(async (response) => {
+						const payload = await response.json().catch(() => null);
+						if (response.ok && payload?.ok === true && payload.active === expected) {
+							resolve(true);
+							return;
+						}
+						if (tries >= 20) resolve(false);
+						else window.setTimeout(tick, 250);
+					}).catch(() => {
+						if (tries >= 20) resolve(false);
+						else window.setTimeout(tick, 250);
+					});
+				};
+				tick();
+			});
 			/**
 			* One-click apply: the host half runs `dsh-skin use <target>` (or
 			* `use official`), the config watcher hot-reloads the patch within
@@ -433,9 +483,13 @@ window.__ModuleLoader__.load({
 					const payload = await response.json().catch(() => null);
 					if (!response.ok || payload?.ok !== true) throw new Error(payload?.error ?? `HTTP ${response.status}`);
 					setApplying(null);
-					window.setTimeout(() => {
-						window.location.reload();
-					}, 700);
+					confirmActive(target).then((confirmed) => {
+						if (confirmed) window.location.reload();
+						else {
+							const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;
+							setError(`${t("appliedUnconfirmed")} — ${command}`);
+						}
+					});
 				}).catch((cause) => {
 					setApplying(null);
 					const detail = cause instanceof Error ? cause.message : String(cause);
@@ -640,6 +694,7 @@ window.__ModuleLoader__.load({
 			applying: "Applying…",
 			restore: "Restore",
 			applyFailed: "Apply failed",
+			appliedUnconfirmed: "Applied, but the change has not been confirmed — refresh the page if the skin did not switch",
 			theme: "Theme preview",
 			themeLight: "Light",
 			themeDark: "Dark",
@@ -661,6 +716,7 @@ window.__ModuleLoader__.load({
 			applying: "应用中…",
 			restore: "恢复默认",
 			applyFailed: "应用失败",
+			appliedUnconfirmed: "已写入配置但尚未确认生效——若皮肤未切换请手动刷新页面",
 			theme: "主题预览",
 			themeLight: "亮色",
 			themeDark: "暗色",

@@ -27,7 +27,8 @@
   "scripts": {
     "build": "tsdown",
     "prepare": "tsdown",
-    "watch": "tsdown --watch"
+    "watch": "tsdown --watch",
+    "test": "vitest run"
   },
   "license": "BSD-3-Clause",
   "peerDependencies": {
@@ -36,7 +37,8 @@
   "devDependencies": {
     "lightningcss": "^1.32.0",
     "react": "^18.2.0",
-    "tsdown": "^0.22.2"
+    "tsdown": "^0.22.2",
+    "vitest": "^4.1.8"
   },
   "files": [
     "lib",

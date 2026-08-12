@@ -56,12 +56,24 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
         setTryingId(entry.id)
         setTryingOfficial(false)
       })
-      .catch(() => setError(t('tryOnError')))
+      .catch(() => {
+        // The controller may have torn down a previous session before the
+        // load failed; reset both flags so no stale "trying on" lingers.
+        setError(t('tryOnError'))
+        setTryingId(null)
+        setTryingOfficial(false)
+      })
   }
 
   const tryOnOfficial = (): void => {
     setError(null)
-    controller.tryOnOfficial()
+    try {
+      controller.tryOnOfficial()
+    } catch {
+      setError(t('tryOnError'))
+      setTryingOfficial(false)
+      return
+    }
     setTryingId(null)
     setTryingOfficial(true)
   }
@@ -71,6 +83,36 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
     setTryingId(null)
     setTryingOfficial(false)
   }
+
+  /**
+   * Poll the host state until the config watcher reports the target active
+   * (the patch write lands before the watcher re-applies it), or time out.
+   * @param target - skin id, or `official` for the stock look.
+   * @returns whether the target became active within the poll budget.
+   */
+  const confirmActive = (target: string): Promise<boolean> =>
+    new Promise(resolve => {
+      const expected = target === OFFICIAL ? 'none' : target
+      let tries = 0
+      const tick = (): void => {
+        tries += 1
+        void fetch('/api/skin-center/state')
+          .then(async response => {
+            const payload = await response.json().catch(() => null) as { ok?: boolean; active?: string } | null
+            if (response.ok && payload?.ok === true && payload.active === expected) {
+              resolve(true)
+              return
+            }
+            if (tries >= 20) resolve(false)
+            else window.setTimeout(tick, 250)
+          })
+          .catch(() => {
+            if (tries >= 20) resolve(false)
+            else window.setTimeout(tick, 250)
+          })
+      }
+      tick()
+    })
 
   /**
    * One-click apply: the host half runs `dsh-skin use <target>` (or
@@ -93,9 +135,16 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
           throw new Error(payload?.error ?? `HTTP ${response.status}`)
         }
         setApplying(null)
-        // Patch written; the watcher applies it within seconds. Reload after
-        // a beat so the user sees the confirmation, then the new boot graph.
-        window.setTimeout(() => { window.location.reload() }, 700)
+        // Patch written; reload only once the watcher reports the target
+        // active, so the page never boots into the old skin.
+        void confirmActive(target).then(confirmed => {
+          if (confirmed) {
+            window.location.reload()
+          } else {
+            const command = target === OFFICIAL ? 'dsh-skin use official' : `dsh-skin use ${target}`
+            setError(`${t('appliedUnconfirmed')} — ${command}`)
+          }
+        })
       })
       .catch((cause: unknown) => {
         setApplying(null)

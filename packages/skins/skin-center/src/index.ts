@@ -33,7 +33,15 @@ export function apply(ctx: Context): void {
   const routes = makeSkinCenterRoutes()
   try {
     ctx.effect(() => {
-      const disposers = routes.map(route => ctx.httpServer.register(route))
+      const disposers: Array<() => void> = []
+      try {
+        for (const route of routes) disposers.push(ctx.httpServer.register(route))
+      } catch (error) {
+        // Roll back whatever registered before the failure so a partial
+        // mount never leaves half a route family live; the outer catch logs.
+        for (const dispose of disposers) dispose()
+        throw error
+      }
       return () => { for (const dispose of disposers) dispose() }
     }, 'ui-skin-center: routes')
   } catch (error) {

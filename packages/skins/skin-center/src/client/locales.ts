@@ -21,6 +21,7 @@ export type SkinCenterKey =
   | 'applying'
   | 'restore'
   | 'applyFailed'
+  | 'appliedUnconfirmed'
   | 'theme'
   | 'themeLight'
   | 'themeDark'
@@ -42,6 +43,7 @@ export const en: Record<SkinCenterKey, string> = {
   applying: 'Applying…',
   restore: 'Restore',
   applyFailed: 'Apply failed',
+  appliedUnconfirmed: 'Applied, but the change has not been confirmed — refresh the page if the skin did not switch',
   theme: 'Theme preview',
   themeLight: 'Light',
   themeDark: 'Dark',
@@ -64,6 +66,7 @@ export const zh: Record<SkinCenterKey, string> = {
   applying: '应用中…',
   restore: '恢复默认',
   applyFailed: '应用失败',
+  appliedUnconfirmed: '已写入配置但尚未确认生效——若皮肤未切换请手动刷新页面',
   theme: '主题预览',
   themeLight: '亮色',
   themeDark: '暗色',
