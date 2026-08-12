@@ -66,6 +66,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
       if (result.code === 'unknown-address') return { kind: 'unreachable' }
       return { kind: 'lan-required' }
     }
+    const publicBaseUrl = result.publicBaseUrl
     return {
       kind: 'ready',
       url: result.url,
@@ -74,7 +75,11 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
       phase: 'waiting',
       deviceCount: 0,
       onlineCount: 0,
-      // The issued URL names the requested (or default first) literal.
+      // Whether this QR is built on the configured public (tunneled) base.
+      public: publicBaseUrl !== undefined && result.url.startsWith(publicBaseUrl),
+      ...(publicBaseUrl !== undefined ? { publicBaseUrl } : {}),
+      // The issued URL names the requested (or default first) literal; the
+      // public link has no LAN literal, so no radio row is selected then.
       address: address ?? result.lanAddresses[0] ?? '',
       lanAddresses: result.lanAddresses,
     }
@@ -142,6 +147,11 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     void mint(address).then(setState)
   }, [mint])
 
+  /** Re-mint against the configured public (tunneled) base. */
+  const handlePickPublic = useCallback(() => {
+    void mint().then(setState)
+  }, [mint])
+
   const handleCopy = useCallback(() => {
     if (state.kind !== 'ready') return
     void copyText(state.url).then((ok) => {
@@ -166,6 +176,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
             onRefresh={handleRefresh}
             onCopy={handleCopy}
             onPickAddress={handlePickAddress}
+            onPickPublic={handlePickPublic}
           />
         </div>
       ), document.body)}

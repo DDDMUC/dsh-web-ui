@@ -59,6 +59,8 @@ export interface PairingSnapshot {
   lanAvailable: boolean
   /** The LAN IP literals a QR can be built from (interface order). */
   lanAddresses: string[]
+  /** Configured public (tunneled) base URL, when present. */
+  publicUrl?: string
   /** Active token id when one is live (undefined when stopped/lan-required). */
   tokenId?: string
   /** Absolute expiry of the active token. */
@@ -123,6 +125,8 @@ export class PairingService {
   private stopped = false
   /** LAN base URLs keyed by the advertised IP literal (interface order). */
   private lanBases = new Map<string, string>()
+  /** Public (tunneled) base URL, e.g. a Cloudflare Tunnel quick URL. */
+  private publicBase: string | undefined
 
   /**
    * @param config - tunables. The settings surface replaces the object (a
@@ -156,19 +160,32 @@ export class PairingService {
     this.notify()
   }
 
+  /** The configured public (tunneled) base URL, when present. */
+  get publicBaseUrl(): string | undefined {
+    return this.publicBase
+  }
+
+  /** Set or clear the public base URL (a tunnel in front of this server). */
+  setPublicBaseUrl(url: string | undefined): void {
+    this.publicBase = url
+    this.notify()
+  }
+
   /**
    * Issue a fresh token, replacing (invalidating) any previous one. A
    * stopped service re-arms through this call (the panel's refresh button).
    * @param workspaceId - optional workspace the QR link should land in.
    * @param address - optional LAN IP literal the QR must be built from; the
-   * default is the first interface. Unknown addresses are refused.
+   * default is the public base (when configured) or the first interface.
+   * Unknown addresses are refused.
    * @returns the token secret and its expiry.
-   * @throws {Error} when the server is not LAN-reachable — callers surface
-   * this as the lan-required state instead of minting an unusable QR.
+   * @throws {Error} when no reachable base exists (no all-interfaces bind and
+   * no public base) — callers surface this as the lan-required state instead
+   * of minting an unusable QR.
    */
   issue(workspaceId?: string, address?: string): { token: string; expiresAt: number } {
-    if (this.lanBases.size === 0) {
-      throw new Error('remote-web-ui: pairing requires an all-interfaces bind (--host 0.0.0.0)')
+    if (this.lanBases.size === 0 && this.publicBase === undefined) {
+      throw new Error('remote-web-ui: pairing requires a reachable bind (--host 0.0.0.0 or publicBaseUrl)')
     }
     if (address !== undefined && !this.lanBases.has(address)) {
       throw new UnknownLanAddressError(address)
@@ -266,6 +283,7 @@ export class PairingService {
       phase: this.derivePhase(onlineCount, token !== undefined),
       lanAvailable: this.lanBases.size > 0,
       lanAddresses: [...this.lanBases.keys()],
+      ...(this.publicBase !== undefined ? { publicUrl: this.publicBase } : {}),
       ...(token !== undefined ? { tokenId: token.token, tokenExpiresAt: token.record.expiresAt } : {}),
       deviceCount: this.devices.size,
       onlineCount,
@@ -294,7 +312,7 @@ export class PairingService {
   }
 
   private derivePhase(onlineCount: number, hasToken: boolean): PairingPhase {
-    if (this.lanBases.size === 0) return 'lan-required'
+    if (this.lanBases.size === 0 && this.publicBase === undefined) return 'lan-required'
     if (this.stopped) return 'stopped'
     if (onlineCount > 0) return 'connected'
     if (this.devices.size > 0) return 'disconnected'
@@ -326,6 +344,7 @@ function snapshotsEqual(a: PairingSnapshot, b: PairingSnapshot): boolean {
   return a.phase === b.phase
     && a.lanAvailable === b.lanAvailable
     && sameStrings(a.lanAddresses, b.lanAddresses)
+    && a.publicUrl === b.publicUrl
     && a.tokenId === b.tokenId
     && a.tokenExpiresAt === b.tokenExpiresAt
     && a.deviceCount === b.deviceCount

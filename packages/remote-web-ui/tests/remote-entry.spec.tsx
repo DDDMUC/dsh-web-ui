@@ -93,7 +93,7 @@ describe('RemoteEntry', () => {
   it('shows the lan-required banner instead of a QR when the bind is loopback-only', async () => {
     mount({ ok: false, code: 'lan-required' })
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
-    await waitFor(() => expect(screen.getByText('This feature needs dsh web started with --host 0.0.0.0')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('This feature needs dsh web started with --host 0.0.0.0, or a configured public address')).toBeTruthy())
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
     expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
   })
@@ -125,7 +125,7 @@ describe('RemoteEntry', () => {
   it('renders the address picker on multi-homed hosts and re-mints on switch', async () => {
     const { fetch } = mount({ ok: true, url: 'http://192.168.1.5:3080/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000, lanAddresses: ['192.168.1.5', '10.0.0.3'] })
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
-    await waitFor(() => expect(screen.getByText('Network to advertise')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Network the QR code points to')).toBeTruthy())
     expect(screen.getByLabelText('192.168.1.5')).toBeTruthy()
     expect(screen.getByLabelText('10.0.0.3')).toBeTruthy()
     // Switching re-mints with the chosen literal; the first interface stays
@@ -143,7 +143,7 @@ describe('RemoteEntry', () => {
     mount()
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
     await waitFor(() => expect(screen.getByText('Waiting for a phone')).toBeTruthy())
-    expect(screen.queryByText('Network to advertise')).toBeNull()
+    expect(screen.queryByText('Network the QR code points to')).toBeNull()
   })
 
   it('reflects live status frames: connected and back to offline', async () => {

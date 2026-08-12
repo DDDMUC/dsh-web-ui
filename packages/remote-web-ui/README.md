@@ -34,9 +34,11 @@ QR code, live device status, and stop/refresh/copy actions.
 
 - A DSH installation whose `dsh` CLI supports profiles (`dsh --profile`,
   `dsh plugin`) — the profile/bundle mechanism this package rides on.
-- The server must be reachable from the phone: start with
+- For LAN use the server must be reachable from the phone: start with
   `dsh web --host 0.0.0.0`. With the default `127.0.0.1` bind the panel
-  shows an explicit explanation instead of a dead QR code. The panel's
+  shows an explicit explanation instead of a dead QR code — unless a public
+  base URL is configured (see "Remote access over the internet" below),
+  which makes the QR reachable from anywhere without rebinding. The panel's
   mint/stop endpoints are loopback-only by design: a desktop browser
   opened at the LAN URL sees a "配对面板仅限本机使用" banner instead —
   open the panel at `http://127.0.0.1` and let the phone use the paired
@@ -82,7 +84,72 @@ mounts both halves.
 - The QR link is built from the machine's non-internal IPv4 literals; a
   multi-homed host (Wi-Fi + wired, or a proxy/VPN virtual adapter) shows a
   radio picker so you can advertise the network the phone can actually
-  reach. The first literal is the default.
+  reach. The first literal is the default. When `publicBaseUrl` is set, the
+  picker adds a 公网地址 option on top — the default QR then uses the
+  public base, and picking a LAN literal re-mints an in-network link.
+- A configured `publicBaseUrl` satisfies the reachable-bind requirement on
+  its own: `dsh web` bound to `127.0.0.1` (no `--host 0.0.0.0`) still mints
+  working public QR links through the tunnel.
+
+## Remote access over the internet (tunnels)
+
+The QR link is normally a LAN URL, so a phone outside the house cannot use
+it. Point a tunnel at the dsh web port and tell the plugin its public
+address — the QR is then built from the tunnel URL and the phone-facing
+pairing fence trusts the tunneled host. Two knobs are involved:
+
+- **`publicBaseUrl`** (plugin config, in the profile patch or the settings
+  card): the public origin, e.g. `https://foo.trycloudflare.com`. The QR
+  link is built from it, and `accept`/`heartbeat`/`status` accept its host.
+  Malformed values are ignored with a warning (LAN-only behavior kept).
+- **`--trusted-host <authority>`** (dsh web flag): the transport-level
+  `/api` fence of the connection plugin must accept the public host too —
+  without it every `/api` request through the tunnel 403s *before* the
+  pairing layer (the plugin's own fence only covers the `/api/pair`
+  routes). Pass the public host (or `host:port`) exactly as the tunnel
+  forwards it.
+
+### Cloudflare Tunnel (quick tunnel — no account, no domain)
+
+Install the client once (macOS: `brew install cloudflared`; other systems:
+grab the `cloudflared-darwin-{arm64,amd64}` binary from the official GitHub
+releases). Then:
+
+```sh
+# 1. Expose the local port (whatever dsh web is listening on):
+cloudflared tunnel --url http://127.0.0.1:3080
+#    prints something like: https://xxxx-xxxx-xxxx.trycloudflare.com
+
+# 2. Start dsh web with that host trusted (use --host 0.0.0.0 too when LAN
+#    access should stay available):
+dsh web --trusted-host xxxx-xxxx-xxxx.trycloudflare.com
+```
+
+Then set `publicBaseUrl: https://xxxx-xxxx-xxxx.trycloudflare.com` in the
+profile patch (or the plugin settings card — it hot-reloads). Open the
+phone icon at `http://127.0.0.1`, scan the QR from anywhere: the phone
+binds, reloads into the full UI, and heartbeats keep it online.
+
+Notes:
+
+- Quick tunnels are free and need no login, but the hostname is random per
+  run: every `cloudflared` restart changes it, so update `--trusted-host`
+  and `publicBaseUrl` together. Cloudflare documents no uptime guarantees;
+  in-flight-request concurrency is capped (HTTP 429 past it), and Quick
+  Tunnels do not support Server-Sent Events — harmless here, because the
+  only SSE surface (the desktop panel status stream) is loopback-only and
+  the phone side uses plain requests plus heartbeats.
+- A quick tunnel is public: anyone with the URL can load the static page.
+  The pairing gate is the real fence — unpaired devices get 403 on every
+  `/api` call — so keep `requirePairingForLan` on.
+- For a stable hostname, create a named tunnel from the Cloudflare
+  dashboard (Networking → Tunnels; the domain must be hosted on
+  Cloudflare) and use its hostname in the same two places. Reachability
+  from mainland China is not guaranteed by Cloudflare; verify locally.
+- Tailscale is an alternative for personal use that needs no plugin
+  changes at all: its virtual-interface address (`100.x.y.z`) shows up in
+  the QR's address picker automatically, and a phone on the same tailnet
+  reaches it like a LAN host.
 
 ## Development
 
@@ -157,6 +224,12 @@ Repeat this after any change to the wire contract or the connection loop:
 5. 停止 on the desktop cuts the phone off: its next `/api` request 403s
    (reconnect loops retry until a fresh QR re-pairs).
 
+The public path is the same round trip through a tunnel (see "Remote access
+over the internet"): loopback mint → phone opens the public QR URL →
+accept → full UI. Both `publicBaseUrl` (plugin config) and
+`--trusted-host` (dsh web flag) must name the tunneled host; the desktop
+panel still opens at `http://127.0.0.1`.
+
 ## Known Limitations and Deferred Work
 
 - **Revocation is per-request**: a paired phone whose request is already in
@@ -166,6 +239,10 @@ Repeat this after any change to the wire contract or the connection loop:
 - **No per-device management UI**: the panel shows aggregate status
   (waiting / connected N / offline); individual device revocation is
   deferred.
+- **Quick-tunnel hostnames change per run**: a `trycloudflare.com` URL is
+  random on every `cloudflared` start, so `--trusted-host` and
+  `publicBaseUrl` must be updated together whenever the tunnel restarts.
+  A named tunnel (fixed hostname) avoids the churn.
 - **Dev HMR**: `dsh web --dev` polls every roster bundle by path, so
   rebuilding this package (its own `tsdown --watch`) hot-reloads the client
   bundle; no harness-side watcher is involved.

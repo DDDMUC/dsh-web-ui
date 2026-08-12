@@ -12,6 +12,8 @@ export interface IssueResult {
   expiresAt: number
   /** Every constructible LAN base address (interface order). */
   lanAddresses: string[]
+  /** The configured public (tunneled) base URL, when present. */
+  publicBaseUrl?: string
 }
 
 /** issue() refusal: the server is not LAN-reachable. */

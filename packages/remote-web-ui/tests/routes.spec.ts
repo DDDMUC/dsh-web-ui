@@ -182,6 +182,57 @@ describe('/api/pair routes', () => {
     }
   })
 
+  it('publicBaseUrl: issues a public link and trusts the tunneled host on the phone fence', async () => {
+    const service = makeService()
+    service.setPublicBaseUrl('https://phone.example.com')
+    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    try {
+      // Loopback issues; the default URL is now built from the public base.
+      const issued = await call(port, 'POST', '/api/pair/issue', {})
+      expect(issued.status).toBe(200)
+      expect(issued.body.url).toMatch(/^https:\/\/phone\.example\.com\/\?pair=tok-1$/)
+      expect(issued.body.publicBaseUrl).toBe('https://phone.example.com')
+      expect(issued.body.lanAddresses).toEqual(['192.168.1.5'])
+      // An explicit LAN address still mints a LAN URL (in-network fallback).
+      const lan = await call(port, 'POST', '/api/pair/issue', { body: { address: '192.168.1.5' } })
+      expect(lan.body.url).toMatch(/^http:\/\/192\.168\.1\.5:3080\/\?pair=tok-1$/)
+      // The tunneled host passes the phone-facing fence: accept + status work.
+      const accepted = await call(port, 'POST', '/api/pair/accept', { host: 'phone.example.com', body: { token: 'tok-1' } })
+      expect(accepted.status).toBe(200)
+      expect(accepted.cookies[0]).toMatch(/^dsh_pair=tok-1; Path=\//)
+      const heartbeat = await call(port, 'POST', '/api/pair/heartbeat', { host: 'phone.example.com', cookie: 'dsh_pair=tok-1' })
+      expect(heartbeat.status).toBe(200)
+      const status = await call(port, 'GET', '/api/pair/status', { host: 'phone.example.com', cookie: 'dsh_pair=tok-1' })
+      expect(status.body).toMatchObject({ ok: true, paired: true, phase: 'connected' })
+      // The tunneled host is NOT trusted on the loopback-only control plane.
+      const publicIssue = await call(port, 'POST', '/api/pair/issue', { host: 'phone.example.com' })
+      expect(publicIssue.status).toBe(403)
+      const publicStop = await call(port, 'POST', '/api/pair/stop', { host: 'phone.example.com' })
+      expect(publicStop.status).toBe(403)
+    } finally {
+      await close()
+    }
+  })
+
+  it('publicBaseUrl alone satisfies the reachable-bind requirement (loopback-only server)', async () => {
+    const service = makeService()
+    service.setLanBases([])
+    service.setPublicBaseUrl('https://phone.example.com:8443')
+    const { port, close } = await serve(makeRoutes({ service, lanAddresses: [] }))
+    try {
+      const issued = await call(port, 'POST', '/api/pair/issue', {})
+      expect(issued.status).toBe(200)
+      expect(issued.body.url).toMatch(/^https:\/\/phone\.example\.com:8443\/\?pair=tok-1$/)
+      // The fence matches the authority verbatim, port included.
+      const accepted = await call(port, 'POST', '/api/pair/accept', { host: 'phone.example.com:8443', body: { token: 'tok-1' } })
+      expect(accepted.status).toBe(200)
+      const wrongPort = await call(port, 'POST', '/api/pair/heartbeat', { host: 'phone.example.com:9999', cookie: 'dsh_pair=tok-1' })
+      expect(wrongPort.status).toBe(403)
+    } finally {
+      await close()
+    }
+  })
+
   it('rejects non-GET/POST methods with 405', async () => {
     const service = makeService()
     const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))

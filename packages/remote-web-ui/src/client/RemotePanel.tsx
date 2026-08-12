@@ -31,6 +31,10 @@ export type PanelState =
       address: string
       /** Every constructible LAN literal (interface order). */
       lanAddresses: string[]
+      /** Whether this QR is built on the configured public (tunneled) base. */
+      public: boolean
+      /** The configured public (tunneled) base URL, when present. */
+      publicBaseUrl?: string
     }
 
 /** Full panel props: copy + view state + actions. */
@@ -44,6 +48,8 @@ export interface RemotePanelProps {
   onCopy(): void
   /** Re-mint the QR against a different LAN address. */
   onPickAddress(address: string): void
+  /** Re-mint the QR against the configured public (tunneled) base. */
+  onPickPublic(): void
 }
 
 /** Badge text + tone per phase (ready states only). */
@@ -65,7 +71,7 @@ function statusOf(
  * @param props - copy, state, and actions.
  * @returns the panel element tree.
  */
-export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy, onPickAddress }: RemotePanelProps) {
+export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy, onPickAddress, onPickPublic }: RemotePanelProps) {
   return (
     <div className={css.panel} role="dialog" aria-modal="true" aria-label={t('title')}>
       <div className={css.header}>
@@ -98,8 +104,11 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
           <div className={css.card}>
             <div className={css.cardHeader}>
               <span className={css.cardTitle}>{t('card.title')}</span>
-              <span className={clsx(css.badge, css[`badge-${statusOf(t, state).tone}`])}>
-                {statusOf(t, state).text}
+              <span className={css.badges}>
+                {state.public && <span className={clsx(css.badge, css.badgePublic)}>{t('public.badge')}</span>}
+                <span className={clsx(css.badge, css[`badge-${statusOf(t, state).tone}`])}>
+                  {statusOf(t, state).text}
+                </span>
               </span>
             </div>
             <div className={css.qrWrap} data-testid="remote-qr">
@@ -110,22 +119,37 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
               : <p className={css.expiry}>{t('pair.expires', { time: formatClock(state.expiresAt) })}</p>}
           </div>
 
-          <p className={css.hint}>{t('pair.hint')}</p>
+          <p className={css.hint}>{state.public ? t('pair.publicHint') : t('pair.hint')}</p>
           <p className={css.link} title={state.url}>{state.url}</p>
           {state.phase === 'stopped' && <p className={css.stoppedHint}>{t('stopped.hint')}</p>}
 
-          {state.lanAddresses.length > 1 && (
+          {(state.publicBaseUrl !== undefined || state.lanAddresses.length > 1) && (
             <fieldset className={css.addresses}>
               <legend>{t('address.label')}</legend>
+              {state.publicBaseUrl !== undefined && (
+                <label key="public" className={css.address}>
+                  <input
+                    type="radio"
+                    name="lan-address"
+                    aria-label={t('address.public')}
+                    checked={state.public}
+                    onChange={onPickPublic}
+                  />
+                  <span>{t('address.public')}</span>
+                  <code className={css.addressValue}>{state.publicBaseUrl}</code>
+                </label>
+              )}
               {state.lanAddresses.map(address => (
                 <label key={address} className={css.address}>
                   <input
                     type="radio"
                     name="lan-address"
-                    checked={address === state.address}
+                    aria-label={address}
+                    checked={!state.public && address === state.address}
                     onChange={() => onPickAddress(address)}
                   />
-                  <span>{address}</span>
+                  <span>{t('address.lan')}</span>
+                  <code className={css.addressValue}>{address}</code>
                 </label>
               ))}
               <p className={css.addressHint}>{t('address.hint')}</p>

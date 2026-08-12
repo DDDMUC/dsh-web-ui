@@ -23,6 +23,8 @@ export interface RemoteSettings {
   cookieName?: string
   /** Fence flag: whether non-loopback /api requests must carry a live paired-device cookie. */
   requirePairingForLan?: boolean
+  /** Public (tunneled) base URL the QR link is built from when set. */
+  publicBaseUrl?: string
 }
 
 /** What the remote-control card renders. */
@@ -39,6 +41,8 @@ export interface RemoteSettingsCardState extends CardShell {
   cookieName: CardFieldState
   /** LAN fence flag. */
   requirePairingForLan: CardFieldState
+  /** Public (tunneled) base URL. */
+  publicBaseUrl: CardFieldState
 }
 
 /** The registration-side face the card's slot entry injects. */
@@ -63,6 +67,7 @@ export class RemoteSettingsCardController {
       numberField('maxDevices'),
       textField('cookieName'),
       booleanField('requirePairingForLan'),
+      textField('publicBaseUrl'),
     ])
     this.store = this.form.bind(() => this.projection())
   }
@@ -76,6 +81,7 @@ export class RemoteSettingsCardController {
       maxDevices: this.form.field('maxDevices'),
       cookieName: this.form.field('cookieName'),
       requirePairingForLan: this.form.field('requirePairingForLan'),
+      publicBaseUrl: this.form.field('publicBaseUrl'),
     }
   }
 
@@ -180,6 +186,16 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
         {...state.requirePairingForLan}
         onEdit={(text) => { props.edit('requirePairingForLan', text) }}
         onReset={() => { props.resetField('requirePairingForLan') }}
+      />
+      <ValueField
+        id="settings-remote-public-base"
+        label={t('settings.publicBaseUrl')}
+        hint={t('settings.publicBaseUrlHint')}
+        placeholder="https://example.trycloudflare.com"
+        {...fieldProps}
+        {...state.publicBaseUrl}
+        onEdit={(text) => { props.edit('publicBaseUrl', text) }}
+        onReset={() => { props.resetField('publicBaseUrl') }}
       />
     </PluginSettingsCard>
   )

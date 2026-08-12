@@ -78,6 +78,25 @@ describe('PairingService', () => {
     expect(service.snapshot().lanAddresses).toEqual(['192.168.1.5', '10.0.0.3'])
   })
 
+  it('publicBaseUrl satisfies the reachable-bind requirement and surfaces in snapshots', () => {
+    const service = makeService()
+    service.setLanBases([])
+    service.setPublicBaseUrl('https://phone.example.com')
+    // No LAN bind, but the public base is a constructible link — no throw.
+    expect(() => service.issue()).not.toThrow()
+    // The snapshot advertises the public base alongside the (empty) LAN set.
+    expect(service.snapshot()).toMatchObject({
+      phase: 'waiting',
+      lanAvailable: false,
+      lanAddresses: [],
+      publicUrl: 'https://phone.example.com',
+    })
+    // Clearing the public base restores the lan-required condition.
+    service.setPublicBaseUrl(undefined)
+    expect(() => service.issue()).toThrow(/--host 0.0.0.0/)
+    expect(service.snapshot().phase).toBe('lan-required')
+  })
+
   it('stop revokes devices and tokens; a fresh issue re-arms', () => {
     const service = makeService()
     const { token } = service.issue()

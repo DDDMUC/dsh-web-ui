@@ -61,6 +61,23 @@ function isTrustedApiRequest(request: IncomingMessage, trustedHosts: readonly st
 /** Cap on pairing request bodies (tokens and workspace ids are tiny). */
 const MAX_BODY_BYTES = 4096
 
+/**
+ * The host authority of a configured public base URL, e.g. `foo.trycloudflare.com`
+ * from `https://foo.trycloudflare.com`. Undefined when the URL does not parse —
+ * a malformed config then simply contributes no fence entry (and the panel
+ * falls back to LAN-only URLs).
+ * @param url - the configured public base URL (or undefined).
+ * @returns the `host[:port]` authority the fence should trust.
+ */
+export function publicHostOf(url: string | undefined): string | undefined {
+  if (url === undefined) return undefined
+  try {
+    return new URL(url).host
+  } catch {
+    return undefined
+  }
+}
+
 /** Cookie lifetime: one year; revoked sessions die at the gate regardless. */
 const COOKIE_MAX_AGE_SEC = 365 * 24 * 60 * 60
 
@@ -172,8 +189,11 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
 
   /** Loopback-only fence: the desktop panel's control endpoints. */
   const loopbackFence = (req: IncomingMessage): boolean => isTrustedApiRequest(req, [])
-  /** Phone-facing fence: loopback or the derived LAN literals. */
-  const lanFence = (req: IncomingMessage): boolean => isTrustedApiRequest(req, lanAddresses)
+  /** Phone-facing fence: loopback, the derived LAN literals, or the configured public host. */
+  const lanFence = (req: IncomingMessage): boolean => {
+    const publicHost = publicHostOf(service.publicBaseUrl)
+    return isTrustedApiRequest(req, publicHost === undefined ? lanAddresses : [...lanAddresses, publicHost])
+  }
 
   const requireMethod = (req: IncomingMessage, res: ServerResponse, method: string): boolean => {
     if (req.method === method) return true
@@ -197,8 +217,11 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       : body.address
     try {
       const { token, expiresAt } = service.issue(workspaceId, address)
-      const base = address === undefined ? service.lanBaseUrl : service.lanBaseUrlFor(address)
-      if (base === undefined) throw new Error('remote-web-ui: lan base unavailable')
+      // The default base is the public (tunneled) URL when configured — a
+      // phone anywhere can reach it — and the first LAN interface otherwise.
+      // An explicit address always names a LAN literal.
+      const base = address === undefined ? (service.publicBaseUrl ?? service.lanBaseUrl) : service.lanBaseUrlFor(address)
+      if (base === undefined) throw new Error('remote-web-ui: base unavailable')
       const workspaceQuery = workspaceId === undefined ? '' : `&workspace=${encodeURIComponent(workspaceId)}`
       writeJson(res, 200, {
         ok: true,
@@ -208,6 +231,9 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
         // Every constructible base, so a multi-homed panel can switch the
         // advertised network without a second round trip.
         lanAddresses: service.lanAddresses,
+        // The configured public base, when present — the panel uses it to
+        // label the QR as a public (tunneled) link.
+        ...(service.publicBaseUrl !== undefined ? { publicBaseUrl: service.publicBaseUrl } : {}),
       })
     } catch (error) {
       // lan-required (no bind) and unknown-address are both configuration

@@ -165,6 +165,18 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+.badgePublic {
+  color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
 .qrWrap {
   display: flex;
   align-items: center;
@@ -304,6 +316,14 @@
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+}
+
+.addressValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
 }
 
 .addressHint {

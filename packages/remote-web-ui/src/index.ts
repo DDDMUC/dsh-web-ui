@@ -66,6 +66,15 @@ export interface Config {
    * the fence's open-LAN behavior and use pairing only for tokens/status.
    */
   requirePairingForLan?: boolean
+  /**
+   * Public base URL of a tunnel in front of this server (e.g. a Cloudflare
+   * Tunnel quick URL `https://xxx.trycloudflare.com` or a named-tunnel
+   * subdomain). When set, the QR link is built from it — a phone anywhere
+   * can pair — and its host is trusted by the phone-facing pairing fence.
+   * Leave unset for LAN-only usage. Malformed values are ignored with a
+   * warning (LAN-only behavior preserved).
+   */
+  publicBaseUrl?: string
   /** Master switch for the plugin (browser half + host pairing surfaces). */
   enabled?: boolean
 }
@@ -76,19 +85,28 @@ export const Config: z<Config> = z.object({
   maxDevices: z.number().step(1).min(1).max(64).default(4),
   cookieName: z.string().min(1).default('dsh_pair'),
   requirePairingForLan: z.boolean().default(true),
+  publicBaseUrl: z.string(),
   enabled: z.boolean().default(true),
 })
 
 /** Presence sweep cadence (a stale device flips to disconnected within two sweeps). */
 const SWEEP_INTERVAL_MS = 10_000
 
+/**
+ * Fully resolved config: every field non-optional except `publicBaseUrl`,
+ * which legitimately resolves to `undefined` when unset (the schema keeps it
+ * optional, so `Required` alone would over-narrow it to `string`).
+ */
+type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl'>> & { publicBaseUrl: string | undefined }
+
 /** Schema defaults, re-read for hand-built test contexts (the loader applies them normally). */
-const DEFAULTS: Required<Omit<Config, never>> = {
+const DEFAULTS: ResolvedConfig = {
   tokenTtlMs: 10 * 60_000,
   offlineAfterMs: 25_000,
   maxDevices: 4,
   cookieName: 'dsh_pair',
   requirePairingForLan: true,
+  publicBaseUrl: undefined,
   enabled: true,
 }
 
@@ -98,19 +116,20 @@ const DEFAULTS: Required<Omit<Config, never>> = {
  * @param config - resolved plugin config (schema defaults applied by the loader).
  */
 export function apply(ctx: Context, config?: Config): void {
-  const resolved: Required<Omit<Config, never>> = {
+  const resolved: ResolvedConfig = {
     tokenTtlMs: config?.tokenTtlMs ?? DEFAULTS.tokenTtlMs,
     offlineAfterMs: config?.offlineAfterMs ?? DEFAULTS.offlineAfterMs,
     maxDevices: config?.maxDevices ?? DEFAULTS.maxDevices,
     cookieName: config?.cookieName ?? DEFAULTS.cookieName,
     requirePairingForLan: config?.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
+    publicBaseUrl: config?.publicBaseUrl,
     enabled: config?.enabled ?? DEFAULTS.enabled,
   }
   // The live source the pairing service and the gate read: the settings
   // section once the web settings surface is served, the composition entry
   // otherwise (installSettingsSection swaps it when the namespace registers).
   let current: () => Config = () => config ?? {}
-  const resolve = (): Required<Omit<Config, never>> => {
+  const resolve = (): ResolvedConfig => {
     const value = current()
     return {
       tokenTtlMs: value.tokenTtlMs ?? DEFAULTS.tokenTtlMs,
@@ -118,6 +137,7 @@ export function apply(ctx: Context, config?: Config): void {
       maxDevices: value.maxDevices ?? DEFAULTS.maxDevices,
       cookieName: value.cookieName ?? DEFAULTS.cookieName,
       requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
+      publicBaseUrl: value.publicBaseUrl,
       enabled: value.enabled ?? DEFAULTS.enabled,
     }
   }
@@ -158,6 +178,14 @@ export function apply(ctx: Context, config?: Config): void {
       maxDevices: value.maxDevices,
       cookieName: value.cookieName,
     }
+    // A malformed public base is ignored with a warning — LAN-only behavior
+    // stays intact rather than silently minting unusable QR links.
+    if (value.publicBaseUrl !== undefined && !isHttpUrl(value.publicBaseUrl)) {
+      console.warn(`remote-web-ui: ignoring malformed publicBaseUrl ${JSON.stringify(value.publicBaseUrl)} (expected https://host[:port])`)
+      service.setPublicBaseUrl(undefined)
+    } else {
+      service.setPublicBaseUrl(value.publicBaseUrl)
+    }
     const enabled = value.enabled
     if (!enabled) service.stop()
     if (disposeRoutes === undefined && enabled) {
@@ -194,4 +222,14 @@ export function apply(ctx: Context, config?: Config): void {
     onChange: sync,
   })
   sync()
+}
+
+/** Whether a configured public base is a parseable http(s) URL with a host. */
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname !== ''
+  } catch {
+    return false
+  }
 }

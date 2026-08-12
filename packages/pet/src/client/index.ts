@@ -144,8 +144,37 @@ export function apply(ctx: ClientContext): void {
       }
 
       const disposePoll = ctx.effect(() => {
-        const timer = window.setInterval(pollNow, POLL_MS)
-        return () => window.clearInterval(timer)
+        // Poll only while the tab is visible: the host snapshot does not
+        // change while the page is hidden, so a background interval would
+        // only burn RPCs (browser throttling is an unreliable backstop).
+        // Coming back to the tab refreshes the pet immediately instead of
+        // waiting out the next 800 ms cycle.
+        let timer: number | undefined
+        const stop = (): void => {
+          if (timer !== undefined) {
+            window.clearInterval(timer)
+            timer = undefined
+          }
+        }
+        const start = (): void => {
+          if (timer === undefined && document.visibilityState === 'visible') {
+            timer = window.setInterval(pollNow, POLL_MS)
+          }
+        }
+        const onVisibility = (): void => {
+          if (document.visibilityState === 'visible') {
+            pollNow()
+            start()
+          } else {
+            stop()
+          }
+        }
+        start()
+        document.addEventListener('visibilitychange', onVisibility)
+        return () => {
+          stop()
+          document.removeEventListener('visibilitychange', onVisibility)
+        }
       }, 'pet: poll')
 
       const injected = (_sessionId: SessionId, actions: PetBakedActions): PetInjected => {
