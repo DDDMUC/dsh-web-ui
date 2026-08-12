@@ -1,25 +1,25 @@
 /**
- * Shared tsdown preset for UI plugin client bundles. Emits a closure-factory
- * artifact: the bundle calls window.__ModuleLoader__.load({id, factory})
- * and resolves externals through the injected require (loader module table —
- * cordis DI entities, no globals, no import map). CSS Modules are compiled by
- * lightningcss inside the bundle: importing `x.module.css` yields the
- * hashed class map, and the css text auto-injects a <style data-plugin="<id>">
- * tag at factory execution (the loader removes plugin-owned tags on unload).
- * The virtual loader registers each real stylesheet as a watch dependency.
- * Vendored from the DSH checkout's `packages/client/tsdown.client.ts` (this
- * repo is installed standalone and cannot import the monorepo), with the
- * platform module list mirrored locally in `web/src/platform.ts` — keep in
- * sync when the dsh version changes, exactly like the official turtle-ui
- * example plugin.
+ * Shared tsdown preset for UI plugin client bundles — the single source of
+ * truth for every dsh-web-ui plugin's build (previously copied per-package
+ * from the DSH checkout's `packages/client/tsdown.client.ts`). Emits a
+ * closure-factory artifact: the bundle calls window.__ModuleLoader__.load
+ * ({id, factory}) and resolves externals through the injected require
+ * (loader module table — cordis DI entities, no globals, no import map).
+ * CSS Modules are compiled by lightningcss inside the bundle: importing
+ * `x.module.css` yields the hashed class map, and the css text auto-injects
+ * a <style data-plugin="<id>"> tag at factory execution (the loader removes
+ * plugin-owned tags on unload). The virtual loader registers each real
+ * stylesheet as a watch dependency. The platform module list mirrors the
+ * shell's seed table in `./web-platform.ts`.
  */
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { basename, dirname, relative, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { UserConfig } from 'tsdown'
 import { transform } from 'lightningcss'
-import { PLATFORM_MODULES } from './web/src/platform.ts'
+import { PLATFORM_MODULES } from './web-platform.ts'
 
 /**
  * Virtual-id wrapper keeping module CSS away from tsdown's own css pipeline
@@ -48,7 +48,7 @@ const SKIP_WORKSPACE_BUILD: UserConfig = { entry: '' }
 
 /**
  * Documented TEMPORARY exemption, not a platform module (hence not in
- * platform.ts): the snapshot-store engine (createSnapshotStore/defineStore/
+ * web-platform.ts): the snapshot-store engine (createSnapshotStore/defineStore/
  * shallowEqual) lives in runtime pending its promotion-time rehoming, and
  * five importers (locale, ui-layout, ui-conversation ×3) ride this single
  * exemption. At runtime the lazy CJS table answers the require natively:
@@ -61,7 +61,7 @@ const RUNTIME_STORE_EXEMPTION = '@deepseek-ai/dsh-client-runtime/client'
 /** Externals resolved from the loader module table: the platform seed entries plus the documented runtime exemption. */
 export const CLIENT_EXTERNALS: readonly string[] = [...PLATFORM_MODULES, RUNTIME_STORE_EXEMPTION]
 
-const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url))
+const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 /** Rebase a physical lib-relative source onto a browser URL that mirrors the repository directories. */
 function browserSourcePath(source: string, sourcemapPath: string): string {
@@ -82,9 +82,9 @@ function browserSourcePath(source: string, sourcemapPath: string): string {
  * @param id - plugin id (package name), stamped into the __ModuleLoader__.load
  * handoff and onto the injected style tags.
  * @param libEntry - node-half entries, spelled at the call site so the
- * package-invariants gate can see `lib/types/invariant.js` in each package's
- * own tsdown.config.ts (a preset-side glob hides it from the mechanical check).
- * @param options - phase placement, lib overrides, and companion Node configs.
+ * package-invariants gate can see `src/invariant.ts` (or the tsc emit path) in
+ * each package's own tsdown.config.ts.
+ * @param options - phase placement, lib overrides, companion Node configs.
  * @returns ENV-selected tsdown config for the current build face.
  */
 export function clientBundle(
@@ -92,7 +92,7 @@ export function clientBundle(
   libEntry: readonly string[],
   options: ClientBundleOptions = {},
 ): BuildFaceConfig {
-  const lib = clientLibraryConfig(id, libEntry, options.lib)
+  const lib = clientLibraryConfig(id, libEntry, options.lib, options.libExternal)
   return ({ env }) => {
     const face = buildFace(env?.DSH_BUILD_FACE)
     const client = clientConfig(id, face === undefined
@@ -106,25 +106,53 @@ export function clientBundle(
 }
 
 /**
- * Build a Client-only Node library during the Client pass.
- * @param id - Package name used in tsdown diagnostics.
- * @param libEntry - Emitted JavaScript entries consumed from `lib/types`.
- * @returns ENV-selected tsdown config for the Client build face.
+ * The standalone mobile page bundle (served by the plugin's own route). It
+ * boots WITHOUT the main UI's module loader, so everything — React, zod, the
+ * harness wire contracts — is inlined into one self-contained module script.
+ * The page talks to the host through plain fetch/WebSocket over /api.
+ * @param id - plugin id (package name), used in tsdown diagnostics.
+ * @param entry - the mobile page entry (e.g. `src/mobile/index.tsx`).
+ * @returns a fully self-contained browser bundle config.
  */
-export function clientLibrary(id: string, libEntry: readonly string[]): BuildFaceConfig {
-  const lib = clientLibraryConfig(id, libEntry)
-  return clientOnly([lib])
-}
-
-/**
- * Select arbitrary package-local configs only during the Client pass.
- * @param configs - Node-side configs emitted after Client tsc.
- * @returns ENV-selected tsdown config for the Client build face.
- */
-export function clientOnly(configs: readonly UserConfig[]): BuildFaceConfig {
-  return ({ env }) => buildFace(env?.DSH_BUILD_FACE) === 'host'
-    ? [SKIP_WORKSPACE_BUILD]
-    : [...configs]
+export function mobileBundle(id: string, entry: string): UserConfig {
+  const mobileRequire = createRequire(import.meta.url)
+  return {
+    name: `${id}/mobile`,
+    entry: { mobile: entry },
+    outDir: 'lib',
+    format: 'esm',
+    platform: 'browser',
+    target: 'es2022',
+    dts: false,
+    sourcemap: true,
+    clean: false,
+    // Fully self-contained: no externals, no module table.
+    external: [],
+    noExternal: [/.*/],
+    define: {
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),
+      'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
+      'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
+    },
+    plugins: [{
+      // Wire contracts resolve through node_modules (the exports map lands on
+      // the real runtime values) instead of the tsconfig paths' declaration
+      // files, which would miss every value export.
+      name: 'dsh-mobile-value-resolution',
+      resolveId(source: string) {
+        const match = /^@deepseek-ai\/dsh-host-apiproxy\/api(?:\/.*)?$/.exec(source)
+        if (match === null) return null
+        try {
+          return mobileRequire.resolve(source)
+        } catch {
+          return null
+        }
+      },
+    }],
+    outputOptions: {
+      entryFileNames: 'mobile.js',
+    },
+  }
 }
 
 interface ClientBundleOptions {
@@ -134,6 +162,8 @@ interface ClientBundleOptions {
   readonly companions?: readonly UserConfig[]
   /** Overrides for the package's primary Node-side library config. */
   readonly lib?: UserConfig
+  /** Extra Node-side externals (in addition to the default cordis entry). */
+  readonly libExternal?: readonly (string | RegExp)[]
 }
 
 type BuildFace = 'host' | 'client' | undefined
@@ -149,6 +179,7 @@ function clientLibraryConfig(
   id: string,
   libEntry: readonly string[],
   overrides: UserConfig = {},
+  extraExternal: readonly (string | RegExp)[] = [],
 ): UserConfig {
   return {
     name: id,
@@ -164,7 +195,7 @@ function clientLibraryConfig(
     // from this repo's install; its built declarations carry .ts-suffixed
     // relative imports rolldown cannot follow, so the import must stay
     // external (the same stance as the peer APIs above).
-    external: ['@deepseek-ai/cordis'],
+    external: ['@deepseek-ai/cordis', ...extraExternal],
     ...overrides,
   }
 }
@@ -246,8 +277,7 @@ function clientConfig(id: string, entry: string): UserConfig {
         const classMap: Record<string, string> = {}
         // Sort deterministically: lightningcss's cssExports iteration order is
         // process-dependent (hash-map seeds), which would otherwise churn the
-        // emitted lib/client.js on every rebuild (this repo commits lib/).
-        // Local deviation from the vendored preset.
+        // emitted lib/client.js on every rebuild.
         for (const [local, exp] of Object.entries(cssExports ?? {}).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
           classMap[local] = exp.name
         }

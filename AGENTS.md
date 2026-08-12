@@ -1,5 +1,17 @@
 # dsh-web-ui — 仓库规则
 
+## 插件只能基于官方 NPM SDK 开发（禁止改 DSH 源码）
+
+- 本仓库所有插件**禁止修改 DeepSeek Harness (DSH) 源码**（对官方源码 checkout 零写入），
+  挂载只走 `cordis.patch.yml` + profile 机制。
+- 开发**只能基于官方 NPM SDK**：`@deepseek-ai/*` 内测私有包（scope registry 为
+  registry.npmjs.org），类型来源是各包 `devDependencies` 中的 SDK 包（node_modules 解析）。
+- **禁止** tsconfig `extends` / `paths` / `references` 指向任何 DSH 源码 checkout
+  （`test-zhu1090093659`、`~/.dsh/source/current` 等引用一律不得新增）。
+- 构建预设统一用仓库内单一共享副本 `shared/tsdown.client.ts`，禁止在包内复制。
+- 环境：npm 私有 scope 需要 `NPM_TOKEN` 环境变量（项目 `.npmrc` 只写 `${NPM_TOKEN}`
+  占位符，真实令牌只放环境变量，详见 `docs/plugins.md`）。
+
 ## 禁止使用 emoji
 
 本仓库**禁止出现任何 emoji 字符**（含 Emoji_Presentation、变化选择符 U+FE0F、ZWJ 序列、

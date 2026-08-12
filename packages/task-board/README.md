@@ -85,14 +85,16 @@ scripts/dsh-task-board.js                          # 一键挂载/卸载/状态 
 
 ## 构建
 
-前置：本机已安装 DSH（`~/.dsh/source/current` 存在），Node ≥ 20。
+前置：Node ≥ 20，npm 私有 scope 可访问（`NPM_TOKEN` 环境变量 + 项目 `.npmrc`，见仓库
+`docs/plugins.md`）。类型与运行时 API 全部来自官方 NPM SDK（`@deepseek-ai/*`
+devDependencies），**无需任何 DSH 源码 checkout**。
 
 ```sh
 cd ~/code/dsh-web-ui/packages/task-board
-npm install          # 首次
-npm run build        # 产出 lib/index.js + lib/client.js（tsdown + 复制的 client 预设）
-npm run typecheck    # 类型检查（types 指向 checkout 的 lib/types）
-npm test             # vitest：存储读写 / 状态流转 / 执行触发
+pnpm install        # 首次（workspace 根执行 pnpm install）
+pnpm run build      # 产出 lib/index.js + lib/client.js（tsdown + shared/tsdown.client.ts 预设）
+pnpm run typecheck  # 类型检查（node_modules 的 SDK 包类型）
+pnpm test           # vitest：存储读写 / 状态流转 / 执行触发
 ```
 
 ## 挂载 / 卸载

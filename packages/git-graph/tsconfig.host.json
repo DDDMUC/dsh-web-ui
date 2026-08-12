@@ -1,37 +1,31 @@
 {
-  "extends": "../../../test-zhu1090093659/tsconfig.base.json",
+  // Host-half program (node process side). SDK types resolve from the
+  // @deepseek-ai/* npm packages declared in devDependencies (official
+  // NPM SDK), never from a source checkout.
   "compilerOptions": {
+    "target": "ES2024",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "lib": ["ES2024"],
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
     "rootDir": "src",
     "outDir": "lib/types",
-    // Type sources are the personal profile checkout built declarations
-    // (~/.dsh/source/current — the running dsh worktree, which carries the
-    // ui-conversation customizations the web profile boots against). paths
-    // replaces the base table wholesale; every reachable specifier is listed.
-    "paths": {
-      "@deepseek-ai/cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
-      "cosmokit": ["/Users/zcl/.dsh/source/current/vendor/cosmokit/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-brand": ["/Users/zcl/.dsh/source/current/packages/util/brand/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-host-webserver": ["/Users/zcl/.dsh/source/current/packages/host/webserver/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-invariants": ["/Users/zcl/.dsh/source/current/packages/support/invariants/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-llm": ["/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-scope": ["/Users/zcl/.dsh/source/current/packages/core/scope/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-session": ["/Users/zcl/.dsh/source/current/packages/core/session/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-subprocess": ["/Users/zcl/.dsh/source/current/packages/subprocess/subprocess/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-type-meta": ["/Users/zcl/.dsh/source/current/packages/typert/type-meta/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-workspace": ["/Users/zcl/.dsh/source/current/packages/workspace/workspace/lib/types/index.d.ts"]
-    }
+    "types": ["node"]
   },
   "include": [
     "src/index.ts",
     "src/invariant.ts",
     "src/core/**/*.ts",
     "src/host/**/*.ts"
-  ],
-  "references": [
-    { "path": "../../../test-zhu1090093659/vendor/cordis" },
-    { "path": "../../../test-zhu1090093659/packages/host/webserver" },
-    { "path": "../../../test-zhu1090093659/packages/subprocess/subprocess" },
-    { "path": "../../../test-zhu1090093659/packages/support/invariants" },
-    { "path": "../../../test-zhu1090093659/packages/workspace/workspace" }
   ]
 }

@@ -53,10 +53,16 @@ pnpm install   # workspace 链接（packages/* 与 packages/skins/*）
 pnpm -r build  # 全仓构建
 ```
 
-> **前置要求**：构建/类型检查/测试依赖 DSH checkout 提供类型来源——`~/code/test-zhu1090093659`
-> （peer API 源码，即下文「类型引用」的 `../../../test-zhu1090093659` 相对路径）与
-> `~/.dsh/source/current`（dsh 运行时类型，见 `packages/task-board/tsconfig.json` 的 paths）。
-> 缺失时 `pnpm -r build` / `pnpm typecheck` 会失败。
+> **前置要求**：类型来源是官方 NPM SDK——`@deepseek-ai/*` 内测私有包（scope registry 为
+> registry.npmjs.org），**不依赖任何 DSH 源码 checkout**。首次构建前：
+> 1. 设置环境变量 `export NPM_TOKEN='<内测只读令牌>'`（令牌向仓库维护者申请，勿转发、勿提交）；
+> 2. 项目 `.npmrc` 需含（占位符形式，真实令牌只放环境变量；`.npmrc` 已在 `.gitignore` 中）：
+>    ```ini
+>    @deepseek-ai:registry=https://registry.npmjs.org/
+>    //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+>    ```
+> 3. 所有 pnpm/npm 命令必须在设置了 `NPM_TOKEN` 的环境中执行（fresh shell 需自行 export）。
+> 缺失时 `pnpm install` 无法拉取私有 SDK 包，`pnpm -r build` / `pnpm typecheck` 会失败。
 
 ### 6. 本地验证
 
@@ -89,7 +95,27 @@ dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all
       name: '@deepseek-ai/dsh-client-ui-<name>'
 ```
 
-- **类型引用**：统一走 `../../../test-zhu1090093659`（从 `packages/<name>/` 出发的相对路径，参照 `packages/pet/tsconfig.json` 的 project references；`~/.dsh/source/current` 绝对路径亦可，参照 `packages/task-board/tsconfig.json` 的 paths）。当前 DSH 快照（20260811 起）将 vendored cordis 包名从 `cordis` 改为 `@deepseek-ai/cordis`：源码 `import ... from '@deepseek-ai/cordis'`，tsconfig `paths` 键同名（`test-zhu1090093659/tsconfig.base.json` 同时保留两个拼写指同一源码，兼容旧引用）；`cordis` 不再出现在任何 package.json 的依赖/peer 声明中（运行时由 dsh profile 提供，tsdown 的 node 半区显式 `external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-settings']`）。
+- **类型来源（只能基于官方 NPM SDK）**：各包把用到的 `@deepseek-ai/*` 包声明为 `devDependencies`
+  （`^0.0.1-rc.2`；cordis 用 `^4.0.1-rc.1`），TS 从 node_modules 自动解析类型
+  （SDK 包的 `exports["."].types` 统一指向 `lib/types/index.d.ts`，client 半区子路径
+  `./client` 同理）。**禁止** tsconfig `extends` / `paths` / `references` 指向任何 DSH 源码
+  checkout（历史形态：`../../../test-zhu1090093659` 相对路径、`~/.dsh/source/current` 绝对
+  paths —— 均已废除）。tsconfig 为自包含单项目：`moduleResolution: "bundler"` +
+  `allowImportingTsExtensions`（emit 项目另加 `rewriteRelativeImportExtensions: true`，
+  参照 `packages/task-board/tsconfig.json`）。构建/类型/测试全部以 node_modules 的 SDK 包为
+  唯一类型来源，克隆后无需任何源码 checkout 即可构建。
+- **浏览器 client 半区**：`@deepseek-ai/*/client` 子路径由 SDK 包 exports 提供（闭包工厂产物，
+  运行时经 `window.__ModuleLoader__` 加载）。官方 SDK 尚未发布的槽位（如
+  `conversation.input.selector.*`）用**模块形式**的本地 augmentation 补齐类型
+  （`import type {}` + `declare module '@deepseek-ai/dsh-client-ui-slots'`，参照
+  `packages/git-graph/src/client/slots-augment.ts`），SDK 发布对应槽位后移除。
+- **构建预设**：统一走仓库内单一共享副本 `shared/tsdown.client.ts`（平台模块表
+  `shared/web-platform.ts`），各包 `tsdown.config.ts` 引用它并传参（`libExternal` /
+  `companions` 等）。**禁止**再复制预设到包内。
+- **测试基建**：vitest 配置需 `server.deps.inline: [/@deepseek-ai\//]`（SDK 包走 vite 转译，
+  处理 CSS）；client 半区闭包工厂在测试中不可直接 import——用 `vitest.setup.ts` 的最小
+  `__ModuleLoader__` stub（`packages/live-stats/vitest.setup.ts`）或 `vi.mock` 替换
+  （`packages/remote-web-ui/tests/remote-entry.spec.tsx` 的 `createSnapshotStore` mock）。
 - **设置页插件配置（20260811+ 可选能力）**：DSH web 设置的「插件配置」区（`ui-plugin-config` 注册的 `settings.section`）展示每插件一张卡片（`settings.plugin.item` 槽）。全家桶插件先由 `web-ui-settings` 的父卡（`settings.plugin.item`）声明 `web-ui.plugin.item` 子槽，各功能插件把卡片注册进子槽，从而在设置页收拢为一张「Web UI 插件」卡，内含各插件的启用开关与配置表单。插件接入只需两步：
   1. **host 半区**：`installSettingsSection(ctx, settingsNamespace('<ns>'), <z-schema>, <composition entry>, { setSource, onChange })`（`@deepseek-ai/dsh-settings`）注册命名空间；`setSource` 注入动态读取器，`onChange` 让已派生的行为跟随已提交的修改，无需重启。
   2. **browser 半区**：注入 `settingsScope`（`@deepseek-ai/dsh-client-ui-settings` 提供 `ctx.settingsScope`；`bind()` 还要求调用方注入 `connection` 与 `remote`），`ctx.settingsScope.bind({ namespace })` 读写该命名空间，并注册 `web-ui.plugin.item` 卡片（自行 `declare module '@deepseek-ai/dsh-client-ui-slots'` 声明该槽，shape 与 `ui-plugin-config` 一致；slot `order` 用 100+ 避开内置卡片）。样板实现见 `packages/remote-web-ui`（`src/client/settings-form.ts` + `PluginSettingsCard.tsx` + `*SettingsCard.tsx`，自包含的 staged 表单，不依赖兄弟 UI 包）。

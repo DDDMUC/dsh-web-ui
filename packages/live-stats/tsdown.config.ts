@@ -1,4 +1,4 @@
-import { clientBundle } from '../skins/tsdown.client.ts'
+import { clientBundle } from '../../shared/tsdown.client.ts'
 
 export default clientBundle(
   '@deepseek-ai/dsh-live-stats',

@@ -1,12 +1,21 @@
 {
-  "extends": "../../../test-zhu1090093659/tsconfig.base.json",
+  // Vitest program: type-checks src + tests together without emitting.
+  // SDK types resolve from the @deepseek-ai/* npm devDependencies.
   "compilerOptions": {
-    "composite": false,
-    "declaration": false,
-    "declarationMap": false,
-    "incremental": false,
+    "target": "ES2024",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "types": ["node"]
   },
   "include": [
     "src",

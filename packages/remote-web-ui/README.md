@@ -199,25 +199,22 @@ Notes:
 
 ## Development
 
-Keep this repository and the DeepSeek Harness checkout as siblings:
-
-```text
-~/code/test-zhu1090093659   # the DSH checkout (peer API source)
-~/code/dsh-web-ui/packages/remote-web-ui
-```
+Work from this repository (no sibling checkout needed):
 
 ```sh
+cd ~/code/dsh-web-ui
+export NPM_TOKEN='<internal read-only token>'   # private @deepseek-ai scope
 pnpm install
-pnpm run build
-pnpm run test
-pnpm run typecheck
+pnpm --filter @deepseek-ai/dsh-remote-web-ui run build
+pnpm --filter @deepseek-ai/dsh-remote-web-ui test
+pnpm --filter @deepseek-ai/dsh-remote-web-ui run typecheck
 ```
 
-The peer APIs come from the sibling checkout: the standalone TypeScript and
-Vitest configurations resolve those sources through `../test-zhu1090093659`
-(turtle-ui's layout convention, different directory name). The consumer-side
-`prepare` build (`tsdown.prepare.config.ts`) transpiles without type
-checking, so git installs work without a sibling checkout.
+The peer APIs come from the official NPM SDK: every `@deepseek-ai/*` package
+used here is declared in devDependencies (rc.2), and TypeScript/Vitest resolve
+types straight from node_modules — no DSH source checkout is required. The
+consumer-side `prepare` build (`tsdown.prepare.config.ts`) transpiles without
+type checking, so git installs work without any harness checkout either.
 
 ## Checks
 

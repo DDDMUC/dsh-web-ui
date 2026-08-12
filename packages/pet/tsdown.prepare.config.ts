@@ -1,4 +1,4 @@
-import { clientBundle } from './tsdown.client.ts'
+import { clientBundle } from '../../shared/tsdown.client.ts'
 
 /**
  * Consumer-side build for git installs (the `prepare` script): transpile
@@ -11,4 +11,6 @@ import { clientBundle } from './tsdown.client.ts'
 export default clientBundle('@deepseek-ai/dsh-pet', [
   'src/index.ts',
   'src/invariant.ts',
-])
+], {
+  libExternal: ['@deepseek-ai/dsh-settings'],
+})

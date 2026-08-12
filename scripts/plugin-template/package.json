@@ -5,14 +5,18 @@
   "private": true,
   "type": "module",
   "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "types": "lib/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./lib/index.d.ts",
+      "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
     "./client": {
-      "types": "./lib/client.d.ts",
+      "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
     "./src/*": "./src/*",
@@ -30,7 +34,7 @@
     }
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsc -p tsconfig.build.json && tsdown",
     "prepare": "tsdown",
     "watch": "tsdown --watch",
     "test": "vitest run",
@@ -40,6 +44,11 @@
     "react": "^18.2.0"
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1-rc.1",
+    "@deepseek-ai/dsh-client-connection": "^0.0.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "^0.0.1-rc.2",
+    "@deepseek-ai/dsh-client-runtime": "^0.0.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.0.1-rc.2",
     "@types/react": "~18.3.1",
     "@types/react-dom": "^18.3.5",
     "jsdom": "29.1.1",

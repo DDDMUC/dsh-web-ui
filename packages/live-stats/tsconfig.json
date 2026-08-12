@@ -1,34 +1,28 @@
 {
-  // Type sources are the personal profile checkout built declarations
-  // (~/.dsh/source/current — the running dsh worktree, which carries the
-  // token-meter liveTokenUsage customization this plugin registers into).
-  // paths resolve every reachable specifier against the .d.ts outputs
-  // (declaration files are exempt from rootDir); the token-meter client
-  // types and the session-projection map augmentation are localized in
-  // src/types/token-meter.d.ts.
-  "extends": "../../../test-zhu1090093659/tsconfig.base.json",
+  // Host/client combined program. SDK types resolve from the @deepseek-ai/*
+  // npm packages declared in devDependencies (official NPM SDK); the
+  // token-meter client types and the session-projection map augmentation
+  // stay localized in src/types/token-meter.d.ts.
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "lib/types",
+    "target": "ES2024",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "jsx": "react-jsx",
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
-    "paths": {
-      "@deepseek-ai/cordis": ["/Users/zcl/.dsh/source/current/vendor/cordis/lib/types/index.d.ts"],
-      "schemastery": ["/Users/zcl/.dsh/source/current/vendor/schemastery/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-session": ["/Users/zcl/.dsh/source/current/packages/core/session/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-llm": ["/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-session-projection": ["/Users/zcl/.dsh/source/current/packages/session/session-projection/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-session-projection/types": ["/Users/zcl/.dsh/source/current/packages/session/session-projection/lib/types/types.d.ts"],
-      "@deepseek-ai/dsh-client-runtime/client": ["/Users/zcl/.dsh/source/current/packages/client/runtime/lib/types/client/index.d.ts"],
-      "@deepseek-ai/dsh-client-ui-conversation/client": ["/Users/zcl/.dsh/source/current/packages/client/ui-conversation/lib/types/client/index.d.ts"],
-      "@deepseek-ai/dsh-client-ui-slots": ["/Users/zcl/.dsh/source/current/packages/client/ui-slots/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-client-ui-settings": ["/Users/zcl/.dsh/source/current/packages/client/ui-settings/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-client-ui-settings/client": ["/Users/zcl/.dsh/source/current/packages/client/ui-settings/lib/types/client/index.d.ts"],
-      "@deepseek-ai/dsh-client-locale/client": ["/Users/zcl/.dsh/source/current/packages/client/locale/lib/types/client/index.d.ts"],
-      "@deepseek-ai/dsh-settings": ["/Users/zcl/.dsh/source/current/packages/settings/settings/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-settings/types": ["/Users/zcl/.dsh/source/current/packages/settings/settings/lib/types/types.d.ts"],
-      "@deepseek-ai/dsh-invariants": ["/Users/zcl/.dsh/source/current/packages/support/invariants/lib/types/index.d.ts"]
-    }
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "types": ["node"]
   },
   "include": [
     "src"

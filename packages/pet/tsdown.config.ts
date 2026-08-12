@@ -1,6 +1,8 @@
-import { clientBundle } from './tsdown.client.ts'
+import { clientBundle } from '../../shared/tsdown.client.ts'
 
 export default clientBundle('@deepseek-ai/dsh-pet', [
-  'lib/types/index.js',
-  'lib/types/invariant.js',
-])
+  'src/index.ts',
+  'src/invariant.ts',
+], {
+  libExternal: ['@deepseek-ai/dsh-settings'],
+})

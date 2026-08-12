@@ -72,29 +72,25 @@ skins/skin-center/
   （`watchUserPatches` + config-only HMR），patch 写入后数秒热载入、无需重启；
   浏览器刷新页面取新 boot 图即生效（client 插件图行增删不在 `dsh-client-hmr` 语义内）。
 
-## 构建（bundle 由 checkout 的 tsdown 预设产出）
+## 构建（仓库内 tsdown，无需 DSH checkout）
 
-皮肤中心与皮肤一样，在 DSH checkout 的 workspace 里构建（预设
-`packages/client/tsdown.client.ts` 处理 CSS Modules 注入与平台外部化）。仓库内没有 tsdown，
-所以按以下流程（或等价 worktree 流程）：
+皮肤中心与皮肤一样，用仓库内共享 tsdown 预设构建（`shared/tsdown.client.ts`
+处理 CSS Modules 注入与平台外部化；类型来自官方 NPM SDK devDependencies）：
 
 ```sh
 # 1. 重新生成内嵌注册表（皮肤 bundle/元数据变化后必须重跑）
 node scripts/skin-center-bundles
 
-# 2. 在 checkout 的临时 worktree 里构建
-git -C ~/.dsh/source/current worktree add --detach /tmp/dsh-sc-build HEAD
-cp -R skins/skin-center /tmp/dsh-sc-build/packages/client/ui-skin-center
-cd /tmp/dsh-sc-build && pnpm install && pnpm --filter @deepseek-ai/dsh-client-ui-skin-center run bundle
-cp -R packages/client/ui-skin-center/lib ../../code/dsh-web-ui/skins/skin-center/lib
-cd ~/.dsh/source/current && git worktree remove --force /tmp/dsh-sc-build
+# 2. 在仓库内构建
+cd ~/code/dsh-web-ui && export NPM_TOKEN='<内测只读令牌>'
+pnpm --filter @deepseek-ai/dsh-client-ui-skin-center run bundle
 ```
 
 ## 安装（个人环境接线，不在 checkout 提交）
 
 ```sh
 # 1. profile symlink（与 qq98/blue-fantasy 同款）
-ln -sfn ~/code/dsh-web-ui/skins/skin-center \
+ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
   ~/.dsh/profiles/node_modules/@deepseek-ai/dsh-client-ui-skin-center
 
 # 2. ~/.dsh/cordis.patch.yml 增加（放在 dsh-skin managed 段之外，勿动该段）：
