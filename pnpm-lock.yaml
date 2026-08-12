@@ -302,6 +302,9 @@ importers:
 
   packages/skins/skin-center:
     devDependencies:
+      jsdom:
+        specifier: 29.1.1
+        version: 29.1.1
       lightningcss:
         specifier: ^1.32.0
         version: 1.33.0

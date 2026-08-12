@@ -77,6 +77,12 @@ export function activeSkinEntry(): SkinCenterEntry | undefined {
 /** Minimal ctx the skins' apply() needs: cordis effect lifecycle only. */
 interface MiniCtx {
   effect(callback: () => () => void, label?: string): () => void
+  /**
+   * Service reads are answered with undefined: try-on is a pure-DOM stage,
+   * so optional service access (e.g. ths reading the connection handle)
+   * degrades to its fallback instead of throwing mid-apply.
+   */
+  get(key: string): unknown
   /** Hidden handle for the controller: run the disposers in reverse order. */
   __disposeAll(): void
 }
@@ -87,6 +93,9 @@ function miniCtx(): MiniCtx {
     effect(callback) {
       disposers.push(callback())
       return () => {}
+    },
+    get() {
+      return undefined
     },
     __disposeAll(): void {
       for (const dispose of disposers.reverse()) dispose()
@@ -204,7 +213,20 @@ export class TryOnController {
       throw new Error(`skin-center: "${entry.package}" client bundle exports no apply`)
     }
     const ctx = miniCtx()
-    apply(ctx)
+    try {
+      apply(ctx)
+    } catch (error) {
+      // A skin that throws mid-apply leaves partial writes behind (body
+      // attribute, chrome, style tag) and never registers its disposer —
+      // the tryOn catch only restores the ACTIVE skin. Roll the residue back
+      // here so a crashed try-on can never bleed into the next one.
+      this.cleanupModule(entry)
+      document.body.removeAttribute(entry.bodyAttr)
+      for (const el of [...document.body.children] as HTMLElement[]) {
+        if (el.id !== 'root') el.remove()
+      }
+      throw error
+    }
     return ctx.__disposeAll
   }
 

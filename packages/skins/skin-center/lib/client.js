@@ -191,6 +191,7 @@ window.__ModuleLoader__.load({
 					disposers.push(callback());
 					return () => {};
 				},
+				get() {},
 				__disposeAll() {
 					for (const dispose of disposers.reverse()) dispose();
 				}
@@ -281,7 +282,14 @@ window.__ModuleLoader__.load({
 				const apply = (await modules.import(entry.package)).apply;
 				if (typeof apply !== "function") throw new Error(`skin-center: "${entry.package}" client bundle exports no apply`);
 				const ctx = miniCtx();
-				apply(ctx);
+				try {
+					apply(ctx);
+				} catch (error) {
+					this.cleanupModule(entry);
+					document.body.removeAttribute(entry.bodyAttr);
+					for (const el of [...document.body.children]) if (el.id !== "root") el.remove();
+					throw error;
+				}
 				return ctx.__disposeAll;
 			}
 			/** Drop the tried-on module record + its injected style tag. */
