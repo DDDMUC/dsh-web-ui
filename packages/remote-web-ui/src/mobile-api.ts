@@ -229,11 +229,20 @@ async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rp
       },
     }
   }
-  if (method === 'workspace.list') return apiProxy.workspace.list(request as never)
-  if (method === 'session.history') return apiProxy.sessions.history(request as never)
-  if (method === 'session.search') return apiProxy.sessions.search(request as never, new AbortController().signal)
-  if (method === 'session.prompt') return apiProxy.sessions.prompt(request as never)
-  if (method === 'session.selectModel') return apiProxy.sessions.selectModel(request as never)
-  if (method === 'session.rename') return apiProxy.sessions.rename(request as never)
+  // The ApiProxy unary methods resolve to the internal response shape
+  // ({ rpcId, result }) without the transport envelope the phone's callUnary
+  // requires — wrap every pass-through in the same 'server-response'
+  // envelope session.list builds above.
+  const wrap = (response: { rpcId: string; result: unknown }): unknown => ({
+    type: 'server-response' as const,
+    rpcId,
+    result: response.result,
+  })
+  if (method === 'workspace.list') return wrap(await apiProxy.workspace.list(request as never))
+  if (method === 'session.history') return wrap(await apiProxy.sessions.history(request as never))
+  if (method === 'session.search') return wrap(await apiProxy.sessions.search(request as never, new AbortController().signal))
+  if (method === 'session.prompt') return wrap(await apiProxy.sessions.prompt(request as never))
+  if (method === 'session.selectModel') return wrap(await apiProxy.sessions.selectModel(request as never))
+  if (method === 'session.rename') return wrap(await apiProxy.sessions.rename(request as never))
   throw new Error(`unhandled allowlisted method ${method}`)
 }

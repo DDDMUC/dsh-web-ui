@@ -2,155 +2,83 @@
 
 中文 | [English](README.en.md)
 
-本仓库是 DeepSeek Harness（DSH）Web GUI 的插件全家桶 monorepo：`packages/` 下收录功能插件与皮肤集合，每个插件都是符合官方标准的独立 bundle（`dsh.bundle.patch` 清单 + `cordis.patch.yml` 插件行），可单独安装；同时提供聚合插件包（`web-ui-all` / `dsh-skins`）一键装齐。
+dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件全家桶，收录功能插件与界面皮肤：任务看板、Git 图谱、鲸鱼娘宠物、实时令牌统计，以及 6 款皮肤。所有插件既可独立安装，也可通过聚合包一次装齐。
 
-> 本仓库属于 `dsh-external` 组织，仅组织成员可见（private）。请勿提交任何凭据、密钥或内部敏感信息。
+![DSH Web GUI 主界面](docs/screenshots/13-hero-main.png)
 
-## 特性一览
+## 功能插件
 
-- 全家桶 monorepo：功能插件与皮肤集合单仓维护，每个包可独立安装，也可用聚合包一键装齐
-- 官方标准 bundle：每个插件包都符合 DSH profile/bundle 规范，`dsh plugin --profile web add ...` 直接可用
-- 设置页插件配置：功能插件的配置接入 DSH web「设置 > 插件配置」区（与内置终端 / Agent 循环 / 网页搜索同款卡片体验），修改即时生效
-- 皮肤中心：皮肤启用互斥由 `~/.dsh/cordis.patch.yml` managed 区段维护，`dsh-skin use` 即时切换
-- 试穿预览：`gallery/preview.html` 提供皮肤实机试穿，亮/暗主题所见即所得
+### 任务看板
 
-## 目录结构
+在侧边栏点击「任务看板」进入。任务按五列状态组织：待规划、待办、进行中、已完成、已失败。点击卡片上的「执行」，任务将由真实的 DSH 智能体会话执行，完成后状态自动回写；需要复盘时，可直接跳转到执行会话查看完整过程。
 
-```text
-dsh-web-ui/
-├── packages/
-│   ├── task-board/        @deepseek-ai/dsh-client-ui-task-board      任务看板
-│   ├── git-graph/         @deepseek-ai/dsh-client-ui-git-graph       Git 分支/图谱
-│   ├── pet/               @deepseek-ai/dsh-pet                       鲸鱼娘宠物
-│   ├── remote-web-ui/     @deepseek-ai/dsh-remote-web-ui             手机远程控制
-│   ├── live-stats/        @deepseek-ai/dsh-live-stats                 实时 token 估算与吞吐
-│   ├── web-ui-settings/   @deepseek-ai/dsh-client-ui-web-ui-settings  设置页 Web UI 插件分组
-│   ├── skins/             皮肤集合（qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft / skin-center / web）
-│   ├── dsh-skins/         @deepseek-ai/dsh-skins      皮肤聚合插件（装它 = 全部皮肤包 + 皮肤中心）
-│   └── web-ui-all/        @deepseek-ai/dsh-web-ui-all  全家桶聚合插件（装它 = 全部功能插件 + 皮肤全家桶）
-├── gallery/               皮肤试穿预览页
-├── docs/                  插件接入指南与设计文档
-└── scripts/               构建与脚手架（dsh-skin / dsh-skin-new / dsh-plugin-new / aggregate.mjs / link-profile.mjs 等）
-```
+任务支持定时执行：在详情中配置 cron 表达式（如每天 23:00 自动升级 DSH、每周一 09:00 生成周报），到点自动开工，无需人工值守。
 
-## 快速安装
-
-前提：DSH 支持 profile/bundle 机制（`dsh plugin` 命令存在）。以下命令中 `<dsh-web-ui>` 为本仓库路径占位。
-
-> **前置（重要）：先构建产物。** 全新克隆的各包没有 `lib/` 输出，`dsh plugin add` 之前先在仓库根执行
-> `pnpm install && pnpm -r build`。构建/测试还需 DSH checkout 提供类型来源（`~/code/test-zhu1090093659`
-> 与 `~/.dsh/source/current`，类型引用见 [docs/plugins.md](docs/plugins.md)「类型引用」），缺失时
-> `pnpm -r build` / `pnpm typecheck` 会失败。
-
-### 聚合安装（一键装齐）
-
-```sh
-# 全部功能插件 + 皮肤全家桶
-dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all
-
-# 仅皮肤全家桶（全部皮肤包 + 皮肤中心）
-dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins
-```
-
-本机开发时，先用脚本建立/刷新 loader 链接层（`~/.dsh/profiles/node_modules/@deepseek-ai`，幂等可重复运行）：
-
-```sh
-node scripts/link-profile.mjs
-```
-
-> **警告：聚合安装与独立安装不要混用。** `web-ui-all` / `dsh-skins` 聚合包已包含对应插件，再单独
-> `dsh plugin add` 同款插件会产生重复插件 id（如 `ui-task-board`）互相冲突。任选一种方式装齐即可。
-
-### 独立安装
-
-```sh
-# 开发模式（link 到本仓库）
-dsh plugin --profile web add link:<dsh-web-ui>/packages/task-board
-
-# 未来发布（GitHub 安装）
-dsh plugin --profile web add github:dsh-external/dsh-task-board
-```
-
-### 皮肤启用
-
-皮肤启用互斥由 `~/.dsh/cordis.patch.yml` managed 区段维护，切换即时生效：
-
-```sh
-dsh-skin use blue-fantasy   # 或 qq98 / ths / xp / dragon-heir / minecraft
-```
-
-> 皮肤需先安装（聚合包，或 `dsh plugin --profile web add link:<dsh-web-ui>/packages/skins/<skin>`）才能切换。
-
-## 插件列表
-
-| 包名 | 功能 | 独立安装命令 |
-| --- | --- | --- |
-| @deepseek-ai/dsh-client-ui-task-board | 任务看板：侧边栏入口 + 多列看板，本地持久化，可真实驱动 agent 会话，支持 5 段 cron 定时 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/task-board` |
-| @deepseek-ai/dsh-client-ui-git-graph | Git 分支 / 图谱可视化 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/git-graph` |
-| @deepseek-ai/dsh-pet | 鲸鱼娘宠物挂件 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/pet` |
-| @deepseek-ai/dsh-remote-web-ui | 手机远程控制 Web GUI | `dsh plugin --profile web add link:<dsh-web-ui>/packages/remote-web-ui` |
-| @deepseek-ai/dsh-live-stats | 实时 token 估算与生成吞吐（composer 统计区） | `dsh plugin --profile web add link:<dsh-web-ui>/packages/live-stats` |
-| @deepseek-ai/dsh-client-ui-web-ui-settings | 设置页 Web UI 插件分组：在「插件配置」中统一展示全家桶插件的开关与配置 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-settings` |
-| @deepseek-ai/dsh-skins | 皮肤聚合插件：全部皮肤包 + 皮肤中心一次到位 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-skins` |
-| @deepseek-ai/dsh-web-ui-all | 全家桶聚合插件：以上全部插件 + 皮肤全家桶 | `dsh plugin --profile web add link:<dsh-web-ui>/packages/web-ui-all` |
-
-## 优质推荐
-
-两个最能打的外观，图为 gallery 试穿界面（`gallery/preview.html`）实拍。
-
-### 蓝色幻想 · Blue Fantasy
-
-DreamSkin「DeepSeek-鲸鱼娘」Codex 桌面主题的 dsh 适配：鲸鱼插画背景垫在半透明面板之下，遮罩随亮/暗主题实时切换；periwinkle 靛蓝调色板把全部 dsh token 重映射成蓝紫色调。
-
-| 亮色试穿 | 暗色试穿 |
+| 多列看板 | 定时执行 |
 | --- | --- |
-| ![蓝色幻想 · 亮色试穿](docs/premium/tryon-blue-fantasy-light.png) | ![蓝色幻想 · 暗色试穿](docs/premium/tryon-blue-fantasy-dark.png) |
+| ![任务看板](docs/screenshots/09-task-board.png) | ![任务定时执行](docs/screenshots/10-task-board-detail-cron.png) |
 
-```sh
-dsh-skin use blue-fantasy
-```
+### Git 图谱
 
-> 注意：`blue-fantasy` 需先安装（聚合包或 `dsh plugin --profile web add link:<dsh-web-ui>/packages/skins/blue-fantasy`）才能切换。
+输入框上方的分支选择器，支持切换分支与查看提交历史；Git 图谱将分支泳道与提交历史可视化，仓库再大也能顺着时间线快速定位变更。
 
-### Windows XP (Luna)
+![Git 图谱](docs/screenshots/04-git-graph.png)
 
-原汁原味的 Luna 复古体验：蓝色渐变窗口条 + 窗口按钮、侧边栏任务栏上的绿色「开始」按钮、米色状态栏（大写/数字/滚动指示灯）、Bliss 蓝天桌面，全局直角。
+### 鲸鱼娘宠物
 
-| 亮色试穿 | 暗色试穿 |
+一只常驻界面的鲸鱼娘宠物，会跟随智能体的状态切换动画：思考、等待、工作、庆祝。点击可互动（摸头），投喂小鱼干可提升亲密度，陪伴度从幼鲸一路成长至「深海羁绊」。支持自定义名称、自由拖动位置，也可随时隐藏。
+
+| 陪伴工作 | 互动面板 |
 | --- | --- |
-| ![Windows XP · 亮色试穿](docs/premium/tryon-xp-light.png) | ![Windows XP · 暗色试穿](docs/premium/tryon-xp-dark.png) |
+| ![鲸鱼娘宠物](docs/screenshots/11-pet-new-chat.png) | ![宠物互动面板](docs/screenshots/12-pet-panel.png) |
 
-```sh
-dsh-skin use xp
-```
+### 实时令牌统计
+
+在输入框下方实时显示生成速度（TPS）、LLM 耗时、上下文占用、缓存命中率以及输入 / 输出 token 数，每次生成的用量一目了然。
+
+![实时令牌统计](docs/screenshots/18-live-stats.png)
+
+### 设置中心
+
+全部插件的开关与参数统一收纳于「设置 > 插件配置」，修改即时生效。
+
+![插件配置中心](docs/screenshots/02-settings-web-ui-plugins.png)
+
+## 皮肤
+
+皮肤中心提供 6 款皮肤，均支持先试穿再应用：试穿即时生效、退出完全还原，确认满意后一键应用。
+
+![皮肤中心](docs/screenshots/03-settings-skin-center.png)
+
+### Windows XP（Luna）
+
+还原 Luna 经典界面：蓝色渐变窗口条、绿色「开始」按钮、Bliss 蓝天桌面，全局直角风格。
+
+![Windows XP 皮肤](docs/screenshots/16-skin-xp-light.png)
 
 ### Minecraft 方块世界
 
-复刻《我的世界》主界面氛围的方块皮肤：程序化绘制的像素全景天空盒（方块山、像素云、方块树、草方块地面）以 CSS 3D 立方体在身后缓慢旋转，界面浮在半透明石板上；按钮还原 MC 菜单按钮（灰石板、悬停变黄、按下下沉），输入框做成带钉子的木告示牌。全景图为程序化自绘，不携带 Mojang 版权素材。
+以《我的世界》主界面为灵感：像素全景天空盒在界面后方缓慢旋转，按钮为灰石板样式，输入框为木告示牌样式。
 
-| 亮色试穿 | 暗色试穿 |
-| --- | --- |
-| ![Minecraft 方块世界 · 亮色试穿](docs/premium/tryon-minecraft-light.png) | ![Minecraft 方块世界 · 暗色试穿](docs/premium/tryon-minecraft-dark.png) |
+![Minecraft 皮肤](docs/screenshots/15-skin-minecraft-light.png)
 
-```sh
-dsh-skin use minecraft
-```
+### Blue Fantasy 蓝色幻想
+
+鲸鱼插画铺于半透明面板之下，靛蓝色调色板贯穿全局，暗色主题下效果尤为突出。
+
+![Blue Fantasy 暗色](docs/screenshots/17-skin-blue-fantasy-dark.png)
+
+其余三款：QQ2008 怀旧版（水晶蓝配色与企鹅元素）、同花顺风格（行情元素融入界面）、龙的传人（朱砂龙印主题）。
+
+## 安装
+
+通过聚合包一次装齐：`web-ui-all` 包含全部插件与皮肤，`dsh-skins` 仅包含皮肤。技术细节见 [docs/plugins.md](docs/plugins.md)。
 
 ## 来源与版权
 
 | 包 | 来源 | 版权 |
 | --- | --- | --- |
-| task-board / git-graph / pet / remote-web-ui / live-stats | dsh-external 组织自有（git 历史随 subtree 保留） | BSD-3-Clause（dsh-external contributors） |
+| task-board / git-graph / pet / remote-web-ui / live-stats | dsh-external 组织自有 | BSD-3-Clause（dsh-external contributors） |
 | skins / dsh-skins / web-ui-all | 本仓库原生 | BSD-3-Clause |
 
-维护规则：迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。详见 [docs/plugins.md](docs/plugins.md)。
-
-## 新增插件
-
-新插件先用脚手架生成标准 bundle 骨架，实现后再注册进聚合包。完整流程见 [docs/plugins.md](docs/plugins.md)：
-
-```sh
-node scripts/dsh-plugin-new <name>
-```
-
-皮肤类插件改用 `node scripts/dsh-skin-new <name>` 脚手架，不经过 `web-ui-all` 注册流程（见 [docs/plugins.md](docs/plugins.md) 第 88 行附近说明）。
+迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。
