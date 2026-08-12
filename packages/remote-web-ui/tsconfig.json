@@ -33,7 +33,10 @@
       "@deepseek-ai/dsh-session": ["/Users/zcl/.dsh/source/current/packages/core/session/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-session/types": ["/Users/zcl/.dsh/source/current/packages/core/session/lib/types/types.d.ts"],
       "@deepseek-ai/dsh-llm": ["/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-llm/types": ["/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/types.d.ts"]
+      "@deepseek-ai/dsh-llm/types": ["/Users/zcl/.dsh/source/current/packages/llm/llm/lib/types/types.d.ts"],
+      "@deepseek-ai/dsh-host-apiproxy": ["/Users/zcl/.dsh/source/current/packages/host/apiproxy/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-host-apiproxy/api": ["/Users/zcl/.dsh/source/current/packages/host/apiproxy/lib/types/api/index.d.ts"],
+      "@deepseek-ai/dsh-host-apiproxy/api/*": ["/Users/zcl/.dsh/source/current/packages/host/apiproxy/lib/types/api/*.d.ts"]
     }
   },
   "include": ["src"],
@@ -48,6 +51,7 @@
     { "path": "../../../test-zhu1090093659/packages/client/ui-slots" },
     { "path": "../../../test-zhu1090093659/packages/client/web-react" },
     { "path": "../../../test-zhu1090093659/packages/host/webserver" },
+    { "path": "../../../test-zhu1090093659/packages/host/apiproxy" },
     { "path": "../../../test-zhu1090093659/packages/support/invariants" }
   ]
 }

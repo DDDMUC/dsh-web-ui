@@ -10,16 +10,19 @@ afterEach(() => {
 })
 
 /** A fake page surface with a mutable URL. */
-function fakePage(search: string): { page: PageSurface; reload: ReturnType<typeof vi.fn>; replaceState: ReturnType<typeof vi.fn> } {
+function fakePage(search: string): { page: PageSurface; reload: ReturnType<typeof vi.fn>; replaceState: ReturnType<typeof vi.fn>; navigate: ReturnType<typeof vi.fn> } {
   let href = `http://localhost:3000/${search}`
   const reload = vi.fn()
   const replaceState = vi.fn((url: string) => { href = url })
+  const navigate = vi.fn((url: string) => { href = url })
   return {
     reload,
     replaceState,
+    navigate,
     page: {
       get href(): string { return href },
       replaceState,
+      navigate,
       reload,
     },
   }
@@ -58,6 +61,18 @@ describe('runPairBootFlow', () => {
     await vi.waitFor(() => expect(reload).toHaveBeenCalledOnce())
     expect(replaceState).toHaveBeenCalledWith('/?workspace=ws-7')
     expect(sessionStorage.getItem(PAIR_FAILED_MARKER)).toBeNull()
+  })
+
+  it('routes accepted phones to the standalone /m surface instead of reloading', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' })
+    const { page, reload, navigate, replaceState } = fakePage('?pair=tok-1')
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    vi.stubGlobal('fetch', fetch)
+    const ctx = { get: () => undefined }
+    runPairBootFlow(ctx as never, '?pair=tok-1', page)
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/m'))
+    expect(reload).not.toHaveBeenCalled()
+    expect(replaceState).toHaveBeenCalledWith('/')
   })
 
   it('marks the failure instead of reloading when the token is refused', async () => {

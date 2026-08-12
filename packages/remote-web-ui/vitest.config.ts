@@ -9,7 +9,11 @@ export default defineConfig({
     ],
   })],
   test: {
-    include: ['tests/**/*.spec.ts', 'tests/**/*.spec.tsx'],
+    include: [
+      'tests/**/*.spec.ts', 'tests/**/*.spec.tsx',
+      'src/**/*.spec.ts', 'src/**/*.spec.tsx',
+      'src/**/*.test.ts', 'src/**/*.test.tsx',
+    ],
     pool: 'forks',
   },
 })

@@ -17,6 +17,7 @@
  */
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { basename, dirname, resolve as resolvePath, sep } from 'node:path'
 import type { UserConfig } from 'tsdown'
 import { transform } from 'lightningcss'
@@ -81,8 +82,61 @@ export function clientBundle(id: string, libEntry: readonly string[]): UserConfi
     // relative imports rolldown cannot follow, so the import must stay
     // external (the same stance as the peer APIs above).
     external: ['@deepseek-ai/cordis'],
-  }, clientConfig(id)]
+  }, clientConfig(id), mobileConfig(id)]
 }
+
+/**
+ * The standalone mobile page bundle (served by the plugin's /m route). It
+ * boots WITHOUT the main UI's module loader, so everything — React, zod,
+ * the harness wire contracts — is inlined into one self-contained module
+ * script. The page talks to the host through plain fetch/WebSocket over
+ * /api, carrying the paired-device cookie like any browser client.
+ */
+function mobileConfig(id: string): UserConfig {
+  return {
+    name: `${id}/mobile`,
+    entry: { mobile: 'src/mobile/index.tsx' },
+    outDir: 'lib',
+    format: 'esm',
+    platform: 'browser',
+    target: 'es2022',
+    dts: false,
+    sourcemap: true,
+    clean: false,
+    // Fully self-contained: no externals, no module table.
+    external: [],
+    noExternal: [/.*/],
+    define: {
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),
+      'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
+      'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
+    },
+    plugins: [{
+      // The package tsconfig maps @deepseek-ai/* to the running worktree's
+      // declaration files (types only); this bundle needs the VALUE modules,
+      // so the wire contracts resolve through node_modules instead — the
+      // package exports map lands on lib/types/api/*.js, the real runtime
+      // values (rolldown's own tsconfig-paths pass would resolve the .d.ts
+      // and miss every export).
+      name: 'dsh-mobile-value-resolution',
+      resolveId(source: string) {
+        const match = /^@deepseek-ai\/dsh-host-apiproxy\/api(?:\/.*)?$/.exec(source)
+        if (match === null) return null
+        try {
+          return mobileRequire.resolve(source)
+        } catch {
+          return null
+        }
+      },
+    }],
+    outputOptions: {
+      entryFileNames: 'mobile.js',
+    },
+  }
+}
+
+/** require() scoped to this build file (exports-map aware). */
+const mobileRequire = createRequire(import.meta.url)
 
 /** The browser bundle config (shared by the dev and prepare builds). */
 function clientConfig(id: string): UserConfig {

@@ -17,6 +17,7 @@ import type {} from '@deepseek-ai/dsh-host-webserver'
 import { PairingService } from './pairing.ts'
 import { makeGateListener } from './gate.ts'
 import { makeRoutes, publicHostOf } from './routes.ts'
+import { makeMobileRoutes } from './mobile-routes.ts'
 import { lanIPv4Addresses } from './lan.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 
@@ -232,7 +233,7 @@ export function apply(ctx: Context, config?: Config): void {
   // (now vetoing every non-loopback request) instead of opening the fence.
   let disposeRoutes: (() => void) | undefined
   let disposeSweep: (() => void) | undefined
-  const routes = makeRoutes({ service, lanAddresses })
+  const routes = [...makeRoutes({ service, lanAddresses }), ...makeMobileRoutes()]
   const gate = makeGateListener(service, () => resolve().requirePairingForLan, () => resolve().enabled)
   ctx.effect(() => ctx.on('api/gate', gate), 'remote-web-ui: api gate')
   const sync = (): void => {

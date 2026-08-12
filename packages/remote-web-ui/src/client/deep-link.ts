@@ -29,6 +29,8 @@ export interface PageSurface {
   href: string
   /** Replace the URL without reloading. */
   replaceState(url: string): void
+  /** Navigate to a URL (a fresh page load). */
+  navigate(url: string): void
   /** Reload the page. */
   reload(): void
 }
@@ -41,9 +43,18 @@ export const browserPage: PageSurface = {
   replaceState(url: string): void {
     window.history.replaceState(null, '', url)
   },
+  navigate(url: string): void {
+    window.location.assign(url)
+  },
   reload(): void {
     window.location.reload()
   },
+}
+
+/** Whether this browser looks like a phone/tablet (the simplified mobile surface). */
+export function isMobileSurface(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Android|iPhone|iPad|iPod|Mobile|mobile/i.test(navigator.userAgent)
 }
 
 /**
@@ -78,7 +89,12 @@ async function runAccept(token: string, page: PageSurface): Promise<void> {
   const url = new URL(page.href)
   url.searchParams.delete('pair')
   page.replaceState(`${url.pathname}${url.search}${url.hash}`)
-  if (ok) page.reload()
+  if (ok) {
+    // Phones land on the standalone simplified surface (the full desktop UI
+    // is not built for small screens); desktops stay on the full UI.
+    if (isMobileSurface()) page.navigate('/m')
+    else page.reload()
+  }
 }
 
 /**
