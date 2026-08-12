@@ -2,6 +2,8 @@
 
 中文 | [English](README.en.md)
 
+![dsh-web-ui](docs/dsh-web-ui-banner.png)
+
 dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件全家桶，收录功能插件与界面皮肤：任务看板、Git 图谱、鲸鱼娘宠物、实时令牌统计，以及 6 款皮肤。所有插件既可独立安装，也可通过聚合包一次装齐。
 
 ![DSH Web GUI 主界面](docs/screenshots/13-hero-main.png)

@@ -2,6 +2,8 @@
 
 [中文](README.md) | English
 
+![dsh-web-ui](docs/dsh-web-ui-banner.png)
+
 dsh-web-ui is the plugin family for the DeepSeek Harness (DSH) Web GUI, featuring both feature plugins and interface skins: a task board, a Git graph, a whale-girl pet, live token statistics, and six skins. Every plugin can be installed individually, or all at once through the aggregate packages.
 
 ![DSH Web GUI main screen](docs/screenshots/13-hero-main.png)
