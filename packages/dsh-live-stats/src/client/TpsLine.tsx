@@ -16,6 +16,7 @@ const STYLE = {
   boxSizing: 'border-box',
   color: 'var(--dsw-alias-label-tertiary)',
   fontSize: '12px',
+  fontVariantNumeric: 'tabular-nums',
   lineHeight: '20px',
   margin: '0 auto',
   maxWidth: 'var(--dsh-chat-content-width)',

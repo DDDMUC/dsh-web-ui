@@ -450,28 +450,46 @@ body[data-dsh-dragon-heir][data-ds-dark-theme]::selection {
 
 body[data-dsh-dragon-heir] a {
   color: #a81f22;
+  transition: color 150ms ease;
 }
 
 body[data-dsh-dragon-heir] a:visited {
   color: #8f3d5e;
 }
 
+body[data-dsh-dragon-heir] a:hover {
+  color: #c3272b;
+}
+
+body[data-dsh-dragon-heir] a:active {
+  color: #8f1a1d;
+}
+
 body[data-dsh-dragon-heir][data-ds-dark-theme] a {
   color: #d9b768;
+  transition: color 150ms ease;
 }
 
 body[data-dsh-dragon-heir][data-ds-dark-theme] a:visited {
   color: #e2c47f;
 }
 
+body[data-dsh-dragon-heir][data-ds-dark-theme] a:hover {
+  color: #f0dcac;
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] a:active {
+  color: #b08a36;
+}
+
 body[data-dsh-dragon-heir] :focus-visible {
   outline: 2px solid rgba(195, 39, 43, 0.55);
-  outline-offset: 0;
+  outline-offset: 2px;
 }
 
 body[data-dsh-dragon-heir][data-ds-dark-theme] :focus-visible {
   outline: 2px solid rgba(200, 162, 74, 0.6);
-  outline-offset: 0;
+  outline-offset: 2px;
 }
 
 /* --- aionui 右侧面板适配（dsh-aionui-panel） -----------------------------
@@ -585,21 +603,109 @@ body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-overlay) {
 body[data-dsh-dragon-heir] :global(.aionui-btn-primary) {
   background: #c3272b;
   border-color: #c3272b;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+body[data-dsh-dragon-heir] :global(.aionui-btn-primary):hover:not(:disabled) {
+  background: #d33a3e;
+  border-color: #d33a3e;
+}
+
+body[data-dsh-dragon-heir] :global(.aionui-btn-primary):active:not(:disabled) {
+  background: #a81f22;
+  border-color: #a81f22;
+}
+
+body[data-dsh-dragon-heir] :global(.aionui-btn-primary):disabled {
+  background: rgba(195, 39, 43, 0.42);
+  border-color: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-btn-primary) {
   background: #96702a;
   border-color: #96702a;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
-body[data-dsh-dragon-heir] :global(.aionui-floating-expand):hover,
-body[data-dsh-dragon-heir] :global(.aionui-collapse-chevron):hover {
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-btn-primary):hover:not(:disabled) {
+  background: #b08a36;
+  border-color: #b08a36;
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-btn-primary):active:not(:disabled) {
+  background: #7d5b24;
+  border-color: #7d5b24;
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-btn-primary):disabled {
+  background: rgba(150, 112, 42, 0.42);
+  border-color: transparent;
+  color: rgba(18, 22, 31, 0.72);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Floating expand / collapse chevron chrome: transitioned, with hover /
+   active / focus-visible and a disabled non-response guard. */
+body[data-dsh-dragon-heir] :global(.aionui-floating-expand),
+body[data-dsh-dragon-heir] :global(.aionui-collapse-chevron) {
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+body[data-dsh-dragon-heir] :global(.aionui-floating-expand):hover:not(:disabled),
+body[data-dsh-dragon-heir] :global(.aionui-collapse-chevron):hover:not(:disabled) {
   color: #a81f22;
   background-color: rgba(195, 39, 43, 0.12);
 }
 
-body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-floating-expand):hover,
-body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-collapse-chevron):hover {
+body[data-dsh-dragon-heir] :global(.aionui-floating-expand):active:not(:disabled),
+body[data-dsh-dragon-heir] :global(.aionui-collapse-chevron):active:not(:disabled) {
+  color: #8f1a1d;
+  background-color: rgba(195, 39, 43, 0.2);
+}
+
+body[data-dsh-dragon-heir] :global(.aionui-floating-expand):disabled,
+body[data-dsh-dragon-heir] :global(.aionui-collapse-chevron):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-floating-expand),
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-collapse-chevron) {
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-floating-expand):hover:not(:disabled),
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-collapse-chevron):hover:not(:disabled) {
   color: #f0dcac;
   background-color: rgba(200, 162, 74, 0.18);
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-floating-expand):active:not(:disabled),
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-collapse-chevron):active:not(:disabled) {
+  color: #d9a94f;
+  background-color: rgba(200, 162, 74, 0.26);
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-floating-expand):disabled,
+body[data-dsh-dragon-heir][data-ds-dark-theme] :global(.aionui-collapse-chevron):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Motion: reduced --------------------------------------------------
+   The skin ships no decorative animation (the dragon art is a live-swapped
+   static backdrop, so there is nothing to animate); every transition above
+   is interaction-chrome only and is fully neutralized for users who prefer
+   reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  body[data-dsh-dragon-heir] a,
+  body[data-dsh-dragon-heir] :global(.aionui-btn-primary),
+  body[data-dsh-dragon-heir] :global(.aionui-floating-expand),
+  body[data-dsh-dragon-heir] :global(.aionui-collapse-chevron) {
+    transition: none;
+  }
 }

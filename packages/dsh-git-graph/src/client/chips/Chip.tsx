@@ -32,7 +32,7 @@ export function Chip({ icon, label, ariaLabel, open, onClick }: ChipProps) {
       aria-expanded={open}
     >
       {icon}
-      <span className={css.chipLabel}>{label}</span>
+      <span className={css.chipLabel} title={label}>{label}</span>
       <IconChevronDownOutline14 className={css.chipChevron} size={12} />
     </button>
   )

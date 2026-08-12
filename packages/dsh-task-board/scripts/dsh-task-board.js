@@ -42,7 +42,7 @@ function writeManifest(manifest) {
 function checkBuilt() {
   const client = path.join(REPO, 'lib', 'client.js')
   if (!fs.existsSync(client)) {
-    console.warn(`⚠  ${client} 不存在——请先在仓库里运行 npm run build（构建出 lib/client.js）再挂载。`)
+    console.warn(`[!] ${client} 不存在——请先在仓库里运行 npm run build（构建出 lib/client.js）再挂载。`)
     return false
   }
   return true
@@ -71,16 +71,16 @@ function mount() {
   const spec = `link:${REPO}`
 
   if (deps[PKG] !== undefined) {
-    console.log(`✓ ${PKG} 已在 dependencies（跳过）`)
+    console.log(`[ok] ${PKG} 已在 dependencies（跳过）`)
   } else {
     deps[PKG] = spec
-    console.log(`✓ dependencies += ${PKG}: ${spec}`)
+    console.log(`[ok] dependencies += ${PKG}: ${spec}`)
   }
   if (bundles.includes(PKG)) {
-    console.log(`✓ ${PKG} 已在 dsh.profile.bundles（跳过）`)
+    console.log(`[ok] ${PKG} 已在 dsh.profile.bundles（跳过）`)
   } else {
     bundles.push(PKG)
-    console.log(`✓ dsh.profile.bundles += ${PKG}`)
+    console.log(`[ok] dsh.profile.bundles += ${PKG}`)
   }
   writeManifest(manifest)
   installProfile()
@@ -97,14 +97,14 @@ function unmount() {
 
   if (deps[PKG] !== undefined) {
     delete deps[PKG]
-    console.log(`✓ dependencies -= ${PKG}`)
+    console.log(`[ok] dependencies -= ${PKG}`)
   } else {
     console.log(`· dependencies 无 ${PKG}（跳过）`)
   }
   const idx = bundles.indexOf(PKG)
   if (idx !== -1) {
     bundles.splice(idx, 1)
-    console.log(`✓ dsh.profile.bundles -= ${PKG}`)
+    console.log(`[ok] dsh.profile.bundles -= ${PKG}`)
   } else {
     console.log(`· dsh.profile.bundles 无 ${PKG}（跳过）`)
   }

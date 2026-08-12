@@ -12,6 +12,7 @@ import type { JSX } from 'react'
 import type { PreviewTabState } from '../store.ts'
 import { t } from '../locales.ts'
 import { CloseIcon, PlusIcon, ShrinkIcon } from '../components/icons.tsx'
+import { activateOnKey } from '../components/a11y.ts'
 import previewCss from '../styles/preview.module.css'
 
 /** Tab width cap (AionUi measured). */
@@ -78,7 +79,12 @@ export function PreviewTabs({
             key={tab.id}
             className={`${previewCss.tab}${tab.id === activeTabId ? ` ${previewCss.tabActive}` : ` ${previewCss.tabInactive}`}`}
             style={{ maxWidth: MAX_TAB_WIDTH_PX }}
+            role="button"
+            tabIndex={0}
+            title={tab.path}
+            aria-label={tab.title}
             onClick={() => onSwitch(tab.id)}
+            onKeyDown={activateOnKey(() => { onSwitch(tab.id) })}
             onContextMenu={(event) => onContextMenu(event, tab)}
             onAuxClick={(event) => {
               if (event.button !== 1) return
@@ -91,10 +97,15 @@ export function PreviewTabs({
             {tab.dirty && <span className={previewCss.tabDotDirty} title={t('preview.dirty')} />}
             <span
               className={previewCss.tabClose}
+              role="button"
+              tabIndex={0}
+              title={t('common.close')}
+              aria-label={t('common.close')}
               onClick={(event) => {
                 event.stopPropagation()
                 onClose(tab.id)
               }}
+              onKeyDown={activateOnKey(() => { onClose(tab.id) })}
             >
               <CloseIcon size={12} />
             </span>
@@ -103,9 +114,11 @@ export function PreviewTabs({
         {tabs.length > 0 && (
           <div
             className={previewCss.tabPlus}
-            onClick={onNewUrlTab}
-            title={t('preview.newUrlTab')}
             role="button"
+            tabIndex={0}
+            onClick={onNewUrlTab}
+            onKeyDown={activateOnKey(onNewUrlTab)}
+            title={t('preview.newUrlTab')}
           >
             <PlusIcon size={14} />
           </div>
@@ -114,9 +127,12 @@ export function PreviewTabs({
       <div className={previewCss.tabBarRight}>
         <div
           className={previewCss.panelCollapse}
-          onClick={onClosePanel}
-          title={t('preview.collapsePanel')}
           role="button"
+          tabIndex={0}
+          onClick={onClosePanel}
+          onKeyDown={activateOnKey(onClosePanel)}
+          title={t('preview.collapsePanel')}
+          aria-label={t('preview.collapsePanel')}
         >
           <ShrinkIcon size={14} />
         </div>

@@ -33,6 +33,15 @@
   background: var(--aion-fill-2);
 }
 
+.tabBtn:active {
+  background: var(--aion-bg-active);
+}
+
+.tabBtn:focus-visible {
+  outline: 2px solid var(--aion-primary);
+  outline-offset: 2px;
+}
+
 .tabBtnActive {
   height: 28px;
   padding: 0 8px;
@@ -46,6 +55,15 @@
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   font-weight: 500;
+}
+
+.tabBtnActive:active {
+  background: var(--aion-bg-active);
+}
+
+.tabBtnActive:focus-visible {
+  outline: 2px solid var(--aion-primary);
+  outline-offset: 2px;
 }
 
 /* The persistent filename search area. */
@@ -68,6 +86,11 @@
 
 .searchBoxFocus {
   border-color: var(--aion-primary);
+}
+
+/* The inner input is focusable; mirror its focus ring onto the box. */
+.searchBox:focus-within {
+  box-shadow: 0 0 0 2px transparent, 0 0 0 4px var(--aion-primary);
 }
 
 .searchIcon {
@@ -112,6 +135,15 @@
   background: var(--aion-fill-2);
 }
 
+.searchClear:active {
+  background: var(--aion-bg-active);
+}
+
+.searchClear:focus-visible {
+  outline: 2px solid var(--aion-primary);
+  outline-offset: 2px;
+}
+
 .searchAreaFocus .searchClear {
   display: flex;
 }
@@ -146,6 +178,14 @@
 
 .treeRow:hover {
   background-color: var(--aion-fill-2);
+}
+
+.treeRow:active {
+  background-color: var(--aion-bg-active);
+}
+
+.treeRow:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--aion-primary);
 }
 
 .treeRowSelected,
@@ -205,6 +245,14 @@
 
 .resultRow:hover {
   background-color: var(--aion-fill-2);
+}
+
+.resultRow:active {
+  background-color: var(--aion-bg-active);
+}
+
+.resultRow:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--aion-primary);
 }
 
 .resultName {

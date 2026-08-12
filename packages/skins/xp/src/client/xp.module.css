@@ -1074,3 +1074,216 @@ body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-toast) {
   background: #2b2e33;
   border-color: #000;
 }
+
+/* --- Interaction polish --------------------------------------------------------
+   Compose the skin's interaction feel without touching the palette: XP-style
+   focus (a square inset outline, never a modern rounded ring), beveled
+   active-press feedback (gradient reversal + inner shadow), and a visible
+   disabled state that stays inert to hover. Motion is uniform at 120ms and
+   dropped entirely under prefers-reduced-motion. Every rule is keyed to the
+   skin's own body scope; nothing leaks outside it.
+   ----------------------------------------------------------------------------- */
+
+/* Motion: one shared easing for the whole interactive family. This is an
+   interaction-state change only — resting appearance is unchanged. */
+body[data-dsh-xp] .xpTitlebarBtn,
+body[data-dsh-xp] .xpTitlebarBtnClose,
+body[data-dsh-xp] .xpStart,
+body[data-dsh-xp] .xpTaskbar > button,
+body[data-dsh-xp] [data-pane='sidebar'] > div > :first-child button,
+body[data-dsh-xp] [data-pane='sidebar'] > div > button,
+body[data-dsh-xp] [role='dialog'] > nav button,
+body[data-dsh-xp] :global(.aionui-btn),
+body[data-dsh-xp] :global(.aionui-floating-expand),
+body[data-dsh-xp] :global(.aionui-menu-item),
+body[data-dsh-xp] :global(.aionui-explorer-handle),
+body[data-dsh-xp] :global(.aionui-preview-handle) {
+  transition:
+    background 120ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+/* --- XP focus ------------------------------------------------------------
+   A square inset outline (Luna navy by day, Zune azure by night). No outline
+   drop to the default UA ring; no rounded ring either. */
+body[data-dsh-xp] .xpTitlebarBtn:focus-visible,
+body[data-dsh-xp] .xpTitlebarBtnClose:focus-visible,
+body[data-dsh-xp] .xpStart:focus-visible,
+body[data-dsh-xp] .xpTaskbar > button:focus-visible,
+body[data-dsh-xp] [data-pane='sidebar'] > div > :first-child button:focus-visible,
+body[data-dsh-xp] [data-pane='sidebar'] > div > button:focus-visible,
+body[data-dsh-xp] :global(.aionui-btn:focus-visible),
+body[data-dsh-xp] :global(.aionui-floating-expand:focus-visible) {
+  outline: none;
+  box-shadow: inset 0 0 0 2px #0a246a, inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] .xpTitlebarBtn:focus-visible,
+body[data-dsh-xp][data-ds-dark-theme] .xpTitlebarBtnClose:focus-visible,
+body[data-dsh-xp][data-ds-dark-theme] .xpStart:focus-visible,
+body[data-dsh-xp][data-ds-dark-theme] .xpTaskbar > button:focus-visible,
+body[data-dsh-xp][data-ds-dark-theme] [data-pane='sidebar'] > div > :first-child button:focus-visible,
+body[data-dsh-xp][data-ds-dark-theme] [data-pane='sidebar'] > div > button:focus-visible,
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn:focus-visible),
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-floating-expand:focus-visible) {
+  box-shadow: inset 0 0 0 2px #6da8e8, inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+body[data-dsh-xp] :global(.aionui-menu-item:focus-visible) {
+  outline: none;
+  background: #dbe9fc;
+  box-shadow: inset 0 0 0 2px #0a246a;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-menu-item:focus-visible) {
+  background: #232a36;
+  box-shadow: inset 0 0 0 2px #6da8e8;
+}
+
+/* Drag handles: keyboard focus draws a sharp outline around the grab line. */
+body[data-dsh-xp] :global(.aionui-explorer-handle:focus-visible)::after,
+body[data-dsh-xp] :global(.aionui-preview-handle:focus-visible)::after {
+  background-color: var(--aion-brand);
+  box-shadow: 0 0 0 1px var(--aion-primary), 0 0 0 3px #0a246a;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-explorer-handle:focus-visible)::after,
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-preview-handle:focus-visible)::after {
+  box-shadow: 0 0 0 1px var(--aion-primary), 0 0 0 3px #6da8e8;
+}
+
+/* --- Active press: beveled plates depress ---------------------------------------
+   Gradient reversal plus an inner shadow reads as the classic XP pressed
+   bevel. Complements the light hover tints already present; every active rule
+   also gets its Zune dark twin. */
+
+/* Caption buttons (were hover-only until now). */
+body[data-dsh-xp] .xpTitlebarBtn:active,
+body[data-dsh-xp] .xpTitlebarBtnClose:active {
+  background: linear-gradient(180deg, #1e5fd0 0%, #4f8fe0 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] .xpTitlebarBtn:hover {
+  background: linear-gradient(180deg, #5a5f68 0%, #2f3339 100%);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] .xpTitlebarBtnClose:hover {
+  background: linear-gradient(180deg, #e05252 0%, #a02520 100%);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] .xpTitlebarBtn:active,
+body[data-dsh-xp][data-ds-dark-theme] .xpTitlebarBtnClose:active {
+  background: linear-gradient(180deg, #26292e 0%, #4a4e55 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Start button dark press and hover. */
+body[data-dsh-xp][data-ds-dark-theme] .xpStart:hover {
+  background: linear-gradient(180deg, #8fd25c 0%, #4aa01a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] .xpStart:active {
+  background: linear-gradient(180deg, #3c9212 0%, #5aa72f 55%, #7bc04b 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Taskbar footer settings button: dark hover. */
+body[data-dsh-xp][data-ds-dark-theme] .xpTaskbar > button:not(.xpStart):hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Sidebar caption-band buttons: active on both, dark hover twin. */
+body[data-dsh-xp] [data-pane='sidebar'] > div > :first-child button:active {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] [data-pane='sidebar'] > div > :first-child button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] [data-pane='sidebar'] > div > :first-child button:active {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* New-session command button: dark active. */
+body[data-dsh-xp][data-ds-dark-theme] [data-pane='sidebar'] > div > button:active {
+  background: linear-gradient(180deg, #23262b 0%, #3f444b 55%, #4a5058 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Settings dialog nav rail: active press. */
+body[data-dsh-xp] [role='dialog'] > nav button:active {
+  background: #a8c8f0;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] [role='dialog'] > nav button:active {
+  background: #2f445c;
+}
+
+/* aionui panel primary/danger/floating buttons already tint on hover; add the
+   pressed bevel for both palettes. */
+body[data-dsh-xp] :global(.aionui-btn-primary:active) {
+  background: linear-gradient(180deg, #1e5fd0 0%, #4f8fe0 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn-primary:active) {
+  background: linear-gradient(180deg, #316ac5 0%, #4a7fd0 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+body[data-dsh-xp] :global(.aionui-btn-danger:active) {
+  background: linear-gradient(180deg, #e83b2b 0%, #ff9d8a 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn-danger:active) {
+  background: linear-gradient(180deg, #c62828 0%, #ff8a80 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-btn:active) {
+  background: linear-gradient(180deg, #23262b 0%, #3f444b 55%, #4a5058 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+body[data-dsh-xp] :global(.aionui-floating-expand:active) {
+  background: linear-gradient(180deg, #d8d7cf 0%, #f1efe9 55%, #fdfdfd 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] :global(.aionui-floating-expand:active) {
+  background: linear-gradient(180deg, #23262b 0%, #3f444b 55%, #4a5058 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Disabled ---------------------------------------------------------------
+   A visible mute plus pointer-events:none so a disabled control neither shifts
+   on hover nor swallows clicks. Scoped to the skin's own interactive buttons
+   and the panel controls. */
+body[data-dsh-xp] button:disabled,
+body[data-dsh-xp] :global(.aionui-btn:disabled),
+body[data-dsh-xp] :global(.aionui-btn-primary:disabled),
+body[data-dsh-xp] :global(.aionui-btn-danger:disabled),
+body[data-dsh-xp] :global(.aionui-floating-expand:disabled),
+body[data-dsh-xp] :global(.aionui-menu-item:disabled) {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: default;
+}
+
+/* --- Reduced motion ----------------------------------------------------------
+   The skin is an instant-response surface; under prefers-reduced-motion we
+   drop every transition entirely (including any the panel supplies within the
+   skin scope). */
+@media (prefers-reduced-motion: reduce) {
+  body[data-dsh-xp] * {
+    transition: none !important;
+  }
+}

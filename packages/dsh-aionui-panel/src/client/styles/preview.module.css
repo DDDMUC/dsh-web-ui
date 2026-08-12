@@ -65,6 +65,14 @@
   background: var(--aion-bg-3);
 }
 
+.tab:active {
+  background: var(--aion-bg-active);
+}
+
+.tab:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--aion-primary);
+}
+
 .tabTitle {
   font-size: 12px;
   overflow: hidden;
@@ -127,6 +135,14 @@
   color: var(--aion-text-primary);
 }
 
+.tabClose:active {
+  background: var(--aion-bg-active);
+}
+
+.tabClose:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--aion-primary);
+}
+
 .tabPlus {
   display: flex;
   align-items: center;
@@ -145,6 +161,14 @@
 .tabPlus:hover {
   background: var(--aion-bg-3);
   color: var(--aion-text-primary);
+}
+
+.tabPlus:active {
+  background: var(--aion-bg-active);
+}
+
+.tabPlus:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--aion-primary);
 }
 
 .tabBarRight {
@@ -169,6 +193,14 @@
 .panelCollapse:hover {
   background: var(--aion-bg-3);
   color: var(--aion-text-primary);
+}
+
+.panelCollapse:active {
+  background: var(--aion-bg-active);
+}
+
+.panelCollapse:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--aion-primary);
 }
 
 .tabFade {
@@ -256,9 +288,24 @@
   color: var(--aion-text-primary);
 }
 
+.toolbarBtn:active {
+  background: var(--aion-bg-active);
+  color: var(--aion-text-primary);
+}
+
+.toolbarBtn:focus-visible {
+  outline: 2px solid var(--aion-primary);
+  outline-offset: 2px;
+}
+
 .toolbarBtn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.toolbarBtn:disabled:hover {
+  background: transparent;
+  color: var(--aion-text-secondary);
 }
 
 .toolbarBtnActive {
@@ -567,6 +614,10 @@
   font-family: var(--aion-font-sans);
 }
 
+.urlInput:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--aion-primary);
+}
+
 .urlFrame {
   flex: 1;
   min-height: 0;
@@ -693,6 +744,10 @@
   line-height: 1.6;
   padding: 12px 14px;
   tab-size: 2;
+}
+
+.textEditor:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--aion-primary);
 }
 
 /* Save-state banner. */

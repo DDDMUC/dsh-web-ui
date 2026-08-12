@@ -41,20 +41,23 @@ export function PluginSettingsCard(props: PluginSettingsCardProps) {
   if (!state.available) return null
   const title = props.t(props.titleKey)
   const blocked = !state.dirty || state.invalid || state.saving
+  const cardClass = open ? `${css.cardOpen} ${css.card}` : css.card
+  const description = props.t(props.descriptionKey)
   return (
-    <li className={css.card}>
+    <li className={cardClass}>
       <button
         type="button"
         className={css.header}
         aria-expanded={open}
         aria-label={`${props.t(open ? 'settings.collapse' : 'settings.expand')}: ${title}`}
+        title={description}
         onClick={() => { setOpen(!open) }}
       >
         <span className={css.headText}>
-          <span className={css.name}>{title}</span>
-          <span className={css.description}>{props.t(props.descriptionKey)}</span>
+          <span className={css.name} title={title}>{title}</span>
+          <span className={css.description}>{description}</span>
         </span>
-        {state.dirty ? <span className={css.pending}>{props.t('settings.unsaved')}</span> : null}
+        {state.dirty ? <span className={css.pending} title={props.t('settings.unsaved')}>{props.t('settings.unsaved')}</span> : null}
         <span className={open ? css.chevronOpen : css.chevron}>▾</span>
       </button>
       {open

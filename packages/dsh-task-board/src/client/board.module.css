@@ -167,6 +167,8 @@ html[data-dsh-taskboard-active] [data-pane='conversation'] > :not([data-dsh-task
 }
 
 .columnCount {
+  flex: none;
+  min-width: 0;
   font-size: 12px;
   color: var(--dsw-alias-label-tertiary);
   background: var(--dsw-alias-interactive-bg-hover);
@@ -268,9 +270,14 @@ html[data-dsh-taskboard-active] [data-pane='conversation'] > :not([data-dsh-task
 
 .cardSchedule {
   flex: none;
+  min-width: 0;
   font-size: 12px;
   line-height: 1;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 999px;
   color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .cardRun {
@@ -364,8 +371,17 @@ html[data-dsh-taskboard-active] [data-pane='conversation'] > :not([data-dsh-task
   white-space: nowrap;
 }
 
-.dangerButton:hover {
+.dangerButton:hover:not(:disabled) {
   filter: brightness(1.08);
+}
+
+.dangerButton:active:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.dangerButton:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .iconButton {
@@ -723,4 +739,111 @@ html[data-dsh-taskboard-active] [data-pane='conversation'] > :not([data-dsh-task
   margin-left: auto;
   font-size: 11px;
   color: var(--dsw-alias-label-tertiary);
+}
+
+/* -----------------------------------------------------------------------------
+ * Polish pass: complete interaction states (hover / active / focus-visible /
+ * disabled), unified 120ms motion, and reduced-motion fallback.
+ * Colors use the --dsw-alias-* design tokens, which adapt to light/dark/skins
+ * automatically, so every rule below is dark-safe by construction.
+ * --------------------------------------------------------------------------- */
+
+/* --- one themed focus-visible ring (approx 2px, 2px offset) --- */
+.entry:focus-visible,
+.card:focus-visible,
+.primaryButton:focus-visible,
+.ghostButton:focus-visible,
+.dangerButton:focus-visible,
+.iconButton:focus-visible,
+.linkButton:focus-visible,
+.search:focus-visible,
+.input:focus-visible,
+.schedulePreset:focus-visible,
+.scheduleToggle input:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
+}
+
+/* --- unified 120ms motion across the board's interactive controls --- */
+.entry,
+.primaryButton,
+.ghostButton,
+.dangerButton,
+.iconButton,
+.linkButton,
+.search,
+.input,
+.schedulePreset,
+.scheduleToggle input {
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, outline-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+/* --- press (active) feedback --- */
+.card:active {
+  box-shadow: var(--dsw-shadow-lv1);
+  transform: translateY(0);
+}
+
+.entry:active,
+.primaryButton:active:not(:disabled),
+.ghostButton:active:not(:disabled),
+.dangerButton:active:not(:disabled),
+.iconButton:active:not(:disabled),
+.linkButton:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* --- entry row (sidebar) states --- */
+.entry[data-active]:hover {
+  background: var(--dsw-specific-sidebar-nav-item-active);
+}
+
+/* --- guarded hover for the remaining icon/link buttons (defensive: never
+       disabled today, but a disabled element must not react to hover) --- */
+.iconButton:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.linkButton:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.iconButton:disabled,
+.linkButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* --- search box focus (border tint + themed ring above) --- */
+.search:focus,
+.schedulePreset:focus {
+  border-color: var(--dsw-alias-state-business-primary);
+}
+
+/* --- schedule toggle checkbox focus already covered by the shared ring;
+       keep the accent-color and size stable --- */
+.scheduleToggle input {
+  margin: 0;
+}
+
+/* --- reduced motion: strip transitions, stop the decorative spinner --- */
+@media (prefers-reduced-motion: reduce) {
+  .entry,
+  .card,
+  .primaryButton,
+  .ghostButton,
+  .dangerButton,
+  .iconButton,
+  .linkButton,
+  .search,
+  .input,
+  .schedulePreset,
+  .scheduleToggle input {
+    transition: none;
+  }
+
+  .cardSpinner {
+    animation: none;
+  }
 }

@@ -188,7 +188,7 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
             aria-label={t('detail.close')}
             onClick={() => { controller.closeTask() }}
           >
-            ✕
+            ×
           </button>
         </header>
 

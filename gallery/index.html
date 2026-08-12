@@ -40,6 +40,11 @@
   }
   a { color: var(--g-accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
+  a:focus-visible, button:focus-visible, select:focus-visible {
+    outline: 2px solid var(--g-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 
   .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 72px; }
 
@@ -165,6 +170,10 @@
     animation: spin .7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+    .spinner { animation: none; }
+  }
   .side { width: 240px; flex: none; display: flex; flex-direction: column; gap: 10px; }
   .side .panel {
     background: rgba(255, 255, 255, .92); border: 1px solid var(--g-line); border-radius: 12px; padding: 12px;
@@ -349,6 +358,7 @@
   var mCmd = document.getElementById('mCmd')
   var mTitle = document.getElementById('mTitle')
   var state = { skin: null, dark: false }
+  var lastFocus = null
 
   skins.forEach(function (s) {
     var o = document.createElement('option')
@@ -367,6 +377,13 @@
   }
   frame.addEventListener('load', function () { mLoading.classList.add('hide') })
 
+  function closeModal() {
+    modal.classList.remove('open')
+    document.body.style.overflow = ''
+    frame.src = 'about:blank'
+    if (lastFocus && document.contains(lastFocus)) lastFocus.focus()
+  }
+
   function openModal(s) {
     state.skin = s.id
     state.dark = false
@@ -374,9 +391,11 @@
     mTheme.textContent = '暗色'
     mTitle.textContent = '试穿 · ' + s.name
     mCmd.textContent = 'dsh-skin use ' + s.id
+    lastFocus = document.activeElement
     modal.classList.add('open')
     document.body.style.overflow = 'hidden'
     refreshFrame()
+    document.getElementById('mClose').focus()
   }
 
   mSkin.addEventListener('change', function () {
@@ -391,11 +410,7 @@
     mTheme.textContent = state.dark ? '亮色' : '暗色'
     refreshFrame()
   })
-  document.getElementById('mClose').addEventListener('click', function () {
-    modal.classList.remove('open')
-    document.body.style.overflow = ''
-    frame.src = 'about:blank'
-  })
+  document.getElementById('mClose').addEventListener('click', closeModal)
   document.getElementById('mOpen').addEventListener('click', function () {
     window.open(frameSrc(), '_blank', 'noopener')
   })
@@ -406,18 +421,10 @@
     setTimeout(function () { b.textContent = '复制命令' }, 1400)
   })
   modal.addEventListener('click', function (e) {
-    if (e.target === modal) {
-      modal.classList.remove('open')
-      document.body.style.overflow = ''
-      frame.src = 'about:blank'
-    }
+    if (e.target === modal) closeModal()
   })
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal.classList.contains('open')) {
-      modal.classList.remove('open')
-      document.body.style.overflow = ''
-      frame.src = 'about:blank'
-    }
+    if (e.key === 'Escape' && modal.classList.contains('open')) closeModal()
   })
 })();
 </script>

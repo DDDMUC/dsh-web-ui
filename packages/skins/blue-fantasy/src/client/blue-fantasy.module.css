@@ -461,14 +461,17 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] a:visited {
   color: #a58fdc;
 }
 
+/* Keyboard focus: a clear 2px ring in the whale-ink primary, floated 2px off
+   the element so it stays legible against the frosted surfaces. Uses the
+   theme-token primary so it tracks the light/dark variant and never the
+   UA default outline. */
 body[data-dsh-blue-fantasy] :focus-visible {
-  outline: 2px solid rgba(74, 95, 168, 0.55);
-  outline-offset: 0;
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
 }
 
 body[data-dsh-blue-fantasy][data-ds-dark-theme] :focus-visible {
-  outline: 2px solid rgba(127, 150, 210, 0.6);
-  outline-offset: 0;
+  outline-color: var(--dsw-alias-state-business-primary);
 }
 
 /* --- aionui 右侧面板适配（dsh-aionui-panel）-------------------------------
@@ -575,4 +578,131 @@ body[data-dsh-blue-fantasy] :global(.aionui-overlay) {
 
 body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-overlay) {
   background: rgba(0, 0, 0, 0.55);
+}
+
+/* --- 3) interactive polish ------------------------------------------------
+   Smooth the state changes the token remap already drives. All transitions
+   are short (130ms) and appearance-only (color / background / border / box-shadow /
+   opacity) so nothing reflows; the whole set folds to `transition: none` under
+   prefers-reduced-motion at the end of this section. Disabled controls get an
+   obvious dim and stop responding to hover. */
+
+body[data-dsh-blue-fantasy] button,
+body[data-dsh-blue-fantasy] a,
+body[data-dsh-blue-fantasy] :global(.aionui-btn),
+body[data-dsh-blue-fantasy] :global(.aionui-menu-item),
+body[data-dsh-blue-fantasy] :global(.aionui-explorer-handle),
+body[data-dsh-blue-fantasy] :global(.aionui-preview-handle) {
+  transition: background-color 0.13s ease, border-color 0.13s ease,
+    box-shadow 0.13s ease, color 0.13s ease, opacity 0.13s ease;
+}
+
+body[data-dsh-blue-fantasy] ::-webkit-scrollbar-thumb {
+  transition: background-color 0.13s ease;
+}
+
+/* Links: breathe toward the deeper ink on hover, press flat on active. */
+body[data-dsh-blue-fantasy] a:hover {
+  color: #2c3765;
+  text-decoration: underline;
+}
+
+body[data-dsh-blue-fantasy] a:active {
+  color: #222b4d;
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] a:hover {
+  color: #b4c3e8;
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] a:active {
+  color: #c9d4ef;
+}
+
+/* Disabled controls: visibly dimmed and inert to hover / focus. */
+body[data-dsh-blue-fantasy] button:disabled,
+body[data-dsh-blue-fantasy] :global(.aionui-btn:disabled),
+body[data-dsh-blue-fantasy] :global(.aionui-menu-item-disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+body[data-dsh-blue-fantasy] :global(.aionui-btn:disabled:hover),
+body[data-dsh-blue-fantasy] :global(.aionui-menu-item-disabled):hover {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* aionui panel: drag handles glow with the whale indigo on hover, and the
+   collapsed-expand affordance mirrors the hand. */
+body[data-dsh-blue-fantasy] :global(.aionui-explorer-handle),
+body[data-dsh-blue-fantasy] :global(.aionui-preview-handle) {
+  background: #d8dfec;
+}
+
+body[data-dsh-blue-fantasy] :global(.aionui-explorer-handle):hover,
+body[data-dsh-blue-fantasy] :global(.aionui-preview-handle):hover {
+  background: #7f96d2;
+  box-shadow: 0 0 6px rgba(74, 95, 168, 0.4);
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-explorer-handle),
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-preview-handle) {
+  background: #33406a;
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-explorer-handle):hover,
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-preview-handle):hover {
+  background: #6276a5;
+  box-shadow: 0 0 6px rgba(127, 150, 210, 0.4);
+}
+
+body[data-dsh-blue-fantasy] :global(.aionui-floating-expand):hover {
+  background: #e4eaf7;
+  border-color: #647ebf;
+}
+
+body[data-dsh-blue-fantasy] :global(.aionui-floating-expand):active {
+  background: #dce3f7;
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-floating-expand):hover {
+  background: #2c3765;
+  border-color: #647ebf;
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-floating-expand):active {
+  background: #33417a;
+}
+
+body[data-dsh-blue-fantasy] :global(.aionui-collapse-chevron):hover {
+  color: #647ebf;
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-collapse-chevron):hover {
+  color: #a5b7e2;
+}
+
+/* aionui menu items: hover only on enabled rows (the token remap supplies
+   the resting fill; disabled rows keep their dim and no hover). */
+body[data-dsh-blue-fantasy] :global(.aionui-menu-item:not(.aionui-menu-item-disabled):hover) {
+  background: rgba(74, 95, 168, 0.12);
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-menu-item:not(.aionui-menu-item-disabled):hover) {
+  background: rgba(160, 185, 235, 0.16);
+}
+
+/* --- reduced-motion: fold all transitions to instant --------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-dsh-blue-fantasy] button,
+  body[data-dsh-blue-fantasy] a,
+  body[data-dsh-blue-fantasy] :global(.aionui-btn),
+  body[data-dsh-blue-fantasy] :global(.aionui-menu-item),
+  body[data-dsh-blue-fantasy] :global(.aionui-explorer-handle),
+  body[data-dsh-blue-fantasy] :global(.aionui-preview-handle),
+  body[data-dsh-blue-fantasy] ::-webkit-scrollbar-thumb {
+    transition: none;
+  }
 }

@@ -21,6 +21,7 @@ import type { PanelStores } from '../store.ts'
 import { FileTypeIcon } from './FileIcon.tsx'
 import { ChevronRightIcon, CloseIcon, ExpandRightIcon, SearchIcon } from './icons.tsx'
 import { ScmPanel } from './ScmPanel.tsx'
+import { activateOnKey } from './a11y.ts'
 import explorerCss from '../styles/explorer.module.css'
 import '../styles/tokens.module.css'
 
@@ -162,10 +163,14 @@ function SearchResults({ stores }: { stores: PanelStores }): JSX.Element {
         <div
           key={hit.path}
           className={explorerCss.resultRow}
+          role="button"
+          tabIndex={0}
+          title={hit.path}
           onClick={() => {
             // Reveal: expand the ancestor chain and select — not preview.
             explorer.reveal(hit.path)
           }}
+          onKeyDown={activateOnKey(() => { explorer.reveal(hit.path) })}
         >
           <FileTypeIcon name={hit.name} isDir={hit.isDir} expanded={false} />
           <span className={explorerCss.resultName}>{hit.name}</span>
@@ -252,11 +257,13 @@ function TreeRowBase({
         className={`${explorerCss.treeRow}${isSelected ? ` ${explorerCss.treeRowSelected}` : ''}`}
         style={{ paddingLeft: 12 + 8 + depth * INDENT_STEP }}
         onClick={handleClick}
+        onKeyDown={activateOnKey(handleClick)}
         onDoubleClick={(event) => {
           // Double-click on a file: same as click (open). Folders: keep toggle.
           event.stopPropagation()
         }}
         role="button"
+        tabIndex={0}
         aria-expanded={entry.isDir ? isExpanded : undefined}
         title={entry.path}
       >

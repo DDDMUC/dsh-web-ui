@@ -43,8 +43,8 @@ export function WebUIPluginsCard(props: WebUIPluginsCardProps): ReactNode {
         onClick={() => { setOpen(!open) }}
       >
         <span className={css.headText}>
-          <span className={css.name}>{t('title')}</span>
-          <span className={css.description}>{t('description')}</span>
+          <span className={css.name} title={t('title')}>{t('title')}</span>
+          <span className={css.description} title={t('description')}>{t('description')}</span>
         </span>
         <span className={open ? css.chevronOpen : css.chevron}>▾</span>
       </button>

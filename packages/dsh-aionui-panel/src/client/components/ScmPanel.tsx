@@ -20,6 +20,7 @@ import { t, format } from '../locales.ts'
 import { useStore } from '../hooks/useStore.ts'
 import type { PanelStores } from '../store.ts'
 import { ConfirmDialog } from './overlay.tsx'
+import { activateOnKey } from './a11y.ts'
 import { FileTypeIcon } from './FileIcon.tsx'
 import { BranchIcon, ChevronDownIcon, ChevronRightIcon, ListIcon, MinusIcon, PlusIcon, TreeIcon, UndoIcon } from './icons.tsx'
 import scmCss from '../styles/scm.module.css'
@@ -102,7 +103,9 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
         <div
           className={scmCss.sectionHeader}
           onClick={() => scm.setSectionCollapsed('changes', changesSectionOpen)}
+          onKeyDown={activateOnKey(() => { scm.setSectionCollapsed('changes', changesSectionOpen) })}
           role="button"
+          tabIndex={0}
           aria-expanded={changesSectionOpen}
         >
           <span className={`${scmCss.sectionChevron}${changesSectionOpen ? ` ${scmCss.sectionChevronOpen}` : ''}`}>
@@ -301,19 +304,23 @@ function DirNode({
 }): JSX.Element {
   const expanded = state.treeExpanded.includes(dir)
   const label = dir === '' ? '/' : dir.split('/').pop() ?? dir
+  const toggleExpanded = (): void => {
+    const next = expanded
+      ? state.treeExpanded.filter((item) => item !== dir)
+      : [...state.treeExpanded, dir]
+    scm.setTreeExpanded(next)
+  }
   return (
     <>
       <div
         className={scmCss.dirRow}
         style={{ paddingLeft: 12 + depth * 12 }}
-        onClick={() => {
-          const next = expanded
-            ? state.treeExpanded.filter((item) => item !== dir)
-            : [...state.treeExpanded, dir]
-          scm.setTreeExpanded(next)
-        }}
+        title={dir}
         role="button"
+        tabIndex={0}
         aria-expanded={expanded}
+        onClick={toggleExpanded}
+        onKeyDown={activateOnKey(toggleExpanded)}
       >
         <span className={`${scmCss.dirArrow}${expanded ? ` ${scmCss.dirArrowOpen}` : ''}`}>
           <ChevronRightIcon size={13} />
@@ -379,7 +386,9 @@ function ChangeRow({
       style={{ paddingLeft: 12 + indent * 12 }}
       title={row.path}
       onClick={openInPreview}
+      onKeyDown={activateOnKey(openInPreview)}
       role="button"
+      tabIndex={0}
     >
       <span className={`${scmCss.badge} ${badge.className}`}>{badge.letter}</span>
       <span className={scmCss.changeName}>{displayName}</span>

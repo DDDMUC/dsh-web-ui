@@ -117,10 +117,16 @@ body {
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .mobile-back:active {
   background: var(--m-bg-raised);
+}
+
+.mobile-back:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--m-bg), 0 0 0 4px var(--m-accent);
 }
 
 .mobile-theme-toggle {
@@ -136,10 +142,16 @@ body {
   background: transparent;
   color: var(--m-text-secondary);
   cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .mobile-theme-toggle:active {
   background: var(--m-bg-raised);
+}
+
+.mobile-theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--m-bg), 0 0 0 4px var(--m-accent);
 }
 
 .mobile-theme-toggle svg {
@@ -794,5 +806,48 @@ body {
   font-size: 13px;
   cursor: pointer;
   padding: 6px 10px;
+}
+
+/* Touch surfaces have no hover, so keyboard focus must be fully visible.
+   One shared ring keeps every interactive control consistent and readable
+   on both palettes. */
+.mobile-row:focus-visible,
+.mobile-button:focus-visible,
+.mobile-new:focus-visible,
+.chat-send:focus-visible,
+.chat-chip:focus-visible,
+.chat-msg-toggle:focus-visible,
+.chat-load-older:focus-visible,
+.chat-disclosure-head:focus-visible,
+.sheet-option:focus-visible,
+.sheet-confirm-danger:focus-visible,
+.chat-input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--m-bg), 0 0 0 4px var(--m-accent);
+}
+
+/* Accessibility: collapse every interaction/enter animation for
+   reduced-motion users; surface layout itself stays static. */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-theme-toggle,
+  .mobile-back,
+  .mobile-row,
+  .mobile-button,
+  .mobile-new,
+  .chat-send,
+  .chat-chip,
+  .chat-msg-toggle,
+  .chat-load-older,
+  .chat-disclosure-head,
+  .chat-disclosure-caret,
+  .chat-msg-pending .chat-msg-text::after,
+  .sheet-backdrop,
+  .sheet,
+  .sheet-option,
+  .sheet-confirm-danger,
+  .chat-input {
+    animation: none;
+    transition: none;
+  }
 }
 `

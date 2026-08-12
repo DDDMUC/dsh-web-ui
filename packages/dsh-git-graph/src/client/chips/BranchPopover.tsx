@@ -101,7 +101,7 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
               >
                 <IconBranchOutline16 size={14} />
                 <span className={css.itemText}>
-                  <span className={css.itemName}>{branch.name}</span>
+                  <span className={css.itemName} title={branch.name}>{branch.name}</span>
                 </span>
                 {branch.current && <IconCheckOutline14 className={css.check} size={14} />}
               </button>

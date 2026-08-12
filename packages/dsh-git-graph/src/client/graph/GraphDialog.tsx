@@ -141,13 +141,14 @@ export function GraphDialog({ graph, onClose, t }: GraphDialogProps) {
                           </span>
                         ))}
                       </span>
-                      <span className={css.graphOid}>{commit.oid.slice(0, 7)}</span>
+                      <span className={css.graphOid} title={commit.oid}>{commit.oid.slice(0, 7)}</span>
                       <span className={css.graphMain}>
-                        <span className={css.graphSubject}>{commit.subject}</span>
+                        <span className={css.graphSubject} title={commit.subject}>{commit.subject}</span>
                         <span className={css.graphMeta}>
                           {commit.refs.map(ref => (
                             <span
                               key={ref}
+                              title={ref}
                               className={cx(css.graphRef, ref === view.branch && css.graphRefCurrent)}
                             >
                               {ref}

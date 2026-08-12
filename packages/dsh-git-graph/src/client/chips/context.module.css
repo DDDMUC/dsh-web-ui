@@ -19,10 +19,29 @@
   font-size: 12px;
   line-height: 1;
   white-space: nowrap;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .chip:hover {
   background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.chip:active {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
+}
+
+.chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chip:disabled:hover {
+  background: var(--dsw-alias-button-tool-bar-fill);
 }
 
 .chipOpen {
@@ -74,6 +93,12 @@
   border-radius: 8px;
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-primary);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.searchBox:focus-within {
+  border-color: var(--dsw-alias-brand-primary);
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
 }
 
 .searchInput {
@@ -84,6 +109,7 @@
   background: none;
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
+  transition: box-shadow 120ms ease;
 }
 
 .searchInput::placeholder {
@@ -102,12 +128,33 @@
   align-items: center;
   gap: 8px;
   padding: 7px 8px;
+  border: none;
   border-radius: 8px;
   cursor: pointer;
+  text-align: left;
+  transition: background-color 120ms ease;
 }
 
 .item:hover {
   background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.item:active {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
+}
+
+.item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.item:disabled:hover {
+  background: none;
 }
 
 .itemActive {
@@ -188,10 +235,29 @@
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
   text-align: left;
+  transition: background-color 120ms ease;
 }
 
 .footerItem:hover {
   background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.footerItem:active {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.footerItem:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
+}
+
+.footerItem:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.footerItem:disabled:hover {
+  background: none;
 }
 
 .footerItemDisabled {
@@ -251,11 +317,21 @@
   background: none;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .dialogClose:hover {
   background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-primary);
+}
+
+.dialogClose:active {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.dialogClose:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
 }
 
 .dialogTitle {
@@ -291,10 +367,15 @@
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
   outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .dialogInput:focus {
   border-color: var(--dsw-alias-brand-primary);
+}
+
+.dialogInput:focus-visible {
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
 }
 
 .dialogError {
@@ -318,25 +399,58 @@
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
   font-size: 13px;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .dialogButton:hover {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+.dialogButton:active {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.dialogButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
+}
+
+.dialogButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dialogButton:disabled:hover {
+  background: var(--dsw-alias-button-tool-bar-fill);
+}
+
 .dialogButtonPrimary {
   border-color: var(--dsw-alias-brand-primary);
   background: var(--dsw-alias-brand-primary);
   color: var(--dsw-alias-button-contrast-fill);
+  transition: background-color 120ms ease, border-color 120ms ease, filter 120ms ease;
 }
 
 .dialogButtonPrimary:hover {
   background: var(--dsw-alias-button-primary-hover);
 }
 
+.dialogButtonPrimary:active {
+  filter: brightness(0.92);
+}
+
+.dialogButtonPrimary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-button-contrast-fill), 0 0 0 4px var(--dsw-alias-brand-primary);
+}
+
 .dialogButtonPrimary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.dialogButtonPrimary:disabled:hover {
+  background: var(--dsw-alias-brand-primary);
 }
 
 .graphBody {
@@ -472,8 +586,33 @@
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
   font-size: 12px;
+  transition: background-color 120ms ease;
 }
 
 .graphMore:hover {
   background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.graphMore:active {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.graphMore:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip,
+  .searchBox,
+  .searchInput,
+  .item,
+  .footerItem,
+  .dialogClose,
+  .dialogInput,
+  .dialogButton,
+  .dialogButtonPrimary,
+  .graphMore {
+    transition: none;
+  }
 }

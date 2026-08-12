@@ -227,6 +227,13 @@
   background-color: var(--aion-bg-3);
   color: var(--aion-text-primary);
 }
+:global(.aionui-floating-expand:active) {
+  background-color: var(--aion-bg-active);
+}
+:global(.aionui-floating-expand:focus-visible) {
+  outline: 2px solid var(--aion-primary);
+  outline-offset: 2px;
+}
 
 /* The collapse chevron inside the explorer tab bar (top-right). */
 :global(.aionui-collapse-chevron) {
@@ -249,6 +256,13 @@
 :global(.aionui-collapse-chevron:hover) {
   background-color: var(--aion-bg-3);
   color: var(--aion-text-primary);
+}
+:global(.aionui-collapse-chevron:active) {
+  background-color: var(--aion-bg-active);
+}
+:global(.aionui-collapse-chevron:focus-visible) {
+  outline: 2px solid var(--aion-primary);
+  outline-offset: 2px;
 }
 
 /* Confirm dialog backdrop + card. */
@@ -302,6 +316,13 @@
 :global(.aionui-btn:hover) {
   background: var(--aion-bg-hover);
 }
+:global(.aionui-btn:active) {
+  background: var(--aion-bg-active);
+}
+:global(.aionui-btn:focus-visible) {
+  outline: 2px solid var(--aion-primary);
+  outline-offset: 2px;
+}
 :global(.aionui-btn-primary) {
   background: var(--aion-primary);
   border-color: var(--aion-primary);
@@ -311,6 +332,10 @@
   background: var(--aion-primary);
   opacity: 0.9;
 }
+:global(.aionui-btn-primary:active) {
+  opacity: 0.75;
+  filter: saturate(0.9);
+}
 :global(.aionui-btn-danger) {
   background: var(--aion-danger);
   border-color: var(--aion-danger);
@@ -318,6 +343,9 @@
 }
 :global(.aionui-btn-danger:hover) {
   opacity: 0.9;
+}
+:global(.aionui-btn-danger:active) {
+  opacity: 0.75;
 }
 
 /* Context menu (tab right-click / tree right-click). */
@@ -345,6 +373,10 @@
 }
 :global(.aionui-menu-item:hover) {
   background: var(--aion-fill-2);
+}
+:global(.aionui-menu-item:focus-visible) {
+  outline: 2px solid var(--aion-primary);
+  outline-offset: -2px;
 }
 :global(.aionui-menu-item-disabled) {
   color: var(--aion-text-disabled);

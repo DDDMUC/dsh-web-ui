@@ -1050,3 +1050,198 @@ body[data-dsh-ths] :global(.aionui-preview-enter) {
     opacity: 1;
   }
 }
+
+/* --- Interaction polish: active / focus-visible / disabled / transitions ---------
+   Interaction-only refinements layered on top of the existing hover rules.
+   No resting (default) value of any surface is changed, so the static
+   terminal look is untouched: these add press (active) states, keyboard
+   focus rings, a disabled treatment, and one 120ms transition rhythm to the
+   self-drawn controls. The focus ring is a sharp 2px ring at a 2px offset in
+   the brand red (light) / night-trade red (dark); it uses the outline channel
+   so it never collides with the inset box-shadows the skin already paints on
+   selected rows, nav cells and the like. Every colour here ships a light and
+   a dark value (or rides a themed --dsw-alias / --aion-* token that the dark
+   block already remaps), so no rule is light-only. */
+
+/* Focus ring colour tokens: brand red in light, night-trade red in dark. */
+body[data-dsh-ths] {
+  --ths-focus-ring: #e60012;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] {
+  --ths-focus-ring: #ff5a5a;
+}
+
+/* One restrained 120ms rhythm across the self-drawn control family. Gradient
+   buttons only interpolate the colour channels that can; the transition list
+   is deliberately capped so nothing animates the layout. */
+body[data-dsh-ths] .thsTitlebarBtn,
+body[data-dsh-ths] [data-pane='sidebar'] [role='treeitem'],
+body[data-dsh-ths] [data-pane='sidebar'] button,
+body[data-dsh-ths] [role='dialog'] > nav button,
+body[data-dsh-ths] :global(.aionui-btn),
+body[data-dsh-ths] :global(.aionui-btn-primary),
+body[data-dsh-ths] :global(.aionui-btn-danger),
+body[data-dsh-ths] :global(.aionui-menu-item),
+body[data-dsh-ths] :global(.aionui-explorer-handle),
+body[data-dsh-ths] :global(.aionui-preview-handle),
+body[data-dsh-ths] :global(.aionui-collapse-chevron),
+body[data-dsh-ths] :global(.aionui-floating-expand) {
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Focus-visible: keyboard ring in brand red, 2px offset. Covers the shared
+   button/row/tab/link surfaces and the aionui controls. */
+body[data-dsh-ths] button:focus-visible,
+body[data-dsh-ths] [role='button']:focus-visible,
+body[data-dsh-ths] [role='treeitem']:focus-visible,
+body[data-dsh-ths] [role='tab']:focus-visible,
+body[data-dsh-ths] [role='menuitem']:focus-visible,
+body[data-dsh-ths] a:focus-visible,
+body[data-dsh-ths] input:focus-visible,
+body[data-dsh-ths] :global(.aionui-btn):focus-visible,
+body[data-dsh-ths] :global(.aionui-btn-primary):focus-visible,
+body[data-dsh-ths] :global(.aionui-btn-danger):focus-visible,
+body[data-dsh-ths] :global(.aionui-menu-item):focus-visible,
+body[data-dsh-ths] :global(.aionui-collapse-chevron):focus-visible,
+body[data-dsh-ths] :global(.aionui-floating-expand):focus-visible {
+  outline: 2px solid var(--ths-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Title-bar window buttons: deepen the press beyond the existing hover, and
+   keep the draggable affordance inert. These are aria-hidden decorative
+   spans, so focus rarely lands—the rule only guards against a stray
+   programmatic tabindex, matching the required three-state coverage. */
+body[data-dsh-ths] .thsTitlebarBtn {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+body[data-dsh-ths] .thsTitlebarBtn:active {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+/* Watchlist rows (quote cells): hover + press on the resting (non-selected)
+   rows ride the themed interactive-hover token so dark is covered for free.
+   The selected row keeps its red gradient on interactions. */
+body[data-dsh-ths] [data-pane='sidebar'] [role='treeitem']:not([aria-selected='true']):hover {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+body[data-dsh-ths] [data-pane='sidebar'] [role='treeitem']:not([aria-selected='true']):active {
+  background-color: var(--dsw-alias-interactive-bg-hover-accent);
+}
+
+/* Sidebar header-band buttons (on the deep-navy market strip) and the
+   crimson "buy" action: white-alpha press on the band, deeper crimson on the
+   buy button. Both read identically across themes because those surfaces are
+   theme-independent chrome. */
+body[data-dsh-ths] [data-pane='sidebar'] > div > :first-child button:active {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+body[data-dsh-ths] [data-pane='sidebar'] > div > button:active {
+  background: linear-gradient(180deg, #b8000c, #8a0009);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.24);
+}
+
+/* Settings-nav rail cells (the tab family): themed press colour both themes. */
+body[data-dsh-ths] [role='dialog'] > nav button:active {
+  background-color: var(--dsw-alias-interactive-bg-hover-accent);
+}
+
+/* aionui tools: press states beyond the existing hover. */
+body[data-dsh-ths] :global(.aionui-btn):active {
+  background: #e7ebf0;
+  border-color: #aab5c1;
+}
+
+body[data-dsh-ths] :global(.aionui-btn-primary):active {
+  background: linear-gradient(180deg, #b8000c, #8a0009);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.24);
+}
+
+body[data-dsh-ths] :global(.aionui-btn-danger):active {
+  background: #f2c6c3;
+  border-color: #e6544a;
+}
+
+body[data-dsh-ths] :global(.aionui-menu-item):active {
+  background-color: var(--aion-bg-active);
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn):active {
+  background: #283443;
+  border-color: #4c5b6e;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn-primary):active {
+  background: #c4000f;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-btn-danger):active {
+  background: #4a2224;
+  border-color: #ff5a5a;
+}
+
+/* Drag handles and the chevron/expand chrome: deepen while pressed. */
+body[data-dsh-ths] :global(.aionui-explorer-handle):active,
+body[data-dsh-ths] :global(.aionui-preview-handle):active {
+  background: #46627f;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-explorer-handle):active,
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-preview-handle):active {
+  background: #7398bb;
+}
+
+body[data-dsh-ths] :global(.aionui-collapse-chevron):active {
+  color: #c4000f;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-collapse-chevron):active {
+  color: #ff1a2b;
+}
+
+body[data-dsh-ths] :global(.aionui-floating-expand):active {
+  border-color: #a5000d;
+  color: #a5000d;
+}
+
+body[data-dsh-ths][data-ds-dark-theme] :global(.aionui-floating-expand):active {
+  border-color: #ff1a2b;
+  color: #ff1a2b;
+}
+
+/* Disabled self-drawn controls: visibly dimmed and inert to hover/click.
+   pointer-events:none cleanly neutralises the earlier hover rules without
+   needing per-family specificity battles. */
+body[data-dsh-ths] [data-pane='sidebar'] button:disabled,
+body[data-dsh-ths] [data-pane='sidebar'] [role='treeitem'][aria-disabled='true'],
+body[data-dsh-ths] [role='dialog'] > nav button:disabled,
+body[data-dsh-ths] :global(.aionui-btn):disabled,
+body[data-dsh-ths] :global(.aionui-btn)[disabled],
+body[data-dsh-ths] :global(.aionui-btn-primary):disabled,
+body[data-dsh-ths] :global(.aionui-btn-primary)[disabled],
+body[data-dsh-ths] :global(.aionui-btn-danger):disabled,
+body[data-dsh-ths] :global(.aionui-btn-danger)[disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* --- Reduced motion ---------------------------------------------------------
+   The preview enter animation and the new interaction transitions degrade to
+   a near-instant cut when the user prefers reduced motion. Scoped to the skin
+   surface so other plugins' motion is untouched. */
+@media (prefers-reduced-motion: reduce) {
+  body[data-dsh-ths] *,
+  body[data-dsh-ths] *::before,
+  body[data-dsh-ths] *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

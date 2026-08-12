@@ -41,7 +41,7 @@ export function TaskCard({ task, onClick }: { task: TaskRecord; onClick: () => v
               ? `${t('card.scheduled')} · ${new Date(task.schedule.nextRunAt).toLocaleString()}`
               : t('card.scheduled')}
           >
-            ⏰
+            {t('card.scheduled')}
           </span>
         )}
         {latest !== undefined && (

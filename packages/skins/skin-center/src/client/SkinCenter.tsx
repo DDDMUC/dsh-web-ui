@@ -203,7 +203,7 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
             {t('title')}
             <span className={css.titleBadge}>{String(SKIN_CENTER_ENTRIES.length)}</span>
           </span>
-          <span className={css.cardDescription}>{t('cardDescription')}</span>
+          <span className={css.cardDescription} title={t('cardDescription')}>{t('cardDescription')}</span>
         </span>
         <span className={open ? css.chevronOpen : css.chevron}>▾</span>
       </button>
@@ -212,7 +212,7 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
         ? (
           <div className={css.cardBody}>
             <div className={css.head}>
-              <div className={css.intro}>{t('intro')}</div>
+              <div className={css.intro} title={t('intro')}>{t('intro')}</div>
               <div className={css.themeRow}>
                 <span className={css.themeLabel}>{t('theme')}</span>
                 <button
@@ -243,14 +243,14 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
                   <div className={css.card} key={OFFICIAL}>
                     <div className={css.cardHead}>
                       <span className={css.swatch} style={{ background: '#98a1ab' }} aria-hidden="true" />
-                      <span className={css.cardName}>{t('official')}</span>
+                      <span className={css.cardName} title={t('official')}>{t('official')}</span>
                       {badge !== null && (
                         <span className={`${css.badge} ${isActive ? css.badgeActive : css.badgeTrying}`}>
                           {badge}
                         </span>
                       )}
                     </div>
-                    <div className={css.cardTagline}>{t('officialTagline')}</div>
+                    <div className={css.cardTagline} title={t('officialTagline')}>{t('officialTagline')}</div>
                     {actionButtons({
                       key: OFFICIAL,
                       isActive,
@@ -270,14 +270,14 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
                   <div className={css.card} key={entry.id}>
                     <div className={css.cardHead}>
                       <span className={css.swatch} style={{ background: entry.accent }} aria-hidden="true" />
-                      <span className={css.cardName}>{entry.nameEn}</span>
+                      <span className={css.cardName} title={entry.nameEn}>{entry.nameEn}</span>
                       {badge !== null && (
                         <span className={`${css.badge} ${isActive ? css.badgeActive : css.badgeTrying}`}>
                           {badge}
                         </span>
                       )}
                     </div>
-                    <div className={css.cardTagline}>{entry.tagline}</div>
+                    <div className={css.cardTagline} title={entry.tagline}>{entry.tagline}</div>
                     {actionButtons({
                       key: entry.id,
                       isActive,

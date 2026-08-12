@@ -64,13 +64,25 @@ body[data-dsh-minecraft] {
 }
 
 /* Motion-sensitivity: freeze the panorama and drop the haze so the app
-   stays calm for prefers-reduced-motion users. */
+   stays calm for prefers-reduced-motion users. Widget interaction
+   transitions are removed too so no surface animates for those users. */
 @media (prefers-reduced-motion: reduce) {
   .mcSkybox {
     animation: none;
   }
   .mcScrim {
     background: rgba(6, 10, 7, 0.3);
+  }
+  body[data-dsh-minecraft] button,
+  body[data-dsh-minecraft] input:not([type='checkbox']):not([type='radio']),
+  body[data-dsh-minecraft] textarea,
+  body[data-dsh-minecraft] a,
+  :global(body[data-dsh-minecraft] .aionui-btn),
+  :global(body[data-dsh-minecraft] .aionui-collapse-chevron),
+  :global(body[data-dsh-minecraft] .aionui-floating-expand),
+  :global(body[data-dsh-minecraft] .aionui-explorer-handle::after),
+  :global(body[data-dsh-minecraft] .aionui-preview-handle::after) {
+    transition: none;
   }
 }
 
@@ -192,6 +204,20 @@ body[data-dsh-minecraft] button {
     inset 2px 0 0 rgba(255, 255, 255, 0.28),
     inset -2px 0 0 rgba(0, 0, 0, 0.3),
     inset 0 -3px 0 rgba(0, 0, 0, 0.45);
+  /* Voxel snap: the slab moves in a short flash, not a lazy ease. */
+  transition:
+    background-color 90ms ease,
+    color 90ms ease,
+    box-shadow 90ms ease,
+    transform 90ms ease,
+    filter 90ms ease;
+}
+
+/* Focus: keep the pixel vocabulary — a thick square border, never a
+   rounded ring. */
+body[data-dsh-minecraft] button:focus-visible {
+  outline: 3px solid #ffffa0;
+  outline-offset: 2px;
 }
 
 body[data-dsh-minecraft] button:hover:not(:disabled) {
@@ -213,11 +239,18 @@ body[data-dsh-minecraft] button:active:not(:disabled) {
 }
 
 body[data-dsh-minecraft] button:disabled {
+  cursor: not-allowed;
   color: rgba(255, 255, 255, 0.45);
   background-color: #6b6b6b;
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.2),
     inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Disabled must not react to hover (guard the :not(:disabled) hover above). */
+body[data-dsh-minecraft] button:disabled:hover {
+  color: rgba(255, 255, 255, 0.45);
+  background-color: #6b6b6b;
 }
 
 /* --- Inputs: the sign post ------------------------------------------------------
@@ -258,6 +291,24 @@ body[data-dsh-minecraft] input::placeholder,
 body[data-dsh-minecraft] textarea::placeholder {
   color: rgba(245, 236, 216, 0.55);
   opacity: 1;
+}
+
+/* Disabled fields look planed: faded plank, flat bevel, no cursor. */
+body[data-dsh-minecraft] input:disabled,
+body[data-dsh-minecraft] textarea:disabled,
+body[data-dsh-minecraft] select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  color: rgba(245, 236, 216, 0.6);
+  box-shadow: none;
+}
+
+/* The sign-post frame shifts color on focus/hover in a short snap. */
+body[data-dsh-minecraft] input:not([type='checkbox']):not([type='radio']),
+body[data-dsh-minecraft] textarea {
+  transition:
+    border-color 90ms ease,
+    color 90ms ease;
 }
 
 body[data-dsh-minecraft] select {
@@ -318,11 +369,18 @@ body[data-dsh-minecraft] :focus-visible {
 
 body[data-dsh-minecraft] a {
   color: #ffffa0;
+  transition: color 90ms ease;
 }
 
 body[data-dsh-minecraft] a:visited {
   color: #d6d69a;
 }
+
+body[data-dsh-minecraft] a:hover {
+  color: #fff;
+}
+
+/* Linked pixels keep the global focus outline; no static change. */
 
 /* --- Static palette: blocky remap ------------------------------------------------
    Remap the deepseek/blue families to lapis-lazuli blues, neutral families
@@ -636,9 +694,11 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
 /* Tree rows: hover and selection tint the slab with lighter stone instead of
    the flat blue fill (rows are module-hashed classes, driven by the fill
    tokens above, so this is only the accent ring on top). */
-:global(body[data-dsh-minecraft] .aionui-root *) {
-  transition-property: background-color, color, border-color, box-shadow, opacity;
-}
+
+/* Widget state transitions: every interactive control in the panel shares
+   one crisp, voxel-snappy flash (see the widget sections below for the
+   actual transition declarations). No wildcard sweep — only the controls
+   that opt in below animate, so lists and tooltips stay snap-flat. */
 
 /* --- interactive controls: MC widget sprite ------------------------------- */
 
@@ -661,9 +721,17 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
     inset 2px 0 0 rgba(255, 255, 255, 0.28),
     inset -2px 0 0 rgba(0, 0, 0, 0.3),
     inset 0 -3px 0 rgba(0, 0, 0, 0.45);
-  transition: none;
+  /* Voxel widgets snap: state changes are a short flash, not a lazy ease,
+     so the blocky slab still reads as it moves. */
+  transition:
+    background-color 90ms ease,
+    color 90ms ease,
+    box-shadow 90ms ease,
+    transform 90ms ease,
+    filter 90ms ease,
+    opacity 90ms ease;
 }
-:global(body[data-dsh-minecraft] .aionui-btn:hover) {
+:global(body[data-dsh-minecraft] .aionui-btn:hover:not(:disabled)) {
   background-color: #a8b9d2;
   color: #ffffa0;
   box-shadow:
@@ -672,12 +740,30 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
     inset -2px 0 0 rgba(0, 0, 0, 0.25),
     inset 0 -3px 0 rgba(0, 0, 0, 0.35);
 }
-:global(body[data-dsh-minecraft] .aionui-btn:active) {
+:global(body[data-dsh-minecraft] .aionui-btn:active:not(:disabled)) {
   transform: translateY(1px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     inset 0 0 0 1px rgba(0, 0, 0, 0.25),
     inset 0 -2px 0 rgba(0, 0, 0, 0.55);
+}
+/* Focus: the blocky slab keeps a square, thick-bordered focus so the
+   reading focus never borrows the rounded-ring vocabulary. */
+:global(body[data-dsh-minecraft] .aionui-btn:focus-visible) {
+  outline: 3px solid #ffffa0;
+  outline-offset: 2px;
+}
+:global(body[data-dsh-minecraft] .aionui-btn:disabled),
+:global(body[data-dsh-minecraft] .aionui-btn:disabled:hover) {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+  background-color: #6b6b6b;
+  color: rgba(255, 255, 255, 0.5);
+  text-shadow: none;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* Primary / danger keep their semantic fills but get the blocky slab frame;
@@ -687,7 +773,7 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
   border-bottom-width: 3px;
   color: #fff;
 }
-:global(body[data-dsh-minecraft] .aionui-btn-primary:hover) {
+:global(body[data-dsh-minecraft] .aionui-btn-primary:hover:not(:disabled)) {
   opacity: 1;
   filter: brightness(1.12);
 }
@@ -696,7 +782,7 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
   border-bottom-width: 3px;
   color: #fff;
 }
-:global(body[data-dsh-minecraft] .aionui-btn-danger:hover) {
+:global(body[data-dsh-minecraft] .aionui-btn-danger:hover:not(:disabled)) {
   opacity: 1;
   filter: brightness(1.15);
 }
@@ -714,13 +800,29 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.45),
     inset 0 -2px 0 rgba(0, 0, 0, 0.45);
+  transition:
+    background-color 90ms ease,
+    color 90ms ease,
+    transform 90ms ease;
 }
-:global(body[data-dsh-minecraft] .aionui-collapse-chevron:hover) {
+:global(body[data-dsh-minecraft] .aionui-collapse-chevron:hover:not(:disabled)) {
   background-color: #a8b9d2;
   color: #ffffa0;
 }
-:global(body[data-dsh-minecraft] .aionui-collapse-chevron:active) {
+:global(body[data-dsh-minecraft] .aionui-collapse-chevron:active:not(:disabled)) {
   transform: translateY(1px);
+}
+:global(body[data-dsh-minecraft] .aionui-collapse-chevron:focus-visible) {
+  outline: 3px solid #ffffa0;
+  outline-offset: 2px;
+}
+:global(body[data-dsh-minecraft] .aionui-collapse-chevron:disabled),
+:global(body[data-dsh-minecraft] .aionui-collapse-chevron:disabled:hover) {
+  cursor: not-allowed;
+  opacity: 0.4;
+  transform: none;
+  background-color: #6b6b6b;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Drag handles: blocky pixel thumbs; hover/active sweep to the grass brand. */
@@ -728,12 +830,18 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
 :global(body[data-dsh-minecraft] .aionui-preview-handle::after) {
   border-radius: 0;
   background-color: #6b7561;
+  transition: background-color 90ms ease;
 }
 :global(body[data-dsh-minecraft] .aionui-explorer-handle:hover::after),
 :global(body[data-dsh-minecraft] .aionui-explorer-handle:active::after),
 :global(body[data-dsh-minecraft] .aionui-preview-handle:hover::after),
 :global(body[data-dsh-minecraft] .aionui-preview-handle:active::after) {
   background-color: #83c94e;
+}
+:global(body[data-dsh-minecraft] .aionui-explorer-handle:focus-visible),
+:global(body[data-dsh-minecraft] .aionui-preview-handle:focus-visible) {
+  outline: 3px solid #ffffa0;
+  outline-offset: 2px;
 }
 
 /* The floating expand button (explorer collapsed) is a small vertical slab. */
@@ -749,10 +857,30 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
   box-shadow:
     inset 2px 0 0 rgba(255, 255, 255, 0.28),
     inset -2px 0 0 rgba(0, 0, 0, 0.3);
+  transition:
+    background-color 90ms ease,
+    color 90ms ease,
+    transform 90ms ease,
+    filter 90ms ease;
 }
-:global(body[data-dsh-minecraft] .aionui-floating-expand:hover) {
+:global(body[data-dsh-minecraft] .aionui-floating-expand:hover:not(:disabled)) {
   background-color: #a8b9d2;
   color: #ffffa0;
+}
+:global(body[data-dsh-minecraft] .aionui-floating-expand:active:not(:disabled)) {
+  transform: translateY(1px);
+}
+:global(body[data-dsh-minecraft] .aionui-floating-expand:focus-visible) {
+  outline: 3px solid #ffffa0;
+  outline-offset: 2px;
+}
+:global(body[data-dsh-minecraft] .aionui-floating-expand:disabled),
+:global(body[data-dsh-minecraft] .aionui-floating-expand:disabled:hover) {
+  cursor: not-allowed;
+  opacity: 0.4;
+  transform: none;
+  background-color: #6b6b6b;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Context menu: a plank slab with a dark frame, blocky items. */
@@ -763,8 +891,15 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
 :global(body[data-dsh-minecraft] .aionui-menu-item) {
   border-radius: 0;
 }
-:global(body[data-dsh-minecraft] .aionui-menu-item:hover) {
+:global(body[data-dsh-minecraft] .aionui-menu-item:hover:not(.aionui-menu-item-disabled)) {
   background-color: rgba(131, 201, 78, 0.22);
+}
+:global(body[data-dsh-minecraft] .aionui-menu-item:focus-visible) {
+  outline: 3px solid #ffffa0;
+  outline-offset: -3px;
+}
+:global(body[data-dsh-minecraft] .aionui-menu-item:active:not(.aionui-menu-item-disabled)) {
+  background-color: rgba(131, 201, 78, 0.32);
 }
 :global(body[data-dsh-minecraft] .aionui-menu-item-disabled) {
   color: var(--aion-text-disabled);

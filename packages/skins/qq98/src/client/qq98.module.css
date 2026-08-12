@@ -456,8 +456,12 @@ body[data-dsh-retro][data-ds-dark-theme] select {
 }
 
 body[data-dsh-retro] :focus-visible {
-  outline: 2px solid rgba(43, 124, 217, 0.55);
-  outline-offset: 0;
+  outline: 2px solid #2b7cd9;
+  outline-offset: 2px;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :focus-visible {
+  outline-color: #6aa8f0;
 }
 
 /* --- Scrollbars: slim QQ-blue bars -----------------------------------------
@@ -1047,4 +1051,248 @@ body[data-dsh-retro] :global(.aionui-preview-enter-active),
 body[data-dsh-retro] :global(.aionui-preview-enter-done) {
   opacity: 1;
   transform: none;
+}
+
+/* --- Polish: unified interaction states ---------------------------------------
+   Presentation-layer only: hover / active / focus-visible feedback, a single
+   120ms ease motion across the interactive chrome family, disabled visuals,
+   and a prefers-reduced-motion fallback. No static color, spacing or shape
+   of the base QQ2008 palette changes here — these rules only shape how the
+   controls behave. Everything is scoped under body[data-dsh-retro] (each rule
+   has its [data-ds-dark-theme] "night" variant) so other skins and the official
+   UI are never touched. */
+
+/* Unified motion: 120ms ease across every self-drawn interactive chrome. */
+body[data-dsh-retro] button,
+body[data-dsh-retro] [role='button'],
+body[data-dsh-retro] input:not([type='checkbox']):not([type='radio']),
+body[data-dsh-retro] textarea,
+body[data-dsh-retro] select,
+body[data-dsh-retro] a,
+body[data-dsh-retro] .retroTitlebarBtn,
+body[data-dsh-retro] :global(.aionui-btn),
+body[data-dsh-retro] :global(.aionui-btn-primary),
+body[data-dsh-retro] :global(.aionui-btn-danger),
+body[data-dsh-retro] :global(.aionui-menu-item),
+body[data-dsh-retro] :global(.aionui-menu-item-disabled),
+body[data-dsh-retro] :global(.aionui-floating-expand),
+body[data-dsh-retro] :global(.aionui-collapse-chevron),
+body[data-dsh-retro] :global(.aionui-explorer-handle),
+body[data-dsh-retro] :global(.aionui-preview-handle) {
+  transition: background-color 120ms ease, background-image 120ms ease, color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+/* Disabled visuals stay legible and drop the hover lift (all :hover rules below
+   guard with :not(:disabled); the base button :hover is already guarded). The
+   opacity/cursor apply identically in both themes, so no dark override needed. */
+body[data-dsh-retro] button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-image: none;
+  box-shadow: none;
+}
+
+body[data-dsh-retro] :global(.aionui-btn):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Inputs (non-checkbox/radio), textareas, selects: hover border lift, legible
+   disabled state. Base fill tokens are untouched. */
+body[data-dsh-retro] input:not([type='checkbox']):not([type='radio']):hover,
+body[data-dsh-retro] textarea:hover,
+body[data-dsh-retro] select:hover {
+  border-color: #6fa9e4;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] input:not([type='checkbox']):not([type='radio']):hover,
+body[data-dsh-retro][data-ds-dark-theme] textarea:hover,
+body[data-dsh-retro][data-ds-dark-theme] select:hover {
+  border-color: #4a7cc4;
+}
+
+body[data-dsh-retro] input:not([type='checkbox']):not([type='radio']):disabled,
+body[data-dsh-retro] textarea:disabled,
+body[data-dsh-retro] select:disabled {
+  opacity: 0.55;
+  background-color: #eef4fa;
+  color: #94a8bf;
+  cursor: not-allowed;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] input:not([type='checkbox']):not([type='radio']):disabled,
+body[data-dsh-retro][data-ds-dark-theme] textarea:disabled,
+body[data-dsh-retro][data-ds-dark-theme] select:disabled {
+  background-color: #182b45;
+  color: #557091;
+}
+
+/* Title-bar window buttons: pressed feedback. (Decorative aria-hidden spans, so
+   no focus-visible is expected; the close button gets a deeper red press.) */
+body[data-dsh-retro] .retroTitlebarBtn:active {
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 1px 2px rgba(8, 30, 64, 0.3);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] .retroTitlebarBtn:active {
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+body[data-dsh-retro] .retroTitlebarBtn:last-child:active {
+  background: linear-gradient(180deg, #e85443, #c03324);
+}
+
+/* Links: hover/active color lift under the QQ-blue scale. */
+body[data-dsh-retro] a:hover {
+  color: #2b7cd9;
+  text-decoration: underline;
+}
+
+body[data-dsh-retro] a:active {
+  color: #164a8c;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] a:hover {
+  color: #9cc9ef;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] a:active {
+  color: #5d9fe8;
+}
+
+/* Scrollbar thumb: pressed state. */
+body[data-dsh-retro] ::-webkit-scrollbar-thumb:active {
+  background: #2b7cd9;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] ::-webkit-scrollbar-thumb:active {
+  background: #5d9fe8;
+}
+
+/* aionui buttons: hover/active lift. The flat .aionui-btn gains a soft ice-blue
+   halo; primary/danger brighten their gradient and deepen the border. */
+body[data-dsh-retro] :global(.aionui-btn):hover:not(:disabled) {
+  background-color: rgba(43, 124, 217, 0.08);
+  border-color: #6fa9e4;
+}
+
+body[data-dsh-retro] :global(.aionui-btn):active:not(:disabled) {
+  background-color: rgba(43, 124, 217, 0.16);
+  box-shadow: inset 0 2px 4px rgba(10, 40, 80, 0.2);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn):hover:not(:disabled) {
+  background-color: rgba(160, 200, 240, 0.14);
+  border-color: #4a7cc4;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn):active:not(:disabled) {
+  background-color: rgba(160, 200, 240, 0.2);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+body[data-dsh-retro] :global(.aionui-btn-primary):hover:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #3f8ee6, #2b7cd9);
+  border-color: #1e63b8;
+}
+
+body[data-dsh-retro] :global(.aionui-btn-primary):active:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #1e63b8, #164a8c);
+  box-shadow: inset 0 2px 4px rgba(10, 40, 80, 0.25);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn-primary):hover:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #2b7cd9, #1e63b8);
+  border-color: #2b4f7d;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn-primary):active:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #15559f, #0e3a75);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+body[data-dsh-retro] :global(.aionui-btn-danger):hover:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #e07070, #d04040);
+  border-color: #b03030;
+}
+
+body[data-dsh-retro] :global(.aionui-btn-danger):active:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #b84040, #930000);
+  box-shadow: inset 0 2px 4px rgba(10, 40, 80, 0.25);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn-danger):hover:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #c05050, #a03030);
+  border-color: #5c1010;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-btn-danger):active:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #a03030, #7a1010);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* aionui menu items: pressed state complements the existing hover fill. */
+body[data-dsh-retro] :global(.aionui-menu-item):active {
+  background: #cfe4f8;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-menu-item):active {
+  background: #1b3554;
+}
+
+/* aionui splitter drag handles: pressed (dragging) state. */
+body[data-dsh-retro] :global(.aionui-explorer-handle):active,
+body[data-dsh-retro] :global(.aionui-preview-handle):active {
+  background: #1e63b8;
+  box-shadow: 0 0 6px rgba(43, 124, 217, 0.6);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-explorer-handle):active,
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-preview-handle):active {
+  background: #5d9fe8;
+  box-shadow: 0 0 6px rgba(106, 168, 240, 0.6);
+}
+
+/* aionui floating expand button: hover/active lift on the crystal surface. */
+body[data-dsh-retro] :global(.aionui-floating-expand):hover {
+  background: linear-gradient(180deg, #eef6fd, #cfe4f8);
+  border-color: #2b7cd9;
+  color: #164a8c;
+}
+
+body[data-dsh-retro] :global(.aionui-floating-expand):active {
+  background: linear-gradient(180deg, #d8eafb, #b6d6f4);
+  box-shadow: inset 0 2px 4px rgba(10, 40, 80, 0.18);
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-floating-expand):hover {
+  background: linear-gradient(180deg, #224064, #1b3554);
+  border-color: #5d9fe8;
+  color: #9cc9ef;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-floating-expand):active {
+  background: linear-gradient(180deg, #1e3a5e, #15233a);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* aionui collapse chevron: hover lift. */
+body[data-dsh-retro] :global(.aionui-collapse-chevron):hover {
+  color: #2b7cd9;
+}
+
+body[data-dsh-retro][data-ds-dark-theme] :global(.aionui-collapse-chevron):hover {
+  color: #9cc9ef;
+}
+
+/* Reduced-motion fallback: settle instantly for anyone who opts out. Scoped
+   under body[data-dsh-retro] so official UI animation is left untouched. */
+@media (prefers-reduced-motion: reduce) {
+  body[data-dsh-retro] * {
+    transition: none !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

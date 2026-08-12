@@ -34,7 +34,7 @@ const STOCK_CELLS: ReadonlyArray<{ text: string; trend: Trend }> = [
 ]
 
 /** Title bar window buttons (decorative glyphs, aria-hidden). */
-const TITLEBAR_GLYPHS = ['–', '□', '✕'] as const
+const TITLEBAR_GLYPHS = ['–', '□', '×'] as const
 
 /** Live-quote chip shown in the title bar before the window buttons. */
 const TICKER = { name: '上证指数', value: '3,342.17', change: '▲0.42%', trend: 'up' as const }
