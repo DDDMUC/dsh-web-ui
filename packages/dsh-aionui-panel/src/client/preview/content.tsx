@@ -7,7 +7,7 @@
  * @module dsh-aionui-panel/client/preview/content
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { PreviewTabState } from '../store.ts'
 import { useResizableSplit } from '../hooks/useResizableSplit.ts'
@@ -358,10 +358,36 @@ export function dataUrlToBlob(dataUrl: string): Blob | null {
 function UrlViewer({ tab }: { tab: PreviewTabState }): JSX.Element {
   const [input, setInput] = useState(tab.content ?? '')
   const [url, setUrl] = useState(() => normalizeUrl(tab.content ?? ''))
+  const frameRef = useRef<HTMLIFrameElement>(null)
   useEffect(() => {
     setInput(tab.content ?? '')
     setUrl(normalizeUrl(tab.content ?? ''))
   }, [tab.id, tab.content])
+
+  // The frame is sandboxed WITHOUT allow-popups: sites like bilibili hardcode
+  // target=_blank on their nav links, and with popups allowed every such
+  // click spawns a real browser tab next to the GUI. Cross-origin frame
+  // content cannot be intercepted from the parent, so those clicks are
+  // dropped instead of escaping; plain links and the address bar still
+  // navigate in place. allow-same-origin is required for real sites —
+  // bilibili's player crashes on opaque-origin storage access (localStorage
+  // SecurityError) and never loads the video. The load guard keeps the old
+  // same-origin containment: a frame sitting on the GUI origin with scripts
+  // enabled could reach the shell document, so any same-origin navigation
+  // (readable from the parent) is reset to about:blank.
+  const guardFrameNavigation = (): void => {
+    const frame = frameRef.current
+    if (frame === null) return
+    try {
+      const href = frame.contentWindow?.location.href
+      if (href !== undefined && !href.startsWith('about:') && new URL(href).origin === window.location.origin) {
+        frame.src = 'about:blank'
+      }
+    } catch {
+      // Cross-origin frame: nothing to guard.
+    }
+  }
+
   return (
     <div className={previewCss.content}>
       <div className={previewCss.urlBar}>
@@ -381,7 +407,21 @@ function UrlViewer({ tab }: { tab: PreviewTabState }): JSX.Element {
           onFocus={(event) => event.currentTarget.select()}
         />
       </div>
-      <iframe className={previewCss.urlFrame} src={url} title={tab.title} sandbox="allow-scripts allow-forms allow-popups" />
+      <iframe
+        // Keyed on url + reloadNonce: a refresh (or a new address) remounts
+        // the frame, which re-navigates it — cross-origin documents cannot
+        // be reloaded in place from the parent, and re-setting the src
+        // attribute does not re-navigate when the value is unchanged.
+        key={`${url}\u0000${tab.reloadNonce ?? 0}`}
+        ref={frameRef}
+        className={previewCss.urlFrame}
+        src={url}
+        title={tab.title}
+        sandbox="allow-scripts allow-forms allow-same-origin"
+        allow="autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"
+        allowFullScreen
+        onLoad={guardFrameNavigation}
+      />
     </div>
   )
 }
@@ -392,9 +432,11 @@ export function normalizeUrl(input: string): string {
   if (trimmed === '') return 'about:blank'
   if (/\s/.test(trimmed)) return `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`
   const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
-  // Never embed a URL that points back at the harness host: with
-  // allow-scripts (and no allow-same-origin) a same-origin frame is the one
-  // combination that could reach the shell document, so degrade it instead.
+  // Never embed a URL that points back at the harness host: the url frame
+  // runs with allow-scripts + allow-same-origin, so a same-origin page there
+  // could reach the shell document (the onLoad guard resets indirect
+  // same-origin navigations, but a directly typed address must not land at
+  // all). Degrade it instead.
   if (typeof window !== 'undefined') {
     try {
       if (new URL(candidate).origin === window.location.origin) return 'about:blank'

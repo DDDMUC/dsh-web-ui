@@ -73,6 +73,8 @@ export function apply(ctx: ClientContext): void {
         if (event.kind === 'git') {
           // The host status is the only truth; land it directly.
           stores.scm.update((prev) => (prev.root !== root ? prev : { ...prev, status: event.status, loading: false }))
+          // The index/worktree moved: every open diff tab is stale by now.
+          void stores.preview.handleGitChange(root)
         }
       })
     }

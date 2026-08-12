@@ -184,6 +184,19 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
         json(res, result === null ? OK(null) : 'root' in result ? OK(result) : FAIL(result))
         return
       }
+      case '/aionui-panel/git-diff': {
+        const path = strField(payload, 'path')
+        if (path === null) {
+          json(res, FAIL(BAD_REQUEST))
+          return
+        }
+        const staged = typeof payload === 'object' && payload !== null
+          ? (payload as Record<string, unknown>).staged === true
+          : false
+        const result = await git.diff(root, path, staged)
+        json(res, 'content' in result ? OK(result) : FAIL(result))
+        return
+      }
       case '/aionui-panel/git-stage': {
         const paths = strArray(payload, 'paths')
         if (paths === null) {

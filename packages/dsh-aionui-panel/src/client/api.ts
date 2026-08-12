@@ -67,6 +67,11 @@ export class PanelApi {
     return post('/aionui-panel/git-status', { root })
   }
 
+  /** The unified diff text of one path (staged = index vs HEAD). */
+  gitDiff(root: string, path: string, staged: boolean): Promise<PanelEnvelope<{ content: string }>> {
+    return post('/aionui-panel/git-diff', { root, path, staged })
+  }
+
   /** Stage paths. */
   gitStage(root: string, paths: string[]): Promise<PanelEnvelope<GitBatchResult>> {
     return post('/aionui-panel/git-stage', { root, paths })

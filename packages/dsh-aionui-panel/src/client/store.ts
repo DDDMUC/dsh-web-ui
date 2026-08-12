@@ -10,7 +10,7 @@
  * @module dsh-aionui-panel/client/store
  */
 
-import type { FsEntry, GitStatusView, PreviewContentType, SearchHit } from '../core/types.ts'
+import type { FileRead, FsEntry, GitStatusView, PreviewContentType, SearchHit } from '../core/types.ts'
 import type { PanelApi } from './api.ts'
 import { detectContentType, isTextType, tabIdOf } from './fileType.ts'
 import {
@@ -452,6 +452,8 @@ export interface ScmState {
   sectionCollapsed: Record<string, boolean>
   /** Tree-view expanded dir keys. */
   treeExpanded: string[]
+  /** Path of the last row opened in the preview panel (null = none). */
+  selected: string | null
 }
 
 /** The scm store with its async actions. */
@@ -466,11 +468,12 @@ export interface ScmStore extends StateHandle<ScmState> {
   setSectionCollapsed: (id: string, collapsed: boolean) => void
   setTreeExpanded: (keys: string[]) => void
   setFailed: (paths: string[]) => void
+  select: (path: string | null) => void
 }
 
 /** Read the persisted scm UI state for a root (guarded). */
-export function readScmUi(root: string): { viewMode: 'list' | 'tree'; sectionCollapsed: Record<string, boolean>; treeExpanded: string[] } {
-  const stored = readJson<{ viewMode?: unknown; sectionCollapsed?: unknown; treeExpanded?: unknown }>(`${KEY_SCM_UI}${root}`, {})
+export function readScmUi(root: string): { viewMode: 'list' | 'tree'; sectionCollapsed: Record<string, boolean>; treeExpanded: string[]; selected: string | null } {
+  const stored = readJson<{ viewMode?: unknown; sectionCollapsed?: unknown; treeExpanded?: unknown; selected?: unknown }>(`${KEY_SCM_UI}${root}`, {})
   const viewMode = stored.viewMode === 'tree' ? 'tree' : 'list'
   const sectionCollapsed: Record<string, boolean> = typeof stored.sectionCollapsed === 'object' && stored.sectionCollapsed !== null
     ? Object.fromEntries(Object.entries(stored.sectionCollapsed as Record<string, unknown>).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean>
@@ -478,7 +481,8 @@ export function readScmUi(root: string): { viewMode: 'list' | 'tree'; sectionCol
   const treeExpanded = Array.isArray(stored.treeExpanded)
     ? stored.treeExpanded.filter((item): item is string => typeof item === 'string')
     : []
-  return { viewMode, sectionCollapsed, treeExpanded }
+  const selected = typeof stored.selected === 'string' ? stored.selected : null
+  return { viewMode, sectionCollapsed, treeExpanded, selected }
 }
 
 /** Create the scm store (host status is the only truth — no optimistic rows). */
@@ -492,6 +496,7 @@ export function createScmStore(api: PanelApi): ScmStore {
     viewMode: 'list',
     sectionCollapsed: {},
     treeExpanded: [],
+    selected: null,
   })
 
   let persistTimer: ReturnType<typeof setTimeout> | undefined
@@ -505,6 +510,7 @@ export function createScmStore(api: PanelApi): ScmStore {
         viewMode: persistState.viewMode,
         sectionCollapsed: persistState.sectionCollapsed,
         treeExpanded: persistState.treeExpanded,
+        selected: persistState.selected,
       })
     }
   }
@@ -548,6 +554,7 @@ export function createScmStore(api: PanelApi): ScmStore {
           viewMode: ui.viewMode,
           sectionCollapsed: ui.sectionCollapsed,
           treeExpanded: ui.treeExpanded,
+          selected: ui.selected,
         }
       })
       void load(root)
@@ -615,6 +622,10 @@ export function createScmStore(api: PanelApi): ScmStore {
     setFailed(paths: string[]) {
       handle.update((prev) => ({ ...prev, failed: paths }))
     },
+    select(path: string | null) {
+      handle.update((prev) => (prev.selected === path ? prev : { ...prev, selected: path }))
+      schedulePersist(handle.getSnapshot())
+    },
   })
   ;(store as unknown as Record<symbol, unknown>)[FLUSH_PERSIST] = flushPersist
   return store
@@ -629,6 +640,10 @@ export interface PreviewTabState {
   root: string
   path: string
   contentType: PreviewContentType
+  /** Diff tabs (opened from the SCM panel): content is the path's git diff. */
+  diff?: { staged: boolean }
+  /** URL tabs: bumped by reloadTab to re-navigate the preview frame. */
+  reloadNonce?: number
   /** null: content not loaded yet. */
   content: string | null
   /** Image dimensions for image tabs. */
@@ -658,6 +673,7 @@ export interface PreviewState {
 export interface PreviewStore extends StateHandle<PreviewState> {
   setRoot: (root: string) => void
   openFile: (root: string, path: string) => void
+  openDiff: (root: string, path: string, staged: boolean) => void
   switchTab: (id: string) => void
   closeTabs: (ids: string[]) => void
   updateContent: (id: string, content: string) => void
@@ -665,6 +681,7 @@ export interface PreviewStore extends StateHandle<PreviewState> {
   reloadTab: (id: string) => Promise<void>
   setOpen: (open: boolean) => void
   handleFsChange: () => void
+  handleGitChange: (root: string) => void
 }
 
 /** Persisted tab meta (content is re-fetched on restore). */
@@ -674,6 +691,7 @@ interface PersistedTab {
   root: string
   path: string
   contentType: PreviewContentType
+  diff?: { staged: boolean }
   savedAt: number
 }
 
@@ -686,12 +704,18 @@ export function readPreviewTabs(root: string): PersistedTab[] {
     if (typeof item !== 'object' || item === null) continue
     const record = item as Record<string, unknown>
     if (typeof record.id !== 'string' || typeof record.path !== 'string') continue
+    const rawDiff = record.diff
+    const diff = typeof rawDiff === 'object' && rawDiff !== null
+      && typeof (rawDiff as Record<string, unknown>).staged === 'boolean'
+      ? { staged: (rawDiff as { staged: boolean }).staged }
+      : undefined
     out.push({
       id: record.id,
       title: typeof record.title === 'string' ? record.title : record.path,
       root: typeof record.root === 'string' ? record.root : root,
       path: record.path,
       contentType: typeof record.contentType === 'string' ? record.contentType as PreviewContentType : 'text',
+      diff,
       savedAt: typeof record.savedAt === 'number' ? record.savedAt : 0,
     })
   }
@@ -720,6 +744,7 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
       root: tab.root,
       path: tab.path,
       contentType: tab.contentType,
+      diff: tab.diff,
       savedAt: tab.savedAt,
     }))
     writeJson(`preview-ui:${current.root}`, { savedAt: Date.now(), tabs: meta })
@@ -731,7 +756,7 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
     persistTimer = setTimeout(flushPersist, 150)
   }
 
-  /** Load content for one tab (text or image data URL). */
+  /** Load content for one tab (text or image data URL, or git diff). */
   const loadContent = async (root: string, id: string): Promise<void> => {
     const tab = handle.getSnapshot().tabs.find((item) => item.id === id)
     if (tab === undefined || tab.content !== null || tab.loading) return
@@ -740,7 +765,9 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
       tabs: prev.tabs.map((item) => (item.id === id ? { ...item, loading: true, error: null } : item)),
     }))
     const asImage = tab.contentType === 'image'
-    const result = await api.read(root, tab.path, asImage)
+    const result = tab.diff !== undefined
+      ? await api.gitDiff(root, tab.path, tab.diff.staged)
+      : await api.read(root, tab.path, asImage)
     handle.update((prev) => {
       if (prev.root !== root) return prev
       return {
@@ -753,13 +780,16 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
           // The user started typing while the fetch was in flight: their newer
           // content must not be overwritten by this (already stale) disk read.
           if (item.dirty) return { ...item, loading: false }
+          // read and gitDiff share the content field; only read carries the
+          // rest (image/mtime/truncated), so the union is read as its merge.
+          const loaded = result.value as { content: string; image?: FileRead['image']; mtime?: number; truncated?: boolean }
           return {
             ...item,
             loading: false,
-            content: result.value.content,
-            image: result.value.image,
-            mtime: result.value.mtime,
-            truncated: result.value.truncated,
+            content: loaded.content,
+            image: loaded.image,
+            mtime: loaded.mtime,
+            truncated: loaded.truncated ?? false,
             updated: false,
           }
         }),
@@ -775,6 +805,32 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
     }))
   }
 
+  /**
+   * Re-fetch every loaded diff tab of the root in place (fs/git change
+   * events). In-flight or not-yet-loaded tabs are skipped — the next load or
+   * event covers them; landing guards keep a newer edit from being clobbered.
+   */
+  const refreshDiffs = async (root: string): Promise<void> => {
+    if (handle.getSnapshot().root !== root) return
+    const diffs = handle.getSnapshot().tabs
+      .filter((tab): tab is PreviewTabState & { diff: { staged: boolean } } => tab.diff !== undefined)
+    await Promise.all(diffs.map(async (tab) => {
+      if (tab.content === null || tab.loading) return
+      const result = await api.gitDiff(root, tab.path, tab.diff.staged)
+      handle.update((prev) => {
+        if (prev.root !== root) return prev
+        return {
+          ...prev,
+          tabs: prev.tabs.map((item) => {
+            if (item.id !== tab.id || !result.ok) return item
+            if (item.dirty || item.loading) return item
+            return { ...item, content: result.value.content, error: null }
+          }),
+        }
+      })
+    }))
+  }
+
   const store: PreviewStore = Object.assign(handle, {
     setRoot(root: string) {
       handle.update((prev) => {
@@ -786,6 +842,7 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
           root: meta.root,
           path: meta.path,
           contentType: meta.contentType,
+          diff: meta.diff,
           content: null,
           dirty: false,
           updated: false,
@@ -837,6 +894,46 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
       void loadContent(root, id)
       schedulePersist(handle.getSnapshot())
     },
+    openDiff(root: string, path: string, staged: boolean) {
+      // A distinct id space (scm-diff: side + root + path) so the same file
+      // can carry a diff tab AND a file tab, and staged/unstaged diffs of one
+      // path are separate tabs — each reflects the side it was opened from.
+      const id = `scm-diff:${staged ? 's' : 'u'}\u0000${root}\u0000${path}`
+      const existing = handle.getSnapshot().tabs.find((tab) => tab.id === id)
+      if (existing !== undefined) {
+        handle.update((prev) => ({
+          ...prev,
+          root,
+          open: true,
+          activeTabId: id,
+          tabs: prev.tabs.map((tab) => (tab.id === id ? { ...tab, savedAt: Date.now() } : tab)),
+        }))
+        void loadContent(root, id)
+        schedulePersist(handle.getSnapshot())
+        return
+      }
+      handle.update((prev) => {
+        if (prev.root !== root) return prev
+        const tab: PreviewTabState = {
+          id,
+          title: path.split('/').pop() ?? path,
+          root,
+          path,
+          contentType: 'diff',
+          diff: { staged },
+          content: null,
+          dirty: false,
+          updated: false,
+          loading: false,
+          truncated: false,
+          error: null,
+          savedAt: Date.now(),
+        }
+        return { ...prev, open: true, tabs: [...prev.tabs, tab], activeTabId: id }
+      })
+      void loadContent(root, id)
+      schedulePersist(handle.getSnapshot())
+    },
     switchTab(id: string) {
       const state = handle.getSnapshot()
       if (state.activeTabId === id) return
@@ -872,7 +969,7 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
     async saveTab(id: string) {
       const state = handle.getSnapshot()
       const tab = state.tabs.find((item) => item.id === id)
-      if (tab === undefined || tab.content === null || !isTextType(tab.contentType)) return
+      if (tab === undefined || tab.content === null || !isTextType(tab.contentType) || tab.diff !== undefined) return
       const sentContent = tab.content
       handle.update((prev) => ({
         ...prev,
@@ -910,11 +1007,24 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
       const state = handle.getSnapshot()
       const tab = state.tabs.find((item) => item.id === id)
       if (tab === undefined) return
+      if (tab.contentType === 'url') {
+        // URL tabs own a live document inside the frame; reload bumps the
+        // nonce so UrlViewer re-navigates the frame to its address.
+        handle.update((prev) => ({
+          ...prev,
+          tabs: prev.tabs.map((item) =>
+            item.id === id ? { ...item, reloadNonce: (item.reloadNonce ?? 0) + 1 } : item,
+          ),
+        }))
+        return
+      }
       handle.update((prev) => ({
         ...prev,
         tabs: prev.tabs.map((item) => (item.id === id ? { ...item, loading: true } : item)),
       }))
-      const result = await api.read(state.root, tab.path, tab.contentType === 'image')
+      const result = tab.diff !== undefined
+        ? await api.gitDiff(state.root, tab.path, tab.diff.staged)
+        : await api.read(state.root, tab.path, tab.contentType === 'image')
       handle.update((prev) => {
         if (prev.root !== state.root) return prev
         return {
@@ -922,13 +1032,14 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
           tabs: prev.tabs.map((item) => {
             if (item.id !== id) return item
             if (!result.ok) return { ...item, loading: false, error: result.error.message }
+            const loaded = result.value as { content: string; image?: FileRead['image']; mtime?: number; truncated?: boolean }
             return {
               ...item,
               loading: false,
-              content: result.value.content,
-              image: result.value.image,
-              mtime: result.value.mtime,
-              truncated: result.value.truncated,
+              content: loaded.content,
+              image: loaded.image,
+              mtime: loaded.mtime,
+              truncated: loaded.truncated ?? false,
               updated: false,
               dirty: false,
               error: null,
@@ -944,10 +1055,13 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
       const state = handle.getSnapshot()
       if (state.root === '') return
       handle.update((prev) => ({ ...prev, version: prev.version + 1 }))
-      // Staleness probe for the ACTIVE tab only (cheap; the fs watcher
+      // Diff tabs are derived views: any fs change may alter them, so refresh
+      // them in place (never mark "updated" — the refresh is automatic).
+      await refreshDiffs(state.root)
+      // Staleness probe for the ACTIVE file tab only (cheap; the fs watcher
       // debounces bursts). A newer disk mtime flips the tab to "updated".
       const active = handle.getSnapshot().tabs.find((tab) => tab.id === handle.getSnapshot().activeTabId)
-      if (active === undefined || active.content === null || active.dirty || !isTextType(active.contentType)) return
+      if (active === undefined || active.content === null || active.dirty || active.diff !== undefined || !isTextType(active.contentType)) return
       const result = await api.read(state.root, active.path, false)
       handle.update((prev) => {
         if (prev.root !== state.root) return prev
@@ -960,6 +1074,11 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
           }),
         }
       })
+    },
+    async handleGitChange(root: string) {
+      // A git push means the index/worktree moved (stage/unstage/discard or
+      // external git): every open diff tab is stale by definition.
+      await refreshDiffs(root)
     },
   })
   ;(store as unknown as Record<symbol, unknown>)[FLUSH_PERSIST] = flushPersist

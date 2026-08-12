@@ -53,12 +53,12 @@ function buildTree(rows: GitChangeRow[]): Map<string, GitChangeRow[]> {
   return byDir
 }
 
-/**
- * The SCM tab body.
+/** The SCM tab body.
  * @param stores - the panel store bundle.
  */
 export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
   const scm = stores.scm
+  const preview = stores.preview
   const state = useStore(scm)
   const [discardTargets, setDiscardTargets] = useState<GitChangeRow[] | null>(null)
 
@@ -164,6 +164,7 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
             {hasChanges && (
               <Group
                 scm={scm}
+                preview={preview}
                 title={staged.length > 0 ? t('scm.staged') : undefined}
                 rows={staged}
                 bulkLabel={t('scm.unstage')}
@@ -174,6 +175,7 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
             {hasChanges && unstaged.length > 0 && (
               <Group
                 scm={scm}
+                preview={preview}
                 rows={unstaged}
                 bulkLabel={t('scm.stage')}
                 onBulk={(rows) => void scm.stage(rows.map((row) => row.path))}
@@ -183,6 +185,7 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
             {untracked.length > 0 && (
               <Group
                 scm={scm}
+                preview={preview}
                 title={t('scm.untracked')}
                 rows={untracked}
                 bulkLabel={t('scm.stage')}
@@ -213,6 +216,7 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
 /** One change group (staged / unstaged / untracked) with list or tree body. */
 function Group({
   scm,
+  preview,
   rows,
   title,
   bulkLabel,
@@ -220,6 +224,7 @@ function Group({
   onDiscard,
 }: {
   scm: PanelStores['scm']
+  preview: PanelStores['preview']
   rows: GitChangeRow[]
   title?: string
   bulkLabel: string
@@ -256,6 +261,7 @@ function Group({
             depth={0}
             state={state}
             scm={scm}
+            preview={preview}
             onDiscard={onDiscard}
           />
         ))
@@ -266,6 +272,7 @@ function Group({
             row={row}
             state={state}
             scm={scm}
+            preview={preview}
             onDiscard={onDiscard}
           />
         ))
@@ -281,6 +288,7 @@ function DirNode({
   depth,
   state,
   scm,
+  preview,
   onDiscard,
 }: {
   dir: string
@@ -288,6 +296,7 @@ function DirNode({
   depth: number
   state: ReturnType<PanelStores['scm']['getSnapshot']>
   scm: PanelStores['scm']
+  preview: PanelStores['preview']
   onDiscard: (rows: GitChangeRow[]) => void
 }): JSX.Element {
   const expanded = state.treeExpanded.includes(dir)
@@ -319,6 +328,7 @@ function DirNode({
             row={row}
             state={state}
             scm={scm}
+            preview={preview}
             onDiscard={onDiscard}
             indent={depth + 1}
             hideDir
@@ -328,11 +338,15 @@ function DirNode({
   )
 }
 
-/** One change row: badge + name + dimmed dir + hover actions. */
+/** One change row: badge + name + dimmed dir + hover actions.
+ * Clicking the row opens the path's diff in the preview panel (every state
+ * has a diff — deleted rows show the removal, untracked rows a new-file diff).
+ */
 function ChangeRow({
   row,
   state,
   scm,
+  preview,
   onDiscard,
   indent = 0,
   hideDir = false,
@@ -340,6 +354,7 @@ function ChangeRow({
   row: GitChangeRow
   state: ReturnType<PanelStores['scm']['getSnapshot']>
   scm: PanelStores['scm']
+  preview: PanelStores['preview']
   onDiscard: (rows: GitChangeRow[]) => void
   indent?: number
   hideDir?: boolean
@@ -351,11 +366,20 @@ function ChangeRow({
   const displayName = row.oldPath !== undefined ? `${row.oldPath.split('/').pop()} -> ${row.path.split('/').pop()}` : (row.path.split('/').pop() ?? row.path)
   const dir = dirOf(row.path)
 
+  const openInPreview = (): void => {
+    scm.select(row.path)
+    // Staged rows diff the index against HEAD; unstaged rows the worktree
+    // against the index — the side the row was listed under.
+    preview.openDiff(state.root, row.path, row.staged)
+  }
+
   return (
     <div
-      className={`${scmCss.changeRow}${failed ? ` ${scmCss.rowFailed}` : ''}`}
+      className={`${scmCss.changeRow}${state.selected === row.path ? ` ${scmCss.changeRowSelected}` : ''}${failed ? ` ${scmCss.rowFailed}` : ''}`}
       style={{ paddingLeft: 12 + indent * 12 }}
       title={row.path}
+      onClick={openInPreview}
+      role="button"
     >
       <span className={`${scmCss.badge} ${badge.className}`}>{badge.letter}</span>
       <span className={scmCss.changeName}>{displayName}</span>

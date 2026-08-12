@@ -173,6 +173,32 @@ export class GitService {
     return repo.ok ? repo.repo : null
   }
 
+  /**
+   * The unified diff of one path ('' when there is no diff to show). Staged
+   * paths diff the index against HEAD (`--cached`); unstaged paths diff the
+   * worktree against the index. Untracked paths have no index/HEAD entry, so
+   * they diff against /dev/null (the canonical new-file shape); its exit code
+   * is 1 — differences exist — which is a success here, not a failure.
+   */
+  async diff(root: string, path: string, staged: boolean): Promise<{ content: string } | PanelError> {
+    const repo = await this.repo(root)
+    if (!repo.ok) return repo.error
+    const abs = join(repo.repo, path)
+    if (!isPathInside(repo.repo, abs)) return { code: 'path-outside-root', message: 'path outside the repository' }
+    const rel = relative(repo.repo, abs)
+    const tracked = await this.run(['ls-files', '--error-unmatch', '--', rel], repo.repo)
+    const result = tracked.exitCode !== 0
+      ? await this.run(['diff', '--no-index', '--', '/dev/null', rel], repo.repo)
+      : staged
+        ? await this.run(['diff', '--cached', '--', rel], repo.repo)
+        : await this.run(['diff', '--', rel], repo.repo)
+    // --no-index reports exit 1 when differences exist; a plain diff exits 0.
+    if (result.exitCode !== 0 && result.exitCode !== 1) {
+      return { code: 'git-failed', message: 'git diff failed' }
+    }
+    return { content: result.stdout }
+  }
+
   /** Verify paths stay inside the repo root (defense in depth). */
   private pathsInside(repo: string, paths: string[]): string[] {
     const abs = paths.map((p) => join(repo, p))

@@ -23,7 +23,10 @@ export function refreshStateFor(
   loading: boolean,
   updated: boolean,
 ): RefreshState {
-  if (contentType === 'url' || contentType === 'word' || contentType === 'excel'
+  // URL tabs reload their frame (cross-origin documents can only be
+  // re-navigated to the tab's address, never reloaded in place).
+  if (contentType === 'url') return 'idle'
+  if (contentType === 'word' || contentType === 'excel'
     || contentType === 'ppt' || contentType === 'unsupported' || contentType === 'image') {
     return 'hidden'
   }

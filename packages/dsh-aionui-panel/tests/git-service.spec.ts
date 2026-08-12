@@ -100,3 +100,62 @@ describe('GitService.stage/unstage', () => {
     expect(calls.some((call) => call[0] === 'restore' && call[1] === '--staged')).toBe(true)
   })
 })
+
+describe('GitService.diff', () => {
+  const DIFF_OUT = 'diff --git a/a.txt b/a.txt\n@@ -1 +1 @@\n-old\n+new\n'
+
+  function diffRunner(): { runner: GitRunner; calls: string[][] } {
+    const calls: string[][] = []
+    const runner: GitRunner = {
+      async run(argv, cwd) {
+        calls.push([...argv, `@${cwd}`])
+        const command = argv[0]
+        if (command === 'rev-parse' && argv[1] === '--show-toplevel') {
+          return { exitCode: 0, stdout: `${REPO}\n`, stderr: '' }
+        }
+        if (command === 'ls-files') {
+          return argv.includes('new.txt')
+            ? { exitCode: 1, stdout: '', stderr: 'no match' }
+            : { exitCode: 0, stdout: '', stderr: '' }
+        }
+        if (command === 'diff') {
+          return { exitCode: argv.includes('--no-index') ? 1 : 0, stdout: DIFF_OUT, stderr: '' }
+        }
+        return { exitCode: 0, stdout: '', stderr: '' }
+      },
+    }
+    return { runner, calls }
+  }
+
+  it('diffs the worktree against the index for unstaged paths', async () => {
+    const { runner, calls } = diffRunner()
+    const service = new GitService(runner, gate, vi.fn(async () => ({ ok: true as const })))
+    const result = await service.diff(ROOT, 'a.txt', false)
+    expect(result).toEqual({ content: DIFF_OUT })
+    expect(calls.some((call) => call[0] === 'diff' && call[1] === '--' && call[2] === 'a.txt')).toBe(true)
+    expect(calls.some((call) => call.includes('--cached'))).toBe(false)
+  })
+
+  it('diffs the index against HEAD for staged paths', async () => {
+    const { runner, calls } = diffRunner()
+    const service = new GitService(runner, gate, vi.fn(async () => ({ ok: true as const })))
+    const result = await service.diff(ROOT, 'a.txt', true)
+    expect(result).toEqual({ content: DIFF_OUT })
+    expect(calls.some((call) => call[0] === 'diff' && call[1] === '--cached' && call[2] === '--')).toBe(true)
+  })
+
+  it('diffs untracked paths against /dev/null and treats exit 1 as success', async () => {
+    const { runner, calls } = diffRunner()
+    const service = new GitService(runner, gate, vi.fn(async () => ({ ok: true as const })))
+    const result = await service.diff(ROOT, 'new.txt', false)
+    expect(result).toEqual({ content: DIFF_OUT })
+    expect(calls.some((call) => call[0] === 'diff' && call.includes('--no-index') && call.includes('/dev/null'))).toBe(true)
+  })
+
+  it('rejects paths outside the repo root', async () => {
+    const { runner } = diffRunner()
+    const service = new GitService(runner, gate, vi.fn(async () => ({ ok: true as const })))
+    const result = await service.diff(ROOT, '../outside.txt', false)
+    expect('content' in result).toBe(false)
+  })
+})

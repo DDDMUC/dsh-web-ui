@@ -195,7 +195,17 @@ export class PanelLayoutController {
     const initial = frame.style.gridTemplateColumns
     if (initial !== '') {
       const tracks = parseGridTracks(initial)
-      if (tracks.length >= 2 && tracks.length <= 3) this.shellTracks = tracks
+      if (tracks.length >= 2 && tracks.length <= 3) {
+        this.shellTracks = tracks
+      } else if (tracks.length === 5 && trackPx(tracks[0]) > 0) {
+        // The frame may already carry our own previous 5-track write: the
+        // plugin hot-reloads in place (client HMR re-materializes the fiber),
+        // and the shell's grid is then the first three tracks. A zero-width
+        // first track is never a shell write (the shell collapses to the 56px
+        // rail, drags clamp at 280px) — treat it as untrusted and wait for
+        // the next shell write instead of mirroring the damage.
+        this.shellTracks = tracks.slice(0, 3)
+      }
     }
     measure()
     this.applyGrid()
@@ -305,16 +315,18 @@ export class PanelLayoutController {
   private applyGrid(): void {
     const frame = this.frame
     if (frame === null) return
+    // Never guess the shell tracks: without a mirrored shell write, the old
+    // fallback zeroed the sidebar track (the bug where the left sidebar
+    // vanished after a hot reload). Skip the write until syncGrid observes
+    // the shell's own 3-track grid.
+    if (this.shellTracks.length !== 3) return
     const state = this.layout.getSnapshot()
     const explorer = this.layout.explorerWidthPx(state)
     const preview = this.layout.previewWidthPx(state)
 
     // Five tracks: shell sidebar, center, shell details, preview, explorer.
-    const shell = this.shellTracks.length === 3
-      ? this.shellTracks
-      : ['0px', 'minmax(0, 1fr)', '0px']
     frame.style.gridTemplateColumns =
-      `${shell[0]} minmax(0, 1fr) ${shell[2]} ${Math.round(preview)}px ${Math.round(explorer)}px`
+      `${this.shellTracks[0]} minmax(0, 1fr) ${this.shellTracks[2]} ${Math.round(preview)}px ${Math.round(explorer)}px`
 
     // Column contents follow the tracks (both columns always mounted).
     if (this.explorerCol !== null) {

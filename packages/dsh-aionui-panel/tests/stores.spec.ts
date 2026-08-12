@@ -41,6 +41,9 @@ function fakeApi(overrides: Partial<PanelApi> = {}): { api: PanelApi; calls: str
         untracked: [],
       },
     })),
+    gitDiff: vi.fn(async (): Promise<PanelEnvelope<{ content: string }>> => ({
+      ok: true, value: { content: 'diff --git a/a.txt b/a.txt\n@@ -1 +1 @@\n-old\n+new\n' },
+    })),
     gitStage: vi.fn(async () => ({ ok: true, value: { applied: ['a.txt'], failed: [] } })),
     gitUnstage: vi.fn(async () => ({ ok: true, value: { applied: [], failed: [] } })),
     gitDiscard: vi.fn(async () => ({ ok: true, value: { applied: ['a.txt'], failed: [] } })),
@@ -152,6 +155,77 @@ describe('scm store', () => {
     const fresh = createPanelStores(setup.api)
     fresh.scm.setRoot('/w')
     expect(fresh.scm.getSnapshot().viewMode).toBe('tree')
+  })
+
+  it('select marks the opened row and persists per root', async () => {
+    stores.scm.setRoot('/w')
+    stores.scm.select('a.txt')
+    expect(stores.scm.getSnapshot().selected).toBe('a.txt')
+    await new Promise((resolve) => setTimeout(resolve, 250))
+
+    const setup = fakeApi()
+    const fresh = createPanelStores(setup.api)
+    fresh.scm.setRoot('/w')
+    expect(fresh.scm.getSnapshot().selected).toBe('a.txt')
+  })
+})
+
+describe('preview diff tabs', () => {
+  it('openDiff creates a diff tab loaded through gitDiff (staged side)', async () => {
+    stores.preview.setRoot('/w')
+    stores.preview.openDiff('/w', 'a.txt', true)
+    expect(stores.preview.getSnapshot().open).toBe(true)
+    const tab = stores.preview.getSnapshot().tabs[0]
+    expect(tab.contentType).toBe('diff')
+    expect(tab.diff).toEqual({ staged: true })
+    await vi.waitFor(() => expect(stores.preview.getSnapshot().tabs[0].content).not.toBeNull())
+    expect(stores.preview.getSnapshot().tabs[0].content).toContain('diff --git')
+  })
+
+  it('openDiff and openFile of the same path are distinct tabs', () => {
+    stores.preview.setRoot('/w')
+    stores.preview.openDiff('/w', 'a.txt', false)
+    stores.preview.openFile('/w', 'a.txt')
+    const ids = stores.preview.getSnapshot().tabs.map((tab) => tab.id)
+    expect(new Set(ids).size).toBe(2)
+    expect(stores.preview.getSnapshot().activeTabId).toBe(ids[1])
+  })
+
+  it('openDiff dedups: re-clicking the same row focuses the diff tab', () => {
+    stores.preview.setRoot('/w')
+    stores.preview.openDiff('/w', 'a.txt', false)
+    const first = stores.preview.getSnapshot().tabs[0].id
+    stores.preview.openDiff('/w', 'a.txt', false)
+    expect(stores.preview.getSnapshot().tabs).toHaveLength(1)
+    expect(stores.preview.getSnapshot().activeTabId).toBe(first)
+  })
+
+  it('handleGitChange refreshes loaded diff tabs in place', async () => {
+    const { api } = fakeApi()
+    const s = createPanelStores(api)
+    s.preview.setRoot('/w')
+    s.preview.openDiff('/w', 'a.txt', false)
+    await vi.waitFor(() => expect(s.preview.getSnapshot().tabs[0].content).not.toBeNull())
+    const before = (api.gitDiff as ReturnType<typeof vi.fn>).mock.calls.length
+    await s.preview.handleGitChange('/w')
+    expect((api.gitDiff as ReturnType<typeof vi.fn>).mock.calls.length).toBe(before + 1)
+    expect(s.preview.getSnapshot().tabs[0].content).toContain('diff --git')
+  })
+
+  it('openDiff persists and restores as a diff tab', async () => {
+    stores.preview.setRoot('/w')
+    stores.preview.openDiff('/w', 'a.txt', true)
+    await new Promise((resolve) => setTimeout(resolve, 250))
+
+    const setup = fakeApi()
+    const fresh = createPanelStores(setup.api)
+    fresh.preview.setRoot('/w')
+    const tab = fresh.preview.getSnapshot().tabs[0]
+    expect(tab.diff).toEqual({ staged: true })
+    expect(tab.contentType).toBe('diff')
+    // Restore re-fetches through gitDiff, not the fs read.
+    await vi.waitFor(() => expect(fresh.preview.getSnapshot().tabs[0].content).not.toBeNull())
+    expect(fresh.preview.getSnapshot().tabs[0].content).toContain('diff --git')
   })
 })
 
