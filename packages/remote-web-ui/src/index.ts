@@ -16,8 +16,9 @@ import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { PairingService } from './pairing.ts'
 import { makeGateListener } from './gate.ts'
-import { makeRoutes, publicHostOf } from './routes.ts'
+import { makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
+import { makeMobileApiRoutes } from './mobile-api.ts'
 import { lanIPv4Addresses } from './lan.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 
@@ -42,7 +43,7 @@ declare module '@deepseek-ai/cordis' {
 export const name = 'remote-web-ui'
 
 /** Services required before the pairing surfaces can mount. */
-export const inject = ['httpServer']
+export const inject = ['httpServer', 'apiProxy']
 
 /**
  * Settings namespace of the remote-control capability — the section the web
@@ -163,55 +164,30 @@ export function apply(ctx: Context, config?: Config): void {
   })
 
   // ── auto tunnel ─────────────────────────────────────────────────────────
-  // The webRuntime service (web-app bundle) publishes the /api trust fence's
-  // authority array. The connection plugin reads the SAME array reference on
-  // every request, so appending the tunnel host here takes effect without a
-  // restart — provided the profile did not replace the reference with a
-  // `.concat(...)` snapshot (see the README note).
-  interface WebRuntimeService { trustedHosts: string[] }
-  const tunnelHosts = new Set<string>()
-  const syncTunnelHosts = (host: string | undefined): void => {
-    const runtime = ctx.get('webRuntime') as WebRuntimeService | undefined
-    if (runtime === undefined || !Array.isArray(runtime.trustedHosts)) {
-      if (host !== undefined) {
-        console.warn('remote-web-ui: webRuntime unavailable — the auto-tunnel host cannot join the /api trust fence dynamically; tunneled /api requests will be refused until dsh web restarts with the host in --trusted-host')
-      }
-      return
-    }
-    const hosts = runtime.trustedHosts
-    for (const owned of tunnelHosts) {
-      const index = hosts.indexOf(owned)
-      if (index >= 0) hosts.splice(index, 1)
-    }
-    tunnelHosts.clear()
-    if (host !== undefined && !hosts.includes(host)) {
-      hosts.push(host)
-      tunnelHosts.add(host)
-    }
-  }
+  // The minted public URL becomes the QR base (and the pairing fence's
+  // trusted host). Phone /api traffic rides the plugin's own /m/api channel,
+  // which is NOT subject to the connection trust fence — so no fence
+  // mutation is needed here (a distributable plugin must not change the
+  // harness's connection plugin).
   const tunnel = new TunnelManager()
   let autoTunnel = resolved.autoTunnel
   tunnel.onPhase((info: TunnelInfo) => {
     if (!autoTunnel) return
     if (info.phase === 'running' && info.url !== undefined) {
       service.setPublicBaseUrl(info.url)
-      syncTunnelHosts(publicHostOf(info.url))
       service.setTunnelStatus({ state: 'running', url: info.url })
     } else if (info.phase === 'starting') {
       // A restart mints a NEW hostname: the previous URL dies with the old
       // process, so clear it now rather than advertising a dead link.
       service.setPublicBaseUrl(undefined)
-      syncTunnelHosts(undefined)
       service.setTunnelStatus({ state: 'starting' })
     } else if (info.phase === 'failed') {
       service.setPublicBaseUrl(undefined)
-      syncTunnelHosts(undefined)
       service.setTunnelStatus(info.error === undefined ? { state: 'failed' } : { state: 'failed', error: info.error })
     }
   })
   ctx.effect(() => () => {
     tunnel.dispose()
-    syncTunnelHosts(undefined)
   }, 'remote-web-ui: auto tunnel')
   // The bind facts are known by now (httpServer is an inject edge): the LAN
   // bases are frozen per process, matching the CLI's once-per-invocation
@@ -233,7 +209,17 @@ export function apply(ctx: Context, config?: Config): void {
   // (now vetoing every non-loopback request) instead of opening the fence.
   let disposeRoutes: (() => void) | undefined
   let disposeSweep: (() => void) | undefined
-  const routes = [...makeRoutes({ service, lanAddresses }), ...makeMobileRoutes()]
+  // The phone's data channel: pairing routes + the /m page + the /m/api
+  // proxy (which needs the host ApiProxy service; the plugin injects it).
+  const apiProxy = ctx.get('apiProxy')
+  if (apiProxy === undefined) {
+    console.warn('remote-web-ui: apiProxy service unavailable — the mobile data channel is disabled')
+  }
+  const routes = [
+    ...makeRoutes({ service, lanAddresses }),
+    ...makeMobileRoutes(),
+    ...(apiProxy !== undefined ? makeMobileApiRoutes({ service, apiProxy }) : []),
+  ]
   const gate = makeGateListener(service, () => resolve().requirePairingForLan, () => resolve().enabled)
   ctx.effect(() => ctx.on('api/gate', gate), 'remote-web-ui: api gate')
   const sync = (): void => {

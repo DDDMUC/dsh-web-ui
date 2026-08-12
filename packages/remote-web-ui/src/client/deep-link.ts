@@ -112,7 +112,7 @@ async function runDeepLink(ctx: Context, workspaceId: string, page: PageSurface)
   const deadline = Date.now() + SERVICE_WAIT_MS
   while (Date.now() < deadline) {
     const workspaces = ctx.get('workspaces')
-    const sessions = ctx.get('sessions')
+    const sessions = ctx.get('sessions') as { open(id: string): void } | undefined
     if (workspaces !== undefined && sessions !== undefined) {
       const items = workspaces.list.getSnapshot().items
       if (items.some(item => item.workspaceId === target)) {

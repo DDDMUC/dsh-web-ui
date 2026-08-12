@@ -39,7 +39,9 @@ export function mintRpcId(): string {
 }
 
 /**
- * One unary call: POST /api/<method> with the client-request envelope,
+ * One unary call: POST /m/api/<method> (the plugin's own mobile channel —
+ * NOT the connection plugin's /api prefix, so the tunneled Host never needs
+ * to enter the transport trust fence) with the client-request envelope,
  * resolve the server-response value, reject with the mapped error classes.
  * @param method - the dotted RPC method, e.g. `session.list`.
  * @param payload - the business payload.
@@ -54,7 +56,7 @@ export async function callUnary<T>(
   const rpcId = mintRpcId()
   let response: Response
   try {
-    response = await fetch(`/api/${method}`, {
+    response = await fetch(`/m/api/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'client-request', rpcId, method, payload }),

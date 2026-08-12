@@ -80,8 +80,11 @@ export function clientBundle(id: string, libEntry: readonly string[]): UserConfi
     // The cordis framework resolves at runtime from the dsh profile tree, never
     // from this repo's install; its built declarations carry .ts-suffixed
     // relative imports rolldown cannot follow, so the import must stay
-    // external (the same stance as the peer APIs above).
-    external: ['@deepseek-ai/cordis'],
+    // external (the same stance as the peer APIs above). The apiproxy wire
+    // contract is likewise a profile-tree runtime dependency (the plugin
+    // proxies its service) — bundling it would resolve the tsconfig paths'
+    // declaration files and miss every value export.
+    external: ['@deepseek-ai/cordis', /^@deepseek-ai\/dsh-host-apiproxy/],
   }, clientConfig(id), mobileConfig(id)]
 }
 

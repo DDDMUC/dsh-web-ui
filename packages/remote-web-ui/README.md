@@ -87,11 +87,15 @@ mounts both halves.
    mobile access: paired devices 403 on their next request, including their
    live stream.
 
-The mobile surface depends on the harness `session.list` cursor
-pagination (merged into the dsh staging checkout): without it the list
-falls back to the full transfer. The `/m` page is served by the plugin's
-own routes and talks to the host only through the shared `/api` transport
-with the paired-device cookie — no extra ports, no separate auth.
+The mobile surface is fully self-contained in this plugin: the `/m` page
+and its data channel (`/m/api`) are served by the plugin's own routes and
+need **no harness source changes** — the phone's RPC calls ride the
+plugin's `/m/api` proxy (which delegates to the host ApiProxy service and
+pages `session.list` itself), so the tunneled Host never has to enter the
+connection plugin's trust fence. The phone is gated by its paired-device
+cookie and an explicit method allowlist (settings/credentials/host-action
+domains are never reachable from the phone); the live stream arrives over
+Server-Sent Events on `/m/api/events.mux`.
 
 ### Behavior notes
 
@@ -120,29 +124,18 @@ Cloudflare quick tunnel — the `cloudflared` binary ships with the package,
 no install, account, or domain needed — and wires everything itself:
 
 - the minted `https://xxx.trycloudflare.com` URL becomes the QR base, so a
-  phone anywhere can pair, and
-- the tunnel host joins the `/api` trust fence **dynamically**: the
-  `webRuntime` service's authority array is shared by reference with the
-  connection plugin's fence, so appending the host takes effect without a
-  restart. The panel shows the tunnel status (starting / running / failed
-  with the reason), and a crash is restarted automatically with backoff.
+  phone anywhere can pair. The panel shows the tunnel status (starting /
+  running / failed with the reason), and a crash is restarted
+  automatically with backoff.
 
 The QR stays LAN-only until the tunnel reports its URL, and a tunnel
-restart mints a NEW hostname — the plugin clears the old link and updates
-the fence in the same tick, so users never touch configuration. Note that
-a quick tunnel is public: anyone with the URL can load the static page;
-the pairing gate (`requirePairingForLan`, on by default) is the real
-fence.
-
-> **Profile prerequisite for dynamic trust**: a profile `cordis.patch.yml`
-> that overrides the `connection` row's `trustedHosts` with a
-> `.concat(...)` expression replaces the shared array with a snapshot, so
-> the dynamic append cannot reach the fence (tunneled `/api` calls would
-> 403 until restart). For `autoTunnel`, either delete that override row
-> (the web-app bundle's default `trustedHosts: ctx.webRuntime.trustedHosts`
-> is already the shared reference) or change it to reference
-> `ctx.webRuntime.trustedHosts` directly. A static `publicBaseUrl` plus
-> `--trusted-host` remains the right shape for manual tunnels below.
+restart mints a NEW hostname — the plugin clears the old link and mints a
+fresh one, so users never touch configuration. Note that a quick tunnel is
+public: anyone with the URL can load the static page; the pairing gate is
+the real fence, and the phone's data channel (`/m/api`) is protected by
+its own paired-device gate plus a method allowlist — the tunneled Host
+never needs to enter the connection plugin's trust fence, so **no profile
+or harness customization is required for the auto tunnel to work**.
 
 ### Manual tunnels (bring your own)
 
