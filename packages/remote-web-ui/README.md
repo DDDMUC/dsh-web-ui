@@ -72,12 +72,26 @@ mounts both halves.
 1. `dsh web --host 0.0.0.0` (the printed LAN URL confirms reachability).
 2. Click the phone icon → the panel mints a fresh one-time QR.
 3. Scan with the phone (or open the copied link): the phone binds and
-   reloads into the full UI, landing in the current workspace.
+   lands on the **standalone mobile surface at `/m`** — no desktop UI on a
+   small screen. The surface is deliberately thin:
+   - workspaces straight away (no new-session homepage),
+   - one workspace's sessions load **incrementally** (20 rows per page,
+     "加载更多会话" continues; never the whole list at once),
+   - opening a session fetches its chat content **on demand** (history
+     pages, "加载更早的消息" goes further back), and
+   - a live stream shows new messages as they arrive, with a prompt box
+     for sending your own.
 4. The desktop badge flips to 已连接 in real time; it falls back to
    offline/断开 when the phone leaves.
 5. 刷新二维码 invalidates the old link and issues a new one. 停止 revokes
    mobile access: paired devices 403 on their next request, including their
    live stream.
+
+The mobile surface depends on the harness `session.list` cursor
+pagination (merged into the dsh staging checkout): without it the list
+falls back to the full transfer. The `/m` page is served by the plugin's
+own routes and talks to the host only through the shared `/api` transport
+with the paired-device cookie — no extra ports, no separate auth.
 
 ### Behavior notes
 
