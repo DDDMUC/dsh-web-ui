@@ -237,6 +237,33 @@ export class FsService {
     }
   }
 
+  /**
+   * Read one file's raw bytes (the markdown image route): gated, traversal-
+   * guarded, and .git-refusing. The bytes are streamed by the HTTP layer with
+   * the derived mime so `<img>` tags can load workspace files directly.
+   */
+  async readRaw(root: string, rel: string): Promise<{ data: Buffer; mime: string; size: number } | PanelError> {
+    const gated = await this.gate(root)
+    if (!gated.ok) return gated.error
+    if (isGitPath(rel)) return { code: 'path-outside-root', message: 'refusing to read .git' }
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
+    if (!resolved.ok) return resolved.error
+    let data: Buffer
+    let info: Awaited<ReturnType<typeof stat>>
+    try {
+      info = await stat(resolved.abs)
+    } catch {
+      return { code: 'not-found', message: `cannot read ${rel}` }
+    }
+    if (info.isDirectory()) return { code: 'is-directory', message: `${rel} is a directory` }
+    try {
+      data = await readFile(resolved.abs)
+    } catch {
+      return { code: 'not-found', message: `cannot read ${rel}` }
+    }
+    return { data, mime: imageMime(rel, data), size: data.length }
+  }
+
   /** Write text content back, refusing when the file moved on disk (mtime conflict). */
   async write(
     root: string,

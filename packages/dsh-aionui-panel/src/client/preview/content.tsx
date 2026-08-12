@@ -7,12 +7,12 @@
  * @module dsh-aionui-panel/client/preview/content
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { PreviewTabState } from '../store.ts'
 import { useResizableSplit } from '../hooks/useResizableSplit.ts'
 import { t } from '../locales.ts'
-import { renderMarkdown } from './markdown.ts'
+import { renderMarkdown, resolveMarkdownImage } from './markdown.ts'
 import previewCss from '../styles/preview.module.css'
 
 /** Split-ratio persistence key (AionUi contract). */
@@ -61,6 +61,8 @@ export function TabContent({
       {tab.contentType === 'markdown' && tab.content !== null && (
         <MarkdownViewer
           content={tab.content}
+          root={tab.root}
+          path={tab.path}
           sourceMode={viewMode === 'source'}
           onContentChange={onContentChange}
         />
@@ -143,7 +145,7 @@ function SplitPane({
       <div className={previewCss.splitPaneRight} style={{ width: `${100 - splitRatio}%` }}>
         <div className={previewCss.splitHeader}>{t('preview.preview')}</div>
         <div className={previewCss.splitBody}>
-          {tab.contentType === 'markdown' && <MarkdownViewer content={content} />}
+          {tab.contentType === 'markdown' && <MarkdownViewer content={content} root={tab.root} path={tab.path} />}
           {tab.contentType === 'html' && <HtmlViewer content={content} />}
           {tab.contentType === 'csv' && <CsvViewer content={content} />}
           {tab.contentType === 'code' && <CodeViewer content={content} language={tab.title.split('.').pop() ?? ''} />}
@@ -156,14 +158,32 @@ function SplitPane({
 /** Markdown viewer with an optional source mode (textarea). */
 function MarkdownViewer({
   content,
+  root,
+  path,
   sourceMode = false,
   onContentChange,
 }: {
   content: string
+  /** Project root of the markdown file (image srcs resolve against it). */
+  root: string
+  /** The markdown file's workspace-relative path (image dir base). */
+  path: string
   sourceMode?: boolean
   onContentChange?: (content: string) => void
 }): JSX.Element {
-  const html = useMemo(() => renderMarkdown(content), [content])
+  const resolveImageSrc = useCallback((src: string): string | null => {
+    if (root === '' || path === '') return null
+    const resolution = resolveMarkdownImage(path, src)
+    if (resolution.kind === 'absolute') return src
+    if (resolution.kind === 'escape') return null
+    // Workspace-relative target: serve the bytes through the host raw route
+    // (same origin as the GUI), preserving any ?query#fragment suffix.
+    return `/aionui-panel/raw?root=${encodeURIComponent(root)}&path=${encodeURIComponent(resolution.path)}${resolution.suffix}`
+  }, [root, path])
+  const html = useMemo(
+    () => renderMarkdown(content, { resolveImageSrc }),
+    [content, resolveImageSrc],
+  )
   if (sourceMode && onContentChange !== undefined) {
     return (
       <div className={previewCss.content}>

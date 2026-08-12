@@ -4,7 +4,7 @@
  * detection.
  */
 import { describe, expect, it } from 'vitest'
-import { renderInline, renderMarkdown } from '../src/client/preview/markdown.ts'
+import { renderInline, renderMarkdown, resolveMarkdownImage } from '../src/client/preview/markdown.ts'
 import { parseCsv, normalizeUrl } from '../src/client/preview/content.tsx'
 import { parseGridTracks, trackPx } from '../src/client/layout.ts'
 import { detectContentType } from '../src/client/fileType.ts'
@@ -92,6 +92,59 @@ describe('detectContentType', () => {
     expect(detectContentType('pic.png')).toBe('image')
     expect(detectContentType('LICENSE')).toBe('text')
     expect(detectContentType('weird.bin')).toBe('unsupported')
+  })
+})
+
+describe('resolveMarkdownImage', () => {
+  it('leaves absolute URLs and fragments to the browser', () => {
+    expect(resolveMarkdownImage('a.md', 'https://x.y/i.png')).toEqual({ kind: 'absolute' })
+    expect(resolveMarkdownImage('a.md', 'data:image/png;base64,xx')).toEqual({ kind: 'absolute' })
+    expect(resolveMarkdownImage('a.md', '#frag')).toEqual({ kind: 'absolute' })
+    expect(resolveMarkdownImage('a.md', '')).toEqual({ kind: 'absolute' })
+  })
+
+  it('resolves relative srcs against the markdown file directory', () => {
+    expect(resolveMarkdownImage('docs/a.md', './img.png')).toEqual({ kind: 'relative', path: 'docs/img.png', suffix: '' })
+    expect(resolveMarkdownImage('docs/a.md', 'img.png')).toEqual({ kind: 'relative', path: 'docs/img.png', suffix: '' })
+    expect(resolveMarkdownImage('docs/a.md', '../img.png')).toEqual({ kind: 'relative', path: 'img.png', suffix: '' })
+    expect(resolveMarkdownImage('docs/sub/a.md', '../../top.png')).toEqual({ kind: 'relative', path: 'top.png', suffix: '' })
+    // Root-level markdown keeps bare names at the root.
+    expect(resolveMarkdownImage('README.md', './img.png')).toEqual({ kind: 'relative', path: 'img.png', suffix: '' })
+  })
+
+  it('resolves root-relative srcs from the project root', () => {
+    expect(resolveMarkdownImage('docs/a.md', '/img.png')).toEqual({ kind: 'relative', path: 'img.png', suffix: '' })
+    expect(resolveMarkdownImage('docs/a.md', '/assets/i.png')).toEqual({ kind: 'relative', path: 'assets/i.png', suffix: '' })
+  })
+
+  it('rejects .. escaping the project root', () => {
+    expect(resolveMarkdownImage('a.md', '../x.png')).toEqual({ kind: 'escape' })
+    expect(resolveMarkdownImage('docs/a.md', '../../x.png')).toEqual({ kind: 'escape' })
+  })
+
+  it('preserves query/hash suffixes and decodes percent-encoded names', () => {
+    expect(resolveMarkdownImage('docs/a.md', './img.png?v=2#top')).toEqual({ kind: 'relative', path: 'docs/img.png', suffix: '?v=2#top' })
+    expect(resolveMarkdownImage('docs/a.md', './my%20img.png')).toEqual({ kind: 'relative', path: 'docs/my img.png', suffix: '' })
+    expect(resolveMarkdownImage('docs/a.md', './a%2Fb.png')).toEqual({ kind: 'relative', path: 'docs/a/b.png', suffix: '' })
+  })
+})
+
+describe('renderMarkdown image resolution hook', () => {
+  it('rewrites relative srcs through the resolver', () => {
+    const resolve = (src: string): string | null => {
+      const r = resolveMarkdownImage('docs/a.md', src)
+      return r.kind === 'relative' ? `RAW:${r.path}` : null
+    }
+    const html = renderMarkdown('![x](./img.png)', { resolveImageSrc: resolve })
+    expect(html).toContain('<img alt="x" src="RAW:docs/img.png" />')
+  })
+
+  it('drops images the resolver rejects and keeps absolute srcs untouched', () => {
+    const drop = (): string | null => null
+    const html = renderMarkdown('![x](./img.png) ![y](https://a.b/c.png)', { resolveImageSrc: drop })
+    expect(html).not.toContain('<img')
+    // No resolver: behavior is unchanged from before.
+    expect(renderMarkdown('![x](./img.png)')).toContain('<img alt="x" src="./img.png" />')
   })
 })
 

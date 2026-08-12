@@ -111,7 +111,45 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
     }
   }
 
+  /**
+   * GET /aionui-panel/raw: stream one workspace file (markdown image srcs).
+   * Gated like every other operation; the bytes go out with the derived mime
+   * so an `<img>` can load them. No validators are negotiated, so the browser
+   * revalidates every time — a re-edited image never shows stale bytes.
+   */
+  const serveRaw = async (url: URL, res: ServerResponse): Promise<void> => {
+    const root = url.searchParams.get('root')
+    const path = url.searchParams.get('path')
+    if (root === null || root === '' || path === null || path === '') {
+      json(res, FAIL(BAD_REQUEST), 400)
+      return
+    }
+    const result = await fs.readRaw(root, path)
+    if (!('data' in result)) {
+      const status = result.code === 'path-outside-root' || result.code === 'is-directory' ? 403 : 404
+      json(res, FAIL(result), status)
+      return
+    }
+    res.writeHead(200, {
+      'content-type': result.mime,
+      'content-length': result.size,
+      'cache-control': 'no-cache',
+      'x-content-type-options': 'nosniff',
+    })
+    res.end(result.data)
+  }
+
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    if (req.method === 'GET') {
+      const url = new URL(req.url ?? '/', 'http://x')
+      if (url.pathname === '/aionui-panel/raw') {
+        await serveRaw(url, res)
+        return
+      }
+      res.writeHead(405)
+      res.end()
+      return
+    }
     if (req.method !== 'POST') {
       res.writeHead(405)
       res.end()

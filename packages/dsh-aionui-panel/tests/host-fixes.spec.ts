@@ -94,6 +94,40 @@ describe('FsService symlink escape (C1)', () => {
   })
 })
 
+describe('FsService.readRaw (markdown image route)', () => {
+  it('returns raw bytes with a derived mime', async () => {
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'aionui-raw-')))
+    const root = join(dir, 'proj')
+    await mkdir(join(root, 'assets'), { recursive: true })
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01])
+    await writeFile(join(root, 'assets', 'pic.png'), png)
+    await writeFile(join(root, 'a.md'), '# hi')
+    const service = new FsService(gate)
+
+    const image = await service.readRaw(root, 'assets/pic.png')
+    expect(image).toMatchObject({ mime: 'image/png', size: png.length })
+    if ('data' in image) expect(image.data.equals(png)).toBe(true)
+    expect(await service.readRaw(root, 'a.md')).toMatchObject({ mime: 'application/octet-stream' })
+
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('refuses .git paths, missing files, and directories', async () => {
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'aionui-raw-')))
+    const root = join(dir, 'proj')
+    await mkdir(join(root, '.git'), { recursive: true })
+    await mkdir(join(root, 'sub'), { recursive: true })
+    await writeFile(join(root, '.git', 'config'), 'cfg')
+    const service = new FsService(gate)
+
+    expect(await service.readRaw(root, '.git/config')).toMatchObject({ code: 'path-outside-root' })
+    expect(await service.readRaw(root, 'nope.png')).toMatchObject({ code: 'not-found' })
+    expect(await service.readRaw(root, 'sub')).toMatchObject({ code: 'is-directory' })
+
+    await rm(dir, { recursive: true, force: true })
+  })
+})
+
 describe('GitService.discard path derivation (H1)', () => {
   it('derives the root-relative path with relative() (no slice garbage)', async () => {
     // Session root is a subdir of the repo.

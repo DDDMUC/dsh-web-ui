@@ -16,6 +16,85 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/** How one image src resolves against the markdown file's location. */
+export type MarkdownImageResolution =
+  /** Scheme URL or fragment: the browser resolves it as-is. */
+  | { kind: 'absolute' }
+  /** Workspace-relative target: resolved path plus any ?query#fragment suffix. */
+  | { kind: 'relative'; path: string; suffix: string }
+  /** `..` escaped the project root: the image must be dropped. */
+  | { kind: 'escape' }
+
+/** Directory of a workspace-relative file path ('' when at the root). */
+function dirOf(filePath: string): string {
+  const slash = filePath.lastIndexOf('/')
+  return slash === -1 ? '' : filePath.slice(0, slash)
+}
+
+/** Collapse . and .. segments; null when .. escapes the base. */
+function normalizeRelPath(rel: string): string | null {
+  const out: string[] = []
+  for (const part of rel.split('/')) {
+    if (part === '' || part === '.') continue
+    if (part === '..') {
+      if (out.length === 0) return null
+      out.pop()
+      continue
+    }
+    out.push(part)
+  }
+  return out.join('/')
+}
+
+/** Percent-decode a path portion (best effort; never throws). */
+function decodePathPart(raw: string): string {
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
+/**
+ * Resolve one markdown image src against the markdown file's location:
+ * - Absolute URLs (http/https/data:/...) and fragment-only srcs are left to
+ *   the browser ('absolute').
+ * - Root-relative srcs (/img.png) resolve from the project root; other
+ *   relative srcs resolve against the file's directory. `..` escaping the
+ *   project root is rejected ('escape').
+ * - The path portion is percent-decoded (markdown authors encode spaces in
+ *   filenames) and any ?query#fragment suffix is preserved verbatim, so
+ *   cache-busting srcs like ./img.png?v=2 still fetch img.png.
+ */
+export function resolveMarkdownImage(filePath: string, src: string): MarkdownImageResolution {
+  const trimmed = src.trim()
+  if (trimmed === '' || trimmed.startsWith('#')) return { kind: 'absolute' }
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) return { kind: 'absolute' }
+  const decoded = decodePathPart(trimmed)
+  const q = decoded.indexOf('?')
+  const h = decoded.indexOf('#')
+  let cut = decoded.length
+  if (q !== -1) cut = Math.min(cut, q)
+  if (h !== -1) cut = Math.min(cut, h)
+  const pathPart = decoded.slice(0, cut)
+  const suffix = decoded.slice(cut)
+  const base = pathPart.startsWith('/') ? '' : dirOf(filePath)
+  const joined = base === '' ? pathPart : `${base}/${pathPart}`
+  const normalized = normalizeRelPath(joined)
+  if (normalized === null) return { kind: 'escape' }
+  return { kind: 'relative', path: normalized, suffix }
+}
+
+/** Options controlling markdown rendering. */
+export interface MarkdownRenderOptions {
+  /**
+   * Rewrite image srcs before they are emitted. Return the URL to use, or
+   * null to drop the image (alt text only). Relative workspace paths are
+   * typically resolved to absolute URLs here.
+   */
+  resolveImageSrc?: (src: string) => string | null
+}
+
 /**
  * Guard a raw link/image target against dangerous protocols. Returns the
  * (trimmed) raw string when safe, else null. Only these schemes are allowed:
@@ -35,7 +114,7 @@ export function safeUrl(raw: string): string | null {
 }
 
 /** Inline pass: code spans, bold, italic, images, links. */
-export function renderInline(text: string): string {
+export function renderInline(text: string, options?: MarkdownRenderOptions): string {
   let out = ''
   let i = 0
   const n = text.length
@@ -63,8 +142,17 @@ export function renderInline(text: string): string {
             // Unsafe image target: drop the img, keep the alt text.
             out += escapeHtml(alt)
           } else {
-            const srcEsc = escapeHtml(safe).replace(/\s+/g, '%20')
-            out += `<img alt="${escapeHtml(alt)}" src="${srcEsc}" />`
+            let target: string | null = safe
+            if (options?.resolveImageSrc !== undefined) {
+              target = options.resolveImageSrc(safe)
+            }
+            if (target === null) {
+              // The resolver dropped the image (unresolvable path): alt only.
+              out += escapeHtml(alt)
+            } else {
+              const srcEsc = escapeHtml(target).replace(/\s+/g, '%20')
+              out += `<img alt="${escapeHtml(alt)}" src="${srcEsc}" />`
+            }
           }
           i = parenEnd + 1
           continue
@@ -82,9 +170,9 @@ export function renderInline(text: string): string {
           const safe = safeUrl(href)
           if (safe === null) {
             // Unsafe link target: render the label as plain text, no <a>.
-            out += renderInline(label)
+            out += renderInline(label, options)
           } else {
-            out += `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${renderInline(label)}</a>`
+            out += `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${renderInline(label, options)}</a>`
           }
           i = parenEnd + 1
           continue
@@ -95,7 +183,7 @@ export function renderInline(text: string): string {
     if (char === '*' && text[i + 1] === '*') {
       const end = text.indexOf('**', i + 2)
       if (end !== -1) {
-        out += `<strong>${renderInline(text.slice(i + 2, end))}</strong>`
+        out += `<strong>${renderInline(text.slice(i + 2, end), options)}</strong>`
         i = end + 2
         continue
       }
@@ -104,7 +192,7 @@ export function renderInline(text: string): string {
     if (char === '*' && text[i - 1] !== '*' && text[i + 1] !== '*') {
       const end = text.indexOf('*', i + 1)
       if (end !== -1 && text[end + 1] !== '*') {
-        out += `<em>${renderInline(text.slice(i + 1, end))}</em>`
+        out += `<em>${renderInline(text.slice(i + 1, end), options)}</em>`
         i = end + 1
         continue
       }
@@ -113,7 +201,7 @@ export function renderInline(text: string): string {
     if (char === '~' && text[i + 1] === '~') {
       const end = text.indexOf('~~', i + 2)
       if (end !== -1) {
-        out += `<del>${renderInline(text.slice(i + 2, end))}</del>`
+        out += `<del>${renderInline(text.slice(i + 2, end), options)}</del>`
         i = end + 2
         continue
       }
@@ -125,7 +213,7 @@ export function renderInline(text: string): string {
 }
 
 /** Render a markdown document to HTML (block pass). */
-export function renderMarkdown(source: string): string {
+export function renderMarkdown(source: string, options?: MarkdownRenderOptions): string {
   const lines = source.replace(/\r\n/g, '\n').split('\n')
   const out: string[] = []
   let i = 0
@@ -133,7 +221,7 @@ export function renderMarkdown(source: string): string {
 
   const flushParagraph = (buffer: string[]): void => {
     if (buffer.length === 0) return
-    out.push(`<p>${renderInline(buffer.join('\n'))}</p>`)
+    out.push(`<p>${renderInline(buffer.join("\n"), options)}</p>`)
     buffer.length = 0
   }
 
@@ -163,7 +251,7 @@ export function renderMarkdown(source: string): string {
     if (heading !== null) {
       flushParagraph(paragraph)
       const level = heading[1].length
-      out.push(`<h${level}>${renderInline(heading[2] ?? '')}</h${level}>`)
+      out.push(`<h${level}>${renderInline(heading[2] ?? '', options)}</h${level}>`)
       i += 1
       continue
     }
@@ -187,9 +275,9 @@ export function renderMarkdown(source: string): string {
         i += 1
       }
       out.push('<table>')
-      out.push(`<thead><tr>${headerCells.map((cell) => `<th>${renderInline(cell)}</th>`).join('')}</tr></thead>`)
+      out.push(`<thead><tr>${headerCells.map((cell) => `<th>${renderInline(cell, options)}</th>`).join('')}</tr></thead>`)
       if (rows.length > 0) {
-        out.push(`<tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${renderInline(cell)}</td>`).join('')}</tr>`).join('')}</tbody>`)
+        out.push(`<tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${renderInline(cell, options)}</td>`).join('')}</tr>`).join('')}</tbody>`)
       }
       out.push('</table>')
       continue
@@ -206,7 +294,7 @@ export function renderMarkdown(source: string): string {
         body.push(q[1] ?? '')
         i += 1
       }
-      out.push(`<blockquote><p>${body.map((line) => renderInline(line)).join('<br />')}</p></blockquote>`)
+      out.push(`<blockquote><p>${body.map((line) => renderInline(line, options)).join('<br />')}</p></blockquote>`)
       continue
     }
 
@@ -218,7 +306,7 @@ export function renderMarkdown(source: string): string {
       while (i < n) {
         const item = /^\s*([-*+])\s+(.*)$/.exec(lines[i])
         if (item === null) break
-        items.push(`<li>${renderInline(item[2] ?? '')}</li>`)
+        items.push(`<li>${renderInline(item[2] ?? '', options)}</li>`)
         i += 1
       }
       out.push(`<ul>${items.join('')}</ul>`)
@@ -233,7 +321,7 @@ export function renderMarkdown(source: string): string {
       while (i < n) {
         const item = /^\s*\d+[.)]\s+(.*)$/.exec(lines[i])
         if (item === null) break
-        items.push(`<li>${renderInline(item[1] ?? '')}</li>`)
+        items.push(`<li>${renderInline(item[1] ?? '', options)}</li>`)
         i += 1
       }
       out.push(`<ol>${items.join('')}</ol>`)
