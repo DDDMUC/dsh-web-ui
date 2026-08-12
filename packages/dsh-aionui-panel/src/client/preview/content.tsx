@@ -381,7 +381,7 @@ function UrlViewer({ tab }: { tab: PreviewTabState }): JSX.Element {
           onFocus={(event) => event.currentTarget.select()}
         />
       </div>
-      <iframe className={previewCss.urlFrame} src={url} title={tab.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" />
+      <iframe className={previewCss.urlFrame} src={url} title={tab.title} sandbox="allow-scripts allow-forms allow-popups" />
     </div>
   )
 }
@@ -391,8 +391,18 @@ export function normalizeUrl(input: string): string {
   const trimmed = input.trim()
   if (trimmed === '') return 'about:blank'
   if (/\s/.test(trimmed)) return `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  return `https://${trimmed}`
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  // Never embed a URL that points back at the harness host: with
+  // allow-scripts (and no allow-same-origin) a same-origin frame is the one
+  // combination that could reach the shell document, so degrade it instead.
+  if (typeof window !== 'undefined') {
+    try {
+      if (new URL(candidate).origin === window.location.origin) return 'about:blank'
+    } catch {
+      // Malformed URL: fall through and return the best-effort candidate.
+    }
+  }
+  return candidate
 }
 
 /** Office / unsupported placeholder. */

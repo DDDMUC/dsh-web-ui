@@ -235,10 +235,11 @@ export class PanelLayoutController {
           return Math.min(MAX_PREVIEW_REGION_PX, Math.max(MIN_PREVIEW_PANEL_PX, startWidth + deltaX))
         },
         onFrame: (width) => {
+          // layout.update notifies the subscribers (subscribe -> applyGrid),
+          // so no explicit applyGrid here — double-writing every frame.
           this.layout.update((prev) => (
             isExplorer ? { ...prev, explorerWidth: width } : { ...prev, previewWidth: width }
           ))
-          this.applyGrid()
         },
         onEnd: (width) => {
           writeStoredNumber(isExplorer ? KEY_EXPLORER_WIDTH : KEY_PREVIEW_WIDTH, width)

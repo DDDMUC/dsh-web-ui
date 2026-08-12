@@ -155,7 +155,11 @@ export function readJson<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key)
     if (raw === null) return fallback
-    return JSON.parse(raw) as T
+    const parsed = JSON.parse(raw) as unknown
+    // JSON.parse('null') yields null without throwing; descending callers
+    // expect an object and would throw on null/primitive, killing their effect.
+    if (parsed === null || typeof parsed !== 'object') return fallback
+    return parsed as T
   } catch {
     return fallback
   }

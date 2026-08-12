@@ -87,17 +87,27 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
     subscriber.res.write(`event: change\ndata: ${JSON.stringify(payload)}\n\n`)
   }
 
-  const pollGit = (): void => {
-    for (const subscriber of subscribers) {
-      void git.status(subscriber.root).then((status) => {
-        if (status === null || typeof status === 'object' && 'code' in status) return
-        const key = `${status.branch}|${JSON.stringify(status.staged)}|${JSON.stringify(status.unstaged)}|${JSON.stringify(status.untracked)}`
-        if (key === subscriber.lastGit) return
-        subscriber.lastGit = key
-        push(subscriber, { kind: 'git', status })
-      }).catch((error: unknown) => {
-        ctx.logger.warn(`dsh-aionui-panel: git poll failed for ${subscriber.root}: ${String(error)}`)
-      })
+  let polling = false
+  const pollGit = async (): Promise<void> => {
+    // Guard against overlapping polls: a slow git status on a large repo must
+    // not stack another run on the next 2s tick.
+    if (polling) return
+    polling = true
+    try {
+      await Promise.all([...subscribers].map(async (subscriber) => {
+        try {
+          const status = await git.status(subscriber.root)
+          if (status === null || typeof status === 'object' && 'code' in status) return
+          const key = `${status.branch}|${JSON.stringify(status.staged)}|${JSON.stringify(status.unstaged)}|${JSON.stringify(status.untracked)}`
+          if (key === subscriber.lastGit) return
+          subscriber.lastGit = key
+          push(subscriber, { kind: 'git', status })
+        } catch (error: unknown) {
+          ctx.logger.warn(`dsh-aionui-panel: git poll failed for ${subscriber.root}: ${String(error)}`)
+        }
+      }))
+    } finally {
+      polling = false
     }
   }
 
@@ -210,12 +220,20 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
     }
   }
 
-  const sse = (req: IncomingMessage, res: ServerResponse): void => {
+  const sse = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const url = new URL(req.url ?? '/', 'http://x')
     const root = url.searchParams.get('root')
     if (root === null || root === '') {
       res.writeHead(400)
       res.end()
+      return
+    }
+    // Gate the requested root before opening the stream: an unowned path must
+    // not be able to subscribe to watch/git events. The canonical root becomes
+    // the subscriber's root for both the watcher and git polling.
+    const gated = await fs.verify(root)
+    if (!gated.ok) {
+      json(res, FAIL(gated.error), 400)
       return
     }
     res.writeHead(200, {
@@ -224,7 +242,7 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
       connection: 'keep-alive',
     })
     res.write('retry: 2000\n\n')
-    const subscriber: Subscriber = { root, lastGit: '', res }
+    const subscriber: Subscriber = { root: gated.canonical, lastGit: '', res }
     subscribers.add(subscriber)
     if (gitTimer === undefined) gitTimer = setInterval(pollGit, GIT_POLL_MS)
     if (heartbeatTimer === undefined) {
@@ -232,7 +250,7 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
         for (const current of subscribers) current.res.write(': ping\n\n')
       }, HEARTBEAT_MS)
     }
-    const disposeWatch = fs.watch(root, () => {
+    const disposeWatch = fs.watch(gated.canonical, () => {
       push(subscriber, { kind: 'fs' })
     })
     req.on('close', () => {

@@ -62,19 +62,25 @@ export function ContextMenu({ state, onClose }: { state: MenuState | null; onClo
 
   useEffect(() => {
     if (state === null) return
-    const close = (): void => onClose()
+    const close = (event: Event): void => {
+      // A pointerdown inside the menu must not close it — the menu item's own
+      // onClick still needs to run (and microtask-less onClose before onSelect
+      // would unmount the item mid-click). Only close on outside clicks.
+      if (event.target instanceof Element && event.target.closest('[data-menu-root]') !== null) return
+      onClose()
+    }
     const key = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('pointerdown', close, { capture: true })
-    window.addEventListener('blur', close)
+    window.addEventListener('blur', onClose)
     window.addEventListener('keydown', key)
-    window.addEventListener('contextmenu', close)
+    window.addEventListener('contextmenu', onClose)
     return () => {
       window.removeEventListener('pointerdown', close, { capture: true })
-      window.removeEventListener('blur', close)
+      window.removeEventListener('blur', onClose)
       window.removeEventListener('keydown', key)
-      window.removeEventListener('contextmenu', close)
+      window.removeEventListener('contextmenu', onClose)
     }
   }, [state, onClose])
 
@@ -82,6 +88,7 @@ export function ContextMenu({ state, onClose }: { state: MenuState | null; onClo
   return createPortal(
     <div
       className="aionui-menu"
+      data-menu-root=""
       style={{ left: position.x, top: position.y }}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}

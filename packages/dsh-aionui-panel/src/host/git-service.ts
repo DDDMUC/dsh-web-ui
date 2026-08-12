@@ -8,7 +8,8 @@
  * @module dsh-aionui-panel/host/git-service
  */
 
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
+import { realpath } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-subprocess'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
@@ -216,9 +217,26 @@ export class GitService {
       // Untracked paths are not restored by git restore; delete them directly.
       const untrackedResult = await this.run(['ls-files', '--error-unmatch', '--', p], repo.repo)
       if (untrackedResult.exitCode !== 0) {
+        // A symlink entry pointing outside the repo must not be deleted — the
+        // fs delete would follow the link away. Realpath-check before deleting.
+        try {
+          const real = await realpath(join(repo.repo, p))
+          if (!isPathInside(repo.repo, real)) {
+            failed.push(p)
+            continue
+          }
+        } catch {
+          // The path does not exist on disk (ENOENT): nothing to escape.
+        }
         // The fs seam addresses the project ROOT (which may be a subdir of
         // the repo); derive the root-relative path from the absolute one.
-        const rel = join(repo.repo, p).slice(repo.root.length).replace(/^\/+/, '')
+        const rel = relative(repo.root, join(repo.repo, p))
+        // Untracked files that lie outside the session root cannot be deleted
+        // through the fs seam; refuse rather than delete a look-alike path.
+        if (rel === '..' || rel.startsWith('../')) {
+          failed.push(p)
+          continue
+        }
         const deleted = await this.fsDelete(repo.root, rel)
         if ('ok' in deleted && deleted.ok) applied.push(p)
         else failed.push(p)

@@ -154,3 +154,94 @@ describe('scm store', () => {
     expect(fresh.scm.getSnapshot().viewMode).toBe('tree')
   })
 })
+
+describe('regression: search debounce + failure paths + save race', () => {
+  it('debounces search: typing does not fire per keystroke, one call after settle', async () => {
+    const { api } = fakeApi()
+    const s = createPanelStores(api)
+    s.explorer.setRoot('/w')
+    await vi.waitFor(() => expect(s.explorer.getSnapshot().dirs['']).toBeDefined())
+    const searchCalls = (api.search as ReturnType<typeof vi.fn>).mock.calls.length
+    s.explorer.setSearchQuery('a')
+    s.explorer.setSearchQuery('ab')
+    s.explorer.setSearchQuery('abc')
+    // No request yet within the debounce window.
+    expect((api.search as ReturnType<typeof vi.fn>).mock.calls.length).toBe(searchCalls)
+    await vi.waitFor(() => expect((api.search as ReturnType<typeof vi.fn>).mock.calls.length).toBe(searchCalls + 1))
+    expect((api.search as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1]).toBe('abc')
+  })
+
+  it('search failure lands status error', async () => {
+    const { api } = fakeApi({
+      search: vi.fn(async () => ({ ok: false as const, error: { code: 'search-failed' as const, message: 'boom' } })),
+    })
+    const s = createPanelStores(api)
+    s.explorer.setRoot('/w')
+    s.explorer.setSearchQuery('xyz')
+    await vi.waitFor(() => expect(s.explorer.getSnapshot().search.status).toBe('error'))
+    expect(s.explorer.getSnapshot().search.hits).toEqual([])
+  })
+
+  it('saveTab keeps dirty when the user types while the save is in flight', async () => {
+    let resolveWrite: ((value: unknown) => void) | undefined
+    const { api } = fakeApi({
+      write: vi.fn(() => new Promise((resolve) => { resolveWrite = resolve })),
+    })
+    const s = createPanelStores(api)
+    s.preview.setRoot('/w')
+    s.preview.openFile('/w', 'README.md')
+    await vi.waitFor(() => expect(s.preview.getSnapshot().tabs[0].content).not.toBeNull())
+    const id = s.preview.getSnapshot().tabs[0].id
+    s.preview.updateContent(id, '# edited')
+    const saving = s.preview.saveTab(id)
+    // User keeps typing while the write is pending.
+    s.preview.updateContent(id, '# edited again')
+    resolveWrite?.({ ok: true, value: { mtime: 99 } })
+    await saving
+    const tab = s.preview.getSnapshot().tabs[0]
+    expect(tab.dirty).toBe(true) // newer edits must stay unsaved-marked
+    expect(tab.mtime).toBe(99) // write base refreshed
+  })
+
+  it('saveTab write-conflict maps to an error and keeps content', async () => {
+    const { api } = fakeApi({
+      write: vi.fn(async () => ({ ok: false as const, error: { code: 'write-conflict' as const, message: 'conflict' } })),
+    })
+    const s = createPanelStores(api)
+    s.preview.setRoot('/w')
+    s.preview.openFile('/w', 'README.md')
+    await vi.waitFor(() => expect(s.preview.getSnapshot().tabs[0].content).not.toBeNull())
+    const id = s.preview.getSnapshot().tabs[0].id
+    s.preview.updateContent(id, '# edited')
+    await s.preview.saveTab(id)
+    const tab = s.preview.getSnapshot().tabs[0]
+    expect(tab.error).toContain('保存冲突')
+    expect(tab.dirty).toBe(true)
+  })
+
+  it('scm stage reports partial failures from the host batch', async () => {
+    const { api } = fakeApi({
+      gitStage: vi.fn(async () => ({ ok: true as const, value: { applied: ['a.txt'], failed: ['out.txt'] } })),
+    })
+    const s = createPanelStores(api)
+    s.scm.setRoot('/w')
+    await s.scm.stage(['a.txt', 'out.txt'])
+    expect(s.scm.getSnapshot().failed).toEqual(['out.txt'])
+  })
+
+  it('readJson top-level null is guarded (no TypeError on rebind)', () => {
+    localStorage.setItem('explorer-ui:/w', 'null')
+    const s = createPanelStores(fakeApi().api)
+    expect(() => s.explorer.setRoot('/w')).not.toThrow()
+    expect(s.explorer.getSnapshot().expanded).toEqual([])
+  })
+
+  it('flushNow writes pending persisted state immediately', async () => {
+    const s = createPanelStores(fakeApi().api)
+    s.explorer.setRoot('/w')
+    s.explorer.toggleDir('src')
+    expect(localStorage.getItem('explorer-ui:/w')).toBeNull() // debounce pending
+    s.flushNow()
+    expect(localStorage.getItem('explorer-ui:/w')).toContain('"src"')
+  })
+})

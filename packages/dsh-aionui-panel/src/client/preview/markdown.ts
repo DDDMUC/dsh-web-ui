@@ -16,6 +16,24 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/**
+ * Guard a raw link/image target against dangerous protocols. Returns the
+ * (trimmed) raw string when safe, else null. Only these schemes are allowed:
+ * http:, https:, mailto: and fragment anchors (#...). Scheme-less relative
+ * paths (./ ../ / and plain filenames) pass through unchanged. Anything with
+ * a scheme outside the allow-list — javascript:, data:, vbscript:, etc. —
+ * is rejected so the value never reaches dangerouslySetInnerHTML.
+ */
+export function safeUrl(raw: string): string | null {
+  const trimmed = raw.trim()
+  if (trimmed === '') return null
+  if (trimmed.startsWith('#')) return trimmed
+  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(trimmed)
+  if (scheme === null) return trimmed
+  const name = scheme[1].toLowerCase()
+  return name === 'http' || name === 'https' || name === 'mailto' ? trimmed : null
+}
+
 /** Inline pass: code spans, bold, italic, images, links. */
 export function renderInline(text: string): string {
   let out = ''
@@ -40,8 +58,14 @@ export function renderInline(text: string): string {
         if (parenEnd !== -1) {
           const alt = text.slice(i + 2, close)
           const src = text.slice(close + 2, parenEnd)
-          const srcEsc = escapeHtml(src).replace(/\s+/g, '%20')
-          out += `<img alt="${escapeHtml(alt)}" src="${srcEsc}" />`
+          const safe = safeUrl(src)
+          if (safe === null) {
+            // Unsafe image target: drop the img, keep the alt text.
+            out += escapeHtml(alt)
+          } else {
+            const srcEsc = escapeHtml(safe).replace(/\s+/g, '%20')
+            out += `<img alt="${escapeHtml(alt)}" src="${srcEsc}" />`
+          }
           i = parenEnd + 1
           continue
         }
@@ -55,7 +79,13 @@ export function renderInline(text: string): string {
         if (parenEnd !== -1) {
           const label = text.slice(i + 1, close)
           const href = text.slice(close + 2, parenEnd)
-          out += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${renderInline(label)}</a>`
+          const safe = safeUrl(href)
+          if (safe === null) {
+            // Unsafe link target: render the label as plain text, no <a>.
+            out += renderInline(label)
+          } else {
+            out += `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${renderInline(label)}</a>`
+          }
           i = parenEnd + 1
           continue
         }
@@ -176,7 +206,7 @@ export function renderMarkdown(source: string): string {
         body.push(q[1] ?? '')
         i += 1
       }
-      out.push(`<blockquote><p>${renderInline(body.join('<br />'))}</p></blockquote>`)
+      out.push(`<blockquote><p>${body.map((line) => renderInline(line)).join('<br />')}</p></blockquote>`)
       continue
     }
 

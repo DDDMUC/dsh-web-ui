@@ -94,3 +94,31 @@ describe('detectContentType', () => {
     expect(detectContentType('weird.bin')).toBe('unsupported')
   })
 })
+
+describe('safeUrl protocol whitelist (M3 regression)', () => {
+  it('allows http/https/mailto/relative and rejects dangerous schemes', () => {
+    expect(renderInline('[x](https://a.b)')).toContain('<a href="https://a.b"')
+    expect(renderInline('[x](http://a.b)')).toContain('<a href="http://a.b"')
+    expect(renderInline('[x](mailto:a@b.c)')).toContain('<a href="mailto:a@b.c"')
+    expect(renderInline('[x](./rel.md)')).toContain('<a href="./rel.md"')
+    expect(renderInline('[x](javascript:alert(1))')).not.toContain('<a')
+    expect(renderInline('[x](data:text/html,<b>)')).not.toContain('<a')
+    expect(renderInline('[x](vbscript:x)')).not.toContain('<a')
+  })
+
+  it('does not emit img tags for dangerous srcs', () => {
+    expect(renderInline('![a](javascript:alert(1))')).not.toContain('<img')
+    expect(renderInline('![a](data:image/png;base64,xx)')).not.toContain('<img')
+    expect(renderInline('![a](https://a.b/c.png)')).toContain('<img')
+  })
+})
+
+describe('dotfile content detection (M5 regression)', () => {
+  it('classifies leading-dot config files as text/code', () => {
+    expect(detectContentType('.gitignore')).toBe('text')
+    expect(detectContentType('.env')).toBe('text')
+    expect(detectContentType('.npmrc')).toBe('text')
+    expect(detectContentType('.env.local')).toBe('text')
+    expect(detectContentType('.editorconfig')).toBe('text')
+  })
+})

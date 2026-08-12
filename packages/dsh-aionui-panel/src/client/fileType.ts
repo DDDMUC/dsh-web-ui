@@ -33,12 +33,25 @@ const CODE_EXT = new Set([
   'ex', 'exs', 'erl', 'hs', 'clj', 'scala', 'groovy', 'vb', 'ps1', 'bat', 'cmd',
   'pl', 'pm', 'tcl', 'asm', 's', 'f', 'f90', 'jl', 'nim', 'ml', 'elm', 'purs',
   'solidity', 'sol', 'tf', 'hcl', 'dockerignore', 'editorconfig', 'prettierrc',
-  'eslintrc', 'babelrc', 'nix', 'lock', 'map',
+  'eslintrc', 'babelrc', 'npmrc', 'nix', 'lock', 'map',
 ])
 /** No-extension names that are plain text. */
 const TEXT_NAMES = new Set([
   'license', 'licence', 'readme', 'changelog', 'contributing', 'authors', 'notice',
   'makefile', 'dockerfile', 'justfile', 'gemfile', 'rakefile', 'procfile',
+])
+/**
+ * Leading-dot config dotfiles whose full (dotted) basename is plain text. The
+ * de-dot rule below maps most single-dot files (`.gitignore` -> ext `gitignore`)
+ * into CODE_EXT; these multi-suffix / uncommon ones have no useful extension
+ * (`.env.local` -> `local`), so we match them by their whole dotted name.
+ */
+const DOTFILE_TEXT_NAMES = new Set([
+  '.gitignore', '.gitattributes', '.gitmodules', '.env', '.env.local',
+  '.env.production', '.env.development', '.env.test', '.npmrc', '.npmrc.template',
+  '.prettierrc', '.prettierrc.json', '.prettierrc.yaml', '.babelrc', '.babelrc.json',
+  '.eslintrc', '.eslintrc.json', '.eslintrc.js', '.editorconfig', '.dockerignore',
+  '.eslintignore', '.prettierignore', '.gitignore.local', '.hgignore',
 ])
 
 /** Detect the preview content type of a file by name (lowercased). */
@@ -46,8 +59,13 @@ export function detectContentType(name: string): PreviewContentType {
   const base = name.split('/').pop() ?? name
   const lower = base.toLowerCase()
   const dot = lower.lastIndexOf('.')
-  const ext = dot > 0 ? lower.slice(dot + 1) : ''
+  // Leading-dot files: the first dot is the hidden-file marker, not a
+  // separator — take the text after it (`.gitignore` -> `gitignore`).
+  const ext = lower[0] === '.'
+    ? (dot > 0 ? lower.slice(dot + 1) : lower.slice(1))
+    : (dot > 0 ? lower.slice(dot + 1) : '')
   const stem = dot > 0 ? lower.slice(0, dot) : lower
+  if (lower[0] === '.' && DOTFILE_TEXT_NAMES.has(lower)) return 'text'
   if (ext === '' && TEXT_NAMES.has(stem)) return 'text'
   if (ext === '') return 'unsupported'
   if (MARKDOWN_EXT.has(ext)) return 'markdown'

@@ -19,6 +19,9 @@ import {
 
 // ─── state primitive ────────────────────────────────────────────────────────
 
+/** Internal channel for the stored-layout flush used by pagehide flushing. */
+const FLUSH_PERSIST = Symbol('flushPersist')
+
 /** A minimal external store usable with useSyncExternalStore. */
 export interface StateHandle<S> {
   getSnapshot: () => S
@@ -242,12 +245,23 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
   })
 
   let persistTimer: ReturnType<typeof setTimeout> | undefined
-  const schedulePersist = (root: string, expanded: string[], selected: string | null): void => {
+  let searchTimer: ReturnType<typeof setTimeout> | undefined
+  let fsVersion = 0
+  let persistRoot = ''
+  let persistExpanded: string[] = []
+  let persistSelected: string | null = null
+  const flushPersist = (): void => {
     if (persistTimer !== undefined) clearTimeout(persistTimer)
-    persistTimer = setTimeout(() => {
-      persistTimer = undefined
-      writeJson(`${KEY_EXPLORER_UI}${root}`, { expanded, selected })
-    }, 150)
+    persistTimer = undefined
+    if (persistRoot !== '') writeJson(`${KEY_EXPLORER_UI}${persistRoot}`, { expanded: persistExpanded, selected: persistSelected })
+  }
+  const schedulePersist = (root: string, expanded: string[], selected: string | null): void => {
+    if (root === '') return
+    if (persistTimer !== undefined) clearTimeout(persistTimer)
+    persistRoot = root
+    persistExpanded = expanded
+    persistSelected = selected
+    persistTimer = setTimeout(flushPersist, 150)
   }
 
   /** Load one dir's listing into the cache (no-op when already present). */
@@ -358,21 +372,27 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
             : { ...prev.search, query: trimmed, status: 'searching' },
         }
       })
+      if (searchTimer !== undefined) clearTimeout(searchTimer)
       if (trimmed === '') return
       const root = handle.getSnapshot().root
-      void api.search(root, trimmed).then((result) => {
-        handle.update((prev) => {
-          if (prev.root !== root || prev.search.query !== trimmed) return prev
-          return {
-            ...prev,
-            search: result.ok
-              ? { query: trimmed, status: 'done', hits: result.value.hits, truncated: result.value.truncated }
-              : { ...prev.search, status: 'error', hits: [] },
-          }
+      searchTimer = setTimeout(() => {
+        searchTimer = undefined
+        void api.search(root, trimmed).then((result) => {
+          handle.update((prev) => {
+            if (prev.root !== root || prev.search.query !== trimmed) return prev
+            return {
+              ...prev,
+              search: result.ok
+                ? { query: trimmed, status: 'done', hits: result.value.hits, truncated: result.value.truncated }
+                : { ...prev.search, status: 'error', hits: [] },
+            }
+          })
         })
-      })
+      }, 150)
     },
     cancelSearch() {
+      if (searchTimer !== undefined) clearTimeout(searchTimer)
+      searchTimer = undefined
       handle.update((prev) => (prev.search.query === '' ? prev : { ...prev, search: { ...EMPTY_SEARCH } }))
     },
     async handleFsChange() {
@@ -380,13 +400,18 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
       const root = state.root
       if (root === '') return
       const dirs = [...new Set(['', ...state.expanded])]
+      const seq = ++fsVersion
       const results = await Promise.allSettled(dirs.map((rel) => api.list(root, rel)))
       handle.update((prev) => {
-        if (prev.root !== root) return prev
+        if (prev.root !== root || seq !== fsVersion) return prev
         const nextDirs = { ...prev.dirs }
         results.forEach((result, index) => {
           const rel = dirs[index]
-          if (result.status === 'fulfilled' && result.value.ok) nextDirs[rel] = result.value.value.entries
+          if (result.status !== 'fulfilled' || !result.value.ok) return
+          // A dir folded while the event burst was in flight must not be
+          // re-populated (the collapse would revive from a stale snapshot).
+          if (rel !== '' && !prev.expanded.includes(rel)) return
+          nextDirs[rel] = result.value.value.entries
         })
         return { ...prev, dirs: nextDirs, version: prev.version + 1 }
       })
@@ -405,6 +430,7 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
       }
     },
   })
+  ;(store as unknown as Record<symbol, unknown>)[FLUSH_PERSIST] = flushPersist
   return store
 }
 
@@ -469,24 +495,35 @@ export function createScmStore(api: PanelApi): ScmStore {
   })
 
   let persistTimer: ReturnType<typeof setTimeout> | undefined
-  const schedulePersist = (state: ScmState): void => {
+  let persistState: ScmState | null = null
+  let loadSeq = 0
+  const flushPersist = (): void => {
     if (persistTimer !== undefined) clearTimeout(persistTimer)
-    persistTimer = setTimeout(() => {
-      persistTimer = undefined
-      writeJson(`${KEY_SCM_UI}${state.root}`, {
-        viewMode: state.viewMode,
-        sectionCollapsed: state.sectionCollapsed,
-        treeExpanded: state.treeExpanded,
+    persistTimer = undefined
+    if (persistState !== null && persistState.root !== '') {
+      writeJson(`${KEY_SCM_UI}${persistState.root}`, {
+        viewMode: persistState.viewMode,
+        sectionCollapsed: persistState.sectionCollapsed,
+        treeExpanded: persistState.treeExpanded,
       })
-    }, 150)
+    }
+  }
+  const schedulePersist = (state: ScmState): void => {
+    if (state.root === '') return
+    if (persistTimer !== undefined) clearTimeout(persistTimer)
+    persistState = state
+    persistTimer = setTimeout(flushPersist, 150)
   }
 
-  /** Fetch the status and land it (guarded against root switches). */
+  /** Fetch the status and land it (guarded against root switches + out-of-order). */
   const load = async (root: string, keepBusy: string[] = []): Promise<void> => {
+    const seq = ++loadSeq
     handle.update((prev) => ({ ...prev, loading: true }))
     const result = await api.gitStatus(root)
     handle.update((prev) => {
-      if (prev.root !== root) return prev
+      // Only the newest in-flight load may land; a stale response must not
+      // overwrite fresher state (focus refresh vs SSE push race).
+      if (prev.root !== root || seq !== loadSeq) return prev
       return {
         ...prev,
         status: result.ok ? result.value : prev.status,
@@ -526,7 +563,7 @@ export function createScmStore(api: PanelApi): ScmStore {
       const result = await api.gitStage(root, paths)
       handle.update((prev) => ({
         ...prev,
-        failed: result.ok ? [] : paths,
+        failed: result.ok && Array.isArray(result.value?.failed) ? result.value.failed : (result.ok ? [] : paths),
         busy: prev.busy.filter((item) => !paths.includes(item)),
       }))
       await load(root)
@@ -538,7 +575,7 @@ export function createScmStore(api: PanelApi): ScmStore {
       const result = await api.gitUnstage(root, paths)
       handle.update((prev) => ({
         ...prev,
-        failed: result.ok ? [] : paths,
+        failed: result.ok && Array.isArray(result.value?.failed) ? result.value.failed : (result.ok ? [] : paths),
         busy: prev.busy.filter((item) => !paths.includes(item)),
       }))
       await load(root)
@@ -550,7 +587,7 @@ export function createScmStore(api: PanelApi): ScmStore {
       const result = await api.gitDiscard(root, paths)
       handle.update((prev) => ({
         ...prev,
-        failed: result.ok ? [] : paths,
+        failed: result.ok && Array.isArray(result.value?.failed) ? result.value.failed : (result.ok ? [] : paths),
         busy: prev.busy.filter((item) => !paths.includes(item)),
       }))
       await load(root)
@@ -579,6 +616,7 @@ export function createScmStore(api: PanelApi): ScmStore {
       handle.update((prev) => ({ ...prev, failed: paths }))
     },
   })
+  ;(store as unknown as Record<symbol, unknown>)[FLUSH_PERSIST] = flushPersist
   return store
 }
 
@@ -671,23 +709,26 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
   })
 
   let persistTimer: ReturnType<typeof setTimeout> | undefined
+  const flushPersist = (): void => {
+    if (persistTimer !== undefined) clearTimeout(persistTimer)
+    persistTimer = undefined
+    const current = handle.getSnapshot()
+    if (current.root === '') return
+    const meta: PersistedTab[] = current.tabs.map((tab) => ({
+      id: tab.id,
+      title: tab.title,
+      root: tab.root,
+      path: tab.path,
+      contentType: tab.contentType,
+      savedAt: tab.savedAt,
+    }))
+    writeJson(`preview-ui:${current.root}`, { savedAt: Date.now(), tabs: meta })
+    evictPreviewScopes(current.root)
+  }
   const schedulePersist = (state: PreviewState): void => {
     if (state.root === '') return
     if (persistTimer !== undefined) clearTimeout(persistTimer)
-    persistTimer = setTimeout(() => {
-      persistTimer = undefined
-      const current = handle.getSnapshot()
-      const meta: PersistedTab[] = current.tabs.map((tab) => ({
-        id: tab.id,
-        title: tab.title,
-        root: tab.root,
-        path: tab.path,
-        contentType: tab.contentType,
-        savedAt: tab.savedAt,
-      }))
-      writeJson(`preview-ui:${current.root}`, { savedAt: Date.now(), tabs: meta })
-      evictPreviewScopes(current.root)
-    }, 150)
+    persistTimer = setTimeout(flushPersist, 150)
   }
 
   /** Load content for one tab (text or image data URL). */
@@ -709,6 +750,9 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
           if (!result.ok) {
             return { ...item, loading: false, error: result.error.message }
           }
+          // The user started typing while the fetch was in flight: their newer
+          // content must not be overwritten by this (already stale) disk read.
+          if (item.dirty) return { ...item, loading: false }
           return {
             ...item,
             loading: false,
@@ -809,7 +853,7 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
       const activeTabId = active
         ? state.activeTabId
         : remaining.length > 0
-          ? remaining[Math.min(remaining.length - 1, state.tabs.findIndex((tab) => tab.id === state.activeTabId))]?.id ?? remaining[remaining.length - 1].id
+          ? remaining[Math.min(state.tabs.findIndex((tab) => tab.id === state.activeTabId), remaining.length - 1)]?.id ?? remaining[remaining.length - 1].id
           : null
       handle.update((prev) => ({
         ...prev,
@@ -829,6 +873,7 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
       const state = handle.getSnapshot()
       const tab = state.tabs.find((item) => item.id === id)
       if (tab === undefined || tab.content === null || !isTextType(tab.contentType)) return
+      const sentContent = tab.content
       handle.update((prev) => ({
         ...prev,
         tabs: prev.tabs.map((item) => (item.id === id ? { ...item, loading: true, error: null } : item)),
@@ -848,6 +893,13 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
                   ? '文件已在磁盘上被修改，保存冲突：请刷新后重试'
                   : result.error.message,
               }
+            }
+            if (item.content !== sentContent) {
+              // The user kept typing while the save was in flight: the disk now
+              // holds the sent snapshot, but the tab's newer edits are unsaved.
+              // Refresh the write base so the next save is conflict-safe and
+              // keep the dirty flag so the UI still shows an unsaved edit.
+              return { ...item, loading: false, mtime: result.value.mtime, error: null }
             }
             return { ...item, loading: false, dirty: false, mtime: result.value.mtime, error: null }
           }),
@@ -910,6 +962,7 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
       })
     },
   })
+  ;(store as unknown as Record<symbol, unknown>)[FLUSH_PERSIST] = flushPersist
   return store
 }
 
@@ -921,12 +974,24 @@ export interface PanelStores {
   preview: PreviewStore
 }
 
+/** PanelStores plus a pagehide flush hook. */
+export interface PanelStoresWithFlush extends PanelStores {
+  /** Flush every pending debounced persist immediately (pagehide/beforeunload). */
+  flushNow: () => void
+}
+
 /** Create the full store bundle. */
-export function createPanelStores(api: PanelApi): PanelStores {
-  return {
-    layout: createLayoutStore(),
-    explorer: createExplorerStore(api),
-    scm: createScmStore(api),
-    preview: createPreviewStore(api),
+export function createPanelStores(api: PanelApi): PanelStoresWithFlush {
+  const layout = createLayoutStore()
+  const explorer = createExplorerStore(api)
+  const scm = createScmStore(api)
+  const preview = createPreviewStore(api)
+  const flushNow = (): void => {
+    for (const store of [explorer, scm, preview]) {
+      const flush = (store as unknown as Record<symbol, unknown>)[FLUSH_PERSIST]
+      if (typeof flush === 'function') (flush as () => void)()
+    }
   }
+  const stores: PanelStoresWithFlush = { layout, explorer, scm, preview, flushNow }
+  return stores
 }

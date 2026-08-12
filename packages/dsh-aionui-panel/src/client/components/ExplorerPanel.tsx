@@ -11,7 +11,7 @@
  * @module dsh-aionui-panel/client/components/ExplorerPanel
  */
 
-import { useRef, useState } from 'react'
+import { memo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { FsEntry } from '../../core/types.ts'
 import { parentRel } from '../fileType.ts'
@@ -200,7 +200,10 @@ function FileTree({ stores }: { stores: PanelStores }): JSX.Element {
           key={entry.path}
           entry={entry}
           depth={0}
-          state={state}
+          expanded={state.expanded}
+          selected={state.selected}
+          dirs={state.dirs}
+          root={state.root}
           stores={stores}
         />
       ))}
@@ -209,22 +212,28 @@ function FileTree({ stores }: { stores: PanelStores }): JSX.Element {
 }
 
 /** One tree row (recursive for children). */
-function TreeRow({
+function TreeRowBase({
   entry,
   depth,
-  state,
+  expanded,
+  selected,
+  dirs,
+  root,
   stores,
 }: {
   entry: FsEntry
   depth: number
-  state: ReturnType<PanelStores['explorer']['getSnapshot']>
+  expanded: string[]
+  selected: string | null
+  dirs: Record<string, FsEntry[]>
+  root: string
   stores: PanelStores
 }): JSX.Element {
   const explorer = stores.explorer
   const preview = stores.preview
-  const expanded = state.expanded.includes(entry.path)
-  const selected = state.selected === entry.path
-  const children = entry.isDir ? state.dirs[entry.path] : undefined
+  const isExpanded = expanded.includes(entry.path)
+  const isSelected = selected === entry.path
+  const children = entry.isDir ? dirs[entry.path] : undefined
 
   const handleClick = (): void => {
     if (entry.isDir) {
@@ -234,13 +243,13 @@ function TreeRow({
     }
     // A file: select + open in preview (dedup focuses the open tab).
     explorer.select(entry.path)
-    preview.openFile(state.root, entry.path)
+    preview.openFile(root, entry.path)
   }
 
   return (
     <>
       <div
-        className={`${explorerCss.treeRow}${selected ? ` ${explorerCss.treeRowSelected}` : ''}`}
+        className={`${explorerCss.treeRow}${isSelected ? ` ${explorerCss.treeRowSelected}` : ''}`}
         style={{ paddingLeft: 12 + 8 + depth * INDENT_STEP }}
         onClick={handleClick}
         onDoubleClick={(event) => {
@@ -248,27 +257,30 @@ function TreeRow({
           event.stopPropagation()
         }}
         role="button"
-        aria-expanded={entry.isDir ? expanded : undefined}
+        aria-expanded={entry.isDir ? isExpanded : undefined}
         title={entry.path}
       >
         {entry.isDir ? (
-          <span className={`${explorerCss.treeArrow}${expanded ? ` ${explorerCss.treeArrowOpen}` : ''}`}>
+          <span className={`${explorerCss.treeArrow}${isExpanded ? ` ${explorerCss.treeArrowOpen}` : ''}`}>
             <ChevronRightIcon size={13} />
           </span>
         ) : (
           <span className={explorerCss.treeArrowEmpty} />
         )}
-        <FileTypeIcon name={entry.name} isDir={entry.isDir} expanded={expanded} />
+        <FileTypeIcon name={entry.name} isDir={entry.isDir} expanded={isExpanded} />
         <span className={explorerCss.treeName}>{entry.name}</span>
       </div>
-      {entry.isDir && expanded && children !== undefined && (
+      {entry.isDir && isExpanded && children !== undefined && (
         <div>
           {children.map((child) => (
             <TreeRow
               key={child.path}
               entry={child}
               depth={depth + 1}
-              state={state}
+              expanded={expanded}
+              selected={selected}
+              dirs={dirs}
+              root={root}
               stores={stores}
             />
           ))}
@@ -277,3 +289,16 @@ function TreeRow({
     </>
   )
 }
+
+/**
+ * A memoized tree row so the whole tree does not re-render on every explorer
+ * state change (search keystrokes, tab switches, fs version bumps). The row
+ * takes the `state` fields it actually reads as individual props — `expanded`,
+ * `selected`, `dirs` — whose references only change when the corresponding
+ * data changed, so the default shallow comparison skips rows whose own entry,
+ * ancestor, expansion or selection are unaffected. A `dirs` re-fetch (an fs
+ * event that relists the expanded dirs) still re-renders the rows under those
+ * dirs — the unavoidable O(open-dirs) cost — but transient UI state no longer
+ * invalidates the tree.
+ */
+const TreeRow = memo(TreeRowBase)

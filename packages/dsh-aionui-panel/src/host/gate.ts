@@ -20,6 +20,7 @@ export type WorkspaceGate = (root: string) => Promise<GateVerdict>
 
 /** The canonical prefix check: child must live inside (or equal) the root. */
 export function isPathInside(root: string, child: string): boolean {
+  if (root === '' || child === '') return false
   if (child === root) return true
   const prefix = root.endsWith('/') ? root : `${root}/`
   return child.startsWith(prefix)

@@ -111,7 +111,19 @@ export function apply(ctx: ClientContext): void {
       console.error('[dsh-aionui-panel] mount failed:', error)
     }
 
+    // Debounced persists (explorer/scm/preview) may be pending when the page
+    // hides; flush them so a close/background never drops the last 150ms.
+    const flushOnHide = (): void => stores.flushNow()
+    const onVisibilityChange = (): void => {
+      if (document.visibilityState === 'hidden') flushOnHide()
+    }
+    window.addEventListener('pagehide', flushOnHide)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
     return () => {
+      flushOnHide()
+      window.removeEventListener('pagehide', flushOnHide)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       disposeEvents?.()
       langObserver?.disconnect()
       for (const dispose of disposers) dispose()

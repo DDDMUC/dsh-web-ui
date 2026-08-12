@@ -5,10 +5,16 @@
  * root element when the GUI theme is dark (the shell's theme service emits
  * theme/change; the controller mirrors it).
  *
+ * The two rules at the top are intentionally GLOBAL (hence the :global()
+ * wrapper): the token variables must be readable by DOM-created chrome — the
+ * panel columns and drag handles are appended by the layout controller outside
+ * any React subtree — so they live on :root. Every other rule below is still
+ * scoped to `.aionui-root` / the plugin's own class names.
+ *
  * Values are the browser-measured ones from the research report (section 5.2)
  * — including the aou ramp reversal in dark mode and the missing --bg-7.
  */
-:root {
+:global(:root) {
   --aion-bg-base: #ffffff;
   --aion-bg-1: #f9fafb;
   --aion-bg-2: #f2f3f5;
@@ -38,13 +44,14 @@
     "PingFang SC", "Microsoft YaHei", sans-serif;
   --aion-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
     "Liberation Mono", monospace;
-  color-scheme: light;
 }
 
 /* The shell marks dark mode with body[data-ds-dark-theme]; the panel tokens
    follow it with zero JS wiring (the theme service toggles the attribute).
-   Scoped to body so third-party themes cannot override them from :root. */
-body[data-ds-dark-theme] {
+   Scoped to body so third-party themes cannot override them from :root.
+   Global by intent (tokens reach the DOM-added columns/handles); the dark
+   color-scheme is only asserted here so the host's own light default wins. */
+:global(body[data-ds-dark-theme]) {
   --aion-bg-base: #0e0e0e;
   --aion-bg-1: #1a1a1a;
   --aion-bg-2: #262626;

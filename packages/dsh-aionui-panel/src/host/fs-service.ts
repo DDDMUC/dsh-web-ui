@@ -9,11 +9,11 @@
  * @module dsh-aionui-panel/host/fs-service
  */
 
-import { readdir, readFile, stat, writeFile, rm, mkdir } from 'node:fs/promises'
+import { readdir, readFile, realpath, stat, writeFile, rm, mkdir } from 'node:fs/promises'
 import { watch as watchDir, type Dirent, type FSWatcher } from 'node:fs'
 import { join, dirname } from 'node:path'
 import type { DirListing, FileRead, FsEntry, PanelError, SearchHit, SearchView } from '../core/types.ts'
-import { isPathInside, type WorkspaceGate } from './gate.ts'
+import { isPathInside, type GateVerdict, type WorkspaceGate } from './gate.ts'
 
 /** Preview text ceiling — mirrors AionUi's single-tab 80k-char cap. */
 export const TEXT_CAP_CHARS = 80_000
@@ -29,14 +29,48 @@ const TREE_SKIP_DIRS = new Set(['.git'])
 /** Polling fallback interval when recursive watch is unavailable. */
 const POLL_FALLBACK_MS = 3_000
 
-/** Resolve a relative path against the root and reject any escape. */
-function resolveInside(root: string, rel: string): { ok: true; abs: string } | { ok: false; error: PanelError } {
+/**
+ * Resolve a relative path against the canonical root, realpath-checking the
+ * existing ancestors so a symlink cannot smuggle the operation outside the
+ * root. A path that does not yet exist (ENOENT) is verified through its
+ * nearest existing ancestor — a nonexistent tail cannot itself be a symlink.
+ * A path whose real path escapes the root is rejected with path-outside-root.
+ */
+async function resolveInsideRoot(root: string, rel: string): Promise<{ ok: true; abs: string } | { ok: false; error: PanelError }> {
   if (rel.includes('\0')) return { ok: false, error: { code: 'path-outside-root', message: 'invalid path' } }
   const abs = join(root, rel)
   if (!isPathInside(root, abs)) {
     return { ok: false, error: { code: 'path-outside-root', message: `path escapes root: ${rel}` } }
   }
-  return { ok: true, abs }
+  // Walk ancestors until we hit one that exists; validate its real path.
+  let probe = abs
+  for (let hop = 0; hop < 32; hop += 1) {
+    let real: string
+    try {
+      real = await realpath(probe)
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      // Any other realpath failure (EACCES/ELOOP/...) lets the operation run;
+      // the caller's own try/catch maps permission/IO problems to its normal
+      // not-found / write-failed codes.
+      if (code !== 'ENOENT') return { ok: true, abs }
+      // Ancestor does not exist yet; realpath the parent instead.
+      const parent = dirname(probe)
+      if (parent === probe) return { ok: true, abs }
+      probe = parent
+      continue
+    }
+    if (!isPathInside(root, real)) {
+      return { ok: false, error: { code: 'path-outside-root', message: `path resolves outside root: ${rel}` } }
+    }
+    return { ok: true, abs }
+  }
+  return { ok: false, error: { code: 'path-outside-root', message: `path cannot be resolved: ${rel}` } }
+}
+
+/** True when the relative path is, or passes through, a .git component. */
+function isGitPath(rel: string): boolean {
+  return rel.split('/').some((part) => part === '.git')
 }
 
 /** Case-insensitive alpha compare (dirs first, then files). */
@@ -54,7 +88,39 @@ export function probeImageSize(data: Buffer): { width: number; height: number } 
       return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) }
     }
     if (data.length >= 10 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
-      return { width: data.readUInt16BE(6), height: data.readUInt16BE(4) }
+      // Walk the marker segments to the first SOF marker (frame header) and
+      // read the dimensions there; the bytes right after SOI (`FF E0 ...`)
+      // are an APP segment, not the frame dimensions. Bounded to 16 segments
+      // so a malformed file cannot stall the probe.
+      let pos = 2 // skip the SOI marker itself (FF D8)
+      for (let segment = 0; segment < 16; segment += 1) {
+        if (pos + 2 > data.length) return undefined
+        if (data[pos] !== 0xff) return undefined
+        // Skip any 0xFF padding before the actual marker byte.
+        while (pos < data.length && data[pos] === 0xff) pos += 1
+        if (pos >= data.length) return undefined
+        const marker = data[pos]
+        pos += 1
+        // Standalone markers (TEM / RST0..RST7) carry no payload.
+        if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0xd8) continue
+        // SOF0..SOF15 (excluding DHT/DAC/DNL/...): the frame header with dims.
+        const isSof =
+          marker === 0xc0 || marker === 0xc1 || marker === 0xc2 || marker === 0xc3 ||
+          marker === 0xc5 || marker === 0xc6 || marker === 0xc7 ||
+          marker === 0xc9 || marker === 0xca || marker === 0xcb ||
+          marker === 0xcd || marker === 0xce || marker === 0xcf
+        if (isSof) {
+          // pos points at the length field: length(2) precision(1) height(2) width(2).
+          if (pos + 7 > data.length) return undefined
+          return { height: data.readUInt16BE(pos + 3), width: data.readUInt16BE(pos + 5) }
+        }
+        // A sized segment: 2-byte length (including itself) + its payload.
+        if (pos + 2 > data.length) return undefined
+        const length = data.readUInt16BE(pos)
+        pos += length
+        if (pos < 0) return undefined
+      }
+      return undefined
     }
     if (data.length >= 14 && data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46) {
       return { width: data.readUInt16LE(6), height: data.readUInt16LE(8) }
@@ -93,11 +159,16 @@ function imageMime(rel: string, data: Buffer): string {
 export class FsService {
   constructor(private readonly gate: WorkspaceGate) {}
 
+  /** Verify a project root against the workspace gate (used by the SSE layer). */
+  verify(root: string): Promise<GateVerdict> {
+    return this.gate(root)
+  }
+
   /** List one directory (relative path; '' = root). Sorted dirs-first alpha. */
   async list(root: string, rel: string): Promise<DirListing | PanelError> {
     const gated = await this.gate(root)
     if (!gated.ok) return gated.error
-    const resolved = resolveInside(gated.canonical, rel)
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
     if (!resolved.ok) return resolved.error
     let dirents: Dirent[]
     try {
@@ -132,7 +203,7 @@ export class FsService {
   async read(root: string, rel: string, asImage: boolean): Promise<FileRead | PanelError> {
     const gated = await this.gate(root)
     if (!gated.ok) return gated.error
-    const resolved = resolveInside(gated.canonical, rel)
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
     if (!resolved.ok) return resolved.error
     let data: Buffer
     let info: Awaited<ReturnType<typeof stat>>
@@ -175,7 +246,8 @@ export class FsService {
   ): Promise<{ mtime: number } | PanelError> {
     const gated = await this.gate(root)
     if (!gated.ok) return gated.error
-    const resolved = resolveInside(gated.canonical, rel)
+    if (isGitPath(rel)) return { code: 'path-outside-root', message: 'refusing to touch .git' }
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
     if (!resolved.ok) return resolved.error
     try {
       let current: Awaited<ReturnType<typeof stat>>
@@ -207,7 +279,7 @@ export class FsService {
     let truncated = false
     const walk = async (rel: string, depth: number): Promise<void> => {
       if (truncated) return
-      const resolved = resolveInside(gated.canonical, rel)
+      const resolved = await resolveInsideRoot(gated.canonical, rel)
       if (!resolved.ok) return
       let dirents: Dirent[]
       try {
@@ -256,9 +328,10 @@ export class FsService {
   async delete(root: string, rel: string): Promise<{ ok: true } | PanelError> {
     const gated = await this.gate(root)
     if (!gated.ok) return gated.error
-    const resolved = resolveInside(gated.canonical, rel)
-    if (!resolved.ok) return resolved.error
     if (rel === '') return { code: 'path-outside-root', message: 'refusing to delete the root' }
+    if (isGitPath(rel)) return { code: 'path-outside-root', message: 'refusing to touch .git' }
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
+    if (!resolved.ok) return resolved.error
     try {
       await rm(resolved.abs, { recursive: true, force: true })
       return { ok: true }
@@ -278,6 +351,7 @@ export class FsService {
   watch(root: string, onChange: () => void): () => void {
     let disposed = false
     let timer: NodeJS.Timeout | undefined
+    let pollTimer: NodeJS.Timeout | undefined
     let watcher: FSWatcher | undefined
     const fire = (): void => {
       if (timer !== undefined) return
@@ -294,21 +368,33 @@ export class FsService {
         fire()
       })
     }
+    // The signature poll is only a fallback: it starts when recursive watch
+    // is unavailable (throw) or later degrades (error event). A healthy
+    // watcher never runs the poll.
+    const startPolling = (): void => {
+      if (pollTimer !== undefined) return
+      poll()
+      pollTimer = setInterval(poll, POLL_FALLBACK_MS)
+    }
     void this.gate(root).then((gated) => {
       if (!gated.ok || disposed) return
       try {
         watcher = watchDir(gated.canonical, { recursive: true }, () => fire())
-        watcher.on('error', () => { /* watcher degraded; the poll fallback covers it */ })
+        watcher.on('error', () => {
+          if (disposed) return
+          watcher?.close()
+          watcher = undefined
+          startPolling()
+        })
       } catch {
         watcher = undefined
-        poll()
+        startPolling()
       }
     })
-    const pollTimer = setInterval(poll, POLL_FALLBACK_MS)
     return () => {
       disposed = true
       if (timer !== undefined) clearTimeout(timer)
-      clearInterval(pollTimer)
+      if (pollTimer !== undefined) clearInterval(pollTimer)
       watcher?.close()
     }
   }
