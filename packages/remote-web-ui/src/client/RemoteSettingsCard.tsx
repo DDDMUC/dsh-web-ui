@@ -25,6 +25,8 @@ export interface RemoteSettings {
   requirePairingForLan?: boolean
   /** Public (tunneled) base URL the QR link is built from when set. */
   publicBaseUrl?: string
+  /** When on, the plugin runs its own Cloudflare quick tunnel automatically. */
+  autoTunnel?: boolean
 }
 
 /** What the remote-control card renders. */
@@ -43,6 +45,8 @@ export interface RemoteSettingsCardState extends CardShell {
   requirePairingForLan: CardFieldState
   /** Public (tunneled) base URL. */
   publicBaseUrl: CardFieldState
+  /** Auto public tunnel switch. */
+  autoTunnel: CardFieldState
 }
 
 /** The registration-side face the card's slot entry injects. */
@@ -68,6 +72,7 @@ export class RemoteSettingsCardController {
       textField('cookieName'),
       booleanField('requirePairingForLan'),
       textField('publicBaseUrl'),
+      booleanField('autoTunnel'),
     ])
     this.store = this.form.bind(() => this.projection())
   }
@@ -82,6 +87,7 @@ export class RemoteSettingsCardController {
       cookieName: this.form.field('cookieName'),
       requirePairingForLan: this.form.field('requirePairingForLan'),
       publicBaseUrl: this.form.field('publicBaseUrl'),
+      autoTunnel: this.form.field('autoTunnel'),
     }
   }
 
@@ -196,6 +202,18 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
         {...state.publicBaseUrl}
         onEdit={(text) => { props.edit('publicBaseUrl', text) }}
         onReset={() => { props.resetField('publicBaseUrl') }}
+      />
+      <BooleanField
+        id="settings-remote-auto-tunnel"
+        label={t('settings.autoTunnel')}
+        hint={t('settings.autoTunnelHint')}
+        inheritLabel={t('settings.inherit')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.autoTunnel}
+        onEdit={(text) => { props.edit('autoTunnel', text) }}
+        onReset={() => { props.resetField('autoTunnel') }}
       />
     </PluginSettingsCard>
   )

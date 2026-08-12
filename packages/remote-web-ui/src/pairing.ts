@@ -52,6 +52,16 @@ export interface DeviceSession {
   lastSeenAt: number
 }
 
+/** One tunnel status frame (auto-tunnel only; undefined when disabled). */
+export interface TunnelStatus {
+  /** starting: binary/process warming up; running: URL minted; failed: no URL. */
+  state: 'starting' | 'running' | 'failed'
+  /** The minted public URL, once the tunnel reports it. */
+  url?: string
+  /** Human-readable failure detail. */
+  error?: string
+}
+
 /** One snapshot frame pushed to desktop status streams. */
 export interface PairingSnapshot {
   phase: PairingPhase
@@ -61,6 +71,8 @@ export interface PairingSnapshot {
   lanAddresses: string[]
   /** Configured public (tunneled) base URL, when present. */
   publicUrl?: string
+  /** Auto-tunnel status, while the auto-tunnel feature is active. */
+  tunnel?: TunnelStatus
   /** Active token id when one is live (undefined when stopped/lan-required). */
   tokenId?: string
   /** Absolute expiry of the active token. */
@@ -127,6 +139,8 @@ export class PairingService {
   private lanBases = new Map<string, string>()
   /** Public (tunneled) base URL, e.g. a Cloudflare Tunnel quick URL. */
   private publicBase: string | undefined
+  /** Auto-tunnel status, while the auto-tunnel feature is active. */
+  private tunnelStatus: TunnelStatus | undefined
 
   /**
    * @param config - tunables. The settings surface replaces the object (a
@@ -168,6 +182,12 @@ export class PairingService {
   /** Set or clear the public base URL (a tunnel in front of this server). */
   setPublicBaseUrl(url: string | undefined): void {
     this.publicBase = url
+    this.notify()
+  }
+
+  /** Set or clear the auto-tunnel status frame (undefined when the feature is off). */
+  setTunnelStatus(status: TunnelStatus | undefined): void {
+    this.tunnelStatus = status
     this.notify()
   }
 
@@ -284,6 +304,7 @@ export class PairingService {
       lanAvailable: this.lanBases.size > 0,
       lanAddresses: [...this.lanBases.keys()],
       ...(this.publicBase !== undefined ? { publicUrl: this.publicBase } : {}),
+      ...(this.tunnelStatus !== undefined ? { tunnel: this.tunnelStatus } : {}),
       ...(token !== undefined ? { tokenId: token.token, tokenExpiresAt: token.record.expiresAt } : {}),
       deviceCount: this.devices.size,
       onlineCount,
@@ -345,10 +366,17 @@ function snapshotsEqual(a: PairingSnapshot, b: PairingSnapshot): boolean {
     && a.lanAvailable === b.lanAvailable
     && sameStrings(a.lanAddresses, b.lanAddresses)
     && a.publicUrl === b.publicUrl
+    && tunnelEqual(a.tunnel, b.tunnel)
     && a.tokenId === b.tokenId
     && a.tokenExpiresAt === b.tokenExpiresAt
     && a.deviceCount === b.deviceCount
     && a.onlineCount === b.onlineCount
+}
+
+/** Tunnel frame equality (undefined equals undefined; fields compared shallowly). */
+function tunnelEqual(a: TunnelStatus | undefined, b: TunnelStatus | undefined): boolean {
+  return a === b || (a !== undefined && b !== undefined
+    && a.state === b.state && a.url === b.url && a.error === b.error)
 }
 
 /** Element-wise string list equality (interface order is meaningful). */

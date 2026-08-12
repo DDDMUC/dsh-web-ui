@@ -16,8 +16,9 @@ import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { PairingService } from './pairing.ts'
 import { makeGateListener } from './gate.ts'
-import { makeRoutes } from './routes.ts'
+import { makeRoutes, publicHostOf } from './routes.ts'
 import { lanIPv4Addresses } from './lan.ts'
+import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -72,9 +73,17 @@ export interface Config {
    * subdomain). When set, the QR link is built from it — a phone anywhere
    * can pair — and its host is trusted by the phone-facing pairing fence.
    * Leave unset for LAN-only usage. Malformed values are ignored with a
-   * warning (LAN-only behavior preserved).
+   * warning (LAN-only behavior preserved). Ignored while `autoTunnel` is on.
    */
   publicBaseUrl?: string
+  /**
+   * When true, the plugin runs its own Cloudflare quick tunnel (the
+   * cloudflared binary ships with the package — no user-side install) and
+   * feeds the minted public URL into both the QR base and the /api trust
+   * fence dynamically, so phones anywhere can pair without any manual
+   * tunnel setup. The manual `publicBaseUrl` is ignored while this is on.
+   */
+  autoTunnel?: boolean
   /** Master switch for the plugin (browser half + host pairing surfaces). */
   enabled?: boolean
 }
@@ -86,6 +95,7 @@ export const Config: z<Config> = z.object({
   cookieName: z.string().min(1).default('dsh_pair'),
   requirePairingForLan: z.boolean().default(true),
   publicBaseUrl: z.string(),
+  autoTunnel: z.boolean().default(false),
   enabled: z.boolean().default(true),
 })
 
@@ -107,6 +117,7 @@ const DEFAULTS: ResolvedConfig = {
   cookieName: 'dsh_pair',
   requirePairingForLan: true,
   publicBaseUrl: undefined,
+  autoTunnel: false,
   enabled: true,
 }
 
@@ -123,6 +134,7 @@ export function apply(ctx: Context, config?: Config): void {
     cookieName: config?.cookieName ?? DEFAULTS.cookieName,
     requirePairingForLan: config?.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
     publicBaseUrl: config?.publicBaseUrl,
+    autoTunnel: config?.autoTunnel ?? DEFAULTS.autoTunnel,
     enabled: config?.enabled ?? DEFAULTS.enabled,
   }
   // The live source the pairing service and the gate read: the settings
@@ -138,6 +150,7 @@ export function apply(ctx: Context, config?: Config): void {
       cookieName: value.cookieName ?? DEFAULTS.cookieName,
       requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
       publicBaseUrl: value.publicBaseUrl,
+      autoTunnel: value.autoTunnel ?? DEFAULTS.autoTunnel,
       enabled: value.enabled ?? DEFAULTS.enabled,
     }
   }
@@ -147,6 +160,58 @@ export function apply(ctx: Context, config?: Config): void {
     maxDevices: resolved.maxDevices,
     cookieName: resolved.cookieName,
   })
+
+  // ── auto tunnel ─────────────────────────────────────────────────────────
+  // The webRuntime service (web-app bundle) publishes the /api trust fence's
+  // authority array. The connection plugin reads the SAME array reference on
+  // every request, so appending the tunnel host here takes effect without a
+  // restart — provided the profile did not replace the reference with a
+  // `.concat(...)` snapshot (see the README note).
+  interface WebRuntimeService { trustedHosts: string[] }
+  const tunnelHosts = new Set<string>()
+  const syncTunnelHosts = (host: string | undefined): void => {
+    const runtime = ctx.get('webRuntime') as WebRuntimeService | undefined
+    if (runtime === undefined || !Array.isArray(runtime.trustedHosts)) {
+      if (host !== undefined) {
+        console.warn('remote-web-ui: webRuntime unavailable — the auto-tunnel host cannot join the /api trust fence dynamically; tunneled /api requests will be refused until dsh web restarts with the host in --trusted-host')
+      }
+      return
+    }
+    const hosts = runtime.trustedHosts
+    for (const owned of tunnelHosts) {
+      const index = hosts.indexOf(owned)
+      if (index >= 0) hosts.splice(index, 1)
+    }
+    tunnelHosts.clear()
+    if (host !== undefined && !hosts.includes(host)) {
+      hosts.push(host)
+      tunnelHosts.add(host)
+    }
+  }
+  const tunnel = new TunnelManager()
+  let autoTunnel = resolved.autoTunnel
+  tunnel.onPhase((info: TunnelInfo) => {
+    if (!autoTunnel) return
+    if (info.phase === 'running' && info.url !== undefined) {
+      service.setPublicBaseUrl(info.url)
+      syncTunnelHosts(publicHostOf(info.url))
+      service.setTunnelStatus({ state: 'running', url: info.url })
+    } else if (info.phase === 'starting') {
+      // A restart mints a NEW hostname: the previous URL dies with the old
+      // process, so clear it now rather than advertising a dead link.
+      service.setPublicBaseUrl(undefined)
+      syncTunnelHosts(undefined)
+      service.setTunnelStatus({ state: 'starting' })
+    } else if (info.phase === 'failed') {
+      service.setPublicBaseUrl(undefined)
+      syncTunnelHosts(undefined)
+      service.setTunnelStatus(info.error === undefined ? { state: 'failed' } : { state: 'failed', error: info.error })
+    }
+  })
+  ctx.effect(() => () => {
+    tunnel.dispose()
+    syncTunnelHosts(undefined)
+  }, 'remote-web-ui: auto tunnel')
   // The bind facts are known by now (httpServer is an inject edge): the LAN
   // bases are frozen per process, matching the CLI's once-per-invocation
   // sampling stance. The QR can only advertise addresses the fence accepts;
@@ -178,13 +243,25 @@ export function apply(ctx: Context, config?: Config): void {
       maxDevices: value.maxDevices,
       cookieName: value.cookieName,
     }
-    // A malformed public base is ignored with a warning — LAN-only behavior
-    // stays intact rather than silently minting unusable QR links.
-    if (value.publicBaseUrl !== undefined && !isHttpUrl(value.publicBaseUrl)) {
-      console.warn(`remote-web-ui: ignoring malformed publicBaseUrl ${JSON.stringify(value.publicBaseUrl)} (expected https://host[:port])`)
-      service.setPublicBaseUrl(undefined)
+    // The auto tunnel owns the public base while enabled: the minted URL
+    // lands in the service through the tunnel's phase listener. The manual
+    // publicBaseUrl applies only when the auto tunnel is off.
+    autoTunnel = value.autoTunnel === true
+    if (autoTunnel) {
+      if (value.publicBaseUrl !== undefined) {
+        console.warn('remote-web-ui: autoTunnel is on — ignoring the manually configured publicBaseUrl')
+      }
+      tunnel.start(`http://127.0.0.1:${String(ctx.httpServer.port)}`)
     } else {
-      service.setPublicBaseUrl(value.publicBaseUrl)
+      tunnel.stop()
+      // A malformed public base is ignored with a warning — LAN-only behavior
+      // stays intact rather than silently minting unusable QR links.
+      if (value.publicBaseUrl !== undefined && !isHttpUrl(value.publicBaseUrl)) {
+        console.warn(`remote-web-ui: ignoring malformed publicBaseUrl ${JSON.stringify(value.publicBaseUrl)} (expected https://host[:port])`)
+        service.setPublicBaseUrl(undefined)
+      } else {
+        service.setPublicBaseUrl(value.publicBaseUrl)
+      }
     }
     const enabled = value.enabled
     if (!enabled) service.stop()

@@ -39,6 +39,13 @@ export type IssueResponse = IssueResult | IssueLanRequired | IssueUnknownAddress
 /** accept() refusal codes. */
 export type AcceptFailure = { ok: false; code: 'invalid' | 'used' | 'forbidden' }
 
+/** One auto-tunnel status frame (absent while the feature is off). */
+export interface TunnelStatusFrame {
+  state: 'starting' | 'running' | 'failed'
+  url?: string
+  error?: string
+}
+
 /** One /api/pair/events frame. */
 export interface PairStateFrame {
   type: 'state'
@@ -48,6 +55,8 @@ export interface PairStateFrame {
   tokenExpiresAt?: number
   deviceCount: number
   onlineCount: number
+  /** Auto-tunnel status, while the auto-tunnel feature is active. */
+  tunnel?: TunnelStatusFrame
 }
 
 /**

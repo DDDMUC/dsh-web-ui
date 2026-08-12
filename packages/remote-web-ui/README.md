@@ -43,6 +43,11 @@ QR code, live device status, and stop/refresh/copy actions.
   opened at the LAN URL sees a "配对面板仅限本机使用" banner instead —
   open the panel at `http://127.0.0.1` and let the phone use the paired
   link.
+- For the one-click public tunnel (`autoTunnel`), the `cloudflared`
+  platform binary ships with the package (its postinstall downloads it; a
+  runtime download covers installers that skip postinstall scripts). No
+  user-side tooling, account, or domain is needed — a Cloudflare quick
+  tunnel is free and anonymous.
 
 ## Install
 
@@ -92,6 +97,40 @@ mounts both halves.
   working public QR links through the tunnel.
 
 ## Remote access over the internet (tunnels)
+
+### One-click public tunnel (recommended)
+
+Turn on `autoTunnel` in the plugin settings card (or set
+`autoTunnel: true` in the profile patch). The plugin then runs its own
+Cloudflare quick tunnel — the `cloudflared` binary ships with the package,
+no install, account, or domain needed — and wires everything itself:
+
+- the minted `https://xxx.trycloudflare.com` URL becomes the QR base, so a
+  phone anywhere can pair, and
+- the tunnel host joins the `/api` trust fence **dynamically**: the
+  `webRuntime` service's authority array is shared by reference with the
+  connection plugin's fence, so appending the host takes effect without a
+  restart. The panel shows the tunnel status (starting / running / failed
+  with the reason), and a crash is restarted automatically with backoff.
+
+The QR stays LAN-only until the tunnel reports its URL, and a tunnel
+restart mints a NEW hostname — the plugin clears the old link and updates
+the fence in the same tick, so users never touch configuration. Note that
+a quick tunnel is public: anyone with the URL can load the static page;
+the pairing gate (`requirePairingForLan`, on by default) is the real
+fence.
+
+> **Profile prerequisite for dynamic trust**: a profile `cordis.patch.yml`
+> that overrides the `connection` row's `trustedHosts` with a
+> `.concat(...)` expression replaces the shared array with a snapshot, so
+> the dynamic append cannot reach the fence (tunneled `/api` calls would
+> 403 until restart). For `autoTunnel`, either delete that override row
+> (the web-app bundle's default `trustedHosts: ctx.webRuntime.trustedHosts`
+> is already the shared reference) or change it to reference
+> `ctx.webRuntime.trustedHosts` directly. A static `publicBaseUrl` plus
+> `--trusted-host` remains the right shape for manual tunnels below.
+
+### Manual tunnels (bring your own)
 
 The QR link is normally a LAN URL, so a phone outside the house cannot use
 it. Point a tunnel at the dsh web port and tell the plugin its public

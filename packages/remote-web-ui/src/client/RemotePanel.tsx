@@ -11,7 +11,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
-import { formatClock } from './pair-api.ts'
+import { formatClock, type TunnelStatusFrame } from './pair-api.ts'
 import css from './remote.module.css'
 
 /** The panel's view state, owned by the entry component. */
@@ -35,6 +35,8 @@ export type PanelState =
       public: boolean
       /** The configured public (tunneled) base URL, when present. */
       publicBaseUrl?: string
+      /** Auto-tunnel status, while the auto-tunnel feature is active. */
+      tunnel?: TunnelStatusFrame
     }
 
 /** Full panel props: copy + view state + actions. */
@@ -122,6 +124,13 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
           <p className={css.hint}>{state.public ? t('pair.publicHint') : t('pair.hint')}</p>
           <p className={css.link} title={state.url}>{state.url}</p>
           {state.phase === 'stopped' && <p className={css.stoppedHint}>{t('stopped.hint')}</p>}
+          {state.tunnel !== undefined && state.tunnel.state !== 'running' && (
+            <p className={state.tunnel.state === 'failed' ? css.tunnelFailed : css.tunnelNote} role="status">
+              {state.tunnel.state === 'failed'
+                ? t('tunnel.failed', { error: state.tunnel.error ?? t('tunnel.unknownError') })
+                : t('tunnel.starting')}
+            </p>
+          )}
 
           {(state.publicBaseUrl !== undefined || state.lanAddresses.length > 1) && (
             <fieldset className={css.addresses}>

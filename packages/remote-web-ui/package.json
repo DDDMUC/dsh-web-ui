@@ -57,6 +57,7 @@
     }
   },
   "dependencies": {
+    "cloudflared": "^0.7.3",
     "clsx": "^2.1.1",
     "qrcode.react": "^4.2.0",
     "schemastery": "^3.18.0"

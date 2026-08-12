@@ -97,6 +97,34 @@ describe('PairingService', () => {
     expect(service.snapshot().phase).toBe('lan-required')
   })
 
+  it('surfaces auto-tunnel status frames and clears them with the feature', () => {
+    const service = makeService()
+    service.setLanBases([])
+    service.setPublicBaseUrl(undefined)
+    expect(service.snapshot().tunnel).toBeUndefined()
+    service.setTunnelStatus({ state: 'starting' })
+    expect(service.snapshot().tunnel).toEqual({ state: 'starting' })
+    // The status alone does not make a QR constructible (that is publicBaseUrl).
+    expect(() => service.issue()).toThrow(/--host 0.0.0.0/)
+    service.setPublicBaseUrl('https://tunnel.example.com')
+    service.setTunnelStatus({ state: 'running', url: 'https://tunnel.example.com' })
+    expect(service.snapshot()).toMatchObject({
+      publicUrl: 'https://tunnel.example.com',
+      tunnel: { state: 'running', url: 'https://tunnel.example.com' },
+    })
+    // Turning the feature off clears the frame.
+    service.setTunnelStatus(undefined)
+    expect(service.snapshot().tunnel).toBeUndefined()
+    // A failed frame with an error detail surfaces too.
+    service.setTunnelStatus({ state: 'failed', error: 'binary offline' })
+    expect(service.snapshot().tunnel).toEqual({ state: 'failed', error: 'binary offline' })
+    // Listener dedupe: a repeated identical frame emits nothing.
+    const seen: unknown[] = []
+    service.onState(snapshot => { seen.push(snapshot.tunnel) })
+    service.setTunnelStatus({ state: 'failed', error: 'binary offline' })
+    expect(seen).toEqual([])
+  })
+
   it('stop revokes devices and tokens; a fresh issue re-arms', () => {
     const service = makeService()
     const { token } = service.issue()
