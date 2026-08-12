@@ -1,12 +1,14 @@
 /**
  * The skin-center plugin card: one disclosure card inside the Web UI plugin
- * group (插件配置 → Web UI 插件), listing every installed skin with live
- * try-on (real bundle execution inside the GUI, light/dark preview, full
- * restore on exit) and the one-command apply. Copy rides the standard `t`
- * seat; the theme preview control drives the official theme service
- * (persisted, same as the Appearance row).
+ * group (插件配置 → Web UI 插件), listing every installed skin plus the
+ * official stock look. Live try-on executes the real bundle inside the GUI
+ * (light/dark preview, full restore on exit); Apply is one click — the host
+ * half runs `dsh-skin use` through /api/skin-center/apply, the config
+ * watcher hot-reloads the patch, and the page reloads into the new skin.
+ * Copy rides the standard `t` seat; the theme preview control drives the
+ * official theme service (persisted, same as the Appearance row).
  */
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { SKIN_CENTER_ENTRIES, type SkinCenterEntry } from './generated/skins.ts'
@@ -27,14 +29,13 @@ export interface SkinCenterInjected {
 export type SkinCenterComponentProps =
   PropsRuntime<'web-ui.plugin.item'> & PropsLocale<'skinCenter'> & SkinCenterInjected
 
-/** The apply command the GUI copies (apply itself is terminal-side). */
-function applyCommandFor(entry: SkinCenterEntry): string {
-  return `dsh-skin use ${entry.id}`
-}
+/** The apply target of the official stock-look card. */
+const OFFICIAL = 'official'
 
 /**
  * Render the skin-center card: a disclosure header naming the plugin, with
- * the skin list (try-on / theme preview / copy-apply) inside its body.
+ * the skin list (official default + every installed skin; try-on / theme
+ * preview / one-click apply) inside its body.
  * @param props - card props.
  * @returns the plugin card.
  */
@@ -44,32 +45,100 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
   const activePackage = useMemo(() => activeSkinEntry()?.package, [])
   const [open, setOpen] = useState(false)
   const [tryingId, setTryingId] = useState<string | null>(null)
+  const [tryingOfficial, setTryingOfficial] = useState(false)
+  const [applying, setApplying] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const tryOn = (entry: SkinCenterEntry): void => {
     setError(null)
     void controller.tryOn(entry)
-      .then(() => setTryingId(entry.id))
+      .then(() => {
+        setTryingId(entry.id)
+        setTryingOfficial(false)
+      })
       .catch(() => setError(t('tryOnError')))
+  }
+
+  const tryOnOfficial = (): void => {
+    setError(null)
+    controller.tryOnOfficial()
+    setTryingId(null)
+    setTryingOfficial(true)
   }
 
   const exitTryOn = (): void => {
     controller.exit()
     setTryingId(null)
+    setTryingOfficial(false)
   }
 
-  const copyCommand = (entry: SkinCenterEntry): void => {
-    const command = applyCommandFor(entry)
-    void navigator.clipboard.writeText(command)
-      .then(() => {
-        setCopiedId(entry.id)
-        window.setTimeout(() => setCopiedId(current => current === entry.id ? null : current), 1600)
+  /**
+   * One-click apply: the host half runs `dsh-skin use <target>` (or
+   * `use official`), the config watcher hot-reloads the patch within
+   * seconds, then this page reloads to pick up the new boot graph.
+   * @param target - skin id, or `official` for the stock look.
+   */
+  const applySkin = (target: string): void => {
+    setError(null)
+    setApplying(target)
+    const body = target === OFFICIAL ? { official: true } : { skin: target }
+    void fetch('/api/skin-center/apply', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(async response => {
+        const payload = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null
+        if (!response.ok || payload?.ok !== true) {
+          throw new Error(payload?.error ?? `HTTP ${response.status}`)
+        }
+        setApplying(null)
+        // Patch written; the watcher applies it within seconds. Reload after
+        // a beat so the user sees the confirmation, then the new boot graph.
+        window.setTimeout(() => { window.location.reload() }, 700)
       })
-      .catch(() => setError(t('copyFailed')))
+      .catch((cause: unknown) => {
+        setApplying(null)
+        const detail = cause instanceof Error ? cause.message : String(cause)
+        const command = target === OFFICIAL ? 'dsh-skin use official' : `dsh-skin use ${target}`
+        setError(`${t('applyFailed')} (${detail}) — ${command}`)
+      })
   }
 
   const dark = snapshot.active.colorScheme === 'dark'
+
+  /** One row: try-on control + apply button. Shared by the official card and every skin card. */
+  const actionButtons = (opts: {
+    key: string
+    isActive: boolean
+    isTrying: boolean
+    onTryOn: () => void
+    applyLabel: string
+  }): ReactNode => (
+    <div className={css.actions}>
+      {opts.isActive ? (
+        <button type="button" className={`${css.button} ${css.buttonGhost}`} disabled>
+          {t('tryOn')}
+        </button>
+      ) : opts.isTrying ? (
+        <button type="button" className={`${css.button} ${css.buttonPrimary}`} onClick={exitTryOn}>
+          {t('exitTryOn')}
+        </button>
+      ) : (
+        <button type="button" className={`${css.button} ${css.buttonPrimary}`} onClick={opts.onTryOn}>
+          {t('tryOn')}
+        </button>
+      )}
+      <button
+        type="button"
+        className={css.button}
+        disabled={applying !== null}
+        onClick={() => { applySkin(opts.key) }}
+      >
+        {applying === opts.key ? t('applying') : opts.applyLabel}
+      </button>
+    </div>
+  )
 
   return (
     <li className={css.pluginCard}>
@@ -117,6 +186,33 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
             {error !== null && <div className={css.error}>{error}</div>}
 
             <div className={css.list}>
+              {(() => {
+                const isActive = activePackage === undefined
+                const isTrying = tryingOfficial
+                const badge = isActive ? t('active') : isTrying ? t('tryingOn') : null
+                return (
+                  <div className={css.card} key={OFFICIAL}>
+                    <div className={css.cardHead}>
+                      <span className={css.swatch} style={{ background: '#98a1ab' }} aria-hidden="true" />
+                      <span className={css.cardName}>{t('official')}</span>
+                      {badge !== null && (
+                        <span className={`${css.badge} ${isActive ? css.badgeActive : css.badgeTrying}`}>
+                          {badge}
+                        </span>
+                      )}
+                    </div>
+                    <div className={css.cardTagline}>{t('officialTagline')}</div>
+                    {actionButtons({
+                      key: OFFICIAL,
+                      isActive,
+                      isTrying,
+                      onTryOn: tryOnOfficial,
+                      applyLabel: t('restore'),
+                    })}
+                  </div>
+                )
+              })()}
+
               {SKIN_CENTER_ENTRIES.map(entry => {
                 const isActive = entry.package === activePackage
                 const isTrying = entry.id === tryingId
@@ -133,28 +229,13 @@ export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
                       )}
                     </div>
                     <div className={css.cardTagline}>{entry.tagline}</div>
-                    <div className={css.actions}>
-                      {isActive ? (
-                        <button type="button" className={`${css.button} ${css.buttonGhost}`} disabled>
-                          {t('tryOn')}
-                        </button>
-                      ) : isTrying ? (
-                        <button type="button" className={`${css.button} ${css.buttonPrimary}`} onClick={exitTryOn}>
-                          {t('exitTryOn')}
-                        </button>
-                      ) : (
-                        <button type="button" className={`${css.button} ${css.buttonPrimary}`} onClick={() => { tryOn(entry) }}>
-                          {t('tryOn')}
-                        </button>
-                      )}
-                      <button type="button" className={css.button} onClick={() => { copyCommand(entry) }}>
-                        {copiedId === entry.id ? t('copied') : t('apply')}
-                      </button>
-                    </div>
-                    <div className={css.applyBlock}>
-                      <span className={css.applyHint}>{t('applyHint')}</span>
-                      <code className={css.command}>{applyCommandFor(entry)}</code>
-                    </div>
+                    {actionButtons({
+                      key: entry.id,
+                      isActive,
+                      isTrying,
+                      onTryOn: () => { tryOn(entry) },
+                      applyLabel: t('apply'),
+                    })}
                   </div>
                 )
               })}

@@ -11,15 +11,16 @@ export type SkinCenterKey =
   | 'expand'
   | 'collapse'
   | 'intro'
+  | 'official'
+  | 'officialTagline'
   | 'active'
   | 'tryingOn'
   | 'tryOn'
   | 'exitTryOn'
   | 'apply'
-  | 'applyCommand'
-  | 'applyHint'
-  | 'copied'
-  | 'copyFailed'
+  | 'applying'
+  | 'restore'
+  | 'applyFailed'
   | 'theme'
   | 'themeLight'
   | 'themeDark'
@@ -27,19 +28,20 @@ export type SkinCenterKey =
 
 export const en: Record<SkinCenterKey, string> = {
   title: 'Skin Center',
-  cardDescription: 'Try on any installed skin live in the GUI — exit restores instantly, applying persists via one terminal command.',
+  cardDescription: 'Try on any installed skin live in the GUI — exit restores instantly, applying persists in one click.',
   expand: 'Expand',
   collapse: 'Collapse',
-  intro: 'Try on any skin live — it takes effect instantly, exit restores the current look. Applying persists it across restarts.',
+  intro: 'Try on any skin live — it takes effect instantly, exit restores the current look. Apply persists it across restarts.',
+  official: 'Official default',
+  officialTagline: 'The stock DSH look with no skin applied.',
   active: 'Active',
   tryingOn: 'Trying on',
   tryOn: 'Try on',
   exitTryOn: 'Exit try-on',
   apply: 'Apply',
-  applyCommand: 'Apply command',
-  applyHint: 'The GUI cannot write your dsh config — apply by running:',
-  copied: 'Copied',
-  copyFailed: 'Copy failed',
+  applying: 'Applying…',
+  restore: 'Restore',
+  applyFailed: 'Apply failed',
   theme: 'Theme preview',
   themeLight: 'Light',
   themeDark: 'Dark',
@@ -48,19 +50,20 @@ export const en: Record<SkinCenterKey, string> = {
 
 export const zh: Record<SkinCenterKey, string> = {
   title: '皮肤中心',
-  cardDescription: '在 GUI 内即时试穿任意皮肤，退出即完全还原；应用需在终端执行一条命令。',
+  cardDescription: '在 GUI 内即时试穿任意皮肤，退出即完全还原；应用一键完成并自动刷新。',
   expand: '展开',
   collapse: '收起',
-  intro: '任意皮肤可即时试穿，退出即完全还原；「应用」需在终端执行一条命令完成持久化。',
+  intro: '任意皮肤可即时试穿，退出即完全还原；「应用」一键持久化，页面自动刷新生效。',
+  official: '官方默认',
+  officialTagline: '还原 DSH 官方默认外观，不应用任何皮肤。',
   active: '当前激活',
   tryingOn: '试穿中',
   tryOn: '试穿',
   exitTryOn: '退出试穿',
   apply: '应用',
-  applyCommand: '应用命令',
-  applyHint: '浏览器无法直接写 dsh 配置，请在终端执行：',
-  copied: '已复制',
-  copyFailed: '复制失败',
+  applying: '应用中…',
+  restore: '恢复默认',
+  applyFailed: '应用失败',
   theme: '主题预览',
   themeLight: '亮色',
   themeDark: '暗色',

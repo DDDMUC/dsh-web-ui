@@ -115,7 +115,8 @@ interface ActiveVisuals {
  */
 export class TryOnController {
   private session: {
-    entry: SkinCenterEntry
+    /** The tried-on skin, or null when trying on the official stock look. */
+    entry: SkinCenterEntry | null
     dispose: () => void
     active: ActiveVisuals
   } | null = null
@@ -123,6 +124,11 @@ export class TryOnController {
   /** The skin currently being tried on, if any. */
   get trying(): SkinCenterEntry | null {
     return this.session?.entry ?? null
+  }
+
+  /** Whether the official stock look (no skin) is being tried on. */
+  get tryingOfficial(): boolean {
+    return this.session !== null && this.session.entry === null
   }
 
   /** Start trying on `entry` (replaces any live session). */
@@ -140,13 +146,25 @@ export class TryOnController {
     }
   }
 
+  /**
+   * Try on the official stock look: retract the active skin's visual writes
+   * (same recipe as a skin try-on) and mount nothing. Exiting restores the
+   * active skin exactly like any other try-on session.
+   */
+  tryOnOfficial(): void {
+    if (activeSkinEntry() === null) return
+    this.exit()
+    const active: ActiveVisuals = this.captureAndRetractActive()
+    this.session = { entry: null, dispose: () => {}, active }
+  }
+
   /** Exit the live session: dispose the tried-on skin, then restore the active skin. */
   exit(): void {
     const session = this.session
     if (session === null) return
     this.session = null
     session.dispose()
-    this.cleanupModule(session.entry)
+    if (session.entry !== null) this.cleanupModule(session.entry)
     this.restoreActive(session.active)
   }
 
