@@ -133,7 +133,9 @@ function renderManaged(active) {
     if (name === active) continue
     lines.push(`- id: ${SKINS[name].id}`, '  disabled: true')
   }
-  if (!wired.has(active)) {
+  // `official` (active === null) = every skin disabled, no insert row — the
+  // stock look. A wired active skin also needs no insert row.
+  if (active !== null && !wired.has(active)) {
     lines.push('- insert:', `    - id: ${SKINS[active].id}`, `      name: '${SKINS[active].pkg}'`)
   }
   lines.push(MANAGED_END)
@@ -185,19 +187,24 @@ function ensureSymlink(name) {
 // --- commands ------------------------------------------------------------------
 
 function cmdUse(name) {
-  if (!SKINS[name]) {
-    console.error(`unknown skin "${name}". Known: ${Object.keys(SKINS).join(', ')}`)
+  const official = name === 'official'
+  if (!official && !SKINS[name]) {
+    console.error(`unknown skin "${name}". Known: ${Object.keys(SKINS).join(', ')} (or "official" for the stock look)`)
     process.exit(1)
   }
-  const linked = ensureSymlink(name)
-  if (linked) console.log(`linked ${SKINS[name].pkg} -> ${SKINS[name].dir}`)
-  checkInstalled(name)
+  if (!official) {
+    const linked = ensureSymlink(name)
+    if (linked) console.log(`linked ${SKINS[name].pkg} -> ${SKINS[name].dir}`)
+    checkInstalled(name)
+  }
 
   const patch = stripLegacySkinRows(stripManaged(readPatch()))
-  const next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(name)}\n`
+  const next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(official ? null : name)}\n`
   fs.writeFileSync(PATCH, next)
   console.log(`wrote ${PATCH}`)
-  console.log(`skin switched to "${name}" — the config watcher applies it within seconds; refresh the page (or the manifest re-fetches) to see it.`)
+  console.log(official
+    ? 'restored the official stock look — the config watcher applies it within seconds; refresh the page to see it.'
+    : `skin switched to "${name}" — the config watcher applies it within seconds; refresh the page (or the manifest re-fetches) to see it.`)
 }
 
 function cmdList() {
@@ -232,10 +239,11 @@ switch (cmd) {
     console.log('dsh-skin — one-command skin switching for the DSH web GUI')
     console.log('')
     console.log('usage:')
-    console.log('  dsh-skin install <name>  install a skin into the web profile the official way (dsh plugin add)')
-    console.log('  dsh-skin use <name>      switch skins (writes the hot-reloaded patch + symlink)')
-    console.log('  dsh-skin list            show skins, the active one, and symlink state')
-    console.log('  dsh-skin current         print the active skin name')
+    console.log('  dsh-skin install <name>   install a skin into the web profile the official way (dsh plugin add)')
+    console.log('  dsh-skin use <name>       switch skins (writes the hot-reloaded patch + symlink)')
+    console.log('  dsh-skin use official     restore the official stock look (disable every skin)')
+    console.log('  dsh-skin list             show skins, the active one, and symlink state')
+    console.log('  dsh-skin current          print the active skin name (or "none")')
     console.log('')
     console.log(`skins: ${Object.keys(SKINS).join(', ')}`)
     process.exit(cmd ? 1 : 0)
