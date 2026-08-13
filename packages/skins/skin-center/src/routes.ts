@@ -21,9 +21,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join as joinPath } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { currentSkin, useSkin } from './skin-switch.ts'
+import { currentSkin, useSkin, SKINS_DIR } from './skin-switch.ts'
 
 /** Browser-facing base path of the skin-center API. */
 export const SKIN_CENTER_API_PREFIX = '/api/skin-center'
@@ -165,13 +164,12 @@ export interface SkinCenterRoutesDeps {
   run?: (args: string[]) => Promise<string>
 }
 
-/** Repo layout: skin bundles live at packages/skins/<id>/lib/client.js. */
-const SKINS_DIR = fileURLToPath(new URL('../../../skins/', import.meta.url))
-
 /**
- * Map skin id -> directory under packages/skins/, scanned from each
+ * Map skin id -> directory under the skins root, scanned from each
  * skin.json. The id is validated against this map (never used as a raw
- * path) so the bundle route cannot be walked off the skins tree.
+ * path) so the bundle route cannot be walked off the skins tree. The root
+ * resolves per install layout (monorepo packages/skins/, npm
+ * node_modules/@linxin666/) — see skin-switch resolveSkinsDir.
  * @returns skin id -> directory name.
  */
 function skinDirectories(): Map<string, string> {

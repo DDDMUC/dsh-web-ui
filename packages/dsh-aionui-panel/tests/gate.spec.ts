@@ -42,3 +42,41 @@ describe('isPathInside', () => {
     expect(isPathInside('', '')).toBe(false)
   })
 })
+
+describe('isPathInside on win32 (separator + case robustness, issue #27)', () => {
+  const platformDesc = Object.getOwnPropertyDescriptor(process, 'platform')!
+
+  /** Run one assertion block with process.platform stubbed to win32. */
+  function asWin32(fn: () => void): void {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    try {
+      fn()
+    } finally {
+      Object.defineProperty(process, 'platform', platformDesc)
+    }
+  }
+
+  it('normalizes backslashes from path.join against a forward-slash root', () => {
+    asWin32(() => {
+      // git rev-parse --show-toplevel returns forward slashes; path.join
+      // yields backslashes — both must resolve inside the same root.
+      expect(isPathInside('C:/Users/zcl/proj', 'C:\\Users\\zcl\\proj\\src\\a.ts')).toBe(true)
+      expect(isPathInside('C:/Users/zcl/proj', 'C:/Users/zcl/proj/src/a.ts')).toBe(true)
+    })
+  })
+
+  it('compares case-insensitively (the FS is case-insensitive)', () => {
+    asWin32(() => {
+      expect(isPathInside('C:/Users/zcl/proj', 'c:\\users\\ZCL\\proj\\src')).toBe(true)
+      expect(isPathInside('c:\\users\\zcl\\proj', 'C:/Users/zcl/proj/x')).toBe(true)
+    })
+  })
+
+  it('still rejects siblings and parent escapes on win32', () => {
+    asWin32(() => {
+      expect(isPathInside('C:/Users/zcl/proj', 'C:/Users/zcl/proj2/x')).toBe(false)
+      expect(isPathInside('C:/Users/zcl/proj', 'C:/Users/zcl')).toBe(false)
+      expect(isPathInside('C:/Users/zcl/proj', 'D:/Users/zcl/proj/x')).toBe(false)
+    })
+  })
+})
