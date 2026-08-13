@@ -114,9 +114,9 @@ Three more: QQ2008 Retro (crystal blue with penguin motifs), Tonghuashun Trading
 
 DSH plugins are installed per **profile** with the `dsh plugin` command (`dsh web` runs the `web` profile). The recommended way is the aggregate package `dsh-web-ui-all` — one package with all plugins and skins; install `dsh-skins` instead if you only want the skins.
 
-### Option 1: Install from the GitHub repository (recommended for now)
+### Install from the GitHub repository
 
-The plugin packages are not published to npm yet, so clone the repository and install from source:
+The plugin packages are not published to npm, so installing from this repository is currently the only way:
 
 ```sh
 # 1. Clone the repository
@@ -136,22 +136,14 @@ dsh web
 
 > Skins only? Point step 3 at `packages/dsh-skins` instead.
 
-### Option 2: Install from npm (once published)
-
-A single command once the packages are on npm:
-
-```sh
-dsh plugin --profile web add @deepseek-ai/dsh-web-ui-all
-```
-
 ### Install a single plugin
 
-Prefer individual plugins? Install them one by one (use the npm name once published; use `link:<repo-path>/packages/<dir>` before that):
+Prefer individual plugins? Install them one by one (`link:` points at the package directory inside this repository):
 
 ```sh
-dsh plugin --profile web add @deepseek-ai/dsh-client-ui-task-board   # Task board
-dsh plugin --profile web add @deepseek-ai/dsh-ssh                    # Remote connection (SSH)
-dsh plugin --profile web add @deepseek-ai/dsh-pet                    # Whale-girl pet
+dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board   # Task board
+dsh plugin --profile web add link:$(pwd)/packages/dsh-ssh          # Remote connection (SSH)
+dsh plugin --profile web add link:$(pwd)/packages/dsh-pet          # Whale-girl pet
 ```
 
 ### Verify and uninstall

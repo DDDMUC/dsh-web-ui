@@ -26,8 +26,6 @@ cd dsh-web-ui
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
 
-# 发布后：直接安装 npm 包
-dsh plugin --profile web add @deepseek-ai/dsh-live-stats
 ```
 
 安装后**重启 `dsh web`**，会话状态行出现 TPS 组。

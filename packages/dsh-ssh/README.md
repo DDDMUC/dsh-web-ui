@@ -43,8 +43,6 @@ cd dsh-web-ui
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-ssh
 
-# 发布后：直接安装 npm 包
-dsh plugin --profile web add @deepseek-ai/dsh-ssh
 ```
 
 安装后**重启 `dsh web`**：侧边栏出现「SSH」入口；Agent 提示词中自动出现插件说明。

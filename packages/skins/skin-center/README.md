@@ -34,8 +34,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
 dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
 ```
 
-`$(pwd)` 指克隆全家桶仓库后的目录；发布到 npm 后可直接
-`dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-center`。
+`$(pwd)` 指克隆全家桶仓库后的目录。
 
 skin-center 是符合 DSH 官方插件标准的自包含 bundle（`dsh.bundle.patch` 指向
 `cordis.patch.yml`、`prepare` 用专用 tsdown 配置自包含构建，无项目引用、无类型检查），

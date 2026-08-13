@@ -20,8 +20,7 @@ dsh plugin --profile web add link:$(pwd)/packages/skins/blue-fantasy
 # 皮肤启用：dsh-skin use blue-fantasy
 ```
 
-`$(pwd)` 指克隆全家桶仓库后的目录；皮肤包发布到 npm 后可直接
-`dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-blue-fantasy`。
+`$(pwd)` 指克隆全家桶仓库后的目录。
 
 本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：
 `pnpm install && pnpm -r build` 后再 link 安装。

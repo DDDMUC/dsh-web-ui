@@ -18,7 +18,7 @@ dsh plugin --profile web add link:$(pwd)/packages/skins/qq98
 # Activate: dsh-skin use qq98
 ```
 
-`$(pwd)` is your clone of the dsh-web-ui monorepo. Once the skin packages are published to npm, install directly with `dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-qq98`.
+`$(pwd)` is your clone of the dsh-web-ui monorepo.
 
 A local `link:` install needs built artifacts first — `lib/` is git-ignored and not committed, so run `pnpm install && pnpm -r build` in the monorepo before linking. Git installs (`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`) build `lib/` themselves via the `prepare` script; pnpm ≥10 blocks that until you copy the printed package key into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
 

@@ -114,9 +114,9 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 DSH 插件通过 `dsh plugin` 命令安装进 **profile**（`dsh web` 对应 `web` profile）。推荐直接安装聚合包 `dsh-web-ui-all`——一个包装齐全部功能插件与皮肤；只想用皮肤则装 `dsh-skins`。
 
-### 方式一：从 GitHub 仓库安装（当前推荐）
+### 从 GitHub 仓库安装
 
-插件包目前尚未发布到 npm，请克隆仓库后安装：
+插件包暂未发布到 npm，当前只有仓库安装这一种方式：
 
 ```sh
 # 1. 克隆仓库
@@ -136,22 +136,14 @@ dsh web
 
 > 只想用皮肤：把第 3 步的 `packages/dsh-web-ui-all` 换成 `packages/dsh-skins`。
 
-### 方式二：从 npm 安装（发布后可用）
-
-插件发布到 npm 后，只需一行命令：
-
-```sh
-dsh plugin --profile web add @deepseek-ai/dsh-web-ui-all
-```
-
 ### 单独安装某个插件
 
-不想装全家桶时，可单独安装任意插件（发布后直接用包名；发布前用 `link:<仓库路径>/packages/<目录>`）：
+不想装全家桶时，可单独安装任意插件（`link:` 后跟仓库内对应包目录）：
 
 ```sh
-dsh plugin --profile web add @deepseek-ai/dsh-client-ui-task-board   # 任务看板
-dsh plugin --profile web add @deepseek-ai/dsh-ssh                    # 远程连接（SSH）
-dsh plugin --profile web add @deepseek-ai/dsh-pet                    # 鲸鱼娘宠物
+dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board   # 任务看板
+dsh plugin --profile web add link:$(pwd)/packages/dsh-ssh          # 远程连接（SSH）
+dsh plugin --profile web add link:$(pwd)/packages/dsh-pet          # 鲸鱼娘宠物
 ```
 
 ### 验证与卸载

@@ -81,8 +81,6 @@ cd dsh-web-ui
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 
-# Once published: install the npm package directly
-dsh plugin --profile web add @deepseek-ai/dsh-remote-web-ui
 ```
 
 Restart the profile (`dsh web`), then open the phone icon in the sidebar

@@ -15,8 +15,6 @@ cd dsh-web-ui
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-aionui-panel
 
-# 发布后：直接安装 npm 包
-dsh plugin --profile web add @deepseek-ai/dsh-client-ui-aionui-panel
 ```
 
 安装后**重启 `dsh web`**，打开项目会话即可看到聊天区右侧的「预览」与「文件/变更」两块面板。

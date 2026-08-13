@@ -41,7 +41,7 @@ pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-git-graph
 ```
 
-或直接安装全家桶聚合包 `@deepseek-ai/dsh-web-ui-all`（`link:$(pwd)/packages/dsh-web-ui-all`）一次到位。发布到 npm 后只需一行：`dsh plugin --profile web add @deepseek-ai/dsh-client-ui-git-graph`。
+或直接安装全家桶聚合包 `@deepseek-ai/dsh-web-ui-all`（`link:$(pwd)/packages/dsh-web-ui-all`）一次到位。
 
 > `github:` 安装方式适用于包位于仓库根部的独立仓库（`prepare` 脚本自包含构建；pnpm ≥10 首次会被拒绝，需按报错提示把包 key 加进 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重试）。monorepo 内的子包请用上面的 `link:` 方式。
 

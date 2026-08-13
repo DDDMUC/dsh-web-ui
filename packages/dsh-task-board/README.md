@@ -94,8 +94,6 @@ cd dsh-web-ui
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board
 
-# 发布后：直接安装 npm 包
-dsh plugin --profile web add @deepseek-ai/dsh-client-ui-task-board
 ```
 
 安装后**重启 `dsh web`**，侧边栏「新会话」下方出现「任务看板」入口即生效；页面刷新不够，需重启进程。

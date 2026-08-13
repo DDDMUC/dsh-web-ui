@@ -26,8 +26,6 @@ cd dsh-web-ui
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
 
-# Once published: install the npm package directly
-dsh plugin --profile web add @deepseek-ai/dsh-live-stats
 ```
 
 Restart `dsh web`, and the TPS group appears in the session status line.
