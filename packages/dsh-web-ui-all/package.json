@@ -19,5 +19,9 @@
     "@linxin666/dsh-ssh": "workspace:*",
     "@linxin666/dsh-client-ui-web-ui-settings": "workspace:*",
     "@linxin666/dsh-skins": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhu1090093659/dsh-web-ui.git"
   }
 }
