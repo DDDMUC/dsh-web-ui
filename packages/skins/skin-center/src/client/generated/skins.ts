@@ -57,4 +57,6 @@ export const SKIN_CENTER_ENTRIES: readonly SkinCenterEntry[] = [
 
   {"id":"matrix","name":"Matrix 骇客帝国","nameEn":"Matrix","author":"contributed (seanchen)","tagline":"深夜护眼 · 墨绿暗色 · 数字雨","description":"深夜卧室场景的护眼暗色皮肤：近黑墨绿背景、墨绿等宽字体、低透明度数字雨。强制暗色（不跟随系统主题），整体低亮度，长时间使用不刺眼、不打扰家人睡觉。","tags":["matrix","dark","green","hacker","night","eye-care"],"accent":"#00e676","bodyAttr":"data-dsh-matrix","package":"@linxin666/dsh-client-ui-skin-matrix","order":12},
 
+  {"id":"maid-atelier","name":"深海女仆工坊","nameEn":"Abyssal Maid Atelier","author":"Small-tailqwq","tagline":"双女仆背景、深海蓝蕾丝界面与 Q 版侧栏","description":"一套面向 DeepSeek Harness WebUI 的高定制动漫角色皮肤。它使用双女仆工坊场景作为对话区背景，以深海蓝、陶瓷白、长春花蓝和柔金构成可热切换的 UI 覆盖层，并为加载、思考和工具运行状态预留稳定动画钩子。","tags":["anime","maid","whale","navy","ornate","glass"],"accent":"#c5a468","bodyAttr":"data-dsh-maid-atelier","package":"@linxin666/dsh-client-ui-skin-maid-atelier","order":8},
+
 ]
