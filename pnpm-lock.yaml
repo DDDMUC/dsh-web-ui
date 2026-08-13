@@ -425,6 +425,9 @@ importers:
       '@linxin666/dsh-client-ui-skin-dragon-heir':
         specifier: workspace:*
         version: link:../skins/dragon-heir
+      '@linxin666/dsh-client-ui-skin-miku':
+        specifier: workspace:*
+        version: link:../skins/miku
       '@linxin666/dsh-client-ui-skin-minecraft':
         specifier: workspace:*
         version: link:../skins/minecraft
