@@ -22,6 +22,7 @@ import {
   useSkin,
   currentSkin,
   resolvePaths,
+  resolveSkinsDir,
   type SkinSwitchEntry,
 } from '../src/skin-switch.ts'
 
@@ -165,5 +166,79 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
   it('useSkin on an unknown skin rejects like the CLI', () => {
     const h = fakeHome()
     expect(() => useSkin('nope', { home: h })).toThrow(/unknown skin "nope"/)
+  })
+
+  it('useSkin leaves an already-installed REAL package dir untouched (npm layout, issue #21/#33)', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    // The npm-install layout: the skin package is physically present as a
+    // directory under the profile's node_modules — no symlink exists.
+    const installed = join(resolvePaths(h).profileModulesDir, qq98.pkg)
+    mkdirSync(installed, { recursive: true })
+    const fakeRegistry: Record<string, SkinSwitchEntry> = {
+      ...registry,
+      qq98: { ...qq98, dir: installed },
+    }
+    expect(() => useSkin('qq98', { home: h, registry: fakeRegistry })).not.toThrow()
+    // The real directory survives untouched (not replaced by a symlink).
+    expect(existsSync(installed)).toBe(true)
+    const after = readFileSync(patchPath(h), 'utf8')
+    expect(after).toContain('- insert:')
+    expect(after).toContain('- id: ' + fakeRegistry.qq98.id)
+  })
+})
+
+describe('npm-install layout registry scan (issue #21/#33/#34)', () => {
+  it('loadRegistry scans a scoped dir of dsh-client-ui-skin-* packages, skipping non-skin dirs', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-npm-layout-'))
+    try {
+      const scoped = join(fakeRoot, '@linxin666')
+      mkdirSync(join(scoped, 'dsh-client-ui-skin-qq98'), { recursive: true })
+      mkdirSync(join(scoped, 'dsh-client-ui-skin-ths'), { recursive: true })
+      // Non-skin packages in the same scoped dir must be skipped.
+      mkdirSync(join(scoped, 'dsh-ssh'), { recursive: true })
+      mkdirSync(join(scoped, 'dsh-task-board'), { recursive: true })
+      writeFileSync(join(scoped, 'dsh-client-ui-skin-qq98', 'skin.json'), JSON.stringify({
+        id: 'qq98',
+        package: '@linxin666/dsh-client-ui-skin-qq98',
+        wiring: { id: 'ui-skin-qq98' },
+      }))
+      writeFileSync(join(scoped, 'dsh-client-ui-skin-ths', 'skin.json'), JSON.stringify({
+        id: 'ths',
+        package: '@linxin666/dsh-client-ui-skin-ths',
+        wiring: { id: 'ui-skin-ths', bundleWired: true },
+      }))
+      const registry = loadRegistry(scoped)
+      expect(Object.keys(registry).sort()).toEqual(['qq98', 'ths'])
+      expect(registry.qq98).toEqual(expect.objectContaining({
+        pkg: '@linxin666/dsh-client-ui-skin-qq98',
+        id: 'ui-skin-qq98',
+        dir: join(scoped, 'dsh-client-ui-skin-qq98'),
+      }))
+      expect(registry.ths.bundleWired).toBe(true)
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('loadRegistry returns an empty registry for an unreadable root', () => {
+    expect(loadRegistry(join(tmpdir(), 'no-such-skins-dir-xyz'))).toEqual({})
+  })
+
+  it('resolveSkinsDir honors DSH_SKINS_DIR', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-env-dir-'))
+    try {
+      const before = process.env.DSH_SKINS_DIR
+      process.env.DSH_SKINS_DIR = fakeRoot
+      try {
+        expect(resolveSkinsDir()).toBe(fakeRoot)
+      } finally {
+        if (before === undefined) delete process.env.DSH_SKINS_DIR
+        else process.env.DSH_SKINS_DIR = before
+      }
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
   })
 })

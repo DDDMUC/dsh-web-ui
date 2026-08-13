@@ -2,8 +2,8 @@ import { installSettingsSection, settingsNamespace } from "@deepseek-ai/dsh-sett
 import z from "schemastery";
 import { lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 //#region src/skin-switch.ts
 /**
 * In-process skin switching for the skin center — the official `dsh-skin use`
@@ -22,8 +22,27 @@ import { homedir } from "node:os";
 * dictionary, so adding a skin needs no code change here.
 * @module @linxin666/dsh-client-ui-skin-center/skin-switch
 */
-/** Repo layout: skin bundles live at packages/skins/<id>. */
-const SKINS_DIR$1 = fileURLToPath(new URL("../../../skins/", import.meta.url));
+/**
+* Resolve the directory that holds the skin packages (each a dir carrying a
+* skin.json). Both install layouts resolve with new URL('../../', ...):
+*  - monorepo: packages/skins/skin-center/lib/../../ -> packages/skins/
+*  - npm install: node_modules/@linxin666/dsh-client-ui-skin-center/lib/../..
+*    -> node_modules/@linxin666/ (the scoped dir holding dsh-client-ui-skin-*)
+* The legacy '../../../skins/' spelling (which pointed at node_modules/skins/
+* under npm — the ENOENT of zhu1090093659/dsh-web-ui#21/#33/#34) is kept as a
+* fallback candidate, and DSH_SKINS_DIR overrides everything (tests use it).
+*/
+function resolveSkinsDir() {
+	const fromEnv = process.env.DSH_SKINS_DIR;
+	if (fromEnv !== void 0 && fromEnv !== "") return fromEnv;
+	const candidates = [fileURLToPath(new URL("../../", import.meta.url)), fileURLToPath(new URL("../../../skins/", import.meta.url))];
+	for (const candidate of candidates) try {
+		for (const dir of readdirSync(candidate)) if (statSync(join(candidate, dir, "skin.json"), { throwIfNoEntry: false })) return candidate;
+	} catch {}
+	return candidates[0];
+}
+/** The skin-package root for this install (see resolveSkinsDir). */
+const SKINS_DIR = resolveSkinsDir();
 /** Managed patch-section delimiters (the CLI's SINGLE authority boundaries). */
 const MANAGED_START = "# --- dsh-skin managed (auto-generated; do not edit) ---";
 const MANAGED_END = "# --- end dsh-skin managed ---";
@@ -33,11 +52,12 @@ const DEFAULT_PROFILE = process.env.DSH_SKIN_PROFILE ?? "web";
 * Parse the switch-relevant fields of one skin.json. Returns null for
 * anything that is not a valid skin so it is simply skipped — never walking
 * outside the skins tree (the id is validated before any path use).
-* @param dir - directory name under packages/skins/.
+* @param dir - directory name under the skins root.
+* @param skinsDir - the skins root (defaults to the resolved install layout).
 */
-function readSkinMeta(dir) {
+function readSkinMeta(dir, skinsDir = SKINS_DIR) {
 	try {
-		const meta = JSON.parse(readFileSync(join(SKINS_DIR$1, dir, "skin.json"), "utf8"));
+		const meta = JSON.parse(readFileSync(join(skinsDir, dir, "skin.json"), "utf8"));
 		if (typeof meta !== "object" || meta === null) return null;
 		const record = meta;
 		if (typeof record.id !== "string" || !/^[a-z0-9-]+$/.test(record.id)) return null;
@@ -58,21 +78,31 @@ function readSkinMeta(dir) {
 	}
 }
 /**
-* Derive the skin registry from packages/skins/<id>/skin.json — the single
+* Derive the skin registry from each skin dir's skin.json — the single
 * source of truth (skin.json already carries package/wiring.id/bundleWired).
 * Replaces the CLI's hand-maintained SKINS dictionary, so adding a skin
-* needs no code change here.
+* needs no code change here. Directories without a readable skin.json
+* (the skin-center manager itself, non-skin packages in the npm scoped dir)
+* are skipped. The root is injectable so tests can point at either install
+* layout.
+* @param skinsDir - the skins root (defaults to the resolved install layout).
 * @returns skin id -> switch metadata.
 */
-function loadRegistry() {
+function loadRegistry(skinsDir = SKINS_DIR) {
 	const out = {};
-	for (const dir of readdirSync(SKINS_DIR$1)) {
-		const meta = readSkinMeta(dir);
+	let entries;
+	try {
+		entries = readdirSync(skinsDir);
+	} catch {
+		return out;
+	}
+	for (const dir of entries) {
+		const meta = readSkinMeta(dir, skinsDir);
 		if (meta === null || meta.wiring === void 0 || meta.package === void 0) continue;
 		out[meta.id] = {
 			pkg: meta.package,
 			id: meta.wiring.id,
-			dir: join(SKINS_DIR$1, dir),
+			dir: join(skinsDir, dir),
 			bundleWired: meta.wiring.bundleWired === true
 		};
 	}
@@ -184,9 +214,18 @@ function writePatchAtomic(filePath, next) {
 	renameSync(tmp, filePath);
 }
 /**
-* Make the profile node_modules symlink for a skin. Returns true when a new
-* link was created, false when it already pointed at the skin dir. Refuses
-* to touch a non-symlink target (that path is not ours to clobber).
+* Make the profile node_modules link for a skin. Returns true when a new
+* link was created, false when the target was already resolvable.
+*
+* A target that already resolves (a REAL installed directory, e.g. the npm
+* layout where the skin package sits at node_modules/@linxin666/..., or a
+* symlink/junction pointing at the skin dir) is left untouched — there is
+* nothing to link. Only an existing link pointing elsewhere is refreshed.
+* A plain FILE target is still refused (that path is not ours to clobber).
+*
+* On win32 the link falls back to a directory junction (absolute target) when
+* symlink creation fails with a privilege error, so no Developer Mode or
+* elevation is required (zhu1090093659/dsh-web-ui#24).
 * @param entry - the skin switch entry.
 * @param profileModulesDir - the profile's node_modules dir.
 */
@@ -196,13 +235,19 @@ function ensureSymlink(entry, profileModulesDir) {
 	try {
 		stat = lstatSync(target);
 	} catch {}
-	if (stat) {
-		if (!stat.isSymbolicLink()) throw new Error(`${target} exists and is not a symlink — refusing to touch it`);
+	if (stat) if (stat.isSymbolicLink()) {
 		if (readlinkSync(target) === entry.dir) return false;
 		unlinkSync(target);
-	}
+	} else if (stat.isDirectory()) return false;
+	else throw new Error(`${target} exists and is not a symlink or directory — refusing to touch it`);
 	mkdirSync(dirname(target), { recursive: true });
-	symlinkSync(entry.dir, target);
+	try {
+		symlinkSync(entry.dir, target);
+	} catch (error) {
+		const code = error?.code;
+		if (process.platform === "win32" && typeof code === "string" && SYMLINK_PRIVILEGE_CODES.includes(code)) symlinkSync(entry.dir, target, "junction");
+		else throw error;
+	}
 	return true;
 }
 /** Windows/privilege code points where symlinkSync fails. */
@@ -236,7 +281,8 @@ function symlinkFriendly(caller, fn) {
 function checkInstalled(entry, profileModulesDir) {
 	let ok = false;
 	try {
-		ok = lstatSync(join(profileModulesDir, entry.pkg)).isSymbolicLink();
+		const stat = lstatSync(join(profileModulesDir, entry.pkg));
+		ok = stat.isSymbolicLink() || stat.isDirectory();
 	} catch {}
 	return ok ? null : `${entry.pkg} 未安装到 profile；先用 dsh-skin install ${entry.id.replace(/^ui-skin-/, "")}（或 dsh plugin --profile ${DEFAULT_PROFILE} add ${entry.dir}）安装，否则加载会失败。`;
 }
@@ -435,12 +481,12 @@ function postRoute(path, run) {
 		}
 	};
 }
-/** Repo layout: skin bundles live at packages/skins/<id>/lib/client.js. */
-const SKINS_DIR = fileURLToPath(new URL("../../../skins/", import.meta.url));
 /**
-* Map skin id -> directory under packages/skins/, scanned from each
+* Map skin id -> directory under the skins root, scanned from each
 * skin.json. The id is validated against this map (never used as a raw
-* path) so the bundle route cannot be walked off the skins tree.
+* path) so the bundle route cannot be walked off the skins tree. The root
+* resolves per install layout (monorepo packages/skins/, npm
+* node_modules/@linxin666/) — see skin-switch resolveSkinsDir.
 * @returns skin id -> directory name.
 */
 function skinDirectories() {
