@@ -56,11 +56,10 @@ pnpm -r build  # 全仓构建
 > **前置要求**：类型来源是官方 NPM SDK——`@deepseek-ai/*` 内测私有包（scope registry 为
 > registry.npmjs.org），**不依赖任何 DSH 源码 checkout**。首次构建前：
 > 1. 设置环境变量 `export NPM_TOKEN='<内测只读令牌>'`（令牌向仓库维护者申请，勿转发、勿提交）；
-> 2. 项目 `.npmrc` 需含（占位符形式，真实令牌只放环境变量；`.npmrc` 已在 `.gitignore` 中）：
->    ```ini
->    @deepseek-ai:registry=https://registry.npmjs.org/
->    //registry.npmjs.org/:_authToken=${NPM_TOKEN}
->    ```
+> 2. token 放**用户级 `~/.npmrc`**（`//registry.npmjs.org/:_authToken=${NPM_TOKEN}`，由 pnpm 展开
+>    环境变量）；项目 `.npmrc` 只留 scope 映射（`@deepseek-ai:registry=https://registry.npmjs.org/`，
+>    已在 `.gitignore` 中）。注意：项目级 `.npmrc` 里的 `${NPM_TOKEN}` 占位符在 pnpm 11 下不会被
+>    展开、被忽略，不承担认证职责；
 > 3. 所有 pnpm/npm 命令必须在设置了 `NPM_TOKEN` 的环境中执行（fresh shell 需自行 export）。
 > 缺失时 `pnpm install` 无法拉取私有 SDK 包，`pnpm -r build` / `pnpm typecheck` 会失败。
 

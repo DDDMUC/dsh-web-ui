@@ -9,8 +9,11 @@
 - **禁止** tsconfig `extends` / `paths` / `references` 指向任何 DSH 源码 checkout
   （`test-zhu1090093659`、`~/.dsh/source/current` 等引用一律不得新增）。
 - 构建预设统一用仓库内单一共享副本 `shared/tsdown.client.ts`，禁止在包内复制。
-- 环境：npm 私有 scope 需要 `NPM_TOKEN` 环境变量（项目 `.npmrc` 只写 `${NPM_TOKEN}`
-  占位符，真实令牌只放环境变量，详见 `docs/plugins.md`）。
+- 环境：npm 私有 scope 需要 `NPM_TOKEN` 环境变量（真实令牌只放环境变量，勿提交）。
+  认证配置：token 放**用户级 `~/.npmrc`**（`//registry.npmjs.org/:_authToken=${NPM_TOKEN}`，
+  由 pnpm 展开环境变量）；**项目 `.npmrc` 只留 scope 映射**
+  （`@deepseek-ai:registry=https://registry.npmjs.org/`）。注意：项目级 `.npmrc` 里的
+  `${NPM_TOKEN}` 占位符在 pnpm 11 下不会被展开、被忽略，不承担认证职责，详见 `docs/plugins.md`。
 
 ## 新包命名统一 dsh- 前缀
 
