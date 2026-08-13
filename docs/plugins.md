@@ -53,9 +53,10 @@ pnpm install   # workspace 链接（packages/* 与 packages/skins/*）
 pnpm -r build  # 全仓构建
 ```
 
-> **前置要求**：类型来源是官方 NPM SDK——`@deepseek-ai/*` 内测私有包（scope registry 为
+> **前置要求**：类型来源是官方 NPM SDK——`@deepseek-ai/*` 官方 NPM SDK 包（scope registry 为
 > registry.npmjs.org），**不依赖任何 DSH 源码 checkout**。首次构建前：
-> 1. 设置环境变量 `export NPM_TOKEN='<内测只读令牌>'`（令牌向仓库维护者申请，勿转发、勿提交）；
+> 1. 若仍使用私有 scope 认证，设置环境变量 `export NPM_TOKEN='<token>'`（真实令牌只放环境变量，勿提交）；
+>    当前 SDK 已结束内测，公开包通常无需令牌即可安装；
 > 2. token 放**用户级 `~/.npmrc`**（`//registry.npmjs.org/:_authToken=${NPM_TOKEN}`，由 pnpm 展开
 >    环境变量）；项目 `.npmrc` 只留 scope 映射（`@deepseek-ai:registry=https://registry.npmjs.org/`，
 >    已在 `.gitignore` 中）。注意：项目级 `.npmrc` 里的 `${NPM_TOKEN}` 占位符在 pnpm 11 下不会被
@@ -95,7 +96,7 @@ dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-web-ui-all
 ```
 
 - **类型来源（只能基于官方 NPM SDK）**：各包把用到的 `@deepseek-ai/*` 包声明为 `devDependencies`
-  （`^0.0.1-rc.2`；cordis 用 `^4.0.1-rc.1`），TS 从 node_modules 自动解析类型
+  （`^0.1.0-rc.6`；cordis 用 `^4.0.1`），TS 从 node_modules 自动解析类型
   （SDK 包的 `exports["."].types` 统一指向 `lib/types/index.d.ts`，client 半区子路径
   `./client` 同理）。**禁止** tsconfig `extends` / `paths` / `references` 指向任何 DSH 源码
   checkout（历史形态：`../../../test-zhu1090093659` 相对路径、`~/.dsh/source/current` 绝对

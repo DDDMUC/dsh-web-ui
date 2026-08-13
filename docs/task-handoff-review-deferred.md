@@ -4,7 +4,7 @@
 > （bug / 安全 / 性能 / 可靠性），约 36 处问题已修复并通过全仓 typecheck + 测试。
 > 有 4 项被判定为「较大重构」而明确延后，本文是它们的完整交接说明。
 > 执行前请通读本文；与本文件冲突时，以仓库当前实际代码为准。
-> 仓库根：/Users/zcl/code/dsh-web-ui（git，private，内测结束前禁止 push）。
+> 仓库根：/Users/zcl/code/dsh-web-ui（git，private，push 已放开）。
 
 ---
 

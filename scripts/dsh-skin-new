@@ -73,7 +73,7 @@ function pkgJson(name) {
       tsdown: '^0.22.2',
       'vite-tsconfig-paths': '^6.1.1',
       vitest: '^4.1.8',
-      '@deepseek-ai/cordis': '^4.0.1-rc.4',
+      '@deepseek-ai/cordis': '^4.0.1',
     },
     files: ['lib', 'cordis.patch.yml', 'skin.json', 'preview', 'README.md'],
   }

@@ -68,7 +68,7 @@ dsh plugin --profile web add link:/Users/zcl/code/dsh-web-ui/packages/dsh-aionui
 ## 构建
 
 ```sh
-export NPM_TOKEN='<内测只读令牌>'   # 私有 scope 需要
+export NPM_TOKEN='<token>'   # 若仍使用私有 scope 认证
 pnpm install
 pnpm -r build
 ```

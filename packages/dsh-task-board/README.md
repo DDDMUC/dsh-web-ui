@@ -85,7 +85,7 @@ scripts/dsh-task-board.js                          # 一键挂载/卸载/状态 
 
 ## 构建
 
-前置：Node ≥ 20，npm 私有 scope 可访问（`NPM_TOKEN` 环境变量 + 项目 `.npmrc`，见仓库
+前置：Node ≥ 20，官方 NPM SDK 可访问（若仍使用私有 scope 认证则配置 `NPM_TOKEN` 环境变量 + 项目 `.npmrc`，见仓库
 `docs/plugins.md`）。类型与运行时 API 全部来自官方 NPM SDK（`@deepseek-ai/*`
 devDependencies），**无需任何 DSH 源码 checkout**。
 

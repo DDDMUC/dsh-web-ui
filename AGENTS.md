@@ -4,12 +4,13 @@
 
 - 本仓库所有插件**禁止修改 DeepSeek Harness (DSH) 源码**（对官方源码 checkout 零写入），
   挂载只走 `cordis.patch.yml` + profile 机制。
-- 开发**只能基于官方 NPM SDK**：`@deepseek-ai/*` 内测私有包（scope registry 为
-  registry.npmjs.org），类型来源是各包 `devDependencies` 中的 SDK 包（node_modules 解析）。
+- 开发**只能基于官方 NPM SDK**：`@deepseek-ai/*` 官方 NPM SDK 包（scope registry 为
+  registry.npmjs.org，内测已结束），类型来源是各包 `devDependencies` 中的 SDK 包（node_modules 解析）。
 - **禁止** tsconfig `extends` / `paths` / `references` 指向任何 DSH 源码 checkout
   （`test-zhu1090093659`、`~/.dsh/source/current` 等引用一律不得新增）。
 - 构建预设统一用仓库内单一共享副本 `shared/tsdown.client.ts`，禁止在包内复制。
-- 环境：npm 私有 scope 需要 `NPM_TOKEN` 环境变量（真实令牌只放环境变量，勿提交）。
+- 环境：若仍使用私有 scope 认证，需要 `NPM_TOKEN` 环境变量（真实令牌只放环境变量，勿提交）；
+  当前 SDK 已结束内测，公开包通常可直接安装。
   认证配置：token 放**用户级 `~/.npmrc`**（`//registry.npmjs.org/:_authToken=${NPM_TOKEN}`，
   由 pnpm 展开环境变量）；**项目 `.npmrc` 只留 scope 映射**
   （`@deepseek-ai:registry=https://registry.npmjs.org/`）。注意：项目级 `.npmrc` 里的
@@ -30,11 +31,10 @@
 - 需要装饰性符号时，改用非 emoji 的普通字符（如 `×`、`-`、`*`），或直接去掉。
 - 新提交前先检查：`git diff` 或全局搜索 Unicode Emoji 范围字符。
 
-## git push 已放开，内测结束前禁止 NPM 发布
+## git push 与 NPM 发布已放开（内测结束）
 
-**git push 已放开**（用户已解除内测期推送限制，内测未结束亦可推送）：可正常执行
-`git push` 到远程仓库 `dsh-external/dsh-web-ui`，推送前仍须核验目标仓库为 PRIVATE。
+**git push 已放开**：可正常执行 `git push` 到远程仓库 `dsh-external/dsh-web-ui`，
+推送前仍须核验目标仓库为 PRIVATE。
 
-**内测结束前 NPM 包不得公开**：本仓库任何包（`@deepseek-ai/dsh-*`）禁止 `npm publish`
-到公共 registry，禁止生成或分发对外可见的发布包/tarball。发布需等内测结束、
-用户明确解除该限制后再进行。
+**内测已结束，NPM 包可按正常流程发布**：本仓库任何包（`@deepseek-ai/dsh-*`）发布前
+仍需由维护者确认发布动作、版本号与 registry 规范，避免误发或破坏线上包。

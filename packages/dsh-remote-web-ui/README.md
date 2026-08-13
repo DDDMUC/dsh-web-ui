@@ -244,7 +244,7 @@ Work from this repository (no sibling checkout needed):
 
 ```sh
 cd ~/code/dsh-web-ui
-export NPM_TOKEN='<internal read-only token>'   # private @deepseek-ai scope
+export NPM_TOKEN='<token>'   # only if private @deepseek-ai auth is still required
 pnpm install
 pnpm --filter @deepseek-ai/dsh-remote-web-ui run build
 pnpm --filter @deepseek-ai/dsh-remote-web-ui test
@@ -252,7 +252,7 @@ pnpm --filter @deepseek-ai/dsh-remote-web-ui run typecheck
 ```
 
 The peer APIs come from the official NPM SDK: every `@deepseek-ai/*` package
-used here is declared in devDependencies (rc.2), and TypeScript/Vitest resolve
+used here is declared in devDependencies (rc.6), and TypeScript/Vitest resolve
 types straight from node_modules — no DSH source checkout is required. The
 consumer-side `prepare` build (`tsdown.prepare.config.ts`) transpiles without
 type checking, so git installs work without any harness checkout either.

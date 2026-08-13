@@ -1,5 +1,5 @@
 /**
- * Tool-layer tests: every factory must construct (the rc.5 defineTool DSL
+ * Tool-layer tests: every factory must construct (the rc.6 defineTool DSL
  * rejects raw JSON Schema 'required' arrays — a regression here would fail
  * plugin startup), and the execute/render contracts must not drift.
  */

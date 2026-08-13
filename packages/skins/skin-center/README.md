@@ -92,7 +92,7 @@ node scripts/skin-center-bundles
 #    皮肤 bundle 自身变化只需重建对应皮肤（tsdown），GUI 下次试穿即取到新文本
 
 # 2. 在仓库内构建
-cd ~/code/dsh-web-ui && export NPM_TOKEN='<内测只读令牌>'
+cd ~/code/dsh-web-ui && export NPM_TOKEN='<token>'   # 若仍使用私有 scope 认证
 pnpm --filter @deepseek-ai/dsh-client-ui-skin-center run bundle
 ```
 

@@ -1,46 +1,47 @@
-# dsh-web-ui 插件包发布准备（内测阶段，仅供内部参考）
+# dsh-web-ui 插件包发布准备（内测已结束）
 
-> **快照说明（重要）**：本文档是**当前时点（2026-08-12）**的发布前检查快照。
-> 插件全家桶仍处内测、**清单与版本都不固定**：包可能增删、版本可能调整、
+> **快照说明（重要）**：本文档是**当前时点（2026-08-13）**的发布前检查快照。
+> 插件全家桶已结束内测，但**清单与版本仍可能调整**：包可能增删、版本可能调整、
 > 字段可能变动。本文档需随仓库变更**重新核对**，不得当作永久事实使用。
 >
-> **红线（务必遵守）**：内测期间**禁止任何真实 npm publish**。本文档只做
-> 准备与演练（`npm pack --dry-run` 级别的操作），所有落线上的发布动作
-> 必须先经仓库维护者明确批准。
+> **红线（务必遵守）**：发布动作仍须先经仓库维护者明确批准，并按 registry 规范
+> 操作（`npm pack --dry-run` 级别的演练可先行）。
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 15 个插件包（截至快照日）：
+`packages/` 与 `packages/skins/` 下共 18 个插件包（截至快照日）：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
-| packages/dsh-task-board | @deepseek-ai/dsh-client-ui-task-board | 0.1.0 | true |
-| packages/dsh-git-graph | @deepseek-ai/dsh-client-ui-git-graph | 0.1.0 | true |
-| packages/dsh-pet | @deepseek-ai/dsh-pet | 0.1.0 | true |
-| packages/dsh-remote-web-ui | @deepseek-ai/dsh-remote-web-ui | 0.1.0 | true |
-| packages/dsh-live-stats | @deepseek-ai/dsh-live-stats | 0.0.1 | true |
-| packages/dsh-web-ui-settings | @deepseek-ai/dsh-client-ui-web-ui-settings | 0.0.1 | true |
-| packages/dsh-skins | @deepseek-ai/dsh-skins（聚合） | 0.1.0 | true |
-| packages/dsh-web-ui-all | @deepseek-ai/dsh-web-ui-all（聚合） | 0.1.0 | true |
-| packages/skins/qq98 | @deepseek-ai/dsh-client-ui-skin-qq98 | 0.0.1 | true |
-| packages/skins/ths | @deepseek-ai/dsh-client-ui-skin-ths | 0.0.1 | true |
-| packages/skins/xp | @deepseek-ai/dsh-client-ui-skin-xp | 0.0.1 | true |
-| packages/skins/blue-fantasy | @deepseek-ai/dsh-client-ui-skin-blue-fantasy | 0.1.0 | true |
-| packages/skins/dragon-heir | @deepseek-ai/dsh-client-ui-skin-dragon-heir | 0.0.1 | true |
-| packages/skins/minecraft | @deepseek-ai/dsh-client-ui-skin-minecraft | 0.0.1 | true |
+| packages/dsh-task-board | @deepseek-ai/dsh-client-ui-task-board | 0.1.1 | true |
+| packages/dsh-git-graph | @deepseek-ai/dsh-client-ui-git-graph | 0.1.1 | true |
+| packages/dsh-pet | @deepseek-ai/dsh-pet | 0.1.1 | true |
+| packages/dsh-remote-web-ui | @deepseek-ai/dsh-remote-web-ui | 0.1.1 | true |
+| packages/dsh-live-stats | @deepseek-ai/dsh-live-stats | 0.1.1 | true |
+| packages/dsh-ssh | @deepseek-ai/dsh-ssh | 0.1.1 | true |
+| packages/dsh-aionui-panel | @deepseek-ai/dsh-client-ui-aionui-panel | 0.1.1 | true |
+| packages/dsh-web-ui-settings | @deepseek-ai/dsh-client-ui-web-ui-settings | 0.1.1 | true |
+| packages/dsh-skins | @deepseek-ai/dsh-skins（聚合） | 0.1.1 | true |
+| packages/dsh-web-ui-all | @deepseek-ai/dsh-web-ui-all（聚合） | 0.1.1 | true |
+| packages/skins/qq98 | @deepseek-ai/dsh-client-ui-skin-qq98 | 0.1.1 | true |
+| packages/skins/ths | @deepseek-ai/dsh-client-ui-skin-ths | 0.1.1 | true |
+| packages/skins/xp | @deepseek-ai/dsh-client-ui-skin-xp | 0.1.1 | true |
+| packages/skins/blue-fantasy | @deepseek-ai/dsh-client-ui-skin-blue-fantasy | 0.1.1 | true |
+| packages/skins/dragon-heir | @deepseek-ai/dsh-client-ui-skin-dragon-heir | 0.1.1 | true |
+| packages/skins/minecraft | @deepseek-ai/dsh-client-ui-skin-minecraft | 0.1.1 | true |
 | packages/skins/whale-song | @deepseek-ai/dsh-client-ui-skin-whale-song | 0.1.0 | true |
-| packages/skins/skin-center | @deepseek-ai/dsh-client-ui-skin-center | 0.1.0 | true |
+| packages/skins/skin-center | @deepseek-ai/dsh-client-ui-skin-center | 0.1.1 | true |
 
 ## 二、发布前检查结论（2026-08-11，已修复项标注 [已确认]）
 
 ### [阻断] 阻断项（不修复无法发布/无法被消费）
 
-1. **全部 15 包 `private: true`** — npm 直接拒绝发布 private 包
+1. **全部 18 包 `private: true`** — npm 直接拒绝发布 private 包
    （`This package has been marked as private`）。发布前需逐个移除。
-   **（按内测红线保留，未改动）**
-2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 6 处、dsh-web-ui-all 7 处）—
+   **（发布前需按流程移除，当前仍保留）**
+2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 7 处、dsh-web-ui-all 9 处）—
    [已确认] **已确认修复方式**：实测 `pnpm pack` 会把 `workspace:*` 改写为真实版本号
-   （dsh-skins 6 处、dsh-web-ui-all 7 处全部改写为 0.1.0/0.0.1，无残留）。
+   （dsh-skins 7 处、dsh-web-ui-all 9 处全部改写为 0.1.1/0.1.0，无残留）。
    发布时必须用 **`pnpm publish`**（不要用 `npm publish`），`npm pack` 不改写。
 3. **类型产物缺失（1 包）** — [已确认] **已修复**：
    - dsh-task-board：新增 `tsconfig.build.json`（emitDeclarationOnly → lib/types），
@@ -55,7 +56,7 @@
 
 5. **peerDeps 版本声明不匹配**：git-graph / live-stats / pet / remote-web-ui
    的 `@deepseek-ai/*` peerDeps
-   已从 `^0.0.1` 改为 **`^0.0.1-rc.1`**（与 npm 已发布版本匹配，避免 ERESOLVE）。
+   已从旧 `^0.0.1` 系列改为 **`^0.1.0-rc.6`**（与 npm 已发布版本匹配，避免 ERESOLVE）。
 
 ### [卫生] 卫生项
 
@@ -72,25 +73,25 @@
 
 ## 三、兼容性现状（npm 版 DSH × 插件）
 
-2026-08-11 用隔离环境（`DSH_HOME` 隔离 + `dsh plugin add link:`）实测
-npm 版 `@deepseek-ai/dsh@0.0.1-rc.1`：
+2026-08-13 用隔离环境（`DSH_HOME` 隔离 + `dsh plugin add link:`）实测
+npm 版 `@deepseek-ai/dsh@0.1.0-rc.6`：
 
 - web GUI 启动正常（HTTP 200），`dsh plugin` 安装 task-board / blue-fantasy 成功；
 - boot manifest 正确注册插件，`/plugins/@deepseek-ai/<pkg>/client.js` 可访问（200）；
 - 日志无 error/warn，插件 `dsh.client` 声明（platform/inject/exports["./client"]）
   与 npm 版 `dsh-client-modules` 消费逻辑逐字段吻合。
 
-npm 侧已发布 @deepseek-ai 核心包 18 个（全 `0.0.1-rc.1`），插件包一个未发布。
+npm 侧已发布 @deepseek-ai 核心 SDK 包至 `0.1.0-rc.6`，插件包仍按本仓库版本管理。
 
 ## 四、建议的发布流程（批准后执行）
 
-1. 同步官方预发布版本号节奏（`0.0.1-rc.x`，与 @deepseek-ai/dsh 对齐）；
-2. 发布前仍需处理：移除 `private: true`（15 包）；
+1. 同步官方版本号节奏（当前为 `0.1.0-rc.6`，与 @deepseek-ai/dsh 对齐）；
+2. 发布前仍需处理：移除 `private: true`（18 包）；
 3. 按依赖顺序发布（用 **`pnpm publish`**，自动改写 workspace:*）：
    各功能包 > 皮肤包 > dsh-skins > web-ui-all；
 4. 逐包 `pnpm pack --dry-run` 复核 tarball 内容（注意：dry-run 仍会执行
    prepack/prepare 脚本）；
-5. 发布动作前**必须**经维护者确认（内测红线）。
+5. 发布动作前**必须**经维护者确认。
 
 ## 五、重新核对时机
 

@@ -78,7 +78,7 @@ function readJsonBody(req) {
 		const chunks = [];
 		req.on("data", (chunk) => {
 			size += chunk.length;
-			if (size > 65536) {
+			if (size > 64 * 1024) {
 				reject(/* @__PURE__ */ new Error("body-too-large"));
 				queueMicrotask(() => req.destroy());
 				return;
