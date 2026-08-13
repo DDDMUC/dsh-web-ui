@@ -102,7 +102,6 @@ Install everything at once through the aggregate packages: `dsh-web-ui-all` incl
 
 | Package | Origin | License |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats | Authored by zhu1090093659 | BSD-3-Clause (zhu1090093659) |
-| skins / dsh-skins / dsh-web-ui-all | Authored by zhu1090093659 | BSD-3-Clause (zhu1090093659) |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-skins / dsh-web-ui-all / skins | Authored by zhu1090093659 | BSD-3-Clause (zhu1090093659) |
 
 Third-party code merged in must keep its LICENSE and attribution; active third parties with an upstream are forked or referenced as dependencies instead of vendored.
