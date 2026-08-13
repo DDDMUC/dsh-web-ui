@@ -4,7 +4,7 @@
 
 ![dsh-web-ui](docs/dsh-web-ui-banner.png)
 
-dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web UI: a task board, a Git graph, the right panel, mobile remote control, a whale-girl pet, live token statistics, and the Skin Center. Every plugin can be installed individually, or all at once through the aggregate packages.
+dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web UI: a task board, a Git graph, the right panel, mobile remote control, remote connection, a whale-girl pet, live token statistics, and the Skin Center. Every plugin can be installed individually, or all at once through the aggregate packages.
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
@@ -61,6 +61,16 @@ The phone icon at the bottom of the sidebar opens the pairing panel: scan the QR
 | ![Mobile workspaces](docs/screenshots/20-mobile-workspaces.png) | ![Mobile sessions](docs/screenshots/21-mobile-sessions.png) |
 | Chat (folded reasoning & tool calls) | Model & reasoning-effort picker |
 | ![Mobile chat](docs/screenshots/22-mobile-chat.png) | ![Model picker](docs/screenshots/23-mobile-model-sheet.png) |
+
+### Remote Connection
+
+The "SSH" sidebar entry opens the remote-ops panel. Hosts support key / password auth and one-click import from `~/.ssh/config`; config lives in `~/.dsh/dsh-ssh.json`. Real operations on configured hosts:
+
+- **Web terminal**: xterm.js PTY with live output and auto-fit;
+- **File transfer**: SFTP upload / download with progress and a remote directory browser;
+- **Port forwarding**: local tunnels to remote internal services (databases, APIs, admin consoles), bound to 127.0.0.1 only;
+- **Cluster runs**: one command across many hosts concurrently, filtered by alias / environment / tags;
+- **Agent direct control**: agents share the same host config — just say "check xxx" in chat and the agent runs remote commands for you.
 
 ### Settings Hub
 
