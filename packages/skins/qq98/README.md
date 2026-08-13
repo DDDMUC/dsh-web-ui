@@ -8,13 +8,23 @@ The skin is presentation-only: no services are injected, no cordis events are em
 
 ## Installing (official bundle)
 
-The package is a standalone dsh plugin — `cordis.patch.yml` injects its `dshClient` row on install, so there is no manual `web.cordis.yml` editing.
+Prefer the family aggregate package `@deepseek-ai/dsh-skins` — every skin at once; for this skin alone, install with `link:`:
 
-1. Install from git: `dsh plugin --profile <name> add github:<org>/dsh-web-ui#<commit-sha>`. With pnpm ≥10 the first install may reject the `prepare` script for not being on the allow-list — add the package key pnpm prints to that profile's `pnpm-workspace.yaml` `allowBuilds` list and retry. `prepare` self-containedly builds `lib/` (via the `tsdown.config.ts` preset in this repo's `skins/`), no monorepo reference needed.
-2. Or install from a local path: `dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/qq98` (`lib/` is pre-built and committed, so no build step runs).
-3. Switch skins with `dsh-skin use qq98` (the `scripts/dsh-skin` helper in this repo); only one skin is active at a time.
+```sh
+# All skins (recommended)
+dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+# Or just this skin
+dsh plugin --profile web add link:$(pwd)/packages/skins/qq98
+# Activate: dsh-skin use qq98
+```
 
-Removing the plugin (and the row it injected) returns the GUI to its stock look.
+`$(pwd)` is your clone of the dsh-web-ui monorepo. Once the skin packages are published to npm, install directly with `dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-qq98`.
+
+A local `link:` install needs built artifacts first — `lib/` is git-ignored and not committed, so run `pnpm install && pnpm -r build` in the monorepo before linking. Git installs (`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`) build `lib/` themselves via the `prepare` script; pnpm ≥10 blocks that until you copy the printed package key into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
+
+Activate or switch with `dsh-skin use qq98` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
+
+移除该插件（连同其注入的条目）即可回到默认外观。
 
 ## Requirements
 

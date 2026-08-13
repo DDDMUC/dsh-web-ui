@@ -8,11 +8,26 @@ dsh web GUI 的 QQ2008 怀旧皮肤——dsh web ui 家族里收录的第一个�
 
 ## 安装（官方 bundle 方式）
 
-该包是一个独立的 dsh 插件——`cordis.patch.yml` 会在安装时注入其 `dshClient` 条目，因此无需手动编辑 `web.cordis.yml`。
+推荐先装皮肤全家桶聚合包 `@deepseek-ai/dsh-skins` 一次到位；只装本皮肤时用下列 link 命令。
 
-1. git 安装：`dsh plugin --profile <name> add github:<org>/dsh-web-ui#<commit-sha>`。在 pnpm ≥10 下首次安装可能因 `prepare` 脚本不在允许列表而被拒绝授权——把 pnpm 打印出的包键加进该 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 后重试即可（`prepare` 通过本仓库 `skins/` 下的 `tsdown.config.ts` 预设自包含地构建 `lib/`，无需 monorepo 引用）。
-2. 本地路径安装：`dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/qq98`（`lib/` 已预构建并提交，不会触发构建步骤）。
-3. 用 `dsh-skin use qq98`（本仓库 `scripts/dsh-skin` 辅助脚本）切换皮肤；同一时刻只激活一个皮肤。
+```sh
+# 装全部皮肤（推荐）
+dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+# 或单独装本皮肤
+dsh plugin --profile web add link:$(pwd)/packages/skins/qq98
+# 皮肤启用：dsh-skin use qq98
+```
+
+`$(pwd)` 指克隆全家桶仓库后的目录；皮肤包发布到 npm 后可直接
+`dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-qq98`。
+
+本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：
+`pnpm install && pnpm -r build` 后再 link 安装。
+通过 git 安装（`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`）时
+`prepare` 脚本自动自包含构建 `lib/`，无需单独构建；pnpm ≥10 首次安装 git 依赖需先把
+pnpm 打印的包键加入相应 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 列表再重试。
+
+皮肤启用 / 切换用 `dsh-skin use qq98`（本仓库 `scripts/dsh-skin` 辅助脚本）；同一时刻只激活一个皮肤。
 
 移除该插件（连同其注入的条目）即可回到默认外观。
 

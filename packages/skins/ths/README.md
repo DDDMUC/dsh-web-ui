@@ -8,13 +8,23 @@ The skin is presentation-only: no services are injected, no cordis events are em
 
 ## Installing (official bundle)
 
-This package is an official `dsh` plugin bundle (declared via `dsh.bundle.patch` in `package.json` — see `docs/user/develop/basic/publish.md`). Install it with `dsh plugin`:
+Prefer the family aggregate package `@deepseek-ai/dsh-skins` — every skin at once; for this skin alone, install with `link:`:
 
-1. From git: `dsh plugin --profile <name> add github:<org>/dsh-web-ui#<sha>`. With pnpm ≥10 the first install will fail on `prepare` authorization; add the package key pnpm prints into that profile's `pnpm-workspace.yaml` `allowBuilds` and retry (`prepare` runs a self-contained build producing `lib/`).
-2. From a local path: `dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/ths` (`lib/` is pre-built and committed).
-3. Switch with `dsh-skin use ths`; only one skin is active at a time.
+```sh
+# All skins (recommended)
+dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+# Or just this skin
+dsh plugin --profile web add link:$(pwd)/packages/skins/ths
+# Activate: dsh-skin use ths
+```
 
-Only one skin row should be wired at a time; two skins would both inject chrome. Removing the row (and the package) returns the GUI to its stock look.
+`$(pwd)` is your clone of the dsh-web-ui monorepo. Once the skin packages are published to npm, install directly with `dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-ths`.
+
+A local `link:` install needs built artifacts first — `lib/` is git-ignored and not committed, so run `pnpm install && pnpm -r build` in the monorepo before linking. Git installs (`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`) build `lib/` themselves via the `prepare` script; pnpm ≥10 blocks that until you copy the printed package key into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
+
+Activate or switch with `dsh-skin use ths` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
+
+同一时刻只应激活一个皮肤行——两个皮肤会同时注入窗口 chrome。移除该行（连同包）即可回到默认外观。
 
 ## Requirements
 

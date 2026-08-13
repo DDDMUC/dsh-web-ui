@@ -10,9 +10,26 @@ English | [中文](README.zh.md)
 
 ## 安装（官方 bundle 方式）
 
-1. git 安装：`dsh plugin --profile <name> add github:<org>/dsh-web-ui#<sha>`。pnpm ≥10 首次会因 `prepare` 授权失败——把 pnpm 打印的包键加入该 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 后重试（`prepare` 自包含构建 `lib/`）。
-2. 本地路径安装：`dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/blue-fantasy`（`lib/` 已预构建提交）。
-3. 切换用 `dsh-skin use blue-fantasy`；同一时刻只激活一个皮肤。
+推荐先装皮肤全家桶聚合包 `@deepseek-ai/dsh-skins` 一次到位；只装本皮肤时用下列 link 命令。
+
+```sh
+# 装全部皮肤（推荐）
+dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+# 或单独装本皮肤
+dsh plugin --profile web add link:$(pwd)/packages/skins/blue-fantasy
+# 皮肤启用：dsh-skin use blue-fantasy
+```
+
+`$(pwd)` 指克隆全家桶仓库后的目录；皮肤包发布到 npm 后可直接
+`dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-blue-fantasy`。
+
+本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：
+`pnpm install && pnpm -r build` 后再 link 安装。
+通过 git 安装（`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`）时
+`prepare` 脚本自动自包含构建 `lib/`，无需单独构建；pnpm ≥10 首次安装 git 依赖需先把
+pnpm 打印的包键加入相应 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 列表再重试。
+
+皮肤启用 / 切换用 `dsh-skin use blue-fantasy`（本仓库 `scripts/dsh-skin` 辅助脚本）；同一时刻只激活一个皮肤。
 
 ## 背景图
 

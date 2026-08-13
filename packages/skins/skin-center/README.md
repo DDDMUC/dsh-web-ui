@@ -24,22 +24,31 @@
 
 ## 安装（官方 plugin bundle 方式）
 
-skin-center 是符合 DSH 官方插件标准的自包含 bundle（`dsh.bundle.patch` 指向
-`cordis.patch.yml`，`prepare` 用专用 tsdown 配置自包含构建，无项目引用、无类型检查），
-可按标准插件方式安装：
+推荐先装皮肤全家桶聚合包 `@deepseek-ai/dsh-skins` 一次到位（含全部皮肤与皮肤中心）；
+只装本包时用下列 link 命令。
 
 ```sh
-# 本地路径安装（lib/ 已预构建提交，可离线解析）
-dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/skin-center
-
-# 或 git 安装（release 某个 commit 后指向它的 sha）
-dsh plugin --profile <name> add github:<org>/dsh-web-ui#<sha>
+# 装全部皮肤（推荐）
+dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+# 或单独装皮肤中心
+dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
 ```
 
-> pnpm ≥10 安装 git 依赖前需先授权 `allowBuilds`（`prepare` 会原地构建），本地路径安装则无此要求。
+`$(pwd)` 指克隆全家桶仓库后的目录；发布到 npm 后可直接
+`dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-center`。
 
-- 需要皮肤插件们（qq98 / ths / xp / blue-fantasy）在宿主里也可解析时，skin-center 才能
-  完整列出 / 试穿全部皮肤；skin-center 本身无互斥要求。
+skin-center 是符合 DSH 官方插件标准的自包含 bundle（`dsh.bundle.patch` 指向
+`cordis.patch.yml`、`prepare` 用专用 tsdown 配置自包含构建，无项目引用、无类型检查），
+也可经 git 安装：`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`
+（`prepare` 会原地构建 `lib/`）。
+
+本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：
+`pnpm install && pnpm -r build` 后再 link 安装。
+
+pnpm ≥10 安装 git 依赖前需先授权 `allowBuilds`（`prepare` 会原地构建），本地 link 安装则无此要求。
+
+需要皮肤插件们（qq98 / ths / xp / blue-fantasy）在宿主里也可解析时，skin-center 才能
+完整列出 / 试穿全部皮肤；skin-center 本身无互斥要求。
 
 ## 目录结构
 

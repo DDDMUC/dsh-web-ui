@@ -34,14 +34,20 @@ DeepSeek Harness（DSH）定制的远程 SSH 插件：Host 进程内的持久连
 
 ## 安装
 
-```sh
-# 独立安装（profile 机制，热插拔）
-dsh plugin --profile <name> add link:<repo>/packages/dsh-ssh
+推荐直接安装全家桶聚合包 `@deepseek-ai/dsh-web-ui-all`（一个包装齐全部功能插件与皮肤），或单独安装本插件：
 
-# 或经聚合包 web-ui-all 一键安装（已注册）
+```sh
+# 当前（插件尚未发布到 npm）：克隆全家桶仓库后安装
+git clone https://github.com/zhu1090093659/dsh-web-ui.git
+cd dsh-web-ui
+pnpm install && pnpm -r build
+dsh plugin --profile web add link:$(pwd)/packages/dsh-ssh
+
+# 发布后：直接安装 npm 包
+dsh plugin --profile web add @deepseek-ai/dsh-ssh
 ```
 
-安装后重启 dsh：侧边栏出现「SSH」入口；Agent 提示词中自动出现插件说明。
+安装后**重启 `dsh web`**：侧边栏出现「SSH」入口；Agent 提示词中自动出现插件说明。
 
 ## 配置
 

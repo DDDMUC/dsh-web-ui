@@ -32,20 +32,18 @@ git 安装（无 sibling checkout 的消费者机器）走 `prepare` 脚本：`t
 
 ### 通用安装（任何机器）
 
-```sh
-dsh plugin --profile <name> add github:dsh-external/dsh-git-graph
-```
-
-首次执行会被 pnpm ≥10 拒绝（git 依赖的 `prepare` 构建脚本默认不允许），按报错提示把 allowBuilds key 加进 profile 的 `pnpm-workspace.yaml` 后重试——注意 key 以 `@` 开头，YAML 里需要加引号：
-
-```yaml
-allowBuilds:
-  "@deepseek-ai/dsh-client-ui-git-graph@git+https://github.com/dsh-external/dsh-git-graph.git#<commit>": true
-```
+本插件已并入 dsh-web-ui 全家桶仓库（`github.com/zhu1090093659/dsh-web-ui`）。当前（插件尚未发布 npm）从仓库安装：
 
 ```sh
-dsh plugin --profile <name> add github:dsh-external/dsh-git-graph   # 重试，安装时 prepare 自动构建 lib
+git clone https://github.com/zhu1090093659/dsh-web-ui.git
+cd dsh-web-ui
+pnpm install && pnpm -r build
+dsh plugin --profile web add link:$(pwd)/packages/dsh-git-graph
 ```
+
+或直接安装全家桶聚合包 `@deepseek-ai/dsh-web-ui-all`（`link:$(pwd)/packages/dsh-web-ui-all`）一次到位。发布到 npm 后只需一行：`dsh plugin --profile web add @deepseek-ai/dsh-client-ui-git-graph`。
+
+> `github:` 安装方式适用于包位于仓库根部的独立仓库（`prepare` 脚本自包含构建；pnpm ≥10 首次会被拒绝，需按报错提示把包 key 加进 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重试）。monorepo 内的子包请用上面的 `link:` 方式。
 
 ### 本地开发循环（本仓库 checkout）
 

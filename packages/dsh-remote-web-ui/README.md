@@ -72,21 +72,28 @@ sun/moon toggle in every header flips to the dark palette at any time.
 
 ## Install
 
-```sh
-# From a local checkout (the development loop — link: picks up rebuilds
-# without reinstalling):
-dsh plugin --profile web add link:/path/to/dsh-web-ui/packages/dsh-remote-web-ui
+Install the family aggregate package `@deepseek-ai/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
 
-# From git, with no checkout: the prepare script builds lib/ during install
-# (pnpm ≥10 blocks that build until you allow it; copy the printed key into
-# the profile's pnpm-workspace.yaml allowBuilds and re-run). The repository
-# is private, so git access needs a credential helper with org access:
-dsh plugin --profile web add github:dsh-external/dsh-remote-web-ui
+```sh
+# Now (not yet published to npm): install from the dsh-web-ui monorepo
+git clone https://github.com/zhu1090093659/dsh-web-ui.git
+cd dsh-web-ui
+pnpm install && pnpm -r build
+dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
+
+# Once published: install the npm package directly
+dsh plugin --profile web add @deepseek-ai/dsh-remote-web-ui
 ```
 
 Restart the profile (`dsh web`), then open the phone icon in the sidebar
 foot. The plugin's `cordis.patch.yml` inserts the single plugin row that
 mounts both halves.
+
+> `github:<org>/<repo>` installs work for a standalone repo whose package
+> sits at the root (the `prepare` script builds `lib/` during install;
+> pnpm ≥10 blocks that until you copy the printed key into the profile's
+> `pnpm-workspace.yaml` `allowBuilds` and re-run). Monorepo subpackages
+> use the `link:` form above.
 
 ## Use
 

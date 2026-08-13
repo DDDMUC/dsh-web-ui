@@ -17,7 +17,22 @@ DSH Web 的实时输入/输出 token 估算与生成吞吐显示。它供给内�
 
 ## 安装
 
-仓库内包：加入个人 DSH overlay（`~/.dsh/config.yaml`），保存即热加载：
+推荐直接安装全家桶聚合包 `@deepseek-ai/dsh-web-ui-all`（一个包装齐全部功能插件与皮肤），或单独安装本插件：
+
+```sh
+# 当前（插件尚未发布到 npm）：克隆全家桶仓库后安装
+git clone https://github.com/zhu1090093659/dsh-web-ui.git
+cd dsh-web-ui
+pnpm install && pnpm -r build
+dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
+
+# 发布后：直接安装 npm 包
+dsh plugin --profile web add @deepseek-ai/dsh-live-stats
+```
+
+安装后**重启 `dsh web`**，会话状态行出现 TPS 组。
+
+另一种方式：作为普通 overlay 行加入个人 DSH overlay（`~/.dsh/config.yaml`），保存即热加载：
 
 ```yaml
 - insert:

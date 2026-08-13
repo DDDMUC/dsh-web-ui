@@ -112,7 +112,55 @@ Three more: QQ2008 Retro (crystal blue with penguin motifs), Tonghuashun Trading
 
 ## Installation
 
-Install everything at once through the aggregate packages: `dsh-web-ui-all` includes all plugins and skins, `dsh-skins` includes skins only. Technical details live in [docs/plugins.md](docs/plugins.md).
+DSH plugins are installed per **profile** with the `dsh plugin` command (`dsh web` runs the `web` profile). The recommended way is the aggregate package `dsh-web-ui-all` — one package with all plugins and skins; install `dsh-skins` instead if you only want the skins.
+
+### Option 1: Install from the GitHub repository (recommended for now)
+
+The plugin packages are not published to npm yet, so clone the repository and install from source:
+
+```sh
+# 1. Clone the repository
+git clone https://github.com/zhu1090093659/dsh-web-ui.git
+cd dsh-web-ui
+
+# 2. Install dependencies and build (requires Node.js >= 22 and pnpm)
+pnpm install
+pnpm -r build
+
+# 3. Install the aggregate package into the web profile
+dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
+
+# 4. Restart dsh web — all plugin entries appear in the sidebar
+dsh web
+```
+
+> Skins only? Point step 3 at `packages/dsh-skins` instead.
+
+### Option 2: Install from npm (once published)
+
+A single command once the packages are on npm:
+
+```sh
+dsh plugin --profile web add @deepseek-ai/dsh-web-ui-all
+```
+
+### Install a single plugin
+
+Prefer individual plugins? Install them one by one (use the npm name once published; use `link:<repo-path>/packages/<dir>` before that):
+
+```sh
+dsh plugin --profile web add @deepseek-ai/dsh-client-ui-task-board   # Task board
+dsh plugin --profile web add @deepseek-ai/dsh-ssh                    # Remote connection (SSH)
+dsh plugin --profile web add @deepseek-ai/dsh-pet                    # Whale-girl pet
+```
+
+### Verify and uninstall
+
+After installing, restart `dsh web` — a working plugin shows up in the sidebar. You can also confirm the mounted config layers with `dsh --profile web --dump-config`. If nothing appears in the sidebar, you most likely forgot to restart `dsh web`.
+
+Uninstall: `dsh plugin --profile web remove @deepseek-ai/dsh-web-ui-all`, then restart `dsh web`.
+
+Technical details live in [docs/plugins.md](docs/plugins.md).
 
 ## Sources & Licensing
 

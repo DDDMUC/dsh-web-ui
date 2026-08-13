@@ -112,7 +112,55 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 ## 安装
 
-通过聚合包一次装齐：`dsh-web-ui-all` 包含全部插件与皮肤，`dsh-skins` 仅包含皮肤。技术细节见 [docs/plugins.md](docs/plugins.md)。
+DSH 插件通过 `dsh plugin` 命令安装进 **profile**（`dsh web` 对应 `web` profile）。推荐直接安装聚合包 `dsh-web-ui-all`——一个包装齐全部功能插件与皮肤；只想用皮肤则装 `dsh-skins`。
+
+### 方式一：从 GitHub 仓库安装（当前推荐）
+
+插件包目前尚未发布到 npm，请克隆仓库后安装：
+
+```sh
+# 1. 克隆仓库
+git clone https://github.com/zhu1090093659/dsh-web-ui.git
+cd dsh-web-ui
+
+# 2. 安装依赖并构建（需要 Node.js >= 22 与 pnpm）
+pnpm install
+pnpm -r build
+
+# 3. 把聚合包装进 web profile（link: 指向仓库内的聚合包目录）
+dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
+
+# 4. 重启 dsh web，侧边栏即可看到全部插件入口
+dsh web
+```
+
+> 只想用皮肤：把第 3 步的 `packages/dsh-web-ui-all` 换成 `packages/dsh-skins`。
+
+### 方式二：从 npm 安装（发布后可用）
+
+插件发布到 npm 后，只需一行命令：
+
+```sh
+dsh plugin --profile web add @deepseek-ai/dsh-web-ui-all
+```
+
+### 单独安装某个插件
+
+不想装全家桶时，可单独安装任意插件（发布后直接用包名；发布前用 `link:<仓库路径>/packages/<目录>`）：
+
+```sh
+dsh plugin --profile web add @deepseek-ai/dsh-client-ui-task-board   # 任务看板
+dsh plugin --profile web add @deepseek-ai/dsh-ssh                    # 远程连接（SSH）
+dsh plugin --profile web add @deepseek-ai/dsh-pet                    # 鲸鱼娘宠物
+```
+
+### 验证与卸载
+
+安装成功后重启 `dsh web`，侧边栏出现对应入口即生效；也可用 `dsh --profile web --dump-config` 确认插件配置层已挂载。若侧边栏没有新入口，多半是安装后没有重启 `dsh web`。
+
+卸载：`dsh plugin --profile web remove @deepseek-ai/dsh-web-ui-all`，然后重启 `dsh web`。
+
+技术细节见 [docs/plugins.md](docs/plugins.md)。
 
 ## 来源与版权
 

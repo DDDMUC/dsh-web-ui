@@ -17,7 +17,22 @@ Live input/output token estimates and generation throughput for DSH Web. It feed
 
 ## Installation
 
-In-repo package: add to the personal DSH overlay (`~/.dsh/config.yaml`), hot-reloaded on save:
+Install the family aggregate package `@deepseek-ai/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
+
+```sh
+# Now (not yet published to npm): install from the dsh-web-ui monorepo
+git clone https://github.com/zhu1090093659/dsh-web-ui.git
+cd dsh-web-ui
+pnpm install && pnpm -r build
+dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
+
+# Once published: install the npm package directly
+dsh plugin --profile web add @deepseek-ai/dsh-live-stats
+```
+
+Restart `dsh web`, and the TPS group appears in the session status line.
+
+Alternatively, as a plain overlay row in the personal DSH overlay (`~/.dsh/config.yaml`), hot-reloaded on save:
 
 ```yaml
 - insert:

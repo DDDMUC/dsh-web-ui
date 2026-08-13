@@ -8,11 +8,26 @@ dsh web GUI 的同花顺风格炒股皮肤。以客户端插件方式热插拔�
 
 ## 安装（官方 bundle 方式）
 
-本包是官方 `dsh` 插件 bundle（`package.json` 通过 `dsh.bundle.patch` 声明，见 `docs/user/develop/basic/publish.md`）。用 `dsh plugin` 安装：
+推荐先装皮肤全家桶聚合包 `@deepseek-ai/dsh-skins` 一次到位；只装本皮肤时用下列 link 命令。
 
-1. git 安装：`dsh plugin --profile <name> add github:<org>/dsh-web-ui#<sha>`。pnpm ≥10 首次会因 `prepare` 授权失败；把 pnpm 打印的包键加入该 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 后重试（`prepare` 做自包含构建产出 `lib/`）。
-2. 本地路径安装：`dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/ths`（`lib/` 已预构建提交）。
-3. 切换用 `dsh-skin use ths`；同一时刻只激活一个皮肤。
+```sh
+# 装全部皮肤（推荐）
+dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+# 或单独装本皮肤
+dsh plugin --profile web add link:$(pwd)/packages/skins/ths
+# 皮肤启用：dsh-skin use ths
+```
+
+`$(pwd)` 指克隆全家桶仓库后的目录；皮肤包发布到 npm 后可直接
+`dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-ths`。
+
+本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：
+`pnpm install && pnpm -r build` 后再 link 安装。
+通过 git 安装（`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`）时
+`prepare` 脚本自动自包含构建 `lib/`，无需单独构建；pnpm ≥10 首次安装 git 依赖需先把
+pnpm 打印的包键加入相应 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 列表再重试。
+
+皮肤启用 / 切换用 `dsh-skin use ths`（本仓库 `scripts/dsh-skin` 辅助脚本）；同一时刻只激活一个皮肤。
 
 同一时刻只应激活一个皮肤行——两个皮肤会同时注入窗口 chrome。移除该行（连同包）即可回到默认外观。
 

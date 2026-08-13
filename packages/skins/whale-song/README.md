@@ -10,9 +10,21 @@ The skin is presentation-only: no services are injected, no cordis events are em
 
 ## Installing (official bundle)
 
-1. From git: `dsh plugin --profile <name> add github:<org>/dsh-web-ui#<sha>`. On pnpm ≥10 the first install will fail the `prepare` authorization prompt — add the package key pnpm prints to the profile's `pnpm-workspace.yaml` `allowBuilds` list, then retry (`prepare` self-containedly builds `lib/`).
-2. From a local path: `dsh plugin --profile <name> add /path/to/dsh-web-ui/skins/whale-song` (`lib/` ships prebuilt).
-3. Switch skins with `dsh-skin use whale-song`; only one skin is active at a time.
+Prefer the family aggregate package `@deepseek-ai/dsh-skins` — every skin at once; for this skin alone, install with `link:`:
+
+```sh
+# All skins (recommended)
+dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+# Or just this skin
+dsh plugin --profile web add link:$(pwd)/packages/skins/whale-song
+# Activate: dsh-skin use whale-song
+```
+
+`$(pwd)` is your clone of the dsh-web-ui monorepo. Once the skin packages are published to npm, install directly with `dsh plugin --profile web add @deepseek-ai/dsh-client-ui-skin-whale-song`.
+
+A local `link:` install needs built artifacts first — `lib/` is git-ignored and not committed, so run `pnpm install && pnpm -r build` in the monorepo before linking. Git installs (`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`) build `lib/` themselves via the `prepare` script; pnpm ≥10 blocks that until you copy the printed package key into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
+
+Activate or switch with `dsh-skin use whale-song` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
 
 ## The backdrop art
 
