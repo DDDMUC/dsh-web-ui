@@ -2,13 +2,18 @@
  * Try-on engine for the in-GUI skin center.
  *
  * A skin's client bundle is executed through the REAL module system, not a
- * shim: `;(0, eval)(bundle)` registers the factory on the page's own
- * `window.__ModuleLoader__`, `window.__DSH_MODULES__.import(package)` (the
- * kernel's ClientModuleSystem, contract C5/C6) materializes it — which
+ * shim and not eval: the host route `/api/skin-center/bundle/<id>` serves
+ * the skin's prebuilt `lib/client.js` as a same-origin script (mirroring
+ * the kernel's own defaultLoadBundle — see dsh-client-modules), and its
+ * body calls `window.__ModuleLoader__.load({id, factory})`, which only
+ * REGISTERS the factory. `window.__DSH_MODULES__.import(package)` (the
+ * kernel's ClientModuleSystem, contract C5/C6) then materializes it — which
  * auto-injects the skin's CSS `<style data-plugin>` tag — and
  * `surface.apply(miniCtx)` mounts the skin exactly as the fiber system
  * would, returning a full disposer. That makes try-on and its teardown the
- * real code paths.
+ * real code paths, with no CSP `unsafe-eval` dependence and no startup
+ * cost: the ~700KB of embedded art base64 is only parsed when a skin is
+ * actually tried on.
  *
  * Mutual exclusion: the GUI never hosts two skins at once. The currently
  * ACTIVE skin is owned by its own cordis fiber (its disposer is not
@@ -61,6 +66,37 @@ interface SkinCenterWindow {
     import(specifier: string): Promise<unknown>
     invalidate(id: string): void
   }
+}
+
+/** Host base path of the skin bundle route (registered by src/routes.ts). */
+const BUNDLE_ROUTE = '/api/skin-center/bundle'
+
+/**
+ * Execute one skin's client bundle as a real same-origin script, mirroring
+ * the kernel's own defaultLoadBundle (dsh-client-modules): the script body
+ * calls `window.__ModuleLoader__.load({id, factory})`, which only registers
+ * the factory — materialization is the caller's separate `import` step. No
+ * eval: try-on works under any CSP that allows same-origin scripts (the
+ * shell itself loads plugin bundles this way), and a failed fetch rejects
+ * so the caller can restore the active skin instead of leaving it retracted.
+ * @param url - same-origin bundle URL.
+ * @returns a promise resolving once the script executed.
+ */
+function loadBundleScript(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script')
+    el.async = true
+    el.src = url
+    el.addEventListener('load', () => {
+      el.remove()
+      resolve()
+    }, { once: true })
+    el.addEventListener('error', () => {
+      el.remove()
+      reject(new Error(`skin-center: bundle script ${url} failed to load`))
+    }, { once: true })
+    document.head.append(el)
+  })
 }
 
 /** Read the page's composed boot-graph entry ids (only enabled plugins appear). */
@@ -149,6 +185,16 @@ export class TryOnController {
    */
   private epoch = 0
 
+  /**
+   * Loads one skin's client bundle so its factory registers on the page's
+   * `__ModuleLoader__`. Defaults to a same-origin script tag from the host
+   * route `/api/skin-center/bundle/<id>`; tests inject a stub.
+   */
+  private readonly loadBundle: (entry: SkinCenterEntry) => Promise<void>
+
+  constructor(options: { loadBundle?: (entry: SkinCenterEntry) => Promise<void> } = {}) {
+    this.loadBundle = options.loadBundle ?? (entry => loadBundleScript(`${BUNDLE_ROUTE}/${encodeURIComponent(entry.id)}`))
+  }
   /** The skin currently being tried on, if any. */
   get trying(): SkinCenterEntry | null {
     return this.session?.entry ?? null
@@ -212,14 +258,14 @@ export class TryOnController {
   private async loadAndApply(entry: SkinCenterEntry): Promise<() => void> {
     const modules = (window as SkinCenterWindow).__DSH_MODULES__
     if (modules === undefined) throw new Error('skin-center: window.__DSH_MODULES__ missing')
-    const run = (): void => { ;(0, eval)(entry.bundle) }
-    try {
-      run()
-    } catch {
-      // Duplicate factory registration (a crashed earlier session): reset and retry once.
-      modules.invalidate(entry.package)
-      run()
-    }
+    // This try-on session owns the module record for the package for its
+    // whole life (a try-on of the ACTIVE skin is rejected above, and the GUI
+    // never hosts two skins at once). Drop any factory a crashed earlier
+    // session left behind so the script below registers a fresh one — the
+    // duplicate-registration retry dance is unnecessary with the real
+    // loader, whose load() throws on a duplicate id.
+    modules.invalidate(entry.package)
+    await this.loadBundle(entry)
     const surface = await modules.import(entry.package)
     const apply = (surface as { apply?: (ctx: unknown) => unknown }).apply
     if (typeof apply !== 'function') {

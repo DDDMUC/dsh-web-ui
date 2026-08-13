@@ -87,3 +87,25 @@
   与 `node scripts/gallery-build --check`）。
 - 改动涉及生成器时，重跑生成器并核对产物 diff 是否只含预期差异。
 - 交付：源码 + 必要的生成产物 + 回归证据（测试输出 / 截图），提交信息清晰，不 push。
+---
+
+## 落地记录（2026-08-12 落地）
+
+四项均已落地（与上文方向一致，以实际代码为准）：
+
+1. 按需加载：`generated/skins.ts` 改为**仅元数据**（722KB -> 5KB，冷启动不再解析内嵌
+   base64）；host 新增 `/api/skin-center/bundle/<id>` 前缀路由按需提供 `lib/client.js`。
+2. 去 eval：`try-on.ts` 改用同源 `<script>` 标签加载 bundle（与内核 defaultLoadBundle 同机制），
+   `__ModuleLoader__.load` 注册 + `__DSH_MODULES__.import` 物化；加载前 `invalidate` 清残留，
+   不再需要重复注册重试。CSP 要求与失败语义写入 skin-center README。
+3. 可复现：bundle 文本移出生成产物后，`generated/skins.ts` 不含任何构建机绝对路径
+   （grep `/Users/` 为 0），换机器重跑 `--check` 通过。（残余：各皮肤 `lib/client.js` 的
+   `//#region \0dsh-css:` 注释仍带本机构建路径，属 shared/tsdown.client.ts 虚拟 id 设计，
+   不影响运行，未在本次范围。）
+4. live-stats：`surface` 改 `Map<seq, tokens>`（append O(1)、replace 单遍）；blocks 槽位原地写
+   + `pricedTokens/pricedBlocks` 增量记账，单 chunk 由 O(blocks) 降到近 O(1)——基准：
+   10k blocks 时 38.7us -> 83ns/次，100k blocks 时 551us -> 74ns/次；`stateVersion` 1 -> 2。
+
+回归：全仓 `pnpm -r typecheck` / `pnpm -r test` 通过（live-stats 20 项、skin-center 21 项），
+`skin-center-bundles --check`、`gallery-build --check`、`node --test scripts/*.test.mjs` 通过；
+新增 3000-delta 重扫等价回归与结构不变性测试。

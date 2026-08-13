@@ -9,7 +9,6 @@ import { isSurfaceEvent } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import type { LiveTokenUsageProjection, TokenUsageProjection } from '@deepseek-ai/dsh-token-meter/client'
 import {
-  estimateAssistantBlockTokens,
   estimateContentTokens,
   estimateHeaderTokens,
   estimateMessageTokens,
@@ -54,11 +53,6 @@ const projectionSchema = z.object({
   tokensPerSecond: z.number().nonnegative().optional(),
 }).strict() as unknown as z.ZodType<LiveTokenUsageProjection>
 
-interface SurfaceNode {
-  seq: number
-  tokens: number
-}
-
 type OutputBlock =
   | { kind: 'text'; characters: number }
   | { kind: 'reasoning'; characters: number }
@@ -71,6 +65,10 @@ interface ActiveStep {
   buckets: TokenUsageProjection
   exact: boolean
   blocks: Array<OutputBlock | undefined>
+  /** Running sum of the per-block estimates of every non-undefined block. */
+  pricedTokens: number
+  /** Count of non-undefined blocks (guards the role overhead and zero case). */
+  pricedBlocks: number
   firstOutputTime?: number
   latestOutputTime?: number
 }
@@ -88,7 +86,8 @@ interface State {
   settled: TokenUsageProjection
   settledEstimates: number
   last: SettledSample | null
-  surface: SurfaceNode[]
+  /** Surface message seq -> estimated tokens, kept in increasing seq order. */
+  surface: Map<number, number>
   surfaceTokens: number
   header: EpochHeader | undefined
   active: ActiveStep | null
@@ -111,93 +110,106 @@ function applySurface(
 ): Pick<State, 'surface' | 'surfaceTokens'> {
   const tokens = estimateMessageTokens(surfaceMessage(event), spec)
   if (event.surfaceOp === 'append') {
+    state.surface.set(event.seq, tokens)
     return {
-      surface: [...state.surface, { seq: event.seq, tokens }],
+      surface: state.surface,
       surfaceTokens: state.surfaceTokens + tokens,
     }
   }
   const operation = event.surfaceOp
-  const start = state.surface.findIndex(node => node.seq === operation.start)
-  const end = state.surface.findIndex(node => node.seq === operation.end)
-  if (start === -1 || end === -1 || start > end) {
+  if (!state.surface.has(operation.start) || !state.surface.has(operation.end) || operation.start > operation.end) {
     throw new Error(
-      `live-stats: replace at seq ${event.seq} has invalid current range ${operation.start}-${operation.end}`,
+      'live-stats: replace at seq ' + event.seq + ' has invalid current range ' + operation.start + '-' + operation.end,
     )
   }
-  const removed = state.surface.slice(start, end + 1)
-    .reduce((sum, node) => sum + node.tokens, 0)
+  // Keys enter in increasing seq order (appends grow, and a replace's own
+  // seq is always the newest), so one pass with an early exit removes the
+  // exact range. Deleting entries while iterating a Map is safe.
+  let removed = 0
+  for (const [seq, nodeTokens] of state.surface) {
+    if (seq < operation.start) continue
+    if (seq > operation.end) break
+    removed += nodeTokens
+    state.surface.delete(seq)
+  }
+  state.surface.set(event.seq, tokens)
   return {
-    surface: [
-      ...state.surface.slice(0, start),
-      { seq: event.seq, tokens },
-      ...state.surface.slice(end + 1),
-    ],
+    surface: state.surface,
     surfaceTokens: state.surfaceTokens - removed + tokens,
   }
 }
 
-function applyOutputChunk(
-  blocks: Array<OutputBlock | undefined>,
-  chunk: StreamChunk,
+/** Per-block token contribution used by the incremental output pricing. */
+function blockEstimate(block: OutputBlock, spec: EstimatorSpec): number {
+  switch (block.kind) {
+    case 'text':
+    case 'reasoning':
+      return estimateTextBlockTokens(block.characters, spec)
+    case 'tool-call':
+      return estimateToolCallBlockTokens(block.nameCharacters, block.argumentCharacters, spec)
+    case 'fixed':
+      return block.tokens
+  }
+}
+
+/** Rewrite one block slot and fold the estimate delta into the active sums. */
+function writeBlock(
+  active: ActiveStep,
+  index: number,
+  previous: OutputBlock | undefined,
+  next: OutputBlock,
   spec: EstimatorSpec,
-): Array<OutputBlock | undefined> {
-  const next = [...blocks]
+): void {
+  active.pricedTokens += blockEstimate(next, spec) - (previous === undefined ? 0 : blockEstimate(previous, spec))
+  if (previous === undefined) active.pricedBlocks += 1
+  active.blocks[index] = next
+}
+
+/** Mutate the active step in place for one stream chunk.
+ * @param active - the active step whose blocks slot and priced sums are updated.
+ * @param chunk - the stream delta to apply.
+ * @param spec - resolved estimator settings.
+ * @returns true when the chunk changed a block (no-ops return false untouched).
+ */
+function applyOutputChunk(active: ActiveStep, chunk: StreamChunk, spec: EstimatorSpec): boolean {
   switch (chunk.type) {
     case 'text-delta': {
-      if (chunk.text === '') return blocks
-      const previous = next[chunk.index]
-      next[chunk.index] = {
+      if (chunk.text === '') return false
+      const previous = active.blocks[chunk.index]
+      writeBlock(active, chunk.index, previous, {
         kind: 'text',
         characters: (previous?.kind === 'text' ? previous.characters : 0) + chunk.text.length,
-      }
-      return next
+      }, spec)
+      return true
     }
     case 'reasoning-delta': {
-      if (chunk.text === '') return blocks
-      const previous = next[chunk.index]
-      next[chunk.index] = {
+      if (chunk.text === '') return false
+      const previous = active.blocks[chunk.index]
+      writeBlock(active, chunk.index, previous, {
         kind: 'reasoning',
         characters: (previous?.kind === 'reasoning' ? previous.characters : 0) + chunk.text.length,
-      }
-      return next
+      }, spec)
+      return true
     }
     case 'tool-call-delta': {
-      if (chunk.name === undefined && chunk.argumentsDelta === '') return blocks
-      const previous = next[chunk.index]
-      next[chunk.index] = {
+      if (chunk.name === undefined && chunk.argumentsDelta === '') return false
+      const previous = active.blocks[chunk.index]
+      writeBlock(active, chunk.index, previous, {
         kind: 'tool-call',
         nameCharacters: chunk.name?.length ?? (previous?.kind === 'tool-call' ? previous.nameCharacters : 0),
         argumentCharacters: (previous?.kind === 'tool-call' ? previous.argumentCharacters : 0)
           + chunk.argumentsDelta.length,
-      }
-      return next
+      }, spec)
+      return true
     }
-    case 'block-end':
-      next[chunk.index] = { kind: 'fixed', tokens: estimateContentTokens([chunk.block], spec) }
-      return next
+    case 'block-end': {
+      const previous = active.blocks[chunk.index]
+      writeBlock(active, chunk.index, previous, { kind: 'fixed', tokens: estimateContentTokens([chunk.block], spec) }, spec)
+      return true
+    }
     default:
-      return blocks
+      return false
   }
-}
-
-function outputTokens(blocks: readonly (OutputBlock | undefined)[], spec: EstimatorSpec): number {
-  const tokens: number[] = []
-  for (const block of blocks) {
-    if (block === undefined) continue
-    switch (block.kind) {
-      case 'text':
-      case 'reasoning':
-        tokens.push(estimateTextBlockTokens(block.characters, spec))
-        break
-      case 'tool-call':
-        tokens.push(estimateToolCallBlockTokens(block.nameCharacters, block.argumentCharacters, spec))
-        break
-      case 'fixed':
-        tokens.push(block.tokens)
-        break
-    }
-  }
-  return estimateAssistantBlockTokens(tokens, spec)
 }
 
 function rateOf(step: ActiveStep): number | undefined {
@@ -215,6 +227,8 @@ function exactStep(step: ActiveStep, usage: TokenUsage, time: number): ActiveSte
     // The exact usage supersedes every block priced from streamed deltas;
     // retain only the exact buckets so later deltas cannot re-estimate.
     blocks: [],
+    pricedTokens: 0,
+    pricedBlocks: 0,
     ...(usage.outputTokens > 0
       ? { firstOutputTime: step.firstOutputTime ?? time, latestOutputTime: time }
       : {}),
@@ -262,7 +276,7 @@ export function createLiveTokenUsageProjectionDefinition(
       settled: zeroBuckets(),
       settledEstimates: 0,
       last: null,
-      surface: [],
+      surface: new Map(),
       surfaceTokens: 0,
       header: undefined,
       active: null,
@@ -280,6 +294,8 @@ export function createLiveTokenUsageProjectionDefinition(
             },
             exact: false,
             blocks: [],
+            pricedTokens: 0,
+            pricedBlocks: 0,
           },
         }
       } else if (event.type === 'request/header') {
@@ -301,20 +317,19 @@ export function createLiveTokenUsageProjectionDefinition(
         if (chunk.type === 'usage') {
           next = { ...next, active: exactStep(next.active, chunk.usage, event.time) }
         } else if (!next.active.exact) {
-          const blocks = applyOutputChunk(next.active.blocks, chunk, spec)
-          if (blocks !== next.active.blocks) {
-            const tokens = outputTokens(blocks, spec)
+          const active = { ...next.active }
+          if (applyOutputChunk(active, chunk, spec)) {
+            const tokens = active.pricedBlocks === 0 ? 0 : active.pricedTokens + spec.roleOverhead
             next = {
               ...next,
               active: {
-                ...next.active,
-                blocks,
-                buckets: { ...next.active.buckets, outputTokens: tokens },
+                ...active,
+                buckets: { ...active.buckets, outputTokens: tokens },
                 /* v8 ignore next -- every mutating chunk prices at least one
                  * non-empty block, so outputTokens is always positive here */
                 ...(tokens > 0
                   ? {
-                    firstOutputTime: next.active.firstOutputTime ?? event.time,
+                    firstOutputTime: active.firstOutputTime ?? event.time,
                     latestOutputTime: event.time,
                   }
                   : {}),
@@ -371,6 +386,6 @@ export function createLiveTokenUsageProjectionDefinition(
       return next
     },
     view,
-    stateVersion: 1,
+    stateVersion: 2,
   }
 }

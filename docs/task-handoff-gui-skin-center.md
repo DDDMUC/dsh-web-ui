@@ -171,3 +171,9 @@ skin-center 自身 style 标签）、dsh-skin CLI 与网页 Gallery 回归通过
 
 **维护要点**：皮肤 bundle/元数据变更后重跑 `node scripts/skin-center-bundles` 并按
 `packages/skins/skin-center/README.md` 在 checkout worktree 重建 lib。
+**设计修订（2026-08-12，审查延后项落地）**：试穿加载改为**按需 + 无 eval**——
+`generated/skins.ts` 只保留元数据（不再内嵌 ~700KB bundle 文本），host 新增
+`/api/skin-center/bundle/<id>` 路由按需提供 `lib/client.js`（同源 script 标签，与内核
+defaultLoadBundle 同机制）；`try-on.ts` 不再 `(0, eval)`，改为 script 注册 +
+`__DSH_MODULES__.import` 物化。冷启动不再解析内嵌 base64；生成文件不含构建机绝对路径；
+CSP 无需 `unsafe-eval`。

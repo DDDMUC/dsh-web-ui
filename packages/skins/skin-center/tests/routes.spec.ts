@@ -44,7 +44,9 @@ interface TestServer {
 async function serve(routes: WebRoute[]): Promise<TestServer> {
   const server: Server = createServer((request, response) => {
     const pathname = new URL(request.url ?? '/', 'http://x').pathname
-    const route = routes.find(r => r.kind === 'exact' && r.path === pathname)
+    const route = routes.find(r => r.kind === 'exact'
+      ? r.path === pathname
+      : pathname === r.path || pathname.startsWith(`${r.path}/`))
     if (route === undefined) {
       response.writeHead(404)
       response.end()
@@ -71,7 +73,7 @@ async function call(
   method: string,
   path: string,
   opts: { body?: unknown; rawBody?: string; headers?: Record<string, string> } = {},
-): Promise<{ status: number; body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown>; raw?: string }> {
   return await new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...opts.headers }
     if (opts.rawBody !== undefined) {
@@ -89,7 +91,7 @@ async function call(
           const raw = Buffer.concat(chunks).toString('utf8')
           let body: Record<string, unknown> = {}
           try { body = JSON.parse(raw) as Record<string, unknown> } catch { /* empty body */ }
-          resolve({ status: response.statusCode ?? 0, body })
+          resolve({ status: response.statusCode ?? 0, body, raw })
         })
       },
     )
@@ -239,6 +241,57 @@ describe('skin-center routes', () => {
     expect(response.status).toBe(405)
   })
 
+  it('GET /bundle/<id> serves a real skin client bundle as JavaScript', async () => {
+    const { run } = stubRunner([])
+    const server = await serve(makeSkinCenterRoutes({ run }))
+    const response = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/bundle/qq98`)
+    await server.close()
+    expect(response.status).toBe(200)
+    // The body is the prebuilt bundle text, executable as a script (it
+    // registers the factory via window.__ModuleLoader__.load).
+    expect(response.raw).toContain('window.__ModuleLoader__.load')
+    expect(response.raw).toContain('@deepseek-ai/dsh-client-ui-skin-qq98')
+  })
+
+  it('GET /bundle/<id> 404s unknown skins and missing bundles', async () => {
+    const { run } = stubRunner([])
+    const server = await serve(makeSkinCenterRoutes({ run }))
+    const unknown = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/bundle/nope`)
+    const empty = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/bundle/`)
+    await server.close()
+    expect(unknown.status).toBe(404)
+    expect(unknown.body).toEqual({ ok: false, error: 'skin-not-found' })
+    expect(empty.status).toBe(400)
+    expect(empty.body).toEqual({ ok: false, error: 'invalid-skin-id' })
+  })
+
+  it('GET /bundle/<id> rejects path-traversal ids', async () => {
+    const { run } = stubRunner([])
+    const server = await serve(makeSkinCenterRoutes({ run }))
+    // A raw `..` is collapsed by URL normalization before the handler
+    // ever sees it, so the request misses the route entirely (404); an
+    // encoded traversal survives normalization but fails the id charset
+    // gate (400). Either way the skins tree is unreachable.
+    const raw = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/bundle/..`)
+    const encoded = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/bundle/%2e%2e%2f`)
+    const nested = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/bundle/qq98%2f..%2f..%2fetc%2fpasswd`)
+    await server.close()
+    expect(raw.status).toBe(404)
+    expect(encoded.status).toBe(400)
+    expect(nested.status).toBe(400)
+  })
+
+  it('fences the bundle route with method and same-origin checks', async () => {
+    const { run } = stubRunner([])
+    const server = await serve(makeSkinCenterRoutes({ run }))
+    const post = await call(server.port, 'POST', `${SKIN_CENTER_API_PREFIX}/bundle/qq98`)
+    const cross = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/bundle/qq98`, {
+      headers: { 'sec-fetch-site': 'cross-site' },
+    })
+    await server.close()
+    expect(post.status).toBe(405)
+    expect(cross.status).toBe(403)
+  })
   it('rejects malformed JSON bodies with 400', async () => {
     const { run } = stubRunner([])
     const server = await serve(makeSkinCenterRoutes({ run }))

@@ -1,8 +1,14 @@
 import { execFile } from "node:child_process";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 //#region src/routes.ts
 /**
 * Skin-center HTTP routes — the browser half talks to the host through plain
-* same-origin JSON endpoints. The host half delegates to the `dsh-skin` CLI
+* same-origin endpoints: JSON for state/apply, plus the bundle route serving
+* each skin's prebuilt `lib/client.js` as a same-origin script for live
+* try-on (the GUI never embeds the ~700KB of art base64 in its own bundle).
+* The host half delegates skin switching to the `dsh-skin` CLI
 * (the single authority over the `dsh-skin managed` section of
 * `~/.dsh/cordis.patch.yml` and the profile symlink), so switching skins from
 * the GUI is exactly `dsh-skin use <name>` — the config watcher hot-reloads
@@ -157,6 +163,89 @@ function postRoute(path, run) {
 		}
 	};
 }
+/** Repo layout: skin bundles live at packages/skins/<id>/lib/client.js. */
+const SKINS_DIR = fileURLToPath(new URL("../../../skins/", import.meta.url));
+/**
+* Map skin id -> directory under packages/skins/, scanned from each
+* skin.json. The id is validated against this map (never used as a raw
+* path) so the bundle route cannot be walked off the skins tree.
+* @returns skin id -> directory name.
+*/
+function skinDirectories() {
+	const out = /* @__PURE__ */ new Map();
+	for (const dir of readdirSync(SKINS_DIR)) {
+		const metaFile = join(SKINS_DIR, dir, "skin.json");
+		if (!statSync(metaFile, { throwIfNoEntry: false })) continue;
+		let meta;
+		try {
+			meta = JSON.parse(readFileSync(metaFile, "utf8"));
+		} catch {
+			continue;
+		}
+		if (typeof meta.id === "string" && /^[a-z0-9-]+$/.test(meta.id)) out.set(meta.id, dir);
+	}
+	return out;
+}
+/**
+* The on-demand bundle route: serve packages/skins/<id>/lib/client.js as a
+* same-origin script. Try-on loads it through a script tag (the kernel's
+* own bundle-loading mechanism), so the body registers the skin factory on
+* `window.__ModuleLoader__` without any eval.
+* @returns the prefix route (matches /api/skin-center/bundle/<id>).
+*/
+function bundleRoute() {
+	const prefix = `${SKIN_CENTER_API_PREFIX}/bundle`;
+	return {
+		kind: "prefix",
+		path: prefix,
+		handler: (req, res) => {
+			if (!requireMethod(req, res, "GET")) return;
+			if (!requireSameOrigin(req, res)) return;
+			let id;
+			try {
+				id = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname.slice(prefix.length + 1));
+			} catch {
+				json(res, 400, {
+					ok: false,
+					error: "invalid-skin-id"
+				});
+				return;
+			}
+			if (!/^[a-z0-9-]+$/.test(id)) {
+				json(res, 400, {
+					ok: false,
+					error: "invalid-skin-id"
+				});
+				return;
+			}
+			try {
+				const dir = skinDirectories().get(id);
+				if (dir === void 0) {
+					json(res, 404, {
+						ok: false,
+						error: "skin-not-found"
+					});
+					return;
+				}
+				const bundle = join(SKINS_DIR, dir, "lib", "client.js");
+				if (!statSync(bundle, { throwIfNoEntry: false })) {
+					json(res, 404, {
+						ok: false,
+						error: "skin-bundle-missing"
+					});
+					return;
+				}
+				res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
+				res.end(readFileSync(bundle, "utf8"));
+			} catch (error) {
+				json(res, 500, {
+					ok: false,
+					error: error instanceof Error ? error.message : String(error)
+				});
+			}
+		}
+	};
+}
 /**
 * Build the skin-center route family.
 * @param deps - optional runner override (tests).
@@ -164,22 +253,26 @@ function postRoute(path, run) {
 function makeSkinCenterRoutes(deps = {}) {
 	const run = deps.run ?? runDshSkin;
 	const current = () => run(["current"]).then((out) => out.trim() || "none");
-	return [getRoute(`${SKIN_CENTER_API_PREFIX}/state`, async () => ({
-		ok: true,
-		active: await current()
-	})), postRoute(`${SKIN_CENTER_API_PREFIX}/apply`, async (body) => {
-		const skin = body.skin;
-		const official = body.official === true;
-		if (typeof skin !== "string" || skin === "") {
-			if (!official) throw new Error("invalid-skin: pass a skin name or official: true");
-		} else if (official) throw new Error("invalid-skin: skin and official are mutually exclusive");
-		const out = await run(["use", official ? "official" : skin]);
-		return {
+	return [
+		getRoute(`${SKIN_CENTER_API_PREFIX}/state`, async () => ({
 			ok: true,
-			active: await current(),
-			message: out.trim()
-		};
-	})];
+			active: await current()
+		})),
+		bundleRoute(),
+		postRoute(`${SKIN_CENTER_API_PREFIX}/apply`, async (body) => {
+			const skin = body.skin;
+			const official = body.official === true;
+			if (typeof skin !== "string" || skin === "") {
+				if (!official) throw new Error("invalid-skin: pass a skin name or official: true");
+			} else if (official) throw new Error("invalid-skin: skin and official are mutually exclusive");
+			const out = await run(["use", official ? "official" : skin]);
+			return {
+				ok: true,
+				active: await current(),
+				message: out.trim()
+			};
+		})
+	];
 }
 //#endregion
 //#region src/index.ts

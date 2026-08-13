@@ -7,13 +7,16 @@
 
 - 列表：展示「官方默认」+ 仓库里全部皮肤（qq98 / ths / xp / blue-fantasy / dragon-heir /
   minecraft）的名称、tagline、强调色；当前激活的目标带 Active 标记。
-- 试穿：点击「Try on」后真实执行该皮肤的 client bundle（走页面自己的
-  `window.__ModuleLoader__` + `window.__DSH_MODULES__.import`，不是模拟器），chrome 立即生效；
+- 试穿：点击「Try on」后按需加载该皮肤的 client bundle——host 路由
+  `/api/skin-center/bundle/<id>` 以同源 script 提供 `lib/client.js`（内核加载插件的同一机制），
+  factory 注册到页面自己的 `window.__ModuleLoader__`，`window.__DSH_MODULES__.import` 物化
+  （不是模拟器、不用 eval），chrome 立即生效；
   亮/暗切换走官方 theme 服务；「Exit try-on」完全还原——当前皮肤的样式、DOM、favicon、
   标题、body 内联样式全部恢复。「官方默认」也可试穿：点一下皮肤立即收回、回到官方外观预览。
 - 互斥：试穿期间会按配方暂时收回当前激活皮肤的视觉写面（body 属性、背景内联样式、
   chrome 子节点、xp 的 footer taskbar），退出后原样恢复；同一时刻页面上只有一套皮肤。
-- 应用：host 半区（`src/index.ts` + `src/routes.ts`）暴露 `/api/skin-center/apply`，
+- 应用：host 半区（`src/index.ts` + `src/routes.ts`）暴露 `/api/skin-center/apply` 与
+  `/api/skin-center/bundle/<id>`（按需提供皮肤 bundle），
   点击「Apply / 恢复默认」即在服务端执行 `dsh-skin use <name>`（或 `use official`），
   写入 `~/.dsh/cordis.patch.yml` 后由 DSH 配置 watcher 秒级热载入，页面自动刷新生效——
   **无需重启 dsh web，无需复制命令**。应用失败时错误提示里附带终端兜底命令。
@@ -51,17 +54,23 @@ skins/skin-center/
   src/client/try-on.ts                               # 试穿引擎（真实 loader + 互斥还原，含官方试穿）
   src/client/locales.ts                              # en/zh 文案
   src/client/skin-center.module.css                  # 面板样式（--dsw-* token，随皮肤自适应）
-  src/client/generated/skins.ts                      # 生成：皮肤注册表 + 内嵌 bundle（勿手改）
+  src/client/generated/skins.ts                      # 生成：皮肤注册表（仅元数据，勿手改）
 ```
 
 ## 机制要点
 
 - 皮肤枚举：`generated/skins.ts` 由 `scripts/skin-center-bundles` 生成（读
-  `skins/<name>/skin.json` + `lib/client.js`）。bundle 文本内嵌进皮肤中心自己的 client bundle，
-  因为 `/plugins/<id>/client.js` 端点只为启用中的皮肤服务（禁用条目 404）。
-- 试穿加载：`;(0, eval)(bundle)` 把 factory 注册到页面真实的 `__ModuleLoader__`；
-  `window.__DSH_MODULES__.import(package)` 物化模块（CSS `<style data-plugin>` 自动注入）；
-  `surface.apply(miniCtx)` 挂载，miniCtx 只实现 `effect(cb)`（皮肤唯一依赖）。
+  `skins/<name>/skin.json`，校验 `lib/client.js` 存在）。**只含元数据，不内嵌 bundle 文本**：
+  冷启动不解析 ~700KB 的 base64 美术资源，且生成文件跨机器可复现（无构建机绝对路径）。
+- 试穿加载：host 路由 `/api/skin-center/bundle/<id>` 按需提供 `lib/client.js`
+  （同源 script，`<script>` 标签加载——与内核 `defaultLoadBundle` 同一机制），bundle 体调用
+  `window.__ModuleLoader__.load` 只注册 factory；`window.__DSH_MODULES__.import(package)`
+  物化模块（CSS `<style data-plugin>` 自动注入）；`surface.apply(miniCtx)` 挂载，
+  miniCtx 只实现 `effect(cb)`（皮肤唯一依赖）。不依赖 eval，因此不要求 CSP 放行
+  `unsafe-eval`——只要求同源 script 可加载（页面自身加载插件 bundle 亦然）。
+- 失败语义：bundle 路由 404（皮肤未安装 / `lib/client.js` 未构建）或网络失败时，
+  script 的 error 事件触发，试穿报通用错误并完整还原激活皮肤；加载与还原之间不会留下半套
+  皮肤（tryOn 的 catch 分支负责恢复）。
 - 退出还原：先跑皮肤的 disposer（属性/chrome/favicon/标题/背景全撤回），再
   `invalidate(package)` + 删 style 标签，最后把激活皮肤的视觉快照原样恢复。
   官方默认试穿 = 同一套收回配方但不挂载任何皮肤，退出同样原样恢复。
@@ -78,8 +87,9 @@ skins/skin-center/
 处理 CSS Modules 注入与平台外部化；类型来自官方 NPM SDK devDependencies）：
 
 ```sh
-# 1. 重新生成内嵌注册表（皮肤 bundle/元数据变化后必须重跑）
+# 1. 重新生成注册表（皮肤元数据变化后重跑；bundle 文本按需走 host 路由，无需重生成）
 node scripts/skin-center-bundles
+#    皮肤 bundle 自身变化只需重建对应皮肤（tsdown），GUI 下次试穿即取到新文本
 
 # 2. 在仓库内构建
 cd ~/code/dsh-web-ui && export NPM_TOKEN='<内测只读令牌>'
@@ -118,4 +128,5 @@ ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
 - [x] 退出完全还原；互斥（不出现两套标题栏）
 - [x] 一键应用：host API 执行 `dsh-skin use`，watcher 热载入，页面自动刷新生效（无重启）；失败附命令兜底
 - [x] 回归：dsh-skin CLI（含 `use official`）、网页 Gallery、官方 GUI 不受影响
+- [x] 按需加载：冷启动不解析 ~700KB 内嵌 base64（`generated/skins.ts` 仅 5KB 元数据），试穿按需取 bundle；无 eval（CSP 无需 `unsafe-eval`）
 - [x] e2e 截图见 `docs/e2e/skin-center/`

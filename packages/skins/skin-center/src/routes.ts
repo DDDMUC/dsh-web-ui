@@ -1,6 +1,9 @@
 /**
  * Skin-center HTTP routes — the browser half talks to the host through plain
- * same-origin JSON endpoints. The host half delegates to the `dsh-skin` CLI
+ * same-origin endpoints: JSON for state/apply, plus the bundle route serving
+ * each skin's prebuilt `lib/client.js` as a same-origin script for live
+ * try-on (the GUI never embeds the ~700KB of art base64 in its own bundle).
+ * The host half delegates skin switching to the `dsh-skin` CLI
  * (the single authority over the `dsh-skin managed` section of
  * `~/.dsh/cordis.patch.yml` and the profile symlink), so switching skins from
  * the GUI is exactly `dsh-skin use <name>` — the config watcher hot-reloads
@@ -15,7 +18,10 @@
  */
 
 import { execFile } from 'node:child_process'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { join as joinPath } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 
 /** Browser-facing base path of the skin-center API. */
@@ -170,6 +176,77 @@ export interface SkinCenterRoutesDeps {
   run?: (args: string[]) => Promise<string>
 }
 
+/** Repo layout: skin bundles live at packages/skins/<id>/lib/client.js. */
+const SKINS_DIR = fileURLToPath(new URL('../../../skins/', import.meta.url))
+
+/**
+ * Map skin id -> directory under packages/skins/, scanned from each
+ * skin.json. The id is validated against this map (never used as a raw
+ * path) so the bundle route cannot be walked off the skins tree.
+ * @returns skin id -> directory name.
+ */
+function skinDirectories(): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const dir of readdirSync(SKINS_DIR)) {
+    const metaFile = joinPath(SKINS_DIR, dir, 'skin.json')
+    if (!statSync(metaFile, { throwIfNoEntry: false })) continue
+    let meta: { id?: unknown }
+    try {
+      meta = JSON.parse(readFileSync(metaFile, 'utf8'))
+    } catch {
+      continue
+    }
+    if (typeof meta.id === 'string' && /^[a-z0-9-]+$/.test(meta.id)) out.set(meta.id, dir)
+  }
+  return out
+}
+
+/**
+ * The on-demand bundle route: serve packages/skins/<id>/lib/client.js as a
+ * same-origin script. Try-on loads it through a script tag (the kernel's
+ * own bundle-loading mechanism), so the body registers the skin factory on
+ * `window.__ModuleLoader__` without any eval.
+ * @returns the prefix route (matches /api/skin-center/bundle/<id>).
+ */
+function bundleRoute(): WebRoute {
+  const prefix = `${SKIN_CENTER_API_PREFIX}/bundle`
+  return {
+    kind: 'prefix',
+    path: prefix,
+    handler: (req: IncomingMessage, res: ServerResponse): void => {
+      if (!requireMethod(req, res, 'GET')) return
+      if (!requireSameOrigin(req, res)) return
+      let id: string
+      try {
+        id = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname.slice(prefix.length + 1))
+      } catch {
+        json(res, 400, { ok: false, error: 'invalid-skin-id' })
+        return
+      }
+      if (!/^[a-z0-9-]+$/.test(id)) {
+        json(res, 400, { ok: false, error: 'invalid-skin-id' })
+        return
+      }
+      try {
+        const dir = skinDirectories().get(id)
+        if (dir === undefined) {
+          json(res, 404, { ok: false, error: 'skin-not-found' })
+          return
+        }
+        const bundle = joinPath(SKINS_DIR, dir, 'lib', 'client.js')
+        if (!statSync(bundle, { throwIfNoEntry: false })) {
+          json(res, 404, { ok: false, error: 'skin-bundle-missing' })
+          return
+        }
+        res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' })
+        res.end(readFileSync(bundle, 'utf8'))
+      } catch (error) {
+        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+      }
+    },
+  }
+}
+
 /**
  * Build the skin-center route family.
  * @param deps - optional runner override (tests).
@@ -182,6 +259,7 @@ export function makeSkinCenterRoutes(deps: SkinCenterRoutesDeps = {}): WebRoute[
       ok: true,
       active: await current(),
     })),
+    bundleRoute(),
     postRoute(`${SKIN_CENTER_API_PREFIX}/apply`, async (body) => {
       const skin = body.skin
       const official = body.official === true

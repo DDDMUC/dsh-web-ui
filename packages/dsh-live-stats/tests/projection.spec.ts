@@ -3,13 +3,20 @@ import { Context } from '@deepseek-ai/cordis'
 import {
   createMessage, createToolResultMessage, createUserMessage,
 } from '@deepseek-ai/dsh-llm'
-import type { CallId, TokenUsage } from '@deepseek-ai/dsh-llm'
+import type { CallId, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import SessionStore from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { apply, inject, resolveEstimatorConfig } from '../src/index.ts'
 import { createLiveTokenUsageProjectionDefinition } from '../src/projection.ts'
 import type { LiveTokenUsageProjection } from '../src/projection.ts'
+import {
+  estimateAssistantBlockTokens,
+  estimateContentTokens,
+  estimateMessageTokens,
+  estimateTextBlockTokens,
+  estimateToolCallBlockTokens,
+} from '../src/estimator.ts'
 
 afterEach(() => { vi.useRealTimers() })
 
@@ -419,5 +426,223 @@ describe('liveTokenUsage projection', () => {
     }
     append('one', 'append')
     expect(() => { append('bad', { op: 'replace', start: 5, end: 2 }) }).toThrow('invalid current range')
+  })
+
+  it('incremental output pricing matches a straight rescan on a large sparse block index space', async () => {
+    const { ctx, session } = await harness()
+    // The defaults the harness fold resolves from resolveEstimatorConfig({}).
+    const spec = { charsPerToken: 4, blockOverhead: 4, roleOverhead: 4 }
+    session.append('step/start', { turn: 1, step: 1 })
+
+    // Reference reimplementation of the previous algorithm: a sparse array of
+    // blocks rescaned at every checkpoint with the same estimator formulas.
+    type RefBlock =
+      | { kind: 'text'; characters: number }
+      | { kind: 'reasoning'; characters: number }
+      | { kind: 'tool-call'; nameCharacters: number; argumentCharacters: number }
+      | { kind: 'fixed'; tokens: number }
+    const refBlocks: Array<RefBlock | undefined> = []
+    const refEstimate = (block: RefBlock): number => {
+      switch (block.kind) {
+        case 'text':
+        case 'reasoning':
+          return estimateTextBlockTokens(block.characters, spec)
+        case 'tool-call':
+          return estimateToolCallBlockTokens(block.nameCharacters, block.argumentCharacters, spec)
+        case 'fixed':
+          return block.tokens
+      }
+    }
+    const refOutputTokens = (): number => {
+      const tokens: number[] = []
+      for (const block of refBlocks) {
+        if (block === undefined) continue
+        tokens.push(refEstimate(block))
+      }
+      return estimateAssistantBlockTokens(tokens, spec)
+    }
+    const refApply = (chunk: StreamChunk): void => {
+      switch (chunk.type) {
+        case 'text-delta': {
+          if (chunk.text === '') return
+          const previous = refBlocks[chunk.index]
+          refBlocks[chunk.index] = {
+            kind: 'text',
+            characters: (previous?.kind === 'text' ? previous.characters : 0) + chunk.text.length,
+          }
+          return
+        }
+        case 'reasoning-delta': {
+          if (chunk.text === '') return
+          const previous = refBlocks[chunk.index]
+          refBlocks[chunk.index] = {
+            kind: 'reasoning',
+            characters: (previous?.kind === 'reasoning' ? previous.characters : 0) + chunk.text.length,
+          }
+          return
+        }
+        case 'tool-call-delta': {
+          if (chunk.name === undefined && chunk.argumentsDelta === '') return
+          const previous = refBlocks[chunk.index]
+          refBlocks[chunk.index] = {
+            kind: 'tool-call',
+            nameCharacters: chunk.name?.length ?? (previous?.kind === 'tool-call' ? previous.nameCharacters : 0),
+            argumentCharacters: (previous?.kind === 'tool-call' ? previous.argumentCharacters : 0)
+              + chunk.argumentsDelta.length,
+          }
+          return
+        }
+        case 'block-end':
+          refBlocks[chunk.index] = { kind: 'fixed', tokens: estimateContentTokens([chunk.block], spec) }
+          return
+        default:
+          return
+      }
+    }
+
+    // Deterministic scripted mix: sparse indices up to ~2000, heavy index
+    // reuse, kind switches on the same index, and every no-op delta shape.
+    let seed = 0x2f6e2b1
+    const random = (): number => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+      return seed / 0x100000000
+    }
+    const CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    const textOf = (length: number): string => {
+      let text = ''
+      for (let i = 0; i < length; i++) text += CHARS[Math.floor(random() * CHARS.length)]
+      return text
+    }
+    const NAMES = ['bash', 'read', 'write', 'search', 'code', 'tool']
+    let lastIndex = 0
+    let callId = 0
+    for (let eventIndex = 0; eventIndex < 3000; eventIndex++) {
+      if (random() < 0.3) lastIndex = Math.floor(random() * 2000)
+      const index = lastIndex
+      const roll = random()
+      let chunk: StreamChunk
+      if (roll < 0.3) {
+        chunk = { type: 'text-delta', index, text: random() < 0.1 ? '' : textOf(1 + Math.floor(random() * 40)) }
+      } else if (roll < 0.45) {
+        chunk = { type: 'reasoning-delta', index, text: random() < 0.1 ? '' : textOf(1 + Math.floor(random() * 40)) }
+      } else if (roll < 0.7) {
+        const kind = random()
+        chunk = {
+          type: 'tool-call-delta',
+          index,
+          id: `call_${callId++}` as CallId,
+          ...(kind < 0.4 ? { name: NAMES[Math.floor(random() * NAMES.length)] } : {}),
+          argumentsDelta: kind >= 0.2 && kind < 0.9 ? textOf(Math.floor(random() * 50)) : '',
+        }
+      } else if (roll < 0.75) {
+        chunk = { type: 'block-start', index, blockType: 'text' }
+      } else if (roll < 0.85) {
+        chunk = { type: 'block-end', index, block: { type: 'text', text: textOf(Math.floor(random() * 20)) } }
+      } else {
+        chunk = { type: 'finish', reason: { kind: 'stop' } }
+      }
+      refApply(chunk)
+      session.append('assistant/chunk', { turn: 1, step: 1, chunk })
+      if ((eventIndex + 1) % 500 === 0) {
+        expect(projected(ctx, session).outputTokens).toBe(refOutputTokens())
+      }
+    }
+    expect(projected(ctx, session).outputTokens).toBe(refOutputTokens())
+    expect(projected(ctx, session).outputTokens).toBeGreaterThan(0)
+  })
+
+  it('keeps a stable blocks reference across in-place deltas and drops replaced surface seqs', () => {
+    const spec = resolveEstimatorConfig({})
+    const definition = createLiveTokenUsageProjectionDefinition(spec)
+    const chunkEvent = (chunk: unknown, time: number): SessionEvent => ({
+      type: 'assistant/chunk',
+      time,
+      data: { turn: 1, step: 1, chunk },
+    } as unknown as SessionEvent)
+
+    let state = definition.init()
+    state = definition.apply(state, {
+      type: 'step/start',
+      time: 1,
+      data: { turn: 1, step: 1 },
+    } as unknown as SessionEvent)
+    const active = state.active
+    if (active === null) throw new Error('active step is absent')
+    expect(active.pricedTokens).toBe(0)
+    expect(active.pricedBlocks).toBe(0)
+
+    // A no-op delta leaves the state reference untouched.
+    const beforeNoop = state
+    state = definition.apply(state, chunkEvent({ type: 'text-delta', index: 0, text: '' }, 2))
+    expect(state).toBe(beforeNoop)
+
+    // Every mutating delta rewrites its slot in place: the blocks array is
+    // allocated once at step/start and never reallocated within the step.
+    const blocks = active.blocks
+    state = definition.apply(state, chunkEvent({ type: 'text-delta', index: 0, text: 'first' }, 3))
+    expect(state.active?.blocks).toBe(blocks)
+    state = definition.apply(state, chunkEvent({ type: 'text-delta', index: 0, text: 'second' }, 4))
+    expect(state.active?.blocks).toBe(blocks)
+    state = definition.apply(state, chunkEvent({ type: 'reasoning-delta', index: 7, text: 'think' }, 5))
+    expect(state.active?.blocks).toBe(blocks)
+    state = definition.apply(state, chunkEvent({
+      type: 'tool-call-delta', index: 7, id: 'call_1' as CallId, name: 'bash', argumentsDelta: '{}',
+    }, 6))
+    expect(state.active?.blocks).toBe(blocks)
+    state = definition.apply(state, chunkEvent({
+      type: 'block-end', index: 7, block: { type: 'text', text: 'fixed' },
+    }, 7))
+    expect(state.active?.blocks).toBe(blocks)
+    // A kind switch on an occupied slot re-prices without recounting blocks.
+    state = definition.apply(state, chunkEvent({
+      type: 'tool-call-delta', index: 7, id: 'call_2' as CallId, argumentsDelta: 'x',
+    }, 8))
+    expect(state.active?.blocks).toBe(blocks)
+    expect(state.active?.pricedBlocks).toBe(2)
+
+    // The incremental sums still equal a full rescan with the same formulas.
+    const final = state.active
+    if (final === null) throw new Error('active step is absent')
+    const rescan = (): number => {
+      const tokens: number[] = []
+      for (const block of final.blocks) {
+        if (block === undefined) continue
+        tokens.push(block.kind === 'text' || block.kind === 'reasoning'
+          ? estimateTextBlockTokens(block.characters, spec)
+          : block.kind === 'tool-call'
+            ? estimateToolCallBlockTokens(block.nameCharacters, block.argumentCharacters, spec)
+            : block.tokens)
+      }
+      return estimateAssistantBlockTokens(tokens, spec)
+    }
+    expect(final.buckets.outputTokens).toBe(rescan())
+    expect(final.pricedTokens + spec.roleOverhead).toBe(rescan())
+
+    // Surface replaces drop the replaced seqs and keep only the new entry.
+    const surfaceEvent = (seq: number, text: string, surfaceOp: unknown): SessionEvent => ({
+      type: 'user/message',
+      seq,
+      time: 1,
+      data: createUserMessage({
+        content: [{ type: 'text', text }],
+        source: { kind: 'user' },
+      }),
+      surfaceOp,
+    } as unknown as SessionEvent)
+    state = definition.init()
+    state = definition.apply(state, surfaceEvent(1, 'one', 'append'))
+    state = definition.apply(state, surfaceEvent(2, 'two', 'append'))
+    state = definition.apply(state, surfaceEvent(3, 'three', { op: 'replace', start: 1, end: 2 }))
+    expect(state.surface.has(1)).toBe(false)
+    expect(state.surface.has(2)).toBe(false)
+    expect(state.surface.has(3)).toBe(true)
+    expect(state.surfaceTokens).toBe(estimateMessageTokens(
+      createUserMessage({ content: [{ type: 'text', text: 'three' }], source: { kind: 'user' } }),
+      spec,
+    ))
+    expect(() => definition.apply(state, surfaceEvent(4, 'bad', { op: 'replace', start: 5, end: 2 })))
+      .toThrow('invalid current range')
+    expect(() => definition.apply(state, surfaceEvent(4, 'bad', { op: 'replace', start: 3, end: 99 })))
+      .toThrow('invalid current range')
   })
 })
