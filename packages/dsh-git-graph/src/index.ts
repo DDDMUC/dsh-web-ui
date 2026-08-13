@@ -18,7 +18,7 @@ import { GitService, subprocessRunner, type WorkspaceGate } from './host/git-ser
 import { registerGitRoutes } from './host/routes.ts'
 
 /** Required services: the route registry, the managed subprocess seam, and the workspace registry. */
-export const inject = ['httpServer', 'subprocess', 'workspace']
+export const inject = ['webServer', 'subprocess', 'workspaceRegistry']
 
 /**
  * The workspace-membership gate: canonicalize the requested path and require
@@ -34,7 +34,7 @@ function createWorkspaceGate(ctx: Context): WorkspaceGate {
     } catch {
       return { ok: false, error: { code: 'workspace-unknown', message: 'path does not resolve on disk' } }
     }
-    if (ctx.workspace.list().some(workspace => workspace.path === canonical)) {
+    if (ctx.workspaceRegistry.list().some(workspace => workspace.path === canonical)) {
       return { ok: true, canonical }
     }
     return { ok: false, error: { code: 'workspace-unknown', message: 'path is not a registered workspace' } }
@@ -43,7 +43,7 @@ function createWorkspaceGate(ctx: Context): WorkspaceGate {
 
 /**
  * Mount the git service and its routes.
- * @param ctx - context carrying httpServer, subprocess, and workspace.
+ * @param ctx - context carrying webServer, subprocess, and workspaceRegistry.
  */
 export function apply(ctx: Context): void {
   const service = new GitService(subprocessRunner(ctx), createWorkspaceGate(ctx))

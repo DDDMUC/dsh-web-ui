@@ -8,7 +8,7 @@
  * ledger — no services, no events, no model access.
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ThemeService } from '@deepseek-ai/dsh-client-ui-theme/client'
+import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { SkinCenter, type SkinCenterInjected } from './SkinCenter.tsx'
@@ -62,7 +62,7 @@ export function apply(ctx: ClientContext): void {
     return () => { delete document.body.dataset.dshSkinCenter }
   }, 'ui-skin-center: body scope')
 
-  const theme = ctx.get('theme') as ThemeService
+  const theme = ctx.get('theme') as ThemeRuntime
   const controller = new TryOnController()
   const injected = (): SkinCenterInjected => ({
     controller,

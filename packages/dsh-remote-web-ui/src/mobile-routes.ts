@@ -49,7 +49,7 @@ function writeStatic(res: ServerResponse, status: number, type: string, body: st
 
 /**
  * Build the mobile page routes.
- * @returns the two exact routes to register on httpServer.
+ * @returns the two exact routes to register on webServer.
  */
 export function makeMobileRoutes(): WebRoute[] {
   const handlePage = (_req: IncomingMessage, res: ServerResponse): void => {

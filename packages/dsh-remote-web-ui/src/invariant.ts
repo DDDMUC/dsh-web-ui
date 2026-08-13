@@ -18,7 +18,7 @@ export const inject = ['invariants']
  * No runtime invariant: this package owns no durable package-local event
  * stream; its route-table and device-session relationships are asserted by
  * the package's own specs (route register/dispose symmetry via the
- * httpServer disposer contract, token/revocation semantics on the service).
+ * webServer disposer contract, token/revocation semantics on the service).
  */
 const install: InvariantInstaller = () => {}
 

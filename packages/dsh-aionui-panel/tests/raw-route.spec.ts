@@ -1,7 +1,7 @@
 /**
  * Raw-route integration test: the GET /aionui-panel/raw dispatch inside the
  * prefix handler (mime + headers + error statuses), exercised through the
- * real FsService with a fake ctx.httpServer registry.
+ * real FsService with a fake ctx.webServer registry.
  */
 import { describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
@@ -19,7 +19,7 @@ function fakeCtx(): {
   const registrations: Array<{ kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }> = []
   const ctx = {
     logger: { warn: () => {} },
-    httpServer: {
+    webServer: {
       register: (row: { kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }) => {
         registrations.push(row)
         return () => {}

@@ -67,7 +67,7 @@ function json(res: ServerResponse, envelope: GitEnvelope<unknown>, status = 200)
 /**
  * Register the /git routes (prefix for the JSON operations, exact for the
  * SSE stream — longest-prefix-wins keeps them disjoint).
- * @param ctx - context carrying the httpServer service.
+ * @param ctx - context carrying the webServer service.
  * @param service - the workspace-gated git service.
  * @returns the route disposers.
  */
@@ -187,8 +187,8 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
   }
 
   const disposers = [
-    ctx.httpServer.register({ kind: 'prefix', path: '/git', handler }),
-    ctx.httpServer.register({ kind: 'exact', path: '/git/events', handler: sse }),
+    ctx.webServer.register({ kind: 'prefix', path: '/git', handler }),
+    ctx.webServer.register({ kind: 'exact', path: '/git/events', handler: sse }),
   ]
   return () => {
     for (const dispose of disposers) dispose()

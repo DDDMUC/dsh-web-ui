@@ -84,7 +84,7 @@ const MOBILE_API_METHOD_PREFIX = `${MOBILE_API_PREFIX}/`
 /**
  * Build the mobile data-channel routes.
  * @param deps - pairing service + apiProxy.
- * @returns the routes to register on httpServer.
+ * @returns the routes to register on webServer.
  */
 export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
   const { service, apiProxy } = deps

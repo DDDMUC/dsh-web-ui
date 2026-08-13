@@ -186,7 +186,7 @@ function makeSkinCenterRoutes(deps = {}) {
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
 const name = "ui-skin-center";
 /** Services required before the skin-center can mount its routes. */
-const inject = ["httpServer"];
+const inject = ["webServer"];
 /**
 * Register the skin-center API routes.
 *
@@ -201,7 +201,7 @@ function apply(ctx) {
 		ctx.effect(() => {
 			const disposers = [];
 			try {
-				for (const route of routes) disposers.push(ctx.httpServer.register(route));
+				for (const route of routes) disposers.push(ctx.webServer.register(route));
 			} catch (error) {
 				for (const dispose of disposers) dispose();
 				throw error;

@@ -44,7 +44,7 @@ export function createWorkspaceGate(ctx: Context): WorkspaceGate {
     } catch {
       return { ok: false, error: { code: 'workspace-unknown', message: 'path does not resolve on disk' } }
     }
-    const workspaces = ctx.workspace.list()
+    const workspaces = ctx.workspaceRegistry.list()
     for (const workspace of workspaces) {
       if (isPathInside(workspace.path, canonical)) {
         return { ok: true, canonical }

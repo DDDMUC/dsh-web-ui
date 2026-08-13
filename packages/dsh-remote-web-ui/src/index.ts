@@ -43,7 +43,7 @@ declare module '@deepseek-ai/cordis' {
 export const name = 'remote-web-ui'
 
 /** Services required before the pairing surfaces can mount. */
-export const inject = ['httpServer', 'apiProxy']
+export const inject = ['webServer', 'apiProxy']
 
 /**
  * Settings namespace of the remote-control capability — the section the web
@@ -125,7 +125,7 @@ const DEFAULTS: ResolvedConfig = {
 
 /**
  * Mount the pairing service, routes, gate listener, and presence sweep.
- * @param ctx - host plugin context carrying httpServer.
+ * @param ctx - host plugin context carrying webServer.
  * @param config - resolved plugin config (schema defaults applied by the loader).
  */
 export function apply(ctx: Context, config?: Config): void {
@@ -189,13 +189,13 @@ export function apply(ctx: Context, config?: Config): void {
   ctx.effect(() => () => {
     tunnel.dispose()
   }, 'remote-web-ui: auto tunnel')
-  // The bind facts are known by now (httpServer is an inject edge): the LAN
+  // The bind facts are known by now (webServer is an inject edge): the LAN
   // bases are frozen per process, matching the CLI's once-per-invocation
   // sampling stance. The QR can only advertise addresses the fence accepts;
   // every interface gets its own base URL so a multi-homed machine can pick
   // the network the phone can actually reach.
-  const lanBases = ctx.httpServer.host === '0.0.0.0'
-    ? lanIPv4Addresses().map(address => ({ address, base: `http://${address}:${String(ctx.httpServer.port)}` }))
+  const lanBases = ctx.webServer.host === '0.0.0.0'
+    ? lanIPv4Addresses().map(address => ({ address, base: `http://${address}:${String(ctx.webServer.port)}` }))
     : []
   service.setLanBases(lanBases)
   const lanAddresses = lanBases.map(entry => entry.address)
@@ -238,7 +238,7 @@ export function apply(ctx: Context, config?: Config): void {
       if (value.publicBaseUrl !== undefined) {
         console.warn('remote-web-ui: autoTunnel is on — ignoring the manually configured publicBaseUrl')
       }
-      tunnel.start(`http://127.0.0.1:${String(ctx.httpServer.port)}`)
+      tunnel.start(`http://127.0.0.1:${String(ctx.webServer.port)}`)
     } else {
       tunnel.stop()
       // A malformed public base is ignored with a warning — LAN-only behavior
@@ -255,7 +255,7 @@ export function apply(ctx: Context, config?: Config): void {
     if (disposeRoutes === undefined && enabled) {
       disposeRoutes = ctx.effect(
         () => {
-          const disposers = routes.map(route => ctx.httpServer.register(route))
+          const disposers = routes.map(route => ctx.webServer.register(route))
           return () => { for (const dispose of disposers) dispose() }
         },
         'remote-web-ui: pairing routes',

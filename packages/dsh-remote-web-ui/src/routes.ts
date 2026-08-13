@@ -181,7 +181,7 @@ export interface PairRoutesDeps {
 /**
  * Build the /api/pair route family.
  * @param deps - service + fence inputs.
- * @returns the exact routes to register on httpServer.
+ * @returns the exact routes to register on webServer.
  */
 export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
   const { service, lanAddresses } = deps

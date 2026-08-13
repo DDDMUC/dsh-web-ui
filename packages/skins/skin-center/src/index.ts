@@ -9,7 +9,7 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-// Type-only: pulls the dsh-host-webserver service seat (ctx.httpServer).
+// Type-only: pulls the dsh-host-webserver service seat (ctx.webServer).
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
 
@@ -19,7 +19,7 @@ export { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
 export const name = 'ui-skin-center'
 
 /** Services required before the skin-center can mount its routes. */
-export const inject = ['httpServer']
+export const inject = ['webServer']
 
 /**
  * Register the skin-center API routes.
@@ -35,7 +35,7 @@ export function apply(ctx: Context): void {
     ctx.effect(() => {
       const disposers: Array<() => void> = []
       try {
-        for (const route of routes) disposers.push(ctx.httpServer.register(route))
+        for (const route of routes) disposers.push(ctx.webServer.register(route))
       } catch (error) {
         // Roll back whatever registered before the failure so a partial
         // mount never leaves half a route family live; the outer catch logs.

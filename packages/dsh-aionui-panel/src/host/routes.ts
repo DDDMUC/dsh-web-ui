@@ -73,7 +73,7 @@ function json(res: ServerResponse, envelope: PanelEnvelope<unknown>, status = 20
 /**
  * Register the /aionui-panel routes (prefix for JSON, exact for the SSE
  * stream — longest-prefix-wins keeps them disjoint).
- * @param ctx - context carrying the httpServer service.
+ * @param ctx - context carrying the webServer service.
  * @param fs - the gated filesystem service.
  * @param git - the gated git service.
  * @returns the route disposers.
@@ -317,8 +317,8 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
   }
 
   const disposers = [
-    ctx.httpServer.register({ kind: 'prefix', path: '/aionui-panel', handler }),
-    ctx.httpServer.register({ kind: 'exact', path: '/aionui-panel/events', handler: sse }),
+    ctx.webServer.register({ kind: 'prefix', path: '/aionui-panel', handler }),
+    ctx.webServer.register({ kind: 'exact', path: '/aionui-panel/events', handler: sse }),
   ]
   return () => {
     for (const dispose of disposers) dispose()
