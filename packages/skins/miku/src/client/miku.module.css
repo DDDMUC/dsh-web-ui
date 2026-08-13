@@ -1,4 +1,4 @@
-/* Miku skin 闁?Hatsune Miku electronic-idol theme for the dsh web GUI.
+/* Miku skin —Hatsune Miku electronic-idol theme for the dsh web GUI.
    The iconic teal (#2e9bff) runs through every surface: the mint-teal
    desktop gradient with note/waveform light blooms, glassy teal window
    chrome (title bar with the 01 badge, status bar with a live waveform),
@@ -616,7 +616,7 @@ body[data-dsh-miku][data-ds-dark-theme] .mikuTitlebar {
   border-color: rgba(255, 255, 255, 0.48);
 }
 
-/* The last glyph is the close button 闁?a warm pink hover echoes Miku's
+/* The last glyph is the close button —a warm pink hover echoes Miku's
    accessory accent. */
 .mikuTitlebarBtn:last-child:hover {
   background: linear-gradient(180deg, #ffb3d9, #ff4da6);
@@ -746,7 +746,7 @@ body[data-dsh-miku] [data-pane='sidebar'] > div > :first-child button:hover {
 
 /* The brand lockup is vector text: "DeepSeek" + a "HARNESS" badge pill.
    The pill follows currentColor (white here) while the badge letters use
-   the inverted-primary token 闁?white on white in light mode, invisible.
+   the inverted-primary token —white on white in light mode, invisible.
    Pin the pill to the deep teal and force the letters white in both
    themes, so the badge reads on the teal strip. */
 body[data-dsh-miku] [data-pane='sidebar'] > div > :first-child svg rect[fill='currentColor'] {
@@ -758,7 +758,7 @@ body[data-dsh-miku] [data-pane='sidebar'] > div > :first-child svg [fill='var(--
 }
 
 /* Conversation: frosted white chat surface with a pale mint title band on
-   the session header 闁?translucent so the idol art breathes through. */
+   the session header —translucent so the idol art breathes through. */
 body[data-dsh-miku] [data-pane='conversation'] {
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(8px);
@@ -793,7 +793,7 @@ body[data-dsh-miku][data-ds-dark-theme] [data-pane='details'] {
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* --- aionui 闁告瑥鍘栭弲鍫曟閵忊剝绶查梺顐㈠€块崢銈夋晬閸у』h-aionui-panel闁?---
+/* --- aionui 右侧面板适配（dsh-aionui-panel） ---
    The aionui-panel host plugin paints its Explorer / SCM / Preview panes
    from an independent --aion-* token system (defined on :root in light and
    body[data-ds-dark-theme] in dark). This skin remaps every one of those
@@ -802,7 +802,7 @@ body[data-dsh-miku][data-ds-dark-theme] [data-pane='details'] {
    widget. Two full token sets (light: pale mint, dark: deep sea-teal) plus
    a few structural overlays for the column chrome, drag handles, floating
    expand button and the shared overlay/menu/toast affordances. Pure
-   presentation 闁?no JS, no events, no external assets. */
+   presentation —no JS, no events, no external assets. */
 
 /* --- aionui tokens: light -------------------------------------------------- */
 
@@ -1118,7 +1118,7 @@ body[data-dsh-miku] :global(.aionui-preview-enter-done) {
    Presentation-layer only: hover / active / focus-visible feedback, a single
    120ms ease motion across the interactive chrome family, disabled visuals,
    and a prefers-reduced-motion fallback. No static color, spacing or shape
-   of the base Miku palette changes here 闁?these rules only shape how the
+   of the base Miku palette changes here —these rules only shape how the
    controls behave. Everything is scoped under body[data-dsh-miku] (each rule
    has its [data-ds-dark-theme] "night" variant) so other skins and the
    official UI are never touched. */
@@ -1358,14 +1358,14 @@ body[data-dsh-miku][data-ds-dark-theme] :global(.aionui-collapse-chevron):hover 
   }
 }
 
-/* --- git-graph 闁圭粯鍔掑锕傚炊妤ｅ啠鍋撻崒鐐插赋闁挎稑娼恠h-git-graph闁?-----------------------------------
+/* --- git-graph 提交图适配（dsh-git-graph） ---
    The git graph dialog / branch popover / selector chip read the shell's
    --dsw-alias-* remap, so their surfaces already wear the Miku teals.
    These rules add the skin's own color voice to the commit topology: each
    lane column gets a hue from the idol palette (pass lines stay muted; the
    current-branch badge keeps the brand fill), and the dialog frame re-reads
    the glassy Miku window chrome. Hooks are the presentation-neutral
-   data-gitgraph-* attributes emitted by the dsh-git-graph bundle 闁?no
+   data-gitgraph-* attributes emitted by the dsh-git-graph bundle —no
    hashed class names are involved. */
 
 /* Lane hue ramp: Miku teal / vocaloid green / amber / pink, repeating every
@@ -1424,9 +1424,9 @@ body[data-dsh-miku][data-ds-dark-theme] [data-gitgraph-dialog] {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
 }
 
-/* --- AppFrame 缁撴瀯閫忔槑锛堢湡瀹?GUI 閫傞厤锛?--------------------------------------
+/* --- AppFrame 结构透明（真实 GUI 适配） -----------------------------------------
    The current dsh web GUI renders the AppFrame columns without the
-   `data-pane` hooks older skins target 鈥?the columns carry only
+   `data-pane` hooks older skins target —the columns carry only
    CSS-modules hashed class names. These rules use the stable structure of
    the frame (the #root window body, its column wrappers, and the sidebar
    / center / details roots) plus stable class suffixes, so the idol art
@@ -1532,7 +1532,7 @@ body[data-dsh-miku][data-ds-dark-theme] [class*='scrollBody'] {
   background: transparent !important;
 }
 
-/* --- 鑿滃崟 / 寮瑰嚭灞傜編鍖栵紙dropdown / popover / menu / sheet锛?------------------
+/* --- 菜单 / 弹出层美化（dropdown / popover / menu / sheet） ---------------------
    Menus and popovers re-read the Miku glass: frosted blue-violet surface,
    teal-free accent text, soft shadow. Class-suffix match covers the
    CSS-modules names across components. */
