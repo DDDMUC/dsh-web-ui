@@ -53,7 +53,7 @@ export function CreateBranchDialog({ onCreate, onClose, t }: CreateBranchDialogP
   return (
     <>
       <Backdrop onClose={onClose} />
-      <div className={css.dialog} role="dialog" aria-label={t('branch.createDialog.title')}>
+      <div className={css.dialog} role="dialog" aria-label={t('branch.createDialog.title')} data-gitgraph-dialog>
         <h3 className={css.dialogTitle}>{t('branch.createDialog.title')}</h3>
         <p className={css.dialogDescription}>{t('branch.createDialog.description')}</p>
         <div className={css.dialogField}>

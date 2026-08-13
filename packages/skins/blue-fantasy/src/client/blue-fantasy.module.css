@@ -493,6 +493,7 @@ body[data-dsh-blue-fantasy] {
   --aion-bg-1: rgba(243, 245, 251, 0.5);
   --aion-bg-2: rgba(233, 237, 247, 0.62);
   --aion-bg-3: rgba(74, 95, 168, 0.22);
+  --aion-bg-4: rgba(74, 95, 168, 0.34);
   --aion-bg-hover: rgba(74, 95, 168, 0.08);
   --aion-bg-active: rgba(74, 95, 168, 0.14);
   --aion-text-primary: #1d2539;
@@ -527,6 +528,7 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] {
   --aion-bg-1: rgba(26, 34, 56, 0.5);
   --aion-bg-2: rgba(32, 42, 68, 0.6);
   --aion-bg-3: rgba(160, 180, 230, 0.2);
+  --aion-bg-4: rgba(160, 185, 235, 0.3);
   --aion-bg-hover: rgba(160, 185, 235, 0.12);
   --aion-bg-active: rgba(160, 185, 235, 0.2);
   --aion-text-primary: #dbe2f2;
@@ -706,3 +708,111 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] :global(.aionui-menu-item:not(.a
     transition: none;
   }
 }
+
+/* --- git-graph 提交图适配（dsh-git-graph） -----------------------------------
+   The git graph dialog / branch popover / selector chip read the shell's
+   --dsw-alias-* remap, so their surfaces already float on the periwinkle
+   frosted palette. These rules add the skin's own color voice to the commit
+   topology: each lane column gets a hue from the whale-indigo family (pass
+   lines stay muted; the current-branch badge keeps the brand fill), and the
+   dialog frame joins the panel's frosted-glass treatment. Hooks are the
+   presentation-neutral data-gitgraph-* attributes emitted by the
+   dsh-git-graph bundle — no hashed class names are involved. */
+
+/* Lane hue ramp: indigo / green / amber / periwinkle, repeating every six
+   columns. Node and merge glyphs share the column hue; pass and gap cells
+   keep the muted lane color from the plugin's own tokens. */
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+1),
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+1) { color: #4a5fa8; }
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+2),
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+2) { color: #2e8e52; }
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+3),
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+3) { color: #c08a33; }
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+4),
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+4) { color: #647ebf; }
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+5),
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+5) { color: #3c4e92; }
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n),
+body[data-dsh-blue-fantasy] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n) { color: #58b058; }
+
+/* Night variant: the same hue family, lifted for the deep indigo sea. */
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+1),
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+1) { color: #7f96d2; }
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+2),
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+2) { color: #58b058; }
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+3),
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+3) { color: #d9a94f; }
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+4),
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+4) { color: #94a8dc; }
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+5),
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+5) { color: #647ebf; }
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n),
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n) { color: #7cc97c; }
+
+/* Dialog frame: frosted glass over the whale art, like the panel columns. */
+body[data-dsh-blue-fantasy] [data-gitgraph-dialog] {
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-color: rgba(160, 180, 230, 0.4);
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-dialog] {
+  border-color: rgba(160, 180, 230, 0.22);
+}
+
+/* Ref badges (non-current): translucent periwinkle chips; the current branch
+   keeps the brand fill from the token remap. */
+body[data-dsh-blue-fantasy] [data-gitgraph-ref]:not([data-gitgraph-ref-current]) {
+  background: rgba(74, 95, 168, 0.12);
+  border: 1px solid rgba(44, 58, 115, 0.2);
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-ref]:not([data-gitgraph-ref-current]) {
+  background: rgba(160, 185, 235, 0.14);
+  border-color: rgba(160, 180, 230, 0.2);
+}
+
+
+/* --- 输入区选择器适配：工作区 + Git 分支胶囊（dsh-git-graph） -------------
+   The composer selector row above the input card holds two pills: the
+   official workspace picker and the git-graph branch chip. Both draw from
+   --dsw-alias-button-tool-bar-fill / border-l2 / label-secondary, and the
+   skin's global remap paints them with a heavy 50%-alpha indigo fill that
+   reads as a washed-out lavender and loses its fill on hover. This section
+   re-scopes those tokens on the selector row (located structurally through
+   the git-graph chip hook data-gitgraph-chip) so both pills become crisp
+   frosted periwinkle chips: a hairline lavender fill, a clear indigo border,
+   deep ink labels, tinted hover/active, and an open-state tint. Row-scoped
+   values only reach the row's own descendants (the two chips); the rest of
+   the shell keeps the global remap. Light + dark. */
+
+body[data-dsh-blue-fantasy] div:has(> div > [data-gitgraph-chip]) {
+  --dsw-alias-button-tool-bar-fill: rgba(74, 95, 168, 0.08);
+  --dsw-alias-border-l2: rgba(74, 95, 168, 0.38);
+  --dsw-alias-label-secondary: #2c3765;
+  --dsw-alias-label-tertiary: #647ebf;
+  --dsw-alias-interactive-bg-hover: rgba(74, 95, 168, 0.14);
+  --dsw-alias-interactive-bg-active: rgba(74, 95, 168, 0.2);
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] div:has(> div > [data-gitgraph-chip]) {
+  --dsw-alias-button-tool-bar-fill: rgba(160, 185, 235, 0.08);
+  --dsw-alias-border-l2: rgba(160, 180, 230, 0.38);
+  --dsw-alias-label-secondary: #c9d4ef;
+  --dsw-alias-label-tertiary: #8b9cbc;
+  --dsw-alias-interactive-bg-hover: rgba(160, 185, 235, 0.14);
+  --dsw-alias-interactive-bg-active: rgba(160, 185, 235, 0.22);
+}
+
+/* Open state: both chips keep a soft periwinkle tint under the brand border
+   (the workspace chip toggles aria-expanded, the branch chip too). */
+body[data-dsh-blue-fantasy] div:has(> div > [data-gitgraph-chip]) > button[aria-expanded='true'],
+body[data-dsh-blue-fantasy] [data-gitgraph-chip][aria-expanded='true'] {
+  background-color: rgba(74, 95, 168, 0.16);
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] div:has(> div > [data-gitgraph-chip]) > button[aria-expanded='true'],
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-chip][aria-expanded='true'] {
+  background-color: rgba(160, 185, 235, 0.18);
+}
+

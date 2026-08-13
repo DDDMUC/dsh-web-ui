@@ -490,6 +490,9 @@ body[data-dsh-minecraft] {
   --dsw-alias-bg-layer-2: #1d2920;
   --dsw-alias-bg-layer-3: #212e24;
   --dsw-alias-bg-overlay: rgba(6, 9, 7, 0.72);
+  --dsw-alias-bg-mask-1: rgba(6, 9, 7, 0.4);
+  --dsw-alias-bg-mask-2: rgba(6, 9, 7, 0.22);
+  --dsw-alias-bg-mask-3: rgba(6, 9, 7, 0.55);
   --dsw-alias-border-l1: rgba(255, 255, 255, 0.06);
   --dsw-alias-border-l2-darkmode-thin: rgba(255, 255, 255, 0.08);
   --dsw-alias-border-l2: rgba(255, 255, 255, 0.12);
@@ -513,6 +516,10 @@ body[data-dsh-minecraft] {
   --dsw-alias-button-primary-dimmed: rgba(43, 79, 120, 0.55);
   --dsw-alias-button-ghost-active-fill: rgba(255, 255, 255, 0.08);
   --dsw-alias-button-ghost-active-hover: rgba(255, 255, 255, 0.12);
+  /* On-fill text for the grass brand and the stone toolbar slab: dark ink,
+     so the git-graph current-branch badge / chip labels stay readable. */
+  --dsw-alias-button-contrast-fill: #1a2413;
+  --dsw-alias-button-tool-bar-fill: rgba(139, 139, 139, 0.5);
   --dsw-alias-brand-primary: #83c94e;
   --dsw-alias-brand-primary-invert: #1a2413;
   --dsw-alias-brand-text: #83c94e;
@@ -571,6 +578,7 @@ body[data-dsh-minecraft] {
   --aion-bg-1: #d9ddd1;
   --aion-bg-2: #cdd2c3;
   --aion-bg-3: #a7af9d;
+  --aion-bg-4: #8b9680;
   --aion-bg-hover: #e2e6da;
   --aion-bg-active: #c2c8b6;
   --aion-text-primary: #1d2521;
@@ -605,6 +613,7 @@ body[data-dsh-minecraft][data-ds-dark-theme] {
   --aion-bg-1: #1a251d;
   --aion-bg-2: #212e24;
   --aion-bg-3: #2d3b31;
+  --aion-bg-4: #3a4a3e;
   --aion-bg-hover: #223026;
   --aion-bg-active: #26352a;
   --aion-text-primary: #e7ead7;
@@ -942,5 +951,62 @@ body[data-dsh-minecraft] [data-aionui-preview-col] > div {
 :global(body[data-dsh-minecraft] .aionui-root input:focus),
 :global(body[data-dsh-minecraft] .aionui-root textarea:focus) {
   outline-offset: 0;
+}
+
+/* --- git-graph 提交图适配（dsh-git-graph） -----------------------------------
+   The git graph dialog / branch popover / selector chip read the shell's
+   --dsw-alias-* remap above, so their surfaces already sit on the night
+   slate. These rules add the skin's own color voice to the commit topology:
+   each lane column gets a hue from the voxel palette (pass lines stay muted;
+   the current-branch badge keeps the grass fill), and the dialog frame re-
+   reads the blocky slab chrome like the aionui confirm dialog. Hooks are
+   the presentation-neutral data-gitgraph-* attributes emitted by the
+   dsh-git-graph bundle — no hashed class names are involved. */
+
+/* Lane hue ramp: lapis / green / pumpkin / brick / stone / grass, repeating
+   every six columns. Node and merge glyphs share the column hue; pass and
+   gap cells keep the muted lane color from the plugin's own tokens. */
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+1),
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+1) { color: #38628f; }
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+2),
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+2) { color: #5a9e38; }
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+3),
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+3) { color: #b57e1e; }
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+4),
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+4) { color: #b6442e; }
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+5),
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+5) { color: #78896c; }
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n),
+body[data-dsh-minecraft] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n) { color: #83c94e; }
+
+/* Night variant: the same hue family, brightened to glow on the dark slab. */
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+1),
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+1) { color: #4a7db8; }
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+2),
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+2) { color: #83c94e; }
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+3),
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+3) { color: #d9a53c; }
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+4),
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+4) { color: #d45a5a; }
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+5),
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+5) { color: #a4b0a0; }
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n),
+body[data-dsh-minecraft][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n) { color: #aed08a; }
+
+/* Dialog frame: a floating stone slab with the same dark outline and pixel
+   bevel as the aionui confirm dialog. */
+body[data-dsh-minecraft] [data-gitgraph-dialog] {
+  border: 2px solid #0b0f14;
+  border-radius: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 16px 44px rgba(0, 0, 0, 0.55);
+}
+
+/* Ref badges (non-current): blocky stone chips with a light outline; the
+   current branch keeps the grass brand fill from the token remap. */
+body[data-dsh-minecraft] [data-gitgraph-ref]:not([data-gitgraph-ref-current]) {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0;
 }
 

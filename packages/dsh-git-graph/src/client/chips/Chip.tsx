@@ -26,6 +26,7 @@ export function Chip({ icon, label, ariaLabel, open, onClick }: ChipProps) {
   return (
     <button
       type="button"
+      data-gitgraph-chip
       className={cx(css.chip, open && css.chipOpen)}
       onClick={onClick}
       aria-label={ariaLabel}

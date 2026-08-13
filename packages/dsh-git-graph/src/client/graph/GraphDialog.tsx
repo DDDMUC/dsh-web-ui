@@ -94,7 +94,7 @@ export function GraphDialog({ graph, onClose, t }: GraphDialogProps) {
   return (
     <>
       <Backdrop onClose={onClose} />
-      <div className={css.dialog} role="dialog" aria-label={t('graph.title')}>
+      <div className={css.dialog} role="dialog" aria-label={t('graph.title')} data-gitgraph-dialog>
         <div className={css.dialogHeader}>
           <div className={css.dialogHeading}>
             <h3 className={css.dialogTitle}>{t('graph.title')}</h3>
@@ -126,10 +126,11 @@ export function GraphDialog({ graph, onClose, t }: GraphDialogProps) {
                   if (row === undefined) return null
                   return (
                     <div className={css.graphRow} key={commit.oid}>
-                      <span className={css.graphLanes} aria-hidden="true">
+                      <span className={css.graphLanes} aria-hidden="true" data-gitgraph-lanes>
                         {row.columns.map((glyph, column) => (
                           <span
                             key={column}
+                            data-gitgraph-glyph={glyph}
                             className={cx(
                               css.graphLaneCell,
                               glyph === 'node' && css.graphLaneNode,
@@ -149,6 +150,8 @@ export function GraphDialog({ graph, onClose, t }: GraphDialogProps) {
                             <span
                               key={ref}
                               title={ref}
+                              data-gitgraph-ref
+                              data-gitgraph-ref-current={ref === view.branch || undefined}
                               className={cx(css.graphRef, ref === view.branch && css.graphRefCurrent)}
                             >
                               {ref}

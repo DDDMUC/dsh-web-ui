@@ -276,6 +276,7 @@ body[data-dsh-xp] {
   --dsw-alias-state-success-primary: #3d9f43;
   --dsw-alias-state-success-secondary: #4baf4d;
   --dsw-alias-state-success-tertiary: #dff0e0;
+  --dsw-alias-state-warn-primary: #b07600;
   --dsw-alias-toast-bg: #0f2d5c;
   --dsw-specific-bubble-highlight: #dbe9fc;
   --dsw-specific-bubble: #eef3fb;
@@ -359,6 +360,7 @@ body[data-dsh-xp][data-ds-dark-theme] {
   --dsw-alias-state-success-primary: #2fbf71;
   --dsw-alias-state-success-secondary: #35b26d;
   --dsw-alias-state-success-tertiary: #1c3a2a;
+  --dsw-alias-state-warn-primary: #d69a3a;
   --dsw-alias-toast-bg: #2b2e33;
   --dsw-specific-bubble-highlight: #223042;
   --dsw-specific-bubble: #1b2027;
@@ -854,6 +856,7 @@ body[data-dsh-xp] {
   --aion-bg-1: #f6f4ec;
   --aion-bg-2: #ece9d8;
   --aion-bg-3: #b3ad95;
+  --aion-bg-4: #9db9e0;
   --aion-bg-hover: #dbe9fc;
   --aion-bg-active: #dbe9fc;
   --aion-text-primary: #000;
@@ -887,6 +890,7 @@ body[data-dsh-xp][data-ds-dark-theme] {
   --aion-bg-1: #17191d;
   --aion-bg-2: #202227;
   --aion-bg-3: #3a3d42;
+  --aion-bg-4: #4a4e55;
   --aion-bg-hover: #232a36;
   --aion-bg-active: #232a36;
   --aion-text-primary: #e8eaed;
@@ -1287,3 +1291,114 @@ body[data-dsh-xp] :global(.aionui-menu-item:disabled) {
     transition: none !important;
   }
 }
+
+/* --- git-graph 提交图适配（dsh-git-graph） -----------------------------------
+   The git graph dialog / branch popover / selector chip read the shell's
+   --dsw-alias-* remap, so their surfaces already wear the Luna cream / Zune
+   black. These rules add the skin's own color voice to the commit topology:
+   each lane column gets a hue from the XP palette (pass lines stay muted;
+   the current-branch badge keeps the brand fill), and the dialog frame
+   re-reads the navy XP window chrome. Hooks are the presentation-neutral
+   data-gitgraph-* attributes emitted by the dsh-git-graph bundle — no
+   hashed class names are involved. */
+
+/* Lane hue ramp: Luna blue / green / amber / red, repeating every six
+   columns. Node and merge glyphs share the column hue; pass and gap cells
+   keep the muted lane color from the plugin's own tokens. */
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+1),
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+1) { color: #316ac5; }
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+2),
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+2) { color: #3d9f43; }
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+3),
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+3) { color: #b07600; }
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+4),
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+4) { color: #e33e2b; }
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+5),
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+5) { color: #2558a8; }
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n),
+body[data-dsh-xp] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n) { color: #4f8fe0; }
+
+/* Zune night variant: the same hue family, lifted for the black media
+   center. */
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+1),
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+1) { color: #6da8e8; }
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+2),
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+2) { color: #2fbf71; }
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+3),
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+3) { color: #d69a3a; }
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+4),
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+4) { color: #ff5252; }
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n+5),
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n+5) { color: #4a7fd0; }
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='node']:nth-child(6n),
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph='merge']:nth-child(6n) { color: #4cc98a; }
+
+/* Dialog frame: an XP window with the navy frame and deep drop shadow (the
+   global radius reset already squares the corners). */
+body[data-dsh-xp] [data-gitgraph-dialog] {
+  border: 1px solid #0831d9;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-dialog] {
+  border-color: #000;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* Ref badges (non-current): classic cream chips with the brown border; the
+   current branch keeps the XP-blue brand fill from the token remap. */
+body[data-dsh-xp] [data-gitgraph-ref]:not([data-gitgraph-ref-current]) {
+
+/* --- 输入区选择器适配：工作区 + Git 分支胶囊（dsh-git-graph） -------------
+   The composer selector pills (official workspace picker + git-graph branch
+   chip) draw from --dsw-alias-button-tool-bar-fill / border-l2 /
+   label-secondary; the skin's global remap paints them with a translucent
+   Luna-blue fill that reads washed-out and loses its fill on hover. This
+   section re-scopes those tokens on the selector row (located structurally
+   through the git-graph chip hook data-gitgraph-chip) so both pills become
+   crisp Luna command pills: hairline fill, clear blue border, deep blue
+   labels, tinted hover/active and an open-state tint. Row-scoped values only
+   reach the two chips; the rest of the shell keeps the global remap. Light +
+   dark. */
+
+body[data-dsh-xp] div:has(> div > [data-gitgraph-chip]) {
+  --dsw-alias-button-tool-bar-fill: rgba(49, 106, 197, 0.08);
+  --dsw-alias-border-l2: rgba(49, 106, 197, 0.45);
+  --dsw-alias-label-secondary: #2558a8;
+  --dsw-alias-label-tertiary: #5d6b7e;
+  --dsw-alias-interactive-bg-hover: rgba(49, 106, 197, 0.12);
+  --dsw-alias-interactive-bg-active: rgba(49, 106, 197, 0.2);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] div:has(> div > [data-gitgraph-chip]) {
+  --dsw-alias-button-tool-bar-fill: rgba(255, 255, 255, 0.06);
+  --dsw-alias-border-l2: rgba(109, 168, 232, 0.45);
+  --dsw-alias-label-secondary: #9fc3ee;
+  --dsw-alias-label-tertiary: #9aa0a8;
+  --dsw-alias-interactive-bg-hover: rgba(109, 168, 232, 0.14);
+  --dsw-alias-interactive-bg-active: rgba(109, 168, 232, 0.22);
+}
+
+/* Open state: soft blue tint under the brand border (both chips toggle
+   aria-expanded). */
+body[data-dsh-xp] div:has(> div > [data-gitgraph-chip]) > button[aria-expanded='true'],
+body[data-dsh-xp] [data-gitgraph-chip][aria-expanded='true'] {
+  background-color: rgba(49, 106, 197, 0.14);
+}
+
+body[data-dsh-xp][data-ds-dark-theme] div:has(> div > [data-gitgraph-chip]) > button[aria-expanded='true'],
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-chip][aria-expanded='true'] {
+  background-color: rgba(109, 168, 232, 0.16);
+}
+
+  background: #ece9d8;
+  border: 1px solid #b3ad95;
+  color: #3d4a5c;
+}
+
+body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-ref]:not([data-gitgraph-ref-current]) {
+  background: #23262b;
+  border-color: #3a3d42;
+  color: #c8ccd2;
+}
+

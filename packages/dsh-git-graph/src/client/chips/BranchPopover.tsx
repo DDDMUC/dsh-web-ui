@@ -73,7 +73,7 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
   return (
     <>
       <Backdrop onClose={onClose} />
-      <div className={css.popover} role="listbox" aria-label={t('branch.search')}>
+      <div className={css.popover} role="listbox" aria-label={t('branch.search')} data-gitgraph-popover>
         <div className={css.searchBox}>
           <IconSearchOutline16 size={14} />
           <input
