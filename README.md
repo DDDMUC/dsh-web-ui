@@ -34,7 +34,7 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 - **预览**：多标签预览 markdown、HTML、代码、diff、CSV、PDF、Office、图片与文本等格式，支持源码 / 预览切换、分屏编辑与保存；
 - **变更（SCM）**：真实 git 变更面板，支持 stage / unstage / discard；
 - 面板宽度可拖拽调整，双击把手复位默认宽度，折叠状态与宽度按项目持久化；
-- 6 款皮肤全部适配右侧面板，换肤后面板随之融入主题。
+- 7 款皮肤全部适配右侧面板，换肤后面板随之融入主题。
 
 ![右侧面板](docs/screenshots/19-right-panel.png)
 
@@ -80,7 +80,7 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 ## 皮肤
 
-皮肤中心提供 6 款皮肤，均支持先试穿再应用：试穿即时生效、退出完全还原，确认满意后一键应用。
+皮肤中心提供 7 款皮肤，均支持先试穿再应用：试穿即时生效、退出完全还原，确认满意后一键应用。
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
@@ -101,6 +101,12 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 鲸鱼插画铺于半透明面板之下，靛蓝色调色板贯穿全局，暗色主题下效果尤为突出。
 
 ![Blue Fantasy 暗色](docs/screenshots/17-skin-blue-fantasy-dark.png)
+
+### 鲸吟（Whale Song）
+
+深海鲸语女神主题：无文字纯氛围背景画（蓝发女神与鲸群居左、冰蓝星座网格与金色细线点缀、右侧大量留白）垫在半透明面板之下，冰蓝 / 浅青 / 深海军蓝 / 钴蓝冷色体系贯穿全局，暗色变体为深海夜航调。
+
+![鲸吟 亮色](docs/screenshots/24-skin-whale-song-light.png) · ![鲸吟 暗色](docs/screenshots/25-skin-whale-song-dark.png)
 
 其余三款：QQ2008 怀旧版（水晶蓝配色与企鹅元素）、同花顺风格（行情元素融入界面）、龙的传人（朱砂龙印主题）。
 

@@ -49,4 +49,6 @@ export const SKIN_CENTER_ENTRIES: readonly SkinCenterEntry[] = [
 
   {"id":"minecraft","name":"Minecraft 方块世界","nameEn":"Minecraft Voxel","author":"dsh-web-ui","tagline":"动态全景天空盒 · 方块按钮 · 告示牌输入框","description":"复刻《我的世界》主界面氛围的方块皮肤：程序化绘制的像素全景天空盒（方块山、像素云、方块树、草方块地面）在身后缓慢旋转，界面浮在石板上；按钮还原 MC 菜单按钮（灰石板、悬停变黄、按下下沉），输入框做成带钉子的木告示牌。","tags":["minecraft","voxel","pixel","game","panorama","skybox"],"accent":"#7cbd4b","bodyAttr":"data-dsh-minecraft","package":"@deepseek-ai/dsh-client-ui-skin-minecraft","order":6},
 
+  {"id":"whale-song","name":"鲸吟","nameEn":"Whale Song","author":"dsh-web-ui","tagline":"深海鲸语女神背景 · 冰蓝海洋调色板 · 金色细线点缀","description":"《鲸吟》— 深海鲸语女神主题：无文字纯氛围背景画（蓝发女神与鲸群居左、冰蓝星座网格与金线点缀、右侧大量留白）垫在半透明面板之下，遮罩随亮/暗主题实时切换，冰蓝/浅青/深海军蓝/钴蓝冷色体系重映射到全部 dsh token，暗色变体为深海夜航调。","tags":["whale","ocean","ice-blue","goddess","art","translucent"],"accent":"#4d8fd4","bodyAttr":"data-dsh-whale-song","package":"@deepseek-ai/dsh-client-ui-skin-whale-song","order":7},
+
 ]

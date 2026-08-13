@@ -28,6 +28,7 @@
 | packages/skins/blue-fantasy | @deepseek-ai/dsh-client-ui-skin-blue-fantasy | 0.1.0 | true |
 | packages/skins/dragon-heir | @deepseek-ai/dsh-client-ui-skin-dragon-heir | 0.0.1 | true |
 | packages/skins/minecraft | @deepseek-ai/dsh-client-ui-skin-minecraft | 0.0.1 | true |
+| packages/skins/whale-song | @deepseek-ai/dsh-client-ui-skin-whale-song | 0.1.0 | true |
 | packages/skins/skin-center | @deepseek-ai/dsh-client-ui-skin-center | 0.1.0 | true |
 
 ## 二、发布前检查结论（2026-08-11，已修复项标注 [已确认]）
