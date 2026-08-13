@@ -8,6 +8,7 @@ patchFrom:
   - ../dsh-pet
   - ../dsh-remote-web-ui
   - ../dsh-live-stats
+  - ../dsh-ssh
   - ../dsh-web-ui-settings
   - ../dsh-skins
 deps:
@@ -17,5 +18,6 @@ deps:
   - ../dsh-pet
   - ../dsh-remote-web-ui
   - ../dsh-live-stats
+  - ../dsh-ssh
   - ../dsh-web-ui-settings
   - ../dsh-skins

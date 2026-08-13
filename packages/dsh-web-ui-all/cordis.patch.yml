@@ -32,6 +32,11 @@
     - id: live-stats
       name: '@deepseek-ai/dsh-live-stats'
 
+# from ../dsh-ssh
+- insert:
+    - id: ssh
+      name: '@deepseek-ai/dsh-ssh'
+
 # from ../dsh-web-ui-settings
 - insert:
     - id: ui-web-ui-settings

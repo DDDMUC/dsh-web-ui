@@ -11,7 +11,9 @@ allowBuilds:
   # The cloudflared postinstall downloads the platform binary (the auto-tunnel
   # feature ships its own tunnel client — users install nothing).
   cloudflared: true
+  cpu-features: true
   esbuild: true
+  ssh2: true
 
 minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-agent-default-model@0.0.1-rc.2 || 0.0.1-rc.5'
