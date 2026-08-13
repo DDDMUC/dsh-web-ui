@@ -30,12 +30,11 @@
 - 需要装饰性符号时，改用非 emoji 的普通字符（如 `×`、`-`、`*`），或直接去掉。
 - 新提交前先检查：`git diff` 或全局搜索 Unicode Emoji 范围字符。
 
-## 内测结束前禁止推送与 NPM 发布
+## git push 已放开，内测结束前禁止 NPM 发布
 
-**内测结束前一律不执行 `git push`**（无论是否被明确要求）。只允许本地 `git commit`；
-远程仓库 `dsh-external/dsh-web-ui` 的推送需等内测结束、用户明确解除该限制后再进行。
-若收到与推送相关的指令，先说明本规则再询问用户是否解除限制。
+**git push 已放开**（用户已解除内测期推送限制，内测未结束亦可推送）：可正常执行
+`git push` 到远程仓库 `dsh-external/dsh-web-ui`，推送前仍须核验目标仓库为 PRIVATE。
 
 **内测结束前 NPM 包不得公开**：本仓库任何包（`@deepseek-ai/dsh-*`）禁止 `npm publish`
-到公共 registry，禁止生成或分发对外可见的发布包/tarball。发布同样需等内测结束、
+到公共 registry，禁止生成或分发对外可见的发布包/tarball。发布需等内测结束、
 用户明确解除该限制后再进行。
