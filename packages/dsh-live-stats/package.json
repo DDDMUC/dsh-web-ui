@@ -1,8 +1,7 @@
 {
-  "name": "@deepseek-ai/dsh-live-stats",
+  "name": "@linxin666/dsh-live-stats",
   "version": "0.1.1",
   "description": "Live token estimates and generation throughput for DSH Web",
-  "private": true,
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",

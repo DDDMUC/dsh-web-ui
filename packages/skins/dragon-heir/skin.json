@@ -15,7 +15,7 @@
   ],
   "accent": "#c3272b",
   "bodyAttr": "data-dsh-dragon-heir",
-  "package": "@deepseek-ai/dsh-client-ui-skin-dragon-heir",
+  "package": "@linxin666/dsh-client-ui-skin-dragon-heir",
   "wiring": {
     "id": "ui-skin-dragon-heir",
     "bundleWired": false

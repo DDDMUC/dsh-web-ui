@@ -14,7 +14,7 @@
   ],
   "accent": "#2b7cd9",
   "bodyAttr": "data-dsh-retro",
-  "package": "@deepseek-ai/dsh-client-ui-skin-qq98",
+  "package": "@linxin666/dsh-client-ui-skin-qq98",
   "wiring": {
     "id": "ui-skin-qq98",
     "bundleWired": false

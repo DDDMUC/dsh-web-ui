@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 * so every route also rejects cross-site requests (Sec-Fetch-Site / Origin
 * fence) — a malicious webpage must not be able to switch the user's skin
 * through a localhost CSRF post.
-* @module @deepseek-ai/dsh-client-ui-skin-center/routes
+* @module @linxin666/dsh-client-ui-skin-center/routes
 */
 /** Browser-facing base path of the skin-center API. */
 const SKIN_CENTER_API_PREFIX = "/api/skin-center";

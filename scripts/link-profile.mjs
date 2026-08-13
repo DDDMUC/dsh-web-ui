@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Link every dsh-web-ui family plugin into the dsh profile's global
- * @deepseek-ai namespace (~/.dsh/profiles/node_modules/@deepseek-ai).
+ * @linxin666 namespace (~/.dsh/profiles/node_modules/@linxin666).
  *
  * The dsh loader resolves plugin rows (cordis.patch.yml `name:` entries) by
  * Node package resolution from the profile directory, which walks up through
@@ -21,7 +21,7 @@
  *   node scripts/link-profile.mjs            # link/refresh the family
  *   node scripts/link-profile.mjs --dry-run  # report without changing
  */
-import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSync } from 'node:fs'
 import { dirname, join, relative, resolve as resolvePath } from 'node:path'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -53,6 +53,9 @@ function report(msg) {
   console.log(`[link-profile] ${msg}`)
 }
 
+/** Family packages publish under this scope; everything else under packages/ is not ours to link. */
+const FAMILY_SCOPE = '@linxin666/'
+
 /** Every family package: packages/* and packages/skins/* that has a package.json with a name. */
 function familyPackages() {
   const found = []
@@ -67,22 +70,13 @@ function familyPackages() {
       if (!existsSync(pkgJson)) continue
       let name
       try { name = JSON.parse(readFileSync(pkgJson, 'utf8')).name } catch { continue }
-      if (name && name.startsWith('@deepseek-ai/')) {
-        found.push({ name: name.slice('@deepseek-ai/'.length), dir: join(root, entry) })
+      if (name && name.startsWith(FAMILY_SCOPE)) {
+        found.push({ name: name.slice(FAMILY_SCOPE.length), dir: join(root, entry) })
       }
     }
   }
   return found
 }
-
-/**
- * Packages owned by the official dsh bundle layer (the dsh base/web-app
- * bundles ship them and the loader link-layer sync pins them back to the
- * source checkout on every boot). Linking them here would fight the sync;
- * leave them to the official layer. dsh-client-ui-skin-xp is the default
- * skin bundled with @deepseek-ai/dsh-web-app.
- */
-const OFFICIAL_BUNDLE_PACKAGES = new Set(['dsh-client-ui-skin-xp'])
 
 function main() {
   const DRY = process.argv.includes('--dry-run')
@@ -93,15 +87,19 @@ function main() {
     process.exit(1)
   }
   const PROFILES_NM = join(HOME, '.dsh', 'profiles', 'node_modules')
-  const LINK_DIR = join(PROFILES_NM, '@deepseek-ai')
+  const LINK_DIR = join(PROFILES_NM, FAMILY_SCOPE)
 
-  const packages = familyPackages().filter((p) => !OFFICIAL_BUNDLE_PACKAGES.has(p.name))
-  report(`found ${familyPackages().length} family package(s) under packages/ (${packages.length} managed, ${familyPackages().length - packages.length} owned by official bundles)`)
+  const packages = familyPackages()
+  report(`found ${packages.length} family package(s) under packages/`)
   if (DRY) report('--dry-run: no changes will be made')
 
   if (!existsSync(LINK_DIR)) {
-    report(`link dir missing: ${LINK_DIR} (run inside a DSH host machine)`)
-    process.exit(1)
+    if (DRY) {
+      report(`would create link dir: ${LINK_DIR}`)
+      process.exit(0)
+    }
+    mkdirSync(LINK_DIR, { recursive: true })
+    report(`created link dir: ${LINK_DIR}`)
   }
 
   let changed = 0

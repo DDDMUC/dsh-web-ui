@@ -150,7 +150,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-pet          # Whale-girl 
 
 After installing, restart `dsh web` — a working plugin shows up in the sidebar. You can also confirm the mounted config layers with `dsh --profile web --dump-config`. If nothing appears in the sidebar, you most likely forgot to restart `dsh web`.
 
-Uninstall: `dsh plugin --profile web remove @deepseek-ai/dsh-web-ui-all`, then restart `dsh web`.
+Uninstall: `dsh plugin --profile web remove @linxin666/dsh-web-ui-all`, then restart `dsh web`.
 
 Technical details live in [docs/plugins.md](docs/plugins.md).
 

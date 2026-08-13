@@ -1,4 +1,4 @@
-# @deepseek-ai/dsh-client-ui-skin-minecraft
+# @linxin666/dsh-client-ui-skin-minecraft
 
 A voxel take on the dsh web GUI, styled after the Minecraft main menu: a
 procedurally drawn pixel-art panorama skybox (blocky hills, pixel clouds,
@@ -21,7 +21,7 @@ emitted, and nothing reaches a model request.
 
 ## Installing (official bundle)
 
-Prefer the family aggregate package `@deepseek-ai/dsh-skins` — every skin at once; for this skin alone, install with `link:`:
+Prefer the family aggregate package `@linxin666/dsh-skins` — every skin at once; for this skin alone, install with `link:`:
 
 ```sh
 # All skins (recommended)
@@ -48,7 +48,7 @@ pnpm test    # vitest: apply/dispose contract spec
 
 ```sh
 node scripts/skin-center-bundles    # re-embed this skin into skin-center's registry
-pnpm --filter @deepseek-ai/dsh-client-ui-skin-center build
+pnpm --filter @linxin666/dsh-client-ui-skin-center build
 node scripts/gallery-build          # refresh the gallery manifest/bundles
 node scripts/capture-previews       # re-shoot preview/light.png + preview/dark.png
 ```

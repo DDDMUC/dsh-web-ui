@@ -1,8 +1,7 @@
 {
-  "name": "@deepseek-ai/dsh-skins",
+  "name": "@linxin666/dsh-skins",
   "description": "皮肤全家桶聚合插件：装它 = 全部皮肤包（qq98 / ths / xp / blue-fantasy / dragon-heir）+ 皮肤中心（skin-center）一次到位；皮肤启用互斥由 dsh-skin use 管理（~/.dsh/cordis.patch.yml managed 区段），因此皮肤包只进 dependencies、不进 patchFrom。",
   "version": "0.1.1",
-  "private": true,
   "type": "module",
   "dsh": {
     "bundle": {
@@ -11,12 +10,12 @@
   },
   "license": "BSD-3-Clause",
   "dependencies": {
-    "@deepseek-ai/dsh-client-ui-skin-center": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-skin-qq98": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-skin-ths": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-skin-xp": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-skin-blue-fantasy": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-skin-dragon-heir": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-skin-minecraft": "workspace:*"
+    "@linxin666/dsh-client-ui-skin-center": "workspace:*",
+    "@linxin666/dsh-client-ui-skin-qq98": "workspace:*",
+    "@linxin666/dsh-client-ui-skin-ths": "workspace:*",
+    "@linxin666/dsh-client-ui-skin-xp": "workspace:*",
+    "@linxin666/dsh-client-ui-skin-blue-fantasy": "workspace:*",
+    "@linxin666/dsh-client-ui-skin-dragon-heir": "workspace:*",
+    "@linxin666/dsh-client-ui-skin-minecraft": "workspace:*"
   }
 }

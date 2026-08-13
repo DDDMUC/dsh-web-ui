@@ -1,4 +1,4 @@
-# @deepseek-ai/dsh-client-ui-skin-dragon-heir
+# @linxin666/dsh-client-ui-skin-dragon-heir
 
 龙的传人 (Dragon Heir) skin for the dsh web GUI — one skin, two paintings:
 light theme rides 不屈龙魂 (Unyielding Dragon Soul — an ink dragon, vermilion
@@ -19,7 +19,7 @@ emitted, and nothing reaches a model request.
 
 ## Installing (official bundle)
 
-推荐先装皮肤全家桶聚合包 `@deepseek-ai/dsh-skins` 一次到位；只装本皮肤时用下列 link 命令。
+推荐先装皮肤全家桶聚合包 `@linxin666/dsh-skins` 一次到位；只装本皮肤时用下列 link 命令。
 
 ```sh
 # 装全部皮肤（推荐）
@@ -50,7 +50,7 @@ pnpm test    # vitest: apply/dispose contract spec (dual-theme art swap)
 
 ```sh
 node scripts/skin-center-bundles    # re-embed this skin into skin-center's registry
-pnpm --filter @deepseek-ai/dsh-client-ui-skin-center build
+pnpm --filter @linxin666/dsh-client-ui-skin-center build
 node scripts/gallery-build          # refresh the gallery manifest/bundles
 node scripts/capture-previews       # re-shoot preview/light.png + preview/dark.png
 ```

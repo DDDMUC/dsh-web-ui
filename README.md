@@ -150,7 +150,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-pet          # 鲸鱼娘�
 
 安装成功后重启 `dsh web`，侧边栏出现对应入口即生效；也可用 `dsh --profile web --dump-config` 确认插件配置层已挂载。若侧边栏没有新入口，多半是安装后没有重启 `dsh web`。
 
-卸载：`dsh plugin --profile web remove @deepseek-ai/dsh-web-ui-all`，然后重启 `dsh web`。
+卸载：`dsh plugin --profile web remove @linxin666/dsh-web-ui-all`，然后重启 `dsh web`。
 
 技术细节见 [docs/plugins.md](docs/plugins.md)。
 

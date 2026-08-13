@@ -416,25 +416,25 @@ importers:
 
   packages/dsh-skins:
     dependencies:
-      '@deepseek-ai/dsh-client-ui-skin-blue-fantasy':
+      '@linxin666/dsh-client-ui-skin-blue-fantasy':
         specifier: workspace:*
         version: link:../skins/blue-fantasy
-      '@deepseek-ai/dsh-client-ui-skin-center':
+      '@linxin666/dsh-client-ui-skin-center':
         specifier: workspace:*
         version: link:../skins/skin-center
-      '@deepseek-ai/dsh-client-ui-skin-dragon-heir':
+      '@linxin666/dsh-client-ui-skin-dragon-heir':
         specifier: workspace:*
         version: link:../skins/dragon-heir
-      '@deepseek-ai/dsh-client-ui-skin-minecraft':
+      '@linxin666/dsh-client-ui-skin-minecraft':
         specifier: workspace:*
         version: link:../skins/minecraft
-      '@deepseek-ai/dsh-client-ui-skin-qq98':
+      '@linxin666/dsh-client-ui-skin-qq98':
         specifier: workspace:*
         version: link:../skins/qq98
-      '@deepseek-ai/dsh-client-ui-skin-ths':
+      '@linxin666/dsh-client-ui-skin-ths':
         specifier: workspace:*
         version: link:../skins/ths
-      '@deepseek-ai/dsh-client-ui-skin-xp':
+      '@linxin666/dsh-client-ui-skin-xp':
         specifier: workspace:*
         version: link:../skins/xp
 
@@ -589,31 +589,31 @@ importers:
 
   packages/dsh-web-ui-all:
     dependencies:
-      '@deepseek-ai/dsh-client-ui-aionui-panel':
+      '@linxin666/dsh-client-ui-aionui-panel':
         specifier: workspace:*
         version: link:../dsh-aionui-panel
-      '@deepseek-ai/dsh-client-ui-git-graph':
+      '@linxin666/dsh-client-ui-git-graph':
         specifier: workspace:*
         version: link:../dsh-git-graph
-      '@deepseek-ai/dsh-client-ui-task-board':
+      '@linxin666/dsh-client-ui-task-board':
         specifier: workspace:*
         version: link:../dsh-task-board
-      '@deepseek-ai/dsh-client-ui-web-ui-settings':
+      '@linxin666/dsh-client-ui-web-ui-settings':
         specifier: workspace:*
         version: link:../dsh-web-ui-settings
-      '@deepseek-ai/dsh-live-stats':
+      '@linxin666/dsh-live-stats':
         specifier: workspace:*
         version: link:../dsh-live-stats
-      '@deepseek-ai/dsh-pet':
+      '@linxin666/dsh-pet':
         specifier: workspace:*
         version: link:../dsh-pet
-      '@deepseek-ai/dsh-remote-web-ui':
+      '@linxin666/dsh-remote-web-ui':
         specifier: workspace:*
         version: link:../dsh-remote-web-ui
-      '@deepseek-ai/dsh-skins':
+      '@linxin666/dsh-skins':
         specifier: workspace:*
         version: link:../dsh-skins
-      '@deepseek-ai/dsh-ssh':
+      '@linxin666/dsh-ssh':
         specifier: workspace:*
         version: link:../dsh-ssh
 

@@ -18,7 +18,7 @@ window.SKIN_MANIFEST = {
       ],
       "accent": "#2b7cd9",
       "bodyAttr": "data-dsh-retro",
-      "package": "@deepseek-ai/dsh-client-ui-skin-qq98",
+      "package": "@linxin666/dsh-client-ui-skin-qq98",
       "wiring": {
         "id": "ui-skin-qq98",
         "bundleWired": false
@@ -44,7 +44,7 @@ window.SKIN_MANIFEST = {
       ],
       "accent": "#e60012",
       "bodyAttr": "data-dsh-ths",
-      "package": "@deepseek-ai/dsh-client-ui-skin-ths",
+      "package": "@linxin666/dsh-client-ui-skin-ths",
       "wiring": {
         "id": "ui-skin-ths",
         "bundleWired": false
@@ -71,7 +71,7 @@ window.SKIN_MANIFEST = {
       ],
       "accent": "#316ac5",
       "bodyAttr": "data-dsh-xp",
-      "package": "@deepseek-ai/dsh-client-ui-skin-xp",
+      "package": "@linxin666/dsh-client-ui-skin-xp",
       "wiring": {
         "id": "ui-skin-xp",
         "bundleWired": true
@@ -98,7 +98,7 @@ window.SKIN_MANIFEST = {
       ],
       "accent": "#4a5fa8",
       "bodyAttr": "data-dsh-blue-fantasy",
-      "package": "@deepseek-ai/dsh-client-ui-skin-blue-fantasy",
+      "package": "@linxin666/dsh-client-ui-skin-blue-fantasy",
       "wiring": {
         "id": "ui-skin-blue-fantasy",
         "bundleWired": false
@@ -126,7 +126,7 @@ window.SKIN_MANIFEST = {
       ],
       "accent": "#c3272b",
       "bodyAttr": "data-dsh-dragon-heir",
-      "package": "@deepseek-ai/dsh-client-ui-skin-dragon-heir",
+      "package": "@linxin666/dsh-client-ui-skin-dragon-heir",
       "wiring": {
         "id": "ui-skin-dragon-heir",
         "bundleWired": false
@@ -154,7 +154,7 @@ window.SKIN_MANIFEST = {
       ],
       "accent": "#7cbd4b",
       "bodyAttr": "data-dsh-minecraft",
-      "package": "@deepseek-ai/dsh-client-ui-skin-minecraft",
+      "package": "@linxin666/dsh-client-ui-skin-minecraft",
       "wiring": {
         "id": "ui-skin-minecraft",
         "bundleWired": false
@@ -182,7 +182,7 @@ window.SKIN_MANIFEST = {
       ],
       "accent": "#4d8fd4",
       "bodyAttr": "data-dsh-whale-song",
-      "package": "@deepseek-ai/dsh-client-ui-skin-whale-song",
+      "package": "@linxin666/dsh-client-ui-skin-whale-song",
       "wiring": {
         "id": "ui-skin-whale-song",
         "bundleWired": false

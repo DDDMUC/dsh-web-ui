@@ -72,7 +72,7 @@ sun/moon toggle in every header flips to the dark palette at any time.
 
 ## Install
 
-Install the family aggregate package `@deepseek-ai/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
+Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
 
 ```sh
 # Now (not yet published to npm): install from the dsh-web-ui monorepo
@@ -251,9 +251,9 @@ Work from this repository (no sibling checkout needed):
 cd ~/code/dsh-web-ui
 export NPM_TOKEN='<token>'   # only if private @deepseek-ai auth is still required
 pnpm install
-pnpm --filter @deepseek-ai/dsh-remote-web-ui run build
-pnpm --filter @deepseek-ai/dsh-remote-web-ui test
-pnpm --filter @deepseek-ai/dsh-remote-web-ui run typecheck
+pnpm --filter @linxin666/dsh-remote-web-ui run build
+pnpm --filter @linxin666/dsh-remote-web-ui test
+pnpm --filter @linxin666/dsh-remote-web-ui run typecheck
 ```
 
 The peer APIs come from the official NPM SDK: every `@deepseek-ai/*` package

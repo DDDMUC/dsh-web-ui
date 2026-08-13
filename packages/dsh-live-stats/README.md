@@ -1,4 +1,4 @@
-# @deepseek-ai/dsh-live-stats
+# @linxin666/dsh-live-stats
 
 English | [中文](README.zh.md)
 
@@ -17,7 +17,7 @@ Live input/output token estimates and generation throughput for DSH Web. It feed
 
 ## Installation
 
-Install the family aggregate package `@deepseek-ai/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
+Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
 
 ```sh
 # Now (not yet published to npm): install from the dsh-web-ui monorepo
@@ -35,7 +35,7 @@ Alternatively, as a plain overlay row in the personal DSH overlay (`~/.dsh/confi
 ```yaml
 - insert:
     - id: live-stats
-      name: '@deepseek-ai/dsh-live-stats'
+      name: '@linxin666/dsh-live-stats'
       config:
         charsPerToken: 4
         blockOverhead: 4
