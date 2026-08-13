@@ -37,7 +37,7 @@ function makeHarness(overrides: Partial<SchedulerDeps> = {}): Harness {
   const scheduler = new SchedulerService({
     tasks: () => tasks,
     now: () => now,
-    runTask: async id => { runs.push(id) },
+    runTask: async id => { runs.push(id); return true },
     applySchedule: (id, nextRunAt, lastTriggeredAt) => {
       applied.push({ id, nextRunAt, lastTriggeredAt })
       // Keep the in-memory task list consistent with what a controller would
@@ -58,91 +58,107 @@ function makeHarness(overrides: Partial<SchedulerDeps> = {}): Harness {
 }
 
 describe('SchedulerService.tick', () => {
-  it('triggers a due task and rolls its schedule forward to the next cron match', () => {
+  it('triggers a due task and rolls its schedule forward to the next cron match', async () => {
     const h = makeHarness()
     // Due at 10:00:00; tick runs at 10:00:30.
     h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0))])
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual(['t-a'])
     expect(h.applied).toHaveLength(1)
     expect(h.applied[0].nextRunAt).toBe(at(2026, 1, 1, 10, 1, 0))
     expect(h.applied[0].lastTriggeredAt).toBe(at(2026, 1, 1, 10, 0, 30))
   })
 
-  it('rolls */5 schedules to the next 5-minute boundary', () => {
+  it('keeps the due slot when the run is rejected and retries on the next tick', async () => {
+    let accept = false
+    const h = makeHarness({ runTask: async id => { h.runs.push(id); return accept } })
+    h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0))])
+    await h.scheduler.tick()
+    // Rejected: the run was attempted but the schedule did not advance.
+    expect(h.runs).toEqual(['t-a'])
+    expect(h.applied).toEqual([])
+    // Still due, so the next tick retries and now applies the roll-forward.
+    accept = true
+    await h.scheduler.tick()
+    expect(h.runs).toEqual(['t-a', 't-a'])
+    expect(h.applied).toHaveLength(1)
+    expect(h.applied[0].nextRunAt).toBe(at(2026, 1, 1, 10, 1, 0))
+  })
+
+  it('rolls */5 schedules to the next 5-minute boundary', async () => {
     const h = makeHarness()
     h.setNow(at(2026, 1, 1, 10, 3, 0))
     h.setTasks([scheduledTask('a', '*/5 * * * *', at(2026, 1, 1, 10, 0, 0))])
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual(['t-a'])
     expect(h.applied[0].nextRunAt).toBe(at(2026, 1, 1, 10, 5, 0))
   })
 
-  it('does not trigger before the due instant', () => {
+  it('does not trigger before the due instant', async () => {
     const h = makeHarness()
     h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 1, 0))])
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual([])
     expect(h.applied).toEqual([])
   })
 
-  it('ignores disabled rules and tasks without a schedule', () => {
+  it('ignores disabled rules and tasks without a schedule', async () => {
     const h = makeHarness()
     h.setTasks([
       scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0), false),
       createTask({ title: 'b', description: '', prompt: '' }, at(2026, 1, 1, 0, 0), 't-b'),
     ])
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual([])
     expect(h.applied).toEqual([])
   })
 
-  it('recomputes a missing next-run instant instead of firing immediately', () => {
+  it('recomputes a missing next-run instant instead of firing immediately', async () => {
     const h = makeHarness()
     // Enabled but nextRunAt lost (repaired/legacy data): recompute + wait.
     h.setTasks([scheduledTask('a', '*/5 * * * *', undefined)])
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual([])
     expect(h.applied).toEqual([{ id: 't-a', nextRunAt: at(2026, 1, 1, 10, 5, 0), lastTriggeredAt: undefined }])
     // The repaired rule is now armed for the future.
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.applied).toHaveLength(1)
   })
 
-  it('skips rules whose cron cannot be recomputed', () => {
+  it('skips rules whose cron cannot be recomputed', async () => {
     const h = makeHarness()
     h.setTasks([scheduledTask('a', 'not a cron', undefined)])
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual([])
     expect(h.applied).toEqual([])
   })
 
-  it('does not double-fire within consecutive ticks (schedule rolled forward)', () => {
+  it('does not double-fire within consecutive ticks (schedule rolled forward)', async () => {
     const h = makeHarness()
     h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0))])
-    h.scheduler.tick()
-    h.scheduler.tick()
+    await h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual(['t-a'])
     expect(h.applied).toHaveLength(1)
   })
 
-  it('no-ops while the ready gate is closed, then fires once it opens', () => {
+  it('no-ops while the ready gate is closed, then fires once it opens', async () => {
     const h = makeHarness()
     h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0))])
     h.setReady(false)
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual([])
     expect(h.applied).toEqual([])
     h.setReady(true)
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual(['t-a'])
   })
 
-  it('stops triggering after dispose', () => {
+  it('stops triggering after dispose', async () => {
     const h = makeHarness()
     h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0))])
     h.scheduler.dispose()
-    h.scheduler.tick()
+    await h.scheduler.tick()
     expect(h.runs).toEqual([])
   })
 })

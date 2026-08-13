@@ -212,6 +212,9 @@ function exactStep(step: ActiveStep, usage: TokenUsage, time: number): ActiveSte
     ...step,
     buckets: bucketsFrom(usage),
     exact: true,
+    // The exact usage supersedes every block priced from streamed deltas;
+    // retain only the exact buckets so later deltas cannot re-estimate.
+    blocks: [],
     ...(usage.outputTokens > 0
       ? { firstOutputTime: step.firstOutputTime ?? time, latestOutputTime: time }
       : {}),
@@ -297,7 +300,7 @@ export function createLiveTokenUsageProjectionDefinition(
         const { chunk } = event.data
         if (chunk.type === 'usage') {
           next = { ...next, active: exactStep(next.active, chunk.usage, event.time) }
-        } else {
+        } else if (!next.active.exact) {
           const blocks = applyOutputChunk(next.active.blocks, chunk, spec)
           if (blocks !== next.active.blocks) {
             const tokens = outputTokens(blocks, spec)

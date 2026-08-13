@@ -21,8 +21,10 @@ export interface SchedulerDeps {
   tasks(): readonly TaskRecord[]
   /** Clock; defaults to Date.now in the controller wiring. */
   now(): number
-  /** Trigger one task's real execution (the controller's runTask). */
-  runTask(id: string): Promise<void>
+  /** Trigger one task's real execution (the controller's runTask); resolves
+   *  true when the run was accepted, false when rejected (e.g. the task is
+   *  already running). */
+  runTask(id: string): Promise<boolean>
   /** Persist a rolled-forward schedule (next due + this trigger instant). */
   applySchedule(id: string, nextRunAt: number | undefined, lastTriggeredAt: number | undefined): void
   /** Tick cadence; defaults to 60_000 ms. */
@@ -70,9 +72,11 @@ export class SchedulerService {
 
   /**
    * Check every enabled schedule and trigger the due ones. Idempotent per
-   * task per tick: the schedule is rolled forward before `runTask` is called.
+   * task per tick: the schedule is rolled forward only after runTask accepts
+   * the run, so a rejected run keeps its due slot and is retried on the next
+   * tick instead of being silently dropped.
    */
-  tick(): void {
+  async tick(): Promise<void> {
     if (this.disposed) return
     if (this.deps.ready !== undefined && !this.deps.ready()) return
     const now = this.deps.now()
@@ -88,12 +92,11 @@ export class SchedulerService {
         continue
       }
       if (schedule.nextRunAt > now) continue
-      // Roll forward first, then trigger: a run already in progress is
-      // ignored by the controller (missed this round — the next cron match is
-      // now armed), and a settled task starts its next run immediately.
-      const next = nextRunAtMs(schedule.cron, now)
-      this.deps.applySchedule(task.id, next, now)
-      void this.deps.runTask(task.id)
+      // Advance from the due instant (not this tick's wall-clock) and only
+      // after the run is accepted: a rejected run keeps its due slot.
+      const next = nextRunAtMs(schedule.cron, schedule.nextRunAt)
+      const accepted = await this.deps.runTask(task.id)
+      if (accepted) this.deps.applySchedule(task.id, next, now)
     }
   }
 

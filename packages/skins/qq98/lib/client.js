@@ -77,6 +77,7 @@ window.__ModuleLoader__.load({
 			body.dataset.dshRetro = "";
 			const titlebar = document.createElement("div");
 			titlebar.className = cls("retroTitlebar");
+			titlebar.dataset.skinChrome = "titlebar";
 			const icon = document.createElement("span");
 			icon.className = cls("retroTitlebarIcon");
 			icon.innerHTML = PENGUIN_SVG;
@@ -93,6 +94,7 @@ window.__ModuleLoader__.load({
 			}
 			const statusbar = document.createElement("div");
 			statusbar.className = cls("retroStatusbar");
+			statusbar.dataset.skinChrome = "statusbar";
 			const spacer = document.createElement("span");
 			spacer.className = cls("retroStatusbarSpacer");
 			statusbar.append(spacer);

@@ -104,6 +104,28 @@ describe('liveTokenUsage projection', () => {
     expect(projected(ctx, session).tokensPerSecond).toBe(15)
   })
 
+  it('keeps a usage-exact output exact against later output deltas', async () => {
+    const { ctx, session } = await harness()
+    session.append('step/start', { turn: 1, step: 1 })
+    session.append('assistant/chunk', {
+      turn: 1,
+      step: 1,
+      chunk: { type: 'text-delta', index: 0, text: 'abcd' },
+    })
+    expect(projected(ctx, session)).toMatchObject({ estimated: true })
+
+    usageChunk(session, { inputTokens: 5, outputTokens: 30 })
+    expect(projected(ctx, session)).toMatchObject({ outputTokens: 30, estimated: false })
+
+    // A trailing output delta after the exact usage must not re-estimate it.
+    session.append('assistant/chunk', {
+      turn: 1,
+      step: 1,
+      chunk: { type: 'text-delta', index: 0, text: 'extra' },
+    })
+    expect(projected(ctx, session)).toMatchObject({ outputTokens: 30, estimated: false })
+  })
+
   it('keeps the last measured rate resident across rate-less steps', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(1_000)

@@ -35,12 +35,24 @@ const POLL_INTERVAL_MS = 2_000
 /** SSE keep-alive comment interval (proxies drop idle connections). */
 const HEARTBEAT_INTERVAL_MS = 15_000
 
+/** Request body size cap; larger bodies are destroyed rather than drained. */
+const BODY_CAP_BYTES = 1 << 20
+
 /** Read a JSON request body into an unknown value; null when unparseable. */
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
+  let total = 0
   for await (const chunk of req) {
-    chunks.push(chunk as Buffer)
-    if (chunks.reduce((sum, part) => sum + part.length, 0) > 1 << 20) return null
+    const part = chunk as Buffer
+    total += part.length
+    if (total > BODY_CAP_BYTES) {
+      // Stop reading (no drain) and tear the connection down; the oversized
+      // body is never parsed.
+      req.destroy()
+      chunks.length = 0
+      return null
+    }
+    chunks.push(part)
   }
   const text = Buffer.concat(chunks).toString('utf8')
   if (text === '') return null
@@ -96,6 +108,16 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (req.method !== 'POST') {
       res.writeHead(405)
+      res.end()
+      return
+    }
+    // CSRF hardening: the /git mutations (switch/create-branch) act on the
+    // real repository with no origin/referer check, so require a JSON
+    // content-type — cross-site forms cannot set application/json without a
+    // CORS preflight, which the same-origin client always sends.
+    const contentType = req.headers['content-type'] ?? ''
+    if (!contentType.toLowerCase().startsWith('application/json')) {
+      res.writeHead(415)
       res.end()
       return
     }

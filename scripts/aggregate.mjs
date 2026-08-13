@@ -254,6 +254,16 @@ for (const { pkgDir, ymlPath } of aggregates) {
 }
 
 let failed = false
+if (errors.length) {
+  for (const e of errors) console.error(`[aggregate] ERROR ${e}`)
+  failed = true
+}
+
+if (failed) {
+  console.error(CHECK ? '[aggregate] check FAILED: generated content differs from disk' : '[aggregate] FAILED: see errors above; no files written')
+  process.exit(1)
+}
+
 for (const r of results) {
   const patchPath = join(REPO_ROOT, r.rel, 'cordis.patch.yml')
   const pkgPath = join(REPO_ROOT, r.rel, 'package.json')
@@ -277,13 +287,8 @@ for (const r of results) {
   }
 }
 
-if (errors.length) {
-  for (const e of errors) console.error(`[aggregate] ERROR ${e}`)
-  failed = true
-}
-
 if (failed) {
-  console.error(CHECK ? '[aggregate] check FAILED: generated content differs from disk' : '[aggregate] FAILED: see errors above; no (further) writes attempted for affected packages')
+  console.error('[aggregate] check FAILED: generated content differs from disk')
   process.exit(1)
 }
-console.log(CHECK ? '[aggregate] check OK: everything in sync' : '[aggregate] done')
+console.log('[aggregate] done')

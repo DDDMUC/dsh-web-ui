@@ -149,6 +149,33 @@ describe('ExecutionService.run', () => {
     expect(events.at(-1)?.outcome).toBe('failed')
   })
 
+  it('settles a turn that completes while the prompt round-trip is in flight', async () => {
+    // A driver whose prompt() advances the turn to completion before it
+    // resolves: the watch must catch it without a later subscription change.
+    const connected = new FakeDriver()
+    const env: ExecutionEnvironment = {
+      sessions: {
+        list: { getSnapshot: () => ({ phase: 'ready', byId: {} }), subscribe: () => () => {} },
+        binding: () => ({ session: connected }),
+      },
+      workspaces: {
+        list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-1' }], recentWorkspaceId: undefined }) },
+        connectWorkspace: async () => 's-1',
+      },
+    }
+    connected.prompt = async () => {
+      connected.setSnapshot({ running: false, turns: 1 })
+      return { ok: true }
+    }
+    const service = new ExecutionService(env)
+    const task = sampleTask()
+    const { execution } = startExecution(task, NOW, 'exec-1')
+    const events: Array<{ kind: string; outcome?: string }> = []
+    await service.run(task, execution, event => { events.push(event) })
+    expect(events.map(e => e.kind)).toEqual(['started', 'settled'])
+    expect(events[1]).toMatchObject({ kind: 'settled', outcome: 'succeeded' })
+  })
+
   it('settles failed when no workspace is available', async () => {
     const { env } = makeEnv({ items: [], recentWorkspaceId: undefined })
     const service = new ExecutionService(env)

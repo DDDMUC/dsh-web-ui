@@ -428,6 +428,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-skin-dragon-heir':
         specifier: workspace:*
         version: link:../skins/dragon-heir
+      '@deepseek-ai/dsh-client-ui-skin-minecraft':
+        specifier: workspace:*
+        version: link:../skins/minecraft
       '@deepseek-ai/dsh-client-ui-skin-qq98':
         specifier: workspace:*
         version: link:../skins/qq98

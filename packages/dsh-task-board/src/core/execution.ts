@@ -116,6 +116,10 @@ export class ExecutionService {
       }
       // Best-effort rename so the execution is recognizable in the session list.
       await driver.rename(task.title).catch(() => { /* rename is cosmetic */ })
+      // Baseline the turn counter BEFORE the prompt round-trip: a turn that
+      // completes while prompt is in flight must still advance past this
+      // baseline, or the watch below would never observe it settle.
+      const baseline = driver.getSnapshot().turnEnds.size
       const accepted = await this.sendPrompt(driver, task)
       if (!accepted.ok) {
         onEvent({
@@ -124,7 +128,7 @@ export class ExecutionService {
         })
         return
       }
-      this.watchForSettlement(driver, task.id, execution.id, onEvent)
+      this.watchForSettlement(driver, task.id, execution.id, onEvent, baseline)
     } catch (error) {
       onEvent({
         kind: 'settled', taskId: task.id, executionId: execution.id, outcome: 'failed',
@@ -231,10 +235,11 @@ export class ExecutionService {
     taskId: string,
     executionId: string,
     onEvent: (event: ExecutionEvent) => void,
+    baseline: number,
   ): void {
-    const baseline = driver.getSnapshot().turnEnds.size
     let settled = false
-    const unsubscribe = driver.subscribe(() => {
+    let unsubscribe: () => void = () => {}
+    const check = (): void => {
       if (settled) return
       const snapshot = driver.getSnapshot()
       if (snapshot.running || snapshot.turnEnds.size <= baseline) return
@@ -245,6 +250,10 @@ export class ExecutionService {
         outcome: snapshot.lastAgentError !== null ? 'failed' : 'succeeded',
         error: snapshot.lastAgentError ?? undefined,
       })
-    })
+    }
+    unsubscribe = driver.subscribe(check)
+    // A turn can complete during the prompt round-trip (before subscribe):
+    // re-check immediately so a fast turn is never missed.
+    check()
   }
 }

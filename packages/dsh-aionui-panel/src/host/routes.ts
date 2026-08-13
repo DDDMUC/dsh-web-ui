@@ -34,9 +34,12 @@ const HEARTBEAT_MS = 15_000
 /** Read a JSON request body into an unknown value; null when unparseable. */
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
+  let total = 0
   for await (const chunk of req) {
-    chunks.push(chunk as Buffer)
-    if (chunks.reduce((sum, part) => sum + part.length, 0) > 1 << 20) return null
+    const buffer = chunk as Buffer
+    chunks.push(buffer)
+    total += buffer.length
+    if (total > 1 << 20) return null
   }
   const text = Buffer.concat(chunks).toString('utf8')
   if (text === '') return null
@@ -52,6 +55,13 @@ function strField(payload: unknown, key: string): string | null {
   if (typeof payload !== 'object' || payload === null) return null
   const value = (payload as Record<string, unknown>)[key]
   return typeof value === 'string' && value !== '' ? value : null
+}
+
+/** Extract a string field, accepting the empty string as a value. */
+function strOrEmpty(payload: unknown, key: string): string | null {
+  if (typeof payload !== 'object' || payload === null) return null
+  const value = (payload as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value : null
 }
 
 /** Extract a string array field (defaults to []). */
@@ -155,6 +165,14 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
       res.end()
       return
     }
+    // Require an explicit JSON content-type: cross-site simple requests (no
+    // preflight) cannot set application/json, so this blocks form-based CSRF
+    // from driving the fs/git routes.
+    const contentType = req.headers['content-type'] ?? ''
+    if (!contentType.toLowerCase().startsWith('application/json')) {
+      json(res, FAIL(BAD_REQUEST), 415)
+      return
+    }
     const pathname = new URL(req.url ?? '/', 'http://x').pathname
     const payload = await readJsonBody(req)
     if (payload === null) {
@@ -188,7 +206,7 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
       }
       case '/aionui-panel/write': {
         const path = strField(payload, 'path')
-        const content = strField(payload, 'content')
+        const content = strOrEmpty(payload, 'content')
         if (path === null || content === null) {
           json(res, FAIL(BAD_REQUEST))
           return

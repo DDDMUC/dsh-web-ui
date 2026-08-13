@@ -8,7 +8,7 @@
  * Copy rides the standard `t` seat; the theme preview control drives the
  * official theme service (persisted, same as the Appearance row).
  */
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { SKIN_CENTER_ENTRIES, type SkinCenterEntry } from './generated/skins.ts'
@@ -41,8 +41,7 @@ const OFFICIAL = 'official'
  */
 export function SkinCenter({ t, controller, theme }: SkinCenterComponentProps) {
   const snapshot = useSyncExternalStore(theme.subscribe, theme.getTheme)
-  // The active skin only changes across a config reload + refresh.
-  const activePackage = useMemo(() => activeSkinEntry()?.package, [])
+  const activePackage = activeSkinEntry()?.package
   const [open, setOpen] = useState(false)
   const [tryingId, setTryingId] = useState<string | null>(null)
   const [tryingOfficial, setTryingOfficial] = useState(false)

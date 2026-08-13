@@ -162,6 +162,10 @@ export class GitService {
     if (!gated.ok) return { ok: false, error: WORKSPACE_UNKNOWN }
     const root = await this.repoRoot(gated.canonical)
     if (root === null) return { ok: false, error: { code: 'internal', message: 'not a git repository' } }
+    const formatted = await this.runner.run(checkRefFormatArgv(branch), root)
+    if (formatted.exitCode !== 0) {
+      return { ok: false, error: { code: 'invalid-branch-name', message: formatted.stderr.trim() || 'invalid branch name' } }
+    }
     const verified = await this.runner.run(verifyRefArgv(branch), root)
     if (verified.exitCode !== 0) {
       return { ok: false, error: { code: 'target-branch-not-found', message: `branch "${branch}" does not exist locally` } }

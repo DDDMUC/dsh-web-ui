@@ -20,6 +20,10 @@ export interface CronSchedule {
   months: ReadonlySet<number>
   /** Weekdays 0-6, 0 = Sunday (input 7 normalized to 0). */
   weekdays: ReadonlySet<number>
+  /** Whether the day-of-month field was the literal '*' (unrestricted). */
+  dayWildcard: boolean
+  /** Whether the weekday field was the literal '*' (unrestricted). */
+  weekdayWildcard: boolean
 }
 
 /** Inclusive ranges per field, in cron order. */
@@ -53,6 +57,11 @@ export function parseCron(expr: string): CronSchedule | null {
     days: sets[2],
     months: sets[3],
     weekdays,
+    // Only the literal '*' marks a field unrestricted: an explicit full
+    // enumeration such as '1-31' is a restricted field and must not collapse
+    // into the wildcard (it participates in day/weekday OR semantics).
+    dayWildcard: fields[2] === '*',
+    weekdayWildcard: fields[4] === '*',
   }
 }
 
@@ -121,10 +130,8 @@ function matches(schedule: CronSchedule, date: Date): boolean {
   if (!schedule.months.has(date.getMonth() + 1)) return false
   const dayMatches = schedule.days.has(date.getDate())
   const weekdayMatches = schedule.weekdays.has(date.getDay())
-  const dayAny = schedule.days.size === 31
-  const weekdayAny = schedule.weekdays.size === 7
-  if (dayAny) return weekdayMatches
-  if (weekdayAny) return dayMatches
+  if (schedule.dayWildcard) return weekdayMatches
+  if (schedule.weekdayWildcard) return dayMatches
   return dayMatches || weekdayMatches
 }
 

@@ -14,12 +14,13 @@
  * ACTIVE skin is owned by its own cordis fiber (its disposer is not
  * reachable), so try-on retracts the active skin's visual writes by recipe:
  * remove its body attribute (its stylesheet goes inert), clear the
- * body-level backdrop inline styles (blue-fantasy's whale art), detach the
- * skin chrome body children (title/status bars — verified: at rest the only
- * direct body children are #root and skin chrome), and neutralize known
- * global-rule leaks (xp's sidebar taskbar/start). Everything is snapshotted
- * and restored on exit. The active skin's own fiber is never touched, so
- * exiting try-on returns the page to exactly the pre-try-on state.
+ * body-level backdrop inline styles (blue-fantasy's whale art), detach only
+ * known skin chrome body children (title/status bars marked `data-skin-chrome`
+ * or carrying the skin's body attribute, leaving other plugins' portals and
+ * toasts in place), and neutralize known global-rule leaks (xp's sidebar
+ * taskbar/start). Everything is snapshotted and restored on exit in original
+ * order. The active skin's own fiber is never touched, so exiting try-on
+ * returns the page to exactly the pre-try-on state.
  *
  * A ghost MutationObserver may survive retraction (blue-fantasy re-writes
  * its backdrop on theme flips), so during try-on a neutralizing observer
@@ -74,6 +75,17 @@ export function activeSkinEntry(): SkinCenterEntry | undefined {
   return SKIN_CENTER_ENTRIES.find(entry => ids.has(entry.package))
 }
 
+/**
+ * Whether a direct body child is skin chrome owned by `skin`: marked with the
+ * `data-skin-chrome` marker (minecraft/dragon-heir) or carrying the skin's
+ * scoping body attribute. Everything else — other plugins' portals, toasts and
+ * overlays appended to body — is left alone.
+ */
+function isSkinChrome(el: Element, skin: SkinCenterEntry | null): boolean {
+  if (el.hasAttribute('data-skin-chrome')) return true
+  return skin !== null && el.hasAttribute(skin.bodyAttr)
+}
+
 /** Minimal ctx the skins' apply() needs: cordis effect lifecycle only. */
 interface MiniCtx {
   effect(callback: () => () => void, label?: string): () => void
@@ -110,8 +122,8 @@ interface ActiveVisuals {
   bodyAttr: string | null
   /** body inline style before retraction (null = none). */
   bodyStyle: string | null
-  /** Skin chrome elements detached from body (re-appended on exit). */
-  detached: HTMLElement[]
+  /** Skin chrome elements detached from body, re-inserted at their anchors. */
+  detached: Array<{ el: HTMLElement; anchor: Node | null }>
   /** Neutralizes ghost backdrop writes while a try-on is live. */
   clearObserver: MutationObserver | null
   /** Hides global-rule leaks of the active skin (xp taskbar). */
@@ -165,6 +177,7 @@ export class TryOnController {
       // Superseded while loading (a newer try-on or exit started): drop only
       // what this attempt mounted — the newer operation owns the surface and
       // captured the active-skin visuals it needs on exit.
+      this.cleanupModule(entry)
       dispose()
       return
     }
@@ -223,7 +236,7 @@ export class TryOnController {
       this.cleanupModule(entry)
       document.body.removeAttribute(entry.bodyAttr)
       for (const el of [...document.body.children] as HTMLElement[]) {
-        if (el.id !== 'root') el.remove()
+        if (isSkinChrome(el, entry)) el.remove()
       }
       throw error
     }
@@ -252,14 +265,25 @@ export class TryOnController {
     const bodyStyle = body.getAttribute('style')
     for (const prop of BACKDROP_PROPS) body.style.removeProperty(prop)
 
-    // The only direct body children besides #root are skin chrome
-    // (verified against the live GUI with the settings dialog open).
-    const detached: HTMLElement[] = []
-    for (const el of [...body.children] as HTMLElement[]) {
-      if (el.id === 'root') continue
-      el.remove()
-      detached.push(el)
+    // Detach only known skin chrome (marker/bodyAttr), leaving other
+    // plugins' portals/toasts in place; remember each element's next sibling
+    // so restore re-inserts in the original order.
+    const children = [...body.children] as HTMLElement[]
+    const chrome = new Set<HTMLElement>()
+    for (const el of children) {
+      if (el.id !== 'root' && isSkinChrome(el, skin)) chrome.add(el)
     }
+    const detached: Array<{ el: HTMLElement; anchor: Node | null }> = []
+    for (let i = 0; i < children.length; i++) {
+      const el = children[i]
+      if (!chrome.has(el)) continue
+      let anchor: Node | null = null
+      for (let j = i + 1; j < children.length; j++) {
+        if (!chrome.has(children[j])) { anchor = children[j]; break }
+      }
+      detached.push({ el, anchor })
+    }
+    for (const { el } of detached) el.remove()
 
     // Neutralize a surviving ghost observer (blue-fantasy's backdrop
     // re-writer) across theme flips during the try-on.
@@ -285,7 +309,9 @@ export class TryOnController {
     } else {
       body.removeAttribute('style')
     }
-    body.append(...active.detached)
+    for (const { el, anchor } of active.detached) {
+      body.insertBefore(el, anchor !== null && anchor.parentNode === body ? anchor : null)
+    }
     active.clearObserver?.disconnect()
     active.neutralizeStyle?.remove()
   }

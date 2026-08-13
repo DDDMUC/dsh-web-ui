@@ -152,13 +152,28 @@ describe('schedule persistence', () => {
       { ...valid, id: 't-1', schedule: { enabled: 'yes', cron: '0 9 * * *', nextRunAt: 'soon', lastTriggeredAt: 5 } },
       { ...valid, id: 't-2', schedule: { enabled: true, cron: '   ' } },
       { ...valid, id: 't-3', schedule: 'nope' },
+      { ...valid, id: 't-4', schedule: { enabled: true, cron: 'not a cron' } },
     ]
     const parsed = parseLedger(JSON.stringify(raw))
-    expect(parsed).toHaveLength(3) // no row dropped for a bad schedule
+    expect(parsed).toHaveLength(4) // no row dropped for a bad schedule
     expect(parsed[0].schedule).toEqual({
       enabled: false, cron: '0 9 * * *', nextRunAt: undefined, lastTriggeredAt: 5,
     })
     expect(parsed[1].schedule).toBeUndefined() // blank cron → schedule dropped
     expect(parsed[2].schedule).toBeUndefined() // non-object schedule → dropped
+    expect(parsed[3].schedule).toBeUndefined() // malformed cron → schedule dropped
+  })
+
+  it('drops a schedule whose cron is malformed instead of accepting it', () => {
+    const valid = createTask({ title: 'ok', description: '', prompt: '' }, 1, 't-1')
+    const raw = [
+      { ...valid, id: 't-1', schedule: { enabled: true, cron: '0 9 * * *' } },
+      { ...valid, id: 't-2', schedule: { enabled: true, cron: '* * * *' } },
+      { ...valid, id: 't-3', schedule: { enabled: true, cron: '99 99 99 99 99' } },
+    ]
+    const parsed = parseLedger(JSON.stringify(raw))
+    expect(parsed[0].schedule).toEqual({ enabled: true, cron: '0 9 * * *', nextRunAt: undefined, lastTriggeredAt: undefined })
+    expect(parsed[1].schedule).toBeUndefined() // not five fields
+    expect(parsed[2].schedule).toBeUndefined() // values out of range
   })
 })

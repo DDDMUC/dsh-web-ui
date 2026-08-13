@@ -13,6 +13,7 @@
  * channel later); tests run against the in-memory backend and a jsdom
  * localStorage backend.
  */
+import { isValidCron } from './schedule.ts'
 import type { ScheduleRule, TaskRecord, TaskStatus } from './tasks.ts'
 import { isTaskStatus } from './tasks.ts'
 
@@ -76,7 +77,11 @@ function normalizeStatus(status: unknown): TaskStatus {
 function normalizeSchedule(schedule: unknown): ScheduleRule | undefined {
   if (typeof schedule !== 'object' || schedule === null) return undefined
   const rule = schedule as Record<string, unknown>
-  if (typeof rule.cron !== 'string' || rule.cron.trim() === '') return undefined
+  // Reject (drop) a schedule whose cron is not a well-formed 5-field
+  // expression: a malformed rule would otherwise linger as a never-firing
+  // schedule instead of being dropped for later repair.
+  if (typeof rule.cron !== 'string') return undefined
+  if (rule.cron.trim() === '' || !isValidCron(rule.cron)) return undefined
   return {
     enabled: rule.enabled === true,
     cron: rule.cron,

@@ -33,12 +33,19 @@ const GALLERY = path.join(ROOT, 'gallery')
 // --- tiny static server (fallback for environments where file:// screenshots
 // --- misbehave) -------------------------------------------------------------
 let server = null
+
+/** True when `file` is strictly inside `root` (matched at a path boundary). */
+function isInside(root, file) {
+  const rel = path.relative(root, file)
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
+}
+
 function serve() {
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png' }
   server = http.createServer((req, res) => {
     const url = decodeURIComponent((req.url || '/').split('?')[0])
     const file = path.normalize(path.join(ROOT, url === '/' ? 'gallery/preview.html' : url))
-    if (!file.startsWith(ROOT)) { res.writeHead(403); return res.end('forbidden') }
+    if (!isInside(ROOT, file)) { res.writeHead(403); return res.end('forbidden') }
     fs.readFile(file, (err, buf) => {
       if (err) { res.writeHead(404); return res.end('not found') }
       res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' })

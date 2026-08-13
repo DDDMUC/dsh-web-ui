@@ -37,8 +37,8 @@ export const verifyRefArgv = (branch: string): string[] => ['rev-parse', '--veri
 /** `git check-ref-format --branch <name>` — the authoritative branch-name gate. */
 export const checkRefFormatArgv = (name: string): string[] => ['check-ref-format', '--branch', name]
 
-/** `git switch --no-guess <branch>` — workspace-level branch switch (ZCode semantics). */
-export const switchArgv = (branch: string): string[] => ['switch', '--no-guess', branch]
+/** `git switch --no-guess -- <branch>` — workspace-level branch switch (ZCode semantics). */
+export const switchArgv = (branch: string): string[] => ['switch', '--no-guess', '--', branch]
 
 /** `git switch --no-guess -c <name>` — create from current HEAD and switch. */
 export const createBranchArgv = (name: string): string[] => ['switch', '--no-guess', '-c', name]

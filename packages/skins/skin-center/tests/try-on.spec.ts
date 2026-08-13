@@ -94,6 +94,7 @@ describe('TryOnController skin switching', () => {
         '      document.body.setAttribute("data-dsh-bomb", "");',
         '      var chrome = document.createElement("div");',
         '      chrome.className = "bombChrome";',
+        '      chrome.dataset.skinChrome = "bomb";',
         '      document.body.appendChild(chrome);',
         '      throw new Error("boom");',
         '    };',

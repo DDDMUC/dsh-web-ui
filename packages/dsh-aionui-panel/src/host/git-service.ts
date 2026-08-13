@@ -241,7 +241,7 @@ export class GitService {
         continue
       }
       // Untracked paths are not restored by git restore; delete them directly.
-      const untrackedResult = await this.run(['ls-files', '--error-unmatch', '--', p], repo.repo)
+      const untrackedResult = await this.run(['ls-files', '--error-unmatch', '--', ':(literal)' + p], repo.repo)
       if (untrackedResult.exitCode !== 0) {
         // A symlink entry pointing outside the repo must not be deleted — the
         // fs delete would follow the link away. Realpath-check before deleting.
@@ -268,7 +268,7 @@ export class GitService {
         else failed.push(p)
         continue
       }
-      const result = await this.run(['restore', '--worktree', '--', p], repo.repo)
+      const result = await this.run(['restore', '--worktree', '--', ':(literal)' + p], repo.repo)
       if (result.exitCode === 0) applied.push(p)
       else failed.push(p)
     }

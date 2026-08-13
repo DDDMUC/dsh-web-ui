@@ -29,8 +29,9 @@ function fakeRunner(): { runner: GitRunner; calls: string[][] } {
         return { exitCode: 0, stdout: 'M  tracked.txt\0?? new.txt\0', stderr: '' }
       }
       if (command === 'ls-files') {
-        // --error-unmatch fails for untracked paths.
-        return argv.includes('new.txt')
+        // --error-unmatch fails for untracked paths. Paths are passed with the
+        // :(literal) pathspec magic so names can't be parsed as magic tokens.
+        return argv.some((arg) => arg === ':(literal)' + 'new.txt')
           ? { exitCode: 1, stdout: '', stderr: 'no match' }
           : { exitCode: 0, stdout: '', stderr: '' }
       }

@@ -70,7 +70,7 @@ async function resolveInsideRoot(root: string, rel: string): Promise<{ ok: true;
 
 /** True when the relative path is, or passes through, a .git component. */
 function isGitPath(rel: string): boolean {
-  return rel.split('/').some((part) => part === '.git')
+  return rel.split('/').some((part) => part.toLowerCase() === '.git')
 }
 
 /** Case-insensitive alpha compare (dirs first, then files). */
@@ -182,19 +182,20 @@ export class FsService {
       const path = rel === '' ? entry.name : `${rel}/${entry.name}`
       if (entry.isDirectory()) {
         out.push({ name: entry.name, path, isDir: true, size: 0, mtime: 0 })
-        continue
       }
-      let size = 0
-      let mtime = 0
+    }
+    const files = dirents.filter((entry) => !entry.isDirectory())
+    const statted = await Promise.all(files.map(async (entry) => {
+      const path = rel === '' ? entry.name : `${rel}/${entry.name}`
       try {
         const info = await stat(join(resolved.abs, entry.name))
-        size = info.size
-        mtime = info.mtimeMs
+        return { name: entry.name, path, isDir: false, size: info.size, mtime: info.mtimeMs }
       } catch {
         // Entry vanished mid-list; keep a size-0 row rather than dropping it.
+        return { name: entry.name, path, isDir: false, size: 0, mtime: 0 }
       }
-      out.push({ name: entry.name, path, isDir: false, size, mtime })
-    }
+    }))
+    out.push(...statted)
     out.sort(compareEntries)
     return { root: gated.canonical, entries: out }
   }

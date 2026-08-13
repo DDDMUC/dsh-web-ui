@@ -38,6 +38,8 @@ export interface TokenRecord {
   expiresAt: number
   /** Consumed by the first successful accept(). */
   consumed: boolean
+  /** Opaque, non-secret identifier surfaced in snapshots (never the pairing secret). */
+  id: string
   /** Workspace the QR link should land the phone in (optional). */
   workspaceId?: string
   /** LAN IP literal the QR link was built from (optional; default first). */
@@ -73,7 +75,7 @@ export interface PairingSnapshot {
   publicUrl?: string
   /** Auto-tunnel status, while the auto-tunnel feature is active. */
   tunnel?: TunnelStatus
-  /** Active token id when one is live (undefined when stopped/lan-required). */
+  /** Opaque (non-secret) id of the active token (undefined when stopped/lan-required). */
   tokenId?: string
   /** Absolute expiry of the active token. */
   tokenExpiresAt?: number
@@ -135,6 +137,7 @@ export class PairingService {
   private readonly listeners = new Set<(snapshot: PairingSnapshot) => void>()
   private lastEmitted: PairingSnapshot | undefined
   private stopped = false
+  private tokenSerial = 0
   /** LAN base URLs keyed by the advertised IP literal (interface order). */
   private lanBases = new Map<string, string>()
   /** Public (tunneled) base URL, e.g. a Cloudflare Tunnel quick URL. */
@@ -214,7 +217,9 @@ export class PairingService {
     const token = this.clock.randomToken()
     this.tokens.clear()
     this.stopped = false
+    this.tokenSerial += 1
     this.tokens.set(token, {
+      id: `t${this.tokenSerial}`,
       issuedAt: now,
       expiresAt: now + this.config.tokenTtlMs,
       consumed: false,
@@ -305,7 +310,7 @@ export class PairingService {
       lanAddresses: [...this.lanBases.keys()],
       ...(this.publicBase !== undefined ? { publicUrl: this.publicBase } : {}),
       ...(this.tunnelStatus !== undefined ? { tunnel: this.tunnelStatus } : {}),
-      ...(token !== undefined ? { tokenId: token.token, tokenExpiresAt: token.record.expiresAt } : {}),
+      ...(token !== undefined ? { tokenId: token.record.id, tokenExpiresAt: token.record.expiresAt } : {}),
       deviceCount: this.devices.size,
       onlineCount,
     }

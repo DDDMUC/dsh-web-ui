@@ -35,6 +35,8 @@ export interface ControllerDeps {
   now?: () => number
   /** Id minting; defaults to a random-uuid. */
   uuid?: () => string
+  /** Debounce (ms) for session-list-changed reconciles; defaults to 350. */
+  reconcileDebounceMs?: number
 }
 
 /** Immutable controller snapshot for UI subscriptions. */
@@ -102,6 +104,8 @@ export class BoardController {
   dispose(): void {
     for (const dispose of this.disposers.splice(0)) dispose()
     this.listeners.clear()
+    if (this.reconcileTimer !== undefined) clearTimeout(this.reconcileTimer)
+    this.reconcileTimer = undefined
   }
 
   // --- snapshot / subscription ------------------------------------------------
@@ -238,9 +242,9 @@ export class BoardController {
    * and hand off to the ExecutionService. A second call while the task is
    * already running is ignored.
    */
-  async runTask(id: string): Promise<void> {
+  async runTask(id: string): Promise<boolean> {
     const task = this.tasks.find(candidate => candidate.id === id)
-    if (task === undefined || task.status === 'running') return
+    if (task === undefined || task.status === 'running') return false
     const { task: next, execution } = startExecution(task, this.now(), this.uuid())
     this.tasks = this.tasks.map(candidate => candidate.id === id ? next : candidate)
     this.persistAndNotify()
@@ -250,6 +254,7 @@ export class BoardController {
     // started a turn yet (its list row is idle, not completed).
     this.activeExecutionIds.add(execution.id)
     await this.deps.exec.run(next, execution, (event) => { this.handleExecutionEvent(event) })
+    return true
   }
 
   /** Re-run a settled task: move it back to 'todo' first, then execute. */
@@ -282,10 +287,11 @@ export class BoardController {
 
   /** Reconcile running tasks and close the board when the user navigates. */
   private onSessionsChanged(): void {
-    // Background executions settle through the session list (their
-    // conversation snapshots stay cold until opened) — reconcile on every
-    // list change; settleExecution is idempotent, so repeats are no-ops.
-    void this.reconcileRunningTasks()
+    // Background/leftover executions settle through the session list (their
+    // conversation snapshots stay cold until opened). Coalesce the burst of
+    // list notifications into one reconcile pass instead of fanning out a
+    // history read per notification; see scheduleReconcile.
+    this.scheduleReconcile()
     if (!this.boardOpen) return
     const current = currentOf(this.deps.sessions)
     if (current !== this.lastCurrent) this.closeBoard()
@@ -297,28 +303,54 @@ export class BoardController {
   /** Execution ids launched on this page; they settle via their live watch, never list reconciliation. */
   private readonly activeExecutionIds = new Set<string>()
 
+  /** Debounce timer for {@link reconcileRunningTasks}. */
+  private reconcileTimer: ReturnType<typeof setTimeout> | undefined = undefined
+
+  /** Whether a reconcile pass is underway (single-flight guard). */
+  private reconcileInFlight = false
+
+  /**
+   * Debounce + single-flight trigger for the running-task reconciliation.
+   * Session-list notifications arrive in bursts (one per session status
+   * change); both guards together keep a burst from reading the history API
+   * once per running task.
+   */
+  private scheduleReconcile(): void {
+    if (this.reconcileTimer !== undefined) return
+    this.reconcileTimer = setTimeout(() => {
+      this.reconcileTimer = undefined
+      void this.reconcileRunningTasks()
+    }, this.deps.reconcileDebounceMs ?? 350)
+  }
+
   /** Settle tasks left 'running' whose sessions already finished. */
   private async reconcileRunningTasks(): Promise<void> {
-    type Settled = Extract<ExecutionEvent, { kind: 'settled' }>
-    const events: Array<{ task: TaskRecord; event: Settled }> = []
-    for (const task of this.tasks) {
-      if (task.status !== 'running') continue
-      const execution = task.executions[task.executions.length - 1]
-      // Runs launched on this page settle through their live watch (turn
-      // boundary); reconciliation exists for background/leftover runs.
-      if (execution !== undefined && this.activeExecutionIds.has(execution.id)) continue
-      const event = await this.deps.exec.reconcile(task)
-      if (event !== undefined && event.kind === 'settled') events.push({ task, event })
+    if (this.reconcileInFlight) return
+    this.reconcileInFlight = true
+    try {
+      type Settled = Extract<ExecutionEvent, { kind: 'settled' }>
+      const events: Array<{ task: TaskRecord; event: Settled }> = []
+      for (const task of this.tasks) {
+        if (task.status !== 'running') continue
+        const execution = task.executions[task.executions.length - 1]
+        // Runs launched on this page settle through their live watch (turn
+        // boundary); reconciliation exists for background/leftover runs.
+        if (execution !== undefined && this.activeExecutionIds.has(execution.id)) continue
+        const event = await this.deps.exec.reconcile(task)
+        if (event !== undefined && event.kind === 'settled') events.push({ task, event })
+      }
+      if (events.length === 0) return
+      let changed = false
+      for (const { task, event } of events) {
+        const next = settleExecution(task, event.executionId, event.outcome, this.now(), event.error)
+        if (next === task) continue
+        this.tasks = this.tasks.map(candidate => candidate.id === task.id ? next : candidate)
+        changed = true
+      }
+      if (changed) this.persistAndNotify()
+    } finally {
+      this.reconcileInFlight = false
     }
-    if (events.length === 0) return
-    let changed = false
-    for (const { task, event } of events) {
-      const next = settleExecution(task, event.executionId, event.outcome, this.now(), event.error)
-      if (next === task) continue
-      this.tasks = this.tasks.map(candidate => candidate.id === task.id ? next : candidate)
-      changed = true
-    }
-    if (changed) this.persistAndNotify()
   }
 
   private persistAndNotify(): void {

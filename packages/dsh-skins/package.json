@@ -16,6 +16,7 @@
     "@deepseek-ai/dsh-client-ui-skin-ths": "workspace:*",
     "@deepseek-ai/dsh-client-ui-skin-xp": "workspace:*",
     "@deepseek-ai/dsh-client-ui-skin-blue-fantasy": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-skin-dragon-heir": "workspace:*"
+    "@deepseek-ai/dsh-client-ui-skin-dragon-heir": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-skin-minecraft": "workspace:*"
   }
 }

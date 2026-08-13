@@ -248,6 +248,53 @@ describe('run loop', () => {
     expect(reloaded.getSnapshot().tasks[0].status).toBe('todo')
   })
 
+  it('settles an orphaned running execution on the next session-list change', async () => {
+    const stub = new StubExec()
+    stub.reconcileResult = { kind: 'settled', taskId: 'task-a', executionId: 'e1', outcome: 'cancelled', error: 'gone' }
+    const store = new InMemoryTaskStore()
+    const task = seedTask(store, { id: 'task-a' })
+    store.save([{ ...task, status: 'running', executions: [{ id: 'e1', sessionId: 's-1', startedAt: NOW, endedAt: undefined, result: undefined, error: undefined }] }])
+    const sessions = new FakeSessions()
+    const controller = new BoardController({
+      store, exec: stub as unknown as ExecutionService,
+      sessions, now: () => NOW, uuid, reconcileDebounceMs: 0,
+    })
+    // Start resolves while the exec still reports nothing to settle…
+    stub.reconcileResult = undefined
+    controller.start()
+    await flush()
+    expect(controller.getSnapshot().tasks[0].status).toBe('running')
+    // …then a later list change settles the orphan without a page reload.
+    stub.reconcileResult = { kind: 'settled', taskId: 'task-a', executionId: 'e1', outcome: 'cancelled', error: 'gone' }
+    sessions.setCurrent('s-new')
+    await flush()
+    await flush()
+    expect(controller.getSnapshot().tasks[0].status).toBe('todo')
+  })
+
+  it('coalesces a burst of session-list changes into one reconcile pass', async () => {
+    let reconcileCalls = 0
+    const stub = {
+      runCalls: [],
+      run: async () => {},
+      reconcile: () => { reconcileCalls += 1; return undefined },
+    }
+    const store = new InMemoryTaskStore()
+    const task = seedTask(store, { id: 'task-a' })
+    store.save([{ ...task, status: 'running', executions: [{ id: 'e1', sessionId: 's-1', startedAt: NOW, endedAt: undefined, result: undefined, error: undefined }] }])
+    const sessions = new FakeSessions()
+    const controller = new BoardController({
+      store, exec: stub as unknown as ExecutionService,
+      sessions, now: () => NOW, uuid, reconcileDebounceMs: 20,
+    })
+    controller.start()
+    await flush()
+    const before = reconcileCalls
+    for (let i = 0; i < 5; i += 1) sessions.setCurrent('s-' + i)
+    await new Promise(resolve => { setTimeout(resolve, 50) })
+    expect(reconcileCalls - before).toBe(1)
+  })
+
   it('keeps a page-launched run running on list updates; only the watch settles it', async () => {
     const stub = new StubExec()
     const { controller, sessions, store, stub: exec } = makeController(stub)

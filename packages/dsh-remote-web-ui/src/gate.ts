@@ -32,6 +32,23 @@ export function isLoopbackHostname(hostname: string): boolean {
     && parts.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255)
 }
 
+/** Whether a socket remote address names the loopback range (127/8, ::1, IPv4-mapped). */
+export function isLoopbackAddress(address: string | undefined): boolean {
+  if (address === undefined) return false
+  const normalized = address.toLowerCase()
+  if (normalized === '::1') return true
+  if (normalized.startsWith('::ffff:')) return isIPv4Loopback(normalized.slice('::ffff:'.length))
+  return isIPv4Loopback(normalized)
+}
+
+/** IPv4 127/8 predicate (four decimal octets, first == 127). */
+function isIPv4Loopback(v4: string): boolean {
+  const parts = v4.split('.')
+  return parts.length === 4
+    && parts[0] === '127'
+    && parts.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+}
+
 /**
  * Read one cookie value from a Cookie header.
  * @param header - the raw Cookie header value (or undefined).
@@ -64,6 +81,14 @@ export function hostnameOf(request: IncomingMessage): string | undefined {
   }
 }
 
+/** Whether a request comes from the desktop loopback client (loopback socket AND loopback Host). */
+export function isLoopbackClient(request: IncomingMessage): boolean {
+  const hostname = hostnameOf(request)
+  if (hostname === undefined || !isLoopbackHostname(hostname)) return false
+  const socket = request.socket as { remoteAddress?: string } | undefined
+  return isLoopbackAddress(socket?.remoteAddress)
+}
+
 /**
  * Build the api/gate listener for one pairing service.
  * @param service - the pairing service.
@@ -84,9 +109,7 @@ export function makeGateListener(
   enabled: boolean | (() => boolean) = true,
 ): (request: IncomingMessage, method: string | undefined, next: () => boolean | Promise<boolean>) => boolean | Promise<boolean> {
   return (request, _method, next) => {
-    const hostname = hostnameOf(request)
-    if (hostname === undefined) return false
-    if (isLoopbackHostname(hostname)) return next()
+    if (isLoopbackClient(request)) return next()
     const active = typeof enabled === 'function' ? enabled() : enabled
     if (!active) return false
     const require = typeof requirePairingForLan === 'function' ? requirePairingForLan() : requirePairingForLan

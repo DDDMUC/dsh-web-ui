@@ -82,8 +82,17 @@ interface PlannedWrite {
   run: (() => Promise<boolean>) | undefined
 }
 
-/** A whole- or decimal-number field. An empty draft clears the field; any other draft that is not a finite number blocks the save. */
-export function numberField(field: string): FieldSpec {
+/** Constraints a numeric field's accepted drafts must satisfy, mirroring the host schema. */
+export interface NumberConstraints {
+  /** The accepted value must be a whole number. */
+  integer?: boolean
+  /** The accepted value must be at least this. */
+  min?: number
+}
+
+/** A whole- or decimal-number field. An empty draft clears the field; any other draft that is not a finite number within the constraints blocks the save. */
+export function numberField(field: string, constraints: NumberConstraints = {}): FieldSpec {
+  const { integer = false, min } = constraints
   return {
     field,
     format: value => typeof value === 'number' ? String(value) : '',
@@ -91,7 +100,10 @@ export function numberField(field: string): FieldSpec {
       const trimmed = text.trim()
       if (trimmed === '') return { kind: 'clear' }
       const parsed = Number(trimmed)
-      return Number.isFinite(parsed) ? { kind: 'set', value: parsed } : undefined
+      if (!Number.isFinite(parsed)) return undefined
+      if (integer && !Number.isInteger(parsed)) return undefined
+      if (min !== undefined && parsed < min) return undefined
+      return { kind: 'set', value: parsed }
     },
   }
 }
@@ -114,8 +126,10 @@ export function booleanField(field: string): FieldSpec {
     field,
     format: value => typeof value === 'boolean' ? String(value) : '',
     parse: (text) => {
-      if (text === 'true') return { kind: 'set', value: true }
-      if (text === 'false') return { kind: 'set', value: false }
+      const trimmed = text.trim()
+      if (trimmed === '') return { kind: 'clear' }
+      if (trimmed === 'true') return { kind: 'set', value: true }
+      if (trimmed === 'false') return { kind: 'set', value: false }
       return undefined
     },
   }
@@ -206,6 +220,9 @@ export class CardForm<T> {
     const plan = this.plan()
     const writes = plan.flatMap(item => item.run === undefined ? [] : [item.run])
     if (plan.length === 0 || this.saving || writes.length !== plan.length) return
+    // Snapshot the fields this save writes, so edits staged while it is in
+    // flight survive: only the staged keys this save actually wrote are cleared.
+    const fields = new Set(plan.map(item => item.field))
     this.saving = true
     this.failed = false
     this.publish()
@@ -213,7 +230,9 @@ export class CardForm<T> {
     for (const write of writes) {
       landed = await write() && landed
     }
-    if (landed) this.staged.clear()
+    if (landed) {
+      for (const field of fields) this.staged.delete(field)
+    }
     this.saving = false
     this.failed = !landed
     this.publish()

@@ -79,12 +79,24 @@ export function estimateAssistantBlockTokens(blockTokens: readonly number[], spe
     : blockTokens.reduce((sum, tokens) => sum + tokens, 0) + spec.roleOverhead
 }
 
+/** How deeply tool-result content may nest before deep pricing stops. */
+const MAX_CONTENT_DEPTH = 128
+
 /** Estimate model content with the configured provider-independent density.
  * @param blocks - the content blocks to price.
  * @param spec - resolved estimator settings.
  * @returns the estimated token count.
  */
 export function estimateContentTokens(blocks: readonly ContentBlock[], spec: EstimatorSpec): number {
+  return estimateContentBlocks(blocks, spec, 0)
+}
+
+/**
+ * Price content blocks, recursing into tool-result content up to a depth cap.
+ * The cap turns a pathological (or cyclic) content graph into bounded framing
+ * charges instead of a stack overflow.
+ */
+function estimateContentBlocks(blocks: readonly ContentBlock[], spec: EstimatorSpec, depth: number): number {
   let tokens = 0
   for (const block of blocks) {
     switch (block.type) {
@@ -96,7 +108,10 @@ export function estimateContentTokens(blocks: readonly ContentBlock[], spec: Est
         tokens += estimateToolCallBlockTokens(block.name.length, block.arguments.length, spec)
         break
       case 'tool-result':
-        tokens += estimateContentTokens(block.content, spec) + spec.blockOverhead
+        // Frame the block even when its nested content is too deep to price.
+        tokens += depth >= MAX_CONTENT_DEPTH
+          ? spec.blockOverhead
+          : estimateContentBlocks(block.content, spec, depth + 1) + spec.blockOverhead
         break
       default:
         tokens += spec.blockOverhead + Math.ceil(JSON.stringify(block).length / spec.charsPerToken)

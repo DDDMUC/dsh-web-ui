@@ -79,6 +79,7 @@ export function apply(ctx: Context): void {
 
   const titlebar = document.createElement('div')
   titlebar.className = cls('thsTitlebar')
+  titlebar.dataset.skinChrome = 'titlebar'
   const icon = document.createElement('span')
   icon.className = cls('thsTitlebarIcon')
   icon.innerHTML = CANDLE_SVG
@@ -109,6 +110,7 @@ export function apply(ctx: Context): void {
 
   const statusbar = document.createElement('div')
   statusbar.className = cls('thsStatusbar')
+  statusbar.dataset.skinChrome = 'statusbar'
   const spacer = document.createElement('span')
   spacer.className = cls('thsStatusbarSpacer')
   statusbar.append(spacer)

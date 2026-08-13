@@ -50,9 +50,9 @@ export class LiveStatsSettingsCardController {
   constructor(scope: SettingsScope<LiveStatsSettings>) {
     this.form = new CardForm(scope, [
       booleanField('enabled'),
-      numberField('charsPerToken'),
-      numberField('blockOverhead'),
-      numberField('roleOverhead'),
+      numberField('charsPerToken', { min: 0.01 }),
+      numberField('blockOverhead', { integer: true, min: 0 }),
+      numberField('roleOverhead', { integer: true, min: 0 }),
     ])
     this.store = this.form.bind(() => this.projection())
   }

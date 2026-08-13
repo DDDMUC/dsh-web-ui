@@ -5,9 +5,9 @@ import type { IncomingMessage } from 'node:http'
 import { PairingService } from '../src/pairing.ts'
 import { makeGateListener, readCookie } from '../src/gate.ts'
 
-function request(headers: Record<string, string>): IncomingMessage {
+function request(headers: Record<string, string>, remoteAddress = '127.0.0.1'): IncomingMessage {
   const req = Readable.from([]) as unknown as IncomingMessage
-  Object.assign(req, { headers })
+  Object.assign(req, { headers, socket: { remoteAddress } })
   return req
 }
 
@@ -33,6 +33,15 @@ describe('makeGateListener', () => {
     const result = gate(request({ host: '127.0.0.1:3080' }), 'session.list', () => { delegated = true; return true })
     expect(result).toBe(true)
     expect(delegated).toBe(true)
+  })
+
+  it('vetoes a spoofed loopback Host from a non-loopback remote address', () => {
+    const service = makeService()
+    const gate = makeGateListener(service)
+    let delegated = false
+    const result = gate(request({ host: '127.0.0.1:3080' }, '203.0.113.7'), 'session.list', () => { delegated = true; return true })
+    expect(result).toBe(false)
+    expect(delegated).toBe(false)
   })
 
   it('vetoes a non-loopback request without a device cookie', () => {

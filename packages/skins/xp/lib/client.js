@@ -102,6 +102,7 @@ window.__ModuleLoader__.load({
 			body.dataset.dshXp = "";
 			const titlebar = document.createElement("div");
 			titlebar.className = cls("xpTitlebar");
+			titlebar.dataset.skinChrome = "titlebar";
 			const icon = document.createElement("span");
 			icon.className = cls("xpTitlebarIcon");
 			icon.innerHTML = FLAG_SVG;
@@ -118,6 +119,7 @@ window.__ModuleLoader__.load({
 			}
 			const statusbar = document.createElement("div");
 			statusbar.className = cls("xpStatusbar");
+			statusbar.dataset.skinChrome = "statusbar";
 			const spacer = document.createElement("span");
 			spacer.className = cls("xpStatusbarSpacer");
 			statusbar.append(spacer);

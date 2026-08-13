@@ -11,7 +11,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { UnknownLanAddressError, type PairingService, type PairingSnapshot } from './pairing.ts'
-import { isLoopbackHostname, readCookie } from './gate.ts'
+import { isLoopbackClient, readCookie } from './gate.ts'
 
 /**
  * Browser-trust fence for the /api/pair routes, mirroring the connection
@@ -37,7 +37,7 @@ function isTrustedApiRequest(request: IncomingMessage, trustedHosts: readonly st
     return false
   }
   const hostname = hostUrl.hostname
-  const trusted = isLoopbackHostname(hostname) || trustedHosts.some(entry => {
+  const trusted = isLoopbackClient(request) || trustedHosts.some(entry => {
     // A port-less entry matches the hostname on any port; an exact host:port
     // entry matches that authority verbatim (WHATWG normalization both sides).
     const entryUrl = new URL(`http://${entry}`)
@@ -94,7 +94,7 @@ export const PAIR_PATHS = {
 /** One JSON response. */
 function writeJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'referrer-policy': 'no-referrer' })
   res.end(payload)
 }
 
@@ -202,6 +202,22 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     return false
   }
 
+  /** Per-source-IP accept rate limit (brute-force defense in depth). */
+  const acceptAttempts = new Map<string, { count: number; windowStart: number }>()
+  const ACCEPT_MAX_ATTEMPTS = 10
+  const ACCEPT_WINDOW_MS = 30_000
+  const rateLimitAccept = (req: IncomingMessage): boolean => {
+    const ip = (req.socket as { remoteAddress?: string } | undefined)?.remoteAddress ?? 'unknown'
+    const nowMs = Date.now()
+    const entry = acceptAttempts.get(ip)
+    if (entry === undefined || nowMs - entry.windowStart > ACCEPT_WINDOW_MS) {
+      acceptAttempts.set(ip, { count: 1, windowStart: nowMs })
+      return false
+    }
+    entry.count += 1
+    return entry.count > ACCEPT_MAX_ATTEMPTS
+  }
+
   const handleIssue = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!requireMethod(req, res, 'POST')) return
     if (!loopbackFence(req)) {
@@ -250,6 +266,10 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     if (!requireMethod(req, res, 'POST')) return
     if (!lanFence(req)) {
       writeJson(res, 403, { ok: false, code: 'forbidden' })
+      return
+    }
+    if (rateLimitAccept(req)) {
+      writeJson(res, 429, { ok: false, code: 'rate-limited' })
       return
     }
     const body = await readJsonBody(req)

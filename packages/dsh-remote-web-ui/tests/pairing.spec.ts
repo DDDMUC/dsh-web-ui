@@ -37,6 +37,14 @@ describe('PairingService', () => {
     expect(service.accept(second.token)).toMatchObject({ ok: true })
   })
 
+  it('never exposes the pairing secret in the snapshot', () => {
+    const service = makeService()
+    const { token } = service.issue()
+    const snapshot = service.snapshot()
+    expect(snapshot.tokenId).toBeDefined()
+    expect(snapshot.tokenId).not.toBe(token)
+  })
+
   it('refuses a consumed token (one-time) with used', () => {
     const service = makeService()
     const { token } = service.issue()

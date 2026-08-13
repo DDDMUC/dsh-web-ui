@@ -28,6 +28,7 @@ function pageHtml(bundleUrl: string): string {
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">',
     '<meta name="theme-color" content="#f3f5f9">',
+    '<meta name="referrer" content="no-referrer">',
     '<title>移动端远程控制</title>',
     '</head>',
     '<body>',
@@ -43,6 +44,7 @@ function writeStatic(res: ServerResponse, status: number, type: string, body: st
   res.writeHead(status, {
     'content-type': `${type}; charset=utf-8`,
     'cache-control': 'no-cache',
+    'referrer-policy': 'no-referrer',
   })
   res.end(body)
 }

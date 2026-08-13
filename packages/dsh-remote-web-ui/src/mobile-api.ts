@@ -163,16 +163,35 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
       'cache-control': 'no-cache',
       connection: 'keep-alive',
     })
-    const frames = apiProxy.events.mux({ rpcId: RpcId(`mobile-mux-${Date.now().toString(36)}`), payload: {} }, new AbortController().signal)
+    const controller = new AbortController()
     let closed = false
-    res.on('close', () => { closed = true })
+    const heartbeat = setInterval(() => {
+      if (closed) return
+      try {
+        res.write(': ping\n\n')
+      } catch {
+        // The write failed; the close handler tears the subscription down.
+      }
+    }, 15_000)
+    const onClose = (): void => {
+      if (closed) return
+      closed = true
+      controller.abort()
+      clearInterval(heartbeat)
+    }
+    res.on('close', onClose)
+    req.on('close', onClose)
     try {
+      const frames = apiProxy.events.mux({ rpcId: RpcId(`mobile-mux-${Date.now().toString(36)}`), payload: {} }, controller.signal)
       for await (const frame of frames) {
         if (closed) break
         res.write(`data: ${JSON.stringify(frame)}\n\n`)
       }
     } catch {
       // The stream ended or errored; the EventSource reconnects.
+    } finally {
+      controller.abort()
+      clearInterval(heartbeat)
     }
     if (!closed) res.end()
   }

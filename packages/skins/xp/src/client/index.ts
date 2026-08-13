@@ -73,6 +73,7 @@ export function apply(ctx: Context): void {
 
   const titlebar = document.createElement('div')
   titlebar.className = cls('xpTitlebar')
+  titlebar.dataset.skinChrome = 'titlebar'
   const icon = document.createElement('span')
   icon.className = cls('xpTitlebarIcon')
   icon.innerHTML = FLAG_SVG
@@ -90,6 +91,7 @@ export function apply(ctx: Context): void {
 
   const statusbar = document.createElement('div')
   statusbar.className = cls('xpStatusbar')
+  statusbar.dataset.skinChrome = 'statusbar'
   const spacer = document.createElement('span')
   spacer.className = cls('xpStatusbarSpacer')
   statusbar.append(spacer)

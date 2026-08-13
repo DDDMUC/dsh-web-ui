@@ -108,6 +108,19 @@ describe('nextRunAtMs', () => {
     expect(nextRunAtMs('0 9 15 * *', at(2026, 1, 16, 0, 0))).toBe(at(2026, 2, 15, 9, 0))
   })
 
+  it('treats an explicit day range as restricted, not the * wildcard', () => {
+    // "1-31" enumerates every day but is NOT the * wildcard: combined with a
+    // restricted weekday (Monday) the OR semantics fire every day, so the very
+    // first 9:00 (Thursday 2026-01-01) matches. Treating 1-31 as * would
+    // incorrectly defer to the next Monday (2026-01-05).
+    expect(nextRunAtMs('0 9 1-31 * 1', at(2026, 1, 1, 0, 0))).toBe(at(2026, 1, 1, 9, 0))
+  })
+
+  it('does not collapse a numeric day into the * wildcard', () => {
+    // Day 31 only: the 31st, never every day.
+    expect(nextRunAtMs('0 9 31 * *', at(2026, 1, 1, 0, 0))).toBe(at(2026, 1, 31, 9, 0))
+  })
+
   it('returns undefined for impossible dates (Feb 30)', () => {
     expect(nextRunAtMs('0 0 30 2 *', at(2026, 1, 1, 0, 0))).toBeUndefined()
   })

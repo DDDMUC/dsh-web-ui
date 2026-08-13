@@ -384,17 +384,14 @@ function UrlViewer({ tab }: { tab: PreviewTabState }): JSX.Element {
     setUrl(normalizeUrl(tab.content ?? ''))
   }, [tab.id, tab.content])
 
-  // The frame is sandboxed WITHOUT allow-popups: sites like bilibili hardcode
-  // target=_blank on their nav links, and with popups allowed every such
-  // click spawns a real browser tab next to the GUI. Cross-origin frame
-  // content cannot be intercepted from the parent, so those clicks are
-  // dropped instead of escaping; plain links and the address bar still
-  // navigate in place. allow-same-origin is required for real sites —
-  // bilibili's player crashes on opaque-origin storage access (localStorage
-  // SecurityError) and never loads the video. The load guard keeps the old
-  // same-origin containment: a frame sitting on the GUI origin with scripts
-  // enabled could reach the shell document, so any same-origin navigation
-  // (readable from the parent) is reset to about:blank.
+  // The frame is sandboxed WITH allow-popups: sites like bilibili hardcode
+  // target=_blank on their nav links, so popups are permitted rather than
+  // silently dropped. allow-same-origin is intentionally OMITTED, so the
+  // embedded site runs in an OPAQUE origin: it cannot reach window.parent or
+  // touch same-origin storage, which also means localStorage access inside
+  // the frame throws. The load guard and normalizeUrl's same-origin block
+  // remain as defense-in-depth for any frame that still lands on the GUI
+  // origin.
   const guardFrameNavigation = (): void => {
     const frame = frameRef.current
     if (frame === null) return
@@ -437,7 +434,7 @@ function UrlViewer({ tab }: { tab: PreviewTabState }): JSX.Element {
         className={previewCss.urlFrame}
         src={url}
         title={tab.title}
-        sandbox="allow-scripts allow-forms allow-same-origin"
+        sandbox="allow-scripts allow-forms allow-popups"
         allow="autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"
         allowFullScreen
         onLoad={guardFrameNavigation}

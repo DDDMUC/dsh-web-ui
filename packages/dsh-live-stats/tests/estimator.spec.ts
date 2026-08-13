@@ -53,6 +53,15 @@ describe('live-stats estimator', () => {
     }), SPEC)).toBe(9)
   })
 
+  it('bounds deep and cyclic tool-result nesting instead of overflowing', () => {
+    // A deeply nested tool-result chain prices without exhausting the stack.
+    let block: Parameters<typeof estimateContentTokens>[0][number] = { type: 'text', text: 'x' }
+    for (let depth = 0; depth < 1_000; depth++) {
+      block = { type: 'tool-result', toolCallId: 'c' as never, isError: false, content: [block] }
+    }
+    expect(() => estimateContentTokens([block], SPEC)).not.toThrow()
+  })
+
   it('prices header framing for system text and tool schemas', () => {
     expect(estimateHeaderTokens(undefined, SPEC)).toBe(0)
     expect(estimateHeaderTokens({
