@@ -110,10 +110,12 @@ export class HostStore {
       auth: entry.auth.kind,
       keyReady,
       proxyJump: [...entry.proxyJump],
-      description: entry.description,
-      environment: entry.environment,
+      // Optional fields are spread conditionally: the tool bridge rejects
+      // undefined-valued properties as non-lossless JSON.
+      ...(entry.description !== undefined ? { description: entry.description } : {}),
+      ...(entry.environment !== undefined ? { environment: entry.environment } : {}),
       tags: [...entry.tags],
-      location: entry.location,
+      ...(entry.location !== undefined ? { location: entry.location } : {}),
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
     }
