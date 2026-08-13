@@ -12,10 +12,11 @@ Prefer the family aggregate package `@linxin666/dsh-skins` — every skin at onc
 
 ```sh
 # All skins (recommended)
-dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins
 # Or just this skin
-dsh plugin --profile web add link:$(pwd)/packages/skins/ths
+dsh plugin --profile web add @linxin666/dsh-client-ui-skin-ths
 # Activate: dsh-skin use ths
+# From the repo (dev): dsh plugin --profile web add link:$(pwd)/packages/skins/ths
 ```
 
 `$(pwd)` is your clone of the dsh-web-ui monorepo.

@@ -12,10 +12,11 @@ dsh web GUI 的 QQ2008 怀旧皮肤——dsh web ui 家族里收录的第一个�
 
 ```sh
 # 装全部皮肤（推荐）
-dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins
 # 或单独装本皮肤
-dsh plugin --profile web add link:$(pwd)/packages/skins/qq98
+dsh plugin --profile web add @linxin666/dsh-client-ui-skin-qq98
 # 皮肤启用：dsh-skin use qq98
+# 从仓库安装（开发调试）：dsh plugin --profile web add link:$(pwd)/packages/skins/qq98
 ```
 
 `$(pwd)` 指克隆全家桶仓库后的目录。

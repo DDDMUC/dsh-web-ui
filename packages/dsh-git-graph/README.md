@@ -32,7 +32,15 @@ git 安装（无 sibling checkout 的消费者机器）走 `prepare` 脚本：`t
 
 ### 通用安装（任何机器）
 
-本插件已并入 dsh-web-ui 全家桶仓库（`github.com/zhu1090093659/dsh-web-ui`）。当前（插件尚未发布 npm）从仓库安装：
+本插件已并入 dsh-web-ui 全家桶仓库（`github.com/zhu1090093659/dsh-web-ui`）。插件已发布到 npm，推荐一行安装：
+
+```sh
+dsh plugin --profile web add @linxin666/dsh-client-ui-git-graph
+```
+
+或直接安装全家桶聚合包 `@linxin666/dsh-web-ui-all` 一次到位（同样一行 `dsh plugin --profile web add @linxin666/dsh-web-ui-all`）。
+
+需要改代码调试时再从仓库安装：
 
 ```sh
 git clone https://github.com/zhu1090093659/dsh-web-ui.git
@@ -40,8 +48,6 @@ cd dsh-web-ui
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-git-graph
 ```
-
-或直接安装全家桶聚合包 `@linxin666/dsh-web-ui-all`（`link:$(pwd)/packages/dsh-web-ui-all`）一次到位。
 
 > `github:` 安装方式适用于包位于仓库根部的独立仓库（`prepare` 脚本自包含构建；pnpm ≥10 首次会被拒绝，需按报错提示把包 key 加进 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重试）。monorepo 内的子包请用上面的 `link:` 方式。
 

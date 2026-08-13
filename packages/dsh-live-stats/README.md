@@ -20,7 +20,10 @@ Live input/output token estimates and generation throughput for DSH Web. It feed
 Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
 
 ```sh
-# Now (not yet published to npm): install from the dsh-web-ui monorepo
+# Recommended: install directly from npm
+dsh plugin --profile web add @linxin666/dsh-live-stats
+
+# Or from the repository (development loop)
 git clone https://github.com/zhu1090093659/dsh-web-ui.git
 cd dsh-web-ui
 pnpm install && pnpm -r build

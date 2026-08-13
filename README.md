@@ -114,16 +114,28 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 DSH 插件通过 `dsh plugin` 命令安装进 **profile**（`dsh web` 对应 `web` profile）。推荐直接安装聚合包 `dsh-web-ui-all`——一个包装齐全部功能插件与皮肤；只想用皮肤则装 `dsh-skins`。
 
-### 从 GitHub 仓库安装
+### 方式一：从 npm 安装（推荐）
 
-插件包暂未发布到 npm，当前只有仓库安装这一种方式：
+插件已发布到 npm（`@linxin666` scope），一条命令装齐：
+
+```sh
+dsh plugin --profile web add @linxin666/dsh-web-ui-all
+```
+
+装完重启 `dsh web`，侧边栏即可看到全部插件入口。只想用皮肤则装 `@linxin666/dsh-skins`。
+
+> 首次安装若提示 `ERR_PNPM_IGNORED_BUILDS`（pnpm 拒绝依赖的构建脚本），按提示把 `cloudflared` / `cpu-features` / `ssh2` 加入 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重新执行即可。
+
+### 方式二：从 GitHub 仓库安装（改代码调试）
+
+插件包已在 npm 发布，仓库安装仅供开发调试（需要 Node.js >= 22 与 pnpm）：
 
 ```sh
 # 1. 克隆仓库
 git clone https://github.com/zhu1090093659/dsh-web-ui.git
 cd dsh-web-ui
 
-# 2. 安装依赖并构建（需要 Node.js >= 22 与 pnpm）
+# 2. 安装依赖并构建
 pnpm install
 pnpm -r build
 
@@ -138,12 +150,12 @@ dsh web
 
 ### 单独安装某个插件
 
-不想装全家桶时，可单独安装任意插件（`link:` 后跟仓库内对应包目录）：
+不想装全家桶时，可单独安装任意插件（npm 已发布，直接用包名）：
 
 ```sh
-dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board   # 任务看板
-dsh plugin --profile web add link:$(pwd)/packages/dsh-ssh          # 远程连接（SSH）
-dsh plugin --profile web add link:$(pwd)/packages/dsh-pet          # 鲸鱼娘宠物
+dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # 任务看板
+dsh plugin --profile web add @linxin666/dsh-ssh                    # 远程连接（SSH）
+dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘宠物
 ```
 
 ### 验证与卸载

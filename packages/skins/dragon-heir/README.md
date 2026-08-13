@@ -23,10 +23,11 @@ emitted, and nothing reaches a model request.
 
 ```sh
 # 装全部皮肤（推荐）
-dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins
 # 或单独装本皮肤
-dsh plugin --profile web add link:$(pwd)/packages/skins/dragon-heir
+dsh plugin --profile web add @linxin666/dsh-client-ui-skin-dragon-heir
 # 皮肤启用：dsh-skin use dragon-heir
+# 从仓库安装（开发调试）：dsh plugin --profile web add link:$(pwd)/packages/skins/dragon-heir
 ```
 
 `$(pwd)` 指克隆全家桶仓库后的目录。

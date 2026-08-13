@@ -114,16 +114,28 @@ Three more: QQ2008 Retro (crystal blue with penguin motifs), Tonghuashun Trading
 
 DSH plugins are installed per **profile** with the `dsh plugin` command (`dsh web` runs the `web` profile). The recommended way is the aggregate package `dsh-web-ui-all` — one package with all plugins and skins; install `dsh-skins` instead if you only want the skins.
 
-### Install from the GitHub repository
+### Option 1: Install from npm (recommended)
 
-The plugin packages are not published to npm, so installing from this repository is currently the only way:
+The plugins are published to npm (the `@linxin666` scope) — one command installs everything:
+
+```sh
+dsh plugin --profile web add @linxin666/dsh-web-ui-all
+```
+
+Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins` instead.
+
+> First install may stop on `ERR_PNPM_IGNORED_BUILDS` (pnpm blocks dependency build scripts): copy the printed keys (`cloudflared` / `cpu-features` / `ssh2`) into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
+
+### Option 2: Install from the GitHub repository (development)
+
+The packages are already on npm; installing from this repository is only for development (requires Node.js >= 22 and pnpm):
 
 ```sh
 # 1. Clone the repository
 git clone https://github.com/zhu1090093659/dsh-web-ui.git
 cd dsh-web-ui
 
-# 2. Install dependencies and build (requires Node.js >= 22 and pnpm)
+# 2. Install dependencies and build
 pnpm install
 pnpm -r build
 
@@ -138,12 +150,12 @@ dsh web
 
 ### Install a single plugin
 
-Prefer individual plugins? Install them one by one (`link:` points at the package directory inside this repository):
+Prefer individual plugins? Install them one by one (published on npm, so use the package name directly):
 
 ```sh
-dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board   # Task board
-dsh plugin --profile web add link:$(pwd)/packages/dsh-ssh          # Remote connection (SSH)
-dsh plugin --profile web add link:$(pwd)/packages/dsh-pet          # Whale-girl pet
+dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # Task board
+dsh plugin --profile web add @linxin666/dsh-ssh                    # Remote connection (SSH)
+dsh plugin --profile web add @linxin666/dsh-pet                    # Whale-girl pet
 ```
 
 ### Verify and uninstall

@@ -12,10 +12,11 @@
 
 ```sh
 # 装全部皮肤（推荐）
-dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins
 # 或单独装本皮肤
-dsh plugin --profile web add link:$(pwd)/packages/skins/xp
+dsh plugin --profile web add @linxin666/dsh-client-ui-skin-xp
 # 皮肤启用：dsh-skin use xp
+# 从仓库安装（开发调试）：dsh plugin --profile web add link:$(pwd)/packages/skins/xp
 ```
 
 `$(pwd)` 指克隆全家桶仓库后的目录。
