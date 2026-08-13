@@ -24,7 +24,6 @@ import type {
 } from '../core/types.ts'
 import { GitApi, subscribeChanges } from './api.ts'
 import { BranchChip } from './chips/BranchChip.tsx'
-import { DockBranchChip } from './DockBranchChip.tsx'
 import { en, zh, type GitGraphKey } from './locales.ts'
 
 export type { GitGraphKey } from './locales.ts'
@@ -128,23 +127,17 @@ export function apply(ctx: ClientContext): void {
       }
     }
 
-    scope.effect(() => scope.slots.register({
-      name: 'conversation.input.selector.context',
-      id: 'git-graph',
-      order: 100,
-      locale: NS,
-      inject: injected,
-    }, BranchChip), 'dsh-git-graph: branch chip registration')
-
-    // Current shells declare the composer dock band instead of the legacy
-    // selector context hole; register the same chip there too. Both injects
-    // are declaration-aware, so only the one the shell declares ever fires.
-    scope.effect(() => scope.slots.register({
-      name: 'conversation.input.dock',
-      id: 'git-graph',
-      order: 100,
-      locale: NS,
-      inject: injected,
-    }, DockBranchChip), 'dsh-git-graph: dock fallback registration')
+    // Declaration-aware: the chip registers only when the shell declares the
+    // context hole. A bare register() would throw on shells that dropped the
+    // hole (SDK SlotCore.register rejects undeclared slots), so route through
+    // inject like the pet / remote-web-ui entries.
+    scope.slots.inject('conversation.input.selector.context', () =>
+      scope.slots.register({
+        name: 'conversation.input.selector.context',
+        id: 'git-graph',
+        order: 100,
+        locale: NS,
+        inject: injected,
+      }, BranchChip))
   })
 }
