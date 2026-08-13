@@ -49,6 +49,27 @@ describe('Maid Atelier skin apply', () => {
     expect(document.body.hasAttribute('data-dsh-maid-atelier')).toBe(false)
   })
 
+  it('registers cleanup before a later CSSOM initialization failure', () => {
+    let dispose: (() => void) | undefined
+    const ctx = {
+      effect(factory: () => () => void): void {
+        dispose = factory()
+      },
+    } as unknown as Context
+    const insertRule = vi.spyOn(CSSStyleSheet.prototype, 'insertRule')
+      .mockImplementationOnce(() => {
+        throw new Error('fixture CSSOM failure')
+      })
+
+    expect(() => apply(ctx)).toThrow('fixture CSSOM failure')
+    expect(dispose).toBeTypeOf('function')
+    dispose?.()
+
+    expect(document.body.hasAttribute('data-dsh-maid-atelier')).toBe(false)
+    expect(document.querySelector("[data-skin-owner='maid-atelier']")).toBeNull()
+    insertRule.mockRestore()
+  })
+
   it('colors the installed Web-app system controls navy and restores the presenter color', async () => {
     const meta = document.createElement('meta')
     meta.name = 'theme-color'
@@ -75,6 +96,17 @@ describe('Maid Atelier skin apply', () => {
     await fiber.dispose()
     expect(document.body.querySelectorAll('[data-skin-chrome]').length).toBe(0)
     expect(document.body.querySelectorAll('[data-skin-trim-layer]')).toHaveLength(0)
+  })
+
+  it('does not remove a foreign node that happens to reuse the owner marker', async () => {
+    fiber = await mount()
+    const foreign = document.createElement('div')
+    foreign.dataset.skinOwner = 'maid-atelier'
+    document.body.append(foreign)
+
+    await fiber.dispose()
+    expect(foreign.isConnected).toBe(true)
+    foreign.remove()
   })
 
   it('keeps the mascot independent and leaves the native vector brand intact', async () => {
@@ -112,6 +144,32 @@ describe('Maid Atelier skin apply', () => {
     expect(document.querySelector("[data-skin-chrome='sidebar-mascot']")).not.toBeNull()
     expect(document.querySelector("button[class*='brand'] > svg")).not.toBeNull()
     expect(document.querySelector("[data-skin-chrome='brand-lockup']")).toBeNull()
+  })
+
+  it('does not rescan the sidebar when ordinary conversation content changes', async () => {
+    document.body.innerHTML = `
+      <div data-pane="sidebar"><div></div></div>
+      <main data-phase="active"></main>
+    `
+    fiber = await mount()
+    const sidebar = document.querySelector<HTMLElement>("[data-pane='sidebar']")!
+    const querySelectorAll = vi.spyOn(sidebar, 'querySelectorAll')
+
+    document.querySelector('main')!.append(document.createElement('article'))
+    await flushMutations()
+
+    expect(querySelectorAll).not.toHaveBeenCalled()
+  })
+
+  it('uses the public desktop frame marker without a private window global', async () => {
+    document.body.innerHTML = '<div class="fixture_frame" data-desktop></div>'
+    fiber = await mount()
+
+    const sheet = document.querySelector<HTMLStyleElement>(
+      "style[data-skin-chrome='sidebar-width-rule']",
+    )!.sheet!
+    const variables = sheet.cssRules[0] as CSSStyleRule
+    expect(variables.style.getPropertyValue('--maid-titlebar-height')).toBe('32px')
   })
 
   it('anchors the public rc.6 settings slot to the real sidebar footer', async () => {
