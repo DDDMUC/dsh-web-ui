@@ -2,7 +2,7 @@
 
 状态：已实现。日期：2026-08-09。
 
-> 修正（2026-08）：分支 chip 挂载槽位由 `conversation.input.selector.context` 迁移到官方 rc.6 声明的 `conversation.input.dock`（list、session 作用域）——旧 selector-context 洞在 rc.6 从未声明，inject 永久等待、chip 从不挂载（issue #38 同类遗留，同 dsh-pet 修复）。hero（空白会话）不再挂载为 session 作用域的含义；见 README 挂载 seam。
+> 修正（2026-08）：分支 chip 挂载槽位为官方声明的 `conversation.input.selector.context`（list、session-maybe 作用域），与官方工作区选择胶囊并排。此前 acbcf80 曾把 chip 迁到 `conversation.input.dock`，理由是「selector-context 洞在 rc.6 从未声明」——该前提不成立：随发行 shell 的 apply.ts 同时声明了 selector-context（session-maybe）与 dock（session），selector-context 才是分支 chip 的正确席位，现已回迁。hero（空白会话）与 active 会话相位都挂载；见 README 挂载 seam。
 
 ## 背景
 
