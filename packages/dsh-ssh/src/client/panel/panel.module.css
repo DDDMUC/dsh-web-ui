@@ -22,6 +22,11 @@
      panel and its modals paint over the input card, mirroring the task board
      (issue #87). */
   z-index: 60;
+  /* Opaque backdrop: the conversation subtree stays mounted under the panel.
+     Even if the hide rule below were defeated by a stronger host inline
+     style, this background keeps sticky code-block banners (host z-index 6)
+     from showing through the active panel (issue #100). */
+  background: var(--dsw-alias-bg-base);
 }
 
 /* The center column is single-occupant; the :not() guards keep the two
@@ -32,8 +37,11 @@ html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [data-dsh-ssh-view] {
 }
 
 /* While the panel is active, the conversation content underneath is hidden
-   (it stays mounted and stateful). */
-html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [data-pane='conversation'] > :not([data-dsh-ssh-view]) {
+   (it stays mounted and stateful). The rule targets both the pane attribute
+   and the center-column class so the chat subtree (including the code-block
+   copy banner, issue #100) stays hidden whichever host container carries it. */
+html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [data-pane='conversation'] > :not([data-dsh-ssh-view]),
+html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [class*='centerCol'] > :not([data-dsh-ssh-view]) {
   display: none !important;
 }
 

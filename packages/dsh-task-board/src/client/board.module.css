@@ -17,6 +17,11 @@
   inset: 0;
   display: none;
   z-index: 60;
+  /* Opaque backdrop: the conversation subtree stays mounted under the view.
+     Even if the hide rule below were defeated by a stronger host inline
+     style, this background keeps sticky code-block banners (host z-index 6)
+     from showing through the active board (issue #100). */
+  background: var(--dsw-alias-bg-base);
 }
 
 /* The center column is single-occupant; the :not() guards keep the two
@@ -31,8 +36,12 @@ html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [data-dsh-taskboard-v
    (0.1.0-rc.6) wraps the conversation view in a node with an inline
    `display: contents`, and inline styles beat a plain stylesheet rule. Without
    it the composer (input card) stays visible at the bottom and paints over the
-   board modals' footer, hiding the run/delete buttons (issue #76). */
-html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [data-pane='conversation'] > :not([data-dsh-taskboard-view]) {
+   board modals' footer, hiding the run/delete buttons (issue #76).
+   The rule targets both the pane attribute and the center-column class so the
+   chat subtree (including the code-block copy banner, issue #100) stays hidden
+   whichever host container carries it. */
+html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [data-pane='conversation'] > :not([data-dsh-taskboard-view]),
+html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [class*='centerCol'] > :not([data-dsh-taskboard-view]) {
   display: none !important;
 }
 
