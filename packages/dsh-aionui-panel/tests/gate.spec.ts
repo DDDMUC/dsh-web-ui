@@ -79,4 +79,24 @@ describe('isPathInside on win32 (separator + case robustness, issue #27)', () =>
       expect(isPathInside('C:/Users/zcl/proj', 'D:/Users/zcl/proj/x')).toBe(false)
     })
   })
+
+  it('treats a root with a trailing slash as the same root', () => {
+    asWin32(() => {
+      expect(isPathInside('C:/proj', 'C:\\proj\\')).toBe(true)
+    })
+  })
+
+  it('handles a bare drive-root boundary', () => {
+    asWin32(() => {
+      expect(isPathInside('C:/', 'C:/x')).toBe(true)
+      expect(isPathInside('C:/', 'D:/x')).toBe(false)
+    })
+  })
+
+  it('handles UNC share prefixes', () => {
+    asWin32(() => {
+      expect(isPathInside('\\\\server\\share', '\\\\server\\share\\x')).toBe(true)
+      expect(isPathInside('\\\\server\\share', '\\\\server\\other\\x')).toBe(false)
+    })
+  })
 })

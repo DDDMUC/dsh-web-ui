@@ -21,7 +21,7 @@
  *   node scripts/link-profile.mjs            # link/refresh the family
  *   node scripts/link-profile.mjs --dry-run  # report without changing
  */
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmdirSync, symlinkSync, unlinkSync } from 'node:fs'
 import { dirname, join, relative, resolve as resolvePath } from 'node:path'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -112,9 +112,12 @@ function main() {
     const WIN32 = process.platform === 'win32'
     const target = WIN32 ? dir : relative(LINK_DIR, dir) // keep links relative, like the official ones
     let existing = 'missing'
+    let linkIsJunctionDir = false
     try {
       const st = lstatSync(linkPath)
       existing = st.isSymbolicLink() ? 'symlink' : st.isDirectory() ? 'dir' : 'file'
+      // Windows junctions report as both a symlink and a directory under lstat.
+      if (existing === 'symlink' && st.isDirectory()) linkIsJunctionDir = true
     } catch {}
     let current = null
     if (existing === 'symlink') {
@@ -136,7 +139,9 @@ function main() {
       report(`linked ${name} -> ${target}`)
     } else {
       if (DRY) { report(`would replace ${name} -> ${current ?? '(broken)'}`); changed++; continue }
-      unlinkSync(linkPath)
+      // Windows junctions are directory reparse points; unlink EPERMs, so rmdir.
+      if (linkIsJunctionDir) rmdirSync(linkPath)
+      else unlinkSync(linkPath)
       symlinkSync(target, linkPath, WIN32 ? 'junction' : undefined)
       report(`replaced ${name} -> ${target} (was ${current ?? '(broken)'})`)
     }

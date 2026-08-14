@@ -174,7 +174,16 @@ export interface SkinCenterRoutesDeps {
  * listSkinDirCandidates.
  * @returns skin id -> directory name.
  */
+/** Memoized id -> dir map; invalidated when the skins root (or the bundled
+ * carrier dir) changes on disk, so a skin added mid-session still appears
+ * without restarting. */
+let directoriesCache: { key: string; map: Map<string, string> } | null = null
+
 function skinDirectories(): Map<string, string> {
+  const rootStat = statSync(SKINS_DIR, { throwIfNoEntry: false })
+  const carrierStat = statSync(joinPath(SKINS_DIR, 'dsh-skins', 'skins'), { throwIfNoEntry: false })
+  const key = `${rootStat?.mtimeMs ?? -1}|${carrierStat?.mtimeMs ?? -1}`
+  if (directoriesCache !== null && directoriesCache.key === key) return directoriesCache.map
   const out = new Map<string, string>()
   for (const dir of listSkinDirCandidates(SKINS_DIR)) {
     let meta: { id?: unknown }
@@ -185,6 +194,7 @@ function skinDirectories(): Map<string, string> {
     }
     if (typeof meta.id === 'string' && /^[a-z0-9-]+$/.test(meta.id)) out.set(meta.id, dir)
   }
+  directoriesCache = { key, map: out }
   return out
 }
 

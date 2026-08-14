@@ -48,17 +48,32 @@ export function subprocessRunner(ctx: Context): GitRunner {
       // A missing git binary (or a subprocess service that cannot spawn) must
       // degrade to a failed run, not throw through the route layer: the SCM
       // tab then shows the friendly "not a git repository" state instead of a
-      // bare 400 with no body.
+      // bare 400 with no body. Real failures still log and are written into
+      // stderr so a misclassified failure stays diagnosable.
       let handle: SubprocessHandle
       try {
         handle = ctx.subprocess.spawn(spec)
-      } catch {
-        return { exitCode: 127, stdout: '', stderr: 'git: spawn failed (is git installed?)' }
+      } catch (error) {
+        console.error('[dsh-aionui-panel] git spawn failed:', error)
+        return {
+          exitCode: 127,
+          stdout: '',
+          stderr: 'git: spawn failed: ' + (error instanceof Error ? error.message : String(error)),
+        }
       }
-      const outcome = await handle.done
-      const stdout = handle.collected.stdout?.readFrom(0).text ?? ''
-      const stderr = handle.collected.stderr?.readFrom(0).text ?? ''
-      return { exitCode: outcome.exitCode, stdout, stderr }
+      try {
+        const outcome = await handle.done
+        const stdout = handle.collected.stdout?.readFrom(0).text ?? ''
+        const stderr = handle.collected.stderr?.readFrom(0).text ?? ''
+        return { exitCode: outcome.exitCode, stdout, stderr }
+      } catch (error) {
+        console.error('[dsh-aionui-panel] git run failed:', error)
+        return {
+          exitCode: 127,
+          stdout: '',
+          stderr: 'git: run failed: ' + (error instanceof Error ? error.message : String(error)),
+        }
+      }
     },
   }
 }

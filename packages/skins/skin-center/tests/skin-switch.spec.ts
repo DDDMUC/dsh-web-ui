@@ -7,10 +7,18 @@
  * @module @linxin666/dsh-client-ui-skin-center/tests/skin-switch
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readlinkSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readlinkSync, rmSync, existsSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { pathToFileURL } from 'node:url'
+import { afterAll, describe, expect, it, vi } from 'vitest'
+
+// Spy on symlinkSync only (everything else stays real) so the win32 junction
+// fallback branch of ensureSymlink can be exercised on non-Windows machines.
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, symlinkSync: vi.fn(actual.symlinkSync) }
+})
 import {
   MANAGED_START,
   MANAGED_END,
@@ -174,9 +182,15 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
     const registry = loadRegistry()
     const qq98 = registry.qq98
     // The npm-install layout: the skin package is physically present as a
-    // directory under the profile's node_modules — no symlink exists.
+    // directory under the profile's node_modules — no symlink exists. The
+    // directory must carry this skin's identity to count as installed.
     const installed = join(resolvePaths(h).profileModulesDir, qq98.pkg)
     mkdirSync(installed, { recursive: true })
+    writeFileSync(join(installed, 'skin.json'), JSON.stringify({
+      id: 'qq98',
+      package: qq98.pkg,
+      wiring: { id: qq98.id },
+    }))
     const fakeRegistry: Record<string, SkinSwitchEntry> = {
       ...registry,
       qq98: { ...qq98, dir: installed },
@@ -187,6 +201,45 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
     const after = readFileSync(patchPath(h), 'utf8')
     expect(after).toContain('- insert:')
     expect(after).toContain('- id: ' + fakeRegistry.qq98.id)
+  })
+
+  it('useSkin refuses an unrelated directory at the profile link path', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    // A stray directory that is NOT this skin's package: the old code
+    // refused non-symlinks, and the npm-layout relaxation must not silently
+    // accept just any directory.
+    const target = join(resolvePaths(h).profileModulesDir, qq98.pkg)
+    mkdirSync(target, { recursive: true })
+    expect(() => useSkin('qq98', { home: h })).toThrow(/does not look like/)
+  })
+
+  it('falls back to a directory junction when symlinkSync fails with EPERM on win32 (issue #24)', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    mkdirSync(join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98'), { recursive: true })
+    const fakeRegistry: Record<string, SkinSwitchEntry> = {
+      ...registry,
+      qq98: { ...qq98, dir: join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98') },
+    }
+    const mock = vi.mocked(symlinkSync)
+    mock.mockImplementationOnce(() => {
+      const error = new Error('operation not permitted') as NodeJS.ErrnoException
+      error.code = 'EPERM'
+      throw error
+    })
+    const platformDesc = Object.getOwnPropertyDescriptor(process, 'platform')!
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    try {
+      useSkin('qq98', { home: h, registry: fakeRegistry })
+      // First call raised EPERM; the retry must be a junction link.
+      expect(mock).toHaveBeenLastCalledWith(expect.any(String), expect.any(String), 'junction')
+    } finally {
+      Object.defineProperty(process, 'platform', platformDesc)
+      mock.mockReset()
+    }
   })
 })
 
@@ -283,6 +336,32 @@ describe('bundled-skins carrier (dsh-skins/skins/<id>, npm layout)', () => {
       rmSync(fakeRoot, { recursive: true, force: true })
     }
   })
+
+  it('deterministically prefers the direct package when carrier and legacy package share an id', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-carrier-conflict-'))
+    try {
+      const scoped = join(fakeRoot, '@linxin666')
+      const carrier = join(scoped, 'dsh-skins', 'skins')
+      mkdirSync(join(carrier, 'miku', 'lib'), { recursive: true })
+      mkdirSync(join(scoped, 'dsh-client-ui-skin-miku'), { recursive: true })
+      writeFileSync(join(carrier, 'miku', 'skin.json'), JSON.stringify({
+        id: 'miku',
+        package: '@linxin666/dsh-client-ui-skin-miku',
+        wiring: { id: 'ui-skin-miku' },
+      }))
+      writeFileSync(join(scoped, 'dsh-client-ui-skin-miku', 'skin.json'), JSON.stringify({
+        id: 'miku',
+        package: '@linxin666/dsh-client-ui-skin-miku',
+        wiring: { id: 'ui-skin-miku' },
+      }))
+      const registry = loadRegistry(scoped)
+      expect(Object.keys(registry).sort()).toEqual(['miku'])
+      // The direct package wins over the carrier, deterministically.
+      expect(registry.miku.dir).toBe(join(scoped, 'dsh-client-ui-skin-miku'))
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
+  })
 })
 
 describe('pnpm virtual-store layout (realpathed .pnpm packages)', () => {
@@ -302,12 +381,41 @@ describe('pnpm virtual-store layout (realpathed .pnpm packages)', () => {
         package: '@linxin666/dsh-client-ui-skin-miku',
         wiring: { id: 'ui-skin-miku' },
       }))
-      // The anchor is the node_modules root whose @linxin666/ holds the carrier.
-      expect(findScopedAnchor(join(storePkg, 'lib'))).toBe(nm)
+      // The anchor is the @linxin666/ scoped dir holding the carrier.
+      expect(findScopedAnchor(join(storePkg, 'lib'))).toBe(join(nm, '@linxin666'))
       // And the registry resolves bundled skins through that scoped dir.
       const registry = loadRegistry(join(nm, '@linxin666'))
       expect(Object.keys(registry).sort()).toEqual(['miku'])
       expect(registry.miku.dir).toBe(join(carrier, 'miku'))
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('resolveSkinsDir() end-to-end: probes the real candidate chain from a pnpm store path', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-pnpm-e2e-'))
+    try {
+      // pnpm virtual store: the skin-center package realpath sits deep under
+      // .pnpm/<pkg>@<ver>/node_modules/@linxin666/, its ../../ sibling dir
+      // holds only itself, and the real skins live in the hoisted scoped dir.
+      const nm = join(fakeRoot, 'node_modules')
+      const storeScoped = join(nm, '.pnpm', '@linxin666+dsh-client-ui-skin-center@0.1.3', 'node_modules', '@linxin666')
+      const storePkg = join(storeScoped, 'dsh-client-ui-skin-center')
+      const scoped = join(nm, '@linxin666')
+      const carrier = join(scoped, 'dsh-skins', 'skins')
+      mkdirSync(join(storePkg, 'lib'), { recursive: true })
+      mkdirSync(join(carrier, 'miku', 'lib'), { recursive: true })
+      writeFileSync(join(carrier, 'miku', 'skin.json'), JSON.stringify({
+        id: 'miku',
+        package: '@linxin666/dsh-client-ui-skin-miku',
+        wiring: { id: 'ui-skin-miku' },
+      }))
+      // The module location the resolver must anchor from (inside the store).
+      const fromUrl = pathToFileURL(join(storePkg, 'lib', 'index.js')).href
+      const resolved = resolveSkinsDir(fromUrl)
+      // Must land on the hoisted scoped dir, not the store-local one.
+      expect(resolved).toBe(scoped)
+      expect(Object.keys(loadRegistry(resolved)).sort()).toEqual(['miku'])
     } finally {
       rmSync(fakeRoot, { recursive: true, force: true })
     }

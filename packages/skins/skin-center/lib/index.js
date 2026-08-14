@@ -1,6 +1,6 @@
 import { installSettingsSection, settingsNamespace } from "@deepseek-ai/dsh-settings";
 import z from "schemastery";
-import { lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -23,14 +23,14 @@ import { fileURLToPath } from "node:url";
 * @module @linxin666/dsh-client-ui-skin-center/skin-switch
 */
 /**
-* Walk up from a file location to the nearest directory whose @linxin666/
-* scoped subdir actually holds skin packages (dsh-skins carrier or
+* Walk up from a file location to the nearest @linxin666/ scoped dir
+* whose entries actually hold skin packages (dsh-skins carrier or
 * dsh-client-ui-skin-* packages). pnpm's virtual store realpaths packages
 * into node_modules/.pnpm/<pkg>@<ver>/node_modules/<name>, so a plain
 * '../../' from the skin-center package can never see its siblings there —
-* this anchor finds the node_modules root that owns the scoped dir.
+* this anchor finds the scoped dir that owns them.
 * @param fromDir - the realpathed package dir to walk up from.
-* @returns the anchor dir, or null when no scoped skin dir is found.
+* @returns the scoped skin dir (the skins root), or null when none is found.
 */
 function findScopedAnchor(fromDir) {
 	let current = fromDir;
@@ -38,8 +38,8 @@ function findScopedAnchor(fromDir) {
 		const scoped = join(current, "@linxin666");
 		try {
 			for (const entry of readdirSync(scoped)) {
-				if (entry === "dsh-skins") return current;
-				if (entry.startsWith("dsh-client-ui-skin-") && entry !== "dsh-client-ui-skin-center") return current;
+				if (entry === "dsh-skins") return scoped;
+				if (entry.startsWith("dsh-client-ui-skin-") && entry !== "dsh-client-ui-skin-center") return scoped;
 			}
 		} catch {}
 		const parent = dirname(current);
@@ -58,15 +58,18 @@ function findScopedAnchor(fromDir) {
 *    node_modules/skins/ under npm — the ENOENT of
 *    zhu1090093659/dsh-web-ui#21/#33/#34), kept as a fallback.
 * DSH_SKINS_DIR overrides everything (tests use it).
+* @param fromUrl - the module URL to resolve from (defaults to this module's
+*   own import.meta.url); injectable so tests can place the module inside a
+*   simulated install layout and exercise the real candidate chain.
 */
-function resolveSkinsDir() {
+function resolveSkinsDir(fromUrl = import.meta.url) {
 	const fromEnv = process.env.DSH_SKINS_DIR;
 	if (fromEnv !== void 0 && fromEnv !== "") return fromEnv;
-	const here = fileURLToPath(import.meta.url);
+	const here = fileURLToPath(fromUrl);
 	const candidates = [
-		fileURLToPath(new URL("../../", import.meta.url)),
+		fileURLToPath(new URL("../../", fromUrl)),
 		findScopedAnchor(dirname(here)),
-		fileURLToPath(new URL("../../../skins/", import.meta.url))
+		fileURLToPath(new URL("../../../skins/", fromUrl))
 	].filter((candidate) => candidate !== null);
 	for (const candidate of candidates) if (listSkinDirCandidates(candidate).length > 0) return candidate;
 	return candidates[0];
@@ -124,25 +127,23 @@ function listSkinDirCandidates(skinsDir) {
 	} catch {
 		return out;
 	}
+	const isDir = (p) => statSync(p, { throwIfNoEntry: false })?.isDirectory() === true;
 	for (const dir of entries) {
 		const candidate = join(skinsDir, dir);
-		if (statSync(join(candidate, "skin.json"), { throwIfNoEntry: false })) {
-			out.push(candidate);
-			continue;
-		}
-		if (dir === "dsh-skins") {
-			const bundled = join(candidate, "skins");
-			let subdirs;
-			try {
-				subdirs = readdirSync(bundled);
-			} catch {
-				continue;
-			}
-			for (const sub of subdirs) {
-				const subDir = join(bundled, sub);
-				if (statSync(join(subDir, "skin.json"), { throwIfNoEntry: false })) out.push(subDir);
-			}
-		}
+		if (!isDir(candidate)) continue;
+		if (statSync(join(candidate, "skin.json"), { throwIfNoEntry: false })) out.push(candidate);
+	}
+	const bundled = join(skinsDir, "dsh-skins", "skins");
+	let subdirs;
+	try {
+		subdirs = readdirSync(bundled);
+	} catch {
+		return out;
+	}
+	for (const sub of subdirs) {
+		const subDir = join(bundled, sub);
+		if (!isDir(subDir)) continue;
+		if (statSync(join(subDir, "skin.json"), { throwIfNoEntry: false })) out.push(subDir);
 	}
 	return out;
 }
@@ -161,6 +162,10 @@ function loadRegistry(skinsDir = SKINS_DIR) {
 	for (const dir of listSkinDirCandidates(skinsDir)) {
 		const meta = readSkinMeta(dir);
 		if (meta === null || meta.wiring === void 0 || meta.package === void 0) continue;
+		if (out[meta.id] !== void 0) {
+			console.warn("[skin-center] duplicate skin id \"" + meta.id + "\": keeping " + out[meta.id].dir + ", ignoring " + dir);
+			continue;
+		}
 		out[meta.id] = {
 			pkg: meta.package,
 			id: meta.wiring.id,
@@ -299,9 +304,12 @@ function ensureSymlink(entry, profileModulesDir) {
 	} catch {}
 	if (stat) if (stat.isSymbolicLink()) {
 		if (readlinkSync(target) === entry.dir) return false;
-		unlinkSync(target);
-	} else if (stat.isDirectory()) return false;
-	else throw new Error(`${target} exists and is not a symlink or directory — refusing to touch it`);
+		if (process.platform === "win32" && stat.isDirectory()) rmdirSync(target);
+		else unlinkSync(target);
+	} else if (stat.isDirectory()) {
+		if (isSkinPackageDir(target, entry)) return false;
+		throw new Error(target + " exists as a directory but does not look like " + entry.pkg + " — refusing to treat it as installed");
+	} else throw new Error(target + " exists and is not a symlink or directory — refusing to touch it");
 	mkdirSync(dirname(target), { recursive: true });
 	try {
 		symlinkSync(entry.dir, target);
@@ -311,6 +319,24 @@ function ensureSymlink(entry, profileModulesDir) {
 		else throw error;
 	}
 	return true;
+}
+/**
+* Whether an existing directory at a profile link path really is the target
+* skin's installed package (skin.json id + package match). Keeps the
+* npm-install-layout pass-through from silently accepting an unrelated
+* directory left over at the link path.
+* @param dir - the directory to inspect.
+* @param entry - the expected skin.
+*/
+function isSkinPackageDir(dir, entry) {
+	try {
+		const meta = JSON.parse(readFileSync(join(dir, "skin.json"), "utf8"));
+		if (typeof meta !== "object" || meta === null) return false;
+		const record = meta;
+		return record.id === entry.id.replace(/^ui-skin-/, "") && record.package === entry.pkg;
+	} catch {
+		return false;
+	}
 }
 /** Windows/privilege code points where symlinkSync fails. */
 const SYMLINK_PRIVILEGE_CODES = [
@@ -343,8 +369,9 @@ function symlinkFriendly(caller, fn) {
 function checkInstalled(entry, profileModulesDir) {
 	let ok = false;
 	try {
-		const stat = lstatSync(join(profileModulesDir, entry.pkg));
-		ok = stat.isSymbolicLink() || stat.isDirectory();
+		const target = join(profileModulesDir, entry.pkg);
+		const stat = lstatSync(target);
+		ok = stat.isSymbolicLink() || stat.isDirectory() && isSkinPackageDir(target, entry);
 	} catch {}
 	return ok ? null : `${entry.pkg} 未安装到 profile；先用 dsh-skin install ${entry.id.replace(/^ui-skin-/, "")}（或 dsh plugin --profile ${DEFAULT_PROFILE} add ${entry.dir}）安装，否则加载会失败。`;
 }
@@ -553,7 +580,15 @@ function postRoute(path, run) {
 * listSkinDirCandidates.
 * @returns skin id -> directory name.
 */
+/** Memoized id -> dir map; invalidated when the skins root (or the bundled
+* carrier dir) changes on disk, so a skin added mid-session still appears
+* without restarting. */
+let directoriesCache = null;
 function skinDirectories() {
+	const rootStat = statSync(SKINS_DIR, { throwIfNoEntry: false });
+	const carrierStat = statSync(join(SKINS_DIR, "dsh-skins", "skins"), { throwIfNoEntry: false });
+	const key = `${rootStat?.mtimeMs ?? -1}|${carrierStat?.mtimeMs ?? -1}`;
+	if (directoriesCache !== null && directoriesCache.key === key) return directoriesCache.map;
 	const out = /* @__PURE__ */ new Map();
 	for (const dir of listSkinDirCandidates(SKINS_DIR)) {
 		let meta;
@@ -564,6 +599,10 @@ function skinDirectories() {
 		}
 		if (typeof meta.id === "string" && /^[a-z0-9-]+$/.test(meta.id)) out.set(meta.id, dir);
 	}
+	directoriesCache = {
+		key,
+		map: out
+	};
 	return out;
 }
 /**

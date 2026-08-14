@@ -92,25 +92,37 @@ export function mountSidebarEntry(controller: PanelController): () => void {
   let placed = false
 
   const tryPlace = (): void => {
-    if (placed) return
     if (root !== undefined && !root.isConnected) {
-      // The shell re-created the sidebar pane; re-query from scratch.
+      // The shell rebuilt the sidebar pane (whole-tree teardown); the root
+      // observer is gone with the old tree, so detach it and re-query from
+      // scratch. The new pane is later noticed by the body-level watcher.
       rootObserver.disconnect()
       root = undefined
+      placed = false
+    }
+    if (placed) {
+      // Cheap short-circuit: entry still lives in a mountable subtree.
+      if (document.body.contains(entry)) return
+      // Entry was torn down together with the old tree; reset and re-place.
+      rootObserver.disconnect()
+      root = undefined
+      placed = false
     }
     root ??= sidebarRoot()
     if (root === undefined) return
     placed = placeEntry(root, entry)
     if (placed) {
       rootObserver.observe(root, { childList: true, subtree: true })
-      // Placement done; the root observer alone keeps the entry healed.
-      // Disconnect the body-wide watcher so unrelated app mutations (e.g.
-      // chat streaming) no longer churn every plugin's self-heal loop.
-      waitObserver.disconnect()
     }
   }
 
-  // The shell renders after boot settlement; watch for its arrival.
+  // Body-level watcher retained as the "whole rebuild" fallback: when the shell
+  // tears down the whole sidebar pane, the root observer is gone with it and
+  // only this body observation can notice the new pane mounting. It is no
+  // longer disconnected after placement; the placed-and-still-mounted case
+  // short-circuits through the cheap document.body.contains(entry) check, so
+  // unrelated app mutations (e.g. chat streaming) cost one contains check
+  // instead of churning the full re-query.
   const waitObserver = new MutationObserver(() => { tryPlace() })
   waitObserver.observe(document.body, { childList: true, subtree: true })
 

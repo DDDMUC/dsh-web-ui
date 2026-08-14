@@ -16,20 +16,20 @@
  * @module @linxin666/dsh-client-ui-skin-center/skin-switch
  */
 
-import { readdirSync, readFileSync, readlinkSync, lstatSync, mkdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, renameSync } from 'node:fs'
+import { readdirSync, readFileSync, readlinkSync, lstatSync, mkdirSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, renameSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join as joinPath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Walk up from a file location to the nearest directory whose @linxin666/
- * scoped subdir actually holds skin packages (dsh-skins carrier or
+ * Walk up from a file location to the nearest @linxin666/ scoped dir
+ * whose entries actually hold skin packages (dsh-skins carrier or
  * dsh-client-ui-skin-* packages). pnpm's virtual store realpaths packages
  * into node_modules/.pnpm/<pkg>@<ver>/node_modules/<name>, so a plain
  * '../../' from the skin-center package can never see its siblings there —
- * this anchor finds the node_modules root that owns the scoped dir.
+ * this anchor finds the scoped dir that owns them.
  * @param fromDir - the realpathed package dir to walk up from.
- * @returns the anchor dir, or null when no scoped skin dir is found.
+ * @returns the scoped skin dir (the skins root), or null when none is found.
  */
 export function findScopedAnchor(fromDir: string): string | null {
   let current = fromDir
@@ -39,8 +39,8 @@ export function findScopedAnchor(fromDir: string): string | null {
       for (const entry of readdirSync(scoped)) {
         // A real skin home: the dsh-skins carrier or per-skin packages.
         // The skin-center manager itself is not a skin home.
-        if (entry === 'dsh-skins') return current
-        if (entry.startsWith('dsh-client-ui-skin-') && entry !== 'dsh-client-ui-skin-center') return current
+        if (entry === 'dsh-skins') return scoped
+        if (entry.startsWith('dsh-client-ui-skin-') && entry !== 'dsh-client-ui-skin-center') return scoped
       }
     } catch {
       // No scoped dir at this level — keep walking up.
@@ -62,15 +62,18 @@ export function findScopedAnchor(fromDir: string): string | null {
  *    node_modules/skins/ under npm — the ENOENT of
  *    zhu1090093659/dsh-web-ui#21/#33/#34), kept as a fallback.
  * DSH_SKINS_DIR overrides everything (tests use it).
+ * @param fromUrl - the module URL to resolve from (defaults to this module's
+ *   own import.meta.url); injectable so tests can place the module inside a
+ *   simulated install layout and exercise the real candidate chain.
  */
-export function resolveSkinsDir(): string {
+export function resolveSkinsDir(fromUrl: string = import.meta.url): string {
   const fromEnv = process.env.DSH_SKINS_DIR
   if (fromEnv !== undefined && fromEnv !== '') return fromEnv
-  const here = fileURLToPath(import.meta.url)
+  const here = fileURLToPath(fromUrl)
   const candidates = [
-    fileURLToPath(new URL('../../', import.meta.url)),
+    fileURLToPath(new URL('../../', fromUrl)),
     findScopedAnchor(dirname(here)),
-    fileURLToPath(new URL('../../../skins/', import.meta.url)),
+    fileURLToPath(new URL('../../../skins/', fromUrl)),
   ].filter((candidate): candidate is string => candidate !== null)
   for (const candidate of candidates) {
     if (listSkinDirCandidates(candidate).length > 0) return candidate
@@ -149,25 +152,31 @@ export function listSkinDirCandidates(skinsDir: string): string[] {
   } catch {
     return out
   }
+  // Non-directory entries (stray files) must be skipped without throwing:
+  // statSync on "<file>/skin.json" raises ENOTDIR, which throwIfNoEntry
+  // does not suppress. resolveSkinsDir probes at module load, so a single
+  // stray file would otherwise crash the whole plugin.
+  const isDir = (p: string): boolean => statSync(p, { throwIfNoEntry: false })?.isDirectory() === true
+  // Pass 1: direct skin dirs (monorepo / legacy per-skin packages). Kept
+  // first so that on an id collision with the carrier below, the direct
+  // package deterministically wins in loadRegistry.
   for (const dir of entries) {
     const candidate = joinPath(skinsDir, dir)
-    if (statSync(joinPath(candidate, 'skin.json'), { throwIfNoEntry: false })) {
-      out.push(candidate)
-      continue
-    }
-    if (dir === 'dsh-skins') {
-      const bundled = joinPath(candidate, 'skins')
-      let subdirs: string[]
-      try {
-        subdirs = readdirSync(bundled)
-      } catch {
-        continue
-      }
-      for (const sub of subdirs) {
-        const subDir = joinPath(bundled, sub)
-        if (statSync(joinPath(subDir, 'skin.json'), { throwIfNoEntry: false })) out.push(subDir)
-      }
-    }
+    if (!isDir(candidate)) continue
+    if (statSync(joinPath(candidate, 'skin.json'), { throwIfNoEntry: false })) out.push(candidate)
+  }
+  // Pass 2: the bundled-skins carrier dsh-skins/skins/<id>.
+  const bundled = joinPath(skinsDir, 'dsh-skins', 'skins')
+  let subdirs: string[]
+  try {
+    subdirs = readdirSync(bundled)
+  } catch {
+    return out
+  }
+  for (const sub of subdirs) {
+    const subDir = joinPath(bundled, sub)
+    if (!isDir(subDir)) continue
+    if (statSync(joinPath(subDir, 'skin.json'), { throwIfNoEntry: false })) out.push(subDir)
   }
   return out
 }
@@ -187,6 +196,14 @@ export function loadRegistry(skinsDir: string = SKINS_DIR): Record<string, SkinS
   for (const dir of listSkinDirCandidates(skinsDir)) {
     const meta = readSkinMeta(dir)
     if (meta === null || meta.wiring === undefined || meta.package === undefined) continue
+    if (out[meta.id] !== undefined) {
+      // Same skin id present twice (a legacy per-skin package AND the
+      // dsh-skins carrier): keep the first candidate deterministically
+      // (listSkinDirCandidates orders direct packages before the carrier)
+      // and surface the conflict instead of silently last-winning.
+      console.warn('[skin-center] duplicate skin id "' + meta.id + '": keeping ' + out[meta.id].dir + ', ignoring ' + dir)
+      continue
+    }
     out[meta.id] = {
       pkg: meta.package,
       id: meta.wiring.id,
@@ -360,14 +377,21 @@ function ensureSymlink(entry: SkinSwitchEntry, profileModulesDir: string): boole
     if (stat.isSymbolicLink()) {
       const current = readlinkSync(target)
       if (current === entry.dir) return false
-      unlinkSync(target)
+      // Windows junctions report as symbolic links AND directories; unlink
+      // cannot remove a directory reparse point (EPERM), so remove stale
+      // junctions with rmdir instead.
+      if (process.platform === 'win32' && stat.isDirectory()) rmdirSync(target)
+      else unlinkSync(target)
     } else if (stat.isDirectory()) {
       // A real installed package directory: already resolvable, not ours to
       // replace. This is the npm-install layout (issue #21/#33/#34) — the
       // skin package is physically present under the profile's node_modules.
-      return false
+      // It must actually BE this skin's package: an unrelated directory at
+      // the target path is refused (the same protection the old code gave).
+      if (isSkinPackageDir(target, entry)) return false
+      throw new Error(target + ' exists as a directory but does not look like ' + entry.pkg + ' — refusing to treat it as installed')
     } else {
-      throw new Error(`${target} exists and is not a symlink or directory — refusing to touch it`)
+      throw new Error(target + ' exists and is not a symlink or directory — refusing to touch it')
     }
   }
   // The link's parent scoped dir may not exist on a fresh machine (the
@@ -386,6 +410,25 @@ function ensureSymlink(entry: SkinSwitchEntry, profileModulesDir: string): boole
     }
   }
   return true
+}
+
+/**
+ * Whether an existing directory at a profile link path really is the target
+ * skin's installed package (skin.json id + package match). Keeps the
+ * npm-install-layout pass-through from silently accepting an unrelated
+ * directory left over at the link path.
+ * @param dir - the directory to inspect.
+ * @param entry - the expected skin.
+ */
+function isSkinPackageDir(dir: string, entry: SkinSwitchEntry): boolean {
+  try {
+    const meta: unknown = JSON.parse(readFileSync(joinPath(dir, 'skin.json'), 'utf8'))
+    if (typeof meta !== 'object' || meta === null) return false
+    const record = meta as Record<string, unknown>
+    return record.id === entry.id.replace(/^ui-skin-/, '') && record.package === entry.pkg
+  } catch {
+    return false
+  }
 }
 
 /** Windows/privilege code points where symlinkSync fails. */
@@ -421,10 +464,12 @@ function symlinkFriendly<T>(caller: string, fn: () => T): T {
 function checkInstalled(entry: SkinSwitchEntry, profileModulesDir: string): string | null {
   let ok = false
   try {
-    const stat = lstatSync(joinPath(profileModulesDir, entry.pkg))
+    const target = joinPath(profileModulesDir, entry.pkg)
+    const stat = lstatSync(target)
     // A symlink (monorepo/link-profile layout) or a real package directory
-    // (npm-install layout) both make the skin resolvable from the profile.
-    ok = stat.isSymbolicLink() || stat.isDirectory()
+    // (npm-install layout) both make the skin resolvable from the profile;
+    // a real directory must carry this skin's identity to count as installed.
+    ok = stat.isSymbolicLink() || (stat.isDirectory() && isSkinPackageDir(target, entry))
   } catch { /* absent */ }
   return ok ? null : `${entry.pkg} 未安装到 profile；先用 dsh-skin install ${entry.id.replace(/^ui-skin-/, '')}（或 dsh plugin --profile ${DEFAULT_PROFILE} add ${entry.dir}）安装，否则加载会失败。`
 }
