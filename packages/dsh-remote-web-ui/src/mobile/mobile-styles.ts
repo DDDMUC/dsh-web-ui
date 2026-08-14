@@ -765,6 +765,9 @@ body {
   min-width: 0;
   min-height: 40px;
   max-height: 120px;
+  /* Grow with the content (still bounded by min/max-height); browsers
+     without field-sizing support ignore this line and keep the old size. */
+  field-sizing: content;
   padding: 9px 12px;
   border: 1px solid var(--m-border);
   border-radius: 10px;

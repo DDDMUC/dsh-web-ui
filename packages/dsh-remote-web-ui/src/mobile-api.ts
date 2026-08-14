@@ -40,6 +40,13 @@ const MOBILE_ALLOWLIST = new Set([
   'session.rename',
 ])
 
+/**
+ * Locally answered display-preference method (the phone's read-only
+ * surface preferences; never proxied to the host ApiProxy and never a
+ * settings-domain write).
+ */
+const MOBILE_PREFERENCES_METHOD = 'mobile.preferences'
+
 /** One session.list page (thin phones load incrementally). */
 const SESSION_PAGE_SIZE = 20
 
@@ -69,6 +76,8 @@ export interface MobileApiDeps {
   service: PairingService
   /** The host ApiProxy service (injected by the plugin). */
   apiProxy: ApiProxy
+  /** The resolved mobile composer preference (live per request). */
+  mobileEnterToSend: () => boolean
 }
 
 /** Mobile API route paths. */
@@ -87,7 +96,7 @@ const MOBILE_API_METHOD_PREFIX = `${MOBILE_API_PREFIX}/`
  * @returns the routes to register on webServer.
  */
 export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
-  const { service, apiProxy } = deps
+  const { service, apiProxy, mobileEnterToSend } = deps
 
   /** The phone gate: a live paired-device cookie, or nothing else proceeds. */
   const gateOk = (req: IncomingMessage): boolean => {
@@ -116,7 +125,8 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
       return
     }
     const method = pathname.slice(MOBILE_API_METHOD_PREFIX.length)
-    if (!MOBILE_ALLOWLIST.has(method)) {
+    const local = method === MOBILE_PREFERENCES_METHOD
+    if (!MOBILE_ALLOWLIST.has(method) && !local) {
       writeJson(res, 403, { ok: false, error: { code: 'forbidden', message: `method ${method} is not exposed to the mobile surface` } })
       return
     }
@@ -131,6 +141,14 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
     const rpcId = typeof parsed?.rpcId === 'string' ? parsed.rpcId : ''
     if (rpcId === '') {
       writeJson(res, 400, { ok: false, error: { code: 'bad-request', message: 'missing rpcId' } })
+      return
+    }
+    if (local) {
+      writeJson(res, 200, {
+        type: 'server-response',
+        rpcId,
+        result: { ok: true, value: { mobileEnterToSend: mobileEnterToSend() } },
+      })
       return
     }
     try {
