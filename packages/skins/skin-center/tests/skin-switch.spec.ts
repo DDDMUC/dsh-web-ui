@@ -53,6 +53,30 @@ function patchPath(h: string): string {
   return join(h, '.dsh', 'cordis.patch.yml')
 }
 
+/** Write a complete, resolvable skin package under `dir` so useSkin's
+ * honest resolvability gate (checkResolvable) sees a real package.json whose
+ * name matches the skin package plus a loadable host entry, and ensureSymlink's
+ * identity check sees a matching skin.json. Without these, useSkin would
+ * correctly reject the target as unloadable (the MODULE_NOT_FOUND of issue #42).
+ * @param dir - the skin package directory (created if missing).
+ * @param entry - the skin switch entry describing pkg/id.
+ */
+function makeSkinPackage(dir: string, entry: Pick<SkinSwitchEntry, 'pkg' | 'id'>): void {
+  mkdirSync(join(dir, 'lib'), { recursive: true })
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({
+    name: entry.pkg,
+    version: '0.1.6',
+    type: 'module',
+    main: 'lib/index.js',
+  }, null, 2))
+  writeFileSync(join(dir, 'lib', 'index.js'), 'export function apply() {}\n')
+  writeFileSync(join(dir, 'skin.json'), JSON.stringify({
+    id: entry.id.replace(/^ui-skin-/, ''),
+    package: entry.pkg,
+    wiring: { id: entry.id },
+  }))
+}
+
 /** A minimal registry for pure-function tests (deterministic, no disk reads). */
 function miniRegistry(exclude = [] as string[]): Record<string, SkinSwitchEntry> {
   const base = loadRegistry()
@@ -152,12 +176,13 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
     const h = fakeHome()
     const registry = loadRegistry()
     const qq98 = registry.qq98
-    // The symlink target must exist (the CLI test creates it under the fake home).
-    mkdirSync(join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98'), { recursive: true })
+    // A complete skin package at the fake repo path so the resolvability gate passes.
+    const fakeDir = join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98')
+    makeSkinPackage(fakeDir, qq98)
     // Point the registry's dir at the fake skin dir so the symlink is resolvable.
     const fakeRegistry: Record<string, SkinSwitchEntry> = {
       ...registry,
-      qq98: { ...qq98, dir: join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98') },
+      qq98: { ...qq98, dir: fakeDir },
     }
     writeFileSync(patchPath(h), '')
     const message = useSkin('qq98', { home: h, registry: fakeRegistry })
@@ -185,12 +210,10 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
     // directory under the profile's node_modules — no symlink exists. The
     // directory must carry this skin's identity to count as installed.
     const installed = join(resolvePaths(h).profileModulesDir, qq98.pkg)
-    mkdirSync(installed, { recursive: true })
-    writeFileSync(join(installed, 'skin.json'), JSON.stringify({
-      id: 'qq98',
-      package: qq98.pkg,
-      wiring: { id: qq98.id },
-    }))
+    // A real installed package must be a complete resolvable skin (package.json
+    // + host entry + skin.json) so both the identity check and the resolvability
+    // gate accept it.
+    makeSkinPackage(installed, qq98)
     const fakeRegistry: Record<string, SkinSwitchEntry> = {
       ...registry,
       qq98: { ...qq98, dir: installed },
@@ -215,14 +238,39 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
     expect(() => useSkin('qq98', { home: h })).toThrow(/does not look like/)
   })
 
+  it('honest apply: useSkin rejects a skin dir with no package.json / host entry (issue #42)', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    // Mirror the broken npm aggregate layout that shipped skin dirs with only
+    // skin.json + lib/client.js (no package.json, no host entry): ensureSymlink
+    // happily points the profile at it, but the boot cannot resolve the package
+    // (MODULE_NOT_FOUND .../package.json). useSkin must throw so /apply reports
+    // ok:false instead of claiming success.
+    const carrierDir = join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98')
+    mkdirSync(join(carrierDir, 'lib'), { recursive: true })
+    writeFileSync(join(carrierDir, 'lib', 'client.js'), 'window.__ModuleLoader__\n')
+    writeFileSync(join(carrierDir, 'skin.json'), JSON.stringify({ id: 'qq98', package: qq98.pkg, wiring: { id: qq98.id } }))
+    const fakeRegistry: Record<string, SkinSwitchEntry> = {
+      ...registry,
+      qq98: { ...qq98, dir: carrierDir },
+    }
+    writeFileSync(patchPath(h), '')
+    expect(() => useSkin('qq98', { home: h, registry: fakeRegistry })).toThrow(/缺少 package\.json/)
+    // The patch must not have been written / no insert row left behind.
+    const patch = readFileSync(patchPath(h), 'utf8')
+    expect(patch).not.toContain('- insert:')
+  })
+
   it('falls back to a directory junction when symlinkSync fails with EPERM on win32 (issue #24)', () => {
     const h = fakeHome()
     const registry = loadRegistry()
     const qq98 = registry.qq98
-    mkdirSync(join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98'), { recursive: true })
+    const fakeDir = join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98')
+    makeSkinPackage(fakeDir, qq98)
     const fakeRegistry: Record<string, SkinSwitchEntry> = {
       ...registry,
-      qq98: { ...qq98, dir: join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98') },
+      qq98: { ...qq98, dir: fakeDir },
     }
     const mock = vi.mocked(symlinkSync)
     mock.mockImplementationOnce(() => {

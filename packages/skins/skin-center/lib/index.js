@@ -360,20 +360,37 @@ function symlinkFriendly(caller, fn) {
 	}
 }
 /**
-* Optional soft warning when a skin is not resolvable from the web profile
-* (the CLI prints it; surfaced as a soft hint, not a failure — the patch
-* stays authoritative).
+* Whether the skin package is actually resolvable as a plugin from the web
+* profile - the same directory contract the boot graph relies on when it
+* loads the `useSkin` insert row. Unlike the old soft warning, this is a
+* hard gate: the skin-center /apply endpoint must not report ok:true for a
+* skin the host cannot load. The npm aggregate layout shipped skin dirs
+* without a package.json + host entry, so /apply wrote the patch, reported
+* success, and the boot then died on MODULE_NOT_FOUND .../package.json.
+*
+* The check is structural and deterministic (pure fs): resolves what node
+* would - the profile-target package dir must carry a package.json whose
+* name is this skin's package, and a host entry (main, else index.js) that
+* actually exists. That is exactly the resolution that failed before.
 * @param entry - the skin switch entry.
 * @param profileModulesDir - the profile's node_modules dir.
+* @returns an error message when the skin is not resolvable, else null.
 */
-function checkInstalled(entry, profileModulesDir) {
-	let ok = false;
+function checkResolvable(entry, profileModulesDir) {
+	const target = join(profileModulesDir, entry.pkg);
+	if (!statSync(target, { throwIfNoEntry: false })?.isDirectory()) return `${entry.pkg} 未安装到 profile（profile 中无 ${target}）。请先用 dsh-skin install ${entry.id.replace(/^ui-skin-/, "")} 安装，否则宿主无法加载。`;
+	const pkgPath = join(target, "package.json");
+	if (!statSync(pkgPath, { throwIfNoEntry: false })) return `${entry.pkg} 在 profile 中缺少 package.json（${pkgPath}）——聚合包皮肤目录未带可解析包元数据。`;
+	let parsed;
 	try {
-		const target = join(profileModulesDir, entry.pkg);
-		const stat = lstatSync(target);
-		ok = stat.isSymbolicLink() || stat.isDirectory() && isSkinPackageDir(target, entry);
-	} catch {}
-	return ok ? null : `${entry.pkg} 未安装到 profile；先用 dsh-skin install ${entry.id.replace(/^ui-skin-/, "")}（或 dsh plugin --profile ${DEFAULT_PROFILE} add ${entry.dir}）安装，否则加载会失败。`;
+		parsed = JSON.parse(readFileSync(pkgPath, "utf8"));
+	} catch {
+		parsed = {};
+	}
+	if (parsed.name !== entry.pkg) return `${entry.pkg} 解析到的 package.json 名为 ${String(parsed.name)}，不是本皮肤（${pkgPath}）。`;
+	const mainPath = join(target, typeof parsed.main === "string" ? parsed.main : "index.js");
+	if (!statSync(mainPath, { throwIfNoEntry: false })) return `${entry.pkg} 缺少 host 入口 ${mainPath}（package.json main 未指到可加载文件）。`;
+	return null;
 }
 /**
 * Switch the active skin. Equivalent to `dsh-skin use <name>`:
@@ -389,19 +406,17 @@ function useSkin(name, opts = {}) {
 	const registry = opts.registry ?? loadRegistry();
 	if (!official && registry[name] === void 0) throw new Error(`unknown skin "${name}". Known: ${Object.keys(registry).join(", ")} (or "official" for the stock look)`);
 	const paths = resolvePaths(opts.home, opts.profile);
-	const notices = [];
 	if (!official) {
 		const entry = registry[name];
 		symlinkFriendly(`switching to "${name}"`, () => {
 			ensureSymlink(entry, paths.profileModulesDir);
 		});
-		const warn = checkInstalled(entry, paths.profileModulesDir);
-		if (warn !== null) notices.push(warn);
+		const problem = checkResolvable(entry, paths.profileModulesDir);
+		if (problem !== null) throw new Error(problem);
 	}
 	const next = `${stripLegacySkinRows(stripManaged(readPatch(paths.patchPath))).replace(/\s+$/, "")}\n\n${renderManaged(official ? null : name, registry)}\n`;
 	writePatchAtomic(paths.patchPath, next);
-	const core = official ? "restored the official stock look — the config watcher applies it within seconds; refresh the page to see it." : `skin switched to "${name}" — the config watcher applies it within seconds; refresh the page (or the manifest re-fetches) to see it.`;
-	return notices.length ? `${core}\n${notices.join("\n")}` : core;
+	return official ? "restored the official stock look — the config watcher applies it within seconds; refresh the page to see it." : `skin switched to "${name}" — the config watcher applies it within seconds; refresh the page (or the manifest re-fetches) to see it.`;
 }
 /**
 * Read the active skin, mirroring `dsh-skin current` (prints the name or
