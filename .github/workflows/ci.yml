@@ -56,6 +56,9 @@ jobs:
       - name: Skin center consistency
         run: pnpm skin-center:check
 
+      - name: Community index consistency
+        run: pnpm community:check
+
       - name: Build
         run: pnpm build
 

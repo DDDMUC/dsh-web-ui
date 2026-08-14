@@ -15,7 +15,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { WebUiSettingsBinder } from './compat-settings-scope.ts'
 import { WebUIPluginsCard } from './WebUIPluginsCard.tsx'
-import { en, zh, type WebUIPluginsKey } from './locales.ts'
+import { CommunityPluginsCard } from './CommunityPluginsCard.tsx'
+import { communityPluginsEn, communityPluginsZh, en, zh, type CommunityPluginKey, type WebUIPluginsKey } from './locales.ts'
 
 export type { WebUIPluginsCardProps } from './WebUIPluginsCard.tsx'
 
@@ -23,6 +24,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Web UI plugin group card copy. */
     'web-ui-plugins': WebUIPluginsKey
+    /** Community plugin index card copy. */
+    'community-plugins': CommunityPluginKey
   }
 
   interface SlotMap {
@@ -69,4 +72,15 @@ export function apply(ctx: ClientContext): void {
     locale: 'web-ui-plugins',
     children: { 'web-ui.plugin.item': { kind: 'list', scope: 'root' } },
   }, WebUIPluginsCard))
+
+  // Community plugin index: one card inside the group that lists contributor
+  // plugins and links to their own repositories.
+  ctx.effect(() => ctx.locale.register('community-plugins', { zh: communityPluginsZh, en: communityPluginsEn }), 'web-ui-settings: community-plugins dictionaries')
+  ctx.slots.inject('web-ui.plugin.item', () => ctx.slots.register({
+    name: 'web-ui.plugin.item',
+    id: 'community-plugins',
+    order: 120,
+    locale: 'community-plugins',
+    inject: () => ({}),
+  }, CommunityPluginsCard))
 }

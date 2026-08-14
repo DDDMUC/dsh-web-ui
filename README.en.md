@@ -74,7 +74,7 @@ The "SSH" sidebar entry opens the remote-ops panel. Hosts support key / password
 
 ### Settings Hub
 
-All family plugins' toggles and parameters live under "Settings > Plugin config", and changes apply immediately.
+All family plugins' toggles and parameters live under "Settings > Plugin config", and changes apply immediately; a "Community plugins" card inside the group indexes plugins registered by community contributors and links to their repositories.
 
 ![Plugin config hub](docs/screenshots/02-settings-web-ui-plugins.png)
 
