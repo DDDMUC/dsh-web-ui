@@ -67,17 +67,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Verify package versions match the tag
-        run: |
-          TAG_VERSION="${{ steps.tag.outputs.version }}"
-          MISMATCH=0
-          for f in $(find packages -name package.json -not -path '*/node_modules/*'); do
-            v=$(node -p "require('./$f').version")
-            if [ "$v" != "$TAG_VERSION" ]; then
-              echo "::error file=$f::version $v does not match tag v$TAG_VERSION"
-              MISMATCH=1
-            fi
-          done
-          exit "$MISMATCH"
+        run: node scripts/verify-version.mjs "${{ steps.tag.outputs.version }}"
 
       - name: Publish packages to npm
         env:
