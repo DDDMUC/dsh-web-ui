@@ -1,17 +1,24 @@
 /**
  * Keep the first model request on a minimal-shaped input surface, then expose
- * the full preset catalog after the model has produced its first durable tool
- * call.
+ * the full preset catalog once the session is safely anchored.
  *
  * Phase 1 (no persisted `tool/call` yet):
  * - tool catalog: one platform shell plus `commonTools`
  * - runtime contexts: emptied (no sandbox/approval snapshot)
  * - pre-step messages: only direct user messages pass (`messageSources`)
  *
- * Phase 2 (after the first persisted `tool/call`): everything passes through.
+ * Promotion opens the full tool catalog and restores runtime contexts. With
+ * `anchorGate` the promotion after the first tool call also requires either
+ * one minimal-like reasoning block or the `maxBootstrapSteps` fallback.
+ * `promoteAfterFirstResponse` promotes a tool-less first response on its next
+ * turn, and also releases any anchor-gated session once a new user turn
+ * starts, so short one-step tasks never stay two-tool forever.
+ * `deferredSources` and `deferredGraceSteps` delay selected injected message
+ * kinds (workspace instructions, skill catalog) for a few steps after
+ * promotion.
  *
  * Source: https://github.com/xiaobright/dsh-anchored-standard (MIT), extended
- * with the phase-1 context/message quarantine.
+ * with the phase-1 quarantine and the stabilization controls above.
  */
 
 /** Cordis plugin name used by loader diagnostics. */
@@ -23,6 +30,9 @@ export const inject = ['systemPrompt']
 /** Message-source kinds the model may see during phase 1. */
 const DEFAULT_MESSAGE_SOURCES = ['user']
 
+/** Message-source kinds delayed after promotion. */
+const DEFAULT_DEFERRED_SOURCES = []
+
 function stringList(value, field, fallback) {
   if (value === undefined) return [...fallback]
   if (!Array.isArray(value) || value.length === 0 || value.some(item => typeof item !== 'string' || item.length === 0)) {
@@ -31,31 +41,52 @@ function stringList(value, field, fallback) {
   return [...new Set(value)]
 }
 
-/**
- * Phase-2 promotion state per session. Sessions append events only, so the
- * scan resumes from the first event it has not inspected yet.
- */
-const promotionBySession = new WeakMap()
+function stringListOrEmpty(value, field) {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || item.length === 0)) {
+    throw new TypeError(`${name}: ${field} must be an array of non-empty strings`)
+  }
+  return [...new Set(value)]
+}
 
-function hasPromoted(agent) {
-  const session = agent?.session
-  if (session === undefined) return false
-  let state = promotionBySession.get(session)
-  if (state === undefined) {
-    state = { next: 0, promoted: false }
-    promotionBySession.set(session, state)
+function integerAtLeast(value, field, minimum) {
+  if (!Number.isInteger(value) || value < minimum) {
+    throw new TypeError(`${name}: ${field} must be an integer >= ${minimum}`)
   }
-  if (!state.promoted) {
-    const events = session.events
-    for (; state.next < events.length; state.next += 1) {
-      if (events[state.next]?.type === 'tool/call') {
-        state.promoted = true
-        state.next = events.length
-        break
-      }
-    }
+  return value
+}
+
+function countWord(text, regex) {
+  return [...text.matchAll(regex)].length
+}
+
+/**
+ * Conservative lexical classifier for one reasoning block, matching the
+ * modeltest trigger probe: `We need` / `Let me` first lines and whole-block
+ * `we` / `let me` counts. It describes the trajectory surface, not capability.
+ */
+export function classifyReasoning(text) {
+  const trimmed = String(text ?? '').trim()
+  const firstLine = trimmed.split(/\r?\n/, 1)[0] ?? ''
+  const we = countWord(trimmed, /\bwe\b/gi)
+  const letMe = countWord(trimmed, /\blet me\b/gi)
+  let score = 0
+  if (/^we need\b/i.test(firstLine)) score += 3
+  if (/^let me\b/i.test(firstLine)) score -= 3
+  if (we > 0 && letMe === 0) score += 2
+  if (letMe > 0) score -= 2
+  if (/^(good|great|excellent)\.?$/i.test(firstLine.trim())) score += 1
+  return {
+    label: score >= 4 ? 'minimal-like' : score <= -4 ? 'standard-like' : 'ambiguous',
+    score,
+    metrics: { we, letMe },
   }
-  return state.promoted
+}
+
+/** Whether an assistant message contains at least one minimal-like reasoning block. */
+export function hasAnchoredReasoning(content) {
+  return Array.isArray(content) && content.some(block =>
+    block?.type === 'reasoning' && classifyReasoning(block.text).label === 'minimal-like')
 }
 
 /** Whether one pre-step message is direct user input rather than an injection. */
@@ -64,11 +95,82 @@ function isAllowedMessage(message, allowedSources) {
   return kind === undefined || allowedSources.has(kind)
 }
 
-/** Register the per-session bootstrap quarantine. */
+/** Whether one pre-step message belongs to a deferred injection kind. */
+function isDeferredMessage(message, deferredSources) {
+  const kind = message.source?.kind
+  return kind !== undefined && deferredSources.has(kind)
+}
+
+/**
+ * Phase-2 promotion state per session. Sessions append events only, so the
+ * scan resumes from the first event it has not inspected yet.
+ */
+const promotionBySession = new WeakMap()
+
+function stateFor(session) {
+  let state = promotionBySession.get(session)
+  if (state === undefined) {
+    state = {
+      next: 0,
+      promoted: false,
+      toolCalled: false,
+      responded: false,
+      anchored: false,
+      steps: 0,
+      lastTurn: 0,
+      deferredSteps: 0,
+      fullToolsThisStep: false,
+    }
+    promotionBySession.set(session, state)
+  }
+  return state
+}
+
+function decidePromotion(state, config, currentTurn) {
+  if (state.toolCalled && config.anchorGate !== true) return true
+  if (state.toolCalled && config.anchorGate === true && (state.anchored || state.steps >= config.maxBootstrapSteps)) return true
+  if (!state.toolCalled && state.responded && config.promoteAfterFirstResponse === true) return true
+  if (state.responded && config.promoteAfterFirstResponse === true && currentTurn !== undefined && currentTurn > state.lastTurn) return true
+  return false
+}
+
+/** Scan newly appended session events and update promotion state. */
+function refresh(agent, config, currentTurn) {
+  const session = agent?.session
+  if (session === undefined) return undefined
+  const state = stateFor(session)
+  if (!state.promoted) {
+    const events = session.events
+    for (; state.next < events.length; state.next += 1) {
+      const event = events[state.next]
+      if (event === undefined) continue
+      if (event.type === 'tool/call') {
+        state.toolCalled = true
+      } else if (event.type === 'step/start') {
+        state.steps += 1
+        if (Number.isInteger(event.data?.turn)) state.lastTurn = event.data.turn
+      } else if (event.type === 'assistant/message') {
+        state.responded = true
+        if (!state.anchored) state.anchored = hasAnchoredReasoning(event.data?.message?.content)
+      }
+    }
+    if (decidePromotion(state, config, currentTurn)) state.promoted = true
+  }
+  return state
+}
+
+/** Register the per-session bootstrap quarantine and promotion policy. */
 export function apply(ctx, config) {
   const commonTools = stringList(config.commonTools, 'commonTools')
   const shellTools = stringList(config.shellTools, 'shellTools')
   const messageSources = new Set(stringList(config.messageSources, 'messageSources', DEFAULT_MESSAGE_SOURCES))
+  const deferredSources = new Set(stringListOrEmpty(config.deferredSources, 'deferredSources'))
+  const policy = {
+    anchorGate: config.anchorGate === true,
+    promoteAfterFirstResponse: config.promoteAfterFirstResponse === true,
+    maxBootstrapSteps: integerAtLeast(config.maxBootstrapSteps ?? 4, 'maxBootstrapSteps', 1),
+    deferredGraceSteps: integerAtLeast(config.deferredGraceSteps ?? 0, 'deferredGraceSteps', 0),
+  }
 
   // `prepend: true` puts both filters at the outermost position of their
   // waterfall, so `await next()` always observes the complete downstream
@@ -77,7 +179,10 @@ export function apply(ctx, config) {
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembled = await next()
     const agent = context.agent
-    if (agent === undefined || hasPromoted(agent)) return assembled
+    if (agent === undefined) return assembled
+    const state = refresh(agent, policy)
+    state.fullToolsThisStep = state.promoted
+    if (state.promoted) return assembled
 
     const available = new Set(assembled.tools.map(tool => tool.name))
     const selectedShells = shellTools.filter(toolName => available.has(toolName))
@@ -100,10 +205,23 @@ export function apply(ctx, config) {
   ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next()
     const agent = payload.agent
-    if (agent === undefined || hasPromoted(agent) || decision.kind !== 'enter') return decision
-    return {
-      ...decision,
-      messages: decision.messages.filter(message => isAllowedMessage(message, messageSources)),
+    if (agent === undefined || decision.kind !== 'enter') return decision
+    const state = refresh(agent, policy, payload.turn)
+    if (state === undefined) return decision
+
+    if (!state.promoted || !state.fullToolsThisStep) {
+      return {
+        ...decision,
+        messages: decision.messages.filter(message => isAllowedMessage(message, messageSources)),
+      }
     }
+    if (state.deferredSteps < policy.deferredGraceSteps) {
+      state.deferredSteps += 1
+      return {
+        ...decision,
+        messages: decision.messages.filter(message => !isDeferredMessage(message, deferredSources)),
+      }
+    }
+    return decision
   }, { prepend: true })
 }
