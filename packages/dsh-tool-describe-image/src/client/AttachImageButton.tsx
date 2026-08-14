@@ -4,8 +4,9 @@
  * to the host /describe-image/attach route (validated and persisted in the
  * attachment store) and splices the returned `[image attachment …]` note into
  * the active session's draft — the text model then hands that exact JSON to
- * describe_image. The button mounts in the official `conversation.input.dock`
- * band and is session-routed through the injected verbs, so it works for
+ * describe_image. The button mounts in the official `conversation.input.left`
+ * tool row inside the composer card (beside the command-plus and the access
+ * seat) and is session-routed through the injected verbs, so it works for
  * vision models too (harmless duplicate entry) and never touches the image
  * pipeline the shell owns.
  * @module @linxin666/dsh-tool-describe-image/client/AttachImageButton
@@ -25,15 +26,16 @@ export interface AttachImageInjected {
   notify: (level: 'info' | 'error', text: string) => void
 }
 
-/** Composed props: the dock entry's runtime share + the injected verbs. */
+/** Composed props: the left-tool-row entry's runtime share + the injected verbs. */
 export type AttachImageButtonProps =
-  PropsRuntime<'conversation.input.dock'>
+  PropsRuntime<'conversation.input.left'>
   & AttachImageInjected
 
 /**
- * The dock entry: a small image button next to the composer's resident
- * chrome. One in-flight upload at a time; failures surface through the
- * composer notice, successes splice the note into the draft.
+ * The tool-row entry: a small image button in the composer card's left tool
+ * row, beside the resident chrome. One in-flight upload at a time; failures
+ * surface through the composer notice, successes splice the note into the
+ * draft.
  * @param props - the injected verbs.
  */
 export function AttachImageButton(props: AttachImageButtonProps): ReactElement {
@@ -86,8 +88,10 @@ export function AttachImageButton(props: AttachImageButtonProps): ReactElement {
       }}
       style={{
         display: 'inline-flex',
+        flexShrink: 0,
         alignItems: 'center',
         justifyContent: 'center',
+        boxSizing: 'border-box',
         width: 28,
         height: 28,
         borderRadius: 6,

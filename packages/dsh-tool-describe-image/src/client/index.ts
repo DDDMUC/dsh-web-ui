@@ -1,7 +1,8 @@
 /**
  * Browser half of the describe-image plugin: the composer image attach
- * button. It mounts in the official `conversation.input.dock` band and is
- * session-routed through the conversation input facade: picking an image
+ * button. It mounts in the official `conversation.input.left` tool row
+ * inside the composer card and is session-routed through the conversation
+ * input facade: picking an image
  * uploads it to the host /describe-image/attach route and splices the
  * returned `[image attachment …]` note into the active draft — the way a
  * text-only model gets an image to analyze without the shell's vision
@@ -60,7 +61,7 @@ declare module '@deepseek-ai/cordis' {
 /** Locale namespace of the browser half. */
 export const NS = 'describe-image' as const
 
-/** Required services: slots for the dock seat, sessions for session routing, conversation for the input facade, locale for the copy dictionaries. */
+/** Required services: slots for the input tool row, sessions for session routing, conversation for the input facade, locale for the copy dictionaries. */
 export const inject = ['slots', 'conversation', 'sessions', 'settingsScope', 'locale']
 
 /** Apply the browser half. */
@@ -102,9 +103,9 @@ export function apply(ctx: ClientContext): void {
           inject: () => settingsCard.inject(),
         }, DescribeImageSettingsCard))
     })
-    scope.slots.inject('conversation.input.dock', () =>
+    scope.slots.inject('conversation.input.left', () =>
       scope.slots.register({
-        name: 'conversation.input.dock',
+        name: 'conversation.input.left',
         id: 'describe-image-attach',
         order: 95,
         locale: NS,
