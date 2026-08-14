@@ -4,6 +4,7 @@ import {
   parseNumstat, parseNameStatus, addedLinesFromDiff,
   checkSize, checkForbiddenFiles, checkSecrets, checkEmoji,
   checkWorkflowChanges, checkLockfile, checkTemplate, checkCommits,
+  checkSkinChanges, checkCopyright, checkGalleryAdaptation, judgeVisualMetrics,
   finalVerdict, parseArgs, fmtBytes, DEFAULT_MAX_ADDED,
 } from "./pr-review.mjs"
 
@@ -257,6 +258,67 @@ test(`提交信息检查`, () => {
   assert.ok(bad.some((x) => x.severity === `reject` && x.rule === `emoji`))
 })
 
+// ---------------------------------------------------------------- 皮肤识别与版权
+
+test(`皮肤变更识别：源码类命中，README 与 skin-center 排除`, () => {
+  const f1 = checkSkinChanges([
+    { status: `A`, path: `packages/skins/qq2006/lib/client.js` },
+    { status: `A`, path: `packages/dsh-skins/skins/qq2006/skin.json` },
+  ])
+  assert.deepEqual(f1, { isSkin: true, skinIds: [`qq2006`] })
+  const f2 = checkSkinChanges([
+    { status: `M`, path: `packages/skins/xp/README.md` },
+    { status: `M`, path: `packages/skins/xp/preview/light.png` },
+    { status: `M`, path: `docs/development.md` },
+  ])
+  assert.deepEqual(f2, { isSkin: false, skinIds: [] })
+  const f3 = checkSkinChanges([{ status: `M`, path: `packages/skins/skin-center/src/routes.ts` }])
+  assert.equal(f3.isSkin, false)
+})
+
+test(`版权提醒：外部贡献者皮肤 PR 未声明时 warn，已声明或仓库所有者豁免`, () => {
+  const pr = { body: `## 摘要（Summary）\n测试`, author: { login: `someone` } }
+  const f1 = checkCopyright(pr, true, `owner`)
+  assert.equal(f1.length, 1)
+  assert.equal(f1[0].severity, `warn`)
+  assert.equal(f1[0].rule, `copyright`)
+  const declared = { body: `## 贡献者版权声明（Contributor Copyright）\n- [x] 已声明\n| 包 | 来源 | 版权 |`, author: { login: `someone` } }
+  assert.equal(checkCopyright(declared, true, `owner`).length, 0)
+  assert.equal(checkCopyright(pr, false, `owner`).length, 0)
+  assert.equal(checkCopyright(pr, true, `someone`).length, 0)
+})
+test(`gallery 适配：新皮肤未注册未截图时警告，已适配或存量皮肤豁免`, () => {
+  const base = [
+    { status: `A`, path: `packages/skins/qq2006/lib/client.js` },
+  ]
+  const f1 = checkGalleryAdaptation(base, [`qq2006`])
+  assert.equal(f1.length, 2)
+  assert.ok(f1.every((x) => x.severity === `warn` && x.rule === `gallery`))
+  const adapted = [
+    { status: `A`, path: `packages/skins/qq2006/lib/client.js` },
+    { status: `M`, path: `gallery/bundles.js` },
+    { status: `M`, path: `gallery/manifest.js` },
+    { status: `A`, path: `docs/screenshots/28-skin-qq2006-light.png` },
+  ]
+  assert.equal(checkGalleryAdaptation(adapted, [`qq2006`]).length, 0)
+  const modified = [{ status: `M`, path: `packages/skins/xp/src/skin.ts` }]
+  assert.equal(checkGalleryAdaptation(modified, [`xp`]).length, 0)
+})
+test(`视觉指标判定：过曝与对比度不足警告`, () => {
+  const f1 = judgeVisualMetrics([
+    { file: `qq2006-light.png`, avgLuma: 219.9, hiPct: 76.6, stdLuma: 60.3 },
+  ])
+  assert.equal(f1.length, 2)
+  assert.ok(f1.every((x) => x.severity === `warn` && x.rule === `visual`))
+  assert.ok(f1.some((x) => x.message.includes(`太闪`)))
+  const ok = judgeVisualMetrics([{ file: `a-dark.png`, avgLuma: 55, hiPct: 3, stdLuma: 52 }])
+  assert.equal(ok.length, 0)
+  const lowContrast = judgeVisualMetrics([{ file: `b-light.png`, avgLuma: 120, hiPct: 1, stdLuma: 12 }])
+  assert.equal(lowContrast.length, 1)
+  assert.ok(lowContrast[0].message.includes(`看不清`))
+  const gallery = judgeVisualMetrics([{ file: `gallery.png`, avgLuma: 250, hiPct: 95, stdLuma: 10 }])
+  assert.equal(gallery.length, 1)
+})
 // ---------------------------------------------------------------- finalVerdict
 
 test(`verdict 优先级`, () => {

@@ -38,6 +38,13 @@ skin-center / docs / emoji）。
 test:scripts/aggregate/docs）。worktree 与 e2e 验证统一放在
 `~/remote-e2e`（同 head 复用，跑完保留便于排查），定期用
 `pnpm pr:review --cleanup` 或手动 `rm -rf ~/remote-e2e` 清理。
+
+皮肤 PR 额外自动做视觉验证：生成亮/暗预览与画廊页截图（
+`~/remote-e2e/e2e-<pr>/previews/`），像素指标分析自动判定过曝
+（太闪）与对比度不足（看不清），截图供视觉模型复核；同时提醒
+作者声明贡献者版权（模板「贡献者版权声明」节），并检查新皮肤
+是否适配画廊（`gallery/bundles.js`/`gallery/manifest.js` 注册与
+`docs/screenshots/` 截图）。
 用法与 verdict 语义见脚本头部注释；`pnpm pr:review --help` 查看全部选项。
 
 ### 新增插件包
