@@ -39,6 +39,14 @@ git log --oneline -5               # 确认包含本次全部改动、无未推�
 node packages/dsh-skins/build.mjs  # 重生成 dsh-skins/skins/ 载体，git status 确认无意外增删
 ```
 
+**版本 bump 后必须重建产物并同步 gallery 资产**（版本信息影响 bundle 内容）：
+
+```sh
+pnpm build                 # 全仓重建 lib 产物（含新版本号）
+node scripts/gallery-build # 重新生成 gallery/（manifest.js/bundles.js 内嵌产物内容）
+pnpm gallery:check         # 必须通过；产物与 gallery 资产要同一次构建一起提交
+```
+
 ## 1. 版本 bump（全仓统一）
 
 ```sh
@@ -108,5 +116,9 @@ git ls-remote --tags origin | grep "vX.Y.Z"         # tag 已在远端
 - tag 一旦推送且 npm 发布成功，同一版本号永不复用；补救只走「下一补丁版本」或 deprecate。
 - 发版前必须本地全量测试通过；管线里的版本一致性校验是最后防线，不是唯一防线。
 - 变更皮肤后先跑 build.mjs、变更聚合清单后先重跑 aggregate.mjs，再走本流程。
+- **构建产物内嵌绝对路径**（CSS-module 类名哈希与 \0dsh-css region 标记），同一源码在不同
+  checkout 路径下构建字节不同。因此 CI 的 gallery/skin-center 一致性检查是「提交完整性」语义
+  （--ignore-scripts 安装 + 检查放在 Build 之前）：提交者必须把「产物 + gallery 资产」同一次
+  构建一起提交；不要试图在 CI 里重新构建后做一致性比对。
 - 提交信息、tag、Release 标题均禁 emoji（仓库硬性规则，CI 强制）。
 - 本技能适用于 @linxin666/dsh-* 全家桶整体发版；单包 hotfix 也遵循同一流程（版本仍全仓统一）。
