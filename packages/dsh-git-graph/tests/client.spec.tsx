@@ -34,6 +34,19 @@ function makeTranslate(): BranchChipProps['t'] {
   }
 }
 
+/** Resolve the positioning anchor of a mounted chip (its parent is chipWrap). */
+function anchorOf(chip: HTMLElement): HTMLElement {
+  const anchor = chip.parentElement?.closest<HTMLElement>('[data-gitgraph-chip-anchor]')
+  if (anchor === null || anchor === undefined) throw new Error('BranchChip anchor not found')
+  return anchor
+}
+
+/** Wait one animation frame when the environment provides requestAnimationFrame. */
+function nextFrame(): Promise<void> {
+  if (typeof requestAnimationFrame !== 'function') return Promise.resolve()
+  return new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
+}
+
 interface BenchOptions {
   cwd?: string
   blank?: boolean
@@ -162,7 +175,13 @@ describe('BranchChip', () => {
     const branchChip = await screen.findByRole('button', { name: '分支' })
     // The dock row spans the composer stack; only the dock seat carries the
     // side-clearance indent that aligns the chip with the input card below.
-    expect(branchChip.parentElement?.className).toContain('anchorDock')
+    // The chip's parent is the positioning wrapper; the outer anchor owns
+    // the indent padding.
+    const chipWrap = branchChip.parentElement as HTMLElement
+    expect(chipWrap.className).toContain('chipWrap')
+    expect(chipWrap.contains(branchChip)).toBe(true)
+    const anchor = anchorOf(branchChip)
+    expect(anchor.className).toContain('anchorDock')
   })
 
   it('measures the input card left edge and applies it as the dock indent', async () => {
@@ -172,14 +191,19 @@ describe('BranchChip', () => {
     try {
       const { view } = bench({}, 'dock')
       const chip = await screen.findByRole('button', { name: '分支' })
-      const anchor = chip.parentElement as HTMLElement
+      const chipWrap = chip.parentElement as HTMLElement
+      expect(chipWrap.className).toContain('chipWrap')
+      const anchor = anchorOf(chip)
       anchor.getBoundingClientRect = () => ({
         left: 540, right: 1344, top: 0, bottom: 24, width: 804, height: 24, x: 540, y: 0, toJSON: () => ({}),
       }) as DOMRect
       card.getBoundingClientRect = () => ({
         left: 600, right: 1380, top: 0, bottom: 100, width: 780, height: 100, x: 600, y: 0, toJSON: () => ({}),
       }) as DOMRect
-      act(() => { window.dispatchEvent(new Event('resize')) })
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'))
+        await nextFrame()
+      })
       expect(anchor.style.paddingLeft).toBe('60px')
       expect(view.unmount).toBeTruthy()
     } finally {
@@ -190,17 +214,30 @@ describe('BranchChip', () => {
   it('keeps the context copy without the dock indent', async () => {
     bench()
     const branchChip = await screen.findByRole('button', { name: '分支' })
-    expect(branchChip.parentElement?.className).not.toContain('anchorDock')
+    expect(anchorOf(branchChip).className).not.toContain('anchorDock')
   })
 
   it('styles the dock chip with the official hero seat in the blank phase', async () => {
     bench({ composerPhase: 'blank', openState: 'open' }, 'dock')
     const branchChip = await screen.findByRole('button', { name: '分支' })
-    expect(branchChip.parentElement?.className).toContain('anchorHero')
+    const chipWrap = branchChip.parentElement as HTMLElement
+    expect(chipWrap.className).toContain('chipWrap')
+    expect(anchorOf(branchChip).className).toContain('anchorHero')
     expect(branchChip.className).toContain('chipHero')
     fireEvent.click(branchChip)
     const popover = await screen.findByRole('listbox', { name: '搜索分支' })
     expect(popover.className).toContain('popoverHero')
+    // The popover is absolutely positioned against the chip wrapper, so it
+    // stays flush with the chip no matter how the dock anchor is padded.
+    expect(chipWrap.contains(popover)).toBe(true)
+  })
+
+  it('enters the hero seat while a blank session composer is still loading', async () => {
+    bench({ blank: true, composerPhase: 'blank', openState: 'loading' }, 'dock')
+    const branchChip = await screen.findByRole('button', { name: '分支' })
+    const anchor = anchorOf(branchChip)
+    expect(anchor.className).toContain('anchorHero')
+    expect(branchChip.className).toContain('chipHero')
   })
 
   it('positions the hero dock chip after the rightmost hero-row chip', async () => {
@@ -216,7 +253,7 @@ describe('BranchChip', () => {
     try {
       bench({ composerPhase: 'blank', openState: 'open', container: outlet }, 'dock')
       const chip = await screen.findByRole('button', { name: '分支' })
-      const anchor = chip.parentElement as HTMLElement
+      const anchor = anchorOf(chip)
 
       const rect = (left: number, top: number, width: number, height: number): DOMRect => ({
         left, top, right: left + width, bottom: top + height, width, height, x: left, y: top, toJSON: () => ({}),
@@ -226,7 +263,10 @@ describe('BranchChip', () => {
       preset.getBoundingClientRect = () => rect(467, 369, 106, 28)
       anchor.getBoundingClientRect = () => rect(320, 405, 812, 28)
 
-      act(() => { window.dispatchEvent(new Event('resize')) })
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'))
+        await nextFrame()
+      })
       // Right edge of the preset (573) + the official 2px hero-row gap,
       // relative to the stack; vertically centered in the 28px row.
       expect(anchor.style.left).toBe('255px')

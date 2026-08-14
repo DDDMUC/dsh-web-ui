@@ -5,6 +5,13 @@
   position: relative;
 }
 
+/* Positioning wrapper for the chip + popover: the popover anchors to the
+   chip itself instead of the padded/inset dock row. */
+.chipWrap {
+  position: relative;
+  display: inline-flex;
+}
+
 /* The dock seat spans its host row while the input card below is inset
    relative to that row. The hero-phase clearance is the fallback; the
    component measures the real card edge and applies it inline so the chip

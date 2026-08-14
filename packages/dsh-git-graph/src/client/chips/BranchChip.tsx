@@ -54,11 +54,50 @@ function paintedRight(root: Element): number | null {
 }
 
 /**
+ * Coalesce repeated placement updates into one animation-frame callback so
+ * observer bursts in the same frame measure only once. When the environment
+ * provides no requestAnimationFrame, updates run synchronously instead.
+ */
+function frameScheduler(update: () => void): { schedule: () => void, cancel: () => void } {
+  let pending = false
+  let frame: number | null = null
+  const flush = (): void => {
+    pending = false
+    frame = null
+    update()
+  }
+  return {
+    schedule: () => {
+      if (pending) return
+      pending = true
+      if (typeof requestAnimationFrame === 'function') {
+        frame = requestAnimationFrame(flush)
+      } else {
+        flush()
+      }
+    },
+    cancel: () => {
+      pending = false
+      if (frame !== null) cancelAnimationFrame(frame)
+      frame = null
+    },
+  }
+}
+
+/**
  * The git branch selector chip.
  * @param props - the composed entry props of whichever seat it mounted in.
  */
 export function BranchChip(props: BranchChipProps) {
   const sessionId = props.sessionId
+  // Blank-session flag from the standard session list. The selector never
+  // throws for a missing session id / row, so the hook can stay mounted
+  // while the session baseline is still loading.
+  const blankSession = props.useSessions((state): boolean => {
+    if (sessionId === undefined) return false
+    const sessions = state as { byId?: Record<string, { blank?: boolean }> }
+    return sessions.byId?.[sessionId]?.blank === true
+  })
   // Only the dock seat carries the conversation snapshot + input owner share;
   // its row spans the whole composer stack, so the chip indents by the
   // shell's composer side clearance to start flush with the input card below
@@ -67,10 +106,10 @@ export function BranchChip(props: BranchChipProps) {
   const dockSeat = 'session' in props && 'input' in props
   const sessionSnapshot = dockSeat ? props.session : undefined
   // The same predicate the official shell uses for its hero phase: a blank
-  // conversation with an open session. Summary-blank loading states are not
-  // matched, but the shell hides the whole composer seat there, so no chip
-  // placement is observable.
-  const heroSeat = sessionSnapshot?.composerPhase === 'blank' && sessionSnapshot.openState === 'open'
+  // conversation with an open session. A still-loading blank session already
+  // lists as blank in the session store, so it may enter the hero row before
+  // the composer snapshot settles to `open`.
+  const heroSeat = sessionSnapshot?.composerPhase === 'blank' && (sessionSnapshot.openState === 'open' || blankSession === true)
 
   /** Repository state: undefined = loading, null = not a repository, else the snapshot. */
   const [repo, setRepo] = useState<RepoStatus | null | undefined>(undefined)
@@ -84,6 +123,8 @@ export function BranchChip(props: BranchChipProps) {
   /** Measured hero-row placement (relative to the composer stack); null until measured. */
   const [heroPlacement, setHeroPlacement] = useState<{ left: number, top: number } | null>(null)
   const anchorRef = useRef<HTMLDivElement | null>(null)
+  /** Latest `[data-composer-card]` query result for the dock measure pass. */
+  const cardRef = useRef<HTMLElement | null>(null)
 
   // Active-phase dock placement: the dock row spans different containers per
   // shell phase (the centered hero composer stack, or the full-width
@@ -94,21 +135,27 @@ export function BranchChip(props: BranchChipProps) {
     if (!dockSeat || heroSeat) return
     const anchor = anchorRef.current
     if (anchor === null) return
-    const update = (): void => {
+    const measure = (): void => {
+      // One query per update pass; the result is cached for the observer
+      // wiring below and reused across the burst of triggers in a frame.
       const card = document.querySelector<HTMLElement>('[data-composer-card]')
+      cardRef.current = card
       if (card === null) return
+      observer?.observe(card)
       const inset = Math.max(0, card.getBoundingClientRect().left - anchor.getBoundingClientRect().left)
       setDockInset(previous => previous === inset ? previous : inset)
     }
-    update()
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+    const scheduler = frameScheduler(measure)
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(scheduler.schedule)
     observer?.observe(anchor)
-    const card = document.querySelector<HTMLElement>('[data-composer-card]')
+    scheduler.schedule()
+    const card = cardRef.current
     if (card !== null) observer?.observe(card)
-    window.addEventListener('resize', update)
+    window.addEventListener('resize', scheduler.schedule)
     return () => {
+      scheduler.cancel()
       observer?.disconnect()
-      window.removeEventListener('resize', update)
+      window.removeEventListener('resize', scheduler.schedule)
     }
   }, [dockSeat, heroSeat, repo !== undefined && repo !== null])
 
@@ -126,7 +173,7 @@ export function BranchChip(props: BranchChipProps) {
     const stack = outlet?.parentElement ?? null
     const heroRow = outlet?.previousElementSibling ?? null
     if (anchor === null || outlet === null || stack === null || heroRow === null) return
-    const update = (): void => {
+    const measure = (): void => {
       const stackRect = stack.getBoundingClientRect()
       const rowRect = heroRow.getBoundingClientRect()
       const anchorRect = anchor.getBoundingClientRect()
@@ -140,13 +187,15 @@ export function BranchChip(props: BranchChipProps) {
         return { left, top }
       })
     }
-    update()
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+    const scheduler = frameScheduler(measure)
+    scheduler.schedule()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(scheduler.schedule)
     for (const target of [anchor, outlet, stack, heroRow]) observer?.observe(target)
-    window.addEventListener('resize', update)
+    window.addEventListener('resize', scheduler.schedule)
     return () => {
+      scheduler.cancel()
       observer?.disconnect()
-      window.removeEventListener('resize', update)
+      window.removeEventListener('resize', scheduler.schedule)
     }
   }, [heroSeat, repo !== undefined && repo !== null])
 
@@ -199,6 +248,7 @@ export function BranchChip(props: BranchChipProps) {
   return (
     <div
       ref={anchorRef}
+      data-gitgraph-chip-anchor
       className={cx(css.anchor, dockSeat && css.anchorDock, heroSeat && css.anchorHero)}
       style={
         heroSeat && heroPlacement !== null
@@ -208,32 +258,34 @@ export function BranchChip(props: BranchChipProps) {
             : undefined
       }
     >
-      <Chip
-        hero={heroSeat}
-        icon={<IconBranchOutline16 size={14} />}
-        label={repo.branch === '' ? props.t('branch.detached') : repo.branch}
-        ariaLabel={props.t('chip.aria.branch')}
-        open={branchOpen}
-        onClick={openBranchPopover}
-      />
-      {branchOpen && branchesView !== null && (
-        <BranchPopover
+      <div className={css.chipWrap}>
+        <Chip
           hero={heroSeat}
-          view={branchesView}
-          onSwitch={(branch) => props.switchBranch(sessionId, branch)}
-          onSwitched={refetch}
-          onCreate={() => {
-            setBranchOpen(false)
-            setCreateOpen(true)
-          }}
-          onGraph={() => {
-            setBranchOpen(false)
-            setGraphOpen(true)
-          }}
-          onClose={() => { setBranchOpen(false) }}
-          t={props.t}
+          icon={<IconBranchOutline16 size={14} />}
+          label={repo.branch === '' ? props.t('branch.detached') : repo.branch}
+          ariaLabel={props.t('chip.aria.branch')}
+          open={branchOpen}
+          onClick={openBranchPopover}
         />
-      )}
+        {branchOpen && branchesView !== null && (
+          <BranchPopover
+            hero={heroSeat}
+            view={branchesView}
+            onSwitch={(branch) => props.switchBranch(sessionId, branch)}
+            onSwitched={refetch}
+            onCreate={() => {
+              setBranchOpen(false)
+              setCreateOpen(true)
+            }}
+            onGraph={() => {
+              setBranchOpen(false)
+              setGraphOpen(true)
+            }}
+            onClose={() => { setBranchOpen(false) }}
+            t={props.t}
+          />
+        )}
+      </div>
       {createOpen && (
         <CreateBranchDialog
           onCreate={(name) => props.createBranch(sessionId, name)}
