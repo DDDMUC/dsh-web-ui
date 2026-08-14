@@ -63,6 +63,41 @@ node scripts/dsh-skin-new            # 脚手架：新皮肤包
 - **一次性记录不进长期文档**：任务交接、验证快照归档到
   [docs/archive/](docs/archive/)，不混入长期文档目录。
 
+## 开发与贡献流程
+
+所有代码改动（本地开发与远程 PR）必须遵循本流程。贡献者入口文档：
+[CONTRIBUTING.md](CONTRIBUTING.md)；日常开发细节见 [docs/development.md](docs/development.md)。
+
+### 提交规范（Conventional Commits）
+
+提交信息格式 `type(scope): subject`，type 用 `feat` / `fix` / `chore` / `docs` /
+`test` / `refactor` / `perf`，scope 是包名或主题（如 `ssh`、`task-board`、`skins`、
+`readme`、`release`），关联 issue 时 subject 末尾追加 `(#123)`。例：
+`fix(task-board,ssh): hide composer under active panel (#76 #87)`。提交信息与
+代码、注释、文档一样禁止 emoji。
+
+### 提交前必过门禁
+
+`pnpm typecheck` / `pnpm test` / `pnpm test:scripts` / `pnpm docs:check`
+（涉及聚合包、画廊、皮肤中心时另跑 aggregate/gallery/skin-center 三个
+--check）。CI（.github/workflows/ci.yml）全量执行所有门禁，红则 PR 不合并。
+
+### PR 要求（本地与远程一致）
+
+- 按 [PR 模板](.github/pull_request_template.md) 填写（摘要、涉及包、类型、AI
+  编码披露、仓库规范检查、本地验证；用户可见变更附证据）。
+- 改包 README 必须同 PR 维护中英三件套并 `pnpm docs:write-pair` 重录配对；
+  任一侧不同步另一侧 `docs:check` 即红。
+- 新增/删除包、改皮肤清单时同步 `docs/publish-prep.md` 与
+  `packages/dsh-web-ui-all/aggregate.yml`（`node scripts/aggregate.mjs` 重生成）。
+- 一次性记录（任务交接、验证快照）进 `docs/archive/`。
+
+### 发布纪律（维护者）
+
+发布由 tag 触发（`.github/workflows/release.yml`）：推送 `vX.Y.Z` 后
+`scripts/verify-version.mjs` 校验每个包版本与 tag 一致，不一致则发布前失败；
+全部门禁重跑通过后才发 npm。不要直接改包版本号绕过 tag 校验。
+
 ## 分层指令体系（渐进式上下文）
 
 | 文件 | 作用 |

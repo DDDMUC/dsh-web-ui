@@ -184,7 +184,7 @@ if (import.meta.main) {
   }
   
   /* ---------- 3. Markdown links ---------- */
-  const docFiles = ['AGENTS.md', 'packages/AGENTS.md', 'docs/AGENTS.md']
+  const docFiles = ['AGENTS.md', 'packages/AGENTS.md', 'docs/AGENTS.md', 'CONTRIBUTING.md']
   for (const p of pairs) docFiles.push(relative(root, p.en), relative(root, p.zh))
   for (const name of readdirSync(resolve(root, 'docs'))) {
     if (name.endsWith('.md')) docFiles.push('docs/' + name)

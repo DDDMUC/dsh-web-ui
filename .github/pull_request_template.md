@@ -1,3 +1,5 @@
+> 提 PR 前请阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 与 [AGENTS.md](../AGENTS.md)；
+> 提交信息用 Conventional Commits（`type(scope): subject`），禁止 emoji。
 ## 摘要（Summary）
 
 <!-- 用一两句话说明改了什么、为什么改。 -->
