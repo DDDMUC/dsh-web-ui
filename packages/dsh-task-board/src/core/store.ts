@@ -25,10 +25,29 @@ export interface TaskStore {
   save(tasks: readonly TaskRecord[]): void
   /** Drop the persisted ledger (leaves the in-memory state alone). */
   clear(): void
+  /**
+   * Subscribe to ledger changes written by ANOTHER tab of the same origin
+   * (browser storage events). The board controller reloads the ledger on
+   * such a change, so a task deleted in one tab cannot keep firing (or be
+   * written back) from the stale in-memory copy of another tab. No-op when
+   * the backend has no cross-instance channel (in-memory store).
+   */
+  subscribeExternal?(listener: () => void): () => void
 }
 
 /** Storage key for the task ledger document. */
 export const DEFAULT_STORAGE_KEY = 'dsh.taskBoard.v1'
+
+/** Structural shape of the storage event fired in sibling tabs (DOM-free). */
+export interface StorageChangeEvent {
+  key: string | null
+}
+
+/** The event-target face the store needs for cross-tab notifications. */
+export interface StorageEvents {
+  addEventListener(type: 'storage', listener: (event: StorageChangeEvent) => void): void
+  removeEventListener(type: 'storage', listener: (event: StorageChangeEvent) => void): void
+}
 
 /**
  * Structural row check with the status left unvalidated (see {@link parseLedger}).
@@ -127,10 +146,16 @@ export class LocalStorageTaskStore implements TaskStore {
   /**
    * @param key - storage key for the ledger document.
    * @param storage - storage backend (defaults to the global localStorage; tests inject fakes).
+   * @param events - storage-event target for cross-tab notifications (defaults
+   *   to the browser global; undefined in non-browser runtimes, where the
+   *   subscription becomes a no-op).
    */
   constructor(
     private readonly key: string = DEFAULT_STORAGE_KEY,
     private readonly storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined = globalThis.localStorage,
+    private readonly events: StorageEvents | undefined = typeof (globalThis as { addEventListener?: unknown }).addEventListener === 'function'
+      ? (globalThis as unknown as StorageEvents)
+      : undefined,
   ) {}
 
   load(): TaskRecord[] {
@@ -162,6 +187,22 @@ export class LocalStorageTaskStore implements TaskStore {
     } catch (error) {
       console.error('[dsh-task-board] task ledger clear failed', error)
     }
+  }
+
+  /**
+   * Cross-tab change subscription (see {@link TaskStore.subscribeExternal}).
+   * The browser fires the storage event in every OTHER tab of the same origin
+   * when one tab writes; a null key means the whole storage was cleared. Both
+   * cases reload the ledger here; unrelated keys are ignored.
+   */
+  subscribeExternal(listener: () => void): () => void {
+    if (this.events === undefined) return () => {}
+    const onStorage = (event: StorageChangeEvent): void => {
+      if (event.key !== null && event.key !== this.key) return
+      listener()
+    }
+    this.events.addEventListener('storage', onStorage)
+    return () => { this.events?.removeEventListener('storage', onStorage) }
   }
 }
 

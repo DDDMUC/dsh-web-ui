@@ -94,6 +94,15 @@ export class BoardController {
   start(): void {
     this.tasks = this.deps.store.load()
     void this.reconcileRunningTasks()
+    // A sibling tab may have edited or deleted the ledger (same origin,
+    // storage events). Reload on external change so a task deleted in
+    // another tab stops firing here — and is never written back by this
+    // tab's stale copy (scheduler roll-forward, execution settlement).
+    const unsubscribeExternal = this.deps.store.subscribeExternal?.(() => {
+      this.tasks = this.deps.store.load()
+      this.notify()
+    })
+    if (unsubscribeExternal !== undefined) this.disposers.push(unsubscribeExternal)
     this.disposers.push(this.deps.sessions.list.subscribe(() => {
       this.onSessionsChanged()
     }))

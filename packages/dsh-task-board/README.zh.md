@@ -47,6 +47,7 @@ scripts/dsh-task-board.js                          # 一键挂载/卸载/状态 
 - **执行走客户端 runtime**：`ctx.sessions.list` 订阅会话状态（`running` / `byId`），`ctx.workspaces.connectWorkspace()` 创建/复用会话，`session.prompt()` 真实驱动 agent，`ctx.sessions.open()` 跳转 transcript。
 - **后台结算靠列表对账**：未打开的会话没有对话快照窗口（cold），所以执行结算以会话列表为准——每次列表变化都对账 running 任务；结果判定依次取「列表缺失→已取消 / 仍在跑→等待 / 对话快照可见→按 lastAgentError / 原始历史尾部→turn-error 节点证明失败 / 否则按成功」，对账幂等。
 - **定时任务在浏览器端调度**：插件是纯客户端（无服务端通道），所以「到点执行」由标签页内的调度器完成——每分钟 tick 一次，页面从后台恢复可见时立即补 tick；到点触发前先把「下次运行」顺延到下一个 cron 匹配点再执行，同一 tick 不会重复触发；页面加载早期（会话列表基线未就绪）不触发，避免误执行。限制：需要标签页保持打开（关闭期间错过的调度按「错过即跳过」处理，下次打开时只补跑已顺延的到期任务）；任务处于「进行中」时到点跳过本次，等下一个 cron 匹配点。
+- **多标签页同源共享同一份台账**：任一标签页的增删改通过 storage 事件同步到其他标签页（`LocalStorageTaskStore.subscribeExternal`），删除的任务不会在其他标签页的内存副本里残留触发，也不会被其他标签页的后续持久化写回复活。
 
 ## 安装
 

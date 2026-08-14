@@ -2,9 +2,10 @@
  * Task-store tests: localStorage backend round-trips, corrupt-document
  * handling, invalid-row dropping, and the in-memory backend.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   InMemoryTaskStore, LocalStorageTaskStore, isTaskRecord, parseLedger,
+  type StorageChangeEvent, type StorageEvents,
 } from '../src/core/store.ts'
 import { createTask, withSchedule } from '../src/core/tasks.ts'
 
@@ -72,6 +73,55 @@ describe('LocalStorageTaskStore', () => {
     const store = new LocalStorageTaskStore('k', broken)
     expect(store.load()).toEqual([])
     expect(() => store.save(sampleLedger())).not.toThrow()
+  })
+})
+
+/** A controllable stand-in for the browser storage-event target. */
+class FakeEvents implements StorageEvents {
+  listeners = new Set<(event: StorageChangeEvent) => void>()
+  addEventListener(_type: 'storage', listener: (event: StorageChangeEvent) => void): void {
+    this.listeners.add(listener)
+  }
+  removeEventListener(_type: 'storage', listener: (event: StorageChangeEvent) => void): void {
+    this.listeners.delete(listener)
+  }
+  fire(key: string | null): void {
+    for (const listener of [...this.listeners]) listener({ key })
+  }
+}
+
+describe('LocalStorageTaskStore.subscribeExternal', () => {
+  it('notifies only for its own key (or a full storage clear)', () => {
+    const storage = new FakeStorage()
+    const events = new FakeEvents()
+    const store = new LocalStorageTaskStore('dsh.taskBoard.v1', storage, events)
+    const listener = vi.fn()
+    store.subscribeExternal(listener)
+    events.fire('some.other.key')
+    expect(listener).not.toHaveBeenCalled()
+    events.fire('dsh.taskBoard.v1')
+    expect(listener).toHaveBeenCalledTimes(1)
+    // A null key means the whole storage was cleared by another tab.
+    events.fire(null)
+    expect(listener).toHaveBeenCalledTimes(2)
+  })
+
+  it('unsubscribes and stops notifying', () => {
+    const events = new FakeEvents()
+    const store = new LocalStorageTaskStore('k', new FakeStorage(), events)
+    const listener = vi.fn()
+    const unsubscribe = store.subscribeExternal(listener)
+    unsubscribe()
+    events.fire('k')
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('no-ops when no storage-event target exists (non-browser runtime)', () => {
+    const store = new LocalStorageTaskStore('k', new FakeStorage(), undefined)
+    const listener = vi.fn()
+    const unsubscribe = store.subscribeExternal(listener)
+    expect(() => unsubscribe()).not.toThrow()
+    expect(listener).not.toHaveBeenCalled()
   })
 })
 

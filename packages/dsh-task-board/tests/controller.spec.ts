@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { BoardController, type ControllerDeps } from '../src/core/controller.ts'
 import { ExecutionService, type ExecutionEvent } from '../src/core/execution.ts'
 import { InMemoryTaskStore } from '../src/core/store.ts'
-import { createTask } from '../src/core/tasks.ts'
+import { createTask, type TaskRecord } from '../src/core/tasks.ts'
 
 const NOW = 1_700_000_000_000
 let nextId = 0
@@ -377,5 +377,63 @@ describe('scheduling', () => {
     const task = controller.createTask({ title: 'x', description: '', prompt: '' })!
     expect(() => controller.applyScheduleNextRun(task.id, 1, 2)).not.toThrow()
     expect(controller.getSnapshot().tasks[0].schedule).toBeUndefined()
+  })
+})
+
+/** Store that can simulate a sibling tab writing the ledger. */
+class ExternalAwareStore extends InMemoryTaskStore {
+  listeners = new Set<() => void>()
+  subscribeExternal(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+  /** Simulate another tab persisting a new ledger document. */
+  writeFromElsewhere(tasks: readonly TaskRecord[]): void {
+    this.save(tasks)
+    for (const listener of [...this.listeners]) listener()
+  }
+}
+
+describe('external (cross-tab) ledger changes', () => {
+  function makeWithExternalStore() {
+    const sessions = new FakeSessions()
+    const store = new ExternalAwareStore()
+    const controller = new BoardController({
+      store,
+      exec: new StubExec() as unknown as ExecutionService,
+      sessions,
+      now: () => NOW,
+      uuid,
+    })
+    controller.start()
+    return { controller, sessions, store }
+  }
+
+  it('reloads the ledger when a sibling tab deletes a task', () => {
+    const { controller, store } = makeWithExternalStore()
+    const task = controller.createTask({ title: 'x', description: '', prompt: '' })!
+    expect(controller.getSnapshot().tasks.map(t => t.id)).toEqual([task.id])
+    // Another tab deletes the task and persists; this tab must drop it too,
+    // so its scheduler can never fire (or write back) the deleted task.
+    store.writeFromElsewhere([])
+    expect(controller.getSnapshot().tasks).toHaveLength(0)
+    expect(store.load()).toEqual([])
+  })
+
+  it('reloads a task created in a sibling tab', () => {
+    const { controller, store } = makeWithExternalStore()
+    expect(controller.getSnapshot().tasks).toHaveLength(0)
+    const task = createTask({ title: '从别的标签页创建', description: '', prompt: '' }, NOW, 'other-tab')
+    store.writeFromElsewhere([task])
+    expect(controller.getSnapshot().tasks.map(t => t.id)).toEqual(['other-tab'])
+  })
+
+  it('stops reacting to external changes after dispose', () => {
+    const { controller, store } = makeWithExternalStore()
+    let notified = 0
+    controller.subscribe(() => { notified += 1 })
+    controller.dispose()
+    store.writeFromElsewhere([])
+    expect(notified).toBe(0)
   })
 })
