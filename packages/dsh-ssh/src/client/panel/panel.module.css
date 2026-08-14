@@ -18,7 +18,10 @@
   position: absolute;
   inset: 0;
   display: none;
-  z-index: 5;
+  /* Above the conversation composer (z-index 7 in the 0.1.0-rc.6 shell) so the
+     panel and its modals paint over the input card, mirroring the task board
+     (issue #87). */
+  z-index: 60;
 }
 
 /* The center column is single-occupant; the :not() guards keep the two
@@ -31,7 +34,7 @@ html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [data-dsh-ssh-view] {
 /* While the panel is active, the conversation content underneath is hidden
    (it stays mounted and stateful). */
 html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [data-pane='conversation'] > :not([data-dsh-ssh-view]) {
-  display: none;
+  display: none !important;
 }
 
 /* --- sidebar entry row ------------------------------------------------------- */
