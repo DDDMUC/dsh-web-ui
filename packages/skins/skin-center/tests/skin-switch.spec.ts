@@ -7,7 +7,7 @@
  * @module @linxin666/dsh-client-ui-skin-center/tests/skin-switch
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readlinkSync, rmSync, existsSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readlinkSync, rmSync, existsSync, symlinkSync, lstatSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -32,6 +32,7 @@ import {
   resolvePaths,
   resolveSkinsDir,
   findScopedAnchor,
+  listSkinDirCandidates,
   type SkinSwitchEntry,
 } from '../src/skin-switch.ts'
 
@@ -469,3 +470,90 @@ describe('pnpm virtual-store layout (realpathed .pnpm packages)', () => {
     }
   })
 })
+describe('self-referential symlink defense (issue #43: ELOOP on second skin switch)', () => {
+  it('listSkinDirCandidates skips symlink entries in Pass 1', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-symlink-skip-'))
+    try {
+      const scoped = join(fakeRoot, '@linxin666')
+      const real = join(scoped, 'dsh-skins', 'skins')
+      mkdirSync(join(real, 'miku', 'lib'), { recursive: true })
+      writeFileSync(join(real, 'miku', 'skin.json'), JSON.stringify({
+        id: 'miku',
+        package: '@linxin666/dsh-client-ui-skin-miku',
+        wiring: { id: 'ui-skin-miku' },
+      }))
+      // A legacy per-skin alias symlink pointing at the real skin dir (the
+      // profile link ensureSymlink manages). It must NOT be a candidate.
+      const alias = join(scoped, 'dsh-client-ui-skin-miku')
+      symlinkSync(join(real, 'miku'), alias, process.platform === 'win32' ? 'junction' : 'dir')
+      // A real legacy package (kept).
+      mkdirSync(join(scoped, 'dsh-client-ui-skin-qq98'), { recursive: true })
+      writeFileSync(join(scoped, 'dsh-client-ui-skin-qq98', 'skin.json'), JSON.stringify({
+        id: 'qq98',
+        package: '@linxin666/dsh-client-ui-skin-qq98',
+        wiring: { id: 'ui-skin-qq98' },
+      }))
+      const candidates = listSkinDirCandidates(scoped)
+      // The alias link must never appear as a skin-dir candidate.
+      expect(candidates).not.toContain(alias)
+      // The real direct package is still found.
+      expect(candidates).toContain(join(scoped, 'dsh-client-ui-skin-qq98'))
+      // The real skin dir reachable via the carrier is still found.
+      expect(candidates).toContain(join(real, 'miku'))
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('loadRegistry realpath-dedupes a symlink-aliased carrier entry, preferring the real dir', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-realpath-dedupe-'))
+    try {
+      const scoped = join(fakeRoot, '@linxin666')
+      const direct = join(scoped, 'dsh-client-ui-skin-miku')
+      mkdirSync(join(direct, 'lib'), { recursive: true })
+      writeFileSync(join(direct, 'skin.json'), JSON.stringify({
+        id: 'miku',
+        package: '@linxin666/dsh-client-ui-skin-miku',
+        wiring: { id: 'ui-skin-miku' },
+      }))
+      // The carrier entry is a symlink back to the SAME real dir (the shape
+      // that would otherwise record a link path as entry.dir).
+      const carrier = join(scoped, 'dsh-skins', 'skins')
+      mkdirSync(carrier, { recursive: true })
+      symlinkSync(direct, join(carrier, 'miku'), process.platform === 'win32' ? 'junction' : 'dir')
+      const registry = loadRegistry(scoped)
+      expect(Object.keys(registry).sort()).toEqual(['miku'])
+      // entry.dir must be a real directory, never the symlink alias.
+      expect(registry.miku.dir).toBe(direct)
+      expect(lstatSync(registry.miku.dir).isSymbolicLink()).toBe(false)
+      expect(realpathSync(registry.miku.dir)).toBe(realpathSync(direct))
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('useSkin refuses to build a self-referential link after a poisoned registry (second switch, no ELOOP)', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    const realDir = join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98')
+    makeSkinPackage(realDir, qq98)
+    const target = join(resolvePaths(h).profileModulesDir, qq98.pkg)
+    // First switch: a normal link target -> realDir.
+    const goodRegistry: Record<string, SkinSwitchEntry> = { ...registry, qq98: { ...qq98, dir: realDir } }
+    writeFileSync(patchPath(h), '')
+    useSkin('qq98', { home: h, registry: goodRegistry })
+    expect(readlinkSync(target)).toBe(realDir)
+    // Poison the registry exactly like the issue: entry.dir resolves to the
+    // profile link path itself (the loadRegistry realpath bug). ensureSymlink
+    // must refuse to re-link target -> itself (ELOOP) and leave state intact.
+    const poisonedRegistry: Record<string, SkinSwitchEntry> = { ...registry, qq98: { ...qq98, dir: target } }
+    writeFileSync(patchPath(h), '')
+    expect(() => useSkin('qq98', { home: h, registry: poisonedRegistry })).not.toThrow()
+    // The existing link still points at the real dir, never at itself.
+    expect(readlinkSync(target)).toBe(realDir)
+    // And it still resolves (no ELOOP on realpath).
+    expect(realpathSync(target)).toBe(realpathSync(realDir))
+  })
+})
+

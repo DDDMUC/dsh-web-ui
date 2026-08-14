@@ -16,7 +16,7 @@
  * @module @linxin666/dsh-client-ui-skin-center/skin-switch
  */
 
-import { readdirSync, readFileSync, readlinkSync, lstatSync, mkdirSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, renameSync } from 'node:fs'
+import { readdirSync, readFileSync, readlinkSync, lstatSync, mkdirSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, renameSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join as joinPath } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -162,6 +162,14 @@ export function listSkinDirCandidates(skinsDir: string): string[] {
   // package deterministically wins in loadRegistry.
   for (const dir of entries) {
     const candidate = joinPath(skinsDir, dir)
+    // Skip symlink entries: statSync follows links, so the profile
+    // symlinks that ensureSymlink previously managed (e.g.
+    // node_modules/@linxin666/dsh-skins -> real dir) would otherwise be
+    // mis-registered as skin candidates under the link path itself,
+    // poisoning entry.dir and letting ensureSymlink build a
+    // self-referential link (issue #43, ELOOP). Only real dirs are skin
+    // homes; real skins reachable through a carrier are handled in Pass 2.
+    if (lstatSync(candidate, { throwIfNoEntry: false })?.isSymbolicLink() === true) continue
     if (!isDir(candidate)) continue
     if (statSync(joinPath(candidate, 'skin.json'), { throwIfNoEntry: false })) out.push(candidate)
   }
@@ -193,7 +201,24 @@ export function listSkinDirCandidates(skinsDir: string): string[] {
  */
 export function loadRegistry(skinsDir: string = SKINS_DIR): Record<string, SkinSwitchEntry> {
   const out: Record<string, SkinSwitchEntry> = {}
+  // Defense in depth against a registry whose candidate dir is a symlink
+  // alias reaching the SAME real skin directory reached by the carrier
+  // (issue #43). listSkinDirCandidates already skips symlink entries, but a
+  // duplicate here would still poison entry.dir with a link path and let
+  // ensureSymlink build a self-referential link (ELOOP). Dedupe on the
+  // canonical realpath so only the first (real) candidate is ever registered.
+  const seenReal = new Set<string>()
   for (const dir of listSkinDirCandidates(skinsDir)) {
+    let real: string
+    try { real = realpathSync(dir) } catch { real = dir }
+    if (seenReal.has(real)) {
+      // Same real skin dir reached twice (one a real dir, one its alias).
+      // Keep the first candidate — typically the real directory — and ignore
+      // the duplicate link path to keep entry.dir a resolvable real dir.
+      console.warn('[skin-center] duplicate skin dir (realpath) "' + real + '": keeping the real directory, ignoring ' + dir)
+      continue
+    }
+    seenReal.add(real)
     const meta = readSkinMeta(dir)
     if (meta === null || meta.wiring === undefined || meta.package === undefined) continue
     if (out[meta.id] !== undefined) {
@@ -369,14 +394,30 @@ function writePatchAtomic(filePath: string, next: string): void {
  * @param entry - the skin switch entry.
  * @param profileModulesDir - the profile's node_modules dir.
  */
+/** Canonical path a symlink resolves to, tolerant of a degraded link (a
+ * self-referential link whose realpath would throw ELOOP); '' when absent. */
+function resolveLinkReal(linkPath: string): string {
+  try { return realpathSync(linkPath) } catch { return '' }
+}
+
 function ensureSymlink(entry: SkinSwitchEntry, profileModulesDir: string): boolean {
   const target = joinPath(profileModulesDir, entry.pkg)
+  // Self-reference guard (issue #43, ELOOP): a link whose target equals the
+  // link path itself is never legal. When a poisoned registry (entry.dir ==
+  // the very profile link we manage) reaches here, refuse to create/refresh
+  // and return false so no self-referential symlink is built that would break
+  // every later `dsh plugin add`.
+  let entryReal: string
+  try { entryReal = realpathSync(entry.dir) } catch { entryReal = entry.dir }
+  if (entry.dir === target || entryReal === target) return false
   let stat: ReturnType<typeof lstatSync> | null = null
   try { stat = lstatSync(target) } catch { /* absent */ }
   if (stat) {
     if (stat.isSymbolicLink()) {
-      const current = readlinkSync(target)
-      if (current === entry.dir) return false
+      // Already resolves to this skin's real dir -> nothing to do. Compare
+      // canonical paths (not the raw readlink string) so a relative link or a
+      // link through a symlinked intermediate still matches.
+      if (resolveLinkReal(target) === entryReal) return false
       // Windows junctions report as symbolic links AND directories; unlink
       // cannot remove a directory reparse point (EPERM), so remove stale
       // junctions with rmdir instead.
