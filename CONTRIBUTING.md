@@ -4,6 +4,15 @@
 入口；仓库的全部规则与机制以 [AGENTS.md](AGENTS.md)（及其分层指令）为准，
 冲突时以 AGENTS.md 为准。
 
+## PR 范围：只接受修复，不接受新功能
+
+本仓库目前**只接受修复型 PR**：bug 修复、兼容性适配、维护与文档修正。
+**不接受**新增特性 / 新功能的 PR；有相关需求请先在
+[Issues](https://github.com/zhu1090093659/dsh-web-ui/issues) 提 issue 讨论，
+不要直接开 PR。
+
+例外：**新皮肤**属于内容贡献，仍欢迎直接提 PR。
+
 ## 开发前置
 
 - Node.js >= 22 与 pnpm 11；
@@ -49,6 +58,9 @@ pnpm docs:write-pair <包目录名>   # 如 dsh-ssh 或 qq98
 6. **AI 编码披露**：使用 AI 编码时在 PR 模板中如实披露模型与工具。
 
 ## 新增包或皮肤
+
+> 范围约束：外部贡献者目前**不要直接提交新插件 / 新功能 PR**，请先提 issue；
+> 新皮肤不受此限制，仍可直接提 PR。下列命令供 issue 确认后的实现使用。
 
 - 插件：`node scripts/dsh-plugin-new <name>` 生成骨架（自动含双语 README
   三件套与 AGENTS.md 模板），然后按 [docs/plugins.md](docs/plugins.md)

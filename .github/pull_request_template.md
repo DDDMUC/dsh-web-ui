@@ -1,5 +1,6 @@
 > 提 PR 前请阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 与 [AGENTS.md](../AGENTS.md)；
 > 提交信息用 Conventional Commits（`type(scope): subject`），禁止 emoji。
+> 本仓库目前只接受修复型 PR（新皮肤除外）；新增特性 / 功能的 PR 会被关闭，相关需求请提 Issue。
 ## 摘要（Summary）
 
 <!-- 用一两句话说明改了什么、为什么改。 -->
