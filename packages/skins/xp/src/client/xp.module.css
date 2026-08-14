@@ -253,8 +253,8 @@ body[data-dsh-xp] {
   --dsw-alias-interactive-bg-hover-danger: rgba(196, 0, 15, 0.07);
   --dsw-alias-interactive-bg-hover-solid: #ece9d8;
   --dsw-alias-interactive-bg-hover: rgba(49, 106, 197, 0.08);
-  --dsw-alias-label-caption: #7f8d9f;
-  --dsw-alias-label-dimmed: #8a97a8;
+  --dsw-alias-label-caption: #5d6b7e;
+  --dsw-alias-label-dimmed: #667488;
   --dsw-alias-label-primary-dimmed: #3d4a5c;
   --dsw-alias-label-primary-foreground: #fff;
   --dsw-alias-label-primary-inverted: #fff;
@@ -862,7 +862,7 @@ body[data-dsh-xp] {
   --aion-text-primary: #000;
   --aion-text-secondary: #3d4a5c;
   --aion-text-tertiary: #5d6b7e;
-  --aion-text-disabled: #7f8d9f;
+  --aion-text-disabled: #667488;
   --aion-primary: #316ac5;
   --aion-success: #3d9f43;
   --aion-warning: #b07600;

@@ -247,8 +247,8 @@ body[data-dsh-ths] {
   --dsw-alias-interactive-bg-hover-danger: rgba(196, 0, 15, 0.07);
   --dsw-alias-interactive-bg-hover-solid: #e9edf2;
   --dsw-alias-interactive-bg-hover: rgba(86, 121, 154, 0.1);
-  --dsw-alias-label-caption: #8a97a6;
-  --dsw-alias-label-dimmed: #a7b1bd;
+  --dsw-alias-label-caption: #6b7888;
+  --dsw-alias-label-dimmed: #74808f;
   --dsw-alias-label-primary-dimmed: #4a5564;
   --dsw-alias-label-primary-foreground: #fff;
   --dsw-alias-label-primary-inverted: #fff;
@@ -778,7 +778,7 @@ body[data-dsh-ths] {
   --aion-text-primary: #1f2733;
   --aion-text-secondary: #4a5564;
   --aion-text-tertiary: #6b7888;
-  --aion-text-disabled: #a7b1bd;
+  --aion-text-disabled: #74808f;
 
   /* Focus ring / active state / primary button: the brand red of the app.
      Keep the base plate neutral so the red reads as an accent. */

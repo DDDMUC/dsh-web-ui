@@ -267,14 +267,14 @@ body[data-dsh-miku] {
   --dsw-alias-interactive-bg-hover-danger: rgba(194, 38, 38, 0.06);
   --dsw-alias-interactive-bg-hover-solid: #eaf4ff;
   --dsw-alias-interactive-bg-hover: rgba(46, 155, 255, 0.08);
-  --dsw-alias-label-caption: #8fa3c0;
-  --dsw-alias-label-dimmed: #a3b8d8;
+  --dsw-alias-label-caption: #5d74a0;
+  --dsw-alias-label-dimmed: #6880a5;
   --dsw-alias-label-primary-dimmed: #465a84;
   --dsw-alias-label-primary-foreground: #fff;
   --dsw-alias-label-primary-inverted: #fff;
   --dsw-alias-label-primary: #17302c;
   --dsw-alias-label-secondary: #465a84;
-  --dsw-alias-label-tertiary: #6c82a8;
+  --dsw-alias-label-tertiary: #5d74a0;
   --dsw-alias-markdown-citation: #e4f7f2;
   --dsw-alias-markdown-code-block-banner: #f3f8ff;
   --dsw-alias-markdown-code-block: #f3f8ff;
@@ -816,8 +816,8 @@ body[data-dsh-miku] {
   --aion-bg-active: #e4f0ff;
   --aion-text-primary: #17302c;
   --aion-text-secondary: #465a84;
-  --aion-text-tertiary: #6c82a8;
-  --aion-text-disabled: #a3b8d8;
+  --aion-text-tertiary: #5d74a0;
+  --aion-text-disabled: #6880a5;
   --aion-primary: #2e9bff;
   --aion-primary-hover: #4da3ff;
   --aion-success: #24924a;
@@ -1616,7 +1616,7 @@ body[data-dsh-miku][data-ds-dark-theme] [class*='menu'] [class*='heading'] {
 /* Menu disabled items. */
 body[data-dsh-miku] [class*='menu'] [class*='disabled'],
 body[data-dsh-miku] [role='menuitem'][aria-disabled='true'] {
-  color: #a3b8d8 !important;
+  color: #5d74a0 !important;
   opacity: 0.6;
 }
 
