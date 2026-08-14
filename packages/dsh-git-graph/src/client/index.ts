@@ -8,9 +8,12 @@
  * on its declaration for {@link CONTEXT_FALLBACK_MS} and then falls back to
  * `conversation.input.dock` (the 0.1.9 seat). On the dock, BranchChip
  * indents by the shell's composer side clearance so it starts flush with
- * the input card below it. All git facts arrive through the host /git
- * routes (this package's own host half); the inject face carries the
- * business verbs, the components stay pure props.
+ * the input card below it in the active phase; in the hero (blank-session)
+ * phase it lifts itself into the official hero chip row, immediately after
+ * the agent-preset seat, so the branch chip sits right of the preset name.
+ * All git facts arrive through the host /git routes (this package's own host
+ * half); the inject face carries the business verbs, the components stay
+ * pure props.
  *
  * The context hole is session-maybe: the chip stays mounted from cold start
  * through the active phase and hides itself when its data source is absent
@@ -191,8 +194,9 @@ export function apply(ctx: ClientContext): void {
     // declares the hole; when it never does (rc.6 and the current shipped
     // shell), the fallback disposes that wait and moves the chip to the
     // dock, whose row sits directly above the composer card. BranchChip
-    // indents the dock copy by the shell's composer side clearance so it
-    // starts flush with the input card. Exactly one seat mounts: a context
+    // indents the dock copy by the shell's composer side clearance in the
+    // active phase and joins the official hero chip row (right of the agent
+    // preset) in the hero phase. Exactly one seat mounts: a context
     // declaration landing after the fallback finds the wait gone.
     let mounted = false
     const disposeContextWait = scope.slots.inject('conversation.input.selector.context', () => {

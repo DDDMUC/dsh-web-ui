@@ -28,6 +28,8 @@ export interface BranchPopoverProps {
   /** Close the popover (backdrop / after a successful switch). */
   onClose: () => void
   t: Translate<GitGraphKey>
+  /** Open downward from the official hero row (the default opens upward from the dock row). */
+  hero?: boolean
 }
 
 /** How long the success notice stays before the popover closes itself. */
@@ -37,7 +39,7 @@ const SUCCESS_DISMISS_MS = 900
  * The branch picker popover.
  * @param props - see {@link BranchPopoverProps}.
  */
-export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, onClose, t }: BranchPopoverProps) {
+export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, onClose, t, hero = false }: BranchPopoverProps) {
   const [query, setQuery] = useState('')
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +75,7 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
   return (
     <>
       <Backdrop onClose={onClose} />
-      <div className={css.popover} role="listbox" aria-label={t('branch.search')} data-gitgraph-popover>
+      <div className={cx(css.popover, hero && css.popoverHero)} role="listbox" aria-label={t('branch.search')} data-gitgraph-popover>
         <div className={css.searchBox}>
           <IconSearchOutline16 size={14} />
           <input

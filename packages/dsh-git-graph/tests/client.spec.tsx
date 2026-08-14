@@ -44,6 +44,12 @@ interface BenchOptions {
   graphView?: GraphView | null
   /** Override the graph verb (e.g. a deferred promise for the loading state). */
   graph?: (limit?: number) => Promise<GraphView | null>
+  /** The dock seat's conversation composer phase (blank = the hero phase). */
+  composerPhase?: 'blank' | 'active'
+  /** The dock seat's conversation open state (open = the hero phase). */
+  openState?: 'open' | 'loading'
+  /** Render into this element instead of the RTL default container. */
+  container?: HTMLElement
 }
 
 /** The seat whose props the bench should compose. */
@@ -115,7 +121,10 @@ function bench(options: BenchOptions = {}, seat: BenchSeat = 'context') {
     props = {
       ...commonProps,
       sessionId,
-      session: { composerPhase: 'active' } as never,
+      session: {
+        composerPhase: options.composerPhase ?? 'active',
+        openState: options.openState ?? 'open',
+      } as never,
       input: {} as never,
     }
   } else {
@@ -125,7 +134,7 @@ function bench(options: BenchOptions = {}, seat: BenchSeat = 'context') {
     }
   }
 
-  const view = render(<BranchChip {...props} />)
+  const view = render(<BranchChip {...props} />, options.container !== undefined ? { container: options.container } : undefined)
   return { view, injected, calls, props }
 }
 
@@ -182,6 +191,50 @@ describe('BranchChip', () => {
     bench()
     const branchChip = await screen.findByRole('button', { name: '分支' })
     expect(branchChip.parentElement?.className).not.toContain('anchorDock')
+  })
+
+  it('styles the dock chip with the official hero seat in the blank phase', async () => {
+    bench({ composerPhase: 'blank', openState: 'open' }, 'dock')
+    const branchChip = await screen.findByRole('button', { name: '分支' })
+    expect(branchChip.parentElement?.className).toContain('anchorHero')
+    expect(branchChip.className).toContain('chipHero')
+    fireEvent.click(branchChip)
+    const popover = await screen.findByRole('listbox', { name: '搜索分支' })
+    expect(popover.className).toContain('popoverHero')
+  })
+
+  it('positions the hero dock chip after the rightmost hero-row chip', async () => {
+    const stack = document.createElement('div')
+    const heroRow = document.createElement('div')
+    heroRow.className = 'heroWorkspaceRow'
+    const preset = document.createElement('span')
+    preset.className = 'presetSeat'
+    heroRow.append(preset)
+    const outlet = document.createElement('div')
+    stack.append(heroRow, outlet)
+    document.body.append(stack)
+    try {
+      bench({ composerPhase: 'blank', openState: 'open', container: outlet }, 'dock')
+      const chip = await screen.findByRole('button', { name: '分支' })
+      const anchor = chip.parentElement as HTMLElement
+
+      const rect = (left: number, top: number, width: number, height: number): DOMRect => ({
+        left, top, right: left + width, bottom: top + height, width, height, x: left, y: top, toJSON: () => ({}),
+      }) as DOMRect
+      stack.getBoundingClientRect = () => rect(320, 313, 812, 274)
+      heroRow.getBoundingClientRect = () => rect(320, 369, 812, 28)
+      preset.getBoundingClientRect = () => rect(467, 369, 106, 28)
+      anchor.getBoundingClientRect = () => rect(320, 405, 812, 28)
+
+      act(() => { window.dispatchEvent(new Event('resize')) })
+      // Right edge of the preset (573) + the official 2px hero-row gap,
+      // relative to the stack; vertically centered in the 28px row.
+      expect(anchor.style.left).toBe('255px')
+      expect(anchor.style.top).toBe('56px')
+      expect(anchor.style.paddingLeft).toBe('0px')
+    } finally {
+      stack.remove()
+    }
   })
 
   it('hides the branch chip when the workspace is not a git repository', async () => {

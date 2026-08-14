@@ -4,8 +4,10 @@
  * (`conversation.input.selector.context`, session-maybe) right beside the
  * official workspace selector; on shells that dropped the hole (rc.6 and the
  * current shipped shell) the chip falls back to `conversation.input.dock`
- * (session-scoped). The dock seat renders its own row above the composer
- * card, so the chip measures the input card's left edge and aligns itself
+ * (session-scoped). On the dock's hero phase the chip joins the official
+ * hero row after the agent-preset seat (right of the workspace and preset
+ * chips), styled from the official `dsh-client-ui-theme` tokens; on the
+ * active phase it measures the input card's left edge and aligns itself
  * flush with it. The chip hides itself only when its data source is absent
  * (no session cwd, or not a git repository).
  * @module dsh-git-graph/client/chips/BranchChip
@@ -16,7 +18,7 @@ import { IconBranchOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { BranchesView, RepoStatus } from '../../core/types.ts'
 import type { GitGraphInjected } from '../index.ts'
-import { Chip } from './Chip.tsx'
+import { Chip, cx } from './Chip.tsx'
 import { BranchPopover } from './BranchPopover.tsx'
 import { CreateBranchDialog } from './CreateBranchDialog.tsx'
 import { GraphDialog } from '../graph/GraphDialog.tsx'
@@ -28,16 +30,47 @@ export type BranchChipProps =
   & GitGraphInjected
   & PropsLocale<'git-graph'>
 
+/** Horizontal gap between the official hero-row chips (WorkspaceChip / AgentPresetSeat). */
+const HERO_CHIP_GAP = 2
+
+/**
+ * The right edge of the rightmost painted descendant of `root`, excluding
+ * `root` itself. The hero row's direct children can be display:contents
+ * slot outlets, so the visible chip boundary must be found by walking.
+ */
+function paintedRight(root: Element): number | null {
+  let right: number | null = null
+  const visit = (node: Element): void => {
+    if (node !== root) {
+      const rect = node.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        right = right === null ? rect.right : Math.max(right, rect.right)
+      }
+    }
+    for (const child of Array.from(node.children)) visit(child)
+  }
+  visit(root)
+  return right
+}
+
 /**
  * The git branch selector chip.
  * @param props - the composed entry props of whichever seat it mounted in.
  */
 export function BranchChip(props: BranchChipProps) {
   const sessionId = props.sessionId
-  // Only the dock seat carries the conversation snapshot; its row spans the
-  // whole composer stack, so the chip indents by the shell's composer side
-  // clearance to start flush with the input card below it.
-  const dockSeat = 'session' in props
+  // Only the dock seat carries the conversation snapshot + input owner share;
+  // its row spans the whole composer stack, so the chip indents by the
+  // shell's composer side clearance to start flush with the input card below
+  // it. In the hero phase it leaves that row and joins the official hero
+  // chip row instead (see the hero placement effect below).
+  const dockSeat = 'session' in props && 'input' in props
+  const sessionSnapshot = dockSeat ? props.session : undefined
+  // The same predicate the official shell uses for its hero phase: a blank
+  // conversation with an open session. Summary-blank loading states are not
+  // matched, but the shell hides the whole composer seat there, so no chip
+  // placement is observable.
+  const heroSeat = sessionSnapshot?.composerPhase === 'blank' && sessionSnapshot.openState === 'open'
 
   /** Repository state: undefined = loading, null = not a repository, else the snapshot. */
   const [repo, setRepo] = useState<RepoStatus | null | undefined>(undefined)
@@ -48,15 +81,17 @@ export function BranchChip(props: BranchChipProps) {
   const [graphOpen, setGraphOpen] = useState(false)
   /** Measured left offset between the dock row and the input card; null until measured. */
   const [dockInset, setDockInset] = useState<number | null>(null)
+  /** Measured hero-row placement (relative to the composer stack); null until measured. */
+  const [heroPlacement, setHeroPlacement] = useState<{ left: number, top: number } | null>(null)
   const anchorRef = useRef<HTMLDivElement | null>(null)
 
-  // The dock row spans different containers per shell phase (the centered
-  // hero composer stack, or the full-width active-session column), so the
-  // chip measures the input card's left edge and matches it instead of
-  // trusting a fixed indent. The CSS class keeps the hero-phase clearance
-  // as a fallback before the first measurement.
+  // Active-phase dock placement: the dock row spans different containers per
+  // shell phase (the centered hero composer stack, or the full-width
+  // active-session column), so the chip measures the input card's left edge
+  // and matches it instead of trusting a fixed indent. The CSS class keeps
+  // the side clearance as a fallback before the first measurement.
   useLayoutEffect(() => {
-    if (!dockSeat) return
+    if (!dockSeat || heroSeat) return
     const anchor = anchorRef.current
     if (anchor === null) return
     const update = (): void => {
@@ -75,7 +110,45 @@ export function BranchChip(props: BranchChipProps) {
       observer?.disconnect()
       window.removeEventListener('resize', update)
     }
-  }, [dockSeat, repo !== undefined && repo !== null])
+  }, [dockSeat, heroSeat, repo !== undefined && repo !== null])
+
+  // Hero-phase placement: the rc.6 shell renders the dock as its own row
+  // between the official hero chip row and the composer card. The chip is
+  // instead lifted into that hero row, immediately after its rightmost
+  // painted chip (the agent-preset seat — "梁神模式"), by anchoring to the
+  // composer stack and matching the official row gap. The slot outlet uses
+  // display:contents, so the anchor's outlet parent is the boundary between
+  // the hero row (previous element sibling) and the composer card below.
+  useLayoutEffect(() => {
+    if (!heroSeat) return
+    const anchor = anchorRef.current
+    const outlet = anchor?.parentElement ?? null
+    const stack = outlet?.parentElement ?? null
+    const heroRow = outlet?.previousElementSibling ?? null
+    if (anchor === null || outlet === null || stack === null || heroRow === null) return
+    const update = (): void => {
+      const stackRect = stack.getBoundingClientRect()
+      const rowRect = heroRow.getBoundingClientRect()
+      const anchorRect = anchor.getBoundingClientRect()
+      if (stackRect.width <= 0 || rowRect.width <= 0 || anchorRect.width <= 0) return
+      const right = paintedRight(heroRow)
+      if (right === null) return
+      const left = Math.max(0, right - stackRect.left + HERO_CHIP_GAP)
+      const top = Math.max(0, rowRect.top - stackRect.top + (rowRect.height - anchorRect.height) / 2)
+      setHeroPlacement(previous => {
+        if (previous !== null && Math.abs(previous.left - left) < 0.5 && Math.abs(previous.top - top) < 0.5) return previous
+        return { left, top }
+      })
+    }
+    update()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+    for (const target of [anchor, outlet, stack, heroRow]) observer?.observe(target)
+    window.addEventListener('resize', update)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [heroSeat, repo !== undefined && repo !== null])
 
   const refetch = useCallback(() => {
     let live = true
@@ -126,10 +199,17 @@ export function BranchChip(props: BranchChipProps) {
   return (
     <div
       ref={anchorRef}
-      className={dockSeat ? `${css.anchor} ${css.anchorDock}` : css.anchor}
-      style={dockSeat && dockInset !== null ? { paddingLeft: `${dockInset}px` } : undefined}
+      className={cx(css.anchor, dockSeat && css.anchorDock, heroSeat && css.anchorHero)}
+      style={
+        heroSeat && heroPlacement !== null
+          ? { left: `${heroPlacement.left}px`, top: `${heroPlacement.top}px`, paddingLeft: 0 }
+          : dockSeat && dockInset !== null
+            ? { paddingLeft: `${dockInset}px` }
+            : undefined
+      }
     >
       <Chip
+        hero={heroSeat}
         icon={<IconBranchOutline16 size={14} />}
         label={repo.branch === '' ? props.t('branch.detached') : repo.branch}
         ariaLabel={props.t('chip.aria.branch')}
@@ -138,6 +218,7 @@ export function BranchChip(props: BranchChipProps) {
       />
       {branchOpen && branchesView !== null && (
         <BranchPopover
+          hero={heroSeat}
           view={branchesView}
           onSwitch={(branch) => props.switchBranch(sessionId, branch)}
           onSwitched={refetch}
