@@ -96,6 +96,13 @@ export interface Config {
    * tunnel setup. The manual `publicBaseUrl` is ignored while this is on.
    */
   autoTunnel?: boolean
+  /**
+   * Mobile composer behavior: when true (default), a plain Enter in the
+   * phone chat textarea sends the prompt and Shift+Enter inserts a newline.
+   * When false, plain Enter inserts a newline and only the send button
+   * sends (Shift+Enter keeps inserting a newline).
+   */
+  mobileEnterToSend?: boolean
   /** Master switch for the plugin (browser half + host pairing surfaces). */
   enabled?: boolean
 }
@@ -108,6 +115,7 @@ export const Config: z<Config> = z.object({
   requirePairingForLan: z.boolean().default(true),
   publicBaseUrl: z.string(),
   autoTunnel: z.boolean().default(false),
+  mobileEnterToSend: z.boolean().default(true),
   enabled: z.boolean().default(true),
 })
 
@@ -130,6 +138,7 @@ const DEFAULTS: ResolvedConfig = {
   requirePairingForLan: true,
   publicBaseUrl: undefined,
   autoTunnel: false,
+  mobileEnterToSend: true,
   enabled: true,
 }
 
@@ -147,6 +156,7 @@ export function apply(ctx: Context, config?: Config): void {
     requirePairingForLan: config?.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
     publicBaseUrl: config?.publicBaseUrl,
     autoTunnel: config?.autoTunnel ?? DEFAULTS.autoTunnel,
+    mobileEnterToSend: config?.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
     enabled: config?.enabled ?? DEFAULTS.enabled,
   }
   // The live source the pairing service and the gate read: the settings
@@ -163,6 +173,7 @@ export function apply(ctx: Context, config?: Config): void {
       requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
       publicBaseUrl: value.publicBaseUrl,
       autoTunnel: value.autoTunnel ?? DEFAULTS.autoTunnel,
+      mobileEnterToSend: value.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
       enabled: value.enabled ?? DEFAULTS.enabled,
     }
   }
@@ -267,7 +278,9 @@ export function apply(ctx: Context, config?: Config): void {
   const routes = [
     ...makeRoutes({ service, lanAddresses }),
     ...makeMobileRoutes(),
-    ...(apiProxy !== undefined ? makeMobileApiRoutes({ service, apiProxy }) : []),
+    ...(apiProxy !== undefined
+      ? makeMobileApiRoutes({ service, apiProxy, mobileEnterToSend: () => resolve().mobileEnterToSend })
+      : []),
     ...updateRoutes,
   ]
   const gate = makeGateListener(service, () => resolve().requirePairingForLan, () => resolve().enabled)
