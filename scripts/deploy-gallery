@@ -93,6 +93,10 @@ function stage(outDir) {
   const readme = path.join(ROOT, 'README.md')
   if (fs.existsSync(readme)) copy(readme, path.join(outDir, 'README.md'))
 
+  // Cloudflare Pages _headers（可选）：自定义响应头（缓存策略等）
+  const headers = path.join(GALLERY_DIR, '_headers')
+  if (fs.existsSync(headers)) copy(headers, path.join(outDir, '_headers'))
+
   // 2) preview PNG -> packages/skins/<id>/preview/（与 ../ 引用对齐）
   const rels = previewPaths(fs.readFileSync(path.join(outDir, 'manifest.js'), 'utf8'))
   const missing = []
