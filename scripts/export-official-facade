@@ -57,6 +57,13 @@ async function collect() {
         previewCol.style.visibility = 'hidden'
         explorerCol.style.visibility = 'hidden'
       }
+      // 折叠后隐藏 drag handle：真实 GUI 折叠时 aionui 的 applyGrid 会把 handle
+      // 设为 display:none；这里直接改 grid 不触发 applyGrid，必须显式隐藏，
+      // 否则骨架里会残留一条 12px 竖线。
+      const explorerHandle = document.querySelector('.aionui-explorer-handle')
+      const previewHandle = document.querySelector('.aionui-preview-handle')
+      if (explorerHandle) explorerHandle.style.display = 'none'
+      if (previewHandle) previewHandle.style.display = 'none'
     })
     await page.waitForTimeout(500)
     return await page.evaluate(() => {
