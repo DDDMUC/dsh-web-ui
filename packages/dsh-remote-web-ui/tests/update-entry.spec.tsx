@@ -123,4 +123,16 @@ describe("UpdateEntry", () => {
     fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
     await waitFor(() => expect(screen.getByText('Cannot reach the update source')).toBeTruthy())
   })
+
+  it("explains the stale-host case when the update route is missing", async () => {
+    // 404 = the host process runs an older plugin build without the update
+    // routes; the panel must not blame the network.
+    const fetch = vi.fn(async () => new Response("not found", { status: 404 }))
+    vi.stubGlobal('fetch', fetch)
+    render(<UpdateEntry wide={true} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    await waitFor(() => expect(screen.getByText('The update service is not loaded')).toBeTruthy())
+    expect(screen.getByText(/restart dsh web/)).toBeTruthy()
+    expect(screen.queryByText('Cannot reach the update source')).toBeNull()
+  })
 })

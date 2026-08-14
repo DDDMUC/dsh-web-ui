@@ -10,7 +10,7 @@ import { createPortal } from "react-dom"
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconDownloadOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { UpdateStatus } from '../update.ts'
-import { fetchUpdateStatus, runUpdate } from "./update-api.ts"
+import { fetchUpdateStatus, runUpdate, UpdateStatusError } from "./update-api.ts"
 import { UpdatePanel, type UpdateView } from "./UpdatePanel.tsx"
 import css from "./remote.module.css"
 
@@ -36,7 +36,15 @@ export function UpdateEntry({ wide, t }: UpdateEntryProps) {
     let status: UpdateStatus
     try {
       status = await fetchUpdateStatus()
-    } catch {
+    } catch (error) {
+      // HTTP 404: the update route is not mounted — the host process runs an
+      // older plugin build (client refreshed, host did not). Restarting dsh
+      // web loads the new plugin; a plain network failure gets the generic
+      // offline copy instead of a misleading "cannot reach update source".
+      if (error instanceof UpdateStatusError && error.status === 404) {
+        setView({ kind: "error", message: t("update.unmounted"), detail: t("update.unmountedDetail") })
+        return
+      }
       setView({ kind: "error", message: t("update.offline"), detail: t("update.offlineDetail") })
       return
     }
