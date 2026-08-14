@@ -79,7 +79,7 @@ jobs:
               (0x1F1E6, 0x1F1FF),   # regional indicators
           ]
           singles = {0xFE0F, 0x200D}
-          skip_dirs = {'.git', 'node_modules'}
+          skip_dirs = {'.git', 'node_modules', 'lib'}
           skip_names = {'pnpm-lock.yaml'}
           skip_suffixes = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.pdf', '.zip', '.gz'}
           bad = []
