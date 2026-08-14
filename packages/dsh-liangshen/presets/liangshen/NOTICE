@@ -1,0 +1,3 @@
+agent.cordis.yml 改编自 DeepSeek Harness Standard preset（MIT）。
+tool-bootstrap.mjs 来自 https://github.com/xiaobright/dsh-anchored-standard（MIT）。
+原始 DeepSeek 版权和 MIT 许可声明见开源仓库。

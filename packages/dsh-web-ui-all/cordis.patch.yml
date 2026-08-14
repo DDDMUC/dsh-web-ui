@@ -52,6 +52,11 @@
     - id: describe-image
       name: '@linxin666/dsh-tool-describe-image'
 
+# from ../dsh-liangshen
+- insert:
+    - id: liangshen
+      name: '@linxin666/dsh-liangshen'
+
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:
     - id: ui-skin-center

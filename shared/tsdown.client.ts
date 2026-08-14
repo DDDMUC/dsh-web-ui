@@ -95,13 +95,15 @@ export function clientBundle(
   const lib = clientLibraryConfig(id, libEntry, options.lib, options.libExternal)
   return ({ env }) => {
     const face = buildFace(env?.DSH_BUILD_FACE)
-    const client = clientConfig(id, face === undefined
+    // Host-only plugins (no src/client entry) skip the browser face entirely.
+    const hasClient = existsSync(resolvePath(process.cwd(), 'src/client/index.ts'))
+    const client = hasClient ? clientConfig(id, face === undefined
       ? 'src/client/index.ts'
-      : 'lib/types/client/index.js')
+      : 'lib/types/client/index.js') : undefined
     const node = [lib, ...(options.companions ?? [])]
     if (face === 'host') return options.hostPhase === true ? node : [SKIP_WORKSPACE_BUILD]
-    if (face === 'client') return options.hostPhase === true ? [client] : [...node, client]
-    return [...node, client]
+    if (face === 'client') return options.hostPhase === true ? (client ? [client] : []) : (client ? [...node, client] : node)
+    return client ? [...node, client] : node
   }
 }
 
