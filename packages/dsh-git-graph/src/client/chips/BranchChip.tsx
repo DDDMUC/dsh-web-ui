@@ -2,17 +2,16 @@
  * The git branch selector chip, mounted above the input card. Preferred
  * seat is the selector row's context hole
  * (`conversation.input.selector.context`, session-maybe) right beside the
- * official workspace selector; on shells that dropped the hole (rc.6) the
- * chip falls back to `conversation.input.dock` (session-scoped), so it
- * mounts once a session is active there. The session-maybe seat keeps the
- * chip mounted in every phase — hero (blank session) included — and the
- * chip hides itself only when its data source is absent (no session cwd,
- * or not a git repository). The component consumes only the props common
- * to both seats (the session id, the inject face, the locale seat).
+ * official workspace selector; on shells that dropped the hole (rc.6 and the
+ * current shipped shell) the chip falls back to `conversation.input.dock`
+ * (session-scoped). The dock seat renders its own row above the composer
+ * card, so the chip measures the input card's left edge and aligns itself
+ * flush with it. The chip hides itself only when its data source is absent
+ * (no session cwd, or not a git repository).
  * @module dsh-git-graph/client/chips/BranchChip
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { IconBranchOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { BranchesView, RepoStatus } from '../../core/types.ts'
@@ -34,6 +33,12 @@ export type BranchChipProps =
  * @param props - the composed entry props of whichever seat it mounted in.
  */
 export function BranchChip(props: BranchChipProps) {
+  const sessionId = props.sessionId
+  // Only the dock seat carries the conversation snapshot; its row spans the
+  // whole composer stack, so the chip indents by the shell's composer side
+  // clearance to start flush with the input card below it.
+  const dockSeat = 'session' in props
+
   /** Repository state: undefined = loading, null = not a repository, else the snapshot. */
   const [repo, setRepo] = useState<RepoStatus | null | undefined>(undefined)
   /** Fresh branch list, fetched when the branch popover opens. */
@@ -41,28 +46,58 @@ export function BranchChip(props: BranchChipProps) {
   const [branchOpen, setBranchOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [graphOpen, setGraphOpen] = useState(false)
+  /** Measured left offset between the dock row and the input card; null until measured. */
+  const [dockInset, setDockInset] = useState<number | null>(null)
+  const anchorRef = useRef<HTMLDivElement | null>(null)
+
+  // The dock row spans different containers per shell phase (the centered
+  // hero composer stack, or the full-width active-session column), so the
+  // chip measures the input card's left edge and matches it instead of
+  // trusting a fixed indent. The CSS class keeps the hero-phase clearance
+  // as a fallback before the first measurement.
+  useLayoutEffect(() => {
+    if (!dockSeat) return
+    const anchor = anchorRef.current
+    if (anchor === null) return
+    const update = (): void => {
+      const card = document.querySelector<HTMLElement>('[data-composer-card]')
+      if (card === null) return
+      const inset = Math.max(0, card.getBoundingClientRect().left - anchor.getBoundingClientRect().left)
+      setDockInset(previous => previous === inset ? previous : inset)
+    }
+    update()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+    observer?.observe(anchor)
+    const card = document.querySelector<HTMLElement>('[data-composer-card]')
+    if (card !== null) observer?.observe(card)
+    window.addEventListener('resize', update)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [dockSeat, repo !== undefined && repo !== null])
 
   const refetch = useCallback(() => {
     let live = true
-    props.repoStatus(props.sessionId)
+    props.repoStatus(sessionId)
       .then((status) => { if (live) setRepo(status) })
       .catch(() => { if (live) setRepo(null) })
     return () => { live = false }
-  }, [props.repoStatus, props.sessionId])
+  }, [props.repoStatus, sessionId])
 
   // Initial load + host-pushed external changes + focus refresh. A session
   // switch changes props.sessionId and re-fetches through the session-keyed
   // verbs.
   useEffect(() => refetch(), [refetch])
   useEffect(() => {
-    const unsubscribe = props.subscribeChanges(props.sessionId, () => { refetch() })
+    const unsubscribe = props.subscribeChanges(sessionId, () => { refetch() })
     const onFocus = (): void => { refetch() }
     window.addEventListener('focus', onFocus)
     return () => {
       unsubscribe()
       window.removeEventListener('focus', onFocus)
     }
-  }, [props.subscribeChanges, props.sessionId, refetch])
+  }, [props.subscribeChanges, sessionId, refetch])
 
   const closeCreate = (): void => {
     setCreateOpen(false)
@@ -76,9 +111,9 @@ export function BranchChip(props: BranchChipProps) {
     if (!branchOpen) return
     let live = true
     setBranchesView(null)
-    props.branches(props.sessionId).then((view) => { if (live) setBranchesView(view) })
+    props.branches(sessionId).then((view) => { if (live) setBranchesView(view) })
     return () => { live = false }
-  }, [branchOpen, props.branches, props.sessionId])
+  }, [branchOpen, props.branches, sessionId])
 
   // Loading or not a repository: no chip (no dead control). A workspace that
   // becomes a repository appears on the next refresh.
@@ -89,7 +124,11 @@ export function BranchChip(props: BranchChipProps) {
   }
 
   return (
-    <div className={css.anchor}>
+    <div
+      ref={anchorRef}
+      className={dockSeat ? `${css.anchor} ${css.anchorDock}` : css.anchor}
+      style={dockSeat && dockInset !== null ? { paddingLeft: `${dockInset}px` } : undefined}
+    >
       <Chip
         icon={<IconBranchOutline16 size={14} />}
         label={repo.branch === '' ? props.t('branch.detached') : repo.branch}
@@ -100,7 +139,7 @@ export function BranchChip(props: BranchChipProps) {
       {branchOpen && branchesView !== null && (
         <BranchPopover
           view={branchesView}
-          onSwitch={(branch) => props.switchBranch(props.sessionId, branch)}
+          onSwitch={(branch) => props.switchBranch(sessionId, branch)}
           onSwitched={refetch}
           onCreate={() => {
             setBranchOpen(false)
@@ -116,14 +155,14 @@ export function BranchChip(props: BranchChipProps) {
       )}
       {createOpen && (
         <CreateBranchDialog
-          onCreate={(name) => props.createBranch(props.sessionId, name)}
+          onCreate={(name) => props.createBranch(sessionId, name)}
           onClose={closeCreate}
           t={props.t}
         />
       )}
       {graphOpen && (
         <GraphDialog
-          graph={(limit) => props.graph(props.sessionId, limit)}
+          graph={(limit) => props.graph(sessionId, limit)}
           onClose={() => { setGraphOpen(false) }}
           t={props.t}
         />

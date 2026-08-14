@@ -4,22 +4,24 @@
  * context hole (`conversation.input.selector.context`, a session-maybe
  * list slot declared and rendered by newer shipped ui-conversation shells),
  * right beside the official workspace selector; the published npm SDK
- * (rc.6) dropped that hole, so the chip waits on its declaration for
- * {@link CONTEXT_FALLBACK_MS} and then falls back to
- * `conversation.input.dock` (the 0.1.9 seat). All git facts arrive
- * through the host /git routes (this package's own host half); the inject
- * face carries the business verbs, the components stay pure props.
+ * (rc.6) and the current shipped shell dropped that hole, so the chip waits
+ * on its declaration for {@link CONTEXT_FALLBACK_MS} and then falls back to
+ * `conversation.input.dock` (the 0.1.9 seat). On the dock, BranchChip
+ * indents by the shell's composer side clearance so it starts flush with
+ * the input card below it. All git facts arrive through the host /git
+ * routes (this package's own host half); the inject face carries the
+ * business verbs, the components stay pure props.
  *
  * The context hole is session-maybe: the chip stays mounted from cold start
  * through the active phase and hides itself when its data source is absent
  * (no session cwd, or not a git repository) — no workspace selector lives
  * here, the official selector chip docked above the input card owns that
  * surface. The dock fallback is session-scoped: the chip mounts once a
- * session is active, so the blank hero phase has no seat there (the
- * accepted rc.6 downgrade). Revision 0be6546 moved the chip back to the
- * context hole without a fallback, so on rc.6 shells the inject wait never
- * resolved and the chip disappeared. The published npm SDK (rc.6) dropped
- * the hole's type, so it is spelled locally below.
+ * session is active and renders on the dock's own row above the composer
+ * card, left-aligned with the input card. Revision 0be6546 moved the chip
+ * back to the context hole without a fallback, so on rc.6 shells the inject
+ * wait never resolved and the chip disappeared. The published npm SDK (rc.6)
+ * dropped the hole's type, so it is spelled locally below.
  * @module dsh-git-graph/client
  */
 
@@ -186,9 +188,12 @@ export function apply(ctx: ClientContext): void {
     // shells that dropped the hole (SDK SlotCore.register rejects undeclared
     // slots), so both seats route through inject like the pet / remote-web-ui
     // entries. The preferred context wait resolves the moment the shell
-    // declares the hole; when it never does (rc.6), the fallback disposes
-    // that wait and moves the chip to the dock. Exactly one seat mounts: a
-    // context declaration landing after the fallback finds the wait gone.
+    // declares the hole; when it never does (rc.6 and the current shipped
+    // shell), the fallback disposes that wait and moves the chip to the
+    // dock, whose row sits directly above the composer card. BranchChip
+    // indents the dock copy by the shell's composer side clearance so it
+    // starts flush with the input card. Exactly one seat mounts: a context
+    // declaration landing after the fallback finds the wait gone.
     let mounted = false
     const disposeContextWait = scope.slots.inject('conversation.input.selector.context', () => {
       mounted = true

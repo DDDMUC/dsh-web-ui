@@ -8,7 +8,7 @@
  * the create/graph dialogs behave (validation, duplicate copy, lane
  * rendering).
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { BranchesView, GraphView, RepoStatus, SwitchResult } from '../src/core/types.ts'
@@ -46,8 +46,11 @@ interface BenchOptions {
   graph?: (limit?: number) => Promise<GraphView | null>
 }
 
+/** The seat whose props the bench should compose. */
+type BenchSeat = 'context' | 'dock'
+
 /** Render the branch chip with stub framework hooks and a scripted inject face. */
-function bench(options: BenchOptions = {}) {
+function bench(options: BenchOptions = {}, seat: BenchSeat = 'context') {
   const sessionId = sid('sess-1')
   const cwd = 'cwd' in options ? options.cwd : '/ws/proj'
   const repoStatus = options.repoStatus === undefined
@@ -92,18 +95,34 @@ function bench(options: BenchOptions = {}) {
     subscribeChanges: vi.fn((sessionId: SessionId | undefined, _onChange: () => void) => { record('subscribeChanges', sessionId); return () => {} }),
   }
 
-  const props: BranchChipProps = {
-    sessionId,
-    // The selector-context hole has an empty owner share: the chip derives
-    // its state from the standard session-maybe kit + the inject face, never
-    // from the conversation snapshot or live input state.
+  const sessionsState = {
+    byId: { [sessionId]: { cwd, blank: options.blank === true } },
+  }
+  const commonProps = {
+    // The context/dock holes read their state from the standard session kit +
+    // the inject face; the dock seat additionally carries the conversation
+    // snapshot (and indents the chip to the input card start).
     useSession: (() => undefined) as never,
-    useSessions: ((selector: (state: { byId: Record<string, { cwd?: string; blank?: boolean }> }) => unknown) =>
-      selector({ byId: { [sessionId]: { cwd, blank: options.blank === true } } })) as never,
+    useSessions: ((selector: (state: typeof sessionsState) => unknown) => selector(sessionsState)) as never,
     useWorkspaces: (() => undefined) as never,
     useProjection: (() => undefined) as never,
     t: makeTranslate(),
     ...injected,
+  } as const
+
+  let props: BranchChipProps
+  if (seat === 'dock') {
+    props = {
+      ...commonProps,
+      sessionId,
+      session: { composerPhase: 'active' } as never,
+      input: {} as never,
+    }
+  } else {
+    props = {
+      ...commonProps,
+      sessionId,
+    }
   }
 
   const view = render(<BranchChip {...props} />)
@@ -121,6 +140,48 @@ describe('BranchChip', () => {
     bench({ blank: true })
     const branchChip = await screen.findByRole('button', { name: '分支' })
     expect(branchChip.textContent).toContain('main')
+  })
+
+  it('shows the chip on the dock seat above the composer card', async () => {
+    bench({}, 'dock')
+    const branchChip = await screen.findByRole('button', { name: '分支' })
+    expect(branchChip.textContent).toContain('main')
+  })
+
+  it('indents the dock copy so it starts flush with the input card', async () => {
+    bench({}, 'dock')
+    const branchChip = await screen.findByRole('button', { name: '分支' })
+    // The dock row spans the composer stack; only the dock seat carries the
+    // side-clearance indent that aligns the chip with the input card below.
+    expect(branchChip.parentElement?.className).toContain('anchorDock')
+  })
+
+  it('measures the input card left edge and applies it as the dock indent', async () => {
+    const card = document.createElement('div')
+    card.setAttribute('data-composer-card', '')
+    document.body.append(card)
+    try {
+      const { view } = bench({}, 'dock')
+      const chip = await screen.findByRole('button', { name: '分支' })
+      const anchor = chip.parentElement as HTMLElement
+      anchor.getBoundingClientRect = () => ({
+        left: 540, right: 1344, top: 0, bottom: 24, width: 804, height: 24, x: 540, y: 0, toJSON: () => ({}),
+      }) as DOMRect
+      card.getBoundingClientRect = () => ({
+        left: 600, right: 1380, top: 0, bottom: 100, width: 780, height: 100, x: 600, y: 0, toJSON: () => ({}),
+      }) as DOMRect
+      act(() => { window.dispatchEvent(new Event('resize')) })
+      expect(anchor.style.paddingLeft).toBe('60px')
+      expect(view.unmount).toBeTruthy()
+    } finally {
+      card.remove()
+    }
+  })
+
+  it('keeps the context copy without the dock indent', async () => {
+    bench()
+    const branchChip = await screen.findByRole('button', { name: '分支' })
+    expect(branchChip.parentElement?.className).not.toContain('anchorDock')
   })
 
   it('hides the branch chip when the workspace is not a git repository', async () => {

@@ -4,10 +4,10 @@
  * fallback. The chip registers on the selector row's context hole
  * (`conversation.input.selector.context`, session-maybe) when the shell
  * declares it, and falls back to `conversation.input.dock` when that
- * declaration never arrives within CONTEXT_FALLBACK_MS (rc.6 dropped the
- * hole). Guards the 0be6546 regression (the inject wait that never resolved)
- * and the double-mount hazard: exactly one seat registers, and a context
- * declaration landing after the fallback is ignored.
+ * declaration never arrives within CONTEXT_FALLBACK_MS (rc.6 and the current
+ * shipped shell dropped the hole). Guards the 0be6546 regression (the inject
+ * wait that never resolved) and the double-mount hazard: exactly one seat
+ * registers, and a context declaration landing after the fallback is ignored.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apply, CONTEXT_FALLBACK_MS } from '../src/client/index.ts'
@@ -120,7 +120,7 @@ describe('client apply()', () => {
     for (const dispose of disposers) dispose()
   })
 
-  it('falls back to the input dock when the context hole is never declared (rc.6)', () => {
+  it('falls back to the input dock when the context hole is never declared', () => {
     const { register, disposers } = setup(new Set(['conversation.input.dock']))
 
     // While the grace window runs the chip waits on the missing hole.

@@ -5,6 +5,14 @@
   position: relative;
 }
 
+/* The dock seat spans its host row while the input card below is inset
+   relative to that row. The hero-phase clearance is the fallback; the
+   component measures the real card edge and applies it inline so the chip
+   starts exactly where the input card starts in every phase. */
+.anchorDock {
+  padding-left: var(--dsh-composer-side-clearance, 16px);
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
