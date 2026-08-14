@@ -56,6 +56,8 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 侧边栏底部的手机图标打开配对面板：扫码配对（或复制链接）后，手机进入独立的移动端界面，远程控制当前 dsh web 工作区——查看与新建会话、收发消息、切换模型与思考强度、调整权限预设，全部与桌面端同步。配对令牌一次性且限时，「停止」可随时吊销所有设备；二维码默认走局域网，也可开启 cloudflared 公网隧道，让手机在任意网络配对。
 
+> **实时消息与隧道**：移动端依赖 SSE（Server-Sent Events）实时接收消息。Cloudflare quick tunnel（trycloudflare.com）与 Tailscale Serve 不透传 SSE，普通 HTTP 正常、实时推送不可达；此场景下插件自动降级为轮询，可正常收发消息，仅新消息可能延迟数秒到达。需要即时推送请使用支持 SSE 的隧道（Cloudflare named tunnel、自定义 TCP 端口转发等）。
+
 | 工作区列表 | 会话列表与新建会话 |
 | --- | --- |
 | ![移动端工作区](docs/screenshots/20-mobile-workspaces.png) | ![移动端会话列表](docs/screenshots/21-mobile-sessions.png) |

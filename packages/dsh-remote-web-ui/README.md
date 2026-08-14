@@ -230,10 +230,19 @@ Notes:
 - Quick tunnels are free and need no login, but the hostname is random per
   run: every `cloudflared` restart changes it, so update `--trusted-host`
   and `publicBaseUrl` together. Cloudflare documents no uptime guarantees;
-  in-flight-request concurrency is capped (HTTP 429 past it), and Quick
-  Tunnels do not support Server-Sent Events — harmless here, because the
-  only SSE surface (the desktop panel status stream) is loopback-only and
-  the phone side uses plain requests plus heartbeats.
+  in-flight-request concurrency is capped (HTTP 429 past it), and **Quick
+  Tunnels do not forward Server-Sent Events**. `Tailscale Serve` (and
+  `tailscale serve` on a single port) behaves the same way. SSE is how the
+  phone receives **live messages** in real time, so over a quick tunnel or
+  Tailscale Serve the mobile chat falls back to polling: the phone still
+  sends and receives messages (everything else rides plain HTTP, which does
+  forward), only a new message may arrive a few seconds late instead of
+  instantly. The plugin polls `session.history` on a short interval once the
+  SSE channel goes silent, and resumes streaming as soon as SSE works again.
+  For true real-time push, point the QR at a tunnel that forwards SSE — a
+  Cloudflare **named tunnel** (domain hosted on Cloudflare, see below), or a
+  plain TCP port forward (LAN address, the `tailscale up` virtual-interface
+  address, or a manual `ssh -L` / cloudflared TCP tunnel to the port).
 - A quick tunnel is public: anyone with the URL can load the static page.
   The pairing gate is the real fence — unpaired devices get 403 on every
   `/api` call — so keep `requirePairingForLan` on.
