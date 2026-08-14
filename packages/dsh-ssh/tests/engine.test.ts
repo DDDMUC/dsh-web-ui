@@ -9,6 +9,7 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { connect, createServer, type AddressInfo } from 'node:net'
+import type { Client } from 'ssh2'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { SshEngine } from '../src/engine.ts'
 import { HostStore } from '../src/store.ts'
@@ -30,6 +31,107 @@ function addHost(alias: string, overrides: Partial<HostPayload> = {}): void {
     auth: { kind: 'password', password: TEST_PASSWORD },
     ...overrides,
   } as HostPayload)
+}
+
+/** The slice of PoolRecord the fake SFTP tests need to inject. */
+interface FakePoolRecord {
+  client: Client
+  hops: Client[]
+  idleAt: number
+  pinned: boolean
+  broken: boolean
+  inFlight: number
+}
+
+/** Minimal stats shape consumed by the engine SFTP paths. */
+interface FakeStats {
+  isDirectory: () => boolean
+  isFile: () => boolean
+  size: number
+  mtime: number
+  mode: number
+}
+
+const FILE_STATS: FakeStats = {
+  isDirectory: () => false,
+  isFile: () => true,
+  size: 4,
+  mtime: 1_700_000_000,
+  mode: 0o644,
+}
+
+interface FakeSftpOptions {
+  statMode?: 'missing' | 'file'
+  fastPutError?: Error
+  readdirError?: Error
+}
+
+/** SFTPWrapper stand-in that records end() calls and honors the close guard. */
+class FakeSftp {
+  endCalls = 0
+  statCalls = 0
+  mkdirCalls = 0
+  fastPutCalls = 0
+  fastGetCalls = 0
+  readdirCalls = 0
+  onFastPut?: () => void
+  private readonly statMode: 'missing' | 'file'
+  private readonly fastPutError?: Error
+  private readonly readdirError?: Error
+  private readonly closeListeners: Array<() => void> = []
+
+  constructor(options: FakeSftpOptions = {}) {
+    this.statMode = options.statMode ?? 'missing'
+    this.fastPutError = options.fastPutError
+    this.readdirError = options.readdirError
+  }
+
+  once(event: string, listener: () => void): this {
+    if (event === 'close') this.closeListeners.push(listener)
+    return this
+  }
+
+  emitClose(): void {
+    this.closeListeners.shift()?.()
+  }
+
+  end(): void {
+    this.endCalls += 1
+  }
+
+  stat(_path: string, cb: (error: Error | undefined, stats?: FakeStats) => void): void {
+    this.statCalls += 1
+    if (this.statMode === 'file') cb(undefined, FILE_STATS)
+    else cb(new Error('no such file'), undefined)
+  }
+
+  mkdir(_path: string, cb: (error?: Error) => void): void {
+    this.mkdirCalls += 1
+    cb()
+  }
+
+  fastPut(_src: string, _dst: string, _options: unknown, cb: (error?: Error) => void): void {
+    this.fastPutCalls += 1
+    this.onFastPut?.()
+    cb(this.fastPutError)
+  }
+
+  fastGet(_src: string, _dst: string, _options: unknown, cb: (error?: Error) => void): void {
+    this.fastGetCalls += 1
+    cb()
+  }
+
+  readdir(_path: string, cb: (error: Error | undefined, list?: Array<{ filename: string; attrs: FakeStats }>) => void): void {
+    this.readdirCalls += 1
+    if (this.readdirError !== undefined) cb(this.readdirError, undefined)
+    else cb(undefined, [{ filename: 'a.txt', attrs: FILE_STATS }])
+  }
+}
+
+/** Insert a fake connected client into one engine's private pool. */
+function seedPooledSftp(engine: SshEngine, alias: string, client: Client): void {
+  const pool = (engine as unknown as { pool: Map<string, FakePoolRecord> }).pool
+  pool.set(alias, { client, hops: [], idleAt: Date.now(), pinned: false, broken: false, inFlight: 0 })
 }
 
 beforeAll(async () => {
@@ -216,6 +318,101 @@ describe('sftp (real sshd)', () => {
   })
 })
 
+describe('sftp channel release', () => {
+  it('ends every SFTP channel exactly once after repeated upload, download, and list calls', async () => {
+    const wrappers: FakeSftp[] = []
+    const statModes: Array<'missing' | 'file'> = ['missing', 'missing', 'file']
+    let opened = 0
+    const client = {
+      sftp(cb: (error: Error | undefined, sftp: unknown) => void): void {
+        const wrapper = new FakeSftp({ statMode: statModes[Math.min(opened, statModes.length - 1)] })
+        opened += 1
+        wrappers.push(wrapper)
+        cb(undefined, wrapper)
+      },
+    } as unknown as Client
+    const engine2 = new SshEngine(store, { idleTimeoutMs: 60_000, connectTimeoutMs: 5_000, defaultExecTimeoutMs: 5_000 })
+    const local = join(dir, 'sftp-release-src.txt')
+    const localOut = join(dir, 'sftp-release-out.txt')
+    writeFileSync(local, 'ping', 'utf8')
+    writeFileSync(localOut, 'pong', 'utf8')
+    try {
+      seedPooledSftp(engine2, 'sftp-release', client)
+      await engine2.upload('sftp-release', local, '/remote/one.txt', false)
+      await engine2.upload('sftp-release', local, '/remote/two.txt', false)
+      await engine2.download('sftp-release', '/remote/one.txt', localOut)
+      await engine2.ls('sftp-release', '/remote')
+
+      expect(wrappers).toHaveLength(4)
+      expect(wrappers[0]?.fastPutCalls).toBe(1)
+      expect(wrappers[1]?.fastPutCalls).toBe(1)
+      expect(wrappers[2]?.fastGetCalls).toBe(1)
+      expect(wrappers[3]?.readdirCalls).toBe(1)
+      for (const wrapper of wrappers) {
+        expect(wrapper.endCalls).toBe(1)
+        // A late peer close after release must not end the channel twice.
+        wrapper.emitClose()
+        expect(wrapper.endCalls).toBe(1)
+      }
+    } finally {
+      engine2.dispose()
+    }
+  })
+
+  it('ends the SFTP channel when an upload or list fails', async () => {
+    const wrappers: FakeSftp[] = []
+    let opened = 0
+    const client = {
+      sftp(cb: (error: Error | undefined, sftp: unknown) => void): void {
+        const wrapper = opened === 0
+          ? new FakeSftp({ statMode: 'missing', fastPutError: new Error('remote write failed') })
+          : new FakeSftp({ readdirError: new Error('readdir failed') })
+        opened += 1
+        wrappers.push(wrapper)
+        cb(undefined, wrapper)
+      },
+    } as unknown as Client
+    const engine2 = new SshEngine(store, { idleTimeoutMs: 60_000, connectTimeoutMs: 5_000, defaultExecTimeoutMs: 5_000 })
+    const local = join(dir, 'sftp-release-error-src.txt')
+    writeFileSync(local, 'ping', 'utf8')
+    try {
+      seedPooledSftp(engine2, 'sftp-release-error', client)
+      await expect(engine2.upload('sftp-release-error', local, '/remote/bad.txt', false)).rejects.toThrow(/remote write failed/)
+      await expect(engine2.ls('sftp-release-error', '/remote')).rejects.toThrow(/readdir failed/)
+
+      expect(wrappers).toHaveLength(2)
+      expect(wrappers[0]?.endCalls).toBe(1)
+      expect(wrappers[1]?.endCalls).toBe(1)
+    } finally {
+      engine2.dispose()
+    }
+  })
+
+  it('does not end twice when the channel closes before the operation settles', async () => {
+    const wrappers: FakeSftp[] = []
+    let wrapper: FakeSftp | undefined
+    const client = {
+      sftp(cb: (error: Error | undefined, sftp: unknown) => void): void {
+        wrapper = new FakeSftp({ statMode: 'missing' })
+        wrapper.onFastPut = () => wrapper!.emitClose()
+        wrappers.push(wrapper)
+        cb(undefined, wrapper)
+      },
+    } as unknown as Client
+    const engine2 = new SshEngine(store, { idleTimeoutMs: 60_000, connectTimeoutMs: 5_000, defaultExecTimeoutMs: 5_000 })
+    const local = join(dir, 'sftp-release-selfclose-src.txt')
+    writeFileSync(local, 'ping', 'utf8')
+    try {
+      seedPooledSftp(engine2, 'sftp-release-selfclose', client)
+      await engine2.upload('sftp-release-selfclose', local, '/remote/ok.txt', false)
+
+      expect(wrapper).toBeDefined()
+      expect(wrapper!.endCalls).toBe(1)
+    } finally {
+      engine2.dispose()
+    }
+  })
+})
 
 describe('cluster filters', () => {
   it('matches hosts carrying ALL requested tags', async () => {

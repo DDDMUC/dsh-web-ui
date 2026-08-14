@@ -4,10 +4,11 @@
  * `dsh-skin` binary on PATH (the bug zhu1090093659/dsh-web-ui#5: "dsh-skin
  * CLI not found on PATH").
  *
- * `use` owns the `dsh-skin managed` section of `~/.dsh/cordis.patch.yml`
- * (atomic rewrite, hot-reloaded by the DSH config watcher within seconds,
- * no restart) and the profile node_modules symlink that makes the selected
- * skin resolvable from the web profile. `current` reads the active back.
+ * `use` owns the `dsh-skin managed` section of the harness-home
+ * `cordis.patch.yml` (atomic rewrite, hot-reloaded by the DSH config watcher
+ * within seconds, no restart) and the profile node_modules symlink that makes
+ * the selected skin resolvable from the running profile. `current` reads the
+ * active back.
  *
  * The behaviour/text is a 1:1 port of scripts/dsh-skin (`use`/`current`;
  * workspace assets live in packages/skins/<id>). The skin registry is
@@ -18,7 +19,7 @@
 
 import { readdirSync, readFileSync, readlinkSync, lstatSync, mkdirSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, renameSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join as joinPath } from 'node:path'
+import { basename, dirname, join as joinPath, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -89,9 +90,6 @@ export const SKINS_DIR = resolveSkinsDir()
 /** Managed patch-section delimiters (the CLI's SINGLE authority boundaries). */
 export const MANAGED_START = '# --- dsh-skin managed (auto-generated; do not edit) ---'
 export const MANAGED_END = '# --- end dsh-skin managed ---'
-
-/** The GUI profile this machine runs (dsh web); overridable via DSH_SKIN_PROFILE. */
-const DEFAULT_PROFILE = process.env.DSH_SKIN_PROFILE ?? 'web'
 
 /** One skin's switch metadata, derived from its packages/skins/<id>/skin.json. */
 export interface SkinSwitchEntry {
@@ -241,12 +239,9 @@ export function loadRegistry(skinsDir: string = SKINS_DIR): Record<string, SkinS
 
 /**
  * The skins the bundle layer already wires (no insert row needed) — derived
- * from each skin.json wiring.bundleWired (the repo's static truth).
- *
- * TODO: the CLI also detects skins wired via the active profile's
- * dsh.profile.bundles (bundleWiredFromProfile). A skin installed from the
- * web profile's manifest is still represented by skin.json's flag in this
- * repo; wire further profile-based detection here if ever needed.
+ * from each skin.json wiring.bundleWired (the repo's static truth). Skins
+ * wired by an installed per-skin bundle are detected dynamically per profile
+ * by activeSkinIsBundleWired / registryWithProfileWiring.
  * @param registry - the derived registry (or a partial override in tests).
  */
 export function wiredNames(registry: Record<string, SkinSwitchEntry>): Set<string> {
@@ -282,7 +277,7 @@ export function stripManaged(patch: string): string {
   const start = patch.indexOf(MANAGED_START)
   if (start === -1) return patch
   const end = patch.indexOf(MANAGED_END, start)
-  if (end === -1) throw new Error('managed skin section is unterminated; fix ~/.dsh/cordis.patch.yml')
+  if (end === -1) throw new Error('managed skin section is unterminated; fix the harness cordis.patch.yml')
   return patch.slice(0, start) + patch.slice(end + MANAGED_END.length)
 }
 
@@ -330,6 +325,86 @@ export function currentActive(patch: string, registry: Record<string, SkinSwitch
   return enabled.length ? enabled[enabled.length - 1].replace('ui-skin-', '') : null
 }
 
+/**
+ * Whether a cordis.patch.yml text contains an `insert:` list row for `id`
+ * (the row a skin bundle would contribute, as opposed to a home-layer
+ * `disabled: true` id-target row). The patch format is small and line-based;
+ * a YAML parser dependency is not worth the weight for this one probe.
+ * @param patch - raw patch text.
+ * @param id - the loader entry id to look for.
+ */
+function patchHasInsertId(patch: string, id: string): boolean {
+  let insertIndent: number | null = null
+  for (const line of patch.split(/\r?\n/)) {
+    const trimmed = line.trimStart()
+    if (trimmed === '' || trimmed.startsWith('#')) continue
+    const indent = line.length - trimmed.length
+    const insert = /^- insert:\s*$/.exec(trimmed)
+    if (insert !== null) {
+      insertIndent = indent
+      continue
+    }
+    if (insertIndent === null) continue
+    if (indent <= insertIndent) {
+      // A non-indented row closes the insert item. Reset and re-check the
+      // line in case it starts another insert block.
+      insertIndent = null
+      const nextInsert = /^- insert:\s*$/.exec(trimmed)
+      if (nextInsert !== null) insertIndent = indent
+      continue
+    }
+    const row = /^- id:\s*['"]?([^'"]+)['"]?\s*$/.exec(trimmed)
+    if (row !== null && row[1] === id) return true
+  }
+  return false
+}
+
+/**
+ * Whether the active skin's loader entry is already provided by the skin
+ * package's own bundle patch, so the home-layer managed section must NOT add
+ * a duplicate insert row (issue #148: `duplicate loader entry id`).
+ *
+ * True when:
+ *  - the registry marks the skin `bundleWired` (skin.json wiring flag), or
+ *  - the profile target for entry.pkg is a REAL installed package directory
+ *    (not a symlink — the carrier-symlink layout is explicitly not covered)
+ *    whose own `cordis.patch.yml` exists and contains an insert row with
+ *    entry.id.
+ * @param entry - the skin switch entry.
+ * @param profileModulesDir - the profile's node_modules dir.
+ */
+export function activeSkinIsBundleWired(entry: SkinSwitchEntry, profileModulesDir: string): boolean {
+  if (entry.bundleWired) return true
+  const target = joinPath(profileModulesDir, entry.pkg)
+  let stat: ReturnType<typeof lstatSync> | undefined
+  try {
+    stat = lstatSync(target, { throwIfNoEntry: false })
+  } catch {
+    return false
+  }
+  if (stat === undefined || !stat.isDirectory() || stat.isSymbolicLink()) return false
+  let patch: string
+  try {
+    patch = readFileSync(joinPath(target, 'cordis.patch.yml'), 'utf8')
+  } catch {
+    return false
+  }
+  return patchHasInsertId(patch, entry.id)
+}
+
+/**
+ * Copy a registry with `bundleWired` enriched from the profile layout, so
+ * patch rendering and active reading agree on skins whose insert row the
+ * installed per-skin bundle provides.
+ */
+function registryWithProfileWiring(registry: Record<string, SkinSwitchEntry>, profileModulesDir: string): Record<string, SkinSwitchEntry> {
+  const out: Record<string, SkinSwitchEntry> = {}
+  for (const [name, entry] of Object.entries(registry)) {
+    out[name] = activeSkinIsBundleWired(entry, profileModulesDir) ? { ...entry, bundleWired: true } : entry
+  }
+  return out
+}
+
 // --- paths ---
 
 /** Layout of the DSH home + profile the CLI switches against. */
@@ -341,15 +416,91 @@ export interface SkinSwitchPaths {
 }
 
 /**
+ * First non-blank string in a list of candidate values. Whitespace-only
+ * values (including environment variables set to spaces) count as unset.
+ */
+function firstNonBlank(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (trimmed !== '') return trimmed
+    }
+  }
+  return undefined
+}
+
+/**
+ * Resolve the DSH harness home exactly like the dsh launcher:
+ *  - an injected `home` option (tests pass a throwaway HOME) maps to
+ *    `<home>/.dsh`;
+ *  - otherwise a trimmed non-empty `$DSH_HOME` is the harness home directly
+ *    (dsh's `resolveDshHome()` contract — the env var already points at the
+ *    `.dsh` directory, so no suffix is appended);
+ *  - otherwise `homedir()/.dsh`.
+ * @param optsHome - injectable HOME (tests); default resolves from env/homedir.
+ * @param env - environment map (defaults to process.env).
+ */
+export function resolveHarnessHome(optsHome?: string, env: NodeJS.ProcessEnv = process.env): string {
+  if (optsHome !== undefined) return joinPath(optsHome, '.dsh')
+  return firstNonBlank(env.DSH_HOME) ?? joinPath(homedir(), '.dsh')
+}
+
+/**
+ * Resolve the profile the skin switch must operate against (the profile the
+ * GUI is actually running in). Precedence, first non-blank wins:
+ *   1. explicit opts.profile;
+ *   2. `$DSH_SKIN_PROFILE`;
+ *   3. `$DSH_PROFILE` (the generic dsh profile override);
+ *   4. `process.cwd()` when it is a directory directly under
+ *      `<harnessHome>/profiles/<name>` — return that `<name>`;
+ *   5. `web`.
+ * Pure and injectable so tests can exercise every precedence level without
+ * mutating the process. `useSkin`/`currentSkin` call it with the same
+ * harness-home-derived profiles root the path resolver uses.
+ * @param optsProfile - explicit profile override.
+ * @param env - environment map (defaults to process.env).
+ * @param cwd - current working directory (defaults to process.cwd()).
+ * @param profilesRoot - `<harnessHome>/profiles` dir (defaults to the root
+ *   derived from env/homedir).
+ */
+export function resolveProfile(
+  optsProfile?: string,
+  env: NodeJS.ProcessEnv = process.env,
+  cwd: string = process.cwd(),
+  profilesRoot?: string,
+): string {
+  const explicit = firstNonBlank(optsProfile, env.DSH_SKIN_PROFILE, env.DSH_PROFILE)
+  if (explicit !== undefined) return explicit
+  const root = resolvePath(profilesRoot ?? joinPath(resolveHarnessHome(undefined, env), 'profiles'))
+  const normalizedCwd = resolvePath(cwd)
+  // Compare canonical parents: macOS resolves /var to /private/var, and a
+  // symlinked profiles root must still match the profile dir's real parent.
+  const canonicalDir = (p: string): string => {
+    try { return realpathSync(p) } catch { return resolvePath(p) }
+  }
+  if (canonicalDir(dirname(normalizedCwd)) === canonicalDir(root)) {
+    const name = basename(normalizedCwd)
+    try {
+      if (name !== '' && statSync(normalizedCwd, { throwIfNoEntry: false })?.isDirectory() === true) return name
+    } catch {
+      // Unreadable cwd: fall through to the default profile.
+    }
+  }
+  return 'web'
+}
+
+/**
  * Resolve the DSH paths under a HOME. home/profile are injectable so tests
  * can point at a throwaway HOME (mirrors scripts/dsh-skin.test.mjs).
- * @param home - home dir (defaults to the process HOME).
- * @param profile - profile name (defaults to DSH_SKIN_PROFILE or 'web').
+ * @param home - home dir (defaults to $DSH_HOME or the process HOME).
+ * @param profile - profile name (defaults via resolveProfile precedence).
  */
-export function resolvePaths(home: string = homedir(), profile: string = DEFAULT_PROFILE): SkinSwitchPaths {
+export function resolvePaths(home?: string, profile?: string): SkinSwitchPaths {
+  const harnessHome = resolveHarnessHome(home)
+  const activeProfile = resolveProfile(profile, process.env, process.cwd(), joinPath(harnessHome, 'profiles'))
   return {
-    patchPath: joinPath(home, '.dsh', 'cordis.patch.yml'),
-    profileModulesDir: joinPath(home, '.dsh', 'profiles', profile, 'node_modules'),
+    patchPath: joinPath(harnessHome, 'cordis.patch.yml'),
+    profileModulesDir: joinPath(harnessHome, 'profiles', activeProfile, 'node_modules'),
   }
 }
 
@@ -555,6 +706,7 @@ export function useSkin(name: string, opts: { home?: string; profile?: string; r
     throw new Error(`unknown skin "${name}". Known: ${Object.keys(registry).join(', ')} (or "official" for the stock look)`)
   }
   const paths = resolvePaths(opts.home, opts.profile)
+  let renderRegistry = registry
   if (!official) {
     const entry = registry[name]
     symlinkFriendly(`switching to "${name}"`, () => { ensureSymlink(entry, paths.profileModulesDir) })
@@ -562,12 +714,20 @@ export function useSkin(name: string, opts: { home?: string; profile?: string; r
     // load. ensureSymlink only makes the profile resolve the path; the real
     // question is whether the boot graph can import the package, which is
     // what checkResolvable answers. Throw so /apply turns it into ok:false.
+    // This check stays BEFORE any patch write, so a missing skin never leaves
+    // a dangling home-layer insert row behind (issue #108).
     const problem = checkResolvable(entry, paths.profileModulesDir)
     if (problem !== null) throw new Error(problem)
+    // Once the target is confirmed resolvable, detect whether the skin's own
+    // installed bundle patch already provides the insert row (issue #148):
+    // then the home layer keeps only the mutual-exclusion disabled rows.
+    // A symlinked bundled-carrier target returns false here, so that layout
+    // keeps its home insert row (no per-skin bundle patch is active there).
+    renderRegistry = registryWithProfileWiring(registry, paths.profileModulesDir)
   }
 
   const patch = stripLegacySkinRows(stripManaged(readPatch(paths.patchPath)))
-  const next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(official ? null : name, registry)}\n`
+  const next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(official ? null : name, renderRegistry)}\n`
   writePatchAtomic(paths.patchPath, next)
 
   const core = official
@@ -587,5 +747,8 @@ export function useSkin(name: string, opts: { home?: string; profile?: string; r
 export function currentSkin(patch: string | undefined, opts: { home?: string; profile?: string; registry?: Record<string, SkinSwitchEntry> } = {}): string {
   const paths = resolvePaths(opts.home, opts.profile)
   const registry = opts.registry ?? loadRegistry()
-  return currentActive(patch ?? readPatch(paths.patchPath), registry) ?? 'none'
+  // Mirror useSkin's wiring view: an installed per-skin bundle provides its
+  // own insert row, so the home patch carries only disabled rows for it and
+  // currentActive must treat it as bundle-wired to report it as active.
+  return currentActive(patch ?? readPatch(paths.patchPath), registryWithProfileWiring(registry, paths.profileModulesDir)) ?? 'none'
 }

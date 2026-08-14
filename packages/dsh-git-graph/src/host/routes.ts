@@ -38,6 +38,42 @@ const HEARTBEAT_INTERVAL_MS = 15_000
 /** Request body size cap; larger bodies are destroyed rather than drained. */
 const BODY_CAP_BYTES = 1 << 20
 
+/**
+ * Loopback trust fence — the same judgment dsh-ssh applies to its host
+ * routes: a loopback socket address AND a loopback Host header, plus browser
+ * same-origin markers. The /git operations mutate the real repository, so a
+ * LAN-exposed dsh web must not serve them to unpaired devices. The socket
+ * address is authoritative; X-Forwarded-For is never trusted (matching
+ * dsh-ssh).
+ */
+function isLoopbackRequest(request: IncomingMessage): boolean {
+  const address = request.socket.remoteAddress
+  if (address !== '127.0.0.1' && address !== '::1' && address !== '::ffff:127.0.0.1') return false
+  const host = request.headers.host
+  if (typeof host !== 'string') return false
+  let hostUrl: URL
+  try {
+    hostUrl = new URL(`http://${host}`)
+  } catch {
+    return false
+  }
+  if (hostUrl.hostname !== '127.0.0.1' && hostUrl.hostname !== 'localhost' && hostUrl.hostname !== '[::1]') return false
+  if (request.headers['sec-fetch-site'] === 'cross-site') return false
+  const origin = request.headers.origin
+  if (origin === undefined) return true
+  try {
+    return new URL(origin).host === hostUrl.host
+  } catch {
+    return false
+  }
+}
+
+/** Write the shared non-loopback rejection (same body as dsh-ssh). */
+function forbidden(res: ServerResponse): void {
+  res.writeHead(403, { 'content-type': 'application/json; charset=utf-8' })
+  res.end(JSON.stringify({ error: 'forbidden: loopback-only' }))
+}
+
 /** Read a JSON request body into an unknown value; null when unparseable. */
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
@@ -106,6 +142,12 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
   }
 
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    // Loopback fence first: never let a LAN client reach any /git operation,
+    // regardless of method or content-type.
+    if (!isLoopbackRequest(req)) {
+      forbidden(res)
+      return
+    }
     if (req.method !== 'POST') {
       res.writeHead(405)
       res.end()
@@ -174,6 +216,12 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
   }
 
   const sse = (req: IncomingMessage, res: ServerResponse): void => {
+    // Reject non-loopback clients before the stream opens: subscribing must
+    // never work for a LAN-exposed deployment.
+    if (!isLoopbackRequest(req)) {
+      forbidden(res)
+      return
+    }
     const url = new URL(req.url ?? '/', 'http://x')
     const path = url.searchParams.get('path')
     if (path === null || path === '') {

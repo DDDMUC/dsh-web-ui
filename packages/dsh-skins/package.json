@@ -13,9 +13,6 @@
     "prepare": "node build.mjs"
   },
   "license": "Apache-2.0",
-  "dependencies": {
-    "@linxin666/dsh-client-ui-skin-center": "workspace:*"
-  },
   "files": [
     "lib",
     "skins",
@@ -25,5 +22,8 @@
     "type": "git",
     "url": "https://github.com/zhu1090093659/dsh-web-ui.git",
     "directory": "packages/dsh-skins"
+  },
+  "peerDependencies": {
+    "@linxin666/dsh-client-ui-skin-center": "workspace:*"
   }
 }

@@ -58,7 +58,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
    - 直接进入工作区（每个工作区的会话列表上有 新建会话 按钮：它经 host 的 `session.create` 创建附加到该工作区的空白会话，并立即打开新聊天），
    - 一个工作区的会话**增量**加载（每页 20 行，"加载更多会话"继续；绝不同时加载整份列表），
    - 打开会话**按需**抓取聊天内容（历史分页，"加载更早的消息"继续往回翻），
-   - 实时流随消息到达展示新消息，带发送自己消息的输入框，
+   - 实时流随消息到达展示新消息，带发送自己消息的输入框（默认 **Enter 发送、Shift+Enter 换行**；设 `mobileEnterToSend: false` 后 Enter 改为换行，发送仅走「发送」按钮），
    - **亮色优先主题**：界面默认亮色调色板；每个页头内的日/月切换翻到暗色调色板，选择跨访问持久（localStorage），
    - 消息按桌面折叠纪律渲染：推理隐藏在被折叠的 深度思考 揭示下面，工具调用隐藏在被折叠的 工具 行下面（点击查看每个调用的参数），超长回答藏在显式 展开全文 切换下面，每行带时间——并且
    - 输入栏工具条带 **模型** 选择器（provider 分组目录 + 每模型 思考强度 effort 区）与 **权限** 选择器（权限预设；完全权限 需要显式确认步骤）。两者都走 host 自己的 `session.models` / `session.selectModel` RPC 与 `/permission` 命令——手机改的与桌面改的是同一个会话设置。
@@ -69,6 +69,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 
 ### 行为说明
 
+- 移动端输入框默认 Enter 发送（Shift+Enter 换行）。在插件设置卡片（或 profile patch）把 `mobileEnterToSend` 设为 false 后，普通 Enter 改为插入换行，只有「发送」按钮会发送；手机打开聊天时经自己的 `/m/api` 偏好方法读取该开关。在支持 `field-sizing: content` 的浏览器上，输入框随草稿自动增高，最高 120px 封顶（两种模式一致）。
 - 安装本插件会门控非 loopback 的 `/api` 访问于配对之后（见 `src/index.ts` 的 `requirePairingForLan`）。经局域网 URL 打开的桌面浏览器必须像任何远程设备一样配对；loopback（127.0.0.1）不受影响。把 profile patch 里 `requirePairingForLan` 设为 false 可恢复开放局域网行为，同时保留令牌/状态/撤销。
 - 二维码链接基于机器的非内部 IPv4 字面量构建；多宿主主机（Wi-Fi + 有线，或代理/VPN 虚拟适配器）会显示单选器供你发布手机实际可达的网络。第一个字面量是默认值。设 `publicBaseUrl` 后，单选器在顶部额外加一项 公网地址——默认二维码改用公网 base，选中局域网字面量会重新铸一枚网内链接。
 - 配置的 `publicBaseUrl` 本身满足可达绑定需求：`dsh web` 绑定 `127.0.0.1`（不带 `--host 0.0.0.0`）仍能经隧道铸出可用的公网二维码链接。

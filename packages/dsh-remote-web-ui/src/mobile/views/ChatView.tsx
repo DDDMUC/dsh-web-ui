@@ -16,7 +16,7 @@ import type { MuxFrame } from '@deepseek-ai/dsh-host-apiproxy/api/events'
 import type { SessionModels } from '@deepseek-ai/dsh-host-apiproxy/api/sessions'
 import { loadHistory, prompt, type SessionView } from './App.tsx'
 import { errorText, formatTime, staleHostHint } from './App.tsx'
-import { models, selectModel, sendCommand } from '../api.ts'
+import { fetchMobilePreferences, models, selectModel, sendCommand } from '../api.ts'
 import { foldEvents, type RenderMessage, type ToolCallInfo, type WireEvent } from '../messages.ts'
 import { MuxClient } from '../mux.ts'
 import { ThemeToggle } from '../theme-toggle.tsx'
@@ -108,6 +108,24 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
   const [currentModel, setCurrentModel] = useState<{ provider: string; model: string; reasoningEffort?: string } | undefined>(undefined)
   /** Which bottom sheet is open. */
   const [sheet, setSheet] = useState<'model' | 'permission' | null>(null)
+  /**
+   * Composer preference from the plugin's host settings (default true keeps
+   * the legacy Enter-to-send behavior until the preference loads).
+   */
+  const [mobileEnterToSend, setMobileEnterToSend] = useState(true)
+
+  // Read-only mobile display preferences ride the plugin's local
+  // `/m/api` method; a failure keeps the default (Enter sends).
+  useEffect(() => {
+    let cancelled = false
+    void fetchMobilePreferences().then(
+      (preferences) => {
+        if (!cancelled) setMobileEnterToSend(preferences.mobileEnterToSend !== false)
+      },
+      () => { /* keep the default */ },
+    )
+    return () => { cancelled = true }
+  }, [])
 
   // Tail page on open (content loads only when the session is opened).
   useEffect(() => {
@@ -277,11 +295,11 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
           className="chat-input"
           rows={1}
           value={input}
-          placeholder="输入消息，Enter 发送…"
-          enterKeyHint="send"
+          placeholder={mobileEnterToSend ? '输入消息，Enter 发送…' : '输入消息，Enter 换行，点按钮发送…'}
+          enterKeyHint={mobileEnterToSend ? 'send' : 'enter'}
           onChange={(event) => { setInput(event.target.value) }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
+            if (mobileEnterToSend && event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
               void send()
             }

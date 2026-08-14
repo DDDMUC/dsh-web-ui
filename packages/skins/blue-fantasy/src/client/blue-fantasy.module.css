@@ -193,10 +193,12 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] {
    from the whale indigo/cyan/gold families above. The big surfaces
    (bg-base, the layer stack, sidebar fill) are translucent on purpose: the
    app rides on the whale art, so panels let it glow through instead of
-   covering it. Deliberately NO backdrop-filter anywhere — an ancestor
-   with backdrop-filter becomes the containing block for fixed-position
-   descendants, which would trap overlays like the settings panel inside
-   the sidebar column. */
+   covering it. No body- or pane-ancestor backdrop-filter is used — an
+   ancestor with backdrop-filter becomes the containing block for
+   fixed-position descendants, which would trap overlays like the settings
+   panel inside the sidebar column. The one local exception is the
+   composer seat fade band (see the composerSeat section), where a small
+   blur hides transcript bleed under the input card. */
 
 body[data-dsh-blue-fantasy] {
   --dsw-alias-bg-base: rgba(255, 255, 255, 0.45);
@@ -275,6 +277,7 @@ body[data-dsh-blue-fantasy] {
   --dsw-alias-state-warn-tertiary: #f7ecd8;
   --dsw-alias-toast-bg: #3c4e92;
   --dsw-alias-tooltip-bg: #ffffe1;
+  --dsw-alias-tooltip-fg: #1a2238;
   --dsw-specific-bubble-highlight: #c3cfee;
   --dsw-specific-bubble: #dce3f7;
   --dsw-specific-input-major: rgba(255, 255, 255, 0.6);
@@ -367,6 +370,7 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] {
   --dsw-alias-state-warn-tertiary: #4a3515;
   --dsw-alias-toast-bg: #33417a;
   --dsw-alias-tooltip-bg: #ffffe1;
+  --dsw-alias-tooltip-fg: #1a2238;
   --dsw-specific-bubble-highlight: #33417a;
   --dsw-specific-bubble: #2c3765;
   --dsw-specific-input-major: rgba(26, 34, 56, 0.65);
@@ -383,8 +387,10 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] {
 /* --- Ambient surfaces -------------------------------------------------------
    No pane-level rules here: the app rides on the whale art through the
    translucent tokens above (bg-base, the layer stack, sidebar fill, menus,
-   inputs). backdrop-filter is deliberately unused — it would trap fixed
-   overlays (e.g. the settings panel) inside their ancestor's box. */
+   inputs). backdrop-filter stays off every ancestor surface — it would trap
+   fixed overlays (e.g. the settings panel) inside their ancestor's box —
+   except the composer seat fade band below, whose local blur only frosts
+   the transcript bleed under the input card. */
 
 body[data-dsh-blue-fantasy] [id='root'] {
   background: transparent;
@@ -472,6 +478,41 @@ body[data-dsh-blue-fantasy] :focus-visible {
 
 body[data-dsh-blue-fantasy][data-ds-dark-theme] :focus-visible {
   outline-color: var(--dsw-alias-state-business-primary);
+}
+
+body[data-dsh-blue-fantasy] [data-pane='sidebar'] {
+  color: var(--dsw-alias-label-primary);
+}
+
+body[data-dsh-blue-fantasy] [role='tooltip'] {
+  background: var(--dsw-alias-tooltip-bg);
+  color: var(--dsw-alias-tooltip-fg);
+}
+
+body[data-dsh-blue-fantasy] [role='dialog'] {
+  color: var(--dsw-alias-label-primary);
+}
+
+body[data-dsh-blue-fantasy] [role='dialog'] [class*='navCell']:not([aria-current='true']) {
+  color: var(--dsw-alias-label-primary);
+}
+
+/* Text tabs are labels, not chrome plates. */
+body[data-dsh-blue-fantasy] button[role='tab'],
+body[data-dsh-blue-fantasy] button[role='tab']:hover,
+body[data-dsh-blue-fantasy] button[role='tab']:active,
+body[data-dsh-blue-fantasy] button[role='tab']:disabled,
+body[data-dsh-blue-fantasy] button[role='tab']:hover:not(:disabled),
+body[data-dsh-blue-fantasy] button[role='tab']:active:not(:disabled) {
+  background-image: none;
+  background-color: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  border: 0;
+  color: var(--dsw-alias-label-primary);
+  transform: none;
+  filter: none;
+  opacity: 1;
 }
 
 /* --- aionui 右侧面板适配（dsh-aionui-panel）-------------------------------
@@ -817,29 +858,35 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-chip][aria-expand
 }
 
 
-/* --- 输入框停靠区遮罩修复（composerSeat） ----------------------------------
+/* --- 输入框停靠区磨砂渐隐（composerSeat） ----------------------------------
    The official composer seat fades the scrolled transcript out under a
-   36px band that ends in var(--dsw-alias-bg-base) solid below. This skin
-   keeps --dsw-alias-bg-base translucent so the whale art shows through the
+   36px band that ends in var(--dsw-alias-bg-base). This skin keeps
+   --dsw-alias-bg-base translucent so the whale art shows through the
    panes; the same token leaks into the seat's fade band, leaving its solid
    region see-through and letting scrolled messages bleed under the input
-   card. Re-declare the band with the skin's opaque page background so the
-   seat stays solid: the message bodies above keep showing the art, only
-   the seat turns opaque. Light + dark. */
+   card. Keep the fade, but end it in a translucent version of the page ink
+   instead of an opaque plate, and blur whatever still shows through with a
+   local backdrop filter. The whale art stays visible through the seat while
+   the scrolled transcript stays hidden; the input card itself keeps the
+   skin's normal frosted surfaces. Light + dark. */
 
 body[data-dsh-blue-fantasy] [data-phase='active'] [class*='composerSeat'] {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   background: linear-gradient(
     180deg,
     transparent 0px,
-    #e8ecf5 36px
+    rgba(232, 236, 245, 0.86) 36px
   ) !important;
 }
 
 body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-phase='active'] [class*='composerSeat'] {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   background: linear-gradient(
     180deg,
     transparent 0px,
-    #101624 36px
+    rgba(16, 22, 36, 0.82) 36px
   ) !important;
 }
 

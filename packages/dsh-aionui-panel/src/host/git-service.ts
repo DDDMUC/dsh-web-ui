@@ -167,6 +167,13 @@ export class GitService {
   private availablePromise: Promise<boolean> | undefined
 
   /**
+   * Cached repo-top-level resolution per canonical workspace (null = not a
+   * repository). The verdict is detected once and reused, so the SSE poll and
+   * every operation stop re-spawning `git rev-parse` on a non-repo root.
+   */
+  private readonly repoCache = new Map<string, Promise<string | null>>()
+
+  /**
    * Probe the git binary once (git --version) and cache the verdict for the
    * service lifetime. A machine without git then degrades every operation to
    * the stable "not a git repository" state after a single failed spawn,
@@ -183,14 +190,40 @@ export class GitService {
     return this.availablePromise
   }
 
+  /** Resolve the repo top-level for one canonical root, once per workspace. */
+  private repoOf(root: string): Promise<string | null> {
+    let probe = this.repoCache.get(root)
+    if (probe === undefined) {
+      probe = this.run(['rev-parse', '--show-toplevel'], root)
+        .then((result) => {
+          if (result.exitCode !== 0) return null
+          const repo = result.stdout.trim()
+          return repo !== '' && isPathInside(repo, root) ? repo : null
+        })
+        .catch(() => null)
+      this.repoCache.set(root, probe)
+    }
+    return probe
+  }
+
+  /**
+   * Whether a workspace root is a git repository (cached per canonical
+   * workspace). The SSE poll calls this before every git status so a
+   * non-repository never keeps spawning `git rev-parse` on the 2s tick.
+   */
+  isRepository(root: string): Promise<boolean> {
+    return this.gate(root).then(async (gated) => {
+      if (!gated.ok) return false
+      return await this.repoOf(gated.canonical) !== null
+    })
+  }
+
   /** Resolve the gated canonical root and the repository top-level. */
   private async repo(root: string): Promise<{ ok: true; root: string; repo: string } | { ok: false; error: PanelError }> {
     const gated = await this.gate(root)
     if (!gated.ok) return { ok: false, error: gated.error }
-    const result = await this.run(['rev-parse', '--show-toplevel'], gated.canonical)
-    if (result.exitCode !== 0) return { ok: false, error: NO_REPO }
-    const repo = result.stdout.trim()
-    if (repo === '' || !isPathInside(repo, gated.canonical)) return { ok: false, error: NO_REPO }
+    const repo = await this.repoOf(gated.canonical)
+    if (repo === null) return { ok: false, error: NO_REPO }
     return { ok: true, root: gated.canonical, repo }
   }
 

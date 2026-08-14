@@ -11,6 +11,7 @@ import type { WireEvent } from '../messages.ts'
 // The api module is fully mocked; App.tsx's history wrapper is overridden to
 // feed fixed history pages, its pure helpers (errorText / formatTime) stay real.
 vi.mock('../api.ts', () => ({
+  fetchMobilePreferences: vi.fn(),
   models: vi.fn(),
   selectModel: vi.fn(),
   sendCommand: vi.fn(),
@@ -23,8 +24,8 @@ vi.mock('./App.tsx', async importOriginal => {
     prompt: vi.fn(async () => {}),
   }
 })
-import { models, selectModel, sendCommand } from '../api.ts'
-import { loadHistory } from './App.tsx'
+import { fetchMobilePreferences, models, selectModel, sendCommand } from '../api.ts'
+import { loadHistory, prompt } from './App.tsx'
 
 const session: SessionView = {
   sessionId: 's-1',
@@ -67,12 +68,16 @@ function turnEvents(): Array<{ event: WireEvent }> {
   ]
 }
 
+const fetchMobilePreferencesMock = vi.mocked(fetchMobilePreferences)
 const modelsMock = vi.mocked(models)
 const selectModelMock = vi.mocked(selectModel)
 const sendCommandMock = vi.mocked(sendCommand)
 const loadHistoryMock = vi.mocked(loadHistory)
+const promptMock = vi.mocked(prompt)
 
 beforeEach(() => {
+  fetchMobilePreferencesMock.mockResolvedValue({ mobileEnterToSend: true })
+  promptMock.mockResolvedValue(undefined)
   modelsMock.mockResolvedValue({
     current: { provider: 'fx', model: 'fx-1' },
     routable: true,
@@ -238,6 +243,73 @@ describe('ChatView model sheet', () => {
     fireEvent.click(await screen.findByRole('button', { name: /模型/ }))
     expect(await screen.findByText(/HTTP 403/)).toBeTruthy()
     expect(await screen.findByText(/重启 dsh web/)).toBeTruthy()
+  })
+})
+
+describe('ChatView composer', () => {
+  const inputBox = (): HTMLTextAreaElement => screen.getByRole('textbox') as HTMLTextAreaElement
+
+  /** Dispatch one keydown through the React tree and return the real event. */
+  const pressEnter = (input: HTMLTextAreaElement, shiftKey = false): KeyboardEvent => {
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, shiftKey })
+    input.dispatchEvent(event)
+    return event
+  }
+
+  it('sends on Enter by default and keeps Shift+Enter inserting a newline', async () => {
+    loadHistoryMock.mockResolvedValue(historyPage(turnEvents()))
+    render(<ChatView session={session} onBack={() => {}} />)
+    await screen.findByText('已完成修改')
+
+    const input = inputBox()
+    expect(input.getAttribute('enterKeyHint')).toBe('send')
+    expect(input.getAttribute('placeholder')).toContain('Enter 发送')
+
+    fireEvent.change(input, { target: { value: '第一行' } })
+    const enter = pressEnter(input)
+    expect(enter.defaultPrevented).toBe(true)
+    await waitFor(() => {
+      expect(promptMock).toHaveBeenCalledWith('s-1', '第一行')
+    })
+
+    // Shift+Enter stays a newline gesture and never sends.
+    promptMock.mockClear()
+    const shifted = pressEnter(input, true)
+    expect(shifted.defaultPrevented).toBe(false)
+    expect(promptMock).not.toHaveBeenCalled()
+  })
+
+  it('inserts a newline on Enter and sends only from the button when the preference is false', async () => {
+    fetchMobilePreferencesMock.mockResolvedValue({ mobileEnterToSend: false })
+    loadHistoryMock.mockResolvedValue(historyPage(turnEvents()))
+    render(<ChatView session={session} onBack={() => {}} />)
+    await screen.findByText('已完成修改')
+
+    const input = inputBox()
+    await waitFor(() => { expect(input.getAttribute('enterKeyHint')).toBe('enter') })
+    expect(input.getAttribute('placeholder')).not.toContain('Enter 发送')
+
+    // The handler no longer prevents Enter, so the browser's default inserts
+    // a newline (emulated here through the controlled value) and no send fires.
+    fireEvent.change(input, { target: { value: '第一行' } })
+    const enter = pressEnter(input)
+    expect(enter.defaultPrevented).toBe(false)
+    fireEvent.change(input, { target: { value: '第一行\n' } })
+    expect(input.value).toBe('第一行\n')
+    expect(promptMock).not.toHaveBeenCalled()
+
+    // The send button still sends the full multi-line draft.
+    fireEvent.change(input, { target: { value: '第一行\n第二行' } })
+    fireEvent.click(screen.getByRole('button', { name: '发送' }))
+    await waitFor(() => {
+      expect(promptMock).toHaveBeenCalledWith('s-1', '第一行\n第二行')
+    })
+
+    // Shift+Enter keeps inserting a newline in either mode.
+    promptMock.mockClear()
+    const shifted = pressEnter(input, true)
+    expect(shifted.defaultPrevented).toBe(false)
+    expect(promptMock).not.toHaveBeenCalled()
   })
 })
 
