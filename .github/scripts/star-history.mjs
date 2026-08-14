@@ -21,8 +21,8 @@ const API = "https://api.github.com";
 const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "";
 
 const W = 800;
-const H = 330;
-const PAD = { left: 74, right: 26, top: 44, bottom: 48 };
+const H = 348;
+const PAD = { left: 66, right: 30, top: 58, bottom: 50 };
 
 function die(msg) {
   console.error("error: " + msg);
@@ -129,6 +129,18 @@ async function writeData(outDir, points, mode) {
 
 // ---------- SVG 渲染 ----------
 
+// 千分位格式化（无正则依赖）
+function fmt(n) {
+  const s = String(n);
+  let out = "";
+  for (let i = 0; i < s.length; i += 1) {
+    const fromEnd = s.length - i;
+    out += s[i];
+    if (fromEnd > 1 && fromEnd % 3 === 1) out += ",";
+  }
+  return out;
+}
+
 function niceStep(raw) {
   const mag = Math.pow(10, Math.floor(Math.log10(raw)));
   const norm = raw / mag;
@@ -150,20 +162,52 @@ function fmtAxis(iso, mode) {
   return mm + "-" + dd + " " + hh + ":" + mi;
 }
 
+// 合并同一时刻（同秒）的重复点，保证 x 严格递增后再做平滑曲线
+function dedupeX(points) {
+  const out = [];
+  for (const p of points) {
+    const last = out[out.length - 1];
+    if (last && last.at === p.at) last.stars = p.stars;
+    else out.push({ at: p.at, stars: p.stars });
+  }
+  return out;
+}
+
+// Catmull-Rom 转三次贝塞尔曲线路径（平滑曲线）
+function smoothPath(pts) {
+  if (pts.length < 2) return "";
+  let d = "M " + pts[0].x.toFixed(1) + " " + pts[0].y.toFixed(1);
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += " C " + cp1x.toFixed(1) + " " + cp1y.toFixed(1) + ", " + cp2x.toFixed(1) + " " + cp2y.toFixed(1) + ", " + p2.x.toFixed(1) + " " + p2.y.toFixed(1);
+  }
+  return d;
+}
+
+const FONT = "'SF Pro Display', -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif";
+
+// 极简版：标题 + 增长曲线 + 坐标轴，无图例无附加信息
 function renderSvg(points, updated) {
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
-  const x0 = points[0].at;
-  const x1 = points[points.length - 1].at;
-  const t0 = new Date(x0).getTime();
-  const t1 = new Date(x1).getTime();
+
+  const pts = dedupeX(points);
+  const t0 = new Date(pts[0].at).getTime();
+  const t1 = new Date(pts[pts.length - 1].at).getTime();
   const spanMs = t1 - t0;
-  const maxStars = points[points.length - 1].stars;
+  const maxStars = pts[pts.length - 1].stars;
   const step = niceStep(Math.max(maxStars, 1) / 4);
   const yMax = Math.ceil(Math.max(maxStars, step) / step) * step;
 
-  const px = (iso) => {
-    const t = new Date(iso).getTime();
+  const px = (at) => {
+    const t = new Date(at).getTime();
     if (spanMs === 0) return PAD.left + plotW / 2;
     return PAD.left + ((t - t0) / spanMs) * plotW;
   };
@@ -171,61 +215,54 @@ function renderSvg(points, updated) {
 
   const labelMode = spanMs > 300 * 86400000 ? "ym" : spanMs > 3 * 86400000 ? "md" : "mdhm";
 
+  // 横向网格：细虚线
   let grid = "";
   for (let v = 0; v <= yMax; v += step) {
     const y = py(v);
     grid +=
       '<line x1="' + PAD.left + '" y1="' + y.toFixed(1) + '" x2="' + (W - PAD.right) + '" y2="' + y.toFixed(1) +
-      '" stroke="#eaeef2" stroke-width="1"/>' +
-      '<text x="' + (PAD.left - 10) + '" y="' + (y + 4).toFixed(1) + '" font-size="12" fill="#57606a" text-anchor="end">' +
-      v + "</text>";
+      '" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 5"/>' +
+      '<text x="' + (PAD.left - 12) + '" y="' + (y + 4).toFixed(1) + '" font-size="11" fill="#94a3b8" text-anchor="end">' +
+      fmt(v) + "</text>";
   }
 
-  const xTicks = 8;
-  const xLabels = [];
+  // x 轴标签：6 个，首尾分别 start/end 对齐避免溢出
+  const xTicks = 6;
+  let xAxis = "";
   for (let i = 0; i < xTicks; i += 1) {
     const frac = spanMs === 0 ? 0 : i / (xTicks - 1);
     const t = t0 + frac * spanMs;
-    const iso = new Date(t).toISOString();
-    xLabels.push({ x: PAD.left + frac * plotW, label: fmtAxis(iso, labelMode) });
-  }
-  let xAxis = "";
-  for (const l of xLabels) {
+    const x = PAD.left + frac * plotW;
+    const anchor = i === 0 ? "start" : i === xTicks - 1 ? "end" : "middle";
     xAxis +=
-      '<text x="' + l.x.toFixed(1) + '" y="' + (H - PAD.bottom + 22) + '" font-size="11" fill="#57606a" text-anchor="middle">' +
-      l.label + "</text>";
+      '<text x="' + x.toFixed(1) + '" y="' + (H - PAD.bottom + 25) + '" font-size="11" fill="#94a3b8" text-anchor="' + anchor + '">' +
+      fmtAxis(new Date(t).toISOString(), labelMode) + "</text>";
   }
 
-  const line = points.map((p) => px(p.at).toFixed(1) + "," + py(p.stars).toFixed(1)).join(" ");
-  const area =
-    PAD.left + "," + py(0).toFixed(1) + " " + line + " " + (W - PAD.right) + "," + py(0).toFixed(1);
+  const shape = pts.map((p) => ({ x: px(p.at), y: py(p.stars) }));
+  const lineD = smoothPath(shape);
+  const areaD = lineD + " L " + (W - PAD.right).toFixed(1) + " " + py(0).toFixed(1) + " L " + PAD.left + " " + py(0).toFixed(1) + " Z";
 
-  let dots = "";
-  if (points.length <= 400) {
-    for (const p of points) {
-      dots += '<circle cx="' + px(p.at).toFixed(1) + '" cy="' + py(p.stars).toFixed(1) + '" r="2" fill="#1f6feb"/>';
-    }
-  }
-  const lastP = points[points.length - 1];
-  dots +=
-    '<circle cx="' + px(lastP.at).toFixed(1) + '" cy="' + py(lastP.stars).toFixed(1) +
-    '" r="4" fill="#0969da" stroke="#ffffff" stroke-width="1.5"/>';
-
-  const title = "Star History · " + REPO;
-  const footer = "Updated: " + updated + " · " + maxStars + " stars";
+  // 末端高亮点（曲线终点）
+  const lastS = shape[shape.length - 1];
+  const dots =
+    '<circle cx="' + lastS.x.toFixed(1) + '" cy="' + lastS.y.toFixed(1) + '" r="4.5" fill="#4f46e5" stroke="#ffffff" stroke-width="2"/>';
 
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + " " + H +
-    '" role="img" aria-label="' + title + '">' +
-    '<rect width="' + W + '" height="' + H + '" fill="#ffffff"/>' +
-    '<text x="' + PAD.left + '" y="28" font-size="17" font-weight="600" fill="#24292f">' + title + "</text>" +
-    '<text x="' + (W - PAD.right) + '" y="28" font-size="12" fill="#57606a" text-anchor="end">' + footer + "</text>" +
+    '" role="img" aria-label="Star History">' +
+    "<defs>" +
+    '<linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#4f46e5" stop-opacity="0.18"/>' +
+    '<stop offset="1" stop-color="#4f46e5" stop-opacity="0"/>' +
+    "</linearGradient>" +
+    "</defs>" +
+    '<rect width="' + W + '" height="' + H + '" rx="14" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>' +
+    '<text x="' + PAD.left + '" y="30" font-size="20" font-weight="700" fill="#0f172a" font-family="' + FONT + '">Star History</text>' +
     grid +
-    '<polygon points="' + area + '" fill="rgba(31,111,235,0.12)"/>' +
-    '<polyline points="' + line + '" fill="none" stroke="#1f6feb" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<path d="' + areaD + '" fill="url(#areaGrad)"/>' +
+    '<path d="' + lineD + '" fill="none" stroke="#4f46e5" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>' +
     dots +
-    '<line x1="' + PAD.left + '" y1="' + py(0).toFixed(1) + '" x2="' + (W - PAD.right) + '" y2="' + py(0).toFixed(1) +
-    '" stroke="#d0d7de" stroke-width="1"/>' +
     xAxis +
     "</svg>"
   );
