@@ -8,7 +8,7 @@
  */
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readlinkSync, rmSync, existsSync, symlinkSync, lstatSync, realpathSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterAll, describe, expect, it, vi } from 'vitest'
@@ -30,6 +30,9 @@ import {
   useSkin,
   currentSkin,
   resolvePaths,
+  resolveHarnessHome,
+  resolveProfile,
+  activeSkinIsBundleWired,
   resolveSkinsDir,
   findScopedAnchor,
   listSkinDirCandidates,
@@ -52,6 +55,24 @@ function fakeHome(): string {
 
 function patchPath(h: string): string {
   return join(h, '.dsh', 'cordis.patch.yml')
+}
+
+/** Run `fn` with the given process.env values, restoring every touched key. */
+function withEnv(changes: Record<string, string | undefined>, fn: () => void): void {
+  const before = new Map<string, string | undefined>()
+  for (const [key, value] of Object.entries(changes)) {
+    before.set(key, process.env[key])
+    if (value === undefined) delete process.env[key]
+    else process.env[key] = value
+  }
+  try {
+    fn()
+  } finally {
+    for (const [key, value] of before) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
 }
 
 /** Write a complete, resolvable skin package under `dir` so useSkin's
@@ -155,6 +176,128 @@ describe('pure patch helpers', () => {
   it('currentActive returns the active skin from an insert row', () => {
     const registry = miniRegistry()
     expect(currentActive(renderManaged('qq98', registry), registry)).toBe('qq98')
+  })
+})
+
+describe('harness home resolution (issue #120: DSH_HOME)', () => {
+  it('uses a trimmed non-empty $DSH_HOME directly as the harness home', () => {
+    const harness = mkdtempSync(join(tmpdir(), 'skin-dsh-home-'))
+    try {
+      withEnv({ DSH_HOME: `  ${harness}  ` }, () => {
+        expect(resolveHarnessHome(undefined, process.env)).toBe(harness)
+        const paths = resolvePaths()
+        expect(paths.patchPath).toBe(join(harness, 'cordis.patch.yml'))
+        expect(paths.profileModulesDir).toBe(join(harness, 'profiles', 'web', 'node_modules'))
+      })
+    } finally {
+      rmSync(harness, { recursive: true, force: true })
+    }
+  })
+
+  it('falls back to homedir()/.dsh when $DSH_HOME is absent or blank', () => {
+    const expected = join(homedir(), '.dsh')
+    withEnv({ DSH_HOME: undefined }, () => {
+      expect(resolveHarnessHome()).toBe(expected)
+      expect(resolvePaths().patchPath).toBe(join(expected, 'cordis.patch.yml'))
+    })
+    withEnv({ DSH_HOME: '   ' }, () => {
+      expect(resolveHarnessHome()).toBe(expected)
+    })
+  })
+
+  it('an injected home option wins over $DSH_HOME and keeps the .dsh suffix', () => {
+    const h = fakeHome()
+    const harness = mkdtempSync(join(tmpdir(), 'skin-dsh-home-env-'))
+    try {
+      withEnv({ DSH_HOME: harness }, () => {
+        const paths = resolvePaths(h, 'web')
+        expect(paths.patchPath).toBe(join(h, '.dsh', 'cordis.patch.yml'))
+        expect(paths.profileModulesDir).toBe(join(h, '.dsh', 'profiles', 'web', 'node_modules'))
+      })
+    } finally {
+      rmSync(harness, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('running profile resolution (issue #155: non-default profile)', () => {
+  it('resolveProfile follows opts > DSH_SKIN_PROFILE > DSH_PROFILE > cwd > web', () => {
+    const profiles = mkdtempSync(join(tmpdir(), 'skin-profiles-'))
+    try {
+      const wui = join(profiles, 'wui')
+      mkdirSync(wui, { recursive: true })
+      const env = { ...process.env, DSH_SKIN_PROFILE: 'wui', DSH_PROFILE: 'legacy' }
+      expect(resolveProfile('explicit', env, join(wui, 'child'), profiles)).toBe('explicit')
+      expect(resolveProfile('  ', env, join(wui, 'child'), profiles)).toBe('wui')
+      expect(resolveProfile(undefined, { ...env, DSH_SKIN_PROFILE: '  ' }, join(wui, 'child'), profiles)).toBe('legacy')
+      expect(resolveProfile(undefined, { ...env, DSH_SKIN_PROFILE: ' ', DSH_PROFILE: ' ' }, join(wui, 'child'), profiles)).toBe('web')
+    } finally {
+      rmSync(profiles, { recursive: true, force: true })
+    }
+  })
+
+  it('resolveProfile infers the name only from a cwd directly under profiles root', () => {
+    const profiles = mkdtempSync(join(tmpdir(), 'skin-profiles-cwd-'))
+    try {
+      const wui = join(profiles, 'wui')
+      const nested = join(wui, 'nested')
+      mkdirSync(nested, { recursive: true })
+      expect(resolveProfile(undefined, {}, wui, profiles)).toBe('wui')
+      expect(resolveProfile(undefined, {}, nested, profiles)).toBe('web')
+      expect(resolveProfile(undefined, {}, join(profiles, 'missing'), profiles)).toBe('web')
+    } finally {
+      rmSync(profiles, { recursive: true, force: true })
+    }
+  })
+
+  it('useSkin and currentSkin target the $DSH_PROFILE profile', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    const fakeDir = join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98')
+    makeSkinPackage(fakeDir, qq98)
+    const fakeRegistry: Record<string, SkinSwitchEntry> = {
+      ...registry,
+      qq98: { ...qq98, dir: fakeDir },
+    }
+    withEnv({ DSH_SKIN_PROFILE: undefined, DSH_PROFILE: 'wui', DSH_HOME: undefined }, () => {
+      writeFileSync(patchPath(h), '')
+      const message = useSkin('qq98', { home: h, registry: fakeRegistry })
+      expect(message).toContain('skin switched to "qq98"')
+      // DSH_PROFILE (not the legacy hard-coded 'web') is the target profile.
+      const paths = resolvePaths(h)
+      expect(paths.profileModulesDir).toBe(join(h, '.dsh', 'profiles', 'wui', 'node_modules'))
+      expect(readlinkSync(join(paths.profileModulesDir, qq98.pkg))).toBe(fakeDir)
+      expect(currentSkin(undefined, { home: h, registry: fakeRegistry })).toBe('qq98')
+    })
+  })
+
+  it('useSkin and currentSkin infer the running profile from a cwd under profiles/<name>', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    const fakeDir = join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98')
+    makeSkinPackage(fakeDir, qq98)
+    const fakeRegistry: Record<string, SkinSwitchEntry> = {
+      ...registry,
+      qq98: { ...qq98, dir: fakeDir },
+    }
+    const profileDir = join(h, '.dsh', 'profiles', 'wui')
+    mkdirSync(profileDir, { recursive: true })
+    const cwdBefore = process.cwd()
+    process.chdir(profileDir)
+    try {
+      withEnv({ DSH_SKIN_PROFILE: undefined, DSH_PROFILE: undefined, DSH_HOME: undefined }, () => {
+        const paths = resolvePaths(h)
+        expect(paths.profileModulesDir).toBe(join(profileDir, 'node_modules'))
+        writeFileSync(patchPath(h), '')
+        useSkin('qq98', { home: h, registry: fakeRegistry })
+        expect(readlinkSync(join(paths.profileModulesDir, qq98.pkg))).toBe(fakeDir)
+        expect(currentSkin(undefined, { home: h, registry: fakeRegistry })).toBe('qq98')
+      })
+    } finally {
+      process.chdir(cwdBefore)
+    }
   })
 })
 
@@ -292,6 +435,85 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
       Object.defineProperty(process, 'platform', platformDesc)
       mock.mockReset()
     }
+  })
+})
+
+describe('home patch lifecycle vs installed skin bundles (issue #108/#148)', () => {
+  it('activeSkinIsBundleWired: registry flag, real bundle dir, and carrier symlink', () => {
+    const h = fakeHome()
+    const modules = join(h, 'modules')
+    const entry: SkinSwitchEntry = {
+      pkg: '@linxin666/dsh-client-ui-skin-qq98',
+      id: 'ui-skin-qq98',
+      dir: join(h, 'unused'),
+      bundleWired: false,
+    }
+    // Registry flag alone is enough.
+    expect(activeSkinIsBundleWired({ ...entry, bundleWired: true }, modules)).toBe(true)
+    // Missing target is not bundle-wired.
+    expect(activeSkinIsBundleWired(entry, modules)).toBe(false)
+    // A REAL installed dir whose own cordis.patch.yml inserts the id is.
+    const installed = join(modules, entry.pkg)
+    mkdirSync(installed, { recursive: true })
+    writeFileSync(join(installed, 'cordis.patch.yml'), `- insert:\n    - id: ${entry.id}\n      name: '${entry.pkg}'\n`)
+    expect(activeSkinIsBundleWired(entry, modules)).toBe(true)
+    rmSync(installed, { recursive: true, force: true })
+    // A carrier-style symlink target is NOT an installed bundle even when the
+    // linked dir happens to carry the same patch text.
+    const carrier = join(h, 'dsh-skins', 'skins', 'qq98')
+    mkdirSync(carrier, { recursive: true })
+    writeFileSync(join(carrier, 'cordis.patch.yml'), `- insert:\n    - id: ${entry.id}\n      name: '${entry.pkg}'\n`)
+    symlinkSync(carrier, join(modules, entry.pkg), process.platform === 'win32' ? 'junction' : 'dir')
+    expect(activeSkinIsBundleWired(entry, modules)).toBe(false)
+  })
+
+  it('useSkin writes no duplicate insert row for an installed per-skin bundle', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    // The npm-installed bundle layout: a REAL package dir under the profile
+    // whose own bundle patch already inserts ui-skin-qq98.
+    const target = join(resolvePaths(h, 'web').profileModulesDir, qq98.pkg)
+    makeSkinPackage(target, qq98)
+    writeFileSync(join(target, 'cordis.patch.yml'), `# bundle patch\n- insert:\n    - id: ${qq98.id}\n      name: '${qq98.pkg}'\n`)
+    const fakeRegistry: Record<string, SkinSwitchEntry> = {
+      ...registry,
+      qq98: { ...qq98, dir: target },
+    }
+    writeFileSync(patchPath(h), '')
+    useSkin('qq98', { home: h, registry: fakeRegistry })
+    const after = readFileSync(patchPath(h), 'utf8')
+    // Home layer keeps mutual-exclusion rows only; the bundle provides the insert.
+    expect(after).not.toContain('- insert:')
+    expect(after).not.toContain(qq98.id)
+    expect(after).toContain(`- id: ${registry.ths.id}\n  disabled: true`)
+    // currentSkin must still report the bundle-wired active skin.
+    expect(currentSkin(after, { home: h, registry: fakeRegistry })).toBe('qq98')
+  })
+
+  it('useSkin keeps the insert row for the bundled-carrier symlink layout', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    // The aggregate layout: entry.dir is a skin asset inside dsh-skins/skins
+    // and the profile target is only a symlink into that carrier.
+    const carrierSkin = join(h, 'code', 'dsh-web-ui', 'packages', 'dsh-skins', 'skins', 'qq98')
+    makeSkinPackage(carrierSkin, qq98)
+    writeFileSync(join(carrierSkin, 'cordis.patch.yml'), `# carrier asset, not an active bundle\n- insert:\n    - id: ${qq98.id}\n      name: '${qq98.pkg}'\n`)
+    const fakeRegistry: Record<string, SkinSwitchEntry> = {
+      ...registry,
+      qq98: { ...qq98, dir: carrierSkin },
+    }
+    writeFileSync(patchPath(h), '')
+    useSkin('qq98', { home: h, registry: fakeRegistry })
+    const after = readFileSync(patchPath(h), 'utf8')
+    expect(after).toContain('- insert:')
+    expect(after).toContain(`      name: '${qq98.pkg}'`)
+    // The profile target realpath resolves inside the dsh-skins/skins carrier.
+    const link = join(resolvePaths(h, 'web').profileModulesDir, qq98.pkg)
+    expect(lstatSync(link).isSymbolicLink()).toBe(true)
+    expect(realpathSync(link)).toBe(realpathSync(carrierSkin))
+    expect(carrierSkin).toContain(join('dsh-skins', 'skins'))
   })
 })
 
