@@ -1,22 +1,24 @@
 /**
  * Git-graph surface plugin, browser half: the git branch selector chip in
- * the input selector row's context hole (`conversation.input.selector
- * .context`), docked right beside the official workspace selector above the
- * input card. All git facts arrive through the host /git routes (this
- * package's own host half); the inject face carries the business verbs, the
- * components stay pure props.
+ * the official composer dock band (`conversation.input.dock`, a list slot
+ * declared by the shipped ui-conversation rc.6 shell — the legacy
+ * `conversation.input.selector.context` hole was never declared by rc.6,
+ * so the chip used to wait on inject forever and never mounted). The chip
+ * renders as its own line stacked above the composer card. All git facts
+ * arrive through the host /git routes (this package's own host half); the
+ * inject face carries the business verbs, the components stay pure props.
  *
- * The context hole is session-maybe: the chip stays mounted from cold start
- * through the active phase and hides itself when its data source is absent
- * (no session cwd, or not a git repository) — no workspace selector lives
- * here, the official selector chip docked above the input card owns that
- * surface.
+ * The dock seat is session-scoped: the chip mounts once a session is active
+ * and hides itself when its data source is absent (no session cwd, or not a
+ * git repository). It no longer survives the blank hero phase — a trade-off
+ * of moving off the (undeclared) session-maybe selector-context hole, same
+ * accepted downgrade as the pet entry (PR #17).
  * @module dsh-git-graph/client
  */
 
 import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-// Type-only: pulls the ui-conversation SlotMap merge (the header context entry).
+// Type-only: pulls the ui-conversation SlotMap merge (the input dock entry).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {
@@ -39,7 +41,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin. */
 const NS = 'git-graph'
 
-/** Required services: slots for the header context entry, sessions for the cwd lookup, locale for the copy. */
+/** Required services: slots for the input dock entry, sessions for the cwd lookup, locale for the copy. */
 export const inject = ['slots', 'sessions', 'connection', 'locale']
 
 /** Injected business face of the branch chip: git verbs, keyed by the current session id. */
@@ -62,7 +64,7 @@ export interface GitGraphInjected {
 const NO_WORKSPACE: GitError = { code: 'workspace-unknown', message: 'session has no workspace' }
 
 /**
- * Client plugin body: the header context-chip entry with its git verbs.
+ * Client plugin body: the input dock entry with its git verbs.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -70,9 +72,11 @@ export function apply(ctx: ClientContext): void {
 
   const git = new GitApi()
 
-  // Conditional mount: 'conversation.input.selector.context' is declared by
-  // the conversation entry; the conversation service being up is the
-  // registration-safe signal (the GoalDock/QueueDock seam).
+  // Conditional mount: 'conversation.input.dock' is declared by the shipped
+  // ui-conversation rc.6 entry (the GoalDock/QueueDock seam) — the legacy
+  // 'conversation.input.selector.context' hole is NOT declared by rc.6, so
+  // routing a register() through inject forever and never mounting. The
+  // conversation service being up is the registration-safe signal.
   ctx.inject(['slots', 'conversation', 'sessions'], (scope: ClientContext) => {
     const sessions = scope.sessions
 
@@ -128,12 +132,12 @@ export function apply(ctx: ClientContext): void {
     }
 
     // Declaration-aware: the chip registers only when the shell declares the
-    // context hole. A bare register() would throw on shells that dropped the
-    // hole (SDK SlotCore.register rejects undeclared slots), so route through
-    // inject like the pet / remote-web-ui entries.
-    scope.slots.inject('conversation.input.selector.context', () =>
+    // dock slot. A bare register() would throw on shells that dropped the
+    // slot (SDK SlotCore.register rejects undeclared slots), so route through
+    // inject like the pet / remote-web-ui dock entries.
+    scope.slots.inject('conversation.input.dock', () =>
       scope.slots.register({
-        name: 'conversation.input.selector.context',
+        name: 'conversation.input.dock',
         id: 'git-graph',
         order: 100,
         locale: NS,

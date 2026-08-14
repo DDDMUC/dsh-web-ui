@@ -2,6 +2,8 @@
 
 状态：已实现。日期：2026-08-09。
 
+> 修正（2026-08）：分支 chip 挂载槽位由 `conversation.input.selector.context` 迁移到官方 rc.6 声明的 `conversation.input.dock`（list、session 作用域）——旧 selector-context 洞在 rc.6 从未声明，inject 永久等待、chip 从不挂载（issue #38 同类遗留，同 dsh-pet 修复）。hero（空白会话）不再挂载为 session 作用域的含义；见 README 挂载 seam。
+
 ## 背景
 
 需求：在 dsh Web 常驻会话 header 行提供「git 分支选择器 + Git 图谱」，紧跟官方工作区选择器旁。git 能力必须在 host 进程执行（磁盘工作树真实 `git switch`），UI 在浏览器 React（`packages/client/*`）。需要先回答两个问题：外部插件能否向 Web 客户端注入模块、host 侧 RPC 是否可扩展。

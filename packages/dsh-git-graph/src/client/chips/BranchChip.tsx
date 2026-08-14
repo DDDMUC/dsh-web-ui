@@ -1,10 +1,12 @@
 /**
- * The input selector context entry: the git branch selector chip, mounted
- * in the selector row's context hole (`conversation.input.selector.context`)
- * right beside the official workspace selector, docked above the input card.
- * The session-maybe seat keeps the chip mounted in every phase — hero (blank
- * session) included — and the chip hides itself only when its data source
- * is absent (no session cwd, or not a git repository).
+ * The input dock entry: the git branch selector chip, mounted in the
+ * official composer dock band (`conversation.input.dock`, a list slot
+ * declared by the shipped ui-conversation rc.6 shell) stacked above the
+ * composer card. The dock is session-scoped, so the chip mounts once a
+ * session is active and hides itself only when its data source is absent
+ * (no session cwd, or not a git repository). The legacy selector-context
+ * hole (`conversation.input.selector.context`) is not declared by rc.6 and
+ * can never mount.
  * @module dsh-git-graph/client/chips/BranchChip
  */
 
@@ -19,15 +21,15 @@ import { CreateBranchDialog } from './CreateBranchDialog.tsx'
 import { GraphDialog } from '../graph/GraphDialog.tsx'
 import css from './context.module.css'
 
-/** Full props of the branch chip: the context hole's runtime share + the git-graph inject face + the locale seat. */
+/** Full props of the branch chip: the input dock's runtime share (incl. the InputZone owner) + the git-graph inject face + the locale seat. */
 export type BranchChipProps =
-  PropsRuntime<'conversation.input.selector.context'>
+  PropsRuntime<'conversation.input.dock'>
   & GitGraphInjected
   & PropsLocale<'git-graph'>
 
 /**
  * The git branch selector chip.
- * @param props - the composed context-hole entry props.
+ * @param props - the composed input-dock entry props.
  */
 export function BranchChip(props: BranchChipProps) {
   /** Repository state: undefined = loading, null = not a repository, else the snapshot. */
