@@ -24,8 +24,6 @@ interface Subscriber {
   root: string
   lastGit: string
   res: ServerResponse
-  /** Set once the git service's cached probe says this root is not a repo. */
-  noRepo: boolean
 }
 
 /** Poll interval for git-status changes while subscribers are connected. */
@@ -157,21 +155,18 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
         }
       }
       if (gitUnavailable) return
-      let anyRepo = false
       await Promise.all([...subscribers].map(async (subscriber) => {
-        if (subscriber.noRepo) return
         try {
-          // Detect once per canonical workspace (cached inside the git
-          // service): a root that is not a repository never spawns a git
-          // status on later ticks, and when every connected root is known
-          // non-repo the interval stops altogether.
-          if (!(await git.isRepository(subscriber.root))) {
-            subscriber.noRepo = true
-            return
-          }
-          anyRepo = true
-          const status = await git.status(subscriber.root)
-          if (status === null || typeof status === 'object' && 'code' in status) return
+          // Subscribers were gated when the stream opened, so use the
+          // canonical git methods (no double gate per 2s tick). repoOf inside
+          // them re-runs `rev-parse --show-toplevel` only after its TTL
+          // expires: a non-repo root never spawns a git status, and a repo
+          // created or removed while the host is running (git init / deleting
+          // .git) is still discovered by a later tick. The poll interval
+          // therefore keeps running while any subscriber is connected.
+          if (!(await git.isRepositoryCanonical(subscriber.root))) return
+          const status = await git.statusCanonical(subscriber.root)
+          if (status === null) return
           const key = `${status.branch}|${JSON.stringify(status.staged)}|${JSON.stringify(status.unstaged)}|${JSON.stringify(status.untracked)}`
           if (key === subscriber.lastGit) return
           subscriber.lastGit = key
@@ -180,12 +175,6 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
           ctx.logger.warn(`dsh-aionui-panel: git poll failed for ${subscriber.root}: ${String(error)}`)
         }
       }))
-      // Nothing left to poll: stop the interval. A later connection starts it
-      // again and re-checks its root against the cached verdicts.
-      if (!anyRepo && subscribers.size > 0 && [...subscribers].every(subscriber => subscriber.noRepo)) {
-        if (gitTimer !== undefined) clearInterval(gitTimer)
-        gitTimer = undefined
-      }
     } finally {
       polling = false
     }
@@ -393,7 +382,7 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
       connection: 'keep-alive',
     })
     res.write('retry: 2000\n\n')
-    const subscriber: Subscriber = { root: gated.canonical, lastGit: '', res, noRepo: false }
+    const subscriber: Subscriber = { root: gated.canonical, lastGit: '', res }
     subscribers.add(subscriber)
     // A stream opened after the one-shot probe already failed gets the
     // unavailable event right away; streams open during the probe receive it

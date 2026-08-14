@@ -87,12 +87,14 @@ function isGitPath(rel: string): boolean {
  * True when the changed path lies inside node_modules or .git — the two
  * directories whose churn (installs, builds, index writes) never represents
  * a project-file change the panel needs to surface, and which dominate a
- * recursive watch of a large workspace.
+ * recursive watch of a large workspace. Only win32 compares lower-cased
+ * (its filesystem is case-insensitive); POSIX compares the exact names so
+ * `NODE_MODULES` and `.GIT` stay ordinary project paths there.
  */
 function isIgnoredWatchPath(filename: string): boolean {
   return filename.split(/[\\/]/).some((part) => {
-    const lowered = part.toLowerCase()
-    return lowered === 'node_modules' || lowered === '.git'
+    const candidate = process.platform === 'win32' ? part.toLowerCase() : part
+    return candidate === 'node_modules' || candidate === '.git'
   })
 }
 

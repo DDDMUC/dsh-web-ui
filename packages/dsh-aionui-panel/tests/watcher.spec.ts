@@ -79,4 +79,37 @@ describe('FsService.watch noise filter', () => {
 
     dispose()
   })
+
+  it.skipIf(process.platform === 'win32')('POSIX treats NODE_MODULES and .GIT as ordinary project paths', async () => {
+    const captured = capturedWatcher()
+    const onChange = vi.fn()
+    const service = new FsService(gate, captured.spawn)
+
+    const dispose = service.watch('/w', onChange)
+    await started(captured)
+
+    // On a case-sensitive POSIX filesystem these are not the noise dirs:
+    // only the exact lower-case node_modules/.git names are suppressed.
+    captured.emit('change', 'NODE_MODULES/x.ts')
+    captured.emit('change', '.GIT/HEAD')
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(onChange).toHaveBeenCalledTimes(1)
+
+    dispose()
+  })
+
+  it('still ignores node_modules paths written with backslash separators', async () => {
+    const captured = capturedWatcher()
+    const onChange = vi.fn()
+    const service = new FsService(gate, captured.spawn)
+
+    const dispose = service.watch('/w', onChange)
+    await started(captured)
+
+    captured.emit('change', 'node_modules\\pkg\\index.js')
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(onChange).not.toHaveBeenCalled()
+
+    dispose()
+  })
 })
