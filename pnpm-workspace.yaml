@@ -2,13 +2,9 @@ packages:
   - 'packages/*'
   - 'packages/skins/*'
 
-# Peer APIs (@deepseek-ai/dsh-*, cordis, react) resolve at runtime from the
-# dsh profile tree, never from this repo's own install — matching the
-# turtle-ui convention used by the bundled plugins.
-# @linxin666 peers are different: they are the aggregate's own patch children
-# and must be linked at the workspace root so pnpm pack/publish can resolve
-# `workspace:*` into concrete versions for the published peerDependencies.
-autoInstallPeers: true
+# SDK peers 不自动安装，运行时由 DSH profile 树解析
+# （原 true 只为聚合包发布时解析 peers，现已不需要）。
+autoInstallPeers: false
 
 allowBuilds:
   # The cloudflared postinstall downloads the platform binary (the auto-tunnel

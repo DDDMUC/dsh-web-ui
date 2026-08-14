@@ -23,7 +23,7 @@
     "url": "https://github.com/zhu1090093659/dsh-web-ui.git",
     "directory": "packages/dsh-skins"
   },
-  "peerDependencies": {
+  "dependencies": {
     "@linxin666/dsh-client-ui-skin-center": "workspace:*"
   }
 }

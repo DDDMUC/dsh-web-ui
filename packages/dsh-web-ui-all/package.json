@@ -32,7 +32,7 @@
     "type": "git",
     "url": "https://github.com/zhu1090093659/dsh-web-ui.git"
   },
-  "peerDependencies": {
+  "dependencies": {
     "@linxin666/dsh-client-ui-aionui-panel": "workspace:*",
     "@linxin666/dsh-client-ui-task-board": "workspace:*",
     "@linxin666/dsh-client-ui-git-graph": "workspace:*",

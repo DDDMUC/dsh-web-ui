@@ -4,11 +4,11 @@
  *
  * An aggregate bundle is a plain carrier package whose cordis.patch.yml is the
  * concatenation of its child plugins' insert rows and whose package.json
- * peerDependencies pull in every child with "workspace:*". The DSH loader
- * resolves patch rows from the profile root, so the children must land at the
- * top level; pnpm's auto-install-peers (default true) installs required peers
- * there for hoisted layouts, and the README documents the hoist setting for
- * strict-layout profiles.
+ * dependencies pull in every child with "workspace:*". The DSH loader
+ * resolves patch rows from the profile root, so the children are installed as
+ * normal dependencies (pnpm hoists them to the top level in the default
+ * hoisted layout); the README documents the hoist setting for strict-layout
+ * profiles.
  *
  * Usage:
  *   node scripts/aggregate.mjs            # regenerate + write everything
@@ -26,7 +26,7 @@
  *     to the aggregate patch (nested aggregates expand recursively, in
  *     patchFrom order, with per-source comment headers);
  *   - deps entries are resolved to each child's package.json "name" and
- *     written into the aggregate's peerDependencies as "workspace:*".
+ *     written into the aggregate's dependencies as "workspace:*".
  *
  * Idempotent: safe to rerun at any time. Writes only inside the aggregate
  * packages it owns; never touches other packages or git state.
@@ -219,23 +219,21 @@ function resolveEntries(pkgDir, entries, section, errors) {
 
 /**
  * Rebuild the aggregate package.json so every manifest deps entry becomes a
- * required "workspace:*" peerDependency; other fields are preserved. The
- * loader imports patch rows from the profile root, so the children must not
- * stay as transitive dependencies under the aggregate package.
+ * "workspace:*" dependency; other fields are preserved, and any leftover
+ * peerDependencies field is removed. The loader resolves patch rows from the
+ * profile root, and pnpm installs these children as normal dependencies
+ * (hoisting them to the top level in the default layout).
  */
 function renderPackageJson(pkgPath, resolvedDeps) {
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
   const next = {}
   for (const { name } of resolvedDeps) next[name] = 'workspace:*'
-  for (const key of Object.keys(pkg.peerDependencies ?? {}).filter((k) => !(k in next)).sort()) {
-    next[key] = pkg.peerDependencies[key]
+  for (const key of Object.keys(pkg.dependencies ?? {}).filter((k) => !(k in next)).sort()) {
+    next[key] = pkg.dependencies[key]
   }
-  if (Object.keys(next).length) pkg.peerDependencies = next
-  else delete pkg.peerDependencies
-  const deps = pkg.dependencies ?? {}
-  for (const key of Object.keys(deps)) if (key in next) delete deps[key]
-  if (Object.keys(deps).length) pkg.dependencies = deps
+  if (Object.keys(next).length) pkg.dependencies = next
   else delete pkg.dependencies
+  delete pkg.peerDependencies
   return JSON.stringify(pkg, null, 2) + '\n'
 }
 
@@ -310,14 +308,14 @@ for (const r of results) {
       failed = true
     } else {
       const rows = r.blocks.reduce((n, b) => n + b.rows.length, 0)
-      console.log(`[aggregate] check OK: ${r.rel} (${rows} row(s), ${r.resolvedDeps.length} peer(s))`)
+      console.log(`[aggregate] check OK: ${r.rel} (${rows} row(s), ${r.resolvedDeps.length} dep(s))`)
     }
   } else {
     writeFileSync(patchPath, r.patch)
     const rows = r.blocks.reduce((n, b) => n + b.rows.length, 0)
     console.log(`[aggregate] wrote ${relative(REPO_ROOT, patchPath)} (${r.blocks.length} source block(s), ${rows} row(s))`)
     writeFileSync(pkgPath, r.pkgJson)
-    console.log(`[aggregate] wrote ${relative(REPO_ROOT, pkgPath)} (${r.resolvedDeps.length} workspace peer(s))`)
+    console.log(`[aggregate] wrote ${relative(REPO_ROOT, pkgPath)} (${r.resolvedDeps.length} workspace dep(s))`)
   }
 }
 
