@@ -13,6 +13,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings-surface SlotMap merge (the 'settings.section'
 // entry) and the ctx.settingsScope Context merge.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import { WebUiSettingsBinder } from './compat-settings-scope.ts'
 import { WebUIPluginsCard } from './WebUIPluginsCard.tsx'
 import { en, zh, type WebUIPluginsKey } from './locales.ts'
 
@@ -47,7 +48,7 @@ export interface SettingsPluginItemOwnerProps {
 }
 
 /** Required services. */
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote']
 
 /**
  * Register the Web UI plugin group.
@@ -55,6 +56,11 @@ export const inject = ['slots', 'locale']
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register('web-ui-plugins', { zh, en }), 'web-ui-settings: dictionaries')
+
+  // The rc.6 compatibility binder: family plugins read ctx.get('webUiSettings')
+  // and fall back to the official settings scope on hosts that expose their
+  // namespaces natively.
+  new WebUiSettingsBinder(ctx)
 
   ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
     name: 'settings.plugin.item',
