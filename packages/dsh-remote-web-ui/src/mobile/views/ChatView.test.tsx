@@ -3,7 +3,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { SessionModels } from '@deepseek-ai/dsh-host-apiproxy/api/sessions'
-import { ChatView } from './ChatView.tsx'
+import { ChatView, MAX_TAIL_BUFFER_EVENTS } from './ChatView.tsx'
 import { type SessionView } from './App.tsx'
 import type { HistoryPage } from '../api.ts'
 import type { WireEvent } from '../messages.ts'
@@ -100,6 +100,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.restoreAllMocks()
 })
 
 describe('ChatView message folds', () => {
@@ -223,6 +224,81 @@ describe('ChatView initial-load race', () => {
     expect(await screen.findByText('实时新消息')).toBeTruthy()
     // The history turn's tool disclosure plus the live one both render.
     expect((await screen.findAllByRole('button', { name: /工具/ })).length).toBe(2)
+  })
+
+  it('caps the tail-load live buffer and re-pulls the history tail after an overflow', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    let resolveHistory: (page: HistoryPage) => void = () => {}
+    loadHistoryMock
+      .mockReturnValueOnce(new Promise<HistoryPage>((resolve) => { resolveHistory = resolve }))
+      // The overflow follow-up load resolves a page newer than the buffered burst.
+      .mockResolvedValueOnce(historyPage([
+        makeEntry('assistant/message', {
+          id: 'a-refetch',
+          role: 'assistant',
+          content: [{ type: 'text', text: '补拉恢复' }],
+        }, 700),
+      ]))
+    const mux = new FakeMux()
+    render(<ChatView session={session} mux={mux as never} onBack={() => {}} />)
+
+    // 501 live final messages arrive before the snapshot resolves: the first one
+    // is dropped by the 500-event cap, the remaining 500 stay buffered.
+    await act(async () => {
+      for (let index = 0; index <= MAX_TAIL_BUFFER_EVENTS; index++) {
+        mux.emit({
+          type: 'session/event',
+          sessionId: 's-1',
+          event: makeEntry('assistant/message', {
+            id: `a-burst-${index}`,
+            role: 'assistant',
+            content: [{ type: 'text', text: `突发消息 ${index}` }],
+          }, 100 + index).event,
+        })
+      }
+    })
+
+    // The overflow is logged exactly once, and the cap mentions the limit.
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain(String(MAX_TAIL_BUFFER_EVENTS))
+
+    await act(async () => { resolveHistory(historyPage(turnEvents())) })
+
+    // The capped buffer keeps the render bounded: the dropped oldest burst
+    // message is gone, while the newest buffered one survives the snapshot fold.
+    expect(await screen.findByText('突发消息 500')).toBeTruthy()
+    expect(screen.queryByText('突发消息 0')).toBeNull()
+
+    // The overflow triggered exactly one follow-up tail load, still carrying the
+    // same abort signal as the initial load.
+    await waitFor(() => { expect(loadHistoryMock).toHaveBeenCalledTimes(2) })
+    expect(loadHistoryMock.mock.calls[1]?.[0]).toBe('s-1')
+    expect(loadHistoryMock.mock.calls[1]?.[1]).toBeUndefined()
+    expect(loadHistoryMock.mock.calls[1]?.[2]).toBeInstanceOf(AbortSignal)
+    expect(loadHistoryMock.mock.calls[1]?.[2]).toBe(loadHistoryMock.mock.calls[0]?.[2])
+
+    // The re-pulled page folds into the already-rendered messages.
+    expect(await screen.findByText('补拉恢复')).toBeTruthy()
+  })
+
+  it('passes an AbortSignal to loadHistory and aborts it on unmount', async () => {
+    let capturedSignal: AbortSignal | undefined
+    loadHistoryMock.mockImplementation((_sessionId, _beforeSeq, signal) => {
+      capturedSignal = signal
+      return Promise.resolve(historyPage(turnEvents()))
+    })
+    const view = render(<ChatView session={session} onBack={() => {}} />)
+
+    expect(await screen.findByText('已完成修改')).toBeTruthy()
+    expect(loadHistoryMock).toHaveBeenCalledTimes(1)
+    expect(loadHistoryMock.mock.calls[0]?.[0]).toBe('s-1')
+    expect(loadHistoryMock.mock.calls[0]?.[1]).toBeUndefined()
+    expect(loadHistoryMock.mock.calls[0]?.[2]).toBeInstanceOf(AbortSignal)
+    expect(capturedSignal).toBeInstanceOf(AbortSignal)
+    expect(capturedSignal?.aborted).toBe(false)
+
+    view.unmount()
+    expect(capturedSignal?.aborted).toBe(true)
   })
 })
 

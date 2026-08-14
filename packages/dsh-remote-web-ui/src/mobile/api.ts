@@ -67,17 +67,18 @@ export async function createSession(
   return await callUnary<CreatedSession>('session.create', options)
 }
 
-/** One history window; omit beforeSeq for the tail page. */
+/** One history window; omit beforeSeq for the tail page, pass a signal to abort. */
 export async function history(
   sessionId: string,
   beforeSeq?: number,
   maxMessages = 30,
+  signal?: AbortSignal,
 ): Promise<HistoryPage> {
   return await callUnary<HistoryPage>('session.history', {
     sessionId,
     maxMessages,
     ...(beforeSeq !== undefined ? { beforeSeq } : {}),
-  })
+  }, signal)
 }
 
 /** Send one text prompt (queued: the agent picks it up in order). */

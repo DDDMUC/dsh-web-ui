@@ -171,8 +171,8 @@ export function staleHostHint(message: string): string | undefined {
 }
 
 /** Fetch one history page (tail by default) — thin wrapper so views share the call shape. */
-export function loadHistory(sessionId: string, beforeSeq?: number) {
-  return fetchHistory(sessionId, beforeSeq)
+export function loadHistory(sessionId: string, beforeSeq?: number, signal?: AbortSignal) {
+  return fetchHistory(sessionId, beforeSeq, undefined, signal)
 }
 
 export { listSessions, listWorkspaces, prompt }
