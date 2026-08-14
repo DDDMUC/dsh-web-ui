@@ -10,7 +10,7 @@
 
 ## 功能
 
-- **侧边栏入口**：`[data-pane="sidebar"]` 列内、新会话按钮下方注入「任务看板」入口行（宽栏显示图标+文字，折叠 rail 显示纯图标，随 DSH 皮肤 token 自适应）。
+- **侧边栏入口**：侧边栏列（旧版 `[data-pane="sidebar"]`，DSH 0.1.0-rc.6 AppFrame 布局为 `[class*="sidebarCol"]`）内、新会话按钮下方注入「任务看板」入口行（宽栏显示图标+文字，折叠 rail 显示纯图标，随 DSH 皮肤 token 自适应）。
 - **多列看板**：待规划 / 待办 / 进行中 / 已完成 / 已失败 五列；卡片显示标题、描述、状态、更新时间、执行次数；顶部支持搜索过滤、新建任务、返回对话。
 - **任务详情**：点卡片打开详情（标题/描述/执行 Prompt/执行记录），**不会**一点就执行；详情内提供「执行 / 重新执行」「删除（带确认）」「查看会话（跳转到执行 transcript）」以及手动移到待规划/待办。
 - **真实执行**：点「执行」后，插件通过客户端 runtime 连接工作区会话（`workspaces.connectWorkspace`，空白会话复用或 host 新建），把任务标题设为会话名，以任务 Prompt 调用 `session.prompt([{ type: 'text', text }], 'queue')` 驱动真实 agent；随后订阅该会话快照，轮次真实结束后把卡片置为 已完成/已失败 并记录执行结果。执行会话会出现在会话列表，可点进对话查看真实 transcript。
@@ -42,7 +42,7 @@ scripts/dsh-task-board.js                          # 一键挂载/卸载/状态 
 ## 为什么这样接（调研结论）
 
 - **侧边栏没有可用的外挂槽位**：侧边栏壳只声明 `sidebar.workspaces` / `sidebar.settings` 两个 single 槽位，且已被 ui-workspace / ui-settings 占用；外部插件无法注册新槽位（声明即占有，重复声明抛错）。因此入口行走 skin 先例的 **DOM 注入**，并用 MutationObserver 自愈（React 重渲染波及该节点时同帧内重新插入，无闪烁）。
-- **中间列无法通过槽位替换**：`conversation` 槽位是 single 且已被 ui-conversation 占用。看板视图以 DOM 方式挂在 `[data-pane="conversation"]` 列内（React 不管的尾部子节点），通过 `<html data-dsh-taskboard-active>` 属性切换显隐，底下的对话子树保持挂载有状态。
+- **中间列无法通过槽位替换**：`conversation` 槽位是 single 且已被 ui-conversation 占用。看板视图以 DOM 方式挂在中间列（旧版 `[data-pane="conversation"]`，DSH 0.1.0-rc.6 AppFrame 布局为 `[class*="centerCol"]`；挂载选择器两者都保留）内（React 不管的尾部子节点），通过 `<html data-dsh-taskboard-active>` 属性切换显隐，底下的对话子树保持挂载有状态。
 - **持久化用浏览器 localStorage**：客户端插件跑在浏览器里，DSH 没有浏览器可写的文件通道（与 skin-center 对 `cordis.patch.yml` 的调研结论一致）；localStorage 也是 DSH 客户端自身快照存储（`createSnapshotStore` persist）的持久化方式。
 - **执行走客户端 runtime**：`ctx.sessions.list` 订阅会话状态（`running` / `byId`），`ctx.workspaces.connectWorkspace()` 创建/复用会话，`session.prompt()` 真实驱动 agent，`ctx.sessions.open()` 跳转 transcript。
 - **后台结算靠列表对账**：未打开的会话没有对话快照窗口（cold），所以执行结算以会话列表为准——每次列表变化都对账 running 任务；结果判定依次取「列表缺失→已取消 / 仍在跑→等待 / 对话快照可见→按 lastAgentError / 原始历史尾部→turn-error 节点证明失败 / 否则按成功」，对账幂等。
