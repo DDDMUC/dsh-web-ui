@@ -8,7 +8,7 @@
 import { createServer, type Server as NetServer } from 'node:net'
 import { existsSync, mkdirSync, readFileSync, statSync, readdirSync } from 'node:fs'
 import { dirname, join, relative, resolve as resolvePath } from 'node:path'
-import { Client, type ClientChannel, type ConnectConfig } from 'ssh2'
+import { Client, type ClientChannel, type ConnectConfig, type SFTPWrapper } from 'ssh2'
 import type { ClusterResult, ExecResult, SshHostEntry, SshHostSummary, TestResult, TransferProgress, TunnelInfo } from './protocol.ts'
 import { expandHome, type HostStore } from './store.ts'
 
@@ -490,8 +490,7 @@ export class SshEngine {
     }
     const local = resolvePath(localPath)
     if (!existsSync(local)) throw new Error(`local path not found: '${localPath}'`)
-    return this.withClient(alias, async (client) => {
-      const sftp = await this.sftp(client)
+    return this.withClient(alias, (client) => this.withSftp(client, async (sftp) => {
       const stat = statSync(local)
       let files: string[]
       if (stat.isDirectory()) {
@@ -512,13 +511,12 @@ export class SshEngine {
         bytes += statSync(src).size
       }
       return { bytes, files: files.length }
-    })
+    }))
   }
 
   /** Download one remote file to a local path. */
   async download(alias: string, remotePath: string, localPath: string, onProgress?: (progress: TransferProgress) => void): Promise<{ bytes: number }> {
-    return this.withClient(alias, async (client) => {
-      const sftp = await this.sftp(client)
+    return this.withClient(alias, (client) => this.withSftp(client, async (sftp) => {
       const stat = await new Promise<{ isDirectory: () => boolean }>((resolve, reject) => {
         sftp.stat(remotePath, (error, stats) => error !== undefined ? reject(error) : resolve(stats))
       })
@@ -529,13 +527,12 @@ export class SshEngine {
       if (!existsSync(dirname(local))) mkdirSync(dirname(local), { recursive: true })
       await this.fastGet(sftp, remotePath, local, onProgress)
       return { bytes: statSync(local).size }
-    })
+    }))
   }
 
   /** List a remote directory (file browser). */
   async ls(alias: string, path: string): Promise<import('./protocol.ts').RemoteDirEntry[]> {
-    return this.withClient(alias, async (client) => {
-      const sftp = await this.sftp(client)
+    return this.withClient(alias, (client) => this.withSftp(client, async (sftp) => {
       return await new Promise((resolve, reject) => {
         sftp.readdir(path, (error, list) => {
           if (error !== undefined) {
@@ -552,17 +549,41 @@ export class SshEngine {
           resolve(entries)
         })
       })
-    })
+    }))
   }
 
-  private sftp(client: Client): Promise<import('ssh2').SFTPWrapper> {
+  /**
+   * Open one SFTP channel, run the operation, and release the channel exactly
+   * once when the operation settles (success or error). ssh2 keeps each
+   * subsystem channel open until end(); without this, every transfer leaks a
+   * channel until sshd's MaxSessions cap makes all later opens fail.
+   */
+  private async withSftp<T>(client: Client, run: (sftp: SFTPWrapper) => Promise<T>): Promise<T> {
+    const sftp = await this.sftp(client)
+    let ended = false
+    const endOnce = (): void => {
+      if (ended) return
+      ended = true
+      try { sftp.end() } catch { /* channel already closed */ }
+    }
+    // The channel can also close underneath us (peer reset, timeout); the
+    // guard makes the finally below a no-op instead of ending it twice.
+    sftp.once('close', endOnce)
+    try {
+      return await run(sftp)
+    } finally {
+      endOnce()
+    }
+  }
+
+  private sftp(client: Client): Promise<SFTPWrapper> {
     return new Promise((resolve, reject) => {
       client.sftp((error, sftp) => error !== undefined ? reject(error) : resolve(sftp))
     })
   }
 
   /** Create a remote directory chain (stat-then-mkdir per segment). */
-  private ensureRemoteDir(sftp: import('ssh2').SFTPWrapper, remote: string): Promise<void> {
+  private ensureRemoteDir(sftp: SFTPWrapper, remote: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const segments = remote.replace(/^\/+/, '').split('/').filter(segment => segment !== '')
       const walk = (index: number): void => {
@@ -591,7 +612,7 @@ export class SshEngine {
     })
   }
 
-  private fastPut(sftp: import('ssh2').SFTPWrapper, src: string, dst: string, onProgress?: (progress: TransferProgress) => void): Promise<void> {
+  private fastPut(sftp: SFTPWrapper, src: string, dst: string, onProgress?: (progress: TransferProgress) => void): Promise<void> {
     return new Promise((resolve, reject) => {
       let last = 0
       let lastEmit = 0
@@ -625,7 +646,7 @@ export class SshEngine {
     })
   }
 
-  private fastGet(sftp: import('ssh2').SFTPWrapper, src: string, dst: string, onProgress?: (progress: TransferProgress) => void): Promise<void> {
+  private fastGet(sftp: SFTPWrapper, src: string, dst: string, onProgress?: (progress: TransferProgress) => void): Promise<void> {
     return new Promise((resolve, reject) => {
       let last = 0
       let lastEmit = 0
