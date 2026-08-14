@@ -428,6 +428,60 @@ describe('external (cross-tab) ledger changes', () => {
     expect(controller.getSnapshot().tasks.map(t => t.id)).toEqual(['other-tab'])
   })
 
+  it('keeps a sibling-tab edit made while reconcile is in flight', async () => {
+    let resolveReconcile: ((event: ExecutionEvent | undefined) => void) | undefined
+    let reconcileCalls = 0
+    const stub = {
+      reconcile: (): Promise<ExecutionEvent | undefined> => {
+        reconcileCalls += 1
+        // The startup pass finds the orphan but has nothing to settle yet;
+        // every later call stays parked until the test resolves it.
+        if (reconcileCalls === 1) return Promise.resolve(undefined)
+        return new Promise(resolve => { resolveReconcile = resolve })
+      },
+    }
+    const store = new ExternalAwareStore()
+    const sessions = new FakeSessions()
+    const orphan = seedTask(store, { id: 'task-a', title: '旧标题' })
+    const running = {
+      ...orphan,
+      status: 'running' as const,
+      executions: [{ id: 'e1', sessionId: 's-1', startedAt: NOW, endedAt: undefined, result: undefined, error: undefined }],
+    }
+    store.save([running])
+    const controller = new BoardController({
+      store, exec: stub as unknown as ExecutionService, sessions, now: () => NOW, uuid, reconcileDebounceMs: 0,
+    })
+    controller.start()
+    await flush()
+    expect(reconcileCalls).toBe(1)
+    expect(controller.getSnapshot().tasks[0].status).toBe('running')
+
+    // A session-list change starts the reconcile we want to race.
+    sessions.setCurrent('s-new')
+    await flush()
+    expect(reconcileCalls).toBe(2)
+    expect(resolveReconcile).toBeDefined()
+
+    // While reconcile awaits, a sibling tab renames the task and this tab
+    // reloads the ledger through the storage event.
+    store.writeFromElsewhere([{ ...running, title: '外部新标题', updatedAt: NOW + 1 }])
+    expect(controller.getSnapshot().tasks[0].title).toBe('外部新标题')
+
+    // The settle event computed from the pre-edit snapshot arrives late.
+    resolveReconcile!({ kind: 'settled', taskId: 'task-a', executionId: 'e1', outcome: 'cancelled', error: 'gone' })
+    await flush()
+    await flush()
+
+    const settled = controller.getSnapshot().tasks[0]
+    expect(settled.title).toBe('外部新标题')
+    expect(settled.status).toBe('todo')
+    expect(settled.executions[0]).toMatchObject({ id: 'e1', result: 'cancelled', error: 'gone' })
+    const persisted = store.load()[0]
+    expect(persisted.title).toBe('外部新标题')
+    expect(JSON.stringify(store.load())).not.toContain('旧标题')
+  })
+
   it('stops reacting to external changes after dispose', () => {
     const { controller, store } = makeWithExternalStore()
     let notified = 0
