@@ -7,7 +7,7 @@
  * copies the one-command apply. The plugin writes only DOM and the settings
  * ledger — no services, no events, no model access.
  */
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -47,6 +47,18 @@ export interface SettingsPluginItemOwnerProps {
   children?: never
 }
 
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /**
+     * Optional rc.6 compatibility binder provided by dsh-web-ui-settings;
+     * absent when that group plugin is not installed, so callers fall back to
+     * the official settings scope.
+     */
+    webUiSettings?: { bind<S>(spec: SettingsScopeSpec<S>): SettingsScope<S> }
+  }
+}
+
+
 /** Required services: slots + locale (plugin card), theme (preview toggle), and settingsScope + its transport (background scrim). */
 export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection', 'remote']
 
@@ -69,7 +81,8 @@ export function apply(ctx: ClientContext): void {
   const controller = new TryOnController()
   // Background occluder over the shared skin-background namespace. The scope
   // is bound to this plugin's fiber, so it is torn down with the card.
-  const backgroundScope = ctx.settingsScope.bind<{ backgroundOpacity?: number }>({ namespace: SKIN_BACKGROUND_NS })
+  const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
+  const backgroundScope = binder.bind<{ backgroundOpacity?: number }>({ namespace: SKIN_BACKGROUND_NS })
   const background = new BackgroundController(backgroundScope)
   const injected = (): SkinCenterInjected => ({
     controller,
