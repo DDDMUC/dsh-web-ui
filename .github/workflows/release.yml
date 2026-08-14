@@ -1,0 +1,95 @@
+name: Release
+
+# Tag-triggered publish pipeline: pushing a vX.Y.Z tag is the single release
+# switch. The workflow verifies every package version equals the tag version
+# (the tag is the version source of truth), runs the full gate, publishes all
+# packages to npm in dependency order, and creates the GitHub Release.
+#
+# Requires the repository secret NPM_TOKEN (npm automation token for the
+# @linxin666 scope) to publish.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build, test, publish, release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint GitHub Actions workflows
+        uses: docker://rhysd/actionlint:latest
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Tests
+        run: pnpm test
+
+      - name: Script tests
+        run: pnpm test:scripts
+
+      - name: Aggregate package consistency
+        run: pnpm aggregate:check
+
+      - name: Extract tag version
+        id: tag
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify package versions match the tag
+        run: |
+          TAG_VERSION="${{ steps.tag.outputs.version }}"
+          MISMATCH=0
+          for f in $(find packages -name package.json -not -path '*/node_modules/*'); do
+            v=$(node -p "require('./$f').version")
+            if [ "$v" != "$TAG_VERSION" ]; then
+              echo "::error file=$f::version $v does not match tag v$TAG_VERSION"
+              MISMATCH=1
+            fi
+          done
+          exit "$MISMATCH"
+
+      - name: Publish packages to npm
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+          pnpm -r publish --no-git-checks --access public --registry=https://registry.npmjs.org/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --title "dsh-web-ui $GITHUB_REF_NAME"
