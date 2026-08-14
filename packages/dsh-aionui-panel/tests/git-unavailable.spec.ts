@@ -21,7 +21,11 @@ interface Connection {
 /** A minimal ctx/webServer/fs/git harness for registerPanelRoutes. */
 function makeEnv(): {
   sse: (req: unknown, res: unknown) => Promise<void>
-  git: { gitAvailable: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn> }
+  git: {
+    gitAvailable: ReturnType<typeof vi.fn>
+    isRepository: ReturnType<typeof vi.fn>
+    status: ReturnType<typeof vi.fn>
+  }
   warn: ReturnType<typeof vi.fn>
 } {
   const warn = vi.fn()
@@ -41,6 +45,7 @@ function makeEnv(): {
   }
   const git = {
     gitAvailable: vi.fn(async () => true),
+    isRepository: vi.fn(async () => true),
     status: vi.fn(async () => null),
   }
   registerPanelRoutes(ctx as never, fs as never, git as never)
@@ -60,6 +65,8 @@ async function connect(sse: (req: unknown, res: unknown) => Promise<void>, root:
   }
   const req = {
     url: '/aionui-panel/events?root=' + encodeURIComponent(root),
+    headers: { host: '127.0.0.1:3000' },
+    socket: { remoteAddress: '127.0.0.1' },
     on: (event: string, handler: () => void) => {
       if (event === 'close') closeHandlers.push(handler)
     },
@@ -133,11 +140,13 @@ describe('SSE git polling with git installed', () => {
 
     await vi.advanceTimersByTimeAsync(2_000)
     expect(env.git.gitAvailable).toHaveBeenCalledTimes(1)
+    expect(env.git.isRepository).toHaveBeenCalledTimes(1)
     expect(env.git.status).toHaveBeenCalledTimes(1)
     expect(eventsOfKind(conn.writes, 'git')).toBe(1)
 
     // Unchanged status pushes nothing; a branch change pushes again.
     await vi.advanceTimersByTimeAsync(2_000)
+    expect(env.git.isRepository).toHaveBeenCalledTimes(2)
     expect(env.git.status).toHaveBeenCalledTimes(2)
     expect(eventsOfKind(conn.writes, 'git')).toBe(1)
     expect(eventsOfKind(conn.writes, 'gitUnavailable')).toBe(0)
@@ -149,6 +158,49 @@ describe('SSE git polling with git installed', () => {
     expect(eventsOfKind(conn.writes, 'gitUnavailable')).toBe(0)
 
     conn.close()
+  })
+})
+
+describe('SSE git polling on a non-repository workspace', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('probes once, never spawns git status, and stops the poll', async () => {
+    const env = makeEnv()
+    env.git.isRepository.mockResolvedValue(false)
+    const conn = await connect(env.sse, '/w')
+
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    expect(env.git.gitAvailable).toHaveBeenCalledTimes(1)
+    expect(env.git.isRepository).toHaveBeenCalledTimes(1)
+    expect(env.git.status).not.toHaveBeenCalled()
+    expect(eventsOfKind(conn.writes, 'gitUnavailable')).toBe(0)
+
+    // Thirty more ticks: the interval has stopped, so nothing is re-probed.
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(env.git.isRepository).toHaveBeenCalledTimes(1)
+    expect(env.git.status).not.toHaveBeenCalled()
+
+    conn.close()
+  })
+
+  it('restarts the stopped poll for a newly connected subscriber', async () => {
+    const env = makeEnv()
+    env.git.isRepository.mockResolvedValue(false)
+    const first = await connect(env.sse, '/w')
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    const second = await connect(env.sse, '/w')
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    // One probe per connected subscriber; no git status ever ran.
+    expect(env.git.isRepository).toHaveBeenCalledTimes(2)
+    expect(env.git.status).not.toHaveBeenCalled()
+
+    first.close()
+    second.close()
   })
 })
 

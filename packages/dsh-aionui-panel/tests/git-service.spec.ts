@@ -161,6 +161,59 @@ describe('GitService.diff', () => {
   })
 })
 
+describe('GitService repository detection cache', () => {
+  it('probes rev-parse once per workspace and never spawns status for non-repos', async () => {
+    const calls: string[][] = []
+    const runner: GitRunner = {
+      async run(argv, cwd) {
+        calls.push([...argv, `@${cwd}`])
+        if (argv[0] === '--version') return { exitCode: 0, stdout: 'git version 2.39.0\n', stderr: '' }
+        if (argv[0] === 'rev-parse' && argv[1] === '--show-toplevel') {
+          return { exitCode: 128, stdout: '', stderr: 'not a git repository' }
+        }
+        return { exitCode: 0, stdout: '', stderr: '' }
+      },
+    }
+    const service = new GitService(runner, gate, vi.fn(async () => ({ ok: true as const })))
+
+    expect(await service.isRepository(ROOT)).toBe(false)
+    expect(await service.isRepository(ROOT)).toBe(false)
+    expect(await service.status(ROOT)).toBeNull()
+    expect(await service.status(ROOT)).toBeNull()
+
+    expect(calls.filter((call) => call[0] === 'rev-parse' && call[1] === '--show-toplevel')).toHaveLength(1)
+    expect(calls.some((call) => call[0] === 'status')).toBe(false)
+  })
+
+  it('caches the repo top-level so repeated status calls skip rev-parse', async () => {
+    const calls: string[][] = []
+    const runner: GitRunner = {
+      async run(argv, cwd) {
+        calls.push([...argv, `@${cwd}`])
+        if (argv[0] === '--version') return { exitCode: 0, stdout: 'git version 2.39.0\n', stderr: '' }
+        if (argv[0] === 'rev-parse' && argv[1] === '--show-toplevel') {
+          return { exitCode: 0, stdout: `${REPO}\n`, stderr: '' }
+        }
+        if (argv[0] === 'rev-parse' && argv[1] === '--abbrev-ref') {
+          return { exitCode: 0, stdout: 'main\n', stderr: '' }
+        }
+        if (argv[0] === 'status') return { exitCode: 0, stdout: '', stderr: '' }
+        return { exitCode: 0, stdout: '', stderr: '' }
+      },
+    }
+    const service = new GitService(runner, gate, vi.fn(async () => ({ ok: true as const })))
+
+    expect(await service.isRepository(ROOT)).toBe(true)
+    const first = await service.status(ROOT)
+    const second = await service.status(ROOT)
+    expect(first).toMatchObject({ root: ROOT, branch: 'main' })
+    expect(second).toMatchObject({ root: ROOT, branch: 'main' })
+
+    expect(calls.filter((call) => call[0] === 'rev-parse' && call[1] === '--show-toplevel')).toHaveLength(1)
+    expect(calls.filter((call) => call[0] === 'status')).toHaveLength(2)
+  })
+})
+
 describe('subprocessRunner spawn degradation', () => {
   const collected = {
     stdout: { readFrom: (offset: number) => ({ text: 'ok' }) },
