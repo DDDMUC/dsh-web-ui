@@ -819,3 +819,30 @@ body[data-dsh-dragon-heir][data-ds-dark-theme] [data-gitgraph-chip][aria-expande
   background-color: rgba(200, 162, 74, 0.16);
 }
 
+
+/* --- 输入框停靠区遮罩修复（composerSeat） ----------------------------------
+   The official composer seat fades the scrolled transcript out under a
+   36px band that ends in var(--dsw-alias-bg-base) solid below. This skin
+   keeps --dsw-alias-bg-base translucent so the dragon art shows through the
+   panes; the same token leaks into the seat's fade band, leaving its solid
+   region see-through and letting scrolled messages bleed under the input
+   card. Re-declare the band with the skin's opaque page background so the
+   seat stays solid: the message bodies above keep showing the art, only
+   the seat turns opaque. Light + dark. */
+
+body[data-dsh-dragon-heir] [data-phase='active'] [class*='composerSeat'] {
+  background: linear-gradient(
+    180deg,
+    transparent 0px,
+    #f4efe4 36px
+  ) !important;
+}
+
+body[data-dsh-dragon-heir][data-ds-dark-theme] [data-phase='active'] [class*='composerSeat'] {
+  background: linear-gradient(
+    180deg,
+    transparent 0px,
+    #12161f 36px
+  ) !important;
+}
+

@@ -816,3 +816,30 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-chip][aria-expand
   background-color: rgba(160, 185, 235, 0.18);
 }
 
+
+/* --- 输入框停靠区遮罩修复（composerSeat） ----------------------------------
+   The official composer seat fades the scrolled transcript out under a
+   36px band that ends in var(--dsw-alias-bg-base) solid below. This skin
+   keeps --dsw-alias-bg-base translucent so the whale art shows through the
+   panes; the same token leaks into the seat's fade band, leaving its solid
+   region see-through and letting scrolled messages bleed under the input
+   card. Re-declare the band with the skin's opaque page background so the
+   seat stays solid: the message bodies above keep showing the art, only
+   the seat turns opaque. Light + dark. */
+
+body[data-dsh-blue-fantasy] [data-phase='active'] [class*='composerSeat'] {
+  background: linear-gradient(
+    180deg,
+    transparent 0px,
+    #e8ecf5 36px
+  ) !important;
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-phase='active'] [class*='composerSeat'] {
+  background: linear-gradient(
+    180deg,
+    transparent 0px,
+    #101624 36px
+  ) !important;
+}
+
