@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-client-ui-skin-ths",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Bundled skin inside @linxin666/dsh-skins (@linxin666/dsh-client-ui-skin-ths).",
   "type": "module",
   "main": "lib/index.js",
@@ -18,7 +18,7 @@
       "platform": "web"
     }
   },
-  "license": "Apache-2.0",
+  "license": "BSD-3-Clause",
   "files": [
     "lib",
     "skin.json",
