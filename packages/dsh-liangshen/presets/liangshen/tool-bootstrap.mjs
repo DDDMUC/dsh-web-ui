@@ -4,18 +4,20 @@
  *
  * Phase 1 (no persisted `tool/call` yet):
  * - tool catalog: one platform shell plus `commonTools`
+ * - prompt sections: only the `persona` section (all other sections,
+ *   including plan-mode's `plan:policy`, return after promotion)
  * - runtime contexts: emptied (no sandbox/approval snapshot)
- * - pre-step messages: only direct user messages pass (`messageSources`)
+ * - pre-step messages: only explicit user messages pass
  *
- * Promotion opens the full tool catalog and restores runtime contexts. With
- * `anchorGate` the promotion after the first tool call also requires either
- * one minimal-like reasoning block or the `maxBootstrapSteps` fallback.
- * `promoteAfterFirstResponse` promotes a tool-less first response on its next
- * turn, and also releases any anchor-gated session once a new user turn
- * starts, so short one-step tasks never stay two-tool forever.
- * `deferredSources` and `deferredGraceSteps` delay selected injected message
- * kinds (workspace instructions, skill catalog) for a few steps after
- * promotion.
+ * Promotion opens the full tool catalog and restores runtime contexts and all
+ * prompt sections. With `anchorGate` the promotion after the first tool call
+ * also requires one minimal-like reasoning block or the `maxBootstrapSteps`
+ * fallback. `promoteAfterFirstResponse` promotes a tool-less first response
+ * once it has responded, and also releases an anchor-gated session when its
+ * first turn ends (`turn/end`); that release happens during prompt assembly,
+ * so the new user turn already sees the full catalog. `deferredSources` and
+ * `deferredGraceSteps` delay selected injected message kinds (workspace
+ * instructions, skill catalog) for a few steps after promotion.
  *
  * Source: https://github.com/xiaobright/dsh-anchored-standard (MIT), extended
  * with the phase-1 quarantine and the stabilization controls above.
@@ -83,16 +85,24 @@ export function classifyReasoning(text) {
   }
 }
 
-/** Whether an assistant message contains at least one minimal-like reasoning block. */
+/**
+ * Whether the FIRST reasoning block of an assistant message classifies as
+ * minimal-like. Later blocks do not override an earlier standard-like first
+ * block.
+ */
 export function hasAnchoredReasoning(content) {
-  return Array.isArray(content) && content.some(block =>
-    block?.type === 'reasoning' && classifyReasoning(block.text).label === 'minimal-like')
+  if (!Array.isArray(content)) return false
+  const first = content.find(block => block?.type === 'reasoning')
+  return first !== undefined && classifyReasoning(first.text).label === 'minimal-like'
 }
 
-/** Whether one pre-step message is direct user input rather than an injection. */
+/**
+ * Whether one pre-step message is an explicit user message. Only `kind:
+ * 'user'` passes; injected kinds and source-less seed messages never pass.
+ */
 function isAllowedMessage(message, allowedSources) {
   const kind = message.source?.kind
-  return kind === undefined || allowedSources.has(kind)
+  return kind === 'user' && allowedSources.has(kind)
 }
 
 /** Whether one pre-step message belongs to a deferred injection kind. */
@@ -116,26 +126,34 @@ function stateFor(session) {
       toolCalled: false,
       responded: false,
       anchored: false,
+      turnEnded: false,
       steps: 0,
-      lastTurn: 0,
       deferredSteps: 0,
-      fullToolsThisStep: false,
     }
     promotionBySession.set(session, state)
   }
   return state
 }
 
-function decidePromotion(state, config, currentTurn) {
+/**
+ * a) first tool call, no anchor gate — promote immediately;
+ * b) first tool call, anchored or `maxBootstrapSteps` fallback — promote;
+ * c) first tool call, still gated, but the first turn ended and
+ *    `promoteAfterFirstResponse` is set — release on the new user turn (the
+ *    release happens during prompt assembly, so that turn already gets the
+ *    full catalog);
+ * d) tool-less first response with `promoteAfterFirstResponse` — promote.
+ */
+function decidePromotion(state, config) {
   if (state.toolCalled && config.anchorGate !== true) return true
   if (state.toolCalled && config.anchorGate === true && (state.anchored || state.steps >= config.maxBootstrapSteps)) return true
+  if (state.toolCalled && config.anchorGate === true && config.promoteAfterFirstResponse === true && state.turnEnded) return true
   if (!state.toolCalled && state.responded && config.promoteAfterFirstResponse === true) return true
-  if (state.responded && config.promoteAfterFirstResponse === true && currentTurn !== undefined && currentTurn > state.lastTurn) return true
   return false
 }
 
 /** Scan newly appended session events and update promotion state. */
-function refresh(agent, config, currentTurn) {
+function refresh(agent, config) {
   const session = agent?.session
   if (session === undefined) return undefined
   const state = stateFor(session)
@@ -148,13 +166,14 @@ function refresh(agent, config, currentTurn) {
         state.toolCalled = true
       } else if (event.type === 'step/start') {
         state.steps += 1
-        if (Number.isInteger(event.data?.turn)) state.lastTurn = event.data.turn
+      } else if (event.type === 'turn/end') {
+        state.turnEnded = true
       } else if (event.type === 'assistant/message') {
         state.responded = true
         if (!state.anchored) state.anchored = hasAnchoredReasoning(event.data?.message?.content)
       }
     }
-    if (decidePromotion(state, config, currentTurn)) state.promoted = true
+    if (decidePromotion(state, config)) state.promoted = true
   }
   return state
 }
@@ -181,7 +200,6 @@ export function apply(ctx, config) {
     const agent = context.agent
     if (agent === undefined) return assembled
     const state = refresh(agent, policy)
-    state.fullToolsThisStep = state.promoted
     if (state.promoted) return assembled
 
     const available = new Set(assembled.tools.map(tool => tool.name))
@@ -199,6 +217,9 @@ export function apply(ctx, config) {
       ...assembled,
       tools: assembled.tools.filter(tool => bootstrap.has(tool.name)),
       contexts: [],
+      ...(Array.isArray(assembled.sections)
+        ? { sections: assembled.sections.filter(section => section?.name === 'persona') }
+        : {}),
     }
   }, { prepend: true })
 
@@ -206,10 +227,10 @@ export function apply(ctx, config) {
     const decision = await next()
     const agent = payload.agent
     if (agent === undefined || decision.kind !== 'enter') return decision
-    const state = refresh(agent, policy, payload.turn)
+    const state = refresh(agent, policy)
     if (state === undefined) return decision
 
-    if (!state.promoted || !state.fullToolsThisStep) {
+    if (!state.promoted) {
       return {
         ...decision,
         messages: decision.messages.filter(message => isAllowedMessage(message, messageSources)),

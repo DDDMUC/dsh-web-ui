@@ -51,10 +51,19 @@ const SECTION_ORDER = 150
 /** Model-facing announcement: plugin presence, principle, and limits. */
 export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」与「梁神模式-精确实验」。原理：两阶段锚定——首轮模型请求仅暴露平台 shell 与 read（精确实验版为持久 bash 与 str_replace_editor），同时清空运行时上下文并只放行用户的直接消息，锚定 Minimal 推理轨迹；晋升受首块锚定门控（四步兜底），无工具首轮会在下一轮自动晋升，workspace 指令与 skill 目录在晋升后再延迟一步注入。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
 
+/** Expand a leading `~`, `~/` or `~\` to the current user's home directory. */
+function expandTilde(path: string): string {
+  if (path === '~') return homedir()
+  if (path.startsWith('~/') || path.startsWith('~\\')) return join(homedir(), path.slice(2))
+  return path
+}
+
 /** Resolve the harness home (DSH_HOME overrides the conventional ~/.dsh). */
 export function dshHome(): string {
   const override = process.env.DSH_HOME
-  return override !== undefined && override.trim() !== '' ? override.trim() : join(homedir(), '.dsh')
+  if (override === undefined) return join(homedir(), '.dsh')
+  const trimmed = override.trim()
+  return trimmed === '' ? join(homedir(), '.dsh') : expandTilde(trimmed)
 }
 
 /** Absolute path of the bundled preset tree inside this package. */

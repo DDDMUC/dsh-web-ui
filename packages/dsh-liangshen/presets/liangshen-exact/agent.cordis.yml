@@ -5,7 +5,9 @@
 # Standard catalog and the ordinary injections open. This is the A/B variant of
 # `liangshen`: the phase-1 surface matches the official "exact RL prompt and
 # schemas" snapshot byte-for-byte on the model-visible wire shape, at the cost
-# of keeping the persistent shell for the whole session.
+# of keeping the persistent shell for the whole session. Unlike the builtin
+# Minimal preset, the phase-1 editor inherits the host file sandbox instead of
+# mounting a bare local filesystem (see the filesystem section below).
 #
 # Adapted from the builtin `minimal` and `standard` presets.
 #
@@ -28,24 +30,27 @@
 
 # ── identity ────────────────────────────────────────────────────────────────
 
-# Keep the Minimal preset's prompt condition: `complete` makes this the sole
-# system-prompt section, so no identity, runtime context, or tool guidance prose
-# can shift the first-request scaffold. `tool-bootstrap` below empties runtime
-# contexts and injected pre-step messages during phase 1; after promotion both
-# return with the full tool catalog.
+# Phase 1 shows only this one-line persona: `tool-bootstrap` filters the
+# assembled sections down to `persona` during phase 1 and restores every
+# section after promotion, so plan-mode's `plan:policy` takes effect instead
+# of being permanently shadowed by a `complete` persona.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: You are a helpful software engineer assistant.
-    complete: true
 
 # Two-phase input bootstrap with the exact Minimal phase-1 tools. Before the
 # first durable tool/call event the model sees only persistent `bash` plus
-# `str_replace_editor`, no runtime contexts, and only direct user messages.
-# `anchorGate` holds the promotion open until the first reasoning block is
-# minimal-like (four-step fallback); `promoteAfterFirstResponse` avoids a
-# permanent two-tool session after a tool-less first response; workspace
-# instructions and the skill catalog are deferred one step after promotion.
+# `str_replace_editor`, only the `persona` prompt section, no runtime
+# contexts, and only direct user messages. `anchorGate` holds the promotion
+# open until the first reasoning block is minimal-like (four-step fallback);
+# `promoteAfterFirstResponse` avoids a permanent two-tool session after a
+# tool-less first response, and releases an anchor-gated session once its
+# first turn ends (`turn/end`) — that release happens during prompt assembly,
+# so the new user turn already sees the full catalog; workspace instructions
+# and the skill catalog are deferred one step after promotion. This preset
+# shares the main preset's `tool-bootstrap.mjs` implementation; only this
+# config differs.
 - id: tool-bootstrap
   name: ./tool-bootstrap.mjs
   config:
@@ -103,23 +108,15 @@
 
 # ── minimal phase-1 filesystem ──────────────────────────────────────────────
 
-# The bare local filesystem shadows the host's sandboxed provider only for this
-# preset. The editor shares that realm and requires absolute paths.
-- id: filesystem
-  name: cordis:group
-  group: true
-  isolate:
-    fs: true
+# Phase-1 editor as a direct top-level row: it reuses the host's sandboxed
+# `ctx.fs`, not a bare local filesystem. No `dsh-fs-local` realm is mounted, so
+# the phase-1 editor inherits the host file sandbox exactly like every
+# Standard file tool, and the model-facing schema stays the builtin Minimal
+# `str_replace_editor`.
+- id: str-replace-editor
+  name: '@deepseek-ai/dsh-tool-str-replace-editor'
   config:
-    - id: fs-local
-      name: '@deepseek-ai/dsh-fs-local'
-      config:
-        cwd: !!js process.env.DSH_CWD ?? process.cwd()
-
-    - id: str-replace-editor
-      name: '@deepseek-ai/dsh-tool-str-replace-editor'
-      config:
-        maxOutputChars: 16000
+    maxOutputChars: 16000
 
 # ── standard filesystem tools ───────────────────────────────────────────────
 

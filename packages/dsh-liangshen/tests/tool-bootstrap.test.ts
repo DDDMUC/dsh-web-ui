@@ -1,11 +1,27 @@
 import { describe, expect, test } from 'vitest'
 
-import { apply, classifyReasoning, name } from '../presets/liangshen/tool-bootstrap.mjs'
+import {
+  apply,
+  classifyReasoning,
+  hasAnchoredReasoning,
+  name,
+} from '../presets/liangshen/tool-bootstrap.mjs'
+import {
+  apply as exactApply,
+  classifyReasoning as exactClassifyReasoning,
+  hasAnchoredReasoning as exactHasAnchoredReasoning,
+  name as exactName,
+} from '../presets/liangshen-exact/tool-bootstrap.mjs'
 
 const config = {
   commonTools: ['read'],
   shellTools: ['bash', 'pwsh'],
 }
+
+const SECTIONS = [
+  { name: 'persona', text: 'You are a helpful software engineer assistant.' },
+  { name: 'plan:policy', text: 'You are in plan mode. Stay in plan mode until exit_plan_mode succeeds.' },
+]
 
 type Listener = (payload: any, next: () => Promise<any>) => Promise<any>
 
@@ -43,7 +59,7 @@ async function assemble(
   return listener(
     undefined,
     { agent: agentOf(events) },
-    async () => ({ system: 'minimal persona', tools, contexts }),
+    async () => ({ system: 'minimal persona', tools, contexts, sections: SECTIONS }),
   )
 }
 
@@ -74,6 +90,10 @@ function stepEvent() {
   return { type: 'step/start', data: { turn: 1, step: 1 } }
 }
 
+function turnEndEvent(turn = 1) {
+  return { type: 'turn/end', data: { turn } }
+}
+
 describe('anchored-tool-bootstrap', () => {
   test('exports a diagnostic plugin name', () => {
     expect(name).toBe('anchored-tool-bootstrap')
@@ -85,7 +105,7 @@ describe('anchored-tool-bootstrap', () => {
     expect(listeners.get('agent/pre-step')?.options).toMatchObject({ prepend: true })
   })
 
-  test('first request exposes one platform shell and read and empties contexts', async () => {
+  test('first request exposes one platform shell and read, empties contexts, and keeps only the persona section', async () => {
     const result = await assemble(listener(register(), 'system-prompt/assemble'), [], [
       { name: 'pwsh' },
       { name: 'read' },
@@ -93,6 +113,8 @@ describe('anchored-tool-bootstrap', () => {
     ])
     expect(result.tools.map((tool: any) => tool.name)).toEqual(['pwsh', 'read'])
     expect(result.contexts).toEqual([])
+    expect(result.sections.map((section: any) => section.name)).toEqual(['persona'])
+    expect(result.sections[0].text).toBe(SECTIONS[0].text)
   })
 
   test('first request keeps its empty contexts even when none were assembled', async () => {
@@ -106,13 +128,15 @@ describe('anchored-tool-bootstrap', () => {
     expect(result.contexts).toEqual([])
   })
 
-  test('a durable tool call promotes the complete catalog and restores contexts', async () => {
+  test('a durable tool call promotes the complete catalog and restores contexts and all sections', async () => {
     const tools = [{ name: 'pwsh' }, { name: 'read' }, { name: 'edit' }, { name: 'grep' }]
     const contexts = [{ name: 'sandbox:policy', text: 'Current DSH file policy: workspace-write.' }]
     const events = [{ type: 'tool/call', data: { name: 'read' } }]
     const result = await assemble(listener(register(), 'system-prompt/assemble'), events, tools, contexts)
     expect(result.tools).toEqual(tools)
     expect(result.contexts).toEqual(contexts)
+    expect(result.sections).toEqual(SECTIONS)
+    expect(result.sections.map((section: any) => section.name)).toEqual(['persona', 'plan:policy'])
   })
 
   test('sessions derive promotion independently from their own events', async () => {
@@ -125,7 +149,7 @@ describe('anchored-tool-bootstrap', () => {
     expect(fresh.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read'])
   })
 
-  test('phase 1 pre-step keeps only direct user messages', async () => {
+  test('phase 1 pre-step keeps only explicit user messages', async () => {
     const messages = [
       message('user', 'user'),
       message('agent-instructions', 'instructions'),
@@ -135,7 +159,7 @@ describe('anchored-tool-bootstrap', () => {
     ]
     const result = await preStep(listener(register(), 'agent/pre-step'), [], messages)
     expect(result.kind).toBe('enter')
-    expect(result.messages.map((entry: any) => entry.id)).toEqual(['user', 'seed'])
+    expect(result.messages.map((entry: any) => entry.id)).toEqual(['user'])
   })
 
   test('phase 1 pre-step leaves rejected decisions untouched', async () => {
@@ -164,7 +188,7 @@ describe('anchored-tool-bootstrap', () => {
     expect(result.messages).toEqual(messages)
   })
 
-  test('messageSources config narrows the phase-1 allowlist', async () => {
+  test('phase 1 only lets explicit user messages through, whatever messageSources names', async () => {
     const preStepListener = listener(register({ messageSources: ['user', 'agent-instructions'] }), 'agent/pre-step')
     const messages = [
       message('user', 'user'),
@@ -172,7 +196,7 @@ describe('anchored-tool-bootstrap', () => {
       message('skill-catalog', 'skills'),
     ]
     const result = await preStep(preStepListener, [], messages)
-    expect(result.messages.map((entry: any) => entry.id)).toEqual(['user', 'instructions'])
+    expect(result.messages.map((entry: any) => entry.id)).toEqual(['user'])
   })
 
   test('anchorGate holds promotion after a standard-like first block', async () => {
@@ -204,45 +228,88 @@ describe('anchored-tool-bootstrap', () => {
 
   test('promoteAfterFirstResponse opens the catalog on the next turn after a tool-less response', async () => {
     const listeners = register({ promoteAfterFirstResponse: true })
-    const preStepListener = listener(listeners, 'agent/pre-step')
     const assembleListener = listener(listeners, 'system-prompt/assemble')
-    const events = [
-      { type: 'step/start', data: { turn: 1, step: 1 } },
-      { type: 'assistant/message', data: { message: { content: [{ type: 'text', text: 'done' }] } } },
-    ]
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const events: unknown[] = []
     const sessionObj = { events }
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
     const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
-    const result = await preStepListener(
+
+    // Turn 1 runs in the real order: prompt assembly first, then pre-step.
+    const phase1 = await assembleListener(
+      undefined,
+      { agent: { session: sessionObj } },
+      async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
+    )
+    expect(phase1.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read'])
+    const phase1Step = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 1, step: 1, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
+    expect(phase1Step.messages.map((entry: any) => entry.id)).toEqual(['user'])
+
+    // The tool-less turn finishes; its events land before the next turn.
+    events.push({ type: 'step/start', data: { turn: 1, step: 1 } })
+    events.push({ type: 'assistant/message', data: { message: { content: [{ type: 'text', text: 'done' }] } } })
+    events.push(turnEndEvent(1))
+
+    // The next turn assembles first and already sees the complete catalog.
+    const nextAssemble = await assembleListener(
+      undefined,
+      { agent: { session: sessionObj } },
+      async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
+    )
+    expect(nextAssemble.tools).toEqual(tools)
+    expect(nextAssemble.sections).toEqual(SECTIONS)
+    const nextStep = await preStepListener(
       { agent: { session: sessionObj }, messages, turn: 2, step: 1, signal: {} },
       async () => ({ kind: 'enter', messages }),
     )
-    expect(result.messages.map((entry: any) => entry.id)).toEqual(['user'])
-
-    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
-    const assembled = await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({ system: 'minimal persona', tools }))
-    expect(assembled.tools).toEqual(tools)
+    expect(nextStep.messages).toEqual(messages)
   })
 
   test('anchorGate releases a finished first turn on the next user turn', async () => {
-    const listeners = register({ anchorGate: true, promoteAfterFirstResponse: true })
-    const preStepListener = listener(listeners, 'agent/pre-step')
+    const listeners = register({ anchorGate: true, maxBootstrapSteps: 4, promoteAfterFirstResponse: true })
     const assembleListener = listener(listeners, 'system-prompt/assemble')
-    const events = [
-      { type: 'step/start', data: { turn: 1, step: 1 } },
-      reasoningEvent('Let me check the repo.'),
-      { type: 'tool/call' },
-    ]
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const events: unknown[] = []
     const sessionObj = { events }
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
     const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
-    const result = await preStepListener(
+
+    // Turn 1 runs in the real order: prompt assembly first, then pre-step.
+    const phase1 = await assembleListener(
+      undefined,
+      { agent: { session: sessionObj } },
+      async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
+    )
+    expect(phase1.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read'])
+    const phase1Step = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 1, step: 1, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
+    expect(phase1Step.messages.map((entry: any) => entry.id)).toEqual(['user'])
+
+    // The first turn ends standard-like and unanchored, but with a tool call.
+    events.push({ type: 'step/start', data: { turn: 1, step: 1 } })
+    events.push(reasoningEvent('Let me check the repo.'))
+    events.push({ type: 'tool/call' })
+    events.push(turnEndEvent(1))
+
+    // The new user turn assembles first, so the `turn/end` release already
+    // gives it the complete catalog, and its messages are not stripped.
+    const nextAssemble = await assembleListener(
+      undefined,
+      { agent: { session: sessionObj } },
+      async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
+    )
+    expect(nextAssemble.tools).toEqual(tools)
+    expect(nextAssemble.sections).toEqual(SECTIONS)
+    const nextStep = await preStepListener(
       { agent: { session: sessionObj }, messages, turn: 2, step: 1, signal: {} },
       async () => ({ kind: 'enter', messages }),
     )
-    expect(result.messages.map((entry: any) => entry.id)).toEqual(['user'])
-
-    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
-    const assembled = await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({ system: 'minimal persona', tools }))
-    expect(assembled.tools).toEqual(tools)
+    expect(nextStep.messages).toEqual(messages)
   })
 
   test('deferred sources are stripped for deferredGraceSteps after promotion, then pass', async () => {
@@ -281,6 +348,49 @@ describe('anchored-tool-bootstrap', () => {
     expect(classifyReasoning('We need inspect the repo.').label).toBe('minimal-like')
     expect(classifyReasoning('Let me start by checking.').label).toBe('standard-like')
     expect(classifyReasoning('Need inspect the repo.').label).toBe('ambiguous')
+  })
+
+  test('hasAnchoredReasoning only inspects the first reasoning block', () => {
+    const standardThenMinimal = [
+      { type: 'reasoning', text: 'Let me start by checking the repo.' },
+      { type: 'reasoning', text: 'We need inspect the repo first.' },
+    ]
+    expect(hasAnchoredReasoning(standardThenMinimal)).toBe(false)
+
+    const minimalThenStandard = [
+      { type: 'reasoning', text: 'We need inspect the repo first.' },
+      { type: 'reasoning', text: 'Let me start by checking the repo.' },
+    ]
+    expect(hasAnchoredReasoning(minimalThenStandard)).toBe(true)
+  })
+
+  test('liangshen-exact re-exports the same bootstrap implementation as the main preset', async () => {
+    expect(exactName).toBe(name)
+    expect(exactApply).toBe(apply)
+    expect(exactClassifyReasoning).toBe(classifyReasoning)
+    expect(exactHasAnchoredReasoning).toBe(hasAnchoredReasoning)
+
+    const listeners = new Map<string, { listener: Listener, options: any }>()
+    exactApply(
+      {
+        on(event: string, callback: Listener, options?: any) {
+          listeners.set(event, { listener: callback, options })
+        },
+      },
+      { shellTools: ['bash'], commonTools: ['str_replace_editor'], messageSources: ['user'] },
+    )
+    const result = await listener(listeners, 'system-prompt/assemble')(
+      undefined,
+      { agent: agentOf([]) },
+      async () => ({
+        tools: [{ name: 'bash' }, { name: 'str_replace_editor' }, { name: 'edit' }],
+        contexts: [{ name: 'sandbox:policy', text: 'Current DSH file policy: workspace-write.' }],
+        sections: SECTIONS,
+      }),
+    )
+    expect(result.tools.map((tool: any) => tool.name)).toEqual(['bash', 'str_replace_editor'])
+    expect(result.contexts).toEqual([])
+    expect(result.sections.map((section: any) => section.name)).toEqual(['persona'])
   })
 
   test('misconfigured bootstrap catalogs fail loudly', async () => {

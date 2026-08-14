@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
-import { analyzeSession, countMarkers, renderSessionReport } from '../tools/analyze-session.mjs'
+import { analyzeSession, analyzeSessionFile, countMarkers, renderSessionReport } from '../tools/analyze-session.mjs'
 
 const events = [
   { type: 'session', id: 'session-test', agentPreset: 'liangshen', cwd: '/tmp/demo' },
@@ -13,6 +16,13 @@ const events = [
   { type: 'step/end', seq: 14 },
   { type: 'request/header', seq: 15, data: { reason: 'change', header: { tools: [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }] } } },
 ]
+
+function sessionFile(lines: string[]): { path: string; dispose: () => void } {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-analyze-'))
+  const path = join(dir, 'session.jsonl')
+  writeFileSync(path, `${lines.join('\n')}\n`)
+  return { path, dispose: () => rmSync(dir, { recursive: true, force: true }) }
+}
 
 describe('analyze-session', () => {
   test('countMarkers matches word boundaries case-insensitively', () => {
@@ -54,5 +64,32 @@ describe('analyze-session', () => {
     expect(text).toContain('session session-test')
     expect(text).toContain('first header: bash/read')
     expect(text).toContain('first block label: minimal-like')
+  })
+
+  test('analyzeSessionFile matches analyzeSession field for field', async () => {
+    const f = sessionFile(events.map(event => JSON.stringify(event)))
+    try {
+      expect(await analyzeSessionFile(f.path)).toEqual(analyzeSession(events))
+    } finally { f.dispose() }
+  })
+
+  test('analyzeSessionFile counts a mid-file bad line and keeps the rest intact', async () => {
+    const lines = events.map(event => JSON.stringify(event))
+    lines.splice(5, 0, '{"type":"request/header", "seq":')
+    const f = sessionFile(lines)
+    try {
+      const report = await analyzeSessionFile(f.path)
+      expect(report).toEqual({ ...analyzeSession(events), droppedLines: 1 })
+      expect(renderSessionReport(report!)).toContain('dropped lines: 1')
+    } finally { f.dispose() }
+  })
+
+  test('analyzeSessionFile keeps the empty and all-bad file behavior', async () => {
+    const f = sessionFile([])
+    try {
+      expect(await analyzeSessionFile(f.path)).toBeNull()
+      writeFileSync(f.path, 'not json\n{also not json\n')
+      expect(await analyzeSessionFile(f.path)).toBeNull()
+    } finally { f.dispose() }
   })
 })

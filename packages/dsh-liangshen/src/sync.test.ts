@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { syncPresetTrees } from './sync.ts'
@@ -58,6 +58,60 @@ describe('syncPresetTrees', () => {
       const result = syncPresetTrees(f.source, f.target)
       expect(result.synced).toEqual([])
       expect(readFileSync(join(f.target, 'user-authored', 'x.txt'), 'utf8')).toBe('mine\n')
+    } finally { f.dispose() }
+  })
+
+  it('removes target files whose source file was deleted', () => {
+    const f = fixture()
+    try {
+      syncPresetTrees(f.source, f.target)
+      rmSync(join(f.source, 'liangshen', 'tool-bootstrap.mjs'))
+      const second = syncPresetTrees(f.source, f.target)
+      expect(second.synced).toEqual(['liangshen'])
+      expect(existsSync(join(f.target, 'liangshen', 'tool-bootstrap.mjs'))).toBe(false)
+      expect(readFileSync(join(f.target, 'liangshen', 'agent.cordis.yml'), 'utf8')).toBe('rows: []\n')
+    } finally { f.dispose() }
+  })
+
+  it('rewrites a same-size, same-mtime file whose bytes differ', () => {
+    const f = fixture()
+    try {
+      syncPresetTrees(f.source, f.target)
+      const source = join(f.source, 'liangshen', 'agent.cordis.yml')
+      const dest = join(f.target, 'liangshen', 'agent.cordis.yml')
+      writeFileSync(dest, 'rowx: []\n')
+      const stat = statSync(source)
+      utimesSync(dest, stat.atime, stat.mtime)
+      expect(statSync(dest).size).toBe(stat.size)
+      expect(Math.abs(statSync(dest).mtimeMs - stat.mtimeMs)).toBeLessThan(1)
+      const second = syncPresetTrees(f.source, f.target)
+      expect(second.synced).toEqual(['liangshen'])
+      expect(readFileSync(dest, 'utf8')).toBe('rows: []\n')
+    } finally { f.dispose() }
+  })
+
+  it('removes extra nested files and the directories they leave empty', () => {
+    const f = fixture()
+    try {
+      syncPresetTrees(f.source, f.target)
+      mkdirSync(join(f.target, 'liangshen', 'extra', 'nested'), { recursive: true })
+      writeFileSync(join(f.target, 'liangshen', 'extra', 'nested', 'leftover.txt'), 'x\n')
+      const second = syncPresetTrees(f.source, f.target)
+      expect(second.synced).toEqual(['liangshen'])
+      expect(existsSync(join(f.target, 'liangshen', 'extra'))).toBe(false)
+      expect(readFileSync(join(f.target, 'liangshen', 'agent.cordis.yml'), 'utf8')).toBe('rows: []\n')
+    } finally { f.dispose() }
+  })
+
+  it('replaces a regular file at the target preset path with a directory', () => {
+    const f = fixture()
+    try {
+      mkdirSync(f.target, { recursive: true })
+      writeFileSync(join(f.target, 'liangshen'), 'not a directory\n')
+      const result = syncPresetTrees(f.source, f.target)
+      expect(result.synced).toEqual(['liangshen'])
+      expect(statSync(join(f.target, 'liangshen')).isDirectory()).toBe(true)
+      expect(readFileSync(join(f.target, 'liangshen', 'preset.yml'), 'utf8')).toContain('梁神模式')
     } finally { f.dispose() }
   })
 
