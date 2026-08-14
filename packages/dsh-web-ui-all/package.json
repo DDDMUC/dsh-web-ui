@@ -23,7 +23,7 @@
     "prepare": "tsdown",
     "watch": "tsdown --watch"
   },
-  "license": "BSD-3-Clause",
+  "license": "Apache-2.0",
   "dependencies": {
     "@linxin666/dsh-client-ui-aionui-panel": "workspace:*",
     "@linxin666/dsh-client-ui-task-board": "workspace:*",

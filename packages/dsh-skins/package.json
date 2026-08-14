@@ -12,7 +12,7 @@
     "build": "node build.mjs",
     "prepare": "node build.mjs"
   },
-  "license": "BSD-3-Clause",
+  "license": "Apache-2.0",
   "dependencies": {
     "@linxin666/dsh-client-ui-skin-center": "workspace:*"
   },

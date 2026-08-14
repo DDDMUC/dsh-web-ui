@@ -27,7 +27,7 @@
     "watch": "tsdown --watch",
     "test": "vitest run"
   },
-  "license": "BSD-3-Clause",
+  "license": "Apache-2.0",
   "peerDependencies": {},
   "devDependencies": {
     "jsdom": "29.1.1",

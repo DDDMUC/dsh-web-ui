@@ -76,7 +76,7 @@
     "cordis.patch.yml",
     "README.md"
   ],
-  "license": "BSD-3-Clause",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/zhu1090093659/dsh-web-ui.git"
