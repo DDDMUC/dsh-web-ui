@@ -15,8 +15,13 @@
  * 选项：
  *   --repo owner/repo      目标仓库（默认从 git remote 推断）
  *   --include-draft        包含 draft PR（默认跳过）
- *   --skip-build           跳过 worktree 构建验证
- *   --keep-worktrees       保留 worktree 与临时目录（默认运行后清理）
+ *   --skip-build           跳过 worktree 构建验证（只做静态检查）
+ *   --workdir <path>       worktree 工作区根目录（默认 ~/remote-e2e，e2e 验证同区）
+ *   --cleanup              清理工作区全部 worktree 与遗留 refs 后退出
+ *
+ * worktree 建在 ~/remote-e2e/pr-<N>（同 head 复用，跑完保留便于排查），
+ * e2e 验证产物同区存放；定期用 --cleanup 或手动 rm -rf ~/remote-e2e 清理
+ * （工具启动时会自动 prune 已失效的 worktree 记录）。
  *   --concurrency N        并行审核数（默认 2）
  *   --max-added N          新增行上限，超过即拒绝（默认 10000）
  *   --max-deleted N        删除行上限，超过即拒绝（默认 10000）
@@ -42,8 +47,8 @@
  */
 
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdtempSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { existsSync, mkdirSync, rmSync } from "node:fs"
+import { homedir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -55,6 +60,9 @@ export const DEFAULT_MAX_ADDED = 10000
 export const DEFAULT_MAX_DELETED = 10000
 export const DEFAULT_MAX_FILE_BYTES = 1024 * 1024
 export const DEFAULT_CONCURRENCY = 2
+
+/** worktree 与 e2e 验证工作区根目录（定期用 --cleanup 清理）。 */
+export const DEFAULT_WORKTREE_ROOT = join(homedir(), `remote-e2e`)
 
 /** 与 ci.yml 的 emoji 检查完全一致的码点范围（U+1F000-1FAFF / 2600-27BF / 2B00-2BFF / 区域指示符 / FE0F / ZWJ）。 */
 export const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/u
@@ -476,7 +484,8 @@ function listOpenPrs(repo) {
 /** 解析 CLI 参数。 */
 export function parseArgs(argv) {
   const opts = {
-    prs: [], open: false, includeDraft: false, skipBuild: false, keepWorktrees: false,
+    prs: [], open: false, includeDraft: false, skipBuild: false, cleanup: false,
+    worktreeRoot: null,
     concurrency: DEFAULT_CONCURRENCY, maxAdded: DEFAULT_MAX_ADDED, maxDeleted: DEFAULT_MAX_DELETED,
     maxFileBytes: DEFAULT_MAX_FILE_BYTES, json: false, color: true, repo: null, help: false,
   }
@@ -487,7 +496,8 @@ export function parseArgs(argv) {
     else if (a === `--open`) opts.open = true
     else if (a === `--include-draft`) opts.includeDraft = true
     else if (a === `--skip-build`) opts.skipBuild = true
-    else if (a === `--keep-worktrees`) opts.keepWorktrees = true
+    else if (a === `--cleanup`) opts.cleanup = true
+    else if (a === `--workdir`) opts.worktreeRoot = next()
     else if (a === `--json`) opts.json = true
     else if (a === `--no-color`) opts.color = false
     else if (a === `-h` || a === `--help`) opts.help = true
@@ -498,7 +508,7 @@ export function parseArgs(argv) {
     else if (a === `--max-file-bytes`) opts.maxFileBytes = Number(next()) || DEFAULT_MAX_FILE_BYTES
     else throw new Error(`未知参数: ` + a + `（用 --help 查看用法）`)
   }
-  if (!opts.help && !opts.prs.length && !opts.open) throw new Error(`需要指定 PR 编号或 --open`)
+  if (!opts.help && !opts.cleanup && !opts.prs.length && !opts.open) throw new Error(`需要指定 PR 编号或 --open（--cleanup 模式除外）`)
   return opts
 }
 
@@ -520,6 +530,11 @@ async function mapLimit(items, limit, fn) {
 
 function runGit(repoRoot, args) {
   return runOk(`git`, args, { cwd: repoRoot })
+}
+
+/** 在指定目录（worktree）内执行 git。 */
+function runGitIn(workdir, args) {
+  return runOk(`git`, args, { cwd: workdir })
 }
 
 /** 收集一个 PR 的 diff 数据（numstat / name-status / 新增文件 / 全文 diff / 文件大小）。
@@ -577,17 +592,32 @@ export function staticReview(prInfo, diff, opts, repoOwner) {
   ]
 }
 
-/** 在临时 worktree 上跑 CI 门禁序列。返回 { failures: [step], logs: {step: tail} }。 */
-export function buildVerify(repoRoot, number, headRef, keep) {
-  const baseDir = mkdtempSync(join(tmpdir(), `dsh-pr-review-`))
-  const workdir = join(baseDir, `pr-` + number)
-  const results = { failures: [], logs: {} }
+/** 在 ~/remote-e2e 工作区 worktree 上跑 CI 门禁序列（同 head 复用，跑完保留待定期清理）。 */
+export function buildVerify(repoRoot, number, headRef, worktreeRoot) {
+  const workdir = join(worktreeRoot, `pr-` + number)
+  const results = { failures: [], logs: {}, workdir }
+  mkdirSync(worktreeRoot, { recursive: true })
   try {
-    runGit(repoRoot, [`worktree`, `add`, `--detach`, workdir, headRef])
+    const headSha = runGit(repoRoot, [`rev-parse`, headRef]).trim()
+    const porcelain = runGit(repoRoot, [`worktree`, `list`, `--porcelain`])
+    let cur = null
+    let existingHead = null
+    for (const line of porcelain.split(`\n`)) {
+      if (line.startsWith(`worktree `)) cur = line.slice(9)
+      else if (line.startsWith(`HEAD `) && cur === workdir) existingHead = line.slice(5)
+    }
+    if (existingHead === headSha) {
+      results.reused = true
+      // 上次构建会重建 bundle（嵌入本机路径），复用前恢复干净工作树（worktree 为专用临时目录）
+      runGitIn(workdir, [`clean`, `-fdx`])
+      runGitIn(workdir, [`reset`, `--hard`, `HEAD`])
+    } else {
+      if (existingHead) runGit(repoRoot, [`worktree`, `remove`, `--force`, workdir])
+      runGit(repoRoot, [`worktree`, `add`, `--detach`, workdir, headRef])
+    }
   } catch (e) {
     results.failures.push(`worktree`)
     results.logs.worktree = String(e.message)
-    if (!keep) rmSync(baseDir, { recursive: true, force: true })
     return results
   }
   try {
@@ -603,15 +633,35 @@ export function buildVerify(repoRoot, number, headRef, keep) {
   } catch (e) {
     results.failures.push(`runner`)
     results.logs.runner = String(e.message)
-  } finally {
-    if (!keep) {
-      try { runGit(repoRoot, [`worktree`, `remove`, `--force`, workdir]) } catch { /* 忽略清理失败 */ }
-      rmSync(baseDir, { recursive: true, force: true })
-    } else {
-      results.workdir = workdir
-    }
   }
   return results
+}
+
+/** 清理工作区：移除其下全部 worktree、删除目录与遗留 refs。返回移除数。 */
+export function cleanupWorktrees(repoRoot, worktreeRoot) {
+  const removed = []
+  try {
+    const porcelain = runGit(repoRoot, [`worktree`, `list`, `--porcelain`])
+    let cur = null
+    for (const line of porcelain.split(`\n`)) {
+      if (line.startsWith(`worktree `)) cur = line.slice(9)
+      else if (line === `` && cur) {
+        if (cur === worktreeRoot || cur.startsWith(worktreeRoot + `/`)) removed.push(cur)
+        cur = null
+      }
+    }
+  } catch { /* 忽略 */ }
+  for (const p of removed) {
+    try { runGit(repoRoot, [`worktree`, `remove`, `--force`, p]) } catch { /* 忽略 */ }
+  }
+  rmSync(worktreeRoot, { recursive: true, force: true })
+  try {
+    const refs = runGit(repoRoot, [`for-each-ref`, `--format=%(refname)`, `refs/pr-review/`])
+    for (const ref of refs.trim().split(`\n`)) {
+      if (ref) runGit(repoRoot, [`update-ref`, `-d`, ref])
+    }
+  } catch { /* 无遗留 ref */ }
+  return removed.length
 }
 
 /** 启动时清理上次残留：prune 失效 worktree，删除遗留 refs/pr-review/*。 */
@@ -629,14 +679,15 @@ function cleanupStale(repoRoot) {
 
 const HELP = `用法: node scripts/pr-review.mjs [选项] [PR编号...]
 
-本地批量审核远程 PR：静态硬性规则 + 临时 worktree 构建验证（对齐 CI 门禁）。
+本地批量审核远程 PR：静态硬性规则 + 工作区 worktree 构建验证（对齐 CI 门禁）。
 
   PR编号...                 审核指定 PR（可多个）
   --open                    审核全部 open PR（一次多个）
   --repo owner/repo         目标仓库（默认从 git remote 推断）
   --include-draft           包含 draft PR（默认跳过）
   --skip-build              跳过 worktree 构建验证（只做静态检查）
-  --keep-worktrees          保留 worktree 与临时目录
+  --workdir <path>          worktree 工作区根目录（默认 ~/remote-e2e，e2e 验证同区）
+  --cleanup                 清理工作区全部 worktree 后退出（定期清理用）
   --concurrency N           并行审核数（默认 2）
   --max-added N             新增行上限，超过即拒绝（默认 10000）
   --max-deleted N           删除行上限，超过即拒绝（默认 10000）
@@ -679,7 +730,7 @@ async function reviewPr(number, prInfo, ctx) {
     if (!rejects.length) {
       buildResult = opts.skipBuild
         ? { failures: [] }
-        : buildVerify(repoRoot, number, headRef, opts.keepWorktrees)
+        : buildVerify(repoRoot, number, headRef, opts.worktreeRoot || DEFAULT_WORKTREE_ROOT)
     }
     const verdict = finalVerdict(findings, buildResult)
     const result = {
@@ -695,7 +746,7 @@ async function reviewPr(number, prInfo, ctx) {
         newFiles: diff.addedFiles.length,
       },
       findings,
-      build: buildResult ? { failures: buildResult.failures, workdir: buildResult.workdir || null, skipped: opts.skipBuild } : null,
+      build: buildResult ? { failures: buildResult.failures, workdir: buildResult.workdir || null, skipped: opts.skipBuild, reused: buildResult.reused || false } : null,
     }
     if (verdict === `FAIL`) result.reason = `构建门禁失败: ` + buildResult.failures.join(`, `)
     return result
@@ -736,7 +787,7 @@ function formatHuman(results, opts) {
     } else if (r.build && !r.build.skipped && r.verdict === `PASS`) {
       lines.push(c(`32`, `  [通过] worktree 构建与全部门禁通过`))
     }
-    if (r.build && r.build.workdir) lines.push(`  保留 worktree: ` + r.build.workdir)
+    if (r.build && r.build.workdir && !r.build.skipped) lines.push(`  worktree: ` + r.build.workdir + (r.build.reused ? `（复用）` : ``))
     lines.push(``)
   }
   const summary = results.map((r) => {
@@ -761,7 +812,13 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   const repoRoot = findRepoRoot(cwd)
   const repo = opts.repo || inferRepoFromRemote(repoRoot)
   const repoOwner = repo.split(`/`)[0]
+  const worktreeRoot = opts.worktreeRoot || DEFAULT_WORKTREE_ROOT
   cleanupStale(repoRoot)
+  if (opts.cleanup) {
+    const removed = cleanupWorktrees(repoRoot, worktreeRoot)
+    console.log(`已清理工作区 ` + worktreeRoot + `（移除 ` + removed + ` 个 worktree）`)
+    return 0
+  }
 
   const all = opts.prs.length
     ? opts.prs.map((n) => ({ number: n }))
