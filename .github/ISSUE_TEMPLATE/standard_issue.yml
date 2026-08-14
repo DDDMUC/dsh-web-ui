@@ -6,6 +6,16 @@ body:
     attributes:
       value: |
         请保持本模板完整并填写所有必填部分。删除必填部分的 Issue 将被自动关闭。Bug 请使用「Bug 报告」表单。
+
+        提交前请先搜索确认没有重复：[搜索现有 Issue](https://github.com/zhu1090093659/dsh-web-ui/issues?q=is%3Aissue)
+  - type: checkboxes
+    id: duplicate-check
+    attributes:
+      label: 提交前查重
+      description: 提交前请先搜索确认没有重复的 Issue。
+      options:
+        - label: 我已搜索过 open/closed 的 Issue，确认本 Issue 没有重复。
+          required: true
   - type: dropdown
     id: plugin
     attributes:
