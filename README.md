@@ -188,3 +188,10 @@ dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘�
 ## 友情链接
 
 - https://linux.do
+
+## Star 历史
+
+[![Star History Chart](https://raw.githubusercontent.com/zhu1090093659/dsh-web-ui/star-history/star-history.svg)](https://www.star-history.com/?repos=zhu1090093659%2Fdsh-web-ui&type=date&legend=top-left)
+
+> GitHub 自 2026-06-30 起限制 stargazers API，star-history.com 的公共图表不可用；
+> 上图由每日定时 workflow 生成并托管于 `star-history` 分支，点击跳转 star-history.com。
