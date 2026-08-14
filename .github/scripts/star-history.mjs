@@ -22,7 +22,7 @@ const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "";
 
 const W = 800;
 const H = 348;
-const PAD = { left: 66, right: 30, top: 58, bottom: 50 };
+const PAD = { left: 66, right: 30, top: 34, bottom: 50 };
 
 function die(msg) {
   console.error("error: " + msg);
@@ -250,7 +250,7 @@ function renderSvg(points, updated) {
 
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + " " + H +
-    '" role="img" aria-label="Star History">' +
+    '" role="img" aria-label="' + REPO + ' star history">' +
     "<defs>" +
     '<linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">' +
     '<stop offset="0" stop-color="#4f46e5" stop-opacity="0.18"/>' +
@@ -258,7 +258,6 @@ function renderSvg(points, updated) {
     "</linearGradient>" +
     "</defs>" +
     '<rect width="' + W + '" height="' + H + '" rx="14" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>' +
-    '<text x="' + PAD.left + '" y="30" font-size="20" font-weight="700" fill="#0f172a" font-family="' + FONT + '">Star History</text>' +
     grid +
     '<path d="' + areaD + '" fill="url(#areaGrad)"/>' +
     '<path d="' + lineD + '" fill="none" stroke="#4f46e5" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>' +
