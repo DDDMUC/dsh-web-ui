@@ -10,5 +10,14 @@
 import { clientBundle } from '../../shared/tsdown.client.ts'
 
 export default clientBundle('@linxin666/dsh-client-ui-aionui-panel', ['src/index.ts'], {
-  libExternal: ['@deepseek-ai/dsh-system-prompt'],
+  libExternal: [
+    '@deepseek-ai/dsh-client-locale',
+    '@deepseek-ai/dsh-client-runtime',
+    '@deepseek-ai/dsh-client-ui-conversation',
+    '@deepseek-ai/dsh-client-ui-slots',
+    '@deepseek-ai/dsh-host-webserver',
+    '@deepseek-ai/dsh-subprocess',
+    '@deepseek-ai/dsh-system-prompt',
+    '@deepseek-ai/dsh-workspace',
+  ],
 })
