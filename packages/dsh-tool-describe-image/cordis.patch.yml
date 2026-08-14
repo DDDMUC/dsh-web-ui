@@ -7,9 +7,9 @@
 # process and registers the model-facing describe_image tool, the
 # /describe-image/attach upload route, and the "Image understanding"
 # settings section; the browser half (declared by `dsh.client`, served from
-# lib/client.js) mounts the composer image button that feeds the attach
-# route. The settings card itself is rendered by the web GUI's built-in
-# plugin config page from the `describe-image` settings section.
+# lib/client.js) rewrites image-bearing sends into describe-image references
+# at submit time. The settings card itself is rendered by the web GUI's
+# built-in plugin config page from the `describe-image` settings section.
 - insert:
     - id: describe-image
       name: '@linxin666/dsh-tool-describe-image'

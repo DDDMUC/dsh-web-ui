@@ -16,8 +16,7 @@ browser half, live settings, no dsh source changes.
 
 | Capability | Description |
 | --- | --- |
-| Three inputs | Local absolute path, http(s) URL (redirects refused), an `[image attachment …]` JSON note, or the short markdown reference the input-box button pastes (`![图片](/describe-image/raw/sha256:…)` — the model passes the id from the URL; the in-process attach registry resolves it and the store's digest verification still runs) |
-| Composer image button | The browser half adds an image button to the input box: picking a file stores it in the attachment store and splices a `[image attachment …]` note into the draft — the way a text-only model gets an image without the shell's vision pipeline |
+| Three inputs | Local absolute path, http(s) URL (redirects refused), an `[image attachment …]` JSON note, or the short markdown reference a drag/paste produces (`![图片](/describe-image/raw/sha256:…)` — the model passes the id from the URL; the in-process attach registry resolves it and the store's digest verification still runs) |
 | Direct image send | Dragging or pasting an image into a text-only session is rewritten at send time into a describe-image reference (`![图片](/describe-image/raw/sha256:…)`) instead of an image block the model cannot read, so the image renders in the conversation and the model analyzes it through the tool |
 | Custom instructions | The `prompt` argument carries your precise instruction (OCR, chart reading, UI diagnosis, translation…); the `defaultPrompt` config sets the fallback when the model passes none |
 | Live config card | Settings → Plugin config → Web UI Plugins → "Image understanding" card edits `baseURL` / `model` / API key / default instruction / bounds (through the settings seam); effective immediately, no restart |
@@ -85,17 +84,14 @@ text", "extract the table as CSV", "diagnose the UI layout problems", "translate
 Chinese". A targeted instruction beats a generic description; the tool description steers the
 text model toward passing one. Calls without a `prompt` fall back to `defaultPrompt`.
 
-### Sending images from the input box
+### Sending images directly
 
-Text-only models have no image entry in the DSH input box, so the browser half adds an image
-button to the composer dock. Click it, pick a PNG / JPEG / GIF / WebP file, and the plugin:
-
-1. Uploads the bytes to the host `/describe-image/attach` route;
-2. Validates size and magic bytes and persists the image in the attachment store;
-3. Splices the returned `[image attachment …]` note into your draft.
-
-Send the message and the text model sees the note and calls `describe_image` with its exact JSON —
-the image bytes stay in the attachment store, never in the session log.
+Text-only models have no image entry in the DSH input box, so drag or paste an image into the
+composer: at send time the plugin rewrites the image-bearing send into a describe-image reference
+(`![图片](/describe-image/raw/sha256:…)`) instead of an image block the model cannot read — the
+image renders in the conversation and the model analyzes it through the tool. The bytes travel to
+the host `/describe-image/attach` route (validated for size and magic bytes, persisted in the
+attachment store); only the reference text enters the session log.
 
 ## Known limitations
 
