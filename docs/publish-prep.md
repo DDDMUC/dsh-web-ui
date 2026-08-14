@@ -9,7 +9,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 19 个插件包（截至快照日）：
+`packages/` 与 `packages/skins/` 下共 20 个插件包（截至快照日）：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
@@ -32,12 +32,13 @@
 | packages/skins/whale-song | @linxin666/dsh-client-ui-skin-whale-song | 0.1.0 | true |
 | packages/skins/trading | @linxin666/dsh-client-ui-skin-trading | 0.1.2 | true |
 | packages/skins/skin-center | @linxin666/dsh-client-ui-skin-center | 0.1.1 | true |
+| packages/skins/miku | @linxin666/dsh-client-ui-skin-miku | 0.1.12 | true |
 
 ## 二、发布前检查结论（2026-08-11，已修复项标注 [已确认]）
 
 ### [阻断] 阻断项（不修复无法发布/无法被消费）
 
-1. **全部 19 包 `private: true`** — npm 直接拒绝发布 private 包
+1. **全部 20 包 `private: true`** — npm 直接拒绝发布 private 包
    （`This package has been marked as private`）。发布前需逐个移除。
    **（发布前需按流程移除，当前仍保留）**
 2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 7 处、dsh-web-ui-all 9 处）—
@@ -87,7 +88,7 @@ npm 侧已发布 @deepseek-ai 核心 SDK 包至 `0.1.0-rc.6`，插件包仍按�
 ## 四、建议的发布流程（批准后执行）
 
 1. 同步官方版本号节奏（当前为 `0.1.0-rc.6`，与 @deepseek-ai/dsh 对齐）；
-2. 发布前仍需处理：移除 `private: true`（19 包）；
+2. 发布前仍需处理：移除 `private: true`（20 包）；
 3. 按依赖顺序发布（用 **`pnpm publish`**，自动改写 workspace:*）：
    各功能包 > 皮肤包 > dsh-skins > web-ui-all；
 4. 逐包 `pnpm pack --dry-run` 复核 tarball 内容（注意：dry-run 仍会执行

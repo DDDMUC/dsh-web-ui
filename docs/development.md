@@ -1,0 +1,71 @@
+# 开发流程（development）
+
+dsh-web-ui 是 DeepSeek Harness Web GUI 的插件与皮肤 monorepo。本文定义
+贡献者日常流程；仓库规则见根 [AGENTS.md](../AGENTS.md)，包级规则见
+[packages/AGENTS.md](../packages/AGENTS.md)，文档标准见 [AGENTS.md](AGENTS.md)。
+
+## 环境准备
+
+- Node.js >= 22 与 pnpm 11；
+- 依赖解析官方 NPM SDK（registry.npmjs.org）。仍使用私有 scope 认证时需
+  `NPM_TOKEN` 环境变量（真实令牌只放环境变量，勿提交）；token 配置放
+  用户级 `~/.npmrc`，项目 `.npmrc` 只留 scope 映射（见
+[plugins.md](plugins.md)）。
+
+## 日常循环
+
+```sh
+pnpm install
+pnpm -r build          # 全仓构建
+pnpm typecheck        # 全仓类型检查
+pnpm test             # 全仓单测
+pnpm docs:check       # 文档一致性（链接 / README / i18n 配对）
+```
+
+改动提交前至少跑 `pnpm typecheck && pnpm test && pnpm docs:check`；CI 会
+全量跑所有门禁（typecheck / build / test / aggregate / gallery /
+skin-center / docs / emoji）。
+
+## 常见任务
+
+### 新增插件包
+
+```sh
+node scripts/dsh-plugin-new <name>   # 生成 packages/<name>/ 骨架
+```
+
+然后按 [plugins.md](plugins.md) 把包注册进聚合包（aggregate.yml 的
+`patchFrom` 与 `deps`），跑 `node scripts/aggregate.mjs` 重新生成聚合包。
+新包必须自带 README 三件套（`README.md` + `README.zh.md` +
+`README.i18n.yaml`）与测试。
+
+### 新增皮肤
+
+```sh
+node scripts/dsh-skin-new          # 生成 packages/skins/<id>/ 骨架
+pnpm --filter @linxin666/dsh-skins build   # 皮肤资产并入 dsh-skins
+pnpm gallery:build                # 画廊产物
+```
+
+皮肤启用互斥由 `dsh-skin use` 管理（`~/.dsh/cordis.patch.yml` managed
+区段）；皮肤资产全部内置在 dsh-skins 一个包里，不单独发 npm 包。
+
+### 本地验证（挂载进 dsh web）
+
+```sh
+node scripts/link-profile.mjs      # 把全家桶链接进 web profile
+dsh plugin --profile web add link:<仓库绝对路径>/packages/dsh-web-ui-all
+dsh web                            # 重启后侧边栏出现插件入口
+```
+
+## 发布
+
+发布流程见 [publish-prep.md](publish-prep.md) 与 .github/workflows/
+release.yml：推送 vX.Y.Z tag 触发发布，tag 是版本唯一来源，
+`scripts/verify-version.mjs` 在发布前校验每个包版本与 tag 一致。
+
+## 文档纪律
+
+- 任何改动触及 README / AGENTS.md / docs/ 描述的行为时，同 PR 更新文档；
+- 改包 README 任一侧后，同步另一侧并 `pnpm docs:write-pair <包名>`；
+- 一次性记录（任务交接、验证快照）放 `docs/archive/`，不进长期文档目录。

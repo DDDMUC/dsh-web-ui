@@ -58,6 +58,7 @@
 - [ ] 未新增指向 DSH 源码 checkout 的 tsconfig `extends` / `paths` / `references`。
 - [ ] 新增包目录以 `dsh-` 前缀命名（如 `packages/dsh-xxx`）。
 - [ ] 所有新增 / 修改文件不含任何 emoji 字符。
+- [ ] 改动包 README 时同步维护中英双语三件套（`README.md` / `README.zh.md` / `README.i18n.yaml`）并运行 `pnpm docs:check`。
 
 ## 本地验证（Local Validation）
 

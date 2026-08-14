@@ -1,6 +1,6 @@
 # @linxin666/dsh-client-ui-skin-whale-song
 
-English | [中文](README.zh.md)
+[English](README.md) | 中文
 
 鲸吟（Whale Song）是 dsh web GUI 的深海鲸语女神主题，原创画面延续「深海鲸语女神」概念图气质：无文字纯氛围背景画（蓝发女神与鲸群居左、冰蓝星座网格与金色细线点缀、右侧大量留白）垫在半透明面板之下（大面积表面用带透明度的 token，画作透光），遮罩随基础亮/暗主题实时切换，冰蓝 / 浅青 / 深海军蓝 / 钴蓝冷色体系与金色点缀重映射到全部 dsh token。
 

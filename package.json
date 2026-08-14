@@ -14,7 +14,10 @@
     "skin:new": "node scripts/dsh-skin-new",
     "gallery:build": "node scripts/gallery-build",
     "gallery:capture": "node scripts/capture-previews",
-    "deploy:gallery": "node scripts/deploy-gallery"
+    "deploy:gallery": "node scripts/deploy-gallery",
+    "docs:check": "node scripts/verify-docs.mjs",
+    "docs:list": "node scripts/verify-docs.mjs --list",
+    "docs:write-pair": "node scripts/verify-docs.mjs --write"
   },
   "devDependencies": {
     "lightningcss": "^1.32.0",

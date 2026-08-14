@@ -34,7 +34,7 @@ When a project session is open, two panels appear to the right of the chat area 
 - **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and plain text, with source/preview switching, split-screen editing and saving;
 - **Changes (SCM)**: a real git changes panel with stage / unstage / discard;
 - Panel widths are draggable (double-click a handle to reset), and the collapsed state plus widths persist per project;
-- All eight skins adapt the right panel — switching skins restyles the panels to match the theme.
+- All nine skins adapt the right panel — switching skins restyles the panels to match the theme.
 
 ![Right panel](docs/screenshots/19-right-panel.png)
 
@@ -80,7 +80,7 @@ All family plugins' toggles and parameters live under "Settings > Plugin config"
 
 ## Skins
 
-The skin center ships eight skins, each supporting try-on before applying: preview applies instantly and reverts fully on exit; once you are satisfied, apply it with one click.
+The skin center ships nine skins, each supporting try-on before applying: preview applies instantly and reverts fully on exit; once you are satisfied, apply it with one click.
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
@@ -114,7 +114,7 @@ A live-data stock-trading skin: a scrolling ticker tape (A-shares / HK / US / in
 
 ![Trading Terminal light](docs/screenshots/26-skin-trading-light.png) · ![Trading Terminal dark](docs/screenshots/27-skin-trading-dark.png)
 
-Three more: QQ2008 Retro (crystal blue with penguin motifs), Tonghuashun Trading (market elements woven into the interface), and Dragon Heir (cinnabar dragon seal theme).
+Four more: QQ2008 Retro (crystal blue with penguin motifs), Tonghuashun Trading (market elements woven into the interface), Dragon Heir (cinnabar dragon seal theme), and Miku (blue-violet-magenta gradients with frosted glass panels, light and dark themes).
 
 ## Installation
 
@@ -125,12 +125,12 @@ DSH plugins are installed per **profile** with the `dsh plugin` command (`dsh we
 The plugins are published to npm (the `@linxin666` scope) — one command installs everything:
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all@0.1.10
+dsh plugin --profile web add @linxin666/dsh-web-ui-all@0.1.12
 ```
 
 Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins` instead.
 
-> Pinned to the current latest release `0.1.10`. The `0.1.1` build of `dsh-pet` shipped without runtime files (`lib/types/*.js`), and some environments may resolve npm's `latest` from a stale registry cache — pinning the version is the safest install; bump `@0.1.10` to the new version when upgrading.
+> Pinned to the current latest release `0.1.12`. The `0.1.1` build of `dsh-pet` shipped without runtime files (`lib/types/*.js`), and some environments may resolve npm's `latest` from a stale registry cache — pinning the version is the safest install; bump `@0.1.12` to the new version when upgrading.
 
 > First install may stop on `ERR_PNPM_IGNORED_BUILDS` (pnpm blocks dependency build scripts): copy the printed keys (`cloudflared` / `cpu-features` / `ssh2`) into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
 
@@ -187,3 +187,7 @@ Join our Discord server to connect with developers and other users:
 | dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-skins / dsh-web-ui-all / skins | Authored by zhu1090093659 | BSD-3-Clause (zhu1090093659) |
 
 Third-party code merged in must keep its LICENSE and attribution; active third parties with an upstream are forked or referenced as dependencies instead of vendored.
+
+## Star History
+
+[![Star History Chart](https://raw.githubusercontent.com/zhu1090093659/dsh-web-ui/star-history/star-history.svg)](https://www.star-history.com/?repos=zhu1090093659%2Fdsh-web-ui&type=date&legend=top-left)

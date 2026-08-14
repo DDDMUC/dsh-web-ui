@@ -1,5 +1,7 @@
 # DSH Remote Web UI
 
+
+English | [中文](README.zh.md)
 > 移动端远程控制 + 一键远程更新：扫码配对后用手机远程使用当前 dsh web 工作区；
 > 点击侧边栏更新按钮自动检查并更新 dsh-web-ui 全家桶。
 

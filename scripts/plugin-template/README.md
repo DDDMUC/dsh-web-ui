@@ -1,30 +1,36 @@
-# __NAME__ — DSH Web GUI 插件
+# @linxin666/dsh-client-ui-__NAME__
 
-（由 `node scripts/dsh-plugin-new __NAME__` 生成的骨架。完成后把本文件替换为
-真实说明。）
+English | [中文](README.zh.md)
 
-## 安装
+DSH web GUI plugin __NAME__ — scaffolded from scripts/plugin-template. Replace
+this file with the real description once the plugin is implemented.
 
-本仓库是插件 monorepo，`packages/__NAME__` 即插件包。安装到 DSH profile：
+## What it does
 
+<!-- Describe the plugin: which sidebar entry it adds, what it does in the web GUI. -->
+
+## Install
+
+### From npm (recommended)
+
+```sh
+dsh plugin --profile web add @linxin666/dsh-client-ui-__NAME__
 ```
-dsh plugin --profile web add link:<本仓库绝对路径>/packages/__NAME__
+
+### From the repository (development)
+
+```sh
+git clone https://github.com/zhu1090093659/dsh-web-ui.git
+cd dsh-web-ui
+pnpm install
+pnpm -r build
+dsh plugin --profile web add link:$(pwd)/packages/__NAME__
 ```
 
-例如本机：
+## Known limitations
 
-```
-dsh plugin --profile web add link:/Users/zcl/code/dsh-web-ui/packages/__NAME__
-```
+<!-- List known limitations, if any. -->
 
-若已把 `- ../__NAME__` 加入 `packages/dsh-web-ui-all/aggregate.yml`（patchFrom 与
-deps），跑 `node scripts/aggregate.mjs` 后装聚合包
-（`dsh plugin --profile web add link:/Users/zcl/code/dsh-web-ui/packages/dsh-web-ui-all`）
-即可连同本插件一次到位。
+## License
 
-## 结构
-
-- `src/index.ts` — host 半区入口：运行在 DSH host 进程（如 SystemPrompt 声明）。
-- `src/client.ts` — browser 半区入口：运行在 Web GUI（/plugins/ui-__NAME__/client.js）。
-- `cordis.patch.yml` — bundle patch 插件行（id `ui-__NAME__`）。
-- `tsconfig.json` / `tsdown.config.ts` — 构建与类型（paths 为绝对路径，参照 task-board）。
+BSD-3-Clause.

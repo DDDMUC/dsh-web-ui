@@ -1,18 +1,18 @@
-# dsh-aionui-panel — DSH Web GUI 右侧面板系统
+# dsh-aionui-panel — DSH Web GUI right-panel system
 
-> AionUi 右侧面板的像素级复刻（Apache-2.0 授权参考实现，非抄录）：Explorer
-> 项目面板（文件树 / 文件名搜索 / Git 变更）+ Preview 预览面板（10+ 格式多 tab
-> 预览）+ 统一拖拽布局系统，按项目隔离的偏好持久化。
+English | [中文](README.zh.md)
 
-## 安装
+> A pixel-faithful re-implementation of AionUi's right-panel system (Apache-2.0 licensed reference implementation, not a copy): Explorer project panel (file tree / filename search / Git changes) + Preview panel (multi-tab preview of 10+ formats) + a unified draggable layout system, with per-project preference persistence.
 
-推荐直接安装全家桶聚合包 `@linxin666/dsh-web-ui-all`（一个包装齐全部功能插件与皮肤），或单独安装本插件：
+## Install
+
+Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
 
 ```sh
-# 推荐：直接从 npm 安装
+# Recommended: install directly from npm
 dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel
 
-# 或从仓库安装（开发调试）
+# Or from the repository (development loop)
 git clone https://github.com/zhu1090093659/dsh-web-ui.git
 cd dsh-web-ui
 pnpm install && pnpm -r build
@@ -20,73 +20,48 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-aionui-panel
 
 ```
 
-安装后**重启 `dsh web`**，打开项目会话即可看到聊天区右侧的「预览」与「文件/变更」两块面板。
+After installing, **restart `dsh web`** and open a project session to see the "预览" (Preview) and "文件/变更" (Files/Changes) panels to the right of the chat area.
 
-## 使用
+## Usage
 
-项目会话（当前会话有工作目录）打开后，聊天区右侧出现两块面板：
+When a project session (the current session has a working directory) is open, two panels appear to the right of the chat area:
 
-- **Explorer（最右栏，默认 260px，范围 220~500px）**：`文件 / 变更` 双 tab；
-  文件树整行点击展开/收起文件夹，点击文件在预览面板打开，顶部按文件名搜索
-  （150ms 防抖，点击结果 = 定位到树中，不打断思路）；`变更` tab 读取真实
-  git 状态，支持 stage / unstage / discard（untracked 走删除，tracked 走
-  restore，批量放弃有确认）。
-- **拖拽文件到输入框**：文件树中的文件行可拖拽（目录行除外），拖到聊天
-  输入框区域松手即把相对路径（如 `deploy/base/deployment.yaml`）插入当前
-  会话草稿的光标处，agent 收到消息后会自行读取该文件，无需手动输入路径；
-  拖拽过程中输入框上方显示高亮提示条。
-- **Preview（右二栏，默认 480px，范围 340~1200px）**：多 tab 预览，支持
-  markdown / html / code / diff / csv / pdf / word / excel / ppt / 图片 / 文本 /
-  url；源码/预览切换、分屏编辑（比例持久化）、保存（mtime 冲突检测）、下载、
-  刷新（4 态：不渲染死按钮）、dirty 点、中键关闭、右键菜单批量关闭
-  （dirty 确认）、tab 溢出渐变指示器。
+- **Explorer (rightmost column, default 260px, range 220–500px)**: `File / Changes` two tabs; clicking a row in the file tree expands/collapses a folder, clicking a file opens it in the preview panel, and the top filename search (150ms debounce, clicking a result locates it in the tree without interrupting flow); the `Changes` tab reads the real git status and supports stage / unstage / discard (untracked via delete, tracked via restore, bulk discard asks for confirmation).
+- **Drag a file to the input box**: file rows in the tree can be dragged (except directory rows); dropping onto the chat input area inserts the relative path (e.g. `deploy/base/deployment.yaml`) at the cursor of the current draft, and the agent reads the file itself once the message arrives — no need to type the path by hand; a highlighted hint bar shows above the input while dragging.
+- **Preview (second column from right, default 480px, range 340–1200px)**: multi-tab preview supporting markdown / html / code / diff / csv / pdf / word / excel / ppt / image / text / url; source/preview toggle, split-screen editing (ratio persisted), save (mtime conflict detection), download, refresh (4-state: dead buttons are not rendered), dirty dot, middle-click close, right-click menu batch close (dirty confirm), and tab-overflow gradient indicator.
 
-交互细节：
+Interaction details:
 
-- 拖拽左缘把手调宽（rAF 每帧合并，body user-select:none）；双击把手复位默认宽度。
-- 两级宽度钳位（Explorer 先、Preview 后）数学保证聊天区 >= 360px；超限值回写持久化。
-- 折叠 = 宽度缩 0 且组件保持挂载（树展开态 / 预览 tab 不丢），无过渡动画；
-  折叠后右侧出现浮动展开按钮。
-- 明暗双主题跟随 GUI（`body[data-ds-dark-theme]`），prefers-reduced-motion 全局禁用动画。
-- 偏好按项目隔离持久化（localStorage keys 与 AionUi 一致）：
-  `chat-workspace-width-px` / `chat-preview-width-px` / `preview-panel-split-ratio`
-  / `project-panel-collapse:<root>` / `explorer-ui:<root>` / `scm-ui:<root>`
-  / `preview-ui:<root>`（LRU 上限 12 scope）。读取一律范围校验，非法值回退默认。
+- Drag the left edge handle to resize (merged per frame via rAF, body user-select:none); double-click the handle to reset to the default width.
+- Two-level width clamping (Explorer first, Preview second) mathematically guarantees the chat area stays >= 360px; out-of-range values are written back to persistence.
+- Collapse = width shrinks to 0 while the component stays mounted (tree expanded state / preview tabs are not lost), no transition animation; a floating expand button appears on the right after collapsing.
+- Light/dark themes follow the GUI (`body[data-ds-dark-theme]`), and prefers-reduced-motion globally disables animations.
+- Preferences persist per project (localStorage keys matching AionUi): `chat-workspace-width-px` / `chat-preview-width-px` / `preview-panel-split-ratio` / `project-panel-collapse:<root>` / `explorer-ui:<root>` / `scm-ui:<root>` / `preview-ui:<root>` (LRU capped at 12 scopes). Reads are always range-checked; invalid values fall back to defaults.
 
-## 数据源
+## Data sources
 
-真实文件系统与真实 git 仓库，无任何 mock：
+The real filesystem and the real git repository, no mocks:
 
-- host 半区（`src/index.ts` + `src/host/`）经 `/aionui-panel/*` HTTP 路由提供
-  目录列举、文件读取（文本 80k 字符上限 / 图片 data URL）、写入（mtime 冲突
-  检测）、文件名搜索（跳过 .git / node_modules）、git status（porcelain v1 -z）
-  / stage / unstage / discard，以及 SSE 变更流（fs 监听 + git 轮询）。
-- 所有操作经过工作区门卫：路径必须落在已注册 workspace 内（realpath 规范化 +
-  前缀校验），浏览器只能读写项目根下的相对路径。
-- browser 半区（`src/client/`）以当前会话 cwd 作为项目根，切换会话即切换项目。
+- The host half (`src/index.ts` + `src/host/`) serves directory listing, file reads (text capped at 80k chars / image data URLs), writes (mtime conflict detection), filename search (skipping .git / node_modules), git status (porcelain v1 -z) / stage / unstage / discard, and an SSE change stream (fs watching + git polling) over the `/aionui-panel/*` HTTP routes.
+- All operations pass through a workspace guard: paths must fall inside a registered workspace (realpath normalization + prefix check); the browser can only read/write relative paths under the project root.
+- The browser half (`src/client/`) treats the current session cwd as the project root; switching sessions switches projects.
 
-## 结构
+## Structure
 
-- `src/index.ts` — host 半区入口（cordis 插件：路由注册 + systemPrompt 公告）。
-- `src/host/` — fs/git 数据服务与路由层（workspace gate）。
-- `src/core/types.ts` — 前后半区共享的线上类型。
-- `src/client/` — browser 半区：框架无关状态核心（`store.ts`）、拖拽引擎
-  （`drag.ts` + `hooks/useResizableSplit.ts`）、DOM 布局控制器（`layout.ts`，
-  向 shell 的三栏 grid 追加面板轨道）、React 组件（explorer / scm / preview）。
-- `tests/` — clamp 公式、porcelain 解析、持久化校验、markdown/csv 渲染、
-  store 行为等纯逻辑测试（vitest，37 个）。
+- `src/index.ts` — host half entry (cordis plugin: route registration + systemPrompt announcement).
+- `src/host/` — fs/git data services and the route layer (workspace gate).
+- `src/core/types.ts` — shared wire types across both halves.
+- `src/client/` — browser half: framework-agnostic state core (`store.ts`), drag engine (`drag.ts` + `hooks/useResizableSplit.ts`), DOM layout controller (`layout.ts`, appending panel tracks to the shell's three-column grid), React components (explorer / scm / preview).
+- `tests/` — pure-logic tests for the clamp formula, porcelain parsing, persistence validation, markdown/csv rendering, store behavior, etc. (vitest, 37 tests).
 
-## 构建
+## Build
 
 ```sh
-export NPM_TOKEN='<token>'   # 若仍使用私有 scope 认证
+export NPM_TOKEN='<token>'   # only if private scope auth is still required
 pnpm install
 pnpm -r build
 ```
 
-## 署名
+## Attribution
 
-本项目是 AionUi（iOfficeAI/AionUi，Apache-2.0）右侧面板系统的复刻实现：
-尺寸、颜色、动效、交互参数来自对 v2.1.53 的实测调研（研究报告与截图见
-aionui-research 仓库），实现为全新代码，未大段抄录源码。上游版权归 AionUi
-项目所有，本项目仅按 Apache-2.0 约定保留署名。
+This project is a re-implementation of the AionUi (iOfficeAI/AionUi, Apache-2.0) right-panel system: sizes, colors, motions and interaction parameters come from measured research against v2.1.53 (research report and screenshots live in the aionui-research repository), the implementation is entirely new code and does not copy the source in bulk. Upstream copyright belongs to the AionUi project; this project preserves attribution under the Apache-2.0 convention.

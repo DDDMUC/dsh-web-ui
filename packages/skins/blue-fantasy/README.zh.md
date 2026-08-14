@@ -1,6 +1,6 @@
 # @linxin666/dsh-client-ui-skin-blue-fantasy
 
-English | [中文](README.zh.md)
+[English](README.md) | 中文
 
 蓝色幻想是 DreamSkin 社区「DeepSeek-鲸鱼娘」Codex 桌面主题（MIT，作者 powerdog996）在 dsh web GUI 上的移植：鲸鱼插画背景垫在半透明面板之下（大面积表面用带透明度的 token，画作透光），遮罩随基础亮/暗主题实时切换，periwinkle 靛蓝调色板重映射到全部 dsh token。
 

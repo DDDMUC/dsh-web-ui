@@ -1,85 +1,86 @@
-# dsh-client-ui-skin-miku · 初音未来主题皮肤
+# dsh-client-ui-skin-miku · Hatsune Miku theme skin
 
-为 DeepSeek Harness（DSH）Web GUI 打造的初音未来（Hatsune Miku）主题皮肤。
+English | [中文](README.zh.md)
 
-- **配色**：蓝紫洋红渐变（#2e9bff → #9b5dff → #ff4da6）贯穿标题栏与按钮
-- **毛玻璃**：半透明面板、侧边栏、输入框、设置弹窗，背景透出
-- **自定义背景图**：内置示例背景，可替换为你自己的初音图片
-- **亮/暗双主题**：亮色为蓝粉晴空，暗色为霓虹蓝紫夜
-- **电子歌姬元素**：顶部 01 编号徽标、音符图标、状态栏音乐波形
+A Hatsune Miku (初音未来) theme skin for the DeepSeek Harness (DSH) Web GUI.
 
-![亮色](preview/light.png) · ![暗色](preview/dark.png)
+- **Palette**: a blue-violet-magenta gradient (#2e9bff → #9b5dff → #ff4da6) across the title bar and buttons
+- **Frosted glass**: translucent panels, sidebar, input field, settings dialog; the background shows through
+- **Custom backdrop**: a built-in sample background that you can replace with your own Miku image
+- **Light/dark dual themes**: light is a blue-pink clear sky, dark is a neon blue-violet night
+- **Electronic idol elements**: the 01 number badge at the top, a music-note icon, and a music waveform in the status bar
 
-## 特性
+![Light](preview/light.png) · ![Dark](preview/dark.png)
 
-- 纯呈现层：不注入服务、不发事件、不触模型请求
-- `apply()` 只写自己会收回的东西，disposer 完整回收（body 属性、注入元素、favicon、标题）
-- 样式全部挂在 `body[data-dsh-miku]` 下（暗色变体 `[data-ds-dark-theme]`）
-- 无静态资源文件：背景图以 data URI 内嵌
+## Features
 
-## 环境要求
+- Pure presentation layer: no services injected, no events emitted, no model requests touched
+- `apply()` only writes what it withdraws; the disposer fully recovers (body attribute, injected elements, favicon, title)
+- All styles hang under `body[data-dsh-miku]` (dark variant `[data-ds-dark-theme]`)
+- No static asset files: the background is embedded as a data URI
+
+## Requirements
 
 - Node.js ≥ 20
 - pnpm ≥ 9
-- 已运行 `dsh web` 的 DSH 环境（默认 `http://127.0.0.1:3080`）
+- A DSH environment running `dsh web` (default `http://127.0.0.1:3080`)
 
-## 构建与测试
-
-```bash
-pnpm install     # 安装依赖（自动执行 prepare 构建）
-pnpm build       # 构建 lib/index.js + lib/client.js
-pnpm test        # apply/dispose 契约测试
-```
-
-构建产物 `lib/` 已随仓库提交，克隆后即使跳过构建也可安装；但建议完整构建一次。
-
-## 安装到 DSH
+## Build and test
 
 ```bash
-dsh plugin --profile web add "link:<本仓库绝对路径>"
+pnpm install     # install dependencies (runs the prepare build automatically)
+pnpm build       # builds lib/index.js + lib/client.js
+pnpm test        # apply/dispose contract test
 ```
 
-- 路径含空格（Windows）：`dsh plugin add` 会把含空格的参数拆断，请改用：
+The built `lib/` is committed with the repo, so you can install even after cloning without building; a full build is still recommended.
+
+## Install into DSH
+
+```bash
+dsh plugin --profile web add "link:<absolute path to this repo>"
+```
+
+- Spaces in the path (Windows): `dsh plugin add` breaks arguments containing spaces; use this instead:
 
   ```bash
   cd ~/.dsh/profiles/web
-  pnpm add "link:<本仓库绝对路径>"
+  pnpm add "link:<absolute path to this repo>"
   ```
 
-  然后把 `@linxin666/dsh-client-ui-skin-miku` 追加到
-  `~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 数组。
+  Then append `@linxin666/dsh-client-ui-skin-miku` to the `dsh.profile.bundles` array in `~/.dsh/profiles/web/package.json`.
 
-- 安装后重启 `dsh web`，强制刷新页面（Ctrl+Shift+R）。
+- After installing, restart `dsh web` and hard-refresh the page (Ctrl+Shift+R).
 
-## 切换皮肤
+## Switch skins
 
-皮肤启用互斥，通过 `scripts/dsh-skin` 管理（写入 `~/.dsh/cordis.patch.yml` 的 managed 区段 + profile 链接）：
-
-```bash
-dsh-skin use miku       # 启用本皮肤
-dsh-skin use official   # 恢复官方默认外观
-dsh-skin list           # 查看皮肤与当前激活项
-```
-
-切换后 config watcher 会在几秒内热重载，刷新页面即可生效。
-
-## 自定义背景图
-
-背景图在 `src/client/art.ts` 的 `MIKU_ART` 常量中（data URI）。
-
-替换方式：把你喜欢的图片放到本仓库（例如 `bg.png`），然后执行：
+Skin activation is mutually exclusive and managed via `scripts/dsh-skin` (writes into the managed section of `~/.dsh/cordis.patch.yml` + the profile symlink):
 
 ```bash
-node scripts/embed-bg.mjs  # 将 bg.png 转成 WebP 并写入 art.ts（如无此脚本请手动转 base64）
+dsh-skin use miku       # activate this skin
+dsh-skin use official   # restore the official default look
+dsh-skin list           # list skins and the currently active one
 ```
 
-或用任意工具把图片转成 base64 后替换 `MIKU_ART` 的值：
+After switching, the config watcher hot-reloads within seconds; refresh the page to apply.
+
+## Custom backdrop
+
+The background lives in the `MIKU_ART` constant of `src/client/art.ts` (a data URI).
+
+To replace it, drop an image you like into this repo (e.g. `bg.png`), then run:
+
+```bash
+node scripts/embed-bg.mjs  # converts bg.png to WebP and writes it into art.ts (if the script is absent, convert to base64 manually)
+```
+
+Or convert the image to base64 with any tool and replace the `MIKU_ART` value:
 
 ```ts
 export const MIKU_ART = 'data:image/webp;base64,<...>'
 ```
 
-重新构建后刷新页面即可。
+Rebuild and refresh the page.
 
 ## License
 

@@ -1,5 +1,7 @@
 # @linxin666/dsh-client-ui-skin-dragon-heir
 
+
+English | [中文](README.zh.md)
 龙的传人 (Dragon Heir) skin for the dsh web GUI — one skin, two paintings:
 light theme rides 不屈龙魂 (Unyielding Dragon Soul — an ink dragon, vermilion
 朱砂 seal), dark theme rides 万里长城 (The Great Wall — ink-blue mountains at

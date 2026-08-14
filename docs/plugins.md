@@ -21,7 +21,10 @@ packages/<name>/
 │   └── client.ts      # browser 半区（Web GUI 侧）
 ├── tsconfig.json
 ├── tsdown.config.ts
-└── README.md
+├── README.md          # 英文版（含 H1 后语言切换行）
+├── README.zh.md       # 中文版（结构与英文镜像）
+├── README.i18n.yaml   # 配对一致性记录（docs/i18n.md）
+└── AGENTS.md          # 包级 AI 指令（可选，复杂包建议写）
 ```
 
 ### 2. 实现插件逻辑

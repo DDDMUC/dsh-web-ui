@@ -1,5 +1,7 @@
 # @linxin666/dsh-client-ui-skin-minecraft
 
+
+English | [中文](README.zh.md)
 A voxel take on the dsh web GUI, styled after the Minecraft main menu: a
 procedurally drawn pixel-art panorama skybox (blocky hills, pixel clouds,
 block trees, grass blocks) drifts slowly behind the app inside a CSS 3-D

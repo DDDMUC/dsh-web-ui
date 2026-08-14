@@ -1,145 +1,106 @@
-# Skin Center（GUI 内嵌皮肤中心）
+# Skin Center (in-GUI embedded skin center)
 
-`@linxin666/dsh-client-ui-skin-center`（cordis 插件 id `ui-skin-center`）把皮肤列表/试穿/应用
-内嵌进真实 dsh Web GUI 的插件配置页，作为「Web UI 插件」组里的一张卡片
-（设置 → 插件配置 → Web UI 插件 → 皮肤中心），与 task-board / pet / live-stats 等
-全家桶插件同一套槽位（`web-ui.plugin.item`），不占设置页一级导航。
+English | [中文](README.zh.md)
 
-- 列表：展示「官方默认」+ 仓库里全部皮肤（qq98 / ths / xp / blue-fantasy / dragon-heir /
-  minecraft）的名称、tagline、强调色；当前激活的目标带 Active 标记。
-- 试穿：点击「Try on」后按需加载该皮肤的 client bundle——host 路由
-  `/api/skin-center/bundle/<id>` 以同源 script 提供 `lib/client.js`（内核加载插件的同一机制），
-  factory 注册到页面自己的 `window.__ModuleLoader__`，`window.__DSH_MODULES__.import` 物化
-  （不是模拟器、不用 eval），chrome 立即生效；
-  亮/暗切换走官方 theme 服务；「Exit try-on」完全还原——当前皮肤的样式、DOM、favicon、
-  标题、body 内联样式全部恢复。「官方默认」也可试穿：点一下皮肤立即收回、回到官方外观预览。
-- 互斥：试穿期间会按配方暂时收回当前激活皮肤的视觉写面（body 属性、背景内联样式、
-  chrome 子节点、xp 的 footer taskbar），退出后原样恢复；同一时刻页面上只有一套皮肤。
-- 应用：host 半区（`src/index.ts` + `src/routes.ts`）暴露 `/api/skin-center/apply` 与
-  `/api/skin-center/bundle/<id>`（按需提供皮肤 bundle），
-  点击「Apply / 恢复默认」即在服务端执行 `dsh-skin use <name>`（或 `use official`），
-  写入 `~/.dsh/cordis.patch.yml` 后由 DSH 配置 watcher 秒级热载入，页面自动刷新生效——
-  **无需重启 dsh web，无需复制命令**。应用失败时错误提示里附带终端兜底命令。
-  host 依赖 `dsh-skin` CLI 在 PATH（`~/.local/bin/dsh-skin`，仓库 `scripts/dsh-skin`）。
-  Windows 兼容性：`dsh-skin` 的 harness home 取 `$DSH_HOME`（缺省 `~/.dsh`），仓库根目录从
-  脚本自身位置推导（可用 `DSH_SKIN_REPO` 覆盖），不依赖 `$HOME` 与固定路径；Windows 用户
-  自建 `dsh-skin.cmd` 包装（内容 `node scripts/dsh-skin %*`）放入 PATH 目录即可。host 端在
-  Windows 上经 shell 调用该命令——`execFile` 无法直接启动裸名 `.cmd`。
+`@linxin666/dsh-client-ui-skin-center` (cordis plugin id `ui-skin-center`) embeds the skin list / try-on / apply into the plugin configuration page of the real dsh Web GUI, as a card in the "Web UI plugins" group (settings → plugin config → Web UI plugins → 皮肤中心 / Skin Center), sharing the same slot (`web-ui.plugin.item`) as the family plugins such as task-board / pet / live-stats, without taking a top-level settings nav item.
 
-## 安装（官方 plugin bundle 方式）
+- List: shows "官方默认" (official default) plus every skin in the repo (qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft) with its name, tagline, and accent color; the currently active target carries the Active marker.
+- Try-on: clicking "Try on" loads that skin's client bundle on demand — the host route `/api/skin-center/bundle/<id>` serves `lib/client.js` as a same-origin script (the same mechanism the core uses to load plugins), the factory registers with the page's own `window.__ModuleLoader__`, and `window.__DSH_MODULES__.import` materializes it (a real loader, not a simulator and no eval); the chrome takes effect immediately; light/dark switching rides the official theme service; "Exit try-on" restores everything — the current skin's styles, DOM, favicon, title, and body inline styles are all restored. "官方默认" (official default) can also be tried on: one click immediately withdraws the skin and returns to the official look preview.
+- Mutual exclusion: during try-on, the active skin's visual writes (body attribute, background inline styles, chrome child nodes, xp's footer taskbar) are temporarily withdrawn per the prescription, and restored verbatim on exit; only one skin is on the page at a time.
+- Apply: the host half (`src/index.ts` + `src/routes.ts`) exposes `/api/skin-center/apply` and `/api/skin-center/bundle/<id>` (serves skin bundles on demand); clicking "Apply / 恢复默认" (Apply / Restore default) runs `dsh-skin use <name>` (or `use official`) server-side, writes `~/.dsh/cordis.patch.yml`, and the DSH config watcher hot-loads it within seconds and the page auto-refreshes — **no dsh web restart, no copying a command**. On failure the error message includes a terminal fallback command. The host depends on the `dsh-skin` CLI being on PATH (`~/.local/bin/dsh-skin`, repo `scripts/dsh-skin`). Windows compatibility: `dsh-skin` takes harness home from `$DSH_HOME` (default `~/.dsh`), derives the repo root from the script's own location (overridable with `DSH_SKIN_REPO`), no `$HOME` or fixed paths; Windows users can create a `dsh-skin.cmd` wrapper (content `node scripts/dsh-skin %*`) on a PATH directory. On Windows the host invokes it through the shell — `execFile` cannot launch a bare-name `.cmd`.
 
-推荐先装皮肤全家桶聚合包 `@linxin666/dsh-skins` 一次到位（含全部皮肤与皮肤中心）；
-只装本包时用下列 link 命令。
+## Install (official plugin bundle)
+
+Install the family skin aggregate package `@linxin666/dsh-skins` first (all skins plus the skin center in one); for this package alone use the `link:` commands below.
 
 ```sh
-# 装全部皮肤（推荐）
+# All skins (recommended)
 dsh plugin --profile web add @linxin666/dsh-skins
-# 或单独装皮肤中心
+# Or just the skin center
 dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center
-# 从仓库安装（开发调试）：dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
+# From the repo (dev): dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
 ```
 
-`$(pwd)` 指克隆全家桶仓库后的目录。
+`$(pwd)` is your clone of the dsh-web-ui monorepo.
 
-skin-center 是符合 DSH 官方插件标准的自包含 bundle（`dsh.bundle.patch` 指向
-`cordis.patch.yml`、`prepare` 用专用 tsdown 配置自包含构建，无项目引用、无类型检查），
-也可经 git 安装：`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`
-（`prepare` 会原地构建 `lib/`）。
+skin-center is a self-contained bundle meeting the official DSH plugin standard (`dsh.bundle.patch` points to `cordis.patch.yml`; `prepare` uses a dedicated tsdown config for a self-contained build with no project references or type checking); it can also be installed via git: `dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>` (the `prepare` script builds `lib/` in place).
 
-本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：
-`pnpm install && pnpm -r build` 后再 link 安装。
+A local `link:` install needs built artifacts first — `lib/` is git-ignored and not committed, so run `pnpm install && pnpm -r build` in the monorepo before linking.
 
-pnpm ≥10 安装 git 依赖前需先授权 `allowBuilds`（`prepare` 会原地构建），本地 link 安装则无此要求。
+pnpm ≥10 requires authorizing `allowBuilds` before installing a git dependency (the `prepare` script builds in place); a local `link:` install has no such requirement.
 
-需要皮肤插件们（qq98 / ths / xp / blue-fantasy）在宿主里也可解析时，skin-center 才能
-完整列出 / 试穿全部皮肤；skin-center 本身无互斥要求。
+The skin plugins (qq98 / ths / xp / blue-fantasy) must resolve in the host for skin-center to list / try on the full set; skin-center itself has no mutual-exclusion requirement.
 
-## 目录结构
+## Directory structure
 
 ```
 skins/skin-center/
-  package.json / tsdown.config.ts / tsconfig.json   # checkout 内构建所需的元数据
-  src/index.ts                                       # host 侧：注册 /api/skin-center/* 路由
-  src/routes.ts                                      # host 路由（代理 dsh-skin CLI）
-  src/invariant.ts                                   # invariant 伴随插件（无断言）
-  src/client/index.ts                                # apply：注册 Web UI 插件组卡片 + body 作用域
-  src/client/SkinCenter.tsx                          # 卡片组件（官方默认 + 列表/试穿/亮暗/一键应用）
-  src/client/try-on.ts                               # 试穿引擎（真实 loader + 互斥还原，含官方试穿）
-  src/client/locales.ts                              # en/zh 文案
-  src/client/skin-center.module.css                  # 面板样式（--dsw-* token，随皮肤自适应）
-  src/client/generated/skins.ts                      # 生成：皮肤注册表（仅元数据，勿手改）
+  package.json / tsdown.config.ts / tsconfig.json   # metadata for building within the checkout
+  src/index.ts                                       # host side: registers /api/skin-center/* routes
+  src/routes.ts                                      # host routes (proxy to the dsh-skin CLI)
+  src/invariant.ts                                   # invariant companion plugin (no assertions)
+  src/client/index.ts                                # apply: registers the Web UI plugin-group card + body scope
+  src/client/SkinCenter.tsx                          # card component (official default + list/try-on/light-dark/one-click apply)
+  src/client/try-on.ts                               # try-on engine (real loader + mutual-exclusion restore, incl. official try-on)
+  src/client/locales.ts                              # en/zh copy
+  src/client/skin-center.module.css                  # panel styles (--dsw-* tokens, adapting to the skin)
+  src/client/generated/skins.ts                      # generated: skin registry (metadata only, do not hand-edit)
 ```
 
-## 机制要点
+## Mechanism notes
 
-- 皮肤枚举：`generated/skins.ts` 由 `scripts/skin-center-bundles` 生成（读
-  `skins/<name>/skin.json`，校验 `lib/client.js` 存在）。**只含元数据，不内嵌 bundle 文本**：
-  冷启动不解析 ~700KB 的 base64 美术资源，且生成文件跨机器可复现（无构建机绝对路径）。
-- 试穿加载：host 路由 `/api/skin-center/bundle/<id>` 按需提供 `lib/client.js`
-  （同源 script，`<script>` 标签加载——与内核 `defaultLoadBundle` 同一机制），bundle 体调用
-  `window.__ModuleLoader__.load` 只注册 factory；`window.__DSH_MODULES__.import(package)`
-  物化模块（CSS `<style data-plugin>` 自动注入）；`surface.apply(miniCtx)` 挂载，
-  miniCtx 只实现 `effect(cb)`（皮肤唯一依赖）。不依赖 eval，因此不要求 CSP 放行
-  `unsafe-eval`——只要求同源 script 可加载（页面自身加载插件 bundle 亦然）。
-- 失败语义：bundle 路由 404（皮肤未安装 / `lib/client.js` 未构建）或网络失败时，
-  script 的 error 事件触发，试穿报通用错误并完整还原激活皮肤；加载与还原之间不会留下半套
-  皮肤（tryOn 的 catch 分支负责恢复）。
-- 退出还原：先跑皮肤的 disposer（属性/chrome/favicon/标题/背景全撤回），再
-  `invalidate(package)` + 删 style 标签，最后把激活皮肤的视觉快照原样恢复。
-  官方默认试穿 = 同一套收回配方但不挂载任何皮肤，退出同样原样恢复。
-- 激活皮肤检测：`window.__DSH_BOOT__.entries` 只含启用条目，与注册表 package 比对；
-  无匹配即官方默认。
-- 一键应用：host `/api/skin-center/apply` 代理 `dsh-skin use <name>` / `use official`
-  （CLI 是 managed 区段与 symlink 的唯一权威）。DSH 长驻表面自带配置 watcher
-  （`watchUserPatches` + config-only HMR），patch 写入后数秒热载入、无需重启；
-  浏览器刷新页面取新 boot 图即生效（client 插件图行增删不在 `dsh-client-hmr` 语义内）。
+- Skin enumeration: `generated/skins.ts` is produced by `scripts/skin-center-bundles` (reads `skins/<name>/skin.json`, validates that `lib/client.js` exists). **It contains metadata only, no embedded bundle text**: cold start does not parse the ~700KB base64 art assets, and the generated file is reproducible across machines (no build-machine absolute paths).
+- Try-on loading: the host route `/api/skin-center/bundle/<id>` serves `lib/client.js` on demand (same-origin script, loaded via a `<script>` tag — the same mechanism as the core's `defaultLoadBundle`); the bundle body calls `window.__ModuleLoader__.load` to only register a factory; `window.__DSH_MODULES__.import(package)` materializes the module (CSS `<style data-plugin>` auto-injected); `surface.apply(miniCtx)` mounts with a miniCtx that only implements `effect(cb)` (the skin's only dependency). It does not rely on eval, so no CSP `unsafe-eval` pass is required — only same-origin script loading (as the page itself does when loading its plugin bundles).
+- Failure semantics: when the bundle route 404s (skin not installed / `lib/client.js` not built) or the network fails, the script's error event fires, try-on reports a generic error and fully restores the active skin; no half skin is left between loading and restoring (the tryOn catch branch handles recovery).
+- Exit restore: first run the skin's disposer (withdraws attribute/chrome/favicon/title/background entirely), then `invalidate(package)` + remove the style tag, then restore the active skin's visual snapshot verbatim. Official-default try-on = the same withdrawal prescription but without mounting any skin; exit restores identically.
+- Active-skin detection: `window.__DSH_BOOT__.entries` only contains enabled entries, compared against the registry packages; no match means official default.
+- One-click apply: host `/api/skin-center/apply` proxies `dsh-skin use <name>` / `use official` (the CLI is the sole authority for the managed section and the symlink). The DSH daemon surface ships its own config watcher (`watchUserPatches` + config-only HMR); after the patch is written it hot-loads in seconds without a restart; a browser refresh picks up the new boot graph (client plugin-graph row changes are not within `dsh-client-hmr` semantics).
 
-## 构建（仓库内 tsdown，无需 DSH checkout）
+## Build (in-repo tsdown, no DSH checkout)
 
-皮肤中心与皮肤一样，用仓库内共享 tsdown 预设构建（`shared/tsdown.client.ts`
-处理 CSS Modules 注入与平台外部化；类型来自官方 NPM SDK devDependencies）：
+Like the skins, the skin center builds with the in-repo shared tsdown preset (`shared/tsdown.client.ts` handles CSS-Module injection and platform externalization; types come from the official NPM SDK devDependencies):
 
 ```sh
-# 1. 重新生成注册表（皮肤元数据变化后重跑；bundle 文本按需走 host 路由，无需重生成）
+# 1. Regenerate the registry (re-run after skin metadata changes; bundle text rides the host route on demand, no regen needed)
 node scripts/skin-center-bundles
-#    皮肤 bundle 自身变化只需重建对应皮肤（tsdown），GUI 下次试穿即取到新文本
+#    A skin bundle change itself only needs that skin rebuilt (tsdown); the GUI picks up the new text on the next try-on
 
-# 2. 在仓库内构建
-cd ~/code/dsh-web-ui && export NPM_TOKEN='<token>'   # 若仍使用私有 scope 认证
+# 2. Build in the repo
+cd ~/code/dsh-web-ui && export NPM_TOKEN='<token>'   # if private-scope auth is still required
 pnpm --filter @linxin666/dsh-client-ui-skin-center run bundle
 ```
 
-## 安装（个人环境接线，不在 checkout 提交）
+## Install (personal environment wiring, not committed to the checkout)
 
 ```sh
-# 1. profile symlink（与 qq98/blue-fantasy 同款）
+# 1. profile symlink (same as qq98/blue-fantasy)
 ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
   ~/.dsh/profiles/node_modules/@linxin666/dsh-client-ui-skin-center
 
-# 2. ~/.dsh/cordis.patch.yml 增加（放在 dsh-skin managed 段之外，勿动该段）：
+# 2. add to ~/.dsh/cordis.patch.yml (outside the dsh-skin managed section, do not touch that section):
 #   - insert:
 #       - id: ui-skin-center
 #         name: '@linxin666/dsh-client-ui-skin-center'
 
-# 3. 配置 watcher 秒级热载入；刷新页面即在 插件配置 → Web UI 插件 组里看到皮肤中心卡片
+# 3. the config watcher hot-loads in seconds; refresh the page to see the skin-center card in 插件配置 → Web UI 插件
 ```
 
-## 试穿互斥的还原配方（try-on.ts）
+## Try-on mutual-exclusion restore prescription (try-on.ts)
 
-| 皮肤 | body 属性 | 额外处理 |
+| Skin | body attribute | extra handling |
 | --- | --- | --- |
-| 全部 | 收回 `bodyAttr`（CSS 失活） | 快照/清空 body 背景内联样式（blue-fantasy 鲸鱼背景）；摘除 body 直接子节点中非 `#root` 的 chrome（实测仅皮肤 chrome）；中性化观察器防幽灵写回 |
-| xp | 同上 | 额外注入 neutralizer CSS 隐藏 sidebar footer 的 taskbar/开始按钮（其规则未按属性作用域） |
+| All | withdraw `bodyAttr` (CSS deactivated) | snapshot/clear the body background inline style (blue-fantasy whale background); remove chrome among the body's direct child nodes that are not `#root` (measured: only skin chrome); neutralize observers to prevent ghost write-backs |
+| xp | same | additionally inject neutralizer CSS to hide the sidebar footer's taskbar/start button (its rules are not scoped by attribute) |
 
-退出试穿 = 试穿皮肤 disposer（真实代码路径）→ 模块 invalidate + 样式清理 → 激活皮肤快照原样恢复。
+Exit try-on = try-on skin disposer (real code path) → module invalidate + style cleanup → restore the active skin snapshot verbatim.
 
-## 验收对照（README 顶层契约）
+## Acceptance checklist (top-level README contract)
 
-- [x] 插件配置 → Web UI 插件 组里出现皮肤中心卡片，无 console 报错
-- [x] 列表含官方默认 + 全部皮肤，当前激活有标记
-- [x] 试穿真实生效（chrome/背景/标题/favicon），亮/暗正确；官方默认可试穿
-- [x] 退出完全还原；互斥（不出现两套标题栏）
-- [x] 一键应用：host API 执行 `dsh-skin use`，watcher 热载入，页面自动刷新生效（无重启）；失败附命令兜底
-- [x] 回归：dsh-skin CLI（含 `use official`）、网页 Gallery、官方 GUI 不受影响
-- [x] 按需加载：冷启动不解析 ~700KB 内嵌 base64（`generated/skins.ts` 仅 5KB 元数据），试穿按需取 bundle；无 eval（CSP 无需 `unsafe-eval`）
-- [x] e2e 截图见 `docs/e2e/skin-center/`
+- [x] The skin-center card appears in 插件配置 → Web UI 插件 without console errors
+- [x] The list contains the official default plus all skins; the currently active one is marked
+- [x] Try-on really takes effect (chrome/background/title/favicon); light/dark correct; the official default can be tried on
+- [x] Exit fully restores; mutual exclusion (no two title bars)
+- [x] One-click apply: the host API runs `dsh-skin use`, the watcher hot-loads, the page auto-refreshes (no restart); failure carries a command fallback
+- [x] Regression: the dsh-skin CLI (incl. `use official`), the web gallery, and the official GUI are unaffected
+- [x] On-demand loading: cold start does not parse the ~700KB embedded base64 (`generated/skins.ts` is only ~5KB of metadata); try-on fetches the bundle on demand; no eval (CSP needs no `unsafe-eval`)
+- [x] e2e screenshots live in `docs/e2e/skin-center/`

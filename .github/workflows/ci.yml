@@ -105,3 +105,6 @@ jobs:
               sys.exit(1)
           print('emoji rule passed')
           PY
+
+      - name: Documentation consistency
+        run: pnpm docs:check
