@@ -181,6 +181,12 @@ dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘�
 
 技术细节见 [docs/plugins.md](docs/plugins.md)。
 
+## 社区
+
+欢迎加入**中心社区**，与开发者和其他用户一起交流使用心得、反馈问题、参与讨论。微信扫码即可加入：
+
+![中心社区](docs/community-center.jpg)
+
 ## 来源与版权
 
 | 包 | 来源 | 版权 |

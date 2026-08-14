@@ -174,6 +174,12 @@ Uninstall: `dsh plugin --profile web remove @linxin666/dsh-web-ui-all`, then res
 
 Technical details live in [docs/plugins.md](docs/plugins.md).
 
+## Community
+
+Join our Discord server to connect with developers and other users:
+
+[Join the dsh-web-ui community on Discord](https://discord.gg/6v4gm9u4S)
+
 ## Sources & Licensing
 
 | Package | Origin | License |
