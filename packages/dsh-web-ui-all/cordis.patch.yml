@@ -7,6 +7,11 @@
     - id: ui-web-ui-compat
       name: '@linxin666/dsh-web-ui-all'
 
+# from ../dsh-web-ui-settings
+- insert:
+    - id: ui-web-ui-settings
+      name: '@linxin666/dsh-client-ui-web-ui-settings'
+
 # from ../dsh-aionui-panel
 - insert:
     - id: ui-dsh-aionui-panel
@@ -41,11 +46,6 @@
 - insert:
     - id: ssh
       name: '@linxin666/dsh-ssh'
-
-# from ../dsh-web-ui-settings
-- insert:
-    - id: ui-web-ui-settings
-      name: '@linxin666/dsh-client-ui-web-ui-settings'
 
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:
