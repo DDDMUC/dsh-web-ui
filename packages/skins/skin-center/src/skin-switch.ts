@@ -17,9 +17,9 @@
  * @module @linxin666/dsh-client-ui-skin-center/skin-switch
  */
 
-import { readdirSync, readFileSync, readlinkSync, lstatSync, mkdirSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, renameSync, realpathSync } from 'node:fs'
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmdirSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, join as joinPath, resolve as resolvePath } from 'node:path'
+import { basename, dirname, join as joinPath, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -91,6 +91,14 @@ export const SKINS_DIR = resolveSkinsDir()
 export const MANAGED_START = '# --- dsh-skin managed (auto-generated; do not edit) ---'
 export const MANAGED_END = '# --- end dsh-skin managed ---'
 
+/** Legal npm package name (scoped or unscoped). skin.json `package` is joined
+ * into profile node_modules paths and rendered into YAML, so it must never
+ * carry path separators, quotes, newlines, or leading dots. */
+const NPM_PACKAGE_NAME_RE = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/
+
+/** Legal cordis loader entry id for a skin insert row. */
+const WIRING_ID_RE = /^ui-skin-[a-z0-9-]+$/
+
 /** One skin's switch metadata, derived from its packages/skins/<id>/skin.json. */
 export interface SkinSwitchEntry {
   /** Cordis plugin package (the boot-graph entry id when active). */
@@ -115,10 +123,10 @@ function readSkinMeta(absDir: string): { id: string; package: string; wiring: { 
     if (typeof meta !== 'object' || meta === null) return null
     const record = meta as Record<string, unknown>
     if (typeof record.id !== 'string' || !/^[a-z0-9-]+$/.test(record.id)) return null
-    if (typeof record.package !== 'string') return null
+    if (typeof record.package !== 'string' || !NPM_PACKAGE_NAME_RE.test(record.package)) return null
     const wiring = record.wiring
     const wiringRecord = (typeof wiring === 'object' && wiring !== null) ? (wiring as Record<string, unknown>) : null
-    if (wiringRecord === null || typeof wiringRecord.id !== 'string') return null
+    if (wiringRecord === null || typeof wiringRecord.id !== 'string' || !WIRING_ID_RE.test(wiringRecord.id)) return null
     return {
       id: record.id,
       package: record.package,
@@ -281,6 +289,13 @@ export function stripManaged(patch: string): string {
   return patch.slice(0, start) + patch.slice(end + MANAGED_END.length)
 }
 
+/** YAML single-quoted scalar: a literal single quote doubles. `wiring.id` is
+ * already validated before it ever reaches a registry, so only `package`
+ * needs escaping here. */
+function yamlSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
 /**
  * Render the managed section for a target skin (null = official stock look:
  * every skin disabled, no insert row). A wired active skin also needs no
@@ -296,7 +311,7 @@ export function renderManaged(active: string | null, registry: Record<string, Sk
     lines.push(`- id: ${registry[name].id}`, '  disabled: true')
   }
   if (active !== null && !wired.has(active)) {
-    lines.push('- insert:', `    - id: ${registry[active].id}`, `      name: '${registry[active].pkg}'`)
+    lines.push('- insert:', `    - id: ${registry[active].id}`, `      name: ${yamlSingleQuote(registry[active].pkg)}`)
   }
   lines.push(MANAGED_END)
   return lines.join('\n')
@@ -360,21 +375,67 @@ function patchHasInsertId(patch: string, id: string): boolean {
 }
 
 /**
+ * Bundle entries from the active profile manifest's `dsh.profile.bundles` —
+ * the authoritative wiring source used by scripts/dsh-skin
+ * (`bundleWiredFromProfile`, lines 68-75). Unreadable/malformed manifests
+ * contribute nothing, matching the CLI's try/catch fallback.
+ * @param profileManifestPath - `<harnessHome>/profiles/<profile>/package.json`.
+ */
+function readProfileBundles(profileManifestPath: string | undefined): Set<string> {
+  const out = new Set<string>()
+  if (profileManifestPath === undefined) return out
+  try {
+    const manifest: unknown = JSON.parse(readFileSync(profileManifestPath, 'utf8'))
+    if (typeof manifest !== 'object' || manifest === null) return out
+    const dsh = (manifest as Record<string, unknown>).dsh
+    if (typeof dsh !== 'object' || dsh === null) return out
+    const profile = (dsh as Record<string, unknown>).profile
+    if (typeof profile !== 'object' || profile === null) return out
+    const bundles = (profile as Record<string, unknown>).bundles
+    if (!Array.isArray(bundles)) return out
+    for (const bundle of bundles) if (typeof bundle === 'string') out.add(bundle)
+  } catch {
+    // Fall through to the structural heuristics below.
+  }
+  return out
+}
+
+/** Whether an absolute path sits inside the `dsh-skins/skins/` bundled
+ * carrier (the path-segment heuristic documented on the symlink branch). */
+function isDshSkinsCarrierPath(dir: string): boolean {
+  const parts = dir.split(sep)
+  return parts.includes('dsh-skins') && parts.includes('skins')
+}
+
+/**
  * Whether the active skin's loader entry is already provided by the skin
  * package's own bundle patch, so the home-layer managed section must NOT add
  * a duplicate insert row (issue #148: `duplicate loader entry id`).
  *
  * True when:
  *  - the registry marks the skin `bundleWired` (skin.json wiring flag), or
+ *  - the active profile manifest's `dsh.profile.bundles` contains entry.pkg
+ *    (the scripts/dsh-skin `bundleWiredFromProfile` authority — true whether
+ *    the profile target is a real directory or a symlink), or
  *  - the profile target for entry.pkg is a REAL installed package directory
- *    (not a symlink — the carrier-symlink layout is explicitly not covered)
  *    whose own `cordis.patch.yml` exists and contains an insert row with
- *    entry.id.
+ *    entry.id, or
+ *  - the profile target is a symlink to an installed per-skin bundle OUTSIDE
+ *    the bundled dsh-skins/skins carrier, and that real target's
+ *    `cordis.patch.yml` contains an insert row with entry.id.
+ *
+ * A symlink into the dsh-skins/skins carrier asset dir is never an active
+ * per-skin bundle (its cordis.patch.yml is not reconciled into the profile),
+ * so that layout keeps its home insert row.
  * @param entry - the skin switch entry.
  * @param profileModulesDir - the profile's node_modules dir.
+ * @param profileManifestPath - optional profile package.json path.
  */
-export function activeSkinIsBundleWired(entry: SkinSwitchEntry, profileModulesDir: string): boolean {
+export function activeSkinIsBundleWired(entry: SkinSwitchEntry, profileModulesDir: string, profileManifestPath?: string): boolean {
   if (entry.bundleWired) return true
+  // Authoritative profile wiring: dsh.profile.bundles wins regardless of the
+  // target layout (real dir or symlink), exactly like scripts/dsh-skin.
+  if (readProfileBundles(profileManifestPath).has(entry.pkg)) return true
   const target = joinPath(profileModulesDir, entry.pkg)
   let stat: ReturnType<typeof lstatSync> | undefined
   try {
@@ -382,10 +443,26 @@ export function activeSkinIsBundleWired(entry: SkinSwitchEntry, profileModulesDi
   } catch {
     return false
   }
-  if (stat === undefined || !stat.isDirectory() || stat.isSymbolicLink()) return false
+  if (stat === undefined || (!stat.isDirectory() && !stat.isSymbolicLink())) return false
+  let probeDir = target
+  if (stat.isSymbolicLink()) {
+    // Resolve the link before judging: a carrier asset link (dsh-skins/skins)
+    // is not an installed bundle, while a link to an independently installed
+    // per-skin package is probed through its real directory.
+    let real: string
+    try {
+      real = realpathSync(target)
+    } catch {
+      return false
+    }
+    let entryReal: string
+    try { entryReal = realpathSync(entry.dir) } catch { entryReal = entry.dir }
+    if (isDshSkinsCarrierPath(real) || (real === entryReal && isDshSkinsCarrierPath(entryReal))) return false
+    probeDir = real
+  }
   let patch: string
   try {
-    patch = readFileSync(joinPath(target, 'cordis.patch.yml'), 'utf8')
+    patch = readFileSync(joinPath(probeDir, 'cordis.patch.yml'), 'utf8')
   } catch {
     return false
   }
@@ -397,10 +474,10 @@ export function activeSkinIsBundleWired(entry: SkinSwitchEntry, profileModulesDi
  * patch rendering and active reading agree on skins whose insert row the
  * installed per-skin bundle provides.
  */
-function registryWithProfileWiring(registry: Record<string, SkinSwitchEntry>, profileModulesDir: string): Record<string, SkinSwitchEntry> {
+function registryWithProfileWiring(registry: Record<string, SkinSwitchEntry>, profileModulesDir: string, profileManifestPath?: string): Record<string, SkinSwitchEntry> {
   const out: Record<string, SkinSwitchEntry> = {}
   for (const [name, entry] of Object.entries(registry)) {
-    out[name] = activeSkinIsBundleWired(entry, profileModulesDir) ? { ...entry, bundleWired: true } : entry
+    out[name] = activeSkinIsBundleWired(entry, profileModulesDir, profileManifestPath) ? { ...entry, bundleWired: true } : entry
   }
   return out
 }
@@ -413,6 +490,8 @@ export interface SkinSwitchPaths {
   patchPath: string
   /** ~/.dsh/profiles/<profile>/node_modules */
   profileModulesDir: string
+  /** ~/.dsh/profiles/<profile>/package.json (dsh.profile.bundles wiring). */
+  profileManifestPath: string
 }
 
 /**
@@ -501,6 +580,7 @@ export function resolvePaths(home?: string, profile?: string): SkinSwitchPaths {
   return {
     patchPath: joinPath(harnessHome, 'cordis.patch.yml'),
     profileModulesDir: joinPath(harnessHome, 'profiles', activeProfile, 'node_modules'),
+    profileManifestPath: joinPath(harnessHome, 'profiles', activeProfile, 'package.json'),
   }
 }
 
@@ -518,15 +598,45 @@ function readPatch(patchPath: string): string {
  * Atomic replace: write a sibling temp file then rename over the target, so a
  * crash mid-write can never leave a half-written boot patch and the config
  * watcher only ever sees complete content (the CLI's own strategy). Creates
- * the parent dir if missing.
+ * the parent dir if missing, preserves the target's existing permission bits,
+ * uses a fresh mkdtemp directory (same dir as the target) so concurrent
+ * writers can never preempt the same temp name, and always cleans the temp
+ * directory on error.
  * @param filePath - target file.
  * @param next - full next content.
  */
 function writePatchAtomic(filePath: string, next: string): void {
-  mkdirSync(dirname(filePath), { recursive: true })
-  const tmp = `${filePath}.tmp-${process.pid}`
-  writeFileSync(tmp, next)
-  renameSync(tmp, filePath)
+  const dir = dirname(filePath)
+  mkdirSync(dir, { recursive: true })
+  // Record the mode before touching anything: rename must not silently turn
+  // a 0600 boot patch back into a world-readable 0644 file.
+  let previousMode: number | undefined
+  try {
+    previousMode = statSync(filePath).mode & 0o777
+  } catch {
+    previousMode = undefined
+  }
+  const tmpDir = mkdtempSync(joinPath(dir, `${basename(filePath)}.tmp-`))
+  const tmp = joinPath(tmpDir, basename(filePath))
+  try {
+    // 'wx' refuses to clobber a pre-existing file inside our fresh tmp dir.
+    writeFileSync(tmp, next, { flag: 'wx' })
+    chmodSync(tmp, previousMode ?? 0o600)
+    renameSync(tmp, filePath)
+  } catch (error) {
+    try {
+      rmSync(tmpDir, { recursive: true, force: true })
+    } catch {
+      // Preserve the original write failure over a cleanup failure.
+    }
+    throw error
+  }
+  try {
+    rmSync(tmpDir, { recursive: true, force: true })
+  } catch {
+    // The patch was already renamed into place; an empty tmp-dir cleanup
+    // failure must not turn a successful write into an error.
+  }
 }
 
 /**
@@ -721,9 +831,10 @@ export function useSkin(name: string, opts: { home?: string; profile?: string; r
     // Once the target is confirmed resolvable, detect whether the skin's own
     // installed bundle patch already provides the insert row (issue #148):
     // then the home layer keeps only the mutual-exclusion disabled rows.
-    // A symlinked bundled-carrier target returns false here, so that layout
-    // keeps its home insert row (no per-skin bundle patch is active there).
-    renderRegistry = registryWithProfileWiring(registry, paths.profileModulesDir)
+    // dsh.profile.bundles in the profile manifest is authoritative; a
+    // symlinked bundled-carrier target otherwise returns false here, so that
+    // layout keeps its home insert row (no per-skin bundle patch is active).
+    renderRegistry = registryWithProfileWiring(registry, paths.profileModulesDir, paths.profileManifestPath)
   }
 
   const patch = stripLegacySkinRows(stripManaged(readPatch(paths.patchPath)))
@@ -750,5 +861,5 @@ export function currentSkin(patch: string | undefined, opts: { home?: string; pr
   // Mirror useSkin's wiring view: an installed per-skin bundle provides its
   // own insert row, so the home patch carries only disabled rows for it and
   // currentActive must treat it as bundle-wired to report it as active.
-  return currentActive(patch ?? readPatch(paths.patchPath), registryWithProfileWiring(registry, paths.profileModulesDir)) ?? 'none'
+  return currentActive(patch ?? readPatch(paths.patchPath), registryWithProfileWiring(registry, paths.profileModulesDir, paths.profileManifestPath)) ?? 'none'
 }

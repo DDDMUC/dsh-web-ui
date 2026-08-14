@@ -547,6 +547,13 @@ window.__ModuleLoader__.load({
 			const [tryingOfficial, setTryingOfficial] = (0, react.useState)(false);
 			const [applying, setApplying] = (0, react.useState)(null);
 			const [error, setError] = (0, react.useState)(null);
+			const mounted = (0, react.useRef)(false);
+			(0, react.useEffect)(() => {
+				mounted.current = true;
+				return () => {
+					mounted.current = false;
+				};
+			}, []);
 			const tryOn = (entry) => {
 				setError(null);
 				controller.tryOn(entry).then(() => {
@@ -585,6 +592,10 @@ window.__ModuleLoader__.load({
 				const expected = target === OFFICIAL ? "none" : target;
 				let tries = 0;
 				const tick = () => {
+					if (!mounted.current) {
+						resolve(false);
+						return;
+					}
 					tries += 1;
 					fetch("/api/skin-center/state").then(async (response) => {
 						const payload = await response.json().catch(() => null);
@@ -592,10 +603,10 @@ window.__ModuleLoader__.load({
 							resolve(true);
 							return;
 						}
-						if (tries >= 20) resolve(false);
+						if (tries >= 20 || !mounted.current) resolve(false);
 						else window.setTimeout(tick, 250);
 					}).catch(() => {
-						if (tries >= 20) resolve(false);
+						if (tries >= 20 || !mounted.current) resolve(false);
 						else window.setTimeout(tick, 250);
 					});
 				};
@@ -619,6 +630,7 @@ window.__ModuleLoader__.load({
 					if (!response.ok || payload?.ok !== true) throw new Error(payload?.error ?? `HTTP ${response.status}`);
 					setApplying(null);
 					confirmActive(target).then((confirmed) => {
+						if (!mounted.current) return;
 						if (confirmed) window.location.reload();
 						else {
 							const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;

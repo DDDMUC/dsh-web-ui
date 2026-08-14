@@ -7,7 +7,7 @@
  * @module @linxin666/dsh-client-ui-skin-center/tests/skin-switch
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readlinkSync, rmSync, existsSync, symlinkSync, lstatSync, realpathSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readlinkSync, rmSync, existsSync, symlinkSync, lstatSync, realpathSync, chmodSync, statSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -122,6 +122,75 @@ describe('skin registry derivation (from skin.json wiring)', () => {
     // others and must carry its own insert row when applied.
     expect(registry.xp.bundleWired).toBe(false)
     expect(wiredNames(registry).has('xp')).toBe(false)
+  })
+})
+
+describe('skin.json validation (malicious registry input)', () => {
+  it('loadRegistry skips packages with traversal names, quoted/newline names, and invalid wiring ids', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-malicious-'))
+    try {
+      const scoped = join(fakeRoot, '@linxin666')
+      const traversal = join(scoped, 'dsh-client-ui-skin-evil-traversal')
+      const quoted = join(scoped, 'dsh-client-ui-skin-evil-quoted')
+      const badWiring = join(scoped, 'dsh-client-ui-skin-evil-wiring')
+      const good = join(scoped, 'dsh-client-ui-skin-good')
+      mkdirSync(traversal, { recursive: true })
+      mkdirSync(quoted, { recursive: true })
+      mkdirSync(badWiring, { recursive: true })
+      mkdirSync(good, { recursive: true })
+      writeFileSync(join(traversal, 'skin.json'), JSON.stringify({
+        id: 'evil-traversal',
+        package: '../../../.config',
+        wiring: { id: 'ui-skin-evil-traversal' },
+      }))
+      writeFileSync(join(quoted, 'skin.json'), JSON.stringify({
+        id: 'evil-quoted',
+        package: "'@linxin666/evil'\n- id: ui-skin-hacked",
+        wiring: { id: 'ui-skin-evil-quoted' },
+      }))
+      writeFileSync(join(badWiring, 'skin.json'), JSON.stringify({
+        id: 'evil-wiring',
+        package: '@linxin666/dsh-client-ui-skin-evil-wiring',
+        wiring: { id: 'ui-skin-../evil' },
+      }))
+      writeFileSync(join(good, 'skin.json'), JSON.stringify({
+        id: 'good',
+        package: '@linxin666/dsh-client-ui-skin-good',
+        wiring: { id: 'ui-skin-good' },
+      }))
+      const registry = loadRegistry(scoped)
+      expect(Object.keys(registry).sort()).toEqual(['good'])
+      expect(registry.good).toEqual(expect.objectContaining({
+        pkg: '@linxin666/dsh-client-ui-skin-good',
+        id: 'ui-skin-good',
+      }))
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('renderManaged YAML safety', () => {
+  it('escapes single quotes in the active package name so the insert row stays one YAML scalar', () => {
+    const registry: Record<string, SkinSwitchEntry> = {
+      evil: {
+        pkg: "@linxin666/dsh-client-ui-skin-na'me",
+        id: 'ui-skin-evil',
+        dir: '/tmp/evil-skin',
+        bundleWired: false,
+      },
+      other: {
+        pkg: '@linxin666/dsh-client-ui-skin-other',
+        id: 'ui-skin-other',
+        dir: '/tmp/other-skin',
+        bundleWired: false,
+      },
+    }
+    const rendered = renderManaged('evil', registry)
+    const nameLine = rendered.split('\n').find(line => line.trimStart().startsWith('name: '))
+    expect(nameLine).toBe("      name: '@linxin666/dsh-client-ui-skin-na''me'")
+    // The unescaped quote must never appear as a bare scalar delimiter.
+    expect(rendered).not.toContain("name: '@linxin666/dsh-client-ui-skin-na'me'")
   })
 })
 
@@ -319,6 +388,16 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
     expect(currentSkin(undefined, { home: h })).toBe('none')
   })
 
+  it('useSkin preserves the permission bits of an existing patch file (0600 stays 0600)', () => {
+    const h = fakeHome()
+    const patch = patchPath(h)
+    writeFileSync(patch, '# custom row survives\n')
+    chmodSync(patch, 0o600)
+    useSkin('official', { home: h })
+    expect(statSync(patch).mode & 0o777).toBe(0o600)
+    expect(readFileSync(patch, 'utf8')).toContain('# custom row survives')
+  })
+
   it('use <name> writes an insert row and the profile symlink for a non-wired skin', () => {
     const h = fakeHome()
     const registry = loadRegistry()
@@ -465,6 +544,44 @@ describe('home patch lifecycle vs installed skin bundles (issue #108/#148)', () 
     writeFileSync(join(carrier, 'cordis.patch.yml'), `- insert:\n    - id: ${entry.id}\n      name: '${entry.pkg}'\n`)
     symlinkSync(carrier, join(modules, entry.pkg), process.platform === 'win32' ? 'junction' : 'dir')
     expect(activeSkinIsBundleWired(entry, modules)).toBe(false)
+  })
+
+  it('activeSkinIsBundleWired: a symlink to an independent installed package is probed via realpath', () => {
+    const h = fakeHome()
+    const modules = join(h, 'modules')
+    const entry: SkinSwitchEntry = {
+      pkg: '@linxin666/dsh-client-ui-skin-qq98',
+      id: 'ui-skin-qq98',
+      dir: join(h, 'unused'),
+      bundleWired: false,
+    }
+    // An independently installed per-skin bundle, NOT under dsh-skins/skins.
+    const standalone = join(h, 'installed', entry.pkg)
+    mkdirSync(standalone, { recursive: true })
+    writeFileSync(join(standalone, 'cordis.patch.yml'), `- insert:\n    - id: ${entry.id}\n      name: '${entry.pkg}'\n`)
+    mkdirSync(join(modules, '@linxin666'), { recursive: true })
+    symlinkSync(standalone, join(modules, entry.pkg), process.platform === 'win32' ? 'junction' : 'dir')
+    expect(activeSkinIsBundleWired(entry, modules)).toBe(true)
+  })
+
+  it('activeSkinIsBundleWired: profile manifest bundles win even when the target is a symlink', () => {
+    const h = fakeHome()
+    const modules = join(h, 'modules')
+    const entry: SkinSwitchEntry = {
+      pkg: '@linxin666/dsh-client-ui-skin-qq98',
+      id: 'ui-skin-qq98',
+      dir: join(h, 'unused'),
+      bundleWired: false,
+    }
+    // A carrier-style symlink (which the structural probe must reject), but
+    // the profile manifest authoritatively lists the package as bundle-wired.
+    const carrier = join(h, 'dsh-skins', 'skins', 'qq98')
+    mkdirSync(carrier, { recursive: true })
+    mkdirSync(join(modules, '@linxin666'), { recursive: true })
+    symlinkSync(carrier, join(modules, entry.pkg), process.platform === 'win32' ? 'junction' : 'dir')
+    const manifest = join(h, 'package.json')
+    writeFileSync(manifest, JSON.stringify({ dsh: { profile: { bundles: [entry.pkg] } } }))
+    expect(activeSkinIsBundleWired(entry, modules, manifest)).toBe(true)
   })
 
   it('useSkin writes no duplicate insert row for an installed per-skin bundle', () => {

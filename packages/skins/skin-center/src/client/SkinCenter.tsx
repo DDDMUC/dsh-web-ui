@@ -8,7 +8,7 @@
  * Copy rides the standard `t` seat; the theme preview control drives the
  * official theme service (persisted, same as the Appearance row).
  */
-import { useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { SKIN_CENTER_ENTRIES, type SkinCenterEntry } from './generated/skins.ts'
@@ -56,6 +56,13 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
   const [tryingOfficial, setTryingOfficial] = useState(false)
   const [applying, setApplying] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Unmount guard for the confirmation poll: once the card is gone, the
+  // pending timers must stop and no reload / setState may fire.
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   const tryOn = (entry: SkinCenterEntry): void => {
     setError(null)
@@ -103,6 +110,10 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
       const expected = target === OFFICIAL ? 'none' : target
       let tries = 0
       const tick = (): void => {
+        if (!mounted.current) {
+          resolve(false)
+          return
+        }
         tries += 1
         void fetch('/api/skin-center/state')
           .then(async response => {
@@ -111,11 +122,11 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
               resolve(true)
               return
             }
-            if (tries >= 20) resolve(false)
+            if (tries >= 20 || !mounted.current) resolve(false)
             else window.setTimeout(tick, 250)
           })
           .catch(() => {
-            if (tries >= 20) resolve(false)
+            if (tries >= 20 || !mounted.current) resolve(false)
             else window.setTimeout(tick, 250)
           })
       }
@@ -146,6 +157,7 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
         // Patch written; reload only once the watcher reports the target
         // active, so the page never boots into the old skin.
         void confirmActive(target).then(confirmed => {
+          if (!mounted.current) return
           if (confirmed) {
             window.location.reload()
           } else {

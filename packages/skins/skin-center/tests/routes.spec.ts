@@ -5,7 +5,7 @@
  * error path. Mirrors packages/dsh-remote-web-ui/tests/routes.spec.ts.
  */
 import { createServer, request as httpRequest } from 'node:http'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { Server } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
@@ -119,6 +119,39 @@ describe('skin-center routes', () => {
     await server.close()
     expect(response.status).toBe(200)
     expect(response.body).toEqual({ ok: true, active: 'none' })
+  })
+
+  it('GET /state caches current() inside the TTL, expires it, and /apply invalidates it', async () => {
+    const { run, calls } = stubRunner([
+      { args: ['current'], out: 'minecraft\n' },
+      { args: ['current'], out: 'ths\n' },
+      { args: ['use', 'qq98'], out: 'wrote patch\n' },
+      { args: ['current'], out: 'qq98\n' },
+    ])
+    const server = await serve(makeSkinCenterRoutes({ run }))
+    let now = 1_000
+    const dateSpy = vi.spyOn(Date, 'now').mockImplementation(() => now)
+    try {
+      // First /state performs the real CLI call and caches it.
+      const first = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/state`)
+      // 700ms later: still inside the 750ms TTL, so the CLI is NOT re-run.
+      now += 700
+      const cached = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/state`)
+      // Past the TTL: a fresh CLI call happens.
+      now += 100
+      const expired = await call(server.port, 'GET', `${SKIN_CENTER_API_PREFIX}/state`)
+      // /apply invalidates any cached answer after writing the patch.
+      now += 50
+      const apply = await call(server.port, 'POST', `${SKIN_CENTER_API_PREFIX}/apply`, { body: { skin: 'qq98' } })
+      expect(first.body).toEqual({ ok: true, active: 'minecraft' })
+      expect(cached.body).toEqual({ ok: true, active: 'minecraft' })
+      expect(expired.body).toEqual({ ok: true, active: 'ths' })
+      expect(apply.body).toEqual({ ok: true, active: 'qq98', message: 'wrote patch' })
+      expect(calls).toEqual([['current'], ['current'], ['use', 'qq98'], ['current']])
+    } finally {
+      dateSpy.mockRestore()
+      await server.close()
+    }
   })
 
   it('GET /state surfaces a failing CLI as 500', async () => {
