@@ -28,6 +28,16 @@ skin-center / docs / emoji）。
 
 ## 常见任务
 
+### 审核远程 PR
+
+维护者可用 `node scripts/pr-review.mjs` 本地批量审核外部 PR（一次多个，
+如 `--open` 审核全部 open PR）：先做静态硬性检查（规模上限新增/删除各
+1 万行直接拒绝、禁止提交依赖缓存与密钥、emoji 扫描、PR 模板必填项、
+密钥扫描、CI 文件保护），再在临时 worktree 上按 CI 门禁序列构建验证
+（install/typecheck/gallery/skin-center/community/build/test/
+test:scripts/aggregate/docs）。用法与 verdict 语义见脚本头部注释；
+`pnpm pr:review --help` 查看全部选项。
+
 ### 新增插件包
 
 ```sh

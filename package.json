@@ -13,6 +13,7 @@
     "community:check": "node scripts/community-index --check",
     "test:scripts": "node --test scripts/*.test.mjs",
     "skin:new": "node scripts/dsh-skin-new",
+    "pr:review": "node scripts/pr-review.mjs",
     "gallery:build": "node scripts/gallery-build",
     "gallery:capture": "node scripts/capture-previews",
     "deploy:gallery": "node scripts/deploy-gallery",
