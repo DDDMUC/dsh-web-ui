@@ -1,21 +1,25 @@
 /**
- * Git-graph surface plugin, browser half: the git branch selector chip in
- * the input selector row's context hole (`conversation.input.selector
- * .context`, a session-maybe list slot declared and rendered by the shipped
- * ui-conversation shell), docked right beside the official workspace
- * selector above the input card. All git facts arrive through the host
- * /git routes (this package's own host half); the inject face carries the
- * business verbs, the components stay pure props.
+ * Git-graph surface plugin, browser half: the git branch selector chip,
+ * docked above the input card. Preferred seat is the input selector row's
+ * context hole (`conversation.input.selector.context`, a session-maybe
+ * list slot declared and rendered by newer shipped ui-conversation shells),
+ * right beside the official workspace selector; the published npm SDK
+ * (rc.6) dropped that hole, so the chip waits on its declaration for
+ * {@link CONTEXT_FALLBACK_MS} and then falls back to
+ * `conversation.input.dock` (the 0.1.9 seat). All git facts arrive
+ * through the host /git routes (this package's own host half); the inject
+ * face carries the business verbs, the components stay pure props.
  *
  * The context hole is session-maybe: the chip stays mounted from cold start
  * through the active phase and hides itself when its data source is absent
  * (no session cwd, or not a git repository) — no workspace selector lives
  * here, the official selector chip docked above the input card owns that
- * surface. An earlier revision (acbcf80) moved the chip to
- * `conversation.input.dock` on the wrong premise that the selector-context
- * hole was undeclared; the running shell declares it, so the chip registers
- * here to sit in the same row as the workspace chip. The published npm SDK
- * (rc.6) dropped the hole's type, so it is spelled locally below.
+ * surface. The dock fallback is session-scoped: the chip mounts once a
+ * session is active, so the blank hero phase has no seat there (the
+ * accepted rc.6 downgrade). Revision 0be6546 moved the chip back to the
+ * context hole without a fallback, so on rc.6 shells the inject wait never
+ * resolved and the chip disappeared. The published npm SDK (rc.6) dropped
+ * the hole's type, so it is spelled locally below.
  * @module dsh-git-graph/client
  */
 
@@ -91,7 +95,16 @@ export interface GitGraphInjected {
 const NO_WORKSPACE: GitError = { code: 'workspace-unknown', message: 'session has no workspace' }
 
 /**
- * Client plugin body: the selector-context entry with its git verbs.
+ * How long the chip waits for the selector-context declaration before
+ * falling back to the input dock. The window covers the shell's first
+ * render of the input selector row after the conversation service is up;
+ * shells that never declare the hole (rc.6) land on the dock after it.
+ */
+export const CONTEXT_FALLBACK_MS = 2000
+
+/**
+ * Client plugin body: the branch chip entry with its git verbs, on the
+ * selector-context hole with an input-dock fallback.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -99,10 +112,18 @@ export function apply(ctx: ClientContext): void {
 
   const git = new GitApi()
 
-  // Conditional mount: 'conversation.input.selector.context' is declared by
-  // the shipped ui-conversation entry (the InputSelectorRow context hole);
-  // the conversation service being up is the registration-safe signal (the
-  // GoalDock/QueueDock seam).
+  // The context-fallback timer, armed once the conversation seam is up and
+  // cleared when this fiber unloads (the slot inject waits die with the
+  // fiber too, so no seat survives an unload).
+  let fallbackTimer: ReturnType<typeof setTimeout> | undefined
+  ctx.effect(() => () => {
+    if (fallbackTimer !== undefined) clearTimeout(fallbackTimer)
+  }, 'dsh-git-graph: context fallback timer')
+
+  // Conditional mount: the conversation service being up is the
+  // registration-safe signal (the GoalDock/QueueDock seam). The chip then
+  // prefers the selector-context hole and falls back to the input dock when
+  // that declaration never arrives.
   ctx.inject(['slots', 'conversation', 'sessions'], (scope: ClientContext) => {
     const sessions = scope.sessions
 
@@ -157,17 +178,31 @@ export function apply(ctx: ClientContext): void {
       }
     }
 
-    // Declaration-aware: the chip registers only when the shell declares the
-    // selector-context hole. A bare register() would throw on shells that
-    // dropped the hole (SDK SlotCore.register rejects undeclared slots), so
-    // route through inject like the pet / remote-web-ui entries.
-    scope.slots.inject('conversation.input.selector.context', () =>
-      scope.slots.register({
-        name: 'conversation.input.selector.context',
-        id: 'git-graph',
-        order: 100,
-        locale: NS,
-        inject: injected,
-      }, BranchChip))
+    // The entry shape shared by both seats; each register call spells the
+    // seat's literal name so its own declaration is checked.
+    const chipEntry = { id: 'git-graph', order: 100, locale: NS, inject: injected } as const
+
+    // Declaration-aware with a fallback. A bare register() would throw on
+    // shells that dropped the hole (SDK SlotCore.register rejects undeclared
+    // slots), so both seats route through inject like the pet / remote-web-ui
+    // entries. The preferred context wait resolves the moment the shell
+    // declares the hole; when it never does (rc.6), the fallback disposes
+    // that wait and moves the chip to the dock. Exactly one seat mounts: a
+    // context declaration landing after the fallback finds the wait gone.
+    let mounted = false
+    const disposeContextWait = scope.slots.inject('conversation.input.selector.context', () => {
+      mounted = true
+      return scope.slots.register(
+        { name: 'conversation.input.selector.context', ...chipEntry },
+        BranchChip)
+    })
+    fallbackTimer = setTimeout(() => {
+      if (mounted) return
+      disposeContextWait()
+      scope.slots.inject('conversation.input.dock', () =>
+        scope.slots.register(
+          { name: 'conversation.input.dock', ...chipEntry },
+          BranchChip))
+    }, CONTEXT_FALLBACK_MS)
   })
 }
