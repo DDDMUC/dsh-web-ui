@@ -1,6 +1,6 @@
 /**
  * gallery 试穿页布局回归：验证 conversation 不被 aionui 右侧面板列异常压缩，
- * preview 列保持折叠（官方 GUI 空会话默认状态）、explorer 列展开，且 hero /
+ * preview 与 explorer 两列折叠（右侧面板不展示），且 hero /
  * composer 关键节点没有被水平裁切。
  *
  * 用真实浏览器（playwright + chromium）测量，覆盖 stock/qq98 × light/dark。
@@ -33,7 +33,7 @@ const CASES = [
 ]
 
 for (const c of CASES) {
-  test(`preview ${c.skin}/${c.theme}: conversation 不被压缩、preview 折叠`, { skip: SKIP }, async () => {
+  test(`preview ${c.skin}/${c.theme}: conversation 不被压缩、右侧面板折叠`, { skip: SKIP }, async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
     try {
       await page.goto(`file://${GALLERY}/preview.html?skin=${c.skin}&theme=${c.theme}&chrome=0`, { waitUntil: 'load' })
@@ -50,6 +50,7 @@ for (const c of CASES) {
           previewW: w(preview),
           previewHidden: preview ? preview.style.visibility === 'hidden' : false,
           explorerW: w(explorer),
+          explorerHidden: explorer ? explorer.style.visibility === 'hidden' : false,
           headline: headline ? headline.textContent.trim() : '',
           headlineClipped: headline ? headline.scrollWidth > headline.clientWidth + 1 : false,
           composerW: w(composer),
@@ -60,8 +61,8 @@ for (const c of CASES) {
       assert.ok(info.convW >= 400, `conversation 过窄: ${info.convW}px`)
       // preview 列折叠（官方空会话默认态），不得有 480px 空白占位。
       assert.ok(info.previewW < 10 && info.previewHidden, `preview 未折叠: ${info.previewW}px / hidden=${info.previewHidden}`)
-      // explorer 展开。
-      assert.ok(info.explorerW >= 220, `explorer 未展开: ${info.explorerW}px`)
+      // explorer 折叠（右侧面板不展示）。
+      assert.ok(info.explorerW < 10 && info.explorerHidden, `explorer 未折叠: ${info.explorerW}px / hidden=${info.explorerHidden}`)
       // hero 完整显示且无水平裁切。
       assert.equal(info.headline, "Let's start building")
       assert.equal(info.headlineClipped, false, 'headline 被水平裁切')
