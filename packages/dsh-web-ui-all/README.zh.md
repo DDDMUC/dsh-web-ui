@@ -32,4 +32,5 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
 ## 已知限制
 
 - 各子插件随本包一起激活；若只需要其中一部分，请直接安装对应子插件包。
+- 不要与同名独立插件包（如 @linxin666/dsh-liangshen）同时安装；切换前先 `dsh plugin remove` 移除旧的。
 - 依赖的 `@deepseek-ai/*` SDK 版本已锁定，兼容性跟随本仓库的发版节奏。

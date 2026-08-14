@@ -32,4 +32,5 @@ Restart `dsh web` for the plugins to take effect.
 ## Known limitations
 
 - Every sub-plugin activates together. For only a subset, install that sub-plugin package directly.
+- Do not install the aggregate package alongside the standalone package of the same plugin (e.g. @linxin666/dsh-liangshen); run `dsh plugin remove` on the old package before switching.
 - Dependencies on the `@deepseek-ai/*` SDK are pinned; compatibility follows the repository's release cadence.

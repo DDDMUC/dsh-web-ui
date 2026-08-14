@@ -9,7 +9,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 20 个插件包（截至快照日）：
+`packages/` 与 `packages/skins/` 下共 21 个插件包（截至快照日）：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
@@ -19,6 +19,7 @@
 | packages/dsh-remote-web-ui | @linxin666/dsh-remote-web-ui | 0.1.1 | true |
 | packages/dsh-live-stats | @linxin666/dsh-live-stats | 0.1.1 | true |
 | packages/dsh-ssh | @linxin666/dsh-ssh | 0.1.1 | true |
+| packages/dsh-liangshen | @linxin666/dsh-liangshen | 0.1.12 | false |
 | packages/dsh-aionui-panel | @linxin666/dsh-client-ui-aionui-panel | 0.1.1 | true |
 | packages/dsh-web-ui-settings | @linxin666/dsh-client-ui-web-ui-settings | 0.1.1 | true |
 | packages/dsh-skins | @linxin666/dsh-skins（聚合） | 0.1.1 | true |
