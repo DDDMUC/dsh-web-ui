@@ -49,7 +49,7 @@ const DEFAULT_ANNOUNCE = true
 const SECTION_ORDER = 150
 
 /** Model-facing announcement: plugin presence, principle, and limits. */
-export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：两阶段锚定——首轮模型请求仅暴露平台 shell 与 read，锚定 Minimal 推理轨迹；会话出现首次持久工具调用后自动恢复全部 Standard 工具。preset 文件由插件维护于 ~/.dsh/.agent-presets/liangshen，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
+export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：两阶段锚定——首轮模型请求仅暴露平台 shell 与 read，同时清空运行时上下文并只放行用户的直接消息，锚定 Minimal 推理轨迹；会话出现首次持久工具调用后自动恢复全部 Standard 工具与常规上下文注入。preset 文件由插件维护于 ~/.dsh/.agent-presets/liangshen，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
 
 /** Resolve the harness home (DSH_HOME overrides the conventional ~/.dsh). */
 export function dshHome(): string {

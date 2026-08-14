@@ -1,7 +1,9 @@
 # The `liangshen` (梁神模式) agent preset: full Standard capabilities with a
-# two-phase tool bootstrap — the first model request sees only the platform shell
-# plus `read` (Minimal-aligned trajectory anchor), and the full catalog opens
-# after the first durable tool call. Adapted from the builtin `standard` preset.
+# two-phase input bootstrap — the first model request sees only the platform
+# shell plus `read`, no runtime contexts, and no injected pre-step messages
+# (Minimal-aligned trajectory anchor); the full catalog and the ordinary
+# runtime/workspace/skill injections return after the first durable tool call.
+# Adapted from the builtin `standard` preset.
 #
 # This file is an AGENT-PLANE composition. The roster mounts it ONCE under a
 # standing scope; every session naming it joins by scope parentage, so the
@@ -24,24 +26,30 @@
 
 # Keep the Minimal preset's prompt condition: `complete` makes this the sole
 # system-prompt section, so no identity, runtime context, or tool guidance prose
-# can shift the first-request scaffold. Runtime facts arrive via user messages
-# and explicit file reads, exactly like the Minimal preset.
+# can shift the first-request scaffold. `tool-bootstrap` below empties runtime
+# contexts and injected pre-step messages during phase 1; after promotion both
+# return with the full tool catalog.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: You are a helpful software engineer assistant.
     complete: true
 
-# Two-phase tool bootstrap: the first model request exposes only one platform
-# shell plus `read` (Minimal-aligned); after the session's first durable
-# tool/call event, every Standard tool registered below becomes visible. The
-# phase derives from persisted session events, so resume and reload keep it.
+# Two-phase input bootstrap. Before the session's first durable tool/call event
+# the first model request sees exactly one platform shell plus `read`, no
+# runtime contexts, and only direct user messages; after that event every
+# Standard tool below and the ordinary runtime/workspace/skill injections
+# become visible. The phase derives from persisted session events, so resume
+# and reload keep it.
 - id: tool-bootstrap
   name: ./tool-bootstrap.mjs
   config:
     shellTools: [bash, pwsh]
     commonTools: [read]
+    messageSources: [user]
 
+# Workspace instructions are quarantined by `tool-bootstrap` during phase 1;
+# their baseline arrives with the promotion step and stays current afterwards.
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:
@@ -95,6 +103,8 @@
 # `skill-filesystem` contributes local-root discovery for agents on this preset, and
 # `tool-skill` gives them the catalog and loader; the merged catalog also
 # carries whatever the deployment registered globally (repository plugins).
+# The `skill-catalog` pre-step message is quarantined by `tool-bootstrap`
+# during phase 1 and arrives with the promotion step.
 - id: skill-filesystem
   name: '@deepseek-ai/dsh-skill-filesystem'
 

@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-liangshen",
-  "description": "LiangShen (梁神) agent preset for the dsh web GUI: a two-phase anchored-standard preset — the first model request exposes only the platform shell plus read (Minimal-aligned trajectory anchor), and the full Standard tool catalog opens after the first durable tool call. The preset files are synced into ~/.dsh/.agent-presets on host startup. Hot-pluggable — mounted via cordis.patch.yml + a profile node_modules symlink, no dsh source changes.",
+  "description": "LiangShen (梁神) agent preset for the dsh web GUI: a two-phase anchored-standard preset — the first model request exposes only the platform shell plus read with no runtime contexts or injected instructions (Minimal-aligned trajectory anchor), and the full Standard tool catalog plus the ordinary injections return after the first durable tool call. The preset files are synced into ~/.dsh/.agent-presets on host startup. Hot-pluggable — mounted via cordis.patch.yml + a profile node_modules symlink, no dsh source changes.",
   "version": "0.1.12",
   "type": "module",
   "packageManager": "pnpm@11.7.0",
