@@ -1,5 +1,5 @@
 /**
- * dsh-web-ui compat shim, browser half.
+ * dsh-web-ui compat shim, browser half (folded into the aggregate package).
  *
  * The current dsh web shell renders its grid columns without the legacy
  * `data-pane` / `data-dsh-frame` hooks (the columns carry css-module class

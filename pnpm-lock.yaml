@@ -416,33 +416,9 @@ importers:
 
   packages/dsh-skins:
     dependencies:
-      '@linxin666/dsh-client-ui-skin-blue-fantasy':
-        specifier: workspace:*
-        version: link:../skins/blue-fantasy
       '@linxin666/dsh-client-ui-skin-center':
         specifier: workspace:*
         version: link:../skins/skin-center
-      '@linxin666/dsh-client-ui-skin-dragon-heir':
-        specifier: workspace:*
-        version: link:../skins/dragon-heir
-      '@linxin666/dsh-client-ui-skin-miku':
-        specifier: workspace:*
-        version: link:../skins/miku
-      '@linxin666/dsh-client-ui-skin-minecraft':
-        specifier: workspace:*
-        version: link:../skins/minecraft
-      '@linxin666/dsh-client-ui-skin-qq98':
-        specifier: workspace:*
-        version: link:../skins/qq98
-      '@linxin666/dsh-client-ui-skin-ths':
-        specifier: workspace:*
-        version: link:../skins/ths
-      '@linxin666/dsh-client-ui-skin-trading':
-        specifier: workspace:*
-        version: link:../skins/trading
-      '@linxin666/dsh-client-ui-skin-xp':
-        specifier: workspace:*
-        version: link:../skins/xp
 
   packages/dsh-ssh:
     dependencies:
@@ -622,18 +598,6 @@ importers:
       '@linxin666/dsh-ssh':
         specifier: workspace:*
         version: link:../dsh-ssh
-      '@linxin666/dsh-web-ui-compat':
-        specifier: workspace:*
-        version: link:../dsh-web-ui-compat
-
-  packages/dsh-web-ui-compat:
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: ^4.0.1
-        version: 4.0.1
-      tsdown:
-        specifier: ^0.22.2
-        version: 0.22.2(typescript@6.0.3)
 
   packages/dsh-web-ui-settings:
     devDependencies:

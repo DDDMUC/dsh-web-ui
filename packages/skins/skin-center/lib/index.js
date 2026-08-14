@@ -23,22 +23,52 @@ import { fileURLToPath } from "node:url";
 * @module @linxin666/dsh-client-ui-skin-center/skin-switch
 */
 /**
+* Walk up from a file location to the nearest directory whose @linxin666/
+* scoped subdir actually holds skin packages (dsh-skins carrier or
+* dsh-client-ui-skin-* packages). pnpm's virtual store realpaths packages
+* into node_modules/.pnpm/<pkg>@<ver>/node_modules/<name>, so a plain
+* '../../' from the skin-center package can never see its siblings there —
+* this anchor finds the node_modules root that owns the scoped dir.
+* @param fromDir - the realpathed package dir to walk up from.
+* @returns the anchor dir, or null when no scoped skin dir is found.
+*/
+function findScopedAnchor(fromDir) {
+	let current = fromDir;
+	for (;;) {
+		const scoped = join(current, "@linxin666");
+		try {
+			for (const entry of readdirSync(scoped)) {
+				if (entry === "dsh-skins") return current;
+				if (entry.startsWith("dsh-client-ui-skin-") && entry !== "dsh-client-ui-skin-center") return current;
+			}
+		} catch {}
+		const parent = dirname(current);
+		if (parent === current) return null;
+		current = parent;
+	}
+}
+/**
 * Resolve the directory that holds the skin packages (each a dir carrying a
-* skin.json). Both install layouts resolve with new URL('../../', ...):
-*  - monorepo: packages/skins/skin-center/lib/../../ -> packages/skins/
-*  - npm install: node_modules/@linxin666/dsh-client-ui-skin-center/lib/../..
-*    -> node_modules/@linxin666/ (the scoped dir holding dsh-client-ui-skin-*)
-* The legacy '../../../skins/' spelling (which pointed at node_modules/skins/
-* under npm — the ENOENT of zhu1090093659/dsh-web-ui#21/#33/#34) is kept as a
-* fallback candidate, and DSH_SKINS_DIR overrides everything (tests use it).
+* skin.json). Candidates, in order:
+*  - monorepo / flat npm layout: new URL('../../', import.meta.url)
+*    (packages/skins/ or node_modules/@linxin666/);
+*  - pnpm virtual-store layout: the nearest @linxin666/ scoped dir found by
+*    walking up from this package's realpathed location;
+*  - the legacy '../../../skins/' spelling (which pointed at
+*    node_modules/skins/ under npm — the ENOENT of
+*    zhu1090093659/dsh-web-ui#21/#33/#34), kept as a fallback.
+* DSH_SKINS_DIR overrides everything (tests use it).
 */
 function resolveSkinsDir() {
 	const fromEnv = process.env.DSH_SKINS_DIR;
 	if (fromEnv !== void 0 && fromEnv !== "") return fromEnv;
-	const candidates = [fileURLToPath(new URL("../../", import.meta.url)), fileURLToPath(new URL("../../../skins/", import.meta.url))];
-	for (const candidate of candidates) try {
-		for (const dir of readdirSync(candidate)) if (statSync(join(candidate, dir, "skin.json"), { throwIfNoEntry: false })) return candidate;
-	} catch {}
+	const here = fileURLToPath(import.meta.url);
+	const candidates = [
+		fileURLToPath(new URL("../../", import.meta.url)),
+		findScopedAnchor(dirname(here)),
+		fileURLToPath(new URL("../../../skins/", import.meta.url))
+	].filter((candidate) => candidate !== null);
+	for (const candidate of candidates) if (listSkinDirCandidates(candidate).length > 0) return candidate;
 	return candidates[0];
 }
 /** The skin-package root for this install (see resolveSkinsDir). */
@@ -52,12 +82,11 @@ const DEFAULT_PROFILE = process.env.DSH_SKIN_PROFILE ?? "web";
 * Parse the switch-relevant fields of one skin.json. Returns null for
 * anything that is not a valid skin so it is simply skipped — never walking
 * outside the skins tree (the id is validated before any path use).
-* @param dir - directory name under the skins root.
-* @param skinsDir - the skins root (defaults to the resolved install layout).
+* @param absDir - absolute path of the candidate skin directory.
 */
-function readSkinMeta(dir, skinsDir = SKINS_DIR) {
+function readSkinMeta(absDir) {
 	try {
-		const meta = JSON.parse(readFileSync(join(skinsDir, dir, "skin.json"), "utf8"));
+		const meta = JSON.parse(readFileSync(join(absDir, "skin.json"), "utf8"));
 		if (typeof meta !== "object" || meta === null) return null;
 		const record = meta;
 		if (typeof record.id !== "string" || !/^[a-z0-9-]+$/.test(record.id)) return null;
@@ -78,18 +107,17 @@ function readSkinMeta(dir, skinsDir = SKINS_DIR) {
 	}
 }
 /**
-* Derive the skin registry from each skin dir's skin.json — the single
-* source of truth (skin.json already carries package/wiring.id/bundleWired).
-* Replaces the CLI's hand-maintained SKINS dictionary, so adding a skin
-* needs no code change here. Directories without a readable skin.json
-* (the skin-center manager itself, non-skin packages in the npm scoped dir)
-* are skipped. The root is injectable so tests can point at either install
-* layout.
-* @param skinsDir - the skins root (defaults to the resolved install layout).
-* @returns skin id -> switch metadata.
+* Enumerate every candidate skin directory under a skins root. Two shapes:
+*  - direct subdirectories carrying a skin.json (monorepo packages/skins/<id>,
+*    and per-skin npm packages @linxin666/dsh-client-ui-skin-<id>);
+*  - the bundled-skins carrier: @linxin666/dsh-skins/skins/<id> (skin assets
+*    shipped inside the dsh-skins aggregate so npm needs no per-skin
+*    package names). Directories without a skin.json are skipped.
+* @param skinsDir - the skins root.
+* @returns absolute candidate dirs (possibly empty).
 */
-function loadRegistry(skinsDir = SKINS_DIR) {
-	const out = {};
+function listSkinDirCandidates(skinsDir) {
+	const out = [];
 	let entries;
 	try {
 		entries = readdirSync(skinsDir);
@@ -97,12 +125,46 @@ function loadRegistry(skinsDir = SKINS_DIR) {
 		return out;
 	}
 	for (const dir of entries) {
-		const meta = readSkinMeta(dir, skinsDir);
+		const candidate = join(skinsDir, dir);
+		if (statSync(join(candidate, "skin.json"), { throwIfNoEntry: false })) {
+			out.push(candidate);
+			continue;
+		}
+		if (dir === "dsh-skins") {
+			const bundled = join(candidate, "skins");
+			let subdirs;
+			try {
+				subdirs = readdirSync(bundled);
+			} catch {
+				continue;
+			}
+			for (const sub of subdirs) {
+				const subDir = join(bundled, sub);
+				if (statSync(join(subDir, "skin.json"), { throwIfNoEntry: false })) out.push(subDir);
+			}
+		}
+	}
+	return out;
+}
+/**
+* Derive the skin registry from each skin dir's skin.json — the single
+* source of truth (skin.json already carries package/wiring.id/bundleWired).
+* Replaces the CLI's hand-maintained SKINS dictionary, so adding a skin
+* needs no code change here. Candidate dirs come from
+* listSkinDirCandidates (direct skin dirs + the dsh-skins bundled carrier).
+* The root is injectable so tests can point at either install layout.
+* @param skinsDir - the skins root (defaults to the resolved install layout).
+* @returns skin id -> switch metadata.
+*/
+function loadRegistry(skinsDir = SKINS_DIR) {
+	const out = {};
+	for (const dir of listSkinDirCandidates(skinsDir)) {
+		const meta = readSkinMeta(dir);
 		if (meta === null || meta.wiring === void 0 || meta.package === void 0) continue;
 		out[meta.id] = {
 			pkg: meta.package,
 			id: meta.wiring.id,
-			dir: join(skinsDir, dir),
+			dir,
 			bundleWired: meta.wiring.bundleWired === true
 		};
 	}
@@ -486,17 +548,17 @@ function postRoute(path, run) {
 * skin.json. The id is validated against this map (never used as a raw
 * path) so the bundle route cannot be walked off the skins tree. The root
 * resolves per install layout (monorepo packages/skins/, npm
-* node_modules/@linxin666/) — see skin-switch resolveSkinsDir.
+* node_modules/@linxin666/) and candidates include the bundled dsh-skins
+* carrier (npm layout) — see skin-switch resolveSkinsDir /
+* listSkinDirCandidates.
 * @returns skin id -> directory name.
 */
 function skinDirectories() {
 	const out = /* @__PURE__ */ new Map();
-	for (const dir of readdirSync(SKINS_DIR)) {
-		const metaFile = join(SKINS_DIR, dir, "skin.json");
-		if (!statSync(metaFile, { throwIfNoEntry: false })) continue;
+	for (const dir of listSkinDirCandidates(SKINS_DIR)) {
 		let meta;
 		try {
-			meta = JSON.parse(readFileSync(metaFile, "utf8"));
+			meta = JSON.parse(readFileSync(join(dir, "skin.json"), "utf8"));
 		} catch {
 			continue;
 		}
@@ -545,7 +607,7 @@ function bundleRoute() {
 					});
 					return;
 				}
-				const bundle = join(SKINS_DIR, dir, "lib", "client.js");
+				const bundle = join(dir, "lib", "client.js");
 				if (!statSync(bundle, { throwIfNoEntry: false })) {
 					json(res, 404, {
 						ok: false,

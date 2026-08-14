@@ -23,6 +23,7 @@ import {
   currentSkin,
   resolvePaths,
   resolveSkinsDir,
+  findScopedAnchor,
   type SkinSwitchEntry,
 } from '../src/skin-switch.ts'
 
@@ -237,6 +238,76 @@ describe('npm-install layout registry scan (issue #21/#33/#34)', () => {
         if (before === undefined) delete process.env.DSH_SKINS_DIR
         else process.env.DSH_SKINS_DIR = before
       }
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('bundled-skins carrier (dsh-skins/skins/<id>, npm layout)', () => {
+  it('loadRegistry collects skins bundled inside the dsh-skins aggregate', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-carrier-'))
+    try {
+      const scoped = join(fakeRoot, '@linxin666')
+      // The aggregate carrier with bundled skin assets.
+      const carrier = join(scoped, 'dsh-skins', 'skins')
+      mkdirSync(join(carrier, 'miku', 'lib'), { recursive: true })
+      mkdirSync(join(carrier, 'trading', 'lib'), { recursive: true })
+      // A legacy per-skin package coexisting (already published installs).
+      mkdirSync(join(scoped, 'dsh-client-ui-skin-qq98'), { recursive: true })
+      // A non-skin package in the same scoped dir.
+      mkdirSync(join(scoped, 'dsh-ssh'), { recursive: true })
+      writeFileSync(join(carrier, 'miku', 'skin.json'), JSON.stringify({
+        id: 'miku',
+        package: '@linxin666/dsh-client-ui-skin-miku',
+        wiring: { id: 'ui-skin-miku' },
+      }))
+      writeFileSync(join(carrier, 'trading', 'skin.json'), JSON.stringify({
+        id: 'trading',
+        package: '@linxin666/dsh-client-ui-skin-trading',
+        wiring: { id: 'ui-skin-trading' },
+      }))
+      writeFileSync(join(scoped, 'dsh-client-ui-skin-qq98', 'skin.json'), JSON.stringify({
+        id: 'qq98',
+        package: '@linxin666/dsh-client-ui-skin-qq98',
+        wiring: { id: 'ui-skin-qq98' },
+      }))
+      const registry = loadRegistry(scoped)
+      expect(Object.keys(registry).sort()).toEqual(['miku', 'qq98', 'trading'])
+      // Bundled skins resolve to their carrier paths.
+      expect(registry.miku.dir).toBe(join(carrier, 'miku'))
+      expect(registry.trading.dir).toBe(join(carrier, 'trading'))
+      // Legacy per-skin packages still resolve.
+      expect(registry.qq98.dir).toBe(join(scoped, 'dsh-client-ui-skin-qq98'))
+    } finally {
+      rmSync(fakeRoot, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('pnpm virtual-store layout (realpathed .pnpm packages)', () => {
+  it('findScopedAnchor walks up to the node_modules root owning @linxin666', () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'skin-pnpm-'))
+    try {
+      // pnpm hoisted layout: node_modules/@linxin666/* are symlinks into
+      // .pnpm/<pkg>@<ver>/node_modules/, so the skin-center package realpath
+      // sits deep under .pnpm and cannot see its siblings via ../../
+      const nm = join(fakeRoot, 'node_modules')
+      const storePkg = join(nm, '.pnpm', '@linxin666+dsh-client-ui-skin-center@0.1.3', 'node_modules', '@linxin666', 'dsh-client-ui-skin-center')
+      const carrier = join(nm, '@linxin666', 'dsh-skins', 'skins')
+      mkdirSync(join(storePkg, 'lib'), { recursive: true })
+      mkdirSync(join(carrier, 'miku', 'lib'), { recursive: true })
+      writeFileSync(join(carrier, 'miku', 'skin.json'), JSON.stringify({
+        id: 'miku',
+        package: '@linxin666/dsh-client-ui-skin-miku',
+        wiring: { id: 'ui-skin-miku' },
+      }))
+      // The anchor is the node_modules root whose @linxin666/ holds the carrier.
+      expect(findScopedAnchor(join(storePkg, 'lib'))).toBe(nm)
+      // And the registry resolves bundled skins through that scoped dir.
+      const registry = loadRegistry(join(nm, '@linxin666'))
+      expect(Object.keys(registry).sort()).toEqual(['miku'])
+      expect(registry.miku.dir).toBe(join(carrier, 'miku'))
     } finally {
       rmSync(fakeRoot, { recursive: true, force: true })
     }
