@@ -13,6 +13,16 @@
   padding-left: var(--dsh-composer-side-clearance, 16px);
 }
 
+/* Hero phase: leave the dock row and join the official hero chip row. The
+   inline left/top offsets are measured against the composer stack; the row
+   gap and the seat metrics mirror the official WorkspaceChip /
+   AgentPresetSeat recipe. */
+.anchorHero {
+  position: absolute;
+  z-index: 10;
+  padding-left: 0;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -67,6 +77,39 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* Hero seat: the official hero-row chips are transparent 28px pills with
+   label-primary text and interactive-bg hover/open states (the same recipe
+   as WorkspaceChip and AgentPresetSeat in the official UI packages). */
+.chipHero {
+  height: auto;
+  min-height: 28px;
+  max-width: min(100%, 240px);
+  padding: 0 8px;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow: hidden;
+}
+
+.chipHero:hover,
+.chipHero:active,
+.chipHero.chipOpen {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.chipHero .chipLabel {
+  max-width: 180px;
+}
+
+.chipHero .chipChevron {
+  color: var(--dsw-alias-label-caption);
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
@@ -89,6 +132,13 @@
   background: var(--dsw-alias-bg-overlay);
   box-shadow: 0 8px 24px var(--dsw-alias-bg-mask-2);
   overflow: hidden;
+}
+
+/* In the hero row the menu opens downward (top: calc(100% + 4px)), matching
+   the official workspace picker anchored under the same chip row. */
+.popoverHero {
+  bottom: auto;
+  top: calc(100% + 4px);
 }
 
 .searchBox {

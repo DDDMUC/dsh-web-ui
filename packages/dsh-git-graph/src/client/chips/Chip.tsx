@@ -19,15 +19,17 @@ export interface ChipProps {
   ariaLabel: string
   open: boolean
   onClick: () => void
+  /** The official hero-row seat style (transparent 28px pill beside the preset chip). */
+  hero?: boolean
 }
 
 /** The pill button shared by the project and branch chips. */
-export function Chip({ icon, label, ariaLabel, open, onClick }: ChipProps) {
+export function Chip({ icon, label, ariaLabel, open, onClick, hero = false }: ChipProps) {
   return (
     <button
       type="button"
       data-gitgraph-chip
-      className={cx(css.chip, open && css.chipOpen)}
+      className={cx(css.chip, open && css.chipOpen, hero && css.chipHero)}
       onClick={onClick}
       aria-label={ariaLabel}
       aria-expanded={open}
