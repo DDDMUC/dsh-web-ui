@@ -39,17 +39,26 @@
 # the first model request sees exactly one platform shell plus `read`, no
 # runtime contexts, and only direct user messages; after that event every
 # Standard tool below and the ordinary runtime/workspace/skill injections
-# become visible. The phase derives from persisted session events, so resume
-# and reload keep it.
+# become visible. `anchorGate` holds the promotion open until the first
+# reasoning block is minimal-like (with a four-step fallback), so a `Let me`
+# first block does not immediately earn the full catalog.
+# `promoteAfterFirstResponse` avoids a permanent two-tool session when the
+# first response calls no tool. Workspace instructions and the skill catalog
+# are additionally deferred for one step after promotion (`deferredSources`).
 - id: tool-bootstrap
   name: ./tool-bootstrap.mjs
   config:
     shellTools: [bash, pwsh]
     commonTools: [read]
     messageSources: [user]
+    anchorGate: true
+    maxBootstrapSteps: 4
+    promoteAfterFirstResponse: true
+    deferredSources: [agent-instructions, skill-catalog]
+    deferredGraceSteps: 1
 
-# Workspace instructions are quarantined by `tool-bootstrap` during phase 1;
-# their baseline arrives with the promotion step and stays current afterwards.
+# Workspace instructions are quarantined by `tool-bootstrap` during phase 1
+# and deferred one step after promotion, then stay current.
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:
@@ -104,7 +113,7 @@
 # `tool-skill` gives them the catalog and loader; the merged catalog also
 # carries whatever the deployment registered globally (repository plugins).
 # The `skill-catalog` pre-step message is quarantined by `tool-bootstrap`
-# during phase 1 and arrives with the promotion step.
+# during phase 1 and deferred one step after promotion, then stays current.
 - id: skill-filesystem
   name: '@deepseek-ai/dsh-skill-filesystem'
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { apply, name } from '../presets/liangshen/tool-bootstrap.mjs'
+import { apply, classifyReasoning, name } from '../presets/liangshen/tool-bootstrap.mjs'
 
 const config = {
   commonTools: ['read'],
@@ -61,6 +61,17 @@ async function preStep(
 
 function message(kind: string | undefined, id: string) {
   return { id, source: kind === undefined ? undefined : { kind } }
+}
+
+function reasoningEvent(text: string) {
+  return {
+    type: 'assistant/message',
+    data: { message: { content: [{ type: 'reasoning', text }] } },
+  }
+}
+
+function stepEvent() {
+  return { type: 'step/start', data: { turn: 1, step: 1 } }
 }
 
 describe('anchored-tool-bootstrap', () => {
@@ -135,8 +146,21 @@ describe('anchored-tool-bootstrap', () => {
   })
 
   test('a promoted pre-step lets injected messages through', async () => {
+    const listeners = register()
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const sessionEvents = [{ type: 'tool/call' }]
+    const sessionObj = { events: sessionEvents }
+    await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({
+      system: 'minimal persona',
+      tools: [{ name: 'bash' }, { name: 'read' }],
+    }))
+
     const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
-    const result = await preStep(listener(register(), 'agent/pre-step'), [{ type: 'tool/call' }], messages)
+    const result = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 1, step: 1, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
     expect(result.messages).toEqual(messages)
   })
 
@@ -151,9 +175,123 @@ describe('anchored-tool-bootstrap', () => {
     expect(result.messages.map((entry: any) => entry.id)).toEqual(['user', 'instructions'])
   })
 
+  test('anchorGate holds promotion after a standard-like first block', async () => {
+    const assembleListener = listener(register({ anchorGate: true, maxBootstrapSteps: 4 }), 'system-prompt/assemble')
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
+    const events = [stepEvent(), reasoningEvent('Let me start by checking the repo.'), { type: 'tool/call' }]
+
+    const result = await assemble(assembleListener, events, tools)
+    expect(result.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read'])
+  })
+
+  test('anchorGate promotes once a minimal-like reasoning block appears', async () => {
+    const assembleListener = listener(register({ anchorGate: true, maxBootstrapSteps: 4 }), 'system-prompt/assemble')
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
+    const events = [stepEvent(), reasoningEvent('We need inspect the repo first.'), { type: 'tool/call' }]
+
+    const result = await assemble(assembleListener, events, tools)
+    expect(result.tools).toEqual(tools)
+  })
+
+  test('anchorGate falls back to promotion after maxBootstrapSteps', async () => {
+    const assembleListener = listener(register({ anchorGate: true, maxBootstrapSteps: 2 }), 'system-prompt/assemble')
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
+    const events = [stepEvent(), reasoningEvent('Let me check.'), stepEvent(), stepEvent(), { type: 'tool/call' }]
+
+    const result = await assemble(assembleListener, events, tools)
+    expect(result.tools).toEqual(tools)
+  })
+
+  test('promoteAfterFirstResponse opens the catalog on the next turn after a tool-less response', async () => {
+    const listeners = register({ promoteAfterFirstResponse: true })
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const events = [
+      { type: 'step/start', data: { turn: 1, step: 1 } },
+      { type: 'assistant/message', data: { message: { content: [{ type: 'text', text: 'done' }] } } },
+    ]
+    const sessionObj = { events }
+    const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
+    const result = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 2, step: 1, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
+    expect(result.messages.map((entry: any) => entry.id)).toEqual(['user'])
+
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
+    const assembled = await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({ system: 'minimal persona', tools }))
+    expect(assembled.tools).toEqual(tools)
+  })
+
+  test('anchorGate releases a finished first turn on the next user turn', async () => {
+    const listeners = register({ anchorGate: true, promoteAfterFirstResponse: true })
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const events = [
+      { type: 'step/start', data: { turn: 1, step: 1 } },
+      reasoningEvent('Let me check the repo.'),
+      { type: 'tool/call' },
+    ]
+    const sessionObj = { events }
+    const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
+    const result = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 2, step: 1, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
+    expect(result.messages.map((entry: any) => entry.id)).toEqual(['user'])
+
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
+    const assembled = await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({ system: 'minimal persona', tools }))
+    expect(assembled.tools).toEqual(tools)
+  })
+
+  test('deferred sources are stripped for deferredGraceSteps after promotion, then pass', async () => {
+    const listeners = register({
+      deferredSources: ['agent-instructions', 'skill-catalog'],
+      deferredGraceSteps: 1,
+    })
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const sessionEvents = [{ type: 'tool/call' }]
+    const sessionObj = { events: sessionEvents }
+    const tools = [{ name: 'bash' }, { name: 'read' }]
+    await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({ system: 'minimal persona', tools }))
+
+    const messages = [
+      message('user', 'user'),
+      message('agent-instructions', 'instructions'),
+      message('skill-catalog', 'skills'),
+      message('plugin', 'runtime'),
+    ]
+    const payload = {
+      agent: { session: sessionObj },
+      messages,
+      turn: 1,
+      step: 1,
+      signal: {},
+    }
+    const first = await preStepListener(payload, async () => ({ kind: 'enter', messages }))
+    expect(first.messages.map((entry: any) => entry.id)).toEqual(['user', 'runtime'])
+
+    const second = await preStepListener(payload, async () => ({ kind: 'enter', messages }))
+    expect(second.messages.map((entry: any) => entry.id)).toEqual(['user', 'instructions', 'skills', 'runtime'])
+  })
+
+  test('classifyReasoning separates the two trajectory surfaces', () => {
+    expect(classifyReasoning('We need inspect the repo.').label).toBe('minimal-like')
+    expect(classifyReasoning('Let me start by checking.').label).toBe('standard-like')
+    expect(classifyReasoning('Need inspect the repo.').label).toBe('ambiguous')
+  })
+
   test('misconfigured bootstrap catalogs fail loudly', async () => {
     await expect(assemble(listener(register(), 'system-prompt/assemble'), [], [{ name: 'read' }, { name: 'edit' }])).rejects.toThrow(
       /expected exactly one bootstrap shell/,
     )
+  })
+
+  test('invalid stability config fails loudly', () => {
+    expect(() => register({ maxBootstrapSteps: 0 })).toThrow(/maxBootstrapSteps/)
+    expect(() => register({ deferredGraceSteps: -1 })).toThrow(/deferredGraceSteps/)
+    expect(() => register({ deferredSources: [''] })).toThrow(/deferredSources/)
   })
 })
