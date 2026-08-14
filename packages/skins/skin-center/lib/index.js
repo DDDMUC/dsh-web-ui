@@ -1,6 +1,6 @@
 import { installSettingsSection, settingsNamespace } from "@deepseek-ai/dsh-settings";
 import z from "schemastery";
-import { lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -130,6 +130,7 @@ function listSkinDirCandidates(skinsDir) {
 	const isDir = (p) => statSync(p, { throwIfNoEntry: false })?.isDirectory() === true;
 	for (const dir of entries) {
 		const candidate = join(skinsDir, dir);
+		if (lstatSync(candidate, { throwIfNoEntry: false })?.isSymbolicLink() === true) continue;
 		if (!isDir(candidate)) continue;
 		if (statSync(join(candidate, "skin.json"), { throwIfNoEntry: false })) out.push(candidate);
 	}
@@ -159,7 +160,19 @@ function listSkinDirCandidates(skinsDir) {
 */
 function loadRegistry(skinsDir = SKINS_DIR) {
 	const out = {};
+	const seenReal = /* @__PURE__ */ new Set();
 	for (const dir of listSkinDirCandidates(skinsDir)) {
+		let real;
+		try {
+			real = realpathSync(dir);
+		} catch {
+			real = dir;
+		}
+		if (seenReal.has(real)) {
+			console.warn("[skin-center] duplicate skin dir (realpath) \"" + real + "\": keeping the real directory, ignoring " + dir);
+			continue;
+		}
+		seenReal.add(real);
 		const meta = readSkinMeta(dir);
 		if (meta === null || meta.wiring === void 0 || meta.package === void 0) continue;
 		if (out[meta.id] !== void 0) {
@@ -296,14 +309,30 @@ function writePatchAtomic(filePath, next) {
 * @param entry - the skin switch entry.
 * @param profileModulesDir - the profile's node_modules dir.
 */
+/** Canonical path a symlink resolves to, tolerant of a degraded link (a
+* self-referential link whose realpath would throw ELOOP); '' when absent. */
+function resolveLinkReal(linkPath) {
+	try {
+		return realpathSync(linkPath);
+	} catch {
+		return "";
+	}
+}
 function ensureSymlink(entry, profileModulesDir) {
 	const target = join(profileModulesDir, entry.pkg);
+	let entryReal;
+	try {
+		entryReal = realpathSync(entry.dir);
+	} catch {
+		entryReal = entry.dir;
+	}
+	if (entry.dir === target || entryReal === target) return false;
 	let stat = null;
 	try {
 		stat = lstatSync(target);
 	} catch {}
 	if (stat) if (stat.isSymbolicLink()) {
-		if (readlinkSync(target) === entry.dir) return false;
+		if (resolveLinkReal(target) === entryReal) return false;
 		if (process.platform === "win32" && stat.isDirectory()) rmdirSync(target);
 		else unlinkSync(target);
 	} else if (stat.isDirectory()) {
