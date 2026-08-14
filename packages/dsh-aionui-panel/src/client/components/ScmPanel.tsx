@@ -86,6 +86,9 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
   if (state.loading && status === null) {
     return <div className={`aionui-root ${scmCss.panel}`}><div className={scmCss.loading}>{t('scm.loading')}</div></div>
   }
+  if (state.gitMissing) {
+    return <div className={`aionui-root ${scmCss.panel}`}><div className={scmCss.notRepo}>{t('scm.gitMissing')}</div></div>
+  }
   if (status === null) {
     return <div className={`aionui-root ${scmCss.panel}`}><div className={scmCss.notRepo}>{t('scm.notRepo')}</div></div>
   }

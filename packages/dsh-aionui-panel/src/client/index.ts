@@ -110,6 +110,11 @@ export function apply(ctx: ClientContext): void {
           // The index/worktree moved: every open diff tab is stale by now.
           void stores.preview.handleGitChange(root)
         }
+        if (event.kind === 'gitUnavailable') {
+          // The host could not run git at all: land the friendly unavailable
+          // state once instead of leaving the SCM tab on "not a repository".
+          stores.scm.update((prev) => (prev.root !== root ? prev : { ...prev, status: null, loading: false, gitMissing: true }))
+        }
       })
     }
     disposers.push(ctx.sessions.list.subscribe(bindRoot))

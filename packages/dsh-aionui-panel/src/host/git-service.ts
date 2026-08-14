@@ -163,6 +163,26 @@ export class GitService {
     private readonly fsDelete: (root: string, rel: string) => Promise<{ ok: true } | PanelError>,
   ) {}
 
+  /** Cached one-shot git binary probe; never re-probes after the first call. */
+  private availablePromise: Promise<boolean> | undefined
+
+  /**
+   * Probe the git binary once (git --version) and cache the verdict for the
+   * service lifetime. A machine without git then degrades every operation to
+   * the stable "not a git repository" state after a single failed spawn,
+   * instead of re-spawning ENOENT on every poll tick. The cache stays false
+   * even if git is installed later; the host restart picks it up.
+   */
+  gitAvailable(): Promise<boolean> {
+    if (this.availablePromise === undefined) {
+      this.availablePromise = this.runner
+        .run(['--version'], '/')
+        .then((result) => result.exitCode === 0)
+        .catch(() => false)
+    }
+    return this.availablePromise
+  }
+
   /** Resolve the gated canonical root and the repository top-level. */
   private async repo(root: string): Promise<{ ok: true; root: string; repo: string } | { ok: false; error: PanelError }> {
     const gated = await this.gate(root)
@@ -181,6 +201,9 @@ export class GitService {
 
   /** The repo status view; null when the root is not a repository. */
   async status(root: string): Promise<GitStatusView | null | PanelError> {
+    // A missing git binary answers before any spawn: the probe runs once per
+    // service lifetime, so a git-less machine never re-spawns ENOENT here.
+    if (!(await this.gitAvailable())) return null
     const repo = await this.repo(root)
     if (!repo.ok) return repo.error.code === 'git-unavailable' ? null : repo.error
     const [branchResult, statusResult] = await Promise.all([

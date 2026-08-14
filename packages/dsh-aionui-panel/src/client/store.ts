@@ -441,6 +441,8 @@ export interface ScmState {
   root: string
   /** null: not a git repository (or still loading). */
   status: GitStatusView | null
+  /** True when the host reported git is not installed (SSE gitUnavailable). */
+  gitMissing: boolean
   loading: boolean
   /** Paths with an action in flight. */
   busy: string[]
@@ -490,6 +492,7 @@ export function createScmStore(api: PanelApi): ScmStore {
   const handle = createState<ScmState>({
     root: '',
     status: null,
+    gitMissing: false,
     loading: false,
     busy: [],
     failed: [],
@@ -533,6 +536,8 @@ export function createScmStore(api: PanelApi): ScmStore {
       return {
         ...prev,
         status: result.ok ? result.value : prev.status,
+        // A real repo view clears the missing-git banner; null keeps it.
+        gitMissing: result.ok && result.value !== null ? false : prev.gitMissing,
         loading: false,
         busy: keepBusy,
       }
@@ -548,6 +553,7 @@ export function createScmStore(api: PanelApi): ScmStore {
           ...prev,
           root,
           status: null,
+          gitMissing: false,
           loading: true,
           busy: [],
           failed: [],

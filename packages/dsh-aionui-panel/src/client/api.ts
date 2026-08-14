@@ -92,6 +92,7 @@ export class PanelApi {
 export type PanelChangeEvent =
   | { kind: 'fs' }
   | { kind: 'git'; status: GitStatusView }
+  | { kind: 'gitUnavailable' }
 
 /**
  * Subscribe to host-pushed changes for one project root (fs watch events and

@@ -98,12 +98,27 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
   }
 
   let polling = false
+  // One-shot availability state: a machine without a git binary must not
+  // re-spawn ENOENT every 2s tick. The probe result is cached inside the git
+  // service, so this runs once, logs at most once, and then git polling stops
+  // for the rest of this route instance while fs watching keeps working.
+  let gitProbed = false
+  let gitUnavailable = false
   const pollGit = async (): Promise<void> => {
     // Guard against overlapping polls: a slow git status on a large repo must
     // not stack another run on the next 2s tick.
     if (polling) return
     polling = true
     try {
+      if (!gitProbed) {
+        gitProbed = true
+        if (!(await git.gitAvailable())) {
+          gitUnavailable = true
+          ctx.logger.warn('dsh-aionui-panel: git binary unavailable, SCM polling disabled')
+          for (const subscriber of subscribers) push(subscriber, { kind: 'gitUnavailable' })
+        }
+      }
+      if (gitUnavailable) return
       await Promise.all([...subscribers].map(async (subscriber) => {
         try {
           const status = await git.status(subscriber.root)
@@ -313,6 +328,10 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
     res.write('retry: 2000\n\n')
     const subscriber: Subscriber = { root: gated.canonical, lastGit: '', res }
     subscribers.add(subscriber)
+    // A stream opened after the one-shot probe already failed gets the
+    // unavailable event right away; streams open during the probe receive it
+    // from the probe's broadcast above.
+    if (gitUnavailable) push(subscriber, { kind: 'gitUnavailable' })
     if (gitTimer === undefined) gitTimer = setInterval(pollGit, GIT_POLL_MS)
     if (heartbeatTimer === undefined) {
       heartbeatTimer = setInterval(() => {
