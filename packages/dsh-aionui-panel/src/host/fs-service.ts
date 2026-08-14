@@ -10,10 +10,20 @@
  */
 
 import { readdir, readFile, realpath, stat, writeFile, rm, mkdir } from 'node:fs/promises'
-import { watch as watchDir, type Dirent, type FSWatcher } from 'node:fs'
+import { watch as watchPath, type Dirent, type FSWatcher } from 'node:fs'
 import { join, dirname } from 'node:path'
 import type { DirListing, FileRead, FsEntry, PanelError, SearchHit, SearchView } from '../core/types.ts'
 import { isPathInside, type GateVerdict, type WorkspaceGate } from './gate.ts'
+
+/** The fs.watch call shape the service needs (constructor seam for tests). */
+export type SpawnWatcher = (
+  path: string,
+  options: { recursive: boolean },
+  listener: (event: string, filename: string | Buffer | null) => void,
+) => FSWatcher
+
+/** Production watcher spawn over node:fs. */
+const defaultSpawnWatcher: SpawnWatcher = (path, options, listener) => watchPath(path, options, listener)
 
 /** Preview text ceiling — mirrors AionUi's single-tab 80k-char cap. */
 export const TEXT_CAP_CHARS = 80_000
@@ -71,6 +81,19 @@ async function resolveInsideRoot(root: string, rel: string): Promise<{ ok: true;
 /** True when the relative path is, or passes through, a .git component. */
 function isGitPath(rel: string): boolean {
   return rel.split('/').some((part) => part.toLowerCase() === '.git')
+}
+
+/**
+ * True when the changed path lies inside node_modules or .git — the two
+ * directories whose churn (installs, builds, index writes) never represents
+ * a project-file change the panel needs to surface, and which dominate a
+ * recursive watch of a large workspace.
+ */
+function isIgnoredWatchPath(filename: string): boolean {
+  return filename.split(/[\\/]/).some((part) => {
+    const lowered = part.toLowerCase()
+    return lowered === 'node_modules' || lowered === '.git'
+  })
 }
 
 /** Case-insensitive alpha compare (dirs first, then files). */
@@ -157,7 +180,10 @@ function imageMime(rel: string, data: Buffer): string {
  * @param gate - the workspace gate (host: registered workspace membership).
  */
 export class FsService {
-  constructor(private readonly gate: WorkspaceGate) {}
+  constructor(
+    private readonly gate: WorkspaceGate,
+    private readonly spawnWatcher: SpawnWatcher = defaultSpawnWatcher,
+  ) {}
 
   /** Verify a project root against the workspace gate (used by the SSE layer). */
   verify(root: string): Promise<GateVerdict> {
@@ -407,7 +433,17 @@ export class FsService {
     void this.gate(root).then((gated) => {
       if (!gated.ok || disposed) return
       try {
-        watcher = watchDir(gated.canonical, { recursive: true }, () => fire())
+        watcher = this.spawnWatcher(gated.canonical, { recursive: true }, (_event, filename) => {
+          // Recursive watch sees every directory, including node_modules and
+          // .git. Drop events whose changed path lives there: they are noise
+          // (and the dominant event flood on large workspaces), while events
+          // for real project files keep firing as before.
+          const name = filename === null
+            ? null
+            : Buffer.isBuffer(filename) ? filename.toString('utf8') : filename
+          if (name !== null && isIgnoredWatchPath(name)) return
+          fire()
+        })
         watcher.on('error', () => {
           if (disposed) return
           watcher?.close()

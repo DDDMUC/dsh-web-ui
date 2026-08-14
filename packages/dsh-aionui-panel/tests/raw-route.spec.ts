@@ -35,6 +35,7 @@ async function request(
   handler: (req: unknown, res: unknown) => Promise<void>,
   method: string,
   url: string,
+  options: { remoteAddress?: string; host?: string } = {},
 ): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
   let status = 0
   let headers: Record<string, string> = {}
@@ -45,7 +46,12 @@ async function request(
       if (chunk !== undefined && chunk !== null) body = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk))
     },
   }
-  await handler({ method, url }, res)
+  await handler({
+    method,
+    url,
+    headers: { host: options.host ?? '127.0.0.1:3000' },
+    socket: { remoteAddress: options.remoteAddress ?? '127.0.0.1' },
+  }, res)
   return { status, headers, body }
 }
 
@@ -99,5 +105,21 @@ describe('GET /aionui-panel/raw', () => {
     expect(other.status).toBe(405)
 
     await rm(dir, { recursive: true, force: true })
+  })
+
+  it('rejects non-loopback raw reads with 403 before touching the filesystem', async () => {
+    const gate: WorkspaceGate = async () => ({ ok: true, canonical: '/tmp/nope' })
+    const { ctx, registrations } = fakeCtx()
+    registerPanelRoutes(ctx as never, new FsService(gate), { status: async () => null } as never)
+    const row = registrations.find((item) => item.kind === 'prefix')!
+
+    const result = await request(row.handler, 'GET', '/aionui-panel/raw?root=%2Fw&path=a.png', {
+      remoteAddress: '192.168.1.20',
+      host: '192.168.1.10:3000',
+    })
+
+    expect(result.status).toBe(403)
+    expect(result.headers['content-type']).toBe('application/json; charset=utf-8')
+    expect(JSON.parse(result.body.toString('utf8'))).toEqual({ error: 'forbidden: loopback-only' })
   })
 })
