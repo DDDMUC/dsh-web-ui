@@ -96,12 +96,6 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 ![Windows XP 皮肤](docs/screenshots/16-skin-xp-light.png)
 
-### Minecraft 方块世界
-
-以《我的世界》主界面为灵感：像素全景天空盒在界面后方缓慢旋转，按钮为灰石板样式，输入框为木告示牌样式。
-
-![Minecraft 皮肤](docs/screenshots/15-skin-minecraft-light.png)
-
 ### Blue Fantasy 蓝色幻想
 
 鲸鱼插画铺于半透明面板之下，靛蓝色调色板贯穿全局，暗色主题下效果尤为突出。
@@ -113,20 +107,6 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 深海鲸语女神主题：无文字纯氛围背景画（蓝发女神与鲸群居左、冰蓝星座网格与金色细线点缀、右侧大量留白）垫在半透明面板之下，冰蓝 / 浅青 / 深海军蓝 / 钴蓝冷色体系贯穿全局，暗色变体为深海夜航调。
 
 ![鲸吟 亮色](docs/screenshots/24-skin-whale-song-light.png) · ![鲸吟 暗色](docs/screenshots/25-skin-whale-song-dark.png)
-
-### 交易终端（Trading Terminal）
-
-带实时行情的炒股皮肤：顶栏滚动跑马灯（A股 / 港股 / 美股 / 指数 / 加密 / 外汇，红涨绿跌），标题栏行情快签，状态栏展示 A股 / 港股 / 美股交易时段与港美股指数。已安装 `dsh-fun-ticker` 时跑马灯跟随你的自选列表（同源代理取数），已安装 `dsh-longbridge` 时指数格渲染长桥券商快照；两个插件都没装也能直接走公共行情源（腾讯 / 币安 / Frankfurter）独立工作，所有路径失败都安全降级为 `--`。
-
-![交易终端 亮色](docs/screenshots/26-skin-trading-light.png) · ![交易终端 暗色](docs/screenshots/27-skin-trading-dark.png)
-
-### QQ2006 经典版
-
-复刻经典桌面客户端的紧凑布局：水晶蓝渐变窗口栏、企鹅状态标识、浅蓝任务栏和直角控件。全部图形由代码绘制，不携带第三方二进制素材，并提供亮色与暗色两套适配。
-
-![QQ2006 亮色](docs/screenshots/28-skin-qq2006-light.png) · ![QQ2006 暗色](docs/screenshots/29-skin-qq2006-dark.png)
-
-其余四款：QQ2008 怀旧版（水晶蓝配色与企鹅元素）、同花顺风格（行情元素融入界面）、龙的传人（朱砂龙印主题）、初音未来（蓝紫品红渐变与磨砂玻璃面板，亮暗双主题）。
 
 ## 安装
 
@@ -203,7 +183,7 @@ dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘�
 
 欢迎加入**中心社区**，与开发者和其他用户一起交流使用心得、反馈问题、参与讨论。微信扫码即可加入：
 
-![中心社区](docs/community-center.jpg)
+![中心社区](docs/community-center.jpg =240x306)
 
 ## 来源与版权
 

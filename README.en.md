@@ -94,12 +94,6 @@ A faithful recreation of the classic Luna interface: blue gradient window chrome
 
 ![Windows XP skin](docs/screenshots/16-skin-xp-light.png)
 
-### Minecraft Voxel
-
-Inspired by the Minecraft main menu: a pixel-art panorama skybox rotates slowly behind the interface, buttons adopt the gray stone slab style, and inputs become wooden sign posts.
-
-![Minecraft skin](docs/screenshots/15-skin-minecraft-light.png)
-
 ### Blue Fantasy
 
 Whale artwork lies beneath translucent panes, wrapped in a periwinkle-indigo palette — particularly striking in dark mode.
@@ -111,20 +105,6 @@ Whale artwork lies beneath translucent panes, wrapped in a periwinkle-indigo pal
 The deep-sea whale-goddess theme: a text-free ambience painting (a blue-haired goddess with a whale pod on the left, an ice-blue constellation grid with gold-thread accents, and generous open water on the right) sits beneath translucent panes, wrapped in an ice-blue / cyan / navy / cobalt palette — with a night-cruise dark variant.
 
 ![Whale Song light](docs/screenshots/24-skin-whale-song-light.png) · ![Whale Song dark](docs/screenshots/25-skin-whale-song-dark.png)
-
-### Trading Terminal
-
-A live-data stock-trading skin: a scrolling ticker tape (A-shares / HK / US / indices / crypto / FX, 红涨绿跌), live quote chips in the title bar, and a status bar with A-share / HK / US trading sessions plus HK/US index cells. With `dsh-fun-ticker` installed the tape follows your watchlist (served through its same-origin proxy); with `dsh-longbridge` installed the index cells render the broker snapshot. With neither plugin installed the skin still works standalone on public feeds (Tencent / Binance / Frankfurter) — and every fetch path fails safe to `--` cells.
-
-![Trading Terminal light](docs/screenshots/26-skin-trading-light.png) · ![Trading Terminal dark](docs/screenshots/27-skin-trading-dark.png)
-
-### QQ2006 Classic
-
-A compact recreation of the classic desktop client: crystal-blue gradient window chrome, a penguin status mark, a pale-blue taskbar, and square controls. Every graphic is code-drawn, with no third-party binary assets, and both light and dark themes are supported.
-
-![QQ2006 light](docs/screenshots/28-skin-qq2006-light.png) · ![QQ2006 dark](docs/screenshots/29-skin-qq2006-dark.png)
-
-Four more: QQ2008 Retro (crystal blue with penguin motifs), Tonghuashun Trading (market elements woven into the interface), Dragon Heir (cinnabar dragon seal theme), and Miku (blue-violet-magenta gradients with frosted glass panels, light and dark themes).
 
 ## Installation
 
