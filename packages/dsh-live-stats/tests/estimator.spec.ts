@@ -62,6 +62,23 @@ describe('live-stats estimator', () => {
     expect(() => estimateContentTokens([block], SPEC)).not.toThrow()
   })
 
+  it('caps untyped block pricing at a bounded serialized length', () => {
+    // A short untyped block is priced from its full serialized length.
+    expect(estimateContentTokens([{ type: 'mystery' } as never], SPEC)).toBe(9)
+    // An oversized untyped block is priced from the capped length instead of
+    // the full structure, keeping both the estimate and the serialize cost
+    // bounded no matter how large the block grows.
+    const giant = { type: 'opaque', payload: 'x'.repeat(200_000) }
+    const cappedAt = 4 + Math.ceil(4096 / SPEC.charsPerToken)
+    expect(estimateContentTokens([giant] as never, SPEC)).toBe(cappedAt)
+    // A block just under the cap is still priced fully (no discontinuity).
+    const near = { type: 'opaque', payload: 'y'.repeat(4000) }
+    const serializedLen = JSON.stringify(near).length
+    if (serializedLen <= 4096) {
+      expect(estimateContentTokens([near] as never, SPEC)).toBe(4 + Math.ceil(serializedLen / SPEC.charsPerToken))
+    }
+  })
+
   it('prices header framing for system text and tool schemas', () => {
     expect(estimateHeaderTokens(undefined, SPEC)).toBe(0)
     expect(estimateHeaderTokens({

@@ -576,13 +576,19 @@ describe('liveTokenUsage projection', () => {
     state = definition.apply(state, chunkEvent({ type: 'text-delta', index: 0, text: '' }, 2))
     expect(state).toBe(beforeNoop)
 
+
     // Every mutating delta rewrites its slot in place: the blocks array is
-    // allocated once at step/start and never reallocated within the step.
+    // allocated once at step/start and never reallocated within the step, and
+    // the active step object is reused rather than rebuilt per chunk. This is
+    // the coalescing guard: streaming deltas stop allocating a fresh active
+    // object (and copying buckets) on every event.
     const blocks = active.blocks
     state = definition.apply(state, chunkEvent({ type: 'text-delta', index: 0, text: 'first' }, 3))
     expect(state.active?.blocks).toBe(blocks)
+    expect(state.active).toBe(active)
     state = definition.apply(state, chunkEvent({ type: 'text-delta', index: 0, text: 'second' }, 4))
     expect(state.active?.blocks).toBe(blocks)
+    expect(state.active).toBe(active)
     state = definition.apply(state, chunkEvent({ type: 'reasoning-delta', index: 7, text: 'think' }, 5))
     expect(state.active?.blocks).toBe(blocks)
     state = definition.apply(state, chunkEvent({
