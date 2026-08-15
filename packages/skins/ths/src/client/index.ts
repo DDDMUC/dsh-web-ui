@@ -12,12 +12,30 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import css from './ths.module.css'
+import { accumulateCodeIndex, type CodeIndexCache } from './code-index.ts'
 
 /** The product title the skin pins (captured by the shell's DocumentTitle after settle). */
 const SKIN_TITLE = '同花顺 · DeepSeek 在线'
 
 /** Refresh cadence of the code-workload index cell. */
 const CODE_INDEX_REFRESH_MS = 30_000
+
+/** Minimal structural surface of the injected connection API the skin
+ *  reads for the code-workload index. `codeKline` is a runtime RPC absent
+ *  from the SDK's IApiClient type, so the skin narrows to just the calls it
+ *  makes (behaviour-neutral typing). */
+interface CodeIndexApi {
+  workspace: {
+    list(args: Record<string, never>): Promise<{
+      result: { ok: boolean; value: { items: Array<{ workspaceId: string }> } }
+    }>
+  }
+  codeKline: {
+    list(args: { workspaceId: string; days: number }): Promise<{
+      result: { ok: boolean; value: { candles: Array<{ close: number; open: number }> } }
+    }>
+  }
+}
 
 /** Quote trend direction, coloring the status bar cells 红涨绿跌. */
 type Trend = 'up' | 'down' | 'brand' | 'none'
@@ -143,22 +161,30 @@ export function apply(ctx: Context): void {
   // only reads: no events, no writes beyond its own cell. Failures degrade
   // to the dash — the stock chrome must never crash the terminal.
   const connection = ctx.get('connection') as ConnectionHandle | undefined
-  const api = connection?.api
+  const api = connection?.api as unknown as CodeIndexApi | undefined
+  // Incremental cache holding each workspace's last delta, keyed by the
+  // candle's (close, open) pair so an unchanged candle reuses the cached
+  // delta instead of re-deriving every workspace from scratch each 30s tick.
+  // Behaviour is equivalent to a full recompute: the cell still shows the
+  // summed net line change across all current workspaces.
+  let codeIndexCache: CodeIndexCache = new Map()
   const refreshCodeIndex = (): void => {
     if (api === undefined) return
     void (async () => {
       try {
         const list = await api.workspace.list({})
         if (!list.result.ok) return
-        let net = 0
+        const frame: Array<{ workspaceId: string; last?: { close: number; open: number } }> = []
         for (const workspace of list.result.value.items) {
           const response = await api.codeKline.list({ workspaceId: workspace.workspaceId, days: 1 })
           if (!response.result.ok) continue
           const candles = response.result.value.candles
           const last = candles[candles.length - 1]
           if (last === undefined) continue
-          net += last.close - last.open
+          frame.push({ workspaceId: workspace.workspaceId, last })
         }
+        const { net, cache } = accumulateCodeIndex(frame, codeIndexCache)
+        codeIndexCache = cache
         const trend: Trend = net > 0 ? 'up' : net < 0 ? 'down' : 'none'
         codeIndexCell.textContent = `代码指数 ${net > 0 ? '+' : ''}${net} 行`
         if (trend !== 'none') codeIndexCell.dataset.trend = trend

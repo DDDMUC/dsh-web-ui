@@ -440,6 +440,18 @@ window.__ModuleLoader__.load({
 		function faceImage(svg) {
 			return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
 		}
+		/** The six panorama faces as data-URI background images, rendered once at
+		*  module load and reused across every apply. The previous code re-derived
+		*  all six SVGs and re-encoded them into data URIs on each apply; caching
+		*  them module-level skips that repeated work while keeping the exact same
+		*  face images (deterministic scenes, so a module-level render is stable).
+		*  Order matches the apply loop: the four side scenes in SCENES order, then
+		*  top and bottom. */
+		const FACE_IMAGES = [
+			...SCENES.map((scene) => faceImage(renderScene(scene))),
+			faceImage(topSvg()),
+			faceImage(bottomSvg())
+		];
 		/**
 		* Apply the Minecraft skin: body attribute, panorama skybox (stage + cube
 		* of six faces + dimming scrim), title. All writes are retracted by the
@@ -454,7 +466,6 @@ window.__ModuleLoader__.load({
 			stage.className = cls("mcStage");
 			const skybox = document.createElement("div");
 			skybox.className = cls("mcSkybox");
-			const sideSvg = SCENES.map(renderScene);
 			const sideNames = [
 				"front",
 				"back",
@@ -464,7 +475,7 @@ window.__ModuleLoader__.load({
 			for (let i = 0; i < 6; i++) {
 				const face = document.createElement("div");
 				face.className = `${cls("mcFace")} ${cls(i < 4 ? `mcFace${i + 1}` : i === 4 ? "mcFaceTop" : "mcFaceBottom")}`;
-				face.style.backgroundImage = faceImage(i < 4 ? sideSvg[i] : i === 4 ? topSvg() : bottomSvg());
+				face.style.backgroundImage = FACE_IMAGES[i];
 				face.dataset.skinChrome = `face-${sideNames[i] ?? (i === 4 ? "top" : "bottom")}`;
 				skybox.append(face);
 			}
@@ -483,6 +494,7 @@ window.__ModuleLoader__.load({
 			}, "ui-skin-minecraft: panorama skybox");
 		}
 		//#endregion
+		exports.FACE_IMAGES = FACE_IMAGES;
 		exports.apply = apply;
 		return module.exports;
 	}

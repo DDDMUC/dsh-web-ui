@@ -28,6 +28,48 @@ window.__ModuleLoader__.load({
 			"thsTitlebarTitle": "_4FCmXW_thsTitlebarTitle"
 		};
 		//#endregion
+		//#region src/client/code-index.ts
+		/**
+		* Accumulate one refresh frame over the delta cache.
+		*
+		* For each workspace with a usable last candle: if the cached pair matches
+		* (same close and open), the cached delta is reused — the delta provably
+		* cannot differ — otherwise the delta is re-derived and the cache entry
+		* updated. Workspaces without a usable candle contribute 0 and are not
+		* cached; workspaces absent from the frame drop out of the returned cache.
+		*
+		* @param frame - the current workspaces and their latest candles.
+		* @param cache - the cache produced by the previous frame (may be empty).
+		*/
+		function accumulateCodeIndex(frame, cache) {
+			const next = /* @__PURE__ */ new Map();
+			let net = 0;
+			let changed = 0;
+			for (const workspace of frame) {
+				const last = workspace.last;
+				if (last === void 0) continue;
+				const prior = cache.get(workspace.workspaceId);
+				if (prior !== void 0 && prior.close === last.close && prior.open === last.open) {
+					net += prior.delta;
+					next.set(workspace.workspaceId, prior);
+				} else {
+					const delta = last.close - last.open;
+					net += delta;
+					changed += 1;
+					next.set(workspace.workspaceId, {
+						close: last.close,
+						open: last.open,
+						delta
+					});
+				}
+			}
+			return {
+				net,
+				cache: next,
+				changed
+			};
+		}
+		//#endregion
 		//#region src/client/index.ts
 		/** The product title the skin pins (captured by the shell's DocumentTitle after settle). */
 		const SKIN_TITLE = "同花顺 · DeepSeek 在线";
@@ -165,13 +207,14 @@ window.__ModuleLoader__.load({
 			document.title = SKIN_TITLE;
 			body.append(titlebar, statusbar);
 			const api = ctx.get("connection")?.api;
+			let codeIndexCache = /* @__PURE__ */ new Map();
 			const refreshCodeIndex = () => {
 				if (api === void 0) return;
 				(async () => {
 					try {
 						const list = await api.workspace.list({});
 						if (!list.result.ok) return;
-						let net = 0;
+						const frame = [];
 						for (const workspace of list.result.value.items) {
 							const response = await api.codeKline.list({
 								workspaceId: workspace.workspaceId,
@@ -181,8 +224,13 @@ window.__ModuleLoader__.load({
 							const candles = response.result.value.candles;
 							const last = candles[candles.length - 1];
 							if (last === void 0) continue;
-							net += last.close - last.open;
+							frame.push({
+								workspaceId: workspace.workspaceId,
+								last
+							});
 						}
+						const { net, cache } = accumulateCodeIndex(frame, codeIndexCache);
+						codeIndexCache = cache;
 						const trend = net > 0 ? "up" : net < 0 ? "down" : "none";
 						codeIndexCell.textContent = `代码指数 ${net > 0 ? "+" : ""}${net} 行`;
 						if (trend !== "none") codeIndexCell.dataset.trend = trend;
