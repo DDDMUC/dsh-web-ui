@@ -2,8 +2,9 @@
 /**
  * Generate concise release notes for the dsh-web-ui GitHub Release.
  *
- * Collects first-parent conventional-commit subjects between the previous
- * v* tag and the release tag, groups them into 新功能 / 修复 / 其他 sections,
+ * Collects conventional-commit subjects across the whole previous-tag..
+ * release-tag range (including work merged in on side branches), groups them
+ * into 新功能 / 修复 / 其他 sections,
  * links (#123) issue references, and skips merge commits and the
  * chore(release) bump commit itself. The release workflow writes the output
  * to a notes file and passes it to `gh release create --notes-file`.
@@ -116,9 +117,12 @@ export function renderNotes(version, rows, repo) {
  */
 export function collectNotes(cwd, tag, repo = DEFAULT_REPO) {
   const previous = previousTag(cwd, tag)
+  // Full-range walk, NOT --first-parent: releases routinely merge an
+  // entire feature branch in one merge commit, and a first-parent walk
+  // hides every commit on the merged side (the v0.1.15 notes regression).
   const args = previous === null
-    ? ['log', '--first-parent', '--format=%s', '-n', '30', tag]
-    : ['log', '--first-parent', '--format=%s', previous + '..' + tag]
+    ? ['log', '--format=%s', '-n', '30', tag]
+    : ['log', '--format=%s', previous + '..' + tag]
   const output = execFileSync('git', args, { cwd, encoding: 'utf8' })
   const rows = []
   for (const line of output.split('\n')) {

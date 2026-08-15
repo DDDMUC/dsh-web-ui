@@ -100,3 +100,37 @@ test('collectNotes: renders the commits between two tags of a real temp repo', (
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('collectNotes: includes commits merged in on a side branch (v0.1.15 regression)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-release-notes-merge-'))
+  try {
+    const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    git('init', '-q', '-b', 'main')
+    git('config', 'user.email', 'test@dsh.local')
+    git('config', 'user.name', 'Test')
+    const commit = (message) => {
+      execFileSync('git', ['commit', '--allow-empty', '-q', '-m', message], { cwd: dir })
+    }
+    commit('chore(release): bump to 0.1.0')
+    git('tag', 'v0.1.0')
+    commit('feat(ci): add release notes generator')
+    git('checkout', '-q', '-b', 'feature')
+    commit('perf(skins): one ticker for trading')
+    commit('fix(ssh): split 801-line engine into modules')
+    git('checkout', '-q', 'main')
+    git('merge', '--no-ff', '-q', '-m', 'merge: plugin suite performance refactor', 'feature')
+    git('tag', 'v0.1.1')
+
+    const notes = collectNotes(dir, 'v0.1.1', 'zhu1090093659/dsh-web-ui')
+    // The side-branch work rides the merge commit's second parent; a
+    // first-parent walk would lose it entirely.
+    assert.ok(notes.includes('perf(skins)') === false, 'subjects render without the type prefix')
+    assert.ok(notes.includes('- [skins] one ticker for trading'))
+    assert.ok(notes.includes('- [ssh] split 801-line engine into modules'))
+    assert.ok(notes.includes('- [ci] add release notes generator'))
+    assert.ok(!notes.includes('merge: plugin suite'))
+    assert.ok(!notes.includes('bump to 0.1.0'))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
