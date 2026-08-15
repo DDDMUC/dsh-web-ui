@@ -18,6 +18,7 @@
 - `apply()` 只写自己会收回的东西，disposer 完整回收（body 属性、注入元素、favicon、标题）
 - 样式全部挂在 `body[data-dsh-miku]` 下（暗色变体 `[data-ds-dark-theme]`）
 - 无静态资源文件：背景图以 data URI 内嵌
+- 支持 `prefers-reduced-transparency`：开启系统「降低透明度」（macOS / iOS Safari）的用户会得到同样的半透明表面，但省去 GPU 模糊开销
 
 ## 环境要求
 
@@ -81,6 +82,23 @@ export const MIKU_ART = 'data:image/webp;base64,<...>'
 ```
 
 重新构建后刷新页面即可。
+
+## 配置
+
+可选覆盖项，从 `localStorage` 读取（均可选；缺失或非法值回退默认）。纯呈现层——不注入服务、不发事件：
+
+| Key | 值 | 效果 |
+| --- | --- | --- |
+| `dsh.miku.title` | 任意字符串 | 替换标题栏与文档标题中固定的标题（「初音未来 · DeepSeek 在线」） |
+| `dsh.miku.cells` | JSON 字符串数组 | 替换状态栏单元格，例如 `["LIVE 01", "TURBO"]` |
+
+示例：
+
+```js
+localStorage.setItem('dsh.miku.title', 'Miku Works')
+localStorage.setItem('dsh.miku.cells', JSON.stringify(['LIVE 01', 'TURBO']))
+location.reload()
+```
 
 ## License
 
