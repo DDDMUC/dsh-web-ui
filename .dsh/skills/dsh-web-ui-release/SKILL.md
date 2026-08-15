@@ -12,7 +12,7 @@ GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发�
 ## 仓库事实（先读，决定每一步怎么做）
 
 - 仓库：zhu1090093659/dsh-web-ui（**PUBLIC**），本机路径 /Users/zcl/code/dsh-web-ui。
-- 全家桶 20 个包：packages/dsh-*（10 个）+ packages/skins/*（10 个，含 skin-center）。
+- 全家桶 23 个包：packages/dsh-*（12 个）+ packages/skins/*（11 个，含 skin-center）。
   全部发布到 npm scope `@linxin666`，registry 固定 registry.npmjs.org。
 - **版本策略：全仓统一版本**（tag vX.Y.Z = 每个 package.json 的 version，由管线强制校验）。
 - npm 不允许重复发布同一版本号：已发布过的版本号（如 0.1.3/0.1.4/0.1.5）不可重发，
@@ -68,7 +68,7 @@ pnpm-lock.yaml 不记录包版本，无需改动；聚合包依赖用 workspace:
 git add <修复文件...>
 git commit -m "fix(...): <改动摘要>"
 
-# 发版提交：全部 20 个 package.json 版本 bump + 发布相关变更（管线、skill、AGENTS.md）
+# 发版提交：全部 23 个 package.json 版本 bump + 发布相关变更（管线、skill、AGENTS.md）
 git add packages/**/package.json .github/workflows/release.yml .dsh/skills/ AGENTS.md
 git commit -m "chore(release): bump to X.Y.Z"
 
@@ -83,10 +83,11 @@ git push origin "vX.Y.Z"            # 推送 tag 即触发发布管线（唯一�
 
 1. actionlint + pnpm install（frozen lockfile，checkout 用 fetch-depth: 0 取全量历史）；
 2. 全量 gate：typecheck / build / test / test:scripts / aggregate --check；
-3. **版本一致性校验**：tag 版本必须与全部 20 个包的 package.json version 完全一致，不一致直接失败（防止忘 bump 就发版）；
-4. **生成 release notes**：`node scripts/release-notes.mjs $TAG` 把上一 tag 以来的常规提交分组为 新功能/修复/其他 并链接 issue，写在 notes 文件（发布前执行，失败即中止，不触碰 npm）；
+3. **版本一致性校验**：tag 版本必须与全部 23 个包的 package.json version 完全一致，不一致直接失败（防止忘 bump 就发版）；
+4. **生成 release notes**：`node scripts/release-notes.mjs $TAG` 把上一 tag 以来的**全部**常规提交（含合并进来的分支提交，不能只走 --first-parent——v0.1.15 曾因此漏掉整条 perf/refactor 分支）分组为 新功能/修复/其他 并链接 issue，写在 notes 文件（发布前执行，失败即中止，不触碰 npm）；
 5. `pnpm -r publish --no-git-checks --access public`（NPM_TOKEN 写入 ~/.npmrc，拓扑序发布，workspace:* 自动转真实版本）；
-6. `gh release create --notes-file` 创建 GitHub Release（notes 即第 4 步生成的内容）。
+6. `gh release create --notes-file` 创建 GitHub Release（notes 即第 4 步生成的内容）；
+7. **上传 npm tarball 资产**：`node scripts/release-assets.mjs $TAG <outDir>` 从 registry 逐包 `npm pack <name>@<version>`（与已发布内容字节一致），再 `gh release upload` 附到 Release——裸 `gh release create` 只有 GitHub 自动源码归档，不带 npm 包。
 
 关注与排障：
 
@@ -108,6 +109,7 @@ gh run list --workflow=release.yml    # 查历史
 npm view @linxin666/dsh-web-ui-all version          # 期望 = X.Y.Z
 npm view @linxin666/dsh-client-ui-skin-center version
 gh release view "vX.Y.Z"                            # Release 已创建、notes 为分类更新说明（scripts/release-notes.mjs 生成）
+gh release view "vX.Y.Z" --json assets               # 23 个 @linxin666/dsh-* tgz 资产已附上（scripts/release-assets.mjs 上传）
 gh run list --workflow=release.yml                  # 全部成功
 git ls-remote --tags origin | grep "vX.Y.Z"         # tag 已在远端
 ```

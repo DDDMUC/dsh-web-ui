@@ -107,3 +107,14 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --title "dsh-web-ui $GITHUB_REF_NAME"
+
+      # A bare `gh release create` carries only GitHub's auto-generated
+      # source archives. Pack the published tarballs back from the npm
+      # registry (byte-identical to what pnpm -r publish pushed above) and
+      # attach them as real installable release artifacts.
+      - name: Upload npm tarballs to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/release-assets.mjs "$GITHUB_REF_NAME" "$RUNNER_TEMP/release-assets"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP"/release-assets/*.tgz --clobber
