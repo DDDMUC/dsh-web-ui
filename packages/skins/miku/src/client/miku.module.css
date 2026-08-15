@@ -1865,6 +1865,56 @@ body[data-dsh-miku] [class*='Mask'] {
   background: rgba(4, 10, 28, 0.45) !important;
 }
 
+/* Settings panel side navigation: the global light menu surface would put
+   the panel's (now light) ink on a pale fill — keep the deep panel surface
+   with light ink instead, and give items a deep-blue hover/active tint. */
+body[data-dsh-miku] [class*='panel'] [class*='menu'],
+body[data-dsh-miku] [class*='panel'] [class*='nav'],
+body[data-dsh-miku] [class*='drawer'] [class*='menu'],
+body[data-dsh-miku] [class*='drawer'] [class*='nav'],
+body[data-dsh-miku] [class*='settingsRoot'] [class*='menu'],
+body[data-dsh-miku] [class*='settingsRoot'] [class*='nav'] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--dsw-alias-label-secondary);
+}
+
+body[data-dsh-miku] [class*='panel'] [class*='menu'] [class*='item'],
+body[data-dsh-miku] [class*='panel'] [class*='nav'] [class*='item'],
+body[data-dsh-miku] [class*='drawer'] [class*='menu'] [class*='item'],
+body[data-dsh-miku] [class*='drawer'] [class*='nav'] [class*='item'],
+body[data-dsh-miku] [class*='settingsRoot'] [class*='menu'] [class*='item'],
+body[data-dsh-miku] [class*='settingsRoot'] [class*='nav'] [class*='item'] {
+  color: var(--dsw-alias-label-secondary);
+}
+
+body[data-dsh-miku] [class*='panel'] [class*='menu'] [class*='item']:hover,
+body[data-dsh-miku] [class*='panel'] [class*='nav'] [class*='item']:hover,
+body[data-dsh-miku] [class*='drawer'] [class*='menu'] [class*='item']:hover,
+body[data-dsh-miku] [class*='drawer'] [class*='nav'] [class*='item']:hover,
+body[data-dsh-miku] [class*='settingsRoot'] [class*='menu'] [class*='item']:hover,
+body[data-dsh-miku] [class*='settingsRoot'] [class*='nav'] [class*='item']:hover {
+  background: rgba(88, 169, 255, 0.18) !important;
+  color: #fff;
+}
+
+body[data-dsh-miku] [class*='panel'] [class*='menu'] [class*='item'][aria-current='true'],
+body[data-dsh-miku] [class*='panel'] [class*='nav'] [class*='item'][aria-current='true'],
+body[data-dsh-miku] [class*='panel'] [class*='menu'] [class*='item'][aria-selected='true'],
+body[data-dsh-miku] [class*='panel'] [class*='nav'] [class*='item'][aria-selected='true'],
+body[data-dsh-miku] [class*='drawer'] [class*='menu'] [class*='item'][aria-current='true'],
+body[data-dsh-miku] [class*='drawer'] [class*='nav'] [class*='item'][aria-current='true'],
+body[data-dsh-miku] [class*='drawer'] [class*='menu'] [class*='item'][aria-selected='true'],
+body[data-dsh-miku] [class*='drawer'] [class*='nav'] [class*='item'][aria-selected='true'],
+body[data-dsh-miku] [class*='settingsRoot'] [class*='menu'] [class*='item'][aria-current='true'],
+body[data-dsh-miku] [class*='settingsRoot'] [class*='nav'] [class*='item'][aria-current='true'],
+body[data-dsh-miku] [class*='settingsRoot'] [class*='menu'] [class*='item'][aria-selected='true'],
+body[data-dsh-miku] [class*='settingsRoot'] [class*='nav'] [class*='item'][aria-selected='true'] {
+  background: rgba(88, 169, 255, 0.28) !important;
+  color: #fff;
+}
+
 /* --- 按钮重新配色（blue-violet-magenta gradient + frosted） -------------------
    Primary actions wear the Miku gradient (blue → violet → magenta) with a
    glassy sheen; secondary/ghost buttons are translucent frosted with a blue
