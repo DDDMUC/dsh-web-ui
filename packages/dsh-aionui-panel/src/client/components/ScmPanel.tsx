@@ -13,7 +13,7 @@
  * @module dsh-aionui-panel/client/components/ScmPanel
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { GitChangeRow } from '../../core/types.ts'
 import { t, format } from '../locales.ts'
@@ -24,6 +24,9 @@ import { activateOnKey } from './a11y.ts'
 import { FileTypeIcon } from './FileIcon.tsx'
 import { BranchIcon, ChevronDownIcon, ChevronRightIcon, ListIcon, MinusIcon, PlusIcon, TreeIcon, UndoIcon } from './icons.tsx'
 import scmCss from '../styles/scm.module.css'
+
+/** Minimum gap between window-focus SCM refreshes (ms). */
+const FOCUS_REFRESH_MIN_MS = 5_000
 
 /** Badge letter + color class per state. */
 const BADGE: Record<string, { letter: string; className: string }> = {
@@ -64,8 +67,16 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
   const [discardTargets, setDiscardTargets] = useState<GitChangeRow[] | null>(null)
 
   // Window focus refreshes (catches external editors writing the tree).
+  // Throttled: a focus burst must not spawn a git status per event — the
+  // fs watch (host) and the 30s host poll already cover the steady state.
+  const lastFocusRefresh = useRef(0)
   useEffect(() => {
-    const onFocus = (): void => { void scm.refresh() }
+    const onFocus = (): void => {
+      const now = Date.now()
+      if (now - lastFocusRefresh.current < FOCUS_REFRESH_MIN_MS) return
+      lastFocusRefresh.current = now
+      void scm.refresh()
+    }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [scm])

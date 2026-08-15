@@ -26,8 +26,14 @@ interface Subscriber {
   res: ServerResponse
 }
 
-/** Poll interval for git-status changes while subscribers are connected. */
-const GIT_POLL_MS = 2_000
+/**
+ * Poll interval for git-status changes while subscribers are connected.
+ * Kept deliberately long (30s): on Windows a cold git.exe costs ~0.7s per
+ * spawn, and the SCM panel already refreshes event-driven (fs watch for
+ * file edits) and on window focus — the poll only needs to catch
+ * out-of-band .git writes (commits/checkouts from other tools).
+ */
+const GIT_POLL_MS = 30_000
 /** SSE keep-alive comment interval (proxies drop idle connections). */
 const HEARTBEAT_MS = 15_000
 

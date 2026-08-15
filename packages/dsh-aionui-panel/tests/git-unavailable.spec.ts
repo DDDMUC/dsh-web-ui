@@ -1,6 +1,6 @@
 /**
  * Regression tests for the missing-git-binary degradation (issue: the SSE git
- * poll re-spawned ENOENT every 2 seconds and spammed the terminal forever):
+ * poll re-spawned ENOENT every poll tick and spammed the terminal forever):
  * - The poll probes git availability once and stops polling when the binary
  *   is missing, pushing exactly one gitUnavailable SSE event per connection.
  * - Machines with git installed keep the normal polling behavior.
@@ -97,7 +97,7 @@ describe('SSE git polling with a missing git binary', () => {
     env.git.gitAvailable.mockResolvedValue(false)
     const conn = await connect(env.sse, '/w')
 
-    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.advanceTimersByTimeAsync(30_000)
 
     expect(env.git.gitAvailable).toHaveBeenCalledTimes(1)
     expect(eventsOfKind(conn.writes, 'gitUnavailable')).toBe(1)
@@ -119,7 +119,7 @@ describe('SSE git polling with a missing git binary', () => {
     const env = makeEnv()
     env.git.gitAvailable.mockResolvedValue(false)
     const first = await connect(env.sse, '/w')
-    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.advanceTimersByTimeAsync(30_000)
     const second = await connect(env.sse, '/w')
 
     expect(eventsOfKind(first.writes, 'gitUnavailable')).toBe(1)
@@ -141,21 +141,21 @@ describe('SSE git polling with git installed', () => {
     env.git.statusCanonical.mockResolvedValue(status)
     const conn = await connect(env.sse, '/w')
 
-    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.advanceTimersByTimeAsync(30_000)
     expect(env.git.gitAvailable).toHaveBeenCalledTimes(1)
     expect(env.git.isRepositoryCanonical).toHaveBeenCalledTimes(1)
     expect(env.git.statusCanonical).toHaveBeenCalledTimes(1)
     expect(eventsOfKind(conn.writes, 'git')).toBe(1)
 
     // Unchanged status pushes nothing; a branch change pushes again.
-    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.advanceTimersByTimeAsync(30_000)
     expect(env.git.isRepositoryCanonical).toHaveBeenCalledTimes(2)
     expect(env.git.statusCanonical).toHaveBeenCalledTimes(2)
     expect(eventsOfKind(conn.writes, 'git')).toBe(1)
     expect(eventsOfKind(conn.writes, 'gitUnavailable')).toBe(0)
 
     env.git.statusCanonical.mockResolvedValue({ ...status, branch: 'dev' })
-    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.advanceTimersByTimeAsync(30_000)
     expect(env.git.statusCanonical).toHaveBeenCalledTimes(3)
     expect(eventsOfKind(conn.writes, 'git')).toBe(2)
     expect(eventsOfKind(conn.writes, 'gitUnavailable')).toBe(0)
@@ -173,19 +173,19 @@ describe('SSE git polling on a non-repository workspace', () => {
     env.git.isRepositoryCanonical.mockResolvedValue(false)
     const conn = await connect(env.sse, '/w')
 
-    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.advanceTimersByTimeAsync(30_000)
 
     expect(env.git.gitAvailable).toHaveBeenCalledTimes(1)
     expect(env.git.isRepositoryCanonical).toHaveBeenCalledTimes(1)
     expect(env.git.statusCanonical).not.toHaveBeenCalled()
     expect(eventsOfKind(conn.writes, 'gitUnavailable')).toBe(0)
 
-    // Thirty more ticks: the interval keeps running so the repo probe is
+    // Two more ticks: the interval keeps running so the repo probe is
     // re-asked every tick (GitService re-runs the real rev-parse only when
     // its TTL expires), but no git status ever runs.
     await vi.advanceTimersByTimeAsync(60_000)
 
-    expect(env.git.isRepositoryCanonical).toHaveBeenCalledTimes(31)
+    expect(env.git.isRepositoryCanonical).toHaveBeenCalledTimes(3)
     expect(env.git.statusCanonical).not.toHaveBeenCalled()
     expect(eventsOfKind(conn.writes, 'gitUnavailable')).toBe(0)
 
@@ -196,10 +196,10 @@ describe('SSE git polling on a non-repository workspace', () => {
     const env = makeEnv()
     env.git.isRepositoryCanonical.mockResolvedValue(false)
     const first = await connect(env.sse, '/w')
-    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.advanceTimersByTimeAsync(30_000)
 
     const second = await connect(env.sse, '/w')
-    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.advanceTimersByTimeAsync(30_000)
 
     // One tick for the first subscriber alone, then one tick for both.
     expect(env.git.isRepositoryCanonical).toHaveBeenCalledTimes(3)
