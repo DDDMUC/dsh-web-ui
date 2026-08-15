@@ -1980,3 +1980,33 @@ body[data-dsh-miku][data-ds-dark-theme] [class*='composer'] [class*='card'] {
   border: none !important;
   box-shadow: none !important;
 }
+
+/* --- 无边框控件与面包屑隐藏（用户偏好） -----------------------------------
+   Buttons and inputs differentiate by fill/ink alone (no borders); the GUI
+   breadcrumb crumbs are not part of the Miku chrome and are hidden. */
+
+body[data-dsh-miku] [class*='crumb'] {
+  display: none !important;
+}
+
+body[data-dsh-miku] button,
+body[data-dsh-miku] [role='button'],
+body[data-dsh-miku] :global(.aionui-btn),
+body[data-dsh-miku] :global(.aionui-btn-primary),
+body[data-dsh-miku] :global(.aionui-btn-danger),
+body[data-dsh-miku] :global(.aionui-menu-item),
+body[data-dsh-miku] [class*='newSession'],
+body[data-dsh-miku] [class*='primary'],
+body[data-dsh-miku] [class*='trigger'],
+body[data-dsh-miku] [class*='ghost'],
+body[data-dsh-miku] [class*='quiet'],
+body[data-dsh-miku] [class*='seat'] {
+  border: none !important;
+}
+
+body[data-dsh-miku] input:not([type='checkbox']):not([type='radio']),
+body[data-dsh-miku] textarea,
+body[data-dsh-miku] [contenteditable='true'],
+body[data-dsh-miku] select {
+  border: none !important;
+}
