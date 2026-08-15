@@ -1,6 +1,7 @@
 /** The settings-section wiring: the Plugins card's committed changes drive the next call. */
 
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import type { ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -12,8 +13,8 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 
 import * as tool from '../src/index.ts'
-import { chatReply, FakeWebServer, jsonReply, PNG_BYTES, startMockServer } from './mock-server.ts'
-import type { MockServer } from './mock-server.ts'
+import { chatReply, FakeWebServer, jsonReply, PNG_BYTES, responsesReply, startMockServer } from './mock-server.ts'
+import type { MockServer, RecordedRequest } from './mock-server.ts'
 
 /** A provider implementing only the three primitives, backed by an in-memory document. */
 class MemorySettings extends SettingsProvider {
@@ -40,8 +41,12 @@ class MemorySettings extends SettingsProvider {
 
 const cleanup: Array<() => Promise<void>> = []
 
-async function boot(doc: Record<string, unknown> = {}): Promise<{ ctx: Context; server: MockServer }> {
-  const server = await startMockServer((_request, res) => { jsonReply(res, 200, chatReply('ok')) })
+async function boot(
+  doc: Record<string, unknown> = {},
+  handler: (request: RecordedRequest, response: ServerResponse) => void
+    = (_request, res) => { jsonReply(res, 200, chatReply('ok')) },
+): Promise<{ ctx: Context; server: MockServer }> {
+  const server = await startMockServer(handler)
   cleanup.push(server.close)
   const ctx = new Context()
   await ctx.plugin(MemorySettings, { doc })
@@ -96,6 +101,19 @@ describe('describe-image settings section', () => {
     const result = await callDescribe(ctx, path)
     expect(result.isError).toBe(false)
     expect((server.request(0).body as { model?: unknown }).model).toBe('live-model')
+  })
+
+  it('an apiStyle committed through the section switches the next call to /responses', async () => {
+    const { ctx, server } = await boot({}, (_request, res) => { jsonReply(res, 200, responsesReply('switched')) })
+    const path = await tempPng()
+
+    await ctx.settings.update(tool.DESCRIBE_IMAGE_SETTINGS_NAMESPACE, { apiStyle: 'responses' })
+
+    const result = await callDescribe(ctx, path)
+    expect(result.isError).toBe(false)
+    if (result.isError) throw new Error('expected describe_image success')
+    expect(result.value).toMatchObject({ text: 'switched' })
+    expect(server.request(0).path).toBe('/responses')
   })
 
   it('an inline apiKey committed through the section drives the next call', async () => {

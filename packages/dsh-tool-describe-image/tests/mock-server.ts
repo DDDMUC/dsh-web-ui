@@ -108,6 +108,11 @@ export function chatReply(content: unknown): unknown {
   return { choices: [{ message: { content } }] }
 }
 
+/** An OpenAI Responses payload whose first output item is an assistant message answering `content`. */
+export function responsesReply(content: unknown): unknown {
+  return { output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: content }] }] }
+}
+
 /** The smallest PNG this suite uses as a valid image (1x1 transparent pixel). */
 export const PNG_BYTES = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -118,4 +123,10 @@ export const PNG_BYTES = Buffer.from(
 export function sentContent(request: RecordedRequest): unknown {
   const body = request.body as { messages?: Array<{ content?: unknown }> }
   return body?.messages?.[0]?.content
+}
+
+/** The request body the Responses style is expected to send: `input[0].content` as the model-visible array. */
+export function sentInputContent(request: RecordedRequest): unknown {
+  const body = request.body as { input?: Array<{ content?: unknown }> }
+  return body?.input?.[0]?.content
 }

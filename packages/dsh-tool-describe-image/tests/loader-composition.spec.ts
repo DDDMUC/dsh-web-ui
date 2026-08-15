@@ -16,7 +16,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as DescribeImage from '../src/index.ts'
 
-import { chatReply, FakeWebServer, jsonReply, PNG_BYTES, startMockServer } from './mock-server.ts'
+import { chatReply, FakeWebServer, jsonReply, PNG_BYTES, responsesReply, startMockServer } from './mock-server.ts'
 import type { MockServer } from './mock-server.ts'
 
 let root: string | undefined
@@ -107,6 +107,26 @@ describe('describe-image real Loader composition through cordis.yml', () => {
     if (result.isError) throw new Error('expected describe_image success')
     expect(result.value).toMatchObject({ text: 'Composed.', model: 'loader-vision-1' })
     expect(server.request(0).authorization).toBe('Bearer sk-from-cordis')
+  }, 30_000)
+
+  it('honors apiStyle: responses from cordis.yml and posts /responses', async () => {
+    const server = await startMockServer((_request, res) => { jsonReply(res, 200, responsesReply('Composed responses.')) })
+    cleanup.push(server.close)
+    const ctx = await boot([
+      `    baseURL: ${server.url}`,
+      "    model: 'loader-vision-1'",
+      "    apiKey: 'sk-from-cordis'",
+      "    apiStyle: responses",
+    ])
+
+    const path = await tempPng()
+    const result = await callDescribe(ctx, path)
+    expect(result.isError).toBe(false)
+    if (result.isError) throw new Error('expected describe_image success')
+    expect(result.value).toMatchObject({ text: 'Composed responses.', model: 'loader-vision-1' })
+    expect(server.request(0).path).toBe('/responses')
+    const body = server.request(0).body as { max_output_tokens?: unknown }
+    expect(body.max_output_tokens).toBe(DescribeImage.DEFAULT_MAX_OUTPUT_TOKENS)
   }, 30_000)
 
   it('feeds the inline apiKey from the environment through the sanctioned !!js pattern', async () => {

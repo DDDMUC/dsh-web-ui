@@ -5,7 +5,8 @@ English | [中文](README.zh.md)
 Model-facing `describe_image` tool: gives **text-only models** (DeepSeek V4 etc.) image understanding.
 Each call loads one image — a local file path, an http(s) URL, or a session attachment reference —
 and asks an OpenAI-compatible vision endpoint (Qwen-VL, GLM-4V, GPT-4o, a local Ollama endpoint…) to
-answer; **only the returned text enters the conversation, the image itself never enters the session log**.
+answer over the Chat Completions or Responses protocol; **only the returned text enters the
+conversation, the image itself never enters the session log**.
 
 Ported from deepseek-harness `packages/vision/tool-describe-image` (mirrored at
 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)),
@@ -19,7 +20,8 @@ browser half, live settings, no dsh source changes.
 | Three inputs | Local absolute path, http(s) URL (redirects refused), an `[image attachment …]` JSON note, or the short markdown reference a drag/paste produces (`![图片](/describe-image/raw/sha256:…)` — the model passes the id from the URL; the in-process attach registry resolves it and the store's digest verification still runs) |
 | Direct image send | Dragging or pasting an image into a text-only session is rewritten at send time into a describe-image reference (`![图片](/describe-image/raw/sha256:…)`) instead of an image block the model cannot read, so the image renders in the conversation and the model analyzes it through the tool |
 | Custom instructions | The `prompt` argument carries your precise instruction (OCR, chart reading, UI diagnosis, translation…); the `defaultPrompt` config sets the fallback when the model passes none |
-| Live config card | Settings → Plugin config → Web UI Plugins → "Image understanding" card edits `baseURL` / `model` / API key / default instruction / bounds (through the settings seam); effective immediately, no restart |
+| Live config card | Settings → Plugin config → Web UI Plugins → "Image understanding" card edits `baseURL` / `apiStyle` / `model` / API key / default instruction / bounds (through the settings seam); effective immediately, no restart |
+| Protocol styles | `apiStyle: chat-completions` (default) posts to `baseURL/chat/completions`; `apiStyle: responses` posts to `baseURL/responses` with `input` / `max_output_tokens` and reads `output_text` |
 | Raw image route | `GET /describe-image/raw/<id>` serves the stored bytes (loopback-only, content-addressed id) so the pasted reference renders in the conversation |
 | Per-call key resolution | Inline `apiKey` → credential seam (`apiKeyEnv`, default `VISION_API_KEY`) → launch environment, tiered fallback |
 | Safety and bounds | All requests refuse redirects; `maxBytes` / `maxOutputTokens` / `timeoutMs` caps; magic-byte type gate; bounded error excerpts (200 chars); keys never logged |
@@ -56,12 +58,13 @@ actually configures it and per-call otherwise.)
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `baseURL` | — (required) | OpenAI-compatible endpoint root (e.g. `https://dashscope.aliyuncs.com/compatible-mode/v1`); trailing slashes stripped |
+| `apiStyle` | `chat-completions` | Protocol style: `chat-completions` appends `/chat/completions`; `responses` appends `/responses` (OpenAI Responses API `input` / `max_output_tokens` / `output_text` shapes) |
 | `model` | — (required) | Vision model id |
 | `apiKey` | — | Inline key for local debugging; prefer `!!js process.env.VISION_API_KEY` over a hardcoded secret |
 | `apiKeyEnv` | `VISION_API_KEY` | Credential reference (environment-variable name); empty string disables reference resolution |
 | `defaultPrompt` | see source | The instruction used when a call omits its `prompt` — tune it to your workload (OCR, UI review, translation…) |
 | `maxBytes` | `10485760` | Image byte bound (local files and downloads alike) |
-| `maxOutputTokens` | `1024` | `max_tokens` sent to the endpoint |
+| `maxOutputTokens` | `1024` | Output-token cap: `max_tokens` under `chat-completions`, `max_output_tokens` under `responses` |
 | `timeoutMs` | `60000` | Per-call vision request timeout |
 
 Configured mount example (profile `cordis.patch.yml` / composition file):
@@ -72,6 +75,18 @@ Configured mount example (profile `cordis.patch.yml` / composition file):
   config:
     baseURL: https://dashscope.aliyuncs.com/compatible-mode/v1
     model: qwen-vl-max
+    apiKey: !!js process.env.VISION_API_KEY
+```
+
+Endpoints exposing only the Responses API set `apiStyle: responses`:
+
+```yaml
+- id: describe-image
+  name: '@linxin666/dsh-tool-describe-image'
+  config:
+    baseURL: https://api.openai.com/v1
+    apiStyle: responses
+    model: gpt-4o-mini
     apiKey: !!js process.env.VISION_API_KEY
 ```
 
@@ -100,7 +115,8 @@ attachment store); only the reference text enters the session log.
 - One image per answer: no multi-image input, no follow-up on the previous image, no structured
   output (coordinates / boxes).
 - Extracting text still costs one VLM call: OCR-only deployments can point `baseURL` at a cheaper OCR model.
-- OpenAI-compatible protocol only: vendors with different request/response shapes need separate adapters.
+- OpenAI-compatible protocol only: Chat Completions (`/chat/completions`) and Responses (`/responses`)
+  are supported; vendors with other request/response shapes need separate adapters.
 
 ## Source and copyright
 

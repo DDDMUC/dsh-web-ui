@@ -36,6 +36,11 @@ export const DEFAULT_API_KEY_ENV = 'VISION_API_KEY'
 export const DEFAULT_MAX_OUTPUT_TOKENS = 1024
 /** Per-call vision request timeout in milliseconds. */
 export const DEFAULT_TIMEOUT_MS = 60_000
+/** Protocol styles the tool can speak to the configured endpoint. */
+export const API_STYLES = ['chat-completions', 'responses'] as const
+export type ApiStyle = typeof API_STYLES[number]
+/** Protocol style used unless the configuration overrides it. */
+export const DEFAULT_API_STYLE: ApiStyle = 'chat-completions'
 /** Instruction sent when the model does not pass its own prompt. */
 export const DEFAULT_PROMPT =
   'Analyze this image: describe what is visible factually, transcribe legible text verbatim, and call out layout, notable details, or anything anomalous.'
@@ -65,6 +70,8 @@ export interface Config {
   maxOutputTokens?: number
   /** Per-call request timeout; defaults to {@link DEFAULT_TIMEOUT_MS}. */
   timeoutMs?: number
+  /** Protocol style of the endpoint; defaults to {@link DEFAULT_API_STYLE} (`chat-completions`). */
+  apiStyle?: ApiStyle
 }
 
 /** Schemastery configuration for the describe-image tool; doubles as the `describe-image` settings-section schema. */
@@ -77,6 +84,7 @@ export const Config: z<Config> = z.object({
   maxBytes: z.number().step(1).min(1).default(DEFAULT_MAX_BYTES),
   maxOutputTokens: z.number().step(1).min(1).default(DEFAULT_MAX_OUTPUT_TOKENS),
   timeoutMs: z.number().min(1).default(DEFAULT_TIMEOUT_MS),
+  apiStyle: z.union(API_STYLES).default(DEFAULT_API_STYLE),
 })
 
 /** Settings namespace carrying the endpoint, model, and key reference the Plugins card edits. */
@@ -92,6 +100,7 @@ export interface ResolvedConfig {
   maxBytes: number
   maxOutputTokens: number
   timeoutMs: number
+  apiStyle: ApiStyle
 }
 
 /** One loaded image: its bytes and the sniffed media type. */
@@ -131,12 +140,16 @@ export function resolveConfig(config: Config): ResolvedConfig {
   const maxBytes = config.maxBytes ?? DEFAULT_MAX_BYTES
   const maxOutputTokens = config.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS
   const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const apiStyle = config.apiStyle ?? DEFAULT_API_STYLE
   for (const [field, value] of [['maxBytes', maxBytes], ['maxOutputTokens', maxOutputTokens], ['timeoutMs', timeoutMs]] as const) {
     if (!Number.isSafeInteger(value) || value <= 0) {
       throw new Error(`describe-image: ${field} must be a positive safe integer`)
     }
   }
-  return { baseURL, model, apiKey, apiKeyEnv, defaultPrompt: config.defaultPrompt ?? DEFAULT_PROMPT, maxBytes, maxOutputTokens, timeoutMs }
+  if (!API_STYLES.includes(apiStyle)) {
+    throw new Error(`describe-image: apiStyle must be one of ${API_STYLES.map(style => JSON.stringify(style)).join(', ')}`)
+  }
+  return { baseURL, model, apiKey, apiKeyEnv, defaultPrompt: config.defaultPrompt ?? DEFAULT_PROMPT, maxBytes, maxOutputTokens, timeoutMs, apiStyle }
 }
 
 /**
@@ -338,7 +351,7 @@ function toImage(bytes: Buffer, source: string): LoadedImage {
 }
 
 /** Extract the single text answer from an OpenAI-compatible chat-completions payload. */
-function extractContent(payload: unknown): string {
+function extractChatCompletionsContent(payload: unknown): string {
   const root = payload as { choices?: unknown } | null
   if (typeof root !== 'object' || root === null || !Array.isArray(root.choices) || root.choices.length === 0) {
     throw new Error('describe-image: vision endpoint returned an unexpected response shape')
@@ -350,21 +363,71 @@ function extractContent(payload: unknown): string {
   return content
 }
 
+/** Extract the text answer from an OpenAI Responses payload: every `output_text` part of assistant messages. */
+function extractResponsesContent(payload: unknown): string {
+  const root = payload as { output?: unknown } | null
+  if (typeof root !== 'object' || root === null || !Array.isArray(root.output)) {
+    throw new Error('describe-image: vision endpoint returned an unexpected response shape')
+  }
+  const parts: string[] = []
+  for (const item of root.output) {
+    const candidate = item as { type?: unknown; role?: unknown; content?: unknown } | null
+    if (typeof candidate !== 'object' || candidate === null) continue
+    if (candidate.type !== 'message' || candidate.role !== 'assistant' || !Array.isArray(candidate.content)) continue
+    for (const part of candidate.content) {
+      const block = part as { type?: unknown; text?: unknown } | null
+      if (typeof block !== 'object' || block === null) continue
+      if (block.type === 'output_text' && typeof block.text === 'string' && block.text.trim().length > 0) {
+        parts.push(block.text)
+      }
+    }
+  }
+  const text = parts.join('\n')
+  if (text.trim().length === 0) {
+    throw new Error('describe-image: vision endpoint returned no text content')
+  }
+  return text
+}
+
+/** Build the request the configured style sends: its path and JSON body. */
+function buildVisionRequest(spec: ResolvedConfig, prompt: string, image: LoadedImage): { path: string; body: string } {
+  const dataUrl = `data:${image.mimeType};base64,${image.bytes.toString('base64')}`
+  if (spec.apiStyle === 'responses') {
+    return {
+      path: `${spec.baseURL}/responses`,
+      body: JSON.stringify({
+        model: spec.model,
+        max_output_tokens: spec.maxOutputTokens,
+        input: [{
+          role: 'user',
+          content: [
+            { type: 'input_text', text: prompt },
+            { type: 'input_image', image_url: dataUrl },
+          ],
+        }],
+      }),
+    }
+  }
+  return {
+    path: `${spec.baseURL}/chat/completions`,
+    body: JSON.stringify({
+      model: spec.model,
+      max_tokens: spec.maxOutputTokens,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: dataUrl } },
+        ],
+      }],
+    }),
+  }
+}
+
 /** Call the configured vision endpoint and return its text answer. */
 async function callVision(spec: ResolvedConfig, apiKey: string, prompt: string, image: LoadedImage, signal: AbortSignal): Promise<string> {
-  const dataUrl = `data:${image.mimeType};base64,${image.bytes.toString('base64')}`
-  const body = JSON.stringify({
-    model: spec.model,
-    max_tokens: spec.maxOutputTokens,
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'text', text: prompt },
-        { type: 'image_url', image_url: { url: dataUrl } },
-      ],
-    }],
-  })
-  const response = await fetch(`${spec.baseURL}/chat/completions`, {
+  const { path, body } = buildVisionRequest(spec, prompt, image)
+  const response = await fetch(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body,
@@ -382,7 +445,7 @@ async function callVision(spec: ResolvedConfig, apiKey: string, prompt: string, 
   } catch {
     throw new Error('describe-image: vision endpoint returned invalid JSON')
   }
-  return extractContent(payload)
+  return spec.apiStyle === 'responses' ? extractResponsesContent(payload) : extractChatCompletionsContent(payload)
 }
 
 const DESCRIPTION_HEAD =

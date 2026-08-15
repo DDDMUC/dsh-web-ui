@@ -129,6 +129,18 @@ export function booleanField(field: string): FieldSpec {
   }
 }
 
+/** An enumerated string field; only the listed choices are accepted. An empty draft clears the field. */
+export function choiceField(field: string, choices: readonly string[]): FieldSpec {
+  return {
+    field,
+    format: value => typeof value === 'string' && choices.includes(value) ? value : '',
+    parse: (text) => {
+      if (text === '') return { kind: 'clear' }
+      return choices.includes(text) ? { kind: 'set', value: text } : undefined
+    },
+  }
+}
+
 /**
  * Stages one card's edits over one settings namespace and writes them on save.
  *

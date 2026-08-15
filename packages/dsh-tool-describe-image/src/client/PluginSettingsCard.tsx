@@ -260,3 +260,49 @@ export function BooleanField(props: FieldProps & {
     </div>
   )
 }
+
+/** A staged enumerated field rendered as a select. */
+export function ChoiceField(props: FieldProps & {
+  /** Copy for the inherit option (draft text is the empty string). */
+  inheritLabel: string
+  /** Choices rendered in order; `value` is the draft/stored text. */
+  choices: ReadonlyArray<{ value: string; label: string }>
+}) {
+  return (
+    <div className={css.field}>
+      <div className={css.head}>
+        <label className={css.label} htmlFor={props.id}>{props.label}</label>
+        {props.overridden
+          ? (
+            <span className={css.badges}>
+              <span className={css.badge}>{props.overriddenLabel}</span>
+              <button
+                type="button"
+                className={css.reset}
+                disabled={props.disabled}
+                onClick={props.onReset}
+              >
+                {props.resetLabel}
+              </button>
+            </span>
+          )
+          : null}
+      </div>
+      <select
+        id={props.id}
+        className={css.select}
+        value={props.text}
+        disabled={props.disabled}
+        onChange={(event) => { props.onEdit(event.target.value) }}
+      >
+        <option value="">{props.inheritLabel}</option>
+        {props.choices.map(choice => (
+          <option key={choice.value} value={choice.value}>{choice.label}</option>
+        ))}
+      </select>
+      <p className={props.invalid ? css.invalid : css.hint}>
+        {props.invalid ? props.invalidLabel : props.hint}
+      </p>
+    </div>
+  )
+}

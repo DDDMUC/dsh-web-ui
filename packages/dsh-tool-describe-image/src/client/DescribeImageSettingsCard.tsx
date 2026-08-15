@@ -10,8 +10,8 @@
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import { PluginSettingsCard, ValueField } from './PluginSettingsCard.tsx'
-import { CardForm, numberField, textField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
+import { PluginSettingsCard, ChoiceField, ValueField } from './PluginSettingsCard.tsx'
+import { CardForm, choiceField, numberField, textField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
 import { t } from './locales.ts'
 
 /** The describe-image fields this card edits (the namespace's full schema). */
@@ -24,6 +24,7 @@ export interface DescribeImageSettings {
   maxBytes?: number
   maxOutputTokens?: number
   timeoutMs?: number
+  apiStyle?: 'chat-completions' | 'responses'
 }
 
 /** What the describe-image card renders. */
@@ -36,6 +37,7 @@ export interface DescribeImageSettingsCardState extends CardShell {
   maxBytes: CardFieldState
   maxOutputTokens: CardFieldState
   timeoutMs: CardFieldState
+  apiStyle: CardFieldState
 }
 
 /** The registration-side face the card's slot entry injects. */
@@ -56,6 +58,7 @@ export class DescribeImageSettingsCardController {
     this.form = new CardForm(scope, [
       textField('baseURL'),
       textField('model'),
+      choiceField('apiStyle', ['chat-completions', 'responses']),
       textField('apiKey'),
       textField('apiKeyEnv'),
       textField('defaultPrompt'),
@@ -71,6 +74,7 @@ export class DescribeImageSettingsCardController {
       ...this.form.shell(),
       baseURL: this.form.field('baseURL'),
       model: this.form.field('model'),
+      apiStyle: this.form.field('apiStyle'),
       apiKey: this.form.field('apiKey'),
       apiKeyEnv: this.form.field('apiKeyEnv'),
       defaultPrompt: this.form.field('defaultPrompt'),
@@ -135,6 +139,20 @@ export function DescribeImageSettingsCard(props: DescribeImageSettingsCardProps)
         {...state.model}
         onEdit={(text) => { props.edit('model', text) }}
         onReset={() => { props.resetField('model') }}
+      />
+      <ChoiceField
+        id="settings-describe-image-apistyle"
+        label={t('field.apiStyle')}
+        hint={t('field.apiStyle.hint')}
+        inheritLabel={t('settings.inherit')}
+        choices={[
+          { value: 'chat-completions', label: t('field.apiStyle.chatCompletions') },
+          { value: 'responses', label: t('field.apiStyle.responses') },
+        ]}
+        {...fieldProps}
+        {...state.apiStyle}
+        onEdit={(text) => { props.edit('apiStyle', text) }}
+        onReset={() => { props.resetField('apiStyle') }}
       />
       <ValueField
         id="settings-describe-image-apikey"
