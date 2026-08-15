@@ -868,25 +868,39 @@ body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-gitgraph-chip][aria-expand
    instead of an opaque plate, and blur whatever still shows through with a
    local backdrop filter. The whale art stays visible through the seat while
    the scrolled transcript stays hidden; the input card itself keeps the
-   skin's normal frosted surfaces. Light + dark. */
+   skin's normal frosted surfaces. The frost (the veil gradient plus
+   backdrop-filter) sits on the seat's own ::before, never on the seat
+   element itself: a filter on the seat would become the containing block
+   for the fixed-position descendants rendered inside it (the git-graph
+   popover backdrop and graph dialog), re-anchoring them to the seat box.
+   Light + dark. */
 
 body[data-dsh-blue-fantasy] [data-phase='active'] [class*='composerSeat'] {
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: transparent !important;
+}
+
+body[data-dsh-blue-fantasy] [data-phase='active'] [class*='composerSeat']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background: linear-gradient(
     180deg,
     transparent 0px,
     rgba(232, 236, 245, 0.86) 36px
-  ) !important;
-}
-
-body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-phase='active'] [class*='composerSeat'] {
+  );
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
+}
+
+body[data-dsh-blue-fantasy][data-ds-dark-theme] [data-phase='active'] [class*='composerSeat']::before {
   background: linear-gradient(
     180deg,
     transparent 0px,
     rgba(16, 22, 36, 0.82) 36px
-  ) !important;
+  );
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 

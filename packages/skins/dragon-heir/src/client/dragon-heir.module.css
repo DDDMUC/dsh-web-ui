@@ -857,29 +857,38 @@ body[data-dsh-dragon-heir][data-ds-dark-theme] [data-gitgraph-chip][aria-expande
 }
 
 
-/* --- 输入框停靠区遮罩修复（composerSeat） ----------------------------------
+/* --- 输入框停靠区磨砂渐隐（composerSeat） ----------------------------------
    The official composer seat fades the scrolled transcript out under a
-   36px band that ends in var(--dsw-alias-bg-base) solid below. This skin
-   keeps --dsw-alias-bg-base translucent so the dragon art shows through the
+   36px band that ends in var(--dsw-alias-bg-base). This skin keeps
+   --dsw-alias-bg-base translucent so the dragon art shows through the
    panes; the same token leaks into the seat's fade band, leaving its solid
    region see-through and letting scrolled messages bleed under the input
-   card. Re-declare the band with the skin's opaque page background so the
-   seat stays solid: the message bodies above keep showing the art, only
-   the seat turns opaque. Light + dark. */
+   card. Painting the seat with an opaque plate instead reads as a flat
+   mask over the input row, so the seat keeps its fade band — ending in the
+   same translucent page veil, which makes the band invisible at rest — and
+   hides the scrolled text with a local frost. The frost (the veil gradient
+   plus backdrop-filter) sits on the seat's own ::before, never on the seat
+   element itself: a filter on the seat would become the containing block
+   for the fixed-position descendants rendered inside it (the git-graph
+   popover backdrop and graph dialog), re-anchoring them to the seat box.
+   One token-driven rule covers light and dark. */
 
 body[data-dsh-dragon-heir] [data-phase='active'] [class*='composerSeat'] {
-  background: linear-gradient(
-    180deg,
-    transparent 0px,
-    #f4efe4 36px
-  ) !important;
+  background: transparent !important;
 }
 
-body[data-dsh-dragon-heir][data-ds-dark-theme] [data-phase='active'] [class*='composerSeat'] {
+body[data-dsh-dragon-heir] [data-phase='active'] [class*='composerSeat']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background: linear-gradient(
     180deg,
     transparent 0px,
-    #12161f 36px
-  ) !important;
+    var(--dsw-alias-bg-base) 36px
+  );
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
