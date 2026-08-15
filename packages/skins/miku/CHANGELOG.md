@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.12 — 视觉全面优化（主题更新）
+## 0.1.15 — 视觉全面优化（主题更新）
 
 ### 新增
 - 初音光标：全界面鼠标指针变为初音图标（32x32，热点对准尖端；`dsh.miku.cursor=off` 可关闭）
@@ -30,7 +30,7 @@
 
 # Changelog (English)
 
-## 0.1.12 — Visual overhaul (theme update)
+## 0.1.15 — Visual overhaul (theme update)
 
 ### Added
 - Miku cursor: the whole window pointer becomes a Hatsune Miku icon (32x32, hotspot at the tip; `dsh.miku.cursor=off` disables it)
