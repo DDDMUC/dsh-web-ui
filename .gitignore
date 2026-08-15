@@ -20,6 +20,8 @@ gui-test-screenshots/
 
 # 评审提示草稿：本地资料，不上传
 REVIEW-PROMPT.md
+# 营销视频工程：本地生成，不上传
+/marketing/dsh-web-ui-promo-60s/
 
 # pnpm 11 项目内包存储（本地依赖缓存，不入库）
 .pnpm-store/
