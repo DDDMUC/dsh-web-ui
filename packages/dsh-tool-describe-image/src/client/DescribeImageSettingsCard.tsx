@@ -11,7 +11,7 @@
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { PluginSettingsCard, ChoiceField, ValueField } from './PluginSettingsCard.tsx'
-import { CardForm, choiceField, numberField, textField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
+import { CardForm, choiceField, numberField, secretField, textField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
 import { t } from './locales.ts'
 
 /** The describe-image fields this card edits (the namespace's full schema). */
@@ -59,7 +59,7 @@ export class DescribeImageSettingsCardController {
       textField('baseURL'),
       textField('model'),
       choiceField('apiStyle', ['chat-completions', 'responses']),
-      textField('apiKey'),
+      secretField('apiKey'),
       textField('apiKeyEnv'),
       textField('defaultPrompt'),
       numberField('maxBytes'),
