@@ -44,10 +44,8 @@ window.__ModuleLoader__.load({
 		* the icon ships at the maximum portable size.
 		*
 		* Usage note: this artwork is a fan-made Hatsune Miku depiction by
-		* Moos柚眠 (B站 / 米画师), labelled "请勿商用或二改" (no commercial use, no
-		* derivative works). It is fine for personal use of this skin; if you
-		* publish or distribute the skin, ask the author first or swap in a
-		* different cursor image.
+		* Moos柚眠 (B站 / 米画师), with the author's written authorization for
+		* use in this UI only (author link: https://space.bilibili.com/491029393).
 		*
 		* The cursor is applied to the body while the skin is active and retracted
 		* on dispose. It can be turned off through localStorage `dsh.miku.cursor`
