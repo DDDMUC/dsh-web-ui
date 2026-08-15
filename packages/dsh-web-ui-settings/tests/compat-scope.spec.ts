@@ -171,3 +171,93 @@ describe('createCompatScope', () => {
     expect(scope.getSnapshot().status).toBe('unavailable')
   })
 })
+
+/** A batch-capable bridge view: user layer plus redacted-secret markers. */
+function batchView(ns: string, value: unknown, revision: number, extra: { user?: Record<string, unknown>; secrets?: { path: string[]; set: boolean }[] } = {}) {
+  return {
+    ns,
+    schema: {},
+    value,
+    revision,
+    ...extra.user === undefined ? {} : { user: extra.user },
+    ...extra.secrets === undefined ? {} : { secrets: extra.secrets },
+  }
+}
+
+describe('createCompatScope batch mutate', () => {
+  it('exposes no mutate while the official scope serves the namespace', async () => {
+    const primary = fakePrimary<{ enabled: boolean }>(ready({ enabled: true }))
+    const { fetchFn } = fakeFetch(async () => describeResult([]))
+    const scope = createCompatScope<{ enabled: boolean }>({ namespace: 'task-board', primary: primary.scope, fetchFn })
+    expect(scope.getSnapshot().status).toBe('ready')
+    expect(typeof (scope as unknown as { mutate?: unknown }).mutate).not.toBe('function')
+  })
+
+  it('posts every op in one /mutate and reports per-field success', async () => {
+    const primary = fakePrimary<{ baseURL: string; model: string }>(unavailable())
+    const calls: Array<{ body: Record<string, unknown> }> = []
+    const { fetchFn } = fakeFetch(async (url, init) => {
+      if (url === WEB_UI_SETTINGS_BRIDGE_PREFIX + '/describe') {
+        return describeResult([batchView('describe-image', { baseURL: 'https://a/v1', model: 'm' }, 3, { user: { baseURL: 'https://a/v1', model: 'm' } })])
+      }
+      calls.push({ body: JSON.parse(String(init.body)) as Record<string, unknown> })
+      return { ok: true, value: batchView('describe-image', { baseURL: 'https://a/v1', model: 'm' }, 4, { user: { baseURL: 'https://a/v1', model: 'm' } }) }
+    })
+    const scope = createCompatScope<{ baseURL: string; model: string }>({ namespace: 'describe-image', primary: primary.scope, fetchFn })
+    await vi.waitFor(() => { expect(scope.getSnapshot().status).toBe('ready') })
+    const mutate = (scope as unknown as { mutate?: (writes: unknown[]) => Promise<unknown> }).mutate
+    expect(typeof mutate).toBe('function')
+    const result = await (mutate as (writes: { field: string; op: 'set'; value: unknown }[]) => Promise<{ ok: boolean; fields: { field: string; landed: boolean }[] }>)([
+      { field: 'baseURL', op: 'set', value: 'https://a/v1' },
+      { field: 'model', op: 'set', value: 'm' },
+    ])
+    expect(calls).toHaveLength(1)
+    const body = calls[0].body
+    expect(body.ns).toBe('describe-image')
+    expect(body.expectedRevision).toBe(3)
+    expect(body.ops).toEqual([
+      { op: 'set', path: ['baseURL'], value: 'https://a/v1' },
+      { op: 'set', path: ['model'], value: 'm' },
+    ])
+    expect(result.ok).toBe(true)
+    expect(result.fields).toEqual([
+      { field: 'baseURL', landed: true },
+      { field: 'model', landed: true },
+    ])
+  })
+
+  it('judges a redacted secret field by its secret-set marker', async () => {
+    const primary = fakePrimary<{ baseURL: string; apiKey: string }>(unavailable())
+    const { fetchFn } = fakeFetch(async (url, _init) => {
+      if (url === WEB_UI_SETTINGS_BRIDGE_PREFIX + '/describe') {
+        return describeResult([batchView('describe-image', { baseURL: 'https://a/v1' }, 3, { user: { baseURL: 'https://a/v1' } })])
+      }
+      // The apiKey secret is redacted from the user layer, but its set marker
+      // is reported in the view.
+      return { ok: true, value: batchView('describe-image', { baseURL: 'https://a/v1' }, 4, { user: { baseURL: 'https://a/v1' }, secrets: [{ path: ['apiKey'], set: true }] }) }
+    })
+    const scope = createCompatScope<{ baseURL: string; apiKey: string }>({ namespace: 'describe-image', primary: primary.scope, fetchFn })
+    await vi.waitFor(() => { expect(scope.getSnapshot().status).toBe('ready') })
+    const mutate = (scope as unknown as { mutate?: (writes: unknown[]) => Promise<{ ok: boolean; fields: { field: string; landed: boolean }[] }> }).mutate
+    const result = await mutate!([{ field: 'apiKey', op: 'set', value: 'sk-x' }])
+    expect(result.ok).toBe(true)
+    expect(result.fields).toEqual([{ field: 'apiKey', landed: true }])
+  })
+
+  it('surfaces refusal code and message for a rejected batch', async () => {
+    const primary = fakePrimary<{ baseURL: string; model: string }>(unavailable())
+    const { fetchFn } = fakeFetch(async (url, _init) => {
+      if (url === WEB_UI_SETTINGS_BRIDGE_PREFIX + '/describe') {
+        return describeResult([batchView('describe-image', { baseURL: 'https://a/v1', model: 'm' }, 3, { user: {} })])
+      }
+      return { ok: false, code: 'settings-rejected', message: 'describe-image: incoherent baseURL/model pair' }
+    })
+    const scope = createCompatScope<{ baseURL: string; model: string }>({ namespace: 'describe-image', primary: primary.scope, fetchFn })
+    await vi.waitFor(() => { expect(scope.getSnapshot().status).toBe('ready') })
+    const mutate = (scope as unknown as { mutate?: (writes: unknown[]) => Promise<{ ok: boolean; code?: string; message?: string; fields: { field: string; landed: boolean }[] }> }).mutate
+    const result = await mutate!([{ field: 'baseURL', op: 'set', value: 'ftp://x' }])
+    expect(result.ok).toBe(false)
+    expect(result.code).toBe('settings-rejected')
+    expect(result.message).toBe('describe-image: incoherent baseURL/model pair')
+  })
+})

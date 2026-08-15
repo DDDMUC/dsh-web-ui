@@ -2,7 +2,7 @@
  * Remote update support for the dsh-web-ui family — host half. Detects the
  * installed aggregate package (@linxin666/dsh-web-ui-all) and its family
  * children, probes the npm registry for newer releases, and runs the actual
- * update as `pnpm update` inside the owning dsh profile directory.
+ * update as `pnpm update --latest` inside the owning dsh profile directory.
  *
  * Pure logic with injected seams (manifest reading, registry fetches, process
  * spawning) so the whole surface is unit-testable without touching disk,
@@ -184,16 +184,19 @@ export interface UpdateCheckDeps {
 
 /**
  * Resolve the anchor package's manifest path. The aggregate package is the
- * canonical entry point; this plugin's own package is the fallback.
+ * canonical entry point; this plugin's own package is the fallback. Both a
+ * throwing resolve and an undefined return mean "not installed" and move on
+ * to the next candidate.
  * @param resolve - a Node resolve implementation scoped to the host process.
  * @returns the absolute manifest path, or undefined when neither is installed.
  */
 export function resolveAnchorManifest(
-  resolve: (specifier: string) => string,
+  resolve: (specifier: string) => string | undefined,
 ): string | undefined {
   for (const name of [AGGREGATE_PACKAGE, SELF_PACKAGE]) {
     try {
-      return resolve(name + '/package.json')
+      const path = resolve(name + '/package.json')
+      if (path !== undefined) return path
     } catch {
       // Not installed — try the next candidate.
     }
@@ -280,14 +283,22 @@ export async function fetchLatestVersion(
   }
 }
 
+/**
+ * Sentinel for an installed version that could not be read (missing manifest
+ * or resolve failure). It is a real-looking version so `checkUpdates` can
+ * render the affected row, but the verified-update comparison must never
+ * treat it as evidence — a read failure is not a version that "moved".
+ */
+const VERSION_UNKNOWN = '0.0.0'
+
 /** The resolved current version of one family package (probe failure tolerated). */
 function readInstalledVersion(resolve: (specifier: string) => string | undefined, name: string): string {
   try {
     const path = resolve(name + '/package.json')
     const version = path === undefined ? undefined : readManifest(path)?.version
-    return typeof version === 'string' ? version : '0.0.0'
+    return typeof version === 'string' ? version : VERSION_UNKNOWN
   } catch {
-    return '0.0.0'
+    return VERSION_UNKNOWN
   }
 }
 
@@ -359,6 +370,10 @@ export type UpdateErrorCode =
   | 'link'
   /** pnpm exited non-zero. */
   | 'pnpm-failed'
+  /** pnpm exited 0 but the installed versions did not move. */
+  | 'stale'
+  /** pnpm exited 0 but the post-run version check could not verify the install. */
+  | 'verify-failed'
 
 /** Result of one update run. */
 export interface UpdateRunResult {
@@ -419,10 +434,14 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
     }
     // Ordered fallback chain: each is tried only when the previous one is
     // missing on PATH (ENOENT on the spawn error event, never on close).
+    // `--latest` is required: dsh plugin writes exact-version specs (e.g.
+    // "0.1.12" without a range), and plain `pnpm update` treats an exact spec
+    // as pinned — it prints "Already up to date" and exits 0 without moving
+    // the installed version, so the panel would report a false success.
     const candidates: ReadonlyArray<{ command: string; args: string[] }> = [
-      { command: 'pnpm', args: ['update', ...packages] },
-      { command: 'corepack', args: ['pnpm', 'update', ...packages] },
-      { command: 'npx', args: ['--yes', 'pnpm', 'update', ...packages] },
+      { command: 'pnpm', args: ['update', '--latest', ...packages] },
+      { command: 'corepack', args: ['pnpm', 'update', '--latest', ...packages] },
+      { command: 'npx', args: ['--yes', 'pnpm', 'update', '--latest', ...packages] },
     ]
     // `output` accumulates across candidates for UI display; `currentOutput`
     // is reset per candidate and carries only that candidate's own diagnostics
@@ -522,4 +541,104 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
     }
     runCandidate(0)
   })
+}
+
+/** Seam set for the verified update run (run + post-run status check). */
+export interface UpdateRunVerifiedDeps {
+  /** The pnpm run (profile dir + package list). */
+  run: UpdateRunDeps
+  /** The post-run status check (same seams as checkUpdates). */
+  check: UpdateCheckDeps
+}
+
+/**
+ * Run the update, then verify the installed versions actually moved. pnpm
+ * exits 0 even when it silently kept the installed versions — the pnpm 11
+ * `minimumReleaseAge` gate refuses same-day releases by default — so a green
+ * exit alone would report a misleading "update complete". Re-read the
+ * installed versions afterwards and surface a `stale` failure (with the
+ * captured pnpm output) when nothing moved, so the panel can tell the user
+ * how to unblock the gate instead of claiming success.
+ *
+ * The stale decision anchors on the pre-run installed versions, not on the
+ * registry latest: under a lenient gate pnpm may move 0.1.12 -> 0.1.13 while
+ * latest stays 0.1.15 — that is a real update, not stale. The post-run anchor
+ * path is re-resolved rather than reused from boot time: pnpm removes the old
+ * version's .pnpm directory on update, so a boot-time captured path would
+ * fail to read and collapse a successful update into a bogus 'missing'.
+ *
+ * A green exit whose verification has nothing to compare (registry probe
+ * outage, missing anchor, non-npm mode) is reported as `verify-failed` — it
+ * must never read as success. A green exit where no package moved but the
+ * post-run check could not prove the install is fully current (a partial
+ * probe failure hides whether a gate kept something back) is also
+ * `verify-failed`: it must not collapse into a success either.
+ * @param deps - the run and check seams.
+ * @returns the run result; `stale` when exit 0 left every version in place,
+ * `verify-failed` when the post-run check could not verify anything.
+ */
+export async function runUpdateVerified(deps: UpdateRunVerifiedDeps): Promise<UpdateRunResult> {
+  // Pre-run snapshot: the installed versions the update starts from. Only
+  // successfully-read versions are recorded — a read failure (VERSION_UNKNOWN)
+  // is not a baseline and must not look like a version that "moved", or a
+  // green exit that left everything in place could be mistaken for success.
+  const before = new Map<string, string>()
+  for (const name of deps.run.packages) {
+    const version = readInstalledVersion(deps.check.resolve, name)
+    if (version !== VERSION_UNKNOWN) before.set(name, version)
+  }
+  const result = await runUpdate(deps.run)
+  if (!result.ok) return result
+  // Re-resolve the anchor after the run: pnpm removes the old version's
+  // .pnpm directory, so a boot-time captured path no longer reads. Fall back
+  // to the provided path only when nothing resolves now.
+  const anchorManifestPath = resolveAnchorManifest(deps.check.resolve) ?? deps.check.anchorManifestPath
+  const status = await checkUpdates({ ...deps.check, anchorManifestPath })
+  // A green exit with no comparable result is not a success: registry probe
+  // outage, missing anchor, or a non-npm install mode all mean the post-run
+  // check could not verify anything.
+  if (status.error !== undefined || status.mode !== 'npm') {
+    return {
+      ...result,
+      ok: false,
+      errorCode: 'verify-failed',
+      error: 'pnpm exited 0 but the post-run version check could not verify the install',
+    }
+  }
+  // A package "moved" only when a known pre-run version differs from a known
+  // post-run version. A read failure on either side (VERSION_UNKNOWN) is not
+  // evidence of movement and must not turn a no-op update into a success; a
+  // package without a pre-run baseline is ignored — only the packages pnpm
+  // was told to update count as evidence.
+  const moved = status.packages.some(packageStatus => {
+    const beforeVersion = before.get(packageStatus.name)
+    if (beforeVersion === undefined || packageStatus.current === VERSION_UNKNOWN) return false
+    return packageStatus.current !== beforeVersion
+  })
+  if (moved) return result
+  // Nothing moved. A green exit is only a true no-op when the post-run check
+  // proves the install is already current: every probe succeeded and nothing
+  // is outdated. If a probe failed we cannot tell "already up to date" from
+  // "a gate silently kept it back", so report verify-failed rather than a
+  // false success.
+  if (status.outdated) {
+    // stale: the check ran, a newer release exists, and no package moved
+    // (e.g. the minimumReleaseAge gate kept everything in place).
+    return {
+      ...result,
+      ok: false,
+      errorCode: 'stale',
+      error: 'pnpm exited 0 but the installed versions did not change',
+    }
+  }
+  const unverifiable = status.packages.some(packageStatus => packageStatus.latest === undefined)
+  if (unverifiable) {
+    return {
+      ...result,
+      ok: false,
+      errorCode: 'verify-failed',
+      error: 'pnpm exited 0 but the post-run version check could not verify the install',
+    }
+  }
+  return result
 }

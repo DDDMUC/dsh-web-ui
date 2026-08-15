@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
-import { CardForm, booleanField, choiceField, numberField, textField } from '../client/settings/settings-form.ts'
+import { CardForm, booleanField, choiceField, numberField, secretField, textField, type BatchedWrite, type BatchResult } from '../client/settings/settings-form.ts'
 
 /** Minimal in-memory scope backing a CardForm test. */
 class FakeScope<T extends Record<string, unknown>> implements SettingsScope<T> {
@@ -171,5 +171,130 @@ describe('CardForm', () => {
     expect(form.field('enabled').text).toBe('false')
     actions.resetField('enabled')
     expect(form.field('enabled')).toMatchObject({ text: 'true', overridden: false })
+  })
+})
+
+/** A settings scope exposing the optional batch surface for the batch tests. */
+class BatchScope<T extends Record<string, unknown>> implements SettingsScope<T> {
+  value: T
+  base: T
+  user: Partial<T> = {}
+  writable = true
+  status: 'ready' | 'loading' = 'ready'
+  set = vi.fn(async () => {})
+  unset = vi.fn(async () => {})
+  mutate = vi.fn(async (_writes: BatchedWrite[]): Promise<BatchResult> => ({ ok: true, fields: [] }))
+  private listeners = new Set<() => void>()
+  constructor(value: T) {
+    this.value = value
+    this.base = value
+  }
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+  getSnapshot(): SettingsScopeSnapshot<T> {
+    return {
+      status: this.status,
+      writable: this.writable,
+      value: this.value,
+      base: this.base,
+      user: this.user,
+      revision: 1,
+      mode: 'host',
+    }
+  }
+}
+
+describe('CardForm batch save', () => {
+  const batchFields = () => [numberField('size'), textField('name'), textField('url')]
+
+  it('sends every planned write in one scope.mutate call', async () => {
+    const scope = new BatchScope<Record<string, unknown>>({ size: 32 })
+    scope.mutate.mockResolvedValue({
+      ok: true,
+      fields: [{ field: 'size', landed: true }, { field: 'name', landed: true }],
+    })
+    const form = new CardForm(scope, batchFields())
+    const actions = form.actions()
+    actions.edit('size', '64')
+    actions.edit('name', 'hugo')
+    await form.save()
+    expect(scope.mutate).toHaveBeenCalledTimes(1)
+    expect(scope.mutate).toHaveBeenCalledWith([
+      { field: 'size', op: 'set', value: 64 },
+      { field: 'name', op: 'set', value: 'hugo' },
+    ])
+    expect(scope.set).not.toHaveBeenCalled()
+    expect(scope.unset).not.toHaveBeenCalled()
+    expect(form.shell().dirty).toBe(false)
+  })
+
+  it('keeps only the fields that landed staged after a partial batch', async () => {
+    const scope = new BatchScope<Record<string, unknown>>({ name: 'old', url: 'old-url' })
+    scope.mutate.mockResolvedValue({
+      ok: true,
+      fields: [
+        { field: 'name', landed: true },
+        { field: 'url', landed: false },
+      ],
+    })
+    const form = new CardForm(scope, batchFields())
+    const actions = form.actions()
+    actions.edit('name', 'new')
+    actions.edit('url', 'new-url')
+    await form.save()
+    // The landed field's draft is dropped; the failed one stays staged.
+    expect(form.shell().failed).toBe(true)
+    expect(form.shell().dirty).toBe(true)
+    expect(form.field('url')).toMatchObject({ text: 'new-url' })
+  })
+
+  it('judges a secret field by the batch land flag, not value read-back', async () => {
+    const scope = new BatchScope<Record<string, unknown>>({ model: 'm' })
+    // The bridge redacts the apiKey secret from the user layer; the mutate view
+    // reports it through the secret-set marker, surfaced as field.landed.
+    scope.mutate.mockResolvedValue({
+      ok: true,
+      fields: [{ field: 'apiKey', landed: true }],
+    })
+    const form = new CardForm(scope, [textField('model'), secretField('apiKey')])
+    const actions = form.actions()
+    actions.edit('apiKey', 'sk-secret')
+    await form.save()
+    expect(scope.mutate).toHaveBeenCalledWith([{ field: 'apiKey', op: 'set', value: 'sk-secret' }])
+    expect(form.shell().failed).toBe(false)
+    expect(form.shell().dirty).toBe(false)
+  })
+
+  it('surfaces the host rejection message on the failed shell', async () => {
+    const scope = new BatchScope<Record<string, unknown>>({ model: 'm' })
+    scope.mutate.mockResolvedValue({
+      ok: false,
+      fields: [],
+      code: 'settings-rejected',
+      message: 'describe-image: baseURL and model must be set together',
+    })
+    const form = new CardForm(scope, batchFields())
+    form.actions().edit('size', '64')
+    await form.save()
+    expect(form.shell().failed).toBe(true)
+    expect(form.shell().failedReason).toBe('describe-image: baseURL and model must be set together')
+    expect(form.shell().dirty).toBe(true)
+  })
+})
+
+describe('CardForm secret field (per-field path)', () => {
+  it('treats a redacted secret write as landed without read-back comparison', async () => {
+    const scope = new FakeScope<Record<string, unknown>>({ model: 'm' })
+    // Redact the apiKey secret: the scope never reflects it into the user layer.
+    scope.set.mockImplementation(async () => {})
+    scope.unset.mockImplementation(async () => {})
+    const form = new CardForm(scope, [textField('model'), secretField('apiKey')])
+    form.actions().edit('apiKey', 'sk-secret')
+    await form.save()
+    expect(scope.set).toHaveBeenCalledWith('apiKey', 'sk-secret')
+    expect(form.shell().failed).toBe(false)
+    expect(form.shell().dirty).toBe(false)
   })
 })

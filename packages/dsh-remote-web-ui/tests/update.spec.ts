@@ -17,6 +17,7 @@ import {
   resolveAnchorManifest,
   resolveUpdateTarget,
   runUpdate,
+  runUpdateVerified,
 } from "../src/update.ts"
 
 /** One temp fixture root per suite; removed after each test. */
@@ -155,6 +156,16 @@ describe("resolveAnchorManifest", () => {
   it("returns undefined when nothing resolves", () => {
     expect(resolveAnchorManifest(() => { throw new Error("missing") })).toBeUndefined()
   })
+  it("falls back to the self package when resolve returns undefined", () => {
+    // A resolve seam may signal "not installed" with undefined instead of
+    // throwing; both must move on to the next candidate.
+    const resolve = (specifier: string) => {
+      if (specifier.startsWith(AGGREGATE_PACKAGE)) return undefined
+      if (specifier.includes("dsh-remote-web-ui")) return "/pkg/self/package.json"
+      return undefined
+    }
+    expect(resolveAnchorManifest(resolve)).toBe("/pkg/self/package.json")
+  })
 })
 
 describe("checkUpdates", () => {
@@ -292,7 +303,7 @@ describe("runUpdate", () => {
     }) as never
     return { spawnImpl, order, argo }
   }
-  it("spawns pnpm update with the packages and resolves on success", async () => {
+  it("spawns pnpm update --latest with the packages and resolves on success", async () => {
     let spawned: { command: string; args: string[]; cwd: string } | undefined
     const child = new FakeChild(0)
     const spawnImpl = ((command: string, args: string[], options: { cwd: string }) => {
@@ -303,7 +314,7 @@ describe("runUpdate", () => {
     child.emitOutput("Progress 1/2")
     child.run(0)
     const result = await promise
-    expect(spawned).toEqual({ command: "pnpm", args: ["update", "a", "b"], cwd: "/p" })
+    expect(spawned).toEqual({ command: "pnpm", args: ["update", "--latest", "a", "b"], cwd: "/p" })
     expect(result).toEqual({ ok: true, exitCode: 0, output: "Progress 1/2" })
   })
   it("reports pnpm-failed on a non-zero exit", async () => {
@@ -320,13 +331,20 @@ describe("runUpdate", () => {
     const pnpmError = Object.assign(new Error("spawn pnpm ENOENT"), { code: "ENOENT" })
     const pnpm = new FakeChild(null)
     const corepack = new FakeChild(0)
-    const { spawnImpl, order } = dispatchFake({ pnpm, corepack })
+    const { spawnImpl, order, argo } = dispatchFake({ pnpm, corepack })
     const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl })
     pnpm.fail(pnpmError)
     corepack.emitOutput("corepack pnpm 1/2")
     corepack.run(0)
     const result = await promise
     expect(order).toEqual(["pnpm", "corepack"])
+    // Every fallback candidate must keep --latest (exact specs in the profile
+    // are otherwise treated as pinned and never move); corepack prefixes the
+    // pnpm subcommand.
+    expect(argo.map(entry => entry.args)).toEqual([
+      ["update", "--latest", "a"],
+      ["pnpm", "update", "--latest", "a"],
+    ])
     expect(result).toEqual({ ok: true, exitCode: 0, output: "corepack pnpm 1/2" })
   })
   it("falls back to npx when pnpm and corepack are missing and succeeds", async () => {
@@ -334,7 +352,7 @@ describe("runUpdate", () => {
     const pnpm = new FakeChild(null)
     const corepack = new FakeChild(null)
     const npx = new FakeChild(0)
-    const { spawnImpl, order } = dispatchFake({ pnpm, corepack, npx })
+    const { spawnImpl, order, argo } = dispatchFake({ pnpm, corepack, npx })
     const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl })
     pnpm.fail(error)
     corepack.fail(error)
@@ -342,6 +360,12 @@ describe("runUpdate", () => {
     npx.run(0)
     const result = await promise
     expect(order).toEqual(["pnpm", "corepack", "npx"])
+    // Every fallback candidate keeps --latest (npx prefixes --yes before pnpm).
+    expect(argo.map(entry => entry.args)).toEqual([
+      ["update", "--latest", "a"],
+      ["pnpm", "update", "--latest", "a"],
+      ["--yes", "pnpm", "update", "--latest", "a"],
+    ])
     expect(result.ok).toBe(true)
     expect(result.output).toBe("npx pnpm ok")
   })
@@ -365,7 +389,10 @@ describe("runUpdate", () => {
     vi.useFakeTimers()
     const child = new FakeChild(null)
     const spawnImpl = (() => child) as never
-    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, timeoutMs: 1000 })
+    // Pin the POSIX SIGTERM kill path (darwin): on win32 the timeout routes
+    // through taskkill and never touches child.kill(), which would fail the
+    // assertion on Windows hosts.
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, timeoutMs: 1000, platform: "darwin" })
     vi.advanceTimersByTime(1000)
     const result = await promise
     expect(child.killed).toBe(true)
@@ -479,5 +506,218 @@ describe("runUpdate", () => {
     expect(result.ok).toBe(false)
     expect(result.errorCode).toBe("timeout")
     vi.useRealTimers()
+  })
+})
+
+describe("runUpdateVerified", () => {
+  /** The standard check seam for the npm fixture. */
+  function fixtureCheck(fetchLatest: (name: string) => Promise<string | undefined>) {
+    return {
+      anchorManifestPath: npmFixture("0.1.10", "0.1.10"),
+      resolve: (specifier: string) => {
+        if (specifier === "@linxin666/dsh-ssh/package.json") {
+          return join(fixture!, "profiles", "web", "node_modules", "@linxin666", "dsh-ssh", "package.json")
+        }
+        return join(fixture!, "profiles", "web", "node_modules", "@linxin666", "dsh-web-ui-all", "package.json")
+      },
+      fetchLatest,
+    }
+  }
+
+  it("reports stale when pnpm exits 0 but the installed versions did not move", async () => {
+    // Registry carries 0.1.11 while the installed anchor stays 0.1.10 — the
+    // pnpm 11 minimumReleaseAge gate can produce exactly this "green exit,
+    // nothing changed" outcome, and the panel must not claim success.
+    const child = new FakeChild(0)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: [AGGREGATE_PACKAGE], spawnImpl },
+      check: fixtureCheck(async name => name === AGGREGATE_PACKAGE ? "0.1.11" : "0.1.10"),
+    })
+    child.emitOutput("Already up to date")
+    child.run(0)
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("stale")
+    expect(result.exitCode).toBe(0)
+    expect(result.output).toBe("Already up to date")
+    expect(result.error).toContain("did not change")
+  })
+
+  it("resolves ok when the post-run check sees every package current", async () => {
+    const child = new FakeChild(0)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: [AGGREGATE_PACKAGE], spawnImpl },
+      check: fixtureCheck(async () => "0.1.10"),
+    })
+    child.run(0)
+    const result = await promise
+    expect(result).toEqual({ ok: true, exitCode: 0, output: "" })
+  })
+
+  it("returns the run result unchanged when pnpm fails", async () => {
+    const child = new FakeChild(1)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: ["a"], spawnImpl },
+      check: { anchorManifestPath: undefined, resolve: () => undefined, fetchLatest: async () => "0.1.11" },
+    })
+    child.run(1)
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("pnpm-failed")
+  })
+
+  it("reports verify-failed when every post-run registry probe fails", async () => {
+    // pnpm exits 0 but the verification has nothing to compare — every
+    // registry probe failed. This must not collapse into a false success.
+    const child = new FakeChild(0)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: [AGGREGATE_PACKAGE], spawnImpl },
+      check: fixtureCheck(async () => undefined),
+    })
+    child.run(0)
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("verify-failed")
+    expect(result.exitCode).toBe(0)
+  })
+
+  it("reports verify-failed when the post-run anchor cannot be resolved", async () => {
+    // pnpm exits 0, then the post-run check loses the anchor entirely
+    // (mode 'missing') — the boot-time captured path pointed at the old
+    // version's .pnpm directory and nothing re-resolves. Not a success.
+    const child = new FakeChild(0)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: [AGGREGATE_PACKAGE], spawnImpl },
+      check: { anchorManifestPath: undefined, resolve: () => undefined, fetchLatest: async () => "0.1.11" },
+    })
+    child.run(0)
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("verify-failed")
+  })
+
+  it("accepts a partial update as success when versions moved", async () => {
+    // Lenient minimumReleaseAge gate: pnpm moves 0.1.10 -> 0.1.13 while the
+    // registry latest is 0.1.15 — versions moved, so this is a real update,
+    // not a stale failure (the stale decision anchors on the pre-run
+    // versions, not on the registry latest).
+    const anchor = npmFixture("0.1.10", "0.1.10")
+    const child = new FakeChild(0)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: [AGGREGATE_PACKAGE], spawnImpl },
+      check: {
+        anchorManifestPath: anchor,
+        resolve: (specifier: string) => {
+          if (specifier === "@linxin666/dsh-ssh/package.json") {
+            return join(fixture!, "profiles", "web", "node_modules", "@linxin666", "dsh-ssh", "package.json")
+          }
+          return anchor
+        },
+        fetchLatest: async () => "0.1.15",
+      },
+    })
+    // pnpm actually updates the installed anchor on disk (the gate allowed a
+    // partial move to 0.1.13) before it exits 0.
+    writeManifest(join(fixture!, "profiles", "web", "node_modules", "@linxin666", "dsh-web-ui-all"), {
+      name: AGGREGATE_PACKAGE,
+      version: "0.1.13",
+      dependencies: { "@linxin666/dsh-ssh": "^0.1.10" },
+    })
+    child.run(0)
+    const result = await promise
+    expect(result.ok).toBe(true)
+    expect(result.exitCode).toBe(0)
+  })
+
+  it("reports verify-failed when a non-npm mode follows a green exit", async () => {
+    // The post-run check resolves into a link install (no profile walk) —
+    // there is no registry comparison to trust, so the run must not claim
+    // success.
+    const root = makeFixture()
+    const anchorDir = join(root, 'checkout', 'node_modules', '@linxin666', 'dsh-web-ui-all')
+    writeManifest(anchorDir, { name: AGGREGATE_PACKAGE, version: "0.1.10", dependencies: {} })
+    const child = new FakeChild(0)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: [AGGREGATE_PACKAGE], spawnImpl },
+      check: {
+        anchorManifestPath: join(anchorDir, "package.json"),
+        resolve: () => join(anchorDir, "package.json"),
+        fetchLatest: async () => "0.1.11",
+      },
+    })
+    child.run(0)
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("verify-failed")
+  })
+
+  it("reports stale rather than success when a package becomes unreadable and nothing moved", async () => {
+    // A green exit that re-lays node_modules can leave a family child's
+    // manifest unreadable at the post-run check. An unreadable version reads
+    // as the unknown sentinel, which is NOT evidence of movement — a no-op
+    // update must not collapse into "update complete". The anchor still being
+    // outdated is what drives the stale verdict.
+    const anchor = npmFixture("0.1.10", "0.1.10")
+    const childDir = join(fixture!, "profiles", "web", "node_modules", "@linxin666", "dsh-ssh")
+    const child = new FakeChild(0)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: [AGGREGATE_PACKAGE], spawnImpl },
+      check: {
+        anchorManifestPath: anchor,
+        resolve: (specifier: string) => {
+          if (specifier === "@linxin666/dsh-ssh/package.json") {
+            return join(childDir, "package.json")
+          }
+          return anchor
+        },
+        fetchLatest: async name => name === AGGREGATE_PACKAGE ? "0.1.11" : "0.1.10",
+      },
+    })
+    // pre-run snapshot reads the child fine; pnpm then (green) removes it.
+    rmSync(childDir, { recursive: true, force: true })
+    child.run(0)
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("stale")
+  })
+
+  it("reports verify-failed when nothing moved and a post-run probe failed", async () => {
+    // The panel launches the update because a package was outdated; pnpm
+    // exits 0 without moving anything, and the post-run probe for that very
+    // package now fails. status.outdated is false only because the probe has
+    // no latest to compare against, so "update complete" would be a false
+    // success — verify-failed is the honest verdict.
+    const anchor = npmFixture("0.1.10", "0.1.10")
+    const child = new FakeChild(0)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdateVerified({
+      run: { profileDir: "/p", packages: [AGGREGATE_PACKAGE], spawnImpl },
+      check: {
+        anchorManifestPath: anchor,
+        resolve: (specifier: string) => {
+          if (specifier === "@linxin666/dsh-ssh/package.json") {
+            return join(fixture!, "profiles", "web", "node_modules", "@linxin666", "dsh-ssh", "package.json")
+          }
+          return anchor
+        },
+        // The anchor probe fails while the child succeeds — a partial probe
+        // failure (probeFailures < names.length), so status.error stays unset
+        // and this must route through the verify-failed branch, not success.
+        fetchLatest: async name => name === AGGREGATE_PACKAGE ? undefined : "0.1.10",
+      },
+    })
+    child.run(0)
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("verify-failed")
+    expect(result.exitCode).toBe(0)
   })
 })

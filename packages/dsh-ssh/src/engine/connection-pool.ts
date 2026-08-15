@@ -88,27 +88,31 @@ export function buildConnectConfig(entry: SshHostEntry, sock?: ConnectConfig['so
 }
 
 /** Connect one ssh2 client (resolve on ready, reject on error/close). */
-function connectClient(config: ConnectConfig): Promise<Client> {
+export function connectClient(config: ConnectConfig): Promise<Client> {
   return new Promise((resolve, reject) => {
     const client = new Client()
     let settled = false
+    const fail = (error: unknown): void => {
+      if (settled) return
+      settled = true
+      try { client.destroy() } catch { /* already closed */ }
+      reject(error instanceof Error ? error : new Error(String(error)))
+    }
     client.once('ready', () => {
       if (settled) return
       settled = true
       resolve(client)
     })
-    client.once('error', (error) => {
-      if (settled) return
-      settled = true
-      reject(error instanceof Error ? error : new Error(String(error)))
-    })
+    // Keep an error listener attached after the handshake: when TCP connects
+    // but the handshake drops, ssh2 can emit a second 'error' after a single
+    // once-listener is gone, which would surface as an unhandled 'error' event.
+    // The settled guard turns later emissions into a no-op; other callers
+    // (like doAcquire) attach their own error listeners and all fire together.
+    client.on('error', fail)
     try {
       client.connect(config)
     } catch (error) {
-      if (!settled) {
-        settled = true
-        reject(error instanceof Error ? error : new Error(String(error)))
-      }
+      fail(error)
     }
   })
 }
@@ -159,11 +163,18 @@ export async function connectChain(engine: PoolEngine, entry: SshHostEntry): Pro
       })
     })
   }
+  let target: Client | undefined
   try {
-    const client = await connectClient(buildConnectConfig(entry, sock))
-    return { client, hops }
+    target = await connectClient(buildConnectConfig(entry, sock))
+    return { client: target, hops }
   } catch (error) {
     for (const client of hops) client.end()
+    // connectClient already destroys the failed target on its own failure
+    // path; destroy defensively only when a reference leaked through, and
+    // guard it so a second destroy is never an issue.
+    if (target !== undefined) {
+      try { target.destroy() } catch { /* already destroyed */ }
+    }
     throw error
   }
 }

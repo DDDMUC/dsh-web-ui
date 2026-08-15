@@ -183,6 +183,16 @@ body[data-dsh-minecraft][data-ds-dark-theme] [data-pane='conversation'] > div {
   background: transparent;
 }
 
+/* The official brand wordmark is vector text: "DeepSeek" + a "HARNESS" badge
+   on a rounded plate. The plate follows currentColor (light here) while the
+   badge letters use the inverted-primary token (also light in this skin), so
+   the plate sits light-on-light and the letters vanish. The sidebar surface
+   is dark slate in both themes, so let the plate fall through and the light
+   letters read on the slate. */
+body[data-dsh-minecraft] [data-slot='sidebar'] svg[viewBox='0 0 182 24'] rect[width='52'][height='14'] {
+  fill: transparent;
+}
+
 /* --- Buttons: the MC widget sprite ----------------------------------------------
    Blocky gray slab: black outline, light top bevel, dark bottom bevel, a
    faint noisy fill; hover turns the label yellow (like the menu buttons),
