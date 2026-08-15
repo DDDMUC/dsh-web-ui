@@ -278,6 +278,17 @@ class FakeChild extends EventEmitter {
 }
 
 describe("runUpdate", () => {
+  /** Dispatch one fake child per spawned command for fallback-chain tests. */
+  function dispatchFake(spawns: Readonly<Record<string, FakeChild>>) {
+    const order: string[] = []
+    const spawnImpl = ((command: string, _args: unknown, _options: unknown) => {
+      order.push(command)
+      const child = spawns[command]
+      if (child === undefined) throw new Error("unexpected command: " + command)
+      return child
+    }) as never
+    return { spawnImpl, order }
+  }
   it("spawns pnpm update with the packages and resolves on success", async () => {
     let spawned: { command: string; args: string[]; cwd: string } | undefined
     const child = new FakeChild(0)
@@ -302,15 +313,50 @@ describe("runUpdate", () => {
     expect(result.errorCode).toBe("pnpm-failed")
     expect(result.exitCode).toBe(1)
   })
-  it("reports pnpm-missing on ENOENT", async () => {
-    const error = Object.assign(new Error("spawn pnpm ENOENT"), { code: "ENOENT" })
-    const child = new FakeChild(null, error)
-    const spawnImpl = (() => child) as never
+  it("falls back to corepack when pnpm is missing and succeeds", async () => {
+    const pnpmError = Object.assign(new Error("spawn pnpm ENOENT"), { code: "ENOENT" })
+    const pnpm = new FakeChild(null)
+    const corepack = new FakeChild(0)
+    const { spawnImpl, order } = dispatchFake({ pnpm, corepack })
     const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl })
-    child.fail(error)
+    pnpm.fail(pnpmError)
+    corepack.emitOutput("corepack pnpm 1/2")
+    corepack.run(0)
     const result = await promise
+    expect(order).toEqual(["pnpm", "corepack"])
+    expect(result).toEqual({ ok: true, exitCode: 0, output: "corepack pnpm 1/2" })
+  })
+  it("falls back to npx when pnpm and corepack are missing and succeeds", async () => {
+    const error = Object.assign(new Error("ENOENT"), { code: "ENOENT" })
+    const pnpm = new FakeChild(null)
+    const corepack = new FakeChild(null)
+    const npx = new FakeChild(0)
+    const { spawnImpl, order } = dispatchFake({ pnpm, corepack, npx })
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl })
+    pnpm.fail(error)
+    corepack.fail(error)
+    npx.emitOutput("npx pnpm ok")
+    npx.run(0)
+    const result = await promise
+    expect(order).toEqual(["pnpm", "corepack", "npx"])
+    expect(result.ok).toBe(true)
+    expect(result.output).toBe("npx pnpm ok")
+  })
+  it("reports pnpm-missing once pnpm, corepack and npx are all ENOENT", async () => {
+    const error = Object.assign(new Error("ENOENT"), { code: "ENOENT" })
+    const pnpm = new FakeChild(null)
+    const corepack = new FakeChild(null)
+    const npx = new FakeChild(null)
+    const { spawnImpl, order } = dispatchFake({ pnpm, corepack, npx })
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl })
+    pnpm.fail(error)
+    corepack.fail(error)
+    npx.fail(error)
+    const result = await promise
+    expect(order).toEqual(["pnpm", "corepack", "npx"])
     expect(result.ok).toBe(false)
     expect(result.errorCode).toBe("pnpm-missing")
+    expect(result.error).toContain("pnpm")
   })
   it("kills and reports timeout", async () => {
     vi.useFakeTimers()

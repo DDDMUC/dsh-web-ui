@@ -389,47 +389,83 @@ export interface UpdateRunDeps {
 const OUTPUT_CAP = 16 * 1024
 
 /**
- * Run the update: `pnpm update <packages>` inside the profile directory.
+ * Run the update inside the profile directory. Tries pnpm first, falls back
+ * to corepack and then npx when the previous command is missing (ENOENT);
+ * all candidates share one hard timeout and keep accumulating output.
  * @param deps - profile dir, package list, and spawn/timeout seams.
  * @returns the outcome with captured output.
  */
 export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
   return new Promise((resolve) => {
-    const child = (deps.spawnImpl ?? spawn)('pnpm', ['update', ...deps.packages], {
-      cwd: deps.profileDir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const spawnImpl = deps.spawnImpl ?? spawn
+    const packages = deps.packages
+    // Ordered fallback chain: each is tried only when the previous one is
+    // missing on PATH (ENOENT on the spawn error event, never on close).
+    const candidates: ReadonlyArray<{ command: string; args: string[] }> = [
+      { command: 'pnpm', args: ['update', ...packages] },
+      { command: 'corepack', args: ['pnpm', 'update', ...packages] },
+      { command: 'npx', args: ['--yes', 'pnpm', 'update', ...packages] },
+    ]
     let output = ''
     const append = (chunk: Buffer): void => {
       output += chunk.toString('utf8')
       if (output.length > OUTPUT_CAP) output = output.slice(output.length - OUTPUT_CAP)
     }
-    child.stdout?.on('data', append)
-    child.stderr?.on('data', append)
+    let currentChild: ReturnType<typeof spawnImpl> | undefined
     const timer = setTimeout(() => {
-      child.kill('SIGTERM')
+      currentChild?.kill('SIGTERM')
       resolve({ ok: false, exitCode: null, output, error: 'update timed out; install process killed', errorCode: 'timeout' })
     }, deps.timeoutMs ?? 10 * 60_000)
-    child.on('error', (error: Error) => {
-      clearTimeout(timer)
-      const missing = (error as NodeJS.ErrnoException).code === 'ENOENT'
-      resolve({
-        ok: false,
-        exitCode: null,
-        output,
-        error: missing ? 'pnpm not found on PATH' : error.message,
-        errorCode: missing ? 'pnpm-missing' : undefined,
+    const runCandidate = (index: number): void => {
+      if (index >= candidates.length) {
+        clearTimeout(timer)
+        resolve({
+          ok: false,
+          exitCode: null,
+          output,
+          error: 'pnpm not found on PATH (tried pnpm, corepack, npx); install pnpm and restart the app',
+          errorCode: 'pnpm-missing',
+        })
+        return
+      }
+      const candidate = candidates[index]
+      const child = spawnImpl(candidate.command, candidate.args, {
+        cwd: deps.profileDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
-    })
-    child.on('close', (code) => {
-      clearTimeout(timer)
-      resolve({
-        ok: code === 0,
-        exitCode: code,
-        output,
-        error: code === 0 ? undefined : 'pnpm exited with code ' + String(code),
-        ...(code === 0 ? {} : { errorCode: 'pnpm-failed' as const }),
+      currentChild = child
+      let settled = false
+      const once = (fn: () => void): void => {
+        if (settled) return
+        settled = true
+        fn()
+      }
+      child.stdout?.on('data', append)
+      child.stderr?.on('data', append)
+      child.on('error', (error: Error) => {
+        once(() => {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            // Command missing: try the next candidate in the chain.
+            runCandidate(index + 1)
+          } else {
+            clearTimeout(timer)
+            resolve({ ok: false, exitCode: null, output, error: error.message, errorCode: undefined })
+          }
+        })
       })
-    })
+      child.on('close', (code) => {
+        once(() => {
+          clearTimeout(timer)
+          resolve({
+            ok: code === 0,
+            exitCode: code,
+            output,
+            error: code === 0 ? undefined : 'pnpm exited with code ' + String(code),
+            ...(code === 0 ? {} : { errorCode: 'pnpm-failed' as const }),
+          })
+        })
+      })
+    }
+    runCandidate(0)
   })
 }
