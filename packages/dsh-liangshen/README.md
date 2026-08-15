@@ -30,10 +30,10 @@ Plan mode is supported: phase 1 filters the assembled prompt sections down to th
 
 ```sh
 # Option 1: family bundle (recommended)
-dsh plugin --profile web add @linxin666/dsh-web-ui-all@0.1.12
+dsh plugin --profile web add @linxin666/dsh-web-ui-all
 
 # Option 2: standalone
-dsh plugin --profile web add @linxin666/dsh-liangshen@0.1.12
+dsh plugin --profile web add @linxin666/dsh-liangshen
 
 # Pick ONE of the two: the bundle and the standalone @linxin666/dsh-liangshen
 # both mount this preset. If you switch between them, remove the other first:

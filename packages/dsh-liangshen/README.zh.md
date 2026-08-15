@@ -30,10 +30,10 @@ preset 在参考机制之上内置了额外保护，全部在 `agent.cordis.yml`
 
 ```sh
 # 方式一：全家桶（推荐）
-dsh plugin --profile web add @linxin666/dsh-web-ui-all@0.1.12
+dsh plugin --profile web add @linxin666/dsh-web-ui-all
 
 # 方式二：单独安装
-dsh plugin --profile web add @linxin666/dsh-liangshen@0.1.12
+dsh plugin --profile web add @linxin666/dsh-liangshen
 
 # 两种方式二选一：聚合包与独立 @linxin666/dsh-liangshen 都会挂载本 preset。
 # 需要在两者之间切换时，先 dsh plugin remove 移除另一个再安装：

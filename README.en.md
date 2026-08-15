@@ -129,14 +129,12 @@ DSH plugins are installed per **profile** with the `dsh plugin` command (`dsh we
 The plugins are published to npm (the `@linxin666` scope) — one command installs everything:
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all@0.1.12
+dsh plugin --profile web add @linxin666/dsh-web-ui-all
 ```
 
 Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins` instead.
 
 > pnpm's strict (isolated) layout only puts the aggregate package at the profile top level, so the 11 child packages referenced by the patch rows (12 insert rows) stay nested and `dsh web` fails with `Cannot find package '@linxin666/dsh-...'`. The children are declared as dependencies of this package; on a strict layout, add `nodeLinker: hoisted` (or the legacy `public-hoist-pattern: ['@linxin666/*']`) to the profile's `pnpm-workspace.yaml` and reinstall.
-
-> Pinned to the current latest release `0.1.12`. The `0.1.1` build of `dsh-pet` shipped without runtime files (`lib/types/*.js`), and some environments may resolve npm's `latest` from a stale registry cache — pinning the version is the safest install; bump `@0.1.12` to the new version when upgrading.
 
 > First install may stop on `ERR_PNPM_IGNORED_BUILDS` (pnpm blocks dependency build scripts): copy the printed keys (`cloudflared` / `cpu-features` / `ssh2`) into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
 
