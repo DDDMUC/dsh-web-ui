@@ -14,7 +14,7 @@ const config = {
 }
 
 const SECTIONS = [
-  { name: 'persona', text: 'You are a helpful software engineer assistant.' },
+  { name: 'deployment:persona', text: 'You are a helpful software engineer assistant.' },
   { name: 'plan:policy', text: 'You are in plan mode. Stay in plan mode until exit_plan_mode succeeds.' },
 ]
 
@@ -50,11 +50,12 @@ async function assemble(
   events: unknown[],
   tools: unknown[],
   contexts: unknown[] = [{ name: 'sandbox:policy', text: 'Current DSH file policy: workspace-write.' }],
+  sections: unknown[] = SECTIONS,
 ) {
   return listener(
     undefined,
     { agent: agentOf(events) },
-    async () => ({ system: 'minimal persona', tools, contexts, sections: SECTIONS }),
+    async () => ({ system: 'minimal persona', tools, contexts, sections }),
   )
 }
 
@@ -108,8 +109,24 @@ describe('anchored-tool-bootstrap', () => {
     ])
     expect(result.tools.map((tool: any) => tool.name)).toEqual(['pwsh', 'read'])
     expect(result.contexts).toEqual([])
-    expect(result.sections.map((section: any) => section.name)).toEqual(['persona'])
+    expect(result.sections.map((section: any) => section.name)).toEqual(['deployment:persona'])
     expect(result.sections[0].text).toBe(SECTIONS[0].text)
+  })
+
+  test('phase 1 also keeps the legacy persona section name', async () => {
+    const legacySections = [
+      { name: 'persona', text: 'You are a helpful software engineer assistant.' },
+      { name: 'plan:policy', text: 'You are in plan mode. Stay in plan mode until exit_plan_mode succeeds.' },
+    ]
+    const result = await assemble(
+      listener(register(), 'system-prompt/assemble'),
+      [],
+      [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }],
+      undefined,
+      legacySections,
+    )
+    expect(result.sections.map((section: any) => section.name)).toEqual(['persona'])
+    expect(result.sections[0].text).toBe(legacySections[0].text)
   })
 
   test('first request keeps its empty contexts even when none were assembled', async () => {
@@ -131,7 +148,7 @@ describe('anchored-tool-bootstrap', () => {
     expect(result.tools).toEqual(tools)
     expect(result.contexts).toEqual(contexts)
     expect(result.sections).toEqual(SECTIONS)
-    expect(result.sections.map((section: any) => section.name)).toEqual(['persona', 'plan:policy'])
+    expect(result.sections.map((section: any) => section.name)).toEqual(['deployment:persona', 'plan:policy'])
   })
 
   test('sessions derive promotion independently from their own events', async () => {
