@@ -212,4 +212,35 @@ describe('GitService', () => {
     expect(rejected.ok).toBe(false)
     if (!rejected.ok) expect(rejected.error.code).toBe('workspace-unknown')
   })
+
+  it('detects operation markers with a single rev-parse spawn', async () => {
+    const calls: string[][] = []
+    const countingRunner = {
+      async run(argv: readonly string[], cwd: string): Promise<GitRunResult> {
+        calls.push([...argv])
+        return runner.run(argv, cwd)
+      },
+    }
+    const service = new GitService(countingRunner, allowGate(repo))
+
+    // A clean repo: exactly one --git-path spawn carrying all seven markers.
+    expect(await service.status(repo)).toMatchObject({ operationInProgress: false })
+    const markerCalls = calls.filter((argv) => argv[0] === 'rev-parse' && argv.includes('--git-path'))
+    expect(markerCalls).toHaveLength(1)
+    expect(markerCalls[0]).toEqual([
+      'rev-parse',
+      '--git-path', 'MERGE_HEAD',
+      '--git-path', 'CHERRY_PICK_HEAD',
+      '--git-path', 'REVERT_HEAD',
+      '--git-path', 'BISECT_LOG',
+      '--git-path', 'rebase-merge',
+      '--git-path', 'rebase-apply',
+      '--git-path', 'sequencer',
+    ])
+
+    // A real marker file flips the flag through the same single call.
+    await writeFile(join(repo, '.git', 'MERGE_HEAD'), 'deadbeef\n')
+    expect(await service.status(repo)).toMatchObject({ operationInProgress: true })
+    expect(calls.filter((argv) => argv[0] === 'rev-parse' && argv.includes('--git-path'))).toHaveLength(2)
+  })
 })

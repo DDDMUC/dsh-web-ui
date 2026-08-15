@@ -33,6 +33,9 @@ export type BranchChipProps =
 /** Horizontal gap between the official hero-row chips (WorkspaceChip / AgentPresetSeat). */
 const HERO_CHIP_GAP = 2
 
+/** Minimum gap between window-focus git refetches (ms). */
+export const FOCUS_REFRESH_MIN_MS = 5_000
+
 /**
  * The right edge of the rightmost painted descendant of `root`, excluding
  * `root` itself. The hero row's direct children can be display:contents
@@ -209,11 +212,19 @@ export function BranchChip(props: BranchChipProps) {
 
   // Initial load + host-pushed external changes + focus refresh. A session
   // switch changes props.sessionId and re-fetches through the session-keyed
-  // verbs.
+  // verbs. Focus refetches are throttled (a focus burst would otherwise
+  // spawn a full git status round-trip per event; the host poll and SSE
+  // pushes already keep the chip fresh within 30s).
+  const lastFocusRefetch = useRef(0)
   useEffect(() => refetch(), [refetch])
   useEffect(() => {
     const unsubscribe = props.subscribeChanges(sessionId, () => { refetch() })
-    const onFocus = (): void => { refetch() }
+    const onFocus = (): void => {
+      const now = Date.now()
+      if (now - lastFocusRefetch.current < FOCUS_REFRESH_MIN_MS) return
+      lastFocusRefetch.current = now
+      refetch()
+    }
     window.addEventListener('focus', onFocus)
     return () => {
       unsubscribe()

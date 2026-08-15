@@ -30,8 +30,15 @@ interface Subscriber {
   res: ServerResponse
 }
 
-/** Poll interval for external git-state changes while subscribers are connected. */
-const POLL_INTERVAL_MS = 2_000
+/**
+ * Poll interval for external git-state changes while subscribers are
+ * connected. Kept deliberately long (30s): each tick spawns several git
+ * processes per subscriber, and on Windows a cold git.exe costs ~0.7s per
+ * spawn — a short interval turns the poll itself into a self-exciting
+ * storm. Window focus and the client's own refresh calls cover the
+ * interactive freshness path.
+ */
+const POLL_INTERVAL_MS = 30_000
 /** SSE keep-alive comment interval (proxies drop idle connections). */
 const HEARTBEAT_INTERVAL_MS = 15_000
 
@@ -128,17 +135,23 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
     subscriber.res.write(`event: change\ndata: ${JSON.stringify(payload)}\n\n`)
   }
 
+  // Overlap guard: a slow status() (large repo, cold git on Windows) must
+  // never stack another poll round on top of the running one.
+  let polling = false
   const poll = (): void => {
-    for (const subscriber of subscribers) {
-      void service.status(subscriber.path).then((status) => {
+    if (polling) return
+    polling = true
+    void Promise.all([...subscribers].map(async (subscriber) => {
+      try {
+        const status = await service.status(subscriber.path)
         const key = status === null ? 'no-repo' : `${status.root}|${status.branch}|${status.head}`
         if (key === subscriber.last) return
         subscriber.last = key
         push(subscriber, { path: subscriber.path, status })
-      }).catch((error: unknown) => {
+      } catch (error: unknown) {
         ctx.logger.warn(`dsh-git-graph: status poll failed for ${subscriber.path}: ${String(error)}`)
-      })
-    }
+      }
+    })).finally(() => { polling = false })
   }
 
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {

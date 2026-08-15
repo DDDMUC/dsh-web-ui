@@ -43,9 +43,6 @@ export const switchArgv = (branch: string): string[] => ['switch', '--no-guess',
 /** `git switch --no-guess -c <name>` — create from current HEAD and switch. */
 export const createBranchArgv = (name: string): string[] => ['switch', '--no-guess', '-c', name]
 
-/** `git rev-parse --git-path <marker>` — resolve one in-progress-operation marker path. */
-export const gitPathArgv = (marker: string): string[] => ['rev-parse', '--git-path', marker]
-
 /** Graph log: `git log --branches --tags --remotes --topo-order --parents --format=... --max-count <n>`. */
 export const graphLogArgv = (limit: number): string[] => [
   'log', '--branches', '--tags', '--remotes', '--topo-order', '--parents',
@@ -58,6 +55,18 @@ export const OPERATION_MARKERS = [
   'MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'BISECT_LOG',
   'rebase-merge', 'rebase-apply', 'sequencer',
 ] as const
+
+/**
+ * `git rev-parse --git-path <marker>...` — resolve every operation-marker
+ * path in ONE spawn (one --git-path option per marker; the option form is
+ * repeatable, unlike positional paths). On Windows, where each git.exe
+ * cold start costs ~0.7s, this replaces the previous 7 sequential marker
+ * probes with a single process.
+ */
+export const operationMarkersArgv = (): string[] => [
+  'rev-parse',
+  ...OPERATION_MARKERS.flatMap((marker) => ['--git-path', marker]),
+]
 
 /** stderr pattern → overwrite guard code, with the blocked-file extraction. */
 interface OverwritePattern {

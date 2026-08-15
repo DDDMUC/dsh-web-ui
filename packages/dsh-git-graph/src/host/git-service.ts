@@ -14,7 +14,7 @@ import type {} from '@deepseek-ai/dsh-subprocess'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import {
   checkRefFormatArgv, classifySwitchFailure, createBranchArgv, forEachRefArgv,
-  gitPathArgv, graphLogArgv, headBranchArgv, headShortArgv, OPERATION_MARKERS,
+  graphLogArgv, headBranchArgv, headShortArgv, operationMarkersArgv,
   statusPorcelainArgv, switchArgv, topLevelArgv, unmergedArgv, validateBranchName,
   verifyRefArgv, worktreeListArgv,
 } from '../core/git-command.ts'
@@ -242,14 +242,16 @@ export class GitService {
 
   /** Whether any git operation marker is present in the repository. */
   private async operationInProgress(root: string): Promise<boolean> {
-    for (const marker of OPERATION_MARKERS) {
-      const resolved = await this.runner.run(gitPathArgv(marker), root)
-      const markerPath = resolved.stdout.trim()
-      // --git-path prints a repo-relative path for in-repo markers (and an
-      // absolute one for worktree/linked stores); resolve covers both.
-      if (markerPath !== '' && existsSync(resolve(root, markerPath))) return true
-    }
-    return false
+    // One spawn for all seven markers (Windows: 7 git.exe cold starts -> 1).
+    // --git-path prints a repo-relative path for in-repo markers (and an
+    // absolute one for worktree/linked stores); resolve covers both.
+    const resolved = await this.runner.run(operationMarkersArgv(), root)
+    if (resolved.exitCode !== 0) return false
+    const markerPaths = resolved.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line !== '')
+    return markerPaths.some((markerPath) => existsSync(resolve(root, markerPath)))
   }
 
   /**
