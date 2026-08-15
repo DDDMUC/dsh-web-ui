@@ -370,4 +370,54 @@ describe("runUpdate", () => {
     expect(result.errorCode).toBe("timeout")
     vi.useRealTimers()
   })
+  it("routes .cmd shims through the shell on win32", async () => {
+    const optionsSeen: unknown[] = []
+    const child = new FakeChild(0)
+    const spawnImpl = ((_command: string, _args: unknown[], options: unknown) => {
+      optionsSeen.push(options)
+      return child
+    }) as never
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, platform: "win32" })
+    child.run(0)
+    await promise
+    expect(optionsSeen[0]).toMatchObject({ shell: true })
+  })
+  it("keeps POSIX spawns shell-free", async () => {
+    const optionsSeen: unknown[] = []
+    const child = new FakeChild(0)
+    const spawnImpl = ((_command: string, _args: unknown[], options: unknown) => {
+      optionsSeen.push(options)
+      return child
+    }) as never
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, platform: "darwin" })
+    child.run(0)
+    await promise
+    expect(optionsSeen[0]).not.toHaveProperty("shell")
+  })
+  it("falls back on win32 when cmd reports the shim missing", async () => {
+    const pnpm = new FakeChild(1)
+    const corepack = new FakeChild(0)
+    const { spawnImpl, order } = dispatchFake({ pnpm, corepack })
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, platform: "win32" })
+    pnpm.stderr.emit("data", Buffer.from("'pnpm' is not recognized as an internal or external command, operable program or batch file."))
+    pnpm.run(1)
+    corepack.emitOutput("corepack pnpm ok")
+    corepack.run(0)
+    const result = await promise
+    expect(order).toEqual(["pnpm", "corepack"])
+    expect(result.ok).toBe(true)
+    // Output accumulates across candidates (the cmd "not recognized" stderr
+    // stays in the tail) — the success output must be present.
+    expect(result.output).toContain("corepack pnpm ok")
+  })
+  it("keeps pnpm-failed on win32 for non-missing errors", async () => {
+    const child = new FakeChild(1)
+    const spawnImpl = (() => child) as never
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, platform: "win32" })
+    child.stderr.emit("data", Buffer.from("ERR_PNPM_OUTDATED_LOCKFILE Cannot proceed"))
+    child.run(1)
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("pnpm-failed")
+  })
 })

@@ -383,10 +383,19 @@ export interface UpdateRunDeps {
   spawnImpl?: typeof spawn
   /** Hard timeout; the child is killed on expiry. */
   timeoutMs?: number
+  /** Platform override (defaults to process.platform; test seam). */
+  platform?: NodeJS.Platform
 }
 
 /** Cap on captured pnpm output (keeps error payloads bounded). */
 const OUTPUT_CAP = 16 * 1024
+
+/**
+ * Windows cmd command-not-found stderr. With shell:true a missing shim
+ * exits with code 1 (cmd cannot report ENOENT), so the fallback chain
+ * detects this message instead of the spawn error event.
+ */
+const WIN_CMD_MISSING_RE = /not recognized as an internal or external command/i
 
 /**
  * Run the update inside the profile directory. Tries pnpm first, falls back
@@ -399,6 +408,15 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
   return new Promise((resolve) => {
     const spawnImpl = deps.spawnImpl ?? spawn
     const packages = deps.packages
+    const platform = deps.platform ?? process.platform
+    // Windows ships pnpm/corepack/npx as .cmd shims; Node's spawn cannot
+    // start .cmd files directly (ENOENT even when installed), so route
+    // them through cmd.exe there. POSIX spawns stay shell-free.
+    const spawnOptions: Record<string, unknown> = {
+      cwd: deps.profileDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      ...(platform === 'win32' ? { shell: true } : {}),
+    }
     // Ordered fallback chain: each is tried only when the previous one is
     // missing on PATH (ENOENT on the spawn error event, never on close).
     const candidates: ReadonlyArray<{ command: string; args: string[] }> = [
@@ -429,10 +447,7 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
         return
       }
       const candidate = candidates[index]
-      const child = spawnImpl(candidate.command, candidate.args, {
-        cwd: deps.profileDir,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      const child = spawnImpl(candidate.command, candidate.args, spawnOptions)
       currentChild = child
       let settled = false
       const once = (fn: () => void): void => {
@@ -453,16 +468,22 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
           }
         })
       })
-      child.on('close', (code) => {
-        once(() => {
-          clearTimeout(timer)
-          resolve({
-            ok: code === 0,
-            exitCode: code,
-            output,
-            error: code === 0 ? undefined : 'pnpm exited with code ' + String(code),
-            ...(code === 0 ? {} : { errorCode: 'pnpm-failed' as const }),
-          })
+      child.on('close', (code: number | null) => {
+        if (settled) return
+        // Windows + shell: a missing command reports exit 1 with
+        // 'not recognized' instead of ENOENT — keep the chain going.
+        if (platform === 'win32' && code !== 0 && WIN_CMD_MISSING_RE.test(output)) {
+          runCandidate(index + 1)
+          return
+        }
+        settled = true
+        clearTimeout(timer)
+        resolve({
+          ok: code === 0,
+          exitCode: code,
+          output,
+          error: code === 0 ? undefined : 'pnpm exited with code ' + String(code),
+          ...(code === 0 ? {} : { errorCode: 'pnpm-failed' as const }),
         })
       })
     }
