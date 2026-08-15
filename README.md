@@ -2,11 +2,47 @@
 
 中文 | [English](README.en.md)
 
-![dsh-web-ui](docs/dsh-web-ui-banner.png)
+<p align="center">
+  <img src="docs/dsh-web-ui-banner.png" alt="dsh-web-ui" width="100%">
+</p>
 
-dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务看板、Git 图谱、右侧面板、移动端远程、远程连接、图像理解工具、鲸鱼娘宠物、实时令牌统计，以及皮肤中心。所有插件既可独立安装，也可通过聚合包一次装齐。
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/zhu1090093659/dsh-web-ui?style=flat-square" alt="Version">
+  &nbsp;
+  <img src="https://img.shields.io/github/stars/zhu1090093659/dsh-web-ui?style=flat-square" alt="Stars">
+  &nbsp;
+  <img src="https://img.shields.io/npm/v/@linxin666%2Fdsh-web-ui-all?style=flat-square&label=npm" alt="npm">
+  &nbsp;
+  <img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License">
+</p>
+
+<p align="center">
+  <strong>DeepSeek Harness（DSH）Web GUI 的插件与皮肤全家桶</strong><br>
+  <em>任务看板 · Git 图谱 · 右侧面板 · 移动端远程 · SSH 运维 · 图像理解 · 鲸鱼娘宠物 · 实时用量 · 皮肤中心</em>
+</p>
+
+<p align="center">
+
+[是什么](#是什么) · [功能插件](#功能插件) · [皮肤](#皮肤) · [快速开始](#快速开始) · [常见问题](#常见问题) · [已知限制](#已知限制) · [社区](#社区)
+
+</p>
+
+## 是什么
+
+dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件与皮肤集合。所有插件通过官方 profile 机制挂载到 `dsh web`，不修改 DSH 源码；既可独立安装，也可通过聚合包一次装齐。
 
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
+
+| 能力 | 原生 dsh web | dsh-web-ui 全家桶 |
+| --- | --- | --- |
+| 任务看板 | 无 | 多列看板 + cron 定时真实执行 |
+| Git 可视化 | 无 | 分支泳道 + 提交历史图谱 |
+| 文件预览与变更 | 无 | 右侧面板：预览 / 文件树 / SCM |
+| 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
+| 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
+| 图像理解 | 无 | `describe_image` 视觉工具 |
+| 主题皮肤 | 默认主题 | 皮肤中心 10 款，先试穿再应用 |
+| 用量统计 | 无 | 实时 TPS / token / 缓存命中率 |
 
 ## 功能插件
 
@@ -114,11 +150,20 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 ![夕港 亮色](docs/screenshots/26-skin-harbor-light.png) · ![夕港 暗色](docs/screenshots/27-skin-harbor-dark.png)
 
-## 安装
+## 快速开始
 
-DSH 插件通过 `dsh plugin` 命令安装进 **profile**（`dsh web` 对应 `web` profile）。推荐直接安装聚合包 `dsh-web-ui-all`——一个包装齐全部功能插件与皮肤；只想用皮肤则装 `dsh-skins`。
+### 系统要求
 
-### 方式一：从 npm 安装（推荐）
+- 已安装 DeepSeek Harness，`dsh web` 可正常启动。
+- npm 安装方式无额外要求；从仓库安装需要 Node.js >= 22 与 pnpm。
+
+### 三步上手
+
+1. 安装聚合包：`dsh plugin --profile web add @linxin666/dsh-web-ui-all`
+2. 重启 `dsh web`，侧边栏出现全部插件入口
+3. 打开「设置 > 插件配置」按需开关插件，或在皮肤中心试穿皮肤
+
+### 从 npm 安装（推荐）
 
 插件已发布到 npm（`@linxin666` scope），一条命令装齐：
 
@@ -128,18 +173,7 @@ dsh plugin --profile web add @linxin666/dsh-web-ui-all
 
 装完重启 `dsh web`，侧边栏即可看到全部插件入口。只想用皮肤则装 `@linxin666/dsh-skins`。
 
-> pnpm 的严格（isolated）布局只把聚合包放在 profile 顶层，patch 行引用的 11 个子包（共 12 行 insert）会被收进嵌套目录，`dsh web` 会报 `Cannot find package '@linxin666/dsh-...'`。本包的子包已声明为 dependencies；使用严格布局时，在 profile 的 `pnpm-workspace.yaml` 加 `nodeLinker: hoisted`（或旧式 `public-hoist-pattern: ['@linxin666/*']`），再重新安装即可。
-
-> 首次安装若提示 `ERR_PNPM_IGNORED_BUILDS`（pnpm 拒绝依赖的构建脚本），按提示把 `cloudflared` / `cpu-features` / `ssh2` 加入 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重新执行即可。
-
-> **pnpm 11 release-age 门禁**：新版本发布后约 10 天内，pnpm 11 的 `minimumReleaseAge` 门禁可能静默装回更旧的 `@linxin666/*` 版本（如 `dsh-web-ui-all@0.1.5` 配旧版皮肤中心）。旧版皮肤中心 Apply 皮肤时会写入独立皮肤包引用，导致 `dsh web` 启动崩溃（`ERR_MODULE_NOT_FOUND ... dsh-client-ui-skin-*`）。在 profile 的 `pnpm-workspace.yaml` 中排除全部 `@linxin666/*` 包后再安装或更新：
->
-> ```yaml
-> minimumReleaseAgeExclude:
->   - '@linxin666/*'
-> ```
-
-### 方式二：从 GitHub 仓库安装（改代码调试）
+### 从 GitHub 仓库安装（开发调试）
 
 插件包已在 npm 发布，仓库安装仅供开发调试（需要 Node.js >= 22 与 pnpm）：
 
@@ -185,26 +219,83 @@ dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘�
 
 技术细节见 [docs/plugins.md](docs/plugins.md)。
 
+### 安装排障
+
+<details>
+<summary><strong>展开查看 pnpm 常见问题</strong></summary>
+
+<br>
+
+> pnpm 的严格（isolated）布局只把聚合包放在 profile 顶层，patch 行引用的 11 个子包（共 12 行 insert）会被收进嵌套目录，`dsh web` 会报 `Cannot find package '@linxin666/dsh-...'`。本包的子包已声明为 dependencies；使用严格布局时，在 profile 的 `pnpm-workspace.yaml` 加 `nodeLinker: hoisted`（或旧式 `public-hoist-pattern: ['@linxin666/*']`），再重新安装即可。
+
+> 首次安装若提示 `ERR_PNPM_IGNORED_BUILDS`（pnpm 拒绝依赖的构建脚本），按提示把 `cloudflared` / `cpu-features` / `ssh2` 加入 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重新执行即可。
+
+> **pnpm 11 release-age 门禁**：新版本发布后约 10 天内，pnpm 11 的 `minimumReleaseAge` 门禁可能静默装回更旧的 `@linxin666/*` 版本（如 `dsh-web-ui-all@0.1.5` 配旧版皮肤中心）。旧版皮肤中心 Apply 皮肤时会写入独立皮肤包引用，导致 `dsh web` 启动崩溃（`ERR_MODULE_NOT_FOUND ... dsh-client-ui-skin-*`）。在 profile 的 `pnpm-workspace.yaml` 中排除全部 `@linxin666/*` 包后再安装或更新：
+>
+> ```yaml
+> minimumReleaseAgeExclude:
+>   - '@linxin666/*'
+> ```
+
+</details>
+
+## 常见问题
+
+<details>
+<summary><strong>装完重启了，侧边栏还是没有入口？</strong></summary>
+
+A: 先确认插件装进了 `web` profile（命令里的 `--profile web`），再用 `dsh --profile web --dump-config` 确认插件配置层已挂载；仍不生效看上文「安装排障」。注意页面刷新不够，需重启 `dsh web` 进程。
+
+</details>
+
+<details>
+<summary><strong>定时任务为什么没有到点执行？</strong></summary>
+
+A: 定时调度在浏览器端完成，需要 `dsh web` 标签页保持打开；关闭期间错过的触发点按「错过即跳过」处理，不排队补跑。任务正在运行时到点也会顺延到下一个匹配点。
+
+</details>
+
+<details>
+<summary><strong>手机配对后收不到实时消息？</strong></summary>
+
+A: Cloudflare quick tunnel 与 Tailscale Serve 不透传 SSE，此场景下插件自动降级为轮询，消息正常收发、新消息可能延迟数秒。需要即时推送请使用支持 SSE 的隧道（Cloudflare named tunnel、自定义 TCP 端口转发等）。
+
+</details>
+
+<details>
+<summary><strong>皮肤试了不满意怎么办？</strong></summary>
+
+A: 皮肤支持先试穿再应用：试穿即时生效、退出完全还原，未点「应用」不落盘，放心试。
+
+</details>
+
+<details>
+<summary><strong>只想用皮肤，或者只装某一个插件？</strong></summary>
+
+A: 只想用皮肤装 `@linxin666/dsh-skins`；只装某一个插件用「单独安装某个插件」里的包名即可，两者都兼容 npm 安装。
+
+</details>
+
+## 已知限制
+
+- 任务看板的定时调度在浏览器端：需要 `dsh web` 标签页保持打开，关闭期间错过的触发点跳过、不补跑，详见 [dsh-task-board README](packages/dsh-task-board/README.zh.md)。
+- SSH 密码与 passphrase 口令以明文保存在 `~/.dsh/dsh-ssh.json`（权限 0600）；断线重连可能重放非幂等命令，远程输出原样返回、不脱敏，安全模型见 [dsh-ssh README](packages/dsh-ssh/README.zh.md)。
+- 移动端依赖 SSE 实时推送：Cloudflare quick tunnel 与 Tailscale Serve 不透传 SSE，插件自动降级为轮询，新消息可能延迟数秒到达。
+- 仓库安装需要 Node.js >= 22 与 pnpm，仅供开发调试；npm 安装不受影响。
+
 ## 社区
 
-欢迎加入**中心社区**，与开发者和其他用户一起交流使用心得、反馈问题、参与讨论。微信扫码即可加入：
+欢迎加入中心社区，与开发者和其他用户一起交流使用心得、反馈问题、参与讨论。微信扫码即可加入：
 
-![中心社区](docs/community-center.jpg =240x306)
+![中心社区](docs/community-center.jpg)
 
-## 来源与版权
-
-| 包 | 来源 | 版权 |
-| --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
-| dsh-tool-describe-image | 移植自 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)（deepseek-harness `packages/vision/tool-describe-image`） | Apache-2.0（zhu1090093659） |
-
-迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。
+也可以加入 [Discord 社区](https://discord.gg/6v4gm9u4S)，或直接到 [GitHub Issues](https://github.com/zhu1090093659/dsh-web-ui/issues) 报 Bug / 提需求。
 
 <details>
 <summary>友情链接</summary>
 
 - [DeepSeek Harness Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) —— 为 DeepSeek Harness (DSH) 生态打造的现代化桌面端体验。
-- https://linux.do
+- [LINUX DO](https://linux.do) —— 有理想的新社区。
 - [dshfind](https://dshfind.com) —— 面向 DeepSeek Harness 的学习与分享社区，聚合论文精读、插件超市与用户排名。
 - [deepseek-plugin-store](https://github.com/Ericwong5021/deepseek-plugin-store) —— DeepSeek Harness 独立社区插件商店，发现、安装并提交经过验证的插件、工具与扩展。
 - [dsh-data-agent](https://github.com/omdsh-dev/dsh-data-agent) —— 为 DSH 定义专用 Data Agent 预设，让 AI 帮你查询、更新、分析数据。
@@ -213,6 +304,44 @@ dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘�
 
 </details>
 
+## 参与贡献
+
+- 先读 [CONTRIBUTING.md](CONTRIBUTING.md) 再开 PR；用户可见变更请附截图或验证证据。
+- 提交信息遵循 Conventional Commits（如 `fix(task-board): 修复 xxx`），代码、文档与提交信息全程禁止 emoji。
+- 新插件与皮肤用脚手架生成：`node scripts/dsh-plugin-new <name>`、`node scripts/dsh-skin-new`。
+- 提交前过门禁 `pnpm typecheck && pnpm test && pnpm docs:check`；完整开发流程见 [docs/development.md](docs/development.md)。
+
+## 许可证
+
+本仓库以 [Apache-2.0](LICENSE) 授权。迁入第三方代码必须保留 LICENSE 与署名；活跃且有上游的第三方优先 fork 或依赖引用，不搬代码。
+
+### 来源与版权
+
+| 包 | 来源 | 版权 |
+| --- | --- | --- |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
+| dsh-tool-describe-image | 移植自 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)（deepseek-harness `packages/vision/tool-describe-image`） | Apache-2.0（zhu1090093659） |
+
+## 贡献者
+
+<p align="center">
+  <a href="https://github.com/zhu1090093659/dsh-web-ui/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=zhu1090093659/dsh-web-ui" alt="Contributors">
+  </a>
+</p>
+
 ## Star 历史
 
-[![Star History Chart](https://raw.githubusercontent.com/zhu1090093659/dsh-web-ui/star-history/star-history.svg)](https://www.star-history.com/?repos=zhu1090093659%2Fdsh-web-ui&type=date&legend=top-left)
+<p align="center">
+  <a href="https://www.star-history.com/?repos=zhu1090093659%2Fdsh-web-ui&type=date&legend=top-left">
+    <img src="https://raw.githubusercontent.com/zhu1090093659/dsh-web-ui/star-history/star-history.svg" alt="Star History Chart">
+  </a>
+</p>
+
+<div align="center">
+
+**喜欢这个项目？点个 Star。**
+
+[报告 Bug](https://github.com/zhu1090093659/dsh-web-ui/issues) · [请求功能](https://github.com/zhu1090093659/dsh-web-ui/issues) · [查看 Releases](https://github.com/zhu1090093659/dsh-web-ui/releases)
+
+</div>
