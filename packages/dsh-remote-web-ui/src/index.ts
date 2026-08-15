@@ -27,7 +27,7 @@ import {
   fetchLatestVersion,
   resolveAnchorManifest,
   resolveUpdateTarget,
-  runUpdate,
+  runUpdateVerified,
   type UpdateRunResult,
 } from './update.ts'
 import { makeUpdateRoutes } from './update-routes.ts'
@@ -238,19 +238,26 @@ export function apply(ctx: Context, config?: Config): void {
   }
   // ── remote update ────────────────────────────────────────────────────────
   // The dsh-web-ui self-update surface: probe the npm registry for family
-  // releases and run `pnpm update` in the owning profile. Resolutions anchor
-  // on the host process's own module graph, so the update always targets the
-  // profile the running web GUI was booted from. The probe path resolves once
-  // (the anchor stays the same package across updates); versions are re-read
-  // from disk per check.
+  // releases and run `pnpm update --latest` in the owning profile. Resolutions
+  // anchor on the host process's own module graph, so the update always
+  // targets the profile the running web GUI was booted from. The anchor path
+  // is re-resolved per operation: pnpm removes the old version's .pnpm
+  // directory on update, so a boot-time captured path would fail to read
+  // after a successful update; versions are re-read from disk per check.
   const requireFromHost = createRequire(import.meta.url)
-  const anchorManifestPath = resolveAnchorManifest(specifier => requireFromHost.resolve(specifier))
+  const resolveAnchorPath = (): string | undefined => resolveAnchorManifest(specifier => {
+    try {
+      return requireFromHost.resolve(specifier)
+    } catch {
+      return undefined
+    }
+  })
   const updateRoutes = makeUpdateRoutes({
     // Control endpoints are host-surface only: a LAN/phone origin must never
     // trigger a real install on this machine.
     fence: request => isTrustedApiRequest(request, []),
     check: () => checkUpdates({
-      anchorManifestPath,
+      anchorManifestPath: resolveAnchorPath(),
       resolve: specifier => {
         try {
           return requireFromHost.resolve(specifier)
@@ -261,7 +268,7 @@ export function apply(ctx: Context, config?: Config): void {
       fetchLatest: name => fetchLatestVersion(name, fetch),
     }),
     run: async (): Promise<UpdateRunResult> => {
-      const target = resolveUpdateTarget({ anchorManifestPath })
+      const target = resolveUpdateTarget({ anchorManifestPath: resolveAnchorPath() })
       if ('error' in target) {
         const code = target.error
         return {
@@ -272,7 +279,24 @@ export function apply(ctx: Context, config?: Config): void {
           errorCode: code,
         }
       }
-      return runUpdate({ profileDir: target.profileDir, packages: target.packages })
+      // Verify the versions actually moved after a green pnpm exit: the pnpm
+      // 11 minimumReleaseAge gate can silently keep the installed versions
+      // (same-day releases), which a plain exit-0 check would report as
+      // success — the user then restarts and nothing changed.
+      return runUpdateVerified({
+        run: { profileDir: target.profileDir, packages: target.packages },
+        check: {
+          anchorManifestPath: resolveAnchorPath(),
+          resolve: specifier => {
+            try {
+              return requireFromHost.resolve(specifier)
+            } catch {
+              return undefined
+            }
+          },
+          fetchLatest: name => fetchLatestVersion(name, fetch),
+        },
+      })
     },
   })
   const routes = [
