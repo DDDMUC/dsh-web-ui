@@ -9,7 +9,7 @@ Ships the "Anchored Standard" preset family as a one-command plugin of the dsh-w
 DeepSeek V4 Pro conditions strongly on the API tool catalog visible in the FIRST request when choosing its execution trajectory. In the community eval ([xiaobright/modeltest](https://github.com/xiaobright/modeltest)), Standard / PTC scored 91/92 while Minimal reached 99/96 — but Minimal keeps only two tools. This two-phase approach separates the first-trajectory choice from full later capability:
 
 1. The first model request exposes only the platform shell plus `read`, keeps only the `persona` prompt section, empties runtime contexts, and passes only the user's own messages;
-2. After the session's first durable `tool/call`, promotion waits until the first reasoning block is minimal-like (`We need` / no `Let me`), with a four-step fallback; every Standard tool, every assembled prompt section (including plan mode's `plan:policy`), and the ordinary workspace-instruction, skill-catalog, and runtime-context injections return;
+2. After the session's first durable `tool/call`, promotion waits until the first reasoning block is minimal-like (contains `we` and no `let me`), with a four-step fallback; the wire then switches to Code Mode (PTC) — a single `run_code` tool backed by the full tool registry SDK — and every assembled prompt section plus the ordinary workspace-instruction, skill-catalog, and runtime-context injections return;
 3. The phase derives from persisted session events, so resume / reload never lose state.
 
 Measured on native Windows (DeepSeek V4 Pro, max, V4.1b task): 98 / 99, mean 98.5, zero `let me` traces in the second run — reproducible, not a lucky draw, and no tool capability sacrificed. Original experiment: [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard).
@@ -20,7 +20,8 @@ The preset ships with extra safeguards on top of the reference mechanism, all co
 
 - `anchorGate` — after the first `tool/call`, the catalog stays two-tool until the first reasoning block classifies minimal-like, so a `Let me` first block does not immediately earn the full catalog;
 - `maxBootstrapSteps` — fallback promotion after N steps when no anchored block appeared;
-- `promoteAfterFirstResponse` — a tool-less first response promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`). That release happens during prompt assembly, so the new user turn already sees the full catalog;
+- `promoteAfterFirstResponse` — a tool-less first response promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`), so the next user turn already sees the promoted catalog;
+- `promotedPresentation: code` — after promotion the wire is Code Mode (PTC): one `run_code` tool with the full registry available through the generated SDK, switched at the step boundary so the current step's native calls are never interrupted;
 - `deferredSources` + `deferredGraceSteps` — workspace instructions and the skill catalog wait one extra step after promotion, so the tool-catalog switch and the injection shock do not land in the same step.
 
 Plan mode is supported: phase 1 filters the assembled prompt sections down to the one-line `persona`, and promotion restores all sections, so the plan-mode `plan:policy` section takes effect for every step after promotion.
@@ -55,9 +56,9 @@ Export the session JSONL and inspect `request/header`:
 
 - The first header should carry only `bash/read` (macOS/Linux) or `pwsh/read` (Windows); `liangshen-exact` should carry `bash/str_replace_editor`;
 - The first turn should contain only the user's own messages — no workspace-instruction baseline, no runtime snapshot, no skill-catalog message — and only the `persona` prompt section;
-- After the first tool call, the next changed header should carry the full Standard catalog; the runtime snapshot and all prompt sections (including plan mode's `plan:policy`) arrive with that step and the workspace instructions and skill catalog arrive one step later;
+- After the first tool call, the next changed header should carry exactly `run_code` (PTC); the runtime snapshot and all prompt sections (including plan mode's `plan:policy`) arrive with that step and the workspace instructions and skill catalog arrive one step later;
 - In `liangshen-exact`, phase-1 editor writes still obey the host file sandbox policy — there is no bare local-filesystem bypass;
-- Later requests keep the full catalog.
+- Later requests keep `run_code`.
 
 Trajectory drift can be measured without reading raw reasoning:
 
@@ -67,7 +68,7 @@ node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jso
 
 ## Behavior and limits
 
-- A first model response that calls no tool promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`). The release is decided during prompt assembly, so the new user turn already gets the full catalog and its messages are not stripped;
+- A first model response that calls no tool promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`). The release is decided during prompt assembly, so the new user turn already gets the promoted PTC catalog and its messages are not stripped;
 - After the first tool call, promotion waits for the first minimal-like reasoning block or the `maxBootstrapSteps` fallback, whichever comes first;
 - A tool call that fails still counts toward promotion as long as `tool/call` was persisted;
 - Phase 1 keeps only the `persona` prompt section; promotion restores every assembled section, so plan mode's `plan:policy` is enforced after phase 1;

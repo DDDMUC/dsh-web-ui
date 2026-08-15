@@ -4,6 +4,7 @@ import {
   apply,
   classifyReasoning,
   hasAnchoredReasoning,
+  inject,
   name,
 } from '../presets/liangshen/tool-bootstrap.mjs'
 import {
@@ -344,9 +345,11 @@ describe('anchored-tool-bootstrap', () => {
     expect(second.messages.map((entry: any) => entry.id)).toEqual(['user', 'instructions', 'skills', 'runtime'])
   })
 
-  test('classifyReasoning separates the two trajectory surfaces', () => {
+  test('classifyReasoning anchors on we presence without let me', () => {
     expect(classifyReasoning('We need inspect the repo.').label).toBe('minimal-like')
+    expect(classifyReasoning('The user wants me to check. We should inspect the repo.').label).toBe('minimal-like')
     expect(classifyReasoning('Let me start by checking.').label).toBe('standard-like')
+    expect(classifyReasoning('We can fix it. Let me check first.').label).toBe('standard-like')
     expect(classifyReasoning('Need inspect the repo.').label).toBe('ambiguous')
   })
 
@@ -391,6 +394,48 @@ describe('anchored-tool-bootstrap', () => {
     expect(result.tools.map((tool: any) => tool.name)).toEqual(['bash', 'str_replace_editor'])
     expect(result.contexts).toEqual([])
     expect(result.sections.map((section: any) => section.name)).toEqual(['persona'])
+  })
+
+  test('promotedPresentation switches to Code Mode once per session', async () => {
+    expect(inject).toContain('tools')
+
+    const listeners = register({ promotedPresentation: 'code', anchorGate: true })
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const calls: string[] = []
+    const sessionObj = { events: [stepEvent(), reasoningEvent('We need inspect the repo.'), { type: 'tool/call' }] }
+    const agent = { session: sessionObj, ctx: { tools: { presentAs: (mode: string) => calls.push(mode) } } }
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
+
+    await assembleListener(undefined, { agent }, async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }))
+    await assembleListener(undefined, { agent }, async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }))
+    expect(calls).toEqual(['code'])
+  })
+
+  test('session/event applies the PTC switch at step/end, not mid-step', async () => {
+    const listeners = register({ promotedPresentation: 'code', anchorGate: true })
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const eventListener = listener(listeners, 'session/event')
+    const calls: string[] = []
+    const sessionObj = { events: [] }
+    const agent = { session: sessionObj, ctx: { tools: { presentAs: (mode: string) => calls.push(mode) } } }
+    const tools = [{ name: 'bash' }, { name: 'read' }]
+
+    await assembleListener(undefined, { agent }, async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }))
+    expect(calls).toEqual([])
+
+    sessionObj.events.push(stepEvent(), reasoningEvent('We need inspect the repo.'), { type: 'tool/call' })
+    await eventListener(sessionObj, { type: 'tool/call' })
+    expect(calls).toEqual([])
+
+    await eventListener(sessionObj, { type: 'step/end' })
+    expect(calls).toEqual(['code'])
+
+    await eventListener(sessionObj, { type: 'turn/end' })
+    expect(calls).toEqual(['code'])
+  })
+
+  test('invalid promotedPresentation fails loudly', () => {
+    expect(() => register({ promotedPresentation: 'ptc' })).toThrow(/promotedPresentation/)
   })
 
   test('misconfigured bootstrap catalogs fail loudly', async () => {

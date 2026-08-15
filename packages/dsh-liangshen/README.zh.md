@@ -9,7 +9,7 @@
 DeepSeek V4 Pro 会强烈依赖 API 中可见的**首轮工具目录**选择执行轨迹。社区评测（[xiaobright/modeltest](https://github.com/xiaobright/modeltest)）中，Standard / PTC 只有 91/92 分，Minimal 达到 99/96，但 Minimal 只有两个工具。两阶段方案把「首次轨迹选择」与「后续完整工具能力」拆开：
 
 1. 首轮模型请求只暴露平台 shell 与 `read`，只保留 `persona` 一个 prompt section，清空运行时上下文，并且只放行用户自己的消息；
-2. 会话出现首次持久 `tool/call` 后，晋升会等到首个 reasoning 块呈 minimal-like（`We need` / 无 `Let me`）才发生，四步兜底；随后恢复全部 Standard 工具、全部 prompt section（含 plan mode 的 `plan:policy`）以及 workspace 指令、skill 目录与运行时快照等常规注入；
+2. 会话出现首次持久 `tool/call` 后，晋升会等到首个 reasoning 块呈 minimal-like（包含 `we` 且无 `let me`）才发生，四步兜底；随后 wire 切换为 Code Mode（PTC）——只暴露一个 `run_code`，完整工具注册表通过生成的 SDK 调用——并恢复全部 prompt section（含 plan mode 的 `plan:policy`）以及 workspace 指令、skill 目录与运行时快照等常规注入；
 3. 阶段从持久化 session events 推导，resume / reload 不丢失状态。
 
 Windows 原生环境实测（DeepSeek V4 Pro、max、V4.1b 题面）：98 / 99，均值 98.5，第二轮全程无 `let me` 痕迹，证明不是抽卡，也不需要牺牲完整工具能力。原始实验 preset：[xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
@@ -20,7 +20,8 @@ preset 在参考机制之上内置了额外保护，全部在 `agent.cordis.yml`
 
 - `anchorGate`：首次 `tool/call` 后，目录继续保持双工具，直到首个 reasoning 块被判定为 minimal-like，避免 `Let me` 开局立刻拿到完整目录；
 - `maxBootstrapSteps`：N 步后仍无锚定块时强制晋升；
-- `promoteAfterFirstResponse`：首轮无工具调用的回答在响应后自动晋升；锚定门控中的会话也会在首轮结束时（`turn/end`）释放。释放发生在 prompt assemble 阶段，因此新用户轮次一开始就拿到完整目录；
+- `promoteAfterFirstResponse`：首轮无工具调用的回答在响应后自动晋升；锚定门控中的会话也会在首轮结束时（`turn/end`）释放，因此新用户轮次一开始就拿到晋升后的目录；
+- `promotedPresentation: code`：晋升后 wire 为 Code Mode（PTC）——一个 `run_code` 工具、完整注册表通过生成 SDK 调用；切换发生在 step 边界，不会打断当前步的原生工具调用；
 - `deferredSources` + `deferredGraceSteps`：workspace 指令与 skill 目录在晋升后再等一步注入，工具目录切换和注入冲击不同时落地。
 
 已支持 plan mode：phase 1 会把 prompt sections 过滤为仅剩一行 `persona`，晋升后恢复全部 sections，因此 plan-mode 的 `plan:policy` 在晋升后的每一步都生效。
@@ -55,9 +56,9 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 - 第一份 header 应只有 `bash/read`（macOS/Linux）或 `pwsh/read`（Windows）；`liangshen-exact` 应为 `bash/str_replace_editor`；
 - 第一轮应只包含用户自己的消息：没有 workspace 指令 baseline、没有运行时快照、没有 skill 目录消息，并且只有 `persona` 一个 prompt section；
-- 首次工具调用后，下一份变更 header 应包含完整 Standard 目录；运行时快照与全部 prompt section（含 plan mode 的 `plan:policy`）随该步出现，workspace 指令与 skill 目录再晚一步出现；
+- 首次工具调用后，下一份变更 header 应恰好为 `run_code`（PTC）；运行时快照与全部 prompt section（含 plan mode 的 `plan:policy`）随该步出现，workspace 指令与 skill 目录再晚一步出现；
 - `liangshen-exact` 的 phase 1 编辑器写入仍受宿主文件沙箱策略约束，不存在裸本地文件系统绕过；
-- 此后的请求保持完整目录。
+- 此后的请求保持 `run_code`。
 
 不读原始 reasoning 也能测量轨迹漂移：
 
@@ -67,11 +68,11 @@ node tools/analyze-session.mjs <导出的 session.jsonl>
 
 ## 行为与限制
 
-- 第一次模型响应如果没有调用工具，在响应后即自动晋升；锚定门控中的会话也会在首轮结束（`turn/end`）时释放。释放判定发生在 prompt assemble 阶段，所以新用户轮次一开始就拿到完整目录，其消息也不会再被剥离；
+- 第一次模型响应如果没有调用工具，在响应后即自动晋升；锚定门控中的会话也会在首轮结束（`turn/end`）时释放。释放判定发生在 prompt assemble 阶段，所以新用户轮次一开始就拿到晋升后的 PTC 目录，其消息也不会再被剥离；
 - 首次工具调用后，晋升等待首个 minimal-like reasoning 块或 `maxBootstrapSteps` 兜底，先到者生效；
 - 工具执行即使失败，只要 `tool/call` 已持久化，仍计入晋升条件；
 - phase 1 只保留 `persona` prompt section；晋升后恢复全部 assembled sections，因此 plan mode 的 `plan:policy` 在晋升后生效；
-- workspace 指令、skill 目录与运行时快照在首轮不注入；快照随完整工具目录出现，前两者再晚一步出现；
+- workspace 指令、skill 目录与运行时快照在首轮不注入；快照随 PTC 目录出现，前两者再晚一步出现；
 - `liangshen-exact` 的文件工具继承宿主文件沙箱（不挂载裸 `dsh-fs-local`）；
 - 工具目录只变化一次，因此第一、二次请求之间会发生一次前缀缓存变化；
 - preset 与 shell 访问具有相同信任等级，安装前可自行审阅 `presets/`；

@@ -46,11 +46,11 @@
 # open until the first reasoning block is minimal-like (four-step fallback);
 # `promoteAfterFirstResponse` avoids a permanent two-tool session after a
 # tool-less first response, and releases an anchor-gated session once its
-# first turn ends (`turn/end`) — that release happens during prompt assembly,
-# so the new user turn already sees the full catalog; workspace instructions
-# and the skill catalog are deferred one step after promotion. This preset
-# shares the main preset's `tool-bootstrap.mjs` implementation; only this
-# config differs.
+# first turn ends (`turn/end`). After promotion the catalog is presented as
+# Code Mode (PTC): a single `run_code` tool on the wire, switched at the step
+# boundary; workspace instructions and the skill catalog are deferred one
+# step after promotion. This preset shares the main preset's
+# `tool-bootstrap.mjs` implementation; only this config differs.
 - id: tool-bootstrap
   name: ./tool-bootstrap.mjs
   config:
@@ -62,6 +62,7 @@
     promoteAfterFirstResponse: true
     deferredSources: [agent-instructions, skill-catalog]
     deferredGraceSteps: 1
+    promotedPresentation: code
 
 # Workspace instructions are quarantined by `tool-bootstrap` during phase 1
 # and deferred one step after promotion, then stay current.

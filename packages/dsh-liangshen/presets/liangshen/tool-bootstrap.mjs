@@ -11,11 +11,14 @@
  *
  * Promotion opens the full tool catalog and restores runtime contexts and all
  * prompt sections. With `anchorGate` the promotion after the first tool call
- * also requires one minimal-like reasoning block or the `maxBootstrapSteps`
- * fallback. `promoteAfterFirstResponse` promotes a tool-less first response
- * once it has responded, and also releases an anchor-gated session when its
- * first turn ends (`turn/end`); that release happens during prompt assembly,
- * so the new user turn already sees the full catalog. `deferredSources` and
+ * also requires one minimal-like reasoning block (a first block containing
+ * `we` and no `let me`) or the `maxBootstrapSteps` fallback.
+ * `promoteAfterFirstResponse` promotes a tool-less first response once it has
+ * responded, and also releases an anchor-gated session when its first turn
+ * ends (`turn/end`). With `promotedPresentation: code` the promoted catalog
+ * is presented as Code Mode (PTC): the wire shows a single `run_code` tool
+ * backed by the generated SDK, switched at the step boundary so the current
+ * step's native calls are never interrupted. `deferredSources` and
  * `deferredGraceSteps` delay selected injected message kinds (workspace
  * instructions, skill catalog) for a few steps after promotion.
  *
@@ -26,8 +29,8 @@
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'anchored-tool-bootstrap'
 
-/** Prompt assembly must exist before this request filter can register. */
-export const inject = ['systemPrompt']
+/** Prompt assembly and the tool registry must exist before this filter runs. */
+export const inject = ['systemPrompt', 'tools']
 
 /** Message-source kinds the model may see during phase 1. */
 const DEFAULT_MESSAGE_SOURCES = ['user']
@@ -63,26 +66,21 @@ function countWord(text, regex) {
 }
 
 /**
- * Conservative lexical classifier for one reasoning block, matching the
- * modeltest trigger probe: `We need` / `Let me` first lines and whole-block
- * `we` / `let me` counts. It describes the trajectory surface, not capability.
+ * Anchor classifier for promotion gating. A reasoning block counts as
+ * minimal-like when it contains `we` and no `let me`; a block with any
+ * `let me` is standard-like; everything else is ambiguous. This is a
+ * deliberate relaxation of the modeltest identity probe: the gate decides
+ * trajectory surface, not model identity, and `we` presence without
+ * first-person execution phrases is the stable surface marker.
  */
 export function classifyReasoning(text) {
   const trimmed = String(text ?? '').trim()
-  const firstLine = trimmed.split(/\r?\n/, 1)[0] ?? ''
   const we = countWord(trimmed, /\bwe\b/gi)
   const letMe = countWord(trimmed, /\blet me\b/gi)
-  let score = 0
-  if (/^we need\b/i.test(firstLine)) score += 3
-  if (/^let me\b/i.test(firstLine)) score -= 3
-  if (we > 0 && letMe === 0) score += 2
-  if (letMe > 0) score -= 2
-  if (/^(good|great|excellent)\.?$/i.test(firstLine.trim())) score += 1
-  return {
-    label: score >= 4 ? 'minimal-like' : score <= -4 ? 'standard-like' : 'ambiguous',
-    score,
-    metrics: { we, letMe },
-  }
+  const metrics = { we, letMe }
+  if (we > 0 && letMe === 0) return { label: 'minimal-like', score: 4, metrics }
+  if (letMe > 0) return { label: 'standard-like', score: -4, metrics }
+  return { label: 'ambiguous', score: 0, metrics }
 }
 
 /**
@@ -117,6 +115,9 @@ function isDeferredMessage(message, deferredSources) {
  */
 const promotionBySession = new WeakMap()
 
+/** Live agents observed by the assemble/pre-step listeners, keyed by session. */
+const agentBySession = new WeakMap()
+
 function stateFor(session) {
   let state = promotionBySession.get(session)
   if (state === undefined) {
@@ -129,10 +130,24 @@ function stateFor(session) {
       turnEnded: false,
       steps: 0,
       deferredSteps: 0,
+      presentationApplied: false,
     }
     promotionBySession.set(session, state)
   }
   return state
+}
+
+/**
+ * Switch one agent's wire presentation to Code Mode (PTC: a single `run_code`
+ * tool backed by the generated SDK) after promotion. `agent.ctx.tools` is the
+ * per-agent view of the host registry, so the switch affects this session only.
+ */
+function applyPresentation(agent, state, policy) {
+  if (state.presentationApplied || policy.promotedPresentation !== 'code') return
+  state.presentationApplied = true
+  const tools = agent.ctx.tools
+  if (tools === undefined) return
+  tools.presentAs('code')
 }
 
 /**
@@ -153,28 +168,35 @@ function decidePromotion(state, config) {
 }
 
 /** Scan newly appended session events and update promotion state. */
-function refresh(agent, config) {
+function scanEvents(state, session) {
+  const events = session.events
+  for (; state.next < events.length; state.next += 1) {
+    const event = events[state.next]
+    if (event === undefined) continue
+    if (event.type === 'tool/call') {
+      state.toolCalled = true
+    } else if (event.type === 'step/start') {
+      state.steps += 1
+    } else if (event.type === 'turn/end') {
+      state.turnEnded = true
+    } else if (event.type === 'assistant/message') {
+      state.responded = true
+      if (!state.anchored) state.anchored = hasAnchoredReasoning(event.data?.message?.content)
+    }
+  }
+}
+
+/** Update one agent's promotion state and apply its post-promotion presentation. */
+function refresh(agent, policy) {
   const session = agent?.session
   if (session === undefined) return undefined
   const state = stateFor(session)
+  agentBySession.set(session, agent)
   if (!state.promoted) {
-    const events = session.events
-    for (; state.next < events.length; state.next += 1) {
-      const event = events[state.next]
-      if (event === undefined) continue
-      if (event.type === 'tool/call') {
-        state.toolCalled = true
-      } else if (event.type === 'step/start') {
-        state.steps += 1
-      } else if (event.type === 'turn/end') {
-        state.turnEnded = true
-      } else if (event.type === 'assistant/message') {
-        state.responded = true
-        if (!state.anchored) state.anchored = hasAnchoredReasoning(event.data?.message?.content)
-      }
-    }
-    if (decidePromotion(state, config)) state.promoted = true
+    scanEvents(state, session)
+    if (decidePromotion(state, policy)) state.promoted = true
   }
+  if (state.promoted) applyPresentation(agent, state, policy)
   return state
 }
 
@@ -184,12 +206,35 @@ export function apply(ctx, config) {
   const shellTools = stringList(config.shellTools, 'shellTools')
   const messageSources = new Set(stringList(config.messageSources, 'messageSources', DEFAULT_MESSAGE_SOURCES))
   const deferredSources = new Set(stringListOrEmpty(config.deferredSources, 'deferredSources'))
+  const presentation = config.promotedPresentation ?? 'native'
+  if (presentation !== 'native' && presentation !== 'code') {
+    throw new TypeError(`${name}: promotedPresentation must be "native" or "code"`)
+  }
   const policy = {
     anchorGate: config.anchorGate === true,
     promoteAfterFirstResponse: config.promoteAfterFirstResponse === true,
     maxBootstrapSteps: integerAtLeast(config.maxBootstrapSteps ?? 4, 'maxBootstrapSteps', 1),
     deferredGraceSteps: integerAtLeast(config.deferredGraceSteps ?? 0, 'deferredGraceSteps', 0),
+    promotedPresentation: presentation,
   }
+
+  // Promotion is applied at step/turn boundaries, never while a step is still
+  // executing tools: switching the presentation mid-step would collapse the
+  // native calls that step already planned. By `step/end` the tool-call and
+  // reasoning events are durable, so the NEXT prompt assembly already sees
+  // Code Mode with its generated SDK section.
+  ctx.on('session/event', (session, event) => {
+    if (event.type !== 'step/end' && event.type !== 'turn/end') return
+    const state = stateFor(session)
+    if (!state.promoted) {
+      scanEvents(state, session)
+      if (decidePromotion(state, policy)) state.promoted = true
+    }
+    if (state.promoted) {
+      const agent = agentBySession.get(session)
+      if (agent !== undefined) applyPresentation(agent, state, policy)
+    }
+  })
 
   // `prepend: true` puts both filters at the outermost position of their
   // waterfall, so `await next()` always observes the complete downstream
