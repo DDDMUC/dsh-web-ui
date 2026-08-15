@@ -1802,11 +1802,30 @@ body[data-dsh-miku] [class*='composer'] [class*='actions'] {
 body[data-dsh-miku] [class*='panel'],
 body[data-dsh-miku] [class*='drawer'],
 body[data-dsh-miku] [class*='settingsRoot'] {
-  background: linear-gradient(180deg, rgba(14, 28, 60, 0.82), rgba(10, 20, 44, 0.76)) !important;
+  /* Near-opaque deep sea-glass in light mode: a translucent deep blue
+     blended with the pale backdrop washed out to a muddy gray-blue, killing
+     the light-ink contrast. Keep a whisper of translucency for the art. */
+  background: linear-gradient(180deg, rgba(14, 28, 60, 0.96), rgba(10, 20, 44, 0.94)) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(88, 169, 255, 0.3) !important;
+  border: 1px solid rgba(88, 169, 255, 0.45) !important;
   color: #d6f1ec;
+  /* The panel is deep sea-glass in both themes, but light mode still
+     resolves the alias/aion text tokens to the dark ink palette. Override
+     them inside the panel so components reading tokens get light ink on the
+     deep surface instead of dark-on-dark. */
+  --dsw-alias-label-primary: #d6f1ec;
+  --dsw-alias-label-secondary: #b8cae8;
+  --dsw-alias-label-tertiary: #8ba0c4;
+  --dsw-alias-label-caption: #b8cae8;
+  --dsw-alias-label-dimmed: #4c6390;
+  --dsw-alias-label-primary-dimmed: #b0c4e2;
+  --dsw-alias-label-primary-foreground: #fff;
+  --dsw-alias-label-primary-inverted: #0a1a17;
+  --aion-text-primary: #d6f1ec;
+  --aion-text-secondary: #b8cae8;
+  --aion-text-tertiary: #8ba0c4;
+  --aion-text-disabled: #4c6390;
 }
 
 body[data-dsh-miku][data-ds-dark-theme] [class*='panel'],
@@ -1825,8 +1844,8 @@ body[data-dsh-miku] [class*='panel'] [class*='section'],
 body[data-dsh-miku] [class*='panel'] [class*='card'],
 body[data-dsh-miku] [class*='settingsRoot'] [class*='section'],
 body[data-dsh-miku] [class*='settingsRoot'] [class*='card'] {
-  background: rgba(16, 34, 72, 0.5) !important;
-  border-color: rgba(88, 169, 255, 0.25) !important;
+  background: rgba(16, 34, 72, 0.85) !important;
+  border-color: rgba(88, 169, 255, 0.4) !important;
 }
 
 body[data-dsh-miku][data-ds-dark-theme] [class*='panel'] [class*='section'],
