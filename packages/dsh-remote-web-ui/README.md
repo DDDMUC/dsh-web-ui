@@ -39,8 +39,11 @@ actions, and the update panel that probes and runs the update.
   phone icon) opens the update panel, which probes the npm registry for the
   installed `@linxin666/dsh-*` family releases. When a newer release exists
   the panel runs the update automatically (`pnpm update` inside the owning
-  dsh profile; the loopback-only `/api/update/status` + `/api/update/run`
-  endpoints drive it) and asks for a dsh web restart to pick it up. Local
+  dsh profile; when pnpm is missing it falls back to `corepack pnpm` and
+  then `npx --yes pnpm`, and on Windows the command runs through `cmd.exe`
+  so npm-installed `.cmd` shims resolve; the loopback-only
+  `/api/update/status` + `/api/update/run` endpoints drive it) and asks for
+  a dsh web restart to pick it up. Local
   link installs (development mode) are detected and report the npm state
   without updating.
 
