@@ -1,7 +1,7 @@
 {
   "name": "@linxin666/dsh-client-ui-skin-qq2006",
   "description": "Hot-pluggable QQ2006-inspired skin for the dsh web GUI with classic blue window chrome and compact desktop controls",
-  "version": "0.1.3",
+  "version": "0.1.14",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
