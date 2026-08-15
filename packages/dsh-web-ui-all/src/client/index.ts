@@ -32,14 +32,46 @@ function stamp(el: Element | null, attribute: string): void {
   el.setAttribute(name, value)
 }
 
-/** One pass over the current DOM. */
-function applyShims(): void {
+/** One pass over the current DOM. Returns false once every stamp is already in place. */
+function applyShims(): boolean {
+  let changed = false
   for (const [selector, attribute] of COLUMN_SHIMS) {
-    stamp(document.querySelector(selector), attribute)
+    const el = document.querySelector(selector)
+    const eq = attribute.indexOf('=')
+    const name = attribute.slice(0, eq)
+    const value = attribute.slice(eq + 1).replace(/^"|"$/g, '')
+    if (el !== null && el.getAttribute(name) !== value) {
+      el.setAttribute(name, value)
+      changed = true
+    }
   }
   // The frame is the grid item that parents the sidebar column.
-  stamp(document.querySelector('[class*="sidebarCol"]')?.parentElement ?? null, 'data-dsh-frame=""')
+  const frame = document.querySelector('[class*="sidebarCol"]')?.parentElement ?? null
+  if (frame !== null && frame.getAttribute('data-dsh-frame') !== '') {
+    frame.setAttribute('data-dsh-frame', '')
+    changed = true
+  }
+  return changed
 }
+
+/**
+ * Coalesce mutation bursts into one pass per frame. React renders burst
+ * dozens of subtree mutations per commit; stamping on every single mutation
+ * callback turned each render into many querySelector sweeps. A scheduled
+ * rAF plus a done flag folds the whole burst into a single pass, and the
+ * idempotence check stops the work entirely once every attribute is set.
+ */
+function schedulePass(): void {
+  if (shimScheduled) return
+  shimScheduled = true
+  requestAnimationFrame(() => {
+    shimScheduled = false
+    applyShims()
+  })
+}
+
+/** True while a coalesced pass is pending. */
+let shimScheduled = false
 
 /** Required services: none — the shim must run before any DOM mount waits. */
 export const inject = [] as const
@@ -52,10 +84,15 @@ export function apply(ctx: Context): void {
   ctx.effect(() => {
     applyShims()
     // The shell renders after boot settlement and React can re-create the
-    // columns on re-render; re-stamp on any DOM mutation. Idempotent: writes
-    // only the same attribute values, so this never fights React.
-    const observer = new MutationObserver(applyShims)
+    // columns on re-render; re-stamp on any DOM mutation. The callback only
+    // schedules a coalesced pass — mutations never run the sweep inline, and
+    // the pass short-circuits once every attribute is in place. Writes only
+    // the same attribute values, so this never fights React.
+    const observer = new MutationObserver(schedulePass)
     observer.observe(document.body, { childList: true, subtree: true })
-    return () => { observer.disconnect() }
+    return () => {
+      observer.disconnect()
+      shimScheduled = false
+    }
   })
 }
