@@ -54,7 +54,7 @@ skins/skin-center/
 - 失败语义：bundle 路由 404（皮肤未安装 / `lib/client.js` 未构建）或网络失败时，script 的 error 事件触发，试穿报通用错误并完整还原激活皮肤；加载与还原之间不会留下半套皮肤（tryOn 的 catch 分支负责恢复）。
 - 退出还原：先跑皮肤的 disposer（属性/chrome/favicon/标题/背景全撤回），再 `invalidate(package)` + 删 style 标签，最后把激活皮肤的视觉快照原样恢复。官方默认试穿 = 同一套收回配方但不挂载任何皮肤，退出同样原样恢复。
 - 激活皮肤检测：`window.__DSH_BOOT__.entries` 只含启用条目，与注册表 package 比对；无匹配即官方默认。
-- 一键应用：host `/api/skin-center/apply` 执行内嵌的 `dsh-skin use <name>` / `use official` 移植版（该移植版是 managed 区段与 symlink 的唯一权威）。路径为 `<harness-home>/cordis.patch.yml` 与 `<harness-home>/profiles/<profile>/node_modules`，home/profile 按上文规则解析。当激活皮肤自身已作为 bundle 安装——profile 包目录是真实目录且其自身 `cordis.patch.yml` 插入了同一 loader id，或注册表标记 `bundleWired`——home 层只写互斥的 `disabled: true` 行，insert 留给 bundle patch；聚合包载体 symlink 布局仍保留 home 层 insert 行。DSH 长驻表面自带配置 watcher（`watchUserPatches` + config-only HMR），patch 写入后数秒热载入、无需重启；浏览器刷新页面取新 boot 图即生效（client 插件图行增删不在 `dsh-client-hmr` 语义内）。
+- 一键应用：host `/api/skin-center/apply` 执行内嵌的 `dsh-skin use <name>` / `use official` 移植版（该移植版是 managed 区段与 symlink 的唯一权威）。路径为 `<harness-home>/cordis.patch.yml` 与 `<harness-home>/profiles/<profile>/node_modules`，home/profile 按上文规则解析。当激活皮肤自身已作为 bundle 安装——出现在 profile manifest 的 `dsh.profile.bundles` 或 `dependencies` 中（loader 仅对这两条通道做 patch 行归并），或注册表标记 `bundleWired`——home 层只写互斥的 `disabled: true` 行，insert 留给 bundle patch；其余情况（包括 skin-center 自建的可解析 symlink）都保留 home 层 insert 行。结构目录探测仅在 profile manifest 缺失/不可读时兜底。DSH 长驻表面自带配置 watcher（`watchUserPatches` + config-only HMR），patch 写入后数秒热载入、无需重启；浏览器刷新页面取新 boot 图即生效（client 插件图行增删不在 `dsh-client-hmr` 语义内）。
 
 ## 构建（仓库内 tsdown，无需 DSH checkout）
 

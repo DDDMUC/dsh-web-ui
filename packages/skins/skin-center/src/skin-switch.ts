@@ -400,6 +400,29 @@ function readProfileBundles(profileManifestPath: string | undefined): Set<string
   return out
 }
 
+/**
+ * Dependency keys from the active profile manifest's `dependencies` — the
+ * profile top-level packages the loader reconciles patch rows from (the
+ * second wiring channel beside dsh.profile.bundles; `dsh plugin add` and
+ * npm installs land here). Unreadable/malformed manifests contribute
+ * nothing, matching readProfileBundles.
+ * @param profileManifestPath - <harnessHome>/profiles/<profile>/package.json.
+ */
+function readProfileDependencies(profileManifestPath: string | undefined): Set<string> {
+  const out = new Set<string>()
+  if (profileManifestPath === undefined) return out
+  try {
+    const manifest: unknown = JSON.parse(readFileSync(profileManifestPath, 'utf8'))
+    if (typeof manifest !== 'object' || manifest === null) return out
+    const deps = (manifest as Record<string, unknown>).dependencies
+    if (typeof deps !== 'object' || deps === null) return out
+    for (const key of Object.keys(deps as Record<string, unknown>)) out.add(key)
+  } catch {
+    // Fall through to the structural heuristics below.
+  }
+  return out
+}
+
 /** Whether an absolute path sits inside the `dsh-skins/skins/` bundled
  * carrier (the path-segment heuristic documented on the symlink branch). */
 function isDshSkinsCarrierPath(dir: string): boolean {
@@ -417,16 +440,22 @@ function isDshSkinsCarrierPath(dir: string): boolean {
  *  - the active profile manifest's `dsh.profile.bundles` contains entry.pkg
  *    (the scripts/dsh-skin `bundleWiredFromProfile` authority — true whether
  *    the profile target is a real directory or a symlink), or
- *  - the profile target for entry.pkg is a REAL installed package directory
- *    whose own `cordis.patch.yml` exists and contains an insert row with
- *    entry.id, or
- *  - the profile target is a symlink to an installed per-skin bundle OUTSIDE
- *    the bundled dsh-skins/skins carrier, and that real target's
- *    `cordis.patch.yml` contains an insert row with entry.id.
+ *  - the profile manifest's `dependencies` contains entry.pkg (installed via
+ *    `dsh plugin add` / npm — the loader reconciles patch rows of the
+ *    profile's top-level packages, which is how these bundles get wired).
  *
- * A symlink into the dsh-skins/skins carrier asset dir is never an active
- * per-skin bundle (its cordis.patch.yml is not reconciled into the profile),
- * so that layout keeps its home insert row.
+ * When the profile manifest exists, its wiring lists are the whole truth:
+ * the loader reconciles ONLY bundle entries and dependency packages. In
+ * particular, the node_modules symlinks ensureSymlink creates for the
+ * skin-center itself are pure resolvability links — they are never
+ * reconciled — and must not be mistaken for installed bundles, otherwise
+ * useSkin skips the home insert row and no skin ever activates.
+ *
+ * Only when the manifest is absent/unreadable does the function fall back to
+ * the structural probe (a real installed dir, or a symlink to an independent
+ * package outside the dsh-skins/skins carrier, whose own cordis.patch.yml
+ * inserts entry.id). A symlink into the bundled carrier asset dir is never an
+ * active per-skin bundle in any layout.
  * @param entry - the skin switch entry.
  * @param profileModulesDir - the profile's node_modules dir.
  * @param profileManifestPath - optional profile package.json path.
@@ -436,6 +465,15 @@ export function activeSkinIsBundleWired(entry: SkinSwitchEntry, profileModulesDi
   // Authoritative profile wiring: dsh.profile.bundles wins regardless of the
   // target layout (real dir or symlink), exactly like scripts/dsh-skin.
   if (readProfileBundles(profileManifestPath).has(entry.pkg)) return true
+  // Profile dependencies are the second reconciliation channel (dsh plugin
+  // add / npm installs). A package listed there is wired by the loader.
+  if (readProfileDependencies(profileManifestPath).has(entry.pkg)) return true
+  // The manifest exists: its lists are authoritative. Anything not listed is
+  // not reconciled by the loader — including the skin-center's own
+  // ensureSymlink links — so it keeps its home insert row.
+  if (profileManifestPath !== undefined && statSync(profileManifestPath, { throwIfNoEntry: false })) {
+    return false
+  }
   const target = joinPath(profileModulesDir, entry.pkg)
   let stat: ReturnType<typeof lstatSync> | undefined
   try {

@@ -584,6 +584,44 @@ describe('home patch lifecycle vs installed skin bundles (issue #108/#148)', () 
     expect(activeSkinIsBundleWired(entry, modules, manifest)).toBe(true)
   })
 
+  it('activeSkinIsBundleWired: a skin-center symlink is not bundle-wired when the profile manifest exists', () => {
+    const h = fakeHome()
+    const modules = join(h, 'modules')
+    const entry: SkinSwitchEntry = {
+      pkg: '@linxin666/dsh-client-ui-skin-whale-song',
+      id: 'ui-skin-whale-song',
+      dir: join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'whale-song'),
+      bundleWired: false,
+    }
+    // The skin-center's own ensureSymlink link (the layout every apply
+    // creates): the package dir carries its bundle patch, but the profile
+    // manifest does not list the package anywhere — the loader never
+    // reconciles such a link, so it must keep its home insert row.
+    makeSkinPackage(entry.dir, entry)
+    writeFileSync(join(entry.dir, 'cordis.patch.yml'), `- insert:\n    - id: ${entry.id}\n      name: '${entry.pkg}'\n`)
+    mkdirSync(join(modules, '@linxin666'), { recursive: true })
+    symlinkSync(entry.dir, join(modules, entry.pkg), process.platform === 'win32' ? 'junction' : 'dir')
+    const manifest = join(h, 'package.json')
+    writeFileSync(manifest, JSON.stringify({ dsh: { profile: { bundles: [] } }, dependencies: {} }))
+    expect(activeSkinIsBundleWired(entry, modules, manifest)).toBe(false)
+  })
+
+  it('activeSkinIsBundleWired: a package listed in profile dependencies is bundle-wired', () => {
+    const h = fakeHome()
+    const modules = join(h, 'modules')
+    const entry: SkinSwitchEntry = {
+      pkg: '@linxin666/dsh-client-ui-skin-blue-fantasy',
+      id: 'ui-skin-blue-fantasy',
+      dir: join(h, 'unused'),
+      bundleWired: false,
+    }
+    // The npm / dsh plugin add layout: the profile manifest dependencies
+    // reconcile the package's own bundle patch, so no home insert row.
+    const manifest = join(h, 'package.json')
+    writeFileSync(manifest, JSON.stringify({ dependencies: { [entry.pkg]: '0.1.12' } }))
+    expect(activeSkinIsBundleWired(entry, modules, manifest)).toBe(true)
+  })
+
   it('useSkin writes no duplicate insert row for an installed per-skin bundle', () => {
     const h = fakeHome()
     const registry = loadRegistry()
