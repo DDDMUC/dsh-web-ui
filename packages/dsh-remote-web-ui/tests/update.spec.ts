@@ -259,6 +259,7 @@ class FakeChild extends EventEmitter {
   stdout = new EventEmitter()
   stderr = new EventEmitter()
   killed = false
+  pid = 1000
   constructor(public exit: number | null, public spawnError?: Error) {
     super()
   }
@@ -281,13 +282,15 @@ describe("runUpdate", () => {
   /** Dispatch one fake child per spawned command for fallback-chain tests. */
   function dispatchFake(spawns: Readonly<Record<string, FakeChild>>) {
     const order: string[] = []
-    const spawnImpl = ((command: string, _args: unknown, _options: unknown) => {
+    const argo: Array<{ command: string; args: unknown }> = []
+    const spawnImpl = ((command: string, args: unknown, _options: unknown) => {
       order.push(command)
+      argo.push({ command, args })
       const child = spawns[command]
       if (child === undefined) throw new Error("unexpected command: " + command)
       return child
     }) as never
-    return { spawnImpl, order }
+    return { spawnImpl, order, argo }
   }
   it("spawns pnpm update with the packages and resolves on success", async () => {
     let spawned: { command: string; args: string[]; cwd: string } | undefined
@@ -419,5 +422,62 @@ describe("runUpdate", () => {
     const result = await promise
     expect(result.ok).toBe(false)
     expect(result.errorCode).toBe("pnpm-failed")
+  })
+  it("does not misclassify a real corepack failure after pnpm missing on win32", async () => {
+    // pnpm's 'not recognized' stderr must not bleed into corepack's own
+    // diagnostic window and turn a real failure into a (wrong) fallback to npx.
+    const pnpm = new FakeChild(1)
+    const corepack = new FakeChild(1)
+    const npx = new FakeChild(0)
+    const { spawnImpl, order } = dispatchFake({ pnpm, corepack, npx })
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, platform: "win32" })
+    pnpm.stderr.emit("data", Buffer.from("'pnpm' is not recognized as an internal or external command, operable program or batch file."))
+    pnpm.run(1)
+    corepack.stderr.emit("data", Buffer.from("ERR_PNPM_OUTDATED_LOCKFILE Cannot proceed"))
+    corepack.run(1)
+    const result = await promise
+    expect(order).toEqual(["pnpm", "corepack"])
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("pnpm-failed")
+  })
+  it("does not advance two candidates when error precedes close", async () => {
+    // error(ENOENT) then close(null) is the same missing-command event twice:
+    // the once/settled guard must only advance the chain one level, then the
+    // next candidate runs to success.
+    const pnpmError = Object.assign(new Error("spawn pnpm ENOENT"), { code: "ENOENT" })
+    const pnpm = new FakeChild(null)
+    const corepack = new FakeChild(0)
+    const { spawnImpl, order } = dispatchFake({ pnpm, corepack })
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl })
+    pnpm.fail(pnpmError)
+    pnpm.run(null)
+    corepack.emitOutput("corepack pnpm ok")
+    corepack.run(0)
+    const result = await promise
+    expect(order).toEqual(["pnpm", "corepack"])
+    expect(result.ok).toBe(true)
+    expect(result.output).toContain("corepack pnpm ok")
+  })
+  it("kills the process tree on win32 timeout and never respawns the next candidate", async () => {
+    vi.useFakeTimers()
+    const pnpmError = Object.assign(new Error("spawn pnpm ENOENT"), { code: "ENOENT" })
+    const pnpm = new FakeChild(null)
+    const corepack = new FakeChild(null)
+    const taskkill = new FakeChild(0)
+    const { spawnImpl, order, argo } = dispatchFake({ pnpm, corepack, taskkill })
+    corepack.pid = 4242
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, platform: "win32", timeoutMs: 1000 })
+    pnpm.fail(pnpmError)
+    vi.advanceTimersByTime(1000)
+    const result = await promise
+    expect(order).toEqual(["pnpm", "corepack", "taskkill"])
+    const killed = argo.find(entry => entry.command === "taskkill")
+    expect(killed?.args).toEqual(["/pid", "4242", "/t", "/f"])
+    // The killed corepack's late close must not spawn a third candidate.
+    corepack.run(null)
+    expect(order).toEqual(["pnpm", "corepack", "taskkill"])
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe("timeout")
+    vi.useRealTimers()
   })
 })

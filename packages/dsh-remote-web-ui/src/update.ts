@@ -424,20 +424,52 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
       { command: 'corepack', args: ['pnpm', 'update', ...packages] },
       { command: 'npx', args: ['--yes', 'pnpm', 'update', ...packages] },
     ]
+    // `output` accumulates across candidates for UI display; `currentOutput`
+    // is reset per candidate and carries only that candidate's own diagnostics
+    // (its tail is subject to OUTPUT_CAP). The win32 missing-command test must
+    // run against `currentOutput` so a previous candidate's 'not recognized'
+    // stderr cannot misclassify a real failure in the next one.
     let output = ''
+    let currentOutput = ''
     const append = (chunk: Buffer): void => {
       output += chunk.toString('utf8')
       if (output.length > OUTPUT_CAP) output = output.slice(output.length - OUTPUT_CAP)
+      currentOutput += chunk.toString('utf8')
+      if (currentOutput.length > OUTPUT_CAP) currentOutput = currentOutput.slice(currentOutput.length - OUTPUT_CAP)
     }
     let currentChild: ReturnType<typeof spawnImpl> | undefined
+    // Terminal guard: once a result is produced the promise is settled and no
+    // further candidate is started (a killed child's late close must not
+    // respawn anything after a timeout resolution).
+    let finished = false
+    const finish = (result: UpdateRunResult): void => {
+      if (finished) return
+      finished = true
+      clearTimeout(timer)
+      resolve(result)
+    }
     const timer = setTimeout(() => {
-      currentChild?.kill('SIGTERM')
-      resolve({ ok: false, exitCode: null, output, error: 'update timed out; install process killed', errorCode: 'timeout' })
+      if (finished) return
+      if (platform === 'win32') {
+        // cmd.exe under shell:true only kills the shell wrapper; kill the whole
+        // process tree best-effort so pnpm/npx do not keep running.
+        const pid = (currentChild as { pid?: number } | undefined)?.pid
+        if (pid !== undefined && pid > 0) {
+          try {
+            spawnImpl('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' })
+          } catch {
+            // Best-effort kill; fall through to the timeout result.
+          }
+        }
+      } else {
+        currentChild?.kill('SIGTERM')
+      }
+      finish({ ok: false, exitCode: null, output, error: 'update timed out; install process killed', errorCode: 'timeout' })
     }, deps.timeoutMs ?? 10 * 60_000)
     const runCandidate = (index: number): void => {
+      if (finished) return
       if (index >= candidates.length) {
-        clearTimeout(timer)
-        resolve({
+        finish({
           ok: false,
           exitCode: null,
           output,
@@ -447,6 +479,7 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
         return
       }
       const candidate = candidates[index]
+      currentOutput = ''
       const child = spawnImpl(candidate.command, candidate.args, spawnOptions)
       currentChild = child
       let settled = false
@@ -463,22 +496,22 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
             // Command missing: try the next candidate in the chain.
             runCandidate(index + 1)
           } else {
-            clearTimeout(timer)
-            resolve({ ok: false, exitCode: null, output, error: error.message, errorCode: undefined })
+            finish({ ok: false, exitCode: null, output, error: error.message, errorCode: undefined })
           }
         })
       })
       child.on('close', (code: number | null) => {
-        if (settled) return
+        if (settled || finished) return
         // Windows + shell: a missing command reports exit 1 with
-        // 'not recognized' instead of ENOENT — keep the chain going.
-        if (platform === 'win32' && code !== 0 && WIN_CMD_MISSING_RE.test(output)) {
+        // 'not recognized' instead of ENOENT — keep the chain going. Checked
+        // against this candidate's own output so a prior fallback's stderr
+        // cannot misclassify a real failure here.
+        if (platform === 'win32' && code !== 0 && WIN_CMD_MISSING_RE.test(currentOutput)) {
           runCandidate(index + 1)
           return
         }
         settled = true
-        clearTimeout(timer)
-        resolve({
+        finish({
           ok: code === 0,
           exitCode: code,
           output,
