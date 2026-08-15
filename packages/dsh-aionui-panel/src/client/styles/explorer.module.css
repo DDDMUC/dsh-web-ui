@@ -6,6 +6,10 @@
 /* The Files/Changes tab bar: 28px buttons + 4px vertical padding + 1px border. */
 .tabBar {
   position: relative;
+  /* Above third-party skin fixed decoration layers (z-index ~20) so the tab
+     bar buttons and the collapse chevron stay clickable (issue #169). Low
+     enough to stay below overlays/dialogs (1000+). */
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: 4px;

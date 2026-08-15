@@ -69,7 +69,10 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
   // Window focus refreshes (catches external editors writing the tree).
   // Throttled: a focus burst must not spawn a git status per event — the
   // fs watch (host) and the 30s host poll already cover the steady state.
-  const lastFocusRefresh = useRef(0)
+  // -Infinity so the first focus after mount always fires (production
+  // Date.now() is enormous anyway; the sentinel makes the throttle explicit
+  // and testable at clock 0).
+  const lastFocusRefresh = useRef(-Infinity)
   useEffect(() => {
     const onFocus = (): void => {
       const now = Date.now()

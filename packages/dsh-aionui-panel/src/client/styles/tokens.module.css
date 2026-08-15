@@ -87,11 +87,6 @@
   font-size: 13px;
   color: var(--aion-text-primary);
   background-color: var(--aion-bg-1);
-  /* Above third-party skin decoration layers (fixed, z-index ~20) so the
-     panel's own tab bars and close buttons stay visible and clickable
-     (issue #169). Low enough to stay below overlays/dialogs (1000+). */
-  position: relative;
-  z-index: 30;
 }
 
 :global(.aionui-root *),

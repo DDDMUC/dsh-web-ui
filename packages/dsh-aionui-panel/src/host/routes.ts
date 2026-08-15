@@ -38,6 +38,16 @@ const GIT_POLL_MS = 30_000
 const HEARTBEAT_MS = 15_000
 
 /**
+ * Deadline for one git-status subprocess inside pollGit. Not an execution
+ * timeout — the subprocess' own graceMs limits a single binary run; this is
+ * the route layer's guard against a hung status (e.g. a wedged git daemon on
+ * a cold path) that would otherwise leave the anti-overlap guard `polling`
+ * wedged forever and silence SCM. Owned here so the deadline is independent
+ * of any service-level setting.
+ */
+const GIT_STATUS_TIMEOUT_MS = 15_000
+
+/**
  * Loopback trust fence — the same judgment dsh-ssh applies to its host
  * routes: a loopback socket address AND a loopback Host header, plus browser
  * same-origin markers. The /aionui-panel operations read/write real workspace
@@ -171,7 +181,12 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
           // .git) is still discovered by a later tick. The poll interval
           // therefore keeps running while any subscriber is connected.
           if (!(await git.isRepositoryCanonical(subscriber.root))) return
-          const status = await git.statusCanonical(subscriber.root)
+          const status = await Promise.race([
+            git.statusCanonical(subscriber.root),
+            new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error('git status timed out')), GIT_STATUS_TIMEOUT_MS)
+            }),
+          ])
           if (status === null) return
           const key = `${status.branch}|${JSON.stringify(status.staged)}|${JSON.stringify(status.unstaged)}|${JSON.stringify(status.untracked)}`
           if (key === subscriber.lastGit) return
