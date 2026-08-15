@@ -320,9 +320,10 @@
   .card:hover .name-row, .card:hover .author { opacity: 0; }
   .card .actions .btn { height: 100%; min-height: 0; }
   @media (hover: none) {
-    /* 触屏无 hover：按钮常驻，标题/作者隐藏，功能不丢失 */
-    .card .name-row, .card .author { opacity: 0; }
-    .card .actions { opacity: 1; pointer-events: auto; }
+    /* 触屏无 hover：按钮常驻且标题/作者保持可见，按钮转为正文下方的常驻操作行 */
+    .card .name-row, .card .author { opacity: 1; }
+    .card .actions { position: static; margin-top: 12px; opacity: 1; pointer-events: auto; }
+    .card .actions .btn { height: auto; min-height: 38px; }
   }
   .btn {
     position: relative;
@@ -410,13 +411,16 @@
   .modal.open .preview-window { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .frame-box {
     position: relative; /* 锚定全屏加载层，只覆盖预览窗口本身 */
-    width: 1280px; height: 720px;
+    /* 原生 1280x720 展示；视口更小时等比收缩，保证手机/窄窗口完整可见 */
+    --preview-w: min(1280px, calc(100vw - 36px));
+    --preview-h: min(720px, calc((100vw - 36px) * 9 / 16), calc(100vh - 150px));
+    width: var(--preview-w); height: var(--preview-h);
     border: 1px solid rgba(213, 231, 250, .18);
     border-radius: 22px; overflow: hidden;
     box-shadow: var(--g-shadow);
   }
   .frame-box iframe {
-    width: 1280px; height: 720px; display: block; border: 0;
+    width: 100%; height: 100%; display: block; border: 0;
     border-radius: 20px; background: #0a1526;
     opacity: 0; /* 加载完成后 .ready 淡入（同卡片缩略图） */
     transition: opacity .3s ease;
@@ -611,6 +615,10 @@
   @keyframes card-in { from { opacity: 0; transform: translateY(10px); } }
   .card.card-out { animation: card-out .24s ease both; pointer-events: none; }
   @keyframes card-out { to { opacity: 0; transform: scale(.95); } }
+  /* 卡片进出场/缩略图淡入动画定义之后声明，才能压过上面的 animation 值 */
+  @media (prefers-reduced-motion: reduce) {
+    .card.card-in, .card.card-out, .shot .light.thumb-in { animation: none; }
+  }
 
   /* --- 滚动条：深色窄条风格，无上下箭头 -------------------------------------- */
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -667,7 +675,7 @@
           <span>dsh-web-ui</span>
         </a>
         <div class="install-command" data-corn="control">
-          <code id="heroInstallCommand">dsh plugin --profile web add @linxin666/dsh-web-ui-all@0.1.10</code>
+          <code id="heroInstallCommand">dsh plugin --profile web add @linxin666/dsh-web-ui-all</code>
           <button type="button" id="heroInstallCopy" aria-label="复制安装命令" title="复制安装命令">
             <svg class="hero-action-icon copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
             <svg class="hero-action-icon check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg>
@@ -721,7 +729,7 @@
 -->
 
 <!-- 预览模态框 -->
-<div class="modal" id="modal">
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="皮肤预览">
   <div class="preview-window">
     <div class="frame-box">
       <div class="frame-loading" id="mLoading"><span class="spinner"></span>正在渲染皮肤…</div>
@@ -758,6 +766,8 @@
 <script>
 (function () {
   'use strict'
+
+  var reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
 
   var manifest = window.SKIN_MANIFEST
   var skins = (manifest && manifest.skins) || []
@@ -901,7 +911,7 @@
     var moved = false
     var enteredAt = 0
     card.addEventListener('mousemove', function (e) {
-      if (card.classList.contains('flipping')) return // 列表重排动画期间让位
+      if (reduceMotion || card.classList.contains('flipping')) return // 列表重排动画期间让位
       var r = card.getBoundingClientRect()
       var x = (e.clientX - r.left) / r.width
       var y = (e.clientY - r.top) / r.height
@@ -928,7 +938,7 @@
       }
     })
     card.addEventListener('mouseleave', function () {
-      if (card.classList.contains('flipping')) return
+      if (reduceMotion || card.classList.contains('flipping')) return
       moved = false
       card.classList.remove('tilting')
       card.style.transition = TILT_RETURN
@@ -1028,7 +1038,7 @@
         var now = el.getBoundingClientRect() // 此时消失卡片已移除，位置即最终位置
         var dx = old.left - now.left
         var dy = old.top - now.top
-        if (dx || dy) {
+        if (!reduceMotion && (dx || dy)) {
           // WAAPI 动画：从旧位置滑到新位置，确定性播放（不依赖过渡起点提交，
           // 避免 transform 不影响布局时 offsetWidth 强制重排失效导致"闪过去"）
           el.classList.add('flipping') // tilt 让位
@@ -1247,7 +1257,19 @@
     if (e.target === modal) closeModal()
   })
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal.classList.contains('open') && !document.fullscreenElement) closeModal()
+    if (!modal.classList.contains('open')) return
+    if (e.key === 'Escape' && !document.fullscreenElement) { closeModal(); return }
+    if (e.key === 'Tab') {
+      // 简单焦点陷阱：Tab/Shift+Tab 在弹窗内循环，不落到背景控件
+      var focusables = Array.prototype.filter.call(modal.querySelectorAll('button, [href], input, select, textarea'), function (el) {
+        return !el.disabled && el.offsetParent !== null
+      })
+      if (!focusables.length) return
+      var first = focusables[0]
+      var last = focusables[focusables.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
   })
 })();
 
