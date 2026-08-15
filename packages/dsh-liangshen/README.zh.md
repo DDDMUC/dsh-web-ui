@@ -24,7 +24,7 @@ preset 在参考机制之上内置了额外保护，全部在 `agent.cordis.yml`
 - `promotedPresentation: code`：晋升后 wire 为 Code Mode（PTC）——一个 `run_code` 工具、完整注册表通过生成 SDK 调用；切换发生在 step 边界，不会打断当前步的原生工具调用；
 - `deferredSources` + `deferredGraceSteps`：workspace 指令与 skill 目录在晋升后再等一步注入，工具目录切换和注入冲击不同时落地。
 
-已支持 plan mode：phase 1 会把 prompt sections 过滤为仅剩一行 `deployment:persona`，晋升后恢复全部 sections，因此 plan-mode 的 `plan:policy` 在晋升后的每一步都生效。
+已支持 plan mode：phase 1 会把 prompt sections 过滤为仅剩一行 `deployment:persona`，晋升后恢复全部 sections 并在 persona 末尾追加所选工作区路径，因此 Agent 明确自己的工作目录，plan-mode 的 `plan:policy` 也在晋升后的每一步都生效。
 
 ## 安装
 
@@ -48,7 +48,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 - 第一份 header 应只有 `bash/str_replace_editor`（持久 shell + 沙箱化编辑器）；
 - 第一轮应只包含用户自己的消息：没有 workspace 指令 baseline、没有运行时快照、没有 skill 目录消息，并且只有 `deployment:persona` 一个 prompt section；
-- 首次工具调用后，下一份变更 header 应恰好为 `run_code`（PTC）；运行时快照与全部 prompt section（含 plan mode 的 `plan:policy`）随该步出现，workspace 指令与 skill 目录再晚一步出现；
+- 首次工具调用后，下一份变更 header 应恰好为 `run_code`（PTC）；运行时快照与全部 prompt section 随该步出现（含 plan mode 的 `plan:policy`，且 persona 末尾带有所选工作区路径），workspace 指令与 skill 目录再晚一步出现；
 - phase 1 编辑器写入受宿主文件沙箱策略约束，不存在裸本地文件系统绕过；
 - 此后的请求保持 `run_code`。
 
@@ -63,7 +63,7 @@ node tools/analyze-session.mjs <导出的 session.jsonl>
 - 第一次模型响应如果没有调用工具，在响应后即自动晋升；锚定门控中的会话也会在首轮结束（`turn/end`）时释放。释放判定发生在 prompt assemble 阶段，所以新用户轮次一开始就拿到晋升后的 PTC 目录，其消息也不会再被剥离；
 - 首次工具调用后，晋升等待首个 minimal-like reasoning 块或 `maxBootstrapSteps` 兜底，先到者生效；
 - 工具执行即使失败，只要 `tool/call` 已持久化，仍计入晋升条件；
-- phase 1 只保留 `deployment:persona` prompt section；晋升后恢复全部 assembled sections，因此 plan mode 的 `plan:policy` 在晋升后生效；
+- phase 1 只保留 `deployment:persona` prompt section；晋升后恢复全部 assembled sections 并在 persona 末尾追加所选工作区路径（`Your working directory is <cwd>.`），因此 Agent 会在选中的工作区工作，plan mode 的 `plan:policy` 也在晋升后生效；
 - workspace 指令、skill 目录与运行时快照在首轮不注入；快照随 PTC 目录出现，前两者再晚一步出现；
 - phase 1 文件工具继承宿主文件沙箱（不挂载裸 `dsh-fs-local`）；
 - phase 1 的持久 `bash` 会替代 Standard 的一次性 shell 直到会话结束（两个工具都注册 `bash` 名字）；

@@ -24,7 +24,7 @@ The preset ships with extra safeguards on top of the reference mechanism, all co
 - `promotedPresentation: code` — after promotion the wire is Code Mode (PTC): one `run_code` tool with the full registry available through the generated SDK, switched at the step boundary so the current step's native calls are never interrupted;
 - `deferredSources` + `deferredGraceSteps` — workspace instructions and the skill catalog wait one extra step after promotion, so the tool-catalog switch and the injection shock do not land in the same step.
 
-Plan mode is supported: phase 1 filters the assembled prompt sections down to the one-line `deployment:persona`, and promotion restores all sections, so the plan-mode `plan:policy` section takes effect for every step after promotion.
+Plan mode is supported: phase 1 filters the assembled prompt sections down to the one-line `deployment:persona`, and promotion restores all sections and appends the session's working directory to the persona, so the agent knows its workspace and the plan-mode `plan:policy` section takes effect for every step after promotion.
 
 ## Install
 
@@ -48,7 +48,7 @@ Export the session JSONL and inspect `request/header`:
 
 - The first header should carry only `bash/str_replace_editor` (the persistent shell plus the sandboxed editor);
 - The first turn should contain only the user's own messages — no workspace-instruction baseline, no runtime snapshot, no skill-catalog message — and only the `deployment:persona` prompt section;
-- After the first tool call, the next changed header should carry exactly `run_code` (PTC); the runtime snapshot and all prompt sections (including plan mode's `plan:policy`) arrive with that step and the workspace instructions and skill catalog arrive one step later;
+- After the first tool call, the next changed header should carry exactly `run_code` (PTC); the runtime snapshot and all prompt sections arrive with that step (including plan mode's `plan:policy`, and the persona now ends with the selected workspace path), and the workspace instructions and skill catalog arrive one step later;
 - Phase-1 editor writes obey the host file sandbox policy — there is no bare local-filesystem bypass;
 - Later requests keep `run_code`.
 
@@ -63,7 +63,7 @@ node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jso
 - A first model response that calls no tool promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`). The release is decided during prompt assembly, so the new user turn already gets the promoted PTC catalog and its messages are not stripped;
 - After the first tool call, promotion waits for the first minimal-like reasoning block or the `maxBootstrapSteps` fallback, whichever comes first;
 - A tool call that fails still counts toward promotion as long as `tool/call` was persisted;
-- Phase 1 keeps only the `deployment:persona` prompt section; promotion restores every assembled section, so plan mode's `plan:policy` is enforced after phase 1;
+- Phase 1 keeps only the `deployment:persona` prompt section; promotion restores every assembled section and appends the session's working directory (`Your working directory is <cwd>.`) to the persona, so the agent works in the selected workspace and plan mode's `plan:policy` is enforced after phase 1;
 - Workspace instructions, the skill catalog, and the runtime snapshot stay out of phase 1; the snapshot returns with the catalog and the other two arrive one step later;
 - Phase-1 file tools inherit the host file sandbox (no bare `dsh-fs-local` filesystem);
 - The phase-1 persistent `bash` replaces the Standard ephemeral shell for the whole session (both tools register the name `bash`);

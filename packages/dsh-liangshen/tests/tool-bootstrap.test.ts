@@ -37,12 +37,12 @@ function listener(listeners: Map<string, { listener: Listener, options: any }>, 
   return entry!.listener
 }
 
-function session(events: unknown[] = []) {
-  return { events }
+function session(events: unknown[] = [], cwd: string | undefined = '/workspace') {
+  return { events, header: cwd === undefined ? {} : { cwd } }
 }
 
-function agentOf(events: unknown[] = []) {
-  return { session: session(events) }
+function agentOf(events: unknown[] = [], cwd?: string) {
+  return { session: session(events, cwd) }
 }
 
 async function assemble(
@@ -113,6 +113,29 @@ describe('anchored-tool-bootstrap', () => {
     expect(result.sections[0].text).toBe(SECTIONS[0].text)
   })
 
+  test('promotion appends the session working directory to the persona', async () => {
+    const assembleListener = listener(register(), 'system-prompt/assemble')
+    const tools = [{ name: 'bash' }, { name: 'read' }]
+    const promoted = await assembleListener(
+      undefined,
+      { agent: { session: { events: [{ type: 'tool/call' }], header: { cwd: '/Users/zcl/code/demo' } } } },
+      async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
+    )
+    expect(promoted.sections[0].text).toBe(`${SECTIONS[0].text}\n\nYour working directory is /Users/zcl/code/demo.`)
+    expect(promoted.sections[1]).toEqual(SECTIONS[1])
+  })
+
+  test('promotion leaves the persona one-line when no workspace is selected', async () => {
+    const assembleListener = listener(register(), 'system-prompt/assemble')
+    const tools = [{ name: 'bash' }, { name: 'read' }]
+    const promoted = await assembleListener(
+      undefined,
+      { agent: { session: { events: [{ type: 'tool/call' }] } } },
+      async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
+    )
+    expect(promoted.sections).toEqual(SECTIONS)
+  })
+
   test('phase 1 also keeps the legacy persona section name', async () => {
     const legacySections = [
       { name: 'persona', text: 'You are a helpful software engineer assistant.' },
@@ -147,7 +170,11 @@ describe('anchored-tool-bootstrap', () => {
     const result = await assemble(listener(register(), 'system-prompt/assemble'), events, tools, contexts)
     expect(result.tools).toEqual(tools)
     expect(result.contexts).toEqual(contexts)
-    expect(result.sections).toEqual(SECTIONS)
+    expect(result.sections[0]).toEqual({
+      name: SECTIONS[0].name,
+      text: `${SECTIONS[0].text}\n\nYour working directory is /workspace.`,
+    })
+    expect(result.sections[1]).toEqual(SECTIONS[1])
     expect(result.sections.map((section: any) => section.name)).toEqual(['deployment:persona', 'plan:policy'])
   })
 
@@ -243,7 +270,7 @@ describe('anchored-tool-bootstrap', () => {
     const assembleListener = listener(listeners, 'system-prompt/assemble')
     const preStepListener = listener(listeners, 'agent/pre-step')
     const events: unknown[] = []
-    const sessionObj = { events }
+    const sessionObj = { events, header: { cwd: '/workspace' } }
     const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
     const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
 
@@ -272,7 +299,11 @@ describe('anchored-tool-bootstrap', () => {
       async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
     )
     expect(nextAssemble.tools).toEqual(tools)
-    expect(nextAssemble.sections).toEqual(SECTIONS)
+    expect(nextAssemble.sections[0]).toEqual({
+      name: SECTIONS[0].name,
+      text: `${SECTIONS[0].text}\n\nYour working directory is /workspace.`,
+    })
+    expect(nextAssemble.sections[1]).toEqual(SECTIONS[1])
     const nextStep = await preStepListener(
       { agent: { session: sessionObj }, messages, turn: 2, step: 1, signal: {} },
       async () => ({ kind: 'enter', messages }),
@@ -285,7 +316,7 @@ describe('anchored-tool-bootstrap', () => {
     const assembleListener = listener(listeners, 'system-prompt/assemble')
     const preStepListener = listener(listeners, 'agent/pre-step')
     const events: unknown[] = []
-    const sessionObj = { events }
+    const sessionObj = { events, header: { cwd: '/workspace' } }
     const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
     const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
 
@@ -316,7 +347,11 @@ describe('anchored-tool-bootstrap', () => {
       async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
     )
     expect(nextAssemble.tools).toEqual(tools)
-    expect(nextAssemble.sections).toEqual(SECTIONS)
+    expect(nextAssemble.sections[0]).toEqual({
+      name: SECTIONS[0].name,
+      text: `${SECTIONS[0].text}\n\nYour working directory is /workspace.`,
+    })
+    expect(nextAssemble.sections[1]).toEqual(SECTIONS[1])
     const nextStep = await preStepListener(
       { agent: { session: sessionObj }, messages, turn: 2, step: 1, signal: {} },
       async () => ({ kind: 'enter', messages }),

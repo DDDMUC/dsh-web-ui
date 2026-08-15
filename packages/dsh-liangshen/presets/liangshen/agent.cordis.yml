@@ -33,9 +33,10 @@
 # Phase 1 shows only this one-line persona: `tool-bootstrap` filters the
 # assembled sections down to the persona section (`deployment:persona`, the
 # name `dsh-persona` registers under, plus the legacy `persona` name) during
-# phase 1 and restores every section after promotion, so plan-mode's
-# `plan:policy` takes effect instead of being permanently shadowed by a
-# `complete` persona.
+# phase 1 and restores every section after promotion, appending the session's
+# working directory to the persona — so the agent knows its workspace and
+# plan-mode's `plan:policy` takes effect instead of being permanently
+# shadowed by a `complete` persona.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:

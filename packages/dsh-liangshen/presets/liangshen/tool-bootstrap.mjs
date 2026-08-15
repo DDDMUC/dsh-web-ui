@@ -41,6 +41,17 @@ export const inject = ['systemPrompt', 'tools']
  */
 const PERSONA_SECTION_NAMES = new Set(['deployment:persona', 'persona'])
 
+/**
+ * Workspace line a promoted persona gains. Phase 1 keeps the exact one-line
+ * persona (the Minimal anchor); after promotion the model must also know the
+ * session's selected workspace, which the Standard persona carries through
+ * the `{{cwd}}` prompt variable. The literal cwd is read from the session
+ * header at assembly time instead, so the line stays correct after a
+ * workspace switch and a session without a selected workspace keeps the bare
+ * one-liner rather than failing prompt interpolation.
+ */
+const WORKSPACE_LINE_PREFIX = '\n\nYour working directory is '
+
 /** Message-source kinds the model may see during phase 1. */
 const DEFAULT_MESSAGE_SOURCES = ['user']
 
@@ -209,6 +220,29 @@ function refresh(agent, policy) {
   return state
 }
 
+/**
+ * Append the session's working directory to the persona section of a promoted
+ * assembly. Returns the assembly unchanged when there is no persona section,
+ * no selected workspace, or the exact line is already present.
+ */
+function withWorkspaceLine(assembly, agent) {
+  const cwd = agent?.session?.header?.cwd
+  if (typeof cwd !== 'string' || cwd.length === 0) return assembly
+  if (!Array.isArray(assembly.sections)) return assembly
+  const line = `${WORKSPACE_LINE_PREFIX}${cwd}.`
+  const persona = assembly.sections.find(section =>
+    PERSONA_SECTION_NAMES.has(section?.name)
+    && typeof section?.text === 'string'
+    && !section.text.includes(line))
+  if (persona === undefined) return assembly
+  return {
+    ...assembly,
+    sections: assembly.sections.map(section => section === persona
+      ? { ...section, text: `${persona.text}${line}` }
+      : section),
+  }
+}
+
 /** Register the per-session bootstrap quarantine and promotion policy. */
 export function apply(ctx, config) {
   const commonTools = stringList(config.commonTools, 'commonTools')
@@ -254,7 +288,7 @@ export function apply(ctx, config) {
     const agent = context.agent
     if (agent === undefined) return assembled
     const state = refresh(agent, policy)
-    if (state.promoted) return assembled
+    if (state.promoted) return withWorkspaceLine(assembled, agent)
 
     const available = new Set(assembled.tools.map(tool => tool.name))
     const selectedShells = shellTools.filter(toolName => available.has(toolName))
