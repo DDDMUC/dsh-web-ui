@@ -17,10 +17,11 @@
 body[data-dsh-miku] {
   --dsw-font-family: 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', 'Helvetica Neue', 'Segoe UI', sans-serif;
   --ds-font-family-code: 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Courier New', monospace;
-  /* Bright cyan-blue text: the backdrop art is a deep scene, so light-mode
-     text wears the idol's bright blue (matches the art's highlight) to stay
-     legible over the dark picture. */
-  color: #38b6e8;
+  /* Deep ink text: the backdrop art is a bright scene in light mode, so
+     body text wears the deep blue-black ink that keeps WCAG AA contrast on
+     the pale frosted surfaces (the idol blue stays an accent, not body
+     copy). */
+  color: #14263f;
   background-color: #eef5ff;
   /* The idol art is applied by apply() as an inline background-image
      (base64 data URL from ./art.ts, with a readability scrim chosen by the
@@ -257,11 +258,11 @@ body[data-dsh-miku] {
   --dsw-alias-button-ghost-active-border: #8ce4da;
   --dsw-alias-button-ghost-active-fill: #e4f0ff;
   --dsw-alias-button-ghost-active-hover: #dcebff;
-  --dsw-alias-button-info-fill: #2e9bff;
-  --dsw-alias-button-info-hover: #4da3ff;
+  --dsw-alias-button-info-fill: #1e6fd9;
+  --dsw-alias-button-info-hover: #2a7fd9;
   --dsw-alias-button-primary-dimmed: #dcebff;
-  --dsw-alias-button-primary-fill: #2e9bff;
-  --dsw-alias-button-primary-hover: #4da3ff;
+  --dsw-alias-button-primary-fill: #1e6fd9;
+  --dsw-alias-button-primary-hover: #2a7fd9;
   --dsw-alias-button-tool-bar-fill-invisible: rgba(46, 155, 255, 0.36);
   --dsw-alias-button-tool-bar-fill: rgba(46, 155, 255, 0.5);
   --dsw-alias-button-tool-bar-hover: rgba(46, 155, 255, 0.6);
@@ -270,14 +271,14 @@ body[data-dsh-miku] {
   --dsw-alias-interactive-bg-hover-danger: rgba(194, 38, 38, 0.06);
   --dsw-alias-interactive-bg-hover-solid: #eaf4ff;
   --dsw-alias-interactive-bg-hover: rgba(46, 155, 255, 0.08);
-  --dsw-alias-label-caption: #2e9bff;
-  --dsw-alias-label-dimmed: #3aa8d8;
-  --dsw-alias-label-primary-dimmed: #4db3e0;
+  --dsw-alias-label-caption: #3a5070;
+  --dsw-alias-label-dimmed: #8ba0ba;
+  --dsw-alias-label-primary-dimmed: #4a5f80;
   --dsw-alias-label-primary-foreground: #fff;
   --dsw-alias-label-primary-inverted: #fff;
-  --dsw-alias-label-primary: #38b6e8;
-  --dsw-alias-label-secondary: #29a8d8;
-  --dsw-alias-label-tertiary: #2e9bff;
+  --dsw-alias-label-primary: #14263f;
+  --dsw-alias-label-secondary: #3a5070;
+  --dsw-alias-label-tertiary: #5a6f8e;
   --dsw-alias-markdown-citation: #e4f7f2;
   --dsw-alias-markdown-code-block-banner: #f3f8ff;
   --dsw-alias-markdown-code-block: #f3f8ff;
@@ -455,8 +456,11 @@ body[data-dsh-miku] input:not([type='checkbox']):not([type='radio']),
 body[data-dsh-miku] textarea,
 body[data-dsh-miku] select {
   box-shadow: inset 0 1px 2px rgba(10, 30, 66, 0.12);
-  background: rgba(56, 155, 230, 0.24);
-  color: #0b1a2e;
+  /* High-opacity pale fill: deep-ink text stays readable over any part of
+     the backdrop art (a translucent blue veil would wash out in dark
+     areas). */
+  background: rgba(250, 253, 255, 0.92);
+  color: #14263f;
 }
 
 body[data-dsh-miku][data-ds-dark-theme] input:not([type='checkbox']):not([type='radio']),
@@ -553,12 +557,33 @@ body[data-dsh-miku][data-ds-dark-theme] a:visited {
 
 /* Safari "Reduce Transparency" (prefers-reduced-transparency): drop the
    backdrop-filter everywhere so frosted glass degrades to the plain
-   translucent fills above — the UI stays readable without the GPU blur
-   Safari would otherwise pay for on every surface. */
+   translucent fills above, and raise those fills to near-opaque so the UI
+   stays readable without the GPU blur Safari would otherwise pay for on
+   every surface. */
 @media (prefers-reduced-transparency: reduce) {
   body[data-dsh-miku] * {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+  }
+  body[data-dsh-miku] [data-pane='sidebar'] > div,
+  body[data-dsh-miku] [data-pane='conversation'],
+  body[data-dsh-miku] [data-pane='details'],
+  body[data-dsh-miku] :global(.aionui-dialog),
+  body[data-dsh-miku] :global(.aionui-menu),
+  body[data-dsh-miku] [class*='sidebarCol'],
+  body[data-dsh-miku] [class*='centerCol'],
+  body[data-dsh-miku] [class*='detailsCol'] {
+    background: rgba(244, 249, 255, 0.94) !important;
+  }
+  body[data-dsh-miku][data-ds-dark-theme] [data-pane='sidebar'] > div,
+  body[data-dsh-miku][data-ds-dark-theme] [data-pane='conversation'],
+  body[data-dsh-miku][data-ds-dark-theme] [data-pane='details'],
+  body[data-dsh-miku][data-ds-dark-theme] :global(.aionui-dialog),
+  body[data-dsh-miku][data-ds-dark-theme] :global(.aionui-menu),
+  body[data-dsh-miku][data-ds-dark-theme] [class*='sidebarCol'],
+  body[data-dsh-miku][data-ds-dark-theme] [class*='centerCol'],
+  body[data-dsh-miku][data-ds-dark-theme] [class*='detailsCol'] {
+    background: #12244a !important;
   }
 }
 
@@ -792,10 +817,10 @@ body[data-dsh-miku][data-ds-dark-theme] [data-pane='sidebar'] [class*='logoRow']
 }
 
 /* Header-band buttons stay flat and transparent (no silver squares on the
-   teal strip). */
+   teal strip); white glyphs match the logo row's white ink. */
 body[data-dsh-miku] [data-pane='sidebar'] [class*='logoRow'] button {
   background: transparent;
-  color: #38b6e8;
+  color: #fff;
   background-image: none;
   box-shadow: none;
 }
@@ -820,9 +845,9 @@ body[data-dsh-miku] [data-pane='sidebar'] [class*='logoRow'] svg [fill='var(--ds
 /* Conversation: frosted white chat surface with a pale mint title band on
    the session header —translucent so the idol art breathes through. */
 body[data-dsh-miku] [data-pane='conversation'] {
-  /* Nearly transparent so the idol art shows through directly; the blurred
-     backdrop keeps chat text readable. */
-  background: rgba(255, 255, 255, 0.1);
+  /* Frosted pane: translucent so the idol art breathes through, but opaque
+     enough that deep-ink text stays readable over the art's dark areas. */
+  background: rgba(255, 255, 255, 0.45);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -844,7 +869,7 @@ body[data-dsh-miku][data-ds-dark-theme] [data-pane='conversation'] > div > heade
 }
 
 body[data-dsh-miku] [data-pane='details'] {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.42);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -900,38 +925,38 @@ body[data-dsh-miku] button[role='tab']:active:not(:disabled) {
 /* --- aionui tokens: light -------------------------------------------------- */
 
 body[data-dsh-miku] {
-  /* Translucent fills so the idol art shows through the aionui panes
-     directly in light mode (was opaque near-white). Text stays dark and
-     readable. */
-  --aion-bg-base: rgba(255, 255, 255, 0.05);
-  --aion-bg-1: rgba(255, 255, 255, 0.04);
-  --aion-bg-2: rgba(255, 255, 255, 0.06);
-  --aion-bg-3: rgba(180, 212, 255, 0.28);
-  --aion-bg-4: rgba(122, 184, 255, 0.4);
-  --aion-bg-hover: rgba(255, 255, 255, 0.14);
+  /* Frosted fills: translucent so the idol art still glows through the
+     aionui panes in light mode, but with enough opacity that deep-ink text
+     keeps WCAG AA contrast even over the dark areas of the art. */
+  --aion-bg-base: rgba(244, 249, 255, 0.82);
+  --aion-bg-1: rgba(240, 247, 255, 0.8);
+  --aion-bg-2: rgba(233, 242, 255, 0.82);
+  --aion-bg-3: rgba(180, 212, 255, 0.5);
+  --aion-bg-4: rgba(122, 184, 255, 0.55);
+  --aion-bg-hover: rgba(46, 155, 255, 0.1);
   --aion-bg-active: rgba(46, 155, 255, 0.16);
-  --aion-text-primary: #38b6e8;
-  --aion-text-secondary: #29a8d8;
-  --aion-text-tertiary: #2e9bff;
-  --aion-text-disabled: #3aa8d8;
-  --aion-primary: #2e9bff;
-  --aion-primary-hover: #4da3ff;
+  --aion-text-primary: #14263f;
+  --aion-text-secondary: #3a5070;
+  --aion-text-tertiary: #5a6f8e;
+  --aion-text-disabled: #8ba0ba;
+  --aion-primary: #1e6fd9;
+  --aion-primary-hover: #2a7fd9;
   --aion-success: #24924a;
-  --aion-success-soft: rgba(221, 243, 227, 0.5);
-  --aion-warning: #c99a2e;
-  --aion-warning-soft: rgba(253, 243, 221, 0.5);
+  --aion-success-soft: rgba(221, 243, 227, 0.85);
+  --aion-warning: #a87c1e;
+  --aion-warning-soft: rgba(253, 243, 221, 0.85);
   --aion-danger: #c22626;
-  --aion-danger-soft: rgba(252, 238, 238, 0.5);
-  --aion-brand: #2e9bff;
-  --aion-aou-1: rgba(245, 250, 255, 0.4);
-  --aion-aou-2: rgba(228, 240, 255, 0.5);
-  --aion-aou-3: rgba(180, 212, 255, 0.5);
-  --aion-aou-4: rgba(122, 184, 255, 0.55);
-  --aion-aou-5: #2e9bff;
+  --aion-danger-soft: rgba(252, 238, 238, 0.85);
+  --aion-brand: #1e6fd9;
+  --aion-aou-1: rgba(245, 250, 255, 0.92);
+  --aion-aou-2: rgba(228, 240, 255, 0.92);
+  --aion-aou-3: rgba(180, 212, 255, 0.9);
+  --aion-aou-4: rgba(122, 184, 255, 0.9);
+  --aion-aou-5: #1e6fd9;
   --aion-aou-6: #0d2b56;
   --aion-fill-2: rgba(46, 155, 255, 0.1);
   --aion-fill-3: rgba(46, 155, 255, 0.16);
-  --aion-border-base: rgba(180, 212, 255, 0.4);
+  --aion-border-base: rgba(180, 212, 255, 0.55);
   --aion-overlay-shadow: 0 8px 28px rgba(10, 30, 66, 0.3), 0 2px 8px rgba(10, 30, 66, 0.16);
   --aion-font-sans: 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', 'Helvetica Neue', 'Segoe UI', sans-serif;
   --aion-font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Courier New', monospace;
@@ -1012,11 +1037,12 @@ body[data-dsh-miku][data-ds-dark-theme] :global(.aionui-root) {
 }
 
 /* Explorer header band: read as the Miku panel title strip. Transparent in
-   light mode so the art shows through; text stays bright and readable. */
+   light mode so the art shows through; text wears the deep ink so it stays
+   readable on any backdrop area. */
 body[data-dsh-miku] [data-aionui-explorer-col] > div > :first-child {
   background: transparent;
   border-bottom: 1px solid rgba(156, 198, 255, 0.3);
-  color: #38b6e8;
+  color: var(--dsw-alias-label-primary);
 }
 
 body[data-dsh-miku][data-ds-dark-theme] [data-aionui-explorer-col] > div > :first-child {
@@ -1078,7 +1104,7 @@ body[data-dsh-miku][data-ds-dark-theme] :global(.aionui-floating-expand) {
 }
 
 body[data-dsh-miku] :global(.aionui-collapse-chevron) {
-  color: #29a8d8;
+  color: #3a5070;
 }
 
 body[data-dsh-miku][data-ds-dark-theme] :global(.aionui-collapse-chevron) {
@@ -1116,11 +1142,11 @@ body[data-dsh-miku][data-ds-dark-theme] :global(.aionui-dialog) {
 }
 
 body[data-dsh-miku] :global(.aionui-btn) {
-  background: rgba(56, 155, 230, 0.18);
+  background: rgba(46, 155, 255, 0.14);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(90, 180, 240, 0.45);
-  color: #38b6e8;
+  border: 1px solid rgba(30, 111, 217, 0.45);
+  color: #1e6fd9;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(10, 30, 66, 0.12);
 }
 
@@ -1514,7 +1540,7 @@ body[data-dsh-miku][data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-g
 /* The current-branch chip keeps the brand teal; pass cells stay muted. */
 body[data-dsh-miku] [data-gitgraph-current-branch] {
   background: rgba(46, 155, 255, 0.12);
-  color: #38b6e8;
+  color: #1e6fd9;
   border: 1px solid rgba(46, 155, 255, 0.4);
 }
 
@@ -1562,7 +1588,8 @@ body[data-dsh-miku][data-ds-dark-theme] [data-gitgraph-dialog] {
 
 body[data-dsh-miku] [class*='sidebarCol'] {
   border-left: none !important;
-  background: rgba(255, 255, 255, 0.08) !important;
+  /* Frosted: art glows through, deep-ink session text stays readable. */
+  background: rgba(255, 255, 255, 0.55) !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -1581,11 +1608,12 @@ body[data-dsh-miku][data-ds-dark-theme] [class*='sidebarCol'] > div > div {
   background: transparent !important;
 }
 
-/* Center column (conversation area): translucent so the art breathes
-   through; messages still sit on readable frosted surfaces. */
+/* Center column (conversation area): translucent frosted so the art
+   breathes through; messages sit on readable surfaces and the column fill
+   keeps deep-ink text legible over the art's dark regions. */
 body[data-dsh-miku] [class*='centerCol'] {
   border-left: none !important;
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.45) !important;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -1600,7 +1628,7 @@ body[data-dsh-miku][data-ds-dark-theme] [class*='centerCol'] {
 /* Details column. */
 body[data-dsh-miku] [class*='detailsCol'] {
   border-left: none !important;
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.42) !important;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -1648,7 +1676,7 @@ body[data-dsh-miku] [role='listbox'] {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(156, 198, 255, 0.6) !important;
   box-shadow: 0 12px 32px rgba(10, 30, 66, 0.25), 0 2px 8px rgba(10, 30, 66, 0.12) !important;
-  color: #38b6e8;
+  color: var(--dsw-alias-label-primary);
 }
 
 body[data-dsh-miku][data-ds-dark-theme] [class*='menu'],
@@ -1715,7 +1743,7 @@ body[data-dsh-miku][data-ds-dark-theme] [class*='menu'] [class*='heading'] {
 /* Menu disabled items. */
 body[data-dsh-miku] [class*='menu'] [class*='disabled'],
 body[data-dsh-miku] [role='menuitem'][aria-disabled='true'] {
-  color: #29a8d8 !important;
+  color: #8ba0ba !important;
   opacity: 0.6;
 }
 
@@ -1742,14 +1770,14 @@ body[data-dsh-miku] [class*='composerHero'] {
 body[data-dsh-miku] textarea,
 body[data-dsh-miku] [contenteditable='true'],
 body[data-dsh-miku] input:not([type='checkbox']):not([type='radio']) {
-  /* Blue-tinted frosted glass: the idol art glows through a cyan veil.
-     Text is a deep blue-black for maximum clarity while typing (sent
-     messages keep the bright cyan, via the alias label tokens). */
-  background: rgba(56, 155, 230, 0.28) !important;
+  /* High-opacity pale frosted fill: the idol art still glows faintly
+     through, but the deep-ink caret/text keeps WCAG AA contrast over any
+     backdrop area (a translucent blue veil washed out in dark regions). */
+  background: rgba(250, 253, 255, 0.92) !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border-color: rgba(90, 180, 240, 0.55) !important;
-  color: #0b1a2e !important;
+  border-color: rgba(30, 111, 217, 0.5) !important;
+  color: #14263f !important;
 }
 
 body[data-dsh-miku][data-ds-dark-theme] textarea,
@@ -1830,25 +1858,27 @@ body[data-dsh-miku] [role='button'] {
   border-radius: 8px !important;
 }
 
-/* New-session style primary button: nearly transparent frosted glass, no
-   white background and no border — the art shows straight through; only a
-   whisper of blue tint separates the button from the desktop. */
+/* New-session style primary button: solid Miku-blue gradient with white
+   text and a hairline border, so the action reads on any backdrop area
+   (an 8% translucent fill with white text vanished against bright art). */
 body[data-dsh-miku] [class*='newSession'] {
-  background: rgba(56, 155, 230, 0.08) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #2e9bff, #1e6fd9) !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: none !important;
-  box-shadow: none !important;
+  border: 1px solid rgba(10, 86, 168, 0.6) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 8px rgba(10, 30, 66, 0.2) !important;
   color: #fff !important;
+  text-shadow: 0 1px 1px rgba(6, 22, 48, 0.25);
 }
 
 body[data-dsh-miku] [class*='primary'] {
-  background: rgba(56, 155, 230, 0.08) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #2e9bff, #1e6fd9) !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: none !important;
+  border: 1px solid rgba(10, 86, 168, 0.6) !important;
   color: #fff !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 6px rgba(10, 30, 66, 0.18) !important;
+  text-shadow: 0 1px 1px rgba(6, 22, 48, 0.25);
 }
 
 body[data-dsh-miku][data-ds-dark-theme] [class*='newSession'] {
@@ -1871,7 +1901,8 @@ body[data-dsh-miku][data-ds-dark-theme] [class*='primary'] {
 
 body[data-dsh-miku] [class*='newSession']:hover,
 body[data-dsh-miku] [class*='primary']:hover {
-  background: rgba(46, 155, 255, 0.16) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%), linear-gradient(180deg, #2a7fd9, #1a56a8) !important;
+  border-color: rgba(10, 70, 138, 0.7) !important;
 }
 
 body[data-dsh-miku][data-ds-dark-theme] [class*='newSession']:hover,
@@ -1880,16 +1911,17 @@ body[data-dsh-miku][data-ds-dark-theme] [class*='primary']:hover {
 }
 
 /* Ghost / quiet buttons (settings trigger, workspace chip, model select):
-   nearly transparent frosted, no border and no white background. */
+   pale translucent blue fill with deep-blue ink and a hairline border, so
+   label and edge stay visible over both bright and dark art areas. */
 body[data-dsh-miku] [class*='trigger'],
 body[data-dsh-miku] [class*='seat'],
 body[data-dsh-miku] [class*='ghost'],
 body[data-dsh-miku] [class*='quiet'] {
-  background: rgba(56, 155, 230, 0.08) !important;
+  background: rgba(46, 155, 255, 0.12) !important;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  border: none !important;
-  color: #38b6e8 !important;
+  border: 1px solid rgba(30, 111, 217, 0.4) !important;
+  color: #1e6fd9 !important;
 }
 
 body[data-dsh-miku][data-ds-dark-theme] [class*='trigger'],
@@ -1907,7 +1939,7 @@ body[data-dsh-miku] [class*='trigger']:hover,
 body[data-dsh-miku] [class*='seat']:hover,
 body[data-dsh-miku] [class*='ghost']:hover,
 body[data-dsh-miku] [class*='quiet']:hover {
-  background: rgba(46, 155, 255, 0.14) !important;
+  background: rgba(46, 155, 255, 0.2) !important;
 }
 
 body[data-dsh-miku][data-ds-dark-theme] [class*='trigger']:hover,
@@ -1933,7 +1965,7 @@ body[data-dsh-miku] [class*='Fade'] {
    the other inputs. */
 body[data-dsh-miku] [class*='composer'] [class$='_card'],
 body[data-dsh-miku] [class*='composer'] [class*='card'] {
-  background: rgba(56, 155, 230, 0.2) !important;
+  background: rgba(244, 249, 255, 0.85) !important;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: none !important;

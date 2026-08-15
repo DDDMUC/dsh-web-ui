@@ -38,6 +38,12 @@ const TITLEBAR_GLYPHS = ['–', '□', '×'] as const
 const LS_TITLE = 'dsh.miku.title'
 const LS_CELLS = 'dsh.miku.cells'
 
+/** Bounds for localStorage overrides: keep the injected chrome small and
+ *  bounded so a large or hostile override cannot stall apply(). */
+const MAX_CELLS = 20
+const MAX_CELL_LENGTH = 64
+const MAX_TITLE_LENGTH = 200
+
 /**
  * Resolve one module class name. The css-modules record types as
  * `string | undefined` under noUncheckedIndexedAccess; every key used here
@@ -107,20 +113,31 @@ function readOverride(key: string): string | undefined {
   }
 }
 
-/** Resolve the pinned title: localStorage `dsh.miku.title` wins, else the default. */
+/** Resolve the pinned title: localStorage `dsh.miku.title` wins when it is
+ *  non-blank and within the length bound, else the default. */
 function resolveTitle(): string {
-  return readOverride(LS_TITLE)?.trim() || SKIN_TITLE
+  const override = readOverride(LS_TITLE)?.trim()
+  if (override && override.length <= MAX_TITLE_LENGTH) return override
+  return SKIN_TITLE
 }
 
 /** Resolve the status cells: localStorage `dsh.miku.cells` (JSON string
- *  array) wins when it parses to a non-empty array of strings. */
+ *  array) wins when it parses to a bounded array of trimmed, non-blank
+ *  strings, else the defaults. */
 function resolveCells(): readonly string[] {
   const raw = readOverride(LS_CELLS)
   if (raw !== undefined) {
     try {
       const parsed: unknown = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((c) => typeof c === 'string' && c.length > 0)) {
-        return parsed as string[]
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed.length <= MAX_CELLS) {
+        const cells: string[] = []
+        for (const cell of parsed) {
+          if (typeof cell !== 'string') return STATUS_CELLS
+          const trimmed = cell.trim()
+          if (trimmed === '' || trimmed.length > MAX_CELL_LENGTH) return STATUS_CELLS
+          cells.push(trimmed)
+        }
+        if (cells.length > 0) return cells
       }
     } catch {
       // Fall through to the defaults on malformed JSON.
@@ -202,6 +219,7 @@ export function apply(ctx: Context): void {
   for (const cell of resolveCells()) {
     const el = document.createElement('span')
     el.className = cls('mikuStatusbarCell')
+    el.dataset.skinCell = ''
     el.textContent = cell
     statusbar.append(el)
   }
