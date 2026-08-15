@@ -12,7 +12,7 @@
 | #192 fix(remote-web-ui) --latest 二轮 | 修复 | 已合入 | squash（1dee59a5）。二轮复核：verify-failed/stale 分类正确、post-run 锚点重解析、stale 锚定「版本是否移动」；隔离 worktree 全门禁绿 + 包级 174/174。留言附可选正测用例（Low） |
 | #215 fix(skin-center) chained try-on | 修复 | 已合入 | squash（0780e058）。epoch + requestedPackage latest-wins 语义正确，A→B→A 共享 materialization，active 快照转移避免闪回；全门禁绿（skin-center 78/78）。issue #220 随合并自动关闭。留言附 2 条 Low 打磨项 |
 | #213 社区索引登记 dsh-pilot | 内容登记 | 已合入 | squash（0d5508e3）。docs/plugins.md 登记流程（与 #206 同类，非新功能）；外部仓库公开且与条目一致；community:check 绿 |
-| #150 miku 视觉改造（复审） | 皮肤 | 请求变更 | 上轮 4-7 已修复（cursor priority/32x32/storage bounds/localStorage stub，本机 Node 25 下 19/19）。仍 2 阻断：素材许可（「仅供本 UI 使用」≠ 再分发授权，art.ts 同人图无授权，LICENSE 与 package.json license 不一致）+ gallery/bundles.js 与 lib/client.js.map stale（gallery:check 红）。另浅色 3 处组合 <4.5:1 建议调深；范围例外待维护者确认 |
+| #150 miku 视觉改造 | 皮肤 | 已合入（维护者调整） | 按用户指示由维护者解决阻断并合入：移除初音光标与第三方同人背景（仅「本 UI 使用」授权，不满足开源再分发），背景恢复原版纯原创电子偶像图；重建 miku / dsh-skins / gallery 产物并重拍预览；浅色主题 tertiary / dimmed / 主按钮蓝调深至 WCAG AA；LICENSE 与 package.json 统一 BSD-3-Clause。PR head 经 merge 入 triage（自动以 MERGED 关闭），全门禁绿（miku 19/19） |
 | #207/#208/#209 小 PR | 测试/文档 | 请求变更 | 代码与门禁全绿（skin-center 71/71、trading 25/25、docs:check），但 PR 描述不满足贡献检查模板格式（## 前缀 / - [x] 勾选 / 最新代码确认行反引号；#209 章节名 Local Verification ≠ Local Validation），证据检查红；已留言逐条说明，作者改完即可合入 |
 | #205 / #193 / #168 / #105 / #104 / #101 / #91 / #83 / #63 / #6 | — | 无新变动 | 未处理。#205/#193 等作者按上轮评论更新；其余上轮已回复 |
 
@@ -42,10 +42,9 @@
 ## 遗留（下轮关注）
 
 - #207/#208/#209 作者按留言改 PR 描述模板格式后即可合入。
-- #150 两个阻断项（素材许可 / gallery 产物同步）+ 浅色 3 处对比度微调。
 - #205/#193 等作者按上轮评论更新。
+- #150 光标素材：若作者后续提供覆盖公开分发与下游商用的书面授权，可另开 PR 恢复光标。
 - #192 可选正向用例（post-run 锚点重解析成功路径，Low）；#215 两条 Low 打磨项
   （每 package 一次清理、当前预览再点试穿短路）。
-- 预存漂移：packages/dsh-skins/skins/*/skin.json 的 order 值与源皮肤清单不一致
-  （最近一次 gallery 提交重排了源但未重生成聚合副本，现有门禁不覆盖），建议
-  单独清理提交。
+- 预存漂移（已随本轮修复）：packages/dsh-skins/skins/*/skin.json 的 order 值此前
+  与源皮肤清单不一致；#150 的合入与 dsh-skins 重建已把聚合副本重新同步。
