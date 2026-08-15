@@ -17,6 +17,7 @@ packages/
 shared/
   tsdown.client.ts    唯一共享构建预设（禁止在包内复制）
   web-platform.ts     客户端平台种子表（浏览器 bundle 纯度门）
+  host/client/        跨包运行时模块唯一事实源；包内同名文件是 sync-shared.mjs 生成的同步副本（禁手改）
 scripts/              仓库维护脚本（聚合生成 / 链接 / 皮肤脚手架 / 校验）
 docs/                 长期文档与归档（见 docs/AGENTS.md）
 gallery/              皮肤画廊静态站（CI 校验与部署）
