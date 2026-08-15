@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { SKIN_CENTER_ENTRIES, type SkinCenterEntry } from './generated/skins.ts'
+import { manifestHasSkin } from './manifest.ts'
 import type { SkinBackgroundHandle } from './background.ts'
 import { activeSkinEntry, TryOnController } from './try-on.ts'
 import css from './skin-center.module.css'
@@ -134,9 +135,47 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
     })
 
   /**
+   * Poll the served GUI document until the boot manifest actually enables
+   * the target (the config watcher regenerates it asynchronously after the
+   * patch write — reloading earlier boots the page into the previous skin),
+   * or time out.
+   * @param target - skin id, or `official` for the stock look.
+   * @returns whether the manifest caught up within the poll budget.
+   */
+  const manifestReady = (target: string): Promise<boolean> =>
+    new Promise(resolve => {
+      const expected = target === OFFICIAL ? null : target
+      let tries = 0
+      const tick = (): void => {
+        if (!mounted.current) {
+          resolve(false)
+          return
+        }
+        tries += 1
+        void fetch(window.location.href, { cache: 'no-store' })
+          .then(async response => {
+            const html = await response.text().catch(() => null)
+            if (html !== null && manifestHasSkin(html, expected)) {
+              resolve(true)
+              return
+            }
+            if (tries >= 40 || !mounted.current) resolve(false)
+            else window.setTimeout(tick, 500)
+          })
+          .catch(() => {
+            if (tries >= 40 || !mounted.current) resolve(false)
+            else window.setTimeout(tick, 500)
+          })
+      }
+      tick()
+    })
+
+  /**
    * One-click apply: the host half runs `dsh-skin use <target>` (or
    * `use official`), the config watcher hot-reloads the patch within
-   * seconds, then this page reloads to pick up the new boot graph.
+   * seconds, then this page reloads to pick up the new boot graph. The
+   * reload waits for both the patch (state poll) and the regenerated boot
+   * manifest (manifest poll) so the page never boots into the old skin.
    * @param target - skin id, or `official` for the stock look.
    */
   const applySkin = (target: string): void => {
@@ -155,15 +194,24 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
         }
         setApplying(null)
         // Patch written; reload only once the watcher reports the target
-        // active, so the page never boots into the old skin.
+        // active AND the boot manifest caught up, so the page never boots
+        // into the old skin.
         void confirmActive(target).then(confirmed => {
           if (!mounted.current) return
-          if (confirmed) {
-            window.location.reload()
-          } else {
+          if (!confirmed) {
             const command = target === OFFICIAL ? 'dsh-skin use official' : `dsh-skin use ${target}`
             setError(`${t('appliedUnconfirmed')} — ${command}`)
+            return
           }
+          void manifestReady(target).then(ready => {
+            if (!mounted.current) return
+            if (ready) {
+              window.location.reload()
+            } else {
+              const command = target === OFFICIAL ? 'dsh-skin use official' : `dsh-skin use ${target}`
+              setError(`${t('appliedUnconfirmed')} — ${command}`)
+            }
+          })
         })
       })
       .catch((cause: unknown) => {

@@ -205,6 +205,33 @@ window.__ModuleLoader__.load({
 			}
 		];
 		//#endregion
+		//#region src/client/manifest.ts
+		/**
+		* Boot-manifest readiness checks for the one-click apply flow.
+		*
+		* The host half writes the skin patch synchronously, but the web app's boot
+		* graph (the `window.__DSH_BOOT__` JSON inside the served HTML) is
+		* regenerated asynchronously by the config watcher. A page reloaded right
+		* after the patch write can therefore boot into the previous skin. These
+		* helpers let the frontend poll the served document until the manifest
+		* actually reflects the target before reloading.
+		* @module @linxin666/dsh-client-ui-skin-center/manifest
+		*/
+		/** Bundle URL pattern of any skin entry in the boot manifest. */
+		const SKIN_BUNDLE_URL = /\/plugins\/@linxin666\/dsh-client-ui-skin-(?!center)[a-z0-9-]+\/client\.js/;
+		/**
+		* Whether a served GUI document's boot manifest enables the given skin.
+		* A `null` target means the stock look: no skin bundle URL may be present
+		* (the skin-center plugin's own bundle always loads and is excluded).
+		* @param documentHtml - the served GUI document (contains the boot JSON).
+		* @param target - skin id, or `null` for the stock look.
+		* @returns whether the manifest already enables the target.
+		*/
+		function manifestHasSkin(documentHtml, target) {
+			if (target === null) return !SKIN_BUNDLE_URL.test(documentHtml);
+			return documentHtml.includes(`/plugins/@linxin666/dsh-client-ui-skin-${target}/client.js`);
+		}
+		//#endregion
 		//#region src/client/try-on.ts
 		/**
 		* Try-on engine for the in-GUI skin center.
@@ -632,9 +659,43 @@ window.__ModuleLoader__.load({
 				tick();
 			});
 			/**
+			* Poll the served GUI document until the boot manifest actually enables
+			* the target (the config watcher regenerates it asynchronously after the
+			* patch write — reloading earlier boots the page into the previous skin),
+			* or time out.
+			* @param target - skin id, or `official` for the stock look.
+			* @returns whether the manifest caught up within the poll budget.
+			*/
+			const manifestReady = (target) => new Promise((resolve) => {
+				const expected = target === OFFICIAL ? null : target;
+				let tries = 0;
+				const tick = () => {
+					if (!mounted.current) {
+						resolve(false);
+						return;
+					}
+					tries += 1;
+					fetch(window.location.href, { cache: "no-store" }).then(async (response) => {
+						const html = await response.text().catch(() => null);
+						if (html !== null && manifestHasSkin(html, expected)) {
+							resolve(true);
+							return;
+						}
+						if (tries >= 40 || !mounted.current) resolve(false);
+						else window.setTimeout(tick, 500);
+					}).catch(() => {
+						if (tries >= 40 || !mounted.current) resolve(false);
+						else window.setTimeout(tick, 500);
+					});
+				};
+				tick();
+			});
+			/**
 			* One-click apply: the host half runs `dsh-skin use <target>` (or
 			* `use official`), the config watcher hot-reloads the patch within
-			* seconds, then this page reloads to pick up the new boot graph.
+			* seconds, then this page reloads to pick up the new boot graph. The
+			* reload waits for both the patch (state poll) and the regenerated boot
+			* manifest (manifest poll) so the page never boots into the old skin.
 			* @param target - skin id, or `official` for the stock look.
 			*/
 			const applySkin = (target) => {
@@ -650,11 +711,19 @@ window.__ModuleLoader__.load({
 					setApplying(null);
 					confirmActive(target).then((confirmed) => {
 						if (!mounted.current) return;
-						if (confirmed) window.location.reload();
-						else {
+						if (!confirmed) {
 							const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;
 							setError(`${t("appliedUnconfirmed")} — ${command}`);
+							return;
 						}
+						manifestReady(target).then((ready) => {
+							if (!mounted.current) return;
+							if (ready) window.location.reload();
+							else {
+								const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;
+								setError(`${t("appliedUnconfirmed")} — ${command}`);
+							}
+						});
 					});
 				}).catch((cause) => {
 					setApplying(null);
