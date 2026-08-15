@@ -23,8 +23,9 @@
 - 修复 CSS 中重复的 scrollBody 规则（合并去重）
 
 ### 说明
-- 光标素材来源：用户提供的 Windows 光标包（Moos柚眠），已获作者书面授权（分发 + 抽帧缩放二改 + 随包许可允许的下游商用）
-- 背景图：贡献者提供的初音未来同人图，已获作者书面授权（分发 + WebP 重编码 + 随包许可允许的下游商用）
+- 光标素材来源：用户提供的 Windows 光标包（Moos柚眠），已获作者书面授权，仅供本 UI 使用
+- 背景图：贡献者提供的初音未来同人图，已获作者书面授权，仅供本 UI 使用
+- 作者链接：https://space.bilibili.com/491029393
 
 ---
 
@@ -53,5 +54,6 @@
 - Duplicate scrollBody rules merged
 
 ### Note
-- Cursor artwork source: the user's Windows cursor pack (Moos柚眠); written authorization obtained from the author covering redistribution, frame-extraction resizing, and downstream commercial use under the package license
-- Backdrop: Hatsune Miku fan art supplied by the contributor; written authorization obtained covering redistribution, WebP re-encoding, and downstream commercial use under the package license
+- Cursor artwork source: the user's Windows cursor pack (Moos柚眠); written authorization obtained from the author, for use in this UI only
+- Backdrop: Hatsune Miku fan art supplied by the contributor; written authorization obtained from the author, for use in this UI only
+- Author link: https://space.bilibili.com/491029393
