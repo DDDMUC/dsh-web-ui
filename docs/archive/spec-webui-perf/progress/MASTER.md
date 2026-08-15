@@ -18,17 +18,17 @@
 | Phase | Name | Tasks | Done | Progress |
 |:------|:-----|------:|-----:|:---------|
 | 1 | shared 基建 | 4 | 4 | done |
-| 2 | 包级热点改造（11 lane） | 11 | 0 | not started |
-| 3 | 聚合与收尾 | 3 | 0 | not started |
+| 2 | 包级热点改造（11 lane） | 11 | 11 | done |
+| 3 | 聚合与收尾 | 3 | 3 | done |
 
 ## Phase Checklist
 - [x] Phase 1: shared 基建 (4/4 tasks) — [details](./phase-1-shared-foundation.md)
-- [ ] Phase 2: 包级热点改造 (0/11 tasks) — [details](./phase-2-package-lanes.md)
-- [ ] Phase 3: 聚合与收尾 (0/3 tasks) — [details](./phase-3-aggregate-docs.md)
+- [x] Phase 2: 包级热点改造 (11/11 tasks) — [details](./phase-2-package-lanes.md)
+- [x] Phase 3: 聚合与收尾 (3/3 tasks) — [details](./phase-3-aggregate-docs.md)
 
 ## Current Status
-**Active Phase**: Phase 2（包级 lane，Wave 1：git-graph / aionui-panel / remote-web-ui / dsh-ssh）
-**Active Task**: 并行 lane A-D（子代理执行中）
+**Active Phase**: 收尾（全门禁绿，待合入 main 并删除 worktree）
+**Active Task**: T3.3 合入 main
 **Blockers**: None
 
 ## Governance Status
@@ -42,13 +42,13 @@
 
 | Field | Value |
 |-------|-------|
-| drift_score | 1 |
+| drift_score | 2 |
 | strategy | bottom-up（shared 基建先行，包级 lane 分三波） |
 | threshold_annotate | 4 |
 | threshold_replan | 7 |
 | threshold_rescope | 11 |
 | total_tasks | 17 |
-| completed_tasks | 2 |
+| completed_tasks | 17 |
 | last_updated | 2026-08-15 |
 
 ### Task Telemetry Log
@@ -57,6 +57,8 @@
 |---------|------|--------|--------------|-------------|-------------|----------------|------------|
 | T1.1 | L | L | 0 | 8/10 | +2 (S/R) | 1 | 1 |
 | T1.2 | M | M | 0 | 9/10 | +1 (S/P) | 0 | 0 |
+| T2.1-T2.11 | 各 M/L | 各 M/L | 0 | 7-9/10 | S/P/E 正向 | 0 | 1 (T2.10 改由编排者实施) |
+| T3.1-T3.3 | S | S | 0 | 9/10 | S 正向 | 0 | 0 |
 
 ## Next Steps
 1. 执行 T1.1-T1.4（Phase 1 共享基建，orchestrator 直接实施）。
