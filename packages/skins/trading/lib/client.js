@@ -529,6 +529,39 @@ window.__ModuleLoader__.load({
 			}
 		}
 		//#endregion
+		//#region src/client/refresh-scheduler.ts
+		/**
+		* Create a scheduler that drives all jobs from one <code>tickMs</code>
+		* interval, gating each job by its own <code>periodMs</code>. On start every
+		* job's clock begins at the start time, so the first tick runs jobs due
+		* since start; <code>stop</code> clears the interval so no work leaks.
+		*/
+		function createRefreshScheduler(jobs, tickMs) {
+			const lastRun = /* @__PURE__ */ new Map();
+			let timer = null;
+			const tick = () => {
+				const now = Date.now();
+				for (const job of jobs) if (now - (lastRun.get(job) ?? now) >= job.periodMs) {
+					lastRun.set(job, now);
+					job.run();
+				}
+			};
+			return {
+				start: () => {
+					if (timer !== null) return;
+					const now = Date.now();
+					for (const job of jobs) lastRun.set(job, now);
+					timer = setInterval(tick, tickMs);
+				},
+				stop: () => {
+					if (timer !== null) {
+						clearInterval(timer);
+						timer = null;
+					}
+				}
+			};
+		}
+		//#endregion
 		//#region src/client/index.ts
 		/** The product title the skin pins (captured by the shell's DocumentTitle after settle). */
 		const SKIN_TITLE = "交易终端 · DeepSeek 在线";
@@ -814,19 +847,29 @@ window.__ModuleLoader__.load({
 			refreshQuotes();
 			refreshLongbridge();
 			refreshWorkspaces();
-			const quotesTimer = setInterval(() => {
-				refreshQuotes();
-				refreshLongbridge();
-			}, QUOTES_REFRESH_MS);
-			const sessionTimer = setInterval(() => renderSessions(/* @__PURE__ */ new Date()), SESSION_REFRESH_MS);
-			const workspacesTimer = setInterval(() => {
-				refreshWorkspaces();
-			}, WORKSPACES_REFRESH_MS);
+			const scheduler = createRefreshScheduler([
+				{
+					periodMs: QUOTES_REFRESH_MS,
+					run: () => {
+						refreshQuotes();
+						refreshLongbridge();
+					}
+				},
+				{
+					periodMs: SESSION_REFRESH_MS,
+					run: () => renderSessions(/* @__PURE__ */ new Date())
+				},
+				{
+					periodMs: WORKSPACES_REFRESH_MS,
+					run: () => {
+						refreshWorkspaces();
+					}
+				}
+			], QUOTES_REFRESH_MS);
+			scheduler.start();
 			ctx.effect(() => () => {
 				disposed = true;
-				clearInterval(quotesTimer);
-				clearInterval(sessionTimer);
-				clearInterval(workspacesTimer);
+				scheduler.stop();
 				delete body.dataset.dshTrading;
 				titlebar.remove();
 				tape.remove();

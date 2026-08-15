@@ -47,6 +47,12 @@ test:scripts/aggregate/docs）。worktree 与 e2e 验证统一放在
 `docs/screenshots/` 截图）。
 用法与 verdict 语义见脚本头部注释；`pnpm pr:review --help` 查看全部选项。
 
+### 修改 shared 运行时模块
+
+shared/ 是 settings 卡片、轮询护栏、DSH_HOME 解析等跨包模块的唯一事实源；各包内的
+同名文件是 scripts/sync-shared.mjs 生成的同步副本。改 shared 源后运行
+node scripts/sync-shared.mjs 并把副本一并提交；pnpm test:scripts 的 drift 门禁防止副本漂移。
+
 ### 新增插件包
 
 ```sh

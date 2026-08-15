@@ -58,4 +58,10 @@ describe('dshHome', () => {
       expect(dshHome()).toBe('/srv/dsh-home')
     })
   })
+
+  it('resolves a relative override against the process cwd (shared contract)', () => {
+    withEnv({ DSH_HOME: 'data/home' }, () => {
+      expect(dshHome()).toBe(join(process.cwd(), 'data', 'home'))
+    })
+  })
 })

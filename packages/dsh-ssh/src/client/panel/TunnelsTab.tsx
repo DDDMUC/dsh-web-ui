@@ -9,6 +9,31 @@ import type { SshHostSummary, TunnelInfo } from '../../protocol.ts'
 import { errorMessage, tt } from './helpers.ts'
 import css from './panel.module.css'
 
+/** Live-tunnel polling interval while the tab is mounted (ms). */
+export const TUNNEL_POLL_MS = 5000
+
+/**
+ * Return `next` only when the tunnel list changed in a user-visible way
+ * (identity, ordering or any renderable field), else `null` so a poll tick
+ * with no real change keeps the previous reference and React skips the
+ * re-render. `prev === null` (first load) always accepts the list.
+ */
+export function diffTunnels(prev: TunnelInfo[] | null, next: TunnelInfo[]): TunnelInfo[] | null {
+  if (prev === null) return next
+  if (prev.length !== next.length) return next
+  for (let index = 0; index < prev.length; index += 1) {
+    const a = prev[index]
+    const b = next[index]
+    if (a.id !== b.id || a.alias !== b.alias || a.state !== b.state
+      || a.localPort !== b.localPort || a.remoteHost !== b.remoteHost
+      || a.remotePort !== b.remotePort || a.startedAt !== b.startedAt
+      || a.error !== b.error) {
+      return next
+    }
+  }
+  return null
+}
+
 /** Tunnels tab props. */
 export interface TunnelsTabProps {
   api: SshApi
@@ -40,8 +65,10 @@ export function TunnelsTab({ api }: TunnelsTabProps) {
     return () => { disposed = true }
   }, [api])
 
-  // Live list with a 5s heartbeat while mounted. Every load carries a
-  // sequence number so stale responses never overwrite newer state.
+  // Live list with a TUNNEL_POLL_MS heartbeat while mounted. Every load
+  // carries a sequence number so stale responses never overwrite newer
+  // state, and the list is diff-set so an unchanged poll tick keeps the
+  // previous state reference (no wasted re-render).
   const seqRef = useRef(0)
   useEffect(() => {
     const load = async (): Promise<void> => {
@@ -49,7 +76,7 @@ export function TunnelsTab({ api }: TunnelsTabProps) {
       try {
         const list = await api.listTunnels()
         if (seq !== seqRef.current) return
-        setTunnels(list)
+        setTunnels(prev => diffTunnels(prev, list) ?? prev)
         setError(null)
       } catch (cause) {
         if (seq !== seqRef.current) return
@@ -57,7 +84,7 @@ export function TunnelsTab({ api }: TunnelsTabProps) {
       }
     }
     void load()
-    const timer = setInterval(() => { void load() }, 5000)
+    const timer = setInterval(() => { void load() }, TUNNEL_POLL_MS)
     return () => { clearInterval(timer) }
   }, [api])
 

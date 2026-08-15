@@ -66,6 +66,12 @@ type SessionEventFrame = Extract<MuxFrame, { type: 'session/event' }>
 
 const DEFAULT_POLL_INTERVAL_MS = 3000
 const DEFAULT_STALL_THRESHOLD_MS = 12000
+/**
+ * Stall-check granularity: the single scheduler tick runs at least this
+ * often so fallback arms within a second of the stall threshold passing,
+ * while the poll cadence itself stays {@link MuxClientOptions.pollIntervalMs}.
+ */
+const STALL_CHECK_MS = 1000
 /** Poll window: enough recent events to cover a few seconds of agent output. */
 const DEFAULT_POLL_PAGE_SIZE = 50
 
@@ -98,9 +104,11 @@ export class MuxClient {
   private sseAlive = false
   /** Per-session highest event seq already emitted, for poll dedup. */
   private readonly pollWatermark = new Map<string, number>()
-  private stallTimer: ReturnType<typeof setInterval> | undefined
-  private pollTimer: ReturnType<typeof setInterval> | undefined
+  /** Single scheduler tick: both the stall check and the poll cadence ride this one interval. */
+  private tickTimer: ReturnType<typeof setInterval> | undefined
   private polling = false
+  /** Epoch ms of the next due poll while polling (kept on the same tick timer). */
+  private nextPollAt = 0
 
   /**
    * @param url - the mobile events endpoint (browser-relative).
@@ -120,16 +128,17 @@ export class MuxClient {
     this.stopped = false
     this.lastDataAt = this.now()
     if (this.source === undefined) this.connect()
-    this.startStallChecker()
+    this.startTick()
   }
 
   /** Close for good. */
   stop(): void {
     this.stopped = true
-    this.stopStallChecker()
+    this.stopTick()
     this.stopPolling()
     this.closeSource()
     this.observeSessionId = undefined
+    this.nextPollAt = 0
   }
 
   /** Subscribe to validated frames; returns an unsubscribe function. */
@@ -176,40 +185,52 @@ export class MuxClient {
     }
   }
 
-  private startStallChecker(): void {
-    this.stopStallChecker()
-    this.stallTimer = setInterval(() => {
-      if (this.stopped) return
-      if (this.observeSessionId === undefined) return
-      if (this.polling) return
-      // A live SSE channel only goes silent while the agent idles; never
-      // poll against it. Fallback arms again only via onerror or a stream
-      // that has never delivered.
-      if (this.sseAlive) return
-      if ((this.now() - this.lastDataAt) > this.stallThresholdMs) this.startPolling()
-    }, 1000)
+  /**
+   * The single scheduler tick is the only interval this client owns. One
+   * timer (at the finer of the stall-check and poll cadences) both arms the
+   * polling fallback once the stall threshold passes and drives each poll at
+   * {@link MuxClientOptions.pollIntervalMs} — one timer instead of two.
+   */
+  private startTick(): void {
+    if (this.tickTimer !== undefined) return
+    const cadence = Math.min(this.pollIntervalMs, STALL_CHECK_MS)
+    this.tickTimer = setInterval(() => { this.tick() }, cadence)
   }
 
-  private stopStallChecker(): void {
-    if (this.stallTimer !== undefined) {
-      clearInterval(this.stallTimer)
-      this.stallTimer = undefined
+  private stopTick(): void {
+    if (this.tickTimer !== undefined) {
+      clearInterval(this.tickTimer)
+      this.tickTimer = undefined
     }
+  }
+
+  private tick(): void {
+    if (this.stopped) return
+    if (this.observeSessionId === undefined) return
+    if (this.polling) {
+      // The stall phase has ended; the same tick now paces the polls.
+      if (this.now() >= this.nextPollAt) {
+        this.nextPollAt = this.now() + this.pollIntervalMs
+        void this.pollTick()
+      }
+      return
+    }
+    // A live SSE channel only goes silent while the agent idles; never poll
+    // against it. Fallback arms again only via onerror or a stream that has
+    // never delivered.
+    if (this.sseAlive) return
+    if ((this.now() - this.lastDataAt) > this.stallThresholdMs) this.startPolling()
   }
 
   private startPolling(): void {
     if (this.polling || this.stopped) return
     this.polling = true
+    this.nextPollAt = this.now() + this.pollIntervalMs
     void this.pollTick()
-    this.pollTimer = setInterval(() => { void this.pollTick() }, this.pollIntervalMs)
   }
 
   private stopPolling(): void {
     this.polling = false
-    if (this.pollTimer !== undefined) {
-      clearInterval(this.pollTimer)
-      this.pollTimer = undefined
-    }
   }
 
   /**

@@ -6,7 +6,7 @@
  * once per page load (module-level guard).
  */
 import { useEffect, useRef, useState } from 'react'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type IDisposable } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import type { SshApi, TerminalConnection } from '../api.ts'
 import type { SshHostSummary } from '../../protocol.ts'
@@ -53,6 +53,7 @@ export function TerminalTab({ api, presetAlias, requestId }: TerminalTabProps) {
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const connRef = useRef<TerminalConnection | null>(null)
+  const dataSubRef = useRef<IDisposable | null>(null)
 
   useEffect(() => { ensureXtermCss() }, [])
 
@@ -84,6 +85,11 @@ export function TerminalTab({ api, presetAlias, requestId }: TerminalTabProps) {
       connection.onExit = undefined
       connection.close()
     }
+    // Release the xterm input subscription explicitly and dispose the
+    // terminal so no listener (or the terminal Renderer) survives a
+    // disconnect or the tab unmounting.
+    dataSubRef.current?.dispose()
+    dataSubRef.current = null
     termRef.current?.dispose()
     termRef.current = null
     fitRef.current = null
@@ -128,13 +134,14 @@ export function TerminalTab({ api, presetAlias, requestId }: TerminalTabProps) {
     fitRef.current = fit
     connRef.current = connection
     let settled = false
-    const dataSub = term.onData(data => { connection.send(data) })
+    dataSubRef.current = term.onData(data => { connection.send(data) })
     connection.onReady = () => { setStatus({ kind: 'connected', alias: target }) }
     connection.onOutput = data => { term.write(data) }
     connection.onExit = (code, error) => {
       if (settled) return
       settled = true
-      dataSub.dispose()
+      dataSubRef.current?.dispose()
+      dataSubRef.current = null
       term.options.disableStdin = true
       connRef.current = null
       // Keep the last output visible; input is now disabled.

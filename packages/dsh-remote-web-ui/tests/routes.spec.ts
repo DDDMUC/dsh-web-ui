@@ -243,4 +243,20 @@ describe('/api/pair routes', () => {
       await close()
     }
   })
+
+  it('malformed payloads are refused with the existing error shape', async () => {
+    const service = makeService()
+    service.setLanBases([{ address: '192.168.1.5', base: 'http://192.168.1.5:3080' }])
+    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    try {
+      const badIssue = await call(port, 'POST', '/api/pair/issue', { body: { address: 42 } })
+      expect(badIssue.status).toBe(400)
+      expect(badIssue.body).toEqual({ ok: false, code: 'bad-payload' })
+      const badAccept = await call(port, 'POST', '/api/pair/accept', { host: '192.168.1.5:3080', body: { token: 7 } })
+      expect(badAccept.status).toBe(400)
+      expect(badAccept.body).toEqual({ ok: false, code: 'bad-payload' })
+    } finally {
+      await close()
+    }
+  })
 })

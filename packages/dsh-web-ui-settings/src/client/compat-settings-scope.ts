@@ -25,6 +25,15 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { WEB_UI_SETTINGS_BRIDGE_PREFIX } from '../protocol.ts'
 import type { BridgeDescribeResult, BridgeMutateRequest, BridgeMutateResult } from '../protocol.ts'
 
+/** True when the value is a well-formed bridge RPC result (the inner result payload the route answers). */
+function isBridgeResult(value: unknown): value is BridgeDescribeResult | BridgeMutateResult {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  if (typeof record.ok !== 'boolean') return false
+  if (record.ok) return typeof record.value === 'object' && record.value !== null
+  return typeof record.code === 'string' && typeof record.message === 'string'
+}
+
 /** The settings wire face the bridge controller consumes. */
 export interface BridgeSettingsFace {
   settings: {
@@ -54,7 +63,9 @@ export function createBridgeApi(fetchFn: typeof fetch): BridgeSettingsFace {
         body: JSON.stringify(body),
       })
       if (!response.ok) return { result: { ok: false, code: 'internal', message: 'bridge HTTP ' + response.status } }
-      return { result: await response.json() as BridgeDescribeResult | BridgeMutateResult }
+      const parsed: unknown = await response.json()
+      if (!isBridgeResult(parsed)) return { result: { ok: false, code: 'internal', message: 'bridge malformed response' } }
+      return { result: parsed }
     } catch {
       return { result: { ok: false, code: 'internal', message: 'settings bridge unreachable' } }
     }
@@ -275,9 +286,15 @@ export class WebUiSettingsBinder extends Service {
 
   bind<T>(spec: SettingsScopeSpec<T>): SettingsScope<T> {
     const ctx = this.ctx
-    const official = ctx.get('settingsScope') as unknown as WebUiSettingsBinderFace
+    const official = ctx.get('settingsScope')
+    if (!isBinderFace(official)) {
+      // The official binder is a product seam every dsh web host carries;
+      // when it is absent the bind must not crash the card's activation.
+      throw new Error('webUiSettings: the official settingsScope binder is unavailable')
+    }
     const primary = official.bind(spec)
-    const connection = ctx.get('connection') as ConnectionHandle | undefined
+    const connectionValue = ctx.get('connection')
+    const connection = isConnectionHandle(connectionValue) ? connectionValue : undefined
     const loopback = connection?.isLoopback === true
     const scope = createCompatScope<T>({
       namespace: spec.namespace,
@@ -287,7 +304,8 @@ export class WebUiSettingsBinder extends Service {
     // Bridge refreshes ride the same invalidation edges as the official
     // scope: forwarded settings-document updates and connection resets.
     ctx.effect(() => {
-      const remote = ctx.get('remote') as { $on: (event: string, callback: (namespace?: unknown) => void) => () => void } | undefined
+      const remoteValue = ctx.get('remote')
+      const remote = isRemoteFace(remoteValue) ? remoteValue : undefined
       const disposers: Array<() => void> = []
       if (remote !== undefined) {
         disposers.push(remote.$on('settings/document-updated', (namespace) => {
@@ -302,6 +320,23 @@ export class WebUiSettingsBinder extends Service {
     }, 'web-ui-settings: compat scope invalidation')
     return scope
   }
+}
+
+/** True when the value exposes the official settings binder's bind() seam. */
+function isBinderFace(value: unknown): value is WebUiSettingsBinderFace {
+  return typeof value === 'object' && value !== null && typeof (value as { bind?: unknown }).bind === 'function'
+}
+
+/** True when the value looks like the client connection handle this wrapper reads. */
+function isConnectionHandle(value: unknown): value is ConnectionHandle {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return record.isLoopback === undefined || typeof record.isLoopback === 'boolean'
+}
+
+/** True when the value exposes the settings invalidation face the wrapper listens to. */
+function isRemoteFace(value: unknown): value is { $on: (event: string, callback: (namespace?: unknown) => void) => () => void } {
+  return typeof value === 'object' && value !== null && typeof (value as { $on?: unknown }).$on === 'function'
 }
 
 declare module '@deepseek-ai/cordis' {

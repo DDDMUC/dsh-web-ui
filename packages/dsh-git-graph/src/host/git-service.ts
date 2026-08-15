@@ -38,6 +38,22 @@ export interface GitRunner {
 /** Collected-output cap for one git command (branch lists and logs fit comfortably). */
 const OUTPUT_CAP_BYTES = 1 << 20
 
+/**
+ * Build the argv for one git invocation, with the win32 binary variant.
+ * Windows ships git as git.exe (git for Windows); a .cmd/.bat shim in PATH
+ * would otherwise be the resolution target and Node's spawn cannot launch
+ * a .cmd file directly (the dsh-subprocess seam applies no shell). Naming
+ * git.exe bypasses any shim and always hits the native executable. cmd.exe
+ * routing is deliberately NOT used: several git args carry %-format specs
+ * (for-each-ref/log --format) that cmd would expand and corrupt.
+ * @param platform - the process platform (process.platform in production; a test seam).
+ * @param argv - the git subcommand args.
+ * @returns the full spawn argv, starting with the platform git binary.
+ */
+export function gitSpawnArgv(platform: NodeJS.Platform, argv: readonly string[]): readonly string[] {
+  return platform === 'win32' ? ['git.exe', ...argv] : ['git', ...argv]
+}
+
 /** The workspace-membership verdict type. */
 export type WorkspaceVerdict = { ok: true; canonical: string } | { ok: false; error: GitError }
 
@@ -59,7 +75,7 @@ export function subprocessRunner(ctx: Context): GitRunner {
   return {
     async run(argv, cwd) {
       const spec: SubprocessSpawnSpec = {
-        argv: ['git', ...argv],
+        argv: gitSpawnArgv(process.platform, argv),
         cwd,
         stdio: {
           stdin: 'ignore',

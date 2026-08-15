@@ -25,6 +25,9 @@
 - **共享构建预设**：所有 tsdown 包 import `shared/tsdown.client.ts`，禁止复制到
   包内；tsconfig 分层（solution + host/client 各自 program，参照
   `dsh-git-graph`/`dsh-aionui-panel`）。
+- **运行时共享模块**：settings 卡三件套、poll-guard、dsh-home 的事实源在
+  `shared/`，包内同名文件是 `scripts/sync-shared.mjs` 生成的同步副本
+  （generated 头注释，禁止手改；改 shared 源后重跑同步，test:scripts 含 drift 门禁）。
 - **浏览器 bundle 纯度门**：`@deepseek-ai/*` 只能 type-only 导入；值导入只允许
   平台种子表成员（react / cordis / ui-slots / web-react / ui-primitives /
   schema-form，见 `shared/web-platform.ts`）。跨插件协作走 cordis 服务

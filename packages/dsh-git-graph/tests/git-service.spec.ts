@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { GitService, type GitRunResult, type WorkspaceGate } from '../src/host/git-service.ts'
+import { GitService, gitSpawnArgv, type GitRunResult, type WorkspaceGate } from '../src/host/git-service.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -272,5 +272,19 @@ describe('GitService', () => {
     expect(await service.status(repo)).toMatchObject({ operationInProgress: true })
     expect(combinedCalls).toBe(1)
     expect(singleMarkerCalls).toBe(7)
+  })
+})
+
+describe('gitSpawnArgv', () => {
+  it('keeps the plain git binary on POSIX', () => {
+    expect(gitSpawnArgv('linux', ['status', '--porcelain'])).toEqual(['git', 'status', '--porcelain'])
+    expect(gitSpawnArgv('darwin', ['rev-parse', '--show-toplevel'])).toEqual(['git', 'rev-parse', '--show-toplevel'])
+  })
+
+  it('uses git.exe on Windows to bypass .cmd shims', () => {
+    // git for Windows ships git.exe; a .cmd/.bat shim in PATH would be the
+    // spawn resolution that Node cannot launch directly. Naming git.exe
+    // always reaches the native executable.
+    expect(gitSpawnArgv('win32', ['status', '--porcelain'])).toEqual(['git.exe', 'status', '--porcelain'])
   })
 })

@@ -8,6 +8,7 @@
 import { useState, type ReactNode } from 'react'
 import type { CommunityPluginKey } from './locales.ts'
 import { COMMUNITY_PLUGINS, type CommunityPluginEntry } from './generated/community.ts'
+import { isCommunityPluginEntry } from './community-guard.ts'
 import css from './web-ui-settings.module.css'
 
 /** Props the community plugin card binds. */
@@ -25,7 +26,7 @@ export interface CommunityPluginsCardProps {
  */
 export function CommunityPluginsCard(props: CommunityPluginsCardProps): ReactNode {
   const { t } = props
-  const plugins = props.plugins ?? COMMUNITY_PLUGINS
+  const plugins = (props.plugins ?? COMMUNITY_PLUGINS).filter(isCommunityPluginEntry)
   const [open, setOpen] = useState(false)
   return (
     <li className={open ? `${css.groupCard} ${css.groupCardOpen}` : css.groupCard}>

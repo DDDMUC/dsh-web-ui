@@ -49,6 +49,8 @@ const MOBILE_PREFERENCES_METHOD = 'mobile.preferences'
 
 /** One session.list page (thin phones load incrementally). */
 const SESSION_PAGE_SIZE = 20
+/** SSE keep-alive ping cadence for the live mux stream (single connection). */
+const DEFAULT_EVENTS_HEARTBEAT_MS = 15_000
 
 /** Encode one list position as an opaque continuation cursor. */
 function sessionListCursor(updatedAt: number, sessionId: string): string {
@@ -78,6 +80,8 @@ export interface MobileApiDeps {
   apiProxy: ApiProxy
   /** The resolved mobile composer preference (live per request). */
   mobileEnterToSend: () => boolean
+  /** SSE keep-alive ping cadence for the mux stream (default 15000 ms; test seam). */
+  eventsHeartbeatMs?: number
 }
 
 /** Mobile API route paths. */
@@ -97,6 +101,7 @@ const MOBILE_API_METHOD_PREFIX = `${MOBILE_API_PREFIX}/`
  */
 export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
   const { service, apiProxy, mobileEnterToSend } = deps
+  const eventsHeartbeatMs = deps.eventsHeartbeatMs ?? DEFAULT_EVENTS_HEARTBEAT_MS
 
   /** The phone gate: a live paired-device cookie, or nothing else proceeds. */
   const gateOk = (req: IncomingMessage): boolean => {
@@ -190,7 +195,7 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
       } catch {
         // The write failed; the close handler tears the subscription down.
       }
-    }, 15_000)
+    }, eventsHeartbeatMs)
     const onClose = (): void => {
       if (closed) return
       closed = true

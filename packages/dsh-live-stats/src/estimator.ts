@@ -82,6 +82,26 @@ export function estimateAssistantBlockTokens(blockTokens: readonly number[], spe
 /** How deeply tool-result content may nest before deep pricing stops. */
 const MAX_CONTENT_DEPTH = 128
 
+/** Cap on the serialized length of an untyped content block used for pricing.
+ * A gigantic (or pathological) opaque block is priced from a bounded snapshot
+ * of its JSON so the estimate stays finite and the per-chunk serialize cost
+ * stays linear in the cap rather than the full structure.
+ */
+const MAX_UNKNOWN_BLOCK_CHARS = 4096
+
+/** Price an untyped block from its bounded JSON representation.
+ * @param block - the untyped content block to price.
+ * @param spec - resolved estimator settings.
+ * @returns the estimated token count (capped by the serialized-length bound).
+ */
+function estimateUnknownBlockTokens(block: ContentBlock, spec: EstimatorSpec): number {
+  const serialized = JSON.stringify(block)
+  const length = serialized.length > MAX_UNKNOWN_BLOCK_CHARS
+    ? MAX_UNKNOWN_BLOCK_CHARS
+    : serialized.length
+  return spec.blockOverhead + Math.ceil(length / spec.charsPerToken)
+}
+
 /** Estimate model content with the configured provider-independent density.
  * @param blocks - the content blocks to price.
  * @param spec - resolved estimator settings.
@@ -114,7 +134,7 @@ function estimateContentBlocks(blocks: readonly ContentBlock[], spec: EstimatorS
           : estimateContentBlocks(block.content, spec, depth + 1) + spec.blockOverhead
         break
       default:
-        tokens += spec.blockOverhead + Math.ceil(JSON.stringify(block).length / spec.charsPerToken)
+        tokens += estimateUnknownBlockTokens(block, spec)
     }
   }
   return tokens

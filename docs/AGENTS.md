@@ -44,7 +44,7 @@ scripts/doc-budgets.manifest.json 设定长期文档词数上限；pnpm docs:che
 2. **精简**：本层内容压缩到上限内。
 3. **调额**：确需更多空间时提高上限，并在 PR 中说明理由。
 
-目标：根 AGENTS.md ≤ 1400 词；packages/AGENTS.md ≤ 900 词；本文件 ≤ 1200 词；docs/plugins.md ≤ 2100 词；docs/i18n.md ≤ 900 词；docs/development.md ≤ 900 词。上限是护栏不是压缩目标，至少保留 5% 余量。
+目标：根 AGENTS.md ≤ 1400 词；packages/AGENTS.md ≤ 900 词；本文件 ≤ 1200 词；docs/plugins.md ≤ 2300 词；docs/i18n.md ≤ 900 词；docs/development.md ≤ 900 词。上限是护栏不是压缩目标，至少保留 5% 余量。
 
 ## 写作检查清单
 

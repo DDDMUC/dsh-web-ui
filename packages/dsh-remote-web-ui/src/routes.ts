@@ -10,6 +10,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
+import { z, type ZodType } from 'zod'
 import { UnknownLanAddressError, type PairingService, type PairingSnapshot } from './pairing.ts'
 import { isLoopbackClient, readCookie } from './gate.ts'
 
@@ -90,6 +91,34 @@ export const PAIR_PATHS = {
   status: '/api/pair/status',
   events: '/api/pair/events',
 } as const
+
+/**
+ * /api/pair request payload contracts. Each POST endpoint validates its body
+ * against one of these instead of reaching into a hand-parsed object: the
+ * control-plane endpoints that carry no meaningful payload use the permissive
+ * pairActionPayloadSchema so their smoke calls keep working unchanged, while
+ * issue/accept enforce their optional/required fields. Unknown (extra) keys
+ * are tolerated exactly as the previous manual reads ignored them.
+ */
+export const issuePayloadSchema = z.object({
+  workspaceId: z.string().min(1).optional(),
+  address: z.string().min(1).optional(),
+})
+export const acceptPayloadSchema = z.object({
+  token: z.string().default(''),
+})
+export const pairActionPayloadSchema = z.object({}).passthrough()
+
+/**
+ * Parse a pair request body through schema. A missing/empty or non-object
+ * body is treated as an empty object (the same way the previous manual reads
+ * yielded absent fields), and a value that fails the schema returns
+ * `undefined` so the caller can answer with the existing error shape.
+ */
+function parsePairPayload<T>(schema: ZodType<T>, body: Record<string, unknown> | undefined): T | undefined {
+  const result = schema.safeParse(body ?? {})
+  return result.success ? result.data : undefined
+}
 
 /** One JSON response. */
 function writeJson(res: ServerResponse, status: number, body: unknown): void {
@@ -225,12 +254,12 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       return
     }
     const body = await readJsonBody(req)
-    const workspaceId = body === undefined || typeof body.workspaceId !== 'string' || body.workspaceId === ''
-      ? undefined
-      : body.workspaceId
-    const address = body === undefined || typeof body.address !== 'string' || body.address === ''
-      ? undefined
-      : body.address
+    const payload = parsePairPayload(issuePayloadSchema, body)
+    if (payload === undefined) {
+      writeJson(res, 400, { ok: false, code: 'bad-payload' })
+      return
+    }
+    const { workspaceId, address } = payload
     try {
       const { token, expiresAt } = service.issue(workspaceId, address)
       // The default base is the public (tunneled) URL when configured — a
@@ -273,8 +302,12 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       return
     }
     const body = await readJsonBody(req)
-    const token = typeof body?.token === 'string' ? body.token : ''
-    const result = service.accept(token)
+    const payload = parsePairPayload(acceptPayloadSchema, body)
+    if (payload === undefined) {
+      writeJson(res, 400, { ok: false, code: 'bad-payload' })
+      return
+    }
+    const result = service.accept(payload.token)
     if (!result.ok) {
       writeJson(res, result.code === 'used' ? 409 : 404, { ok: false, code: result.code })
       return
@@ -294,7 +327,11 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       writeJson(res, 403, { ok: false, code: 'forbidden' })
       return
     }
-    await readJsonBody(req)
+    const body = await readJsonBody(req)
+    if (parsePairPayload(pairActionPayloadSchema, body) === undefined) {
+      writeJson(res, 400, { ok: false, code: 'bad-payload' })
+      return
+    }
     service.stop()
     writeJson(res, 200, { ok: true })
   }
@@ -305,7 +342,11 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       writeJson(res, 403, { ok: false, code: 'forbidden' })
       return
     }
-    await readJsonBody(req)
+    const body = await readJsonBody(req)
+    if (parsePairPayload(pairActionPayloadSchema, body) === undefined) {
+      writeJson(res, 400, { ok: false, code: 'bad-payload' })
+      return
+    }
     const deviceId = readCookie(req.headers.cookie, service.config.cookieName)
     if (deviceId === undefined || !service.heartbeat(deviceId)) {
       writeJson(res, 401, { ok: false, code: 'unpaired' })

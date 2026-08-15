@@ -34,6 +34,7 @@ import {
   type Trend,
 } from './quotes.ts'
 import { marketSessions, phaseLabel, type SessionPhase } from './session.ts'
+import { createRefreshScheduler } from './refresh-scheduler.ts'
 
 /** The product title the skin pins (captured by the shell's DocumentTitle after settle). */
 const SKIN_TITLE = '交易终端 · DeepSeek 在线'
@@ -342,15 +343,21 @@ export function apply(ctx: Context): void {
   void refreshQuotes()
   void refreshLongbridge()
   void refreshWorkspaces()
-  const quotesTimer = setInterval(() => { void refreshQuotes(); void refreshLongbridge() }, QUOTES_REFRESH_MS)
-  const sessionTimer = setInterval(() => renderSessions(new Date()), SESSION_REFRESH_MS)
-  const workspacesTimer = setInterval(() => { void refreshWorkspaces() }, WORKSPACES_REFRESH_MS)
+
+  // One interval drives all three refresh paths; each job runs only when
+  // its own cadence has elapsed, so the single timer preserves the original
+  // per-panel periods (quotes/workspaces 30s, sessions 60s) with one timer
+  // to own and dispose.
+  const scheduler = createRefreshScheduler([
+    { periodMs: QUOTES_REFRESH_MS, run: () => { void refreshQuotes(); void refreshLongbridge() } },
+    { periodMs: SESSION_REFRESH_MS, run: () => renderSessions(new Date()) },
+    { periodMs: WORKSPACES_REFRESH_MS, run: () => { void refreshWorkspaces() } },
+  ], QUOTES_REFRESH_MS)
+  scheduler.start()
 
   ctx.effect(() => () => {
     disposed = true
-    clearInterval(quotesTimer)
-    clearInterval(sessionTimer)
-    clearInterval(workspacesTimer)
+    scheduler.stop()
     delete body.dataset.dshTrading
     titlebar.remove()
     tape.remove()

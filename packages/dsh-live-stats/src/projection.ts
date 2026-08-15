@@ -317,23 +317,17 @@ export function createLiveTokenUsageProjectionDefinition(
         if (chunk.type === 'usage') {
           next = { ...next, active: exactStep(next.active, chunk.usage, event.time) }
         } else if (!next.active.exact) {
-          const active = { ...next.active }
+          // Reuse the active step in place instead of rebuilding a fresh
+          // object (and copying buckets) on every streamed delta: only the
+          // mutated fields change, and the blocks buffer is untouched between
+          // steps. The settle/usage paths still build a fresh active step.
+          const active = next.active
           if (applyOutputChunk(active, chunk, spec)) {
             const tokens = active.pricedBlocks === 0 ? 0 : active.pricedTokens + spec.roleOverhead
-            next = {
-              ...next,
-              active: {
-                ...active,
-                buckets: { ...active.buckets, outputTokens: tokens },
-                /* v8 ignore next -- every mutating chunk prices at least one
-                 * non-empty block, so outputTokens is always positive here */
-                ...(tokens > 0
-                  ? {
-                    firstOutputTime: active.firstOutputTime ?? event.time,
-                    latestOutputTime: event.time,
-                  }
-                  : {}),
-              },
+            active.buckets = { ...active.buckets, outputTokens: tokens }
+            if (tokens > 0) {
+              if (active.firstOutputTime === undefined) active.firstOutputTime = event.time
+              active.latestOutputTime = event.time
             }
           }
         }

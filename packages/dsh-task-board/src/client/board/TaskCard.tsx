@@ -1,7 +1,13 @@
 /**
  * Task card: the board's column item. Clicking opens the task detail — it
  * never executes anything directly (detail holds the Run button).
+ *
+ * Memoized: the card re-renders only when its own task record changes, so a
+ * status/filter update on one card (or scrolling) never re-renders every
+ * card on the board. The per-card onClick is built with a stable task reference
+ * by the board, so the memo boundary is effective.
  */
+import { memo } from 'react'
 import type { TaskRecord } from '../../core/tasks.ts'
 import { executionLabel } from '../../core/tasks.ts'
 import { t } from '../locales.ts'
@@ -19,7 +25,7 @@ export function formatTime(ms: number): string {
 }
 
 /** One card in a column. */
-export function TaskCard({ task, onClick }: { task: TaskRecord; onClick: () => void }) {
+function TaskCardInner({ task, onClick }: { task: TaskRecord; onClick: () => void }) {
   const latest = task.executions[task.executions.length - 1]
   const runs = task.executions.length
   return (
@@ -60,3 +66,6 @@ export function TaskCard({ task, onClick }: { task: TaskRecord; onClick: () => v
     </button>
   )
 }
+
+/** Memoized card: re-renders only when the card's own task record changes. */
+export const TaskCard = memo(TaskCardInner)

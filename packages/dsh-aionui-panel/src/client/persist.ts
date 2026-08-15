@@ -88,33 +88,109 @@ export function debouncedWriter(write: (value: unknown) => void, delayMs = 150):
   }
 }
 
+/**
+ * A single debounce pipeline used by the stores for its search and persist
+ * timers: coalesces rapid schedules into one trailing run (the latest fn wins).
+ * `flush` runs the pending fn immediately (pagehide/beforeunload), `dispose`
+ * cancels a pending schedule. Behavior is equivalent to the stores' previous
+ * hand-rolled setTimeout + clearTimeout pairs, just centralized.
+ */
+export interface Debounced {
+  /** Queue a fn; repeated calls before the delay replaces the pending fn. */
+  schedule: (fn: () => void) => void
+  /** Run the pending fn now and clear the timer. */
+  flush: () => void
+  /** Cancel the pending fn and timer. */
+  dispose: () => void
+}
+
+/** Create one debounced scheduler (default 150ms). */
+export function createDebounced(delayMs = 150): Debounced {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let pending: (() => void) | null = null
+  const flush = (): void => {
+    if (timer !== undefined) clearTimeout(timer)
+    timer = undefined
+    const fn = pending
+    pending = null
+    if (fn !== null) fn()
+  }
+  return {
+    schedule(fn: () => void) {
+      pending = fn
+      // Reset on every schedule so the run trails the LAST change (the same
+      // trailing-edge semantics the stores' former clear+setTimeout had).
+      if (timer !== undefined) clearTimeout(timer)
+      timer = setTimeout(flush, delayMs)
+    },
+    flush,
+    dispose() {
+      if (timer !== undefined) clearTimeout(timer)
+      timer = undefined
+      pending = null
+    },
+  }
+}
+
 /** The preview-ui scope registry: keys, savedAt values, eviction. */
 export const PREVIEW_SCOPE_PREFIX = 'preview-ui:'
 /** LRU cap on distinct preview scopes. */
 export const PREVIEW_SCOPE_CAP = 12
 
-/** All stored preview scopes with their savedAt timestamps, oldest first. */
-export function listPreviewScopes(): Array<{ root: string; savedAt: number }> {
-  const out: Array<{ root: string; savedAt: number }> = []
+/**
+ * Collect every stored key under a prefix. localStorage has no prefix index,
+ * so the whole store is swept once, then filtered to the package's own keys
+ * — enumeration is never interleaved with removal (removals would shift the
+ * indices mid-loop and skip entries).
+ */
+function listStoredKeysByPrefix(prefix: string): string[] {
+  const keys: string[] = []
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i)
-      if (key === null || !key.startsWith(PREVIEW_SCOPE_PREFIX)) continue
-      const root = key.slice(PREVIEW_SCOPE_PREFIX.length)
-      let savedAt = 0
-      try {
-        const raw = localStorage.getItem(key)
-        if (raw !== null) {
-          const parsed = JSON.parse(raw) as { savedAt?: unknown }
-          if (typeof parsed.savedAt === 'number') savedAt = parsed.savedAt
-        }
-      } catch {
-        savedAt = 0
-      }
-      out.push({ root, savedAt })
+      if (key !== null && key.startsWith(prefix)) keys.push(key)
     }
   } catch {
     return []
+  }
+  return keys
+}
+
+/**
+ * Precisely delete every stored key under a prefix. Only this package's own
+ * prefixed keys are removed — foreign-application keys are never touched,
+ * replacing the former all-at-once `localStorage.clear()` sweep.
+ */
+export function removeStoredByPrefix(prefix: string): number {
+  const keys = listStoredKeysByPrefix(prefix)
+  let removed = 0
+  for (const key of keys) {
+    try {
+      localStorage.removeItem(key)
+      removed += 1
+    } catch {
+      // best-effort; a storage failure does not abort the rest
+    }
+  }
+  return removed
+}
+
+/** All stored preview scopes with their savedAt timestamps, oldest first. */
+export function listPreviewScopes(): Array<{ root: string; savedAt: number }> {
+  const out: Array<{ root: string; savedAt: number }> = []
+  for (const key of listStoredKeysByPrefix(PREVIEW_SCOPE_PREFIX)) {
+    const root = key.slice(PREVIEW_SCOPE_PREFIX.length)
+    let savedAt = 0
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw !== null) {
+        const parsed = JSON.parse(raw) as { savedAt?: unknown }
+        if (typeof parsed.savedAt === 'number') savedAt = parsed.savedAt
+      }
+    } catch {
+      savedAt = 0
+    }
+    out.push({ root, savedAt })
   }
   out.sort((a, b) => a.savedAt - b.savedAt)
   return out

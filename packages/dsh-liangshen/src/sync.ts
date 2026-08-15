@@ -8,10 +8,24 @@
  * tree is copied and any target files the source does not contain are removed.
  * Directories the plugin does not own (other presets the user authored) are
  * never touched.
+ *
+ * After a preset is synced its `agent.cordis.yml` is validated against the
+ * structural preset schema; a validation failure is reported through the
+ * run's `failed` entries instead of being a warn-only side effect, so callers
+ * can observe (and surface) a broken preset rather than silently shipping it.
  */
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
+import { validateAgentCordis } from './schema.ts'
+
+/**
+ * Clock/coarse-grain tolerance for the mtime fast path. When a source and a
+ * target file share a size and a near-identical mtime we still fall through to
+ * a byte comparison; a mtime gap beyond this simply proves the pair cannot be
+ * byte-identical, so we skip the read.
+ */
+const MTIME_TOLERANCE_MS = 1000
 
 /** One sync run's outcome, grouped for diagnostics. */
 export interface SyncResult {
@@ -38,8 +52,17 @@ function filesUnder(root: string): string[] {
   return out
 }
 
-/** Preset files are small; identity means identical bytes, not just size/mtime. */
+/**
+ * File identity is bytes. Size and mtime are only a fast negative check: a
+ * size mismatch or a mtime gap beyond the tolerance proves the pair cannot be
+ * byte-identical without reading both, but an equal size and close mtime still
+ * fall through to a byte comparison so content differences are never missed.
+ */
 function sameFile(a: string, b: string): boolean {
+  const sourceStat = statSync(a)
+  const targetStat = statSync(b)
+  if (sourceStat.size !== targetStat.size) return false
+  if (Math.abs(sourceStat.mtimeMs - targetStat.mtimeMs) > MTIME_TOLERANCE_MS) return false
   return readFileSync(a).equals(readFileSync(b))
 }
 
@@ -67,6 +90,13 @@ function pruneExtras(root: string, keep: ReadonlySet<string>): void {
       }
     }
   }
+}
+
+/** Validate the synced preset's `agent.cordis.yml` artifact on disk. */
+function validatePresetAgentFile(presetDir: string): string[] {
+  const agent = join(presetDir, 'agent.cordis.yml')
+  if (!existsSync(agent)) return ['agent.cordis.yml is missing from the preset tree']
+  return validateAgentCordis(readFileSync(agent, 'utf8'))
 }
 
 /** Copy `sourceRoot/<id>` into `targetRoot/<id>`, idempotently. */
@@ -114,6 +144,11 @@ export function syncOnePreset(sourceDir: string, targetDir: string): 'synced' | 
  * target directories named in `retire` that the bundle no longer ships —
  * preset ids the plugin once owned and later dropped. Only those exact ids
  * are removed; every other target directory is left untouched.
+ *
+ * Each synced (or already-current) preset is validated against the structural
+ * `agent.cordis.yml` schema; a validation failure lands in `failed` so the
+ * caller can surface a broken preset as a first-class result instead of a
+ * warn-only log line.
  * @param sourceRoot - plugin-owned preset tree (bundled in the package).
  * @param targetRoot - dsh agent-presets discovery root (e.g. <home>/.dsh/.agent-presets).
  * @param retire - previously bundled preset ids to remove when absent from the source.
@@ -126,9 +161,23 @@ export function syncPresetTrees(sourceRoot: string, targetRoot: string, retire: 
       const source = join(sourceRoot, entry)
       if (!statSync(source).isDirectory()) continue
       const id = basename(source)
+      const targetDir = join(targetRoot, id)
+      let outcome: 'synced' | 'current'
       try {
-        const outcome = syncOnePreset(source, join(targetRoot, id))
-        ;(outcome === 'synced' ? result.synced : result.current).push(id)
+        outcome = syncOnePreset(source, targetDir)
+      } catch (error) {
+        result.failed.push({ id, error: error instanceof Error ? error.message : String(error) })
+        continue
+      }
+      try {
+        const problems = validatePresetAgentFile(targetDir)
+        if (problems.length > 0) {
+          result.failed.push({ id, error: `agent.cordis.yml failed validation: ${problems.join('; ')}` })
+        } else if (outcome === 'synced') {
+          result.synced.push(id)
+        } else {
+          result.current.push(id)
+        }
       } catch (error) {
         result.failed.push({ id, error: error instanceof Error ? error.message : String(error) })
       }

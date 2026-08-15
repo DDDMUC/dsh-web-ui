@@ -188,3 +188,112 @@ describe('SchedulerService lifecycle', () => {
     expect(listener).toBeUndefined() // listener unregistered on dispose
   })
 })
+
+/** Scheduler cleanup: the controlled ticker's shutdown contract. */
+describe('SchedulerService controlled ticker', () => {
+  it('start arms exactly one interval; a second start is a no-op (single-instance guard)', () => {
+    const setCalls: number[] = []
+    const clearCalls: number[] = []
+    const originalSet = globalThis.setInterval
+    const originalClear = globalThis.clearInterval
+    globalThis.setInterval = ((_fn: (...args: unknown[]) => void, ms?: number) => {
+      setCalls.push(ms ?? 0)
+      return 42 as unknown as ReturnType<typeof setInterval>
+    }) as typeof setInterval
+    globalThis.clearInterval = ((id: number) => { clearCalls.push(id) }) as unknown as typeof clearInterval
+    try {
+      const h = makeHarness()
+      h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 1, 0))])
+      h.scheduler.start()
+      h.scheduler.start() // second arm while running must not stack a second interval
+      expect(setCalls).toHaveLength(1)
+      h.scheduler.dispose()
+      expect(clearCalls).toEqual([42])
+    } finally {
+      globalThis.setInterval = originalSet
+      globalThis.clearInterval = originalClear
+    }
+  })
+
+  it('stop clears the timer and unregisters the environment listener, and is idempotent', () => {
+    let addCount = 0
+    let removeCount = 0
+    const environment: SchedulerDeps['environment'] = {
+      addEventListener: (_type, fn) => { void fn; addCount += 1 },
+      removeEventListener: () => { removeCount += 1 },
+    }
+    const h = makeHarness({ environment })
+    h.scheduler.start()
+    expect(addCount).toBe(1)
+    h.scheduler.stop()
+    h.scheduler.stop() // second stop: no extra teardown on an already-cleared ticker
+    h.scheduler.stop()
+    expect(removeCount).toBe(1)
+    expect(h.runs).toEqual([])
+  })
+
+  it('stop unregisters the live visibility listener (no recovery tick after stop)', () => {
+    let listener: (() => void) | undefined
+    let removeCount = 0
+    const environment: SchedulerDeps['environment'] = {
+      addEventListener: (_type, fn) => { listener = fn },
+      removeEventListener: () => { removeCount += 1 },
+    }
+    const h = makeHarness({ environment })
+    h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 1, 0))])
+    h.scheduler.start()
+    expect(listener).toBeDefined()
+    h.setNow(at(2026, 1, 1, 10, 2, 0))
+    h.scheduler.stop()
+    expect(removeCount).toBe(1)
+  })
+
+  it('an in-flight visibility listener no-ops once the ticker is stopped (terminal)', () => {
+    let listener: (() => void) | undefined
+    const environment: SchedulerDeps['environment'] = {
+      addEventListener: (_type, fn) => { listener = fn },
+      removeEventListener: () => {},
+    }
+    const h = makeHarness({ environment })
+    h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 1, 0))])
+    h.scheduler.start()
+    h.setNow(at(2026, 1, 1, 10, 2, 0))
+    h.scheduler.stop()
+    listener!() // stale captured listener firing after stop must not trigger a run
+    expect(h.runs).toEqual([])
+  })
+
+  it('start after stop stays inert (stop is terminal, no timer is re-armed)', () => {
+    let removeCount = 0
+    const environment: SchedulerDeps['environment'] = {
+      addEventListener: () => {},
+      removeEventListener: () => { removeCount += 1 },
+    }
+    const h = makeHarness({ environment })
+    h.scheduler.start()
+    h.scheduler.stop()
+    const before = removeCount
+    h.scheduler.start() // terminal stop: re-start must not re-arm a timer/listener
+    expect(removeCount).toBe(before)
+    h.scheduler.stop()
+    expect(removeCount).toBe(before)
+  })
+
+  it('dispose is idempotent and clears the timer exactly once', () => {
+    const clearCalls: number[] = []
+    const originalSet = globalThis.setInterval
+    const originalClear = globalThis.clearInterval
+    globalThis.setInterval = ((_fn: (...args: unknown[]) => void) => 7 as unknown as ReturnType<typeof setInterval>) as typeof setInterval
+    globalThis.clearInterval = ((id: number) => { clearCalls.push(id) }) as unknown as typeof clearInterval
+    try {
+      const h = makeHarness()
+      h.scheduler.start()
+      h.scheduler.dispose()
+      h.scheduler.dispose()
+      expect(clearCalls).toEqual([7])
+    } finally {
+      globalThis.setInterval = originalSet
+      globalThis.clearInterval = originalClear
+    }
+  })
+})

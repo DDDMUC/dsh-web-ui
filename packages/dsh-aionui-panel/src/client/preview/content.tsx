@@ -7,7 +7,7 @@
  * @module dsh-aionui-panel/client/preview/content
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { PreviewTabState } from '../store.ts'
 import { useResizableSplit } from '../hooks/useResizableSplit.ts'
@@ -234,20 +234,49 @@ function CodeViewer({ content, language }: { content: string; language: string }
   return <pre className={previewCss.codeViewer}><code>{content}</code></pre>
 }
 
+/**
+ * One memoized CSV row. The cells array reference is stable (it comes from the
+ * memoized parsed rows), so an untouched row skips re-rendering when a sibling
+ * cell changes or the panel re-renders for another reason.
+ */
+const CsvRow = memo(function CsvRow({ cells, isHeader }: { cells: string[]; isHeader: boolean }): JSX.Element {
+  return (
+    <tr>
+      {cells.map((cell, cellIndex) => (
+        isHeader ? <th key={cellIndex}>{cell}</th> : <td key={cellIndex}>{cell}</td>
+      ))}
+    </tr>
+  )
+})
+
+/**
+ * Stable, content-derived key for a CSV row. Rows have no ids, so the cell
+ * content (JSON, occurrence-disambiguated for duplicates) anchors the key
+ * instead of the array position — a reordered or shifted table keeps stable
+ * React identities instead of reusing DOM nodes by index.
+ * @param row - the raw row cells.
+ * @param occurrence - how many identical rows were already keyed.
+ */
+function csvRowKey(row: string[], occurrence: number): string {
+  return `${JSON.stringify(row)}\u0000${occurrence}`
+}
+
 /** CSV table. */
 function CsvViewer({ content }: { content: string }): JSX.Element {
   const rows = useMemo(() => parseCsv(content), [content])
+  const keyedRows = useMemo(() => {
+    const counts = new Map<string, number>()
+    return rows.map((row) => {
+      const seen = counts.get(JSON.stringify(row)) ?? 0
+      counts.set(JSON.stringify(row), seen + 1)
+      return { cells: row, key: csvRowKey(row, seen) }
+    })
+  }, [rows])
   return (
     <div className={previewCss.csvViewer}>
       <table className={previewCss.csvTable}>
-        {rows.map((row, index) => (
-          <tr key={index}>
-            {row.map((cell, cellIndex) => (
-              index === 0
-                ? <th key={cellIndex}>{cell}</th>
-                : <td key={cellIndex}>{cell}</td>
-            ))}
-          </tr>
+        {keyedRows.map((entry, index) => (
+          <CsvRow key={entry.key} cells={entry.cells} isHeader={index === 0} />
         ))}
       </table>
     </div>
