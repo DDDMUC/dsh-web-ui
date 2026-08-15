@@ -8,19 +8,19 @@ Listing `/Users/zcl/code/dsh-web-ui/packages/` directly yields **13 top-level di
 
 | # | Directory | Has `package.json` at top level |
 |---|---|---|
-| 1 | `dsh-aionui-panel` | ✅ |
-| 2 | `dsh-git-graph` | ✅ |
-| 3 | `dsh-liangshen` | ✅ |
-| 4 | `dsh-live-stats` | ✅ |
-| 5 | `dsh-pet` | ✅ |
-| 6 | `dsh-remote-web-ui` | ✅ |
-| 7 | `dsh-skins` | ✅ |
-| 8 | `dsh-ssh` | ✅ |
-| 9 | `dsh-task-board` | ✅ |
-| 10 | `dsh-tool-describe-image` | ✅ |
-| 11 | `dsh-web-ui-all` | ✅ |
-| 12 | `dsh-web-ui-settings` | ✅ |
-| 13 | `skins` | ❌ (container, no package.json of its own) |
+| 1 | `dsh-aionui-panel` | [OK] |
+| 2 | `dsh-git-graph` | [OK] |
+| 3 | `dsh-liangshen` | [OK] |
+| 4 | `dsh-live-stats` | [OK] |
+| 5 | `dsh-pet` | [OK] |
+| 6 | `dsh-remote-web-ui` | [OK] |
+| 7 | `dsh-skins` | [OK] |
+| 8 | `dsh-ssh` | [OK] |
+| 9 | `dsh-task-board` | [OK] |
+| 10 | `dsh-tool-describe-image` | [OK] |
+| 11 | `dsh-web-ui-all` | [OK] |
+| 12 | `dsh-web-ui-settings` | [OK] |
+| 13 | `skins` | [X] (container, no package.json of its own) |
 
 ### Count
 

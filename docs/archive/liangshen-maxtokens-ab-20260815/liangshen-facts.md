@@ -26,9 +26,9 @@
 
 ## D. 梁神模式实现现状（~/.dsh/.agent-presets/liangshen）
 - phase1：wire tools=[bash,str_replace_editor]；仅 persona section；无上下文；仅用户消息
-- 已剥离：skill-catalog、agent-instructions（deferredSources）✅ prepend:true ✅
-- 未控制：首轮 maxTokens（走适配器默认 ~256k/384k）❌
-- 晋升：anchorGate（首块 we 且无 let me / 4 步兜底 / turn-end 释放）；promoteAfterFirstResponse ✅
+- 已剥离：skill-catalog、agent-instructions（deferredSources）[OK] prepend:true [OK]
+- 未控制：首轮 maxTokens（走适配器默认 ~256k/384k）[X]
+- 晋升：anchorGate（首块 we 且无 let me / 4 步兜底 / turn-end 释放）；promoteAfterFirstResponse [OK]
 - 晋升后：PTC run_code 单工具 + persona 追加 cwd + 延迟 1 步注入
 - 校验：stringList 要求非空数组（空工具配置会被拒绝，需改校验）
 
@@ -40,7 +40,7 @@
 - dsh-llm-deepseek（官方适配器）：发 x-deepseek-harness-user-id + session-id 双头
 
 ## F. 本地实测（macOS + opencode-go）
-- 27376e37（liangshen）：首块 "We need review repo..."（we=1,letMe=0）✅；晋升后 #1 起立即 let me（I need... Let me...）
+- 27376e37（liangshen）：首块 "We need review repo..."（we=1,letMe=0）[OK]；晋升后 #1 起立即 let me（I need... Let me...）
 - 与 modeltest 官方 API 的"晋升后保持"相反 → 环境差异（opencode-go 中转）
 - 全量基线（262 会话混合 preset）：minimal-like 仅 8.8%（但混杂 run_code/其他形态）
 
