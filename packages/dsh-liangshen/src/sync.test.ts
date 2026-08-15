@@ -49,6 +49,19 @@ describe('syncPresetTrees', () => {
     } finally { f.dispose() }
   })
 
+  it('retires a previously bundled preset directory removed from the source', () => {
+    const f = fixture()
+    try {
+      syncPresetTrees(f.source, f.target)
+      mkdirSync(join(f.target, 'liangshen-exact'), { recursive: true })
+      writeFileSync(join(f.target, 'liangshen-exact', 'agent.cordis.yml'), 'rows: []\n')
+      const result = syncPresetTrees(f.source, f.target, ['liangshen-exact'])
+      expect(result.retired).toEqual(['liangshen-exact'])
+      expect(existsSync(join(f.target, 'liangshen-exact'))).toBe(false)
+      expect(existsSync(join(f.target, 'liangshen'))).toBe(true)
+    } finally { f.dispose() }
+  })
+
   it('never touches directories it does not own', () => {
     const f = fixture()
     try {
@@ -119,7 +132,7 @@ describe('syncPresetTrees', () => {
     const f = fixture()
     try {
       const result = syncPresetTrees(join(f.source, 'nope'), f.target)
-      expect(result).toEqual({ synced: [], current: [], failed: [] })
+      expect(result).toEqual({ synced: [], current: [], failed: [], retired: [] })
     } finally { f.dispose() }
   })
 })

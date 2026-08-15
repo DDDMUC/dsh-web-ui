@@ -1,10 +1,15 @@
-# The `liangshen` (梁神模式) agent preset: full Standard capabilities with a
-# two-phase input bootstrap — the first model request sees only the platform
-# shell plus `read`, only the one-line persona prompt section, no runtime
-# contexts, and no injected pre-step messages (Minimal-aligned trajectory
-# anchor); the full catalog, every prompt section, and the ordinary
-# runtime/workspace/skill injections return after the first durable tool call.
-# Adapted from the builtin `standard` preset.
+# The `liangshen` (梁神模式) agent preset: phase 1 exposes the builtin Minimal
+# preset's exact two tools (persistent `bash` plus `str_replace_editor`) and
+# the same one-line persona, with no runtime contexts and no injected pre-step
+# messages, anchoring the Minimal trajectory; after a stabilized anchor the
+# wire switches to Code Mode (PTC) and the ordinary injections open. The
+# phase-1 surface matches the official "exact RL prompt and schemas" snapshot
+# byte-for-byte on the model-visible wire shape, at the cost of keeping the
+# persistent shell for the whole session. Unlike the builtin Minimal preset,
+# the phase-1 editor inherits the host file sandbox instead of mounting a bare
+# local filesystem (see the filesystem section below).
+#
+# Adapted from the builtin `minimal` and `standard` presets.
 #
 # This file is an AGENT-PLANE composition. The roster mounts it ONCE under a
 # standing scope; every session naming it joins by scope parentage, so the
@@ -34,25 +39,22 @@
   config:
     text: You are a helpful software engineer assistant.
 
-# Two-phase input bootstrap. Before the session's first durable tool/call event
-# the first model request sees exactly one platform shell plus `read`, only the
-# `persona` prompt section, no runtime contexts, and only direct user messages;
-# after that event every Standard tool below, all assembled prompt sections
-# (including plan-mode's `plan:policy`), and the ordinary
-# runtime/workspace/skill injections become visible. `anchorGate` holds the
-# promotion open until the first reasoning block is minimal-like (with a
-# four-step fallback), so a `Let me` first block does not immediately earn the
-# full catalog. `promoteAfterFirstResponse` avoids a permanent two-tool
-# session when the first response calls no tool, and releases an anchor-gated
-# session once its first turn ends (`turn/end`). After promotion the catalog
-# is presented as Code Mode (PTC): a single `run_code` tool on the wire,
-# switched at the step boundary. Workspace instructions and the skill catalog
-# are additionally deferred for one step after promotion (`deferredSources`).
+# Two-phase input bootstrap with the exact Minimal phase-1 tools. Before the
+# first durable tool/call event the model sees only persistent `bash` plus
+# `str_replace_editor`, only the `persona` prompt section, no runtime
+# contexts, and only direct user messages. `anchorGate` holds the promotion
+# open until the first reasoning block is minimal-like (four-step fallback);
+# `promoteAfterFirstResponse` avoids a permanent two-tool session after a
+# tool-less first response, and releases an anchor-gated session once its
+# first turn ends (`turn/end`). After promotion the catalog is presented as
+# Code Mode (PTC): a single `run_code` tool on the wire, switched at the step
+# boundary; workspace instructions and the skill catalog are deferred one
+# step after promotion.
 - id: tool-bootstrap
   name: ./tool-bootstrap.mjs
   config:
-    shellTools: [bash, pwsh]
-    commonTools: [read]
+    shellTools: [bash]
+    commonTools: [str_replace_editor]
     messageSources: [user]
     anchorGate: true
     maxBootstrapSteps: 4
@@ -68,24 +70,55 @@
   config:
     maxBytes: 65536
 
-# ── shell ───────────────────────────────────────────────────────────────────
+# ── minimal phase-1 shell ───────────────────────────────────────────────────
 
-# `shell-env` stays in the HOST composition: `apps/cli/src/web.ts` injects it to
-# publish `DSH_WEB_URL`/`DSH_WEB_MODE`, and a host row that injects a service is
-# the criterion for host-plane ownership — injection resolves before any session
-# exists, so there is no agent to key by. Behind a preset realm those variables
-# never reached the model's shell at all. Both shell tools consume the host
-# registry from here; their executors (`bash-sandbox`/`pwsh-sandbox`) are
-# host-plane too.
-- id: tool-bash
-  name: '@deepseek-ai/dsh-tool-bash'
-  disabled: !!js process.platform === 'win32'
+# The PTY registry is an agent-owned service, so it lives in an entry-local
+# realm. The backend still consumes the host sandbox policy and subprocess
+# implementation, while the tool registers into this agent's scoped catalog.
+# This persistent `bash` replaces the Standard ephemeral shell for the WHOLE
+# session (both tools register the name `bash`), which is the exact-Minimal
+# tradeoff this experimental preset evaluates.
+- id: persistent-shell
+  name: cordis:group
+  group: true
+  isolate:
+    terminals: true
+  config:
+    - id: pty
+      name: '@deepseek-ai/dsh-terminal'
 
-- id: tool-pwsh
-  name: '@deepseek-ai/dsh-tool-pwsh'
-  disabled: !!js process.platform !== 'win32'
+    - id: terminal-bash
+      name: '@deepseek-ai/dsh-terminal-bash'
+      config:
+        timeoutMs: 300000
 
-# ── filesystem ──────────────────────────────────────────────────────────────
+    - id: persistent-bash
+      name: '@deepseek-ai/dsh-tool-bash-persistent'
+      config:
+        timeoutMs: 300000
+        description: |-
+          Run commands in a bash shell
+          * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
+          * You don't have access to the internet via this tool.
+          * You do have access to a mirror of common linux and python packages via apt and pip.
+          * State is persistent across command calls and discussions with the user.
+          * To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.
+          * Please avoid commands that may produce a very large amount of output.
+          * Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.
+
+# ── minimal phase-1 filesystem ──────────────────────────────────────────────
+
+# Phase-1 editor as a direct top-level row: it reuses the host's sandboxed
+# `ctx.fs`, not a bare local filesystem. No `dsh-fs-local` realm is mounted, so
+# the phase-1 editor inherits the host file sandbox exactly like every
+# Standard file tool, and the model-facing schema stays the builtin Minimal
+# `str_replace_editor`.
+- id: str-replace-editor
+  name: '@deepseek-ai/dsh-tool-str-replace-editor'
+  config:
+    maxOutputChars: 16000
+
+# ── standard filesystem tools ───────────────────────────────────────────────
 
 # Both register into the host `tools` registry and provide nothing, so
 # they need no realm. The `fs` service and its policy stay in the host.
@@ -100,12 +133,10 @@
 # ── background jobs ────────────────────────────────────────────────────────
 
 # Only the model-facing controls. The task REGISTRY stays on the host plane:
-# its producers sit outside any realm this file could put it in — `tool-bash`
-# above resolves it with `ctx.get`, and an entry-local realm here is invisible
-# to every sibling row, so `run_in_background` would answer "background jobs
-# unavailable" while these controls sat in the catalog. The registry is keyed by
-# owning agent anyway, so one host instance serves every session. What a preset
-# chooses is whether its agent can collect and stop background work at all.
+# its producers sit outside any realm this file could put it in, and the
+# registry is keyed by owning agent anyway. With the persistent shell, long
+# commands run through `&`; these controls still expose whatever the host
+# registry tracks.
 - id: tool-jobs
   name: '@deepseek-ai/dsh-tool-jobs'
 

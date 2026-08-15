@@ -21,6 +21,8 @@ export interface SyncResult {
   current: string[]
   /** Preset ids that failed, with the underlying error message. */
   failed: { id: string; error: string }[]
+  /** Previously bundled preset ids removed from the target root this run. */
+  retired: string[]
 }
 
 function filesUnder(root: string): string[] {
@@ -108,23 +110,36 @@ export function syncOnePreset(sourceDir: string, targetDir: string): 'synced' | 
 }
 
 /**
- * Sync every preset under `sourceRoot` into `targetRoot`.
+ * Sync every preset under `sourceRoot` into `targetRoot`, then remove
+ * target directories named in `retire` that the bundle no longer ships —
+ * preset ids the plugin once owned and later dropped. Only those exact ids
+ * are removed; every other target directory is left untouched.
  * @param sourceRoot - plugin-owned preset tree (bundled in the package).
  * @param targetRoot - dsh agent-presets discovery root (e.g. <home>/.dsh/.agent-presets).
+ * @param retire - previously bundled preset ids to remove when absent from the source.
  */
-export function syncPresetTrees(sourceRoot: string, targetRoot: string): SyncResult {
-  const result: SyncResult = { synced: [], current: [], failed: [] }
-  if (!existsSync(sourceRoot)) return result
+export function syncPresetTrees(sourceRoot: string, targetRoot: string, retire: string[] = []): SyncResult {
+  const result: SyncResult = { synced: [], current: [], failed: [], retired: [] }
   mkdirSync(targetRoot, { recursive: true })
-  for (const entry of readdirSync(sourceRoot)) {
-    const source = join(sourceRoot, entry)
-    if (!statSync(source).isDirectory()) continue
-    const id = basename(source)
-    try {
-      const outcome = syncOnePreset(source, join(targetRoot, id))
-      ;(outcome === 'synced' ? result.synced : result.current).push(id)
-    } catch (error) {
-      result.failed.push({ id, error: error instanceof Error ? error.message : String(error) })
+  if (existsSync(sourceRoot)) {
+    for (const entry of readdirSync(sourceRoot)) {
+      const source = join(sourceRoot, entry)
+      if (!statSync(source).isDirectory()) continue
+      const id = basename(source)
+      try {
+        const outcome = syncOnePreset(source, join(targetRoot, id))
+        ;(outcome === 'synced' ? result.synced : result.current).push(id)
+      } catch (error) {
+        result.failed.push({ id, error: error instanceof Error ? error.message : String(error) })
+      }
+    }
+  }
+  for (const id of retire) {
+    if (existsSync(join(sourceRoot, id))) continue
+    const stale = join(targetRoot, id)
+    if (existsSync(stale) && statSync(stale).isDirectory()) {
+      rmSync(stale, { recursive: true, force: true })
+      result.retired.push(id)
     }
   }
   return result

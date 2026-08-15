@@ -2,13 +2,13 @@
 
 [English](README.md) | 中文
 
-把「Anchored Standard」preset 家族做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 presets 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」或实验性的「梁神模式-精确实验」。首轮模型请求只看到双工具表面与一行 persona，没有运行时上下文和指令注入；锚定建立后开放完整工具目录、全部 prompt section 与常规注入。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
+把「Anchored Standard」preset 做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」。首轮模型请求只看到官方 Minimal 精确双工具——持久 `bash` 与 `str_replace_editor`——与一行 persona，没有运行时上下文和指令注入；锚定建立后 wire 切换为 Code Mode（PTC），并开放全部 prompt section 与常规注入。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
 
 ## 原理
 
 DeepSeek V4 Pro 会强烈依赖 API 中可见的**首轮工具目录**选择执行轨迹。社区评测（[xiaobright/modeltest](https://github.com/xiaobright/modeltest)）中，Standard / PTC 只有 91/92 分，Minimal 达到 99/96，但 Minimal 只有两个工具。两阶段方案把「首次轨迹选择」与「后续完整工具能力」拆开：
 
-1. 首轮模型请求只暴露平台 shell 与 `read`，只保留 `persona` 一个 prompt section，清空运行时上下文，并且只放行用户自己的消息；
+1. 首轮模型请求只暴露官方 Minimal 精确双工具（持久 `bash` 与 `str_replace_editor`），只保留 `persona` 一个 prompt section，清空运行时上下文，并且只放行用户自己的消息；
 2. 会话出现首次持久 `tool/call` 后，晋升会等到首个 reasoning 块呈 minimal-like（包含 `we` 且无 `let me`）才发生，四步兜底；随后 wire 切换为 Code Mode（PTC）——只暴露一个 `run_code`，完整工具注册表通过生成的 SDK 调用——并恢复全部 prompt section（含 plan mode 的 `plan:policy`）以及 workspace 指令、skill 目录与运行时快照等常规注入；
 3. 阶段从持久化 session events 推导，resume / reload 不丢失状态。
 
@@ -42,22 +42,14 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 装完**完整重启 `dsh web`**，新建空 session，预设选择「梁神模式」。插件会在启动时把 presets 同步进 `~/.dsh/.agent-presets`（升级插件后重启即自动更新）。
 
-## 精确实验预设
-
-「梁神模式-精确实验」（`liangshen-exact`）保留相同的稳定化控制，并与主 preset 共用同一份 `tool-bootstrap.mjs` 实现（只有 `tool-bootstrap` config 不同），但 phase 1 与内置 Minimal 预设逐字节对齐：持久 `bash` + `str_replace_editor`，工具描述与一行 persona 完全一致；晋升后开放完整 Standard 目录与全部 prompt section。
-
-沙箱说明：与内置 Minimal 预设不同，`liangshen-exact` 不挂载裸的 `dsh-fs-local` 文件系统——phase 1 文件工具继承宿主文件沙箱（编辑器复用宿主的 sandboxed `ctx.fs`），与所有 Standard 文件工具一致。
-
-代价：持久 shell 会替代 Standard 的一次性 `bash` 直到会话结束（两个工具都注册 `bash` 名字），所以它用于对比锚定命中率的 A/B 实验，不替代主 preset。
-
 ## 验证
 
 导出 session JSONL，检查 `request/header`：
 
-- 第一份 header 应只有 `bash/read`（macOS/Linux）或 `pwsh/read`（Windows）；`liangshen-exact` 应为 `bash/str_replace_editor`；
+- 第一份 header 应只有 `bash/str_replace_editor`（持久 shell + 沙箱化编辑器）；
 - 第一轮应只包含用户自己的消息：没有 workspace 指令 baseline、没有运行时快照、没有 skill 目录消息，并且只有 `persona` 一个 prompt section；
 - 首次工具调用后，下一份变更 header 应恰好为 `run_code`（PTC）；运行时快照与全部 prompt section（含 plan mode 的 `plan:policy`）随该步出现，workspace 指令与 skill 目录再晚一步出现；
-- `liangshen-exact` 的 phase 1 编辑器写入仍受宿主文件沙箱策略约束，不存在裸本地文件系统绕过；
+- phase 1 编辑器写入受宿主文件沙箱策略约束，不存在裸本地文件系统绕过；
 - 此后的请求保持 `run_code`。
 
 不读原始 reasoning 也能测量轨迹漂移：
@@ -73,7 +65,8 @@ node tools/analyze-session.mjs <导出的 session.jsonl>
 - 工具执行即使失败，只要 `tool/call` 已持久化，仍计入晋升条件；
 - phase 1 只保留 `persona` prompt section；晋升后恢复全部 assembled sections，因此 plan mode 的 `plan:policy` 在晋升后生效；
 - workspace 指令、skill 目录与运行时快照在首轮不注入；快照随 PTC 目录出现，前两者再晚一步出现；
-- `liangshen-exact` 的文件工具继承宿主文件沙箱（不挂载裸 `dsh-fs-local`）；
+- phase 1 文件工具继承宿主文件沙箱（不挂载裸 `dsh-fs-local`）；
+- phase 1 的持久 `bash` 会替代 Standard 的一次性 shell 直到会话结束（两个工具都注册 `bash` 名字）；
 - 工具目录只变化一次，因此第一、二次请求之间会发生一次前缀缓存变化；
 - preset 与 shell 访问具有相同信任等级，安装前可自行审阅 `presets/`；
 - 插件不发起网络请求，也不增加遥测；
@@ -82,4 +75,4 @@ node tools/analyze-session.mjs <导出的 session.jsonl>
 
 ## 许可
 
-插件本体 Apache-2.0（zhu1090093659）。`presets/liangshen/agent.cordis.yml` 基于 DeepSeek Harness Standard preset 修改，`presets/liangshen-exact/agent.cordis.yml` 基于内置 Minimal 与 Standard preset 修改，`tool-bootstrap.mjs` 来自 xiaobright/dsh-anchored-standard，均为 MIT，版权与许可声明见各 preset 的 `NOTICE`。`presets/liangshen-exact/tool-bootstrap.mjs` 是对 `presets/liangshen/tool-bootstrap.mjs` 的薄 re-export，两个 preset 共用同一份实现。
+插件本体 Apache-2.0（zhu1090093659）。`presets/liangshen/agent.cordis.yml` 基于 DeepSeek Harness 内置 Minimal 与 Standard preset 修改，`tool-bootstrap.mjs` 来自 xiaobright/dsh-anchored-standard，均为 MIT，版权与许可声明见 preset 的 `NOTICE`。

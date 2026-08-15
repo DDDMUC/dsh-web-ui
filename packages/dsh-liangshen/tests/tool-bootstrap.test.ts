@@ -7,12 +7,6 @@ import {
   inject,
   name,
 } from '../presets/liangshen/tool-bootstrap.mjs'
-import {
-  apply as exactApply,
-  classifyReasoning as exactClassifyReasoning,
-  hasAnchoredReasoning as exactHasAnchoredReasoning,
-  name as exactName,
-} from '../presets/liangshen-exact/tool-bootstrap.mjs'
 
 const config = {
   commonTools: ['read'],
@@ -365,35 +359,6 @@ describe('anchored-tool-bootstrap', () => {
       { type: 'reasoning', text: 'Let me start by checking the repo.' },
     ]
     expect(hasAnchoredReasoning(minimalThenStandard)).toBe(true)
-  })
-
-  test('liangshen-exact re-exports the same bootstrap implementation as the main preset', async () => {
-    expect(exactName).toBe(name)
-    expect(exactApply).toBe(apply)
-    expect(exactClassifyReasoning).toBe(classifyReasoning)
-    expect(exactHasAnchoredReasoning).toBe(hasAnchoredReasoning)
-
-    const listeners = new Map<string, { listener: Listener, options: any }>()
-    exactApply(
-      {
-        on(event: string, callback: Listener, options?: any) {
-          listeners.set(event, { listener: callback, options })
-        },
-      },
-      { shellTools: ['bash'], commonTools: ['str_replace_editor'], messageSources: ['user'] },
-    )
-    const result = await listener(listeners, 'system-prompt/assemble')(
-      undefined,
-      { agent: agentOf([]) },
-      async () => ({
-        tools: [{ name: 'bash' }, { name: 'str_replace_editor' }, { name: 'edit' }],
-        contexts: [{ name: 'sandbox:policy', text: 'Current DSH file policy: workspace-write.' }],
-        sections: SECTIONS,
-      }),
-    )
-    expect(result.tools.map((tool: any) => tool.name)).toEqual(['bash', 'str_replace_editor'])
-    expect(result.contexts).toEqual([])
-    expect(result.sections.map((section: any) => section.name)).toEqual(['persona'])
   })
 
   test('promotedPresentation switches to Code Mode once per session', async () => {

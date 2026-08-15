@@ -2,13 +2,13 @@
 
 English | [中文](README.zh.md)
 
-Ships the "Anchored Standard" preset family as a one-command plugin of the dsh-web-ui family: on host startup it syncs the bundled presets into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" or the experimental "梁神模式-精确实验" from the preset picker. The first model request sees only a two-tool surface, only the one-line persona prompt section, no runtime contexts, and no injected instructions; the full catalog, all prompt sections, and the ordinary injections open after the anchor is established. Built entirely on the official NPM SDK — no dsh source changes.
+Ships the "Anchored Standard" preset as a one-command plugin of the dsh-web-ui family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker. The first model request sees only the builtin Minimal preset's exact two tools — persistent `bash` plus `str_replace_editor` — only the one-line persona prompt section, no runtime contexts, and no injected instructions; after the anchor is established the wire switches to Code Mode (PTC) and the ordinary injections open. Built entirely on the official NPM SDK — no dsh source changes.
 
 ## Why
 
 DeepSeek V4 Pro conditions strongly on the API tool catalog visible in the FIRST request when choosing its execution trajectory. In the community eval ([xiaobright/modeltest](https://github.com/xiaobright/modeltest)), Standard / PTC scored 91/92 while Minimal reached 99/96 — but Minimal keeps only two tools. This two-phase approach separates the first-trajectory choice from full later capability:
 
-1. The first model request exposes only the platform shell plus `read`, keeps only the `persona` prompt section, empties runtime contexts, and passes only the user's own messages;
+1. The first model request exposes only the builtin Minimal preset's exact two tools (persistent `bash` plus `str_replace_editor`), keeps only the `persona` prompt section, empties runtime contexts, and passes only the user's own messages;
 2. After the session's first durable `tool/call`, promotion waits until the first reasoning block is minimal-like (contains `we` and no `let me`), with a four-step fallback; the wire then switches to Code Mode (PTC) — a single `run_code` tool backed by the full tool registry SDK — and every assembled prompt section plus the ordinary workspace-instruction, skill-catalog, and runtime-context injections return;
 3. The phase derives from persisted session events, so resume / reload never lose state.
 
@@ -42,22 +42,14 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 Fully restart `dsh web`, open a NEW empty session, and pick "梁神模式" as the preset. The plugin syncs the presets into `~/.dsh/.agent-presets` at startup (upgrades refresh them automatically on next restart).
 
-## Experimental exact preset
-
-"梁神模式-精确实验" (`liangshen-exact`) keeps the same stabilization controls and shares the main preset's `tool-bootstrap.mjs` implementation (only the `tool-bootstrap` config differs), but matches the builtin Minimal preset's exact phase-1 surface: persistent `bash` plus `str_replace_editor`, byte-identical tool description and one-line persona. After promotion it opens the full Standard catalog and all prompt sections.
-
-Sandboxing: unlike the builtin Minimal preset, `liangshen-exact` does not mount a bare `dsh-fs-local` filesystem — its phase-1 file tools inherit the host file sandbox (the editor reuses the host sandboxed `ctx.fs`), exactly like every Standard file tool.
-
-Tradeoff: the persistent shell replaces the Standard ephemeral `bash` for the whole session (both tools register the name `bash`), so it is the A/B variant for comparing anchor hit rate, not a drop-in replacement for the main preset.
-
 ## Verify
 
 Export the session JSONL and inspect `request/header`:
 
-- The first header should carry only `bash/read` (macOS/Linux) or `pwsh/read` (Windows); `liangshen-exact` should carry `bash/str_replace_editor`;
+- The first header should carry only `bash/str_replace_editor` (the persistent shell plus the sandboxed editor);
 - The first turn should contain only the user's own messages — no workspace-instruction baseline, no runtime snapshot, no skill-catalog message — and only the `persona` prompt section;
 - After the first tool call, the next changed header should carry exactly `run_code` (PTC); the runtime snapshot and all prompt sections (including plan mode's `plan:policy`) arrive with that step and the workspace instructions and skill catalog arrive one step later;
-- In `liangshen-exact`, phase-1 editor writes still obey the host file sandbox policy — there is no bare local-filesystem bypass;
+- Phase-1 editor writes obey the host file sandbox policy — there is no bare local-filesystem bypass;
 - Later requests keep `run_code`.
 
 Trajectory drift can be measured without reading raw reasoning:
@@ -73,7 +65,8 @@ node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jso
 - A tool call that fails still counts toward promotion as long as `tool/call` was persisted;
 - Phase 1 keeps only the `persona` prompt section; promotion restores every assembled section, so plan mode's `plan:policy` is enforced after phase 1;
 - Workspace instructions, the skill catalog, and the runtime snapshot stay out of phase 1; the snapshot returns with the catalog and the other two arrive one step later;
-- `liangshen-exact` file tools inherit the host file sandbox (no bare `dsh-fs-local` filesystem);
+- Phase-1 file tools inherit the host file sandbox (no bare `dsh-fs-local` filesystem);
+- The phase-1 persistent `bash` replaces the Standard ephemeral shell for the whole session (both tools register the name `bash`);
 - The catalog changes exactly once, so a prefix-cache change happens between the first and second request;
 - The preset carries the same trust level as shell access — review `presets/liangshen/` before installing;
 - The plugin makes no network requests and adds no telemetry;
@@ -82,4 +75,4 @@ node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jso
 
 ## License
 
-Plugin body Apache-2.0 (zhu1090093659). `presets/liangshen/agent.cordis.yml` derives from the DeepSeek Harness Standard preset, `presets/liangshen-exact/agent.cordis.yml` derives from the builtin Minimal and Standard presets, and `tool-bootstrap.mjs` comes from xiaobright/dsh-anchored-standard — all MIT, with copyright and license notices kept in each preset's `NOTICE`. `presets/liangshen-exact/tool-bootstrap.mjs` is a thin re-export of `presets/liangshen/tool-bootstrap.mjs`, so the two presets share one implementation.
+Plugin body Apache-2.0 (zhu1090093659). `presets/liangshen/agent.cordis.yml` derives from the DeepSeek Harness builtin Minimal and Standard presets, and `tool-bootstrap.mjs` comes from xiaobright/dsh-anchored-standard — all MIT, with copyright and license notices kept in the preset's `NOTICE`.
