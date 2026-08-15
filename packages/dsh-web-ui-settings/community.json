@@ -55,4 +55,59 @@
     "descriptionEn": "Give your agent hands: zero-dependency CDP browser control (8 pilot_* tools: navigate/click/type/keys/eval/screenshot) plus a draggable cockpit panel in the Web GUI - no Playwright, no API key.",
     "repo": "https://github.com/guo6x/dsh-pilot"
   }
+,
+  {
+    "id": "dsh-secret-redactor",
+    "name": "敏感信息脱敏",
+    "nameEn": "Secret Redactor",
+    "author": "DamonKoy",
+    "description": "自动掩码工具输出中的 API key、token、JWT、私钥与配置密钥。",
+    "descriptionEn": "Auto-masks API keys, tokens, JWTs and private keys in tool results shown to the model.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-secret-redactor"
+  },
+  {
+    "id": "dsh-approve-for-me",
+    "name": "自动审批审核",
+    "nameEn": "Approve for Me",
+    "author": "DamonKoy",
+    "description": "只读工具自动放行、危险命令自动拒绝，可配置全自动模式。",
+    "descriptionEn": "Auto-approves read-only tools, auto-denies dangerous commands, optional full-auto mode.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-approve-for-me"
+  },
+  {
+    "id": "dsh-mcp-client-v2",
+    "name": "MCP 客户端 v2",
+    "nameEn": "MCP Client v2",
+    "author": "DamonKoy",
+    "description": "MCP 客户端增强：分页工具发现、非阻塞启动、工具搜索。",
+    "descriptionEn": "Enhanced MCP client: paginated tool discovery, non-blocking startup, tool search.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-mcp-client-v2"
+  },
+  {
+    "id": "dsh-memories",
+    "name": "项目记忆",
+    "nameEn": "Project Memories",
+    "author": "DamonKoy",
+    "description": "按项目作用域持久化的键值记忆，支持增删查列与搜索。",
+    "descriptionEn": "Project-scoped persistent key-value memories with set/get/list/delete/search.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-memories"
+  },
+  {
+    "id": "dsh-system-proxy",
+    "name": "系统代理",
+    "nameEn": "System Proxy",
+    "author": "DamonKoy",
+    "description": "检测系统代理（scutil/环境变量/PAC）并为子进程导出代理环境变量。",
+    "descriptionEn": "Detects system proxy (scutil/env/PAC) and exports proxy env for child processes.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-system-proxy"
+  },
+  {
+    "id": "dsh-usage-cost",
+    "name": "用量成本提醒",
+    "nameEn": "Usage & Cost",
+    "author": "DamonKoy",
+    "description": "统计会话与每日 token 用量和估算成本，超预算提醒。",
+    "descriptionEn": "Tracks token usage and estimated cost per session/day with budget alerts.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-usage-cost"
+  }
 ]
