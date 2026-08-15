@@ -128,7 +128,13 @@
   transition: none !important;
 }
 
-/* Panel columns are plain grid items; overflow hidden so width 0 clips. */
+/* Panel columns are plain grid items; overflow hidden so width 0 clips.
+   z-index 30 lifts the columns above the shell.overlay slot layer (the core
+   AppFrame renders it as ::global(.overlayLayer) at z-index 20, inset:0 over
+   the whole frame). Right-edge overlay plugins would otherwise paint on top of
+   the Explorer / Preview columns' content (issue #195). Kept below dialogs
+   (1000+) so modals/toasts still stack above the panels. Matches the tab-bar
+   z-index 30 convention (issues #169 / #87), so the three stay consistent. */
 :global(.aionui-preview-col),
 :global(.aionui-explorer-col) {
   min-width: 0;
@@ -136,6 +142,7 @@
   display: flex;
   flex-direction: column;
   background-color: var(--aion-bg-1);
+  z-index: 30;
 }
 
 :global(.aionui-preview-col) {
