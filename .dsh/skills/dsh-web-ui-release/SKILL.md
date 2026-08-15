@@ -81,11 +81,12 @@ git push origin "vX.Y.Z"            # 推送 tag 即触发发布管线（唯一�
 
 推送 v* tag 后 GitHub Actions 自动执行，顺序：
 
-1. actionlint + pnpm install（frozen lockfile）；
+1. actionlint + pnpm install（frozen lockfile，checkout 用 fetch-depth: 0 取全量历史）；
 2. 全量 gate：typecheck / build / test / test:scripts / aggregate --check；
 3. **版本一致性校验**：tag 版本必须与全部 20 个包的 package.json version 完全一致，不一致直接失败（防止忘 bump 就发版）；
-4. `pnpm -r publish --no-git-checks --access public`（NPM_TOKEN 写入 ~/.npmrc，拓扑序发布，workspace:* 自动转真实版本）；
-5. `gh release create` 自动生成 GitHub Release（release notes 从提交自动生成）。
+4. **生成 release notes**：`node scripts/release-notes.mjs $TAG` 把上一 tag 以来的常规提交分组为 新功能/修复/其他 并链接 issue，写在 notes 文件（发布前执行，失败即中止，不触碰 npm）；
+5. `pnpm -r publish --no-git-checks --access public`（NPM_TOKEN 写入 ~/.npmrc，拓扑序发布，workspace:* 自动转真实版本）；
+6. `gh release create --notes-file` 创建 GitHub Release（notes 即第 4 步生成的内容）。
 
 关注与排障：
 
@@ -106,7 +107,7 @@ gh run list --workflow=release.yml    # 查历史
 ```sh
 npm view @linxin666/dsh-web-ui-all version          # 期望 = X.Y.Z
 npm view @linxin666/dsh-client-ui-skin-center version
-gh release view "vX.Y.Z"                            # Release 已创建、notes 非空
+gh release view "vX.Y.Z"                            # Release 已创建、notes 为分类更新说明（scripts/release-notes.mjs 生成）
 gh run list --workflow=release.yml                  # 全部成功
 git ls-remote --tags origin | grep "vX.Y.Z"         # tag 已在远端
 ```

@@ -96,6 +96,7 @@ node scripts/dsh-skin-new            # 脚手架：新皮肤包
 
 发布由 tag 触发（`.github/workflows/release.yml`）：推送 `vX.Y.Z` 后
 `scripts/verify-version.mjs` 校验每个包版本与 tag 一致，不一致则发布前失败；
+Release 更新说明由 `scripts/release-notes.mjs` 从常规提交自动分组生成；
 全部门禁重跑通过后才发 npm。不要直接改包版本号绕过 tag 校验。
 
 ## 分层指令体系（渐进式上下文）

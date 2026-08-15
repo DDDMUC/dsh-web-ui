@@ -29,6 +29,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history so scripts/release-notes.mjs can walk back to the
+          # previous v* tag and build the release notes commit range.
+          fetch-depth: 0
 
       - name: Lint GitHub Actions workflows
         uses: docker://rhysd/actionlint:latest
@@ -80,6 +84,12 @@ jobs:
       - name: Verify package versions match the tag
         run: node scripts/verify-version.mjs "${{ steps.tag.outputs.version }}"
 
+      # Generated before publish: a notes failure must abort the run
+      # before anything reaches npm (a failed publish cannot be re-run
+      # for an already-published version).
+      - name: Generate release notes
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+
       # Publish with the explicit "latest" dist-tag so that installing the
       # package without a version (or with @latest) always resolves to the
       # newest release, never a stale earlier one.
@@ -95,5 +105,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            --generate-notes \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
             --title "dsh-web-ui $GITHUB_REF_NAME"
