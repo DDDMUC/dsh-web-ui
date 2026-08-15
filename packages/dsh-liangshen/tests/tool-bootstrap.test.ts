@@ -465,5 +465,47 @@ describe('anchored-tool-bootstrap', () => {
     expect(() => register({ maxBootstrapSteps: 0 })).toThrow(/maxBootstrapSteps/)
     expect(() => register({ deferredGraceSteps: -1 })).toThrow(/deferredGraceSteps/)
     expect(() => register({ deferredSources: [''] })).toThrow(/deferredSources/)
+    expect(() => register({ bootstrapMaxTokens: 0 })).toThrow(/bootstrapMaxTokens/)
+  })
+
+  test('agent/request caps phase-1 maxTokens', async () => {
+    const listeners = register({ bootstrapMaxTokens: 1024, anchorGate: true })
+    const requestListener = listener(listeners, 'agent/request')
+    const result = await requestListener(
+      { agent: agentOf([]), turn: 1, step: 1, signal: {} },
+      async () => ({ provider: 'p', model: 'm', maxTokens: 384000 }),
+    )
+    expect(result.maxTokens).toBe(1024)
+  })
+
+  test('agent/request strips the cap after promotion and keeps foreign values', async () => {
+    const listeners = register({ bootstrapMaxTokens: 1024, anchorGate: true })
+    const requestListener = listener(listeners, 'agent/request')
+    const agent = agentOf([])
+    await requestListener(
+      { agent, turn: 1, step: 1, signal: {} },
+      async () => ({ provider: 'p', model: 'm', maxTokens: 384000 }),
+    )
+    agent.session.events.push({ type: 'tool/call' }, reasoningEvent('We need inspect the repo.'))
+    const promoted = await requestListener(
+      { agent, turn: 2, step: 1, signal: {} },
+      async () => ({ provider: 'p', model: 'm', maxTokens: 1024 }),
+    )
+    expect(promoted.maxTokens).toBeUndefined()
+    const other = await requestListener(
+      { agent, turn: 2, step: 2, signal: {} },
+      async () => ({ provider: 'p', model: 'm', maxTokens: 8192 }),
+    )
+    expect(other.maxTokens).toBe(8192)
+  })
+
+  test('agent/request leaves maxTokens alone without bootstrapMaxTokens', async () => {
+    const listeners = register()
+    const requestListener = listener(listeners, 'agent/request')
+    const result = await requestListener(
+      { agent: agentOf([]), turn: 1, step: 1, signal: {} },
+      async () => ({ provider: 'p', model: 'm', maxTokens: 384000 }),
+    )
+    expect(result.maxTokens).toBe(384000)
   })
 })

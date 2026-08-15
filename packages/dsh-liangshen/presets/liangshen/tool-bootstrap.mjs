@@ -253,12 +253,16 @@ export function apply(ctx, config) {
   if (presentation !== 'native' && presentation !== 'code') {
     throw new TypeError(`${name}: promotedPresentation must be "native" or "code"`)
   }
+  const bootstrapMaxTokens = config.bootstrapMaxTokens === undefined
+    ? undefined
+    : integerAtLeast(config.bootstrapMaxTokens, 'bootstrapMaxTokens', 1)
   const policy = {
     anchorGate: config.anchorGate === true,
     promoteAfterFirstResponse: config.promoteAfterFirstResponse === true,
     maxBootstrapSteps: integerAtLeast(config.maxBootstrapSteps ?? 4, 'maxBootstrapSteps', 1),
     deferredGraceSteps: integerAtLeast(config.deferredGraceSteps ?? 0, 'deferredGraceSteps', 0),
     promotedPresentation: presentation,
+    bootstrapMaxTokens,
   }
 
   // Promotion is applied at step/turn boundaries, never while a step is still
@@ -332,5 +336,25 @@ export function apply(ctx, config) {
       }
     }
     return decision
+  }, { prepend: true })
+
+  // Phase 1 caps the next request output budget to bootstrapMaxTokens, the
+  // community-observed We-need trigger window (dsh-anchored-standard issue 6),
+  // and strips the cap again after promotion. The strip is mandatory:
+  // requestProposal(persistedHeader) carries a plain maxTokens from the
+  // previous header into the next request unless the adapter marked it a
+  // default, so an un-stripped cap would be soldered into every request.
+  ctx.on('agent/request', async (payload, next) => {
+    const resolved = await next()
+    const agent = payload?.agent
+    if (agent === undefined || policy.bootstrapMaxTokens === undefined) return resolved
+    const state = refresh(agent, policy)
+    if (state.promoted) {
+      if (resolved.maxTokens !== policy.bootstrapMaxTokens) return resolved
+      const rest = { ...resolved }
+      delete rest.maxTokens
+      return rest
+    }
+    return { ...resolved, maxTokens: policy.bootstrapMaxTokens }
   }, { prepend: true })
 }

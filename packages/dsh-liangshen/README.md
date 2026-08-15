@@ -22,7 +22,8 @@ The preset ships with extra safeguards on top of the reference mechanism, all co
 - `maxBootstrapSteps` — fallback promotion after N steps when no anchored block appeared;
 - `promoteAfterFirstResponse` — a tool-less first response promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`), so the next user turn already sees the promoted catalog;
 - `promotedPresentation: code` — after promotion the wire is Code Mode (PTC): one `run_code` tool with the full registry available through the generated SDK, switched at the step boundary so the current step's native calls are never interrupted;
-- `deferredSources` + `deferredGraceSteps` — workspace instructions and the skill catalog wait one extra step after promotion, so the tool-catalog switch and the injection shock do not land in the same step.
+- `deferredSources` + `deferredGraceSteps` — workspace instructions and the skill catalog wait one extra step after promotion, so the tool-catalog switch and the injection shock do not land in the same step;
+- `bootstrapMaxTokens` — caps the phase-1 request output budget (community measurements put `max_tokens=1024` in the high-hit "We need" window, versus 0/5 at the 256k DSH default), and the cap is stripped again after promotion so `requestProposal` never solders 1024 into every later request.
 
 Plan mode is supported: phase 1 filters the assembled prompt sections down to the one-line `deployment:persona`, and promotion restores all sections and appends the session's working directory to the persona, so the agent knows its workspace and the plan-mode `plan:policy` section takes effect for every step after promotion.
 
