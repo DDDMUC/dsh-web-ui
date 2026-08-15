@@ -225,3 +225,100 @@ export function computeLanes(rows: readonly GraphCommit[]): GraphRowLanes[] {
   }
   return result
 }
+
+/**
+ * Runtime narrowing for the wire types served to the browser. Zod is not a
+ * dependency of this package, so each guard is a hand-written structural
+ * check over the same shape the host service produces. The routes boundary
+ * runs these before sending a view so a malformed service output can never
+ * leak to the client as a typed envelope value.
+ * @module dsh-git-graph/core/types
+ */
+
+/** Narrow an unknown value onto {@link RepoStatus}. */
+export function isRepoStatus(value: unknown): value is RepoStatus {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return typeof record.root === 'string'
+    && typeof record.branch === 'string'
+    && typeof record.head === 'string'
+    && typeof record.dirtyFiles === 'number'
+    && typeof record.untrackedFiles === 'number'
+    && typeof record.conflicts === 'number'
+    && typeof record.operationInProgress === 'boolean'
+}
+
+/** Narrow an unknown value onto {@link BranchRow}. */
+export function isBranchRow(value: unknown): value is BranchRow {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return typeof record.name === 'string' && typeof record.current === 'boolean'
+}
+
+/** Narrow an unknown value onto {@link BranchesView}. */
+export function isBranchesView(value: unknown): value is BranchesView {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return typeof record.root === 'string'
+    && typeof record.branch === 'string'
+    && Array.isArray(record.branches) && record.branches.every(isBranchRow)
+    && typeof record.dirtyFiles === 'number'
+    && typeof record.untrackedFiles === 'number'
+    && typeof record.conflicts === 'number'
+    && typeof record.operationInProgress === 'boolean'
+}
+
+/** Narrow an unknown value onto {@link GraphCommit}. */
+export function isGraphCommit(value: unknown): value is GraphCommit {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return typeof record.oid === 'string'
+    && Array.isArray(record.parents) && record.parents.every(parent => typeof parent === 'string')
+    && typeof record.subject === 'string'
+    && typeof record.author === 'string'
+    && typeof record.authorTime === 'number'
+    && Array.isArray(record.refs) && record.refs.every(ref => typeof ref === 'string')
+}
+
+/** Narrow an unknown value onto {@link GraphView}. */
+export function isGraphView(value: unknown): value is GraphView {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return typeof record.root === 'string'
+    && typeof record.branch === 'string'
+    && Array.isArray(record.commits) && record.commits.every(isGraphCommit)
+    && typeof record.hasMore === 'boolean'
+}
+
+/** The set of stable {@link GitErrorCode} members the client maps onto copy. */
+const GIT_ERROR_CODES = new Set<GitErrorCode>([
+  'conflicts-present',
+  'operation-in-progress',
+  'branch-in-other-worktree',
+  'tracked-changes-would-be-overwritten',
+  'untracked-changes-would-be-overwritten',
+  'target-branch-not-found',
+  'invalid-branch-name',
+  'branch-already-exists',
+  'workspace-unknown',
+  'internal',
+])
+
+/** Narrow an unknown value onto {@link GitErrorCode}. */
+export function isGitErrorCode(value: unknown): value is GitErrorCode {
+  return typeof value === 'string' && GIT_ERROR_CODES.has(value as GitErrorCode)
+}
+
+/** Narrow an unknown value onto {@link GitError}. */
+export function isGitError(value: unknown): value is GitError {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  if (!isGitErrorCode(record.code)) return false
+  if (typeof record.message !== 'string') return false
+  if (record.paths !== undefined
+    && (!Array.isArray(record.paths) || !record.paths.every(path => typeof path === 'string'))) {
+    return false
+  }
+  if (record.moreFiles !== undefined && typeof record.moreFiles !== 'number') return false
+  return true
+}

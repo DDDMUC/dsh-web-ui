@@ -97,7 +97,7 @@ async function drive(
 
 describe('/git loopback fence', () => {
   it('serves loopback clients exactly as before', async () => {
-    const status = vi.fn(async () => ({ root: '/w', branch: 'main', head: 'abc1234', dirtyFiles: 0 }))
+    const status = vi.fn(async () => makeStatus())
     const { ctx, registrations } = fakeCtx()
     registerGitRoutes(ctx as never, { status } as never)
     const prefix = registrations.find((row) => row.kind === 'prefix')
@@ -108,9 +108,27 @@ describe('/git loopback fence', () => {
     })
 
     expect(result.status).toBe(200)
+    expect(JSON.parse(result.body)).toEqual({ ok: true, value: makeStatus() })
+    expect(status).toHaveBeenCalledWith('/w')
+  })
+
+  it('rejects a structurally invalid status view at the route boundary', async () => {
+    // The service is typed RepoStatus | null, but a malformed value (missing
+    // the untracked/conflict/operation fields) must never leak to the client:
+    // the boundary guard replaces it with a stable internal error.
+    const status = vi.fn(async () => ({ root: '/w', branch: 'main', head: 'abc1234', dirtyFiles: 0 }))
+    const { ctx, registrations } = fakeCtx()
+    registerGitRoutes(ctx as never, { status } as never)
+    const prefix = registrations.find((row) => row.kind === 'prefix')
+
+    const result = await drive(prefix!.handler, '/git/status', {
+      body: JSON.stringify({ path: '/w' }),
+    })
+
+    expect(result.status).toBe(200)
     expect(JSON.parse(result.body)).toEqual({
-      ok: true,
-      value: { root: '/w', branch: 'main', head: 'abc1234', dirtyFiles: 0 },
+      ok: false,
+      error: { code: 'internal', message: 'malformed git response' },
     })
     expect(status).toHaveBeenCalledWith('/w')
   })
@@ -328,5 +346,36 @@ describe('SSE poll loop', () => {
     await vi.advanceTimersByTimeAsync(30_000)
     expect(env.status).toHaveBeenCalledTimes(2)
     conn.close()
+  })
+
+  it('stops polling when the last subscriber closes', async () => {
+    const env = makePollEnv()
+    env.status.mockResolvedValue(makeStatus())
+    const conn = connect(env.sse)
+
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(env.status).toHaveBeenCalledTimes(1)
+    conn.close()
+
+    // With zero subscribers the PollGuard is stopped; no further ticks fire.
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(env.status).toHaveBeenCalledTimes(1)
+  })
+
+  it('resumes polling when a subscriber reconnects after the loop stopped', async () => {
+    const env = makePollEnv()
+    env.status.mockResolvedValue(makeStatus())
+    const first = connect(env.sse)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(env.status).toHaveBeenCalledTimes(1)
+    first.close()
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(env.status).toHaveBeenCalledTimes(1)
+
+    // A fresh connection creates and starts a new guard: polling resumes.
+    const second = connect(env.sse)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(env.status).toHaveBeenCalledTimes(2)
+    second.close()
   })
 })
