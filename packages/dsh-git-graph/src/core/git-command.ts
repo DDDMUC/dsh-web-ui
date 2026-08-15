@@ -57,10 +57,18 @@ export const OPERATION_MARKERS = [
 ] as const
 
 /**
- * `git rev-parse --git-path <marker>...` — resolve every operation-marker
- * path in ONE spawn (one --git-path option per marker; the option form is
- * repeatable, unlike positional paths). On Windows, where each git.exe
- * cold start costs ~0.7s, this replaces the previous 7 sequential marker
+ * git rev-parse --git-path <marker> - resolve ONE operation marker to its
+ * on-disk path. Kept as the per-marker probe for the service's fallback
+ * when the single combined spawn fails (a hung or non-zero combined call
+ * must not silently hide an in-progress operation).
+ */
+export const gitPathArgv = (marker: string): string[] => ['rev-parse', '--git-path', marker]
+
+/**
+ * git rev-parse --git-path <marker>... - resolve every operation-marker path
+ * in ONE spawn (one --git-path option per marker; the option form is
+ * repeatable, unlike positional paths). On Windows, where each git.exe cold
+ * start costs about 0.7s, this replaces the previous 7 sequential marker
  * probes with a single process.
  */
 export const operationMarkersArgv = (): string[] => [

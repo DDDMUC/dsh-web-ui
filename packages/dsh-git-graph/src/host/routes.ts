@@ -42,6 +42,16 @@ const POLL_INTERVAL_MS = 30_000
 /** SSE keep-alive comment interval (proxies drop idle connections). */
 const HEARTBEAT_INTERVAL_MS = 15_000
 
+/**
+ * Route-layer deadline for one subscribed status poll. The subprocess graceMs
+ * is a teardown grace, not an execution timeout, so a hung git child would
+ * otherwise leave the overlap guard stuck forever (polling stays true and no
+ * later tick fires). This deadline is owned by the poll loop: on expiry the
+ * subscriber is treated as failed for this tick, Promise.all still settles,
+ * the finally resets the guard, and the next tick retries.
+ */
+const STATUS_TIMEOUT_MS = 15_000
+
 /** Request body size cap; larger bodies are destroyed rather than drained. */
 const BODY_CAP_BYTES = 1 << 20
 
@@ -143,7 +153,16 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
     polling = true
     void Promise.all([...subscribers].map(async (subscriber) => {
       try {
-        const status = await service.status(subscriber.path)
+        // Bound the poll so a hung git child (the subprocess graceMs is not an
+        // execution timeout) cannot wedge the overlap guard forever: on
+        // timeout this subscriber is treated as failed for this tick, Promise.all
+        // settles, the finally resets polling, and the next tick recovers.
+        const status = await Promise.race([
+          service.status(subscriber.path),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('git status timed out')), STATUS_TIMEOUT_MS)
+          }),
+        ])
         const key = status === null ? 'no-repo' : `${status.root}|${status.branch}|${status.head}`
         if (key === subscriber.last) return
         subscriber.last = key

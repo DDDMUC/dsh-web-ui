@@ -384,4 +384,33 @@ describe('BranchChip', () => {
     })
     expect(await screen.findByText('root commit')).toBeTruthy()
   })
+
+  it('throttles focus refetches to one per 5s window', async () => {
+    // now starts past the initial lastFocusRefetch (0) so the FIRST focus is
+    // the one consumed by the throttle window (a second burst focus is held).
+    vi.useFakeTimers({ now: 10_000 })
+    try {
+      const { injected } = bench()
+      // Flush the initial mount load so the throttle deltas are relative to it.
+      await act(async () => {})
+      const initialCalls = injected.repoStatus.mock.calls.length
+
+      await act(async () => { window.dispatchEvent(new Event('focus')) })
+      await act(async () => {})
+      expect(injected.repoStatus.mock.calls.length).toBe(initialCalls + 1)
+
+      // A second focus inside the 5s window is throttled: no new call.
+      await act(async () => { window.dispatchEvent(new Event('focus')) })
+      await act(async () => {})
+      expect(injected.repoStatus.mock.calls.length).toBe(initialCalls + 1)
+
+      // The window elapses; the next focus refetches again.
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+      await act(async () => { window.dispatchEvent(new Event('focus')) })
+      await act(async () => {})
+      expect(injected.repoStatus.mock.calls.length).toBe(initialCalls + 2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

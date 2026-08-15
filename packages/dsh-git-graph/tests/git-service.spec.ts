@@ -243,4 +243,34 @@ describe('GitService', () => {
     expect(await service.status(repo)).toMatchObject({ operationInProgress: true })
     expect(calls.filter((argv) => argv[0] === 'rev-parse' && argv.includes('--git-path'))).toHaveLength(2)
   })
+
+  it('falls back to per-marker probes when the combined marker spawn returns non-zero', async () => {
+    // A real operation marker flips the verdict; the combined spawn is made
+    // to fail (exitCode 1 / empty stdout) so the fallback path must carry it.
+    await writeFile(join(repo, '.git', 'MERGE_HEAD'), 'deadbeef\n')
+
+    let combinedCalls = 0
+    let singleMarkerCalls = 0
+    const fallbackRunner = {
+      async run(argv: readonly string[], cwd: string): Promise<GitRunResult> {
+        const isRevParsePath = argv[0] === 'rev-parse' && argv.includes('--git-path')
+        if (isRevParsePath) {
+          const gitPathCount = argv.filter((arg) => arg === '--git-path').length
+          if (gitPathCount > 1) {
+            combinedCalls += 1
+            return { exitCode: 1, stdout: '', stderr: '' }
+          }
+          singleMarkerCalls += 1
+        }
+        return runner.run(argv, cwd)
+      },
+    }
+    const service = new GitService(fallbackRunner, allowGate(repo))
+
+    // One combined spawn fails; the fallback probes every marker with its
+    // own git rev-parse --git-path and MERGE_HEAD turns the verdict on.
+    expect(await service.status(repo)).toMatchObject({ operationInProgress: true })
+    expect(combinedCalls).toBe(1)
+    expect(singleMarkerCalls).toBe(7)
+  })
 })

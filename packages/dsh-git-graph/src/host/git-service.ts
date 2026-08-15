@@ -14,9 +14,9 @@ import type {} from '@deepseek-ai/dsh-subprocess'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import {
   checkRefFormatArgv, classifySwitchFailure, createBranchArgv, forEachRefArgv,
-  graphLogArgv, headBranchArgv, headShortArgv, operationMarkersArgv,
-  statusPorcelainArgv, switchArgv, topLevelArgv, unmergedArgv, validateBranchName,
-  verifyRefArgv, worktreeListArgv,
+  gitPathArgv, graphLogArgv, headBranchArgv, headShortArgv, operationMarkersArgv,
+  OPERATION_MARKERS, statusPorcelainArgv, switchArgv, topLevelArgv, unmergedArgv,
+  validateBranchName, verifyRefArgv, worktreeListArgv,
 } from '../core/git-command.ts'
 import {
   parseBranches, parseGraph, parsePorcelain, parseWorktreeBranches,
@@ -242,16 +242,29 @@ export class GitService {
 
   /** Whether any git operation marker is present in the repository. */
   private async operationInProgress(root: string): Promise<boolean> {
-    // One spawn for all seven markers (Windows: 7 git.exe cold starts -> 1).
-    // --git-path prints a repo-relative path for in-repo markers (and an
-    // absolute one for worktree/linked stores); resolve covers both.
+    // Preferred path: one spawn for all seven markers (Windows: 7 git.exe
+    // cold starts -> 1). --git-path prints a repo-relative path for in-repo
+    // markers (and an absolute one for worktree/linked stores); resolve
+    // covers both.
     const resolved = await this.runner.run(operationMarkersArgv(), root)
-    if (resolved.exitCode !== 0) return false
-    const markerPaths = resolved.stdout
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line !== '')
-    return markerPaths.some((markerPath) => existsSync(resolve(root, markerPath)))
+    if (resolved.exitCode === 0) {
+      const markerPaths = resolved.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line !== '')
+      return markerPaths.some((markerPath) => existsSync(resolve(root, markerPath)))
+    }
+    // Non-zero combined exit: fall back to the per-marker sequential probe
+    // (same as the pre-merge implementation) so a single failed rev-parse
+    // cannot silently hide an in-progress operation. Every marker is probed
+    // and the verdict is true when any path exists; all-missing returns false.
+    let inProgress = false
+    for (const marker of OPERATION_MARKERS) {
+      const single = await this.runner.run(gitPathArgv(marker), root)
+      const markerPath = single.stdout.trim()
+      if (markerPath !== '' && existsSync(resolve(root, markerPath))) inProgress = true
+    }
+    return inProgress
   }
 
   /**
