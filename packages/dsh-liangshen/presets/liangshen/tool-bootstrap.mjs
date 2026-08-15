@@ -4,7 +4,7 @@
  *
  * Phase 1 (no persisted `tool/call` yet):
  * - tool catalog: one platform shell plus `commonTools`
- * - prompt sections: only the `persona` section (all other sections,
+ * - prompt sections: only the persona section (all other sections,
  *   including plan-mode's `plan:policy`, return after promotion)
  * - runtime contexts: emptied (no sandbox/approval snapshot)
  * - pre-step messages: only explicit user messages pass
@@ -31,6 +31,15 @@ export const name = 'anchored-tool-bootstrap'
 
 /** Prompt assembly and the tool registry must exist before this filter runs. */
 export const inject = ['systemPrompt', 'tools']
+
+/**
+ * Prompt section names that carry the preset persona. The `dsh-persona` row
+ * registers the preset persona as `deployment:persona` (the PERSONA_SECTION
+ * name of `@deepseek-ai/dsh-system-prompt`), shadowing the deployment
+ * default for the preset scope; `persona` is the legacy name kept for older
+ * harnesses that registered the persona section without the prefix.
+ */
+const PERSONA_SECTION_NAMES = new Set(['deployment:persona', 'persona'])
 
 /** Message-source kinds the model may see during phase 1. */
 const DEFAULT_MESSAGE_SOURCES = ['user']
@@ -263,7 +272,7 @@ export function apply(ctx, config) {
       tools: assembled.tools.filter(tool => bootstrap.has(tool.name)),
       contexts: [],
       ...(Array.isArray(assembled.sections)
-        ? { sections: assembled.sections.filter(section => section?.name === 'persona') }
+        ? { sections: assembled.sections.filter(section => PERSONA_SECTION_NAMES.has(section?.name)) }
         : {}),
     }
   }, { prepend: true })

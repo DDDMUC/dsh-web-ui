@@ -8,7 +8,7 @@ Ships the "Anchored Standard" preset as a one-command plugin of the dsh-web-ui f
 
 DeepSeek V4 Pro conditions strongly on the API tool catalog visible in the FIRST request when choosing its execution trajectory. In the community eval ([xiaobright/modeltest](https://github.com/xiaobright/modeltest)), Standard / PTC scored 91/92 while Minimal reached 99/96 — but Minimal keeps only two tools. This two-phase approach separates the first-trajectory choice from full later capability:
 
-1. The first model request exposes only the builtin Minimal preset's exact two tools (persistent `bash` plus `str_replace_editor`), keeps only the `persona` prompt section, empties runtime contexts, and passes only the user's own messages;
+1. The first model request exposes only the builtin Minimal preset's exact two tools (persistent `bash` plus `str_replace_editor`), keeps only the `deployment:persona` prompt section, empties runtime contexts, and passes only the user's own messages;
 2. After the session's first durable `tool/call`, promotion waits until the first reasoning block is minimal-like (contains `we` and no `let me`), with a four-step fallback; the wire then switches to Code Mode (PTC) — a single `run_code` tool backed by the full tool registry SDK — and every assembled prompt section plus the ordinary workspace-instruction, skill-catalog, and runtime-context injections return;
 3. The phase derives from persisted session events, so resume / reload never lose state.
 
@@ -24,7 +24,7 @@ The preset ships with extra safeguards on top of the reference mechanism, all co
 - `promotedPresentation: code` — after promotion the wire is Code Mode (PTC): one `run_code` tool with the full registry available through the generated SDK, switched at the step boundary so the current step's native calls are never interrupted;
 - `deferredSources` + `deferredGraceSteps` — workspace instructions and the skill catalog wait one extra step after promotion, so the tool-catalog switch and the injection shock do not land in the same step.
 
-Plan mode is supported: phase 1 filters the assembled prompt sections down to the one-line `persona`, and promotion restores all sections, so the plan-mode `plan:policy` section takes effect for every step after promotion.
+Plan mode is supported: phase 1 filters the assembled prompt sections down to the one-line `deployment:persona`, and promotion restores all sections, so the plan-mode `plan:policy` section takes effect for every step after promotion.
 
 ## Install
 
@@ -47,7 +47,7 @@ Fully restart `dsh web`, open a NEW empty session, and pick "梁神模式" as th
 Export the session JSONL and inspect `request/header`:
 
 - The first header should carry only `bash/str_replace_editor` (the persistent shell plus the sandboxed editor);
-- The first turn should contain only the user's own messages — no workspace-instruction baseline, no runtime snapshot, no skill-catalog message — and only the `persona` prompt section;
+- The first turn should contain only the user's own messages — no workspace-instruction baseline, no runtime snapshot, no skill-catalog message — and only the `deployment:persona` prompt section;
 - After the first tool call, the next changed header should carry exactly `run_code` (PTC); the runtime snapshot and all prompt sections (including plan mode's `plan:policy`) arrive with that step and the workspace instructions and skill catalog arrive one step later;
 - Phase-1 editor writes obey the host file sandbox policy — there is no bare local-filesystem bypass;
 - Later requests keep `run_code`.
@@ -63,7 +63,7 @@ node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jso
 - A first model response that calls no tool promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`). The release is decided during prompt assembly, so the new user turn already gets the promoted PTC catalog and its messages are not stripped;
 - After the first tool call, promotion waits for the first minimal-like reasoning block or the `maxBootstrapSteps` fallback, whichever comes first;
 - A tool call that fails still counts toward promotion as long as `tool/call` was persisted;
-- Phase 1 keeps only the `persona` prompt section; promotion restores every assembled section, so plan mode's `plan:policy` is enforced after phase 1;
+- Phase 1 keeps only the `deployment:persona` prompt section; promotion restores every assembled section, so plan mode's `plan:policy` is enforced after phase 1;
 - Workspace instructions, the skill catalog, and the runtime snapshot stay out of phase 1; the snapshot returns with the catalog and the other two arrive one step later;
 - Phase-1 file tools inherit the host file sandbox (no bare `dsh-fs-local` filesystem);
 - The phase-1 persistent `bash` replaces the Standard ephemeral shell for the whole session (both tools register the name `bash`);
