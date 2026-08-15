@@ -3,7 +3,7 @@
  * active. Cards open the task detail (never execute directly); the header
  * offers filter, new-task, and a back-to-chat escape.
  */
-import { useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { selectedTaskOf, type BoardController } from '../../core/controller.ts'
 import { COLUMNS, type TaskRecord, type TaskStatus } from '../../core/tasks.ts'
 import { t, type TaskBoardKey } from '../locales.ts'
@@ -28,6 +28,17 @@ function matchesFilter(task: TaskRecord, filter: string): boolean {
   return task.title.toLowerCase().includes(needle) || task.description.toLowerCase().includes(needle)
 }
 
+/**
+ * Memoized per-card adapter: with a stable `onOpen` from the board and an
+ * immutable task record (only the changed card gets a new object ref), a card
+ * re-renders only when its own task changes — not when a sibling card status,
+ * the filter, or the selection moves.
+ */
+const MemoTaskCard = memo(function MemoTaskCard({ task, onOpen }: { task: TaskRecord; onOpen: (id: string) => void }) {
+  const onClick = useCallback(() => { onOpen(task.id) }, [task.id, onOpen])
+  return <TaskCard task={task} onClick={onClick} />
+})
+
 /** Board component; subscribes to the controller snapshot. */
 export function TaskBoard({ controller }: { controller: BoardController }) {
   const [snapshot, setSnapshot] = useState(controller.getSnapshot())
@@ -39,6 +50,7 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
   const [showNew, setShowNew] = useState(false)
   const selected = selectedTaskOf(snapshot)
   const visible = snapshot.tasks.filter(task => matchesFilter(task, filter))
+  const openTask = useCallback((id: string): void => { controller.openTask(id) }, [controller])
 
   return (
     <div className={css.board} data-dsh-taskboard-board="">
@@ -80,11 +92,7 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
               </header>
               <div className={css.cards}>
                 {tasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onClick={() => { controller.openTask(task.id) }}
-                  />
+                  <MemoTaskCard key={task.id} task={task} onOpen={openTask} />
                 ))}
                 {tasks.length === 0 && <div className={css.columnEmpty}>{t('board.empty')}</div>}
               </div>

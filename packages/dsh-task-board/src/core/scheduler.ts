@@ -9,6 +9,12 @@
  * a task still running at its due instant is skipped by the controller's
  * runTask guard and simply waits for the next cron match.
  *
+ * The ticker is controlled: `start` arms a single interval guarded by an
+ * idempotence check (a second start while running is a no-op, so wiring can
+ * never leak a duplicate timer), and `stop`/`dispose` clear the timer and
+ * drop the environment listeners. The board unmount path calls stop/dispose,
+ * so no interval or listener outlives the board.
+ *
  * Framework-free: all runtime access flows through the injected deps
  * (structural faces), so tests drive ticks directly without timers.
  */
@@ -47,27 +53,54 @@ export interface SchedulerDeps {
  */
 export class SchedulerService {
   private timer: ReturnType<typeof setInterval> | undefined
+  private environmentListener: (() => void) | undefined
   private disposed = false
+  private started = false
 
   /** @param deps - tasks/clock/trigger/apply faces (see {@link SchedulerDeps}). */
   constructor(private readonly deps: SchedulerDeps) {}
 
-  /** Start ticking: one immediate check (catch-up after reload) + the interval. */
+  /**
+   * Start ticking: one immediate check (catch-up after reload) + the interval.
+   * Single-instance: a second start while already armed is a no-op, so a
+   * re-entrant mount can never stack a duplicate timer.
+   */
   start(): void {
     if (this.disposed) return
+    if (this.started) return
+    this.started = true
     // Immediate catch-up tick: schedules whose due instant passed while the
     // tab was closed are triggered as soon as the runtime is ready.
     this.tick()
     this.timer = setInterval(() => { this.tick() }, this.deps.tickMs ?? 60_000)
-    this.deps.environment?.addEventListener('visibilitychange', this.onVisibility)
+    if (this.deps.environment !== undefined) {
+      this.environmentListener = () => { this.tick() }
+      this.deps.environment.addEventListener('visibilitychange', this.environmentListener)
+    }
+  }
+
+  /**
+   * Stop ticking and drop listeners (idempotent). Preferred shutdown verb for
+   * callers that treat the scheduler as a controlled ticker; `dispose` is an
+   * alias.
+   */
+  stop(): void {
+    this.dispose()
   }
 
   /** Stop ticking and drop listeners (idempotent). */
   dispose(): void {
+    if (this.disposed && this.timer === undefined && this.environmentListener === undefined) return
     this.disposed = true
-    if (this.timer !== undefined) clearInterval(this.timer)
-    this.timer = undefined
-    this.deps.environment?.removeEventListener('visibilitychange', this.onVisibility)
+    this.started = false
+    if (this.timer !== undefined) {
+      clearInterval(this.timer)
+      this.timer = undefined
+    }
+    if (this.environmentListener !== undefined && this.deps.environment !== undefined) {
+      this.deps.environment.removeEventListener('visibilitychange', this.environmentListener)
+      this.environmentListener = undefined
+    }
   }
 
   /**
@@ -99,6 +132,5 @@ export class SchedulerService {
       if (accepted) this.deps.applySchedule(task.id, next, now)
     }
   }
-
-  private readonly onVisibility = (): void => { this.tick() }
 }
+

@@ -7,14 +7,22 @@
  * navigates to a session (the sessions-list `current` selection changes).
  * Framework-free (structural runtime faces) so the whole orchestration is
  * unit-testable with fakes.
+ *
+ * The per use-case domain transitions (create/update/delete/schedule) live in
+ * dedicated modules under core/use-cases and are applied here; the controller
+ * owns only the orchestration seam (state, persistence, notify, execution,
+ * navigation, reconciliation).
  */
 import { ExecutionService, type ExecutionEvent } from './execution.ts'
-import { isValidCron, nextRunAtMs } from './schedule.ts'
 import type { TaskStore } from './store.ts'
 import {
-  createTask, settleExecution, startExecution, withSchedule, withStatus,
+  settleExecution, startExecution, withStatus,
   type NewTaskInput, type TaskRecord, type TaskStatus,
 } from './tasks.ts'
+import { applyCreateTask } from './use-cases/task-create.ts'
+import { applyDeleteTask } from './use-cases/task-delete.ts'
+import { applyScheduleNextRun as applyScheduleRollForward, applySetSchedule } from './use-cases/task-schedule.ts'
+import { applyUpdateTask } from './use-cases/task-update.ts'
 
 /** The sessions face the controller needs for navigation awareness. */
 export interface SessionsControllerFace {
@@ -168,21 +176,18 @@ export class BoardController {
     this.notify()
   }
 
-  // --- task mutations ---------------------------------------------------------
+  // --- task mutations (use-case transitions in core/use-cases) -----------------
 
   createTask(input: NewTaskInput): TaskRecord | undefined {
-    const title = input.title.trim()
-    if (title === '') return undefined
-    const task = createTask(input, this.now(), this.uuid())
-    this.tasks = [...this.tasks, task]
+    const { task, tasks } = applyCreateTask(this.tasks, input, this.now(), this.uuid())
+    if (task === undefined) return undefined
+    this.tasks = [...tasks]
     this.persistAndNotify()
     return task
   }
 
   updateTask(id: string, patch: Partial<Pick<TaskRecord, 'title' | 'description' | 'prompt'>>): void {
-    this.tasks = this.tasks.map(task => task.id === id
-      ? { ...task, ...patch, updatedAt: this.now() }
-      : task)
+    this.tasks = [...applyUpdateTask(this.tasks, id, patch, this.now())]
     this.persistAndNotify()
   }
 
@@ -192,8 +197,9 @@ export class BoardController {
   }
 
   deleteTask(id: string): void {
-    this.tasks = this.tasks.filter(task => task.id !== id)
-    if (this.selectedTaskId === id) this.selectedTaskId = undefined
+    const { tasks, selectionCleared } = applyDeleteTask(this.tasks, this.selectedTaskId, id)
+    this.tasks = [...tasks]
+    if (selectionCleared) this.selectedTaskId = undefined
     this.persistAndNotify()
   }
 
@@ -203,21 +209,15 @@ export class BoardController {
    * Update a task's schedule rule. A blank or invalid cron expression is
    * rejected (returns false, state untouched). When the rule ends up enabled
    * the next run instant is computed immediately; a disabled rule carries no
-   * next-run instant.
+   * next-run instant. Delegates the domain transition to the schedule use case.
    * @param id - the task to schedule.
    * @param patch - fields to change (absent fields keep their current value).
    * @returns true when applied, false when rejected (invalid cron / unknown task).
    */
   setSchedule(id: string, patch: { enabled?: boolean; cron?: string }): boolean {
-    const task = this.tasks.find(candidate => candidate.id === id)
-    if (task === undefined) return false
-    const current = task.schedule
-    const cron = (patch.cron ?? current?.cron ?? '').trim()
-    if (cron === '' || !isValidCron(cron)) return false
-    const enabled = patch.enabled ?? current?.enabled ?? false
-    const nextRunAt = enabled ? nextRunAtMs(cron, this.now()) : undefined
-    this.tasks = this.tasks.map(candidate =>
-      candidate.id === id ? withSchedule(candidate, { enabled, cron, nextRunAt }, this.now()) : candidate)
+    const { tasks, applied } = applySetSchedule(this.tasks, id, patch, this.now())
+    if (!applied) return false
+    this.tasks = [...tasks]
     this.persistAndNotify()
     return true
   }
@@ -228,10 +228,8 @@ export class BoardController {
    * schedule rule (it was deleted mid-tick, for example).
    */
   applyScheduleNextRun(id: string, nextRunAt: number | undefined, lastTriggeredAt: number | undefined): void {
-    this.tasks = this.tasks.map(task =>
-      task.id === id && task.schedule !== undefined
-        ? withSchedule(task, { nextRunAt, lastTriggeredAt }, this.now())
-        : task)
+    const next = applyScheduleRollForward(this.tasks, id, nextRunAt, lastTriggeredAt, this.now())
+    this.tasks = [...next]
     this.persistAndNotify()
   }
 
@@ -392,3 +390,4 @@ function attachSessionId(
       execution.id === executionId ? { ...execution, sessionId } : execution),
   }
 }
+
