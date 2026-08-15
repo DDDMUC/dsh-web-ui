@@ -47,6 +47,41 @@ interface EnvelopedResult {
   result: BridgeDescribeResult | BridgeMutateResult
 }
 
+/** One durable write a batched scope mutation performs. */
+export interface BridgeBatchOp {
+  /** Field this entry writes. */
+  field: string
+  /** set stores a value; unset drops the leaf. */
+  op: 'set' | 'unset'
+  /** Value for op set (absent for unset). */
+  value?: unknown
+}
+
+/** Per-field outcome of one batched scope mutation. */
+export interface BridgeBatchFieldResult {
+  /** Field this entry writes. */
+  field: string
+  /** Whether the Host accepted this field's write (per the read-back view). */
+  landed: boolean
+}
+
+/**
+ * Result of one batched scope mutation. The whole request either applies
+ * (every op validated together, so cross-field hooks like baseURL+model pass)
+ * or refuses; per-field success is still reported from the read-back view so
+ * a field the Host silently failed to hold is not cleared on the card.
+ */
+export interface BridgeBatchResult {
+  /** Whether the whole mutate was accepted. */
+  ok: boolean
+  /** Per-field success, in the request order (always present when ok). */
+  fields: BridgeBatchFieldResult[]
+  /** Host rejection code (mutate refused). */
+  code?: string
+  /** Host rejection message (mutate refused). */
+  message?: string
+}
+
 /**
  * Build the fetch-backed settings face for the bridge routes. Network and
  * HTTP failures collapse into an ok:false envelope so the controller keeps
@@ -87,7 +122,7 @@ export function createBridgeApi(fetchFn: typeof fetch): BridgeSettingsFace {
  */
 class BridgeScopeController<T> implements SettingsScope<T> {
   private readonly store: SnapshotStore<SettingsScopeSnapshot<T>>
-  private tail: Promise<void> = Promise.resolve()
+  private tail: Promise<unknown> = Promise.resolve()
   private disposed = false
 
   constructor(
@@ -126,17 +161,28 @@ class BridgeScopeController<T> implements SettingsScope<T> {
     return this.enqueue(() => this.write({ op: 'unset', path: [field] }))
   }
 
+  /**
+   * Write every staged op in one bridge /mutate so the Host validate hook
+   * judges the whole batch (baseURL+model together) instead of each field in
+   * isolation. Reports per-field success from the returned view.
+   * @param fields - the operations to apply, in order.
+   * @returns the batch outcome and per-field landed flags.
+   */
+  mutate(fields: BridgeBatchOp[]): Promise<BridgeBatchResult> {
+    return this.enqueue(() => this.writeBatch(fields))
+  }
+
   /** Stop queued operations and wait for the current bridge call to settle. */
   async dispose(): Promise<void> {
     this.disposed = true
     await this.tail
   }
 
-  private enqueue(operation: () => Promise<void>): Promise<void> {
-    if (this.disposed) return Promise.resolve()
+  private enqueue<U>(operation: () => Promise<U>): Promise<U> {
+    if (this.disposed) return Promise.resolve(undefined as U)
     const task = this.tail.then(async () => {
-      if (this.disposed) return
-      await operation()
+      if (this.disposed) return undefined as U
+      return operation()
     })
     this.tail = task.catch(() => {})
     return task
@@ -193,6 +239,50 @@ class BridgeScopeController<T> implements SettingsScope<T> {
     this.accept(response.result.value.value, response.result.value, undefined)
   }
 
+  private async writeBatch(fields: BridgeBatchOp[]): Promise<BridgeBatchResult> {
+    const revision = this.getSnapshot().revision
+    const ops = fields.map(({ field, op, value }) => op === 'set'
+      ? { op, path: [field], value }
+      : { op, path: [field] })
+    let response: { result: BridgeMutateResult }
+    try {
+      response = await this.api.settings.mutate({
+        ns: this.spec.namespace,
+        ops,
+        ...revision === undefined ? {} : { expectedRevision: revision },
+      })
+    } catch {
+      await this.read()
+      return { ok: false, fields: [], code: 'internal', message: 'settings bridge unreachable' }
+    }
+    if (!response.result.ok || this.disposed) {
+      const refusal = response.result.ok === false ? response.result : { code: 'internal', message: 'settings bridge unreachable' }
+      await this.read()
+      return { ok: false, fields: [], code: refusal.code, message: refusal.message }
+    }
+    this.accept(response.result.value.value, response.result.value, undefined)
+    return { ok: true, fields: this.landedFields(fields, response.result.value) }
+  }
+
+  /**
+   * Judge each requested field against the read-back view. A secret field is
+   * redacted from the user layer, so it is judged by the view's secret-set
+   * marker; every other field is judged by user-layer presence/value.
+   */
+  private landedFields(fields: BridgeBatchOp[], view: { user?: unknown; secrets?: { path: string[]; set: boolean }[] }): BridgeBatchFieldResult[] {
+    const secretSet = new Map<string, boolean>()
+    for (const secret of view.secrets ?? []) secretSet.set(secret.path.join('.'), secret.set)
+    const user = view.user as Record<string, unknown> | undefined
+    return fields.map(({ field, op, value }) => {
+      const secretFlag = secretSet.get(field)
+      if (secretFlag !== undefined) return { field, landed: secretFlag }
+      if (op === 'set') {
+        return { field, landed: user !== undefined && Object.hasOwn(user, field) && user[field] === value }
+      }
+      return { field, landed: user === undefined || !Object.hasOwn(user, field) }
+    })
+  }
+
   /** Publish one accepted Host view (value narrowed by the optional decoder). */
   private accept(section: unknown, view: { base?: unknown; user?: unknown; revision: number }, writable: boolean | undefined): void {
     const decoded = this.spec.decode === undefined ? section as T : this.spec.decode(section)
@@ -225,7 +315,7 @@ export interface CompatScopeOptions<T> {
  * @param options - the official scope, the namespace, and the loopback fetch.
  * @returns the compatibility scope implementing the SettingsScope contract.
  */
-export function createCompatScope<T>(options: CompatScopeOptions<T>): SettingsScope<T> & { load(): Promise<void> } {
+export function createCompatScope<T>(options: CompatScopeOptions<T>): SettingsScope<T> & { load(): Promise<void> } & { mutate?: (fields: BridgeBatchOp[]) => Promise<BridgeBatchResult> } {
   const { namespace, primary } = options
   const fallback = options.fetchFn === undefined
     ? undefined
@@ -261,6 +351,16 @@ export function createCompatScope<T>(options: CompatScopeOptions<T>): SettingsSc
     load: async () => {
       fallbackStarted = true
       await fallback?.load()
+    },
+    // The batch surface exists only while the bridge controller is the active
+    // transport; the official scope path still writes per-field (its writes
+    // are out of our reach, so the card's duck-typed detection falls back to
+    // the per-field loop there). A getter keeps the capability decision at
+    // call time instead of freezing it when the wrapper is built.
+    get mutate() {
+      const backend = active()
+      if (fallback !== undefined && backend === fallback && typeof fallback.mutate === 'function') return fallback.mutate.bind(fallback)
+      return undefined
     },
   }
   function active(): SettingsScope<T> {
