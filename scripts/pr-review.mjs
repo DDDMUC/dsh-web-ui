@@ -393,16 +393,21 @@ function readField(section, label) {
   const lines = cleaned.split(`\n`)
   const idx = lines.findIndex((l) => l.includes(label))
   if (idx === -1) return ``
-  // 优先取 label 行内冒号后的内容；为空时取后续第一个非空行（形如"字段名：内容"的行视为下一个字段）
+  // 优先取 label 行内冒号后的内容；否则收集后续内容直到下一个字段标签行。
+  // 与 pr-contribution-rules.yml 的 readValidationPart 语义对齐：值允许代码围栏 /
+  // 列表 / 多行；"- xxx：yyy" 这类列表行不是字段边界（此前会把列表行误判为
+  // 下一个字段，导致按模板填写的 PR 被误拒）。
   const inline = lines[idx].split(/[：:]/).slice(1).join(``).trim()
   if (inline) return inline
+  const out = []
+  let inFence = false
   for (const line of lines.slice(idx + 1)) {
     const t = line.trim()
-    if (!t) continue
-    if (/^[^：:]{1,24}[：:]\S/.test(t)) return ``
-    return t
+    if (t.startsWith("```")) { inFence = !inFence; continue }
+    if (!inFence && !/^[-*#>`!]/.test(t) && (/^[^：:]{1,24}[：:]\S/.test(t) || /^[^：:]{1,24}[：:]\s*$/.test(t))) break
+    out.push(line)
   }
-  return ``
+  return out.join(`\n`).trim()
 }
 
 /**
