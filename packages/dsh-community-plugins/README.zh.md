@@ -30,7 +30,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-community-plugins
 
 ## 配置
 
-- **启用开关**：设置 > 插件配置 > Community Plugins。关闭后隐藏索引列表，重新打开即恢复；选择持久化在 community-plugins 设置命名空间。
+- **启用开关**：位于「社区插件」一级分区自身（分区卡片自带的开关）。关闭后隐藏索引列表，重新打开即恢复；选择持久化在 community-plugins 设置命名空间。
 
 ## 已知限制
 
