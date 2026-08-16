@@ -533,6 +533,53 @@ export interface SkinSwitchPaths {
 }
 
 /**
+ * Derive the running harness home + profile from the skin-center package's
+ * own install location — the one authority that is true regardless of how
+ * the GUI was launched (issue #254: no DSH_PROFILE env var, cwd outside
+ * profiles/<name>, so every legacy fallback ends on the wrong profile).
+ * Both the literal module path and its realpath are scanned, because profile
+ * node_modules entries are commonly symlinks (per-skin links, pnpm store):
+ * the literal chain preserves the profiles/<name>/node_modules segment while
+ * the realpath chain covers store-resolved loads. The first ancestor matching
+ * <harnessHome>/profiles/<name>/node_modules wins; the inner node_modules
+ * under .pnpm/<pkg> never matches because its grandparent is .pnpm, not
+ * profiles.
+ * @param fromUrl - the module URL to resolve from (defaults to this module's
+ *   own import.meta.url); injectable so tests can place the module inside a
+ *   simulated install layout.
+ * @returns the harness home (already the .dsh dir — no suffix is appended)
+ *   and the profile name, or null when the module is not installed under a
+ *   profiles tree (monorepo dev checkout — callers keep their legacy
+ *   fallbacks).
+ */
+export function resolveInstallLayout(fromUrl: string = import.meta.url): { harnessHome: string; profile: string } | null {
+  const starts = [fileURLToPath(fromUrl)]
+  try {
+    const real = realpathSync(starts[0])
+    if (real !== starts[0]) starts.push(real)
+  } catch {
+    // Unreadable path: the literal chain alone still has a chance.
+  }
+  for (const start of starts) {
+    let current = dirname(start)
+    for (;;) {
+      if (basename(current) === 'node_modules') {
+        const profileDir = dirname(current)
+        const profilesDir = dirname(profileDir)
+        const profile = basename(profileDir)
+        if (basename(profilesDir) === 'profiles' && profile !== '' && profile !== '.' && profile !== '..' && profile !== 'node_modules') {
+          return { harnessHome: dirname(profilesDir), profile }
+        }
+      }
+      const parent = dirname(current)
+      if (parent === current) break
+      current = parent
+    }
+  }
+  return null
+}
+
+/**
  * First non-blank string in a list of candidate values. Whitespace-only
  * values (including environment variables set to spaces) count as unset.
  */
@@ -553,13 +600,17 @@ function firstNonBlank(...values: Array<string | undefined>): string | undefined
  *  - otherwise a trimmed non-empty `$DSH_HOME` is the harness home directly
  *    (dsh's `resolveDshHome()` contract — the env var already points at the
  *    `.dsh` directory, so no suffix is appended);
+ *  - otherwise the harness home derived from this package's install layout
+ *    (issue #254: the launcher may have configured the home without any env
+ *    var reaching this process) — already the `.dsh` dir, no suffix;
  *  - otherwise `homedir()/.dsh`.
  * @param optsHome - injectable HOME (tests); default resolves from env/homedir.
  * @param env - environment map (defaults to process.env).
+ * @param installHome - harness home from resolveInstallLayout (no suffix).
  */
-export function resolveHarnessHome(optsHome?: string, env: NodeJS.ProcessEnv = process.env): string {
+export function resolveHarnessHome(optsHome?: string, env: NodeJS.ProcessEnv = process.env, installHome?: string): string {
   if (optsHome !== undefined) return joinPath(optsHome, '.dsh')
-  return firstNonBlank(env.DSH_HOME) ?? joinPath(homedir(), '.dsh')
+  return firstNonBlank(env.DSH_HOME, installHome) ?? joinPath(homedir(), '.dsh')
 }
 
 /**
@@ -589,6 +640,16 @@ export function resolveProfile(
   const explicit = firstNonBlank(optsProfile, env.DSH_SKIN_PROFILE, env.DSH_PROFILE)
   if (explicit !== undefined) return explicit
   const root = resolvePath(profilesRoot ?? joinPath(resolveHarnessHome(undefined, env), 'profiles'))
+  return profileFromCwd(cwd, root) ?? 'web'
+}
+
+/**
+ * The profile name when cwd sits directly under `<harnessHome>/profiles/<name>`
+ * — else undefined. Pure so resolvePaths can reuse it with an install-derived
+ * profiles root while resolveProfile keeps its own signature for callers.
+ */
+function profileFromCwd(cwd: string, profilesRoot: string): string | undefined {
+  const root = resolvePath(profilesRoot)
   const normalizedCwd = resolvePath(cwd)
   // Compare canonical parents: macOS resolves /var to /private/var, and a
   // symlinked profiles root must still match the profile dir's real parent.
@@ -600,21 +661,31 @@ export function resolveProfile(
     try {
       if (name !== '' && statSync(normalizedCwd, { throwIfNoEntry: false })?.isDirectory() === true) return name
     } catch {
-      // Unreadable cwd: fall through to the default profile.
+      // Unreadable cwd: fall through to the caller's default.
     }
   }
-  return 'web'
+  return undefined
 }
 
 /**
  * Resolve the DSH paths under a HOME. home/profile are injectable so tests
  * can point at a throwaway HOME (mirrors scripts/dsh-skin.test.mjs).
+ * Precedence for the harness home: injected home > $DSH_HOME > install
+ * layout > homedir()/.dsh. For the profile: injected profile >
+ * $DSH_SKIN_PROFILE > $DSH_PROFILE > cwd under profiles/<name> > install
+ * layout profile > web (issue #254: the install layout is what makes a
+ * non-web profile resolve when no env var or cwd hint exists).
  * @param home - home dir (defaults to $DSH_HOME or the process HOME).
- * @param profile - profile name (defaults via resolveProfile precedence).
+ * @param profile - profile name (defaults via the precedence above).
+ * @param fromUrl - module URL the install layout is derived from (defaults
+ *   to this module's import.meta.url); injectable for tests.
  */
-export function resolvePaths(home?: string, profile?: string): SkinSwitchPaths {
-  const harnessHome = resolveHarnessHome(home)
-  const activeProfile = resolveProfile(profile, process.env, process.cwd(), joinPath(harnessHome, 'profiles'))
+export function resolvePaths(home?: string, profile?: string, fromUrl: string = import.meta.url): SkinSwitchPaths {
+  const install = resolveInstallLayout(fromUrl)
+  const harnessHome = resolveHarnessHome(home, process.env, install?.harnessHome)
+  const profilesRoot = joinPath(harnessHome, 'profiles')
+  const explicit = firstNonBlank(profile, process.env.DSH_SKIN_PROFILE, process.env.DSH_PROFILE)
+  const activeProfile = explicit ?? profileFromCwd(process.cwd(), profilesRoot) ?? install?.profile ?? 'web'
   return {
     patchPath: joinPath(harnessHome, 'cordis.patch.yml'),
     profileModulesDir: joinPath(harnessHome, 'profiles', activeProfile, 'node_modules'),
