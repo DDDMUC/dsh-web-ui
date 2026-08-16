@@ -270,6 +270,18 @@ export class BoardController {
   }
 
   /**
+   * Reload the ledger from the persisted store without notifying subscribers.
+   * The scheduler calls this before every tick so a task deleted in another
+   * tab (or a stale in-memory copy) can never be fired from this tab: the
+   * fire decision and the subsequent roll-forward both run on the freshest
+   * persisted truth. Deliberately silent — same-origin external changes still
+   * reach subscribers through the storage-event subscription.
+   */
+  reloadFromStore(): void {
+    this.tasks = this.deps.store.load()
+  }
+
+  /**
    * Jump to an execution's session transcript. Selecting the session changes
    * `current`, which closes the board (the conversation view takes over).
    * @param sessionId - the execution session to open.

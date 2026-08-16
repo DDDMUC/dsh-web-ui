@@ -87,7 +87,8 @@ describe('SchedulerService.tick', () => {
 
   it('rolls */5 schedules to the next 5-minute boundary', async () => {
     const h = makeHarness()
-    h.setNow(at(2026, 1, 1, 10, 3, 0))
+    // One minute late — inside the grace window, so the due slot still fires.
+    h.setNow(at(2026, 1, 1, 10, 1, 0))
     h.setTasks([scheduledTask('a', '*/5 * * * *', at(2026, 1, 1, 10, 0, 0))])
     await h.scheduler.tick()
     expect(h.runs).toEqual(['t-a'])
@@ -160,6 +161,63 @@ describe('SchedulerService.tick', () => {
     h.scheduler.dispose()
     await h.scheduler.tick()
     expect(h.runs).toEqual([])
+  })
+})
+
+describe('SchedulerService missed-run policy', () => {
+  it('skips a run missed by more than the grace window and rolls the schedule forward without running', async () => {
+    const h = makeHarness()
+    // Due at 10:00:00; the tick runs at 12:41:30 — far beyond the two-tick grace window.
+    h.setTasks([scheduledTask('a', '0 23 * * *', at(2026, 1, 1, 10, 0, 0))])
+    h.setNow(at(2026, 1, 1, 12, 41, 30))
+    await h.scheduler.tick()
+    expect(h.runs).toEqual([])
+    expect(h.applied).toEqual([{ id: 't-a', nextRunAt: at(2026, 1, 1, 23, 0, 0), lastTriggeredAt: undefined }])
+  })
+
+  it('still fires a run inside the grace window', async () => {
+    const h = makeHarness()
+    // Due at 10:00:00; the tick is 90 seconds late — inside the grace window.
+    h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0))])
+    h.setNow(at(2026, 1, 1, 10, 1, 30))
+    await h.scheduler.tick()
+    expect(h.runs).toEqual(['t-a'])
+    expect(h.applied).toHaveLength(1)
+    expect(h.applied[0].nextRunAt).toBe(at(2026, 1, 1, 10, 2, 0))
+  })
+
+  it('rolls a missed run forward from now, landing on the next future match', async () => {
+    const h = makeHarness()
+    // */5 due at 10:00:00; the tick is 91 minutes later: skip and land on the
+    // next 5-minute boundary after now (11:35:00), not a stale intermediate one.
+    h.setTasks([scheduledTask('a', '*/5 * * * *', at(2026, 1, 1, 10, 0, 0))])
+    h.setNow(at(2026, 1, 1, 11, 31, 0))
+    await h.scheduler.tick()
+    expect(h.runs).toEqual([])
+    expect(h.applied[0].nextRunAt).toBe(at(2026, 1, 1, 11, 35, 0))
+    expect(h.applied[0].lastTriggeredAt).toBeUndefined()
+  })
+})
+
+describe('SchedulerService persisted refresh', () => {
+  it('re-reads the ledger before every fire decision', async () => {
+    let refreshCalls = 0
+    const h = makeHarness({ refresh: () => { refreshCalls += 1 } })
+    h.setTasks([scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0))])
+    await h.scheduler.tick()
+    await h.scheduler.tick()
+    expect(refreshCalls).toBe(2)
+  })
+
+  it('never fires a task the refreshed ledger no longer contains (deleted elsewhere)', async () => {
+    let tasks = [scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0))]
+    const h = makeHarness({
+      tasks: () => tasks,
+      refresh: () => { tasks = [] },
+    })
+    await h.scheduler.tick()
+    expect(h.runs).toEqual([])
+    expect(h.applied).toEqual([])
   })
 })
 
