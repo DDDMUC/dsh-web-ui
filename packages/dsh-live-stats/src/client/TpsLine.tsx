@@ -21,21 +21,27 @@ const STYLE = {
   fontSize: '12px',
   fontVariantNumeric: 'tabular-nums',
   lineHeight: '20px',
-  margin: '0 auto',
-  maxWidth: 'var(--dsh-chat-content-width)',
-  overflow: 'hidden',
-  padding: '0 var(--dsh-composer-side-clearance)',
-  textAlign: 'center',
-  textOverflow: 'ellipsis',
+  // 注意：不要在这里设置 overflow——合并样式表依赖常规行内盒；截断由
+  // 官方统计行自己的 nowrap + ellipsis 承担。
+  padding: '4px 0 0',
   whiteSpace: 'nowrap',
-  width: '100%',
 } as const
 
-/** Second composer-status line for active or latest response throughput. */
+/**
+ * Second composer-status line for active or latest response throughput.
+ * The root carries `data-dsh-live-tps`: the merge stylesheet (merge-css.ts)
+ * anchors on it to pull this row onto the same line as the official
+ * StatsLine, which renders right before it in the composer dock.
+ *
+ * The slot stays mounted even while no rate sample exists (renders empty):
+ * the merge layout keys on the slot's presence, so unmounting it on idle
+ * would flip the official stats row between content width and full width on
+ * every stream start or end.
+ */
 export const TpsLine = memo(function TpsLine({ useProjection }: TpsLineProps) {
   const rate = useProjection('liveTokenUsage')?.tokensPerSecond
-  if (rate === undefined) return null
-  return <div style={STYLE}>TPS {formatTokensPerSecond(rate)} tok/s</div>
+  const label = rate === undefined ? '' : `TPS ${formatTokensPerSecond(rate)} tok/s`
+  return <div data-dsh-live-tps style={STYLE}>{label}</div>
 })
 
 /**
