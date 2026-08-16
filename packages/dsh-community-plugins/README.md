@@ -30,7 +30,7 @@ Restart `dsh web` for the card to appear in the settings page.
 
 ## Config
 
-- **Enable switch**: Settings > Plugins > Plugin configuration > Community Plugins. Turning it off hides the index list until it is turned back on; the choice persists in the community-plugins settings namespace.
+- **Enable switch**: inside the Community Plugins first-level section itself (the section carries its own switch). Turning it off hides the index list until it is turned back on; the choice persists in the community-plugins settings namespace.
 
 ## Known limitations
 
