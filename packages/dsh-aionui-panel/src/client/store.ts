@@ -69,6 +69,8 @@ export const KEY_EXPLORER_WIDTH = 'chat-workspace-width-px'
 export const KEY_PREVIEW_WIDTH = 'chat-preview-width-px'
 export const KEY_COLLAPSE = 'project-panel-collapse:'
 export const KEY_EXPLORER_UI = 'explorer-ui:'
+/** Trailing window for coalescing explorer fs-event refetches (ms). */
+export const FS_COALESCE_MS = 200
 export const KEY_SCM_UI = 'scm-ui:'
 
 /**
@@ -259,6 +261,8 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
   const persistDebounced = createDebounced()
   const searchDebounced = createDebounced()
   let fsVersion = 0
+  let fsInFlight = false
+  let fsScheduled: ReturnType<typeof setTimeout> | undefined
   let persistRoot = ''
   let persistExpanded: string[] = []
   let persistSelected: string | null = null
@@ -316,6 +320,45 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
       out.push(acc)
     }
     return out
+  }
+
+  /**
+   * Refetch the root plus every expanded dir (seq-guarded against stale
+   * results) and the active search after an fs change event.
+   */
+  const runFsRefresh = async (): Promise<void> => {
+    const state = handle.getSnapshot()
+    const root = state.root
+    if (root === '') return
+    const dirs = [...new Set(['', ...state.expanded])]
+    const seq = ++fsVersion
+    const results = await Promise.allSettled(dirs.map((rel) => api.list(root, rel)))
+    handle.update((prev) => {
+      if (prev.root !== root || seq !== fsVersion) return prev
+      const nextDirs = { ...prev.dirs }
+      results.forEach((result, index) => {
+        const rel = dirs[index]
+        if (result.status !== 'fulfilled' || !result.value.ok) return
+        // A dir folded while the event burst was in flight must not be
+        // re-populated (the collapse would revive from a stale snapshot).
+        if (rel !== '' && !prev.expanded.includes(rel)) return
+        nextDirs[rel] = result.value.value.entries
+      })
+      return { ...prev, dirs: nextDirs, version: prev.version + 1 }
+    })
+    if (state.search.query !== '') {
+      void api.search(root, state.search.query).then((result) => {
+        handle.update((prev) => {
+          if (prev.root !== root || prev.search.query !== state.search.query) return prev
+          return {
+            ...prev,
+            search: result.ok
+              ? { query: state.search.query, status: 'done', hits: result.value.hits, truncated: result.value.truncated }
+              : prev.search,
+          }
+        })
+      })
+    }
   }
 
   const store: ExplorerStore = Object.assign(handle, {
@@ -479,37 +522,24 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
       return result.ok
     },
     async handleFsChange() {
-      const state = handle.getSnapshot()
-      const root = state.root
+      const root = handle.getSnapshot().root
       if (root === '') return
-      const dirs = [...new Set(['', ...state.expanded])]
-      const seq = ++fsVersion
-      const results = await Promise.allSettled(dirs.map((rel) => api.list(root, rel)))
-      handle.update((prev) => {
-        if (prev.root !== root || seq !== fsVersion) return prev
-        const nextDirs = { ...prev.dirs }
-        results.forEach((result, index) => {
-          const rel = dirs[index]
-          if (result.status !== 'fulfilled' || !result.value.ok) return
-          // A dir folded while the event burst was in flight must not be
-          // re-populated (the collapse would revive from a stale snapshot).
-          if (rel !== '' && !prev.expanded.includes(rel)) return
-          nextDirs[rel] = result.value.value.entries
-        })
-        return { ...prev, dirs: nextDirs, version: prev.version + 1 }
-      })
-      if (state.search.query !== '') {
-        void api.search(root, state.search.query).then((result) => {
-          handle.update((prev) => {
-            if (prev.root !== root || prev.search.query !== state.search.query) return prev
-            return {
-              ...prev,
-              search: result.ok
-                ? { query: state.search.query, status: 'done', hits: result.value.hits, truncated: result.value.truncated }
-                : prev.search,
-            }
-          })
-        })
+      if (fsInFlight) {
+        // Collapse a burst of events into one trailing pass: schedule it
+        // once, then let the timer re-enter here once it fires.
+        if (fsScheduled === undefined) {
+          fsScheduled = setTimeout(() => {
+            fsScheduled = undefined
+            void this.handleFsChange()
+          }, FS_COALESCE_MS)
+        }
+        return
+      }
+      fsInFlight = true
+      try {
+        await runFsRefresh()
+      } finally {
+        fsInFlight = false
       }
     },
   })
