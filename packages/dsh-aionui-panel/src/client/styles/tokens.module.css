@@ -137,8 +137,10 @@
    z-index 30 convention (issues #169 / #87), so the three stay consistent.
    Full-screen drawer overlays (e.g. the biaoqingbao emoji manager) must
    therefore render at the ROOT stacking context (portal to document.body,
-   z in (100, 1000)) to cover the panels; the panel's frame chrome below
-   stays under the overlay layer so it never floats over them (#234). */
+   z in (100, 1000)) to cover the panels AND the frame chrome (drag handles
+   and the floating expand button stack at 30/100 — they overlap the column
+   tracks, so lowering them below the columns would bury them under the
+   opaque panels and kill drag/click hit-testing, issue #234 follow-up). */
 :global(.aionui-preview-col),
 :global(.aionui-explorer-col) {
   min-width: 0;
@@ -213,8 +215,11 @@
   opacity: 1;
 }
 
-/* Floating expand button (explorer collapsed). Below the shell overlay
-   layer (z-index 20) so it never floats over shell.overlay surfaces. */
+/* Floating expand button (explorer collapsed). Above the columns (z 30):
+   when the preview region is open it overlaps the rightmost column track,
+   so anything lower would be painted under the opaque column and stop
+   receiving clicks (issue #234 follow-up). Full-screen overlay drawers
+   must render at the ROOT stacking context (z 100~1000) to cover it. */
 :global(.aionui-floating-expand) {
   position: fixed;
   top: 50%;
@@ -232,7 +237,7 @@
   color: var(--aion-text-secondary);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
   cursor: pointer;
-  z-index: 10;
+  z-index: 100;
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 :global(.aionui-floating-expand:hover) {
@@ -247,8 +252,11 @@
   outline-offset: 2px;
 }
 
-/* The collapse chevron inside the explorer tab bar (top-right). Below the
-   shell overlay layer (z-index 20) so it never floats over overlay drawers. */
+/* The collapse chevron inside the explorer tab bar (top-right). It rides
+   the explorer column's stacking context (the column stacks at z 30), so
+   its own z-index only orders it against tab-bar siblings; full-screen
+   overlay drawers must render at the ROOT stacking context (z 100~1000)
+   to cover it (issue #234). */
 :global(.aionui-collapse-chevron) {
   position: absolute;
   /* In desktop wrappers with the Window Controls Overlay, the native
@@ -257,7 +265,7 @@
      unchanged there (issue #169). */
   top: calc(6px + env(titlebar-area-height, 0px));
   right: 8px;
-  z-index: 10;
+  z-index: 30;
   width: 24px;
   height: 24px;
   display: flex;
