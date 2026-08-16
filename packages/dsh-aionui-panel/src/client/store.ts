@@ -363,9 +363,9 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
 
   const store: ExplorerStore = Object.assign(handle, {
     setRoot(root: string) {
+      const ui = readExplorerUi(root)
       handle.update((prev) => {
         if (prev.root === root) return prev
-        const ui = readExplorerUi(root)
         return {
           ...prev,
           root,
@@ -377,6 +377,9 @@ export function createExplorerStore(api: PanelApi): ExplorerStore {
         }
       })
       void ensureDir(root, '')
+      // Rehydrate every restored expanded dir so the persisted expanded
+      // arrows render real content without a manual collapse/expand round-trip.
+      for (const rel of ui.expanded) void ensureDir(root, rel)
     },
     setActiveTab(tab: 'files' | 'changes') {
       handle.update((prev) => (prev.activeTab === tab ? prev : { ...prev, activeTab: tab }))
