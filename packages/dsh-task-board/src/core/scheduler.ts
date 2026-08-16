@@ -4,19 +4,15 @@
  * The board is a pure client plugin with no server channel, so "定时任务"
  * lives in the tab: a timer ticks every minute (plus immediately on tab
  * visibility recovery) and triggers any task whose `schedule.nextRunAt` is
- * due within the grace window, rolling the schedule forward to the next cron
- * match before triggering so the same tick never double-fires. Missed runs
- * are skipped, never queued: a run whose due instant is older than the grace
- * window (two tick periods) is treated as missed and rolled forward to the
- * next cron match without firing, and a task still running at its due
- * instant is skipped by the controller's runTask guard and simply waits for
- * the next cron match.
+ * due, rolling the schedule forward to the next cron match before triggering
+ * so the same tick never double-fires. Missed runs are skipped, never queued:
+ * a task still running at its due instant is skipped by the controller's
+ * runTask guard and simply waits for the next cron match.
  *
- * A deleted task can therefore never fire again: every tick first re-reads
- * the persisted ledger through the optional `refresh` hook (the controller
- * reloads its store), so a stale in-memory copy in a long-lived tab cannot
- * survive the delete, and an overdue copy of a deleted task only ever gets
- * rolled forward, never run.
+ * A deleted task can never fire again from a stale in-memory copy: every
+ * tick first re-reads the persisted ledger through the optional `refresh`
+ * hook (the controller reloads its store), so the fire decision and the
+ * subsequent roll-forward both run on the freshest persisted truth.
  *
  * The ticker is controlled: `start` arms a single interval guarded by an
  * idempotence check (a second start while running is a no-op, so wiring can
@@ -85,9 +81,8 @@ export class SchedulerService {
     if (this.disposed) return
     if (this.started) return
     this.started = true
-    // Immediate catch-up tick: schedules due within the grace window while
-    // the tab was closed are triggered as soon as the runtime is ready;
-    // older due instants are missed (rolled forward without running).
+    // Immediate catch-up tick: schedules whose due instant passed while the
+    // tab was closed are triggered as soon as the runtime is ready.
     this.tick()
     this.timer = setInterval(() => { this.tick() }, this.deps.tickMs ?? 60_000)
     if (this.deps.environment !== undefined) {
@@ -133,7 +128,6 @@ export class SchedulerService {
     // another tab (or a stale in-memory copy) must never be triggered.
     this.deps.refresh?.()
     const now = this.deps.now()
-    const graceMs = 2 * (this.deps.tickMs ?? 60_000)
     for (const task of this.deps.tasks()) {
       const schedule = task.schedule
       if (schedule === undefined || !schedule.enabled) continue
@@ -146,22 +140,9 @@ export class SchedulerService {
         continue
       }
       if (schedule.nextRunAt > now) continue
-      // A due instant older than the grace window is a MISSED run: skip it
-      // (the documented contract) and roll forward to the next future match
-      // without firing. This is what stops a task deleted elsewhere — or a
-      // stale copy of one — from firing long after its due time.
-      if (now - schedule.nextRunAt > graceMs) {
-        const next = nextRunAtMs(schedule.cron, now)
-        this.deps.applySchedule(task.id, next, undefined)
-        continue
-      }
       // Advance from the due instant (not this tick's wall-clock) and only
       // after the run is accepted: a rejected run keeps its due slot.
-      let next = nextRunAtMs(schedule.cron, schedule.nextRunAt)
-      // A tick running more than one cron step late rolls the rule onto an
-      // instant that is already past: advance once more from now so the next
-      // tick never double-fires the same schedule.
-      if (next !== undefined && next <= now) next = nextRunAtMs(schedule.cron, now)
+      const next = nextRunAtMs(schedule.cron, schedule.nextRunAt)
       const accepted = await this.deps.runTask(task.id)
       if (accepted) this.deps.applySchedule(task.id, next, now)
     }
