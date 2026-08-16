@@ -670,7 +670,11 @@ window.__ModuleLoader__.load({
 		/** The apply target of the official stock-look card. */
 		const OFFICIAL = "official";
 		/** Skin ids that read the background-scrim variable and paint a backdrop. */
-		const BACKDROP_SKIN_IDS = /* @__PURE__ */ new Set(["blue-fantasy", "whale-song"]);
+		const BACKDROP_SKIN_IDS = /* @__PURE__ */ new Set([
+			"blue-fantasy",
+			"whale-song",
+			"whale-mom"
+		]);
 		/**
 		* Render the skin-center card: a static header naming the plugin, with the
 		* always-visible skin list (official default + every installed skin; try-on /

@@ -37,7 +37,7 @@ export type SkinCenterComponentProps =
 const OFFICIAL = 'official'
 
 /** Skin ids that read the background-scrim variable and paint a backdrop. */
-const BACKDROP_SKIN_IDS = new Set(['blue-fantasy', 'whale-song'])
+const BACKDROP_SKIN_IDS = new Set(['blue-fantasy', 'whale-song', 'whale-mom'])
 
 /**
  * Render the skin-center card: a static header naming the plugin, with the
