@@ -8,9 +8,11 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createReadStream } from 'node:fs'
+import { dirname } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
+import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import type { PanelEnvelope, PanelError } from '../core/types.ts'
 import type { FsService } from './fs-service.ts'
 import type { GitService } from './git-service.ts'
@@ -21,6 +23,50 @@ const FAIL = (error: PanelError): PanelEnvelope<never> => ({ ok: false, error })
 
 /** Structural request failure (never a workspace fault). */
 const BAD_REQUEST: PanelError = { code: 'internal', message: 'malformed request' }
+
+/**
+ * Platform argv for "reveal in file manager" (select the entry). Windows
+ * Explorer selects via /select,; macOS Finder via open -R; Linux desktops
+ * have no select mode, so xdg-open opens the parent directory.
+ */
+export function revealArgv(platform: NodeJS.Platform, abs: string): string[] {
+  if (platform === 'win32') return ['explorer.exe', `/select,${abs}`]
+  if (platform === 'darwin') return ['open', '-R', abs]
+  return ['xdg-open', dirname(abs)]
+}
+
+/** Platform argv for "open with the default app". */
+export function openArgv(platform: NodeJS.Platform, abs: string): string[] {
+  if (platform === 'win32') return ['cmd.exe', '/c', 'start', '', abs]
+  if (platform === 'darwin') return ['open', abs]
+  return ['xdg-open', abs]
+}
+
+/**
+ * Spawn one OS GUI command fire-and-forget: Explorer / Finder / xdg-open
+ * detach immediately and their exit codes are not meaningful, so nothing is
+ * awaited beyond the spawn itself (failures still surface as an error).
+ */
+function spawnOsCommand(ctx: Context, argv: string[]): PanelError | null {
+  const spec: SubprocessSpawnSpec = {
+    argv,
+    cwd: dirname(argv[argv.length - 1] ?? process.cwd()),
+    stdio: {
+      stdin: 'ignore',
+      stdout: { maxBytes: 1 << 16 },
+      stderr: { maxBytes: 1 << 16 },
+    },
+    graceMs: 5_000,
+  }
+  try {
+    const handle = ctx.subprocess.spawn(spec)
+    void handle.done.catch(() => {})
+    return null
+  } catch (error) {
+    ctx.logger.warn(`dsh-aionui-panel: OS command failed ([${argv.join(', ')}]): ${String(error)}`)
+    return { code: 'internal', message: 'cannot run OS command' }
+  }
+}
 
 /** One SSE subscriber: a root and its last pushed git signature. */
 interface Subscriber {
@@ -434,6 +480,67 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
           return
         }
         const result = await fs.delete(root, path)
+        json(res, 'ok' in result ? OK(result) : FAIL(result))
+        return
+      }
+      case '/aionui-panel/reveal': {
+        const path = strField(payload, 'path')
+        if (path === null) {
+          json(res, FAIL(BAD_REQUEST))
+          return
+        }
+        const resolved = await fs.resolveAbsolute(root, path)
+        if (!('ok' in resolved)) {
+          json(res, FAIL(resolved))
+          return
+        }
+        const error = spawnOsCommand(ctx, revealArgv(process.platform, resolved.abs))
+        json(res, error === null ? OK({ ok: true as const }) : FAIL(error))
+        return
+      }
+      case '/aionui-panel/open-with-default': {
+        const path = strField(payload, 'path')
+        if (path === null) {
+          json(res, FAIL(BAD_REQUEST))
+          return
+        }
+        const resolved = await fs.resolveAbsolute(root, path)
+        if (!('ok' in resolved)) {
+          json(res, FAIL(resolved))
+          return
+        }
+        const error = spawnOsCommand(ctx, openArgv(process.platform, resolved.abs))
+        json(res, error === null ? OK({ ok: true as const }) : FAIL(error))
+        return
+      }
+      case '/aionui-panel/rename': {
+        const path = strField(payload, 'path')
+        const newName = strField(payload, 'newName')
+        if (path === null || newName === null) {
+          json(res, FAIL(BAD_REQUEST))
+          return
+        }
+        const result = await fs.rename(root, path, newName)
+        json(res, 'ok' in result ? OK(result) : FAIL(result))
+        return
+      }
+      case '/aionui-panel/mkdir': {
+        const path = strField(payload, 'path')
+        if (path === null) {
+          json(res, FAIL(BAD_REQUEST))
+          return
+        }
+        const result = await fs.mkdir(root, path)
+        json(res, 'ok' in result ? OK(result) : FAIL(result))
+        return
+      }
+      case '/aionui-panel/new-file': {
+        const path = strField(payload, 'path')
+        if (path === null) {
+          json(res, FAIL(BAD_REQUEST))
+          return
+        }
+        const result = await fs.newFile(root, path)
         json(res, 'ok' in result ? OK(result) : FAIL(result))
         return
       }
