@@ -146,7 +146,10 @@ mounts both halves.
      picker (permission presets; 完全权限 requires an explicit confirm
      step). Both ride the host's own `session.models` /
      `session.selectModel` RPCs and the `/permission` command — the phone
-     changes the same session settings the desktop would.
+     changes the same session settings the desktop would — plus a **显示**
+     sheet with persistent toggles for 工具调用 (tool-call disclosures) and
+     系统提示词 (injected system messages), and a 上下文 usage chip that
+     shows the latest assistant answer's context-fill percentage.
 4. The desktop badge flips to 已连接 in real time; it falls back to
    offline/断开 when the phone leaves.
 5. 刷新二维码 invalidates the old link and issues a new one. 停止 revokes
