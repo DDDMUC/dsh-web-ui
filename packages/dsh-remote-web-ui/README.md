@@ -140,7 +140,7 @@ mounts both halves.
    - messages render with the desktop fold discipline: reasoning hides
      behind a collapsed 深度思考 disclosure, tool calls behind a collapsed
      工具 row (tap to see each call's arguments), very long answers behind
-     an explicit 展开全文 toggle, and each row carries its time — and
+     an explicit 展开全文 toggle, each row carries its time, and assistant replies render as GFM Markdown (headings / bold / italic / inline code / code blocks / lists / tables / quotes / links / images; a zero-dependency renderer escapes first and allow-lists protocols, so the mobile bundle size barely moves; KaTeX is not supported yet and will be evaluated separately), while user messages stay plain text — and
    - a composer toolbar carries the **model** picker (provider-grouped
      catalog with a 思考强度 effort section per model) and the **权限**
      picker (permission presets; 完全权限 requires an explicit confirm
