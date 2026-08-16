@@ -583,7 +583,7 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region \0dsh-css:packages/skins/skin-center/src/client/skin-center.module.css.mjs
-		const css = "body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_pluginCardOpen{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeader{appearance:none;width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:12px;align-items:center;gap:12px;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_cardHeader:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_chevron,body[data-dsh-skin-center] .eDzMgW_chevronOpen{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}body[data-dsh-skin-center] .eDzMgW_chevronOpen{transform:rotate(180deg)}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12.5px;line-height:1.55}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-border-l4,#94a3b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:7px;padding:6px 12px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-fill,#2b7cd9);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:focus-visible:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_buttonGhost{background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.55;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-bg-layer-3,#e2e8f0);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;width:100%;height:4px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_cardHeader,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_chevron,body[data-dsh-skin-center] .eDzMgW_chevronOpen{transition:none}}";
+		const css = "body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_pluginCardOpen{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeader{appearance:none;width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:12px;align-items:center;gap:12px;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_cardHeader:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_chevron,body[data-dsh-skin-center] .eDzMgW_chevronOpen{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}body[data-dsh-skin-center] .eDzMgW_chevronOpen{transform:rotate(180deg)}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12.5px;line-height:1.55}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-border-l4,#94a3b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:7px;padding:6px 12px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-fill,#2b7cd9);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:focus-visible:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_buttonGhost{background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.55;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-bg-layer-3,#e2e8f0);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;width:100%;height:4px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_cardHeader,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_chevron,body[data-dsh-skin-center] .eDzMgW_chevronOpen,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}";
 		const tagId = "@linxin666/dsh-client-ui-skin-center/skin-center.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -616,15 +616,22 @@ window.__ModuleLoader__.load({
 			"cardTagline": "eDzMgW_cardTagline",
 			"chevron": "eDzMgW_chevron",
 			"chevronOpen": "eDzMgW_chevronOpen",
+			"enableHint": "eDzMgW_enableHint",
+			"enableLabel": "eDzMgW_enableLabel",
+			"enableRow": "eDzMgW_enableRow",
 			"error": "eDzMgW_error",
 			"head": "eDzMgW_head",
 			"headText": "eDzMgW_headText",
 			"intro": "eDzMgW_intro",
 			"list": "eDzMgW_list",
+			"offNote": "eDzMgW_offNote",
 			"pluginCard": "eDzMgW_pluginCard",
 			"pluginCardOpen": "eDzMgW_pluginCardOpen",
 			"pluginName": "eDzMgW_pluginName",
 			"swatch": "eDzMgW_swatch",
+			"switch": "eDzMgW_switch",
+			"switchOn": "eDzMgW_switchOn",
+			"switchThumb": "eDzMgW_switchThumb",
 			"themeButton": "eDzMgW_themeButton",
 			"themeButtonActive": "eDzMgW_themeButtonActive",
 			"themeLabel": "eDzMgW_themeLabel",
@@ -634,14 +641,14 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/SkinCenter.tsx
 		/**
-		* The skin-center plugin card: one disclosure card inside the Web UI plugin
-		* group (插件配置 → Web UI 插件), listing every installed skin plus the
-		* official stock look. Live try-on executes the real bundle inside the GUI
-		* (light/dark preview, full restore on exit); Apply is one click — the host
-		* half runs `dsh-skin use` through /api/skin-center/apply, the config
-		* watcher hot-reloads the patch, and the page reloads into the new skin.
-		* Copy rides the standard `t` seat; the theme preview control drives the
-		* official theme service (persisted, same as the Appearance row).
+		* The skin-center plugin card: one disclosure card rendered as a top-level
+		* card in the plugin-configuration section, listing every installed skin
+		* plus the official stock look. Live try-on executes the real bundle inside
+		* the GUI (light/dark preview, full restore on exit); Apply is one click —
+		* the host half runs `dsh-skin use` through /api/skin-center/apply, the
+		* config watcher hot-reloads the patch, and the page reloads into the new
+		* skin. Copy rides the standard `t` seat; the theme preview control drives
+		* the official theme service (persisted, same as the Appearance row).
 		*/
 		/** The apply target of the official stock-look card. */
 		const OFFICIAL = "official";
@@ -656,6 +663,7 @@ window.__ModuleLoader__.load({
 		*/
 		function SkinCenter({ t, controller, theme, background }) {
 			const snapshot = (0, react.useSyncExternalStore)(theme.subscribe, theme.getTheme);
+			const enabled = (0, react.useSyncExternalStore)(background.subscribe, background.enabled);
 			const opacity = (0, react.useSyncExternalStore)(background.subscribe, background.opacity);
 			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
 			const blurContent = (0, react.useSyncExternalStore)(background.subscribe, background.blurContent);
@@ -886,7 +894,31 @@ window.__ModuleLoader__.load({
 					})]
 				}), open ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: skin_center_module_css_default.cardBody,
-					children: [
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: skin_center_module_css_default.enableRow,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: skin_center_module_css_default.enableLabel,
+								title: t("enabled"),
+								children: t("enabled")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								role: "switch",
+								"aria-checked": enabled,
+								"aria-label": t("enabled"),
+								className: enabled ? skin_center_module_css_default.switch + " " + skin_center_module_css_default.switchOn : skin_center_module_css_default.switch,
+								onClick: () => {
+									background.setEnabled(!enabled);
+								},
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: skin_center_module_css_default.switchThumb })
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: skin_center_module_css_default.enableHint,
+								children: t("enabledHint")
+							})
+						]
+					}), enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
 						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: skin_center_module_css_default.head,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
@@ -1102,7 +1134,11 @@ window.__ModuleLoader__.load({
 								}, entry.id);
 							})]
 						})
-					]
+					] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: skin_center_module_css_default.offNote,
+						role: "status",
+						children: t("offNote")
+					})]
 				}) : null]
 			});
 		}
@@ -1138,6 +1174,7 @@ window.__ModuleLoader__.load({
 		* scope.
 		*/
 		var BackgroundController = class {
+			enabledValue = true;
 			opacityValue = 0;
 			blurEmptyValue = 0;
 			blurContentValue = 0;
@@ -1156,12 +1193,14 @@ window.__ModuleLoader__.load({
 			*/
 			constructor(scope) {
 				this.scope = scope;
+				this.enabledValue = this.readEnabled();
 				this.opacityValue = this.readOpacity();
 				this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
 				this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
 				this.applyOcclusion();
 				this.syncBlur();
 				scope.subscribe(() => {
+					this.enabledValue = this.readEnabled();
 					this.opacityValue = this.readOpacity();
 					this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
 					this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
@@ -1169,6 +1208,16 @@ window.__ModuleLoader__.load({
 					this.syncBlur();
 					this.publish();
 				});
+			}
+			enabled() {
+				return this.enabledValue;
+			}
+			setEnabled(value) {
+				this.enabledValue = value;
+				this.applyOcclusion();
+				this.syncBlur();
+				this.publish();
+				this.scope.set("enabled", value);
 			}
 			opacity() {
 				return this.opacityValue;
@@ -1220,6 +1269,11 @@ window.__ModuleLoader__.load({
 					this.observer = null;
 				}
 			}
+			/** The effective master-switch section value, defaulting to true when absent. */
+			readEnabled() {
+				const raw = this.scope.getSnapshot().value?.enabled;
+				return typeof raw !== "boolean" ? true : raw;
+			}
 			/** The effective occlusion section value, clamped 0-100, defaulting to 0. */
 			readOpacity() {
 				const raw = this.scope.getSnapshot().value?.backgroundOpacity;
@@ -1237,6 +1291,10 @@ window.__ModuleLoader__.load({
 			}
 			/** Write the current occlusion onto the body CSS variable (0..1 alpha). */
 			applyOcclusion() {
+				if (!this.enabledValue) {
+					document.body.style.removeProperty(SCRIM_VAR);
+					return;
+				}
 				document.body.style.setProperty(SCRIM_VAR, String(this.opacityValue / 100));
 			}
 			/**
@@ -1246,6 +1304,10 @@ window.__ModuleLoader__.load({
 			*/
 			syncBlur() {
 				if (this.disposed) return;
+				if (!this.enabledValue) {
+					this.removeBlurElement();
+					return;
+				}
 				this.ensureObserver();
 				const active = this.hasConversationContent() ? this.blurContentValue : this.blurEmptyValue;
 				if (active > 0) this.ensureBlurElement(active);
@@ -1311,6 +1373,9 @@ window.__ModuleLoader__.load({
 		const en = {
 			title: "Skin Center",
 			cardDescription: "Try on any installed skin live in the GUI — exit restores instantly, applying persists in one click.",
+			enabled: "Enable skin center",
+			enabledHint: "When off, try-on, apply and background controls are disabled; turn it back on to resume.",
+			offNote: "The skin center is turned off.",
 			expand: "Expand",
 			collapse: "Collapse",
 			intro: "Try on any skin live — it takes effect instantly, exit restores the current look. Apply persists it across restarts.",
@@ -1341,6 +1406,9 @@ window.__ModuleLoader__.load({
 		const zh = {
 			title: "皮肤中心",
 			cardDescription: "在 GUI 内即时试穿任意皮肤，退出即完全还原；应用一键完成并自动刷新。",
+			enabled: "启用皮肤中心",
+			enabledHint: "关闭后停用试穿、应用与背景控件，重新打开即恢复。",
+			offNote: "皮肤中心已关闭。",
 			expand: "展开",
 			collapse: "收起",
 			intro: "任意皮肤可即时试穿，退出即完全还原；「应用」一键持久化，页面自动刷新生效。",
@@ -1383,7 +1451,7 @@ window.__ModuleLoader__.load({
 		];
 		/**
 		* Register the skin-center dictionaries, the body scope attribute, and the
-		* Skins plugin card inside the Web UI plugin group.
+		* Skins plugin card in the top-level plugin-configuration list.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
@@ -1409,6 +1477,8 @@ window.__ModuleLoader__.load({
 					setTheme: (id) => theme.setTheme(id)
 				},
 				background: {
+					enabled: () => background.enabled(),
+					setEnabled: (value) => background.setEnabled(value),
 					opacity: () => background.opacity(),
 					blurEmpty: () => background.blurEmpty(),
 					blurContent: () => background.blurContent(),
@@ -1419,8 +1489,8 @@ window.__ModuleLoader__.load({
 					dispose: () => background.dispose()
 				}
 			});
-			ctx.slots.inject("web-ui.plugin.item", () => ctx.slots.register({
-				name: "web-ui.plugin.item",
+			ctx.slots.inject("settings.plugin.item", () => ctx.slots.register({
+				name: "settings.plugin.item",
 				id: "skins",
 				order: 110,
 				locale: NS,

@@ -48,6 +48,10 @@ export const DEFAULT_BLUR = 0
 
 /** The face the skin-center card injects for the background control. */
 export interface SkinBackgroundHandle {
+  /** Current master switch (true when the plugin is on). */
+  enabled(): boolean
+  /** Toggle + persist the master switch. */
+  setEnabled(value: boolean): void
   /** Current occlusion 0-100 (also the getSnapshot seat for useSyncExternalStore). */
   opacity(): number
   /** Current empty-conversation backdrop blur 0-20 px. */
@@ -87,11 +91,13 @@ const CONVERSATION_CONTENT_SELECTOR = [
  * scope.
  */
 export class BackgroundController implements SkinBackgroundHandle {
+  private enabledValue = true
   private opacityValue = DEFAULT_OPACITY
   private blurEmptyValue = DEFAULT_BLUR
   private blurContentValue = DEFAULT_BLUR
   private readonly listeners = new Set<() => void>()
   private readonly scope: SettingsScope<{
+    enabled?: boolean
     backgroundOpacity?: number
     backgroundBlurEmpty?: number
     backgroundBlurContent?: number
@@ -109,17 +115,20 @@ export class BackgroundController implements SkinBackgroundHandle {
    * @param scope - the bound skin-background settings scope.
    */
   constructor(scope: SettingsScope<{
+    enabled?: boolean
     backgroundOpacity?: number
     backgroundBlurEmpty?: number
     backgroundBlurContent?: number
   }>) {
     this.scope = scope
+    this.enabledValue = this.readEnabled()
     this.opacityValue = this.readOpacity()
     this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD)
     this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD)
     this.applyOcclusion()
     this.syncBlur()
     scope.subscribe(() => {
+      this.enabledValue = this.readEnabled()
       this.opacityValue = this.readOpacity()
       this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD)
       this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD)
@@ -127,6 +136,16 @@ export class BackgroundController implements SkinBackgroundHandle {
       this.syncBlur()
       this.publish()
     })
+  }
+
+  enabled(): boolean { return this.enabledValue }
+
+  setEnabled(value: boolean): void {
+    this.enabledValue = value
+    this.applyOcclusion()
+    this.syncBlur()
+    this.publish()
+    void this.scope.set('enabled', value)
   }
 
   opacity(): number { return this.opacityValue }
@@ -181,6 +200,13 @@ export class BackgroundController implements SkinBackgroundHandle {
     }
   }
 
+  /** The effective master-switch section value, defaulting to true when absent. */
+  private readEnabled(): boolean {
+    const snapshot: SettingsScopeSnapshot<{ enabled?: boolean }> = this.scope.getSnapshot()
+    const raw = snapshot.value?.enabled
+    return typeof raw !== 'boolean' ? true : raw
+  }
+
   /** The effective occlusion section value, clamped 0-100, defaulting to 0. */
   private readOpacity(): number {
     const snapshot: SettingsScopeSnapshot<{ backgroundOpacity?: number }> = this.scope.getSnapshot()
@@ -206,6 +232,10 @@ export class BackgroundController implements SkinBackgroundHandle {
 
   /** Write the current occlusion onto the body CSS variable (0..1 alpha). */
   private applyOcclusion(): void {
+    if (!this.enabledValue) {
+      document.body.style.removeProperty(SCRIM_VAR)
+      return
+    }
     document.body.style.setProperty(SCRIM_VAR, String(this.opacityValue / 100))
   }
 
@@ -216,6 +246,10 @@ export class BackgroundController implements SkinBackgroundHandle {
    */
   private syncBlur(): void {
     if (this.disposed) return
+    if (!this.enabledValue) {
+      this.removeBlurElement()
+      return
+    }
     this.ensureObserver()
     const active = this.hasConversationContent() ? this.blurContentValue : this.blurEmptyValue
     if (active > 0) this.ensureBlurElement(active)

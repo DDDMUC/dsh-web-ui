@@ -132,7 +132,7 @@ Gives text-only models vision. When a conversation mentions an image (local path
 
 ### Settings Hub
 
-All family plugins' toggles and parameters live under "Settings > Plugin config" and apply immediately. A "Community plugins" card inside the group lists plugins registered by community contributors and links to their repositories.
+All family plugins' toggles and parameters live under "Settings > Plugin config" and apply immediately. The plugin config page lists seven entries: the three built-in cards (Shell / Agent loop / Web search), the Web UI Plugins group (hosting task-board / live-stats / remote-web-ui / describe-image), Skin Center, Community Plugins and Desktop Pet — each with its own toggle and configuration.
 
 ![Plugin config hub](docs/screenshots/02-settings-web-ui-plugins.png)
 
