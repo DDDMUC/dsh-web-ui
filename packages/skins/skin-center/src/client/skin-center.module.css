@@ -370,9 +370,24 @@ body[data-dsh-skin-center] .backgroundRange {
   margin: 0;
   border-radius: 999px;
   background: var(--dsw-alias-bg-layer-3, #e2e8f0);
+  /* Keep the track visible when layer tokens collapse to the card background
+     (official default light theme maps bg-layer-1/2/3 to the same white). */
+  box-shadow: 0 0 0 1px var(--dsw-alias-border-l3, #cbd5e1);
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
+}
+
+body[data-dsh-skin-center] .backgroundRange::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-3, #e2e8f0);
+}
+
+body[data-dsh-skin-center] .backgroundRange::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-3, #e2e8f0);
 }
 
 body[data-dsh-skin-center] .backgroundRange::-webkit-slider-thumb {
