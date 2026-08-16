@@ -15,6 +15,7 @@ import {
   findMermaidCodeBlocks,
   mermaidTheme,
   rethemeMermaidBlocks,
+  sanitizeSvg,
 } from '../src/client/preview/mermaid.ts'
 
 /** Install a fake mermaid runtime; returns its render/initialize spies and a restore fn. */
@@ -177,6 +178,113 @@ describe('enhanceMermaidBlocks', () => {
       fake.restore()
       root.remove()
     }
+  })
+
+  it('never assigns disposable content and restores the code block on a hostile render', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const { panelPre } = seedBlocks(root)
+    // A hostile render result: script + foreignObject + onload handle + an
+    // href=javascript: link, plus a javascript: token in element text that the
+    // sanitizer cannot attribute-strip, so it must reject the whole payload.
+    const malicious = [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '<rect width="100" height="100" onload="alert(1)"/>',
+      '<script>alert("xss")</script>',
+      '<foreignObject><div onclick="evil()">x</div></foreignObject>',
+      '<a href="javascript:alert(1)">bad</a>',
+      '<text>javascript:alert(2)</text>',
+      '</svg>',
+    ].join('')
+    const fake = fakeMermaid(() => malicious)
+    try {
+      await enhanceMermaidBlocks(root, { className: 'mm', theme: 'default' })
+      // sanitizeSvg rejects the payload, so the enhance failure path restores
+      // the untouched code block and nothing dangerous ever reaches the DOM.
+      expect(root.querySelectorAll('[data-mermaid-state]').length).toBe(0)
+      expect(findMermaidCodeBlocks(root)).toHaveLength(2)
+      expect(panelPre.getAttribute('data-mermaid-claimed')).toBeNull()
+      expect(panelPre.style.display).not.toBe('none')
+      expect(root.innerHTML).not.toContain('<script')
+      expect(root.innerHTML).not.toContain('foreignObject')
+      expect(root.innerHTML).not.toContain('onload')
+      expect(root.innerHTML).not.toContain('onclick')
+      expect(root.innerHTML).not.toContain('javascript:')
+    } finally {
+      fake.restore()
+      root.remove()
+    }
+  })
+
+  it('retheme rejects a hostile re-render and keeps the previous clean render', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    seedBlocks(root)
+    const fake = fakeMermaid((source) => '<svg data-src="' + source + '"></svg>')
+    try {
+      await enhanceMermaidBlocks(root, { className: 'mm', theme: 'default' })
+      const [container] = Array.from(root.querySelectorAll<HTMLElement>('[data-mermaid-state="done"]'))
+      expect(container).toBeDefined()
+      const before = container!.innerHTML
+
+      // A hostile re-render: script + foreignObject + onload + an href=javascript:
+      // while a javascript: token survives as text, forcing sanitizeSvg to throw
+      // so retheme keeps the previous render.
+      fake.render.mockImplementationOnce(async function realRender() {
+        return {
+          svg: '<svg><script>alert("xss")</script><foreignObject onload="evil()">x</foreignObject><a href="javascript:void(0)">x</a><text>javascript:alert(2)</text></svg>',
+        }
+      })
+      await rethemeMermaidBlocks(root, { theme: 'dark' })
+
+      expect(container!.innerHTML).toBe(before)
+      expect(container!.innerHTML).not.toContain('<script')
+      expect(container!.innerHTML).not.toContain('foreignObject')
+      expect(container!.innerHTML).not.toContain('onload')
+      expect(container!.innerHTML).not.toContain('javascript:')
+    } finally {
+      fake.restore()
+      root.remove()
+    }
+  })
+})
+
+describe('sanitizeSvg', () => {
+  it('removes disallowed elements and strips dangerous attributes', () => {
+    const input = [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '<rect width="10" height="10" onload="alert(1)"/>',
+      '<path d="M0 0"/>',
+      '<text>hi</text>',
+      '<script>alert("xss")</script>',
+      '<foreignObject><div onclick="evil()">x</div></foreignObject>',
+      '<a href="javascript:alert(1)">bad</a>',
+      '<a xlink:href="JaVaScRiPt:evil()">bad2</a>',
+      '</svg>',
+    ].join('')
+    const out = sanitizeSvg(input)
+    expect(out).not.toContain('<script')
+    expect(out).not.toContain('foreignObject')
+    expect(out).not.toContain('onload')
+    expect(out).not.toContain('onclick')
+    expect(out).not.toContain('javascript:')
+    expect(out).toContain('<path')
+    expect(out).toContain('<text')
+    expect(out).toContain('<rect')
+  })
+
+  it('passes benign markup through unchanged', () => {
+    const benign = ['<svg xmlns="http://www.w3.org/2000/svg">', '<rect width="10" height="10" fill="red"/>', '<path d="M0 0H10"/>', '<text x="2" y="4">hello</text>', '</svg>'].join('')
+    expect(sanitizeSvg(benign)).toContain('<rect')
+    expect(sanitizeSvg(benign)).toContain('<path')
+    expect(sanitizeSvg(benign)).toContain('<text')
+  })
+
+  it('throws when a dangerous raw token survives cleaning', () => {
+    // A javascript: token inside element text is not an attribute the user
+    // can strip, so the fail-closed guard rejects the whole payload rather
+    // than letting a raw token through.
+    expect(() => sanitizeSvg('<svg><text>href=\"javascript:alert(1)\"</text></svg>')).toThrow()
   })
 })
 
