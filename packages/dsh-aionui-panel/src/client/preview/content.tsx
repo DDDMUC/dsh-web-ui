@@ -9,6 +9,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
+import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PreviewTabState } from '../store.ts'
 import { useResizableSplit } from '../hooks/useResizableSplit.ts'
 import { t } from '../locales.ts'
@@ -228,10 +229,9 @@ function HtmlViewer({
   return <iframe className={previewCss.pdfViewer} srcDoc={srcDoc} sandbox="" title="html preview" />
 }
 
-/** Plain code/text viewer. */
-function CodeViewer({ content, language }: { content: string; language: string }): JSX.Element {
-  void language
-  return <pre className={previewCss.codeViewer}><code>{content}</code></pre>
+/** Syntax-highlighted code/text viewer (official shiki core via CodeBlock). */
+export function CodeViewer({ content, language }: { content: string; language: string }): JSX.Element {
+  return <CodeBlock code={content} lang={language === '' ? undefined : language} className={previewCss.codeViewer} copyLabel={t('preview.copyCode')} copiedLabel={t('preview.copyCodeDone')} />
 }
 
 /**
