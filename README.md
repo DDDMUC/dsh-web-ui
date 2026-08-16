@@ -18,7 +18,7 @@
 
 <p align="center">
   <strong>DeepSeek Harness（DSH）Web GUI 的插件与皮肤全家桶</strong><br>
-  <em>任务看板 · Git 图谱 · 右侧面板 · 移动端远程 · SSH 运维 · 图像理解 · 鲸鱼娘宠物 · 实时用量 · 皮肤中心</em>
+  <em>梁神模式 · 任务看板 · Git 图谱 · 右侧面板 · 移动端远程 · SSH 运维 · 图像理解 · 鲸鱼娘宠物 · 实时吞吐 · 皮肤中心</em>
 </p>
 
 <p align="center">
@@ -29,12 +29,13 @@
 
 ## 是什么
 
-dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件与皮肤集合。所有插件通过官方 profile 机制挂载到 `dsh web`，不修改 DSH 源码；既可独立安装，也可通过聚合包一次装齐。
+dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件与皮肤集合：面向 DeepSeek V4 Pro 的「梁神模式」agent 预设，加上任务看板、Git 图谱、右侧面板、移动端远程、SSH 运维、图像理解、鲸鱼娘宠物、实时吞吐与皮肤中心。所有插件通过官方 profile 机制挂载到 `dsh web`，不修改 DSH 源码；既可独立安装，也可通过聚合包一次装齐。
 
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
 
 | 能力 | 原生 dsh web | dsh-web-ui 全家桶 |
 | --- | --- | --- |
+| Agent 预设 | 官方预设（Standard / Minimal 等） | 梁神模式：面向 V4 Pro 的两阶段锚定预设 |
 | 任务看板 | 无 | 多列看板 + cron 定时真实执行 |
 | Git 可视化 | 无 | 分支泳道 + 提交历史图谱 |
 | 文件预览与变更 | 无 | 右侧面板：预览 / 文件树 / SCM |
@@ -42,9 +43,16 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件与皮肤集合。所�
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
 | 主题皮肤 | 默认主题 | 皮肤中心 10 款，先试穿再应用 |
-| 用量统计 | 无 | 实时 TPS / token / 缓存命中率 |
 
 ## 功能插件
+
+### 梁神模式
+
+为 DeepSeek V4 Pro 深度调校的 agent 预设（Anchored Standard）：新建会话在预设选择器里选「梁神模式」，把 V4 Pro 的真实实力释放出来。
+
+首轮模型请求只暴露官方 Minimal 精确双工具（持久 `bash` 与 `str_replace_editor`）与一行 persona，清空运行时上下文、只放行用户自己的消息，把推理轨迹锚定在 Minimal 的高分轨迹上；锚定建立后 wire 自动晋升为 Code Mode（PTC）——一个 `run_code` 工具加完整工具注册表——并恢复全部 prompt section、workspace 指令与 skill 目录。Windows 原生环境实测（DeepSeek V4 Pro）：98 / 99，均值 98.5。
+
+原理、稳定化控制与限制详见 [dsh-liangshen README](packages/dsh-liangshen/README.zh.md)。
 
 ### 任务看板
 
@@ -82,11 +90,11 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件与皮肤集合。所�
 | --- | --- |
 | ![鲸鱼娘宠物](docs/screenshots/11-pet-new-chat.png) | ![宠物互动面板](docs/screenshots/12-pet-panel.png) |
 
-### 实时令牌统计
+### 实时吞吐统计
 
-在输入框下方实时显示生成速度（TPS）、LLM 耗时、上下文占用、缓存命中率以及输入 / 输出 token 数，每次生成的用量一目了然。
+DSH Web 的会话状态行已内置 token 用量展示，本插件补上实时吞吐：响应流式输出时，输入 / 输出 token 总量实时估算更新（`~` 表示启发式估算），TPS 速率组渲染在步骤计数之后；provider 用量到达后，估算自动替换为真实用量。
 
-![实时令牌统计](docs/screenshots/18-live-stats.png)
+![实时吞吐统计](docs/screenshots/18-live-stats.png)
 
 ### 移动端远程
 
@@ -205,6 +213,7 @@ dsh web
 不想装全家桶时，可单独安装任意插件（npm 已发布，直接用包名）：
 
 ```sh
+dsh plugin --profile web add @linxin666/dsh-liangshen              # 梁神模式
 dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # 任务看板
 dsh plugin --profile web add @linxin666/dsh-ssh                    # 远程连接（SSH）
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # 图像理解工具
@@ -327,14 +336,6 @@ A: 只想用皮肤装 `@linxin666/dsh-skins`；只装某一个插件用「单独
 <p align="center">
   <a href="https://github.com/zhu1090093659/dsh-web-ui/graphs/contributors">
     <img src="https://contrib.rocks/image?repo=zhu1090093659/dsh-web-ui" alt="Contributors">
-  </a>
-</p>
-
-## Star 历史
-
-<p align="center">
-  <a href="https://www.star-history.com/?repos=zhu1090093659%2Fdsh-web-ui&type=date&legend=top-left">
-    <img src="https://raw.githubusercontent.com/zhu1090093659/dsh-web-ui/star-history/star-history.svg" alt="Star History Chart">
   </a>
 </p>
 

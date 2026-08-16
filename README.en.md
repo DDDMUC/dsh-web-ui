@@ -18,7 +18,7 @@
 
 <p align="center">
   <strong>The plugin and skin family for the DeepSeek Harness (DSH) Web GUI</strong><br>
-  <em>Task board · Git graph · Right panel · Mobile remote · SSH ops · Image understanding · Whale-girl pet · Live usage · Skin center</em>
+  <em>Liang Shen Mode · Task board · Git graph · Right panel · Mobile remote · SSH ops · Image understanding · Whale-girl pet · Live throughput · Skin center</em>
 </p>
 
 <p align="center">
@@ -29,12 +29,13 @@
 
 ## What It Is
 
-dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web GUI. Every plugin mounts into `dsh web` through the official profile mechanism without touching the DSH source; install plugins individually, or everything at once through the aggregate package.
+dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web GUI: the "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet, live throughput and the skin center. Every plugin mounts into `dsh web` through the official profile mechanism without touching the DSH source; install plugins individually, or everything at once through the aggregate package.
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
 | Capability | Stock dsh web | dsh-web-ui family |
 | --- | --- | --- |
+| Agent presets | Official presets (Standard / Minimal…) | Liang Shen Mode: two-phase anchoring tuned for V4 Pro |
 | Task board | None | Multi-column board + cron-scheduled real runs |
 | Git visualization | None | Branch lanes + commit history graph |
 | File preview & changes | None | Right panel: preview / file tree / SCM |
@@ -42,9 +43,16 @@ dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) W
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
 | Image understanding | None | `describe_image` vision tool |
 | Themes & skins | Default theme | Skin center with 10 skins, try-on before apply |
-| Usage stats | None | Live TPS / tokens / cache hit rate |
 
 ## Feature Plugins
+
+### Liang Shen Mode
+
+An agent preset (Anchored Standard) tuned for DeepSeek V4 Pro: pick "Liang Shen Mode" in the preset selector when starting a new session and unleash what V4 Pro can really do.
+
+The first model request only exposes the official Minimal dual tools (a persistent `bash` and `str_replace_editor`) plus a one-line persona, with the runtime context cleared and only your own messages passed through — anchoring the reasoning trajectory on Minimal's high-score path; once anchored, the wire auto-promotes to Code Mode (PTC) — one `run_code` tool plus the full tool registry — and all prompt sections, workspace instructions and the skill directory are restored. Windows native testing (DeepSeek V4 Pro): 98 / 99, average 98.5.
+
+How it works, the stabilization controls and its limits live in [dsh-liangshen README](packages/dsh-liangshen/README.md).
 
 ### Task Board
 
@@ -82,11 +90,11 @@ A whale girl who lives at the edge of the interface and switches animations with
 | --- | --- |
 | ![Whale pet](docs/screenshots/11-pet-new-chat.png) | ![Pet interaction panel](docs/screenshots/12-pet-panel.png) |
 
-### Live Token Stats
+### Live Throughput Stats
 
-Real-time usage shown directly below the input box: generation speed (TPS), LLM time, context usage, cache hit rate, and input / output token counts — the cost of every generation stays visible at a glance.
+The dsh web session status line already shows token usage; this plugin adds live throughput: while a response streams, input / output token totals update as live estimates (`~` marks heuristic estimates), and the TPS group renders after the step counter; once provider usage arrives, the estimates are replaced with real usage.
 
-![Live token stats](docs/screenshots/18-live-stats.png)
+![Live throughput stats](docs/screenshots/18-live-stats.png)
 
 ### Mobile Remote Control
 
@@ -206,6 +214,7 @@ dsh web
 Prefer individual plugins? Install them one by one (published on npm, so use the package name directly):
 
 ```sh
+dsh plugin --profile web add @linxin666/dsh-liangshen              # Liang Shen Mode
 dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # Task board
 dsh plugin --profile web add @linxin666/dsh-ssh                    # Remote connection (SSH)
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # Image understanding tool
@@ -328,14 +337,6 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 <p align="center">
   <a href="https://github.com/zhu1090093659/dsh-web-ui/graphs/contributors">
     <img src="https://contrib.rocks/image?repo=zhu1090093659/dsh-web-ui" alt="Contributors">
-  </a>
-</p>
-
-## Star History
-
-<p align="center">
-  <a href="https://www.star-history.com/?repos=zhu1090093659%2Fdsh-web-ui&type=date&legend=top-left">
-    <img src="https://raw.githubusercontent.com/zhu1090093659/dsh-web-ui/star-history/star-history.svg" alt="Star History Chart">
   </a>
 </p>
 
