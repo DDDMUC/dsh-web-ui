@@ -1150,7 +1150,11 @@ const inject = ["webServer"];
 */
 const SKIN_BACKGROUND_NAMESPACE = settingsNamespace("skin-background");
 /** Runtime schema for SkinBackgroundConfig. */
-const SkinBackgroundConfigSchema = z.object({ backgroundOpacity: z.number().min(0).max(100).step(5).default(0) });
+const SkinBackgroundConfigSchema = z.object({
+	backgroundOpacity: z.number().min(0).max(100).step(5).default(0),
+	backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(0),
+	backgroundBlurContent: z.number().min(0).max(20).step(1).default(0)
+});
 /**
 * Register the skin-center API routes.
 *

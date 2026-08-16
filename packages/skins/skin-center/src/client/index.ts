@@ -82,8 +82,14 @@ export function apply(ctx: ClientContext): void {
   // Background occluder over the shared skin-background namespace. The scope
   // is bound to this plugin's fiber, so it is torn down with the card.
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
-  const backgroundScope = binder.bind<{ backgroundOpacity?: number }>({ namespace: SKIN_BACKGROUND_NS })
+  const backgroundScope = binder.bind<{
+    backgroundOpacity?: number
+    backgroundBlurEmpty?: number
+    backgroundBlurContent?: number
+  }>({ namespace: SKIN_BACKGROUND_NS })
   const background = new BackgroundController(backgroundScope)
+  // Tear the blur element + observer down when this plugin's fiber goes away.
+  ctx.effect(() => () => background.dispose(), 'ui-skin-center: background dispose')
   const injected = (): SkinCenterInjected => ({
     controller,
     theme: {
@@ -93,8 +99,13 @@ export function apply(ctx: ClientContext): void {
     },
     background: {
       opacity: () => background.opacity(),
+      blurEmpty: () => background.blurEmpty(),
+      blurContent: () => background.blurContent(),
       subscribe: listener => background.subscribe(listener),
       set: opacity => background.set(opacity),
+      setBlurEmpty: value => background.setBlurEmpty(value),
+      setBlurContent: value => background.setBlurContent(value),
+      dispose: () => background.dispose(),
     },
   })
 
