@@ -389,6 +389,10 @@ export function createLiveTokenUsageProjectionDefinition(
       return next
     },
     view,
-    stateVersion: 2,
+    // Bumped with the pure-JSON state shape (surface Map->Record,
+    // header/tokensPerSecond undefined->null, sparse blocks->Record):
+    // a checkpoint row with the old shape is discarded at read time
+    // instead of revived into the new shape (issue #250 follow-up).
+    stateVersion: 3,
   }
 }
