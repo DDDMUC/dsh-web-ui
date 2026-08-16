@@ -2,12 +2,12 @@
 
 [English](README.md) | 中文
 
-面向 DSH 设置页的 dsh web UI 设置插件组：在 DSH 设置页加入一张卡片，归组 dsh web UI 全家桶设置，承载全家桶插件的启用开关与配置表单。
+面向 DSH 设置页的 dsh web UI 设置插件组：在 DSH 设置页注册一个一级菜单项（与通用设置 / 模式 / 插件 / Agent 预设同级），归组全家桶插件的启用开关与配置表单。
 
 ## 是什么
 
-- **全家桶设置卡片**：在 DSH 设置页注册一张卡片，归组其余 dsh web UI 全家桶插件（task-board、live-stats、remote-web-ui、describe-image）的启用开关与配置表单。
-- **同级卡片**：皮肤中心、社区插件、桌面宠物各自是独立插件包，在同一插件配置区注册自己的顶层卡片。
+- **全家桶设置分区**：在 DSH 设置页注册一级菜单项，归组其余 dsh web UI 全家桶插件（task-board、live-stats、remote-web-ui、describe-image）的启用开关与配置表单。
+- **同级分区**：皮肤中心与桌面宠物各自是独立插件包，注册自己的设置页一级菜单项；社区插件保留在「插件」配置页的卡片。
 
 ## 安装
 
@@ -26,8 +26,8 @@ pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-settings
 ```
 
-安装后重启 `dsh web`，设置页出现该卡片。
+安装后重启 `dsh web`，设置页出现该菜单项。
 
 ## 已知限制
 
-- 仅当依赖的 `@deepseek-ai/dsh-client-ui-settings` 存在时，该卡片才会出现在 dsh 设置页。
+- 仅当依赖的 `@deepseek-ai/dsh-client-ui-settings` 存在时，该菜单项才会出现在 dsh 设置页。

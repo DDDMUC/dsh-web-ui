@@ -1,10 +1,10 @@
 /**
- * In-GUI skin center, browser half: registers the Skins plugin card into the
- * top-level plugin-configuration list (`settings.plugin.item`) and provides
- * the try-on controller + official theme handle to it. The card lists every
- * installed skin (embedded registry), tries it on live inside the GUI, exits
- * with a full restore, and copies the one-command apply. The plugin writes
- * only DOM and the settings ledger — no services, no events, no model access.
+ * In-GUI skin center, browser half: registers the Skin Center as a first-level
+ * settings section (`settings.section`) and provides the try-on controller +
+ * official theme handle to it. The section lists every installed skin
+ * (embedded registry), tries it on live inside the GUI, exits with a full
+ * restore, and applies the chosen skin in one click. The plugin writes only
+ * DOM and the settings ledger — no services, no events, no model access.
  */
 import type { ClientContext, SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
@@ -12,7 +12,7 @@ import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import { SkinCenter, type SkinCenterInjected } from './SkinCenter.tsx'
+import { SkinCenterSection, type SkinCenterInjected } from './SkinCenter.tsx'
 import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
 import { en, zh, type SkinCenterKey } from './locales.ts'
 import { TryOnController } from './try-on.ts'
@@ -28,21 +28,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** The skin-center card's copy. */
     skinCenter: SkinCenterKey
   }
-
-  interface SlotMap {
-    /**
-     * The top-level plugin-configuration list slot. Spelled here with the
-     * same shape so this package can register without depending on the
-     * sibling UI package.
-     */
-    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
-  }
-}
-
-/** Owner share of a plugin card (the group card supplies nothing). */
-export interface SettingsPluginItemOwnerProps {
-  /** Marker field: card owner props are intentionally empty. */
-  children?: never
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -62,7 +47,7 @@ export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection'
 
 /**
  * Register the skin-center dictionaries, the body scope attribute, and the
- * Skins plugin card in the top-level plugin-configuration list.
+ * Skin Center as a first-level settings section.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -110,11 +95,12 @@ export function apply(ctx: ClientContext): void {
     },
   })
 
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-    name: 'settings.plugin.item',
-    id: 'skins',
-    order: 110,
-    locale: NS,
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'skin-center',
+    order: 120,
+    label: () => ctx.locale.bind('skinCenter')('title'),
+    locale: 'skinCenter',
     inject: injected,
-  }, SkinCenter))
+  }, SkinCenterSection))
 }

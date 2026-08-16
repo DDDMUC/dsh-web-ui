@@ -6,7 +6,7 @@
 
 ## 功能
 
-- **顶层卡片**：在设置页插件配置区注册一张卡片（与 Web UI 插件组卡片和内置卡片同级），自带启用开关，由 community-plugins 设置命名空间持久化。
+- **插件配置卡片**：在设置页插件配置区注册一张卡片，与内置的 Shell / Agent loop / Web search 卡片并列，自带启用开关，由 community-plugins 设置命名空间持久化。Web UI 插件组、皮肤中心与宠物则各自注册设置页一级菜单项。
 - **只做索引**：每个条目链接到贡献者自己的仓库；本包不打包任何被索引的代码。注册表在 community.json，由 scripts/community-index 编译进客户端 bundle。
 
 ## 安装

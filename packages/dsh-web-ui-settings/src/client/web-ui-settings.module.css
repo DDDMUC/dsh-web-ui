@@ -3,6 +3,12 @@
  * PluginCard (same tokens, radius, typography and states) so the group reads
  * as a sibling of the built-in Shell / Agent loop / Web search cards. */
 
+.sectionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .groupCard {
   list-style: none;
   border: 1px solid var(--dsw-alias-border-l2);
@@ -97,4 +103,3 @@
     transition: none;
   }
 }
-

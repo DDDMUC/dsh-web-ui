@@ -7,6 +7,13 @@
    is themed by the active (or tried-on) skin automatically. Never use bare
    hex here: a token-less rule is a light-theme-only bug. */
 
+/* The section wrapper: one list that stacks the skin-center card rows. */
+body[data-dsh-skin-center] .sectionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* The plugin card itself: one disclosure card in the Web UI plugin group. */
 body[data-dsh-skin-center] .pluginCard {
   list-style: none;
