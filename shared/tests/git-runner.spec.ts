@@ -3,8 +3,7 @@
  * degrade mode (spawn/run failures become exitCode 127 runs), and throw mode.
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { Context } from '@deepseek-ai/cordis'
-import { subprocessRunner, type GitRunner } from '../host/git-runner.ts'
+import { subprocessRunner, type GitRunner, type SubprocessServiceLike } from '../host/git-runner.ts'
 
 interface FakeHandle {
   done: Promise<{ exitCode: number | null }>
@@ -15,7 +14,7 @@ interface FakeHandle {
 function fakeCtx(
   answer: (argv: readonly string[]) => Promise<{ exitCode: number | null }> | { exitCode: number | null },
   spawnThrows: unknown | null = null,
-): { ctx: Context; specs: Array<Record<string, unknown>>; spawn: ReturnType<typeof vi.fn> } {
+): { ctx: { subprocess: SubprocessServiceLike }; specs: Array<Record<string, unknown>>; spawn: ReturnType<typeof vi.fn> } {
   const specs: Array<Record<string, unknown>> = []
   const spawn = vi.fn((spec: Record<string, unknown>): FakeHandle => {
     if (spawnThrows !== null) throw spawnThrows
@@ -29,11 +28,11 @@ function fakeCtx(
       },
     }
   })
-  return { ctx: { subprocess: { spawn } } as unknown as Context, specs, spawn }
+  return { ctx: { subprocess: { spawn } as unknown as SubprocessServiceLike }, specs, spawn }
 }
 
 function withRunner(
-  ctx: Context,
+  ctx: { subprocess: SubprocessServiceLike },
   options: Parameters<typeof subprocessRunner>[1] = {},
 ): GitRunner {
   return subprocessRunner(ctx, options)

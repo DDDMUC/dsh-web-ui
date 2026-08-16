@@ -5,14 +5,12 @@
  * scripts/sync-shared.mjs; edit the shared source and re-run the sync instead
  * of editing a copy.
  *
- * Packages that need per-package behavior (platform argv or failure
- * degradation) wrap the shared runner through the options below.
+ * The context shape is declared structurally so this module stays
+ * self-contained (shared/ has no cordis dependency): any context whose
+ * `subprocess` satisfies SubprocessServiceLike works, which the plugin
+ * contexts do.
  * @module dsh-web-ui-shared/host/git-runner
  */
-
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-subprocess'
-import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 
 /** One finished git invocation. */
 export interface GitRunResult {
@@ -29,6 +27,26 @@ export interface GitRunner {
 /** Collected-output cap for one git command. */
 export const OUTPUT_CAP_BYTES = 1 << 20
 
+/** The subprocess service surface this runner consumes (structural). */
+export interface SubprocessServiceLike {
+  spawn(spec: {
+    argv: readonly string[]
+    cwd: string
+    stdio: {
+      stdin: 'ignore'
+      stdout: { maxBytes: number }
+      stderr: { maxBytes: number }
+    }
+    graceMs: number
+  }): {
+    done: Promise<{ exitCode: number | null }>
+    collected: {
+      stdout?: { readFrom(offset: number): { text: string } }
+      stderr?: { readFrom(offset: number): { text: string } }
+    }
+  }
+}
+
 /** Per-package knobs for the shared production runner. */
 export interface GitRunnerOptions {
   /** Build the full spawn argv from the git args (default ['git', ...argv]). */
@@ -40,15 +58,15 @@ export interface GitRunnerOptions {
 }
 
 /**
- * Production runner over `ctx.subprocess`: one managed child per command,
- * bounded collect on both streams. Degrade mode keeps the SCM tab showing the
- * friendly "not a git repository" state instead of a bare 400 when git is
- * missing or the subprocess service fails.
+ * Production runner over the subprocess service: one managed child per
+ * command, bounded collect on both streams. Degrade mode keeps the SCM tab
+ * showing the friendly "not a git repository" state instead of a bare 400
+ * when git is missing or the subprocess service fails.
  * @param ctx - context carrying the subprocess service.
  * @param options - per-package behavior knobs.
  * @returns the runner.
  */
-export function subprocessRunner(ctx: Context, options: GitRunnerOptions = {}): GitRunner {
+export function subprocessRunner(ctx: { subprocess: SubprocessServiceLike }, options: GitRunnerOptions = {}): GitRunner {
   const spawnArgv = options.spawnArgv ?? ((argv) => ['git', ...argv])
   const degrade = options.failureMode === 'degrade'
   const errorTag = options.errorTag ?? 'git'
@@ -59,11 +77,11 @@ export function subprocessRunner(ctx: Context, options: GitRunnerOptions = {}): 
   })
   return {
     async run(argv, cwd) {
-      const spec: SubprocessSpawnSpec = {
+      const spec = {
         argv: spawnArgv(argv),
         cwd,
         stdio: {
-          stdin: 'ignore',
+          stdin: 'ignore' as const,
           stdout: { maxBytes: OUTPUT_CAP_BYTES },
           stderr: { maxBytes: OUTPUT_CAP_BYTES },
         },
