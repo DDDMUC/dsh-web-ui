@@ -256,6 +256,17 @@ test(`本地验证值支持代码围栏与列表格式（不误判字段边界�
   assert.ok(!f.some((x) => x.message.includes(`本地验证`)))
 })
 
+test(`本地验证值不以冒号正文行误判字段边界`, () => {
+  // 回归：readField 曾把 "全部通过：typecheck 全绿" 这类摘要正文行误判为
+  // 下一个字段标签，导致结果摘要被读为空（GitHub 证据检查可正常解析）。
+  const body = makeBody().body
+    .replace(`执行的命令：pnpm build`, `执行的命令：\n\n\u0060\u0060\u0060bash\npnpm typecheck\npnpm test:scripts\n\u0060\u0060\u0060\n`)
+    .replace(`结果摘要：通过`, `结果摘要：\n\n全部通过：typecheck 全绿；test:scripts 87/87。`)
+  const pr = { body, author: { login: `someone` } }
+  const f = checkTemplate(pr, `owner`)
+  assert.ok(!f.some((x) => x.message.includes(`本地验证`)))
+})
+
 // ---------------------------------------------------------------- checkCommits
 
 test(`提交信息检查`, () => {
