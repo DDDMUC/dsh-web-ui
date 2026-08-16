@@ -324,6 +324,31 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
           >
             {current.executions.length === 0 ? t('detail.run') : t('detail.rerun')}
           </button>
+          {current.archivedAt !== undefined ? (
+            <button
+              type="button"
+              className={css.primaryButton}
+              onClick={() => {
+                controller.restoreTask(current.id)
+                controller.closeTask()
+              }}
+            >
+              {t('detail.restore')}
+            </button>
+          ) : (
+            (current.status === 'done' || current.status === 'failed') && (
+              <button
+                type="button"
+                className={css.ghostButton}
+                onClick={() => {
+                  controller.archiveTask(current.id)
+                  controller.closeTask()
+                }}
+              >
+                {t('detail.archive')}
+              </button>
+            )
+          )}
           <button
             type="button"
             className={css.dangerButton}
@@ -333,6 +358,7 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
           </button>
           <span className={css.detailMeta}>
             {t('board.created')} {formatTime(current.createdAt)}
+            {current.archivedAt !== undefined && ` · ${t('detail.archivedAt', { time: formatTime(current.archivedAt) })}`}
           </span>
         </footer>
       </div>
