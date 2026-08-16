@@ -4,12 +4,12 @@ import { InMemoryTaskStore } from '../src/core/store.ts'
 import { createTask, type TaskRecord } from '../src/core/tasks.ts'
 import type { TaskBoardSnapshot } from '../src/protocol.ts'
 
-function snapshot(revision: number, tasks: TaskRecord[] = []): TaskBoardSnapshot {
+function snapshot(revision: number, tasks: TaskRecord[] = [], ledgerId = 'ledger-a'): TaskBoardSnapshot {
   return {
     schemaVersion: 2,
     revision,
     tasks,
-    scheduler: { timeZone: 'UTC' },
+    scheduler: { timeZone: 'UTC', ledgerId },
     power: {
       platform: 'linux', phase: 'unsupported', enabled: false,
       runningSessions: 0, armedSchedules: 0, sessionStateKnown: true,
@@ -38,11 +38,12 @@ describe('Host-backed BoardController', () => {
       store: new InMemoryTaskStore(), sessions: sessions(), transport, uuid: () => 'task-a', now: () => 1,
     })
     controller.start()
-    await Promise.resolve()
+    await controller.retryHostSync()
     const creating = controller.createTaskConfirmed({ title: 'A', description: 'draft', prompt: 'work' })
     expect(controller.getSnapshot().pendingTaskIds).toEqual(['task-a'])
     expect(controller.getSnapshot().tasks).toEqual([])
     const confirmed = createTask({ title: 'A', description: 'draft', prompt: 'work' }, 1, 'task-a')
+    await vi.waitFor(() => { expect(resolveAction).toBeTypeOf('function') })
     resolveAction(snapshot(1, [confirmed]))
     await expect(creating).resolves.toEqual(confirmed)
     expect(controller.getSnapshot().pendingTaskIds).toEqual([])
@@ -71,6 +72,85 @@ describe('Host-backed BoardController', () => {
     await Promise.resolve()
     expect(controller.getSnapshot().host?.revision).toBe(2)
     expect(controller.getSnapshot().tasks).toEqual([confirmed])
+    controller.dispose()
+  })
+
+  it('retains the v1 view and does not subscribe to SSE until migration succeeds', async () => {
+    const legacy = createTask({ title: 'legacy', description: '', prompt: '' }, 1, 'legacy')
+    const confirmed = createTask({ title: 'confirmed', description: '', prompt: '' }, 2, 'confirmed')
+    const store = new InMemoryTaskStore()
+    store.save([legacy])
+    let online = false
+    const subscribe = vi.fn(() => () => undefined)
+    const transport: TaskBoardTransport = {
+      bootstrap: async () => {
+        if (!online) throw new Error('migration offline')
+        return snapshot(1, [confirmed])
+      },
+      state: async () => snapshot(1, [confirmed]),
+      action: async () => snapshot(1, [confirmed]),
+      subscribe,
+    }
+    const controller = new BoardController({ store, sessions: sessions(), transport })
+    controller.start()
+    await vi.waitFor(() => { expect(controller.getSnapshot().transportError).toBe('migration offline') })
+    expect(controller.getSnapshot().tasks).toEqual([legacy])
+    expect(subscribe).not.toHaveBeenCalled()
+    online = true
+    await expect(controller.retryHostSync()).resolves.toBe(true)
+    expect(controller.getSnapshot().tasks).toEqual([confirmed])
+    expect(subscribe).toHaveBeenCalledOnce()
+    controller.dispose()
+  })
+
+  it('queues conflicting actions for one task and keeps pending until the queue drains', async () => {
+    const initial = createTask({ title: 'A', description: '', prompt: '' }, 1, 'task-a')
+    const resolvers: Array<(value: TaskBoardSnapshot) => void> = []
+    const action = vi.fn(async () => await new Promise<TaskBoardSnapshot>(resolve => { resolvers.push(resolve) }))
+    const transport: TaskBoardTransport = {
+      bootstrap: async () => snapshot(1, [initial]),
+      state: async () => snapshot(1, [initial]),
+      action,
+      subscribe: () => () => undefined,
+    }
+    const controller = new BoardController({ store: new InMemoryTaskStore(), sessions: sessions(), transport })
+    controller.start()
+    await controller.retryHostSync()
+    controller.updateTask('task-a', { title: 'B' })
+    controller.updateTask('task-a', { title: 'C' })
+    await vi.waitFor(() => { expect(action).toHaveBeenCalledTimes(1) })
+    resolvers[0](snapshot(2, [{ ...initial, title: 'B', updatedAt: 2 }]))
+    await vi.waitFor(() => { expect(action).toHaveBeenCalledTimes(2) })
+    expect(controller.getSnapshot().pendingTaskIds).toEqual(['task-a'])
+    resolvers[1](snapshot(3, [{ ...initial, title: 'C', updatedAt: 3 }]))
+    await vi.waitFor(() => { expect(controller.getSnapshot().pendingTaskIds).toEqual([]) })
+    expect(controller.getSnapshot().tasks[0].title).toBe('C')
+    controller.dispose()
+  })
+
+  it('refreshes after a stale action response and accepts a lower revision from a new ledger generation', async () => {
+    const initial = createTask({ title: 'A', description: '', prompt: '' }, 1, 'task-a')
+    const refreshed = { ...initial, title: 'fresh', updatedAt: 3 }
+    const state = vi.fn(async () => snapshot(3, [refreshed]))
+    let onEvent: (() => void) | undefined
+    const transport: TaskBoardTransport = {
+      bootstrap: async () => snapshot(2, [initial]),
+      state,
+      action: async () => snapshot(1, []),
+      subscribe: listener => { onEvent = listener; return () => undefined },
+    }
+    const controller = new BoardController({ store: new InMemoryTaskStore(), sessions: sessions(), transport })
+    controller.start()
+    await controller.retryHostSync()
+    expect(await controller.runTask('task-a')).toBe(true)
+    expect(state).toHaveBeenCalledOnce()
+    expect(controller.getSnapshot().tasks[0].title).toBe('fresh')
+
+    state.mockResolvedValueOnce(snapshot(0, [], 'ledger-b'))
+    onEvent?.()
+    await vi.waitFor(() => { expect(controller.getSnapshot().host?.scheduler.ledgerId).toBe('ledger-b') })
+    expect(controller.getSnapshot().host?.revision).toBe(0)
+    expect(controller.getSnapshot().tasks).toEqual([])
     controller.dispose()
   })
 })

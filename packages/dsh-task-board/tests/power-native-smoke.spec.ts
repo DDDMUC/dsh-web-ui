@@ -7,7 +7,7 @@ function linuxLogin1Available(): boolean {
   if (process.platform !== 'linux') return false
   const executable = ['/usr/bin/systemd-inhibit', '/bin/systemd-inhibit'].find(path => existsSync(path))
   if (executable === undefined) return false
-  return spawnSync(executable, ['--list'], { stdio: 'ignore' }).status === 0
+  return spawnSync(executable, ['--list', '--no-pager'], { stdio: 'ignore', timeout: 2_000 }).status === 0
 }
 
 const enabled = process.env.DSH_POWER_SMOKE === '1'
@@ -29,13 +29,17 @@ describe.runIf(enabled)('native power helper smoke', () => {
       return process
     }
     const power = new PowerInhibitor({ spawn: realSpawn })
-    power.updateReasons({ runningSessions: 1, armedSchedules: 0, sessionStateKnown: true })
-    power.setEnabled(true)
-    await waitUntil(() => power.snapshot().phase === 'active' || power.snapshot().phase === 'error', 10_000)
-    expect(power.snapshot().phase, power.snapshot().lastError).toBe('active')
-    const launched = process
-    expect(launched).toBeDefined()
-    power.dispose()
-    await waitUntil(() => launched!.exitCode !== null || launched!.signalCode !== null, 5_000)
-  }, 20_000)
+    let launched: ChildProcess | undefined
+    try {
+      power.updateReasons({ runningSessions: 1, armedSchedules: 0, sessionStateKnown: true })
+      power.setEnabled(true)
+      await waitUntil(() => power.snapshot().phase === 'active' || power.snapshot().phase === 'error', 30_000)
+      expect(power.snapshot().phase, power.snapshot().lastError).toBe('active')
+      launched = process
+      expect(launched).toBeDefined()
+    } finally {
+      power.dispose()
+    }
+    await waitUntil(() => launched!.exitCode !== null || launched!.signalCode !== null, 10_000)
+  }, 45_000)
 })

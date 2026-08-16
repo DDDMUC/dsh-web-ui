@@ -275,7 +275,7 @@ A: First make sure the plugin went into the `web` profile (the `--profile web` i
 <details>
 <summary><strong>Why didn't a scheduled task run on time?</strong></summary>
 
-A: Scheduling happens in the browser, so the `dsh web` tab has to stay open; triggers missed while it is closed are skipped, not queued. A task that is already running at the trigger time is also deferred to the next matching point.
+A: Scheduling runs in the `dsh web` Host and does not require a browser tab to stay open. Occurrences missed while the Host is stopped, the system is asleep, or the Host is paused for a long time are skipped rather than queued; an occurrence due while the same task is running also rolls to the next match. To allow the display to turn off while preventing idle system sleep, explicitly enable the task board's power-protection setting.
 
 </details>
 
@@ -309,7 +309,7 @@ A: Yes. The aggregate namespaces every row id with a `web-ui-` prefix (e.g. `web
 
 ## Known Limitations
 
-- Task-board scheduling is browser-side: the `dsh web` tab has to stay open, and triggers missed while it is closed are skipped, not queued. See [dsh-task-board README](packages/dsh-task-board/README.md).
+- The task board is scheduled by the Host and continues after the browser closes; occurrences missed while the Host is stopped or the computer is asleep are skipped and not replayed. Optional power protection is off by default and prevents only idle system sleep, not lid close, manual sleep, hibernation, or shutdown. See [dsh-task-board README](packages/dsh-task-board/README.md).
 - SSH passwords and passphrases are stored in plaintext in `~/.dsh/dsh-ssh.json` (mode 0600); reconnects may replay non-idempotent commands, and remote output is returned unredacted. See the security model in [dsh-ssh README](packages/dsh-ssh/README.md).
 - Mobile remote relies on SSE live push: Cloudflare quick tunnels and Tailscale Serve do not pass SSE through, so the plugin falls back to polling and new messages may arrive a few seconds late.
 - Repository installs require Node.js >= 22 and pnpm and are for development only; npm installs are unaffected.

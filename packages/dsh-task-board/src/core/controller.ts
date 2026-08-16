@@ -141,8 +141,11 @@ export class BoardController {
   private readonly now: () => number
   private readonly uuid: () => string
   private readonly pendingTaskIds = new Set<string>()
+  private readonly taskQueues = new Map<string, Promise<void>>()
   private transportError: string | undefined
   private hostState: Pick<TaskBoardSnapshot, 'revision' | 'scheduler' | 'power'> | undefined
+  private remoteSubscribed = false
+  private remoteInitialization: Promise<boolean> | undefined
 
   /** @param deps - store, execution service, and the sessions navigation face. */
   constructor(private readonly deps: ControllerDeps) {
@@ -156,12 +159,7 @@ export class BoardController {
   start(): void {
     this.tasks = this.deps.store.load()
     if (this.deps.transport !== undefined) {
-      const refresh = (): void => { void this.refreshRemote() }
-      this.disposers.push(this.deps.transport.subscribe(refresh))
-      void this.deps.transport.bootstrap(this.tasks).then(
-        snapshot => { this.acceptRemote(snapshot) },
-        error => { this.transportError = messageOf(error); this.notify() },
-      )
+      void this.initializeRemote()
     } else {
       void this.reconcileRunningTasks()
     }
@@ -211,6 +209,11 @@ export class BoardController {
   /** Whether production mutations are confirmed by the Host transport. */
   isHostBacked(): boolean {
     return this.deps.transport !== undefined
+  }
+
+  /** Retry initial migration/state synchronization after an explicit Host error. */
+  async retryHostSync(): Promise<boolean> {
+    return await this.initializeRemote()
   }
 
   // --- view state -------------------------------------------------------------
@@ -346,10 +349,13 @@ export class BoardController {
     const { tasks, archived } = applyRestoreTask(this.tasks, id, this.now())
     if (!archived) return false
     if (this.deps.transport !== undefined) {
-      void this.commitRemote({ kind: 'restore', taskId: id }, id)
+      void this.commitRemote({ kind: 'restore', taskId: id }, id).then(restored => {
+        if (restored && this.selectedTaskId === id) this.closeTask()
+      })
       return true
     }
     this.tasks = [...tasks]
+    if (this.selectedTaskId === id) this.selectedTaskId = undefined
     this.persistAndNotify()
     return true
   }
@@ -545,39 +551,88 @@ export class BoardController {
   private async commitRemote(action: TaskBoardAction, taskId?: string): Promise<boolean> {
     const transport = this.deps.transport
     if (transport === undefined) return true
-    if (taskId !== undefined && this.pendingTaskIds.has(taskId)) return false
-    if (taskId !== undefined) this.pendingTaskIds.add(taskId)
-    this.transportError = undefined
+    if (taskId === undefined) return await this.performRemote(action)
+    const previous = this.taskQueues.get(taskId) ?? Promise.resolve()
+    const operation = previous.catch(() => {}).then(async () => await this.performRemote(action))
+    const tail = operation.then(() => {}, () => {})
+    this.taskQueues.set(taskId, tail)
+    this.pendingTaskIds.add(taskId)
     this.notify()
     try {
-      this.acceptRemote(await transport.action(action))
-      return true
-    } catch (error) {
-      await this.refreshRemote(messageOf(error))
-      return false
+      return await operation
     } finally {
-      if (taskId !== undefined) this.pendingTaskIds.delete(taskId)
-      this.notify()
+      if (this.taskQueues.get(taskId) === tail) {
+        this.taskQueues.delete(taskId)
+        this.pendingTaskIds.delete(taskId)
+        this.notify()
+      }
     }
   }
 
-  private async refreshRemote(preserveError?: string): Promise<void> {
+  private async performRemote(action: TaskBoardAction): Promise<boolean> {
     const transport = this.deps.transport
-    if (transport === undefined) return
+    if (transport === undefined) return true
+    this.transportError = undefined
+    this.notify()
+    try {
+      const accepted = this.acceptRemote(await transport.action(action))
+      return accepted || await this.refreshRemote()
+    } catch (error) {
+      await this.refreshRemote(messageOf(error))
+      return false
+    }
+  }
+
+  private async initializeRemote(): Promise<boolean> {
+    if (this.remoteInitialization !== undefined) return await this.remoteInitialization
+    const initialization = this.doInitializeRemote()
+    this.remoteInitialization = initialization
+    try {
+      return await initialization
+    } finally {
+      if (this.remoteInitialization === initialization) this.remoteInitialization = undefined
+    }
+  }
+
+  private async doInitializeRemote(): Promise<boolean> {
+    const transport = this.deps.transport
+    if (transport === undefined) return true
+    try {
+      this.acceptRemote(await transport.bootstrap(this.tasks))
+      if (!this.remoteSubscribed) {
+        this.remoteSubscribed = true
+        this.disposers.push(transport.subscribe(() => { void this.refreshRemote() }))
+      }
+      return true
+    } catch (error) {
+      this.transportError = messageOf(error)
+      this.notify()
+      return false
+    }
+  }
+
+  private async refreshRemote(preserveError?: string): Promise<boolean> {
+    const transport = this.deps.transport
+    if (transport === undefined) return true
     try {
       this.acceptRemote(await transport.state())
       if (preserveError !== undefined) {
         this.transportError = preserveError
         this.notify()
       }
+      return true
     } catch (error) {
       this.transportError = preserveError ?? messageOf(error)
       this.notify()
+      return false
     }
   }
 
-  private acceptRemote(snapshot: TaskBoardSnapshot): void {
-    if (this.hostState !== undefined && snapshot.revision < this.hostState.revision) return
+  private acceptRemote(snapshot: TaskBoardSnapshot): boolean {
+    const currentLedgerId = this.hostState?.scheduler.ledgerId
+    const nextLedgerId = snapshot.scheduler.ledgerId
+    const sameGeneration = currentLedgerId === nextLedgerId
+    if (sameGeneration && this.hostState !== undefined && snapshot.revision < this.hostState.revision) return false
     this.tasks = [...snapshot.tasks]
     this.hostState = { revision: snapshot.revision, scheduler: snapshot.scheduler, power: snapshot.power }
     this.transportError = undefined
@@ -589,6 +644,7 @@ export class BoardController {
       this.selectedTaskId = undefined
     }
     this.notify()
+    return true
   }
 
   private notify(): void {

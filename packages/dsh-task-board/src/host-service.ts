@@ -2,7 +2,7 @@ import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
 import { nextRunAtMs } from './core/schedule.ts'
 import type { TaskRecord } from './core/tasks.ts'
 import { HostTaskLedger, type OpenedRun } from './host-ledger.ts'
-import { HostExecutionRunner } from './host-runner.ts'
+import { HostExecutionRunner, SessionLaunchError } from './host-runner.ts'
 import { PowerInhibitor } from './power-inhibitor.ts'
 import type { TaskBoardAction, TaskBoardSnapshot } from './protocol.ts'
 
@@ -18,6 +18,8 @@ export class TaskBoardHostService {
   private timers: Array<ReturnType<typeof setInterval>> = []
   private lastScheduleTick: number | undefined
   private disposed = false
+  private pollInFlight = false
+  private tickInFlight = false
   private active = true
   private preventIdleSleep = false
   private readonly now: () => number
@@ -35,11 +37,12 @@ export class TaskBoardHostService {
   }
 
   start(): void {
+    if (this.disposed || this.timers.length > 0) return
     this.syncPowerReasons()
-    void this.pollSessions()
-    void this.tickSchedule(true)
-    this.timers.push(setInterval(() => { void this.pollSessions() }, SESSION_POLL_MS))
-    this.timers.push(setInterval(() => { void this.tickSchedule(false) }, SCHEDULE_TICK_MS))
+    this.timers.push(setInterval(() => { this.schedulePoll() }, SESSION_POLL_MS))
+    this.timers.push(setInterval(() => { this.scheduleTick(false) }, SCHEDULE_TICK_MS))
+    this.schedulePoll()
+    this.scheduleTick(true)
   }
 
   setConfiguration(active: boolean, preventIdleSleep: boolean): void {
@@ -56,8 +59,8 @@ export class TaskBoardHostService {
     }
     this.power.setEnabled(active && preventIdleSleep)
     if (resumed) {
-      void this.pollSessions()
-      void this.tickSchedule(true)
+      this.schedulePoll()
+      this.scheduleTick(true)
     }
     this.emit()
   }
@@ -81,7 +84,7 @@ export class TaskBoardHostService {
   apply(requestId: string, action: TaskBoardAction): TaskBoardSnapshot {
     if (!this.active) throw new Error('task board is disabled')
     const result = this.ledger.applyRequest(requestId, action)
-    if (result.run !== undefined) void this.launch(result.run)
+    if (result.run !== undefined) this.scheduleLaunch(result.run)
     return {
       schemaVersion: 2,
       revision: result.state.revision,
@@ -95,6 +98,7 @@ export class TaskBoardHostService {
     this.disposed = true
     for (const timer of this.timers.splice(0)) clearInterval(timer)
     this.power.dispose()
+    this.ledger.dispose()
     this.listeners.clear()
   }
 
@@ -103,12 +107,16 @@ export class TaskBoardHostService {
       const sessionId = await this.runner.launch(opened.task)
       this.ledger.attachSession(opened.task.id, opened.execution.id, sessionId)
     } catch (error) {
+      if (error instanceof SessionLaunchError) {
+        this.ledger.attachSession(opened.task.id, opened.execution.id, error.sessionId)
+      }
       this.ledger.settle(opened.task.id, opened.execution.id, 'failed', error instanceof Error ? error.message : String(error))
     }
   }
 
   private async pollSessions(): Promise<void> {
-    if (this.disposed || !this.active) return
+    if (this.disposed) return
+    if (!this.active && !this.hasOpenExecutions()) return
     const running = await this.runner.listRunning()
     const previous = this.power.snapshot()
     this.power.updateReasons({
@@ -122,15 +130,15 @@ export class TaskBoardHostService {
 
   private async reconcileExecutions(): Promise<void> {
     for (const task of this.ledger.state().tasks) {
-      if (task.status !== 'running') continue
-      const execution = task.executions.at(-1)
-      if (execution?.sessionId === undefined || execution.endedAt !== undefined) continue
-      try {
-        const result = await this.runner.inspect(execution.sessionId)
-        if (result.outcome === 'pending') continue
-        this.ledger.settle(task.id, execution.id, result.outcome, 'error' in result ? result.error : undefined)
-      } catch {
-        // A transient inspection failure never settles a running execution.
+      for (const execution of task.executions) {
+        if (execution.sessionId === undefined || execution.endedAt !== undefined) continue
+        try {
+          const result = await this.runner.inspect(execution.sessionId, execution.startedAt)
+          if (result.outcome === 'pending') continue
+          this.ledger.settle(task.id, execution.id, result.outcome, 'error' in result ? result.error : undefined)
+        } catch {
+          // A transient inspection failure never settles a running execution.
+        }
       }
     }
   }
@@ -150,12 +158,38 @@ export class TaskBoardHostService {
       if (schedule === undefined || !schedule.enabled || schedule.nextRunAt === undefined || schedule.nextRunAt > now) continue
       const next = nextRunAtMs(schedule.cron, schedule.nextRunAt)
       const opened = this.ledger.openScheduled(task.id, next, now)
-      if (opened !== undefined) void this.launch(opened)
+      if (opened !== undefined) this.scheduleLaunch(opened)
     }
   }
 
   private armedSchedules(): number {
     return this.ledger.state().tasks.filter((task: TaskRecord) => task.schedule?.enabled === true).length
+  }
+
+  private hasOpenExecutions(): boolean {
+    return this.ledger.state().tasks.some(task => task.executions.some(execution => execution.endedAt === undefined))
+  }
+
+  private scheduleLaunch(opened: OpenedRun): void {
+    void this.launch(opened).catch(error => {
+      console.error('[dsh-task-board] execution launch settlement failed', error)
+    })
+  }
+
+  private schedulePoll(): void {
+    if (this.pollInFlight || this.disposed) return
+    this.pollInFlight = true
+    void this.pollSessions().catch(error => {
+      console.error('[dsh-task-board] session polling failed', error)
+    }).finally(() => { this.pollInFlight = false })
+  }
+
+  private scheduleTick(first: boolean): void {
+    if (this.tickInFlight || this.disposed) return
+    this.tickInFlight = true
+    void this.tickSchedule(first).catch(error => {
+      console.error('[dsh-task-board] scheduler tick failed', error)
+    }).finally(() => { this.tickInFlight = false })
   }
 
   private syncPowerReasons(): void {

@@ -12,7 +12,7 @@ import { t, type TaskBoardKey } from '../locales.ts'
 import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
 import css from '../board.module.css'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
-import { formatTime } from './TaskCard.tsx'
+import { formatHostTimestamp, formatTime } from './TaskCard.tsx'
 import { STATUS_KEY } from './status-key.ts'
 
 /** Execution outcome → locale key. */
@@ -23,7 +23,7 @@ const RESULT_KEY: Record<NonNullable<ExecutionRecord['result']>, TaskBoardKey> =
 }
 
 /** One execution-history row. */
-function ExecutionRow({ execution, onOpen }: { execution: ExecutionRecord; onOpen: (sessionId: string) => void }) {
+function ExecutionRow({ execution, timeZone, onOpen }: { execution: ExecutionRecord; timeZone?: string; onOpen: (sessionId: string) => void }) {
   const result = execution.result
   return (
     <li className={css.executionRow} data-result={result}>
@@ -31,8 +31,8 @@ function ExecutionRow({ execution, onOpen }: { execution: ExecutionRecord; onOpe
         {result === undefined ? t('detail.result.running') : t(RESULT_KEY[result])}
       </span>
       <span className={css.executionTimes}>
-        {t('detail.executionStarted')} {formatTime(execution.startedAt)}
-        {execution.endedAt !== undefined && ` · ${t('detail.executionEnded')} ${formatTime(execution.endedAt)}`}
+        {t('detail.executionStarted')} {formatTime(execution.startedAt, timeZone)}
+        {execution.endedAt !== undefined && ` · ${t('detail.executionEnded')} ${formatTime(execution.endedAt, timeZone)}`}
       </span>
       {execution.sessionId !== undefined && (
         <button
@@ -130,6 +130,7 @@ function ScheduleSection({ controller, task, pending }: { controller: BoardContr
   const [nextRunAt, setNextRunAt] = useState<number | undefined>(schedule?.nextRunAt)
   const [lastTriggeredAt, setLastTriggeredAt] = useState<number | undefined>(schedule?.lastTriggeredAt)
   const [error, setError] = useState<string | undefined>(undefined)
+  const timeZone = controller.getSnapshot().host?.scheduler.timeZone
 
   // Keep the editor in sync when the task record changes underneath (the
   // schedule rolls forward as runs trigger).
@@ -179,8 +180,8 @@ function ScheduleSection({ controller, task, pending }: { controller: BoardContr
     ? t('detail.schedule.notScheduled')
     : nextRunAt <= Date.now()
       ? t('detail.schedule.dueSoon')
-      : new Date(nextRunAt).toLocaleString()
-  const lastLabel = lastTriggeredAt === undefined ? '—' : new Date(lastTriggeredAt).toLocaleString()
+      : formatHostTimestamp(nextRunAt, timeZone)
+  const lastLabel = lastTriggeredAt === undefined ? '—' : formatHostTimestamp(lastTriggeredAt, timeZone)
 
   return (
     <section className={css.detailSection}>
@@ -236,9 +237,12 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
   const [latest, setLatest] = useState(task)
   useEffect(() => { setLatest(task) }, [task])
   const current = latest
+  const snapshot = controller.getSnapshot()
   const running = current.status === 'running'
   const archived = current.archivedAt !== undefined
-  const pending = controller.getSnapshot().pendingTaskIds.includes(current.id)
+  const pending = snapshot.pendingTaskIds.includes(current.id)
+  const transportError = snapshot.transportError
+  const timeZone = snapshot.host?.scheduler.timeZone
 
   return (
     <div className={css.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) controller.closeTask() }}>
@@ -259,6 +263,14 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
         </header>
 
         <div className={css.detailBody}>
+          {transportError !== undefined && (
+            <div className={css.formError}>
+              {t('board.hostError', { error: transportError })}{' '}
+              <button type="button" className={css.linkButton} onClick={() => { void controller.retryHostSync() }}>
+                {t('board.retryHost')}
+              </button>
+            </div>
+          )}
           <section className={css.detailSection}>
             <h4>{t('detail.description')}</h4>
             <p className={css.detailText}>{current.description !== '' ? current.description : '—'}</p>
@@ -286,6 +298,7 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
                   <ExecutionRow
                     key={execution.id}
                     execution={execution}
+                    timeZone={timeZone}
                     onOpen={sessionId => { controller.openSession(sessionId) }}
                   />
                 ))}
@@ -363,8 +376,8 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
             {t('detail.delete')}
           </button>
           <span className={css.detailMeta}>
-            {t('board.created')} {formatTime(current.createdAt)}
-            {archived && ` · ${t('detail.archivedAt', { time: formatTime(current.archivedAt!) })}`}
+            {t('board.created')} {formatTime(current.createdAt, timeZone)}
+            {archived && ` · ${t('detail.archivedAt', { time: formatTime(current.archivedAt!, timeZone) })}`}
           </span>
         </footer>
       </div>

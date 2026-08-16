@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -48,11 +48,15 @@ describe('HostTaskLedger', () => {
       kind: 'create', id: 'task-a', input: { title: 'A', description: '', prompt: '' },
     })
     const duplicate = ledger.applyRequest('same-request', {
-      kind: 'create', id: 'task-b', input: { title: 'B', description: '', prompt: '' },
+      kind: 'create', id: 'task-a', input: { title: 'A', description: '', prompt: '' },
     })
     expect(duplicate.state).toEqual(first.state)
     expect(ledger.state().tasks.map(value => value.id)).toEqual(['task-a'])
+    expect(() => ledger.applyRequest('same-request', {
+      kind: 'create', id: 'task-b', input: { title: 'B', description: '', prompt: '' },
+    })).toThrow('different action')
     expect(readdirSync(root).filter(name => name.includes('.tmp-'))).toEqual([])
+    ledger.dispose()
     const restored = new HostTaskLedger(root, () => NOW + 1000)
     expect(restored.state().revision).toBe(1)
     expect(restored.state().tasks[0].title).toBe('A')
@@ -63,12 +67,17 @@ describe('HostTaskLedger', () => {
     const file = join(root, 'ledger-v2.json')
     writeFileSync(file, '{not json', 'utf8')
     const ledger = new HostTaskLedger(root, () => NOW)
+    const recoveredId = ledger.state().scheduler.ledgerId
     expect(ledger.state().tasks).toEqual([])
     expect(ledger.state().scheduler.error).toContain('quarantined')
-    expect(existsSync(file)).toBe(false)
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({ schemaVersion: 2, tasks: [] })
     const quarantined = readdirSync(root).find(name => name.startsWith('ledger-v2.json.corrupt-'))
     expect(quarantined).toBeDefined()
     expect(readFileSync(join(root, quarantined!), 'utf8')).toBe('{not json')
+    ledger.dispose()
+    const restarted = new HostTaskLedger(root, () => NOW + 1)
+    expect(restarted.state().scheduler.ledgerId).toBe(recoveredId)
+    expect(restarted.state().scheduler.error).toContain('quarantined')
   })
 
   it('opens one due execution and rolls a running task without queuing another', () => {
@@ -91,10 +100,30 @@ describe('HostTaskLedger', () => {
     const ledger = new HostTaskLedger(root, () => NOW)
     ledger.applyRequest('create', { kind: 'create', id: 'task-a', input: { title: 'A', description: '', prompt: '' } })
     ledger.applyRequest('run', { kind: 'run', taskId: 'task-a' })
+    ledger.dispose()
     const restarted = new HostTaskLedger(root, () => NOW + 1000)
     const execution = restarted.state().tasks[0].executions[0]
     expect(execution.result).toBe('cancelled')
     expect(execution.error).toContain('restarted')
+  })
+
+  it('fails closed on a second live owner of the same ledger directory', () => {
+    const root = tempRoot()
+    const first = new HostTaskLedger(root, () => NOW)
+    expect(() => new HostTaskLedger(root, () => NOW)).toThrow('already owned')
+    first.dispose()
+    const successor = new HostTaskLedger(root, () => NOW)
+    expect(successor.state().scheduler.ledgerId).toBeDefined()
+    successor.dispose()
+  })
+
+  it('rejects moving or deleting a task while any execution remains open', () => {
+    const ledger = new HostTaskLedger(tempRoot(), () => NOW)
+    ledger.applyRequest('create', { kind: 'create', id: 'task-a', input: { title: 'A', description: '', prompt: '' } })
+    ledger.applyRequest('run', { kind: 'run', taskId: 'task-a' })
+    expect(() => ledger.applyRequest('move', { kind: 'move', taskId: 'task-a', status: 'todo' })).toThrow('cannot be moved')
+    expect(() => ledger.applyRequest('delete', { kind: 'delete', taskId: 'task-a' })).toThrow('cannot be deleted')
+    expect(ledger.state().tasks[0].executions).toHaveLength(1)
   })
 
   it('cancels an imported interrupted start and preserves an invalid cron as disabled', () => {
