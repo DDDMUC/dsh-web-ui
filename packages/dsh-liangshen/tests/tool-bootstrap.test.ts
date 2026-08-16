@@ -628,4 +628,56 @@ describe('anchored-tool-bootstrap', () => {
     expect(() => register({ compactionTools: [''] })).toThrow(/compactionTools/)
     expect(() => register({ compactionTools: [42] as any })).toThrow(/compactionTools/)
   })
+
+  test('phase1FirstCallInstruction appends to the phase-1 persona when set', async () => {
+    const instruction = 'Before answering, run pwd through the shell and base your answer on its result.'
+    const result = await assemble(
+      listener(register({ phase1FirstCallInstruction: instruction }), 'system-prompt/assemble'),
+      [],
+      [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }],
+    )
+    expect(result.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read'])
+    expect(result.contexts).toEqual([])
+    expect(result.sections.map((section: any) => section.name)).toEqual(['deployment:persona'])
+    expect(result.sections[0].text).toBe(`${SECTIONS[0].text}${instruction}`)
+  })
+
+  test('an empty phase1FirstCallInstruction leaves the exact one-line persona', async () => {
+    const result = await assemble(
+      listener(register({ phase1FirstCallInstruction: '' }), 'system-prompt/assemble'),
+      [],
+      [{ name: 'bash' }, { name: 'read' }],
+    )
+    expect(result.sections[0].text).toBe(SECTIONS[0].text)
+  })
+
+  test('phase1FirstCallInstruction is not appended twice', async () => {
+    const instruction = 'Before answering, run pwd through the shell and base your answer on its result.'
+    const already = [{ name: 'deployment:persona', text: `${SECTIONS[0].text}${instruction}` }]
+    const result = await assemble(
+      listener(register({ phase1FirstCallInstruction: instruction }), 'system-prompt/assemble'),
+      [],
+      [{ name: 'bash' }, { name: 'read' }],
+      undefined,
+      already,
+    )
+    expect(result.sections[0].text).toBe(`${SECTIONS[0].text}${instruction}`)
+  })
+
+  test('phase1FirstCallInstruction does not leak into the promoted assembly', async () => {
+    const instruction = 'Before answering, run pwd through the shell and base your answer on its result.'
+    const result = await assemble(
+      listener(register({ phase1FirstCallInstruction: instruction }), 'system-prompt/assemble'),
+      [{ type: 'tool/call' }],
+      [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }],
+    )
+    expect(result.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read', 'edit'])
+    expect(result.sections[0].text).toBe(`${SECTIONS[0].text}\n\nYour working directory is /workspace.`)
+    expect(result.sections[0].text).not.toContain(instruction)
+  })
+
+  test('invalid phase1FirstCallInstruction values fail at apply time', () => {
+    expect(() => register({ phase1FirstCallInstruction: 42 as any })).toThrow(/phase1FirstCallInstruction/)
+    expect(() => register({ phase1FirstCallInstruction: {} as any })).toThrow(/phase1FirstCallInstruction/)
+  })
 })
