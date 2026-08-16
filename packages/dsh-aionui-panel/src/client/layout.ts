@@ -237,6 +237,12 @@ export class PanelLayoutController {
     el.style.position = 'absolute'
     el.style.top = '0'
     el.style.bottom = '0'
+    // Same layer as the columns (z 30): the handle strips overlap the
+    // column tracks, so anything lower would be painted under the opaque
+    // columns and stop receiving pointer events (issue #234 follow-up).
+    // Full-screen overlay drawers must render at the ROOT stacking context
+    // (z 100~1000) to cover both the columns and the handles — see the
+    // columns' stacking-contract note in tokens.module.css.
     el.style.zIndex = '30'
     el.style.cursor = 'col-resize'
     el.style.width = `${hitWidth}px`

@@ -106,8 +106,26 @@ describe('FsService.readRaw (markdown image route)', () => {
 
     const image = await service.readRaw(root, 'assets/pic.png')
     expect(image).toMatchObject({ mime: 'image/png', size: png.length })
-    if ('data' in image) expect(image.data.equals(png)).toBe(true)
+    if ('abs' in image) expect(image.abs.endsWith(join('assets', 'pic.png'))).toBe(true)
     expect(await service.readRaw(root, 'a.md')).toMatchObject({ mime: 'application/octet-stream' })
+
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('serves pdf bytes as application/pdf (extension and magic bytes)', async () => {
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'aionui-raw-')))
+    const root = join(dir, 'proj')
+    await mkdir(join(root, 'docs'), { recursive: true })
+    const pdf = Buffer.from('%PDF-1.7 fake body', 'latin1')
+    await writeFile(join(root, 'docs', 'doc.pdf'), pdf)
+    // No extension: the %PDF magic must still win over octet-stream.
+    await writeFile(join(root, 'docs', 'noext'), pdf)
+    const service = new FsService(gate)
+
+    const byExt = await service.readRaw(root, 'docs/doc.pdf')
+    expect(byExt).toMatchObject({ mime: 'application/pdf', size: pdf.length })
+    if ('abs' in byExt) expect(byExt.abs.endsWith(join('docs', 'doc.pdf'))).toBe(true)
+    expect(await service.readRaw(root, 'docs/noext')).toMatchObject({ mime: 'application/pdf' })
 
     await rm(dir, { recursive: true, force: true })
   })

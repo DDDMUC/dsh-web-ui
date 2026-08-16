@@ -31,6 +31,7 @@ import {
   currentSkin,
   resolvePaths,
   resolveHarnessHome,
+  resolveInstallLayout,
   resolveProfile,
   activeSkinIsBundleWired,
   resolveSkinsDir,
@@ -380,6 +381,53 @@ describe('running profile resolution (issue #155: non-default profile)', () => {
     } finally {
       process.chdir(cwdBefore)
     }
+  })
+})
+
+describe('install-layout resolution (issue #254: running profile with no env/cwd hint)', () => {
+  it('resolveInstallLayout finds harness home and profile from a plain node_modules chain', () => {
+    const h = fakeHome()
+    const pkgDir = join(h, '.dsh', 'profiles', 'web-ui', 'node_modules', '@linxin666', 'dsh-client-ui-skin-center')
+    mkdirSync(pkgDir, { recursive: true })
+    const layout = resolveInstallLayout(pathToFileURL(join(pkgDir, 'index.js')).href)
+    expect(layout).toEqual({ harnessHome: join(h, '.dsh'), profile: 'web-ui' })
+  })
+
+  it('resolveInstallLayout sees through the pnpm virtual-store chain', () => {
+    const h = fakeHome()
+    const pkgDir = join(h, '.dsh', 'profiles', 'web-ui', 'node_modules', '.pnpm', '@linxin666+dsh-client-ui-skin-center@0.1.16', 'node_modules', '@linxin666', 'dsh-client-ui-skin-center')
+    mkdirSync(pkgDir, { recursive: true })
+    const layout = resolveInstallLayout(pathToFileURL(join(pkgDir, 'index.js')).href)
+    expect(layout).toEqual({ harnessHome: join(h, '.dsh'), profile: 'web-ui' })
+  })
+
+  it('resolveInstallLayout returns null outside a profiles tree (monorepo dev checkout)', () => {
+    const h = fakeHome()
+    const pkgDir = join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'skin-center')
+    mkdirSync(pkgDir, { recursive: true })
+    expect(resolveInstallLayout(pathToFileURL(join(pkgDir, 'index.js')).href)).toBeNull()
+  })
+
+  it('resolvePaths falls back to the install profile when env and cwd give nothing', () => {
+    const h = fakeHome()
+    const pkgDir = join(h, '.dsh', 'profiles', 'web-ui', 'node_modules', '@linxin666', 'dsh-client-ui-skin-center')
+    mkdirSync(pkgDir, { recursive: true })
+    withEnv({ DSH_HOME: undefined, DSH_PROFILE: undefined, DSH_SKIN_PROFILE: undefined }, () => {
+      const paths = resolvePaths(undefined, undefined, pathToFileURL(join(pkgDir, 'index.js')).href)
+      expect(paths.patchPath).toBe(join(h, '.dsh', 'cordis.patch.yml'))
+      expect(paths.profileModulesDir).toBe(join(h, '.dsh', 'profiles', 'web-ui', 'node_modules'))
+      expect(paths.profileManifestPath).toBe(join(h, '.dsh', 'profiles', 'web-ui', 'package.json'))
+    })
+  })
+
+  it('an explicit profile env var still beats the install profile', () => {
+    const h = fakeHome()
+    const pkgDir = join(h, '.dsh', 'profiles', 'web-ui', 'node_modules', '@linxin666', 'dsh-client-ui-skin-center')
+    mkdirSync(pkgDir, { recursive: true })
+    withEnv({ DSH_HOME: undefined, DSH_PROFILE: 'wui', DSH_SKIN_PROFILE: undefined }, () => {
+      const paths = resolvePaths(undefined, undefined, pathToFileURL(join(pkgDir, 'index.js')).href)
+      expect(paths.profileModulesDir).toBe(join(h, '.dsh', 'profiles', 'wui', 'node_modules'))
+    })
   })
 })
 
