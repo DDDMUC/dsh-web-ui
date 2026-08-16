@@ -36,6 +36,13 @@
  * degrades to the full catalog with a one-time warning instead of throwing,
  * so a broken composition can never lock a session out of every request.
  *
+ * OPT-IN PHASE-1 INSTRUCTION (issue #274): `phase1FirstCallInstruction` is
+ * an optional string appended to the phase-1 persona; unset (the default)
+ * keeps the phase-1 persona the exact one-line Minimal anchor. Test builds
+ * use it to ask the model to ground its first answer with one Minimal-native
+ * tool call before responding, so first-turn capability questions are
+ * answered from the promoted registry instead of the cropped two-tool view.
+ *
  * Source: https://github.com/xiaobright/dsh-anchored-standard (MIT), extended
  * with the phase-1 quarantine and the stabilization controls above.
  */
@@ -86,6 +93,14 @@ function stringListOrEmpty(value, field) {
     throw new TypeError(`${name}: ${field} must be an array of non-empty strings`)
   }
   return [...new Set(value)]
+}
+
+function optionalString(value, field) {
+  if (value === undefined) return ''
+  if (typeof value !== 'string') {
+    throw new TypeError(`${name}: ${field} must be a string`)
+  }
+  return value
 }
 
 function integerAtLeast(value, field, minimum) {
@@ -329,6 +344,10 @@ export function apply(ctx, config) {
   // Standard set. Defaults to none: the session stays on the bootstrap pair
   // until a new promotion signal (the composition may widen it via config).
   const compactionTools = stringListOrEmpty(config.compactionTools, 'compactionTools')
+  // Opt-in extra line for the phase-1 persona (test builds, issue #274):
+  // asks the model to ground its first answer with a Minimal-native tool
+  // call before responding. Unset keeps the exact one-line persona.
+  const phase1FirstCallInstruction = optionalString(config.phase1FirstCallInstruction, 'phase1FirstCallInstruction')
   const policy = {
     anchorGate: config.anchorGate === true,
     promoteAfterFirstResponse: config.promoteAfterFirstResponse === true,
@@ -337,6 +356,7 @@ export function apply(ctx, config) {
     promotedPresentation: presentation,
     bootstrapMaxTokens,
     compactionTools,
+    phase1FirstCallInstruction,
   }
 
   // Promotion is applied at step/turn boundaries, never while a step is still
@@ -396,13 +416,23 @@ export function apply(ctx, config) {
     // After a compaction the controlled phase widens with the core work set
     // so mid-task work can continue before re-promotion.
     if (state.hasCompacted) for (const toolName of compactionTools) bootstrap.add(toolName)
+    const sections = Array.isArray(assembled.sections)
+      ? assembled.sections.filter(section => PERSONA_SECTION_NAMES.has(section?.name))
+      : undefined
+    // Opt-in phase-1 instruction: appended once to the persona section so
+    // test builds can shift the first answer behind a Minimal-native tool
+    // call (issue #274). Unset leaves the exact one-line persona.
+    const phase1Sections = sections === undefined || phase1FirstCallInstruction === ''
+      ? sections
+      : sections.map(section => {
+          if (typeof section?.text !== 'string' || section.text.includes(phase1FirstCallInstruction)) return section
+          return { ...section, text: `${section.text}${phase1FirstCallInstruction}` }
+        })
     return {
       ...assembled,
       tools: assembled.tools.filter(tool => bootstrap.has(tool.name)),
       contexts: [],
-      ...(Array.isArray(assembled.sections)
-        ? { sections: assembled.sections.filter(section => PERSONA_SECTION_NAMES.has(section?.name)) }
-        : {}),
+      ...(phase1Sections !== undefined ? { sections: phase1Sections } : {}),
     }
   }, { prepend: true })
 
