@@ -18,6 +18,7 @@ import { loadHistory, prompt, type SessionView } from './App.tsx'
 import { errorText, formatTime, staleHostHint } from './App.tsx'
 import { fetchMobilePreferences, models, selectModel, sendCommand } from '../api.ts'
 import { foldEvents, type RenderMessage, type ToolCallInfo, type WireEvent } from '../messages.ts'
+import { renderMarkdown } from '../markdown.ts'
 import { MuxClient } from '../mux.ts'
 import { ThemeToggle } from '../theme-toggle.tsx'
 
@@ -502,7 +503,9 @@ function MessageRow({ message, showToolCalls, showSystemMessages }: {
       {showToolCalls && message.kind === 'assistant' && message.tools !== undefined && message.tools.length > 0 && (
         <ToolDisclosure tools={message.tools} />
       )}
-      <CollapsibleText text={message.text} />
+      {message.kind === 'assistant'
+        ? <MarkdownText text={message.text} />
+        : <CollapsibleText text={message.text} />}
       {message.failed === true && <span className="chat-msg-failtag">本次回复失败</span>}
       <span className="chat-msg-time">{formatTime(message.time)}</span>
     </div>
@@ -556,6 +559,30 @@ function ToolDisclosure({ tools }: { tools: ToolCallInfo[] }) {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Assistant text rendered as GFM markdown (escape-first, protocol
+ * allow-list — see markdown.ts). Long replies collapse by clamping the
+ * rendered block height instead of slicing the source, so half-cut code
+ * fences or tables never leak malformed markup into the DOM. User
+ * messages stay plain text (CollapsibleText).
+ */
+function MarkdownText({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const html = useMemo(() => renderMarkdown(text), [text])
+  const long = text.length > LONG_TEXT_LIMIT
+  const collapsed = long && !open
+  return (
+    <div className={'chat-msg-text chat-md' + (collapsed ? ' chat-md-collapsed' : '')}>
+      <div className="chat-md-body" dangerouslySetInnerHTML={{ __html: html }} />
+      {long && (
+        <button type="button" className="chat-msg-toggle" onClick={() => { setOpen(value => !value) }}>
+          {open ? '收起' : '展开全文（' + text.length + ' 字）'}
+        </button>
       )}
     </div>
   )
