@@ -72,6 +72,20 @@ const zh = {
   'common.delete': '删除',
   'common.copyPath': '复制路径',
   'common.copied': '已复制',
+  'explorer.menu.copyPath': '复制路径',
+  'explorer.menu.copyName': '复制名称',
+  'explorer.menu.reveal': '在文件管理器中显示',
+  'explorer.menu.openWithDefault': '用默认应用打开',
+  'explorer.menu.rename': '重命名',
+  'explorer.menu.newFile': '新建文件',
+  'explorer.menu.newFolder': '新建文件夹',
+  'explorer.menu.delete': '删除',
+  'explorer.rename.title': '重命名',
+  'explorer.newFile.title': '新建文件',
+  'explorer.newFolder.title': '新建文件夹',
+  'explorer.deleteConfirmTitle': '删除确认',
+  'explorer.deleteConfirmBody': '确定要删除「{name}」吗？此操作不可恢复。',
+  'explorer.opFailed': '操作失败',
 } as const
 
 const en: Record<keyof typeof zh, string> = {
@@ -141,6 +155,20 @@ const en: Record<keyof typeof zh, string> = {
   'common.delete': 'Delete',
   'common.copyPath': 'Copy path',
   'common.copied': 'Copied',
+  'explorer.menu.copyPath': 'Copy path',
+  'explorer.menu.copyName': 'Copy name',
+  'explorer.menu.reveal': 'Reveal in file manager',
+  'explorer.menu.openWithDefault': 'Open with default app',
+  'explorer.menu.rename': 'Rename',
+  'explorer.menu.newFile': 'New file',
+  'explorer.menu.newFolder': 'New folder',
+  'explorer.menu.delete': 'Delete',
+  'explorer.rename.title': 'Rename',
+  'explorer.newFile.title': 'New file',
+  'explorer.newFolder.title': 'New folder',
+  'explorer.deleteConfirmTitle': 'Confirm delete',
+  'explorer.deleteConfirmBody': 'Delete "{name}"? This cannot be undone.',
+  'explorer.opFailed': 'Operation failed',
 }
 
 export type AionUiPanelKey = keyof typeof zh

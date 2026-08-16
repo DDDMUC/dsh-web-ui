@@ -9,7 +9,7 @@
  * @module dsh-aionui-panel/host/fs-service
  */
 
-import { open, readdir, readFile, realpath, stat, writeFile, rm, mkdir } from 'node:fs/promises'
+import { open, readdir, readFile, realpath, rename as renameFile, stat, writeFile, rm, mkdir } from 'node:fs/promises'
 import { watch as watchPath, type Dirent, type FSWatcher } from 'node:fs'
 import { join, dirname } from 'node:path'
 import type { DirListing, FileRead, FsEntry, PanelError, SearchHit, SearchView } from '../core/types.ts'
@@ -345,6 +345,79 @@ export class FsService {
     } catch {
       return { code: 'write-failed', message: `cannot write ${rel}` }
     }
+  }
+
+  /**
+   * Rename a path within the root. newName is a bare name (no separators,
+   * no '.'/'..') so the target always stays in the source's own directory;
+   * the joined target is re-checked against the canonical root anyway.
+   */
+  async rename(root: string, rel: string, newName: string): Promise<{ ok: true } | PanelError> {
+    const gated = await this.gate(root)
+    if (!gated.ok) return gated.error
+    if (rel === '') return { code: 'path-outside-root', message: 'refusing to rename the root' }
+    if (isGitPath(rel)) return { code: 'path-outside-root', message: 'refusing to touch .git' }
+    const name = newName.trim()
+    if (name === '' || name === '.' || name === '..' || /[\\/]/.test(name)) {
+      return { code: 'path-outside-root', message: `invalid name: ${newName}` }
+    }
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
+    if (!resolved.ok) return resolved.error
+    const target = join(dirname(resolved.abs), name)
+    if (!isPathInside(gated.canonical, target)) {
+      return { code: 'path-outside-root', message: `path escapes root: ${rel}` }
+    }
+    try {
+      await renameFile(resolved.abs, target)
+      return { ok: true }
+    } catch {
+      return { code: 'write-failed', message: `cannot rename ${rel}` }
+    }
+  }
+
+  /** Create a directory at a relative path (its parent must already exist). */
+  async mkdir(root: string, rel: string): Promise<{ ok: true } | PanelError> {
+    const gated = await this.gate(root)
+    if (!gated.ok) return gated.error
+    if (rel === '') return { code: 'path-outside-root', message: 'refusing to create the root' }
+    if (isGitPath(rel)) return { code: 'path-outside-root', message: 'refusing to touch .git' }
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
+    if (!resolved.ok) return resolved.error
+    try {
+      await mkdir(resolved.abs)
+      return { ok: true }
+    } catch {
+      return { code: 'write-failed', message: `cannot create directory ${rel}` }
+    }
+  }
+
+  /** Create an empty file at a relative path (wx: refuses to overwrite). */
+  async newFile(root: string, rel: string): Promise<{ ok: true } | PanelError> {
+    const gated = await this.gate(root)
+    if (!gated.ok) return gated.error
+    if (rel === '') return { code: 'path-outside-root', message: 'refusing to create the root' }
+    if (isGitPath(rel)) return { code: 'path-outside-root', message: 'refusing to touch .git' }
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
+    if (!resolved.ok) return resolved.error
+    try {
+      await writeFile(resolved.abs, '', { flag: 'wx' })
+      return { ok: true }
+    } catch {
+      return { code: 'write-failed', message: `cannot create file ${rel}` }
+    }
+  }
+
+  /**
+   * Resolve a relative path to its gated absolute path without touching it —
+   * the route layer uses it for reveal-in-file-manager / open-with-default.
+   */
+  async resolveAbsolute(root: string, rel: string): Promise<{ ok: true; abs: string } | PanelError> {
+    const gated = await this.gate(root)
+    if (!gated.ok) return gated.error
+    if (isGitPath(rel)) return { code: 'path-outside-root', message: 'refusing to touch .git' }
+    const resolved = await resolveInsideRoot(gated.canonical, rel)
+    if (!resolved.ok) return resolved.error
+    return { ok: true, abs: resolved.abs }
   }
 
   /** Recursive filename search (case-insensitive substring), pruned at noise dirs. */
