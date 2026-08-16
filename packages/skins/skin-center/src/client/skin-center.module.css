@@ -369,7 +369,13 @@ body[data-dsh-skin-center] .backgroundRange {
   height: 4px;
   margin: 0;
   border-radius: 999px;
-  background: var(--dsw-alias-bg-layer-3, #e2e8f0);
+  /* The official default theme collapses every --dsw-alias-bg-layer-* token to
+     the panel background, so a layer-token track is invisible there. Paint the
+     track with the muted foreground token at partial alpha instead: it reads
+     as a soft groove on light panels and a lighter strip on dark panels, and
+     still follows the active (or tried-on) skin's own token definitions. */
+  background: var(--dsw-alias-label-tertiary, #9aa4b5);
+  background: color-mix(in srgb, var(--dsw-alias-label-tertiary, #9aa4b5) 45%, transparent);
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
