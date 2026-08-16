@@ -69,8 +69,8 @@
     "name": "DeepRead 精读助手",
     "nameEn": "DeepRead Assistant",
     "author": "xiehuan123",
-    "description": "五种模式精读插件（quick / deep / map / feynman / book），支持公众号链接与文件输入，导出 md / mm / html，Web UI 提供工具结果卡片与精读面板。",
-    "descriptionEn": "A five-mode deep reading plugin (quick / deep / map / feynman / book) for links and files, with md / mm / html exports and Web UI tool-result cards plus a reading panel.",
+    "description": "五种模式精读插件（quick / deep / map / feynman / book），支持公众号链接与文件输入、批量对比、预算预检与后台任务进度透明，导出 md / mm / html，Web UI 提供工具结果卡片与精读面板。",
+    "descriptionEn": "A five-mode deep reading plugin (quick / deep / map / feynman / book) for links and files, with batch comparison, budget preflight, transparent background-job progress, md / mm / html exports, and Web UI tool-result cards plus a reading panel.",
     "repo": "https://github.com/xiehuan123/dsh-deepread",
     "npm": "dsh-deepread"
   },
@@ -110,5 +110,15 @@
     "description": "选中助手文字即可批注，回车随消息发送；自己的气泡只显示问题与「批注 ×N」标签，模型按 Annotation N 逐条对照回复（悬浮芯片）。",
     "descriptionEn": "Select text in an assistant reply to annotate it; annotations are sent with your next message, hidden from your own bubble behind an Annotations xN chip, and the model replies per Annotation N with hoverable chips.",
     "repo": "https://github.com/omdsh-dev/dsh-annotation"
+  },
+  {
+    "id": "deepseek-harness-auth",
+    "name": "DeepSeek Harness Auth",
+    "nameEn": "DeepSeek Harness Auth",
+    "author": "taichuy",
+    "description": "为 DSH Web 公网部署提供登录认证前置代理，支持账号密码、验证码、失败锁定和 IP/CIDR 白名单。",
+    "descriptionEn": "An authentication proxy for public DSH Web deployments with password login, captcha, failed-attempt locking, and IP/CIDR allowlists.",
+    "repo": "https://github.com/taichuy/deepseek-harness-auth",
+    "npm": "deepseek-harness-auth"
   }
 ]
