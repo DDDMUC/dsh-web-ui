@@ -22,6 +22,12 @@ describe('ssh center-column takeover css', () => {
     expect(css).toContain("[class*='centerCol'] > :not([data-dsh-ssh-view])")
   })
 
+  it('makes both column shapes the positioned anchor of the panel view (issue #243)', () => {
+    const anchorBlock = css.match(/\[class\*='centerCol'\]\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(anchorBlock).toContain('position: relative')
+    expect(css.match(/\[data-pane='conversation'\],\s*\[class\*='centerCol'\]\s*\{/)).not.toBeNull()
+  })
+
   it('keeps the panel view above the host banner with an opaque backdrop', () => {
     const viewBlock = css.match(/\[data-dsh-ssh-view\]\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(viewBlock).toContain('z-index: 60')
