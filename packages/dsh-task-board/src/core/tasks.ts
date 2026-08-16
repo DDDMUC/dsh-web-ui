@@ -112,6 +112,12 @@ export interface NewTaskInput {
   mode?: string
   /** Permission preset applied to the execution session; absent = session default. */
   permission?: TaskPermission
+  /**
+   * Optional scheduled-run rule requested at creation time (the new-task
+   * dialog): an enable flag plus a 5-field cron expression. The create use
+   * case arms it only when enabled and the expression is valid.
+   */
+  schedule?: { enabled: boolean; cron: string }
 }
 
 /** The five kanban columns, in display order. */

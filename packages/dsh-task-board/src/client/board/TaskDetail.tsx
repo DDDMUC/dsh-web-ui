@@ -9,6 +9,7 @@ import type { BoardController } from '../../core/controller.ts'
 import { isValidCron } from '../../core/schedule.ts'
 import { MANUAL_STATUSES, TASK_PERMISSIONS, type ExecutionRecord, type TaskPermission, type TaskRecord, type TaskStatus } from '../../core/tasks.ts'
 import { t, type TaskBoardKey } from '../locales.ts'
+import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
 import css from '../board.module.css'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { formatTime } from './TaskCard.tsx'
@@ -57,14 +58,6 @@ function ExecutionRow({ execution, onOpen }: { execution: ExecutionRecord; onOpe
     </li>
   )
 }
-
-/** Common scheduled-run presets (cron → locale label). */
-const SCHEDULE_PRESETS: ReadonlyArray<{ cron: string; label: TaskBoardKey }> = [
-  { cron: '0 9 * * *', label: 'detail.schedule.preset.daily9' },
-  { cron: '0 * * * *', label: 'detail.schedule.preset.hourly' },
-  { cron: '*/10 * * * *', label: 'detail.schedule.preset.tenMin' },
-  { cron: '0 9 * * 1', label: 'detail.schedule.preset.weeklyMon9' },
-]
 
 /** The execution-target editor: workspace / mode / permission pickers. */
 function ExecutionSettingsSection({ controller, task }: { controller: BoardController; task: TaskRecord }) {
