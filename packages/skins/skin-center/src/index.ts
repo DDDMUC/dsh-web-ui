@@ -39,11 +39,25 @@ export interface SkinBackgroundConfig {
    * look has no backdrop and is unaffected.
    */
   backgroundOpacity?: number
+  /**
+   * Gaussian blur (px, 0-20) applied to the backdrop while the conversation
+   * pane has no content (empty state). Painted only by skins that draw a
+   * backdrop; 0 disables the empty-state blur.
+   */
+  backgroundBlurEmpty?: number
+  /**
+   * Gaussian blur (px, 0-20) applied to the backdrop once the conversation
+   * pane has content. Painted only by skins that draw a backdrop; 0 disables
+   * the with-content blur.
+   */
+  backgroundBlurContent?: number
 }
 
 /** Runtime schema for SkinBackgroundConfig. */
 export const SkinBackgroundConfigSchema: z<SkinBackgroundConfig> = z.object({
   backgroundOpacity: z.number().min(0).max(100).step(5).default(0),
+  backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(0),
+  backgroundBlurContent: z.number().min(0).max(20).step(1).default(0),
 })
 
 /**

@@ -49,6 +49,8 @@ const BACKDROP_SKIN_IDS = new Set(['blue-fantasy', 'whale-song'])
 export function SkinCenter({ t, controller, theme, background }: SkinCenterComponentProps) {
   const snapshot = useSyncExternalStore(theme.subscribe, theme.getTheme)
   const opacity = useSyncExternalStore(background.subscribe, background.opacity)
+  const blurEmpty = useSyncExternalStore(background.subscribe, background.blurEmpty)
+  const blurContent = useSyncExternalStore(background.subscribe, background.blurContent)
   const activePackage = activeSkinEntry()?.package
   const activeId = activeSkinEntry()?.id
   const backdropActive = activeId !== undefined && BACKDROP_SKIN_IDS.has(activeId)
@@ -355,6 +357,44 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
                 {backdropActive ? t('backgroundHint') : t('backgroundHintInert')}
               </p>
             </div>
+            <div className={css.backgroundRow}>
+              <div className={css.backgroundHead}>
+                <span className={css.backgroundLabel}>{t('backgroundBlurEmpty')}</span>
+                <span className={css.backgroundValue} aria-hidden="true">{blurEmpty}px</span>
+              </div>
+              <input
+                id="skin-center-background-blur-empty"
+                className={css.backgroundRange}
+                type="range"
+                min="0"
+                max="20"
+                step="1"
+                value={blurEmpty}
+                aria-valuetext={`${blurEmpty}px`}
+                aria-label={t('backgroundBlurEmpty')}
+                onChange={(event) => { background.setBlurEmpty(Number(event.target.value)) }}
+              />
+              <div className={css.backgroundHead}>
+                <span className={css.backgroundLabel}>{t('backgroundBlurContent')}</span>
+                <span className={css.backgroundValue} aria-hidden="true">{blurContent}px</span>
+              </div>
+              <input
+                id="skin-center-background-blur-content"
+                className={css.backgroundRange}
+                type="range"
+                min="0"
+                max="20"
+                step="1"
+                value={blurContent}
+                aria-valuetext={`${blurContent}px`}
+                aria-label={t('backgroundBlurContent')}
+                onChange={(event) => { background.setBlurContent(Number(event.target.value)) }}
+              />
+              <p className={backdropActive ? css.backgroundHint : css.backgroundHintMuted}>
+                {backdropActive ? t('backgroundBlurHint') : t('backgroundBlurInert')}
+              </p>
+            </div>
+
 
             {error !== null && <div className={css.error}>{error}</div>}
 

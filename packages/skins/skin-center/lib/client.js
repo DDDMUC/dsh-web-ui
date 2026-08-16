@@ -657,6 +657,8 @@ window.__ModuleLoader__.load({
 		function SkinCenter({ t, controller, theme, background }) {
 			const snapshot = (0, react.useSyncExternalStore)(theme.subscribe, theme.getTheme);
 			const opacity = (0, react.useSyncExternalStore)(background.subscribe, background.opacity);
+			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
+			const blurContent = (0, react.useSyncExternalStore)(background.subscribe, background.blurContent);
 			const activePackage = activeSkinEntry()?.package;
 			const activeId = activeSkinEntry()?.id;
 			const backdropActive = activeId !== void 0 && BACKDROP_SKIN_IDS.has(activeId);
@@ -951,6 +953,65 @@ window.__ModuleLoader__.load({
 								})
 							]
 						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.backgroundRow,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.backgroundHead,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.backgroundLabel,
+										children: t("backgroundBlurEmpty")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+										className: skin_center_module_css_default.backgroundValue,
+										"aria-hidden": "true",
+										children: [blurEmpty, "px"]
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									id: "skin-center-background-blur-empty",
+									className: skin_center_module_css_default.backgroundRange,
+									type: "range",
+									min: "0",
+									max: "20",
+									step: "1",
+									value: blurEmpty,
+									"aria-valuetext": `${blurEmpty}px`,
+									"aria-label": t("backgroundBlurEmpty"),
+									onChange: (event) => {
+										background.setBlurEmpty(Number(event.target.value));
+									}
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.backgroundHead,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.backgroundLabel,
+										children: t("backgroundBlurContent")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+										className: skin_center_module_css_default.backgroundValue,
+										"aria-hidden": "true",
+										children: [blurContent, "px"]
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									id: "skin-center-background-blur-content",
+									className: skin_center_module_css_default.backgroundRange,
+									type: "range",
+									min: "0",
+									max: "20",
+									step: "1",
+									value: blurContent,
+									"aria-valuetext": `${blurContent}px`,
+									"aria-label": t("backgroundBlurContent"),
+									onChange: (event) => {
+										background.setBlurContent(Number(event.target.value));
+									}
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: backdropActive ? skin_center_module_css_default.backgroundHint : skin_center_module_css_default.backgroundHintMuted,
+									children: backdropActive ? t("backgroundBlurHint") : t("backgroundBlurInert")
+								})
+							]
+						}),
 						error !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 							className: skin_center_module_css_default.error,
 							children: error
@@ -1051,31 +1112,72 @@ window.__ModuleLoader__.load({
 		const SKIN_BACKGROUND_NS = "skin-background";
 		/** Field of the background value inside the namespace section. */
 		const OPACITY_FIELD = "backgroundOpacity";
+		/** Field of the empty-conversation backdrop blur inside the namespace section. */
+		const BLUR_EMPTY_FIELD = "backgroundBlurEmpty";
+		/** Field of the with-content backdrop blur inside the namespace section. */
+		const BLUR_CONTENT_FIELD = "backgroundBlurContent";
 		/** CSS custom property written to document.body and read by backdrop skins. */
 		const SCRIM_VAR = "--dsw-skin-scrim";
 		/**
-		* Own the skin-background scope: read the latest occlusion, apply it to the
-		* body CSS variable instantly, and persist changes through the settings scope.
+		* Selector for a conversation message row inside the shell's center column.
+		* The `data-pane="conversation"` attribute is stamped by the dsh-web-ui-all
+		* compat shim on the center column; the _userRow / _compactionRow /
+		* _contextRow / _turnErrorRow suffixes are the official shell's CSS-module
+		* hashed message-row classes (hash prefix varies, suffix is stable). Stable
+		* like the repo's compat shim, not hash-dependent.
+		*/
+		const CONVERSATION_CONTENT_SELECTOR = [
+			"[data-pane=\"conversation\"] [class*=\"_userRow\"]",
+			"[data-pane=\"conversation\"] [class*=\"_compactionRow\"]",
+			"[data-pane=\"conversation\"] [class*=\"_contextRow\"]",
+			"[data-pane=\"conversation\"] [class*=\"_turnErrorRow\"]"
+		].join(", ");
+		/**
+		* Own the skin-background scope: read the latest occlusion + blur strengths,
+		* apply them to the body instantly, and persist changes through the settings
+		* scope.
 		*/
 		var BackgroundController = class {
-			value = 0;
+			opacityValue = 0;
+			blurEmptyValue = 0;
+			blurContentValue = 0;
 			listeners = /* @__PURE__ */ new Set();
 			scope;
+			/** The fixed backdrop-filter element, present only while active blur > 0. */
+			blurElement = null;
+			/** The body MutationObserver, installed lazily once a blur is active. */
+			observer = null;
+			/** Pending requestAnimationFrame id for a coalesced recheck. */
+			rafId = null;
+			/** Guard: after dispose no scheduled work may reinstall anything. */
+			disposed = false;
 			/**
 			* @param scope - the bound skin-background settings scope.
 			*/
 			constructor(scope) {
 				this.scope = scope;
-				this.value = this.read();
-				this.apply();
+				this.opacityValue = this.readOpacity();
+				this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
+				this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
+				this.applyOcclusion();
+				this.syncBlur();
 				scope.subscribe(() => {
-					this.value = this.read();
-					this.apply();
+					this.opacityValue = this.readOpacity();
+					this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
+					this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
+					this.applyOcclusion();
+					this.syncBlur();
 					this.publish();
 				});
 			}
 			opacity() {
-				return this.value;
+				return this.opacityValue;
+			}
+			blurEmpty() {
+				return this.blurEmptyValue;
+			}
+			blurContent() {
+				return this.blurContentValue;
 			}
 			subscribe(listener) {
 				this.listeners.add(listener);
@@ -1085,20 +1187,120 @@ window.__ModuleLoader__.load({
 			}
 			set(opacity) {
 				const clamped = Math.max(0, Math.min(100, Math.round(opacity)));
-				this.value = clamped;
-				this.apply();
+				this.opacityValue = clamped;
+				this.applyOcclusion();
 				this.publish();
 				this.scope.set(OPACITY_FIELD, clamped);
 			}
-			/** The effective section value, clamped 0-100, defaulting to 0. */
-			read() {
+			setBlurEmpty(value) {
+				const clamped = this.clampBlur(value);
+				this.blurEmptyValue = clamped;
+				this.ensureObserver();
+				this.syncBlur();
+				this.publish();
+				this.scope.set(BLUR_EMPTY_FIELD, clamped);
+			}
+			setBlurContent(value) {
+				const clamped = this.clampBlur(value);
+				this.blurContentValue = clamped;
+				this.ensureObserver();
+				this.syncBlur();
+				this.publish();
+				this.scope.set(BLUR_CONTENT_FIELD, clamped);
+			}
+			dispose() {
+				this.disposed = true;
+				if (this.rafId !== null) {
+					cancelAnimationFrame(this.rafId);
+					this.rafId = null;
+				}
+				this.removeBlurElement();
+				if (this.observer !== null) {
+					this.observer.disconnect();
+					this.observer = null;
+				}
+			}
+			/** The effective occlusion section value, clamped 0-100, defaulting to 0. */
+			readOpacity() {
 				const raw = this.scope.getSnapshot().value?.backgroundOpacity;
 				if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
 				return Math.max(0, Math.min(100, raw));
 			}
+			/** The effective blur section value for one field, clamped 0-20, defaulting to 0. */
+			readBlur(field) {
+				const raw = this.scope.getSnapshot().value?.[field];
+				if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
+				return this.clampBlur(raw);
+			}
+			clampBlur(value) {
+				return Math.max(0, Math.min(20, Math.round(value)));
+			}
 			/** Write the current occlusion onto the body CSS variable (0..1 alpha). */
-			apply() {
-				document.body.style.setProperty(SCRIM_VAR, String(this.value / 100));
+			applyOcclusion() {
+				document.body.style.setProperty(SCRIM_VAR, String(this.opacityValue / 100));
+			}
+			/**
+			* Apply the active blur: empty or with-content strength depending on the
+			* conversation state. A value > 0 ensures the fixed blur element exists
+			* with the matching backdrop-filter; 0 removes it.
+			*/
+			syncBlur() {
+				if (this.disposed) return;
+				this.ensureObserver();
+				const active = this.hasConversationContent() ? this.blurContentValue : this.blurEmptyValue;
+				if (active > 0) this.ensureBlurElement(active);
+				else this.removeBlurElement();
+			}
+			/** True when the conversation pane hosts at least one message row. */
+			hasConversationContent() {
+				return document.querySelector(CONVERSATION_CONTENT_SELECTOR) !== null;
+			}
+			/** Create (if needed) and size the fixed backdrop-filter element. */
+			ensureBlurElement(active) {
+				if (this.blurElement === null) {
+					const element = document.createElement("div");
+					element.style.position = "fixed";
+					element.style.inset = "0";
+					element.style.zIndex = "-1";
+					element.style.pointerEvents = "none";
+					element.setAttribute("aria-hidden", "true");
+					this.blurElement = element;
+					document.body.appendChild(element);
+				}
+				const blur = "blur(" + active + "px)";
+				this.blurElement.style.backdropFilter = blur;
+				this.blurElement.style.setProperty("-webkit-backdrop-filter", blur);
+			}
+			/** Remove the fixed blur element, if present. */
+			removeBlurElement() {
+				if (this.blurElement === null) return;
+				this.blurElement.remove();
+				this.blurElement = null;
+			}
+			/**
+			* Install the MutationObserver on document.body only when either blur
+			* field is active, so a fully-disabled blur never pays the observation
+			* cost. Runs lazily on the first non-zero set.
+			*/
+			ensureObserver() {
+				if (this.disposed || this.observer !== null) return;
+				if (this.blurEmptyValue <= 0 && this.blurContentValue <= 0) return;
+				this.observer = new MutationObserver(() => this.scheduleRecheck());
+				this.observer.observe(document.body, {
+					childList: true,
+					subtree: true,
+					attributes: true,
+					attributeFilter: ["class"]
+				});
+			}
+			/** Coalesce burst mutations into one rAF-delayed recheck. */
+			scheduleRecheck() {
+				if (this.disposed || this.rafId !== null) return;
+				this.rafId = requestAnimationFrame(() => {
+					this.rafId = null;
+					if (this.disposed) return;
+					this.syncBlur();
+				});
 			}
 			publish() {
 				for (const listener of this.listeners) listener();
@@ -1129,6 +1331,10 @@ window.__ModuleLoader__.load({
 			themeDark: "Dark",
 			tryOnError: "Try-on failed — see console",
 			backgroundOpacity: "Background occlusion",
+			backgroundBlurEmpty: "Blur when empty",
+			backgroundBlurContent: "Blur with content",
+			backgroundBlurHint: "Applies a separate Gaussian blur to the backdrop for the empty conversation and the conversation with content; 0 disables.",
+			backgroundBlurInert: "Visible only with skins that paint a backdrop; the official default has none.",
 			backgroundHint: "Instantly veils the backdrop behind the panels — higher values obscure the art to help you focus.",
 			backgroundHintInert: "Only applies to skins that paint a backdrop (Blue Fantasy / Whale Song). Applies to the official default automatically once such a skin is active."
 		};
@@ -1155,6 +1361,10 @@ window.__ModuleLoader__.load({
 			themeDark: "暗色",
 			tryOnError: "试穿失败，详见控制台",
 			backgroundOpacity: "背景遮挡",
+			backgroundBlurEmpty: "空对话背景模糊",
+			backgroundBlurContent: "有对话背景模糊",
+			backgroundBlurHint: "对话为空与有内容时分别应用不同的背景高斯模糊强度，0 为关闭。",
+			backgroundBlurInert: "仅对带背景图插画的皮肤可见；官方默认无背景图。",
 			backgroundHint: "即时为面板背后的背景加遮罩——数值越高越能弱化插画，帮你集中注意力。",
 			backgroundHintInert: "仅对带背景图插画的皮肤（蓝色幻想 / 鲸吟）生效；官方默认无背景图，该滑块对这些皮肤自动生效。"
 		};
@@ -1190,6 +1400,7 @@ window.__ModuleLoader__.load({
 			const theme = ctx.get("theme");
 			const controller = new TryOnController();
 			const background = new BackgroundController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: SKIN_BACKGROUND_NS }));
+			ctx.effect(() => () => background.dispose(), "ui-skin-center: background dispose");
 			const injected = () => ({
 				controller,
 				theme: {
@@ -1199,8 +1410,13 @@ window.__ModuleLoader__.load({
 				},
 				background: {
 					opacity: () => background.opacity(),
+					blurEmpty: () => background.blurEmpty(),
+					blurContent: () => background.blurContent(),
 					subscribe: (listener) => background.subscribe(listener),
-					set: (opacity) => background.set(opacity)
+					set: (opacity) => background.set(opacity),
+					setBlurEmpty: (value) => background.setBlurEmpty(value),
+					setBlurContent: (value) => background.setBlurContent(value),
+					dispose: () => background.dispose()
 				}
 			});
 			ctx.slots.inject("web-ui.plugin.item", () => ctx.slots.register({
