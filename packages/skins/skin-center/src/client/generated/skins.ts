@@ -57,4 +57,6 @@ export const SKIN_CENTER_ENTRIES: readonly SkinCenterEntry[] = [
 
   {"id":"miku","name":"初音未来 · 电子歌姬","nameEn":"Hatsune Miku","author":"涂山苏苏","tagline":"蓝紫双马尾 · 01 编号 · 音符波形 · 电子歌姬主题","description":"以世界第一的虚拟歌姬初音未来为灵感的主题皮肤：蓝紫洋红渐变贯穿全局，音符与声波曲线点缀在半透明面板之间，标题栏与状态栏带有 01 编号徽标与音乐波形，半透明毛玻璃面板透出背景图——沉浸式电子歌姬氛围。","tags":["miku","vocaloid","blue","music","idol","waveform"],"accent":"#2e9bff","bodyAttr":"data-dsh-miku","package":"@linxin666/dsh-client-ui-skin-miku","order":10},
 
+  {"id":"whale-mom","name":"鲸鱼妈妈","nameEn":"Whale Mom","author":"dsh-web-ui","tagline":"深海鲸鱼妈妈与幼崽的画作 · 全透面板由背景遮挡驱动 · 金线点缀","description":"dsh web ui 的鲸鱼妈妈主题皮肤：深海鲸鱼妈妈与幼崽们的氛围画作铺满视口，面板全透（透明度由设置-皮肤中心的背景遮挡滑杆驱动，侧边栏基准透明度可用 --dsw-skin-sidebar-alpha 微调），深蓝 / 奶油 / 金色配色贯穿全局，暗色是深海夜航。","tags":["ocean","whale","mother","translucent","gold"],"accent":"#d9a53c","bodyAttr":"data-dsh-whale-mom","package":"@linxin666/dsh-client-ui-skin-whale-mom","order":11},
+
 ]
