@@ -24,6 +24,7 @@ import {
   MANAGED_END,
   renderManaged,
   stripManaged,
+  stripLegacySkinRows,
   currentActive,
   loadRegistry,
   wiredNames,
@@ -740,6 +741,73 @@ describe('home patch lifecycle vs installed skin bundles (issue #108/#148)', () 
     expect(lstatSync(link).isSymbolicLink()).toBe(true)
     expect(realpathSync(link)).toBe(realpathSync(carrierSkin))
     expect(carrierSkin).toContain(join('dsh-skins', 'skins'))
+  })
+})
+
+describe('legacy row cleanup and duplicate insert self-heal (issue #267)', () => {
+  it('stripLegacySkinRows removes legacy insert rows regardless of comment line, indent or scope', () => {
+    const patch = [
+      '# header',
+      '- insert:',
+      '    # legacy comment (historical writer style)',
+      '    - id: ui-skin-qq98',
+      "      name: '@deepseek-ai/dsh-client-ui-skin-qq98'",
+      '- insert:',
+      '  - id: ui-skin-ths',
+      "    name: '@linxin666/dsh-client-ui-skin-ths'",
+      '- id: ui-skin-xp',
+      '  disabled: true',
+      '- insert:',
+      '    - id: memory-mem0',
+      "      name: '@deepseek-ai/dsh-mcp-client'",
+      '# footer',
+    ].join('\n')
+    const stripped = stripLegacySkinRows(patch)
+    // Both legacy insert rows are gone (comment line, indentation and npm
+    // scope must not protect them — any leftover row plus the managed
+    // section's own row would double-insert one loader id and fail the boot).
+    expect(stripped).not.toContain('ui-skin-qq98')
+    expect(stripped).not.toContain('ui-skin-ths')
+    expect(stripped).not.toContain('legacy comment')
+    // Id-target rows are mutual-exclusion wiring, not inserts — they survive.
+    expect(stripped).toContain('- id: ui-skin-xp\n  disabled: true')
+    // Non-skin insert blocks survive untouched; emptied skin blocks collapse.
+    expect(stripped).toContain('memory-mem0')
+    expect(stripped.match(/- insert:/g)).toHaveLength(1)
+    expect(stripped).toContain('# header')
+    expect(stripped).toContain('# footer')
+  })
+
+  it('useSkin drops its own insert row when a same-id insert row already exists elsewhere', () => {
+    const h = fakeHome()
+    const registry = loadRegistry()
+    const qq98 = registry.qq98
+    const fakeDir = join(h, 'code', 'dsh-web-ui', 'packages', 'skins', 'qq98')
+    makeSkinPackage(fakeDir, qq98)
+    const fakeRegistry: Record<string, SkinSwitchEntry> = {
+      ...registry,
+      qq98: { ...qq98, dir: fakeDir },
+    }
+    // A pre-existing insert row for ui-skin-qq98 whose name line does not
+    // match the legacy cleanup's package pattern — the last-resort guard must
+    // still refuse to write a second insert row for the same loader id.
+    writeFileSync(patchPath(h), [
+      '# custom rows',
+      '- insert:',
+      '    - id: ui-skin-qq98',
+      '      name: qq98',
+      '',
+    ].join('\n'))
+    const message = useSkin('qq98', { home: h, registry: fakeRegistry })
+    const after = readFileSync(patchPath(h), 'utf8')
+    // Exactly one insert row for the id (the pre-existing one); the managed
+    // section only carries mutual-exclusion rows.
+    expect(after.match(/- id: ui-skin-qq98/g)).toHaveLength(1)
+    expect(after).toContain('- id: ui-skin-qq98\n      name: qq98')
+    expect(after).not.toContain('- id: ui-skin-qq98\n      name: \'@linxin666/dsh-client-ui-skin-qq98\'')
+    expect(after).toContain(`- id: ${registry.ths.id}\n  disabled: true`)
+    expect(message).toContain('已跳过本层 insert')
+    expect(currentSkin(after, { home: h, registry: fakeRegistry })).toBe('qq98')
   })
 })
 
