@@ -22,6 +22,7 @@ export const FAMILY_NAMESPACES = [
   'pet',
   'describe-image',
   'skin-background',
+  'community-plugins',
 ] as const
 
 /**
@@ -47,6 +48,9 @@ const NAMESPACE_ALIASES: Readonly<Record<string, string | null>> = {
   'skin-background': 'skin-background',
   'describe-image': 'describe-image',
   'dsh-tool-describe-image': 'describe-image',
+  'community-plugins': 'community-plugins',
+  'dsh-community-plugins': 'community-plugins',
+  'dsh-client-ui-community-plugins': 'community-plugins',
   'dsh-aionui-panel': null,
   'dsh-client-ui-aionui-panel': null,
   'dsh-git-graph': null,
