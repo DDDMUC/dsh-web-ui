@@ -289,6 +289,76 @@ body[data-dsh-skin-center] .error {
   color: var(--dsw-alias-state-error-primary, #b42318);
 }
 
+body[data-dsh-skin-center] .enableRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+body[data-dsh-skin-center] .enableLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, #172a45);
+}
+
+body[data-dsh-skin-center] .enableHint {
+  flex: 1;
+  min-width: 100%;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary, #6b7280);
+}
+
+body[data-dsh-skin-center] .switch {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  width: 40px;
+  height: 22px;
+  padding: 2px;
+  border: 1px solid var(--dsw-alias-border-l3, #cbd5e1);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-3, #e2e8f0);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+body[data-dsh-skin-center] .switchOn {
+  border-color: var(--dsw-alias-brand-primary, #2b7cd9);
+  background: var(--dsw-alias-brand-primary, #2b7cd9);
+}
+
+body[data-dsh-skin-center] .switch:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, #2b7cd9);
+  outline-offset: 2px;
+}
+
+body[data-dsh-skin-center] .switchThumb {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-primary-foreground, #ffffff);
+  box-shadow: 0 0 0 1px var(--dsw-alias-border-l4, rgb(15 23 42 / 0.12));
+  transform: translateX(0);
+  transition: transform 120ms ease;
+}
+
+body[data-dsh-skin-center] .switchOn .switchThumb {
+  transform: translateX(18px);
+}
+
+body[data-dsh-skin-center] .offNote {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary, #6b7280);
+}
+
 body[data-dsh-skin-center] .backgroundRow {
   display: flex;
   flex-direction: column;
@@ -373,7 +443,9 @@ body[data-dsh-skin-center] .backgroundHintMuted {
   body[data-dsh-skin-center] .themeButton,
   body[data-dsh-skin-center] .button,
   body[data-dsh-skin-center] .chevron,
-  body[data-dsh-skin-center] .chevronOpen {
+  body[data-dsh-skin-center] .chevronOpen,
+  body[data-dsh-skin-center] .switch,
+  body[data-dsh-skin-center] .switchThumb {
     transition: none;
   }
 }

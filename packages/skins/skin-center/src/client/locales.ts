@@ -8,6 +8,9 @@
 export type SkinCenterKey =
   | 'title'
   | 'cardDescription'
+  | 'enabled'
+  | 'enabledHint'
+  | 'offNote'
   | 'expand'
   | 'collapse'
   | 'intro'
@@ -38,6 +41,9 @@ export type SkinCenterKey =
 export const en: Record<SkinCenterKey, string> = {
   title: 'Skin Center',
   cardDescription: 'Try on any installed skin live in the GUI — exit restores instantly, applying persists in one click.',
+  enabled: 'Enable skin center',
+  enabledHint: 'When off, try-on, apply and background controls are disabled; turn it back on to resume.',
+  offNote: 'The skin center is turned off.',
   expand: 'Expand',
   collapse: 'Collapse',
   intro: 'Try on any skin live — it takes effect instantly, exit restores the current look. Apply persists it across restarts.',
@@ -69,6 +75,9 @@ export const en: Record<SkinCenterKey, string> = {
 export const zh: Record<SkinCenterKey, string> = {
   title: '皮肤中心',
   cardDescription: '在 GUI 内即时试穿任意皮肤，退出即完全还原；应用一键完成并自动刷新。',
+  enabled: '启用皮肤中心',
+  enabledHint: '关闭后停用试穿、应用与背景控件，重新打开即恢复。',
+  offNote: '皮肤中心已关闭。',
   expand: '展开',
   collapse: '收起',
   intro: '任意皮肤可即时试穿，退出即完全还原；「应用」一键持久化，页面自动刷新生效。',

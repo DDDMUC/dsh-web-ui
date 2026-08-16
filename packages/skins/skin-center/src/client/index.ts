@@ -1,11 +1,10 @@
 /**
  * In-GUI skin center, browser half: registers the Skins plugin card into the
- * Web UI plugin group (`web-ui.plugin.item`, declared by the web-ui-settings
- * group card under 插件配置) and provides the try-on controller + official
- * theme handle to it. The card lists every installed skin (embedded
- * registry), tries it on live inside the GUI, exits with a full restore, and
- * copies the one-command apply. The plugin writes only DOM and the settings
- * ledger — no services, no events, no model access.
+ * top-level plugin-configuration list (`settings.plugin.item`) and provides
+ * the try-on controller + official theme handle to it. The card lists every
+ * installed skin (embedded registry), tries it on live inside the GUI, exits
+ * with a full restore, and copies the one-command apply. The plugin writes
+ * only DOM and the settings ledger — no services, no events, no model access.
  */
 import type { ClientContext, SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
@@ -32,12 +31,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
   interface SlotMap {
     /**
-     * The child slot the Web UI plugin group declares; this card registers
-     * into the group instead of the top-level `settings.plugin.item` list.
-     * Spelled here with the same shape so this package can register without
-     * depending on the sibling UI package.
+     * The top-level plugin-configuration list slot. Spelled here with the
+     * same shape so this package can register without depending on the
+     * sibling UI package.
      */
-    'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
 }
 
@@ -64,7 +62,7 @@ export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection'
 
 /**
  * Register the skin-center dictionaries, the body scope attribute, and the
- * Skins plugin card inside the Web UI plugin group.
+ * Skins plugin card in the top-level plugin-configuration list.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -83,6 +81,7 @@ export function apply(ctx: ClientContext): void {
   // is bound to this plugin's fiber, so it is torn down with the card.
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
   const backgroundScope = binder.bind<{
+    enabled?: boolean
     backgroundOpacity?: number
     backgroundBlurEmpty?: number
     backgroundBlurContent?: number
@@ -98,6 +97,8 @@ export function apply(ctx: ClientContext): void {
       setTheme: id => theme.setTheme(id),
     },
     background: {
+      enabled: () => background.enabled(),
+      setEnabled: value => background.setEnabled(value),
       opacity: () => background.opacity(),
       blurEmpty: () => background.blurEmpty(),
       blurContent: () => background.blurContent(),
@@ -109,8 +110,8 @@ export function apply(ctx: ClientContext): void {
     },
   })
 
-  ctx.slots.inject('web-ui.plugin.item', () => ctx.slots.register({
-    name: 'web-ui.plugin.item',
+  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
+    name: 'settings.plugin.item',
     id: 'skins',
     order: 110,
     locale: NS,

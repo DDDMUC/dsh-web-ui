@@ -16,6 +16,7 @@ import {
 
 /** Shape of the fake scope's section. */
 interface Section {
+  enabled?: boolean
   backgroundOpacity?: number
   backgroundBlurEmpty?: number
   backgroundBlurContent?: number
@@ -158,6 +159,36 @@ describe('BackgroundController', () => {
     expect(blurElement()).toBeNull()
     // Occlusion still reads its own field.
     expect(document.body.style.getPropertyValue(SCRIM_VAR)).toBe('0.42')
+    controller.dispose()
+  })
+
+  it('disabled section (enabled=false) applies no scrim var and no blur element even with nonzero values', () => {
+    const { scope } = fakeScope({ enabled: false, backgroundOpacity: 60, backgroundBlurEmpty: 8 })
+    const controller = new BackgroundController(scope)
+    expect(controller.enabled()).toBe(false)
+    // Occlusion is gated: the veil variable is removed, not written.
+    expect(document.body.style.getPropertyValue(SCRIM_VAR)).toBe('')
+    // Blur is gated: no blur element is created despite a nonzero blur value.
+    expect(blurElement()).toBeNull()
+    controller.dispose()
+  })
+
+  it('setEnabled(true) restores occlusion application', () => {
+    const { scope } = fakeScope({ enabled: false, backgroundOpacity: 60 })
+    const controller = new BackgroundController(scope)
+    expect(document.body.style.getPropertyValue(SCRIM_VAR)).toBe('')
+    controller.setEnabled(true)
+    expect(controller.enabled()).toBe(true)
+    expect(document.body.style.getPropertyValue(SCRIM_VAR)).toBe('0.6')
+    controller.dispose()
+  })
+
+  it('setEnabled persists via scope.set', () => {
+    const { scope, calls } = fakeScope()
+    const controller = new BackgroundController(scope)
+    controller.setEnabled(false)
+    expect(controller.enabled()).toBe(false)
+    expect(calls).toContainEqual({ field: 'enabled', value: false })
     controller.dispose()
   })
 })
