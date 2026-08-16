@@ -32,8 +32,8 @@
    `question` 或 `bug` 标签等待回复。
 4. **新手任务**：范围小、验收明确的任务追加 `good first issue`；涉及深层
    插件架构或需要修改 DSH 核心的不标。
-5. **登记**：维护者认领或计划排期的任务追加 `help wanted`，并在评论中
-   说明计划方向。
+5. **开放认领**：确认开放社区协助、暂无维护者排期的任务追加 `help wanted`；
+   已被维护者认领或计划排期的任务不标该标签。
 
 ## 关闭标准
 
@@ -67,9 +67,15 @@ gh issue list -R zhu1090093659/dsh-web-ui --state open \
 
 ## 自动化
 
-- `.github/workflows/issue-dedup.yml`：自动标记疑似重复的 Issue；
-- `.github/workflows/issue-template-enforcer.yml`：校验 Issue 模板填写情况；
-- 自动化只做初筛，最终标签与关闭决定由维护者确认。
+自动化工作流在 Issue 创建时自动初筛并可直接关闭，无需人工确认；作者可
+通过评论请求重开，由维护者评估：
+
+- `.github/workflows/issue-dedup.yml`：对疑似重复的 Issue 自动打 `duplicate`
+  标签，评论附原 Issue 链接并关闭（`not_planned`）；作者可回复说明差异请求
+  重开；
+- `.github/workflows/issue-template-enforcer.yml`：模板必填段缺失或无效时
+  自动评论说明并关闭（`not_planned`），补充完整后可请求重开；
+- 自动化只做初筛，人工标签补充与「重开 / 不重开」的最终决定由维护者确认。
 
 ## 贡献者指引
 
