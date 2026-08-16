@@ -25,7 +25,7 @@ export function formatTime(ms: number): string {
 }
 
 /** One card in a column. */
-function TaskCardInner({ task, onClick }: { task: TaskRecord; onClick: () => void }) {
+function TaskCardInner({ task, pending, onClick }: { task: TaskRecord; pending: boolean; onClick: () => void }) {
   const latest = task.executions[task.executions.length - 1]
   const runs = task.executions.length
   const archived = task.archivedAt !== undefined
@@ -34,6 +34,7 @@ function TaskCardInner({ task, onClick }: { task: TaskRecord; onClick: () => voi
       type="button"
       className={css.card}
       data-status={archived ? 'archived' : task.status}
+      data-pending={pending || undefined}
       onClick={onClick}
       title={task.description !== '' ? task.description : task.title}
     >
@@ -59,8 +60,9 @@ function TaskCardInner({ task, onClick }: { task: TaskRecord; onClick: () => voi
         {latest?.sessionId !== undefined && (
           <span className={css.cardSession} title={latest.sessionId}>⌁</span>
         )}
-        {!archived && task.status === 'running' && <span className={css.cardSpinner} aria-hidden="true" />}
+        {!archived && (task.status === 'running' || pending) && <span className={css.cardSpinner} aria-hidden="true" />}
       </span>
+      {!archived && pending && <span className={css.cardRunningLabel}>{t('board.pending')}…</span>}
       {!archived && latest !== undefined && executionLabel(latest) === 'running' && (
         <span className={css.cardRunningLabel}>{t('detail.result.running')}…</span>
       )}

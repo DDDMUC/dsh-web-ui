@@ -26,9 +26,9 @@ function matchesFilter(task: TaskRecord, filter: string): boolean {
  * re-renders only when its own task changes — not when a sibling card status,
  * the filter, or the selection moves.
  */
-const MemoTaskCard = memo(function MemoTaskCard({ task, onOpen }: { task: TaskRecord; onOpen: (id: string) => void }) {
+const MemoTaskCard = memo(function MemoTaskCard({ task, pending, onOpen }: { task: TaskRecord; pending: boolean; onOpen: (id: string) => void }) {
   const onClick = useCallback(() => { onOpen(task.id) }, [task.id, onOpen])
-  return <TaskCard task={task} onClick={onClick} />
+  return <TaskCard task={task} pending={pending} onClick={onClick} />
 })
 
 /** Board component; subscribes to the controller snapshot. */
@@ -62,6 +62,14 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
           <span>{t('board.close')}</span>
         </button>
         <h2 className={css.boardTitle}>{t('board.title')}</h2>
+        {snapshot.host !== undefined && (
+          <span className={css.detailMeta}>
+            {t('board.hostMeta', {
+              revision: String(snapshot.host.revision),
+              timeZone: snapshot.host.scheduler.timeZone,
+            })}
+          </span>
+        )}
         <input
           className={css.search}
           type="search"
@@ -88,6 +96,10 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
         </button>
       </header>
 
+      {snapshot.transportError !== undefined && (
+        <p className={css.formError}>{t('board.hostError', { error: snapshot.transportError })}</p>
+      )}
+
       <div className={css.columns}>
         {archiveView ? (
           <section className={css.column} data-status="archived">
@@ -97,7 +109,7 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
             </header>
             <div className={css.cards}>
               {visible.map(task => (
-                <MemoTaskCard key={task.id} task={task} onOpen={openTask} />
+                <MemoTaskCard key={task.id} task={task} pending={snapshot.pendingTaskIds.includes(task.id)} onOpen={openTask} />
               ))}
               {visible.length === 0 && <div className={css.columnEmpty}>{t('archive.empty')}</div>}
             </div>
@@ -114,7 +126,7 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
                 </header>
                 <div className={css.cards}>
                   {tasks.map(task => (
-                    <MemoTaskCard key={task.id} task={task} onOpen={openTask} />
+                    <MemoTaskCard key={task.id} task={task} pending={snapshot.pendingTaskIds.includes(task.id)} onOpen={openTask} />
                   ))}
                   {tasks.length === 0 && <div className={css.columnEmpty}>{t('board.empty')}</div>}
                 </div>
