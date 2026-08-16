@@ -18,6 +18,14 @@ README / docs/plugins.md 为准。
   - skin-center：皮肤中心卡片去掉折叠头（静态头 + 常显正文），移除
     expand/collapse 文案与 chevron 样式。
 - 「插件」配置页现在只剩内置三卡（Shell / Agent loop / Web search）。
+- 导航图标：DSH 设置外壳按 section id 硬编码导航图标（models /
+  agent-presets / plugins 专属，其余一律齿轮），无插件扩展点。插件侧在
+  web-ui-settings.module.css 用稳定后缀选择器（[class*="_navList"] 等，
+  经 :has(:nth-child(8)) 且无第 9 个导航单元的门控）隐藏齿轮，给四个家族
+  分区分别绘制 currentColor + SVG mask 图标（Web UI 插件=四格网格、皮肤
+  中心=色环、宠物=爪印、社区插件=双人）。门控保证部分安装时回退为齿轮而
+  不会张冠李戴；DSH 大改版（类名后缀/导航数量变化）时同样回退为齿轮。
+  测试：tests/nav-icons.spec.ts 守护选择器与 mask 数量。
 - 文档同步：根 README 双语、docs/plugins.md、community /
   web-ui-settings 的 README 三件套、设置中心截图。
 
