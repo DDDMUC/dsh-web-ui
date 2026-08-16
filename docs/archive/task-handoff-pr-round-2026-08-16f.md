@@ -6,7 +6,7 @@
 > 远程仓库的 bug 报告 issue。执行分支：triage/pr-round-2026-08-16f（基于本地
 > main 74a3a8a2；worktree 验证基线为 origin/main，逐个合入后滚动更新）。
 > 并发纪律：每 PR 一个独立 worktree（/tmp/dsh-triage-16f/pr-<N>，从 PR head
-> 检出），合并由单一维护者串行执行（本轮 6 个 PR 逐个 squash 合入）；合入前
+> 检出），合并由单一维护者串行执行（本轮 7 个 PR 逐个 squash 合入）；合入前
 > 冲突 PR 先 rebase 到最新 origin/main，冲突按「保留双方」解决后 head 回推
 > 作者分支（force-with-lease 校验旧 head）。共享文件（community.json /
 > skin-center.module.css）的 PR 串行处理。
@@ -20,6 +20,7 @@
 | #318 community 注册 deepseek-harness-auth | 内容登记 | 已合入 | squash（d55b4591）。仓库公开、npm 0.4.1 可达；合入前 rebase 到 #312/#311 之后的 main，community.json 尾追加冲突按双方保留解决（13 entries），head 已回推 JAVA-LW 分支（force-with-lease 校验 5e9a8522）；community:check 13 entries in sync、11/11 |
 | #343 fix(skin-center) 滑杆轨道语义色 | 修复 | 已合入 | squash（dd742962）。与本地 #309 修复（9fd97bf2）重叠，按「保留双方」合并：语义色 color-mix 轨道 + 描边 + 显式 webkit/moz 轨道样式并存，重建 lib bundle；合并树 skin-center 98/98（含 3 个守卫测试）、skin-center:check 绿 |
 | #291 docs deepread 条目同步 | 文档 | 已合入 | squash（40666027）。作者按上轮评论补全模板并 rebase（14:38 新 head），证据检查转绿；条目与 v0.5.4 一致，community:check 13 entries in sync |
+| #348 community 注册 dsh-cloud-sync | 内容登记 | 已合入 | squash（a3403c23）。仓库公开、npm @dickpy/dsh-cloud-sync 0.19.1 可达，条目与上游 README 一致；community:check 14 entries in sync、11/11。轮末新到 PR，追加处理 |
 | #345 fix(web-ui-settings) 认证代理桥 | 修复/增强 | 已合入 | squash（1ad05e17）。安全复核：默认仅 loopback，代理模式需 loopback socket + 精确 Host 白名单 + 同源标记 + 环境变量令牌（timingSafeEqual，浏览器不可见），客户端未配置时 403 保持 unavailable；README 含安全模型与 Caddy 示例；web-ui-settings 50/50、test:scripts 90/90、typecheck、docs:check 全绿。issue #342 关闭 |
 | #340 feat(skins) matrix 皮肤 | 新特性 | 已关闭 | 评论说明后关闭：新增皮肤属全新功能，超出修复/增强/内容登记范围；#218 曾以「请走 PR」关闭，建议重开 issue 确认准入 |
 | #344 feat(task-board) 息屏保活 | 新特性 | 已关闭 | 评论说明后关闭：新增能力超出范围，且外部 PR 修改 .github/workflows/ci.yml（供应链安全直接拒绝）+ 缺功能证据；请先到 #313 讨论 |
