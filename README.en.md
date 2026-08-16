@@ -29,7 +29,7 @@
 
 ## What It Is
 
-dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web GUI: the "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet, live throughput and the skin center. Every plugin mounts into `dsh web` through the official profile mechanism without touching the DSH source; install plugins individually, or everything at once through the aggregate package.
+dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI: the "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet, live throughput and the skin center. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes. Install plugins one by one, or grab everything with the aggregate package.
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
@@ -48,17 +48,15 @@ dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) W
 
 ### Liang Shen Mode
 
-An agent preset (Anchored Standard) tuned for DeepSeek V4 Pro: pick "Liang Shen Mode" in the preset selector when starting a new session and unleash what V4 Pro can really do.
+DeepSeek V4 Pro cares a lot about the tool catalog it sees on the first turn. In community benchmarks the official Standard / PTC presets score 91 / 92 and Minimal scores 99 / 96, but Minimal only has two tools. Liang Shen Mode puts the two halves together: pick it in the preset selector when you start a new session. The first turn runs Minimal-style (only a persistent `bash` and `str_replace_editor`, only your own messages), and once the trajectory is anchored it switches to Code Mode (PTC), with the full tool registry, workspace instructions and skill directory restored afterwards. Windows-native testing on DeepSeek V4 Pro: 98 / 99, average 98.5. Not luck of the draw, and no need to give up the full tool set.
 
-The first model request only exposes the official Minimal dual tools (a persistent `bash` and `str_replace_editor`) plus a one-line persona, with the runtime context cleared and only your own messages passed through — anchoring the reasoning trajectory on Minimal's high-score path; once anchored, the wire auto-promotes to Code Mode (PTC) — one `run_code` tool plus the full tool registry — and all prompt sections, workspace instructions and the skill directory are restored. Windows native testing (DeepSeek V4 Pro): 98 / 99, average 98.5.
-
-How it works, the stabilization controls and its limits live in [dsh-liangshen README](packages/dsh-liangshen/README.md).
+The mechanics, stabilization controls and limits live in [dsh-liangshen README](packages/dsh-liangshen/README.md).
 
 ### Task Board
 
-Open it from the sidebar. Tasks are organized into five columns: Planned, To-do, In Progress, Done, and Failed. Clicking "Run" on a card hands the task to a real DSH agent session; when it finishes, the card status updates automatically. To review what happened, jump directly into the execution session for the full transcript.
+Open it from the sidebar. Tasks sit in five columns: Planned, To-do, In Progress, Done, Failed. Click "Run" on a card and the task goes to a real DSH agent session; the card status updates itself when it finishes. Want to see what happened? Jump back into the execution session for the full transcript.
 
-Tasks also support scheduled execution: configure a cron expression in the detail view (e.g. auto-upgrade DSH at 23:00 daily, generate a weekly report at 09:00 every Monday), and the task runs on its own at the scheduled time.
+Tasks can also run on schedule: set a cron expression in the detail view (auto-upgrade DSH at 23:00 every day, weekly report at 09:00 every Monday) and it starts on its own. No babysitting.
 
 | Multi-column board | Scheduled execution |
 | --- | --- |
@@ -66,25 +64,25 @@ Tasks also support scheduled execution: configure a cron expression in the detai
 
 ### Git Graph
 
-The branch picker above the input box handles branch switching and commit history browsing; the Git graph visualizes branch lanes and commit history, making it easy to trace changes along the timeline even in large repositories.
+The branch picker above the input box switches branches and browses commit history. The Git graph draws branch lanes and commits on a timeline, which stays readable even in big repositories.
 
 ![Git graph](docs/screenshots/04-git-graph.png)
 
 ### Right Panel
 
-When a project session is open, two panels appear to the right of the chat area — "Preview" and "Files/Changes":
+When a project session is open, two panels appear to the right of the chat area: "Preview" and "Files/Changes".
 
-- **File tree**: browse the working directory; click a file to open it in the preview panel, click a folder row to expand it, and search for files by name;
-- **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and plain text, with source/preview switching, split-screen editing and saving;
+- **File tree**: browse the working directory; click a file to open it in the preview panel, click a folder row to expand, search by file name;
+- **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and text, with source / preview switching, split editing and saving;
 - **Changes (SCM)**: a real git changes panel with stage / unstage / discard;
-- Panel widths are draggable (double-click a handle to reset), and the collapsed state plus widths persist per project;
-- All ten skins adapt the right panel — switching skins restyles the panels to match the theme.
+- Panel widths drag (double-click the handle to reset); collapsed state and widths persist per project;
+- All ten skins cover the right panel, so it follows the theme when you switch.
 
 ![Right panel](docs/screenshots/19-right-panel.png)
 
 ### Whale-Girl Pet
 
-A whale girl who lives at the edge of the interface and switches animations with the agent's state: thinking, waiting, working, celebrating. Click her to interact (pet her head), feed her dried fish to raise affinity, and grow her from a baby whale to "deep-sea bond". She can be renamed, dragged to any position, or hidden whenever you want.
+A whale girl lives at the edge of the UI and changes animation with the agent's state: thinking, waiting, working, celebrating. Click her to interact (head pats), feed dried fish to raise affinity, and grow her from a baby whale to "deep-sea bond". Rename her, drag her anywhere, or hide her whenever you want.
 
 | Working companion | Interaction panel |
 | --- | --- |
@@ -92,15 +90,15 @@ A whale girl who lives at the edge of the interface and switches animations with
 
 ### Live Throughput Stats
 
-The dsh web session status line already shows token usage; this plugin adds live throughput: while a response streams, input / output token totals update as live estimates (`~` marks heuristic estimates), and the TPS group renders after the step counter; once provider usage arrives, the estimates are replaced with real usage.
+The session status line already shows token usage; this plugin adds live throughput. While a response streams, input / output token totals update as estimates (`~` marks heuristics), with the TPS group after the step counter. Once provider usage arrives, the estimates get replaced with real numbers.
 
 ![Live throughput stats](docs/screenshots/18-live-stats.png)
 
 ### Mobile Remote Control
 
-The phone icon at the bottom of the sidebar opens the pairing panel: scan the QR code (or copy the link) to pair, and the phone lands on a standalone mobile surface that remote-controls the current dsh web workspace — browse and create sessions, send and receive messages, switch models and reasoning effort, and adjust the permission preset, all in sync with the desktop. Pairing tokens are one-time and time-limited; "Stop" revokes every paired device at any time. The QR defaults to the LAN, or turn on the cloudflared public tunnel so the phone can pair from any network.
+The phone icon at the bottom of the sidebar opens the pairing panel. Scan the QR code (or copy the link) and the phone lands on a standalone mobile surface for the current dsh web workspace: browse and create sessions, send and receive messages, switch models and reasoning effort, adjust the permission preset, all in sync with the desktop. Pairing tokens are one-time and time-limited; "Stop" revokes every device at any time. The QR targets the LAN by default; turn on the cloudflared public tunnel and the phone can pair from any network.
 
-> **Real-time messages and tunnels**: the mobile surface relies on SSE (Server-Sent Events) for live messages. Cloudflare quick tunnels (trycloudflare.com) and Tailscale Serve do not pass SSE through — plain HTTP works, live push does not reach the phone. In that case the plugin falls back to polling: messages still flow, only new messages may arrive a few seconds late. For instant push, use an SSE-capable tunnel (Cloudflare named tunnel, custom TCP port forwarding, etc.).
+> **Real-time messages and tunnels**: mobile relies on SSE (Server-Sent Events) for live messages. Cloudflare quick tunnels (trycloudflare.com) and Tailscale Serve do not pass SSE through: plain HTTP works, live push never arrives. On those networks the plugin falls back to polling, so messages still flow and only new ones may lag a few seconds. For instant push use an SSE-capable tunnel (Cloudflare named tunnel, custom TCP port forwarding, etc.).
 
 | Workspaces | Sessions & new session |
 | --- | --- |
@@ -114,23 +112,23 @@ The "SSH" sidebar entry opens the remote-ops panel. Hosts support key / password
 
 - **Web terminal**: xterm.js PTY with live output and auto-fit;
 - **File transfer**: SFTP upload / download with progress and a remote directory browser;
-- **Port forwarding**: local tunnels to remote internal services (databases, APIs, admin consoles), bound to 127.0.0.1 only;
-- **Cluster runs**: one command across many hosts concurrently, filtered by alias / environment / tags;
-- **Agent direct control**: agents share the same host config — just say "check xxx" in chat and the agent runs remote commands for you.
+- **Port forwarding**: local tunnels into remote internal services (databases, APIs, admin consoles), bound to 127.0.0.1 only;
+- **Cluster runs**: one command across many hosts, filtered by alias / environment / tags;
+- **Agent direct control**: agents share the same host config. Say "check xxx" in chat and the agent runs the remote command.
 
 ### Image Understanding
 
-Gives text-only models vision: when a conversation mentions an image (local path, http(s) URL, or session attachment), the `describe_image` tool sends it to a configured OpenAI-compatible vision endpoint (Qwen-VL, GLM-4V, GPT-4o, a local Ollama endpoint…) and returns the answer. **Only the returned text enters the conversation — the image itself never enters the session log.** Since text-only models have no image entry in the input box, the plugin adds an image button there: picking a file inserts an attachment reference into your draft, and the model can analyze it via `describe_image`; the tool also accepts a `prompt` argument for precise custom instructions (OCR, UI diagnosis, translation) that beat a generic description. Endpoint, model, key, and the default instruction are configured live under Settings > Plugin config > "Image understanding".
+Gives text-only models vision. When a conversation mentions an image (local path, http(s) URL, or session attachment), `describe_image` sends it to a configured OpenAI-compatible vision endpoint (Qwen-VL, GLM-4V, GPT-4o, a local Ollama endpoint, whatever you have) and returns the answer. **Only the returned text enters the conversation; the image itself never enters the session log.** Text-only models have no image entry in the input box, so the plugin adds an image button: pick a file, an attachment reference lands in your draft, and the model can analyze it via `describe_image`. A `prompt` argument takes custom instructions (OCR, UI diagnosis, translation) that beat the generic description. Endpoint, model, key and default instruction live under Settings > Plugin config > "Image understanding", applied immediately.
 
 ### Settings Hub
 
-All family plugins' toggles and parameters live under "Settings > Plugin config", and changes apply immediately; a "Community plugins" card inside the group indexes plugins registered by community contributors and links to their repositories.
+All family plugins' toggles and parameters live under "Settings > Plugin config" and apply immediately. A "Community plugins" card inside the group lists plugins registered by community contributors and links to their repositories.
 
 ![Plugin config hub](docs/screenshots/02-settings-web-ui-plugins.png)
 
 ## Skins
 
-The skin center ships ten skins, each supporting try-on before applying: preview applies instantly and reverts fully on exit; once you are satisfied, apply it with one click.
+The skin center has ten skins, each with try-on before apply: the preview applies instantly and reverts fully on exit; apply with one click once you are happy.
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
@@ -142,19 +140,19 @@ A faithful recreation of the classic Luna interface: blue gradient window chrome
 
 ### Blue Fantasy
 
-Whale artwork lies beneath translucent panes, wrapped in a periwinkle-indigo palette — particularly striking in dark mode.
+Whale artwork sits beneath translucent panes in a periwinkle-indigo palette. It reads best in dark mode.
 
 ![Blue Fantasy dark](docs/screenshots/17-skin-blue-fantasy-dark.png)
 
 ### Whale Song
 
-The deep-sea whale-goddess theme: a text-free ambience painting (a blue-haired goddess with a whale pod on the left, an ice-blue constellation grid with gold-thread accents, and generous open water on the right) sits beneath translucent panes, wrapped in an ice-blue / cyan / navy / cobalt palette — with a night-cruise dark variant.
+The deep-sea whale-goddess theme: a text-free ambience painting (a blue-haired goddess with a whale pod on the left, an ice-blue constellation grid with gold-thread accents, and generous open water on the right) sits beneath translucent panes, wrapped in an ice-blue / cyan / navy / cobalt palette, with a night-cruise dark variant.
 
 ![Whale Song light](docs/screenshots/24-skin-whale-song-light.png) · ![Whale Song dark](docs/screenshots/25-skin-whale-song-dark.png)
 
 ### Harbor
 
-A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting into sunset orange) sits beneath translucent panes, wrapped in a deep-navy base with amber-orange accents — a thin twilight scrim in light mode and a deeper dusk veil in dark mode.
+A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting into sunset orange) sits beneath translucent panes, wrapped in a deep-navy base with amber-orange accents, a thin twilight scrim in light mode and a deeper dusk veil in dark mode.
 
 ![Harbor light](docs/screenshots/26-skin-harbor-light.png) · ![Harbor dark](docs/screenshots/27-skin-harbor-dark.png)
 
@@ -168,18 +166,18 @@ A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting
 ### Get Started in 3 Steps
 
 1. Install the aggregate package: `dsh plugin --profile web add @linxin666/dsh-web-ui-all`
-2. Restart `dsh web` — every plugin entry appears in the sidebar
+2. Restart `dsh web`, every plugin entry appears in the sidebar
 3. Open "Settings > Plugin config" to toggle plugins, or try on skins in the skin center
 
 ### Install from npm (Recommended)
 
-The plugins are published to npm (the `@linxin666` scope) — one command installs everything:
+The plugins are on npm (the `@linxin666` scope). One command installs everything:
 
 ```sh
 dsh plugin --profile web add @linxin666/dsh-web-ui-all
 ```
 
-Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins` instead.
+Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins`.
 
 ### Install from the GitHub Repository (Development)
 
@@ -198,7 +196,7 @@ pnpm -r build
 node scripts/link-profile.mjs
 dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
 
-# 4. Restart dsh web — all plugin entries appear in the sidebar
+# 4. Restart dsh web, all plugin entries appear in the sidebar
 dsh web
 ```
 
@@ -206,7 +204,7 @@ dsh web
 >
 > Note: the profile directory is not a pnpm workspace, so `workspace:*` dependencies in the aggregate package
 > fall back to the published npm versions; if the npm versions lag or break you may see "host mounted but UI
-> missing" — in that case run `node scripts/link-profile.mjs` first so every child package uses the
+> missing". In that case run `node scripts/link-profile.mjs` first so every child package uses the
 > repository build output.
 
 ### Install a Single Plugin
@@ -223,7 +221,7 @@ dsh plugin --profile web add @linxin666/dsh-pet                    # Whale-girl 
 
 ### Verify and Uninstall
 
-After installing, restart `dsh web` — a working plugin shows up in the sidebar. You can also confirm the mounted config layers with `dsh --profile web --dump-config`. If nothing appears in the sidebar, you most likely forgot to restart `dsh web`.
+After installing, restart `dsh web`; a working plugin shows up in the sidebar. `dsh --profile web --dump-config` also confirms the mounted config layers. If the sidebar shows nothing, you most likely forgot to restart `dsh web`.
 
 Uninstall: `dsh plugin --profile web remove @linxin666/dsh-web-ui-all`, then restart `dsh web`.
 
@@ -254,50 +252,50 @@ Technical details live in [docs/plugins.md](docs/plugins.md).
 <details>
 <summary><strong>I restarted, but nothing appears in the sidebar?</strong></summary>
 
-A: First confirm the plugin went into the `web` profile (the `--profile web` in the command), then check the mounted config layers with `dsh --profile web --dump-config`; if it still fails, see "Install Troubleshooting" above. Note that a page refresh is not enough — the `dsh web` process must be restarted.
+A: First make sure the plugin went into the `web` profile (the `--profile web` in the command), then check the mounted config layers with `dsh --profile web --dump-config`. Still stuck? See "Install Troubleshooting" above. A page refresh is not enough; the `dsh web` process must restart.
 
 </details>
 
 <details>
 <summary><strong>Why didn't a scheduled task run on time?</strong></summary>
 
-A: Scheduling happens in the browser, so the `dsh web` tab must stay open; triggers missed while the tab is closed are skipped, not queued. A task that is already running at the trigger time is also deferred to the next matching point.
+A: Scheduling happens in the browser, so the `dsh web` tab has to stay open; triggers missed while it is closed are skipped, not queued. A task that is already running at the trigger time is also deferred to the next matching point.
 
 </details>
 
 <details>
 <summary><strong>The phone pairs but gets no live messages?</strong></summary>
 
-A: Cloudflare quick tunnels and Tailscale Serve do not pass SSE through. In that case the plugin falls back to polling — messages still flow, new ones may lag a few seconds. For instant push, use an SSE-capable tunnel (Cloudflare named tunnel, custom TCP port forwarding, etc.).
+A: Cloudflare quick tunnels and Tailscale Serve do not pass SSE through. On those networks the plugin falls back to polling: messages still flow, new ones may lag a few seconds. For instant push use an SSE-capable tunnel (Cloudflare named tunnel, custom TCP port forwarding, etc.).
 
 </details>
 
 <details>
-<summary><strong>I tried a skin and don't like it — what now?</strong></summary>
+<summary><strong>I tried a skin and don't like it, what now?</strong></summary>
 
-A: Skins support try-on before applying: the preview applies instantly and reverts fully on exit, and nothing persists until you click "Apply", so feel free to experiment.
+A: Skins support try-on before apply: the preview applies instantly and reverts fully on exit, and nothing persists until you click "Apply". Feel free to experiment.
 
 </details>
 
 <details>
 <summary><strong>I only want the skins, or just one plugin?</strong></summary>
 
-A: Install `@linxin666/dsh-skins` for skins only, or use the package names under "Install a Single Plugin" — both work with the npm install flow.
+A: Install `@linxin666/dsh-skins` for skins only, or use the package names under "Install a Single Plugin". Both work with the npm install flow.
 
 </details>
 
 ## Known Limitations
 
-- Task-board scheduling is browser-side: the `dsh web` tab must stay open, and triggers missed while it is closed are skipped, not queued — see [dsh-task-board README](packages/dsh-task-board/README.md).
-- SSH passwords and passphrases are stored in plaintext in `~/.dsh/dsh-ssh.json` (mode 0600); reconnects may replay non-idempotent commands, and remote output is returned unredacted — see the security model in [dsh-ssh README](packages/dsh-ssh/README.md).
+- Task-board scheduling is browser-side: the `dsh web` tab has to stay open, and triggers missed while it is closed are skipped, not queued. See [dsh-task-board README](packages/dsh-task-board/README.md).
+- SSH passwords and passphrases are stored in plaintext in `~/.dsh/dsh-ssh.json` (mode 0600); reconnects may replay non-idempotent commands, and remote output is returned unredacted. See the security model in [dsh-ssh README](packages/dsh-ssh/README.md).
 - Mobile remote relies on SSE live push: Cloudflare quick tunnels and Tailscale Serve do not pass SSE through, so the plugin falls back to polling and new messages may arrive a few seconds late.
 - Repository installs require Node.js >= 22 and pnpm and are for development only; npm installs are unaffected.
 
 ## Community
 
-Join the community center to talk with the developers and other users — share tips, report issues, discuss ideas. Scan the WeChat QR code:
+The community chat is here: talk usage, report issues and discuss ideas with the developers and other users. Scan the QQ code to join "DSH Web UI 交流群":
 
-![Community](docs/community-center.jpg)
+![DSH Web UI community](docs/community-center.jpg)
 
 You can also join the [Discord community](https://discord.gg/6v4gm9u4S), or head straight to [GitHub Issues](https://github.com/zhu1090093659/dsh-web-ui/issues) to report bugs / request features.
 
@@ -319,7 +317,7 @@ You can also join the [Discord community](https://discord.gg/6v4gm9u4S), or head
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR; attach screenshots or verification evidence for user-visible changes.
 - Commit messages follow Conventional Commits (e.g. `fix(task-board): fix xxx`); emoji is banned in code, docs and commit messages alike.
 - Scaffold new plugins and skins with `node scripts/dsh-plugin-new <name>` and `node scripts/dsh-skin-new`.
-- Pass the gates before submitting — `pnpm typecheck && pnpm test && pnpm docs:check`; the full workflow lives in [docs/development.md](docs/development.md).
+- Pass the gates before submitting: `pnpm typecheck && pnpm test && pnpm docs:check`. The full workflow lives in [docs/development.md](docs/development.md).
 
 ## License
 
