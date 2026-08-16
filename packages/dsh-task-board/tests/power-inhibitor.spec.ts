@@ -118,6 +118,7 @@ describe('PowerInhibitor', () => {
     const power = new PowerInhibitor({
       platform: 'linux',
       exists: path => path === '/usr/bin/systemd-inhibit',
+      spawnSync: () => ({ status: 0, error: undefined }),
       execPath: '/usr/bin/node',
       spawn: ((file, args) => { invocation = { file, args }; return process }) as SpawnLike,
     })
@@ -147,6 +148,46 @@ describe('PowerInhibitor', () => {
     power.setEnabled(true)
     expect(power.snapshot().phase).toBe('unsupported')
     expect(spawn).not.toHaveBeenCalled()
+    power.dispose()
+  })
+
+  it('reports Linux without a working logind connection as unsupported', () => {
+    const spawn = vi.fn()
+    const probe = vi.fn(() => ({ status: 1, error: undefined }))
+    const power = new PowerInhibitor({
+      platform: 'linux',
+      exists: path => path === '/usr/bin/systemd-inhibit',
+      spawn: spawn as SpawnLike,
+      spawnSync: probe,
+    })
+    power.setEnabled(true)
+    expect(power.snapshot().phase).toBe('unsupported')
+    expect(probe).toHaveBeenCalledWith('/usr/bin/systemd-inhibit', ['--list', '--no-pager'], {
+      stdio: 'ignore',
+      timeout: 2_000,
+      windowsHide: true,
+    })
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
+  it('ignores a stale helper READY or error after its protection reason is released', () => {
+    const first = child()
+    const second = child()
+    const spawn = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second)
+    const power = new PowerInhibitor({ platform: 'win32', env: { SystemRoot: 'C:\\Windows' }, spawn })
+    power.setEnabled(true)
+    power.updateReasons({ runningSessions: 0, armedSchedules: 0, sessionStateKnown: true })
+    first.stdout.emit('data', Buffer.from('READY\n'))
+    first.emit('error', new Error('late failure'))
+    expect(power.snapshot().phase).toBe('idle')
+
+    power.updateReasons({ runningSessions: 1, armedSchedules: 0, sessionStateKnown: true })
+    second.stdout.emit('data', Buffer.from('READY\n'))
+    expect(power.snapshot().phase).toBe('active')
+    first.emit('exit', 1, null)
+    expect(power.snapshot().phase).toBe('active')
     power.dispose()
   })
 })

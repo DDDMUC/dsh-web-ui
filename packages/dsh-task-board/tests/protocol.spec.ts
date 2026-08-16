@@ -18,12 +18,15 @@ describe('task-board action protocol', () => {
     })).toBeUndefined()
   })
 
-  it('rejects imported records carrying unknown command or execution fields', () => {
+  it('accepts benign future import fields but rejects executable command fields', () => {
     const valid = createTask({ title: 'A', description: '', prompt: '' }, 1, 'task-a')
     expect(parseActionEnvelope({ requestId: 'ok', action: { kind: 'import', sourceId: 'browser', tasks: [valid] } })).toBeDefined()
     expect(parseActionEnvelope({ requestId: 'bad', action: {
       kind: 'import', sourceId: 'browser', tasks: [{ ...valid, shell: 'cmd.exe' }],
     } })).toBeUndefined()
+    expect(parseActionEnvelope({ requestId: 'future', action: {
+      kind: 'import', sourceId: 'browser', tasks: [{ ...valid, futureDisplayHint: 'compact' }],
+    } })?.action.kind).toBe('import')
   })
 
   it('rejects malformed schedule fields during legacy import', () => {

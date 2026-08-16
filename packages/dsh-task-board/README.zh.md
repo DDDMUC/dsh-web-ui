@@ -26,7 +26,7 @@
 - `src/host-service.ts` 负责 cron tick、错过触发跳过、runner 启动、重启对账和电源保护理由。
 - `src/client/host-api.ts` 单次导入旧浏览器数据、提交幂等动作，并把 Host snapshot 当作唯一已确认 UI 状态。
 - 同源接口为 `GET /api/task-board/state`、`GET /api/task-board/events` 和 `POST /api/task-board/action`。
-- POST 必须为 JSON 且 exact same-origin；没有 `Origin` 的请求只允许 loopback。普通动作上限 64 KiB，导入上限 2 MiB。严格 action 联合中没有命令、可执行路径、shell 文本或任意参数字段。
+- 所有接口都要求浏览器同源标记。直接访问只允许 DSH loopback origin；同机认证反向代理必须使用显式 Host 白名单和服务端注入 token。POST 还必须为 JSON。普通动作上限 64 KiB，导入上限 2 MiB。action 联合中没有命令、可执行路径、shell 文本或任意参数字段。
 
 ## 安装
 
@@ -53,19 +53,24 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board
 | `enabled` | `true` | 启用 Host 服务与浏览器看板。 |
 | `announceToAgent` | `true` | 向 agent 系统提示加入任务看板说明。 |
 | `preventIdleSleep` | `false` | 存在运行中的 DSH 会话、已启用计划或未知会话状态时，持有一个系统空闲睡眠断言。 |
+| `trustedProxyHosts` | `[]` | 仅通过已认证 loopback 反向代理路径接受的规范 `host[:port]` authority 白名单。 |
+| `proxyTokenEnv` | `DSH_TASK_BOARD_PROXY_TOKEN` | 保存反向代理 token 的环境变量名；token 本身不会写入插件配置。 |
+
+浏览器直接访问仍限制为 DSH loopback origin。若使用同机认证反向代理，应让 DSH Web 绑定 loopback，配置 `trustedProxyHosts`，在 `proxyTokenEnv` 指定的环境变量中放置高熵 token，并让代理在完成认证后替换（不能透传客户端提供的）`X-Dsh-Task-Board-Proxy-Token`。代理 Host 必须在白名单内，浏览器 `Origin` 必须与其 authority 相同。修改这些 composition 级代理设置后需重启 Host。
 
 macOS 后端启动 `/usr/bin/caffeinate -i -w <host-pid>`，绝不请求 `-d`。Windows 后端从 `SystemRoot` 启动绝对路径的 Windows PowerShell，固定 helper 只请求 `ES_CONTINUOUS | ES_SYSTEM_REQUIRED`；不请求 `ES_DISPLAY_REQUIRED`，不修改电源计划，也不需要管理员权限。Linux 后端只从 `/usr/bin/systemd-inhibit` 或 `/bin/systemd-inhibit` 启动 systemd-logind `idle` block inhibitor，不请求 `sleep`、`handle-lid-switch` 或显示器/屏保 inhibitor；没有 systemd-logind 时显示 `unsupported` 或可见错误，不启动桌面环境专用替代命令。其他平台报告 `unsupported`。
 
 ## 数据存储与迁移
 
 - v2 账本位于 `$DSH_HOME/task-board/ledger-v2.json`。POSIX 新文件权限为 `0600`；Windows 继承用户目录 ACL。
-- 损坏的 v2 文件会移动为 `ledger-v2.json.corrupt-<timestamp>`，Host 以空账本和可见 scheduler 错误启动，不覆盖损坏字节。
+- 损坏的 v2 文件会移动到防碰撞的 `ledger-v2.json.corrupt-*` 名称，Host 以空账本和可见 scheduler 错误启动，不覆盖损坏字节。
 - 每个 origin 首次加载新版页面时，按稳定 source id 和 request id 导入 `dsh.taskBoard.v1`。任务按 id 合并，较新的顶层字段优先，执行记录按 execution id 合并。
-- 只有 Host 确认后才写 `dsh.taskBoard.v2.hostImported` 标记。v1 localStorage 原值保持不变，作为只读回退备份。
+- 只有导入成功并经 Host 确认后，`dsh.taskBoard.v2.hostImported` 才保存当前 Host 账本 generation；新建或损坏恢复出的新 generation 会再次接收保留的 v1 数据。v1 localStorage 原值保持不变，作为只读回退备份。
+- 同一时间只有一个 Host 进程能通过 `$DSH_HOME/task-board/ledger-v2.lock` 持有任务看板账本目录；第二个使用同一 DSH home 的 Host 会失败关闭，不并发写账本。
 
 ## 安全模型
 
-- 插件仍处在 DSH Web 既有部署与网络边界内，不返回宽松 CORS 头。
+- 插件仍处在 DSH Web 既有部署与网络边界内，不返回宽松 CORS 头。state、action 与 SSE 共用同一访问栅栏；裸本地命令行请求不会被当作浏览器请求接受。
 - 所有变更载荷使用严格、版本化的判别联合；浏览器不能写入 scheduler 独占时间戳或 execution 结果。
 - 工作区、预设、权限、cron、任务状态和导入记录都会在 Host 再校验。
 - 任务 Prompt 是发给 DSH agent 会话的数据。协议不接受 shell 命令、PowerShell 正文、可执行路径或可配置 helper 参数。
@@ -81,7 +86,7 @@ pnpm --filter @linxin666/dsh-client-ui-task-board test
 pnpm --filter @linxin666/dsh-client-ui-task-board build
 ```
 
-仓库 CI 另在 `windows-latest`、`macos-latest` 与 `ubuntu-latest` 运行 opt-in 原生 helper smoke：真实启动固定 helper、等待 ready、释放并确认进程退出，不修改系统电源计划。Ubuntu runner 没有可用的 systemd-logind system bus 时原生部分显式跳过，纯逻辑测试仍必须通过。
+设置 `DSH_POWER_SMOKE=1` 可在 Windows、macOS 或 Linux 上显式启用原生 helper smoke：真实启动固定 helper、等待 ready、在清理路径释放并确认进程退出，不修改系统电源计划。Linux 会先以有界超时探测 systemd-logind；没有可用 system bus 时原生部分跳过，纯逻辑测试仍可运行。
 
 ## 手工验证
 
@@ -98,6 +103,7 @@ pnpm --filter @linxin666/dsh-client-ui-task-board build
 
 - Host 停止、系统睡眠或长暂停期间错过的触发点会跳过，绝不排队补跑。
 - 同一任务已在运行时会跳过到期出现并滚动到下一 cron 匹配点；任务运行不并发、不排队。
+- DST 采用 Host 本地墙上时钟语义：春季跳时中不存在的分钟会跳过，秋季回拨中重复的分钟不会执行第二次。
 - 电源保护只阻止空闲系统睡眠，明确允许显示器睡眠与锁屏。
 - 合盖、手动睡眠、休眠、关机、低电量强制睡眠和企业电源策略不在保证范围内。
 - 插件不创建唤醒定时器，也不能唤醒已经睡眠的机器。

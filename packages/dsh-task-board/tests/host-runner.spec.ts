@@ -1,7 +1,7 @@
 import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
 import { describe, expect, it, vi } from 'vitest'
 import { createTask, type TaskRecord } from '../src/core/tasks.ts'
-import { HostExecutionRunner } from '../src/host-runner.ts'
+import { HostExecutionRunner, SessionLaunchError } from '../src/host-runner.ts'
 
 function ok<T>(request: { rpcId: unknown }, value: T) {
   return { rpcId: request.rpcId, result: { ok: true as const, value } }
@@ -63,7 +63,9 @@ describe('HostExecutionRunner', () => {
         },
       },
     }
-    await expect(new HostExecutionRunner(permissionRejected as unknown as ApiProxy).launch(configuredTask())).rejects.toThrow('not acknowledged')
+    const rejected = new HostExecutionRunner(permissionRejected as unknown as ApiProxy).launch(configuredTask())
+    await expect(rejected).rejects.toBeInstanceOf(SessionLaunchError)
+    await expect(rejected).rejects.toMatchObject({ sessionId: 'session-a' })
     expect(prompts).toEqual(['/permission workspace-write'])
   })
 
@@ -84,5 +86,29 @@ describe('HostExecutionRunner', () => {
     await expect(runner.inspect('session-a')).resolves.toEqual({ outcome: 'failed', error: 'agent turn ended with an error' })
     historyOk = false
     await expect(runner.inspect('session-a')).resolves.toEqual({ outcome: 'pending' })
+  })
+
+  it('pages backward to the execution turn and ignores later user turns in the same session', async () => {
+    const history = vi.fn(async (request: { rpcId: unknown; payload: { beforeSeq?: number } }) => request.payload.beforeSeq === undefined
+      ? ok(request, {
+          events: [{ event: { type: 'turn/end', seq: 300, time: 3_000, data: { reason: { kind: 'error' } } } }],
+          hasMore: true,
+        })
+      : ok(request, {
+          events: [
+            { event: { type: 'turn/end', seq: 100, time: 1_100, data: { reason: { kind: 'complete' } } } },
+            { event: { type: 'session/start', seq: 90, time: 900, data: {} } },
+          ],
+          hasMore: false,
+        }))
+    const api = {
+      sessions: {
+        list: async (request: { rpcId: unknown }) => ok(request, { items: [{ sessionId: 'session-a', running: false }] }),
+        history,
+      },
+    }
+    await expect(new HostExecutionRunner(api as unknown as ApiProxy).inspect('session-a', 1_000)).resolves.toEqual({ outcome: 'succeeded' })
+    expect(history).toHaveBeenCalledTimes(2)
+    expect(history.mock.calls[1][0].payload.beforeSeq).toBe(300)
   })
 })

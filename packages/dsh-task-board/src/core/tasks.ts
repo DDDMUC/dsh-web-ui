@@ -145,8 +145,8 @@ export function isTaskStatus(value: unknown): value is TaskStatus {
 }
 
 /** Whether a manual move target is allowed from the given status. */
-export function canMoveManually(_from: TaskStatus, to: TaskStatus): boolean {
-  return (MANUAL_STATUSES as readonly TaskStatus[]).includes(to)
+export function canMoveManually(from: TaskStatus, to: TaskStatus): boolean {
+  return from !== 'running' && (MANUAL_STATUSES as readonly TaskStatus[]).includes(to)
 }
 
 /** Normalize one optional execution-target string: trim; blank collapses to undefined. */

@@ -1,7 +1,7 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { dshHome } from './dsh-home.ts'
-import { nextRunAtMs } from './core/schedule.ts'
+import { isValidCron, nextRunAtMs } from './core/schedule.ts'
 import { parseLedger } from './core/store.ts'
 import { canMoveManually, settleExecution, startExecution, withStatus, type ExecutionRecord, type TaskRecord } from './core/tasks.ts'
 import { applyArchiveTask, applyRestoreTask } from './core/use-cases/task-archive.ts'
@@ -35,12 +35,31 @@ export interface OpenedRun {
 
 const MAX_REQUEST_CACHE = 256
 
+interface CachedRequest {
+  fingerprint: string
+  state: LedgerState
+}
+
 function timeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'local'
 }
 
 function cloneTasks(tasks: readonly TaskRecord[]): TaskRecord[] {
   return JSON.parse(JSON.stringify(tasks)) as TaskRecord[]
+}
+
+function hasOpenExecution(task: TaskRecord): boolean {
+  return task.executions.some(execution => execution.endedAt === undefined)
+}
+
+function processIsAlive(pid: number): boolean {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== 'ESRCH'
+  }
 }
 
 function betterExecution(a: ExecutionRecord, b: ExecutionRecord): ExecutionRecord {
@@ -70,7 +89,7 @@ function parseHostTasks(values: readonly unknown[], now: number): TaskRecord[] {
     const rawSchedule = rawById.get(task.id)?.schedule
     if (typeof rawSchedule !== 'object' || rawSchedule === null) return task
     const schedule = rawSchedule as Record<string, unknown>
-    if (typeof schedule.cron !== 'string' || isValidSchedule(schedule.cron, now)) return task
+    if (typeof schedule.cron !== 'string' || isValidCron(schedule.cron)) return task
     return {
       ...task,
       schedule: {
@@ -88,14 +107,28 @@ function parseHostTasks(values: readonly unknown[], now: number): TaskRecord[] {
 export class HostTaskLedger {
   private document: LedgerDocument
   private readonly listeners = new Set<() => void>()
-  private readonly requestCache = new Map<string, LedgerState>()
+  private readonly requestCache = new Map<string, CachedRequest>()
+  private readonly lockToken = crypto.randomUUID()
+  private lockFd: number | undefined
   readonly file: string
+  readonly lockFile: string
 
   constructor(dir: string = join(dshHome(), 'task-board'), private readonly now: () => number = Date.now) {
+    mkdirSync(dir, { recursive: true })
     this.file = join(dir, 'ledger-v2.json')
-    this.document = this.load(dir)
-    this.repairSchedules(true)
-    this.reconcileInterruptedStarts()
+    this.lockFile = join(dir, 'ledger-v2.lock')
+    this.lockFd = this.acquireLock()
+    try {
+      this.document = this.load(dir)
+      this.repairSchedules(true)
+      this.reconcileInterruptedStarts()
+      // Persist a freshly generated ledger identity and any recovery error
+      // immediately, even when there are no tasks to trigger a later action.
+      this.commit(false)
+    } catch (error) {
+      this.dispose()
+      throw error
+    }
   }
 
   state(): LedgerState {
@@ -108,11 +141,28 @@ export class HostTaskLedger {
     return () => { this.listeners.delete(listener) }
   }
 
+  dispose(): void {
+    const fd = this.lockFd
+    if (fd === undefined) return
+    this.lockFd = undefined
+    closeSync(fd)
+    try {
+      const owner = JSON.parse(readFileSync(this.lockFile, 'utf8')) as { token?: unknown }
+      if (owner.token === this.lockToken) unlinkSync(this.lockFile)
+    } catch {
+      // A missing or externally replaced lock must not be removed blindly.
+    }
+  }
+
   applyRequest(requestId: string, action: TaskBoardAction): { state: LedgerState; run?: OpenedRun } {
+    const fingerprint = JSON.stringify(action)
     const cached = this.requestCache.get(requestId)
-    if (cached !== undefined) return { state: cached }
+    if (cached !== undefined) {
+      if (cached.fingerprint !== fingerprint) throw new Error('request id was reused with a different action')
+      return { state: cached.state }
+    }
     const result = this.apply(action)
-    this.requestCache.set(requestId, result.state)
+    this.requestCache.set(requestId, { fingerprint, state: result.state })
     while (this.requestCache.size > MAX_REQUEST_CACHE) this.requestCache.delete(this.requestCache.keys().next().value as string)
     return result
   }
@@ -120,7 +170,7 @@ export class HostTaskLedger {
   openScheduled(taskId: string, nextRunAt: number | undefined, triggeredAt: number): OpenedRun | undefined {
     const task = this.document.tasks.find(item => item.id === taskId)
     if (task === undefined) return undefined
-    if (task.status === 'running') {
+    if (task.status === 'running' || hasOpenExecution(task)) {
       this.document.tasks = [...applyScheduleNextRun(this.document.tasks, taskId, nextRunAt, task.schedule?.lastTriggeredAt, triggeredAt)]
       this.commit()
       return undefined
@@ -145,7 +195,7 @@ export class HostTaskLedger {
 
   setScheduler(patch: Partial<TaskBoardSchedulerSnapshot>): void {
     this.document.scheduler = { ...this.document.scheduler, ...patch }
-    this.commit(false)
+    this.notify()
   }
 
   attachSession(taskId: string, executionId: string, sessionId: string): void {
@@ -173,7 +223,7 @@ export class HostTaskLedger {
         const sources = new Set(this.document.scheduler.importedSources ?? [])
         if (sources.has(action.sourceId)) return { state: this.state() }
         const invalidScheduleIds = action.tasks
-          .filter(task => task.schedule !== undefined && !isValidSchedule(task.schedule.cron, now))
+          .filter(task => task.schedule !== undefined && !isValidCron(task.schedule.cron))
           .map(task => task.id)
         const incoming = parseHostTasks(action.tasks, now)
         const merged = new Map(this.document.tasks.map(task => [task.id, task]))
@@ -189,7 +239,7 @@ export class HostTaskLedger {
       }
       case 'create': {
         if (this.document.tasks.some(task => task.id === action.id)) throw new Error('task id already exists')
-        if (action.input.schedule?.enabled === true && nextRunAtMs(action.input.schedule.cron, now) === undefined) {
+        if (action.input.schedule?.enabled === true && (!isValidCron(action.input.schedule.cron) || nextRunAtMs(action.input.schedule.cron, now) === undefined)) {
           throw new Error('invalid schedule')
         }
         const result = applyCreateTask(this.document.tasks, action.input, now, action.id)
@@ -202,12 +252,17 @@ export class HostTaskLedger {
         this.document.tasks = [...applyUpdateTask(this.document.tasks, action.taskId, action.patch, now)]
         break
       case 'delete':
-        if (!this.document.tasks.some(task => task.id === action.taskId)) throw new Error('task not found')
+        {
+          const task = this.document.tasks.find(task => task.id === action.taskId)
+          if (task === undefined) throw new Error('task not found')
+          if (task.status === 'running' || hasOpenExecution(task)) throw new Error('running task cannot be deleted')
+        }
         this.document.tasks = [...applyDeleteTask(this.document.tasks, undefined, action.taskId).tasks]
         break
       case 'move': {
         const task = this.document.tasks.find(item => item.id === action.taskId)
         if (task === undefined) throw new Error('task not found')
+        if (task.status === 'running' || hasOpenExecution(task)) throw new Error('running task cannot be moved')
         if (!canMoveManually(task.status, action.status)) throw new Error('invalid manual status')
         this.document.tasks = this.document.tasks.map(item => item.id === action.taskId ? withStatus(item, action.status, now) : item)
         break
@@ -233,7 +288,7 @@ export class HostTaskLedger {
       case 'rerun':
       case 'run': {
         const task = this.document.tasks.find(item => item.id === action.taskId)
-        if (task === undefined || task.status === 'running') throw new Error('task is already running or missing')
+        if (task === undefined || task.status === 'running' || hasOpenExecution(task)) throw new Error('task is already running or missing')
         const base = action.kind === 'rerun' ? withStatus(task, 'todo', now) : task
         run = startExecution(base, now, crypto.randomUUID())
         this.document.tasks = this.document.tasks.map(item => item.id === task.id ? run!.task : item)
@@ -288,16 +343,17 @@ export class HostTaskLedger {
         const row = value as { id?: unknown; schedule?: unknown }
         if (typeof row.schedule !== 'object' || row.schedule === null) return []
         const cron = (row.schedule as { cron?: unknown }).cron
-        return typeof cron !== 'string' || !isValidSchedule(cron, this.now())
+        return typeof cron !== 'string' || !isValidCron(cron)
           ? [typeof row.id === 'string' ? row.id : 'unknown']
           : []
       })
       return {
         schemaVersion: TASK_BOARD_SCHEMA_VERSION,
-        revision: Number.isInteger(parsed.revision) ? parsed.revision as number : 0,
+        revision: Number.isSafeInteger(parsed.revision) && (parsed.revision as number) >= 0 ? parsed.revision as number : 0,
         tasks,
         scheduler: {
           timeZone: timeZone(),
+          ledgerId: typeof parsed.scheduler?.ledgerId === 'string' && parsed.scheduler.ledgerId !== '' ? parsed.scheduler.ledgerId : crypto.randomUUID(),
           ...(typeof parsed.scheduler?.lastTickAt === 'number' ? { lastTickAt: parsed.scheduler.lastTickAt } : {}),
           ...(typeof parsed.scheduler?.error === 'string' ? { error: parsed.scheduler.error } : {}),
           ...(invalidScheduleIds.length > 0 ? { error: `invalid cron disabled for task(s): ${invalidScheduleIds.join(', ')}` } : {}),
@@ -305,13 +361,13 @@ export class HostTaskLedger {
         },
       }
     } catch (error) {
-      if (existed) renameSync(this.file, `${this.file}.corrupt-${this.now()}`)
+      if (existed) renameSync(this.file, `${this.file}.corrupt-${this.now()}-${process.pid}-${crypto.randomUUID()}`)
       mkdirSync(dir, { recursive: true })
       return {
         schemaVersion: TASK_BOARD_SCHEMA_VERSION,
         revision: 0,
         tasks: [],
-        scheduler: { timeZone: timeZone(), ...(existed ? { error: `corrupt ledger was quarantined: ${error instanceof Error ? error.message : String(error)}` } : {}) },
+        scheduler: { timeZone: timeZone(), ledgerId: crypto.randomUUID(), ...(existed ? { error: `corrupt ledger was quarantined: ${error instanceof Error ? error.message : String(error)}` } : {}) },
       }
     }
   }
@@ -320,13 +376,59 @@ export class HostTaskLedger {
     if (bumpRevision) this.document.revision += 1
     mkdirSync(dirname(this.file), { recursive: true })
     const tmp = `${this.file}.tmp-${process.pid}`
-    writeFileSync(tmp, JSON.stringify(this.document, null, 2), { encoding: 'utf8', mode: 0o600 })
-    try { chmodSync(tmp, 0o600) } catch { /* Windows ACLs own access */ }
-    renameSync(tmp, this.file)
+    let fd: number | undefined
+    try {
+      fd = openSync(tmp, 'w', 0o600)
+      writeFileSync(fd, JSON.stringify(this.document, null, 2), { encoding: 'utf8' })
+      fsyncSync(fd)
+      closeSync(fd)
+      fd = undefined
+      try { chmodSync(tmp, 0o600) } catch { /* Windows ACLs own access */ }
+      renameSync(tmp, this.file)
+      try {
+        const dirFd = openSync(dirname(this.file), 'r')
+        try { fsyncSync(dirFd) } finally { closeSync(dirFd) }
+      } catch {
+        // Windows does not permit fsync on a directory handle; rename remains atomic.
+      }
+    } catch (error) {
+      if (fd !== undefined) closeSync(fd)
+      try { unlinkSync(tmp) } catch { /* best-effort temporary cleanup */ }
+      throw error
+    }
+    this.notify()
+  }
+
+  private notify(): void {
     for (const listener of [...this.listeners]) listener()
   }
-}
 
-function isValidSchedule(cron: string, now: number): boolean {
-  return nextRunAtMs(cron, now) !== undefined
+  private acquireLock(): number {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const fd = openSync(this.lockFile, 'wx', 0o600)
+        writeFileSync(fd, JSON.stringify({ pid: process.pid, token: this.lockToken }), { encoding: 'utf8' })
+        fsyncSync(fd)
+        try { chmodSync(this.lockFile, 0o600) } catch { /* Windows ACLs own access */ }
+        return fd
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code
+        if (code !== 'EEXIST') throw error
+        let pid: number | undefined
+        try {
+          const owner = JSON.parse(readFileSync(this.lockFile, 'utf8')) as { pid?: unknown }
+          if (typeof owner.pid === 'number') pid = owner.pid
+        } catch {
+          throw new Error(`task-board ledger lock is unreadable: ${this.lockFile}`)
+        }
+        if (pid !== undefined && processIsAlive(pid)) {
+          throw new Error(`task-board ledger is already owned by process ${pid}`)
+        }
+        try { unlinkSync(this.lockFile) } catch (unlinkError) {
+          if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') throw unlinkError
+        }
+      }
+    }
+    throw new Error(`task-board ledger lock could not be acquired: ${this.lockFile}`)
+  }
 }

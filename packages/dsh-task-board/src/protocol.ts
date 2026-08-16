@@ -1,6 +1,6 @@
 import type { TaskUpdatePatch } from './core/use-cases/task-update.ts'
 import { isTaskPermission, isTaskStatus, type NewTaskInput, type TaskRecord, type TaskStatus } from './core/tasks.ts'
-import { isTaskRecord } from './core/store.ts'
+import { parseLedger } from './core/store.ts'
 
 export const TASK_BOARD_SCHEMA_VERSION = 2 as const
 export const TASK_BOARD_API_PREFIX = '/api/task-board'
@@ -19,6 +19,8 @@ export interface TaskBoardPowerSnapshot {
 
 export interface TaskBoardSchedulerSnapshot {
   timeZone: string
+  /** Opaque identity of the current Host ledger generation. */
+  ledgerId?: string
   lastTickAt?: number
   error?: string
 }
@@ -62,25 +64,72 @@ function optionalString(value: unknown): boolean {
   return value === undefined || typeof value === 'string'
 }
 
-function strictTask(value: unknown): value is TaskRecord {
-  const task = record(value)
-  if (task === undefined || !isTaskRecord(task)) return false
-  if (!exactKeys(task, [
-    'id', 'title', 'description', 'prompt', 'status', 'createdAt', 'updatedAt',
-    'executions', 'schedule', 'workspaceId', 'mode', 'permission', 'archivedAt',
-  ])) return false
-  if (!task.executions.every(value => {
-    const execution = record(value)
-    return execution !== undefined && exactKeys(execution, ['id', 'sessionId', 'startedAt', 'endedAt', 'result', 'error'])
-  })) return false
-  if (task.schedule !== undefined) {
-    const schedule = record(task.schedule)
-    if (schedule === undefined || !exactKeys(schedule, ['enabled', 'cron', 'nextRunAt', 'lastTriggeredAt'])) return false
-    if (typeof schedule.enabled !== 'boolean' || typeof schedule.cron !== 'string') return false
-    if (schedule.nextRunAt !== undefined && (typeof schedule.nextRunAt !== 'number' || !Number.isFinite(schedule.nextRunAt))) return false
-    if (schedule.lastTriggeredAt !== undefined && (typeof schedule.lastTriggeredAt !== 'number' || !Number.isFinite(schedule.lastTriggeredAt))) return false
+const FORBIDDEN_IMPORT_FIELDS = new Set(['args', 'command', 'executable', 'powershell', 'shell'])
+
+function hasForbiddenImportField(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasForbiddenImportField)
+  const row = record(value)
+  if (row === undefined) return false
+  return Object.entries(row).some(([key, nested]) => FORBIDDEN_IMPORT_FIELDS.has(key.toLowerCase()) || hasForbiddenImportField(nested))
+}
+
+function optionalFiniteNumber(value: unknown): boolean {
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value))
+}
+
+function validImportedKnownFields(value: Record<string, unknown>): boolean {
+  if (value.schedule !== undefined) {
+    const schedule = record(value.schedule)
+    if (schedule === undefined || typeof schedule.enabled !== 'boolean' || typeof schedule.cron !== 'string') return false
+    if (!optionalFiniteNumber(schedule.nextRunAt) || !optionalFiniteNumber(schedule.lastTriggeredAt)) return false
+  }
+  if (value.executions !== undefined) {
+    if (!Array.isArray(value.executions)) return false
+    for (const item of value.executions) {
+      const execution = record(item)
+      if (execution === undefined || typeof execution.id !== 'string' || !optionalString(execution.sessionId)) return false
+      if (typeof execution.startedAt !== 'number' || !Number.isFinite(execution.startedAt)) return false
+      if (!optionalFiniteNumber(execution.endedAt) || !optionalString(execution.error)) return false
+      if (execution.result !== undefined && !['succeeded', 'failed', 'cancelled'].includes(String(execution.result))) return false
+    }
   }
   return true
+}
+
+function importedTask(value: unknown): TaskRecord | undefined {
+  const input = record(value)
+  if (input === undefined || hasForbiddenImportField(input) || !validImportedKnownFields(input)) return undefined
+  const task = parseLedger(JSON.stringify([value]))[0]
+  if (task === undefined) return undefined
+  return {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    prompt: task.prompt,
+    status: task.status,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    executions: task.executions.map(execution => ({
+      id: execution.id,
+      sessionId: execution.sessionId,
+      startedAt: execution.startedAt,
+      endedAt: execution.endedAt,
+      result: execution.result,
+      error: execution.error,
+    })),
+    ...(task.schedule === undefined ? {} : {
+      schedule: {
+        enabled: task.schedule.enabled,
+        cron: task.schedule.cron,
+        nextRunAt: task.schedule.nextRunAt,
+        lastTriggeredAt: task.schedule.lastTriggeredAt,
+      },
+    }),
+    ...(task.workspaceId === undefined ? {} : { workspaceId: task.workspaceId }),
+    ...(task.mode === undefined ? {} : { mode: task.mode }),
+    ...(task.permission === undefined ? {} : { permission: task.permission }),
+    ...(task.archivedAt === undefined ? {} : { archivedAt: task.archivedAt }),
+  }
 }
 
 function createInput(value: unknown): value is NewTaskInput {
@@ -124,9 +173,13 @@ export function parseActionEnvelope(value: unknown): TaskBoardActionEnvelope | u
   switch (action.kind) {
     case 'import':
       if (!exactKeys(action, ['kind', 'sourceId', 'tasks'])) return undefined
-      return typeof action.sourceId === 'string' && action.sourceId !== '' && Array.isArray(action.tasks) && action.tasks.every(strictTask)
-        ? { requestId: envelope.requestId, action: action as unknown as Extract<TaskBoardAction, { kind: 'import' }> }
-        : undefined
+      if (typeof action.sourceId !== 'string' || action.sourceId === '' || !Array.isArray(action.tasks)) return undefined
+      {
+        const tasks = action.tasks.map(importedTask)
+        return tasks.every((task): task is TaskRecord => task !== undefined)
+          ? { requestId: envelope.requestId, action: { kind: 'import', sourceId: action.sourceId, tasks } }
+          : undefined
+      }
     case 'create':
       if (!exactKeys(action, ['kind', 'id', 'input'])) return undefined
       return typeof action.id === 'string' && action.id !== '' && createInput(action.input)

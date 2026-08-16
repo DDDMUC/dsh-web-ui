@@ -18,6 +18,9 @@ import { makeTaskBoardRoutes } from './host-routes.ts'
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 200
 
+/** Default environment variable holding the authenticated proxy token. */
+export const DEFAULT_PROXY_TOKEN_ENV = 'DSH_TASK_BOARD_PROXY_TOKEN'
+
 export const inject = ['systemPrompt', 'apiProxy', 'webServer']
 
 /** Model-facing announcement: plugin presence, capabilities, and limits. */
@@ -42,13 +45,32 @@ export interface Config {
   enabled?: boolean
   /** Prevent idle system sleep while sessions run or schedules are armed. */
   preventIdleSleep?: boolean
+  /** Canonical reverse-proxy Host authorities admitted with a server-side token. */
+  trustedProxyHosts?: string[]
+  /** Environment variable whose value the authenticated proxy injects upstream. */
+  proxyTokenEnv?: string
 }
 
 export const Config: z<Config> = z.object({
   announceToAgent: z.boolean().default(true),
   enabled: z.boolean().default(true),
   preventIdleSleep: z.boolean().default(false),
+  trustedProxyHosts: z.array(z.string()).default([]),
+  proxyTokenEnv: z.string().min(1).default(DEFAULT_PROXY_TOKEN_ENV),
 })
+
+/** Resolve proxy access without ever placing the token value in plugin config. */
+export function resolveProxyAccess(config: Config | undefined, env: NodeJS.ProcessEnv = process.env): { trustedProxyHosts: string[]; proxyToken?: string } {
+  const trustedProxyHosts = config?.trustedProxyHosts ?? []
+  if (trustedProxyHosts.length === 0) return { trustedProxyHosts }
+  const proxyTokenEnv = config?.proxyTokenEnv ?? DEFAULT_PROXY_TOKEN_ENV
+  if (proxyTokenEnv.trim() === '') throw new Error('task-board: proxyTokenEnv must not be empty')
+  const proxyToken = env[proxyTokenEnv]
+  if (proxyToken === undefined || proxyToken === '') {
+    throw new Error(`task-board: trustedProxyHosts requires a non-empty ${proxyTokenEnv} environment variable`)
+  }
+  return { trustedProxyHosts, proxyToken }
+}
 
 /** Schema default, re-read for hand-built test contexts (the loader applies them normally). */
 const DEFAULT_ANNOUNCE = true
@@ -68,7 +90,7 @@ export function apply(ctx: Context, config?: Config): void {
   ctx.effect(() => {
     const disposers: Array<() => void> = []
     try {
-      for (const route of makeTaskBoardRoutes(host)) disposers.push(ctx.webServer.register(route))
+      for (const route of makeTaskBoardRoutes(host, resolveProxyAccess(config))) disposers.push(ctx.webServer.register(route))
     } catch (error) {
       for (const dispose of disposers) dispose()
       host.dispose()

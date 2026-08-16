@@ -15,6 +15,14 @@ export type ExecutionInspection =
   | { outcome: 'failed'; error: string }
   | { outcome: 'cancelled'; error: string }
 
+/** A post-create launch failure that still identifies the session to the ledger. */
+export class SessionLaunchError extends Error {
+  constructor(readonly sessionId: string, cause: unknown) {
+    super(`execution session ${sessionId} failed during launch: ${cause instanceof Error ? cause.message : String(cause)}`, { cause })
+    this.name = 'SessionLaunchError'
+  }
+}
+
 function isErrorTurnEnd(data: unknown): boolean {
   if (typeof data !== 'object' || data === null) return false
   const reason = (data as { reason?: unknown }).reason
@@ -45,23 +53,27 @@ export class HostExecutionRunner {
     }))
     if (!created.result.ok) throw failure(created.result.error)
     const sessionId = created.result.value.sessionId
-    const renamed = await this.api.sessions.rename(request({ sessionId, title: task.title }))
-    if (!renamed.result.ok) throw failure(renamed.result.error)
-    if (task.permission !== undefined) {
-      const command = await this.api.sessions.prompt(request({
+    try {
+      const renamed = await this.api.sessions.rename(request({ sessionId, title: task.title }))
+      if (!renamed.result.ok) throw failure(renamed.result.error)
+      if (task.permission !== undefined) {
+        const command = await this.api.sessions.prompt(request({
+          sessionId,
+          mode: 'queue' as const,
+          content: [{ type: 'text' as const, text: `/permission ${task.permission}` }],
+        }))
+        if (!command.result.ok) throw failure(command.result.error)
+        if (command.result.value.command?.kind !== 'success') throw new Error('permission command was not acknowledged')
+      }
+      const prompt = await this.api.sessions.prompt(request({
         sessionId,
         mode: 'queue' as const,
-        content: [{ type: 'text' as const, text: `/permission ${task.permission}` }],
+        content: [{ type: 'text' as const, text: task.prompt !== '' ? task.prompt : task.title }],
       }))
-      if (!command.result.ok) throw failure(command.result.error)
-      if (command.result.value.command?.kind !== 'success') throw new Error('permission command was not acknowledged')
+      if (!prompt.result.ok) throw failure(prompt.result.error)
+    } catch (error) {
+      throw new SessionLaunchError(sessionId, error)
     }
-    const prompt = await this.api.sessions.prompt(request({
-      sessionId,
-      mode: 'queue' as const,
-      content: [{ type: 'text' as const, text: task.prompt !== '' ? task.prompt : task.title }],
-    }))
-    if (!prompt.result.ok) throw failure(prompt.result.error)
     return sessionId
   }
 
@@ -76,15 +88,44 @@ export class HostExecutionRunner {
     }
   }
 
-  async inspect(sessionId: string): Promise<ExecutionInspection> {
+  async inspect(sessionId: string, startedAt = 0): Promise<ExecutionInspection> {
     const sessions = await this.api.sessions.list(request({}))
     if (!sessions.result.ok) return { outcome: 'pending' }
     const summary = sessions.result.value.items.find(item => item.sessionId === sessionId)
     if (summary === undefined) return { outcome: 'cancelled', error: 'execution session no longer exists' }
     if (summary.running) return { outcome: 'pending' }
-    const history = await this.api.sessions.history(request({ sessionId: summary.sessionId, maxMessages: 20 }))
-    if (!history.result.ok) return { outcome: 'pending' }
-    const turnEnd = [...history.result.value.events].reverse().find(entry => entry.event.type === 'turn/end')
+    const events: Array<{ event: { type: string; seq?: number; time?: number; data: unknown } }> = []
+    let beforeSeq: number | undefined
+    let reachedExecutionBoundary = false
+    for (let page = 0; page < 100; page += 1) {
+      const history = await this.api.sessions.history(request({
+        sessionId: summary.sessionId,
+        maxMessages: 100,
+        ...(beforeSeq === undefined ? {} : { beforeSeq }),
+      }))
+      if (!history.result.ok) return { outcome: 'pending' }
+      events.push(...history.result.value.events)
+      const oldestTime = history.result.value.events.reduce<number | undefined>((oldest, entry) => {
+        const time = entry.event.time
+        return typeof time !== 'number' ? oldest : oldest === undefined ? time : Math.min(oldest, time)
+      }, undefined)
+      if (!history.result.value.hasMore || (oldestTime !== undefined && oldestTime <= startedAt)) {
+        reachedExecutionBoundary = true
+        break
+      }
+      const oldestSeq = history.result.value.events.reduce<number | undefined>((oldest, entry) => {
+        const seq = entry.event.seq
+        return typeof seq !== 'number' ? oldest : oldest === undefined ? seq : Math.min(oldest, seq)
+      }, undefined)
+      if (oldestSeq === undefined || oldestSeq === beforeSeq) return { outcome: 'pending' }
+      beforeSeq = oldestSeq
+    }
+    if (!reachedExecutionBoundary) return { outcome: 'pending' }
+    const turnEnd = events
+      .filter(entry => entry.event.type === 'turn/end' && (
+        startedAt <= 0 || (typeof entry.event.time === 'number' && entry.event.time >= startedAt)
+      ))
+      .sort((a, b) => (a.event.seq ?? Number.MAX_SAFE_INTEGER) - (b.event.seq ?? Number.MAX_SAFE_INTEGER))[0]
     if (turnEnd === undefined) return { outcome: 'pending' }
     return isErrorTurnEnd(turnEnd.event.data)
       ? { outcome: 'failed', error: 'agent turn ended with an error' }

@@ -14,18 +14,31 @@ import { t } from '../locales.ts'
 import css from '../board.module.css'
 
 /** Compact relative/absolute time label. */
-export function formatTime(ms: number): string {
+export function formatHostTimestamp(ms: number, timeZone?: string): string {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+      ...(timeZone === undefined ? {} : { timeZone }),
+    }).format(new Date(ms))
+  } catch {
+    return new Date(ms).toISOString()
+  }
+}
+
+export function formatTime(ms: number, timeZone?: string): string {
   const date = new Date(ms)
   const now = Date.now()
   const minutes = Math.floor((now - ms) / 60000)
   if (minutes < 1) return t('time.justNow')
   if (minutes < 60) return `${minutes}m`
   if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}h`
+  if (timeZone !== undefined) return formatHostTimestamp(ms, timeZone)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 /** One card in a column. */
-function TaskCardInner({ task, pending, onClick }: { task: TaskRecord; pending: boolean; onClick: () => void }) {
+function TaskCardInner({ task, pending, timeZone, onClick }: { task: TaskRecord; pending: boolean; timeZone?: string; onClick: () => void }) {
   const latest = task.executions[task.executions.length - 1]
   const runs = task.executions.length
   return (
@@ -45,7 +58,7 @@ function TaskCardInner({ task, pending, onClick }: { task: TaskRecord; pending: 
           <span
             className={css.cardSchedule}
             title={task.schedule.nextRunAt !== undefined
-              ? `${t('card.scheduled')} · ${new Date(task.schedule.nextRunAt).toLocaleString()}`
+              ? `${t('card.scheduled')} · ${formatHostTimestamp(task.schedule.nextRunAt, timeZone)}`
               : t('card.scheduled')}
           >
             {t('card.scheduled')}

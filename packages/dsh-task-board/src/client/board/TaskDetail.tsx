@@ -12,7 +12,7 @@ import { t, type TaskBoardKey } from '../locales.ts'
 import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
 import css from '../board.module.css'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
-import { formatTime } from './TaskCard.tsx'
+import { formatHostTimestamp, formatTime } from './TaskCard.tsx'
 
 /** Execution outcome → locale key. */
 const RESULT_KEY: Record<NonNullable<ExecutionRecord['result']>, TaskBoardKey> = {
@@ -31,7 +31,7 @@ const STATUS_KEY: Record<TaskStatus, TaskBoardKey> = {
 }
 
 /** One execution-history row. */
-function ExecutionRow({ execution, onOpen }: { execution: ExecutionRecord; onOpen: (sessionId: string) => void }) {
+function ExecutionRow({ execution, timeZone, onOpen }: { execution: ExecutionRecord; timeZone?: string; onOpen: (sessionId: string) => void }) {
   const result = execution.result
   return (
     <li className={css.executionRow} data-result={result}>
@@ -39,8 +39,8 @@ function ExecutionRow({ execution, onOpen }: { execution: ExecutionRecord; onOpe
         {result === undefined ? t('detail.result.running') : t(RESULT_KEY[result])}
       </span>
       <span className={css.executionTimes}>
-        {t('detail.executionStarted')} {formatTime(execution.startedAt)}
-        {execution.endedAt !== undefined && ` · ${t('detail.executionEnded')} ${formatTime(execution.endedAt)}`}
+        {t('detail.executionStarted')} {formatTime(execution.startedAt, timeZone)}
+        {execution.endedAt !== undefined && ` · ${t('detail.executionEnded')} ${formatTime(execution.endedAt, timeZone)}`}
       </span>
       {execution.sessionId !== undefined && (
         <button
@@ -138,6 +138,7 @@ function ScheduleSection({ controller, task, pending }: { controller: BoardContr
   const [nextRunAt, setNextRunAt] = useState<number | undefined>(schedule?.nextRunAt)
   const [lastTriggeredAt, setLastTriggeredAt] = useState<number | undefined>(schedule?.lastTriggeredAt)
   const [error, setError] = useState<string | undefined>(undefined)
+  const timeZone = controller.getSnapshot().host?.scheduler.timeZone
 
   // Keep the editor in sync when the task record changes underneath (the
   // schedule rolls forward as runs trigger).
@@ -187,8 +188,8 @@ function ScheduleSection({ controller, task, pending }: { controller: BoardContr
     ? t('detail.schedule.notScheduled')
     : nextRunAt <= Date.now()
       ? t('detail.schedule.dueSoon')
-      : new Date(nextRunAt).toLocaleString()
-  const lastLabel = lastTriggeredAt === undefined ? '—' : new Date(lastTriggeredAt).toLocaleString()
+      : formatHostTimestamp(nextRunAt, timeZone)
+  const lastLabel = lastTriggeredAt === undefined ? '—' : formatHostTimestamp(lastTriggeredAt, timeZone)
 
   return (
     <section className={css.detailSection}>
@@ -241,6 +242,8 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const running = task.status === 'running'
   const pending = controller.getSnapshot().pendingTaskIds.includes(task.id)
+  const transportError = controller.getSnapshot().transportError
+  const timeZone = controller.getSnapshot().host?.scheduler.timeZone
 
   // Keep the overlay in sync if the task record changes underneath.
   const [latest, setLatest] = useState(task)
@@ -264,6 +267,14 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
         </header>
 
         <div className={css.detailBody}>
+          {transportError !== undefined && (
+            <div className={css.formError}>
+              {t('board.hostError', { error: transportError })}{' '}
+              <button type="button" className={css.linkButton} onClick={() => { void controller.retryHostSync() }}>
+                {t('board.retryHost')}
+              </button>
+            </div>
+          )}
           <section className={css.detailSection}>
             <h4>{t('detail.description')}</h4>
             <p className={css.detailText}>{current.description !== '' ? current.description : '—'}</p>
@@ -288,6 +299,7 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
                   <ExecutionRow
                     key={execution.id}
                     execution={execution}
+                    timeZone={timeZone}
                     onOpen={sessionId => { controller.openSession(sessionId) }}
                   />
                 ))}
@@ -361,8 +373,8 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
             {t('detail.delete')}
           </button>
           <span className={css.detailMeta}>
-            {t('board.created')} {formatTime(current.createdAt)}
-            {current.archivedAt !== undefined && ` · ${t('detail.archivedAt', { time: formatTime(current.archivedAt) })}`}
+            {t('board.created')} {formatTime(current.createdAt, timeZone)}
+            {current.archivedAt !== undefined && ` · ${t('detail.archivedAt', { time: formatTime(current.archivedAt, timeZone) })}`}
           </span>
         </footer>
       </div>

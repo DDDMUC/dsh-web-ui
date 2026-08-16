@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HostTaskLedger } from '../src/host-ledger.ts'
 import { TaskBoardHostService } from '../src/host-service.ts'
 import { PowerInhibitor } from '../src/power-inhibitor.ts'
+import { createTask, startExecution } from '../src/core/tasks.ts'
 
 const roots: string[] = []
 
@@ -104,10 +105,56 @@ describe('TaskBoardHostService scheduling without a browser', () => {
       kind: 'create', id: 'task-b', input: { title: 'B', description: '', prompt: '' },
     })
     const duplicate = service.apply('request-a', {
-      kind: 'create', id: 'ignored', input: { title: 'ignored', description: '', prompt: '' },
+      kind: 'create', id: 'task-a', input: { title: 'A', description: '', prompt: '' },
     })
     expect(duplicate.revision).toBe(first.revision)
     expect(duplicate.tasks.map(task => task.id)).toEqual(['task-a'])
+    expect(() => service.apply('request-a', {
+      kind: 'create', id: 'ignored', input: { title: 'ignored', description: '', prompt: '' },
+    })).toThrow('different action')
     service.dispose()
+  })
+
+  it('continues settling an open execution after the plugin is disabled even if task status drifted', async () => {
+    const ledger = new HostTaskLedger(root())
+    const base = createTask({ title: 'A', description: '', prompt: '' }, 1_000, 'task-a')
+    const opened = startExecution(base, 1_100, 'execution-a').task
+    const imported = {
+      ...opened,
+      status: 'todo' as const,
+      executions: opened.executions.map(execution => ({ ...execution, sessionId: 'session-a' })),
+    }
+    ledger.applyRequest('import', { kind: 'import', sourceId: 'browser', tasks: [imported] })
+    const api = {
+      sessions: {
+        list: async (request: { rpcId: unknown }) => ok(request, { items: [{ sessionId: 'session-a', running: false }] }),
+        history: async (request: { rpcId: unknown }) => ok(request, {
+          events: [{ event: { type: 'turn/end', seq: 10, time: 1_200, data: { reason: { kind: 'complete' } } } }],
+          hasMore: false,
+        }),
+      },
+    }
+    const service = new TaskBoardHostService(api as unknown as ApiProxy, {
+      ledger,
+      power: new PowerInhibitor({ platform: 'linux' }),
+    })
+    service.setConfiguration(false, false)
+    await (service as unknown as { pollSessions(): Promise<void> }).pollSessions()
+    expect(ledger.state().tasks[0].executions[0].result).toBe('succeeded')
+    expect(ledger.state().tasks[0].status).toBe('done')
+    service.dispose()
+  })
+
+  it('starts its two Host timers only once', () => {
+    const interval = vi.spyOn(globalThis, 'setInterval')
+    const service = new TaskBoardHostService({ sessions: { list: vi.fn() } } as unknown as ApiProxy, {
+      ledger: new HostTaskLedger(root()),
+      power: new PowerInhibitor({ platform: 'linux' }),
+    })
+    service.start()
+    service.start()
+    expect(interval).toHaveBeenCalledTimes(2)
+    service.dispose()
+    interval.mockRestore()
   })
 })

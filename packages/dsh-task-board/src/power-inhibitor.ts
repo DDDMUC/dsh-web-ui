@@ -1,4 +1,4 @@
-import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process'
+import { spawn as nodeSpawn, spawnSync as nodeSpawnSync, type ChildProcess, type SpawnSyncReturns } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { win32 } from 'node:path'
 import type { PowerPhase, TaskBoardPowerSnapshot } from './protocol.ts'
@@ -48,12 +48,18 @@ export interface SpawnOptions {
 }
 
 export type SpawnLike = (file: string, args: readonly string[], options: SpawnOptions) => ChildProcess
+export type SpawnSyncLike = (
+  file: string,
+  args: readonly string[],
+  options: { stdio: 'ignore'; timeout: number; windowsHide: boolean },
+) => Pick<SpawnSyncReturns<Buffer>, 'status' | 'error'>
 
 export interface PowerInhibitorOptions {
   platform?: NodeJS.Platform
   pid?: number
   env?: NodeJS.ProcessEnv
   spawn?: SpawnLike
+  spawnSync?: SpawnSyncLike
   exists?: typeof existsSync
   execPath?: string
   setTimeout?: typeof globalThis.setTimeout
@@ -74,16 +80,19 @@ export class PowerInhibitor {
   private readonly pid: number
   private readonly env: NodeJS.ProcessEnv
   private readonly spawn: SpawnLike
+  private readonly spawnSync: SpawnSyncLike
   private readonly exists: typeof existsSync
   private readonly execPath: string
   private readonly timer: typeof globalThis.setTimeout
   private readonly clearTimer: typeof globalThis.clearTimeout
+  private linuxProbe: { executable?: string; available: boolean } | undefined
 
   constructor(options: PowerInhibitorOptions = {}) {
     this.platform = options.platform ?? process.platform
     this.pid = options.pid ?? process.pid
     this.env = options.env ?? process.env
     this.spawn = options.spawn ?? ((file, args, spawnOptions) => nodeSpawn(file, [...args], spawnOptions))
+    this.spawnSync = options.spawnSync ?? ((file, args, spawnOptions) => nodeSpawnSync(file, [...args], spawnOptions))
     this.exists = options.exists ?? existsSync
     this.execPath = options.execPath ?? process.execPath
     this.timer = options.setTimeout ?? globalThis.setTimeout
@@ -165,19 +174,19 @@ export class PowerInhibitor {
       if (this.platform === 'darwin') {
         child.once('spawn', () => {
           ready = true
-          this.markReady()
+          this.markReady(child)
         })
       }
       child.stdout?.on('data', (chunk: Buffer) => {
         if (!ready && chunk.toString('utf8').includes('READY')) {
           ready = true
-          this.markReady()
+          this.markReady(child)
         }
       })
       child.stderr?.on('data', (chunk: Buffer) => {
         stderr = `${stderr}${chunk.toString('utf8')}`.slice(-2_000)
       })
-      child.on('error', error => { this.fail(error) })
+      child.on('error', error => { this.fail(error, child) })
       child.on('exit', (code, signal) => {
         if (this.child !== child) return
         this.child = undefined
@@ -190,19 +199,22 @@ export class PowerInhibitor {
     }
   }
 
-  private markReady(): void {
+  private markReady(child: ChildProcess): void {
+    if (this.child !== child || !this.desired()) return
     this.phase = 'active'
     this.retryIndex = 0
     this.lastError = undefined
     this.emit()
   }
 
-  private fail(error: unknown): void {
+  private fail(error: unknown, source?: ChildProcess): void {
+    if (source !== undefined && this.child !== source) return
     this.lastError = error instanceof Error ? error.message : String(error)
     this.phase = 'error'
     this.emit()
     const child = this.child
     this.child = undefined
+    child?.stdin?.end()
     child?.kill()
     if (!this.desired() || this.retry !== undefined) return
     const delay = RETRY_DELAYS[Math.min(this.retryIndex, RETRY_DELAYS.length - 1)]
@@ -239,7 +251,19 @@ export class PowerInhibitor {
   }
 
   private linuxSystemdInhibit(): string | undefined {
-    return LINUX_INHIBIT_PATHS.find(path => this.exists(path))
+    if (this.linuxProbe !== undefined) return this.linuxProbe.available ? this.linuxProbe.executable : undefined
+    const executable = LINUX_INHIBIT_PATHS.find(path => this.exists(path))
+    if (executable === undefined) {
+      this.linuxProbe = { available: false }
+      return undefined
+    }
+    const probe = this.spawnSync(executable, ['--list', '--no-pager'], {
+      stdio: 'ignore',
+      timeout: 2_000,
+      windowsHide: true,
+    })
+    this.linuxProbe = { executable, available: probe.status === 0 && probe.error === undefined }
+    return this.linuxProbe.available ? executable : undefined
   }
 
   private spawnCommand(): ChildProcess {
