@@ -17,14 +17,18 @@ import {
   rethemeMermaidBlocks,
 } from '../src/client/preview/mermaid.ts'
 
-/** Install a fake mermaid runtime; returns its render spy and a restore fn. */
-function fakeMermaid(svgFor: (source: string) => string): { render: ReturnType<typeof vi.fn>; restore: () => void } {
+/** Install a fake mermaid runtime; returns its render/initialize spies and a restore fn. */
+function fakeMermaid(svgFor: (source: string) => string): {
+  render: ReturnType<typeof vi.fn>
+  initialize: ReturnType<typeof vi.fn>
+  restore: () => void
+} {
   const render = vi.fn(async (_id: string, source: string) => ({ svg: svgFor(source) }))
   const initialize = vi.fn()
   const holder = globalThis as Record<string, unknown>
   const previous = holder.mermaid
   holder.mermaid = { initialize, render }
-  return { render, restore: () => { if (previous === undefined) delete holder.mermaid; else holder.mermaid = previous } }
+  return { render, initialize, restore: () => { if (previous === undefined) delete holder.mermaid; else holder.mermaid = previous } }
 }
 
 /** One panel-shaped block (class on the pre) and one chat-shaped (on code). */
@@ -66,12 +70,15 @@ describe('enhanceMermaidBlocks', () => {
       const containers = Array.from(root.querySelectorAll('[data-mermaid-state="done"]'))
       expect(containers).toHaveLength(2)
       expect(fake.render).toHaveBeenCalledTimes(2)
+      // One multi-block enhance batch initializes the runtime exactly once.
+      expect(fake.initialize).toHaveBeenCalledTimes(1)
       expect(panelPre.style.display).toBe('none')
       expect(chatPre.style.display).toBe('none')
       expect(containers[0]!.innerHTML).toContain('flowchart LR')
       // Already-claimed blocks are not enhanced twice.
       await enhanceMermaidBlocks(root, { className: 'mm', theme: 'default' })
       expect(fake.render).toHaveBeenCalledTimes(2)
+      expect(fake.initialize).toHaveBeenCalledTimes(2)
     } finally {
       fake.restore()
       root.remove()
@@ -107,8 +114,33 @@ describe('enhanceMermaidBlocks', () => {
     try {
       await enhanceMermaidBlocks(root, { className: 'mm', theme: 'default' })
       expect(fake.render).toHaveBeenCalledTimes(2)
+      expect(fake.initialize).toHaveBeenCalledTimes(1)
       await rethemeMermaidBlocks(root, { theme: 'dark' })
       expect(fake.render).toHaveBeenCalledTimes(4)
+      // A one-call retheme batch still initializes the runtime exactly once.
+      expect(fake.initialize).toHaveBeenCalledTimes(2)
+    } finally {
+      fake.restore()
+      root.remove()
+    }
+  })
+
+  it('a multi-container retheme batch initializes the runtime exactly once', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    root.innerHTML = Array.from({ length: 4 }, (_, i) =>
+      `<pre class="language-mermaid"><code>flowchart LR\nN${i}--&gt;M${i}</code></pre>`,
+    ).join('')
+    const fake = fakeMermaid((source) => `<svg data-src="${source}"></svg>`)
+    try {
+      await enhanceMermaidBlocks(root, { className: 'mm', theme: 'default' })
+      expect(fake.render).toHaveBeenCalledTimes(4)
+      fake.initialize.mockClear()
+      fake.render.mockClear()
+      await rethemeMermaidBlocks(root, { theme: 'dark' })
+      expect(fake.render).toHaveBeenCalledTimes(4)
+      // One retheme batch re-initializes the runtime once, not per container.
+      expect(fake.initialize).toHaveBeenCalledTimes(1)
     } finally {
       fake.restore()
       root.remove()
