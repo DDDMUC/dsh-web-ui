@@ -89,14 +89,22 @@ export function shellIsDark(): boolean {
 /** Monotonic id source for render calls (mermaid keys its <svg> by id). */
 let renderSeq = 0
 
-/** Apply (or re-apply) the theme then render one diagram source to SVG. */
-async function renderSvg(runtime: MermaidRuntime, theme: string, source: string): Promise<string> {
+/**
+ * Configure the mermaid runtime for the current theme. Called once per
+ * render batch (enhance or retheme), not per diagram, so a surface with
+ * many diagrams initializes the runtime a single time.
+ */
+function initializeRuntime(runtime: MermaidRuntime, theme: string): void {
   runtime.initialize({
     startOnLoad: false,
     theme,
     securityLevel: 'strict',
     fontFamily: '"trebuchet ms", verdana, arial, sans-serif',
   })
+}
+
+/** Render one diagram source to SVG with the already-initialized runtime. */
+async function renderSvg(runtime: MermaidRuntime, source: string): Promise<string> {
   const { svg } = await runtime.render(`aionui-mermaid-${(renderSeq += 1)}`, source)
   return svg
 }
@@ -160,6 +168,7 @@ export async function enhanceMermaidBlocks(scope: ParentNode, options: EnhanceOp
   } catch {
     return // no vendor route (asset missing): keep plain code blocks
   }
+  initializeRuntime(runtime, options.theme)
   const jobs: Array<Promise<void>> = []
   for (const pre of findMermaidCodeBlocks(scope)) {
     if (options.skip?.(pre) === true) continue
@@ -168,7 +177,7 @@ export async function enhanceMermaidBlocks(scope: ParentNode, options: EnhanceOp
       try {
         container.setAttribute(DATA_STATE, 'rendering')
         const source = container.getAttribute(DATA_SOURCE) ?? ''
-        container.innerHTML = await renderSvg(runtime, options.theme, source)
+        container.innerHTML = await renderSvg(runtime, source)
         container.setAttribute(DATA_STATE, 'done')
         pre.style.display = 'none'
       } catch {
@@ -189,11 +198,12 @@ export async function enhanceMermaidBlocks(scope: ParentNode, options: EnhanceOp
 export async function rethemeMermaidBlocks(scope: ParentNode, options: { theme: string }): Promise<void> {
   const runtime = mermaidGlobal()
   if (runtime === null) return
+  initializeRuntime(runtime, options.theme)
   const containers = Array.from(scope.querySelectorAll<HTMLElement>('[data-mermaid-state="done"]'))
   await Promise.all(containers.map(async (container) => {
     const source = container.getAttribute(DATA_SOURCE) ?? ''
     try {
-      container.innerHTML = await renderSvg(runtime, options.theme, source)
+      container.innerHTML = await renderSvg(runtime, source)
     } catch {
       // Keep the previous render; a theme flip must not blank diagrams.
     }
