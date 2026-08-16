@@ -109,6 +109,57 @@ async function renderSvg(runtime: MermaidRuntime, source: string): Promise<strin
   return svg
 }
 
+/** Disallowed elements removed from mermaid SVG output before innerHTML. */
+const DISALLOWED_ELEMENTS = ['script', 'foreignObject', 'iframe', 'object', 'embed']
+
+/** Whether an attribute name is an { on* } event-handler (case-insensitive). */
+function isEventHandler(name: string): boolean {
+  return /^on/i.test(name)
+}
+
+/** Whether an href/xlink:href value carries an executable javascript: URL. */
+function isDangerousHref(value: string): boolean {
+  return /^javascript:/i.test(value.trim())
+}
+
+/**
+ * Application-level defense-in-depth on top of mermaid's own strict-mode
+ * escaping: parse the rendered SVG in a detached container, remove disallowed
+ * elements and dangerous attributes, and return the serialized cleaned markup.
+ * Throws when the input cannot be parsed as markup or still carries dangerous
+ * raw tokens, so callers fall back to their failure path.
+ */
+export function sanitizeSvg(svg: string): string {
+  const template = document.createElement('template')
+  template.innerHTML = svg
+  const root = template.content
+
+  // Remove disallowed elements; loop because removals can expose nested ones.
+  for (let found = true; found; ) {
+    found = false
+    for (const el of Array.from(root.querySelectorAll('*'))) {
+      if (DISALLOWED_ELEMENTS.some((tag) => el.tagName.toLowerCase() === tag.toLowerCase())) {
+        el.remove()
+        found = true
+      }
+    }
+  }
+
+  // Strip event-handler attributes and javascript: hrefs from every element.
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    for (const attr of Array.from(el.attributes)) {
+      if (isEventHandler(attr.name) || isDangerousHref(attr.value)) el.removeAttribute(attr.name)
+    }
+  }
+
+  const cleaned = template.innerHTML
+  const lower = cleaned.toLowerCase()
+  if (lower.includes('<script') || lower.includes('javascript:')) {
+    throw new Error('mermaid SVG still contains dangerous tokens after sanitization')
+  }
+  return cleaned
+}
+
 /**
  * Collect the still-unclaimed fenced mermaid code blocks under one scope.
  * Both shapes are found: the panel renderer's `pre.language-mermaid` and
@@ -177,7 +228,8 @@ export async function enhanceMermaidBlocks(scope: ParentNode, options: EnhanceOp
       try {
         container.setAttribute(DATA_STATE, 'rendering')
         const source = container.getAttribute(DATA_SOURCE) ?? ''
-        container.innerHTML = await renderSvg(runtime, source)
+        const svg = await renderSvg(runtime, source)
+        container.innerHTML = sanitizeSvg(svg)
         container.setAttribute(DATA_STATE, 'done')
         pre.style.display = 'none'
       } catch {
@@ -203,7 +255,8 @@ export async function rethemeMermaidBlocks(scope: ParentNode, options: { theme: 
   await Promise.all(containers.map(async (container) => {
     const source = container.getAttribute(DATA_SOURCE) ?? ''
     try {
-      container.innerHTML = await renderSvg(runtime, source)
+      const svg = await renderSvg(runtime, source)
+      container.innerHTML = sanitizeSvg(svg)
     } catch {
       // Keep the previous render; a theme flip must not blank diagrams.
     }
