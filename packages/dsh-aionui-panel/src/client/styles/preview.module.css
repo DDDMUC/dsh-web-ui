@@ -471,19 +471,12 @@
   border-radius: 4px;
 }
 
-/* Code viewer. */
+/* Code viewer (CodeBlock draws its own frame/padding). */
 .codeViewer {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  margin: 0;
-  padding: 12px 14px;
-  font-family: var(--aion-font-mono);
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--aion-text-primary);
-  tab-size: 2;
-  white-space: pre;
+  padding: 0;
 }
 
 /* Diff viewer. */

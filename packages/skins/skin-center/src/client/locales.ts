@@ -28,6 +28,10 @@ export type SkinCenterKey =
   | 'themeDark'
   | 'tryOnError'
   | 'backgroundOpacity'
+  | 'backgroundBlurEmpty'
+  | 'backgroundBlurContent'
+  | 'backgroundBlurHint'
+  | 'backgroundBlurInert'
   | 'backgroundHint'
   | 'backgroundHintInert'
 
@@ -54,6 +58,10 @@ export const en: Record<SkinCenterKey, string> = {
   themeDark: 'Dark',
   tryOnError: 'Try-on failed — see console',
   backgroundOpacity: 'Background occlusion',
+  backgroundBlurEmpty: 'Blur when empty',
+  backgroundBlurContent: 'Blur with content',
+  backgroundBlurHint: 'Applies a separate Gaussian blur to the backdrop for the empty conversation and the conversation with content; 0 disables.',
+  backgroundBlurInert: 'Visible only with skins that paint a backdrop; the official default has none.',
   backgroundHint: 'Instantly veils the backdrop behind the panels — higher values obscure the art to help you focus.',
   backgroundHintInert: 'Only applies to skins that paint a backdrop (Blue Fantasy / Whale Song). Applies to the official default automatically once such a skin is active.',
 }
@@ -81,6 +89,10 @@ export const zh: Record<SkinCenterKey, string> = {
   themeDark: '暗色',
   tryOnError: '试穿失败，详见控制台',
   backgroundOpacity: '背景遮挡',
+  backgroundBlurEmpty: '空对话背景模糊',
+  backgroundBlurContent: '有对话背景模糊',
+  backgroundBlurHint: '对话为空与有内容时分别应用不同的背景高斯模糊强度，0 为关闭。',
+  backgroundBlurInert: '仅对带背景图插画的皮肤可见；官方默认无背景图。',
   backgroundHint: '即时为面板背后的背景加遮罩——数值越高越能弱化插画，帮你集中注意力。',
   backgroundHintInert: '仅对带背景图插画的皮肤（蓝色幻想 / 鲸吟）生效；官方默认无背景图，该滑块对这些皮肤自动生效。',
 }

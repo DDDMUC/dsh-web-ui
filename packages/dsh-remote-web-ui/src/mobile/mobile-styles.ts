@@ -824,9 +824,95 @@ body {
 .chat-disclosure-head:focus-visible,
 .sheet-option:focus-visible,
 .sheet-confirm-danger:focus-visible,
+.sheet-toggle-switch:focus-visible,
 .chat-input:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--m-bg), 0 0 0 4px var(--m-accent);
+}
+
+/* ── chat context usage chip (chat-tools row) ───────────────────────── */
+
+.chat-context {
+  flex: none;
+  align-self: center;
+  padding: 2px 10px;
+  border: 1px solid var(--m-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m-text-tertiary) 10%, transparent);
+  color: var(--m-text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.chat-context-warn {
+  border-color: var(--m-danger);
+  background: color-mix(in srgb, var(--m-danger) 14%, transparent);
+  color: var(--m-danger);
+}
+
+/* ── display sheet toggle rows ──────────────────────────────────────── */
+
+.sheet-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--m-border);
+}
+
+.sheet-toggle-row:last-child {
+  border-bottom: none;
+}
+
+.sheet-toggle-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sheet-toggle-title {
+  font-size: 14px;
+}
+
+.sheet-toggle-desc {
+  color: var(--m-text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.sheet-toggle-switch {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  border: none;
+  border-radius: 999px;
+  background: var(--m-border);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.sheet-toggle-switch-on {
+  background: var(--m-accent);
+}
+
+.sheet-toggle-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.sheet-toggle-switch-on .sheet-toggle-switch-knob {
+  transform: translateX(18px);
 }
 
 /* Accessibility: collapse every interaction/enter animation for
@@ -848,6 +934,8 @@ body {
   .sheet,
   .sheet-option,
   .sheet-confirm-danger,
+  .sheet-toggle-switch,
+  .sheet-toggle-switch-knob,
   .chat-input {
     animation: none;
     transition: none;
