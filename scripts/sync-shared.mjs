@@ -62,6 +62,11 @@ const MANIFEST = [
     ],
   },
   {
+    file: 'git-runner.ts',
+    source: 'shared/host/git-runner.ts',
+    targets: ['packages/dsh-aionui-panel/src/host/git-runner.ts', 'packages/dsh-git-graph/src/host/git-runner.ts'],
+  },
+  {
     file: 'loopback.ts',
     source: 'shared/host/loopback.ts',
     targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts'],
