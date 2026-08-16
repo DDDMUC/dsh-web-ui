@@ -387,16 +387,22 @@ function hasEvidence(value) {
     || /https?:\/\/\S*(?:github\.com\/user-attachments\/assets\/|github\.com\/[^)\s]+\/assets\/|githubusercontent\.com\/|[./][^)\s]+\.(?:png|jpe?g|gif|webp|mp4|mov|webm))(?:[?#]\S*)?/i.test(String(value))
 }
 
+/** 模板内既有的字段标签（readField 的合法边界；正文里的普通冒号行不算边界）。 */
+const FIELD_LABELS = new Set([
+  `执行的命令`, `结果摘要`, `使用的 AI 模型`, `使用的编码 Agent 工具`,
+])
+
 /** 读取小节内某字段（label 行之后第一个非空非注释行，或行内冒号后的内容）。 */
 function readField(section, label) {
   const cleaned = String(section).replace(/<!--[\s\S]*?-->/g, ``)
   const lines = cleaned.split(`\n`)
   const idx = lines.findIndex((l) => l.includes(label))
   if (idx === -1) return ``
-  // 优先取 label 行内冒号后的内容；否则收集后续内容直到下一个字段标签行。
+  // 优先取 label 行内冒号后的内容；否则收集后续内容直到下一个「已知字段标签」行。
   // 与 pr-contribution-rules.yml 的 readValidationPart 语义对齐：值允许代码围栏 /
-  // 列表 / 多行；"- xxx：yyy" 这类列表行不是字段边界（此前会把列表行误判为
-  // 下一个字段，导致按模板填写的 PR 被误拒）。
+  // 列表 / 多行；只有模板里既有字段标签才算边界——"- xxx：yyy" 列表行与
+  // "全部通过：typecheck 全绿" 这类冒号正文行都曾被误判为下一个字段，
+  // 导致按模板填写的 PR 被误拒。
   const inline = lines[idx].split(/[：:]/).slice(1).join(``).trim()
   if (inline) return inline
   const out = []
@@ -404,7 +410,10 @@ function readField(section, label) {
   for (const line of lines.slice(idx + 1)) {
     const t = line.trim()
     if (t.startsWith("```")) { inFence = !inFence; continue }
-    if (!inFence && !/^[-*#>`!]/.test(t) && (/^[^：:]{1,24}[：:]\S/.test(t) || /^[^：:]{1,24}[：:]\s*$/.test(t))) break
+    if (!inFence && !/^[-*#>`!]/.test(t)) {
+      const m = t.match(/^([^：:]{1,24})[：:]\s*(\S.*)?$/)
+      if (m && FIELD_LABELS.has(m[1].trim())) break
+    }
     out.push(line)
   }
   return out.join(`\n`).trim()
