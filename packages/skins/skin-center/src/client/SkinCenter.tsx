@@ -1,12 +1,12 @@
 /**
- * The skin-center plugin card: one disclosure card rendered as a top-level
- * card in the plugin-configuration section, listing every installed skin
- * plus the official stock look. Live try-on executes the real bundle inside
- * the GUI (light/dark preview, full restore on exit); Apply is one click —
- * the host half runs `dsh-skin use` through /api/skin-center/apply, the
- * config watcher hot-reloads the patch, and the page reloads into the new
- * skin. Copy rides the standard `t` seat; the theme preview control drives
- * the official theme service (persisted, same as the Appearance row).
+ * The skin-center card: rendered as the content of a first-level settings
+ * section, listing every installed skin plus the official stock look. Live
+ * try-on executes the real bundle inside the GUI (light/dark preview, full
+ * restore on exit); Apply is one click — the host half runs `dsh-skin use`
+ * through /api/skin-center/apply, the config watcher hot-reloads the patch,
+ * and the page reloads into the new skin. Copy rides the standard `t` seat;
+ * the theme preview control drives the official theme service (persisted,
+ * same as the Appearance row).
  */
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -29,9 +29,9 @@ export interface SkinCenterInjected {
   background: SkinBackgroundHandle
 }
 
-/** Plugin-card component props: runtime share + locale seat + injected face. */
+/** Plugin-card component props: locale seat + injected face. */
 export type SkinCenterComponentProps =
-  PropsRuntime<'settings.plugin.item'> & PropsLocale<'skinCenter'> & SkinCenterInjected
+  PropsLocale<'skinCenter'> & SkinCenterInjected
 
 /** The apply target of the official stock-look card. */
 const OFFICIAL = 'official'
@@ -480,5 +480,21 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
         )
         : null}
     </li>
+  )
+}
+
+/** Props the settings section binds for the skin-center card page. */
+export type SkinCenterSectionProps =
+  PropsRuntime<'settings.section'>
+  & PropsLocale<'skinCenter'>
+  & SkinCenterInjected
+
+/** Render the skin-center card as a first-level settings page. */
+export function SkinCenterSection(props: SkinCenterSectionProps): ReactNode {
+  const { t, controller, theme, background } = props
+  return (
+    <ul className={css.sectionList}>
+      <SkinCenter t={t} controller={controller} theme={theme} background={background} />
+    </ul>
   )
 }

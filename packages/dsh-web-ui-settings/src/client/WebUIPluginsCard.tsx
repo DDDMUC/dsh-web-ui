@@ -1,13 +1,13 @@
 /**
- * The Web UI plugin group card. Renders as one item in the
- * `settings.plugin.item` list and, when expanded, renders every family
- * plugin card into its own child slot. The card chrome mirrors the official
- * ui-plugin-config PluginCard so the group reads as a sibling of the built-in
- * Shell / Agent loop / Web search cards.
+ * The Web UI plugin group card. Renders as the content of a first-level
+ * settings section and, when expanded, renders every family plugin card into
+ * its own child slot. The card chrome mirrors the official ui-plugin-config
+ * PluginCard so the group reads as a sibling of the built-in Shell / Agent
+ * loop / Web search cards.
  */
 
 import { useState, type ReactNode } from 'react'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WebUIPluginsKey } from './locales.ts'
 import css from './web-ui-settings.module.css'
 
@@ -70,5 +70,21 @@ export function WebUIPluginsCard(props: WebUIPluginsCardProps): ReactNode {
         )
         : null}
     </li>
+  )
+}
+
+/** Props the settings section binds for the group card page. */
+export type WebUIPluginsSectionProps =
+  PropsRuntime<'settings.section'>
+  & PropsLocale<'web-ui-plugins'>
+  & PropsRenderSlots<'web-ui.plugin.item'>
+
+/** Render the group card as a first-level settings page. */
+export function WebUIPluginsSection(props: WebUIPluginsSectionProps): ReactNode {
+  const { t, renderSlot } = props
+  return (
+    <ul className={css.sectionList}>
+      <WebUIPluginsCard t={t} renderSlot={renderSlot} />
+    </ul>
   )
 }

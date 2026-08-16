@@ -6,7 +6,7 @@ Community plugin index card for the dsh web GUI settings page: lists community-c
 
 ## What it does
 
-- **Top-level card**: registers one card in the settings page's plugin configuration section (a sibling of the Web UI Plugins group card and the built-in cards), with its own enable switch backed by the community-plugins settings namespace.
+- **Plugin-configuration card**: registers one card in the settings page's plugin configuration section, alongside the built-in Shell / Agent loop / Web search cards, with its own enable switch backed by the community-plugins settings namespace. The Web UI Plugins group, Skin Center and Pet instead register first-level settings sections.
 - **Index only**: every entry links to the contributor's own repository; the package never vendors the listed code. The registry lives in community.json and is compiled into the client bundle by scripts/community-index.
 
 ## Install

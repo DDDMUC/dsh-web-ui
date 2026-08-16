@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-`@linxin666/dsh-client-ui-skin-center` (cordis plugin id `ui-skin-center`) embeds the skin list / try-on / apply into the plugin configuration page of the real dsh Web GUI, as a card in the "Web UI plugins" group (settings → plugin config → Web UI plugins → 皮肤中心 / Skin Center), sharing the same slot (`web-ui.plugin.item`) as the family plugins such as task-board / pet / live-stats, without taking a top-level settings nav item.
+`@linxin666/dsh-client-ui-skin-center` (cordis plugin id `ui-skin-center`) puts the skin list / try-on / apply into the real dsh Web GUI as a first-level settings section (settings → 皮肤中心 / Skin Center), a sibling nav item of General / Models / Plugins / Agent presets and of the Web UI Plugins group and Pet sections. The card carries its own enable switch (off disables try-on, apply and the background controls).
 
 - List: shows "官方默认" (official default) plus every skin in the repo (qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft) with its name, tagline, and accent color; the currently active target carries the Active marker.
 - Try-on: clicking "Try on" loads that skin's client bundle on demand — the host route `/api/skin-center/bundle/<id>` serves `lib/client.js` as a same-origin script (the same mechanism the core uses to load plugins), the factory registers with the page's own `window.__ModuleLoader__`, and `window.__DSH_MODULES__.import` materializes it (a real loader, not a simulator and no eval); the chrome takes effect immediately; light/dark switching rides the official theme service; "Exit try-on" restores everything — the current skin's styles, DOM, favicon, title, and body inline styles are all restored. "官方默认" (official default) can also be tried on: one click immediately withdraws the skin and returns to the official look preview.
@@ -41,7 +41,7 @@ skins/skin-center/
   src/index.ts                                       # host side: registers /api/skin-center/* routes
   src/routes.ts                                      # host routes (proxy to the dsh-skin CLI)
   src/invariant.ts                                   # invariant companion plugin (no assertions)
-  src/client/index.ts                                # apply: registers the Web UI plugin-group card + body scope
+  src/client/index.ts                                # apply: registers the first-level settings section + body scope
   src/client/SkinCenter.tsx                          # card component (official default + list/try-on/light-dark/one-click apply)
   src/client/try-on.ts                               # try-on engine (real loader + mutual-exclusion restore, incl. official try-on)
   src/client/locales.ts                              # en/zh copy
@@ -84,7 +84,7 @@ ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
 #       - id: ui-skin-center
 #         name: '@linxin666/dsh-client-ui-skin-center'
 
-# 3. the config watcher hot-loads in seconds; refresh the page to see the skin-center card in 插件配置 → Web UI 插件
+# 3. the config watcher hot-loads in seconds; refresh the page to see the skin-center section in 设置 → 皮肤中心
 ```
 
 ## Try-on mutual-exclusion restore prescription (try-on.ts)
@@ -98,7 +98,7 @@ Exit try-on = try-on skin disposer (real code path) → module invalidate + styl
 
 ## Acceptance checklist (top-level README contract)
 
-- [x] The skin-center card appears in 插件配置 → Web UI 插件 without console errors
+- [x] The skin-center section appears in 设置 → 皮肤中心 without console errors
 - [x] The list contains the official default plus all skins; the currently active one is marked
 - [x] Try-on really takes effect (chrome/background/title/favicon); light/dark correct; the official default can be tried on
 - [x] Exit fully restores; mutual exclusion (no two title bars)

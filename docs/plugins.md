@@ -141,10 +141,9 @@ dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-web-ui-all
   处理 CSS）；client 半区闭包工厂在测试中不可直接 import——用 `vitest.setup.ts` 的最小
   `__ModuleLoader__` stub（`packages/dsh-live-stats/vitest.setup.ts`）或 `vi.mock` 替换
   （`packages/dsh-remote-web-ui/tests/remote-entry.spec.tsx` 的 `createSnapshotStore` mock）。
-- **设置页插件配置（20260811+ 可选能力）**：DSH web 设置的「插件配置」区（`ui-plugin-config` 注册的 `settings.section`）展示每插件一张卡片（`settings.plugin.item` 槽）。`dsh-web-ui-settings` 的父卡声明 `web-ui.plugin.item` 子槽，归组 task-board 等插件卡片；皮肤中心、社区插件、桌面宠物是独立包，卡片注册进顶层 `settings.plugin.item`（各带 `enabled` 开关），与内置卡片同级。插件接入只需两步：
+- **设置页插件配置（20260811+ 可选能力）**：DSH web 设置的「插件配置」区展示每插件一张卡片（`settings.plugin.item` 槽）。`dsh-web-ui-settings` 注册一级设置分区（`settings.section`，`label` 用 thunk 跟随语言），声明 `web-ui.plugin.item` 子槽归组 task-board 等卡片；皮肤中心、桌面宠物各注册一级分区（`settings.section`，各带 `enabled` 开关）；社区插件把卡片留在 `settings.plugin.item`。插件接入只需两步：
   1. **host 半区**：`installSettingsSection(ctx, settingsNamespace('<ns>'), <z-schema>, <composition entry>, { setSource, onChange })`（`@deepseek-ai/dsh-settings`）注册命名空间；`setSource` 注入动态读取器，`onChange` 让已派生的行为跟随已提交的修改，无需重启。
-  2. **browser 半区**：注入 `settingsScope`（`@deepseek-ai/dsh-client-ui-settings` 提供 `ctx.settingsScope`；`bind()` 还要求调用方注入 `connection` 与 `remote`），`ctx.settingsScope.bind({ namespace })` 读写该命名空间，并注册卡片：归组用 `web-ui.plugin.item`，独立顶层卡用 `settings.plugin.item`（自行 `declare module '@deepseek-ai/dsh-client-ui-slots'` 声明该槽，shape 与 `ui-plugin-config` 一致；slot `order` 用 100+ 避开内置卡片）。样板实现见 `packages/dsh-remote-web-ui`（自包含的 staged 表单，不依赖兄弟 UI 包）。
-- **皮肤类插件**：改用 `scripts/dsh-skin-new` 脚手架（皮肤规范见 skin-center / 各皮肤包 README），不经过本流程第 3-4 步的 `dsh-web-ui-all` 注册。皮肤中心（skin-center）虽是皮肤聚合，其 GUI 卡片是独立顶层卡（设置 → 插件配置 → 皮肤中心），自带启用开关，不占设置页一级分区。
-## 移植 harness 插件的挂载约束
+  2. **browser 半区**：注入 `settingsScope`（`@deepseek-ai/dsh-client-ui-settings` 提供 `ctx.settingsScope`；`bind()` 还要求注入 `connection` 与 `remote`），`ctx.settingsScope.bind({ namespace })` 读写该命名空间，并注册卡片：归组用 `web-ui.plugin.item`，插件配置页用 `settings.plugin.item`，一级菜单用 `settings.section`（自行 `declare module '@deepseek-ai/dsh-client-ui-slots'` 声明该槽，shape 与官方一致；`order` 用 100+ 避开内置项）。样板见 `packages/dsh-remote-web-ui`（自包含 staged 表单，不依赖兄弟 UI 包）。
+- **皮肤类插件**：改用 `scripts/dsh-skin-new` 脚手架（皮肤规范见 skin-center / 各皮肤包 README），不经过本流程第 3-4 步的 `dsh-web-ui-all` 注册。皮肤中心（skin-center）虽是皮肤聚合，其 GUI 是一级设置分区（设置 → 皮肤中心），自带启用开关。## 移植 harness 插件的挂载约束
 
 聚合包 insert 行不带 `config`，loader 调 `apply` 前会用插件 schema 默认值填充配置；`apply` 若无条件加载时校验会把填充后的空配置当配置而抛错，profile 加载失败。应改为：组合条目配置了关键字段才在加载时校验，否则调用时提示「未配置」（settings section 提交仍严格校验）。参考 `packages/dsh-tool-describe-image`。

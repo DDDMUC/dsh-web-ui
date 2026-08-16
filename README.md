@@ -132,9 +132,9 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ### 设置中心
 
-全部插件的开关和参数都在「设置 > 插件配置」，改了即时生效。插件配置页列出七个入口：三个内置插件（Shell / Agent loop / Web search）、Web UI 插件组（归组 task-board / live-stats / remote-web-ui / describe-image 等）、皮肤中心、社区插件与桌面宠物，各自独立开关与配置。
+全部插件的开关和参数都在「设置」里，改了即时生效。设置侧边栏的一级菜单：通用设置、模式、插件、Agent 预设，加上 Web UI 插件组（归组 task-board / live-stats / remote-web-ui / describe-image）、皮肤中心与宠物；插件配置页保留三个内置插件（Shell / Agent loop / Web search）与社区插件卡片，各自独立开关与配置。
 
-![插件配置中心](docs/screenshots/02-settings-web-ui-plugins.png)
+![设置中心](docs/screenshots/02-settings-web-ui-plugins.png)
 
 ## 皮肤
 

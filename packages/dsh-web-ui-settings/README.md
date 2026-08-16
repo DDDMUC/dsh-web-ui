@@ -2,12 +2,12 @@
 
 English | [中文](README.zh.md)
 
-The dsh web UI plugin group for the DSH settings page: it adds a single card that groups the dsh web UI family settings, hosting the enable switches and configuration forms of the family plugins.
+The dsh web UI plugin group for the DSH settings page: it adds a first-level settings section (a sibling nav item of General / Models / Plugins / Agent presets) that hosts the enable switches and configuration forms of the family plugins.
 
 ## What it is
 
-- **One card for the family**: on the DSH settings page it registers a card that hosts the enable switches and configuration forms of the remaining dsh web UI family plugins (task-board, live-stats, remote-web-ui, describe-image).
-- **Sibling cards**: Skin Center, Community Plugins and Desktop Pet ship as their own packages and register their own top-level cards in the same plugin configuration section.
+- **One section for the family**: on the DSH settings page it registers a first-level section that hosts the enable switches and configuration forms of the remaining dsh web UI family plugins (task-board, live-stats, remote-web-ui, describe-image).
+- **Sibling sections**: Skin Center and Desktop Pet ship as their own packages and register their own first-level sections; Community Plugins keeps a card in the Plugins configuration page.
 
 ## Install
 
@@ -26,8 +26,8 @@ pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-settings
 ```
 
-Restart `dsh web` for the card to appear in the settings page.
+Restart `dsh web` for the section to appear in the settings page.
 
 ## Known limitations
 
-- The card shows on the dsh settings page only when its prerequisite (`@deepseek-ai/dsh-client-ui-settings`) is present.
+- The section shows on the dsh settings page only when its prerequisite (`@deepseek-ai/dsh-client-ui-settings`) is present.
