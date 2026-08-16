@@ -37,9 +37,6 @@
     "test": "vitest run",
     "typecheck": "tsc -b --pretty false"
   },
-  "dependencies": {
-    "mermaid": "11.16.1"
-  },
   "peerDependencies": {
     "react": "^18.2.0"
   },
@@ -64,7 +61,8 @@
     "tsdown": "0.22.2",
     "typescript": "~5.7.2",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "mermaid": "11.16.1"
   },
   "files": [
     "lib",
