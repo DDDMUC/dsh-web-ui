@@ -79,6 +79,13 @@
     deferredSources: [agent-instructions, skill-catalog]
     deferredGraceSteps: 1
     promotedPresentation: code
+    # Issue #388: after promotion, inject one non-imperative hint (reference
+    # files exist at these paths; read them on demand) instead of the full
+    # AGENTS.md dump — the full-text injection measurably flips the anchored
+    # trajectory (upstream dsh-anchored-standard #49, E1/E1.5/E2). Knowledge
+    # stays reachable through read / skill_load. Set false to restore the
+    # legacy full-text injection.
+    instructionHint: true
     # phase1FirstCallInstruction: After your first reasoning block, before answering, make one tool call (for example run `pwd` through the shell or view a workspace file) and base your answer on its result.
 
 # Workspace instructions are quarantined by `tool-bootstrap` during phase 1

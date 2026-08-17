@@ -25,6 +25,7 @@ preset 在参考机制之上内置了额外保护，全部在 `agent.cordis.yml`
 - `promoteAfterFirstResponse`：首轮无工具调用的回答在响应后自动晋升；锚定门控中的会话也会在首轮结束时（`turn/end`）释放，因此新用户轮次一开始就拿到晋升后的目录；
 - `promotedPresentation: code`：晋升后 wire 为 Code Mode（PTC）——一个 `run_code` 工具、完整注册表通过生成 SDK 调用；切换发生在 step 边界，不会打断当前步的原生工具调用；
 - `deferredSources` + `deferredGraceSteps`：workspace 指令与 skill 目录在晋升后再等一步注入，工具目录切换和注入冲击不同时落地；
+- `instructionHint`（默认开启，issue #388）：晋升后的 AGENTS.md 全文注入替换为一条非命令式 hint（列出参考文件路径、建议按需读取），模型经 read / skill_load 按需获取，避免全量注入翻转锚定轨迹；置 `false` 恢复旧的全文注入；
 - `bootstrapMaxTokens`：phase 1 请求的输出预算封顶（社区实测 `max_tokens=1024` 是 "We need" 轨迹的高命中窗口，DSH 默认 256k 命中率为 0），晋升后自动剥离该封顶，避免 `requestProposal` 把 1024 焊进后续每个请求；
 - `phase1FirstCallInstruction`：追加到 phase-1 persona 的可选一行指令，默认关闭：测试版本用它要求模型在正式作答前先做一次 Minimal 原生工具调用，让首轮能力类提问在晋升后的完整目录下作答，而不是基于被裁剪的双工具视图回答。因为它偏离了逐字节一致的 Minimal 表面，所以默认不开启。
 
