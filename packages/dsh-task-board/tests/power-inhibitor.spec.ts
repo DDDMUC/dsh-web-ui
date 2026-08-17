@@ -90,6 +90,51 @@ describe('PowerInhibitor', () => {
     expect(unsupportedSpawn).not.toHaveBeenCalled()
   })
 
+  it('keeps backing off when a spawned macOS helper exits before it is stable', () => {
+    const delays: number[] = []
+    const callbacks: Array<() => void> = []
+    const children: Array<ChildProcess & FakeChild> = []
+    const timer = ((fn: () => void, delay?: number) => {
+      callbacks.push(fn)
+      delays.push(delay ?? 0)
+      return callbacks.length as unknown as ReturnType<typeof setTimeout>
+    }) as typeof setTimeout
+    const power = new PowerInhibitor({
+      platform: 'darwin',
+      spawn: (() => {
+        const process = child()
+        children.push(process)
+        return process
+      }) as SpawnLike,
+      setTimeout: timer,
+      clearTimeout: vi.fn(),
+    })
+
+    power.setEnabled(true)
+    children[0].emit('spawn')
+    children[0].emit('exit', 1, null)
+    expect(delays).toEqual([30_000, 1_000])
+
+    callbacks[1]()
+    children[1].emit('spawn')
+    children[1].emit('exit', 1, null)
+    expect(delays).toEqual([30_000, 1_000, 30_000, 2_000])
+    power.dispose()
+  })
+
+  it('clears a stale helper error when protection is no longer requested', () => {
+    const process = child()
+    const power = new PowerInhibitor({ platform: 'darwin', spawn: (() => process) as SpawnLike })
+    power.setEnabled(true)
+    process.emit('error', new Error('boom'))
+    expect(power.snapshot().lastError).toBe('boom')
+
+    power.updateReasons({ runningSessions: 0, armedSchedules: 0, sessionStateKnown: true })
+    expect(power.snapshot().phase).toBe('idle')
+    expect(power.snapshot().lastError).toBeUndefined()
+    power.dispose()
+  })
+
   it('notifies subscribers when an asynchronous helper becomes ready', () => {
     const process = child()
     const power = new PowerInhibitor({ platform: 'darwin', spawn: (() => process) as SpawnLike })
