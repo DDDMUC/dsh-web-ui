@@ -2998,15 +2998,6 @@ body[data-dsh-maid-atelier][data-ds-dark-theme]
   --dsw-alias-bg-layer-2: rgba(24, 40, 80, 0.82);
 }
 
-/* The official title bar (Web-app window-controls-overlay and the desktop
-   shell) leads with a menu button that only duplicates the sidebar's own
-   expand/collapse control. Hide it so the skin's sidebar chrome starts at
-   the frame's top edge without the stray floating control; the close /
-   window-control buttons on the right remain. */
-body[data-dsh-maid-atelier] [class*='titlebar'] > [class*='button']:first-of-type {
-  display: none;
-}
-
 /* The frameless title bar (Web-app overlay / desktop shell) carries a text
    label at the center of the window. It rides the navy gradient and never
    hides with the rail: it is purely decorative (pointer-events none), so

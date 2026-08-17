@@ -659,12 +659,10 @@ describe('Maid Atelier skin apply', () => {
     expect(centeredSettingsLabelRule).toContain('line-height: 1')
   })
 
-  it('hides the duplicated title-bar menu button in frameless surfaces', () => {
-    const titlebarMenuRule = CSS.match(
-      /\[class\*='titlebar'\] > \[class\*='button'\]:first-of-type\s*\{([^}]*)\}/s,
-    )?.[1] ?? ''
-    expect(titlebarMenuRule).toContain('display: none')
-    expect(CSS).toMatch(/\[class\*='titlebar'\] > \[class\*='button'\]:first-of-type/)
+  it('never hides title-bar controls by DOM position', () => {
+    expect(CSS).not.toMatch(
+      /\[class\*='titlebar'\] > \[class\*='button'\]:first-of-type\s*\{[^}]*display:\s*none/s,
+    )
   })
 
   it('places a text label in the frameless title bar', async () => {
