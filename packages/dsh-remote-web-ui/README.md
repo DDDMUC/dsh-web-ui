@@ -22,8 +22,11 @@ actions, and the update panel that probes and runs the update.
   buttons: 停止 / 刷新二维码 / 复制链接.
 - **Phone side**: scanning the QR binds the phone with a one-time,
   time-limited token and lands it on the **standalone mobile surface at
-  `/m`** — a thin client purpose-built for a small screen (see
+  `/m/`** — a thin client purpose-built for a small screen (see
   [Screenshots](#screenshots)), not the desktop UI squeezed into a phone.
+  The page is installable as a PWA. Each installed app uses its own
+  paired-device cookie; a storage-isolated mobile web-app context pairs by
+  opening a fresh QR link there or pasting a fresh desktop-issued link.
   The link carries a `workspace` parameter so the phone lands in the same
   workspace the desktop was looking at.
 - **Security**: one active one-time token (a refresh invalidates the old
@@ -92,6 +95,7 @@ sun/moon toggle in every header flips to the dark palette at any time.
   runtime download covers installers that skip postinstall scripts). No
   user-side tooling, account, or domain is needed — a Cloudflare quick
   tunnel is free and anonymous.
+- Installing `/m/` as a PWA requires a secure context: `localhost` and `127.0.0.1` work for local use, while phone installation requires HTTPS. Plain LAN HTTP keeps the online mobile remote usable but cannot register its Service Worker.
 
 ## Install
 
@@ -124,7 +128,7 @@ mounts both halves.
 1. `dsh web --host 0.0.0.0` (the printed LAN URL confirms reachability).
 2. Click the phone icon → the panel mints a fresh one-time QR.
 3. Scan with the phone (or open the copied link): the phone binds and
-   lands on the **standalone mobile surface at `/m`** — no desktop UI on a
+   lands on the **standalone mobile surface at `/m/`** — no desktop UI on a
    small screen. The surface is deliberately thin:
    - workspaces straight away (a 新建会话 button lives on each workspace's
      session list: it creates a blank session attached to that workspace via
@@ -153,9 +157,10 @@ mounts both halves.
      sheet with persistent toggles for 工具调用 (tool-call disclosures) and
      系统提示词 (injected system messages), and a 上下文 usage chip that
      shows the latest assistant answer's context-fill percentage.
-4. The desktop badge flips to 已连接 in real time; it falls back to
+4. On a secure origin, install the `/m/` page from the browser. The installed app retains the same mobile remote capabilities; when its browser context has no paired-device cookie, paste a fresh desktop-issued pairing link into its pairing screen.
+5. The desktop badge flips to 已连接 in real time; it falls back to
    offline/断开 when the phone leaves.
-5. 刷新二维码 invalidates the old link and issues a new one. 停止 revokes
+6. 刷新二维码 invalidates the old link and issues a new one. 停止 revokes
    mobile access: paired devices 403 on their next request, including their
    live stream.
 
@@ -172,7 +177,7 @@ to the advisory `session.models` / `session.selectModel` pair, creation to
 directory of its own), and the permission picker only ever sends the
 mode-agnostic `/permission` command
 through the already-allowlisted `session.prompt`); the live stream arrives
-over Server-Sent Events on `/m/api/events.mux`.
+over Server-Sent Events on `/m/api/events.mux`. The canonical `/m/` page owns a same-scope manifest and Service Worker; its cache is limited to the static shell and an offline page, never mobile API responses, session data, or commands.
 
 ### Behavior notes
 
@@ -183,6 +188,7 @@ over Server-Sent Events on `/m/api/events.mux`.
   through its own `/m/api` preferences method when a chat opens. On
   browsers that support `field-sizing: content`, the input grows with the
   draft up to its 120px cap in either mode.
+- The `/m/` worker uses network-first static-shell fallback and waits for current pages to close before an updated worker activates. It bypasses `/m/api`, `/api`, SSE, and every write request.
 - Installing this plugin gates non-loopback `/api` access behind pairing
   (see `requirePairingForLan` in `src/index.ts`). A desktop browser opened
   via the LAN URL must pair like any remote device; loopback (127.0.0.1)
@@ -382,7 +388,8 @@ panel still opens at `http://127.0.0.1`.
 - **Quick-tunnel hostnames change per run**: a `trycloudflare.com` URL is
   random on every `cloudflared` start, so `--trusted-host` and
   `publicBaseUrl` must be updated together whenever the tunnel restarts.
-  A named tunnel (fixed hostname) avoids the churn.
+  A named tunnel (fixed hostname) avoids the churn and is required for a durable installed-PWA address.
+- **PWA is online-first**: only the static shell and offline page are cached. The running DSH host remains required for all mobile remote capabilities; no session, API response, or command is available offline.
 - **Dev HMR**: `dsh web --dev` polls every roster bundle by path, so
   rebuilding this package (its own `tsdown --watch`) hot-reloads the client
   bundle; no harness-side watcher is involved.
