@@ -1,22 +1,25 @@
 /**
  * Floating expand button geometry (issues #374 / #292): the button is a
- * fixed chrome element on the viewport's right edge. Its vertical position
- * is user-draggable and persisted per browser (like the pet's position); the
- * default is the vertical center of the CONTENT area — below the Window
- * Controls Overlay titlebar strip when dsh-desktop reports one, so the
- * button never lands under the native window buttons (issue #292). Every
+ * fixed chrome element docked at the viewport's top-right corner — exactly
+ * where the explorer's collapse chevron sits while the panel is open — so
+ * the re-expand control replaces the close button in place and the toggle
+ * position stays consistent. Its top stays below the Window Controls
+ * Overlay titlebar strip when dsh-desktop reports one (issue #292). Every
  * computed position is clamped into the usable range.
  * @module dsh-aionui-panel/client/floating
  */
 
-/** Storage key of the persisted top offset (px, -1 = never dragged). */
-export const KEY_FLOATING_TOP = 'aionui-floating-expand-top'
-/** Breathing room above/below the button (px). */
-export const FLOATING_MARGIN_PX = 8
-/** Drag dead zone: smaller moves keep the pointer-down a click (px). */
-export const FLOATING_DRAG_THRESHOLD_PX = 3
-/** The button's rendered height (kept in sync with tokens.module.css). */
-export const FLOATING_BUTTON_HEIGHT_PX = 64
+/** Breathing room above/below the button (px) — matches the chevron's 6px
+ * top offset below the titlebar strip, so the docked default and the drag
+ * clamp floor share the chevron row. */
+export const FLOATING_MARGIN_PX = 6
+/** The button's rendered size (kept in sync with tokens.module.css). */
+export const FLOATING_BUTTON_HEIGHT_PX = 24
+/** Top offset of the explorer's collapse chevron inside its tab bar (px);
+ * the floating button docks at the same height so the open button lands
+ * exactly where the close button was (kept in sync with the chevron rule
+ * in tokens.module.css). */
+export const COLLAPSE_CHEVRON_TOP_PX = 6
 
 /** Minimal Window Controls Overlay surface (untyped in older TS DOM libs). */
 interface WindowControlsOverlayLike {
@@ -50,10 +53,10 @@ export function clampFloatingTop(
   return Math.min(max, Math.max(min, top))
 }
 
-/** The default top: vertical center of the content area below the titlebar. */
-export function centeredFloatingTop(viewportHeight: number, buttonHeight: number, titlebar: number): number {
+/** The default top: aligned with the collapse chevron at the top-right. */
+export function topAlignedFloatingTop(viewportHeight: number, buttonHeight: number, titlebar: number): number {
   return clampFloatingTop(
-    titlebar + (viewportHeight - titlebar - buttonHeight) / 2,
+    titlebar + COLLAPSE_CHEVRON_TOP_PX,
     viewportHeight,
     buttonHeight,
     titlebar,

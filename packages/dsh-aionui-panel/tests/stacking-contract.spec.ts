@@ -35,10 +35,11 @@ describe('panel stacking contract', () => {
     expect(block(':global(.aionui-collapse-chevron)')).toContain('z-index: 30')
   })
 
-  it('keeps the floating button draggable (touch-action none, no selection)', () => {
+  it('keeps the floating button in the top-right chevron row (right edge, no drag chrome)', () => {
     const rules = block(':global(.aionui-floating-expand)')
-    expect(rules).toContain('touch-action: none')
-    expect(rules).toContain('user-select: none')
+    expect(rules).toContain('right: 8px')
+    expect(rules).toContain('width: 24px')
+    expect(rules).not.toContain('touch-action')
   })
 
   it('keeps the maximized narrow-screen overlay fixed and above the columns', () => {
