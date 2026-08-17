@@ -56,7 +56,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 1. `dsh web --host 0.0.0.0`（打印的局域网 URL 确认可达性）。
 2. 点击手机图标 → 面板铸一枚新的二维码。
 3. 用手机扫码（或打开复制的链接）：手机绑定并落到 **`/m/` 独立移动端界面**——不在小屏显示桌面 UI。该界面刻意精简：
-   - 直接进入工作区（每个工作区的会话列表上有 新建会话 按钮：它经 host 的 `session.create` 创建附加到该工作区的空白会话，并立即打开新聊天），
+   - 直接进入工作区（每个工作区的会话列表在 新建会话 前提供 Agent 模式选择器：默认选择可用的默认预设，否则选择第一个可用预设，并把该清单 id 与工作区 id 一起传给 host 的 `session.create`；清单为空或不可用时保留 host 默认创建流程），
    - 一个工作区的会话**增量**加载（每页 20 行，"加载更多会话"继续；绝不同时加载整份列表），
    - 打开会话**按需**抓取聊天内容（历史分页，"加载更早的消息"继续往回翻），
    - 实时流随消息到达展示新消息，带发送自己消息的输入框（默认 **Enter 发送、Shift+Enter 换行**；设 `mobileEnterToSend: false` 后 Enter 改为换行，发送仅走「发送」按钮），
@@ -67,7 +67,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 5. 桌面徽标实时翻到 已连接；手机离开时回落到离线/断开。
 6. 刷新二维码 使旧链接失效并铸一枚新的。停止 撤销移动端访问：已配对设备下一次请求 403，包括其实时流。
 
-该移动端界面完全自包含在本插件内：`/m/` 页面及其数据通道（`/m/api`）由插件自己的路由伺服，**无需任何 harness 源码改动**——手机的 RPC 调用走插件的 `/m/api` 代理（它委托给 host 的 ApiProxy 服务并自己分页 `session.list`），因此被隧道化的 Host 永远不必进入连接插件的信任围栏。手机受其已配对设备 cookie 与显式方法白名单门控（settings/credentials/host-action 域手机永远不可达；模型读写限制于建议性的 `session.models` / `session.selectModel` 对，创建限制于 `session.create`（仅工作区 id——手机绝不自命名工作目录），权限选择器只通过已放行的 `session.prompt` 发送模式无关的 `/permission` 命令）；实时流在 `/m/api/events.mux` 上经 Server-Sent Events 送达。规范的 `/m/` 页面拥有同 scope 的 manifest 与 Service Worker；其缓存仅包含静态壳和离线页，绝不包含移动端 API 响应、会话数据或命令。
+该移动端界面完全自包含在本插件内：`/m/` 页面及其数据通道（`/m/api`）由插件自己的路由伺服，**无需任何 harness 源码改动**——手机的 RPC 调用走插件的 `/m/api` 代理（它委托给 host 的 ApiProxy 服务并自己分页 `session.list`），因此被隧道化的 Host 永远不必进入连接插件的信任围栏。手机受其已配对设备 cookie 与显式方法白名单门控（settings/credentials/host-action 域手机永远不可达；模型读写限制于建议性的 `session.models` / `session.selectModel` 对，Agent 预设访问限制于只读 `agentPreset.list`，创建限制于 `session.create`（工作区 id 加清单中的可选 id——手机绝不自命名工作目录），权限选择器只通过已放行的 `session.prompt` 发送模式无关的 `/permission` 命令）；实时流在 `/m/api/events.mux` 上经 Server-Sent Events 送达。规范的 `/m/` 页面拥有同 scope 的 manifest 与 Service Worker；其缓存仅包含静态壳和离线页，绝不包含移动端 API 响应、会话数据或命令。
 
 ### 行为说明
 
