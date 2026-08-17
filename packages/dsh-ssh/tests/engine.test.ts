@@ -209,6 +209,20 @@ describe('connection pool', () => {
     expect(server.connectCount).toBe(before + 1)
   })
 
+  it('retries a mid-flight failure on a fresh connection within the attempt budget', async () => {
+    addHost('pool-midflight')
+    await engine.exec('pool-midflight', 'true')
+    const before = server.connectCount
+    const pending = engine.exec('pool-midflight', 'hang', 3_000)
+    await new Promise(resolve => setTimeout(resolve, 150))
+    server.killAllClients()
+    const result = await pending
+    // Attempt one died with the link; the retry re-ran on a fresh connection
+    // and surfaced the command timeout there instead of a connection error.
+    expect(result.timedOut).toBe(true)
+    expect(server.connectCount).toBe(before + 1)
+  }, 10_000)
+
   it('dropAlias closes the pooled connection so the next exec reconnects', async () => {
     addHost('pool-drop')
     await engine.exec('pool-drop', 'true')
