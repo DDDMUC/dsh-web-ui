@@ -19,7 +19,14 @@
    starts exactly where the input card starts in every phase. */
 .anchorDock {
   --gitgraph-dock-gap-tighten: -8px;
-  padding-left: var(--dsh-composer-side-clearance, 16px);
+  /* First-paint fallback before the component measures the real card edge:
+     mirror the composer card's centering so the chip starts over the card's
+     left edge instead of flashing at the row's side clearance (#375). The
+     measured inline padding overrides this after the first layout pass. */
+  padding-left: max(
+    var(--dsh-composer-side-clearance, 16px),
+    calc((100% - var(--dsh-composer-card-max-width, 100%)) / 2)
+  );
   /* The fallback dock row sits above the input card; this keeps its visual
      gap compact without moving the hero row. */
   margin-bottom: var(--gitgraph-dock-gap-tighten);
