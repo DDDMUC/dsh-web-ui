@@ -1384,29 +1384,36 @@ function readProjectJson(dir) {
 	}
 }
 /**
-* Synthesize a project for a folder that has no project.json but directly
-* holds a playable media file (the no-Steam fallback: user points the
-* settings field at a folder with an .mp4 / index.html inside).
+* Synthesize one entry per playable media file for a folder without a
+* project.json (the no-Steam fallback: the user points a manual folder at a
+* pile of .mp4/.webm files or an index.html site — every video becomes its
+* own wallpaper). A same-stem image (loop.mp4 -> loop.jpg) becomes the
+* entry's preview when present.
 */
-function synthesizeProject(dir) {
+function synthesizeMediaEntries(dir, source) {
 	let names = [];
 	try {
 		names = readdirSync(dir);
 	} catch {
-		return null;
+		return [];
 	}
-	const file = names.find((name) => VIDEO_FILE_RE.test(name)) ?? names.find((name) => WEB_FILE_RE.test(name));
-	if (!file) return null;
-	const preview = names.find((name) => /\.(png|jpe?g|webp|gif)$/i.test(name)) ?? null;
-	return {
-		title: null,
-		type: inferType(file),
-		file,
-		preview
-	};
+	const media = names.filter((name) => VIDEO_FILE_RE.test(name) || WEB_FILE_RE.test(name));
+	const images = names.filter((name) => /\.(png|jpe?g|webp|gif)$/i.test(name));
+	const entries = [];
+	for (const file of media) {
+		const stem = file.replace(/\.[^.]+$/, "");
+		const preview = images.find((image) => image.replace(/\.[^.]+$/, "") === stem) ?? null;
+		entries.push(entryFromDir(dir, source, {
+			title: stem,
+			type: inferType(file),
+			file,
+			preview
+		}, basename(dir) + "/" + file));
+	}
+	return entries;
 }
 /** Build one entry from a project directory. */
-function entryFromDir(dir, source, project) {
+function entryFromDir(dir, source, project, id) {
 	const fileAbs = resolve(dir, project.file);
 	const previewAbs = project.preview ? resolve(dir, project.preview) : null;
 	let mtime = 0;
@@ -1421,7 +1428,7 @@ function entryFromDir(dir, source, project) {
 		}
 	} catch {}
 	return {
-		id: basename(dir),
+		id: id ?? basename(dir),
 		title: project.title ?? basename(dir),
 		type: project.type,
 		file: project.file,
@@ -1439,12 +1446,17 @@ function entryFromDir(dir, source, project) {
 /**
 * Scan one root folder of wallpaper projects (workshop content dir,
 * defaultprojects, myprojects, or a manual library folder). A root that is
-* itself a project (has project.json / playable media) yields one entry;
-* otherwise each immediate subdirectory is probed.
+* itself a project (has project.json) yields one entry; a manual root
+* holding loose media files yields one entry per file; otherwise each
+* immediate subdirectory is probed the same way.
 */
 function scanProjectsRoot(root, source) {
-	const direct = readProjectJson(root) ?? synthesizeProject(root);
+	const direct = readProjectJson(root);
 	if (direct) return [entryFromDir(root, source, direct)];
+	if (source === "local") {
+		const synthesized = synthesizeMediaEntries(root, source);
+		if (synthesized.length > 0) return synthesized;
+	}
 	let names = [];
 	try {
 		names = readdirSync(root);
@@ -1459,8 +1471,9 @@ function scanProjectsRoot(root, source) {
 		} catch {
 			continue;
 		}
-		const project = readProjectJson(dir) ?? (source === "local" ? synthesizeProject(dir) : null);
+		const project = readProjectJson(dir);
 		if (project) entries.push(entryFromDir(dir, source, project));
+		else if (source === "local") entries.push(...synthesizeMediaEntries(dir, source));
 	}
 	return entries;
 }
