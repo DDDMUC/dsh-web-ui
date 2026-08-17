@@ -170,7 +170,11 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
       return
     }
     try {
-      const response = await dispatch(apiProxy, method, parsed?.payload, rpcId)
+      // Cancel the host-side work when the phone goes away mid-call (the
+      // response stream closing before we answer means nobody is listening).
+      const abort = new AbortController()
+      res.on('close', () => { if (!res.writableEnded) abort.abort() })
+      const response = await dispatch(apiProxy, method, parsed?.payload, rpcId, abort.signal)
       writeJson(res, 200, response)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -256,7 +260,7 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
 }
 
 /** Dispatch one allowlisted method through the host ApiProxy. */
-async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rpcId: string): Promise<unknown> {
+async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rpcId: string, signal?: AbortSignal): Promise<unknown> {
   const request: RpcRequest<unknown> = { rpcId: RpcId(rpcId), payload }
   if (method === 'session.list') {
     const full = await apiProxy.sessions.list(request as never)
@@ -302,7 +306,7 @@ async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rp
   if (method === 'workspace.list') return wrap(await apiProxy.workspace.list(request as never))
   if (method === 'session.create') return wrap(await apiProxy.sessions.create(request as never))
   if (method === 'session.history') return wrap(await apiProxy.sessions.history(request as never))
-  if (method === 'session.search') return wrap(await apiProxy.sessions.search(request as never, new AbortController().signal))
+  if (method === 'session.search') return wrap(await apiProxy.sessions.search(request as never, signal ?? new AbortController().signal))
   if (method === 'session.prompt') return wrap(await apiProxy.sessions.prompt(request as never))
   if (method === 'session.models') return wrap(await apiProxy.sessions.models(request as never))
   if (method === 'session.selectModel') return wrap(await apiProxy.sessions.selectModel(request as never))
