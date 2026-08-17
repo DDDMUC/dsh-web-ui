@@ -81,7 +81,8 @@ export interface TaskRecord {
   permission?: TaskPermission
   /**
    * When the task was archived (ms epoch). Archived tasks keep their status
-   * and execution history but leave the main board; absent means on-board.
+   * and execution history, leave the main board, and cannot run until restored;
+   * absent means on-board.
    */
   archivedAt?: number
 }

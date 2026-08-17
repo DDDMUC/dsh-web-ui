@@ -222,19 +222,22 @@ function ScheduleSection({ controller, task }: { controller: BoardController; ta
 /** Task detail overlay. */
 export function TaskDetail({ controller, task }: { controller: BoardController; task: TaskRecord }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const running = task.status === 'running'
 
   // Keep the overlay in sync if the task record changes underneath.
   const [latest, setLatest] = useState(task)
   useEffect(() => { setLatest(task) }, [task])
   const current = latest
+  const running = current.status === 'running'
+  const archived = current.archivedAt !== undefined
 
   return (
     <div className={css.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) controller.closeTask() }}>
       <div className={css.detail} role="dialog" aria-label={t('detail.title')}>
         <header className={css.detailHeader}>
           <h2 className={css.detailTitle}>{current.title}</h2>
-          <span className={css.statusBadge} data-status={current.status}>{t(STATUS_KEY[current.status])}</span>
+          <span className={css.statusBadge} data-status={archived ? 'archived' : current.status}>
+            {archived ? t('board.archive') : t(STATUS_KEY[current.status])}
+          </span>
           <button
             type="button"
             className={css.iconButton}
@@ -256,9 +259,12 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
             <pre className={css.promptBlock}>{current.prompt !== '' ? current.prompt : current.title}</pre>
           </section>
 
-          <ExecutionSettingsSection controller={controller} task={current} />
-
-          <ScheduleSection controller={controller} task={current} />
+          {!archived && (
+            <>
+              <ExecutionSettingsSection controller={controller} task={current} />
+              <ScheduleSection controller={controller} task={current} />
+            </>
+          )}
 
           <section className={css.detailSection}>
             <h4>{t('detail.execution')}</h4>
@@ -277,39 +283,43 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
             )}
           </section>
 
-          <section className={css.detailSection}>
-            <h4>{t('board.status')}</h4>
-            <div className={css.moveRow}>
-              {MANUAL_STATUSES.map(status => (
-                <button
-                  key={status}
-                  type="button"
-                  className={css.ghostButton}
-                  disabled={current.status === status || running}
-                  onClick={() => { controller.moveTask(current.id, status) }}
-                >
-                  {t(`status.move.${status}` as TaskBoardKey)}
-                </button>
-              ))}
-            </div>
-          </section>
+          {!archived && (
+            <section className={css.detailSection}>
+              <h4>{t('board.status')}</h4>
+              <div className={css.moveRow}>
+                {MANUAL_STATUSES.map(status => (
+                  <button
+                    key={status}
+                    type="button"
+                    className={css.ghostButton}
+                    disabled={current.status === status || running}
+                    onClick={() => { controller.moveTask(current.id, status) }}
+                  >
+                    {t(`status.move.${status}` as TaskBoardKey)}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
         <footer className={css.detailFooter}>
-          <button
-            type="button"
-            className={css.primaryButton}
-            disabled={running}
-            onClick={() => {
-              // Running kicks off a real agent session; close the detail so
-              // the whole board stays visible while the task executes.
-              controller.closeTask()
-              void controller.rerunTask(current.id)
-            }}
-          >
-            {current.executions.length === 0 ? t('detail.run') : t('detail.rerun')}
-          </button>
-          {current.archivedAt !== undefined ? (
+          {!archived && (
+            <button
+              type="button"
+              className={css.primaryButton}
+              disabled={running}
+              onClick={() => {
+                // Running kicks off a real agent session; close the detail so
+                // the whole board stays visible while the task executes.
+                controller.closeTask()
+                void controller.rerunTask(current.id)
+              }}
+            >
+              {current.executions.length === 0 ? t('detail.run') : t('detail.rerun')}
+            </button>
+          )}
+          {archived ? (
             <button
               type="button"
               className={css.primaryButton}
@@ -343,7 +353,7 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
           </button>
           <span className={css.detailMeta}>
             {t('board.created')} {formatTime(current.createdAt)}
-            {current.archivedAt !== undefined && ` · ${t('detail.archivedAt', { time: formatTime(current.archivedAt) })}`}
+            {archived && ` · ${t('detail.archivedAt', { time: formatTime(current.archivedAt!) })}`}
           </span>
         </footer>
       </div>

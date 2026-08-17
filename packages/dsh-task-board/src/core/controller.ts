@@ -345,7 +345,7 @@ export class BoardController {
    */
   async runTask(id: string): Promise<boolean> {
     const task = this.tasks.find(candidate => candidate.id === id)
-    if (task === undefined || task.status === 'running') return false
+    if (task === undefined || task.archivedAt !== undefined || task.status === 'running') return false
     const { task: next, execution } = startExecution(task, this.now(), this.uuid())
     this.tasks = this.tasks.map(candidate => candidate.id === id ? next : candidate)
     this.persistAndNotify()
@@ -361,7 +361,7 @@ export class BoardController {
   /** Re-run a settled task: move it back to 'todo' first, then execute. */
   async rerunTask(id: string): Promise<void> {
     const task = this.tasks.find(candidate => candidate.id === id)
-    if (task === undefined) return
+    if (task === undefined || task.archivedAt !== undefined) return
     if (task.status !== 'running') {
       this.tasks = this.tasks.map(candidate => candidate.id === id ? withStatus(candidate, 'todo', this.now()) : candidate)
       this.persistAndNotify()

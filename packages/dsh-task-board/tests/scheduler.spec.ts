@@ -119,6 +119,15 @@ describe('SchedulerService.tick', () => {
     expect(h.applied).toEqual([])
   })
 
+  it('ignores archived tasks even when legacy data leaves their schedule enabled', async () => {
+    const h = makeHarness()
+    const task = { ...scheduledTask('a', '* * * * *', at(2026, 1, 1, 10, 0, 0)), archivedAt: at(2026, 1, 1, 9, 0, 0) }
+    h.setTasks([task])
+    await h.scheduler.tick()
+    expect(h.runs).toEqual([])
+    expect(h.applied).toEqual([])
+  })
+
   it('recomputes a missing next-run instant instead of firing immediately', async () => {
     const h = makeHarness()
     // Enabled but nextRunAt lost (repaired/legacy data): recompute + wait.

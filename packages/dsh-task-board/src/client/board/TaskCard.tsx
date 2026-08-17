@@ -28,11 +28,12 @@ export function formatTime(ms: number): string {
 function TaskCardInner({ task, onClick }: { task: TaskRecord; onClick: () => void }) {
   const latest = task.executions[task.executions.length - 1]
   const runs = task.executions.length
+  const archived = task.archivedAt !== undefined
   return (
     <button
       type="button"
       className={css.card}
-      data-status={task.status}
+      data-status={archived ? 'archived' : task.status}
       onClick={onClick}
       title={task.description !== '' ? task.description : task.title}
     >
@@ -40,7 +41,7 @@ function TaskCardInner({ task, onClick }: { task: TaskRecord; onClick: () => voi
       {task.description !== '' && <span className={css.cardExcerpt}>{task.description}</span>}
       <span className={css.cardMeta}>
         <span className={css.cardTime}>{t('board.updated')} {formatTime(task.updatedAt)}</span>
-        {task.schedule?.enabled === true && (
+        {!archived && task.schedule?.enabled === true && (
           <span
             className={css.cardSchedule}
             title={task.schedule.nextRunAt !== undefined
@@ -51,16 +52,16 @@ function TaskCardInner({ task, onClick }: { task: TaskRecord; onClick: () => voi
           </span>
         )}
         {latest !== undefined && (
-          <span className={css.cardRun} data-result={latest.result}>
+          <span className={css.cardRun} data-result={archived ? undefined : latest.result}>
             {runs} {t('board.runs')}
           </span>
         )}
         {latest?.sessionId !== undefined && (
           <span className={css.cardSession} title={latest.sessionId}>⌁</span>
         )}
-        {task.status === 'running' && <span className={css.cardSpinner} aria-hidden="true" />}
+        {!archived && task.status === 'running' && <span className={css.cardSpinner} aria-hidden="true" />}
       </span>
-      {latest !== undefined && executionLabel(latest) === 'running' && (
+      {!archived && latest !== undefined && executionLabel(latest) === 'running' && (
         <span className={css.cardRunningLabel}>{t('detail.result.running')}…</span>
       )}
     </button>

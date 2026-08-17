@@ -132,6 +132,9 @@ export class SchedulerService {
     this.deps.refresh?.()
     const now = this.deps.now()
     for (const task of this.deps.tasks()) {
+      // Old persisted records may still carry an enabled schedule after
+      // archiving; never let them become active work.
+      if (task.archivedAt !== undefined) continue
       const schedule = task.schedule
       if (schedule === undefined || !schedule.enabled) continue
       if (schedule.nextRunAt === undefined) {
