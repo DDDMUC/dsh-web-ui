@@ -16,7 +16,8 @@ import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-sett
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { PairingService } from './pairing.ts'
-import { makeGateListener } from './gate.ts'
+import { isPairedDeviceRequest, makeGateListener } from './gate.ts'
+import { RemoteWebUiPairing } from './pairing-access.ts'
 import { isTrustedApiRequest, makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
@@ -312,6 +313,12 @@ function applyImpl(ctx: Context, config?: Config): void {
   ]
   const gate = makeGateListener(service, () => resolve().requirePairingForLan, () => resolve().enabled)
   ctx.effect(() => ctx.on('api/gate', gate), 'remote-web-ui: api gate')
+  // Sibling plugins (aionui-panel, …) look this up by name. Absent when this
+  // plugin is not installed; stop() / enabled=false still refuse cookies.
+  new RemoteWebUiPairing(ctx, (request) => {
+    if (!resolve().enabled) return false
+    return isPairedDeviceRequest(service, request)
+  })
   const sync = (): void => {
     const value = resolve()
     service.config = {

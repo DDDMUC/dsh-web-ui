@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { registerPanelRoutes } from '../src/host/routes.ts'
 
 /** A minimal ctx/webServer registry harness. */
-function fakeCtx(): {
+function fakeCtx(pairing?: { isPairedDevice: (req: unknown) => boolean }): {
   ctx: Record<string, unknown>
   registrations: Array<{ kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }>
 } {
@@ -21,6 +21,7 @@ function fakeCtx(): {
         return () => {}
       },
     },
+    get: (name: string) => name === 'remoteWebUiPairing' ? pairing : undefined,
   }
   return { ctx, registrations }
 }
@@ -30,6 +31,7 @@ interface RequestOptions {
   remoteAddress?: string
   host?: string
   body?: string
+  cookie?: string
   on?: (event: string, handler: () => void) => void
 }
 
@@ -41,6 +43,7 @@ function fakeRequest(url: string, options: RequestOptions = {}): Record<string, 
     headers: {
       host: options.host ?? '127.0.0.1:3000',
       'content-type': 'application/json',
+      ...(options.cookie === undefined ? {} : { cookie: options.cookie }),
     },
     socket: { remoteAddress: options.remoteAddress ?? '127.0.0.1' },
     on: options.on ?? vi.fn(),
@@ -203,6 +206,72 @@ describe('/aionui-panel loopback fence', () => {
     expect(result.writes.join('')).toContain('retry: 2000')
     expect(verify).toHaveBeenCalledWith('/w')
     expect(watch).toHaveBeenCalledWith('/w', expect.any(Function))
+    for (const close of closeHandlers) close()
+  })
+
+  it('allows a non-loopback JSON operation when pairing reports a live device', async () => {
+    const list = vi.fn(async () => ({ root: '/w', entries: [] }))
+    const isPairedDevice = vi.fn(() => true)
+    const { ctx, registrations } = fakeCtx({ isPairedDevice })
+    registerPanelRoutes(ctx as never, { list } as never, { status: async () => null } as never)
+    const prefix = registrations.find((row) => row.kind === 'prefix')!
+
+    const result = await drive(prefix.handler, '/aionui-panel/list', {
+      remoteAddress: '192.168.1.20',
+      host: 'dsh.example:443',
+      cookie: 'dsh_pair=dev-1',
+      body: JSON.stringify({ root: '/w', path: '' }),
+    })
+
+    expect(result.status).toBe(200)
+    expect(JSON.parse(result.body)).toEqual({ ok: true, value: { root: '/w', entries: [] } })
+    expect(list).toHaveBeenCalledWith('/w', '')
+    expect(isPairedDevice).toHaveBeenCalled()
+  })
+
+  it('still rejects a non-loopback JSON operation when pairing reports false', async () => {
+    const list = vi.fn(async () => ({ root: '/w', entries: [] }))
+    const { ctx, registrations } = fakeCtx({ isPairedDevice: () => false })
+    registerPanelRoutes(ctx as never, { list } as never, { status: async () => null } as never)
+    const prefix = registrations.find((row) => row.kind === 'prefix')!
+
+    const result = await drive(prefix.handler, '/aionui-panel/list', {
+      remoteAddress: '192.168.1.20',
+      host: 'dsh.example:443',
+      cookie: 'dsh_pair=revoked',
+      body: JSON.stringify({ root: '/w', path: '' }),
+    })
+
+    expect(result.status).toBe(403)
+    expect(JSON.parse(result.body)).toEqual({ error: 'forbidden: loopback-only' })
+    expect(list).not.toHaveBeenCalled()
+  })
+
+  it('opens SSE for a paired non-loopback client', async () => {
+    const verify = vi.fn(async () => ({ ok: true, canonical: '/w' }))
+    const watch = vi.fn(() => () => {})
+    const closeHandlers: Array<() => void> = []
+    const { ctx, registrations } = fakeCtx({ isPairedDevice: () => true })
+    registerPanelRoutes(
+      ctx as never,
+      { verify, watch } as never,
+      { isRepository: vi.fn(async () => false), gitAvailable: vi.fn(async () => true), status: async () => null } as never,
+    )
+    const sse = registrations.find((row) => row.kind === 'exact')!
+
+    const result = await drive(sse.handler, '/aionui-panel/events?root=%2Fw', {
+      method: 'GET',
+      remoteAddress: '192.168.1.20',
+      host: 'dsh.example:443',
+      cookie: 'dsh_pair=dev-1',
+      on: (event, handler) => {
+        if (event === 'close') closeHandlers.push(handler)
+      },
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.headers['content-type']).toBe('text/event-stream; charset=utf-8')
+    expect(verify).toHaveBeenCalledWith('/w')
     for (const close of closeHandlers) close()
   })
 })
