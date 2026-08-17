@@ -4,7 +4,7 @@
  * released exactly once so sshd's MaxSessions cap is never exhausted.
  */
 
-import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve as resolvePath } from 'node:path'
 import { Client, type SFTPWrapper } from 'ssh2'
 import type { RemoteDirEntry, TransferProgress } from '../protocol.ts'
@@ -16,7 +16,11 @@ export function walkLocalDir(root: string): string[] {
   const visit = (dir: string): void => {
     for (const name of readdirSync(dir)) {
       const full = join(dir, name)
-      const stat = statSync(full)
+      // lstat, not stat: a symlink must never be followed — a link cycle
+      // (ln -s . self) recurses forever under stat, and a link to a file
+      // would silently upload the target's bytes.
+      const stat = lstatSync(full)
+      if (stat.isSymbolicLink()) continue
       if (stat.isDirectory()) visit(full)
       else if (stat.isFile()) files.push(relative(root, full))
     }
