@@ -128,6 +128,14 @@ function toImage(bytes: Buffer, source: string): LoadedImage {
   return { bytes, mimeType }
 }
 
+/** Bound-check then sniff one loaded buffer — the shared tail of every input branch. */
+function finishLoad(bytes: Buffer, source: string, maxBytes: number): LoadedImage {
+  if (bytes.length > maxBytes) {
+    throw new Error(`describe-image: image is ${bytes.length} bytes, above the ${maxBytes}-byte bound`)
+  }
+  return toImage(bytes, source)
+}
+
 /**
  * Load one image from a local absolute path, an http(s) URL, or a durable attachment reference
  * (the JSON an `[image attachment …]` note carries), enforcing the byte bound before any bytes
@@ -146,10 +154,7 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
   }
   if (trimmed.startsWith('{')) {
     const bytes = await readAttachment(ctx, trimmed, signal)
-    if (bytes.length > maxBytes) {
-      throw new Error(`describe-image: image is ${bytes.length} bytes, above the ${maxBytes}-byte bound`)
-    }
-    return toImage(bytes, trimmed.slice(0, 96))
+    return finishLoad(bytes, trimmed.slice(0, 96), maxBytes)
   }
   if (/^https?:\/\//i.test(trimmed)) {
     const response = await fetch(trimmed, { signal, redirect: 'error' })
@@ -161,7 +166,7 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
       throw new Error(`describe-image: image is ${declared} bytes, above the ${maxBytes}-byte bound`)
     }
     const bytes = await readBoundedBody(response, maxBytes)
-    return toImage(bytes, trimmed)
+    return finishLoad(bytes, trimmed, maxBytes)
   }
   // A bare attachment id — the `sha256:…` string text models tend to copy out of
   // an `[image attachment …]` note instead of the whole JSON. Resolve it through
@@ -169,10 +174,7 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
   const registered = attachmentRefById(trimmed)
   if (registered !== undefined) {
     const bytes = await readAttachment(ctx, JSON.stringify(registered), signal)
-    if (bytes.length > maxBytes) {
-      throw new Error(`describe-image: image is ${bytes.length} bytes, above the ${maxBytes}-byte bound`)
-    }
-    return toImage(bytes, trimmed)
+    return finishLoad(bytes, trimmed, maxBytes)
   }
   const info = await stat(trimmed, { bigint: false })
   if (!info.isFile()) throw new Error(`describe-image: image path is not a file: ${trimmed}`)
@@ -180,7 +182,7 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
     throw new Error(`describe-image: image is ${info.size} bytes, above the ${maxBytes}-byte bound`)
   }
   const bytes = await readFile(trimmed, { signal })
-  return toImage(bytes, trimmed)
+  return finishLoad(bytes, trimmed, maxBytes)
 }
 
 /**
