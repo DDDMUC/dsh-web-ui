@@ -212,6 +212,9 @@ describe('handleAttach', () => {
     if (outcome.ok) {
       expect(outcome.note.startsWith('[image attachment {')).toBe(true)
       expect(outcome.markdown).toMatch(/^!\[图片\]\(\/describe-image\/raw\/sha256:.*\?ref=/)
+      const path = /\(([^)]+)\)$/.exec(outcome.markdown)?.[1]
+      const url = new URL(path ?? '', 'http://dsh.local')
+      expect(url.searchParams.get('ref')).toBe(JSON.stringify(outcome.ref))
       expect(outcome.ref.mediaType).toBe('image/png')
       expect(store?.saved).toHaveLength(1)
       expect(store?.saved[0].input.data).toEqual(PNG_BYTES)
