@@ -22,6 +22,7 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import z from 'schemastery'
 import { dshHome } from './dsh-home.ts'
 import { syncPresetTrees } from './sync.ts'
+import { mountOnce } from './mount-once.ts'
 
 /** Stable cordis plugin name. */
 export const name = 'liangshen'
@@ -68,7 +69,9 @@ export function bundledPresetsRoot(): string {
  * @param ctx - host plugin context carrying systemPrompt.
  * @param config - resolved plugin config (schema defaults applied by the loader).
  */
-export function apply(ctx: Context, config?: Config): void {
+export const apply = mountOnce('@linxin666/dsh-liangshen', applyImpl)
+
+function applyImpl(ctx: Context, config?: Config): void {
   const resolve = (): Config => ({
     announceToAgent: config?.announceToAgent ?? DEFAULT_ANNOUNCE,
     enabled: config?.enabled ?? true,

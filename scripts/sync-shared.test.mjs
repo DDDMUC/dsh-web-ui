@@ -23,13 +23,14 @@ test('copies cover the settings trio for six consumers plus host helpers', () =>
   // Normalize separators: node:path join yields backslashes on Windows, and
   // the copy-count buckets below match on forward slashes.
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
-  assert.equal(entries.length, 30)
+  assert.equal(entries.length, 42)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
   assert.equal(clientTrio.length, 18)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
-    || entry.target.includes('/src/loopback.ts'))
-  assert.equal(hostCopies.length, 12)
+    || entry.target.includes('/src/loopback.ts')
+    || entry.target.includes('/src/mount-once.ts'))
+  assert.equal(hostCopies.length, 24)
 })
 
 test('checkSync detects drift and applySync repairs it', async () => {
@@ -47,6 +48,7 @@ test('checkSync detects drift and applySync repairs it', async () => {
     await writeFile(join(hostDir, 'dsh-home.ts'), 'export const home = 1' + String.fromCharCode(10))
     await writeFile(join(hostDir, 'loopback.ts'), 'export const loop = 1' + String.fromCharCode(10))
     await writeFile(join(hostDir, 'git-runner.ts'), 'export const runner = 1' + String.fromCharCode(10))
+    await writeFile(join(hostDir, 'mount-once.ts'), 'export const once = 1' + String.fromCharCode(10))
     const targetDir = join(root, 'packages', 'dsh-pet', 'src', 'client')
     await mkdir(targetDir, { recursive: true })
     await writeFile(join(targetDir, 'settings-form.ts'), renderCopy('export const bad = 2' + String.fromCharCode(10), 'settings-form.ts', 'shared/client/settings/settings-form.ts'))

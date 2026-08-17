@@ -40,13 +40,14 @@ packages/<name>/
 - `patchFrom`：该包的 `cordis.patch.yml` insert 行会被汇总进聚合包 patch；
 - `deps`：解析为包名写入聚合包 `package.json` 的 `dependencies`（`workspace:*`）。
 
-皮肤（新增或改动）不需要进任何 aggregate.yml：`packages/dsh-skins/build.mjs` 会把 `packages/skins/<id>` 的 `skin.json` + `lib/client.js` 复制进 `dsh-skins/skins/<id>`（npm 上皮肤资产全部内置在 dsh-skins 一个包里，避免为每个皮肤包名付 npm 新包名费用）。改完皮肤后运行 `pnpm --filter @linxin666/dsh-skins build`。皮肤启用互斥由 `dsh-skin use` 管理（`~/.dsh/cordis.patch.yml` managed 区段）。
+皮肤（新增或改动）不需要进任何 aggregate.yml：`packages/dsh-skins/build.mjs` 会把 `packages/skins/<id>` 的 `skin.json` + `lib/client.js` 复制进 `dsh-skins/skins/<id>`（npm 上皮肤资产全部内置在 dsh-skins 一个包里，避免为每个皮肤包名付 npm 新包名费用）。改完皮肤后运行 `pnpm --filter @linxin666/dsh-skins build`。皮肤启用互斥由 `dsh-skin use` 管理（当前 Web profile 的 `<harness-home>/profiles/<profile>/cordis.patch.yml` managed 区段）。
 
 ### 4. 重新生成聚合包
 
 ```sh
 node scripts/aggregate.mjs          # 重新生成聚合包 cordis.patch.yml + 依赖
-node scripts/aggregate.mjs --check  # 校验模式：任何漂移以退出码 1 报错（CI 用）
+聚合行 id 自动加 `web-ui-` 前缀，可与独立包共存；规则见 packages/AGENTS.md。
+node scripts/aggregate.mjs --check  # 校验模式：漂移即失败（CI 用）
 ```
 
 ### 5. 构建验证

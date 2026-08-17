@@ -36,5 +36,5 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
 ## 已知限制
 
 - 各子插件随本包一起激活；若只需要其中一部分，请直接安装对应子插件包。
-- 不要与同名独立插件包（如 @linxin666/dsh-liangshen）同时安装；切换前先 `dsh plugin remove` 移除旧的。
+- 聚合行 id 统一带 `web-ui-` 命名空间，本包可与同名独立插件包共存：loader 不再拒绝重复 id，host 半区只注册一次（第二个来源为空操作），浏览器半区按包名去重。两个来源并存没有额外收益，建议只保留一个。插件来自本包时，profile 里按 id 写的配置行要改用 `web-ui-` 前缀（如 remote-web-ui 的 `autoTunnel` 配置行写成 `web-ui-remote-web-ui`）；独立安装时仍用插件原 id。
 - 依赖的 `@deepseek-ai/*` SDK 版本已锁定，兼容性跟随本仓库的发版节奏。

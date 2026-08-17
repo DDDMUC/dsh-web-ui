@@ -23,6 +23,7 @@ import { FsService } from './host/fs-service.ts'
 import { GitService, subprocessRunner } from './host/git-service.ts'
 import { createWorkspaceGate } from './host/gate.ts'
 import { registerPanelRoutes } from './host/routes.ts'
+import { mountOnce } from './mount-once.ts'
 
 /** Required services: the route registry, the managed subprocess seam, the workspace registry, and the prompt band. */
 export const inject = ['webServer', 'subprocess', 'workspaceRegistry', 'systemPrompt']
@@ -37,7 +38,9 @@ export const AIONUI_PANEL_GUIDANCE = '本机已安装 dsh-aionui-panel 插件（
  * Mount the panel data services and their routes.
  * @param ctx - context carrying webServer, subprocess, workspaceRegistry, systemPrompt.
  */
-export function apply(ctx: Context): void {
+export const apply = mountOnce('@linxin666/dsh-client-ui-aionui-panel', applyImpl)
+
+function applyImpl(ctx: Context): void {
   const gate = createWorkspaceGate(ctx)
   const fs = new FsService(gate)
   const git = new GitService(subprocessRunner(ctx), gate, (root, rel) => fs.delete(root, rel))

@@ -32,10 +32,13 @@
 | packages/skins/dragon-heir | @linxin666/dsh-client-ui-skin-dragon-heir | 0.1.1 | true |
 | packages/skins/minecraft | @linxin666/dsh-client-ui-skin-minecraft | 0.1.1 | true |
 | packages/skins/whale-song | @linxin666/dsh-client-ui-skin-whale-song | 0.1.0 | true |
+| packages/skins/whale-mom | @linxin666/dsh-client-ui-skin-whale-mom | 0.1.0 | true |
 | packages/skins/harbor | @linxin666/dsh-client-ui-skin-harbor | 0.1.14 | true |
 | packages/skins/trading | @linxin666/dsh-client-ui-skin-trading | 0.1.2 | true |
 | packages/skins/skin-center | @linxin666/dsh-client-ui-skin-center | 0.1.1 | true |
 | packages/skins/miku | @linxin666/dsh-client-ui-skin-miku | 0.1.12 | true |
+| packages/skins/matrix | @linxin666/dsh-client-ui-skin-matrix | 0.1.0 | true |
+
 
 ## 二、发布前检查结论（2026-08-11，已修复项标注 [已确认]）
 

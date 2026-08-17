@@ -68,6 +68,25 @@ const MANIFEST = [
     targets: ['packages/dsh-aionui-panel/src/host/git-runner.ts', 'packages/dsh-git-graph/src/host/git-runner.ts'],
   },
   {
+    file: 'mount-once.ts',
+    source: 'shared/host/mount-once.ts',
+    targets: [
+      'packages/dsh-pet/src/mount-once.ts',
+      'packages/dsh-ssh/src/mount-once.ts',
+      'packages/dsh-live-stats/src/mount-once.ts',
+      'packages/dsh-remote-web-ui/src/mount-once.ts',
+      'packages/dsh-liangshen/src/mount-once.ts',
+      'packages/dsh-task-board/src/mount-once.ts',
+      'packages/dsh-git-graph/src/mount-once.ts',
+      'packages/dsh-aionui-panel/src/mount-once.ts',
+      'packages/dsh-community-plugins/src/mount-once.ts',
+      'packages/dsh-web-ui-settings/src/mount-once.ts',
+      'packages/dsh-tool-describe-image/src/mount-once.ts',
+      'packages/skins/skin-center/src/mount-once.ts',
+    ],
+  },
+
+  {
     file: 'loopback.ts',
     source: 'shared/host/loopback.ts',
     targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts'],

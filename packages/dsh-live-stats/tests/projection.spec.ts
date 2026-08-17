@@ -18,10 +18,16 @@ import {
   estimateToolCallBlockTokens,
 } from '../src/estimator.ts'
 
-afterEach(() => { vi.useRealTimers() })
+const contexts: Context[] = []
+
+afterEach(async () => {
+  vi.useRealTimers()
+  await Promise.all(contexts.splice(0).map(ctx => Promise.resolve(ctx.fiber.dispose())))
+})
 
 async function harness(): Promise<{ ctx: Context; session: Session }> {
   const ctx = new Context()
+  contexts.push(ctx)
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin({ inject, apply })

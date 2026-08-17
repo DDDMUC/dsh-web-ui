@@ -14,6 +14,7 @@ import type {} from '@deepseek-ai/dsh-host-apiproxy'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { TaskBoardHostService } from './host-service.ts'
 import { makeTaskBoardRoutes } from './host-routes.ts'
+import { mountOnce } from './mount-once.ts'
 
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 200
@@ -83,7 +84,9 @@ const DEFAULT_ANNOUNCE = true
  * @param ctx - the plugin context (systemPrompt injected).
  * @param config - resolved plugin config (schema defaults applied by the loader).
  */
-export function apply(ctx: Context, config?: Config): void {
+export const apply = mountOnce('@linxin666/dsh-client-ui-task-board', applyImpl)
+
+function applyImpl(ctx: Context, config?: Config): void {
   const host = new TaskBoardHostService(ctx.apiProxy)
   host.setConfiguration(config?.enabled ?? true, config?.preventIdleSleep ?? false)
   host.start()
