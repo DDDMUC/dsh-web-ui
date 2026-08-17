@@ -59,4 +59,6 @@ export const SKIN_CENTER_ENTRIES: readonly SkinCenterEntry[] = [
 
   {"id":"whale-mom","name":"鲸鱼妈妈","nameEn":"Whale Mom","author":"dsh-web-ui","tagline":"深海鲸鱼妈妈与幼崽的画作 · 全透面板由背景遮挡驱动 · 金线点缀","description":"dsh web ui 的鲸鱼妈妈主题皮肤：深海鲸鱼妈妈与幼崽们的氛围画作铺满视口，面板全透（透明度由设置-皮肤中心的背景遮挡滑杆驱动，侧边栏基准透明度可用 --dsw-skin-sidebar-alpha 微调），深蓝 / 奶油 / 金色配色贯穿全局，暗色是深海夜航。","tags":["ocean","whale","mother","translucent","gold"],"accent":"#d9a53c","bodyAttr":"data-dsh-whale-mom","package":"@linxin666/dsh-client-ui-skin-whale-mom","order":11},
 
+  {"id":"matrix","name":"Matrix 骇客帝国","nameEn":"Matrix","author":"contributed (seanchen)","tagline":"深夜护眼 · 墨绿暗色 · 数字雨","description":"深夜卧室场景的护眼暗色皮肤：近黑墨绿背景、墨绿等宽字体、低透明度数字雨。强制暗色（不跟随系统主题），整体低亮度，长时间使用不刺眼、不打扰家人睡觉。","tags":["matrix","dark","green","hacker","night","eye-care"],"accent":"#00e676","bodyAttr":"data-dsh-matrix","package":"@linxin666/dsh-client-ui-skin-matrix","order":12},
+
 ]
