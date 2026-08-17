@@ -29,9 +29,11 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
   <em>Liang Shen Mode · Task board · Git graph · Right panel · Mobile remote · SSH ops · Image understanding · Whale-girl pet · Live throughput · Skin center</em>
 </p>
 
-<p align="center">
+<div align="center">
+
 [What It Is](#what-it-is) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
-</p>
+
+</div>
 
 ## What It Is
 
