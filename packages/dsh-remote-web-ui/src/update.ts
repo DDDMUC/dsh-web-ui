@@ -235,10 +235,13 @@ export function resolveUpdateTarget(
   const profileManifest = readManifest(join(profile.dir, 'package.json'))
   const spec = (profileManifest?.dependencies as Record<string, DependencySpec> | undefined)?.[anchor]
   if (isLinkedSpec(spec)) return { error: 'link' }
+  // Standalone installs carry no aggregate: the anchor's own dependency
+  // list misses every sibling @linxin666/* plugin installed directly into
+  // the profile, so union the profile's direct family deps (#377).
   return {
     profileName: profile.name,
     profileDir: profile.dir,
-    packages: [anchor, ...familyChildren(manifest)],
+    packages: [...new Set([anchor, ...familyChildren(manifest), ...familyChildren(profileManifest ?? {})])],
   }
 }
 
@@ -331,7 +334,9 @@ export async function checkUpdates(deps: UpdateCheckDeps): Promise<UpdateStatus>
   if (profile === undefined) {
     return { mode: 'link', packages: [], outdated: false }
   }
-  const names = [anchor, ...familyChildren(manifest)]
+  // Union the profile's direct family deps so standalone installs (no
+  // aggregate) still check every installed @linxin666/* plugin (#377).
+  const names = [...new Set([anchor, ...familyChildren(manifest), ...familyChildren(profileManifest ?? {})])]
   // The registry probes are independent: run them together instead of
   // serializing up to N x 10s of registry latency behind one status call.
   const latestList = await Promise.all(names.map(name => deps.fetchLatest(name)))

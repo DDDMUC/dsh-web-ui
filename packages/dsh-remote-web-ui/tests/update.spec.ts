@@ -16,6 +16,7 @@ import {
   parseSemver,
   resolveAnchorManifest,
   resolveUpdateTarget,
+  SELF_PACKAGE,
   runUpdate,
   runUpdateVerified,
 } from "../src/update.ts"
@@ -168,6 +169,30 @@ describe("resolveAnchorManifest", () => {
   })
 })
 
+/** Standalone install fixture: no aggregate, family plugins as direct deps. */
+function standaloneFixture(): string {
+  const root = makeFixture()
+  const profileDir = join(root, 'profiles', 'web')
+  writeManifest(join(profileDir), {
+    name: "dsh-profile-web",
+    private: true,
+    dependencies: {
+      [SELF_PACKAGE]: "^0.1.10",
+      '@linxin666/dsh-task-board': "^0.1.10",
+      '@linxin666/dsh-ssh': "^0.1.10",
+    },
+  })
+  const anchorDir = join(profileDir, 'node_modules', '@linxin666', 'dsh-remote-web-ui')
+  writeManifest(anchorDir, { name: SELF_PACKAGE, version: "0.1.10", dependencies: {} })
+  for (const child of ['dsh-task-board', 'dsh-ssh']) {
+    writeManifest(join(profileDir, 'node_modules', '@linxin666', child), {
+      name: '@linxin666/' + child,
+      version: "0.1.9",
+    })
+  }
+  return join(anchorDir, "package.json")
+}
+
 describe("checkUpdates", () => {
   it("reports an outdated npm install with per-package comparison", async () => {
     const anchor = npmFixture("0.1.10", "0.1.9")
@@ -229,6 +254,24 @@ describe("checkUpdates", () => {
     expect(status.error).toBe("registry-unreachable")
     expect(status.outdated).toBe(false)
   })
+  it("covers standalone family plugins installed as direct profile deps (#377)", async () => {
+    const anchor = standaloneFixture()
+    const status = await checkUpdates({
+      anchorManifestPath: anchor,
+      resolve: (specifier) => join(fixture!, "profiles", "web", "node_modules", specifier.replace("/package.json", ""), "package.json"),
+      fetchLatest: async () => "0.1.10",
+    })
+    expect(status.mode).toBe("npm")
+    expect(status.anchor).toBe(SELF_PACKAGE)
+    // Anchor first, then every direct @linxin666/* profile dep, deduped.
+    expect(status.packages.map(packageStatus => packageStatus.name)).toEqual([
+      SELF_PACKAGE,
+      "@linxin666/dsh-task-board",
+      "@linxin666/dsh-ssh",
+    ])
+    // The children trail the latest release, so the run reports outdated.
+    expect(status.outdated).toBe(true)
+  })
   it("reports missing when the anchor is absent", async () => {
     const status = await checkUpdates({
       anchorManifestPath: undefined,
@@ -247,6 +290,16 @@ describe("resolveUpdateTarget", () => {
       profileName: "web",
       profileDir: join(fixture!, "profiles", "web"),
       packages: [AGGREGATE_PACKAGE, "@linxin666/dsh-ssh"],
+    })
+  })
+  it("unions standalone family deps into the update package list (#377)", () => {
+    const anchor = standaloneFixture()
+    const target = resolveUpdateTarget({ anchorManifestPath: anchor })
+    expect(target).toEqual({
+      profileName: "web",
+      profileDir: join(fixture!, "profiles", "web"),
+      // The anchor appears once even though it is also a profile dep.
+      packages: [SELF_PACKAGE, "@linxin666/dsh-task-board", "@linxin666/dsh-ssh"],
     })
   })
   it("rejects a link install", () => {
