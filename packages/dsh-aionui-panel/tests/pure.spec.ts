@@ -140,6 +140,10 @@ describe('resolveMarkdownImage', () => {
     expect(resolveMarkdownImage('docs/a.md', './img.png?v=2#top')).toEqual({ kind: 'relative', path: 'docs/img.png', suffix: '?v=2#top' })
     expect(resolveMarkdownImage('docs/a.md', './my%20img.png')).toEqual({ kind: 'relative', path: 'docs/my img.png', suffix: '' })
     expect(resolveMarkdownImage('docs/a.md', './a%2Fb.png')).toEqual({ kind: 'relative', path: 'docs/a/b.png', suffix: '' })
+    // Literal ? and # in file names (percent-encoded by markdown authors)
+    // must not be split off as a query/fragment suffix.
+    expect(resolveMarkdownImage('docs/a.md', './my%3Fimg.png')).toEqual({ kind: 'relative', path: 'docs/my?img.png', suffix: '' })
+    expect(resolveMarkdownImage('docs/a.md', './my%23img.png?v=2')).toEqual({ kind: 'relative', path: 'docs/my#img.png', suffix: '?v=2' })
   })
 })
 
