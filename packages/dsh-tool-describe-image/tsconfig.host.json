@@ -25,6 +25,7 @@
   },
   "include": [
     "src/index.ts",
+    "src/mount-once.ts",
     "src/invariant.ts",
     "src/media.ts",
     "src/attach-routes.ts",

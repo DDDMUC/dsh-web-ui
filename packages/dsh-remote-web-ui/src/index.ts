@@ -31,6 +31,7 @@ import {
   type UpdateRunResult,
 } from './update.ts'
 import { makeUpdateRoutes } from './update-routes.ts'
+import { mountOnce } from './mount-once.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -147,7 +148,9 @@ const DEFAULTS: ResolvedConfig = {
  * @param ctx - host plugin context carrying webServer.
  * @param config - resolved plugin config (schema defaults applied by the loader).
  */
-export function apply(ctx: Context, config?: Config): void {
+export const apply = mountOnce('@linxin666/dsh-remote-web-ui', applyImpl)
+
+function applyImpl(ctx: Context, config?: Config): void {
   const resolved: ResolvedConfig = {
     tokenTtlMs: config?.tokenTtlMs ?? DEFAULTS.tokenTtlMs,
     offlineAfterMs: config?.offlineAfterMs ?? DEFAULTS.offlineAfterMs,

@@ -15,6 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-system-prompt'
+import { mountOnce } from './mount-once.ts'
 
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 200
@@ -59,7 +60,9 @@ const DEFAULT_ANNOUNCE = true
  * @param ctx - the plugin context (systemPrompt injected).
  * @param config - resolved plugin config (schema defaults applied by the loader).
  */
-export function apply(ctx: Context, config?: Config): void {
+export const apply = mountOnce('@linxin666/dsh-client-ui-task-board', applyImpl)
+
+function applyImpl(ctx: Context, config?: Config): void {
   // The live source the announcement reads: the settings section once the web
   // settings surface is served, the composition entry otherwise
   // (installSettingsSection swaps it when the namespace registers).

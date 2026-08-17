@@ -299,6 +299,13 @@ A: 只要皮肤就装 `@linxin666/dsh-skins`；只装某一个插件就用「单
 
 </details>
 
+<details>
+<summary><strong>装了全家桶还能再单独装同一个插件吗？</strong></summary>
+
+A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe-image`），与独立包自己的 id（如 `describe-image`）不冲突，`dsh web` 不会再报 `duplicate loader entry id`；同一插件双源加载时 host 半区只注册一次，浏览器半区按包名去重。两个来源并存没有额外收益，建议只保留一个。注意：profile 里按 id 写的配置行，若插件来自聚合包要用 `web-ui-` 前缀的 id（如 remote-web-ui 的 `autoTunnel` 配置行写成 `web-ui-remote-web-ui`）；独立安装时仍用插件原 id。
+
+</details>
+
 ## 已知限制
 
 - 任务看板的定时调度在浏览器端：`dsh web` 标签页要保持打开，关闭期间错过的触发点跳过、不补跑，详见 [dsh-task-board README](packages/dsh-task-board/README.zh.md)。

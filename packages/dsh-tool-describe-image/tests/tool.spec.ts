@@ -87,6 +87,7 @@ class FakeCredentials extends CredentialProvider {
 
 const savedEnv = new Map<string, string | undefined>()
 const cleanup: Array<() => Promise<void>> = []
+const contexts: Context[] = []
 
 const BASE_CONFIG = { baseURL: 'http://127.0.0.1:9/v1/', model: 'vision-1' }
 
@@ -96,6 +97,7 @@ async function setup(
   options: { seed?: Record<string, string>; noInlineKey?: boolean; attachments?: boolean } = {},
 ): Promise<Context> {
   const ctx = new Context()
+  contexts.push(ctx)
   if (options.seed !== undefined) await ctx.plugin(FakeCredentials, options.seed)
   if (options.attachments === true) await ctx.plugin(FakeAttachments)
   await ctx.plugin(FakeWebServer)
@@ -140,6 +142,7 @@ afterEach(async () => {
   if (env === undefined) delete process.env.VISION_API_KEY
   else process.env.VISION_API_KEY = env
   savedEnv.clear()
+  await Promise.all(contexts.splice(0).map(ctx => Promise.resolve(ctx.fiber.dispose())))
   await Promise.all(cleanup.splice(0).map(close => close()))
 })
 

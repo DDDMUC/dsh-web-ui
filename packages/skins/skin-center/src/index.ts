@@ -14,6 +14,7 @@ import z from 'schemastery'
 // Type-only: pulls the dsh-host-webserver service seat (ctx.webServer).
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
+import { mountOnce } from './mount-once.ts'
 
 export { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
 
@@ -77,7 +78,9 @@ export const SkinBackgroundConfigSchema: z<SkinBackgroundConfig> = z.object({
  * must not take the GUI down.
  * @param ctx - cordis context.
  */
-export function apply(ctx: Context): void {
+export const apply = mountOnce('@linxin666/dsh-client-ui-skin-center', applyImpl)
+
+function applyImpl(ctx: Context): void {
   // Optional-settings wiring for the background scrim namespace. The browser
   // half binds the scope and applies the value to the body CSS variable;
   // this side just declares the namespace + schema so the value persists and

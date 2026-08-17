@@ -300,6 +300,13 @@ A: Install `@linxin666/dsh-skins` for skins only, or use the package names under
 
 </details>
 
+<details>
+<summary><strong>Can I install a single plugin alongside the family bundle?</strong></summary>
+
+A: Yes. The aggregate namespaces every row id with a `web-ui-` prefix (e.g. `web-ui-describe-image`), which no longer collides with the standalone plugin's own id (e.g. `describe-image`), so `dsh web` no longer fails with `duplicate loader entry id`. When the same plugin is loaded from both sources, the host half registers once (the second source is a no-op) and the browser half is deduped by package name. Keeping both sources has no benefit, so prefer one. Note that profile patch config rows written by id must use the `web-ui-` prefixed id when the plugin comes from the bundle (e.g. the remote-web-ui `autoTunnel` row becomes `web-ui-remote-web-ui`); standalone installs keep the plugin's own id.
+
+</details>
+
 ## Known Limitations
 
 - Task-board scheduling is browser-side: the `dsh web` tab has to stay open, and triggers missed while it is closed are skipped, not queued. See [dsh-task-board README](packages/dsh-task-board/README.md).

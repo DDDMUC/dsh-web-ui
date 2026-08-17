@@ -22,6 +22,7 @@ import { registerAttachRoute } from './attach-routes.ts'
 import { DEFAULT_MAX_BYTES } from './media.ts'
 import { Config, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, resolveApiKey, resolveConfig, type ResolvedConfig } from './config-resolve.ts'
 import { callVision, createVisionCache, loadImage } from './vision-client.ts'
+import { mountOnce } from './mount-once.ts'
 
 export const name = 'describe-image'
 export const inject = ['tools', 'webServer']
@@ -106,7 +107,9 @@ export function describeImageCallView(args: DescribeImageArgs): GenericCallView 
  * @param ctx - registrant context carrying the tool registry.
  * @param config - deployment configuration.
  */
-export function apply(ctx: Context, config: Config = {}): void {
+export const apply = mountOnce('@linxin666/dsh-tool-describe-image', applyImpl)
+
+function applyImpl(ctx: Context, config: Config = {}): void {
   // The loader fills schema defaults before apply, so an unconfigured entry
   // still arrives with default fields set. Only a config that actually names
   // the endpoint/model is validated eagerly — the family aggregate mounts

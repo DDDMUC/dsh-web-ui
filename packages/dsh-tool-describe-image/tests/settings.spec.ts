@@ -40,6 +40,7 @@ class MemorySettings extends SettingsProvider {
 }
 
 const cleanup: Array<() => Promise<void>> = []
+const contexts: Context[] = []
 
 async function boot(
   doc: Record<string, unknown> = {},
@@ -49,6 +50,7 @@ async function boot(
   const server = await startMockServer(handler)
   cleanup.push(server.close)
   const ctx = new Context()
+  contexts.push(ctx)
   await ctx.plugin(MemorySettings, { doc })
   await ctx.plugin(FakeWebServer)
   await ctx.plugin(SystemPrompt)
@@ -75,6 +77,7 @@ function callDescribe(ctx: Context, image: string) {
 }
 
 afterEach(async () => {
+  await Promise.all(contexts.splice(0).map(ctx => Promise.resolve(ctx.fiber.dispose())))
   await Promise.all(cleanup.splice(0).map(close => close()))
 })
 

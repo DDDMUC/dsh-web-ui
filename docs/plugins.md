@@ -46,7 +46,8 @@ packages/<name>/
 
 ```sh
 node scripts/aggregate.mjs          # 重新生成聚合包 cordis.patch.yml + 依赖
-node scripts/aggregate.mjs --check  # 校验模式：任何漂移以退出码 1 报错（CI 用）
+聚合行 id 自动加 `web-ui-` 前缀，可与独立包共存；规则见 packages/AGENTS.md。
+node scripts/aggregate.mjs --check  # 校验模式：漂移即失败（CI 用）
 ```
 
 ### 5. 构建验证

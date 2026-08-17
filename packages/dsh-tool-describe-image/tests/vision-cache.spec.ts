@@ -13,8 +13,10 @@ import * as tool from '../src/index.ts'
 import { chatReply, FakeWebServer, jsonReply, PNG_BYTES, startMockServer } from './mock-server.ts'
 
 const cleanup: Array<() => Promise<void>> = []
+const contexts: Context[] = []
 
 afterEach(async () => {
+  await Promise.all(contexts.splice(0).map(ctx => Promise.resolve(ctx.fiber.dispose())))
   await Promise.all(cleanup.splice(0).map(close => close()))
 })
 
@@ -65,6 +67,7 @@ describe('semantic vision cache', () => {
     const server = await startMockServer((_request, res) => { jsonReply(res, 200, chatReply('Cached answer.')) })
     cleanup.push(server.close)
     const ctx = new Context()
+  contexts.push(ctx)
     await boot(ctx, server.url)
     const path = await tempPng()
 
@@ -85,6 +88,7 @@ describe('semantic vision cache', () => {
     const server = await startMockServer((_request, res) => { jsonReply(res, 200, chatReply('ok')) })
     cleanup.push(server.close)
     const ctx = new Context()
+  contexts.push(ctx)
     await boot(ctx, server.url)
     const path = await tempPng()
 
