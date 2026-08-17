@@ -46,7 +46,7 @@ pnpm 打印的包键加入相应 profile 的 `pnpm-workspace.yaml` 的 `allowBui
 
 ### 数据读取范围
 
-皮肤的数据面严格只读（与 ths 皮肤同一先例）：只消费行情源（fun-ticker 代理 /
+皮肤的数据面严格只读（与家族行情皮肤同一先例）：只消费行情源（fun-ticker 代理 /
 长桥快照 / 公共端点）与 `workspace.list` RPC（工作区计数格，经
 `ctx.get('connection')` 在有连接句柄时读取）。不写任何设置、不调用模型端点、
 不发 cordis 事件；所有读取失败均安全降级为 `--` 单元格。

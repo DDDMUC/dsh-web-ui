@@ -140,7 +140,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
-10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬 / 同花顺风格三款截图待补充）：
+10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬两款截图待补充）：
 
 ![10 款皮肤一览](docs/images/skins-montage.png)
 

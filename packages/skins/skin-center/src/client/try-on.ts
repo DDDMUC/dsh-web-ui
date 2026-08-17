@@ -137,7 +137,7 @@ interface MiniCtx {
   effect(callback: () => () => void, label?: string): () => void
   /**
    * Service reads are answered with undefined: try-on is a pure-DOM stage,
-   * so optional service access (e.g. ths reading the connection handle)
+   * so optional service access (e.g. trading reading the connection handle)
    * degrades to its fallback instead of throwing mid-apply.
    */
   get(key: string): unknown

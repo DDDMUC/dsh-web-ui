@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 `@linxin666/dsh-client-ui-skin-center` (cordis plugin id `ui-skin-center`) puts the skin list / try-on / apply into the real dsh Web GUI as a first-level settings section (settings → 皮肤中心 / Skin Center), a sibling nav item of General / Models / Plugins / Agent presets and of the Web UI Plugins group and Pet sections. The card carries its own enable switch (off disables try-on, apply and the background controls).
 
-- List: shows "官方默认" (official default) plus every skin in the repo (qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft) with its name, tagline, and accent color; the currently active target carries the Active marker.
+- List: shows "官方默认" (official default) plus every skin in the repo (xp / blue-fantasy / dragon-heir / minecraft / miku / matrix / harbor / trading / whale-mom / whale-song) with its name, tagline, and accent color; the currently active target carries the Active marker.
 - Try-on: clicking "Try on" loads that skin's client bundle on demand — the host route `/api/skin-center/bundle/<id>` serves `lib/client.js` as a same-origin script (the same mechanism the core uses to load plugins), the factory registers with the page's own `window.__ModuleLoader__`, and `window.__DSH_MODULES__.import` materializes it (a real loader, not a simulator and no eval); the chrome takes effect immediately; light/dark switching rides the official theme service; "Exit try-on" restores everything — the current skin's styles, DOM, favicon, title, and body inline styles are all restored. "官方默认" (official default) can also be tried on: one click immediately withdraws the skin and returns to the official look preview.
 - Mutual exclusion: during try-on, the active skin's visual writes (body attribute, background inline styles, chrome child nodes, xp's footer taskbar) are temporarily withdrawn per the prescription, and restored verbatim on exit; only one skin is on the page at a time.
 - Apply: the host half (`src/index.ts` + `src/routes.ts`) exposes `/api/skin-center/apply` and `/api/skin-center/bundle/<id>` (serves skin bundles on demand); clicking "Apply / 恢复默认" (Apply / Restore default) runs the embedded in-process `dsh-skin use` port (`src/skin-switch.ts`) server-side, writes `<harness-home>/profiles/<profile>/cordis.patch.yml`, and the DSH config watcher hot-loads it within seconds and the page auto-refreshes — **no dsh web restart, no copying a command, no `dsh-skin` binary on PATH**. On failure the error message includes a terminal fallback command. Harness home follows the dsh launcher: an injected HOME maps to `<home>/.dsh`, else a trimmed non-empty `$DSH_HOME` is used directly, else `~/.dsh`. The target profile resolves as: explicit option, then `$DSH_SKIN_PROFILE`, then `$DSH_PROFILE`, then `process.cwd()` when it is a directory directly under `<harness-home>/profiles/<name>`, then `web`. Windows compatibility: the same resolution rules apply with no `$HOME` or fixed paths, and profile links fall back to directory junctions when symlink privileges are missing.
@@ -31,7 +31,7 @@ A local `link:` install needs built artifacts first — `lib/` is git-ignored an
 
 pnpm ≥10 requires authorizing `allowBuilds` before installing a git dependency (the `prepare` script builds in place); a local `link:` install has no such requirement.
 
-The skin plugins (qq98 / ths / xp / blue-fantasy) must resolve in the host for skin-center to list / try on the full set; skin-center itself has no mutual-exclusion requirement.
+The skin plugins (xp / blue-fantasy / miku etc.) must resolve in the host for skin-center to list / try on the full set; skin-center itself has no mutual-exclusion requirement.
 
 ## Directory structure
 
@@ -75,7 +75,7 @@ pnpm --filter @linxin666/dsh-client-ui-skin-center run bundle
 ## Install (personal environment wiring, not committed to the checkout)
 
 ```sh
-# 1. profile symlink (same as qq98/blue-fantasy)
+# 1. profile symlink (same as xp/blue-fantasy)
 ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
   ~/.dsh/profiles/node_modules/@linxin666/dsh-client-ui-skin-center
 

@@ -142,7 +142,7 @@ The skin center has ten skins, each with try-on before apply: the preview applie
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-All ten skins at a glance (screenshots for Dragon Heir / Miku / THS are pending):
+All ten skins at a glance (screenshots for Dragon Heir / Miku are pending):
 
 ![All 10 skins](docs/images/skins-montage.png)
 

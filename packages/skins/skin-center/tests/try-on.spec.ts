@@ -2,11 +2,11 @@
 /**
  * TryOnController regression tests: switching between skin try-ons must
  * never leave residue from the previous skin, and a skin whose apply()
- * throws mid-write must be rolled back completely (the 同花顺 bug: ths reads
- * the optional connection service via ctx.get(), which the try-on miniCtx
- * must answer with undefined — otherwise apply() crashes after writing the
- * body attribute, chrome and style tag, and the residue bleeds into every
- * later try-on).
+ * throws mid-write must be rolled back completely (the regression: trading
+ * reads the optional connection service via ctx.get(), which the try-on
+ * miniCtx must answer with undefined — otherwise apply() crashes after
+ * writing the body attribute, chrome and style tag, and the residue bleeds
+ * into every later try-on).
  *
  * The registry carries metadata only (bundles are served on demand by the
  * host route /api/skin-center/bundle/<id>), so the tests inject a loadBundle
@@ -107,7 +107,7 @@ const controller = (): TryOnController => new TryOnController({
 describe('TryOnController skin switching', () => {
   it('keeps the active skin visible until the target bundle is ready', async () => {
     const active = entry('whale-song')
-    const target = entry('qq98')
+    const target = entry('xp')
     window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
     document.body.setAttribute(active.bodyAttr, '')
 
@@ -135,7 +135,7 @@ describe('TryOnController skin switching', () => {
   })
 
   it('keeps the current preview mounted until the next preview bundle is ready', async () => {
-    const first = entry('qq98')
+    const first = entry('miku')
     const second = entry('xp')
     const c = controller()
 
@@ -173,18 +173,18 @@ describe('TryOnController skin switching', () => {
     document.body.setAttribute(active.bodyAttr, '')
     const c = controller()
 
-    await expect(c.tryOn(entry('qq98'))).resolves.toBe(true)
+    await expect(c.tryOn(entry('miku'))).resolves.toBe(true)
     await expect(c.tryOn(entry('xp'))).resolves.toBe(true)
     c.exit()
 
     expect(document.body.getAttribute(active.bodyAttr)).toBe('')
-    expect(document.body.hasAttribute(entry('qq98').bodyAttr)).toBe(false)
+    expect(document.body.hasAttribute(entry('miku').bodyAttr)).toBe(false)
     expect(document.body.hasAttribute(entry('xp').bodyAttr)).toBe(false)
   })
 
   it('cancels a pending chained try-on without a late remount', async () => {
     const active = entry('whale-song')
-    const first = entry('qq98')
+    const first = entry('miku')
     const second = entry('xp')
     window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
     document.body.setAttribute(active.bodyAttr, '')
@@ -211,7 +211,7 @@ describe('TryOnController skin switching', () => {
 
   it('deduplicates an overlapping A -> B -> A load and keeps the newest A mounted', async () => {
     const active = entry('whale-song')
-    const first = entry('qq98')
+    const first = entry('miku')
     const second = entry('xp')
     window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
     document.body.setAttribute(active.bodyAttr, '')
@@ -239,12 +239,12 @@ describe('TryOnController skin switching', () => {
     await expect(staleFirst).resolves.toBe(false)
     await expect(newestFirst).resolves.toBe(true)
     expect(document.body.getAttribute(first.bodyAttr)).toBe('')
-    expect(document.querySelector('style[data-plugin-css*="qq98.module.css"]')).not.toBeNull()
+    expect(document.querySelector('style[data-plugin-css*="miku.module.css"]')).not.toBeNull()
 
     releaseSecond()
     await expect(staleSecond).resolves.toBe(false)
     expect(document.body.getAttribute(first.bodyAttr)).toBe('')
-    expect(document.querySelector('style[data-plugin-css*="qq98.module.css"]')).not.toBeNull()
+    expect(document.querySelector('style[data-plugin-css*="miku.module.css"]')).not.toBeNull()
     expect(document.body.hasAttribute(second.bodyAttr)).toBe(false)
 
     c.exit()
@@ -253,7 +253,7 @@ describe('TryOnController skin switching', () => {
 
   it('cancels an initial load before a session exists', async () => {
     const active = entry('whale-song')
-    const target = entry('qq98')
+    const target = entry('xp')
     window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
     document.body.setAttribute(active.bodyAttr, '')
 
@@ -274,12 +274,12 @@ describe('TryOnController skin switching', () => {
     await expect(pending).resolves.toBe(false)
     expect(document.body.getAttribute(active.bodyAttr)).toBe('')
     expect(document.body.hasAttribute(target.bodyAttr)).toBe(false)
-    expect(document.querySelector('style[data-plugin-css*="qq98.module.css"]')).toBeNull()
+    expect(document.querySelector('style[data-plugin-css*="xp.module.css"]')).toBeNull()
   })
 
   it('switches to the official preview while another preview is loading', async () => {
     const active = entry('whale-song')
-    const first = entry('qq98')
+    const first = entry('miku')
     const pendingTarget = entry('xp')
     window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
     document.body.setAttribute(active.bodyAttr, '')
@@ -310,20 +310,20 @@ describe('TryOnController skin switching', () => {
     expect(document.body.getAttribute(active.bodyAttr)).toBe('')
   })
 
-  it('switching from ths try-on to another skin leaves no ths residue', async () => {
+  it('switching from trading try-on to another skin leaves no trading residue', async () => {
     const c = controller()
 
-    await expect(c.tryOn(entry('ths'))).resolves.toBe(true)
-    expect(document.body.getAttribute('data-dsh-ths')).toBe('')
-    expect(document.querySelector('style[data-plugin-css*="ths.module.css"]')).not.toBeNull()
+    await expect(c.tryOn(entry('trading'))).resolves.toBe(true)
+    expect(document.body.getAttribute('data-dsh-trading')).toBe('')
+    expect(document.querySelector('style[data-plugin-css*="trading.module.css"]')).not.toBeNull()
 
-    await expect(c.tryOn(entry('qq98'))).resolves.toBe(true)
-    expect(document.body.hasAttribute('data-dsh-ths')).toBe(false)
-    expect(document.querySelector('style[data-plugin-css*="ths.module.css"]')).toBeNull()
-    expect(document.body.querySelector('[class*="thsTitlebar"]')).toBeNull()
-    expect(document.body.querySelector('[class*="thsStatusbar"]')).toBeNull()
-    // qq98 try-on is live, so the title is qq98's — but never ths's.
-    expect(document.title).not.toBe('同花顺 · DeepSeek 在线')
+    await expect(c.tryOn(entry('xp'))).resolves.toBe(true)
+    expect(document.body.hasAttribute('data-dsh-trading')).toBe(false)
+    expect(document.querySelector('style[data-plugin-css*="trading.module.css"]')).toBeNull()
+    expect(document.body.querySelector('[class*="tradingTitlebar"]')).toBeNull()
+    expect(document.body.querySelector('[class*="tradingStatusbar"]')).toBeNull()
+    // xp try-on is live, so the title is xp's — but never trading's.
+    expect(document.title).not.toBe('交易终端 · DeepSeek 在线')
   })
 
   it('a skin whose apply() throws mid-write is rolled back completely', async () => {
@@ -343,9 +343,9 @@ describe('TryOnController skin switching', () => {
     expect(document.body.querySelector('.bombChrome')).toBeNull()
 
     // The surface stays usable for the next try-on.
-    await expect(c.tryOn(entry('qq98'))).resolves.toBe(true)
+    await expect(c.tryOn(entry('xp'))).resolves.toBe(true)
     expect(document.body.hasAttribute('data-dsh-bomb')).toBe(false)
-    expect(document.querySelector('style[data-plugin-css*="qq98.module.css"]')).not.toBeNull()
+    expect(document.querySelector('style[data-plugin-css*="xp.module.css"]')).not.toBeNull()
   })
 
   it('try-on of another skin neutralizes an active matrix (canvas hidden, observer inert)', async () => {
@@ -377,7 +377,7 @@ describe('TryOnController skin switching', () => {
     expect(document.body.dataset.dsDarkTheme).toBe('')
 
     const c = controller()
-    await expect(c.tryOn(entry('qq98'))).resolves.toBe(true)
+    await expect(c.tryOn(entry('xp'))).resolves.toBe(true)
 
     // Marker retracted and the overlay hidden by the neutralize rule (the
     // canvas itself stays in the DOM, exactly like xp's taskbar).
@@ -433,14 +433,14 @@ describe('TryOnController skin switching', () => {
 
   it('re-try-on after exit re-registers the same skin cleanly', async () => {
     const c = controller()
-    await expect(c.tryOn(entry('qq98'))).resolves.toBe(true)
+    await expect(c.tryOn(entry('xp'))).resolves.toBe(true)
     c.exit()
-    expect(document.body.hasAttribute('data-dsh-retro')).toBe(false)
-    expect(document.querySelector('style[data-plugin-css*="qq98.module.css"]')).toBeNull()
+    expect(document.body.hasAttribute('data-dsh-xp')).toBe(false)
+    expect(document.querySelector('style[data-plugin-css*="xp.module.css"]')).toBeNull()
     // A second try-on of the same skin must work: the exit invalidated the
     // module record, so the next load registers a fresh factory (no
     // duplicate-registration throw).
-    await expect(c.tryOn(entry('qq98'))).resolves.toBe(true)
-    expect(document.body.getAttribute('data-dsh-retro')).toBe('')
+    await expect(c.tryOn(entry('xp'))).resolves.toBe(true)
+    expect(document.body.getAttribute('data-dsh-xp')).toBe('')
   })
 })

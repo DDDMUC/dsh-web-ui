@@ -4,7 +4,7 @@
 
 `@linxin666/dsh-client-ui-skin-center`（cordis 插件 id `ui-skin-center`）把皮肤列表/试穿/应用放进真实 dsh Web GUI 的设置页，作为一级菜单项（设置 → 皮肤中心），与通用设置 / 模式 / 插件 / Agent 预设以及 Web UI 插件组、宠物同级。卡片自带启用开关（关闭后停用试穿、应用与背景控件）。
 
-- 列表：展示「官方默认」+ 仓库里全部皮肤（qq98 / ths / xp / blue-fantasy / dragon-heir / minecraft）的名称、tagline、强调色；当前激活的目标带 Active 标记。
+- 列表：展示「官方默认」+ 仓库里全部皮肤（xp / blue-fantasy / dragon-heir / minecraft / miku / matrix / harbor / trading / whale-mom / whale-song）的名称、tagline、强调色；当前激活的目标带 Active 标记。
 - 试穿：点击「Try on」后按需加载该皮肤的 client bundle——host 路由 `/api/skin-center/bundle/<id>` 以同源 script 提供 `lib/client.js`（内核加载插件的同一机制），factory 注册到页面自己的 `window.__ModuleLoader__`，`window.__DSH_MODULES__.import` 物化（不是模拟器、不用 eval），chrome 立即生效；亮/暗切换走官方 theme 服务；「Exit try-on」完全还原——当前皮肤的样式、DOM、favicon、标题、body 内联样式全部恢复。「官方默认」也可试穿：点一下皮肤立即收回、回到官方外观预览。
 - 互斥：试穿期间会按配方暂时收回当前激活皮肤的视觉写面（body 属性、背景内联样式、chrome 子节点、xp 的 footer taskbar），退出后原样恢复；同一时刻页面上只有一套皮肤。
 - 应用：host 半区（`src/index.ts` + `src/routes.ts`）暴露 `/api/skin-center/apply` 与 `/api/skin-center/bundle/<id>`（按需提供皮肤 bundle），点击「Apply / 恢复默认」即在服务端执行内嵌的 `dsh-skin use` 进程内移植版（`src/skin-switch.ts`），写入 `<harness-home>/profiles/<profile>/cordis.patch.yml` 后由 DSH 配置 watcher 秒级热载入，页面自动刷新生效——**无需重启 dsh web，无需复制命令，也不要求 PATH 上有 `dsh-skin` 二进制**。应用失败时错误提示里附带终端兜底命令。harness home 与 dsh 启动器一致：注入的 HOME 映射为 `<home>/.dsh`，否则优先使用去除首尾空白后非空的 `$DSH_HOME`（直接使用，不再追加后缀），最后回退到 `~/.dsh`。目标 profile 依次取：显式选项、`$DSH_SKIN_PROFILE`、`$DSH_PROFILE`、`process.cwd()` 直接位于 `<harness-home>/profiles/<name>` 下时的 `<name>`，最后 `web`。Windows 兼容性：同一套解析规则不依赖 `$HOME` 与固定路径，符号链接权限不足时 profile 链接回退为目录 junction。
@@ -31,7 +31,7 @@ skin-center 是符合 DSH 官方插件标准的自包含 bundle（`dsh.bundle.pa
 
 pnpm ≥10 安装 git 依赖前需先授权 `allowBuilds`（`prepare` 会原地构建），本地 link 安装则无此要求。
 
-需要皮肤插件们（qq98 / ths / xp / blue-fantasy）在宿主里也可解析时，skin-center 才能完整列出 / 试穿全部皮肤；skin-center 本身无互斥要求。
+需要皮肤插件们（xp / blue-fantasy / miku 等）在宿主里也可解析时，skin-center 才能完整列出 / 试穿全部皮肤；skin-center 本身无互斥要求。
 
 ## 目录结构
 
@@ -75,7 +75,7 @@ pnpm --filter @linxin666/dsh-client-ui-skin-center run bundle
 ## 安装（个人环境接线，不在 checkout 提交）
 
 ```sh
-# 1. profile symlink（与 qq98/blue-fantasy 同款）
+# 1. profile symlink（与 xp/blue-fantasy 同款）
 ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
   ~/.dsh/profiles/node_modules/@linxin666/dsh-client-ui-skin-center
 
