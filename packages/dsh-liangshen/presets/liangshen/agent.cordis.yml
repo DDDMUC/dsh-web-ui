@@ -99,6 +99,7 @@
 - id: persistent-shell
   name: cordis:group
   group: true
+  disabled: !!js process.platform === 'win32'
   isolate:
     terminals: true
   config:
@@ -123,6 +124,19 @@
           * To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.
           * Please avoid commands that may produce a very large amount of output.
           * Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.
+
+# Windows-only `bash` tool (custom-bash.mjs): the PTY backend above is
+# linux/darwin-only, so win32 disables the persistent-shell group and
+# registers this `bash` through the ordinary cross-platform subprocess seam
+# (Git Bash). Both platforms end up with exactly one tool named `bash`, so the
+# phase-1 Minimal anchor (shellTools: [bash] + str_replace_editor) is
+# unchanged. Non-zero exit is reported not thrown; state does NOT persist
+# across calls on this path; no OS sandbox confinement on Windows. `bashPath`
+# is optional (defaults to Git Bash inference); set it explicitly when git is
+# not on PATH.
+- id: custom-bash
+  name: ./custom-bash.mjs
+  disabled: !!js process.platform !== 'win32'
 
 # ── minimal phase-1 filesystem ──────────────────────────────────────────────
 

@@ -14,6 +14,8 @@ DeepSeek V4 Pro 会强烈依赖 API 中可见的**首轮工具目录**选择执�
 
 Windows 原生环境实测（DeepSeek V4 Pro、max、V4.1b 题面）：98 / 99，均值 98.5，第二轮全程无 `let me` 痕迹，证明不是抽卡，也不需要牺牲完整工具能力。原始实验 preset：[xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
 
+Windows 说明：DSH 的 PTY 后端仅支持 linux/darwin，win32 上持久 shell 组被禁用，phase-1 的 `bash` 切换为 `custom-bash`——同名且 schema 与 Minimal 兼容，经普通跨平台子进程通道调起 Git Bash（见 `presets/liangshen/custom-bash.mjs`）。
+
 ## 稳定化控制
 
 preset 在参考机制之上内置了额外保护，全部在 `agent.cordis.yml` 的 `tool-bootstrap` 段配置：
