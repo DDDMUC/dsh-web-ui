@@ -186,8 +186,9 @@ export class GitService {
     if (formatted.exitCode !== 0) {
       return { ok: false, error: { code: 'invalid-branch-name', message: formatted.stderr.trim() || 'invalid branch name' } }
     }
-    const refs = await this.runner.run(forEachRefArgv(), root)
-    if (parseBranches(refs.stdout).some(row => row.name === name)) {
+    // Single-ref probe instead of listing (and locale-sorting) every branch.
+    const exists = await this.runner.run(verifyRefArgv(name), root)
+    if (exists.exitCode === 0) {
       return { ok: false, error: { code: 'branch-already-exists', message: `branch "${name}" already exists` } }
     }
     const blocked = await this.guardBlock(root, undefined)
