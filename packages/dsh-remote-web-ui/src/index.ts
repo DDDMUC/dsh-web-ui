@@ -15,7 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import { PairingService } from './pairing.ts'
+import { PairingService, type PairingConfig } from './pairing.ts'
 import { isPairedDeviceRequest, makeGateListener } from './gate.ts'
 import { RemoteWebUiPairing } from './pairing-access.ts'
 import { isTrustedApiRequest, makeRoutes } from './routes.ts'
@@ -91,6 +91,14 @@ export interface Config {
    */
   publicBaseUrl?: string
   /**
+   * Absolute path to a JSON file where paired device sessions are persisted.
+   * When set, a paired phone keeps its session across `dsh web` restarts
+   * (the phone-side cookie already lives 365 days), so re-scanning the QR
+   * after each restart is unnecessary. Unset keeps sessions memory-only
+   * (previous behavior).
+   */
+  devicesFile?: string
+  /**
    * When true, the plugin runs its own Cloudflare quick tunnel (the
    * cloudflared binary ships with the package — no user-side install) and
    * feeds the minted public URL into both the QR base and the /api trust
@@ -116,6 +124,7 @@ export const Config: z<Config> = z.object({
   cookieName: z.string().min(1).default('dsh_pair'),
   requirePairingForLan: z.boolean().default(true),
   publicBaseUrl: z.string(),
+  devicesFile: z.string(),
   autoTunnel: z.boolean().default(false),
   mobileEnterToSend: z.boolean().default(true),
   enabled: z.boolean().default(true),
@@ -129,7 +138,29 @@ const SWEEP_INTERVAL_MS = 10_000
  * which legitimately resolves to `undefined` when unset (the schema keeps it
  * optional, so `Required` alone would over-narrow it to `string`).
  */
-type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl'>> & { publicBaseUrl: string | undefined }
+type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl' | 'devicesFile'>> & {
+  publicBaseUrl: string | undefined
+  devicesFile: string | undefined
+}
+
+/**
+ * The single mapping from resolved plugin config to the pairing service
+ * config. Both the constructed service and every live settings sync reuse
+ * it, so no field can be silently dropped when the web settings surface
+ * pushes a new value into the running service.
+ */
+export function pairingConfigOf(resolved: Pick<
+  ResolvedConfig,
+  'tokenTtlMs' | 'offlineAfterMs' | 'maxDevices' | 'cookieName' | 'devicesFile'
+>): PairingConfig {
+  return {
+    tokenTtlMs: resolved.tokenTtlMs,
+    offlineAfterMs: resolved.offlineAfterMs,
+    maxDevices: resolved.maxDevices,
+    cookieName: resolved.cookieName,
+    devicesFile: resolved.devicesFile,
+  }
+}
 
 /** Schema defaults, re-read for hand-built test contexts (the loader applies them normally). */
 const DEFAULTS: ResolvedConfig = {
@@ -139,6 +170,7 @@ const DEFAULTS: ResolvedConfig = {
   cookieName: 'dsh_pair',
   requirePairingForLan: true,
   publicBaseUrl: undefined,
+  devicesFile: undefined,
   autoTunnel: false,
   mobileEnterToSend: true,
   enabled: true,
@@ -159,6 +191,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     cookieName: config?.cookieName ?? DEFAULTS.cookieName,
     requirePairingForLan: config?.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
     publicBaseUrl: config?.publicBaseUrl,
+    devicesFile: config?.devicesFile,
     autoTunnel: config?.autoTunnel ?? DEFAULTS.autoTunnel,
     mobileEnterToSend: config?.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
     enabled: config?.enabled ?? DEFAULTS.enabled,
@@ -176,17 +209,13 @@ function applyImpl(ctx: Context, config?: Config): void {
       cookieName: value.cookieName ?? DEFAULTS.cookieName,
       requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
       publicBaseUrl: value.publicBaseUrl,
+      devicesFile: value.devicesFile ?? DEFAULTS.devicesFile,
       autoTunnel: value.autoTunnel ?? DEFAULTS.autoTunnel,
       mobileEnterToSend: value.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
       enabled: value.enabled ?? DEFAULTS.enabled,
     }
   }
-  const service = new PairingService({
-    tokenTtlMs: resolved.tokenTtlMs,
-    offlineAfterMs: resolved.offlineAfterMs,
-    maxDevices: resolved.maxDevices,
-    cookieName: resolved.cookieName,
-  })
+  const service = new PairingService(pairingConfigOf(resolved))
 
   // ── auto tunnel ─────────────────────────────────────────────────────────
   // The minted public URL becomes the QR base (and the pairing fence's
@@ -321,12 +350,7 @@ function applyImpl(ctx: Context, config?: Config): void {
   })
   const sync = (): void => {
     const value = resolve()
-    service.config = {
-      tokenTtlMs: value.tokenTtlMs,
-      offlineAfterMs: value.offlineAfterMs,
-      maxDevices: value.maxDevices,
-      cookieName: value.cookieName,
-    }
+    service.config = pairingConfigOf(value)
     // The auto tunnel owns the public base while enabled: the minted URL
     // lands in the service through the tunnel's phase listener. The manual
     // publicBaseUrl applies only when the auto tunnel is off.
