@@ -25,6 +25,20 @@ const files = [
 const START = '<!-- CONTRIBUTORS:START -->'
 const END = '<!-- CONTRIBUTORS:END -->'
 
+/**
+ * Contributors whose only merged PRs were documentation-only. The GitHub
+ * /contributors endpoint counts every commit on main regardless of type, so
+ * doc-only PR authors would still show up there; the repository rejects
+ * documentation-only PRs (see .github/workflows/reject-docs-pr.yml), so these
+ * logins are excluded from the rendered list. Add a login here (with the
+ * merged PR numbers) when another doc-only PR lands.
+ */
+const EXCLUDED_LOGINS = new Set([
+  'xiehuan123', // docs-only merged PR #291
+  'Amengclass', // docs-only merged PR #91
+  'github-actions[bot]', // auto-commits README syncs; not a human contributor
+])
+
 async function fetchContributors() {
   let page = 1
   const all = []
@@ -69,7 +83,7 @@ function replaceSection(text, section) {
   return text.slice(0, i) + section + text.slice(j + END.length)
 }
 
-const contributors = await fetchContributors()
+const contributors = (await fetchContributors()).filter((c) => !EXCLUDED_LOGINS.has(c.login))
 for (const { rel, viewAllLabel } of files) {
   const path = join(root, rel)
   const original = readFileSync(path, 'utf8')
