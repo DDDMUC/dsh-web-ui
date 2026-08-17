@@ -128,6 +128,8 @@ export class PanelLayoutController {
   private sizeObserver: ResizeObserver | null = null
   private waitObserver: MutationObserver | null = null
   private frameWidth = 0
+  /** Cached shell details handle (re-resolved when the shell rebuilds it). */
+  private detailsHandle: HTMLElement | null = null
   /** The shell's own 3 tracks (sidebar, center, details) — mirror of its inline style. */
   private shellTracks: string[] = []
   private instantTimer: ReturnType<typeof setTimeout> | undefined
@@ -156,6 +158,7 @@ export class PanelLayoutController {
     // rest of the session.
     this.waitObserver?.disconnect()
     this.waitObserver = null
+    this.detailsHandle = null
 
     // The two panel columns: trailing grid items (tracks 4 and 5).
     const previewCol = document.createElement('div')
@@ -475,9 +478,14 @@ export class PanelLayoutController {
     // column's left edge (degenerates to the official value when both panels
     // are closed).
     const detailsTrack = trackPx(this.shellTracks[2])
-    const detailsHandle = frame.querySelector<HTMLElement>('[data-side="details"]')
-    if (detailsHandle !== null) {
-      detailsHandle.style.left = `${Math.round(width - detailsTrack - preview - explorer)}px`
+    // applyGrid runs on every drag frame: resolve the shell handle once and
+    // cache it instead of scanning the whole frame subtree each call. The
+    // cache resets on attach (the shell may rebuild its chrome on HMR).
+    if (this.detailsHandle === null || !this.detailsHandle.isConnected) {
+      this.detailsHandle = frame.querySelector<HTMLElement>('[data-side="details"]')
+    }
+    if (this.detailsHandle !== null) {
+      this.detailsHandle.style.left = `${Math.round(width - detailsTrack - preview - explorer)}px`
     }
 
     // Floating expand button: visible only when the explorer is collapsed.
