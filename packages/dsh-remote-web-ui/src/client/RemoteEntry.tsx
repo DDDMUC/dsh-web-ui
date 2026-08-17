@@ -50,6 +50,11 @@ function mergeFrame(state: PanelState, frame: PairStateFrame): PanelState {
 export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<PanelState>({ kind: 'lan-required' })
+  // Latest-state mirror for the EventSource callback: transition detection
+  // must live outside setState updaters (updaters may run twice and must be
+  // pure), so mint decisions read this ref instead.
+  const stateRef = useRef(state)
+  useEffect(() => { stateRef.current = state }, [state])
   const [copied, setCopied] = useState(false)
   const eventSource = useRef<EventSource | undefined>(undefined)
 
@@ -115,21 +120,22 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
       try {
         const frame = JSON.parse(event.data as string) as PairStateFrame
         if (frame.type !== 'state') return
-        setState(previous => {
-          // The auto-tunnel crossed into running while the panel sat on the
-          // lan-required banner: re-issue so the server hands back a ready
-          // QR built on the public base (only on the transition into
-          // running, to avoid mint storms).
-          if (
-            previous.kind === 'lan-required'
-            && frame.tunnel?.state === 'running'
-            && previous.tunnel?.state !== 'running'
-          ) {
-            void mint().then(setState)
-            return previous
-          }
-          return mergeFrame(previous, frame)
-        })
+        // The auto-tunnel crossed into running while the panel sat on the
+        // lan-required banner: re-issue so the server hands back a ready QR
+        // built on the public base (only on the transition into running, to
+        // avoid mint storms). Detected on the ref, outside the updater: an
+        // updater may be invoked twice and must stay pure, so mint() cannot
+        // run inside it.
+        const previous = stateRef.current
+        if (
+          previous.kind === 'lan-required'
+          && frame.tunnel?.state === 'running'
+          && previous.tunnel?.state !== 'running'
+        ) {
+          void mint().then(setState)
+          return
+        }
+        setState(current => mergeFrame(current, frame))
       } catch {
         // Malformed frames are dropped; the snapshot on open is authoritative.
       }

@@ -1,13 +1,14 @@
 > 提 PR 前请阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 与 [AGENTS.md](../AGENTS.md)；
 > 提交信息用 Conventional Commits（`type(scope): subject`），禁止 emoji。
-> 本仓库接受修复、增强与优化类 PR（bug 修复、现有功能的增强、性能 / 体验优化、维护与文档修正）；新皮肤始终欢迎。全新特性 / 新功能的 PR 暂不接受，请先提 Issue 讨论。
+> 本仓库接受修复、增强与优化类 PR（bug 修复、现有功能的增强、性能 / 体验优化、维护）；新皮肤始终欢迎。全新特性 / 新功能的 PR 暂不接受，请先提 Issue 讨论。
+> 仅文档类 PR（标题以 `docs:` 开头或勾选「仅文档」）不接受，会被自动关闭；文档改动请先提 Issue 讨论。
 ## 摘要（Summary）
 
 <!-- 用一两句话说明改了什么、为什么改。 -->
 
 ## 涉及包（Affected Packages）
 
-<!-- 勾选本次改动涉及的包；仅文档/脚本改动可全部不勾选并说明。 -->
+<!-- 勾选本次改动涉及的包；仅脚本改动（维护类）可全部不勾选并说明。 -->
 
 - [ ] 任务看板 `packages/dsh-task-board`
 - [ ] Git 图谱 `packages/dsh-git-graph`
@@ -28,8 +29,9 @@
 - [ ] Bug 修复
 - [ ] 增强 / 优化（现有功能的改进、性能 / 体验优化）
 - [ ] 新皮肤收录（内容贡献，欢迎直接提交，无需先提 issue）
-- [ ] 仅文档
 - [ ] 维护 / 重构
+
+<!-- 仅文档类 PR 不接受，会被自动关闭；文档改动请先提 Issue 讨论。 -->
 
 ## 最新代码确认（Latest Codebase Confirmation）
 
@@ -114,4 +116,4 @@ pnpm build
 
 证据：
 
-<!-- 粘贴 GitHub 图片 / 视频附件、Markdown 图片或直接图片 / 视频链接。仅文档或纯内部改动可填 N/A。 -->
+<!-- 粘贴 GitHub 图片 / 视频附件、Markdown 图片或直接图片 / 视频链接。纯内部改动（无用户可见变更）可填 N/A。 -->

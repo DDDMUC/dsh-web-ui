@@ -87,51 +87,63 @@ export class GitService {
     private readonly gate: WorkspaceGate,
   ) {}
 
-  /** The repository snapshot the branch chip renders; null when not a repository. */
-  async status(path: string): Promise<RepoStatus | null> {
+  /**
+   * The plumbing every read view shares: gate, repo root, current branch, and
+   * the porcelain counts + operation marker. Null when the path is not a
+   * usable repository (the workspace-gate semantics both views keep).
+   */
+  private async snapshot(path: string): Promise<{
+    root: string
+    branch: string
+    counts: ReturnType<typeof parsePorcelain>
+    operationInProgress: boolean
+  } | null> {
     const gated = await this.gate(path)
     if (!gated.ok) return null
     const root = await this.repoRoot(gated.canonical)
     if (root === null) return null
-    const [branchResult, headResult, porcelain] = await Promise.all([
+    const [branchResult, porcelain] = await Promise.all([
       this.runner.run(headBranchArgv(), root),
-      this.runner.run(headShortArgv(), root),
       this.runner.run(statusPorcelainArgv(), root),
     ])
     const branch = branchResult.stdout.trim()
-    const counts = parsePorcelain(porcelain.stdout)
     return {
       root,
       branch: branch === DETACHED ? '' : branch,
-      head: headResult.stdout.trim(),
-      dirtyFiles: counts.dirtyFiles,
-      untrackedFiles: counts.untrackedFiles,
-      conflicts: counts.conflicts,
+      counts: parsePorcelain(porcelain.stdout),
       operationInProgress: await this.operationInProgress(root),
+    }
+  }
+
+  /** The repository snapshot the branch chip renders; null when not a repository. */
+  async status(path: string): Promise<RepoStatus | null> {
+    const snap = await this.snapshot(path)
+    if (snap === null) return null
+    const headResult = await this.runner.run(headShortArgv(), snap.root)
+    return {
+      root: snap.root,
+      branch: snap.branch,
+      head: headResult.stdout.trim(),
+      dirtyFiles: snap.counts.dirtyFiles,
+      untrackedFiles: snap.counts.untrackedFiles,
+      conflicts: snap.counts.conflicts,
+      operationInProgress: snap.operationInProgress,
     }
   }
 
   /** Local branch list with the current branch marked (git for-each-ref refs/heads). */
   async branches(path: string): Promise<BranchesView | null> {
-    const gated = await this.gate(path)
-    if (!gated.ok) return null
-    const root = await this.repoRoot(gated.canonical)
-    if (root === null) return null
-    const [refs, branchResult, porcelain] = await Promise.all([
-      this.runner.run(forEachRefArgv(), root),
-      this.runner.run(headBranchArgv(), root),
-      this.runner.run(statusPorcelainArgv(), root),
-    ])
-    const current = branchResult.stdout.trim()
-    const counts = parsePorcelain(porcelain.stdout)
+    const snap = await this.snapshot(path)
+    if (snap === null) return null
+    const refs = await this.runner.run(forEachRefArgv(), snap.root)
     return {
-      root,
-      branch: current === DETACHED ? '' : current,
+      root: snap.root,
+      branch: snap.branch,
       branches: parseBranches(refs.stdout),
-      dirtyFiles: counts.dirtyFiles,
-      untrackedFiles: counts.untrackedFiles,
-      conflicts: counts.conflicts,
-      operationInProgress: await this.operationInProgress(root),
+      dirtyFiles: snap.counts.dirtyFiles,
+      untrackedFiles: snap.counts.untrackedFiles,
+      conflicts: snap.counts.conflicts,
+      operationInProgress: snap.operationInProgress,
     }
   }
 
@@ -186,8 +198,9 @@ export class GitService {
     if (formatted.exitCode !== 0) {
       return { ok: false, error: { code: 'invalid-branch-name', message: formatted.stderr.trim() || 'invalid branch name' } }
     }
-    const refs = await this.runner.run(forEachRefArgv(), root)
-    if (parseBranches(refs.stdout).some(row => row.name === name)) {
+    // Single-ref probe instead of listing (and locale-sorting) every branch.
+    const exists = await this.runner.run(verifyRefArgv(name), root)
+    if (exists.exitCode === 0) {
       return { ok: false, error: { code: 'branch-already-exists', message: `branch "${name}" already exists` } }
     }
     const blocked = await this.guardBlock(root, undefined)

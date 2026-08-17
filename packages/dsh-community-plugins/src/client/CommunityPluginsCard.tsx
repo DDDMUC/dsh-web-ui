@@ -120,7 +120,9 @@ export type CommunityPluginsCardProps =
 export function CommunityPluginsCard(props: CommunityPluginsCardProps): ReactNode {
   const { t } = props
   const state = props.useCommunityPluginsCard(snapshot => snapshot)
-  const plugins = (props.plugins ?? COMMUNITY_PLUGINS).filter(isCommunityPluginEntry)
+  // Memoized so the categoryCounts/visiblePlugins caches below only
+  // recompute when the registry actually changes, not on every keystroke.
+  const plugins = useMemo(() => (props.plugins ?? COMMUNITY_PLUGINS).filter(isCommunityPluginEntry), [props.plugins])
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CommunityPluginCategory | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)

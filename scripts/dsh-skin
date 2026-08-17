@@ -39,23 +39,31 @@ const PROFILE_MODULES = path.join(DSH_HOME, 'profiles', 'node_modules')
  * clone path works; overridable via DSH_SKIN_REPO. */
 const REPO = process.env.DSH_SKIN_REPO || path.resolve(__dirname, '..')
 
-/** Skin registry: name -> package, cordis row id, symlink resolve target (all repo dirs). */
-const SKINS = {
-  qq98: { pkg: '@linxin666/dsh-client-ui-skin-qq98', id: 'ui-skin-qq98', dir: `${REPO}/packages/skins/qq98` },
-  ths: { pkg: '@linxin666/dsh-client-ui-skin-ths', id: 'ui-skin-ths', dir: `${REPO}/packages/skins/ths` },
-  xp: { pkg: '@linxin666/dsh-client-ui-skin-xp', id: 'ui-skin-xp', dir: `${REPO}/packages/skins/xp` },
-  'blue-fantasy': { pkg: '@linxin666/dsh-client-ui-skin-blue-fantasy', id: 'ui-skin-blue-fantasy', dir: `${REPO}/packages/skins/blue-fantasy` },
-  'dragon-heir': { pkg: '@linxin666/dsh-client-ui-skin-dragon-heir', id: 'ui-skin-dragon-heir', dir: `${REPO}/packages/skins/dragon-heir` },
-  minecraft: { pkg: '@linxin666/dsh-client-ui-skin-minecraft', id: 'ui-skin-minecraft', dir: `${REPO}/packages/skins/minecraft` },
-  'whale-song': { pkg: '@linxin666/dsh-client-ui-skin-whale-song', id: 'ui-skin-whale-song', dir: `${REPO}/packages/skins/whale-song` },
-  'whale-mom': { pkg: '@linxin666/dsh-client-ui-skin-whale-mom', id: 'ui-skin-whale-mom', dir: `${REPO}/packages/skins/whale-mom` },
-  trading: { pkg: '@linxin666/dsh-client-ui-skin-trading', id: 'ui-skin-trading', dir: `${REPO}/packages/skins/trading` },
-  miku: { pkg: '@linxin666/dsh-client-ui-skin-miku', id: 'ui-skin-miku', dir: `${REPO}/packages/skins/miku` },
-  matrix: { pkg: '@linxin666/dsh-client-ui-skin-matrix', id: 'ui-skin-matrix', dir: `${REPO}/packages/skins/matrix` },
-  harbor: { pkg: '@linxin666/dsh-client-ui-skin-harbor', id: 'ui-skin-harbor', dir: `${REPO}/packages/skins/harbor` },
+/**
+ * Skin registry: name -> package, cordis row id, symlink resolve target.
+ * Scanned from each packages/skins/<dir>/skin.json at load (id / package / wiring.id
+ * live there), so a scaffolded skin is switchable without editing this
+ * script. Deterministic: sorted by directory name.
+ */
+function loadSkins() {
+  const skinsRoot = path.join(REPO, 'packages', 'skins')
+  const out = {}
+  if (!fs.existsSync(skinsRoot)) return out
+  for (const entry of fs.readdirSync(skinsRoot).sort()) {
+    const manifestPath = path.join(skinsRoot, entry, 'skin.json')
+    if (!fs.existsSync(manifestPath)) continue
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+      if (typeof manifest.package === 'string' && typeof manifest.wiring?.id === 'string') {
+        out[manifest.id ?? entry] = { pkg: manifest.package, id: manifest.wiring.id, dir: path.join(skinsRoot, entry) }
+      }
+    } catch {
+      // A malformed skin.json skips that skin instead of breaking the switcher.
+    }
+  }
+  return out
 }
-/** Skins wired at the bundle layer already (no insert row needed here). Empty in the npm aggregate layout — no skin ships pre-wired; profile-installed skins are detected dynamically via bundleWiredFromProfile(). */
-const BUNDLE_WIRED = new Set()
+const SKINS = loadSkins()
 
 /** The profile manifest path (`$DSH_HOME/profiles/<profile>/package.json`). */
 function profileManifestPath() {
@@ -145,7 +153,7 @@ function stripManaged(patch) {
 }
 
 function renderManaged(active) {
-  const wired = new Set([...BUNDLE_WIRED, ...bundleWiredFromProfile()])
+  const wired = bundleWiredFromProfile()
   const lines = [MANAGED_START]
   for (const name of Object.keys(SKINS)) {
     if (name === active) continue
@@ -171,7 +179,7 @@ function currentActive(patch) {
   for (const m of patch.matchAll(/^- id: (ui-skin-[a-z0-9-]+)\n  disabled: true/gm)) {
     disabled.add(m[1])
   }
-  const wired = new Set([...BUNDLE_WIRED, ...bundleWiredFromProfile()])
+  const wired = bundleWiredFromProfile()
   for (const [name, skin] of Object.entries(SKINS)) {
     if (wired.has(name) && !disabled.has(skin.id)) return name
   }

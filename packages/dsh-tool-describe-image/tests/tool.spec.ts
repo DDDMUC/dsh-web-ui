@@ -12,7 +12,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 
 import * as tool from '../src/index.ts'
-import { registerAttachmentRef } from '../src/attach-routes.ts'
+import { registerAttachmentRef, safeDecodeUriComponent } from '../src/attach-routes.ts'
 import { chatReply, FakeWebServer, jsonReply, PNG_BYTES, rawReply, responsesReply, sentContent, sentInputContent, startMockServer } from './mock-server.ts'
 
 /** In-memory attachment store so the attachment-reference input path is observable. */
@@ -527,6 +527,14 @@ describe('input bounds', () => {
     const result = await callDescribe(ctx, { image: `${server.url}/missing.png` })
     expect(result.isError).toBe(true)
     expect(errorText(result)).toContain('image fetch returned HTTP 404')
+  })
+})
+
+describe('safeDecodeUriComponent', () => {
+  it('decodes valid input and returns null for malformed percent-encoding', () => {
+    expect(safeDecodeUriComponent('sha256%3Aabc')).toBe('sha256:abc')
+    expect(safeDecodeUriComponent('%E0%A4%A')).toBeNull()
+    expect(safeDecodeUriComponent('%')).toBeNull()
   })
 })
 

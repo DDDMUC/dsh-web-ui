@@ -30,18 +30,6 @@ export interface SessionView {
   blank: boolean
 }
 
-/** One rendered chat message (produced by the fold). */
-export interface RenderMessage {
-  id: string
-  kind: 'user' | 'assistant'
-  text: string
-  seq: number
-  time: number
-  pending?: boolean
-  failed?: boolean
-  toolSummary?: string
-}
-
 /** Read the optional workspace target carried from the pairing QR flow. */
 export function mobileWorkspaceTarget(search: string): string | undefined {
   const value = new URLSearchParams(search).get('workspace')

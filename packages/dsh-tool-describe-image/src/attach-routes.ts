@@ -71,6 +71,15 @@ export function registerAttachmentRef(ref: ImageAttachmentRef): void {
 }
 
 /** Look up a persisted reference by its bare attachment id, if still in the registry. */
+/** decodeURIComponent that returns null instead of throwing on malformed input. */
+export function safeDecodeUriComponent(value: string): string | null {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return null
+  }
+}
+
 export function attachmentRefById(id: string): ImageAttachmentRef | undefined {
   return ATTACHMENT_REF_REGISTRY.get(id)
 }
@@ -201,7 +210,14 @@ async function serveRawImage(ctx: Context, req: IncomingMessage, res: ServerResp
     res.end()
     return
   }
-  const id = decodeURIComponent(match[1])
+  // Malformed percent-encoding must answer a controlled 404, not throw a
+  // URIError out of the handler.
+  const id = safeDecodeUriComponent(match[1])
+  if (id === null) {
+    res.writeHead(404)
+    res.end()
+    return
+  }
   const ref = attachmentRefById(id)
   if (ref === undefined) {
     res.writeHead(404)

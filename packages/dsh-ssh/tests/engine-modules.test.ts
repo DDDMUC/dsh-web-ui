@@ -5,7 +5,7 @@
  * covered by tests/engine.test.ts against the embedded ssh2 server.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -106,6 +106,19 @@ describe('sftp', () => {
       writeFileSync(join(dir, 'a', 'b', 'two.txt'), 'x', 'utf8')
       const files = walkLocalDir(dir).sort()
       expect(files).toEqual(['a/b/two.txt', 'a/one.txt', 'root.txt'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('walkLocalDir skips symlinks (a link cycle must not recurse forever)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-ssh-sftp-walk-'))
+    try {
+      writeFileSync(join(dir, 'real.txt'), 'x', 'utf8')
+      symlinkSync('.', join(dir, 'self'))
+      symlinkSync('real.txt', join(dir, 'alias.txt'))
+      const files = walkLocalDir(dir)
+      expect(files).toEqual(['real.txt'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

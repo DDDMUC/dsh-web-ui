@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { walkFamilyPackages } from './lib/family-packages.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -108,15 +109,7 @@ function headingSlugs(file) {
 
 /** All package directories (packages/* and packages/skins/* with a package.json). */
 function packageDirs() {
-  const dirs = []
-  for (const base of [resolve(root, 'packages'), resolve(root, 'packages/skins')]) {
-    if (!existsSync(base)) continue
-    for (const name of readdirSync(base)) {
-      const dir = resolve(base, name)
-      if (existsSync(resolve(dir, 'package.json'))) dirs.push(dir)
-    }
-  }
-  return dirs
+  return walkFamilyPackages(root).map(({ dir }) => dir)
 }
 
 function isExternal(url) {

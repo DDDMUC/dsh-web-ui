@@ -8,6 +8,7 @@
  * @module @linxin666/dsh-tool-describe-image/vision
  */
 
+import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
@@ -127,6 +128,14 @@ function toImage(bytes: Buffer, source: string): LoadedImage {
   return { bytes, mimeType }
 }
 
+/** Bound-check then sniff one loaded buffer — the shared tail of every input branch. */
+function finishLoad(bytes: Buffer, source: string, maxBytes: number): LoadedImage {
+  if (bytes.length > maxBytes) {
+    throw new Error(`describe-image: image is ${bytes.length} bytes, above the ${maxBytes}-byte bound`)
+  }
+  return toImage(bytes, source)
+}
+
 /**
  * Load one image from a local absolute path, an http(s) URL, or a durable attachment reference
  * (the JSON an `[image attachment …]` note carries), enforcing the byte bound before any bytes
@@ -145,10 +154,7 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
   }
   if (trimmed.startsWith('{')) {
     const bytes = await readAttachment(ctx, trimmed, signal)
-    if (bytes.length > maxBytes) {
-      throw new Error(`describe-image: image is ${bytes.length} bytes, above the ${maxBytes}-byte bound`)
-    }
-    return toImage(bytes, trimmed.slice(0, 96))
+    return finishLoad(bytes, trimmed.slice(0, 96), maxBytes)
   }
   if (/^https?:\/\//i.test(trimmed)) {
     const response = await fetch(trimmed, { signal, redirect: 'error' })
@@ -160,7 +166,7 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
       throw new Error(`describe-image: image is ${declared} bytes, above the ${maxBytes}-byte bound`)
     }
     const bytes = await readBoundedBody(response, maxBytes)
-    return toImage(bytes, trimmed)
+    return finishLoad(bytes, trimmed, maxBytes)
   }
   // A bare attachment id — the `sha256:…` string text models tend to copy out of
   // an `[image attachment …]` note instead of the whole JSON. Resolve it through
@@ -168,10 +174,7 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
   const registered = attachmentRefById(trimmed)
   if (registered !== undefined) {
     const bytes = await readAttachment(ctx, JSON.stringify(registered), signal)
-    if (bytes.length > maxBytes) {
-      throw new Error(`describe-image: image is ${bytes.length} bytes, above the ${maxBytes}-byte bound`)
-    }
-    return toImage(bytes, trimmed)
+    return finishLoad(bytes, trimmed, maxBytes)
   }
   const info = await stat(trimmed, { bigint: false })
   if (!info.isFile()) throw new Error(`describe-image: image path is not a file: ${trimmed}`)
@@ -179,7 +182,7 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
     throw new Error(`describe-image: image is ${info.size} bytes, above the ${maxBytes}-byte bound`)
   }
   const bytes = await readFile(trimmed, { signal })
-  return toImage(bytes, trimmed)
+  return finishLoad(bytes, trimmed, maxBytes)
 }
 
 /**
@@ -188,23 +191,31 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
  * @param cap - the byte bound.
  * @returns the accumulated body bytes.
  */
-export async function readBoundedBody(response: Response, cap: number): Promise<Buffer> {
-  if (response.body === null) return Buffer.alloc(0)
+/** Drain a response body chunk by chunk, always releasing the reader lock. */
+async function drainResponse(response: Response, onChunk: (value: Uint8Array) => 'stop' | undefined): Promise<void> {
+  if (response.body === null) return
   const reader = response.body.getReader()
-  const chunks: Buffer[] = []
-  let total = 0
   try {
     for (;;) {
       const { done, value } = await reader.read()
       if (done) break
-      const chunk = Buffer.from(value)
-      total += chunk.length
-      if (total > cap) throw new Error(`describe-image: response exceeds the ${cap}-byte bound`)
-      chunks.push(chunk)
+      if (onChunk(value) === 'stop') return
     }
   } finally {
     reader.releaseLock()
   }
+}
+
+export async function readBoundedBody(response: Response, cap: number): Promise<Buffer> {
+  const chunks: Buffer[] = []
+  let total = 0
+  await drainResponse(response, (value) => {
+    const chunk = Buffer.from(value)
+    total += chunk.length
+    if (total > cap) throw new Error(`describe-image: response exceeds the ${cap}-byte bound`)
+    chunks.push(chunk)
+    return undefined
+  })
   return Buffer.concat(chunks)
 }
 
@@ -215,21 +226,20 @@ export async function readBoundedBody(response: Response, cap: number): Promise<
  * @returns the decoded text, never longer than `cap` characters.
  */
 export async function readBoundedText(response: Response, cap: number): Promise<string> {
-  if (response.body === null) return ''
-  const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let text = ''
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      text += decoder.decode(value, { stream: true })
-      if (text.length > cap) return text.slice(0, cap)
+  let stopped = false
+  await drainResponse(response, (value) => {
+    text += decoder.decode(value, { stream: true })
+    if (text.length > cap) {
+      stopped = true
+      return 'stop'
     }
-    text += decoder.decode()
-  } finally {
-    reader.releaseLock()
-  }
+    return undefined
+  })
+  // The final flush decode matters only for a fully-read stream; a truncated
+  // read cuts mid-sequence anyway.
+  if (!stopped) text += decoder.decode()
   return text.length > cap ? text.slice(0, cap) : text
 }
 
@@ -370,9 +380,13 @@ export function createVisionCache(options?: { ttlMs?: number; maxEntries?: numbe
 
 /** The semantic identity of one vision request: endpoint fields plus the same image bytes and prompt. */
 export function semanticRequestKey(spec: ResolvedConfig, prompt: string, image: LoadedImage): string {
+  // Key by a digest of the bytes, not the base64 text itself: the full
+  // encoding is ~1.33x a multi-MB image and every cached entry would pin
+  // that string for the TTL, while a digest is 64 chars.
+  const digest = createHash('sha256').update(image.bytes).digest('hex')
   return JSON.stringify([
     spec.baseURL, spec.model, spec.maxOutputTokens, spec.apiStyle, spec.thinking,
-    image.bytes.toString('base64'), image.mimeType, prompt,
+    digest, image.mimeType, prompt,
   ])
 }
 

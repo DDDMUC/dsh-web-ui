@@ -29,6 +29,14 @@ function fakeRunner(): { runner: GitRunner; calls: string[][] } {
         return { exitCode: 0, stdout: 'M  tracked.txt\0?? new.txt\0', stderr: '' }
       }
       if (command === 'ls-files') {
+        // Batch -z form: stdout echoes the tracked matches (new.txt is the
+        // fixture's untracked path); discard classifies from this output.
+        if (argv.includes('-z')) {
+          const tracked = argv
+            .filter((arg) => arg.startsWith(':(literal)') && arg !== ':(literal)new.txt')
+            .map((arg) => arg.slice(':(literal)'.length))
+          return { exitCode: 0, stdout: tracked.map((name) => name + '\0').join(''), stderr: '' }
+        }
         // --error-unmatch fails for untracked paths. Paths are passed with the
         // :(literal) pathspec magic so names can't be parsed as magic tokens.
         return argv.some((arg) => arg === ':(literal)' + 'new.txt')

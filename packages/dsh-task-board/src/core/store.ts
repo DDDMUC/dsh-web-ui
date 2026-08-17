@@ -10,7 +10,7 @@
  * localStorage backend.
  */
 import { isValidCron } from './schedule.ts'
-import { isTaskPermission, isTaskStatus, type ScheduleRule, type TaskRecord, type TaskPermission, type TaskStatus } from './tasks.ts'
+import { isTaskPermission, isTaskStatus, normalizeTargetId, type ScheduleRule, type TaskRecord, type TaskPermission, type TaskStatus } from './tasks.ts'
 
 /** Persistence seam for the task ledger. */
 export interface TaskStore {
@@ -74,11 +74,6 @@ function isTaskRecordShape(value: unknown): value is Omit<TaskRecord, 'status'> 
     if (entry.error !== undefined && typeof entry.error !== 'string') return false
   }
   return true
-}
-
-/** Collapse a blank persisted target string to undefined (clears the pin). */
-function normalizeTargetId(value: string | undefined): string | undefined {
-  return value !== undefined && value.trim() === '' ? undefined : value
 }
 
 /** A task record is structurally valid if it round-trips through the UI. */

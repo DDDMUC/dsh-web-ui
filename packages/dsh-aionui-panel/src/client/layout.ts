@@ -5,10 +5,9 @@
  * grid-template-columns string and re-appending the two panel tracks on every
  * shell update (MutationObserver, same frame before paint). Also owns the
  * absolute drag handles (12px explorer / 20px preview hit zones), the
- * floating expand button (docked at the top-right corner, exactly where
- * the explorer's collapse chevron sits below the Window Controls Overlay
- * titlebar — issues #374 / #292), the collapse-as-width-0 keep-mounted
- * behavior, and the transient
+ * floating expand button (docked at the top-right corner, just below the
+ * shell header's divider — issues #374 / #292), the collapse-as-width-0
+ * keep-mounted behavior, and the transient
  * maximize mode (issue #315): while a panel is maximized the target column
  * takes over the whole frame row (or renders as a fixed full-screen overlay
  * on narrow viewports), and Esc / the header button restore the layout.
@@ -36,7 +35,8 @@ import {
 import { writeStoredNumber } from './persist.ts'
 import { maximizedGridTracks, maximizedOverlay } from './maximize.ts'
 import {
-  FLOATING_BUTTON_HEIGHT_PX, titlebarAreaHeight, topAlignedFloatingTop,
+  FLOATING_BUTTON_HEIGHT_PX, FLOATING_HEADER_GAP_PX,
+  clampFloatingTop, titlebarAreaHeight, topAlignedFloatingTop,
 } from './floating.ts'
 import type { LayoutStore } from './store.ts'
 
@@ -128,6 +128,8 @@ export class PanelLayoutController {
   private sizeObserver: ResizeObserver | null = null
   private waitObserver: MutationObserver | null = null
   private frameWidth = 0
+  /** Cached shell details handle (re-resolved when the shell rebuilds it). */
+  private detailsHandle: HTMLElement | null = null
   /** The shell's own 3 tracks (sidebar, center, details) — mirror of its inline style. */
   private shellTracks: string[] = []
   private instantTimer: ReturnType<typeof setTimeout> | undefined
@@ -156,6 +158,7 @@ export class PanelLayoutController {
     // rest of the session.
     this.waitObserver?.disconnect()
     this.waitObserver = null
+    this.detailsHandle = null
 
     // The two panel columns: trailing grid items (tracks 4 and 5).
     const previewCol = document.createElement('div')
@@ -373,14 +376,34 @@ export class PanelLayoutController {
     })
   }
 
-  /** Position the floating button: docked at the top-right corner, aligned
-   * with the explorer's collapse chevron (below the WCO titlebar strip). */
+  /**
+   * Locate the shell conversation header: its bottom border is the
+   * horizontal divider under the "Session log" row the button should
+   * sit below. Resolved per call (the shell may mount it late); null when
+   * the shell has no header (standalone installs, desktop variants).
+   */
+  private findHeaderBottom(): number | null {
+    const frame = this.frame
+    if (frame === null) return null
+    const header = frame.querySelector<HTMLElement>(
+      '[data-pane="conversation"] header, [class*="centerCol"] header',
+    )
+    if (header === null) return null
+    const bottom = header.getBoundingClientRect().bottom
+    return Number.isFinite(bottom) ? bottom : null
+  }
+
+  /** Position the floating button: docked at the top-right corner, just
+   * below the shell header's bottom divider (fallback: the chevron row). */
   private positionFloatingButton(): void {
     const el = this.floatingButton
     if (el === null) return
     const height = window.innerHeight
     const titlebar = titlebarAreaHeight()
-    const top = topAlignedFloatingTop(height, FLOATING_BUTTON_HEIGHT_PX, titlebar)
+    const headerBottom = this.findHeaderBottom()
+    const top = headerBottom !== null
+      ? clampFloatingTop(headerBottom + FLOATING_HEADER_GAP_PX, height, FLOATING_BUTTON_HEIGHT_PX, titlebar)
+      : topAlignedFloatingTop(height, FLOATING_BUTTON_HEIGHT_PX, titlebar)
     el.style.top = `${Math.round(top)}px`
     el.style.transform = 'none'
   }
@@ -455,9 +478,14 @@ export class PanelLayoutController {
     // column's left edge (degenerates to the official value when both panels
     // are closed).
     const detailsTrack = trackPx(this.shellTracks[2])
-    const detailsHandle = frame.querySelector<HTMLElement>('[data-side="details"]')
-    if (detailsHandle !== null) {
-      detailsHandle.style.left = `${Math.round(width - detailsTrack - preview - explorer)}px`
+    // applyGrid runs on every drag frame: resolve the shell handle once and
+    // cache it instead of scanning the whole frame subtree each call. The
+    // cache resets on attach (the shell may rebuild its chrome on HMR).
+    if (this.detailsHandle === null || !this.detailsHandle.isConnected) {
+      this.detailsHandle = frame.querySelector<HTMLElement>('[data-side="details"]')
+    }
+    if (this.detailsHandle !== null) {
+      this.detailsHandle.style.left = `${Math.round(width - detailsTrack - preview - explorer)}px`
     }
 
     // Floating expand button: visible only when the explorer is collapsed.
@@ -465,11 +493,6 @@ export class PanelLayoutController {
       const show = state.root !== '' && state.explorerCollapsed
       this.floatingButton.style.display = show ? 'flex' : 'none'
       this.positionFloatingButton()
-      // The button is docked at the viewport's top-right corner; when the
-      // preview is the rightmost open column, its tab bar's own top-right
-      // controls would land underneath it — reserve the corner so both
-      // stay clickable.
-      this.previewCol?.classList.toggle('aionui-reserve-floating', show)
     }
   }
 

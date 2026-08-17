@@ -37,7 +37,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-aionui-panel
 
 - 拖拽左缘把手调宽（rAF 每帧合并，body user-select:none）；双击把手复位默认宽度。
 - 两级宽度钳位（Explorer 先、Preview 后）数学保证聊天区 >= 360px；超限值回写持久化。
-- 折叠 = 宽度缩 0 且组件保持挂载（树展开态 / 预览 tab 不丢），无过渡动画；折叠后在右上角出现浮动展开按钮，位置与折叠 chevron 完全一致，开/关切换不挪位（预览 tab 栏会让出角落）。
+- 折叠 = 宽度缩 0 且组件保持挂载（树展开态 / 预览 tab 不丢），无过渡动画；折叠后在右上角出现浮动展开按钮，位于会话头部下方分隔线之下，不会压到头部区域。
 - 明暗双主题跟随 GUI（`body[data-ds-dark-theme]`），prefers-reduced-motion 全局禁用动画。
 - 偏好按项目隔离持久化（localStorage keys 与 AionUi 一致）：`chat-workspace-width-px` / `chat-preview-width-px` / `preview-panel-split-ratio` / `project-panel-collapse:<root>` / `explorer-ui:<root>` / `scm-ui:<root>` / `preview-ui:<root>`（LRU 上限 12 scope）。读取一律范围校验，非法值回退默认。
 

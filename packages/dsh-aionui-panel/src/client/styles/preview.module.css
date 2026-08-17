@@ -183,14 +183,7 @@
   flex-shrink: 0;
 }
 
-/* When the explorer is collapsed, the floating expand button is docked at
-   the viewport's top-right corner — exactly where the preview tab bar's
-   own right controls would sit once the preview is the rightmost open
-   column. Reserve the corner so both stay clickable (the layout controller
-   toggles the column class). */
-:global(.aionui-preview-col.aionui-reserve-floating) .tabBarRight {
-  padding-right: 36px;
-}
+
 
 .panelCollapse,
 .panelMaximize {
