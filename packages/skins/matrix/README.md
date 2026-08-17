@@ -12,16 +12,15 @@ A Matrix-style dark skin for the dsh Web GUI, designed for late-night bedroom us
 - **Rain as ambience, not the star**: canvas overlay at 10% opacity, 20fps cap, `pointer-events:none`, auto-off under `prefers-reduced-motion`, paused when the tab is hidden, DPR capped at 2
 - **Zero dependencies**: pure browser-side CSS + canvas, no host logic, does not modify DSH source; the effect disposer reverts every write on unload
 
-## Install (official bundle way)
+## Install
+
+Skins ship inside the family aggregate package `@linxin666/dsh-skins` (installing it brings every skin) and are wired by the skin manager — this package declares no `dsh.bundle` (skin.json `wiring.bundleWired: false`), so `dsh-skin use` renders the insert row into the profile's own patch:
 
 ```sh
-# All skins (recommended)
 dsh plugin --profile web add @linxin666/dsh-skins
-# Or this skin alone
-dsh plugin --profile web add @linxin666/dsh-client-ui-skin-matrix
-# Enable: dsh-skin use matrix
-# From the repo (dev): dsh plugin --profile web add link:$(pwd)/packages/skins/matrix
 ```
+
+Enable or switch with `dsh-skin use matrix` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
 
 ## Notes
 

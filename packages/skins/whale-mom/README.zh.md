@@ -8,20 +8,13 @@
 
 皮肤纯呈现：不注入服务、不发 cordis 事件、不触达模型请求。暗色配色（`body[data-dsh-whale-mom][data-ds-dark-theme]`）是同一片海洋的夜航版本——压暗背景上的深海军蓝面纱——底层基础主题系统照常工作。
 
-## 安装（官方 bundle）
+## 安装
 
-优先用家族聚合包 `@linxin666/dsh-skins`——一次装齐所有皮肤；单独安装本皮肤用 `link:`：
+皮肤内置在家族聚合包 `@linxin666/dsh-skins` 里（装它 = 全部皮肤一次到位），由皮肤管理器接线——本包不声明 `dsh.bundle`（skin.json 的 `wiring.bundleWired: false`），`dsh-skin use` 会把 insert 行写进 profile 自己的 patch：
 
 ```sh
-# 全部皮肤（推荐）
 dsh plugin --profile web add @linxin666/dsh-skins
-# 或只装本皮肤
-dsh plugin --profile web add @linxin666/dsh-client-ui-skin-whale-mom
-# 激活：dsh-skin use whale-mom
-# 从仓库（开发）：dsh plugin --profile web add link:$(pwd)/packages/skins/whale-mom
 ```
-
-`$(pwd)` 是你克隆的 dsh-web-ui monorepo 路径。
 
 用 `dsh-skin use whale-mom`（monorepo 里的辅助脚本 `scripts/dsh-skin`）激活或切换；同一时刻只激活一款皮肤。
 

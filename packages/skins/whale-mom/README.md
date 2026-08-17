@@ -8,20 +8,13 @@ It is a hot-pluggable client plugin. `apply()` sets the `data-dsh-whale-mom` bod
 
 The skin is presentation-only: no services are injected, no cordis events are emitted, nothing reaches a model request. The dark palette (`body[data-dsh-whale-mom][data-ds-dark-theme]`) is a night-cruise take on the same ocean — a deep navy veil over the dimmed backdrop — so the base theme system keeps working underneath.
 
-## Installing (official bundle)
+## Installing
 
-Prefer the family aggregate package `@linxin666/dsh-skins` — every skin at once; for this skin alone, install with `link:`:
+Skins ship inside the family aggregate package `@linxin666/dsh-skins` (installing it brings every skin) and are wired by the skin manager — this package declares no `dsh.bundle` (skin.json `wiring.bundleWired: false`), so `dsh-skin use` renders the insert row into the profile's own patch:
 
 ```sh
-# All skins (recommended)
 dsh plugin --profile web add @linxin666/dsh-skins
-# Or just this skin
-dsh plugin --profile web add @linxin666/dsh-client-ui-skin-whale-mom
-# Activate: dsh-skin use whale-mom
-# From the repo (dev): dsh plugin --profile web add link:$(pwd)/packages/skins/whale-mom
 ```
-
-`$(pwd)` is your clone of the dsh-web-ui monorepo.
 
 Activate or switch with `dsh-skin use whale-mom` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
 

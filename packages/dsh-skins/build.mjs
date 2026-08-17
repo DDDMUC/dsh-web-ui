@@ -12,9 +12,15 @@
  *     needs a resolvable main for the boot-graph insert row)
  *   - package.json (generated minimal leaf package so the profile symlink /
  *     profile node_modules can resolve @linxin666/dsh-client-ui-skin-<id>)
- *   - cordis.patch.yml (the skin's own patch row, for `dsh plugin add`)
  * Directories without a skin.json (skin-center itself, workspace
  * scaffolding) are skipped.
+ *
+ * The leaf package declares only dsh.client, never dsh.bundle: skins are
+ * wired by the skin manager (skin.json wiring.bundleWired: false), which
+ * writes the insert row into the profile's own cordis.patch.yml managed
+ * section. A dsh.bundle declaration would make the CLI's plugin reconcile
+ * auto-add every leaf to the profile's dsh.profile.bundles and duplicate the
+ * loader entry id (issue #381).
  *
  * Without the package.json + host entry, an npm install of the aggregate
  * leaves skin dirs that the skin-center's useSkin insert row cannot resolve
@@ -47,8 +53,11 @@ function readJson(filePath) {
  * Render the minimal resolvable leaf package.json a bundled skin needs to be
  * loadable as @linxin666/dsh-client-ui-skin-<id> from the profile. Mirrors the
  * source skin package's exports shape (minus the non-shipped ./src/*) and
- * carries the official dsh.bundle manifest so the carrier is also a valid
- * turtle-ui bundle for `dsh plugin add`.
+ * carries the dsh.client manifest (platform/inject) so the loader treats it
+ * as a web client bundle once the skin manager inserts the ui-skin-<id> row
+ * into the profile patch. Deliberately no dsh.bundle declaration: the skin's
+ * own patch row must never apply as a bundle layer (issue #381 - see the
+ * header comment).
  * @param sourcePkg - the source skin package.json (name/version source).
  * @returns the serialized package.json text.
  */
@@ -65,11 +74,10 @@ function renderCarrierPackageJson(sourcePkg) {
       './package.json': './package.json',
     },
     dsh: {
-      bundle: { patch: './cordis.patch.yml' },
       client: { inject: [], platform: 'web' },
     },
     license: 'BSD-3-Clause',
-    files: ['lib', 'skin.json', 'cordis.patch.yml'],
+    files: ['lib', 'skin.json'],
     repository: { type: 'git', url: 'https://github.com/zhu1090093659/dsh-web-ui.git' },
   }
   return JSON.stringify(pkg, null, 2) + '\n'
@@ -102,17 +110,11 @@ function syncDir(src, dst) {
       console.warn('skipped skin (missing or invalid package.json):', dir)
       continue
     }
-    const patch = path.join(srcDir, 'cordis.patch.yml')
-    if (!fs.statSync(patch, { throwIfNoEntry: false })) {
-      console.warn('skipped skin (missing cordis.patch.yml):', dir)
-      continue
-    }
     const target = path.join(staging, dir)
     fs.mkdirSync(path.join(target, 'lib'), { recursive: true })
     fs.copyFileSync(skinJson, path.join(target, 'skin.json'))
     fs.copyFileSync(bundle, path.join(target, 'lib', 'client.js'))
     fs.copyFileSync(hostEntry, path.join(target, 'lib', 'index.js'))
-    fs.copyFileSync(patch, path.join(target, 'cordis.patch.yml'))
     fs.writeFileSync(path.join(target, 'package.json'), renderCarrierPackageJson(sourcePkg))
     built.add(dir)
     console.log('bundled skin:', dir)

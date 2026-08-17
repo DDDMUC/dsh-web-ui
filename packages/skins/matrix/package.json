@@ -10,9 +10,6 @@
     "./package.json": "./package.json"
   },
   "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    },
     "client": {
       "inject": [],
       "platform": "web"
@@ -22,7 +19,6 @@
   "peerDependencies": {},
   "files": [
     "lib",
-    "cordis.patch.yml",
     "skin.json",
     "preview",
     "README.md",

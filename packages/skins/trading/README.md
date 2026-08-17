@@ -36,33 +36,15 @@ reaches a model request. The dark palette
 (`body[data-dsh-trading][data-ds-dark-theme]`) is the night-terminal variant
 (TradingView-style graphite), the base block the light trading day.
 
-## Installing (official bundle)
+## Installing
 
-Prefer the family aggregate package `@linxin666/dsh-skins` — every skin at
-once; for this skin alone, install with `link:`:
+Skins ship inside the family aggregate package `@linxin666/dsh-skins` (installing it brings every skin) and are wired by the skin manager — this package declares no `dsh.bundle` (skin.json `wiring.bundleWired: false`), so `dsh-skin use` renders the insert row into the profile's own patch:
 
 ```sh
-# All skins (recommended)
 dsh plugin --profile web add @linxin666/dsh-skins
-# Or just this skin
-dsh plugin --profile web add @linxin666/dsh-client-ui-skin-trading
-# Activate: dsh-skin use trading
-# From the repo (dev): dsh plugin --profile web add link:$(pwd)/packages/skins/trading
 ```
 
-`$(pwd)` is your clone of the dsh-web-ui monorepo.
-
-A local `link:` install needs built artifacts first — `lib/` is git-ignored
-and not committed, so run `pnpm install && pnpm -r build` in the monorepo
-before linking. Git installs (`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`)
-build `lib/` themselves via the `prepare` script; pnpm >=10 blocks that until
-you copy the printed package key into the profile's `pnpm-workspace.yaml`
-`allowBuilds` list and re-run.
-
-Activate or switch with `dsh-skin use trading` (helper script `scripts/dsh-skin`
-in the monorepo); only one skin is active at a time. Do not keep two skin rows
-active — two skins would both inject window chrome. Remove the row (and its
-package) to return to the default look.
+Activate or switch with `dsh-skin use <id>` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
 
 ## Requirements
 

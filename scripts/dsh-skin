@@ -4,14 +4,14 @@
 /**
  * dsh-skin — one-command skin switching for the DSH web GUI.
  *
- * Every skin in this repo is a standalone plugin package in the official
- * turtle-ui shape: `dsh.bundle` manifest + cordis.patch.yml + self-contained
- * `prepare` build, so the canonical install is
+ * Every skin in this repo is a standalone client-bundle package (official
+ * turtle-ui shape minus the `dsh.bundle` declaration — the skin manager wires
+ * it): it declares `dsh.client` and ships a self-contained built `lib/`, and
+ * its `use` row is rendered by `scripts/dsh-skin`, so activation needs no
+ * `dsh plugin add` (a plain dependency install only makes the package
+ * resolvable).
  *
- *     dsh plugin --profile <name> add /path/to/dsh-web-ui/packages/skins/<skin>
- *     dsh-skin install <skin>        # same thing, profile auto-detected
- *
- * `use` then maintains the mutually-exclusive skin section of the active
+ * `use` maintains the mutually-exclusive skin section of the active
  * profile's cordis.patch.yml (hot-reloaded by the config watcher, so switching
  * takes effect in seconds without a restart) and the profile node_modules
  * symlink that makes the chosen package resolvable from the web profile
@@ -115,7 +115,7 @@ function cmdInstall(name) {
   }
   console.log(`dsh plugin --profile ${DEFAULT_PROFILE} add ${SKINS[name].dir}`)
   execFileSync('dsh', ['plugin', '--profile', DEFAULT_PROFILE, 'add', SKINS[name].dir], { stdio: 'inherit' })
-  console.log(`installed ${SKINS[name].pkg} into profile "${DEFAULT_PROFILE}" — the dshClient row comes from the bundle's cordis.patch.yml.`)
+  console.log(`installed ${SKINS[name].pkg} into profile "${DEFAULT_PROFILE}" — run dsh-skin use ${name} to write its insert row (the skin declares no dsh.bundle).`)
 }
 
 const MANAGED_START = '# --- dsh-skin managed (auto-generated; do not edit) ---'

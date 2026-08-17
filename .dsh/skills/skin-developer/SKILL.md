@@ -14,11 +14,10 @@ whenToUse: The user wants a new skin (新建/新增/开发一个皮肤), or want
 ## 仓库与标准速览
 
 - `packages/skins/<name>/` — 一个皮肤 = 一个自包含插件包；`packages/skins/xp/` 是成熟样例，遇到疑问先读它。
-- 官方标准四件套（对照 DSH `docs/user/develop/basic/publish.md`，turtle-ui 为范例）：
-  1. `package.json` 声明 `dsh.bundle.patch` → `cordis.patch.yml`（安装时自动插入 `ui-skin-*` dshClient 行）；
-  2. `cordis.patch.yml` — bundle patch 层；
-  3. `prepare` 脚本 = `tsdown`（pnpm 在 git 安装后自动运行，自包含构建 `lib/`，无项目引用、无类型检查）；
-  4. devDependencies 只用真实发布版本（tsdown / lightningcss / cordis / vitest / jsdom）——
+- 皮肤包形态（turtle-ui 形状的精简版，刻意不声明 `dsh.bundle`）：
+  1. `package.json` 声明 `dsh.client`（`platform: "web"` 等），**不声明 `dsh.bundle`**——皮肤由皮肤管理器接线（skin.json 的 `wiring.bundleWired: false` 渲染 `ui-skin-*` insert 行到 profile 自己的 cordis.patch.yml managed 区段，而不是作为 bundle patch 层；声明 `dsh.bundle` 会让 CLI 的 plugin reconcile 把皮肤包静默加进 profile 的 `dsh.profile.bundles`，与 insert 叠加触发 `duplicate loader entry id`，issue #381）；
+  2. `prepare` 脚本 = `tsdown`（pnpm 在 git 安装后自动运行，自包含构建 `lib/`，无项目引用、无类型检查）；
+  3. devDependencies 只用真实发布版本（tsdown / lightningcss / cordis / vitest / jsdom）——
      `@deepseek-ai/dsh-*` 未发布到 npm，运行时由宿主 shell 的 module table 提供，构建时作 external。
 - 构建预设：`packages/skins/tsdown.client.ts`（官方 `packages/client/tsdown.client.ts` 的 standalone 移植）。
 - 皮肤中心的 GUI 是一级设置分区（`settings.section` id `skin-center`，order 120，直接展开）：注册表由
@@ -42,7 +41,7 @@ pnpm install        # 首次；顺带跑每个皮肤的 prepare
 node scripts/dsh-skin-new <kebab-case-name>   # 如 matrix、coffee-break
 ```
 
-生成 `packages/skins/<name>/`：package.json（官方标准）、cordis.patch.yml、tsdown.config.ts、
+生成 `packages/skins/<name>/`：package.json（`dsh.client`、无 `dsh.bundle`）、tsdown.config.ts、
 tsconfig.json、skin.json（order 自动取最大值+1）、src/index.ts（无操作 host 入口）、
 src/client/index.ts（最小 apply 模板）、`<name>.module.css`（作用域样式）、tests/apply.spec.ts
 （契约测试）、README.md。随后按脚本打印的 next steps 填写。
@@ -119,7 +118,7 @@ node scripts/gallery-build         # 重新生成 gallery/manifest.js + gallery/
 
 ## 常见坑
 
-- **别删 `dsh.bundle`/`cordis.patch.yml`/`prepare`**：这是官方安装（`dsh plugin add`）的契约。
+- **别加 `dsh.bundle`（也别配 `cordis.patch.yml`）**：皮肤由皮肤管理器接线（`dsh-skin use` 写 insert 行），声明 bundle patch 会让 CLI 的 reconcile 把皮肤包静默加进 `dsh.profile.bundles`，与 insert 叠加报 `duplicate loader entry id`（issue #381）。
 - **别把 `@deepseek-ai/dsh-*` 写进 devDependencies**：未发布到 npm，workspace:^ 在独立环境必炸。
 - **作用域外漏样式**：检查 CSS 每个规则都以 `body[data-dsh-<name>]` 开头（含暗色变体）。
 - **dispose 没收干净**：对照 xp 逐项核对——body 属性、每个 append 的节点、favicon、标题。

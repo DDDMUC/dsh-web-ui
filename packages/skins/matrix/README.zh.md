@@ -12,16 +12,15 @@
 - **数字雨是氛围**：canvas 雨层透明度 10%、20fps 限帧、`pointer-events:none` 穿透、`prefers-reduced-motion` 自动关闭、标签页隐藏暂停、DPR 上限 2
 - **零依赖**：纯浏览器端 CSS + canvas，无宿主逻辑，不修改 DSH 源码；卸载时 effect disposer 撤回全部写入
 
-## 安装（官方 bundle 方式）
+## 安装
+
+皮肤内置在家族聚合包 `@linxin666/dsh-skins` 里（装它 = 全部皮肤一次到位），由皮肤管理器接线——本包不声明 `dsh.bundle`（skin.json 的 `wiring.bundleWired: false`），`dsh-skin use` 会把 insert 行写进 profile 自己的 patch：
 
 ```sh
-# 装全部皮肤（推荐）
 dsh plugin --profile web add @linxin666/dsh-skins
-# 或单独装本皮肤
-dsh plugin --profile web add @linxin666/dsh-client-ui-skin-matrix
-# 皮肤启用：dsh-skin use matrix
-# 从仓库安装（开发调试）：dsh plugin --profile web add link:$(pwd)/packages/skins/matrix
 ```
+
+用 `dsh-skin use matrix`（monorepo 里的辅助脚本 `scripts/dsh-skin`）激活或切换；同一时刻只激活一款皮肤。
 
 ## 说明
 
