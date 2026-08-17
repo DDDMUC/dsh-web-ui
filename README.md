@@ -48,7 +48,7 @@ dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合�
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
-| 主题皮肤 | 默认主题 | 皮肤中心 10 款，先试穿再应用 |
+| 主题皮肤 | 默认主题 | 皮肤中心 11 款，先试穿再应用 |
 
 ## 功能插件
 
@@ -64,7 +64,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 侧边栏点「任务看板」进入。任务按五列摆开：待规划、待办、进行中、已完成、已失败。点卡片上的「执行」，任务交给真实的 DSH 智能体会话去跑，跑完状态自动回写；想复盘就跳回执行会话看完整过程。
 
-任务也支持定时跑：详情里配 cron 表达式（比如每天 23:00 自动升级 DSH、每周一 09:00 生成周报），到点自己开工，不用人盯着。
+任务也支持 Host 定时跑：详情里配 cron 表达式（比如每天 23:00 自动升级 DSH、每周一 09:00 生成周报），关闭浏览器后仍会到点执行和结算。可选的空闲睡眠保护支持 Windows、macOS 和带 systemd-logind 的 Linux，允许屏幕熄灭，同时阻止整机因空闲睡眠；该设置默认关闭。
 
 | 多列看板 | 定时执行 |
 | --- | --- |
@@ -84,7 +84,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 - **预览**：多标签预览 markdown、HTML、代码、diff、CSV、PDF、Office、图片与文本，可切换源码 / 预览、分屏编辑、保存；
 - **变更（SCM）**：真实的 git 变更面板，stage / unstage / discard；
 - 面板宽度可拖，双击把手复位；折叠状态和宽度按项目记住；
-- 10 款皮肤都适配右侧面板，换肤后面板跟着变。
+- 11 款皮肤都适配右侧面板，换肤后面板跟着变。
 
 ![右侧面板](docs/screenshots/19-right-panel.png)
 
@@ -136,11 +136,11 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ## 皮肤
 
-皮肤中心有 10 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
+皮肤中心有 11 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
-10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬两款截图待补充）：
+现有 10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬两款截图待补充）；Maid Atelier 预览见下方：
 
 ![10 款皮肤一览](docs/images/skins-montage.png)
 
@@ -167,6 +167,12 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 黄昏港口主题：动漫少女港口背景（暮光蓝天空渐入日落橙）垫在半透明面板下面，深暮蓝底与日落橙主色贯穿全局，亮色是薄暮纱、暗色是深海夜航纱。
 
 ![夕港 亮色](docs/screenshots/26-skin-harbor-light.png) · ![夕港 暗色](docs/screenshots/27-skin-harbor-dark.png)
+
+### 深海女仆工坊（Maid Atelier）
+
+深海蓝工坊主题，包含双角色图层与响应式侧边栏装饰。本皮肤单独采用 CC BY-NC-SA 4.0，仅限非商业使用。
+
+![深海女仆工坊 亮色](packages/skins/maid-atelier/preview/light.png) · ![深海女仆工坊 暗色](packages/skins/maid-atelier/preview/dark.png)
 
 ## 快速开始
 
@@ -272,7 +278,7 @@ A: 先确认插件装进了 `web` profile（命令里的 `--profile web`），�
 <details>
 <summary><strong>定时任务为什么没有到点执行？</strong></summary>
 
-A: 定时调度在浏览器端完成，`dsh web` 标签页要一直开着；关闭期间错过的触发点按「错过即跳过」处理，不排队补跑。任务正在运行时到点也会顺延到下一个匹配点。
+A: 定时调度由 `dsh web` Host 完成，不要求浏览器标签页保持打开。Host 停止、系统睡眠或长暂停期间错过的触发点按「错过即跳过」处理，不排队补跑；同一任务正在运行时到点也会顺延到下一个匹配点。若需要允许息屏但阻止整机因空闲睡眠，可显式开启任务看板的电源保护设置。
 
 </details>
 
@@ -306,7 +312,7 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 
 ## 已知限制
 
-- 任务看板的定时调度在浏览器端：`dsh web` 标签页要保持打开，关闭期间错过的触发点跳过、不补跑，详见 [dsh-task-board README](packages/dsh-task-board/README.zh.md)。
+- 任务看板由 Host 调度，关闭浏览器后仍可运行；Host 停止或整机睡眠期间错过的触发点跳过、不补跑。可选电源保护默认关闭，只阻止空闲系统睡眠，不拦截合盖、手动睡眠、休眠或关机，详见 [dsh-task-board README](packages/dsh-task-board/README.zh.md)。
 - SSH 密码与 passphrase 口令以明文保存在 `~/.dsh/dsh-ssh.json`（权限 0600）；断线重连可能重放非幂等命令，远程输出原样返回、不脱敏，安全模型见 [dsh-ssh README](packages/dsh-ssh/README.zh.md)。
 - 移动端靠 SSE 实时推送：Cloudflare quick tunnel 和 Tailscale Serve 不透传 SSE，插件自动降级轮询，新消息可能晚几秒。
 - 仓库安装需要 Node.js >= 22 与 pnpm，仅供开发调试；npm 安装不受影响。

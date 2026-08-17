@@ -6,13 +6,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dshSkin from './dsh-skin'
 
-const { SKINS, MANAGED_START, MANAGED_END, renderManaged, stripManaged, stripEmptyPatchList, stripLegacySkinRows, currentActive } = dshSkin
+const { SKINS, MANAGED_START, MANAGED_END, renderManaged, normalizePatchForManagedAppend, stripManaged, stripEmptyPatchList, stripLegacySkinRows, currentActive } = dshSkin
 
 // fileURLToPath, not URL.pathname: the latter keeps a leading slash on
 // Windows (/D:/...), which node then mis-resolves as D:\D:\...
@@ -74,6 +74,30 @@ test('stripManaged removes only the managed section', () => {
 test('stripManaged throws on an unterminated managed section', () => {
   const patch = `${MANAGED_START}\n- id: ui-skin-xp\n  disabled: true\n`
   assert.throws(() => stripManaged(patch), /unterminated/)
+})
+
+test('normalizePatchForManagedAppend removes the default [] root and preserves comments and CRLF', () => {
+  const patch = '# profile patch\r\n---\r\n[] # empty sequence\r\n'
+  const normalized = normalizePatchForManagedAppend(patch)
+  assert.equal(normalized, '# profile patch\r\n---\r\n')
+})
+
+test('normalizePatchForManagedAppend rejects non-sequence roots before writing', () => {
+  assert.throws(() => normalizePatchForManagedAppend('{}\n'), /top-level block sequence/)
+  assert.throws(() => normalizePatchForManagedAppend('[{ id: existing }]\n'), /top-level block sequence/)
+  assert.throws(() => normalizePatchForManagedAppend('- id: existing\n[]\n'), /one top-level block sequence/)
+  assert.throws(() => normalizePatchForManagedAppend('- id: existing\n---\n- id: second\n'), /one YAML document/)
+  assert.throws(() => normalizePatchForManagedAppend('- id: existing\n--- # second document\n- id: second\n'), /one YAML document/)
+})
+
+test('renderManaged escapes single quotes in the active package name', () => {
+  const original = SKINS.xp.pkg
+  try {
+    SKINS.xp.pkg = "@linxin666/dsh-client-ui-skin-na'me"
+    assert.ok(renderManaged('xp').includes("name: '@linxin666/dsh-client-ui-skin-na''me'"))
+  } finally {
+    SKINS.xp.pkg = original
+  }
 })
 
 test('currentActive returns null when every skin is disabled', () => {
@@ -146,6 +170,31 @@ test('use official restores the stock look on a throwaway DSH_HOME', () => {
       encoding: 'utf8',
     })
     assert.equal(current.trim(), 'none')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('use official converts the DSH default [] template into one block-sequence root', () => {
+  const home = fakeHome()
+  try {
+    const repo = join(home, 'code', 'dsh-web-ui')
+    for (const name of Object.keys(SKINS)) fakeSkinDir(repo, name)
+    const patch = patchPath(home)
+    writeFileSync(patch, '# Your patch layer for this dsh profile\r\n[]\r\n')
+    chmodSync(patch, 0o600)
+
+    execFileSync(process.execPath, [SCRIPT, 'use', 'official'], {
+      env: { ...process.env, DSH_HOME: join(home, '.dsh'), DSH_SKIN_REPO: repo },
+    })
+
+    const after = readFileSync(patch, 'utf8')
+    assert.ok(after.startsWith('# Your patch layer for this dsh profile\r\n'))
+    assert.ok(!after.split(/\r?\n/).some(line => line.trim() === '[]'))
+    assert.ok(after.includes(MANAGED_START))
+    assert.equal(statSync(patch).mode & 0o777, 0o600)
+    assert.ok(!readdirSync(join(home, '.dsh', 'profiles', 'web')).some(name => name.startsWith('cordis.patch.yml.tmp-')))
+    assert.ok(after.trimEnd().endsWith(MANAGED_END))
   } finally {
     rmSync(home, { recursive: true, force: true })
   }

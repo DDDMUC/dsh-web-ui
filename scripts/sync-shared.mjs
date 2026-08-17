@@ -59,6 +59,7 @@ const MANIFEST = [
     targets: [
       'packages/dsh-pet/src/dsh-home.ts',
       'packages/dsh-liangshen/src/dsh-home.ts',
+      'packages/dsh-task-board/src/dsh-home.ts',
     ],
   },
   {
@@ -93,7 +94,7 @@ const MANIFEST = [
   {
     file: 'loopback.ts',
     source: 'shared/host/loopback.ts',
-    targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts'],
+    targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts'],
   },
 ]
 

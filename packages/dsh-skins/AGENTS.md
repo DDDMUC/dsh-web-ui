@@ -7,7 +7,7 @@
 
 - `build.mjs` 把每个 `packages/skins/<id>` 的 `skin.json` + `lib/client.js`
   （try-on bundle）+ `lib/index.js`（host 空入口）——连同生成的叶子
-  `package.json`——复制进 `packages/dsh-skins/skins/<id>/`（叶子只声明
+  `package.json` 及皮肤存在的 `LICENSE` / `NOTICE`——复制进 `packages/dsh-skins/skins/<id>/`（叶子只声明
   `dsh.client`，不含 `dsh.bundle`；皮肤由皮肤管理器接线，见下）。
   无 `skin.json`（skin-center、脚手架）的目录跳过。
 - 缺 `lib/client.js` / `lib/index.js` 的皮肤会被跳过并告警，源码里先产出 bundle

@@ -12,6 +12,7 @@
  *     needs a resolvable main for the boot-graph insert row)
  *   - package.json (generated minimal leaf package so the profile symlink /
  *     profile node_modules can resolve @linxin666/dsh-client-ui-skin-<id>)
+ *   - LICENSE / NOTICE when present (third-party terms and attribution)
  * Directories without a skin.json (skin-center itself, workspace
  * scaffolding) are skipped.
  *
@@ -61,7 +62,7 @@ function readJson(filePath) {
  * @param sourcePkg - the source skin package.json (name/version source).
  * @returns the serialized package.json text.
  */
-function renderCarrierPackageJson(sourcePkg) {
+export function renderCarrierPackageJson(sourcePkg) {
   const pkg = {
     name: sourcePkg.name,
     version: sourcePkg.version,
@@ -76,14 +77,14 @@ function renderCarrierPackageJson(sourcePkg) {
     dsh: {
       client: { inject: [], platform: 'web' },
     },
-    license: 'BSD-3-Clause',
-    files: ['lib', 'skin.json'],
+    license: typeof sourcePkg.license === 'string' ? sourcePkg.license : 'UNLICENSED',
+    files: ['lib', 'skin.json', 'LICENSE', 'NOTICE'],
     repository: { type: 'git', url: 'https://github.com/zhu1090093659/dsh-web-ui.git' },
   }
   return JSON.stringify(pkg, null, 2) + '\n'
 }
 
-function syncDir(src, dst) {
+export function syncDir(src, dst) {
   // Render into a staging dir first, then atomically swap it into place, so
   // a failed/mid-way run never leaves dst half-written and never silently
   // drops committed assets that disappeared from the source set.
@@ -115,6 +116,12 @@ function syncDir(src, dst) {
     fs.copyFileSync(skinJson, path.join(target, 'skin.json'))
     fs.copyFileSync(bundle, path.join(target, 'lib', 'client.js'))
     fs.copyFileSync(hostEntry, path.join(target, 'lib', 'index.js'))
+    for (const legalFile of ['LICENSE', 'NOTICE']) {
+      const sourceLegal = path.join(srcDir, legalFile)
+      if (fs.statSync(sourceLegal, { throwIfNoEntry: false })) {
+        fs.copyFileSync(sourceLegal, path.join(target, legalFile))
+      }
+    }
     fs.writeFileSync(path.join(target, 'package.json'), renderCarrierPackageJson(sourcePkg))
     built.add(dir)
     console.log('bundled skin:', dir)
@@ -131,5 +138,7 @@ function syncDir(src, dst) {
   fs.renameSync(staging, dst)
 }
 
-syncDir(SOURCE_DIR, OUT_DIR)
-console.log('dsh-skins bundled skins ->', OUT_DIR)
+if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  syncDir(SOURCE_DIR, OUT_DIR)
+  console.log('dsh-skins bundled skins ->', OUT_DIR)
+}

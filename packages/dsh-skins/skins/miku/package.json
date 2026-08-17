@@ -18,7 +18,9 @@
   "license": "BSD-3-Clause",
   "files": [
     "lib",
-    "skin.json"
+    "skin.json",
+    "LICENSE",
+    "NOTICE"
   ],
   "repository": {
     "type": "git",

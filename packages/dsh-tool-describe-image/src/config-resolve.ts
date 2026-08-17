@@ -24,9 +24,9 @@ export const THINKING_SUFFIXES = ['off', 'low', 'medium', 'high'] as const
 /** One parsed thinking level from a model-id suffix, or undefined when the model id carries none. */
 export type ThinkingMode = typeof THINKING_SUFFIXES[number]
 /** Per-call vision request timeout in milliseconds. */
-export const DEFAULT_TIMEOUT_MS = 60_000
+export const DEFAULT_TIMEOUT_MS = 120_000
 /** Protocol styles the tool can speak to the configured endpoint. */
-export const API_STYLES = ['chat-completions', 'responses'] as const
+export const API_STYLES = ['chat-completions', 'responses', 'anthropic-messages'] as const
 export type ApiStyle = typeof API_STYLES[number]
 /** Protocol style used unless the configuration overrides it. */
 export const DEFAULT_API_STYLE: ApiStyle = 'chat-completions'
@@ -59,7 +59,7 @@ export function splitModelSuffix(model: string): { model: string; thinking: Thin
  * `model` for composition entries.
  */
 export interface Config {
-  /** Root of the OpenAI-compatible endpoint, e.g. `https://api.openai.com/v1`; trailing slashes are stripped. */
+  /** Endpoint root; Anthropic style also accepts a `/v1` root or complete `/v1/messages` endpoint. Trailing slashes are stripped. */
   baseURL?: string
   /**
    * Vision model id for the configured endpoint, optionally with a trailing thinking suffix

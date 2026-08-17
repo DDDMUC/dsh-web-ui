@@ -29,9 +29,8 @@ export interface ExecutionRecord {
 }
 
 /**
- * A scheduled-run rule attached to a task. The browser-side scheduler ticks
- * every minute and triggers the task when `nextRunAt` is due; the rule is
- * persisted with the task (localStorage), so scheduling survives refreshes.
+ * A scheduled-run rule attached to a task. The Host scheduler triggers the
+ * task when `nextRunAt` is due and persists the rule in the Host ledger.
  */
 export interface ScheduleRule {
   /** Whether the schedule is armed. */
@@ -147,8 +146,8 @@ export function isTaskStatus(value: unknown): value is TaskStatus {
 }
 
 /** Whether a manual move target is allowed from the given status. */
-export function canMoveManually(_from: TaskStatus, to: TaskStatus): boolean {
-  return (MANUAL_STATUSES as readonly TaskStatus[]).includes(to)
+export function canMoveManually(from: TaskStatus, to: TaskStatus): boolean {
+  return from !== 'running' && (MANUAL_STATUSES as readonly TaskStatus[]).includes(to)
 }
 
 /** Normalize one optional execution-target string: trim; blank collapses to undefined. */

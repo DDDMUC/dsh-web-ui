@@ -4,9 +4,9 @@ English | [中文](README.zh.md)
 
 Model-facing `describe_image` tool: gives **text-only models** (DeepSeek V4 etc.) image understanding.
 Each call loads one image — a local file path, an http(s) URL, or a session attachment reference —
-and asks an OpenAI-compatible vision endpoint (Qwen-VL, GLM-4V, GPT-4o, a local Ollama endpoint…) to
-answer over the Chat Completions or Responses protocol; **only the returned text enters the
-conversation, the image itself never enters the session log**.
+and asks a vision endpoint (Qwen-VL, GLM-4V, GPT-4o, Claude-style endpoints such as OpenCode Go,
+a local Ollama endpoint…) to answer over the Chat Completions, Responses, or Anthropic Messages
+protocol; **only the returned text enters the conversation, the image itself never enters the session log**.
 
 Ported from deepseek-harness `packages/vision/tool-describe-image` (mirrored at
 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)),
@@ -21,7 +21,7 @@ browser half, live settings, no dsh source changes.
 | Direct image send | Dragging or pasting an image into a text-only session is rewritten at send time into a describe-image reference (`![图片](/describe-image/raw/sha256:…)`) instead of an image block the model cannot read, so the image renders in the conversation and the model analyzes it through the tool |
 | Custom instructions | The `prompt` argument carries your precise instruction (OCR, chart reading, UI diagnosis, translation…); the `defaultPrompt` config sets the fallback when the model passes none |
 | Live config card | Settings → Plugin config → Web UI Plugins → "Image understanding" card edits `baseURL` / `apiStyle` / `model` / API key / default instruction / bounds (through the settings seam); effective immediately, no restart |
-| Protocol styles | `apiStyle: chat-completions` (default) posts to `baseURL/chat/completions`; `apiStyle: responses` posts to `baseURL/responses` with `input` / `max_output_tokens` and reads `output_text` |
+| Protocol styles | `apiStyle: chat-completions` (default) posts to `baseURL/chat/completions`; `apiStyle: responses` posts to `baseURL/responses` with `input` / `max_output_tokens` and reads `output_text`; `apiStyle: anthropic-messages` posts to `baseURL/v1/messages` with `x-api-key` auth (Claude-style endpoints such as OpenCode Go, Zhipu GLM, Moonshot Kimi) and reads `content[].text` |
 | Thinking control | The model id carries an optional suffix: `model:off` disables thinking, `model:low` / `model:medium` / `model:high` enable it, and a bare `model` sends no control so the endpoint default applies (MiMo-V2.5 and DeepSeek V4 think by default) |
 | Raw image route | `GET /describe-image/raw/<id>` serves the stored bytes (loopback-only, content-addressed id) so the pasted reference renders in the conversation |
 | Per-call key resolution | Inline `apiKey` → credential seam (`apiKeyEnv`, default `VISION_API_KEY`) → launch environment, tiered fallback |
@@ -58,15 +58,15 @@ actually configures it and per-call otherwise.)
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `baseURL` | — (required) | OpenAI-compatible endpoint root (e.g. `https://dashscope.aliyuncs.com/compatible-mode/v1`); trailing slashes stripped |
-| `apiStyle` | `chat-completions` | Protocol style: `chat-completions` appends `/chat/completions`; `responses` appends `/responses` (OpenAI Responses API `input` / `max_output_tokens` / `output_text` shapes) |
-| `model` | — (required) | Vision model id, optionally with a thinking suffix (`:off` / `:low` / `:medium` / `:high`). The suffix is stripped before the id reaches the endpoint: `:off` maps to `thinking.type: disabled` (`chat-completions`) or `reasoning.effort: none` (`responses`); every other level maps to `enabled` or is forwarded as the `reasoning.effort` value. No suffix means no thinking control field |
+| `baseURL` | — (required) | Endpoint root; the style appends its path (`/chat/completions`, `/responses`, or `/v1/messages`). OpenAI-compatible examples use e.g. `https://dashscope.aliyuncs.com/compatible-mode/v1`; Anthropic style accepts a provider root such as `https://opencode.ai/zen/go`, a conventional `/v1` API root, or a complete `/v1/messages` endpoint. Trailing slashes stripped |
+| `apiStyle` | `chat-completions` | Protocol style: `chat-completions` appends `/chat/completions`; `responses` appends `/responses` (OpenAI Responses API `input` / `max_output_tokens` / `output_text` shapes); `anthropic-messages` normalizes the root to one `/v1/messages` endpoint (Claude-style `messages` / `max_tokens` / `content[].text`, `x-api-key` + `anthropic-version` headers) |
+| `model` | — (required) | Vision model id, optionally with a thinking suffix (`:off` / `:low` / `:medium` / `:high`). The suffix is stripped before the id reaches the endpoint: `:off` maps to `thinking.type: disabled` (`chat-completions`) or `reasoning.effort: none` (`responses`); every other level maps to `enabled` or is forwarded as the `reasoning.effort` value. No suffix means no thinking control field. The `anthropic-messages` style sends no thinking field and keeps the endpoint's own default |
 | `apiKey` | — | Inline key for local debugging; prefer `!!js process.env.VISION_API_KEY` over a hardcoded secret |
 | `apiKeyEnv` | `VISION_API_KEY` | Credential reference (environment-variable name); empty string disables reference resolution |
 | `defaultPrompt` | see source | The instruction used when a call omits its `prompt` — tune it to your workload (OCR, UI review, translation…) |
 | `maxBytes` | `10485760` | Image byte bound (local files and downloads alike) |
-| `maxOutputTokens` | `1024` | Output-token cap: `max_tokens` under `chat-completions`, `max_output_tokens` under `responses` |
-| `timeoutMs` | `60000` | Per-call vision request timeout |
+| `maxOutputTokens` | `1024` | Output-token cap: `max_tokens` under `chat-completions` and `anthropic-messages`, `max_output_tokens` under `responses` |
+| `timeoutMs` | `120000` | Per-call vision request timeout |
 | `renderImagePreview` | `true` | Upgrade image references in the conversation into inline thumbnails (click for full size); `false` keeps the raw reference text. Display-only — message text and model-side analysis are unchanged |
 | `interceptImageSend` | `true` | Rewrite image-bearing sends at submit into describe-image references; `false` passes image sends through untouched so other vision plugins sharing the session keep the raw image blocks (the text-only-model rewrite must then come from them) |
 
@@ -104,6 +104,21 @@ Endpoints whose models enable extended thinking by default (MiMo-V2.5, DeepSeek 
     apiKey: !!js process.env.VISION_API_KEY
 ```
 
+Claude-style endpoints (e.g. OpenCode Go, which serves Qwen3.7 Plus and other vision models only
+through the Messages API) set `apiStyle: anthropic-messages`; a bare provider root is the simplest `baseURL` form:
+
+```yaml
+- id: describe-image
+  name: '@linxin666/dsh-tool-describe-image'
+  config:
+    baseURL: https://opencode.ai/zen/go
+    apiStyle: anthropic-messages
+    model: qwen3.7-plus
+    apiKey: !!js process.env.OPENCODE_GO_API_KEY
+```
+
+The provider path is preserved: this example sends the request to `https://opencode.ai/zen/go/v1/messages`.
+
 ## Usage
 
 ### Custom instructions
@@ -139,8 +154,9 @@ untouched.
 - One image per answer: no multi-image input, no follow-up on the previous image, no structured
   output (coordinates / boxes).
 - Extracting text still costs one VLM call: OCR-only deployments can point `baseURL` at a cheaper OCR model.
-- OpenAI-compatible protocol only: Chat Completions (`/chat/completions`) and Responses (`/responses`)
-  are supported; vendors with other request/response shapes need separate adapters.
+- Three protocol styles: Chat Completions (`/chat/completions`), Responses (`/responses`), and
+  Anthropic Messages (`/v1/messages`, `x-api-key` auth) — for vendors with other request/response
+  shapes, add another adapter.
 - The model thinking suffix is a plugin shorthand that adds provider-specific fields
   (`thinking.type` / `reasoning.effort`) to the request; endpoints that do not accept them (for
   example plain OpenAI vision models) should use a bare model id. Chat Completions has no effort

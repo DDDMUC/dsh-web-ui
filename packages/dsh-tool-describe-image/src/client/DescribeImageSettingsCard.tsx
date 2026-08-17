@@ -24,7 +24,7 @@ export interface DescribeImageSettings {
   maxBytes?: number
   maxOutputTokens?: number
   timeoutMs?: number
-  apiStyle?: 'chat-completions' | 'responses'
+  apiStyle?: 'chat-completions' | 'responses' | 'anthropic-messages'
   renderImagePreview?: boolean
   interceptImageSend?: boolean
 }
@@ -62,7 +62,7 @@ export class DescribeImageSettingsCardController {
     this.form = new CardForm(scope, [
       textField('baseURL'),
       textField('model'),
-      choiceField('apiStyle', ['chat-completions', 'responses']),
+      choiceField('apiStyle', ['chat-completions', 'responses', 'anthropic-messages']),
       secretField('apiKey'),
       textField('apiKeyEnv'),
       textField('defaultPrompt'),
@@ -164,6 +164,7 @@ export function DescribeImageSettingsCard(props: DescribeImageSettingsCardProps)
         choices={[
           { value: 'chat-completions', label: t('field.apiStyle.chatCompletions') },
           { value: 'responses', label: t('field.apiStyle.responses') },
+          { value: 'anthropic-messages', label: t('field.apiStyle.anthropicMessages') },
         ]}
         {...fieldProps}
         {...state.apiStyle}
