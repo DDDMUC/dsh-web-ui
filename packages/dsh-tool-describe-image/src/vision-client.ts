@@ -8,6 +8,7 @@
  * @module @linxin666/dsh-tool-describe-image/vision
  */
 
+import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
@@ -370,9 +371,13 @@ export function createVisionCache(options?: { ttlMs?: number; maxEntries?: numbe
 
 /** The semantic identity of one vision request: endpoint fields plus the same image bytes and prompt. */
 export function semanticRequestKey(spec: ResolvedConfig, prompt: string, image: LoadedImage): string {
+  // Key by a digest of the bytes, not the base64 text itself: the full
+  // encoding is ~1.33x a multi-MB image and every cached entry would pin
+  // that string for the TTL, while a digest is 64 chars.
+  const digest = createHash('sha256').update(image.bytes).digest('hex')
   return JSON.stringify([
     spec.baseURL, spec.model, spec.maxOutputTokens, spec.apiStyle, spec.thinking,
-    image.bytes.toString('base64'), image.mimeType, prompt,
+    digest, image.mimeType, prompt,
   ])
 }
 
