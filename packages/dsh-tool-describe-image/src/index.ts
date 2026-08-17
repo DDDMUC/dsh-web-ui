@@ -18,7 +18,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { installSettingsSection } from '@deepseek-ai/dsh-settings'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView } from '@deepseek-ai/dsh-tools'
-import { registerAttachRoute } from './attach-routes.ts'
+import { registerAttachRoute, registerModelRoutes } from './attach-routes.ts'
 import { DEFAULT_MAX_BYTES } from './media.ts'
 import { createCapabilityProbe } from './model-capability.ts'
 import { Config, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, resolveApiKey, resolveConfig, type ResolvedConfig } from './config-resolve.ts'
@@ -66,6 +66,20 @@ export {
   semanticRequestKey,
 } from './vision-client.ts'
 export type { LoadedImage, VisionCache } from './vision-client.ts'
+export {
+  buildModelsUrl,
+  buildModelPingRequest,
+  extractModelIds,
+  handleModelProbe,
+  handleModelTest,
+  probeModels,
+  testModelConnection,
+  PROBE_MAX_BODY_BYTES,
+  PROBE_MAX_MODELS,
+  PROBE_MODEL_PLACEHOLDER,
+  PROBE_TIMEOUT_MS,
+} from './model-probe.ts'
+export type { ModelProbeOutcome, ModelTestOutcome, ProbeKeyResolver } from './model-probe.ts'
 
 const DESCRIPTION_HEAD =
   'Inspect one image — a local absolute path, an http(s) URL, a complete `[image attachment ...]` note, '
@@ -133,7 +147,12 @@ function applyImpl(ctx: Context, config: Config = {}): void {
     },
     onChange: () => {},
     validate: (value) => {
-      if (value.baseURL !== undefined || value.model !== undefined) resolveConfig(value)
+      // The Host applies a batched edit op by op, so each intermediate state
+      // is judged too: a connection is only validated once both halves
+      // exist, otherwise baseURL alone (model not landed yet) or model alone
+      // would each refuse the other's op and strand the save. A partial
+      // config still fails loud at the first describe_image call.
+      if (value.baseURL !== undefined && value.model !== undefined) resolveConfig(value)
     },
   })
   const spec = (): ResolvedConfig => resolveConfig(current())
@@ -147,6 +166,10 @@ function applyImpl(ctx: Context, config: Config = {}): void {
   // image-bearing send into describe-image references.
   const probe = createCapabilityProbe(ctx)
   registerAttachRoute(ctx, () => current().maxBytes ?? DEFAULT_MAX_BYTES, probe)
+  // The settings card's probe button: list the endpoint's models per request,
+  // honoring unsaved drafts so the user can verify a new endpoint before
+  // saving; the key resolves through the same seam a vision call uses.
+  registerModelRoutes(ctx, () => current(), (spec) => resolveApiKey(ctx, spec))
   ctx.tools.register(defineTool({
     name: 'describe_image',
     description: DESCRIPTION_HEAD
