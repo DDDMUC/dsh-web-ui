@@ -317,44 +317,60 @@ export class GitService {
     const inside = this.pathsInside(repo.repo, paths)
     const applied: string[] = []
     const failed: string[] = []
+    // Membership is checked on the ABSOLUTE path (pathsInside resolves); the
+    // git commands below run with the repo-relative path (cwd = repo).
+    const eligible: string[] = []
     for (const p of paths) {
-      // Membership is checked on the ABSOLUTE path (pathsInside resolves);
-      // the git commands below run with the repo-relative path (cwd = repo).
-      const abs = join(repo.repo, p)
-      if (!inside.includes(abs)) {
-        failed.push(p)
-        continue
-      }
-      // Untracked paths are not restored by git restore; delete them directly.
-      const untrackedResult = await this.run(['ls-files', '--error-unmatch', '--', ':(literal)' + p], repo.repo)
-      if (untrackedResult.exitCode !== 0) {
-        // A symlink entry pointing outside the repo must not be deleted — the
-        // fs delete would follow the link away. Realpath-check before deleting.
-        try {
-          const real = await realpath(join(repo.repo, p))
-          if (!isPathInside(repo.repo, real)) {
-            failed.push(p)
-            continue
-          }
-        } catch {
-          // The path does not exist on disk (ENOENT): nothing to escape.
+      if (inside.includes(join(repo.repo, p))) eligible.push(p)
+      else failed.push(p)
+    }
+    // One ls-files classifies every eligible path (its output IS the tracked
+    // set) instead of one --error-unmatch spawn per path.
+    const trackedSet = new Set<string>()
+    if (eligible.length > 0) {
+      const listed = await this.run(['ls-files', '-z', '--', ...eligible.map(p => ':(literal)' + p)], repo.repo)
+      for (const entry of listed.stdout.split('\0')) if (entry !== '') trackedSet.add(entry)
+    }
+    const tracked = eligible.filter(p => trackedSet.has(p))
+    const untracked = eligible.filter(p => !trackedSet.has(p))
+    // Tracked paths restore in one spawn; a batch failure falls back to
+    // per-path restores so the applied/failed split stays exact.
+    if (tracked.length > 0) {
+      const restored = await this.run(['restore', '--worktree', '--', ...tracked.map(p => ':(literal)' + p)], repo.repo)
+      if (restored.exitCode === 0) {
+        applied.push(...tracked)
+      } else {
+        for (const p of tracked) {
+          const single = await this.run(['restore', '--worktree', '--', ':(literal)' + p], repo.repo)
+          if (single.exitCode === 0) applied.push(p)
+          else failed.push(p)
         }
-        // The fs seam addresses the project ROOT (which may be a subdir of
-        // the repo); derive the root-relative path from the absolute one.
-        const rel = relative(repo.root, join(repo.repo, p))
-        // Untracked files that lie outside the session root cannot be deleted
-        // through the fs seam; refuse rather than delete a look-alike path.
-        if (rel === '..' || rel.startsWith('../')) {
+      }
+    }
+    for (const p of untracked) {
+      // Untracked paths are not restored by git restore; delete them directly.
+      // A symlink entry pointing outside the repo must not be deleted — the
+      // fs delete would follow the link away. Realpath-check before deleting.
+      try {
+        const real = await realpath(join(repo.repo, p))
+        if (!isPathInside(repo.repo, real)) {
           failed.push(p)
           continue
         }
-        const deleted = await this.fsDelete(repo.root, rel)
-        if ('ok' in deleted && deleted.ok) applied.push(p)
-        else failed.push(p)
+      } catch {
+        // The path does not exist on disk (ENOENT): nothing to escape.
+      }
+      // The fs seam addresses the project ROOT (which may be a subdir of
+      // the repo); derive the root-relative path from the absolute one.
+      const rel = relative(repo.root, join(repo.repo, p))
+      // Untracked files that lie outside the session root cannot be deleted
+      // through the fs seam; refuse rather than delete a look-alike path.
+      if (rel === '..' || rel.startsWith('../')) {
+        failed.push(p)
         continue
       }
-      const result = await this.run(['restore', '--worktree', '--', ':(literal)' + p], repo.repo)
-      if (result.exitCode === 0) applied.push(p)
+      const deleted = await this.fsDelete(repo.root, rel)
+      if ('ok' in deleted && deleted.ok) applied.push(p)
       else failed.push(p)
     }
     return { applied, failed }
