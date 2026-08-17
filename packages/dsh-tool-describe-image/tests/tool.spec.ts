@@ -128,6 +128,13 @@ function callDescribe(ctx: Context, args: unknown, signal?: AbortSignal) {
   })
 }
 
+/** Dispose one mounted context early so the mountOnce guard releases the package for the next setup. */
+async function teardown(ctx: Context): Promise<void> {
+  const at = contexts.indexOf(ctx)
+  if (at !== -1) contexts.splice(at, 1)
+  await Promise.resolve(ctx.fiber.dispose())
+}
+
 function errorText(result: { content: { type: string; text?: string }[] }): string {
   return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
 }
@@ -226,12 +233,14 @@ describe('successful descriptions', () => {
     expect(inheritResult.isError).toBe(false)
     expect((server.request(0).body as { model?: unknown; thinking?: unknown }).model).toBe('vision-1')
     expect((server.request(0).body as { thinking?: unknown }).thinking).toBeUndefined()
+    await teardown(inheritCtx)
 
     const offCtx = await setup({ baseURL: server.url, model: 'vision-1:off' })
     const offResult = await callDescribe(offCtx, { image: path })
     expect(offResult.isError).toBe(false)
     expect((server.request(1).body as { model?: unknown; thinking?: unknown }).model).toBe('vision-1')
     expect((server.request(1).body as { thinking?: unknown }).thinking).toEqual({ type: 'disabled' })
+    await teardown(offCtx)
 
     const highCtx = await setup({ baseURL: server.url, model: 'vision-1:high' })
     const highResult = await callDescribe(highCtx, { image: path })
@@ -305,10 +314,12 @@ describe('Responses API style', () => {
     const inheritCtx = await setup({ baseURL: server.url, apiStyle: 'responses' })
     await callDescribe(inheritCtx, { image: path })
     expect((server.request(0).body as { reasoning?: unknown }).reasoning).toBeUndefined()
+    await teardown(inheritCtx)
 
     const offCtx = await setup({ baseURL: server.url, apiStyle: 'responses', model: 'vision-1:off' })
     await callDescribe(offCtx, { image: path })
     expect((server.request(1).body as { reasoning?: unknown }).reasoning).toEqual({ effort: 'none' })
+    await teardown(offCtx)
 
     const highCtx = await setup({ baseURL: server.url, apiStyle: 'responses', model: 'vision-1:high' })
     await callDescribe(highCtx, { image: path })
