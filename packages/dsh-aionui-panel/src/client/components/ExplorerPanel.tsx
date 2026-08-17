@@ -11,7 +11,7 @@
  * @module dsh-aionui-panel/client/components/ExplorerPanel
  */
 
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import type { DragEvent, JSX, MouseEvent as ReactMouseEvent } from 'react'
 import type { FsEntry } from '../../core/types.ts'
 import { parentRel } from '../fileType.ts'
@@ -351,6 +351,10 @@ function FileTree({
   const preview = stores.preview
   const state = useStore(explorer)
   const root = state.root
+  // One Set per expansion change: O(1) membership for rows, and the memo
+  // comparator below can compare membership instead of array identity.
+  // (Hooks precede the early returns below.)
+  const expandedSet = useMemo(() => new Set(state.expanded), [state.expanded])
 
   if (root === '') return <div className={explorerCss.emptyState}>{t('explorer.tree.empty')}</div>
   const entries = state.dirs['']
@@ -366,7 +370,7 @@ function FileTree({
           key={entry.path}
           entry={entry}
           depth={0}
-          expanded={state.expanded}
+          expanded={expandedSet}
           selected={state.selected}
           dirs={state.dirs}
           root={state.root}
@@ -391,7 +395,7 @@ function TreeRowBase({
 }: {
   entry: FsEntry
   depth: number
-  expanded: string[]
+  expanded: ReadonlySet<string>
   selected: string | null
   dirs: Record<string, FsEntry[]>
   root: string
@@ -400,7 +404,7 @@ function TreeRowBase({
 }): JSX.Element {
   const explorer = stores.explorer
   const preview = stores.preview
-  const isExpanded = expanded.includes(entry.path)
+  const isExpanded = expanded.has(entry.path)
   const isSelected = selected === entry.path
   const children = entry.isDir ? dirs[entry.path] : undefined
   const [draggingRow, setDraggingRow] = useState(false)
@@ -491,4 +495,16 @@ function TreeRowBase({
  * dirs — the unavoidable O(open-dirs) cost — but transient UI state no longer
  * invalidates the tree.
  */
-const TreeRow = memo(TreeRowBase)
+const TreeRow = memo(TreeRowBase, (prev, next) =>
+  // The expansion array gets a fresh identity on every toggle; what this row
+  // actually reads is its own membership, so compare that instead of the
+  // container — plus the other props by identity.
+  prev.expanded.has(prev.entry.path) === next.expanded.has(next.entry.path)
+  && prev.entry === next.entry
+  && prev.depth === next.depth
+  && prev.selected === next.selected
+  && prev.dirs === next.dirs
+  && prev.root === next.root
+  && prev.stores === next.stores
+  && prev.onContextMenu === next.onContextMenu,
+)
