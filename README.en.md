@@ -37,7 +37,7 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
 
 ## What It Is
 
-dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI: the "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet, live throughput and the skin center. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes. Install plugins one by one, or grab everything with the aggregate package.
+dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI: the "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet, live throughput and the skin center. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes. Install plugins one by one, or grab everything with the aggregate package (the aggregate also pulls in the external right-sidebar plugin `dsh-better-sidebar`, which owns the right panel by default — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md)).
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
@@ -46,7 +46,7 @@ dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI:
 | Agent presets | Official presets (Standard / Minimal…) | Liang Shen Mode: two-phase anchoring tuned for V4 Pro |
 | Task board | None | Multi-column board + cron-scheduled real runs |
 | Git visualization | None | Branch lanes + commit history graph |
-| File preview & changes | None | Right panel: preview / file tree / SCM |
+| File preview & changes | None | Right panel: better-sidebar (explorer / editor / terminal / git / browser); the legacy aionui panel is temporarily disabled (migration in progress; the settings card can switch back but it is not recommended) |
 | Mobile remote control | None | QR pairing with SSE real-time sync |
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
 | Image understanding | None | `describe_image` vision tool |
@@ -80,15 +80,11 @@ The branch picker above the input box switches branches and browses commit histo
 
 ### Right Panel
 
-When a project session is open, two panels appear to the right of the chat area: "Preview" and "Files/Changes".
-
-- **File tree**: browse the working directory; click a file to open it in the preview panel, click a folder row to expand, search by file name;
-- **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and text, with source / preview switching, split editing and saving;
-- **Changes (SCM)**: a real git changes panel with stage / unstage / discard;
-- Panel widths drag (double-click the handle to reset); collapsed state and widths persist per project;
-- All eleven skins cover the right panel, so it follows the theme when you switch.
+The right panel is provided by the external plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (integrated into the aggregate bundle and enabled by default), with its built-in features and third-party plugin registration — see its [README](https://github.com/omdsh-dev/DSH-better-sidebar).
 
 ![Right panel](docs/screenshots/19-right-panel.png)
+
+> The previous aionui-panel right panel is **temporarily disabled** until its features are fully migrated to dsh-better-sidebar; Settings → Web UI Plugins → Right panel can switch the provider, but it is not recommended to enable it before the migration completes.
 
 ### Whale-Girl Pet
 
@@ -239,6 +235,8 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # Task board
 dsh plugin --profile web add @linxin666/dsh-ssh                    # Remote connection (SSH)
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # Image understanding tool
 dsh plugin --profile web add @linxin666/dsh-pet                    # Whale-girl pet
+dsh plugin --profile web add dsh-better-sidebar                    # Right panel (recommended; explorer/editor/terminal/git/browser)
+dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # Legacy right panel (aionui-panel, deprecated, migration in progress)
 ```
 
 ### Verify and Uninstall
@@ -360,6 +358,7 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 | --- | --- | --- |
 | dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
 | dsh-tool-describe-image | Ported from [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image) (deepseek-harness `packages/vision/tool-describe-image`) | Apache-2.0 (zhu1090093659) |
+| dsh-better-sidebar | External integrated plugin [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (right panel, npm dependency reference) | MIT (omdsh-dev) |
 
 ## Contributors
 

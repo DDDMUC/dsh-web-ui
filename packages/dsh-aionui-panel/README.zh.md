@@ -31,7 +31,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-aionui-panel
 - **拖拽文件到输入框**：文件树中的文件行可拖拽（目录行除外），拖到聊天输入框区域松手即把相对路径（如 `deploy/base/deployment.yaml`）插入当前会话草稿的光标处，agent 收到消息后会自行读取该文件，无需手动输入路径；拖拽过程中输入框上方显示高亮提示条。
 - **Preview（右二栏，默认 480px，范围 340~1200px）**：多 tab 预览，支持 markdown / html / code / diff / csv / pdf / word / excel / ppt / 图片 / 文本 / url（code 预览经由官方 shiki core 语法高亮）；源码/预览切换、分屏编辑（比例持久化）、保存（mtime 冲突检测）、下载、刷新（4 态：不渲染死按钮）、dirty 点、中键关闭、右键菜单批量关闭（dirty 确认）、tab 溢出渐变指示器。
 - **Mermaid 图表**：markdown 预览中的 ```mermaid 代码块会渲染成图表。mermaid 运行时打包在包内，经 `/aionui-panel/vendor/mermaid.js` 同源提供（不走 CDN、离线可用、loopback 围栏）；图表跟随 shell 明暗主题并在切换时重渲染；图源语法错误时回退为原代码块。
-- **总开关**（设置 → Web UI 插件 → 右侧面板）：`enabled`，默认开启。关闭后两块面板不再挂载、右侧浮动展开按钮消失、`/aionui-panel/*` 路由不再注册（随之停止工作区文件监视与 git 轮询）——适合与其他侧栏插件并用时彻底让位；聚合包其余插件不受影响。
+- **右侧面板提供方选择**（设置 → Web UI 插件 → 右侧面板）：选择使用哪个右侧面板——`使用 DSH-better-sidebar`（**默认**，aionui-panel 即将弃用）或 `使用 aionui-panel（即将弃用）`。选择 aionui-panel 时挂载两块面板、显示右侧浮动展开按钮、注册 `/aionui-panel/*` 路由（随之开始工作区文件监视与 git 轮询）；选择 DSH-better-sidebar 时本面板不挂载，上述路由与监视停止。该选择**互斥**：better-sidebar 读取同一设置，选择「使用 aionui-panel」时其整体不挂载（需 dsh-better-sidebar >= 0.13.0）。aionui 面板**默认暂时关闭**，直到功能完全迁移到 dsh-better-sidebar——迁移完成前可切回但不建议。该选择在独立安装与 `dsh-web-ui-all` 聚合包内行为一致。
 
 交互细节：
 

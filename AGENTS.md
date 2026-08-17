@@ -13,7 +13,8 @@ packages/
                       aionui-panel / remote-web-ui / web-ui-settings / community-plugins）
   skins/skin-center/  皮肤中心 GUI 卡（独立包，经 dsh-skins 聚合，顶层设置卡）
   dsh-skins/          皮肤聚合包：build.mjs 把 skins/* 皮肤资产收进一个 npm 包
-  dsh-web-ui-all/     全家桶聚合包：aggregate.yml 汇总全部功能插件
+  dsh-web-ui-all/     全家桶聚合包：aggregate.yml 汇总全部功能插件 + 外部右侧栏插件
+                      dsh-better-sidebar（rows 节）
   skins/<id>/         皮肤包（skin.json + lib/client.js，资产并入 dsh-skins）
 shared/
   tsdown.client.ts    唯一共享构建预设（禁止在包内复制）
