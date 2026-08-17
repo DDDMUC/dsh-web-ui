@@ -261,12 +261,15 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
         // .git) is still discovered by a later tick. The poll interval
         // therefore keeps running while any subscriber is connected.
         if (!(await git.isRepositoryCanonical(subscriber.root))) return
+        // Capture and clear the timeout handle once the race settles so a
+        // fast round never leaves a dead 15s timer pinning the closure.
+        let timeout: ReturnType<typeof setTimeout> | undefined
         const status = await Promise.race([
           git.statusCanonical(subscriber.root),
           new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('git status timed out')), GIT_STATUS_TIMEOUT_MS)
+            timeout = setTimeout(() => reject(new Error('git status timed out')), GIT_STATUS_TIMEOUT_MS)
           }),
-        ])
+        ]).finally(() => { if (timeout !== undefined) clearTimeout(timeout) })
         if (status === null) return
         const key = `${status.branch}|${JSON.stringify(status.staged)}|${JSON.stringify(status.unstaged)}|${JSON.stringify(status.untracked)}`
         if (key === subscriber.lastGit) return
