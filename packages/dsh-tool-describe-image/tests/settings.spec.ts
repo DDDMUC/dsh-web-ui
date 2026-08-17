@@ -13,7 +13,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 
 import * as tool from '../src/index.ts'
-import { chatReply, FakeWebServer, jsonReply, PNG_BYTES, responsesReply, startMockServer } from './mock-server.ts'
+import { anthropicReply, chatReply, FakeWebServer, jsonReply, PNG_BYTES, responsesReply, startMockServer } from './mock-server.ts'
 import type { MockServer, RecordedRequest } from './mock-server.ts'
 
 /** A provider implementing only the three primitives, backed by an in-memory document. */
@@ -117,6 +117,23 @@ describe('describe-image settings section', () => {
     if (result.isError) throw new Error('expected describe_image success')
     expect(result.value).toMatchObject({ text: 'switched' })
     expect(server.request(0).path).toBe('/responses')
+  })
+
+  it('an anthropic-messages setting drives the next call headers, endpoint, and parser', async () => {
+    const { ctx, server } = await boot({}, (_request, res) => { jsonReply(res, 200, anthropicReply('anthropic switched')) })
+    const path = await tempPng()
+
+    await ctx.settings.update(tool.DESCRIBE_IMAGE_SETTINGS_NAMESPACE, { apiStyle: 'anthropic-messages' })
+
+    const result = await callDescribe(ctx, path)
+    expect(result.isError).toBe(false)
+    if (result.isError) throw new Error('expected describe_image success')
+    expect(result.value).toMatchObject({ text: 'anthropic switched' })
+    const request = server.request(0)
+    expect(request.path).toBe('/v1/messages')
+    expect(request.authorization).toBeUndefined()
+    expect(request.xApiKey).toBe('sk-entry')
+    expect(request.anthropicVersion).toBe('2023-06-01')
   })
 
   it('a model thinking suffix committed through the section drives the next call body', async () => {

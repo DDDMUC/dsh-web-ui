@@ -58,8 +58,8 @@ actually configures it and per-call otherwise.)
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `baseURL` | — (required) | Endpoint root; the style appends its path (`/chat/completions`, `/responses`, or `/v1/messages`). OpenAI-compatible examples use e.g. `https://dashscope.aliyuncs.com/compatible-mode/v1`; Anthropic-style roots are bare hosts e.g. `https://opencode.ai/zen/go`. Trailing slashes stripped |
-| `apiStyle` | `chat-completions` | Protocol style: `chat-completions` appends `/chat/completions`; `responses` appends `/responses` (OpenAI Responses API `input` / `max_output_tokens` / `output_text` shapes); `anthropic-messages` appends `/v1/messages` (Claude-style `messages` / `max_tokens` / `content[].text`, `x-api-key` + `anthropic-version` headers) |
+| `baseURL` | — (required) | Endpoint root; the style appends its path (`/chat/completions`, `/responses`, or `/v1/messages`). OpenAI-compatible examples use e.g. `https://dashscope.aliyuncs.com/compatible-mode/v1`; Anthropic style accepts a provider root such as `https://opencode.ai/zen/go`, a conventional `/v1` API root, or a complete `/v1/messages` endpoint. Trailing slashes stripped |
+| `apiStyle` | `chat-completions` | Protocol style: `chat-completions` appends `/chat/completions`; `responses` appends `/responses` (OpenAI Responses API `input` / `max_output_tokens` / `output_text` shapes); `anthropic-messages` normalizes the root to one `/v1/messages` endpoint (Claude-style `messages` / `max_tokens` / `content[].text`, `x-api-key` + `anthropic-version` headers) |
 | `model` | — (required) | Vision model id, optionally with a thinking suffix (`:off` / `:low` / `:medium` / `:high`). The suffix is stripped before the id reaches the endpoint: `:off` maps to `thinking.type: disabled` (`chat-completions`) or `reasoning.effort: none` (`responses`); every other level maps to `enabled` or is forwarded as the `reasoning.effort` value. No suffix means no thinking control field. The `anthropic-messages` style sends no thinking field and keeps the endpoint's own default |
 | `apiKey` | — | Inline key for local debugging; prefer `!!js process.env.VISION_API_KEY` over a hardcoded secret |
 | `apiKeyEnv` | `VISION_API_KEY` | Credential reference (environment-variable name); empty string disables reference resolution |
@@ -105,7 +105,7 @@ Endpoints whose models enable extended thinking by default (MiMo-V2.5, DeepSeek 
 ```
 
 Claude-style endpoints (e.g. OpenCode Go, which serves Qwen3.7 Plus and other vision models only
-through the Messages API) set `apiStyle: anthropic-messages` with the bare host as `baseURL`:
+through the Messages API) set `apiStyle: anthropic-messages`; a bare provider root is the simplest `baseURL` form:
 
 ```yaml
 - id: describe-image

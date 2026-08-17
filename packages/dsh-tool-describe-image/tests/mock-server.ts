@@ -28,11 +28,12 @@ export class FakeWebServer extends Service {
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
-/** One request the fixture recorded: path, bearer authorization, x-api-key, and parsed (or raw) body. */
+/** One request the fixture recorded: path, auth headers, and parsed (or raw) body. */
 export interface RecordedRequest {
   path: string
   authorization: string | undefined
   xApiKey: string | undefined
+  anthropicVersion: string | undefined
   body: unknown
 }
 
@@ -68,6 +69,7 @@ export function startMockServer(handler: (request: RecordedRequest, response: Se
         path: req.url ?? '',
         authorization: req.headers.authorization,
         xApiKey: Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key'],
+        anthropicVersion: Array.isArray(req.headers['anthropic-version']) ? req.headers['anthropic-version'][0] : req.headers['anthropic-version'],
         body,
       }
       requests.push(request)

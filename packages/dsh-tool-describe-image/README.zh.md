@@ -55,8 +55,8 @@ dsh plugin --profile web add @linxin666/dsh-tool-describe-image
 
 | 键 | 默认 | 含义 |
 | --- | --- | --- |
-| `baseURL` | —（必填） | 端点根地址，按协议追加路径（`/chat/completions`、`/responses` 或 `/v1/messages`）。OpenAI 兼容端点如 `https://dashscope.aliyuncs.com/compatible-mode/v1`；Anthropic 风格端点填裸主机如 `https://opencode.ai/zen/go`。末尾斜杠自动去除 |
-| `apiStyle` | `chat-completions` | 接口协议：`chat-completions` 追加 `/chat/completions`；`responses` 追加 `/responses`（OpenAI Responses API 的 `input` / `max_output_tokens` / `output_text` 形态）；`anthropic-messages` 追加 `/v1/messages`（Claude 风格 `messages` / `max_tokens` / `content[].text`，`x-api-key` + `anthropic-version` 头） |
+| `baseURL` | —（必填） | 端点根地址，按协议追加路径（`/chat/completions`、`/responses` 或 `/v1/messages`）。OpenAI 兼容端点如 `https://dashscope.aliyuncs.com/compatible-mode/v1`；Anthropic 风格可填写 provider 根地址（如 `https://opencode.ai/zen/go`）、常规 `/v1` API 根地址或完整 `/v1/messages` 端点。末尾斜杠自动去除 |
+| `apiStyle` | `chat-completions` | 接口协议：`chat-completions` 追加 `/chat/completions`；`responses` 追加 `/responses`（OpenAI Responses API 的 `input` / `max_output_tokens` / `output_text` 形态）；`anthropic-messages` 将地址规范化为唯一的 `/v1/messages` 端点（Claude 风格 `messages` / `max_tokens` / `content[].text`，`x-api-key` + `anthropic-version` 头） |
 | `model` | —（必填） | 视觉模型 id，可带思考后缀（`:off` / `:low` / `:medium` / `:high`）。后缀在发往端点前剥除：`:off` 映射为 `thinking.type=disabled`（`chat-completions`）或 `reasoning.effort=none`（`responses`）；其余档位映射为 `enabled`，或原样作为 `reasoning.effort` 的值。不带后缀则不发送任何思考控制字段；`anthropic-messages` 协议不发送思考字段，保持端点自身默认 |
 | `apiKey` | — | 内联密钥；本地调试用。建议用 `!!js process.env.VISION_API_KEY` 从环境注入，勿写死明文 |
 | `apiKeyEnv` | `VISION_API_KEY` | 凭证引用（环境变量名）；空字符串禁用引用解析 |
@@ -102,7 +102,7 @@ dsh plugin --profile web add @linxin666/dsh-tool-describe-image
 ```
 
 Claude 风格端点（如 OpenCode Go——Qwen3.7 Plus 等视觉模型只走 Messages API）设置
-`apiStyle: anthropic-messages`，`baseURL` 填裸主机：
+`apiStyle: anthropic-messages`；`baseURL` 最简单的写法是 provider 根地址：
 
 ```yaml
 - id: describe-image

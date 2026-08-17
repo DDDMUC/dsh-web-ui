@@ -59,7 +59,7 @@ export function splitModelSuffix(model: string): { model: string; thinking: Thin
  * `model` for composition entries.
  */
 export interface Config {
-  /** Root of the OpenAI-compatible endpoint, e.g. `https://api.openai.com/v1`; trailing slashes are stripped. */
+  /** Endpoint root; Anthropic style also accepts a `/v1` root or complete `/v1/messages` endpoint. Trailing slashes are stripped. */
   baseURL?: string
   /**
    * Vision model id for the configured endpoint, optionally with a trailing thinking suffix

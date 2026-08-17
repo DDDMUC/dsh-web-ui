@@ -395,6 +395,7 @@ describe('Anthropic Messages API style', () => {
     const request = server.request(0)
     expect(request.authorization).toBeUndefined()
     expect(request.xApiKey).toBe('sk-inline')
+    expect(request.anthropicVersion).toBe('2023-06-01')
     expect(request.path).toBe('/v1/messages')
     const body = request.body as { model?: unknown; max_tokens?: unknown; max_output_tokens?: unknown }
     expect(body.model).toBe('vision-1')
@@ -406,6 +407,21 @@ describe('Anthropic Messages API style', () => {
     expect(imagePart?.source?.media_type).toBe('image/png')
     expect(imagePart?.source?.data).toBe(PNG_BYTES.toString('base64'))
     expect(textPart).toEqual({ type: 'text', text: tool.DEFAULT_PROMPT })
+  })
+
+  it('normalizes /v1 roots and complete /v1/messages endpoints', async () => {
+    const server = await startMockServer((_request, res) => { jsonReply(res, 200, anthropicReply('normalized')) })
+    cleanup.push(server.close)
+    const path = await tempPng()
+
+    const apiRootCtx = await setup({ baseURL: `${server.url}/v1`, apiStyle: 'anthropic-messages' })
+    expect((await callDescribe(apiRootCtx, { image: path })).isError).toBe(false)
+    await teardown(apiRootCtx)
+
+    const endpointCtx = await setup({ baseURL: `${server.url}/v1/messages`, apiStyle: 'anthropic-messages' })
+    expect((await callDescribe(endpointCtx, { image: path })).isError).toBe(false)
+
+    expect(server.requests.map(request => request.path)).toEqual(['/v1/messages', '/v1/messages'])
   })
 
   it('forwards a caller prompt and the configured output cap in the anthropic body', async () => {

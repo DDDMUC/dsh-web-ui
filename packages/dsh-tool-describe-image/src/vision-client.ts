@@ -307,16 +307,18 @@ export function extractAnthropicMessagesContent(payload: unknown): string {
  * a thinking suffix, Chat Completions maps it to `thinking.type` (`off` -> `disabled`, every
  * other level -> `enabled`) and Responses forwards it as `reasoning.effort` (`off` ->
  * `none`, levels pass through); without a suffix no thinking control is sent, so the endpoint
- * keeps its own default. The `anthropic-messages` style posts to `baseURL/v1/messages` with an
- * Anthropic-style body (`max_tokens`, `messages[0].content` = base64 image block + text).
+ * keeps its own default. The `anthropic-messages` style accepts a provider root, a `/v1` API root,
+ * or a complete `/v1/messages` endpoint and posts an Anthropic-style body (`max_tokens`, `messages[0].content` = base64 image block + text).
  */
 export function buildVisionRequest(spec: ResolvedConfig, prompt: string, image: LoadedImage): { path: string; body: string } {
-  const dataUrl = `data:${image.mimeType};base64,${image.bytes.toString('base64')}`
   if (spec.apiStyle === 'anthropic-messages') {
-    // Anthropic-style endpoints root at a bare host (e.g. https://opencode.ai/zen/go) and mount
-    // the Messages API under /v1/messages; auth headers are chosen in callVision.
+    const path = spec.baseURL.endsWith('/v1/messages')
+      ? spec.baseURL
+      : spec.baseURL.endsWith('/v1')
+        ? `${spec.baseURL}/messages`
+        : `${spec.baseURL}/v1/messages`
     return {
-      path: `${spec.baseURL}/v1/messages`,
+      path,
       body: JSON.stringify({
         model: spec.model,
         max_tokens: spec.maxOutputTokens,
@@ -330,6 +332,7 @@ export function buildVisionRequest(spec: ResolvedConfig, prompt: string, image: 
       }),
     }
   }
+  const dataUrl = `data:${image.mimeType};base64,${image.bytes.toString('base64')}`
   if (spec.apiStyle === 'responses') {
     return {
       path: `${spec.baseURL}/responses`,
