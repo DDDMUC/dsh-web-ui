@@ -16,6 +16,7 @@ interface Section {
   pauseOnHidden?: boolean
   dim?: number
   wallpaperBlur?: number
+  weLibraryDirs?: string[]
 }
 
 /** A fake SettingsScope recording every set() call. */
@@ -168,6 +169,30 @@ describe('WallpaperController', () => {
     expect(layers()).toHaveLength(0)
     controller.setEnabled(true)
     expect(layers()).toHaveLength(2)
+    controller.dispose()
+  })
+
+  it('manages manual library folders with trim/dedupe/remove persistence', () => {
+    const { scope, calls } = fakeScope()
+    const controller = new WallpaperController(scope)
+    expect(controller.dirs()).toEqual([])
+    controller.addDir('  ~/Movies/wallpapers  ')
+    controller.addDir('/data/we')
+    controller.addDir('~/Movies/wallpapers') // duplicate: ignored
+    controller.addDir('   ') // blank: ignored
+    expect(controller.dirs()).toEqual(['~/Movies/wallpapers', '/data/we'])
+    controller.removeDir('/data/we')
+    expect(controller.dirs()).toEqual(['~/Movies/wallpapers'])
+    const writes = calls.filter(c => c.field === 'weLibraryDirs')
+    expect(writes).toHaveLength(3)
+    expect(writes[2].value).toEqual(['~/Movies/wallpapers'])
+    controller.dispose()
+  })
+
+  it('reads initial manual folders from the scope', () => {
+    const { scope } = fakeScope({ weLibraryDirs: ['/a', '', '  ', '/b'] })
+    const controller = new WallpaperController(scope)
+    expect(controller.dirs()).toEqual(['/a', '/b'])
     controller.dispose()
   })
 

@@ -46,6 +46,7 @@ interface WallpaperSection {
   pauseOnHidden?: boolean
   dim?: number
   wallpaperBlur?: number
+  weLibraryDirs?: string[]
 }
 
 /** The face the skin-center card injects for the wallpaper feature. */
@@ -57,6 +58,12 @@ export interface WallpaperHandle {
   dim(): number
   wallpaperBlur(): number
   pauseOnHidden(): boolean
+  /** Manual library folders (settings field weLibraryDirs). */
+  dirs(): string[]
+  /** Add a manual library folder (trimmed, deduped) and persist. */
+  addDir(dir: string): void
+  /** Remove a manual library folder and persist. */
+  removeDir(dir: string): void
   /** The currently mounted wallpaper id (try-on included), or null. */
   activeId(): string | null
   /** True while a try-on mount is up. */
@@ -120,6 +127,7 @@ export class WallpaperController implements WallpaperHandle {
   private pauseOnHiddenValue = true
   private dimValue = 25
   private blurValue = 0
+  private dirsValue: string[] = []
   private readonly listeners = new Set<() => void>()
   private readonly scope: SettingsScope<WallpaperSection>
 
@@ -152,6 +160,24 @@ export class WallpaperController implements WallpaperHandle {
   dim(): number { return this.dimValue }
   wallpaperBlur(): number { return this.blurValue }
   pauseOnHidden(): boolean { return this.pauseOnHiddenValue }
+  dirs(): string[] { return this.dirsValue }
+
+  addDir(dir: string): void {
+    const trimmed = dir.trim()
+    if (trimmed === '' || this.dirsValue.includes(trimmed)) return
+    this.dirsValue = [...this.dirsValue, trimmed]
+    this.publish()
+    void this.scope.set('weLibraryDirs', this.dirsValue)
+  }
+
+  removeDir(dir: string): void {
+    const next = this.dirsValue.filter(d => d !== dir)
+    if (next.length === this.dirsValue.length) return
+    this.dirsValue = next
+    this.publish()
+    void this.scope.set('weLibraryDirs', this.dirsValue)
+  }
+
   activeId(): string | null {
     const current = this.previewing ?? this.applied
     return this.mediaLayer !== null && current !== null ? current.id : null
@@ -252,6 +278,9 @@ export class WallpaperController implements WallpaperHandle {
     this.blurValue = typeof value.wallpaperBlur === 'number' && Number.isFinite(value.wallpaperBlur)
       ? clamp(value.wallpaperBlur, 0, 60)
       : 0
+    this.dirsValue = Array.isArray(value.weLibraryDirs)
+      ? value.weLibraryDirs.filter((d): d is string => typeof d === 'string' && d.trim() !== '')
+      : []
   }
 
   private readonly onVisibility = (): void => {

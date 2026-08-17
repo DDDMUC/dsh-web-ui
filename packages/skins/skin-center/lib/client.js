@@ -786,6 +786,8 @@ window.__ModuleLoader__.load({
 			const pauseOnHidden = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.pauseOnHidden);
 			const activeId = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.activeId);
 			const trying = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.trying);
+			const dirs = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.dirs);
+			const [dirInput, setDirInput] = (0, react.useState)("");
 			const [items, setItems] = (0, react.useState)(null);
 			const [installDir, setInstallDir] = (0, react.useState)(null);
 			const [loadError, setLoadError] = (0, react.useState)(null);
@@ -1001,6 +1003,69 @@ window.__ModuleLoader__.load({
 									},
 									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: skin_center_module_css_default.switchThumb })
 								})]
+							})
+						]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: skin_center_module_css_default.wallpaperDirs,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: skin_center_module_css_default.themeLabel,
+								children: t("wallpaperDirs")
+							}),
+							dirs.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: skin_center_module_css_default.backgroundHintMuted,
+								children: t("wallpaperDirsEmpty")
+							}),
+							dirs.map((dir) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+								className: skin_center_module_css_default.wallpaperDir,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: skin_center_module_css_default.wallpaperDirPath,
+									title: dir,
+									children: dir
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.wallpaperDirRemove,
+									"aria-label": t("wallpaperRemove"),
+									onClick: () => {
+										wallpaper.removeDir(dir);
+										load();
+									},
+									children: "×"
+								})]
+							}, dir)),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+								className: skin_center_module_css_default.wallpaperDirAdd,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									className: skin_center_module_css_default.wallpaperDirInput,
+									type: "text",
+									value: dirInput,
+									placeholder: t("wallpaperDirPlaceholder"),
+									onChange: (event) => {
+										setDirInput(event.target.value);
+									},
+									onKeyDown: (event) => {
+										if (event.key === "Enter" && dirInput.trim() !== "") {
+											wallpaper.addDir(dirInput);
+											setDirInput("");
+											load();
+										}
+									}
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.button,
+									disabled: dirInput.trim() === "",
+									onClick: () => {
+										wallpaper.addDir(dirInput);
+										setDirInput("");
+										load();
+									},
+									children: t("wallpaperDirAdd")
+								})]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: skin_center_module_css_default.backgroundHintMuted,
+								children: t("wallpaperDirsHint")
 							})
 						]
 					}),
@@ -1905,6 +1970,7 @@ window.__ModuleLoader__.load({
 			pauseOnHiddenValue = true;
 			dimValue = 25;
 			blurValue = 0;
+			dirsValue = [];
 			listeners = /* @__PURE__ */ new Set();
 			scope;
 			/** The descriptor of the applied selection, resolved by the card. */
@@ -1942,6 +2008,23 @@ window.__ModuleLoader__.load({
 			}
 			pauseOnHidden() {
 				return this.pauseOnHiddenValue;
+			}
+			dirs() {
+				return this.dirsValue;
+			}
+			addDir(dir) {
+				const trimmed = dir.trim();
+				if (trimmed === "" || this.dirsValue.includes(trimmed)) return;
+				this.dirsValue = [...this.dirsValue, trimmed];
+				this.publish();
+				this.scope.set("weLibraryDirs", this.dirsValue);
+			}
+			removeDir(dir) {
+				const next = this.dirsValue.filter((d) => d !== dir);
+				if (next.length === this.dirsValue.length) return;
+				this.dirsValue = next;
+				this.publish();
+				this.scope.set("weLibraryDirs", this.dirsValue);
 			}
 			activeId() {
 				const current = this.previewing ?? this.applied;
@@ -2029,6 +2112,7 @@ window.__ModuleLoader__.load({
 				this.pauseOnHiddenValue = typeof value.pauseOnHidden === "boolean" ? value.pauseOnHidden : true;
 				this.dimValue = typeof value.dim === "number" && Number.isFinite(value.dim) ? clamp(value.dim, 0, 90) : 25;
 				this.blurValue = typeof value.wallpaperBlur === "number" && Number.isFinite(value.wallpaperBlur) ? clamp(value.wallpaperBlur, 0, 60) : 0;
+				this.dirsValue = Array.isArray(value.weLibraryDirs) ? value.weLibraryDirs.filter((d) => typeof d === "string" && d.trim() !== "") : [];
 			}
 			onVisibility = () => {
 				if (this.videoElement === null || !this.pauseOnHiddenValue) return;
@@ -2211,7 +2295,12 @@ window.__ModuleLoader__.load({
 			wallpaperTypeVideo: "Video",
 			wallpaperTypeWeb: "Web",
 			wallpaperTypeScene: "Scene (static)",
-			wallpaperTypeApp: "Unsupported"
+			wallpaperTypeApp: "Unsupported",
+			wallpaperDirs: "Manual folders",
+			wallpaperDirsEmpty: "No manual folders yet.",
+			wallpaperDirsHint: "No Wallpaper Engine (e.g. macOS)? Point a folder at any .mp4/.webm files, a wallpaper project folder, or a folder of projects — they become your wallpaper library.",
+			wallpaperDirPlaceholder: "/path/to/wallpapers or ~/Movies/wallpapers",
+			wallpaperDirAdd: "Add"
 		};
 		const zh = {
 			title: "皮肤中心",
@@ -2267,7 +2356,12 @@ window.__ModuleLoader__.load({
 			wallpaperTypeVideo: "视频",
 			wallpaperTypeWeb: "网页",
 			wallpaperTypeScene: "场景(静态)",
-			wallpaperTypeApp: "不支持"
+			wallpaperTypeApp: "不支持",
+			wallpaperDirs: "手动目录",
+			wallpaperDirsEmpty: "还没有手动目录。",
+			wallpaperDirsHint: "没有 Wallpaper Engine（如 macOS）？把任意 .mp4/.webm 视频、单个壁纸项目文件夹或项目合集文件夹加进来，就是你的壁纸库。",
+			wallpaperDirPlaceholder: "/path/to/wallpapers 或 ~/Movies/wallpapers",
+			wallpaperDirAdd: "添加"
 		};
 		//#endregion
 		//#region src/client/index.ts
@@ -2331,6 +2425,9 @@ window.__ModuleLoader__.load({
 					dim: () => wallpaper.dim(),
 					wallpaperBlur: () => wallpaper.wallpaperBlur(),
 					pauseOnHidden: () => wallpaper.pauseOnHidden(),
+					dirs: () => wallpaper.dirs(),
+					addDir: (dir) => wallpaper.addDir(dir),
+					removeDir: (dir) => wallpaper.removeDir(dir),
 					activeId: () => wallpaper.activeId(),
 					trying: () => wallpaper.trying(),
 					subscribe: (listener) => wallpaper.subscribe(listener),

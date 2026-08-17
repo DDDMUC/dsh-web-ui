@@ -70,6 +70,8 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const pauseOnHidden = useSyncExternalStore(wallpaper.subscribe, wallpaper.pauseOnHidden)
   const activeId = useSyncExternalStore(wallpaper.subscribe, wallpaper.activeId)
   const trying = useSyncExternalStore(wallpaper.subscribe, wallpaper.trying)
+  const dirs = useSyncExternalStore(wallpaper.subscribe, wallpaper.dirs)
+  const [dirInput, setDirInput] = useState('')
 
   const [items, setItems] = useState<WallpaperItem[] | null>(null)
   const [installDir, setInstallDir] = useState<string | null>(null)
@@ -240,6 +242,49 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
               </div>
             </div>
           )}
+
+          <div className={css.wallpaperDirs}>
+            <span className={css.themeLabel}>{t('wallpaperDirs')}</span>
+            {dirs.length === 0 && <span className={css.backgroundHintMuted}>{t('wallpaperDirsEmpty')}</span>}
+            {dirs.map(dir => (
+              <span className={css.wallpaperDir} key={dir}>
+                <span className={css.wallpaperDirPath} title={dir}>{dir}</span>
+                <button
+                  type="button"
+                  className={css.wallpaperDirRemove}
+                  aria-label={t('wallpaperRemove')}
+                  onClick={() => { wallpaper.removeDir(dir); load() }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <span className={css.wallpaperDirAdd}>
+              <input
+                className={css.wallpaperDirInput}
+                type="text"
+                value={dirInput}
+                placeholder={t('wallpaperDirPlaceholder')}
+                onChange={(event) => { setDirInput(event.target.value) }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && dirInput.trim() !== '') {
+                    wallpaper.addDir(dirInput)
+                    setDirInput('')
+                    load()
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className={css.button}
+                disabled={dirInput.trim() === ''}
+                onClick={() => { wallpaper.addDir(dirInput); setDirInput(''); load() }}
+              >
+                {t('wallpaperDirAdd')}
+              </button>
+            </span>
+            <p className={css.backgroundHintMuted}>{t('wallpaperDirsHint')}</p>
+          </div>
 
           {actionError !== null && <div className={css.error}>{actionError}</div>}
 
