@@ -33,6 +33,17 @@ function legacyPatchPath(home) {
   return join(home, '.dsh', 'cordis.patch.yml')
 }
 
+/** A throwaway skin source dir carrying the manifest the registry scans. */
+function fakeSkinDir(repo, name) {
+  const dir = join(repo, 'packages', 'skins', name)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'skin.json'), JSON.stringify({
+    id: name,
+    package: '@linxin666/dsh-client-ui-skin-' + name,
+    wiring: { id: 'ui-skin-' + name },
+  }))
+}
+
 test('renderManaged(null) disables every skin and inserts nothing', () => {
   const rendered = renderManaged(null)
   assert.ok(rendered.startsWith(MANAGED_START))
@@ -75,8 +86,12 @@ test('use official restores the stock look on a throwaway DSH_HOME', () => {
     const patch = patchPath(home)
     const fixture = `# custom row survives\n- id: ui-subagent-tree\n  name: '@deepseek-ai/dsh-client-ui-subagent-tree'\n`
     writeFileSync(patch, fixture)
+    // The registry is scanned from DSH_SKIN_REPO at load: mirror every known
+    // skin into the throwaway repo so the subprocess sees the same set.
+    const repo = join(home, 'code', 'dsh-web-ui')
+    for (const name of Object.keys(SKINS)) fakeSkinDir(repo, name)
     execFileSync(process.execPath, [SCRIPT, 'use', 'official'], {
-      env: { ...process.env, DSH_HOME: join(home, '.dsh'), DSH_SKIN_REPO: join(home, 'code', 'dsh-web-ui') },
+      env: { ...process.env, DSH_HOME: join(home, '.dsh'), DSH_SKIN_REPO: repo },
     })
     const after = readFileSync(patch, 'utf8')
     assert.ok(after.includes('# custom row survives'), 'non-managed rows must be preserved')
@@ -88,7 +103,7 @@ test('use official restores the stock look on a throwaway DSH_HOME', () => {
 
     // The CLI's own reading agrees: current prints none.
     const current = execFileSync(process.execPath, [SCRIPT, 'current'], {
-      env: { ...process.env, DSH_HOME: join(home, '.dsh'), DSH_SKIN_REPO: join(home, 'code', 'dsh-web-ui') },
+      env: { ...process.env, DSH_HOME: join(home, '.dsh'), DSH_SKIN_REPO: repo },
       encoding: 'utf8',
     })
     assert.equal(current.trim(), 'none')
@@ -102,7 +117,7 @@ test('use <name> still writes an insert row for a non-wired skin', () => {
   try {
     // ensureSymlink requires the skin source dir under DSH_SKIN_REPO.
     const repo = join(home, 'code', 'dsh-web-ui')
-    mkdirSync(join(repo, 'packages', 'skins', 'qq98'), { recursive: true })
+    fakeSkinDir(repo, 'qq98')
     const patch = patchPath(home)
     writeFileSync(patch, '')
     execFileSync(process.execPath, [SCRIPT, 'use', 'qq98'], {
@@ -125,7 +140,7 @@ test('use migrates the global managed skin row into the web profile', () => {
   const home = fakeHome()
   try {
     const repo = join(home, 'code', 'dsh-web-ui')
-    mkdirSync(join(repo, 'packages', 'skins', 'qq98'), { recursive: true })
+    fakeSkinDir(repo, 'qq98')
     writeFileSync(legacyPatchPath(home), `${renderManaged('qq98')}\n`)
 
     execFileSync(process.execPath, [SCRIPT, 'use', 'qq98'], {
