@@ -282,6 +282,20 @@ function stripManaged(patch) {
 	return patch.slice(0, start) + patch.slice(end + 30);
 }
 /**
+* Drop bare top-level empty flow lists (`[]`) left by the stock profile
+* template. The managed skin section below provides the actual patch array,
+* and an empty flow list followed by block entries is not parseable YAML
+* ("end of the stream or a document separator is expected"), which breaks the
+* next dsh boot. Nested `list: []` mapping values are untouched (the line
+* does not match a standalone `[]`). Runs before
+* normalizePatchForManagedAppend so a template `[]` sitting above the
+* user's own block rows is removed instead of failing that stricter check.
+* @param patch - raw patch file text.
+*/
+function stripEmptyPatchList(patch) {
+	return patch.replace(/^[ \t]*\[\s*\][ \t]*\r?\n?/gm, "");
+}
+/**
 * Prepare a user patch for appending the managed block sequence. DSH creates
 * new profile overlays with a flow-style empty sequence (`[]`); appending
 * block rows after that root would create a second YAML root and break boot.
@@ -860,7 +874,7 @@ function useSkin(name, opts = {}) {
 	const legacyPatch = readPatch(paths.legacyPatchPath);
 	const migratedLegacyPatch = stripLegacySkinRows(stripManaged(legacyPatch));
 	if (migratedLegacyPatch !== legacyPatch) writePatchAtomic(paths.legacyPatchPath, migratedLegacyPatch);
-	const patch = normalizePatchForManagedAppend(stripLegacySkinRows(stripManaged(readPatch(paths.patchPath))));
+	const patch = normalizePatchForManagedAppend(stripEmptyPatchList(stripLegacySkinRows(stripManaged(readPatch(paths.patchPath)))));
 	let next = appendManagedPatch(patch, renderManaged(official ? null : name, renderRegistry));
 	let skippedInsert = false;
 	if (!official && countInsertId(next, renderRegistry[name].id) > 1) {
