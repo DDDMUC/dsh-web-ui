@@ -151,7 +151,7 @@ export function canMoveManually(_from: TaskStatus, to: TaskStatus): boolean {
 }
 
 /** Normalize one optional execution-target string: trim; blank collapses to undefined. */
-function normalizeTargetId(value: string | undefined): string | undefined {
+export function normalizeTargetId(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
   return trimmed === undefined || trimmed === '' ? undefined : trimmed
 }
