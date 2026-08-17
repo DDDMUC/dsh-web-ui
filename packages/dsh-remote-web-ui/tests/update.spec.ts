@@ -16,9 +16,9 @@ import {
   parseSemver,
   resolveAnchorManifest,
   resolveUpdateTarget,
-  SELF_PACKAGE,
   runUpdate,
   runUpdateVerified,
+  SELF_PACKAGE,
 } from "../src/update.ts"
 
 /** One temp fixture root per suite; removed after each test. */
@@ -62,6 +62,30 @@ function npmFixture(anchorVersion = "0.1.10", childVersion = "0.1.10"): string {
     version: childVersion,
   })
   return join(anchorDir, "package.json")
+}
+
+/** A profile with family plugins installed directly and no aggregate package. */
+function standaloneFixture(): { anchor: string; profileDir: string } {
+  const root = makeFixture()
+  const profileDir = join(root, "profiles", "web")
+  writeManifest(profileDir, {
+    name: "dsh-profile-web",
+    private: true,
+    dependencies: {
+      [SELF_PACKAGE]: "^0.1.19",
+      "@linxin666/dsh-client-ui-aionui-panel": "^0.1.19",
+      "@linxin666/dsh-pet": "link:../../../code/dsh-web-ui/packages/dsh-pet",
+      "@linxin666/dsh-ssh": "^0.1.19",
+      react: "^18.2.0",
+    },
+  })
+  for (const name of [SELF_PACKAGE, "@linxin666/dsh-client-ui-aionui-panel", "@linxin666/dsh-ssh"]) {
+    writeManifest(join(profileDir, "node_modules", ...name.split("/")), { name, version: "0.1.19" })
+  }
+  return {
+    anchor: join(profileDir, "node_modules", ...SELF_PACKAGE.split("/"), "package.json"),
+    profileDir,
+  }
 }
 
 describe("parseSemver", () => {
@@ -169,31 +193,26 @@ describe("resolveAnchorManifest", () => {
   })
 })
 
-/** Standalone install fixture: no aggregate, family plugins as direct deps. */
-function standaloneFixture(): string {
-  const root = makeFixture()
-  const profileDir = join(root, 'profiles', 'web')
-  writeManifest(join(profileDir), {
-    name: "dsh-profile-web",
-    private: true,
-    dependencies: {
-      [SELF_PACKAGE]: "^0.1.10",
-      '@linxin666/dsh-task-board': "^0.1.10",
-      '@linxin666/dsh-ssh': "^0.1.10",
-    },
-  })
-  const anchorDir = join(profileDir, 'node_modules', '@linxin666', 'dsh-remote-web-ui')
-  writeManifest(anchorDir, { name: SELF_PACKAGE, version: "0.1.10", dependencies: {} })
-  for (const child of ['dsh-task-board', 'dsh-ssh']) {
-    writeManifest(join(profileDir, 'node_modules', '@linxin666', child), {
-      name: '@linxin666/' + child,
-      version: "0.1.9",
-    })
-  }
-  return join(anchorDir, "package.json")
-}
-
 describe("checkUpdates", () => {
+  it("checks every directly installed family package when the aggregate is absent", async () => {
+    const { anchor } = standaloneFixture()
+    const status = await checkUpdates({
+      anchorManifestPath: anchor,
+      // Package-scoped resolution cannot see sibling direct dependencies in
+      // pnpm's strict layout; their profile manifests are the fallback.
+      resolve: specifier => specifier === SELF_PACKAGE + "/package.json" ? anchor : undefined,
+      fetchLatest: async () => "0.1.20",
+    })
+    expect(status.mode).toBe("npm")
+    expect(status.anchor).toBe(SELF_PACKAGE)
+    expect(status.packages.map(item => item.name)).toEqual([
+      SELF_PACKAGE,
+      "@linxin666/dsh-client-ui-aionui-panel",
+      "@linxin666/dsh-ssh",
+    ])
+    expect(status.packages.map(item => item.current)).toEqual(["0.1.19", "0.1.19", "0.1.19"])
+  })
+
   it("reports an outdated npm install with per-package comparison", async () => {
     const anchor = npmFixture("0.1.10", "0.1.9")
     const status = await checkUpdates({
@@ -254,24 +273,6 @@ describe("checkUpdates", () => {
     expect(status.error).toBe("registry-unreachable")
     expect(status.outdated).toBe(false)
   })
-  it("covers standalone family plugins installed as direct profile deps (#377)", async () => {
-    const anchor = standaloneFixture()
-    const status = await checkUpdates({
-      anchorManifestPath: anchor,
-      resolve: (specifier) => join(fixture!, "profiles", "web", "node_modules", specifier.replace("/package.json", ""), "package.json"),
-      fetchLatest: async () => "0.1.10",
-    })
-    expect(status.mode).toBe("npm")
-    expect(status.anchor).toBe(SELF_PACKAGE)
-    // Anchor first, then every direct @linxin666/* profile dep, deduped.
-    expect(status.packages.map(packageStatus => packageStatus.name)).toEqual([
-      SELF_PACKAGE,
-      "@linxin666/dsh-task-board",
-      "@linxin666/dsh-ssh",
-    ])
-    // The children trail the latest release, so the run reports outdated.
-    expect(status.outdated).toBe(true)
-  })
   it("reports missing when the anchor is absent", async () => {
     const status = await checkUpdates({
       anchorManifestPath: undefined,
@@ -283,6 +284,19 @@ describe("checkUpdates", () => {
 })
 
 describe("resolveUpdateTarget", () => {
+  it("updates every directly installed family package when the aggregate is absent", () => {
+    const { anchor, profileDir } = standaloneFixture()
+    expect(resolveUpdateTarget({ anchorManifestPath: anchor })).toEqual({
+      profileName: "web",
+      profileDir,
+      packages: [
+        SELF_PACKAGE,
+        "@linxin666/dsh-client-ui-aionui-panel",
+        "@linxin666/dsh-ssh",
+      ],
+    })
+  })
+
   it("resolves the npm target with anchor + children", () => {
     const anchor = npmFixture()
     const target = resolveUpdateTarget({ anchorManifestPath: anchor })
@@ -290,16 +304,6 @@ describe("resolveUpdateTarget", () => {
       profileName: "web",
       profileDir: join(fixture!, "profiles", "web"),
       packages: [AGGREGATE_PACKAGE, "@linxin666/dsh-ssh"],
-    })
-  })
-  it("unions standalone family deps into the update package list (#377)", () => {
-    const anchor = standaloneFixture()
-    const target = resolveUpdateTarget({ anchorManifestPath: anchor })
-    expect(target).toEqual({
-      profileName: "web",
-      profileDir: join(fixture!, "profiles", "web"),
-      // The anchor appears once even though it is also a profile dep.
-      packages: [SELF_PACKAGE, "@linxin666/dsh-task-board", "@linxin666/dsh-ssh"],
     })
   })
   it("rejects a link install", () => {
@@ -578,6 +582,25 @@ describe("runUpdateVerified", () => {
       fetchLatest,
     }
   }
+
+  it("verifies version movement for directly installed family packages", async () => {
+    const { anchor, profileDir } = standaloneFixture()
+    const packages = [SELF_PACKAGE, "@linxin666/dsh-client-ui-aionui-panel", "@linxin666/dsh-ssh"]
+    const child = new FakeChild(0)
+    const promise = runUpdateVerified({
+      run: { profileDir, packages, spawnImpl: (() => child) as never },
+      check: {
+        anchorManifestPath: anchor,
+        resolve: specifier => specifier === SELF_PACKAGE + "/package.json" ? anchor : undefined,
+        fetchLatest: async () => "0.1.20",
+      },
+    })
+    for (const name of packages) {
+      writeManifest(join(profileDir, "node_modules", ...name.split("/")), { name, version: "0.1.20" })
+    }
+    child.run(0)
+    await expect(promise).resolves.toEqual({ ok: true, exitCode: 0, output: "" })
+  })
 
   it("reports stale when pnpm exits 0 but the installed versions did not move", async () => {
     // Registry carries 0.1.11 while the installed anchor stays 0.1.10 — the

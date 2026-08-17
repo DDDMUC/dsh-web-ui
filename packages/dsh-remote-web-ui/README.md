@@ -37,7 +37,10 @@ actions, and the update panel that probes and runs the update.
   (waiting → connected → disconnected) over an SSE stream.
 - **Remote update**: the download trigger in the sidebar foot (left of the
   phone icon) opens the update panel, which probes the npm registry for the
-  installed `@linxin666/dsh-*` family releases. When a newer release exists
+  installed `@linxin666/dsh-*` family releases. Without the aggregate package,
+  checks and updates cover every registry-managed direct `@linxin666/*`
+  dependency in the profile; local link/file development dependencies are
+  skipped. When a newer release exists
   the panel runs the update automatically (`pnpm update --latest` inside the
   owning dsh profile; when pnpm is missing it falls back to `corepack pnpm`
   and then `npx --yes pnpm`, and on Windows the command runs through
@@ -47,9 +50,8 @@ actions, and the update panel that probes and runs the update.
   versions are re-checked against the registry: a green exit that left every
   version in place (e.g. the pnpm `minimumReleaseAge` gate silently skipping
   same-day releases) is reported as a stale update with configuration
-  guidance instead of a false success. Local
-  link installs (development mode) are detected and report the npm state
-  without updating.
+  guidance instead of a false success. When the anchor itself is a local link
+  install (development mode), it reports the npm state without updating.
 
 ## Screenshots
 
