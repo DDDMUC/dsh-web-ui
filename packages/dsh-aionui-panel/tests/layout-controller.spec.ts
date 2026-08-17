@@ -145,3 +145,23 @@ describe('floating expand button (issues #374 / #292)', () => {
     expect(floatingButton().style.display).toBe('none')
   })
 })
+
+describe('handle hit-zone geometry (issue #409)', () => {
+  it('keeps only a thin lip of each hit zone in the neighbouring column', () => {
+    // Explorer handle: 12px zone with a 2px lip into the preview column.
+    const explorerHandle = document.querySelector('.aionui-explorer-handle') as HTMLElement
+    expect(explorerHandle.style.width).toBe('12px')
+    expect(explorerHandle.style.marginLeft).toBe('-2px')
+
+    // Preview handle: 20px zone with only 4px past the panel boundary — the
+    // chat column's scrollbar sits at that boundary and must stay clickable.
+    layout.update((prev) => ({ ...prev, previewOpen: true }))
+    const previewHandle = document.querySelector('.aionui-preview-handle') as HTMLElement
+    expect(previewHandle.style.display).toBe('block')
+    expect(previewHandle.style.width).toBe('20px')
+    expect(previewHandle.style.marginLeft).toBe('-4px')
+    // Positioned at the panel's left edge, the zone's right end lands 16px
+    // inside the preview column — the bulk of the zone never leaves the panel.
+    expect(parseFloat(previewHandle.style.left)).toBe(1280 - 260 - 480)
+  })
+})
