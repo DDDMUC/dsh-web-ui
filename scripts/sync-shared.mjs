@@ -26,24 +26,24 @@ export const REPO_ROOT = resolve(SCRIPT_DIR, '..')
  * The sync manifest: every shared-module copy this repo carries. Sources
  * live exactly once under shared/; consumers import the committed copy.
  */
+// Consumers of the settings card trio: one list, three derivations below.
+const SETTINGS_CONSUMERS = ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-live-stats', 'dsh-aionui-panel', 'dsh-tool-describe-image', 'dsh-community-plugins']
+
 const MANIFEST = [
   {
     file: 'settings-form.ts',
     source: 'shared/client/settings/settings-form.ts',
-    targets: ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-live-stats', 'dsh-aionui-panel', 'dsh-tool-describe-image', 'dsh-community-plugins']
-      .map(pkg => `packages/${pkg}/src/client/settings-form.ts`),
+    targets: SETTINGS_CONSUMERS.map(pkg => `packages/${pkg}/src/client/settings-form.ts`),
   },
   {
     file: 'PluginSettingsCard.tsx',
     source: 'shared/client/settings/PluginSettingsCard.tsx',
-    targets: ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-live-stats', 'dsh-aionui-panel', 'dsh-tool-describe-image', 'dsh-community-plugins']
-      .map(pkg => `packages/${pkg}/src/client/PluginSettingsCard.tsx`),
+    targets: SETTINGS_CONSUMERS.map(pkg => `packages/${pkg}/src/client/PluginSettingsCard.tsx`),
   },
   {
     file: 'settings-card.module.css',
     source: 'shared/client/settings/settings-card.module.css',
-    targets: ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-live-stats', 'dsh-aionui-panel', 'dsh-tool-describe-image', 'dsh-community-plugins']
-      .map(pkg => `packages/${pkg}/src/client/settings-card.module.css`),
+    targets: SETTINGS_CONSUMERS.map(pkg => `packages/${pkg}/src/client/settings-card.module.css`),
   },
   {
     file: 'poll-guard.ts',
