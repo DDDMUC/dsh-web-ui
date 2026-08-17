@@ -1,5 +1,3 @@
 import { clientBundle } from '../../../shared/tsdown.client.ts'
 
-export default clientBundle('@linxin666/dsh-client-ui-skin-maid-atelier', ['src/index.ts'], {
-  portableCssModuleIds: true,
-})
+export default clientBundle('@linxin666/dsh-client-ui-skin-maid-atelier', ['src/index.ts'])

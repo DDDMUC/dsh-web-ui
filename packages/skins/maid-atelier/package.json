@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-client-ui-skin-maid-atelier",
-  "description": "Hot-pluggable Deep-sea maid atelier skin with character backdrop and ornamental navy UI for the dsh web GUI",
+  "description": "Hot-pluggable Abyssal Maid Atelier skin for the dsh web GUI with a dual-maid backdrop, ornamental navy interface, and responsive character staging",
   "version": "0.1.20",
   "type": "module",
   "main": "lib/index.js",
@@ -20,29 +20,30 @@
     "build": "tsdown",
     "prepare": "tsdown",
     "watch": "tsdown --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.vitest.json --noEmit",
     "test": "vitest run"
   },
   "license": "CC-BY-NC-SA-4.0",
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1"
-  },
+  "peerDependencies": {},
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
+    "@types/node": "^22.20.0",
     "jsdom": "29.1.1",
     "lightningcss": "^1.32.0",
     "tsdown": "^0.22.2",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "@deepseek-ai/cordis": "^4.0.1"
   },
   "files": [
     "lib",
     "skin.json",
     "preview",
-    "LICENSE",
-    "NOTICE",
+    "assets",
     "README.md",
     "README.zh.md",
-    "README.i18n.yaml"
+    "README.i18n.yaml",
+    "LICENSE",
+    "NOTICE"
   ],
   "repository": {
     "type": "git",

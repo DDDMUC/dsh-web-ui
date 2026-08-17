@@ -174,7 +174,7 @@ A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting
 
 An ornate navy workshop skin with two character layers and responsive sidebar decoration. This skin is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use.
 
-![Maid Atelier light](packages/skins/maid-atelier/preview/light.webp) · ![Maid Atelier dark](packages/skins/maid-atelier/preview/dark.webp)
+![Maid Atelier light](packages/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/maid-atelier/preview/dark.png)
 
 ## Quick Start
 
