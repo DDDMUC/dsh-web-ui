@@ -238,6 +238,14 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
   const rateLimitAccept = (req: IncomingMessage): boolean => {
     const ip = (req.socket as { remoteAddress?: string } | undefined)?.remoteAddress ?? 'unknown'
     const nowMs = Date.now()
+    // The map lives as long as the plugin: prune expired windows once the
+    // table grows past a modest size so distinct source IPs (LAN clients,
+    // brute-force scans) cannot accumulate forever.
+    if (acceptAttempts.size > 256) {
+      for (const [key, attempt] of acceptAttempts) {
+        if (nowMs - attempt.windowStart > ACCEPT_WINDOW_MS) acceptAttempts.delete(key)
+      }
+    }
     const entry = acceptAttempts.get(ip)
     if (entry === undefined || nowMs - entry.windowStart > ACCEPT_WINDOW_MS) {
       acceptAttempts.set(ip, { count: 1, windowStart: nowMs })
