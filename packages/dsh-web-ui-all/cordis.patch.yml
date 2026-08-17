@@ -72,7 +72,3 @@
 - insert:
     - id: web-ui-better-sidebar
       name: 'dsh-better-sidebar'
-
-# config patch: web-ui-dsh-aionui-panel
-- id: web-ui-dsh-aionui-panel
-  config: {"enabled":false}

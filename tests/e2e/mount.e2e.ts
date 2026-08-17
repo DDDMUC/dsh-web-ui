@@ -5,9 +5,10 @@
  *
  *  1. the external `dsh-better-sidebar` plugin mounts
  *     (`[data-dsh-better-sidebar]` host div appears);
- *  2. the aionui-panel columns are NOT mounted by default (the bundle's
- *     config patch sets `enabled: false` — it stays installed and can be
- *     re-enabled from Settings → Web UI Plugins → Right panel);
+ *  2. the aionui-panel columns are NOT mounted by default (the right-panel
+ *     provider defaults to dsh-better-sidebar in the aionui settings card —
+ *     aionui is deprecated; it stays installed and can be switched back from
+ *     Settings → Web UI Plugins → Right panel);
  *  3. no crash markers: no `dsh-better-sidebar:` error strips, no
  *     `pageerror`, no plugin-prefixed console errors.
  *
@@ -46,8 +47,8 @@ test('family bundle mounts better-sidebar and keeps aionui off by default', asyn
   await page.waitForSelector('[data-dsh-better-sidebar]', { state: 'attached', timeout: 30_000 })
   await expect(page.locator('[data-dsh-better-sidebar]')).toHaveCount(1)
 
-  // The aionui right-panel columns stay unmounted by default (bundle patch
-  // config `enabled: false`), while the package itself remains installed.
+  // The aionui right-panel columns stay unmounted by default (the provider
+  // choice defaults to dsh-better-sidebar), while the package stays installed.
   await expect(page.locator(AIONUI_COLUMNS)).toHaveCount(0)
 
   // No better-sidebar crash strips anywhere on the page.

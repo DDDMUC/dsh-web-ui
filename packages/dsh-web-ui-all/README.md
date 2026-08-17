@@ -8,7 +8,7 @@ The one-click aggregate package for the whole dsh web UI family: installing it b
 
 - **One install, everything on**: its dependencies pull in all sub-plugin packages (dsh-client-ui-aionui-panel / dsh-client-ui-task-board / dsh-client-ui-git-graph / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-ssh / dsh-client-ui-web-ui-settings / dsh-client-ui-skin-center / dsh-client-ui-community-plugins / dsh-skins) plus the external npm plugin `dsh-better-sidebar` (the default right sidebar: explorer / editor / terminal / git / browser).
 - **Aggregation carrier**: `cordis.patch.yml` aggregates the `insert` lines of each sub-plugin plus the external `dsh-better-sidebar` row, mounted through the dsh plugin profile mechanism.
-- **Right panel transition**: `dsh-better-sidebar` owns the right-panel position by default; the aionui-panel row stays installed but is disabled by default in the bundle (row-level `config: { enabled: false }`). Re-enable it any time from Settings → Web UI Plugins → Right panel — both panels occupy the right edge, so run only one of them at a time.
+- **Right panel transition**: `dsh-better-sidebar` owns the right-panel position by default (mutually exclusive with aionui-panel — better-sidebar reads the aionui provider choice and does not mount while `Use aionui-panel` is selected). The aionui-panel row stays installed; its settings card (Settings → Web UI Plugins → Right panel) chooses the provider — `Use DSH-better-sidebar` (default; aionui is deprecated) or `Use aionui-panel (deprecated)` — one dropdown, live switch, no reload.
 
 ## Install
 

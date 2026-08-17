@@ -1,28 +1,36 @@
 /**
- * The aionui-panel settings card: the total on/off switch (issue #307).
- * Registers into the `web-ui.plugin.item` slot the Web UI Plugins group
- * renders, bound to the `aionui-panel` settings namespace through the family
- * settings bridge (or the official settings scope when the deployment exposes
- * the namespace directly). Turning the panel off unmounts the right-panel
- * columns, the floating expand button, the /aionui-panel/* routes and the
- * workspace fs watch + git polling behind them.
+ * The aionui-panel settings card: the right-panel provider choice (issue
+ * #307). Registers into the `web-ui.plugin.item` slot the Web UI Plugins
+ * group renders, bound to the `aionui-panel` settings namespace through the
+ * family settings bridge (or the official settings scope when the deployment
+ * exposes the namespace directly). Selecting `dsh-better-sidebar` (the
+ * default — aionui is deprecated) keeps the right-panel columns, the
+ * floating expand button, the /aionui-panel/* routes and the workspace
+ * fs watch + git polling behind them unmounted; selecting `aionui-panel`
+ * mounts them.
  * @module @linxin666/dsh-client-ui-aionui-panel/client/AionUiSettingsCard
  */
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import { PluginSettingsCard, BooleanField } from './PluginSettingsCard.tsx'
-import { CardForm, booleanField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
+import { ChoiceField, PluginSettingsCard } from './PluginSettingsCard.tsx'
+import { CardForm, choiceField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
+
+/** The right-panel providers this card offers. */
+export const RIGHT_PANEL_PROVIDERS = ['aionui-panel', 'dsh-better-sidebar'] as const
 
 /** The aionui-panel fields this card edits (the namespace's full schema). */
 export interface AionUiPanelSettings {
-  /** Whether the right-panel system (columns, floating button, routes, watch/polling) is mounted at all; default on. */
-  enabled?: boolean
+  /**
+   * The active right-panel provider. `dsh-better-sidebar` (default) keeps
+   * this panel unmounted; `aionui-panel` mounts it (deprecated provider).
+   */
+  rightPanel?: 'aionui-panel' | 'dsh-better-sidebar'
 }
 
 /** What the aionui-panel card renders. */
 export interface AionUiSettingsCardState extends CardShell {
-  enabled: CardFieldState
+  rightPanel: CardFieldState
 }
 
 /** The registration-side face the card's slot entry injects. */
@@ -41,7 +49,7 @@ export class AionUiSettingsCardController {
   /** @param scope - the bound settings scope for the `aionui-panel` namespace. */
   constructor(scope: SettingsScope<AionUiPanelSettings>) {
     this.form = new CardForm(scope, [
-      booleanField('enabled'),
+      choiceField('rightPanel', [...RIGHT_PANEL_PROVIDERS]),
     ])
     this.store = this.form.bind(() => this.projection())
   }
@@ -49,7 +57,7 @@ export class AionUiSettingsCardController {
   private projection(): AionUiSettingsCardState {
     return {
       ...this.form.shell(),
-      enabled: this.form.field('enabled'),
+      rightPanel: this.form.field('rightPanel'),
     }
   }
 
@@ -101,17 +109,19 @@ export function AionUiSettingsCard(props: AionUiSettingsCardProps) {
       onSave={props.save}
       onDiscard={props.discard}
     >
-      <BooleanField
-        id="settings-aionui-panel-enabled"
-        label={t('settings.enabled')}
-        hint={t('settings.enabledHint')}
+      <ChoiceField
+        id="settings-aionui-panel-right-panel"
+        label={t('settings.rightPanel')}
+        hint={t('settings.rightPanelHint')}
         inheritLabel={t('settings.inherit')}
-        onLabel={t('settings.on')}
-        offLabel={t('settings.off')}
+        choices={[
+          { value: 'dsh-better-sidebar', label: t('settings.providerBetterSidebar') },
+          { value: 'aionui-panel', label: t('settings.providerAionui') },
+        ]}
         {...fieldProps}
-        {...state.enabled}
-        onEdit={(text) => { props.edit('enabled', text) }}
-        onReset={() => { props.resetField('enabled') }}
+        {...state.rightPanel}
+        onEdit={(text) => { props.edit('rightPanel', text) }}
+        onReset={() => { props.resetField('rightPanel') }}
       />
     </PluginSettingsCard>
   )

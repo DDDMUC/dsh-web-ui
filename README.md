@@ -44,7 +44,7 @@ dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合�
 | Agent 预设 | 官方预设（Standard / Minimal 等） | 梁神模式：面向 V4 Pro 的两阶段锚定预设 |
 | 任务看板 | 无 | 多列看板 + cron 定时真实执行 |
 | Git 可视化 | 无 | 分支泳道 + 提交历史图谱 |
-| 文件预览与变更 | 无 | 右侧面板：better-sidebar（资源管理器 / 编辑器 / 终端 / Git / 浏览器）；aionui 面板随包安装但聚合包内默认关闭，可在设置重开 |
+| 文件预览与变更 | 无 | 右侧面板：better-sidebar（资源管理器 / 编辑器 / 终端 / Git / 浏览器）；aionui 面板随包安装，默认由 better-sidebar 接管；设置卡可选回 aionui（即将弃用） |
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |

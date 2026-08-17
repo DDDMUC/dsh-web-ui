@@ -46,7 +46,7 @@ dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI:
 | Agent presets | Official presets (Standard / Minimal…) | Liang Shen Mode: two-phase anchoring tuned for V4 Pro |
 | Task board | None | Multi-column board + cron-scheduled real runs |
 | Git visualization | None | Branch lanes + commit history graph |
-| File preview & changes | None | Right panel: better-sidebar (explorer / editor / terminal / git / browser); the aionui panel ships installed but is disabled by default in the bundle, re-enable it in Settings |
+| File preview & changes | None | Right panel: better-sidebar (explorer / editor / terminal / git / browser); the aionui panel ships installed; better-sidebar owns the right panel by default, the settings card can switch back to aionui (deprecated) |
 | Mobile remote control | None | QR pairing with SSE real-time sync |
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
 | Image understanding | None | `describe_image` vision tool |

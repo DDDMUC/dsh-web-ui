@@ -23,8 +23,6 @@
  *     - ../skins/xp
  *   rows:
  *     - {"id": "better-sidebar", "name": "dsh-better-sidebar"}
- *   patches:
- *     - {"id": "web-ui-dsh-aionui-panel", "config": {"enabled": false}}
  *
  *   - patchFrom entries contribute their child's cordis.patch.yml insert rows
  *     to the aggregate patch (nested aggregates expand recursively, in
@@ -34,12 +32,7 @@
  *   - rows entries (single-line JSON flow mappings) are EXTERNAL insert rows
  *     for npm packages outside this repo (the row's `name` resolves from the
  *     profile root like any child); they are emitted after the patchFrom
- *     blocks, with their id namespaced like every other row;
- *   - patches entries (single-line JSON flow mappings) are top-level loader
- *     patch entries emitted AFTER the insert blocks, used to configure or
- *     disable a row this aggregate inserted (e.g. a child disabled by
- *     default in the bundle only). Supported fields: `id`, `config`
- *     (rendered as a YAML flow mapping), `disabled`.
+ *     blocks, with their id namespaced like every other row.
  *
  * Idempotent: safe to rerun at any time. Writes only inside the aggregate
  * packages it owns; never touches other packages or git state.
@@ -107,12 +100,12 @@ function findAggregates() {
 /**
  * Parse the hand-written manifest. YAML subset on purpose: comment lines and
  * blank lines are skipped, "<key>:" lines start a section, "- <value>" lines
- * belong to the current section. The `rows` / `patches` sections hold
- * single-line JSON flow mappings (JSON is valid YAML, so the manifest stays
- * YAML-readable while the generator can JSON.parse each entry).
+ * belong to the current section. The `rows` section holds single-line JSON
+ * flow mappings (JSON is valid YAML, so the manifest stays YAML-readable
+ * while the generator can JSON.parse each entry).
  */
 function parseManifest(ymlPath, errors) {
-  const manifest = { patchFrom: [], deps: [], self: null, rows: [], patches: [] }
+  const manifest = { patchFrom: [], deps: [], self: null, rows: [] }
   let section = null
   for (const raw of readFileSync(ymlPath, 'utf8').split(/\r?\n/)) {
     const line = raw.trim()
@@ -127,19 +120,19 @@ function parseManifest(ymlPath, errors) {
     const entry = entryMatch[1].trim().replace(/\s+#.*$/, '')
     if (section === 'patchFrom') manifest.patchFrom.push(entry)
     else if (section === 'deps') manifest.deps.push(entry)
-    else if (section === 'rows' || section === 'patches') {
+    else if (section === 'rows') {
       let parsed
       try {
         parsed = JSON.parse(entry)
       } catch {
-        errors.push(`${ymlPath}: ${section} entry must be a JSON flow mapping: ${entry}`)
+        errors.push(`${ymlPath}: rows entry must be a JSON flow mapping: ${entry}`)
         continue
       }
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        errors.push(`${ymlPath}: ${section} entry must be an object: ${entry}`)
+        errors.push(`${ymlPath}: rows entry must be an object: ${entry}`)
         continue
       }
-      manifest[section].push(parsed)
+      manifest.rows.push(parsed)
     } else if (section === 'self') {
       if (manifest.self !== null && manifest.self !== entry) {
         console.warn(`aggregate.yml defines several self entries (${manifest.self}, ${entry}); keeping the last one`)
@@ -218,7 +211,7 @@ function collectRows(pkgDir, entry, via, visited, errors, blocks) {
 }
 
 /** Render the aggregate cordis.patch.yml: header + per-source insert blocks. */
-function renderPatch(blocks, externalRows, patches, errors, rel) {
+function renderPatch(blocks, externalRows, errors, rel) {
   const lines = [...PATCH_HEADER]
   const seen = new Set()
   for (const block of blocks) {
@@ -248,23 +241,6 @@ function renderPatch(blocks, externalRows, patches, errors, rel) {
     lines.push('', `# external: ${row.name}`, '- insert:')
     lines.push(`    - id: ${id}`)
     lines.push(`      name: '${row.name}'`)
-  }
-  // Config patches: top-level loader entries applied AFTER the insert blocks,
-  // so they can configure or disable a row this aggregate inserted.
-  for (const patch of patches) {
-    if (typeof patch.id !== 'string' || !patch.id) {
-      errors.push(`${rel}: patch entry is missing a string "id": ${JSON.stringify(patch)}`)
-      continue
-    }
-    const id = namespaceId(patch.id)
-    lines.push('', `# config patch: ${id}`)
-    lines.push(`- id: ${id}`)
-    if (patch.config !== undefined) {
-      lines.push(`  config: ${JSON.stringify(patch.config)}`)
-    }
-    if (patch.disabled !== undefined) {
-      lines.push(`  disabled: ${JSON.stringify(patch.disabled)}`)
-    }
   }
   return lines.join('\n') + '\n'
 }
@@ -357,7 +333,7 @@ for (const { pkgDir, ymlPath } of aggregates) {
   if (manifest.patchFrom.length === 0 && !manifest.self) {
     console.log(`[aggregate] WARN ${rel}: aggregate.yml has no patchFrom entries (patch would be empty)`)
   }
-  const patch = renderPatch(blocks, manifest.rows, manifest.patches, errors, rel)
+  const patch = renderPatch(blocks, manifest.rows, errors, rel)
   const resolvedDeps = resolveEntries(pkgDir, manifest.deps, 'deps', errors)
   const pkgJson = renderPackageJson(join(pkgDir, 'package.json'), resolvedDeps)
   results.push({ rel, blocks, patch, resolvedDeps, pkgJson })
