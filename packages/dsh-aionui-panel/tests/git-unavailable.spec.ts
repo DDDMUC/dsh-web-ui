@@ -200,6 +200,27 @@ describe('SSE git polling with git installed', () => {
   beforeEach(() => { vi.useFakeTimers() })
   afterEach(() => { vi.useRealTimers() })
 
+  it('aborts a hung status process tree at the route deadline', async () => {
+    const env = makeEnv()
+    let signal: AbortSignal | undefined
+    env.git.statusCanonical.mockImplementation((_root: string, current: AbortSignal) => {
+      signal = current
+      return new Promise(() => {})
+    })
+    const conn = await connect(env.sse, '/w')
+
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(env.git.statusCanonical).toHaveBeenCalledTimes(1)
+    expect(signal?.aborted).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(signal?.aborted).toBe(true)
+    expect(signal?.reason).toEqual(expect.objectContaining({ message: 'git status timed out' }))
+    expect(env.warn).toHaveBeenCalledWith(expect.stringContaining('git status timed out'))
+
+    conn.close()
+  })
+
   it('keeps polling and pushing status changes', async () => {
     const env = makeEnv()
     const status = { root: '/w', branch: 'main', staged: [], unstaged: [], untracked: [] }

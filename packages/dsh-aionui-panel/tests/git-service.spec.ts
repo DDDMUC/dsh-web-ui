@@ -300,6 +300,110 @@ describe('GitService repository cache TTL and self-heal', () => {
   })
 })
 
+describe('GitService status cancellation', () => {
+  it('shares the entire direct status request before workspace gating', async () => {
+    let releaseGate: ((value: { ok: true; canonical: string }) => void) | undefined
+    const directGate = vi.fn((_root: string) => new Promise<{ ok: true; canonical: string }>((resolve) => { releaseGate = resolve }))
+    const calls: string[][] = []
+    const runner: GitRunner = {
+      async run(argv) {
+        calls.push([...argv])
+        if (argv[0] === '--version') return { exitCode: 0, stdout: 'git version 2\n', stderr: '' }
+        if (argv[0] === 'rev-parse' && argv[1] === '--show-toplevel') return { exitCode: 0, stdout: ROOT + '\n', stderr: '' }
+        if (argv[0] === 'rev-parse') return { exitCode: 0, stdout: 'main\n', stderr: '' }
+        return { exitCode: 0, stdout: '', stderr: '' }
+      },
+    }
+    const service = new GitService(runner, directGate, vi.fn(async () => ({ ok: true as const })))
+
+    const first = service.status(ROOT, new AbortController().signal)
+    const second = service.status(ROOT, new AbortController().signal)
+    await vi.waitFor(() => { expect(releaseGate).toBeTypeOf('function') })
+
+    expect(directGate).toHaveBeenCalledTimes(1)
+    releaseGate!({ ok: true, canonical: ROOT })
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      expect.objectContaining({ root: ROOT }),
+      expect.objectContaining({ root: ROOT }),
+    ])
+  })
+
+  it('passes one signal through a single shared status scan', async () => {
+    let releaseStatus: ((result: { exitCode: number; stdout: string; stderr: string }) => void) | undefined
+    let abortObserved = false
+    const calls: Array<{ argv: readonly string[]; signal?: AbortSignal }> = []
+    const runner: GitRunner = {
+      async run(argv, _cwd, signal) {
+        calls.push({ argv: [...argv], signal })
+        if (argv[0] === 'rev-parse' && argv[1] === '--show-toplevel') {
+          return { exitCode: 0, stdout: ROOT + '\n', stderr: '' }
+        }
+        if (argv[0] === 'rev-parse') return { exitCode: 0, stdout: 'main\n', stderr: '' }
+        if (argv[0] === 'status') {
+          signal?.addEventListener('abort', () => { abortObserved = true }, { once: true })
+          return new Promise((resolve) => { releaseStatus = resolve })
+        }
+        return { exitCode: 0, stdout: '', stderr: '' }
+      },
+    }
+    const service = new GitService(runner, gate, vi.fn(async () => ({ ok: true as const })))
+    const firstController = new AbortController()
+    const secondController = new AbortController()
+
+    const first = service.statusCanonical(ROOT, firstController.signal)
+    const second = service.statusCanonical(ROOT, secondController.signal)
+    await vi.waitFor(() => { expect(releaseStatus).toBeTypeOf('function') })
+
+    expect(calls.filter(({ argv }) => argv[0] === 'status')).toHaveLength(1)
+    expect(calls.find(({ argv }) => argv[0] === 'status')?.signal).toBe(firstController.signal)
+
+    firstController.abort(new Error('git status timed out'))
+    expect(abortObserved).toBe(true)
+    const retryWhileTerminating = service.statusCanonical(ROOT, new AbortController().signal)
+    await Promise.resolve()
+    expect(calls.filter(({ argv }) => argv[0] === 'status')).toHaveLength(1)
+
+    releaseStatus!({ exitCode: 0, stdout: '?? new.txt\0', stderr: '' })
+    await expect(Promise.all([first, second, retryWhileTerminating])).resolves.toEqual([
+      expect.objectContaining({ root: ROOT }),
+      expect.objectContaining({ root: ROOT }),
+      expect.objectContaining({ root: ROOT }),
+    ])
+  })
+
+  it('does not repeat repository discovery while an aborted probe is still pending', async () => {
+    let releaseRepo: ((result: { exitCode: number; stdout: string; stderr: string }) => void) | undefined
+    const calls: string[][] = []
+    const runner: GitRunner = {
+      async run(argv) {
+        calls.push([...argv])
+        if (argv[0] === 'rev-parse' && argv[1] === '--show-toplevel') {
+          return new Promise((resolve) => { releaseRepo = resolve })
+        }
+        if (argv[0] === 'rev-parse') return { exitCode: 0, stdout: 'main\n', stderr: '' }
+        if (argv[0] === 'status') return { exitCode: 0, stdout: '', stderr: '' }
+        return { exitCode: 0, stdout: '', stderr: '' }
+      },
+    }
+    const service = new GitService(runner, gate, vi.fn(async () => ({ ok: true as const })))
+    const controller = new AbortController()
+
+    const first = service.statusCanonical(ROOT, controller.signal)
+    await vi.waitFor(() => { expect(releaseRepo).toBeTypeOf('function') })
+    controller.abort(new Error('git status timed out'))
+    const retryWhileTerminating = service.statusCanonical(ROOT, new AbortController().signal)
+    await Promise.resolve()
+
+    expect(calls.filter((argv) => argv[0] === 'rev-parse' && argv[1] === '--show-toplevel')).toHaveLength(1)
+
+    releaseRepo!({ exitCode: 0, stdout: ROOT + '\n', stderr: '' })
+    await expect(Promise.all([first, retryWhileTerminating])).resolves.toEqual([
+      expect.objectContaining({ root: ROOT }),
+      expect.objectContaining({ root: ROOT }),
+    ])
+  })
+})
+
 describe('subprocessRunner spawn degradation', () => {
   const collected = {
     stdout: { readFrom: (offset: number) => ({ text: 'ok' }) },
