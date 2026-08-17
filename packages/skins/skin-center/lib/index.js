@@ -1246,6 +1246,15 @@ const STEAM_PROBE_DIRS = [
 	"D:\\SteamLibrary",
 	"E:\\SteamLibrary"
 ];
+/**
+* Expand a leading '~' to the user's home directory (manual library folder
+* settings are typed by humans, and existsSync does not understand '~').
+*/
+function expandUser(path) {
+	if (path === "~") return homedir();
+	if (path.startsWith("~/") || path.startsWith("~\\")) return join(homedir(), path.slice(2));
+	return path;
+}
 /** First non-blank value, trimmed. */
 function firstNonBlank(...values) {
 	for (const value of values) if (typeof value === "string" && value.trim() !== "") return value.trim();
@@ -1559,7 +1568,8 @@ function buildInventory(opts = {}) {
 	}
 	for (const manual of opts.manualDirs ?? []) {
 		const trimmed = firstNonBlank(manual);
-		if (trimmed && existsSync(trimmed)) for (const entry of scanProjectsRoot(trimmed, "local")) add(entry);
+		const dir = trimmed !== void 0 ? expandUser(trimmed) : void 0;
+		if (dir !== void 0 && existsSync(dir)) for (const entry of scanProjectsRoot(dir, "local")) add(entry);
 	}
 	const imported = opts.storeDir ? scanImportStore(opts.storeDir) : [];
 	for (const entry of imported) {

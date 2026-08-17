@@ -60,6 +60,11 @@ export type SkinCenterKey =
   | 'wallpaperTypeWeb'
   | 'wallpaperTypeScene'
   | 'wallpaperTypeApp'
+  | 'wallpaperDirs'
+  | 'wallpaperDirsEmpty'
+  | 'wallpaperDirsHint'
+  | 'wallpaperDirPlaceholder'
+  | 'wallpaperDirAdd'
 
 export const en: Record<SkinCenterKey, string> = {
   title: 'Skin Center',
@@ -116,6 +121,11 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperTypeWeb: 'Web',
   wallpaperTypeScene: 'Scene (static)',
   wallpaperTypeApp: 'Unsupported',
+  wallpaperDirs: 'Manual folders',
+  wallpaperDirsEmpty: 'No manual folders yet.',
+  wallpaperDirsHint: 'No Wallpaper Engine (e.g. macOS)? Point a folder at any .mp4/.webm files, a wallpaper project folder, or a folder of projects — they become your wallpaper library.',
+  wallpaperDirPlaceholder: '/path/to/wallpapers or ~/Movies/wallpapers',
+  wallpaperDirAdd: 'Add',
 }
 
 export const zh: Record<SkinCenterKey, string> = {
@@ -173,4 +183,9 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperTypeWeb: '网页',
   wallpaperTypeScene: '场景(静态)',
   wallpaperTypeApp: '不支持',
+  wallpaperDirs: '手动目录',
+  wallpaperDirsEmpty: '还没有手动目录。',
+  wallpaperDirsHint: '没有 Wallpaper Engine（如 macOS）？把任意 .mp4/.webm 视频、单个壁纸项目文件夹或项目合集文件夹加进来，就是你的壁纸库。',
+  wallpaperDirPlaceholder: '/path/to/wallpapers 或 ~/Movies/wallpapers',
+  wallpaperDirAdd: '添加',
 }

@@ -10,6 +10,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   buildInventory,
+  expandUser,
   inferType,
   librariesFromVdf,
   readImportedManifest,
@@ -61,6 +62,17 @@ describe('librariesFromVdf', () => {
       '}',
     ].join('\n')
     expect(librariesFromVdf(vdf)).toEqual(['C:\\Steam'])
+  })
+})
+
+describe('expandUser', () => {
+  it('expands a leading tilde to the home directory and leaves other paths alone', () => {
+    const home = process.env.HOME ?? ''
+    expect(expandUser('~')).toBe(home)
+    expect(expandUser('~/Movies/wallpapers')).toBe(home + '/Movies/wallpapers')
+    expect(expandUser('/abs/path')).toBe('/abs/path')
+    expect(expandUser('relative/path')).toBe('relative/path')
+    expect(expandUser('~user/x')).toBe('~user/x')
   })
 })
 

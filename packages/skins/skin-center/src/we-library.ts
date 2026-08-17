@@ -28,6 +28,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { basename, join as joinPath, resolve as resolvePath } from 'node:path'
 
 /** Steam appid of Wallpaper Engine. */
@@ -110,6 +111,16 @@ const STEAM_PROBE_DIRS = [
   'D:\\SteamLibrary',
   'E:\\SteamLibrary',
 ]
+
+/**
+ * Expand a leading '~' to the user's home directory (manual library folder
+ * settings are typed by humans, and existsSync does not understand '~').
+ */
+export function expandUser(path: string): string {
+  if (path === '~') return homedir()
+  if (path.startsWith('~/') || path.startsWith('~\\')) return joinPath(homedir(), path.slice(2))
+  return path
+}
 
 /** First non-blank value, trimmed. */
 function firstNonBlank(...values: Array<string | undefined>): string | undefined {
@@ -471,7 +482,8 @@ export function buildInventory(opts: {
   }
   for (const manual of opts.manualDirs ?? []) {
     const trimmed = firstNonBlank(manual)
-    if (trimmed && existsSync(trimmed)) for (const entry of scanProjectsRoot(trimmed, 'local')) add(entry)
+    const dir = trimmed !== undefined ? expandUser(trimmed) : undefined
+    if (dir !== undefined && existsSync(dir)) for (const entry of scanProjectsRoot(dir, 'local')) add(entry)
   }
 
   const imported = opts.storeDir ? scanImportStore(opts.storeDir) : []
