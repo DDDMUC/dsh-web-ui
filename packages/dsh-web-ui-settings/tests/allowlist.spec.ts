@@ -61,9 +61,14 @@ describe('resolveNamespaceEntry', () => {
     expect(resolveNamespaceEntry('community-plugins')).toBe('community-plugins')
   })
 
+  it('maps the aionui-panel package names onto the panel settings namespace', () => {
+    expect(resolveNamespaceEntry('aionui-panel')).toBe('aionui-panel')
+    expect(resolveNamespaceEntry('dsh-aionui-panel')).toBe('aionui-panel')
+    expect(resolveNamespaceEntry('dsh-client-ui-aionui-panel')).toBe('aionui-panel')
+  })
+
   it('ignores packages without a settings namespace and unknown names', () => {
     expect(resolveNamespaceEntry('dsh-web-ui')).toBeUndefined()
-    expect(resolveNamespaceEntry('dsh-client-ui-aionui-panel')).toBeUndefined()
     expect(resolveNamespaceEntry('dsh-client-ui-web-ui-settings')).toBeUndefined()
     expect(resolveNamespaceEntry('something-else')).toBeUndefined()
   })
