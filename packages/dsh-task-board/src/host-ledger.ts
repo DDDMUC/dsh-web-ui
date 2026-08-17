@@ -169,7 +169,7 @@ export class HostTaskLedger {
 
   openScheduled(taskId: string, nextRunAt: number | undefined, triggeredAt: number): OpenedRun | undefined {
     const task = this.document.tasks.find(item => item.id === taskId)
-    if (task === undefined) return undefined
+    if (task === undefined || task.archivedAt !== undefined) return undefined
     if (task.status === 'running' || hasOpenExecution(task)) {
       this.document.tasks = [...applyScheduleNextRun(this.document.tasks, taskId, nextRunAt, task.schedule?.lastTriggeredAt, triggeredAt)]
       this.commit()
@@ -247,10 +247,13 @@ export class HostTaskLedger {
         this.document.tasks = [...result.tasks]
         break
       }
-      case 'update':
-        if (!this.document.tasks.some(task => task.id === action.taskId)) throw new Error('task not found')
+      case 'update': {
+        const task = this.document.tasks.find(task => task.id === action.taskId)
+        if (task === undefined) throw new Error('task not found')
+        if (task.archivedAt !== undefined) throw new Error('archived task is read-only')
         this.document.tasks = [...applyUpdateTask(this.document.tasks, action.taskId, action.patch, now)]
         break
+      }
       case 'delete':
         {
           const task = this.document.tasks.find(task => task.id === action.taskId)
@@ -262,6 +265,7 @@ export class HostTaskLedger {
       case 'move': {
         const task = this.document.tasks.find(item => item.id === action.taskId)
         if (task === undefined) throw new Error('task not found')
+        if (task.archivedAt !== undefined) throw new Error('archived task is read-only')
         if (task.status === 'running' || hasOpenExecution(task)) throw new Error('running task cannot be moved')
         if (!canMoveManually(task.status, action.status)) throw new Error('invalid manual status')
         this.document.tasks = this.document.tasks.map(item => item.id === action.taskId ? withStatus(item, action.status, now) : item)
@@ -280,6 +284,8 @@ export class HostTaskLedger {
         break
       }
       case 'set-schedule': {
+        const task = this.document.tasks.find(task => task.id === action.taskId)
+        if (task?.archivedAt !== undefined) throw new Error('archived task is read-only')
         const result = applySetSchedule(this.document.tasks, action.taskId, action.patch, now)
         if (!result.applied) throw new Error('invalid schedule')
         this.document.tasks = [...result.tasks]
@@ -288,6 +294,7 @@ export class HostTaskLedger {
       case 'rerun':
       case 'run': {
         const task = this.document.tasks.find(item => item.id === action.taskId)
+        if (task?.archivedAt !== undefined) throw new Error('archived task is read-only')
         if (task === undefined || task.status === 'running' || hasOpenExecution(task)) throw new Error('task is already running or missing')
         const base = action.kind === 'rerun' ? withStatus(task, 'todo', now) : task
         run = startExecution(base, now, crypto.randomUUID())

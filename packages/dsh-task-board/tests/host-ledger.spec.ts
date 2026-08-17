@@ -147,6 +147,32 @@ describe('HostTaskLedger', () => {
     expect(state.scheduler.error).toContain('invalid')
   })
 
+  it('keeps archived tasks read-only at the Host boundary', () => {
+    const ledger = new HostTaskLedger(tempRoot(), () => NOW)
+    const settled = { ...task('archived'), status: 'done' as const }
+    ledger.applyRequest('import-archived', { kind: 'import', sourceId: 'browser', tasks: [settled] })
+    ledger.applyRequest('archive', { kind: 'archive', taskId: 'archived' })
+
+    expect(ledger.state().tasks[0].archivedAt).toBe(NOW)
+    expect(() => ledger.applyRequest('update-archived', {
+      kind: 'update', taskId: 'archived', patch: { title: 'renamed' },
+    })).toThrow('archived task is read-only')
+    expect(() => ledger.applyRequest('move-archived', {
+      kind: 'move', taskId: 'archived', status: 'todo',
+    })).toThrow('archived task is read-only')
+    expect(() => ledger.applyRequest('schedule-archived', {
+      kind: 'set-schedule', taskId: 'archived', patch: { enabled: true, cron: '* * * * *' },
+    })).toThrow('archived task is read-only')
+    expect(() => ledger.applyRequest('run-archived', {
+      kind: 'run', taskId: 'archived',
+    })).toThrow('archived task is read-only')
+    expect(() => ledger.applyRequest('rerun-archived', {
+      kind: 'rerun', taskId: 'archived',
+    })).toThrow('archived task is read-only')
+    expect(ledger.openScheduled('archived', NOW + 60_000, NOW)).toBeUndefined()
+    expect(ledger.state().tasks[0].executions).toEqual([])
+  })
+
   it('rejects a newly armed cron with no reachable occurrence', () => {
     const ledger = new HostTaskLedger(tempRoot(), () => NOW)
     expect(() => ledger.applyRequest('create', {

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HostTaskLedger } from '../src/host-ledger.ts'
 import { TaskBoardHostService } from '../src/host-service.ts'
 import { PowerInhibitor } from '../src/power-inhibitor.ts'
-import { createTask, startExecution } from '../src/core/tasks.ts'
+import { createTask, startExecution, withSchedule } from '../src/core/tasks.ts'
 
 const roots: string[] = []
 
@@ -56,6 +56,30 @@ describe('TaskBoardHostService scheduling without a browser', () => {
     expect(ledger.state().tasks[0].executions[0].sessionId).toBe('session-scheduled')
     await (service as unknown as { tickSchedule(first: boolean): Promise<void> }).tickSchedule(false)
     expect(create).toHaveBeenCalledOnce()
+    service.dispose()
+  })
+
+  it('does not launch an imported archived task with a legacy enabled schedule', async () => {
+    const now = new Date(2026, 7, 16, 10, 1, 0).getTime()
+    const ledger = new HostTaskLedger(root(), () => now)
+    const base = createTask({ title: 'Archived', description: '', prompt: '' }, now - 60_000, 'archived')
+    const archived = {
+      ...withSchedule(base, { enabled: true, cron: '* * * * *', nextRunAt: now, lastTriggeredAt: undefined }, now - 60_000),
+      status: 'done' as const,
+      archivedAt: now - 30_000,
+    }
+    ledger.applyRequest('import', { kind: 'import', sourceId: 'legacy', tasks: [archived] })
+    const create = vi.fn()
+    const service = new TaskBoardHostService({ sessions: { create } } as unknown as ApiProxy, {
+      ledger,
+      power: new PowerInhibitor({ platform: 'linux' }),
+      now: () => now,
+    })
+
+    await (service as unknown as { tickSchedule(first: boolean): Promise<void> }).tickSchedule(false)
+
+    expect(create).not.toHaveBeenCalled()
+    expect(ledger.state().tasks[0].executions).toEqual([])
     service.dispose()
   })
 

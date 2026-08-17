@@ -154,6 +154,7 @@ export class TaskBoardHostService {
       return
     }
     for (const task of this.ledger.state().tasks) {
+      if (task.archivedAt !== undefined) continue
       const schedule = task.schedule
       if (schedule === undefined || !schedule.enabled || schedule.nextRunAt === undefined || schedule.nextRunAt > now) continue
       const next = nextRunAtMs(schedule.cron, schedule.nextRunAt)
@@ -163,7 +164,7 @@ export class TaskBoardHostService {
   }
 
   private armedSchedules(): number {
-    return this.ledger.state().tasks.filter((task: TaskRecord) => task.schedule?.enabled === true).length
+    return this.ledger.state().tasks.filter((task: TaskRecord) => task.archivedAt === undefined && task.schedule?.enabled === true).length
   }
 
   private hasOpenExecutions(): boolean {
