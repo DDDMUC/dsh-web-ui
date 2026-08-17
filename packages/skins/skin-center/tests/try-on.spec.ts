@@ -16,10 +16,10 @@
  * (the production path uses a same-origin script tag, no eval; the stub uses
  * eval because jsdom does not fetch external scripts).
  */
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { SKIN_CENTER_ENTRIES, type SkinCenterEntry } from '../src/client/generated/skins.ts'
-import { TryOnController } from '../src/client/try-on.ts'
+import { activeSkinEntry, resetHotOverride, TryOnController } from '../src/client/try-on.ts'
 
 declare global {
   interface Window {
@@ -59,6 +59,7 @@ beforeEach(() => {
     },
   }
   delete window.__DSH_BOOT__
+  resetHotOverride()
 })
 
 const entry = (id: string): SkinCenterEntry => {
@@ -442,5 +443,83 @@ describe('TryOnController skin switching', () => {
     // duplicate-registration throw).
     await expect(c.tryOn(entry('xp'))).resolves.toBe(true)
     expect(document.body.getAttribute('data-dsh-xp')).toBe('')
+  })
+})
+
+describe('TryOnController commit (hot swap, #359)', () => {
+  // Hot mounts are never restored by design, so each test must dispose its
+  // own commit before the jsdom environment goes away — otherwise the skin
+  // bundles' MutationObservers keep firing into later tests and teardown.
+  const committed: TryOnController[] = []
+  const tracked = (c: TryOnController): TryOnController => {
+    committed.push(c)
+    return c
+  }
+  afterEach(async () => {
+    while (committed.length > 0) {
+      const c = committed.pop()
+      if (c !== undefined) await c.commit(null).catch(() => {})
+    }
+  })
+
+  it('mounts the applied skin in place and flips the active marker', async () => {
+    const active = entry('whale-song')
+    const target = entry('xp')
+    window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
+    document.body.setAttribute(active.bodyAttr, '')
+
+    const c = tracked(controller())
+    await c.commit(target)
+    expect(document.body.hasAttribute(active.bodyAttr)).toBe(false)
+    expect(document.body.getAttribute(target.bodyAttr)).toBe('')
+    expect(activeSkinEntry()?.package).toBe(target.package)
+  })
+
+  it('is a no-op when the target already drives the page', async () => {
+    const active = entry('xp')
+    window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
+    document.body.setAttribute(active.bodyAttr, '')
+    let loads = 0
+    const c = tracked(new TryOnController({
+      loadBundle: async () => { loads += 1 },
+    }))
+    await c.commit(active)
+    expect(loads).toBe(0)
+    expect(document.body.getAttribute(active.bodyAttr)).toBe('')
+    expect(activeSkinEntry()?.package).toBe(active.package)
+  })
+
+  it('commits the official stock look by retracting without mounting', async () => {
+    const active = entry('whale-song')
+    window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
+    document.body.setAttribute(active.bodyAttr, '')
+
+    const c = tracked(controller())
+    await c.commit(null)
+    expect(document.body.hasAttribute(active.bodyAttr)).toBe(false)
+    expect(activeSkinEntry()).toBeUndefined()
+  })
+
+  it('disposes the previous hot mount on a second commit', async () => {
+    window.__DSH_BOOT__ = { entries: [] }
+    const c = tracked(controller())
+    await c.commit(entry('xp'))
+    expect(document.body.getAttribute('data-dsh-xp')).toBe('')
+    await c.commit(entry('matrix'))
+    expect(document.body.hasAttribute('data-dsh-xp')).toBe(false)
+    expect(document.body.getAttribute('data-dsh-matrix')).toBe('')
+    expect(activeSkinEntry()?.package).toBe(entry('matrix').package)
+  })
+
+  it('keeps the incumbent intact when the target bundle fails to load', async () => {
+    const active = entry('whale-song')
+    window.__DSH_BOOT__ = { entries: [{ id: active.package }] }
+    document.body.setAttribute(active.bodyAttr, '')
+    const c = tracked(new TryOnController({
+      loadBundle: async () => { throw new Error('network down') },
+    }))
+    await expect(c.commit(entry('xp'))).rejects.toThrow('network down')
+    expect(document.body.getAttribute(active.bodyAttr)).toBe('')
+    expect(activeSkinEntry()?.package).toBe(active.package)
   })
 })

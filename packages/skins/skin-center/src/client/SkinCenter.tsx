@@ -4,7 +4,8 @@
  * try-on executes the real bundle inside the GUI (light/dark preview, full
  * restore on exit); Apply is one click — the host half runs `dsh-skin use`
  * through /api/skin-center/apply, the config watcher hot-reloads the patch,
- * and the page reloads into the new skin. Copy rides the standard `t` seat;
+ * and the new skin is hot-committed in place (issue #359 — no reload, no
+ * app restart; a page reload remains the fallback). Copy rides the standard `t` seat;
  * the theme preview control drives the official theme service (persisted,
  * same as the Appearance row).
  */
@@ -60,6 +61,8 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [applying, setApplying] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Re-render trigger after a hot commit flips the active-skin override.
+  const [, forceRender] = useState(0)
   // Unmount guard for the confirmation poll: once the card is gone, the
   // pending timers must stop and no reload / setState may fire.
   const mounted = useRef(false)
@@ -212,16 +215,11 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
           throw new Error(payload?.error ?? `HTTP ${response.status}`)
         }
         setApplying(null)
-        // Patch written; reload only once the watcher reports the target
-        // active AND the boot manifest caught up, so the page never boots
-        // into the old skin.
-        void confirmActive(target).then(confirmed => {
-          if (!mounted.current) return
-          if (!confirmed) {
-            const command = target === OFFICIAL ? 'dsh-skin use official' : `dsh-skin use ${target}`
-            setError(`${t('appliedUnconfirmed')} — ${command}`)
-            return
-          }
+        // Patch written; once the watcher reports the target active, hot-swap
+        // it in place (issue #359: packaged installs only refresh the boot
+        // graph on app restart, so a reload alone cannot switch the skin).
+        // The reload path stays as the fallback when the hot mount fails.
+        const reloadFallback = (): void => {
           void manifestReady(target).then(ready => {
             if (!mounted.current) return
             if (ready) {
@@ -230,6 +228,32 @@ export function SkinCenter({ t, controller, theme, background }: SkinCenterCompo
               const command = target === OFFICIAL ? 'dsh-skin use official' : `dsh-skin use ${target}`
               setError(`${t('appliedUnconfirmed')} — ${command}`)
             }
+          })
+        }
+        void confirmActive(target).then(confirmed => {
+          if (!mounted.current) return
+          if (!confirmed) {
+            const command = target === OFFICIAL ? 'dsh-skin use official' : `dsh-skin use ${target}`
+            setError(`${t('appliedUnconfirmed')} — ${command}`)
+            return
+          }
+          const entry = target === OFFICIAL
+            ? null
+            : SKIN_CENTER_ENTRIES.find(candidate => candidate.id === target) ?? null
+          if (entry === null && target !== OFFICIAL) {
+            reloadFallback()
+            return
+          }
+          void controller.commit(entry).then(() => {
+            if (!mounted.current) return
+            setTryingId(null)
+            setTryingOfficial(false)
+            // Re-render so the active markers follow the hot-committed skin
+            // (activeSkinEntry now answers the override).
+            forceRender(tick => tick + 1)
+          }).catch(() => {
+            if (!mounted.current) return
+            reloadFallback()
           })
         })
       })
