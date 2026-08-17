@@ -204,6 +204,25 @@ window.__ModuleLoader__.load({
 				"bodyAttr": "data-dsh-miku",
 				"package": "@linxin666/dsh-client-ui-skin-miku",
 				"order": 10
+			},
+			{
+				"id": "whale-mom",
+				"name": "鲸鱼妈妈",
+				"nameEn": "Whale Mom",
+				"author": "dsh-web-ui",
+				"tagline": "深海鲸鱼妈妈与幼崽的画作 · 全透面板由背景遮挡驱动 · 金线点缀",
+				"description": "dsh web ui 的鲸鱼妈妈主题皮肤：深海鲸鱼妈妈与幼崽们的氛围画作铺满视口，面板全透（透明度由设置-皮肤中心的背景遮挡滑杆驱动，侧边栏基准透明度可用 --dsw-skin-sidebar-alpha 微调），深蓝 / 奶油 / 金色配色贯穿全局，暗色是深海夜航。",
+				"tags": [
+					"ocean",
+					"whale",
+					"mother",
+					"translucent",
+					"gold"
+				],
+				"accent": "#d9a53c",
+				"bodyAttr": "data-dsh-whale-mom",
+				"package": "@linxin666/dsh-client-ui-skin-whale-mom",
+				"order": 11
 			}
 		];
 		//#endregion
@@ -651,7 +670,11 @@ window.__ModuleLoader__.load({
 		/** The apply target of the official stock-look card. */
 		const OFFICIAL = "official";
 		/** Skin ids that read the background-scrim variable and paint a backdrop. */
-		const BACKDROP_SKIN_IDS = /* @__PURE__ */ new Set(["blue-fantasy", "whale-song"]);
+		const BACKDROP_SKIN_IDS = /* @__PURE__ */ new Set([
+			"blue-fantasy",
+			"whale-song",
+			"whale-mom"
+		]);
 		/**
 		* Render the skin-center card: a static header naming the plugin, with the
 		* always-visible skin list (official default + every installed skin; try-on /
@@ -1381,7 +1404,7 @@ window.__ModuleLoader__.load({
 			applying: "Applying…",
 			restore: "Restore",
 			applyFailed: "Apply failed",
-			appliedUnconfirmed: "Applied, but the change has not been confirmed — refresh the page if the skin did not switch",
+			appliedUnconfirmed: "Applied, but the change has not been confirmed — refresh the page in dev mode; packaged installs (DSH Desktop) need an app restart",
 			theme: "Theme preview",
 			themeLight: "Light",
 			themeDark: "Dark",
@@ -1412,7 +1435,7 @@ window.__ModuleLoader__.load({
 			applying: "应用中…",
 			restore: "恢复默认",
 			applyFailed: "应用失败",
-			appliedUnconfirmed: "已写入配置但尚未确认生效——若皮肤未切换请手动刷新页面",
+			appliedUnconfirmed: "已写入配置但尚未确认生效——开发模式请刷新页面；打包版（DSH Desktop）需重启应用后生效",
 			theme: "主题预览",
 			themeLight: "亮色",
 			themeDark: "暗色",

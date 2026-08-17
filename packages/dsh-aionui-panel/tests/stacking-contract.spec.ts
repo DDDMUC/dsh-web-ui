@@ -34,4 +34,20 @@ describe('panel stacking contract', () => {
   it('keeps the collapse chevron at the column layer', () => {
     expect(block(':global(.aionui-collapse-chevron)')).toContain('z-index: 30')
   })
+
+  it('keeps the floating button draggable (touch-action none, no selection)', () => {
+    const rules = block(':global(.aionui-floating-expand)')
+    expect(rules).toContain('touch-action: none')
+    expect(rules).toContain('user-select: none')
+  })
+
+  it('keeps the maximized narrow-screen overlay fixed and above the columns', () => {
+    // The grouped selector needs no regex: find the documented rule block and
+    // assert its decisive declarations.
+    const marker = css.indexOf('Maximized narrow-screen overlay')
+    expect(marker).toBeGreaterThan(-1)
+    const rule = css.slice(marker, css.indexOf('}', marker) + 1)
+    expect(rule).toContain('position: fixed')
+    expect(rule).toContain('z-index: 60')
+  })
 })

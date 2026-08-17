@@ -156,6 +156,18 @@
   border-left: 1px solid var(--aion-bg-3);
 }
 
+/* Maximized narrow-screen overlay (issue #315): on viewports below the
+   breakpoint the maximized column leaves the grid and covers the whole
+   window (mobile-friendly full-screen mode). The layout controller toggles
+   this class; removing it restores the normal grid position. Above the
+   columns/chrome (60) and below dialogs (1000+). */
+:global(.aionui-preview-col.aionui-maximized),
+:global(.aionui-explorer-col.aionui-maximized) {
+  position: fixed !important;
+  inset: 0;
+  z-index: 60;
+}
+
 :global(.aionui-explorer-col) {
   border-left: 1px solid var(--aion-bg-3);
 }
@@ -219,7 +231,10 @@
    when the preview region is open it overlaps the rightmost column track,
    so anything lower would be painted under the opaque column and stop
    receiving clicks (issue #234 follow-up). Full-screen overlay drawers
-   must render at the ROOT stacking context (z 100~1000) to cover it. */
+   must render at the ROOT stacking context (z 100~1000) to cover it.
+   The top/transform pair below is only the pre-JS fallback: the layout
+   controller sets an inline top (dragged and persisted position, issue
+   #374, or the content-area center below the WCO titlebar, issue #292). */
 :global(.aionui-floating-expand) {
   position: fixed;
   top: 50%;
@@ -238,6 +253,9 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   z-index: 100;
+  /* Vertical drag (issue #374): the browser must not scroll/select. */
+  touch-action: none;
+  user-select: none;
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 :global(.aionui-floating-expand:hover) {

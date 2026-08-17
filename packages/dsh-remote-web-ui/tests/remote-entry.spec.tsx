@@ -42,21 +42,42 @@ class FakeEventSource {
   }
 }
 
-/** fetch stub answering the pair endpoints. */
-function mockFetch(issue: { ok: boolean; status?: number; code?: string; url?: string; token?: string; expiresAt?: number; lanAddresses?: string[] }) {
+/** One issue() response for the fetch stub (a list feeds sequential calls). */
+type MockIssue = {
+  ok: boolean
+  status?: number
+  code?: string
+  url?: string
+  token?: string
+  expiresAt?: number
+  lanAddresses?: string[]
+  publicBaseUrl?: string
+}
+
+/** fetch stub answering the pair endpoints; a list answers issue() in order. */
+function mockFetch(issue: MockIssue | MockIssue[]) {
+  const issues = Array.isArray(issue) ? [...issue] : [issue]
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
-    const status = init?.method === 'POST' && url === '/api/pair/issue' && !issue.ok ? (issue.status ?? 409) : 200
-    const body = url === '/api/pair/issue' && issue.ok
-      ? { ok: true, url: issue.url, token: issue.token, expiresAt: issue.expiresAt, lanAddresses: issue.lanAddresses ?? ['192.168.1.5'] }
+    const current = issues.length > 1 ? issues.shift()! : issues[0]
+    const status = init?.method === 'POST' && url === '/api/pair/issue' && !current.ok ? (current.status ?? 409) : 200
+    const body = url === '/api/pair/issue' && current.ok
+      ? {
+          ok: true,
+          url: current.url,
+          token: current.token,
+          expiresAt: current.expiresAt,
+          lanAddresses: current.lanAddresses ?? ['192.168.1.5'],
+          ...(current.publicBaseUrl !== undefined ? { publicBaseUrl: current.publicBaseUrl } : {}),
+        }
       : url === '/api/pair/issue'
-        ? { ok: false, code: issue.code }
+        ? { ok: false, code: current.code }
         : { ok: true }
     return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
   })
 }
 
-function mount(issue: { ok: boolean; status?: number; code?: string; url?: string; token?: string; expiresAt?: number; lanAddresses?: string[] } = { ok: true, url: 'http://192.168.1.5:3080/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000, lanAddresses: ['192.168.1.5'] }) {
+function mount(issue: MockIssue | MockIssue[] = { ok: true, url: 'http://192.168.1.5:3080/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000, lanAddresses: ['192.168.1.5'] }) {
   const fetch = mockFetch(issue)
   vi.stubGlobal('fetch', fetch)
   vi.stubGlobal('EventSource', FakeEventSource)
@@ -105,6 +126,46 @@ describe('RemoteEntry', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
     await waitFor(() => expect(screen.getByText('This feature needs dsh web started with --host 0.0.0.0, or a configured public address')).toBeTruthy())
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
+    expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
+    // The status stream stays open on the lan-required banner: the
+    // auto-tunnel may still be starting, and its running frame drives the
+    // re-issue below.
+    expect(FakeEventSource.instances).toHaveLength(1)
+    expect(FakeEventSource.instances[0]?.url).toBe('/api/pair/events')
+  })
+
+  it('re-issues once the auto-tunnel reaches running and renders the ready QR', async () => {
+    const { fetch } = mount([
+      { ok: false, code: 'lan-required' },
+      {
+        ok: true,
+        url: 'https://tunnel.example/?pair=tok-2',
+        token: 'tok-2',
+        expiresAt: Date.now() + 60_000,
+        lanAddresses: ['192.168.1.5'],
+        publicBaseUrl: 'https://tunnel.example',
+      },
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
+    await waitFor(() => expect(screen.getByText('This feature needs dsh web started with --host 0.0.0.0, or a configured public address')).toBeTruthy())
+    const source = FakeEventSource.instances[0]
+    expect(source?.url).toBe('/api/pair/events')
+    source?.emit({ type: 'state', phase: 'lan-required', lanAvailable: true, deviceCount: 0, onlineCount: 0, tunnel: { state: 'running', url: 'https://tunnel.example' } })
+    await waitFor(() => expect(screen.getByText('https://tunnel.example/?pair=tok-2')).toBeTruthy())
+    expect(document.querySelector('[data-testid="remote-qr"]')).not.toBeNull()
+    expect(fetch.mock.calls.filter(call => call[0] === '/api/pair/issue')).toHaveLength(2)
+  })
+
+  it('stays on the lan-required banner while the auto-tunnel is starting', async () => {
+    const { fetch } = mount({ ok: false, code: 'lan-required' })
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
+    await waitFor(() => expect(screen.getByText('This feature needs dsh web started with --host 0.0.0.0, or a configured public address')).toBeTruthy())
+    const source = FakeEventSource.instances[0]
+    source?.emit({ type: 'state', phase: 'lan-required', lanAvailable: true, deviceCount: 0, onlineCount: 0, tunnel: { state: 'starting' } })
+    // Let a stray re-issue surface before asserting none happened.
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(fetch.mock.calls.filter(call => call[0] === '/api/pair/issue')).toHaveLength(1)
+    expect(screen.getByText('This feature needs dsh web started with --host 0.0.0.0, or a configured public address')).toBeTruthy()
     expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
   })
 
