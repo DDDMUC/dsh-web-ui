@@ -185,6 +185,10 @@ describe('explorer store', () => {
     const state = fresh.explorer.getSnapshot()
     expect(state.expanded).toContain('src')
     expect(state.selected).toBe('README.md')
+    // The restored expanded dir must be rehydrated automatically: its content
+    // lands without a manual collapse/expand round-trip.
+    await vi.waitFor(() => expect(fresh.explorer.getSnapshot().dirs['src']).toBeDefined())
+    expect(setup.calls).toContain('list:src')
   })
 })
 
