@@ -35,6 +35,9 @@ describe('FsService menu operations', () => {
     const service = new FsService(gate)
     expect(await service.rename(root, '', 'x')).toMatchObject({ code: 'path-outside-root' })
     expect(await service.rename(root, '.git', 'x')).toMatchObject({ code: 'path-outside-root' })
+    // Spellings that normalize onto the root itself are refused too.
+    expect(await service.rename(root, '.', 'x')).toMatchObject({ code: 'path-outside-root' })
+    expect(await service.rename(root, 'sub/..', 'x')).toMatchObject({ code: 'path-outside-root' })
     await rm(root, { recursive: true, force: true })
   })
 

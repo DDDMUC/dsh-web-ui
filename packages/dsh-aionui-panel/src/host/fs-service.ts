@@ -11,7 +11,7 @@
 
 import { open, readdir, readFile, realpath, rename as renameFile, stat, writeFile, rm, mkdir } from 'node:fs/promises'
 import { watch as watchPath, type Dirent, type FSWatcher } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, relative } from 'node:path'
 import type { DirListing, FileRead, FsEntry, PanelError, SearchHit, SearchView } from '../core/types.ts'
 import { isPathInside, type GateVerdict, type WorkspaceGate } from './gate.ts'
 
@@ -363,6 +363,9 @@ export class FsService {
     }
     const resolved = await resolveInsideRoot(gated.canonical, rel)
     if (!resolved.ok) return resolved.error
+    // Spellings like '.', './' or 'sub/..' land on the root itself (trailing
+    // separators included), so compare by relative(), not string equality.
+    if (relative(gated.canonical, resolved.abs) === '') return { code: 'path-outside-root', message: 'refusing to rename the root' }
     const target = join(dirname(resolved.abs), name)
     if (!isPathInside(gated.canonical, target)) {
       return { code: 'path-outside-root', message: `path escapes root: ${rel}` }
@@ -484,6 +487,9 @@ export class FsService {
     if (isGitPath(rel)) return { code: 'path-outside-root', message: 'refusing to touch .git' }
     const resolved = await resolveInsideRoot(gated.canonical, rel)
     if (!resolved.ok) return resolved.error
+    // Spellings like '.', './' or 'sub/..' land on the root itself (trailing
+    // separators included), so compare by relative(), not string equality.
+    if (relative(gated.canonical, resolved.abs) === '') return { code: 'path-outside-root', message: 'refusing to delete the root' }
     try {
       await rm(resolved.abs, { recursive: true, force: true })
       return { ok: true }

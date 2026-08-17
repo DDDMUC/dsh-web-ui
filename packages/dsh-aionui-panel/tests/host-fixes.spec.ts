@@ -92,6 +92,23 @@ describe('FsService symlink escape (C1)', () => {
 
     await rm(dir, { recursive: true, force: true })
   })
+
+  it('refuses delete spellings that normalize onto the root itself', async () => {
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'aionui-rootdel-')))
+    const root = join(dir, 'proj')
+    await mkdir(root, { recursive: true })
+    await writeFile(join(root, 'keep.txt'), 'safe')
+    const service = new FsService(gate)
+
+    for (const rel of ['.', './', 'sub/..']) {
+      expect(await service.delete(root, rel)).toMatchObject({ code: 'path-outside-root' })
+    }
+    // The workspace content must be untouched.
+    const { content } = (await service.read(root, 'keep.txt', false)) as { content: string }
+    expect(content).toBe('safe')
+
+    await rm(dir, { recursive: true, force: true })
+  })
 })
 
 describe('FsService.readRaw (markdown image route)', () => {
