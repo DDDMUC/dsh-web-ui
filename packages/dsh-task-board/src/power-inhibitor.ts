@@ -4,6 +4,7 @@ import { win32 } from 'node:path'
 import type { PowerPhase, TaskBoardPowerSnapshot } from './protocol.ts'
 
 const RETRY_DELAYS = [1_000, 2_000, 5_000, 10_000, 30_000] as const
+const DARWIN_STABLE_MS = 30_000
 
 const WINDOWS_HELPER = String.raw`
 $source = @'
@@ -73,6 +74,7 @@ export class PowerInhibitor {
   private phase: PowerPhase = 'disabled'
   private child: ChildProcess | undefined
   private retry: ReturnType<typeof setTimeout> | undefined
+  private retryReset: ReturnType<typeof setTimeout> | undefined
   private retryIndex = 0
   private lastError: string | undefined
   private stopping = false
@@ -202,13 +204,21 @@ export class PowerInhibitor {
   private markReady(child: ChildProcess): void {
     if (this.child !== child || !this.desired()) return
     this.phase = 'active'
-    this.retryIndex = 0
+    if (this.platform === 'darwin') {
+      this.retryReset = this.timer(() => {
+        this.retryReset = undefined
+        if (this.child === child && this.desired()) this.retryIndex = 0
+      }, DARWIN_STABLE_MS)
+    } else {
+      this.retryIndex = 0
+    }
     this.lastError = undefined
     this.emit()
   }
 
   private fail(error: unknown, source?: ChildProcess): void {
     if (source !== undefined && this.child !== source) return
+    this.clearRetryReset()
     this.lastError = error instanceof Error ? error.message : String(error)
     this.phase = 'error'
     this.emit()
@@ -226,10 +236,12 @@ export class PowerInhibitor {
   }
 
   private release(): void {
+    this.clearRetryReset()
     if (this.retry !== undefined) {
       this.clearTimer(this.retry)
       this.retry = undefined
     }
+    this.lastError = undefined
     const child = this.child
     this.child = undefined
     if (child === undefined) return
@@ -241,6 +253,12 @@ export class PowerInhibitor {
     } else {
       child.kill('SIGTERM')
     }
+  }
+
+  private clearRetryReset(): void {
+    if (this.retryReset === undefined) return
+    this.clearTimer(this.retryReset)
+    this.retryReset = undefined
   }
 
   private windowsPowerShell(): string {
