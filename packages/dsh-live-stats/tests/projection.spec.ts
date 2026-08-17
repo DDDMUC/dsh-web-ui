@@ -34,6 +34,26 @@ async function harness(): Promise<{ ctx: Context; session: Session }> {
   return { ctx, session: ctx.sessions.create() }
 }
 
+describe('apply resilience', () => {
+  it('boots without the projection when the estimator spec is invalid', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      const ctx = new Context()
+      contexts.push(ctx)
+      await ctx.plugin(SessionStore)
+      await ctx.plugin(SessionProjectionRegistry)
+      // Infinity slips the zod min() gate but fails resolveEstimatorConfig:
+      // the plugin must boot (projection withheld) instead of crashing.
+      await ctx.plugin({ inject, apply }, { charsPerToken: Infinity })
+      const session = ctx.sessions.create()
+      expect(ctx.sessionProjections.snapshot(session).values.liveTokenUsage).toBeUndefined()
+      expect(spy).toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
+
 function projected(ctx: Context, session: Session): LiveTokenUsageProjection {
   const value = ctx.sessionProjections.snapshot(session).values.liveTokenUsage
   if (value === undefined) throw new Error('liveTokenUsage projection is absent')
