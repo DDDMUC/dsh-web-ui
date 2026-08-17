@@ -1,46 +1,59 @@
-# maid-atelier - 深海女仆工坊
+# @linxin666/dsh-client-ui-skin-maid-atelier
 
 [English](README.md) | 中文
 
-一款纯展示层的 DeepSeek Harness Web GUI 皮肤，提供双角色工坊背景、深海蓝装饰面板与响应式侧边栏插画。`apply()` 持有 `data-dsh-maid-atelier` 作用域及全部 DOM / CSSOM 写入，Cordis effect 销毁器会完整收回这些改动；皮肤不注入服务、不发事件，也不触达模型请求。
+DeepSeek Harness Web GUI 的纯展示层深海女仆工坊皮肤，包含双女仆宫殿背景、深海蓝装饰界面和响应式角色构图。
 
-## 特性
+## 功能
 
-- 亮色与暗色工坊背景，以及独立的双角色图层。
-- 深海蓝、陶瓷白、长春花蓝和柔金组成的面板样式。
-- 响应式侧边栏角色、装饰 chrome、favicon 与皮肤自有文字标识。
-- 自适应的输入区与工作区布局，不依赖远程资源。
-- 插画以 data URI 内嵌在 client bundle 中。
+- 根据当前亮色或暗色主题切换日间与夜间宫殿画面。
+- 在对话界面两侧挂载独立透明女仆角色，并在对话开始后把角色移向更安全的边缘位置。
+- 提供 Q 版侧栏与视口装饰、favicon、毛玻璃面板，以及稳定的加载、思考和工具运行动画。
+- 运行时素材以数据 URI 内嵌在客户端 bundle 中，激活时不依赖远程资源服务。
+- 停用或热切换皮肤时还原自身写入的全部 DOM 和 CSS 状态。
 
 ## 安装
 
-安装皮肤聚合包后选择本皮肤：
+可以安装本仓库的 `@linxin666/dsh-skins` 聚合包，也可以从 checkout 直接添加该皮肤包：
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-skins
-dsh-skin use maid-atelier
+dsh plugin --profile web add ./packages/skins/maid-atelier
 ```
 
-从仓库开发时，应先构建本包，再重建皮肤中心与聚合资产。
+## 配置
 
-## 素材与许可
+可以通过 GUI 皮肤中心或仓库脚本启用皮肤：
 
-本皮肤及内嵌素材采用 **CC BY-NC-SA 4.0**，仅限非商业使用。完整条款见 [LICENSE](LICENSE)；[NOTICE](NOTICE) 记录了鲸鱼娘角色衍生素材中上善、zipzip 与 Small-tailqwq 的署名链。
+```sh
+scripts/dsh-skin use maid-atelier
+scripts/dsh-skin use official
+```
 
-标题栏使用原创的 `MAID ATELIER` 文字样式，不嵌入 DeepSeek Harness BrandWordmark 矢量。独立上游项目为 [Small-tailqwq/dsh-deep-whale](https://github.com/Small-tailqwq/dsh-deep-whale)。
+同一时间只启用一款受管理的皮肤。本包使用 `ui-skin-maid-atelier` 接线 id，并将样式限制在 `body[data-dsh-maid-atelier]` 下。
+
+## 素材来源与许可
+
+本皮肤及其素材以 **CC BY-NC-SA 4.0** 发布。禁止商业使用，必须保留署名，衍生作品必须采用相同许可。
+
+完整署名链记录在 [NOTICE](NOTICE) 中：
+
+1. **上善** — 鲸鱼娘角色形象原作者（[Pixiv](https://www.pixiv.net/users/62155430)、[Bilibili](https://b23.tv/8h5L4xz)）。
+2. **zipzip** — 基于上善角色、使用 GPT Image 2 生成并加入 DeepSeek 元素的女仆鲸鱼娘二次设计（[Pixiv](https://www.pixiv.net/users/18604994)、[Bilibili](https://b23.tv/Pnw6nG8)）。
+3. **Small-tailqwq** — DeepSeek 元素素材再设计与本皮肤实现。
+
+完整许可文本见 [LICENSE](LICENSE)，可编辑素材源文件位于 `assets/`。
 
 ## 开发
 
 ```sh
 pnpm --filter @linxin666/dsh-client-ui-skin-maid-atelier build
 pnpm --filter @linxin666/dsh-client-ui-skin-maid-atelier test
-node scripts/skin-center-bundles
-node scripts/gallery-build
-pnpm --filter @linxin666/dsh-skins build
 ```
+
+提交的 `lib/` 产物由本目录源码通过仓库共享的客户端构建预设生成。
 
 ## 已知限制
 
-- 即使通过聚合包安装，CC BY-NC-SA 4.0 的非商业限制仍然适用。
-- 皮肤依赖当前 DSH Web 的侧边栏、工作区、输入区与标题栏 DOM 标记；不支持的 shell 布局会保留背景并省略无法定位的装饰。
-- 大尺寸内嵌插画会增加 client bundle 体积。
+- CC BY-NC-SA 4.0 禁止商业使用，可能不符合部分下游分发政策。
+- 角色位置依赖稳定的公开 DOM 标记；视图未提供相应标记时使用保守回退布局。
+- 内嵌素材会使客户端 bundle 明显大于仅调色板皮肤。

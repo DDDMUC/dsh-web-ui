@@ -172,7 +172,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 深海蓝工坊主题，包含双角色图层与响应式侧边栏装饰。本皮肤单独采用 CC BY-NC-SA 4.0，仅限非商业使用。
 
-![深海女仆工坊 亮色](packages/skins/maid-atelier/preview/light.webp) · ![深海女仆工坊 暗色](packages/skins/maid-atelier/preview/dark.webp)
+![深海女仆工坊 亮色](packages/skins/maid-atelier/preview/light.png) · ![深海女仆工坊 暗色](packages/skins/maid-atelier/preview/dark.png)
 
 ## 快速开始
 

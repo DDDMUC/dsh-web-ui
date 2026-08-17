@@ -35,13 +35,13 @@ afterEach(async () => {
 })
 
 describe('Maid Atelier skin apply', () => {
-  it('declares only the public rc.6 client manifest', () => {
+  it('declares the current client manifest without runtime peers', () => {
     const manifest = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'))
     expect(manifest.dsh.client).toEqual({ inject: [], platform: 'web' })
     expect(manifest.dsh).not.toHaveProperty('bundle')
     expect(manifest.license).toBe('CC-BY-NC-SA-4.0')
     expect(manifest).not.toHaveProperty('dshClient')
-    expect(manifest.peerDependencies).toHaveProperty('@deepseek-ai/cordis', '^4.0.1')
+    expect(manifest.peerDependencies).toEqual({})
   })
 
   it('sets the body attribute and retracts it on dispose', async () => {
@@ -156,11 +156,75 @@ describe('Maid Atelier skin apply', () => {
     fiber = await mount()
     const sidebar = document.querySelector<HTMLElement>("[data-pane='sidebar']")!
     const querySelectorAll = vi.spyOn(sidebar, 'querySelectorAll')
+    const querySelector = vi.spyOn(document, 'querySelector')
 
     document.querySelector('main')!.append(document.createElement('article'))
     await flushMutations()
 
     expect(querySelectorAll).not.toHaveBeenCalled()
+    expect(querySelector).not.toHaveBeenCalledWith(
+      "[data-slot='sidebar.settings'] > :is(button, [role='button'])[aria-expanded='true']",
+    )
+  })
+
+  it('projects relational page state onto skin-owned attributes', async () => {
+    document.body.innerHTML = `
+      <header><div role="tablist"></div></header>
+      <main data-phase="active"><div data-chat-flow></div></main>
+      <div data-dsh-better-sidebar></div>
+      <div data-cordis-panel></div>
+      <div data-slot="sidebar.settings"><button aria-expanded="true"></button></div>
+    `
+    fiber = await mount()
+
+    expect(document.body.hasAttribute('data-maid-chat-active')).toBe(true)
+    expect(document.body.hasAttribute('data-maid-conversation-active')).toBe(true)
+    expect(document.body.hasAttribute('data-maid-workspace')).toBe(true)
+    expect(document.body.hasAttribute('data-maid-better-sidebar-open')).toBe(true)
+    expect(document.body.hasAttribute('data-maid-cordis-panel-open')).toBe(true)
+    expect(document.body.hasAttribute('data-maid-settings-open')).toBe(true)
+
+    document.querySelector('header')!.remove()
+    document.querySelector('main')!.remove()
+    document.querySelector('[data-cordis-panel]')!.remove()
+    document.querySelector('[aria-expanded]')!.setAttribute('aria-expanded', 'false')
+    document.body.setAttribute('data-dsh-sidebar-collapsed', '')
+    await flushMutations()
+
+    expect(document.body.hasAttribute('data-maid-chat-active')).toBe(false)
+    expect(document.body.hasAttribute('data-maid-conversation-active')).toBe(false)
+    expect(document.body.hasAttribute('data-maid-workspace')).toBe(false)
+    expect(document.body.hasAttribute('data-maid-better-sidebar-open')).toBe(false)
+    expect(document.body.hasAttribute('data-maid-cordis-panel-open')).toBe(false)
+    expect(document.body.hasAttribute('data-maid-settings-open')).toBe(false)
+
+    await fiber.dispose()
+    document.body.removeAttribute('data-dsh-sidebar-collapsed')
+  })
+
+  it('restores pre-existing projected state attributes on dispose', async () => {
+    document.body.setAttribute('data-maid-workspace', 'presenter')
+    fiber = await mount()
+    expect(document.body.hasAttribute('data-maid-workspace')).toBe(false)
+
+    await fiber.dispose()
+    expect(document.body.getAttribute('data-maid-workspace')).toBe('presenter')
+    document.body.removeAttribute('data-maid-workspace')
+  })
+
+  it('ignores better-sidebar terminal row mutations', async () => {
+    document.body.innerHTML = `
+      <div data-dsh-better-sidebar><div class="xterm"><span data-terminal-row></span></div></div>
+    `
+    fiber = await mount()
+    await flushMutations()
+    const querySelector = vi.spyOn(document, 'querySelector')
+
+    document.querySelector('[data-terminal-row]')!.textContent = 'x'.repeat(32)
+    querySelector.mockClear()
+    await flushMutations()
+
+    expect(querySelector).not.toHaveBeenCalled()
   })
 
   it('uses the public desktop frame marker without a private window global', async () => {
@@ -172,6 +236,35 @@ describe('Maid Atelier skin apply', () => {
     )!.sheet!
     const variables = sheet.cssRules[0] as CSSStyleRule
     expect(variables.style.getPropertyValue('--maid-titlebar-height')).toBe('32px')
+  })
+
+  it('seats a sidebar frame copy beneath the open settings mask', async () => {
+    document.body.innerHTML = `
+      <div data-pane="sidebar">
+        <div>
+          <div><div data-slot="sidebar.settings"><button aria-expanded="false">Settings</button></div></div>
+        </div>
+      </div>
+    `
+    fiber = await mount()
+    const trigger = document.querySelector<HTMLButtonElement>("[data-slot='sidebar.settings'] > button")!
+    const overlay = document.createElement('div')
+    overlay.setAttribute('role', 'presentation')
+    const mask = document.createElement('div')
+    mask.className = 'fixture_mask'
+    overlay.append(mask)
+    document.body.append(overlay)
+    trigger.setAttribute('aria-expanded', 'true')
+    await flushMutations()
+
+    const copy = document.querySelector<HTMLElement>('[data-maid-settings-backdrop-frame]')
+    expect(copy?.parentElement).toBe(overlay)
+    expect(copy?.nextElementSibling).toBe(mask)
+    expect(copy?.querySelectorAll('[data-skin-corner]')).toHaveLength(4)
+
+    trigger.setAttribute('aria-expanded', 'false')
+    await flushMutations()
+    expect(document.querySelector('[data-maid-settings-backdrop-frame]')).toBeNull()
   })
 
   it('anchors the public rc.6 settings slot to the real sidebar footer', async () => {
@@ -269,6 +362,7 @@ describe('Maid Atelier skin apply', () => {
     expect(document.body.style.backgroundImage).not.toContain('linear-gradient')
     expect(document.body.style.backgroundPosition).toBe('center top')
     expect(document.body.style.backgroundSize).toBe('cover')
+    expect(document.body.style.backgroundAttachment).toBe('scroll')
     await fiber.dispose()
     expect(document.body.style.backgroundImage).toBe('')
     expect(document.body.style.backgroundPosition).toBe('left bottom')
@@ -285,6 +379,101 @@ describe('Maid Atelier skin apply', () => {
     await fiber.dispose()
     expect(document.querySelector("[data-skin-chrome='character-stage']")).toBeNull()
   }, 10_000)
+
+  it('follows live viewport resizing without transition lag and restores the marker', async () => {
+    fiber = await mount()
+    const resizeRule = CSS.match(
+      /\[data-maid-viewport-resizing\]\s*\[data-maid-character\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    expect(resizeRule).toContain('transition: none')
+    expect(resizeRule).toContain('filter: none')
+
+    vi.useFakeTimers()
+    try {
+      window.dispatchEvent(new Event('resize'))
+      expect(document.body.hasAttribute('data-maid-viewport-resizing')).toBe(true)
+      vi.advanceTimersByTime(120)
+      expect(document.body.hasAttribute('data-maid-viewport-resizing')).toBe(false)
+
+      window.dispatchEvent(new Event('resize'))
+      await fiber.dispose()
+      fiber = undefined
+      expect(document.body.hasAttribute('data-maid-viewport-resizing')).toBe(false)
+      window.dispatchEvent(new Event('resize'))
+      expect(document.body.hasAttribute('data-maid-viewport-resizing')).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('uses a CPU-safe character path without accelerated WebGL and restores overrides', async () => {
+    fiber = await mount()
+    const lowPowerRule = CSS.match(
+      /\[data-maid-low-power\]\s*\[data-maid-character\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    expect(document.body.hasAttribute('data-maid-low-power')).toBe(true)
+    expect(lowPowerRule).toContain('filter: none')
+    expect(lowPowerRule).toContain('transition: opacity 180ms ease')
+
+    await fiber.dispose()
+    fiber = undefined
+    expect(document.body.hasAttribute('data-maid-low-power')).toBe(false)
+
+    document.body.setAttribute('data-maid-low-power', 'manual')
+    fiber = await mount()
+    await fiber.dispose()
+    fiber = undefined
+    expect(document.body.getAttribute('data-maid-low-power')).toBe('manual')
+    document.body.removeAttribute('data-maid-low-power')
+  })
+
+  it('keeps resize and low-power markers owned across overlapping activations', async () => {
+    const originalBodyStyle = document.body.getAttribute('style')
+    const first = await mount()
+    const second = await mount()
+    vi.useFakeTimers()
+    try {
+      window.dispatchEvent(new Event('resize'))
+      expect(document.body.hasAttribute('data-maid-viewport-resizing')).toBe(true)
+      expect(document.body.hasAttribute('data-maid-low-power')).toBe(true)
+
+      await first.dispose()
+      expect(document.body.hasAttribute('data-maid-viewport-resizing')).toBe(true)
+      expect(document.body.hasAttribute('data-maid-low-power')).toBe(true)
+
+      vi.advanceTimersByTime(120)
+      expect(document.body.hasAttribute('data-maid-viewport-resizing')).toBe(false)
+      expect(document.body.hasAttribute('data-maid-low-power')).toBe(true)
+
+      await second.dispose()
+      expect(document.body.hasAttribute('data-maid-low-power')).toBe(false)
+    } finally {
+      await first.dispose()
+      await second.dispose()
+      if (originalBodyStyle === null) document.body.removeAttribute('style')
+      else document.body.setAttribute('style', originalBodyStyle)
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps full character effects when accelerated WebGL is available', async () => {
+    vi.stubGlobal('WebGLRenderingContext', class WebGLRenderingContext {})
+    const loseContext = vi.fn()
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue({
+        getExtension: () => ({ loseContext }),
+      } as unknown as WebGL2RenderingContext)
+    try {
+      fiber = await mount()
+      expect(document.body.hasAttribute('data-maid-low-power')).toBe(false)
+      expect(getContext).toHaveBeenCalledWith('webgl2', {
+        failIfMajorPerformanceCaveat: true,
+      })
+      expect(loseContext).toHaveBeenCalledOnce()
+    } finally {
+      getContext.mockRestore()
+    }
+  })
 
   it('installs and restores the raster control plates', async () => {
     document.body.style.setProperty('--maid-new-session-art', 'legacy')
@@ -324,6 +513,24 @@ describe('Maid Atelier skin apply', () => {
     expect(backingRule).toContain('inset: 0 -0.52% -2%')
     expect(backingRule).toContain('background: inherit')
     expect(backingRule).toContain('pointer-events: none')
+  })
+
+  it('masks transcript content without duplicating character art', () => {
+    const seatRule = CSS.match(
+      /\[data-phase='active'\]\s*\[data-composer-seat\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    expect(seatRule).toContain('--dsw-alias-bg-base: transparent')
+    expect(seatRule).toContain('background: none')
+    expect(CSS).not.toContain("[data-skin-chrome='character-stage']::before")
+    expect(CSS).toMatch(/\[data-maid-character\]\s*\{[^}]*z-index: 1/s)
+    expect(CSS).toMatch(/@media \(max-width: 700px\)[\s\S]*?\[data-maid-character='left'\]\s*\{[^}]*translate: var\(--maid-sidebar-width\) 0/s)
+    expect(CSS).toMatch(/@media \(max-width: 700px\)[\s\S]*?\[data-maid-character='right'\]\s*\{[^}]*translate: 0/s)
+    expect(CSS).not.toContain('left: -82px')
+    expect(CSS).not.toContain('right: -82px')
+    expect(CSS).not.toContain('--maid-character-left-art')
+    expect(CSS).not.toContain('--maid-character-right-art')
+    expect(CSS).not.toContain('maidAtelierComposerBackdropDock')
+    expect(CSS).not.toContain('[data-composer-seat]::before')
   })
 
   it('recolors the native vector wordmark without replacing it with raster art', () => {
@@ -460,19 +667,20 @@ describe('Maid Atelier skin apply', () => {
     expect(CSS).toMatch(/\[class\*='titlebar'\] > \[class\*='button'\]:first-of-type/)
   })
 
-  it('places the skin-owned text mark in the frameless title bar', async () => {
+  it('places a text label in the frameless title bar', async () => {
     fiber = await mount()
     document.body.insertAdjacentHTML('beforeend', '<div class="fixture_titlebar"></div>')
     await flushMutations()
     const titlebar = document.querySelector<HTMLElement>("[class*='titlebar']")
     const brand = titlebar?.querySelector<HTMLElement>("[data-skin-chrome='titlebar-brand']")
-    expect(brand?.textContent).toBe('MAID ATELIER')
+    expect(brand).not.toBeNull()
+    expect(brand?.textContent).toBe('DeepSeek Harness')
     expect(brand?.querySelector('svg')).toBeNull()
     await fiber.dispose()
     expect(document.querySelector("[data-skin-chrome='titlebar-brand']")).toBeNull()
   })
 
-  it('styles the title-bar wordmark centered on the window, always visible', () => {
+  it('styles the title-bar label centered on the window, always visible', () => {
     expect(CSS).toMatch(/\[data-skin-chrome='titlebar-brand'\]\s*\{[^}]*left: 50%/s)
     expect(CSS).toMatch(/\[data-skin-chrome='titlebar-brand'\]\s*\{[^}]*transform: translate\(-50%, -50%\)/s)
     expect(CSS).toMatch(/\[data-skin-chrome='titlebar-brand'\]\s*\{[^}]*pointer-events: none/s)
@@ -579,9 +787,14 @@ describe('Maid Atelier skin apply', () => {
     )?.[1] ?? ''
     expect(heroRule).toContain('--dsh-chat-content-width: clamp(560px, 41vw, 740px)')
     expect(heroRule).toContain('--dsh-composer-card-max-width')
-    expect(heroCardRule).toContain('rgba(255, 254, 250, 0.54)')
-    expect(heroCardRule).toContain('backdrop-filter: blur(2.5px)')
+    expect(heroCardRule).toContain('rgba(255, 254, 250, 0.94)')
+    expect(heroCardRule).toContain('backdrop-filter: blur(8px)')
     expect(heroBackingRule).toContain('rgba(248, 250, 255, 0.2)')
+  })
+
+  it('keeps composer placeholder text readable in both themes', () => {
+    expect(CSS).toMatch(/textarea::placeholder\s*\{[^}]*color: #4d5d7f[^}]*opacity: 1/s)
+    expect(CSS).toMatch(/\[data-ds-dark-theme\] \[data-composer-card\] textarea::placeholder\s*\{[^}]*color: #d5dff3[^}]*opacity: 1/s)
   })
 
   it('keeps hero workspace, permission, and model controls in the official composer flow', () => {
@@ -658,17 +871,105 @@ describe('Maid Atelier skin apply', () => {
       /\[data-skin-chrome='character-stage'\]\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     const chatLeftRule = CSS.match(
-      /:has\(\[data-phase='active'\] \[data-chat-flow\]\)[\s\S]*?\[data-maid-character='left'\]\s*\{([^}]*)\}/s,
+      /\[data-maid-chat-active\]\s*\[data-maid-character='left'\]\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     const chatRightRule = CSS.match(
-      /:has\(\[data-phase='active'\] \[data-chat-flow\]\)[\s\S]*?\[data-maid-character='right'\]\s*\{([^}]*)\}/s,
+      /\[data-maid-chat-active\]\s*\[data-maid-character='right'\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const sharedRule = CSS.match(
+      /\[data-maid-character\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const baseLeftRule = CSS.match(
+      /\[data-maid-character='left'\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const baseRightRule = CSS.match(
+      /\[data-maid-character='right'\]\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     expect(stageRule).toContain('position: fixed')
     expect(stageRule).toContain('contain: strict')
-    expect(chatLeftRule).toContain('translate: var(--maid-sidebar-width) 0')
+    expect(sharedRule).toContain('translate 620ms')
+    expect(sharedRule).not.toContain('left 620ms')
+    expect(sharedRule).not.toContain('right 620ms')
+    expect(sharedRule).not.toContain('filter 420ms')
+    expect(baseLeftRule).toContain('left: 0')
+    expect(baseLeftRule).toContain('translate: calc(var(--maid-sidebar-width) + clamp(')
+    expect(baseRightRule).toContain('right: 0')
+    expect(baseRightRule).toContain('translate: clamp(-8px, -0.2vw, 0px) 0')
+    expect(chatLeftRule).toContain('translate: calc(var(--maid-sidebar-width) + clamp(')
     expect(chatLeftRule).toContain('height: clamp(420px, 64vh, 760px)')
-    expect(chatRightRule).toContain('right: clamp(-70px, -3vw, -24px)')
-    expect(CSS).not.toMatch(/:has\(\[data-phase='active'\]\)\s*\[data-maid-character/s)
+    expect(chatRightRule).toContain('translate: clamp(-8px, -0.5vw, 0px) 0')
+    expect(CSS).not.toMatch(/\[data-maid-character='(?:left|right)'\]\s*\{[^}]*(?:left|right):\s*-/s)
+    expect(CSS).not.toMatch(/\[data-maid-conversation-active\]\s*\[data-maid-character/s)
+  })
+
+  it('recovers the rc.6 rail search after its stale click collapses the wide field', async () => {
+    document.body.innerHTML = `
+      <div data-pane="sidebar">
+        <div class="fixture_search">
+          <button class="fixture_searchButton" type="button">search</button>
+        </div>
+      </div>
+    `
+    fiber = await mount()
+    document.querySelector<HTMLButtonElement>('.fixture_searchButton')!.click()
+
+    const sidebar = document.querySelector<HTMLElement>("[data-pane='sidebar']")!
+    sidebar.innerHTML = `
+      <div class="fixture_search">
+        <input class="fixture_searchInput" />
+      </div>
+    `
+    const searchRoot = sidebar.querySelector<HTMLElement>('.fixture_search')!
+    const input = sidebar.querySelector<HTMLInputElement>('.fixture_searchInput')!
+    let reopened = 0
+    searchRoot.addEventListener('click', () => { reopened += 1 })
+
+    await new Promise<void>(resolve => requestAnimationFrame(() => { resolve() }))
+
+    expect(reopened).toBe(1)
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('themes Cordis footer actions and approval panels without displacing settings', () => {
+    expect(CSS).toMatch(
+      /:not\(\[data-maid-sidebar-size='rail'\]\)[\s\S]*?\[data-slot='sidebar\.settings'\][\s\S]*?> :is\(button, \[role='button'\]\)\s*\{[^}]*margin-inline: 0/s,
+    )
+    expect(CSS).toMatch(
+      /\[data-maid-sidebar-footer\]\s*\{[^}]*flex: 0 0 auto[^}]*min-height: calc\(var\(--maid-sidebar-swag-height\) \+ 82px\)/s,
+    )
+    expect(CSS).toMatch(
+      /\[data-maid-sidebar-size='rail'\][\s\S]*?\[data-maid-sidebar-footer\]:has\(\[data-cordis-badge\]\)\s*\{[^}]*flex-basis: 100px/s,
+    )
+    expect(CSS).toMatch(
+      /\[data-maid-cordis-panel-open\][\s\S]*?> :has\(\[data-cordis-panel\]\)\s*\{[^}]*z-index: 40/s,
+    )
+    expect(CSS).toMatch(/\[data-cordis-badge\]\s*\{[^}]*border: 1px solid[^}]*linear-gradient/s)
+    expect(CSS).toMatch(
+      /\[data-cordis-panel\]\s*\{[^}]*left: calc\(var\(--maid-sidebar-width\) \+ 12px\)[^}]*--dsw-alias-bg-base: rgba\(230, 237, 250, 0\.96\)[^}]*backdrop-filter: blur\(16px\)/s,
+    )
+    expect(CSS).toMatch(/\[data-cordis-row\]\s*\{[^}]*rgba\(247, 249, 254, 0\.72\)/s)
+    expect(CSS).toContain('[data-cordis-approve-plugin]')
+    expect(CSS).toMatch(
+      /\[data-ds-dark-theme\] \[data-cordis-panel\]\s*\{[^}]*--dsw-alias-bg-base: rgba\(10, 22, 54, 0\.96\)/s,
+    )
+  })
+
+  it('isolates dsh-better-sidebar from transparent skin tokens', () => {
+    expect(CSS).toMatch(
+      /\[data-dsh-better-sidebar\]\s*\{[^}]*--dsw-specific-sidebar-fill: rgba\(230, 237, 250, 0\.96\)/s,
+    )
+    expect(CSS).toMatch(
+      /\[data-ds-dark-theme\] \[data-dsh-better-sidebar\]\s*\{[^}]*--dsw-specific-sidebar-fill: rgba\(10, 22, 54, 0\.96\)/s,
+    )
+    expect(CSS).toMatch(
+      /\[data-maid-better-sidebar-open\][\s\S]*?\[data-maid-character='right'\]\s*\{[^}]*translate: clamp\(-460px, -24vw, -320px\) 0/s,
+    )
+  })
+
+  it('keeps root-level relational selectors out of the skin scope', () => {
+    expect(CSS).not.toMatch(
+      /body\[data-dsh-maid-atelier\](?:\[[^\]]+\]|:not\([^)]*\))*:has\(/,
+    )
   })
 
   it('coordinates composer docking and rising with the curtain duration', () => {
@@ -683,21 +984,91 @@ describe('Maid Atelier skin apply', () => {
 
   it('styles assistant Markdown blocks through the stable flow-kind hook', () => {
     const bubbleRule = CSS.match(
-      /\[data-chat-flow-kind='assistant-step'\] > \* > \* > div:not\(\[data-variant\]\)\s*\{([^}]*)\}/s,
+      /\[data-chat-flow-kind='assistant-step'\] > \* > \* > \* > div\[class\*='markdown'\]\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     expect(bubbleRule).toContain('max-width: min(680px, 96%)')
     expect(bubbleRule).toContain('padding: 14px 18px')
     expect(bubbleRule).toContain('border-radius: 18px 18px 18px 7px')
     expect(bubbleRule).not.toContain('backdrop-filter')
+    expect(CSS).not.toContain("div:not([data-variant])")
     expect(CSS).toContain("[data-variant='think']")
   })
 
-  it('marks only live hero and workspace phase changes for composer motion', async () => {
+  it('keeps reasoning and command-style assistant blocks outside Markdown bubbles', () => {
+    document.body.innerHTML = `
+      <div data-chat-flow-kind="assistant-step">
+        <div class="renderer-seat">
+          <div class="assistant-root">
+            <div class="assistant-body">
+              <div class="hash_markdown_hash" data-fixture="markdown"></div>
+              <div data-variant="think" data-fixture="think"></div>
+              <div data-variant="others" data-fixture="command"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+    const matches = document.querySelectorAll(
+      "[data-chat-flow-kind='assistant-step'] > * > * > * > div[class*='markdown']",
+    )
+    expect([...matches].map((element) => element.getAttribute('data-fixture'))).toEqual(['markdown'])
+  })
+
+  it('stabilizes light-theme disclosure text over the illustrated backdrop', () => {
+    const variantRule = CSS.match(
+      /:not\(\[data-ds-dark-theme\]\)\s+:is\(\[data-variant\], \[data-chat-flow-kind='context'\]\)\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const rowRule = CSS.match(
+      /:not\(\[data-ds-dark-theme\]\)[\s\S]*?:is\(\[data-variant\], \[data-chat-flow-kind='context'\]\) \[data-disclosure-row='true'\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    expect(variantRule).toContain('--dsw-alias-label-secondary: #2f4778')
+    expect(variantRule).toContain('--dsw-alias-label-tertiary: #405273')
+    expect(rowRule).toContain('rgba(248, 250, 255, 0.32)')
+    expect(rowRule).not.toContain('backdrop-filter')
+    expect(CSS).toContain(":is([data-variant], [data-chat-flow-kind='context'])")
+    expect(CSS).toContain("[data-chat-flow-kind='context'] > [data-slot='conversation.chat.node'] > [data-open='true']")
+    expect(CSS).toMatch(/:is\(\s*\[data-variant\](?::not\(\[data-variant='think'\]\))? > \[data-open='true'\],[\s\S]*?\)\s*\{[^}]*rgba\(248, 250, 255, 0\.5\)/)
+    expect(CSS).not.toMatch(/\[data-variant\] > \[data-open='true'\][^{}]*backdrop-filter: blur\(3px\)/)
+    expect(CSS).toMatch(/:is\([\s\S]*?\) > \[data-disclosure-row='true'\]\s*\{[^}]*background: transparent[^}]*backdrop-filter: none/s)
+    expect(CSS).toMatch(/\[data-variant='think'\][^{]*\[data-disclosure-row='true'\] \+ \*\s*\{[^}]*color: #34486f[^}]*line-height: 1\.65/s)
+    expect(CSS).toMatch(/\[data-ds-dark-theme\]\s+:is\(\[data-variant\], \[data-chat-flow-kind='context'\]\)\s*\{[^}]*#d3ddf2[^}]*#b8c5e1/s)
+    expect(CSS).toMatch(/\[data-ds-dark-theme\][\s\S]*?:is\(\[data-variant\], \[data-chat-flow-kind='context'\]\) \[data-disclosure-row='true'\]\s*\{[^}]*rgba\(10, 20, 48, 0\.58\)/s)
+    expect(CSS).toMatch(/\[data-ds-dark-theme\][\s\S]*?\[data-variant='think'\][^{]*\+ \*\s*\{[^}]*color: #c7d2e9/s)
+  })
+
+  it('keeps the light-theme composer statistics legible over the backdrop', () => {
+    const dockRule = CSS.match(
+      /:not\(\[data-ds-dark-theme\]\)[\s\S]*?\[data-slot='conversation\.composer\.dock'\] > \*\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    expect(dockRule).toContain('color: #4a5d82')
+    expect(dockRule).toContain('rgba(248, 250, 255, 0.3)')
+    expect(dockRule).toContain('backdrop-filter: blur(2px)')
+    expect(CSS).toMatch(/\[data-slot='conversation\.composer\.dock'\] > \* \[class\*='sep'\]\s*\{[^}]*rgba\(74, 93, 130, 0\.55\)/s)
+    expect(CSS).toMatch(/\[data-ds-dark-theme\][\s\S]*?\[data-slot='conversation\.composer\.dock'\] > \*\s*\{[^}]*color: #aebdde[^}]*rgba\(10, 20, 48, 0\.48\)/s)
+  })
+
+  it('resets the light-theme subagent catalog inherited from the navy header', () => {
+    const catalogRule = CSS.match(
+      /:not\(\[data-ds-dark-theme\]\)[\s\S]*?\[data-slot='conversation\.session\.header\.actions'\] \[role='tree'\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    expect(catalogRule).toContain('--dsw-alias-label-primary: #233763')
+    expect(catalogRule).toContain('--dsw-alias-label-tertiary: #596b8e')
+    expect(catalogRule).toContain('rgba(248, 250, 255, 0.93)')
+    expect(catalogRule).toContain('text-shadow: none')
+    expect(catalogRule).toContain('backdrop-filter: blur(8px) saturate(0.92)')
+    expect(CSS).toMatch(/\[role='tree'\][^{]*:is\(\[role='treeitem'\], \[class\*='label'\]\)\s*\{[^}]*color: #233763/s)
+    expect(CSS).toMatch(/\[role='tree'\][^{]*:is\(\[class\*='summary'\], \[class\*='metrics'\], \[class\*='notice'\]\)\s*\{[^}]*color: #596b8e/s)
+    expect(CSS).toMatch(/\[data-ds-dark-theme\][\s\S]*?\[data-slot='conversation\.session\.header\.actions'\] \[role='tree'\]\s*\{[^}]*rgba\(10, 20, 48, 0\.93\)[^}]*rgba\(18, 31, 67, 0\.89\)[^}]*backdrop-filter: blur\(8px\) saturate\(0\.92\)/s)
+    expect(CSS).toMatch(/\[data-ds-dark-theme\][\s\S]*?\[role='tree'\][^{]*:is\(\[class\*='summary'\], \[class\*='metrics'\], \[class\*='notice'\]\)\s*\{[^}]*color: #b8c5e1/s)
+  })
+
+  it('marks only phase changes for composer motion', async () => {
     document.body.innerHTML = '<div data-phase="hero"></div>'
     fiber = await mount()
     expect(document.body.hasAttribute('data-maid-composer-motion')).toBe(false)
 
-    document.querySelector<HTMLElement>('[data-phase]')!.dataset.phase = 'active'
+    const phaseRoot = document.querySelector<HTMLElement>('[data-phase]')!
+    phaseRoot.dataset.phase = 'active'
     await flushMutations()
     expect(document.body.dataset.maidComposerMotion).toBe('dock')
 
@@ -718,6 +1089,15 @@ describe('Maid Atelier skin apply', () => {
     expect(cardRule).not.toContain('min-height: 210px')
     expect(textareaRule).not.toContain('min-height: 112px')
     expect(footerClearanceRule).toContain('margin-block-end: 12px')
+  })
+
+  it('keeps the composer caret legible in dark mode without washing out light mode', () => {
+    expect(CSS).toMatch(
+      /\[data-composer-card\] textarea\s*\{[^}]*caret-color: #405a99/s,
+    )
+    expect(CSS).toMatch(
+      /\[data-ds-dark-theme\] \[data-composer-card\] textarea\s*\{[^}]*caret-color: #bcd2ff/s,
+    )
   })
 
   it('gives inspect-only overlay views the full canvas without the composer seat', () => {
@@ -764,10 +1144,12 @@ describe('Maid Atelier skin apply', () => {
     expect(sidebarInnerRule).not.toContain('container-type')
     expect(footRule).toContain('box-sizing: border-box')
     expect(footRule).toContain('position: relative')
-    expect(footRule).toContain('flex: 0 0 calc(var(--maid-sidebar-swag-height) + 56px)')
-    expect(footRule).toContain('padding: calc(var(--maid-sidebar-swag-height) - 6px) 18px 12px')
+    expect(footRule).toContain('flex: 0 0 auto')
+    expect(footRule).toContain('min-height: calc(var(--maid-sidebar-swag-height) + 82px)')
+    expect(footRule).toContain('padding: calc(var(--maid-sidebar-swag-height) + 2px) 18px 22px')
     expect(swagRule).toContain('height: var(--maid-sidebar-swag-height)')
     expect(swagRule).toContain('background: var(--maid-sidebar-swag-art) center top / 100% 100% no-repeat')
+    expect(swagRule).toContain('brightness(1.1)')
   })
 
   it('keeps generated corner ornaments fixed while the sidebar frame can resize', () => {
@@ -796,12 +1178,18 @@ describe('Maid Atelier skin apply', () => {
     const searchRule = CSS.match(
       /\[class\*='search'\]\[class\*='searchExpanded'\]:has\(> input\[class\*='searchInput'\]\)\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
+    const expandedHeaderRule = CSS.match(
+      /\[class\*='sectionHeader'\]:has\(\[class\*='searchSlotExpanded'\]\)\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
     const settingsRule = CSS.match(
       /\[data-slot='sidebar\.settings'\]\s*> :is\(button, \[role='button'\]\)\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     expect(headingRule).toContain('color: #d9bd83')
     expect(searchRule).toContain('border: 1px solid rgba(225, 191, 124, 0.72)')
     expect(searchRule).toContain('--dsh-search-input-fill: transparent')
+    expect(searchRule).toContain('margin: 0 2px')
+    expect(expandedHeaderRule).toContain('height: 46px')
+    expect(expandedHeaderRule).toContain('overflow: visible')
     expect(CSS).not.toMatch(/\[class\*='search'\]:has\(> input\[class\*='searchInput'\]\)\s*\{/)
     expect(settingsRule).toContain('min-height: 50px')
     expect(settingsRule).toContain('border-image-source: var(--maid-settings-frame-art)')
@@ -816,17 +1204,50 @@ describe('Maid Atelier skin apply', () => {
     const sidebarInnerRule = CSS.match(
       /:is\(\[data-pane='sidebar'\], \[class\*='sidebarCol'\]\) > div\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
-    const portalRule = CSS.match(
+    const sidebarContentRule = CSS.match(
+      /:is\(\[data-pane='sidebar'\], \[class\*='sidebarCol'\]\)\s*> div > :has\(\[data-maid-sidebar-footer\]\)\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const footerRule = CSS.match(
       /:is\(\[data-pane='sidebar'\], \[class\*='sidebarCol'\]\)\s*> div > \[data-maid-sidebar-footer\]\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     const topTrimRule = CSS.match(/\[data-skin-chrome='top-trim'\]\s*\{([^}]*)\}/s)?.[1] ?? ''
     const bottomTrimRule = CSS.match(/\[data-skin-chrome='bottom-trim'\]\s*\{([^}]*)\}/s)?.[1] ?? ''
+    const obscuredComposerRule = CSS.match(
+      /\[data-maid-settings-open\] \[data-composer-card\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const promotedSettingsRootRule = CSS.match(
+      /:is\(\[data-pane='sidebar'\], \[class\*='sidebarCol'\]\)\s*> div\s*> :has\(\s*\[data-slot='sidebar\.settings'\]\s*> :is\(button, \[role='button'\]\)\[aria-expanded='true'\]\s*\)\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const preservedSidebarFrameRule = CSS.match(
+      /:has\(\s*\[data-slot='sidebar\.settings'\]\s*> :is\(button, \[role='button'\]\)\[aria-expanded='true'\]\s*\) \[data-skin-chrome='sidebar-corners'\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
     expect(sidebarRule).toContain('z-index: auto')
     expect(sidebarInnerRule).toContain('isolation: auto')
     expect(sidebarInnerRule).not.toContain('container-type')
-    expect(portalRule).toContain('z-index: auto')
+    expect(sidebarContentRule).toBe('')
+    expect(footerRule).toContain('z-index: auto')
     expect(topTrimRule).toContain('z-index: 20')
     expect(bottomTrimRule).toContain('z-index: 19')
+    expect(promotedSettingsRootRule).toContain('z-index: 1000')
+    expect(preservedSidebarFrameRule).toBe('')
+    expect(obscuredComposerRule).toContain('z-index: 0')
+    expect(obscuredComposerRule).toContain('opacity: 0.75')
+    expect(obscuredComposerRule).toContain('pointer-events: none')
+  })
+
+  it('keeps the settings panel translucent above the dimmed composer', () => {
+    const settingsSurfaceRule = CSS.match(
+      /\[data-slot='sidebar\.settings'\]\s+\[role='presentation'\]\s*> \[role='dialog'\]\[aria-modal='true'\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const darkSettingsSurfaceRule = CSS.match(
+      /\[data-ds-dark-theme\]\s+\[data-slot='sidebar\.settings'\]\s+\[role='presentation'\]\s*> \[role='dialog'\]\[aria-modal='true'\]\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    expect(settingsSurfaceRule).toContain('--dsw-alias-bg-layer-2: rgba(235, 240, 250, 0.68)')
+    expect(settingsSurfaceRule).toContain('backdrop-filter: blur(6px) saturate(0.9)')
+    expect(darkSettingsSurfaceRule).toContain('--dsw-alias-bg-layer-2: rgba(24, 40, 80, 0.82)')
+    expect(CSS).not.toMatch(
+      /body\[data-dsh-maid-atelier\]\s+\[role='presentation'\]\s*> \[role='dialog'\]\[aria-modal='true'\]/s,
+    )
   })
 
   it('renders the active workspace as a crested ribbon with a connected session tree', () => {
@@ -907,14 +1328,29 @@ describe('Maid Atelier skin apply', () => {
     expect(reducedMotionRules).toContain('animation: none')
   })
 
+  it('moves the running reasoning sweep on the compositor instead of relayout', () => {
+    const sweepRule = CSS.match(
+      /\[data-variant='think'\]\[data-state='running'\] \[class\*='row'\]::after\s*\{([^}]*)\}/s,
+    )?.[1] ?? ''
+    const sweepKeyframes = CSS.match(
+      /@keyframes maid-atelier-reasoning-sweep\s*\{([\s\S]*?)\n\}/,
+    )?.[1] ?? ''
+    expect(sweepRule).toContain('left: -240px')
+    expect(sweepRule).toContain('will-change: transform, opacity')
+    expect(sweepKeyframes).toContain('transform: translate3d(')
+    expect(sweepKeyframes).not.toMatch(/\bleft\s*:/)
+  })
+
   it('keeps the sidebar mascot subordinate to navigation and behind the lower ornament', () => {
     const mascotRule = CSS.match(/\[data-skin-chrome='sidebar-mascot'\]\s*\{([^}]*)\}/s)?.[1] ?? ''
-    expect(mascotRule).toContain('bottom: calc(var(--maid-sidebar-swag-height) + 68px)')
+    expect(mascotRule).toContain('bottom: calc(var(--maid-sidebar-swag-height) + 94px)')
     expect(mascotRule).toContain('width: var(--maid-sidebar-mascot-width)')
     expect(mascotRule).toContain('max-height: 38%')
     expect(mascotRule).toContain('z-index: 1')
-    expect(mascotRule).toContain('opacity: 0.7')
-    expect(mascotRule).toContain('saturate(0.94)')
+    expect(mascotRule).toContain('opacity: 0.22')
+    expect(mascotRule).toContain('saturate(1)')
+    expect(mascotRule).toContain('brightness(1.08)')
+    expect(CSS).toMatch(/:has\(\[role='tree'\]\)[^{]*\[data-skin-chrome='sidebar-mascot'\]\s*\{[^}]*display: none/s)
   })
 
   it('keeps independently sized landing and workspace trim layers', () => {
@@ -948,7 +1384,7 @@ describe('Maid Atelier skin apply', () => {
   it('moves the bottom embroidery with the composer phase', () => {
     const bottomTrimRule = CSS.match(/\[data-skin-chrome='bottom-trim'\]\s*\{([^}]*)\}/s)?.[1] ?? ''
     const activeTrimRule = CSS.match(
-      /:has\(\[data-phase='active'\]\) \[data-skin-chrome='bottom-trim'\]\s*\{([^}]*)\}/s,
+      /\[data-maid-conversation-active\] \[data-skin-chrome='bottom-trim'\]\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     const movingTrimRule = CSS.match(
       /body\[data-dsh-maid-atelier\]\[data-maid-composer-motion\]\s*\[data-skin-chrome='bottom-trim'\]\s*\{([^}]*)\}/s,
@@ -967,10 +1403,10 @@ describe('Maid Atelier skin apply', () => {
     const landingTrimRule = CSS.match(/\[data-skin-trim-layer='landing'\]\s*\{([^}]*)\}/s)?.[1] ?? ''
     const workspaceTrimRule = CSS.match(/\[data-skin-trim-layer='workspace'\]\s*\{([^}]*)\}/s)?.[1] ?? ''
     const activeLandingRule = CSS.match(
-      /:has\(header \[role='tablist'\]\)[\s\S]*?\[data-skin-trim-layer='landing'\]\s*\{([^}]*)\}/s,
+      /\[data-maid-workspace\][\s\S]*?\[data-skin-trim-layer='landing'\]\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     const activeWorkspaceRule = CSS.match(
-      /:has\(header \[role='tablist'\]\)[\s\S]*?\[data-skin-trim-layer='workspace'\]\s*\{([^}]*)\}/s,
+      /\[data-maid-workspace\][\s\S]*?\[data-skin-trim-layer='workspace'\]\s*\{([^}]*)\}/s,
     )?.[1] ?? ''
     expect(trimLayerRule).toContain('transition: transform 520ms')
     expect(landingTrimRule).toContain('transform: translateY(0)')

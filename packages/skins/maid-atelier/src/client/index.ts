@@ -1,8 +1,8 @@
 /**
  * Deep-sea maid atelier skin. The client entry keeps the bare two-character
  * background, collapsible sidebar artwork, and ornamental chrome as
- * independent layers. The sidebar keeps the product's native vector
- * wordmark; every skin-owned write is restored by the Cordis effect disposer.
+ * independent layers. Every skin-owned write is restored by the Cordis
+ * effect disposer.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import {
@@ -35,7 +35,94 @@ import './maid-atelier.module.css'
 const SKIN_TITLE = '深海女仆工坊 · DeepSeek Harness'
 const SKIN_OWNER = 'maid-atelier'
 const SKIN_SYSTEM_CHROME_COLOR = '#0b193f'
+const VIEWPORT_RESIZE_SETTLE_MS = 120
 const SIDEBAR_COLUMN_SELECTOR = ":is([data-pane='sidebar'], [class*='sidebarCol'])"
+const SETTINGS_TRIGGER_SELECTOR = "[data-slot='sidebar.settings'] > :is(button, [role='button'])"
+const SETTINGS_MASK_SELECTOR = "[role='presentation'] > [class*='mask']"
+const ACTIVE_CONVERSATION_SELECTOR = "[data-phase='active']"
+const ACTIVE_CHAT_SELECTOR = `${ACTIVE_CONVERSATION_SELECTOR} [data-chat-flow]`
+const WORKSPACE_SELECTOR = "header [role='tablist']"
+const BETTER_SIDEBAR_SELECTOR = '[data-dsh-better-sidebar]'
+const CORDIS_PANEL_SELECTOR = '[data-cordis-panel]'
+const TERMINAL_SELECTOR = `${BETTER_SIDEBAR_SELECTOR} .xterm`
+
+interface WindowControlsOverlayFace {
+  addEventListener(type: 'geometrychange', listener: () => void): void
+  removeEventListener(type: 'geometrychange', listener: () => void): void
+}
+
+interface AttributeLeaseState {
+  originalValue: string | null
+  owners: Set<symbol>
+  value: string
+}
+
+const bodyAttributeLeases = new WeakMap<HTMLElement, Map<string, AttributeLeaseState>>()
+
+function createBodyAttributeLease(body: HTMLElement, attribute: string, value = ''): {
+  acquire: () => void
+  release: () => void
+} {
+  const owner = Symbol(attribute)
+  let active = false
+
+  return {
+    acquire(): void {
+      if (active) return
+      let attributes = bodyAttributeLeases.get(body)
+      if (attributes === undefined) {
+        attributes = new Map()
+        bodyAttributeLeases.set(body, attributes)
+      }
+      let state = attributes.get(attribute)
+      if (state === undefined) {
+        state = {
+          originalValue: body.getAttribute(attribute),
+          owners: new Set(),
+          value,
+        }
+        attributes.set(attribute, state)
+      }
+      state.owners.add(owner)
+      active = true
+      body.setAttribute(attribute, state.value)
+    },
+    release(): void {
+      if (!active) return
+      active = false
+      const attributes = bodyAttributeLeases.get(body)
+      const state = attributes?.get(attribute)
+      if (state === undefined || !state.owners.delete(owner)) return
+      if (state.owners.size > 0) {
+        body.setAttribute(attribute, state.value)
+        return
+      }
+      attributes?.delete(attribute)
+      if (attributes?.size === 0) bodyAttributeLeases.delete(body)
+      if (body.getAttribute(attribute) !== state.value) return
+      if (state.originalValue === null) body.removeAttribute(attribute)
+      else body.setAttribute(attribute, state.originalValue)
+    },
+  }
+}
+
+const PROJECTED_STATE_ATTRIBUTES = {
+  activeChat: 'data-maid-chat-active',
+  activeConversation: 'data-maid-conversation-active',
+  betterSidebarOpen: 'data-maid-better-sidebar-open',
+  cordisPanelOpen: 'data-maid-cordis-panel-open',
+  settingsOpen: 'data-maid-settings-open',
+  workspace: 'data-maid-workspace',
+} as const
+
+const PROJECTED_STATE_SELECTOR = [
+  ACTIVE_CONVERSATION_SELECTOR,
+  '[data-chat-flow]',
+  WORKSPACE_SELECTOR,
+  BETTER_SIDEBAR_SELECTOR,
+  CORDIS_PANEL_SELECTOR,
+  "[data-slot='sidebar.settings']",
+].join(', ')
 
 const BACKDROP_PROPERTIES = [
   'background-image',
@@ -77,6 +164,23 @@ function createCharacterStage(): HTMLDivElement {
   return stage
 }
 
+function hasAcceleratedWebGL(): boolean {
+  if (typeof WebGLRenderingContext === 'undefined') return false
+  const canvas = document.createElement('canvas')
+  const options: WebGLContextAttributes = { failIfMajorPerformanceCaveat: true }
+  for (const kind of ['webgl2', 'webgl'] as const) {
+    try {
+      const context = canvas.getContext(kind, options) as WebGLRenderingContext | WebGL2RenderingContext | null
+      if (context === null) continue
+      context.getExtension('WEBGL_lose_context')?.loseContext()
+      return true
+    } catch {
+      // A blocked or software-only context should use the CPU-safe CSS path.
+    }
+  }
+  return false
+}
+
 function createSidebarCorners(): HTMLDivElement {
   const corners = document.createElement('div')
   corners.dataset.skinChrome = 'sidebar-corners'
@@ -90,7 +194,10 @@ function createSidebarCorners(): HTMLDivElement {
   return corners
 }
 
-/** Place the skin's own text mark in the frameless title bar. */
+/**
+ * Place a text label at the center of the frameless title bar (Web-app
+ * overlay / desktop shell).
+ */
 function decorateTitlebarBrand(ownedNodes: Set<Element>): void {
   const titlebar = document.querySelector<HTMLElement>("[class*='titlebar']")
   if (!titlebar) return
@@ -99,7 +206,7 @@ function decorateTitlebarBrand(ownedNodes: Set<Element>): void {
   brand.dataset.skinChrome = 'titlebar-brand'
   brand.dataset.skinOwner = SKIN_OWNER
   brand.setAttribute('aria-hidden', 'true')
-  brand.textContent = 'MAID ATELIER'
+  brand.textContent = 'DeepSeek Harness'
   ownedNodes.add(brand)
   titlebar.prepend(brand)
 }
@@ -213,9 +320,15 @@ function decorateWorkspaceTree(decoratedElements: Set<HTMLElement>): void {
 export function apply(ctx: Context): void {
   const body = document.body
   const originalTitle = document.title
+  const viewportResizeLease = createBodyAttributeLease(body, 'data-maid-viewport-resizing')
+  const lowPowerLease = createBodyAttributeLease(body, 'data-maid-low-power')
   const previous = new Map<string, string>()
   for (const property of BACKDROP_PROPERTIES) {
     previous.set(property, body.style.getPropertyValue(property))
+  }
+  const previousProjectedStates = new Map<string, string | null>()
+  for (const attribute of Object.values(PROJECTED_STATE_ATTRIBUTES)) {
+    previousProjectedStates.set(attribute, body.getAttribute(attribute))
   }
 
   const ownedNodes = new Set<Element>()
@@ -227,8 +340,13 @@ export function apply(ctx: Context): void {
   let resizeObserver: ResizeObserver | undefined
   let composerPhase: 'hero' | 'active' | undefined
   let composerMotionTimer: ReturnType<typeof setTimeout> | undefined
+  let viewportResizeTimer: ReturnType<typeof setTimeout> | undefined
+  let handleViewportResize: (() => void) | undefined
+  let railSearchFocusFrame: number | undefined
+  let recoverRailSearchFocus: ((event: MouseEvent) => void) | undefined
+  let settingsBackdropFrame: HTMLDivElement | undefined
   let observer: MutationObserver | undefined
-  let titlebarOverlay: WindowControlsOverlay | undefined
+  let titlebarOverlay: WindowControlsOverlayFace | undefined
   let syncTitlebarHeight: (() => void) | undefined
 
   ctx.effect(() => () => {
@@ -236,7 +354,19 @@ export function apply(ctx: Context): void {
     delete body.dataset.maidComposerMotion
     delete body.dataset.maidSidebarCompact
     delete body.dataset.maidSidebarSize
+    for (const [attribute, value] of previousProjectedStates) {
+      if (value === null) body.removeAttribute(attribute)
+      else body.setAttribute(attribute, value)
+    }
     if (composerMotionTimer !== undefined) clearTimeout(composerMotionTimer)
+    if (viewportResizeTimer !== undefined) clearTimeout(viewportResizeTimer)
+    if (handleViewportResize !== undefined) window.removeEventListener('resize', handleViewportResize)
+    viewportResizeLease.release()
+    lowPowerLease.release()
+    if (railSearchFocusFrame !== undefined) cancelAnimationFrame(railSearchFocusFrame)
+    if (recoverRailSearchFocus !== undefined) {
+      document.removeEventListener('click', recoverRailSearchFocus)
+    }
     observer?.disconnect()
     themeColorObserver?.disconnect()
     if (titlebarOverlay !== undefined && syncTitlebarHeight !== undefined) {
@@ -262,6 +392,17 @@ export function apply(ctx: Context): void {
     }
     if (document.title === SKIN_TITLE) document.title = originalTitle
   }, 'ui-skin-maid-atelier: layered background and ornament')
+
+  handleViewportResize = (): void => {
+    viewportResizeLease.acquire()
+    if (viewportResizeTimer !== undefined) clearTimeout(viewportResizeTimer)
+    viewportResizeTimer = setTimeout(() => {
+      viewportResizeLease.release()
+      viewportResizeTimer = undefined
+    }, VIEWPORT_RESIZE_SETTLE_MS)
+  }
+  window.addEventListener('resize', handleViewportResize)
+  if (!hasAcceleratedWebGL()) lowPowerLease.acquire()
 
   const syncSystemChrome = (): void => {
     const meta = document.head.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
@@ -302,7 +443,7 @@ export function apply(ctx: Context): void {
   syncBackdrop()
   body.style.setProperty('background-position', 'center top')
   body.style.setProperty('background-size', 'cover')
-  body.style.setProperty('background-attachment', 'fixed')
+  body.style.setProperty('background-attachment', 'scroll')
   body.style.setProperty('background-repeat', 'no-repeat')
 
   // 宽度联动写入独立的 <style> 规则而非 body style：CSSOM 修改不产生
@@ -354,7 +495,7 @@ export function apply(ctx: Context): void {
     }
     widthRule.style.setProperty('--maid-titlebar-height', '0px')
   }
-  titlebarOverlay = navigator.windowControlsOverlay
+  titlebarOverlay = (navigator as Navigator & { windowControlsOverlay?: WindowControlsOverlayFace }).windowControlsOverlay
   titlebarOverlay?.addEventListener('geometrychange', syncTitlebarHeight)
   syncTitlebarHeight()
 
@@ -377,6 +518,37 @@ export function apply(ctx: Context): void {
     body.dataset.maidSidebarCompact = ''
   }
 
+  const syncProjectedState = (): void => {
+    const set = (attribute: string, active: boolean): void => {
+      body.toggleAttribute(attribute, active)
+    }
+    set(
+      PROJECTED_STATE_ATTRIBUTES.activeChat,
+      document.querySelector(ACTIVE_CHAT_SELECTOR) !== null,
+    )
+    set(
+      PROJECTED_STATE_ATTRIBUTES.activeConversation,
+      document.querySelector(ACTIVE_CONVERSATION_SELECTOR) !== null,
+    )
+    set(
+      PROJECTED_STATE_ATTRIBUTES.workspace,
+      document.querySelector(WORKSPACE_SELECTOR) !== null,
+    )
+    set(
+      PROJECTED_STATE_ATTRIBUTES.betterSidebarOpen,
+      document.querySelector(BETTER_SIDEBAR_SELECTOR) !== null
+        && !body.hasAttribute('data-dsh-sidebar-collapsed'),
+    )
+    set(
+      PROJECTED_STATE_ATTRIBUTES.cordisPanelOpen,
+      document.querySelector(CORDIS_PANEL_SELECTOR) !== null,
+    )
+    set(
+      PROJECTED_STATE_ATTRIBUTES.settingsOpen,
+      document.querySelector(`${SETTINGS_TRIGGER_SELECTOR}[aria-expanded='true']`) !== null,
+    )
+  }
+
   const ensureSidebarObserved = (): void => {
     const sidebar = document.querySelector<HTMLElement>(SIDEBAR_COLUMN_SELECTOR)
     if (!resizeObserver || sidebar === observedSidebar) return
@@ -390,10 +562,46 @@ export function apply(ctx: Context): void {
     resizeObserver.observe(sidebar)
   }
 
+  /* rc.6 can mount its wide search and its outside-click listener during the
+     rail button's own click. That same event then reaches document with the
+     detached rail button as its target and immediately collapses the field.
+     Re-enter the component through its wide search root after the slide has
+     mounted; newer workspace builds already keep the wide field open, so the
+     rail-only origin check makes this compatibility path inert there. */
+  recoverRailSearchFocus = (event: MouseEvent): void => {
+    const target = event.target instanceof Element
+      ? event.target.closest<HTMLElement>("button[class*='searchButton']")
+      : null
+    const railSearch = target?.closest<HTMLElement>("[class*='search']")
+    if (target === null || railSearch == null
+      || railSearch.querySelector("input[class*='searchInput']") !== null) return
+
+    if (railSearchFocusFrame !== undefined) cancelAnimationFrame(railSearchFocusFrame)
+    const startedAt = performance.now()
+    const recover = (): void => {
+      railSearchFocusFrame = undefined
+      const input = document.querySelector<HTMLInputElement>(
+        `${SIDEBAR_COLUMN_SELECTOR} input[class*='searchInput']`,
+      )
+      const searchRoot = input?.closest<HTMLElement>("[class*='search']")
+      if (input !== null && input !== undefined && searchRoot !== null && searchRoot !== undefined) {
+        searchRoot.click()
+        input.focus({ preventScroll: true })
+        return
+      }
+      if (performance.now() - startedAt < 500) {
+        railSearchFocusFrame = requestAnimationFrame(recover)
+      }
+    }
+    railSearchFocusFrame = requestAnimationFrame(recover)
+  }
+  document.addEventListener('click', recoverRailSearchFocus)
+
   if (typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver((entries) => {
       const entry = entries.at(-1)
-      if (entry) applySidebarWidth(entry.contentRect.width)
+      if (!entry) return
+      applySidebarWidth(entry.contentRect.width)
     })
   }
 
@@ -413,6 +621,32 @@ export function apply(ctx: Context): void {
     composerPhase = next
   }
 
+  /* The settings mask is mounted inside a promoted sidebar descendant. Chrome
+     can omit sibling composited layers from that backdrop sample, so seat a
+     copy of the existing frame immediately before the mask while it is open. */
+  const syncSettingsBackdropFrame = (): void => {
+    const expanded = document.querySelector(
+      `${SETTINGS_TRIGGER_SELECTOR}[aria-expanded='true']`,
+    )
+    const mask = expanded === null
+      ? null
+      : document.querySelector<HTMLElement>(SETTINGS_MASK_SELECTOR)
+    const overlay = mask?.parentElement
+    if (overlay === undefined || overlay === null) {
+      settingsBackdropFrame?.remove()
+      return
+    }
+
+    if (settingsBackdropFrame === undefined) {
+      settingsBackdropFrame = createSidebarCorners()
+      settingsBackdropFrame.dataset.maidSettingsBackdropFrame = ''
+      ownedNodes.add(settingsBackdropFrame)
+    }
+    if (settingsBackdropFrame.parentElement !== overlay) {
+      overlay.insertBefore(settingsBackdropFrame, mask)
+    }
+  }
+
   decorateTitlebarBrand(ownedNodes)
   decorateSidebar(ownedNodes, decoratedElements)
   decorateWorkspaceTree(decoratedElements)
@@ -420,6 +654,8 @@ export function apply(ctx: Context): void {
   const initialSidebar = document.querySelector<HTMLElement>(SIDEBAR_COLUMN_SELECTOR)
   if (initialSidebar) applySidebarWidth(initialSidebar.getBoundingClientRect().width)
   syncComposerMotion()
+  syncSettingsBackdropFrame()
+  syncProjectedState()
 
   const characterStage = createCharacterStage()
   ownedNodes.add(characterStage)
@@ -456,22 +692,39 @@ export function apply(ctx: Context): void {
     let workspaceStateChanged = false
     let backdropChanged = false
     let composerChanged = false
+    let settingsStateChanged = false
+    let projectedStateChanged = false
     for (const record of records) {
+      const target = record.target instanceof Element ? record.target : undefined
+      if (target?.closest(TERMINAL_SELECTOR) !== null) continue
+
       if (record.type === 'attributes') {
-        const target = record.target instanceof Element ? record.target : undefined
-        if ((record.attributeName === 'aria-expanded' || record.attributeName === 'aria-selected')
+        if (record.attributeName === 'aria-expanded'
+          && target !== undefined
+          && target.closest("[data-slot='sidebar.settings']") !== null) {
+          settingsStateChanged = true
+          projectedStateChanged = true
+        } else if ((record.attributeName === 'aria-expanded' || record.attributeName === 'aria-selected')
           && target !== undefined && target.closest(SIDEBAR_COLUMN_SELECTOR) !== null) {
           workspaceStateChanged = true
         } else if (record.attributeName === 'data-ds-dark-theme' && record.target === body) {
           backdropChanged = true
-        } else if (record.attributeName === 'data-phase' && target?.matches(composerSelector)) {
+        } else if (record.attributeName === 'data-phase') {
           composerChanged = true
+        }
+        if (record.attributeName === 'data-phase'
+          || record.attributeName === 'data-chat-flow'
+          || record.attributeName === 'data-dsh-better-sidebar'
+          || record.attributeName === 'data-dsh-sidebar-collapsed'
+          || record.attributeName === 'data-cordis-panel'
+          || record.attributeName === 'data-slot'
+          || record.attributeName === 'role') {
+          projectedStateChanged = true
         }
         continue
       }
       const appNodes = [...record.addedNodes, ...record.removedNodes]
         .filter(node => node instanceof Element && !isSkinChrome(node))
-      const target = record.target instanceof Element ? record.target : undefined
       if (appNodes.length > 0 && (appNodes.some(node => nodeTouches(node, sidebarChromeSelector))
         || (target !== undefined && target.closest(SIDEBAR_COLUMN_SELECTOR) !== null))) {
         sidebarStructureChanged = true
@@ -480,15 +733,37 @@ export function apply(ctx: Context): void {
         || (target !== undefined && target.closest(composerSelector) !== null))) {
         composerChanged = true
       }
+      if (appNodes.some(node => nodeTouches(node, SETTINGS_MASK_SELECTOR))) {
+        settingsStateChanged = true
+      }
+      if (appNodes.length > 0 && (appNodes.some(node => nodeTouches(node, PROJECTED_STATE_SELECTOR))
+        || target?.matches("header, [data-slot='sidebar.settings']") === true)) {
+        projectedStateChanged = true
+      }
     }
+    if (projectedStateChanged) syncProjectedState()
     if (sidebarStructureChanged) syncSidebarDecorations()
     else if (workspaceStateChanged) decorateWorkspaceTree(decoratedElements)
     if (backdropChanged) syncBackdrop()
-    if (composerChanged) syncComposerMotion()
+    if (composerChanged) {
+      syncComposerMotion()
+    }
+    if (settingsStateChanged) syncSettingsBackdropFrame()
   })
   observer.observe(body, {
     attributes: true,
-    attributeFilter: ['aria-expanded', 'aria-selected', 'data-ds-dark-theme', 'data-phase'],
+    attributeFilter: [
+      'aria-expanded',
+      'aria-selected',
+      'data-chat-flow',
+      'data-cordis-panel',
+      'data-ds-dark-theme',
+      'data-dsh-better-sidebar',
+      'data-dsh-sidebar-collapsed',
+      'data-phase',
+      'data-slot',
+      'role',
+    ],
     childList: true,
     subtree: true,
   })
