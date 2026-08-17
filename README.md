@@ -78,18 +78,11 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ### 右侧面板
 
-右侧面板由外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供（聚合包已集成并默认启用）：VSCode 风格双工作台（右侧栏 + 底部面板），开箱即用：
-
-- **资源管理器 / 编辑器**：懒加载目录树 + CodeMirror 编辑器，图片 / Markdown / HTML / PDF / Office 内联预览；
-- **真实终端**：xterm.js + node-pty 真实 shell，断线重连回放；
-- **Git 面板**：真 diff、历史、右键暂存 / 提交 / 还原；
-- **内嵌浏览器 / 后台任务**：沙箱网页 tab、subagent 拓扑与后台任务；
-- **服务化扩展**：任何插件可通过 `ctx.betterSidebar.registerTab` / `registerFileViewer` 注册新的侧边栏页面与文件预览器，能力与内置完全对等；
-- 布局 / 折叠 / 宽度按会话持久化，11 款皮肤都适配，换肤自动跟随。
+右侧面板由外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供（聚合包已集成并默认启用），支持其内置功能与第三方插件注册，详见其 [README](https://github.com/omdsh-dev/DSH-better-sidebar)。
 
 <!-- TODO: 补充 better-sidebar 右侧面板截图 -->
 
-> 此前的 aionui-panel 右侧面板已**暂时关闭**（聚合包内默认不启用），直到其功能完全迁移到 dsh-better-sidebar；设置 → Web UI 插件 → 右侧面板 可切换提供方，迁移完成前不建议开启。
+> 此前的 aionui-panel 右侧面板已**暂时关闭**，直到其功能完全迁移到 dsh-better-sidebar；设置 → Web UI 插件 → 右侧面板 可切换提供方，迁移完成前不建议开启。
 
 ### 鲸鱼娘宠物
 

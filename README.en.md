@@ -80,18 +80,11 @@ The branch picker above the input box switches branches and browses commit histo
 
 ### Right Panel
 
-The right panel is provided by the external plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (integrated into the aggregate bundle and enabled by default): a VSCode-style dual workbench (right sidebar + bottom panel), ready to use out of the box:
-
-- **Explorer / Editor**: lazy directory tree + CodeMirror editor, inline previews for images / Markdown / HTML / PDF / Office;
-- **Real terminal**: xterm.js + node-pty real shell with disconnect-reconnect replay;
-- **Git panel**: real diffs, history, right-click stage / commit / restore;
-- **Embedded browser / background jobs**: sandboxed web tabs, subagent topology and background jobs;
-- **Service-first extension**: any plugin can register new sidebar pages and file viewers through `ctx.betterSidebar.registerTab` / `registerFileViewer`, with fully equal capabilities to the built-ins;
-- Layout / collapse / widths persist per session; all eleven skins cover it, so it follows the theme automatically.
+The right panel is provided by the external plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (integrated into the aggregate bundle and enabled by default), with its built-in features and third-party plugin registration — see its [README](https://github.com/omdsh-dev/DSH-better-sidebar).
 
 <!-- TODO: add a better-sidebar right-panel screenshot -->
 
-> The previous aionui-panel right panel is **temporarily disabled** (not enabled by default in the aggregate bundle) until its features are fully migrated to dsh-better-sidebar; Settings → Web UI Plugins → Right panel can switch the provider, but it is not recommended to enable it before the migration completes.
+> The previous aionui-panel right panel is **temporarily disabled** until its features are fully migrated to dsh-better-sidebar; Settings → Web UI Plugins → Right panel can switch the provider, but it is not recommended to enable it before the migration completes.
 
 ### Whale-Girl Pet
 
