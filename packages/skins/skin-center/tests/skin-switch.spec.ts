@@ -23,6 +23,7 @@ import {
   MANAGED_START,
   MANAGED_END,
   renderManaged,
+  normalizePatchForManagedAppend,
   stripManaged,
   stripLegacySkinRows,
   currentActive,
@@ -243,6 +244,19 @@ describe('pure patch helpers', () => {
     expect(() => stripManaged(patch)).toThrow(/unterminated/)
   })
 
+  it('normalizes the DSH default [] root while preserving comments, document start, and CRLF', () => {
+    const patch = '# profile patch\r\n---\r\n[] # empty sequence\r\n'
+    expect(normalizePatchForManagedAppend(patch)).toBe('# profile patch\r\n---\r\n')
+  })
+
+  it('rejects flow-style and non-sequence roots before a managed append', () => {
+    expect(() => normalizePatchForManagedAppend('{}\n')).toThrow(/top-level block sequence/)
+    expect(() => normalizePatchForManagedAppend('[{ id: existing }]\n')).toThrow(/top-level block sequence/)
+    expect(() => normalizePatchForManagedAppend('- id: existing\n[]\n')).toThrow(/one top-level block sequence/)
+    expect(() => normalizePatchForManagedAppend('- id: existing\n---\n- id: second\n')).toThrow(/one YAML document/)
+    expect(() => normalizePatchForManagedAppend('- id: existing\n--- # second document\n- id: second\n')).toThrow(/one YAML document/)
+  })
+
   it('currentActive returns null when every skin is disabled (stock look)', () => {
     const registry = miniRegistry()
     expect(currentActive(renderManaged(null, registry), registry)).toBeNull()
@@ -458,6 +472,20 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
     }
     expect(after).not.toContain('- insert:')
     expect(currentSkin(undefined, { home: h })).toBe('none')
+  })
+
+  it('use official converts the DSH default [] template into one block-sequence root (issue #406)', () => {
+    const h = fakeHome()
+    const patch = patchPath(h)
+    writeFileSync(patch, '# Your patch layer for this dsh profile\n[]\n')
+
+    useSkin('official', { home: h })
+
+    const after = readFileSync(patch, 'utf8')
+    expect(after).toContain('# Your patch layer for this dsh profile')
+    expect(after.split(/\r?\n/).some(line => line.trim() === '[]')).toBe(false)
+    expect(after).toContain(MANAGED_START)
+    expect(after.trimEnd().endsWith(MANAGED_END)).toBe(true)
   })
 
   it('useSkin preserves the permission bits of an existing patch file (0600 stays 0600)', () => {

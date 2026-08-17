@@ -8,6 +8,7 @@ The skin-family aggregate plugin: installing it gives you the skin center (`skin
 
 - **Skin center + full collection**: one package replaces installing skins individually.
 - **Mutual exclusion via `dsh-skin use`**: skin activation is exclusive and managed by `dsh-skin use` (the active Web profile's `managed` section), so skins live as `skins/` assets only and never enter `patchFrom`; non-Web profiles do not inherit browser-only skin entries.
+- **YAML-safe profile writes**: the DSH default `[]` overlay template is normalized before the managed block is appended; an incompatible non-empty flow root is rejected before the file is replaced.
 
 ## Install
 

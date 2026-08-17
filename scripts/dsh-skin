@@ -129,10 +129,22 @@ function readPatch(file = PATCH) {
 }
 
 function writePatch(file, next) {
-  fs.mkdirSync(path.dirname(file), { recursive: true })
-  const tmp = `${file}.tmp-${process.pid}`
-  fs.writeFileSync(tmp, next)
-  fs.renameSync(tmp, file)
+  const dir = path.dirname(file)
+  const base = path.basename(file)
+  fs.mkdirSync(dir, { recursive: true })
+  let previousMode
+  try { previousMode = fs.statSync(file).mode & 0o777 } catch { previousMode = undefined }
+  const tmpDir = fs.mkdtempSync(path.join(dir, `${base}.tmp-`))
+  const tmp = path.join(tmpDir, base)
+  try {
+    fs.writeFileSync(tmp, next, { flag: 'wx' })
+    fs.chmodSync(tmp, previousMode ?? 0o600)
+    fs.renameSync(tmp, file)
+  } catch (error) {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch { /* preserve write failure */ }
+    throw error
+  }
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch { /* replacement already succeeded */ }
 }
 
 /** Drop legacy hand-written skin rows (insert rows with a name) and old touch comments. */
@@ -152,6 +164,62 @@ function stripManaged(patch) {
   return patch.slice(0, start) + patch.slice(end + MANAGED_END.length)
 }
 
+/**
+ * Prepare a user patch for appending the managed block sequence. DSH creates
+ * new profile overlays with a flow-style empty sequence (`[]`); appending
+ * block rows after that root would create a second YAML root and break boot.
+ */
+function normalizePatchForManagedAppend(patch) {
+  const lines = (patch.match(/[^\r\n]*(?:\r\n|\n|$)/g) ?? []).filter(line => line !== '')
+  const significant = []
+  let sawDocumentStart = false
+  for (let index = 0; index < lines.length; index += 1) {
+    const body = lines[index].replace(/\r?\n$/, '')
+    const text = body.trim()
+    if (text === '' || text.startsWith('#')) continue
+    if (/^---(?:\s+#.*)?$/.test(text)) {
+      if (sawDocumentStart || significant.length > 0) {
+        throw new Error('cordis.patch.yml must contain one YAML document before dsh-skin can append its managed section')
+      }
+      sawDocumentStart = true
+      continue
+    }
+    if (/^\.\.\.(?:\s+#.*)?$/.test(text)) {
+      throw new Error('cordis.patch.yml document-end markers are not supported before the dsh-skin managed section')
+    }
+    significant.push({ index, text, indent: body.length - body.trimStart().length })
+  }
+  if (significant.length === 0) return patch
+  const root = significant[0]
+  if (/^\[\]\s*(?:#.*)?$/.test(root.text)) {
+    if (significant.length !== 1) {
+      throw new Error('cordis.patch.yml must contain one top-level sequence before dsh-skin can append its managed section')
+    }
+    lines.splice(root.index, 1)
+    return lines.join('')
+  }
+  if (!root.text.startsWith('-')) {
+    throw new Error('cordis.patch.yml must use a top-level block sequence before dsh-skin can append its managed section')
+  }
+  for (const entry of significant.slice(1)) {
+    if (entry.indent < root.indent || (entry.indent === root.indent && !entry.text.startsWith('-'))) {
+      throw new Error('cordis.patch.yml must contain one top-level block sequence before dsh-skin can append its managed section')
+    }
+  }
+  return patch
+}
+
+function appendManagedPatch(patch, managed) {
+  const eol = patch.includes('\r\n') ? '\r\n' : '\n'
+  const base = patch.replace(/\s+$/, '')
+  const block = managed.replace(/\n/g, eol)
+  return `${base}${base === '' ? '' : eol + eol}${block}${eol}`
+}
+
+function yamlSingleQuote(value) {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
 function renderManaged(active) {
   const wired = bundleWiredFromProfile()
   const lines = [MANAGED_START]
@@ -162,7 +230,7 @@ function renderManaged(active) {
   // `official` (active === null) = every skin disabled, no insert row — the
   // stock look. A wired active skin also needs no insert row.
   if (active !== null && !wired.has(active)) {
-    lines.push('- insert:', `    - id: ${SKINS[active].id}`, `      name: '${SKINS[active].pkg}'`)
+    lines.push('- insert:', `    - id: ${SKINS[active].id}`, `      name: ${yamlSingleQuote(SKINS[active].pkg)}`)
   }
   lines.push(MANAGED_END)
   return lines.join('\n')
@@ -232,8 +300,8 @@ function cmdUse(name) {
   const migratedLegacyPatch = stripLegacySkinRows(stripManaged(legacyPatch))
   if (migratedLegacyPatch !== legacyPatch) writePatch(LEGACY_PATCH, migratedLegacyPatch)
 
-  const patch = stripLegacySkinRows(stripManaged(readPatch()))
-  const next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(official ? null : name)}\n`
+  const patch = normalizePatchForManagedAppend(stripLegacySkinRows(stripManaged(readPatch())))
+  const next = appendManagedPatch(patch, renderManaged(official ? null : name))
   // Atomic replace: write a sibling temp file then rename over the target, so
   // a crash mid-write can never leave a half-written boot patch, and the
   // config watcher only ever sees complete content.
@@ -275,6 +343,8 @@ module.exports = {
   MANAGED_START,
   MANAGED_END,
   renderManaged,
+  normalizePatchForManagedAppend,
+  appendManagedPatch,
   stripManaged,
   stripLegacySkinRows,
   currentActive,

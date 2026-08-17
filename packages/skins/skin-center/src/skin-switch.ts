@@ -348,6 +348,61 @@ export function stripManaged(patch: string): string {
   return patch.slice(0, start) + patch.slice(end + MANAGED_END.length)
 }
 
+/**
+ * Prepare a user patch for appending the managed block sequence. DSH creates
+ * new profile overlays with a flow-style empty sequence (`[]`); appending
+ * block rows after that root would create a second YAML root and break boot.
+ * Existing block sequences and comments are preserved byte-for-byte.
+ * @param patch - raw patch text after old managed rows were removed.
+ */
+export function normalizePatchForManagedAppend(patch: string): string {
+  const lines = (patch.match(/[^\r\n]*(?:\r\n|\n|$)/g) ?? []).filter(line => line !== '')
+  const significant: Array<{ index: number; text: string; indent: number }> = []
+  let sawDocumentStart = false
+  for (let index = 0; index < lines.length; index += 1) {
+    const body = lines[index].replace(/\r?\n$/, '')
+    const text = body.trim()
+    if (text === '' || text.startsWith('#')) continue
+    if (/^---(?:\s+#.*)?$/.test(text)) {
+      if (sawDocumentStart || significant.length > 0) {
+        throw new Error('cordis.patch.yml must contain one YAML document before dsh-skin can append its managed section')
+      }
+      sawDocumentStart = true
+      continue
+    }
+    if (/^\.\.\.(?:\s+#.*)?$/.test(text)) {
+      throw new Error('cordis.patch.yml document-end markers are not supported before the dsh-skin managed section')
+    }
+    significant.push({ index, text, indent: body.length - body.trimStart().length })
+  }
+  if (significant.length === 0) return patch
+  const root = significant[0]
+  if (/^\[\]\s*(?:#.*)?$/.test(root.text)) {
+    if (significant.length !== 1) {
+      throw new Error('cordis.patch.yml must contain one top-level sequence before dsh-skin can append its managed section')
+    }
+    lines.splice(root.index, 1)
+    return lines.join('')
+  }
+  if (!root.text.startsWith('-')) {
+    throw new Error('cordis.patch.yml must use a top-level block sequence before dsh-skin can append its managed section')
+  }
+  for (const entry of significant.slice(1)) {
+    if (entry.indent < root.indent || (entry.indent === root.indent && !entry.text.startsWith('-'))) {
+      throw new Error('cordis.patch.yml must contain one top-level block sequence before dsh-skin can append its managed section')
+    }
+  }
+  return patch
+}
+
+/** Render one managed block after the user patch using its existing line ending. */
+export function appendManagedPatch(patch: string, managed: string): string {
+  const eol = patch.includes('\r\n') ? '\r\n' : '\n'
+  const base = patch.replace(/\s+$/, '')
+  const block = managed.replace(/\n/g, eol)
+  return `${base}${base === '' ? '' : eol + eol}${block}${eol}`
+}
+
 /** YAML single-quoted scalar: a literal single quote doubles. `wiring.id` is
  * already validated before it ever reaches a registry, so only `package`
  * needs escaping here. */
@@ -1027,8 +1082,8 @@ export function useSkin(name: string, opts: { home?: string; profile?: string; r
     writePatchAtomic(paths.legacyPatchPath, migratedLegacyPatch)
   }
 
-  const patch = stripLegacySkinRows(stripManaged(readPatch(paths.patchPath)))
-  let next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(official ? null : name, renderRegistry)}\n`
+  const patch = normalizePatchForManagedAppend(stripLegacySkinRows(stripManaged(readPatch(paths.patchPath))))
+  let next = appendManagedPatch(patch, renderManaged(official ? null : name, renderRegistry))
   let skippedInsert = false
   if (!official && countInsertId(next, renderRegistry[name].id) > 1) {
     // Another insert row for the same loader id already exists elsewhere in
@@ -1038,7 +1093,7 @@ export function useSkin(name: string, opts: { home?: string; profile?: string; r
     // drop OUR row and keep the pre-existing one: the managed section then
     // only carries the mutual-exclusion disabled rows.
     const wired = { ...renderRegistry, [name]: { ...renderRegistry[name], bundleWired: true } }
-    next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(name, wired)}\n`
+    next = appendManagedPatch(patch, renderManaged(name, wired))
     skippedInsert = true
   }
   writePatchAtomic(paths.patchPath, next)

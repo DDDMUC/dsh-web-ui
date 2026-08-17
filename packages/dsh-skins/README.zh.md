@@ -8,6 +8,7 @@
 
 - **皮肤中心 + 全套皮肤**：一个包取代单独安装各皮肤。
 - **皮肤启用互斥由 `dsh-skin use` 管理**：皮肤互斥激活，由 `dsh-skin use` 管理（当前 Web profile 的 `managed` 区段），因此皮肤只进 `skins/` 资产，不进 `patchFrom`，非 Web profile 不会继承浏览器皮肤条目。
+- **安全写入 YAML**：追加 managed 区段前会自动规范化 DSH 默认的 `[]` overlay 模板；遇到不兼容的非空 flow 根时会在替换文件前拒绝操作。
 
 ## 安装
 
