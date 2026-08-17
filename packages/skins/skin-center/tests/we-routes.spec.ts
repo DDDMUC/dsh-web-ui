@@ -51,7 +51,9 @@ async function call(
   opts: { body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<{ status: number; body: Record<string, unknown>; raw: string; headers: Record<string, unknown> }> {
   return await new Promise((resolve, reject) => {
-    const headers: Record<string, string> = { ...opts.headers }
+    // connection: close keeps server.close() in afterEach instant (an idle
+    // keep-alive socket would otherwise hold it for seconds).
+    const headers: Record<string, string> = { connection: 'close', ...opts.headers }
     let payload: string | undefined
     if (opts.body !== undefined) {
       payload = JSON.stringify(opts.body)

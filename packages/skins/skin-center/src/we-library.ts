@@ -28,7 +28,6 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { basename, join as joinPath, resolve as resolvePath } from 'node:path'
 
 /** Steam appid of Wallpaper Engine. */
