@@ -8,7 +8,7 @@ Built on the capability list of [badseal/ssh-skill](https://github.com/badseal/s
 
 | Capability | Description |
 | --- | --- |
-| Host management | CRUD, search, connection test; config stored in `~/.dsh/dsh-ssh.json`; supports key / password auth, passphrase keys, ProxyJump jump hosts (multi-level) |
+| Host management | CRUD, search, connection test; collapsible grouping by environment / tags with per-group batch test; config stored in `~/.dsh/dsh-ssh.json`; supports key / password auth, passphrase keys, ProxyJump jump hosts (multi-level) |
 | Config import | One-click parse of a standard `~/.ssh/config` (Host/HostName/User/Port/IdentityFile/ProxyJump etc.); existing aliases are skipped |
 | Persistent connection pool | Reuses a long-lived connection per host (opposite of the ssh-skill daemon), automatically disconnects after 30 minutes idle, auto-reconnects on disconnect (up to 3 times) |
 | Command execution | exec with a timeout (default 60s), stdout/stderr separated, output truncation guard (2MB) |
