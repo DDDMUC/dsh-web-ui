@@ -30,9 +30,7 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
 </p>
 
 <p align="center">
-
 [What It Is](#what-it-is) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
-
 </p>
 
 ## What It Is
