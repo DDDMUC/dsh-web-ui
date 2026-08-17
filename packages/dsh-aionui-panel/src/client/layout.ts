@@ -97,6 +97,17 @@ export const EXPLORER_HANDLE_WIDTH = 12
 export const PREVIEW_HANDLE_WIDTH = 20
 
 /**
+ * How far each handle's hit zone may reach into its NEIGHBOURING column.
+ * The chat column owns its scrollbar at its very right edge — the boundary the
+ * preview handle sits on — so a full-width overlap swallows the scrollbar and
+ * makes the conversation undraggable (only the panel resize stays reachable).
+ * Keep a thin lip on the far side so the boundary stays discoverable, and put
+ * the bulk of the zone inside the panel, whose own left padding absorbs it.
+ */
+const EXPLORER_HANDLE_LIP = 2
+const PREVIEW_HANDLE_LIP = 4
+
+/**
  * Drag target width: apply the hard px bounds (the same min/max the handle
  * always enforced), then the store's ordered container-aware clamp so the
  * grid never re-clamps a width the drag showed.
@@ -308,8 +319,10 @@ export class PanelLayoutController {
     el.style.cursor = 'col-resize'
     el.style.width = `${hitWidth}px`
     if (reverse) {
-      // The preview handle extends LEFT of the preview region's left edge.
-      el.style.marginLeft = `-${hitWidth}px`
+      // Only the thin lip may reach past the panel edge into the neighbouring
+      // column (see EXPLORER_HANDLE_LIP / PREVIEW_HANDLE_LIP): a full-width
+      // overlap would cover the neighbour's scrollbar and block its dragging.
+      el.style.marginLeft = kind === 'preview' ? `-${PREVIEW_HANDLE_LIP}px` : `-${EXPLORER_HANDLE_LIP}px`
     }
     el.addEventListener('pointerdown', (event: PointerEvent) => {
       const isExplorer = kind === 'explorer'
@@ -461,7 +474,7 @@ export class PanelLayoutController {
     if (this.explorerHandle !== null) {
       const left = Math.round(width - explorer)
       this.explorerHandle.style.left = `${left}px`
-      this.explorerHandle.style.marginLeft = `${-EXPLORER_HANDLE_WIDTH / 2}px`
+      this.explorerHandle.style.marginLeft = `-${EXPLORER_HANDLE_LIP}px`
       this.explorerHandle.style.display = explorer > 0 && state.root !== '' ? 'block' : 'none'
     }
     if (this.previewHandle !== null) {

@@ -215,11 +215,15 @@
   width: 6px;
   background-color: var(--aion-brand);
 }
-/* The preview handle's line sits at its right edge (its hit zone extends
-   left); the explorer's at its left edge. */
+/* The visual line of each handle sits exactly on the panel boundary: the hit
+   zone now extends mostly into the panel (thin lip on the far side), so the
+   line is offset from the handle's own left edge by the lip width. */
+:global(.aionui-explorer-handle::after) {
+  left: 2px;
+}
 :global(.aionui-preview-handle::after) {
-  left: auto;
-  right: 0;
+  left: 4px;
+  right: auto;
   opacity: 0.3;
 }
 :global(.aionui-preview-handle:hover::after),
