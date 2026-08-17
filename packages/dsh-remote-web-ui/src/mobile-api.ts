@@ -25,6 +25,7 @@ import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
 import type { RpcRequest } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
 import { RpcId } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
 import type { PairingService } from './pairing.ts'
+import { readBoundedJson, writeJson } from './http.ts'
 import { readCookie } from './gate.ts'
 
 /** Methods the phone surface may call. Everything else is refused. */
@@ -120,11 +121,6 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
   /** The phone gate: a live paired-device cookie, or nothing else proceeds. */
   const gateOk = (req: IncomingMessage): boolean => {
     return touchDeviceFor(req)
-  }
-
-  const writeJson = (res: ServerResponse, status: number, body: unknown): void => {
-    res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
-    res.end(JSON.stringify(body))
   }
 
   const handleMethod = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -248,15 +244,7 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
 
 /** Read a request body as JSON (bounded). */
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const chunk of req) {
-    const buffer = chunk as Buffer
-    size += buffer.length
-    if (size > 64 * 1024) throw new Error('body too large')
-    chunks.push(buffer)
-  }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+  return readBoundedJson(req, 64 * 1024)
 }
 
 /** Dispatch one allowlisted method through the host ApiProxy. */
