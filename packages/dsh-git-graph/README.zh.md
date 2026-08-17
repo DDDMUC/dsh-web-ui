@@ -74,7 +74,7 @@ dsh plugin --profile web remove @linxin666/dsh-client-ui-git-graph
 - 切换语义是工作区级：`git switch --no-guess <branch>` 作用于 repoRoot 磁盘树，影响该工作区所有会话；项目切换 = 激活目标工作区并打开其（复用或新建的）空白会话，不给既有会话换 cwd。
 - 挂载 seam：`conversation.input.selector.context`（官方声明的 session-maybe list 槽位）——输入选择器行的 context 洞，与官方工作区胶囊并排；hero（空白会话）与 active 会话相位都有分支胶囊；无会话 cwd 或非 git 工作区时分支 chip 自行隐藏。声明感知 + 回退：等待该槽位声明 `CONTEXT_FALLBACK_MS`（npm SDK rc.6 的 shell 已删除此声明），超时未声明则改挂 `conversation.input.dock`。dock 上 active 相位实时测量输入卡左边缘并与之对齐；hero 相位把 chip 重新定位到官方 hero 行 agent-preset 座位右侧（官方 2px 行间距、垂直居中，胶囊尺寸与 token 对齐官方工作区/预设胶囊），弹层改为向下打开、对齐官方工作区菜单。只挂一个座位，回退后迟到的 context 声明被忽略。
 - 工作区选择不在此插件内：官方工作区胶囊（`conversation.input.selector.workspace`）是唯一入口，本插件只提供 git 分支上下文。
-- 分支状态刷新：挂载/弹层打开/切换成功后拉取 + host SSE（`/git/events`，订阅期间每 30s 轮询 workspace 状态，单次探测有 15s 超时兜底，挂起的 git 不会卡死推送流）推送外部变更 + window focus 刷新（5s 节流）。
+- 分支状态刷新：挂载/弹层打开/切换成功后拉取 + host SSE（`/git/events`，订阅期间每 30s 轮询 workspace 状态，单次探测有 15s 超时兜底，挂起的 git 不会卡死推送流）推送外部变更 + window focus 刷新（5s 节流）。SSE 流经跨标签页选主中继共享（Web Locks + BroadcastChannel），同一 URL 全浏览器只保留一条流，多开标签页不会挤占同源 HTTP 连接池（#383）。
 
 ## 检查链
 
