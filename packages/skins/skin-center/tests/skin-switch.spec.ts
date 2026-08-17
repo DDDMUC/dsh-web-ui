@@ -24,6 +24,7 @@ import {
   MANAGED_END,
   renderManaged,
   stripManaged,
+  stripEmptyPatchList,
   stripLegacySkinRows,
   currentActive,
   loadRegistry,
@@ -243,6 +244,14 @@ describe('pure patch helpers', () => {
     expect(() => stripManaged(patch)).toThrow(/unterminated/)
   })
 
+  it('stripEmptyPatchList drops a bare top-level [] but keeps nested lists', () => {
+    const patch = `# template\n[]\n- id: other\n  config:\n    tags: []\n`
+    const stripped = stripEmptyPatchList(patch)
+    expect(stripped).not.toContain('\n[]\n')
+    expect(stripped).toContain('tags: []')
+    expect(stripped).toContain('- id: other')
+  })
+
   it('currentActive returns null when every skin is disabled (stock look)', () => {
     const registry = miniRegistry()
     expect(currentActive(renderManaged(null, registry), registry)).toBeNull()
@@ -458,6 +467,24 @@ describe('useSkin / currentSkin against a throwaway HOME', () => {
     }
     expect(after).not.toContain('- insert:')
     expect(currentSkin(undefined, { home: h })).toBe('none')
+  })
+
+  it('useSkin on the stock template [] rewrites it to a valid patch (no bare [] next to block entries)', () => {
+    const h = fakeHome()
+    const patch = patchPath(h)
+    // The stock profile template: comments + an empty patch list. The managed
+    // block must replace it, not append after it (issue: boot YAML failure
+    // "end of the stream or a document separator is expected").
+    writeFileSync(patch, `# Your patch layer for this dsh profile, applied after every bundle layer:\n# a top-level YAML array of loader patch entries.\n[]\n`)
+    useSkin('official', { home: h })
+    const after = readFileSync(patch, 'utf8')
+    expect(after).toContain(MANAGED_START)
+    expect(/^[ \t]*\[\s*\][ \t]*$/m.test(after)).toBe(false)
+    // A second switch rewrites the managed block again without regressing.
+    useSkin('official', { home: h })
+    const again = readFileSync(patch, 'utf8')
+    expect(/^[ \t]*\[\s*\][ \t]*$/m.test(again)).toBe(false)
+    expect(again).toContain(MANAGED_START)
   })
 
   it('useSkin preserves the permission bits of an existing patch file (0600 stays 0600)', () => {

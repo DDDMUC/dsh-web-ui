@@ -348,6 +348,19 @@ export function stripManaged(patch: string): string {
   return patch.slice(0, start) + patch.slice(end + MANAGED_END.length)
 }
 
+/**
+ * Drop bare top-level empty flow lists (`[]`) left by the stock profile
+ * template. The managed skin section below provides the actual patch array,
+ * and an empty flow list followed by block entries is not parseable YAML
+ * ("end of the stream or a document separator is expected"), which breaks the
+ * next dsh boot. Nested `list: []` mapping values are untouched (the line
+ * does not match a standalone `[]`).
+ * @param patch - raw patch file text.
+ */
+export function stripEmptyPatchList(patch: string): string {
+  return patch.replace(/^[ \t]*\[\s*\][ \t]*\r?\n?/gm, '')
+}
+
 /** YAML single-quoted scalar: a literal single quote doubles. `wiring.id` is
  * already validated before it ever reaches a registry, so only `package`
  * needs escaping here. */
@@ -1027,7 +1040,7 @@ export function useSkin(name: string, opts: { home?: string; profile?: string; r
     writePatchAtomic(paths.legacyPatchPath, migratedLegacyPatch)
   }
 
-  const patch = stripLegacySkinRows(stripManaged(readPatch(paths.patchPath)))
+  const patch = stripEmptyPatchList(stripLegacySkinRows(stripManaged(readPatch(paths.patchPath))))
   let next = `${patch.replace(/\s+$/, '')}\n\n${renderManaged(official ? null : name, renderRegistry)}\n`
   let skippedInsert = false
   if (!official && countInsertId(next, renderRegistry[name].id) > 1) {
