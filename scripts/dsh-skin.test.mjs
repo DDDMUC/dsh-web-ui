@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dshSkin from './dsh-skin'
 
-const { SKINS, MANAGED_START, MANAGED_END, renderManaged, stripManaged, stripLegacySkinRows, currentActive } = dshSkin
+const { SKINS, MANAGED_START, MANAGED_END, renderManaged, stripManaged, stripEmptyPatchList, stripLegacySkinRows, currentActive } = dshSkin
 
 // fileURLToPath, not URL.pathname: the latter keeps a leading slash on
 // Windows (/D:/...), which node then mis-resolves as D:\D:\...
@@ -78,6 +78,45 @@ test('stripManaged throws on an unterminated managed section', () => {
 
 test('currentActive returns null when every skin is disabled', () => {
   assert.equal(currentActive(renderManaged(null)), null)
+})
+
+test('stripEmptyPatchList drops a bare top-level [] but keeps nested lists', () => {
+  const patch = `# template\n[]\n- id: other\n  config:\n    tags: []\n`
+  const stripped = stripEmptyPatchList(patch)
+  assert.ok(!stripped.includes('\n[]\n'), 'bare [] must be removed')
+  assert.ok(!stripped.includes('[]\n-'), 'bare [] must be removed even at line start')
+  assert.ok(stripped.includes('tags: []'), 'nested mapping value must survive')
+  assert.ok(stripped.includes('- id: other'), 'other rows must survive')
+})
+
+test('use official on the stock template [] does not leave invalid YAML', () => {
+  const home = fakeHome()
+  try {
+    const repo = join(home, 'code', 'dsh-web-ui')
+    for (const name of Object.keys(SKINS)) fakeSkinDir(repo, name)
+    const patch = patchPath(home)
+    // The stock profile template: comments + an empty patch list. The managed
+    // block must replace it, not append after it (issue: boot YAML failure).
+    writeFileSync(patch, `# Your patch layer for this dsh profile, applied after every bundle layer:\n# a top-level YAML array of loader patch entries.\n[]\n`)
+    execFileSync(process.execPath, [SCRIPT, 'use', 'official'], {
+      env: { ...process.env, DSH_HOME: join(home, '.dsh'), DSH_SKIN_REPO: repo },
+    })
+    const after = readFileSync(patch, 'utf8')
+    assert.ok(after.includes(MANAGED_START))
+    assert.ok(!/^[ \t]*\[\s*\][ \t]*$/m.test(after), 'no bare [] may survive next to block entries')
+    for (const name of Object.keys(SKINS)) {
+      assert.ok(after.includes(`- id: ${SKINS[name].id}\n  disabled: true`))
+    }
+    // A second switch keeps the file valid (managed block rewrite path).
+    execFileSync(process.execPath, [SCRIPT, 'use', 'official'], {
+      env: { ...process.env, DSH_HOME: join(home, '.dsh'), DSH_SKIN_REPO: repo },
+    })
+    const again = readFileSync(patch, 'utf8')
+    assert.ok(!/^[ \t]*\[\s*\][ \t]*$/m.test(again), 're-apply must stay free of bare []')
+    assert.ok(again.includes(MANAGED_START))
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
 })
 
 test('use official restores the stock look on a throwaway DSH_HOME', () => {
