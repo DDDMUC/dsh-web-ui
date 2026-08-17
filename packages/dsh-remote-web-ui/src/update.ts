@@ -332,10 +332,13 @@ export async function checkUpdates(deps: UpdateCheckDeps): Promise<UpdateStatus>
     return { mode: 'link', packages: [], outdated: false }
   }
   const names = [anchor, ...familyChildren(manifest)]
+  // The registry probes are independent: run them together instead of
+  // serializing up to N x 10s of registry latency behind one status call.
+  const latestList = await Promise.all(names.map(name => deps.fetchLatest(name)))
   const packages: UpdatePackageStatus[] = []
   let probeFailures = 0
-  for (const name of names) {
-    const latest = await deps.fetchLatest(name)
+  names.forEach((name, index) => {
+    const latest = latestList[index]
     if (latest === undefined) probeFailures++
     const current = readInstalledVersion(deps.resolve, name)
     packages.push({
@@ -344,7 +347,7 @@ export async function checkUpdates(deps: UpdateCheckDeps): Promise<UpdateStatus>
       latest,
       outdated: latest !== undefined && latest !== current && compareVersions(latest, current) > 0,
     })
-  }
+  })
   // Registry unreachable: every probe failed — report the outage distinctly
   // instead of a misleading "all up to date" (the panel needs the reason).
   const error = probeFailures === names.length && names.length > 0 ? 'registry-unreachable' : undefined
