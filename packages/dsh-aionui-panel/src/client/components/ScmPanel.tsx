@@ -159,7 +159,7 @@ export function ScmPanel({ stores }: { stores: PanelStores }): JSX.Element {
             </button>
             <button
               type="button"
-              className={`${scmCss.sectionAction}${state.viewMode === 'list' ? '' : ''}`}
+              className={scmCss.sectionAction}
               title={t('scm.viewList')}
               style={{ color: state.viewMode === 'list' ? 'var(--aion-brand)' : undefined }}
               onClick={() => scm.setViewMode('list')}
