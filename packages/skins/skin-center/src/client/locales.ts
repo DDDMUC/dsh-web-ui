@@ -35,6 +35,31 @@ export type SkinCenterKey =
   | 'backgroundBlurInert'
   | 'backgroundHint'
   | 'backgroundHintInert'
+  | 'wallpaperTitle'
+  | 'wallpaperEnable'
+  | 'wallpaperHint'
+  | 'wallpaperLoadError'
+  | 'wallpaperLibraryFound'
+  | 'wallpaperLibraryManual'
+  | 'wallpaperRefresh'
+  | 'wallpaperMode'
+  | 'wallpaperModeLive'
+  | 'wallpaperModeFrame'
+  | 'wallpaperClear'
+  | 'wallpaperDim'
+  | 'wallpaperBlur'
+  | 'wallpaperPauseHidden'
+  | 'wallpaperImport'
+  | 'wallpaperImportHint'
+  | 'wallpaperReimport'
+  | 'wallpaperRemove'
+  | 'wallpaperUpdateAvailable'
+  | 'wallpaperEmpty'
+  | 'wallpaperLegal'
+  | 'wallpaperTypeVideo'
+  | 'wallpaperTypeWeb'
+  | 'wallpaperTypeScene'
+  | 'wallpaperTypeApp'
 
 export const en: Record<SkinCenterKey, string> = {
   title: 'Skin Center',
@@ -66,6 +91,31 @@ export const en: Record<SkinCenterKey, string> = {
   backgroundBlurInert: 'Visible only with skins that paint a backdrop; the official default has none.',
   backgroundHint: 'Instantly veils the backdrop behind the panels — higher values obscure the art to help you focus.',
   backgroundHintInert: 'Only applies to skins that paint a backdrop (Blue Fantasy / Whale Song). Applies to the official default automatically once such a skin is active.',
+  wallpaperTitle: 'Wallpaper Engine',
+  wallpaperEnable: 'Enable wallpapers',
+  wallpaperHint: 'Use your local Wallpaper Engine library as the GUI backdrop: video and web wallpapers render live, scene wallpapers as a static frame.',
+  wallpaperLoadError: 'Wallpaper library failed to load',
+  wallpaperLibraryFound: 'Wallpaper Engine library detected',
+  wallpaperLibraryManual: 'Manual folders only (no Wallpaper Engine install found; set folders in the skin-wallpaper settings)',
+  wallpaperRefresh: 'Refresh',
+  wallpaperMode: 'Render mode',
+  wallpaperModeLive: 'Live',
+  wallpaperModeFrame: 'Static frame',
+  wallpaperClear: 'Turn off wallpaper',
+  wallpaperDim: 'Wallpaper dimming',
+  wallpaperBlur: 'Wallpaper blur',
+  wallpaperPauseHidden: 'Pause when window hidden',
+  wallpaperImport: 'Import',
+  wallpaperImportHint: 'Copy this wallpaper into local storage, so it keeps working even if the Steam library moves or changes',
+  wallpaperReimport: 'Update',
+  wallpaperRemove: 'Remove',
+  wallpaperUpdateAvailable: 'The workshop original changed since import — update the local copy',
+  wallpaperEmpty: 'No wallpapers found. Subscribe in the Wallpaper Engine workshop, or add manual folders to the skin-wallpaper settings.',
+  wallpaperLegal: 'Wallpapers belong to their Workshop authors. Everything stays on this machine for personal use; nothing is uploaded or shared.',
+  wallpaperTypeVideo: 'Video',
+  wallpaperTypeWeb: 'Web',
+  wallpaperTypeScene: 'Scene (static)',
+  wallpaperTypeApp: 'Unsupported',
 }
 
 export const zh: Record<SkinCenterKey, string> = {
@@ -98,4 +148,29 @@ export const zh: Record<SkinCenterKey, string> = {
   backgroundBlurInert: '仅对带背景图插画的皮肤可见；官方默认无背景图。',
   backgroundHint: '即时为面板背后的背景加遮罩——数值越高越能弱化插画，帮你集中注意力。',
   backgroundHintInert: '仅对带背景图插画的皮肤（蓝色幻想 / 鲸吟）生效；官方默认无背景图，该滑块对这些皮肤自动生效。',
+  wallpaperTitle: 'Wallpaper Engine',
+  wallpaperEnable: '启用动态壁纸',
+  wallpaperHint: '把本机 Wallpaper Engine 壁纸库用作 GUI 背景：视频与网页壁纸动态渲染，场景壁纸以静态帧呈现。',
+  wallpaperLoadError: '壁纸库加载失败',
+  wallpaperLibraryFound: '已检测到 Wallpaper Engine 壁纸库',
+  wallpaperLibraryManual: '仅手动目录（未检测到 Wallpaper Engine 安装，可在 skin-wallpaper 设置里添加目录）',
+  wallpaperRefresh: '刷新',
+  wallpaperMode: '渲染模式',
+  wallpaperModeLive: '动态',
+  wallpaperModeFrame: '静态帧',
+  wallpaperClear: '关闭壁纸',
+  wallpaperDim: '壁纸暗化',
+  wallpaperBlur: '壁纸模糊',
+  wallpaperPauseHidden: '窗口隐藏时暂停',
+  wallpaperImport: '导入',
+  wallpaperImportHint: '把该壁纸复制到本地存储，Steam 库迁移或变动后仍可继续使用',
+  wallpaperReimport: '更新',
+  wallpaperRemove: '移除',
+  wallpaperUpdateAvailable: '工坊原件在导入后有更新——同步更新本地副本',
+  wallpaperEmpty: '未发现壁纸。可先在 Wallpaper Engine 创意工坊订阅，或在 skin-wallpaper 设置里添加手动目录。',
+  wallpaperLegal: '壁纸素材版权归创意工坊作者所有，仅供本机个人使用，不上传、不分享。',
+  wallpaperTypeVideo: '视频',
+  wallpaperTypeWeb: '网页',
+  wallpaperTypeScene: '场景(静态)',
+  wallpaperTypeApp: '不支持',
 }
