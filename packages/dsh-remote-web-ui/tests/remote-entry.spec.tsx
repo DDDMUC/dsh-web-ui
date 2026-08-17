@@ -100,11 +100,16 @@ afterEach(() => {
 })
 
 describe('RemoteEntry', () => {
+  it('shows a discoverable text label in the expanded sidebar', () => {
+    mount()
+    expect(screen.getByText('Mobile remote control')).toBeTruthy()
+  })
+
   it('opens the panel on trigger click: title, subtitle, QR card, hint, actions', async () => {
     const { fetch } = mount()
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
     expect(fetch).toHaveBeenCalledWith('/api/pair/issue', expect.objectContaining({ method: 'POST' }))
-    await waitFor(() => expect(screen.getByText('Mobile remote control')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Mobile remote control' })).toBeTruthy())
     expect(screen.getByText('Scan the QR code or open the link on your phone to control this workspace remotely')).toBeTruthy()
     expect(screen.getByText('Scan to connect')).toBeTruthy()
     expect(screen.getByText('Waiting for a phone')).toBeTruthy()

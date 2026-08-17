@@ -37,6 +37,24 @@
   transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
+.trigger[data-wide='wide'] {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  width: auto;
+  min-width: 0;
+  border-radius: 8px;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.triggerLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .trigger:hover:not(:disabled) {
   background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-primary);
@@ -429,6 +447,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .entryRow[data-rail='rail'] {
