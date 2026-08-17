@@ -110,7 +110,7 @@ function integerAtLeast(value, field, minimum) {
   return value
 }
 
-function countWord(text, regex) {
+export function countWord(text, regex) {
   return [...text.matchAll(regex)].length
 }
 
