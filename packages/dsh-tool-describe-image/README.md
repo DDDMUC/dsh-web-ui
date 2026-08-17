@@ -117,6 +117,8 @@ through the Messages API) set `apiStyle: anthropic-messages`; a bare provider ro
     apiKey: !!js process.env.OPENCODE_GO_API_KEY
 ```
 
+The provider path is preserved: this example sends the request to `https://opencode.ai/zen/go/v1/messages`.
+
 ## Usage
 
 ### Custom instructions

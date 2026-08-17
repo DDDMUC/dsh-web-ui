@@ -114,6 +114,8 @@ Claude 风格端点（如 OpenCode Go——Qwen3.7 Plus 等视觉模型只走 Me
     apiKey: !!js process.env.OPENCODE_GO_API_KEY
 ```
 
+provider 路径会被保留：上述示例最终请求 `https://opencode.ai/zen/go/v1/messages`。
+
 ## 使用
 
 ### 自定义指令

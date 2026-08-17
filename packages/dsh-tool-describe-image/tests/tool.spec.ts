@@ -409,10 +409,14 @@ describe('Anthropic Messages API style', () => {
     expect(textPart).toEqual({ type: 'text', text: tool.DEFAULT_PROMPT })
   })
 
-  it('normalizes /v1 roots and complete /v1/messages endpoints', async () => {
+  it('preserves provider paths and normalizes /v1 roots and complete endpoints', async () => {
     const server = await startMockServer((_request, res) => { jsonReply(res, 200, anthropicReply('normalized')) })
     cleanup.push(server.close)
     const path = await tempPng()
+
+    const providerCtx = await setup({ baseURL: `${server.url}/zen/go`, apiStyle: 'anthropic-messages' })
+    expect((await callDescribe(providerCtx, { image: path })).isError).toBe(false)
+    await teardown(providerCtx)
 
     const apiRootCtx = await setup({ baseURL: `${server.url}/v1`, apiStyle: 'anthropic-messages' })
     expect((await callDescribe(apiRootCtx, { image: path })).isError).toBe(false)
@@ -421,7 +425,11 @@ describe('Anthropic Messages API style', () => {
     const endpointCtx = await setup({ baseURL: `${server.url}/v1/messages`, apiStyle: 'anthropic-messages' })
     expect((await callDescribe(endpointCtx, { image: path })).isError).toBe(false)
 
-    expect(server.requests.map(request => request.path)).toEqual(['/v1/messages', '/v1/messages'])
+    expect(server.requests.map(request => request.path)).toEqual([
+      '/zen/go/v1/messages',
+      '/v1/messages',
+      '/v1/messages',
+    ])
   })
 
   it('forwards a caller prompt and the configured output cap in the anthropic body', async () => {
