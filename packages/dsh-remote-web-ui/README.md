@@ -10,13 +10,13 @@ scan-to-pair mobile remote control for the dsh web GUI, plus a one-click
 self-update for the dsh-web-ui family. It is a single dual-face package — the
 host half owns pairing tokens, device sessions, the `/api/pair` route family,
 and the `/api/update` surface; the browser half renders the sidebar-foot
-entries (the download trigger and a labelled mobile-remote row beside the settings button),
+entries (the download trigger and an icon-only mobile-remote control beside the settings button),
 the pairing panel with a QR code, live device status, and stop/refresh/copy
 actions, and the update panel that probes and runs the update.
 
 ## What it does
 
-- **Entry**: a visible "Mobile remote control" label in the expanded sidebar, collapsing to a phone icon in the narrow rail.
+- **Entry**: a phone icon beside the settings button in both the expanded sidebar and narrow rail; its tooltip and accessible label say "Mobile remote control".
 - **Panel**: "移动端远程控制" title, "扫码或在手机上打开链接，即可远程控制当前工作区"
   subtitle, a "手机扫码连接" card with the status area ("等待手机连接" + status
   badge), a large QR code, the "无法扫码？可以在手机上打开链接" hint, and three

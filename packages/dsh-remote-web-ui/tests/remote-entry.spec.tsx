@@ -100,9 +100,11 @@ afterEach(() => {
 })
 
 describe('RemoteEntry', () => {
-  it('shows a discoverable text label in the expanded sidebar', () => {
+  it('keeps only the phone icon in the expanded sidebar', () => {
     mount()
-    expect(screen.getByText('Mobile remote control')).toBeTruthy()
+    const trigger = screen.getByRole('button', { name: 'Mobile remote control' })
+    expect(screen.queryByText('Mobile remote control')).toBeNull()
+    expect(trigger.querySelector('svg')).not.toBeNull()
   })
 
   it('opens the panel on trigger click: title, subtitle, QR card, hint, actions', async () => {

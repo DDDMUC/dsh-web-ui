@@ -47,14 +47,6 @@
   padding: 0 10px;
 }
 
-.triggerLabel {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
 .trigger:hover:not(:disabled) {
   background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-primary);
