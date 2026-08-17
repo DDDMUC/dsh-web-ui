@@ -19,6 +19,7 @@ import type { WorkspaceGate } from '../src/host/gate.ts'
 interface Connection {
   writes: string[]
   close: () => void
+  emitError: () => void
 }
 
 /** A minimal ctx/webServer/fs/git harness for registerPanelRoutes. */
@@ -58,13 +59,24 @@ function makeEnv(): {
 }
 
 /** Open one SSE connection and collect everything the host writes to it. */
-async function connect(sse: (req: unknown, res: unknown) => Promise<void>, root: string): Promise<Connection> {
+async function connect(
+  sse: (req: unknown, res: unknown) => Promise<void>,
+  root: string,
+  resOverrides: Partial<{ writableEnded: boolean; destroyed: boolean; write: (chunk: unknown) => void }> = {},
+): Promise<Connection> {
   const writes: string[] = []
   const closeHandlers: Array<() => void> = []
+  const errorHandlers: Array<() => void> = []
   const res = {
+    writableEnded: false,
+    destroyed: false,
     writeHead: () => {},
     write: (chunk: unknown) => { writes.push(String(chunk)) },
     end: () => {},
+    on: (event: string, handler: () => void) => {
+      if (event === 'error') errorHandlers.push(handler)
+    },
+    ...resOverrides,
   }
   const req = {
     url: '/aionui-panel/events?root=' + encodeURIComponent(root),
@@ -80,6 +92,9 @@ async function connect(sse: (req: unknown, res: unknown) => Promise<void>, root:
     close: () => {
       for (const handler of closeHandlers) handler()
     },
+    emitError: () => {
+      for (const handler of errorHandlers) handler()
+    },
   }
 }
 
@@ -87,6 +102,56 @@ async function connect(sse: (req: unknown, res: unknown) => Promise<void>, root:
 function eventsOfKind(writes: string[], kind: string): number {
   return writes.filter((write) => write.includes('"kind":"' + kind + '"')).length
 }
+
+describe('SSE subscriber lifecycle', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('does not write to a closed response during heartbeat or fs watch', async () => {
+    const env = makeEnv()
+    let watchCallback: (() => void) | undefined
+    const fs = {
+      verify: async (root: string) => ({ ok: true, canonical: root }),
+      watch: (_root: string, onChange: () => void) => {
+        watchCallback = onChange
+        return () => { watchCallback = undefined }
+      },
+    }
+    const warn = vi.fn()
+    const registrations: Array<{ kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }> = []
+    const ctx = {
+      logger: { warn },
+      webServer: {
+        register: (row: { kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }) => {
+          registrations.push(row)
+          return () => {}
+        },
+      },
+    }
+    const git = {
+      gitAvailable: vi.fn(async () => true),
+      isRepositoryCanonical: vi.fn(async () => true),
+      statusCanonical: vi.fn(async () => null),
+    }
+    registerPanelRoutes(ctx as never, fs as never, git as never)
+    const row = registrations.find((item) => item.kind === 'exact')
+    if (row === undefined) throw new Error('SSE route not registered')
+
+    let writeCalls = 0
+    const conn = await connect(row.handler, '/w', {
+      write: () => {
+        writeCalls += 1
+        if (writeCalls > 1) throw new Error('write after end')
+      },
+    })
+    conn.close()
+
+    await vi.advanceTimersByTimeAsync(15_000)
+    watchCallback?.()
+
+    expect(writeCalls).toBe(1)
+  })
+})
 
 describe('SSE git polling with a missing git binary', () => {
   beforeEach(() => { vi.useFakeTimers() })

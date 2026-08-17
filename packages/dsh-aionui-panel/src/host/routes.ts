@@ -76,6 +76,8 @@ interface Subscriber {
   root: string
   lastGit: string
   res: ServerResponse
+  /** Set when the client disconnects; guards against late fs/git/heartbeat writes. */
+  closed: boolean
 }
 
 /**
@@ -229,8 +231,34 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
   let gitPoll: PollGuard | undefined
   let heartbeatTimer: NodeJS.Timeout | undefined
 
+  const removeSubscriber = (subscriber: Subscriber): void => {
+    subscriber.closed = true
+    subscribers.delete(subscriber)
+    if (subscribers.size === 0) {
+      stopGitPoll()
+      if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer)
+      heartbeatTimer = undefined
+    }
+  }
+
+  const sseWrite = (subscriber: Subscriber, chunk: string): boolean => {
+    if (subscriber.closed) return false
+    const { res } = subscriber
+    if (res.writableEnded || res.destroyed) {
+      removeSubscriber(subscriber)
+      return false
+    }
+    try {
+      res.write(chunk)
+      return true
+    } catch {
+      removeSubscriber(subscriber)
+      return false
+    }
+  }
+
   const push = (subscriber: Subscriber, payload: unknown): void => {
-    subscriber.res.write(`event: change\ndata: ${JSON.stringify(payload)}\n\n`)
+    sseWrite(subscriber, `event: change\ndata: ${JSON.stringify(payload)}\n\n`)
   }
 
   // One-shot availability state: a machine without a git binary must not
@@ -653,7 +681,7 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
       connection: 'keep-alive',
     })
     res.write('retry: 2000\n\n')
-    const subscriber: Subscriber = { root: gated.canonical, lastGit: '', res }
+    const subscriber: Subscriber = { root: gated.canonical, lastGit: '', res, closed: false }
     subscribers.add(subscriber)
     // A stream opened after the one-shot probe already failed gets the
     // unavailable event right away; streams open during the probe receive it
@@ -662,20 +690,19 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
     startGitPoll()
     if (heartbeatTimer === undefined) {
       heartbeatTimer = setInterval(() => {
-        for (const current of subscribers) current.res.write(': ping\n\n')
+        for (const current of [...subscribers]) sseWrite(current, ': ping\n\n')
       }, HEARTBEAT_MS)
     }
     const disposeWatch = fs.watch(gated.canonical, () => {
       push(subscriber, { kind: 'fs' })
     })
+    res.on('error', () => {
+      disposeWatch()
+      removeSubscriber(subscriber)
+    })
     req.on('close', () => {
       disposeWatch()
-      subscribers.delete(subscriber)
-      if (subscribers.size === 0) {
-        stopGitPoll()
-        if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer)
-        heartbeatTimer = undefined
-      }
+      removeSubscriber(subscriber)
     })
   }
 
