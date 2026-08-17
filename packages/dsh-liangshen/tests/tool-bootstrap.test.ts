@@ -428,6 +428,23 @@ describe('anchored-tool-bootstrap', () => {
     expect(calls).toEqual(['code'])
   })
 
+  test('promotedPresentation retries when the tools view arrives later', async () => {
+    const listeners = register({ promotedPresentation: 'code', anchorGate: true })
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const calls: string[] = []
+    const sessionObj = { events: [stepEvent(), reasoningEvent('We need inspect the repo.'), { type: 'tool/call' }] }
+    // No tools view yet: the switch must not latch.
+    const agent: { session: unknown; ctx: { tools?: { presentAs: (mode: string) => void } } } = { session: sessionObj, ctx: {} }
+    const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
+
+    await assembleListener(undefined, { agent }, async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }))
+    expect(calls).toEqual([])
+
+    agent.ctx.tools = { presentAs: (mode: string) => { calls.push(mode) } }
+    await assembleListener(undefined, { agent }, async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }))
+    expect(calls).toEqual(['code'])
+  })
+
   test('session/event applies the PTC switch at step/end, not mid-step', async () => {
     const listeners = register({ promotedPresentation: 'code', anchorGate: true })
     const assembleListener = listener(listeners, 'system-prompt/assemble')

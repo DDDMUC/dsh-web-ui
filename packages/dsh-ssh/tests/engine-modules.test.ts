@@ -126,6 +126,7 @@ describe('tunnel', () => {
       info: { id, alias, localPort: 40000, remoteHost: 'db', remotePort: 5432, state: 'forwarding', startedAt: 1 },
       server: { close: vi.fn() } as unknown as TunnelRecord['server'],
       alias,
+      record: { client: { end: vi.fn() }, hops: [], idleAt: 0, pinned: true, broken: false, inFlight: 0 } as unknown as TunnelRecord['record'],
       sockets: new Set(),
     })
     engine.tunnels.set('tun-1', makeRecord('tun-1', 'api'))

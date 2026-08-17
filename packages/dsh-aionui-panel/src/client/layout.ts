@@ -5,9 +5,10 @@
  * grid-template-columns string and re-appending the two panel tracks on every
  * shell update (MutationObserver, same frame before paint). Also owns the
  * absolute drag handles (12px explorer / 20px preview hit zones), the
- * floating expand button (draggable, position persisted — issue #374; the
- * default center sits below the Window Controls Overlay titlebar — issue
- * #292), the collapse-as-width-0 keep-mounted behavior, and the transient
+ * floating expand button (docked at the top-right corner, exactly where
+ * the explorer's collapse chevron sits below the Window Controls Overlay
+ * titlebar — issues #374 / #292), the collapse-as-width-0 keep-mounted
+ * behavior, and the transient
  * maximize mode (issue #315): while a panel is maximized the target column
  * takes over the whole frame row (or renders as a fixed full-screen overlay
  * on narrow viewports), and Esc / the header button restore the layout.
@@ -32,11 +33,10 @@ import {
   clampExplorerWidth, clampPreviewWidth,
   type MaximizeTarget,
 } from './store.ts'
-import { writeStoredNumber, readStoredNumber } from './persist.ts'
+import { writeStoredNumber } from './persist.ts'
 import { maximizedGridTracks, maximizedOverlay } from './maximize.ts'
 import {
-  FLOATING_BUTTON_HEIGHT_PX, FLOATING_DRAG_THRESHOLD_PX, KEY_FLOATING_TOP,
-  centeredFloatingTop, clampFloatingTop, titlebarAreaHeight,
+  FLOATING_BUTTON_HEIGHT_PX, titlebarAreaHeight, topAlignedFloatingTop,
 } from './floating.ts'
 import type { LayoutStore } from './store.ts'
 
@@ -132,13 +132,6 @@ export class PanelLayoutController {
   private shellTracks: string[] = []
   private instantTimer: ReturnType<typeof setTimeout> | undefined
   private disposers: Array<() => void> = []
-  /** Persisted floating-button top px (-1 = never dragged: use the center). */
-  private floatingTop = -1
-  /** In-flight vertical drag of the floating button (null = not dragging). */
-  private floatingDrag: { startY: number; startTop: number; moved: boolean } | null = null
-  /** Swallow exactly one click after a floating-button drag. */
-  private suppressFloatingClick = false
-
   constructor(private readonly layout: LayoutStore) {}
 
   /** Start watching for the frame and attach once it appears. */
@@ -158,6 +151,11 @@ export class PanelLayoutController {
   private attach(frame: HTMLElement): void {
     this.frame = frame
     frameElement = frame
+    // The wait observer's only job was finding the frame; a document-wide
+    // MutationObserver left running would fire on every chat render for the
+    // rest of the session.
+    this.waitObserver?.disconnect()
+    this.waitObserver = null
 
     // The two panel columns: trailing grid items (tracks 4 and 5).
     const previewCol = document.createElement('div')
@@ -190,63 +188,17 @@ export class PanelLayoutController {
     frame.appendChild(this.explorerHandle)
     frame.appendChild(this.previewHandle)
 
-    // The floating expand button (fixed, right edge) — DOM-level, no React.
-    // Vertical drag moves and persists the position (issue #374); a plain
-    // click still toggles the explorer.
+    // The floating expand button (fixed, top-right corner) — DOM-level,
+    // no React. Docked exactly where the explorer's collapse chevron sits,
+    // so collapsing and re-expanding toggle in place (issue #374 follow-up);
+    // a click toggles the explorer.
     this.floatingButton = document.createElement('button')
     this.floatingButton.type = 'button'
     this.floatingButton.className = 'aionui-floating-expand'
     this.floatingButton.setAttribute('aria-label', 'Expand explorer')
     this.floatingButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg>'
-    const floatingButton = this.floatingButton
-    floatingButton.addEventListener('pointerdown', (event: PointerEvent) => {
-      if (event.button !== 0) return
-      this.floatingDrag = {
-        startY: event.clientY,
-        startTop: floatingButton.getBoundingClientRect().top,
-        moved: false,
-      }
-      floatingButton.setPointerCapture(event.pointerId)
-    })
-    floatingButton.addEventListener('pointermove', (event: PointerEvent) => {
-      const drag = this.floatingDrag
-      if (drag === null) return
-      const dy = event.clientY - drag.startY
-      if (!drag.moved && Math.abs(dy) < FLOATING_DRAG_THRESHOLD_PX) return
-      drag.moved = true
-      const top = clampFloatingTop(
-        drag.startTop + dy,
-        window.innerHeight,
-        FLOATING_BUTTON_HEIGHT_PX,
-        titlebarAreaHeight(),
-      )
-      this.floatingTop = Math.round(top)
-      floatingButton.style.top = `${this.floatingTop}px`
-      floatingButton.style.transform = 'none'
-    })
-    const endFloatingDrag = (): void => {
-      const drag = this.floatingDrag
-      if (drag === null) return
-      this.floatingDrag = null
-      if (!drag.moved) return
-      // Persist the clamped position the drag applied (the same value the
-      // inline style carries — rect reads are unavailable in jsdom tests).
-      writeStoredNumber(KEY_FLOATING_TOP, this.floatingTop)
-      // A drag that ends over the button would otherwise fire a click and
-      // toggle the panel — swallow exactly that one click.
-      this.suppressFloatingClick = true
-    }
-    floatingButton.addEventListener('pointerup', endFloatingDrag)
-    floatingButton.addEventListener('pointercancel', endFloatingDrag)
-    floatingButton.addEventListener('click', () => {
-      if (this.suppressFloatingClick) {
-        this.suppressFloatingClick = false
-        return
-      }
-      this.toggleExplorer()
-    })
-    document.body.appendChild(floatingButton)
-    this.floatingTop = readStoredNumber(KEY_FLOATING_TOP, -1, 1_000_000, -1)
+    this.floatingButton.addEventListener('click', () => { this.toggleExplorer() })
+    document.body.appendChild(this.floatingButton)
 
     // Window Controls Overlay (dsh-desktop, issue #292): re-position when
     // the titlebar area changes (button must stay below the window buttons).
@@ -421,15 +373,14 @@ export class PanelLayoutController {
     })
   }
 
-  /** Position the floating button: persisted top, else the content-area center. */
+  /** Position the floating button: docked at the top-right corner, aligned
+   * with the explorer's collapse chevron (below the WCO titlebar strip). */
   private positionFloatingButton(): void {
     const el = this.floatingButton
     if (el === null) return
     const height = window.innerHeight
     const titlebar = titlebarAreaHeight()
-    const top = this.floatingTop >= 0
-      ? clampFloatingTop(this.floatingTop, height, FLOATING_BUTTON_HEIGHT_PX, titlebar)
-      : centeredFloatingTop(height, FLOATING_BUTTON_HEIGHT_PX, titlebar)
+    const top = topAlignedFloatingTop(height, FLOATING_BUTTON_HEIGHT_PX, titlebar)
     el.style.top = `${Math.round(top)}px`
     el.style.transform = 'none'
   }
@@ -514,6 +465,11 @@ export class PanelLayoutController {
       const show = state.root !== '' && state.explorerCollapsed
       this.floatingButton.style.display = show ? 'flex' : 'none'
       this.positionFloatingButton()
+      // The button is docked at the viewport's top-right corner; when the
+      // preview is the rightmost open column, its tab bar's own top-right
+      // controls would land underneath it — reserve the corner so both
+      // stay clickable.
+      this.previewCol?.classList.toggle('aionui-reserve-floating', show)
     }
   }
 

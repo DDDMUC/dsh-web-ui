@@ -14,6 +14,8 @@ DeepSeek V4 Pro conditions strongly on the API tool catalog visible in the FIRST
 
 Measured on native Windows (DeepSeek V4 Pro, max, V4.1b task): 98 / 99, mean 98.5, zero `let me` traces in the second run — reproducible, not a lucky draw, and no tool capability sacrificed. Original experiment: [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard).
 
+Windows note: DSH's PTY backend is linux/darwin-only, so on win32 the persistent-shell group is disabled and phase-1 `bash` switches to `custom-bash` — the same name and Minimal-compatible schema, spawning Git Bash through the ordinary cross-platform subprocess seam (see `presets/liangshen/custom-bash.mjs`).
+
 ## Stabilization controls
 
 The preset ships with extra safeguards on top of the reference mechanism, all configured in `agent.cordis.yml` under `tool-bootstrap`:

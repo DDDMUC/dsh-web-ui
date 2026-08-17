@@ -68,6 +68,7 @@ actually configures it and per-call otherwise.)
 | `maxOutputTokens` | `1024` | Output-token cap: `max_tokens` under `chat-completions`, `max_output_tokens` under `responses` |
 | `timeoutMs` | `60000` | Per-call vision request timeout |
 | `renderImagePreview` | `true` | Upgrade image references in the conversation into inline thumbnails (click for full size); `false` keeps the raw reference text. Display-only — message text and model-side analysis are unchanged |
+| `interceptImageSend` | `true` | Rewrite image-bearing sends at submit into describe-image references; `false` passes image sends through untouched so other vision plugins sharing the session keep the raw image blocks (the text-only-model rewrite must then come from them) |
 
 Configured mount example (profile `cordis.patch.yml` / composition file):
 
@@ -125,6 +126,11 @@ chat" toggle, on by default) the client upgrades each reference in place into an
 — click it for a full-size overlay. If the raw route is unreachable through the current origin
 (for example behind a proxy that does not forward it), the thumbnail load fails and the reference
 text stays as-is.
+
+The rewrite is a live switch — the settings card's "Rewrite image sends into describe-image
+references" toggle (`interceptImageSend`, on by default). Turn it off when another vision plugin
+shares the session and must receive the raw image blocks itself; sends then pass through
+untouched.
 
 ## Known limitations
 

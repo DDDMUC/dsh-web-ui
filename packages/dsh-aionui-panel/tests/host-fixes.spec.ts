@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FsService, probeImageSize } from '../src/host/fs-service.ts'
+import { FsService, TEXT_CAP_CHARS, probeImageSize } from '../src/host/fs-service.ts'
 import { GitService, type GitRunner } from '../src/host/git-service.ts'
 import type { WorkspaceGate } from '../src/host/gate.ts'
 
@@ -89,6 +89,40 @@ describe('FsService symlink escape (C1)', () => {
     // Reads remain allowed (viewing .git content was the prior behavior).
     const read = await service.read(root, '.git/config', false)
     expect(read).toMatchObject({ content: 'cfg' })
+
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('refuses delete spellings that normalize onto the root itself', async () => {
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'aionui-rootdel-')))
+    const root = join(dir, 'proj')
+    await mkdir(root, { recursive: true })
+    await writeFile(join(root, 'keep.txt'), 'safe')
+    const service = new FsService(gate)
+
+    for (const rel of ['.', './', 'sub/..']) {
+      expect(await service.delete(root, rel)).toMatchObject({ code: 'path-outside-root' })
+    }
+    // The workspace content must be untouched.
+    const { content } = (await service.read(root, 'keep.txt', false)) as { content: string }
+    expect(content).toBe('safe')
+
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('reads oversized text files with a bounded read (cap preserved, size exact)', async () => {
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'aionui-bigread-')))
+    const root = join(dir, 'proj')
+    await mkdir(root, { recursive: true })
+    // Larger than the 4-bytes-per-char read budget so the bounded path runs.
+    const body = 'x'.repeat(TEXT_CAP_CHARS * 4 + 100)
+    await writeFile(join(root, 'big.log'), body)
+    const service = new FsService(gate)
+
+    const result = await service.read(root, 'big.log', false)
+    expect(result).toMatchObject({ truncated: true, size: body.length })
+    const { content } = result as { content: string }
+    expect(content).toHaveLength(TEXT_CAP_CHARS)
 
     await rm(dir, { recursive: true, force: true })
   })

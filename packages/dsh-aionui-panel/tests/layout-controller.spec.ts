@@ -2,15 +2,15 @@
  * PanelLayoutController DOM integration tests (issues #374 / #292 / #315):
  * drive the controller against a jsdom frame element and assert the real
  * DOM outcomes — the maximized takeover grid, the narrow-screen overlay
- * class, Esc restore (with the editing-surface exemption), the floating
- * button positioning under a mocked Window Controls Overlay, drag vs
- * click disambiguation, and the persisted drag position.
+ * class, Esc restore (with the editing-surface exemption), and the floating
+ * button docking at the top-right chevron row under a mocked Window
+ * Controls Overlay.
  */
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PanelLayoutController } from '../src/client/layout.ts'
 import { createLayoutStore, layoutSetRoot, type LayoutStore } from '../src/client/store.ts'
-import { FLOATING_BUTTON_HEIGHT_PX, FLOATING_MARGIN_PX, KEY_FLOATING_TOP } from '../src/client/floating.ts'
+import { COLLAPSE_CHEVRON_TOP_PX } from '../src/client/floating.ts'
 
 /** jsdom lacks ResizeObserver; the controller only needs a silent stub. */
 class SilentResizeObserver {
@@ -102,63 +102,36 @@ describe('maximize (issue #315)', () => {
 describe('floating expand button (issues #374 / #292)', () => {
   const collapse = (): void => { layout.update((prev) => ({ ...prev, explorerCollapsed: true })) }
 
-  it('centers inside the content area below the WCO titlebar', () => {
+  it('docks at the chevron row below the WCO titlebar', () => {
     Object.defineProperty(navigator, 'windowControlsOverlay', {
       value: { visible: true, getTitlebarAreaRect: () => ({ height: 36 }) }, configurable: true,
     })
     collapse()
     const top = parseFloat(floatingButton().style.top)
-    expect(top).toBe(36 + (900 - 36 - FLOATING_BUTTON_HEIGHT_PX) / 2)
+    expect(top).toBe(36 + COLLAPSE_CHEVRON_TOP_PX)
     expect(floatingButton().style.transform).toBe('none')
   })
 
-  it('drags to a new clamped position and persists it', () => {
+  it('docks at the chevron row in a plain browser tab', () => {
     collapse()
-    const button = floatingButton()
-    button.setPointerCapture = () => {}
-    button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientY: 450 }))
-    button.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 560 }))
-    button.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 560 }))
-    const top = parseFloat(button.style.top)
-    expect(top).toBeGreaterThan(FLOATING_MARGIN_PX)
-    expect(top).toBeLessThan(900 - FLOATING_BUTTON_HEIGHT_PX - FLOATING_MARGIN_PX)
-    expect(localStorage.getItem(KEY_FLOATING_TOP)).toBe(String(Math.round(top)))
+    expect(parseFloat(floatingButton().style.top)).toBe(COLLAPSE_CHEVRON_TOP_PX)
   })
 
-  it('clamps a drag below the WCO titlebar', () => {
-    Object.defineProperty(navigator, 'windowControlsOverlay', {
-      value: { visible: true, getTitlebarAreaRect: () => ({ height: 36 }) }, configurable: true,
-    })
+  it('keeps plain clicks toggling the explorer', () => {
     collapse()
-    const button = floatingButton()
-    button.setPointerCapture = () => {}
-    button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientY: 450 }))
-    button.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: -200 }))
-    button.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: -200 }))
-    expect(parseFloat(button.style.top)).toBe(36 + FLOATING_MARGIN_PX)
-  })
-
-  it('suppresses the click after a drag but keeps plain clicks', () => {
-    collapse()
-    const button = floatingButton()
-    button.setPointerCapture = () => {}
-    button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientY: 450 }))
-    button.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 480 }))
-    button.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 480 }))
-    button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(layout.getSnapshot().explorerCollapsed).toBe(true)
-
-    button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    floatingButton().dispatchEvent(new MouseEvent('click', { bubbles: true }))
     expect(layout.getSnapshot().explorerCollapsed).toBe(false)
+
+    floatingButton().dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(layout.getSnapshot().explorerCollapsed).toBe(true)
   })
 
-  it('restores the persisted top on a fresh controller', () => {
-    localStorage.setItem(KEY_FLOATING_TOP, '300')
-    controller.dispose()
-    controller = new PanelLayoutController(layout)
-    controller.mount()
+  it('reserves the preview tab-bar corner while visible', () => {
+    expect(previewCol().classList.contains('aionui-reserve-floating')).toBe(false)
     collapse()
-    expect(parseFloat(floatingButton().style.top)).toBe(300)
+    expect(previewCol().classList.contains('aionui-reserve-floating')).toBe(true)
+    layout.update((prev) => ({ ...prev, explorerCollapsed: false }))
+    expect(previewCol().classList.contains('aionui-reserve-floating')).toBe(false)
   })
 
   it('hides while the explorer is expanded', () => {

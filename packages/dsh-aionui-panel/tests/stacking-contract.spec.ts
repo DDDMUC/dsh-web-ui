@@ -1,9 +1,10 @@
 /**
  * Stacking contract regression guard (issue #234 follow-up): the panel
  * columns stack above the shell overlay layer (issue #195), and the frame
- * chrome (floating expand button, collapse chevron) must stay at or above
- * the column layer — the chrome overlaps the column tracks, so lowering it
- * below the columns buries it under the opaque panels and kills hit-testing.
+ * chrome (floating expand button, collapse chevron, and the inline
+ * drag-handle z-index in layout.ts) must stay at or above the column
+ * layer — the chrome overlaps the column tracks, so lowering it below the
+ * columns buries it under the opaque panels and kills hit-testing.
  * Full-screen overlay drawers cover the panels by rendering at the ROOT
  * stacking context (z 100~1000), not by the panel side lowering its z-index.
  */
@@ -12,6 +13,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const css = readFileSync(join(process.cwd(), 'src/client/styles/tokens.module.css'), 'utf8')
+const layout = readFileSync(join(process.cwd(), 'src/client/layout.ts'), 'utf8')
 
 const block = (selector: string): string => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -35,10 +37,19 @@ describe('panel stacking contract', () => {
     expect(block(':global(.aionui-collapse-chevron)')).toContain('z-index: 30')
   })
 
-  it('keeps the floating button draggable (touch-action none, no selection)', () => {
+  it('keeps the floating button in the top-right chevron row (right edge, no drag chrome)', () => {
     const rules = block(':global(.aionui-floating-expand)')
-    expect(rules).toContain('touch-action: none')
-    expect(rules).toContain('user-select: none')
+    expect(rules).toContain('right: 8px')
+    expect(rules).toContain('width: 24px')
+    expect(rules).not.toContain('touch-action')
+  })
+
+  it('keeps the drag handles inline z-index at the column layer', () => {
+    // The handles are set inline in layout.ts; a regression (issue #234
+    // follow-up) would lower them below the opaque columns and kill the
+    // drag hit-testing exactly like the reverted 40e15c77/233140ee cycle.
+    expect(layout).toMatch(/el\.style\.zIndex = '30'/)
+    expect(layout).toContain('Same layer as the columns (z 30)')
   })
 
   it('keeps the maximized narrow-screen overlay fixed and above the columns', () => {

@@ -76,18 +76,24 @@ export function makeMobileRoutes(): WebRoute[] {
   const handlePage = (_req: IncomingMessage, res: ServerResponse): void => {
     writeStatic(res, 200, 'text/html', pageHtml('/m/mobile.js'))
   }
+  // The bundle is immutable for the process lifetime (a rebuild requires a
+  // host restart), so the ~456KB body is read from disk once, not per phone.
+  let bundleBody: string | undefined
   const handleBundle = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const path = mobileBundlePath()
-    if (!existsSync(path)) {
-      writeStatic(res, 503, 'text/plain', 'mobile bundle not built: run pnpm --filter @linxin666/dsh-remote-web-ui build')
-      return
+    if (bundleBody === undefined) {
+      const path = mobileBundlePath()
+      if (!existsSync(path)) {
+        writeStatic(res, 503, 'text/plain', 'mobile bundle not built: run pnpm --filter @linxin666/dsh-remote-web-ui build')
+        return
+      }
+      try {
+        bundleBody = await readFile(path, 'utf8')
+      } catch {
+        writeStatic(res, 500, 'text/plain', 'failed to read the mobile bundle')
+        return
+      }
     }
-    try {
-      const body = await readFile(path, 'utf8')
-      writeStatic(res, 200, 'text/javascript', body)
-    } catch {
-      writeStatic(res, 500, 'text/plain', 'failed to read the mobile bundle')
-    }
+    writeStatic(res, 200, 'text/javascript', bundleBody)
   }
   const handleIcon = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const path = appleTouchIconPath()

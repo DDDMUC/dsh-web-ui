@@ -159,13 +159,17 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
   // wedge the loop forever.
   const runPoll = async (): Promise<void> => {
     await Promise.all([...subscribers].map(async (subscriber) => {
+      // The timeout handle is captured and cleared once the race settles:
+      // an uncleared 15s timer per subscriber per tick would keep the event
+      // loop (and the subscriber closure) alive long after the round ended.
+      let timeout: ReturnType<typeof setTimeout> | undefined
       try {
         const status = await Promise.race([
           service.status(subscriber.path),
           new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('git status timed out')), STATUS_TIMEOUT_MS)
+            timeout = setTimeout(() => reject(new Error('git status timed out')), STATUS_TIMEOUT_MS)
           }),
-        ])
+        ]).finally(() => { if (timeout !== undefined) clearTimeout(timeout) })
         const key = status === null ? 'no-repo' : `${status.root}|${status.branch}|${status.head}`
         if (key === subscriber.last) return
         subscriber.last = key
@@ -272,6 +276,11 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
     res.write('retry: 2000\n\n')
     const subscriber: Subscriber = { path, last: '', res }
     subscribers.add(subscriber)
+    // A push/heartbeat write racing socket teardown emits 'error' on the
+    // response stream; unhandled, that can crash the host. Dropping the
+    // subscriber degrades the race to a lost write; req 'close' finishes
+    // the remaining cleanup.
+    res.on('error', () => { subscribers.delete(subscriber) })
     if (guard === undefined) {
       guard = new PollGuard({
         intervalMs: POLL_INTERVAL_MS,

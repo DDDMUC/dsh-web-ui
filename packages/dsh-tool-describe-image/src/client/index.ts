@@ -91,8 +91,10 @@ export function apply(ctx: ClientContext): void {
     let unsubscribeSettings: (() => void) | undefined
 
     // Text-only models reject image blocks at submit: rewrite image-bearing
-    // sends into describe-image references before they reach the model.
-    installSendHook(conversation)
+    // sends into describe-image references before they reach the model. The
+    // live switch (settings interceptImageSend, default on) is read per
+    // send, so other vision plugins keep the raw image blocks when it is off.
+    installSendHook(conversation, () => settingsScopeRef?.getSnapshot().value?.interceptImageSend !== false)
 
     // The shell renders user messages as plain text, so a sent reference sits
     // in the transcript as raw markdown; upgrade it in place into an inline

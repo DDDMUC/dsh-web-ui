@@ -227,35 +227,33 @@
   opacity: 1;
 }
 
-/* Floating expand button (explorer collapsed). Above the columns (z 30):
-   when the preview region is open it overlaps the rightmost column track,
-   so anything lower would be painted under the opaque column and stop
-   receiving clicks (issue #234 follow-up). Full-screen overlay drawers
-   must render at the ROOT stacking context (z 100~1000) to cover it.
-   The top/transform pair below is only the pre-JS fallback: the layout
-   controller sets an inline top (dragged and persisted position, issue
-   #374, or the content-area center below the WCO titlebar, issue #292). */
+/* Floating expand button (explorer collapsed). Docked at the viewport's
+   top-right corner — exactly where the explorer's collapse chevron sits
+   while open — so the open button replaces the close button in place
+   (issue #374 follow-up). Above the columns (z 30): when the preview
+   region is open it overlaps the rightmost column track, so anything
+   lower would be painted under the opaque column and stop receiving
+   clicks (issue #234 follow-up). Full-screen overlay drawers must render
+   at the ROOT stacking context (z 100~1000) to cover it.
+   The top below is only the pre-JS fallback: the layout controller sets
+   an inline top aligned with the chevron row below the WCO titlebar
+   (issues #374 / #292). */
 :global(.aionui-floating-expand) {
   position: fixed;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 64px;
+  top: calc(6px + env(titlebar-area-height, 0px));
+  right: 8px;
+  width: 24px;
+  height: 24px;
   display: none;
   align-items: center;
   justify-content: center;
   border: none;
-  border-top-left-radius: 10px;
-  border-bottom-left-radius: 10px;
+  border-radius: 4px;
   background-color: var(--aion-bg-2);
   color: var(--aion-text-secondary);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   z-index: 100;
-  /* Vertical drag (issue #374): the browser must not scroll/select. */
-  touch-action: none;
-  user-select: none;
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 :global(.aionui-floating-expand:hover) {

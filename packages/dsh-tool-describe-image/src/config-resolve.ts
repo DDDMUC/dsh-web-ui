@@ -32,6 +32,8 @@ export type ApiStyle = typeof API_STYLES[number]
 export const DEFAULT_API_STYLE: ApiStyle = 'chat-completions'
 /** Whether conversation image references upgrade into inline thumbnails unless configured otherwise. */
 export const DEFAULT_RENDER_IMAGE_PREVIEW = true
+/** Whether image-bearing sends are rewritten into describe-image references at submit (issue #301). */
+export const DEFAULT_INTERCEPT_IMAGE_SEND = true
 /** Instruction sent when the model does not pass its own prompt. */
 export const DEFAULT_PROMPT =
   'Analyze this image: describe what is visible factually, transcribe legible text verbatim, and call out layout, notable details, or anything anomalous.'
@@ -88,6 +90,12 @@ export interface Config {
    * origin, the thumbnail load fails and the reference text stays as-is.
    */
   renderImagePreview?: boolean
+  /**
+   * Whether image-bearing sends are rewritten at submit into describe-image
+   * references; defaults to {@link DEFAULT_INTERCEPT_IMAGE_SEND}. Turn off to
+   * hand the raw image blocks to other vision plugins sharing the session.
+   */
+  interceptImageSend?: boolean
 }
 
 /** Schemastery configuration for the describe-image tool; doubles as the `describe-image` settings-section schema. */
@@ -102,6 +110,7 @@ export const Config: z<Config> = z.object({
   timeoutMs: z.number().min(1).default(DEFAULT_TIMEOUT_MS),
   apiStyle: z.union(API_STYLES).default(DEFAULT_API_STYLE),
   renderImagePreview: z.boolean().default(DEFAULT_RENDER_IMAGE_PREVIEW),
+  interceptImageSend: z.boolean().default(DEFAULT_INTERCEPT_IMAGE_SEND),
 })
 
 /** Settings namespace carrying the endpoint, model, and key reference the Plugins card edits. */
@@ -120,6 +129,7 @@ export interface ResolvedConfig {
   apiStyle: ApiStyle
   thinking: ThinkingMode | undefined
   renderImagePreview: boolean
+  interceptImageSend: boolean
 }
 
 /**
@@ -162,7 +172,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
   if (!API_STYLES.includes(apiStyle)) {
     throw new Error(`describe-image: apiStyle must be one of ${API_STYLES.map(style => JSON.stringify(style)).join(', ')}`)
   }
-  return { baseURL, model, apiKey, apiKeyEnv, defaultPrompt: config.defaultPrompt ?? DEFAULT_PROMPT, maxBytes, maxOutputTokens, timeoutMs, apiStyle, thinking, renderImagePreview: config.renderImagePreview ?? DEFAULT_RENDER_IMAGE_PREVIEW }
+  return { baseURL, model, apiKey, apiKeyEnv, defaultPrompt: config.defaultPrompt ?? DEFAULT_PROMPT, maxBytes, maxOutputTokens, timeoutMs, apiStyle, thinking, renderImagePreview: config.renderImagePreview ?? DEFAULT_RENDER_IMAGE_PREVIEW, interceptImageSend: config.interceptImageSend ?? DEFAULT_INTERCEPT_IMAGE_SEND }
 }
 
 /**

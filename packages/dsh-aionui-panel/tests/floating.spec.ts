@@ -1,14 +1,15 @@
 /**
  * Floating expand button geometry tests (issues #374 / #292): the vertical
  * clamp keeps the button inside the usable range (below the WCO titlebar
- * strip when one is reported), the default center sits in the content area,
- * and the titlebar height comes from navigator.windowControlsOverlay.
+ * strip when one is reported), the default docks at the top-right corner
+ * aligned with the explorer's collapse chevron, and the titlebar height
+ * comes from navigator.windowControlsOverlay.
  */
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  FLOATING_BUTTON_HEIGHT_PX, FLOATING_MARGIN_PX,
-  centeredFloatingTop, clampFloatingTop, titlebarAreaHeight,
+  COLLAPSE_CHEVRON_TOP_PX, FLOATING_BUTTON_HEIGHT_PX, FLOATING_MARGIN_PX,
+  topAlignedFloatingTop, clampFloatingTop, titlebarAreaHeight,
 } from '../src/client/floating.ts'
 
 const H = FLOATING_BUTTON_HEIGHT_PX
@@ -43,18 +44,18 @@ describe('clampFloatingTop', () => {
   })
 })
 
-describe('centeredFloatingTop', () => {
-  it('centers inside the full viewport without a titlebar', () => {
-    expect(centeredFloatingTop(900, H, 0)).toBe((900 - H) / 2)
+describe('topAlignedFloatingTop', () => {
+  it('docks at the chevron row without a titlebar', () => {
+    expect(topAlignedFloatingTop(900, H, 0)).toBe(COLLAPSE_CHEVRON_TOP_PX)
   })
 
-  it('centers inside the content area below the WCO titlebar (issue #292)', () => {
+  it('stays in the chevron row below the WCO titlebar (issue #292)', () => {
     const titlebar = 36
-    expect(centeredFloatingTop(900, H, titlebar)).toBe(titlebar + (900 - titlebar - H) / 2)
+    expect(topAlignedFloatingTop(900, H, titlebar)).toBe(titlebar + COLLAPSE_CHEVRON_TOP_PX)
   })
 
   it('clamps when the titlebar eats most of the viewport', () => {
-    expect(centeredFloatingTop(60, H, 50)).toBe(50 + M)
+    expect(topAlignedFloatingTop(60, H, 50)).toBe(50 + COLLAPSE_CHEVRON_TOP_PX)
   })
 })
 

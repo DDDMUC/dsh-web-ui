@@ -45,10 +45,14 @@ const HOOK_MARKER = '__dshDescribeImageSendHooked'
 /**
  * Wrap the conversation service so image-bearing sends route through the
  * describe-image attach seam. No-op when the service surface is unavailable
- * (older shell) or already wrapped.
+ * (older shell) or already wrapped. When `isEnabled` is given it is read on
+ * every send: a send that reports the interception disabled passes straight
+ * through to the original `sendSession`, so other vision plugins keep the
+ * raw image blocks (issue #301).
  * @param conversation - the `conversation` service instance.
+ * @param isEnabled - live switch; consulted per send (default: always on).
  */
-export function installSendHook(conversation: unknown): void {
+export function installSendHook(conversation: unknown, isEnabled?: () => boolean): void {
   const face = conversation as ConversationSendFace
   if (face === null || typeof face !== 'object') return
   if (typeof face.sendSession !== 'function') return
@@ -57,6 +61,9 @@ export function installSendHook(conversation: unknown): void {
 
   const original = face.sendSession
   face.sendSession = async (session, text, imageIds, mode): Promise<void> => {
+    if (isEnabled !== undefined && !isEnabled()) {
+      return original.call(face, session, text, imageIds, mode)
+    }
     if (imageIds.length === 0) {
       return original.call(face, session, text, imageIds, mode)
     }

@@ -226,13 +226,15 @@ function resetToControlled(state) {
  */
 function applyPresentation(agent, state, policy) {
   if (state.presentationApplied || policy.promotedPresentation !== 'code') return
-  state.presentationApplied = true
   const tools = agent.ctx.tools
+  // Latch only after the switch really happened: without a tools view there
+  // is nothing to present, and latching early would skip Code Mode forever.
   if (tools === undefined) return
   // The disposer restores the deployment-default (native) presentation; it is
   // kept on the state so a post-compaction reset can release Code Mode and
   // let the phase-1 catalog filter see the native tool list again.
   state.presentationDisposer = tools.presentAs('code')
+  state.presentationApplied = true
 }
 
 /**

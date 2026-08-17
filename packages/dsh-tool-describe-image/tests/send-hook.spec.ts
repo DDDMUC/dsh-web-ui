@@ -95,4 +95,34 @@ describe('installSendHook', () => {
     await face.sendSession({ prompt } as never, 'look', ['id1'], 'queue')
     expect(prompt).toHaveBeenCalledTimes(1)
   })
+
+  it('passes image-bearing sends through untouched when the live switch is off', async () => {
+    const { face, log } = makeConversation()
+    const prompt = vi.fn(async () => ({ ok: true }))
+    installSendHook(face, () => false)
+    await face.sendSession({ prompt } as never, 'look', ['id1'], 'queue')
+    // The original send ran; no rewrite, no draft release, no prompt call.
+    expect(log).toEqual(['original'])
+    expect(prompt).not.toHaveBeenCalled()
+    expect(face.releaseDraftImage).not.toHaveBeenCalled()
+  })
+
+  it('re-reads the live switch on every send', async () => {
+    stubFileReader('QUJD')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true, value: { note: 'N', markdown: 'R' } }), { status: 200 })))
+    const { face, log } = makeConversation()
+    const prompt = vi.fn(async () => ({ ok: true }))
+    let enabled = false
+    installSendHook(face, () => enabled)
+    // Off: passthrough.
+    await face.sendSession({ prompt } as never, 'look', ['id1'], 'queue')
+    expect(log).toEqual(['original'])
+    // Flipped on between sends: the very next send is rewritten.
+    enabled = true
+    await face.sendSession({ prompt } as never, 'look', ['id1'], 'queue')
+    expect(log).toEqual(['original', 'release'])
+    expect(prompt).toHaveBeenCalledTimes(1)
+    const blocks = (prompt.mock.calls[0] as unknown as [{ type: string; text: string }[]])[0]
+    expect(blocks[0].type).toBe('text')
+  })
 })
