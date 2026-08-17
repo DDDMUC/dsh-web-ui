@@ -1,50 +1,46 @@
-# maid-atelier · 深海女仆工坊
+# maid-atelier - Abyssal Maid Atelier
 
-DeepSeek Harness Web GUI 的深海女仆工坊皮肤：双女仆背景、深海蓝蕾丝界面与 Q 版侧栏。纯展示层客户端插件——`apply()` 设置 `data-dsh-maid-atelier` 作用域、按亮/暗主题切换宫殿背景、以独立透明层挂载双女仆角色、装饰可折叠侧栏,并为加载/思考/工具运行状态预留稳定动画钩子。effect 销毁器还原全部 CSS/DOM 写入;不注入服务、不发出 Cordis 事件、不触达模型请求。
+English | [中文](README.zh.md)
 
-## 特性
+A presentation-only DeepSeek Harness Web GUI skin with a two-character workshop backdrop, navy ornamental panels, and responsive sidebar artwork. `apply()` owns the `data-dsh-maid-atelier` scope and every DOM or CSSOM write, and its Cordis effect disposer retracts them without injecting services, emitting events, or touching model requests.
 
-- 双女仆工坊场景对话背景(亮/暗自动切换)
-- 深海蓝、陶瓷白、长春花蓝、柔金构成的可热切换 UI 覆盖层
-- Q 版侧栏角色与视口装饰、favicon
-- 着陆页角色随响应式输入框缩放;对话页移向安全边缘;轨迹/检查视图保持着陆构图
-- 素材内嵌于 client bundle(数据 URI),激活不依赖任何临时文件/远程 URL/资源服务器
+## Features
 
-## 安装
+- Light and dark workshop backdrops with two character layers.
+- Navy, porcelain, periwinkle, and muted-gold panel styling.
+- Responsive sidebar mascot, ornamental chrome, favicon, and a skin-owned text mark.
+- Composer and workspace layouts that adapt without remote assets.
+- Artwork embedded in the client bundle as data URIs.
+
+## Install
+
+Install the aggregate package, then select the skin:
 
 ```sh
-dsh-skin install maid-atelier
+dsh plugin --profile web add @linxin666/dsh-skins
 dsh-skin use maid-atelier
 ```
 
-也可直接安装本地目录：`dsh plugin --profile web add link:<dsh-web-ui>/packages/skins/maid-atelier`。独立发行与上游源码位于 [Small-tailqwq/dsh-deep-whale](https://github.com/Small-tailqwq/dsh-deep-whale)。
+For repository development, build this package before rebuilding the skin center and aggregate assets.
 
-加载即生效、卸载即复原(与皮肤中心/dsh-skin 的互斥切换兼容,`wiring.id` 为 `ui-skin-maid-atelier`)。
+## Artwork and license
 
-## 素材来源与许可
+This skin and its embedded artwork are distributed under **CC BY-NC-SA 4.0** and are restricted to non-commercial use. The full license is in [LICENSE](LICENSE), and [NOTICE](NOTICE) records the attribution chain for the whale-girl character derivatives by 上善, zipzip, and Small-tailqwq.
 
-本皮肤整体以 **CC BY-NC-SA 4.0**(署名-非商业性使用-相同方式共享)发布,**禁止任何商业性使用**。
+The title bar uses an original `MAID ATELIER` text treatment and does not embed the DeepSeek Harness BrandWordmark vector. The independent upstream project is [Small-tailqwq/dsh-deep-whale](https://github.com/Small-tailqwq/dsh-deep-whale).
 
-皮肤素材为衍生创作,署名链(详见 `NOTICE`):
-
-1. **一创 [上善](https://www.pixiv.net/users/62155430)** —— 鲸鱼娘角色形象原作者
-2. **二创 [zipzip](https://www.pixiv.net/users/18604994)** —— 在其形象上加入 DeepSeek 元素的女仆鲸鱼娘二次设计(生成模型 GPT Image 2)
-3. **三创(本皮肤)Small-tailqwq** —— DeepSeek 元素再设计
-
-完整许可文本见 `LICENSE`;运行素材已经内嵌在源码与预构建 bundle 中。
-
-## 开发与构建
-
-本目录使用仓库的 `tsdown.client.ts` 构建预设，并随皮肤中心与 Gallery 一同发布。开发构建：
+## Development
 
 ```sh
-cd <dsh-web-ui>/packages/skins/maid-atelier
-pnpm build          # tsdown 构建 lib/
-pnpm test           # apply.spec.ts 行为测试
+pnpm --filter @linxin666/dsh-client-ui-skin-maid-atelier build
+pnpm --filter @linxin666/dsh-client-ui-skin-maid-atelier test
+node scripts/skin-center-bundles
+node scripts/gallery-build
+pnpm --filter @linxin666/dsh-skins build
 ```
 
-稳定版源码仍由 [Small-tailqwq/dsh-deep-whale](https://github.com/Small-tailqwq/dsh-deep-whale) 维护；同步更新时应同时更新本目录的预构建 `lib/`、预览图和生成注册表。
+## Known limitations
 
-## 许可
-
-CC BY-NC-SA 4.0。见 `LICENSE` 与 `NOTICE`。
+- The CC BY-NC-SA 4.0 non-commercial restriction applies even when the skin is installed through the aggregate package.
+- The skin relies on current DSH Web DOM markers for sidebar, workspace, composer, and title-bar decoration; unsupported shell layouts retain the background and omit unavailable ornaments.
+- Large embedded artwork increases the client bundle size.

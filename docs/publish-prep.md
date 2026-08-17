@@ -9,7 +9,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 21 个插件包（截至快照日）：
+`packages/` 与 `packages/skins/` 下共 22 个插件包（截至快照日）：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
@@ -36,6 +36,7 @@
 | packages/skins/skin-center | @linxin666/dsh-client-ui-skin-center | 0.1.1 | true |
 | packages/skins/miku | @linxin666/dsh-client-ui-skin-miku | 0.1.12 | true |
 | packages/skins/matrix | @linxin666/dsh-client-ui-skin-matrix | 0.1.0 | true |
+| packages/skins/maid-atelier | @linxin666/dsh-client-ui-skin-maid-atelier | 0.1.20 | false |
 
 
 ## 二、发布前检查结论（2026-08-11，已修复项标注 [已确认]）
@@ -66,8 +67,7 @@
 
 ### [卫生] 卫生项
 
-6. **LICENSE 文件缺失 11 包** — [已确认] **已补全**（BSD-3-Clause，dsh-external
-   contributors），打包验证 LICENSE 已进 tarball。
+6. **LICENSE 文件缺失 11 包** — [已确认] **已补全**（Apache-2.0），打包验证 LICENSE 已进 tarball。Maid Atelier 作为例外采用 CC BY-NC-SA 4.0，仅限非商业使用；聚合包必须携带该皮肤的 LICENSE / NOTICE 与 THIRD_PARTY_NOTICES.md。
 7. **files 缺 `cordis.patch.yml`**（发布后 bundle patch 缺失会装不上）—
    [已确认] **已补全**：task-board / live-stats
    的 files 均加入 `cordis.patch.yml`（task-board 同时补齐

@@ -50,7 +50,7 @@ dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI:
 | Mobile remote control | None | QR pairing with SSE real-time sync |
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
 | Image understanding | None | `describe_image` vision tool |
-| Themes & skins | Default theme | Skin center with 10 skins, try-on before apply |
+| Themes & skins | Default theme | Skin center with 11 skins, try-on before apply |
 
 ## Feature Plugins
 
@@ -86,7 +86,7 @@ When a project session is open, two panels appear to the right of the chat area:
 - **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and text, with source / preview switching, split editing and saving;
 - **Changes (SCM)**: a real git changes panel with stage / unstage / discard;
 - Panel widths drag (double-click the handle to reset); collapsed state and widths persist per project;
-- All ten skins cover the right panel, so it follows the theme when you switch.
+- All eleven skins cover the right panel, so it follows the theme when you switch.
 
 ![Right panel](docs/screenshots/19-right-panel.png)
 
@@ -138,11 +138,11 @@ All family plugins' toggles and parameters live under "Settings" and apply immed
 
 ## Skins
 
-The skin center has ten skins, each with try-on before apply: the preview applies instantly and reverts fully on exit; apply with one click once you are happy.
+The skin center has eleven skins, each with try-on before apply: the preview applies instantly and reverts fully on exit; apply with one click once you are happy.
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-All ten skins at a glance (screenshots for Dragon Heir / Miku are pending):
+Ten existing skins at a glance (screenshots for Dragon Heir / Miku are pending); Maid Atelier has its own preview below:
 
 ![All 10 skins](docs/images/skins-montage.png)
 
@@ -169,6 +169,12 @@ The deep-sea whale-goddess theme: a text-free ambience painting (a blue-haired g
 A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting into sunset orange) sits beneath translucent panes, wrapped in a deep-navy base with amber-orange accents, a thin twilight scrim in light mode and a deeper dusk veil in dark mode.
 
 ![Harbor light](docs/screenshots/26-skin-harbor-light.png) · ![Harbor dark](docs/screenshots/27-skin-harbor-dark.png)
+
+### Maid Atelier
+
+An ornate navy workshop skin with two character layers and responsive sidebar decoration. This skin is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use.
+
+![Maid Atelier light](packages/skins/maid-atelier/preview/light.webp) · ![Maid Atelier dark](packages/skins/maid-atelier/preview/dark.webp)
 
 ## Quick Start
 

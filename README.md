@@ -48,7 +48,7 @@ dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合�
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
-| 主题皮肤 | 默认主题 | 皮肤中心 10 款，先试穿再应用 |
+| 主题皮肤 | 默认主题 | 皮肤中心 11 款，先试穿再应用 |
 
 ## 功能插件
 
@@ -84,7 +84,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 - **预览**：多标签预览 markdown、HTML、代码、diff、CSV、PDF、Office、图片与文本，可切换源码 / 预览、分屏编辑、保存；
 - **变更（SCM）**：真实的 git 变更面板，stage / unstage / discard；
 - 面板宽度可拖，双击把手复位；折叠状态和宽度按项目记住；
-- 10 款皮肤都适配右侧面板，换肤后面板跟着变。
+- 11 款皮肤都适配右侧面板，换肤后面板跟着变。
 
 ![右侧面板](docs/screenshots/19-right-panel.png)
 
@@ -136,11 +136,11 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ## 皮肤
 
-皮肤中心有 10 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
+皮肤中心有 11 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
-10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬两款截图待补充）：
+现有 10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬两款截图待补充）；Maid Atelier 预览见下方：
 
 ![10 款皮肤一览](docs/images/skins-montage.png)
 
@@ -167,6 +167,12 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 黄昏港口主题：动漫少女港口背景（暮光蓝天空渐入日落橙）垫在半透明面板下面，深暮蓝底与日落橙主色贯穿全局，亮色是薄暮纱、暗色是深海夜航纱。
 
 ![夕港 亮色](docs/screenshots/26-skin-harbor-light.png) · ![夕港 暗色](docs/screenshots/27-skin-harbor-dark.png)
+
+### 深海女仆工坊（Maid Atelier）
+
+深海蓝工坊主题，包含双角色图层与响应式侧边栏装饰。本皮肤单独采用 CC BY-NC-SA 4.0，仅限非商业使用。
+
+![深海女仆工坊 亮色](packages/skins/maid-atelier/preview/light.webp) · ![深海女仆工坊 暗色](packages/skins/maid-atelier/preview/dark.webp)
 
 ## 快速开始
 

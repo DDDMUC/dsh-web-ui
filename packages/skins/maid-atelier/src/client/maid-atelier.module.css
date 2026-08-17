@@ -2323,11 +2323,8 @@ body[data-dsh-maid-atelier] [class*='titlebar'] > [class*='button']:first-of-typ
   display: none;
 }
 
-/* The frameless title bar (Web-app overlay / desktop shell) carries the
-   whale-free wordmark dead-center of the window, mirroring the sidebar
-   brand at a smaller scale. It rides the navy gradient and never hides
-   with the rail: it is purely decorative (pointer-events none), so the
-   drag region and the window buttons stay fully usable. */
+/* The frameless title bar carries the skin's own text mark at the window
+   center. It is decorative, so the drag region and controls stay usable. */
 body[data-dsh-maid-atelier] [data-skin-chrome='titlebar-brand'] {
   position: absolute;
   left: 50%;
@@ -2337,16 +2334,12 @@ body[data-dsh-maid-atelier] [data-skin-chrome='titlebar-brand'] {
   align-items: center;
   justify-content: center;
   color: #f3e3c0;
-  --dsw-alias-label-primary-inverted: #10204d;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  letter-spacing: 0;
+  text-shadow: 0 1px 2px rgba(2, 8, 28, 0.62);
   pointer-events: none;
-}
-
-body[data-dsh-maid-atelier] [data-skin-chrome='titlebar-brand'] svg {
-  display: block;
-  height: 18px;
-  width: auto;
-  flex: none;
-  filter: drop-shadow(0 1px 2px rgba(2, 8, 28, 0.62));
 }
 /* The top curtain is position:fixed against the viewport, so it paints over
    the frame's own title-bar row in frameless surfaces (Web-app overlay /

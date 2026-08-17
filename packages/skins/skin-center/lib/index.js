@@ -950,7 +950,7 @@ function readJsonBody(req) {
 * binary — it calls the embedded port of the CLI (src/skin-switch.ts), which
 * writes the boot patch and the profile symlink directly. Returns the same
 * stdout text the CLI would print, and rejects with the same error messages.
-* @param args - command arguments (e.g. `['use', 'qq98']`).
+* @param args - command arguments (e.g. `['use', 'xp']`).
 */
 function runDshSkin(args) {
 	const [command, argument] = args;

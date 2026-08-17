@@ -206,6 +206,26 @@ window.__ModuleLoader__.load({
 				"bodyAttr": "data-dsh-matrix",
 				"package": "@linxin666/dsh-client-ui-skin-matrix",
 				"order": 12
+			},
+			{
+				"id": "maid-atelier",
+				"name": "深海女仆工坊",
+				"nameEn": "Abyssal Maid Atelier",
+				"author": "Small-tailqwq",
+				"tagline": "双女仆背景、深海蓝蕾丝界面与 Q 版侧栏",
+				"description": "一套面向 DeepSeek Harness WebUI 的高定制动漫角色皮肤。它使用双女仆工坊场景作为对话区背景，以深海蓝、陶瓷白、长春花蓝和柔金构成可热切换的 UI 覆盖层，并为加载、思考和工具运行状态预留稳定动画钩子。",
+				"tags": [
+					"anime",
+					"maid",
+					"whale",
+					"navy",
+					"ornate",
+					"glass"
+				],
+				"accent": "#c5a468",
+				"bodyAttr": "data-dsh-maid-atelier",
+				"package": "@linxin666/dsh-client-ui-skin-maid-atelier",
+				"order": 13
 			}
 		];
 		//#endregion
@@ -271,6 +291,13 @@ window.__ModuleLoader__.load({
 		* A ghost MutationObserver may survive retraction (blue-fantasy re-writes
 		* its backdrop on theme flips), so during try-on a neutralizing observer
 		* re-clears the backdrop props whenever `data-ds-dark-theme` changes.
+		*
+		* Hot swap (issue #359): the same machinery also powers one-click apply in
+		* packaged installs, where the client-module startup graph only refreshes on
+		* an app restart. TryOnController.commit() mounts the applied skin in place
+		* and keeps it (no reload, no restart), retracting the incumbent permanently
+		* instead of snapshot-restoring it; activeSkinEntry() then answers the
+		* committed skin until the next real page load.
 		*/
 		/** Body-level backdrop properties skins may write inline (blue-fantasy). */
 		const BACKDROP_PROPS = [
@@ -324,9 +351,22 @@ window.__ModuleLoader__.load({
 			return window.__DSH_BOOT__?.entries?.map((entry) => entry.id) ?? [];
 		}
 		/** The skin package currently ACTIVE in the boot graph, if it is one of ours. */
-		function activeSkinEntry() {
+		function bootSkinEntry() {
 			const ids = new Set(bootEntryIds());
 			return SKIN_CENTER_ENTRIES.find((entry) => ids.has(entry.package));
+		}
+		/**
+		* Hot-committed skin override (issue #359): a one-click apply mounts the new
+		* skin in place — the boot graph only catches up on the next app start, so
+		* until the page reloads, activeSkinEntry reports the committed skin instead
+		* of the boot-graph one. A null package means the official stock look was
+		* committed.
+		*/
+		let hotOverride;
+		/** The skin currently driving the page: the hot-committed one, else the boot-graph one. */
+		function activeSkinEntry() {
+			if (hotOverride !== void 0) return hotOverride.pkg === null ? void 0 : SKIN_CENTER_ENTRIES.find((entry) => entry.package === hotOverride?.pkg);
+			return bootSkinEntry();
 		}
 		/**
 		* Whether a direct body child is skin chrome owned by `skin`: marked with the
@@ -467,6 +507,48 @@ window.__ModuleLoader__.load({
 					dispose: () => {},
 					active
 				};
+			}
+			/** The skin mounted by a previous commit, owned (and disposable) by this controller. */
+			hotIncumbent = null;
+			/**
+			* One-click-apply hot swap (issue #359): mount `target` in place and KEEP
+			* it — no page reload, no app restart. The incumbent is retracted the same
+			* way try-on retracts the active skin, except nothing is restored: a
+			* boot-graph incumbent's neutralizers (the ghost-observer guard and the
+			* leak-hiding style) stay installed for the page lifetime, while a
+			* previously hot-mounted incumbent is properly disposed through its own
+			* ctx effects. The target bundle loads BEFORE the incumbent is touched, so
+			* a load failure leaves the current skin fully intact; an apply() failure
+			* restores the incumbent's visuals whenever they were captured.
+			* @param target - the skin to commit, or null for the official stock look.
+			*/
+			async commit(target) {
+				if (this.session !== null) this.exit();
+				const epoch = ++this.epoch;
+				this.requestedPackage = null;
+				const currentPackage = activeSkinEntry()?.package ?? null;
+				if (currentPackage === (target?.package ?? null)) return;
+				let apply = null;
+				if (target !== null) apply = await this.loadModuleOnce(target);
+				if (epoch !== this.epoch) throw new Error("skin-center: commit superseded by a newer request");
+				const incumbent = this.hotIncumbent;
+				let snapshot = null;
+				if (incumbent !== null) {
+					this.hotIncumbent = null;
+					incumbent.dispose();
+					this.cleanupModule(incumbent.entry);
+				} else if (currentPackage !== null) snapshot = this.captureAndRetractActive();
+				if (target !== null) try {
+					const dispose = this.applyLoaded(target, apply);
+					this.hotIncumbent = {
+						entry: target,
+						dispose
+					};
+				} catch (error) {
+					if (snapshot !== null) this.restoreActive(snapshot);
+					throw error;
+				}
+				hotOverride = { pkg: target?.package ?? null };
 			}
 			/** Exit the live session: dispose the tried-on skin, then restore the active skin. */
 			exit() {
@@ -651,7 +733,8 @@ window.__ModuleLoader__.load({
 		* try-on executes the real bundle inside the GUI (light/dark preview, full
 		* restore on exit); Apply is one click — the host half runs `dsh-skin use`
 		* through /api/skin-center/apply, the config watcher hot-reloads the patch,
-		* and the page reloads into the new skin. Copy rides the standard `t` seat;
+		* and the new skin is hot-committed in place (issue #359 — no reload, no
+		* app restart; a page reload remains the fallback). Copy rides the standard `t` seat;
 		* the theme preview control drives the official theme service (persisted,
 		* same as the Appearance row).
 		*/
@@ -684,6 +767,7 @@ window.__ModuleLoader__.load({
 			const [loadingId, setLoadingId] = (0, react.useState)(null);
 			const [applying, setApplying] = (0, react.useState)(null);
 			const [error, setError] = (0, react.useState)(null);
+			const [, forceRender] = (0, react.useState)(0);
 			const mounted = (0, react.useRef)(false);
 			const tryOnRequest = (0, react.useRef)(0);
 			(0, react.useEffect)(() => {
@@ -812,13 +896,7 @@ window.__ModuleLoader__.load({
 					const payload = await response.json().catch(() => null);
 					if (!response.ok || payload?.ok !== true) throw new Error(payload?.error ?? `HTTP ${response.status}`);
 					setApplying(null);
-					confirmActive(target).then((confirmed) => {
-						if (!mounted.current) return;
-						if (!confirmed) {
-							const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;
-							setError(`${t("appliedUnconfirmed")} — ${command}`);
-							return;
-						}
+					const reloadFallback = () => {
 						manifestReady(target).then((ready) => {
 							if (!mounted.current) return;
 							if (ready) window.location.reload();
@@ -826,6 +904,28 @@ window.__ModuleLoader__.load({
 								const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;
 								setError(`${t("appliedUnconfirmed")} — ${command}`);
 							}
+						});
+					};
+					confirmActive(target).then((confirmed) => {
+						if (!mounted.current) return;
+						if (!confirmed) {
+							const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;
+							setError(`${t("appliedUnconfirmed")} — ${command}`);
+							return;
+						}
+						const entry = target === OFFICIAL ? null : SKIN_CENTER_ENTRIES.find((candidate) => candidate.id === target) ?? null;
+						if (entry === null && target !== OFFICIAL) {
+							reloadFallback();
+							return;
+						}
+						controller.commit(entry).then(() => {
+							if (!mounted.current) return;
+							setTryingId(null);
+							setTryingOfficial(false);
+							forceRender((tick) => tick + 1);
+						}).catch(() => {
+							if (!mounted.current) return;
+							reloadFallback();
 						});
 					});
 				}).catch((cause) => {

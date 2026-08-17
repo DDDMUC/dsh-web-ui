@@ -31,7 +31,6 @@ import {
   MAID_ATELIER_WORKSPACE_SHIELD,
 } from './workspace-art.generated.ts'
 import './maid-atelier.module.css'
-import { MAID_ATELIER_TITLEBAR_BRAND } from './titlebar-brand.ts'
 
 const SKIN_TITLE = '深海女仆工坊 · DeepSeek Harness'
 const SKIN_OWNER = 'maid-atelier'
@@ -91,11 +90,7 @@ function createSidebarCorners(): HTMLDivElement {
   return corners
 }
 
-/**
- * Place the whale-free DeepSeek Harness wordmark at the left of the
- * frameless title bar (Web-app overlay / desktop shell), mirroring the
- * sidebar brand at a smaller scale.
- */
+/** Place the skin's own text mark in the frameless title bar. */
 function decorateTitlebarBrand(ownedNodes: Set<Element>): void {
   const titlebar = document.querySelector<HTMLElement>("[class*='titlebar']")
   if (!titlebar) return
@@ -104,7 +99,7 @@ function decorateTitlebarBrand(ownedNodes: Set<Element>): void {
   brand.dataset.skinChrome = 'titlebar-brand'
   brand.dataset.skinOwner = SKIN_OWNER
   brand.setAttribute('aria-hidden', 'true')
-  brand.innerHTML = MAID_ATELIER_TITLEBAR_BRAND
+  brand.textContent = 'MAID ATELIER'
   ownedNodes.add(brand)
   titlebar.prepend(brand)
 }

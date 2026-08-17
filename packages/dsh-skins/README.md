@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-The skin-family aggregate plugin: installing it gives you the skin center (`skin-center`) plus every skin asset (xp / blue-fantasy / dragon-heir / minecraft / miku / trading / whale-song / harbor / whale-mom / matrix ...) bundled inside the package's `skins/` directory, so no per-skin npm package is needed.
+The skin-family aggregate plugin: installing it gives you the skin center (`skin-center`) plus every skin asset (xp / blue-fantasy / dragon-heir / minecraft / miku / trading / whale-song / harbor / whale-mom / matrix / maid-atelier ...) bundled inside the package's `skins/` directory, so no per-skin npm package is needed.
 
 ## What it is
 
@@ -32,3 +32,4 @@ Switch skins with `dsh-skin use <id>`; only one skin is active at a time.
 
 - The browser bundle targets the web only, scoped to the dsh web GUI.
 - Skins are presentation-only: they mutate the browser DOM and never touch a model request.
+- Maid Atelier is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use; its license and attribution are shipped inside the bundled skin and summarized in `THIRD_PARTY_NOTICES.md`.

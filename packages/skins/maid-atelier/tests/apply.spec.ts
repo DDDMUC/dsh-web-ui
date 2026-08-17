@@ -38,6 +38,8 @@ describe('Maid Atelier skin apply', () => {
   it('declares only the public rc.6 client manifest', () => {
     const manifest = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'))
     expect(manifest.dsh.client).toEqual({ inject: [], platform: 'web' })
+    expect(manifest.dsh).not.toHaveProperty('bundle')
+    expect(manifest.license).toBe('CC-BY-NC-SA-4.0')
     expect(manifest).not.toHaveProperty('dshClient')
     expect(manifest.peerDependencies).toHaveProperty('@deepseek-ai/cordis', '^4.0.1')
   })
@@ -458,18 +460,14 @@ describe('Maid Atelier skin apply', () => {
     expect(CSS).toMatch(/\[class\*='titlebar'\] > \[class\*='button'\]:first-of-type/)
   })
 
-  it('places the whale-free wordmark at the left of the frameless title bar', async () => {
+  it('places the skin-owned text mark in the frameless title bar', async () => {
     fiber = await mount()
     document.body.insertAdjacentHTML('beforeend', '<div class="fixture_titlebar"></div>')
     await flushMutations()
     const titlebar = document.querySelector<HTMLElement>("[class*='titlebar']")
     const brand = titlebar?.querySelector<HTMLElement>("[data-skin-chrome='titlebar-brand']")
-    expect(brand).not.toBeNull()
-    const svg = brand?.querySelector('svg')
-    expect(svg?.getAttribute('viewBox')).toBe('26 4.2 155.6 17.6')
-    expect(svg?.innerHTML ?? '').toContain('maid-titlebar-brand-clip')
-    expect(svg?.innerHTML ?? '').not.toContain('whale-clip')
-    expect(svg?.innerHTML ?? '').not.toContain('M23.0584')
+    expect(brand?.textContent).toBe('MAID ATELIER')
+    expect(brand?.querySelector('svg')).toBeNull()
     await fiber.dispose()
     expect(document.querySelector("[data-skin-chrome='titlebar-brand']")).toBeNull()
   })
@@ -478,7 +476,7 @@ describe('Maid Atelier skin apply', () => {
     expect(CSS).toMatch(/\[data-skin-chrome='titlebar-brand'\]\s*\{[^}]*left: 50%/s)
     expect(CSS).toMatch(/\[data-skin-chrome='titlebar-brand'\]\s*\{[^}]*transform: translate\(-50%, -50%\)/s)
     expect(CSS).toMatch(/\[data-skin-chrome='titlebar-brand'\]\s*\{[^}]*pointer-events: none/s)
-    expect(CSS).toMatch(/\[data-skin-chrome='titlebar-brand'\] svg\s*\{[^}]*height: 18px/s)
+    expect(CSS).toMatch(/\[data-skin-chrome='titlebar-brand'\]\s*\{[^}]*line-height: 18px/s)
     // The wordmark must not hide with the rail: it is decorative and centered.
     expect(CSS).not.toMatch(/\[data-maid-sidebar-size='rail'\]\s*\[data-skin-chrome='titlebar-brand'\]\s*\{[^}]*display: none/s)
   })
