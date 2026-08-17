@@ -198,6 +198,10 @@ export function listPreviewScopes(): Array<{ root: string; savedAt: number }> {
 
 /** Evict the oldest scopes beyond the cap. */
 export function evictPreviewScopes(keep: string): void {
+  // Cheap pre-check first: enumerate keys only (no JSON.parse, no sort).
+  // Writes far below the cap — the common case — return here instead of
+  // parsing and sorting every stored preview scope on each persist.
+  if (listStoredKeysByPrefix(PREVIEW_SCOPE_PREFIX).length <= PREVIEW_SCOPE_CAP) return
   const scopes = listPreviewScopes().filter((scope) => scope.root !== keep)
   let excess = scopes.length - (PREVIEW_SCOPE_CAP - 1)
   for (const scope of scopes) {
