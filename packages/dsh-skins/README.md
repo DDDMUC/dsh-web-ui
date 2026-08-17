@@ -28,6 +28,10 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
 
 Switch skins with `dsh-skin use <id>`; only one skin is active at a time.
 
+## Bundled licenses
+
+The aggregate does not relicense bundled skins. Each `skins/<id>` carrier keeps the source skin's `package.json` license and includes its `LICENSE` and `NOTICE` files when present. In particular, `maid-atelier` and its artwork use CC BY-NC-SA 4.0, require the complete attribution chain, and prohibit commercial use. Check the selected carrier's legal files before redistribution.
+
 ## Known limitations
 
 - The browser bundle targets the web only, scoped to the dsh web GUI.

@@ -18,11 +18,12 @@
       "platform": "web"
     }
   },
-  "license": "BSD-3-Clause",
+  "license": "Apache-2.0",
   "files": [
     "lib",
     "skin.json",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "LICENSE"
   ],
   "repository": {
     "type": "git",

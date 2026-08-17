@@ -13,6 +13,7 @@
  *   - package.json (generated minimal leaf package so the profile symlink /
  *     profile node_modules can resolve @linxin666/dsh-client-ui-skin-<id>)
  *   - cordis.patch.yml (the skin's own patch row, for `dsh plugin add`)
+ *   - LICENSE / NOTICE when supplied by the source skin
  * Directories without a skin.json (skin-center itself, workspace
  * scaffolding) are skipped.
  *
@@ -50,9 +51,10 @@ function readJson(filePath) {
  * carries the official dsh.bundle manifest so the carrier is also a valid
  * turtle-ui bundle for `dsh plugin add`.
  * @param sourcePkg - the source skin package.json (name/version source).
+ * @param legalFiles - legal files copied from the source skin.
  * @returns the serialized package.json text.
  */
-function renderCarrierPackageJson(sourcePkg) {
+function renderCarrierPackageJson(sourcePkg, legalFiles) {
   const pkg = {
     name: sourcePkg.name,
     version: sourcePkg.version,
@@ -68,8 +70,8 @@ function renderCarrierPackageJson(sourcePkg) {
       bundle: { patch: './cordis.patch.yml' },
       client: { inject: [], platform: 'web' },
     },
-    license: 'BSD-3-Clause',
-    files: ['lib', 'skin.json', 'cordis.patch.yml'],
+    license: sourcePkg.license,
+    files: ['lib', 'skin.json', 'cordis.patch.yml', ...legalFiles],
     repository: { type: 'git', url: 'https://github.com/zhu1090093659/dsh-web-ui.git' },
   }
   return JSON.stringify(pkg, null, 2) + '\n'
@@ -98,7 +100,7 @@ function syncDir(src, dst) {
       continue
     }
     const sourcePkg = readJson(path.join(srcDir, 'package.json'))
-    if (sourcePkg === null || typeof sourcePkg.name !== 'string') {
+    if (sourcePkg === null || typeof sourcePkg.name !== 'string' || typeof sourcePkg.license !== 'string') {
       console.warn('skipped skin (missing or invalid package.json):', dir)
       continue
     }
@@ -113,7 +115,15 @@ function syncDir(src, dst) {
     fs.copyFileSync(bundle, path.join(target, 'lib', 'client.js'))
     fs.copyFileSync(hostEntry, path.join(target, 'lib', 'index.js'))
     fs.copyFileSync(patch, path.join(target, 'cordis.patch.yml'))
-    fs.writeFileSync(path.join(target, 'package.json'), renderCarrierPackageJson(sourcePkg))
+    const legalFiles = []
+    for (const legalFile of ['LICENSE', 'NOTICE']) {
+      const sourceLegalFile = path.join(srcDir, legalFile)
+      if (fs.statSync(sourceLegalFile, { throwIfNoEntry: false })) {
+        fs.copyFileSync(sourceLegalFile, path.join(target, legalFile))
+        legalFiles.push(legalFile)
+      }
+    }
+    fs.writeFileSync(path.join(target, 'package.json'), renderCarrierPackageJson(sourcePkg, legalFiles))
     built.add(dir)
     console.log('bundled skin:', dir)
   }

@@ -28,6 +28,10 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
 
 皮肤切换用 `dsh-skin use <id>`；同一时刻只激活一个皮肤。
 
+## 内置皮肤许可
+
+聚合包不会重新授权内置皮肤。每个 `skins/<id>` 载具都保留源皮肤 `package.json` 中的许可，并在源皮肤提供时附带 `LICENSE` 与 `NOTICE`。其中 `maid-atelier` 及其素材采用 CC BY-NC-SA 4.0，必须保留完整署名链，且禁止商业使用。再分发前应检查所选载具的许可文件。
+
 ## 已知限制
 
 - 浏览器 bundle 仅面向 Web，作用域限定在 dsh web GUI。

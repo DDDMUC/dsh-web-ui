@@ -50,7 +50,7 @@ dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI:
 | Mobile remote control | None | QR pairing with SSE real-time sync |
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
 | Image understanding | None | `describe_image` vision tool |
-| Themes & skins | Default theme | Skin center with 10 skins, try-on before apply |
+| Themes & skins | Default theme | Skin center with 13 skins, try-on before apply |
 
 ## Feature Plugins
 
@@ -86,7 +86,7 @@ When a project session is open, two panels appear to the right of the chat area:
 - **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and text, with source / preview switching, split editing and saving;
 - **Changes (SCM)**: a real git changes panel with stage / unstage / discard;
 - Panel widths drag (double-click the handle to reset); collapsed state and widths persist per project;
-- All ten skins cover the right panel, so it follows the theme when you switch.
+- All 13 skins cover the right panel, so it follows the theme when you switch.
 
 ![Right panel](docs/screenshots/19-right-panel.png)
 
@@ -138,13 +138,13 @@ All family plugins' toggles and parameters live under "Settings" and apply immed
 
 ## Skins
 
-The skin center has ten skins, each with try-on before apply: the preview applies instantly and reverts fully on exit; apply with one click once you are happy.
+The skin center has 13 skins, each with try-on before apply: the preview applies instantly and reverts fully on exit; apply with one click once you are happy.
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-All ten skins at a glance (screenshots for Dragon Heir / Miku / THS are pending):
+A selection of skins at a glance (screenshots for Dragon Heir / Miku / THS are pending):
 
-![All 10 skins](docs/images/skins-montage.png)
+![Skin selection](docs/images/skins-montage.png)
 
 ### Windows XP (Luna)
 
@@ -169,6 +169,12 @@ The deep-sea whale-goddess theme: a text-free ambience painting (a blue-haired g
 A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting into sunset orange) sits beneath translucent panes, wrapped in a deep-navy base with amber-orange accents, a thin twilight scrim in light mode and a deeper dusk veil in dark mode.
 
 ![Harbor light](docs/screenshots/26-skin-harbor-light.png) · ![Harbor dark](docs/screenshots/27-skin-harbor-dark.png)
+
+### Abyssal Maid Atelier
+
+A dual-maid palace backdrop wraps an ornamental navy interface, while the characters reposition across the landing page, conversation page and workspace views. All runtime artwork is embedded and needs no remote asset service. The skin and its artwork use CC BY-NC-SA 4.0; see the [skin NOTICE](packages/skins/maid-atelier/NOTICE) for the complete attribution chain.
+
+![Abyssal Maid Atelier light](packages/skins/maid-atelier/preview/light.png) · ![Abyssal Maid Atelier dark](packages/skins/maid-atelier/preview/dark.png)
 
 ## Quick Start
 
@@ -352,7 +358,8 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 
 | Package | Origin | License |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins not listed separately | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
+| dsh-client-ui-skin-maid-atelier | Original character by 上善, adapted by zipzip and Small-tailqwq; see the [skin NOTICE](packages/skins/maid-atelier/NOTICE) | CC BY-NC-SA 4.0 |
 | dsh-tool-describe-image | Ported from [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image) (deepseek-harness `packages/vision/tool-describe-image`) | Apache-2.0 (zhu1090093659) |
 
 ## Contributors

@@ -524,6 +524,14 @@
   }
   .info-panel .author[hidden] { display: none; }
   .info-panel .author svg { width: 13px; height: 13px; flex: none; }
+  .info-panel .legal {
+    display: flex; flex-wrap: wrap; gap: 5px 10px;
+    color: var(--g-muted); font-size: 11.5px; line-height: 1.45;
+  }
+  .info-panel .legal[hidden] { display: none; }
+  .info-panel .legal .attribution { flex-basis: 100%; }
+  .info-panel .legal a { color: #93bce7; text-decoration: none; }
+  .info-panel .legal a:hover { text-decoration: underline; }
   /* 关闭按钮：SVG 图标 + 正圆形，hover 红色 */
   .close-x {
     border: 0 !important; background: transparent;
@@ -755,6 +763,7 @@
         <div class="author" id="mAuthor"></div>
         <p class="tagline" id="mTagline"></p>
         <div class="tags" id="mTags"></div>
+        <div class="legal" id="mLegal" hidden></div>
       </div>
     </div>
   </div>
@@ -1133,6 +1142,7 @@
   var mInfo = document.getElementById('mInfo')
   var mInfoPanel = document.getElementById('mInfoPanel')
   var mAuthor = document.getElementById('mAuthor')
+  var mLegal = document.getElementById('mLegal')
   var state = { skin: null, dark: false }
   var lastFocus = null
 
@@ -1201,6 +1211,27 @@
       mAuthor.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span></span>'
       mAuthor.lastChild.textContent = s.author
     }
+    mLegal.replaceChildren()
+    mLegal.hidden = !(s.license || s.attribution || s.sourceUrl)
+    if (s.attribution) {
+      var attribution = document.createElement('span')
+      attribution.className = 'attribution'
+      attribution.textContent = '署名：' + s.attribution
+      mLegal.appendChild(attribution)
+    }
+    ;[
+      [s.licenseUrl, s.license || '许可证'],
+      [s.noticeUrl, '完整署名'],
+      [s.sourceUrl, '源代码'],
+    ].forEach(function (entry) {
+      if (!entry[0]) return
+      var link = document.createElement('a')
+      link.href = entry[0]
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      link.textContent = entry[1]
+      mLegal.appendChild(link)
+    })
     mTags.replaceChildren()
     ;(s.tags || []).forEach(function (t) {
       var sp = document.createElement('span')

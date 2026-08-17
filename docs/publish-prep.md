@@ -9,7 +9,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 23 个插件包（截至快照日）：
+`packages/` 与 `packages/skins/` 下共 27 个插件包（截至快照日）：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
@@ -23,6 +23,7 @@
 | packages/dsh-aionui-panel | @linxin666/dsh-client-ui-aionui-panel | 0.1.1 | true |
 | packages/dsh-web-ui-settings | @linxin666/dsh-client-ui-web-ui-settings | 0.1.1 | true |
 | packages/dsh-community-plugins | @linxin666/dsh-client-ui-community-plugins | 0.1.17 | false |
+| packages/dsh-tool-describe-image | @linxin666/dsh-tool-describe-image | 0.1.20 | false |
 | packages/dsh-skins | @linxin666/dsh-skins（聚合） | 0.1.1 | true |
 | packages/dsh-web-ui-all | @linxin666/dsh-web-ui-all（聚合） | 0.1.1 | true |
 | packages/skins/qq98 | @linxin666/dsh-client-ui-skin-qq98 | 0.1.1 | true |
@@ -38,6 +39,7 @@
 | packages/skins/skin-center | @linxin666/dsh-client-ui-skin-center | 0.1.1 | true |
 | packages/skins/miku | @linxin666/dsh-client-ui-skin-miku | 0.1.12 | true |
 | packages/skins/matrix | @linxin666/dsh-client-ui-skin-matrix | 0.1.0 | true |
+| packages/skins/maid-atelier | @linxin666/dsh-client-ui-skin-maid-atelier | 0.1.20 | false |
 
 
 ## 二、发布前检查结论（2026-08-11，已修复项标注 [已确认]）

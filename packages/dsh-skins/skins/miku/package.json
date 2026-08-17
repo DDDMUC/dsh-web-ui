@@ -22,7 +22,8 @@
   "files": [
     "lib",
     "skin.json",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "LICENSE"
   ],
   "repository": {
     "type": "git",

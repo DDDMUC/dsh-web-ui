@@ -48,7 +48,7 @@ dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合�
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
-| 主题皮肤 | 默认主题 | 皮肤中心 10 款，先试穿再应用 |
+| 主题皮肤 | 默认主题 | 皮肤中心 13 款，先试穿再应用 |
 
 ## 功能插件
 
@@ -84,7 +84,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 - **预览**：多标签预览 markdown、HTML、代码、diff、CSV、PDF、Office、图片与文本，可切换源码 / 预览、分屏编辑、保存；
 - **变更（SCM）**：真实的 git 变更面板，stage / unstage / discard；
 - 面板宽度可拖，双击把手复位；折叠状态和宽度按项目记住；
-- 10 款皮肤都适配右侧面板，换肤后面板跟着变。
+- 13 款皮肤都适配右侧面板，换肤后面板跟着变。
 
 ![右侧面板](docs/screenshots/19-right-panel.png)
 
@@ -136,13 +136,13 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ## 皮肤
 
-皮肤中心有 10 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
+皮肤中心有 13 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
-10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬 / 同花顺风格三款截图待补充）：
+部分皮肤一览（龙的传人 / 初音未来 · 电子歌姬 / 同花顺风格三款截图待补充）：
 
-![10 款皮肤一览](docs/images/skins-montage.png)
+![皮肤一览](docs/images/skins-montage.png)
 
 ### Windows XP（Luna）
 
@@ -167,6 +167,12 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 黄昏港口主题：动漫少女港口背景（暮光蓝天空渐入日落橙）垫在半透明面板下面，深暮蓝底与日落橙主色贯穿全局，亮色是薄暮纱、暗色是深海夜航纱。
 
 ![夕港 亮色](docs/screenshots/26-skin-harbor-light.png) · ![夕港 暗色](docs/screenshots/27-skin-harbor-dark.png)
+
+### 深海女仆工坊（Abyssal Maid Atelier）
+
+双女仆宫殿背景配合深海蓝装饰界面，角色会根据着陆页、对话页和工作区视图调整位置；运行时素材全部内嵌，不依赖远程资源服务。本皮肤及其素材采用 CC BY-NC-SA 4.0，完整署名见[皮肤 NOTICE](packages/skins/maid-atelier/NOTICE)。
+
+![深海女仆工坊 亮色](packages/skins/maid-atelier/preview/light.png) · ![深海女仆工坊 暗色](packages/skins/maid-atelier/preview/dark.png)
 
 ## 快速开始
 
@@ -349,8 +355,9 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 
 | 包 | 来源 | 版权 |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / 未单独列出的 skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
 | dsh-client-ui-skin-matrix | 贡献者原创（Matrix 深夜护眼暗色皮肤） | Apache-2.0（贡献者 seanchen 声明） |
+| dsh-client-ui-skin-maid-atelier | 上善角色原作，经 zipzip 与 Small-tailqwq 衍生设计；完整署名见[皮肤 NOTICE](packages/skins/maid-atelier/NOTICE) | CC BY-NC-SA 4.0 |
 | dsh-tool-describe-image | 移植自 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)（deepseek-harness `packages/vision/tool-describe-image`） | Apache-2.0（zhu1090093659） |
 
 ## 贡献者
