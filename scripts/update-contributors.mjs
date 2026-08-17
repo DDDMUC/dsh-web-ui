@@ -39,6 +39,26 @@ const EXCLUDED_LOGINS = new Set([
   'github-actions[bot]', // auto-commits README syncs; not a human contributor
 ])
 
+/**
+ * External contributors recognized for substantive work that did not become a
+ * commit on main. Keep this explicit list so GitHub's /contributors endpoint
+ * does not erase that acknowledgement.
+ */
+const ACKNOWLEDGED_CONTRIBUTORS = [
+  { login: 'Twelveeee', html_url: 'https://github.com/Twelveeee' }, // PR #102
+]
+
+function buildContributors(githubContributors) {
+  const byLogin = new Map()
+  for (const contributor of githubContributors) {
+    if (!EXCLUDED_LOGINS.has(contributor.login)) byLogin.set(contributor.login, contributor)
+  }
+  for (const contributor of ACKNOWLEDGED_CONTRIBUTORS) {
+    if (!byLogin.has(contributor.login)) byLogin.set(contributor.login, contributor)
+  }
+  return [...byLogin.values()]
+}
+
 async function fetchContributors() {
   let page = 1
   const all = []
@@ -83,7 +103,7 @@ function replaceSection(text, section) {
   return text.slice(0, i) + section + text.slice(j + END.length)
 }
 
-const contributors = (await fetchContributors()).filter((c) => !EXCLUDED_LOGINS.has(c.login))
+const contributors = buildContributors(await fetchContributors())
 for (const { rel, viewAllLabel } of files) {
   const path = join(root, rel)
   const original = readFileSync(path, 'utf8')
