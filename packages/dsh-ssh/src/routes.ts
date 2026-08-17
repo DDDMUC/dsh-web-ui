@@ -361,9 +361,22 @@ const maxUploadBytes = deps.maxUploadBytes ?? MAX_UPLOAD_BYTES
           if (settled) return
           settled = true
           emit({ type: 'result', ok: false, error: error instanceof Error ? error.message : String(error) })
-          try { sink.destroy() } catch { /* closed */ }
-          void unlink(tmp).catch(() => undefined)
-          try { res.end() } catch { /* closed */ }
+          // End the response only after the tmp file is gone, and unlink only
+          // after the sink is fully closed: destroying a WriteStream whose
+          // fs.open is still pending lets the open RE-CREATE the file after
+          // an early unlink, leaving staging populated (this raced the
+          // response end and made the byte-cap test flaky).
+          const cleanup = (): void => {
+            void unlink(tmp).catch(() => undefined).finally(() => {
+              try { res.end() } catch { /* closed */ }
+            })
+          }
+          if (sink.destroyed) {
+            cleanup()
+          } else {
+            sink.once('close', cleanup)
+            try { sink.destroy() } catch { cleanup() }
+          }
         }
         const done = (): void => {
           if (settled) return
@@ -379,11 +392,18 @@ const maxUploadBytes = deps.maxUploadBytes ?? MAX_UPLOAD_BYTES
         // header-less requests: count the bytes as they actually arrive and
         // abort the moment the cap is exceeded.
         let received = 0
+        let capped = false
         req.on('data', (chunk: Buffer) => {
           received += chunk.byteLength
-          if (received > maxUploadBytes) {
+          if (received > maxUploadBytes && !capped) {
+            capped = true
             fail('upload body too large')
-            try { req.destroy() } catch { /* closed */ }
+            // Keep the socket alive until the response flush finishes:
+            // destroying the request here races res.end() and the client
+            // sees a hang-up instead of the result frame. Drain the rest of
+            // the body so the socket can close cleanly afterwards.
+            res.on('finish', () => { try { req.destroy() } catch { /* closed */ } })
+            req.resume()
           }
         })
         req.pipe(sink)

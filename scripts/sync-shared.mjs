@@ -87,6 +87,11 @@ const MANIFEST = [
   },
 
   {
+    file: 'sse-leader.ts',
+    source: 'shared/client/sse-leader.ts',
+    targets: ['packages/dsh-aionui-panel/src/client/sse-leader.ts', 'packages/dsh-git-graph/src/client/sse-leader.ts'],
+  },
+  {
     file: 'loopback.ts',
     source: 'shared/host/loopback.ts',
     targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts'],
