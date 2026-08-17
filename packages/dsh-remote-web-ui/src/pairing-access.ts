@@ -34,9 +34,3 @@ export class RemoteWebUiPairing extends Service {
     return this.check(request)
   }
 }
-
-declare module '@deepseek-ai/cordis' {
-  interface Context {
-    remoteWebUiPairing: RemoteWebUiPairing
-  }
-}
