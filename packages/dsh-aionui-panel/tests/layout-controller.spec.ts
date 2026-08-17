@@ -160,8 +160,13 @@ describe('handle hit-zone geometry (issue #409)', () => {
     expect(previewHandle.style.display).toBe('block')
     expect(previewHandle.style.width).toBe('20px')
     expect(previewHandle.style.marginLeft).toBe('-4px')
-    // Positioned at the panel's left edge, the zone's right end lands 16px
-    // inside the preview column — the bulk of the zone never leaves the panel.
-    expect(parseFloat(previewHandle.style.left)).toBe(1280 - 260 - 480)
+    // The #409 contract, asserted geometrically: the hit zone starts exactly
+    // 4px left of the preview column's boundary (frame width minus the two
+    // panel tracks), so the chat scrollbar at that boundary stays clickable.
+    const pxTracks = frame.style.gridTemplateColumns.match(/-?[\d.]+px/g) ?? []
+    const explorerPx = parseFloat(pxTracks[pxTracks.length - 1])
+    const previewPx = parseFloat(pxTracks[pxTracks.length - 2])
+    const boundary = 1280 - explorerPx - previewPx
+    expect(parseFloat(previewHandle.style.left) + parseFloat(previewHandle.style.marginLeft)).toBe(boundary - 4)
   })
 })
