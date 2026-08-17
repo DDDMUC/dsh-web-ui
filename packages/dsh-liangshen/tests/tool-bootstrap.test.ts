@@ -227,6 +227,68 @@ describe('anchored-tool-bootstrap', () => {
     expect(result.messages).toEqual(messages)
   })
 
+  test('instructionHint swaps the first post-promotion instructions dump for a hint (#388)', async () => {
+    const listeners = register({ instructionHint: true })
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const sessionObj = { events: [{ type: 'tool/call' }] }
+    await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({
+      system: 'minimal persona',
+      tools: [{ name: 'bash' }, { name: 'read' }],
+    }))
+
+    const dump = {
+      id: 'instructions',
+      role: 'user',
+      content: [{
+        type: 'text',
+        text: '<system-reminder>\n\nInstructions from: ~/.dsh/AGENTS.md\n\nGlobal rules.\n\nInstructions from: AGENTS.md\n\nRepo rules.\n</system-reminder>',
+      }],
+      source: { kind: 'agent-instructions' },
+    }
+    const messages = [message('user', 'user'), dump]
+    const first = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 1, step: 1, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
+    expect(first.messages).toHaveLength(2)
+    expect(first.messages[0].id).toBe('user')
+    const hint = first.messages[1]
+    expect(hint.source.kind).toBe('instruction-hint')
+    expect(hint.content[0].text).toContain('Reference documents exist: ~/.dsh/AGENTS.md, AGENTS.md.')
+    expect(hint.content[0].text).toContain('not task instructions')
+    expect(hint.content[0].text).not.toContain('Global rules.')
+
+    // Later injections are dropped silently; the model reads on demand.
+    const second = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 1, step: 2, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
+    expect(second.messages.map((entry: any) => entry.id)).toEqual(['user'])
+  })
+
+  test('instructionHint passes an instructions message with no file sections through', async () => {
+    const listeners = register({ instructionHint: true })
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const sessionObj = { events: [{ type: 'tool/call' }] }
+    await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({
+      system: 'minimal persona',
+      tools: [{ name: 'bash' }, { name: 'read' }],
+    }))
+    const empty = {
+      id: 'instructions',
+      content: [{ type: 'text', text: '<system-reminder>\n\nNo workspace instructions.\n</system-reminder>' }],
+      source: { kind: 'agent-instructions' },
+    }
+    const messages = [message('user', 'user'), empty]
+    const result = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 1, step: 1, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
+    expect(result.messages).toEqual(messages)
+  })
+
   test('phase 1 only lets explicit user messages through, whatever messageSources names', async () => {
     const preStepListener = listener(register({ messageSources: ['user', 'agent-instructions'] }), 'agent/pre-step')
     const messages = [

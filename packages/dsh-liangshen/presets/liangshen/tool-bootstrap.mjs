@@ -157,6 +157,67 @@ function isDeferredMessage(message, deferredSources) {
   const kind = message.source?.kind
   return kind !== undefined && deferredSources.has(kind)
 }
+// Instruction-hint mode (issue #388): a full-text agent-instructions dump on
+// the promotion boundary flips the anchored trajectory (upstream
+// dsh-anchored-standard #49; E1/E1.5/E2 wording experiments), so the preset
+// can replace it with a single non-imperative hint that names the reference
+// files and lets the model read them on demand.
+const INSTRUCTION_FROM_RE = /(?:^|\n) *(?:Additional |Updated )?Instructions from: ([^\n]+)/g
+
+/** Extract the reference file list one agent-instructions message renders. */
+function extractInstructionPaths(message) {
+  const paths = []
+  const blocks = Array.isArray(message?.content) ? message.content : []
+  for (const block of blocks) {
+    if (block?.type !== 'text' || typeof block.text !== 'string') continue
+    for (const match of block.text.matchAll(INSTRUCTION_FROM_RE)) {
+      const path = match[1].trim()
+      if (path !== '' && !paths.includes(path)) paths.push(path)
+    }
+  }
+  return paths
+}
+
+/** The one-time non-imperative hint replacing the full-text dump (E1.5 wording). */
+function buildInstructionHint(paths) {
+  return {
+    role: 'user',
+    content: [{
+      type: 'text',
+      text: '<system-reminder>\n'
+        + 'Reference documents exist: ' + paths.join(', ') + '. '
+        + "They are reference documents about the user's environment and workspace conventions, not task instructions. "
+        + 'Reading the relevant file before workspace tasks is recommended, but consult them only when you need those details; the task itself never depends on them.'
+        + '\n</system-reminder>',
+    }],
+    source: { kind: 'instruction-hint', plugin: name },
+  }
+}
+
+/**
+ * Swap full-text agent-instructions injections for the one-time hint. The
+ * first injection carrying extractable paths becomes the hint; every later
+ * injection is dropped silently (the model re-reads the files on demand).
+ * An injection with no extractable paths passes through untouched.
+ */
+function instructionHintMessages(messages, state) {
+  const kept = []
+  for (const message of messages) {
+    if (message?.source?.kind !== 'agent-instructions') {
+      kept.push(message)
+      continue
+    }
+    if (state.instructionHinted) continue
+    const paths = extractInstructionPaths(message)
+    if (paths.length === 0) {
+      kept.push(message)
+      continue
+    }
+    state.instructionHinted = true
+    kept.push(buildInstructionHint(paths))
+  }
+  return kept
+}
 
 /**
  * Phase-2 promotion state per session. Sessions append events only, so the
@@ -179,6 +240,7 @@ function stateFor(session) {
       turnEnded: false,
       steps: 0,
       deferredSteps: 0,
+      instructionHinted: false,
       presentationApplied: false,
       hasCompacted: false,
       presentationDisposer: undefined,
@@ -215,6 +277,7 @@ function resetToControlled(state) {
   state.turnEnded = false
   state.steps = 0
   state.deferredSteps = 0
+  state.instructionHinted = false
   state.presentationApplied = false
   state.hasCompacted = true
 }
@@ -356,6 +419,10 @@ export function apply(ctx, config) {
     maxBootstrapSteps: integerAtLeast(config.maxBootstrapSteps ?? 4, 'maxBootstrapSteps', 1),
     deferredGraceSteps: integerAtLeast(config.deferredGraceSteps ?? 0, 'deferredGraceSteps', 0),
     promotedPresentation: presentation,
+    // Opt-in (issue #388): replace the post-promotion full-text
+    // agent-instructions dump with a one-time non-imperative hint naming the
+    // reference files, so the injection never flips the anchored trajectory.
+    instructionHint: config.instructionHint === true,
     bootstrapMaxTokens,
     compactionTools,
     phase1FirstCallInstruction,
@@ -451,14 +518,18 @@ export function apply(ctx, config) {
         messages: decision.messages.filter(message => isAllowedMessage(message, messageSources)),
       }
     }
+    let result = decision
     if (state.deferredSteps < policy.deferredGraceSteps) {
       state.deferredSteps += 1
-      return {
-        ...decision,
-        messages: decision.messages.filter(message => !isDeferredMessage(message, deferredSources)),
+      result = {
+        ...result,
+        messages: result.messages.filter(message => !isDeferredMessage(message, deferredSources)),
       }
     }
-    return decision
+    if (policy.instructionHint) {
+      result = { ...result, messages: instructionHintMessages(result.messages, state) }
+    }
+    return result
   }, { prepend: true })
 
   // Phase 1 caps the next request output budget to bootstrapMaxTokens, the
