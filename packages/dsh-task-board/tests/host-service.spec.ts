@@ -131,8 +131,8 @@ describe('TaskBoardHostService scheduling without a browser', () => {
     const duplicate = service.apply('request-a', {
       kind: 'create', id: 'task-a', input: { title: 'A', description: '', prompt: '' },
     })
-    expect(duplicate.revision).toBe(first.revision)
-    expect(duplicate.tasks.map(task => task.id)).toEqual(['task-a'])
+    expect(duplicate.revision).toBeGreaterThan(first.revision)
+    expect(duplicate.tasks.map(task => task.id)).toEqual(['task-a', 'task-b'])
     expect(() => service.apply('request-a', {
       kind: 'create', id: 'ignored', input: { title: 'ignored', description: '', prompt: '' },
     })).toThrow('different action')

@@ -29,6 +29,13 @@ describe('task-board action protocol', () => {
     } })?.action.kind).toBe('import')
   })
 
+  it('rejects oversized request ids', () => {
+    expect(parseActionEnvelope({
+      requestId: 'x'.repeat(257),
+      action: { kind: 'delete', taskId: 'task-a' },
+    })).toBeUndefined()
+  })
+
   it('rejects malformed schedule fields during legacy import', () => {
     const task = createTask({ title: 'legacy', description: '', prompt: '' }, 1, 'legacy')
     expect(parseActionEnvelope({

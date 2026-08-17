@@ -28,17 +28,20 @@ describe('HostTaskLedger', () => {
     const ledger = new HostTaskLedger(root, () => NOW)
     const old = task('same', NOW - 100)
     const opened = startExecution(old, NOW - 90, 'exec-a').task
-    const newer = { ...task('same', NOW), title: 'newer', executions: [
+    const newer = { ...task('same', NOW + 1), title: 'newer', executions: [
       { id: 'exec-b', sessionId: 'session-b', startedAt: NOW - 80, endedAt: NOW - 70, result: 'succeeded' as const, error: undefined },
     ] }
     ledger.applyRequest('request-a', { kind: 'import', sourceId: 'browser-a', tasks: [opened] })
     ledger.applyRequest('request-b', { kind: 'import', sourceId: 'browser-b', tasks: [newer] })
     const revision = ledger.state().revision
     ledger.applyRequest('request-c', { kind: 'import', sourceId: 'browser-a', tasks: [task('ignored')] })
+    ledger.applyRequest('request-d', {
+      kind: 'import', sourceId: 'browser-equal', tasks: [{ ...task('same', NOW + 1), title: 'equal-time browser copy' }],
+    })
     const merged = ledger.state().tasks[0]
     expect(merged.title).toBe('newer')
     expect(merged.executions.map(entry => entry.id)).toEqual(['exec-a', 'exec-b'])
-    expect(ledger.state().revision).toBe(revision)
+    expect(ledger.state().revision).toBe(revision + 1)
   })
 
   it('persists atomically, restores revision, and returns the first duplicate request result', () => {
@@ -105,6 +108,27 @@ describe('HostTaskLedger', () => {
     const execution = restarted.state().tasks[0].executions[0]
     expect(execution.result).toBe('cancelled')
     expect(execution.error).toContain('restarted')
+  })
+
+  it('persists request fingerprints and scheduler metadata across Host restarts', () => {
+    const root = tempRoot()
+    const ledger = new HostTaskLedger(root, () => NOW)
+    ledger.applyRequest('create', { kind: 'create', id: 'task-a', input: { title: 'A', description: '', prompt: '' } })
+    ledger.applyRequest('run', { kind: 'run', taskId: 'task-a' })
+    ledger.setScheduler({ lastTickAt: NOW })
+    ledger.dispose()
+
+    const restarted = new HostTaskLedger(root, () => NOW + 1_000)
+    const beforeRetry = restarted.state()
+    const duplicate = restarted.applyRequest('run', { kind: 'run', taskId: 'task-a' })
+    expect(duplicate.state).toEqual(beforeRetry)
+    expect(duplicate.state.tasks[0].executions).toHaveLength(1)
+    expect(duplicate.state.tasks[0].executions[0].result).toBe('cancelled')
+    expect(duplicate.state.scheduler.lastTickAt).toBe(NOW)
+    expect(() => restarted.applyRequest('run', {
+      kind: 'rerun', taskId: 'task-a',
+    })).toThrow('different action')
+    restarted.dispose()
   })
 
   it('fails closed on a second live owner of the same ledger directory', () => {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { dshHome } from './dsh-home.ts'
@@ -15,11 +16,17 @@ interface PersistedScheduler extends TaskBoardSchedulerSnapshot {
   importedSources?: string[]
 }
 
+interface PersistedRequest {
+  requestId: string
+  fingerprint: string
+}
+
 interface LedgerDocument {
   schemaVersion: typeof TASK_BOARD_SCHEMA_VERSION
   revision: number
   tasks: TaskRecord[]
   scheduler: PersistedScheduler
+  recentRequests: PersistedRequest[]
 }
 
 export interface LedgerState {
@@ -37,7 +44,6 @@ const MAX_REQUEST_CACHE = 256
 
 interface CachedRequest {
   fingerprint: string
-  state: LedgerState
 }
 
 function timeZone(): string {
@@ -69,7 +75,9 @@ function betterExecution(a: ExecutionRecord, b: ExecutionRecord): ExecutionRecor
 }
 
 function mergeTask(a: TaskRecord, b: TaskRecord): TaskRecord {
-  const newer = b.updatedAt >= a.updatedAt ? b : a
+  // Existing Host state wins ties so an equally old browser backup cannot
+  // roll authoritative fields back during multi-browser v1 migration.
+  const newer = b.updatedAt > a.updatedAt ? b : a
   const byId = new Map<string, ExecutionRecord>()
   for (const entry of [...a.executions, ...b.executions]) {
     const previous = byId.get(entry.id)
@@ -120,6 +128,9 @@ export class HostTaskLedger {
     this.lockFd = this.acquireLock()
     try {
       this.document = this.load(dir)
+      for (const request of this.document.recentRequests) {
+        this.requestCache.set(request.requestId, { fingerprint: request.fingerprint })
+      }
       this.repairSchedules(true)
       this.reconcileInterruptedStarts()
       // Persist a freshly generated ledger identity and any recovery error
@@ -155,16 +166,25 @@ export class HostTaskLedger {
   }
 
   applyRequest(requestId: string, action: TaskBoardAction): { state: LedgerState; run?: OpenedRun } {
-    const fingerprint = JSON.stringify(action)
+    const fingerprint = createHash('sha256').update(JSON.stringify(action)).digest('hex')
     const cached = this.requestCache.get(requestId)
     if (cached !== undefined) {
       if (cached.fingerprint !== fingerprint) throw new Error('request id was reused with a different action')
-      return { state: cached.state }
+      return { state: this.state() }
     }
-    const result = this.apply(action)
-    this.requestCache.set(requestId, { fingerprint, state: result.state })
+
+    // Add the fingerprint before apply(): successful actions persist it in the
+    // same atomic ledger write as their state transition.
+    this.requestCache.set(requestId, { fingerprint })
     while (this.requestCache.size > MAX_REQUEST_CACHE) this.requestCache.delete(this.requestCache.keys().next().value as string)
-    return result
+    this.syncRecentRequests()
+    try {
+      return this.apply(action)
+    } catch (error) {
+      this.requestCache.delete(requestId)
+      this.syncRecentRequests()
+      throw error
+    }
   }
 
   openScheduled(taskId: string, nextRunAt: number | undefined, triggeredAt: number): OpenedRun | undefined {
@@ -195,7 +215,7 @@ export class HostTaskLedger {
 
   setScheduler(patch: Partial<TaskBoardSchedulerSnapshot>): void {
     this.document.scheduler = { ...this.document.scheduler, ...patch }
-    this.notify()
+    this.commit(false)
   }
 
   attachSession(taskId: string, executionId: string, sessionId: string): void {
@@ -366,6 +386,15 @@ export class HostTaskLedger {
           ...(invalidScheduleIds.length > 0 ? { error: `invalid cron disabled for task(s): ${invalidScheduleIds.join(', ')}` } : {}),
           ...(Array.isArray(parsed.scheduler?.importedSources) ? { importedSources: parsed.scheduler.importedSources.filter(x => typeof x === 'string') } : {}),
         },
+        recentRequests: Array.isArray(parsed.recentRequests)
+          ? parsed.recentRequests.flatMap((entry) => {
+              if (typeof entry !== 'object' || entry === null) return []
+              const request = entry as { requestId?: unknown; fingerprint?: unknown }
+              return typeof request.requestId === 'string' && request.requestId !== '' && typeof request.fingerprint === 'string'
+                ? [{ requestId: request.requestId, fingerprint: request.fingerprint }]
+                : []
+            }).slice(-MAX_REQUEST_CACHE)
+          : [],
       }
     } catch (error) {
       if (existed) renameSync(this.file, `${this.file}.corrupt-${this.now()}-${process.pid}-${crypto.randomUUID()}`)
@@ -375,8 +404,16 @@ export class HostTaskLedger {
         revision: 0,
         tasks: [],
         scheduler: { timeZone: timeZone(), ledgerId: crypto.randomUUID(), ...(existed ? { error: `corrupt ledger was quarantined: ${error instanceof Error ? error.message : String(error)}` } : {}) },
+        recentRequests: [],
       }
     }
+  }
+
+  private syncRecentRequests(): void {
+    this.document.recentRequests = [...this.requestCache].map(([requestId, request]) => ({
+      requestId,
+      fingerprint: request.fingerprint,
+    }))
   }
 
   private commit(bumpRevision = true): void {

@@ -23,7 +23,7 @@ A hot-pluggable DeepSeek Harness (DSH) Web GUI plugin with a Host-authoritative 
 ## Architecture and protocol
 
 - `src/index.ts` mounts the Host service through the official `@deepseek-ai/dsh-host-apiproxy` and `@deepseek-ai/dsh-host-webserver` SDKs.
-- `src/host-ledger.ts` serializes actions and persists `{ schemaVersion: 2, revision, tasks, scheduler }` through a temporary file plus atomic rename.
+- `src/host-ledger.ts` serializes actions and persists `{ schemaVersion: 2, revision, tasks, scheduler, recentRequests }` through a temporary file plus atomic rename.
 - `src/host-service.ts` owns cron ticks, missed-trigger skipping, runner launch, restart reconciliation, and power reasons.
 - `src/client/host-api.ts` imports legacy browser data once, submits idempotent actions, and treats Host snapshots as the only confirmed UI state.
 - Same-origin endpoints are `GET /api/task-board/state`, `GET /api/task-board/events`, and `POST /api/task-board/action`.
@@ -65,7 +65,8 @@ On macOS the backend starts `/usr/bin/caffeinate -i -w <host-pid>` and never req
 
 - The v2 ledger is `$DSH_HOME/task-board/ledger-v2.json`. New POSIX files use mode `0600`; Windows inherits the user directory ACL.
 - A corrupt v2 file is moved to a collision-resistant `ledger-v2.json.corrupt-*` name and the Host starts with an empty ledger plus a visible scheduler error. The corrupt bytes are not overwritten.
-- On the first upgraded page load for an origin, `dsh.taskBoard.v1` is imported by stable source and request ids. Tasks merge by id, newer top-level fields win, and execution records merge by execution id.
+- On the first upgraded page load for an origin, `dsh.taskBoard.v1` is imported by stable source and request ids. Tasks merge by id, strictly newer browser top-level fields win, equal timestamps keep Host fields, and execution records merge by execution id.
+- The most recent 256 request ids and SHA-256 action fingerprints are stored with the ledger, so a retried mutation remains idempotent after a Host restart without duplicating full action payloads.
 - The import marker `dsh.taskBoard.v2.hostImported` stores the confirmed Host ledger generation only after import succeeds. A new or recovered ledger generation is offered the retained v1 data again. The v1 localStorage value remains untouched as a read-only rollback copy.
 - One Host process owns a task-board ledger directory at a time through `$DSH_HOME/task-board/ledger-v2.lock`; a second Host using the same DSH home fails closed instead of concurrently writing the ledger.
 

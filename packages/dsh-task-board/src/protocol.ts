@@ -166,7 +166,7 @@ function schedulePatch(value: unknown): boolean {
 export function parseActionEnvelope(value: unknown): TaskBoardActionEnvelope | undefined {
   const envelope = record(value)
   if (envelope === undefined || !exactKeys(envelope, ['requestId', 'action'])) return undefined
-  if (typeof envelope.requestId !== 'string' || envelope.requestId.trim() === '') return undefined
+  if (typeof envelope.requestId !== 'string' || envelope.requestId.trim() === '' || envelope.requestId.length > 256) return undefined
   const action = record(envelope.action)
   if (action === undefined || typeof action.kind !== 'string') return undefined
   const taskId = typeof action.taskId === 'string' && action.taskId !== '' ? action.taskId : undefined
