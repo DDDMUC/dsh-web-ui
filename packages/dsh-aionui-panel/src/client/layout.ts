@@ -7,7 +7,10 @@
  * absolute drag handles (12px explorer / 20px preview hit zones), the
  * floating expand button (draggable, position persisted — issue #374; the
  * default center sits below the Window Controls Overlay titlebar — issue
- * #292), and the collapse-as-width-0 keep-mounted behavior.
+ * #292), the collapse-as-width-0 keep-mounted behavior, and the transient
+ * maximize mode (issue #315): while a panel is maximized the target column
+ * takes over the whole frame row (or renders as a fixed full-screen overlay
+ * on narrow viewports), and Esc / the header button restore the layout.
  *
  * The shell's inline style is the source of truth for the sidebar and details
  * tracks; this controller never guesses their widths. Handles are out-of-flow
@@ -27,8 +30,10 @@ import {
   MIN_PREVIEW_PANEL_PX, MIN_WORKSPACE_PANEL_PX,
   KEY_EXPLORER_WIDTH, KEY_PREVIEW_WIDTH,
   clampExplorerWidth, clampPreviewWidth,
+  type MaximizeTarget,
 } from './store.ts'
 import { writeStoredNumber, readStoredNumber } from './persist.ts'
+import { maximizedGridTracks, maximizedOverlay } from './maximize.ts'
 import {
   FLOATING_BUTTON_HEIGHT_PX, FLOATING_DRAG_THRESHOLD_PX, KEY_FLOATING_TOP,
   centeredFloatingTop, clampFloatingTop, titlebarAreaHeight,
@@ -250,6 +255,17 @@ export class PanelLayoutController {
       this.disposers.push(() => overlay.removeEventListener('geometrychange', onGeometryChange))
     }
 
+    // Esc restores a maximized panel (issue #315). Editing surfaces own Esc:
+    // while an input/textarea/contenteditable is focused, leave it alone.
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      const target = event.target instanceof Element ? event.target : null
+      if (target !== null && target.closest('input, textarea, [contenteditable="true"]') !== null) return
+      this.layout.update((prev) => (prev.maximized === null ? prev : { ...prev, maximized: null }))
+    }
+    window.addEventListener('keydown', onKeyDown)
+    this.disposers.push(() => window.removeEventListener('keydown', onKeyDown))
+
     // Sync the shell's inline grid: any shell write re-appends our tracks.
     const syncGrid = (): void => {
       const el = this.frame
@@ -444,6 +460,12 @@ export class PanelLayoutController {
     const state = this.layout.getSnapshot()
     const width = this.frameWidth > 0 ? this.frameWidth : frame.getBoundingClientRect().width
 
+    if (state.maximized !== null) {
+      this.applyMaximized(frame, state.maximized, width)
+      return
+    }
+    this.clearMaximizedChrome()
+
     const explorer = this.layout.explorerWidthPx(state)
     const preview = this.layout.previewWidthPx(state)
 
@@ -491,6 +513,38 @@ export class PanelLayoutController {
       this.floatingButton.style.display = show ? 'flex' : 'none'
       this.positionFloatingButton()
     }
+  }
+
+  /**
+   * Maximize layout: the target column takes over the whole frame row (the
+   * other tracks collapse to 0px). On narrow viewports the takeover grid is
+   * skipped and the column renders as a fixed full-screen overlay instead
+   * (issue #315). Everything stays mounted — only geometry changes.
+   */
+  private applyMaximized(frame: HTMLElement, target: MaximizeTarget, width: number): void {
+    const overlay = maximizedOverlay(this.layout.getSnapshot().availableWidth)
+    if (!overlay) {
+      frame.style.gridTemplateColumns = maximizedGridTracks(target, width)
+    }
+    if (this.explorerCol !== null) {
+      this.explorerCol.style.visibility = target === 'explorer' ? 'visible' : 'hidden'
+      this.explorerCol.classList.toggle('aionui-maximized', target === 'explorer' && overlay)
+    }
+    if (this.previewCol !== null) {
+      this.previewCol.style.visibility = target === 'preview' ? 'visible' : 'hidden'
+      this.previewCol.classList.toggle('aionui-maximized', target === 'preview' && overlay)
+    }
+    // No drag chrome while maximized: nothing to resize, and the floating
+    // button only makes sense for the collapsed explorer.
+    if (this.explorerHandle !== null) this.explorerHandle.style.display = 'none'
+    if (this.previewHandle !== null) this.previewHandle.style.display = 'none'
+    if (this.floatingButton !== null) this.floatingButton.style.display = 'none'
+  }
+
+  /** Remove the narrow-screen overlay class from both columns. */
+  private clearMaximizedChrome(): void {
+    this.explorerCol?.classList.remove('aionui-maximized')
+    this.previewCol?.classList.remove('aionui-maximized')
   }
 
   /** Detach everything (plugin unload). */

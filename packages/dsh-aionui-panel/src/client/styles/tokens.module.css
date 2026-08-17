@@ -156,6 +156,18 @@
   border-left: 1px solid var(--aion-bg-3);
 }
 
+/* Maximized narrow-screen overlay (issue #315): on viewports below the
+   breakpoint the maximized column leaves the grid and covers the whole
+   window (mobile-friendly full-screen mode). The layout controller toggles
+   this class; removing it restores the normal grid position. Above the
+   columns/chrome (60) and below dialogs (1000+). */
+:global(.aionui-preview-col.aionui-maximized),
+:global(.aionui-explorer-col.aionui-maximized) {
+  position: fixed !important;
+  inset: 0;
+  z-index: 60;
+}
+
 :global(.aionui-explorer-col) {
   border-left: 1px solid var(--aion-bg-3);
 }

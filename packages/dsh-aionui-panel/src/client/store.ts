@@ -98,6 +98,9 @@ export function clampPreviewWidth(requested: number, available: number, explorer
   return Math.min(requested, maxByContainer)
 }
 
+/** Which panel is maximized (null = normal layout). */
+export type MaximizeTarget = 'explorer' | 'preview'
+
 /** Layout panel state (project-scoped). */
 export interface LayoutState {
   /** The project root ('' when no project is bound). */
@@ -114,6 +117,13 @@ export interface LayoutState {
   availableWidth: number
   /** True while a panel drag is in flight (disables transitions). */
   dragging: boolean
+  /**
+   * Maximized panel (transient, never persisted): the panel takes over the
+   * whole frame row (or the viewport as an overlay on narrow screens) while
+   * the other panel, the chat area and the shell side columns hide. Restoring
+   * re-applies the stored widths/collapse — nothing else changes.
+   */
+  maximized: MaximizeTarget | null
 }
 
 /** The layout store plus its pure width math. */
@@ -139,6 +149,7 @@ export function createLayoutStore(): LayoutStore {
     previewOpen: false,
     availableWidth: 0,
     dragging: false,
+    maximized: null,
   })
   const store: LayoutStore = Object.assign(handle, {
     explorerWidthPx(state: LayoutState): number {
@@ -178,7 +189,9 @@ export function layoutSetRoot(store: LayoutStore, root: string, previewOpen: boo
         collapsed = false
       }
     }
-    return { ...prev, root, explorerCollapsed: collapsed, previewOpen }
+    // Maximize is a transient layout state: it must never leak from one
+    // project/session into another (issue #315 acceptance).
+    return { ...prev, root, explorerCollapsed: collapsed, previewOpen, maximized: prev.root === root ? prev.maximized : null }
   })
 }
 

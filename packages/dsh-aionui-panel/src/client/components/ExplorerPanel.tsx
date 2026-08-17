@@ -19,7 +19,7 @@ import { t } from '../locales.ts'
 import { useStore } from '../hooks/useStore.ts'
 import type { PanelStores } from '../store.ts'
 import { FileTypeIcon } from './FileIcon.tsx'
-import { ChevronRightIcon, CloseIcon, ExpandRightIcon, SearchIcon } from './icons.tsx'
+import { ChevronRightIcon, CloseIcon, ExpandRightIcon, MaximizeIcon, RestoreIcon, SearchIcon } from './icons.tsx'
 import { ConfirmDialog, ContextMenu, PromptDialog, toast, type MenuEntry, type MenuState } from './overlay.tsx'
 import { ScmPanel } from './ScmPanel.tsx'
 import { activateOnKey } from './a11y.ts'
@@ -43,6 +43,8 @@ export function ExplorerPanel({
   onToggleCollapse: () => void
 }): JSX.Element {
   const state = useStore(stores.explorer)
+  const layoutState = useStore(stores.layout)
+  const maximizedExplorer = layoutState.maximized === 'explorer'
   const [searchFocus, setSearchFocus] = useState(false)
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [prompt, setPrompt] = useState<{
@@ -175,10 +177,23 @@ export function ExplorerPanel({
         >
           {t('explorer.tabs.changes')}
         </button>
+        {/* Maximize/restore (issue #315): transient — the layout controller
+            owns the grid takeover, Esc and the restore path. */}
+        <button
+          type="button"
+          className={explorerCss.tabIconBtn}
+          style={{ marginLeft: 'auto' }}
+          onClick={() => {
+            stores.layout.update((prev) => ({ ...prev, maximized: maximizedExplorer ? null : 'explorer' }))
+          }}
+          title={t(maximizedExplorer ? 'explorer.restore' : 'explorer.maximize')}
+          aria-label={t(maximizedExplorer ? 'explorer.restore' : 'explorer.maximize')}
+        >
+          {maximizedExplorer ? <RestoreIcon size={14} /> : <MaximizeIcon size={14} />}
+        </button>
         <button
           type="button"
           className="aionui-collapse-chevron"
-          style={{ marginLeft: 'auto' }}
           onClick={onToggleCollapse}
           title={t('explorer.collapse')}
           aria-label={t('explorer.collapse')}
