@@ -6,8 +6,11 @@
  * Regenerate with `node scripts/community-index`.
  */
 
-/** Stable category ids rendered as marketplace-style filter pills. */
-export type CommunityPluginCategory = 'ui' | 'agent' | 'tools' | 'knowledge' | 'integration' | 'security' | 'utility'
+/** Stable category ids rendered as marketplace-style filter pills (the runtime guard imports this). */
+export const COMMUNITY_CATEGORIES = ['ui', 'agent', 'tools', 'knowledge', 'integration', 'security', 'utility'] as const
+
+/** One category id. */
+export type CommunityPluginCategory = typeof COMMUNITY_CATEGORIES[number]
 
 /** One community plugin entry: contributor metadata plus the repository link. */
 export interface CommunityPluginEntry {

@@ -5,10 +5,10 @@
  * the whole list at render time.
  */
 
-import type { CommunityPluginCategory, CommunityPluginEntry } from './generated/community.ts'
+import { COMMUNITY_CATEGORIES, type CommunityPluginCategory, type CommunityPluginEntry } from './generated/community.ts'
 
 /** Category ids the card knows how to label; others are treated as uncategorized. */
-const KNOWN_CATEGORIES: readonly CommunityPluginCategory[] = ['ui', 'agent', 'tools', 'knowledge', 'integration', 'security', 'utility']
+const KNOWN_CATEGORIES: readonly CommunityPluginCategory[] = COMMUNITY_CATEGORIES
 
 /**
  * The install command is pasted into a shell, so repo/npm must be free of
