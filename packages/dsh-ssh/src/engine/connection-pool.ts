@@ -213,8 +213,13 @@ export function disposeRecord(engine: PoolEngine, alias: string, record?: PoolRe
   if (record !== undefined && current !== record) return
   if (current === undefined) return
   engine.pool.delete(alias)
-  try { current.client.end() } catch { /* already closed */ }
-  for (const hop of current.hops) {
+  endRecordChain(current)
+}
+
+/** End one record's client and hop chain (best-effort, safe to repeat). */
+export function endRecordChain(record: PoolRecord): void {
+  try { record.client.end() } catch { /* already closed */ }
+  for (const hop of record.hops) {
     try { hop.end() } catch { /* already closed */ }
   }
 }

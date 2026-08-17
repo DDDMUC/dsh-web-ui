@@ -296,6 +296,31 @@ describe('tunnel', () => {
     expect(engine.stopTunnel(tunnel.id)).toBe(true)
     expect(engine.listTunnels()).toHaveLength(0)
   })
+
+  it('stopping one tunnel keeps sibling tunnels on the same alias forwarding', async () => {
+    addHost('tunnel-shared')
+    const first = await engine.startTunnel('tunnel-shared', { remotePort: server.echoPort })
+    const second = await engine.startTunnel('tunnel-shared', { remotePort: server.echoPort })
+    expect(engine.listTunnels()).toHaveLength(2)
+
+    expect(engine.stopTunnel(first.id)).toBe(true)
+    const reply = await new Promise<string>((resolve, reject) => {
+      const socket = connect(second.localPort, '127.0.0.1')
+      const timer = setTimeout(() => { socket.destroy(); reject(new Error('sibling tunnel echo timed out')) }, 3_000)
+      socket.on('connect', () => socket.write('still-alive'))
+      socket.on('data', (chunk: Buffer) => {
+        clearTimeout(timer)
+        socket.destroy()
+        resolve(chunk.toString('utf8'))
+      })
+      socket.on('error', (error) => { clearTimeout(timer); reject(error) })
+    })
+    expect(reply).toBe('still-alive')
+
+    // The last tunnel releases the shared connection.
+    expect(engine.stopTunnel(second.id)).toBe(true)
+    expect(engine.pool.has('tunnel-shared')).toBe(false)
+  })
 })
 
 describe('sftp (real sshd)', () => {
