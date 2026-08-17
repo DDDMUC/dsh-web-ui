@@ -23,6 +23,7 @@ class StubEngine {
   uploadError: Error | undefined
   openShellSession: ShellSession | undefined
   shellInputs: string[] = []
+  dropAliasCalls: string[] = []
 
   list(): SshHostSummary[] {
     return this.hosts
@@ -59,6 +60,9 @@ class StubEngine {
   }
   stopAllTunnels(): number {
     return 0
+  }
+  dropAlias(alias: string): void {
+    this.dropAliasCalls.push(alias)
   }
   async openShell(_alias: string): Promise<ShellSession> {
     const session: ShellSession = {
@@ -184,10 +188,22 @@ describe('hosts CRUD (one handler per path)', () => {
     expect(patch.status).toBe(200)
     expect(store.find('web-01')?.description).toBe('renewed')
     expect(store.find('web-01')?.auth.password).toBe('pw')
+    // Metadata-only patches keep the pooled connection alive.
+    expect(stub.dropAliasCalls).toHaveLength(0)
+
+    // Credential changes invalidate the pooled connection immediately.
+    const authPatch = await fetch('http://127.0.0.1:' + port + SSH_API.hosts + '?alias=web-01', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ auth: { kind: 'password', password: 'pw2' } }),
+    })
+    expect(authPatch.status).toBe(200)
+    expect(stub.dropAliasCalls).toEqual(['web-01'])
 
     const del = await fetch('http://127.0.0.1:' + port + SSH_API.hosts + '?alias=web-01', { method: 'DELETE' })
     expect(del.status).toBe(200)
     expect(store.list()).toHaveLength(0)
+    expect(stub.dropAliasCalls).toEqual(['web-01', 'web-01'])
   })
 
   it('rejects unknown methods on the hosts path with 405', async () => {

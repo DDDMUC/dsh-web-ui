@@ -208,6 +208,17 @@ describe('connection pool', () => {
     expect(result.success).toBe(true)
     expect(server.connectCount).toBe(before + 1)
   })
+
+  it('dropAlias closes the pooled connection so the next exec reconnects', async () => {
+    addHost('pool-drop')
+    await engine.exec('pool-drop', 'true')
+    const before = server.connectCount
+    engine.dropAlias('pool-drop')
+    expect(engine.pool.has('pool-drop')).toBe(false)
+    const result = await engine.exec('pool-drop', 'echo hello')
+    expect(result.success).toBe(true)
+    expect(server.connectCount).toBe(before + 1)
+  })
 })
 
 describe('key auth', () => {

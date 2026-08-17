@@ -154,6 +154,13 @@ export function makeRoutes(deps: SshRoutesDeps): { routes: WebRoute[]; upgrade: 
           }
           try {
             const entry = store.update(alias, body as unknown as Partial<HostPayload>)
+            // Connection-relevant changes invalidate the pooled connection:
+            // without this the pool would keep running commands on the old
+            // host/credentials until the idle sweep (up to 30 min later).
+            const patch = body as Record<string, unknown>
+            if (['host', 'port', 'user', 'auth', 'proxyJump'].some(key => patch[key] !== undefined)) {
+              engine.dropAlias(alias)
+            }
             writeJson(res, 200, { host: store.summarize(entry) })
           } catch (error) {
             writeJson(res, 400, { error: error instanceof Error ? error.message : String(error) })
@@ -162,7 +169,7 @@ export function makeRoutes(deps: SshRoutesDeps): { routes: WebRoute[]; upgrade: 
         }
         if (method === 'DELETE') {
           try {
-            engine.stopAllTunnels(alias)
+            engine.dropAlias(alias)
             store.delete(alias)
             writeJson(res, 200, { ok: true })
           } catch (error) {
