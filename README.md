@@ -44,7 +44,7 @@ dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合�
 | Agent 预设 | 官方预设（Standard / Minimal 等） | 梁神模式：面向 V4 Pro 的两阶段锚定预设 |
 | 任务看板 | 无 | 多列看板 + cron 定时真实执行 |
 | Git 可视化 | 无 | 分支泳道 + 提交历史图谱 |
-| 文件预览与变更 | 无 | 右侧面板：better-sidebar（资源管理器 / 编辑器 / 终端 / Git / 浏览器）；aionui 面板随包安装，默认由 better-sidebar 接管；设置卡可选回 aionui（即将弃用） |
+| 文件预览与变更 | 无 | 右侧面板：better-sidebar（资源管理器 / 编辑器 / 终端 / Git / 浏览器）；旧 aionui 面板暂时关闭（功能迁移中，设置卡可切回但不建议） |
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
@@ -78,15 +78,18 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ### 右侧面板
 
-项目会话打开时，聊天区右侧出现「预览」与「文件/变更」两块面板：
+右侧面板由外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供（聚合包已集成并默认启用）：VSCode 风格双工作台（右侧栏 + 底部面板），开箱即用：
 
-- **文件树**：浏览工作目录，点文件名在预览面板打开，点整行展开文件夹，支持按文件名搜索；
-- **预览**：多标签预览 markdown、HTML、代码、diff、CSV、PDF、Office、图片与文本，可切换源码 / 预览、分屏编辑、保存；
-- **变更（SCM）**：真实的 git 变更面板，stage / unstage / discard；
-- 面板宽度可拖，双击把手复位；折叠状态和宽度按项目记住；
-- 11 款皮肤都适配右侧面板，换肤后面板跟着变。
+- **资源管理器 / 编辑器**：懒加载目录树 + CodeMirror 编辑器，图片 / Markdown / HTML / PDF / Office 内联预览；
+- **真实终端**：xterm.js + node-pty 真实 shell，断线重连回放；
+- **Git 面板**：真 diff、历史、右键暂存 / 提交 / 还原；
+- **内嵌浏览器 / 后台任务**：沙箱网页 tab、subagent 拓扑与后台任务；
+- **服务化扩展**：任何插件可通过 `ctx.betterSidebar.registerTab` / `registerFileViewer` 注册新的侧边栏页面与文件预览器，能力与内置完全对等；
+- 布局 / 折叠 / 宽度按会话持久化，11 款皮肤都适配，换肤自动跟随。
 
-![右侧面板](docs/screenshots/19-right-panel.png)
+<!-- TODO: 补充 better-sidebar 右侧面板截图 -->
+
+> 此前的 aionui-panel 右侧面板已**暂时关闭**（聚合包内默认不启用），直到其功能完全迁移到 dsh-better-sidebar；设置 → Web UI 插件 → 右侧面板 可切换提供方，迁移完成前不建议开启。
 
 ### 鲸鱼娘宠物
 
@@ -236,8 +239,8 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # 任务看�
 dsh plugin --profile web add @linxin666/dsh-ssh                    # 远程连接（SSH）
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # 图像理解工具
 dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘宠物
-dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # 右侧面板（aionui，独立安装默认开启）
-dsh plugin --profile web add dsh-better-sidebar                    # 右侧面板（外部插件，与 aionui 二选一）
+dsh plugin --profile web add dsh-better-sidebar                    # 右侧面板（推荐；资源管理器/编辑器/终端/Git/浏览器）
+dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # 旧右侧面板（aionui-panel，即将弃用，功能迁移中）
 ```
 
 ### 验证与卸载
@@ -360,6 +363,7 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 | dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
 | dsh-client-ui-skin-matrix | 贡献者原创（Matrix 深夜护眼暗色皮肤） | Apache-2.0（贡献者 seanchen 声明） |
 | dsh-tool-describe-image | 移植自 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)（deepseek-harness `packages/vision/tool-describe-image`） | Apache-2.0（zhu1090093659） |
+| dsh-better-sidebar | 外部集成插件 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（右侧面板，npm 依赖引用） | MIT（omdsh-dev） |
 
 ## 贡献者
 

@@ -20,6 +20,10 @@
 #                       里的 dsh-better-sidebar 依赖改写为 file:<该 tarball>
 #                       （用于 dsh-better-sidebar@0.13.0 尚未发版前的本地
 #                       联调；CI 不设此变量，走 npm 已发布版本）
+#   FAMILY_TGZS_DIR     本地家族 tarball 目录；给出时把聚合包 tarball 里全部
+#                       @linxin666/* 依赖改写为 file:<目录内同名 tarball>
+#                       （验证仓库当前构建，而非 npm 已发布版本；与本地
+#                       全 tarball 安装流程一致。CI 不设此变量）
 #   PORT                固定端口（默认 0 = OS 分配，从日志解析 URL）
 #   DSH_HOME_BASE       覆盖 scratch 根目录（默认 mktemp -d）
 #   KEEP_HOME           非空时保留 scratch home（调试用）
@@ -35,6 +39,7 @@ DSH_CMD="${DSH_CMD:-dsh}"
 PORT="${PORT:-0}"
 WEB_UI_ALL_DIR="${WEB_UI_ALL_DIR:-$ROOT/packages/dsh-web-ui-all}"
 BETTER_SIDEBAR_TGZ="${BETTER_SIDEBAR_TGZ:-}"
+FAMILY_TGZS_DIR="${FAMILY_TGZS_DIR:-}"
 
 say()  { printf '\033[32m[e2e-mount]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[e2e-mount]\033[0m %s\n' "$*" >&2; }
@@ -87,27 +92,52 @@ TARBALL="$(cd "$WEB_UI_ALL_DIR" && pwd)/$TARBALL"
 [ -f "$TARBALL" ] || die "pnpm pack 未产出 tarball（${WEB_UI_ALL_DIR}）"
 say "tarball: $TARBALL"
 
-# 可选：把 dsh-better-sidebar 依赖改写为本地 tarball（发版前联调用）
-if [ -n "$BETTER_SIDEBAR_TGZ" ]; then
-  [ -f "$BETTER_SIDEBAR_TGZ" ] || die "BETTER_SIDEBAR_TGZ 不存在：$BETTER_SIDEBAR_TGZ"
-  BETTER_SIDEBAR_TGZ="$(cd "$(dirname "$BETTER_SIDEBAR_TGZ")" && pwd)/$(basename "$BETTER_SIDEBAR_TGZ")"
-  say "改写聚合包 tarball 的 dsh-better-sidebar 依赖 -> file:$BETTER_SIDEBAR_TGZ"
+# 可选：把聚合包 tarball 的依赖改写为本地 tarball（发版前/仓库构建联调用）。
+# FAMILY_TGZS_DIR 覆盖全部 @linxin666/* 依赖；BETTER_SIDEBAR_TGZ 覆盖
+# dsh-better-sidebar 依赖。两者都不设时走 npm 已发布版本（CI 形态）。
+if [ -n "$FAMILY_TGZS_DIR" ] || [ -n "$BETTER_SIDEBAR_TGZ" ]; then
+  if [ -n "$FAMILY_TGZS_DIR" ]; then
+    [ -d "$FAMILY_TGZS_DIR" ] || die "FAMILY_TGZS_DIR 不存在：$FAMILY_TGZS_DIR"
+  fi
+  if [ -n "$BETTER_SIDEBAR_TGZ" ]; then
+    [ -f "$BETTER_SIDEBAR_TGZ" ] || die "BETTER_SIDEBAR_TGZ 不存在：$BETTER_SIDEBAR_TGZ"
+    BETTER_SIDEBAR_TGZ="$(cd "$(dirname "$BETTER_SIDEBAR_TGZ")" && pwd)/$(basename "$BETTER_SIDEBAR_TGZ")"
+  fi
+  say "改写聚合包 tarball 依赖（FAMILY_TGZS_DIR=${FAMILY_TGZS_DIR:-无}，BETTER_SIDEBAR_TGZ=${BETTER_SIDEBAR_TGZ:-无}）"
   REWRITE_DIR="$SCRATCH/tarball-rewrite"
   mkdir -p "$REWRITE_DIR"
   tar -xzf "$TARBALL" -C "$REWRITE_DIR"
   PACKAGE_JSON="$REWRITE_DIR/package/package.json"
   node -e '
     const fs = require("fs")
+    const { execSync } = require("child_process")
     const path = process.argv[1]
+    const familyDir = process.argv[2] || ""
+    const betterSidebarTgz = process.argv[3] || ""
     const pkg = JSON.parse(fs.readFileSync(path, "utf8"))
-    const file = process.argv[2]
-    if (!pkg.dependencies || !("dsh-better-sidebar" in pkg.dependencies)) {
-      console.error("[e2e-mount] tarball package.json 缺少 dsh-better-sidebar 依赖")
-      process.exit(1)
+    if (!pkg.dependencies) { console.error("[e2e-mount] tarball package.json 没有 dependencies"); process.exit(1) }
+    if (familyDir) {
+      const byName = {}
+      for (const f of fs.readdirSync(familyDir)) {
+        if (!f.endsWith(".tgz")) continue
+        const raw = execSync(`tar -xzf ${JSON.stringify(familyDir + "/" + f)} -O package/package.json`).toString()
+        byName[JSON.parse(raw).name] = familyDir + "/" + f
+      }
+      for (const [key] of Object.entries(pkg.dependencies)) {
+        if (!key.startsWith("@linxin666/")) continue
+        if (!byName[key]) { console.error("[e2e-mount] 缺少本地 tarball：", key); process.exit(1) }
+        pkg.dependencies[key] = "file:" + byName[key]
+      }
     }
-    pkg.dependencies["dsh-better-sidebar"] = "file:" + file
+    if (betterSidebarTgz) {
+      if (!("dsh-better-sidebar" in pkg.dependencies)) {
+        console.error("[e2e-mount] tarball package.json 缺少 dsh-better-sidebar 依赖")
+        process.exit(1)
+      }
+      pkg.dependencies["dsh-better-sidebar"] = "file:" + betterSidebarTgz
+    }
     fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n")
-  ' "$PACKAGE_JSON" "$BETTER_SIDEBAR_TGZ"
+  ' "$PACKAGE_JSON" "$FAMILY_TGZS_DIR" "$BETTER_SIDEBAR_TGZ"
   TARBALL="$SCRATCH/dsh-web-ui-all-rewritten.tgz"
   tar -czf "$TARBALL" -C "$REWRITE_DIR" package
   say "改写后 tarball: $TARBALL"

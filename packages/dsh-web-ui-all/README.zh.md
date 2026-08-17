@@ -8,7 +8,7 @@ DSH Web UI 全家桶聚合插件：一键安装全部功能插件（task-board /
 
 - **一次安装、全部到位**：其 dependencies 引入全部子插件包（dsh-client-ui-aionui-panel / dsh-client-ui-task-board / dsh-client-ui-git-graph / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-ssh / dsh-client-ui-web-ui-settings / dsh-client-ui-skin-center / dsh-client-ui-community-plugins / dsh-skins），外加外部 npm 插件 `dsh-better-sidebar`（默认右侧面板：文件资源管理器 / 编辑器 / 终端 / Git / 浏览器）。
 - **聚合载具**：`cordis.patch.yml` 汇总各子插件的 `insert` 行与外部 `dsh-better-sidebar` 行，经 dsh 插件 profile 机制挂载。
-- **右侧面板过渡**：默认由 `dsh-better-sidebar` 接管右侧面板位置（与 aionui-panel 互斥——better-sidebar 读取 aionui 的提供方选择，选择「使用 aionui-panel」时不挂载）。aionui-panel 行仍安装；其设置卡（设置 → Web UI 插件 → 右侧面板）选择提供方——`使用 DSH-better-sidebar`（默认，aionui 即将弃用）或 `使用 aionui-panel（即将弃用）`——一个下拉实时切换，无需刷新。
+- **右侧面板过渡**：默认由 `dsh-better-sidebar` 接管右侧面板位置（与 aionui-panel 互斥——better-sidebar 读取 aionui 的提供方选择，选择「使用 aionui-panel」时不挂载）。aionui-panel 行仍安装但**暂时关闭**，直到功能完全迁移到 dsh-better-sidebar；其设置卡（设置 → Web UI 插件 → 右侧面板）可切换提供方——`使用 DSH-better-sidebar`（默认）或 `使用 aionui-panel（即将弃用）`——一个下拉实时切换、无需刷新，但迁移完成前不建议切回。
 
 ## 安装
 
