@@ -19,7 +19,7 @@ import type { PanelEnvelope, PanelError } from '../core/types.ts'
 import type { FsService } from './fs-service.ts'
 import type { GitService } from './git-service.ts'
 import { PollGuard } from './poll-guard.ts'
-import { isLoopbackRequest } from './loopback.ts'
+import { isPanelAllowed } from './access.ts'
 
 const OK = (value: unknown): PanelEnvelope<unknown> => ({ ok: true, value })
 const FAIL = (error: PanelError): PanelEnvelope<never> => ({ ok: false, error })
@@ -463,9 +463,10 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
   }
 
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    // Loopback fence first: never let a LAN client reach any /aionui-panel
-    // operation, regardless of method or content-type.
-    if (!isLoopbackRequest(req)) {
+    // Trust fence first: never let an unpaired non-loopback client reach any
+    // /aionui-panel operation, regardless of method or content-type. A live
+    // paired-device cookie (when remote-web-ui is loaded) is an allow path.
+    if (!isPanelAllowed(ctx, req)) {
       forbidden(res)
       return
     }
@@ -674,9 +675,10 @@ export function registerPanelRoutes(ctx: Context, fs: FsService, git: GitService
   }
 
   const sse = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    // Reject non-loopback clients before gating the root or opening the
-    // stream: a LAN-exposed deployment must not offer a subscription at all.
-    if (!isLoopbackRequest(req)) {
+    // Reject unpaired non-loopback clients before gating the root or opening
+    // the stream: a LAN-exposed deployment must not offer a subscription at
+    // all, unless the caller already passed pairing.
+    if (!isPanelAllowed(ctx, req)) {
       forbidden(res)
       return
     }

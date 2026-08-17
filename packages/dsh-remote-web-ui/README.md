@@ -187,6 +187,10 @@ over Server-Sent Events on `/m/api/events.mux`.
   via the LAN URL must pair like any remote device; loopback (127.0.0.1)
   is unaffected. Set `requirePairingForLan: false` in the profile patch to
   restore the open-LAN behavior while keeping tokens/status/revocation.
+- Sibling host routes outside `/api` (the right-panel `/aionui-panel/*`
+  family) can consult this plugin's `remoteWebUiPairing` service: a live
+  paired-device cookie is an allow path, `stop()` still cuts them off, and
+  the service is absent when this plugin is not installed.
 - The QR link is built from the machine's non-internal IPv4 literals; a
   multi-homed host (Wi-Fi + wired, or a proxy/VPN virtual adapter) shows a
   radio picker so you can advertise the network the phone can actually
