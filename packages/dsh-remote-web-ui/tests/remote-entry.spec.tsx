@@ -59,6 +59,9 @@ function mockFetch(issue: MockIssue | MockIssue[]) {
   const issues = Array.isArray(issue) ? [...issue] : [issue]
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
+    if (url === '/api/update/status') {
+      return new Response(JSON.stringify({ mode: 'npm', packages: [], outdated: false }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
     const current = issues.length > 1 ? issues.shift()! : issues[0]
     const status = init?.method === 'POST' && url === '/api/pair/issue' && !current.ok ? (current.status ?? 409) : 200
     const body = url === '/api/pair/issue' && current.ok
@@ -124,7 +127,7 @@ describe('RemoteEntry', () => {
     expect(screen.getByRole('button', { name: 'Refresh QR' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
     // The issue payload carries the current workspace for the deep link.
-    const init = fetch.mock.calls[0]?.[1] as RequestInit
+    const init = fetch.mock.calls.find(call => call[0] === '/api/pair/issue')?.[1] as RequestInit
     expect(JSON.parse(String(init.body))).toEqual({ workspaceId: 'ws-1' })
   })
 

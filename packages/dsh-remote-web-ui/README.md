@@ -2,8 +2,7 @@
 
 
 English | [中文](README.zh.md)
-> 移动端远程控制 + 一键远程更新：扫码配对后用手机远程使用当前 dsh web 工作区；
-> 点击侧边栏更新按钮自动检查并更新 dsh-web-ui 全家桶。
+> Mobile remote control + one-click updates: pair a phone to use the current dsh web workspace remotely; the sidebar checks for a newer dsh-web-ui release after it loads and marks the update button when one is available; clicking it updates the family.
 
 This repository is an external plugin package for DeepSeek Harness (DSH):
 scan-to-pair mobile remote control for the dsh web GUI, plus a one-click
@@ -36,12 +35,14 @@ actions, and the update panel that probes and runs the update.
 - **Live status**: the desktop panel mirrors the pairing state in real time
   (waiting → connected → disconnected) over an SSE stream.
 - **Remote update**: the download trigger in the sidebar foot (left of the
-  phone icon) opens the update panel, which probes the npm registry for the
-  installed `@linxin666/dsh-*` family releases. Without the aggregate package,
-  checks and updates cover every registry-managed direct `@linxin666/*`
-  dependency in the profile; local link/file development dependencies are
-  skipped. When a newer release exists
-  the panel runs the update automatically (`pnpm update --latest` inside the
+  phone icon) performs a silent status probe after the sidebar loads. When a
+  newer registry release is available, the trigger shows a dot and the "New
+  version available. Check for updates" tooltip. Clicking the trigger opens the
+  update panel, which probes the npm registry for the installed
+  `@linxin666/dsh-*` family releases. Without the aggregate package, checks and
+  updates cover every registry-managed direct `@linxin666/*` dependency in the
+  profile; local link/file development dependencies are skipped. When a newer
+  release exists, the panel runs the update automatically (`pnpm update --latest` inside the
   owning dsh profile; when pnpm is missing it falls back to `corepack pnpm`
   and then `npx --yes pnpm`, and on Windows the command runs through
   `cmd.exe` so npm-installed `.cmd` shims resolve; the loopback-only
