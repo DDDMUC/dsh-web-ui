@@ -47,8 +47,10 @@ function readJson(filePath) {
  * Render the minimal resolvable leaf package.json a bundled skin needs to be
  * loadable as @linxin666/dsh-client-ui-skin-<id> from the profile. Mirrors the
  * source skin package's exports shape (minus the non-shipped ./src/*) and
- * carries the official dsh.bundle manifest so the carrier is also a valid
- * turtle-ui bundle for `dsh plugin add`.
+ * omits dsh.bundle.patch: skins are bundleWired:false and inserted by
+ * dsh-skin / skin-center at the home layer. Declaring a bundle here makes
+ * `dsh plugin` reconcile re-add every skin to dsh.profile.bundles and
+ * collide with that insert (duplicate loader entry id: ui-skin-<name>).
  * @param sourcePkg - the source skin package.json (name/version source).
  * @returns the serialized package.json text.
  */
@@ -65,7 +67,6 @@ function renderCarrierPackageJson(sourcePkg) {
       './package.json': './package.json',
     },
     dsh: {
-      bundle: { patch: './cordis.patch.yml' },
       client: { inject: [], platform: 'web' },
     },
     license: 'BSD-3-Clause',
