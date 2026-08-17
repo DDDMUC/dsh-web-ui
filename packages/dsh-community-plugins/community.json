@@ -176,5 +176,15 @@
     "repo": "https://github.com/spacexun2/dsh-worktime-board",
     "npm": "dsh-worktime-board",
     "category": "utility"
+  },
+  {
+    "id": "dsh-dream-skin",
+    "name": "dsh-dream-skin",
+    "nameEn": "dsh-dream-skin",
+    "author": "RevolutionLA",
+    "description": "DSH Web 一键换肤插件：8 套原创主题、背景壁纸（透明度/模糊/渐变/URL）、每用户强调色、主题包导入导出与分享链接、收藏与随机，纯原生 token 系统。",
+    "descriptionEn": "One-command skinning for DSH Web: 8 original themes, wallpaper (opacity/blur/gradient/URL), per-user accent, shareable theme packs with favorites and surprise-me. Purely native token system.",
+    "repo": "https://github.com/RevolutionLA/dsh-dream-skin",
+    "category": "ui"
   }
 ]
