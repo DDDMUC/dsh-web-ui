@@ -50,6 +50,8 @@ export const zh = {
   'field.timeoutMs.hint': '单次视觉请求超时。',
   'field.renderImagePreview': '会话内渲染图片预览',
   'field.renderImagePreview.hint': '开：会话里的图片引用原地显示为缩略图，点击查看大图；关：保持原始引用文本。仅影响本地显示，消息文本与模型识别不变。',
+  'field.interceptImageSend': '发送时改写图片为 describe-image 引用',
+  'field.interceptImageSend.hint': '开（默认）：带图片的发送在提交时被改写为 describe-image 引用；关：发送原样放行，图片与附件块交给会话（与其他视觉插件共用时需要关闭）。',
   'preview.expand': '点击查看大图',
   'preview.close': '关闭大图',
 } satisfies Record<string, string>
@@ -107,6 +109,8 @@ export const en = {
   'field.timeoutMs.hint': 'Per-call vision request timeout.',
   'field.renderImagePreview': 'Render image preview in chat',
   'field.renderImagePreview.hint': 'On: image references in the conversation upgrade into inline thumbnails (click for full size). Off: the raw reference text stays. Display-only — the message text and model-side analysis are unchanged.',
+  'field.interceptImageSend': 'Rewrite image sends into describe-image references',
+  'field.interceptImageSend.hint': 'On (default): image-bearing sends are rewritten into describe-image references at submit. Off: sends pass through untouched, handing the raw image blocks to other vision plugins.',
   'preview.expand': 'Click to view full size',
   'preview.close': 'Close full image',
 } satisfies Record<string, string>

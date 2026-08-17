@@ -26,6 +26,7 @@ export interface DescribeImageSettings {
   timeoutMs?: number
   apiStyle?: 'chat-completions' | 'responses'
   renderImagePreview?: boolean
+  interceptImageSend?: boolean
 }
 
 /** What the describe-image card renders. */
@@ -40,6 +41,7 @@ export interface DescribeImageSettingsCardState extends CardShell {
   timeoutMs: CardFieldState
   apiStyle: CardFieldState
   renderImagePreview: CardFieldState
+  interceptImageSend: CardFieldState
 }
 
 /** The registration-side face the card's slot entry injects. */
@@ -68,6 +70,7 @@ export class DescribeImageSettingsCardController {
       numberField('maxOutputTokens'),
       numberField('timeoutMs'),
       booleanField('renderImagePreview'),
+      booleanField('interceptImageSend'),
     ])
     this.store = this.form.bind(() => this.projection())
   }
@@ -85,6 +88,7 @@ export class DescribeImageSettingsCardController {
       maxOutputTokens: this.form.field('maxOutputTokens'),
       timeoutMs: this.form.field('timeoutMs'),
       renderImagePreview: this.form.field('renderImagePreview'),
+      interceptImageSend: this.form.field('interceptImageSend'),
     }
   }
 
@@ -234,6 +238,18 @@ export function DescribeImageSettingsCard(props: DescribeImageSettingsCardProps)
         {...state.renderImagePreview}
         onEdit={(text) => { props.edit('renderImagePreview', text) }}
         onReset={() => { props.resetField('renderImagePreview') }}
+      />
+      <BooleanField
+        id="settings-describe-image-intercept-send"
+        label={t('field.interceptImageSend')}
+        hint={t('field.interceptImageSend.hint')}
+        inheritLabel={t('settings.inherit')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.interceptImageSend}
+        onEdit={(text) => { props.edit('interceptImageSend', text) }}
+        onReset={() => { props.resetField('interceptImageSend') }}
       />
     </PluginSettingsCard>
   )

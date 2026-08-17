@@ -65,6 +65,7 @@ dsh plugin --profile web add @linxin666/dsh-tool-describe-image
 | `maxOutputTokens` | `1024` | 输出 token 上限：`chat-completions` 发 `max_tokens`，`responses` 发 `max_output_tokens` |
 | `timeoutMs` | `60000` | 单次视觉请求超时 |
 | `renderImagePreview` | `true` | 会话里的图片引用原地升级为缩略图（点击查看大图）；`false` 保持原始引用文本。仅影响本地显示，消息文本与模型识别不变 |
+| `interceptImageSend` | `true` | 发送时把带图片的发送改写为 describe-image 引用；`false` 则图片发送原样放行，让同会话的其他视觉插件拿到原始图片块（此时文本模型的改写由它们负责） |
 
 带配置的挂载示例（profile 的 `cordis.patch.yml` / 组合文件）：
 
@@ -117,6 +118,10 @@ DSH 输入框对纯文本模型没有图片入口，因此在输入框里拖拽�
 以原始 markdown 文本留在会话里；开启 `renderImagePreview`（设置卡的「会话内渲染图片预览」
 开关，默认开）后客户端把每条引用原地升级为缩略图——点击查看大图。若 raw 路由经当前访问源
 不可达（如反向代理未转发该路由），缩略图加载失败，引用文本保持原样。
+
+改写是一个实时开关——设置卡的「发送时改写图片为 describe-image 引用」(`interceptImageSend`，
+默认开)。当其他视觉插件与当前会话共用、需要由它们接收原始图片块时请关闭；关闭后图片发送
+原样放行。
 
 ## 已知限制
 

@@ -762,11 +762,16 @@ describe('resolveConfig, sniffing, and bounded reads', () => {
       timeoutMs: tool.DEFAULT_TIMEOUT_MS,
       apiStyle: tool.DEFAULT_API_STYLE,
       renderImagePreview: tool.DEFAULT_RENDER_IMAGE_PREVIEW,
+      interceptImageSend: tool.DEFAULT_INTERCEPT_IMAGE_SEND,
     })
   })
 
   it('honors an explicit renderImagePreview override', () => {
     expect(tool.resolveConfig({ ...minimal, renderImagePreview: false }).renderImagePreview).toBe(false)
+  })
+
+  it('honors an explicit interceptImageSend override', () => {
+    expect(tool.resolveConfig({ ...minimal, interceptImageSend: false }).interceptImageSend).toBe(false)
   })
 
   it('splits a model thinking suffix off the id and leaves bare ids untouched', () => {
