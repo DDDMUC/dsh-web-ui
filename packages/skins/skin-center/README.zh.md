@@ -102,7 +102,7 @@ ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
 - [x] 列表含官方默认 + 全部皮肤，当前激活有标记
 - [x] 试穿真实生效（chrome/背景/标题/favicon），亮/暗正确；官方默认可试穿
 - [x] 退出完全还原；互斥（不出现两套标题栏）
-- [x] 一键应用：host API 执行 `dsh-skin use`，watcher 热载入，页面自动刷新生效（无重启）；失败附命令兜底
+- [x] 一键应用：host API 执行 `dsh-skin use`，watcher 热载入，新皮肤经真实模块系统原地热挂载生效（无刷新、无重启，打包版同样秒切；热挂载失败时回退到刷新页面路径），失败附命令兜底
 - [x] 回归：dsh-skin CLI（含 `use official`）、网页 Gallery、官方 GUI 不受影响
 - [x] 按需加载：冷启动不解析 ~700KB 内嵌 base64（`generated/skins.ts` 仅 5KB 元数据），试穿按需取 bundle；无 eval（CSP 无需 `unsafe-eval`）
 - [x] e2e 截图见 `docs/e2e/skin-center/`

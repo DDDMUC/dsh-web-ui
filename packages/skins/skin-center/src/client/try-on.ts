@@ -32,6 +32,13 @@
  * A ghost MutationObserver may survive retraction (blue-fantasy re-writes
  * its backdrop on theme flips), so during try-on a neutralizing observer
  * re-clears the backdrop props whenever `data-ds-dark-theme` changes.
+ *
+ * Hot swap (issue #359): the same machinery also powers one-click apply in
+ * packaged installs, where the client-module startup graph only refreshes on
+ * an app restart. TryOnController.commit() mounts the applied skin in place
+ * and keeps it (no reload, no restart), retracting the incumbent permanently
+ * instead of snapshot-restoring it; activeSkinEntry() then answers the
+ * committed skin until the next real page load.
  */
 
 import { SKIN_CENTER_ENTRIES, type SkinCenterEntry } from './generated/skins.ts'
@@ -116,9 +123,33 @@ function bootEntryIds(): string[] {
 }
 
 /** The skin package currently ACTIVE in the boot graph, if it is one of ours. */
-export function activeSkinEntry(): SkinCenterEntry | undefined {
+function bootSkinEntry(): SkinCenterEntry | undefined {
   const ids = new Set(bootEntryIds())
   return SKIN_CENTER_ENTRIES.find(entry => ids.has(entry.package))
+}
+
+/**
+ * Hot-committed skin override (issue #359): a one-click apply mounts the new
+ * skin in place — the boot graph only catches up on the next app start, so
+ * until the page reloads, activeSkinEntry reports the committed skin instead
+ * of the boot-graph one. A null package means the official stock look was
+ * committed.
+ */
+let hotOverride: { pkg: string | null } | undefined
+
+/** The skin currently driving the page: the hot-committed one, else the boot-graph one. */
+export function activeSkinEntry(): SkinCenterEntry | undefined {
+  if (hotOverride !== undefined) {
+    return hotOverride.pkg === null
+      ? undefined
+      : SKIN_CENTER_ENTRIES.find(entry => entry.package === hotOverride?.pkg)
+  }
+  return bootSkinEntry()
+}
+
+/** Test seam: clear a hot-committed override (a real page reload does this naturally). */
+export function resetHotOverride(): void {
+  hotOverride = undefined
 }
 
 /**
@@ -305,6 +336,56 @@ export class TryOnController {
     }
     const active: ActiveVisuals = this.captureAndRetractActive()
     this.session = { entry: null, dispose: () => {}, active }
+  }
+
+  /** The skin mounted by a previous commit, owned (and disposable) by this controller. */
+  private hotIncumbent: { entry: SkinCenterEntry; dispose: () => void } | null = null
+
+  /**
+   * One-click-apply hot swap (issue #359): mount `target` in place and KEEP
+   * it — no page reload, no app restart. The incumbent is retracted the same
+   * way try-on retracts the active skin, except nothing is restored: a
+   * boot-graph incumbent's neutralizers (the ghost-observer guard and the
+   * leak-hiding style) stay installed for the page lifetime, while a
+   * previously hot-mounted incumbent is properly disposed through its own
+   * ctx effects. The target bundle loads BEFORE the incumbent is touched, so
+   * a load failure leaves the current skin fully intact; an apply() failure
+   * restores the incumbent's visuals whenever they were captured.
+   * @param target - the skin to commit, or null for the official stock look.
+   */
+  async commit(target: SkinCenterEntry | null): Promise<void> {
+    if (this.session !== null) this.exit()
+    const epoch = ++this.epoch
+    this.requestedPackage = null
+
+    const currentPackage = activeSkinEntry()?.package ?? null
+    if (currentPackage === (target?.package ?? null)) return
+
+    // Load first: a failed load must leave the incumbent untouched.
+    let apply: ((ctx: unknown) => unknown) | null = null
+    if (target !== null) apply = await this.loadModuleOnce(target)
+    if (epoch !== this.epoch) throw new Error('skin-center: commit superseded by a newer request')
+
+    const incumbent = this.hotIncumbent
+    let snapshot: ActiveVisuals | null = null
+    if (incumbent !== null) {
+      this.hotIncumbent = null
+      incumbent.dispose()
+      this.cleanupModule(incumbent.entry)
+    } else if (currentPackage !== null) {
+      snapshot = this.captureAndRetractActive()
+    }
+
+    if (target !== null) {
+      try {
+        const dispose = this.applyLoaded(target, apply as (ctx: unknown) => unknown)
+        this.hotIncumbent = { entry: target, dispose }
+      } catch (error) {
+        if (snapshot !== null) this.restoreActive(snapshot)
+        throw error
+      }
+    }
+    hotOverride = { pkg: target?.package ?? null }
   }
 
   /** Exit the live session: dispose the tried-on skin, then restore the active skin. */

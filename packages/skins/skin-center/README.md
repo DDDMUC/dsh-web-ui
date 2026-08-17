@@ -102,7 +102,7 @@ Exit try-on = try-on skin disposer (real code path) → module invalidate + styl
 - [x] The list contains the official default plus all skins; the currently active one is marked
 - [x] Try-on really takes effect (chrome/background/title/favicon); light/dark correct; the official default can be tried on
 - [x] Exit fully restores; mutual exclusion (no two title bars)
-- [x] One-click apply: the host API runs `dsh-skin use`, the watcher hot-loads, the page auto-refreshes (no restart); failure carries a command fallback
+- [x] One-click apply: the host API runs `dsh-skin use`, the watcher hot-loads, and the new skin is hot-mounted in place through the real module system (no reload, no restart — instant switch in packaged installs too; a page reload remains the fallback when the hot mount fails); failure carries a command fallback
 - [x] Regression: the dsh-skin CLI (incl. `use official`), the web gallery, and the official GUI are unaffected
 - [x] On-demand loading: cold start does not parse the ~700KB embedded base64 (`generated/skins.ts` is only ~5KB of metadata); try-on fetches the bundle on demand; no eval (CSP needs no `unsafe-eval`)
 - [x] e2e screenshots live in `docs/e2e/skin-center/`
