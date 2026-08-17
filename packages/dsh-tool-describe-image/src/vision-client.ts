@@ -282,15 +282,54 @@ export function extractResponsesContent(payload: unknown): string {
   return text
 }
 
+/** Extract the text answer from an Anthropic Messages payload: every `text` content block of the top-level `content` array, skipping `thinking` and other non-text blocks. */
+export function extractAnthropicMessagesContent(payload: unknown): string {
+  const root = asRecord(payload)
+  const content = root?.content
+  if (root === undefined || !Array.isArray(content)) unexpectedShape()
+  const parts: string[] = []
+  for (const item of content) {
+    const block = asRecord(item)
+    if (block === undefined) continue
+    if (block.type === 'text' && typeof block.text === 'string' && block.text.trim().length > 0) {
+      parts.push(block.text)
+    }
+  }
+  const text = parts.join('\n')
+  if (text.trim().length === 0) {
+    throw new Error('describe-image: vision endpoint returned no text content')
+  }
+  return text
+}
+
 /**
  * Build the request the configured style sends: its path and JSON body. When the model id carried
  * a thinking suffix, Chat Completions maps it to `thinking.type` (`off` -> `disabled`, every
  * other level -> `enabled`) and Responses forwards it as `reasoning.effort` (`off` ->
  * `none`, levels pass through); without a suffix no thinking control is sent, so the endpoint
- * keeps its own default.
+ * keeps its own default. The `anthropic-messages` style posts to `baseURL/v1/messages` with an
+ * Anthropic-style body (`max_tokens`, `messages[0].content` = base64 image block + text).
  */
 export function buildVisionRequest(spec: ResolvedConfig, prompt: string, image: LoadedImage): { path: string; body: string } {
   const dataUrl = `data:${image.mimeType};base64,${image.bytes.toString('base64')}`
+  if (spec.apiStyle === 'anthropic-messages') {
+    // Anthropic-style endpoints root at a bare host (e.g. https://opencode.ai/zen/go) and mount
+    // the Messages API under /v1/messages; auth headers are chosen in callVision.
+    return {
+      path: `${spec.baseURL}/v1/messages`,
+      body: JSON.stringify({
+        model: spec.model,
+        max_tokens: spec.maxOutputTokens,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: image.mimeType, data: image.bytes.toString('base64') } },
+            { type: 'text', text: prompt },
+          ],
+        }],
+      }),
+    }
+  }
   if (spec.apiStyle === 'responses') {
     return {
       path: `${spec.baseURL}/responses`,
@@ -404,9 +443,12 @@ export async function callVision(
     if (cached !== undefined) return cached
   }
   const { path, body } = buildVisionRequest(spec, prompt, image)
+  const headers: Record<string, string> = spec.apiStyle === 'anthropic-messages'
+    ? { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+    : { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` }
   const response = await fetch(path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+    headers,
     body,
     redirect: 'error',
     signal: AbortSignal.any([signal, AbortSignal.timeout(spec.timeoutMs)]),
@@ -422,7 +464,11 @@ export async function callVision(
   } catch {
     throw new Error('describe-image: vision endpoint returned invalid JSON')
   }
-  const text = spec.apiStyle === 'responses' ? extractResponsesContent(payload) : extractChatCompletionsContent(payload)
+  const text = spec.apiStyle === 'responses'
+    ? extractResponsesContent(payload)
+    : spec.apiStyle === 'anthropic-messages'
+      ? extractAnthropicMessagesContent(payload)
+      : extractChatCompletionsContent(payload)
   if (cache !== undefined) cache.set(semanticRequestKey(spec, prompt, image), text)
   return text
 }
