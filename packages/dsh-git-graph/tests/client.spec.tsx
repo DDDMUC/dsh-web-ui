@@ -207,6 +207,25 @@ describe('BranchChip', () => {
     expect(anchor.className).toContain('anchorDock')
   })
 
+  it('collapses the active-conversation dock chip to a quiet icon (#402)', async () => {
+    bench({}, 'dock')
+    const branchChip = await screen.findByRole('button', { name: '分支' })
+    // The full pill above the composer reads as a stray button mid-chat: the
+    // dock seat in the active phase carries the compact (icon-only) class;
+    // CSS re-expands it on hover/focus/open, so no function is lost.
+    expect(branchChip.className).toContain(css.chipCompact)
+  })
+
+  it('keeps the full pill in the hero phase and on the context seat', async () => {
+    bench({ blank: true, composerPhase: 'blank' }, 'dock')
+    const heroChip = await screen.findByRole('button', { name: '分支' })
+    expect(heroChip.className).not.toContain(css.chipCompact)
+    cleanup()
+    bench()
+    const contextChip = await screen.findByRole('button', { name: '分支' })
+    expect(contextChip.className).not.toContain(css.chipCompact)
+  })
+
   it('measures the input card left edge and applies it as the dock indent', async () => {
     const card = document.createElement('div')
     card.setAttribute('data-composer-card', '')

@@ -56,7 +56,42 @@
   font-size: 12px;
   line-height: 1;
   white-space: nowrap;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease,
+    gap 120ms ease, padding 120ms ease;
+}
+
+/* Compact dock chip (#402): in an active conversation the full branch pill
+   above the composer reads as a stray button, so the dock seat collapses to
+   a quiet icon-only chip. Hover, keyboard focus, and the open popover all
+   restore the full pill; the hero row never compacts. */
+.chipCompact {
+  gap: 0;
+  padding: 0 6px;
+}
+
+.chipCompact .chipLabel,
+.chipCompact .chipChevron {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 160ms ease, opacity 120ms ease;
+}
+
+.chipCompact:hover,
+.chipCompact:focus-visible,
+.chipCompact.chipOpen {
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.chipCompact:hover .chipLabel,
+.chipCompact:hover .chipChevron,
+.chipCompact:focus-visible .chipLabel,
+.chipCompact:focus-visible .chipChevron,
+.chipCompact.chipOpen .chipLabel,
+.chipCompact.chipOpen .chipChevron {
+  max-width: 220px;
+  opacity: 1;
 }
 
 .chip:hover {
@@ -711,6 +746,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .chip,
+  .chipCompact .chipLabel,
+  .chipCompact .chipChevron,
   .searchBox,
   .searchInput,
   .item,

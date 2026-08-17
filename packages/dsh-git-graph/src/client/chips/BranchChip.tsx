@@ -7,8 +7,9 @@
  * (session-scoped). On the dock's hero phase the chip joins the official
  * hero row after the agent-preset seat (right of the workspace and preset
  * chips), styled from the official `dsh-client-ui-theme` tokens; on the
- * active phase it measures the input card's left edge and aligns itself
- * flush with it. The chip hides itself only when its data source is absent
+ * active phase it measures the input card's left edge, aligns itself flush
+ * with it, and collapses to a quiet icon-only chip that re-expands on
+ * hover/focus/open so the full pill does not crowd the conversation (#402). The chip hides itself only when its data source is absent
  * (no session cwd, or not a git repository).
  * @module dsh-git-graph/client/chips/BranchChip
  */
@@ -307,6 +308,7 @@ export function BranchChip(props: BranchChipProps) {
       <div className={css.chipWrap}>
         <Chip
           hero={heroSeat}
+          compact={dockSeat && !heroSeat}
           icon={<IconBranchOutline16 size={14} />}
           label={repo.branch === '' ? props.t('branch.detached') : repo.branch}
           ariaLabel={props.t('chip.aria.branch')}
