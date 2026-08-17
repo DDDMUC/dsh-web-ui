@@ -27,7 +27,9 @@ const REPO_RE = /^https:\/\/[^\s]+$/
 /** Required entry fields, in output order. */
 const REQUIRED = ['id', 'name', 'nameEn', 'author', 'repo']
 /** Optional entry fields, copied through when present. */
-const OPTIONAL = ['description', 'descriptionEn', 'npm']
+const OPTIONAL = ['description', 'descriptionEn', 'npm', 'category']
+/** Stable category ids rendered as filter pills; budgets tracked per entry. */
+const CATEGORIES = ['ui', 'agent', 'tools', 'knowledge', 'integration', 'security', 'utility']
 
 /**
  * Validate the parsed community.json body.
@@ -60,6 +62,9 @@ function validateEntries(raw) {
         throw new Error('community.json: entry ' + entry.id + ' ' + key + ' must be a string')
       }
     }
+    if (entry.category !== undefined && !CATEGORIES.includes(entry.category)) {
+      throw new Error('community.json: entry ' + entry.id + ' category must be one of ' + CATEGORIES.join(' / '))
+    }
   }
 }
 
@@ -86,6 +91,9 @@ function buildOutput(entries) {
     ' * Regenerate with `node scripts/community-index`.',
     ' */',
     '',
+    '/** Stable category ids rendered as marketplace-style filter pills. */',
+    "export type CommunityPluginCategory = '" + CATEGORIES.join("' | '") + "'",
+    '',
     '/** One community plugin entry: contributor metadata plus the repository link. */',
     'export interface CommunityPluginEntry {',
     '  /** Stable entry id (unique in community.json). */',
@@ -104,6 +112,8 @@ function buildOutput(entries) {
     '  repo: string',
     '  /** npm package name, when the plugin is published there. */',
     '  npm?: string',
+    '  /** Category id for the marketplace filter pills. */',
+    '  category?: CommunityPluginCategory',
     '}',
     '',
     '/** Every community plugin, in community.json order. */',

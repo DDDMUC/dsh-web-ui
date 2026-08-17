@@ -5,7 +5,10 @@
  * the whole list at render time.
  */
 
-import type { CommunityPluginEntry } from './generated/community.ts'
+import type { CommunityPluginCategory, CommunityPluginEntry } from './generated/community.ts'
+
+/** Category ids the card knows how to label; others are treated as uncategorized. */
+const KNOWN_CATEGORIES: readonly CommunityPluginCategory[] = ['ui', 'agent', 'tools', 'knowledge', 'integration', 'security', 'utility']
 
 /** True when the value is a well-formed community plugin entry. */
 export function isCommunityPluginEntry(value: unknown): value is CommunityPluginEntry {
@@ -18,5 +21,6 @@ export function isCommunityPluginEntry(value: unknown): value is CommunityPlugin
   if (entry.description !== undefined && typeof entry.description !== 'string') return false
   if (entry.descriptionEn !== undefined && typeof entry.descriptionEn !== 'string') return false
   if (entry.npm !== undefined && typeof entry.npm !== 'string') return false
+  if (entry.category !== undefined && (typeof entry.category !== 'string' || !KNOWN_CATEGORIES.includes(entry.category as CommunityPluginCategory))) return false
   return true
 }

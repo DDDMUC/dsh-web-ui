@@ -21,5 +21,7 @@ describe('isCommunityPluginEntry', () => {
     expect(isCommunityPluginEntry({ id: 'x', name: 'X', nameEn: 'X', author: '', repo: 'https://github.com/a/b' })).toBe(false)
     expect(isCommunityPluginEntry({ id: 'x', name: 'X', nameEn: 'X', author: 'a', repo: 'not-a-url' })).toBe(false)
     expect(isCommunityPluginEntry({ id: 'x', name: 'X', nameEn: 'X', author: 'a', repo: 'https://github.com/a/b', npm: 42 })).toBe(false)
+    expect(isCommunityPluginEntry({ id: 'x', name: 'X', nameEn: 'X', author: 'a', repo: 'https://github.com/a/b', category: 42 })).toBe(false)
+    expect(isCommunityPluginEntry({ id: 'x', name: 'X', nameEn: 'X', author: 'a', repo: 'https://github.com/a/b', category: 'bogus' })).toBe(false)
   })
 })
