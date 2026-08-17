@@ -276,6 +276,11 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
     res.write('retry: 2000\n\n')
     const subscriber: Subscriber = { path, last: '', res }
     subscribers.add(subscriber)
+    // A push/heartbeat write racing socket teardown emits 'error' on the
+    // response stream; unhandled, that can crash the host. Dropping the
+    // subscriber degrades the race to a lost write; req 'close' finishes
+    // the remaining cleanup.
+    res.on('error', () => { subscribers.delete(subscriber) })
     if (guard === undefined) {
       guard = new PollGuard({
         intervalMs: POLL_INTERVAL_MS,

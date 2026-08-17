@@ -74,6 +74,7 @@ function fakeResponse(): {
       if (chunk !== undefined && chunk !== null) state.writes.push(String(chunk))
       state.body = state.writes.join('')
     },
+    on: () => {},
   }
   return {
     res,
@@ -236,6 +237,7 @@ function connect(sse: (req: unknown, res: unknown) => Promise<void>): { writes: 
     writeHead: () => {},
     write: (chunk: unknown) => { writes.push(String(chunk)) },
     end: () => {},
+    on: () => {},
   }
   const req = {
     url: '/git/events?path=%2Fw',
