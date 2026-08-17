@@ -26,6 +26,7 @@ import { NS, dictionaries, setLanguage, type AionUiPanelKey } from './locales.ts
 import { DragFileInlay, type DragFileInjected } from './drag/DragFileInlay.tsx'
 import { insertPathIntoDraft } from './drag/file-drag.ts'
 import { MermaidChatEnhancer } from './chat/mermaid-chat.tsx'
+import { handleFileRefClick } from './chat/file-ref.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -165,6 +166,18 @@ export function apply(ctx: ClientContext): void {
       console.error('[dsh-aionui-panel] mount failed:', error)
     }
 
+    // Chat file-reference clicks (issue #314): recognize workspace paths in
+    // transcript code spans and locate them in the Explorer / Preview.
+    const onFileRefClick = (event: MouseEvent): void => {
+      try {
+        handleFileRefClick(stores, api, event)
+      } catch (error) {
+        // A broken locate must never break the transcript's own clicks.
+        console.error('[dsh-aionui-panel] file ref locate failed:', error)
+      }
+    }
+    document.addEventListener('click', onFileRefClick)
+
     // Debounced persists (explorer/scm/preview) may be pending when the page
     // hides; flush them so a close/background never drops the last 150ms.
     const flushOnHide = (): void => stores.flushNow()
@@ -178,6 +191,7 @@ export function apply(ctx: ClientContext): void {
       flushOnHide()
       window.removeEventListener('pagehide', flushOnHide)
       document.removeEventListener('visibilitychange', onVisibilityChange)
+      document.removeEventListener('click', onFileRefClick)
       disposeEvents?.()
       langObserver?.disconnect()
       for (const dispose of disposers) dispose()
