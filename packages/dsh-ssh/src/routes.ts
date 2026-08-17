@@ -78,6 +78,8 @@ export interface SshRoutesDeps {
   engine: SshEngine
   /** Temp dir for upload/download staging (tests inject a sandbox). */
   stagingDir?: string
+/** Upload byte cap override (tests); defaults to MAX_UPLOAD_BYTES. */
+maxUploadBytes?: number
 }
 
 /**
@@ -88,6 +90,7 @@ export interface SshRoutesDeps {
 export function makeRoutes(deps: SshRoutesDeps): { routes: WebRoute[]; upgrade: WebUpgradeRoute } {
   const { store, engine } = deps
   const staging = deps.stagingDir ?? join(tmpdir(), 'dsh-ssh-uploads')
+const maxUploadBytes = deps.maxUploadBytes ?? MAX_UPLOAD_BYTES
   // The upload route stages request bodies here; it must exist before the
   // first request (a missing dir would hang the first upload forever).
   mkdirSync(staging, { recursive: true })
@@ -336,7 +339,7 @@ export function makeRoutes(deps: SshRoutesDeps): { routes: WebRoute[]; upgrade: 
           return
         }
         const declared = Number(req.headers['content-length'])
-        if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) {
+        if (Number.isFinite(declared) && declared > maxUploadBytes) {
           writeJson(res, 413, { error: 'upload body too large' })
           return
         }
@@ -372,6 +375,17 @@ export function makeRoutes(deps: SshRoutesDeps): { routes: WebRoute[]; upgrade: 
         req.on('aborted', () => fail('upload aborted by the client'))
         res.on('error', () => fail('response stream closed'))
         res.on('close', () => { if (!res.writableEnded) fail('connection closed') })
+        // The content-length pre-check above can be bypassed by chunked or
+        // header-less requests: count the bytes as they actually arrive and
+        // abort the moment the cap is exceeded.
+        let received = 0
+        req.on('data', (chunk: Buffer) => {
+          received += chunk.byteLength
+          if (received > maxUploadBytes) {
+            fail('upload body too large')
+            try { req.destroy() } catch { /* closed */ }
+          }
+        })
         req.pipe(sink)
         sink.on('finish', async () => {
           if (settled) return

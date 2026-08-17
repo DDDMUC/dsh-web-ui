@@ -6,7 +6,7 @@
 
 import { createServer, request as httpRequest, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WebSocket } from 'ws'
@@ -103,7 +103,7 @@ function get(path: string, headers: Record<string, string> = {}): Promise<{ stat
 beforeAll(async () => {
   store = new HostStore(join(dir, 'hosts.json'))
   stub = new StubEngine()
-  const { routes, upgrade } = makeRoutes({ store, engine: engine(stub), stagingDir: join(dir, 'staging') })
+  const { routes, upgrade } = makeRoutes({ store, engine: engine(stub), stagingDir: join(dir, 'staging'), maxUploadBytes: 64 })
   server = createServer((req, res) => {
     const rawPath = new URL(req.url ?? '/', 'http://x').pathname
     const route = routes.find(r => r.kind === 'exact' && r.path === rawPath)
@@ -234,6 +234,27 @@ describe('upload', () => {
     expect(lines.some(line => line.type === 'progress')).toBe(true)
     const result = lines.find(line => line.type === 'result')
     expect(result?.ok).toBe(true)
+  })
+
+  it('enforces the byte cap for chunked uploads with no content-length', async () => {
+    const result = await new Promise<{ status: number; text: string }>((resolve, reject) => {
+      const req = httpRequest({ host: '127.0.0.1', port, path: SSH_API.upload + '?alias=web-01&remotePath=/tmp/big.bin', method: 'POST' }, (res) => {
+        let text = ''
+        res.on('data', (chunk: Buffer) => { text += chunk.toString('utf8') })
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, text }))
+      })
+      req.on('error', reject)
+      // Chunked transfer: no content-length pre-check can save us.
+      req.write('x'.repeat(48))
+      req.write('y'.repeat(48))
+      req.end()
+    })
+    expect(result.status).toBe(200)
+    const frames = result.text.split('\n').filter(Boolean).map(line => JSON.parse(line) as Record<string, unknown>)
+    const frame = frames.find(line => line.type === 'result')
+    expect(frame?.ok).toBe(false)
+    expect(String(frame?.error)).toContain('too large')
+    expect(readdirSync(join(dir, 'staging'))).toHaveLength(0)
   })
 
   it('reports engine failures through the result frame', async () => {
