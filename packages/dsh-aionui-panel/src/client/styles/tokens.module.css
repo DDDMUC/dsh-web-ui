@@ -228,16 +228,16 @@
 }
 
 /* Floating expand button (explorer collapsed). Docked at the viewport's
-   top-right corner — exactly where the explorer's collapse chevron sits
-   while open — so the open button replaces the close button in place
-   (issue #374 follow-up). Above the columns (z 30): when the preview
+   top-right corner, just below the shell header's bottom divider (the
+   horizontal line under the "Session log" row) — the layout controller
+   sets an inline top for that, so the button never overlaps the header
+   chrome (issues #374 / #292). Above the columns (z 30): when the preview
    region is open it overlaps the rightmost column track, so anything
    lower would be painted under the opaque column and stop receiving
    clicks (issue #234 follow-up). Full-screen overlay drawers must render
    at the ROOT stacking context (z 100~1000) to cover it.
-   The top below is only the pre-JS fallback: the layout controller sets
-   an inline top aligned with the chevron row below the WCO titlebar
-   (issues #374 / #292). */
+   The top below is only the pre-JS fallback (the chevron row); the
+   controller overwrites it inline. */
 :global(.aionui-floating-expand) {
   position: fixed;
   top: calc(6px + env(titlebar-area-height, 0px));

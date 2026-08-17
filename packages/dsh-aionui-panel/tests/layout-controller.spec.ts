@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PanelLayoutController } from '../src/client/layout.ts'
 import { createLayoutStore, layoutSetRoot, type LayoutStore } from '../src/client/store.ts'
-import { COLLAPSE_CHEVRON_TOP_PX } from '../src/client/floating.ts'
+import { COLLAPSE_CHEVRON_TOP_PX, FLOATING_HEADER_GAP_PX } from '../src/client/floating.ts'
 
 /** jsdom lacks ResizeObserver; the controller only needs a silent stub. */
 class SilentResizeObserver {
@@ -117,6 +117,17 @@ describe('floating expand button (issues #374 / #292)', () => {
     expect(parseFloat(floatingButton().style.top)).toBe(COLLAPSE_CHEVRON_TOP_PX)
   })
 
+  it('docks just below the shell header divider when one is present', () => {
+    const center = document.createElement('div')
+    center.className = 'centerCol'
+    const header = document.createElement('header')
+    header.getBoundingClientRect = () => domRect(800, 76)
+    center.appendChild(header)
+    frame.appendChild(center)
+    collapse()
+    expect(parseFloat(floatingButton().style.top)).toBe(76 + FLOATING_HEADER_GAP_PX)
+  })
+
   it('keeps plain clicks toggling the explorer', () => {
     collapse()
     floatingButton().dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -124,14 +135,6 @@ describe('floating expand button (issues #374 / #292)', () => {
 
     floatingButton().dispatchEvent(new MouseEvent('click', { bubbles: true }))
     expect(layout.getSnapshot().explorerCollapsed).toBe(true)
-  })
-
-  it('reserves the preview tab-bar corner while visible', () => {
-    expect(previewCol().classList.contains('aionui-reserve-floating')).toBe(false)
-    collapse()
-    expect(previewCol().classList.contains('aionui-reserve-floating')).toBe(true)
-    layout.update((prev) => ({ ...prev, explorerCollapsed: false }))
-    expect(previewCol().classList.contains('aionui-reserve-floating')).toBe(false)
   })
 
   it('hides while the explorer is expanded', () => {

@@ -1,24 +1,23 @@
 /**
  * Floating expand button geometry (issues #374 / #292): the button is a
- * fixed chrome element docked at the viewport's top-right corner — exactly
- * where the explorer's collapse chevron sits while the panel is open — so
- * the re-expand control replaces the close button in place and the toggle
- * position stays consistent. Its top stays below the Window Controls
- * Overlay titlebar strip when dsh-desktop reports one (issue #292). Every
- * computed position is clamped into the usable range.
+ * fixed chrome element docked at the viewport's top-right corner, just
+ * below the shell conversation header — the horizontal divider under the
+ * "Session log" row — so the re-expand control sits below the header
+ * chrome instead of overlapping it. Its top stays below the Window
+ * Controls Overlay titlebar strip when dsh-desktop reports one (issue
+ * #292). Every computed position is clamped into the usable range.
  * @module dsh-aionui-panel/client/floating
  */
 
-/** Breathing room above/below the button (px) — matches the chevron's 6px
- * top offset below the titlebar strip, so the docked default and the drag
- * clamp floor share the chevron row. */
+/** Breathing room above/below the button (px). */
 export const FLOATING_MARGIN_PX = 6
+/** Gap between the shell header's bottom divider and the button top (px). */
+export const FLOATING_HEADER_GAP_PX = 8
 /** The button's rendered size (kept in sync with tokens.module.css). */
 export const FLOATING_BUTTON_HEIGHT_PX = 24
-/** Top offset of the explorer's collapse chevron inside its tab bar (px);
- * the floating button docks at the same height so the open button lands
- * exactly where the close button was (kept in sync with the chevron rule
- * in tokens.module.css). */
+/** Top offset of the explorer's collapse chevron inside its tab bar (px).
+ * Used only as a fallback when the shell conversation header is not found
+ * (kept in sync with the chevron rule in tokens.module.css). */
 export const COLLAPSE_CHEVRON_TOP_PX = 6
 
 /** Minimal Window Controls Overlay surface (untyped in older TS DOM libs). */
