@@ -220,7 +220,8 @@ export class PanelLayoutController {
         FLOATING_BUTTON_HEIGHT_PX,
         titlebarAreaHeight(),
       )
-      floatingButton.style.top = `${Math.round(top)}px`
+      this.floatingTop = Math.round(top)
+      floatingButton.style.top = `${this.floatingTop}px`
       floatingButton.style.transform = 'none'
     })
     const endFloatingDrag = (): void => {
@@ -228,7 +229,8 @@ export class PanelLayoutController {
       if (drag === null) return
       this.floatingDrag = null
       if (!drag.moved) return
-      this.floatingTop = Math.round(floatingButton.getBoundingClientRect().top)
+      // Persist the clamped position the drag applied (the same value the
+      // inline style carries — rect reads are unavailable in jsdom tests).
       writeStoredNumber(KEY_FLOATING_TOP, this.floatingTop)
       // A drag that ends over the button would otherwise fire a click and
       // toggle the panel — swallow exactly that one click.
