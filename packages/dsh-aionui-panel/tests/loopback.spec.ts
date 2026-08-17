@@ -72,6 +72,7 @@ function fakeResponse(): {
       if (chunk !== undefined && chunk !== null) state.writes.push(String(chunk))
       state.body = state.writes.join('')
     },
+    on: vi.fn(),
   }
   return {
     res,
