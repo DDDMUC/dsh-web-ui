@@ -123,14 +123,20 @@ describe('scanProjectsRoot', () => {
     expect(entries[0].title).toBe('Solo')
   })
 
-  it('synthesizes a project for a bare-media folder without project.json', () => {
+  it('synthesizes one entry per media file in a bare folder without project.json', () => {
     const dir = join(root, 'bare')
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'loop.mp4'), 'x', 'utf8')
+    writeFileSync(join(dir, 'aurora.mp4'), 'x', 'utf8')
+    writeFileSync(join(dir, 'loop.jpg'), 'x', 'utf8')
     const entries = scanProjectsRoot(dir, 'local')
-    expect(entries).toHaveLength(1)
-    expect(entries[0].type).toBe('video')
-    expect(entries[0].playable).toBe(true)
+    expect(entries).toHaveLength(2)
+    const loop = entries.find(e => e.id === 'bare/loop.mp4')
+    expect(loop?.type).toBe('video')
+    expect(loop?.playable).toBe(true)
+    expect(loop?.preview).toBe('loop.jpg')
+    const aurora = entries.find(e => e.id === 'bare/aurora.mp4')
+    expect(aurora?.preview).toBeNull()
   })
 
   it('does not synthesize bare-media folders under workshop roots', () => {
