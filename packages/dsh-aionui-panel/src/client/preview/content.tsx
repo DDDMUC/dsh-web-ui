@@ -42,9 +42,10 @@ export function TabContent({
   onSave: () => void
 }): JSX.Element {
   if (tab.error !== null) {
+    const message = tab.error === 'write-conflict' ? t('preview.saveConflict') : tab.error
     return <div className={previewCss.placeholder}>
       <div className={previewCss.placeholderTitle}>{tab.title}</div>
-      <div className={previewCss.placeholderError}>{tab.error}</div>
+      <div className={previewCss.placeholderError}>{message}</div>
     </div>
   }
 

@@ -413,7 +413,7 @@ describe('regression: search debounce + failure paths + save race', () => {
     s.preview.updateContent(id, '# edited')
     await s.preview.saveTab(id)
     const tab = s.preview.getSnapshot().tabs[0]
-    expect(tab.error).toContain('保存冲突')
+    expect(tab.error).toBe('write-conflict')
     expect(tab.dirty).toBe(true)
   })
 
