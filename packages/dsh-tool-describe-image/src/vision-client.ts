@@ -191,23 +191,31 @@ export async function loadImage(ctx: Context, input: string, signal: AbortSignal
  * @param cap - the byte bound.
  * @returns the accumulated body bytes.
  */
-export async function readBoundedBody(response: Response, cap: number): Promise<Buffer> {
-  if (response.body === null) return Buffer.alloc(0)
+/** Drain a response body chunk by chunk, always releasing the reader lock. */
+async function drainResponse(response: Response, onChunk: (value: Uint8Array) => 'stop' | undefined): Promise<void> {
+  if (response.body === null) return
   const reader = response.body.getReader()
-  const chunks: Buffer[] = []
-  let total = 0
   try {
     for (;;) {
       const { done, value } = await reader.read()
       if (done) break
-      const chunk = Buffer.from(value)
-      total += chunk.length
-      if (total > cap) throw new Error(`describe-image: response exceeds the ${cap}-byte bound`)
-      chunks.push(chunk)
+      if (onChunk(value) === 'stop') return
     }
   } finally {
     reader.releaseLock()
   }
+}
+
+export async function readBoundedBody(response: Response, cap: number): Promise<Buffer> {
+  const chunks: Buffer[] = []
+  let total = 0
+  await drainResponse(response, (value) => {
+    const chunk = Buffer.from(value)
+    total += chunk.length
+    if (total > cap) throw new Error(`describe-image: response exceeds the ${cap}-byte bound`)
+    chunks.push(chunk)
+    return undefined
+  })
   return Buffer.concat(chunks)
 }
 
@@ -218,21 +226,20 @@ export async function readBoundedBody(response: Response, cap: number): Promise<
  * @returns the decoded text, never longer than `cap` characters.
  */
 export async function readBoundedText(response: Response, cap: number): Promise<string> {
-  if (response.body === null) return ''
-  const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let text = ''
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      text += decoder.decode(value, { stream: true })
-      if (text.length > cap) return text.slice(0, cap)
+  let stopped = false
+  await drainResponse(response, (value) => {
+    text += decoder.decode(value, { stream: true })
+    if (text.length > cap) {
+      stopped = true
+      return 'stop'
     }
-    text += decoder.decode()
-  } finally {
-    reader.releaseLock()
-  }
+    return undefined
+  })
+  // The final flush decode matters only for a fully-read stream; a truncated
+  // read cuts mid-sequence anyway.
+  if (!stopped) text += decoder.decode()
   return text.length > cap ? text.slice(0, cap) : text
 }
 
