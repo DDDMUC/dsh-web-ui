@@ -43,7 +43,7 @@ function pascalName(name) {
 
 function pkgJson(name) {
   return {
-    name: `@deepseek-ai/dsh-client-ui-skin-${name}`,
+    name: `@linxin666/dsh-client-ui-skin-${name}`,
     description: `Hot-pluggable ${displayName(name)} skin for the dsh web GUI: <edit me — one line pitch>`,
     version: '0.0.1',
     private: true,
@@ -86,14 +86,14 @@ function cordisPatch(name) {
 # skins is managed by scripts/dsh-skin (home-layer disabled rows).
 - insert:
     - id: ui-skin-${name}
-      name: '@deepseek-ai/dsh-client-ui-skin-${name}'
+      name: '@linxin666/dsh-client-ui-skin-${name}'
 `
 }
 
 function tsdownConfig(name) {
   return `import { clientBundle } from '../../../shared/tsdown.client.ts'
 
-export default clientBundle('@deepseek-ai/dsh-client-ui-skin-${name}', ['src/index.ts'])
+export default clientBundle('@linxin666/dsh-client-ui-skin-${name}', ['src/index.ts'])
 `
 }
 
@@ -284,7 +284,7 @@ function skinJson(name, order) {
     tags: [name, 'new'],
     accent: '#6c5ce7',
     bodyAttr: `data-dsh-${name}`,
-    package: `@deepseek-ai/dsh-client-ui-skin-${name}`,
+    package: `@linxin666/dsh-client-ui-skin-${name}`,
     wiring: { id: `ui-skin-${name}`, bundleWired: false },
     preview: {
       light: `packages/skins/${name}/preview/light.png`,
@@ -351,7 +351,7 @@ describe('${displayName(name)} skin apply', () => {
 function readme(name) {
   const dataAttr = `data-dsh-${name}`
   const display = displayName(name)
-  return `# @deepseek-ai/dsh-client-ui-skin-${name}
+  return `# @linxin666/dsh-client-ui-skin-${name}
 
 ${display} skin for the dsh web GUI — <edit me: one-line pitch>.
 
