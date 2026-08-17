@@ -16,7 +16,7 @@ Skins ship inside the family aggregate package `@linxin666/dsh-skins` (installin
 dsh plugin --profile web add @linxin666/dsh-skins
 ```
 
-Activate or switch with `dsh-skin use whale-mom` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
+Activate or switch with `dsh-skin use <id>` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
 
 ## The backdrop art
 

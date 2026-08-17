@@ -16,7 +16,7 @@
 dsh plugin --profile web add @linxin666/dsh-skins
 ```
 
-用 `dsh-skin use whale-mom`（monorepo 里的辅助脚本 `scripts/dsh-skin`）激活或切换；同一时刻只激活一款皮肤。
+用 `dsh-skin use <id>`（monorepo 里的辅助脚本 `scripts/dsh-skin`）激活或切换；同一时刻只激活一款皮肤。
 
 ## 背景画作
 
