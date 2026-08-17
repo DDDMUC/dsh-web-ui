@@ -13,21 +13,13 @@ import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
 import css from '../board.module.css'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { formatTime } from './TaskCard.tsx'
+import { STATUS_KEY } from './status-key.ts'
 
 /** Execution outcome → locale key. */
 const RESULT_KEY: Record<NonNullable<ExecutionRecord['result']>, TaskBoardKey> = {
   succeeded: 'detail.result.succeeded',
   failed: 'detail.result.failed',
   cancelled: 'detail.result.cancelled',
-}
-
-/** Status → locale key (detail badge). */
-const STATUS_KEY: Record<TaskStatus, TaskBoardKey> = {
-  backlog: 'board.status.backlog',
-  todo: 'board.status.todo',
-  running: 'board.status.running',
-  done: 'board.status.done',
-  failed: 'board.status.failed',
 }
 
 /** One execution-history row. */
