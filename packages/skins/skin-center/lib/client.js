@@ -186,6 +186,26 @@ window.__ModuleLoader__.load({
 				"order": 9
 			},
 			{
+				"id": "matrix",
+				"name": "Matrix 骇客帝国",
+				"nameEn": "Matrix",
+				"author": "contributed (seanchen)",
+				"tagline": "深夜护眼 · 墨绿暗色 · 数字雨",
+				"description": "深夜卧室场景的护眼暗色皮肤：近黑墨绿背景、墨绿等宽字体、低透明度数字雨。强制暗色（不跟随系统主题），整体低亮度，长时间使用不刺眼、不打扰家人睡觉。",
+				"tags": [
+					"matrix",
+					"dark",
+					"green",
+					"hacker",
+					"night",
+					"eye-care"
+				],
+				"accent": "#00e676",
+				"bodyAttr": "data-dsh-matrix",
+				"package": "@linxin666/dsh-client-ui-skin-matrix",
+				"order": 10
+			},
+			{
 				"id": "miku",
 				"name": "初音未来 · 电子歌姬",
 				"nameEn": "Hatsune Miku",
@@ -279,9 +299,11 @@ window.__ModuleLoader__.load({
 		* known skin chrome body children (title/status bars marked `data-skin-chrome`
 		* or carrying the skin's body attribute, leaving other plugins' portals and
 		* toasts in place), and neutralize known global-rule leaks (xp's sidebar
-		* taskbar/start). Everything is snapshotted and restored on exit in original
-		* order. The active skin's own fiber is never touched, so exiting try-on
-		* returns the page to exactly the pre-try-on state.
+		* taskbar/start; matrix's full-viewport rain canvas, which has no scoping
+		* attribute — matrix's forced-dark observer goes inert on its own once the
+		* body attribute is retracted). Everything is snapshotted and restored on
+		* exit in original order. The active skin's own fiber is never touched, so
+		* exiting try-on returns the page to exactly the pre-try-on state.
 		*
 		* A ghost MutationObserver may survive retraction (blue-fantasy re-writes
 		* its backdrop on theme flips), so during try-on a neutralizing observer
@@ -301,7 +323,10 @@ window.__ModuleLoader__.load({
 		* the skin touches, so detaching chrome cannot remove them). Matched by
 		* css-module class substring, which is stable across rebuilds.
 		*/
-		const NEUTRALIZE_CSS = { xp: [`[data-pane='sidebar'] [class*='xpTaskbar']{background:transparent!important;border-top:none!important;box-shadow:none!important}`, `[data-pane='sidebar'] [class*='xpStart']{display:none!important}`].join("") };
+		const NEUTRALIZE_CSS = {
+			xp: [`[data-pane='sidebar'] [class*='xpTaskbar']{background:transparent!important;border-top:none!important;box-shadow:none!important}`, `[data-pane='sidebar'] [class*='xpStart']{display:none!important}`].join(""),
+			matrix: [`[data-plugin='dsh-matrix-skin']{display:none!important}`].join("")
+		};
 		/** Host base path of the skin bundle route (registered by src/routes.ts). */
 		const BUNDLE_ROUTE = "/api/skin-center/bundle";
 		/**
