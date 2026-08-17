@@ -37,7 +37,7 @@ describe('openArgv', () => {
 
 describe('spawnCwd', () => {
   it('strips the /select, prefix from the Windows reveal argv', () => {
-    expect(spawnCwd(['explorer.exe', '/select,C:\\proj\\src\\a.ts'])).toBe('C:\\proj\\src')
+    expect(spawnCwd(['explorer.exe', '/select,C:\\proj\\src\\a.ts'], 'win32')).toBe('C:\\proj\\src')
   })
 
   it('uses the real path for macOS reveal argv', () => {
@@ -49,7 +49,7 @@ describe('spawnCwd', () => {
   })
 
   it('uses the real path for the Windows open-with-default argv', () => {
-    expect(spawnCwd(['cmd.exe', '/c', 'start', '', 'C:\\proj\\notes.md'])).toBe('C:\\proj')
+    expect(spawnCwd(['cmd.exe', '/c', 'start', '', 'C:\\proj\\notes.md'], 'win32')).toBe('C:\\proj')
   })
 
   it('falls back to the parent of the current working directory on an empty argv', () => {

@@ -8,7 +8,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createReadStream } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, win32 } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { readFile, stat } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -53,7 +53,7 @@ export function openArgv(platform: NodeJS.Platform, abs: string): string[] {
 function spawnOsCommand(ctx: Context, argv: string[]): PanelError | null {
   const spec: SubprocessSpawnSpec = {
     argv,
-    cwd: spawnCwd(argv),
+    cwd: spawnCwd(argv, process.platform),
     stdio: {
       stdin: 'ignore',
       stdout: { maxBytes: 1 << 16 },
@@ -80,12 +80,15 @@ function spawnOsCommand(ctx: Context, argv: string[]): PanelError | null {
  * `/select,` prefix on the path argument, so the raw last argv is not a real
  * path; strip the prefix before taking its dirname, otherwise `spawn` fails
  * with ENOENT because the cwd does not exist. Other platforms pass a real
- * path (or the parent directory) as the last argument.
+ * path (or the parent directory) as the last argument. Windows paths use
+ * win32 semantics even under a POSIX test runner — the argv builders are
+ * platform-keyed, so the dirname flavor must follow the target platform, not
+ * the host OS.
  */
-export function spawnCwd(argv: string[]): string {
+export function spawnCwd(argv: string[], platform: NodeJS.Platform = process.platform): string {
   let last = argv[argv.length - 1] ?? process.cwd()
   if (last.startsWith('/select,')) last = last.slice('/select,'.length)
-  return dirname(last)
+  return platform === 'win32' ? win32.dirname(last) : dirname(last)
 }
 
 /** One SSE subscriber: a root and its last pushed git signature. */
