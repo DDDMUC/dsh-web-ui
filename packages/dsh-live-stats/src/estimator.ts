@@ -95,7 +95,17 @@ const MAX_UNKNOWN_BLOCK_CHARS = 4096
  * @returns the estimated token count (capped by the serialized-length bound).
  */
 function estimateUnknownBlockTokens(block: ContentBlock, spec: EstimatorSpec): number {
-  const serialized = JSON.stringify(block)
+  // Serialize through a budget-draining replacer so the stringify work
+  // itself is bounded: a multi-MB string value (an image data URL, say) is
+  // cut as it is written instead of materializing in full first.
+  let remaining = MAX_UNKNOWN_BLOCK_CHARS
+  const serialized = JSON.stringify(block, (_key, value: unknown) => {
+    if (typeof value !== 'string') return value
+    if (remaining <= 0) return ''
+    const kept = value.slice(0, remaining)
+    remaining -= kept.length
+    return kept
+  })
   const length = serialized.length > MAX_UNKNOWN_BLOCK_CHARS
     ? MAX_UNKNOWN_BLOCK_CHARS
     : serialized.length
