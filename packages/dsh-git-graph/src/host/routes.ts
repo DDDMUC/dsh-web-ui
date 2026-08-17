@@ -159,13 +159,17 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
   // wedge the loop forever.
   const runPoll = async (): Promise<void> => {
     await Promise.all([...subscribers].map(async (subscriber) => {
+      // The timeout handle is captured and cleared once the race settles:
+      // an uncleared 15s timer per subscriber per tick would keep the event
+      // loop (and the subscriber closure) alive long after the round ended.
+      let timeout: ReturnType<typeof setTimeout> | undefined
       try {
         const status = await Promise.race([
           service.status(subscriber.path),
           new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('git status timed out')), STATUS_TIMEOUT_MS)
+            timeout = setTimeout(() => reject(new Error('git status timed out')), STATUS_TIMEOUT_MS)
           }),
-        ])
+        ]).finally(() => { if (timeout !== undefined) clearTimeout(timeout) })
         const key = status === null ? 'no-repo' : `${status.root}|${status.branch}|${status.head}`
         if (key === subscriber.last) return
         subscriber.last = key
