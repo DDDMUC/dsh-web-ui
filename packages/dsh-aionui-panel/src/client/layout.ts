@@ -151,6 +151,11 @@ export class PanelLayoutController {
   private attach(frame: HTMLElement): void {
     this.frame = frame
     frameElement = frame
+    // The wait observer's only job was finding the frame; a document-wide
+    // MutationObserver left running would fire on every chat render for the
+    // rest of the session.
+    this.waitObserver?.disconnect()
+    this.waitObserver = null
 
     // The two panel columns: trailing grid items (tracks 4 and 5).
     const previewCol = document.createElement('div')
