@@ -80,7 +80,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 右侧面板由外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供（聚合包已集成并默认启用），支持其内置功能与第三方插件注册，详见其 [README](https://github.com/omdsh-dev/DSH-better-sidebar)。
 
-<!-- TODO: 补充 better-sidebar 右侧面板截图 -->
+![右侧面板](docs/screenshots/19-right-panel.png)
 
 > 此前的 aionui-panel 右侧面板已**暂时关闭**，直到其功能完全迁移到 dsh-better-sidebar；设置 → Web UI 插件 → 右侧面板 可切换提供方，迁移完成前不建议开启。
 

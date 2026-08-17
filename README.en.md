@@ -82,7 +82,7 @@ The branch picker above the input box switches branches and browses commit histo
 
 The right panel is provided by the external plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (integrated into the aggregate bundle and enabled by default), with its built-in features and third-party plugin registration — see its [README](https://github.com/omdsh-dev/DSH-better-sidebar).
 
-<!-- TODO: add a better-sidebar right-panel screenshot -->
+![Right panel](docs/screenshots/19-right-panel.png)
 
 > The previous aionui-panel right panel is **temporarily disabled** until its features are fully migrated to dsh-better-sidebar; Settings → Web UI Plugins → Right panel can switch the provider, but it is not recommended to enable it before the migration completes.
 
