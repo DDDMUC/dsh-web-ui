@@ -178,6 +178,17 @@
     "category": "utility"
   },
   {
+    "id": "dsh-skill-explorer",
+    "name": "技能中心（Skill Explorer）",
+    "nameEn": "Skill Explorer",
+    "author": "wingsky-1",
+    "description": "DSH 技能中心：按来源分级浏览已加载 skill（系统内置 / 项目 / 用户 / 自定义 / 运行时），支持启用/禁用、创建与删除（移入 .trash）。",
+    "descriptionEn": "DSH skill center: browse loaded skills grouped by source (bundled / project / user / custom / runtime), with enable/disable, create and delete (move to .trash).",
+    "repo": "https://github.com/wingsky-1/dsh-skill-explorer",
+    "npm": "@linxin666/dsh-client-ui-skill-explorer",
+    "category": "tools"
+  },
+  {
     "id": "dsh-dream-skin",
     "name": "dsh-dream-skin",
     "nameEn": "dsh-dream-skin",
