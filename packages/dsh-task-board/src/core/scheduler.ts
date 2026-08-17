@@ -68,6 +68,9 @@ export class SchedulerService {
   private environmentListener: (() => void) | undefined
   private disposed = false
   private started = false
+  /** Cron expressions that matched no instant in the scan window, per task —
+   *  remembered so a never-matching rule is not re-scanned on every tick. */
+  private readonly unmatchableRepair = new Map<string, string>()
 
   /** @param deps - tasks/clock/trigger/apply faces (see {@link SchedulerDeps}). */
   constructor(private readonly deps: SchedulerDeps) {}
@@ -133,9 +136,16 @@ export class SchedulerService {
       if (schedule === undefined || !schedule.enabled) continue
       if (schedule.nextRunAt === undefined) {
         // Missing next-run instant (repaired/legacy data): recompute from the
-        // cron expression and wait; an unparseable expression is skipped.
+        // cron expression and wait; an unparseable expression is skipped. A
+        // grammatically valid rule with no match in the window (e.g. Feb 30)
+        // would otherwise re-run the full minute-by-minute scan every tick.
+        if (this.unmatchableRepair.get(task.id) === schedule.cron) continue
         const repaired = nextRunAtMs(schedule.cron, now)
-        if (repaired === undefined) continue
+        if (repaired === undefined) {
+          this.unmatchableRepair.set(task.id, schedule.cron)
+          continue
+        }
+        this.unmatchableRepair.delete(task.id)
         this.deps.applySchedule(task.id, repaired, undefined)
         continue
       }

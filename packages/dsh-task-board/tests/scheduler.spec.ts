@@ -3,8 +3,14 @@
  * gates (ready/disposed/disabled), and tab-visibility recovery. Drives
  * `tick` directly (no real timers).
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SchedulerService, type SchedulerDeps } from '../src/core/scheduler.ts'
+import { nextRunAtMs } from '../src/core/schedule.ts'
+
+vi.mock('../src/core/schedule.ts', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../src/core/schedule.ts')>()
+  return { ...mod, nextRunAtMs: vi.fn(mod.nextRunAtMs) }
+})
 import { createTask, withSchedule, type TaskRecord } from '../src/core/tasks.ts'
 
 /** Local-time ms epoch helper. */
@@ -131,6 +137,22 @@ describe('SchedulerService.tick', () => {
     await h.scheduler.tick()
     expect(h.runs).toEqual([])
     expect(h.applied).toEqual([])
+  })
+
+  it('remembers a never-matching rule instead of re-scanning every tick', async () => {
+    const mocked = vi.mocked(nextRunAtMs)
+    mocked.mockClear()
+    const h = makeHarness()
+    // Grammatically valid but impossible: February has no 30th.
+    h.setTasks([scheduledTask('a', '0 0 30 2 *', undefined)])
+    await h.scheduler.tick()
+    await h.scheduler.tick()
+    expect(h.applied).toEqual([])
+    expect(mocked).toHaveBeenCalledTimes(1)
+    // A changed rule is re-scanned once, not served from the cache.
+    h.setTasks([scheduledTask('a', '0 0 29 2 *', undefined)])
+    await h.scheduler.tick()
+    expect(mocked).toHaveBeenCalledTimes(2)
   })
 
   it('does not double-fire within consecutive ticks (schedule rolled forward)', async () => {
