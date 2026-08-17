@@ -62,18 +62,40 @@ export function checkRuntimeImports(pkgJson, files) {
   return violations
 }
 
+/**
+ * Group git-tracked files under packages/ by the package directory that owns
+ * them. A package directory is any directory under packages/ that contains a
+ * package.json; every other file is assigned to the package whose dir is its
+ * longest directory prefix (this handles the two-level packages/skins/<id>
+ * layout). Previously files were grouped by their immediate `dirname`, which
+ * split a package's lib/*.js from its package.json and made the whole scan a
+ * no-op.
+ *
+ * Pure function so the node:test suite can feed it inline fixtures.
+ *
+ * @param {string[]} files git-tracked paths under packages/
+ * @returns {Map<string, string[]>} package dir -> its files (incl. package.json)
+ */
+export function groupByPackageDir(files) {
+  const packageDirs = files
+    .filter((f) => f.endsWith('/package.json'))
+    .map((f) => dirname(f))
+    .sort((a, b) => b.length - a.length)
+  const byDir = new Map()
+  for (const file of files) {
+    const dir = packageDirs.find((pkgDir) => file.startsWith(`${pkgDir}/`)) ?? dirname(file)
+    if (!byDir.has(dir)) byDir.set(dir, [])
+    byDir.get(dir).push(file)
+  }
+  return byDir
+}
+
 /** All git-tracked files under packages/, grouped by package dir. */
 function trackedPackageFiles() {
   const files = execFileSync('git', ['ls-files', 'packages'], { encoding: 'utf8', cwd: ROOT })
     .split('\n')
     .filter(Boolean)
-  const byDir = new Map()
-  for (const file of files) {
-    const dir = dirname(file)
-    if (!byDir.has(dir)) byDir.set(dir, [])
-    byDir.get(dir).push(file)
-  }
-  return byDir
+  return groupByPackageDir(files)
 }
 
 const isCli = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { checkRuntimeImports } from './runtime-deps-check.mjs'
+import { checkRuntimeImports, groupByPackageDir } from './runtime-deps-check.mjs'
 
 test('flags a runtime import of a devDependencies-only package (issue #70)', () => {
   const violations = checkRuntimeImports(
@@ -50,4 +50,37 @@ test('flags dynamic import() of a devDependencies-only package', () => {
   )
   assert.equal(violations.length, 1)
   assert.equal(violations[0].specifier, 'some-optional-runtime-dep')
+})
+
+test('groupByPackageDir keeps a package lib file together with its package.json', () => {
+  const byDir = groupByPackageDir([
+    'packages/dsh-ssh/lib/index.js',
+    'packages/dsh-ssh/package.json',
+    'packages/skins/skin-center/lib/client.js',
+    'packages/skins/skin-center/package.json',
+  ])
+  assert.deepEqual(new Set(byDir.keys()), new Set([
+    'packages/dsh-ssh',
+    'packages/skins/skin-center',
+  ]))
+  assert.deepEqual(new Set(byDir.get('packages/dsh-ssh')), new Set([
+    'packages/dsh-ssh/lib/index.js',
+    'packages/dsh-ssh/package.json',
+  ]))
+  assert.deepEqual(new Set(byDir.get('packages/skins/skin-center')), new Set([
+    'packages/skins/skin-center/lib/client.js',
+    'packages/skins/skin-center/package.json',
+  ]))
+})
+
+test('groupByPackageDir uses the longest prefix so a sibling package name is not misattributed', () => {
+  const byDir = groupByPackageDir([
+    'packages/dsh-ssh/package.json',
+    'packages/dsh-ssh/lib/index.js',
+    'packages/dsh-ssh2/package.json',
+    'packages/dsh-ssh2/lib/index.js',
+  ])
+  assert.ok(byDir.get('packages/dsh-ssh').includes('packages/dsh-ssh/lib/index.js'))
+  assert.ok(byDir.get('packages/dsh-ssh2').includes('packages/dsh-ssh2/lib/index.js'))
+  assert.ok(!byDir.get('packages/dsh-ssh').includes('packages/dsh-ssh2/lib/index.js'))
 })
