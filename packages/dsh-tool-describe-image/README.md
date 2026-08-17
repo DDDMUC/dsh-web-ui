@@ -17,8 +17,8 @@ browser half, live settings, no dsh source changes.
 
 | Capability | Description |
 | --- | --- |
-| Three inputs | Local absolute path, http(s) URL (redirects refused), an `[image attachment …]` JSON note, or the short markdown reference a drag/paste produces (`![图片](/describe-image/raw/sha256:…)` — the model passes the id from the URL; the in-process attach registry resolves it and the store's digest verification still runs) |
-| Direct image send | Dragging or pasting an image into a text-only session is rewritten at send time into a describe-image reference (`![图片](/describe-image/raw/sha256:…)`) instead of an image block the model cannot read, so the image renders in the conversation and the model analyzes it through the tool. Models whose adapter declares the image input modality are detected automatically: the raw image blocks reach the model's own vision and no describe_image detour happens |
+| Three inputs | Local absolute path, http(s) URL (redirects refused), a complete `[image attachment ...]` note, or the complete self-contained Markdown reference a drag/paste produces (`![图片](/describe-image/raw/sha256:...?ref=...)`). Pass the complete Markdown reference to the tool: its serialized immutable metadata resolves the stored image after a host restart and in PTC nested tool calls; a bare id remains a current-process fallback |
+| Direct image send | Dragging or pasting an image into a text-only session is rewritten at send time into a self-contained describe-image reference (`![图片](/describe-image/raw/sha256:...?ref=...)`) instead of an image block the model cannot read, so the image renders in the conversation and the model analyzes it through the tool. Models whose adapter declares the image input modality are detected automatically: the raw image blocks reach the model's own vision and no describe_image detour happens |
 | Custom instructions | The `prompt` argument carries your precise instruction (OCR, chart reading, UI diagnosis, translation…); the `defaultPrompt` config sets the fallback when the model passes none |
 | Live config card | Settings → Plugin config → Web UI Plugins → "Image understanding" card edits `baseURL` / `apiStyle` / `model` / API key / default instruction / bounds (through the settings seam); effective immediately, no restart |
 | Protocol styles | `apiStyle: chat-completions` (default) posts to `baseURL/chat/completions`; `apiStyle: responses` posts to `baseURL/responses` with `input` / `max_output_tokens` and reads `output_text`; `apiStyle: anthropic-messages` posts to `baseURL/v1/messages` with `x-api-key` auth (Claude-style endpoints such as OpenCode Go, Zhipu GLM, Moonshot Kimi) and reads `content[].text` |
@@ -132,10 +132,11 @@ text model toward passing one. Calls without a `prompt` fall back to `defaultPro
 ### Sending images directly
 
 Text-only models have no image entry in the DSH input box, so drag or paste an image into the
-composer: at send time the plugin rewrites the image-bearing send into a describe-image reference
-(`![图片](/describe-image/raw/sha256:…)`) instead of an image block the model cannot read. The
-bytes travel to the host `/describe-image/attach` route (validated for size and magic bytes,
-persisted in the attachment store); only the reference text enters the session log.
+composer: at send time the plugin rewrites the image-bearing send into a self-contained describe-image
+reference (`![图片](/describe-image/raw/sha256:...?ref=...)`) instead of an image block the model cannot read.
+The bytes travel to the host `/describe-image/attach` route (validated for size and magic bytes, persisted
+in the attachment store); only durable reference text enters the session log. The complete reference can be
+passed intact to `describe_image` after a host restart or from a PTC nested tool call.
 The web shell renders user messages as plain text, so the sent reference would sit in the
 transcript as raw markdown; with `renderImagePreview` on (the card's "Render image preview in
 chat" toggle, on by default) the client upgrades each reference in place into an inline thumbnail

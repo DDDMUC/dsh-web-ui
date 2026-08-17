@@ -12,7 +12,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 
 import * as tool from '../src/index.ts'
-import { registerAttachmentRef, safeDecodeUriComponent } from '../src/attach-routes.ts'
+import { attachmentMarkdown, registerAttachmentRef, safeDecodeUriComponent } from '../src/attach-routes.ts'
 import { anthropicReply, chatReply, FakeWebServer, jsonReply, PNG_BYTES, rawReply, responsesReply, sentAnthropicContent, sentContent, sentInputContent, startMockServer } from './mock-server.ts'
 
 /** In-memory attachment store so the attachment-reference input path is observable. */
@@ -721,6 +721,33 @@ describe('attachment references', () => {
     expect(imagePart?.image_url?.url).toMatch(/^data:image\/png;base64,/)
   })
 
+  it('describes a stored attachment from a complete attachment note', async () => {
+    const ctx = await seedAttachment(PNG_BYTES)
+    const result = await callDescribe(ctx, { image: `[image attachment ${ref}]` })
+    expect(result.isError).toBe(false)
+    if (result.isError) throw new Error('expected complete attachment note success')
+    expect(result.value).toMatchObject({ text: 'From attachment.', mimeType: 'image/png' })
+  })
+
+  it('describes a stored attachment from self-contained Markdown without the id registry', async () => {
+    const ctx = await seedAttachment(PNG_BYTES)
+    const attachment: ImageAttachmentRef = {
+      attachmentId: `sha256:${'b'.repeat(64)}` as ImageAttachmentRef['attachmentId'],
+      mediaType: 'image/png',
+      bytes: PNG_BYTES.length,
+      width: 1,
+      height: 1,
+    }
+    const attachments = ctx.get('attachments') as FakeAttachments
+    attachments.stored.set(String(attachment.attachmentId), PNG_BYTES)
+    const image = attachmentMarkdown(attachment)
+
+    const result = await callDescribe(ctx, { image })
+    expect(result.isError).toBe(false)
+    if (result.isError) throw new Error('expected self-contained Markdown reference success')
+    expect(result.value).toMatchObject({ text: 'From attachment.', image, mimeType: 'image/png' })
+  })
+
   it('rejects an attachment reference without a mounted attachment service', async () => {
     const ctx = await setup()
     const result = await callDescribe(ctx, { image: ref })
@@ -755,7 +782,7 @@ describe('attachment references', () => {
     ]) {
       const result = await callDescribe(ctx, { image })
       expect(result.isError, `expected rejection for ${image}`).toBe(true)
-      expect(errorText(result)).toContain('copy the exact JSON from the [image attachment …] note')
+      expect(errorText(result)).toContain('not a valid attachment reference')
     }
   })
 

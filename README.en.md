@@ -56,7 +56,7 @@ dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI:
 
 ### Liang Shen Mode
 
-DeepSeek V4 Pro cares a lot about the tool catalog it sees on the first turn. In community benchmarks the official Standard / PTC presets score 91 / 92 and Minimal scores 99 / 96, but Minimal only has two tools. Liang Shen Mode puts the two halves together: pick it in the preset selector when you start a new session. The first turn runs Minimal-style (only a persistent `bash` and `str_replace_editor`, only your own messages), and once the trajectory is anchored it switches to Code Mode (PTC), with the full tool registry, workspace instructions and skill directory restored afterwards. Windows-native testing on DeepSeek V4 Pro: 98 / 99, average 98.5. Not luck of the draw, and no need to give up the full tool set.
+DeepSeek V4 Pro cares a lot about the tool catalog it sees on the first turn. In community benchmarks the official Standard / PTC presets score 91 / 92 and Minimal scores 99 / 96, but Minimal only has two tools. Liang Shen Mode puts the two halves together: pick it in the preset selector when you start a new session. The first turn runs Minimal-style (only a persistent `bash` and `str_replace_editor`, only your own messages), and once the trajectory is anchored it switches to PTC Mode, with the full tool registry, workspace instructions and skill directory restored afterwards. Windows-native testing on DeepSeek V4 Pro: 98 / 99, average 98.5. Not luck of the draw, and no need to give up the full tool set.
 
 ![Liang Shen Mode two-phase anchoring comparison (schematic, simulated render)](docs/images/liangshen-mode.png)
 
