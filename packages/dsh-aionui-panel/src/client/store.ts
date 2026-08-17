@@ -1133,7 +1133,7 @@ export function createPreviewStore(api: PanelApi): PreviewStore {
                 ...item,
                 loading: false,
                 error: result.error.code === 'write-conflict'
-                  ? '文件已在磁盘上被修改，保存冲突：请刷新后重试'
+                  ? 'write-conflict'
                   : result.error.message,
               }
             }
