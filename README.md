@@ -35,7 +35,7 @@
 
 ## 是什么
 
-dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合：面向 DeepSeek V4 Pro 的「梁神模式」agent 预设，以及任务看板、Git 图谱、右侧面板、移动端远程、SSH 运维、图像理解、鲸鱼娘宠物、实时吞吐和皮肤中心。所有插件都走官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；可以逐个安装，也可以用聚合包一次装齐。
+dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合：面向 DeepSeek V4 Pro 的「梁神模式」agent 预设，以及任务看板、Git 图谱、右侧面板、移动端远程、SSH 运维、图像理解、鲸鱼娘宠物、实时吞吐和皮肤中心。所有插件都走官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；可以逐个安装，也可以用聚合包一次装齐（聚合包额外引入外部右侧栏插件 `dsh-better-sidebar` 并默认接管右侧面板，详见 [dsh-web-ui-all README](packages/dsh-web-ui-all/README.zh.md)）。
 
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
 
@@ -44,7 +44,7 @@ dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合�
 | Agent 预设 | 官方预设（Standard / Minimal 等） | 梁神模式：面向 V4 Pro 的两阶段锚定预设 |
 | 任务看板 | 无 | 多列看板 + cron 定时真实执行 |
 | Git 可视化 | 无 | 分支泳道 + 提交历史图谱 |
-| 文件预览与变更 | 无 | 右侧面板：预览 / 文件树 / SCM |
+| 文件预览与变更 | 无 | 右侧面板：better-sidebar（资源管理器 / 编辑器 / 终端 / Git / 浏览器）；aionui 面板随包安装但聚合包内默认关闭，可在设置重开 |
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
@@ -236,6 +236,8 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # 任务看�
 dsh plugin --profile web add @linxin666/dsh-ssh                    # 远程连接（SSH）
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # 图像理解工具
 dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘宠物
+dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # 右侧面板（aionui，独立安装默认开启）
+dsh plugin --profile web add dsh-better-sidebar                    # 右侧面板（外部插件，与 aionui 二选一）
 ```
 
 ### 验证与卸载

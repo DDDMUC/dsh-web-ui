@@ -1,8 +1,11 @@
 /**
- * Aggregate patch invariants: every row id is web-ui-* namespaced and unique
- * within one aggregate, and no aggregate id collides with any standalone
- * package's own row id (the coexistence guarantee). The generated files are
- * the contract — scripts/aggregate.mjs --check enforces drift separately.
+ * Aggregate patch invariants: every INSERT row id is web-ui-* namespaced and
+ * unique within one aggregate, and no aggregate id collides with any
+ * standalone package's own row id (the coexistence guarantee). Config
+ * patches (top-level `- id:` entries, no indentation) are NOT insert rows
+ * and are excluded from the uniqueness/collision checks — they target a row
+ * this aggregate itself inserted. The generated files are the contract —
+ * scripts/aggregate.mjs --check enforces drift separately.
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -13,11 +16,15 @@ import { test } from 'node:test'
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(SCRIPT_DIR, '..')
 
-/** Parse the "- id: X" rows of one cordis.patch.yml. */
+/**
+ * Parse the INSERT row ids of one cordis.patch.yml. Insert rows are
+ * indented under an `- insert:` block (4 spaces); top-level config patches
+ * (`- id:` at column 0) are excluded.
+ */
 function idsOf(relPath) {
   const lines = readFileSync(join(ROOT, relPath), 'utf8').split(/\r?\n/)
   return lines
-    .filter((line) => /^\s*- id: /.test(line))
+    .filter((line) => /^ {4}- id: /.test(line))
     .map((line) => line.trim().replace(/^- id: /, ''))
 }
 
@@ -57,4 +64,22 @@ test('aggregate ids never collide with standalone package ids', () => {
       assert.ok(!aggregateIds.has(id), `aggregate id "${id}" collides with standalone row in ${patch}`)
     }
   }
+})
+
+test('web-ui-all mounts dsh-better-sidebar as an external row', () => {
+  const patch = readFileSync(join(ROOT, 'packages/dsh-web-ui-all/cordis.patch.yml'), 'utf8')
+  const lines = patch.split(/\r?\n/)
+  const idx = lines.findIndex((line) => /^ {4}- id: web-ui-better-sidebar$/.test(line))
+  assert.ok(idx >= 0, 'web-ui-better-sidebar row is missing from the aggregate patch')
+  // The paired name line resolves the row from the profile root (npm package).
+  assert.match(lines[idx + 1] ?? '', /^ {6}name: 'dsh-better-sidebar'$/)
+})
+
+test('web-ui-all disables aionui by default via a config patch', () => {
+  const patch = readFileSync(join(ROOT, 'packages/dsh-web-ui-all/cordis.patch.yml'), 'utf8')
+  const lines = patch.split(/\r?\n/)
+  const idx = lines.findIndex((line) => /^- id: web-ui-dsh-aionui-panel$/.test(line))
+  assert.ok(idx >= 0, 'aionui config patch is missing from the aggregate patch')
+  const config = lines.slice(idx + 1, idx + 3).join(' ').trim()
+  assert.match(config, /config:.*"enabled": *false/, `aionui must be disabled by default in the bundle (got: ${config})`)
 })

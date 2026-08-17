@@ -21,12 +21,25 @@
  *   deps:
  *     - ../skins/skin-center
  *     - ../skins/xp
+ *   rows:
+ *     - {"id": "better-sidebar", "name": "dsh-better-sidebar"}
+ *   patches:
+ *     - {"id": "web-ui-dsh-aionui-panel", "config": {"enabled": false}}
  *
  *   - patchFrom entries contribute their child's cordis.patch.yml insert rows
  *     to the aggregate patch (nested aggregates expand recursively, in
  *     patchFrom order, with per-source comment headers);
  *   - deps entries are resolved to each child's package.json "name" and
- *     written into the aggregate's dependencies as "workspace:*".
+ *     written into the aggregate's dependencies as "workspace:*";
+ *   - rows entries (single-line JSON flow mappings) are EXTERNAL insert rows
+ *     for npm packages outside this repo (the row's `name` resolves from the
+ *     profile root like any child); they are emitted after the patchFrom
+ *     blocks, with their id namespaced like every other row;
+ *   - patches entries (single-line JSON flow mappings) are top-level loader
+ *     patch entries emitted AFTER the insert blocks, used to configure or
+ *     disable a row this aggregate inserted (e.g. a child disabled by
+ *     default in the bundle only). Supported fields: `id`, `config`
+ *     (rendered as a YAML flow mapping), `disabled`.
  *
  * Idempotent: safe to rerun at any time. Writes only inside the aggregate
  * packages it owns; never touches other packages or git state.
@@ -94,10 +107,12 @@ function findAggregates() {
 /**
  * Parse the hand-written manifest. YAML subset on purpose: comment lines and
  * blank lines are skipped, "<key>:" lines start a section, "- <value>" lines
- * belong to the current section.
+ * belong to the current section. The `rows` / `patches` sections hold
+ * single-line JSON flow mappings (JSON is valid YAML, so the manifest stays
+ * YAML-readable while the generator can JSON.parse each entry).
  */
-function parseManifest(ymlPath) {
-  const manifest = { patchFrom: [], deps: [], self: null }
+function parseManifest(ymlPath, errors) {
+  const manifest = { patchFrom: [], deps: [], self: null, rows: [], patches: [] }
   let section = null
   for (const raw of readFileSync(ymlPath, 'utf8').split(/\r?\n/)) {
     const line = raw.trim()
@@ -112,7 +127,20 @@ function parseManifest(ymlPath) {
     const entry = entryMatch[1].trim().replace(/\s+#.*$/, '')
     if (section === 'patchFrom') manifest.patchFrom.push(entry)
     else if (section === 'deps') manifest.deps.push(entry)
-    else if (section === 'self') {
+    else if (section === 'rows' || section === 'patches') {
+      let parsed
+      try {
+        parsed = JSON.parse(entry)
+      } catch {
+        errors.push(`${ymlPath}: ${section} entry must be a JSON flow mapping: ${entry}`)
+        continue
+      }
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        errors.push(`${ymlPath}: ${section} entry must be an object: ${entry}`)
+        continue
+      }
+      manifest[section].push(parsed)
+    } else if (section === 'self') {
       if (manifest.self !== null && manifest.self !== entry) {
         console.warn(`aggregate.yml defines several self entries (${manifest.self}, ${entry}); keeping the last one`)
       }
@@ -164,7 +192,7 @@ function collectRows(pkgDir, entry, via, visited, errors, blocks) {
       return
     }
     visited.add(pkgDir)
-    const manifest = parseManifest(manifestPath)
+    const manifest = parseManifest(manifestPath, errors)
     for (const sub of manifest.patchFrom) {
       const subDir = resolvePath(pkgDir, sub)
       if (!existsSync(subDir)) {
@@ -190,7 +218,7 @@ function collectRows(pkgDir, entry, via, visited, errors, blocks) {
 }
 
 /** Render the aggregate cordis.patch.yml: header + per-source insert blocks. */
-function renderPatch(blocks, errors, rel) {
+function renderPatch(blocks, externalRows, patches, errors, rel) {
   const lines = [...PATCH_HEADER]
   const seen = new Set()
   for (const block of blocks) {
@@ -202,6 +230,40 @@ function renderPatch(blocks, errors, rel) {
       seen.add(id)
       lines.push(`    - id: ${id}`)
       lines.push(`      name: '${row.name}'`)
+    }
+  }
+  // External rows: npm packages outside this repo, mounted like any child.
+  for (const row of externalRows) {
+    if (typeof row.id !== 'string' || !row.id) {
+      errors.push(`${rel}: external row is missing a string "id": ${JSON.stringify(row)}`)
+      continue
+    }
+    if (typeof row.name !== 'string' || !row.name) {
+      errors.push(`${rel}: external row "${row.id}" is missing a string "name"`)
+      continue
+    }
+    const id = namespaceId(row.id)
+    if (seen.has(id)) errors.push(`${rel}: duplicate aggregate row id after namespacing: ${id} (${row.name})`)
+    seen.add(id)
+    lines.push('', `# external: ${row.name}`, '- insert:')
+    lines.push(`    - id: ${id}`)
+    lines.push(`      name: '${row.name}'`)
+  }
+  // Config patches: top-level loader entries applied AFTER the insert blocks,
+  // so they can configure or disable a row this aggregate inserted.
+  for (const patch of patches) {
+    if (typeof patch.id !== 'string' || !patch.id) {
+      errors.push(`${rel}: patch entry is missing a string "id": ${JSON.stringify(patch)}`)
+      continue
+    }
+    const id = namespaceId(patch.id)
+    lines.push('', `# config patch: ${id}`)
+    lines.push(`- id: ${id}`)
+    if (patch.config !== undefined) {
+      lines.push(`  config: ${JSON.stringify(patch.config)}`)
+    }
+    if (patch.disabled !== undefined) {
+      lines.push(`  disabled: ${JSON.stringify(patch.disabled)}`)
     }
   }
   return lines.join('\n') + '\n'
@@ -264,7 +326,7 @@ const errors = []
 const results = []
 for (const { pkgDir, ymlPath } of aggregates) {
   const rel = relative(REPO_ROOT, pkgDir)
-  const manifest = parseManifest(ymlPath)
+  const manifest = parseManifest(ymlPath, errors)
   const blocks = []
   const visited = new Set()
   for (const entry of manifest.patchFrom) {
@@ -295,7 +357,7 @@ for (const { pkgDir, ymlPath } of aggregates) {
   if (manifest.patchFrom.length === 0 && !manifest.self) {
     console.log(`[aggregate] WARN ${rel}: aggregate.yml has no patchFrom entries (patch would be empty)`)
   }
-  const patch = renderPatch(blocks, errors, rel)
+  const patch = renderPatch(blocks, manifest.rows, manifest.patches, errors, rel)
   const resolvedDeps = resolveEntries(pkgDir, manifest.deps, 'deps', errors)
   const pkgJson = renderPackageJson(join(pkgDir, 'package.json'), resolvedDeps)
   results.push({ rel, blocks, patch, resolvedDeps, pkgJson })

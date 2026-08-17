@@ -67,3 +67,12 @@
 - insert:
     - id: web-ui-skin-center
       name: '@linxin666/dsh-client-ui-skin-center'
+
+# external: dsh-better-sidebar
+- insert:
+    - id: web-ui-better-sidebar
+      name: 'dsh-better-sidebar'
+
+# config patch: web-ui-dsh-aionui-panel
+- id: web-ui-dsh-aionui-panel
+  config: {"enabled":false}
