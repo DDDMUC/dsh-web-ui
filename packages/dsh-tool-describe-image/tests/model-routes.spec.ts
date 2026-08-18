@@ -31,9 +31,14 @@ afterEach(async () => {
 
 describe('registerModelRoutes', () => {
   /** One async-iterable fake request carrying an optional body. */
-  const makeReq = (method: string, body?: string, url = '/describe-image/models'): IncomingMessage => ({
+  const makeReq = (method: string, body?: string, url = '/describe-image/models', overrides?: {
+    remoteAddress?: string
+    headers?: Record<string, string>
+  }): IncomingMessage => ({
     method,
     url,
+    socket: { remoteAddress: overrides?.remoteAddress ?? '127.0.0.1' },
+    headers: { host: '127.0.0.1:3081', ...(overrides?.headers ?? {}) },
     [Symbol.asyncIterator]: async function* () {
       if (body !== undefined) yield Buffer.from(body)
     },
@@ -69,6 +74,40 @@ describe('registerModelRoutes', () => {
     expect(registrations).toHaveLength(1)
     expect(registrations[0].kind).toBe('prefix')
     expect(registrations[0].path).toBe('/describe-image/models')
+  })
+
+  describe('loopback fence', () => {
+    it('answers 403 without touching the upstream for a LAN socket', async () => {
+      const upstream = await mock((_request, response) => jsonReply(response, 200, modelsReply(['m1'])))
+      const registrations = capture(() => ({ baseURL: upstream.url, model: 'x', apiKey: 'k' }), async (spec) => spec.apiKey ?? '')
+      const { res, status, body } = makeRes()
+      await registrations[0].handler(makeReq('POST', '{}', '/describe-image/models', { remoteAddress: '192.168.1.5' }), res)
+      expect(status()).toBe(403)
+      expect(body()).toContain('forbidden: loopback-only')
+      expect(upstream.requests).toHaveLength(0)
+    })
+
+    it('answers 403 for a cross-site browser marker on a loopback socket', async () => {
+      const registrations = capture(() => ({}), async () => 'k')
+      const { res, status } = makeRes()
+      await registrations[0].handler(makeReq('POST', '{}', '/describe-image/models', { headers: { 'sec-fetch-site': 'cross-site' } }), res)
+      expect(status()).toBe(403)
+    })
+
+    it('answers 403 for a cross-origin Origin header', async () => {
+      const registrations = capture(() => ({}), async () => 'k')
+      const { res, status } = makeRes()
+      await registrations[0].handler(makeReq('POST', '{}', '/describe-image/models', { headers: { origin: 'http://evil.example' } }), res)
+      expect(status()).toBe(403)
+    })
+
+    it('still serves a same-origin loopback request carrying an Origin header', async () => {
+      const upstream = await mock((_request, response) => jsonReply(response, 200, modelsReply(['m1'])))
+      const registrations = capture(() => ({ baseURL: upstream.url, model: 'x', apiKey: 'k' }), async (spec) => spec.apiKey ?? '')
+      const { res, status } = makeRes()
+      await registrations[0].handler(makeReq('POST', '{}', '/describe-image/models', { headers: { origin: 'http://127.0.0.1:3081' } }), res)
+      expect(status()).toBe(200)
+    })
   })
 
   it('answers 405 for anything but POST', async () => {

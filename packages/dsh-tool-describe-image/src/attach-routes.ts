@@ -19,6 +19,7 @@ import { attachmentMarkdown as renderAttachmentMarkdown, parseImageAttachmentRef
 import { decodeBase64, isImageMimeType, sniffMimeType, DEFAULT_MAX_BYTES, type ImageMimeType } from './media.ts'
 import { UNKNOWN_CAPABILITY, type CapabilityProbe } from './model-capability.ts'
 import { handleModelProbe, handleModelTest, type ProbeKeyResolver } from './model-probe.ts'
+import { isLoopbackRequest } from './loopback.ts'
 import type { Config } from './config-resolve.ts'
 
 export { renderAttachmentMarkdown as attachmentMarkdown }
@@ -50,6 +51,16 @@ export type AttachOutcome =
 
 /** The failure envelope used when a non-POST request hits the route. */
 export const METHOD_NOT_ALLOWED: AttachError = { code: 'internal', message: 'only POST is allowed' }
+
+/**
+ * Write the shared non-loopback rejection (same body as dsh-ssh and
+ * dsh-git-graph): the probe routes spend the stored credential on a
+ * user-steered URL, so a cross-site simple request must never reach them.
+ */
+function forbidden(res: ServerResponse): void {
+  res.writeHead(403, { 'content-type': 'application/json; charset=utf-8' })
+  res.end(JSON.stringify({ error: 'forbidden: loopback-only' }))
+}
 
 /**
  * In-memory fallback for callers that copied only a bare attachment id instead
@@ -334,6 +345,13 @@ export function registerModelRoutes(ctx: Context, readConfig: () => Config, reso
     kind: 'prefix',
     path: '/describe-image/models',
     handler: async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+      // Loopback fence first: the probe forwards the stored key to the
+      // endpoint named in the settings or drafts, so a LAN or cross-site
+      // caller must be turned away regardless of method or content-type.
+      if (!isLoopbackRequest(req)) {
+        forbidden(res)
+        return
+      }
       if (req.method !== 'POST') {
         json(res, { ok: false, error: METHOD_NOT_ALLOWED }, 405)
         return

@@ -32,6 +32,7 @@
     "src/attach-routes.ts",
     "src/model-capability.ts",
     "src/model-probe.ts",
+    "src/loopback.ts",
     "src/config-resolve.ts",
     "src/vision-client.ts"
   ]

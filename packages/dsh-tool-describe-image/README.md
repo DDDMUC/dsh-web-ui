@@ -43,6 +43,9 @@ browser half, live settings, no dsh source changes.
   drafts and receives only the model id list or a latency number; the fetch makes one
   `GET` models listing and the connectivity test one `max_tokens` 1 completion, so a
   test spends a single output token.
+- The model probe routes are loopback-only with same-origin checks (the shared
+  `host/loopback` fence, same as dsh-ssh): a cross-site page can never steer the
+  stored key at an attacker-controlled URL.
 
 ## Installation
 
