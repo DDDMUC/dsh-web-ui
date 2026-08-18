@@ -284,13 +284,13 @@ test(`提交信息检查`, () => {
 
 test(`皮肤变更识别：源码类命中，README 与 skin-center 排除`, () => {
   const f1 = checkSkinChanges([
-    { status: `A`, path: `packages/skins/xp/lib/client.js` },
-    { status: `A`, path: `packages/dsh-skins/skins/xp/skin.json` },
+    { status: `A`, path: `packages/skins/skin-center/skins/xp/skin.css` },
+    { status: `A`, path: `packages/skins/skin-center/skins/xp/skin.json` },
   ])
   assert.deepEqual(f1, { isSkin: true, skinIds: [`xp`] })
   const f2 = checkSkinChanges([
-    { status: `M`, path: `packages/skins/xp/README.md` },
-    { status: `M`, path: `packages/skins/xp/preview/light.png` },
+    { status: `M`, path: `packages/skins/skin-center/skins/xp/README.md` },
+    { status: `M`, path: `packages/skins/skin-center/skins/xp/preview/light.png` },
     { status: `M`, path: `docs/development.md` },
   ])
   assert.deepEqual(f2, { isSkin: false, skinIds: [] })
@@ -311,19 +311,19 @@ test(`版权提醒：外部贡献者皮肤 PR 未声明时 warn，已声明或�
 })
 test(`gallery 适配：新皮肤未注册未截图时警告，已适配或存量皮肤豁免`, () => {
   const base = [
-    { status: `A`, path: `packages/skins/xp/lib/client.js` },
+    { status: `A`, path: `packages/skins/skin-center/skins/xp/skin.css` },
   ]
   const f1 = checkGalleryAdaptation(base, [`xp`])
   assert.equal(f1.length, 2)
   assert.ok(f1.every((x) => x.severity === `warn` && x.rule === `gallery`))
   const adapted = [
-    { status: `A`, path: `packages/skins/xp/lib/client.js` },
-    { status: `M`, path: `gallery/bundles.js` },
+    { status: `A`, path: `packages/skins/skin-center/skins/xp/skin.css` },
+    { status: `M`, path: `gallery/styles.js` },
     { status: `M`, path: `gallery/manifest.js` },
     { status: `A`, path: `docs/screenshots/16-skin-xp-light.png` },
   ]
   assert.equal(checkGalleryAdaptation(adapted, [`xp`]).length, 0)
-  const modified = [{ status: `M`, path: `packages/skins/xp/src/skin.ts` }]
+  const modified = [{ status: `M`, path: `packages/skins/skin-center/skins/xp/skin.css` }]
   assert.equal(checkGalleryAdaptation(modified, [`xp`]).length, 0)
 })
 test(`视觉指标判定：过曝与对比度不足警告`, () => {

@@ -17,6 +17,10 @@
   ],
   "accent": "#2fbf8f",
   "order": 99,
+  "preview": {
+    "light": "preview/light.png",
+    "dark": "preview/dark.png"
+  },
   "contributes": {
     "stylesheet": "skin.css"
   }

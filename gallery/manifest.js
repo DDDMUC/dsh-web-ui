@@ -3,6 +3,8 @@ window.SKIN_MANIFEST = {
   "generated": "2026-08-18",
   "skins": [
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "blue-fantasy",
       "name": "蓝色幻想",
       "nameEn": "Blue Fantasy",
@@ -17,19 +19,47 @@ window.SKIN_MANIFEST = {
         "translucent"
       ],
       "accent": "#4a5fa8",
-      "bodyAttr": "data-dsh-blue-fantasy",
-      "package": "@linxin666/dsh-client-ui-skin-blue-fantasy",
-      "wiring": {
-        "id": "ui-skin-blue-fantasy",
-        "bundleWired": false
-      },
+      "order": 1,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/blue-fantasy/preview/light.png",
-        "dark": "packages/skins/blue-fantasy/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/blue-fantasy/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/blue-fantasy/preview/dark.png"
       },
-      "order": 1
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/whale-art.jpg",
+            "scrim": "linear-gradient(rgba(246, 248, 253, 0.08) 0%, rgba(240, 243, 251, 0.14) 55%, rgba(235, 239, 249, 0.2) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/whale-art.jpg",
+            "scrim": "linear-gradient(rgba(10, 14, 28, 0.35) 0%, rgba(13, 18, 34, 0.45) 60%, rgba(16, 22, 42, 0.5) 100%)"
+          }
+        }
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "whale-song",
       "name": "鲸吟",
       "nameEn": "Whale Song",
@@ -45,19 +75,47 @@ window.SKIN_MANIFEST = {
         "translucent"
       ],
       "accent": "#4d8fd4",
-      "bodyAttr": "data-dsh-whale-song",
-      "package": "@linxin666/dsh-client-ui-skin-whale-song",
-      "wiring": {
-        "id": "ui-skin-whale-song",
-        "bundleWired": false
-      },
+      "order": 2,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/whale-song/preview/light.png",
-        "dark": "packages/skins/whale-song/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/whale-song/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/whale-song/preview/dark.png"
       },
-      "order": 2
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/whale-art.webp",
+            "scrim": "linear-gradient(rgba(240, 246, 252, 0.05) 0%, rgba(234, 241, 250, 0.11) 55%, rgba(228, 237, 249, 0.16) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/whale-art.webp",
+            "scrim": "linear-gradient(rgba(6, 14, 36, 0.38) 0%, rgba(9, 19, 45, 0.48) 60%, rgba(13, 26, 58, 0.55) 100%)"
+          }
+        }
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "harbor",
       "name": "夕港",
       "nameEn": "Harbor",
@@ -74,19 +132,47 @@ window.SKIN_MANIFEST = {
         "translucent"
       ],
       "accent": "#ff9d5c",
-      "bodyAttr": "data-dsh-harbor",
-      "package": "@linxin666/dsh-client-ui-skin-harbor",
-      "wiring": {
-        "id": "ui-skin-harbor",
-        "bundleWired": false
-      },
+      "order": 3,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/harbor/preview/light.png",
-        "dark": "packages/skins/harbor/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/harbor/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/harbor/preview/dark.png"
       },
-      "order": 3
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/harbor-art.webp",
+            "scrim": "linear-gradient(rgba(20, 26, 46, 0.08) 0%, rgba(20, 26, 46, 0.16) 55%, rgba(20, 26, 46, 0.22) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/harbor-art.webp",
+            "scrim": "linear-gradient(rgba(11, 14, 26, 0.42) 0%, rgba(12, 16, 30, 0.52) 60%, rgba(14, 18, 34, 0.6) 100%)"
+          }
+        }
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "xp",
       "name": "Windows XP (Luna)",
       "nameEn": "Windows XP Luna",
@@ -101,19 +187,35 @@ window.SKIN_MANIFEST = {
         "start-button"
       ],
       "accent": "#316ac5",
-      "bodyAttr": "data-dsh-xp",
-      "package": "@linxin666/dsh-client-ui-skin-xp",
-      "wiring": {
-        "id": "ui-skin-xp",
-        "bundleWired": false
-      },
+      "order": 6,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/xp/preview/light.png",
-        "dark": "packages/skins/xp/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/xp/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/xp/preview/dark.png"
       },
-      "order": 6
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css"
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "dragon-heir",
       "name": "龙的传人",
       "nameEn": "Dragon Heir",
@@ -129,19 +231,47 @@ window.SKIN_MANIFEST = {
         "dual-theme"
       ],
       "accent": "#c3272b",
-      "bodyAttr": "data-dsh-dragon-heir",
-      "package": "@linxin666/dsh-client-ui-skin-dragon-heir",
-      "wiring": {
-        "id": "ui-skin-dragon-heir",
-        "bundleWired": false
-      },
+      "order": 7,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/dragon-heir/preview/light.png",
-        "dark": "packages/skins/dragon-heir/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/dragon-heir/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/dragon-heir/preview/dark.png"
       },
-      "order": 7
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/light-art.webp",
+            "scrim": "linear-gradient(rgba(240, 236, 224, 0.05) 0%, rgba(235, 228, 212, 0.09) 55%, rgba(228, 219, 199, 0.14) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/light-art.webp",
+            "scrim": "linear-gradient(rgba(10, 6, 6, 0.14) 0%, rgba(14, 8, 7, 0.2) 60%, rgba(9, 5, 5, 0.24) 100%)"
+          }
+        }
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "minecraft",
       "name": "Minecraft 方块世界",
       "nameEn": "Minecraft Voxel",
@@ -157,19 +287,35 @@ window.SKIN_MANIFEST = {
         "skybox"
       ],
       "accent": "#7cbd4b",
-      "bodyAttr": "data-dsh-minecraft",
-      "package": "@linxin666/dsh-client-ui-skin-minecraft",
-      "wiring": {
-        "id": "ui-skin-minecraft",
-        "bundleWired": false
-      },
+      "order": 8,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/minecraft/preview/light.png",
-        "dark": "packages/skins/minecraft/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/minecraft/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/minecraft/preview/dark.png"
       },
-      "order": 8
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css"
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "trading",
       "name": "交易终端",
       "nameEn": "Trading Terminal",
@@ -185,19 +331,35 @@ window.SKIN_MANIFEST = {
         "longbridge"
       ],
       "accent": "#f23645",
-      "bodyAttr": "data-dsh-trading",
-      "package": "@linxin666/dsh-client-ui-skin-trading",
-      "wiring": {
-        "id": "ui-skin-trading",
-        "bundleWired": false
-      },
+      "order": 9,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/trading/preview/light.png",
-        "dark": "packages/skins/trading/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/trading/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/trading/preview/dark.png"
       },
-      "order": 9
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css"
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "miku",
       "name": "初音未来 · 电子歌姬",
       "nameEn": "Hatsune Miku",
@@ -213,19 +375,47 @@ window.SKIN_MANIFEST = {
         "waveform"
       ],
       "accent": "#2e9bff",
-      "bodyAttr": "data-dsh-miku",
-      "package": "@linxin666/dsh-client-ui-skin-miku",
-      "wiring": {
-        "id": "ui-skin-miku",
-        "bundleWired": false
-      },
+      "order": 10,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/miku/preview/light.png",
-        "dark": "packages/skins/miku/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/miku/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/miku/preview/dark.png"
       },
-      "order": 10
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/miku-art.webp",
+            "scrim": "linear-gradient(rgba(240, 248, 255, 0.02) 0%, rgba(234, 242, 255, 0.05) 55%, rgba(228, 238, 255, 0.08) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/miku-art.webp",
+            "scrim": "linear-gradient(rgba(4, 10, 28, 0.12) 0%, rgba(6, 14, 36, 0.16) 60%, rgba(8, 18, 42, 0.18) 100%)"
+          }
+        }
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "whale-mom",
       "name": "鲸鱼妈妈",
       "nameEn": "Whale Mom",
@@ -240,19 +430,47 @@ window.SKIN_MANIFEST = {
         "gold"
       ],
       "accent": "#d9a53c",
-      "bodyAttr": "data-dsh-whale-mom",
-      "package": "@linxin666/dsh-client-ui-skin-whale-mom",
-      "wiring": {
-        "id": "ui-skin-whale-mom",
-        "bundleWired": false
-      },
+      "order": 11,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/whale-mom/preview/light.png",
-        "dark": "packages/skins/whale-mom/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/whale-mom/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/whale-mom/preview/dark.png"
       },
-      "order": 11
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/whale-mom-art.jpg",
+            "scrim": "linear-gradient(rgba(18, 28, 56, 0.10) 0%, rgba(20, 30, 60, 0.20) 55%, rgba(24, 34, 66, 0.30) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/whale-mom-art.jpg",
+            "scrim": "linear-gradient(rgba(6, 10, 22, 0.42) 0%, rgba(8, 12, 26, 0.52) 60%, rgba(10, 15, 32, 0.62) 100%)"
+          }
+        }
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "matrix",
       "name": "Matrix 骇客帝国",
       "nameEn": "Matrix",
@@ -268,19 +486,35 @@ window.SKIN_MANIFEST = {
         "eye-care"
       ],
       "accent": "#00e676",
-      "bodyAttr": "data-dsh-matrix",
-      "package": "@linxin666/dsh-client-ui-skin-matrix",
-      "wiring": {
-        "id": "ui-skin-matrix",
-        "bundleWired": false
-      },
+      "order": 12,
+      "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/matrix/preview/light.png",
-        "dark": "packages/skins/matrix/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/matrix/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/matrix/preview/dark.png"
       },
-      "order": 12
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css"
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
     },
     {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "maid-atelier",
       "name": "深海女仆工坊",
       "nameEn": "Abyssal Maid Atelier",
@@ -296,22 +530,63 @@ window.SKIN_MANIFEST = {
         "glass"
       ],
       "accent": "#c5a468",
+      "order": 13,
+      "version": "0.2.0",
       "license": "CC BY-NC-SA 4.0",
       "licenseUrl": "https://github.com/Small-tailqwq/dsh-deep-whale/blob/main/maid-atelier/LICENSE",
       "noticeUrl": "https://github.com/Small-tailqwq/dsh-deep-whale/blob/main/maid-atelier/NOTICE",
       "sourceUrl": "https://github.com/Small-tailqwq/dsh-deep-whale/tree/main/maid-atelier",
       "attribution": "上善 → zipzip → Small-tailqwq",
-      "bodyAttr": "data-dsh-maid-atelier",
-      "package": "@linxin666/dsh-client-ui-skin-maid-atelier",
-      "wiring": {
-        "id": "ui-skin-maid-atelier",
-        "bundleWired": false
-      },
       "preview": {
-        "light": "packages/skins/maid-atelier/preview/light.png",
-        "dark": "packages/skins/maid-atelier/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/maid-atelier/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/maid-atelier/preview/dark.png"
       },
-      "order": 13
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css"
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
+    },
+    {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
+      "id": "mint",
+      "name": "薄荷",
+      "nameEn": "Mint",
+      "version": "1.0.0",
+      "author": "dsh-web-ui",
+      "tagline": "纯 token 范例皮肤 · 零补丁零脚本 · 社区作者的起点模板",
+      "description": "薄荷是官方锚定的范例皮肤：只重映射官方 --dsw-alias-* 语义 token（L1），不含 patches.css、hooks.mjs 与背景媒体，展示一个新皮肤所需的全部最小要素。社区作者复制本目录、改颜色、改 id 即可发布一个永远安全的皮肤。",
+      "tags": [
+        "example",
+        "minimal",
+        "tokens",
+        "mint",
+        "template"
+      ],
+      "accent": "#2fbf8f",
+      "order": 99,
+      "preview": {
+        "light": "packages/skins/skin-center/skins/mint/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/mint/preview/dark.png"
+      },
+      "contributes": {
+        "stylesheet": "skin.css"
+      }
     }
   ]
 };
