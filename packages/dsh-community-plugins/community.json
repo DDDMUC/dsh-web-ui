@@ -251,5 +251,15 @@
     "repo": "https://github.com/z953218350/dsh-history-tree",
     "npm": "dsh-history-tree",
     "category": "ui"
+  },
+  {
+    "id": "dsh-gzip",
+    "name": "dsh-gzip",
+    "nameEn": "dsh-gzip",
+    "author": "wingsky-1",
+    "description": "/api 响应 gzip 压缩插件：为远程 / 低带宽链路开启 /api 响应压缩，解决会话历史因大响应无压缩而超时加载失败的问题；SSE / zip / 已编码响应自动豁免，无全局副作用。",
+    "descriptionEn": "API response gzip plugin for DSH Web GUI: enables gzip on /api responses for remote / low-bandwidth links, fixing session-history loads that fail on the timeout of large uncompressed responses; SSE, zip and already-encoded responses are passed through untouched, with no global side effects.",
+    "repo": "https://github.com/wingsky-1/dsh-plugin-hub/tree/main/packages/dsh-gzip",
+    "npm": "@wingsky-1/dsh-gzip"
   }
 ]
