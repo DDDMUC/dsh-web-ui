@@ -1,116 +1,75 @@
-# Skin Center（GUI 内嵌皮肤中心）
+# 皮肤中心（GUI 内置皮肤中心）
 
 [English](README.md) | 中文
 
-`@linxin666/dsh-client-ui-skin-center`（cordis 插件 id `ui-skin-center`）把皮肤列表/试穿/应用放进真实 dsh Web GUI 的设置页，作为一级菜单项（设置 → 皮肤中心），与通用设置 / 模式 / 插件 / Agent 预设以及 Web UI 插件组、宠物同级。卡片自带启用开关（关闭后停用试穿、应用与背景控件）。
+`@linxin666/dsh-client-ui-skin-center`（cordis 插件 id `ui-skin-center`）是 dsh Web GUI 唯一的皮肤包：它把皮肤列表 / 试穿 / 应用做成设置里的一级页面（设置 → 皮肤中心），并且是所有皮肤的唯一加载器与渲染器。皮肤是纯资产目录——没有 package.json、不发 npm、不接 cordis 接线——只与皮肤中心契约（`contracts/`）耦合；皮肤中心把对官方 DSH 的全部耦合吸收在契约之后。卡片自带总开关（关闭即停用试穿、应用与背景控制）。
 
-- 列表：展示「官方默认」+ 仓库里全部皮肤（xp / blue-fantasy / dragon-heir / minecraft / miku / matrix / harbor / trading / whale-mom / whale-song）的名称、tagline、强调色；当前激活的目标带 Active 标记。
-- 试穿：点击「Try on」后按需加载该皮肤的 client bundle——host 路由 `/api/skin-center/bundle/<id>` 以同源 script 提供 `lib/client.js`（内核加载插件的同一机制），factory 注册到页面自己的 `window.__ModuleLoader__`，`window.__DSH_MODULES__.import` 物化（不是模拟器、不用 eval），chrome 立即生效；亮/暗切换走官方 theme 服务；「Exit try-on」完全还原——当前皮肤的样式、DOM、favicon、标题、body 内联样式全部恢复。「官方默认」也可试穿：点一下皮肤立即收回、回到官方外观预览。
-- 互斥：试穿期间会按配方暂时收回当前激活皮肤的视觉写面（body 属性、背景内联样式、chrome 子节点、xp 的 footer taskbar），退出后原样恢复；同一时刻页面上只有一套皮肤。
-- 应用：host 半区（`src/index.ts` + `src/routes.ts`）暴露 `/api/skin-center/apply` 与 `/api/skin-center/bundle/<id>`（按需提供皮肤 bundle），点击「Apply / 恢复默认」即在服务端执行内嵌的 `dsh-skin use` 进程内移植版（`src/skin-switch.ts`），写入 `<harness-home>/profiles/<profile>/cordis.patch.yml` 后由 DSH 配置 watcher 秒级热载入，页面自动刷新生效——**无需重启 dsh web，无需复制命令，也不要求 PATH 上有 `dsh-skin` 二进制**。应用失败时错误提示里附带终端兜底命令。harness home 与 dsh 启动器一致：注入的 HOME 映射为 `<home>/.dsh`，否则优先使用去除首尾空白后非空的 `$DSH_HOME`（直接使用，不再追加后缀），最后回退到 `~/.dsh`。目标 profile 依次取：显式选项、`$DSH_SKIN_PROFILE`、`$DSH_PROFILE`、`process.cwd()` 直接位于 `<harness-home>/profiles/<name>` 下时的 `<name>`，最后 `web`。Windows 兼容性：同一套解析规则不依赖 `$HOME` 与固定路径，符号链接权限不足时 profile 链接回退为目录 junction。
+- 列表：展示「官方默认」加目录册里的每个皮肤（名称、标语、强调色），当前应用目标带「使用中」标记。目录册合并两个来源：随本包内置的皮肤（`skins/<id>/`）与放进 `$DSH_HOME/skins/<id>/` 的用户皮肤（同 id 时用户皮肤遮蔽内置皮肤）。`skin.json` 校验失败的皮肤按 fail-closed 排除，并作为目录诊断上报。
+- 试穿 / 应用：两者走同一个原子切换引擎（`src/client/runtime/skin-controller.ts`）。一次切换 = 一个新的 activation identity：取回已限定作用域的样式表，安装样式、背景媒体与可选 hooks，翻转 `html[data-dsh-skin="<id>"]`，然后销毁上一个 activation（append-only 效果账本，幂等清理）。最新请求永远胜出；失败或被淘汰的切换完整保留旧皮肤。试穿是同一个切换但不落盘——「退出试穿」恢复已提交的皮肤。应用会持久化选择（`POST /api/skin-center/v2/active`）。不刷新页面、不改写 `cordis.patch.yml`、不重建启动图。
+- 首屏：host 半区注册一个 index.html 转换（`webServer.tapIndex`，单一适配模块 `src/tap-index-adapter.ts`），向每份送达的文档盖 `html[data-dsh-skin]` 属性并插入样式表链接，刷新后直接以当前皮肤启动，无官方原貌闪屏。tap 出任何问题都 fail-closed 回官方原貌。
+- 皮肤格式（v2）：`skin.json`（fail-closed 校验，v1 字段 `package`/`wiring`/`bodyAttr` 忽略并给迁移警告）、`skin.css`（L1 token 重映射 + L2 语义选择器）、可选 `patches.css`（L3 自由选择器，高敏感）、可选 `hooks.mjs`（受信逃逸舱，高敏感）、`assets/`、`preview/`。所有 CSS 经过安全管线（`src/core/css-safety/transform.ts`）：每个选择器强制限定在 `html[data-dsh-skin]` 下，`@import` / 远程或协议相对 URL / 越界路径直接报错。见 `contracts/README.md`。
+- 覆盖契约：L1 重映射官方 `--dsw-*` 设计 token；L2 样式语义属性（`data-dsh-surface` / `data-dsh-part` / `data-dsh-plugin`，枚举见 `contracts/semantic-attrs-v1.md`），由兼容适配器（`src/client/runtime/semantic-adapter.ts`）从稳定锚点（`data-slot` 出口、`data-chat-flow-kind` 等）为官方壳层 DOM 打标；L3 补丁任意选择器，脆弱性由皮肤作者自负。主动输出语义属性的插件获得完整 L2 覆盖；不输出的只享受 L1。
+- 背景优先级：Wallpaper Engine 壁纸永远优先于用户手动背景遮罩，后者优先于皮肤清单背景媒体；开关壁纸会实时重估优先级。
+- 背景控制：背景遮蔽滑杆（0–100%）为画背景的皮肤在面板后加纱，另有两个按状态的高斯模糊滑杆（0–20 px）——空对话与会话有内容各一。生效的模糊通过外壳之后的固定 `backdrop-filter` 元素施加；0 完全关闭（无元素、无 GPU 开销）。只对画背景的皮肤生效；官方默认无背景。
+- Wallpaper Engine 桥：卡片可把本机 Wallpaper Engine 库用作 GUI 背景。host 半区（`src/we-library.ts` + `src/we-routes.ts`）定位 WE 安装（Steam 应用 431960：Windows 注册表 + `libraryfolders.vdf` + 探测路径），扫描项目与创意工坊内容及可选手动文件夹，经同源 `/api/skin-center/we/*` 路由提供清单、媒体（Range 流式）、预览图、web 壁纸项目文件（注入 WE API shim）与场景壁纸主贴图 PNG（由 `src/pkg-extract.ts` 进程内解码 PKG/TEX，磁盘缓存）。视频壁纸用 `<video>` 渲染，web 壁纸用沙箱 `<iframe>`，场景壁纸取静态帧；「静态帧」模式可为任意类型钉一张零动画开销的图。单张壁纸的导入会把项目复制进 `<harness-home>/skin-center/wallpapers/`，脱离 Steam 库变更也能用，并检测创意工坊原作更新。壁纸都是用户本机文件，从不上传或再分发——创意工坊内容归原作者。没有 WE 安装（如 macOS）？面板的「手动文件夹」行可把任何 `.mp4`/`.webm` 文件夹、单个壁纸项目文件夹或项目合集文件夹加为媒体库（`~` 展开为主目录）。
+- 旧版迁移：v2 升级后的首次启动，一次性桥（`src/legacy-bridge.ts`）读取活动 profile `cordis.patch.yml` 里已退役的 `dsh-skin` 受管段，把活动皮肤 id 迁进 v2 选择存储，并清除旧行。迁移幂等且 fail-closed（出错时旧状态原样保留）。
 
-- 背景控制：背景遮挡滑块（0–100%）为带背景插画的皮肤（blue-fantasy / whale-song）背后的背景加遮罩；另有两条按对话状态区分的背景高斯模糊滑块（0–20 px）——「空对话」在对话为空时生效、「有对话」在出现内容后生效。生效的模糊通过 shell 背后的一个固定 `backdrop-filter` 元素施加；设为 0 即完全关闭（无元素、无 GPU 开销）。这些控件仅对带背景插画的皮肤可见有效；官方默认无背景图。
-
-- Wallpaper Engine 桥接：卡片可以把本机 Wallpaper Engine 壁纸库用作 GUI 背景。host 半区（`src/we-library.ts` + `src/we-routes.ts`）定位 WE 安装（Steam 应用 431960：Windows 下走注册表 + `libraryfolders.vdf` + 探针路径），扫描其 projects 与创意工坊内容及可选的手动目录，经同源 `/api/skin-center/we/*` 路由提供清单、媒体流（支持 Range）、预览图、web 壁纸项目文件（注入 WE API shim）以及场景壁纸主纹理 PNG（由 `src/pkg-extract.ts` 进程内解码 PKG/TEX，落盘缓存）。视频壁纸用 `<video>` 渲染，网页壁纸用沙箱 `<iframe>`，场景壁纸以静态帧呈现；「静态帧」渲染模式可为任意类型钉一张零动画开销的图片。每张壁纸的「导入」把项目复制进 `<harness-home>/skin-center/wallpapers/`，Steam 库迁移后仍可使用，并对照工坊原件做更新检测。壁纸均为用户本机已有文件，绝不上传或再分发——创意工坊内容版权归其作者所有。没有 Wallpaper Engine（如 macOS）？面板的「手动目录」行可把任意 `.mp4`/`.webm` 文件夹、单个壁纸项目文件夹或项目合集文件夹加为壁纸库（'~' 会展开为用户主目录）。
-
-## 安装（官方 plugin bundle 方式）
-
-推荐先装皮肤全家桶聚合包 `@linxin666/dsh-skins` 一次到位（含全部皮肤与皮肤中心）；只装本包时用下列 link 命令。
+## 安装
 
 ```sh
-# 装全部皮肤（推荐）
-dsh plugin --profile web add @linxin666/dsh-skins
-# 或单独装皮肤中心
 dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center
-# 从仓库安装（开发调试）：dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
+# 仓库开发：dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
 ```
 
-`$(pwd)` 指克隆全家桶仓库后的目录。
+`$(pwd)` 是 dsh-web-ui monorepo 的本地克隆。全部内置皮肤随这一个包发布；社区皮肤就是普通目录，放进 `$DSH_HOME/skins/<id>/` 即可（无安装命令、无需重启——重开卡片或刷新页面即收录）。
 
-skin-center 是符合 DSH 官方插件标准的自包含 bundle（`dsh.bundle.patch` 指向 `cordis.patch.yml`、`prepare` 用专用 tsdown 配置自包含构建，无项目引用、无类型检查），也可经 git 安装：`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`（`prepare` 会原地构建 `lib/`）。
+皮肤中心是符合官方 DSH 插件标准的自包含 bundle（`dsh.bundle.patch` 指向 `cordis.patch.yml`）；也可经 git 安装：`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`（`prepare` 脚本就地构建 `lib/`）。pnpm ≥10 安装 git 依赖前需授权 `allowBuilds`；本地 `link:` 安装无此要求。
 
-本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：`pnpm install && pnpm -r build` 后再 link 安装。
+## 配置
 
-pnpm ≥10 安装 git 依赖前需先授权 `allowBuilds`（`prepare` 会原地构建），本地 link 安装则无此要求。
+- **总开关**：开关整张卡片（试穿 / 应用 / 背景控制）；持久化在 `skin-background` 设置命名空间。
+- **背景滑杆**：遮蔽（0–100%）与两个模糊半径（0–20 px），同一命名空间。
+- **壁纸面板**：媒体库文件夹、选择、渲染模式（实时 / 静态帧）、压暗、模糊、隐藏时暂停；持久化在 `skin-wallpaper` 命名空间。
+- **用户皮肤目录**：`$DSH_HOME/skins/<id>/`；`DSH_SKINS_HOME` 可覆盖根目录（开发与测试用）。
 
-需要皮肤插件们（xp / blue-fantasy / miku 等）在宿主里也可解析时，skin-center 才能完整列出 / 试穿全部皮肤；skin-center 本身无互斥要求。
+## 安全模型
+
+- 所有 `/api/skin-center/*` 路由仅接受同源请求：写操作拒绝跨站请求（Sec-Fetch-Site / Origin 围栏），资产读取限定在各皮肤目录之内（路径逃逸 fail-closed）。
+- 皮肤 CSS 在服务前经白名单净化；`patches.css`（L3）按设计就是任意 CSS 并如实公示——它拥有完整页面样式能力，不构成安全边界。
+- `hooks.mjs` 是与本仓库同审同发的受信代码，仅同源 serve，其 import/apply 错误永远不会拖垮静态皮肤。
+
+## 已知限制
+
+- 插件运行时写入的内联样式只能经 L3 `!important` 补丁覆盖。
+- 不输出语义属性（且无稳定 DOM 锚点）的插件只享受 L1 token 覆盖。
+- 皮肤视频背景不受壁纸「隐藏时暂停」设置影响；该设置仅作用于 Wallpaper Engine 桥。
 
 ## 目录结构
 
 ```
 skins/skin-center/
-  package.json / tsdown.config.ts / tsconfig.json   # checkout 内构建所需的元数据
-  src/index.ts                                       # host 侧：注册 /api/skin-center/* 路由
-  src/routes.ts                                      # host 路由（代理 dsh-skin CLI）
-  src/invariant.ts                                   # invariant 伴随插件（无断言）
-  src/client/index.ts                                # apply：注册一级设置菜单项 + body 作用域
-  src/client/SkinCenter.tsx                          # 卡片组件（官方默认 + 列表/试穿/亮暗/一键应用）
-  src/client/try-on.ts                               # 试穿引擎（真实 loader + 互斥还原，含官方试穿）
-  src/client/locales.ts                              # en/zh 文案
-  src/client/skin-center.module.css                  # 面板样式（--dsw-* token，随皮肤自适应）
-  src/we-library.ts                                 # WE 库发现（Steam/工坊/手动目录/导入存储）
-  src/we-routes.ts                                  # /api/skin-center/we/* 路由（清单/媒体/web/scene-frame/导入）
-  src/we-shim-source.ts                             # 供 web 壁纸的 WE API shim
-  src/pkg-extract.ts                                # 进程内 PKG/TEX 解码器（场景静态帧）
-  src/client/wallpaper.ts                           # 壁纸层控制器（media/scrim 层、静态帧、后台暂停）
-  src/client/WallpaperPanel.tsx                     # 卡片内的壁纸网格与渲染控件
-  src/client/generated/skins.ts                      # 生成：皮肤注册表（仅元数据，勿手改）
+  contracts/                                # 面向皮肤的契约面（schema、hooks API、语义属性）
+  src/core/manifest-v2/                     # manifest v2 类型 + fail-closed 校验器
+  src/core/css-safety/                      # lightningcss 作用域限定 + 白名单管线
+  src/index.ts                              # host 入口：路由、tapIndex 适配器、旧版迁移桥
+  src/skin-repo.ts                          # 双来源皮肤目录册（内置 + $DSH_HOME/skins）
+  src/routes-v2.ts                          # /api/skin-center/v2/* 路由
+  src/tap-index-adapter.ts                  # 单一 tapIndex 适配器（防 FOUC）
+  src/active-state.ts                       # 活动皮肤选择持久化
+  src/legacy-bridge.ts                      # 一次性 v1 → v2 迁移
+  src/http-utils.ts / harness-home.ts       # 路由共享助手 / DSH 路径解析
+  src/we-library.ts / we-routes.ts / we-shim-source.ts / pkg-extract.ts   # Wallpaper Engine 桥
+  src/client/runtime/                       # 效果账本、装饰层、语义适配器、切换控制器、启动存储
+  src/client/SkinCenter.tsx                 # 设置卡片
+  src/client/background.ts / wallpaper.ts / WallpaperPanel.tsx            # 遮罩 + 模糊 / WE 桥 UI
+  skins/<id>/                               # 内置皮肤（纯资产目录）
 ```
 
-## 机制要点
+## 验收清单
 
-- 皮肤枚举：`generated/skins.ts` 由 `scripts/skin-center-bundles` 生成（读 `skins/<name>/skin.json`，校验 `lib/client.js` 存在）。**只含元数据，不内嵌 bundle 文本**：冷启动不解析 ~700KB 的 base64 美术资源，且生成文件跨机器可复现（无构建机绝对路径）。
-- 试穿加载：host 路由 `/api/skin-center/bundle/<id>` 按需提供 `lib/client.js`（同源 script，`<script>` 标签加载——与内核 `defaultLoadBundle` 同一机制），bundle 体调用 `window.__ModuleLoader__.load` 只注册 factory；`window.__DSH_MODULES__.import(package)` 物化模块（CSS `<style data-plugin>` 自动注入）；`surface.apply(miniCtx)` 挂载，miniCtx 只实现 `effect(cb)`（皮肤唯一依赖）。不依赖 eval，因此不要求 CSP 放行 `unsafe-eval`——只要求同源 script 可加载（页面自身加载插件 bundle 亦然）。
-- 失败语义：bundle 路由 404（皮肤未安装 / `lib/client.js` 未构建）或网络失败时，script 的 error 事件触发，试穿报通用错误并完整还原激活皮肤；加载与还原之间不会留下半套皮肤（tryOn 的 catch 分支负责恢复）。
-- 退出还原：先跑皮肤的 disposer（属性/chrome/favicon/标题/背景全撤回），再 `invalidate(package)` + 删 style 标签，最后把激活皮肤的视觉快照原样恢复。官方默认试穿 = 同一套收回配方但不挂载任何皮肤，退出同样原样恢复。
-- 激活皮肤检测：`window.__DSH_BOOT__.entries` 只含启用条目，与注册表 package 比对；无匹配即官方默认。
-- 一键应用：host `/api/skin-center/apply` 执行内嵌的 `dsh-skin use <name>` / `use official` 移植版（该移植版是 managed 区段与 symlink 的唯一权威）。路径为 `<harness-home>/profiles/<profile>/cordis.patch.yml` 与 `<harness-home>/profiles/<profile>/node_modules`，home/profile 按上文规则解析；首次切换会清理旧的全局 managed 行，避免其他 profile 加载 Web 专用皮肤。当激活皮肤自身已作为 bundle 安装——出现在 profile manifest 的 `dsh.profile.bundles` 或 `dependencies` 中（loader 仅对这两条通道做 patch 行归并），或注册表标记 `bundleWired`——profile 层只写互斥的 `disabled: true` 行，insert 留给 bundle patch；其余情况（包括 skin-center 自建的可解析 symlink）都保留 profile 层 insert 行。结构目录探测仅在 profile manifest 缺失/不可读时兜底。追加 managed 行前会在保留注释的同时移除 DSH 默认 `[]` 根；不兼容的非空 flow 根会在原子替换前失败。DSH 长驻表面自带配置 watcher（`watchUserPatches` + config-only HMR），patch 写入后数秒热载入、无需重启；浏览器刷新页面取新 boot 图即生效（client 插件图行增删不在 `dsh-client-hmr` 语义内）。
-
-## 构建（仓库内 tsdown，无需 DSH checkout）
-
-皮肤中心与皮肤一样，用仓库内共享 tsdown 预设构建（`shared/tsdown.client.ts` 处理 CSS Modules 注入与平台外部化；类型来自官方 NPM SDK devDependencies）：
-
-```sh
-# 1. 重新生成注册表（皮肤元数据变化后重跑；bundle 文本按需走 host 路由，无需重生成）
-node scripts/skin-center-bundles
-#    皮肤 bundle 自身变化只需重建对应皮肤（tsdown），GUI 下次试穿即取到新文本
-
-# 2. 在仓库内构建
-cd ~/code/dsh-web-ui && export NPM_TOKEN='<token>'   # 若仍使用私有 scope 认证
-pnpm --filter @linxin666/dsh-client-ui-skin-center run bundle
-```
-
-## 安装（个人环境接线，不在 checkout 提交）
-
-```sh
-# 1. profile symlink（与 xp/blue-fantasy 同款）
-ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
-  ~/.dsh/profiles/node_modules/@linxin666/dsh-client-ui-skin-center
-
-# 2. ~/.dsh/profiles/web/cordis.patch.yml 增加（放在 dsh-skin managed 段之外，勿动该段）：
-#   - insert:
-#       - id: ui-skin-center
-#         name: '@linxin666/dsh-client-ui-skin-center'
-
-# 3. 配置 watcher 秒级热载入；刷新页面即在 设置 → 皮肤中心 看到皮肤中心菜单项
-```
-
-## 试穿互斥的还原配方（try-on.ts）
-
-| 皮肤 | body 属性 | 额外处理 |
-| --- | --- | --- |
-| 全部 | 收回 `bodyAttr`（CSS 失活） | 快照/清空 body 背景内联样式（blue-fantasy 鲸鱼背景）；摘除 body 直接子节点中非 `#root` 的 chrome（实测仅皮肤 chrome）；中性化观察器防幽灵写回 |
-| xp | 同上 | 额外注入 neutralizer CSS 隐藏 sidebar footer 的 taskbar/开始按钮（其规则未按属性作用域） |
-
-退出试穿 = 试穿皮肤 disposer（真实代码路径）→ 模块 invalidate + 样式清理 → 激活皮肤快照原样恢复。
-
-## 验收对照（README 顶层契约）
-
-- [x] 设置 → 皮肤中心 出现皮肤中心菜单项，无 console 报错
-- [x] 列表含官方默认 + 全部皮肤，当前激活有标记
-- [x] 试穿真实生效（chrome/背景/标题/favicon），亮/暗正确；官方默认可试穿
-- [x] 退出完全还原；互斥（不出现两套标题栏）
-- [x] 一键应用：host API 执行 `dsh-skin use`，watcher 热载入，新皮肤经真实模块系统原地热挂载生效（无刷新、无重启，打包版同样秒切；热挂载失败时回退到刷新页面路径），失败附命令兜底
-- [x] 回归：dsh-skin CLI（含 `use official`）、网页 Gallery、官方 GUI 不受影响
-- [x] 按需加载：冷启动不解析 ~700KB 内嵌 base64（`generated/skins.ts` 仅 5KB 元数据），试穿按需取 bundle；无 eval（CSP 无需 `unsafe-eval`）
-- [x] e2e 截图见 `docs/e2e/skin-center/`
+- [x] 皮肤中心出现在 设置 → 皮肤中心，无控制台报错
+- [x] 列表展示官方默认加目录册全部皮肤；当前使用者有标记；非法皮肤以诊断形式呈现
+- [x] 试穿即时生效，退出完整恢复已提交皮肤；页面上永远只有一套皮肤
+- [x] 一键应用原子切换、无需刷新；后续页面加载直接以该皮肤启动（无 FOUC）
+- [x] Wallpaper Engine 桥、背景遮罩与模糊控制不受换肤影响
+- [x] e2e 截图在 `docs/e2e/skin-center/`
