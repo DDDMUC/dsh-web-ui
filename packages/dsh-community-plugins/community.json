@@ -208,5 +208,16 @@
     "descriptionEn": "Writer-friendly process collapse: hides Think / tool-call rows via pure CSS behind a floating 'N steps done' pill with red failure counts and one-click expand/collapse. No foreign nodes in React lists, no full-DOM scans — zero interference.",
     "repo": "https://github.com/dongwenxiu83-web/dsh-friendly-steps",
     "category": "ui"
+  },
+  {
+    "id": "dsh-full-remote",
+    "name": "全功能远程访问",
+    "nameEn": "Full Remote Access",
+    "author": "JUANWANG-BUAA",
+    "description": "令牌门控反向代理：公网隧道或局域网下，在手机等设备上远程使用 DeepSeek Harness，设置、凭据与文件访问保持可用，支持按设备会话。",
+    "descriptionEn": "Token-gated reverse proxy for remote access: use DeepSeek Harness over public tunnels or LAN from phones and other devices, with settings, credentials and file access kept working and per-device sessions.",
+    "repo": "https://github.com/JUANWANG-BUAA/dsh-full-remote",
+    "npm": "dsh-full-remote",
+    "category": "integration"
   }
 ]
