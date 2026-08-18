@@ -24,7 +24,7 @@
 
 <p align="center">
   <strong>DeepSeek Harness（DSH）Web GUI 的插件与皮肤全家桶</strong><br>
-  <em>梁神模式 · 任务看板 · Git 图谱 · 右侧面板 · 移动端远程 · SSH 运维 · 图像理解 · 鲸鱼娘宠物 · 实时吞吐 · 皮肤中心</em>
+  <em>梁神模式 · 任务看板 · Git 图谱 · 右侧面板 · 移动端远程 · SSH 运维 · 图像理解 · 鲸鱼娘宠物 · 皮肤中心</em>
 </p>
 
 <div align="center">
@@ -35,7 +35,7 @@
 
 ## 是什么
 
-dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合：面向 DeepSeek V4 Pro 的「梁神模式」agent 预设，以及任务看板、Git 图谱、右侧面板、移动端远程、SSH 运维、图像理解、鲸鱼娘宠物、实时吞吐和皮肤中心。所有插件都走官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；可以逐个安装，也可以用聚合包一次装齐（聚合包额外引入外部右侧栏插件 `dsh-better-sidebar` 并默认接管右侧面板，详见 [dsh-web-ui-all README](packages/dsh-web-ui-all/README.zh.md)）。
+dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合：面向 DeepSeek V4 Pro 的「梁神模式」agent 预设，以及任务看板、Git 图谱、右侧面板、移动端远程、SSH 运维、图像理解、鲸鱼娘宠物和皮肤中心。所有插件都走官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；可以逐个安装，也可以用聚合包一次装齐（聚合包额外引入外部右侧栏插件 `dsh-better-sidebar` 并默认接管右侧面板，详见 [dsh-web-ui-all README](packages/dsh-web-ui-all/README.zh.md)）。
 
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
 
@@ -76,28 +76,6 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ![Git 图谱](docs/screenshots/04-git-graph.png)
 
-### 右侧面板
-
-右侧面板由外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供（聚合包已集成并默认启用），支持其内置功能与第三方插件注册，详见其 [README](https://github.com/omdsh-dev/DSH-better-sidebar)。
-
-![右侧面板](docs/screenshots/19-right-panel.png)
-
-> 此前的 aionui-panel 右侧面板已**停止支持**：默认关闭，不再维护、测试或接受修复，后续版本将从全家桶移除；设置 → Web UI 插件 → 右侧面板 可临时切回（自行承担风险）。
-
-### 鲸鱼娘宠物
-
-一只常驻界面的鲸鱼娘，跟着智能体状态换动画：思考、等待、工作、庆祝。可以点她互动（摸头），喂小鱼干加亲密度，从幼鲸一路养到「深海羁绊」。名字能改，位置能拖，不想看就藏起来。
-
-| 陪伴工作 | 互动面板 |
-| --- | --- |
-| ![鲸鱼娘宠物](docs/screenshots/11-pet-new-chat.png) | ![宠物互动面板](docs/screenshots/12-pet-panel.png) |
-
-### 实时吞吐统计
-
-会话状态行本来就有 token 用量，本插件补的是实时吞吐：响应边流边更新输入 / 输出 token 估算（`~` 表示启发式估算），TPS 跟在步骤计数后面；provider 用量一到，估算自动换成真实值。
-
-![实时吞吐统计](docs/screenshots/18-live-stats.png)
-
 ### 移动端远程
 
 侧边栏底部的手机图标打开配对面板。扫码（或复制链接）配对后，手机进独立移动端界面，远程操作当前的 dsh web 工作区：看会话、开新会话、收发消息、切模型和思考强度、调权限预设，都和桌面端同步。配对令牌一次性、限时，「停止」随时吊销所有设备；二维码默认走局域网，开 cloudflared 公网隧道后手机在任何网络都能配对。
@@ -124,11 +102,21 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 给纯文本模型补上视觉：对话里提到图片（本地路径、http(s) URL、会话附件）时，`describe_image` 把图片发给配置好的 OpenAI 兼容视觉端点（Qwen-VL、GLM-4V、GPT-4o、本地 Ollama 都行）回答，**进会话的只有返回的文本，图片本身不进会话记录**。纯文本模型输入框没有图片入口，插件在输入框加了个图片按钮：选图后生成附件引用插进草稿，模型就能用 `describe_image` 分析；工具还支持 `prompt` 参数传自定义指令（OCR、UI 诊断、翻译），比默认描述准。端点、模型、密钥、默认指令在「设置 > 插件配置 > Image understanding」里配，即时生效。
 
-### 设置中心
+### 右侧面板
 
-全部插件的开关和参数都在「设置」里，改了即时生效。设置侧边栏的一级菜单：通用设置、模式、插件、Agent 预设，加上 Web UI 插件组（归组 task-board / live-stats / remote-web-ui / describe-image）、皮肤中心、社区插件与宠物，打开即直接展开内容、无需再点折叠；插件配置页保留三个内置插件（Shell / Agent loop / Web search），各自独立开关与配置。
+右侧面板由外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供（聚合包已集成并默认启用），支持其内置功能与第三方插件注册，详见其 [README](https://github.com/omdsh-dev/DSH-better-sidebar)。
 
-![设置中心](docs/screenshots/02-settings-web-ui-plugins.png)
+![右侧面板](docs/screenshots/19-right-panel.png)
+
+> 此前的 aionui-panel 右侧面板已**停止支持**：默认关闭，不再维护、测试或接受修复，后续版本将从全家桶移除；设置 → Web UI 插件 → 右侧面板 可临时切回（自行承担风险）。
+
+### 鲸鱼娘宠物
+
+一只常驻界面的鲸鱼娘，跟着智能体状态换动画：思考、等待、工作、庆祝。可以点她互动（摸头），喂小鱼干加亲密度，从幼鲸一路养到「深海羁绊」。名字能改，位置能拖，不想看就藏起来。
+
+| 陪伴工作 | 互动面板 |
+| --- | --- |
+| ![鲸鱼娘宠物](docs/screenshots/11-pet-new-chat.png) | ![宠物互动面板](docs/screenshots/12-pet-panel.png) |
 
 ## 皮肤
 
