@@ -1,39 +1,37 @@
 ---
 name: skin-developer
-description: Build a new skin for the dsh-web-ui skin collection (DSH Web GUI) and publish it into the Skin Center — the first-level settings section — scaffold with scripts/dsh-skin-new, author skin.json plus the apply/dispose + scoped-CSS contract, build and test with the official standalone bundle standard (turtle-ui shape), regenerate the skin-center registry and gallery, and submit the PR. Use when the user asks to create, add, develop, scaffold, or publish a new skin for the dsh web GUI skin collection.
+description: Build a new skin for the dsh-web-ui skin collection (DSH Web GUI) and publish it into the Skin Center — the first-level settings section — scaffold with scripts/dsh-skin-new, author the v2 skin.json manifest plus skin.css token remap (pure asset directory, no package.json, no build step), validate with scripts/dsh-skin, regenerate the gallery, and submit the PR. Use when the user asks to create, add, develop, scaffold, or publish a new skin for the dsh web GUI skin collection.
 whenToUse: The user wants a new skin (新建/新增/开发一个皮肤), or wants to publish/发 skin-center, or asks how skins are built and shipped in the dsh-web-ui repo. Not for switching skins (scripts/dsh-skin) or gallery-only edits.
 ---
 
 # 皮肤开发者（dsh-web-ui 皮肤集合）
 
-本技能指导在 `/Users/zcl/code/dsh-web-ui`（或任何 dsh-web-ui 克隆）里从零构建一个新皮肤，
-并把它发布进**皮肤中心**（GUI 设置页一级菜单「皮肤中心」，与通用设置/模式/插件/Agent 预设并列、
-内容直接展开）与 gallery。每个皮肤是符合 DSH 官方插件标准（turtle-ui 式 setup）的自包含包，
-可被 `dsh plugin add` 安装。
+本技能指导在 dsh-web-ui 克隆里从零构建一个新皮肤，并把它发布进**皮肤中心**（GUI 设置页一级菜单）
+与 gallery。v2 架构（issue #506）：皮肤是纯资产目录，skin-center 包是唯一加载器，皮肤不再是
+独立插件包、不参与构建。
 
 ## 仓库与标准速览
 
-- `packages/skins/<name>/` — 一个皮肤 = 一个自包含插件包；`packages/skins/xp/` 是成熟样例，遇到疑问先读它。
-- 皮肤包形态（turtle-ui 形状的精简版，刻意不声明 `dsh.bundle`）：
-  1. `package.json` 声明 `dsh.client`（`platform: "web"` 等），**不声明 `dsh.bundle`**——皮肤由皮肤管理器接线（skin.json 的 `wiring.bundleWired: false` 渲染 `ui-skin-*` insert 行到 profile 自己的 cordis.patch.yml managed 区段，而不是作为 bundle patch 层；声明 `dsh.bundle` 会让 CLI 的 plugin reconcile 把皮肤包静默加进 profile 的 `dsh.profile.bundles`，与 insert 叠加触发 `duplicate loader entry id`，issue #381）；
-  2. `prepare` 脚本 = `tsdown`（pnpm 在 git 安装后自动运行，自包含构建 `lib/`，无项目引用、无类型检查）；
-  3. devDependencies 只用真实发布版本（tsdown / lightningcss / cordis / vitest / jsdom）——
-     `@deepseek-ai/dsh-*` 未发布到 npm，运行时由宿主 shell 的 module table 提供，构建时作 external。
-- 构建预设：`packages/skins/tsdown.client.ts`（官方 `packages/client/tsdown.client.ts` 的 standalone 移植）。
-- 皮肤中心的 GUI 是一级设置分区（`settings.section` id `skin-center`，order 120，直接展开）：注册表由
-  `scripts/skin-center-bundles` 从 `packages/skins/*/skin.json` 内嵌生成
-  （`src/client/generated/skins.ts`）；皮肤包本体仍是官方独立 bundle 标准——两个环节互不耦合，
-  新皮肤先过包标准、再进注册表。
-- 仓库是 pnpm workspace：根目录 `pnpm install` 一次即可构建/测试全部皮肤。
+- `packages/skins/skin-center/skins/<name>/` — 一个皮肤 = 一个纯资产目录；
+  `mint/` 是官方锚定的最小范例（纯 token、零补丁零脚本），遇到疑问先读它。
+- 目录构成：`skin.json`（v2 清单，契约见
+  `packages/skins/skin-center/contracts/skin-manifest-v2.schema.json`）+ `skin.css`（token 重映射）
+  + 可选 `patches.css`（L3 自由选择器补丁，高敏感）/ `hooks.mjs`（逃生舱 JS，高敏感，需同评审同发布）
+  / `assets/`（背景等媒体）/ `preview/`（画廊截图）/ 双语 README。
+- **没有** package.json / tsdown / tsconfig / 测试工程：资产不构建。scripts/skin-asset-dirs.test.mjs
+  守卫这一形态（资产目录里出现 package.json 即红）。
+- 加载器纪律：skin-center 在提供样式时把每条选择器强制作用域到 `html[data-dsh-skin="<id>"]`，
+  作者按官方 shell 的写法写 `:root` / `body[data-ds-dark-theme]` 即可；安全管线
+  （transformSkinCss）在门禁（pnpm skin-center:check）与服务时都会跑。
 
 ## 0. 前置
 
 ```sh
 cd <dsh-web-ui 克隆根>
-pnpm install        # 首次；顺带跑每个皮肤的 prepare
+pnpm install
 ```
 
-先读 `packages/skins/xp/` 的 `src/client/index.ts` 与 `skin.json`，理解 apply 契约与元数据契约。
+先读 `packages/skins/skin-center/skins/mint/` 的 `skin.css` 与 `skin.json`，理解 token 契约与元数据契约。
 
 ## 1. 脚手架
 
@@ -41,86 +39,62 @@ pnpm install        # 首次；顺带跑每个皮肤的 prepare
 node scripts/dsh-skin-new <kebab-case-name>   # 如 matrix、coffee-break
 ```
 
-生成 `packages/skins/<name>/`：package.json（`dsh.client`、无 `dsh.bundle`）、tsdown.config.ts、
-tsconfig.json、skin.json（order 自动取最大值+1）、src/index.ts（无操作 host 入口）、
-src/client/index.ts（最小 apply 模板）、`<name>.module.css`（作用域样式）、tests/apply.spec.ts
-（契约测试）、README.md。随后按脚本打印的 next steps 填写。
+生成 `packages/skins/skin-center/skins/<name>/`：skin.json（v2，order 自动取最大值+1）、
+skin.css（:root 亮色 + body[data-ds-dark-theme] 暗色双套 --dsw-alias-* 占位）、preview/README.md
+（截图占位说明）、README.md + README.zh.md（双语 stub）。随后按脚本打印的 next steps 填写。
 
 ## 2. 皮肤契约（硬性约束，违反会挂评审）
 
-- **纯呈现层**：不注入服务、不发 cordis 事件、不触及模型请求（与既有皮肤一致）。
-- `apply(ctx)` 只写自己会收回的东西：body 属性、注入的 chrome DOM、favicon、document.title；
-  所有写面在 `ctx.effect(() => () => {...}, 'ui-skin-<name>: …')` 的 disposer 里**全部收回**
-  （包括 body 属性、每个注入元素、favicon；标题仅在仍是皮肤自己的标题时才还原，不覆盖会话标题）。
-- 样式全部挂在**自己的 body 属性**下：`body[data-dsh-<name>]`；暗色变体
-  `body[data-dsh-<name>][data-ds-dark-theme]`。不得用裸类名/全局选择器污染其它皮肤与官方 UI。
-- CSS Modules：`import css from './<name>.module.css'`，类名经 `css[name]` 取值；
-  CSS 文本由 bundle 的 CSS-modules 自动注入（`<style data-plugin-css>`，loader 卸载时移除），
-  皮肤不自己管理 style 标签。
-- 不携带静态资源文件：内联 SVG / data URI（参考 xp 的 favicon 写法）。
-- `skin.json` 字段（gallery 与 dsh-skin 的契约）：id（=目录名）、name/nameEn、author、
-  tagline、description、tags、accent、bodyAttr、package、wiring、preview 路径、order。
+- **纯呈现层**：不注入服务、不发 cordis 事件、不触及模型请求。
+- **token 优先**：亮色值写 `:root`，暗色值写 `body[data-ds-dark-theme]`（官方暗色属性在 body 上）；
+  只重映射官方 `--dsw-alias-*` 语义 token（L1），mint 是可复制的全集样例。
+- **patches.css 是高敏感逃生舱**：自由选择器补丁会在 UI 与 gallery 披露；能 token 解决就不写补丁。
+- **hooks.mjs 是受信逃生舱**：与 skin-center 同评审同发布的 JS（facets.client 声明 apiVersion）；
+  社区皮肤默认不含 hooks。
+- 媒体资产放 `assets/` 并在 `contributes.backgroundMedia` 声明；用户手动背景与壁纸引擎优先于它。
+- `skin.json` 字段：skinManifestVersion=2、id（=目录名）、name/nameEn、version、author、
+  contributes.stylesheet 必填；tagline/description/tags/accent/preview/order 按 gallery 需要填。
+  v1 字段（bodyAttr/package/wiring）已废弃，写了只会收到迁移警告。
 
-## 3. 构建与测试
+## 3. 校验
 
 ```sh
-pnpm --filter @deepseek-ai/dsh-client-ui-skin-<name> build   # 或根目录 pnpm build
-pnpm --filter @deepseek-ai/dsh-client-ui-skin-<name> test    # 或根目录 pnpm test
+node scripts/dsh-skin validate packages/skins/skin-center/skins/<name>   # v2 契约校验
+pnpm skin-center:check                                                 # 全量目录门禁（含样式安全管线）
 ```
-
-- 产物：`lib/index.js`（node half）+ `lib/client.js`（bundle，`window.__ModuleLoader__.load({id, factory})`，
-  导出 `apply`）。
-- 测试：`tests/apply.spec.ts`（vitest + jsdom）至少断言 body 属性设置/收回、chrome 注入/收回、
-  标题固定/还原。可按 xp 的 apply.spec 扩展。
-- 冒烟：bundle 结构可用 node 脚本核对（`__ModuleLoader__.load` 一次、`exports.apply` 为函数）。
 
 ## 4. 试穿与截图
 
 ```sh
-open gallery/preview.html?skin=<name>&theme=light   # 真实执行 bundle 的模拟器
-open gallery/preview.html?skin=<name>&theme=dark
+node scripts/gallery-build                              # 注册进 gallery/manifest.js + styles.js
+open 'gallery/preview.html?skin=<name>&theme=light'     # 静态注入 skin.css 的模拟器（不执行 hooks）
+node scripts/capture-previews <name>                    # 重拍 preview/{light,dark}.png（提交入库）
 ```
 
-- 模拟器真实执行 `lib/client.js`（shim `__ModuleLoader__` + 最小 ctx），chrome/样式真实渲染。
-- 重拍并提交预览图（脚本需要 playwright chromium，已装则直接跑）：
-
-```sh
-node scripts/capture-previews    # 重写 packages/skins/<name>/preview/{light,dark}.png（提交入库）
-```
+- 模拟器把 skin.css（+patches.css）静态注入官方 facade 快照；hooks.mjs 不执行、backgroundMedia 不渲染。
+- 截图需要 playwright + chromium；preview/README.md 占位在拍完照后删除。
 
 ## 5. 发布到皮肤中心与 gallery
 
-```sh
-node scripts/skin-center-bundles   # 扫描 packages/skins/*/skin.json + lib/client.js，重新生成
-                                   # packages/skins/skin-center/src/client/generated/skins.ts（内嵌注册表）
-pnpm --filter @linxin666/dsh-client-ui-skin-center build   # skin-center 重新构建以嵌入新注册表
-node scripts/gallery-build         # 重新生成 gallery/manifest.js + gallery/bundles.js
-```
-
-- 皮肤中心是一级菜单（直接展开，按 `order` 排序展示）：注册表重生成并重建 skin-center bundle 后，
-  新皮肤即出现在「皮肤中心」列表，可试穿与一键应用。
-- 若皮肤要出现在仓库 README「结构」表/「优质推荐」里，同步更新 README.md（中文）与 README.en.md（英文）。
-- `dsh-skin` 的 SKINS 注册表在 `scripts/dsh-skin` 顶部——新皮肤需由维护者添加（或用
-  `dsh-skin install <name>` 直接官方安装）。
-- 提交全部生成产物（lib/、preview/、generated/skins.ts、gallery 产物、README），推送到
-  `dsh-external/dsh-web-ui`（private）并开 PR。PR 描述附 gallery 试穿截图（亮/暗）。
+- 皮肤中心的目录就是注册表：资产目录进了 `skins/` 即被加载，无需再生成注册表。
+- gallery：`node scripts/gallery-build` 重新生成 `gallery/manifest.js` + `gallery/styles.js` 并提交；
+  CI 的 `pnpm gallery:check` 校验产物新鲜度。
+- 若皮肤要出现在仓库 README 的推荐位，同步更新 README.md（中文）与 README.en.md（英文）。
+- 提交全部产物（preview/、gallery 产物、README），开 PR；PR 描述附 gallery 试穿截图（亮/暗）。
 
 ## 6. 验收清单（全部满足才算完成）
 
-- [ ] `pnpm build` 通过，`lib/client.js` 结构正确（`__ModuleLoader__.load` + `exports.apply`）
-- [ ] `pnpm test` 通过（body 属性与 chrome 的 apply/dispose 契约）
-- [ ] gallery 模拟器试穿真实渲染，亮/暗两态正常（`preview.html?skin=<name>&theme=light|dark`）
+- [ ] `node scripts/dsh-skin validate` 通过，`pnpm skin-center:check` 通过
+- [ ] gallery 模拟器亮/暗两态渲染正常（`preview.html?skin=<name>&theme=light|dark`）
 - [ ] `preview/{light,dark}.png` 已用 capture-previews 重拍并提交
-- [ ] `scripts/skin-center-bundles` 已重跑、skin-center 已重建（新皮肤会出现在 GUI 设置页一级菜单「皮肤中心」）
-- [ ] `scripts/gallery-build` 已重跑，gallery 产物已提交
+- [ ] `scripts/gallery-build` 已重跑，gallery 产物已提交，`pnpm gallery:check` 通过
 - [ ] 纯呈现层约束未违反（无服务注入/事件/模型请求）
+- [ ] README 双语、第三方素材的 LICENSE/NOTICE 齐全
 - [ ] 提交信息清晰，PR 附试穿截图
 
 ## 常见坑
 
-- **别加 `dsh.bundle`（也别配 `cordis.patch.yml`）**：皮肤由皮肤管理器接线（`dsh-skin use` 写 insert 行），声明 bundle patch 会让 CLI 的 reconcile 把皮肤包静默加进 `dsh.profile.bundles`，与 insert 叠加报 `duplicate loader entry id`（issue #381）。
-- **别把 `@deepseek-ai/dsh-*` 写进 devDependencies**：未发布到 npm，workspace:^ 在独立环境必炸。
-- **作用域外漏样式**：检查 CSS 每个规则都以 `body[data-dsh-<name>]` 开头（含暗色变体）。
-- **dispose 没收干净**：对照 xp 逐项核对——body 属性、每个 append 的节点、favicon、标题。
+- **别在资产目录里放 package.json / 构建文件**：皮肤不是包，skin-asset-dirs 测试会红。
+- **暗色没写**：`body[data-ds-dark-theme]` 一套值是必须的，缺了暗色模式直接用亮色 token。
+- **自由选择器泄露**：patches.css 每条规则都会被作用域化并披露，能 token 解决就别写补丁。
 - **预览图过期**：改完外观必须重跑 capture-previews，否则 gallery/皮肤中心显示旧图。
-- **一级菜单「皮肤中心」不显示新皮肤**：先确认 skin-center-bundles 已重跑 + skin-center 已重建（注册表内嵌在 bundle 里），再重启/刷新页面。
