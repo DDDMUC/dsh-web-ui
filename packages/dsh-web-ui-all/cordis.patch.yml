@@ -58,6 +58,11 @@
     - id: web-ui-liangshen
       name: '@linxin666/dsh-liangshen'
 
+# from ../dsh-skill-explorer
+- insert:
+    - id: web-ui-skill-explorer
+      name: '@linxin666/dsh-client-ui-skill-explorer'
+
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:
     - id: web-ui-skin-center

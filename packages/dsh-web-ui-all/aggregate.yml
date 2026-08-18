@@ -21,6 +21,7 @@ patchFrom:
   - ../dsh-ssh
   - ../dsh-tool-describe-image
   - ../dsh-liangshen
+  - ../dsh-skill-explorer
   - ../dsh-skins
 self:
   - web-ui-compat
@@ -34,6 +35,7 @@ deps:
   - ../dsh-ssh
   - ../dsh-tool-describe-image
   - ../dsh-liangshen
+  - ../dsh-skill-explorer
   - ../dsh-web-ui-settings
   - ../dsh-skins
   # skin-center 是 dsh-skins patch 行（web-ui-skin-center）的宿主，必须与
