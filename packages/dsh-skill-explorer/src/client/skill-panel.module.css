@@ -1,35 +1,45 @@
 .entry {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 6px 10px;
-  border: none;
+  height: 32px;
+  padding: 0 12px;
   background: transparent;
-  color: inherit;
-  font-size: 12px;
+  border: none;
+  border-radius: 8px;
+  color: var(--dsw-alias-label-secondary);
   cursor: pointer;
-  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.entry:hover {
+  background: var(--dsw-specific-sidebar-nav-item-hover);
+  color: var(--dsw-alias-label-primary);
 }
 
 .entryIcon {
   display: inline-flex;
-  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  flex: none;
 }
 
 .entryLabel {
-  margin-left: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Sidebar collapsed state (mirrors the dsh-ssh marker): icon centered, label hidden. */
+/* Collapsed rail: icon-only, centered, matching the shell's 56px rail. */
 :global([data-dsh-frame][data-sidebar-collapsed]) .entry {
-  justify-content: center !important;
-  width: 100% !important;
-  padding: 0 !important;
+  justify-content: center;
+  width: 100%;
+  padding: 0;
 }
 
 :global([data-dsh-frame][data-sidebar-collapsed]) .entryLabel {
-  display: none !important;
+  display: none;
 }
 
 .overlay {
