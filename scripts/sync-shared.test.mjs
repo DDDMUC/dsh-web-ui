@@ -19,18 +19,18 @@ test('header/strip round-trips every file kind', () => {
   }
 })
 
-test('copies cover the settings trio for seven consumers plus host helpers', () => {
+test('copies cover the settings trio for six consumers plus host helpers', () => {
   // Normalize separators: node:path join yields backslashes on Windows, and
   // the copy-count buckets below match on forward slashes.
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
-  assert.equal(entries.length, 47)
+  assert.equal(entries.length, 43)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
-  assert.equal(clientTrio.length, 23)
+  assert.equal(clientTrio.length, 20)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')
     || entry.target.includes('/src/loopback.ts'))
-  assert.equal(hostCopies.length, 24)
+  assert.equal(hostCopies.length, 23)
 })
 
 test('checkSync detects drift and applySync repairs it', async () => {
