@@ -219,6 +219,18 @@ export function apply(ctx: ClientContext): void {
   const ensureMode = (): Promise<'official' | 'gateway'> => {
     if (modePromise === undefined) {
       modePromise = (async () => {
+        // Prefer the host verdict: the gateway's /mode route reports whether
+        // the official installer channels exist, so the direct channel probe
+        // below (which 405s into the browser console on the npm web runtime)
+        // only runs when the host half is absent.
+        try {
+          const mode = await gatewayJson(`${GATEWAY_PREFIX}/mode`) as { official?: boolean }
+          if (mode.official === true) return 'official' as const
+          if (mode.official === false) return 'gateway' as const
+        } catch {
+          // Host half absent (an official runtime without a boot profile):
+          // fall back to the direct channel probe.
+        }
         try {
           const result = await connection.rpc.call(CHANNEL, LIST_ENDPOINT, {})
           return result.ok ? 'official' as const : 'gateway' as const

@@ -12,12 +12,13 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { InstalledPluginItem } from '../core/protocol.ts'
 import type { ControlChange } from '../core/conflict.ts'
 import { diffLayer, overlappingIds, significantChanges, type LayerChange, type LayerSnapshot } from '../core/patch-diff.ts'
 import { readPatchText, readProfileManifest, type ProfileFacts } from './profile.ts'
-import { claimedIdsOf, parsePatch, bareRowEnabled, bareRowId, setRowEnabled, writePatchAtomic } from './rows.ts'
-import { buildPluginRow } from './state.ts'
+import { parsePatch, bareRowEnabled, bareRowId, setRowEnabled, writePatchAtomic } from './rows.ts'
+import { buildPluginRow, claimedEntryIdsOf } from './state.ts'
 
 /** Hard deadline for one CLI add (git clones can take minutes). */
 const ADD_TIMEOUT_MS = 6 * 60_000
@@ -67,6 +68,67 @@ export function findDshBinary(
 /** Append bounded CLI output (stdout + stderr interleaved is not preserved; tail wins). */
 function capture(chunk: Buffer, buffer: { value: string }): void {
   buffer.value = (buffer.value + chunk.toString()).slice(-MAX_OUTPUT_CHARS)
+}
+
+/**
+ * The spawn command for the dsh CLI on this platform. Windows runs the
+ * npm-generated dsh.cmd wrapper by resolving its node binary and bin.js script
+ * and spawning them directly: going through cmd.exe splits unquoted paths with
+ * spaces (`'D:\Program' is not recognized`).
+ * @param binary - the dsh CLI path found by {@link findDshBinary}.
+ * @param platform - process platform (test seam).
+ * @param localNodeExists - existence probe (test seam).
+ * @returns the executable and the argument prefix to run the dsh bin script.
+ */
+export function dshSpawnCommand(
+  binary: string,
+  platform: string = process.platform,
+  localNodeExists: (path: string) => boolean = existsSync,
+): { command: string; argsPrefix: string[] } {
+  if (platform !== 'win32') return { command: binary, argsPrefix: [] }
+  const dir = dirname(binary)
+  const localNode = join(dir, 'node.exe')
+  const binJs = join(dir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
+  return { command: localNodeExists(localNode) ? localNode : process.execPath, argsPrefix: [binJs] }
+}
+
+/** Spawn the dsh CLI with piped stdio and no shell parsing (see {@link dshSpawnCommand}). */
+export function spawnDsh(binary: string, args: string[], env: NodeJS.ProcessEnv) {
+  const { command, argsPrefix } = dshSpawnCommand(binary)
+  return spawn(command, [...argsPrefix, ...args], {
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+/** Feature string the official installer channels carry in the boot dump. */
+const OFFICIAL_INSTALLER_MARK = 'plugin-installer'
+
+/**
+ * Detect whether the official installer channels exist on this runtime by
+ * dumping the boot composition once: the npm-published web never contains
+ * `plugin-installer` entries, DSHCode and the checkout web do. The browser
+ * half reads the verdict from the `/mode` route so its channel probe never
+ * has to hit the missing official route (which 405s into the console).
+ * @param binary - dsh CLI path.
+ * @param profileName - boot profile name.
+ * @param env - process environment.
+ * @param spawnImpl - spawn seam (test seam).
+ * @returns true when the dump names the official installer channels.
+ */
+export async function detectOfficialChannels(
+  binary: string,
+  profileName: string,
+  env: NodeJS.ProcessEnv = process.env,
+  spawnImpl: typeof spawnDsh = spawnDsh,
+): Promise<boolean> {
+  const output = { value: '' }
+  const child = spawnImpl(binary, ['--profile', profileName, '--dump-config'], env)
+  child.stdout?.on('data', (chunk: Buffer) => { output.value = (output.value + chunk.toString()).slice(-MAX_OUTPUT_CHARS) })
+  child.stderr?.on('data', (chunk: Buffer) => { output.value = (output.value + chunk.toString()).slice(-MAX_OUTPUT_CHARS) })
+  const code = await new Promise<number | null>(resolve => { child.on('close', resolve) })
+  if (code !== 0) return false
+  return output.value.includes(OFFICIAL_INSTALLER_MARK)
 }
 
 /** One layer snapshot plus the dependency list of the profile. */
@@ -166,11 +228,7 @@ export class CliGateway {
     }
     const before = await this.capture()
     const output = { value: '' }
-    const child = spawn(binary, args, {
-      env: this.env,
-      shell: process.platform === 'win32',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const child = spawnDsh(binary, args, this.env)
     child.stdout?.on('data', (chunk: Buffer) => { capture(chunk, output) })
     child.stderr?.on('data', (chunk: Buffer) => { capture(chunk, output) })
     const timer = setTimeout(() => { child.kill() }, timeoutMs)
@@ -213,17 +271,8 @@ export class CliGateway {
   }
 
   /** The claimed entry ids of one installed dependency (its own bundle patch, or its name). */
-  private async claimedEntriesOf(name: string): Promise<string[]> {
-    const moduleDir = [...name.split('/')].reduce<string[]>((acc, part) => [...acc, part], [this.facts.profileDir, 'node_modules']).join('/')
-    const patchPath = `${moduleDir}/cordis.patch.yml`
-    try {
-      const text = await readFile(patchPath, 'utf8')
-      const ids = claimedIdsOf(text)
-      if (ids.length > 0) return ids
-    } catch {
-      // Missing bundle patch: a plain plugin claims its own name.
-    }
-    return [name]
+  private claimedEntriesOf(name: string): Promise<string[]> {
+    return claimedEntryIdsOf(this.facts, name)
   }
 
   /** Whether the new install claims an entry id another plugin already holds. */
@@ -267,11 +316,7 @@ export class CliGateway {
     if (binary === null) return
     const name = this.newDependency(before, after)
     const verifyOutput = { value: '' }
-    const child = spawn(binary, ['--profile', this.facts.profileName, '--dump-config'], {
-      env: this.env,
-      shell: process.platform === 'win32',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const child = spawnDsh(binary, ['--profile', this.facts.profileName, '--dump-config'], this.env)
     child.stdout?.on('data', (chunk: Buffer) => { capture(chunk, verifyOutput) })
     child.stderr?.on('data', (chunk: Buffer) => { capture(chunk, verifyOutput) })
     const timer = setTimeout(() => { child.kill() }, 90_000)

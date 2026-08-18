@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findDshBinary } from '../src/host/gateway.ts'
+import { detectOfficialChannels, dshSpawnCommand, findDshBinary } from '../src/host/gateway.ts'
 import { sourceKindOf } from '../src/host/state.ts'
 
 describe('findDshBinary', () => {
@@ -30,5 +30,49 @@ describe('sourceKindOf', () => {
     expect(sourceKindOf('git+https://github.com/a/b')).toBe('git')
     expect(sourceKindOf('github:a/b')).toBe('git')
     expect(sourceKindOf('https://github.com/a/b')).toBe('git')
+  })
+})
+
+describe('dshSpawnCommand', () => {
+  it('keeps the binary as-is off Windows', () => {
+    expect(dshSpawnCommand('/usr/local/bin/dsh', 'darwin')).toEqual({ command: '/usr/local/bin/dsh', argsPrefix: [] })
+  })
+
+  it('resolves the wrapper into node + bin.js on Windows, preferring a local node', () => {
+    const binary = 'C:\\Program Files\\nodejs\\dsh.cmd'
+    expect(dshSpawnCommand(binary, 'win32', () => true)).toEqual({
+      command: 'C:\\Program Files\\nodejs\\node.exe',
+      argsPrefix: ['C:\\Program Files\\nodejs\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js'],
+    })
+  })
+
+  it('keeps the full bin.js path as one argument (spaces survive)', () => {
+    const { command, argsPrefix } = dshSpawnCommand('C:\\Program Files\\nodejs\\dsh.cmd', 'win32', () => false)
+    expect(argsPrefix).toHaveLength(1)
+    expect(argsPrefix[0]).toBe('C:\\Program Files\\nodejs\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js')
+    expect(command).toBe(process.execPath)
+  })
+})
+
+describe('detectOfficialChannels', () => {
+  const fakeSpawn = (output: string, code = 0) => () => ({
+    stdout: { on: (event: string, handler: (chunk: Buffer) => void) => { if (event === 'data') handler(Buffer.from(output)) } },
+    stderr: { on: () => {} },
+    on: (event: string, handler: (chunk?: number | null) => void) => { if (event === 'close') setTimeout(() => handler(code), 0) },
+  })
+
+  it('reports official channels when the dump names the installer', async () => {
+    const probe = fakeSpawn('composed entries include plugin-installer routes')
+    await expect(detectOfficialChannels('/usr/bin/dsh', 'web', {}, probe as never)).resolves.toBe(true)
+  })
+
+  it('reports no official channels on the npm web dump', async () => {
+    const probe = fakeSpawn('composed entries: dsh-base, dsh-web-app')
+    await expect(detectOfficialChannels('/usr/bin/dsh', 'web', {}, probe as never)).resolves.toBe(false)
+  })
+
+  it('treats a failed dump as no official channels', async () => {
+    const probe = fakeSpawn('boot failed', 1)
+    await expect(detectOfficialChannels('/usr/bin/dsh', 'web', {}, probe as never)).resolves.toBe(false)
   })
 })

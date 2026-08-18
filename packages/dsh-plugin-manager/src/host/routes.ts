@@ -11,10 +11,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { isLoopbackRequest } from './loopback.ts'
-import type { CliGateway } from './gateway.ts'
-import { readPatchText, type ProfileFacts } from './profile.ts'
+import { detectOfficialChannels, findDshBinary, type CliGateway } from './gateway.ts'
+import { readPatchText, readProfileManifest, type ProfileFacts } from './profile.ts'
 import { setRowEnabled, writePatchAtomic } from './rows.ts'
-import { buildPluginRow, snapshotGateway } from './state.ts'
+import { buildPluginRow, claimedEntryIdsOf, snapshotGateway } from './state.ts'
 
 /** Route prefix the browser half mirrors. */
 export const GATEWAY_PREFIX = '/api/plugin-manager'
@@ -33,6 +33,8 @@ export interface GatewayRouteDeps {
   cliAvailable: () => boolean
   /** Registry fetch seam for update checks (test seam). */
   fetchLatest?: (name: string) => Promise<string | undefined>
+  /** Official-channel detection seam (test seam); defaults to the boot dump probe. */
+  officialChannels?: () => Promise<boolean>
 }
 
 /** Error text for a caught request or lifecycle failure. */
@@ -158,16 +160,27 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       sendJson(res, 400, { error: 'plugin-manager: set-enabled needs an id and a boolean enabled' })
       return
     }
+    const target = id.trim()
     const patchText = await readPatchText(facts.patchPath)
-    const next = setRowEnabled(patchText, facts.patchPath, id.trim(), id.trim(), enabled)
+    // Write and read the same id space: the entry ids the package's bundle
+    // patch claims (falling back to the package name), not the package name
+    // itself. Package-name rows never matched the loader entries.
+    const manifest = await readProfileManifest(facts.packageJsonPath)
+    const entries = manifest.dependencies[target] !== undefined
+      ? await claimedEntryIdsOf(facts, target)
+      : [target]
+    let next = patchText
+    for (const entryId of entries) {
+      next = setRowEnabled(next, facts.patchPath, entryId, target, enabled)
+    }
     if (next !== patchText) {
       await writePatchAtomic(facts.patchPath, next)
     }
     const snapshot = await snapshotGateway(facts, next)
-    const plugin = snapshot.plugins.find(item => item.id === id.trim())
+    const plugin = snapshot.plugins.find(item => item.id === target)
     sendJson(res, 200, { plugin: plugin ?? {
-      id: id.trim(), name: id.trim(), version: 'unknown',
-      source: { kind: 'npm', spec: id.trim() }, installedAt: '', enabled,
+      id: target, name: target, version: 'unknown',
+      source: { kind: 'npm', spec: target }, installedAt: '', enabled,
     } })
   }
 
@@ -175,6 +188,22 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
     // The npm web runtime keeps no boot-failure ring; the install-error path
     // is the only repair surface here.
     sendJson(res, 200, { items: [], pluginRoot: facts.profileDir, safeMode: false })
+  }
+
+  // One verdict per host process: the browser half reads it instead of
+  // probing the official channel, whose route 405s on the npm web runtime.
+  let modePromise: Promise<{ official: boolean }> | undefined
+  const probeOfficialChannels = (): Promise<boolean> => {
+    const binary = findDshBinary()
+    if (binary === null) return Promise.resolve(false)
+    return detectOfficialChannels(binary, facts.profileName)
+  }
+  const modeHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    if (modePromise === undefined) {
+      const probe = deps.officialChannels ?? probeOfficialChannels
+      modePromise = probe().then(official => ({ official })).catch(() => ({ official: false }))
+    }
+    sendJson(res, 200, await modePromise)
   }
 
   const checkUpdatesHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -198,6 +227,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
     { kind: 'exact', path: `${GATEWAY_PREFIX}/status`, handler: guard(statusHandler) },
     { kind: 'exact', path: `${GATEWAY_PREFIX}/set-enabled`, handler: guard(setEnabledHandler) },
     { kind: 'exact', path: `${GATEWAY_PREFIX}/failures`, handler: guard(failuresHandler) },
+    { kind: 'exact', path: `${GATEWAY_PREFIX}/mode`, handler: guard(modeHandler) },
     { kind: 'exact', path: `${GATEWAY_PREFIX}/check-updates`, handler: guard(checkUpdatesHandler) },
   ]
 }

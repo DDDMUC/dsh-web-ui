@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { resolveProfile } from '../src/host/profile.ts'
 
@@ -7,8 +8,8 @@ describe('resolveProfile', () => {
   it('prefers an explicit --profile flag', () => {
     const facts = resolveProfile(['node', 'bin.js', '--profile', 'web'], env)
     expect(facts.profileName).toBe('web')
-    expect(facts.profileDir).toBe('/tmp/dsh-home/profiles/web')
-    expect(facts.patchPath).toBe('/tmp/dsh-home/profiles/web/cordis.patch.yml')
+    expect(facts.profileDir).toBe(join('/tmp/dsh-home', 'profiles', 'web'))
+    expect(facts.patchPath).toBe(join('/tmp/dsh-home', 'profiles', 'web', 'cordis.patch.yml'))
   })
 
   it('falls back to DSH_PROFILE when the flag is absent', () => {

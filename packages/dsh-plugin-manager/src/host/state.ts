@@ -31,6 +31,27 @@ export function sourceKindOf(spec: string): 'npm' | 'git' {
 }
 
 /**
+ * The entry ids one installed dependency claims: the insert ids of its own
+ * bundle patch, falling back to the package name. Shared by the listing read
+ * side and the set-enabled write side so both agree on the id space — writing
+ * package-name rows while reading bundle-patch ids made the switches inert.
+ * @param facts - resolved profile locations.
+ * @param name - dependency name (possibly scoped).
+ * @returns the claimed entry ids, never empty.
+ */
+export async function claimedEntryIdsOf(facts: ProfileFacts, name: string): Promise<string[]> {
+  const patchPath = join(modulePathOf(facts.profileDir, name), 'cordis.patch.yml')
+  try {
+    const text = await readFile(patchPath, 'utf8')
+    const ids = claimedIdsOf(text)
+    if (ids.length > 0) return ids
+  } catch {
+    // Missing bundle patch: a plain plugin claims its own name.
+  }
+  return [name]
+}
+
+/**
  * Build one installed-plugin row from the profile facts: version from the
  * installed manifest, enablement from the entry ids its own bundle patch
  * claims (plain plugins use the package name as the row id).
