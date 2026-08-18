@@ -43,12 +43,14 @@ const LAYER_ATTR = 'data-dsh-skin-layer'
  * layers stay below the official overlay band (>=1000).
  */
 const LAYER_STYLE: Record<DecorationLayerName, string> = {
-  background: 'position:fixed;inset:0;z-index:-2;pointer-events:none;',
-  ambient: 'position:fixed;inset:0;z-index:30;pointer-events:none;',
+  // Explicit longhands only: the inset shorthand has burned us once (a
+  // mid-session layer lost its bottom edge), longhands parse everywhere.
+  background: 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:-2;pointer-events:none;',
+  ambient: 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;pointer-events:none;',
   top: 'position:fixed;top:0;left:0;right:0;z-index:40;pointer-events:none;',
   bottom: 'position:fixed;bottom:0;left:0;right:0;z-index:40;pointer-events:none;',
   sidebar: 'position:fixed;top:0;bottom:0;left:0;z-index:40;pointer-events:none;',
-  foreground: 'position:fixed;inset:0;z-index:41;pointer-events:none;',
+  foreground: 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:41;pointer-events:none;',
 }
 
 function ensureOne(doc: Document, name: DecorationLayerName): HTMLElement {
@@ -115,7 +117,7 @@ export function buildBackgroundMedia(
   assetBase: string,
 ): HTMLElement[] {
   const nodes: HTMLElement[] = []
-  const fullBleed = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;'
+  const fullBleed = 'position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:cover;'
   if (layer.type === 'image') {
     const img = doc.createElement('img')
     img.src = `${assetBase}/${layer.src}`

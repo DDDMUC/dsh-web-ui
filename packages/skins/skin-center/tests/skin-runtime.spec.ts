@@ -277,6 +277,43 @@ describe('skin controller', () => {
     expect(seen.at(-1)).toEqual({ active: 'harbor', trying: null, previewing: false })
   })
 
+  it('a refresh with an unchanged suppression verdict is a no-op (boot race)', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = ''
+    document.documentElement.removeAttribute('data-dsh-skin')
+    const ledger = createEffectLedger()
+    const loadStylesheet = async (href: string) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    }
+    const mediaEntry = {
+      manifest: {
+        id: 'media-skin',
+        contributes: {
+          stylesheet: 'skin.css',
+          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
+        },
+      },
+    } as ControllerSkinEntry
+    const controller = createSkinController({
+      doc: document,
+      ledger,
+      loadStylesheet,
+      persist: async () => {},
+      // Suppression is false from creation; the wallpaper scope publishes
+      // during boot, but a same-verdict refresh must not re-switch and
+      // wipe the just-applied background.
+      suppressBackgroundMedia: () => false,
+    })
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
+    await controller.refresh()
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
+    expect(controller.active).toBe('media-skin')
+  })
+
   it('suppressBackgroundMedia wins over the manifest background (WE priority)', async () => {
     document.head.innerHTML = ''
     document.body.innerHTML = ''
@@ -306,18 +343,18 @@ describe('skin controller', () => {
       suppressBackgroundMedia: () => suppressed,
     })
     await controller.switchTo('media-skin', mediaEntry)
-    expect(controller.layers.background.childElementCount).toBe(1)
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
 
     // The wallpaper bridge turns on: refresh drops the manifest media.
     suppressed = true
     await controller.refresh()
-    expect(controller.layers.background.childElementCount).toBe(0)
+    expect(document.body.style.getPropertyValue('background-image')).toBe('')
     expect(controller.active).toBe('media-skin')
 
     // And back: refresh repaints it.
     suppressed = false
     await controller.refresh()
-    expect(controller.layers.background.childElementCount).toBe(1)
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
   })
 
   it('disposing an older activation never wipes a newer activation\'s layer content', async () => {
@@ -332,15 +369,14 @@ describe('skin controller', () => {
       },
     } as ControllerSkinEntry
     await controller.switchTo('media-skin', mediaEntry)
-    expect(controller.layers.background.childElementCount).toBe(1)
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
     // Re-activation (the refresh path): the OLD activation's dispose must
-    // remove only its own nodes and leave the new install intact.
+    // restore only its own snapshot — the newer activation's body paint
+    // survives because it re-applies the same value after the restore.
     await controller.switchTo('media-skin', mediaEntry)
-    expect(controller.layers.background.childElementCount).toBe(1)
-    const img = controller.layers.background.firstChild
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
     await controller.switchTo(null, null)
-    expect(controller.layers.background.childElementCount).toBe(0)
-    expect(img?.isConnected).toBe(false)
+    expect(document.body.style.getPropertyValue('background-image')).toBe('')
   })
 
   it('shutdown disposes the activation and clears the attribute', async () => {

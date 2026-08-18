@@ -1872,12 +1872,12 @@ window.__ModuleLoader__.load({
 		* layers stay below the official overlay band (>=1000).
 		*/
 		const LAYER_STYLE = {
-			background: "position:fixed;inset:0;z-index:-2;pointer-events:none;",
-			ambient: "position:fixed;inset:0;z-index:30;pointer-events:none;",
+			background: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:-2;pointer-events:none;",
+			ambient: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;pointer-events:none;",
 			top: "position:fixed;top:0;left:0;right:0;z-index:40;pointer-events:none;",
 			bottom: "position:fixed;bottom:0;left:0;right:0;z-index:40;pointer-events:none;",
 			sidebar: "position:fixed;top:0;bottom:0;left:0;z-index:40;pointer-events:none;",
-			foreground: "position:fixed;inset:0;z-index:41;pointer-events:none;"
+			foreground: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:41;pointer-events:none;"
 		};
 		function ensureOne(doc, name) {
 			const existing = doc.querySelector(`[${LAYER_ATTR}="${name}"]`);
@@ -1905,54 +1905,6 @@ window.__ModuleLoader__.load({
 				sidebar: ensureOne(doc, "sidebar"),
 				foreground: ensureOne(doc, "foreground")
 			};
-		}
-		/**
-		* Replace one layer's content (activation scope). Returns a teardown that
-		* removes exactly the nodes this call added — idempotent, ledger-ready.
-		*/
-		function setLayerContent(layer, nodes) {
-			const added = [...nodes];
-			for (const node of added) layer.appendChild(node);
-			let done = false;
-			return () => {
-				if (done) return;
-				done = true;
-				for (const node of added) node.parentNode?.removeChild(node);
-			};
-		}
-		/**
-		* Build the background media element for a manifest backgroundMedia layer.
-		* Returns null when the theme variant has no media. The element fills the
-		* background layer; the scrim (when declared) is a sibling overlay.
-		*/
-		function buildBackgroundMedia(doc, layer, assetBase) {
-			const nodes = [];
-			const fullBleed = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;";
-			if (layer.type === "image") {
-				const img = doc.createElement("img");
-				img.src = `${assetBase}/${layer.src}`;
-				img.alt = "";
-				img.setAttribute("aria-hidden", "true");
-				img.style.cssText = fullBleed;
-				nodes.push(img);
-			} else {
-				const video = doc.createElement("video");
-				video.src = `${assetBase}/${layer.src}`;
-				video.muted = true;
-				video.loop = true;
-				video.autoplay = true;
-				video.playsInline = true;
-				video.setAttribute("aria-hidden", "true");
-				video.style.cssText = fullBleed;
-				nodes.push(video);
-			}
-			if (layer.scrim) {
-				const scrim = doc.createElement("div");
-				scrim.setAttribute("aria-hidden", "true");
-				scrim.style.cssText = `position:absolute;inset:0;background:${layer.scrim};`;
-				nodes.push(scrim);
-			}
-			return nodes;
 		}
 		//#endregion
 		//#region src/client/runtime/skin-controller.ts
@@ -2005,7 +1957,7 @@ window.__ModuleLoader__.load({
 			/** Last non-null applied entry, so refresh() can re-activate it. */
 			let lastEntry = null;
 			/** Last evaluated background-suppression verdict (refresh() skips no-ops). */
-			let lastSuppressed = null;
+			let lastSuppressed = deps.suppressBackgroundMedia?.() === true;
 			let trying = null;
 			let previewing = false;
 			const listeners = /* @__PURE__ */ new Set();
@@ -2032,24 +1984,59 @@ window.__ModuleLoader__.load({
 				const link = doc.head.querySelector(`link[href="${href}"]`);
 				ledger.record(activation, `style:${label}`, () => link?.remove());
 			}
+			const BODY_BG_PROPS = [
+				"background-image",
+				"background-position",
+				"background-size",
+				"background-attachment",
+				"background-repeat"
+			];
+			/**
+			* Write the skin background onto document.body with a snapshot for the
+			* activation ledger. Only the CURRENT activation may restore: when an
+			* older activation is disposed after a newer one already re-painted the
+			* body, restoring its snapshot would clobber the newer paint (the same
+			* value is written by both, so value comparison cannot arbitrate).
+			*/
+			function setBodyBackground(activation, values) {
+				const style = doc.body.style;
+				const previous = /* @__PURE__ */ new Map();
+				const restore = () => {
+					if (currentActivation !== activation) return;
+					for (const [prop, value] of previous) if (value === "") style.removeProperty(prop);
+					else style.setProperty(prop, value);
+				};
+				for (const prop of BODY_BG_PROPS) {
+					previous.set(prop, style.getPropertyValue(prop));
+					const value = values?.[prop] ?? "";
+					if (value === "") style.removeProperty(prop);
+					else style.setProperty(prop, value);
+				}
+				ledger.record(activation, "background:body", restore);
+			}
 			function installBackground(activation, entry) {
 				const media = entry.manifest.contributes.backgroundMedia;
 				if (!media) {
-					console.log(`[skin-center][diag] ${entry.manifest.id}: no backgroundMedia in entry`, entry.manifest.contributes);
+					setBodyBackground(activation, null);
 					return;
 				}
 				if (deps.suppressBackgroundMedia?.() === true) {
-					console.log(`[skin-center][diag] ${entry.manifest.id}: background suppressed by WE priority`);
+					setBodyBackground(activation, null);
 					return;
 				}
 				const variant = themeGet() === "dark" ? media.dark ?? media.light : media.light ?? media.dark;
-				if (!variant) return;
-				const assetBase = `${apiBase}/skins/${entry.manifest.id}`;
-				const nodes = buildBackgroundMedia(doc, variant, assetBase);
-				if (nodes.length === 0) return;
-				console.log(`[skin-center][diag] ${entry.manifest.id}: installing ${nodes.length} node(s) into the background layer`);
-				const teardown = setLayerContent(layers.background, nodes);
-				ledger.record(activation, "layer:background", () => teardown());
+				if (!variant) {
+					setBodyBackground(activation, null);
+					return;
+				}
+				const image = `url(${`${apiBase}/skins/${entry.manifest.id}`}/${variant.src})`;
+				setBodyBackground(activation, {
+					"background-image": variant.scrim ? `${variant.scrim}, ${image}` : image,
+					"background-position": "center",
+					"background-size": "cover",
+					"background-attachment": "fixed",
+					"background-repeat": "no-repeat"
+				});
 			}
 			async function installHooks(activation, entry) {
 				if (!entry.manifest.facets?.client) return;
@@ -2120,7 +2107,7 @@ window.__ModuleLoader__.load({
 						if (seq !== latestRequest) throw new StaleSwitch();
 						installBackground(activation, entry);
 						await installHooks(activation, entry);
-					}
+					} else setBodyBackground(activation, null);
 					if (seq !== latestRequest) throw new StaleSwitch();
 					if (id === null) doc.documentElement.removeAttribute("data-dsh-skin");
 					else doc.documentElement.setAttribute("data-dsh-skin", id);

@@ -15,6 +15,43 @@ function scope(css: string, filename?: string) {
 }
 
 describe('transformSkinCss scoping', () => {
+  it('clones :root custom properties onto the body scope (official body-level light tokens)', () => {
+    const css = [
+      ':root {',
+      '  color: #123;',
+      '  background-color: #eef;',
+      '  --dsw-alias-bg-base: #ffffff29;',
+      '  --dsw-alias-bg-layer-1: #f3f8ff2e;',
+      '}',
+    ].join('\n')
+    const { code } = scope(css)
+    expect(code).toContain(`${SCOPE} {`)
+    // Only custom properties are cloned; colors stay html-scoped.
+    expect(code).toContain(`${SCOPE} body {`)
+    expect(code).toContain('--dsw-alias-bg-base: #ffffff29;')
+    expect(code).toContain('--dsw-alias-bg-layer-1: #f3f8ff2e;')
+    const bodyClone = code.slice(code.indexOf(`${SCOPE} body {`))
+    expect(bodyClone).not.toContain('color: #123')
+    expect(bodyClone).not.toContain('background-color: #eef')
+  })
+
+  it('clones custom properties from comma-listed :root heads and skips body-scoped rules', () => {
+    const css = [
+      ':root, body[data-ds-dark-theme] {',
+      '  --dsw-alias-bg-base: #141a2eb3;',
+      '}',
+      'body[data-ds-dark-theme] {',
+      '  --dsw-alias-bg-layer-1: #181f36b3;',
+      '}',
+    ].join('\n')
+    const { code } = scope(css)
+    expect(code).toContain(`${SCOPE} body {`)
+    expect(code).toContain('--dsw-alias-bg-base: #141a2eb3;')
+    // The dark-only rule keeps its declaration but is not re-cloned
+    // (it already lives on a body scope): exactly one occurrence.
+    expect(code.split('--dsw-alias-bg-layer-1: #181f36b3;').length).toBe(2)
+  })
+
   it('scopes :root token remaps to the skin scope', () => {
     const { code } = scope(':root { --dsw-primary: #ff9d5c; }')
     expect(code).toContain(`${SCOPE} {`)

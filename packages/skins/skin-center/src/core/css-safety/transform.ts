@@ -264,15 +264,85 @@ export function transformSkinCss(css: string, options: SkinCssTransformOptions):
     )
   }
 
-  // Text-level selector surgery, from the last span to the first so earlier
-  // offsets stay valid. Nested rules (inside @media etc.) carry their own
-  // absolute locations and are rewritten independently.
-  const sorted = [...spans].sort((a, b) => b.start - a.start)
-  let out = css
+  // Text-level selector surgery, first span to last, building the output
+  // incrementally so original offsets stay valid. Nested rules (inside
+  // @media etc.) carry their own absolute locations and are rewritten
+  // independently.
+  const sorted = [...spans].sort((a, b) => a.start - b.start)
+  const scope = `html[data-dsh-skin="${skinId}"]`
+  let out = ''
+  let cursor = 0
   for (const span of sorted) {
-    const selectorText = out.slice(span.start, span.openBrace)
+    const selectorText = css.slice(span.start, span.openBrace)
+    const close = findCloseBrace(css, span.openBrace)
+    out += css.slice(cursor, span.start)
     const scoped = scopeSelectorList(selectorText, skinId)
-    out = out.slice(0, span.start) + scoped + out.slice(span.openBrace)
+    const block = close === -1 ? css.slice(span.openBrace) : css.slice(span.openBrace, close + 1)
+    out += scoped + block
+    // The official light alias tokens live on plain body, and a body-level
+    // definition beats anything a skin remaps on html for every descendant
+    // (custom-property inheritance is tree-based, not specificity-based).
+    // :root-derived custom properties therefore get a body-level clone so
+    // the light remap actually reaches the shell surfaces. Dark remaps are
+    // already body-scoped (body[data-ds-dark-theme]) and need no clone.
+    if (/^:root\b/.test(selectorText.trim()) && close !== -1) {
+      const body = css.slice(span.openBrace + 1, close)
+      const props = body
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => /^--[\w-]+\s*:/.test(line))
+      if (props.length > 0) {
+        out += `\n${scope} body {\n  ${props.join('\n  ')}\n}\n`
+      }
+    }
+    cursor = close === -1 ? span.openBrace : close + 1
   }
+  out += css.slice(cursor)
   return { code: out, warnings }
+}
+
+/**
+ * Find the matching closing brace for the block opening at openBrace.
+ * Conservative: counts braces, skips strings and comments; returns -1 when
+ * the block never closes (callers then keep the remainder as-is).
+ */
+function findCloseBrace(css: string, openBrace: number): number {
+  let depth = 0
+  let i = openBrace
+  let inString: string | null = null
+  let inComment = false
+  for (; i < css.length; i++) {
+    const ch = css[i]
+    const next = css[i + 1]
+    if (inComment) {
+      if (ch === '*' && next === '/') {
+        inComment = false
+        i++
+      }
+      continue
+    }
+    if (inString !== null) {
+      if (ch === '\\') {
+        i++
+      } else if (ch === inString) {
+        inString = null
+      }
+      continue
+    }
+    if (ch === '/' && next === '*') {
+      inComment = true
+      i++
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      inString = ch
+      continue
+    }
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return -1
 }

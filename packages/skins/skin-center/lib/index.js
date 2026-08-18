@@ -744,16 +744,70 @@ function transformSkinCss(css, options) {
 		}
 	});
 	if (violations.length > 0) throw new SkinCssSafetyError(`skin CSS violates the whitelist:\n - ${violations.join("\n - ")}`, violations);
-	const sorted = [...spans].sort((a, b) => b.start - a.start);
-	let out = css;
+	const sorted = [...spans].sort((a, b) => a.start - b.start);
+	const scope = `html[data-dsh-skin="${skinId}"]`;
+	let out = "";
+	let cursor = 0;
 	for (const span of sorted) {
-		const scoped = scopeSelectorList(out.slice(span.start, span.openBrace), skinId);
-		out = out.slice(0, span.start) + scoped + out.slice(span.openBrace);
+		const selectorText = css.slice(span.start, span.openBrace);
+		const close = findCloseBrace(css, span.openBrace);
+		out += css.slice(cursor, span.start);
+		const scoped = scopeSelectorList(selectorText, skinId);
+		const block = close === -1 ? css.slice(span.openBrace) : css.slice(span.openBrace, close + 1);
+		out += scoped + block;
+		if (/^:root\b/.test(selectorText.trim()) && close !== -1) {
+			const props = css.slice(span.openBrace + 1, close).split("\n").map((line) => line.trim()).filter((line) => /^--[\w-]+\s*:/.test(line));
+			if (props.length > 0) out += `\n${scope} body {\n  ${props.join("\n  ")}\n}\n`;
+		}
+		cursor = close === -1 ? span.openBrace : close + 1;
 	}
+	out += css.slice(cursor);
 	return {
 		code: out,
 		warnings
 	};
+}
+/**
+* Find the matching closing brace for the block opening at openBrace.
+* Conservative: counts braces, skips strings and comments; returns -1 when
+* the block never closes (callers then keep the remainder as-is).
+*/
+function findCloseBrace(css, openBrace) {
+	let depth = 0;
+	let i = openBrace;
+	let inString = null;
+	let inComment = false;
+	for (; i < css.length; i++) {
+		const ch = css[i];
+		const next = css[i + 1];
+		if (inComment) {
+			if (ch === "*" && next === "/") {
+				inComment = false;
+				i++;
+			}
+			continue;
+		}
+		if (inString !== null) {
+			if (ch === "\\") i++;
+			else if (ch === inString) inString = null;
+			continue;
+		}
+		if (ch === "/" && next === "*") {
+			inComment = true;
+			i++;
+			continue;
+		}
+		if (ch === "\"" || ch === "'") {
+			inString = ch;
+			continue;
+		}
+		if (ch === "{") depth++;
+		else if (ch === "}") {
+			depth--;
+			if (depth === 0) return i;
+		}
+	}
+	return -1;
 }
 //#endregion
 //#region src/routes-v2.ts

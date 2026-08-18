@@ -169,7 +169,7 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
   /** Last non-null applied entry, so refresh() can re-activate it. */
   let lastEntry: ControllerSkinEntry | null = null
   /** Last evaluated background-suppression verdict (refresh() skips no-ops). */
-  let lastSuppressed: boolean | null = null
+  let lastSuppressed: boolean | null = deps.suppressBackgroundMedia?.() === true
   let trying: string | null = null
   let previewing = false
   const listeners = new Set<() => void>()
@@ -193,31 +193,68 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     ledger.record(activation, `style:${label}`, () => link?.remove())
   }
 
+  const BODY_BG_PROPS = ['background-image', 'background-position', 'background-size', 'background-attachment', 'background-repeat'] as const
+
+  /**
+   * Write the skin background onto document.body with a snapshot for the
+   * activation ledger. Only the CURRENT activation may restore: when an
+   * older activation is disposed after a newer one already re-painted the
+   * body, restoring its snapshot would clobber the newer paint (the same
+   * value is written by both, so value comparison cannot arbitrate).
+   */
+  function setBodyBackground(activation: number, values: Record<string, string> | null): void {
+    const style = doc.body.style
+    const previous = new Map<string, string>()
+    const restore = (): void => {
+      if (currentActivation !== activation) return
+      for (const [prop, value] of previous) {
+        if (value === '') style.removeProperty(prop)
+        else style.setProperty(prop, value)
+      }
+    }
+    for (const prop of BODY_BG_PROPS) {
+      previous.set(prop, style.getPropertyValue(prop))
+      const value = values?.[prop] ?? ''
+      if (value === '') style.removeProperty(prop)
+      else style.setProperty(prop, value)
+    }
+    ledger.record(activation, 'background:body', restore)
+  }
+
   function installBackground(
     activation: number,
     entry: ControllerSkinEntry,
   ): void {
     const media = entry.manifest.contributes.backgroundMedia
     if (!media) {
-      console.log(`[skin-center][diag] ${entry.manifest.id}: no backgroundMedia in entry`, entry.manifest.contributes)
+      setBodyBackground(activation, null)
       return
     }
     // WE wallpaper > user manual background > skin manifest background.
     if (deps.suppressBackgroundMedia?.() === true) {
-      console.log(`[skin-center][diag] ${entry.manifest.id}: background suppressed by WE priority`)
+      setBodyBackground(activation, null)
       return
     }
     const variant = themeGet() === 'dark' ? (media.dark ?? media.light) : (media.light ?? media.dark)
-    if (!variant) return
+    if (!variant) {
+      setBodyBackground(activation, null)
+      return
+    }
     const assetBase = `${apiBase}/skins/${entry.manifest.id}`
-    const nodes = buildBackgroundMedia(doc, variant, assetBase)
-    if (nodes.length === 0) return
-    console.log(`[skin-center][diag] ${entry.manifest.id}: installing ${nodes.length} node(s) into the background layer`)
-    const teardown = setLayerContent(layers.background, nodes)
-    // teardown removes exactly THIS activation's nodes. Do NOT clearLayer
-    // here: under a refresh() race (wallpaper priority flip) the new
-    // activation's nodes are already in the layer and would be wiped too.
-    ledger.record(activation, 'layer:background', () => teardown())
+    // Paint on document.body, NOT the negative-z decoration layer: body
+    // backgrounds (the official shell paints its own) sit ABOVE negative-z
+    // stacking contexts in the CSS paint order, so a layer image would be
+    // invisible. This is the v1 mechanism (body background-image list) and
+    // keeps the shell's own body background-color underneath the art.
+    const image = `url(${assetBase}/${variant.src})`
+    const backgroundImage = variant.scrim ? `${variant.scrim}, ${image}` : image
+    setBodyBackground(activation, {
+      'background-image': backgroundImage,
+      'background-position': 'center',
+      'background-size': 'cover',
+      'background-attachment': 'fixed',
+      'background-repeat': 'no-repeat',
+    })
   }
 
   async function installHooks(activation: number, entry: ControllerSkinEntry): Promise<void> {
@@ -299,6 +336,11 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
         if (seq !== latestRequest) throw new StaleSwitch()
         installBackground(activation, entry)
         await installHooks(activation, entry)
+      } else {
+        // Stock / entryless switch owns the body background too: it must
+        // clear a previous skin's paint (the old activation's restore is
+        // skipped as stale by the ownership gate).
+        setBodyBackground(activation, null)
       }
       if (seq !== latestRequest) throw new StaleSwitch()
 

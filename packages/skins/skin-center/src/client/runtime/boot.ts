@@ -131,6 +131,13 @@ export function bootSkinRuntime(options: BootOptions = {}): SkinRuntimeStore {
     },
   }
 
+  // E2e/acceptance handle: exposes the boot store on the window for
+  // scripted probes (see tests and the acceptance checklist).
+  {
+    const root = doc.defaultView as { __skinRuntime?: SkinRuntimeStore } & Window
+    root.__skinRuntime = store
+  }
+
   // Initial activation: apply the persisted selection from the snapshot.
   void (async () => {
     try {
