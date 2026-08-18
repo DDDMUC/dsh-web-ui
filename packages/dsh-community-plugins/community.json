@@ -197,5 +197,15 @@
     "descriptionEn": "One-command skinning for DSH Web: 8 original themes, wallpaper (opacity/blur/gradient/URL), per-user accent, shareable theme packs with favorites and surprise-me. Purely native token system.",
     "repo": "https://github.com/RevolutionLA/dsh-dream-skin",
     "category": "ui"
+  },
+  {
+    "id": "dsh-friendly-steps",
+    "name": "过程精简 Friendly Steps",
+    "nameEn": "Friendly Steps",
+    "author": "dongwenxiu83-web",
+    "description": "面向文字工作者的过程精简：纯 CSS 折叠 Think / 工具调用等技术过程行，右下角浮条「已完成 N 步」一键展开收起，失败步骤红色计数反馈；不注入 React 列表、无全量扫描，零侵入。",
+    "descriptionEn": "Writer-friendly process collapse: hides Think / tool-call rows via pure CSS behind a floating 'N steps done' pill with red failure counts and one-click expand/collapse. No foreign nodes in React lists, no full-DOM scans — zero interference.",
+    "repo": "https://github.com/dongwenxiu83-web/dsh-friendly-steps",
+    "category": "ui"
   }
 ]
