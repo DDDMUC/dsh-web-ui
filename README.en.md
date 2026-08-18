@@ -39,6 +39,8 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
 
 dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everything is development, everything is a plugin" — and is its most complete realization on the Web GUI: not just a plugin package, but a plugin ecosystem with extreme extensibility. The "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet and the skin center — each ships as an independent, self-contained module: pluggable, swappable, re-developable. Install the whole family to assemble a complete workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate package can even bolt on external plugins like `dsh-better-sidebar` — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md).
 
+"Everything is a plugin" now extends to the skins themselves: after the v2 skin-center refactor, a skin is no longer an npm package coupled to the official DSH — it is a pure asset directory (a skin.json manifest plus styles, art and optional effect scripts) loaded on demand by the skin center, the single loader. Skins are fully decoupled from the official core and coupled only to the skin center: official upgrades no longer touch any skin, and adding a skin means dropping in a directory — no publish, no install. Plugins own the logic, skins own the look; the boundary is finally clean.
+
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
 | Capability | Stock dsh web | dsh-web-ui family |
