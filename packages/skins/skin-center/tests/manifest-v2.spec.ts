@@ -2,32 +2,16 @@
  * Contract tests for the skin.json manifest v2 validator (issue #506, M1).
  *
  * Pins the fail-closed rules and — critically — the deprecated v1 allowlist:
- * the 11 legacy manifests must be rejected ONLY for missing v2 structure,
- * never for their v1-only fields (package / wiring / bodyAttr), which yield
- * migration warnings instead.
+ * a legacy manifest must be rejected ONLY for missing v2 structure, never
+ * for its v1-only fields (package / wiring / bodyAttr), which yield
+ * migration warnings instead. The 11 legacy packages were retired from the
+ * repository (M3), so the allowlist case runs against a synthetic manifest
+ * carrying exactly the v1-only field set every retired manifest shared.
  */
-
-import { readFileSync, readdirSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
 import { validateSkinManifestV2 } from '../src/core/manifest-v2/validate.ts'
-
-const here = dirname(fileURLToPath(import.meta.url))
-const skinsRoot = resolve(here, '../..')
-
-function legacyManifestIds(): string[] {
-  return readdirSync(skinsRoot, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && d.name !== 'skin-center')
-    .map((d) => d.name)
-    .sort()
-}
-
-function readLegacyManifest(id: string): unknown {
-  return JSON.parse(readFileSync(resolve(skinsRoot, id, 'skin.json'), 'utf8'))
-}
 
 const validV2 = {
   $schema: 'https://schemas.linxin666.org/dsh-skin/v2.json',
@@ -179,15 +163,23 @@ describe('validateSkinManifestV2', () => {
     }
   })
 
-  it('keeps every legacy v1 skin on the deprecated allowlist (never unknown-field)', () => {
-    const ids = legacyManifestIds()
-    expect(ids.length).toBe(11)
-    for (const id of ids) {
-      const result = validateSkinManifestV2(readLegacyManifest(id))
-      expect(result.ok).toBe(false)
-      const unknowns = result.errors.filter((e) => e.includes('unknown field'))
-      expect(unknowns, `${id}: ${unknowns.join('; ')}`).toEqual([])
-      expect(result.warnings.length).toBeGreaterThan(0)
+  it('keeps legacy v1 manifests on the deprecated allowlist (never unknown-field)', () => {
+    // The shape every retired v1 skin.json shared: v1-only fields
+    // (package / wiring / bodyAttr) and no v2 structure at all.
+    const legacyV1 = {
+      id: 'harbor',
+      name: '夕港',
+      nameEn: 'Harbor',
+      version: '0.1.0',
+      author: 'moeblack',
+      package: '@linxin666/dsh-skin-harbor',
+      wiring: { kind: 'client-plugin' },
+      bodyAttr: 'data-dsh-harbor',
     }
+    const result = validateSkinManifestV2(legacyV1)
+    expect(result.ok).toBe(false)
+    const unknowns = result.errors.filter((e) => e.includes('unknown field'))
+    expect(unknowns, unknowns.join('; ')).toEqual([])
+    expect(result.warnings.length).toBeGreaterThan(0)
   })
 })

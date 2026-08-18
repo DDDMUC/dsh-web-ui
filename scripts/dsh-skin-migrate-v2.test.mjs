@@ -16,7 +16,6 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import {
   HOOKS_API_VERSION,
   buildManifestV2,
@@ -30,7 +29,6 @@ import {
   splitStylesheet,
 } from './dsh-skin-migrate-v2.mjs'
 
-const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const ONE_PIXEL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 // Assembled without literals so the fixture bundle keeps its template form.
 const BT = String.fromCharCode(96) // backtick
@@ -313,31 +311,8 @@ test('runSkinCssSafety distinguishes pipeline crashes from whitelist violations'
   assert.ok(violation.violations.length > 0)
 })
 
-// --- real skins (read-only) ------------------------------------------------------
-
-test('real skin: harbor migrates clean end to end', async () => {
-  const skinDir = join(REPO_ROOT, 'packages', 'skins', 'harbor')
-  const outDir = mkdtempSync(join(tmpdir(), 'skin-migrate-harbor-'))
-  const report = await migrateSkin({ skinDir, outDir, write: true })
-  assert.equal(report.ok, true, report.errors.join('; '))
-  const skinCss = readFileSync(join(outDir, 'skin.css'), 'utf8')
-  assert.ok(!skinCss.includes('data-dsh-harbor'))
-  assert.equal(report.manifest.id, 'harbor')
-  assert.equal(report.backgroundMedia, true)
-  assert.ok(existsSync(join(outDir, 'assets', 'harbor-art.webp')))
-  assert.ok(existsSync(join(outDir, 'preview', 'light.png')))
-  assert.ok(existsSync(join(outDir, 'hooks.mjs')))
-})
-
-test('real skin: maid-atelier keeps license fields and drops v1 fields', async () => {
-  const skinDir = join(REPO_ROOT, 'packages', 'skins', 'maid-atelier')
-  const report = await migrateSkin({ skinDir, write: false })
-  const manifest = report.manifest
-  assert.ok(manifest, 'manifest is built even when CSS validation reports errors')
-  assert.equal(manifest.license, 'CC BY-NC-SA 4.0')
-  assert.equal(manifest.sourceUrl, 'https://github.com/Small-tailqwq/dsh-deep-whale/tree/main/maid-atelier')
-  assert.equal(manifest.attribution, '上善 → zipzip → Small-tailqwq')
-  assert.equal(manifest.package, undefined)
-  assert.equal(manifest.wiring, undefined)
-  assert.equal(manifest.bodyAttr, undefined)
-})
+// --- real skins ------------------------------------------------------------------
+// The real-skin migration cases were retired together with the v1 skin
+// packages they read (issue #506, M3): the codemod is a one-shot tool and
+// its subjects no longer exist in the repository. The fixture-driven cases
+// above keep the migration behavior pinned.

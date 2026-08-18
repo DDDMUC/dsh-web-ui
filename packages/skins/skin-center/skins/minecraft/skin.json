@@ -22,8 +22,23 @@
     "light": "preview/light.png",
     "dark": "preview/dark.png"
   },
+  "requires": {
+    "contracts": [
+      {
+        "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+        "kind": "SkinHooks",
+        "optional": true
+      }
+    ]
+  },
   "contributes": {
     "stylesheet": "skin.css",
     "patches": "patches.css"
+  },
+  "facets": {
+    "client": {
+      "entry": "hooks.mjs",
+      "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+    }
   }
 }

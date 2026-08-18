@@ -779,33 +779,38 @@ body[data-ds-dark-theme] [data-gitgraph-lanes] > [data-gitgraph-glyph="node"]:nt
   color: #4cc98a;
 }
 
+/* Row-scoped token overrides for the git-graph chip pills. v1 scoped these
+   on body[data-dsh-xp]; v2 scopes the whole file under
+   html[data-dsh-skin="xp"], so plain body heads carry the same meaning.
+   They stay flat (the codemod had nested them under [data-gitgraph-ref],
+   where they could never match). */
+body div:has(> div > [data-gitgraph-chip]) {
+  --dsw-alias-button-tool-bar-fill: #316ac514;
+  --dsw-alias-border-l2: #316ac573;
+  --dsw-alias-label-secondary: #2558a8;
+  --dsw-alias-label-tertiary: #5d6b7e;
+  --dsw-alias-interactive-bg-hover: #316ac51f;
+  --dsw-alias-interactive-bg-active: #316ac533;
+}
+
+body[data-ds-dark-theme] div:has(> div > [data-gitgraph-chip]) {
+  --dsw-alias-button-tool-bar-fill: #ffffff0f;
+  --dsw-alias-border-l2: #6da8e873;
+  --dsw-alias-label-secondary: #9fc3ee;
+  --dsw-alias-label-tertiary: #9aa0a8;
+  --dsw-alias-interactive-bg-hover: #6da8e824;
+  --dsw-alias-interactive-bg-active: #6da8e838;
+}
+
+body div:has(> div > [data-gitgraph-chip]) > button[aria-expanded="true"], body [data-gitgraph-chip][aria-expanded="true"] {
+  background-color: #316ac524;
+}
+
+body[data-ds-dark-theme] div:has(> div > [data-gitgraph-chip]) > button[aria-expanded="true"], body[data-ds-dark-theme] [data-gitgraph-chip][aria-expanded="true"] {
+  background-color: #6da8e829;
+}
+
 [data-gitgraph-ref]:not([data-gitgraph-ref-current]) {
-  & body[data-dsh-xp] div:has( > div > [data-gitgraph-chip]) {
-    --dsw-alias-button-tool-bar-fill: #316ac514;
-    --dsw-alias-border-l2: #316ac573;
-    --dsw-alias-label-secondary: #2558a8;
-    --dsw-alias-label-tertiary: #5d6b7e;
-    --dsw-alias-interactive-bg-hover: #316ac51f;
-    --dsw-alias-interactive-bg-active: #316ac533;
-  }
-
-  & body[data-dsh-xp][data-ds-dark-theme] div:has( > div > [data-gitgraph-chip]) {
-    --dsw-alias-button-tool-bar-fill: #ffffff0f;
-    --dsw-alias-border-l2: #6da8e873;
-    --dsw-alias-label-secondary: #9fc3ee;
-    --dsw-alias-label-tertiary: #9aa0a8;
-    --dsw-alias-interactive-bg-hover: #6da8e824;
-    --dsw-alias-interactive-bg-active: #6da8e838;
-  }
-
-  & body[data-dsh-xp] div:has( > div > [data-gitgraph-chip]) > button[aria-expanded="true"], & body[data-dsh-xp] [data-gitgraph-chip][aria-expanded="true"] {
-    background-color: #316ac524;
-  }
-
-  & body[data-dsh-xp][data-ds-dark-theme] div:has( > div > [data-gitgraph-chip]) > button[aria-expanded="true"], & body[data-dsh-xp][data-ds-dark-theme] [data-gitgraph-chip][aria-expanded="true"] {
-    background-color: #6da8e829;
-  }
-
   color: #3d4a5c;
   background: #ece9d8;
   border: 1px solid #b3ad95;
