@@ -6,710 +6,6 @@ window.__ModuleLoader__.load({
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		let react = require("react");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		//#region src/client/generated/skins.ts
-		/** Every skin, ordered by packages/skins/<name>/skin.json `order`. */
-		const SKIN_CENTER_ENTRIES = [
-			{
-				"id": "blue-fantasy",
-				"name": "蓝色幻想",
-				"nameEn": "Blue Fantasy",
-				"author": "powerdog996（DreamSkin 社区）· dsh-web-ui 适配",
-				"tagline": "鲸鱼插画背景 · periwinkle 靛蓝调色板 · 半透明面板",
-				"description": "DreamSkin「DeepSeek-鲸鱼娘」Codex 桌面主题的 dsh 适配：鲸鱼插画背景垫在半透明面板之下，遮罩随亮/暗主题实时切换，periwinkle 靛蓝色调重映射到全部 dsh token。",
-				"tags": [
-					"dreamskin",
-					"whale",
-					"indigo",
-					"art",
-					"translucent"
-				],
-				"accent": "#4a5fa8",
-				"bodyAttr": "data-dsh-blue-fantasy",
-				"package": "@linxin666/dsh-client-ui-skin-blue-fantasy",
-				"order": 1
-			},
-			{
-				"id": "whale-song",
-				"name": "鲸吟",
-				"nameEn": "Whale Song",
-				"author": "dsh-web-ui",
-				"tagline": "深海鲸语女神背景 · 冰蓝海洋调色板 · 金色细线点缀",
-				"description": "《鲸吟》— 深海鲸语女神主题：无文字纯氛围背景画（蓝发女神与鲸群居左、冰蓝星座网格与金线点缀、右侧大量留白）垫在半透明面板之下，遮罩随亮/暗主题实时切换，冰蓝/浅青/深海军蓝/钴蓝冷色体系重映射到全部 dsh token，暗色变体为深海夜航调。",
-				"tags": [
-					"whale",
-					"ocean",
-					"ice-blue",
-					"goddess",
-					"art",
-					"translucent"
-				],
-				"accent": "#4d8fd4",
-				"bodyAttr": "data-dsh-whale-song",
-				"package": "@linxin666/dsh-client-ui-skin-whale-song",
-				"order": 2
-			},
-			{
-				"id": "harbor",
-				"name": "夕港",
-				"nameEn": "Harbor",
-				"author": "moeblack",
-				"tagline": "暮光蓝港 · 日落橙辉 · 半透明夜色面板",
-				"description": "《夕港》黄昏港口主题：动漫少女黄昏港口背景（暮光蓝天空渐入日落橙）垫在半透明面板之下，遮罩随亮/暗主题实时切换，深暮蓝 #141a2e 底与日落橙 #ff9d5c 主色重映射到 dsh token，亮色是薄暮纱、暗色是深海夜航纱，同一幅画两种读法。",
-				"tags": [
-					"harbor",
-					"dusk",
-					"twilight",
-					"sunset",
-					"amber",
-					"art",
-					"translucent"
-				],
-				"accent": "#ff9d5c",
-				"bodyAttr": "data-dsh-harbor",
-				"package": "@linxin666/dsh-client-ui-skin-harbor",
-				"order": 3
-			},
-			{
-				"id": "xp",
-				"name": "Windows XP (Luna)",
-				"nameEn": "Windows XP Luna",
-				"author": "dsh-web-ui",
-				"tagline": "Luna 蓝窗口条 · 绿色开始按钮 · Bliss 蓝天桌面",
-				"description": "Windows XP (Luna) 复古主题：蓝色渐变窗口条带窗口按钮、米色状态栏（大写/数字/滚动指示灯）、侧边栏任务栏上的绿色「开始」按钮、资源管理器风格树行和 Bliss 蓝天桌面，全局直角。",
-				"tags": [
-					"retro",
-					"xp",
-					"luna",
-					"windows",
-					"start-button"
-				],
-				"accent": "#316ac5",
-				"bodyAttr": "data-dsh-xp",
-				"package": "@linxin666/dsh-client-ui-skin-xp",
-				"order": 6
-			},
-			{
-				"id": "dragon-heir",
-				"name": "龙的传人",
-				"nameEn": "Dragon Heir",
-				"author": "dsh-web-ui",
-				"tagline": "不屈龙魂 · 万里长城双主题 · 朱砂龙印",
-				"description": "龙的传人 — 一面是不屈龙魂（墨龙穿云、朱砂印章、不屈锋芒），一面是万里长城（青黛山色、金晖镀墙、苍茫暮色）。亮暗主题各自配一幅画与一枚龙印 favicon，面板半透明磨砂，让画透出来。",
-				"tags": [
-					"dragon",
-					"loong",
-					"chinese",
-					"ink-wash",
-					"great-wall",
-					"dual-theme"
-				],
-				"accent": "#c3272b",
-				"bodyAttr": "data-dsh-dragon-heir",
-				"package": "@linxin666/dsh-client-ui-skin-dragon-heir",
-				"order": 7
-			},
-			{
-				"id": "minecraft",
-				"name": "Minecraft 方块世界",
-				"nameEn": "Minecraft Voxel",
-				"author": "dsh-web-ui",
-				"tagline": "动态全景天空盒 · 方块按钮 · 告示牌输入框",
-				"description": "复刻《我的世界》主界面氛围的方块皮肤：程序化绘制的像素全景天空盒（方块山、像素云、方块树、草方块地面）在身后缓慢旋转，界面浮在石板上；按钮还原 MC 菜单按钮（灰石板、悬停变黄、按下下沉），输入框做成带钉子的木告示牌。",
-				"tags": [
-					"minecraft",
-					"voxel",
-					"pixel",
-					"game",
-					"panorama",
-					"skybox"
-				],
-				"accent": "#7cbd4b",
-				"bodyAttr": "data-dsh-minecraft",
-				"package": "@linxin666/dsh-client-ui-skin-minecraft",
-				"order": 8
-			},
-			{
-				"id": "trading",
-				"name": "交易终端",
-				"nameEn": "Trading Terminal",
-				"author": "dsh-web-ui",
-				"tagline": "实时行情跑马灯 · 长桥港美股行情 · 红涨绿跌交易终端",
-				"description": "结合 dsh-fun-ticker 行情跑马灯与 dsh-longbridge 港美股行情的炒股皮肤：顶栏滚动 A股/港股/美股/指数/加密/外汇报价（装 fun-ticker 后跟随你的自选列表），状态栏展示长桥行情快照与 A股/港股/美股交易时段，写代码也像盯盘。",
-				"tags": [
-					"stock",
-					"trading",
-					"ticker",
-					"live",
-					"terminal",
-					"longbridge"
-				],
-				"accent": "#f23645",
-				"bodyAttr": "data-dsh-trading",
-				"package": "@linxin666/dsh-client-ui-skin-trading",
-				"order": 9
-			},
-			{
-				"id": "miku",
-				"name": "初音未来 · 电子歌姬",
-				"nameEn": "Hatsune Miku",
-				"author": "涂山苏苏",
-				"tagline": "蓝紫双马尾 · 01 编号 · 音符波形 · 电子歌姬主题",
-				"description": "以世界第一的虚拟歌姬初音未来为灵感的主题皮肤：蓝紫洋红渐变贯穿全局，音符与声波曲线点缀在半透明面板之间，标题栏与状态栏带有 01 编号徽标与音乐波形，半透明毛玻璃面板透出背景图——沉浸式电子歌姬氛围。",
-				"tags": [
-					"miku",
-					"vocaloid",
-					"blue",
-					"music",
-					"idol",
-					"waveform"
-				],
-				"accent": "#2e9bff",
-				"bodyAttr": "data-dsh-miku",
-				"package": "@linxin666/dsh-client-ui-skin-miku",
-				"order": 10
-			},
-			{
-				"id": "whale-mom",
-				"name": "鲸鱼妈妈",
-				"nameEn": "Whale Mom",
-				"author": "dsh-web-ui",
-				"tagline": "深海鲸鱼妈妈与幼崽的画作 · 全透面板由背景遮挡驱动 · 金线点缀",
-				"description": "dsh web ui 的鲸鱼妈妈主题皮肤：深海鲸鱼妈妈与幼崽们的氛围画作铺满视口，面板全透（透明度由设置-皮肤中心的背景遮挡滑杆驱动，侧边栏基准透明度可用 --dsw-skin-sidebar-alpha 微调），深蓝 / 奶油 / 金色配色贯穿全局，暗色是深海夜航。",
-				"tags": [
-					"ocean",
-					"whale",
-					"mother",
-					"translucent",
-					"gold"
-				],
-				"accent": "#d9a53c",
-				"bodyAttr": "data-dsh-whale-mom",
-				"package": "@linxin666/dsh-client-ui-skin-whale-mom",
-				"order": 11
-			},
-			{
-				"id": "matrix",
-				"name": "Matrix 骇客帝国",
-				"nameEn": "Matrix",
-				"author": "contributed (seanchen)",
-				"tagline": "深夜护眼 · 墨绿暗色 · 数字雨",
-				"description": "深夜卧室场景的护眼暗色皮肤：近黑墨绿背景、墨绿等宽字体、低透明度数字雨。强制暗色（不跟随系统主题），整体低亮度，长时间使用不刺眼、不打扰家人睡觉。",
-				"tags": [
-					"matrix",
-					"dark",
-					"green",
-					"hacker",
-					"night",
-					"eye-care"
-				],
-				"accent": "#00e676",
-				"bodyAttr": "data-dsh-matrix",
-				"package": "@linxin666/dsh-client-ui-skin-matrix",
-				"order": 12
-			},
-			{
-				"id": "maid-atelier",
-				"name": "深海女仆工坊",
-				"nameEn": "Abyssal Maid Atelier",
-				"author": "Small-tailqwq",
-				"tagline": "双女仆背景、深海蓝蕾丝界面与 Q 版侧栏",
-				"description": "一套面向 DeepSeek Harness Web GUI 的高定制动漫角色皮肤。它使用双女仆工坊场景作为对话区背景，以深海蓝、陶瓷白、长春花蓝和柔金构成可热切换的界面覆盖层，并为加载、思考和工具运行状态提供动画反馈。",
-				"tags": [
-					"anime",
-					"maid",
-					"whale",
-					"navy",
-					"ornate",
-					"glass"
-				],
-				"accent": "#c5a468",
-				"bodyAttr": "data-dsh-maid-atelier",
-				"package": "@linxin666/dsh-client-ui-skin-maid-atelier",
-				"order": 13
-			}
-		];
-		//#endregion
-		//#region src/client/manifest.ts
-		/**
-		* Boot-manifest readiness checks for the one-click apply flow.
-		*
-		* The host half writes the skin patch synchronously, but the web app's boot
-		* graph (the `window.__DSH_BOOT__` JSON inside the served HTML) is
-		* regenerated asynchronously by the config watcher. A page reloaded right
-		* after the patch write can therefore boot into the previous skin. These
-		* helpers let the frontend poll the served document until the manifest
-		* actually reflects the target before reloading.
-		* @module @linxin666/dsh-client-ui-skin-center/manifest
-		*/
-		/** Bundle URL pattern of any skin entry in the boot manifest. */
-		const SKIN_BUNDLE_URL = /\/plugins\/@linxin666\/dsh-client-ui-skin-(?!center)[a-z0-9-]+\/client\.js/;
-		/**
-		* Whether a served GUI document's boot manifest enables the given skin.
-		* A `null` target means the stock look: no skin bundle URL may be present
-		* (the skin-center plugin's own bundle always loads and is excluded).
-		* @param documentHtml - the served GUI document (contains the boot JSON).
-		* @param target - skin id, or `null` for the stock look.
-		* @returns whether the manifest already enables the target.
-		*/
-		function manifestHasSkin(documentHtml, target) {
-			if (target === null) return !SKIN_BUNDLE_URL.test(documentHtml);
-			return documentHtml.includes(`/plugins/@linxin666/dsh-client-ui-skin-${target}/client.js`);
-		}
-		//#endregion
-		//#region src/client/try-on.ts
-		/**
-		* Try-on engine for the in-GUI skin center.
-		*
-		* A skin's client bundle is executed through the REAL module system, not a
-		* shim and not eval: the host route `/api/skin-center/bundle/<id>` serves
-		* the skin's prebuilt `lib/client.js` as a same-origin script (mirroring
-		* the kernel's own defaultLoadBundle — see dsh-client-modules), and its
-		* body calls `window.__ModuleLoader__.load({id, factory})`, which only
-		* REGISTERS the factory. `window.__DSH_MODULES__.import(package)` (the
-		* kernel's ClientModuleSystem, contract C5/C6) then materializes it — which
-		* auto-injects the skin's CSS `<style data-plugin>` tag — and
-		* `surface.apply(miniCtx)` mounts the skin exactly as the fiber system
-		* would, returning a full disposer. That makes try-on and its teardown the
-		* real code paths, with no CSP `unsafe-eval` dependence and no startup
-		* cost: the ~700KB of embedded art base64 is only parsed when a skin is
-		* actually tried on.
-		*
-		* Mutual exclusion: the GUI never hosts two skins at once. The currently
-		* ACTIVE skin is owned by its own cordis fiber (its disposer is not
-		* reachable), so try-on retracts the active skin's visual writes by recipe:
-		* remove its body attribute (its stylesheet goes inert), clear the
-		* body-level backdrop inline styles (blue-fantasy's whale art), detach only
-		* known skin chrome body children (title/status bars marked `data-skin-chrome`
-		* or carrying the skin's body attribute, leaving other plugins' portals and
-		* toasts in place), and neutralize known global-rule leaks (xp's sidebar
-		* taskbar/start; matrix's full-viewport rain canvas, which has no scoping
-		* attribute — matrix's forced-dark observer goes inert on its own once the
-		* body attribute is retracted). Everything is snapshotted and restored on
-		* exit in original order. The active skin's own fiber is never touched, so
-		* exiting try-on returns the page to exactly the pre-try-on state.
-		*
-		* A ghost MutationObserver may survive retraction (blue-fantasy re-writes
-		* its backdrop on theme flips), so during try-on a neutralizing observer
-		* re-clears the backdrop props whenever `data-ds-dark-theme` changes.
-		*
-		* Hot swap (issue #359): the same machinery also powers one-click apply in
-		* packaged installs, where the client-module startup graph only refreshes on
-		* an app restart. TryOnController.commit() mounts the applied skin in place
-		* and keeps it (no reload, no restart), retracting the incumbent permanently
-		* instead of snapshot-restoring it; activeSkinEntry() then answers the
-		* committed skin until the next real page load.
-		*
-		* Re-trying the skin that is ALREADY the live preview is a no-op. A skin
-		* bundle injects its CSS once per materialization (a `style[data-plugin-css]`
-		* dedup guard inside each bundle), so the normal load/transfer/cleanup cycle
-		* would strip the only style tag and leave the preview visually unstyled —
-		* the page falls back to the default look while the session still reports
-		* the skin as tried on. The controller answers such a request as satisfied
-		* without touching the session.
-		*
-		* The session is observable: `subscribe()` fires on every transition (a
-		* try-on starts, switches, exits or commits), which lets the settings card
-		* derive its "trying on" badge from the controller instead of component-local
-		* state that a panel close/reopen would wipe.
-		*/
-		/** Body-level backdrop properties skins may write inline (blue-fantasy). */
-		const BACKDROP_PROPS = [
-			"background-image",
-			"background-position",
-			"background-size",
-			"background-attachment",
-			"background-repeat"
-		];
-		/**
-		* Per-skin neutralization CSS: rules that hide visual leaks whose styles
-		* are NOT scoped under the skin's body attribute (they live on app elements
-		* the skin touches, so detaching chrome cannot remove them). Matched by
-		* css-module class substring, which is stable across rebuilds.
-		*/
-		const NEUTRALIZE_CSS = {
-			xp: [`[data-pane='sidebar'] [class*='xpTaskbar']{background:transparent!important;border-top:none!important;box-shadow:none!important}`, `[data-pane='sidebar'] [class*='xpStart']{display:none!important}`].join(""),
-			matrix: [`[data-plugin='dsh-matrix-skin']{display:none!important}`].join("")
-		};
-		/** Host base path of the skin bundle route (registered by src/routes.ts). */
-		const BUNDLE_ROUTE = "/api/skin-center/bundle";
-		/**
-		* Execute one skin's client bundle as a real same-origin script, mirroring
-		* the kernel's own defaultLoadBundle (dsh-client-modules): the script body
-		* calls `window.__ModuleLoader__.load({id, factory})`, which only registers
-		* the factory — materialization is the caller's separate `import` step. No
-		* eval: try-on works under any CSP that allows same-origin scripts (the
-		* shell itself loads plugin bundles this way), and a failed fetch rejects
-		* so the caller can restore the active skin instead of leaving it retracted.
-		* @param url - same-origin bundle URL.
-		* @returns a promise resolving once the script executed.
-		*/
-		function loadBundleScript(url) {
-			return new Promise((resolve, reject) => {
-				const el = document.createElement("script");
-				el.async = true;
-				el.src = url;
-				el.addEventListener("load", () => {
-					el.remove();
-					resolve();
-				}, { once: true });
-				el.addEventListener("error", () => {
-					el.remove();
-					reject(/* @__PURE__ */ new Error(`skin-center: bundle script ${url} failed to load`));
-				}, { once: true });
-				document.head.append(el);
-			});
-		}
-		/** Read the page's composed boot-graph entry ids (only enabled plugins appear). */
-		function bootEntryIds() {
-			return window.__DSH_BOOT__?.entries?.map((entry) => entry.id) ?? [];
-		}
-		/** The skin package currently ACTIVE in the boot graph, if it is one of ours. */
-		function bootSkinEntry() {
-			const ids = new Set(bootEntryIds());
-			return SKIN_CENTER_ENTRIES.find((entry) => ids.has(entry.package));
-		}
-		/**
-		* Hot-committed skin override (issue #359): a one-click apply mounts the new
-		* skin in place — the boot graph only catches up on the next app start, so
-		* until the page reloads, activeSkinEntry reports the committed skin instead
-		* of the boot-graph one. A null package means the official stock look was
-		* committed.
-		*/
-		let hotOverride;
-		/** The skin currently driving the page: the hot-committed one, else the boot-graph one. */
-		function activeSkinEntry() {
-			if (hotOverride !== void 0) return hotOverride.pkg === null ? void 0 : SKIN_CENTER_ENTRIES.find((entry) => entry.package === hotOverride?.pkg);
-			return bootSkinEntry();
-		}
-		/**
-		* Whether a direct body child is skin chrome owned by `skin`: marked with the
-		* `data-skin-chrome` marker (minecraft/dragon-heir) or carrying the skin's
-		* scoping body attribute. Everything else — other plugins' portals, toasts and
-		* overlays appended to body — is left alone.
-		*/
-		function isSkinChrome(el, skin) {
-			if (el.hasAttribute("data-skin-chrome")) return true;
-			return skin !== null && el.hasAttribute(skin.bodyAttr);
-		}
-		function miniCtx() {
-			const disposers = [];
-			return {
-				effect(callback) {
-					disposers.push(callback());
-					return () => {};
-				},
-				get() {},
-				__disposeAll() {
-					for (const dispose of disposers.reverse()) dispose();
-				}
-			};
-		}
-		/**
-		* One live try-on session: owns the tried-on skin's disposer plus the
-		* captured active-skin visuals, and restores everything on exit.
-		*/
-		var TryOnController = class {
-			session = null;
-			/**
-			* Generation counter. A newer try-on or exit increments it, so an in-flight
-			* `tryOn` (awaiting the real bundle load) can detect it was superseded and
-			* drop only what it mounted instead of clobbering the newer session.
-			*/
-			epoch = 0;
-			/**
-			* One package can be requested again before its first script load finishes
-			* (for example A -> B -> A). Share that materialization so two script tags
-			* never race to register the same module factory.
-			*/
-			pendingModules = /* @__PURE__ */ new Map();
-			/**
-			* Package selected by the newest async request. A superseded request for the
-			* same package must not invalidate the module/style now owned by that newer
-			* request when their shared load settles.
-			*/
-			requestedPackage = null;
-			/**
-			* Loads one skin's client bundle so its factory registers on the page's
-			* `__ModuleLoader__`. Defaults to a same-origin script tag from the host
-			* route `/api/skin-center/bundle/<id>`; tests inject a stub.
-			*/
-			loadBundle;
-			constructor(options = {}) {
-				this.loadBundle = options.loadBundle ?? ((entry) => loadBundleScript(`${BUNDLE_ROUTE}/${encodeURIComponent(entry.id)}`));
-			}
-			/** The skin currently being tried on, if any. */
-			get trying() {
-				return this.session?.entry ?? null;
-			}
-			/** Whether the official stock look (no skin) is being tried on. */
-			get tryingOfficial() {
-				return this.session !== null && this.session.entry === null;
-			}
-			/** Session-change subscribers (the settings card re-syncs its trying badge). */
-			listeners = /* @__PURE__ */ new Set();
-			/**
-			* Subscribe to session transitions: a try-on starts, switches, exits or
-			* commits (commit exits any live preview first). The settings card derives
-			* its "trying on" badge from the controller this way, so the badge survives
-			* the card unmounting when the settings panel closes. Declared as an arrow
-			* property so it can be handed to React's useSyncExternalStore unbound.
-			* @param listener - called after any session transition.
-			* @returns an unsubscribe function.
-			*/
-			subscribe = (listener) => {
-				this.listeners.add(listener);
-				return () => {
-					this.listeners.delete(listener);
-				};
-			};
-			emit() {
-				for (const listener of this.listeners) listener();
-			}
-			/**
-			* Start trying on `entry` (replaces any live session).
-			*
-			* When another skin is already being tried on, keep it mounted while the
-			* next bundle loads. Once the target is ready, tear down the old preview and
-			* mount the new one against the SAME captured active-skin snapshot. This
-			* avoids the expensive preview -> active -> preview round trip and prevents
-			* a flash of the active skin between consecutive try-ons.
-			* @returns whether this request mounted the target (false when superseded).
-			*/
-			async tryOn(entry) {
-				if (entry.package === activeSkinEntry()?.package) return false;
-				if (this.session !== null && this.session.entry?.package === entry.package) return true;
-				const epoch = ++this.epoch;
-				this.requestedPackage = entry.package;
-				let apply;
-				try {
-					apply = await this.loadModuleOnce(entry);
-				} catch (error) {
-					if (this.shouldCleanupRequest(entry, epoch)) this.cleanupModule(entry);
-					throw error;
-				}
-				if (epoch !== this.epoch) {
-					if (this.shouldCleanupRequest(entry, epoch)) this.cleanupModule(entry);
-					return false;
-				}
-				const previous = this.session;
-				let active;
-				if (previous === null) active = this.captureAndRetractActive();
-				else {
-					this.session = null;
-					previous.dispose();
-					if (previous.entry !== null) this.cleanupModule(previous.entry);
-					active = previous.active;
-				}
-				let dispose;
-				try {
-					dispose = this.applyLoaded(entry, apply);
-				} catch (error) {
-					if (epoch === this.epoch) this.restoreActive(active);
-					throw error;
-				}
-				this.session = {
-					entry,
-					dispose,
-					active
-				};
-				this.emit();
-				return true;
-			}
-			/**
-			* Try on the official stock look: retract the active skin's visual writes
-			* (same recipe as a skin try-on) and mount nothing. Exiting restores the
-			* active skin exactly like any other try-on session.
-			*/
-			tryOnOfficial() {
-				if (activeSkinEntry() === null) return;
-				if (this.session !== null && this.session.entry === null) return;
-				this.epoch += 1;
-				this.requestedPackage = null;
-				const previous = this.session;
-				if (previous !== null) {
-					this.session = null;
-					previous.dispose();
-					if (previous.entry !== null) this.cleanupModule(previous.entry);
-					this.session = {
-						entry: null,
-						dispose: () => {},
-						active: previous.active
-					};
-					this.emit();
-					return;
-				}
-				const active = this.captureAndRetractActive();
-				this.session = {
-					entry: null,
-					dispose: () => {},
-					active
-				};
-				this.emit();
-			}
-			/** The skin mounted by a previous commit, owned (and disposable) by this controller. */
-			hotIncumbent = null;
-			/**
-			* One-click-apply hot swap (issue #359): mount `target` in place and KEEP
-			* it — no page reload, no app restart. The incumbent is retracted the same
-			* way try-on retracts the active skin, except nothing is restored: a
-			* boot-graph incumbent's neutralizers (the ghost-observer guard and the
-			* leak-hiding style) stay installed for the page lifetime, while a
-			* previously hot-mounted incumbent is properly disposed through its own
-			* ctx effects. The target bundle loads BEFORE the incumbent is touched, so
-			* a load failure leaves the current skin fully intact; an apply() failure
-			* restores the incumbent's visuals whenever they were captured.
-			* @param target - the skin to commit, or null for the official stock look.
-			*/
-			async commit(target) {
-				if (this.session !== null) this.exit();
-				const epoch = ++this.epoch;
-				this.requestedPackage = null;
-				const currentPackage = activeSkinEntry()?.package ?? null;
-				if (currentPackage === (target?.package ?? null)) return;
-				let apply = null;
-				if (target !== null) apply = await this.loadModuleOnce(target);
-				if (epoch !== this.epoch) throw new Error("skin-center: commit superseded by a newer request");
-				const incumbent = this.hotIncumbent;
-				let snapshot = null;
-				if (incumbent !== null) {
-					this.hotIncumbent = null;
-					incumbent.dispose();
-					this.cleanupModule(incumbent.entry);
-				} else if (currentPackage !== null) snapshot = this.captureAndRetractActive();
-				if (target !== null) try {
-					const dispose = this.applyLoaded(target, apply);
-					this.hotIncumbent = {
-						entry: target,
-						dispose
-					};
-				} catch (error) {
-					if (snapshot !== null) this.restoreActive(snapshot);
-					throw error;
-				}
-				hotOverride = { pkg: target?.package ?? null };
-			}
-			/** Exit the live session: dispose the tried-on skin, then restore the active skin. */
-			exit() {
-				this.epoch += 1;
-				this.requestedPackage = null;
-				const session = this.session;
-				if (session === null) return;
-				this.session = null;
-				session.dispose();
-				if (session.entry !== null) this.cleanupModule(session.entry);
-				this.restoreActive(session.active);
-				this.emit();
-			}
-			/** Share one materialization while repeated requests for a package overlap. */
-			loadModuleOnce(entry) {
-				const existing = this.pendingModules.get(entry.package);
-				if (existing !== void 0) return existing;
-				const pending = this.loadModule(entry);
-				this.pendingModules.set(entry.package, pending);
-				pending.then(() => {
-					if (this.pendingModules.get(entry.package) === pending) this.pendingModules.delete(entry.package);
-				}, () => {
-					if (this.pendingModules.get(entry.package) === pending) this.pendingModules.delete(entry.package);
-				});
-				return pending;
-			}
-			/** Whether this request still owns cleanup of the package module/style. */
-			shouldCleanupRequest(entry, epoch) {
-				return epoch === this.epoch || this.requestedPackage !== entry.package;
-			}
-			/** Execute + materialize the target skin through the real loader. */
-			async loadModule(entry) {
-				const modules = window.__DSH_MODULES__;
-				if (modules === void 0) throw new Error("skin-center: window.__DSH_MODULES__ missing");
-				modules.invalidate(entry.package);
-				await this.loadBundle(entry);
-				const apply = (await modules.import(entry.package)).apply;
-				if (typeof apply !== "function") throw new Error(`skin-center: "${entry.package}" client bundle exports no apply`);
-				return apply;
-			}
-			/** Apply a module that has already been loaded while the active skin was visible. */
-			applyLoaded(entry, apply) {
-				const ctx = miniCtx();
-				try {
-					apply(ctx);
-				} catch (error) {
-					this.cleanupModule(entry);
-					document.body.removeAttribute(entry.bodyAttr);
-					for (const el of [...document.body.children]) if (isSkinChrome(el, entry)) el.remove();
-					throw error;
-				}
-				return ctx.__disposeAll;
-			}
-			/** Drop the tried-on module record + its injected style tag. */
-			cleanupModule(entry) {
-				window.__DSH_MODULES__?.invalidate(entry.package);
-				for (const el of document.querySelectorAll(`style[data-plugin=${JSON.stringify(entry.package)}]`)) el.remove();
-			}
-			/**
-			* Snapshot the active skin's visual writes and retract them so the tried-on
-			* skin can take over the whole surface.
-			*/
-			captureAndRetractActive() {
-				const skin = activeSkinEntry() ?? null;
-				const body = document.body;
-				const bodyAttr = skin === null ? null : body.getAttribute(skin.bodyAttr);
-				if (skin !== null && bodyAttr !== null) body.removeAttribute(skin.bodyAttr);
-				const bodyStyle = body.getAttribute("style");
-				for (const prop of BACKDROP_PROPS) body.style.removeProperty(prop);
-				const children = [...body.children];
-				const chrome = /* @__PURE__ */ new Set();
-				for (const el of children) if (el.id !== "root" && isSkinChrome(el, skin)) chrome.add(el);
-				const detached = [];
-				for (let i = 0; i < children.length; i++) {
-					const el = children[i];
-					if (!chrome.has(el)) continue;
-					let anchor = null;
-					for (let j = i + 1; j < children.length; j++) if (!chrome.has(children[j])) {
-						anchor = children[j];
-						break;
-					}
-					detached.push({
-						el,
-						anchor
-					});
-				}
-				for (const { el } of detached) el.remove();
-				const clearObserver = new MutationObserver(() => {
-					for (const prop of BACKDROP_PROPS) body.style.removeProperty(prop);
-				});
-				clearObserver.observe(body, {
-					attributes: true,
-					attributeFilter: ["data-ds-dark-theme"]
-				});
-				const neutralizeCss = skin === null ? void 0 : NEUTRALIZE_CSS[skin.id];
-				return {
-					skin,
-					bodyAttr,
-					bodyStyle,
-					detached,
-					clearObserver,
-					neutralizeStyle: neutralizeCss === void 0 ? null : this.injectStyle(neutralizeCss)
-				};
-			}
-			/** Restore the active skin's captured visual state. */
-			restoreActive(active) {
-				const body = document.body;
-				if (active.skin !== null && active.bodyAttr !== null) body.setAttribute(active.skin.bodyAttr, active.bodyAttr);
-				if (active.bodyStyle !== null) body.setAttribute("style", active.bodyStyle);
-				else body.removeAttribute("style");
-				for (const { el, anchor } of active.detached) body.insertBefore(el, anchor !== null && anchor.parentNode === body ? anchor : null);
-				active.clearObserver?.disconnect();
-				active.neutralizeStyle?.remove();
-			}
-			injectStyle(css) {
-				const tag = document.createElement("style");
-				tag.dataset.skinCenterNeutralize = "";
-				tag.textContent = css;
-				document.head.append(tag);
-				return tag;
-			}
-		};
-		//#endregion
 		//#region \0dsh-css:packages/skins/skin-center/src/client/skin-center.module.css.mjs
 		const css = "body[data-dsh-skin-center] .eDzMgW_sectionList{margin:0;padding:0;list-style:none}body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeaderStatic{align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12.5px;line-height:1.55}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-border-l4,#94a3b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:7px;padding:6px 12px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-fill,#2b7cd9);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:focus-visible:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_buttonGhost{background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.55;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-label-tertiary,#9aa4b5);background:color-mix(in srgb, var(--dsw-alias-label-tertiary,#9aa4b5) 45%, transparent);width:100%;height:4px;box-shadow:0 0 0 1px var(--dsw-alias-border-l3,#cbd5e1);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-runnable-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}body[data-dsh-skin-center] .eDzMgW_wallpaperSection{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatus{color:var(--dsw-alias-label-secondary,#6b7280);align-items:center;gap:8px;font-size:12px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatusError{color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperControls{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_wallpaperCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:6px;padding:8px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap{aspect-ratio:16/9;background:var(--dsw-alias-bg-layer-1,#f1f5f9);border-radius:6px;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperThumb{object-fit:cover;width:100%;height:100%;display:block}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbEmpty{width:100%;height:100%}body[data-dsh-skin-center] .eDzMgW_wallpaperType{color:var(--dsw-alias-label-primary,#172a45);background:var(--dsw-alias-bg-layer-2,#ffffffd9);border-radius:4px;padding:3px 6px;font-size:10.5px;line-height:1;position:absolute;top:6px;left:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap .eDzMgW_badge{position:absolute;top:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperActions{flex-wrap:wrap;gap:6px;display:flex}";
 		const tagId = "@linxin666/dsh-client-ui-skin-center/skin-center.module.css";
@@ -1233,204 +529,95 @@ window.__ModuleLoader__.load({
 		//#region src/client/SkinCenter.tsx
 		/**
 		* The skin-center card: rendered as the content of a first-level settings
-		* section, listing every installed skin plus the official stock look. Live
-		* try-on executes the real bundle inside the GUI (light/dark preview, full
-		* restore on exit); Apply is one click — the host half runs `dsh-skin use`
-		* through /api/skin-center/apply, the config watcher hot-reloads the patch,
-		* and the new skin is hot-committed in place (issue #359 — no reload, no
-		* app restart; a page reload remains the fallback). Copy rides the standard `t` seat;
-		* the theme preview control drives the official theme service (persisted,
-		* same as the Appearance row). The "trying on" badge tracks the controller's
-		* live session (via subscribe), so closing and reopening the settings panel
-		* keeps showing the skin that is still being previewed.
+		* section, listing the official stock look plus every skin in the v2 catalog
+		* (built-in asset directories inside the skin-center package + user dirs
+		* under $DSH_HOME/skins).
+		*
+		* v2 architecture (issue #506): skins are pure asset directories loaded by
+		* the skin-center runtime. Try-on and apply both go through the same atomic
+		* switch engine (src/client/runtime/skin-controller.ts) — try-on simply
+		* skips persistence, and apply is one click with NO page reload, no
+		* cordis.patch.yml rewrite, no boot-graph regeneration. The "trying on"
+		* badge tracks the controller's live state, so closing and reopening the
+		* settings panel keeps showing the skin that is still being previewed.
+		* Copy rides the standard `t` seat; the theme preview control drives the
+		* official theme service (persisted, same as the Appearance row).
 		*/
 		/** The apply target of the official stock-look card. */
 		const OFFICIAL = "official";
-		/** Skin ids that read the background-scrim variable and paint a backdrop. */
-		const BACKDROP_SKIN_IDS = /* @__PURE__ */ new Set([
-			"blue-fantasy",
-			"whale-song",
-			"whale-mom"
-		]);
 		/**
 		* Render the skin-center card: a static header naming the plugin, with the
-		* always-visible skin list (official default + every installed skin; try-on /
+		* always-visible skin list (official default + every catalog skin; try-on /
 		* theme preview / one-click apply) rendered below it.
 		* @param props - card props.
 		* @returns the plugin card.
 		*/
-		function SkinCenter({ t, controller, theme, background, wallpaper }) {
+		function SkinCenter({ t, runtime, theme, background, wallpaper }) {
 			const snapshot = (0, react.useSyncExternalStore)(theme.subscribe, theme.getTheme);
 			const enabled = (0, react.useSyncExternalStore)(background.subscribe, background.enabled);
 			const opacity = (0, react.useSyncExternalStore)(background.subscribe, background.opacity);
 			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
 			const blurContent = (0, react.useSyncExternalStore)(background.subscribe, background.blurContent);
-			const activePackage = activeSkinEntry()?.package;
-			const activeId = activeSkinEntry()?.id;
-			const backdropActive = activeId !== void 0 && BACKDROP_SKIN_IDS.has(activeId);
-			const tryingId = (0, react.useSyncExternalStore)(controller.subscribe, () => controller.trying?.id ?? null);
-			const tryingOfficial = (0, react.useSyncExternalStore)(controller.subscribe, () => controller.tryingOfficial);
-			const [loadingId, setLoadingId] = (0, react.useState)(null);
-			const [applying, setApplying] = (0, react.useState)(null);
+			const catalog = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.catalog);
+			const state = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.controller.getState);
+			const activeId = state.active;
+			const previewing = state.previewing;
+			const tryingId = state.trying;
+			const backdropActive = (activeId === null ? null : runtime.find(activeId))?.manifest.contributes.backgroundMedia !== void 0;
+			const [busyId, setBusyId] = (0, react.useState)(null);
 			const [error, setError] = (0, react.useState)(null);
-			const [, forceRender] = (0, react.useState)(0);
 			const mounted = (0, react.useRef)(false);
-			const tryOnRequest = (0, react.useRef)(0);
+			const requestSeq = (0, react.useRef)(0);
 			(0, react.useEffect)(() => {
 				mounted.current = true;
 				return () => {
 					mounted.current = false;
 				};
 			}, []);
-			const tryOn = (entry) => {
-				if (loadingId === entry.id) return;
-				const request = ++tryOnRequest.current;
+			const run = (target, action) => {
+				const seq = ++requestSeq.current;
 				setError(null);
-				setLoadingId(entry.id);
-				controller.tryOn(entry).then((mountedTarget) => {
-					if (!mounted.current || request !== tryOnRequest.current || !mountedTarget) return;
-					setLoadingId(null);
-				}).catch(() => {
-					if (!mounted.current || request !== tryOnRequest.current) return;
-					setLoadingId(null);
-					setError(t("tryOnError"));
+				setBusyId(target);
+				action().catch(() => {
+					if (!mounted.current || seq !== requestSeq.current) return;
+					setError(t("applyFailed"));
+				}).finally(() => {
+					if (!mounted.current || seq !== requestSeq.current) return;
+					setBusyId(null);
 				});
 			};
+			const tryOn = (entry) => {
+				run(entry.manifest.id, () => runtime.controller.tryOn(entry.manifest.id, entry));
+			};
 			const tryOnOfficial = () => {
-				++tryOnRequest.current;
-				setError(null);
-				setLoadingId(null);
-				try {
-					controller.tryOnOfficial();
-				} catch {
-					setError(t("tryOnError"));
-				}
+				run(OFFICIAL, () => runtime.controller.tryOn(null, null));
 			};
 			const exitTryOn = () => {
-				++tryOnRequest.current;
-				controller.exit();
-				setLoadingId(null);
+				run(tryingId ?? OFFICIAL, () => runtime.controller.exitTryOn());
 			};
 			/**
-			* Poll the host state until the config watcher reports the target active
-			* (the patch write lands before the watcher re-applies it), or time out.
-			* @param target - skin id, or `official` for the stock look.
-			* @returns whether the target became active within the poll budget.
-			*/
-			const confirmActive = (target) => new Promise((resolve) => {
-				const expected = target === OFFICIAL ? "none" : target;
-				let tries = 0;
-				const tick = () => {
-					if (!mounted.current) {
-						resolve(false);
-						return;
-					}
-					tries += 1;
-					fetch("/api/skin-center/state").then(async (response) => {
-						const payload = await response.json().catch(() => null);
-						if (response.ok && payload?.ok === true && payload.active === expected) {
-							resolve(true);
-							return;
-						}
-						if (tries >= 20 || !mounted.current) resolve(false);
-						else window.setTimeout(tick, 250);
-					}).catch(() => {
-						if (tries >= 20 || !mounted.current) resolve(false);
-						else window.setTimeout(tick, 250);
-					});
-				};
-				tick();
-			});
-			/**
-			* Poll the served GUI document until the boot manifest actually enables
-			* the target (the config watcher regenerates it asynchronously after the
-			* patch write — reloading earlier boots the page into the previous skin),
-			* or time out.
-			* @param target - skin id, or `official` for the stock look.
-			* @returns whether the manifest caught up within the poll budget.
-			*/
-			const manifestReady = (target) => new Promise((resolve) => {
-				const expected = target === OFFICIAL ? null : target;
-				let tries = 0;
-				const tick = () => {
-					if (!mounted.current) {
-						resolve(false);
-						return;
-					}
-					tries += 1;
-					fetch(window.location.href, { cache: "no-store" }).then(async (response) => {
-						const html = await response.text().catch(() => null);
-						if (html !== null && manifestHasSkin(html, expected)) {
-							resolve(true);
-							return;
-						}
-						if (tries >= 40 || !mounted.current) resolve(false);
-						else window.setTimeout(tick, 500);
-					}).catch(() => {
-						if (tries >= 40 || !mounted.current) resolve(false);
-						else window.setTimeout(tick, 500);
-					});
-				};
-				tick();
-			});
-			/**
-			* One-click apply: the host half runs `dsh-skin use <target>` (or
-			* `use official`), the config watcher hot-reloads the patch within
-			* seconds, then this page reloads to pick up the new boot graph. The
-			* reload waits for both the patch (state poll) and the regenerated boot
-			* manifest (manifest poll) so the page never boots into the old skin.
+			* One-click apply: atomic client-side switch + persisted selection. No
+			* reload, no boot-graph wait — the tapIndex adapter makes the next page
+			* load boot straight into this skin.
 			* @param target - skin id, or `official` for the stock look.
 			*/
 			const applySkin = (target) => {
-				setError(null);
-				setApplying(target);
-				fetch("/api/skin-center/apply", {
-					method: "POST",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify(target === OFFICIAL ? { official: true } : { skin: target })
-				}).then(async (response) => {
-					const payload = await response.json().catch(() => null);
-					if (!response.ok || payload?.ok !== true) throw new Error(payload?.error ?? `HTTP ${response.status}`);
-					setApplying(null);
-					const reloadFallback = () => {
-						manifestReady(target).then((ready) => {
-							if (!mounted.current) return;
-							if (ready) window.location.reload();
-							else setError(t("appliedNeedRestart"));
-						});
-					};
-					confirmActive(target).then((confirmed) => {
-						if (!mounted.current) return;
-						if (!confirmed) {
-							const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;
-							setError(`${t("appliedUnconfirmed")} — ${command}`);
-							return;
-						}
-						const entry = target === OFFICIAL ? null : SKIN_CENTER_ENTRIES.find((candidate) => candidate.id === target) ?? null;
-						if (entry === null && target !== OFFICIAL) {
-							reloadFallback();
-							return;
-						}
-						controller.commit(entry).then(() => {
-							if (!mounted.current) return;
-							forceRender((tick) => tick + 1);
-						}).catch(() => {
-							if (!mounted.current) return;
-							reloadFallback();
-						});
-					});
-				}).catch((cause) => {
-					setApplying(null);
-					const detail = cause instanceof Error ? cause.message : String(cause);
-					const command = target === OFFICIAL ? "dsh-skin use official" : `dsh-skin use ${target}`;
-					setError(`${t("applyFailed")} (${detail}) — ${command}`);
-				});
+				if (target === OFFICIAL) {
+					run(OFFICIAL, () => runtime.controller.switchTo(null, null));
+					return;
+				}
+				const entry = runtime.find(target);
+				if (entry === null) {
+					setError(t("applyFailed"));
+					return;
+				}
+				run(target, () => runtime.controller.switchTo(target, entry));
 			};
 			const dark = snapshot.active.colorScheme === "dark";
 			/** One row: try-on control + apply button. Shared by the official card and every skin card. */
 			const actionButtons = (opts) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: skin_center_module_css_default.actions,
-				children: [opts.isActive ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+				children: [opts.isActive && !opts.isTrying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 					type: "button",
 					className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonGhost}`,
 					disabled: true,
@@ -1443,17 +630,17 @@ window.__ModuleLoader__.load({
 				}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 					type: "button",
 					className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
-					disabled: loadingId === opts.key,
+					disabled: busyId === opts.key,
 					onClick: opts.onTryOn,
-					children: loadingId === opts.key ? t("loading") : t("tryOn")
+					children: busyId === opts.key ? t("loading") : t("tryOn")
 				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 					type: "button",
 					className: skin_center_module_css_default.button,
-					disabled: applying !== null || loadingId !== null,
+					disabled: busyId !== null,
 					onClick: () => {
 						applySkin(opts.key);
 					},
-					children: applying === opts.key ? t("applying") : opts.applyLabel
+					children: busyId === opts.key ? t("applying") : opts.applyLabel
 				})]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -1466,7 +653,7 @@ window.__ModuleLoader__.load({
 							className: skin_center_module_css_default.pluginName,
 							children: [t("title"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: skin_center_module_css_default.titleBadge,
-								children: String(SKIN_CENTER_ENTRIES.length)
+								children: String(catalog?.length ?? 0)
 							})]
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: skin_center_module_css_default.cardDescription,
@@ -1637,8 +824,8 @@ window.__ModuleLoader__.load({
 						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: skin_center_module_css_default.list,
 							children: [(() => {
-								const isActive = activePackage === void 0;
-								const isTrying = tryingOfficial;
+								const isActive = activeId === null && !previewing;
+								const isTrying = previewing && tryingId === null;
 								const badge = isActive ? t("active") : isTrying ? t("tryingOn") : null;
 								return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 									className: skin_center_module_css_default.card,
@@ -1676,9 +863,10 @@ window.__ModuleLoader__.load({
 										})
 									]
 								}, OFFICIAL);
-							})(), SKIN_CENTER_ENTRIES.map((entry) => {
-								const isActive = entry.package === activePackage;
-								const isTrying = entry.id === tryingId;
+							})(), (catalog ?? []).map((entry) => {
+								const id = entry.manifest.id;
+								const isActive = id === activeId && !previewing;
+								const isTrying = previewing && id === tryingId;
 								const badge = isActive ? t("active") : isTrying ? t("tryingOn") : null;
 								return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 									className: skin_center_module_css_default.card,
@@ -1688,13 +876,13 @@ window.__ModuleLoader__.load({
 											children: [
 												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 													className: skin_center_module_css_default.swatch,
-													style: { background: entry.accent },
+													style: { background: entry.manifest.accent ?? "#98a1ab" },
 													"aria-hidden": "true"
 												}),
 												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 													className: skin_center_module_css_default.cardName,
-													title: entry.nameEn,
-													children: entry.nameEn
+													title: entry.manifest.nameEn,
+													children: entry.manifest.nameEn
 												}),
 												badge !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 													className: `${skin_center_module_css_default.badge} ${isActive ? skin_center_module_css_default.badgeActive : skin_center_module_css_default.badgeTrying}`,
@@ -1704,11 +892,11 @@ window.__ModuleLoader__.load({
 										}),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 											className: skin_center_module_css_default.cardTagline,
-											title: entry.tagline,
-											children: entry.tagline
+											title: entry.manifest.tagline ?? "",
+											children: entry.manifest.tagline ?? ""
 										}),
 										actionButtons({
-											key: entry.id,
+											key: id,
 											isActive,
 											isTrying,
 											onTryOn: () => {
@@ -1717,7 +905,7 @@ window.__ModuleLoader__.load({
 											applyLabel: t("apply")
 										})
 									]
-								}, entry.id);
+								}, id);
 							})]
 						})
 					] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
@@ -1730,12 +918,12 @@ window.__ModuleLoader__.load({
 		}
 		/** Render the skin-center card as a first-level settings page. */
 		function SkinCenterSection(props) {
-			const { t, controller, theme, background, wallpaper } = props;
+			const { t, runtime, theme, background, wallpaper } = props;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
 				className: skin_center_module_css_default.sectionList,
 				children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SkinCenter, {
 					t,
-					controller,
+					runtime,
 					theme,
 					background,
 					wallpaper
@@ -2399,6 +1587,694 @@ window.__ModuleLoader__.load({
 			wallpaperDirAdd: "添加"
 		};
 		//#endregion
+		//#region src/client/runtime/effect-ledger.ts
+		function createEffectLedger(now = () => Date.now()) {
+			let seq = 0;
+			let nextActivation = 1;
+			const log = [];
+			const live = /* @__PURE__ */ new Map();
+			const disposed = /* @__PURE__ */ new Set();
+			function push(activationId, kind, label, replacesSeq) {
+				seq += 1;
+				log.push({
+					seq,
+					activationId,
+					kind,
+					label,
+					replacesSeq,
+					at: now()
+				});
+				return seq;
+			}
+			function release(effect, activationId) {
+				if (effect.released) return;
+				effect.released = true;
+				push(activationId, "release", effect.label);
+				try {
+					effect.teardown();
+				} catch {
+					push(activationId, "cleanup-failed", effect.label);
+				}
+			}
+			return {
+				beginActivation() {
+					const id = nextActivation++;
+					live.set(id, []);
+					push(id, "create", "activation");
+					return id;
+				},
+				record(activationId, label, teardown) {
+					const bucket = live.get(activationId);
+					if (!bucket || disposed.has(activationId)) throw new Error(`effect "${label}" recorded on disposed/unknown activation ${activationId}`);
+					const entrySeq = push(activationId, "create", label);
+					bucket.push({
+						seq: entrySeq,
+						label,
+						teardown,
+						released: false
+					});
+					return entrySeq;
+				},
+				replace(activationId, label, previousSeq, teardown) {
+					const bucket = live.get(activationId);
+					if (!bucket || disposed.has(activationId)) throw new Error(`effect "${label}" replaced on disposed/unknown activation ${activationId}`);
+					if (previousSeq !== void 0) {
+						const previous = bucket.find((e) => e.seq === previousSeq);
+						if (previous) release(previous, activationId);
+					}
+					const entrySeq = push(activationId, "replace", label, previousSeq);
+					bucket.push({
+						seq: entrySeq,
+						label,
+						teardown,
+						released: false
+					});
+					return entrySeq;
+				},
+				disposeActivation(activationId) {
+					if (disposed.has(activationId)) return;
+					disposed.add(activationId);
+					const bucket = live.get(activationId) ?? [];
+					for (const effect of [...bucket].reverse()) release(effect, activationId);
+				},
+				isDisposed(activationId) {
+					return disposed.has(activationId);
+				},
+				entries() {
+					return log;
+				}
+			};
+		}
+		//#endregion
+		//#region src/client/runtime/semantic-adapter.ts
+		/**
+		* The v1 rule table. Single ownership: only the skin-center edits this.
+		* Anchors verified against @deepseek-ai rc.7 (see docs/archive survey).
+		*/
+		const SEMANTIC_RULES_V1 = [
+			{
+				selector: "[data-slot=\"root\"]",
+				attrs: [["data-dsh-surface", "root"]],
+				note: "web-react root outlet"
+			},
+			{
+				selector: "[data-slot=\"sidebar\"]",
+				attrs: [["data-dsh-surface", "sidebar"]],
+				note: "layout sidebar outlet"
+			},
+			{
+				selector: "[data-slot=\"conversation\"]",
+				attrs: [["data-dsh-surface", "conversation"]],
+				note: "layout conversation outlet"
+			},
+			{
+				selector: "[data-slot=\"conversation.session.header\"]",
+				attrs: [["data-dsh-surface", "session-header"]],
+				note: "conversation header outlet"
+			},
+			{
+				selector: "[data-slot=\"conversation.composer\"]",
+				attrs: [["data-dsh-surface", "composer"]],
+				note: "composer chain outlet"
+			},
+			{
+				selector: "[data-slot=\"details\"]",
+				attrs: [["data-dsh-surface", "details"]],
+				note: "layout details outlet"
+			},
+			{
+				selector: "[data-shell-overlay]",
+				attrs: [["data-dsh-surface", "overlay"]],
+				note: "frame overlay attribute"
+			},
+			{
+				selector: "[data-slot=\"shell.overlay\"]",
+				attrs: [["data-dsh-surface", "overlay"]],
+				note: "shell overlay outlet"
+			},
+			{
+				selector: "[role=\"dialog\"]:has([data-slot=\"settings.section\"])",
+				attrs: [["data-dsh-surface", "settings"]],
+				note: "settings dialog (composite: dialog containing the section outlet)"
+			},
+			{
+				selector: "[data-chat-flow-kind]",
+				attrs: [["data-dsh-part", "message-row"]],
+				note: "chat flow item"
+			},
+			{
+				selector: "[data-streaming]",
+				attrs: [["data-dsh-part", "message-body"]],
+				note: "assistant markdown root"
+			},
+			{
+				selector: "[data-conversation-scroll]",
+				attrs: [["data-dsh-part", "scrollport"]],
+				note: "conversation scrollport"
+			},
+			{
+				selector: "textarea[data-phase]",
+				attrs: [["data-dsh-part", "composer-input"]],
+				note: "composer textarea"
+			},
+			{
+				selector: "[data-decoration=\"chip\"]",
+				attrs: [["data-dsh-part", "composer-chip"]],
+				note: "composer reference chip"
+			},
+			{
+				selector: "[data-queue-dock]",
+				attrs: [["data-dsh-part", "queue-dock"]],
+				note: "queued turns dock"
+			},
+			{
+				selector: "[data-turn-tail]",
+				attrs: [["data-dsh-part", "turn-tail"]],
+				note: "turn tail row"
+			},
+			{
+				selector: "[data-side]",
+				attrs: [["data-dsh-part", "resize-handle"]],
+				note: "column resize handle"
+			},
+			{
+				selector: "[data-dsh-taskboard-view], [data-dsh-taskboard-board], [data-dsh-taskboard-entry]",
+				attrs: [["data-dsh-plugin", "task-board"]],
+				note: "task-board panel/board/sidebar entry"
+			},
+			{
+				selector: "[data-dsh-ssh-view], [data-dsh-ssh-entry]",
+				attrs: [["data-dsh-plugin", "ssh"]],
+				note: "ssh panel/sidebar entry"
+			},
+			{
+				selector: "[data-gitgraph-chip-anchor], [data-gitgraph-dialog]",
+				attrs: [["data-dsh-plugin", "git-graph"]],
+				note: "git-graph chip/dialog"
+			},
+			{
+				selector: "[data-dsh-pet-root]",
+				attrs: [["data-dsh-plugin", "pet"]],
+				note: "pet global root"
+			},
+			{
+				selector: "[data-dsh-taskboard-entry], [data-dsh-ssh-entry]",
+				attrs: [["data-dsh-part", "sidebar-entry"]],
+				note: "shared injected sidebar entry rows"
+			}
+		];
+		function createSemanticAdapter(doc) {
+			const rules = SEMANTIC_RULES_V1.map((rule) => ({
+				rule,
+				usable: true,
+				matchedInPass: 0
+			}));
+			let observer = null;
+			let stamped = 0;
+			let running = false;
+			const applyRule = (live, el) => {
+				if (!live.usable) return;
+				let hit = false;
+				try {
+					hit = el.matches(live.rule.selector);
+				} catch {
+					live.usable = false;
+					return;
+				}
+				if (!hit) return;
+				live.matchedInPass += 1;
+				for (const [name, value] of live.rule.attrs) if (el.getAttribute(name) !== value) {
+					el.setAttribute(name, value);
+					stamped += 1;
+				}
+			};
+			const applyToTree = (rootEl) => {
+				for (const live of rules) {
+					if (!live.usable) continue;
+					applyRule(live, rootEl);
+					let matches = [];
+					try {
+						matches = Array.from(rootEl.querySelectorAll(live.rule.selector));
+					} catch {
+						live.usable = false;
+						continue;
+					}
+					for (const el of matches) applyRule(live, el);
+				}
+			};
+			const fullPass = () => {
+				for (const live of rules) live.matchedInPass = 0;
+				if (doc.documentElement) applyToTree(doc.documentElement);
+			};
+			return {
+				get running() {
+					return running;
+				},
+				start() {
+					if (running) return;
+					running = true;
+					fullPass();
+					observer = new doc.defaultView.MutationObserver((records) => {
+						try {
+							for (const record of records) for (const node of Array.from(record.addedNodes)) if (node.nodeType === 1) applyToTree(node);
+						} catch {}
+					});
+					observer.observe(doc.body ?? doc.documentElement, {
+						childList: true,
+						subtree: true
+					});
+				},
+				stop() {
+					running = false;
+					observer?.disconnect();
+					observer = null;
+				},
+				diagnostics() {
+					return {
+						invalidRules: rules.filter((r) => !r.usable).map((r) => r.rule.selector),
+						unmatchedRules: rules.filter((r) => r.usable && r.matchedInPass === 0).map((r) => r.rule.selector),
+						stamped
+					};
+				}
+			};
+		}
+		//#endregion
+		//#region src/client/runtime/decoration-layers.ts
+		const LAYER_ATTR = "data-dsh-skin-layer";
+		/**
+		* Per-layer paint order. The background sits at -2: negative z-index
+		* elements paint ABOVE the html/body backgrounds (so a skin's own opaque
+		* root background-color renders BEHIND its art — the v1 layering) yet below
+		* every panel surface. It shares -2 with the WE scrim, which never paints
+		* at the same time (an active WE wallpaper suppresses skin media, enforced
+		* by the controller). The skin-background blur veil (-1) still samples the
+		* art above it. Ambient effects paint above the veils; the strip/foreground
+		* layers stay below the official overlay band (>=1000).
+		*/
+		const LAYER_STYLE = {
+			background: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:-2;pointer-events:none;",
+			ambient: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;pointer-events:none;",
+			top: "position:fixed;top:0;left:0;right:0;z-index:40;pointer-events:none;",
+			bottom: "position:fixed;bottom:0;left:0;right:0;z-index:40;pointer-events:none;",
+			sidebar: "position:fixed;top:0;bottom:0;left:0;z-index:40;pointer-events:none;",
+			foreground: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:41;pointer-events:none;"
+		};
+		function ensureOne(doc, name) {
+			const existing = doc.querySelector(`[${LAYER_ATTR}="${name}"]`);
+			if (existing) {
+				existing.style.cssText = LAYER_STYLE[name];
+				return existing;
+			}
+			const el = doc.createElement("div");
+			el.setAttribute(LAYER_ATTR, name);
+			el.setAttribute("aria-hidden", "true");
+			el.style.cssText = LAYER_STYLE[name];
+			doc.body.appendChild(el);
+			return el;
+		}
+		/**
+		* Ensure all six layers exist and return their handles. Idempotent; safe to
+		* call on every activation.
+		*/
+		function ensureDecorationLayers(doc) {
+			return {
+				background: ensureOne(doc, "background"),
+				ambient: ensureOne(doc, "ambient"),
+				top: ensureOne(doc, "top"),
+				bottom: ensureOne(doc, "bottom"),
+				sidebar: ensureOne(doc, "sidebar"),
+				foreground: ensureOne(doc, "foreground")
+			};
+		}
+		//#endregion
+		//#region src/client/runtime/skin-controller.ts
+		function createSkinController(deps) {
+			const doc = deps.doc;
+			const ledger = deps.ledger;
+			const apiBase = deps.apiBase ?? "/api/skin-center/v2";
+			const fetchImpl = deps.fetchImpl ?? fetch.bind(doc.defaultView);
+			const layers = ensureDecorationLayers(doc);
+			const onError = deps.onError ?? (() => {});
+			const themeGet = deps.themeGet ?? (() => doc.body?.hasAttribute("data-ds-dark-theme") ? "dark" : "light");
+			const themeSubscribe = deps.themeSubscribe ?? ((listener) => {
+				let last = themeGet();
+				const observer = new doc.defaultView.MutationObserver(() => {
+					const next = themeGet();
+					if (next !== last) {
+						last = next;
+						listener(next);
+					}
+				});
+				if (doc.body) observer.observe(doc.body, {
+					attributes: true,
+					attributeFilter: ["data-ds-dark-theme"]
+				});
+				return () => observer.disconnect();
+			});
+			const loadStylesheet = deps.loadStylesheet ?? ((href) => new Promise((resolveLink, rejectLink) => {
+				const link = doc.createElement("link");
+				link.rel = "stylesheet";
+				link.href = href;
+				const timer = setTimeout(() => rejectLink(/* @__PURE__ */ new Error(`stylesheet load timeout: ${href}`)), 15e3);
+				link.onload = () => {
+					clearTimeout(timer);
+					resolveLink();
+				};
+				link.onerror = () => {
+					clearTimeout(timer);
+					rejectLink(/* @__PURE__ */ new Error(`stylesheet load failed: ${href}`));
+				};
+				doc.head.appendChild(link);
+			}));
+			let latestRequest = 0;
+			let currentActivation = null;
+			let active = null;
+			/** The committed selection try-on restores (component scope). */
+			let committed = {
+				id: null,
+				entry: null
+			};
+			/** Last non-null applied entry, so refresh() can re-activate it. */
+			let lastEntry = null;
+			/** Last evaluated background-suppression verdict (refresh() skips no-ops). */
+			let lastSuppressed = deps.suppressBackgroundMedia?.() === true;
+			let trying = null;
+			let previewing = false;
+			const listeners = /* @__PURE__ */ new Set();
+			let stateSnapshot = {
+				active: null,
+				trying: null,
+				previewing: false
+			};
+			const emit = () => {
+				stateSnapshot = {
+					active,
+					trying,
+					previewing
+				};
+				for (const listener of listeners) listener();
+			};
+			/**
+			* Install one stylesheet as a tracked <link> (the load itself happened in
+			* loadStylesheet; here we only register the teardown). Links keep relative
+			* url() resolution intact — a <style> tag would resolve them against the
+			* document and 404 every skin asset.
+			*/
+			function trackStylesheet(activation, label, href) {
+				const link = doc.head.querySelector(`link[href="${href}"]`);
+				ledger.record(activation, `style:${label}`, () => link?.remove());
+			}
+			const BODY_BG_PROPS = [
+				"background-image",
+				"background-position",
+				"background-size",
+				"background-attachment",
+				"background-repeat"
+			];
+			/**
+			* Write the skin background onto document.body with a snapshot for the
+			* activation ledger. Only the CURRENT activation may restore: when an
+			* older activation is disposed after a newer one already re-painted the
+			* body, restoring its snapshot would clobber the newer paint (the same
+			* value is written by both, so value comparison cannot arbitrate).
+			*/
+			function setBodyBackground(activation, values) {
+				const style = doc.body.style;
+				const previous = /* @__PURE__ */ new Map();
+				const restore = () => {
+					if (currentActivation !== activation) return;
+					for (const [prop, value] of previous) if (value === "") style.removeProperty(prop);
+					else style.setProperty(prop, value);
+				};
+				for (const prop of BODY_BG_PROPS) {
+					previous.set(prop, style.getPropertyValue(prop));
+					const value = values?.[prop] ?? "";
+					if (value === "") style.removeProperty(prop);
+					else style.setProperty(prop, value);
+				}
+				ledger.record(activation, "background:body", restore);
+			}
+			function installBackground(activation, entry) {
+				const media = entry.manifest.contributes.backgroundMedia;
+				if (!media) {
+					setBodyBackground(activation, null);
+					return;
+				}
+				if (deps.suppressBackgroundMedia?.() === true) {
+					setBodyBackground(activation, null);
+					return;
+				}
+				const variant = themeGet() === "dark" ? media.dark ?? media.light : media.light ?? media.dark;
+				if (!variant) {
+					setBodyBackground(activation, null);
+					return;
+				}
+				const image = `url(${`${apiBase}/skins/${entry.manifest.id}`}/${variant.src})`;
+				setBodyBackground(activation, {
+					"background-image": variant.scrim ? `${variant.scrim}, ${image}` : image,
+					"background-position": "center",
+					"background-size": "cover",
+					"background-attachment": "fixed",
+					"background-repeat": "no-repeat"
+				});
+			}
+			async function installHooks(activation, entry) {
+				if (!entry.manifest.facets?.client) return;
+				const importHooks = deps.importHooks ?? ((url) => import(
+					/* @vite-ignore */
+					url
+));
+				try {
+					const factory = (await importHooks(`${apiBase}/skins/${entry.manifest.id}/hooks.mjs`))?.default;
+					if (typeof factory !== "function") throw new Error("hooks.mjs must default-export defineSkinHooks()");
+					const hooks = factory();
+					if (typeof hooks?.apply !== "function") throw new Error("defineSkinHooks() must return { apply }");
+					const cleanups = [];
+					const ctx = {
+						skinId: entry.manifest.id,
+						scopeAttr: entry.manifest.id,
+						assetBase: `${apiBase}/skins/${entry.manifest.id}`,
+						layers,
+						theme: {
+							get: themeGet,
+							subscribe: themeSubscribe
+						},
+						onCleanup: (fn) => {
+							cleanups.push(fn);
+						}
+					};
+					hooks.apply(ctx);
+					ledger.record(activation, "hooks", () => {
+						try {
+							hooks.dispose?.();
+						} catch (error) {
+							onError(`hooks dispose failed for ${entry.manifest.id}`, error);
+						}
+						for (const cleanup of cleanups.reverse()) try {
+							cleanup();
+						} catch (error) {
+							onError(`hooks cleanup failed for ${entry.manifest.id}`, error);
+						}
+					});
+				} catch (error) {
+					onError(`hooks failed for ${entry.manifest.id}; static skin stays active`, error);
+				}
+			}
+			async function persist(id) {
+				if (deps.persist) {
+					await deps.persist(id);
+					return;
+				}
+				await fetchImpl(`${apiBase}/active`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ active: id })
+				});
+			}
+			async function switchInternal(id, entry, shouldPersist) {
+				const seq = ++latestRequest;
+				const activation = ledger.beginActivation();
+				try {
+					if (id !== null && entry !== null) {
+						const stylesheetHref = `${apiBase}/skins/${id}/stylesheet`;
+						const patchesHref = entry.manifest.contributes.patches !== void 0 ? `${apiBase}/skins/${id}/patches` : null;
+						await loadStylesheet(stylesheetHref);
+						trackStylesheet(activation, "stylesheet", stylesheetHref);
+						if (patchesHref !== null) {
+							await loadStylesheet(patchesHref).catch(() => {});
+							trackStylesheet(activation, "patches", patchesHref);
+						}
+						if (seq !== latestRequest) throw new StaleSwitch();
+						installBackground(activation, entry);
+						await installHooks(activation, entry);
+					} else setBodyBackground(activation, null);
+					if (seq !== latestRequest) throw new StaleSwitch();
+					if (id === null) doc.documentElement.removeAttribute("data-dsh-skin");
+					else doc.documentElement.setAttribute("data-dsh-skin", id);
+					const previous = currentActivation;
+					currentActivation = activation;
+					active = id;
+					if (entry !== null) lastEntry = entry;
+					if (shouldPersist) {
+						committed = {
+							id,
+							entry
+						};
+						trying = null;
+						previewing = false;
+					} else {
+						previewing = id !== committed.id;
+						trying = previewing ? id : null;
+					}
+					emit();
+					if (previous !== null) ledger.disposeActivation(previous);
+					if (shouldPersist) await persist(id).catch((error) => onError("failed to persist the skin selection", error));
+					return active;
+				} catch (error) {
+					ledger.disposeActivation(activation);
+					if (error instanceof StaleSwitch) return active;
+					onError(`switch to ${id ?? "stock"} failed; previous skin intact`, error);
+					return active;
+				}
+			}
+			return {
+				get active() {
+					return active;
+				},
+				get layers() {
+					return layers;
+				},
+				async switchTo(id, entry) {
+					return await switchInternal(id, entry, true);
+				},
+				async tryOn(id, entry) {
+					return await switchInternal(id, entry, false);
+				},
+				async exitTryOn() {
+					return await switchInternal(committed.id, committed.entry, false);
+				},
+				subscribe(listener) {
+					listeners.add(listener);
+					return () => listeners.delete(listener);
+				},
+				getState() {
+					return stateSnapshot;
+				},
+				async refresh() {
+					const suppressed = deps.suppressBackgroundMedia?.() === true;
+					if (suppressed === lastSuppressed) return active;
+					lastSuppressed = suppressed;
+					const id = active;
+					return await switchInternal(id, id === null ? null : lastEntry, false);
+				},
+				shutdown() {
+					latestRequest += 1;
+					if (currentActivation !== null) {
+						ledger.disposeActivation(currentActivation);
+						currentActivation = null;
+					}
+					active = null;
+					trying = null;
+					previewing = false;
+					committed = {
+						id: null,
+						entry: null
+					};
+					emit();
+					doc.documentElement.removeAttribute("data-dsh-skin");
+				}
+			};
+		}
+		var StaleSwitch = class extends Error {
+			constructor() {
+				super("superseded by a newer switch");
+			}
+		};
+		//#endregion
+		//#region src/client/runtime/boot.ts
+		/**
+		* Browser boot wiring for the v2 skin runtime (issue #506): one store per
+		* document that owns the effect ledger, the skin controller, the semantic
+		* adapter and the catalog snapshot. The settings card consumes the store;
+		* the store outlives the card (settings panels unmount on close), so a
+		* try-on preview survives closing and reopening the panel.
+		*
+		* Boot sequence: fetch the catalog snapshot once, read the persisted active
+		* selection, and activate it (the tapIndex adapter already stamped the
+		* attribute and preloaded the stylesheet for first paint; the controller
+		* re-installs under ledger ownership so later switches stay atomic).
+		* @module @linxin666/dsh-client-ui-skin-center/runtime/boot
+		*/
+		function bootSkinRuntime(options = {}) {
+			const doc = options.doc ?? document;
+			const apiBase = options.apiBase ?? "/api/skin-center/v2";
+			const fetchImpl = options.fetchImpl ?? fetch.bind(doc.defaultView);
+			const controller = createSkinController({
+				doc,
+				ledger: createEffectLedger(),
+				apiBase,
+				fetchImpl,
+				suppressBackgroundMedia: options.suppressBackgroundMedia,
+				onError: (message, error) => {
+					console.error(`[skin-center] ${message}`, error);
+				}
+			});
+			const adapter = createSemanticAdapter(doc);
+			adapter.start();
+			let catalog = null;
+			let diagnostics = [];
+			const listeners = /* @__PURE__ */ new Set();
+			const emit = () => {
+				for (const listener of listeners) listener();
+			};
+			async function refreshCatalog() {
+				const res = await fetchImpl(`${apiBase}/catalog`);
+				if (!res.ok) throw new Error(`catalog fetch -> ${res.status}`);
+				const payload = await res.json();
+				catalog = payload.skins ?? [];
+				diagnostics = payload.diagnostics ?? [];
+				emit();
+			}
+			const store = {
+				controller,
+				adapter,
+				catalog: () => catalog,
+				diagnostics: () => diagnostics,
+				refreshCatalog,
+				find(id) {
+					return catalog?.find((s) => s.manifest.id === id) ?? null;
+				},
+				subscribe(listener) {
+					const off = controller.subscribe(listener);
+					listeners.add(listener);
+					return () => {
+						off();
+						listeners.delete(listener);
+					};
+				},
+				shutdown() {
+					adapter.stop();
+					controller.shutdown();
+				}
+			};
+			{
+				const root = doc.defaultView;
+				root.__skinRuntime = store;
+			}
+			(async () => {
+				try {
+					await refreshCatalog();
+					const payload = await (await fetchImpl(`${apiBase}/active`)).json();
+					const active = payload.ok && typeof payload.active === "string" ? payload.active : null;
+					if (active === null) return;
+					const entry = store.find(active);
+					if (entry === null) return;
+					await controller.switchTo(active, entry);
+				} catch {}
+			})();
+			return store;
+		}
+		//#endregion
 		//#region src/client/index.ts
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
@@ -2428,14 +2304,18 @@ window.__ModuleLoader__.load({
 				};
 			}, "ui-skin-center: body scope");
 			const theme = ctx.get("theme");
-			const controller = new TryOnController();
 			const binder = ctx.get("webUiSettings") ?? ctx.settingsScope;
 			const background = new BackgroundController(binder.bind({ namespace: SKIN_BACKGROUND_NS }));
 			ctx.effect(() => () => background.dispose(), "ui-skin-center: background dispose");
 			const wallpaper = new WallpaperController(binder.bind({ namespace: SKIN_WALLPAPER_NS }));
 			ctx.effect(() => () => wallpaper.dispose(), "ui-skin-center: wallpaper dispose");
+			const runtime = bootSkinRuntime({ suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.activeId() !== null && wallpaper.activeId() !== "" });
+			ctx.effect(() => () => runtime.shutdown(), "ui-skin-center: runtime shutdown");
+			ctx.effect(() => wallpaper.subscribe(() => {
+				runtime.controller.refresh();
+			}), "ui-skin-center: wallpaper priority refresh");
 			const injected = () => ({
-				controller,
+				runtime,
 				theme: {
 					getTheme: () => theme.getTheme(),
 					subscribe: (listener) => ctx.on("theme/change", listener),
@@ -2490,8 +2370,8 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		exports.NS = NS;
-		exports.TryOnController = TryOnController;
 		exports.apply = apply;
+		exports.bootSkinRuntime = bootSkinRuntime;
 		exports.inject = inject;
 		return module.exports;
 	}

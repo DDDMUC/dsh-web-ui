@@ -66,7 +66,7 @@ export function SshPanel({ controller, api }: SshPanelProps) {
         </button>
         <h2 className={css.panelTitle}>{tt('panel.title')}</h2>
       </div>
-      <div className={css.tabBar} role="tablist">
+      <div className={css.tabBar} role="tablist" data-dsh-part="tab-bar">
         {TABS.map(tab => (
           <button key={tab.id} type="button" role="tab" aria-selected={activeTab === tab.id} data-active={activeTab === tab.id ? '' : undefined} className={css.tab} onClick={() => { setActiveTab(tab.id) }}>
             {tab.label()}

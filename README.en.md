@@ -126,9 +126,9 @@ The skin center has eleven skins, each with try-on before apply: the preview app
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-Ten existing skins at a glance (screenshots for Dragon Heir / Miku are pending); Maid Atelier has its own preview below:
+All 12 skins at a glance; Maid Atelier has its own preview below:
 
-![All 10 skins](docs/images/skins-montage.png)
+![All 12 skins](docs/images/skins-montage.png)
 
 ### Windows XP (Luna)
 
@@ -158,7 +158,7 @@ A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting
 
 An ornate navy workshop skin with two character layers and responsive sidebar decoration. This skin is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use.
 
-![Maid Atelier light](packages/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/maid-atelier/preview/dark.png)
+![Maid Atelier light](packages/skins/skin-center/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/skin-center/skins/maid-atelier/preview/dark.png)
 
 ## Quick Start
 
@@ -181,7 +181,7 @@ The plugins are on npm (the `@linxin666` scope). One command installs everything
 dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
-Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins@latest`.
+Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-client-ui-skin-center`.
 
 > **Ended up with an old version?** pnpm 11+ gates brand-new releases via the built-in `minimumReleaseAge` (24 hours by default) and silently installs the previous version instead of the latest (e.g. `0.1.20` instead of `0.2.0`); an explicit `@latest` is gated the same way. Old skin-center versions lack the "bundled-carrier skin entry" fix, so applying a skin then restarting dies with `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js`. Fix: set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (or add `@linxin666/*` to `minimumReleaseAgeExclude`), then run `dsh plugin --profile web update @linxin666/dsh-web-ui-all@latest` to reach the latest. See [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71).
 
@@ -206,7 +206,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
 dsh web
 ```
 
-> Skins only? Run only link-profile in step 3, then install `packages/dsh-skins`.
+> Skins only? Run only link-profile in step 3, then install `packages/skins/skin-center`.
 >
 > Note: the profile directory is not a pnpm workspace, so `workspace:*` dependencies in the aggregate package
 > fall back to the published npm versions; if the npm versions lag or break you may see "host mounted but UI
@@ -288,7 +288,7 @@ A: Skins support try-on before apply: the preview applies instantly and reverts 
 <details>
 <summary><strong>I only want the skins, or just one plugin?</strong></summary>
 
-A: Install `@linxin666/dsh-skins` for skins only, or use the package names under "Install a Single Plugin". Both work with the npm install flow.
+A: Install `@linxin666/dsh-client-ui-skin-center` for skins only, or use the package names under "Install a Single Plugin". Both work with the npm install flow.
 
 </details>
 

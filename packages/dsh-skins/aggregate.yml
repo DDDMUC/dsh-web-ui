@@ -2,9 +2,8 @@
 # deps 的包进 package.json dependencies（workspace:*）：children 作为 dependencies
 # 安装，DSH loader 从 profile 顶层解析 patch 行；严格（isolated）布局需在
 # profile 配 hoist（nodeLinker: hoisted 或 public-hoist-pattern，见根 README）
-# 皮肤不再独立成包：资产内置在 dsh-skins/skins/<id>（build.mjs 从 packages/skins/<id>
-# 复制 skin.json + lib/client.js），皮肤中心 npm 布局直接扫描该目录；
-# 因此这里只保留 skin-center（patch 行 web-ui-skin-center 的宿主）。
+# 皮肤不再独立成包：纯资产目录内置在 skin-center 包的 skins/<id>/，由皮肤中心
+# 统一加载；因此这里只保留 skin-center（patch 行 web-ui-skin-center 的宿主）。
 # 聚合行 id 统一加 web-ui- 命名空间：与独立包安装共存，避免 loader duplicate entry id。
 patchFrom:
   - ../skins/skin-center

@@ -48,7 +48,7 @@ dsh-web-ui 继承 DeepSeek Harness（DSH）「一切皆开发、一切皆插件�
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
-| 主题皮肤 | 默认主题 | 皮肤中心 11 款，先试穿再应用 |
+| 主题皮肤 | 默认主题 | 皮肤中心 12 款，先试穿再应用 |
 
 ## 功能插件
 
@@ -120,13 +120,13 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ## 皮肤
 
-皮肤中心有 11 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
+皮肤中心有 12 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
-现有 10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬两款截图待补充）；Maid Atelier 预览见下方：
+12 款皮肤一览；Maid Atelier 预览见下方：
 
-![10 款皮肤一览](docs/images/skins-montage.png)
+![12 款皮肤一览](docs/images/skins-montage.png)
 
 ### Windows XP（Luna）
 
@@ -156,7 +156,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 深海蓝工坊主题，包含双角色图层与响应式侧边栏装饰。本皮肤单独采用 CC BY-NC-SA 4.0，仅限非商业使用。
 
-![深海女仆工坊 亮色](packages/skins/maid-atelier/preview/light.png) · ![深海女仆工坊 暗色](packages/skins/maid-atelier/preview/dark.png)
+![深海女仆工坊 亮色](packages/skins/skin-center/skins/maid-atelier/preview/light.png) · ![深海女仆工坊 暗色](packages/skins/skin-center/skins/maid-atelier/preview/dark.png)
 
 ## 快速开始
 
@@ -179,7 +179,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
-装完重启 `dsh web`，侧边栏就有全部插件入口。只要皮肤就装 `@linxin666/dsh-skins@latest`。
+装完重启 `dsh web`，侧边栏就有全部插件入口。只要皮肤就装 `@linxin666/dsh-client-ui-skin-center`。
 
 > **装到了旧版本？** pnpm 11+ 默认的发布年龄门禁（`minimumReleaseAge`，内置 24 小时）会把新发布的版本静默隔离，导致按上面命令实际装到上一个版本（如 `0.1.20` 而非 `0.2.0`）；显式写 `@latest` 也一样会被隔离。旧版皮肤中心缺少 "carrier 内建皮肤可解析入口" 的修复，应用皮肤后重启会以 `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js` 崩溃。解决办法：在 profile 的 `pnpm-workspace.yaml` 设置 `minimumReleaseAge: 0`（或把 `@linxin666/*` 加进 `minimumReleaseAgeExclude`），再执行 `dsh plugin --profile web update @linxin666/dsh-web-ui-all@latest` 升级到最新版。详见 [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71)。
 
@@ -204,7 +204,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
 dsh web
 ```
 
-> 只想用皮肤：第 3 步只执行 link-profile 后安装 `packages/dsh-skins` 即可。
+> 只想用皮肤：第 3 步只执行 link-profile 后安装 `packages/skins/skin-center` 即可。
 >
 > 注意：profile 目录不是 pnpm workspace，聚合包里的 `workspace:*` 依赖会回退拉取 npm 已发布版本；
 > 若 npm 版本滞后或损坏会出现「宿主已挂载但 UI 不显示」，此时先用 `node scripts/link-profile.mjs`
@@ -285,7 +285,7 @@ A: 皮肤支持先试穿再应用：试穿即时生效、退出完全还原，�
 <details>
 <summary><strong>只想用皮肤，或者只装某一个插件？</strong></summary>
 
-A: 只要皮肤就装 `@linxin666/dsh-skins`；只装某一个插件就用「单独安装某个插件」里的包名，两者都走 npm 安装。
+A: 只要皮肤就装 `@linxin666/dsh-client-ui-skin-center`；只装某一个插件就用「单独安装某个插件」里的包名，两者都走 npm 安装。
 
 </details>
 

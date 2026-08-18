@@ -74,11 +74,11 @@
 
 <!-- 仅当本 PR 新增皮肤时必填；其余改动可跳过本节。新皮肤属于内容贡献，欢迎直接提交（无需先提 issue）。 -->
 
-- [ ] 遵循官方独立 bundle 标准四件套（`dsh.bundle.patch` → `cordis.patch.yml`、`dsh.client` 浏览器半区、`prepare` = tsdown、devDependencies 仅真实发布版本），并满足纯呈现层约束（样式只挂 `body[data-dsh-<name>]`，apply disposer 全部收回）。
-- [ ] `skin.json` 契约完整（id / name / nameEn / author / tagline / description / tags / accent / bodyAttr / package / wiring / preview / order）。
-- [ ] 已重跑 `node scripts/skin-center-bundles` 并重建 skin-center（新皮肤出现在设置 → 皮肤中心）；已重跑 `node scripts/gallery-build` 并提交 gallery 产物（`gallery/bundles.js` / `gallery/manifest.js`）。
+- [ ] 纯资产目录契约：`packages/skins/skin-center/skins/<name>/` 只含 skin.json + skin.css（+ 可选 patches.css / hooks.mjs / assets/），无 package.json 与构建文件；`node scripts/dsh-skin validate` 通过；纯呈现层约束满足（不注入服务、不发事件、不触及模型请求）。
+- [ ] `skin.json` 符合 v2 清单（contracts/skin-manifest-v2.schema.json：skinManifestVersion / id / name / nameEn / version / author / contributes，另含 tagline / description / tags / accent / preview / order）。
+- [ ] `pnpm skin-center:check` 通过（新皮肤出现在设置 → 皮肤中心）；已重跑 `node scripts/gallery-build` 并提交 gallery 产物（`gallery/manifest.js` / `gallery/styles.js`）。
 - [ ] 已用 `node scripts/capture-previews` 重拍并提交 `preview/{light,dark}.png`。
-- [ ] README 中英双语三件套、LICENSE 与贡献者版权声明齐全；PR 描述附 gallery 试穿截图（亮 / 暗）。
+- [ ] README 中英双语、LICENSE 与贡献者版权声明齐全；PR 描述附 gallery 试穿截图（亮 / 暗）。
 
 ## 社区插件索引登记（Community Plugin Index）
 

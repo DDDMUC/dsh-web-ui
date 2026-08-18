@@ -2,20 +2,20 @@
 
 English | [中文](README.zh.md)
 
-The skin-family aggregate plugin: installing it gives you the skin center (`skin-center`) plus every skin asset (xp / blue-fantasy / dragon-heir / minecraft / miku / trading / whale-song / harbor / whale-mom / matrix / maid-atelier ...) bundled inside the package's `skins/` directory, so no per-skin npm package is needed.
+Retired compatibility carrier (kept for one release cycle): every skin is built into `@linxin666/dsh-client-ui-skin-center`. This package no longer ships skin assets; it only pulls the skin center in as a dependency so users upgrading @linxin666/dsh-skins get it automatically.
 
 ## What it is
 
-- **Skin center + full collection**: one package replaces installing skins individually.
-- **Mutual exclusion via `dsh-skin use`**: skin activation is exclusive and managed by `dsh-skin use` (the active Web profile's `managed` section), so skins live as `skins/` assets only and never enter `patchFrom`; non-Web profiles do not inherit browser-only skin entries.
-- **YAML-safe profile writes**: the DSH default `[]` overlay template is normalized before the managed block is appended; an incompatible non-empty flow root is rejected before the file is replaced.
+- **Dependency carrier only**: installing or upgrading this package installs the skin center (`skin-center`), which ships the full built-in skin collection (xp / blue-fantasy / dragon-heir / minecraft / miku / trading / whale-song / harbor / whale-mom / matrix / maid-atelier / mint) as pure asset directories.
+- **No build output**: `build.mjs` is an intentional no-op; there is nothing to copy.
+- **Removal next cycle**: this package is scheduled for retirement; new installs should use `@linxin666/dsh-client-ui-skin-center` directly (or the family aggregate `@linxin666/dsh-web-ui-all`).
 
 ## Install
 
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-skins@latest
+dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center
 ```
 
 ### From the repository (development)
@@ -24,13 +24,13 @@ dsh plugin --profile web add @linxin666/dsh-skins@latest
 git clone https://github.com/zhu1090093659/dsh-web-ui.git
 cd dsh-web-ui
 pnpm install && pnpm -r build
-dsh plugin --profile web add link:$(pwd)/packages/dsh-skins
+dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
 ```
 
-Switch skins with `dsh-skin use <id>`; only one skin is active at a time.
+Switch skins in the GUI's first-level Skin Center section, or with `dsh-skin use <id>`; only one skin is active at a time.
 
 ## Known limitations
 
 - The browser bundle targets the web only, scoped to the dsh web GUI.
 - Skins are presentation-only: they mutate the browser DOM and never touch a model request.
-- Maid Atelier is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use; its license and attribution are shipped inside the bundled skin and summarized in `THIRD_PARTY_NOTICES.md`.
+- Maid Atelier is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use; its license and attribution ship inside the skin-center package's skin directory.

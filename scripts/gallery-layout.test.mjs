@@ -4,6 +4,7 @@
  * composer 关键节点没有被水平裁切。
  *
  * 用真实浏览器（playwright + chromium）测量，覆盖 stock/xp × light/dark。
+ * v2 皮肤在试穿页以静态样式表渲染（不执行皮肤 JS），布局断言与渲染方式无关。
  * 无 chromium 的环境（如 CI 用 --ignore-scripts 安装、未下载浏览器）自动跳过，
  * 不阻断其它脚本测试。
  */
