@@ -223,7 +223,11 @@ export function migrateLegacySelection(options: {
       notes.push('v2 selection already present; skipped id migration')
     }
 
-    const cleaned = stripLegacySkinState(patch)
+    let cleaned = stripLegacySkinState(patch)
+    // A patch whose only content was the managed section would be left
+    // empty — and an empty cordis.patch.yml is not a valid patch list (the
+    // next boot fails on it). Normalize to the stock empty-sequence root.
+    if (cleaned.trim() === '') cleaned = '[]\n'
     if (cleaned !== patch) {
       const write = options.writePatch ?? writePatchAtomic
       write(patchPath, cleaned)

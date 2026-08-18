@@ -159,6 +159,14 @@ describe('migrateLegacySelection', () => {
     expect(result.notes.join(' ')).toContain('nothing to migrate')
   })
 
+  it('a managed-only patch normalizes to [] instead of an empty file', () => {
+    writeFileSync(patchPath, STOCK_PATCH)
+    const result = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath, patchPath })
+    expect(result.patchCleaned).toBe(true)
+    const after = readFileSync(patchPath, 'utf8')
+    expect(after.trim()).toBe('[]')
+  })
+
   it('stock-look legacy state migrates no id and still cleans', () => {
     writeFileSync(patchPath, STOCK_PATCH)
     const result = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath, patchPath })

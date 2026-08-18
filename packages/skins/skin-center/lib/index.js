@@ -1282,7 +1282,8 @@ function migrateLegacySelection(options) {
 				notes.push(`migrated active skin "${active}" to the v2 selection store`);
 			} else notes.push("legacy state resolves to the stock look; selection store left unset");
 		} else notes.push("v2 selection already present; skipped id migration");
-		const cleaned = stripLegacySkinState(patch);
+		let cleaned = stripLegacySkinState(patch);
+		if (cleaned.trim() === "") cleaned = "[]\n";
 		if (cleaned !== patch) {
 			(options.writePatch ?? writePatchAtomic)(patchPath, cleaned);
 			result.patchCleaned = true;
