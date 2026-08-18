@@ -219,5 +219,15 @@
     "repo": "https://github.com/JUANWANG-BUAA/dsh-full-remote",
     "npm": "dsh-full-remote",
     "category": "integration"
+  },
+  {
+    "id": "dsh-palate",
+    "name": "Palate 品味训练",
+    "nameEn": "Palate Design Taste",
+    "author": "guo6x",
+    "description": "会长大的眼：可积累的设计品味语料库（好/坏例子 + 编码原则），喂得越多评审越准；6 个 palate_* 工具（review/add/learn/list/principles/stats）+ 成长面板，node:sqlite + 人可读 Markdown 镜像，零运行时依赖。",
+    "descriptionEn": "An eye that grows: an accumulated design-taste corpus (good/bad examples plus codified principles) that sharpens with every example you feed; six palate_* tools (review/add/learn/list/principles/stats) plus a growth panel, node:sqlite with human-readable Markdown mirrors, zero runtime dependencies.",
+    "repo": "https://github.com/guo6x/dsh-palate",
+    "category": "knowledge"
   }
 ]
