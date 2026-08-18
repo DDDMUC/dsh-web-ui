@@ -133,6 +133,9 @@ describe('nextRunAtMs', () => {
     expect(nextRunAtMs('not a cron', at(2026, 1, 1, 0, 0))).toBeUndefined()
   })
 
+  // The reference minute scan walks every minute of the horizon for 14
+  // expressions × 6 anchors; on slower CI runners that exceeds vitest's
+  // default 5s budget, so this test gets an explicit budget.
   it('matches the legacy minute scan across sparse and dense schedules', () => {
     const crons = [
       '* * * * *',
@@ -163,7 +166,7 @@ describe('nextRunAtMs', () => {
         expect(nextRunAtMs(expr, fromMs), `${expr} from ${new Date(fromMs).toISOString()}`).toBe(referenceNextRunAtMs(expr, fromMs))
       }
     }
-  })
+  }, 20_000)
 })
 
 /** The pre-jump minute scan, kept verbatim as the behavioural reference. */
