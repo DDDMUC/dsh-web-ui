@@ -12,7 +12,7 @@ Plugin manager tab for the dsh web GUI Plugins settings section: installs plugin
 - Lists installed user plugins with next-start enable switches, update checks (registry, npm sources), updates, and uninstall.
 - Shows the built-in product switches when the official plugin-control surface exists.
 - Surfaces install-time conflict actions: the product-snapshot diff around each install (official mode) or the profile layer diff around each CLI run (gateway mode), with undo for reversible actions and an `Ask the agent to fix` handoff on every conflict row.
-- Protects the next boot on the npm runtime: after each install the gateway composes the profile with the CLI's `--dump-config` preflight, and detects duplicate entry-id claims; a failing or duplicate install is disabled automatically so the next start cannot fail, with the error and repair handoff on the error row.
+- Protects the next boot on the npm runtime: after each install the gateway verifies the dependency actually landed, rejects duplicate entry-id claims and insert rows naming unresolvable packages, and composes the profile with the CLI's `--dump-config` preflight; a conflicting or failing install is rolled back through the official remove path (the existing plugins are never touched), with the error and repair handoff on the error row.
 - Renders the boot-failure ring per plugin with `Ask the agent to fix` (a repair conversation over the plugin install root) and `Copy error`; the npm web runtime keeps no failure ring, so only install errors offer the repair handoff there.
 - Shows the host's safe-mode banner and the `Restore normal mode` affordance (the web build applies it at the next manual restart).
 
@@ -46,10 +46,20 @@ The tab carries no configuration namespace. Enablement switches and installs app
 - On the npm-published web runtime there is no boot-failure ring and no safe mode: those surfaces degrade to empty, and only install errors offer the repair handoff.
 - Enablement on the npm runtime writes bare `disabled` override rows into the profile's cordis.patch.yml; the runtime's loader honors them at the next start, but this path is less exercised than the official desktop writer's.
 - The web build has no in-place restart: changes apply at the next manual restart.
-- Install-time conflict detection reports what the install actually changed (product rows in official mode, profile rows and bundle entries in gateway mode). On the npm runtime, duplicate insert-id claims are detected after install and the new plugin is disabled automatically; on official runtimes the host's own rules and the boot-failure ring own that case.
-- The npm runtime's boot preflight (`--dump-config`) catches composition failures such as packages published without their lib build artifacts; runtime apply failures still surface only at the next real start, where official runtimes keep the failure ring and the npm runtime does not.
+- Install-time conflict detection reports what the install actually changed (product rows in official mode, profile rows and bundle entries in gateway mode). On the npm runtime, duplicate insert-id claims are detected after install and the new plugin is rolled back automatically (a shared id can never be `disabled` away: the loader's duplicate check has no disabled exemption); on official runtimes the host's own rules and the boot-failure ring own that case.
+- The npm runtime's boot preflight (`--dump-config`) catches composition failures, and the static insert check catches insert rows naming packages that resolve nowhere; runtime import/apply failures still surface only at the next real start, where official runtimes keep the failure ring and the npm runtime does not.
 - The wire shapes mirror the official installer tab protocol; on drift the tolerant parsers degrade to error rows rather than misbehaving.
 - The repair conversation's workspace keeps its path-derived default title.
+
+## Security model
+
+- Trust boundary is the loopback fence: every gateway route requires a loopback socket address, a loopback Host header, and a non-cross-site origin (socket + Host + Origin + `sec-fetch-site`), the same authority the official installer channels enforce. There is no browser-reachable path from a remote origin.
+- Mutation routes (install / remove / set-enabled) carry no token: the loopback authority *is* the local user, matching the official channels. Any local process can therefore drive plugin installs and removals, and npm installs run package install scripts — treat the gateway as local code execution by design and never expose it beyond loopback.
+- Install specs and package ids are rejected when they contain shell metacharacters (`& | < >`, quotes, backtick, control characters). The gateway always spawns the official CLI without a shell; on Windows it resolves the npm-generated `dsh.cmd` to `node.exe` + the package `bin.js` so paths with spaces survive and `cmd.exe` never re-parses arguments. Residual upstream note: the official CLI itself forwards to pnpm with a `cmd.exe` shell on Windows, which this package cannot change — the metachar validation is the mitigation inside this repository.
+- Mutations are serialized through one queue, so concurrent jobs never interleave their before/after profile captures. An install is only `done` when the new dependency actually landed in the profile (and a removal only when it is gone); a success exit code alone is never trusted.
+- Conflict handling is owner-aware: a duplicate entry id or an insert row naming an unresolvable package rolls the *new* package back through the official remove path. The gateway never writes `disabled` rows for a shared id (such rows cannot stop the loader's duplicate check and would flag the existing owner).
+- The boot preflight (`--dump-config`) composes patch layers without importing entries: it catches composition failures, not import-time failures, which still surface at the first real boot.
+- The profile name (from `--profile` / `DSH_PROFILE`) is validated against path traversal before any file is touched; patch writes go through a backup copy plus tmp-write + atomic rename (`cordis.patch.yml.bak-plugin-manager`).
 
 ## License
 

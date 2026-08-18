@@ -11,10 +11,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { isLoopbackRequest } from './loopback.ts'
-import { detectOfficialChannels, findDshBinary, type CliGateway } from './gateway.ts'
+import { detectOfficialChannels, findDshBinary, unsafeSpecReason, type CliGateway } from './gateway.ts'
 import { readPatchText, readProfileManifest, type ProfileFacts } from './profile.ts'
 import { setRowEnabled, writePatchAtomic } from './rows.ts'
-import { buildPluginRow, claimedEntryIdsOf, snapshotGateway } from './state.ts'
+import { buildPluginRow, claimedEntryRowsOf, snapshotGateway } from './state.ts'
 
 /** Route prefix the browser half mirrors. */
 export const GATEWAY_PREFIX = '/api/plugin-manager'
@@ -116,6 +116,11 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       sendJson(res, 400, { error: 'plugin-manager: install needs a spec' })
       return
     }
+    const unsafeSpec = unsafeSpecReason(spec.trim())
+    if (unsafeSpec !== undefined) {
+      sendJson(res, 400, { error: unsafeSpec })
+      return
+    }
     if (!deps.cliAvailable()) {
       sendJson(res, 500, { error: 'plugin-manager: dsh CLI not found on PATH' })
       return
@@ -128,6 +133,11 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
     const id = body['id']
     if (typeof id !== 'string' || id.trim() === '') {
       sendJson(res, 400, { error: 'plugin-manager: remove needs an id' })
+      return
+    }
+    const unsafeId = unsafeSpecReason(id.trim())
+    if (unsafeId !== undefined) {
+      sendJson(res, 400, { error: unsafeId })
       return
     }
     if (!deps.cliAvailable()) {
@@ -161,17 +171,24 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       return
     }
     const target = id.trim()
+    const unsafeTarget = unsafeSpecReason(target)
+    if (unsafeTarget !== undefined) {
+      sendJson(res, 400, { error: unsafeTarget })
+      return
+    }
     const patchText = await readPatchText(facts.patchPath)
     // Write and read the same id space: the entry ids the package's bundle
     // patch claims (falling back to the package name), not the package name
-    // itself. Package-name rows never matched the loader entries.
+    // itself. Package-name rows never matched the loader entries. The row
+    // carries the entry's own name: the include semantics skip a bare row
+    // whose name mismatches the inserted entry.
     const manifest = await readProfileManifest(facts.packageJsonPath)
     const entries = manifest.dependencies[target] !== undefined
-      ? await claimedEntryIdsOf(facts, target)
-      : [target]
+      ? await claimedEntryRowsOf(facts, target)
+      : [{ id: target, name: target }]
     let next = patchText
-    for (const entryId of entries) {
-      next = setRowEnabled(next, facts.patchPath, entryId, target, enabled)
+    for (const entry of entries) {
+      next = setRowEnabled(next, facts.patchPath, entry.id, entry.name, enabled)
     }
     if (next !== patchText) {
       await writePatchAtomic(facts.patchPath, next)

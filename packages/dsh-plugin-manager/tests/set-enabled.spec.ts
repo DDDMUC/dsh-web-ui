@@ -76,6 +76,22 @@ describe('set-enabled id space', () => {
     expect(parsed.plugin.enabled).toBe(false)
   })
 
+  it('writes the entry own name when it differs from the package name', async () => {
+    const { facts, dir } = makeProfile()
+    tempDirs.push(dir)
+    // The include patch semantics skip a bare row whose name mismatches the
+    // inserted entry's name, so the row must carry the entry name verbatim.
+    const { writeFileSync } = await import('node:fs')
+    writeFileSync(join(facts.profileDir, 'node_modules', 'dsh-memoir', 'cordis.patch.yml'), '- insert:\n    - id: memoir\n      name: memoir-display\n')
+    const { res, status } = captureResponse()
+    await setEnabledHandler(facts)(loopbackRequest({ id: 'dsh-memoir', enabled: false }), res)
+    expect(status()).toBe(200)
+    const patch = readFileSync(facts.patchPath, 'utf8')
+    expect(patch).toContain('id: memoir')
+    expect(patch).toContain('name: memoir-display')
+    expect(patch).not.toContain('name: dsh-memoir')
+  })
+
   it('re-enabling removes the override and reports enabled', async () => {
     const { facts, dir } = makeProfile()
     tempDirs.push(dir)

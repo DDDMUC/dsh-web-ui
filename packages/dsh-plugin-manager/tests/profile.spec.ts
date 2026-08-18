@@ -25,4 +25,10 @@ describe('resolveProfile', () => {
   it('throws when nothing names a profile', () => {
     expect(() => resolveProfile(['node', 'bin.js'], env)).toThrow(/cannot determine the boot profile/)
   })
+
+  it('rejects profile names with path separators or traversal', () => {
+    for (const bad of ['../../etc', 'a/b', 'a\\b', '..']) {
+      expect(() => resolveProfile(['node', 'bin.js', '--profile', bad], env), bad).toThrow(/invalid profile name/)
+    }
+  })
 })

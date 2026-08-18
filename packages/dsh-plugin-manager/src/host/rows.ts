@@ -106,10 +106,33 @@ export function findBareRow(root: YAMLSeq, id: string): { row: YAMLMap; index: n
  * @returns the claimed insert ids, in order.
  */
 export function claimedIdsOf(patchText: string): string[] {
+  const ids: string[] = []
+  for (const row of insertRowsOf(patchText)) {
+    if (row.id !== undefined) ids.push(row.id)
+  }
+  return ids
+}
+
+/** One insert entry of a bundle patch: the claimed id and the plugin package name. */
+export interface InsertRow {
+  id?: string
+  name?: string
+}
+
+/**
+ * The insert entries of an installed package's own bundle patch, with both
+ * the claimed id and the entry's own name. The name matters twice: the
+ * loader imports the plugin by it (an unresolvable name is a boot failure),
+ * and a bare override row whose name mismatches it is skipped by the include
+ * patch semantics, so enablement rows must carry this exact name.
+ * @param patchText - the package's own bundle patch text (`[]` for none).
+ * @returns the insert rows, in order.
+ */
+export function insertRowsOf(patchText: string): InsertRow[] {
   if (patchText.trim() === '' || patchText.trim() === '[]') return []
   try {
     const { root } = parsePatch(patchText, 'bundle patch')
-    const ids: string[] = []
+    const rows: InsertRow[] = []
     for (const item of root.items) {
       if (!isMap(item)) continue
       const insert = item.get('insert', true)
@@ -117,10 +140,14 @@ export function claimedIdsOf(patchText: string): string[] {
       for (const entry of insert.items) {
         if (!isMap(entry)) continue
         const id = entry.get('id', true)
-        if (isScalar(id) && typeof id.value === 'string') ids.push(id.value)
+        const name = entry.get('name', true)
+        rows.push({
+          id: isScalar(id) && typeof id.value === 'string' ? id.value : undefined,
+          name: isScalar(name) && typeof name.value === 'string' ? name.value : undefined,
+        })
       }
     }
-    return ids
+    return rows
   } catch {
     return []
   }

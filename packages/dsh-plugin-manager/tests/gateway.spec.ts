@@ -61,9 +61,14 @@ describe('detectOfficialChannels', () => {
     on: (event: string, handler: (chunk?: number | null) => void) => { if (event === 'close') setTimeout(() => handler(code), 0) },
   })
 
-  it('reports official channels when the dump names the installer', async () => {
-    const probe = fakeSpawn('composed entries include plugin-installer routes')
+  it('reports official channels when the dump carries the installer entry id', async () => {
+    const probe = fakeSpawn('entries:\n  - id: plugin-installer\n    name: installer\n  - id: plugin-control\n    name: control')
     await expect(detectOfficialChannels('/usr/bin/dsh', 'web', {}, probe as never)).resolves.toBe(true)
+  })
+
+  it('ignores the installer mark in prose or config values (no false positive)', async () => {
+    const probe = fakeSpawn('composed entries include plugin-installer routes\n  - id: dsh-base\n    note: plugin-installer mention')
+    await expect(detectOfficialChannels('/usr/bin/dsh', 'web', {}, probe as never)).resolves.toBe(false)
   })
 
   it('reports no official channels on the npm web dump', async () => {

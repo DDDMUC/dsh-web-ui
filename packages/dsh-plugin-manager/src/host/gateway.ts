@@ -12,12 +12,12 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { join, win32 } from 'node:path'
 import type { InstalledPluginItem } from '../core/protocol.ts'
 import type { ControlChange } from '../core/conflict.ts'
 import { diffLayer, overlappingIds, significantChanges, type LayerChange, type LayerSnapshot } from '../core/patch-diff.ts'
-import { readPatchText, readProfileManifest, type ProfileFacts } from './profile.ts'
-import { parsePatch, bareRowEnabled, bareRowId, setRowEnabled, writePatchAtomic } from './rows.ts'
+import { readProfileManifest, type ProfileFacts } from './profile.ts'
+import { insertRowsOf, parsePatch, bareRowEnabled, bareRowId } from './rows.ts'
 import { buildPluginRow, claimedEntryIdsOf } from './state.ts'
 
 /** Hard deadline for one CLI add (git clones can take minutes). */
@@ -26,6 +26,25 @@ const ADD_TIMEOUT_MS = 6 * 60_000
 const REMOVE_TIMEOUT_MS = 2 * 60_000
 /** Bounded capture of the CLI output (the tail survives). */
 const MAX_OUTPUT_CHARS = 32_000
+
+/**
+ * Shell command-chaining metacharacters that must never reach a spawned CLI
+ * argument. The gateway spawns shell-free, but the official CLI forwards to
+ * pnpm with a cmd.exe shell on Windows, so a spec carrying these can still be
+ * re-parsed one layer down (a failed install reported as success, or worse).
+ */
+const UNSAFE_SPEC_CHARS = /[&|<>"'`\n\r\0]/
+
+/**
+ * Validate an install spec or package id against shell metacharacters.
+ * @param spec - the user-supplied spec or id.
+ * @returns the rejection message, or undefined when the spec is safe.
+ */
+export function unsafeSpecReason(spec: string): string | undefined {
+  return UNSAFE_SPEC_CHARS.test(spec)
+    ? 'plugin-manager: spec 含有危险的 shell 元字符（& | < > 引号 反引号或控制字符），已拒绝'
+    : undefined
+}
 
 /** One CLI-backed operation in flight or settled. */
 export interface GatewayJob {
@@ -86,9 +105,14 @@ export function dshSpawnCommand(
   localNodeExists: (path: string) => boolean = existsSync,
 ): { command: string; argsPrefix: string[] } {
   if (platform !== 'win32') return { command: binary, argsPrefix: [] }
-  const dir = dirname(binary)
-  const localNode = join(dir, 'node.exe')
-  const binJs = join(dir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
+  // Windows paths must be parsed with win32 semantics even when the probing
+  // host is POSIX (unit tests, and any future cross-platform probing).
+  const dir = win32.dirname(binary)
+  const localNode = win32.join(dir, 'node.exe')
+  // The npm-global layout (dsh.cmd next to node_modules/@deepseek-ai/dsh):
+  // pnpm/yarn shims place bin.js elsewhere; extend the resolution there when
+  // such a layout is reported.
+  const binJs = win32.join(dir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
   return { command: localNodeExists(localNode) ? localNode : process.execPath, argsPrefix: [binJs] }
 }
 
@@ -101,8 +125,12 @@ export function spawnDsh(binary: string, args: string[], env: NodeJS.ProcessEnv)
   })
 }
 
-/** Feature string the official installer channels carry in the boot dump. */
-const OFFICIAL_INSTALLER_MARK = 'plugin-installer'
+/**
+ * Entry-id line of the official installer channels in the boot dump. A plain
+ * substring probe false-positives on any unrelated entry whose id, name, or
+ * config mentions the mark, so only a real `id:` row counts.
+ */
+const OFFICIAL_INSTALLER_PATTERN = /^\s*-?\s*id:\s*['"]?plugin-(?:installer|control)['"]?\s*$/m
 
 /**
  * Detect whether the official installer channels exist on this runtime by
@@ -128,7 +156,7 @@ export async function detectOfficialChannels(
   child.stderr?.on('data', (chunk: Buffer) => { output.value = (output.value + chunk.toString()).slice(-MAX_OUTPUT_CHARS) })
   const code = await new Promise<number | null>(resolve => { child.on('close', resolve) })
   if (code !== 0) return false
-  return output.value.includes(OFFICIAL_INSTALLER_MARK)
+  return OFFICIAL_INSTALLER_PATTERN.test(output.value)
 }
 
 /** One layer snapshot plus the dependency list of the profile. */
@@ -137,22 +165,53 @@ interface CapturedState {
   dependencies: string[]
 }
 
-/** The gateway: serializes CLI operations through one job table. */
+/** The gateway: serializes CLI operations through one job table and one mutation queue. */
 export class CliGateway {
   private readonly jobs = new Map<string, GatewayJob>()
   private counter = 0
+  /** Mutation queue: two CLI runs must never interleave their before/after captures. */
+  private queue: Promise<void> = Promise.resolve()
 
-  /** @param facts - resolved profile locations. */
+  /**
+   * @param facts - resolved profile locations.
+   * @param env - process environment.
+   * @param deps - spawn/binary seams (tests only; production uses the real CLI).
+   */
   constructor(
     private readonly facts: ProfileFacts,
     private readonly env: NodeJS.ProcessEnv = process.env,
+    private readonly deps: {
+      spawnImpl?: typeof spawnDsh
+      findBinary?: (env: NodeJS.ProcessEnv) => string | null
+    } = {},
   ) {}
+
+  /** Chain one mutation onto the queue; a settled job never blocks the next one. */
+  private enqueue(task: () => Promise<void>): void {
+    this.queue = this.queue.then(task).catch(() => {})
+  }
+
+  /** The dsh CLI path, through the test seam when present. */
+  private binary(): string | null {
+    return this.deps.findBinary !== undefined ? this.deps.findBinary(this.env) : findDshBinary(this.env)
+  }
+
+  /** Spawn the CLI, through the test seam when present. */
+  private spawnCli(binary: string, args: string[]) {
+    return (this.deps.spawnImpl ?? spawnDsh)(binary, args, this.env)
+  }
 
   /** Start an install; the caller polls {@link status}. */
   install(spec: string): { jobId: string } {
     const job: GatewayJob = { id: `job-${++this.counter}`, action: 'install', spec, phase: 'running' }
     this.jobs.set(job.id, job)
-    void this.run(job, ['plugin', '--profile', this.facts.profileName, 'add', spec], ADD_TIMEOUT_MS)
+    const unsafe = unsafeSpecReason(spec)
+    if (unsafe !== undefined) {
+      job.phase = 'error'
+      job.error = unsafe
+      return { jobId: job.id }
+    }
+    this.enqueue(() => this.run(job, ['plugin', '--profile', this.facts.profileName, 'add', spec], ADD_TIMEOUT_MS))
     return { jobId: job.id }
   }
 
@@ -160,7 +219,13 @@ export class CliGateway {
   remove(id: string): { jobId: string } {
     const job: GatewayJob = { id: `job-${++this.counter}`, action: 'remove', spec: id, phase: 'running' }
     this.jobs.set(job.id, job)
-    void this.run(job, ['plugin', '--profile', this.facts.profileName, 'remove', id], REMOVE_TIMEOUT_MS)
+    const unsafe = unsafeSpecReason(id)
+    if (unsafe !== undefined) {
+      job.phase = 'error'
+      job.error = unsafe
+      return { jobId: job.id }
+    }
+    this.enqueue(() => this.run(job, ['plugin', '--profile', this.facts.profileName, 'remove', id], REMOVE_TIMEOUT_MS))
     return { jobId: job.id }
   }
 
@@ -218,9 +283,19 @@ export class CliGateway {
     return buildPluginRow(this.facts, targetName, specValue, after.layer.rows)
   }
 
-  /** Run one CLI operation to settlement. */
+  /** Run one CLI operation to settlement; an unexpected failure settles the job as error. */
   private async run(job: GatewayJob, args: string[], timeoutMs: number): Promise<void> {
-    const binary = findDshBinary(this.env)
+    try {
+      await this.runInner(job, args, timeoutMs)
+    } catch (error) {
+      job.phase = 'error'
+      job.error = `plugin-manager: unexpected gateway failure: ${error instanceof Error ? error.message : String(error)}`
+    }
+  }
+
+  /** The mutation body of {@link run}. */
+  private async runInner(job: GatewayJob, args: string[], timeoutMs: number): Promise<void> {
+    const binary = this.binary()
     if (binary === null) {
       job.phase = 'error'
       job.error = 'plugin-manager: dsh CLI not found on PATH'
@@ -228,7 +303,7 @@ export class CliGateway {
     }
     const before = await this.capture()
     const output = { value: '' }
-    const child = spawnDsh(binary, args, this.env)
+    const child = this.spawnCli(binary, args)
     child.stdout?.on('data', (chunk: Buffer) => { capture(chunk, output) })
     child.stderr?.on('data', (chunk: Buffer) => { capture(chunk, output) })
     const timer = setTimeout(() => { child.kill() }, timeoutMs)
@@ -245,15 +320,38 @@ export class CliGateway {
     const after = await this.capture()
     const conflicts = significantChanges(diffLayer(before.layer, after.layer))
     if (job.action === 'install') {
+      const name = this.newDependency(before, after)
+      if (name === undefined) {
+        // B8: a success exit code is not proof the install landed.
+        job.phase = 'error'
+        job.error = 'plugin-manager: dsh plugin add 报告成功，但 profile 未新增任何依赖（安装未生效）'
+        return
+      }
+      // B5: a duplicate entry id is boot-blocking. Never write disabled rows
+      // for a shared id (they cannot stop the loader's duplicate check and
+      // they flag the existing owner) — roll the NEW package back instead.
       const duplicate = await this.detectDuplicateClaims(before, after)
       if (duplicate !== undefined) {
-        // A boot-blocking duplicate entry id: disable the new plugin's rows so
-        // the next start cannot double-mount, and surface the conflict with
-        // its undo and repair affordances.
-        await this.disableEntries(duplicate.ids)
-        conflicts.push({ id: duplicate.ids[0] ?? duplicate.name, from: 'enabled', to: 'disabled' })
+        await this.rollbackInstall(job, name, `与现有插件的入口 id 冲突（${duplicate.ids.join(', ')}）`, conflicts)
+        return
+      }
+      // B6 (static part): an insert entry naming an unresolvable package fails
+      // the next boot's import; --dump-config cannot see it (composition only).
+      const missing = await this.unresolvableInsertNames(name)
+      if (missing.length > 0) {
+        await this.rollbackInstall(job, name, `入口引用了不可解析的包（${missing.join(', ')}）`, conflicts)
+        return
       }
       await this.verifyBoot(job, before, after, conflicts)
+      if (job.phase === 'error') return
+    } else {
+      // B8 (remove): a success exit code must mean the dependency is gone.
+      const removed = before.dependencies.find(candidate => !after.dependencies.includes(candidate))
+      if (removed === undefined) {
+        job.phase = 'error'
+        job.error = 'plugin-manager: dsh plugin remove 报告成功，但依赖仍在 profile 中（卸载未生效）'
+        return
+      }
     }
     job.conflicts = conflicts.map(change => ({
       id: change.id,
@@ -262,7 +360,64 @@ export class CliGateway {
       to: change.to,
     }))
     job.plugin = await this.rowFor(job.action, job.spec, before, after)
-    if (job.phase !== 'error') job.phase = 'done'
+    job.phase = 'done'
+  }
+
+  /**
+   * Roll back a freshly installed dependency through the official remove
+   * path (which also drops its bundle), then settle the job as an error.
+   * This is the owner-aware conflict resolution: the existing plugin keeps
+   * its entry ids and enablement untouched.
+   */
+  private async rollbackInstall(job: GatewayJob, name: string, reason: string, conflicts: LayerChange[]): Promise<void> {
+    let rolledBack = false
+    let tail = ''
+    const binary = this.binary()
+    if (binary !== null) {
+      const output = { value: '' }
+      const child = this.spawnCli(binary, ['plugin', '--profile', this.facts.profileName, 'remove', name])
+      child.stdout?.on('data', (chunk: Buffer) => { capture(chunk, output) })
+      child.stderr?.on('data', (chunk: Buffer) => { capture(chunk, output) })
+      const timer = setTimeout(() => { child.kill() }, REMOVE_TIMEOUT_MS)
+      const code = await new Promise<number | null>(resolve => { child.on('close', resolve) })
+      clearTimeout(timer)
+      rolledBack = code === 0
+      tail = output.value.trim()
+    }
+    job.phase = 'error'
+    job.error = rolledBack
+      ? `plugin-manager: ${reason}，已自动回滚 ${name}`
+      : `plugin-manager: ${reason}；自动回滚失败，请手动执行 dsh plugin --profile ${this.facts.profileName} remove ${name}${tail === '' ? '' : `：\n${tail}`}`
+    conflicts.push({ id: name, from: 'enabled', to: 'uninstalled' })
+    job.conflicts = conflicts.map(change => ({ id: change.id, name: change.id, from: change.from, to: change.to }))
+  }
+
+  /**
+   * Insert-entry package names of one installed dependency that resolve
+   * nowhere: not the dependency itself, not another profile dependency, not
+   * an official @deepseek-ai/* package, and absent from every node_modules
+   * the loader could import them from. Import-time failures beyond this
+   * static check still surface only at the first real boot.
+   */
+  private async unresolvableInsertNames(name: string): Promise<string[]> {
+    const moduleDir = join(this.facts.profileDir, 'node_modules', ...name.split('/'))
+    let text: string
+    try {
+      text = await readFile(join(moduleDir, 'cordis.patch.yml'), 'utf8')
+    } catch {
+      return []
+    }
+    const missing: string[] = []
+    for (const row of insertRowsOf(text)) {
+      const target = row.name
+      if (target === undefined || target === '') continue
+      if (target === name) continue
+      if (target.startsWith('@deepseek-ai/')) continue
+      if (existsSync(join(this.facts.profileDir, 'node_modules', ...target.split('/')))) continue
+      if (existsSync(join(moduleDir, 'node_modules', ...target.split('/')))) continue
+      missing.push(target)
+    }
+    return missing
   }
 
   /** The new dependency of an install, when one exists. */
@@ -290,21 +445,6 @@ export class CliGateway {
     return { name, ids: overlap }
   }
 
-  /** Disable every listed entry id via bare override rows (backup + tmp + rename). */
-  private async disableEntries(ids: string[]): Promise<void> {
-    let text = await readPatchText(this.facts.patchPath)
-    let changed = false
-    for (const id of ids) {
-      const next = setRowEnabled(text, this.facts.patchPath, id, id, false)
-      if (next !== text) {
-        text = next
-        changed = true
-      }
-    }
-    if (!changed) return
-    await writePatchAtomic(this.facts.patchPath, text)
-  }
-
   /**
    * Boot preflight after an install: compose the profile with the CLI's
    * `--dump-config` (resolves every entry without binding the port). A failure
@@ -312,11 +452,11 @@ export class CliGateway {
    * an unrelated failure is reported without touching anything.
    */
   private async verifyBoot(job: GatewayJob, before: CapturedState, after: CapturedState, conflicts: LayerChange[]): Promise<void> {
-    const binary = findDshBinary(this.env)
+    const binary = this.binary()
     if (binary === null) return
     const name = this.newDependency(before, after)
     const verifyOutput = { value: '' }
-    const child = spawnDsh(binary, ['--profile', this.facts.profileName, '--dump-config'], this.env)
+    const child = this.spawnCli(binary, ['--profile', this.facts.profileName, '--dump-config'])
     child.stdout?.on('data', (chunk: Buffer) => { capture(chunk, verifyOutput) })
     child.stderr?.on('data', (chunk: Buffer) => { capture(chunk, verifyOutput) })
     const timer = setTimeout(() => { child.kill() }, 90_000)
@@ -334,12 +474,9 @@ export class CliGateway {
     const claimed = await this.claimedEntriesOf(name)
     const implicated = tail.includes(name) || claimed.some(id => tail.includes(id))
     if (implicated) {
-      await this.disableEntries(claimed)
-      conflicts.push({ id: claimed[0] ?? name, from: 'enabled', to: 'disabled' })
-      job.phase = 'error'
-      job.error = tail === ''
-        ? `plugin-manager: 启动预检失败，已自动禁用 ${name}`
-        : `plugin-manager: 启动预检失败，已自动禁用 ${name}：\n${tail}`
+      // Owner-aware: roll the new package back rather than disabling shared
+      // rows, which cannot reach every failure shape anyway.
+      await this.rollbackInstall(job, name, `启动预检失败${tail === '' ? '' : `：\n${tail}`}`, conflicts)
     } else {
       job.phase = 'error'
       job.error = tail === ''

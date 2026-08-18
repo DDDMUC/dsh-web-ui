@@ -11,7 +11,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { InstalledPluginItem } from '../core/protocol.ts'
 import type { LayerSnapshot } from '../core/patch-diff.ts'
-import { bareRowEnabled, bareRowId, claimedIdsOf, parsePatch } from './rows.ts'
+import { bareRowEnabled, bareRowId, claimedIdsOf, insertRowsOf, parsePatch } from './rows.ts'
 import { readProfileManifest, type ProfileFacts } from './profile.ts'
 
 /** The listing result: plugin rows plus the raw layer snapshot for diffs. */
@@ -49,6 +49,28 @@ export async function claimedEntryIdsOf(facts: ProfileFacts, name: string): Prom
     // Missing bundle patch: a plain plugin claims its own name.
   }
   return [name]
+}
+
+/**
+ * The insert rows one installed dependency claims, id plus the entry's own
+ * name (falling back to the package name for plain plugins). The set-enabled
+ * write side needs the entry's own name: the include patch semantics skip a
+ * bare override row whose name mismatches the inserted entry's name.
+ * @param facts - resolved profile locations.
+ * @param name - dependency name (possibly scoped).
+ * @returns the claimed rows, never empty.
+ */
+export async function claimedEntryRowsOf(facts: ProfileFacts, name: string): Promise<Array<{ id: string; name: string }>> {
+  const patchPath = join(modulePathOf(facts.profileDir, name), 'cordis.patch.yml')
+  try {
+    const text = await readFile(patchPath, 'utf8')
+    const rows = insertRowsOf(text)
+    const claimed = rows.filter((row): row is { id: string; name?: string } => row.id !== undefined)
+    if (claimed.length > 0) return claimed.map(row => ({ id: row.id, name: row.name ?? name }))
+  } catch {
+    // Missing bundle patch: a plain plugin claims its own name.
+  }
+  return [{ id: name, name }]
 }
 
 /**
