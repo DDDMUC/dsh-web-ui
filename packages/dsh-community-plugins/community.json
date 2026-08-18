@@ -197,5 +197,15 @@
     "descriptionEn": "One-command skinning for DSH Web: 8 original themes, wallpaper (opacity/blur/gradient/URL), per-user accent, shareable theme packs with favorites and surprise-me. Purely native token system.",
     "repo": "https://github.com/RevolutionLA/dsh-dream-skin",
     "category": "ui"
+  },
+  {
+    "id": "dsh-wsl-bridge",
+    "name": "WSL Windows 桥",
+    "nameEn": "WSL Windows Bridge",
+    "author": "ch1bug",
+    "description": "让 WSL 里的 agent 访问 Windows 侧：读写 C:\\ 文件、运行 .exe、Explorer 打开、wslpath 路径互转与盘符枚举（win_ls/read/write/run/open/path/drives）。",
+    "descriptionEn": "Lets a WSL agent reach the Windows host: read/write C:\\ files, run .exe programs, open in Explorer, convert paths via wslpath and list drives (win_ls/read/write/run/open/path/drives).",
+    "repo": "https://github.com/ch1bug/dsh-wsl-bridge",
+    "category": "integration"
   }
 ]
