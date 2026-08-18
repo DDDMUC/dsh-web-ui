@@ -8,7 +8,7 @@ The one-click aggregate package for the whole dsh web UI family: installing it b
 
 - **One install, everything on**: its dependencies pull in all sub-plugin packages (dsh-client-ui-aionui-panel / dsh-client-ui-task-board / dsh-client-ui-git-graph / dsh-pet / dsh-remote-web-ui / dsh-ssh / dsh-client-ui-web-ui-settings / dsh-client-ui-skin-center / dsh-client-ui-community-plugins / dsh-skins) plus the external npm plugin `dsh-better-sidebar` (the default right sidebar: explorer / editor / terminal / git / browser).
 - **Aggregation carrier**: `cordis.patch.yml` aggregates the `insert` lines of each sub-plugin plus the external `dsh-better-sidebar` row, mounted through the dsh plugin profile mechanism.
-- **Right panel transition**: `dsh-better-sidebar` owns the right panel by default; the aionui-panel row stays installed but is **temporarily disabled** until its features fully migrate. Settings → Web UI Plugins → Right panel can switch the provider (default `Use DSH-better-sidebar`), not recommended before the migration completes.
+- **Right panel**: the right panel is always `dsh-better-sidebar` (the aionui panel can no longer be enabled). Settings → Web UI Plugins → Side Card declares the right panel comes from [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) and edits its everyday settings inline; the provider choice was removed.
 
 ## Install
 

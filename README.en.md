@@ -110,7 +110,7 @@ The right panel is provided by the external plugin [dsh-better-sidebar](https://
 
 ![Right panel](docs/screenshots/19-right-panel.png)
 
-> The previous aionui-panel right panel is **no longer supported**: it is off by default, receives no maintenance, tests, or fixes, and will be removed from the family bundle in a future release; Settings → Web UI Plugins → Right panel can switch the provider back temporarily at your own risk.
+> The previous aionui-panel right panel is **no longer supported**: it is off by default, receives no maintenance, tests, or fixes, and will be removed from the family bundle in a future release; Settings → Web UI Plugins → Side Card edits its everyday settings inline.
 
 ### Whale-Girl Pet
 
