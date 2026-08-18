@@ -14,6 +14,17 @@ import { resolveConfig, type ApiStyle, type Config, type ResolvedConfig } from '
 /** Probe request timeout: model listings are light, far shorter than a vision call. */
 export const PROBE_TIMEOUT_MS = 15_000
 
+/**
+ * Combine the optional caller signal with the probe timeout. AbortSignal.any
+ * of an empty array yields a signal that never aborts, so the timeout must
+ * stand alone when no caller signal exists — otherwise a hung upstream would
+ * pin the card on "testing" forever.
+ */
+function withTimeout(signal: AbortSignal | undefined): AbortSignal {
+  const timeout = AbortSignal.timeout(PROBE_TIMEOUT_MS)
+  return signal === undefined ? timeout : AbortSignal.any([signal, timeout])
+}
+
 /** Response-body byte cap for one model listing. */
 export const PROBE_MAX_BODY_BYTES = 512 * 1024
 
@@ -96,7 +107,7 @@ export async function probeModels(spec: ResolvedConfig, apiKey: string, signal?:
       method: 'GET',
       headers,
       redirect: 'error',
-      signal: AbortSignal.any(signal === undefined ? [] : [signal, AbortSignal.timeout(PROBE_TIMEOUT_MS)]),
+      signal: withTimeout(signal),
     })
   } catch (error) {
     throw new Error(`describe-image: endpoint unreachable: ${(error as Error).message ?? String(error)}`)
@@ -177,7 +188,7 @@ export async function testModelConnection(spec: ResolvedConfig, apiKey: string, 
       headers,
       body,
       redirect: 'error',
-      signal: AbortSignal.any(signal === undefined ? [] : [signal, AbortSignal.timeout(PROBE_TIMEOUT_MS)]),
+      signal: withTimeout(signal),
     })
   } catch (error) {
     throw new Error(`describe-image: endpoint unreachable: ${(error as Error).message ?? String(error)}`)
