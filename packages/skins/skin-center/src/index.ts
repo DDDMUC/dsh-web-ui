@@ -1,10 +1,10 @@
 /**
  * Host half of the in-GUI skin center: mounts the `/api/skin-center/*` routes
- * the browser half uses for one-click apply / restore-official. Every switch
- * delegates to the `dsh-skin` CLI, which owns the `dsh-skin managed` section
- * of the active profile's `cordis.patch.yml` and the profile symlink; the DSH config
- * watcher hot-reloads the patch within seconds, so no restart is needed.
- * Try-on stays pure browser work (see src/client/try-on.ts).
+ * the browser half uses for the skin catalog, the active selection and
+ * one-click apply / restore-official (v2, issue #506). Skins are pure asset
+ * directories served through the safety pipeline; switching is a client-side
+ * atomic swap and never touches `cordis.patch.yml`. Try-on stays pure
+ * browser work (see src/client/runtime/skin-controller.ts).
  * @module @linxin666/dsh-client-ui-skin-center
  */
 
