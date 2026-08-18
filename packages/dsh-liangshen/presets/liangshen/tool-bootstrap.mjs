@@ -179,8 +179,11 @@ function extractInstructionPaths(message) {
 }
 
 /** The one-time non-imperative hint replacing the full-text dump (E1.5 wording). */
-function buildInstructionHint(paths) {
+function buildInstructionHint(original, paths) {
   return {
+    id: typeof original?.id === 'string' && original.id !== ''
+      ? original.id
+      : crypto.randomUUID(),
     role: 'user',
     content: [{
       type: 'text',
@@ -214,7 +217,7 @@ function instructionHintMessages(messages, state) {
       continue
     }
     state.instructionHinted = true
-    kept.push(buildInstructionHint(paths))
+    kept.push(buildInstructionHint(message, paths))
   }
   return kept
 }
