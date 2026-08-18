@@ -170,8 +170,8 @@ export function makeTaskBoardRoutes(service: TaskBoardHostService, access: TaskB
         connection: 'keep-alive',
       })
       const push = (): void => {
-        const snapshot = service.snapshot()
-        res.write(`data: ${JSON.stringify({ revision: snapshot.revision, scheduler: snapshot.scheduler, power: snapshot.power })}\n\n`)
+        const payload = service.eventPayload()
+        res.write(`data: ${JSON.stringify(payload)}\n\n`)
       }
       const unsubscribe = service.subscribe(push)
       const heartbeat = setInterval(() => { res.write(': ping\n\n') }, HEARTBEAT_MS)

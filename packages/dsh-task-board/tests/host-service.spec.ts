@@ -182,3 +182,61 @@ describe('TaskBoardHostService scheduling without a browser', () => {
     interval.mockRestore()
   })
 })
+
+describe('TaskBoardHostService poll heartbeat', () => {
+  function sessionsList(items: Array<{ sessionId: string; running: boolean }>) {
+    return { sessions: { list: async (request: { rpcId: unknown }) => ok(request, { items }) } } as unknown as ApiProxy
+  }
+
+  it('does not push SSE frames while the session and power snapshots stay unchanged', async () => {
+    const service = new TaskBoardHostService(sessionsList([]), {
+      ledger: new HostTaskLedger(root()),
+      power: new PowerInhibitor({ platform: 'linux' }),
+    })
+    let pushes = 0
+    service.subscribe(() => { pushes += 1 })
+    const poll = service as unknown as { pollSessions(): Promise<void> }
+    await poll.pollSessions()
+    // The first poll flips sessionStateKnown, so exactly one push is expected.
+    expect(pushes).toBe(1)
+    await poll.pollSessions()
+    await poll.pollSessions()
+    expect(pushes).toBe(1)
+    service.dispose()
+  })
+
+  it('pushes an SSE frame when the running-session count changes', async () => {
+    let items: Array<{ sessionId: string; running: boolean }> = []
+    const service = new TaskBoardHostService({
+      sessions: { list: async (request: { rpcId: unknown }) => ok(request, { items }) },
+    } as unknown as ApiProxy, {
+      ledger: new HostTaskLedger(root()),
+      power: new PowerInhibitor({ platform: 'linux' }),
+    })
+    let pushes = 0
+    service.subscribe(() => { pushes += 1 })
+    const poll = service as unknown as { pollSessions(): Promise<void> }
+    await poll.pollSessions()
+    await poll.pollSessions()
+    const before = pushes
+    items = [{ sessionId: 'session-a', running: true }]
+    await poll.pollSessions()
+    expect(pushes).toBe(before + 1)
+    service.dispose()
+  })
+
+  it('eventPayload carries revision/scheduler/power and never the task list', () => {
+    const ledger = new HostTaskLedger(root())
+    ledger.applyRequest('create', { kind: 'create', id: 'task-a', input: { title: 'A', description: '', prompt: '' } })
+    const service = new TaskBoardHostService(sessionsList([]), {
+      ledger,
+      power: new PowerInhibitor({ platform: 'linux' }),
+    })
+    const payload = service.eventPayload()
+    expect(payload).not.toHaveProperty('tasks')
+    expect(payload.revision).toBe(ledger.state().revision)
+    expect(payload.scheduler).toEqual(ledger.summary().scheduler)
+    expect(payload.power).toEqual(service.power.snapshot())
+    service.dispose()
+  })
+})

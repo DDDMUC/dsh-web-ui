@@ -142,9 +142,15 @@ export class HostTaskLedger {
     }
   }
 
-  state(): LedgerState {
+  /** Revision + scheduler without any task cloning; feeds the SSE event frame. */
+  summary(): { revision: number; scheduler: TaskBoardSchedulerSnapshot } {
     const { importedSources: _imports, ...scheduler } = this.document.scheduler
-    return { revision: this.document.revision, tasks: cloneTasks(this.document.tasks), scheduler: { ...scheduler } }
+    return { revision: this.document.revision, scheduler: { ...scheduler } }
+  }
+
+  state(): LedgerState {
+    const { revision, scheduler } = this.summary()
+    return { revision, tasks: cloneTasks(this.document.tasks), scheduler }
   }
 
   subscribe(listener: () => void): () => void {
