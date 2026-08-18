@@ -229,5 +229,27 @@
     "descriptionEn": "An eye that grows: an accumulated design-taste corpus (good/bad examples plus codified principles) that sharpens with every example you feed; six palate_* tools (review/add/learn/list/principles/stats) plus a growth panel, node:sqlite with human-readable Markdown mirrors, zero runtime dependencies.",
     "repo": "https://github.com/guo6x/dsh-palate",
     "category": "knowledge"
+  },
+  {
+    "id": "dsh-archive-manager",
+    "name": "归档管理",
+    "nameEn": "Archive Manager",
+    "author": "z953218350",
+    "description": "设置页 Codex 风格会话归档管理：按项目分组、搜索筛选、预览对话内容、一键恢复与彻底物理删除，内置 zstd 解压引擎。",
+    "descriptionEn": "Codex-style archived session manager in settings: group by project, search and filter, preview conversation history, restore to sidebar, and permanently delete from disk; built-in zstd decompression.",
+    "repo": "https://github.com/z953218350/dsh-archive-manager",
+    "npm": "@mlgbnb/dsh-archive-manager",
+    "category": "utility"
+  },
+  {
+    "id": "dsh-history-tree",
+    "name": "历史树",
+    "nameEn": "History Tree",
+    "author": "z953218350",
+    "description": "在聊天消息左侧提供 Codex 风格对话轮次时间线点阵与悬浮历史概览卡片，支持鱼眼放大动效与点击直达对应轮次。",
+    "descriptionEn": "Codex-style conversation turn timeline rail and hover overview cards beside chat messages, with fish-eye magnification and click-to-jump navigation.",
+    "repo": "https://github.com/z953218350/dsh-history-tree",
+    "npm": "dsh-history-tree",
+    "category": "ui"
   }
 ]
