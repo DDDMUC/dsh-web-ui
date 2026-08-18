@@ -34,7 +34,12 @@ function mount(api: ReturnType<typeof fakeApi>, onClose: () => void): { containe
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
-  root.render(<SkillPanel api={api as never} onClose={onClose} />)
+  // Render inside act so the commit and passive effects (the document
+  // keydown listener) are drained synchronously; an unwrapped render rides
+  // the Scheduler and can lose the race on slow CI runners.
+  act(() => {
+    root.render(<SkillPanel api={api as never} onClose={onClose} />)
+  })
   return {
     container,
     dispose: () => {
