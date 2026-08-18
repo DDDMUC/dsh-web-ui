@@ -13,7 +13,7 @@
 皮肤内置在家族聚合包 `@linxin666/dsh-skins` 里（装它 = 全部皮肤一次到位），由皮肤管理器接线——本包不声明 `dsh.bundle`（skin.json 的 `wiring.bundleWired: false`），`dsh-skin use` 会把 insert 行写进 profile 自己的 patch：
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins@latest
 ```
 
 用 `dsh-skin use harbor`（monorepo 里的辅助脚本 `scripts/dsh-skin`）激活或切换；同一时刻只激活一款皮肤。

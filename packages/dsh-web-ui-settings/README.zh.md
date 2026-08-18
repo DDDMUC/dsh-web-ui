@@ -14,7 +14,7 @@
 ### 从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-web-ui-settings
+dsh plugin --profile web add @linxin666/dsh-client-ui-web-ui-settings@latest
 ```
 
 ### 从仓库安装（开发调试）

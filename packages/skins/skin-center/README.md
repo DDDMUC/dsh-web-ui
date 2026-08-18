@@ -19,9 +19,9 @@ Install the family skin aggregate package `@linxin666/dsh-skins` first (all skin
 
 ```sh
 # All skins (recommended)
-dsh plugin --profile web add @linxin666/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins@latest
 # Or just the skin center
-dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center
+dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center@latest
 # From the repo (dev): dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
 ```
 

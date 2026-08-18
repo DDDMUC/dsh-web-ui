@@ -17,7 +17,7 @@ A Matrix-style dark skin for the dsh Web GUI, designed for late-night bedroom us
 Skins ship inside the family aggregate package `@linxin666/dsh-skins` (installing it brings every skin) and are wired by the skin manager — this package declares no `dsh.bundle` (skin.json `wiring.bundleWired: false`), so `dsh-skin use` renders the insert row into the profile's own patch:
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins@latest
 ```
 
 Enable or switch with `dsh-skin use matrix` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.

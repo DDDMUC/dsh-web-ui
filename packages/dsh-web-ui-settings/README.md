@@ -14,7 +14,7 @@ The dsh web UI plugin group for the DSH settings page: it adds a first-level set
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-web-ui-settings
+dsh plugin --profile web add @linxin666/dsh-client-ui-web-ui-settings@latest
 ```
 
 ### From the repository (development)

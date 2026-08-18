@@ -15,7 +15,7 @@ The skin-family aggregate plugin: installing it gives you the skin center (`skin
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins@latest
 ```
 
 ### From the repository (development)

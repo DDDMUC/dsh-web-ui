@@ -15,7 +15,7 @@
 ### 从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-skins
+dsh plugin --profile web add @linxin666/dsh-skins@latest
 ```
 
 ### 从仓库安装（开发调试）

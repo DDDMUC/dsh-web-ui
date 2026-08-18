@@ -24,7 +24,7 @@ DSH Web GUI 的**技能中心**：按来源分级浏览已加载的全部 skill�
 ### 从 npm（推荐）
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-skill-explorer
+dsh plugin --profile web add @linxin666/dsh-client-ui-skill-explorer@latest
 ```
 
 ### 从仓库（开发）

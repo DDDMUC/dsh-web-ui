@@ -34,7 +34,7 @@ Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins an
 
 ```sh
 ### 从 npm 安装（推荐）
-dsh plugin --profile web add @linxin666/dsh-ssh
+dsh plugin --profile web add @linxin666/dsh-ssh@latest
 
 ### 从仓库安装（开发调试）
 git clone https://github.com/zhu1090093659/dsh-web-ui.git

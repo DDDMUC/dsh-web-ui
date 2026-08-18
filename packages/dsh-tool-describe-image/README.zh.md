@@ -43,7 +43,7 @@
 
 ```sh
 # 推荐：直接从 npm 安装
-dsh plugin --profile web add @linxin666/dsh-tool-describe-image
+dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest
 ```
 
 聚合包默认**无配置挂载**本插件：加载不受影响，首次调用会以清晰的错误提示

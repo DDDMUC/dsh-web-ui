@@ -34,7 +34,7 @@ A hot-pluggable DeepSeek Harness (DSH) Web GUI plugin with a Host-authoritative 
 Install the aggregate package or this package alone, then restart `dsh web`:
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-task-board
+dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest
 ```
 
 For local development:

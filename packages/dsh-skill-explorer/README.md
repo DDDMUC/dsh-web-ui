@@ -29,7 +29,7 @@ skills into a recoverable trash.
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-skill-explorer
+dsh plugin --profile web add @linxin666/dsh-client-ui-skill-explorer@latest
 ```
 
 ### From the repository (development)

@@ -103,7 +103,7 @@ Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins an
 
 ```sh
 # Recommended: install directly from npm
-dsh plugin --profile web add @linxin666/dsh-remote-web-ui
+dsh plugin --profile web add @linxin666/dsh-remote-web-ui@latest
 
 # Or from the repository (development loop)
 git clone https://github.com/zhu1090093659/dsh-web-ui.git
