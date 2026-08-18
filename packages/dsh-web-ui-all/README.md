@@ -15,7 +15,7 @@ The one-click aggregate package for the whole dsh web UI family: installing it b
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all
+dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
 ### From the repository (development)

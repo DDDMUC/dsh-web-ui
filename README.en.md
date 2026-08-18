@@ -169,7 +169,7 @@ An ornate navy workshop skin with two character layers and responsive sidebar de
 
 ### Get Started in 3 Steps
 
-1. Install the aggregate package: `dsh plugin --profile web add @linxin666/dsh-web-ui-all`
+1. Install the aggregate package: `dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest`
 2. Restart `dsh web`, every plugin entry appears in the sidebar
 3. Open "Settings > Plugin config" to toggle plugins, or try on skins in the skin center
 
@@ -178,12 +178,12 @@ An ornate navy workshop skin with two character layers and responsive sidebar de
 The plugins are on npm (the `@linxin666` scope). One command installs everything:
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all
+dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
-Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins`.
+Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins@latest`.
 
-> **Ended up with an old version?** pnpm 11+ gates brand-new releases via the built-in `minimumReleaseAge` (24 hours by default) and silently installs the previous version instead of the latest (e.g. `0.1.20` instead of `0.2.0`); an explicit `@latest` is gated the same way. Old skin-center versions lack the "bundled-carrier skin entry" fix, so applying a skin then restarting dies with `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js`. Fix: set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (or add `@linxin666/*` to `minimumReleaseAgeExclude`), then run `dsh plugin --profile web update @linxin666/dsh-web-ui-all` to reach the latest. See [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71).
+> **Ended up with an old version?** pnpm 11+ gates brand-new releases via the built-in `minimumReleaseAge` (24 hours by default) and silently installs the previous version instead of the latest (e.g. `0.1.20` instead of `0.2.0`); an explicit `@latest` is gated the same way. Old skin-center versions lack the "bundled-carrier skin entry" fix, so applying a skin then restarting dies with `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js`. Fix: set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (or add `@linxin666/*` to `minimumReleaseAgeExclude`), then run `dsh plugin --profile web update @linxin666/dsh-web-ui-all@latest` to reach the latest. See [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71).
 
 ### Install from the GitHub Repository (Development)
 
@@ -218,13 +218,13 @@ dsh web
 Prefer individual plugins? Install them one by one (published on npm, so use the package name directly):
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-liangshen              # Liang Shen Mode
-dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # Task board
-dsh plugin --profile web add @linxin666/dsh-ssh                    # Remote connection (SSH)
-dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # Image understanding tool
-dsh plugin --profile web add @linxin666/dsh-pet                    # Whale-girl pet
-dsh plugin --profile web add dsh-better-sidebar                    # Right panel (recommended; explorer/editor/terminal/git/browser)
-dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # Legacy right panel (aionui-panel, unsupported, transitional only)
+dsh plugin --profile web add @linxin666/dsh-liangshen@latest               # Liang Shen Mode
+dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # Task board
+dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # Remote connection (SSH)
+dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # Image understanding tool
+dsh plugin --profile web add @linxin666/dsh-pet@latest                     # Whale-girl pet
+dsh plugin --profile web add dsh-better-sidebar@latest                     # Right panel (recommended; explorer/editor/terminal/git/browser)
+dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # Legacy right panel (aionui-panel, unsupported, transitional only)
 ```
 
 ### Verify and Uninstall

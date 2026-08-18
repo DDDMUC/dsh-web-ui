@@ -167,7 +167,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ### 三步上手
 
-1. 安装聚合包：`dsh plugin --profile web add @linxin666/dsh-web-ui-all`
+1. 安装聚合包：`dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest`
 2. 重启 `dsh web`，侧边栏出现全部插件入口
 3. 打开「设置 > 插件配置」按需开关插件，或在皮肤中心试穿皮肤
 
@@ -176,12 +176,12 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 插件已发布到 npm（`@linxin666` scope），一条命令装齐：
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all
+dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
-装完重启 `dsh web`，侧边栏就有全部插件入口。只要皮肤就装 `@linxin666/dsh-skins`。
+装完重启 `dsh web`，侧边栏就有全部插件入口。只要皮肤就装 `@linxin666/dsh-skins@latest`。
 
-> **装到了旧版本？** pnpm 11+ 默认的发布年龄门禁（`minimumReleaseAge`，内置 24 小时）会把新发布的版本静默隔离，导致按上面命令实际装到上一个版本（如 `0.1.20` 而非 `0.2.0`）；显式写 `@latest` 也一样会被隔离。旧版皮肤中心缺少 "carrier 内建皮肤可解析入口" 的修复，应用皮肤后重启会以 `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js` 崩溃。解决办法：在 profile 的 `pnpm-workspace.yaml` 设置 `minimumReleaseAge: 0`（或把 `@linxin666/*` 加进 `minimumReleaseAgeExclude`），再执行 `dsh plugin --profile web update @linxin666/dsh-web-ui-all` 升级到最新版。详见 [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71)。
+> **装到了旧版本？** pnpm 11+ 默认的发布年龄门禁（`minimumReleaseAge`，内置 24 小时）会把新发布的版本静默隔离，导致按上面命令实际装到上一个版本（如 `0.1.20` 而非 `0.2.0`）；显式写 `@latest` 也一样会被隔离。旧版皮肤中心缺少 "carrier 内建皮肤可解析入口" 的修复，应用皮肤后重启会以 `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js` 崩溃。解决办法：在 profile 的 `pnpm-workspace.yaml` 设置 `minimumReleaseAge: 0`（或把 `@linxin666/*` 加进 `minimumReleaseAgeExclude`），再执行 `dsh plugin --profile web update @linxin666/dsh-web-ui-all@latest` 升级到最新版。详见 [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71)。
 
 ### 从 GitHub 仓库安装（开发调试）
 
@@ -215,13 +215,13 @@ dsh web
 不想装全家桶时，可单独安装任意插件（npm 已发布，直接用包名）：
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-liangshen              # 梁神模式
-dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # 任务看板
-dsh plugin --profile web add @linxin666/dsh-ssh                    # 远程连接（SSH）
-dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # 图像理解工具
-dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘宠物
-dsh plugin --profile web add dsh-better-sidebar                    # 右侧面板（推荐；资源管理器/编辑器/终端/Git/浏览器）
-dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # 旧右侧面板（aionui-panel，已停止支持，仅过渡保留）
+dsh plugin --profile web add @linxin666/dsh-liangshen@latest               # 梁神模式
+dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # 任务看板
+dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # 远程连接（SSH）
+dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # 图像理解工具
+dsh plugin --profile web add @linxin666/dsh-pet@latest                     # 鲸鱼娘宠物
+dsh plugin --profile web add dsh-better-sidebar@latest                     # 右侧面板（推荐；资源管理器/编辑器/终端/Git/浏览器）
+dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # 旧右侧面板（aionui-panel，已停止支持，仅过渡保留）
 ```
 
 ### 验证与卸载

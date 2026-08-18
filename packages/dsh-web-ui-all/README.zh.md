@@ -15,7 +15,7 @@ DSH Web UI 全家桶聚合插件：一键安装全部功能插件（task-board /
 ### 从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all
+dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
 ### 从仓库安装（开发调试）
