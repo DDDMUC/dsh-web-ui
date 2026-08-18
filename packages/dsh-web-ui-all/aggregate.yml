@@ -13,6 +13,7 @@
 patchFrom:
   - ../dsh-web-ui-settings
   - ../dsh-community-plugins
+  - ../dsh-plugin-manager
   - ../dsh-aionui-panel
   - ../dsh-task-board
   - ../dsh-git-graph
@@ -27,6 +28,7 @@ self:
   - web-ui-compat
 deps:
   - ../dsh-community-plugins
+  - ../dsh-plugin-manager
   - ../dsh-aionui-panel
   - ../dsh-task-board
   - ../dsh-git-graph
