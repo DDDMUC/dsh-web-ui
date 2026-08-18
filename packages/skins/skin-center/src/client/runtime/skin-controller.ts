@@ -67,10 +67,13 @@ export interface SkinControllerDeps {
 }
 
 export interface SkinControllerState {
-  /** The committed skin (null = stock look). */
+  /** The currently applied skin (null = stock look). */
   active: string | null
-  /** Skin currently previewed via tryOn (not committed). */
+  /** The previewed skin id (null = the stock look is being previewed). */
   trying: string | null
+  /** Whether a try-on preview is live (distinguishes previewing the stock
+   *  look from having no preview). */
+  previewing: boolean
 }
 
 export interface SkinController {
@@ -119,6 +122,7 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
   /** The committed selection try-on restores (component scope). */
   let committed: { id: string | null; entry: ControllerSkinEntry | null } = { id: null, entry: null }
   let trying: string | null = null
+  let previewing = false
   const listeners = new Set<() => void>()
   const emit = (): void => {
     for (const listener of listeners) listener()
@@ -243,8 +247,10 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
       if (shouldPersist) {
         committed = { id, entry }
         trying = null
+        previewing = false
       } else {
-        trying = id === committed.id ? null : id
+        previewing = id !== committed.id
+        trying = previewing ? id : null
       }
       emit()
       if (previous !== null) ledger.disposeActivation(previous)
@@ -277,9 +283,7 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     },
 
     async exitTryOn() {
-      trying = null
       const result = await switchInternal(committed.id, committed.entry, false)
-      emit()
       return result
     },
 
@@ -289,7 +293,7 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     },
 
     getState() {
-      return { active, trying }
+      return { active, trying, previewing }
     },
 
     shutdown() {
@@ -300,6 +304,7 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
       }
       active = null
       trying = null
+      previewing = false
       committed = { id: null, entry: null }
       emit()
       doc.documentElement.removeAttribute('data-dsh-skin')

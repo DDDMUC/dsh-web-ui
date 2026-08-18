@@ -20,15 +20,16 @@
  * @module @linxin666/dsh-client-ui-skin-center/routes-v2
  */
 
-import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { dirname, extname, join } from 'node:path'
+import { extname } from 'node:path'
 
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 
 import { json, requireSameOrigin } from './routes.ts'
+import { defaultActiveStatePath, readActiveSelection, writeActiveSelection } from './active-state.ts'
 import { transformSkinCss, SkinCssSafetyError } from './core/css-safety/transform.ts'
-import { findSkin, loadSkinCatalog, resolveInsideSkin, userSkinsDir } from './skin-repo.ts'
+import { findSkin, loadSkinCatalog, resolveInsideSkin } from './skin-repo.ts'
 import type { SkinCatalog, SkinCatalogEntry } from './skin-repo.ts'
 
 export const SKIN_CENTER_V2_PREFIX = '/api/skin-center/v2'
@@ -58,24 +59,6 @@ export interface RoutesV2Deps {
   activeStatePath?: string
   /** Now function for catalog capture. */
   now?: () => number
-}
-
-function defaultActiveStatePath(): string {
-  return join(userSkinsDir(), '..', 'skin-center-active.json')
-}
-
-function readActiveId(path: string): string | null {
-  try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as { active?: unknown }
-    return typeof parsed.active === 'string' ? parsed.active : null
-  } catch {
-    return null
-  }
-}
-
-function writeActiveId(path: string, id: string | null): void {
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify({ active: id }, null, 2) + '\n', 'utf8')
 }
 
 function sendCss(res: ServerResponse, status: number, code: string): void {
@@ -220,7 +203,7 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
   }
 
   const activeGetHandler: WebRoute['handler'] = (_req, res) => {
-    json(res, 200, { ok: true, active: readActiveId(activeStatePath) })
+    json(res, 200, { ok: true, active: readActiveSelection(activeStatePath) })
   }
 
   const activePostHandler: WebRoute['handler'] = async (req, res) => {
@@ -241,7 +224,7 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
       json(res, 404, { ok: false, error: 'skin-not-found' })
       return
     }
-    writeActiveId(activeStatePath, active)
+    writeActiveSelection(activeStatePath, active)
     json(res, 200, { ok: true, active })
   }
 

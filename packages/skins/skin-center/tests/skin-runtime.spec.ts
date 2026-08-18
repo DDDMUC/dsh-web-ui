@@ -229,13 +229,13 @@ describe('skin controller', () => {
     expect(persist).toHaveBeenCalledTimes(1)
 
     await controller.tryOn('matrix', entryFor('matrix'))
-    expect(controller.getState()).toEqual({ active: 'matrix', trying: 'matrix' })
+    expect(controller.getState()).toEqual({ active: 'matrix', trying: 'matrix', previewing: true })
     expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('matrix')
     // Try-on never persists.
     expect(persist).toHaveBeenCalledTimes(1)
 
     await controller.exitTryOn()
-    expect(controller.getState()).toEqual({ active: 'harbor', trying: null })
+    expect(controller.getState()).toEqual({ active: 'harbor', trying: null, previewing: false })
     expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('harbor')
     expect(persist).toHaveBeenCalledTimes(1)
   })
@@ -244,19 +244,20 @@ describe('skin controller', () => {
     const { controller } = harness()
     await controller.tryOn('matrix', entryFor('matrix'))
     expect(controller.getState().trying).toBe('matrix')
+    expect(controller.getState().previewing).toBe(true)
     await controller.switchTo('matrix', entryFor('matrix'))
-    expect(controller.getState()).toEqual({ active: 'matrix', trying: null })
+    expect(controller.getState()).toEqual({ active: 'matrix', trying: null, previewing: false })
   })
 
   it('subscribe emits on every state transition', async () => {
     const { controller } = harness()
-    const seen: Array<{ active: string | null; trying: string | null }> = []
+    const seen: Array<{ active: string | null; trying: string | null; previewing: boolean }> = []
     controller.subscribe(() => seen.push(controller.getState()))
     await controller.switchTo('harbor', entryFor('harbor'))
     await controller.tryOn('matrix', entryFor('matrix'))
     await controller.exitTryOn()
     expect(seen.length).toBeGreaterThanOrEqual(3)
-    expect(seen.at(-1)).toEqual({ active: 'harbor', trying: null })
+    expect(seen.at(-1)).toEqual({ active: 'harbor', trying: null, previewing: false })
   })
 
   it('shutdown disposes the activation and clears the attribute', async () => {

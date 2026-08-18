@@ -14,12 +14,16 @@ import z from 'schemastery'
 // Type-only: pulls the dsh-host-webserver service seat (ctx.webServer).
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
+import { makeSkinCenterV2Routes, SKIN_CENTER_V2_PREFIX } from './routes-v2.ts'
+import { makeSkinIndexTap } from './tap-index-adapter.ts'
+import { defaultActiveStatePath, readActiveSelection } from './active-state.ts'
 import { makeWeRoutes, WE_API_PREFIX } from './we-routes.ts'
 import { defaultWallpapersStoreDir } from './we-library.ts'
 import { resolveHarnessHome } from './skin-switch.ts'
 import { mountOnce } from './mount-once.ts'
 
 export { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
+export { makeSkinCenterV2Routes, SKIN_CENTER_V2_PREFIX } from './routes-v2.ts'
 export { makeWeRoutes, WE_API_PREFIX } from './we-routes.ts'
 
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
@@ -146,6 +150,7 @@ function applyImpl(ctx: Context): void {
 
   const routes = [
     ...makeSkinCenterRoutes(),
+    ...makeSkinCenterV2Routes(),
     ...makeWeRoutes({
       getConfig: () => wallpaperSource(),
       storeDir: defaultWallpapersStoreDir(resolveHarnessHome()),
@@ -156,6 +161,13 @@ function applyImpl(ctx: Context): void {
       const disposers: Array<() => void> = []
       try {
         for (const route of routes) disposers.push(ctx.webServer.register(route))
+        // The anti-FOUC seam (issue #506): stamp html[data-dsh-skin] and the
+        // stylesheet links into every served index.html. All tapIndex usage
+        // converges in the adapter; it fails closed to the stock look.
+        const statePath = defaultActiveStatePath()
+        disposers.push(ctx.webServer.tapIndex(makeSkinIndexTap({
+          readActiveId: () => readActiveSelection(statePath),
+        })))
       } catch (error) {
         // Roll back whatever registered before the failure so a partial
         // mount never leaves half a route family live; the outer catch logs.
