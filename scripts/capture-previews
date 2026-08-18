@@ -4,9 +4,11 @@
 /**
  * capture-previews — regenerate every skin's light/dark preview screenshots.
  *
- * Opens gallery/preview.html (the real skin renderer: the simulator executes
- * the actual client bundle, chrome bars and all) in headless Chromium and
- * screenshots each skin × {light, dark} into packages/skins/<id>/preview/{light,dark}.png.
+ * Opens gallery/preview.html (the v2 static renderer: the simulator injects
+ * the skin's stylesheets into the official-facade snapshot; skin JS is never
+ * executed, backgroundMedia is not rendered) in headless Chromium and
+ * screenshots each skin × {light, dark} into
+ * packages/skins/skin-center/skins/<id>/preview/{light,dark}.png.
  *
  * Requires playwright + its chromium browser:
  *   npm i -D playwright && npx playwright install chromium
@@ -92,20 +94,17 @@ async function main() {
 
   for (const skin of skins) {
     for (const theme of ['light', 'dark']) {
-      const dir = path.join(ROOT, 'packages', 'skins', skin.id, 'preview')
+      const dir = path.join(ROOT, 'packages', 'skins', 'skin-center', 'skins', skin.id, 'preview')
       fs.mkdirSync(dir, { recursive: true })
       const url = `${base}/preview.html?skin=${skin.id}&theme=${theme}&chrome=0`
       await page.goto(url, { waitUntil: 'networkidle' })
-      // 等皮肤 bundle 执行完（chrome 栏注入 + 样式生效）：等待该皮肤自己的
-      // body 属性出现（取 manifest/skin.json 的 bodyAttr，缺省按 id 推导）。
-      const bodyAttr = skin.bodyAttr || `data-dsh-${skin.id}`
-      // dataset 键形式：data-dsh-retro -> dshRetro
-      const datasetKey = bodyAttr.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase())
-      await page.waitForFunction((key) => {
+      // 等皮肤样式注入完成：模拟器在 <html> 上写 data-dsh-skin（与真实加载器
+      // 的作用域属性一致），或渲染错误横幅。
+      await page.waitForFunction(() => {
         const err = document.getElementById('skinErr')
         if (err && err.style.display === 'block') return true
-        return document.body.dataset[key] !== undefined
-      }, datasetKey, { timeout: 10000 })
+        return document.documentElement.dataset.dshSkin !== undefined
+      }, undefined, { timeout: 10000 })
       const errText = await page.evaluate(() => {
         const el = document.getElementById('skinErr')
         return el && el.style.display === 'block' ? el.textContent : null

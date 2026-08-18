@@ -57,6 +57,7 @@ export function mountPanel(controller: PanelController, api: SshApi): () => void
     if (column === undefined) return
     container = document.createElement('div')
     container.dataset.dshSshView = ''
+    container.dataset.dshPlugin = 'ssh'
     container.className = css.view
     column.appendChild(container)
     root = createRoot(container)

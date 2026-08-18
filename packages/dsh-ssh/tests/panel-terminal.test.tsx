@@ -35,6 +35,19 @@ function fakeApi(): SshApi {
   } as unknown as SshApi
 }
 
+describe('TerminalTab L2 semantic attributes (#506)', () => {
+  it('tags the terminal container as the terminal part', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => { root.render(<TerminalTab api={fakeApi()} />) })
+    await act(async () => { await Promise.resolve() })
+    const terminal = container.querySelector('[data-dsh-part="terminal"]')
+    expect(terminal).not.toBeNull()
+    await act(async () => { root.unmount() })
+  })
+})
+
 describe('TerminalTab dispose and resize cleanup', () => {
   it('registers a resize listener on mount and removes it on unmount', async () => {
     const addResize = vi.fn()

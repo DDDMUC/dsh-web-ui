@@ -1,10 +1,11 @@
 /**
  * In-GUI skin center, browser half: registers the Skin Center as a first-level
- * settings section (`settings.section`) and provides the try-on controller +
- * official theme handle to it. The section lists every installed skin
- * (embedded registry), tries it on live inside the GUI, exits with a full
- * restore, and applies the chosen skin in one click. The plugin writes only
- * DOM and the settings ledger — no services, no events, no model access.
+ * settings section (`settings.section`) and boots the v2 skin runtime
+ * (effect ledger + atomic switch controller + semantic adapter + catalog
+ * store). The section lists every catalog skin (built-in asset directories +
+ * $DSH_HOME/skins), tries it on live, and applies in one click — no reload,
+ * no cordis.patch.yml rewrite (issue #506). The plugin writes only DOM and
+ * the settings ledger — no services, no events, no model access.
  */
 import type { ClientContext, SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
@@ -16,10 +17,10 @@ import { SkinCenterSection, type SkinCenterInjected } from './SkinCenter.tsx'
 import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
 import { SKIN_WALLPAPER_NS, WallpaperController } from './wallpaper.ts'
 import { en, zh, type SkinCenterKey } from './locales.ts'
-import { TryOnController } from './try-on.ts'
+import { bootSkinRuntime } from './runtime/boot.ts'
 
 export type { SkinCenterComponentProps, SkinCenterInjected } from './SkinCenter.tsx'
-export { TryOnController } from './try-on.ts'
+export { bootSkinRuntime } from './runtime/boot.ts'
 
 /** Locale namespace owned by this plugin. */
 export const NS = 'skinCenter'
@@ -62,7 +63,6 @@ export function apply(ctx: ClientContext): void {
   }, 'ui-skin-center: body scope')
 
   const theme = ctx.get('theme') as ThemeRuntime
-  const controller = new TryOnController()
   // Background occluder over the shared skin-background namespace. The scope
   // is bound to this plugin's fiber, so it is torn down with the card.
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
@@ -86,8 +86,22 @@ export function apply(ctx: ClientContext): void {
   }>({ namespace: SKIN_WALLPAPER_NS })
   const wallpaper = new WallpaperController(wallpaperScope)
   ctx.effect(() => () => wallpaper.dispose(), 'ui-skin-center: wallpaper dispose')
+
+  // The v2 skin runtime store: outlives the settings card so a try-on
+  // preview survives closing and reopening the panel. Background-media
+  // priority: an active WE wallpaper suppresses skin manifest backgrounds;
+  // toggling the wallpaper re-activates the current skin so the priority
+  // flip paints immediately.
+  const runtime = bootSkinRuntime({
+    suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.activeId() !== null && wallpaper.activeId() !== '',
+  })
+  ctx.effect(() => () => runtime.shutdown(), 'ui-skin-center: runtime shutdown')
+  ctx.effect(
+    () => wallpaper.subscribe(() => { void runtime.controller.refresh() }),
+    'ui-skin-center: wallpaper priority refresh',
+  )
   const injected = (): SkinCenterInjected => ({
-    controller,
+    runtime,
     theme: {
       getTheme: () => theme.getTheme(),
       subscribe: listener => ctx.on('theme/change', listener),
