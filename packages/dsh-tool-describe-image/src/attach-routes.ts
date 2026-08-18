@@ -24,8 +24,19 @@ import type { Config } from './config-resolve.ts'
 
 export { renderAttachmentMarkdown as attachmentMarkdown }
 
-/** Request-body byte cap: base64 of a {@link DEFAULT_MAX_BYTES} image plus envelope slack. */
+/** Request-body byte cap for the default image bound (kept for docs/tests). */
 export const MAX_ATTACH_BODY_BYTES = 16 * 1024 * 1024
+
+/**
+ * JSON request-body cap for one attach: base64 of a `maxBytes` image
+ * inflates to ~4/3 its byte length, plus JSON envelope slack. Scaling it with
+ * the configured image bound (not a fixed 16 MiB) keeps a higher configured
+ * maxBytes usable — a fixed cap silently rejected any image whose base64
+ * exceeded it.
+ */
+export function attachBodyCap(maxBytes: number): number {
+  return Math.ceil(maxBytes / 3) * 4 + 1024
+}
 
 /** Stable error codes the browser half surfaces without leaking internals. */
 export interface AttachError {
@@ -306,12 +317,13 @@ export function registerAttachRoute(ctx: Context, readMaxBytes: () => number = (
         json(res, { ok: false, error: METHOD_NOT_ALLOWED }, 405)
         return
       }
-      const body = await readJsonBody(req, MAX_ATTACH_BODY_BYTES)
+      const maxBytes = readMaxBytes()
+      const body = await readJsonBody(req, attachBodyCap(maxBytes))
       if (body === null) {
-        json(res, { ok: false, error: { code: 'internal', message: 'request body must be JSON within 16 MiB' } }, 400)
+        json(res, { ok: false, error: { code: 'internal', message: 'request body must be JSON within the configured image bound' } }, 400)
         return
       }
-      const outcome = await handleAttach(ctx, readMaxBytes(), body)
+      const outcome = await handleAttach(ctx, maxBytes, body)
       if (outcome.ok) {
         json(res, { ok: true, value: { note: outcome.note, markdown: outcome.markdown, ref: outcome.ref } })
         return

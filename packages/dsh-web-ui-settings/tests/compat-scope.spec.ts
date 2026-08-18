@@ -45,19 +45,22 @@ vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
 
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 
-/** A manual primary scope: a snapshot store plus recorded writes. */
+/** A manual primary scope: a snapshot store plus recorded writes and loads. */
 function fakePrimary<T>(initial: SettingsScopeSnapshot<T>) {
   const store = createSnapshotStore<SettingsScopeSnapshot<T>>(initial)
   const sets: Array<[string, unknown]> = []
+  const loads: number[] = []
   return {
     scope: {
       getSnapshot: () => store.getSnapshot(),
       subscribe: (listener: () => void) => store.subscribe(listener),
       set: async (field: string, value: unknown) => { sets.push([field, value]) },
       unset: async () => {},
-    } satisfies SettingsScope<T>,
+      load: async () => { loads.push(1) },
+    } satisfies SettingsScope<T> & { load(): Promise<void> },
     update: (patch: Partial<SettingsScopeSnapshot<T>>) => { store.set({ ...store.getSnapshot(), ...patch }) },
     sets,
+    loads,
   }
 }
 
@@ -185,12 +188,85 @@ function batchView(ns: string, value: unknown, revision: number, extra: { user?:
 }
 
 describe('createCompatScope batch mutate', () => {
-  it('exposes no mutate while the official scope serves the namespace', async () => {
+  it('exposes no mutate while the official scope serves the namespace without an official wire face', async () => {
     const primary = fakePrimary<{ enabled: boolean }>(ready({ enabled: true }))
     const { fetchFn } = fakeFetch(async () => describeResult([]))
     const scope = createCompatScope<{ enabled: boolean }>({ namespace: 'task-board', primary: primary.scope, fetchFn })
     expect(scope.getSnapshot().status).toBe('ready')
     expect(typeof (scope as unknown as { mutate?: unknown }).mutate).not.toBe('function')
+  })
+
+  it('batches through the official wire while the official scope serves the namespace', async () => {
+    const primary = fakePrimary<{ baseURL: string; model: string }>(ready({ baseURL: 'https://a/v1', model: 'm' }, 7))
+    const calls: Array<Record<string, unknown>> = []
+    const official = {
+      mutate: async (request: Record<string, unknown>) => {
+        calls.push(request)
+        return {
+          result: {
+            ok: true as const,
+            value: batchView('describe-image', { baseURL: 'https://a/v1', model: 'm' }, 8, { user: { baseURL: 'https://a/v1', model: 'm' } }),
+          },
+        }
+      },
+    }
+    const scope = createCompatScope<{ baseURL: string; model: string }>({ namespace: 'describe-image', primary: primary.scope, official })
+    expect(scope.getSnapshot().status).toBe('ready')
+    const mutate = (scope as unknown as { mutate?: (writes: unknown[]) => Promise<unknown> }).mutate
+    expect(typeof mutate).toBe('function')
+    const result = await (mutate as (writes: { field: string; op: 'set'; value: unknown }[]) => Promise<{ ok: boolean; fields: { field: string; landed: boolean }[] }>)([
+      { field: 'baseURL', op: 'set', value: 'https://a/v1' },
+      { field: 'model', op: 'set', value: 'm' },
+    ])
+    expect(calls).toHaveLength(1)
+    expect(calls[0].ns).toBe('describe-image')
+    expect(calls[0].expectedRevision).toBe(7)
+    expect(calls[0].ops).toEqual([
+      { op: 'set', path: ['baseURL'], value: 'https://a/v1' },
+      { op: 'set', path: ['model'], value: 'm' },
+    ])
+    expect(result.ok).toBe(true)
+    expect(result.fields).toEqual([
+      { field: 'baseURL', landed: true },
+      { field: 'model', landed: true },
+    ])
+    expect(primary.loads.length).toBeGreaterThan(0)
+  })
+
+  it('judges a redacted secret field by its secret-set marker on the official wire', async () => {
+    const primary = fakePrimary<{ baseURL: string; apiKey?: string }>(ready({ baseURL: 'https://a/v1' }, 7))
+    const official = {
+      mutate: async () => ({
+        result: {
+          ok: true as const,
+          value: batchView('describe-image', { baseURL: 'https://a/v1' }, 8, { user: { baseURL: 'https://a/v1' }, secrets: [{ path: ['apiKey'], set: true }] }),
+        },
+      }),
+    }
+    const scope = createCompatScope<{ baseURL: string; apiKey?: string }>({ namespace: 'describe-image', primary: primary.scope, official })
+    const mutate = (scope as unknown as { mutate?: (writes: unknown[]) => Promise<{ ok: boolean; fields: { field: string; landed: boolean }[] }> }).mutate
+    const result = await mutate!([{ field: 'apiKey', op: 'set', value: 'sk-x' }])
+    expect(result.ok).toBe(true)
+    expect(result.fields).toEqual([{ field: 'apiKey', landed: true }])
+  })
+
+  it('surfaces refusal code and message from the official error envelope', async () => {
+    const primary = fakePrimary<{ baseURL: string; model: string }>(ready({ baseURL: 'https://a/v1', model: 'm' }, 7))
+    const official = {
+      mutate: async () => ({
+        result: {
+          ok: false as const,
+          error: { code: 'settings-rejected', message: 'describe-image: baseURL must be an absolute http(s) URL' },
+        },
+      }),
+    }
+    const scope = createCompatScope<{ baseURL: string; model: string }>({ namespace: 'describe-image', primary: primary.scope, official })
+    const mutate = (scope as unknown as { mutate?: (writes: unknown[]) => Promise<{ ok: boolean; code?: string; message?: string; fields: { field: string; landed: boolean }[] }> }).mutate
+    const result = await mutate!([{ field: 'baseURL', op: 'set', value: 'ftp://x' }])
+    expect(result.ok).toBe(false)
+    expect(result.code).toBe('settings-rejected')
+    expect(result.message).toBe('describe-image: baseURL must be an absolute http(s) URL')
+    expect(primary.loads.length).toBeGreaterThan(0)
   })
 
   it('posts every op in one /mutate and reports per-field success', async () => {

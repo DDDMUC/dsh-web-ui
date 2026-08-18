@@ -86,6 +86,9 @@ export class TunnelManager {
   private urlTimer: unknown | undefined
   private restartTimer: unknown | undefined
   private attempts = 0
+  // Generation counter: a stale ensureBinary resolution from an earlier
+  // start() must not spawn a second handle after a stop/start cycle.
+  private generation = 0
   private stopping = false
   private readonly urlListeners = new Set<(url: string) => void>()
   private readonly phaseListeners = new Set<(info: TunnelInfo) => void>()
@@ -123,6 +126,7 @@ export class TunnelManager {
     this.stopping = false
     this.targetUrl = targetUrl
     this.attempts = 0
+    this.generation += 1
     this.attempt()
   }
 
@@ -153,12 +157,13 @@ export class TunnelManager {
 
   private attempt(): void {
     if (this.stopping || this.targetUrl === undefined) return
+    const gen = this.generation
     this.setPhase('starting')
     this.handle = undefined
     this.url = undefined
     this.error = undefined
     void this.ensureBinary().then(() => {
-      if (this.stopping || this.targetUrl === undefined) return
+      if (this.stopping || this.targetUrl === undefined || gen !== this.generation) return
       const handle = this.factory(this.targetUrl)
       this.handle = handle
       this.urlTimer = this.timer.setTimeout(() => {
@@ -181,7 +186,7 @@ export class TunnelManager {
       })
     }).catch((value: unknown) => {
       // Binary install failed (no network, no platform build): report it.
-      if (this.stopping || this.targetUrl === undefined) return
+      if (this.stopping || this.targetUrl === undefined || gen !== this.generation) return
       const message = value instanceof Error ? value.message : String(value)
       this.fail(`could not obtain the cloudflared binary: ${message}`)
     })

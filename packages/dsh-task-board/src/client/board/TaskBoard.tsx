@@ -50,7 +50,7 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
   const openTask = useCallback((id: string): void => { controller.openTask(id) }, [controller])
 
   return (
-    <div className={css.board} data-dsh-taskboard-board="">
+    <div className={css.board} data-dsh-taskboard-board="" data-dsh-plugin="task-board">
       <header className={css.boardHeader}>
         <button
           type="button"
@@ -107,7 +107,7 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
 
       <div className={css.columns}>
         {archiveView ? (
-          <section className={css.column} data-status="archived">
+          <section className={css.column} data-status="archived" data-dsh-part="column">
             <header className={css.columnHeader}>
               <h3 className={css.columnTitle}>{t('board.archive')}</h3>
               <span className={css.columnCount}>{visible.length}</span>
@@ -123,7 +123,7 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
           COLUMNS.map(column => {
             const tasks = visible.filter(task => task.status === column.status)
             return (
-              <section key={column.status} className={css.column} data-status={column.status}>
+              <section key={column.status} className={css.column} data-status={column.status} data-dsh-part="column">
                 <header className={css.columnHeader}>
                   <span className={css.statusDot} data-status={column.status} aria-hidden="true" />
                   <h3 className={css.columnTitle}>{t(STATUS_KEY[column.status])}</h3>

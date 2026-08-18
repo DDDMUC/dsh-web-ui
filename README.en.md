@@ -39,6 +39,8 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
 
 dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everything is development, everything is a plugin" — and is its most complete realization on the Web GUI: not just a plugin package, but a plugin ecosystem with extreme extensibility. The "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet and the skin center — each ships as an independent, self-contained module: pluggable, swappable, re-developable. Install the whole family to assemble a complete workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate package can even bolt on external plugins like `dsh-better-sidebar` — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md).
 
+"Everything is a plugin" now extends to the skins themselves: after the v2 skin-center refactor, a skin is no longer an npm package coupled to the official DSH — it is a pure asset directory (a skin.json manifest plus styles, art and optional effect scripts) loaded on demand by the skin center, the single loader. Skins are fully decoupled from the official core and coupled only to the skin center: official upgrades no longer touch any skin, and adding a skin means dropping in a directory — no publish, no install. Plugins own the logic, skins own the look; the boundary is finally clean.
+
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
 | Capability | Stock dsh web | dsh-web-ui family |
@@ -126,9 +128,9 @@ The skin center has eleven skins, each with try-on before apply: the preview app
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-Ten existing skins at a glance (screenshots for Dragon Heir / Miku are pending); Maid Atelier has its own preview below:
+All 12 skins at a glance; Maid Atelier has its own preview below:
 
-![All 10 skins](docs/images/skins-montage.png)
+![All 12 skins](docs/images/skins-montage.png)
 
 ### Windows XP (Luna)
 
@@ -158,7 +160,7 @@ A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting
 
 An ornate navy workshop skin with two character layers and responsive sidebar decoration. This skin is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use.
 
-![Maid Atelier light](packages/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/maid-atelier/preview/dark.png)
+![Maid Atelier light](packages/skins/skin-center/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/skin-center/skins/maid-atelier/preview/dark.png)
 
 ## Quick Start
 
@@ -169,7 +171,7 @@ An ornate navy workshop skin with two character layers and responsive sidebar de
 
 ### Get Started in 3 Steps
 
-1. Install the aggregate package: `dsh plugin --profile web add @linxin666/dsh-web-ui-all`
+1. Install the aggregate package: `dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest`
 2. Restart `dsh web`, every plugin entry appears in the sidebar
 3. Open "Settings > Plugin config" to toggle plugins, or try on skins in the skin center
 
@@ -178,12 +180,12 @@ An ornate navy workshop skin with two character layers and responsive sidebar de
 The plugins are on npm (the `@linxin666` scope). One command installs everything:
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all
+dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
-Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins`.
+Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-client-ui-skin-center`.
 
-> **Ended up with an old version?** pnpm 11+ gates brand-new releases (~10 days) via the `minimumReleaseAge` setting and silently installs an older version instead of the latest (e.g. `0.1.6` instead of `0.1.10`). Old skin-center versions lack the "bundled-carrier skin entry" fix, so applying a skin then restarting dies with `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js`. Fix: set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (or add `@linxin666/*` to `minimumReleaseAgeExclude`), then run `dsh plugin --profile web update @linxin666/dsh-web-ui-all` to reach the latest. See [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71).
+> **Ended up with an old version?** pnpm 11+ gates brand-new releases via the built-in `minimumReleaseAge` (24 hours by default) and silently installs the previous version instead of the latest (e.g. `0.1.20` instead of `0.2.0`); an explicit `@latest` is gated the same way. Old skin-center versions lack the "bundled-carrier skin entry" fix, so applying a skin then restarting dies with `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js`. Fix: set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (or add `@linxin666/*` to `minimumReleaseAgeExclude`), then run `dsh plugin --profile web update @linxin666/dsh-web-ui-all@latest` to reach the latest. See [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71).
 
 ### Install from the GitHub Repository (Development)
 
@@ -206,7 +208,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
 dsh web
 ```
 
-> Skins only? Run only link-profile in step 3, then install `packages/dsh-skins`.
+> Skins only? Run only link-profile in step 3, then install `packages/skins/skin-center`.
 >
 > Note: the profile directory is not a pnpm workspace, so `workspace:*` dependencies in the aggregate package
 > fall back to the published npm versions; if the npm versions lag or break you may see "host mounted but UI
@@ -218,13 +220,13 @@ dsh web
 Prefer individual plugins? Install them one by one (published on npm, so use the package name directly):
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-liangshen              # Liang Shen Mode
-dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # Task board
-dsh plugin --profile web add @linxin666/dsh-ssh                    # Remote connection (SSH)
-dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # Image understanding tool
-dsh plugin --profile web add @linxin666/dsh-pet                    # Whale-girl pet
-dsh plugin --profile web add dsh-better-sidebar                    # Right panel (recommended; explorer/editor/terminal/git/browser)
-dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # Legacy right panel (aionui-panel, unsupported, transitional only)
+dsh plugin --profile web add @linxin666/dsh-liangshen@latest               # Liang Shen Mode
+dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # Task board
+dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # Remote connection (SSH)
+dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # Image understanding tool
+dsh plugin --profile web add @linxin666/dsh-pet@latest                     # Whale-girl pet
+dsh plugin --profile web add dsh-better-sidebar@latest                     # Right panel (recommended; explorer/editor/terminal/git/browser)
+dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # Legacy right panel (aionui-panel, unsupported, transitional only)
 ```
 
 ### Verify and Uninstall
@@ -246,7 +248,7 @@ Technical details live in [docs/plugins.md](docs/plugins.md).
 
 > First install may stop on `ERR_PNPM_IGNORED_BUILDS` (pnpm blocks dependency build scripts): copy the printed keys (`cloudflared` / `cpu-features` / `ssh2`) into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
 
-> **pnpm 11 release-age gate**: for about 10 days after a new release, pnpm 11's `minimumReleaseAge` gate can silently resolve to older `@linxin666/*` versions (e.g. `dsh-web-ui-all@0.1.5` with the old skin center). The old skin center writes references to standalone skin packages when a skin is applied, which crashes `dsh web` at boot (`ERR_MODULE_NOT_FOUND ... dsh-client-ui-skin-*`). Exclude every `@linxin666/*` package in the profile's `pnpm-workspace.yaml` before installing or updating:
+> **pnpm 11 release-age gate**: within 24 hours of a new release (the built-in `minimumReleaseAge` default), pnpm 11 can silently resolve to older `@linxin666/*` versions (e.g. `dsh-web-ui-all@0.1.20` with the old skin center); an explicit `@latest` is gated the same way. The old skin center writes references to standalone skin packages when a skin is applied, which crashes `dsh web` at boot (`ERR_MODULE_NOT_FOUND ... dsh-client-ui-skin-*`). Exclude every `@linxin666/*` package in the profile's `pnpm-workspace.yaml` before installing or updating:
 >
 > ```yaml
 > minimumReleaseAgeExclude:
@@ -288,7 +290,7 @@ A: Skins support try-on before apply: the preview applies instantly and reverts 
 <details>
 <summary><strong>I only want the skins, or just one plugin?</strong></summary>
 
-A: Install `@linxin666/dsh-skins` for skins only, or use the package names under "Install a Single Plugin". Both work with the npm install flow.
+A: Install `@linxin666/dsh-client-ui-skin-center` for skins only, or use the package names under "Install a Single Plugin". Both work with the npm install flow.
 
 </details>
 
@@ -355,23 +357,28 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
   <a href="https://github.com/zhu1090093659"><img src="https://github.com/zhu1090093659.png?size=64" width="48" height="48" alt="zhu1090093659" title="zhu1090093659" /></a>
   <a href="https://github.com/sharkymew"><img src="https://github.com/sharkymew.png?size=64" width="48" height="48" alt="sharkymew" title="sharkymew" /></a>
   <a href="https://github.com/stushansusu"><img src="https://github.com/stushansusu.png?size=64" width="48" height="48" alt="stushansusu" title="stushansusu" /></a>
-  <a href="https://github.com/Menghuan1918"><img src="https://github.com/Menghuan1918.png?size=64" width="48" height="48" alt="Menghuan1918" title="Menghuan1918" /></a>
   <a href="https://github.com/mkloveyy"><img src="https://github.com/mkloveyy.png?size=64" width="48" height="48" alt="mkloveyy" title="mkloveyy" /></a>
-  <a href="https://github.com/TiankunDai"><img src="https://github.com/TiankunDai.png?size=64" width="48" height="48" alt="TiankunDai" title="TiankunDai" /></a>
+  <a href="https://github.com/SnowNightt"><img src="https://github.com/SnowNightt.png?size=64" width="48" height="48" alt="SnowNightt" title="SnowNightt" /></a>
+  <a href="https://github.com/ch1bug"><img src="https://github.com/ch1bug.png?size=64" width="48" height="48" alt="ch1bug" title="ch1bug" /></a>
   <a href="https://github.com/thinkmoon"><img src="https://github.com/thinkmoon.png?size=64" width="48" height="48" alt="thinkmoon" title="thinkmoon" /></a>
-  <a href="https://github.com/EricWang1358"><img src="https://github.com/EricWang1358.png?size=64" width="48" height="48" alt="EricWang1358" title="EricWang1358" /></a>
+  <a href="https://github.com/Menghuan1918"><img src="https://github.com/Menghuan1918.png?size=64" width="48" height="48" alt="Menghuan1918" title="Menghuan1918" /></a>
   <a href="https://github.com/Qiuner"><img src="https://github.com/Qiuner.png?size=64" width="48" height="48" alt="Qiuner" title="Qiuner" /></a>
+  <a href="https://github.com/TiankunDai"><img src="https://github.com/TiankunDai.png?size=64" width="48" height="48" alt="TiankunDai" title="TiankunDai" /></a>
+  <a href="https://github.com/EricWang1358"><img src="https://github.com/EricWang1358.png?size=64" width="48" height="48" alt="EricWang1358" title="EricWang1358" /></a>
+  <a href="https://github.com/guo6x"><img src="https://github.com/guo6x.png?size=64" width="48" height="48" alt="guo6x" title="guo6x" /></a>
+  <a href="https://github.com/Qinling-Melon-Farmers"><img src="https://github.com/Qinling-Melon-Farmers.png?size=64" width="48" height="48" alt="Qinling-Melon-Farmers" title="Qinling-Melon-Farmers" /></a>
   <a href="https://github.com/LittleDarkZero"><img src="https://github.com/LittleDarkZero.png?size=64" width="48" height="48" alt="LittleDarkZero" title="LittleDarkZero" /></a>
+  <a href="https://github.com/z953218350"><img src="https://github.com/z953218350.png?size=64" width="48" height="48" alt="z953218350" title="z953218350" /></a>
   <a href="https://github.com/spacexun2"><img src="https://github.com/spacexun2.png?size=64" width="48" height="48" alt="spacexun2" title="spacexun2" /></a>
   <a href="https://github.com/matriox1003"><img src="https://github.com/matriox1003.png?size=64" width="48" height="48" alt="matriox1003" title="matriox1003" /></a>
   <a href="https://github.com/ads4395-prog"><img src="https://github.com/ads4395-prog.png?size=64" width="48" height="48" alt="ads4395-prog" title="ads4395-prog" /></a>
   <a href="https://github.com/Small-tailqwq"><img src="https://github.com/Small-tailqwq.png?size=64" width="48" height="48" alt="Small-tailqwq" title="Small-tailqwq" /></a>
   <a href="https://github.com/Grivn"><img src="https://github.com/Grivn.png?size=64" width="48" height="48" alt="Grivn" title="Grivn" /></a>
+  <a href="https://github.com/wingsky-1"><img src="https://github.com/wingsky-1.png?size=64" width="48" height="48" alt="wingsky-1" title="wingsky-1" /></a>
   <a href="https://github.com/JsonFish"><img src="https://github.com/JsonFish.png?size=64" width="48" height="48" alt="JsonFish" title="JsonFish" /></a>
   <a href="https://github.com/Abyss-Seeker"><img src="https://github.com/Abyss-Seeker.png?size=64" width="48" height="48" alt="Abyss-Seeker" title="Abyss-Seeker" /></a>
   <a href="https://github.com/YEYUbaka"><img src="https://github.com/YEYUbaka.png?size=64" width="48" height="48" alt="YEYUbaka" title="YEYUbaka" /></a>
   <a href="https://github.com/whitelonng"><img src="https://github.com/whitelonng.png?size=64" width="48" height="48" alt="whitelonng" title="whitelonng" /></a>
-  <a href="https://github.com/guo6x"><img src="https://github.com/guo6x.png?size=64" width="48" height="48" alt="guo6x" title="guo6x" /></a>
   <a href="https://github.com/Zacklinkk"><img src="https://github.com/Zacklinkk.png?size=64" width="48" height="48" alt="Zacklinkk" title="Zacklinkk" /></a>
   <a href="https://github.com/weike-zhang"><img src="https://github.com/weike-zhang.png?size=64" width="48" height="48" alt="weike-zhang" title="weike-zhang" /></a>
   <a href="https://github.com/RevolutionLA"><img src="https://github.com/RevolutionLA.png?size=64" width="48" height="48" alt="RevolutionLA" title="RevolutionLA" /></a>
@@ -382,6 +389,7 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
   <a href="https://github.com/taekchef"><img src="https://github.com/taekchef.png?size=64" width="48" height="48" alt="taekchef" title="taekchef" /></a>
   <a href="https://github.com/Chimney"><img src="https://github.com/Chimney.png?size=64" width="48" height="48" alt="Chimney" title="Chimney" /></a>
   <a href="https://github.com/ma15803216102"><img src="https://github.com/ma15803216102.png?size=64" width="48" height="48" alt="ma15803216102" title="ma15803216102" /></a>
+  <a href="https://github.com/dongwenxiu83-web"><img src="https://github.com/dongwenxiu83-web.png?size=64" width="48" height="48" alt="dongwenxiu83-web" title="dongwenxiu83-web" /></a>
   <a href="https://github.com/dickpy"><img src="https://github.com/dickpy.png?size=64" width="48" height="48" alt="dickpy" title="dickpy" /></a>
   <a href="https://github.com/kop022"><img src="https://github.com/kop022.png?size=64" width="48" height="48" alt="kop022" title="kop022" /></a>
   <a href="https://github.com/nicecx"><img src="https://github.com/nicecx.png?size=64" width="48" height="48" alt="nicecx" title="nicecx" /></a>
@@ -389,7 +397,6 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
   <a href="https://github.com/rainow"><img src="https://github.com/rainow.png?size=64" width="48" height="48" alt="rainow" title="rainow" /></a>
   <a href="https://github.com/starryrbs"><img src="https://github.com/starryrbs.png?size=64" width="48" height="48" alt="starryrbs" title="starryrbs" /></a>
   <a href="https://github.com/v833"><img src="https://github.com/v833.png?size=64" width="48" height="48" alt="v833" title="v833" /></a>
-  <a href="https://github.com/wingsky-1"><img src="https://github.com/wingsky-1.png?size=64" width="48" height="48" alt="wingsky-1" title="wingsky-1" /></a>
   <a href="https://github.com/wsy222"><img src="https://github.com/wsy222.png?size=64" width="48" height="48" alt="wsy222" title="wsy222" /></a>
   <a href="https://github.com/wszhoho"><img src="https://github.com/wszhoho.png?size=64" width="48" height="48" alt="wszhoho" title="wszhoho" /></a>
   <a href="https://github.com/zxkk97984-creator"><img src="https://github.com/zxkk97984-creator.png?size=64" width="48" height="48" alt="zxkk97984-creator" title="zxkk97984-creator" /></a>
@@ -397,12 +404,13 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
   <a href="https://github.com/AngleNaris"><img src="https://github.com/AngleNaris.png?size=64" width="48" height="48" alt="AngleNaris" title="AngleNaris" /></a>
   <a href="https://github.com/JAVA-LW"><img src="https://github.com/JAVA-LW.png?size=64" width="48" height="48" alt="JAVA-LW" title="JAVA-LW" /></a>
   <a href="https://github.com/Beverly621"><img src="https://github.com/Beverly621.png?size=64" width="48" height="48" alt="Beverly621" title="Beverly621" /></a>
+  <a href="https://github.com/DamonKoy"><img src="https://github.com/DamonKoy.png?size=64" width="48" height="48" alt="DamonKoy" title="DamonKoy" /></a>
   <a href="https://github.com/farobute"><img src="https://github.com/farobute.png?size=64" width="48" height="48" alt="farobute" title="farobute" /></a>
   <a href="https://github.com/HAN102300"><img src="https://github.com/HAN102300.png?size=64" width="48" height="48" alt="HAN102300" title="HAN102300" /></a>
   <a href="https://github.com/Izgenlre"><img src="https://github.com/Izgenlre.png?size=64" width="48" height="48" alt="Izgenlre" title="Izgenlre" /></a>
+  <a href="https://github.com/JUANWANG-BUAA"><img src="https://github.com/JUANWANG-BUAA.png?size=64" width="48" height="48" alt="JUANWANG-BUAA" title="JUANWANG-BUAA" /></a>
   <a href="https://github.com/LHMQ878"><img src="https://github.com/LHMQ878.png?size=64" width="48" height="48" alt="LHMQ878" title="LHMQ878" /></a>
   <a href="https://github.com/Moeblack"><img src="https://github.com/Moeblack.png?size=64" width="48" height="48" alt="Moeblack" title="Moeblack" /></a>
-  <a href="https://github.com/Qinling-Melon-Farmers"><img src="https://github.com/Qinling-Melon-Farmers.png?size=64" width="48" height="48" alt="Qinling-Melon-Farmers" title="Qinling-Melon-Farmers" /></a>
   <a href="https://github.com/NikolaFC"><img src="https://github.com/NikolaFC.png?size=64" width="48" height="48" alt="NikolaFC" title="NikolaFC" /></a>
   <a href="https://github.com/Scotlight"><img src="https://github.com/Scotlight.png?size=64" width="48" height="48" alt="Scotlight" title="Scotlight" /></a>
   <a href="https://github.com/Signalight"><img src="https://github.com/Signalight.png?size=64" width="48" height="48" alt="Signalight" title="Signalight" /></a>

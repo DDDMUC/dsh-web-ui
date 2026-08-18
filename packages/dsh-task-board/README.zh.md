@@ -34,7 +34,7 @@
 安装聚合包或单独安装本包，然后重启 `dsh web`：
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-task-board
+dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest
 ```
 
 本地开发安装：

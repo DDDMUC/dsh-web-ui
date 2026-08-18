@@ -10,12 +10,14 @@ import { type SessionView } from './App.tsx'
 vi.mock('../api.ts', () => ({
   listSessions: vi.fn(),
   listWorkspaces: vi.fn(),
+  listAgentPresets: vi.fn(),
   createSession: vi.fn(),
 }))
-import { createSession, listSessions, listWorkspaces } from '../api.ts'
+import { createSession, listAgentPresets, listSessions, listWorkspaces } from '../api.ts'
 
 const listSessionsMock = vi.mocked(listSessions)
 const listWorkspacesMock = vi.mocked(listWorkspaces)
+const listAgentPresetsMock = vi.mocked(listAgentPresets)
 const createSessionMock = vi.mocked(createSession)
 
 const workspace: WorkspaceRow = {
@@ -49,6 +51,7 @@ function renderList(props: Partial<SessionListViewProps> = {}): void {
 beforeEach(() => {
   listSessionsMock.mockResolvedValue({ items: [], hasMore: false })
   listWorkspacesMock.mockResolvedValue([workspace])
+  listAgentPresetsMock.mockResolvedValue({ presets: [], authorable: false, hasDocument: false })
   createSessionMock.mockResolvedValue({ sessionId: 's-new' })
 })
 
@@ -109,6 +112,71 @@ describe('SessionListView creation', () => {
     expect(picked?.blank).toBe(true)
     // The fresh row is prepended without waiting for a refetch.
     expect(await screen.findByText('新会话')).toBeTruthy()
+  })
+
+  it('creates the session with the selected agent preset', async () => {
+    listAgentPresetsMock.mockResolvedValue({
+      presets: [
+        { id: 'router-standard', name: 'Router Standard', trust: 'system', isDefault: true },
+        { id: 'router-spec', name: 'Router Spec', description: '规格驱动模式', trust: 'system', isDefault: false },
+      ],
+      authorable: false,
+      hasDocument: false,
+    })
+    renderList()
+
+    const picker = await screen.findByRole('combobox', { name: 'Agent 模式' })
+    expect((picker as HTMLSelectElement).value).toBe('router-standard')
+    fireEvent.change(picker, { target: { value: 'router-spec' } })
+    fireEvent.click(screen.getByRole('button', { name: '+ 新建会话' }))
+
+    await waitFor(() => {
+      expect(createSessionMock).toHaveBeenCalledWith({ workspaceId: 'w-1', agentPreset: 'router-spec' })
+    })
+    expect(await screen.findByText('规格驱动模式')).toBeTruthy()
+  })
+
+  it('skips a broken default preset and disables it in the picker', async () => {
+    listAgentPresetsMock.mockResolvedValue({
+      presets: [
+        { id: 'broken-default', trust: 'system', isDefault: true, broken: 'missing plugin' },
+        { id: 'local-router', name: 'Local Router', trust: 'user', isDefault: false },
+      ],
+      authorable: false,
+      hasDocument: false,
+    })
+    renderList()
+
+    const picker = await screen.findByRole('combobox', { name: 'Agent 模式' }) as HTMLSelectElement
+    expect(picker.value).toBe('local-router')
+    expect(screen.getByRole('option', { name: 'broken-default（默认）（不可用）' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('option', { name: 'Local Router（本地）' })).toBeTruthy()
+  })
+
+  it('keeps default session creation available when the preset roster fails', async () => {
+    listAgentPresetsMock.mockRejectedValue(new Error('preset roster unavailable'))
+    renderList()
+    await screen.findByText(/还没有会话/)
+
+    const button = await screen.findByRole('button', { name: '+ 新建会话' })
+    await waitFor(() => { expect(button.hasAttribute('disabled')).toBe(false) })
+    fireEvent.click(button)
+
+    await waitFor(() => {
+      expect(createSessionMock).toHaveBeenCalledWith({ workspaceId: 'w-1' })
+    })
+  })
+
+  it('waits for the preset roster before enabling session creation', async () => {
+    let resolvePresets: (value: Awaited<ReturnType<typeof listAgentPresets>>) => void = () => {}
+    listAgentPresetsMock.mockReturnValue(new Promise(resolve => { resolvePresets = resolve }))
+    renderList()
+
+    const button = screen.getByRole('button', { name: '+ 新建会话' })
+    expect(button.hasAttribute('disabled')).toBe(true)
+
+    resolvePresets({ presets: [], authorable: false, hasDocument: false })
+    await waitFor(() => { expect(button.hasAttribute('disabled')).toBe(false) })
   })
 
   it('keeps the button disabled while a creation is in flight', async () => {

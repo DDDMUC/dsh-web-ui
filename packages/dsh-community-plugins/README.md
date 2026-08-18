@@ -15,7 +15,7 @@ Community plugin index section for the dsh web GUI settings page: a first-level 
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-community-plugins
+dsh plugin --profile web add @linxin666/dsh-client-ui-community-plugins@latest
 ```
 
 ### From the repository (development)

@@ -13,8 +13,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { WorkspaceView as WorkspaceRow } from '@deepseek-ai/dsh-host-apiproxy/api/workspace'
+import type { AgentPresetEntry } from '@deepseek-ai/dsh-host-apiproxy/api/agent-presets'
 import type { SessionSummary } from '@deepseek-ai/dsh-host-apiproxy/api/sessions'
-import { createSession, listSessions, listWorkspaces } from '../api.ts'
+import { createSession, listAgentPresets, listSessions, listWorkspaces } from '../api.ts'
 import { errorText, formatTime, staleHostHint, toSessionView, type SessionView } from './App.tsx'
 import { ThemeToggle } from '../theme-toggle.tsx'
 
@@ -45,6 +46,9 @@ export function SessionListView({ workspace, onBack, onPick }: SessionListViewPr
   const [error, setError] = useState<string | undefined>(undefined)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | undefined>(undefined)
+  const [presets, setPresets] = useState<readonly AgentPresetEntry[]>([])
+  const [selectedPreset, setSelectedPreset] = useState<string | undefined>(undefined)
+  const [presetsLoading, setPresetsLoading] = useState(true)
   const cursorRef = useRef<string | undefined>(undefined)
   const busyRef = useRef(false)
 
@@ -69,6 +73,27 @@ export function SessionListView({ workspace, onBack, onPick }: SessionListViewPr
         if (cancelled) return
         setError(errorText(reason))
         setLoading(false)
+      },
+    )
+    return () => { cancelled = true }
+  }, [workspace])
+
+  useEffect(() => {
+    let cancelled = false
+    setPresets([])
+    setSelectedPreset(undefined)
+    setPresetsLoading(true)
+    void listAgentPresets().then(
+      (roster) => {
+        if (cancelled) return
+        const usable = roster.presets.filter(preset => preset.broken === undefined)
+        setPresets(roster.presets)
+        setSelectedPreset((usable.find(preset => preset.isDefault) ?? usable[0])?.id)
+        setPresetsLoading(false)
+      },
+      () => {
+        if (cancelled) return
+        setPresetsLoading(false)
       },
     )
     return () => { cancelled = true }
@@ -102,7 +127,10 @@ export function SessionListView({ workspace, onBack, onPick }: SessionListViewPr
     if (creating) return
     setCreating(true)
     setCreateError(undefined)
-    void createSession({ workspaceId: workspace.workspaceId }).then(
+    void createSession({
+      workspaceId: workspace.workspaceId,
+      ...(selectedPreset !== undefined ? { agentPreset: selectedPreset } : {}),
+    }).then(
       (created) => {
         setCreating(false)
         const view: SessionView = {
@@ -120,9 +148,10 @@ export function SessionListView({ workspace, onBack, onPick }: SessionListViewPr
         setCreateError(errorText(reason))
       },
     )
-  }, [creating, workspace, onPick])
+  }, [creating, workspace, onPick, selectedPreset])
 
   const createHint = createError !== undefined ? staleHostHint(createError) : undefined
+  const selectedPresetEntry = presets.find(preset => preset.id === selectedPreset)
 
   return (
     <div className="mobile">
@@ -132,11 +161,35 @@ export function SessionListView({ workspace, onBack, onPick }: SessionListViewPr
         <ThemeToggle />
       </header>
       {error !== undefined && <p className="mobile-error mobile-pad">{error}</p>}
-      <div className="mobile-pad">
+      <div className="mobile-create mobile-pad">
+        {presets.length > 0 && (
+          <label className="mobile-preset">
+            <span className="mobile-presetLabel">Agent 模式</span>
+            <select
+              className="mobile-presetSelect"
+              value={selectedPreset ?? ''}
+              disabled={selectedPreset === undefined}
+              onChange={(event) => { setSelectedPreset(event.target.value) }}
+            >
+              {selectedPreset === undefined && <option value="">无可用 Agent 模式</option>}
+              {presets.map(preset => (
+                <option key={preset.id} value={preset.id} disabled={preset.broken !== undefined}>
+                  {preset.name ?? preset.id}
+                  {preset.isDefault ? '（默认）' : ''}
+                  {preset.trust === 'user' ? '（本地）' : ''}
+                  {preset.broken !== undefined ? '（不可用）' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {selectedPresetEntry?.description !== undefined && (
+          <p className="mobile-presetDescription">{selectedPresetEntry.description}</p>
+        )}
         <button
           type="button"
           className="mobile-new"
-          disabled={creating}
+          disabled={creating || presetsLoading}
           onClick={() => { void handleCreate() }}
         >
           {creating ? '创建中…' : '+ 新建会话'}

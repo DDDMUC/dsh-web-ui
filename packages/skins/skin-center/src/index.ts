@@ -1,10 +1,10 @@
 /**
  * Host half of the in-GUI skin center: mounts the `/api/skin-center/*` routes
- * the browser half uses for one-click apply / restore-official. Every switch
- * delegates to the `dsh-skin` CLI, which owns the `dsh-skin managed` section
- * of the active profile's `cordis.patch.yml` and the profile symlink; the DSH config
- * watcher hot-reloads the patch within seconds, so no restart is needed.
- * Try-on stays pure browser work (see src/client/try-on.ts).
+ * the browser half uses for the skin catalog, the active selection and
+ * one-click apply / restore-official (v2, issue #506). Skins are pure asset
+ * directories served through the safety pipeline; switching is a client-side
+ * atomic swap and never touches `cordis.patch.yml`. Try-on stays pure
+ * browser work (see src/client/runtime/skin-controller.ts).
  * @module @linxin666/dsh-client-ui-skin-center
  */
 
@@ -13,14 +13,26 @@ import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-sett
 import z from 'schemastery'
 // Type-only: pulls the dsh-host-webserver service seat (ctx.webServer).
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
+import { makeSkinCenterV2Routes, SKIN_CENTER_V2_PREFIX } from './routes-v2.ts'
+import { makeSkinIndexTap } from './tap-index-adapter.ts'
+import { defaultActiveStatePath, readActiveSelection } from './active-state.ts'
+import { migrateLegacySelection } from './legacy-bridge.ts'
+import { loadSkinCatalog } from './skin-repo.ts'
 import { makeWeRoutes, WE_API_PREFIX } from './we-routes.ts'
 import { defaultWallpapersStoreDir } from './we-library.ts'
-import { resolveHarnessHome } from './skin-switch.ts'
+import { resolveHarnessHome } from './harness-home.ts'
 import { mountOnce } from './mount-once.ts'
 
-export { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
+export { makeSkinCenterV2Routes, SKIN_CENTER_V2_PREFIX } from './routes-v2.ts'
 export { makeWeRoutes, WE_API_PREFIX } from './we-routes.ts'
+// The contract surface, re-exported for tooling (the dsh-skin CLI validates
+// and installs skin directories through these; never duplicate the logic).
+export { validateSkinManifestV2 } from './core/manifest-v2/validate.ts'
+export type { SkinManifestV2, SkinManifestValidation } from './core/manifest-v2/types.ts'
+export { transformSkinCss, SkinCssSafetyError } from './core/css-safety/transform.ts'
+export { loadSkinCatalog, findSkin, resolveInsideSkin, userSkinsDir, builtinSkinsDir } from './skin-repo.ts'
+export type { SkinCatalog, SkinCatalogEntry } from './skin-repo.ts'
+export { defaultActiveStatePath, readActiveSelection, writeActiveSelection } from './active-state.ts'
 
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
 export const name = 'ui-skin-center'
@@ -145,7 +157,7 @@ function applyImpl(ctx: Context): void {
   })
 
   const routes = [
-    ...makeSkinCenterRoutes(),
+    ...makeSkinCenterV2Routes(),
     ...makeWeRoutes({
       getConfig: () => wallpaperSource(),
       storeDir: defaultWallpapersStoreDir(resolveHarnessHome()),
@@ -156,6 +168,13 @@ function applyImpl(ctx: Context): void {
       const disposers: Array<() => void> = []
       try {
         for (const route of routes) disposers.push(ctx.webServer.register(route))
+        // The anti-FOUC seam (issue #506): stamp html[data-dsh-skin] and the
+        // stylesheet links into every served index.html. All tapIndex usage
+        // converges in the adapter; it fails closed to the stock look.
+        const statePath = defaultActiveStatePath()
+        disposers.push(ctx.webServer.tapIndex(makeSkinIndexTap({
+          readActiveId: () => readActiveSelection(statePath),
+        })))
       } catch (error) {
         // Roll back whatever registered before the failure so a partial
         // mount never leaves half a route family live; the outer catch logs.
@@ -166,5 +185,17 @@ function applyImpl(ctx: Context): void {
     }, 'ui-skin-center: routes')
   } catch (error) {
     console.error('[ui-skin-center] route registration failed:', error)
+  }
+
+  // One-shot legacy bridge (issue #506): migrate the retired dsh-skin
+  // managed-section selection into the v2 store and strip the legacy rows.
+  // Idempotent and fail-closed; notes go to the host log.
+  try {
+    const statePath = defaultActiveStatePath()
+    const knownIds = loadSkinCatalog().skins.map((s) => s.manifest.id)
+    const migration = migrateLegacySelection({ knownIds, activeStatePath: statePath })
+    for (const note of migration.notes) console.info(`[ui-skin-center] legacy bridge: ${note}`)
+  } catch (error) {
+    console.error('[ui-skin-center] legacy bridge failed:', error)
   }
 }

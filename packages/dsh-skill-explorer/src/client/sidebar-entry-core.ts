@@ -21,6 +21,13 @@ export interface SidebarEntryOptions {
   rowAttribute: string
   /** CSS selector matching the injected row, e.g. '[data-dsh-ssh-entry]'. */
   rowSelector: string
+  /**
+   * L2 semantic-attribute plugin id (issue #506, enum table:
+   * skins/skin-center/contracts/semantic-attrs-v1.md). When set, the row also
+   * outputs data-dsh-plugin="<id>" and data-dsh-part="sidebar-entry"; unset
+   * leaves the row without semantic attributes.
+   */
+  plugin?: string
   /** Inline icon markup (matches the shell's 16px nav-icon look). */
   icon: string
   /** CSS module class names for the row and its two spans (entry / entryIcon / entryLabel). */
@@ -73,6 +80,10 @@ function createEntry(options: SidebarEntryOptions): HTMLButtonElement {
   const entry = document.createElement('button')
   entry.type = 'button'
   entry.setAttribute(options.rowAttribute, '')
+  if (options.plugin !== undefined) {
+    entry.setAttribute('data-dsh-plugin', options.plugin)
+    entry.setAttribute('data-dsh-part', 'sidebar-entry')
+  }
   entry.className = options.css['entry'] ?? ''
   entry.setAttribute('aria-label', options.label())
   if (options.tooltip !== undefined) entry.setAttribute('title', options.tooltip())

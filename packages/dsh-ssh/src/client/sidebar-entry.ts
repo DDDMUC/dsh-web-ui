@@ -29,6 +29,7 @@ export function mountSidebarEntry(controller: PanelController): () => void {
   return mountSharedSidebarEntry({
     rowAttribute: 'data-dsh-ssh-entry',
     rowSelector: ENTRY_SELECTOR,
+    plugin: 'ssh',
     icon: ICON,
     css,
     label: () => tt('entry.label'),

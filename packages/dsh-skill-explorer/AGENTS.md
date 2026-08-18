@@ -8,17 +8,18 @@ DSH Web GUI 的**技能中心**插件：侧边栏「技能中心」入口打开�
 
 ## 本包要点
 
-- host 半区（`src/index.ts` + `src/routes.ts` + `src/collect.ts` +
-  `src/frontmatter.ts`）提供 `/api/dsh-skill-explorer/*` 路由族（list /
-  set-enabled / create / delete / health），全部 loopback 围栏；数据来自
+- host 半区（`src/index.ts` + `src/routes.ts` + `src/access.ts` +
+  `src/collect.ts` + `src/frontmatter.ts`）提供 `/api/dsh-skill-explorer/*`
+  路由族（list / set-enabled / create / delete / health），默认 loopback
+  围栏，已配对设备 cookie 为额外放行路径（不硬依赖 remote-web-ui）；数据来自
   文件系统扫描（官方根约定）+ `ctx.skills` 注册表合并。
 - client 半区（`src/client/`）注入侧边栏入口（DOM 级，MutationObserver
   自愈），面板为 React overlay 模态（`SkillPanel.tsx`），不接管中心列。
 - 纯逻辑（扫描/分组/frontmatter 解析）在 host 侧单测锁定行为
   （`tests/collect.spec.ts`、`tests/frontmatter.spec.ts`、
-  `tests/routes.spec.ts`）；路由围栏与错误路径必须带测试。
-- 安全语义（loopback 围栏、写路由只信任扫描路径）见 README「安全模型」节，
-  修改安全语义时必须同步更新 README 与测试。
+  `tests/routes.spec.ts`、`tests/access.spec.ts`）；路由围栏与错误路径必须带测试。
+- 安全语义（loopback 围栏、已配对 cookie 额外放行、写路由只信任扫描路径）
+  见 README「安全模型」节，修改安全语义时必须同步更新 README 与测试。
 
 ## 提交前检查
 

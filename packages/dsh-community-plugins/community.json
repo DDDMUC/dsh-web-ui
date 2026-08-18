@@ -164,7 +164,8 @@
     "description": "项目持久化记忆与会话经验沉淀：memoir_record / memoir_read 工具（BM25 相关度排序检索）、每轮工作自动蒸馏、记忆诊断面板与跨项目全局检索，纯本地零外部依赖。",
     "descriptionEn": "Project persistent memory and session-lessons distillation: memoir_record / memoir_read tools with BM25-ranked retrieval, per-turn auto-distill, a memory diagnostics panel and cross-project search - fully local, no external dependency.",
     "repo": "https://github.com/Qinling-Melon-Farmers/dsh-memoir",
-    "category": "knowledge"
+    "category": "knowledge",
+    "npm": "dsh-memoir"
   },
   {
     "id": "dsh-worktime-board",
@@ -197,5 +198,152 @@
     "descriptionEn": "One-command skinning for DSH Web: 8 original themes, wallpaper (opacity/blur/gradient/URL), per-user accent, shareable theme packs with favorites and surprise-me. Purely native token system.",
     "repo": "https://github.com/RevolutionLA/dsh-dream-skin",
     "category": "ui"
+  },
+  {
+    "id": "dsh-friendly-steps",
+    "name": "过程精简 Friendly Steps",
+    "nameEn": "Friendly Steps",
+    "author": "dongwenxiu83-web",
+    "description": "面向文字工作者的过程精简：纯 CSS 折叠 Think / 工具调用等技术过程行，右下角浮条「已完成 N 步」一键展开收起，失败步骤红色计数反馈；不注入 React 列表、无全量扫描，零侵入。",
+    "descriptionEn": "Writer-friendly process collapse: hides Think / tool-call rows via pure CSS behind a floating 'N steps done' pill with red failure counts and one-click expand/collapse. No foreign nodes in React lists, no full-DOM scans — zero interference.",
+    "repo": "https://github.com/dongwenxiu83-web/dsh-friendly-steps",
+    "category": "ui"
+  },
+  {
+    "id": "dsh-full-remote",
+    "name": "全功能远程访问",
+    "nameEn": "Full Remote Access",
+    "author": "JUANWANG-BUAA",
+    "description": "令牌门控反向代理：公网隧道或局域网下，在手机等设备上远程使用 DeepSeek Harness，设置、凭据与文件访问保持可用，支持按设备会话。",
+    "descriptionEn": "Token-gated reverse proxy for remote access: use DeepSeek Harness over public tunnels or LAN from phones and other devices, with settings, credentials and file access kept working and per-device sessions.",
+    "repo": "https://github.com/JUANWANG-BUAA/dsh-full-remote",
+    "npm": "dsh-full-remote",
+    "category": "integration"
+  },
+  {
+    "id": "dsh-palate",
+    "name": "Palate 品味训练",
+    "nameEn": "Palate Design Taste",
+    "author": "guo6x",
+    "description": "会长大的眼：可积累的设计品味语料库（好/坏例子 + 编码原则），喂得越多评审越准；6 个 palate_* 工具（review/add/learn/list/principles/stats）+ 成长面板，node:sqlite + 人可读 Markdown 镜像，零运行时依赖。",
+    "descriptionEn": "An eye that grows: an accumulated design-taste corpus (good/bad examples plus codified principles) that sharpens with every example you feed; six palate_* tools (review/add/learn/list/principles/stats) plus a growth panel, node:sqlite with human-readable Markdown mirrors, zero runtime dependencies.",
+    "repo": "https://github.com/guo6x/dsh-palate",
+    "category": "knowledge"
+  },
+  {
+    "id": "dsh-archive-manager",
+    "name": "归档管理",
+    "nameEn": "Archive Manager",
+    "author": "z953218350",
+    "description": "设置页 Codex 风格会话归档管理：按项目分组、搜索筛选、预览对话内容、一键恢复与彻底物理删除，内置 zstd 解压引擎。",
+    "descriptionEn": "Codex-style archived session manager in settings: group by project, search and filter, preview conversation history, restore to sidebar, and permanently delete from disk; built-in zstd decompression.",
+    "repo": "https://github.com/z953218350/dsh-archive-manager",
+    "npm": "@mlgbnb/dsh-archive-manager",
+    "category": "utility"
+  },
+  {
+    "id": "dsh-history-tree",
+    "name": "历史树",
+    "nameEn": "History Tree",
+    "author": "z953218350",
+    "description": "在聊天消息左侧提供 Codex 风格对话轮次时间线点阵与悬浮历史概览卡片，支持鱼眼放大动效与点击直达对应轮次。",
+    "descriptionEn": "Codex-style conversation turn timeline rail and hover overview cards beside chat messages, with fish-eye magnification and click-to-jump navigation.",
+    "repo": "https://github.com/z953218350/dsh-history-tree",
+    "npm": "dsh-history-tree",
+    "category": "ui"
+  },
+  {
+    "id": "dsh-gzip",
+    "name": "dsh-gzip",
+    "nameEn": "dsh-gzip",
+    "author": "wingsky-1",
+    "description": "/api 响应 gzip 压缩插件：为远程 / 低带宽链路开启 /api 响应压缩，解决会话历史因大响应无压缩而超时加载失败的问题；SSE / zip / 已编码响应自动豁免，无全局副作用。",
+    "descriptionEn": "API response gzip plugin for DSH Web GUI: enables gzip on /api responses for remote / low-bandwidth links, fixing session-history loads that fail on the timeout of large uncompressed responses; SSE, zip and already-encoded responses are passed through untouched, with no global side effects.",
+    "repo": "https://github.com/wingsky-1/dsh-plugin-hub/tree/main/packages/dsh-gzip",
+    "npm": "@wingsky-1/dsh-gzip"
+  },
+  {
+    "id": "dsh-wsl-bridge",
+    "name": "WSL Windows 桥",
+    "nameEn": "WSL Windows Bridge",
+    "author": "ch1bug",
+    "description": "让 WSL 里的 agent 访问 Windows 侧：读写 C:\\ 文件、运行 .exe、Explorer 打开、wslpath 路径互转与盘符枚举（win_ls/read/write/run/open/path/drives）。",
+    "descriptionEn": "Lets a WSL agent reach the Windows host: read/write C:\\ files, run .exe programs, open in Explorer, convert paths via wslpath and list drives (win_ls/read/write/run/open/path/drives).",
+    "repo": "https://github.com/ch1bug/dsh-wsl-bridge",
+    "category": "integration"
+  },
+  {
+    "id": "dsh-mimo-agent-tools",
+    "name": "MiMo 多模态工具",
+    "nameEn": "MiMo Multimodal Tools",
+    "author": "ch1bug",
+    "description": "把小米 MiMo API 封装为 agent 工具：联网搜索、图像/音频/视频理解、语音转写、语音合成与音色克隆（mimo_search/vision/audio/video/asr/tts/voiceclone）。",
+    "descriptionEn": "Turns the Xiaomi MiMo API into agent tools: web search, image/audio/video understanding, speech-to-text, text-to-speech and voice cloning (mimo_search/vision/audio/video/asr/tts/voiceclone).",
+    "repo": "https://github.com/ch1bug/dsh-mimo-agent-tools",
+    "category": "tools"
+  },
+  {
+    "id": "dsh-skill-fuzzy",
+    "name": "技能模糊搜索",
+    "nameEn": "Skill Fuzzy Search",
+    "author": "ch1bug",
+    "description": "Codex 风格模糊技能搜索：/bug、/diag、/regression 都能在 / 技能菜单里命中 diagnosing-bugs（名称子序列 + 描述连续子串匹配）。",
+    "descriptionEn": "Codex-style fuzzy skill search: /bug, /diag and /regression all find diagnosing-bugs in the / skill menu (name subsequence + description substring matching).",
+    "repo": "https://github.com/ch1bug/dsh-skill-fuzzy",
+    "category": "ui"
+  },
+  {
+    "id": "dsh-secret-redactor",
+    "name": "敏感信息脱敏",
+    "nameEn": "Secret Redactor",
+    "author": "DamonKoy",
+    "description": "自动掩码工具输出中的 API key、token、JWT、私钥与配置密钥。",
+    "descriptionEn": "Auto-masks API keys, tokens, JWTs and private keys in tool results shown to the model.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-secret-redactor"
+  },
+  {
+    "id": "dsh-approve-for-me",
+    "name": "自动审批审核",
+    "nameEn": "Approve for Me",
+    "author": "DamonKoy",
+    "description": "只读工具自动放行、危险命令自动拒绝，可配置全自动模式。",
+    "descriptionEn": "Auto-approves read-only tools, auto-denies dangerous commands, optional full-auto mode.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-approve-for-me"
+  },
+  {
+    "id": "dsh-mcp-client-v2",
+    "name": "MCP 客户端 v2",
+    "nameEn": "MCP Client v2",
+    "author": "DamonKoy",
+    "description": "MCP 客户端增强：分页工具发现、非阻塞启动、工具搜索。",
+    "descriptionEn": "Enhanced MCP client: paginated tool discovery, non-blocking startup, tool search.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-mcp-client-v2"
+  },
+  {
+    "id": "dsh-memories",
+    "name": "项目记忆",
+    "nameEn": "Project Memories",
+    "author": "DamonKoy",
+    "description": "按项目作用域持久化的键值记忆，支持增删查列与搜索。",
+    "descriptionEn": "Project-scoped persistent key-value memories with set/get/list/delete/search.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-memories"
+  },
+  {
+    "id": "dsh-system-proxy",
+    "name": "系统代理",
+    "nameEn": "System Proxy",
+    "author": "DamonKoy",
+    "description": "检测系统代理（scutil/环境变量/PAC）并为子进程导出代理环境变量。",
+    "descriptionEn": "Detects system proxy (scutil/env/PAC) and exports proxy env for child processes.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-system-proxy"
+  },
+  {
+    "id": "dsh-usage-cost",
+    "name": "用量成本提醒",
+    "nameEn": "Usage & Cost",
+    "author": "DamonKoy",
+    "description": "统计会话与每日 token 用量和估算成本，超预算提醒。",
+    "descriptionEn": "Tracks token usage and estimated cost per session/day with budget alerts.",
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-usage-cost"
   }
 ]

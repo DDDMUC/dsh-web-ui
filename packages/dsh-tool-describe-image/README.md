@@ -53,7 +53,7 @@ Install the family aggregate `@linxin666/dsh-web-ui-all` (all plugins and skins 
 
 ```sh
 # Recommended: install directly from npm
-dsh plugin --profile web add @linxin666/dsh-tool-describe-image
+dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest
 ```
 
 The aggregate mounts this plugin **without configuration**: loading is unaffected, and the first call

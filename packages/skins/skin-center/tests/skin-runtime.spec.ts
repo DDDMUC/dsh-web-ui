@@ -1,0 +1,425 @@
+/**
+ * Client runtime tests: decoration layers, semantic adapter, skin controller
+ * (jsdom). Pins the activation lifecycle semantics of issue #506.
+ */
+
+// @vitest-environment jsdom
+
+import { describe, expect, it, vi } from 'vitest'
+
+import { createEffectLedger } from '../src/client/runtime/effect-ledger.ts'
+import {
+  buildBackgroundMedia,
+  ensureDecorationLayers,
+  setLayerContent,
+} from '../src/client/runtime/decoration-layers.ts'
+import { createSemanticAdapter } from '../src/client/runtime/semantic-adapter.ts'
+import { createSkinController } from '../src/client/runtime/skin-controller.ts'
+import type { ControllerSkinEntry } from '../src/client/runtime/skin-controller.ts'
+
+const hookedEntry = {
+    manifest: {
+      id: 'hooked',
+      contributes: { stylesheet: 'skin.css' },
+      facets: { client: { entry: 'hooks.mjs', apiVersion: 'x-org.linxin666.skin-center/v1alpha1' } },
+    },
+  } as ControllerSkinEntry
+
+function entryFor(id: string, extra: Record<string, unknown> = {}): ControllerSkinEntry {
+  return {
+    manifest: {
+      id,
+      contributes: { stylesheet: 'skin.css', ...extra },
+    },
+  } as ControllerSkinEntry
+}
+
+describe('decoration layers', () => {
+  it('ensures six non-interactive layers idempotently', () => {
+    const layers = ensureDecorationLayers(document)
+    expect(Object.keys(layers)).toHaveLength(6)
+    for (const el of Object.values(layers)) {
+      expect(el.style.pointerEvents).toBe('none')
+    }
+    const again = ensureDecorationLayers(document)
+    expect(again.background).toBe(layers.background)
+  })
+
+  it('setLayerContent teardown removes exactly its nodes, idempotently', () => {
+    const layers = ensureDecorationLayers(document)
+    const node = document.createElement('div')
+    const teardown = setLayerContent(layers.top, [node])
+    expect(layers.top.contains(node)).toBe(true)
+    teardown()
+    teardown()
+    expect(layers.top.contains(node)).toBe(false)
+  })
+
+  it('builds image media with scrim', () => {
+    const nodes = buildBackgroundMedia(document, { type: 'image', src: 'assets/bg.jpg', scrim: '#0008' }, '/x/skins/h')
+    expect(nodes).toHaveLength(2)
+    expect((nodes[0] as HTMLImageElement).src).toContain('/x/skins/h/assets/bg.jpg')
+  })
+})
+
+describe('semantic adapter', () => {
+  it('stamps surfaces and parts on existing and added nodes', async () => {
+    document.body.innerHTML = `
+      <div data-slot="sidebar"></div>
+      <div data-chat-flow-kind="message"></div>
+    `
+    const adapter = createSemanticAdapter(document)
+    adapter.start()
+    expect(document.querySelector('[data-slot="sidebar"]')!.getAttribute('data-dsh-surface')).toBe('sidebar')
+    expect(document.querySelector('[data-chat-flow-kind]')!.getAttribute('data-dsh-part')).toBe('message-row')
+
+    const added = document.createElement('div')
+    added.setAttribute('data-turn-tail', '')
+    document.body.appendChild(added)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(added.getAttribute('data-dsh-part')).toBe('turn-tail')
+    adapter.stop()
+  })
+
+  it('tags plugin roots', () => {
+    document.body.innerHTML = '<div data-dsh-ssh-view></div>'
+    const adapter = createSemanticAdapter(document)
+    adapter.start()
+    expect(document.querySelector('[data-dsh-ssh-view]')!.getAttribute('data-dsh-plugin')).toBe('ssh')
+    adapter.stop()
+  })
+
+  it('reports unmatched rules as diagnostics without throwing', () => {
+    document.body.innerHTML = '<div></div>'
+    const adapter = createSemanticAdapter(document)
+    adapter.start()
+    const diag = adapter.diagnostics()
+    expect(diag.unmatchedRules.length).toBeGreaterThan(0)
+    adapter.stop()
+  })
+})
+
+describe('skin controller', () => {
+  function harness(options: {
+    hooks?: Record<string, unknown>
+    failFetchFor?: string[]
+    persist?: (id: string | null) => Promise<void>
+  } = {}) {
+    document.head.innerHTML = ''
+    document.body.innerHTML = ''
+    document.documentElement.removeAttribute('data-dsh-skin')
+    const ledger = createEffectLedger()
+    const loadStylesheet = vi.fn(async (href: string) => {
+      for (const bad of options.failFetchFor ?? []) {
+        if (href.includes(bad)) throw new Error(`load ${href} -> 500`)
+      }
+      // Mirror the default loader's DOM effect so trackStylesheet finds it.
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    })
+    const errors: string[] = []
+    const controller = createSkinController({
+      doc: document,
+      ledger,
+      loadStylesheet,
+      importHooks: async () => options.hooks,
+      persist: options.persist ?? (async () => {}),
+      onError: (m) => errors.push(m),
+    })
+    return { ledger, controller, errors, loadStylesheet }
+  }
+
+  it('applies a skin: styles, attribute, persistence', async () => {
+    const persist = vi.fn(async () => {})
+    const { controller } = harness({ persist })
+    const result = await controller.switchTo('harbor', entryFor('harbor', { patches: 'patches.css' }))
+    expect(result).toBe('harbor')
+    expect(controller.active).toBe('harbor')
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('harbor')
+    const links = document.head.querySelectorAll('link[rel="stylesheet"]')
+    expect(links).toHaveLength(2)
+    expect(persist).toHaveBeenCalledWith('harbor')
+  })
+
+  it('switching replaces the old activation completely', async () => {
+    const { controller, ledger } = harness()
+    await controller.switchTo('harbor', entryFor('harbor'))
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(1)
+    await controller.switchTo('matrix', entryFor('matrix'))
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('matrix')
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(1)
+    expect(ledger.entries().some((e) => e.kind === 'release')).toBe(true)
+  })
+
+  it('switch to stock removes styles and the attribute', async () => {
+    const { controller } = harness()
+    await controller.switchTo('harbor', entryFor('harbor'))
+    await controller.switchTo(null, null)
+    expect(controller.active).toBeNull()
+    expect(document.documentElement.hasAttribute('data-dsh-skin')).toBe(false)
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(0)
+  })
+
+  it('a failed fetch leaves the previous skin intact', async () => {
+    const { controller, errors } = harness({ failFetchFor: ['matrix'] })
+    await controller.switchTo('harbor', entryFor('harbor'))
+    const before = document.head.querySelectorAll('link[rel="stylesheet"]').length
+    const result = await controller.switchTo('matrix', entryFor('matrix'))
+    expect(result).toBe('harbor')
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('harbor')
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]').length).toBe(before)
+    expect(errors.some((m) => m.includes('matrix'))).toBe(true)
+  })
+
+  it('latest request wins: a stale in-flight switch is discarded', async () => {
+    document.head.innerHTML = ''
+    document.documentElement.removeAttribute('data-dsh-skin')
+    const ledger = createEffectLedger()
+    let resolveSlow!: () => void
+    const slow = new Promise<void>((r) => { resolveSlow = r })
+    const loadStylesheet = vi.fn((href: string) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+      if (href.includes('slow-skin')) return slow
+      return Promise.resolve()
+    })
+    const controller = createSkinController({
+      doc: document,
+      ledger,
+      loadStylesheet,
+      persist: async () => {},
+    })
+    const first = controller.switchTo('slow-skin', entryFor('slow-skin'))
+    const second = controller.switchTo('fast-skin', entryFor('fast-skin'))
+    resolveSlow()
+    await Promise.all([first, second])
+    expect(controller.active).toBe('fast-skin')
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('fast-skin')
+    const links = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'))
+    expect(links.some((l) => l.href.includes('slow-skin'))).toBe(false)
+  })
+
+  it('hooks failure keeps the static skin and reports the error', async () => {
+    const { controller, errors } = harness({
+      hooks: { default: () => ({ apply() { throw new Error('boom') } }) },
+    })
+    const result = await controller.switchTo('hooked', hookedEntry)
+    expect(result).toBe('hooked')
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('hooked')
+    expect(errors.some((m) => m.includes('hooks failed'))).toBe(true)
+  })
+
+  it('hooks onCleanup runs on the next switch', async () => {
+    const cleanup = vi.fn()
+    const { controller } = harness({
+      hooks: {
+        default: () => ({
+          apply(ctx: { onCleanup: (fn: () => void) => void }) { ctx.onCleanup(cleanup) },
+        }),
+      },
+    })
+    await controller.switchTo('hooked', hookedEntry)
+    expect(cleanup).not.toHaveBeenCalled()
+    await controller.switchTo(null, null)
+    expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+
+  it('try-on previews without persisting and exit restores the committed skin', async () => {
+    const persist = vi.fn(async () => {})
+    const { controller } = harness({ persist })
+    await controller.switchTo('harbor', entryFor('harbor'))
+    expect(persist).toHaveBeenCalledTimes(1)
+
+    await controller.tryOn('matrix', entryFor('matrix'))
+    expect(controller.getState()).toEqual({ active: 'matrix', trying: 'matrix', previewing: true })
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('matrix')
+    // Try-on never persists.
+    expect(persist).toHaveBeenCalledTimes(1)
+
+    await controller.exitTryOn()
+    expect(controller.getState()).toEqual({ active: 'harbor', trying: null, previewing: false })
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('harbor')
+    expect(persist).toHaveBeenCalledTimes(1)
+  })
+
+  it('committing during a preview clears the trying state', async () => {
+    const { controller } = harness()
+    await controller.tryOn('matrix', entryFor('matrix'))
+    expect(controller.getState().trying).toBe('matrix')
+    expect(controller.getState().previewing).toBe(true)
+    await controller.switchTo('matrix', entryFor('matrix'))
+    expect(controller.getState()).toEqual({ active: 'matrix', trying: null, previewing: false })
+  })
+
+  it('getState returns a cached snapshot (React useSyncExternalStore contract)', async () => {
+    const { controller } = harness()
+    const first = controller.getState()
+    expect(controller.getState()).toBe(first)
+    await controller.switchTo('harbor', entryFor('harbor'))
+    const second = controller.getState()
+    expect(second).not.toBe(first)
+    expect(second).toEqual({ active: 'harbor', trying: null, previewing: false })
+    expect(controller.getState()).toBe(second)
+  })
+
+  it('subscribe emits on every state transition', async () => {
+    const { controller } = harness()
+    const seen: Array<{ active: string | null; trying: string | null; previewing: boolean }> = []
+    controller.subscribe(() => seen.push(controller.getState()))
+    await controller.switchTo('harbor', entryFor('harbor'))
+    await controller.tryOn('matrix', entryFor('matrix'))
+    await controller.exitTryOn()
+    expect(seen.length).toBeGreaterThanOrEqual(3)
+    expect(seen.at(-1)).toEqual({ active: 'harbor', trying: null, previewing: false })
+  })
+
+  it('a refresh with an unchanged suppression verdict is a no-op (boot race)', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = ''
+    document.documentElement.removeAttribute('data-dsh-skin')
+    const ledger = createEffectLedger()
+    const loadStylesheet = async (href: string) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    }
+    const mediaEntry = {
+      manifest: {
+        id: 'media-skin',
+        contributes: {
+          stylesheet: 'skin.css',
+          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
+        },
+      },
+    } as ControllerSkinEntry
+    const controller = createSkinController({
+      doc: document,
+      ledger,
+      loadStylesheet,
+      persist: async () => {},
+      // Suppression is false from creation; the wallpaper scope publishes
+      // during boot, but a same-verdict refresh must not re-switch and
+      // wipe the just-applied background.
+      suppressBackgroundMedia: () => false,
+    })
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
+    await controller.refresh()
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
+    expect(controller.active).toBe('media-skin')
+  })
+
+  it('suppressBackgroundMedia wins over the manifest background (WE priority)', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = ''
+    document.documentElement.removeAttribute('data-dsh-skin')
+    const ledger = createEffectLedger()
+    let suppressed = false
+    const loadStylesheet = async (href: string) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    }
+    const mediaEntry = {
+      manifest: {
+        id: 'media-skin',
+        contributes: {
+          stylesheet: 'skin.css',
+          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
+        },
+      },
+    } as ControllerSkinEntry
+    const controller = createSkinController({
+      doc: document,
+      ledger,
+      loadStylesheet,
+      persist: async () => {},
+      suppressBackgroundMedia: () => suppressed,
+    })
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
+
+    // The wallpaper bridge turns on: refresh drops the manifest media.
+    suppressed = true
+    await controller.refresh()
+    expect(document.body.style.getPropertyValue('background-image')).toBe('')
+    expect(controller.active).toBe('media-skin')
+
+    // And back: refresh repaints it.
+    suppressed = false
+    await controller.refresh()
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
+  })
+
+  it('disposing an older activation never wipes a newer activation\'s layer content', async () => {
+    const { controller } = harness()
+    const mediaEntry = {
+      manifest: {
+        id: 'media-skin',
+        contributes: {
+          stylesheet: 'skin.css',
+          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
+        },
+      },
+    } as ControllerSkinEntry
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
+    // Re-activation (the refresh path): the OLD activation's dispose must
+    // restore only its own snapshot — the newer activation's body paint
+    // survives because it re-applies the same value after the restore.
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(document.body.style.getPropertyValue('background-image')).toContain('bg.jpg')
+    await controller.switchTo(null, null)
+    expect(document.body.style.getPropertyValue('background-image')).toBe('')
+  })
+
+  it('drives --dsh-skin-scrim with the background media (whale-mom contract)', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = ''
+    document.body.removeAttribute('style')
+    document.documentElement.removeAttribute('data-dsh-skin')
+    const ledger = createEffectLedger()
+    const loadStylesheet = async (href: string) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    }
+    const mediaEntry = {
+      manifest: {
+        id: 'media-skin',
+        contributes: {
+          stylesheet: 'skin.css',
+          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
+        },
+      },
+    } as ControllerSkinEntry
+    const controller = createSkinController({
+      doc: document,
+      ledger,
+      loadStylesheet,
+      persist: async () => {},
+      suppressBackgroundMedia: () => false,
+    })
+    expect(document.body.style.getPropertyValue('--dsh-skin-scrim')).toBe('')
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(document.body.style.getPropertyValue('--dsh-skin-scrim')).toBe('1')
+    await controller.switchTo(null, null)
+    expect(document.body.style.getPropertyValue('--dsh-skin-scrim')).toBe('0')
+  })
+
+  it('shutdown disposes the activation and clears the attribute', async () => {
+    const { controller } = harness()
+    await controller.switchTo('harbor', entryFor('harbor'))
+    controller.shutdown()
+    expect(controller.active).toBeNull()
+    expect(document.documentElement.hasAttribute('data-dsh-skin')).toBe(false)
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(0)
+  })
+})

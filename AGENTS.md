@@ -11,11 +11,11 @@ DSH 源码。改 `packages/` 前先读 [packages/AGENTS.md](packages/AGENTS.md)�
 packages/
   dsh-<plugin>/       功能插件包（task-board / git-graph / ssh / pet /
                       aionui-panel（已停止支持）/ remote-web-ui / web-ui-settings / community-plugins）
-  skins/skin-center/  皮肤中心 GUI 卡（独立包，经 dsh-skins 聚合，顶层设置卡）
-  dsh-skins/          皮肤聚合包：build.mjs 把 skins/* 皮肤资产收进一个 npm 包
+  skins/skin-center/  皮肤中心包（顶层设置卡；skins/<id>/ 纯资产目录内置全部皮肤，
+                      是本仓唯一皮肤事实源与唯一加载器）
+  dsh-skins/          已退役兼容载具（保留一个发布周期）：只依赖 skin-center，不带皮肤资产
   dsh-web-ui-all/     全家桶聚合包：aggregate.yml 汇总全部功能插件 + 外部右侧栏插件
                       dsh-better-sidebar（rows 节）
-  skins/<id>/         皮肤包（skin.json + lib/client.js，资产并入 dsh-skins）
 shared/
   tsdown.client.ts    唯一共享构建预设（禁止在包内复制）
   web-platform.ts     客户端平台种子表（浏览器 bundle 纯度门）
@@ -38,7 +38,7 @@ pnpm gallery:check        # 画廊产物一致性（CI 门禁）
 pnpm skin-center:check    # 皮肤中心注册表一致性（CI 门禁）
 pnpm docs:check           # 文档一致性（链接 / README / i18n 配对，CI 门禁）
 node scripts/dsh-plugin-new <name>   # 脚手架：新插件包
-node scripts/dsh-skin-new            # 脚手架：新皮肤包
+node scripts/dsh-skin-new            # 脚手架：新皮肤资产目录
 ```
 
 改动提交前至少跑一遍 `pnpm typecheck && pnpm test && pnpm docs:check`（CI 会全量
@@ -59,7 +59,7 @@ node scripts/dsh-skin-new            # 脚手架：新皮肤包
 - **认证环境**：`NPM_TOKEN` 只放环境变量；token 配置放用户级 `~/.npmrc`，
   项目 `.npmrc` 只留 scope 映射（详见 docs/plugins.md）。
 - **双语纪律**：主插件包 README 中英配对（`README.md` + `README.zh.md` +
-  `README.i18n.yaml`），皮肤包双语，规则见
+  `README.i18n.yaml`），皮肤资产目录 README 双语，规则见
   [docs/AGENTS.md](docs/AGENTS.md) 与 [docs/i18n.md](docs/i18n.md)。
 - **文档随代码更新**：任何改动若触及 README / AGENTS.md / docs/ 描述的行为，
   必须同 PR 更新文档，否则 `pnpm docs:check` 变红。
@@ -110,7 +110,7 @@ Release 更新说明由 `scripts/release-notes.mjs` 从常规提交自动分组�
 | [.agents/skills/dsh-web-ui-agent-coding/SKILL.md](.agents/skills/dsh-web-ui-agent-coding/SKILL.md) | 项目 Agent Coding 工作流；按任务加载同目录下的开发、审查、文档、验证或 GUI 验收技能 |
 | [packages/AGENTS.md](packages/AGENTS.md) | 包级规则：SDK 约束、bundle 形态、测试纪律 |
 | [docs/AGENTS.md](docs/AGENTS.md) | 文档标准：结构分层、写作规则、i18n 配对 |
-| 各包 `AGENTS.md` | 该包特有规则（如 dsh-ssh 安全模型、dsh-skins 构建链） |
+| 各包 `AGENTS.md` | 该包特有规则（如 dsh-ssh 安全模型、dsh-skins 退役载具形态） |
 
 ## 编辑这些指令
 

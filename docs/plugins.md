@@ -40,7 +40,7 @@ packages/<name>/
 - `patchFrom`：该包的 `cordis.patch.yml` insert 行会被汇总进聚合包 patch；
 - `deps`：解析为包名写入聚合包 `package.json` 的 `dependencies`（`workspace:*`）。
 
-皮肤（新增或改动）不需要进任何 aggregate.yml：`packages/dsh-skins/build.mjs` 会把 `packages/skins/<id>` 的 `skin.json` + `lib/client.js` 复制进 `dsh-skins/skins/<id>`（npm 上皮肤资产全部内置在 dsh-skins 一个包里，避免为每个皮肤包名付 npm 新包名费用）。改完皮肤后运行 `pnpm --filter @linxin666/dsh-skins build`。皮肤启用互斥由 `dsh-skin use` 管理（当前 Web profile 的 `<harness-home>/profiles/<profile>/cordis.patch.yml` managed 区段）。
+皮肤（新增或改动）不需要进任何 aggregate.yml：皮肤是纯资产目录，内置在 `packages/skins/skin-center/skins/<id>/`，随 `@linxin666/dsh-client-ui-skin-center` 一个包分发（`dsh-skins` 聚合包是只带依赖的退役载具，保留一个发布周期）。改完皮肤后运行 `pnpm skin-center:check` 与 `node scripts/gallery-build`。皮肤启用互斥由 `dsh-skin use` 管理（客户端原子切换，不改 cordis.patch.yml）。
 
 ### 4. 重新生成聚合包
 

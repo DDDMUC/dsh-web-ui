@@ -14,7 +14,7 @@
 ### 从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-web-ui-settings
+dsh plugin --profile web add @linxin666/dsh-client-ui-web-ui-settings@latest
 ```
 
 ### 从仓库安装（开发调试）
@@ -58,6 +58,20 @@ reverse_proxy 127.0.0.1:3080 {
 - 认证代理访问要求 loopback socket、规范且已配置的 Host、浏览器同源请求，以及由代理向 upstream 注入的共享令牌。浏览器不会收到该令牌。
 - 反向代理是认证边界：DSH 必须只监听 loopback，认证必须排在 `reverse_proxy` 之前，内部请求头必须由代理替换而不能透传客户端值。
 - 桥接只开放已注册全家桶命名空间与 `web_settings_namespaces` 的交集，不开放凭据、本机路径或其他 DSH 特权 API。
+
+## 故障排查
+
+### "Failed to load plugins ... keyed slot `settings.plugin.item` requires options.key"（DSH 0.1.0-rc.6+）
+
+0.1.17 及更早版本把组卡片注册进 keyed 槽 `settings.plugin.item` 时传的是 `id` 而不是必填的 `key`；DSH 0.1.0-rc.6 起在 loader entry 应用阶段直接拒绝这种注册，Web GUI 因此以 "Failed to load plugins" 启动失败。
+
+0.1.18 起注册改到一级 `settings.section` 槽（list 槽，用 `id` 定位），0.2.0 已发布；`main` 上的代码与 rc.6 / rc.7 兼容。仍在报错的 profile 带的是冻结的旧安装：
+
+1. 把 profile `package.json` 里所有 `@linxin666/*` 依赖升到 `^0.2.0`（至少 `^0.1.18`）。
+2. 重装 profile 依赖（`pnpm install`）；Windows 下重建陈旧的 `node_modules/@linxin666/*` junction 链接（先 `cmd /c rmdir <链接>` 再 `cmd /c mklink /J <链接> <目标>`）。
+3. 重启 `dsh web`。
+
+参见 [issue #513](https://github.com/zhu1090093659/dsh-web-ui/issues/513)。
 
 ## 已知限制
 

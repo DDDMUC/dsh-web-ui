@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-client-ui-skin-center",
-  "description": "In-GUI skin center for the dsh web GUI: lists the official default plus every installed skin (xp / blue-fantasy / dragon-heir / minecraft / miku / matrix / harbor / trading / whale-mom / whale-song), tries it on live inside the real GUI (executes the actual client bundle, light/dark preview), exits with a full restore, and applies in one click through the host /api/skin-center API (dsh-skin use, hot-reloaded, no restart)",
+  "description": "In-GUI skin center for the dsh web GUI — the single skin package: skins are pure asset directories (built-in plus $DSH_HOME/skins) loaded and rendered only by the skin center; live try-on and one-click apply switch atomically in the page (no reload, no cordis.patch.yml rewrite, no restart)",
   "version": "0.2.0",
   "type": "module",
   "main": "lib/index.js",
@@ -32,6 +32,7 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
+    "lightningcss": "^1.32.0",
     "schemastery": "^3.18.0"
   },
   "peerDependencies": {
@@ -39,7 +40,6 @@
   },
   "devDependencies": {
     "jsdom": "29.1.1",
-    "lightningcss": "^1.32.0",
     "react": "^18.2.0",
     "react-dom": "^18.3.1",
     "tsdown": "^0.22.2",
@@ -59,6 +59,8 @@
   },
   "files": [
     "lib",
+    "contracts",
+    "skins",
     "cordis.patch.yml",
     "README.md"
   ],
