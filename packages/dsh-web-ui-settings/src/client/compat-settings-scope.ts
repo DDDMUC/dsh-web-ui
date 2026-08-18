@@ -112,6 +112,57 @@ export function createBridgeApi(fetchFn: typeof fetch): BridgeSettingsFace {
   }
 }
 
+/** One path-addressed op on the official settings wire (settings.mutate). */
+interface OfficialWireOp {
+  /** set stores a value; unset drops the leaf. */
+  op: 'set' | 'unset'
+  /** Path from the section root (one segment for a card field). */
+  path: string[]
+  /** Value for op set (absent for unset). */
+  value?: unknown
+}
+
+/**
+ * The official settings.mutate result envelope. Unlike the bridge's flat
+ * refusal, the official RPC nests the refusal under error (code/message).
+ */
+type OfficialMutateResult =
+  | { ok: true; value: { user?: unknown; secrets?: { path: string[]; set: boolean }[] } }
+  | { ok: false; error: { code: string; message: string } }
+
+/**
+ * The official settings wire face the compat binder reads from the client
+ * connection handle. rc.7+ apiproxy serves the family namespaces itself, so
+ * the batched save must ride this face when the official scope is the active
+ * transport — its per-field scope writes would otherwise deadlock on
+ * cross-field validate hooks (baseURL+model).
+ */
+export interface OfficialSettingsFace {
+  /** Apply every op in one Host mutation, answering with the new redacted view. */
+  mutate: (request: { ns: string; ops: OfficialWireOp[]; expectedRevision?: number }) => Promise<{ result: OfficialMutateResult }>
+}
+
+/**
+ * Judge each requested field against a redacted namespace view. A secret
+ * field is redacted from the user layer, so it is judged by the view's
+ * secret-set marker; every other field is judged by user-layer
+ * presence/value. Shared by the bridge controller and the official batch
+ * path (both answer the same redacted view shape).
+ */
+function judgeLandedFields(fields: BridgeBatchOp[], view: { user?: unknown; secrets?: { path: string[]; set: boolean }[] }): BridgeBatchFieldResult[] {
+  const secretSet = new Map<string, boolean>()
+  for (const secret of view.secrets ?? []) secretSet.set(secret.path.join('.'), secret.set)
+  const user = view.user as Record<string, unknown> | undefined
+  return fields.map(({ field, op, value }) => {
+    const secretFlag = secretSet.get(field)
+    if (secretFlag !== undefined) return { field, landed: secretFlag }
+    if (op === 'set') {
+      return { field, landed: user !== undefined && Object.hasOwn(user, field) && user[field] === value }
+    }
+    return { field, landed: user === undefined || !Object.hasOwn(user, field) }
+  })
+}
+
 /**
  * A minimal SettingsScopeController over the bridge face. Mirrors the
  * official controller's ordering (serialized queue, revision-fenced writes,
@@ -263,23 +314,9 @@ class BridgeScopeController<T> implements SettingsScope<T> {
     return { ok: true, fields: this.landedFields(fields, response.result.value) }
   }
 
-  /**
-   * Judge each requested field against the read-back view. A secret field is
-   * redacted from the user layer, so it is judged by the view's secret-set
-   * marker; every other field is judged by user-layer presence/value.
-   */
+  /** Judge each requested field against the read-back view. */
   private landedFields(fields: BridgeBatchOp[], view: { user?: unknown; secrets?: { path: string[]; set: boolean }[] }): BridgeBatchFieldResult[] {
-    const secretSet = new Map<string, boolean>()
-    for (const secret of view.secrets ?? []) secretSet.set(secret.path.join('.'), secret.set)
-    const user = view.user as Record<string, unknown> | undefined
-    return fields.map(({ field, op, value }) => {
-      const secretFlag = secretSet.get(field)
-      if (secretFlag !== undefined) return { field, landed: secretFlag }
-      if (op === 'set') {
-        return { field, landed: user !== undefined && Object.hasOwn(user, field) && user[field] === value }
-      }
-      return { field, landed: user === undefined || !Object.hasOwn(user, field) }
-    })
+    return judgeLandedFields(fields, view)
   }
 
   /** Publish one accepted Host view (value narrowed by the optional decoder). */
@@ -305,6 +342,15 @@ export interface CompatScopeOptions<T> {
   primary: SettingsScope<T>
   /** The fetch implementation; absent on remote browsers (no bridge). */
   fetchFn?: typeof fetch
+  /**
+   * The official settings wire face (ctx.connection.api.settings), when the
+   * page is loopback. Present on rc.7+ hosts, where the apiproxy serves the
+   * family namespaces itself: the batch save then rides one official
+   * settings.mutate, because the official scope's per-field writes deadlock
+   * on cross-field validate hooks. Absent on remote browsers (the official
+   * settings RPCs are loopback-only) and the batch surface stays hidden.
+   */
+  official?: OfficialSettingsFace
 }
 
 /**
@@ -319,6 +365,39 @@ export function createCompatScope<T>(options: CompatScopeOptions<T>): SettingsSc
   const fallback = options.fetchFn === undefined
     ? undefined
     : new BridgeScopeController<T>(createBridgeApi(options.fetchFn), { namespace })
+  // Recovery/resync read through the official scope after a batch settles;
+  // the SettingsScope contract does not declare load(), so duck-type it.
+  const reloadPrimary = async (): Promise<void> => {
+    await (primary as unknown as { load?: () => Promise<void> }).load?.()
+  }
+  // The batched write over the official wire: every op rides one
+  // settings.mutate so the Host validate hook judges the batch as a unit,
+  // then the primary scope re-reads so the wrapper snapshot follows.
+  const officialBatch = options.official === undefined ? undefined : async (fields: BridgeBatchOp[]): Promise<BridgeBatchResult> => {
+    const official = options.official!
+    const revision = primary.getSnapshot().revision
+    const ops: OfficialWireOp[] = fields.map(({ field, op, value }) => op === 'set'
+      ? { op, path: [field], value }
+      : { op, path: [field] })
+    let response: { result: OfficialMutateResult }
+    try {
+      response = await official.mutate({
+        ns: namespace,
+        ops,
+        ...revision === undefined ? {} : { expectedRevision: revision },
+      })
+    } catch {
+      await reloadPrimary()
+      return { ok: false, fields: [], code: 'internal', message: 'settings transport unreachable' }
+    }
+    const result = response.result
+    if (!result.ok) {
+      await reloadPrimary()
+      return { ok: false, fields: [], code: result.error.code, message: result.error.message }
+    }
+    await reloadPrimary()
+    return { ok: true, fields: judgeLandedFields(fields, result.value) }
+  }
   const store = createSnapshotStore<SettingsScopeSnapshot<T>>(project())
   let fallbackStarted = false
   const publish = (): void => { store.set(project()) }
@@ -359,14 +438,17 @@ export function createCompatScope<T>(options: CompatScopeOptions<T>): SettingsSc
       fallbackStarted = true
       await fallback?.load()
     },
-    // The batch surface exists only while the bridge controller is the active
-    // transport; the official scope path still writes per-field (its writes
-    // are out of our reach, so the card's duck-typed detection falls back to
-    // the per-field loop there). A getter keeps the capability decision at
-    // call time instead of freezing it when the wrapper is built.
+    // The batch surface follows the active transport: the bridge controller
+    // serves it while the bridge owns the namespace; when the official scope
+    // serves it (rc.7+ apiproxy exposes the family namespaces), the batch
+    // rides one official settings.mutate instead — the official scope's own
+    // per-field writes would deadlock on cross-field validate hooks. A getter
+    // keeps the capability decision at call time instead of freezing it when
+    // the wrapper is built.
     get mutate() {
       const backend = active()
       if (fallback !== undefined && backend === fallback && typeof fallback.mutate === 'function') return fallback.mutate.bind(fallback)
+      if (backend === primary && primary.getSnapshot().status === 'ready' && officialBatch !== undefined) return officialBatch
       return undefined
     },
   }
@@ -401,10 +483,19 @@ export class WebUiSettingsBinder extends Service {
       throw new Error('webUiSettings: the official settingsScope binder is unavailable')
     }
     const primary = official.bind(spec)
+    // rc.7+ hosts serve the family namespaces through the official apiproxy;
+    // hand the batch save the official wire face so it does not fall back to
+    // the official scope's per-field writes. Remote browsers get no batch
+    // surface: the official settings RPCs are loopback-only.
+    const connection = ctx.get('connection')
+    const officialFace = isOfficialConnectionFace(connection) && connection.isLoopback !== false
+      ? connection.api.settings
+      : undefined
     const scope = createCompatScope<T>({
       namespace: spec.namespace,
       primary,
       fetchFn: (input, init) => fetch(input, init),
+      ...officialFace === undefined ? {} : { official: officialFace },
     })
     // Bridge refreshes ride the same invalidation edges as the official
     // scope: forwarded settings-document updates and connection resets.
@@ -433,6 +524,23 @@ export class WebUiSettingsBinder extends Service {
 /** True when the value exposes the official settings binder's bind() seam. */
 function isBinderFace(value: unknown): value is WebUiSettingsBinderFace {
   return typeof value === 'object' && value !== null && typeof (value as { bind?: unknown }).bind === 'function'
+}
+
+/** The slice of the client connection handle the official batch write needs. */
+interface OfficialConnectionFace {
+  /** Shared api client carrying the settings domain. */
+  api: { settings: OfficialSettingsFace }
+  /** Whether the page authority is loopback; non-loopback keeps preferences process-local. */
+  isLoopback?: boolean
+}
+
+/** True when the value is the client connection handle with a settings wire face. */
+function isOfficialConnectionFace(value: unknown): value is OfficialConnectionFace {
+  if (typeof value !== 'object' || value === null) return false
+  const api = (value as { api?: unknown }).api
+  if (typeof api !== 'object' || api === null) return false
+  const settings = (api as { settings?: unknown }).settings
+  return typeof settings === 'object' && settings !== null && typeof (settings as { mutate?: unknown }).mutate === 'function'
 }
 
 /** True when the value exposes the settings invalidation face the wrapper listens to. */
