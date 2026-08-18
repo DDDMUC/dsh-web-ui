@@ -218,6 +218,13 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
       if (value === '') style.removeProperty(prop)
       else style.setProperty(prop, value)
     }
+    // The skin-backdrop scrim contract: whale-mom (and any future skin)
+    // scales its panel translucency by --dsh-skin-scrim — 0 while no art is
+    // painted (fully opaque stock-ish panels), 1 while the skin's
+    // background media is mounted (art shows through the tinted panels).
+    // v1 drove this from the runtime; the v2 controller owns it.
+    previous.set('--dsh-skin-scrim', style.getPropertyValue('--dsh-skin-scrim'))
+    style.setProperty('--dsh-skin-scrim', values === null ? '0' : '1')
     ledger.record(activation, 'background:body', restore)
   }
 

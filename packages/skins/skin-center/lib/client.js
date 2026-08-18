@@ -2012,6 +2012,8 @@ window.__ModuleLoader__.load({
 					if (value === "") style.removeProperty(prop);
 					else style.setProperty(prop, value);
 				}
+				previous.set("--dsh-skin-scrim", style.getPropertyValue("--dsh-skin-scrim"));
+				style.setProperty("--dsh-skin-scrim", values === null ? "0" : "1");
 				ledger.record(activation, "background:body", restore);
 			}
 			function installBackground(activation, entry) {

@@ -252,6 +252,43 @@ body {
   padding: 8px 16px;
 }
 
+.mobile-create {
+  display: grid;
+  gap: 8px;
+}
+
+.mobile-preset {
+  display: grid;
+  gap: 4px;
+}
+
+.mobile-presetLabel {
+  color: var(--m-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mobile-presetSelect {
+  width: 100%;
+  height: 40px;
+  padding: 0 36px 0 12px;
+  border: 1px solid var(--m-border);
+  border-radius: 10px;
+  background: var(--m-bg-input);
+  color: var(--m-text);
+  font: inherit;
+}
+
+.mobile-presetSelect:disabled {
+  opacity: 0.6;
+}
+
+.mobile-presetDescription {
+  margin: 0;
+  color: var(--m-text-tertiary);
+  font-size: 12px;
+}
+
 /* ── buttons ─────────────────────────────────────────────────────────── */
 
 .mobile-button {
@@ -896,6 +933,7 @@ body {
 .mobile-row:focus-visible,
 .mobile-button:focus-visible,
 .mobile-new:focus-visible,
+.mobile-presetSelect:focus-visible,
 .chat-send:focus-visible,
 .chat-chip:focus-visible,
 .chat-msg-toggle:focus-visible,

@@ -379,6 +379,41 @@ describe('skin controller', () => {
     expect(document.body.style.getPropertyValue('background-image')).toBe('')
   })
 
+  it('drives --dsh-skin-scrim with the background media (whale-mom contract)', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = ''
+    document.body.removeAttribute('style')
+    document.documentElement.removeAttribute('data-dsh-skin')
+    const ledger = createEffectLedger()
+    const loadStylesheet = async (href: string) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    }
+    const mediaEntry = {
+      manifest: {
+        id: 'media-skin',
+        contributes: {
+          stylesheet: 'skin.css',
+          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
+        },
+      },
+    } as ControllerSkinEntry
+    const controller = createSkinController({
+      doc: document,
+      ledger,
+      loadStylesheet,
+      persist: async () => {},
+      suppressBackgroundMedia: () => false,
+    })
+    expect(document.body.style.getPropertyValue('--dsh-skin-scrim')).toBe('')
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(document.body.style.getPropertyValue('--dsh-skin-scrim')).toBe('1')
+    await controller.switchTo(null, null)
+    expect(document.body.style.getPropertyValue('--dsh-skin-scrim')).toBe('0')
+  })
+
   it('shutdown disposes the activation and clears the attribute', async () => {
     const { controller } = harness()
     await controller.switchTo('harbor', entryFor('harbor'))

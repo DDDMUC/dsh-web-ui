@@ -130,9 +130,11 @@ mounts both halves.
 3. Scan with the phone (or open the copied link): the phone binds and
    lands on the **standalone mobile surface at `/m/`** — no desktop UI on a
    small screen. The surface is deliberately thin:
-   - workspaces straight away (a 新建会话 button lives on each workspace's
-     session list: it creates a blank session attached to that workspace via
-     the host's `session.create` and opens the new chat immediately),
+   - workspaces straight away (each workspace's session list offers an Agent
+     mode picker before 新建会话: it selects the usable default preset, or the
+     first usable preset, and passes that roster id with the workspace id to
+     the host's `session.create`; an empty or unavailable roster keeps the
+     host-default creation flow),
    - one workspace's sessions load **incrementally** (20 rows per page,
      "加载更多会话" continues; never the whole list at once),
    - opening a session fetches its chat content **on demand** (history
@@ -172,9 +174,10 @@ pages `session.list` itself), so the tunneled Host never has to enter the
 connection plugin's trust fence. The phone is gated by its paired-device
 cookie and an explicit method allowlist (settings/credentials/host-action
 domains are never reachable from the phone; model reads/writes are limited
-to the advisory `session.models` / `session.selectModel` pair, creation to
-`session.create` (workspace id only — the phone never names a working
-directory of its own), and the permission picker only ever sends the
+to the advisory `session.models` / `session.selectModel` pair, agent preset
+access to read-only `agentPreset.list`, creation to `session.create`
+(workspace id plus an optional id from that roster — the phone never names a
+working directory of its own), and the permission picker only ever sends the
 mode-agnostic `/permission` command
 through the already-allowlisted `session.prompt`); the live stream arrives
 over Server-Sent Events on `/m/api/events.mux`. The canonical `/m/` page owns a same-scope manifest and Service Worker; its cache is limited to the static shell and an offline page, never mobile API responses, session data, or commands.
