@@ -85,6 +85,9 @@ function serveStylesheet(
     const { code } = transformSkinCss(readFileSync(abs, 'utf8'), {
       skinId: entry.manifest.id,
       filename,
+      // Only the main stylesheet derives fallback tints; patches re-deriving
+      // from their partial token view would override the skin's real values.
+      deriveFallbacks: filename === 'skin.css',
     })
     sendCss(res, 200, code)
   } catch (error) {
