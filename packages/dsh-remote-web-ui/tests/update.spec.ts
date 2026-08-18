@@ -11,6 +11,7 @@ import {
   checkUpdates,
   compareVersions,
   familyChildren,
+  fetchLatestVersion,
   findProfile,
   isLinkedSpec,
   parseSemver,
@@ -797,5 +798,27 @@ describe("runUpdateVerified", () => {
     expect(result.ok).toBe(false)
     expect(result.errorCode).toBe("verify-failed")
     expect(result.exitCode).toBe(0)
+  })
+})
+
+describe('fetchLatestVersion', () => {
+  it('passes the abort signal to the fetch implementation', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => ({
+      ok: true,
+      json: async () => ({ version: '1.2.3' }),
+    }))
+    const version = await fetchLatestVersion('@linxin666/dsh-remote-web-ui', fetchImpl)
+    expect(version).toBe('1.2.3')
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit | undefined]
+    expect(String(url)).toContain('/latest')
+    expect(init?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('returns undefined when the registry probe rejects', async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('network down')
+    })
+    await expect(fetchLatestVersion('@linxin666/dsh-remote-web-ui', fetchImpl)).resolves.toBeUndefined()
   })
 })

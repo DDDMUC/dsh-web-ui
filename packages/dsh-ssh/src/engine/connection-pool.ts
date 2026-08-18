@@ -140,28 +140,34 @@ export async function connectChain(engine: PoolEngine, entry: SshHostEntry): Pro
   const hops: Client[] = []
   let sock: ConnectConfig['sock']
   const chain = entry.proxyJump
-  for (let index = 0; index < chain.length; index += 1) {
-    const hopAlias = chain[index]
-    const hop = engine.store.find(hopAlias)
-    if (hop === undefined) {
-      for (const client of hops) client.end()
-      throw new Error('proxyJump alias \'' + hopAlias + '\' not found — create it first')
-    }
-    const hopClient = await connectClient(buildConnectConfig(hop, sock, engine.opts))
-    hops.push(hopClient)
-    const next = index + 1 < chain.length ? engine.store.find(chain[index + 1]) : undefined
-    const nextHost = next !== undefined ? next.host : entry.host
-    const nextPort = next !== undefined ? next.port : entry.port
-    sock = await new Promise<ConnectConfig['sock']>((resolve, reject) => {
-      hopClient.forwardOut('127.0.0.1', 0, nextHost, nextPort, (error, stream) => {
-        if (error !== undefined) {
-          for (const client of hops) client.end()
-          reject(error)
-        } else {
-          resolve(stream)
-        }
+  try {
+    for (let index = 0; index < chain.length; index += 1) {
+      const hopAlias = chain[index]
+      const hop = engine.store.find(hopAlias)
+      if (hop === undefined) {
+        throw new Error('proxyJump alias \'' + hopAlias + '\' not found — create it first')
+      }
+      const hopClient = await connectClient(buildConnectConfig(hop, sock, engine.opts))
+      hops.push(hopClient)
+      const next = index + 1 < chain.length ? engine.store.find(chain[index + 1]) : undefined
+      const nextHost = next !== undefined ? next.host : entry.host
+      const nextPort = next !== undefined ? next.port : entry.port
+      sock = await new Promise<ConnectConfig['sock']>((resolve, reject) => {
+        hopClient.forwardOut('127.0.0.1', 0, nextHost, nextPort, (error, stream) => {
+          if (error !== undefined) {
+            reject(error)
+          } else {
+            resolve(stream)
+          }
+        })
       })
-    })
+    }
+  } catch (error) {
+    // A missing alias, a failed hop connect, or a failed forwardOut must all
+    // close the hops already connected, so a failed ProxyJump never leaks a
+    // middle-hop connection.
+    for (const client of hops) client.end()
+    throw error
   }
   let target: Client | undefined
   try {

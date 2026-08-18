@@ -33,11 +33,20 @@
 
 import { transform } from 'lightningcss'
 
+import { deriveFallbackTokens } from './fallback.ts'
+
 export interface SkinCssTransformOptions {
   /** Manifest id; becomes the html[data-dsh-skin="<id>"] scope value. */
   skinId: string
   /** Logical filename for error messages (e.g. "skin.css" / "patches.css"). */
   filename?: string
+  /**
+   * Append automatic fallback tints for official tokens the skin does not
+   * remap (see ./fallback.ts). Only the main stylesheet derives; patches
+   * must not re-derive or their partial token view would override the
+   * skin's real values.
+   */
+  deriveFallbacks?: boolean
 }
 
 export interface SkinCssTransformResult {
@@ -212,6 +221,7 @@ export function transformSkinCss(css: string, options: SkinCssTransformOptions):
   const violations: string[] = []
   const warnings: string[] = []
   const spans: RuleSpan[] = []
+  const defined: Set<string> = new Set()
 
   // Single lightningcss pass with READ-ONLY visitors: collect rule spans for
   // the text surgery, run the whitelist checks, warn on hash-class reliance
@@ -249,6 +259,11 @@ export function transformSkinCss(css: string, options: SkinCssTransformOptions):
               }
             }
           }
+        },
+      },
+      Declaration: {
+        custom(property) {
+          defined.add(property.name)
         },
       },
       Url(url) {
@@ -308,6 +323,12 @@ export function transformSkinCss(css: string, options: SkinCssTransformOptions):
   // tokens are unaffected: the shell surfaces keep their colors, and the
   // body clone above keeps the same base color behind transparent areas.
   out += `\n${scope} [id="root"] { background: transparent; }\n`
+  if (options.deriveFallbacks === true) {
+    const fallbacks = deriveFallbackTokens(defined)
+    if (fallbacks.length > 0) {
+      out += `\n${scope} body {\n  ${fallbacks.join('\n  ')}\n}\n`
+    }
+  }
   return { code: out, warnings }
 }
 

@@ -15,6 +15,43 @@ function scope(css: string, filename?: string) {
 }
 
 describe('transformSkinCss scoping', () => {
+  it('derives fallback tints for uncovered official tokens when enabled', () => {
+    const css = [
+      ':root {',
+      '  --dsw-alias-bg-base: #141a2e;',
+      '  --dsw-alias-bg-layer-1: #181f36;',
+      '  --dsw-alias-label-primary: #fff5ec;',
+      '  --dsw-alias-border-l2: #ffffff1f;',
+      '}',
+    ].join('\n')
+    const { code } = transformSkinCss(css, { skinId: ID, filename: 'skin.css', deriveFallbacks: true })
+    expect(code).toContain('--dsw-specific-input-major: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 60%, transparent);')
+    expect(code).toContain('--dsw-alias-label-secondary: color-mix(in srgb, var(--dsw-alias-label-primary) 70%, transparent);')
+    expect(code).toContain('--dsw-alias-border-l3: color-mix(in srgb, var(--dsw-alias-border-l2) 55%, transparent);')
+  })
+
+  it('never re-derives tokens the skin defines and never touches excluded groups', () => {
+    const css = [
+      ':root {',
+      '  --dsw-alias-bg-layer-1: #181f36;',
+      '  --dsw-specific-input-major: #101a30;',
+      '}',
+    ].join('\n')
+    const { code } = transformSkinCss(css, { skinId: ID, filename: 'skin.css', deriveFallbacks: true })
+    expect(code).not.toContain('--dsw-specific-input-major: color-mix')
+    // Semantic / structural groups stay untouched.
+    expect(code).not.toContain('--dsw-alias-state-error-primary:')
+    expect(code).not.toContain('--dsw-alias-button-primary-fill:')
+    expect(code).not.toContain('--dsw-alias-bg-mask-1:')
+  })
+
+  it('derives nothing without a defined anchor and stays off by default', () => {
+    const noAnchor = transformSkinCss('.x { color: red; }', { skinId: ID, filename: 'skin.css', deriveFallbacks: true })
+    expect(noAnchor.code).not.toContain('color-mix')
+    const off = transformSkinCss(':root { --dsw-alias-bg-base: #141a2e; }', { skinId: ID, filename: 'skin.css' })
+    expect(off.code).not.toContain('color-mix')
+  })
+
   it('clones :root custom properties onto the body scope (official body-level light tokens)', () => {
     const css = [
       ':root {',

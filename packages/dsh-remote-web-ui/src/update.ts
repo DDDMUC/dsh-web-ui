@@ -280,14 +280,14 @@ function familyUpdatePackages(
  */
 export async function fetchLatestVersion(
   name: string,
-  fetchImpl: (url: string) => Promise<{ ok: boolean; json(): Promise<unknown> }>,
+  fetchImpl: (url: string, init?: RequestInit) => Promise<{ ok: boolean; json(): Promise<unknown> }>,
   timeoutMs = 10_000,
 ): Promise<string | undefined> {
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => { controller.abort() }, timeoutMs)
     try {
-      const response = await fetchImpl(NPM_REGISTRY + '/' + name.replace('/', '%2F') + '/latest')
+      const response = await fetchImpl(NPM_REGISTRY + '/' + name.replace('/', '%2F') + '/latest', { signal: controller.signal })
       if (!response.ok) return undefined
       const body = await response.json()
       if (typeof body !== 'object' || body === null) return undefined

@@ -21,7 +21,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { dirname, join, resolve as resolvePath } from 'node:path'
+import { dirname, join, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { validateSkinManifestV2 } from './core/manifest-v2/validate.ts'
@@ -182,7 +182,8 @@ export function findSkin(catalog: SkinCatalog, id: string): SkinCatalogEntry | n
  */
 export function resolveInsideSkin(entry: SkinCatalogEntry, relPath: string): string | null {
   const abs = resolvePath(entry.dir, relPath)
-  const rootWithSep = entry.dir.endsWith('/') ? entry.dir : entry.dir + '/'
-  if (abs !== entry.dir && !abs.startsWith(rootWithSep)) return null
+  const root = resolvePath(entry.dir)
+  const rootWithSep = root.endsWith(sep) ? root : root + sep
+  if (abs !== root && !abs.startsWith(rootWithSep)) return null
   return abs
 }

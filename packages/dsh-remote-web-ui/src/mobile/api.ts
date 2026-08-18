@@ -6,6 +6,7 @@
  */
 
 import type { WorkspaceView } from '@deepseek-ai/dsh-host-apiproxy/api/workspace'
+import type { AgentPresetEntry } from '@deepseek-ai/dsh-host-apiproxy/api/agent-presets'
 import type { SessionSummary, SessionModels, SessionProjectionsBlock } from '@deepseek-ai/dsh-host-apiproxy/api/sessions'
 import { callUnary } from './rpc.ts'
 
@@ -22,6 +23,13 @@ export interface CreatedSession {
   sessionId: string
   /** The composition the new session runs (echoed so the caller can label it). */
   agentPreset?: string
+}
+
+/** Agent presets available when composing a new session. */
+export interface AgentPresetRoster {
+  presets: readonly AgentPresetEntry[]
+  authorable: boolean
+  hasDocument: boolean
 }
 
 /** One history page (already bounded to whole messages by the host). */
@@ -57,12 +65,17 @@ export async function listSessions(cursor?: string): Promise<SessionPage> {
   return await callUnary<SessionPage>('session.list', cursor === undefined ? {} : { cursor })
 }
 
+/** Read the available agent compositions for a new session. */
+export async function listAgentPresets(): Promise<AgentPresetRoster> {
+  return await callUnary<AgentPresetRoster>('agentPreset.list', {})
+}
+
 /**
  * Create a blank session (entity birth precedes the first message). Name a
  * workspace to attach it there, or a cwd; omitting both uses the host cwd.
  */
 export async function createSession(
-  options: { workspaceId?: string; cwd?: string } = {},
+  options: { workspaceId?: string; cwd?: string; agentPreset?: string } = {},
 ): Promise<CreatedSession> {
   return await callUnary<CreatedSession>('session.create', options)
 }

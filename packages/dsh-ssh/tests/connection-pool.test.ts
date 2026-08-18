@@ -208,4 +208,33 @@ describe('connectChain', () => {
     expect(targetInstance.connectConfig?.readyTimeout).toBe(1)
     expect(targetInstance.connectConfig?.keepaliveInterval).toBe(1)
   })
+
+  it('ends already-connected hops when a middle-hop connect fails', async () => {
+    const hopA = passwordEntry('a', { proxyJump: [] })
+    const hopB = passwordEntry('b', { proxyJump: [] })
+    const target = passwordEntry('target', { proxyJump: ['a', 'b'] })
+    const store = fakeStore([hopA, hopB, target])
+    // Hop A connects and forwards; hop B fails its handshake.
+    sshMock.behaviors.push((client) => { client.emit('ready') })
+    sshMock.behaviors.push((client) => { client.emit('error', new Error('Connection lost before handshake')) })
+
+    const engine = {
+      store,
+      opts: { idleTimeoutMs: 1, connectTimeoutMs: 1, keepaliveIntervalMs: 1, maxOutputBytes: 1, defaultExecTimeoutMs: 1, defaultMaxWorkers: 1, sftpConcurrency: 1 },
+      pool: new Map(),
+      acquireQueue: new Map(),
+    }
+
+    await expect(connectChain(engine as never, target)).rejects.toThrow('Connection lost before handshake')
+
+    const hopAInstance = sshMock.instances[0]
+    const hopBInstance = sshMock.instances[1]
+    expect(hopAInstance).toBeDefined()
+    expect(hopBInstance).toBeDefined()
+    expect(hopAInstance.forwardOutCalls).toBe(1)
+    // The already-connected hop A must be closed so no middle-hop leaks.
+    expect(hopAInstance.endCalls).toBe(1)
+    // The failed hop B is destroyed by connectClient on its own failure.
+    expect(hopBInstance.destroyCalls).toBe(1)
+  })
 })

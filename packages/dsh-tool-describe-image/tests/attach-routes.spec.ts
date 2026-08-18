@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentLimits, ImageAttachmentRef, SaveImageAttachment, StoredImageAttachment } from '@deepseek-ai/dsh-attachment'
 import { Context } from '@deepseek-ai/cordis'
-import { attachmentMarkdown, attachmentNote, attachmentRefById, handleAttach, registerAttachRoute, registerAttachmentRef, validateAttachPayload, type AttachError } from '../src/attach-routes.ts'
+import { attachBodyCap, attachmentMarkdown, attachmentNote, attachmentRefById, handleAttach, registerAttachRoute, registerAttachmentRef, validateAttachPayload, type AttachError } from '../src/attach-routes.ts'
 import type { AttachPayload } from '../src/attach-routes.ts'
 import { PNG_BYTES } from './mock-server.ts'
 
@@ -71,6 +71,16 @@ function errOf(result: { payload: AttachPayload; bytes: Buffer } | { error: Atta
 }
 
 const PNG_BASE64 = PNG_BYTES.toString('base64')
+
+describe('attachBodyCap', () => {
+  it('stays under the legacy 16 MiB wall for the default 10 MiB bound', () => {
+    expect(attachBodyCap(10 * 1024 * 1024)).toBeLessThan(16 * 1024 * 1024)
+  })
+
+  it('scales above the legacy wall when the image bound is raised', () => {
+    expect(attachBodyCap(20 * 1024 * 1024)).toBeGreaterThan(16 * 1024 * 1024)
+  })
+})
 
 describe('validateAttachPayload', () => {
   it('accepts a well-formed PNG payload', () => {
@@ -279,7 +289,7 @@ describe('registerAttachRoute', () => {
   }
 
   /** Register the route and return the captured prefix row. */
-  const capture = (attachments: AttachmentStore | undefined, webserver: boolean) => {
+  const capture = (attachments: AttachmentStore | undefined, webserver: boolean, readMaxBytes?: () => number) => {
     const registrations: Array<{ kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }> = []
     const webServer = webserver
       ? { register: (row: { kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }) => { registrations.push(row); return () => {} } }
@@ -291,7 +301,7 @@ describe('registerAttachRoute', () => {
         return undefined
       },
     }
-    registerAttachRoute(ctx as unknown as Context)
+    registerAttachRoute(ctx as unknown as Context, readMaxBytes)
     return registrations
   }
 
@@ -318,6 +328,18 @@ describe('registerAttachRoute', () => {
     const { res, status } = makeRes()
     await registrations[0].handler(makeReq('POST', '{not json'), res)
     expect(status()).toBe(400)
+  })
+
+  it('scales the body cap with a higher configured maxBytes (no fixed 16 MiB wall)', async () => {
+    const registrations = capture(undefined, true, () => 20 * 1024 * 1024)
+    // A base64 payload that exceeds the old fixed 16 MiB cap but fits the
+    // scaled cap for a 20 MiB image bound.
+    const payload = JSON.stringify({ data: 'A'.repeat((16 * 1024 * 1024) + 4), mediaType: 'image/png' })
+    const { res, status } = makeRes()
+    await registrations[0].handler(makeReq('POST', payload), res)
+    // The body cap passed; the (fake) image is then rejected by payload
+    // validation (422), not by a fixed body cap (400).
+    expect(status()).toBe(422)
   })
 
   it('stores a valid upload and returns the note with 200', async () => {
