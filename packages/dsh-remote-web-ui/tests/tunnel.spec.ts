@@ -129,6 +129,40 @@ describe('TunnelManager', () => {
     expect(h.manager.info.phase).toBe('starting')
   })
 
+  it('drops a stale ensureBinary resolution after stop/start (no double handle)', async () => {
+    const releases: Array<() => void> = []
+    const ensure = vi.fn(() => new Promise<void>((resolve) => { releases.push(resolve) }))
+    const tunnels: FakeTunnel[] = []
+    const { timer } = makeTimers()
+    const manager = new TunnelManager({
+      factory: () => {
+        const tunnel = new FakeTunnel()
+        tunnels.push(tunnel)
+        return tunnel
+      },
+      ensureBinary: ensure,
+      timer,
+      urlTimeoutMs: 30_000,
+      restartBaseMs: 5_000,
+      restartMaxMs: 60_000,
+    })
+
+    manager.start('http://127.0.0.1:3080')
+    expect(releases.length).toBe(1)
+    manager.stop()
+    manager.start('http://127.0.0.1:3081')
+    expect(releases.length).toBe(2)
+
+    // The first (stale) resolution must NOT spawn a handle — a second start
+    // superseded it.
+    releases[0]!()
+    await vi.waitFor(() => { expect(tunnels.length).toBe(0) })
+
+    // The current attempt's resolution spawns exactly one handle.
+    releases[1]!()
+    await vi.waitFor(() => { expect(tunnels.length).toBe(1) })
+  })
+
   it('restarts after an unexpected exit and recovers to running', async () => {
     const h = makeHarness({ restartBaseMs: 10 })
     h.manager.start('http://127.0.0.1:3080')
