@@ -239,4 +239,29 @@ describe('TaskBoardHostService poll heartbeat', () => {
     expect(payload.power).toEqual(service.power.snapshot())
     service.dispose()
   })
+
+  it('settles open executions from the one session list each poll already fetched', async () => {
+    const ledger = new HostTaskLedger(root())
+    const base = createTask({ title: 'A', description: '', prompt: '' }, 1_000, 'task-a')
+    const opened = startExecution(base, 1_100, 'execution-a').task
+    const imported = {
+      ...opened,
+      executions: opened.executions.map(execution => ({ ...execution, sessionId: 'session-a' })),
+    }
+    ledger.applyRequest('import', { kind: 'import', sourceId: 'browser', tasks: [imported] })
+    const list = vi.fn(async (request: { rpcId: unknown }) => ok(request, { items: [{ sessionId: 'session-a', running: false }] }))
+    const history = vi.fn(async (request: { rpcId: unknown }) => ok(request, {
+      events: [{ event: { type: 'turn/end', seq: 10, time: 1_200, data: { reason: { kind: 'complete' } } } }],
+      hasMore: false,
+    }))
+    const service = new TaskBoardHostService({ sessions: { list, history } } as unknown as ApiProxy, {
+      ledger,
+      power: new PowerInhibitor({ platform: 'linux' }),
+    })
+    await (service as unknown as { pollSessions(): Promise<void> }).pollSessions()
+    expect(ledger.state().tasks[0].executions[0].result).toBe('succeeded')
+    expect(list).toHaveBeenCalledOnce()
+    expect(history).toHaveBeenCalledOnce()
+    service.dispose()
+  })
 })

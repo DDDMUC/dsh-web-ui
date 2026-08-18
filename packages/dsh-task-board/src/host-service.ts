@@ -2,7 +2,7 @@ import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
 import { nextRunAtMs } from './core/schedule.ts'
 import type { TaskRecord } from './core/tasks.ts'
 import { HostTaskLedger, type OpenedRun } from './host-ledger.ts'
-import { HostExecutionRunner, SessionLaunchError } from './host-runner.ts'
+import { HostExecutionRunner, SessionLaunchError, type SessionSummary } from './host-runner.ts'
 import { PowerInhibitor } from './power-inhibitor.ts'
 import type { TaskBoardAction, TaskBoardEventPayload, TaskBoardSnapshot } from './protocol.ts'
 
@@ -141,15 +141,16 @@ export class TaskBoardHostService {
     })
     // No unconditional emit here: real changes already emit through the
     // ledger subscription (settles) and the gated power listener above.
-    if (running.known) await this.reconcileExecutions()
+    if (running.known) await this.reconcileExecutions(running.items)
   }
 
-  private async reconcileExecutions(): Promise<void> {
+  /** Reuse the session list this poll already fetched: one list RPC per tick, not 1 + E. */
+  private async reconcileExecutions(sessions: readonly SessionSummary[]): Promise<void> {
     for (const task of this.ledger.state().tasks) {
       for (const execution of task.executions) {
         if (execution.sessionId === undefined || execution.endedAt !== undefined) continue
         try {
-          const result = await this.runner.inspect(execution.sessionId, execution.startedAt)
+          const result = await this.runner.inspect(execution.sessionId, execution.startedAt, sessions)
           if (result.outcome === 'pending') continue
           this.ledger.settle(task.id, execution.id, result.outcome, 'error' in result ? result.error : undefined)
         } catch {
