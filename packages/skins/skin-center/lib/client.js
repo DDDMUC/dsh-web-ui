@@ -1090,6 +1090,13 @@ window.__ModuleLoader__.load({
 												src: item.previewUrl,
 												alt: "",
 												loading: "lazy"
+											}) : item.videoUrl !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("video", {
+												className: skin_center_module_css_default.wallpaperThumb,
+												src: item.videoUrl,
+												preload: "metadata",
+												muted: true,
+												playsInline: true,
+												"aria-hidden": "true"
 											}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 												className: skin_center_module_css_default.wallpaperThumbEmpty,
 												"aria-hidden": "true"
