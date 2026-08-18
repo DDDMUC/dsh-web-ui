@@ -303,3 +303,20 @@ body[data-ds-dark-theme] [data-dsh-part="dialog"] {
   border-color: #22407a;
   box-shadow: 0 8px 28px #0000008c;
 }
+
+/* Right-panel collapse handling (ported from the v1 miku skin). The hooks
+   poll toggles body[data-dsh-aionui-collapsed] when the aionui panel
+   collapses to a thin rail: hide the collapse chevron and show the floating
+   expand button (and the reverse when expanded) so the two floating buttons
+   never overlap. dsh-aionui-panel is deprecated upstream, kept defensively. */
+body[data-dsh-aionui-collapsed] .aionui-collapse-chevron {
+  display: none !important;
+}
+
+body[data-dsh-aionui-collapsed] .aionui-floating-expand {
+  display: flex !important;
+}
+
+body:not([data-dsh-aionui-collapsed]) .aionui-floating-expand {
+  display: none !important;
+}
