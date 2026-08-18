@@ -186,6 +186,14 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
         json(res, 404, { ok: false, error: 'no-hooks' })
         return
       }
+      // Trust model (contracts/README.md): hooks are trusted code that shares
+      // THIS repository's review and release. A user-directory skin never
+      // went through that review, so its hooks are refused even though its
+      // declarative parts load fine.
+      if (entry.origin !== 'builtin') {
+        json(res, 403, { ok: false, error: 'hooks-require-review', origin: entry.origin })
+        return
+      }
       const abs = resolveInsideSkin(entry, facet.entry)
       if (!abs || !existsSync(abs)) {
         json(res, 404, { ok: false, error: 'hooks-not-found' })

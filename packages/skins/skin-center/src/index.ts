@@ -30,8 +30,9 @@ export { makeWeRoutes, WE_API_PREFIX } from './we-routes.ts'
 export { validateSkinManifestV2 } from './core/manifest-v2/validate.ts'
 export type { SkinManifestV2, SkinManifestValidation } from './core/manifest-v2/types.ts'
 export { transformSkinCss, SkinCssSafetyError } from './core/css-safety/transform.ts'
-export { loadSkinCatalog, findSkin, resolveInsideSkin } from './skin-repo.ts'
+export { loadSkinCatalog, findSkin, resolveInsideSkin, userSkinsDir, builtinSkinsDir } from './skin-repo.ts'
 export type { SkinCatalog, SkinCatalogEntry } from './skin-repo.ts'
+export { defaultActiveStatePath, readActiveSelection, writeActiveSelection } from './active-state.ts'
 
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
 export const name = 'ui-skin-center'

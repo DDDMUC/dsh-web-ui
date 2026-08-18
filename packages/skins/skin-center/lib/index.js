@@ -440,22 +440,26 @@ function collectSource(spec, catalog, claimed) {
 		if (existing) {
 			if (spec.origin === "user" && existing.origin === "builtin") {
 				catalog.skins = catalog.skins.filter((s) => s !== existing);
+				const winnerWarnings = [...result.warnings, `shadows the built-in "${manifest.id}" skin`];
+				if (manifest.facets?.client) winnerWarnings.push("declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused");
 				const winner = {
 					manifest,
 					origin: "user",
 					dir,
-					warnings: [...result.warnings, `shadows the built-in "${manifest.id}" skin`]
+					warnings: winnerWarnings
 				};
 				claimed.set(manifest.id, winner);
 				catalog.skins.push(winner);
 			} else existing.warnings.push(`duplicate ${spec.origin} id "${manifest.id}" ignored from ${dir}`);
 			continue;
 		}
+		const warnings = [...result.warnings];
+		if (spec.origin === "user" && manifest.facets?.client) warnings.push("declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused");
 		const entry = {
 			manifest,
 			origin: spec.origin,
 			dir,
-			warnings: result.warnings
+			warnings
 		};
 		claimed.set(manifest.id, entry);
 		catalog.skins.push(entry);
@@ -926,6 +930,14 @@ function makeSkinCenterV2Routes(deps = {}) {
 				json(res, 404, {
 					ok: false,
 					error: "no-hooks"
+				});
+				return;
+			}
+			if (entry.origin !== "builtin") {
+				json(res, 403, {
+					ok: false,
+					error: "hooks-require-review",
+					origin: entry.origin
 				});
 				return;
 			}
@@ -2291,4 +2303,4 @@ function applyImpl(ctx) {
 	}
 }
 //#endregion
-export { SKIN_BACKGROUND_NAMESPACE, SKIN_CENTER_V2_PREFIX, SKIN_WALLPAPER_NAMESPACE, SkinBackgroundConfigSchema, SkinCssSafetyError, SkinWallpaperConfigSchema, WE_API_PREFIX, apply, findSkin, inject, loadSkinCatalog, makeSkinCenterV2Routes, makeWeRoutes, name, resolveInsideSkin, transformSkinCss, validateSkinManifestV2 };
+export { SKIN_BACKGROUND_NAMESPACE, SKIN_CENTER_V2_PREFIX, SKIN_WALLPAPER_NAMESPACE, SkinBackgroundConfigSchema, SkinCssSafetyError, SkinWallpaperConfigSchema, WE_API_PREFIX, apply, builtinSkinsDir, defaultActiveStatePath, findSkin, inject, loadSkinCatalog, makeSkinCenterV2Routes, makeWeRoutes, name, readActiveSelection, resolveInsideSkin, transformSkinCss, userSkinsDir, validateSkinManifestV2, writeActiveSelection };

@@ -177,6 +177,37 @@ describe('v2 stylesheet / patches / hooks routes', () => {
   })
 })
 
+describe('v2 hooks trust gate', () => {
+  it('refuses hooks for user-directory skins even when declared', async () => {
+    const userDir = join(root, 'user')
+    mkdirSync(join(userDir, 'shady'), { recursive: true })
+    writeFileSync(join(userDir, 'shady', 'skin.json'), JSON.stringify({
+      skinManifestVersion: 2,
+      id: 'shady',
+      name: 's',
+      nameEn: 's',
+      version: '1.0.0',
+      author: 'ext',
+      contributes: { stylesheet: 'skin.css' },
+      facets: { client: { entry: 'hooks.mjs', apiVersion: 'x-org.linxin666.skin-center/v1alpha1' } },
+    }))
+    writeFileSync(join(userDir, 'shady', 'skin.css'), '.a { color: red; }')
+    writeFileSync(join(userDir, 'shady', 'hooks.mjs'), 'export default () => ({ apply() {} })')
+    const routes = makeSkinCenterV2Routes({
+      loadCatalog: () => loadSkinCatalog({ builtinDir: builtin, userDir }),
+      activeStatePath: statePath,
+    })
+    const server = await serve(routes)
+    const res = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/skins/shady/hooks.mjs`)
+    expect(res.status).toBe(403)
+    expect(res.jsonBody.error).toBe('hooks-require-review')
+    // Its declarative parts still load.
+    const css = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/skins/shady/stylesheet`)
+    expect(css.status).toBe(200)
+    await server.close()
+  })
+})
+
 describe('v2 asset route', () => {
   it('serves in-directory assets with mime types', async () => {
     writeFixtureSkin('harbor')

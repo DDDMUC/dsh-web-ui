@@ -123,11 +123,15 @@ function collectSource(spec: SourceSpec, catalog: SkinCatalog, claimed: Map<stri
       if (spec.origin === 'user' && existing.origin === 'builtin') {
         // User shadows builtin: replace and note it on the winning entry.
         catalog.skins = catalog.skins.filter((s) => s !== existing)
+        const winnerWarnings = [...result.warnings, `shadows the built-in "${manifest.id}" skin`]
+        if (manifest.facets?.client) {
+          winnerWarnings.push('declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused')
+        }
         const winner: SkinCatalogEntry = {
           manifest,
           origin: 'user',
           dir,
-          warnings: [...result.warnings, `shadows the built-in "${manifest.id}" skin`],
+          warnings: winnerWarnings,
         }
         claimed.set(manifest.id, winner)
         catalog.skins.push(winner)
@@ -136,7 +140,11 @@ function collectSource(spec: SourceSpec, catalog: SkinCatalog, claimed: Map<stri
       }
       continue
     }
-    const entry: SkinCatalogEntry = { manifest, origin: spec.origin, dir, warnings: result.warnings }
+    const warnings = [...result.warnings]
+    if (spec.origin === 'user' && manifest.facets?.client) {
+      warnings.push('declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused')
+    }
+    const entry: SkinCatalogEntry = { manifest, origin: spec.origin, dir, warnings }
     claimed.set(manifest.id, entry)
     catalog.skins.push(entry)
   }
