@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PluginFailureItem } from '../src/core/protocol.ts'
-import { DEFAULT_REPAIR_COPY, failureRepairMessage, installRepairMessage } from '../src/core/repair.ts'
+import { conflictRepairMessage, DEFAULT_REPAIR_COPY, failureRepairMessage, installRepairMessage } from '../src/core/repair.ts'
 
 const failure: PluginFailureItem = {
   pluginId: 'pkg', kind: 'load-failure', message: 'boom', stack: 'at x', installPath: '/x/pkg', at: '2026-08-18T00:00:00.000Z',
@@ -45,5 +45,19 @@ describe('failureRepairMessage', () => {
     expect(text).not.toMatch(/token|secret|password|authorization|Bearer|sk-[A-Za-z0-9]/i)
     const installText = installRepairMessage('@scope/pkg', 'boom', DEFAULT_REPAIR_COPY)
     expect(installText).not.toMatch(/token|secret|password|authorization|Bearer|sk-[A-Za-z0-9]/i)
+  })
+})
+
+describe('conflictRepairMessage', () => {
+  it('names the entry and its state change', () => {
+    const text = conflictRepairMessage({ id: 'ui-x', name: 'x', from: 'enabled', to: 'disabled' }, DEFAULT_REPAIR_COPY)
+    expect(text).toContain('x (ui-x)')
+    expect(text).toContain('已开启 -> 已关闭')
+    expect(text).toContain(DEFAULT_REPAIR_COPY.conflictAsk)
+  })
+
+  it('never appends credential-shaped content', () => {
+    const text = conflictRepairMessage({ id: 'a', name: 'a', from: 'uninstalled', to: 'enabled' }, DEFAULT_REPAIR_COPY)
+    expect(text).not.toMatch(/token|secret|password|authorization|Bearer|sk-[A-Za-z0-9]/i)
   })
 })

@@ -10,7 +10,20 @@
  * @module @linxin666/dsh-client-ui-plugin-manager/host
  */
 
+import { copyFile, rename, writeFile } from 'node:fs/promises'
 import { isMap, isScalar, isSeq, parseDocument, type Document, type ScalarTag, type YAMLMap, type YAMLSeq } from 'yaml'
+
+/**
+ * Persist one patch file conservatively: a timestamped-free single backup,
+ * then a tmp write and an atomic-ish rename over the target.
+ * @param patchPath - absolute cordis.patch.yml path.
+ * @param text - the new file text.
+ */
+export async function writePatchAtomic(patchPath: string, text: string): Promise<void> {
+  await copyFile(patchPath, `${patchPath}.bak-plugin-manager`).catch(() => {})
+  await writeFile(`${patchPath}.tmp`, text, { mode: 0o600 })
+  await rename(`${patchPath}.tmp`, patchPath)
+}
 
 /** YAML `!!js` expression tag: expressions stay literal until the Loader evaluates them. */
 export const JS_EXPRESSION_TAG: ScalarTag = {

@@ -8,13 +8,12 @@
  * @module @linxin666/dsh-client-ui-plugin-manager/host
  */
 
-import { rename, copyFile, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { isLoopbackRequest } from './loopback.ts'
 import type { CliGateway } from './gateway.ts'
 import { readPatchText, type ProfileFacts } from './profile.ts'
-import { setRowEnabled } from './rows.ts'
+import { setRowEnabled, writePatchAtomic } from './rows.ts'
 import { buildPluginRow, snapshotGateway } from './state.ts'
 
 /** Route prefix the browser half mirrors. */
@@ -162,10 +161,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
     const patchText = await readPatchText(facts.patchPath)
     const next = setRowEnabled(patchText, facts.patchPath, id.trim(), id.trim(), enabled)
     if (next !== patchText) {
-      // Conservative backup, then an atomic-ish replace.
-      await copyFile(facts.patchPath, `${facts.patchPath}.bak-plugin-manager`).catch(() => {})
-      await writeFile(`${facts.patchPath}.tmp`, next, { mode: 0o600 })
-      await rename(`${facts.patchPath}.tmp`, facts.patchPath)
+      await writePatchAtomic(facts.patchPath, next)
     }
     const snapshot = await snapshotGateway(facts, next)
     const plugin = snapshot.plugins.find(item => item.id === id.trim())

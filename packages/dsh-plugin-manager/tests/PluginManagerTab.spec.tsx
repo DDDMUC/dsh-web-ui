@@ -127,6 +127,16 @@ describe('PluginManagerTab', () => {
     fireEvent.click(screen.getByRole('button', { name: t('install') }))
 
     expect(await screen.findByText(t('conflictDisabled', { name: 'dsh-web-ui' }))).toBeTruthy()
+
+    // Every conflict row offers the repair handoff with a seeded conflict message.
+    fireEvent.click(screen.getByRole('button', { name: t('repair') }))
+    await waitFor(() => {
+      expect(injected.repairPlugin).toHaveBeenCalledTimes(1)
+    })
+    const [, conflictMessage] = vi.mocked(injected.repairPlugin).mock.calls[0] as [string, string]
+    expect(conflictMessage).toContain('dsh-web-ui (web-ui)')
+    expect(conflictMessage).toContain(t('repairConflictTitle'))
+
     fireEvent.click(screen.getByRole('button', { name: t('undoConflict') }))
     await waitFor(() => {
       expect(injected.controlsSetEnabled).toHaveBeenCalledWith('web-ui', true)

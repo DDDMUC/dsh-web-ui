@@ -25,7 +25,7 @@ import type {
   PluginFailuresSnapshot,
   PluginUpdateItem,
 } from '../core/protocol.ts'
-import { failureRepairMessage, installRepairMessage, type RepairCopy } from '../core/repair.ts'
+import { conflictRepairMessage, failureRepairMessage, installRepairMessage, type RepairCopy } from '../core/repair.ts'
 import type { PluginManagerKey } from './locales.ts'
 import css from './plugin-manager.module.css'
 
@@ -117,6 +117,15 @@ function repairCopy(t: PluginManagerTabProps['t']): RepairCopy {
       'load-failure': t('repairKindLoad'),
       hang: t('repairKindHang'),
       'late-rejection': t('repairKindLate'),
+    },
+    conflictTitle: t('repairConflictTitle'),
+    conflictPluginLabel: t('repairConflictPluginLabel'),
+    conflictChangeLabel: t('repairConflictChangeLabel'),
+    conflictAsk: t('repairConflictAsk'),
+    stateNames: {
+      enabled: t('repairStateEnabled'),
+      disabled: t('repairStateDisabled'),
+      uninstalled: t('repairStateUninstalled'),
     },
   }
 }
@@ -376,6 +385,25 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
     onProductToggle(change.id, true)
   }
 
+  /** Hand one conflict notice off to a repair conversation over the plugin root. */
+  const onRepairConflict = (change: ControlChange): void => {
+    if (view.status !== 'ready' || busy !== undefined || repairing !== undefined) return
+    setError(undefined)
+    const token = `conflict:${change.id}`
+    setRepairing(token)
+    void repairPlugin(view.failures.pluginRoot, conflictRepairMessage({
+      id: change.id,
+      name: change.name,
+      from: change.from === 'enabled' || change.from === 'disabled' ? change.from : 'uninstalled',
+      to: change.to === 'enabled' || change.to === 'disabled' ? change.to : 'uninstalled',
+    }, repairCopy(t))).then(() => {
+      setRepairing(undefined)
+    }).catch(reason => {
+      setError(t('failed', { reason: messageOf(reason) }))
+      setRepairing(undefined)
+    })
+  }
+
   if (!isLoopback) {
     return (
       <div className={css.notice}>
@@ -473,6 +501,13 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
                       {t('undoConflict')}
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    disabled={busy !== undefined || repairing !== undefined}
+                    onClick={() => { onRepairConflict(change) }}
+                  >
+                    {repairing === `conflict:${change.id}` ? t('repairing') : t('repair')}
+                  </Button>
                 </div>
               </li>
             ))}

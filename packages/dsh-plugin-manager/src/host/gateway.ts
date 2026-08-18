@@ -14,9 +14,9 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import type { InstalledPluginItem } from '../core/protocol.ts'
 import type { ControlChange } from '../core/conflict.ts'
-import { diffLayer, type LayerSnapshot } from '../core/patch-diff.ts'
-import { readProfileManifest, type ProfileFacts } from './profile.ts'
-import { parsePatch, bareRowEnabled, bareRowId } from './rows.ts'
+import { diffLayer, overlappingIds, significantChanges, type LayerChange, type LayerSnapshot } from '../core/patch-diff.ts'
+import { readPatchText, readProfileManifest, type ProfileFacts } from './profile.ts'
+import { claimedIdsOf, parsePatch, bareRowEnabled, bareRowId, setRowEnabled, writePatchAtomic } from './rows.ts'
 import { buildPluginRow } from './state.ts'
 
 /** Hard deadline for one CLI add (git clones can take minutes). */
@@ -185,13 +185,121 @@ export class CliGateway {
       return
     }
     const after = await this.capture()
-    job.conflicts = diffLayer(before.layer, after.layer).map(change => ({
+    const conflicts = significantChanges(diffLayer(before.layer, after.layer))
+    if (job.action === 'install') {
+      const duplicate = await this.detectDuplicateClaims(before, after)
+      if (duplicate !== undefined) {
+        // A boot-blocking duplicate entry id: disable the new plugin's rows so
+        // the next start cannot double-mount, and surface the conflict with
+        // its undo and repair affordances.
+        await this.disableEntries(duplicate.ids)
+        conflicts.push({ id: duplicate.ids[0] ?? duplicate.name, from: 'enabled', to: 'disabled' })
+      }
+      await this.verifyBoot(job, before, after, conflicts)
+    }
+    job.conflicts = conflicts.map(change => ({
       id: change.id,
       name: change.id,
       from: change.from,
       to: change.to,
     }))
     job.plugin = await this.rowFor(job.action, job.spec, before, after)
-    job.phase = 'done'
+    if (job.phase !== 'error') job.phase = 'done'
+  }
+
+  /** The new dependency of an install, when one exists. */
+  private newDependency(before: CapturedState, after: CapturedState): string | undefined {
+    return after.dependencies.find(name => !before.dependencies.includes(name))
+  }
+
+  /** The claimed entry ids of one installed dependency (its own bundle patch, or its name). */
+  private async claimedEntriesOf(name: string): Promise<string[]> {
+    const moduleDir = [...name.split('/')].reduce<string[]>((acc, part) => [...acc, part], [this.facts.profileDir, 'node_modules']).join('/')
+    const patchPath = `${moduleDir}/cordis.patch.yml`
+    try {
+      const text = await readFile(patchPath, 'utf8')
+      const ids = claimedIdsOf(text)
+      if (ids.length > 0) return ids
+    } catch {
+      // Missing bundle patch: a plain plugin claims its own name.
+    }
+    return [name]
+  }
+
+  /** Whether the new install claims an entry id another plugin already holds. */
+  private async detectDuplicateClaims(before: CapturedState, after: CapturedState): Promise<{ name: string; ids: string[] } | undefined> {
+    const name = this.newDependency(before, after)
+    if (name === undefined) return undefined
+    const claimed = await this.claimedEntriesOf(name)
+    const taken = new Set<string>(after.layer.rows.keys())
+    for (const dep of after.dependencies) {
+      if (dep === name) continue
+      for (const id of await this.claimedEntriesOf(dep)) taken.add(id)
+    }
+    const overlap = overlappingIds(claimed, taken)
+    if (overlap.length === 0) return undefined
+    return { name, ids: overlap }
+  }
+
+  /** Disable every listed entry id via bare override rows (backup + tmp + rename). */
+  private async disableEntries(ids: string[]): Promise<void> {
+    let text = await readPatchText(this.facts.patchPath)
+    let changed = false
+    for (const id of ids) {
+      const next = setRowEnabled(text, this.facts.patchPath, id, id, false)
+      if (next !== text) {
+        text = next
+        changed = true
+      }
+    }
+    if (!changed) return
+    await writePatchAtomic(this.facts.patchPath, text)
+  }
+
+  /**
+   * Boot preflight after an install: compose the profile with the CLI's
+   * `--dump-config` (resolves every entry without binding the port). A failure
+   * that implicates the new plugin disables it so the next start cannot fail;
+   * an unrelated failure is reported without touching anything.
+   */
+  private async verifyBoot(job: GatewayJob, before: CapturedState, after: CapturedState, conflicts: LayerChange[]): Promise<void> {
+    const binary = findDshBinary(this.env)
+    if (binary === null) return
+    const name = this.newDependency(before, after)
+    const verifyOutput = { value: '' }
+    const child = spawn(binary, ['--profile', this.facts.profileName, '--dump-config'], {
+      env: this.env,
+      shell: process.platform === 'win32',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    child.stdout?.on('data', (chunk: Buffer) => { capture(chunk, verifyOutput) })
+    child.stderr?.on('data', (chunk: Buffer) => { capture(chunk, verifyOutput) })
+    const timer = setTimeout(() => { child.kill() }, 90_000)
+    const code = await new Promise<number | null>(resolve => {
+      child.on('close', resolve)
+    })
+    clearTimeout(timer)
+    if (code === 0) return
+    const tail = verifyOutput.value.trim()
+    if (name === undefined) {
+      job.phase = 'error'
+      job.error = tail === '' ? 'plugin-manager: boot preflight failed' : tail
+      return
+    }
+    const claimed = await this.claimedEntriesOf(name)
+    const implicated = tail.includes(name) || claimed.some(id => tail.includes(id))
+    if (implicated) {
+      await this.disableEntries(claimed)
+      conflicts.push({ id: claimed[0] ?? name, from: 'enabled', to: 'disabled' })
+      job.phase = 'error'
+      job.error = tail === ''
+        ? `plugin-manager: 启动预检失败，已自动禁用 ${name}`
+        : `plugin-manager: 启动预检失败，已自动禁用 ${name}：\n${tail}`
+    } else {
+      job.phase = 'error'
+      job.error = tail === ''
+        ? 'plugin-manager: 启动预检失败（与本次安装无关）'
+        : `plugin-manager: 启动预检失败（与本次安装无关）：\n${tail}`
+    }
   }
 }

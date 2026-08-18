@@ -52,3 +52,26 @@ export function diffLayer(before: LayerSnapshot, after: LayerSnapshot): LayerCha
   }
   return changes.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 }
+
+/**
+ * Drop the normal install outcome — entries that merely appear (a new plugin
+ * mounting is the point of an install, not a conflict) — and keep every
+ * change to an entry that existed before.
+ * @param changes - the raw layer diff.
+ * @returns the conflict-worthy changes.
+ */
+export function significantChanges(changes: LayerChange[]): LayerChange[] {
+  return changes.filter(change => !(change.from === 'uninstalled' && change.to === 'enabled'))
+}
+
+/**
+ * The ids of `claimed` already held by another entry. Bundle rows with the
+ * same insert id double-mount at the next boot (duplicate entry id), so an
+ * install claiming a taken id is a boot-blocking conflict.
+ * @param claimed - the new plugin's claimed entry ids.
+ * @param taken - every id already claimed by other plugins and patch rows.
+ * @returns the overlapping ids, in claim order.
+ */
+export function overlappingIds(claimed: readonly string[], taken: ReadonlySet<string>): string[] {
+  return claimed.filter(id => taken.has(id))
+}

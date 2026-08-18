@@ -14,6 +14,7 @@
  */
 
 import type { PluginFailureItem } from './protocol.ts'
+import type { LayerState } from './patch-diff.ts'
 
 /** Localized fragments the builders assemble. */
 export interface RepairCopy {
@@ -29,8 +30,14 @@ export interface RepairCopy {
   failureStackLabel: string
   failurePathLabel: string
   failureAsk: string
+  conflictTitle: string
+  conflictPluginLabel: string
+  conflictChangeLabel: string
+  conflictAsk: string
   /** Localized names of the failure kinds. */
   kindNames: Record<PluginFailureItem['kind'], string>
+  /** Localized names of the layer states a conflict change traverses. */
+  stateNames: Record<LayerState, string>
 }
 
 /** Default copy (zh): the package's zh dictionary keys map onto these strings. */
@@ -47,10 +54,19 @@ export const DEFAULT_REPAIR_COPY: RepairCopy = {
   failureStackLabel: '堆栈',
   failurePathLabel: '安装路径',
   failureAsk: '请修复插件后重新启用并重启 dsh web。',
+  conflictTitle: '正在处理插件安装冲突',
+  conflictPluginLabel: '冲突条目',
+  conflictChangeLabel: '状态变化',
+  conflictAsk: '请检查冲突双方的入口行 id 与挂载方式，消除重复挂载后告诉我如何重新启用。',
   kindNames: {
     'load-failure': '加载失败',
     hang: '启动挂起',
     'late-rejection': '迟到拒绝',
+  },
+  stateNames: {
+    enabled: '已开启',
+    disabled: '已关闭',
+    uninstalled: '已卸载',
   },
 }
 
@@ -90,4 +106,23 @@ export function failureRepairMessage(failure: PluginFailureItem, copy: RepairCop
   if (failure.installPath !== '') parts.push(`${copy.failurePathLabel}: ${failure.installPath}`)
   parts.push(copy.failureAsk)
   return parts.join('\n\n')
+}
+
+/**
+ * Seed text for one install-conflict notice: the entry and its state change,
+ * so the agent can attribute the conflict and resolve the double mount.
+ * @param change - the conflict change (id, display name, from/to states).
+ * @param copy - localized fragments.
+ * @returns the repair prompt text.
+ */
+export function conflictRepairMessage(
+  change: { id: string; name: string; from: LayerState; to: LayerState },
+  copy: RepairCopy = DEFAULT_REPAIR_COPY,
+): string {
+  return [
+    copy.conflictTitle,
+    `${copy.conflictPluginLabel}: ${change.name} (${change.id})`,
+    `${copy.conflictChangeLabel}: ${copy.stateNames[change.from] ?? change.from} -> ${copy.stateNames[change.to] ?? change.to}`,
+    copy.conflictAsk,
+  ].join('\n\n')
 }
