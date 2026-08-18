@@ -320,6 +320,29 @@ describe('skin controller', () => {
     expect(controller.layers.background.childElementCount).toBe(1)
   })
 
+  it('disposing an older activation never wipes a newer activation\'s layer content', async () => {
+    const { controller } = harness()
+    const mediaEntry = {
+      manifest: {
+        id: 'media-skin',
+        contributes: {
+          stylesheet: 'skin.css',
+          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
+        },
+      },
+    } as ControllerSkinEntry
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(controller.layers.background.childElementCount).toBe(1)
+    // Re-activation (the refresh path): the OLD activation's dispose must
+    // remove only its own nodes and leave the new install intact.
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(controller.layers.background.childElementCount).toBe(1)
+    const img = controller.layers.background.firstChild
+    await controller.switchTo(null, null)
+    expect(controller.layers.background.childElementCount).toBe(0)
+    expect(img?.isConnected).toBe(false)
+  })
+
   it('shutdown disposes the activation and clears the attribute', async () => {
     const { controller } = harness()
     await controller.switchTo('harbor', entryFor('harbor'))

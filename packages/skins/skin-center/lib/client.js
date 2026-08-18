@@ -1920,10 +1920,6 @@ window.__ModuleLoader__.load({
 				for (const node of added) node.parentNode?.removeChild(node);
 			};
 		}
-		/** Remove every node an activation left in a layer (used on dispose). */
-		function clearLayer(layer) {
-			while (layer.firstChild) layer.removeChild(layer.firstChild);
-		}
 		/**
 		* Build the background media element for a manifest backgroundMedia layer.
 		* Returns null when the theme variant has no media. The element fills the
@@ -2008,6 +2004,8 @@ window.__ModuleLoader__.load({
 			};
 			/** Last non-null applied entry, so refresh() can re-activate it. */
 			let lastEntry = null;
+			/** Last evaluated background-suppression verdict (refresh() skips no-ops). */
+			let lastSuppressed = null;
 			let trying = null;
 			let previewing = false;
 			const listeners = /* @__PURE__ */ new Set();
@@ -2036,18 +2034,22 @@ window.__ModuleLoader__.load({
 			}
 			function installBackground(activation, entry) {
 				const media = entry.manifest.contributes.backgroundMedia;
-				if (!media) return;
-				if (deps.suppressBackgroundMedia?.() === true) return;
+				if (!media) {
+					console.log(`[skin-center][diag] ${entry.manifest.id}: no backgroundMedia in entry`, entry.manifest.contributes);
+					return;
+				}
+				if (deps.suppressBackgroundMedia?.() === true) {
+					console.log(`[skin-center][diag] ${entry.manifest.id}: background suppressed by WE priority`);
+					return;
+				}
 				const variant = themeGet() === "dark" ? media.dark ?? media.light : media.light ?? media.dark;
 				if (!variant) return;
 				const assetBase = `${apiBase}/skins/${entry.manifest.id}`;
 				const nodes = buildBackgroundMedia(doc, variant, assetBase);
 				if (nodes.length === 0) return;
+				console.log(`[skin-center][diag] ${entry.manifest.id}: installing ${nodes.length} node(s) into the background layer`);
 				const teardown = setLayerContent(layers.background, nodes);
-				ledger.record(activation, "layer:background", () => {
-					teardown();
-					clearLayer(layers.background);
-				});
+				ledger.record(activation, "layer:background", () => teardown());
 			}
 			async function installHooks(activation, entry) {
 				if (!entry.manifest.facets?.client) return;
@@ -2172,7 +2174,10 @@ window.__ModuleLoader__.load({
 					return stateSnapshot;
 				},
 				async refresh() {
-					const id = committed.id;
+					const suppressed = deps.suppressBackgroundMedia?.() === true;
+					if (suppressed === lastSuppressed) return active;
+					lastSuppressed = suppressed;
+					const id = active;
 					return await switchInternal(id, id === null ? null : lastEntry, false);
 				},
 				shutdown() {

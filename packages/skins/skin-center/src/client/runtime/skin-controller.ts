@@ -168,6 +168,8 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
   let committed: { id: string | null; entry: ControllerSkinEntry | null } = { id: null, entry: null }
   /** Last non-null applied entry, so refresh() can re-activate it. */
   let lastEntry: ControllerSkinEntry | null = null
+  /** Last evaluated background-suppression verdict (refresh() skips no-ops). */
+  let lastSuppressed: boolean | null = null
   let trying: string | null = null
   let previewing = false
   const listeners = new Set<() => void>()
@@ -196,19 +198,26 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     entry: ControllerSkinEntry,
   ): void {
     const media = entry.manifest.contributes.backgroundMedia
-    if (!media) return
+    if (!media) {
+      console.log(`[skin-center][diag] ${entry.manifest.id}: no backgroundMedia in entry`, entry.manifest.contributes)
+      return
+    }
     // WE wallpaper > user manual background > skin manifest background.
-    if (deps.suppressBackgroundMedia?.() === true) return
+    if (deps.suppressBackgroundMedia?.() === true) {
+      console.log(`[skin-center][diag] ${entry.manifest.id}: background suppressed by WE priority`)
+      return
+    }
     const variant = themeGet() === 'dark' ? (media.dark ?? media.light) : (media.light ?? media.dark)
     if (!variant) return
     const assetBase = `${apiBase}/skins/${entry.manifest.id}`
     const nodes = buildBackgroundMedia(doc, variant, assetBase)
     if (nodes.length === 0) return
+    console.log(`[skin-center][diag] ${entry.manifest.id}: installing ${nodes.length} node(s) into the background layer`)
     const teardown = setLayerContent(layers.background, nodes)
-    ledger.record(activation, 'layer:background', () => {
-      teardown()
-      clearLayer(layers.background)
-    })
+    // teardown removes exactly THIS activation's nodes. Do NOT clearLayer
+    // here: under a refresh() race (wallpaper priority flip) the new
+    // activation's nodes are already in the layer and would be wiped too.
+    ledger.record(activation, 'layer:background', () => teardown())
   }
 
   async function installHooks(activation: number, entry: ControllerSkinEntry): Promise<void> {
@@ -353,7 +362,10 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     },
 
     async refresh() {
-      const id = committed.id
+      const suppressed = deps.suppressBackgroundMedia?.() === true
+      if (suppressed === lastSuppressed) return active
+      lastSuppressed = suppressed
+      const id = active
       return await switchInternal(id, id === null ? null : lastEntry, false)
     },
 
