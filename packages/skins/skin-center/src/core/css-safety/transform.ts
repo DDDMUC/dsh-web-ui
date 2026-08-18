@@ -279,18 +279,20 @@ export function transformSkinCss(css: string, options: SkinCssTransformOptions):
     const scoped = scopeSelectorList(selectorText, skinId)
     const block = close === -1 ? css.slice(span.openBrace) : css.slice(span.openBrace, close + 1)
     out += scoped + block
-    // The official light alias tokens live on plain body, and a body-level
-    // definition beats anything a skin remaps on html for every descendant
-    // (custom-property inheritance is tree-based, not specificity-based).
-    // :root-derived custom properties therefore get a body-level clone so
-    // the light remap actually reaches the shell surfaces. Dark remaps are
-    // already body-scoped (body[data-ds-dark-theme]) and need no clone.
+    // The official shell paints its own opaque body background, and its
+    // light alias tokens live on plain body: a body-level definition beats
+    // anything a skin writes on html for every descendant (custom-property
+    // inheritance is tree-based, not specificity-based). :root-derived
+    // custom properties AND background declarations therefore get a
+    // body-level clone so the light remap and the skin's base background
+    // actually reach the shell surfaces. Dark remaps are already body-scoped
+    // (body[data-ds-dark-theme]) and need no clone.
     if (/^:root\b/.test(selectorText.trim()) && close !== -1) {
       const body = css.slice(span.openBrace + 1, close)
       const props = body
         .split('\n')
         .map((line) => line.trim())
-        .filter((line) => /^--[\w-]+\s*:/.test(line))
+        .filter((line) => /^--[\w-]+\s*:/.test(line) || /^background-(color|image)\s*:/.test(line))
       if (props.length > 0) {
         out += `\n${scope} body {\n  ${props.join('\n  ')}\n}\n`
       }
@@ -298,6 +300,14 @@ export function transformSkinCss(css: string, options: SkinCssTransformOptions):
     cursor = close === -1 ? span.openBrace : close + 1
   }
   out += css.slice(cursor)
+  // The official shell paints an opaque background on #root (white in the
+  // light theme, the dark base color in the dark theme). Everything a skin
+  // paints below it — body backgrounds, negative-z layers, background-media
+  // stages — would be invisible, so the app root must go transparent for
+  // the skin's own background stack to show through. Skins that only remap
+  // tokens are unaffected: the shell surfaces keep their colors, and the
+  // body clone above keeps the same base color behind transparent areas.
+  out += `\n${scope} [id="root"] { background: transparent; }\n`
   return { code: out, warnings }
 }
 

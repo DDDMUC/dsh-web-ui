@@ -124,9 +124,9 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
-现有 10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬两款截图待补充）；Maid Atelier 预览见下方：
+12 款皮肤一览；Maid Atelier 预览见下方：
 
-![10 款皮肤一览](docs/images/skins-montage.png)
+![12 款皮肤一览](docs/images/skins-montage.png)
 
 ### Windows XP（Luna）
 

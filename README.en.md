@@ -126,9 +126,9 @@ The skin center has eleven skins, each with try-on before apply: the preview app
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-Ten existing skins at a glance (screenshots for Dragon Heir / Miku are pending); Maid Atelier has its own preview below:
+All 12 skins at a glance; Maid Atelier has its own preview below:
 
-![All 10 skins](docs/images/skins-montage.png)
+![All 12 skins](docs/images/skins-montage.png)
 
 ### Windows XP (Luna)
 

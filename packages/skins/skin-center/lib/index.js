@@ -756,12 +756,13 @@ function transformSkinCss(css, options) {
 		const block = close === -1 ? css.slice(span.openBrace) : css.slice(span.openBrace, close + 1);
 		out += scoped + block;
 		if (/^:root\b/.test(selectorText.trim()) && close !== -1) {
-			const props = css.slice(span.openBrace + 1, close).split("\n").map((line) => line.trim()).filter((line) => /^--[\w-]+\s*:/.test(line));
+			const props = css.slice(span.openBrace + 1, close).split("\n").map((line) => line.trim()).filter((line) => /^--[\w-]+\s*:/.test(line) || /^background-(color|image)\s*:/.test(line));
 			if (props.length > 0) out += `\n${scope} body {\n  ${props.join("\n  ")}\n}\n`;
 		}
 		cursor = close === -1 ? span.openBrace : close + 1;
 	}
 	out += css.slice(cursor);
+	out += `\n${scope} [id="root"] { background: transparent; }\n`;
 	return {
 		code: out,
 		warnings

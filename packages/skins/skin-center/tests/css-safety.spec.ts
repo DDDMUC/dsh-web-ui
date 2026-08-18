@@ -32,7 +32,9 @@ describe('transformSkinCss scoping', () => {
     expect(code).toContain('--dsw-alias-bg-layer-1: #f3f8ff2e;')
     const bodyClone = code.slice(code.indexOf(`${SCOPE} body {`))
     expect(bodyClone).not.toContain('color: #123')
-    expect(bodyClone).not.toContain('background-color: #eef')
+    // Backgrounds are cloned (the official opaque body background would
+    // otherwise hide the skin's html-level base background).
+    expect(bodyClone).toContain('background-color: #eef')
   })
 
   it('clones custom properties from comma-listed :root heads and skips body-scoped rules', () => {
@@ -50,6 +52,11 @@ describe('transformSkinCss scoping', () => {
     // The dark-only rule keeps its declaration but is not re-cloned
     // (it already lives on a body scope): exactly one occurrence.
     expect(code.split('--dsw-alias-bg-layer-1: #181f36b3;').length).toBe(2)
+  })
+
+  it('neutralizes the official opaque #root background for every skin', () => {
+    const { code } = scope('.a { color: red; }')
+    expect(code).toContain(`${SCOPE} [id="root"] { background: transparent; }`)
   })
 
   it('scopes :root token remaps to the skin scope', () => {
@@ -100,7 +107,9 @@ describe('transformSkinCss scoping', () => {
   it('keeps @keyframes unscoped', () => {
     const { code } = scope('@keyframes harbor-drift { from { opacity: 0; } to { opacity: 1; } }')
     expect(code).toContain('@keyframes harbor-drift')
-    expect(code).not.toContain(SCOPE)
+    // The scope string appears only in the appended #root neutralization
+    // rule; the keyframes name itself must never be rewritten.
+    expect(code).not.toContain(`${SCOPE} @keyframes`)
   })
 
   it('scopes every selector in a list', () => {
