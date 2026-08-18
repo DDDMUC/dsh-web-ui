@@ -254,6 +254,8 @@ describe('anchored-tool-bootstrap', () => {
     expect(first.messages).toHaveLength(2)
     expect(first.messages[0].id).toBe('user')
     const hint = first.messages[1]
+    expect(typeof hint.id).toBe('string')
+    expect(hint.id).not.toBe('')
     expect(hint.source.kind).toBe('instruction-hint')
     expect(hint.content[0].text).toContain('Reference documents exist: ~/.dsh/AGENTS.md, AGENTS.md.')
     expect(hint.content[0].text).toContain('not task instructions')

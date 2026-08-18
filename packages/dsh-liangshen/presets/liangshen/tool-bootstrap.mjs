@@ -181,6 +181,10 @@ function extractInstructionPaths(message) {
 /** The one-time non-imperative hint replacing the full-text dump (E1.5 wording). */
 function buildInstructionHint(paths) {
   return {
+    // Session persistence validates every replayed user/message for a
+    // non-empty string id; a plugin-built message without one corrupts the
+    // durable journal (SessionPersistenceCorruptionError on load).
+    id: globalThis.crypto.randomUUID(),
     role: 'user',
     content: [{
       type: 'text',
