@@ -2,16 +2,17 @@
 
 English | [中文](README.zh.md)
 
-Plugin manager tab for the dsh web GUI Plugins settings section: installs plugins from npm or git through the official host channels, lists installed plugins with next-start enable switches, surfaces install-time conflict actions with undo, and hands failures off to repair conversations.
+Plugin manager tab for the dsh web GUI Plugins settings section: installs plugins from npm or git, lists installed plugins with next-start enable switches, surfaces install-time conflict actions with undo, and hands failures off to repair conversations.
 
 ## What it does
 
 - Registers a `Plugin manager` tab in the official Plugins settings section (the `settings.plugins.tab` slot, order 20), next to the official installer tab.
-- Installs plugins from an npm package name or a git repository URL through the official host installer channels; this package performs no profile patch writes of its own (single-writer discipline).
-- Lists installed user plugins with next-start enable switches, update checks, updates, and uninstall.
-- Shows the built-in product switches (the official plugin-control surface).
-- Surfaces install-time conflict actions: it diffs the product snapshot around each install and reports what the conflict rules disabled, with one-click undo.
-- Renders the boot-failure ring per plugin with `Ask the agent to fix` (a repair conversation over the plugin install root) and `Copy error`.
+- Dual-channel transport: on runtimes with the official installer services (DSHCode and the 1.0.4 checkout web), every operation rides the official `/plugin-installer` and `/plugin-control` loopback RPC channels; on the npm-published web runtime those channels do not exist, so the package's host half mounts a loopback-fenced HTTP gateway that spawns the official `dsh plugin` CLI for installs/removals (the single writer) and writes `disabled` override rows for enablement.
+- Installs plugins from an npm package name or a git repository URL, with progress.
+- Lists installed user plugins with next-start enable switches, update checks (registry, npm sources), updates, and uninstall.
+- Shows the built-in product switches when the official plugin-control surface exists.
+- Surfaces install-time conflict actions: the product-snapshot diff around each install (official mode) or the profile layer diff around each CLI run (gateway mode), with undo for reversible actions.
+- Renders the boot-failure ring per plugin with `Ask the agent to fix` (a repair conversation over the plugin install root) and `Copy error`; the npm web runtime keeps no failure ring, so only install errors offer the repair handoff there.
 - Shows the host's safe-mode banner and the `Restore normal mode` affordance (the web build applies it at the next manual restart).
 
 ## Install
@@ -35,14 +36,16 @@ Restart `dsh web`; the tab appears in the settings page's Plugins section.
 
 ## Config
 
-The tab carries no configuration namespace. Every operation runs through the official host channels (`/plugin-installer`, `/plugin-control`, loopback authority), which the web composition already mounts; enablement switches and installs apply at the next restart.
+The tab carries no configuration namespace. Enablement switches and installs apply at the next restart.
 
 ## Known limitations
 
-- Loopback-only: on a LAN or remote browser the tab renders a local-only notice (the same boundary the official installer tab enforces).
-- Requires the official Plugins settings section (`ui-settings-plugins`) and the host `plugin-installer` / `plugin-control` rows; on hosts without them the tab shows an error state with no install affordances.
-- The web build has no in-place restart: changes apply at the next manual `dsh web` restart, and safe-mode boot is a desktop feature the tab can only read and exit.
-- Install-time conflict detection covers the built-in product rules (product snapshot diff). Duplicate insert-id claims between two user plugins carry no at-install signal and surface through the boot-failure ring after the next start.
+- Loopback-only: on a LAN or remote browser the tab renders a local-only notice (the same boundary the official installer tab enforces; the gateway refuses non-loopback requests with 403).
+- On the npm-published web runtime, gateway writes go through the official CLI, so the `dsh` binary must be on the host process PATH; installs of git sources can take minutes and run as background jobs.
+- On the npm-published web runtime there is no boot-failure ring and no safe mode: those surfaces degrade to empty, and only install errors offer the repair handoff.
+- Enablement on the npm runtime writes bare `disabled` override rows into the profile's cordis.patch.yml; the runtime's loader honors them at the next start, but this path is less exercised than the official desktop writer's.
+- The web build has no in-place restart: changes apply at the next manual restart.
+- Install-time conflict detection reports what the install actually changed (product rows in official mode, profile rows and bundle entries in gateway mode). Duplicate insert-id claims between two user plugins carry no at-install signal and surface through the boot-failure ring after the next start on runtimes that keep one.
 - The wire shapes mirror the official installer tab protocol; on drift the tolerant parsers degrade to error rows rather than misbehaving.
 - The repair conversation's workspace keeps its path-derived default title.
 

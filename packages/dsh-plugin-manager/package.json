@@ -57,7 +57,8 @@
     "react-dom": "^18.3.1",
     "tsdown": "0.22.2",
     "typescript": "~5.7.2",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.0-rc.7"
   },
   "files": [
     "lib",
@@ -66,5 +67,8 @@
     "README.zh.md",
     "README.i18n.yaml"
   ],
-  "license": "BSD-3-Clause"
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "yaml": "^2.8.2"
+  }
 }

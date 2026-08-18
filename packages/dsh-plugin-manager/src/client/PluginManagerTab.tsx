@@ -57,6 +57,8 @@ export interface PluginManagerTabInjected {
   controlsList: () => Promise<PluginControlItem[]>
   /** Persist one product's next-start enablement. */
   controlsSetEnabled: (pluginId: string, enabled: boolean) => Promise<PluginControlItem[]>
+  /** Conflicts the gateway host computed around the last install (gateway mode only). */
+  lastInstallConflicts?: () => readonly ControlChange[]
 }
 
 /** Full component props assembled by the Settings slot renderer. */
@@ -144,6 +146,7 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
     repairPlugin,
     controlsList,
     controlsSetEnabled,
+    lastInstallConflicts,
   } = props
 
   const [view, setView] = useState<ViewState>({ status: 'loading' })
@@ -212,7 +215,7 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
         setSpec('')
         setDirty(true)
         const after = await controlsList().catch(() => [] as readonly PluginControlItem[])
-        setConflicts(diffControls(before, after))
+        setConflicts(lastInstallConflicts !== undefined ? lastInstallConflicts() : diffControls(before, after))
         await reload()
       } catch (reason) {
         const reasonText = messageOf(reason)
@@ -551,41 +554,43 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
           )}
       </div>
 
-      <div className={css.group}>
-        <h3 className={css.sectionTitle}>{t('products')}</h3>
-        <ul className={css.list}>
-          {view.controls.map(control => (
-            <li key={control.id} className={css.row} data-product-id={control.id}>
-              <div className={css.meta}>
-                <span className={css.name}>{control.name}</span>
-                <span className={css.sub}>
-                  <a className={css.link} href={control.repository} target="_blank" rel="noreferrer">{t('source')}</a>
-                </span>
-              </div>
-              <div className={css.actions}>
-                <span className={css.stateLabel} data-state={control.state}>
-                  {t(control.state)}
-                </span>
-                {control.state === 'enabled' || control.state === 'disabled'
-                  ? (
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={control.state === 'enabled'}
-                      aria-label={control.state === 'enabled'
-                        ? t('disableSwitch', { name: control.name })
-                        : t('enableSwitch', { name: control.name })}
-                      className={css.switch}
-                      disabled={toggleDisabled}
-                      onClick={() => { onProductToggle(control.id, control.state !== 'enabled') }}
-                    />
-                  )
-                  : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {view.controls.length > 0 && (
+        <div className={css.group}>
+          <h3 className={css.sectionTitle}>{t('products')}</h3>
+          <ul className={css.list}>
+            {view.controls.map(control => (
+              <li key={control.id} className={css.row} data-product-id={control.id}>
+                <div className={css.meta}>
+                  <span className={css.name}>{control.name}</span>
+                  <span className={css.sub}>
+                    <a className={css.link} href={control.repository} target="_blank" rel="noreferrer">{t('source')}</a>
+                  </span>
+                </div>
+                <div className={css.actions}>
+                  <span className={css.stateLabel} data-state={control.state}>
+                    {t(control.state)}
+                  </span>
+                  {control.state === 'enabled' || control.state === 'disabled'
+                    ? (
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={control.state === 'enabled'}
+                        aria-label={control.state === 'enabled'
+                          ? t('disableSwitch', { name: control.name })
+                          : t('enableSwitch', { name: control.name })}
+                        className={css.switch}
+                        disabled={toggleDisabled}
+                        onClick={() => { onProductToggle(control.id, control.state !== 'enabled') }}
+                      />
+                    )
+                    : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {unattributable.length > 0 && (
         <div className={css.group}>
