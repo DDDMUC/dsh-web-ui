@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 /**
- * Generate concise release notes for the dsh-web-ui GitHub Release.
+ * Generate the release-notes draft for the dsh-web-ui GitHub Release.
  *
  * Collects conventional-commit subjects across the whole previous-tag..
  * release-tag range (including work merged in on side branches), groups them
  * into New Features / Bug Fixes / Other Changes sections, and renders the
- * notes bilingually (English + Chinese headings and summary; each bullet
- * keeps its authored commit subject). Links (#123) issue references, and
- * skips merge commits and the chore(release) bump commit itself. The release
- * workflow writes the output to a notes file and passes it to
- * `gh release create --notes-file`.
+ * notes with bilingual headings/summary/footer (each bullet keeps its
+ * authored commit subject). Links (#123) issue references, and skips merge
+ * commits and the chore(release) bump commit itself.
+ *
+ * Bilingual convention (v0.2.1+): the maintainer translates every bullet
+ * into "EN / 中文" and commits the result at docs/release-notes/<tag>.md;
+ * the release workflow prefers that committed file and uses this script's
+ * single-language-item draft only as a fallback. For an already-created
+ * release, update the body with:
+ *   gh release edit <tag> --notes-file docs/release-notes/<tag>.md
  *
  * Usage:
  *   node scripts/release-notes.mjs <vX.Y.Z> [--repo owner/repo]
