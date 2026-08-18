@@ -4,5 +4,5 @@
 /manifest.js
 	Cache-Control: public, max-age=0, must-revalidate
 
-/bundles.js
+/styles.js
 	Cache-Control: public, max-age=0, must-revalidate
