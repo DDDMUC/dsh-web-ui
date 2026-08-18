@@ -163,7 +163,9 @@ describe('nextRunAtMs', () => {
         expect(nextRunAtMs(expr, fromMs), `${expr} from ${new Date(fromMs).toISOString()}`).toBe(referenceNextRunAtMs(expr, fromMs))
       }
     }
-  })
+    // The minute-scan reference walks up to ~1.5 years of minutes per case;
+    // slow CI runners need headroom beyond vitest's 5s default.
+  }, 30000)
 })
 
 /** The pre-jump minute scan, kept verbatim as the behavioural reference. */
