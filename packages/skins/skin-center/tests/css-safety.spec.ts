@@ -33,14 +33,25 @@ describe('transformSkinCss scoping', () => {
     expect(code).not.toContain('html html')
   })
 
-  it('anchors dark-theme combos on the scoped html element', () => {
+  it('anchors dark-theme combos on body under the scope (official attr lives on body)', () => {
     const { code } = scope('html[data-ds-dark-theme] .panel { background: #000; }')
-    expect(code).toContain('html[data-ds-dark-theme][data-dsh-skin="harbor"] .panel')
+    expect(code).toContain('html[data-dsh-skin="harbor"] body[data-ds-dark-theme] .panel')
   })
 
-  it('anchors bare [data-ds-*] heads on html too', () => {
+  it('anchors bare [data-ds-*] heads on body too', () => {
     const { code } = scope('[data-ds-dark-theme] .panel { background: #000; }')
-    expect(code).toContain('html[data-ds-dark-theme][data-dsh-skin="harbor"] .panel')
+    expect(code).toContain('html[data-dsh-skin="harbor"] body[data-ds-dark-theme] .panel')
+  })
+
+  it('handles var() declarations (upstream visitor crash regression)', () => {
+    const { code } = scope('body { color: var(--dsw-alias-label-primary); }')
+    expect(code).toContain('var(--dsw-alias-label-primary)')
+    expect(code).toContain('html[data-dsh-skin="harbor"] body')
+  })
+
+  it('keeps author formatting and values byte-for-byte outside selector heads', () => {
+    const { code } = scope('.a { background: #112233; }')
+    expect(code).toContain('#112233')
   })
 
   it('scopes selectors inside @media', () => {

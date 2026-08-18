@@ -138,7 +138,7 @@ describe('v2 stylesheet / patches / hooks routes', () => {
     expect(res.status).toBe(200)
     expect(res.headers['content-type']).toContain('text/css')
     expect(res.text).toContain('html[data-dsh-skin="harbor"]')
-    expect(res.text).toContain('--dsw-alias-bg-base: #123')
+    expect(res.text).toContain('--dsw-alias-bg-base: #112233')
     expect(res.text).not.toContain(':root')
     await server.close()
   })

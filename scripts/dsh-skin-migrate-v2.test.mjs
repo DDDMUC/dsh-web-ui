@@ -299,11 +299,12 @@ test('buildManifestV2 omits optional blocks when unused', () => {
 })
 
 test('runSkinCssSafety distinguishes pipeline crashes from whitelist violations', async () => {
-  // lightningcss 1.32/1.33 cannot serialize a rule with var() declarations
-  // once the style visitor returns it; the skin-center pipeline therefore
-  // crashes (not violates) on var()-bearing CSS. This test pins the codemod's
-  // crash reporting; revisit when the skin-center fixes its pipeline.
-  const crash = await runSkinCssSafety('body{color:var(--b)}', { skinId: 'demo' })
+  // The skin-center pipeline is two-pass (text-level scoping + read-only
+  // lightningcss validation), so var()-bearing CSS is fine; a genuine parse
+  // error still reports as a crash, and a whitelist breach as a violation.
+  const varCss = await runSkinCssSafety('body{color:var(--b)}', { skinId: 'demo' })
+  assert.equal(varCss.ok, true, JSON.stringify(varCss))
+  const crash = await runSkinCssSafety('body{color', { skinId: 'demo' })
   assert.equal(crash.ok, false)
   assert.equal(crash.crash, true)
   const violation = await runSkinCssSafety('@import "https://evil.example/x.css";', { skinId: 'demo' })
