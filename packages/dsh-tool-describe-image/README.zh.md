@@ -16,13 +16,13 @@
 | 能力 | 说明 |
 | --- | --- |
 | 三种输入 | 本地绝对路径、http(s) URL（拒绝重定向）、完整的 `[image attachment ...]` 注记，或拖拽/粘贴产生的完整自描述 Markdown 引用（`![图片](/describe-image/raw/sha256:...?ref=...)`）。把完整 Markdown 引用直接传给工具：其中序列化的不可变元数据可在 Host 重启后及 PTC 嵌套工具调用中解析已存图片；裸 id 只作为当前进程的兼容兜底 |
-| 直接发图 | 在纯文本会话里拖拽或粘贴图片，发送时被改写为自描述 describe-image 引用（`![图片](/describe-image/raw/sha256:...?ref=...)`），而不是模型读不了的图片块——图片在会话里正常渲染，模型经工具分析它。支持图片输入的模型（适配器声明 image 模态）会被自动识别：原图块直接交给模型本身的视觉，不再绕行 describe_image |
+| 直接发图 | 在纯文本会话里拖拽或粘贴图片，发送时被改写为自描述 describe-image 引用（`![图片](/describe-image/raw/sha256:...?ref=...)`），而不是模型读不了的图片块——图片在会话里正常渲染，模型经工具分析它。支持图片输入的模型（适配器声明 image 模态）会被自动识别：原图块直接交给模型本身的视觉，不再绕行 describe_image，且该会话的 `describe_image` 工具会被隐藏——多模态模型看不到、也无法调用它（包括 run_code 内的嵌套调用） |
 | 自定义指令 | `prompt` 参数携带你的精确指令（OCR、图表解读、UI 诊断、翻译…）；`defaultPrompt` 配置设置模型未传指令时的兜底文案 |
 | 实时配置卡 | 设置 → 插件配置 → Web UI 插件组 → 「图像理解」卡修改 `baseURL` / `apiStyle` / `model` / API key / 默认指令 / 各项上限（走设置服务），即时生效，无需重启 |
 | 多协议 | `apiStyle: chat-completions`（默认）请求 `baseURL/chat/completions`；`apiStyle: responses` 请求 `baseURL/responses`，使用 `input` / `max_output_tokens` 并读取 `output_text`；`apiStyle: anthropic-messages` 请求 `baseURL/v1/messages`（`x-api-key` 鉴权，Claude 风格端点如 OpenCode Go / 智谱 GLM / 月之暗面 Kimi），读取 `content[].text` |
 | 思考控制 | 模型 id 带可选后缀：`model:off` 禁用思考，`model:low` / `model:medium` / `model:high` 开启思考；不带后缀则不发送控制、沿用端点默认（MiMo-V2.5、DeepSeek V4 默认开启思考） |
 | 原图路由 | `GET /describe-image/raw/<id>` 回读已存字节（仅回环、内容寻址 id），让贴入的引用在会话中渲染 |
-| 能力探测路由 | `GET /describe-image/capability?session=<id>` 回答该会话模型是否声明图片输入（仅以 agent/request 实况记录确认生效路由；模态经 `resolveModelInfo` 精确解析，模型选择变更会作废实况记录）。无实况记录、一切未知与失败都保守回答 false，保留改写行为 |
+| 能力探测路由 | `GET /describe-image/capability?session=<id>` 回答该会话模型是否声明图片输入（以会话自身的请求头路由确认生效模型——恢复的会话沿用其日志模型、无请求历史的新会话取当前默认模型选择；模态经 `resolveModelInfo` 精确解析）。无路由可解析、一切未知与失败都保守回答 false，保留改写行为 |
 | 每次调用解析密钥 | 内联 `apiKey` → 凭证服务（`apiKeyEnv`，默认 `VISION_API_KEY`）→ 启动环境，逐级回退 |
 | 安全与边界 | 所有请求拒绝重定向；`maxBytes` / `maxOutputTokens` / `timeoutMs` 上限；magic-byte 类型门；错误摘要有界（200 字符）；密钥不进日志 |
 | 返回规范值 | `{ text, model, image, mimeType, bytes }`——模型只看到 `text` |
