@@ -17,7 +17,8 @@
  * @module @linxin666/dsh-client-ui-aionui-panel/client/SideCardPrefs
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { SelectField } from './PluginSettingsCard.tsx'
 import css from './settings-card.module.css'
 import cardCss from './AionUiSettingsCard.module.css'
 
@@ -102,20 +103,23 @@ async function call<T>(method: string, payload: Record<string, unknown>): Promis
 
 /** One immediate-apply boolean row. */
 function ToggleRow(props: { label: string; hint?: string; value: boolean; onLabel: string; offLabel: string; onFlip: (next: boolean) => void }) {
+  const id = useId()
   return (
     <div className={css.field}>
       <div className={css.head}>
-        <span className={css.label}>{props.label}</span>
+        <label className={css.label} htmlFor={id}>{props.label}</label>
       </div>
-      <select
-        className={css.select}
-        aria-label={props.label}
+      <SelectField
+        id={id}
+        options={[
+          { value: 'true', label: props.onLabel },
+          { value: 'false', label: props.offLabel },
+        ]}
         value={props.value ? 'true' : 'false'}
-        onChange={event => { props.onFlip(event.target.value === 'true') }}
-      >
-        <option value="true">{props.onLabel}</option>
-        <option value="false">{props.offLabel}</option>
-      </select>
+        disabled={false}
+        invalid={false}
+        onEdit={text => { props.onFlip(text === 'true') }}
+      />
       {props.hint !== undefined ? <p className={css.hint}>{props.hint}</p> : null}
     </div>
   )

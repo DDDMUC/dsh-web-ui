@@ -223,7 +223,8 @@ describe('CommunityPluginsCard', () => {
   it('stages the enable edit and persists it on save', async () => {
     const scope = new FakeScope({})
     render(<CommunityPluginsCard {...cardProps(scope)} plugins={SAMPLE} />)
-    fireEvent.change(screen.getByLabelText(/enable the community plugin index/i), { target: { value: 'false' } })
+    fireEvent.click(screen.getByLabelText(/enable the community plugin index/i))
+    fireEvent.click(screen.getByRole('option', { name: 'Off' }))
     expect(screen.queryByRole('link')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(scope.set).toHaveBeenCalledWith('enabled', false)
