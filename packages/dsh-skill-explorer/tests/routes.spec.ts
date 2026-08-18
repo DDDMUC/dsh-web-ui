@@ -1,12 +1,13 @@
 /**
- * Route-layer tests: the loopback fence, list/create/set-enabled/delete
- * dispatch (fake IncomingMessage + ServerResponse, temp skill roots).
+ * Route-layer tests: the trust fence (loopback + live pairing), list/create/
+ * set-enabled/delete dispatch (fake IncomingMessage + ServerResponse, temp
+ * skill roots).
  */
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { ROUTES, makeRoutes } from '../src/routes.ts'
 
 const TMP = mkdtempSync(join(tmpdir(), 'skill-explorer-routes-'))
@@ -34,17 +35,19 @@ const deps = {
   logger: { warn: () => {} },
 }
 
-const routes = makeRoutes(deps)
+const emptyCtx = {} as never
+const routes = makeRoutes(emptyCtx, deps)
 const find = (path: string) => routes.find((route) => route.path === path)
 
 /** One fake IncomingMessage: loopback socket + Host by default. */
-function request(url: string, method = 'GET', options: { remoteAddress?: string; host?: string; body?: unknown } = {}): IncomingMessage {
+function request(url: string, method = 'GET', options: { remoteAddress?: string; host?: string; cookie?: string; body?: unknown } = {}): IncomingMessage {
   const req = {
     url,
     method,
     socket: { remoteAddress: options.remoteAddress ?? '127.0.0.1' },
     headers: {
       host: options.host ?? 'localhost:3080',
+      ...(options.cookie === undefined ? {} : { cookie: options.cookie }),
       ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
     },
     async *[Symbol.asyncIterator]() {
@@ -64,12 +67,57 @@ function response(): { res: ServerResponse; status: () => number; body: () => st
   return { res, status: () => state.status, body: () => state.body }
 }
 
-describe('/api/dsh-skill-explorer loopback fence', () => {
+describe('/api/dsh-skill-explorer trust fence', () => {
   it('rejects non-loopback requests with 403 before touching the service', async () => {
     for (const route of routes) {
-      const { res, status } = response()
+      const { res, status, body } = response()
       await route.handler(request(route.path, 'GET', { remoteAddress: '192.168.1.20' }), res)
       expect(status()).toBe(403)
+      expect(JSON.parse(body())).toEqual({ error: 'forbidden: loopback-only' })
+    }
+  })
+
+  it('allows a non-loopback client when pairing reports a live device', async () => {
+    const isPairedDevice = vi.fn(() => true)
+    const ctx = { get: () => ({ isPairedDevice }) }
+    const pairedRoutes = makeRoutes(ctx as never, deps)
+    const list = pairedRoutes.find((route) => route.path === ROUTES.list)!
+    const { res, status } = response()
+    await list.handler(request(ROUTES.list, 'GET', {
+      remoteAddress: '192.168.1.20',
+      host: 'dsh.example:443',
+      cookie: 'dsh_pair=dev-1',
+    }), res)
+    expect(status()).toBe(200)
+    expect(isPairedDevice).toHaveBeenCalled()
+  })
+
+  it('allows a non-loopback write when pairing reports a live device', async () => {
+    const ctx = { get: () => ({ isPairedDevice: () => true }) }
+    const pairedRoutes = makeRoutes(ctx as never, deps)
+    const setEnabled = pairedRoutes.find((route) => route.path === ROUTES.setEnabled)!
+    const { res, status } = response()
+    await setEnabled.handler(request(ROUTES.setEnabled, 'POST', {
+      remoteAddress: '192.168.1.20',
+      host: 'dsh.example:443',
+      cookie: 'dsh_pair=dev-1',
+      body: { name: 'poc-first', enabled: true },
+    }), res)
+    expect(status()).toBe(200)
+  })
+
+  it('still rejects a non-loopback client when pairing reports false', async () => {
+    const ctx = { get: () => ({ isPairedDevice: () => false }) }
+    const revokedRoutes = makeRoutes(ctx as never, deps)
+    for (const route of revokedRoutes) {
+      const { res, status, body } = response()
+      await route.handler(request(route.path, 'GET', {
+        remoteAddress: '192.168.1.20',
+        host: 'dsh.example:443',
+        cookie: 'dsh_pair=revoked',
+      }), res)
+      expect(status()).toBe(403)
+      expect(JSON.parse(body())).toEqual({ error: 'forbidden: loopback-only' })
     }
   })
 
@@ -207,7 +255,7 @@ describe('sessions degradation', () => {
       ...deps,
       activeSessionCwds: () => { throw new Error('sessions boom') },
     }
-    const brokenRoutes = makeRoutes(brokenDeps)
+    const brokenRoutes = makeRoutes(emptyCtx, brokenDeps)
     const { res, status, body } = response()
     await brokenRoutes.find((route) => route.path === ROUTES.list)!.handler(request(ROUTES.list, 'GET'), res)
     expect(status()).toBe(200)
@@ -220,7 +268,7 @@ describe('registry degradation', () => {
   it('still serves list with complete=false when the registry snapshot throws', async () => {
     const brokenRegistry = { snapshot: async () => { throw new Error('registry boom') } }
     const brokenDeps = { ...deps, registry: brokenRegistry }
-    const brokenRoutes = makeRoutes(brokenDeps)
+    const brokenRoutes = makeRoutes(emptyCtx, brokenDeps)
     const { res, status, body } = response()
     await brokenRoutes.find((route) => route.path === ROUTES.list)!.handler(request(ROUTES.list, 'GET'), res)
     expect(status()).toBe(200)

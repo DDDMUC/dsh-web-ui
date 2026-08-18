@@ -1,7 +1,8 @@
 /**
  * skill-explorer — host half. Serves the skill center data source: the
  * /api/dsh-skill-explorer route family (list grouped by source, set enabled,
- * create, delete, health) over a loopback-only fence. The browser half
+ * create, delete, health) over the shared trust fence (loopback by default;
+ * a live paired-device cookie is an extra allow path). The browser half
  * (./client) renders the skill center panel.
  *
  * Ported from the local dsh-skill-explorer plugin; everything rides official
@@ -50,7 +51,7 @@ export interface Config {
 }
 
 /**
- * Mount the skill center routes.
+ * Mount the skill center routes (trust fence looks up remoteWebUiPairing on ctx).
  * @param ctx - host plugin context carrying webServer/skills/sessions.
  * @param config - resolved plugin config.
  */
@@ -75,7 +76,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     }
   }
 
-  const routes = makeRoutes({
+  const routes = makeRoutes(ctx, {
     dshHome,
     agentsHome,
     customSkillDirs,
