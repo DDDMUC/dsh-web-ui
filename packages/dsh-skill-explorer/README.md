@@ -57,9 +57,9 @@ sidebar.
 
 ## Security model
 
-- Every `/api/dsh-skill-explorer/*` route is loopback-only (same-origin
-  fence, identical to dsh-ssh): LAN-exposed dsh web deployments cannot reach
-  the write routes.
+- Every `/api/dsh-skill-explorer/*` route is loopback-only (the shared
+  plugin-family fence: loopback socket + Host header + browser same-origin
+  markers): LAN-exposed dsh web deployments cannot reach the write routes.
 - Write routes only touch paths produced by a fresh filesystem scan — a
   request cannot name an arbitrary path.
 - Skill content is user-authored markdown; the create form caps content at
@@ -69,8 +69,10 @@ sidebar.
 
 ## Known limitations
 
-- The project root is derived from active session workspaces (nearest `.git`
-  ancestor); the list route accepts an explicit `?cwd=` override.
+- Project skills follow the workspace shown in the panel: the list route
+  accepts an explicit `?cwd=` override, and the create form sends the
+  displayed workspace; the project root is the nearest `.git` ancestor of
+  that workspace.
 - Frontmatter parsing is a lightweight zero-dependency implementation
   (block scalars, booleans, input nested block); exotic YAML features are not
   supported — the official dsh-skill-filesystem provider remains the

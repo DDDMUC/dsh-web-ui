@@ -156,7 +156,7 @@ function ListTab({ api, refreshTick, onCwd }: { api: SkillApi; refreshTick: numb
 }
 
 /** The create form tab. */
-function CreateTab({ api }: { api: SkillApi }): React.JSX.Element {
+function CreateTab({ api, cwd }: { api: SkillApi; cwd: string | undefined }): React.JSX.Element {
   const [root, setRoot] = useState<'user' | 'project'>('user')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -173,7 +173,7 @@ function CreateTab({ api }: { api: SkillApi }): React.JSX.Element {
     }
     setBusy(true)
     try {
-      const result = await api.create({ root, name: name.trim(), description: description.trim(), whenToUse: whenToUse.trim() || undefined, content })
+      const result = await api.create({ root, name: name.trim(), description: description.trim(), whenToUse: whenToUse.trim() || undefined, content, cwd: cwd ?? '' })
       setFeedback({ text: tt('create.created', { path: result.path }), ok: true })
       setName('')
       setDescription('')
@@ -259,7 +259,7 @@ export function SkillPanel({ api, onClose }: SkillPanelProps): React.JSX.Element
           </button>
         </div>
         <div className={css.body}>
-          {tab === 'list' ? <ListTab api={api} refreshTick={refreshTick} onCwd={setCwd} /> : <CreateTab api={api} />}
+          {tab === 'list' ? <ListTab api={api} refreshTick={refreshTick} onCwd={setCwd} /> : <CreateTab api={api} cwd={cwd} />}
         </div>
       </div>
     </div>

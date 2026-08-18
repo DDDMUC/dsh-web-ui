@@ -51,16 +51,18 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skill-explorer
 
 ## 安全模型
 
-- 全部 `/api/dsh-skill-explorer/*` 路由仅限 loopback（同源围栏，与 dsh-ssh
-  相同）：局域网暴露的 dsh web 部署无法触达写路由。
+- 全部 `/api/dsh-skill-explorer/*` 路由仅限 loopback（插件家族共享围栏：
+  loopback 套接字 + Host 头 + 浏览器同源标记）：局域网暴露的 dsh web
+  部署无法触达写路由。
 - 写路由只操作最新文件系统扫描产出的路径——请求无法指定任意路径。
 - 技能内容是用户自写的 markdown；创建表单限制内容 64KB。
 - 面板用文本节点渲染技能描述（无 HTML 注入）。
 
 ## 已知限制
 
-- 项目根取活跃会话 workspace（最近 `.git` 祖先）；list 路由接受显式 `?cwd=`
-  覆盖。
+- 项目技能跟随面板显示的 workspace：list 路由接受显式 `?cwd=` 覆盖，
+  创建表单会发送当前显示的 workspace；项目根为该 workspace 最近的
+  `.git` 祖先。
 - frontmatter 解析为零依赖轻量实现（块标量、布尔、input 嵌套块）；不支持的
   生僻 YAML 特性以官方 dsh-skill-filesystem 提供方为准。
 

@@ -55,7 +55,7 @@ export class SkillApi {
   }
 
   /** Create a skill file under the user or project root. */
-  async create(payload: { root: 'user' | 'project'; name: string; description: string; whenToUse?: string; content: string }): Promise<{ ok: true; name: string; path: string }> {
+  async create(payload: { root: 'user' | 'project'; name: string; description: string; whenToUse?: string; content: string; cwd: string }): Promise<{ ok: true; name: string; path: string }> {
     return this.request(API.create, { method: 'POST', body: payload })
   }
 

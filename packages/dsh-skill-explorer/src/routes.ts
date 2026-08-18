@@ -10,6 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { buildPayload, collectSkills, findProjectRoot, projectSkillRoot, trashSkillFile, userSkillRoot, writeSkillFile, type CollectOptions, type SkillEntry } from './collect.ts'
 import { setFrontmatterField } from './frontmatter.ts'
+import { isLoopbackRequest } from './loopback.ts'
 
 /** Cap on JSON request bodies (create payloads are small). */
 const MAX_JSON_BODY_BYTES = 128 * 1024
@@ -22,29 +23,6 @@ export const ROUTES = {
   delete: '/api/dsh-skill-explorer/delete',
   health: '/api/dsh-skill-explorer/health',
 } as const
-
-/** Loopback literal check plus browser same-origin markers (mirrors dsh-ssh's fence). */
-export function isLoopbackRequest(request: IncomingMessage): boolean {
-  const address = request.socket.remoteAddress
-  if (address !== '127.0.0.1' && address !== '::1' && address !== '::ffff:127.0.0.1') return false
-  const host = request.headers.host
-  if (typeof host !== 'string') return false
-  let hostUrl: URL
-  try {
-    hostUrl = new URL(`http://${host}`)
-  } catch {
-    return false
-  }
-  if (hostUrl.hostname !== '127.0.0.1' && hostUrl.hostname !== 'localhost' && hostUrl.hostname !== '[::1]') return false
-  if (request.headers['sec-fetch-site'] === 'cross-site') return false
-  const origin = request.headers.origin
-  if (origin === undefined) return true
-  try {
-    return new URL(origin).host === hostUrl.host
-  } catch {
-    return false
-  }
-}
 
 /** One JSON response. */
 function writeJson(res: ServerResponse, status: number, body: unknown): void {
@@ -212,9 +190,13 @@ export function makeRoutes(deps: SkillRoutesDeps): WebRoute[] {
             writeJson(res, 400, { error: 'invalid JSON body' })
             return
           }
-          const { root, name, description, whenToUse, content } = body
+          const { root, name, description, whenToUse, content, cwd } = body
           if (root !== 'user' && root !== 'project') {
             writeJson(res, 400, { error: 'root must be user (~/.dsh/skills) or project (project .dsh/skills)' })
+            return
+          }
+          if (typeof cwd !== 'string' || cwd.trim() === '') {
+            writeJson(res, 400, { error: 'cwd is required (the workspace shown by the panel)' })
             return
           }
           if (typeof name !== 'string' || !NAME_PATTERN.test(name)) {
@@ -235,7 +217,7 @@ export function makeRoutes(deps: SkillRoutesDeps): WebRoute[] {
           }
           const baseDir = root === 'user'
             ? userSkillRoot(dshHome)
-            : projectSkillRoot(findProjectRoot(activeSessionCwds()[0] ?? DEFAULT_CWD()))
+            : projectSkillRoot(findProjectRoot(cwd))
           const target = await writeSkillFile(baseDir, name, description, typeof whenToUse === 'string' ? whenToUse : undefined, content)
           writeJson(res, 200, { ok: true, name, path: target })
         } catch (error) {

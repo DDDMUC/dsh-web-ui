@@ -2,8 +2,18 @@
  * Host apply tests: enabled=false registers nothing; enabled registers the
  * route family and disposes cleanly.
  */
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { apply } from '../src/index.ts'
+
+/** The mountOnce registry key (mirrors shared/host/mount-once.ts) — reset between applies so each case starts fresh. */
+const MOUNTED = Symbol.for('dsh-web-ui.mounted-plugins')
+const PACKAGE = '@linxin666/dsh-client-ui-skill-explorer'
+
+function resetMountOnce(): void {
+  ;(globalThis as Record<symbol, unknown>)[MOUNTED] = undefined
+}
+
+beforeEach(resetMountOnce)
 
 /** Fake cordis ctx capturing route registrations. */
 function fakeCtx() {
@@ -29,6 +39,15 @@ function fakeCtx() {
 }
 
 describe('skill-explorer host apply', () => {
+  it('is a no-op for a second mount of the same package (aggregate + standalone coexist)', () => {
+    const first = fakeCtx()
+    apply(first as never, {})
+    expect(first.routes.length).toBe(5)
+    const second = fakeCtx()
+    apply(second as never, {})
+    expect(second.routes.length).toBe(0)
+  })
+
   it('registers nothing when enabled is false', () => {
     const ctx = fakeCtx()
     apply(ctx as never, { enabled: false })

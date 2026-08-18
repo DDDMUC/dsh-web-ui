@@ -33,6 +33,20 @@ export const SOURCE_GROUPS: SourceGroup[] = [
 /** Registry source -> display level mapping (unlisted sources fall into "other"). */
 export const REGISTRY_SOURCE_LEVEL: ReadonlyMap<string, string> = new Map(SOURCE_GROUPS.map((group) => [group.key, group.key]))
 
+/**
+ * Filesystem precedence across roots, matching the official rank order
+ * (project wins over custom wins over user). Parallel scans finish in
+ * arbitrary order, so the winner must be decided by priority comparison,
+ * never by whichever readdir happened to resolve last.
+ */
+const LEVEL_PRIORITY: ReadonlyMap<string, number> = new Map([
+  ['project-dsh', 0],
+  ['project-agents', 1],
+  ['custom', 2],
+  ['user-dsh', 3],
+  ['user-agents', 4],
+])
+
 /** One skill entry as served to the panel. */
 export interface SkillEntry {
   name: string
@@ -133,6 +147,9 @@ async function scanSkillRoot(root: string, level: string, into: Map<string, Skil
     const parsed = parseFrontmatter(content)
     const skillName = parsed.name ?? name.replace(/\.md$/, '')
     if (!/^[a-z0-9][a-z0-9-]*$/.test(skillName)) continue
+    const priority = LEVEL_PRIORITY.get(level) ?? 99
+    const existing = into.get(skillName)
+    if (existing !== undefined && (LEVEL_PRIORITY.get(existing.level) ?? 99) <= priority) continue
     into.set(skillName, {
       name: skillName,
       description: parsed.description ?? '(no description)',
@@ -155,7 +172,11 @@ function serializeRegistry(skill: RegistrySkill): SkillEntry {
     whenToUse: skill.whenToUse,
     provider: skill.provider,
     level: REGISTRY_SOURCE_LEVEL.get(skill.source) ?? `other:${skill.source}`,
-    path: skill.resourceBase?.kind === 'directory' ? skill.resourceBase.path : undefined,
+    // Registry-only entries (bundled / runtime) have no editable file: the
+    // write routes only trust paths from a fresh filesystem scan, so expose
+    // no path here — otherwise the panel would show toggle/delete controls
+    // that always answer 404.
+    path: undefined,
     modelInvocable: skill.invocation?.modelInvocable ?? false,
     userInvocable: skill.invocation?.userInvocable ?? false,
   }
@@ -234,10 +255,15 @@ export async function collectSkills(options: CollectOptions): Promise<CollectRes
   return { skills: [...byName.values()], complete }
 }
 
+/** Single-quote a YAML scalar (doubling embedded quotes); keeps the frontmatter parseable for values containing colons. */
+function yamlQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
 /** Build the new skill file content (create route). */
 export function buildSkillContent(name: string, description: string, whenToUse: string | undefined, content: string, disabled: boolean): string {
-  const lines = ['---', `name: ${name}`, `description: ${description.replace(/[\r\n]/gu, ' ')}`]
-  if (typeof whenToUse === 'string' && whenToUse.trim() !== '') lines.push(`whenToUse: ${whenToUse.replace(/[\r\n]/gu, ' ')}`)
+  const lines = ['---', `name: ${name}`, `description: ${yamlQuote(description.replace(/[\r\n]/gu, ' '))}`]
+  if (typeof whenToUse === 'string' && whenToUse.trim() !== '') lines.push(`whenToUse: ${yamlQuote(whenToUse.replace(/[\r\n]/gu, ' '))}`)
   if (disabled === true) lines.push('disable-model-invocation: true')
   lines.push('---', '', content.trim(), '')
   return lines.join('\n')

@@ -6,7 +6,8 @@
  * this module keeps a stable export surface for unit tests to lock behavior.
  */
 
-import { readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 
 /** Parse a YAML boolean (true/false/yes/no/on/off/1/0, case-insensitive); undefined when not boolean. */
 export function parseYamlBool(value: unknown): boolean | undefined {
@@ -122,9 +123,21 @@ export function setFrontmatterField(file: string, field: string, value: boolean)
   })
   if (!replaced) next.push(`${field}: ${value}`)
   const rewritten = `---\n${next.join('\n')}\n---${match[2]}`
-  // Atomic write: tmp file + rename, so a watcher never reads a half-written state.
-  const tmp = `${file}.tmp`
-  writeFileSync(tmp, rewritten, 'utf8')
-  renameSync(tmp, file)
+  // Atomic write: tmp file + rename, so a watcher never reads a half-written
+  // state. The tmp name is unpredictable and created with O_EXCL ('wx'), so a
+  // planted symlink at a guessable name can never redirect the write.
+  const tmp = `${file}.${Date.now().toString(36)}.${randomBytes(6).toString('hex')}.tmp`
+  try {
+    writeFileSync(tmp, rewritten, { encoding: 'utf8', flag: 'wx' })
+    renameSync(tmp, file)
+  } catch (error) {
+    // Best-effort cleanup of a half-written tmp file; the original file is untouched.
+    try {
+      unlinkSync(tmp)
+    } catch {
+      // ignore
+    }
+    throw error
+  }
   return parseFrontmatter(rewritten)
 }

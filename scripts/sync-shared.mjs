@@ -82,6 +82,7 @@ const MANIFEST = [
       'packages/dsh-community-plugins/src/mount-once.ts',
       'packages/dsh-web-ui-settings/src/mount-once.ts',
       'packages/dsh-tool-describe-image/src/mount-once.ts',
+      'packages/dsh-skill-explorer/src/mount-once.ts',
       'packages/skins/skin-center/src/mount-once.ts',
     ],
   },
@@ -94,7 +95,7 @@ const MANIFEST = [
   {
     file: 'loopback.ts',
     source: 'shared/host/loopback.ts',
-    targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts'],
+    targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts', 'packages/dsh-skill-explorer/src/loopback.ts'],
   },
 ]
 

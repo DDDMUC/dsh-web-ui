@@ -1,11 +1,11 @@
 /**
  * collectSkills: filesystem scanning + registry merge + grouping tests.
  */
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { buildPayload, collectSkills, findProjectRoot, type RegistrySkill } from '../src/collect.ts'
+import { buildPayload, collectSkills, findProjectRoot, writeSkillFile, type RegistrySkill } from '../src/collect.ts'
 
 const TMP = mkdtempSync(join(tmpdir(), 'skill-explorer-collect-'))
 const PROJ = join(TMP, 'proj')
@@ -112,6 +112,62 @@ describe('collectSkills', () => {
     })
     expect(complete).toBe(false)
     expect(skills.some((s) => s.name === 'poc-first')).toBe(true)
+  })
+})
+
+describe('cross-root precedence', () => {
+  it('project wins over custom wins over user, deterministically across repeated scans', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'skill-explorer-prec-'))
+    const proj = join(tmp, 'proj')
+    const home = join(tmp, 'home')
+    const custom = join(tmp, 'custom')
+    write(join(proj, '.git', 'keep'), '')
+    write(join(proj, '.dsh', 'skills', 'shared-name', 'SKILL.md'), '---\nname: shared-name\ndescription: 项目版本\n---\n')
+    write(join(home, 'skills', 'shared-name', 'SKILL.md'), '---\nname: shared-name\ndescription: 用户版本\n---\n')
+    write(join(custom, 'shared-name', 'SKILL.md'), '---\nname: shared-name\ndescription: 自定义版本\n---\n')
+    const registry = { snapshot: async () => ({ skills: [] as RegistrySkill[], complete: true }) }
+    for (let round = 0; round < 8; round += 1) {
+      const { skills } = await collectSkills({
+        cwd: proj,
+        projectRoots: [proj],
+        customSkillDirs: [custom],
+        dshHome: home,
+        agentsHome: join(tmp, 'agents'),
+        registry,
+      })
+      const winner = skills.find((s) => s.name === 'shared-name')
+      expect(winner?.level).toBe('project-dsh')
+      expect(winner?.description).toBe('项目版本')
+    }
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('registry-only entries expose no editable path (no phantom toggle/delete)', async () => {
+    const { skills } = await collectSkills({
+      cwd: PROJ,
+      projectRoots: [PROJ],
+      customSkillDirs: [CUSTOM],
+      dshHome: HOME,
+      agentsHome: AGENTS,
+      registry,
+    })
+    const byName = Object.fromEntries(skills.map((s) => [s.name, s]))
+    expect(byName['computer-use'].path).toBeUndefined()
+    expect(byName['embedded-hello'].path).toBeUndefined()
+    // Filesystem entries keep their scanned path even when the registry merges metadata.
+    expect(byName['poc-first'].path).toBe(join(PROJ, '.dsh', 'skills', 'poc-first', 'SKILL.md'))
+  })
+})
+
+describe('writeSkillFile', () => {
+  it('single-quotes free-text scalars so colons and quotes stay parseable', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'skill-explorer-write-'))
+    const target = await writeSkillFile(join(tmp, 'base'), 'quoted-skill', '任务: 分析 a: b', "it's 引号", '正文')
+    const raw = readFileSync(target, 'utf8')
+    expect(raw).toContain("description: '任务: 分析 a: b'")
+    expect(raw).toContain("whenToUse: 'it''s 引号'")
+    expect(raw).toContain('name: quoted-skill')
+    rmSync(tmp, { recursive: true, force: true })
   })
 })
 

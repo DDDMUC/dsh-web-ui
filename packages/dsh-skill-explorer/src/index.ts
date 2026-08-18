@@ -14,6 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { makeRoutes, ROUTES } from './routes.ts'
 import type { CollectOptions } from './collect.ts'
+import { mountOnce } from './mount-once.ts'
 
 /** Stable cordis plugin name. */
 export const name = 'skill-explorer'
@@ -53,7 +54,7 @@ export interface Config {
  * @param ctx - host plugin context carrying webServer/skills/sessions.
  * @param config - resolved plugin config.
  */
-export function apply(ctx: Context, config?: Config): void {
+function applyImpl(ctx: Context, config?: Config): void {
   if (config?.enabled === false) return
   const skillCtx = ctx as unknown as SkillContext
   const dshHome = config?.dshHome ?? process.env.DSH_HOME ?? homedir() + sep + '.dsh'
@@ -90,3 +91,11 @@ export function apply(ctx: Context, config?: Config): void {
     }
   }, 'skill-explorer: routes')
 }
+
+/**
+ * Single-instance guard shared by the plugin family: the aggregate bundle
+ * (dsh-web-ui-all) and a standalone install of this package can coexist in
+ * one profile, so the second host apply must be a no-op instead of
+ * re-registering the same routes and failing the boot.
+ */
+export const apply = mountOnce('@linxin666/dsh-client-ui-skill-explorer', applyImpl)

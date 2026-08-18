@@ -138,29 +138,44 @@ describe('set-enabled', () => {
 describe('create', () => {
   it('creates a skill under the user root', async () => {
     const { res, status, body } = response()
-    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'user', name: 'new-skill', description: '新技能', whenToUse: '测试', content: '正文' } }), res)
+    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'user', name: 'new-skill', description: '新技能', whenToUse: '测试', content: '正文', cwd: PROJ } }), res)
     expect(status()).toBe(200)
     const target = join(HOME, 'skills', 'new-skill', 'SKILL.md')
     expect(JSON.parse(body()).path).toBe(target)
     expect(existsSync(target)).toBe(true)
-    expect(readFileSync(target, 'utf8')).toContain('description: 新技能')
+    expect(readFileSync(target, 'utf8')).toContain("description: '新技能'")
+  })
+
+  it('creates a skill under the project root derived from cwd', async () => {
+    const { res, status, body } = response()
+    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'project', name: 'proj-skill', description: '项目技能', content: '正文', cwd: join(PROJ, 'nested', 'dir') } }), res)
+    expect(status()).toBe(200)
+    const target = join(PROJ, '.dsh', 'skills', 'proj-skill', 'SKILL.md')
+    expect(JSON.parse(body()).path).toBe(target)
+    expect(existsSync(target)).toBe(true)
+  })
+
+  it('rejects a missing cwd with 400', async () => {
+    const { res, status } = response()
+    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'project', name: 'no-cwd-skill', description: 'x', content: 'y' } }), res)
+    expect(status()).toBe(400)
   })
 
   it('rejects duplicates with 409', async () => {
     const { res, status } = response()
-    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'user', name: 'new-skill', description: 'x', content: 'y' } }), res)
+    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'user', name: 'new-skill', description: 'x', content: 'y', cwd: PROJ } }), res)
     expect(status()).toBe(409)
   })
 
   it('rejects invalid names with 400', async () => {
     const { res, status } = response()
-    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'user', name: 'Bad_Name', description: 'x', content: 'y' } }), res)
+    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'user', name: 'Bad_Name', description: 'x', content: 'y', cwd: PROJ } }), res)
     expect(status()).toBe(400)
   })
 
   it('rejects oversized content with 400', async () => {
     const { res, status } = response()
-    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'user', name: 'big-skill', description: 'x', content: 'x'.repeat(64 * 1024 + 1) } }), res)
+    await find(ROUTES.create)!.handler(request(ROUTES.create, 'POST', { body: { root: 'user', name: 'big-skill', description: 'x', content: 'x'.repeat(64 * 1024 + 1), cwd: PROJ } }), res)
     expect(status()).toBe(400)
   })
 })
