@@ -1,7 +1,7 @@
 /**
  * The remote-control settings card: pairing security and device limits.
- * Registers into the `settings.plugin.item` slot the plugin-configuration
- * section renders, bound to the `remote-web-ui` settings namespace.
+ * Registers into the `web-ui.plugin.item` child slot the Web UI plugin group
+ * renders, bound to the `remote-web-ui` settings namespace.
  */
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
