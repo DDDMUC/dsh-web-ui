@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  <strong>DeepSeek Harness（DSH）Web GUI 的插件与皮肤全家桶</strong><br>
+  <strong>DeepSeek Harness（DSH）Web GUI 的插件与皮肤全家桶 · 一切皆开发，一切皆插件</strong><br>
   <em>梁神模式 · 任务看板 · Git 图谱 · 右侧面板 · 移动端远程 · SSH 运维 · 图像理解 · 鲸鱼娘宠物 · 皮肤中心</em>
 </p>
 
@@ -35,7 +35,7 @@
 
 ## 是什么
 
-dsh-web-ui 是给 DeepSeek Harness（DSH）Web GUI 用的插件和皮肤集合：面向 DeepSeek V4 Pro 的「梁神模式」agent 预设，以及任务看板、Git 图谱、右侧面板、移动端远程、SSH 运维、图像理解、鲸鱼娘宠物和皮肤中心。所有插件都走官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；可以逐个安装，也可以用聚合包一次装齐（聚合包额外引入外部右侧栏插件 `dsh-better-sidebar` 并默认接管右侧面板，详见 [dsh-web-ui-all README](packages/dsh-web-ui-all/README.zh.md)）。
+dsh-web-ui 继承 DeepSeek Harness（DSH）「一切皆开发、一切皆插件」的核心理念，也是这一理念在 Web GUI 上最完整的落地：它不只是一个插件包，更是一个可拓展性极强的插件生态。面向 DeepSeek V4 Pro 的「梁神模式」agent 预设，以及任务看板、Git 图谱、右侧面板、移动端远程、SSH 运维、图像理解、鲸鱼娘宠物和皮肤中心——每一样都是独立成包的模块，可插拔、可替换、可再开发；可以一次装齐全家桶，拼出完整的开发工作台，也可以只挑一两个，安静地融入原生界面。所有插件都走官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；聚合包还能把外部插件（如 `dsh-better-sidebar`）拼进全家桶，详见 [dsh-web-ui-all README](packages/dsh-web-ui-all/README.zh.md)。
 
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
 

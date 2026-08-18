@@ -25,7 +25,7 @@
 CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency. Coverage and code-style (Prettier / ESLint) gates are planned for CI.
 
 <p align="center">
-  <strong>The plugin and skin family for the DeepSeek Harness (DSH) Web GUI</strong><br>
+  <strong>The plugin and skin family for the DeepSeek Harness (DSH) Web GUI · Everything is development, everything is a plugin</strong><br>
   <em>Liang Shen Mode · Task board · Git graph · Right panel · Mobile remote · SSH ops · Image understanding · Whale-girl pet · Skin center</em>
 </p>
 
@@ -37,7 +37,7 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
 
 ## What It Is
 
-dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI: the "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet and the skin center. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes. Install plugins one by one, or grab everything with the aggregate package (the aggregate also pulls in the external right-sidebar plugin `dsh-better-sidebar`, which owns the right panel by default — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md)).
+dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everything is development, everything is a plugin" — and is its most complete realization on the Web GUI: not just a plugin package, but a plugin ecosystem with extreme extensibility. The "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet and the skin center — each ships as an independent, self-contained module: pluggable, swappable, re-developable. Install the whole family to assemble a complete workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate package can even bolt on external plugins like `dsh-better-sidebar` — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md).
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
