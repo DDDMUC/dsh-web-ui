@@ -64,7 +64,7 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-/** Required services: sessions for the project root, locale for the copy, and the settings scope for the master switch. */
+/** Required services: sessions for the project root, locale for the copy, and the settings scope for the provider choice. */
 export const inject = ['sessions', 'locale', 'settingsScope']
 
 /** Apply the browser half. */
@@ -114,7 +114,7 @@ export function apply(ctx: ClientContext): void {
       }, MermaidChatEnhancer))
   })
 
-  // The settings card: one master switch (issue #307) in the Web UI Plugins
+  // The settings card: the provider choice (issue #307) in the Web UI Plugins
   // group, bound to the 'aionui-panel' namespace through the family bridge
   // (or the official settings scope when the deployment exposes it).
   ctx.inject(['slots', 'settingsScope'], (settingsCtx: ClientContext) => {
@@ -137,19 +137,22 @@ export function apply(ctx: ClientContext): void {
   })
 
   ctx.effect(() => {
-    // Master switch (issue #307): the settings card edits the 'aionui-panel'
+    // Provider choice (issue #307): the settings card edits the 'aionui-panel'
     // namespace through the family settings bridge (or the official scope).
-    // While off, the panels, the floating button and the change stream stay
-    // unmounted; toggling the switch re-mounts them live (the pet's model).
+    // While the provider is not 'aionui-panel' (default: 'dsh-better-sidebar'
+    // — aionui is deprecated), the panels, the floating button and the
+    // change stream stay unmounted; switching the provider re-mounts them
+    // live (the pet's model).
     let panelScope: SettingsScope<AionUiPanelSettings> | undefined
     try {
       const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
       if (binder !== undefined) panelScope = binder.bind<AionUiPanelSettings>({ namespace: NS })
     } catch (error) {
-      // A missing settings seam must not break the panel boot: default on.
+      // A missing settings seam must not break the panel boot: the default
+      // provider (better-sidebar) applies, so the panel stays unmounted.
       panelScope = undefined
     }
-    const enabled = (): boolean => panelScope?.getSnapshot().value?.enabled ?? true
+    const enabled = (): boolean => (panelScope?.getSnapshot().value?.rightPanel ?? 'dsh-better-sidebar') === 'aionui-panel'
     let disposeUi: (() => void) | undefined
 
     /**

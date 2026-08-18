@@ -28,6 +28,7 @@
     "src/mount-once.ts",
     "src/invariant.ts",
     "src/media.ts",
+    "src/attachment-reference.ts",
     "src/attach-routes.ts",
     "src/model-capability.ts",
     "src/config-resolve.ts",

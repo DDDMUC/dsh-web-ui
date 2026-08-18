@@ -68,8 +68,8 @@ export {
 export type { LoadedImage, VisionCache } from './vision-client.ts'
 
 const DESCRIPTION_HEAD =
-  'Inspect one image — a local absolute path, an http(s) URL, or the JSON of an image attachment '
-  + 'note — and return the text the user needs. Use when the user references an image file or URL, '
+  'Inspect one image — a local absolute path, an http(s) URL, a complete `[image attachment ...]` note, '
+  + 'or a self-contained Markdown attachment reference — and return the text the user needs. Use when the user references an image file or URL, '
   + 'or when a task needs OCR, chart or diagram reading, screenshot or UI analysis, translation of '
   + 'image text, or photo understanding. '
   + 'Always pass an explicit `prompt` with a precise instruction — e.g. "transcribe all text", '
@@ -150,18 +150,18 @@ function applyImpl(ctx: Context, config: Config = {}): void {
   ctx.tools.register(defineTool({
     name: 'describe_image',
     description: DESCRIPTION_HEAD
-      + 'The image may be a local path, an http(s) URL, the JSON object from an `[image attachment …]` '
-      + "note, or — the common case when the user used this plugin's input-box image button — a "
-      + 'short markdown image reference like `![图片](/describe-image/raw/sha256:abc…)` pasted into '
-      + 'the conversation. In the markdown form, take the attachment id from the URL and pass that id '
-      + 'as the `image` value (never the whole markdown, and never a made-up path); the tool resolves '
-      + 'the id to the stored image. The image itself never enters the conversation — only the '
-      + 'returned text is shown to you.',
+      + 'The image may be a local path, an http(s) URL, a complete `[image attachment ...]` note, or — '
+      + "the common case when the user used this plugin's input-box image button — the complete Markdown "
+      + 'image reference like `![图片](/describe-image/raw/sha256:abc?ref=...)` pasted into the conversation. '
+      + 'Pass that complete Markdown reference as the `image` value: it carries the durable attachment '
+      + 'metadata needed after a host restart or inside a PTC nested tool call. A bare attachment id stays '
+      + 'supported only while this host process has seen the upload. The image itself never enters the '
+      + 'conversation — only the returned text is shown to you.',
     parameters: {
       image: {
         type: 'string',
         required: true,
-        description: 'Absolute path to a local image file, an http(s) URL of the image, the JSON object from an [image attachment …] note, or the bare attachment id (e.g. sha256:abc…) taken from the markdown image reference ![图片](/describe-image/raw/<id>) that the plugin\'s input-box image button pasted into the conversation.',
+        description: 'Absolute local image path, http(s) URL, complete [image attachment ...] note, or complete Markdown reference ![图片](/describe-image/raw/<id>?ref=...) from the input box. The complete Markdown reference is durable across host restarts and PTC nested tool calls; a bare attachment id is only a current-process fallback.',
       },
       prompt: {
         type: 'string',
