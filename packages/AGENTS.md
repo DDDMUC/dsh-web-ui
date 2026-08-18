@@ -48,6 +48,8 @@
   `--check` 一致性门禁（`aggregate.mjs` / `build.mjs` 的 check 模式）。
 - 例外：dsh-aionui-panel 已停止支持——不再保留测试、typecheck 门禁与 e2e 断言
   （右侧面板由 dsh-better-sidebar 接管），后续版本将从聚合包移除。
+- 例外：dsh-live-stats（实时令牌估算）已彻底移除——包、测试、门禁与文档引用
+  均已清理，不再支持。
 
 ## 双语纪律
 
