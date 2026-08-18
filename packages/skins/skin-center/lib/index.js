@@ -534,92 +534,137 @@ function writeActiveSelection(path, id) {
 * technical enforcement of the coupling boundary:
 *
 *  - SCOPING: every selector is force-scoped under
-*    `html[data-dsh-skin="<id>"]`. `:root` / `html` / dark-theme combos
-*    are merged INTO the scope compound; everything else becomes a
-*    descendant. Skins never declare bodyAttr; the skin-center owns scoping.
+*    `html[data-dsh-skin="<id>"]`. Root-ish heads are rewritten, not nested:
+*    `:root` / `html` merge into the scope; `body` and bare official
+*    `[data-ds-*]` heads (the official dark-theme attribute lives on BODY)
+*    become descendants of the scope; everything else becomes a descendant.
 *  - WHITELIST (fail-closed): no `@import`, no remote or protocol-relative
 *    URLs, no absolute paths escaping the skin directory; only relative
 *    in-directory assets (and `data:`, which warns — prefer assets/ files).
 *  - WARNINGS: reliance on CSS-Modules hash class names (`[class*=...]`)
-*    warns; generic @keyframes names warn (single-active-skin model makes
-*    collisions unlikely but cross-skin name reuse is still fragile).
+*    warns; generic @keyframes names warn.
+*
+* Two-pass design (do NOT collapse): selector scoping is a text-level
+* surgery guided by lightningcss rule locations, and lightningcss itself is
+* only used to PARSE/validate (read-only visitors). Returning mutated rules
+* from a lightningcss 1.32/1.33 style visitor crashes declaration
+* deserialization on any var() declaration ("failed to deserialize; expected
+* an object-like struct named Specifier") — an upstream serialization defect
+* the text-level pass sidesteps entirely. A side benefit: the output keeps
+* the author's formatting and values byte-for-byte outside selector heads.
 *
 * NOTE: this module runs host-side (node) in the M2 loader. lightningcss is
-* a native dependency and must stay OUT of the browser bundle; when the
-* loader is wired, move lightningcss to "dependencies" and mark it external
-* in tsdown.config.ts.
+* a native dependency and must stay OUT of the browser bundle (external in
+* tsdown.config.ts).
+* @module @linxin666/dsh-client-ui-skin-center/css-safety
 */
 /** Violation of the CSS whitelist. Always fatal (fail-closed). */
 var SkinCssSafetyError = class extends Error {
-	violations;
 	name = "SkinCssSafetyError";
+	violations;
 	constructor(message, violations) {
 		super(message);
 		this.violations = violations;
 	}
 };
-function scopeCompound(skinId) {
-	return [{
-		type: "type",
-		name: "html"
-	}, {
-		type: "attribute",
-		namespace: null,
-		name: "data-dsh-skin",
-		operation: {
-			operator: "equal",
-			value: skinId,
-			caseSensitivity: "case-sensitive"
-		}
-	}];
-}
-function skinAttribute(skinId) {
-	return {
-		type: "attribute",
-		namespace: null,
-		name: "data-dsh-skin",
-		operation: {
-			operator: "equal",
-			value: skinId,
-			caseSensitivity: "case-sensitive"
-		}
-	};
-}
-function hasSkinAttribute(compound, skinId) {
-	return compound.some((c) => c.type === "attribute" && c.name === "data-dsh-skin" && c.operation?.operator === "equal" && c.operation?.value === skinId);
+/** Convert a lightningcss Location2 (0-based line, 1-based column) to a char offset. */
+function locToOffset(source, line, column) {
+	let offset = 0;
+	let currentLine = 0;
+	while (currentLine < line) {
+		const next = source.indexOf("\n", offset);
+		if (next === -1) return source.length;
+		offset = next + 1;
+		currentLine += 1;
+	}
+	return offset + column - 1;
 }
 /**
-* Rewrite one selector so it lives under html[data-dsh-skin="<id>"].
-* Returns warnings encountered (hash-class reliance).
+* Find the opening '{' of a rule whose selector starts at `start`,
+* tracking parens/brackets/strings so :is(...), [title="{"] etc. cannot
+* fake an early brace.
 */
-function scopeSelector(selector, skinId, warnings, context) {
-	for (const c of selector) if (c.type === "attribute" && c.name === "class" && [
-		"substring",
-		"prefix",
-		"suffix"
-	].includes(c.operation?.operator)) warnings.push(`${context}: [class${c.operation.operator === "substring" ? "*" : c.operation.operator === "prefix" ? "^" : "$"}=...] relies on CSS-Modules hash class names and may break on any official rebuild`);
-	const firstCombinator = selector.findIndex((c) => c.type === "combinator");
-	const headEnd = firstCombinator === -1 ? selector.length : firstCombinator;
-	const head = selector.slice(0, headEnd);
-	const tail = selector.slice(headEnd);
-	if (head.length === 1 && head[0].type === "pseudo-class" && head[0].kind === "root") return [...scopeCompound(skinId), ...tail];
-	if (head.some((c) => c.type === "type" && c.name === "html")) return [...hasSkinAttribute(head, skinId) ? head : [...head, skinAttribute(skinId)], ...tail];
-	if (head.some((c) => c.type === "attribute" && String(c.name).startsWith("data-ds-")) && !head.some((c) => c.type === "type")) return [...[
-		{
-			type: "type",
-			name: "html"
-		},
-		...head,
-		...hasSkinAttribute(head, skinId) ? [] : [skinAttribute(skinId)]
-	], ...tail];
-	return [
-		...scopeCompound(skinId),
-		{
-			type: "combinator",
-			value: "descendant"
-		},
-		...selector
-	];
+function findOpenBrace(source, start) {
+	let parens = 0;
+	let brackets = 0;
+	let quote = null;
+	for (let i = start; i < source.length; i += 1) {
+		const ch = source[i];
+		if (quote !== null) {
+			if (ch === "\\") i += 1;
+			else if (ch === quote) quote = null;
+			continue;
+		}
+		if (ch === "\"" || ch === "'") {
+			quote = ch;
+			continue;
+		}
+		if (ch === "(") parens += 1;
+		else if (ch === ")") parens -= 1;
+		else if (ch === "[") brackets += 1;
+		else if (ch === "]") brackets -= 1;
+		else if (ch === "{" && parens === 0 && brackets === 0) return i;
+		else if (ch === ";" && parens === 0 && brackets === 0) return -1;
+	}
+	return -1;
+}
+/** Split a selector list on top-level commas (paren/bracket/string aware). */
+function splitSelectors(selectorText) {
+	const parts = [];
+	let parens = 0;
+	let brackets = 0;
+	let quote = null;
+	let current = "";
+	for (let i = 0; i < selectorText.length; i += 1) {
+		const ch = selectorText[i];
+		if (quote !== null) {
+			current += ch;
+			if (ch === "\\") {
+				current += selectorText[i + 1] ?? "";
+				i += 1;
+			} else if (ch === quote) quote = null;
+			continue;
+		}
+		if (ch === "\"" || ch === "'") {
+			quote = ch;
+			current += ch;
+			continue;
+		}
+		if (ch === "(") parens += 1;
+		else if (ch === ")") parens -= 1;
+		else if (ch === "[") brackets += 1;
+		else if (ch === "]") brackets -= 1;
+		if (ch === "," && parens === 0 && brackets === 0) {
+			parts.push(current);
+			current = "";
+			continue;
+		}
+		current += ch;
+	}
+	parts.push(current);
+	return parts;
+}
+const HEAD_DATA_DS = /^\[data-ds-[a-z0-9-]+/;
+/**
+* Scope one selector under html[data-dsh-skin="<id>"]. Text-level and
+* conservative: only the well-defined root-ish heads get rewritten; any
+* other selector simply becomes a descendant of the scope.
+*/
+function scopeSelectorText(selector, skinId) {
+	const scope = `html[data-dsh-skin="${skinId}"]`;
+	const trimmed = selector.trim();
+	const leading = selector.slice(0, selector.length - selector.trimStart().length);
+	const trailing = selector.slice(leading.length + trimmed.length);
+	if (trimmed === ":root" || trimmed.startsWith(":root ") || trimmed.startsWith(":root,")) return leading + scope + trimmed.slice(5) + trailing;
+	if (/^html\[data-ds-/.test(trimmed)) return `${leading}${scope} body${trimmed.slice(4)}${trailing}`;
+	if (trimmed === "html" || trimmed.startsWith("html ")) return leading + scope + trimmed.slice(4) + trailing;
+	if (trimmed === "body" || trimmed.startsWith("body ") || trimmed.startsWith("body[") || trimmed.startsWith("body:")) return `${leading}${scope} ${trimmed}${trailing}`;
+	if (HEAD_DATA_DS.test(trimmed)) return `${leading}${scope} body${trimmed}${trailing}`;
+	return `${leading}${scope} ${trimmed}${trailing}`;
+}
+/** Scope every selector in one selector-list text, preserving separators. */
+function scopeSelectorList(selectorText, skinId) {
+	return splitSelectors(selectorText).map((sel) => scopeSelectorText(sel, skinId)).join(",");
 }
 /** Check one url() target against the whitelist. */
 function checkUrl(raw, context, violations, warnings) {
@@ -650,14 +695,16 @@ const GENERIC_KEYFRAMES = /* @__PURE__ */ new Set([
 /**
 * Transform a skin stylesheet: force-scope every selector under
 * html[data-dsh-skin="<id>"] and enforce the whitelist. Throws
-* SkinCssSafetyError on any violation (fail-closed).
+* SkinCssSafetyError on any violation (fail-closed); lightningcss parse
+* errors propagate as-is (malformed CSS is also a hard failure).
 */
 function transformSkinCss(css, options) {
 	const { skinId } = options;
 	const filename = options.filename ?? "skin.css";
 	const violations = [];
 	const warnings = [];
-	const result = transform({
+	const spans = [];
+	transform({
 		filename,
 		code: Buffer.from(css),
 		visitor: {
@@ -671,19 +718,36 @@ function transformSkinCss(css, options) {
 					if (typeof value === "string" && GENERIC_KEYFRAMES.has(value.toLowerCase())) warnings.push(`${filename}: generic @keyframes name "${value}" may collide across skins; prefix it (e.g. ${skinId}-${value})`);
 				},
 				style(rule) {
-					rule.value.selectors = rule.value.selectors.map((sel) => scopeSelector(sel, skinId, warnings, filename));
-					return rule;
+					const loc = rule.value.loc;
+					if (loc) {
+						const start = locToOffset(css, loc.line, loc.column);
+						const openBrace = findOpenBrace(css, start);
+						if (openBrace !== -1) spans.push({
+							start,
+							openBrace
+						});
+					}
+					for (const sel of rule.value.selectors) for (const c of sel) if (c.type === "attribute" && c.name === "class" && [
+						"substring",
+						"prefix",
+						"suffix"
+					].includes(c.operation?.operator)) warnings.push(`${filename}: [class*=...]-style attribute matching relies on CSS-Modules hash class names and may break on any official rebuild`);
 				}
 			},
 			Url(url) {
 				checkUrl(url.url, filename, violations, warnings);
-				return url;
 			}
 		}
 	});
 	if (violations.length > 0) throw new SkinCssSafetyError(`skin CSS violates the whitelist:\n - ${violations.join("\n - ")}`, violations);
+	const sorted = [...spans].sort((a, b) => b.start - a.start);
+	let out = css;
+	for (const span of sorted) {
+		const scoped = scopeSelectorList(out.slice(span.start, span.openBrace), skinId);
+		out = out.slice(0, span.start) + scoped + out.slice(span.openBrace);
+	}
 	return {
-		code: result.code.toString(),
+		code: out,
 		warnings
 	};
 }
