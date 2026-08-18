@@ -27,7 +27,7 @@ export const REPO_ROOT = resolve(SCRIPT_DIR, '..')
  * live exactly once under shared/; consumers import the committed copy.
  */
 // Consumers of the settings card trio: one list, three derivations below.
-const SETTINGS_CONSUMERS = ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-live-stats', 'dsh-aionui-panel', 'dsh-tool-describe-image', 'dsh-community-plugins']
+const SETTINGS_CONSUMERS = ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-aionui-panel', 'dsh-tool-describe-image', 'dsh-community-plugins']
 
 const MANIFEST = [
   {
@@ -74,7 +74,6 @@ const MANIFEST = [
     targets: [
       'packages/dsh-pet/src/mount-once.ts',
       'packages/dsh-ssh/src/mount-once.ts',
-      'packages/dsh-live-stats/src/mount-once.ts',
       'packages/dsh-remote-web-ui/src/mount-once.ts',
       'packages/dsh-liangshen/src/mount-once.ts',
       'packages/dsh-task-board/src/mount-once.ts',
@@ -84,6 +83,7 @@ const MANIFEST = [
       'packages/dsh-plugin-manager/src/mount-once.ts',
       'packages/dsh-web-ui-settings/src/mount-once.ts',
       'packages/dsh-tool-describe-image/src/mount-once.ts',
+      'packages/dsh-skill-explorer/src/mount-once.ts',
       'packages/skins/skin-center/src/mount-once.ts',
     ],
   },
@@ -96,7 +96,16 @@ const MANIFEST = [
   {
     file: 'loopback.ts',
     source: 'shared/host/loopback.ts',
-    targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts', 'packages/dsh-plugin-manager/src/host/loopback.ts'],
+    targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts', 'packages/dsh-skill-explorer/src/loopback.ts', 'packages/dsh-pet/src/loopback.ts', 'packages/dsh-plugin-manager/src/host/loopback.ts'],
+  },
+  {
+    file: 'sidebar-entry-core.ts',
+    source: 'shared/client/sidebar-entry-core.ts',
+    targets: [
+      'packages/dsh-ssh/src/client/sidebar-entry-core.ts',
+      'packages/dsh-task-board/src/client/sidebar-entry-core.ts',
+      'packages/dsh-skill-explorer/src/client/sidebar-entry-core.ts',
+    ],
   },
 ]
 
