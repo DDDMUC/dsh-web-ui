@@ -96,6 +96,15 @@ const MANIFEST = [
     source: 'shared/host/loopback.ts',
     targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-aionui-panel/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts', 'packages/dsh-skill-explorer/src/loopback.ts', 'packages/dsh-pet/src/loopback.ts'],
   },
+  {
+    file: 'sidebar-entry-core.ts',
+    source: 'shared/client/sidebar-entry-core.ts',
+    targets: [
+      'packages/dsh-ssh/src/client/sidebar-entry-core.ts',
+      'packages/dsh-task-board/src/client/sidebar-entry-core.ts',
+      'packages/dsh-skill-explorer/src/client/sidebar-entry-core.ts',
+    ],
+  },
 ]
 
 /** One source-to-consumer copy step. */
