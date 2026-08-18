@@ -39,7 +39,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skill-explorer
 
 安装后重启 `dsh web`，侧边栏出现「技能中心」入口。
 
-## 路由（全部 loopback 围栏）
+## 路由
 
 | 路由 | 方法 | 说明 |
 | --- | --- | --- |
@@ -51,9 +51,12 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skill-explorer
 
 ## 安全模型
 
-- 全部 `/api/dsh-skill-explorer/*` 路由仅限 loopback（插件家族共享围栏：
-  loopback 套接字 + Host 头 + 浏览器同源标记）：局域网暴露的 dsh web
-  部署无法触达写路由。
+- 全部 `/api/dsh-skill-explorer/*` 路由默认仅限 loopback（插件家族共享围栏：
+  loopback 套接字 + Host 头 + 浏览器同源标记）：未配对的局域网客户端在任何
+  技能文件访问前即收到 `403 forbidden: loopback-only`。同时装了
+  `dsh-remote-web-ui` 时，有效的已配对设备 cookie 是额外放行路径（与
+  `api/gate` 检查同一枚 cookie）；未配对与已撤销设备仍 403。技能中心不硬依赖
+  远程插件。
 - 写路由只操作最新文件系统扫描产出的路径——请求无法指定任意路径。
 - 技能内容是用户自写的 markdown；创建表单限制内容 64KB。
 - 面板用文本节点渲染技能描述（无 HTML 注入）。

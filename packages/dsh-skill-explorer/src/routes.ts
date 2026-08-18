@@ -1,16 +1,18 @@
 /**
  * The /api/dsh-skill-explorer route family: list (grouped by source), set
  * enabled (rewrites SKILL.md frontmatter), create, delete (move to .trash)
- * and health. Every route carries a loopback-only trust fence plus browser
- * same-origin markers — the write routes touch real skill files, so
- * LAN-exposed dsh web deployments must not serve them.
+ * and health. Every route carries the shared trust fence (loopback by
+ * default; a live paired-device cookie is an extra allow path when
+ * remote-web-ui is loaded) plus browser same-origin markers — the write
+ * routes touch real skill files, so unpaired LAN clients must not reach them.
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { Context } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
+import { isSkillExplorerAllowed } from './access.ts'
 import { buildPayload, collectSkills, findProjectRoot, projectSkillRoot, trashSkillFile, userSkillRoot, writeSkillFile, type CollectOptions, type SkillEntry } from './collect.ts'
 import { setFrontmatterField } from './frontmatter.ts'
-import { isLoopbackRequest } from './loopback.ts'
 
 /** Cap on JSON request bodies (create payloads are small). */
 const MAX_JSON_BODY_BYTES = 128 * 1024
@@ -79,15 +81,16 @@ export const DEFAULT_CWD = (): string => process.cwd()
 
 /**
  * Build every /api/dsh-skill-explorer route (exact paths).
+ * @param ctx - host context; may expose remoteWebUiPairing.
  * @param deps - dshHome/agentsHome/registry/sessions.
  * @returns the route list for ctx.webServer.register.
  */
-export function makeRoutes(deps: SkillRoutesDeps): WebRoute[] {
+export function makeRoutes(ctx: Context, deps: SkillRoutesDeps): WebRoute[] {
   const { dshHome, agentsHome, customSkillDirs, registry, activeSessionCwds, logger } = deps
 
   /** Guard helper: fence + method check. */
   const guard = (req: IncomingMessage, res: ServerResponse, method: string): boolean => {
-    if (!isLoopbackRequest(req)) {
+    if (!isSkillExplorerAllowed(ctx, req)) {
       writeJson(res, 403, { error: 'forbidden: loopback-only' })
       return false
     }

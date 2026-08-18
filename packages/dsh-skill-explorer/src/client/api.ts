@@ -1,6 +1,6 @@
 /**
  * Skill center API client (browser half). Talks to the host route family over
- * same-origin fetch; the host enforces the loopback fence on its side.
+ * same-origin fetch; the host enforces the trust fence on its side.
  */
 
 /** Route paths mirrored from the host (src/routes.ts ROUTES). */
