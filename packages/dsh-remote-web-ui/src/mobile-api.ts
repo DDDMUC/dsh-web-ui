@@ -37,6 +37,7 @@ import { readCookie } from './gate.ts'
  */
 const MOBILE_ALLOWLIST = new Set([
   'workspace.list',
+  'agentPreset.list',
   'session.create',
   'session.list',
   'session.history',
@@ -298,6 +299,7 @@ async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rp
     result: response.result,
   })
   if (method === 'workspace.list') return wrap(await apiProxy.workspace.list(request as never))
+  if (method === 'agentPreset.list') return wrap(await apiProxy.agentPresets.list(request as never))
   if (method === 'session.create') return wrap(await apiProxy.sessions.create(request as never))
   if (method === 'session.history') return wrap(await apiProxy.sessions.history(request as never))
   if (method === 'session.search') return wrap(await apiProxy.sessions.search(request as never, signal ?? new AbortController().signal))

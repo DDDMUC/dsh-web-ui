@@ -29,7 +29,7 @@ skills into a recoverable trash.
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-skill-explorer
+dsh plugin --profile web add @linxin666/dsh-client-ui-skill-explorer@latest
 ```
 
 ### From the repository (development)
@@ -45,7 +45,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skill-explorer
 Restart `dsh web` after installing; the "Skill Center" entry appears in the
 sidebar.
 
-## Routes (all loopback-only)
+## Routes
 
 | Route | Method | Purpose |
 | --- | --- | --- |
@@ -57,9 +57,13 @@ sidebar.
 
 ## Security model
 
-- Every `/api/dsh-skill-explorer/*` route is loopback-only (the shared
-  plugin-family fence: loopback socket + Host header + browser same-origin
-  markers): LAN-exposed dsh web deployments cannot reach the write routes.
+- Every `/api/dsh-skill-explorer/*` route is loopback-only by default (the
+  shared plugin-family fence: loopback socket + Host header + browser
+  same-origin markers): unpaired LAN clients get `403 forbidden: loopback-only`
+  before any skill-file access. When `dsh-remote-web-ui` is also loaded, a live
+  paired-device cookie is an additional allow path (the same cookie `api/gate`
+  already checks); unpaired and revoked devices stay 403. The skill center does
+  not depend on the remote plugin.
 - Write routes only touch paths produced by a fresh filesystem scan — a
   request cannot name an arbitrary path.
 - Skill content is user-authored markdown; the create form caps content at

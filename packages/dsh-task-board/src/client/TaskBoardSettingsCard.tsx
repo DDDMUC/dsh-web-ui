@@ -1,7 +1,7 @@
 /**
  * Task-board settings for availability, agent announcement, and optional Host
- * idle-sleep protection. Registers into the `settings.plugin.item` slot the
- * plugin-configuration section renders, bound to the `task-board` namespace.
+ * idle-sleep protection. Registers into the `web-ui.plugin.item` child slot
+ * the Web UI plugin group renders, bound to the `task-board` namespace.
  */
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'

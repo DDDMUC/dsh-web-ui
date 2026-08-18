@@ -37,10 +37,10 @@ This package is a dsh profile bundle (`package.json` declares `"dsh": { "bundle"
 This plugin is merged into the dsh-web-ui family monorepo (`github.com/zhu1090093659/dsh-web-ui`). The plugin is published to npm; one-line install recommended:
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-git-graph
+dsh plugin --profile web add @linxin666/dsh-client-ui-git-graph@latest
 ```
 
-Or install the family aggregate package `@linxin666/dsh-web-ui-all` all at once (same one-line `dsh plugin --profile web add @linxin666/dsh-web-ui-all`).
+Or install the family aggregate package `@linxin666/dsh-web-ui-all` all at once (same one-line `dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest`).
 
 Install from the repository when you need to debug code:
 

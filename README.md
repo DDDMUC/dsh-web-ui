@@ -37,6 +37,8 @@
 
 dsh-web-ui 继承 DeepSeek Harness（DSH）「一切皆开发、一切皆插件」的核心理念，也是这一理念在 Web GUI 上最完整的落地：它不只是一个插件包，更是一个可拓展性极强的插件生态。面向 DeepSeek V4 Pro 的「梁神模式」agent 预设，以及任务看板、Git 图谱、右侧面板、移动端远程、SSH 运维、图像理解、鲸鱼娘宠物和皮肤中心——每一样都是独立成包的模块，可插拔、可替换、可再开发；可以一次装齐全家桶，拼出完整的开发工作台，也可以只挑一两个，安静地融入原生界面。所有插件都走官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；聚合包还能把外部插件（如 `dsh-better-sidebar`）拼进全家桶，详见 [dsh-web-ui-all README](packages/dsh-web-ui-all/README.zh.md)。
 
+「一切皆插件」还贯彻到了皮肤本身：皮肤中心 v2 重构后，一款皮肤不再是耦合官方 DSH 的 npm 包，而是一个纯资产目录——一份 skin.json 清单加上样式、贴图与可选特效脚本，交由皮肤中心这一唯一加载器即时加载。皮肤与官方彻底解耦、只与皮肤中心耦合：官方升级不再牵动任何皮肤，新增一款皮肤也只需落一个目录，无需发布、无需安装。插件负责逻辑，皮肤负责外观，边界从此清晰。
+
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
 
 | 能力 | 原生 dsh web | dsh-web-ui 全家桶 |
@@ -48,7 +50,7 @@ dsh-web-ui 继承 DeepSeek Harness（DSH）「一切皆开发、一切皆插件�
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
-| 主题皮肤 | 默认主题 | 皮肤中心 11 款，先试穿再应用 |
+| 主题皮肤 | 默认主题 | 皮肤中心 12 款，先试穿再应用 |
 
 ## 功能插件
 
@@ -120,13 +122,13 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ## 皮肤
 
-皮肤中心有 11 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
+皮肤中心有 12 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
-现有 10 款皮肤一览（龙的传人 / 初音未来 · 电子歌姬两款截图待补充）；Maid Atelier 预览见下方：
+12 款皮肤一览；Maid Atelier 预览见下方：
 
-![10 款皮肤一览](docs/images/skins-montage.png)
+![12 款皮肤一览](docs/images/skins-montage.png)
 
 ### Windows XP（Luna）
 
@@ -156,7 +158,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 深海蓝工坊主题，包含双角色图层与响应式侧边栏装饰。本皮肤单独采用 CC BY-NC-SA 4.0，仅限非商业使用。
 
-![深海女仆工坊 亮色](packages/skins/maid-atelier/preview/light.png) · ![深海女仆工坊 暗色](packages/skins/maid-atelier/preview/dark.png)
+![深海女仆工坊 亮色](packages/skins/skin-center/skins/maid-atelier/preview/light.png) · ![深海女仆工坊 暗色](packages/skins/skin-center/skins/maid-atelier/preview/dark.png)
 
 ## 快速开始
 
@@ -167,7 +169,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ### 三步上手
 
-1. 安装聚合包：`dsh plugin --profile web add @linxin666/dsh-web-ui-all`
+1. 安装聚合包：`dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest`
 2. 重启 `dsh web`，侧边栏出现全部插件入口
 3. 打开「设置 > 插件配置」按需开关插件，或在皮肤中心试穿皮肤
 
@@ -176,12 +178,12 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 插件已发布到 npm（`@linxin666` scope），一条命令装齐：
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all
+dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
-装完重启 `dsh web`，侧边栏就有全部插件入口。只要皮肤就装 `@linxin666/dsh-skins`。
+装完重启 `dsh web`，侧边栏就有全部插件入口。只要皮肤就装 `@linxin666/dsh-client-ui-skin-center`。
 
-> **装到了旧版本？** pnpm 11+ 的发布年龄门禁（`minimumReleaseAge`）会把新发布（约 10 天内）的版本静默隔离，导致按上面命令实际装到旧版（如 `0.1.6` 而非 `0.1.10`）。旧版皮肤中心缺少 "carrier 内建皮肤可解析入口" 的修复，应用皮肤后重启会以 `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js` 崩溃。解决办法：在 profile 的 `pnpm-workspace.yaml` 设置 `minimumReleaseAge: 0`（或把 `@linxin666/*` 加进 `minimumReleaseAgeExclude`），再执行 `dsh plugin --profile web update @linxin666/dsh-web-ui-all` 升级到最新版。详见 [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71)。
+> **装到了旧版本？** pnpm 11+ 默认的发布年龄门禁（`minimumReleaseAge`，内置 24 小时）会把新发布的版本静默隔离，导致按上面命令实际装到上一个版本（如 `0.1.20` 而非 `0.2.0`）；显式写 `@latest` 也一样会被隔离。旧版皮肤中心缺少 "carrier 内建皮肤可解析入口" 的修复，应用皮肤后重启会以 `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js` 崩溃。解决办法：在 profile 的 `pnpm-workspace.yaml` 设置 `minimumReleaseAge: 0`（或把 `@linxin666/*` 加进 `minimumReleaseAgeExclude`），再执行 `dsh plugin --profile web update @linxin666/dsh-web-ui-all@latest` 升级到最新版。详见 [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71)。
 
 ### 从 GitHub 仓库安装（开发调试）
 
@@ -204,7 +206,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
 dsh web
 ```
 
-> 只想用皮肤：第 3 步只执行 link-profile 后安装 `packages/dsh-skins` 即可。
+> 只想用皮肤：第 3 步只执行 link-profile 后安装 `packages/skins/skin-center` 即可。
 >
 > 注意：profile 目录不是 pnpm workspace，聚合包里的 `workspace:*` 依赖会回退拉取 npm 已发布版本；
 > 若 npm 版本滞后或损坏会出现「宿主已挂载但 UI 不显示」，此时先用 `node scripts/link-profile.mjs`
@@ -215,13 +217,13 @@ dsh web
 不想装全家桶时，可单独安装任意插件（npm 已发布，直接用包名）：
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-liangshen              # 梁神模式
-dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # 任务看板
-dsh plugin --profile web add @linxin666/dsh-ssh                    # 远程连接（SSH）
-dsh plugin --profile web add @linxin666/dsh-tool-describe-image    # 图像理解工具
-dsh plugin --profile web add @linxin666/dsh-pet                    # 鲸鱼娘宠物
-dsh plugin --profile web add dsh-better-sidebar                    # 右侧面板（推荐；资源管理器/编辑器/终端/Git/浏览器）
-dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # 旧右侧面板（aionui-panel，已停止支持，仅过渡保留）
+dsh plugin --profile web add @linxin666/dsh-liangshen@latest               # 梁神模式
+dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # 任务看板
+dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # 远程连接（SSH）
+dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # 图像理解工具
+dsh plugin --profile web add @linxin666/dsh-pet@latest                     # 鲸鱼娘宠物
+dsh plugin --profile web add dsh-better-sidebar@latest                     # 右侧面板（推荐；资源管理器/编辑器/终端/Git/浏览器）
+dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # 旧右侧面板（aionui-panel，已停止支持，仅过渡保留）
 ```
 
 ### 验证与卸载
@@ -243,7 +245,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel # 旧右侧�
 
 > 首次安装若提示 `ERR_PNPM_IGNORED_BUILDS`（pnpm 拒绝依赖的构建脚本），按提示把 `cloudflared` / `cpu-features` / `ssh2` 加入 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重新执行即可。
 
-> **pnpm 11 release-age 门禁**：新版本发布后约 10 天内，pnpm 11 的 `minimumReleaseAge` 门禁可能静默装回更旧的 `@linxin666/*` 版本（如 `dsh-web-ui-all@0.1.5` 配旧版皮肤中心）。旧版皮肤中心 Apply 皮肤时会写入独立皮肤包引用，导致 `dsh web` 启动崩溃（`ERR_MODULE_NOT_FOUND ... dsh-client-ui-skin-*`）。在 profile 的 `pnpm-workspace.yaml` 中排除全部 `@linxin666/*` 包后再安装或更新：
+> **pnpm 11 release-age 门禁**：新版本发布后 24 小时内（`minimumReleaseAge` 内置默认值），pnpm 11 会静默装回更旧的 `@linxin666/*` 版本（如 `dsh-web-ui-all@0.1.20` 配旧版皮肤中心），显式写 `@latest` 同样被隔离。旧版皮肤中心 Apply 皮肤时会写入独立皮肤包引用，导致 `dsh web` 启动崩溃（`ERR_MODULE_NOT_FOUND ... dsh-client-ui-skin-*`）。在 profile 的 `pnpm-workspace.yaml` 中排除全部 `@linxin666/*` 包后再安装或更新：
 >
 > ```yaml
 > minimumReleaseAgeExclude:
@@ -285,7 +287,7 @@ A: 皮肤支持先试穿再应用：试穿即时生效、退出完全还原，�
 <details>
 <summary><strong>只想用皮肤，或者只装某一个插件？</strong></summary>
 
-A: 只要皮肤就装 `@linxin666/dsh-skins`；只装某一个插件就用「单独安装某个插件」里的包名，两者都走 npm 安装。
+A: 只要皮肤就装 `@linxin666/dsh-client-ui-skin-center`；只装某一个插件就用「单独安装某个插件」里的包名，两者都走 npm 安装。
 
 </details>
 
@@ -353,10 +355,10 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
   <a href="https://github.com/zhu1090093659"><img src="https://github.com/zhu1090093659.png?size=64" width="48" height="48" alt="zhu1090093659" title="zhu1090093659" /></a>
   <a href="https://github.com/sharkymew"><img src="https://github.com/sharkymew.png?size=64" width="48" height="48" alt="sharkymew" title="sharkymew" /></a>
   <a href="https://github.com/stushansusu"><img src="https://github.com/stushansusu.png?size=64" width="48" height="48" alt="stushansusu" title="stushansusu" /></a>
+  <a href="https://github.com/thinkmoon"><img src="https://github.com/thinkmoon.png?size=64" width="48" height="48" alt="thinkmoon" title="thinkmoon" /></a>
   <a href="https://github.com/Menghuan1918"><img src="https://github.com/Menghuan1918.png?size=64" width="48" height="48" alt="Menghuan1918" title="Menghuan1918" /></a>
   <a href="https://github.com/mkloveyy"><img src="https://github.com/mkloveyy.png?size=64" width="48" height="48" alt="mkloveyy" title="mkloveyy" /></a>
   <a href="https://github.com/TiankunDai"><img src="https://github.com/TiankunDai.png?size=64" width="48" height="48" alt="TiankunDai" title="TiankunDai" /></a>
-  <a href="https://github.com/thinkmoon"><img src="https://github.com/thinkmoon.png?size=64" width="48" height="48" alt="thinkmoon" title="thinkmoon" /></a>
   <a href="https://github.com/EricWang1358"><img src="https://github.com/EricWang1358.png?size=64" width="48" height="48" alt="EricWang1358" title="EricWang1358" /></a>
   <a href="https://github.com/Qiuner"><img src="https://github.com/Qiuner.png?size=64" width="48" height="48" alt="Qiuner" title="Qiuner" /></a>
   <a href="https://github.com/LittleDarkZero"><img src="https://github.com/LittleDarkZero.png?size=64" width="48" height="48" alt="LittleDarkZero" title="LittleDarkZero" /></a>

@@ -14,7 +14,7 @@ The dsh web UI plugin group for the DSH settings page: it adds a first-level set
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-web-ui-settings
+dsh plugin --profile web add @linxin666/dsh-client-ui-web-ui-settings@latest
 ```
 
 ### From the repository (development)
@@ -58,6 +58,20 @@ reverse_proxy 127.0.0.1:3080 {
 - Authenticated-proxy access requires a loopback socket, a canonical configured Host, a same-origin browser request, and the shared token injected upstream. The browser never receives the token.
 - The reverse proxy is the authentication boundary: keep DSH bound to loopback, run authentication before `reverse_proxy`, and replace rather than forward the client-supplied internal header.
 - The bridge exposes only the intersection of registered family namespaces and `web_settings_namespaces`. It does not expose credentials, native paths, or any other privileged DSH API.
+
+## Troubleshooting
+
+### "Failed to load plugins ... keyed slot `settings.plugin.item` requires options.key" (DSH 0.1.0-rc.6+)
+
+Plugin versions up to 0.1.17 registered the group card in the keyed `settings.plugin.item` slot with an `id` instead of the required `key`. DSH 0.1.0-rc.6 and later reject such entries while the loader entry applies, so the web GUI fails to boot with "Failed to load plugins".
+
+The registration moved to the first-level `settings.section` slot (a list slot addressed by `id`) in 0.1.18 and ships in 0.2.0; the code on `main` is compatible with rc.6 and rc.7. A profile that still fails carries a frozen older install:
+
+1. Bump every `@linxin666/*` dependency in the profile `package.json` to `^0.2.0` (at least `^0.1.18`).
+2. Reinstall the profile dependencies (`pnpm install`), and on Windows recreate stale `node_modules/@linxin666/*` junction links (`cmd /c rmdir <link>` then `cmd /c mklink /J <link> <target>`).
+3. Restart `dsh web`.
+
+See [issue #513](https://github.com/zhu1090093659/dsh-web-ui/issues/513).
 
 ## Known limitations
 

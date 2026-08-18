@@ -203,6 +203,40 @@ describe('RemoteEntry', () => {
     expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
   })
 
+  it('does not leak an EventSource when the panel is closed during the issue fetch', async () => {
+    let resolveIssue: ((r: Response) => void) | undefined
+    const fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/update/status') {
+        return Promise.resolve(new Response(JSON.stringify({ mode: 'npm', packages: [], outdated: false }), { status: 200, headers: { 'content-type': 'application/json' } }))
+      }
+      return new Promise<Response>((resolve) => { resolveIssue = resolve })
+    })
+    vi.stubGlobal('fetch', fetch)
+    vi.stubGlobal('EventSource', FakeEventSource)
+    render(
+      <RemoteEntry
+        wide={true}
+        useSessions={neverHook}
+        useWorkspaces={(selector: (s: { recentWorkspaceId: string }) => unknown) => selector({ recentWorkspaceId: 'ws-1' })}
+        t={t}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
+    // The issue fetch is in flight; close the panel before it resolves.
+    fireEvent.click(screen.getByRole('button', { name: 'Close mobile remote control panel' }))
+    resolveIssue?.(new Response(JSON.stringify({
+      ok: true,
+      url: 'http://192.168.1.5:3080/m/?pair=tok-1',
+      token: 'tok-1',
+      expiresAt: Date.now() + 60_000,
+      lanAddresses: ['192.168.1.5'],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    // The stale issue continuation must not spawn a stream.
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(0))
+    expect(FakeEventSource.instances).toHaveLength(0)
+  })
+
   it('renders the address picker on multi-homed hosts and re-mints on switch', async () => {
     const { fetch } = mount({ ok: true, url: 'http://192.168.1.5:3080/m/?pair=tok-1', token: 'tok-1', expiresAt: Date.now() + 60_000, lanAddresses: ['192.168.1.5', '10.0.0.3'] })
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))

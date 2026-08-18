@@ -33,6 +33,9 @@ const apiProxy = {
   workspace: {
     list: async () => ({ rpcId: 'r', result: { ok: true, value: { items: [] } } }),
   },
+  agentPresets: {
+    list: async () => ({ rpcId: 'r', result: { ok: true, value: { presets: [], authorable: false, hasDocument: false } } }),
+  },
   sessions: {
     list: async () => ({ rpcId: 'r', result: { ok: true, value: { items: [] } } }),
     create: async () => ({ rpcId: 'r', result: { ok: true, value: { sessionId: 's-created' } } }),
@@ -113,6 +116,7 @@ describe('mobile api envelope', () => {
     try {
       for (const method of [
         'workspace.list',
+        'agentPreset.list',
         'session.create',
         'session.list',
         'session.history',

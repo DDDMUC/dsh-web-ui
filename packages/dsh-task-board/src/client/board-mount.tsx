@@ -49,6 +49,7 @@ export function mountBoard(controller: BoardController): () => void {
     if (column === undefined) return
     container = document.createElement('div')
     container.dataset.dshTaskboardView = ''
+    container.dataset.dshPlugin = 'task-board'
     container.className = css.boardView
     column.appendChild(container)
     root = createRoot(container)

@@ -15,7 +15,7 @@ The one-click aggregate package for the whole dsh web UI family: installing it b
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all
+dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
 ```
 
 ### From the repository (development)
@@ -33,6 +33,20 @@ Restart `dsh web` for the plugins to take effect.
 ### Manual upgrade
 
 When you upgrade by bumping the version in the profile `package.json` and running `pnpm install`, the top-level `node_modules/@linxin666/*` entries are not always refreshed: they can stay linked to the previous version's store directory until recreated. After upgrading, verify the links resolve to the new version (on Windows: `cmd /c rmdir <link>` then `cmd /c mklink /J <link> <target>`), then restart `dsh web`.
+
+## Troubleshooting
+
+### "Failed to load plugins ... keyed slot `settings.plugin.item` requires options.key" (DSH 0.1.0-rc.6+)
+
+Versions up to 0.1.17 of the bundled `dsh-client-ui-web-ui-settings` registered its card in the keyed `settings.plugin.item` slot with an `id` instead of the required `key` (the other family plugins already registered their cards in the group's list slot). DSH 0.1.0-rc.6 and later reject such entries while the loader entry applies, so the web GUI fails to boot with "Failed to load plugins".
+
+The group moved to a first-level `settings.section` registration in 0.1.18 and ships in 0.2.0; the code on `main` is compatible with rc.6 and rc.7. A profile that still fails carries a frozen older install:
+
+1. Bump every `@linxin666/*` dependency in the profile `package.json` to `^0.2.0` (at least `^0.1.18`).
+2. Reinstall the profile dependencies (`pnpm install`) and recreate the stale `node_modules/@linxin666/*` links as described in Manual upgrade above.
+3. Restart `dsh web`.
+
+See [issue #513](https://github.com/zhu1090093659/dsh-web-ui/issues/513).
 
 ## Known limitations
 

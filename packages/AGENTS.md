@@ -51,6 +51,18 @@
 - 例外：dsh-live-stats（实时令牌估算）已彻底移除——包、测试、门禁与文档引用
   均已清理，不再支持。
 
+## 语义属性约定（L2，issue #506）
+
+- 插件根容器与关键部件必须输出语义属性：根容器打 `data-dsh-plugin="<插件短名>"`，
+  部件打裸值 `data-dsh-part`（归属交给 plugin 属性，如 `column` 而非
+  `task-board-column`）；枚举、owner 与锚定方式见
+  [skins/skin-center/contracts/semantic-attrs-v1.md](skins/skin-center/contracts/semantic-attrs-v1.md)。
+- 新增/修改枚举值必须与该契约表同 PR 更新；每个值要有 owner、含义与锚定方式，
+  不得只堆字符串。
+- 不输出语义属性的插件只享受 L1 token 基础换肤覆盖，不承诺完整覆盖。
+- 不复用官方 `data-plugin`（它标注 style 标签归属，语义不同）；body/html 级
+  属性不属于 surface/part/plugin 枚举。
+
 ## 双语纪律
 
 - 主插件包 README 中英配对：`README.md`（英文）+ `README.zh.md`（中文）+

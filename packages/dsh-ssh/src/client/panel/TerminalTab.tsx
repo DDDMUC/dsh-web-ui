@@ -173,7 +173,7 @@ export function TerminalTab({ api, presetAlias, requestId }: TerminalTabProps) {
       )}
       {status.kind === 'error' && <div className={css.banner} data-kind="error">{tt('terminal.error', { error: status.detail })}</div>}
       <div className={css.termWrap}>
-        <div ref={containerRef} className={css.termContainer} />
+        <div ref={containerRef} className={css.termContainer} data-dsh-part="terminal" />
         {status.kind === 'idle' && (
           <div className={css.termPlaceholder}>{hosts.length === 0 ? tt('hosts.empty') : tt('terminal.placeholder')}</div>
         )}

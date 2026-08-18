@@ -59,4 +59,36 @@ describe('mountSidebarEntry DOM idempotency', () => {
     dispose()
     expect(entryEl.remove).toHaveBeenCalledTimes(1)
   })
+
+  it('opts the entry row into the L2 semantic attributes (#506)', () => {
+    const entryEl = {
+      dataset: {},
+      setAttribute: vi.fn(),
+      addEventListener: vi.fn(),
+      remove: vi.fn(),
+    }
+    vi.stubGlobal('document', {
+      querySelector: () => null,
+      createElement: () => entryEl,
+      body: {},
+      documentElement: { lang: 'zh-CN' },
+    })
+    const controller = {
+      subscribe: () => () => {},
+      getSnapshot: () => ({ boardOpen: false }),
+    } as never
+
+    class FakeMutationObserver {
+      observe(): void {}
+      disconnect(): void {}
+    }
+    vi.stubGlobal('MutationObserver', FakeMutationObserver)
+
+    const dispose = mountSidebarEntry(controller)
+
+    expect(entryEl.setAttribute).toHaveBeenCalledWith('data-dsh-taskboard-entry', '')
+    expect(entryEl.setAttribute).toHaveBeenCalledWith('data-dsh-plugin', 'task-board')
+    expect(entryEl.setAttribute).toHaveBeenCalledWith('data-dsh-part', 'sidebar-entry')
+    dispose()
+  })
 })
