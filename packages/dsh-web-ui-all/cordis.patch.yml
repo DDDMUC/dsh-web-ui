@@ -18,11 +18,6 @@
     - id: web-ui-community-plugins
       name: '@linxin666/dsh-client-ui-community-plugins'
 
-# from ../dsh-plugin-manager
-- insert:
-    - id: web-ui-plugin-manager
-      name: '@linxin666/dsh-client-ui-plugin-manager'
-
 # from ../dsh-aionui-panel
 - insert:
     - id: web-ui-dsh-aionui-panel
