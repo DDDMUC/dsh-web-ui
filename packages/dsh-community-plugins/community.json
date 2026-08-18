@@ -261,5 +261,15 @@
     "descriptionEn": "API response gzip plugin for DSH Web GUI: enables gzip on /api responses for remote / low-bandwidth links, fixing session-history loads that fail on the timeout of large uncompressed responses; SSE, zip and already-encoded responses are passed through untouched, with no global side effects.",
     "repo": "https://github.com/wingsky-1/dsh-plugin-hub/tree/main/packages/dsh-gzip",
     "npm": "@wingsky-1/dsh-gzip"
+  },
+  {
+    "id": "dsh-wsl-bridge",
+    "name": "WSL Windows 桥",
+    "nameEn": "WSL Windows Bridge",
+    "author": "ch1bug",
+    "description": "让 WSL 里的 agent 访问 Windows 侧：读写 C:\\ 文件、运行 .exe、Explorer 打开、wslpath 路径互转与盘符枚举（win_ls/read/write/run/open/path/drives）。",
+    "descriptionEn": "Lets a WSL agent reach the Windows host: read/write C:\\ files, run .exe programs, open in Explorer, convert paths via wslpath and list drives (win_ls/read/write/run/open/path/drives).",
+    "repo": "https://github.com/ch1bug/dsh-wsl-bridge",
+    "category": "integration"
   }
 ]
