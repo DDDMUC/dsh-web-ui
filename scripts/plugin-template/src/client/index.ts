@@ -5,7 +5,7 @@
  * through window.__ModuleLoader__; the plugin context exposes the client
  * runtime services (sessions, workspaces, ui slots, ...). For a full example
  * of DOM injection, runtime wiring and React views, see task-board's
- * src/client/index.ts or the skins under packages/skins/.
+ * src/client/index.ts or the skins under packages/skins/skin-center/skins/.
  */
 import type { Context } from '@deepseek-ai/cordis'
 

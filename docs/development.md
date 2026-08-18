@@ -43,7 +43,7 @@ test:scripts/aggregate/docs）。worktree 与 e2e 验证统一放在
 `~/remote-e2e/e2e-<pr>/previews/`），像素指标分析自动判定过曝
 （太闪）与对比度不足（看不清），截图供视觉模型复核；同时提醒
 作者声明贡献者版权（模板「贡献者版权声明」节），并检查新皮肤
-是否适配画廊（`gallery/bundles.js`/`gallery/manifest.js` 注册与
+是否适配画廊（`gallery/manifest.js`/`gallery/styles.js` 注册与
 `docs/screenshots/` 截图）。
 用法与 verdict 语义见脚本头部注释；`pnpm pr:review --help` 查看全部选项。
 
@@ -67,12 +67,12 @@ node scripts/dsh-plugin-new <name>   # 生成 packages/<name>/ 骨架
 ### 新增皮肤
 
 ```sh
-node scripts/dsh-skin-new          # 生成 packages/skins/<id>/ 骨架
-pnpm --filter @linxin666/dsh-skins build   # 皮肤资产并入 dsh-skins
+node scripts/dsh-skin-new          # 生成 packages/skins/skin-center/skins/<id>/ 纯资产骨架
+node scripts/capture-previews <id>  # 重拍 preview/{light,dark}.png
 pnpm gallery:build                # 画廊产物
 ```
 
-皮肤启用互斥由 `dsh-skin use` 管理（`<harness-home>/profiles/<profile>/cordis.patch.yml` managed 区段）；皮肤资产全部内置在 dsh-skins，不单独发 npm 包。
+皮肤启用互斥由 `dsh-skin use` 管理（客户端原子切换，不改 cordis.patch.yml）；皮肤资产全部内置在皮肤中心包，不单独发 npm 包。
 
 ### 本地验证（挂载进 dsh web）
 

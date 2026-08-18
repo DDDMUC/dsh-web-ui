@@ -12,7 +12,7 @@ GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发�
 ## 仓库事实（先读，决定每一步怎么做）
 
 - 仓库：zhu1090093659/dsh-web-ui（**PUBLIC**），本机路径 /Users/zcl/code/dsh-web-ui。
-- 全家桶 23 个包：packages/dsh-*（12 个）+ packages/skins/*（11 个，含 skin-center）。
+- 全家桶 13 个包：packages/*（12 个）+ packages/skins/skin-center（皮肤是纯资产目录，随 skin-center 分发，不独立成包）。
   全部发布到 npm scope `@linxin666`，registry 固定 registry.npmjs.org。
 - **版本策略：全仓统一版本**（tag vX.Y.Z = 每个 package.json 的 version，由管线强制校验）。
 - **未指定具体版本号时**：不追问版本号；以远端最新且已发布的正式 `vX.Y.Z` tag 为上一版本，
@@ -36,17 +36,17 @@ node scripts/aggregate.mjs --check # 聚合清单与磁盘一致（改过 aggreg
 git log --oneline -5               # 确认包含本次全部改动、无未推送提交
 ```
 
-皮肤相关变更（skin.json / 皮肤 bundle）额外跑：
+皮肤相关变更（skin.json / skin.css / 皮肤资产）额外跑：
 
 ```sh
-node packages/dsh-skins/build.mjs  # 重生成 dsh-skins/skins/ 载体，git status 确认无意外增删
+pnpm skin-center:check     # 皮肤目录契约门禁
 ```
 
 **版本 bump 后必须重建产物并同步 gallery 资产**（版本信息影响 bundle 内容）：
 
 ```sh
 pnpm build                 # 全仓重建 lib 产物（含新版本号）
-node scripts/gallery-build # 重新生成 gallery/（manifest.js/bundles.js 内嵌产物内容）
+node scripts/gallery-build # 重新生成 gallery/（manifest.js/styles.js 内嵌产物内容）
 pnpm gallery:check         # 必须通过；产物与 gallery 资产要同一次构建一起提交
 ```
 

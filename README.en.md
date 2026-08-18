@@ -39,6 +39,8 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
 
 dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everything is development, everything is a plugin" — and is its most complete realization on the Web GUI: not just a plugin package, but a plugin ecosystem with extreme extensibility. The "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet and the skin center — each ships as an independent, self-contained module: pluggable, swappable, re-developable. Install the whole family to assemble a complete workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate package can even bolt on external plugins like `dsh-better-sidebar` — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md).
 
+"Everything is a plugin" now extends to the skins themselves: after the v2 skin-center refactor, a skin is no longer an npm package coupled to the official DSH — it is a pure asset directory (a skin.json manifest plus styles, art and optional effect scripts) loaded on demand by the skin center, the single loader. Skins are fully decoupled from the official core and coupled only to the skin center: official upgrades no longer touch any skin, and adding a skin means dropping in a directory — no publish, no install. Plugins own the logic, skins own the look; the boundary is finally clean.
+
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
 | Capability | Stock dsh web | dsh-web-ui family |
@@ -126,9 +128,9 @@ The skin center has eleven skins, each with try-on before apply: the preview app
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-Ten existing skins at a glance (screenshots for Dragon Heir / Miku are pending); Maid Atelier has its own preview below:
+All 12 skins at a glance; Maid Atelier has its own preview below:
 
-![All 10 skins](docs/images/skins-montage.png)
+![All 12 skins](docs/images/skins-montage.png)
 
 ### Windows XP (Luna)
 
@@ -158,7 +160,7 @@ A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting
 
 An ornate navy workshop skin with two character layers and responsive sidebar decoration. This skin is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use.
 
-![Maid Atelier light](packages/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/maid-atelier/preview/dark.png)
+![Maid Atelier light](packages/skins/skin-center/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/skin-center/skins/maid-atelier/preview/dark.png)
 
 ## Quick Start
 
@@ -181,7 +183,7 @@ The plugins are on npm (the `@linxin666` scope). One command installs everything
 dsh plugin --profile web add @linxin666/dsh-web-ui-all
 ```
 
-Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins`.
+Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-client-ui-skin-center`.
 
 > **Ended up with an old version?** pnpm 11+ gates brand-new releases (~10 days) via the `minimumReleaseAge` setting and silently installs an older version instead of the latest (e.g. `0.1.6` instead of `0.1.10`). Old skin-center versions lack the "bundled-carrier skin entry" fix, so applying a skin then restarting dies with `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js`. Fix: set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (or add `@linxin666/*` to `minimumReleaseAgeExclude`), then run `dsh plugin --profile web update @linxin666/dsh-web-ui-all` to reach the latest. See [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71).
 
@@ -206,7 +208,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
 dsh web
 ```
 
-> Skins only? Run only link-profile in step 3, then install `packages/dsh-skins`.
+> Skins only? Run only link-profile in step 3, then install `packages/skins/skin-center`.
 >
 > Note: the profile directory is not a pnpm workspace, so `workspace:*` dependencies in the aggregate package
 > fall back to the published npm versions; if the npm versions lag or break you may see "host mounted but UI
@@ -288,7 +290,7 @@ A: Skins support try-on before apply: the preview applies instantly and reverts 
 <details>
 <summary><strong>I only want the skins, or just one plugin?</strong></summary>
 
-A: Install `@linxin666/dsh-skins` for skins only, or use the package names under "Install a Single Plugin". Both work with the npm install flow.
+A: Install `@linxin666/dsh-client-ui-skin-center` for skins only, or use the package names under "Install a Single Plugin". Both work with the npm install flow.
 
 </details>
 

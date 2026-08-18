@@ -32,6 +32,7 @@ export function mountSidebarEntry(controller: BoardController): () => void {
   return mountSharedSidebarEntry({
     rowAttribute: 'data-dsh-taskboard-entry',
     rowSelector: ENTRY_SELECTOR,
+    plugin: 'task-board',
     icon: ICON,
     css,
     label: () => t('entry.label'),
