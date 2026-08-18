@@ -497,8 +497,9 @@ function findSkin(catalog, id) {
 */
 function resolveInsideSkin(entry, relPath) {
 	const abs = resolve(entry.dir, relPath);
-	const rootWithSep = entry.dir.endsWith("/") ? entry.dir : entry.dir + "/";
-	if (abs !== entry.dir && !abs.startsWith(rootWithSep)) return null;
+	const root = resolve(entry.dir);
+	const rootWithSep = root.endsWith(sep) ? root : root + sep;
+	if (abs !== root && !abs.startsWith(rootWithSep)) return null;
 	return abs;
 }
 //#endregion
