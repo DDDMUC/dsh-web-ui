@@ -20,8 +20,9 @@ GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发�
   变更时，按该要求执行；远端 tag 与 npm 已发布版本不一致时，按下方失败恢复规则处理，不自行猜测。
 - npm 不允许重复发布同一版本号：已发布过的版本号（如 0.1.3/0.1.4/0.1.5）不可重发，
   只能 bump 到下一个版本。
-- 发布通道：本机通常没有 npm 登录态（`npm whoami` 401 属正常）；npm 发布全部由
-  GitHub Actions 管线完成，使用仓库 secret `NPM_TOKEN`（npm automation token，@linxin666 scope）。
+- 发布通道：npm 发布全部由 GitHub Actions 管线完成，使用仓库 secret `NPM_TOKEN`
+  （npm automation token，@linxin666 scope）；本机 npm 登录态不固定（无登录态时
+  `npm whoami` 401 属正常；本机当前以 linxin666 登录），发版不依赖本机登录态。
 - 根 package.json 是 private（不发布）；`pnpm -r publish` 自动跳过。
 - 仓库禁 emoji（所有文件含提交信息与 tag 信息）；CI 会校验。
 
