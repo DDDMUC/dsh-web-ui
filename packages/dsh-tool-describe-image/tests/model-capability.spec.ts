@@ -1,8 +1,9 @@
 /**
  * Capability-probe tests: the agent/request recorder learns each agent's
- * effective route, resolution falls back through agent options and the
- * default-model service, and every failure fails closed to the conservative
- * unknown answer that keeps the legacy send-hook rewrite.
+ * effective route, only a recorded route can answer "accepts images", a
+ * change to the agent-default-model settings clears the recorder, and every
+ * failure fails closed to the conservative unknown answer that keeps the
+ * legacy send-hook rewrite.
  */
 
 import { describe, expect, it, vi } from 'vitest'
@@ -72,23 +73,49 @@ describe('createCapabilityProbe', () => {
     expect(returned).toBe(config)
   })
 
-  it('falls back to the agent registry options when no request was recorded', async () => {
+  it('answers unknown for a session with no recorded request even when agent options name a vision model', async () => {
+    // Seeded agent options are a creation-time guess: the session may run a
+    // different model (a live pick), so a true verdict there could hand raw
+    // image blocks to a text-only model the host then rejects.
     const llm = makeLlm(['image'])
     const agents = { get: (id: string) => (id === 's2' ? { options: { provider: 'p', model: 'vision' } } : undefined) }
     const { ctx } = makeCtx({ llm, agents })
     const probe = createCapabilityProbe(ctx)
-    await expect(probe('s2')).resolves.toEqual({ acceptsImages: true, known: true })
-    expect(llm.resolveModelInfo).toHaveBeenCalledWith('p', 'vision')
+    await expect(probe('s2')).resolves.toEqual(UNKNOWN_CAPABILITY)
+    expect(llm.resolveModelInfo).not.toHaveBeenCalled()
   })
 
-  it('falls back to the agentDefaultModel service when the agent carries no options', async () => {
+  it('answers unknown for a session with no recorded request even when the default model service names a vision model', async () => {
     const llm = makeLlm(['image'])
-    const agents = { get: () => ({ options: {} }) }
     const agentDefaultModel = { currentSelection: () => ({ provider: 'dp', model: 'default-vision' }) }
-    const { ctx } = makeCtx({ llm, agents, agentDefaultModel })
+    const { ctx } = makeCtx({ llm, agentDefaultModel })
     const probe = createCapabilityProbe(ctx)
-    await expect(probe('s3')).resolves.toEqual({ acceptsImages: true, known: true })
-    expect(llm.resolveModelInfo).toHaveBeenCalledWith('dp', 'default-vision')
+    await expect(probe('s3')).resolves.toEqual(UNKNOWN_CAPABILITY)
+    expect(llm.resolveModelInfo).not.toHaveBeenCalled()
+  })
+
+  it('clears recorded routes when the agent-default-model selection changes', async () => {
+    const llm = makeLlm(['image'])
+    const { ctx, listeners } = makeCtx({ llm })
+    const probe = createCapabilityProbe(ctx)
+    await recordRequest(listeners, 's6', 'deepseek', 'vl-model')
+    await expect(probe('s6')).resolves.toEqual({ acceptsImages: true, known: true })
+    const settingsListener = listeners.get('settings/updated')
+    expect(settingsListener).toBeDefined()
+    await (settingsListener as unknown as (...args: unknown[]) => Promise<unknown>)('agent-default-model', { provider: 'other', model: 'text' })
+    // The model moved: the previous route's verdict must not leak into the
+    // next image-bearing send.
+    await expect(probe('s6')).resolves.toEqual(UNKNOWN_CAPABILITY)
+  })
+
+  it('keeps recorded routes when another settings namespace changes', async () => {
+    const llm = makeLlm(['image'])
+    const { ctx, listeners } = makeCtx({ llm })
+    const probe = createCapabilityProbe(ctx)
+    await recordRequest(listeners, 's7', 'deepseek', 'vl-model')
+    const settingsListener = listeners.get('settings/updated')
+    await (settingsListener as unknown as (...args: unknown[]) => Promise<unknown>)('some-other-namespace', { x: 1 })
+    await expect(probe('s7')).resolves.toEqual({ acceptsImages: true, known: true })
   })
 
   it('answers unknown when no route can be resolved at all', async () => {
@@ -113,9 +140,10 @@ describe('createCapabilityProbe', () => {
 
   it('caches exact-model resolutions per route', async () => {
     const llm = makeLlm(['image'])
-    const agents = { get: () => ({ options: { provider: 'p', model: 'm' } }) }
-    const { ctx } = makeCtx({ agents, llm })
+    const { ctx, listeners } = makeCtx({ llm })
     const probe = createCapabilityProbe(ctx)
+    await recordRequest(listeners, 'a', 'p', 'm')
+    await recordRequest(listeners, 'b', 'p', 'm')
     await probe('a')
     await probe('b')
     expect(llm.resolveModelInfo).toHaveBeenCalledTimes(1)

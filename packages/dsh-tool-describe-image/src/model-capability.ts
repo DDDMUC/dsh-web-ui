@@ -7,13 +7,21 @@
  * model metadata, so the host answers per session through the
  * /describe-image/capability route.
  *
- * The effective provider/model of a session is resolved from, in order: the
- * passive agent/request waterfall record (the exact config the loop
- * assembled, live model switches included), the agent's own options, then the
- * agentDefaultModel service. Modalities come from the owning adapter's exact
- * model metadata; an adapter that reports none is "unknown" and every failure
+ * The effective provider/model of a session comes from the passive
+ * agent/request waterfall record — the exact config the loop assembled, live
+ * model switches included. A session with no recorded request is "unknown":
+ * seeded agent options and the global default-model selection are guesses
+ * about which model the session will actually run, and a wrong "accepts
+ * images" guess hands raw image blocks to a model the host then rejects
+ * (MODEL_DOES_NOT_SUPPORT_IMAGES) — the very failure this plugin exists to
+ * route around. Modalities come from the owning adapter's exact model
+ * metadata; an adapter that reports none is "unknown" and every failure
  * resolves conservative — acceptsImages false keeps the legacy rewrite, so a
- * probe failure can never strip images from a text-only model's reach.
+ * probe failure can never strip images from a text-only model's reach. The
+ * wire's session.selectModel persists each selection into the
+ * agent-default-model settings namespace, so a change there clears the
+ * recorder: a session whose model just moved must not keep the previous
+ * model's verdict for the next image send.
  * @module @linxin666/dsh-tool-describe-image/model-capability
  */
 
@@ -37,20 +45,13 @@ interface ModelRoute {
   model: string
 }
 
-/** Minimal face of the agent registry this probe reads. */
-interface AgentRegistryFace {
-  get(id: string): { options?: { provider?: string; model?: string } } | undefined
-}
-
-/** Minimal face of the agentDefaultModel service (official package, typed structurally). */
-interface DefaultModelFace {
-  currentSelection(): { provider?: string; model?: string }
-}
-
 /** Minimal face of the llm runtime's exact-model resolution. */
 interface LlmFace {
   resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<{ inputModalities?: readonly string[] }>
 }
+
+/** The settings namespace the wire's session.selectModel persists into. */
+const AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE = 'agent-default-model'
 
 /** Per-route metadata cache TTL: adapter model facts do not drift mid-process. */
 const ROUTE_OK_TTL_MS = 10 * 60 * 1000
@@ -72,8 +73,11 @@ export type CapabilityProbe = (sessionId: string) => Promise<ModelImageCapabilit
  * listener that records the exact provider/model each agent's requests run
  * under — the one place live model switches surface before the next request
  * is built. The listener observes only: it always delegates and returns the
- * downstream config unchanged.
- * @param ctx - registrant context; the listener unwinds with the plugin.
+ * downstream config unchanged. A change to the agent-default-model settings
+ * namespace (the wire persists session.selectModel there) clears the
+ * recorder: a session whose model just moved must not keep the previous
+ * model's verdict for the next image-bearing send.
+ * @param ctx - registrant context; the listeners unwind with the plugin.
  * @returns the session-id-keyed probe.
  */
 export function createCapabilityProbe(ctx: Context): CapabilityProbe {
@@ -82,6 +86,9 @@ export function createCapabilityProbe(ctx: Context): CapabilityProbe {
     const resolved = await next()
     recorded.set(String(payload.agent.id), { provider: resolved.provider, model: resolved.model })
     return resolved
+  })
+  ctx.on('settings/updated', (namespace: string) => {
+    if (namespace === AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE) recorded.clear()
   })
 
   // Exact-model metadata resolutions, cached per route: successes for ten
@@ -127,18 +134,16 @@ export function createCapabilityProbe(ctx: Context): CapabilityProbe {
     }
   }
 
+  // Only the recorded waterfall route may answer "accepts images": it is
+  // the exact route the loop assembled. Seeded agent options and the global
+  // default selection are guesses — a wrong true verdict hands raw image
+  // blocks to a text-only model, which the host rejects at submit
+  // (MODEL_DOES_NOT_SUPPORT_IMAGES) instead of the rewrite this plugin
+  // exists to provide. Every unrecorded session answers unknown, keeping the
+  // always-safe rewrite until the first request pins the route.
   return async (sessionId: string): Promise<ModelImageCapability> => {
     const live = recorded.get(sessionId)
     if (live !== undefined) return resolveRoute(live)
-    const agents = optionalService<AgentRegistryFace>(ctx, 'agents')
-    const options = agents?.get(sessionId)?.options
-    if (typeof options?.provider === 'string' && options.provider !== '' && typeof options.model === 'string' && options.model !== '') {
-      return resolveRoute({ provider: options.provider, model: options.model })
-    }
-    const fallback = optionalService<DefaultModelFace>(ctx, 'agentDefaultModel')?.currentSelection()
-    if (typeof fallback?.provider === 'string' && fallback.provider !== '' && typeof fallback.model === 'string' && fallback.model !== '') {
-      return resolveRoute({ provider: fallback.provider, model: fallback.model })
-    }
     return UNKNOWN_CAPABILITY
   }
 }
