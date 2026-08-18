@@ -60,6 +60,12 @@ function resolveAccess(access: TaskBoardRouteAccess): ResolvedRouteAccess {
   return { trustedProxyHosts, ...(access.proxyToken === undefined ? {} : { proxyToken: access.proxyToken }) }
 }
 
+/**
+ * Browser-signal tripwire, NOT an authority check: a bare curl sends neither
+ * header and is refused, but a curl with a forged Origin passes this too.
+ * The real boundary is the loopback socket + Host + origin-equality checks
+ * in isTrustedTaskBoardRequest below; do not rely on this marker alone.
+ */
 function browserSameOriginMarker(req: IncomingMessage): boolean {
   const site = req.headers['sec-fetch-site']
   return site === 'same-origin' || typeof req.headers.origin === 'string'
@@ -86,7 +92,9 @@ function matchesToken(candidate: string | string[] | undefined, expected: string
 /**
  * Task-board route fence. Direct desktop access uses the repository-wide
  * loopback socket + Host guard and additionally requires a browser same-origin
- * marker, so a bare local curl cannot exercise the agent control plane.
+ * marker: a bare local curl without any browser signal cannot exercise the
+ * agent control plane (a forged Origin does pass the marker — it is a
+ * tripwire, the socket/Host/origin-equality checks carry the authority).
  * Authenticated proxies must be explicitly allowlisted and replace the
  * internal token header after their own authentication step.
  */
