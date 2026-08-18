@@ -127,12 +127,16 @@ function ListTab({ api, refreshTick, onCwd }: { api: SkillApi; refreshTick: numb
 
   useEffect(() => { void load() }, [api, refreshTick])
 
-  if (error !== undefined) return <div className={css.status}>{error}</div>
+  // Last-good policy: a failed refresh keeps the previous payload visible and
+  // reports the error inline; the error state replaces the list only when
+  // there is nothing to fall back to.
+  if (error !== undefined && payload === undefined) return <div className={css.status}>{error}</div>
   if (payload === undefined) return <div className={css.status}>{tt('list.loading')}</div>
   if (payload.groups.length === 0) return <div className={css.status}>{tt('list.empty')}</div>
 
   return (
     <div>
+      {error !== undefined && <p className={css.feedback}>{error}</p>}
       {payload.groups.map((group) => {
         const groupKey = `group.${group.key}` as keyof typeof zh
         const hintKey = `groupHint.${group.key}` as keyof typeof zh
@@ -228,7 +232,12 @@ export function SkillPanel({ api, onClose }: SkillPanelProps): React.JSX.Element
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape') return
+      // Typing in the create form must not close the panel: Escape there is
+      // an editing gesture, not a dismiss gesture.
+      const target = event.target as HTMLElement | null
+      if (target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return
+      onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
