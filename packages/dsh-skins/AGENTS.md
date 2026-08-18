@@ -1,37 +1,21 @@
 # AGENTS.md — dsh-skins
 
-皮肤全家桶聚合包：装它 = 皮肤中心（skin-center）+ 全部皮肤资产，一个 npm 包内置
-所有皮肤，避免为每皮肤付 npm 新包名费用。
+已退役的兼容载具（保留一个发布周期，issue #506）：皮肤是纯资产目录，全部内置在
+`packages/skins/skin-center/skins/<id>/`，由皮肤中心包（`@linxin666/dsh-client-ui-skin-center`）
+统一加载。本包不再携带皮肤资产。
 
-## 聚合构建链
+## 当前形态
 
-- `build.mjs` 把每个 `packages/skins/<id>` 的 `skin.json` + `lib/client.js`
-  （try-on bundle）+ `lib/index.js`（host 空入口）——连同生成的叶子
-  `package.json` 及皮肤存在的 `LICENSE` / `NOTICE`——复制进 `packages/dsh-skins/skins/<id>/`（叶子只声明
-  `dsh.client`，不含 `dsh.bundle`；皮肤由皮肤管理器接线，见下）。
-  无 `skin.json`（skin-center、脚手架）的目录跳过。
-- 缺 `lib/client.js` / `lib/index.js` 的皮肤会被跳过并告警，源码里先产出 bundle
-  再聚合。
-
-## 皮肤启用与资产边界
-
-- 皮肤启用互斥由 `dsh-skin use` 管理（当前 Web profile 的
-  `cordis.patch.yml` managed 区段），因此**皮肤只进 `skins/` 资产，不进
-  `patchFrom`，叶子 `package.json` 也不声明 `dsh.bundle`**（声明会让 CLI 的
-  plugin reconcile 把皮肤包静默加进 profile 的 `dsh.profile.bundles`，与 insert
-  叠加报 `duplicate loader entry id`，issue #381）；禁止把 Web 皮肤 insert
-  写到 harness-home 全局补丁，否则其他 profile 会尝试加载未安装的浏览器皮肤包。
-- 改任何皮肤后必须重跑 `pnpm --filter @linxin666/dsh-skins build`，否则 npm 安装
-  aggregate 后 useSkin 的 insert 行无法 resolve（MODULE_NOT_FOUND）。
-
-## 构建产物确定性
-
-- CI 的 `gallery:check` 比较 **COMMITTED bundle 产物**；本地构建会嵌入绝对路径，
-  所以 CI 用 `--ignore-scripts` 跳过本地构建直接比产物，别把本地带路径产物提交。
+- `build.mjs` 是刻意的 no-op（保留在 build/prepare 钩子上，让既有自动化不炸）；
+  没有 `skins/` 目录，`package.json` 的 `files` 不含 `skins`。
+- 唯一的 dependency 是 `@linxin666/dsh-client-ui-skin-center`（`workspace:*`）：
+  升级用户自动获得皮肤中心与全部内置皮肤。
+- `aggregate.yml` 的 `patchFrom` / `deps` 指向 `../skins/skin-center`，保持不变；
+  聚合重生成走 `node scripts/aggregate.mjs`。
+- 下个发布周期本包整体移除；不要再往这里加资产复制逻辑。
 
 ## 提交前检查
 
 ```sh
-pnpm --filter @linxin666/dsh-skins build
-pnpm gallery:check
+pnpm aggregate:check
 ```
