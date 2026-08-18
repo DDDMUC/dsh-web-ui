@@ -260,6 +260,48 @@ describe('skin controller', () => {
     expect(seen.at(-1)).toEqual({ active: 'harbor', trying: null, previewing: false })
   })
 
+  it('suppressBackgroundMedia wins over the manifest background (WE priority)', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = ''
+    document.documentElement.removeAttribute('data-dsh-skin')
+    const ledger = createEffectLedger()
+    let suppressed = false
+    const fetchImpl = (async (url: string) => ({
+      ok: true,
+      status: 200,
+      text: async () => '.a{}',
+    })) as unknown as typeof fetch
+    const mediaEntry = {
+      manifest: {
+        id: 'media-skin',
+        contributes: {
+          stylesheet: 'skin.css',
+          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
+        },
+      },
+    } as ControllerSkinEntry
+    const controller = createSkinController({
+      doc: document,
+      ledger,
+      fetchImpl,
+      persist: async () => {},
+      suppressBackgroundMedia: () => suppressed,
+    })
+    await controller.switchTo('media-skin', mediaEntry)
+    expect(controller.layers.background.childElementCount).toBe(1)
+
+    // The wallpaper bridge turns on: refresh drops the manifest media.
+    suppressed = true
+    await controller.refresh()
+    expect(controller.layers.background.childElementCount).toBe(0)
+    expect(controller.active).toBe('media-skin')
+
+    // And back: refresh repaints it.
+    suppressed = false
+    await controller.refresh()
+    expect(controller.layers.background.childElementCount).toBe(1)
+  })
+
   it('shutdown disposes the activation and clears the attribute', async () => {
     const { controller } = harness()
     await controller.switchTo('harbor', entryFor('harbor'))

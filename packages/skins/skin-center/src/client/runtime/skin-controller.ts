@@ -62,6 +62,13 @@ export interface SkinControllerDeps {
   themeSubscribe?: (listener: (theme: 'light' | 'dark') => void) => () => void
   /** hooks.mjs dynamic import seam for tests. */
   importHooks?: (url: string) => Promise<unknown>
+  /**
+   * Background-media priority (issue #506): when this returns true the
+   * skin's manifest backgroundMedia is NOT painted — the Wallpaper Engine
+   * wallpaper (and the user's manual background) outrank it. Re-evaluated
+   * on every activation and on refresh().
+   */
+  suppressBackgroundMedia?: () => boolean
   /** Diagnostics sink (switch failures, hook errors). */
   onError?: (message: string, error: unknown) => void
 }
@@ -97,6 +104,12 @@ export interface SkinController {
   /** React-friendly store: subscribe + snapshot of {active, trying}. */
   subscribe(listener: () => void): () => void
   getState(): SkinControllerState
+  /**
+   * Re-apply the current committed skin without persisting (e.g. the
+   * wallpaper bridge just toggled, flipping background-media priority).
+   * A full fresh activation — latest-request-wins keeps it race-safe.
+   */
+  refresh(): Promise<string | null>
   /** Dispose the current activation (e.g. on plugin teardown). */
   shutdown(): void
 }
@@ -121,6 +134,8 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
   let active: string | null = null
   /** The committed selection try-on restores (component scope). */
   let committed: { id: string | null; entry: ControllerSkinEntry | null } = { id: null, entry: null }
+  /** Last non-null applied entry, so refresh() can re-activate it. */
+  let lastEntry: ControllerSkinEntry | null = null
   let trying: string | null = null
   let previewing = false
   const listeners = new Set<() => void>()
@@ -148,6 +163,8 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
   ): void {
     const media = entry.manifest.contributes.backgroundMedia
     if (!media) return
+    // WE wallpaper > user manual background > skin manifest background.
+    if (deps.suppressBackgroundMedia?.() === true) return
     const variant = themeGet() === 'dark' ? (media.dark ?? media.light) : (media.light ?? media.dark)
     if (!variant) return
     const assetBase = `${apiBase}/skins/${entry.manifest.id}`
@@ -244,6 +261,7 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
       const previous = currentActivation
       currentActivation = activation
       active = id
+      if (entry !== null) lastEntry = entry
       if (shouldPersist) {
         committed = { id, entry }
         trying = null
@@ -294,6 +312,11 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
 
     getState() {
       return { active, trying, previewing }
+    },
+
+    async refresh() {
+      const id = committed.id
+      return await switchInternal(id, id === null ? null : lastEntry, false)
     },
 
     shutdown() {

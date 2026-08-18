@@ -1861,10 +1861,17 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/runtime/decoration-layers.ts
 		const LAYER_ATTR = "data-dsh-skin-layer";
-		/** Per-layer paint order. Keep clear of the official overlay band (>=1000). */
+		/**
+		* Per-layer paint order. The background shares the WE wallpaper's z slot
+		* (-3): the two never paint at once (the wallpaper wins, enforced by the
+		* controller), and the skin-background scrim (-2) / blur veil (-1) keep
+		* working over whichever backdrop is active. Ambient effects paint above
+		* the veils; the strip/foreground layers stay below the official overlay
+		* band (>=1000).
+		*/
 		const LAYER_STYLE = {
-			background: "position:fixed;inset:0;z-index:-2;pointer-events:none;",
-			ambient: "position:fixed;inset:0;z-index:-1;pointer-events:none;",
+			background: "position:fixed;inset:0;z-index:-3;pointer-events:none;",
+			ambient: "position:fixed;inset:0;z-index:30;pointer-events:none;",
 			top: "position:fixed;top:0;left:0;right:0;z-index:40;pointer-events:none;",
 			bottom: "position:fixed;bottom:0;left:0;right:0;z-index:40;pointer-events:none;",
 			sidebar: "position:fixed;top:0;bottom:0;left:0;z-index:40;pointer-events:none;",
@@ -1967,6 +1974,8 @@ window.__ModuleLoader__.load({
 				id: null,
 				entry: null
 			};
+			/** Last non-null applied entry, so refresh() can re-activate it. */
+			let lastEntry = null;
 			let trying = null;
 			let previewing = false;
 			const listeners = /* @__PURE__ */ new Set();
@@ -1988,6 +1997,7 @@ window.__ModuleLoader__.load({
 			function installBackground(activation, entry) {
 				const media = entry.manifest.contributes.backgroundMedia;
 				if (!media) return;
+				if (deps.suppressBackgroundMedia?.() === true) return;
 				const variant = themeGet() === "dark" ? media.dark ?? media.light : media.light ?? media.dark;
 				if (!variant) return;
 				const assetBase = `${apiBase}/skins/${entry.manifest.id}`;
@@ -2071,6 +2081,7 @@ window.__ModuleLoader__.load({
 					const previous = currentActivation;
 					currentActivation = activation;
 					active = id;
+					if (entry !== null) lastEntry = entry;
 					if (shouldPersist) {
 						committed = {
 							id,
@@ -2120,6 +2131,10 @@ window.__ModuleLoader__.load({
 						previewing
 					};
 				},
+				async refresh() {
+					const id = committed.id;
+					return await switchInternal(id, id === null ? null : lastEntry, false);
+				},
 				shutdown() {
 					latestRequest += 1;
 					if (currentActivation !== null) {
@@ -2166,7 +2181,8 @@ window.__ModuleLoader__.load({
 				doc,
 				ledger: createEffectLedger(),
 				apiBase,
-				fetchImpl
+				fetchImpl,
+				suppressBackgroundMedia: options.suppressBackgroundMedia
 			});
 			const adapter = createSemanticAdapter(doc);
 			adapter.start();
@@ -2249,13 +2265,16 @@ window.__ModuleLoader__.load({
 				};
 			}, "ui-skin-center: body scope");
 			const theme = ctx.get("theme");
-			const runtime = bootSkinRuntime();
-			ctx.effect(() => () => runtime.shutdown(), "ui-skin-center: runtime shutdown");
 			const binder = ctx.get("webUiSettings") ?? ctx.settingsScope;
 			const background = new BackgroundController(binder.bind({ namespace: SKIN_BACKGROUND_NS }));
 			ctx.effect(() => () => background.dispose(), "ui-skin-center: background dispose");
 			const wallpaper = new WallpaperController(binder.bind({ namespace: SKIN_WALLPAPER_NS }));
 			ctx.effect(() => () => wallpaper.dispose(), "ui-skin-center: wallpaper dispose");
+			const runtime = bootSkinRuntime({ suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.activeId() !== null && wallpaper.activeId() !== "" });
+			ctx.effect(() => () => runtime.shutdown(), "ui-skin-center: runtime shutdown");
+			ctx.effect(() => wallpaper.subscribe(() => {
+				runtime.controller.refresh();
+			}), "ui-skin-center: wallpaper priority refresh");
 			const injected = () => ({
 				runtime,
 				theme: {

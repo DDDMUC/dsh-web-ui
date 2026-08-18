@@ -63,6 +63,8 @@ export interface BootOptions {
   doc?: Document
   apiBase?: string
   fetchImpl?: typeof fetch
+  /** Background-media priority: true suppresses skin manifest media (WE wallpaper wins). */
+  suppressBackgroundMedia?: () => boolean
 }
 
 export function bootSkinRuntime(options: BootOptions = {}): SkinRuntimeStore {
@@ -71,7 +73,13 @@ export function bootSkinRuntime(options: BootOptions = {}): SkinRuntimeStore {
   const fetchImpl = options.fetchImpl ?? fetch.bind(doc.defaultView)
 
   const ledger = createEffectLedger()
-  const controller = createSkinController({ doc, ledger, apiBase, fetchImpl })
+  const controller = createSkinController({
+    doc,
+    ledger,
+    apiBase,
+    fetchImpl,
+    suppressBackgroundMedia: options.suppressBackgroundMedia,
+  })
   const adapter = createSemanticAdapter(doc)
   adapter.start()
 

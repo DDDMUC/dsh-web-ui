@@ -63,10 +63,6 @@ export function apply(ctx: ClientContext): void {
   }, 'ui-skin-center: body scope')
 
   const theme = ctx.get('theme') as ThemeRuntime
-  // The v2 skin runtime store: outlives the settings card so a try-on
-  // preview survives closing and reopening the panel.
-  const runtime = bootSkinRuntime()
-  ctx.effect(() => () => runtime.shutdown(), 'ui-skin-center: runtime shutdown')
   // Background occluder over the shared skin-background namespace. The scope
   // is bound to this plugin's fiber, so it is torn down with the card.
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
@@ -90,6 +86,20 @@ export function apply(ctx: ClientContext): void {
   }>({ namespace: SKIN_WALLPAPER_NS })
   const wallpaper = new WallpaperController(wallpaperScope)
   ctx.effect(() => () => wallpaper.dispose(), 'ui-skin-center: wallpaper dispose')
+
+  // The v2 skin runtime store: outlives the settings card so a try-on
+  // preview survives closing and reopening the panel. Background-media
+  // priority: an active WE wallpaper suppresses skin manifest backgrounds;
+  // toggling the wallpaper re-activates the current skin so the priority
+  // flip paints immediately.
+  const runtime = bootSkinRuntime({
+    suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.activeId() !== null && wallpaper.activeId() !== '',
+  })
+  ctx.effect(() => () => runtime.shutdown(), 'ui-skin-center: runtime shutdown')
+  ctx.effect(
+    () => wallpaper.subscribe(() => { void runtime.controller.refresh() }),
+    'ui-skin-center: wallpaper priority refresh',
+  )
   const injected = (): SkinCenterInjected => ({
     runtime,
     theme: {
