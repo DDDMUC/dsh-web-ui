@@ -4,10 +4,12 @@
  *
  * Collects conventional-commit subjects across the whole previous-tag..
  * release-tag range (including work merged in on side branches), groups them
- * into 新功能 / 修复 / 其他 sections,
- * links (#123) issue references, and skips merge commits and the
- * chore(release) bump commit itself. The release workflow writes the output
- * to a notes file and passes it to `gh release create --notes-file`.
+ * into New Features / Bug Fixes / Other Changes sections, and renders the
+ * notes bilingually (English + Chinese headings and summary; each bullet
+ * keeps its authored commit subject). Links (#123) issue references, and
+ * skips merge commits and the chore(release) bump commit itself. The release
+ * workflow writes the output to a notes file and passes it to
+ * `gh release create --notes-file`.
  *
  * Usage:
  *   node scripts/release-notes.mjs <vX.Y.Z> [--repo owner/repo]
@@ -79,24 +81,40 @@ export function bulletOf(row, repo) {
   return row.scope === '' ? '- ' + linked : '- [' + row.scope + '] ' + linked
 }
 
-/** Render the full markdown notes body for one release. */
+/**
+ * Render the full markdown notes body for one release. The notes are
+ * bilingual (English + Chinese): summary, section headings and footer carry
+ * both languages, while each bullet keeps its authored commit subject (the
+ * repo mixes Chinese and English subjects).
+ */
 export function renderNotes(version, rows, repo) {
   const bySection = { feat: [], fix: [], other: [] }
   for (const row of rows) bySection[sectionOf(row)].push(row)
 
-  const lines = []
-  const summary = [
+  const enParts = [
+    bySection.feat.length > 0 ? pluralize(bySection.feat.length, 'new feature', 'new features') : '',
+    bySection.fix.length > 0 ? pluralize(bySection.fix.length, 'bug fix', 'bug fixes') : '',
+    bySection.other.length > 0 ? pluralize(bySection.other.length, 'other change', 'other changes') : '',
+  ].filter((part) => part !== '').join(', ')
+  const zhParts = [
     bySection.feat.length > 0 ? bySection.feat.length + ' 项新功能' : '',
     bySection.fix.length > 0 ? bySection.fix.length + ' 项修复' : '',
     bySection.other.length > 0 ? bySection.other.length + ' 项其他改动' : '',
   ].filter((part) => part !== '').join('、')
-  if (summary !== '') lines.push('本次发布包含 ' + summary + '。', '')
-  if (rows.length === 0) lines.push('本次发布没有需要说明的功能性变更。', '')
+
+  const lines = []
+  if (enParts !== '') {
+    lines.push('This release contains ' + enParts + '.')
+    lines.push('本次发布包含 ' + zhParts + '。', '')
+  }
+  if (rows.length === 0) {
+    lines.push('No user-facing changes in this release. / 本次发布没有需要说明的功能性变更。', '')
+  }
 
   const sections = [
-    ['新功能', bySection.feat],
-    ['修复', bySection.fix],
-    ['其他', bySection.other],
+    ['New Features / 新功能', bySection.feat],
+    ['Bug Fixes / 修复', bySection.fix],
+    ['Other Changes / 其他改动', bySection.other],
   ]
   for (const [title, sectionRows] of sections) {
     if (sectionRows.length === 0) continue
@@ -105,8 +123,13 @@ export function renderNotes(version, rows, repo) {
     lines.push('')
   }
 
-  lines.push('---', '', '由发布管线自动生成（scripts/release-notes.mjs）。')
+  lines.push('---', '', 'Generated automatically by the release pipeline (scripts/release-notes.mjs). / 由发布管线自动生成（scripts/release-notes.mjs）。')
   return lines.join('\n')
+}
+
+/** "1 item" vs "2 items" — English pluralization for the summary line. */
+function pluralize(count, singular, plural) {
+  return count + ' ' + (count === 1 ? singular : plural)
 }
 
 /**
