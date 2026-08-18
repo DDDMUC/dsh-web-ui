@@ -197,5 +197,27 @@
     "descriptionEn": "One-command skinning for DSH Web: 8 original themes, wallpaper (opacity/blur/gradient/URL), per-user accent, shareable theme packs with favorites and surprise-me. Purely native token system.",
     "repo": "https://github.com/RevolutionLA/dsh-dream-skin",
     "category": "ui"
+  },
+  {
+    "id": "dsh-archive-manager",
+    "name": "归档管理",
+    "nameEn": "Archive Manager",
+    "author": "z953218350",
+    "description": "设置页 Codex 风格会话归档管理：按项目分组、搜索筛选、预览对话内容、一键恢复与彻底物理删除，内置 zstd 解压引擎。",
+    "descriptionEn": "Codex-style archived session manager in settings: group by project, search and filter, preview conversation history, restore to sidebar, and permanently delete from disk; built-in zstd decompression.",
+    "repo": "https://github.com/z953218350/dsh-archive-manager",
+    "npm": "@mlgbnb/dsh-archive-manager",
+    "category": "utility"
+  },
+  {
+    "id": "dsh-history-tree",
+    "name": "历史树",
+    "nameEn": "History Tree",
+    "author": "z953218350",
+    "description": "在聊天消息左侧提供 Codex 风格对话轮次时间线点阵与悬浮历史概览卡片，支持鱼眼放大动效与点击直达对应轮次。",
+    "descriptionEn": "Codex-style conversation turn timeline rail and hover overview cards beside chat messages, with fish-eye magnification and click-to-jump navigation.",
+    "repo": "https://github.com/z953218350/dsh-history-tree",
+    "npm": "dsh-history-tree",
+    "category": "ui"
   }
 ]
