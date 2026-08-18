@@ -27,6 +27,8 @@ export interface WorkspaceViewProps {
 export function WorkspaceView({ initialWorkspaceId, onPick }: WorkspaceViewProps) {
   const [items, setItems] = useState<WorkspaceRow[] | undefined>(undefined)
   const [error, setError] = useState<string | undefined>(undefined)
+  // Bumped by the retry button to re-run the roster fetch effect.
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -48,7 +50,7 @@ export function WorkspaceView({ initialWorkspaceId, onPick }: WorkspaceViewProps
       },
     )
     return () => { cancelled = true }
-  }, [initialWorkspaceId, onPick])
+  }, [initialWorkspaceId, onPick, reload])
 
   if (error !== undefined) {
     return (
@@ -59,7 +61,7 @@ export function WorkspaceView({ initialWorkspaceId, onPick }: WorkspaceViewProps
         </header>
         <div className="mobile-empty">
           <p className="mobile-error">加载失败：{error}</p>
-          <button type="button" className="mobile-button" onClick={() => { setError(undefined); setItems(undefined) }}>
+          <button type="button" className="mobile-button" onClick={() => { setError(undefined); setItems(undefined); setReload(n => n + 1) }}>
             重试
           </button>
         </div>
