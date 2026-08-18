@@ -59,7 +59,18 @@ export interface SkinControllerDeps {
   persist?: (id: string | null) => Promise<void>
   /** Current light/dark theme (defaults to body[data-ds-dark-theme]). */
   themeGet?: () => 'light' | 'dark'
+  /**
+   * Theme-change subscription. The default observes the official
+   * body[data-ds-dark-theme] attribute (the same ground truth v1 skins
+   * used), so hooks get live theme flips out of the box.
+   */
   themeSubscribe?: (listener: (theme: 'light' | 'dark') => void) => () => void
+  /**
+   * Stylesheet loader seam. Default installs a <link rel="stylesheet"> and
+   * awaits its load (relative url() inside the served CSS resolves against
+   * the route URL — inlining into <style> would break asset resolution).
+   */
+  loadStylesheet?: (href: string) => Promise<void>
   /** hooks.mjs dynamic import seam for tests. */
   importHooks?: (url: string) => Promise<unknown>
   /**
@@ -128,6 +139,27 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
 
   const themeGet = deps.themeGet ?? (() =>
     (doc.body?.hasAttribute('data-ds-dark-theme') ? 'dark' : 'light'))
+  const themeSubscribe = deps.themeSubscribe ?? ((listener) => {
+    let last = themeGet()
+    const observer = new doc.defaultView!.MutationObserver(() => {
+      const next = themeGet()
+      if (next !== last) {
+        last = next
+        listener(next)
+      }
+    })
+    if (doc.body) observer.observe(doc.body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] })
+    return () => observer.disconnect()
+  })
+  const loadStylesheet = deps.loadStylesheet ?? ((href: string) => new Promise<void>((resolveLink, rejectLink) => {
+    const link = doc.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = href
+    const timer = setTimeout(() => rejectLink(new Error(`stylesheet load timeout: ${href}`)), 15000)
+    link.onload = () => { clearTimeout(timer); resolveLink() }
+    link.onerror = () => { clearTimeout(timer); rejectLink(new Error(`stylesheet load failed: ${href}`)) }
+    doc.head.appendChild(link)
+  }))
 
   let latestRequest = 0
   let currentActivation: number | null = null
@@ -143,18 +175,15 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     for (const listener of listeners) listener()
   }
 
-  async function fetchText(url: string): Promise<string> {
-    const res = await fetchImpl(url)
-    if (!res.ok) throw new Error(`fetch ${url} -> ${res.status}`)
-    return res.text()
-  }
-
-  function installStyle(activation: number, label: string, css: string): void {
-    const el = doc.createElement('style')
-    el.setAttribute('data-dsh-skin-style', label)
-    el.textContent = css
-    doc.head.appendChild(el)
-    ledger.record(activation, `style:${label}`, () => el.remove())
+  /**
+   * Install one stylesheet as a tracked <link> (the load itself happened in
+   * loadStylesheet; here we only register the teardown). Links keep relative
+   * url() resolution intact — a <style> tag would resolve them against the
+   * document and 404 every skin asset.
+   */
+  function trackStylesheet(activation: number, label: string, href: string): void {
+    const link = doc.head.querySelector<HTMLLinkElement>(`link[href="${href}"]`)
+    ledger.record(activation, `style:${label}`, () => link?.remove())
   }
 
   function installBackground(
@@ -195,7 +224,7 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
         layers,
         theme: {
           get: themeGet,
-          subscribe: deps.themeSubscribe ?? (() => () => {}),
+          subscribe: themeSubscribe,
         },
         onCleanup: (fn: () => void) => {
           cleanups.push(fn)
@@ -243,13 +272,17 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     const activation = ledger.beginActivation()
     try {
       if (id !== null && entry !== null) {
-        const stylesheet = await fetchText(`${apiBase}/skins/${id}/stylesheet`)
-        const patches = entry.manifest.contributes.patches !== undefined
-          ? await fetchText(`${apiBase}/skins/${id}/patches`).catch(() => null)
+        const stylesheetHref = `${apiBase}/skins/${id}/stylesheet`
+        const patchesHref = entry.manifest.contributes.patches !== undefined
+          ? `${apiBase}/skins/${id}/patches`
           : null
+        await loadStylesheet(stylesheetHref)
+        trackStylesheet(activation, 'stylesheet', stylesheetHref)
+        if (patchesHref !== null) {
+          await loadStylesheet(patchesHref).catch(() => {})
+          trackStylesheet(activation, 'patches', patchesHref)
+        }
         if (seq !== latestRequest) throw new StaleSwitch()
-        installStyle(activation, 'stylesheet', stylesheet)
-        if (patches !== null) installStyle(activation, 'patches', patches)
         installBackground(activation, entry)
         await installHooks(activation, entry)
       }

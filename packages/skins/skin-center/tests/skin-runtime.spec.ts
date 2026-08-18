@@ -109,24 +109,26 @@ describe('skin controller', () => {
     document.body.innerHTML = ''
     document.documentElement.removeAttribute('data-dsh-skin')
     const ledger = createEffectLedger()
-    const fetchImpl = vi.fn(async (url: string) => {
+    const loadStylesheet = vi.fn(async (href: string) => {
       for (const bad of options.failFetchFor ?? []) {
-        if (url.includes(bad)) return { ok: false, status: 500, text: async () => '' } as Response
+        if (href.includes(bad)) throw new Error(`load ${href} -> 500`)
       }
-      if (url.endsWith('/stylesheet')) return { ok: true, status: 200, text: async () => 'html[data-dsh-skin] .x { color: red; }' } as Response
-      if (url.endsWith('/patches')) return { ok: true, status: 200, text: async () => 'html[data-dsh-skin] .y { color: blue; }' } as Response
-      return { ok: true, status: 200, text: async () => '{}' } as Response
+      // Mirror the default loader's DOM effect so trackStylesheet finds it.
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
     })
     const errors: string[] = []
     const controller = createSkinController({
       doc: document,
       ledger,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      loadStylesheet,
       importHooks: async () => options.hooks,
       persist: options.persist ?? (async () => {}),
       onError: (m) => errors.push(m),
     })
-    return { ledger, controller, errors, fetchImpl }
+    return { ledger, controller, errors, loadStylesheet }
   }
 
   it('applies a skin: styles, attribute, persistence', async () => {
@@ -136,18 +138,18 @@ describe('skin controller', () => {
     expect(result).toBe('harbor')
     expect(controller.active).toBe('harbor')
     expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('harbor')
-    const styles = document.head.querySelectorAll('style[data-dsh-skin-style]')
-    expect(styles).toHaveLength(2)
+    const links = document.head.querySelectorAll('link[rel="stylesheet"]')
+    expect(links).toHaveLength(2)
     expect(persist).toHaveBeenCalledWith('harbor')
   })
 
   it('switching replaces the old activation completely', async () => {
     const { controller, ledger } = harness()
     await controller.switchTo('harbor', entryFor('harbor'))
-    expect(document.head.querySelectorAll('style[data-dsh-skin-style]')).toHaveLength(1)
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(1)
     await controller.switchTo('matrix', entryFor('matrix'))
     expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('matrix')
-    expect(document.head.querySelectorAll('style[data-dsh-skin-style]')).toHaveLength(1)
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(1)
     expect(ledger.entries().some((e) => e.kind === 'release')).toBe(true)
   })
 
@@ -157,17 +159,17 @@ describe('skin controller', () => {
     await controller.switchTo(null, null)
     expect(controller.active).toBeNull()
     expect(document.documentElement.hasAttribute('data-dsh-skin')).toBe(false)
-    expect(document.head.querySelectorAll('style[data-dsh-skin-style]')).toHaveLength(0)
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(0)
   })
 
   it('a failed fetch leaves the previous skin intact', async () => {
     const { controller, errors } = harness({ failFetchFor: ['matrix'] })
     await controller.switchTo('harbor', entryFor('harbor'))
-    const before = document.head.querySelectorAll('style').length
+    const before = document.head.querySelectorAll('link[rel="stylesheet"]').length
     const result = await controller.switchTo('matrix', entryFor('matrix'))
     expect(result).toBe('harbor')
     expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('harbor')
-    expect(document.head.querySelectorAll('style').length).toBe(before)
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]').length).toBe(before)
     expect(errors.some((m) => m.includes('matrix'))).toBe(true)
   })
 
@@ -175,26 +177,30 @@ describe('skin controller', () => {
     document.head.innerHTML = ''
     document.documentElement.removeAttribute('data-dsh-skin')
     const ledger = createEffectLedger()
-    let resolveSlow!: (v: Response) => void
-    const slow = new Promise<Response>((r) => { resolveSlow = r })
-    const fetchImpl = vi.fn((url: string) => {
-      if (url.includes('slow-skin')) return slow
-      return Promise.resolve({ ok: true, status: 200, text: async () => '.a{}' } as Response)
+    let resolveSlow!: () => void
+    const slow = new Promise<void>((r) => { resolveSlow = r })
+    const loadStylesheet = vi.fn((href: string) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+      if (href.includes('slow-skin')) return slow
+      return Promise.resolve()
     })
     const controller = createSkinController({
       doc: document,
       ledger,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      loadStylesheet,
       persist: async () => {},
     })
     const first = controller.switchTo('slow-skin', entryFor('slow-skin'))
     const second = controller.switchTo('fast-skin', entryFor('fast-skin'))
-    resolveSlow({ ok: true, status: 200, text: async () => '.slow{}' } as Response)
+    resolveSlow()
     await Promise.all([first, second])
     expect(controller.active).toBe('fast-skin')
     expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('fast-skin')
-    const styles = Array.from(document.head.querySelectorAll('style'))
-    expect(styles.some((s) => s.textContent?.includes('.slow'))).toBe(false)
+    const links = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'))
+    expect(links.some((l) => l.href.includes('slow-skin'))).toBe(false)
   })
 
   it('hooks failure keeps the static skin and reports the error', async () => {
@@ -266,11 +272,12 @@ describe('skin controller', () => {
     document.documentElement.removeAttribute('data-dsh-skin')
     const ledger = createEffectLedger()
     let suppressed = false
-    const fetchImpl = (async (url: string) => ({
-      ok: true,
-      status: 200,
-      text: async () => '.a{}',
-    })) as unknown as typeof fetch
+    const loadStylesheet = async (href: string) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    }
     const mediaEntry = {
       manifest: {
         id: 'media-skin',
@@ -283,7 +290,7 @@ describe('skin controller', () => {
     const controller = createSkinController({
       doc: document,
       ledger,
-      fetchImpl,
+      loadStylesheet,
       persist: async () => {},
       suppressBackgroundMedia: () => suppressed,
     })
@@ -308,6 +315,6 @@ describe('skin controller', () => {
     controller.shutdown()
     expect(controller.active).toBeNull()
     expect(document.documentElement.hasAttribute('data-dsh-skin')).toBe(false)
-    expect(document.head.querySelectorAll('style[data-dsh-skin-style]')).toHaveLength(0)
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(0)
   })
 })

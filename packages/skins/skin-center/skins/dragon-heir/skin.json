@@ -42,7 +42,7 @@
       },
       "dark": {
         "type": "image",
-        "src": "assets/light-art.webp",
+        "src": "assets/dark-art.webp",
         "scrim": "linear-gradient(rgba(10, 6, 6, 0.14) 0%, rgba(14, 8, 7, 0.2) 60%, rgba(9, 5, 5, 0.24) 100%)"
       }
     }

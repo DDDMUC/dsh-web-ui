@@ -1966,6 +1966,36 @@ window.__ModuleLoader__.load({
 			const layers = ensureDecorationLayers(doc);
 			const onError = deps.onError ?? (() => {});
 			const themeGet = deps.themeGet ?? (() => doc.body?.hasAttribute("data-ds-dark-theme") ? "dark" : "light");
+			const themeSubscribe = deps.themeSubscribe ?? ((listener) => {
+				let last = themeGet();
+				const observer = new doc.defaultView.MutationObserver(() => {
+					const next = themeGet();
+					if (next !== last) {
+						last = next;
+						listener(next);
+					}
+				});
+				if (doc.body) observer.observe(doc.body, {
+					attributes: true,
+					attributeFilter: ["data-ds-dark-theme"]
+				});
+				return () => observer.disconnect();
+			});
+			const loadStylesheet = deps.loadStylesheet ?? ((href) => new Promise((resolveLink, rejectLink) => {
+				const link = doc.createElement("link");
+				link.rel = "stylesheet";
+				link.href = href;
+				const timer = setTimeout(() => rejectLink(/* @__PURE__ */ new Error(`stylesheet load timeout: ${href}`)), 15e3);
+				link.onload = () => {
+					clearTimeout(timer);
+					resolveLink();
+				};
+				link.onerror = () => {
+					clearTimeout(timer);
+					rejectLink(/* @__PURE__ */ new Error(`stylesheet load failed: ${href}`));
+				};
+				doc.head.appendChild(link);
+			}));
 			let latestRequest = 0;
 			let currentActivation = null;
 			let active = null;
@@ -1982,17 +2012,15 @@ window.__ModuleLoader__.load({
 			const emit = () => {
 				for (const listener of listeners) listener();
 			};
-			async function fetchText(url) {
-				const res = await fetchImpl(url);
-				if (!res.ok) throw new Error(`fetch ${url} -> ${res.status}`);
-				return res.text();
-			}
-			function installStyle(activation, label, css) {
-				const el = doc.createElement("style");
-				el.setAttribute("data-dsh-skin-style", label);
-				el.textContent = css;
-				doc.head.appendChild(el);
-				ledger.record(activation, `style:${label}`, () => el.remove());
+			/**
+			* Install one stylesheet as a tracked <link> (the load itself happened in
+			* loadStylesheet; here we only register the teardown). Links keep relative
+			* url() resolution intact — a <style> tag would resolve them against the
+			* document and 404 every skin asset.
+			*/
+			function trackStylesheet(activation, label, href) {
+				const link = doc.head.querySelector(`link[href="${href}"]`);
+				ledger.record(activation, `style:${label}`, () => link?.remove());
 			}
 			function installBackground(activation, entry) {
 				const media = entry.manifest.contributes.backgroundMedia;
@@ -2028,7 +2056,7 @@ window.__ModuleLoader__.load({
 						layers,
 						theme: {
 							get: themeGet,
-							subscribe: deps.themeSubscribe ?? (() => () => {})
+							subscribe: themeSubscribe
 						},
 						onCleanup: (fn) => {
 							cleanups.push(fn);
@@ -2067,11 +2095,15 @@ window.__ModuleLoader__.load({
 				const activation = ledger.beginActivation();
 				try {
 					if (id !== null && entry !== null) {
-						const stylesheet = await fetchText(`${apiBase}/skins/${id}/stylesheet`);
-						const patches = entry.manifest.contributes.patches !== void 0 ? await fetchText(`${apiBase}/skins/${id}/patches`).catch(() => null) : null;
+						const stylesheetHref = `${apiBase}/skins/${id}/stylesheet`;
+						const patchesHref = entry.manifest.contributes.patches !== void 0 ? `${apiBase}/skins/${id}/patches` : null;
+						await loadStylesheet(stylesheetHref);
+						trackStylesheet(activation, "stylesheet", stylesheetHref);
+						if (patchesHref !== null) {
+							await loadStylesheet(patchesHref).catch(() => {});
+							trackStylesheet(activation, "patches", patchesHref);
+						}
 						if (seq !== latestRequest) throw new StaleSwitch();
-						installStyle(activation, "stylesheet", stylesheet);
-						if (patches !== null) installStyle(activation, "patches", patches);
 						installBackground(activation, entry);
 						await installHooks(activation, entry);
 					}
