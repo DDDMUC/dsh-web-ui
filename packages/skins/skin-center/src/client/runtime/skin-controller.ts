@@ -66,6 +66,13 @@ export interface SkinControllerDeps {
   onError?: (message: string, error: unknown) => void
 }
 
+export interface SkinControllerState {
+  /** The committed skin (null = stock look). */
+  active: string | null
+  /** Skin currently previewed via tryOn (not committed). */
+  trying: string | null
+}
+
 export interface SkinController {
   /** Current applied skin id (null = stock look). */
   readonly active: string | null
@@ -77,6 +84,16 @@ export interface SkinController {
    * newer one if a later switch superseded it).
    */
   switchTo(id: string | null, entry: ControllerSkinEntry | null): Promise<string | null>
+  /**
+   * Preview a skin without persisting it. The committed skin is remembered;
+   * exitTryOn() restores it. Try-on of the stock look passes null.
+   */
+  tryOn(id: string | null, entry: ControllerSkinEntry | null): Promise<string | null>
+  /** Leave the preview, restoring the committed skin. */
+  exitTryOn(): Promise<string | null>
+  /** React-friendly store: subscribe + snapshot of {active, trying}. */
+  subscribe(listener: () => void): () => void
+  getState(): SkinControllerState
   /** Dispose the current activation (e.g. on plugin teardown). */
   shutdown(): void
 }
@@ -99,6 +116,13 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
   let latestRequest = 0
   let currentActivation: number | null = null
   let active: string | null = null
+  /** The committed selection try-on restores (component scope). */
+  let committed: { id: string | null; entry: ControllerSkinEntry | null } = { id: null, entry: null }
+  let trying: string | null = null
+  const listeners = new Set<() => void>()
+  const emit = (): void => {
+    for (const listener of listeners) listener()
+  }
 
   async function fetchText(url: string): Promise<string> {
     const res = await fetchImpl(url)
@@ -189,6 +213,53 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     })
   }
 
+  async function switchInternal(
+    id: string | null,
+    entry: ControllerSkinEntry | null,
+    shouldPersist: boolean,
+  ): Promise<string | null> {
+    const seq = ++latestRequest
+    const activation = ledger.beginActivation()
+    try {
+      if (id !== null && entry !== null) {
+        const stylesheet = await fetchText(`${apiBase}/skins/${id}/stylesheet`)
+        const patches = entry.manifest.contributes.patches !== undefined
+          ? await fetchText(`${apiBase}/skins/${id}/patches`).catch(() => null)
+          : null
+        if (seq !== latestRequest) throw new StaleSwitch()
+        installStyle(activation, 'stylesheet', stylesheet)
+        if (patches !== null) installStyle(activation, 'patches', patches)
+        installBackground(activation, entry)
+        await installHooks(activation, entry)
+      }
+      if (seq !== latestRequest) throw new StaleSwitch()
+
+      // The atomic cut: attribute first, then retire the old activation.
+      if (id === null) doc.documentElement.removeAttribute('data-dsh-skin')
+      else doc.documentElement.setAttribute('data-dsh-skin', id)
+      const previous = currentActivation
+      currentActivation = activation
+      active = id
+      if (shouldPersist) {
+        committed = { id, entry }
+        trying = null
+      } else {
+        trying = id === committed.id ? null : id
+      }
+      emit()
+      if (previous !== null) ledger.disposeActivation(previous)
+      if (shouldPersist) {
+        await persist(id).catch((error) => onError('failed to persist the skin selection', error))
+      }
+      return active
+    } catch (error) {
+      ledger.disposeActivation(activation)
+      if (error instanceof StaleSwitch) return active
+      onError(`switch to ${id ?? 'stock'} failed; previous skin intact`, error)
+      return active
+    }
+  }
+
   return {
     get active() {
       return active
@@ -198,37 +269,27 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     },
 
     async switchTo(id, entry) {
-      const seq = ++latestRequest
-      const activation = ledger.beginActivation()
-      try {
-        if (id !== null && entry !== null) {
-          const stylesheet = await fetchText(`${apiBase}/skins/${id}/stylesheet`)
-          const patches = entry.manifest.contributes.patches !== undefined
-            ? await fetchText(`${apiBase}/skins/${id}/patches`).catch(() => null)
-            : null
-          if (seq !== latestRequest) throw new StaleSwitch()
-          installStyle(activation, 'stylesheet', stylesheet)
-          if (patches !== null) installStyle(activation, 'patches', patches)
-          installBackground(activation, entry)
-          await installHooks(activation, entry)
-        }
-        if (seq !== latestRequest) throw new StaleSwitch()
+      return await switchInternal(id, entry, true)
+    },
 
-        // The atomic cut: attribute first, then retire the old activation.
-        if (id === null) doc.documentElement.removeAttribute('data-dsh-skin')
-        else doc.documentElement.setAttribute('data-dsh-skin', id)
-        const previous = currentActivation
-        currentActivation = activation
-        active = id
-        if (previous !== null) ledger.disposeActivation(previous)
-        await persist(id).catch((error) => onError('failed to persist the skin selection', error))
-        return active
-      } catch (error) {
-        ledger.disposeActivation(activation)
-        if (error instanceof StaleSwitch) return active
-        onError(`switch to ${id ?? 'stock'} failed; previous skin intact`, error)
-        return active
-      }
+    async tryOn(id, entry) {
+      return await switchInternal(id, entry, false)
+    },
+
+    async exitTryOn() {
+      trying = null
+      const result = await switchInternal(committed.id, committed.entry, false)
+      emit()
+      return result
+    },
+
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+
+    getState() {
+      return { active, trying }
     },
 
     shutdown() {
@@ -238,6 +299,9 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
         currentActivation = null
       }
       active = null
+      trying = null
+      committed = { id: null, entry: null }
+      emit()
       doc.documentElement.removeAttribute('data-dsh-skin')
     },
   }

@@ -222,6 +222,43 @@ describe('skin controller', () => {
     expect(cleanup).toHaveBeenCalledTimes(1)
   })
 
+  it('try-on previews without persisting and exit restores the committed skin', async () => {
+    const persist = vi.fn(async () => {})
+    const { controller } = harness({ persist })
+    await controller.switchTo('harbor', entryFor('harbor'))
+    expect(persist).toHaveBeenCalledTimes(1)
+
+    await controller.tryOn('matrix', entryFor('matrix'))
+    expect(controller.getState()).toEqual({ active: 'matrix', trying: 'matrix' })
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('matrix')
+    // Try-on never persists.
+    expect(persist).toHaveBeenCalledTimes(1)
+
+    await controller.exitTryOn()
+    expect(controller.getState()).toEqual({ active: 'harbor', trying: null })
+    expect(document.documentElement.getAttribute('data-dsh-skin')).toBe('harbor')
+    expect(persist).toHaveBeenCalledTimes(1)
+  })
+
+  it('committing during a preview clears the trying state', async () => {
+    const { controller } = harness()
+    await controller.tryOn('matrix', entryFor('matrix'))
+    expect(controller.getState().trying).toBe('matrix')
+    await controller.switchTo('matrix', entryFor('matrix'))
+    expect(controller.getState()).toEqual({ active: 'matrix', trying: null })
+  })
+
+  it('subscribe emits on every state transition', async () => {
+    const { controller } = harness()
+    const seen: Array<{ active: string | null; trying: string | null }> = []
+    controller.subscribe(() => seen.push(controller.getState()))
+    await controller.switchTo('harbor', entryFor('harbor'))
+    await controller.tryOn('matrix', entryFor('matrix'))
+    await controller.exitTryOn()
+    expect(seen.length).toBeGreaterThanOrEqual(3)
+    expect(seen.at(-1)).toEqual({ active: 'harbor', trying: null })
+  })
+
   it('shutdown disposes the activation and clears the attribute', async () => {
     const { controller } = harness()
     await controller.switchTo('harbor', entryFor('harbor'))
