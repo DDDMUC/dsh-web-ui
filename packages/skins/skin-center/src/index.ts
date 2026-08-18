@@ -13,16 +13,16 @@ import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-sett
 import z from 'schemastery'
 // Type-only: pulls the dsh-host-webserver service seat (ctx.webServer).
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
 import { makeSkinCenterV2Routes, SKIN_CENTER_V2_PREFIX } from './routes-v2.ts'
 import { makeSkinIndexTap } from './tap-index-adapter.ts'
 import { defaultActiveStatePath, readActiveSelection } from './active-state.ts'
+import { migrateLegacySelection } from './legacy-bridge.ts'
+import { loadSkinCatalog } from './skin-repo.ts'
 import { makeWeRoutes, WE_API_PREFIX } from './we-routes.ts'
 import { defaultWallpapersStoreDir } from './we-library.ts'
-import { resolveHarnessHome } from './skin-switch.ts'
+import { resolveHarnessHome } from './harness-home.ts'
 import { mountOnce } from './mount-once.ts'
 
-export { makeSkinCenterRoutes, SKIN_CENTER_API_PREFIX } from './routes.ts'
 export { makeSkinCenterV2Routes, SKIN_CENTER_V2_PREFIX } from './routes-v2.ts'
 export { makeWeRoutes, WE_API_PREFIX } from './we-routes.ts'
 
@@ -149,7 +149,6 @@ function applyImpl(ctx: Context): void {
   })
 
   const routes = [
-    ...makeSkinCenterRoutes(),
     ...makeSkinCenterV2Routes(),
     ...makeWeRoutes({
       getConfig: () => wallpaperSource(),
@@ -178,5 +177,17 @@ function applyImpl(ctx: Context): void {
     }, 'ui-skin-center: routes')
   } catch (error) {
     console.error('[ui-skin-center] route registration failed:', error)
+  }
+
+  // One-shot legacy bridge (issue #506): migrate the retired dsh-skin
+  // managed-section selection into the v2 store and strip the legacy rows.
+  // Idempotent and fail-closed; notes go to the host log.
+  try {
+    const statePath = defaultActiveStatePath()
+    const knownIds = loadSkinCatalog().skins.map((s) => s.manifest.id)
+    const migration = migrateLegacySelection({ knownIds, activeStatePath: statePath })
+    for (const note of migration.notes) console.info(`[ui-skin-center] legacy bridge: ${note}`)
+  } catch (error) {
+    console.error('[ui-skin-center] legacy bridge failed:', error)
   }
 }

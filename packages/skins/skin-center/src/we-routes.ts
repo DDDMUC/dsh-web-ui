@@ -31,7 +31,7 @@ import { cpSync, createReadStream, existsSync, mkdirSync, readFileSync, rmSync, 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath, sep } from 'node:path'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { json, readJsonBody, requireSameOrigin } from './routes.ts'
+import { json, readJsonBody, requireSameOrigin } from './http-utils.ts'
 import {
   buildInventory,
   type WallpaperEntry,

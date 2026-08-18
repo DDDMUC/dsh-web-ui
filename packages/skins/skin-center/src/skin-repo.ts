@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url'
 
 import { validateSkinManifestV2 } from './core/manifest-v2/validate.ts'
 import type { SkinManifestV2 } from './core/manifest-v2/types.ts'
-import { resolveHarnessHome } from './skin-switch.ts'
+import { resolveHarnessHome } from './harness-home.ts'
 
 export type SkinOrigin = 'builtin' | 'user'
 

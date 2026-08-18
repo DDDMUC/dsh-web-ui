@@ -26,7 +26,7 @@ import { extname } from 'node:path'
 
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 
-import { json, requireSameOrigin } from './routes.ts'
+import { json, requireSameOrigin } from './http-utils.ts'
 import { defaultActiveStatePath, readActiveSelection, writeActiveSelection } from './active-state.ts'
 import { transformSkinCss, SkinCssSafetyError } from './core/css-safety/transform.ts'
 import { findSkin, loadSkinCatalog, resolveInsideSkin } from './skin-repo.ts'
