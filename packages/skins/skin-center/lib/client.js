@@ -2220,7 +2220,10 @@ window.__ModuleLoader__.load({
 				ledger: createEffectLedger(),
 				apiBase,
 				fetchImpl,
-				suppressBackgroundMedia: options.suppressBackgroundMedia
+				suppressBackgroundMedia: options.suppressBackgroundMedia,
+				onError: (message, error) => {
+					console.error(`[skin-center] ${message}`, error);
+				}
 			});
 			const adapter = createSemanticAdapter(doc);
 			adapter.start();

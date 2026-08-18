@@ -79,6 +79,11 @@ export function bootSkinRuntime(options: BootOptions = {}): SkinRuntimeStore {
     apiBase,
     fetchImpl,
     suppressBackgroundMedia: options.suppressBackgroundMedia,
+    // Switches fail closed to the previous skin; failures must still be
+    // observable in the console (they are never thrown to the card).
+    onError: (message, error) => {
+      console.error(`[skin-center] ${message}`, error)
+    },
   })
   const adapter = createSemanticAdapter(doc)
   adapter.start()
