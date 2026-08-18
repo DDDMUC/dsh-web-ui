@@ -255,6 +255,17 @@ describe('skin controller', () => {
     expect(controller.getState()).toEqual({ active: 'matrix', trying: null, previewing: false })
   })
 
+  it('getState returns a cached snapshot (React useSyncExternalStore contract)', async () => {
+    const { controller } = harness()
+    const first = controller.getState()
+    expect(controller.getState()).toBe(first)
+    await controller.switchTo('harbor', entryFor('harbor'))
+    const second = controller.getState()
+    expect(second).not.toBe(first)
+    expect(second).toEqual({ active: 'harbor', trying: null, previewing: false })
+    expect(controller.getState()).toBe(second)
+  })
+
   it('subscribe emits on every state transition', async () => {
     const { controller } = harness()
     const seen: Array<{ active: string | null; trying: string | null; previewing: boolean }> = []

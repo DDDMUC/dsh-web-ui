@@ -171,7 +171,12 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
   let trying: string | null = null
   let previewing = false
   const listeners = new Set<() => void>()
+  // React's useSyncExternalStore requires a CACHED snapshot: getSnapshot must
+  // return the same reference until the state actually changes, or the store
+  // consumer loops forever (and the settings card crashes blank).
+  let stateSnapshot: SkinControllerState = { active: null, trying: null, previewing: false }
   const emit = (): void => {
+    stateSnapshot = { active, trying, previewing }
     for (const listener of listeners) listener()
   }
 
@@ -344,7 +349,7 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     },
 
     getState() {
-      return { active, trying, previewing }
+      return stateSnapshot
     },
 
     async refresh() {

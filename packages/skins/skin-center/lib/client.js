@@ -2009,7 +2009,17 @@ window.__ModuleLoader__.load({
 			let trying = null;
 			let previewing = false;
 			const listeners = /* @__PURE__ */ new Set();
+			let stateSnapshot = {
+				active: null,
+				trying: null,
+				previewing: false
+			};
 			const emit = () => {
+				stateSnapshot = {
+					active,
+					trying,
+					previewing
+				};
 				for (const listener of listeners) listener();
 			};
 			/**
@@ -2157,11 +2167,7 @@ window.__ModuleLoader__.load({
 					return () => listeners.delete(listener);
 				},
 				getState() {
-					return {
-						active,
-						trying,
-						previewing
-					};
+					return stateSnapshot;
 				},
 				async refresh() {
 					const id = committed.id;
