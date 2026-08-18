@@ -281,5 +281,15 @@
     "descriptionEn": "Turns the Xiaomi MiMo API into agent tools: web search, image/audio/video understanding, speech-to-text, text-to-speech and voice cloning (mimo_search/vision/audio/video/asr/tts/voiceclone).",
     "repo": "https://github.com/ch1bug/dsh-mimo-agent-tools",
     "category": "tools"
+  },
+  {
+    "id": "dsh-skill-fuzzy",
+    "name": "技能模糊搜索",
+    "nameEn": "Skill Fuzzy Search",
+    "author": "ch1bug",
+    "description": "Codex 风格模糊技能搜索：/bug、/diag、/regression 都能在 / 技能菜单里命中 diagnosing-bugs（名称子序列 + 描述连续子串匹配）。",
+    "descriptionEn": "Codex-style fuzzy skill search: /bug, /diag and /regression all find diagnosing-bugs in the / skill menu (name subsequence + description substring matching).",
+    "repo": "https://github.com/ch1bug/dsh-skill-fuzzy",
+    "category": "ui"
   }
 ]
