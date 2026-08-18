@@ -19,7 +19,7 @@ test('header/strip round-trips every file kind', () => {
   }
 })
 
-test('copies cover the settings trio for seven consumers plus host helpers', () => {
+test('copies cover the settings trio for six consumers plus host helpers', () => {
   // Normalize separators: node:path join yields backslashes on Windows, and
   // the copy-count buckets below match on forward slashes.
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
@@ -43,6 +43,7 @@ test('checkSync detects drift and applySync repairs it', async () => {
     await writeFile(join(sourceDir, 'PluginSettingsCard.tsx'), 'export const card = 1' + String.fromCharCode(10))
     await writeFile(join(sourceDir, 'settings-card.module.css'), '.card { color: red }' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sse-leader.ts'), 'export const leader = 1' + String.fromCharCode(10))
+    await writeFile(join(root, 'shared', 'client', 'sidebar-entry-core.ts'), 'export const sidecore = 1' + String.fromCharCode(10))
     const hostDir = join(root, 'shared', 'host')
     await mkdir(hostDir, { recursive: true })
     await writeFile(join(hostDir, 'poll-guard.ts'), 'export const guard = 1' + String.fromCharCode(10))

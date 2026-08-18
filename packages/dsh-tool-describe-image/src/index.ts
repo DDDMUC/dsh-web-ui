@@ -20,7 +20,8 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView } from '@deepseek-ai/dsh-tools'
 import { registerAttachRoute, registerModelRoutes } from './attach-routes.ts'
 import { DEFAULT_MAX_BYTES } from './media.ts'
-import { createCapabilityProbe } from './model-capability.ts'
+import { createCapabilityProbe, createRouteResolver } from './model-capability.ts'
+import { installToolVisibility } from './tool-visibility.ts'
 import { Config, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, resolveApiKey, resolveConfig, type ResolvedConfig } from './config-resolve.ts'
 import { callVision, createVisionCache, loadImage } from './vision-client.ts'
 import { mountOnce } from './mount-once.ts'
@@ -163,8 +164,14 @@ function applyImpl(ctx: Context, config: Config = {}): void {
   // the attach route registers only when the service is actually mounted. The
   // capability probe lets the browser send hook pass raw image blocks to
   // models whose adapter declares image input, instead of rewriting every
-  // image-bearing send into describe-image references.
-  const probe = createCapabilityProbe(ctx)
+  // image-bearing send into describe-image references. The route resolver is
+  // shared with the tool-visibility controller so both seams always agree on
+  // one session's verdict: multimodal sessions get the raw blocks and never
+  // see describe_image in their toolset, text-only sessions get the rewrite
+  // and the tool.
+  const routeResolver = createRouteResolver(ctx)
+  const probe = createCapabilityProbe(ctx, routeResolver)
+  installToolVisibility(ctx, routeResolver)
   registerAttachRoute(ctx, () => current().maxBytes ?? DEFAULT_MAX_BYTES, probe)
   // The settings card's probe button: list the endpoint's models per request,
   // honoring unsaved drafts so the user can verify a new endpoint before

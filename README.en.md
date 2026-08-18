@@ -25,8 +25,8 @@
 CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency. Coverage and code-style (Prettier / ESLint) gates are planned for CI.
 
 <p align="center">
-  <strong>The plugin and skin family for the DeepSeek Harness (DSH) Web GUI</strong><br>
-  <em>Liang Shen Mode · Task board · Git graph · Right panel · Mobile remote · SSH ops · Image understanding · Whale-girl pet · Live throughput · Skin center</em>
+  <strong>The plugin and skin family for the DeepSeek Harness (DSH) Web GUI · Everything is development, everything is a plugin</strong><br>
+  <em>Liang Shen Mode · Task board · Git graph · Right panel · Mobile remote · SSH ops · Image understanding · Whale-girl pet · Skin center</em>
 </p>
 
 <div align="center">
@@ -37,7 +37,7 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
 
 ## What It Is
 
-dsh-web-ui is a set of plugins and skins for the DeepSeek Harness (DSH) Web GUI: the "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet, live throughput and the skin center. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes. Install plugins one by one, or grab everything with the aggregate package (the aggregate also pulls in the external right-sidebar plugin `dsh-better-sidebar`, which owns the right panel by default — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md)).
+dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everything is development, everything is a plugin" — and is its most complete realization on the Web GUI: not just a plugin package, but a plugin ecosystem with extreme extensibility. The "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet and the skin center — each ships as an independent, self-contained module: pluggable, swappable, re-developable. Install the whole family to assemble a complete workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate package can even bolt on external plugins like `dsh-better-sidebar` — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md).
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
@@ -78,28 +78,6 @@ The branch picker above the input box switches branches and browses commit histo
 
 ![Git graph](docs/screenshots/04-git-graph.png)
 
-### Right Panel
-
-The right panel is provided by the external plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (integrated into the aggregate bundle and enabled by default), with its built-in features and third-party plugin registration — see its [README](https://github.com/omdsh-dev/DSH-better-sidebar).
-
-![Right panel](docs/screenshots/19-right-panel.png)
-
-> The previous aionui-panel right panel is **no longer supported**: it is off by default, receives no maintenance, tests, or fixes, and will be removed from the family bundle in a future release; Settings → Web UI Plugins → Right panel can switch the provider back temporarily at your own risk.
-
-### Whale-Girl Pet
-
-A whale girl lives at the edge of the UI and changes animation with the agent's state: thinking, waiting, working, celebrating. Click her to interact (head pats), feed dried fish to raise affinity, and grow her from a baby whale to "deep-sea bond". Rename her, drag her anywhere, or hide her whenever you want.
-
-| Working companion | Interaction panel |
-| --- | --- |
-| ![Whale pet](docs/screenshots/11-pet-new-chat.png) | ![Pet interaction panel](docs/screenshots/12-pet-panel.png) |
-
-### Live Throughput Stats
-
-The session status line already shows token usage; this plugin adds live throughput. While a response streams, input / output token totals update as estimates (`~` marks heuristics), with the TPS group after the step counter. Once provider usage arrives, the estimates get replaced with real numbers.
-
-![Live throughput stats](docs/screenshots/18-live-stats.png)
-
 ### Mobile Remote Control
 
 The phone icon at the bottom of the sidebar opens the pairing panel. Scan the QR code (or copy the link) and the phone lands on a standalone mobile surface for the current dsh web workspace: browse and create sessions, send and receive messages, switch models and reasoning effort, adjust the permission preset, all in sync with the desktop. Pairing tokens are one-time and time-limited; "Stop" revokes every device at any time. The QR targets the LAN by default; turn on the cloudflared public tunnel and the phone can pair from any network.
@@ -126,11 +104,21 @@ The "SSH" sidebar entry opens the remote-ops panel. Hosts support key / password
 
 Gives text-only models vision. When a conversation mentions an image (local path, http(s) URL, or session attachment), `describe_image` sends it to a configured OpenAI-compatible vision endpoint (Qwen-VL, GLM-4V, GPT-4o, a local Ollama endpoint, whatever you have) and returns the answer. **Only the returned text enters the conversation; the image itself never enters the session log.** Text-only models have no image entry in the input box, so the plugin adds an image button: pick a file, an attachment reference lands in your draft, and the model can analyze it via `describe_image`. A `prompt` argument takes custom instructions (OCR, UI diagnosis, translation) that beat the generic description. Endpoint, model, key and default instruction live under Settings > Plugin config > "Image understanding", applied immediately.
 
-### Settings Hub
+### Right Panel
 
-All family plugins' toggles and parameters live under "Settings" and apply immediately. The settings sidebar lists General, Models, Plugins and Agent presets plus the Web UI Plugins group (hosting task-board / live-stats / remote-web-ui / describe-image), Skin Center, Community Plugins and Pet as first-level entries that open directly expanded; the plugin configuration page keeps the three built-in cards (Shell / Agent loop / Web search), each with its own toggle and configuration.
+The right panel is provided by the external plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (integrated into the aggregate bundle and enabled by default), with its built-in features and third-party plugin registration — see its [README](https://github.com/omdsh-dev/DSH-better-sidebar).
 
-![Settings hub](docs/screenshots/02-settings-web-ui-plugins.png)
+![Right panel](docs/screenshots/19-right-panel.png)
+
+> The previous aionui-panel right panel is **no longer supported**: it is off by default, receives no maintenance, tests, or fixes, and will be removed from the family bundle in a future release; Settings → Web UI Plugins → Side Card edits its everyday settings inline.
+
+### Whale-Girl Pet
+
+A whale girl lives at the edge of the UI and changes animation with the agent's state: thinking, waiting, working, celebrating. Click her to interact (head pats), feed dried fish to raise affinity, and grow her from a baby whale to "deep-sea bond". Rename her, drag her anywhere, or hide her whenever you want.
+
+| Working companion | Interaction panel |
+| --- | --- |
+| ![Whale pet](docs/screenshots/11-pet-new-chat.png) | ![Pet interaction panel](docs/screenshots/12-pet-panel.png) |
 
 ## Skins
 
@@ -356,7 +344,7 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 
 | Package | Origin | License |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
 | dsh-tool-describe-image | Ported from [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image) (deepseek-harness `packages/vision/tool-describe-image`) | Apache-2.0 (zhu1090093659) |
 | dsh-better-sidebar | External integrated plugin [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (right panel, npm dependency reference) | MIT (omdsh-dev) |
 
