@@ -133,6 +133,8 @@ describe('nextRunAtMs', () => {
     expect(nextRunAtMs('not a cron', at(2026, 1, 1, 0, 0))).toBeUndefined()
   })
 
+  // The reference scanner walks minute-by-minute up to five years. Impossible
+  // dates (Feb 30) make that walk the full horizon; 5s is not enough on CI.
   it('matches the legacy minute scan across sparse and dense schedules', () => {
     const crons = [
       '* * * * *',
@@ -163,7 +165,7 @@ describe('nextRunAtMs', () => {
         expect(nextRunAtMs(expr, fromMs), `${expr} from ${new Date(fromMs).toISOString()}`).toBe(referenceNextRunAtMs(expr, fromMs))
       }
     }
-  })
+  }, 20_000)
 })
 
 /** The pre-jump minute scan, kept verbatim as the behavioural reference. */
