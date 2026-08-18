@@ -179,12 +179,15 @@ function extractInstructionPaths(message) {
 }
 
 /** The one-time non-imperative hint replacing the full-text dump (E1.5 wording). */
-function buildInstructionHint(paths) {
+function buildInstructionHint(original, paths) {
   return {
     // Session persistence validates every replayed user/message for a
     // non-empty string id; a plugin-built message without one corrupts the
-    // durable journal (SessionPersistenceCorruptionError on load).
-    id: globalThis.crypto.randomUUID(),
+    // durable journal (SessionPersistenceCorruptionError on load). Inherit
+    // the original instructions message id when present (#510), else mint one.
+    id: typeof original?.id === 'string' && original.id !== ''
+      ? original.id
+      : globalThis.crypto.randomUUID(),
     role: 'user',
     content: [{
       type: 'text',
@@ -218,7 +221,7 @@ function instructionHintMessages(messages, state) {
       continue
     }
     state.instructionHinted = true
-    kept.push(buildInstructionHint(paths))
+    kept.push(buildInstructionHint(message, paths))
   }
   return kept
 }

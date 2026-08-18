@@ -257,6 +257,7 @@ describe('anchored-tool-bootstrap', () => {
     expect(typeof hint.id).toBe('string')
     expect(hint.id).not.toBe('')
     expect(hint.source.kind).toBe('instruction-hint')
+    expect(hint.id).toBe('instructions')
     expect(hint.content[0].text).toContain('Reference documents exist: ~/.dsh/AGENTS.md, AGENTS.md.')
     expect(hint.content[0].text).toContain('not task instructions')
     expect(hint.content[0].text).not.toContain('Global rules.')
@@ -267,6 +268,35 @@ describe('anchored-tool-bootstrap', () => {
       async () => ({ kind: 'enter', messages }),
     )
     expect(second.messages.map((entry: any) => entry.id)).toEqual(['user'])
+  })
+
+  test('instructionHint generates an id when the original instructions message has none (#510)', async () => {
+    const listeners = register({ instructionHint: true })
+    const preStepListener = listener(listeners, 'agent/pre-step')
+    const assembleListener = listener(listeners, 'system-prompt/assemble')
+    const sessionObj = { events: [{ type: 'tool/call' }] }
+    await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({
+      system: 'minimal persona',
+      tools: [{ name: 'bash' }, { name: 'read' }],
+    }))
+
+    const dump = {
+      role: 'user',
+      content: [{
+        type: 'text',
+        text: '<system-reminder>\n\nInstructions from: AGENTS.md\n\nRepo rules.\n</system-reminder>',
+      }],
+      source: { kind: 'agent-instructions' },
+    }
+    const messages = [message('user', 'user'), dump]
+    const result = await preStepListener(
+      { agent: { session: sessionObj }, messages, turn: 1, step: 1, signal: {} },
+      async () => ({ kind: 'enter', messages }),
+    )
+    const hint = result.messages[1]
+    expect(hint.source.kind).toBe('instruction-hint')
+    expect(hint.id).toEqual(expect.any(String))
+    expect(hint.id).not.toBe('')
   })
 
   test('instructionHint passes an instructions message with no file sections through', async () => {
