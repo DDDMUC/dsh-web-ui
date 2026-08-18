@@ -1862,15 +1862,17 @@ window.__ModuleLoader__.load({
 		//#region src/client/runtime/decoration-layers.ts
 		const LAYER_ATTR = "data-dsh-skin-layer";
 		/**
-		* Per-layer paint order. The background shares the WE wallpaper's z slot
-		* (-3): the two never paint at once (the wallpaper wins, enforced by the
-		* controller), and the skin-background scrim (-2) / blur veil (-1) keep
-		* working over whichever backdrop is active. Ambient effects paint above
-		* the veils; the strip/foreground layers stay below the official overlay
-		* band (>=1000).
+		* Per-layer paint order. The background sits at -2: negative z-index
+		* elements paint ABOVE the html/body backgrounds (so a skin's own opaque
+		* root background-color renders BEHIND its art — the v1 layering) yet below
+		* every panel surface. It shares -2 with the WE scrim, which never paints
+		* at the same time (an active WE wallpaper suppresses skin media, enforced
+		* by the controller). The skin-background blur veil (-1) still samples the
+		* art above it. Ambient effects paint above the veils; the strip/foreground
+		* layers stay below the official overlay band (>=1000).
 		*/
 		const LAYER_STYLE = {
-			background: "position:fixed;inset:0;z-index:-3;pointer-events:none;",
+			background: "position:fixed;inset:0;z-index:-2;pointer-events:none;",
 			ambient: "position:fixed;inset:0;z-index:30;pointer-events:none;",
 			top: "position:fixed;top:0;left:0;right:0;z-index:40;pointer-events:none;",
 			bottom: "position:fixed;bottom:0;left:0;right:0;z-index:40;pointer-events:none;",
