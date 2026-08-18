@@ -2227,4 +2227,4 @@ function applyImpl(ctx) {
 	}
 }
 //#endregion
-export { SKIN_BACKGROUND_NAMESPACE, SKIN_CENTER_V2_PREFIX, SKIN_WALLPAPER_NAMESPACE, SkinBackgroundConfigSchema, SkinWallpaperConfigSchema, WE_API_PREFIX, apply, inject, makeSkinCenterV2Routes, makeWeRoutes, name };
+export { SKIN_BACKGROUND_NAMESPACE, SKIN_CENTER_V2_PREFIX, SKIN_WALLPAPER_NAMESPACE, SkinBackgroundConfigSchema, SkinCssSafetyError, SkinWallpaperConfigSchema, WE_API_PREFIX, apply, findSkin, inject, loadSkinCatalog, makeSkinCenterV2Routes, makeWeRoutes, name, resolveInsideSkin, transformSkinCss, validateSkinManifestV2 };

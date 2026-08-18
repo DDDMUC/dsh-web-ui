@@ -25,6 +25,13 @@ import { mountOnce } from './mount-once.ts'
 
 export { makeSkinCenterV2Routes, SKIN_CENTER_V2_PREFIX } from './routes-v2.ts'
 export { makeWeRoutes, WE_API_PREFIX } from './we-routes.ts'
+// The contract surface, re-exported for tooling (the dsh-skin CLI validates
+// and installs skin directories through these; never duplicate the logic).
+export { validateSkinManifestV2 } from './core/manifest-v2/validate.ts'
+export type { SkinManifestV2, SkinManifestValidation } from './core/manifest-v2/types.ts'
+export { transformSkinCss, SkinCssSafetyError } from './core/css-safety/transform.ts'
+export { loadSkinCatalog, findSkin, resolveInsideSkin } from './skin-repo.ts'
+export type { SkinCatalog, SkinCatalogEntry } from './skin-repo.ts'
 
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
 export const name = 'ui-skin-center'
