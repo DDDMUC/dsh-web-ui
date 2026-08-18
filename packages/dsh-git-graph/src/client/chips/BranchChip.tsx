@@ -249,6 +249,8 @@ export function BranchChip(props: BranchChipProps) {
     <div
       ref={anchorRef}
       data-gitgraph-chip-anchor
+      data-dsh-plugin="git-graph"
+      data-dsh-part="chip"
       data-gitgraph-stock-light={stockLightTheme || undefined}
       className={cx(css.anchor, heroSeat && css.anchorHero)}
       style={heroSeat && heroPlacement !== null

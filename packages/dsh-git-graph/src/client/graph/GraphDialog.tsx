@@ -103,7 +103,7 @@ export function GraphDialog({ graph, onClose, t }: GraphDialogProps) {
   return (
     <>
       <Backdrop onClose={onClose} />
-      <div className={css.dialog} role="dialog" aria-label={t('graph.title')} data-gitgraph-dialog>
+      <div className={css.dialog} role="dialog" aria-label={t('graph.title')} data-gitgraph-dialog data-dsh-plugin="git-graph" data-dsh-part="dialog">
         <div className={css.dialogHeader}>
           <div className={css.dialogHeading}>
             <h3 className={css.dialogTitle}>{t('graph.title')}</h3>

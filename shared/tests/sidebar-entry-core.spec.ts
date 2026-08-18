@@ -125,6 +125,23 @@ describe('shared sidebar-entry core', () => {
     expect(created[0]!.removed).toBe(true)
   })
 
+  it('outputs the L2 semantic attributes only when the plugin option is set (#506)', () => {
+    installShell()
+    const withPlugin: FakeElement[] = []
+    stubDocument(false, withPlugin)
+    const disposeWith = mountSidebarEntry(options({ plugin: 'task-board' }))
+    expect(withPlugin[0]!.attrs['data-dsh-plugin']).toBe('task-board')
+    expect(withPlugin[0]!.attrs['data-dsh-part']).toBe('sidebar-entry')
+    disposeWith()
+
+    const withoutPlugin: FakeElement[] = []
+    stubDocument(false, withoutPlugin)
+    const disposeWithout = mountSidebarEntry(options())
+    expect(withoutPlugin[0]!.attrs['data-dsh-plugin']).toBeUndefined()
+    expect(withoutPlugin[0]!.attrs['data-dsh-part']).toBeUndefined()
+    disposeWithout()
+  })
+
   it('skips mounting when an entry row already exists (idempotency)', () => {
     installShell()
     let created = 0

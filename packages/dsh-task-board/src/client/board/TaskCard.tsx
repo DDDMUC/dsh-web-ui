@@ -47,6 +47,7 @@ function TaskCardInner({ task, pending, timeZone, onClick }: { task: TaskRecord;
       type="button"
       className={css.card}
       data-status={archived ? 'archived' : task.status}
+      data-dsh-part="card"
       data-pending={pending || undefined}
       onClick={onClick}
       title={task.description !== '' ? task.description : task.title}
