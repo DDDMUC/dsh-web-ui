@@ -2263,6 +2263,10 @@ window.__ModuleLoader__.load({
 					controller.shutdown();
 				}
 			};
+			{
+				const root = doc.defaultView;
+				root.__skinRuntime = store;
+			}
 			(async () => {
 				try {
 					await refreshCatalog();

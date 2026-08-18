@@ -814,11 +814,10 @@ function serveStylesheet(res, entry, relPath, filename) {
 		return;
 	}
 	try {
-		const { code, warnings } = transformSkinCss(readFileSync(abs, "utf8"), {
+		const { code } = transformSkinCss(readFileSync(abs, "utf8"), {
 			skinId: entry.manifest.id,
 			filename
 		});
-		if (warnings.length > 0) res.setHeader("x-skin-warnings", JSON.stringify(warnings).slice(0, 512));
 		sendCss(res, 200, code);
 	} catch (error) {
 		if (error instanceof SkinCssSafetyError) {
@@ -831,7 +830,8 @@ function serveStylesheet(res, entry, relPath, filename) {
 		}
 		json(res, 500, {
 			ok: false,
-			error: "css-transform-failed"
+			error: "css-transform-failed",
+			detail: error?.message ?? String(error)
 		});
 	}
 }

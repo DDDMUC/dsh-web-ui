@@ -79,20 +79,20 @@ function serveStylesheet(
     return
   }
   try {
-    const { code, warnings } = transformSkinCss(readFileSync(abs, 'utf8'), {
+    // Warnings are diagnostic surface (catalog/CLI), not transport: HTTP
+    // headers reject non-Latin1 bytes and skin warnings can embed selector
+    // fragments with CJK text.
+    const { code } = transformSkinCss(readFileSync(abs, 'utf8'), {
       skinId: entry.manifest.id,
       filename,
     })
-    if (warnings.length > 0) {
-      res.setHeader('x-skin-warnings', JSON.stringify(warnings).slice(0, 512))
-    }
     sendCss(res, 200, code)
   } catch (error) {
     if (error instanceof SkinCssSafetyError) {
       json(res, 422, { ok: false, error: 'css-whitelist-violation', violations: error.violations })
       return
     }
-    json(res, 500, { ok: false, error: 'css-transform-failed' })
+    json(res, 500, { ok: false, error: 'css-transform-failed', detail: (error as Error)?.message ?? String(error) })
   }
 }
 
