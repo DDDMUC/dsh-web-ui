@@ -2,23 +2,23 @@
 
 
 English | [中文](README.zh.md)
-> Mobile + desktop remote control + one-click updates: pair a phone to use the current dsh web workspace remotely, pair a PC browser through the same link to run the full Web GUI from another device; the sidebar checks for a newer dsh-web-ui release after it loads and marks the update button when one is available; clicking it updates the family.
+> Remote access for phones and computers + one-click updates: pair a phone to use the current dsh web workspace remotely, or pair a computer browser through the same token to run the full Web GUI from another device; the sidebar checks for a newer dsh-web-ui release after it loads and marks the update button when one is available; clicking it updates the family.
 
 This repository is an external plugin package for DeepSeek Harness (DSH):
-scan-to-pair mobile remote control for the dsh web GUI — plus remote desktop
+pairing-based remote access for the dsh web GUI on phones and computers — plus
 pairing and a one-click self-update for the dsh-web-ui family. It is a single
 dual-face package — the host half owns pairing tokens, device sessions, the
 `/api/pair` route family, the gated `/remote` desktop channel, and the
 `/api/update` surface; the browser half renders the sidebar-foot entries (the
-download trigger and an icon-only mobile-remote control beside the settings
+download trigger and an icon-only remote-access entry beside the settings
 button), the pairing panel with a QR code, live device status, and
 stop/refresh/copy actions, and the update panel that probes and runs the
 update.
 
 ## What it does
 
-- **Entry**: a phone icon beside the settings button in both the expanded sidebar and narrow rail; its tooltip and accessible label say "Mobile remote control".
-- **Panel**: "移动端远程控制" title, "扫码或在手机上打开链接，即可远程控制当前工作区" subtitle, a "手机扫码连接" card with the status area ("等待手机连接" + status badge), a large QR code, separate phone (`/m/?pair=...`) and computer (`/?pair=...`) links with their own copy buttons, plus 停止 / 刷新二维码 actions. Both links share one single-use token, so pairing either device invalidates the other link.
+- **Entry**: a phone icon beside the settings button in both the expanded sidebar and narrow rail; its tooltip and accessible label say "Remote access".
+- **Panel**: "Remote access" title, "Pair a phone or another computer to access this workspace remotely" subtitle, a "Pair a device" card with the status area ("Waiting for a device" + status badge), a large QR code, separate phone (`/m/?pair=...`) and computer (`/?pair=...`) links with their own copy buttons, plus Stop / Refresh QR actions. Both links share one single-use token, so pairing either device invalidates the other link.
 - **Phone side**: scanning the QR binds the phone with a one-time,
   time-limited token and lands it on the **standalone mobile surface at
   `/m/`** — a thin client purpose-built for a small screen (see
