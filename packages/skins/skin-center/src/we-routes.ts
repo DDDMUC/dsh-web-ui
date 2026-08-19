@@ -209,8 +209,23 @@ interface WallpaperJson {
 
 /** Build the route family. */
 export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
-  // token -> absolute path, issued by the inventory handler only.
-  const mediaMap = new Map<string, string>()
+  // token -> absolute path, issued by the inventory handler only. The map
+  // is persisted under the import store cache so issued media URLs survive
+  // host restarts without ever accepting a client-supplied path.
+  const tokenStorePath = joinPath(deps.storeDir, '.cache', 'we-tokens.json')
+  let mediaMap = new Map<string, string>()
+  try {
+    const saved = JSON.parse(readFileSync(tokenStorePath, 'utf8')) as Record<string, string>
+    if (saved !== null && typeof saved === 'object') {
+      mediaMap = new Map(Object.entries(saved))
+    }
+  } catch { /* no store yet: start empty */ }
+  const persistTokens = (): void => {
+    try {
+      mkdirSync(dirname(tokenStorePath), { recursive: true })
+      writeFileSync(tokenStorePath, JSON.stringify(Object.fromEntries(mediaMap)), 'utf8')
+    } catch { /* best effort; a failed persist only costs token re-issue */ }
+  }
   const tokenFor = (absPath: string): string => {
     const token = Buffer.from(absPath, 'utf8').toString('base64url')
     mediaMap.set(token, absPath)
@@ -223,26 +238,48 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     autoDetect: deps.autoDetect,
   })
 
+  // hasVideo / hasSceneWebGL probes parse whole pkgs (LZ4 decompress, tex
+  // decode), so cache them by path+mtime+size: /inventory and boot would
+  // otherwise re-parse the whole library synchronously on every request.
+  const sceneProbeCache = new Map<string, { hasVideo: boolean; hasSceneWebGL: boolean }>()
+  const MAX_PROBE_CACHE = 256
+
   const entryToJson = (entry: WallpaperEntry): WallpaperJson => {
     const hasFile = existsSync(entry.fileAbs)
     let hasVideo = false
     let hasSceneWebGL = false
     if (entry.type === 'scene' && hasFile) {
-      hasVideo = entry.fileAbs.toLowerCase().endsWith('.json')
-        ? hasSceneVideoFromDir(dirname(entry.fileAbs))
-        : hasSceneVideo(new Uint8Array(readFileSync(entry.fileAbs)))
-      if (!hasVideo) {
+      let mtimeMs = 0
+      let size = 0
+      try { const st = statSync(entry.fileAbs); mtimeMs = st.mtimeMs; size = st.size } catch { /* probe once without a key */ }
+      const key = entry.fileAbs + ':' + mtimeMs + ':' + size
+      let probe = mtimeMs > 0 ? sceneProbeCache.get(key) : undefined
+      if (!probe) {
+        let hasVideoNow = false
+        let hasSceneWebGLNow = false
         try {
-          const manifest = entry.fileAbs.toLowerCase().endsWith('.json')
-            ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
-            : buildSceneManifest(new Uint8Array(readFileSync(entry.fileAbs)), 'check')
-          if (manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0))) {
-            hasSceneWebGL = true
+          hasVideoNow = entry.fileAbs.toLowerCase().endsWith('.json')
+            ? hasSceneVideoFromDir(dirname(entry.fileAbs))
+            : hasSceneVideo(new Uint8Array(readFileSync(entry.fileAbs)))
+          if (!hasVideoNow) {
+            const manifest = entry.fileAbs.toLowerCase().endsWith('.json')
+              ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
+              : buildSceneManifest(new Uint8Array(readFileSync(entry.fileAbs)), 'check')
+            if (manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0))) {
+              hasSceneWebGLNow = true
+            }
           }
         } catch {
-          hasSceneWebGL = false
+          hasSceneWebGLNow = false
+        }
+        probe = { hasVideo: hasVideoNow, hasSceneWebGL: hasSceneWebGLNow }
+        if (mtimeMs > 0) {
+          if (sceneProbeCache.size >= MAX_PROBE_CACHE) sceneProbeCache.clear()
+          sceneProbeCache.set(key, probe)
         }
       }
+      hasVideo = probe.hasVideo
+      hasSceneWebGL = probe.hasSceneWebGL
     }
     return {
       id: entry.id,
@@ -264,22 +301,19 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     }
   }
 
-  /** Resolve a token from a prefix route, or answer 404. */
+  /**
+   * Resolve a token from a prefix route, or answer 404. Tokens resolve
+   * through the issued-token map only: a client-supplied path must never
+   * reach the filesystem, otherwise any wallpaper (web wallpapers run
+   * arbitrary JS same-origin) could read arbitrary local files.
+   */
   const resolveToken = (req: IncomingMessage, res: ServerResponse, prefix: string): string | null => {
-    const pathname = new URL(req.url || '/', 'http://localhost').pathname
-    const token = decodeURIComponent(pathname.slice(prefix.length).split('/')[0] ?? '')
-    let abs = mediaMap.get(token)
-    if (!abs) {
-      try {
-        const decoded = Buffer.from(token, 'base64url').toString('utf8')
-        if (existsSync(decoded)) {
-          abs = decoded
-          mediaMap.set(token, abs)
-        }
-      } catch {
-        // ignore
-      }
-    }
+    let token = ''
+    try {
+      const pathname = new URL(req.url || '/', 'http://localhost').pathname
+      token = decodeURIComponent(pathname.slice(prefix.length).split('/')[0] ?? '')
+    } catch { /* malformed escape sequence: no such token */ }
+    const abs = mediaMap.get(token)
     if (!abs) {
       json(res, 404, { ok: false, error: 'unknown-token' })
       return null
@@ -298,12 +332,14 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       if (!requireSameOrigin(req, res)) return
       try {
         const inventory = freshInventory()
+        const wallpapers = inventory.wallpapers.map(entryToJson)
+        persistTokens()
         json(res, 200, {
           ok: true,
           installDir: inventory.installDir,
           total: inventory.total,
           portableCount: inventory.portableCount,
-          wallpapers: inventory.wallpapers.map(entryToJson),
+          wallpapers,
         })
       } catch (error) {
         json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
@@ -317,6 +353,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/shim.js',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (!requireSameOrigin(req, res)) return
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' })
       res.end(WE_SHIM_JS)
     },
@@ -330,6 +367,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       path: WE_API_PREFIX + '/' + seg,
       handler: (req, res) => {
         if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+        if (!requireSameOrigin(req, res)) return
         const abs = resolveToken(req, res, prefix)
         if (!abs) return
         // Convert WE .tex files to PNG for browser consumption
@@ -357,6 +395,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/scene-video',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (!requireSameOrigin(req, res)) return
       const abs = resolveToken(req, res, sceneVideoPrefix)
       if (!abs) return
       void (async () => {
@@ -393,8 +432,12 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/web',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (!requireSameOrigin(req, res)) return
       const pathname = new URL(req.url || '/', 'http://localhost').pathname
-      const rest = decodeURIComponent(pathname.slice(webPrefix.length))
+      let rest = ''
+      try {
+        rest = decodeURIComponent(pathname.slice(webPrefix.length))
+      } catch { json(res, 400, { ok: false, error: 'bad-request' }); return }
       const token = rest.split('/')[0] ?? ''
       const entryAbs = mediaMap.get(token)
       if (!entryAbs) { json(res, 404, { ok: false, error: 'unknown-token' }); return }
@@ -429,6 +472,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/scene-frame',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (!requireSameOrigin(req, res)) return
       const abs = resolveToken(req, res, framePrefix)
       if (!abs) return
       void (async () => {
@@ -463,6 +507,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/scene-runtime',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (!requireSameOrigin(req, res)) return
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
       res.end(WE_SCENE_PLAYER_HTML)
     },
@@ -475,6 +520,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/scene-manifest',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (!requireSameOrigin(req, res)) return
       const abs = resolveToken(req, res, sceneManifestPrefix)
       if (!abs) return
       try {
@@ -500,8 +546,12 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/scene-resource',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (!requireSameOrigin(req, res)) return
       const pathname = new URL(req.url || '/', 'http://localhost').pathname
-      const rest = decodeURIComponent(pathname.slice(sceneResourcePrefix.length))
+      let rest = ''
+      try {
+        rest = decodeURIComponent(pathname.slice(sceneResourcePrefix.length))
+      } catch { json(res, 400, { ok: false, error: 'bad-request' }); return }
       const token = rest.split('/')[0] ?? ''
       const entryAbs = mediaMap.get(token)
       if (!entryAbs) { json(res, 404, { ok: false, error: 'unknown-token' }); return }

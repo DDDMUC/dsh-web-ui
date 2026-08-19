@@ -20,6 +20,7 @@ import {
   PKG_ENTRY_FLAG_LZ4,
   TexFormat,
   buildSceneManifestFromDir,
+  decodePngToRgba,
   decodeTex,
   encodePng,
   extractSceneMainImage,
@@ -28,6 +29,7 @@ import {
   parseMdl,
   parsePkg,
   parseTex,
+  parseTexToRGBA,
   readPkgEntry,
 } from '../src/pkg-extract.ts'
 
@@ -1099,5 +1101,49 @@ describe('extractSceneMainImageFromDir', () => {
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
+  })
+})
+
+describe('untrusted input allocation caps (#717 hardening)', () => {
+  const u32be = (v: number): Uint8Array => {
+    const b = new Uint8Array(4)
+    new DataView(b.buffer).setUint32(0, v, false)
+    return b
+  }
+
+  it('rejects oversized LZ4 decompressed sizes before allocating', () => {
+    // 300 MB claimed output from a 1-byte block: must throw, not allocate.
+    expect(() => lz4DecompressBlock(new Uint8Array([0x00]), 300 * 1024 * 1024))
+      .toThrow(/out of bounds/)
+  })
+
+  it('rejects tex mipmaps with oversized dimensions', () => {
+    const tex = concat(
+      encoder.encode('TEXV0005'), new Uint8Array(1),
+      encoder.encode('TEXI0001'), new Uint8Array(1),
+      i32le(TexFormat.RGBA8888), i32le(0),
+      i32le(1), i32le(1), i32le(1), i32le(1), i32le(0),
+      encoder.encode('TEXB0003'), new Uint8Array(1),
+      i32le(1), i32le(1), i32le(1),
+      i32le(20000), i32le(20000),
+      i32le(0), i32le(0), i32le(0),
+    )
+    expect(() => parseTexToRGBA(tex)).toThrow(/invalid mipmap dimensions/)
+  })
+
+  it('rejects png headers with oversized dimensions', () => {
+    // Hand-forged PNG framing: signature + IHDR (20000x20000) + IEND.
+    // decodePngToRgba validates dimensions straight from the header and
+    // throws before any allocation or inflate.
+    const png = concat(
+      Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10),
+      u32be(13), encoder.encode('IHDR'),
+      u32be(20000), u32be(20000),
+      Uint8Array.of(8, 6, 0, 0, 0),
+      Uint8Array.of(0, 0, 0, 0),
+      u32be(0), encoder.encode('IEND'),
+      Uint8Array.of(0, 0, 0, 0),
+    )
+    expect(() => decodePngToRgba(png)).toThrow(/invalid dimensions/)
   })
 })

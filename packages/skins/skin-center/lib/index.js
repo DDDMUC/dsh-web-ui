@@ -2242,6 +2242,15 @@ var pkg_extract_exports = /* @__PURE__ */ __exportAll({
 	parseTexToRGBA: () => parseTexToRGBA,
 	readPkgEntry: () => readPkgEntry
 });
+/**
+* Hard ceilings for allocations driven by wallpaper file content. Workshop
+* files are untrusted: a crafted pkg/tex/png must not be able to force
+* multi-GB host allocations (PR #717 follow-up hardening).
+*/
+const MAX_PKG_ENTRY_BYTES = 512 * 1024 * 1024;
+const MAX_DECOMPRESSED_BYTES = 256 * 1024 * 1024;
+const MAX_TEX_DIMENSION = 16384;
+const MAX_TEX_PIXELS = 64 * 1024 * 1024;
 /** Wallpaper Engine texture format ids (TEXI0001 header), per RePKG/lwe. */
 const TexFormat = {
 	RGBA8888: 0,
@@ -2294,20 +2303,22 @@ function decodePngToRgba(pngBuf) {
 			width = ihdrView.getUint32(0, false);
 			height = ihdrView.getUint32(4, false);
 			colorType = data[9];
+			if (width <= 0 || height <= 0 || width > MAX_TEX_DIMENSION || height > MAX_TEX_DIMENSION || width * height > MAX_TEX_PIXELS) throw new Error("png: invalid dimensions " + width + "x" + height);
 		} else if (type === "IDAT") idatChunks.push(data);
 		else if (type === "IEND") break;
 		pos += 12 + len;
 	}
 	const totalIdat = idatChunks.reduce((acc, c) => acc + c.length, 0);
+	if (totalIdat > MAX_DECOMPRESSED_BYTES) throw new Error("png: idat stream too large (" + totalIdat + " bytes)");
 	const combined = new Uint8Array(totalIdat);
 	let cur = 0;
 	for (const c of idatChunks) {
 		combined.set(c, cur);
 		cur += c.length;
 	}
-	const uncompressed = inflateSync(combined);
 	const bytesPerPixel = colorType === 6 ? 4 : colorType === 2 ? 3 : 1;
 	const stride = width * bytesPerPixel;
+	const uncompressed = inflateSync(combined, { maxOutputLength: height * (1 + stride) + 64 });
 	const raw = new Uint8Array(width * height * 4);
 	let srcPos = 0;
 	const rowBuf = new Uint8Array(stride);
@@ -2442,6 +2453,7 @@ var Reader = class {
 * @param dstSize exact expected decompressed size
 */
 function lz4DecompressBlock(src, dstSize) {
+	if (dstSize < 0 || dstSize > MAX_DECOMPRESSED_BYTES) throw new Error("lz4: decompressed size out of bounds (" + String(dstSize) + ")");
 	const dst = new Uint8Array(dstSize);
 	let ip = 0;
 	let op = 0;
@@ -2551,6 +2563,7 @@ function readPkgEntry(data, entry) {
 	const abs = entry.offset;
 	if (abs < 0 || abs + entry.compressedSize > data.byteLength) throw new Error("pkg: entry '" + entry.path + "' out of bounds");
 	if ((entry.flags & 1) === 0) return data.slice(abs, abs + entry.compressedSize);
+	if (entry.size > MAX_PKG_ENTRY_BYTES) throw new Error("pkg: entry '" + entry.path + "' too large (" + entry.size + " bytes)");
 	const r = new Reader(data.subarray(abs, abs + entry.compressedSize), "pkg");
 	if (r.u64() !== entry.size) throw new Error("pkg: entry '" + entry.path + "' size mismatch");
 	const out = new Uint8Array(entry.size);
@@ -3360,6 +3373,7 @@ function hasSceneVideoFromDir(dir) {
 }
 /** Decompress LZ4 block format (no frame header, raw block). */
 function decompressLz4Block(src, decompressedSize) {
+	if (decompressedSize < 0 || decompressedSize > MAX_DECOMPRESSED_BYTES) throw new Error("lz4: decompressed size out of bounds (" + String(decompressedSize) + ")");
 	const dst = new Uint8Array(decompressedSize);
 	let sp = 0, dp = 0;
 	while (sp < src.length && dp < decompressedSize) {
@@ -3498,6 +3512,7 @@ function parseTexToRGBA(buf) {
 	p += 4;
 	const mipH = dv.getUint32(p, true);
 	p += 4;
+	if (mipW <= 0 || mipH <= 0 || mipW > MAX_TEX_DIMENSION || mipH > MAX_TEX_DIMENSION || mipW * mipH > MAX_TEX_PIXELS) throw new Error("tex: invalid mipmap dimensions " + mipW + "x" + mipH);
 	const isLz4 = dv.getUint32(p, true);
 	p += 4;
 	const decompSize = dv.getUint32(p, true);
@@ -5903,14 +5918,12 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       scale = Math.max(width / sceneW, height / sceneH);
     } else if (fitMode === 'contain') {
       scale = Math.min(width / sceneW, height / sceneH);
-    } else { // fill
-      scale = 1;
-    }
+    } // fill: viewport covers the whole canvas (non-uniform stretch)
 
-    const vpW = Math.round(sceneW * scale);
-    const vpH = Math.round(sceneH * scale);
-    const vpX = Math.round((width - vpW) / 2);
-    const vpY = Math.round((height - vpH) / 2);
+    const vpW = fitMode === 'fill' ? width : Math.round(sceneW * scale);
+    const vpH = fitMode === 'fill' ? height : Math.round(sceneH * scale);
+    const vpX = fitMode === 'fill' ? 0 : Math.round((width - vpW) / 2);
+    const vpY = fitMode === 'fill' ? 0 : Math.round((height - vpH) / 2);
 
     ensureFbo(Math.min(sceneW, 2048), Math.min(sceneH, 1080));
 
@@ -6387,7 +6400,18 @@ function serveFile(absPath, req, res) {
 }
 /** Build the route family. */
 function makeWeRoutes(deps) {
-	const mediaMap = /* @__PURE__ */ new Map();
+	const tokenStorePath = join(deps.storeDir, ".cache", "we-tokens.json");
+	let mediaMap = /* @__PURE__ */ new Map();
+	try {
+		const saved = JSON.parse(readFileSync(tokenStorePath, "utf8"));
+		if (saved !== null && typeof saved === "object") mediaMap = new Map(Object.entries(saved));
+	} catch {}
+	const persistTokens = () => {
+		try {
+			mkdirSync(dirname(tokenStorePath), { recursive: true });
+			writeFileSync(tokenStorePath, JSON.stringify(Object.fromEntries(mediaMap)), "utf8");
+		} catch {}
+	};
 	const tokenFor = (absPath) => {
 		const token = Buffer.from(absPath, "utf8").toString("base64url");
 		mediaMap.set(token, absPath);
@@ -6398,18 +6422,45 @@ function makeWeRoutes(deps) {
 		storeDir: deps.storeDir,
 		autoDetect: deps.autoDetect
 	});
+	const sceneProbeCache = /* @__PURE__ */ new Map();
+	const MAX_PROBE_CACHE = 256;
 	const entryToJson = (entry) => {
 		const hasFile = existsSync(entry.fileAbs);
 		let hasVideo = false;
 		let hasSceneWebGL = false;
 		if (entry.type === "scene" && hasFile) {
-			hasVideo = entry.fileAbs.toLowerCase().endsWith(".json") ? hasSceneVideoFromDir(dirname(entry.fileAbs)) : hasSceneVideo(new Uint8Array(readFileSync(entry.fileAbs)));
-			if (!hasVideo) try {
-				const manifest = entry.fileAbs.toLowerCase().endsWith(".json") ? buildSceneManifestFromDir(dirname(entry.fileAbs), "check") : buildSceneManifest(new Uint8Array(readFileSync(entry.fileAbs)), "check");
-				if (manifest && (manifest.layers && manifest.layers.length >= 1 || manifest.is3D && manifest.models && manifest.models.length > 0)) hasSceneWebGL = true;
-			} catch {
-				hasSceneWebGL = false;
+			let mtimeMs = 0;
+			let size = 0;
+			try {
+				const st = statSync(entry.fileAbs);
+				mtimeMs = st.mtimeMs;
+				size = st.size;
+			} catch {}
+			const key = entry.fileAbs + ":" + mtimeMs + ":" + size;
+			let probe = mtimeMs > 0 ? sceneProbeCache.get(key) : void 0;
+			if (!probe) {
+				let hasVideoNow = false;
+				let hasSceneWebGLNow = false;
+				try {
+					hasVideoNow = entry.fileAbs.toLowerCase().endsWith(".json") ? hasSceneVideoFromDir(dirname(entry.fileAbs)) : hasSceneVideo(new Uint8Array(readFileSync(entry.fileAbs)));
+					if (!hasVideoNow) {
+						const manifest = entry.fileAbs.toLowerCase().endsWith(".json") ? buildSceneManifestFromDir(dirname(entry.fileAbs), "check") : buildSceneManifest(new Uint8Array(readFileSync(entry.fileAbs)), "check");
+						if (manifest && (manifest.layers && manifest.layers.length >= 1 || manifest.is3D && manifest.models && manifest.models.length > 0)) hasSceneWebGLNow = true;
+					}
+				} catch {
+					hasSceneWebGLNow = false;
+				}
+				probe = {
+					hasVideo: hasVideoNow,
+					hasSceneWebGL: hasSceneWebGLNow
+				};
+				if (mtimeMs > 0) {
+					if (sceneProbeCache.size >= MAX_PROBE_CACHE) sceneProbeCache.clear();
+					sceneProbeCache.set(key, probe);
+				}
 			}
+			hasVideo = probe.hasVideo;
+			hasSceneWebGL = probe.hasSceneWebGL;
 		}
 		return {
 			id: entry.id,
@@ -6425,18 +6476,19 @@ function makeWeRoutes(deps) {
 			previewUrl: entry.previewAbs ? "/api/skin-center/we/preview/" + tokenFor(entry.previewAbs) : null
 		};
 	};
-	/** Resolve a token from a prefix route, or answer 404. */
+	/**
+	* Resolve a token from a prefix route, or answer 404. Tokens resolve
+	* through the issued-token map only: a client-supplied path must never
+	* reach the filesystem, otherwise any wallpaper (web wallpapers run
+	* arbitrary JS same-origin) could read arbitrary local files.
+	*/
 	const resolveToken = (req, res, prefix) => {
-		const pathname = new URL(req.url || "/", "http://localhost").pathname;
-		const token = decodeURIComponent(pathname.slice(prefix.length).split("/")[0] ?? "");
-		let abs = mediaMap.get(token);
-		if (!abs) try {
-			const decoded = Buffer.from(token, "base64url").toString("utf8");
-			if (existsSync(decoded)) {
-				abs = decoded;
-				mediaMap.set(token, abs);
-			}
+		let token = "";
+		try {
+			const pathname = new URL(req.url || "/", "http://localhost").pathname;
+			token = decodeURIComponent(pathname.slice(prefix.length).split("/")[0] ?? "");
 		} catch {}
+		const abs = mediaMap.get(token);
 		if (!abs) {
 			json(res, 404, {
 				ok: false,
@@ -6461,12 +6513,14 @@ function makeWeRoutes(deps) {
 			if (!requireSameOrigin(req, res)) return;
 			try {
 				const inventory = freshInventory();
+				const wallpapers = inventory.wallpapers.map(entryToJson);
+				persistTokens();
 				json(res, 200, {
 					ok: true,
 					installDir: inventory.installDir,
 					total: inventory.total,
 					portableCount: inventory.portableCount,
-					wallpapers: inventory.wallpapers.map(entryToJson)
+					wallpapers
 				});
 			} catch (error) {
 				json(res, 500, {
@@ -6487,6 +6541,7 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
+			if (!requireSameOrigin(req, res)) return;
 			res.writeHead(200, {
 				"content-type": "text/javascript; charset=utf-8",
 				"cache-control": "no-store"
@@ -6507,6 +6562,7 @@ function makeWeRoutes(deps) {
 					});
 					return;
 				}
+				if (!requireSameOrigin(req, res)) return;
 				const abs = resolveToken(req, res, prefix);
 				if (!abs) return;
 				if (abs.toLowerCase().endsWith(".tex")) try {
@@ -6539,6 +6595,7 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
+			if (!requireSameOrigin(req, res)) return;
 			const abs = resolveToken(req, res, sceneVideoPrefix);
 			if (!abs) return;
 			(async () => {
@@ -6581,8 +6638,18 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
+			if (!requireSameOrigin(req, res)) return;
 			const pathname = new URL(req.url || "/", "http://localhost").pathname;
-			const rest = decodeURIComponent(pathname.slice(24));
+			let rest = "";
+			try {
+				rest = decodeURIComponent(pathname.slice(24));
+			} catch {
+				json(res, 400, {
+					ok: false,
+					error: "bad-request"
+				});
+				return;
+			}
 			const token = rest.split("/")[0] ?? "";
 			const entryAbs = mediaMap.get(token);
 			if (!entryAbs) {
@@ -6634,6 +6701,7 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
+			if (!requireSameOrigin(req, res)) return;
 			const abs = resolveToken(req, res, framePrefix);
 			if (!abs) return;
 			(async () => {
@@ -6671,6 +6739,7 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
+			if (!requireSameOrigin(req, res)) return;
 			res.writeHead(200, {
 				"content-type": "text/html; charset=utf-8",
 				"cache-control": "no-store"
@@ -6690,6 +6759,7 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
+			if (!requireSameOrigin(req, res)) return;
 			const abs = resolveToken(req, res, sceneManifestPrefix);
 			if (!abs) return;
 			try {
@@ -6725,8 +6795,18 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
+			if (!requireSameOrigin(req, res)) return;
 			const pathname = new URL(req.url || "/", "http://localhost").pathname;
-			const rest = decodeURIComponent(pathname.slice(35));
+			let rest = "";
+			try {
+				rest = decodeURIComponent(pathname.slice(35));
+			} catch {
+				json(res, 400, {
+					ok: false,
+					error: "bad-request"
+				});
+				return;
+			}
 			const token = rest.split("/")[0] ?? "";
 			const entryAbs = mediaMap.get(token);
 			if (!entryAbs) {
@@ -6978,7 +7058,12 @@ const SkinWallpaperConfigSchema = z.object({
 	mode: z.union(["live", "frame"]).default("live"),
 	pauseOnHidden: z.boolean().default(true),
 	dim: z.number().min(0).max(90).step(5).default(25),
-	wallpaperBlur: z.number().min(0).max(60).step(1).default(0)
+	wallpaperBlur: z.number().min(0).max(60).step(1).default(0),
+	fit: z.union([
+		"cover",
+		"contain",
+		"fill"
+	]).default("cover")
 });
 /**
 * Register the skin-center API routes.

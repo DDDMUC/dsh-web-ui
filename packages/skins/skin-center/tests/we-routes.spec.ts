@@ -185,6 +185,38 @@ describe('media and preview', () => {
     const res = await call('GET', WE_API_PREFIX + '/media/bm9wZXJl')
     expect(res.status).toBe(404)
   })
+
+  it('404s on crafted tokens for existing but never-issued paths (no decode fallback)', async () => {
+    // app.js exists inside the web project, but tokens are only issued for
+    // the entry HTML. Under the removed base64url-path fallback this request
+    // would have streamed the file.
+    const neverIssued = join(library, '222', 'app.js')
+    const token = Buffer.from(neverIssued, 'utf8').toString('base64url')
+    const res = await call('GET', WE_API_PREFIX + '/media/' + token)
+    expect(res.status).toBe(404)
+    expect(res.body.ok).toBe(false)
+  })
+
+  it('rejects cross-site media requests', async () => {
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const video = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '111')
+    const res = await call('GET', String(video?.videoUrl), { headers: { 'sec-fetch-site': 'cross-site' } })
+    expect(res.status).toBe(403)
+  })
+
+  it('serves issued tokens after a route-family restart (persisted token store)', async () => {
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const video = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '111')
+    const url = String(video?.videoUrl)
+    // Rebuild the route family from scratch (fresh process-local state, same
+    // store dir): the persisted token store must make the old URL work.
+    await new Promise<void>((resolve, reject) => server.close(e => (e ? reject(e) : resolve())))
+    const routes = makeWeRoutes({ getConfig: () => ({ weLibraryDirs: [library] }), storeDir: store, autoDetect: false })
+    await serve(routes)
+    const res = await call('GET', url)
+    expect(res.status).toBe(200)
+    expect(res.raw).toBe('FAKE-VIDEO-BYTES')
+  })
 })
 
 describe('web route', () => {

@@ -1585,14 +1585,12 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       scale = Math.max(width / sceneW, height / sceneH);
     } else if (fitMode === 'contain') {
       scale = Math.min(width / sceneW, height / sceneH);
-    } else { // fill
-      scale = 1;
-    }
+    } // fill: viewport covers the whole canvas (non-uniform stretch)
 
-    const vpW = Math.round(sceneW * scale);
-    const vpH = Math.round(sceneH * scale);
-    const vpX = Math.round((width - vpW) / 2);
-    const vpY = Math.round((height - vpH) / 2);
+    const vpW = fitMode === 'fill' ? width : Math.round(sceneW * scale);
+    const vpH = fitMode === 'fill' ? height : Math.round(sceneH * scale);
+    const vpX = fitMode === 'fill' ? 0 : Math.round((width - vpW) / 2);
+    const vpY = fitMode === 'fill' ? 0 : Math.round((height - vpH) / 2);
 
     ensureFbo(Math.min(sceneW, 2048), Math.min(sceneH, 1080));
 
