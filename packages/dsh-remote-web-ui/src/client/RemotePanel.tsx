@@ -228,9 +228,14 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
                 {state.devices.map(device => (
                   <li key={device.id} className={css.deviceRow}>
                     <div className={css.deviceMeta}>
-                      <span className={css.deviceName} title={device.userAgent}>
-                        {device.userAgent ?? t('devices.unknown')}
+                      <span className={css.deviceName} title={device.id}>
+                        {device.id}
                       </span>
+                      {device.userAgent !== undefined ? (
+                        <span className={css.deviceAgent} title={device.userAgent}>
+                          {device.userAgent}
+                        </span>
+                      ) : null}
                       <span className={clsx(css.devicePresence, device.online ? css.deviceOnline : css.deviceOffline)}>
                         {device.online ? t('devices.online') : t('devices.offline')}
                       </span>
