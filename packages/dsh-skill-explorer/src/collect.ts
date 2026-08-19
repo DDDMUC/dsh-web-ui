@@ -55,6 +55,8 @@ export interface SkillEntry {
   provider?: string
   level: string
   path?: string
+  /** True when the skill was discovered through a symlink entry (deletion is not allowed). */
+  linked?: boolean
   modelInvocable: boolean
   userInvocable: boolean
 }
@@ -134,6 +136,7 @@ async function scanSkillRoot(root: string, level: string, into: Map<string, Skil
   for (const entry of entries) {
     const name = entry.name
     let file: string
+    let linked = false
     if (entry.isDirectory()) {
       file = join(root, name, 'SKILL.md')
     } else if (entry.isFile() && name.endsWith('.md')) {
@@ -144,8 +147,11 @@ async function scanSkillRoot(root: string, level: string, into: Map<string, Skil
       // target with stat() (cross-platform: Windows symlink/junction, Linux and
       // macOS symlink all resolve the same way) to classify it, then resolve
       // the file path like a real entry — the scan path stays on the link, so
-      // write routes (set-enabled / delete) reach the linked target via the
-      // normal fs follow semantics. Dangling or unreadable links are skipped.
+      // the write route (set-enabled) reaches the linked target via the normal
+      // fs follow semantics. Dangling or unreadable links are skipped.
+      // A linked skill is mount-of-intent content, not created under this root:
+      // it stays listable and toggleable, but deletion is refused (see routes).
+      linked = true
       let linkedFile: string
       try {
         const target = await stat(join(root, name))
@@ -179,6 +185,7 @@ async function scanSkillRoot(root: string, level: string, into: Map<string, Skil
       provider: 'filesystem',
       level,
       path: file,
+      linked,
       // Official frontmatter invocation policy.
       modelInvocable: parsed.disableModelInvocation !== true,
       userInvocable: parsed.userInvocable !== false,

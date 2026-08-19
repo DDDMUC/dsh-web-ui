@@ -205,9 +205,13 @@ describe('linked skill roots (symlink directories/files)', () => {
       expect(byName['linked-skill']).toBeDefined()
       expect(byName['linked-skill'].level).toBe('user-dsh')
       expect(byName['linked-skill'].path).toBe(join(userSkills, 'linked-skill', 'SKILL.md'))
+      expect(byName['linked-skill'].linked).toBe(true)
       expect(byName['linked-file']).toBeDefined()
       expect(byName['linked-file'].level).toBe('user-dsh')
       expect(byName['linked-file'].path).toBe(join(userSkills, 'linked-file.md'))
+      expect(byName['linked-file'].linked).toBe(true)
+      // Non-linked skills stay unflagged (deletable).
+      expect(byName['poc-first'].linked).not.toBe(true)
     } finally {
       rmSync(tmp, { recursive: true, force: true })
       rmSync(join(userSkills, 'linked-skill'), { recursive: true, force: true })
