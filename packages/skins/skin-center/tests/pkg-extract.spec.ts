@@ -773,4 +773,21 @@ describe('extractSceneMainImageFromDir', () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+
+  it('returns embedded PNG textures directly without re-encoding', () => {
+    const pngBytes = encodePng(2, 2, bgPixels)
+    const pngTex = buildTex({
+      width: 2,
+      height: 2,
+      containerVersion: 3,
+      mipmaps: [{ width: 2, height: 2, data: pngBytes }],
+    })
+    const pkg = buildPkg([
+      { path: 'scene.json', data: encoder.encode(sceneJson('materials/bg.tex')) },
+      { path: 'materials/bg.tex', data: pngTex },
+    ])
+    const result = extractSceneMainImage(pkg)
+    expect(result.texturePath).toBe('materials/bg.tex')
+    expect(result.png).toEqual(pngBytes)
+  })
 })

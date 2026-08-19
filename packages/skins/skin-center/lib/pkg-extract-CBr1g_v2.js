@@ -666,15 +666,24 @@ function collectImageObjectTextures(imageObject, readJson) {
 	const pushTextureList = (list) => {
 		if (!Array.isArray(list)) return;
 		for (const item of list) {
-			const name = typeof item === "string" ? item : item && typeof item === "object" && typeof item.name === "string" ? item.name : null;
-			if (name && name.toLowerCase().endsWith(".tex")) out.push(name);
+			const rawName = typeof item === "string" ? item : item && typeof item === "object" && typeof item.name === "string" ? item.name : item && typeof item === "object" && typeof item.file === "string" ? item.file : null;
+			if (!rawName) continue;
+			if (rawName.toLowerCase().endsWith(".tex")) out.push(rawName);
+			else {
+				out.push(rawName + ".tex");
+				out.push("materials/" + rawName + ".tex");
+			}
 		}
 	};
 	const ref = imageObject.image;
 	if (ref.toLowerCase().endsWith(".tex")) out.push(ref);
 	else {
-		const material = readJson(ref);
-		if (material && Array.isArray(material.passes)) for (const pass of material.passes) pushTextureList(pass?.textures);
+		let materialJson = readJson(ref);
+		if (materialJson && typeof materialJson.material === "string") {
+			const matRef = materialJson.material;
+			materialJson = readJson(matRef) ?? readJson("materials/" + matRef);
+		}
+		if (materialJson && Array.isArray(materialJson.passes)) for (const pass of materialJson.passes) pushTextureList(pass?.textures);
 	}
 	const instance = imageObject.instance;
 	if (instance && typeof instance === "object") pushTextureList(instance.textures);
@@ -767,29 +776,177 @@ function dirSceneAccess(dir) {
 		listTexPaths
 	};
 }
+function isPngBuffer(buf) {
+	return buf.length >= 8 && buf[0] === 137 && buf[1] === 80 && buf[2] === 78 && buf[3] === 71 && buf[4] === 13 && buf[5] === 10 && buf[6] === 26 && buf[7] === 10;
+}
+function isLikelyMaskOrHelper(path) {
+	const lower = path.toLowerCase();
+	return lower.includes("/masks/") || lower.includes("_mask") || lower.includes("waterripple") || lower.includes("waterflow") || lower.includes("phase") || lower.includes("normal") || lower.includes("foliagesway") || lower.includes("cursorripple") || lower.includes("赞助") || lower.includes("sponsor") || lower.includes("donate") || lower.includes("qrcode") || lower.includes("qr_code") || lower.includes("audio_bar") || lower.includes("audiobar") || lower.includes("simple_audio") || lower.includes("提示框") || lower.includes("tip") || lower.includes("watermark") || lower.includes("logo") || lower.includes("particle") || lower.includes("audio");
+}
+function isNaturalImageRgba(rgba, width, height) {
+	const totalPixels = width * height;
+	const step = Math.max(1, Math.floor(totalPixels / 2e3));
+	let opaqueCount = 0;
+	let sampleCount = 0;
+	for (let i = 0; i < totalPixels; i += step) {
+		sampleCount++;
+		if (rgba[i * 4 + 3] >= 240) opaqueCount++;
+	}
+	return sampleCount > 0 && opaqueCount / sampleCount >= .85;
+}
+function hasContent(rgba, width, height) {
+	const totalPixels = width * height;
+	const step = Math.max(1, Math.floor(totalPixels / 1e3));
+	let visibleCount = 0;
+	let sampleCount = 0;
+	for (let i = 0; i < totalPixels; i += step) {
+		sampleCount++;
+		const idx = i * 4;
+		const r = rgba[idx];
+		const g = rgba[idx + 1];
+		const b = rgba[idx + 2];
+		if (rgba[idx + 3] > 10 && (r > 0 || g > 0 || b > 0)) visibleCount++;
+	}
+	return sampleCount === 0 || visibleCount / sampleCount >= .01;
+}
+function getTextureScore(path) {
+	const lower = path.toLowerCase();
+	if (isLikelyMaskOrHelper(path)) return -100;
+	let score = 0;
+	if (lower.includes("白天") || lower.includes("day") || lower.includes("main") || lower.includes("background") || lower.includes("wallpaper")) score += 50;
+	if (lower.includes("清晨") || lower.includes("morning") || lower.includes("黄昏") || lower.includes("dusk")) score += 20;
+	if (lower.includes("昼夜变化") || lower.includes("mddn") || lower.includes("transition")) score -= 30;
+	return score;
+}
+function parseVec(str) {
+	if (typeof str !== "string") return [
+		0,
+		0,
+		0
+	];
+	return str.trim().split(/\s+/).map(Number);
+}
+function resolveTexPath(access, tex) {
+	if (typeof tex !== "string" || !tex) return null;
+	if (tex.toLowerCase().endsWith(".tex") && access.readFile(tex)) return tex;
+	if (access.readFile(`materials/${tex}.tex`)) return `materials/${tex}.tex`;
+	if (access.readFile(`${tex}.tex`)) return `${tex}.tex`;
+	return null;
+}
+function composeScene2D(access, scene) {
+	const ortho = scene.general?.orthogonalprojection;
+	const canvasWidth = ortho?.width || 3840;
+	const canvasHeight = ortho?.height || 2160;
+	const objects = scene.objects;
+	if (!Array.isArray(objects) || objects.length === 0) return null;
+	const cw = Math.min(3840, Math.max(640, Math.round(canvasWidth)));
+	const ch = Math.min(2160, Math.max(360, Math.round(canvasHeight)));
+	const scaleX = cw / canvasWidth;
+	const scaleY = ch / canvasHeight;
+	const canvas = new Uint8Array(cw * ch * 4);
+	let blittedCount = 0;
+	for (const obj of objects) {
+		if (!obj || typeof obj !== "object") continue;
+		const name = String(obj.name || "").toLowerCase();
+		if (name === "black" || name === "black&white" || name.includes("赞助") || name.includes("sponsor") || name.includes("qrcode")) continue;
+		const imagePath = typeof obj.image === "string" ? obj.image : null;
+		if (!imagePath) continue;
+		const model = access.readJson(imagePath);
+		if (!model) continue;
+		const matPath = typeof model.material === "string" ? model.material : null;
+		if (!matPath) continue;
+		const mat = access.readJson(matPath);
+		if (!mat) continue;
+		const rawTex = mat.passes?.[0]?.textures?.[0];
+		const texPath = resolveTexPath(access, rawTex);
+		if (!texPath || isLikelyMaskOrHelper(texPath) || texPath.includes("/util/projectlayer")) continue;
+		const file = access.readFile(texPath);
+		if (!file) continue;
+		let decoded;
+		try {
+			decoded = decodeTex(file.bytes);
+		} catch {
+			continue;
+		}
+		const [cx, cy] = parseVec(obj.origin);
+		const [ow, oh] = parseVec(obj.size || `${decoded.width} ${decoded.height}`);
+		const w = Math.round((ow || decoded.width) * scaleX);
+		const h = Math.round((oh || decoded.height) * scaleY);
+		if (w <= 0 || h <= 0) continue;
+		const dstLeft = Math.round(cx * scaleX - w / 2);
+		const dstTop = ch - (Math.round(cy * scaleY - h / 2) + h);
+		for (let dy = 0; dy < h; dy++) {
+			const y = dstTop + dy;
+			if (y < 0 || y >= ch) continue;
+			const sy = Math.floor(dy / h * decoded.height);
+			if (sy < 0 || sy >= decoded.height) continue;
+			for (let dx = 0; dx < w; dx++) {
+				const x = dstLeft + dx;
+				if (x < 0 || x >= cw) continue;
+				const sx = Math.floor(dx / w * decoded.width);
+				if (sx < 0 || sx >= decoded.width) continue;
+				const sIdx = (sy * decoded.width + sx) * 4;
+				const sa = decoded.rgba[sIdx + 3] / 255;
+				if (sa <= .01) continue;
+				const sr = decoded.rgba[sIdx];
+				const sg = decoded.rgba[sIdx + 1];
+				const sb = decoded.rgba[sIdx + 2];
+				const dIdx = (y * cw + x) * 4;
+				const da = canvas[dIdx + 3] / 255;
+				const outA = sa + da * (1 - sa);
+				if (outA > 0) {
+					canvas[dIdx] = Math.round((sr * sa + canvas[dIdx] * da * (1 - sa)) / outA);
+					canvas[dIdx + 1] = Math.round((sg * sa + canvas[dIdx + 1] * da * (1 - sa)) / outA);
+					canvas[dIdx + 2] = Math.round((sb * sa + canvas[dIdx + 2] * da * (1 - sa)) / outA);
+					canvas[dIdx + 3] = Math.round(outA * 255);
+				}
+			}
+		}
+		blittedCount++;
+	}
+	if (blittedCount < 2) return null;
+	return {
+		width: cw,
+		height: ch,
+		png: encodePng(cw, ch, canvas),
+		texturePath: "composite_scene.png"
+	};
+}
 /** Shared scene pipeline over one access layer; label prefixes error text. */
 function extractSceneMainImageVia(access, label) {
 	const scene = access.readJson("scene.json");
 	if (!scene || !Array.isArray(scene.objects)) throw new Error(label + ": scene.json not found or invalid");
-	const candidates = [];
-	const imageObject = scene.objects.find((o) => !!o && typeof o === "object" && typeof o.image === "string");
-	if (imageObject) candidates.push(...collectImageObjectTextures(imageObject, access.readJson));
-	const ranked = [];
-	for (const path of access.listTexPaths()) try {
-		const file = access.readFile(path);
-		const info = file ? parseTex(file.bytes) : null;
-		ranked.push({
+	const composite = composeScene2D(access, scene);
+	if (composite) return composite;
+	const rawCandidates = [];
+	for (const obj of scene.objects) if (obj && typeof obj === "object" && typeof obj.image === "string") rawCandidates.push(...collectImageObjectTextures(obj, access.readJson));
+	const allCandidates = [];
+	for (const p of rawCandidates) if (!allCandidates.some((c) => c.path.toLowerCase() === p.toLowerCase())) allCandidates.push({
+		path: p,
+		fromObject: true
+	});
+	for (const p of access.listTexPaths()) if (!allCandidates.some((c) => c.path.toLowerCase() === p.toLowerCase())) allCandidates.push({
+		path: p,
+		fromObject: false
+	});
+	const ranked = allCandidates.map(({ path, fromObject }) => {
+		let area = 0;
+		try {
+			const file = access.readFile(path);
+			const info = file ? parseTex(file.bytes) : null;
+			if (info) area = info.width * info.height;
+		} catch {}
+		return {
 			path,
-			area: info ? info.width * info.height : 0
-		});
-	} catch {
-		ranked.push({
-			path,
-			area: 0
-		});
-	}
-	ranked.sort((a, b) => b.area - a.area);
-	for (const { path } of ranked) if (!candidates.some((c) => c.toLowerCase() === path.toLowerCase())) candidates.push(path);
+			score: getTextureScore(path) + (fromObject ? 100 : 0),
+			area
+		};
+	});
+	ranked.sort((a, b) => {
+		if (a.score !== b.score) return b.score - a.score;
+		return b.area - a.area;
+	});
+	const candidates = ranked.map((r) => r.path);
 	if (candidates.length === 0) throw new Error(label + ": no texture candidates found");
 	let lastError = null;
 	for (const path of candidates) {
@@ -799,7 +956,20 @@ function extractSceneMainImageVia(access, label) {
 			continue;
 		}
 		try {
+			const parsed = parseTexInternal(file.bytes);
+			if (parsed.isVideoMp4) throw new Error("tex: video mp4 textures cannot be decoded to a static frame");
+			const mip0 = parsed.mipmaps[0];
+			if (isPngBuffer(mip0.bytes)) return {
+				width: mip0.width,
+				height: mip0.height,
+				png: Buffer.from(mip0.bytes),
+				texturePath: file.path
+			};
 			const { width, height, rgba } = decodeTex(file.bytes);
+			if (!hasContent(rgba, width, height) || !isNaturalImageRgba(rgba, width, height)) {
+				lastError = /* @__PURE__ */ new Error(label + ": texture '" + path + "' is a shader mask or partial layer");
+				continue;
+			}
 			return {
 				width,
 				height,

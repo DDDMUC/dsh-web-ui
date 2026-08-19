@@ -2480,7 +2480,7 @@ function makeWeRoutes(deps) {
 				const cacheDir = join(deps.storeDir, ".cache", "frames");
 				const cachePath = join(cacheDir, Buffer.from(abs, "utf8").toString("base64url") + "_" + String(Math.round(mtime)) + ".png");
 				if (!existsSync(cachePath)) {
-					const { extractSceneMainImage, extractSceneMainImageFromDir } = await import("./pkg-extract-Dmt-pjwV.js");
+					const { extractSceneMainImage, extractSceneMainImageFromDir } = await import("./pkg-extract-CBr1g_v2.js");
 					const frame = abs.toLowerCase().endsWith(".json") ? extractSceneMainImageFromDir(dirname(abs)) : extractSceneMainImage(new Uint8Array(readFileSync(abs)));
 					mkdirSync(cacheDir, { recursive: true });
 					writeFileSync(cachePath, frame.png);
