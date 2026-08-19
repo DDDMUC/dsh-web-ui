@@ -1,0 +1,165 @@
+#!/usr/bin/env node
+/**
+ * Rewrite the packed dsh-web-ui-all tarball's dependency table for the
+ * e2e mount smoke (scripts/e2e-mount.sh).
+ *
+ * Modes:
+ *   auto (default): every @linxin666/* dependency that already exists on
+ *     npm at the packed version stays pointed at the registry (the gate's
+ *     original "npm consumers can install this" assertion is unchanged);
+ *     only a dependency NOT yet published — a brand-new family package in
+ *     the push-to-publish window — is packed from its workspace directory
+ *     and rewritten to a file: tarball. This removes the red window without
+ *     weakening the gate for anything already published.
+ *   --family-dir DIR: manual full override (the old FAMILY_TGZS_DIR
+ *     behavior): rewrite ALL @linxin666/* dependencies to the same-named
+ *     tarballs in DIR.
+ *   --better-sidebar-tgz TGZ: rewrite the dsh-better-sidebar dependency to
+ *     the given tarball (pre-release local 联调).
+ *
+ * Usage:
+ *   node scripts/e2e-mount-rewrite <tarball package.json> [--root DIR]
+ *     [--family-dir DIR] [--better-sidebar-tgz TGZ]
+ *
+ * Exit code is 0 on success; a missing workspace package or tarball exits 1.
+ */
+'use strict'
+
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const { execFileSync } = require('node:child_process')
+
+const FAMILY_SCOPE = '@linxin666/'
+const REGISTRY = 'https://registry.npmjs.org'
+
+/** Default registry probe: true when name@version exists on npm. */
+async function checkPublished(name, version) {
+  const res = await fetch(REGISTRY + '/' + name.replace('/', '%2f'))
+  if (!res.ok) return false
+  const data = await res.json()
+  return Boolean(data.versions && data.versions[version])
+}
+
+/** Default packer: pnpm pack the workspace directory into outDir, return the tarball path. */
+function packWorkspace(pkgDir, outDir) {
+  execFileSync('pnpm', ['pack', '--pack-destination', outDir], { cwd: pkgDir, stdio: 'pipe' })
+  const names = fs.readdirSync(outDir).filter(name => name.endsWith('.tgz'))
+  if (names.length === 0) throw new Error('pnpm pack 未产出 tarball（' + pkgDir + '）')
+  return path.join(outDir, names.sort().pop())
+}
+
+/** Locate a workspace package directory by its package name. */
+function findWorkspacePackage(root, name) {
+  const dirs = [path.join(root, 'packages'), path.join(root, 'packages', 'skins')]
+  for (const base of dirs) {
+    if (!fs.existsSync(base)) continue
+    for (const entry of fs.readdirSync(base)) {
+      const manifest = path.join(base, entry, 'package.json')
+      if (!fs.existsSync(manifest)) continue
+      try {
+        if (JSON.parse(fs.readFileSync(manifest, 'utf8')).name === name) return path.join(base, entry)
+      } catch { /* ignore unreadable manifests */ }
+    }
+  }
+  return null
+}
+
+/** Read a tarball's embedded package name (family-dir manual mode). */
+function readTgzName(tgz) {
+  const raw = execFileSync('tar', ['-xzf', tgz, '-O', 'package/package.json'], { stdio: 'pipe' }).toString()
+  return JSON.parse(raw).name
+}
+
+/**
+ * Rewrite the tarball's dependency table in place.
+ * @param {object} opts
+ * @param {string} opts.pkgPath - path to the extracted tarball's package.json.
+ * @param {string} opts.root - repository root (workspace package lookup).
+ * @param {string} [opts.familyDir] - manual override directory of family tarballs.
+ * @param {string} [opts.betterSidebarTgz] - manual dsh-better-sidebar tarball.
+ * @param {(name: string, version: string) => Promise<boolean>} [opts.checkPublished] - registry probe (auto mode).
+ * @param {(pkgDir: string, outDir: string) => string} [opts.pack] - workspace packer (auto mode).
+ * @param {(message: string) => void} [opts.log]
+ * @returns {Promise<string[]>} human-readable report lines.
+ */
+async function rewriteDependencies(opts) {
+  const { pkgPath, root, familyDir, betterSidebarTgz } = opts
+  const log = opts.log ?? (() => {})
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+  if (!pkg.dependencies) throw new Error('tarball package.json 没有 dependencies')
+  const report = []
+
+  if (betterSidebarTgz) {
+    if (!('dsh-better-sidebar' in pkg.dependencies)) throw new Error('tarball package.json 缺少 dsh-better-sidebar 依赖')
+    pkg.dependencies['dsh-better-sidebar'] = 'file:' + betterSidebarTgz
+    report.push('dsh-better-sidebar → file:' + betterSidebarTgz + '（手工覆盖）')
+  }
+
+  const familyNames = Object.keys(pkg.dependencies).filter(key => key.startsWith(FAMILY_SCOPE))
+
+  if (familyDir) {
+    const byName = {}
+    for (const file of fs.readdirSync(familyDir)) {
+      if (!file.endsWith('.tgz')) continue
+      byName[readTgzName(path.join(familyDir, file))] = path.join(familyDir, file)
+    }
+    for (const name of familyNames) {
+      if (!byName[name]) throw new Error('缺少本地 tarball：' + name)
+      pkg.dependencies[name] = 'file:' + byName[name]
+      report.push(name + ' → file:' + byName[name] + '（family-dir 全覆盖）')
+    }
+  } else {
+    const check = opts.checkPublished ?? checkPublished
+    const pack = opts.pack ?? packWorkspace
+    const packOut = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-family-tgz-'))
+    for (const name of familyNames) {
+      const version = pkg.dependencies[name]
+      if (await check(name, version)) {
+        report.push(name + '@' + version + ' npm 已发布（保持 registry 安装）')
+        continue
+      }
+      const dir = findWorkspacePackage(root, name)
+      if (!dir) throw new Error('npm 未发布且仓库内找不到 workspace 包：' + name)
+      const tgz = pack(dir, packOut)
+      pkg.dependencies[name] = 'file:' + tgz
+      report.push(name + '@' + version + ' npm 未发布 → file:' + tgz + '（发布窗口本地 tarball）')
+    }
+  }
+
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+  for (const line of report) log(line)
+  return report
+}
+
+function parseArgs(argv) {
+  const opts = { root: path.resolve(__dirname, '..') }
+  const positional = []
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--root') opts.root = argv[++i]
+    else if (argv[i] === '--family-dir') opts.familyDir = argv[++i]
+    else if (argv[i] === '--better-sidebar-tgz') opts.betterSidebarTgz = argv[++i]
+    else positional.push(argv[i])
+  }
+  opts.pkgPath = positional[0]
+  return opts
+}
+
+async function main() {
+  const opts = parseArgs(process.argv.slice(2))
+  if (!opts.pkgPath) {
+    console.error('用法: node scripts/e2e-mount-rewrite <tarball package.json> [--root DIR] [--family-dir DIR] [--better-sidebar-tgz TGZ]')
+    process.exit(1)
+  }
+  try {
+    await rewriteDependencies({ ...opts, log: line => console.log('[e2e-mount-rewrite]', line) })
+  } catch (error) {
+    console.error('[e2e-mount-rewrite]', error.message)
+    process.exit(1)
+  }
+}
+
+if (require.main === module) main()
+
+module.exports = { rewriteDependencies, findWorkspacePackage, checkPublished, packWorkspace, FAMILY_SCOPE }
+
