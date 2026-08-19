@@ -37,7 +37,87 @@ import {
   type WallpaperEntry,
   type WallpaperType,
 } from './we-library.ts'
+import {
+  buildSceneManifest,
+  buildSceneManifestFromDir,
+  extractSceneResource,
+  extractSceneResourceFromDir,
+  hasSceneVideo,
+  hasSceneVideoFromDir,
+  parseTexToRGBA,
+} from './pkg-extract.ts'
 import { WE_SHIM_JS } from './we-shim-source.ts'
+import { WE_SCENE_PLAYER_HTML } from './we-player-source.ts'
+import { deflateSync } from 'node:zlib'
+
+/**
+ * Read a web wallpaper's project.json property defaults so the shim can
+ * deliver them like WE does on startup. Values pass through raw: colors stay
+ * 'r g b' strings, sliders numbers, checkboxes booleans — exactly what the
+ * web API hands to applyUserProperties.
+ */
+function webPropertyDefaults(projectRoot: string): Record<string, { value: unknown }> {
+  const out: Record<string, { value: unknown }> = {}
+  try {
+    const raw = readFileSync(joinPath(projectRoot, 'project.json'), 'utf8')
+    const props = (JSON.parse(raw) as { general?: { properties?: Record<string, { value?: unknown }> } })
+      .general?.properties
+    if (props) {
+      for (const [key, def] of Object.entries(props)) {
+        if (def && typeof def === 'object' && 'value' in def) out[key] = { value: def.value }
+      }
+    }
+  } catch { /* no project.json or unreadable: empty defaults */ }
+  return out
+}
+
+/** Encode RGBA pixel data to PNG buffer using Node zlib for compression. */
+function encodeRGBAToPNG(width: number, height: number, rgba: Uint8Array): Buffer {
+  // Build raw scanlines: each row prefixed by filter byte 0 (None)
+  const rowBytes = width * 4
+  const raw = Buffer.alloc(height * (1 + rowBytes))
+  for (let y = 0; y < height; y++) {
+    raw[y * (1 + rowBytes)] = 0 // filter: None
+    raw.set(rgba.slice(y * rowBytes, (y + 1) * rowBytes), y * (1 + rowBytes) + 1)
+  }
+  const compressed = deflateSync(raw, { level: 1 }) // fast compression
+
+  // PNG CRC32
+  const crcTable: number[] = []
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c }
+  const crc32 = (buf: Buffer, start: number, len: number): number => {
+    let c = 0xffffffff
+    for (let i = start; i < start + len; i++) c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8)
+    return (c ^ 0xffffffff) >>> 0
+  }
+
+  // Assemble PNG
+  const pngSize = 8 + 25 + (12 + compressed.length) + 12 // signature + IHDR + IDAT + IEND
+  const png = Buffer.alloc(pngSize)
+  let p = 0
+  // Signature
+  png.set([137, 80, 78, 71, 13, 10, 26, 10], 0); p = 8
+  // IHDR
+  png.writeUInt32BE(13, p); p += 4
+  png.write('IHDR', p); p += 4
+  png.writeUInt32BE(width, p); p += 4
+  png.writeUInt32BE(height, p); p += 4
+  png[p++] = 8 // bit depth
+  png[p++] = 6 // RGBA
+  png[p++] = 0; png[p++] = 0; png[p++] = 0 // compression, filter, interlace
+  png.writeUInt32BE(crc32(png, 12, 17), p); p += 4
+  // IDAT
+  png.writeUInt32BE(compressed.length, p); p += 4
+  png.write('IDAT', p); p += 4
+  compressed.copy(png, p); p += compressed.length
+  png.writeUInt32BE(crc32(png, p - compressed.length - 4, compressed.length + 4), p); p += 4
+  // IEND
+  png.writeUInt32BE(0, p); p += 4
+  png.write('IEND', p); p += 4
+  png.writeUInt32BE(crc32(png, p - 4, 4), p); p += 4
+
+  return png
+}
 
 /** Browser-facing base path of the wallpaper API. */
 export const WE_API_PREFIX = '/api/skin-center/we'
@@ -54,6 +134,8 @@ export interface WeRouteDeps {
   getConfig: () => WeRouteConfig
   /** Import-store root (<harnessHome>/skin-center/wallpapers). */
   storeDir: string
+  /** Auto-detect Steam / Wallpaper Engine installation (default true). */
+  autoDetect?: boolean
 }
 
 /** Sanitize a wallpaper id into a safe store directory name. */
@@ -121,6 +203,7 @@ interface WallpaperJson {
   videoUrl: string | null
   webUrl: string | null
   frameUrl: string | null
+  sceneUrl: string | null
   previewUrl: string | null
 }
 
@@ -137,10 +220,30 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
   const freshInventory = () => buildInventory({
     manualDirs: deps.getConfig().weLibraryDirs ?? [],
     storeDir: deps.storeDir,
+    autoDetect: deps.autoDetect,
   })
 
   const entryToJson = (entry: WallpaperEntry): WallpaperJson => {
     const hasFile = existsSync(entry.fileAbs)
+    let hasVideo = false
+    let hasSceneWebGL = false
+    if (entry.type === 'scene' && hasFile) {
+      hasVideo = entry.fileAbs.toLowerCase().endsWith('.json')
+        ? hasSceneVideoFromDir(dirname(entry.fileAbs))
+        : hasSceneVideo(new Uint8Array(readFileSync(entry.fileAbs)))
+      if (!hasVideo) {
+        try {
+          const manifest = entry.fileAbs.toLowerCase().endsWith('.json')
+            ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
+            : buildSceneManifest(new Uint8Array(readFileSync(entry.fileAbs)), 'check')
+          if (manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0))) {
+            hasSceneWebGL = true
+          }
+        } catch {
+          hasSceneWebGL = false
+        }
+      }
+    }
     return {
       id: entry.id,
       title: entry.title,
@@ -148,9 +251,15 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       source: entry.source,
       playable: entry.playable,
       updateAvailable: entry.updateAvailable,
-      videoUrl: entry.type === 'video' && hasFile ? WE_API_PREFIX + '/media/' + tokenFor(entry.fileAbs) : null,
+      videoUrl:
+        entry.type === 'video' && hasFile
+          ? WE_API_PREFIX + '/media/' + tokenFor(entry.fileAbs)
+          : hasVideo
+            ? WE_API_PREFIX + '/scene-video/' + tokenFor(entry.fileAbs)
+            : null,
       webUrl: entry.type === 'web' && hasFile ? WE_API_PREFIX + '/web/' + tokenFor(entry.fileAbs) + '/' : null,
       frameUrl: entry.type === 'scene' && hasFile ? WE_API_PREFIX + '/scene-frame/' + tokenFor(entry.fileAbs) : null,
+      sceneUrl: hasSceneWebGL ? WE_API_PREFIX + '/scene-runtime/' + tokenFor(entry.fileAbs) : null,
       previewUrl: entry.previewAbs ? WE_API_PREFIX + '/preview/' + tokenFor(entry.previewAbs) : null,
     }
   }
@@ -159,7 +268,18 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
   const resolveToken = (req: IncomingMessage, res: ServerResponse, prefix: string): string | null => {
     const pathname = new URL(req.url || '/', 'http://localhost').pathname
     const token = decodeURIComponent(pathname.slice(prefix.length).split('/')[0] ?? '')
-    const abs = mediaMap.get(token)
+    let abs = mediaMap.get(token)
+    if (!abs) {
+      try {
+        const decoded = Buffer.from(token, 'base64url').toString('utf8')
+        if (existsSync(decoded)) {
+          abs = decoded
+          mediaMap.set(token, abs)
+        }
+      } catch {
+        // ignore
+      }
+    }
     if (!abs) {
       json(res, 404, { ok: false, error: 'unknown-token' })
       return null
@@ -211,10 +331,58 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       handler: (req, res) => {
         if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
         const abs = resolveToken(req, res, prefix)
-        if (abs) serveFile(abs, req, res)
+        if (!abs) return
+        // Convert WE .tex files to PNG for browser consumption
+        if (abs.toLowerCase().endsWith('.tex')) {
+          try {
+            const texBuf = readFileSync(abs)
+            const result = parseTexToRGBA(new Uint8Array(texBuf.buffer, texBuf.byteOffset, texBuf.byteLength))
+            if (result) {
+              const pngBuf = encodeRGBAToPNG(result.width, result.height, result.rgba)
+              res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': pngBuf.length, 'Cache-Control': 'public, max-age=86400' })
+              res.end(pngBuf)
+              return
+            }
+          } catch { /* fall through to serveFile */ }
+        }
+        serveFile(abs, req, res)
       },
     })
   }
+
+  // GET /scene-video/<token> — stream extracted MP4 video from scene pkg textures.
+  const sceneVideoPrefix = WE_API_PREFIX + '/scene-video/'
+  routes.push({
+    kind: 'prefix',
+    path: WE_API_PREFIX + '/scene-video',
+    handler: (req, res) => {
+      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      const abs = resolveToken(req, res, sceneVideoPrefix)
+      if (!abs) return
+      void (async () => {
+        let mtime = 0
+        try { mtime = statSync(abs).mtimeMs } catch { /* stays 0 */ }
+        const cacheDir = joinPath(deps.storeDir, '.cache', 'videos')
+        const key = Buffer.from(abs, 'utf8').toString('base64url') + '_' + String(Math.round(mtime)) + '.mp4'
+        const cachePath = joinPath(cacheDir, key)
+        if (!existsSync(cachePath)) {
+          const { extractSceneVideo, extractSceneVideoFromDir } = await import('./pkg-extract.ts')
+          const videoBytes = abs.toLowerCase().endsWith('.json')
+            ? extractSceneVideoFromDir(dirname(abs))
+            : extractSceneVideo(new Uint8Array(readFileSync(abs)))
+          if (!videoBytes) {
+            json(res, 404, { ok: false, error: 'no-video-found' })
+            return
+          }
+          mkdirSync(cacheDir, { recursive: true })
+          writeFileSync(cachePath, videoBytes)
+        }
+        serveFile(cachePath, req, res)
+      })().catch((error: unknown) => {
+        json(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
+      })
+    },
+  })
 
   // GET /web/<token>/<subpath> — web-wallpaper project files. The token maps
   // to the entry HTML; subpaths resolve inside its directory only. HTML
@@ -240,7 +408,8 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       if (!existsSync(abs) || !statSync(abs).isFile()) { json(res, 404, { ok: false, error: 'not-found' }); return }
       if (/\.html?$/i.test(abs)) {
         const html = readFileSync(abs, 'utf8')
-        const tag = '<script src="' + WE_API_PREFIX + '/shim.js"></script>'
+        const defaultsTag = '<script>window.__dshWeDefaultProps = ' + JSON.stringify(webPropertyDefaults(root)).replace(/</g, '\\u003c') + ';</script>'
+        const tag = defaultsTag + '<script src="' + WE_API_PREFIX + '/shim.js"></script>'
         const injected = /<head[^>]*>/i.test(html)
           ? html.replace(/<head[^>]*>/i, (m) => m + tag)
           : tag + html
@@ -285,6 +454,72 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       })().catch((error: unknown) => {
         json(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
       })
+    },
+  })
+
+  // GET /scene-runtime/<token> — serve the WebGL Scene Player HTML runtime.
+  routes.push({
+    kind: 'prefix',
+    path: WE_API_PREFIX + '/scene-runtime',
+    handler: (req, res) => {
+      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+      res.end(WE_SCENE_PLAYER_HTML)
+    },
+  })
+
+  // GET /scene-manifest/<token> — return the JSON manifest of 2D layers and effects.
+  const sceneManifestPrefix = WE_API_PREFIX + '/scene-manifest/'
+  routes.push({
+    kind: 'prefix',
+    path: WE_API_PREFIX + '/scene-manifest',
+    handler: (req, res) => {
+      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      const abs = resolveToken(req, res, sceneManifestPrefix)
+      if (!abs) return
+      try {
+        const token = Buffer.from(abs, 'utf8').toString('base64url')
+        const manifest = abs.toLowerCase().endsWith('.json')
+          ? buildSceneManifestFromDir(dirname(abs), token)
+          : buildSceneManifest(new Uint8Array(readFileSync(abs)), token)
+        if (!manifest) {
+          json(res, 404, { ok: false, error: 'manifest-build-failed' })
+          return
+        }
+        json(res, 200, { ok: true, manifest })
+      } catch (err) {
+        json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })
+      }
+    },
+  })
+
+  // GET /scene-resource/<token>/<subpath> — serve decoded png or asset stream for scene player.
+  const sceneResourcePrefix = WE_API_PREFIX + '/scene-resource/'
+  routes.push({
+    kind: 'prefix',
+    path: WE_API_PREFIX + '/scene-resource',
+    handler: (req, res) => {
+      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      const pathname = new URL(req.url || '/', 'http://localhost').pathname
+      const rest = decodeURIComponent(pathname.slice(sceneResourcePrefix.length))
+      const token = rest.split('/')[0] ?? ''
+      const entryAbs = mediaMap.get(token)
+      if (!entryAbs) { json(res, 404, { ok: false, error: 'unknown-token' }); return }
+      const subpath = rest.slice(token.length).replace(/^\/+/, '')
+      if (!subpath) { json(res, 400, { ok: false, error: 'missing-subpath' }); return }
+      try {
+        const resBytes = entryAbs.toLowerCase().endsWith('.json')
+          ? extractSceneResourceFromDir(dirname(entryAbs), subpath)
+          : extractSceneResource(new Uint8Array(readFileSync(entryAbs)), subpath)
+        if (!resBytes) {
+          json(res, 404, { ok: false, error: 'resource-not-found' })
+          return
+        }
+        res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' })
+        res.end(Buffer.from(resBytes))
+      } catch (err) {
+        json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })
+      }
     },
   })
 
