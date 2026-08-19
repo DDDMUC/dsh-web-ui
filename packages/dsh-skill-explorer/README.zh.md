@@ -60,6 +60,11 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skill-explorer
 - 写路由只操作最新文件系统扫描产出的路径——请求无法指定任意路径。
 - 技能内容是用户自写的 markdown；创建表单限制内容 64KB。
 - 面板用文本节点渲染技能描述（无 HTML 注入）。
+- 扫描跟随符号链接：skill 根里的符号链接目录 / `.md` 单文件链接会被当作
+  普通技能列出。链接属于用户的挂载意图，因此不校验链接目标是否落在某个
+  skill 根内；项目根（可能来自 clone 的仓库）里的符号链接被视为该项目内容，
+  其指向目录中的 `SKILL.md` 会被读取并展示——这是预期信任边界，写操作仍受
+  loopback 围栏与「仅信任最新扫描路径」约束。
 
 ## 已知限制
 
@@ -68,6 +73,9 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skill-explorer
   `.git` 祖先。
 - frontmatter 解析为零依赖轻量实现（块标量、布尔、input 嵌套块）；不支持的
   生僻 YAML 特性以官方 dsh-skill-filesystem 提供方为准。
+- 目录型符号链接在 set-enabled / delete 时会正确改写/移动链接目标内的
+  `SKILL.md`；而「单文件」符号链接（指向单个 `.md`）在原子改写时会被替换为
+  一个普通文件（链接不再保留），目标文件本身不受影响。列表可正常展示两种链接。
 
 ## License
 
