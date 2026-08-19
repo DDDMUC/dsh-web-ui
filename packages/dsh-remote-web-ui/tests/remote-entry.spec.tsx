@@ -271,8 +271,26 @@ describe('RemoteEntry', () => {
     await waitFor(() => expect(screen.getByText('Waiting for a device')).toBeTruthy())
     const source = FakeEventSource.instances[0]
     expect(source?.url).toBe('/api/pair/events')
-    source?.emit({ type: 'state', phase: 'connected', lanAvailable: true, tokenId: 'tok-1', tokenExpiresAt: Date.now() + 60_000, deviceCount: 1, onlineCount: 1 })
+    source?.emit({
+      type: 'state',
+      phase: 'connected',
+      lanAvailable: true,
+      tokenId: 'tok-1',
+      tokenExpiresAt: Date.now() + 60_000,
+      deviceCount: 1,
+      onlineCount: 1,
+      devices: [{
+        id: 'credential-must-not-render',
+        createdAt: Date.now() - 10_000,
+        lastSeenAt: Date.now(),
+        online: true,
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151.0.0.0 Safari/537.36',
+      }],
+    })
     await waitFor(() => expect(screen.getByText('1 device(s) connected')).toBeTruthy())
+    expect(screen.getByText('Windows · Chrome')).toBeTruthy()
+    expect(screen.queryByText('credential-must-not-render')).toBeNull()
+    expect(screen.queryByText(/Mozilla\/5\.0/)).toBeNull()
     source?.emit({ type: 'state', phase: 'disconnected', lanAvailable: true, tokenId: 'tok-1', tokenExpiresAt: Date.now() + 60_000, deviceCount: 1, onlineCount: 0 })
     await waitFor(() => expect(screen.getByText('Paired devices offline')).toBeTruthy())
   })

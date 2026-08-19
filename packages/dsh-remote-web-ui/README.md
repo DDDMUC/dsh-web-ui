@@ -18,7 +18,7 @@ that probes and runs the update.
 ## What it does
 
 - **Entry**: a phone icon beside the settings button in both the expanded sidebar and narrow rail; its tooltip and accessible label say "Remote access".
-- **Panel**: "Remote access" title, "Pair a phone or another computer to access this workspace remotely" subtitle, a "Pair a device" card with the status area ("Waiting for a device" + status badge), a large QR code, separate phone (`/m/?pair=...`) and computer (`/?pair=...`) links with their own copy buttons, plus Stop / Refresh QR actions and an authorized-device list (device id, optional User-Agent, online/offline, last active time, per-device unpair). Both links share one single-use token, so pairing either device invalidates the other link.
+- **Panel**: "Remote access" title, "Pair a phone or another computer to access this workspace remotely" subtitle, a "Pair a device" card with the status area ("Waiting for a device" + status badge), a large QR code, separate phone (`/m/?pair=...`) and computer (`/?pair=...`) links with their own copy buttons, plus Stop / Refresh QR actions and an authorized-device list (a device name inferred from User-Agent, online/offline, last active time, per-device unpair). Credential-bearing device ids and raw User-Agent values are never rendered. Both links share one single-use token, so pairing either device invalidates the other link.
 - **Phone side**: scanning the QR binds the phone with a one-time,
   time-limited token and lands it on the **standalone mobile surface at
   `/m/`** — a thin client purpose-built for a small screen (see
@@ -467,9 +467,11 @@ opens at `http://127.0.0.1`.
   Override `devicesFile` with another absolute path when needed. Changing
   `cookieName` invalidates existing devices (expected).
 - **Device roster is loopback-only**: the pairing panel lists authorized
-  devices (device id, optional User-Agent, online/offline, last active time)
-  and can unpair one at a time. `/api/pair/status` never returns the device
-  id list, even to a paired phone.
+  devices using a short name inferred from User-Agent (for example,
+  `Windows · Chrome`), online/offline state, and last active time, and can
+  unpair one at a time. Credential-bearing device ids and raw User-Agent
+  values are not rendered. `/api/pair/status` never returns the device id
+  list, even to a paired phone.
 - **Quick-tunnel hostnames change per run**: a `trycloudflare.com` URL is
   random on every `cloudflared` start, so `publicBaseUrl` must be updated
   whenever the tunnel restarts. A named tunnel (fixed hostname) avoids the

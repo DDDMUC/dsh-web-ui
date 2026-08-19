@@ -19,6 +19,7 @@ import {
   type PostureFrame,
   type TunnelStatusFrame,
 } from './pair-api.ts'
+import { deviceNameFromUserAgent } from './device-name.ts'
 import css from './remote.module.css'
 
 /** The panel's view state, owned by the entry component. */
@@ -228,14 +229,9 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
                 {state.devices.map(device => (
                   <li key={device.id} className={css.deviceRow}>
                     <div className={css.deviceMeta}>
-                      <span className={css.deviceName} title={device.id}>
-                        {device.id}
+                      <span className={css.deviceName}>
+                        {deviceNameFromUserAgent(device.userAgent) ?? t('devices.unknown')}
                       </span>
-                      {device.userAgent !== undefined ? (
-                        <span className={css.deviceAgent} title={device.userAgent}>
-                          {device.userAgent}
-                        </span>
-                      ) : null}
                       <span className={clsx(css.devicePresence, device.online ? css.deviceOnline : css.deviceOffline)}>
                         {device.online ? t('devices.online') : t('devices.offline')}
                       </span>
