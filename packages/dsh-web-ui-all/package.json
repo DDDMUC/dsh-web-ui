@@ -33,6 +33,7 @@
     "url": "https://github.com/zhu1090093659/dsh-web-ui.git"
   },
   "dependencies": {
+    "@linxin666/dsh-client-ui-plugin-manager": "workspace:*",
     "@linxin666/dsh-client-ui-community-plugins": "workspace:*",
     "@linxin666/dsh-client-ui-aionui-panel": "workspace:*",
     "@linxin666/dsh-client-ui-task-board": "workspace:*",
