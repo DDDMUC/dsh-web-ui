@@ -61,7 +61,7 @@ that probes and runs the update.
   proxy supplies its own same-origin browser marker for sibling route fences. The
   SDK's loopback-only privileged methods (native dialogs, the settings and
   credentials plane) stay unreachable from a paired remote desktop, and the
-  `/api/update/*` and `/api/plugin-manager/*` control endpoints stay
+  `/api/pair/*`, `/api/update/*` and `/api/plugin-manager/*` control endpoints stay
   loopback-only. Unpaired desktop browsers get a persistent full-page block
   instead of data (the page keys off the `unpaired` error code, not every 403).
 - **Posture probe**: the plugin probes the SDK `/api` fence with forged

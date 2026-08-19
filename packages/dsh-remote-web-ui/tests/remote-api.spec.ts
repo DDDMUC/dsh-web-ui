@@ -156,8 +156,11 @@ describe('innerPathOf / loopbackOnlyDenial', () => {
     expect(innerPathOf('/remote/api/%5csecret')).toBeUndefined()
   })
 
-  it('denies privileged SDK methods, update, and plugin-manager', () => {
+  it('denies privileged SDK methods, pairing, update, and plugin-manager', () => {
     expect(loopbackOnlyDenial('/api/settings.update')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/pair')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/pair/status')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/pair/revoke')).toBeDefined()
     expect(loopbackOnlyDenial('/api/update/run')).toBeDefined()
     expect(loopbackOnlyDenial('/api/plugin-manager/install')).toBeDefined()
     expect(loopbackOnlyDenial('/api/session.list')).toBeUndefined()
@@ -273,6 +276,25 @@ describe('remote desktop channel (/remote)', () => {
       expect(JSON.parse(manager.body).result.error.code).toBe('forbidden')
     } finally {
       await close()
+    }
+  })
+
+  it('denies the pairing control plane to a paired remote desktop', async () => {
+    const service = makeService()
+    const cookie = pairedCookie(service)
+    const upstream = await startUpstream(() => ({ status: 200, body: '{"leaked":true}' }))
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port }))
+    try {
+      for (const path of ['/remote/api/pair/status', '/remote/api/pair/revoke', '/remote/api/pair/issue']) {
+        const result = await call(port, 'POST', path, { cookie, body: '{}' })
+        expect(result.status, path).toBe(403)
+        const body = JSON.parse(result.body) as { result: { error: { code: string } } }
+        expect(body.result.error.code, path).toBe('forbidden')
+      }
+      expect(upstream.hits).toHaveLength(0)
+    } finally {
+      await close()
+      await upstream.close()
     }
   })
 
