@@ -61,6 +61,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-plugin-manager
 - web 端无壳内重启：变更在下次手动重启后生效。
 - 安装时冲突检测报告安装实际改了什么（官方模式为产品行；网关模式为 profile 行与 bundle 条目）。npm 运行时上重复 insert id 认领在安装后即被检出并自动回滚新插件（共享 id 写 disabled 无法阻止 loader 的重复检查，只会误伤现有插件）；官方运行时由官方规则与失败环处置该类冲突。
 - npm 运行时的启动预检（`--dump-config`）能抓组合失败，静态 insert 检查能抓引用不存在包的 insert 行；真正的运行时 import/apply 失败仍要到下次启动才暴露，官方运行时靠失败环呈现，npm 运行时没有失败环。
+- 重复挂载保护（网关模式）：官方 CLI 的 bundle 对账会在任何安装/卸载后把所有声明 `dsh.bundle` 的依赖重新加进 `dsh.profile.bundles`——包括组合树里已由 patch 行挂载的包（全家桶聚合包以行挂载 `dsh-better-sidebar`），下次启动会重复挂载而失败（`duplicate prefix route`）。每次 CLI 变更成功后，网关只把「本次新增且已被 patch 行挂载」的 bundles 条目剥除（清单写入走备份 + tmp + 原子 rename），并在任务结果上为每个被剥除的条目发一条 notice；正常安装的 bundles 条目与用户此前已有的条目一律不动。
 - wire 形状镜像官方安装器 Tab 协议；漂移时宽容解析器降级为错误行，不误操作。
 - 修复会话工作区保留路径派生的默认标题。
 
@@ -73,6 +74,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-plugin-manager
 - 冲突处置是 owner-aware 的：重复入口 id 或引用不可解析包的 insert 行会经官方 remove 路径回滚**新**包；网关绝不对共享 id 写 `disabled` 行（那既阻止不了 loader 的重复检查，又会误伤现有插件）。
 - 启动预检（`--dump-config`）只组合 patch 层、不 import 条目：能抓组合失败，抓不到 import 期失败——后者仍在首次真实启动时暴露。
 - profile 名（来自 `--profile` / `DSH_PROFILE`）在任何文件读写前做路径穿越校验；patch 写入走备份 + tmp + 原子 rename（`cordis.patch.yml.bak-plugin-manager`）。
+- 重复挂载保护只写 profile 清单的 `dsh.profile.bundles`，与 patch 写入同一纪律（备份 + tmp + 原子 rename，备份为 `package.json.bak-plugin-manager`）；只移除 CLI 刚加入且与既有 patch 行挂载重复的条目；保护写回失败会让任务显式失败，绝不静默留下破坏下次启动的状态。
 
 ## 许可证
 

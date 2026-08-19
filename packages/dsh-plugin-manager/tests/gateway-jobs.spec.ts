@@ -4,7 +4,7 @@
  * dsh plugin CLI — it mutates the temp profile exactly as the real CLI
  * would (dependencies + node_modules manifests) and reports exit codes.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -37,13 +37,16 @@ function fakeSpawn(behavior: SpawnBehavior, calls: string[][]) {
 }
 
 /** A temp profile; deps maps package name to its optional bundle patch text. */
-function makeProfile(deps: Record<string, { patch?: string; version?: string }>): { facts: ProfileFacts; dir: string } {
+function makeProfile(
+  deps: Record<string, { patch?: string; version?: string; bundle?: boolean }>,
+  options: { bundles?: string[] } = {},
+): { facts: ProfileFacts; dir: string } {
   const dir = mkdtempSync(join(tmpdir(), 'plugin-manager-jobs-'))
   const profileDir = join(dir, 'profiles', 'web')
   mkdirSync(profileDir, { recursive: true })
   const dependencies: Record<string, string> = {}
   for (const name of Object.keys(deps)) dependencies[name] = '1.0.0'
-  writePackageJson(profileDir, dependencies, Object.keys(deps))
+  writePackageJson(profileDir, dependencies, options.bundles ?? Object.keys(deps))
   writeFileSync(join(profileDir, 'cordis.patch.yml'), '# layer\n[]\n')
   for (const [name, dep] of Object.entries(deps)) installPackage(profileDir, name, dep)
   return {
@@ -68,10 +71,14 @@ function readManifest(profileDir: string): { dependencies: Record<string, string
 }
 
 /** Simulate the official CLI's add: dependency line + package files. */
-function installPackage(profileDir: string, name: string, dep: { patch?: string; version?: string }): void {
+function installPackage(profileDir: string, name: string, dep: { patch?: string; version?: string; bundle?: boolean }): void {
   const moduleDir = join(profileDir, 'node_modules', ...name.split('/'))
   mkdirSync(moduleDir, { recursive: true })
-  writeFileSync(join(moduleDir, 'package.json'), JSON.stringify({ name, version: dep.version ?? '1.0.0' }))
+  writeFileSync(join(moduleDir, 'package.json'), JSON.stringify({
+    name,
+    version: dep.version ?? '1.0.0',
+    ...(dep.bundle === true ? { dsh: { bundle: { patch: './cordis.patch.yml' } } } : {}),
+  }))
   if (dep.patch !== undefined) writeFileSync(join(moduleDir, 'cordis.patch.yml'), dep.patch)
   const manifest = readManifest(profileDir)
   if (manifest.dependencies[name] === undefined) {
@@ -87,6 +94,27 @@ function removePackage(profileDir: string, name: string): void {
   delete manifest.dependencies[name]
   manifest.dsh.profile.bundles = manifest.dsh.profile.bundles.filter(bundle => bundle !== name)
   writePackageJson(profileDir, manifest.dependencies, manifest.dsh.profile.bundles)
+}
+
+/**
+ * Mirror the official CLI's bundle reconciliation: after any mutation the
+ * bundles array becomes exactly the set of dependencies that declare
+ * `dsh.bundle` — including packages the composition already mounts through a
+ * patch row (the duplicate-mount hazard the safeguard strips back out).
+ */
+function reconcileBundles(profileDir: string): void {
+  const manifest = readManifest(profileDir)
+  const declaring = Object.keys(manifest.dependencies).filter(name => {
+    try {
+      const pkg = JSON.parse(readFileSync(join(profileDir, 'node_modules', ...name.split('/'), 'package.json'), 'utf8')) as {
+        dsh?: { bundle?: unknown }
+      }
+      return pkg.dsh?.bundle !== undefined
+    } catch {
+      return false
+    }
+  })
+  writePackageJson(profileDir, manifest.dependencies, declaring)
 }
 
 async function settle(gateway: CliGateway, jobId: string): Promise<GatewayJob> {
@@ -266,5 +294,119 @@ describe('CliGateway mutation queue (B7)', () => {
     expect(jobB.plugin?.id).toBe('conc-b')
     const addCalls = calls.filter(args => args[3] === 'add').map(args => args[4])
     expect(addCalls).toEqual(['conc-a', 'conc-b'])
+  })
+})
+/** The family aggregate's rows section: dsh-better-sidebar mounts through a row, not the bundles layer. */
+const AGGREGATE_PATCH = [
+  '- insert:',
+  '    - id: web-ui-task-board',
+  "      name: '@linxin666/dsh-client-ui-task-board'",
+  '- insert:',
+  '    - id: better-sidebar',
+  '      name: dsh-better-sidebar',
+  '',
+].join('\n')
+
+describe('CliGateway duplicate-mount safeguard (B9)', () => {
+  it('strips a reconciliation-added bundles entry for an already row-mounted package', async () => {
+    // The aggregate mounts dsh-better-sidebar via a patch row while the
+    // package also sits in dependencies (not in bundles); any CLI mutation
+    // re-adds it to bundles and the next boot double-mounts.
+    const { facts, dir } = makeProfile({
+      '@linxin666/dsh-web-ui-all': { bundle: true, patch: AGGREGATE_PATCH },
+      'dsh-better-sidebar': { bundle: true },
+    }, { bundles: ['@linxin666/dsh-web-ui-all'] })
+    tempDirs.push(dir)
+    const calls: string[][] = []
+    const gateway = gatewayFor(facts, (args) => {
+      if (args[0] !== 'plugin') return { code: 0 }
+      if (args[3] === 'add') {
+        installPackage(facts.profileDir, args[4] ?? '', { version: '1.2.0', bundle: true })
+        reconcileBundles(facts.profileDir)
+      }
+      return { code: 0 }
+    }, calls)
+    const { jobId } = gateway.install('dsh-memoir')
+    const job = await settle(gateway, jobId)
+    expect(job.phase).toBe('done')
+    expect(job.plugin?.id).toBe('dsh-memoir')
+    const manifest = readManifest(facts.profileDir)
+    // The duplicate-mount entry is stripped; everything else is untouched.
+    expect(manifest.dsh.profile.bundles).toEqual(['@linxin666/dsh-web-ui-all', 'dsh-memoir'])
+    expect(manifest.dependencies['dsh-better-sidebar']).toBe('1.0.0')
+    // One notice per stripped entry, in the conflict-row shape.
+    expect(job.notices).toEqual([{ id: 'dsh-better-sidebar', name: 'dsh-better-sidebar', from: 'enabled', to: 'uninstalled' }])
+    // The strip never lands in the conflict ledger (the layer state round-trips).
+    expect((job.conflicts ?? []).some(change => change.id === 'dsh-better-sidebar')).toBe(false)
+    // The manifest write went through the safe path (backup + tmp + rename).
+    expect(existsSync(join(facts.profileDir, 'package.json.bak-plugin-manager'))).toBe(true)
+  })
+
+  it('keeps the bundles entry of a normal install that no row mounts', async () => {
+    const { facts, dir } = makeProfile({})
+    tempDirs.push(dir)
+    const calls: string[][] = []
+    const gateway = gatewayFor(facts, (args) => {
+      if (args[0] !== 'plugin') return { code: 0 }
+      if (args[3] === 'add') {
+        installPackage(facts.profileDir, args[4] ?? '', { version: '0.4.3', bundle: true })
+        reconcileBundles(facts.profileDir)
+      }
+      return { code: 0 }
+    }, calls)
+    const { jobId } = gateway.install('dsh-memoir')
+    const job = await settle(gateway, jobId)
+    expect(job.phase).toBe('done')
+    // The bundles entry is how a not-yet-mounted bundle loads: it stays.
+    expect(readManifest(facts.profileDir).dsh.profile.bundles).toEqual(['dsh-memoir'])
+    expect(job.notices).toBeUndefined()
+  })
+
+  it('ignores a non-bundle dependency (a plain library never enters bundles)', async () => {
+    const { facts, dir } = makeProfile({})
+    tempDirs.push(dir)
+    const calls: string[][] = []
+    const gateway = gatewayFor(facts, (args) => {
+      if (args[0] !== 'plugin') return { code: 0 }
+      if (args[3] === 'add') {
+        installPackage(facts.profileDir, args[4] ?? '', { version: '1.3.0' })
+        reconcileBundles(facts.profileDir)
+      }
+      return { code: 0 }
+    }, calls)
+    const { jobId } = gateway.install('left-pad')
+    const job = await settle(gateway, jobId)
+    expect(job.phase).toBe('done')
+    const manifest = readManifest(facts.profileDir)
+    expect(manifest.dependencies['left-pad']).toBe('1.0.0')
+    expect(manifest.dsh.profile.bundles).toEqual([])
+    expect(job.notices).toBeUndefined()
+  })
+
+  it('a remove job does not resurrect a previously stripped bundles entry', async () => {
+    const { facts, dir } = makeProfile({
+      '@linxin666/dsh-web-ui-all': { bundle: true, patch: AGGREGATE_PATCH },
+      'dsh-better-sidebar': { bundle: true },
+      'dsh-memoir': { bundle: true },
+    }, { bundles: ['@linxin666/dsh-web-ui-all', 'dsh-memoir'] })
+    tempDirs.push(dir)
+    const calls: string[][] = []
+    const gateway = gatewayFor(facts, (args) => {
+      if (args[0] !== 'plugin') return { code: 0 }
+      if (args[3] === 'remove') {
+        removePackage(facts.profileDir, args[4] ?? '')
+        reconcileBundles(facts.profileDir)
+      }
+      return { code: 0 }
+    }, calls)
+    const { jobId } = gateway.remove('dsh-memoir')
+    const job = await settle(gateway, jobId)
+    expect(job.phase).toBe('done')
+    const manifest = readManifest(facts.profileDir)
+    // Reconciliation re-added dsh-better-sidebar; the safeguard stripped it again.
+    expect(manifest.dsh.profile.bundles).toEqual(['@linxin666/dsh-web-ui-all'])
+    expect(manifest.dependencies['dsh-better-sidebar']).toBe('1.0.0')
+    expect(manifest.dependencies['dsh-memoir']).toBeUndefined()
+    expect(job.notices).toEqual([{ id: 'dsh-better-sidebar', name: 'dsh-better-sidebar', from: 'enabled', to: 'uninstalled' }])
   })
 })
