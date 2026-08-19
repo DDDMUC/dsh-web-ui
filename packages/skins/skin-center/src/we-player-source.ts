@@ -1862,8 +1862,10 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     })
     .catch(err => console.error('Failed to load scene manifest', err));
 
-  // Listen for controller messages
+  // Listen for controller messages; only the embedding parent on the same
+  // origin may steer the player.
   window.addEventListener('message', (ev) => {
+    if (ev.source !== window.parent || ev.origin !== window.location.origin) return;
     const msg = ev.data;
     if (!msg || typeof msg !== 'object') return;
     if (msg.type === 'dsh-set-fit' && msg.fit) {

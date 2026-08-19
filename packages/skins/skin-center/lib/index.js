@@ -1,6 +1,6 @@
 import { installSettingsSection, settingsNamespace } from "@deepseek-ai/dsh-settings";
 import z from "schemastery";
-import { chmodSync, cpSync, createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, createReadStream, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -3068,14 +3068,24 @@ function pkgSceneAccess(pkgData) {
 */
 function dirSceneAccess(dir) {
 	const normDir = resolve(dir);
+	const realDir = (() => {
+		try {
+			return realpathSync(normDir);
+		} catch {
+			return normDir;
+		}
+	})();
 	const readFile = (path) => {
 		const abs = resolve(normDir, path);
 		if (abs !== normDir && !abs.startsWith(normDir + sep)) return null;
 		try {
+			if (lstatSync(abs).isSymbolicLink()) return null;
 			if (!statSync(abs).isFile()) return null;
+			const real = realpathSync(abs);
+			if (real !== realDir && !real.startsWith(realDir + sep)) return null;
 			return {
 				path,
-				bytes: new Uint8Array(readFileSync(abs))
+				bytes: new Uint8Array(readFileSync(real))
 			};
 		} catch {
 			return null;
@@ -3096,9 +3106,10 @@ function dirSceneAccess(dir) {
 				let isDir = false;
 				let isFile = false;
 				try {
-					const stat = statSync(join(normDir, rel));
-					isDir = stat.isDirectory();
-					isFile = stat.isFile();
+					const lst = lstatSync(join(normDir, rel));
+					if (lst.isSymbolicLink()) continue;
+					isDir = lst.isDirectory();
+					isFile = lst.isFile();
 				} catch {
 					continue;
 				}
@@ -3692,8 +3703,10 @@ function buildSceneManifestVia(access, token) {
 	if (!scene && project && typeof project.file === "string" && project.file.endsWith(".json")) scene = access.readJson(project.file);
 	if (!scene || !Array.isArray(scene.objects)) return null;
 	const general = scene.general;
-	const width = general?.orthogonalprojection?.width || 3840;
-	const height = general?.orthogonalprojection?.height || 2160;
+	const projW = general?.orthogonalprojection?.width;
+	const projH = general?.orthogonalprojection?.height;
+	const width = typeof projW === "number" && Number.isFinite(projW) && projW > 0 ? Math.floor(projW) : 3840;
+	const height = typeof projH === "number" && Number.isFinite(projH) && projH > 0 ? Math.floor(projH) : 2160;
 	const resourceBase = "/api/skin-center/we/scene-resource/" + token + "/";
 	const manifest = {
 		width,
@@ -3759,7 +3772,8 @@ function buildSceneManifestVia(access, token) {
 			if (pathJson?.paths && pathJson.paths.length > 0) {
 				manifest.cameraPaths = [];
 				for (const seg of pathJson.paths) {
-					if (!seg.transforms || seg.transforms.length < 2 || !seg.duration) continue;
+					if (!seg.transforms || seg.transforms.length < 2) continue;
+					if (typeof seg.duration !== "number" || !Number.isFinite(seg.duration) || seg.duration <= 0) continue;
 					const t0 = seg.transforms[0];
 					const t1 = seg.transforms[seg.transforms.length - 1];
 					manifest.cameraPaths.push({
@@ -6195,8 +6209,10 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     })
     .catch(err => console.error('Failed to load scene manifest', err));
 
-  // Listen for controller messages
+  // Listen for controller messages; only the embedding parent on the same
+  // origin may steer the player.
   window.addEventListener('message', (ev) => {
+    if (ev.source !== window.parent || ev.origin !== window.location.origin) return;
     const msg = ev.data;
     if (!msg || typeof msg !== 'object') return;
     if (msg.type === 'dsh-set-fit' && msg.fit) {
@@ -6833,8 +6849,9 @@ function makeWeRoutes(deps) {
 					});
 					return;
 				}
+				const isPng = resBytes.length > 8 && resBytes[0] === 137 && resBytes[1] === 80 && resBytes[2] === 78 && resBytes[3] === 71;
 				res.writeHead(200, {
-					"content-type": "image/png",
+					"content-type": isPng ? "image/png" : "application/octet-stream",
 					"cache-control": "no-store"
 				});
 				res.end(Buffer.from(resBytes));
