@@ -156,7 +156,7 @@ describe('innerPathOf / loopbackOnlyDenial', () => {
     expect(innerPathOf('/remote/api/%5csecret')).toBeUndefined()
   })
 
-  it('denies privileged SDK methods, pairing, update, plugin-manager, and desktop-launcher', () => {
+  it('denies privileged SDK methods, pairing, update, plugin-manager, desktop-launcher, and the settings bridge', () => {
     expect(loopbackOnlyDenial('/api/settings.update')).toBeDefined()
     expect(loopbackOnlyDenial('/api/pair')).toBeDefined()
     expect(loopbackOnlyDenial('/api/pair/status')).toBeDefined()
@@ -166,6 +166,9 @@ describe('innerPathOf / loopbackOnlyDenial', () => {
     expect(loopbackOnlyDenial('/api/dsh-desktop-launcher')).toBeDefined()
     expect(loopbackOnlyDenial('/api/dsh-desktop-launcher/shutdown')).toBeDefined()
     expect(loopbackOnlyDenial('/api/dsh-desktop-launcher/create')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/dsh-web-ui-settings')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/dsh-web-ui-settings/describe')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/dsh-web-ui-settings/mutate')).toBeDefined()
     expect(loopbackOnlyDenial('/api/session.list')).toBeUndefined()
     expect(loopbackOnlyDenial('/api/pet/state')).toBeUndefined()
     expect(loopbackOnlyDenial('/sidebar/api/fs.tree')).toBeUndefined()
@@ -308,6 +311,25 @@ describe('remote desktop channel (/remote)', () => {
     const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port }))
     try {
       for (const path of ['/remote/api/dsh-desktop-launcher/shutdown', '/remote/api/dsh-desktop-launcher/create']) {
+        const result = await call(port, 'POST', path, { cookie, body: '{}' })
+        expect(result.status, path).toBe(403)
+        const body = JSON.parse(result.body) as { result: { error: { code: string } } }
+        expect(body.result.error.code, path).toBe('forbidden')
+      }
+      expect(upstream.hits).toHaveLength(0)
+    } finally {
+      await close()
+      await upstream.close()
+    }
+  })
+
+  it('denies the family settings bridge to a paired remote desktop', async () => {
+    const service = makeService()
+    const cookie = pairedCookie(service)
+    const upstream = await startUpstream(() => ({ status: 200, body: '{"leaked":true}' }))
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port }))
+    try {
+      for (const path of ['/remote/api/dsh-web-ui-settings/describe', '/remote/api/dsh-web-ui-settings/mutate']) {
         const result = await call(port, 'POST', path, { cookie, body: '{}' })
         expect(result.status, path).toBe(403)
         const body = JSON.parse(result.body) as { result: { error: { code: string } } }

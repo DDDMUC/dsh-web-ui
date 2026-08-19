@@ -12,8 +12,8 @@
  * - The SDK's loopback-only privileged methods (native dialogs, the settings
  *   plane, credentials — the `PRIVILEGED_METHODS` set of client-connection)
  *   are denied here. The set is pinned by tests/remote-contract.spec.ts.
- * - `/api/pair/*`, `/api/update/*`, `/api/plugin-manager/*` and
- *   `/api/dsh-desktop-launcher/*` stay physically local.
+ * - `/api/pair/*`, `/api/update/*`, `/api/plugin-manager/*`,
+ *   `/api/dsh-desktop-launcher/*` and `/api/dsh-web-ui-settings/*` stay physically local.
  * - Everything else is HTTP- or WebSocket-proxied to the local port with
  *   Host rewritten, Origin and cookies dropped, and a synthetic same-origin
  *   browser marker added after authentication. Plugin loopback fences then
@@ -34,6 +34,7 @@ import {
   REMOTE_API_PATHS,
   REMOTE_PREFIX,
   REMOTE_UPGRADE_PATHS,
+  WEB_UI_SETTINGS_BRIDGE_PATH,
 } from './remote-methods.ts'
 
 export {
@@ -43,6 +44,7 @@ export {
   REMOTE_API_PATHS,
   REMOTE_PREFIX,
   REMOTE_UPGRADE_PATHS,
+  WEB_UI_SETTINGS_BRIDGE_PATH,
 } from './remote-methods.ts'
 export { REMOTE_API_PREFIX } from './remote-methods.ts'
 
@@ -109,6 +111,9 @@ export function loopbackOnlyDenial(innerPath: string): string | undefined {
   }
   if (innerPath === DESKTOP_LAUNCHER_PATH || innerPath.startsWith(`${DESKTOP_LAUNCHER_PATH}/`)) {
     return 'desktop-launcher endpoints stay loopback-only and stay unreachable from a paired remote desktop'
+  }
+  if (innerPath === WEB_UI_SETTINGS_BRIDGE_PATH || innerPath.startsWith(`${WEB_UI_SETTINGS_BRIDGE_PATH}/`)) {
+    return 'settings-bridge endpoints stay loopback-only and stay unreachable from a paired remote desktop'
   }
   if (!innerPath.startsWith('/api/')) return undefined
   const method = innerPath.slice('/api/'.length)

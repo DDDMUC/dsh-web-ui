@@ -13,6 +13,8 @@
  * - the update endpoints (`/api/update/*`) stay loopback-only;
  * - desktop-launcher create/shutdown (`/api/dsh-desktop-launcher/*`) stay
  *   loopback-only (host-local files and process exit);
+ * - the family settings bridge (`/api/dsh-web-ui-settings/*`) stays
+ *   loopback-only (same plane as SDK settings.*);
  * - `/api/*` (SDK methods and `/api/<plugin>/...` plugin namespaces),
  *   `/sidebar/*`, `/git/*`, and `/pet/*` ride the channel;
  * - fetch, EventSource, WebSocket, and img/script/iframe `src` are patched;
@@ -32,6 +34,7 @@ const API_PREFIX = '/api/'
 const PAIR_PREFIX = '/api/pair/'
 const UPDATE_PREFIX = '/api/update/'
 const DESKTOP_LAUNCHER_PREFIX = '/api/dsh-desktop-launcher'
+const SETTINGS_BRIDGE_PREFIX = '/api/dsh-web-ui-settings'
 const SIDEBAR_PREFIX = '/sidebar/'
 const GIT_PREFIX = '/git/'
 const PET_PREFIX = '/pet/'
@@ -64,6 +67,7 @@ export function shouldRewriteFetchPath(pathname: string): boolean {
   if (pathname.startsWith(PAIR_PREFIX)) return false
   if (pathname.startsWith(UPDATE_PREFIX)) return false
   if (pathname === DESKTOP_LAUNCHER_PREFIX || pathname.startsWith(`${DESKTOP_LAUNCHER_PREFIX}/`)) return false
+  if (pathname === SETTINGS_BRIDGE_PREFIX || pathname.startsWith(`${SETTINGS_BRIDGE_PREFIX}/`)) return false
   if (pathname.startsWith(API_PREFIX)) return true
   if (pathname.startsWith(SIDEBAR_PREFIX) || pathname === '/sidebar') return true
   if (pathname.startsWith(GIT_PREFIX) || pathname === '/git') return true
