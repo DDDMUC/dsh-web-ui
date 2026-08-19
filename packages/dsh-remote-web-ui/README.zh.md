@@ -108,10 +108,9 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 cloudflared tunnel --url http://127.0.0.1:3080
 #    打印类似：https://xxxx-xxxx-xxxx.trycloudflare.com
 
-# 2. Start dsh web as usual. Do not add --trusted-host for the tunnel
-#    domain unless you intentionally want the SDK to trust that host for
-#    /api (pairing does not cover /api; remote desktop uses /remote/api).
-#    Use --host 0.0.0.0 only when LAN access should stay available:
+# 2. 照常启动 dsh web。不必为隧道域名加 --trusted-host，除非你有意让 SDK
+#    信任该主机访问 /api（配对不管 /api；远程桌面走 /remote/api）。
+#    仅需保留局域网访问时才加 --host 0.0.0.0：
 dsh web
 ```
 
