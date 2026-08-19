@@ -389,12 +389,22 @@ export class WallpaperController implements WallpaperHandle {
   }
 
   private readonly onVisibility = (): void => {
-    if (this.videoElement === null || !this.pauseOnHiddenValue) return
-    if (this.doc.hidden) {
-      this.videoElement.pause()
-    } else {
-      // jsdom (and older engines) return undefined, real browsers a promise.
-      void this.videoElement.play()?.catch(() => { /* autoplay policy */ })
+    if (!this.pauseOnHiddenValue) return
+    if (this.videoElement !== null) {
+      if (this.doc.hidden) {
+        this.videoElement.pause()
+      } else {
+        // jsdom (and older engines) return undefined, real browsers a promise.
+        void this.videoElement.play()?.catch(() => { /* autoplay policy */ })
+      }
+    }
+    const scenePlayer = this.mediaLayer?.firstElementChild ?? null
+    if (scenePlayer instanceof HTMLIFrameElement && scenePlayer.dataset.dshScenePlayer === '') {
+      try {
+        scenePlayer.contentWindow?.postMessage({ type: 'dsh-set-pause', paused: this.doc.hidden }, window.location.origin)
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -447,7 +457,7 @@ export class WallpaperController implements WallpaperHandle {
       styleLayer(this.scrimLayer, -2)
       this.doc.body.appendChild(this.scrimLayer)
     }
-    const mediaKey = descriptor.id + ':' + this.modeValue + ':' + this.fitValue
+    const mediaKey = descriptor.id + ':' + this.modeValue
     if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
       this.mediaLayer.dataset.mediaKey = mediaKey
       this.mediaLayer.replaceChildren()
@@ -455,12 +465,30 @@ export class WallpaperController implements WallpaperHandle {
       const child = this.buildMedia(descriptor)
       if (child !== null) this.mediaLayer.appendChild(child)
     }
+    // Sizing mode changes apply in place: rebuilding would restart video
+    // playback and re-parse the scene on every click (#717 follow-up).
+    this.applyFit()
     // Blur the wallpaper itself (the -1 backdrop-filter element stays the
     // skin-center blur control's business and blurs everything behind).
     const blur = this.blurValue > 0 ? 'blur(' + String(this.blurValue) + 'px)' : ''
     this.mediaLayer.style.filter = blur
     this.mediaLayer.style.transform = this.blurValue > 0 ? 'scale(1.05)' : ''
     this.scrimLayer.style.background = 'rgba(0, 0, 0, ' + String(this.dimValue / 100) + ')'
+  }
+
+  /** Push the current sizing mode onto the mounted media element. */
+  private applyFit(): void {
+    const child = this.mediaLayer?.firstElementChild ?? null
+    if (child instanceof HTMLElement) {
+      styleCover(child, this.fitValue)
+    }
+    if (child instanceof HTMLIFrameElement && child.dataset.dshScenePlayer === '') {
+      try {
+        child.contentWindow?.postMessage({ type: 'dsh-set-fit', fit: this.fitValue }, window.location.origin)
+      } catch {
+        // ignore: the player also receives the fit on its own load handler
+      }
+    }
   }
 
   /** Build the cover child for one descriptor + mode; null when unrenderable. */
@@ -498,10 +526,11 @@ export class WallpaperController implements WallpaperHandle {
         iframe.src = descriptor.sceneUrl
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
         iframe.setAttribute('tabindex', '-1')
+        iframe.dataset.dshScenePlayer = ''
         styleCover(iframe, this.fitValue)
         iframe.addEventListener('load', () => {
           try {
-            iframe.contentWindow?.postMessage({ type: 'dsh-set-fit', fit: this.fitValue }, '*')
+            iframe.contentWindow?.postMessage({ type: 'dsh-set-fit', fit: this.fitValue }, window.location.origin)
           } catch {
             // ignore
           }

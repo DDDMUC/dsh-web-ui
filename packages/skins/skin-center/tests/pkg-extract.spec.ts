@@ -10,7 +10,7 @@
  */
 
 import { Buffer } from 'node:buffer'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { inflateSync } from 'node:zlib'
@@ -31,6 +31,7 @@ import {
   parseTex,
   parseTexToRGBA,
   readPkgEntry,
+  extractSceneResourceFromDir,
 } from '../src/pkg-extract.ts'
 
 // ---------------------------------------------------------------------------
@@ -1145,5 +1146,75 @@ describe('untrusted input allocation caps (#717 hardening)', () => {
       Uint8Array.of(0, 0, 0, 0),
     )
     expect(() => decodePngToRgba(png)).toThrow(/invalid dimensions/)
+  })
+})
+
+describe('scene robustness (#717 follow-up)', () => {
+  it('clamps negative or invalid projection dims to the defaults', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'dsh-scene-dims-'))
+    try {
+      mkdirSync(join(tmp, 'models'), { recursive: true })
+      mkdirSync(join(tmp, 'materials'), { recursive: true })
+      writeFileSync(join(tmp, 'materials', 'photo.tex'), buildTex({
+        width: 4, height: 4,
+        mipmaps: [{ width: 4, height: 4, data: new Uint8Array(4 * 4 * 4) }],
+      }))
+      writeFileSync(join(tmp, 'models', 'photo.json'), JSON.stringify({ material: 'materials/photo.json', width: 4, height: 4 }))
+      writeFileSync(join(tmp, 'materials', 'photo.json'), JSON.stringify({ passes: [{ shader: 'genericimage', textures: ['photo'] }] }))
+      writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+        general: { orthogonalprojection: { width: -1920, height: 0 } },
+        objects: [{ name: 'photo', image: 'models/photo.json', origin: '0 0 0' }],
+      }), 'utf8')
+      const manifest = buildSceneManifestFromDir(tmp, 'tok_dims')
+      expect(manifest?.width).toBe(3840)
+      expect(manifest?.height).toBe(2160)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('skips camera path segments with non-positive duration', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'dsh-scene-cam-'))
+    try {
+      mkdirSync(join(tmp, 'models'), { recursive: true })
+      mkdirSync(join(tmp, 'materials'), { recursive: true })
+      writeFileSync(join(tmp, 'materials', 'photo.tex'), buildTex({
+        width: 4, height: 4,
+        mipmaps: [{ width: 4, height: 4, data: new Uint8Array(4 * 4 * 4) }],
+      }))
+      writeFileSync(join(tmp, 'models', 'photo.json'), JSON.stringify({ material: 'materials/photo.json', width: 4, height: 4 }))
+      writeFileSync(join(tmp, 'materials', 'photo.json'), JSON.stringify({ passes: [{ shader: 'genericimage', textures: ['photo'] }] }))
+      writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+        camera: { paths: ['camera.json'] },
+        objects: [{ name: 'photo', image: 'models/photo.json', origin: '0 0 0' }],
+      }), 'utf8')
+      const t0 = { eye: '0 0 5', center: '0 0 0', up: '0 1 0' }
+      const t1 = { eye: '0 0 4', center: '0 0 0', up: '0 1 0' }
+      writeFileSync(join(tmp, 'camera.json'), JSON.stringify({
+        paths: [
+          { duration: 0, transforms: [t0, t1] },
+          { duration: -2, transforms: [t0, t1] },
+          { duration: 5, transforms: [t0, t1] },
+        ],
+      }), 'utf8')
+      const manifest = buildSceneManifestFromDir(tmp, 'tok_cam')
+      expect(manifest?.cameraPaths?.length).toBe(1)
+      expect(manifest?.cameraPaths?.[0].d).toBe(5)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses to read project files that are symlinks escaping the directory', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'dsh-scene-link-'))
+    const outside = mkdtempSync(join(tmpdir(), 'dsh-scene-out-'))
+    try {
+      writeFileSync(join(outside, 'evil.tex'), Buffer.from('TEXV0005-fake'), 'utf8')
+      symlinkSync(join(outside, 'evil.tex'), join(tmp, 'evil.tex'))
+      expect(extractSceneResourceFromDir(tmp, 'evil.tex')).toBeNull()
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+      rmSync(outside, { recursive: true, force: true })
+    }
   })
 })

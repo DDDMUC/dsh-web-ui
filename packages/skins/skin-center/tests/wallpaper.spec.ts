@@ -178,6 +178,21 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('keeps the media element across fit changes instead of rebuilding (#717 follow-up)', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(video)
+    const [media] = layers()
+    const vid = media.querySelector('video')
+    expect(vid).not.toBeNull()
+    controller.setFit('fill')
+    const [media2] = layers()
+    const vid2 = media2.querySelector('video')
+    expect(vid2).toBe(vid) // same element: only objectFit updated
+    expect(vid2?.style.objectFit).toBe('fill')
+    controller.dispose()
+  })
+
   it('mounts video for scene wallpaper when videoUrl is present in live mode', () => {
     const { scope } = fakeScope()
     const controller = new WallpaperController(scope)

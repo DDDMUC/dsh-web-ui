@@ -255,9 +255,16 @@ window.__ModuleLoader__.load({
 				this.videoElement.play()?.catch(() => {});
 			};
 			onVisibility = () => {
-				if (this.videoElement === null || !this.pauseOnHiddenValue) return;
-				if (this.doc.hidden) this.videoElement.pause();
+				if (!this.pauseOnHiddenValue) return;
+				if (this.videoElement !== null) if (this.doc.hidden) this.videoElement.pause();
 				else this.videoElement.play()?.catch(() => {});
+				const scenePlayer = this.mediaLayer?.firstElementChild ?? null;
+				if (scenePlayer instanceof HTMLIFrameElement && scenePlayer.dataset.dshScenePlayer === "") try {
+					scenePlayer.contentWindow?.postMessage({
+						type: "dsh-set-pause",
+						paused: this.doc.hidden
+					}, window.location.origin);
+				} catch {}
 			};
 			/** Reconcile the DOM with (enabled, previewing ?? applied, mode, dim, blur). */
 			render() {
@@ -300,7 +307,7 @@ window.__ModuleLoader__.load({
 					styleLayer(this.scrimLayer, -2);
 					this.doc.body.appendChild(this.scrimLayer);
 				}
-				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + this.fitValue;
+				const mediaKey = descriptor.id + ":" + this.modeValue;
 				if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
 					this.mediaLayer.dataset.mediaKey = mediaKey;
 					this.mediaLayer.replaceChildren();
@@ -308,10 +315,22 @@ window.__ModuleLoader__.load({
 					const child = this.buildMedia(descriptor);
 					if (child !== null) this.mediaLayer.appendChild(child);
 				}
+				this.applyFit();
 				const blur = this.blurValue > 0 ? "blur(" + String(this.blurValue) + "px)" : "";
 				this.mediaLayer.style.filter = blur;
 				this.mediaLayer.style.transform = this.blurValue > 0 ? "scale(1.05)" : "";
 				this.scrimLayer.style.background = "rgba(0, 0, 0, " + String(this.dimValue / 100) + ")";
+			}
+			/** Push the current sizing mode onto the mounted media element. */
+			applyFit() {
+				const child = this.mediaLayer?.firstElementChild ?? null;
+				if (child instanceof HTMLElement) styleCover(child, this.fitValue);
+				if (child instanceof HTMLIFrameElement && child.dataset.dshScenePlayer === "") try {
+					child.contentWindow?.postMessage({
+						type: "dsh-set-fit",
+						fit: this.fitValue
+					}, window.location.origin);
+				} catch {}
 			}
 			/** Build the cover child for one descriptor + mode; null when unrenderable. */
 			buildMedia(descriptor) {
@@ -338,13 +357,14 @@ window.__ModuleLoader__.load({
 						iframe.src = descriptor.sceneUrl;
 						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
 						iframe.setAttribute("tabindex", "-1");
+						iframe.dataset.dshScenePlayer = "";
 						styleCover(iframe, this.fitValue);
 						iframe.addEventListener("load", () => {
 							try {
 								iframe.contentWindow?.postMessage({
 									type: "dsh-set-fit",
 									fit: this.fitValue
-								}, "*");
+								}, window.location.origin);
 							} catch {}
 						});
 						return iframe;

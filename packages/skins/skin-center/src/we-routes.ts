@@ -565,7 +565,10 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           json(res, 404, { ok: false, error: 'resource-not-found' })
           return
         }
-        res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' })
+        // The extractor falls back to raw file bytes when a texture cannot
+        // be decoded: label by payload, not by route name.
+        const isPng = resBytes.length > 8 && resBytes[0] === 0x89 && resBytes[1] === 0x50 && resBytes[2] === 0x4e && resBytes[3] === 0x47
+        res.writeHead(200, { 'content-type': isPng ? 'image/png' : 'application/octet-stream', 'cache-control': 'no-store' })
         res.end(Buffer.from(resBytes))
       } catch (err) {
         json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })

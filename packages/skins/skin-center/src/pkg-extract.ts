@@ -36,7 +36,7 @@
  */
 
 import { Buffer } from 'node:buffer'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join as joinPath, resolve as resolvePath, sep } from 'node:path'
 import { deflateSync, inflateSync } from 'node:zlib'
 
@@ -1031,12 +1031,18 @@ function pkgSceneAccess(pkgData: Uint8Array): SceneAccess {
  */
 function dirSceneAccess(dir: string): SceneAccess {
   const normDir = resolvePath(dir)
+  const realDir = (() => { try { return realpathSync(normDir) } catch { return normDir } })()
   const readFile = (path: string): SceneFile | null => {
     const abs = resolvePath(normDir, path)
     if (abs !== normDir && !abs.startsWith(normDir + sep)) return null
     try {
+      // Never follow symlinks: a project dir containing a link must not
+      // leak arbitrary file bytes into the extraction pipeline.
+      if (lstatSync(abs).isSymbolicLink()) return null
       if (!statSync(abs).isFile()) return null
-      return { path, bytes: new Uint8Array(readFileSync(abs)) }
+      const real = realpathSync(abs)
+      if (real !== realDir && !real.startsWith(realDir + sep)) return null
+      return { path, bytes: new Uint8Array(readFileSync(real)) }
     } catch {
       return null
     }
@@ -1056,9 +1062,10 @@ function dirSceneAccess(dir: string): SceneAccess {
         let isDir = false
         let isFile = false
         try {
-          const stat = statSync(joinPath(normDir, rel))
-          isDir = stat.isDirectory()
-          isFile = stat.isFile()
+          const lst = lstatSync(joinPath(normDir, rel))
+          if (lst.isSymbolicLink()) continue
+          isDir = lst.isDirectory()
+          isFile = lst.isFile()
         } catch {
           continue
         }
@@ -1943,8 +1950,12 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
   if (!scene || !Array.isArray(scene.objects)) return null
 
   const general = scene.general as { orthogonalprojection?: { width?: number; height?: number } } | undefined
-  const width = general?.orthogonalprojection?.width || 3840
-  const height = general?.orthogonalprojection?.height || 2160
+  const projW = general?.orthogonalprojection?.width
+  const projH = general?.orthogonalprojection?.height
+  // Negative / NaN / non-numeric projection values must not leak into the
+  // player's viewport math (negative viewports render black).
+  const width = typeof projW === 'number' && Number.isFinite(projW) && projW > 0 ? Math.floor(projW) : 3840
+  const height = typeof projH === 'number' && Number.isFinite(projH) && projH > 0 ? Math.floor(projH) : 2160
   const resourceBase = '/api/skin-center/we/scene-resource/' + token + '/'
 
   const manifest: SceneManifest = {
@@ -1994,7 +2005,8 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
       if (pathJson?.paths && pathJson.paths.length > 0) {
         manifest.cameraPaths = []
         for (const seg of pathJson.paths) {
-          if (!seg.transforms || seg.transforms.length < 2 || !seg.duration) continue
+          if (!seg.transforms || seg.transforms.length < 2) continue
+          if (typeof seg.duration !== 'number' || !Number.isFinite(seg.duration) || seg.duration <= 0) continue
           const t0 = seg.transforms[0]
           const t1 = seg.transforms[seg.transforms.length - 1]
           manifest.cameraPaths.push({
