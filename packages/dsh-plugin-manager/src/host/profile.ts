@@ -8,7 +8,7 @@
  */
 
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { copyFile, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { resolveDshHome } from './dsh-home.ts'
 
@@ -89,6 +89,26 @@ export async function readProfileManifest(packageJsonPath: string): Promise<Prof
     }
   }
   return { bundles, dependencies }
+}
+
+/**
+ * Remove selected entries from the profile manifest's `dsh.profile.bundles`,
+ * conservatively: a single backup copy, then a tmp write and an atomic-ish
+ * rename over the target — the same discipline as the patch-row editor. Every
+ * other key (dependencies included) round-trips untouched; entries not in
+ * `names` keep their order. A missing bundles array is a no-op write.
+ * @param packageJsonPath - absolute path of the profile's package.json.
+ * @param names - bundle entries to strip (package names).
+ */
+export async function stripProfileBundles(packageJsonPath: string, names: readonly string[]): Promise<void> {
+  const text = await readFile(packageJsonPath, 'utf8')
+  const parsed = JSON.parse(text) as { dsh?: { profile?: { bundles?: unknown } } }
+  const profile = parsed.dsh?.profile
+  if (profile === undefined || !Array.isArray(profile.bundles)) return
+  profile.bundles = profile.bundles.filter(entry => !(typeof entry === 'string' && names.includes(entry)))
+  await copyFile(packageJsonPath, `${packageJsonPath}.bak-plugin-manager`).catch(() => {})
+  await writeFile(`${packageJsonPath}.tmp`, `${JSON.stringify(parsed, null, 2)}\n`, { mode: 0o600 })
+  await rename(`${packageJsonPath}.tmp`, packageJsonPath)
 }
 
 /**

@@ -10,7 +10,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { useSyncExternalStore, type ComponentProps } from 'react'
+import React, { useSyncExternalStore, type ComponentProps } from 'react'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 // The npm SDK's client half is a closure-factory bundle for the GUI's
 // __ModuleLoader__ (not importable under vitest); provide the one value
@@ -27,6 +27,17 @@ vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
     }
   },
 }))
+// The official primitives pull in shiki/katex at module scope; stub the two
+// members the card consumes (same stance as the plugin-manager tab tests).
+vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => {
+  const create = (React.createElement as (...args: unknown[]) => unknown).bind(React)
+  return {
+    Button: (props: Record<string, unknown>) =>
+      create('button', { disabled: props['disabled'], onClick: props['onClick'], className: props['className'] }, props['children']),
+    Modal: (props: Record<string, unknown>) =>
+      props['open'] === true ? create('div', { role: 'dialog' }, props['title'], props['children']) : null,
+  }
+})
 import { CommunityPluginsCard, CommunityPluginsCardController, type CommunityPluginsCardProps, type CommunityPluginsSettings } from '../src/client/CommunityPluginsCard.tsx'
 import { en } from '../src/client/locales.ts'
 import type { CommunityPluginEntry } from '../src/client/generated/community.ts'

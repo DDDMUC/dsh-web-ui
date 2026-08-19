@@ -72,6 +72,13 @@ export function bareRowId(item: unknown): string | undefined {
   return isScalar(id) && typeof id.value === 'string' ? id.value : undefined
 }
 
+/** The string name of a bare row, when it carries one. */
+export function bareRowName(item: unknown): string | undefined {
+  if (!isBareRow(item)) return undefined
+  const name = item.get('name', true)
+  return isScalar(name) && typeof name.value === 'string' ? name.value : undefined
+}
+
 /**
  * The next-start enablement a bare row declares: a row is enabled unless it
  * carries an explicit `disabled: true` (mirrors the official reader). Non-row

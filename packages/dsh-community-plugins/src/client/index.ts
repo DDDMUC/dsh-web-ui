@@ -17,8 +17,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { CommunityPluginsCardController, CommunityPluginsSection, type CommunityPluginsSettings } from './CommunityPluginsCard.tsx'
 import { en, zh, type CommunityPluginKey } from './locales.ts'
+import { bridgePluginManager } from './plugin-manager-bridge.ts'
 
 export type { CommunityPluginsCardProps, CommunityPluginsSectionProps } from './CommunityPluginsCard.tsx'
+export type { InstalledPluginItem, InstallProgressItem, PluginManagerService } from './plugin-manager-bridge.ts'
 
 /** Settings namespace the card's enable switch edits (the Host plugin registers it). */
 const COMMUNITY_PLUGINS_NS = 'community-plugins'
@@ -51,6 +53,12 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register('community-plugins', { zh, en }), 'community-plugins: dictionaries')
+
+  // Bridge the optional 'pluginManager' cordis service (provided by the
+  // sibling dsh-plugin-manager plugin) into the card's reactive store. It is
+  // deliberately NOT in the module-level inject array: when the sibling is
+  // absent this plugin still loads and the card keeps its read-only index UI.
+  bridgePluginManager(ctx)
 
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
   const settingsScope = binder.bind<CommunityPluginsSettings>({ namespace: COMMUNITY_PLUGINS_NS })

@@ -13,6 +13,11 @@
     - id: web-ui-settings
       name: '@linxin666/dsh-client-ui-web-ui-settings'
 
+# from ../dsh-plugin-manager
+- insert:
+    - id: web-ui-plugin-manager
+      name: '@linxin666/dsh-client-ui-plugin-manager'
+
 # from ../dsh-community-plugins
 - insert:
     - id: web-ui-community-plugins

@@ -39,6 +39,19 @@ Restart `dsh web`; the tab appears in the settings page's Plugins section.
 
 The tab carries no configuration namespace. Enablement switches and installs apply at the next restart.
 
+## Cordis service
+
+The browser half provides the shared dual-channel face as the cordis service `pluginManager`, so sibling client plugins can drive and observe plugin management without re-implementing the channel detection. Consume it with `ctx.inject(['pluginManager'], cb)` and read `ctx.pluginManager`:
+
+- `isLoopback: boolean` — whether this browser has loopback authority to use the host routes.
+- `list(): Promise<InstalledPluginItem[]>` — read the installed snapshot.
+- `install(spec): Promise<InstalledPluginItem>` — install one plugin from an npm spec or git URL.
+- `uninstall(id): Promise<InstalledPluginItem[]>` — remove one plugin.
+- `status(): Promise<InstallProgressItem>` — read the current install/update progress.
+- `onChange(cb): () => void` — subscribe to successful mutations; fires after `install()`, `update()`, `uninstall()`, or `setEnabled()` resolves, and returns the unsubscribe function.
+
+The contract source of truth is `src/core/service.ts` (`PluginManagerService`). The service is provided for the plugin's lifetime and disappears when the plugin is unloaded. The service and the Plugin manager tab share one face, so `onChange` subscribers observe mutations from both.
+
 ## Known limitations
 
 - Loopback-only: on a LAN or remote browser the tab renders a local-only notice (the same boundary the official installer tab enforces; the gateway refuses non-loopback requests with 403).
@@ -48,6 +61,7 @@ The tab carries no configuration namespace. Enablement switches and installs app
 - The web build has no in-place restart: changes apply at the next manual restart.
 - Install-time conflict detection reports what the install actually changed (product rows in official mode, profile rows and bundle entries in gateway mode). On the npm runtime, duplicate insert-id claims are detected after install and the new plugin is rolled back automatically (a shared id can never be `disabled` away: the loader's duplicate check has no disabled exemption); on official runtimes the host's own rules and the boot-failure ring own that case.
 - The npm runtime's boot preflight (`--dump-config`) catches composition failures, and the static insert check catches insert rows naming packages that resolve nowhere; runtime import/apply failures still surface only at the next real start, where official runtimes keep the failure ring and the npm runtime does not.
+- Duplicate-mount safeguard (gateway mode): the official CLI's bundle reconciliation re-adds every bundle-declaring dependency to `dsh.profile.bundles` after any install/remove — including packages the composition already mounts through a patch row (the family aggregate mounts `dsh-better-sidebar` as a row), which would double-mount and fail the next boot (`duplicate prefix route`). After every successful CLI mutation the gateway strips exactly the newly added, already-row-mounted bundles entries back out (the manifest write goes through backup + tmp + atomic rename), reports one notice per stripped entry on the job result, and leaves normal installs' bundles entries — and every entry the user had before — untouched.
 - The wire shapes mirror the official installer tab protocol; on drift the tolerant parsers degrade to error rows rather than misbehaving.
 - The repair conversation's workspace keeps its path-derived default title.
 
@@ -60,6 +74,7 @@ The tab carries no configuration namespace. Enablement switches and installs app
 - Conflict handling is owner-aware: a duplicate entry id or an insert row naming an unresolvable package rolls the *new* package back through the official remove path. The gateway never writes `disabled` rows for a shared id (such rows cannot stop the loader's duplicate check and would flag the existing owner).
 - The boot preflight (`--dump-config`) composes patch layers without importing entries: it catches composition failures, not import-time failures, which still surface at the first real boot.
 - The profile name (from `--profile` / `DSH_PROFILE`) is validated against path traversal before any file is touched; patch writes go through a backup copy plus tmp-write + atomic rename (`cordis.patch.yml.bak-plugin-manager`).
+- The duplicate-mount safeguard writes only the profile manifest's `dsh.profile.bundles`, under the same backup + tmp-write + atomic-rename discipline as patch writes (`package.json.bak-plugin-manager`). It removes only entries the CLI just added that duplicate an existing patch-row mount, and a failed safeguard write fails the job visibly rather than silently leaving a boot-breaking state.
 
 ## License
 

@@ -16,7 +16,8 @@ import { join, win32 } from 'node:path'
 import type { InstalledPluginItem } from '../core/protocol.ts'
 import type { ControlChange } from '../core/conflict.ts'
 import { diffLayer, overlappingIds, significantChanges, type LayerChange, type LayerSnapshot } from '../core/patch-diff.ts'
-import { readProfileManifest, type ProfileFacts } from './profile.ts'
+import { duplicateMountBundles } from './bundle-guard.ts'
+import { readProfileManifest, stripProfileBundles, type ProfileFacts } from './profile.ts'
 import { insertRowsOf, parsePatch, bareRowEnabled, bareRowId } from './rows.ts'
 import { buildPluginRow, claimedEntryIdsOf } from './state.ts'
 
@@ -56,6 +57,15 @@ export interface GatewayJob {
   plugin?: InstalledPluginItem
   /** Layer changes the CLI applied, normalized for the conflict panel. */
   conflicts?: ControlChange[]
+  /**
+   * Duplicate-mount safeguard notices: bundles entries the CLI's
+   * reconciliation added but the composition already mounted through a patch
+   * row, stripped back out so the next boot cannot double-mount. Each notice
+   * carries the conflict-row shape (the entry left the bundles layer:
+   * enabled -> uninstalled) so the tab can render it with the existing rows;
+   * the package itself stays installed and row-mounted.
+   */
+  notices?: ControlChange[]
   error?: string
 }
 
@@ -159,9 +169,11 @@ export async function detectOfficialChannels(
   return OFFICIAL_INSTALLER_PATTERN.test(output.value)
 }
 
-/** One layer snapshot plus the dependency list of the profile. */
+/** One layer snapshot plus the profile patch text and dependency list. */
 interface CapturedState {
   layer: LayerSnapshot
+  /** Raw profile patch text (the duplicate-mount guard reads row names from it). */
+  patchText: string
   dependencies: string[]
 }
 
@@ -233,7 +245,11 @@ export class CliGateway {
   status(jobId: string): GatewayJob | undefined {
     const job = this.jobs.get(jobId)
     if (job === undefined) return undefined
-    return { ...job, conflicts: job.conflicts === undefined ? undefined : [...job.conflicts] }
+    return {
+      ...job,
+      conflicts: job.conflicts === undefined ? undefined : [...job.conflicts],
+      notices: job.notices === undefined ? undefined : [...job.notices],
+    }
   }
 
   /** Capture the layer snapshot and the dependency names (tolerant parse). */
@@ -265,7 +281,7 @@ export class CliGateway {
       bundles = []
       dependencies = []
     }
-    return { layer: { rows, bundles }, dependencies }
+    return { layer: { rows, bundles }, patchText, dependencies }
   }
 
   /** The plugin row a finished operation produced (installed or removed). */
@@ -317,7 +333,19 @@ export class CliGateway {
       job.error = tail === '' ? `plugin-manager: dsh plugin ${job.action} exited with code ${String(code)}` : tail
       return
     }
-    const after = await this.capture()
+    let after = await this.capture()
+    // B9: the CLI's bundle reconciliation re-adds every bundle-declaring
+    // dependency to dsh.profile.bundles — including packages the composition
+    // already mounts through a patch row (the aggregate's better-sidebar
+    // row), which double-mounts and kills the next boot. Strip exactly the
+    // newly added, already-row-mounted entries back out before anything else
+    // validates or preflights the result.
+    const stripped = await this.stripDuplicateMounts(job, before, after)
+    if (stripped === undefined) return
+    if (stripped.length > 0) {
+      job.notices = stripped.map(name => ({ id: name, name, from: 'enabled', to: 'uninstalled' }))
+      after = await this.capture()
+    }
     const conflicts = significantChanges(diffLayer(before.layer, after.layer))
     if (job.action === 'install') {
       const name = this.newDependency(before, after)
@@ -361,6 +389,37 @@ export class CliGateway {
     }))
     job.plugin = await this.rowFor(job.action, job.spec, before, after)
     job.phase = 'done'
+  }
+
+  /**
+   * Post-mutation duplicate-mount safeguard (B9): remove the bundles entries
+   * the CLI's reconciliation newly added for packages the before-state
+   * composition already mounted through a patch row. The write goes through
+   * the manifest's safe path (backup + tmp + atomic rename); entries the
+   * user had before and entries with no row mount are never touched. A
+   * failure of the guard itself settles the job as an error — a boot-breaking
+   * bundles state is never left silently.
+   * @param job - the settling job (error target on guard failure).
+   * @param before - state captured before the CLI run.
+   * @param after - state captured after the CLI run.
+   * @returns the stripped entries, or undefined when the job failed.
+   */
+  private async stripDuplicateMounts(job: GatewayJob, before: CapturedState, after: CapturedState): Promise<string[] | undefined> {
+    try {
+      const strip = await duplicateMountBundles(
+        this.facts,
+        { patchText: before.patchText, dependencies: before.dependencies, rowEnabled: before.layer.rows },
+        before.layer.bundles,
+        after.layer.bundles,
+      )
+      if (strip.length === 0) return []
+      await stripProfileBundles(this.facts.packageJsonPath, strip)
+      return strip
+    } catch (error) {
+      job.phase = 'error'
+      job.error = `plugin-manager: 重复挂载保护写回失败：${error instanceof Error ? error.message : String(error)}（profile 的 dsh.profile.bundles 可能仍处于重复挂载状态，下次启动前请手动检查 ${this.facts.packageJsonPath}）`
+      return undefined
+    }
   }
 
   /**
