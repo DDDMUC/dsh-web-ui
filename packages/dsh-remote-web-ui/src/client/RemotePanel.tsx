@@ -7,11 +7,11 @@
 import clsx from 'clsx'
 import { QRCodeSVG } from 'qrcode.react'
 import {
-  IconCloseOutline16, IconCopyOutline16, IconLinkOutline16, IconRefreshOutline16, IconStopFill16,
+  IconCloseOutline16, IconCopyOutline16, IconRefreshOutline16, IconStopFill16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
-import { formatClock, type PostureFrame, type TunnelStatusFrame } from './pair-api.ts'
+import { desktopPairUrl, formatClock, type PostureFrame, type TunnelStatusFrame } from './pair-api.ts'
 import css from './remote.module.css'
 
 /** The panel's view state, owned by the entry component. */
@@ -45,11 +45,11 @@ export type PanelState =
 export interface RemotePanelProps {
   t: TranslateNS<'remote'>
   state: PanelState
-  copied: boolean
+  copied: 'phone' | 'desktop' | undefined
   onClose(): void
   onStop(): void
   onRefresh(): void
-  onCopy(): void
+  onCopy(target: 'phone' | 'desktop', url: string): void
   /** Re-mint the QR against a different LAN address. */
   onPickAddress(address: string): void
   /** Re-mint the QR against the configured public (tunneled) base. */
@@ -132,7 +132,29 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
           </div>
 
           <p className={css.hint}>{state.public ? t('pair.publicHint') : t('pair.hint')}</p>
-          <p className={css.link} title={state.url}>{state.url}</p>
+          <div className={css.pairLinks}>
+            <div className={css.pairLinkRow}>
+              <div className={css.pairLinkText}>
+                <span className={css.pairLinkLabel}>{t('pair.phoneLabel')}</span>
+                <code className={css.link} title={state.url}>{state.url}</code>
+              </div>
+              <button type="button" className={css.copyLink} onClick={() => onCopy('phone', state.url)}>
+                <IconCopyOutline16 size={14} />
+                {copied === 'phone' ? t('action.copied') : t('action.copyPhone')}
+              </button>
+            </div>
+            <div className={css.pairLinkRow}>
+              <div className={css.pairLinkText}>
+                <span className={css.pairLinkLabel}>{t('pair.desktopLabel')}</span>
+                <code className={css.link} title={desktopPairUrl(state.url)}>{desktopPairUrl(state.url)}</code>
+              </div>
+              <button type="button" className={css.copyLink} onClick={() => onCopy('desktop', desktopPairUrl(state.url))}>
+                <IconCopyOutline16 size={14} />
+                {copied === 'desktop' ? t('action.copied') : t('action.copyDesktop')}
+              </button>
+            </div>
+          </div>
+          <p className={css.oneTimeHint}>{t('pair.oneTimeHint')}</p>
           {state.phase === 'stopped' && <p className={css.stoppedHint}>{t('stopped.hint')}</p>}
           {state.tunnel !== undefined && state.tunnel.state !== 'running' && (
             <p className={state.tunnel.state === 'failed' ? css.tunnelFailed : css.tunnelNote} role="status">
@@ -183,10 +205,6 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
             <button type="button" className={css.action} onClick={onRefresh}>
               <IconRefreshOutline16 size={14} />
               {t('action.refresh')}
-            </button>
-            <button type="button" className={css.action} onClick={onCopy}>
-              {copied ? <IconCopyOutline16 size={14} /> : <IconLinkOutline16 size={14} />}
-              {copied ? t('action.copied') : t('action.copy')}
             </button>
           </div>
         </>

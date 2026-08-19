@@ -125,7 +125,11 @@ describe('RemoteEntry', () => {
     expect(screen.getByText('http://192.168.1.5:3080/m/?pair=tok-1')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Refresh QR' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(screen.getByText('Phone pairing link')).toBeTruthy()
+    expect(screen.getByText('Computer pairing link')).toBeTruthy()
+    expect(screen.getByText('http://192.168.1.5:3080/?pair=tok-1')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy phone link' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy computer link' })).toBeTruthy()
     // The issue payload carries the current workspace for the deep link.
     const init = fetch.mock.calls.find(call => call[0] === '/api/pair/issue')?.[1] as RequestInit
     expect(JSON.parse(String(init.body))).toEqual({ workspaceId: 'ws-1' })
@@ -273,7 +277,7 @@ describe('RemoteEntry', () => {
     await waitFor(() => expect(screen.getByText('Paired devices offline')).toBeTruthy())
   })
 
-  it('stop posts the revocation; refresh mints a new QR; copy gives feedback', async () => {
+  it('stop posts the revocation; refresh mints a new QR; both links copy independently', async () => {
     const { fetch } = mount()
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy())
@@ -284,9 +288,11 @@ describe('RemoteEntry', () => {
     // Clipboard: stub navigator.clipboard.
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy phone link' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('http://192.168.1.5:3080/m/?pair=tok-1'))
     await waitFor(() => expect(screen.getByText('Copied')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Copy computer link' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('http://192.168.1.5:3080/?pair=tok-1'))
   })
 })
 

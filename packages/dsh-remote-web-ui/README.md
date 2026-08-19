@@ -18,10 +18,7 @@ update.
 ## What it does
 
 - **Entry**: a phone icon beside the settings button in both the expanded sidebar and narrow rail; its tooltip and accessible label say "Mobile remote control".
-- **Panel**: "移动端远程控制" title, "扫码或在手机上打开链接，即可远程控制当前工作区"
-  subtitle, a "手机扫码连接" card with the status area ("等待手机连接" + status
-  badge), a large QR code, the "无法扫码？可以在手机上打开链接" hint, and three
-  buttons: 停止 / 刷新二维码 / 复制链接.
+- **Panel**: "移动端远程控制" title, "扫码或在手机上打开链接，即可远程控制当前工作区" subtitle, a "手机扫码连接" card with the status area ("等待手机连接" + status badge), a large QR code, separate phone (`/m/?pair=...`) and computer (`/?pair=...`) links with their own copy buttons, plus 停止 / 刷新二维码 actions. Both links share one single-use token, so pairing either device invalidates the other link.
 - **Phone side**: scanning the QR binds the phone with a one-time,
   time-limited token and lands it on the **standalone mobile surface at
   `/m/`** — a thin client purpose-built for a small screen (see

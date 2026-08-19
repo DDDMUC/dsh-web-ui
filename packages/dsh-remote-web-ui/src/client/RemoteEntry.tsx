@@ -56,7 +56,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
   // pure), so mint decisions read this ref instead.
   const stateRef = useRef(state)
   useEffect(() => { stateRef.current = state }, [state])
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<'phone' | 'desktop' | undefined>(undefined)
   const eventSource = useRef<EventSource | undefined>(undefined)
   // Generation counter for the open flow: closing (or re-opening) the panel
   // bumps it, so an in-flight issue() that resolves after a close does not
@@ -198,14 +198,13 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     void mint().then(setState)
   }, [mint])
 
-  const handleCopy = useCallback(() => {
-    if (state.kind !== 'ready') return
-    void copyText(state.url).then((ok) => {
+  const handleCopy = useCallback((target: 'phone' | 'desktop', url: string) => {
+    void copyText(url).then((ok) => {
       if (!ok) return
-      setCopied(true)
-      window.setTimeout(() => { setCopied(false) }, 1500)
+      setCopied(target)
+      window.setTimeout(() => { setCopied(undefined) }, 1500)
     })
-  }, [state])
+  }, [])
 
   return (
     <>

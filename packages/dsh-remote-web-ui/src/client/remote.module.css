@@ -267,12 +267,62 @@
 }
 
 .link {
+  display: block;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--dsw-alias-label-caption);
   font-family: var(--dsw-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.pairLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pairLinkRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.pairLinkText {
+  min-width: 0;
+  flex: 1;
+}
+
+.pairLinkLabel {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.copyLink {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-button-elevated-fill);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.oneTimeHint {
+  margin: 0;
+  color: var(--dsw-alias-label-caption);
   font-size: 12px;
 }
 
