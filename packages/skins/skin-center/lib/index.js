@@ -526,8 +526,22 @@ function readActiveSelection(path) {
 }
 /** Persist the active skin id (creates the parent directory). */
 function writeActiveSelection(path, id) {
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, JSON.stringify({ active: id }, null, 2) + "\n", "utf8");
+	const dir = dirname(path);
+	mkdirSync(dir, { recursive: true });
+	const tmpDir = mkdtempSync(join(dir, `${basename(path)}.tmp-`));
+	const tmp = join(tmpDir, basename(path));
+	try {
+		writeFileSync(tmp, JSON.stringify({ active: id }, null, 2) + "\n", {
+			encoding: "utf8",
+			flag: "wx"
+		});
+		renameSync(tmp, path);
+	} finally {
+		rmSync(tmpDir, {
+			recursive: true,
+			force: true
+		});
+	}
 }
 //#endregion
 //#region src/core/css-safety/official-tokens.generated.ts
@@ -1589,15 +1603,20 @@ function writePatchAtomic(filePath, next) {
 const MANAGED_START = "# --- dsh-skin managed (auto-generated; do not edit) ---";
 const MANAGED_END = "# --- end dsh-skin managed ---";
 /**
-* Remove the managed skin section. Throws on an unterminated section (a
-* malformed boot patch must fail loudly, never be silently half-written).
+* Remove every managed skin section (issue #676: a second stray section kept
+* hasLegacyState true and re-ran the migration on each boot). Throws on an
+* unterminated section (a malformed boot patch must fail loudly, never be
+* silently half-written).
 */
 function stripManaged(patch) {
-	const start = patch.indexOf(MANAGED_START);
-	if (start === -1) return patch;
-	const end = patch.indexOf(MANAGED_END, start);
-	if (end === -1) throw new Error("managed skin section is unterminated; fix the harness cordis.patch.yml");
-	return patch.slice(0, start) + patch.slice(end + 30);
+	let out = patch;
+	while (true) {
+		const start = out.indexOf(MANAGED_START);
+		if (start === -1) return out;
+		const end = out.indexOf(MANAGED_END, start);
+		if (end === -1) throw new Error("managed skin section is unterminated; fix the harness cordis.patch.yml");
+		out = out.slice(0, start) + out.slice(end + 30);
+	}
 }
 /** Remove - insert: items left with no - id: rows after legacy cleanup. */
 function dropEmptyInserts(text) {
@@ -1607,7 +1626,7 @@ function dropEmptyInserts(text) {
 	while (i < lines.length) {
 		const line = lines[i];
 		const trimmed = line.trim();
-		if (/^-\s*insert:\s*$/.exec(trimmed) === null) {
+		if (/^-\s*insert:\s*(?:\[\s*\])?\s*$/.exec(trimmed) === null) {
 			out.push(line);
 			i += 1;
 			continue;
@@ -1673,7 +1692,7 @@ function readLegacyActiveId(patch, knownIds) {
 	for (const m of patch.matchAll(/name:\s*['"]?@linxin666\/dsh-client-ui-skin-([a-z0-9-]+)['"]?/g)) if (m[1] !== "center") return m[1];
 	if (!patch.includes("# --- dsh-skin managed (auto-generated; do not edit) ---")) return null;
 	const disabled = /* @__PURE__ */ new Set();
-	for (const m of patch.matchAll(/^- id: (ui-skin-[a-z0-9-]+)\n  disabled: true/gm)) disabled.add(m[1].replace("ui-skin-", ""));
+	for (const m of patch.matchAll(/^- id: (ui-skin-[a-z0-9-]+)\r?\n  disabled: true/gm)) disabled.add(m[1].replace("ui-skin-", ""));
 	const candidates = knownIds.filter((id) => !disabled.has(id));
 	return candidates.length === 1 ? candidates[0] : null;
 }
