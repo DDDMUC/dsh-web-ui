@@ -162,6 +162,12 @@ An ornate navy workshop skin with two character layers and responsive sidebar de
 
 ![Maid Atelier light](packages/skins/skin-center/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/skin-center/skins/maid-atelier/preview/dark.png)
 
+### Wallpaper Engine Wallpapers
+
+The skin center can use your local Wallpaper Engine library as the GUI backdrop, with support for importing dynamic and static wallpapers: video and web wallpapers render dynamically, scene wallpapers as a static frame, and any type can be pinned to a zero-animation "static frame" image. Import a single wallpaper into `skin-center/wallpapers/` to keep it working outside the Steam library, with update detection against the workshop original; without a Wallpaper Engine install (e.g. macOS), manual folders can add any `.mp4`/`.webm` folder or wallpaper project folder as the library. Wallpapers are your own local files and are never uploaded or redistributed.
+
+![Wallpaper Engine wallpapers](docs/screenshots/29-skin-wallpaper-engine.png)
+
 ## Quick Start
 
 ### System Requirements

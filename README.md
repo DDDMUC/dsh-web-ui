@@ -160,6 +160,12 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ![深海女仆工坊 亮色](packages/skins/skin-center/skins/maid-atelier/preview/light.png) · ![深海女仆工坊 暗色](packages/skins/skin-center/skins/maid-atelier/preview/dark.png)
 
+### Wallpaper Engine 壁纸
+
+皮肤中心可直接把本机 Wallpaper Engine 壁纸库用作 GUI 背景，支持导入动态与静态壁纸：视频与网页壁纸动态渲染，场景壁纸以静态帧呈现，任意类型也能用「静态帧」模式钉成零动画开销的图片。单张壁纸可导入 `skin-center/wallpapers/`，脱离 Steam 库也能用，并检测创意工坊原作更新；没有 Wallpaper Engine（如 macOS）时，手动目录可把任意 `.mp4`/`.webm` 视频文件夹或壁纸项目文件夹加为壁纸库。壁纸都是本机文件，从不上传或再分发。
+
+![Wallpaper Engine 壁纸](docs/screenshots/29-skin-wallpaper-engine.png)
+
 ## 快速开始
 
 ### 系统要求
