@@ -87,6 +87,25 @@ beforeEach(() => {
 })
 
 describe('WallpaperController', () => {
+  it('neutralizes the opaque app-root background while a wallpaper is mounted (#505)', () => {
+    const neutralizers = (): HTMLStyleElement[] =>
+      [...document.head.querySelectorAll<HTMLStyleElement>('style[data-dsh-wallpaper-root]')]
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    expect(neutralizers()).toHaveLength(0)
+    controller.applySelection(video)
+    expect(neutralizers()).toHaveLength(1)
+    expect(neutralizers()[0]!.textContent).toContain('[id="root"] { background: transparent; }')
+    // Tearing the wallpaper down restores the stock shell background.
+    controller.clearSelection()
+    expect(neutralizers()).toHaveLength(0)
+    // Re-applying and disposing behaves the same way.
+    controller.applySelection(video)
+    expect(neutralizers()).toHaveLength(1)
+    controller.dispose()
+    expect(neutralizers()).toHaveLength(0)
+  })
+
   it('mounts media + scrim layers under the app for a video selection', () => {
     const { scope } = fakeScope()
     const controller = new WallpaperController(scope)
