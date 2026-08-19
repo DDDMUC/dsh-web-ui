@@ -1714,7 +1714,7 @@ function migrateLegacySelection(options) {
 			} else notes.push("legacy state resolves to the stock look; selection store left unset");
 		} else notes.push("v2 selection already present; skipped id migration");
 		let cleaned = stripLegacySkinState(patch);
-		if (cleaned.trim() === "") cleaned = "[]\n";
+		if (cleaned.split(/\r?\n/).every((line) => line.trim() === "" || line.trimStart().startsWith("#"))) cleaned = "[]\n";
 		if (cleaned !== patch) {
 			(options.writePatch ?? writePatchAtomic)(patchPath, cleaned);
 			result.patchCleaned = true;

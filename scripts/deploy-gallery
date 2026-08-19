@@ -15,7 +15,7 @@
  * 无需重复配置）。
  *
  * 前置：gallery 产物须已生成并提交 —— `pnpm gallery:build` 生成
- * manifest.js / bundles.js；official-facade.js 由 scripts/export-official-facade
+ * manifest.js / styles.js；official-facade.js 由 scripts/export-official-facade
  * 生成；preview PNG 由 scripts/capture-previews 生成。本脚本只做组装与部署，
  * 不重建产物（重建会嵌入构建机绝对路径，破坏 gallery 产物的确定性）。
  *
@@ -37,7 +37,7 @@ const { spawnSync } = require('node:child_process')
 
 const ROOT = path.resolve(__dirname, '..')
 const GALLERY_DIR = path.join(ROOT, 'gallery')
-const ROOT_FILES = ['index.html', 'preview.html', 'manifest.js', 'bundles.js', 'official-facade.js']
+const ROOT_FILES = ['index.html', 'preview.html', 'manifest.js', 'styles.js', 'official-facade.js']
 
 function opt(name, fallback) {
   const i = process.argv.indexOf(name)

@@ -14,6 +14,7 @@ pnpm docs:check（scripts/verify-docs.mjs）强制执行本文件的可机械检
 | 各包 AGENTS.md | 该包特有规则 | 包级通用规则、全局规则 |
 | 各包 README | 包的用户契约：功能、安装、配置、安全模型、已知限制 | JSDoc 重述、构建内部细节 |
 | docs/ 长期文档 | 跨包流程与约定：plugins.md（新插件入桶）、i18n.md（双语契约）、development.md（开发流程） | 一次性任务记录（→ docs/archive/） |
+| docs/release-notes/ | 每版冻结的发布说明（vX.Y.Z.md，逐条 EN / 中文 双语，发布管线直接采用，v0.2.1 起） | 未发布的草稿、其他时间戳快照 |
 | docs/archive/ | 任务交接、验证快照、一次性记录（冻结历史） | 当前行为描述 |
 
 - **README 必含结构**：功能（What it does / 能力）、安装（Install / 安装）、配置（Config / 配置）、已知限制（Known limitations / 已知限制）。涉及安全的包必须有「安全模型 / Security model」一节。

@@ -93,8 +93,20 @@ jobs:
       # Generated before publish: a notes failure must abort the run
       # before anything reaches npm (a failed publish cannot be re-run
       # for an already-published version).
+      #
+      # Bilingual convention (v0.2.1+): the maintainer commits a per-item
+      # EN + ZH translation of the notes at docs/release-notes/<tag>.md
+      # together with the release commit; the pipeline prefers that file.
+      # The scripts/release-notes.mjs draft (single-language items) is only
+      # a fallback when the committed file is missing.
       - name: Generate release notes
-        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+        run: |
+          NOTES_FILE="docs/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            cp "$NOTES_FILE" "$RUNNER_TEMP/release-notes.md"
+          else
+            node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+          fi
 
       # Publish with the explicit "latest" dist-tag so that installing the
       # package without a version (or with @latest) always resolves to the

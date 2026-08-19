@@ -48,20 +48,22 @@ test('linkIssues: links (#123) and (#12 #34) references, leaves the rest alone',
   assert.equal(linkIssues('plain #123 without parens', 'o/r'), 'plain #123 without parens')
 })
 
-test('renderNotes: sections in order with a summary; empty notes stay honest', () => {
+test('renderNotes: bilingual sections and summary; empty notes stay honest', () => {
   const rows = [
     { type: 'fix', scope: 'git-graph', subject: 'single-spawn markers (#184)' },
     { type: 'feat', scope: 'skin', subject: 'add theme (#11)' },
     { type: 'docs', scope: 'readme', subject: 'trim sections' },
   ]
   const notes = renderNotes('0.1.14', rows, 'zhu1090093659/dsh-web-ui')
+  assert.ok(notes.includes('This release contains 1 new feature, 1 bug fix, 1 other change.'))
   assert.ok(notes.includes('本次发布包含 1 项新功能、1 项修复、1 项其他改动。'))
-  assert.ok(notes.indexOf('### 新功能') < notes.indexOf('### 修复'))
-  assert.ok(notes.indexOf('### 修复') < notes.indexOf('### 其他'))
+  assert.ok(notes.indexOf('### New Features / 新功能') < notes.indexOf('### Bug Fixes / 修复'))
+  assert.ok(notes.indexOf('### Bug Fixes / 修复') < notes.indexOf('### Other Changes / 其他改动'))
   assert.ok(notes.includes('- [git-graph] single-spawn markers ([#184](https://github.com/zhu1090093659/dsh-web-ui/issues/184))'))
+  assert.ok(notes.includes('Generated automatically by the release pipeline'))
   assert.ok(notes.includes('由发布管线自动生成'))
   const empty = renderNotes('0.1.14', [], 'o/r')
-  assert.ok(empty.includes('没有需要说明的功能性变更'))
+  assert.ok(empty.includes('No user-facing changes in this release. / 本次发布没有需要说明的功能性变更。'))
 })
 
 test('bulletOf: no scope badge when the scope is empty', () => {

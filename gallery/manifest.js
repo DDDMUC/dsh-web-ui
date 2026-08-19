@@ -396,8 +396,8 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/miku-art.webp",
-            "scrim": "linear-gradient(rgba(240, 248, 255, 0.02) 0%, rgba(234, 242, 255, 0.05) 55%, rgba(228, 238, 255, 0.08) 100%)"
+            "src": "assets/miku-art-light.jpg",
+            "scrim": "linear-gradient(rgba(244, 250, 255, 0.5) 0%, rgba(235, 244, 255, 0.55) 55%, rgba(226, 238, 255, 0.62) 100%)"
           },
           "dark": {
             "type": "image",
@@ -558,6 +558,48 @@ window.SKIN_MANIFEST = {
         "client": {
           "entry": "hooks.mjs",
           "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
+    },
+    {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
+      "id": "summer-liquid-glass",
+      "name": "夏沫琉璃",
+      "nameEn": "Summer Liquid Glass",
+      "version": "0.1.0",
+      "author": "dsh-web-ui",
+      "tagline": "日系夏祭背景 · iOS 26 液态玻璃 · 冰青玫瑰琥珀三强调",
+      "description": "《夏沫琉璃》— 日系夏祭背景 + iOS 26 液态玻璃主题：人物与烟花在分层半透明玻璃面板之后若隐若现，玻璃面板带内缘高光、非均匀边缘反射与柔和扩散阴影；冰青 #67DCE7 作主要交互、玫瑰粉 #DD8FAC 作选中与品牌细节、琥珀金 #F3B75F 作运行中与重要提示、黄绿 #CBE77D 仅用于成功。代码、终端、日志与聊天区使用更低透明度的高可读玻璃，长时间使用不累眼。",
+      "tags": [
+        "liquid-glass",
+        "summer",
+        "fireworks",
+        "glass",
+        "cyan",
+        "rose",
+        "ios26"
+      ],
+      "accent": "#67DCE7",
+      "order": 14,
+      "preview": {
+        "light": "packages/skins/skin-center/skins/summer-liquid-glass/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/summer-liquid-glass/preview/dark.png"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/summer-liquid-glass-art.jpg",
+            "scrim": "linear-gradient(rgba(7, 19, 33, 0.28) 0%, rgba(7, 19, 33, 0.22) 45%, rgba(7, 19, 33, 0.32) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/summer-liquid-glass-art.jpg",
+            "scrim": "linear-gradient(rgba(7, 19, 33, 0.34) 0%, rgba(7, 19, 33, 0.28) 45%, rgba(7, 19, 33, 0.38) 100%)"
+          }
         }
       }
     },
