@@ -61,6 +61,13 @@ describe('normalizeGitUrl', () => {
     expect(normalizeGitUrl('git://github.com/bob/dsh-beta/')).toBe('github.com/bob/dsh-beta')
   })
 
+  it('folds pnpm shorthands and git+ wrappers recorded in package.json', () => {
+    expect(normalizeGitUrl('github:bob/dsh-beta')).toBe('github.com/bob/dsh-beta')
+    expect(normalizeGitUrl('gitlab:bob/dsh-beta.git')).toBe('gitlab.com/bob/dsh-beta')
+    expect(normalizeGitUrl('bitbucket:bob/dsh-beta')).toBe('bitbucket.org/bob/dsh-beta')
+    expect(normalizeGitUrl('git+https://github.com/bob/dsh-beta.git')).toBe('github.com/bob/dsh-beta')
+  })
+
   it('keeps distinct repositories distinct', () => {
     expect(normalizeGitUrl('https://github.com/bob/dsh-beta'))
       .not.toBe(normalizeGitUrl('https://github.com/bob/dsh-beta2'))
