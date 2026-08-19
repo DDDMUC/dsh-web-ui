@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-client-ui-skin-harbor",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "No-op compatibility shim for the retired harbor skin package.",
   "type": "module",
   "main": "lib/index.js",
