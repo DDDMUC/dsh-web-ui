@@ -4,7 +4,6 @@
  * output delivery.
  */
 
-import { Client } from 'ssh2'
 import { connectChain, type PoolEngine } from './connection-pool.ts'
 
 /** A live PTY shell session. */

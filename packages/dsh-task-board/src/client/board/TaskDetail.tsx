@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { BoardController } from '../../core/controller.ts'
 import { isValidCron } from '../../core/schedule.ts'
-import { MANUAL_STATUSES, TASK_PERMISSIONS, type ExecutionRecord, type TaskPermission, type TaskRecord, type TaskStatus } from '../../core/tasks.ts'
+import { MANUAL_STATUSES, TASK_PERMISSIONS, type ExecutionRecord, type TaskPermission, type TaskRecord } from '../../core/tasks.ts'
 import { t, type TaskBoardKey } from '../locales.ts'
 import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
 import css from '../board.module.css'

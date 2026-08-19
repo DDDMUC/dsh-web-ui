@@ -5,8 +5,8 @@
  */
 import { memo, useCallback, useEffect, useState } from 'react'
 import { selectedTaskOf, type BoardController } from '../../core/controller.ts'
-import { COLUMNS, type TaskRecord, type TaskStatus } from '../../core/tasks.ts'
-import { t, type TaskBoardKey } from '../locales.ts'
+import { COLUMNS, type TaskRecord } from '../../core/tasks.ts'
+import { t } from '../locales.ts'
 import css from '../board.module.css'
 import { NewTaskModal } from './NewTaskModal.tsx'
 import { STATUS_KEY } from './status-key.ts'

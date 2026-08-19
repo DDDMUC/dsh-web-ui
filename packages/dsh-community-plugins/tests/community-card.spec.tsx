@@ -28,7 +28,7 @@ vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
   },
 }))
 import { CommunityPluginsCard, CommunityPluginsCardController, type CommunityPluginsCardProps, type CommunityPluginsSettings } from '../src/client/CommunityPluginsCard.tsx'
-import { en, type CommunityPluginKey } from '../src/client/locales.ts'
+import { en } from '../src/client/locales.ts'
 import type { CommunityPluginEntry } from '../src/client/generated/community.ts'
 
 afterEach(cleanup)

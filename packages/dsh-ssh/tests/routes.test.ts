@@ -211,7 +211,7 @@ describe('hosts CRUD (one handler per path)', () => {
   })
 
   it('rejects unknown methods on the hosts path with 405', async () => {
-    const result = await get(SSH_API.hosts, {})
+    await get(SSH_API.hosts, {})
     // GET via httpRequest has no body; use OPTIONS to hit the fallback.
     const options = await new Promise<{ status: number }>((resolve, reject) => {
       const req = httpRequest({ host: '127.0.0.1', port, path: SSH_API.hosts, method: 'OPTIONS' }, (res) => {

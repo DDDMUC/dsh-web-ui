@@ -1,48 +1,15 @@
 /**
- * Browser half of the attach seam: pure draft-splicing math plus the
- * upload client for the host /describe-image/attach route. The browser
- * sends the picked image as base64 text; the host validates magic bytes,
- * persists the bytes in the attachment store, and returns both a durable
- * `[image attachment ...]` note and self-contained Markdown reference. Image
- * bytes never enter the conversation log — only durable reference text does.
+ * Browser half of the attach seam: the upload client for the host
+ * /describe-image/attach route. The browser sends the picked image as base64
+ * text; the host validates magic bytes, persists the bytes in the attachment
+ * store, and returns both a durable `[image attachment ...]` note and
+ * self-contained Markdown reference. Image bytes never enter the conversation
+ * log — only durable reference text does.
  * @module @linxin666/dsh-tool-describe-image/client/attach
  */
 
 /** The host attach endpoint, same-origin with the web shell. */
 export const ATTACH_ENDPOINT = '/describe-image/attach'
-
-/** Image media types the button offers for upload (mirrors the host gate). */
-export const ACCEPTED_IMAGE_MIME: readonly string[] = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
-
-/** Client-side byte bound, matching the host default; the host re-checks. */
-export const CLIENT_MAX_BYTES = 10 * 1024 * 1024
-
-/**
- * Placeholder alt text of the Markdown image reference. The generated URL
- * carries the durable attachment metadata while keeping the visible label short.
- */
-export const IMAGE_ALT = '图片'
-
-/**
- * Splice a note into a composer draft at the caret, following the same
- * separator rule the file-drag inlay uses: one space before the note unless
- * the caret sits at the start of the draft or right after whitespace; one
- * space after unless the caret sits at the end of the draft or right before
- * whitespace. Empty note or an out-of-range caret are no-ops.
- * @param draft - the current draft text.
- * @param note - the `[image attachment …]` note to insert.
- * @param caret - insertion offset (default: the end of the draft).
- * @returns the next draft; the caller owns writing it through the input facade.
- */
-export function insertNoteIntoDraft(draft: string, note: string, caret?: number): string {
-  if (note === '') return draft
-  const at = caret === undefined ? draft.length : Math.min(Math.max(caret, 0), draft.length)
-  const before = draft.slice(0, at)
-  const after = draft.slice(at)
-  const needBefore = before !== '' && !/\s$/.test(before)
-  const needAfter = after !== '' && !/^\s/.test(after)
-  return before + (needBefore ? ' ' : '') + note + (needAfter ? ' ' : '') + after
-}
 
 /**
  * Read a picked file as base64 text (no data-URL prefix).
@@ -107,14 +74,3 @@ export async function uploadImageForDescribe(
   return { ok: false, message: typeof message === 'string' && message !== '' ? message : 'server-failed' }
 }
 
-/**
- * Client-side admission for one picked file: accepted media type and byte
- * bound. The host re-validates everything, so this is fast feedback only.
- * @param file - the picked file.
- * @returns a structured rejection when the file cannot be uploaded.
- */
-export function admitPickedImage(file: File): { ok: true } | { ok: false; reason: 'type' | 'size' } {
-  if (!ACCEPTED_IMAGE_MIME.includes(file.type)) return { ok: false, reason: 'type' }
-  if (file.size > CLIENT_MAX_BYTES) return { ok: false, reason: 'size' }
-  return { ok: true }
-}

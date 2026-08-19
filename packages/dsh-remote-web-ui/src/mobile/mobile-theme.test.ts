@@ -2,7 +2,7 @@
 /** mobile-theme: light default, persisted dark toggle, document wiring. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  getMobileTheme, initMobileTheme, setMobileTheme, subscribeMobileTheme, toggleMobileTheme,
+  getMobileTheme, setMobileTheme, subscribeMobileTheme, toggleMobileTheme,
 } from './mobile-theme.ts'
 
 const STORAGE_KEY = 'dsh.remote.theme'

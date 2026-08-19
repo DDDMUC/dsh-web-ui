@@ -107,7 +107,7 @@ describe('subprocessRunner', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const { ctx, spawn } = fakeCtx(async () => ({ exitCode: 0 }))
-      spawn.mockImplementationOnce((spec: Record<string, unknown>) => ({
+      spawn.mockImplementationOnce(() => ({
         done: Promise.reject(new Error('killed')),
         collected: {
           stdout: { readFrom: () => ({ text: '' }) },

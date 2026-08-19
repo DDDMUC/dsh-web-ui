@@ -3,7 +3,7 @@
  * brings them back, the archive view toggles, and leaving the view with an
  * archived selection closes the selection.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { BoardController, type ControllerDeps } from '../src/core/controller.ts'
 import { ExecutionService, type ExecutionEvent } from '../src/core/execution.ts'
 import { InMemoryTaskStore } from '../src/core/store.ts'

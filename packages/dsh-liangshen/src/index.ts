@@ -14,7 +14,7 @@
  * https://github.com/xiaobright/dsh-anchored-standard (MIT).
  */
 
-import { existsSync, mkdirSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'

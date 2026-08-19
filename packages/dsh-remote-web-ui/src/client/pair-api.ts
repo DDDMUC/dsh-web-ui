@@ -128,16 +128,7 @@ export function readPairParams(search: string): { pair?: string; workspace?: str
   }
 }
 
-/**
- * Strip one query parameter from the current URL without reloading.
- * @param name - the parameter to remove.
- * @returns the new search string ('' when empty).
- */
-export function stripParam(name: string): string {
-  const url = new URL(window.location.href)
-  url.searchParams.delete(name)
-  return url.search
-}/** Human-readable expiry clock, e.g. "10:35". */
+/** Human-readable expiry clock, e.g. "10:35". */
 export function formatClock(epochMs: number): string {
   const date = new Date(epochMs)
   const hours = String(date.getHours()).padStart(2, '0')

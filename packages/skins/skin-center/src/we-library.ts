@@ -136,7 +136,7 @@ function firstNonBlank(...values: Array<string | undefined>): string | undefined
  * @param run - reg.exe runner (defaults to execFileSync).
  */
 export function steamPathFromRegistry(
-  run: (args: string[]) => string = (args) => execFileSync(
+  run: () => string = () => execFileSync(
     joinPath(process.env.SystemRoot || 'C:\\Windows', 'System32', 'reg.exe'),
     ['query', 'HKCU\\Software\\Valve\\Steam', '/v', 'SteamPath'],
     { encoding: 'utf8', windowsHide: true, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] },
@@ -144,7 +144,7 @@ export function steamPathFromRegistry(
 ): string | null {
   if (process.platform !== 'win32') return null
   try {
-    const match = /SteamPath\s+REG_SZ\s+(.+)/i.exec(run([]))
+    const match = /SteamPath\s+REG_SZ\s+(.+)/i.exec(run())
     return match ? match[1].trim() : null
   } catch {
     return null

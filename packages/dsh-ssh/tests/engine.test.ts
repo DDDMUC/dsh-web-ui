@@ -505,7 +505,7 @@ describe('tunnel safety', () => {
   it('stops tunnels scoped by alias', async () => {
     addHost('tun-a')
     addHost('tun-b')
-    const a = await engine.startTunnel('tun-a', { remotePort: server.echoPort })
+    await engine.startTunnel('tun-a', { remotePort: server.echoPort })
     const b = await engine.startTunnel('tun-b', { remotePort: server.echoPort })
     const stopped = engine.stopAllTunnels('tun-a')
     expect(stopped).toBe(1)

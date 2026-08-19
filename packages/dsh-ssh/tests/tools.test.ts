@@ -5,7 +5,6 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { SshEngine } from '../src/engine.ts'
 import type { ExecResult, SshHostSummary, TunnelInfo } from '../src/protocol.ts'

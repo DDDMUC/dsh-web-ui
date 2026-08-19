@@ -10,7 +10,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { connect, createServer, type Server as NetServer } from 'node:net'
-import { Server, utils as ssh2Utils, type ClientChannel, type Connection as ServerConnection, type ServerChannel } from 'ssh2'
+import { Server, utils as ssh2Utils, type ClientChannel, type Connection as ServerConnection } from 'ssh2'
 
 /** Test credentials. */
 export const TEST_USER = 'tester'

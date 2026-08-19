@@ -137,7 +137,7 @@ export function TerminalTab({ api, presetAlias, requestId }: TerminalTabProps) {
     dataSubRef.current = term.onData(data => { connection.send(data) })
     connection.onReady = () => { setStatus({ kind: 'connected', alias: target }) }
     connection.onOutput = data => { term.write(data) }
-    connection.onExit = (code, error) => {
+    connection.onExit = (_code, error) => {
       if (settled) return
       settled = true
       dataSubRef.current?.dispose()

@@ -7,7 +7,6 @@ import { apply } from '../src/index.ts'
 
 /** The mountOnce registry key (mirrors shared/host/mount-once.ts) — reset between applies so each case starts fresh. */
 const MOUNTED = Symbol.for('dsh-web-ui.mounted-plugins')
-const PACKAGE = '@linxin666/dsh-client-ui-skill-explorer'
 
 function resetMountOnce(): void {
   ;(globalThis as Record<symbol, unknown>)[MOUNTED] = undefined

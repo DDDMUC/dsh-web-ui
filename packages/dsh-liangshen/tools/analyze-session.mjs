@@ -181,7 +181,7 @@ export function analyzeSession(events) {
  * Returns null when no line yielded a processable event, preserving the
  * historical empty/all-bad file behavior of the CLI.
  */
-export async function analyzeSessionStream(lines) {
+async function analyzeSessionStream(lines) {
   const acc = createSessionAccumulator()
   let droppedLines = 0
   for await (const line of lines) {

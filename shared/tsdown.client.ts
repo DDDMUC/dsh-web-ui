@@ -35,7 +35,7 @@ const CSS_VIRTUAL_SUFFIX = '.mjs'
  * Everything else under @deepseek-ai/* is either a module-table entry
  * (external) or a leak the purity gate rejects.
  */
-export const INLINE_SAFE = /^@deepseek-ai\/dsh-(host-apiproxy|session|llm|tools|brand)(\/|$)/
+const INLINE_SAFE = /^@deepseek-ai\/dsh-(host-apiproxy|session|llm|tools|brand)(\/|$)/
 
 /** Generated descriptor/codec contribution with no shared runtime identity. */
 const GENERATED_REMOTE = /^@deepseek-ai\/dsh-[a-z0-9]+(?:-[a-z0-9]+)*\/remote$/
@@ -59,7 +59,7 @@ const SKIP_WORKSPACE_BUILD: UserConfig = { entry: '' }
 const RUNTIME_STORE_EXEMPTION = '@deepseek-ai/dsh-client-runtime/client'
 
 /** Externals resolved from the loader module table: the platform seed entries plus the documented runtime exemption. */
-export const CLIENT_EXTERNALS: readonly string[] = [...PLATFORM_MODULES, RUNTIME_STORE_EXEMPTION]
+const CLIENT_EXTERNALS: readonly string[] = [...PLATFORM_MODULES, RUNTIME_STORE_EXEMPTION]
 
 const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url))
 

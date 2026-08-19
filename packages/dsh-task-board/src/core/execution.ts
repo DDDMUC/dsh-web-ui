@@ -174,7 +174,7 @@ export class ExecutionService {
       // command must run before the task's turn starts. A rejected target
       // fails the run without sending the prompt — running the task under
       // different settings than it declared would be worse than not running.
-      if (!await this.applyMode(driver, task, sessionId, settleFailed)) return
+      if (!await this.applyMode(task, sessionId, settleFailed)) return
       if (!await this.applyPermission(driver, task, settleFailed)) return
       // Best-effort rename so the execution is recognizable in the session list.
       await driver.rename(task.title).catch(() => { /* rename is cosmetic */ })
@@ -200,7 +200,6 @@ export class ExecutionService {
    * the wire refuses.
    */
   private async applyMode(
-    driver: SessionDriver,
     task: TaskRecord,
     sessionId: string,
     settleFailed: (error: string) => void,

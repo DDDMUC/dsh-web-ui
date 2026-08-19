@@ -86,7 +86,7 @@ function mergeTask(a: TaskRecord, b: TaskRecord): TaskRecord {
   return { ...newer, executions: [...byId.values()].sort((x, y) => x.startedAt - y.startedAt) }
 }
 
-function parseHostTasks(values: readonly unknown[], now: number): TaskRecord[] {
+function parseHostTasks(values: readonly unknown[]): TaskRecord[] {
   const rawById = new Map<string, Record<string, unknown>>()
   for (const value of values) {
     if (typeof value !== 'object' || value === null) continue
@@ -262,7 +262,7 @@ export class HostTaskLedger {
         const invalidScheduleIds = action.tasks
           .filter(task => task.schedule !== undefined && !isValidCron(task.schedule.cron))
           .map(task => task.id)
-        const incoming = parseHostTasks(action.tasks, now)
+        const incoming = parseHostTasks(action.tasks)
         const merged = new Map(this.document.tasks.map(task => [task.id, task]))
         for (const task of incoming) merged.set(task.id, merged.has(task.id) ? mergeTask(merged.get(task.id)!, task) : task)
         this.document.tasks = [...merged.values()]
@@ -381,7 +381,7 @@ export class HostTaskLedger {
     try {
       const parsed = JSON.parse(readFileSync(this.file, 'utf8')) as Partial<LedgerDocument>
       if (parsed.schemaVersion !== TASK_BOARD_SCHEMA_VERSION || !Array.isArray(parsed.tasks)) throw new Error('unsupported ledger schema')
-      const tasks = parseHostTasks(parsed.tasks, this.now())
+      const tasks = parseHostTasks(parsed.tasks)
       const invalidScheduleIds = (parsed.tasks as unknown[]).flatMap(value => {
         if (typeof value !== 'object' || value === null) return []
         const row = value as { id?: unknown; schedule?: unknown }

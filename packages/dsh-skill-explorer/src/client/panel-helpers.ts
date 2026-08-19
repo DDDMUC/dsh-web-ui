@@ -24,8 +24,3 @@ export function tt(key: SkillExplorerKey, values?: TranslateValues): string {
   return text
 }
 
-/** Human-readable error text from an unknown thrown value. */
-export function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return String(error)
-}

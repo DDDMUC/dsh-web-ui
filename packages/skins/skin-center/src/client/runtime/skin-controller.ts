@@ -24,12 +24,7 @@
  */
 
 import type { EffectLedger } from './effect-ledger.ts'
-import {
-  buildBackgroundMedia,
-  clearLayer,
-  ensureDecorationLayers,
-  setLayerContent,
-} from './decoration-layers.ts'
+import { ensureDecorationLayers } from './decoration-layers.ts'
 import type { DecorationLayers } from './decoration-layers.ts'
 
 /** Catalog entry shape the controller needs (mirrors the v2 catalog route). */

@@ -5,7 +5,7 @@
  * contract.
  */
 import { describe, expect, it } from 'vitest'
-import { BoardController, selectedTaskOf, type ControllerDeps } from '../src/core/controller.ts'
+import { BoardController, selectedTaskOf } from '../src/core/controller.ts'
 import { ExecutionService } from '../src/core/execution.ts'
 import { nextRunAtMs } from '../src/core/schedule.ts'
 import { InMemoryTaskStore } from '../src/core/store.ts'

@@ -6,7 +6,6 @@
 
 import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { WebUIPluginsKey } from './locales.ts'
 import css from './web-ui-settings.module.css'
 
 /** Props the settings section binds for the family plugin cards page. */
