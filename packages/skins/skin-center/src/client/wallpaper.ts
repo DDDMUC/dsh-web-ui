@@ -220,16 +220,16 @@ export class WallpaperController implements WallpaperHandle {
       })
   }
 
-  enabled(): boolean { return this.enabledValue }
-  selection(): string { return this.selectionValue }
-  mode(): 'live' | 'frame' { return this.modeValue }
-  fit(): 'cover' | 'contain' | 'fill' { return this.fitValue }
-  dim(): number { return this.dimValue }
-  wallpaperBlur(): number { return this.blurValue }
-  pauseOnHidden(): boolean { return this.pauseOnHiddenValue }
-  sound(): boolean { return this.soundValue }
-  volume(): number { return this.volumeValue }
-  dirs(): string[] { return this.dirsValue }
+  enabled = (): boolean => this.enabledValue
+  selection = (): string => this.selectionValue
+  mode = (): 'live' | 'frame' => this.modeValue
+  fit = (): 'cover' | 'contain' | 'fill' => this.fitValue
+  dim = (): number => this.dimValue
+  wallpaperBlur = (): number => this.blurValue
+  pauseOnHidden = (): boolean => this.pauseOnHiddenValue
+  sound = (): boolean => this.soundValue
+  volume = (): number => this.volumeValue
+  dirs = (): string[] => this.dirsValue
 
   addDir(dir: string): void {
     const trimmed = dir.trim()
@@ -247,13 +247,13 @@ export class WallpaperController implements WallpaperHandle {
     void this.scope.set('weLibraryDirs', this.dirsValue)
   }
 
-  activeId(): string | null {
+  activeId = (): string | null => {
     const current = this.previewing ?? this.applied
     return this.mediaLayer !== null && current !== null ? current.id : null
   }
-  trying(): boolean { return this.previewing !== null }
+  trying = (): boolean => this.previewing !== null
 
-  subscribe(listener: () => void): () => void {
+  subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => { this.listeners.delete(listener) }
   }
