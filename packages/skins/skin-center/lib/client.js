@@ -93,36 +93,16 @@ window.__ModuleLoader__.load({
 					}
 				}).catch(() => {});
 			}
-			enabled() {
-				return this.enabledValue;
-			}
-			selection() {
-				return this.selectionValue;
-			}
-			mode() {
-				return this.modeValue;
-			}
-			fit() {
-				return this.fitValue;
-			}
-			dim() {
-				return this.dimValue;
-			}
-			wallpaperBlur() {
-				return this.blurValue;
-			}
-			pauseOnHidden() {
-				return this.pauseOnHiddenValue;
-			}
-			sound() {
-				return this.soundValue;
-			}
-			volume() {
-				return this.volumeValue;
-			}
-			dirs() {
-				return this.dirsValue;
-			}
+			enabled = () => this.enabledValue;
+			selection = () => this.selectionValue;
+			mode = () => this.modeValue;
+			fit = () => this.fitValue;
+			dim = () => this.dimValue;
+			wallpaperBlur = () => this.blurValue;
+			pauseOnHidden = () => this.pauseOnHiddenValue;
+			sound = () => this.soundValue;
+			volume = () => this.volumeValue;
+			dirs = () => this.dirsValue;
 			addDir(dir) {
 				const trimmed = dir.trim();
 				if (trimmed === "" || this.dirsValue.includes(trimmed)) return;
@@ -137,19 +117,17 @@ window.__ModuleLoader__.load({
 				this.publish();
 				this.scope.set("weLibraryDirs", this.dirsValue);
 			}
-			activeId() {
+			activeId = () => {
 				const current = this.previewing ?? this.applied;
 				return this.mediaLayer !== null && current !== null ? current.id : null;
-			}
-			trying() {
-				return this.previewing !== null;
-			}
-			subscribe(listener) {
+			};
+			trying = () => this.previewing !== null;
+			subscribe = (listener) => {
 				this.listeners.add(listener);
 				return () => {
 					this.listeners.delete(listener);
 				};
-			}
+			};
 			setEnabled(value) {
 				this.enabledValue = value;
 				this.render();
@@ -1122,7 +1100,7 @@ window.__ModuleLoader__.load({
 		* @returns the plugin card.
 		*/
 		function SkinCenter({ t, runtime, theme, background, wallpaper }) {
-			const snapshot = (0, react.useSyncExternalStore)(theme.subscribe, theme.getTheme);
+			const snapshot = (0, react.useSyncExternalStore)((listener) => theme.subscribe(listener), () => theme.getTheme());
 			const enabled = (0, react.useSyncExternalStore)(background.subscribe, background.enabled);
 			const opacity = (0, react.useSyncExternalStore)(background.subscribe, background.opacity);
 			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
@@ -1566,9 +1544,7 @@ window.__ModuleLoader__.load({
 					this.publish();
 				});
 			}
-			enabled() {
-				return this.enabledValue;
-			}
+			enabled = () => this.enabledValue;
 			setEnabled(value) {
 				this.enabledValue = value;
 				this.applyOcclusion();
@@ -1576,21 +1552,15 @@ window.__ModuleLoader__.load({
 				this.publish();
 				this.scope.set("enabled", value);
 			}
-			opacity() {
-				return this.opacityValue;
-			}
-			blurEmpty() {
-				return this.blurEmptyValue;
-			}
-			blurContent() {
-				return this.blurContentValue;
-			}
-			subscribe(listener) {
+			opacity = () => this.opacityValue;
+			blurEmpty = () => this.blurEmptyValue;
+			blurContent = () => this.blurContentValue;
+			subscribe = (listener) => {
 				this.listeners.add(listener);
 				return () => {
 					this.listeners.delete(listener);
 				};
-			}
+			};
 			set(opacity) {
 				const clamped = Math.max(0, Math.min(100, Math.round(opacity)));
 				this.opacityValue = clamped;
