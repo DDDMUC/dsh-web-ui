@@ -1954,7 +1954,7 @@ window.__ModuleLoader__.load({
 			{
 				selector: "[data-slot=\"root\"]",
 				attrs: [["data-dsh-surface", "root"]],
-				note: "web-react root outlet"
+				note: "ui-renderer root outlet"
 			},
 			{
 				selector: "[data-slot=\"sidebar\"]",
