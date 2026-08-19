@@ -97,7 +97,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 二维码链接通常是局域网 URL，所以家外的手机无法使用。把隧道指向 dsh web 端口，并告知插件其公网地址——二维码随后由隧道 URL 构建。涉及一个钮；`--trusted-host` 是独立的 SDK flag，不属于这条配对流：
 
 - **`publicBaseUrl`**（插件配置，在 profile patch 或设置卡片里）：公网 origin，如 `https://foo.trycloudflare.com`。二维码链接由它构建，`accept`/`heartbeat`/`status` 接受它的主机。已配对的桌面浏览器经同一 origin 走门控的 `/remote/api` 通道，因此桌面 Web GUI 也能从任意地点使用。畸形值被忽略并告警（保持仅局域网行为）。未配对调用方的 `status` 只看到配对相关字段（phase / 局域网地址）；token 过期时间、设备列表与隧道 URL 需要有效设备 cookie。accept 限速按客户端可见的 `X-Forwarded-For` 跳点分桶，避免隧道背后的单个来源耗尽共享桶。
-- **`--trusted-host <隧道域名>`**（可选的 dsh web flag，本插件不需要）：SDK 的另一种用法，会让该主机被信任访问 `/api` 本身，因此未配对调用方可以到达无门控的 host API。配对仍门控 `/m/api` 与 `/remote/api`，但不门控 `/api`。默认的 PC 远程桌面路径不需要这个 flag。若仍设置，姿态探测会报告敞开的 `/api` 围栏。
+- **`--trusted-host <隧道域名>`**（可选的 dsh web flag，安全上不建议用于本插件）：优先使用设备配对，让手机走 `/m/api`、PC 走 `/remote/api`。该 flag 会让主机被 SDK 信任访问 `/api` 本身，因此未配对调用方可以到达无门控的 host API；配对仍门控 `/m/api` 与 `/remote/api`，但不门控 `/api`。若仍设置，姿态探测会报告敞开的 `/api` 围栏。
 
 ### Cloudflare 隧道（quick tunnel——无账号、无域名）
 

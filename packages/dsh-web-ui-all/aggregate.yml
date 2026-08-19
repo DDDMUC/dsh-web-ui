@@ -10,6 +10,8 @@
 # 顺序注意：ui-web-ui-settings 排在最前（self 之后），先声明
 # web-ui.plugin.item 子槽位，其余插件的设置卡再注入（slots.inject 声明感知，
 # 但更早的声明让设置组在任何卡片之前就位，避免观感上的注册顺序歧义）。
+# remote-web-ui 排在 pet 前，确保非 loopback 页面先安装配对门控的远程通道，
+# 再由 pet 发起首次 /api/pet/* 请求，避免启动阶段命中 SDK 围栏。
 patchFrom:
   - ../dsh-web-ui-settings
   - ../dsh-plugin-manager
@@ -17,8 +19,8 @@ patchFrom:
   - ../dsh-aionui-panel
   - ../dsh-task-board
   - ../dsh-git-graph
-  - ../dsh-pet
   - ../dsh-remote-web-ui
+  - ../dsh-pet
   - ../dsh-ssh
   - ../dsh-tool-describe-image
   - ../dsh-liangshen

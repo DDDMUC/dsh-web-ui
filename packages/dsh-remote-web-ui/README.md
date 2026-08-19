@@ -306,12 +306,12 @@ address — the QR is then built from the tunnel URL. One knob is involved;
   device cookie. The accept rate limit partitions its buckets by the
   client-visible `X-Forwarded-For` hop so one internet client cannot
   exhaust the shared bucket behind the tunnel.
-- **`--trusted-host <tunnel-domain>`** (optional dsh web flag, not required
-  for this plugin): a different SDK usage that trusts that host for `/api`
-  itself, so unpaired callers can reach the ungated host API. Pairing still
-  gates `/m/api` and `/remote/api`; it does not gate `/api`. The default PC
-  remote-desktop path does not need this flag. If it is set, the posture
-  probe reports the open `/api` fence.
+- **`--trusted-host <tunnel-domain>`** (optional dsh web flag, not recommended
+  for this plugin on security grounds): prefer device pairing so phones use
+  `/m/api` and PCs use `/remote/api`. This flag makes the SDK trust the host
+  for `/api` itself, so unpaired callers can reach the ungated host API;
+  pairing still gates `/m/api` and `/remote/api`, but not `/api`. If it is
+  set, the posture probe reports the open `/api` fence.
 
 ### Cloudflare Tunnel (quick tunnel — no account, no domain)
 
