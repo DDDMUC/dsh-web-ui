@@ -20,8 +20,10 @@ export function installSpec(entry: CommunityPluginEntry): string {
 
 /**
  * Normalize a git remote for comparison: lowercase, drop the transport
- * prefix ('https://', 'http://', 'git://', 'ssh://git@', and the scp-style
- * 'git@host:' userinfo), then strip trailing slashes and one trailing '.git'
+ * prefix ('git+' wrapper, 'https://', 'http://', 'git://', 'ssh://git@', the
+ * scp-style 'git@host:' userinfo, and the pnpm host shorthands 'github:' /
+ * 'gitlab:' / 'bitbucket:' that package.json records for shorthand installs),
+ * then strip trailing slashes and one trailing '.git'
  * suffix (repeated, so 'x/.git/' and 'x.git' converge). Conservative on
  * purpose: no path rewriting beyond those steps, so distinct repositories
  * never collapse onto each other.
@@ -30,6 +32,12 @@ export function installSpec(entry: CommunityPluginEntry): string {
  */
 export function normalizeGitUrl(url: string): string {
   let key = url.trim().toLowerCase()
+  // pnpm git wrapper: 'git+https://host/owner/repo' -> 'https://host/owner/repo'.
+  key = key.replace(/^git[+]/, '')
+  // pnpm host shorthands recorded in package.json: 'github:owner/repo' ->
+  // 'github.com/owner/repo' (same for gitlab / bitbucket).
+  key = key.replace(/^(github|gitlab):/, '$1.com/')
+  key = key.replace(/^bitbucket:/, 'bitbucket.org/')
   // Transport prefixes: 'https://', 'http://', 'git://', 'ssh://git@'.
   key = key.replace(/^(?:https?|git):[/][/]/, '')
   key = key.replace(/^ssh:[/][/]git@/, '')
