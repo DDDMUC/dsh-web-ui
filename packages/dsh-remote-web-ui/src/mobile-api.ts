@@ -259,7 +259,10 @@ async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rp
   const request: RpcRequest<unknown> = { rpcId: RpcId(rpcId), payload }
   if (method === 'session.list') {
     const full = await apiProxy.sessions.list(request as never)
-    if (!full.result.ok) return full
+    // The error path must carry the same 'server-response' envelope the
+    // success path builds, or the phone's callUnary throws a transport error
+    // and masks the real business error.
+    if (!full.result.ok) return { type: 'server-response' as const, rpcId, result: full.result }
     const items = full.result.value.items as Array<{ updatedAt: number; sessionId: string }>
     const cursor = (payload as { cursor?: string } | undefined)?.cursor
     // Every call pages (the first call with no cursor IS the first page):
