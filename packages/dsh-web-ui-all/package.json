@@ -42,6 +42,7 @@
     "@linxin666/dsh-remote-web-ui": "workspace:*",
     "@linxin666/dsh-ssh": "workspace:*",
     "@linxin666/dsh-tool-describe-image": "workspace:*",
+    "@linxin666/dsh-chat-recovery": "workspace:*",
     "@linxin666/dsh-liangshen": "workspace:*",
     "@linxin666/dsh-client-ui-skill-explorer": "workspace:*",
     "@linxin666/dsh-client-ui-web-ui-settings": "workspace:*",
