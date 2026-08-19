@@ -198,9 +198,22 @@ export class CliGateway {
     } = {},
   ) {}
 
-  /** Chain one mutation onto the queue; a settled job never blocks the next one. */
+  /**
+   * Run one profile mutation after every mutation already queued. The returned
+   * promise keeps the task's own result or rejection, while the queue tail is
+   * always recovered so one failed write cannot block later work. Routes that
+   * edit profile files directly must use this seam so they cannot overlap the
+   * CLI install/remove writer.
+   */
+  withMutationLock<T>(task: () => Promise<T>): Promise<T> {
+    const result = this.queue.then(task)
+    this.queue = result.then(() => undefined, () => undefined)
+    return result
+  }
+
+  /** Chain one fire-and-forget CLI mutation onto the shared queue. */
   private enqueue(task: () => Promise<void>): void {
-    this.queue = this.queue.then(task).catch(() => {})
+    void this.withMutationLock(task).catch(() => {})
   }
 
   /** The dsh CLI path, through the test seam when present. */
