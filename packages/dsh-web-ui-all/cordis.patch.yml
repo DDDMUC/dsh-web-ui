@@ -73,6 +73,11 @@
     - id: web-ui-skill-explorer
       name: '@linxin666/dsh-client-ui-skill-explorer'
 
+# from ../dsh-desktop-launcher
+- insert:
+    - id: web-ui-desktop-launcher
+      name: '@linxin666/dsh-desktop-launcher'
+
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:
     - id: web-ui-skin-center
