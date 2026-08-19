@@ -9,13 +9,15 @@
  */
 
 import { createRequire } from 'node:module'
+import { join } from 'node:path'
 import { setInterval as nodeSetInterval, setTimeout as nodeSetTimeout } from 'node:timers'
 import type { IncomingMessage } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import { PairingService, type PairingConfig } from './pairing.ts'
+import { DEFAULT_IDLE_EXPIRE_MS, PairingService, type PairingConfig } from './pairing.ts'
+import { dshHome } from './dsh-home.ts'
 import { isPairedDeviceRequest, makeGateListener } from './gate.ts'
 import { RemoteWebUiPairing } from './pairing-access.ts'
 import { isTrustedApiRequest, makeRoutes } from './routes.ts'
@@ -74,6 +76,11 @@ export interface Config {
   offlineAfterMs?: number
   /** Hard cap on paired device sessions (oldest evicted when full). */
   maxDevices?: number
+  /**
+   * Idle sessions older than this (ms) are deleted from memory and disk.
+   * Default is 7 days; a leftover cookie no longer authorizes after expiry.
+   */
+  idleExpireMs?: number
   /** Cookie name carrying the paired device id. */
   cookieName?: string
   /**
@@ -95,10 +102,9 @@ export interface Config {
   publicBaseUrl?: string
   /**
    * Absolute path to a JSON file where paired device sessions are persisted.
-   * When set, a paired phone keeps its session across `dsh web` restarts
-   * (the phone-side cookie already lives 365 days), so re-scanning the QR
-   * after each restart is unnecessary. Unset keeps sessions memory-only
-   * (previous behavior).
+   * Defaults to `$DSH_HOME/remote-web-ui-devices.json` so a paired device
+   * keeps its session across `dsh web` restarts (the cookie already lives
+   * 365 days). Override to another absolute path when needed.
    */
   devicesFile?: string
   /**
@@ -124,6 +130,7 @@ export const Config: z<Config> = z.object({
   tokenTtlMs: z.number().step(1).min(60_000).default(10 * 60_000),
   offlineAfterMs: z.number().step(1).min(5_000).default(25_000),
   maxDevices: z.number().step(1).min(1).max(64).default(4),
+  idleExpireMs: z.number().step(1).min(60_000).default(DEFAULT_IDLE_EXPIRE_MS),
   cookieName: z.string().min(1).default('dsh_pair'),
   requirePairingForLan: z.boolean().default(true),
   publicBaseUrl: z.string(),
@@ -143,7 +150,7 @@ const SWEEP_INTERVAL_MS = 10_000
  */
 type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl' | 'devicesFile'>> & {
   publicBaseUrl: string | undefined
-  devicesFile: string | undefined
+  devicesFile: string
 }
 
 /**
@@ -154,15 +161,21 @@ type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl' | 'devicesFile'>> & 
  */
 export function pairingConfigOf(resolved: Pick<
   ResolvedConfig,
-  'tokenTtlMs' | 'offlineAfterMs' | 'maxDevices' | 'cookieName' | 'devicesFile'
+  'tokenTtlMs' | 'offlineAfterMs' | 'maxDevices' | 'idleExpireMs' | 'cookieName' | 'devicesFile'
 >): PairingConfig {
   return {
     tokenTtlMs: resolved.tokenTtlMs,
     offlineAfterMs: resolved.offlineAfterMs,
     maxDevices: resolved.maxDevices,
+    idleExpireMs: resolved.idleExpireMs,
     cookieName: resolved.cookieName,
     devicesFile: resolved.devicesFile,
   }
+}
+
+/** Default paired-session store: `$DSH_HOME/remote-web-ui-devices.json`. */
+export function defaultDevicesFile(home: string = dshHome()): string {
+  return join(home, 'remote-web-ui-devices.json')
 }
 
 /** Schema defaults, re-read for hand-built test contexts (the loader applies them normally). */
@@ -170,10 +183,11 @@ const DEFAULTS: ResolvedConfig = {
   tokenTtlMs: 10 * 60_000,
   offlineAfterMs: 25_000,
   maxDevices: 4,
+  idleExpireMs: DEFAULT_IDLE_EXPIRE_MS,
   cookieName: 'dsh_pair',
   requirePairingForLan: true,
   publicBaseUrl: undefined,
-  devicesFile: undefined,
+  devicesFile: defaultDevicesFile(),
   autoTunnel: false,
   mobileEnterToSend: true,
   enabled: true,
@@ -191,10 +205,11 @@ function applyImpl(ctx: Context, config?: Config): void {
     tokenTtlMs: config?.tokenTtlMs ?? DEFAULTS.tokenTtlMs,
     offlineAfterMs: config?.offlineAfterMs ?? DEFAULTS.offlineAfterMs,
     maxDevices: config?.maxDevices ?? DEFAULTS.maxDevices,
+    idleExpireMs: config?.idleExpireMs ?? DEFAULTS.idleExpireMs,
     cookieName: config?.cookieName ?? DEFAULTS.cookieName,
     requirePairingForLan: config?.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
     publicBaseUrl: config?.publicBaseUrl,
-    devicesFile: config?.devicesFile,
+    devicesFile: config?.devicesFile ?? DEFAULTS.devicesFile,
     autoTunnel: config?.autoTunnel ?? DEFAULTS.autoTunnel,
     mobileEnterToSend: config?.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
     enabled: config?.enabled ?? DEFAULTS.enabled,
@@ -209,6 +224,7 @@ function applyImpl(ctx: Context, config?: Config): void {
       tokenTtlMs: value.tokenTtlMs ?? DEFAULTS.tokenTtlMs,
       offlineAfterMs: value.offlineAfterMs ?? DEFAULTS.offlineAfterMs,
       maxDevices: value.maxDevices ?? DEFAULTS.maxDevices,
+      idleExpireMs: value.idleExpireMs ?? DEFAULTS.idleExpireMs,
       cookieName: value.cookieName ?? DEFAULTS.cookieName,
       requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
       publicBaseUrl: value.publicBaseUrl,

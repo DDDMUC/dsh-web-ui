@@ -484,6 +484,100 @@
   font-size: 12px;
 }
 
+.devices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 16px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.devicesTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.devicesEmpty {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+}
+
+.deviceList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deviceRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deviceMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deviceName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.devicePresence {
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.deviceOnline {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.deviceOffline {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.deviceSeen {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.deviceRevoke {
+  flex: none;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.deviceRevoke:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.deviceRevoke:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);
+}
+
 /* Accessibility: collapse the interaction transitions for reduced-motion
    users. The panel chrome is already static; this just disables the
    hover/active/focus cross-fades added above. */
@@ -491,7 +585,8 @@
   .trigger,
   .close,
   .action,
-  .address {
+  .address,
+  .deviceRevoke {
     transition: none;
   }
 }

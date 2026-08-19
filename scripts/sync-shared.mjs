@@ -61,6 +61,7 @@ const MANIFEST = [
       'packages/dsh-liangshen/src/dsh-home.ts',
       'packages/dsh-task-board/src/dsh-home.ts',
       'packages/dsh-plugin-manager/src/host/dsh-home.ts',
+      'packages/dsh-remote-web-ui/src/dsh-home.ts',
     ],
   },
   {

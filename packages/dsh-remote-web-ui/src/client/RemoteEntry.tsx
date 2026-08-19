@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
 import { RemotePanel, type PanelState } from './RemotePanel.tsx'
-import { copyText, issuePair, stopPair, type IssueResponse, type PairStateFrame, type TunnelStatusFrame } from './pair-api.ts'
+import { copyText, issuePair, revokePair, stopPair, type DeviceFrame, type IssueResponse, type PairStateFrame, type TunnelStatusFrame } from './pair-api.ts'
 import { PhoneIcon } from './PhoneIcon.tsx'
 import { UpdateEntry } from './UpdateEntry.tsx'
 import css from './remote.module.css'
@@ -38,6 +38,7 @@ function mergeFrame(state: PanelState, frame: PairStateFrame): PanelState {
     phase: frame.phase,
     deviceCount: frame.deviceCount,
     onlineCount: frame.onlineCount,
+    devices: frame.devices ?? [],
     ...(frame.tunnel !== undefined ? { tunnel: frame.tunnel as TunnelStatusFrame } : {}),
     ...(frame.posture !== undefined ? { posture: frame.posture } : {}),
   }
@@ -98,6 +99,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
       phase: 'waiting',
       deviceCount: 0,
       onlineCount: 0,
+      devices: [] as DeviceFrame[],
       // Whether this QR is built on the configured public (tunneled) base.
       public: publicBaseUrl !== undefined && result.url.startsWith(publicBaseUrl),
       ...(publicBaseUrl !== undefined ? { publicBaseUrl } : {}),
@@ -181,7 +183,14 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     // keeps the UI honest, and the status stream confirms the stopped phase.
     void stopPair().catch(() => {})
     // Optimistic fallback; the status stream confirms with the stopped phase.
-    setState(previous => previous.kind === 'ready' ? { ...previous, phase: 'stopped' as PairingPhase } : previous)
+    setState(previous => previous.kind === 'ready' ? { ...previous, phase: 'stopped' as PairingPhase, devices: [] } : previous)
+  }, [])
+
+  const handleRevoke = useCallback((deviceId: string) => {
+    void revokePair(deviceId).catch(() => {})
+    setState(previous => previous.kind === 'ready'
+      ? { ...previous, devices: previous.devices.filter(device => device.id !== deviceId) }
+      : previous)
   }, [])
 
   const handleRefresh = useCallback(() => {
@@ -225,6 +234,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
             onCopy={handleCopy}
             onPickAddress={handlePickAddress}
             onPickPublic={handlePickPublic}
+            onRevoke={handleRevoke}
           />
         </div>
       ), document.body)}

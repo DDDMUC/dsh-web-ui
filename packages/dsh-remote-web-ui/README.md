@@ -5,20 +5,20 @@ English | [中文](README.zh.md)
 > Remote access for phones and computers + one-click updates: pair a phone to use the current dsh web workspace remotely, or pair a computer browser through the same token to run the full Web GUI from another device; the sidebar checks for a newer dsh-web-ui release after it loads and marks the update button when one is available; clicking it updates the family.
 
 This repository is an external plugin package for DeepSeek Harness (DSH):
-pairing-based remote access for the dsh web GUI on phones and computers — plus
-pairing and a one-click self-update for the dsh-web-ui family. It is a single
+pairing-based remote access for the dsh web GUI on phones and computers, plus
+a one-click self-update for the dsh-web-ui family. It is a single
 dual-face package — the host half owns pairing tokens, device sessions, the
 `/api/pair` route family, the gated `/remote` desktop channel, and the
 `/api/update` surface; the browser half renders the sidebar-foot entries (the
 download trigger and an icon-only remote-access entry beside the settings
-button), the pairing panel with a QR code, live device status, and
-stop/refresh/copy actions, and the update panel that probes and runs the
-update.
+button), the pairing panel with a QR code, live device status, an
+authorized-device list, and stop/refresh/copy actions, and the update panel
+that probes and runs the update.
 
 ## What it does
 
 - **Entry**: a phone icon beside the settings button in both the expanded sidebar and narrow rail; its tooltip and accessible label say "Remote access".
-- **Panel**: "Remote access" title, "Pair a phone or another computer to access this workspace remotely" subtitle, a "Pair a device" card with the status area ("Waiting for a device" + status badge), a large QR code, separate phone (`/m/?pair=...`) and computer (`/?pair=...`) links with their own copy buttons, plus Stop / Refresh QR actions. Both links share one single-use token, so pairing either device invalidates the other link.
+- **Panel**: "Remote access" title, "Pair a phone or another computer to access this workspace remotely" subtitle, a "Pair a device" card with the status area ("Waiting for a device" + status badge), a large QR code, separate phone (`/m/?pair=...`) and computer (`/?pair=...`) links with their own copy buttons, plus Stop / Refresh QR actions and an authorized-device list (online/offline, last active time, per-device unpair). Both links share one single-use token, so pairing either device invalidates the other link.
 - **Phone side**: scanning the QR binds the phone with a one-time,
   time-limited token and lands it on the **standalone mobile surface at
   `/m/`** — a thin client purpose-built for a small screen (see
@@ -74,7 +74,8 @@ update.
   assumed. A failed probe round drops the in-flight target key so the same
   origins are retried.
 - **Live status**: the desktop panel mirrors the pairing state in real time
-  (waiting → connected → disconnected) over an SSE stream.
+  (waiting → connected → disconnected) over an SSE stream, including the
+  authorized-device list.
 - **Remote update**: the download trigger in the sidebar foot (left of the
   phone icon) performs a silent status probe after the sidebar loads. When a
   newer registry release is available, the trigger shows a dot and the "New
@@ -454,19 +455,21 @@ opens at `http://127.0.0.1`.
 
 - **Revocation is per-request**: a paired phone whose request is already in
   flight when 停止 lands completes that request; the next one 403s.
-- **Device sessions are in-memory by default**: pairing state (token + devices)
-  resets with the `dsh web` process. Setting the `devicesFile` config option
-  (an absolute JSON path) persists sessions across restarts — the phone-side
-  cookie already lives 365 days, so with persistence a `dsh web` restart no
-  longer requires re-scanning the QR. An explicit 停止 (stop) still revokes
-  immediately and the revocation is persisted. Device ids are session
-  credentials (the gate authorizes requests by the device id in the cookie),
-  so the file is written 0600 via a temp file + atomic rename; keep it inside
-  a 0700 directory such as `$DSH_HOME`. Changing `cookieName` invalidates
-  existing devices (expected).
-- **No per-device management UI**: the panel shows aggregate status
-  (waiting / connected N / offline); individual device revocation is
-  deferred.
+- **Paired device sessions persist by default**: device sessions (not the
+  one-time QR token) are written to `$DSH_HOME/remote-web-ui-devices.json`
+  (0600, temp file + atomic rename). A paired cookie still works after a
+  `dsh web` restart. Refreshing the QR still mints a new token; restarting
+  does not restore the current QR. An explicit 停止 (stop) or per-device
+  取消配对 still revokes immediately and the revocation is persisted.
+  Sessions idle for `idleExpireMs` (default 7 days, no heartbeat or gated
+  request) are deleted and must pair again. Device ids are session
+  credentials (the gate authorizes requests by the device id in the cookie).
+  Override `devicesFile` with another absolute path when needed. Changing
+  `cookieName` invalidates existing devices (expected).
+- **Device roster is loopback-only**: the pairing panel lists authorized
+  devices (label, online/offline, last active time) and can unpair one at
+  a time. `/api/pair/status` never returns the device id list, even to a
+  paired phone.
 - **Quick-tunnel hostnames change per run**: a `trycloudflare.com` URL is
   random on every `cloudflared` start, so `publicBaseUrl` must be updated
   whenever the tunnel restarts. A named tunnel (fixed hostname) avoids the

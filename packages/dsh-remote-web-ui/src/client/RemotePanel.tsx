@@ -11,7 +11,14 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
-import { desktopPairUrl, formatClock, type PostureFrame, type TunnelStatusFrame } from './pair-api.ts'
+import {
+  desktopPairUrl,
+  formatClock,
+  formatLastSeen,
+  type DeviceFrame,
+  type PostureFrame,
+  type TunnelStatusFrame,
+} from './pair-api.ts'
 import css from './remote.module.css'
 
 /** The panel's view state, owned by the entry component. */
@@ -27,6 +34,8 @@ export type PanelState =
       phase: PairingPhase
       deviceCount: number
       onlineCount: number
+      /** Authorized devices for the roster under the QR card. */
+      devices: DeviceFrame[]
       /** The LAN literal the current QR was built from. */
       address: string
       /** Every constructible LAN literal (interface order). */
@@ -54,6 +63,8 @@ export interface RemotePanelProps {
   onPickAddress(address: string): void
   /** Re-mint the QR against the configured public (tunneled) base. */
   onPickPublic(): void
+  /** Revoke one paired device. */
+  onRevoke(deviceId: string): void
 }
 
 /** Badge text + tone per phase (ready states only). */
@@ -75,7 +86,7 @@ function statusOf(
  * @param props - copy, state, and actions.
  * @returns the panel element tree.
  */
-export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy, onPickAddress, onPickPublic }: RemotePanelProps) {
+export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy, onPickAddress, onPickPublic, onRevoke }: RemotePanelProps) {
   return (
     <div className={css.panel} role="dialog" aria-modal="true" aria-label={t('title')}>
       <div className={css.header}>
@@ -207,6 +218,39 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
               {t('action.refresh')}
             </button>
           </div>
+
+          <section className={css.devices} data-testid="remote-devices" aria-label={t('devices.title')}>
+            <h3 className={css.devicesTitle}>{t('devices.title')}</h3>
+            {state.devices.length === 0 ? (
+              <p className={css.devicesEmpty}>{t('devices.empty')}</p>
+            ) : (
+              <ul className={css.deviceList}>
+                {state.devices.map(device => (
+                  <li key={device.id} className={css.deviceRow}>
+                    <div className={css.deviceMeta}>
+                      <span className={css.deviceName} title={device.userAgent}>
+                        {device.userAgent ?? t('devices.unknown')}
+                      </span>
+                      <span className={clsx(css.devicePresence, device.online ? css.deviceOnline : css.deviceOffline)}>
+                        {device.online ? t('devices.online') : t('devices.offline')}
+                      </span>
+                      <span className={css.deviceSeen}>
+                        {t('devices.lastSeen', { time: formatLastSeen(device.lastSeenAt) })}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className={css.deviceRevoke}
+                      aria-label={t('devices.revoke.label')}
+                      onClick={() => { onRevoke(device.id) }}
+                    >
+                      {t('devices.revoke')}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       )}
     </div>
