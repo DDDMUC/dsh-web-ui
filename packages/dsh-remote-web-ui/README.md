@@ -36,8 +36,8 @@ that probes and runs the update.
   its fenced same-origin traffic on the gated `/remote` channel instead of
   calling loopback-only host routes directly. The
   phone gets `/m/`, the PC gets the desktop UI: one token, one pairing
-  flow, two surfaces. An unpaired PC sees only a "pair this device" banner
-  and no workspace data.
+  flow, two surfaces. An unpaired PC sees a full blocking page with computer
+  pairing steps and a retry action, with no workspace data rendered behind it.
 - **Security**: one active one-time token (a refresh invalidates the old
   link; an accepted token cannot be reused; tokens expire). 停止 revokes
   every paired device and the current token — paired devices are cut off on
@@ -62,9 +62,8 @@ that probes and runs the update.
   SDK's loopback-only privileged methods (native dialogs, the settings and
   credentials plane) stay unreachable from a paired remote desktop, and the
   `/api/update/*` and `/api/plugin-manager/*` control endpoints stay
-  loopback-only. Unpaired desktop
-  browsers get a persistent "pair this device" banner instead of data
-  (the banner keys off the `unpaired` error code, not every 403).
+  loopback-only. Unpaired desktop browsers get a persistent full-page block
+  instead of data (the page keys off the `unpaired` error code, not every 403).
 - **Posture probe**: the plugin probes the SDK `/api` fence with forged
   Host headers (the public base and every LAN base). A 403 is the default
   stance (fence closed; remote access goes through pairing). Anything other
@@ -203,8 +202,8 @@ mounts both halves.
  5. **To pair a PC instead**: copy the same link and open it in a browser on
     the other computer — the desktop URL form (`/?pair=<token>`, not `/m/`).
     After the accept round trip the full Web GUI runs there over the gated
-    `/remote/api` channel; unpaired PCs see the pair-this-device banner and
-    no data. One active token pairs one device; mint a fresh QR for the
+    `/remote/api` channel; unpaired PCs see the guided blocking page and no
+    data. One active token pairs one device; mint a fresh QR for the
     next device.
  6. The desktop badge flips to 已连接 in real time; it falls back to
     offline/断开 when the phone leaves.
@@ -241,7 +240,7 @@ over Server-Sent Events on `/m/api/events.mux`. The canonical `/m/` page owns a 
 - Installing this plugin routes fenced non-loopback desktop traffic onto the
   gated `/remote` channel (see `requirePairingForLan` in `src/index.ts`).
   A desktop browser opened via the LAN URL or the tunnel must pair like any
-  remote device — the unpaired state shows a persistent banner instead of
+  remote device — the unpaired state shows a persistent blocking page instead of
   data; loopback (127.0.0.1) is unaffected and keeps `/api`. Set
   `requirePairingForLan: false` in the profile patch to keep the desktop on
   plain `/api` (only useful with the open-LAN stance) while keeping

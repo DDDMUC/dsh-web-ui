@@ -207,7 +207,7 @@ export function apply(ctx: ClientContext): void {
     const node = document.createElement('div')
     document.body.appendChild(node)
     const root = createRoot(node)
-    root.render(createElement(FenceNotice, { t }))
+    root.render(createElement(FenceNotice, { t, onRetry: () => { window.location.reload() } }))
     fenceNotice = { unmount: () => { root.unmount(); node.remove() }, node }
   }
   const hideFenceNotice = (): void => {

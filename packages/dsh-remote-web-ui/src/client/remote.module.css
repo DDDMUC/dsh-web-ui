@@ -403,32 +403,103 @@
   font-size: 13px;
 }
 
-/* Failed-pair toast: fixed top-center diagnostic on the phone. */
-.notice {
+/* Unpaired remote desktop: opaque, blocking page above the shell. */
+.fencePage {
   position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 0;
   z-index: 2000;
-  max-width: min(420px, calc(100vw - 32px));
+  display: grid;
+  place-items: center;
+  overflow: auto;
   box-sizing: border-box;
-  padding: 12px 16px;
+  padding: 40px 24px;
+  background: var(--dsw-alias-bg-base);
+}
+
+.fenceCard {
+  width: min(520px, 100%);
+  box-sizing: border-box;
+  padding: 36px 40px;
   border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
-  background: var(--dsw-alias-bg-layer-2);
+  border-radius: 20px;
+  background: var(--dsw-alias-bg-layer-1);
   box-shadow: var(--dsw-shadow-lv3);
 }
 
-.noticeTitle {
-  margin: 0;
+.fenceMark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-error-secondary);
   color: var(--dsw-alias-state-error-primary);
-  font-weight: 500;
+  font-size: 24px;
+  line-height: 1;
 }
 
-.noticeDetail {
-  margin: 4px 0 0;
-  color: var(--dsw-alias-label-secondary);
+.fenceEyebrow {
+  margin: 22px 0 8px;
+  color: var(--dsw-alias-state-error-primary);
   font-size: 13px;
+  font-weight: 600;
+}
+
+.fenceTitle {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.fenceDetail {
+  margin: 12px 0 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.fenceSteps {
+  margin: 24px 0 0;
+  padding: 20px 20px 20px 42px;
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.fenceSteps li + li {
+  margin-top: 8px;
+}
+
+.fenceRetry {
+  width: 100%;
+  margin-top: 24px;
+  padding: 11px 16px;
+  border: 1px solid var(--dsw-alias-brand-primary);
+  border-radius: 10px;
+  background: var(--dsw-alias-brand-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fenceRetry:hover {
+  filter: brightness(0.96);
+}
+
+.fenceRetry:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 3px;
+}
+
+.fenceFootnote {
+  margin: 14px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 /* Multi-homed address picker: one radio per constructible LAN literal. */
