@@ -9,7 +9,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 15 个插件包（截至快照日）。皮肤不再独立成包：全部内置皮肤是纯资产目录（`packages/skins/skin-center/skins/<id>/`），随 `@linxin666/dsh-client-ui-skin-center` 分发；`@linxin666/dsh-skins` 是只带依赖的退役载具（保留一个发布周期）：
+`packages/` 与 `packages/skins/` 下共 16 个插件包（截至快照日）。皮肤不再独立成包：全部内置皮肤是纯资产目录（`packages/skins/skin-center/skins/<id>/`），随 `@linxin666/dsh-client-ui-skin-center` 分发；`@linxin666/dsh-skins` 是只带依赖的退役载具（保留一个发布周期）：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
@@ -25,6 +25,7 @@
 | packages/dsh-community-plugins | @linxin666/dsh-client-ui-community-plugins | 0.1.17 | false |
 | packages/dsh-plugin-manager | @linxin666/dsh-client-ui-plugin-manager | 0.1.0 | true |
 | packages/dsh-chat-recovery | @linxin666/dsh-chat-recovery | 0.2.3 | true |
+| packages/dsh-desktop-launcher | @linxin666/dsh-desktop-launcher | 0.2.3 | false |
 | packages/dsh-skins | @linxin666/dsh-skins（聚合） | 0.1.1 | true |
 | packages/dsh-web-ui-all | @linxin666/dsh-web-ui-all（聚合） | 0.1.1 | true |
 | packages/skins/skin-center | @linxin666/dsh-client-ui-skin-center | 0.1.1 | true |
