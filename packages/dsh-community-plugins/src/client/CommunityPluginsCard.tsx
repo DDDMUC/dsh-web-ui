@@ -7,7 +7,8 @@
  * indexes them, it never vendors their code.
  */
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the settings-surface SlotMap merge (the 'settings.section' entry).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -17,6 +18,14 @@ import { CardForm, booleanField, type CardActions, type CardShell, type FieldSta
 import type { CommunityPluginKey } from './locales.ts'
 import { COMMUNITY_PLUGINS, type CommunityPluginCategory, type CommunityPluginEntry } from './generated/community.ts'
 import { isCommunityPluginEntry } from './community-guard.ts'
+import {
+  getPluginManagerSnapshot,
+  subscribePluginManager,
+  type InstalledPluginItem,
+  type InstallProgressItem,
+  type PluginManagerService,
+} from './plugin-manager-bridge.ts'
+import { entryInstalled, installSpec } from './install-source.ts'
 import css from './community.module.css'
 
 /** The settings fields this card edits (the namespace's full schema). */
@@ -81,6 +90,20 @@ function installCommand(entry: CommunityPluginEntry): string {
   return `dsh plugin --profile web add ${entry.npm ?? entry.repo}`
 }
 
+/** Progress polling cadence while an install is in flight. */
+const PROGRESS_POLL_MS = 500
+
+/** Extract a displayable reason from an install/uninstall rejection. */
+function messageOf(reason: unknown): string {
+  return reason instanceof Error ? reason.message : String(reason)
+}
+
+/** One in-flight mutation, keyed by the community entry id (drives per-card state). */
+interface PendingMutation {
+  readonly kind: 'install' | 'uninstall'
+  readonly id: string
+}
+
 /**
  * Localized entry copy read through the card's `t`. Falls back to the raw
  * entry field when the key is missing — the dictionary only carries the
@@ -109,6 +132,12 @@ export type CommunityPluginsCardProps =
   & {
     /** Index entries; defaults to the generated registry (injected for tests). */
     plugins?: readonly CommunityPluginEntry[]
+    /**
+     * Plugin-manager face override; undefined reads the bridged cordis
+     * service (the default), null forces the degraded copy-command UI
+     * (injected for tests).
+     */
+    pluginManager?: PluginManagerService | null
   }
 
 /**
@@ -126,6 +155,104 @@ export function CommunityPluginsCard(props: CommunityPluginsCardProps): ReactNod
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CommunityPluginCategory | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // The optional pluginManager service: undefined prop reads the bridge store
+  // (populated by ctx.inject in the client apply), an explicit prop wins.
+  const bridge = useSyncExternalStore(subscribePluginManager, getPluginManagerSnapshot)
+  const face = props.pluginManager !== undefined ? props.pluginManager : bridge.face
+  const faceLoopback = face !== null && face.isLoopback
+
+  // Installed snapshot served by the face (null = not loaded / no face).
+  const [installed, setInstalled] = useState<readonly InstalledPluginItem[] | null>(null)
+  // The one in-flight mutation; while set, every card's mutation buttons disable.
+  const [pending, setPending] = useState<PendingMutation | null>(null)
+  // Latest polled install progress (only meaningful while an install runs).
+  const [progress, setProgress] = useState<InstallProgressItem | null>(null)
+  // Per-card inline error lines, keyed by entry id.
+  const [errors, setErrors] = useState<Readonly<Record<string, string>>>({})
+  // The entry awaiting uninstall confirmation.
+  const [uninstallTarget, setUninstallTarget] = useState<CommunityPluginEntry | null>(null)
+
+  // Keep the installed snapshot in sync with the face: initial load, plus
+  // onChange so edits made in the Plugin manager tab reflect here. Only
+  // loopback faces are queried — remote browsers render the read-only index.
+  useEffect(() => {
+    if (face === null || !face.isLoopback) {
+      setInstalled(null)
+      return
+    }
+    let alive = true
+    const refresh = (): void => {
+      void face.list().then(
+        (list) => { if (alive) setInstalled(list) },
+        () => { /* keep the last known snapshot on transient failures */ },
+      )
+    }
+    refresh()
+    const unsubscribe = face.onChange(refresh)
+    return () => { alive = false; unsubscribe() }
+  }, [face, faceLoopback])
+
+  // Poll the host's install progress while an install is in flight; the
+  // first poll runs immediately so the stage line appears without delay.
+  useEffect(() => {
+    if (face === null || pending?.kind !== 'install') {
+      setProgress(null)
+      return
+    }
+    let alive = true
+    const poll = (): void => {
+      void face.status().then(
+        (item) => { if (alive) setProgress(item) },
+        () => { /* transient poll failure: keep the last known stage */ },
+      )
+    }
+    poll()
+    const timer = setInterval(poll, PROGRESS_POLL_MS)
+    return () => { alive = false; clearInterval(timer) }
+    // Keyed on the boolean, not the entry: restarting the poll per entry is unnecessary.
+  }, [face, pending?.kind === 'install'])
+
+  const clearError = (id: string): void => {
+    setErrors((previous) => {
+      if (!(id in previous)) return previous
+      const next = { ...previous }
+      delete next[id]
+      return next
+    })
+  }
+
+  const onInstall = (entry: CommunityPluginEntry): void => {
+    if (face === null || !face.isLoopback || pending !== null) return
+    clearError(entry.id)
+    setPending({ kind: 'install', id: entry.id })
+    face.install(installSpec(entry)).then(
+      () => { void face.list().then(setInstalled, () => {}) },
+      (reason: unknown) => {
+        setErrors((previous) => ({ ...previous, [entry.id]: t('installFailed', { reason: messageOf(reason) }) }))
+      },
+    ).finally(() => { setPending(null) })
+  }
+
+  const onUninstallConfirm = (): void => {
+    const target = uninstallTarget
+    if (face === null || target === null || pending !== null) return
+    const item = entryInstalled(target, installed ?? [])
+    clearError(target.id)
+    if (item === null) {
+      // Already gone (e.g. uninstalled from the Plugin manager tab): close quietly.
+      setUninstallTarget(null)
+      return
+    }
+    setPending({ kind: 'uninstall', id: target.id })
+    face.uninstall(item.id).then(
+      (list) => { setInstalled(list); setUninstallTarget(null) },
+      (reason: unknown) => {
+        setErrors((previous) => ({ ...previous, [target.id]: t('uninstallFailed', { reason: messageOf(reason) }) }))
+        setUninstallTarget(null)
+      },
+    ).finally(() => { setPending(null) })
+  }
 
   const copyCommand = (id: string, command: string): void => {
     const mark = (): void => { setCopiedId(id) }
@@ -149,6 +276,8 @@ export function CommunityPluginsCard(props: CommunityPluginsCardProps): ReactNod
     mark()
   }
   const disabled = !state.writable
+  // One in-flight install/uninstall locks every card's mutation buttons.
+  const mutationsDisabled = disabled || pending !== null
   // The draft text drives the list: '' (inherit) and 'true' keep it visible,
   // 'false' hides it until the switch is turned back on.
   const visible = state.enabled.text !== 'false'
@@ -258,15 +387,24 @@ export function CommunityPluginsCard(props: CommunityPluginsCardProps): ReactNod
                       const copied = copiedId === plugin.id
                       const name = entryCopy(t, `name.${plugin.id}`, plugin.nameEn || plugin.name)
                       const description = entryCopy(t, `desc.${plugin.id}`, plugin.descriptionEn ?? plugin.description ?? '')
+                      const installedItem = faceLoopback ? entryInstalled(plugin, installed ?? []) : null
+                      const isInstalling = pending?.kind === 'install' && pending.id === plugin.id
+                      const isUninstalling = pending?.kind === 'uninstall' && pending.id === plugin.id
+                      const error = errors[plugin.id]
                       return (
                         <li key={plugin.id} className={css.card}>
                           <span className={css.cardHead}>
                             <span className={css.cardName} title={name}>{name}</span>
-                            <span
-                              className={plugin.npm ? `${css.badge} ${css.badgePublished}` : css.badge}
-                              title={plugin.npm ?? plugin.repo}
-                            >
-                              {plugin.npm ? t('badge.published') : t('badge.source')}
+                            <span className={css.cardBadges}>
+                              {installedItem !== null
+                                ? <span className={`${css.badge} ${css.badgeInstalled}`}>{t('badge.installed')}</span>
+                                : null}
+                              <span
+                                className={plugin.npm ? `${css.badge} ${css.badgePublished}` : css.badge}
+                                title={plugin.npm ?? plugin.repo}
+                              >
+                                {plugin.npm ? t('badge.published') : t('badge.source')}
+                              </span>
                             </span>
                           </span>
                           <span className={css.cardMeta}>
@@ -278,15 +416,53 @@ export function CommunityPluginsCard(props: CommunityPluginsCardProps): ReactNod
                           <span className={css.cardFooter}>
                             <span className={css.cardTop}>
                               <a className={css.cardLink} href={plugin.repo} target="_blank" rel="noreferrer">{t('repository')}</a>
-                              <button
-                                type="button"
-                                className={copied ? `${css.installButton} ${css.installButtonCopied}` : css.installButton}
-                                title={command}
-                                onClick={() => { copyCommand(plugin.id, command) }}
-                              >
-                                {copied ? t('copied') : t('install')}
-                              </button>
+                              <span className={css.cardActions}>
+                                <button
+                                  type="button"
+                                  className={copied
+                                    ? `${css.installButton} ${css.installButtonCopied}`
+                                    : faceLoopback ? `${css.installButton} ${css.installButtonSecondary}` : css.installButton}
+                                  title={command}
+                                  onClick={() => { copyCommand(plugin.id, command) }}
+                                >
+                                  {copied ? t('copied') : t('install')}
+                                </button>
+                                {faceLoopback && installedItem === null
+                                  ? (
+                                    <button
+                                      type="button"
+                                      className={css.installButton}
+                                      disabled={mutationsDisabled}
+                                      onClick={() => { onInstall(plugin) }}
+                                    >
+                                      {isInstalling ? t('installing') : t('installNow')}
+                                    </button>
+                                  )
+                                  : null}
+                                {faceLoopback && installedItem !== null
+                                  ? (
+                                    <button
+                                      type="button"
+                                      className={`${css.installButton} ${css.installButtonSecondary}`}
+                                      disabled={mutationsDisabled}
+                                      onClick={() => { setUninstallTarget(plugin) }}
+                                    >
+                                      {isUninstalling ? t('uninstalling') : t('uninstall')}
+                                    </button>
+                                  )
+                                  : null}
+                              </span>
                             </span>
+                            {isInstalling
+                              ? (
+                                <p className={css.progress} role="status">
+                                  {progress !== null && progress.kind !== 'idle'
+                                    ? t(`progress.${progress.stage}`)
+                                    : t('installing')}
+                                </p>
+                              )
+                              : null}
+                            {error !== undefined ? <p className={css.error} role="alert">{error}</p> : null}
                             <code className={css.cardCommand} title={command}>{command}</code>
                           </span>
                         </li>
@@ -297,8 +473,35 @@ export function CommunityPluginsCard(props: CommunityPluginsCardProps): ReactNod
           </div>
         )
         : <p className={css.off} role="status">{t('off')}</p>}
+      {face === null
+        ? <p className={css.installNote} role="note">{t('managerHint')}</p>
+        : face.isLoopback
+          ? null
+          : <p className={css.installNote} role="note">{t('remoteHint')}</p>}
       <p className={css.installNote} role="note">{t('installHint')}</p>
       <p className={css.notice} role="note">{t('notice')}</p>
+      <Modal
+        open={uninstallTarget !== null}
+        onClose={() => { if (pending === null) setUninstallTarget(null) }}
+        title={t('uninstallConfirm.title')}
+        closeLabel={t('cancel')}
+      >
+        <p className={css.confirmBody}>
+          {t('uninstallConfirm.body', {
+            name: uninstallTarget === null
+              ? ''
+              : entryCopy(t, `name.${uninstallTarget.id}`, uninstallTarget.nameEn || uninstallTarget.name),
+          })}
+        </p>
+        <div className={css.modalActions}>
+          <Button variant="outline" disabled={pending !== null} onClick={() => { setUninstallTarget(null) }}>
+            {t('cancel')}
+          </Button>
+          <Button variant="primary" className={css.dangerButton} disabled={pending !== null} onClick={onUninstallConfirm}>
+            {pending?.kind === 'uninstall' ? t('uninstalling') : t('uninstallConfirm.confirm')}
+          </Button>
+        </div>
+      </Modal>
     </PluginSettingsCard>
   )
 }
@@ -311,14 +514,16 @@ export type CommunityPluginsSectionProps =
   & {
     /** Index entries; defaults to the generated registry (injected for tests). */
     plugins?: readonly CommunityPluginEntry[]
+    /** Plugin-manager face override (injected for tests; undefined reads the bridge). */
+    pluginManager?: PluginManagerService | null
   }
 
 /** Render the community plugin index as a first-level settings page. */
 export function CommunityPluginsSection(props: CommunityPluginsSectionProps): ReactNode {
-  const { t, useCommunityPluginsCard, save, discard, edit, resetField, plugins } = props
+  const { t, useCommunityPluginsCard, save, discard, edit, resetField, plugins, pluginManager } = props
   return (
     <ul className={css.sectionList}>
-      <CommunityPluginsCard t={t} useCommunityPluginsCard={useCommunityPluginsCard} save={save} discard={discard} edit={edit} resetField={resetField} plugins={plugins} />
+      <CommunityPluginsCard t={t} useCommunityPluginsCard={useCommunityPluginsCard} save={save} discard={discard} edit={edit} resetField={resetField} plugins={plugins} pluginManager={pluginManager} />
     </ul>
   )
 }

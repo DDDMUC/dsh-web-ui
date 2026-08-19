@@ -132,6 +132,14 @@
   min-width: 0;
 }
 
+.cardBadges {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .cardName {
   font-weight: 600;
   color: var(--dsw-alias-label-primary);
@@ -155,6 +163,13 @@
 .badgePublished {
   color: var(--dsw-alias-link-primary, var(--dsw-alias-button-info-fill));
   border-color: var(--dsw-alias-link-primary, var(--dsw-alias-button-info-fill));
+}
+
+/* "Installed, takes effect after restart" marker. */
+.badgeInstalled {
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-label-dimmed);
+  background: var(--dsw-alias-bg-layer-2);
 }
 
 .cardMeta {
@@ -270,6 +285,62 @@
   color: var(--dsw-alias-label-primary);
   background: transparent;
   border-color: var(--dsw-alias-label-dimmed);
+}
+
+/* Secondary outline style: the copy-command fallback and the uninstall
+ * action, shown next to the primary install button. */
+.installButtonSecondary {
+  color: var(--dsw-alias-label-primary);
+  background: transparent;
+  border-color: var(--dsw-alias-border-l2);
+}
+
+.installButtonSecondary:hover:enabled {
+  border-color: var(--dsw-alias-label-dimmed);
+}
+
+.cardActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+/* In-flight install progress line (stage from the pluginManager status poll). */
+.progress {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Inline install/uninstall failure line. */
+.error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-error, #c53030);
+  overflow-wrap: anywhere;
+}
+
+/* Uninstall confirmation dialog. */
+.confirmBody {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.dangerButton {
+  background: var(--dsw-alias-label-error, #c53030);
+  border-color: var(--dsw-alias-label-error, #c53030);
 }
 
 .installNote {
