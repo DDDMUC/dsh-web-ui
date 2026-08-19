@@ -22,7 +22,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import { settingsNamespace, type SettingsNamespace, type SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import { isLoopbackRequest } from './loopback.ts'
-import { optionalService, UNKNOWN_CAPABILITY, type ModelImageCapability, type RouteCapabilityResolver } from './model-capability.ts'
+import { optionalService, UNKNOWN_CAPABILITY, type InvalidatableRouteResolver, type ModelImageCapability, type RouteCapabilityResolver } from './model-capability.ts'
 
 /** The DeepSeek adapter's settings namespace. */
 export const LLM_DEEPSEEK_SETTINGS_NAMESPACE = settingsNamespace('llm-deepseek')
@@ -122,7 +122,7 @@ export async function readNativeImageState(ctx: Context, resolver: RouteCapabili
  * @param enabled - whether the model should accept image input natively.
  * @throws on an unsupported host, a missing route, or a revision conflict.
  */
-export async function setNativeImageEnabled(ctx: Context, enabled: boolean): Promise<void> {
+export async function setNativeImageEnabled(ctx: Context, enabled: boolean, resolver?: { invalidate(route: { provider: string; model: string }): void }): Promise<void> {
   const route = currentRoute(ctx)
   if (route === undefined) throw new Error('native-images: no agent default model selection')
   const settings = optionalService<SettingsFace>(ctx, 'settings')
@@ -143,6 +143,9 @@ export async function setNativeImageEnabled(ctx: Context, enabled: boolean): Pro
   await settings.mutate(LLM_DEEPSEEK_SETTINGS_NAMESPACE, [
     { op: 'set', path: ['models'], value: next },
   ], descriptor.revision)
+  // Drop the cached capability verdict so the next read (and the POST
+  // envelope) reflects the catalog just written.
+  resolver?.invalidate(route)
 }
 
 /** One JSON envelope. */
@@ -184,7 +187,7 @@ interface NativeImageRoute {
   handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>
 }
 
-export function registerNativeImageRoutes(ctx: Context, resolver: RouteCapabilityResolver): NativeImageRoute[] {
+export function registerNativeImageRoutes(ctx: Context, resolver: InvalidatableRouteResolver): NativeImageRoute[] {
   const guard = (req: IncomingMessage, res: ServerResponse): boolean => {
     if (!isLoopbackRequest(req)) {
       json(res, 403, { ok: false, code: 'forbidden', message: 'loopback only' })
@@ -212,7 +215,7 @@ export function registerNativeImageRoutes(ctx: Context, resolver: RouteCapabilit
           return
         }
         try {
-          await setNativeImageEnabled(ctx, (body as { enabled: boolean }).enabled)
+          await setNativeImageEnabled(ctx, (body as { enabled: boolean }).enabled, resolver)
           json(res, 200, { ok: true, value: await readNativeImageState(ctx, resolver) })
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)

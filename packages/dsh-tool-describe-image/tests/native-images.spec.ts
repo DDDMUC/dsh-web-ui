@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { readNativeImageState, registerNativeImageRoutes, setNativeImageEnabled, LLM_DEEPSEEK_SETTINGS_NAMESPACE } from '../src/native-images.ts'
-import type { RouteCapabilityResolver } from '../src/model-capability.ts'
+import type { InvalidatableRouteResolver, RouteCapabilityResolver } from '../src/model-capability.ts'
 
 /** Fake agentDefaultModel service. */
 class FakeDefaultModel extends Service {
@@ -46,7 +46,9 @@ class FakeSettings extends Service {
   }
 }
 
-const ALWAYS_ACCEPTS: RouteCapabilityResolver = async () => ({ acceptsImages: true, known: true })
+const alwaysAccepts = (async () => ({ acceptsImages: true, known: true })) as unknown as InvalidatableRouteResolver
+alwaysAccepts.invalidate = () => {}
+const ALWAYS_ACCEPTS: RouteCapabilityResolver & { invalidate(route: { provider: string; model: string }): void } = alwaysAccepts
 
 /** A minimal HTTP request face (async-iterable body for POST reads). */
 function makeRequest(overrides: Record<string, unknown> = {}) {
