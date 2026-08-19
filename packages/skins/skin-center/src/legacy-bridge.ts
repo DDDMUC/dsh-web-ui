@@ -162,7 +162,7 @@ export function readLegacyActiveId(patch: string, knownIds: readonly string[]): 
   }
   if (!patch.includes(MANAGED_START)) return null
   const disabled = new Set<string>()
-  for (const m of patch.matchAll(/^- id: (ui-skin-[a-z0-9-]+)\n  disabled: true/gm)) {
+  for (const m of patch.matchAll(/^- id: (ui-skin-[a-z0-9-]+)\r?\n  disabled: true/gm)) {
     disabled.add(m[1].replace('ui-skin-', ''))
   }
   const candidates = knownIds.filter((id) => !disabled.has(id))

@@ -83,6 +83,10 @@ describe('readLegacyActiveId', () => {
     expect(readLegacyActiveId(WIRED_PATCH, KNOWN)).toBe('harbor')
   })
 
+  it('reads the bundle-wired skin on CRLF line endings too', () => {
+    expect(readLegacyActiveId(WIRED_PATCH.replace(/\n/g, '\r\n'), KNOWN)).toBe('harbor')
+  })
+
   it('returns null for the stock look and for no managed state', () => {
     expect(readLegacyActiveId(STOCK_PATCH, KNOWN)).toBeNull()
     expect(readLegacyActiveId('- insert: []\n', KNOWN)).toBeNull()
@@ -121,6 +125,14 @@ describe('migrateLegacySelection', () => {
     expect(result.patchCleaned).toBe(true)
     expect(readActiveSelection(statePath)).toBe('xp')
     expect(readFileSync(patchPath, 'utf8')).not.toContain('dsh-skin managed')
+  })
+
+  it('migrates the active id from a CRLF patch', () => {
+    writeFileSync(patchPath, WIRED_PATCH.replace(/\n/g, '\r\n'))
+    const result = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath, patchPath })
+    expect(result.migrated).toBe('harbor')
+    expect(result.patchCleaned).toBe(true)
+    expect(readActiveSelection(statePath)).toBe('harbor')
   })
 
   it('is a no-op on the second run', () => {
