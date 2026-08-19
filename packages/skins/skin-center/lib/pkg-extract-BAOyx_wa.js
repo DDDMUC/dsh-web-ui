@@ -356,6 +356,10 @@ function parseTexInternal(data) {
 		}
 	}
 	const mip0 = firstImage[0];
+	if (!isVideoMp4 && mip0 && mip0.bytes && mip0.bytes.length >= 8) {
+		const b = mip0.bytes;
+		if (b[4] === 102 && b[5] === 116 && b[6] === 121 && b[7] === 112 || b[0] === 0 && b[1] === 0 && b[2] === 0 && b[3] === 24 && b[4] === 102 && b[5] === 116 && b[6] === 121 && b[7] === 112) isVideoMp4 = true;
+	}
 	return {
 		format,
 		flags,
@@ -721,9 +725,10 @@ function pkgSceneAccess(pkgData) {
 * directory; texture references escaping it resolve to null.
 */
 function dirSceneAccess(dir) {
+	const normDir = resolve(dir);
 	const readFile = (path) => {
-		const abs = resolve(dir, path);
-		if (abs !== dir && !abs.startsWith(dir + sep)) return null;
+		const abs = resolve(normDir, path);
+		if (abs !== normDir && !abs.startsWith(normDir + sep)) return null;
 		try {
 			if (!statSync(abs).isFile()) return null;
 			return {
@@ -740,7 +745,7 @@ function dirSceneAccess(dir) {
 			if (depth > 4) return;
 			let names = [];
 			try {
-				names = readdirSync(sub === "" ? dir : join(dir, sub));
+				names = readdirSync(sub === "" ? normDir : join(normDir, sub));
 			} catch {
 				return;
 			}
@@ -749,7 +754,7 @@ function dirSceneAccess(dir) {
 				let isDir = false;
 				let isFile = false;
 				try {
-					const stat = statSync(join(dir, rel));
+					const stat = statSync(join(normDir, rel));
 					isDir = stat.isDirectory();
 					isFile = stat.isFile();
 				} catch {
@@ -781,7 +786,7 @@ function isPngBuffer(buf) {
 }
 function isLikelyMaskOrHelper(path) {
 	const lower = path.toLowerCase();
-	return lower.includes("/masks/") || lower.includes("_mask") || lower.includes("waterripple") || lower.includes("waterflow") || lower.includes("phase") || lower.includes("normal") || lower.includes("foliagesway") || lower.includes("cursorripple") || lower.includes("赞助") || lower.includes("sponsor") || lower.includes("donate") || lower.includes("qrcode") || lower.includes("qr_code") || lower.includes("audio_bar") || lower.includes("audiobar") || lower.includes("simple_audio") || lower.includes("提示框") || lower.includes("tip") || lower.includes("watermark") || lower.includes("logo") || lower.includes("particle") || lower.includes("audio");
+	return lower.includes("/masks/") || lower.includes("_mask") || lower.includes("waterripple") || lower.includes("waterflow") || lower.includes("phase") || lower.includes("normal") || lower.includes("foliagesway") || lower.includes("cursorripple") || lower.includes("赞助") || lower.includes("sponsor") || lower.includes("donate") || lower.includes("qrcode") || lower.includes("qr_code") || lower.includes("audio_bar") || lower.includes("audiobar") || lower.includes("simple_audio") || lower.includes("提示框") || lower.includes("tip") || lower.includes("watermark") || lower.includes("logo") || lower.includes("particle") || lower.includes("audio") || lower.includes("lightmap") || lower.includes("light_map") || lower.includes("visso") || lower.includes("font") || lower.includes("text_");
 }
 function isNaturalImageRgba(rgba, width, height) {
 	const totalPixels = width * height;
@@ -818,114 +823,28 @@ function getTextureScore(path) {
 	if (lower.includes("昼夜变化") || lower.includes("mddn") || lower.includes("transition")) score -= 30;
 	return score;
 }
-function parseVec(str) {
-	if (typeof str !== "string") return [
-		0,
-		0,
-		0
-	];
-	return str.trim().split(/\s+/).map(Number);
-}
-function resolveTexPath(access, tex) {
-	if (typeof tex !== "string" || !tex) return null;
-	if (tex.toLowerCase().endsWith(".tex") && access.readFile(tex)) return tex;
-	if (access.readFile(`materials/${tex}.tex`)) return `materials/${tex}.tex`;
-	if (access.readFile(`${tex}.tex`)) return `${tex}.tex`;
-	return null;
-}
-function composeScene2D(access, scene) {
-	const ortho = scene.general?.orthogonalprojection;
-	const canvasWidth = ortho?.width || 3840;
-	const canvasHeight = ortho?.height || 2160;
-	const objects = scene.objects;
-	if (!Array.isArray(objects) || objects.length === 0) return null;
-	const cw = Math.min(3840, Math.max(640, Math.round(canvasWidth)));
-	const ch = Math.min(2160, Math.max(360, Math.round(canvasHeight)));
-	const scaleX = cw / canvasWidth;
-	const scaleY = ch / canvasHeight;
-	const canvas = new Uint8Array(cw * ch * 4);
-	let blittedCount = 0;
-	for (const obj of objects) {
-		if (!obj || typeof obj !== "object") continue;
-		const name = String(obj.name || "").toLowerCase();
-		if (name === "black" || name === "black&white" || name.includes("赞助") || name.includes("sponsor") || name.includes("qrcode")) continue;
-		const imagePath = typeof obj.image === "string" ? obj.image : null;
-		if (!imagePath) continue;
-		const model = access.readJson(imagePath);
-		if (!model) continue;
-		const matPath = typeof model.material === "string" ? model.material : null;
-		if (!matPath) continue;
-		const mat = access.readJson(matPath);
-		if (!mat) continue;
-		const rawTex = mat.passes?.[0]?.textures?.[0];
-		const texPath = resolveTexPath(access, rawTex);
-		if (!texPath || isLikelyMaskOrHelper(texPath) || texPath.includes("/util/projectlayer")) continue;
-		const file = access.readFile(texPath);
-		if (!file) continue;
-		let decoded;
-		try {
-			decoded = decodeTex(file.bytes);
-		} catch {
-			continue;
-		}
-		const [cx, cy] = parseVec(obj.origin);
-		const [ow, oh] = parseVec(obj.size || `${decoded.width} ${decoded.height}`);
-		const w = Math.round((ow || decoded.width) * scaleX);
-		const h = Math.round((oh || decoded.height) * scaleY);
-		if (w <= 0 || h <= 0) continue;
-		const dstLeft = Math.round(cx * scaleX - w / 2);
-		const dstTop = ch - (Math.round(cy * scaleY - h / 2) + h);
-		for (let dy = 0; dy < h; dy++) {
-			const y = dstTop + dy;
-			if (y < 0 || y >= ch) continue;
-			const sy = Math.floor(dy / h * decoded.height);
-			if (sy < 0 || sy >= decoded.height) continue;
-			for (let dx = 0; dx < w; dx++) {
-				const x = dstLeft + dx;
-				if (x < 0 || x >= cw) continue;
-				const sx = Math.floor(dx / w * decoded.width);
-				if (sx < 0 || sx >= decoded.width) continue;
-				const sIdx = (sy * decoded.width + sx) * 4;
-				const sa = decoded.rgba[sIdx + 3] / 255;
-				if (sa <= .01) continue;
-				const sr = decoded.rgba[sIdx];
-				const sg = decoded.rgba[sIdx + 1];
-				const sb = decoded.rgba[sIdx + 2];
-				const dIdx = (y * cw + x) * 4;
-				const da = canvas[dIdx + 3] / 255;
-				const outA = sa + da * (1 - sa);
-				if (outA > 0) {
-					canvas[dIdx] = Math.round((sr * sa + canvas[dIdx] * da * (1 - sa)) / outA);
-					canvas[dIdx + 1] = Math.round((sg * sa + canvas[dIdx + 1] * da * (1 - sa)) / outA);
-					canvas[dIdx + 2] = Math.round((sb * sa + canvas[dIdx + 2] * da * (1 - sa)) / outA);
-					canvas[dIdx + 3] = Math.round(outA * 255);
-				}
-			}
-		}
-		blittedCount++;
-	}
-	if (blittedCount < 2) return null;
-	return {
-		width: cw,
-		height: ch,
-		png: encodePng(cw, ch, canvas),
-		texturePath: "composite_scene.png"
-	};
-}
 /** Shared scene pipeline over one access layer; label prefixes error text. */
 function extractSceneMainImageVia(access, label) {
-	const scene = access.readJson("scene.json");
+	let scene = access.readJson("scene.json");
+	if (!scene) {
+		const project = access.readJson("project.json");
+		if (project && typeof project.file === "string" && project.file.endsWith(".json")) scene = access.readJson(project.file);
+	}
 	if (!scene || !Array.isArray(scene.objects)) throw new Error(label + ": scene.json not found or invalid");
-	const composite = composeScene2D(access, scene);
-	if (composite) return composite;
+	if (scene.objects.some((obj) => obj && typeof obj === "object" && typeof obj.model === "string" && obj.model.length > 0)) throw new Error(label + ": 3D scene cannot be extracted as 2D frame");
+	const nonHelperImageObjects = scene.objects.filter((obj) => obj && typeof obj === "object" && typeof obj.image === "string" && !String(obj.image).startsWith("models/util/") && !isLikelyMaskOrHelper(String(obj.image)));
+	if (nonHelperImageObjects.length > 3 && !nonHelperImageObjects.some((obj) => {
+		const str = String(obj.image).toLowerCase();
+		return str.includes("白天") || str.includes("day") || str.includes("night") || str.includes("夜晚");
+	})) throw new Error(label + ": multi-layer scene composition requires full preview render");
 	const rawCandidates = [];
 	for (const obj of scene.objects) if (obj && typeof obj === "object" && typeof obj.image === "string") rawCandidates.push(...collectImageObjectTextures(obj, access.readJson));
 	const allCandidates = [];
-	for (const p of rawCandidates) if (!allCandidates.some((c) => c.path.toLowerCase() === p.toLowerCase())) allCandidates.push({
+	for (const p of rawCandidates) if (!isLikelyMaskOrHelper(p) && !allCandidates.some((c) => c.path.toLowerCase() === p.toLowerCase())) allCandidates.push({
 		path: p,
 		fromObject: true
 	});
-	for (const p of access.listTexPaths()) if (!allCandidates.some((c) => c.path.toLowerCase() === p.toLowerCase())) allCandidates.push({
+	for (const p of access.listTexPaths()) if (!isLikelyMaskOrHelper(p) && !allCandidates.some((c) => c.path.toLowerCase() === p.toLowerCase())) allCandidates.push({
 		path: p,
 		fromObject: false
 	});
@@ -950,6 +869,7 @@ function extractSceneMainImageVia(access, label) {
 	if (candidates.length === 0) throw new Error(label + ": no texture candidates found");
 	let lastError = null;
 	for (const path of candidates) {
+		if (isLikelyMaskOrHelper(path)) continue;
 		const file = access.readFile(path);
 		if (!file) {
 			lastError = /* @__PURE__ */ new Error(label + ": texture '" + path + "' not found in " + (label === "pkg" ? "package" : "directory"));
@@ -993,5 +913,34 @@ function extractSceneMainImage(pkgData) {
 function extractSceneMainImageFromDir(dir) {
 	return extractSceneMainImageVia(dirSceneAccess(dir), "scene");
 }
+/** Find and extract the primary MP4 video embedded inside a scene's .tex textures. */
+function extractSceneVideoVia(access) {
+	const candidates = [];
+	for (const path of access.listTexPaths()) {
+		const file = access.readFile(path);
+		if (!file) continue;
+		const raw = file.bytes;
+		for (let i = 0; i < 200 && i + 8 <= raw.length; i++) if (raw[i] === 102 && raw[i + 1] === 116 && raw[i + 2] === 121 && raw[i + 3] === 112) {
+			const ftypOffset = i - 4;
+			if (ftypOffset >= 0 && ftypOffset < raw.length) {
+				candidates.push({
+					path,
+					score: getTextureScore(path),
+					bytes: raw.slice(ftypOffset)
+				});
+				break;
+			}
+		}
+	}
+	if (candidates.length === 0) return null;
+	candidates.sort((a, b) => b.score - a.score);
+	return candidates[0].bytes;
+}
+function extractSceneVideo(pkgData) {
+	return extractSceneVideoVia(pkgSceneAccess(pkgData));
+}
+function extractSceneVideoFromDir(dir) {
+	return extractSceneVideoVia(dirSceneAccess(dir));
+}
 //#endregion
-export { extractSceneMainImage, extractSceneMainImageFromDir };
+export { extractSceneMainImage, extractSceneMainImageFromDir, extractSceneVideo, extractSceneVideoFromDir };

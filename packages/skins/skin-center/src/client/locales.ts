@@ -46,6 +46,10 @@ export type SkinCenterKey =
   | 'wallpaperMode'
   | 'wallpaperModeLive'
   | 'wallpaperModeFrame'
+  | 'wallpaperFit'
+  | 'wallpaperFitCover'
+  | 'wallpaperFitContain'
+  | 'wallpaperFitFill'
   | 'wallpaperClear'
   | 'wallpaperDim'
   | 'wallpaperBlur'
@@ -111,6 +115,10 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperMode: 'Render mode',
   wallpaperModeLive: 'Live',
   wallpaperModeFrame: 'Static frame',
+  wallpaperFit: 'Sizing mode',
+  wallpaperFitCover: 'Cover (fill)',
+  wallpaperFitContain: 'Fit (entire image)',
+  wallpaperFitFill: 'Stretch',
   wallpaperClear: 'Turn off wallpaper',
   wallpaperDim: 'Wallpaper dimming',
   wallpaperBlur: 'Wallpaper blur',
@@ -177,6 +185,10 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperMode: '渲染模式',
   wallpaperModeLive: '动态',
   wallpaperModeFrame: '静态帧',
+  wallpaperFit: '适应方式',
+  wallpaperFitCover: '铺满裁剪',
+  wallpaperFitContain: '完整缩放',
+  wallpaperFitFill: '拉伸铺满',
   wallpaperClear: '关闭壁纸',
   wallpaperDim: '壁纸暗化',
   wallpaperBlur: '壁纸模糊',

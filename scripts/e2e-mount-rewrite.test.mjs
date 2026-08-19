@@ -135,8 +135,8 @@ test('better-sidebar manual override rewrites only that dep', async () => {
 test('findWorkspacePackage scans packages/ and packages/skins/', () => {
   const tmp = makeTmp()
   makeWorkspace(tmp)
-  assert.match(findWorkspacePackage(tmp, '@linxin666/dsh-a'), /packages\/dsh-a$/)
-  assert.match(findWorkspacePackage(tmp, '@linxin666/dsh-skin-x'), /packages\/skins\/skin-x$/)
+  assert.match(findWorkspacePackage(tmp, '@linxin666/dsh-a'), /packages[/\\]dsh-a$/)
+  assert.match(findWorkspacePackage(tmp, '@linxin666/dsh-skin-x'), /packages[/\\]skins[/\\]skin-x$/)
   assert.equal(findWorkspacePackage(tmp, '@linxin666/nope'), null)
 })
 

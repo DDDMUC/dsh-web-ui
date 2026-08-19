@@ -116,6 +116,7 @@ window.__ModuleLoader__.load({
 			const enabled = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.enabled);
 			const selection = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.selection);
 			const mode = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.mode);
+			const fit = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.fit);
 			const dim = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.dim);
 			const blur = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.wallpaperBlur);
 			const pauseOnHidden = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.pauseOnHidden);
@@ -181,6 +182,7 @@ window.__ModuleLoader__.load({
 				videoUrl: item.videoUrl,
 				webUrl: item.webUrl,
 				frameUrl: item.frameUrl,
+				sceneUrl: item.sceneUrl,
 				previewUrl: item.previewUrl
 			});
 			/** Whether one entry can be mounted at all in the current mode. */
@@ -270,6 +272,39 @@ window.__ModuleLoader__.load({
 											wallpaper.clearSelection();
 										},
 										children: t("wallpaperClear")
+									})
+								]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: skin_center_module_css_default.themeRow,
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.themeLabel,
+										children: t("wallpaperFit")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: skin_center_module_css_default.themeButton + (fit === "cover" ? " " + skin_center_module_css_default.themeButtonActive : ""),
+										onClick: () => {
+											wallpaper.setFit("cover");
+										},
+										children: t("wallpaperFitCover")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: skin_center_module_css_default.themeButton + (fit === "contain" ? " " + skin_center_module_css_default.themeButtonActive : ""),
+										onClick: () => {
+											wallpaper.setFit("contain");
+										},
+										children: t("wallpaperFitContain")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: skin_center_module_css_default.themeButton + (fit === "fill" ? " " + skin_center_module_css_default.themeButtonActive : ""),
+										onClick: () => {
+											wallpaper.setFit("fill");
+										},
+										children: t("wallpaperFitFill")
 									})
 								]
 							}),
@@ -1216,10 +1251,10 @@ window.__ModuleLoader__.load({
 			element.setAttribute("aria-hidden", "true");
 		}
 		/** Style a full-bleed cover child (video / img / iframe). */
-		function styleCover(element) {
+		function styleCover(element, fit = "cover") {
 			element.style.width = "100%";
 			element.style.height = "100%";
-			element.style.objectFit = "cover";
+			element.style.objectFit = fit;
 			element.style.border = "0";
 			element.style.display = "block";
 		}
@@ -1233,6 +1268,7 @@ window.__ModuleLoader__.load({
 			enabledValue = true;
 			selectionValue = "";
 			modeValue = "live";
+			fitValue = "cover";
 			pauseOnHiddenValue = true;
 			soundValue = false;
 			volumeValue = 100;
@@ -1241,6 +1277,8 @@ window.__ModuleLoader__.load({
 			dirsValue = [];
 			listeners = /* @__PURE__ */ new Set();
 			scope;
+			options;
+			doc;
 			/** The descriptor of the applied selection, resolved by the card. */
 			applied = null;
 			/** The try-on descriptor while a preview is up. */
@@ -1250,8 +1288,10 @@ window.__ModuleLoader__.load({
 			videoElement = null;
 			rootNeutralizer = null;
 			disposed = false;
-			constructor(scope) {
+			constructor(scope, options = {}) {
 				this.scope = scope;
+				this.options = options;
+				this.doc = options.doc ?? document;
 				this.readAll();
 				scope.subscribe(() => {
 					this.readAll();
@@ -1261,29 +1301,23 @@ window.__ModuleLoader__.load({
 						this.publish();
 					}
 				});
-				document.addEventListener("visibilitychange", this.onVisibility);
-				document.addEventListener("pointerdown", this.onFirstGesture);
-				document.addEventListener("keydown", this.onFirstGesture);
+				this.doc.addEventListener("visibilitychange", this.onVisibility);
+				this.doc.addEventListener("pointerdown", this.onFirstGesture);
+				this.doc.addEventListener("keydown", this.onFirstGesture);
 				if (this.enabledValue && this.selectionValue) this.fetchAndSync();
 			}
 			fetchAndSync() {
-				if (!this.selectionValue) return;
+				if (!this.selectionValue || !this.doc) return;
 				const targetId = this.selectionValue;
-				fetch("/api/skin-center/we/inventory").then(async (response) => {
+				const fetchFn = this.options.fetchImpl ?? (typeof fetch !== "undefined" ? fetch.bind(this.doc.defaultView ?? globalThis) : void 0);
+				if (!fetchFn) return;
+				fetchFn(`${this.options.apiBase ?? "/api/skin-center/we"}/inventory`).then(async (response) => {
 					if (this.disposed || !response.ok) return;
 					const payload = await response.json().catch(() => null);
 					if (payload?.ok === true && Array.isArray(payload.wallpapers)) {
 						const item = payload.wallpapers.find((w) => w.id === targetId);
 						if (item && this.selectionValue === targetId) {
-							this.applied = {
-								id: item.id,
-								title: item.title,
-								type: item.type,
-								videoUrl: item.videoUrl,
-								webUrl: item.webUrl,
-								frameUrl: item.frameUrl,
-								previewUrl: item.previewUrl
-							};
+							this.applied = item;
 							this.render();
 							this.publish();
 						}
@@ -1298,6 +1332,9 @@ window.__ModuleLoader__.load({
 			}
 			mode() {
 				return this.modeValue;
+			}
+			fit() {
+				return this.fitValue;
 			}
 			dim() {
 				return this.dimValue;
@@ -1355,6 +1392,12 @@ window.__ModuleLoader__.load({
 				this.render();
 				this.publish();
 				this.scope.set("mode", mode);
+			}
+			setFit(fit) {
+				this.fitValue = fit;
+				this.render();
+				this.publish();
+				this.scope.set("fit", fit);
 			}
 			setDim(value) {
 				this.dimValue = clamp(value, 0, 90);
@@ -1418,9 +1461,9 @@ window.__ModuleLoader__.load({
 			}
 			dispose() {
 				this.disposed = true;
-				document.removeEventListener("visibilitychange", this.onVisibility);
-				document.removeEventListener("pointerdown", this.onFirstGesture);
-				document.removeEventListener("keydown", this.onFirstGesture);
+				this.doc.removeEventListener("visibilitychange", this.onVisibility);
+				this.doc.removeEventListener("pointerdown", this.onFirstGesture);
+				this.doc.removeEventListener("keydown", this.onFirstGesture);
 				this.teardownLayers();
 			}
 			readAll() {
@@ -1428,6 +1471,8 @@ window.__ModuleLoader__.load({
 				this.enabledValue = typeof value.enabled === "boolean" ? value.enabled : true;
 				this.selectionValue = typeof value.selection === "string" ? value.selection : "";
 				this.modeValue = value.mode === "frame" ? "frame" : "live";
+				const rawFit = value.fit;
+				this.fitValue = rawFit === "contain" || rawFit === "fill" ? rawFit : "cover";
 				this.pauseOnHiddenValue = typeof value.pauseOnHidden === "boolean" ? value.pauseOnHidden : true;
 				this.soundValue = typeof value.sound === "boolean" ? value.sound : false;
 				this.volumeValue = typeof value.volume === "number" && Number.isFinite(value.volume) ? clamp(value.volume, 0, 100) : 100;
@@ -1442,7 +1487,7 @@ window.__ModuleLoader__.load({
 			};
 			onVisibility = () => {
 				if (this.videoElement === null || !this.pauseOnHiddenValue) return;
-				if (document.hidden) this.videoElement.pause();
+				if (this.doc.hidden) this.videoElement.pause();
 				else this.videoElement.play()?.catch(() => {});
 			};
 			/** Reconcile the DOM with (enabled, previewing ?? applied, mode, dim, blur). */
@@ -1457,7 +1502,7 @@ window.__ModuleLoader__.load({
 			}
 			ensureLayers(descriptor) {
 				if (this.rootNeutralizer === null) {
-					this.rootNeutralizer = document.createElement("style");
+					this.rootNeutralizer = this.doc.createElement("style");
 					this.rootNeutralizer.dataset.dshWallpaperRoot = "";
 					this.rootNeutralizer.textContent = `
         [id="root"] { background: transparent; }
@@ -1467,26 +1512,26 @@ window.__ModuleLoader__.load({
         html[data-dsh-skin][data-dsh-wallpaper-active] body,
         html[data-dsh-skin] body[data-dsh-wallpaper-active],
         body[data-dsh-wallpaper-active][data-ds-dark-theme],
-        html[data-dsh-wallpaper-active] #root,
         html[data-dsh-wallpaper-active] [id="root"] {
           background-color: transparent !important;
+          background-image: none !important;
         }
       `;
-					document.head.appendChild(this.rootNeutralizer);
+					this.doc.head.appendChild(this.rootNeutralizer);
 				}
-				document.body.dataset.dshWallpaperActive = "true";
-				document.documentElement.dataset.dshWallpaperActive = "true";
+				this.doc.body.dataset.dshWallpaperActive = "true";
+				this.doc.documentElement.dataset.dshWallpaperActive = "true";
 				if (this.mediaLayer === null) {
-					this.mediaLayer = document.createElement("div");
+					this.mediaLayer = this.doc.createElement("div");
 					styleLayer(this.mediaLayer, -3);
-					document.body.appendChild(this.mediaLayer);
+					this.doc.body.appendChild(this.mediaLayer);
 				}
 				if (this.scrimLayer === null) {
-					this.scrimLayer = document.createElement("div");
+					this.scrimLayer = this.doc.createElement("div");
 					styleLayer(this.scrimLayer, -2);
-					document.body.appendChild(this.scrimLayer);
+					this.doc.body.appendChild(this.scrimLayer);
 				}
-				const mediaKey = descriptor.id + ":" + this.modeValue;
+				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + this.fitValue;
 				if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
 					this.mediaLayer.dataset.mediaKey = mediaKey;
 					this.mediaLayer.replaceChildren();
@@ -1508,16 +1553,36 @@ window.__ModuleLoader__.load({
 				}
 				if (descriptor.type === "web") {
 					if (this.modeValue === "live" && descriptor.webUrl !== null) {
-						const iframe = document.createElement("iframe");
+						const iframe = this.doc.createElement("iframe");
 						iframe.src = descriptor.webUrl;
 						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
 						iframe.setAttribute("tabindex", "-1");
-						styleCover(iframe);
+						styleCover(iframe, this.fitValue);
 						return iframe;
 					}
 					return this.buildImage(descriptor.previewUrl);
 				}
-				if (descriptor.type === "scene") return this.buildImage(descriptor.frameUrl ?? descriptor.previewUrl, descriptor.previewUrl);
+				if (descriptor.type === "scene") {
+					if (this.modeValue === "live" && descriptor.videoUrl !== null) return this.buildVideo(descriptor.videoUrl, descriptor.frameUrl, descriptor.previewUrl);
+					if (this.modeValue === "live" && descriptor.sceneUrl) {
+						const iframe = this.doc.createElement("iframe");
+						iframe.src = descriptor.sceneUrl;
+						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+						iframe.setAttribute("tabindex", "-1");
+						styleCover(iframe, this.fitValue);
+						iframe.addEventListener("load", () => {
+							try {
+								iframe.contentWindow?.postMessage({
+									type: "dsh-set-fit",
+									fit: this.fitValue
+								}, "*");
+							} catch {}
+						});
+						return iframe;
+					}
+					if (this.modeValue === "frame" && descriptor.videoUrl !== null && descriptor.frameUrl === null) return this.buildVideoFrame(descriptor.videoUrl, descriptor.previewUrl);
+					return this.buildImage(descriptor.frameUrl ?? descriptor.previewUrl, descriptor.previewUrl);
+				}
 				return this.buildImage(descriptor.previewUrl);
 			}
 			/** Push the persisted sound/volume settings onto the mounted video. */
@@ -1526,8 +1591,8 @@ window.__ModuleLoader__.load({
 				this.videoElement.muted = !this.soundValue;
 				this.videoElement.volume = this.volumeValue / 100;
 			}
-			buildVideo(url) {
-				const video = document.createElement("video");
+			buildVideo(url, frameUrl = null, previewUrl = null) {
+				const video = this.doc.createElement("video");
 				video.src = url;
 				video.muted = !this.soundValue;
 				video.volume = this.volumeValue / 100;
@@ -1535,17 +1600,23 @@ window.__ModuleLoader__.load({
 				video.autoplay = true;
 				video.playsInline = true;
 				video.setAttribute("aria-hidden", "true");
-				styleCover(video);
+				styleCover(video, this.fitValue);
 				this.videoElement = video;
+				if (frameUrl !== null || previewUrl !== null) video.addEventListener("error", () => {
+					const nextUrl = frameUrl ?? previewUrl;
+					const nextFallback = frameUrl !== null ? previewUrl : null;
+					const img = this.buildImage(nextUrl, nextFallback);
+					if (img && video.parentElement) video.parentElement.replaceChild(img, video);
+				}, { once: true });
 				video.play()?.catch(() => {});
 				return video;
 			}
 			/** Static-frame mode for video: capture the first frame into an image. */
 			buildVideoFrame(url, previewUrl) {
-				const image = document.createElement("img");
-				styleCover(image);
+				const image = this.doc.createElement("img");
+				styleCover(image, this.fitValue);
 				if (previewUrl !== null) image.src = previewUrl;
-				const video = document.createElement("video");
+				const video = this.doc.createElement("video");
 				video.muted = true;
 				video.playsInline = true;
 				video.preload = "auto";
@@ -1553,7 +1624,7 @@ window.__ModuleLoader__.load({
 				video.addEventListener("loadeddata", () => {
 					try {
 						const scale = Math.min(1, FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
-						const canvas = document.createElement("canvas");
+						const canvas = this.doc.createElement("canvas");
 						canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
 						canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
 						const context = canvas.getContext("2d");
@@ -1568,18 +1639,18 @@ window.__ModuleLoader__.load({
 			}
 			buildImage(url, fallbackUrl = null) {
 				if (url === null) return null;
-				const image = document.createElement("img");
+				const image = this.doc.createElement("img");
 				image.src = url;
 				image.alt = "";
 				if (fallbackUrl !== null && fallbackUrl !== url) image.addEventListener("error", () => {
-					image.src = fallbackUrl;
+					if (image.src !== fallbackUrl) image.src = fallbackUrl;
 				}, { once: true });
-				styleCover(image);
+				styleCover(image, this.fitValue);
 				return image;
 			}
 			teardownLayers() {
-				delete document.body.dataset.dshWallpaperActive;
-				delete document.documentElement.dataset.dshWallpaperActive;
+				delete this.doc.body.dataset.dshWallpaperActive;
+				delete this.doc.documentElement.dataset.dshWallpaperActive;
 				if (this.rootNeutralizer !== null) {
 					this.rootNeutralizer.remove();
 					this.rootNeutralizer = null;
@@ -1644,6 +1715,10 @@ window.__ModuleLoader__.load({
 			wallpaperMode: "Render mode",
 			wallpaperModeLive: "Live",
 			wallpaperModeFrame: "Static frame",
+			wallpaperFit: "Sizing mode",
+			wallpaperFitCover: "Cover (fill)",
+			wallpaperFitContain: "Fit (entire image)",
+			wallpaperFitFill: "Stretch",
 			wallpaperClear: "Turn off wallpaper",
 			wallpaperDim: "Wallpaper dimming",
 			wallpaperBlur: "Wallpaper blur",
@@ -1709,6 +1784,10 @@ window.__ModuleLoader__.load({
 			wallpaperMode: "渲染模式",
 			wallpaperModeLive: "动态",
 			wallpaperModeFrame: "静态帧",
+			wallpaperFit: "适应方式",
+			wallpaperFitCover: "铺满裁剪",
+			wallpaperFitContain: "完整缩放",
+			wallpaperFitFill: "拉伸铺满",
 			wallpaperClear: "关闭壁纸",
 			wallpaperDim: "壁纸暗化",
 			wallpaperBlur: "壁纸模糊",
@@ -2283,6 +2362,15 @@ window.__ModuleLoader__.load({
 				} catch (error) {
 					ledger.disposeActivation(activation);
 					if (error instanceof StaleSwitch) return active;
+					if (currentActivation === null) {
+						active = null;
+						committed = {
+							id: null,
+							entry: null
+						};
+						doc.documentElement.removeAttribute("data-dsh-skin");
+						emit();
+					}
 					onError(`switch to ${id ?? "stock"} failed; previous skin intact`, error);
 					return active;
 				}
@@ -2315,6 +2403,7 @@ window.__ModuleLoader__.load({
 					if (suppressed === lastSuppressed) return active;
 					lastSuppressed = suppressed;
 					const id = active;
+					if (id !== null && lastEntry === null) return active;
 					return await switchInternal(id, id === null ? null : lastEntry, false);
 				},
 				shutdown() {
@@ -2421,9 +2510,14 @@ window.__ModuleLoader__.load({
 					}
 					if (active === null) return;
 					const entry = store.find(active);
-					if (entry === null) return;
+					if (entry === null) {
+						await controller.switchTo(null, null);
+						return;
+					}
 					await controller.switchTo(active, entry);
-				} catch {}
+				} catch {
+					await controller.switchTo(null, null).catch(() => {});
+				}
 			})();
 			return store;
 		}
@@ -2490,6 +2584,7 @@ window.__ModuleLoader__.load({
 					enabled: () => wallpaper.enabled(),
 					selection: () => wallpaper.selection(),
 					mode: () => wallpaper.mode(),
+					fit: () => wallpaper.fit(),
 					dim: () => wallpaper.dim(),
 					wallpaperBlur: () => wallpaper.wallpaperBlur(),
 					pauseOnHidden: () => wallpaper.pauseOnHidden(),
@@ -2503,6 +2598,7 @@ window.__ModuleLoader__.load({
 					subscribe: (listener) => wallpaper.subscribe(listener),
 					setEnabled: (value) => wallpaper.setEnabled(value),
 					setMode: (value) => wallpaper.setMode(value),
+					setFit: (fit) => wallpaper.setFit(fit),
 					setDim: (value) => wallpaper.setDim(value),
 					setBlur: (value) => wallpaper.setBlur(value),
 					setPauseOnHidden: (value) => wallpaper.setPauseOnHidden(value),

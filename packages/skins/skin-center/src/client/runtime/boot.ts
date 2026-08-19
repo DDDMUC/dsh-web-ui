@@ -150,11 +150,15 @@ export function bootSkinRuntime(options: BootOptions = {}): SkinRuntimeStore {
       }
       if (active === null) return
       const entry = store.find(active)
-      if (entry === null) return
+      if (entry === null) {
+        await controller.switchTo(null, null)
+        return
+      }
       await controller.switchTo(active, entry as ControllerSkinEntry)
     } catch {
       // Fail-closed: boot into the stock look; the card surfaces catalog
       // errors through diagnostics().
+      await controller.switchTo(null, null).catch(() => {})
     }
   })()
 

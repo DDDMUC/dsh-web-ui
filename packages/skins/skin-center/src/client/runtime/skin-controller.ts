@@ -371,6 +371,12 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
     } catch (error) {
       ledger.disposeActivation(activation)
       if (error instanceof StaleSwitch) return active
+      if (currentActivation === null) {
+        active = null
+        committed = { id: null, entry: null }
+        doc.documentElement.removeAttribute('data-dsh-skin')
+        emit()
+      }
       onError(`switch to ${id ?? 'stock'} failed; previous skin intact`, error)
       return active
     }
@@ -411,6 +417,9 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
       if (suppressed === lastSuppressed) return active
       lastSuppressed = suppressed
       const id = active
+      if (id !== null && lastEntry === null) {
+        return active
+      }
       return await switchInternal(id, id === null ? null : lastEntry, false)
     },
 
