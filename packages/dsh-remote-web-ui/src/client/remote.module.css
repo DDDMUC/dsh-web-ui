@@ -408,22 +408,27 @@
   position: fixed;
   inset: 0;
   z-index: 2000;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   overflow: auto;
   box-sizing: border-box;
   padding: 40px 24px;
   background: var(--dsw-alias-bg-base);
+  text-align: center;
 }
 
 .fenceCard {
   width: min(520px, 100%);
+  margin-inline: auto;
   box-sizing: border-box;
   padding: 36px 40px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 20px;
   background: var(--dsw-alias-bg-layer-1);
   box-shadow: var(--dsw-shadow-lv3);
+  text-align: center;
 }
 
 .fenceMark {
@@ -431,6 +436,7 @@
   place-items: center;
   width: 44px;
   height: 44px;
+  margin-inline: auto;
   border-radius: 50%;
   background: var(--dsw-alias-state-error-secondary);
   color: var(--dsw-alias-state-error-primary);
@@ -460,13 +466,14 @@
 }
 
 .fenceSteps {
-  margin: 24px 0 0;
+  margin: 24px auto 0;
   padding: 20px 20px 20px 42px;
   border-radius: 12px;
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
   font-size: 14px;
   line-height: 1.65;
+  text-align: left;
 }
 
 .fenceSteps li + li {
