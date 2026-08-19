@@ -1201,6 +1201,7 @@ window.__ModuleLoader__.load({
 			mediaLayer = null;
 			scrimLayer = null;
 			videoElement = null;
+			rootNeutralizer = null;
 			disposed = false;
 			constructor(scope) {
 				this.scope = scope;
@@ -1351,6 +1352,12 @@ window.__ModuleLoader__.load({
 				this.ensureLayers(current);
 			}
 			ensureLayers(descriptor) {
+				if (this.rootNeutralizer === null) {
+					this.rootNeutralizer = document.createElement("style");
+					this.rootNeutralizer.dataset.dshWallpaperRoot = "";
+					this.rootNeutralizer.textContent = "[id=\"root\"] { background: transparent; }";
+					document.head.appendChild(this.rootNeutralizer);
+				}
 				if (this.mediaLayer === null) {
 					this.mediaLayer = document.createElement("div");
 					styleLayer(this.mediaLayer, -3);
@@ -1443,6 +1450,10 @@ window.__ModuleLoader__.load({
 				return image;
 			}
 			teardownLayers() {
+				if (this.rootNeutralizer !== null) {
+					this.rootNeutralizer.remove();
+					this.rootNeutralizer = null;
+				}
 				if (this.videoElement !== null) {
 					this.videoElement.pause();
 					this.videoElement = null;

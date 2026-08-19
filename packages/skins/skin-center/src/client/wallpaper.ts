@@ -139,6 +139,7 @@ export class WallpaperController implements WallpaperHandle {
   private mediaLayer: HTMLDivElement | null = null
   private scrimLayer: HTMLDivElement | null = null
   private videoElement: HTMLVideoElement | null = null
+  private rootNeutralizer: HTMLStyleElement | null = null
   private disposed = false
 
   constructor(scope: SettingsScope<WallpaperSection>) {
@@ -305,6 +306,19 @@ export class WallpaperController implements WallpaperHandle {
   }
 
   private ensureLayers(descriptor: WallpaperDescriptor): void {
+    // The stock shell paints an opaque background on the app root, which
+    // fully covers the negative-z wallpaper layers (issue #505). Neutralize
+    // it while a wallpaper is mounted — the same contract the v2 skin CSS
+    // pipeline appends for every skin (`[id="root"] { background:
+    // transparent }`). The id selector outranks the shell's class rule, and
+    // the token itself is left untouched so every other --dsw-alias-bg-base
+    // consumer keeps its color.
+    if (this.rootNeutralizer === null) {
+      this.rootNeutralizer = document.createElement('style')
+      this.rootNeutralizer.dataset.dshWallpaperRoot = ''
+      this.rootNeutralizer.textContent = '[id="root"] { background: transparent; }'
+      document.head.appendChild(this.rootNeutralizer)
+    }
     if (this.mediaLayer === null) {
       this.mediaLayer = document.createElement('div')
       styleLayer(this.mediaLayer, -3)
@@ -419,6 +433,10 @@ export class WallpaperController implements WallpaperHandle {
   }
 
   private teardownLayers(): void {
+    if (this.rootNeutralizer !== null) {
+      this.rootNeutralizer.remove()
+      this.rootNeutralizer = null
+    }
     if (this.videoElement !== null) {
       this.videoElement.pause()
       this.videoElement = null
