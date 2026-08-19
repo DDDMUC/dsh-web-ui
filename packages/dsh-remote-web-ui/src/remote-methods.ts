@@ -30,6 +30,9 @@ export const REMOTE_UPGRADE_PATHS = [
 /** Plugin-manager HTTP prefix: install/remove stay physically local. */
 export const PLUGIN_MANAGER_PATH = '/api/plugin-manager'
 
+/** Desktop-launcher HTTP prefix: shortcut create and host shutdown stay physically local. */
+export const DESKTOP_LAUNCHER_PATH = '/api/dsh-desktop-launcher'
+
 /**
  * Loopback-only methods of the host API surface, mirrored from
  * client-connection's `PRIVILEGED_METHODS` (pinned by

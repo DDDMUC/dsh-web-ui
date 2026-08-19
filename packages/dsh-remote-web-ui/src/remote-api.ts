@@ -12,7 +12,8 @@
  * - The SDK's loopback-only privileged methods (native dialogs, the settings
  *   plane, credentials — the `PRIVILEGED_METHODS` set of client-connection)
  *   are denied here. The set is pinned by tests/remote-contract.spec.ts.
- * - `/api/pair/*`, `/api/update/*` and `/api/plugin-manager/*` stay physically local.
+ * - `/api/pair/*`, `/api/update/*`, `/api/plugin-manager/*` and
+ *   `/api/dsh-desktop-launcher/*` stay physically local.
  * - Everything else is HTTP- or WebSocket-proxied to the local port with
  *   Host rewritten, Origin and cookies dropped, and a synthetic same-origin
  *   browser marker added after authentication. Plugin loopback fences then
@@ -27,6 +28,7 @@ import { readCookie } from './gate.ts'
 import { writeJson } from './http.ts'
 import { proxyLoopbackHttp, proxyLoopbackUpgrade } from './loopback-proxy.ts'
 import {
+  DESKTOP_LAUNCHER_PATH,
   LOOPBACK_ONLY_METHODS,
   PLUGIN_MANAGER_PATH,
   REMOTE_API_PATHS,
@@ -35,6 +37,7 @@ import {
 } from './remote-methods.ts'
 
 export {
+  DESKTOP_LAUNCHER_PATH,
   LOOPBACK_ONLY_METHODS,
   PLUGIN_MANAGER_PATH,
   REMOTE_API_PATHS,
@@ -103,6 +106,9 @@ export function loopbackOnlyDenial(innerPath: string): string | undefined {
   }
   if (innerPath === PLUGIN_MANAGER_PATH || innerPath.startsWith(`${PLUGIN_MANAGER_PATH}/`)) {
     return 'plugin-manager stays loopback-only and stays unreachable from a paired remote desktop'
+  }
+  if (innerPath === DESKTOP_LAUNCHER_PATH || innerPath.startsWith(`${DESKTOP_LAUNCHER_PATH}/`)) {
+    return 'desktop-launcher endpoints stay loopback-only and stay unreachable from a paired remote desktop'
   }
   if (!innerPath.startsWith('/api/')) return undefined
   const method = innerPath.slice('/api/'.length)

@@ -11,6 +11,8 @@
  * - the pairing routes (`/api/pair/*`) stay where they are — accept must
  *   work BEFORE a device is paired;
  * - the update endpoints (`/api/update/*`) stay loopback-only;
+ * - desktop-launcher create/shutdown (`/api/dsh-desktop-launcher/*`) stay
+ *   loopback-only (host-local files and process exit);
  * - `/api/*` (SDK methods and `/api/<plugin>/...` plugin namespaces),
  *   `/sidebar/*`, `/git/*`, and `/pet/*` ride the channel;
  * - fetch, EventSource, WebSocket, and img/script/iframe `src` are patched;
@@ -29,6 +31,7 @@ export const REMOTE_API_PREFIX = `${REMOTE_PREFIX}/api`
 const API_PREFIX = '/api/'
 const PAIR_PREFIX = '/api/pair/'
 const UPDATE_PREFIX = '/api/update/'
+const DESKTOP_LAUNCHER_PREFIX = '/api/dsh-desktop-launcher'
 const SIDEBAR_PREFIX = '/sidebar/'
 const GIT_PREFIX = '/git/'
 const PET_PREFIX = '/pet/'
@@ -60,6 +63,7 @@ export function isLoopbackHostname(hostname: string): boolean {
 export function shouldRewriteFetchPath(pathname: string): boolean {
   if (pathname.startsWith(PAIR_PREFIX)) return false
   if (pathname.startsWith(UPDATE_PREFIX)) return false
+  if (pathname === DESKTOP_LAUNCHER_PREFIX || pathname.startsWith(`${DESKTOP_LAUNCHER_PREFIX}/`)) return false
   if (pathname.startsWith(API_PREFIX)) return true
   if (pathname.startsWith(SIDEBAR_PREFIX) || pathname === '/sidebar') return true
   if (pathname.startsWith(GIT_PREFIX) || pathname === '/git') return true
