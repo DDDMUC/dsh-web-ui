@@ -23,6 +23,7 @@ patchFrom:
   - ../dsh-pet
   - ../dsh-ssh
   - ../dsh-tool-describe-image
+  - ../dsh-chat-recovery
   - ../dsh-liangshen
   - ../dsh-skill-explorer
   - ../dsh-skins
@@ -38,6 +39,7 @@ deps:
   - ../dsh-remote-web-ui
   - ../dsh-ssh
   - ../dsh-tool-describe-image
+  - ../dsh-chat-recovery
   - ../dsh-liangshen
   - ../dsh-skill-explorer
   - ../dsh-web-ui-settings

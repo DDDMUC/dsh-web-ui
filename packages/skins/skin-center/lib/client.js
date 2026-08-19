@@ -6,6 +6,395 @@ window.__ModuleLoader__.load({
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		let react = require("react");
 		let react_jsx_runtime = require("react/jsx-runtime");
+		//#region src/client/wallpaper.ts
+		/** The namespace string the Host registers (mirrors src/index.ts). */
+		const SKIN_WALLPAPER_NS = "skin-wallpaper";
+		const clamp = (value, min, max) => Math.max(min, Math.min(max, Math.round(value)));
+		/** Style one fixed, non-interactive, under-everything layer. */
+		function styleLayer(element, zIndex) {
+			element.style.position = "fixed";
+			element.style.inset = "0";
+			element.style.zIndex = String(zIndex);
+			element.style.pointerEvents = "none";
+			element.style.overflow = "hidden";
+			element.setAttribute("aria-hidden", "true");
+		}
+		/** Style a full-bleed cover child (video / img / iframe). */
+		function styleCover(element) {
+			element.style.width = "100%";
+			element.style.height = "100%";
+			element.style.objectFit = "cover";
+			element.style.border = "0";
+			element.style.display = "block";
+		}
+		/** Max static-frame capture edge (the backdrop never needs more pixels). */
+		const FRAME_MAX_EDGE = 1920;
+		/**
+		* Own the skin-wallpaper scope: keep the mounted layers in sync with the
+		* persisted selection and the card-driven descriptor resolution.
+		*/
+		var WallpaperController = class {
+			enabledValue = true;
+			selectionValue = "";
+			modeValue = "live";
+			pauseOnHiddenValue = true;
+			soundValue = false;
+			volumeValue = 100;
+			dimValue = 25;
+			blurValue = 0;
+			dirsValue = [];
+			listeners = /* @__PURE__ */ new Set();
+			scope;
+			/** The descriptor of the applied selection, resolved by the card. */
+			applied = null;
+			/** The try-on descriptor while a preview is up. */
+			previewing = null;
+			mediaLayer = null;
+			scrimLayer = null;
+			videoElement = null;
+			rootNeutralizer = null;
+			disposed = false;
+			constructor(scope) {
+				this.scope = scope;
+				this.readAll();
+				scope.subscribe(() => {
+					this.readAll();
+					this.render();
+					this.publish();
+				});
+				document.addEventListener("visibilitychange", this.onVisibility);
+				document.addEventListener("pointerdown", this.onFirstGesture);
+				document.addEventListener("keydown", this.onFirstGesture);
+			}
+			enabled() {
+				return this.enabledValue;
+			}
+			selection() {
+				return this.selectionValue;
+			}
+			mode() {
+				return this.modeValue;
+			}
+			dim() {
+				return this.dimValue;
+			}
+			wallpaperBlur() {
+				return this.blurValue;
+			}
+			pauseOnHidden() {
+				return this.pauseOnHiddenValue;
+			}
+			sound() {
+				return this.soundValue;
+			}
+			volume() {
+				return this.volumeValue;
+			}
+			dirs() {
+				return this.dirsValue;
+			}
+			addDir(dir) {
+				const trimmed = dir.trim();
+				if (trimmed === "" || this.dirsValue.includes(trimmed)) return;
+				this.dirsValue = [...this.dirsValue, trimmed];
+				this.publish();
+				this.scope.set("weLibraryDirs", this.dirsValue);
+			}
+			removeDir(dir) {
+				const next = this.dirsValue.filter((d) => d !== dir);
+				if (next.length === this.dirsValue.length) return;
+				this.dirsValue = next;
+				this.publish();
+				this.scope.set("weLibraryDirs", this.dirsValue);
+			}
+			activeId() {
+				const current = this.previewing ?? this.applied;
+				return this.mediaLayer !== null && current !== null ? current.id : null;
+			}
+			trying() {
+				return this.previewing !== null;
+			}
+			subscribe(listener) {
+				this.listeners.add(listener);
+				return () => {
+					this.listeners.delete(listener);
+				};
+			}
+			setEnabled(value) {
+				this.enabledValue = value;
+				this.render();
+				this.publish();
+				this.scope.set("enabled", value);
+			}
+			setMode(mode) {
+				this.modeValue = mode;
+				this.render();
+				this.publish();
+				this.scope.set("mode", mode);
+			}
+			setDim(value) {
+				this.dimValue = clamp(value, 0, 90);
+				this.render();
+				this.publish();
+				this.scope.set("dim", this.dimValue);
+			}
+			setBlur(value) {
+				this.blurValue = clamp(value, 0, 60);
+				this.render();
+				this.publish();
+				this.scope.set("wallpaperBlur", this.blurValue);
+			}
+			setPauseOnHidden(value) {
+				this.pauseOnHiddenValue = value;
+				this.publish();
+				this.scope.set("pauseOnHidden", value);
+			}
+			setSound(value) {
+				this.soundValue = value;
+				this.applySound();
+				this.publish();
+				this.scope.set("sound", value);
+			}
+			setVolume(value) {
+				this.volumeValue = clamp(value, 0, 100);
+				this.applySound();
+				this.publish();
+				this.scope.set("volume", this.volumeValue);
+			}
+			applySelection(descriptor) {
+				this.applied = descriptor;
+				this.previewing = null;
+				this.selectionValue = descriptor.id;
+				this.render();
+				this.publish();
+				this.scope.set("selection", descriptor.id);
+			}
+			clearSelection() {
+				this.applied = null;
+				this.previewing = null;
+				this.selectionValue = "";
+				this.render();
+				this.publish();
+				this.scope.set("selection", "");
+			}
+			sync(descriptor) {
+				this.applied = descriptor;
+				this.render();
+			}
+			tryOn(descriptor) {
+				this.previewing = descriptor;
+				this.render();
+				this.publish();
+			}
+			exitTryOn() {
+				if (this.previewing === null) return;
+				this.previewing = null;
+				this.render();
+				this.publish();
+			}
+			dispose() {
+				this.disposed = true;
+				document.removeEventListener("visibilitychange", this.onVisibility);
+				document.removeEventListener("pointerdown", this.onFirstGesture);
+				document.removeEventListener("keydown", this.onFirstGesture);
+				this.teardownLayers();
+			}
+			readAll() {
+				const value = this.scope.getSnapshot().value ?? {};
+				this.enabledValue = typeof value.enabled === "boolean" ? value.enabled : true;
+				this.selectionValue = typeof value.selection === "string" ? value.selection : "";
+				this.modeValue = value.mode === "frame" ? "frame" : "live";
+				this.pauseOnHiddenValue = typeof value.pauseOnHidden === "boolean" ? value.pauseOnHidden : true;
+				this.soundValue = typeof value.sound === "boolean" ? value.sound : false;
+				this.volumeValue = typeof value.volume === "number" && Number.isFinite(value.volume) ? clamp(value.volume, 0, 100) : 100;
+				this.dimValue = typeof value.dim === "number" && Number.isFinite(value.dim) ? clamp(value.dim, 0, 90) : 25;
+				this.blurValue = typeof value.wallpaperBlur === "number" && Number.isFinite(value.wallpaperBlur) ? clamp(value.wallpaperBlur, 0, 60) : 0;
+				this.dirsValue = Array.isArray(value.weLibraryDirs) ? value.weLibraryDirs.filter((d) => typeof d === "string" && d.trim() !== "") : [];
+			}
+			/** Resume a policy-blocked video on the first user gesture (#580). */
+			onFirstGesture = () => {
+				if (this.videoElement === null || !this.videoElement.paused) return;
+				this.videoElement.play()?.catch(() => {});
+			};
+			onVisibility = () => {
+				if (this.videoElement === null || !this.pauseOnHiddenValue) return;
+				if (document.hidden) this.videoElement.pause();
+				else this.videoElement.play()?.catch(() => {});
+			};
+			/** Reconcile the DOM with (enabled, previewing ?? applied, mode, dim, blur). */
+			render() {
+				if (this.disposed) return;
+				const current = this.enabledValue ? this.previewing ?? this.applied : null;
+				if (current === null) {
+					this.teardownLayers();
+					return;
+				}
+				this.ensureLayers(current);
+			}
+			ensureLayers(descriptor) {
+				if (this.rootNeutralizer === null) {
+					this.rootNeutralizer = document.createElement("style");
+					this.rootNeutralizer.dataset.dshWallpaperRoot = "";
+					this.rootNeutralizer.textContent = "[id=\"root\"] { background: transparent; }";
+					document.head.appendChild(this.rootNeutralizer);
+				}
+				if (this.mediaLayer === null) {
+					this.mediaLayer = document.createElement("div");
+					styleLayer(this.mediaLayer, -3);
+					document.body.appendChild(this.mediaLayer);
+				}
+				if (this.scrimLayer === null) {
+					this.scrimLayer = document.createElement("div");
+					styleLayer(this.scrimLayer, -2);
+					document.body.appendChild(this.scrimLayer);
+				}
+				const mediaKey = descriptor.id + ":" + this.modeValue;
+				if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
+					this.mediaLayer.dataset.mediaKey = mediaKey;
+					this.mediaLayer.replaceChildren();
+					this.videoElement = null;
+					const child = this.buildMedia(descriptor);
+					if (child !== null) this.mediaLayer.appendChild(child);
+				}
+				const blur = this.blurValue > 0 ? "blur(" + String(this.blurValue) + "px)" : "";
+				this.mediaLayer.style.filter = blur;
+				this.mediaLayer.style.transform = this.blurValue > 0 ? "scale(1.05)" : "";
+				this.scrimLayer.style.background = "rgba(0, 0, 0, " + String(this.dimValue / 100) + ")";
+			}
+			/** Build the cover child for one descriptor + mode; null when unrenderable. */
+			buildMedia(descriptor) {
+				if (descriptor.type === "video") {
+					if (this.modeValue === "live" && descriptor.videoUrl !== null) return this.buildVideo(descriptor.videoUrl);
+					if (descriptor.videoUrl !== null) return this.buildVideoFrame(descriptor.videoUrl, descriptor.previewUrl);
+					return this.buildImage(descriptor.previewUrl);
+				}
+				if (descriptor.type === "web") {
+					if (this.modeValue === "live" && descriptor.webUrl !== null) {
+						const iframe = document.createElement("iframe");
+						iframe.src = descriptor.webUrl;
+						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+						iframe.setAttribute("tabindex", "-1");
+						styleCover(iframe);
+						return iframe;
+					}
+					return this.buildImage(descriptor.previewUrl);
+				}
+				if (descriptor.type === "scene") return this.buildImage(descriptor.frameUrl ?? descriptor.previewUrl, descriptor.previewUrl);
+				return this.buildImage(descriptor.previewUrl);
+			}
+			/** Push the persisted sound/volume settings onto the mounted video. */
+			applySound() {
+				if (this.videoElement === null) return;
+				this.videoElement.muted = !this.soundValue;
+				this.videoElement.volume = this.volumeValue / 100;
+			}
+			buildVideo(url) {
+				const video = document.createElement("video");
+				video.src = url;
+				video.muted = !this.soundValue;
+				video.volume = this.volumeValue / 100;
+				video.loop = true;
+				video.autoplay = true;
+				video.playsInline = true;
+				video.setAttribute("aria-hidden", "true");
+				styleCover(video);
+				this.videoElement = video;
+				video.play()?.catch(() => {});
+				return video;
+			}
+			/** Static-frame mode for video: capture the first frame into an image. */
+			buildVideoFrame(url, previewUrl) {
+				const image = document.createElement("img");
+				styleCover(image);
+				if (previewUrl !== null) image.src = previewUrl;
+				const video = document.createElement("video");
+				video.muted = true;
+				video.playsInline = true;
+				video.preload = "auto";
+				video.src = url;
+				video.addEventListener("loadeddata", () => {
+					try {
+						const scale = Math.min(1, FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
+						const canvas = document.createElement("canvas");
+						canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+						canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+						const context = canvas.getContext("2d");
+						if (context === null) return;
+						context.drawImage(video, 0, 0, canvas.width, canvas.height);
+						image.src = canvas.toDataURL("image/jpeg", .85);
+						video.removeAttribute("src");
+						video.load();
+					} catch {}
+				}, { once: true });
+				return image;
+			}
+			buildImage(url, fallbackUrl = null) {
+				if (url === null) return null;
+				const image = document.createElement("img");
+				image.src = url;
+				image.alt = "";
+				if (fallbackUrl !== null && fallbackUrl !== url) image.addEventListener("error", () => {
+					image.src = fallbackUrl;
+				}, { once: true });
+				styleCover(image);
+				return image;
+			}
+			teardownLayers() {
+				if (this.rootNeutralizer !== null) {
+					this.rootNeutralizer.remove();
+					this.rootNeutralizer = null;
+				}
+				if (this.videoElement !== null) {
+					this.videoElement.pause();
+					this.videoElement = null;
+				}
+				if (this.mediaLayer !== null) {
+					this.mediaLayer.remove();
+					this.mediaLayer = null;
+				}
+				if (this.scrimLayer !== null) {
+					this.scrimLayer.remove();
+					this.scrimLayer = null;
+				}
+			}
+			publish() {
+				for (const listener of this.listeners) listener();
+			}
+		};
+		/** Resolve a persisted selection id against an inventory list: exact id first, then the imported copy. */
+		function resolveSelection(wallpapers, selection) {
+			return wallpapers.find((w) => w.id === selection) ?? wallpapers.find((w) => w.id === "imported/" + selection);
+		}
+		/**
+		* Restore the persisted wallpaper selection at boot: resolve it against the
+		* host inventory and mount it, without waiting for the skin-center panel to
+		* open — the panel's mount effect is the only other sync() caller, so a page
+		* load with a persisted selection otherwise renders nothing until the card
+		* is opened. Best-effort and idempotent: the first non-empty selection wins;
+		* the panel re-resolves on open if the inventory is still in flight or fails.
+		*/
+		function installBootRestore(wallpaper) {
+			let synced = false;
+			const restore = () => {
+				if (synced) return;
+				const selected = wallpaper.selection();
+				if (selected === "") return;
+				synced = true;
+				(async () => {
+					try {
+						const response = await fetch("/api/skin-center/we/inventory");
+						if (!response.ok) return;
+						const payload = await response.json().catch(() => null);
+						if (payload?.ok !== true || !Array.isArray(payload.wallpapers)) return;
+						const match = resolveSelection(payload.wallpapers, selected);
+						if (match !== void 0) wallpaper.sync(match);
+					} catch {}
+				})();
+			};
+			restore();
+			wallpaper.subscribe(restore);
+		}
+		//#endregion
 		//#region \0dsh-css:packages/skins/skin-center/src/client/skin-center.module.css.mjs
 		const css = "body[data-dsh-skin-center] .eDzMgW_sectionList{margin:0;padding:0;list-style:none}body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeaderStatic{align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12.5px;line-height:1.55}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-border-l4,#94a3b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:7px;padding:6px 12px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-fill,#2b7cd9);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:focus-visible:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_buttonGhost{background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.55;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-label-tertiary,#9aa4b5);background:color-mix(in srgb, var(--dsw-alias-label-tertiary,#9aa4b5) 45%, transparent);width:100%;height:4px;box-shadow:0 0 0 1px var(--dsw-alias-border-l3,#cbd5e1);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-runnable-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}body[data-dsh-skin-center] .eDzMgW_wallpaperSection{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatus{color:var(--dsw-alias-label-secondary,#6b7280);align-items:center;gap:8px;font-size:12px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatusError{color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperControls{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_wallpaperCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:6px;padding:8px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap{aspect-ratio:16/9;background:var(--dsw-alias-bg-layer-1,#f1f5f9);border-radius:6px;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperThumb{object-fit:cover;width:100%;height:100%;display:block}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbEmpty{width:100%;height:100%}body[data-dsh-skin-center] .eDzMgW_wallpaperType{color:var(--dsw-alias-label-primary,#172a45);background:var(--dsw-alias-bg-layer-2,#ffffffd9);border-radius:4px;padding:3px 6px;font-size:10.5px;line-height:1;position:absolute;top:6px;left:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap .eDzMgW_badge{position:absolute;top:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperActions{flex-wrap:wrap;gap:6px;display:flex}";
 		const tagId = "@linxin666/dsh-client-ui-skin-center/skin-center.module.css";
@@ -151,7 +540,7 @@ window.__ModuleLoader__.load({
 					setItems(payload.wallpapers);
 					setInstallDir(typeof payload.installDir === "string" ? payload.installDir : null);
 					const selected = wallpaper.selection();
-					wallpaper.sync(payload.wallpapers.find((w) => w.id === selected) ?? null);
+					wallpaper.sync(resolveSelection(payload.wallpapers, selected) ?? null);
 				}).catch((error) => {
 					if (!mounted.current) return;
 					setLoadError(error instanceof Error ? error.message : String(error));
@@ -1202,362 +1591,6 @@ window.__ModuleLoader__.load({
 			}
 		};
 		//#endregion
-		//#region src/client/wallpaper.ts
-		/** The namespace string the Host registers (mirrors src/index.ts). */
-		const SKIN_WALLPAPER_NS = "skin-wallpaper";
-		const clamp = (value, min, max) => Math.max(min, Math.min(max, Math.round(value)));
-		/** Style one fixed, non-interactive, under-everything layer. */
-		function styleLayer(element, zIndex) {
-			element.style.position = "fixed";
-			element.style.inset = "0";
-			element.style.zIndex = String(zIndex);
-			element.style.pointerEvents = "none";
-			element.style.overflow = "hidden";
-			element.setAttribute("aria-hidden", "true");
-		}
-		/** Style a full-bleed cover child (video / img / iframe). */
-		function styleCover(element) {
-			element.style.width = "100%";
-			element.style.height = "100%";
-			element.style.objectFit = "cover";
-			element.style.border = "0";
-			element.style.display = "block";
-		}
-		/** Max static-frame capture edge (the backdrop never needs more pixels). */
-		const FRAME_MAX_EDGE = 1920;
-		/**
-		* Own the skin-wallpaper scope: keep the mounted layers in sync with the
-		* persisted selection and the card-driven descriptor resolution.
-		*/
-		var WallpaperController = class {
-			enabledValue = true;
-			selectionValue = "";
-			modeValue = "live";
-			pauseOnHiddenValue = true;
-			soundValue = false;
-			volumeValue = 100;
-			dimValue = 25;
-			blurValue = 0;
-			dirsValue = [];
-			listeners = /* @__PURE__ */ new Set();
-			scope;
-			/** The descriptor of the applied selection, resolved by the card. */
-			applied = null;
-			/** The try-on descriptor while a preview is up. */
-			previewing = null;
-			mediaLayer = null;
-			scrimLayer = null;
-			videoElement = null;
-			rootNeutralizer = null;
-			disposed = false;
-			constructor(scope) {
-				this.scope = scope;
-				this.readAll();
-				scope.subscribe(() => {
-					this.readAll();
-					this.render();
-					this.publish();
-				});
-				document.addEventListener("visibilitychange", this.onVisibility);
-				document.addEventListener("pointerdown", this.onFirstGesture);
-				document.addEventListener("keydown", this.onFirstGesture);
-			}
-			enabled() {
-				return this.enabledValue;
-			}
-			selection() {
-				return this.selectionValue;
-			}
-			mode() {
-				return this.modeValue;
-			}
-			dim() {
-				return this.dimValue;
-			}
-			wallpaperBlur() {
-				return this.blurValue;
-			}
-			pauseOnHidden() {
-				return this.pauseOnHiddenValue;
-			}
-			sound() {
-				return this.soundValue;
-			}
-			volume() {
-				return this.volumeValue;
-			}
-			dirs() {
-				return this.dirsValue;
-			}
-			addDir(dir) {
-				const trimmed = dir.trim();
-				if (trimmed === "" || this.dirsValue.includes(trimmed)) return;
-				this.dirsValue = [...this.dirsValue, trimmed];
-				this.publish();
-				this.scope.set("weLibraryDirs", this.dirsValue);
-			}
-			removeDir(dir) {
-				const next = this.dirsValue.filter((d) => d !== dir);
-				if (next.length === this.dirsValue.length) return;
-				this.dirsValue = next;
-				this.publish();
-				this.scope.set("weLibraryDirs", this.dirsValue);
-			}
-			activeId() {
-				const current = this.previewing ?? this.applied;
-				return this.mediaLayer !== null && current !== null ? current.id : null;
-			}
-			trying() {
-				return this.previewing !== null;
-			}
-			subscribe(listener) {
-				this.listeners.add(listener);
-				return () => {
-					this.listeners.delete(listener);
-				};
-			}
-			setEnabled(value) {
-				this.enabledValue = value;
-				this.render();
-				this.publish();
-				this.scope.set("enabled", value);
-			}
-			setMode(mode) {
-				this.modeValue = mode;
-				this.render();
-				this.publish();
-				this.scope.set("mode", mode);
-			}
-			setDim(value) {
-				this.dimValue = clamp(value, 0, 90);
-				this.render();
-				this.publish();
-				this.scope.set("dim", this.dimValue);
-			}
-			setBlur(value) {
-				this.blurValue = clamp(value, 0, 60);
-				this.render();
-				this.publish();
-				this.scope.set("wallpaperBlur", this.blurValue);
-			}
-			setPauseOnHidden(value) {
-				this.pauseOnHiddenValue = value;
-				this.publish();
-				this.scope.set("pauseOnHidden", value);
-			}
-			setSound(value) {
-				this.soundValue = value;
-				this.applySound();
-				this.publish();
-				this.scope.set("sound", value);
-			}
-			setVolume(value) {
-				this.volumeValue = clamp(value, 0, 100);
-				this.applySound();
-				this.publish();
-				this.scope.set("volume", this.volumeValue);
-			}
-			applySelection(descriptor) {
-				this.applied = descriptor;
-				this.previewing = null;
-				this.selectionValue = descriptor.id;
-				this.render();
-				this.publish();
-				this.scope.set("selection", descriptor.id);
-			}
-			clearSelection() {
-				this.applied = null;
-				this.previewing = null;
-				this.selectionValue = "";
-				this.render();
-				this.publish();
-				this.scope.set("selection", "");
-			}
-			sync(descriptor) {
-				this.applied = descriptor;
-				this.render();
-			}
-			tryOn(descriptor) {
-				this.previewing = descriptor;
-				this.render();
-				this.publish();
-			}
-			exitTryOn() {
-				if (this.previewing === null) return;
-				this.previewing = null;
-				this.render();
-				this.publish();
-			}
-			dispose() {
-				this.disposed = true;
-				document.removeEventListener("visibilitychange", this.onVisibility);
-				document.removeEventListener("pointerdown", this.onFirstGesture);
-				document.removeEventListener("keydown", this.onFirstGesture);
-				this.teardownLayers();
-			}
-			readAll() {
-				const value = this.scope.getSnapshot().value ?? {};
-				this.enabledValue = typeof value.enabled === "boolean" ? value.enabled : true;
-				this.selectionValue = typeof value.selection === "string" ? value.selection : "";
-				this.modeValue = value.mode === "frame" ? "frame" : "live";
-				this.pauseOnHiddenValue = typeof value.pauseOnHidden === "boolean" ? value.pauseOnHidden : true;
-				this.soundValue = typeof value.sound === "boolean" ? value.sound : false;
-				this.volumeValue = typeof value.volume === "number" && Number.isFinite(value.volume) ? clamp(value.volume, 0, 100) : 100;
-				this.dimValue = typeof value.dim === "number" && Number.isFinite(value.dim) ? clamp(value.dim, 0, 90) : 25;
-				this.blurValue = typeof value.wallpaperBlur === "number" && Number.isFinite(value.wallpaperBlur) ? clamp(value.wallpaperBlur, 0, 60) : 0;
-				this.dirsValue = Array.isArray(value.weLibraryDirs) ? value.weLibraryDirs.filter((d) => typeof d === "string" && d.trim() !== "") : [];
-			}
-			/** Resume a policy-blocked video on the first user gesture (#580). */
-			onFirstGesture = () => {
-				if (this.videoElement === null || !this.videoElement.paused) return;
-				this.videoElement.play()?.catch(() => {});
-			};
-			onVisibility = () => {
-				if (this.videoElement === null || !this.pauseOnHiddenValue) return;
-				if (document.hidden) this.videoElement.pause();
-				else this.videoElement.play()?.catch(() => {});
-			};
-			/** Reconcile the DOM with (enabled, previewing ?? applied, mode, dim, blur). */
-			render() {
-				if (this.disposed) return;
-				const current = this.enabledValue ? this.previewing ?? this.applied : null;
-				if (current === null) {
-					this.teardownLayers();
-					return;
-				}
-				this.ensureLayers(current);
-			}
-			ensureLayers(descriptor) {
-				if (this.rootNeutralizer === null) {
-					this.rootNeutralizer = document.createElement("style");
-					this.rootNeutralizer.dataset.dshWallpaperRoot = "";
-					this.rootNeutralizer.textContent = "[id=\"root\"] { background: transparent; }";
-					document.head.appendChild(this.rootNeutralizer);
-				}
-				if (this.mediaLayer === null) {
-					this.mediaLayer = document.createElement("div");
-					styleLayer(this.mediaLayer, -3);
-					document.body.appendChild(this.mediaLayer);
-				}
-				if (this.scrimLayer === null) {
-					this.scrimLayer = document.createElement("div");
-					styleLayer(this.scrimLayer, -2);
-					document.body.appendChild(this.scrimLayer);
-				}
-				const mediaKey = descriptor.id + ":" + this.modeValue;
-				if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
-					this.mediaLayer.dataset.mediaKey = mediaKey;
-					this.mediaLayer.replaceChildren();
-					this.videoElement = null;
-					const child = this.buildMedia(descriptor);
-					if (child !== null) this.mediaLayer.appendChild(child);
-				}
-				const blur = this.blurValue > 0 ? "blur(" + String(this.blurValue) + "px)" : "";
-				this.mediaLayer.style.filter = blur;
-				this.mediaLayer.style.transform = this.blurValue > 0 ? "scale(1.05)" : "";
-				this.scrimLayer.style.background = "rgba(0, 0, 0, " + String(this.dimValue / 100) + ")";
-			}
-			/** Build the cover child for one descriptor + mode; null when unrenderable. */
-			buildMedia(descriptor) {
-				if (descriptor.type === "video") {
-					if (this.modeValue === "live" && descriptor.videoUrl !== null) return this.buildVideo(descriptor.videoUrl);
-					if (descriptor.videoUrl !== null) return this.buildVideoFrame(descriptor.videoUrl, descriptor.previewUrl);
-					return this.buildImage(descriptor.previewUrl);
-				}
-				if (descriptor.type === "web") {
-					if (this.modeValue === "live" && descriptor.webUrl !== null) {
-						const iframe = document.createElement("iframe");
-						iframe.src = descriptor.webUrl;
-						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
-						iframe.setAttribute("tabindex", "-1");
-						styleCover(iframe);
-						return iframe;
-					}
-					return this.buildImage(descriptor.previewUrl);
-				}
-				if (descriptor.type === "scene") return this.buildImage(descriptor.frameUrl ?? descriptor.previewUrl, descriptor.previewUrl);
-				return this.buildImage(descriptor.previewUrl);
-			}
-			/** Push the persisted sound/volume settings onto the mounted video. */
-			applySound() {
-				if (this.videoElement === null) return;
-				this.videoElement.muted = !this.soundValue;
-				this.videoElement.volume = this.volumeValue / 100;
-			}
-			buildVideo(url) {
-				const video = document.createElement("video");
-				video.src = url;
-				video.muted = !this.soundValue;
-				video.volume = this.volumeValue / 100;
-				video.loop = true;
-				video.autoplay = true;
-				video.playsInline = true;
-				video.setAttribute("aria-hidden", "true");
-				styleCover(video);
-				this.videoElement = video;
-				video.play()?.catch(() => {});
-				return video;
-			}
-			/** Static-frame mode for video: capture the first frame into an image. */
-			buildVideoFrame(url, previewUrl) {
-				const image = document.createElement("img");
-				styleCover(image);
-				if (previewUrl !== null) image.src = previewUrl;
-				const video = document.createElement("video");
-				video.muted = true;
-				video.playsInline = true;
-				video.preload = "auto";
-				video.src = url;
-				video.addEventListener("loadeddata", () => {
-					try {
-						const scale = Math.min(1, FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
-						const canvas = document.createElement("canvas");
-						canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-						canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-						const context = canvas.getContext("2d");
-						if (context === null) return;
-						context.drawImage(video, 0, 0, canvas.width, canvas.height);
-						image.src = canvas.toDataURL("image/jpeg", .85);
-						video.removeAttribute("src");
-						video.load();
-					} catch {}
-				}, { once: true });
-				return image;
-			}
-			buildImage(url, fallbackUrl = null) {
-				if (url === null) return null;
-				const image = document.createElement("img");
-				image.src = url;
-				image.alt = "";
-				if (fallbackUrl !== null && fallbackUrl !== url) image.addEventListener("error", () => {
-					image.src = fallbackUrl;
-				}, { once: true });
-				styleCover(image);
-				return image;
-			}
-			teardownLayers() {
-				if (this.rootNeutralizer !== null) {
-					this.rootNeutralizer.remove();
-					this.rootNeutralizer = null;
-				}
-				if (this.videoElement !== null) {
-					this.videoElement.pause();
-					this.videoElement = null;
-				}
-				if (this.mediaLayer !== null) {
-					this.mediaLayer.remove();
-					this.mediaLayer = null;
-				}
-				if (this.scrimLayer !== null) {
-					this.scrimLayer.remove();
-					this.scrimLayer = null;
-				}
-			}
-			publish() {
-				for (const listener of this.listeners) listener();
-			}
-		};
-		//#endregion
 		//#region src/client/locales.ts
 		const en = {
 			title: "Skin Center",
@@ -2414,6 +2447,7 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => () => background.dispose(), "ui-skin-center: background dispose");
 			const wallpaper = new WallpaperController(binder.bind({ namespace: SKIN_WALLPAPER_NS }));
 			ctx.effect(() => () => wallpaper.dispose(), "ui-skin-center: wallpaper dispose");
+			installBootRestore(wallpaper);
 			const runtime = bootSkinRuntime({ suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.activeId() !== null && wallpaper.activeId() !== "" });
 			ctx.effect(() => () => runtime.shutdown(), "ui-skin-center: runtime shutdown");
 			ctx.effect(() => wallpaper.subscribe(() => {

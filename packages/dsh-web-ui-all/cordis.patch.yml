@@ -58,6 +58,11 @@
     - id: web-ui-describe-image
       name: '@linxin666/dsh-tool-describe-image'
 
+# from ../dsh-chat-recovery
+- insert:
+    - id: web-ui-chat-recovery
+      name: '@linxin666/dsh-chat-recovery'
+
 # from ../dsh-liangshen
 - insert:
     - id: web-ui-liangshen
