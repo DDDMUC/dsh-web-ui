@@ -16,6 +16,8 @@ interface Section {
   pauseOnHidden?: boolean
   dim?: number
   wallpaperBlur?: number
+  sound?: boolean
+  volume?: number
   weLibraryDirs?: string[]
 }
 
@@ -139,6 +141,48 @@ describe('WallpaperController', () => {
     const image = media.querySelector('img')
     expect(image).not.toBeNull()
     expect(image?.src).toContain('/api/skin-center/we/scene-frame/ccc')
+    controller.dispose()
+  })
+
+  it('falls back to the preview when the scene frame fails to load (#521)', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(scene)
+    const [media] = layers()
+    const image = media.querySelector('img')
+    expect(image?.src).toContain('/api/skin-center/we/scene-frame/ccc')
+    image?.dispatchEvent(new Event('error'))
+    expect(image?.src).toContain('/api/skin-center/we/preview/ddd')
+    controller.dispose()
+  })
+
+  it('keeps videos muted by default and applies sound/volume live (#580)', () => {
+    const { scope, calls } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(video)
+    const [media] = layers()
+    const el = media.querySelector('video')
+    expect(el?.muted).toBe(true)
+    controller.setSound(true)
+    expect(el?.muted).toBe(false)
+    expect(el?.volume).toBe(1)
+    expect(calls.some(c => c.field === 'sound' && c.value === true)).toBe(true)
+    controller.setVolume(40)
+    expect(el?.volume).toBeCloseTo(0.4)
+    expect(calls.some(c => c.field === 'volume' && c.value === 40)).toBe(true)
+    controller.setSound(false)
+    expect(el?.muted).toBe(true)
+    controller.dispose()
+  })
+
+  it('restores persisted sound/volume into newly mounted videos (#580)', () => {
+    const { scope } = fakeScope({ sound: true, volume: 30 })
+    const controller = new WallpaperController(scope)
+    controller.applySelection(video)
+    const [media] = layers()
+    const el = media.querySelector('video')
+    expect(el?.muted).toBe(false)
+    expect(el?.volume).toBeCloseTo(0.3)
     controller.dispose()
   })
 
