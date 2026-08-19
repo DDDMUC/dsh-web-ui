@@ -250,7 +250,9 @@ export function registerGitRoutes(ctx: Context, service: GitService): () => void
         const rawLimit = typeof payload === 'object' && payload !== null
           ? (payload as Record<string, unknown>).limit
           : undefined
-        const limit = typeof rawLimit === 'number' && rawLimit > 0 && rawLimit <= 1000 ? rawLimit : undefined
+        // Clamp rather than reset: a limit above 1000 must not silently fall
+        // back to the 200 default (the client's load-more grows past 1000).
+        const limit = typeof rawLimit === 'number' && rawLimit > 0 ? Math.min(rawLimit, 1000) : undefined
         okView(res, await service.graph(path, limit), isGraphView)
         return
       }

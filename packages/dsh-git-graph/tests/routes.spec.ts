@@ -166,6 +166,24 @@ describe('/git loopback fence', () => {
     expect(status).toHaveBeenCalledWith('/w', expect.any(AbortSignal))
   })
 
+  it('clamps a graph limit above 1000 instead of resetting to the default', async () => {
+    const graph = vi.fn(async () => ({ root: '/w', branch: 'main', commits: [], hasMore: false }))
+    const { ctx, registrations } = fakeCtx()
+    registerGitRoutes(ctx as never, { graph } as never)
+    const prefix = registrations.find((row) => row.kind === 'prefix')!
+
+    const result = await drive(prefix.handler, '/git/graph', {
+      body: JSON.stringify({ path: '/w', limit: 1100 }),
+    })
+
+    expect(result.status).toBe(200)
+    expect(graph).toHaveBeenCalledWith('/w', 1000)
+    expect(JSON.parse(result.body)).toEqual({
+      ok: true,
+      value: { root: '/w', branch: 'main', commits: [], hasMore: false },
+    })
+  })
+
   it('rejects non-loopback JSON operations with 403 before touching the service', async () => {
     const status = vi.fn(async () => null)
     const { ctx, registrations } = fakeCtx()
