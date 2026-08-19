@@ -45,10 +45,13 @@ export function normalizeGitUrl(url: string): string {
 
 /**
  * Match one community entry against the installed snapshot. npm-published
- * entries match on the exact npm spec; repository entries match on the
- * normalized git URL. An entry with an npm field ONLY matches npm installs —
- * a same-repository git install is a different source and stays unmatched
- * (the card then offers install, which the host reconciles).
+ * entries match on the installed row's package identity (id/name): the npm
+ * source spec records the dependency RANGE ('^0.3.2') or an install-time
+ * spec, not necessarily the bare package name, so it is only a fallback.
+ * Repository entries match on the normalized git URL. An entry with an npm
+ * field ONLY matches npm installs — a same-repository git install is a
+ * different source and stays unmatched (the card then offers install, which
+ * the host reconciles).
  * @param entry - the community index entry.
  * @param installed - the installed snapshot from the pluginManager service.
  * @returns the matching installed row, or null.
@@ -58,7 +61,10 @@ export function entryInstalled(
   installed: readonly InstalledPluginItem[],
 ): InstalledPluginItem | null {
   if (entry.npm !== undefined) {
-    return installed.find(item => item.source.spec === entry.npm) ?? null
+    return installed.find(
+      item => item.source.kind === 'npm'
+        && (item.id === entry.npm || item.name === entry.npm || item.source.spec === entry.npm),
+    ) ?? null
   }
   const key = normalizeGitUrl(entry.repo)
   return installed.find(

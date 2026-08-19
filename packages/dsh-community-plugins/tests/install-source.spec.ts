@@ -1,7 +1,8 @@
 /**
  * The install-source mapping: install spec selection (npm over repo), the
  * conservative git URL normalization, and the installed-snapshot matcher
- * (npm entries match the exact spec; git entries match normalized URLs).
+ * (npm entries match the row's package identity with the spec as fallback;
+ * git entries match normalized URLs).
  */
 
 import { describe, expect, it } from 'vitest'
@@ -26,10 +27,10 @@ const GIT_ENTRY: CommunityPluginEntry = {
   repo: 'https://github.com/bob/dsh-beta',
 }
 
-function installed(spec: string, kind: 'npm' | 'git'): InstalledPluginItem {
+function installed(spec: string, kind: 'npm' | 'git', id = 'row'): InstalledPluginItem {
   return {
-    id: 'row',
-    name: 'row',
+    id,
+    name: id,
     version: '1.0.0',
     source: { kind, spec },
     installedAt: '2026-01-01T00:00:00.000Z',
@@ -69,10 +70,16 @@ describe('normalizeGitUrl', () => {
 })
 
 describe('entryInstalled', () => {
-  it('matches an npm entry on the exact spec only', () => {
+  it('matches an npm entry on the row package identity (range spec)', () => {
+    // Gateway rows record the dependency RANGE as the spec; identity is id/name.
+    expect(entryInstalled(NPM_ENTRY, [installed('^1.0.0', 'npm', '@someone/dsh-sample')])?.id).toBe('@someone/dsh-sample')
+  })
+
+  it('falls back to the exact npm spec when the row identity differs', () => {
     expect(entryInstalled(NPM_ENTRY, [installed('@someone/dsh-sample', 'npm')])?.id).toBe('row')
     expect(entryInstalled(NPM_ENTRY, [installed('@someone/dsh-sample@1.0.0', 'npm')])).toBeNull()
     expect(entryInstalled(NPM_ENTRY, [installed('@other/dsh-sample', 'npm')])).toBeNull()
+    expect(entryInstalled(NPM_ENTRY, [installed('^1.0.0', 'npm', '@other/dsh-sample')])).toBeNull()
   })
 
   it('does not match an npm entry against a same-repository git install', () => {
