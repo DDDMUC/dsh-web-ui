@@ -932,6 +932,9 @@ importers:
       '@linxin666/dsh-client-ui-web-ui-settings':
         specifier: workspace:*
         version: link:../dsh-web-ui-settings
+      '@linxin666/dsh-desktop-launcher':
+        specifier: workspace:*
+        version: link:../dsh-desktop-launcher
       '@linxin666/dsh-liangshen':
         specifier: workspace:*
         version: link:../dsh-liangshen
