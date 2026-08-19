@@ -372,7 +372,9 @@ export class WallpaperController implements WallpaperHandle {
       return this.buildImage(descriptor.previewUrl)
     }
     if (descriptor.type === 'scene') {
-      return this.buildImage(descriptor.frameUrl ?? descriptor.previewUrl)
+      // The host frame decode can still fail (422): fall back to the preview
+      // image instead of leaving a blank layer (#521).
+      return this.buildImage(descriptor.frameUrl ?? descriptor.previewUrl, descriptor.previewUrl)
     }
     return this.buildImage(descriptor.previewUrl)
   }
@@ -423,11 +425,16 @@ export class WallpaperController implements WallpaperHandle {
     return image
   }
 
-  private buildImage(url: string | null): HTMLElement | null {
+  private buildImage(url: string | null, fallbackUrl: string | null = null): HTMLElement | null {
     if (url === null) return null
     const image = document.createElement('img')
     image.src = url
     image.alt = ''
+    if (fallbackUrl !== null && fallbackUrl !== url) {
+      image.addEventListener('error', () => {
+        image.src = fallbackUrl
+      }, { once: true })
+    }
     styleCover(image)
     return image
   }

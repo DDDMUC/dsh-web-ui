@@ -1399,7 +1399,7 @@ window.__ModuleLoader__.load({
 					}
 					return this.buildImage(descriptor.previewUrl);
 				}
-				if (descriptor.type === "scene") return this.buildImage(descriptor.frameUrl ?? descriptor.previewUrl);
+				if (descriptor.type === "scene") return this.buildImage(descriptor.frameUrl ?? descriptor.previewUrl, descriptor.previewUrl);
 				return this.buildImage(descriptor.previewUrl);
 			}
 			buildVideo(url) {
@@ -1441,11 +1441,14 @@ window.__ModuleLoader__.load({
 				}, { once: true });
 				return image;
 			}
-			buildImage(url) {
+			buildImage(url, fallbackUrl = null) {
 				if (url === null) return null;
 				const image = document.createElement("img");
 				image.src = url;
 				image.alt = "";
+				if (fallbackUrl !== null && fallbackUrl !== url) image.addEventListener("error", () => {
+					image.src = fallbackUrl;
+				}, { once: true });
 				styleCover(image);
 				return image;
 			}
