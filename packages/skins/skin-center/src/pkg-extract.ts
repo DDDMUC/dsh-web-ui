@@ -40,6 +40,16 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join as joinPath, resolve as resolvePath, sep } from 'node:path'
 import { deflateSync, inflateSync } from 'node:zlib'
 
+/**
+ * Hard ceilings for allocations driven by wallpaper file content. Workshop
+ * files are untrusted: a crafted pkg/tex/png must not be able to force
+ * multi-GB host allocations (PR #717 follow-up hardening).
+ */
+const MAX_PKG_ENTRY_BYTES = 512 * 1024 * 1024
+const MAX_DECOMPRESSED_BYTES = 256 * 1024 * 1024
+const MAX_TEX_DIMENSION = 16384
+const MAX_TEX_PIXELS = 64 * 1024 * 1024
+
 /** One file inside a PKG container. */
 export interface PkgEntry {
   /** Slash-separated path exactly as stored in the package index. */
@@ -149,6 +159,9 @@ export function decodePngToRgba(pngBuf: Uint8Array): DecodedImage {
       width = ihdrView.getUint32(0, false)
       height = ihdrView.getUint32(4, false)
       colorType = data[9]
+      if (width <= 0 || height <= 0 || width > MAX_TEX_DIMENSION || height > MAX_TEX_DIMENSION || width * height > MAX_TEX_PIXELS) {
+        throw new Error('png: invalid dimensions ' + width + 'x' + height)
+      }
     } else if (type === 'IDAT') {
       idatChunks.push(data)
     } else if (type === 'IEND') {
@@ -157,15 +170,19 @@ export function decodePngToRgba(pngBuf: Uint8Array): DecodedImage {
     pos += 12 + len
   }
   const totalIdat = idatChunks.reduce((acc, c) => acc + c.length, 0)
+  if (totalIdat > MAX_DECOMPRESSED_BYTES) {
+    throw new Error('png: idat stream too large (' + totalIdat + ' bytes)')
+  }
   const combined = new Uint8Array(totalIdat)
   let cur = 0
   for (const c of idatChunks) {
     combined.set(c, cur)
     cur += c.length
   }
-  const uncompressed = inflateSync(combined)
   const bytesPerPixel = colorType === 6 ? 4 : colorType === 2 ? 3 : 1
   const stride = width * bytesPerPixel
+  const maxOutput = height * (1 + stride) + 64
+  const uncompressed = inflateSync(combined, { maxOutputLength: maxOutput })
   const raw = new Uint8Array(width * height * 4)
   let srcPos = 0
   const rowBuf = new Uint8Array(stride)
@@ -326,6 +343,9 @@ class Reader {
  * @param dstSize exact expected decompressed size
  */
 export function lz4DecompressBlock(src: Uint8Array, dstSize: number): Uint8Array {
+  if (dstSize < 0 || dstSize > MAX_DECOMPRESSED_BYTES) {
+    throw new Error('lz4: decompressed size out of bounds (' + String(dstSize) + ')')
+  }
   const dst = new Uint8Array(dstSize)
   let ip = 0
   let op = 0
@@ -442,6 +462,9 @@ export function readPkgEntry(data: Uint8Array, entry: PkgEntry): Uint8Array {
   }
   if ((entry.flags & PKG_ENTRY_FLAG_LZ4) === 0) {
     return data.slice(abs, abs + entry.compressedSize)
+  }
+  if (entry.size > MAX_PKG_ENTRY_BYTES) {
+    throw new Error("pkg: entry '" + entry.path + "' too large (" + entry.size + ' bytes)')
   }
   const r = new Reader(data.subarray(abs, abs + entry.compressedSize), 'pkg')
   const originalSize = r.u64()
@@ -1619,6 +1642,9 @@ export interface SceneManifest {
 
 /** Decompress LZ4 block format (no frame header, raw block). */
 function decompressLz4Block(src: Uint8Array, decompressedSize: number): Uint8Array {
+  if (decompressedSize < 0 || decompressedSize > MAX_DECOMPRESSED_BYTES) {
+    throw new Error('lz4: decompressed size out of bounds (' + String(decompressedSize) + ')')
+  }
   const dst = new Uint8Array(decompressedSize)
   let sp = 0, dp = 0
   while (sp < src.length && dp < decompressedSize) {
@@ -1718,6 +1744,9 @@ export function parseTexToRGBA(buf: Uint8Array): { width: number; height: number
   // Read the first (largest) mip level
   const mipW = dv.getUint32(p, true); p += 4
   const mipH = dv.getUint32(p, true); p += 4
+  if (mipW <= 0 || mipH <= 0 || mipW > MAX_TEX_DIMENSION || mipH > MAX_TEX_DIMENSION || mipW * mipH > MAX_TEX_PIXELS) {
+    throw new Error('tex: invalid mipmap dimensions ' + mipW + 'x' + mipH)
+  }
   const isLz4 = dv.getUint32(p, true); p += 4
   const decompSize = dv.getUint32(p, true); p += 4
   const compSize = dv.getUint32(p, true); p += 4

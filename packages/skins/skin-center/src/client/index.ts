@@ -83,6 +83,7 @@ export function apply(ctx: ClientContext): void {
     pauseOnHidden?: boolean
     dim?: number
     wallpaperBlur?: number
+    fit?: 'cover' | 'contain' | 'fill'
   }>({ namespace: SKIN_WALLPAPER_NS })
   const wallpaper = new WallpaperController(wallpaperScope)
   ctx.effect(() => () => wallpaper.dispose(), 'ui-skin-center: wallpaper dispose')
