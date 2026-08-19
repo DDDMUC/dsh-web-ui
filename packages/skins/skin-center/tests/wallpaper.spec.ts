@@ -142,6 +142,18 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('falls back to the preview when the scene frame fails to load (#521)', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(scene)
+    const [media] = layers()
+    const image = media.querySelector('img')
+    expect(image?.src).toContain('/api/skin-center/we/scene-frame/ccc')
+    image?.dispatchEvent(new Event('error'))
+    expect(image?.src).toContain('/api/skin-center/we/preview/ddd')
+    controller.dispose()
+  })
+
   it('frame mode renders the video preview instead of the video element', () => {
     const { scope } = fakeScope({ mode: 'frame' })
     const controller = new WallpaperController(scope)
