@@ -1783,7 +1783,7 @@ function firstNonBlank(...values) {
 * Returns null off Windows or when reg.exe fails. Injectable for tests.
 * @param run - reg.exe runner (defaults to execFileSync).
 */
-function steamPathFromRegistry(run = (args) => execFileSync(join(process.env.SystemRoot || "C:\\Windows", "System32", "reg.exe"), [
+function steamPathFromRegistry(run = () => execFileSync(join(process.env.SystemRoot || "C:\\Windows", "System32", "reg.exe"), [
 	"query",
 	"HKCU\\Software\\Valve\\Steam",
 	"/v",
@@ -1800,7 +1800,7 @@ function steamPathFromRegistry(run = (args) => execFileSync(join(process.env.Sys
 })) {
 	if (process.platform !== "win32") return null;
 	try {
-		const match = /SteamPath\s+REG_SZ\s+(.+)/i.exec(run([]));
+		const match = /SteamPath\s+REG_SZ\s+(.+)/i.exec(run());
 		return match ? match[1].trim() : null;
 	} catch {
 		return null;
