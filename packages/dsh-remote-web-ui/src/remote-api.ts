@@ -1,136 +1,124 @@
 /**
- * The remote desktop data channel: `/remote/api` mirrors the connection
- * plugin's `/api` surface for a paired desktop Web GUI opened at a non-loopback
- * origin (LAN address or public tunnel). The connection plugin's `/api` fence
- * stays closed for such origins (no `--trusted-host` needed — that flag is a
- * different SDK usage for `/api` itself), and this prefix is the plugin's own
- * route — so the paired-device cookie gate is the access control, exactly like
- * `/m/api`.
+ * The remote desktop data channel: `/remote` is this plugin's own prefix, so
+ * the paired-device cookie is the access control (exactly like `/m/api`).
+ * After that gate, every fenced same-origin path the browser rewrote here is
+ * re-issued to 127.0.0.1 as a loopback-shaped request so sibling plugin
+ * fences (and the connection plugin's `/api`) accept it — no `--trusted-host`
+ * and no per-plugin pairing consult.
  *
  * Security model:
- * - Every request must carry a live paired-device cookie (the same gate
- *   semantic as /m/api and the LAN fence), enforced before the body is
- *   read and before any host call.
+ * - Every request must carry a live paired-device cookie, enforced before
+ *   any bytes are forwarded and before any host call.
  * - The SDK's loopback-only privileged methods (native dialogs, the settings
  *   plane, credentials — the `PRIVILEGED_METHODS` set of client-connection)
- *   are denied here: a paired remote desktop must not reach them. The set is
- *   pinned by tests/remote-contract.spec.ts against the installed SDK.
- * - Unary traffic is forwarded to the host ApiProxy through the SDK's own
- *   `toFetchHandler` — envelope parsing, method dispatch, error shapes, and
- *   body-size behavior all stay SDK-native; this layer only gates and
- *   rewrites the path (`/remote/api/<method>` -> `/api/<method>`).
- * - The two browser event streams (`/api/events.mux`, `/api/events.host`)
- *   ride WebSocket upgrades on this prefix: the handshake is rebuilt
- *   loopback-shaped (Host rewritten, Origin and cookies dropped) and piped
- *   over a plain TCP connection to the local port, so the connection
- *   plugin's own fence accepts it and frames pass through untouched.
+ *   are denied here. The set is pinned by tests/remote-contract.spec.ts.
+ * - `/api/update/*` and `/api/plugin-manager/*` stay physically local.
+ * - Everything else is HTTP- or WebSocket-proxied to the local port with
+ *   Host rewritten, Origin and cookies dropped, and a synthetic same-origin
+ *   browser marker added after authentication. Plugin loopback fences then
+ *   pass. The pairing cookie never leaves this process.
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { Readable, type Duplex } from 'node:stream'
-import { connect } from 'node:net'
+import type { Duplex } from 'node:stream'
 import type { WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
-import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
 import type { PairingService } from './pairing.ts'
 import { readCookie } from './gate.ts'
 import { writeJson } from './http.ts'
-import { LOOPBACK_ONLY_METHODS, REMOTE_API_PATHS, REMOTE_API_PREFIX } from './remote-methods.ts'
+import { proxyLoopbackHttp, proxyLoopbackUpgrade } from './loopback-proxy.ts'
+import {
+  LOOPBACK_ONLY_METHODS,
+  PLUGIN_MANAGER_PATH,
+  REMOTE_API_PATHS,
+  REMOTE_PREFIX,
+  REMOTE_UPGRADE_PATHS,
+} from './remote-methods.ts'
 
-export { LOOPBACK_ONLY_METHODS, REMOTE_API_PREFIX, REMOTE_API_PATHS } from './remote-methods.ts'
+export {
+  LOOPBACK_ONLY_METHODS,
+  PLUGIN_MANAGER_PATH,
+  REMOTE_API_PATHS,
+  REMOTE_PREFIX,
+  REMOTE_UPGRADE_PATHS,
+} from './remote-methods.ts'
+export { REMOTE_API_PREFIX } from './remote-methods.ts'
 
-/**
- * Request bodies ride the same cap the connection plugin applies (the SDK
- * default for `maxRequestBodyBytes`, sized for aggregate image payloads).
- */
-export const REMOTE_API_MAX_BODY_BYTES = 167_772_160
+const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'])
 
-/** Method-name segment shape (mirrors client-connection's endpoint pattern). */
-const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
-
-/** WebSocket handshake headers forwarded to the loopback upstream. */
-const WS_FORWARD_HEADERS = [
-  'sec-websocket-key',
-  'sec-websocket-version',
-  'sec-websocket-extensions',
-  'sec-websocket-protocol',
-] as const
+/** Reject traversal and empty segments; allow plugin file-path characters. */
+function isSafeSegment(segment: string): boolean {
+  if (segment === '') return false
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(segment)
+  } catch {
+    return false
+  }
+  return decoded !== '.' && decoded !== '..' && !decoded.includes('/') && !decoded.includes('\\') && !decoded.includes('\0')
+}
 
 /** Route-family dependencies. */
 export interface RemoteApiDeps {
   /** The pairing service (device gate + cookie name). */
   service: PairingService
-  /** The host ApiProxy service (injected by the plugin). */
-  apiProxy: ApiProxy
-  /** The local webServer port the event-stream pipe connects to. */
+  /** The local webServer port the loopback proxy connects to. */
   port: number
-  /**
-   * Carrier seam over the ApiProxy (defaults to the SDK's own
-   * `toFetchHandler(apiProxy).fetch`; injectable so tests run without the
-   * full host dependency graph).
-   */
-  apiFetch?: (request: Request) => Promise<Response>
+}
+
+/** One SDK-shaped error envelope (keeps the desktop client's parse path intact). */
+function envelopeError(res: ServerResponse, status: number, rpcId: string, code: string, message: string): void {
+  writeJson(res, status, {
+    type: 'server-response',
+    rpcId,
+    result: { ok: false, error: { code, message, details: { issues: [] } } },
+  })
 }
 
 /**
- * Read one bounded raw request body (bytes, not parsed).
- * @throws 'body too large' beyond the cap.
+ * Map `/remote/...` to the inner path, or undefined when the outer path is
+ * not a safe rewrite target.
  */
-async function readRawBody(req: IncomingMessage, maxBytes: number): Promise<Buffer | undefined> {
-  if (req.method === 'GET' || req.method === 'HEAD') return undefined
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const chunk of req) {
-    const buffer = chunk as Buffer
-    size += buffer.length
-    if (size > maxBytes) throw new Error('body too large')
-    chunks.push(buffer)
+export function innerPathOf(pathname: string): string | undefined {
+  if (pathname === REMOTE_PREFIX || pathname === `${REMOTE_PREFIX}/`) return undefined
+  if (!pathname.startsWith(`${REMOTE_PREFIX}/`)) return undefined
+  const rest = pathname.slice(REMOTE_PREFIX.length)
+  if (!rest.startsWith('/')) return undefined
+  const segments = rest.slice(1).split('/')
+  if (segments.length === 0 || segments.some(segment => !isSafeSegment(segment))) {
+    return undefined
   }
-  return Buffer.concat(chunks)
+  return rest
 }
 
 /**
- * Build the remote desktop channel routes.
- * @param deps - pairing service + apiProxy + local port (+ carrier seam).
+ * Whether a paired inner path must stay physically local.
+ * @returns a denial message, or undefined when the path may be proxied.
+ */
+export function loopbackOnlyDenial(innerPath: string): string | undefined {
+  if (innerPath === '/api/update' || innerPath.startsWith('/api/update/')) {
+    return 'update endpoints stay loopback-only and stay unreachable from a paired remote desktop'
+  }
+  if (innerPath === PLUGIN_MANAGER_PATH || innerPath.startsWith(`${PLUGIN_MANAGER_PATH}/`)) {
+    return 'plugin-manager stays loopback-only and stays unreachable from a paired remote desktop'
+  }
+  if (!innerPath.startsWith('/api/')) return undefined
+  const method = innerPath.slice('/api/'.length)
+  if (method !== '' && !method.includes('/') && LOOPBACK_ONLY_METHODS.has(method)) {
+    return `${method} is loopback-only and stays unreachable from a paired remote desktop`
+  }
+  return undefined
+}
+
+/**
+ * Build the remote desktop channel HTTP routes.
+ * @param deps - pairing service + local port.
  * @returns the routes to register on webServer.
  */
 export function makeRemoteApiRoutes(deps: RemoteApiDeps): WebRoute[] {
-  const { service, apiProxy, port } = deps
-  // The SDK carrier loads lazily: a static import would drag the whole host
-  // dependency graph into every module that touches this file (tests
-  // included), while at runtime it resolves inside the dsh host where that
-  // graph always exists. One memoized load per factory.
-  let carrier: Promise<(request: Request) => Promise<Response>> | undefined
-  const apiFetch = deps.apiFetch ?? ((request: Request) => {
-    carrier ??= import('@deepseek-ai/dsh-host-apiproxy').then(module => module.toFetchHandler(apiProxy).fetch)
-    return carrier.then(fetch => fetch(request))
-  })
+  const { service, port } = deps
 
-  /** One SDK-shaped error envelope (keeps the desktop client's parse path intact). */
-  const envelopeError = (res: ServerResponse, status: number, rpcId: string, code: string, message: string): void => {
-    writeJson(res, status, {
-      type: 'server-response',
-      rpcId,
-      result: { ok: false, error: { code, message, details: { issues: [] } } },
-    })
-  }
-
-  /** Best-effort rpcId from an already-buffered JSON body (diagnostics only). */
-  const rpcIdOf = (body: Buffer | undefined): string => {
-    if (body === undefined) return 'invalid-request'
-    try {
-      const value: unknown = JSON.parse(body.toString('utf8'))
-      if (typeof value === 'object' && value !== null && typeof (value as { rpcId?: unknown }).rpcId === 'string') {
-        return (value as { rpcId: string }).rpcId
-      }
-    } catch {
-      // Unparsable body: the SDK's own invalid-request id.
-    }
-    return 'invalid-request'
-  }
-
-  const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    // Cookie gate first, then the body — same order as /m/api. Reading up to
-    // 160 MiB before 403 would let an unpaired client force the allocation.
+  const handler = (req: IncomingMessage, res: ServerResponse): void => {
+    // Cookie gate first — same order as /m/api. Do not buffer an unpaired body.
     const deviceId = readCookie(req.headers.cookie, service.config.cookieName)
     const paired = deviceId !== undefined && service.touchDevice(deviceId)
     if (!paired) {
@@ -139,121 +127,77 @@ export function makeRemoteApiRoutes(deps: RemoteApiDeps): WebRoute[] {
       return
     }
 
-    let body: Buffer | undefined
-    try {
-      body = await readRawBody(req, REMOTE_API_MAX_BODY_BYTES)
-    } catch {
-      writeJson(res, 413, { ok: false, error: { code: 'payload-too-large', message: 'body too large' } })
-      return
-    }
-
-    if (req.method !== 'POST' && req.method !== 'GET' && req.method !== 'HEAD') {
+    const method = req.method ?? 'GET'
+    if (!ALLOWED_METHODS.has(method)) {
+      req.resume()
       res.writeHead(405).end()
       return
     }
 
     const url = new URL(req.url ?? '/', 'http://127.0.0.1')
-    const prefix = `${REMOTE_API_PREFIX}/`
-    if (!url.pathname.startsWith(prefix)) {
+    const inner = innerPathOf(url.pathname)
+    if (inner === undefined) {
+      req.resume()
       res.writeHead(404).end()
       return
     }
-    const endpoint = url.pathname.slice(prefix.length)
-    if (endpoint === '' || endpoint.split('/').some(segment => segment === '' || segment === '.' || segment === '..' || !ENDPOINT_SEGMENT_PATTERN.test(segment))) {
-      res.writeHead(404).end()
+    const denied = loopbackOnlyDenial(inner)
+    if (denied !== undefined) {
+      req.resume()
+      envelopeError(res, 403, 'invalid-request', 'forbidden', denied)
       return
     }
 
-    if (LOOPBACK_ONLY_METHODS.has(endpoint)) {
-      envelopeError(res, 403, rpcIdOf(body), 'forbidden', `${endpoint} is loopback-only and stays unreachable from a paired remote desktop`)
-      return
-    }
-
-    // Forward through the SDK's own fetch handler: envelope parsing, method
-    // dispatch, and error shapes all stay native. The URL is loopback-shaped
-    // so nothing here depends on the deployment's fence configuration. The
-    // search string rides along (session.export takes query parameters).
-    const headers = new Headers()
-    const contentType = req.headers['content-type']
-    if (typeof contentType === 'string') headers.set('content-type', contentType)
-    const upstream = new Request(`http://127.0.0.1:${String(port)}/api/${endpoint}${url.search}`, {
-      method: req.method,
-      headers,
-      ...(body !== undefined ? { body: new Uint8Array(body), duplex: 'half' } : {}),
-    })
-    let response
-    try {
-      response = await apiFetch(upstream)
-    } catch {
-      writeJson(res, 502, { ok: false, error: { code: 'upstream-failure', message: 'upstream request failed' } })
-      return
-    }
-    const outHeaders: Record<string, string> = {}
-    const responseContentType = response.headers.get('content-type')
-    if (responseContentType !== null) outHeaders['content-type'] = responseContentType
-    res.writeHead(response.status, outHeaders)
-    if (response.body === null) {
-      res.end()
-      return
-    }
-    Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]).pipe(res)
+    proxyLoopbackHttp(req, res, port, `${inner}${url.search}`)
   }
 
-  return [{ kind: 'prefix', path: REMOTE_API_PREFIX, handler }]
+  return [{ kind: 'prefix', path: REMOTE_PREFIX, handler }]
 }
 
 /**
- * Build the WebSocket upgrade routes for the two browser event streams.
+ * Map one outer upgrade URL onto the loopback path (query string included).
+ */
+export function upgradeInnerPath(reqUrl: string | undefined, fallbackPath: string): string {
+  if (reqUrl === undefined || reqUrl === '') return fallbackPath
+  let url: URL
+  try {
+    url = new URL(reqUrl, 'http://127.0.0.1')
+  } catch {
+    return fallbackPath
+  }
+  const inner = innerPathOf(url.pathname)
+  if (inner === undefined) return fallbackPath
+  return `${inner}${url.search}`
+}
+
+/**
+ * Build the WebSocket upgrade routes for the event streams and known plugin
+ * sockets. webServer matches upgrades by exact path.
  * @param deps - pairing service + local port.
  * @returns the upgrade routes to register on webServer.
  */
-export function makeRemoteApiUpgradeRoutes(deps: Omit<RemoteApiDeps, 'apiProxy'>): WebUpgradeRoute[] {
+export function makeRemoteApiUpgradeRoutes(deps: RemoteApiDeps): WebUpgradeRoute[] {
   const { service, port } = deps
 
-  const makeHandler = (upstreamPath: string) => (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+  const handlerFor = (fallbackPath: string) => (req: IncomingMessage, socket: Duplex, head: Buffer): void => {
     const deviceId = readCookie(req.headers.cookie, service.config.cookieName)
     if (deviceId === undefined || !service.touchDevice(deviceId)) {
       socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
       socket.destroy()
       return
     }
-
-    // Rebuild the handshake loopback-shaped: Host is ours, Origin and
-    // Sec-Fetch markers are dropped (a non-browser-shaped request), and only
-    // the WebSocket cryptosession headers ride through. The pairing cookie
-    // never leaves this process.
-    const lines = [
-      `GET ${upstreamPath} HTTP/1.1`,
-      `Host: 127.0.0.1:${String(port)}`,
-      'Upgrade: websocket',
-      'Connection: Upgrade',
-    ]
-    for (const name of WS_FORWARD_HEADERS) {
-      const value = req.headers[name]
-      if (value === undefined) continue
-      lines.push(`${name}: ${Array.isArray(value) ? value.join(', ') : value}`)
-    }
-    const handshake = `${lines.join('\r\n')}\r\n\r\n`
-
-    const upstream = connect(port, '127.0.0.1')
-    const tearDown = (): void => {
-      upstream.destroy()
+    const inner = upgradeInnerPath(req.url, fallbackPath)
+    const denied = loopbackOnlyDenial(inner.split('?')[0] ?? inner)
+    if (denied !== undefined) {
+      socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
       socket.destroy()
+      return
     }
-    upstream.on('error', tearDown)
-    socket.on('error', tearDown)
-    upstream.on('close', () => { socket.destroy() })
-    socket.on('close', () => { upstream.destroy() })
-    upstream.on('connect', () => {
-      upstream.write(handshake)
-      if (head.length > 0) upstream.write(head)
-      socket.pipe(upstream)
-      upstream.pipe(socket)
-    })
+    proxyLoopbackUpgrade(req, socket, head, port, inner)
   }
 
-  return [
-    { path: REMOTE_API_PATHS.mux, handler: makeHandler('/api/events.mux') },
-    { path: REMOTE_API_PATHS.host, handler: makeHandler('/api/events.host') },
-  ]
+  return REMOTE_UPGRADE_PATHS.map((path) => ({
+    path,
+    handler: handlerFor(path.slice(REMOTE_PREFIX.length)),
+  }))
 }

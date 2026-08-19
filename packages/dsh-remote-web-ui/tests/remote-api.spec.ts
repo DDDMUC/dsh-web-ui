@@ -1,16 +1,19 @@
 /**
- * The remote desktop channel (`/remote/api`) over a real HTTP server: the
- * paired-cookie gate, the loopback-only method denial, envelope round-trips
- * through the SDK's own fetch handler, and query-string preservation.
+ * The remote desktop channel (`/remote`) over a real HTTP server: the
+ * paired-cookie gate, the loopback-only denial, and HTTP reverse-proxy to a
+ * loopback upstream (Host rewritten, Origin and cookies dropped).
  */
-import { createServer, request as httpRequest } from 'node:http'
+import { createServer, request as httpRequest, type IncomingMessage, type Server } from 'node:http'
 import { describe, expect, it } from 'vitest'
 import type { AddressInfo } from 'node:net'
-import type { Server } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
 import { PairingService } from '../src/pairing.ts'
-import { LOOPBACK_ONLY_METHODS, makeRemoteApiRoutes } from '../src/remote-api.ts'
+import {
+  innerPathOf,
+  LOOPBACK_ONLY_METHODS,
+  loopbackOnlyDenial,
+  makeRemoteApiRoutes,
+} from '../src/remote-api.ts'
 
 function makeService(): PairingService {
   const service = new PairingService({
@@ -26,7 +29,6 @@ function makeService(): PairingService {
   return service
 }
 
-/** A paired device cookie for the service. */
 function pairedCookie(service: PairingService): string {
   service.issue()
   const accepted = service.accept('tok-1')
@@ -34,57 +36,21 @@ function pairedCookie(service: PairingService): string {
   return `dsh_pair=${accepted.deviceId}`
 }
 
-/** The channel routes over a fake carrier (keeps tests off the SDK graph). */
-function makeRoutesForTest(service: PairingService): WebRoute[] {
-  const api = makeApiProxy()
-  return makeRemoteApiRoutes({ service, apiProxy: api, apiFetch: makeCarrier(api), port: 1 })
-}
-
-/** Fake ApiProxy: session.list answers a marker value; sessionLog echoes bytes. */
-function makeApiProxy(): ApiProxy {
-  return {
-    sessions: {
-      list: async () => ({ ok: true, value: { items: [] } }),
-    },
-    downloads: {
-      sessionLog: async () => new Response('export-bytes', { status: 200, headers: { 'content-type': 'application/octet-stream' } }),
-    },
-  } as unknown as ApiProxy
-}
-
-/**
- * A minimal carrier with the SDK fetch handler's contract (the real one is
- * pinned by tests/remote-contract.spec.ts): POST /api/<method> validates the
- * envelope and dispatches; GET /api/session.export serves the download.
- */
-function makeCarrier(api: ApiProxy): (request: Request) => Promise<Response> {
-  return async (request: Request): Promise<Response> => {
-    const url = new URL(request.url)
-    if (url.pathname === '/api/session.export' && request.method === 'GET') {
-      return await (api as unknown as { downloads: { sessionLog(): Promise<Response> } }).downloads.sessionLog()
-    }
-    if (request.method !== 'POST') return new Response('not found', { status: 404 })
-    const method = url.pathname.slice('/api/'.length)
-    if (method !== 'session.list') return new Response('not found', { status: 404 })
-    const body = JSON.parse(await request.text()) as { type?: string; rpcId?: string; method?: string }
-    if (body.type !== 'client-request' || typeof body.rpcId !== 'string' || body.method !== method) {
-      return Response.json({
-        type: 'server-response',
-        rpcId: typeof body.rpcId === 'string' ? body.rpcId : 'invalid-request',
-        result: { ok: false, error: { code: 'bad-request', message: 'invalid client-request message', details: { issues: [] } } },
-      }, { status: 200 })
-    }
-    const result = await (api as unknown as { sessions: { list(): Promise<{ ok: true; value: unknown }> } }).sessions.list()
-    return Response.json({ type: 'server-response', rpcId: body.rpcId, result })
-  }
-}
-
 interface TestServer {
   port: number
   close: () => Promise<void>
 }
 
-/** Serve the route family from a real server (prefix-aware). */
+interface UpstreamHit {
+  method: string
+  url: string
+  host: string | undefined
+  cookie: string | undefined
+  origin: string | undefined
+  secFetchSite: string | undefined
+  body: string
+}
+
 async function serve(routes: WebRoute[]): Promise<TestServer> {
   const server: Server = createServer((request, response) => {
     const pathname = new URL(request.url ?? '/', 'http://x').pathname
@@ -109,17 +75,51 @@ async function serve(routes: WebRoute[]): Promise<TestServer> {
   }
 }
 
-/** One raw call returning status, headers, and the body bytes. */
+async function startUpstream(reply: (req: IncomingMessage, hits: UpstreamHit[]) => { status: number; headers?: Record<string, string>; body: string }): Promise<TestServer & { hits: UpstreamHit[] }> {
+  const hits: UpstreamHit[] = []
+  const server: Server = createServer((request, response) => {
+    const chunks: Buffer[] = []
+    request.on('data', (chunk) => { chunks.push(chunk as Buffer) })
+    request.on('end', () => {
+      hits.push({
+        method: request.method ?? 'GET',
+        url: request.url ?? '',
+        host: typeof request.headers.host === 'string' ? request.headers.host : undefined,
+        cookie: typeof request.headers.cookie === 'string' ? request.headers.cookie : undefined,
+        origin: typeof request.headers.origin === 'string' ? request.headers.origin : undefined,
+        secFetchSite: typeof request.headers['sec-fetch-site'] === 'string' ? request.headers['sec-fetch-site'] : undefined,
+        body: Buffer.concat(chunks).toString('utf8'),
+      })
+      const out = reply(request, hits)
+      response.writeHead(out.status, { 'content-type': 'application/json', ...out.headers })
+      response.end(out.body)
+    })
+  })
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address() as AddressInfo
+  return {
+    port: address.port,
+    hits,
+    close: () => new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error === undefined || error === null) resolve()
+        else reject(error)
+      })
+    }),
+  }
+}
+
 async function call(
   port: number,
   method: string,
   path: string,
-  opts: { body?: string; cookie?: string } = {},
+  opts: { body?: string; cookie?: string; origin?: string } = {},
 ): Promise<{ status: number; contentType: string | undefined; body: string }> {
   return await new Promise((resolve, reject) => {
-    const headers: Record<string, string> = { host: `tunnel.example.com` }
+    const headers: Record<string, string> = { host: 'tunnel.example.com' }
     if (opts.body !== undefined) headers['content-type'] = 'application/json'
     if (opts.cookie !== undefined) headers.cookie = opts.cookie
+    if (opts.origin !== undefined) headers.origin = opts.origin
     const req = httpRequest(
       { host: '127.0.0.1', port, path, method, headers },
       (response) => {
@@ -143,10 +143,33 @@ async function call(
 const ENVELOPE = (rpcId: string, method: string, payload: unknown): string =>
   JSON.stringify({ type: 'client-request', rpcId, method, payload })
 
-describe('remote desktop channel (/remote/api)', () => {
-  it('refuses unpaired requests before reading the body', async () => {
+describe('innerPathOf / loopbackOnlyDenial', () => {
+  it('strips /remote and rejects traversal', () => {
+    expect(innerPathOf('/remote/api/session.list')).toBe('/api/session.list')
+    expect(innerPathOf('/remote/api/pet/state')).toBe('/api/pet/state')
+    expect(innerPathOf('/remote/sidebar/api/fs.tree')).toBe('/sidebar/api/fs.tree')
+    expect(innerPathOf('/remote/pet/whale-girl/spritesheet.webp')).toBe('/pet/whale-girl/spritesheet.webp')
+    expect(innerPathOf('/remote')).toBeUndefined()
+    expect(innerPathOf('/remote/')).toBeUndefined()
+    expect(innerPathOf('/remote/api/../secret')).toBeUndefined()
+    expect(innerPathOf('/remote/api/%2e%2e%2fsecret')).toBeUndefined()
+    expect(innerPathOf('/remote/api/%5csecret')).toBeUndefined()
+  })
+
+  it('denies privileged SDK methods, update, and plugin-manager', () => {
+    expect(loopbackOnlyDenial('/api/settings.update')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/update/run')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/plugin-manager/install')).toBeDefined()
+    expect(loopbackOnlyDenial('/api/session.list')).toBeUndefined()
+    expect(loopbackOnlyDenial('/api/pet/state')).toBeUndefined()
+    expect(loopbackOnlyDenial('/sidebar/api/fs.tree')).toBeUndefined()
+  })
+})
+
+describe('remote desktop channel (/remote)', () => {
+  it('refuses unpaired requests before forwarding', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutesForTest(service))
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: 1 }))
     try {
       const result = await call(port, 'POST', '/remote/api/session.list', { body: ENVELOPE('rpc-9', 'session.list', {}) })
       expect(result.status).toBe(403)
@@ -162,7 +185,7 @@ describe('remote desktop channel (/remote/api)', () => {
 
   it('refuses an unknown device cookie like a missing one', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutesForTest(service))
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: 1 }))
     try {
       const result = await call(port, 'POST', '/remote/api/session.list', {
         body: ENVELOPE('rpc-1', 'session.list', {}),
@@ -174,30 +197,66 @@ describe('remote desktop channel (/remote/api)', () => {
     }
   })
 
-  it('round-trips a paired session.list envelope through the SDK fetch handler', async () => {
+  it('proxies a paired session.list to loopback without Origin or cookie', async () => {
     const service = makeService()
     const cookie = pairedCookie(service)
-    const { port, close } = await serve(makeRoutesForTest(service))
+    const upstream = await startUpstream((req) => {
+      if (req.url === '/api/session.list' && req.method === 'POST') {
+        return { status: 200, body: JSON.stringify({ type: 'server-response', rpcId: 'rpc-2', result: { ok: true } }) }
+      }
+      return { status: 404, body: 'no' }
+    })
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port }))
     try {
       const result = await call(port, 'POST', '/remote/api/session.list', {
         body: ENVELOPE('rpc-2', 'session.list', {}),
         cookie,
+        origin: 'https://tunnel.example.com',
       })
       expect(result.status).toBe(200)
       expect(result.contentType).toContain('application/json')
       const body = JSON.parse(result.body) as { type: string; rpcId: string; result: { ok: boolean } }
-      expect(body.type).toBe('server-response')
       expect(body.rpcId).toBe('rpc-2')
       expect(body.result.ok).toBe(true)
+      expect(upstream.hits).toHaveLength(1)
+      expect(upstream.hits[0].url).toBe('/api/session.list')
+      expect(upstream.hits[0].host).toBe(`127.0.0.1:${String(upstream.port)}`)
+      expect(upstream.hits[0].cookie).toBeUndefined()
+      expect(upstream.hits[0].origin).toBeUndefined()
+      expect(upstream.hits[0].secFetchSite).toBe('same-origin')
     } finally {
       await close()
+      await upstream.close()
+    }
+  })
+
+  it('proxies plugin namespaces and sidebar paths the same way', async () => {
+    const service = makeService()
+    const cookie = pairedCookie(service)
+    const upstream = await startUpstream((req) => {
+      if (req.url === '/api/pet/state') return { status: 200, body: JSON.stringify({ ok: true, pet: 'whale' }) }
+      if (req.url === '/sidebar/api/fs.tree') return { status: 200, body: JSON.stringify({ ok: true, value: { entries: [] } }) }
+      return { status: 404, body: 'no' }
+    })
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port }))
+    try {
+      const pet = await call(port, 'GET', '/remote/api/pet/state', { cookie })
+      expect(pet.status).toBe(200)
+      expect(JSON.parse(pet.body)).toEqual({ ok: true, pet: 'whale' })
+      const sidebar = await call(port, 'POST', '/remote/sidebar/api/fs.tree', { cookie, body: '{}' })
+      expect(sidebar.status).toBe(200)
+      expect(JSON.parse(sidebar.body)).toEqual({ ok: true, value: { entries: [] } })
+      expect(upstream.hits.map(hit => hit.url)).toEqual(['/api/pet/state', '/sidebar/api/fs.tree'])
+    } finally {
+      await close()
+      await upstream.close()
     }
   })
 
   it('denies every loopback-only method with a forbidden envelope', async () => {
     const service = makeService()
     const cookie = pairedCookie(service)
-    const { port, close } = await serve(makeRoutesForTest(service))
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: 1 }))
     try {
       for (const method of LOOPBACK_ONLY_METHODS) {
         const result = await call(port, 'POST', `/remote/api/${method}`, {
@@ -209,6 +268,9 @@ describe('remote desktop channel (/remote/api)', () => {
         expect(body.result.ok, method).toBe(false)
         expect(body.result.error.code, method).toBe('forbidden')
       }
+      const manager = await call(port, 'POST', '/remote/api/plugin-manager/install', { cookie, body: '{}' })
+      expect(manager.status).toBe(403)
+      expect(JSON.parse(manager.body).result.error.code).toBe('forbidden')
     } finally {
       await close()
     }
@@ -217,24 +279,31 @@ describe('remote desktop channel (/remote/api)', () => {
   it('preserves the query string for GET downloads (session.export)', async () => {
     const service = makeService()
     const cookie = pairedCookie(service)
-    const { port, close } = await serve(makeRoutesForTest(service))
+    const upstream = await startUpstream((req) => {
+      if (req.url === '/api/session.export?sessionId=s-1&includeDescendants=1') {
+        return { status: 200, headers: { 'content-type': 'application/octet-stream' }, body: 'export-bytes' }
+      }
+      return { status: 404, body: 'no' }
+    })
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port }))
     try {
       const result = await call(port, 'GET', '/remote/api/session.export?sessionId=s-1&includeDescendants=1', { cookie })
       expect(result.status).toBe(200)
       expect(result.body).toBe('export-bytes')
     } finally {
       await close()
+      await upstream.close()
     }
   })
 
-  it('rejects unknown shapes: wrong method, bare prefix, bad segments', async () => {
+  it('rejects unknown shapes: wrong method, bare prefix, traversal', async () => {
     const service = makeService()
     const cookie = pairedCookie(service)
-    const { port, close } = await serve(makeRoutesForTest(service))
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: 1 }))
     try {
-      expect((await call(port, 'PUT', '/remote/api/session.list', { cookie })).status).toBe(405)
+      expect((await call(port, 'OPTIONS', '/remote/api/session.list', { cookie })).status).toBe(405)
       expect((await call(port, 'POST', '/remote/api/', { body: ENVELOPE('r', 'x', {}), cookie })).status).toBe(404)
-      expect((await call(port, 'POST', '/remote/api/a/b', { body: ENVELOPE('r', 'a', {}), cookie })).status).toBe(404)
+      expect((await call(port, 'POST', '/remote/api/%2e%2e%2fsecret', { body: '{}', cookie })).status).toBe(404)
     } finally {
       await close()
     }
@@ -243,22 +312,14 @@ describe('remote desktop channel (/remote/api)', () => {
   it('returns a fixed 502 message instead of the upstream error text', async () => {
     const service = makeService()
     const cookie = pairedCookie(service)
-    const routes = makeRemoteApiRoutes({
-      service,
-      apiProxy: makeApiProxy(),
-      port: 1,
-      apiFetch: async () => {
-        throw new Error('secret-host-detail')
-      },
-    })
-    const { port, close } = await serve(routes)
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: 1 }))
     try {
       const result = await call(port, 'POST', '/remote/api/session.list', {
         body: ENVELOPE('rpc-502', 'session.list', {}),
         cookie,
       })
       expect(result.status).toBe(502)
-      expect(result.body).not.toContain('secret-host-detail')
+      expect(result.body).not.toContain('ECONNREFUSED')
       const body = JSON.parse(result.body) as { ok: boolean; error: { code: string; message: string } }
       expect(body.ok).toBe(false)
       expect(body.error.code).toBe('upstream-failure')

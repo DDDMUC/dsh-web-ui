@@ -8,6 +8,7 @@ import {
   isLoopbackHostname,
   isUnpairedDenied,
   REMOTE_API_PREFIX,
+  rewriteRawUrl,
   rewritePath,
   shouldRewriteFetchPath,
   shouldRewriteWsPath,
@@ -24,21 +25,34 @@ describe('rewrite rules', () => {
     expect(isLoopbackHostname('dsh.example.com')).toBe(false)
   })
 
-  it('rewrites API method paths but never pair/update/events-less paths', () => {
+  it('rewrites fenced paths but never pair, update, mobile, or asset paths', () => {
     expect(shouldRewriteFetchPath('/api/session.list')).toBe(true)
     expect(shouldRewriteFetchPath('/api/session.export')).toBe(true)
     expect(shouldRewriteFetchPath('/api/pair/accept')).toBe(false)
     expect(shouldRewriteFetchPath('/api/update/status')).toBe(false)
+    expect(shouldRewriteFetchPath('/sidebar/api/fs.tree')).toBe(true)
+    expect(shouldRewriteFetchPath('/git/api/status')).toBe(true)
+    expect(shouldRewriteFetchPath('/pet/whale/sprite.webp')).toBe(true)
     expect(shouldRewriteFetchPath('/m/api/session.list')).toBe(false)
     expect(shouldRewriteFetchPath('/assets/index.js')).toBe(false)
     expect(rewritePath('/api/session.list')).toBe(`${REMOTE_API_PREFIX}/session.list`)
   })
 
-  it('rewrites exactly the two event-stream WebSocket paths', () => {
+  it('rewrites exactly the registered WebSocket paths', () => {
     expect(shouldRewriteWsPath('/api/events.mux')).toBe(true)
     expect(shouldRewriteWsPath('/api/events.host')).toBe(true)
+    expect(shouldRewriteWsPath('/sidebar/ws/terminal')).toBe(true)
+    expect(shouldRewriteWsPath('/sidebar/ws/agent-terminals')).toBe(true)
+    expect(shouldRewriteWsPath('/api/dsh-ssh/terminal')).toBe(true)
     expect(shouldRewriteWsPath('/api/session.list')).toBe(false)
     expect(shouldRewriteWsPath('/m/api/events.mux')).toBe(false)
+  })
+
+  it('preserves relative URL shape, query, and hash', () => {
+    expect(rewriteRawUrl('/pet/a.png?v=1#sprite', 'https://tunnel.example.com/page', 'https://tunnel.example.com'))
+      .toBe('/remote/pet/a.png?v=1#sprite')
+    expect(rewriteRawUrl('https://elsewhere.example.com/pet/a.png', 'https://tunnel.example.com/page', 'https://tunnel.example.com'))
+      .toBe('https://elsewhere.example.com/pet/a.png')
   })
 })
 
@@ -140,17 +154,21 @@ describe('installRemoteChannel', () => {
     }
   })
 
-  it('rewrites the two event-stream WebSocket URLs only', () => {
+  it('rewrites registered WebSocket URLs only', () => {
     const window = makeWindow()
     const restore = installRemoteChannel(window)
     try {
       new window.WebSocket('wss://tunnel.example.com/api/events.mux')
       new window.WebSocket('wss://tunnel.example.com/api/events.host')
+      new window.WebSocket('wss://tunnel.example.com/sidebar/ws/terminal?workspace=w-1')
+      new window.WebSocket('wss://tunnel.example.com/api/dsh-ssh/terminal')
       new window.WebSocket('wss://tunnel.example.com/other/ws')
       new window.WebSocket('wss://elsewhere.example.com/api/events.mux')
       expect(window.state.wsUrls).toEqual([
         'wss://tunnel.example.com/remote/api/events.mux',
         'wss://tunnel.example.com/remote/api/events.host',
+        'wss://tunnel.example.com/remote/sidebar/ws/terminal?workspace=w-1',
+        'wss://tunnel.example.com/remote/api/dsh-ssh/terminal',
         'wss://tunnel.example.com/other/ws',
         'wss://elsewhere.example.com/api/events.mux',
       ])

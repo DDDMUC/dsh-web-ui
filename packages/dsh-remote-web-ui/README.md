@@ -8,7 +8,7 @@ This repository is an external plugin package for DeepSeek Harness (DSH):
 scan-to-pair mobile remote control for the dsh web GUI — plus remote desktop
 pairing and a one-click self-update for the dsh-web-ui family. It is a single
 dual-face package — the host half owns pairing tokens, device sessions, the
-`/api/pair` route family, the gated `/remote/api` desktop channel, and the
+`/api/pair` route family, the gated `/remote` desktop channel, and the
 `/api/update` surface; the browser half renders the sidebar-foot entries (the
 download trigger and an icon-only mobile-remote control beside the settings
 button), the pairing panel with a QR code, live device status, and
@@ -36,7 +36,8 @@ update.
   Copy the link from the panel and open it in a browser on another
   computer (LAN URL or tunnel URL); after the accept round trip the full
   Web GUI runs there — workspaces, sessions, chat, model switching — with
-  its traffic on the gated `/remote/api` channel instead of `/api`. The
+  its fenced same-origin traffic on the gated `/remote` channel instead of
+  calling loopback-only host routes directly. The
   phone gets `/m/`, the PC gets the desktop UI: one token, one pairing
   flow, two surfaces. An unpaired PC sees only a "pair this device" banner
   and no workspace data.
@@ -44,22 +45,27 @@ update.
   link; an accepted token cannot be reused; tokens expire). 停止 revokes
   every paired device and the current token — paired devices are cut off on
   their next request. Pairing is this plugin's access control for its own
-  remote channels: `/m/api` for the phone and `/remote/api` for a desktop
-  browser opened at a non-loopback origin. Unpaired `/remote/api` callers
+  remote channels: `/m/api` for the phone and `/remote` for a desktop
+  browser opened at a non-loopback origin. Unpaired `/remote` callers
   are refused before the request body is read. Loopback (127.0.0.1) keeps using
   `/api` directly. The default remote-desktop path does not use
   `--trusted-host`: the connection plugin's `/api` fence stays closed for
-  public and LAN hosts, and the paired PC rides `/remote/api` instead.
+  public and LAN hosts, and the paired PC rides `/remote` instead.
   `--trusted-host` is a different SDK usage that trusts that host for `/api`
   itself — pairing does not gate `/api` (no plugin can; the fence is the
   SDK's own seam). The posture probe below reports that stance when `/api`
   is reachable without pairing.
 - **Remote desktop channel**: with `requirePairingForLan` on (default), a
   desktop Web GUI opened at the LAN URL or through the tunnel transparently
-  rides `/remote/api` — the same UI, gated by the same pairing cookie. The
+  rides `/remote` — the same UI, gated by the same pairing cookie. Browser
+  requests under `/api`, `/sidebar`, `/git`, and `/pet`, including the known
+  event, terminal, and SSH WebSockets, are re-issued to the local web server
+  without forwarding the remote Origin or pairing cookie; the authenticated
+  proxy supplies its own same-origin browser marker for sibling route fences. The
   SDK's loopback-only privileged methods (native dialogs, the settings and
   credentials plane) stay unreachable from a paired remote desktop, and the
-  `/api/update/*` control endpoints stay loopback-only. Unpaired desktop
+  `/api/update/*` and `/api/plugin-manager/*` control endpoints stay
+  loopback-only. Unpaired desktop
   browsers get a persistent "pair this device" banner instead of data
   (the banner keys off the `unpaired` error code, not every 403).
 - **Posture probe**: the plugin probes the SDK `/api` fence with forged
@@ -234,8 +240,8 @@ over Server-Sent Events on `/m/api/events.mux`. The canonical `/m/` page owns a 
   browsers that support `field-sizing: content`, the input grows with the
   draft up to its 120px cap in either mode.
 - The `/m/` worker uses network-first static-shell fallback and waits for current pages to close before an updated worker activates. It bypasses `/m/api`, `/api`, SSE, and every write request.
-- Installing this plugin routes non-loopback desktop `/api` traffic onto the
-  gated `/remote/api` channel (see `requirePairingForLan` in `src/index.ts`).
+- Installing this plugin routes fenced non-loopback desktop traffic onto the
+  gated `/remote` channel (see `requirePairingForLan` in `src/index.ts`).
   A desktop browser opened via the LAN URL or the tunnel must pair like any
   remote device — the unpaired state shows a persistent banner instead of
   data; loopback (127.0.0.1) is unaffected and keeps `/api`. Set

@@ -342,14 +342,12 @@ function applyImpl(ctx: Context, config?: Config): void {
     ...(apiProxy !== undefined
       ? makeMobileApiRoutes({ service, apiProxy, mobileEnterToSend: () => resolve().mobileEnterToSend })
       : []),
-    // The remote desktop channel: the paired-cookie-gated mirror of /api for
-    // desktop browsers opened at a non-loopback origin (see remote-api.ts).
-    ...(apiProxy !== undefined
-      ? makeRemoteApiRoutes({ service, apiProxy, port: ctx.webServer.port })
-      : []),
+    // The remote desktop channel: paired-cookie-gated `/remote` prefix that
+    // re-issues fenced paths to loopback (see remote-api.ts).
+    ...makeRemoteApiRoutes({ service, port: ctx.webServer.port }),
     ...updateRoutes,
   ]
-  const upgrades = apiProxy !== undefined ? makeRemoteApiUpgradeRoutes({ service, port: ctx.webServer.port }) : []
+  const upgrades = makeRemoteApiUpgradeRoutes({ service, port: ctx.webServer.port })
   const gate = makeGateListener(service, () => resolve().requirePairingForLan, () => resolve().enabled)
   ctx.effect(() => ctx.on('api/gate', gate), 'remote-web-ui: api gate')
 

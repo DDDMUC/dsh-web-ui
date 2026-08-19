@@ -1,32 +1,44 @@
 /**
  * The remote desktop channel — browser half. On a non-loopback origin (LAN
- * address or public tunnel) the desktop Web GUI's `/api` traffic is refused
- * by the connection plugin's Host fence, and pairing is the real access
- * control — so every same-origin `/api` request the SDK client issues is
- * rewritten onto this plugin's gated `/remote/api` prefix (host half in
- * src/remote-api.ts), where the paired-device cookie gate decides.
+ * address or public tunnel) fenced host routes refuse the request, and
+ * pairing is the real access control — so same-origin traffic the desktop
+ * issues is rewritten onto this plugin's gated `/remote` prefix (host half
+ * in src/remote-api.ts). The host then re-issues the call to 127.0.0.1 so
+ * plugin loopback fences pass.
  *
  * The rewrite is deliberately narrow:
- * - loopback origins are untouched (the desktop at 127.0.0.1 keeps `/api`);
+ * - loopback origins are untouched (the desktop at 127.0.0.1 keeps original paths);
  * - the pairing routes (`/api/pair/*`) stay where they are — accept must
  *   work BEFORE a device is paired;
- * - the update endpoints (`/api/update/*`) stay loopback-only — a paired
- *   remote desktop must never trigger an install;
- * - only the two fixed event-stream paths are rewritten for WebSocket —
- *   every other WebSocket URL passes through the native constructor.
+ * - the update endpoints (`/api/update/*`) stay loopback-only;
+ * - `/api/*` (SDK methods and `/api/<plugin>/...` plugin namespaces),
+ *   `/sidebar/*`, `/git/*`, and `/pet/*` ride the channel;
+ * - fetch, EventSource, WebSocket, and img/script/iframe `src` are patched;
+ *   everything else calls the original unchanged.
  *
  * Pure helpers are exported for unit tests; `installRemoteChannel` patches
- * `fetch` and `WebSocket` on the given window and returns their restore.
+ * the given window and returns their restore.
  */
 
-/** The gated mirror prefix (must match src/remote-api.ts). */
-export const REMOTE_API_PREFIX = '/remote/api'
+/** The gated mirror prefix (must match src/remote-methods.ts). */
+export const REMOTE_PREFIX = '/remote'
 
-const FETCH_PREFIX = '/api/'
+/** Connection-plugin method prefix under the gated channel. */
+export const REMOTE_API_PREFIX = `${REMOTE_PREFIX}/api`
+
+const API_PREFIX = '/api/'
 const PAIR_PREFIX = '/api/pair/'
 const UPDATE_PREFIX = '/api/update/'
-const WS_MUX_PATH = '/api/events.mux'
-const WS_HOST_PATH = '/api/events.host'
+const SIDEBAR_PREFIX = '/sidebar/'
+const GIT_PREFIX = '/git/'
+const PET_PREFIX = '/pet/'
+const WS_PATHS = new Set([
+  '/api/events.mux',
+  '/api/events.host',
+  '/sidebar/ws/terminal',
+  '/sidebar/ws/agent-terminals',
+  '/api/dsh-ssh/terminal',
+])
 
 /**
  * Browser-safe loopback classification for the page origin (the SDK client
@@ -41,34 +53,66 @@ export function isLoopbackHostname(hostname: string): boolean {
 }
 
 /**
- * Whether one same-origin fetch path must ride the gated channel.
+ * Whether one same-origin path must ride the gated channel (fetch, EventSource,
+ * img/script/iframe src).
  * @param pathname - the request URL pathname.
  */
 export function shouldRewriteFetchPath(pathname: string): boolean {
-  if (!pathname.startsWith(FETCH_PREFIX)) return false
   if (pathname.startsWith(PAIR_PREFIX)) return false
   if (pathname.startsWith(UPDATE_PREFIX)) return false
-  return true
+  if (pathname.startsWith(API_PREFIX)) return true
+  if (pathname.startsWith(SIDEBAR_PREFIX) || pathname === '/sidebar') return true
+  if (pathname.startsWith(GIT_PREFIX) || pathname === '/git') return true
+  if (pathname.startsWith(PET_PREFIX) || pathname === '/pet') return true
+  return false
 }
 
 /**
- * Whether one WebSocket path is a desktop event stream that must ride the
- * gated channel (the SDK client opens exactly these two).
+ * Whether one WebSocket path must ride the gated channel.
  * @param pathname - the WebSocket URL pathname.
  */
 export function shouldRewriteWsPath(pathname: string): boolean {
-  return pathname === WS_MUX_PATH || pathname === WS_HOST_PATH
+  return WS_PATHS.has(pathname)
 }
 
-/** The gated twin of one `/api` path. */
+/** The gated twin of one fenced path (`/remote` + original pathname). */
 export function rewritePath(pathname: string): string {
-  return `${REMOTE_API_PREFIX}${pathname.slice('/api'.length)}`
+  return `${REMOTE_PREFIX}${pathname}`
+}
+
+/**
+ * Rewrite one raw URL string when it is same-origin and fenced. Relative
+ * inputs stay relative so resource loaders do not unexpectedly absolutize.
+ */
+export function rewriteRawUrl(raw: string, baseHref: string, origin: string): string {
+  let url: URL
+  try {
+    url = new URL(raw, baseHref)
+  } catch {
+    return raw
+  }
+  if (url.origin !== origin) return raw
+  if (!shouldRewriteFetchPath(url.pathname)) return raw
+  url.pathname = rewritePath(url.pathname)
+  if (raw.startsWith('/') && !raw.startsWith('//')) {
+    return `${url.pathname}${url.search}${url.hash}`
+  }
+  return url.href
+}
+
+/** A constructor that exposes a configurable `src` on its prototype. */
+interface SrcConstructor {
+  prototype: object
 }
 
 /** The subset of window the channel needs (injectable for tests). */
 export interface ChannelWindow {
   fetch: typeof globalThis.fetch
   WebSocket: typeof WebSocket
+  EventSource?: typeof EventSource
+  HTMLImageElement?: SrcConstructor
+  HTMLScriptElement?: SrcConstructor
+  HTMLIFrameElement?: SrcConstructor
   location: { origin: string; href: string }
 }
 
@@ -80,6 +124,24 @@ export interface RemoteChannelOptions {
   onPaired?: () => void
 }
 
+/** Read an unpaired code from either the SDK envelope or a plugin JSON body. */
+function unpairedCodeOf(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const record = value as { result?: unknown; error?: unknown }
+  const nested = record.result
+  if (typeof nested === 'object' && nested !== null) {
+    const error = (nested as { error?: unknown }).error
+    if (typeof error === 'object' && error !== null && typeof (error as { code?: unknown }).code === 'string') {
+      return (error as { code: string }).code
+    }
+  }
+  const error = record.error
+  if (typeof error === 'object' && error !== null && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code
+  }
+  return undefined
+}
+
 /**
  * Whether a gated 403 is the unpaired-device fence (not a loopback-only
  * method denial, which uses the same status with code `forbidden`).
@@ -87,22 +149,39 @@ export interface RemoteChannelOptions {
 export async function isUnpairedDenied(response: Response): Promise<boolean> {
   if (response.status !== 403) return false
   try {
-    const value: unknown = await response.json()
-    if (typeof value !== 'object' || value === null) return false
-    const result = (value as { result?: unknown }).result
-    if (typeof result !== 'object' || result === null) return false
-    const error = (result as { error?: unknown }).error
-    if (typeof error !== 'object' || error === null) return false
-    return (error as { code?: unknown }).code === 'unpaired'
+    return unpairedCodeOf(await response.json()) === 'unpaired'
   } catch {
     return false
   }
 }
 
 /**
- * Patch `fetch` and `WebSocket` on one window to route the desktop `/api`
- * traffic through the gated channel. Everything not matching the narrow
- * rules above calls the original unchanged.
+ * Wrap a prototype `src` setter so fenced same-origin URLs ride `/remote`.
+ * No-ops when the constructor is missing or `src` is not configurable.
+ */
+function patchSrcAccessor(ctor: SrcConstructor | undefined, rewrite: (value: string) => string): () => void {
+  if (ctor === undefined) return () => {}
+  const descriptor = Object.getOwnPropertyDescriptor(ctor.prototype, 'src')
+  if (descriptor === undefined || descriptor.configurable === false) return () => {}
+  if (descriptor.set === undefined) return () => {}
+  const originalSet = descriptor.set
+  const originalGet = descriptor.get
+  Object.defineProperty(ctor.prototype, 'src', {
+    configurable: true,
+    enumerable: descriptor.enumerable ?? true,
+    get: originalGet,
+    set(this: unknown, value: unknown) {
+      originalSet.call(this, rewrite(String(value)))
+    },
+  })
+  return () => {
+    Object.defineProperty(ctor.prototype, 'src', descriptor)
+  }
+}
+
+/**
+ * Patch `fetch`, `EventSource`, `WebSocket`, and resource `src` accessors on
+ * one window to route fenced traffic through the gated channel.
  * @param window - the browser window (or a test double).
  * @param options - the unpaired callback.
  * @returns a function restoring the originals.
@@ -110,8 +189,10 @@ export async function isUnpairedDenied(response: Response): Promise<boolean> {
 export function installRemoteChannel(window: ChannelWindow, options: RemoteChannelOptions = {}): () => void {
   const originalFetch = window.fetch
   const OriginalWebSocket = window.WebSocket
+  const OriginalEventSource = window.EventSource
 
   const sameOrigin = (url: URL): boolean => url.origin === window.location.origin
+  const rewrite = (raw: string): string => rewriteRawUrl(raw, window.location.href, window.location.origin)
 
   const patchedFetch: typeof globalThis.fetch = (input, init) => {
     const url = new URL(
@@ -147,10 +228,34 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
     }
   }
 
+  const restoreSrc = [
+    patchSrcAccessor(window.HTMLImageElement, rewrite),
+    patchSrcAccessor(window.HTMLScriptElement, rewrite),
+    patchSrcAccessor(window.HTMLIFrameElement, rewrite),
+  ]
+
   window.fetch = patchedFetch
   window.WebSocket = PatchedWebSocket as typeof WebSocket
+  if (OriginalEventSource !== undefined) {
+    class PatchedEventSource extends OriginalEventSource {
+      constructor(url: string | URL, eventSourceInitDict?: EventSourceInit) {
+        const parsed = new URL(url.toString(), window.location.href)
+        if (sameOrigin(parsed) && shouldRewriteFetchPath(parsed.pathname)) {
+          const rewritten = new URL(parsed)
+          rewritten.pathname = rewritePath(parsed.pathname)
+          super(rewritten, eventSourceInitDict)
+          return
+        }
+        super(url, eventSourceInitDict)
+      }
+    }
+    window.EventSource = PatchedEventSource
+  }
+
   return () => {
     window.fetch = originalFetch
     window.WebSocket = OriginalWebSocket
+    if (OriginalEventSource !== undefined) window.EventSource = OriginalEventSource
+    for (const restore of restoreSrc) restore()
   }
 }

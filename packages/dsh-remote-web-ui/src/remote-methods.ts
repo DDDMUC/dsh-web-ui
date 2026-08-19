@@ -3,14 +3,32 @@
  * client half can pin them without importing the host SDK graph.
  */
 
-/** The remote desktop channel prefix (everything under it is a method name). */
-export const REMOTE_API_PREFIX = '/remote/api'
+/** Gated mirror of same-origin fenced paths (`/remote` + original pathname). */
+export const REMOTE_PREFIX = '/remote'
+
+/** Connection-plugin method prefix under the gated channel. */
+export const REMOTE_API_PREFIX = `${REMOTE_PREFIX}/api`
 
 /** WebSocket event-stream paths served by the channel (client rewrites to these). */
 export const REMOTE_API_PATHS = {
   mux: `${REMOTE_API_PREFIX}/events.mux`,
   host: `${REMOTE_API_PREFIX}/events.host`,
 } as const
+
+/**
+ * Exact upgrade paths registered on webServer (the SDK matches upgrades by
+ * exact path, not prefix). Query strings ride on the request URL.
+ */
+export const REMOTE_UPGRADE_PATHS = [
+  REMOTE_API_PATHS.mux,
+  REMOTE_API_PATHS.host,
+  `${REMOTE_PREFIX}/sidebar/ws/terminal`,
+  `${REMOTE_PREFIX}/sidebar/ws/agent-terminals`,
+  `${REMOTE_API_PREFIX}/dsh-ssh/terminal`,
+] as const
+
+/** Plugin-manager HTTP prefix: install/remove stay physically local. */
+export const PLUGIN_MANAGER_PATH = '/api/plugin-manager'
 
 /**
  * Loopback-only methods of the host API surface, mirrored from
