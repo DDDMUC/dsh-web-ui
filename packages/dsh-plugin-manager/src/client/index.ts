@@ -1,13 +1,14 @@
 /**
  * Plugin-manager browser half: contributes the family plugin-manager tab to
- * the official Plugins settings section (`settings.plugins.tab` slot). It is
- * dual-channel: on runtimes with the official installer services (DSHCode,
- * the 1.0.4 checkout web) every operation rides the official
- * `/plugin-installer` and `/plugin-control` loopback RPC channels (the single
- * writer); on the npm-published web runtime those channels do not exist, so
- * the same face falls back to this package's own loopback HTTP gateway, which
- * spawns the official CLI for writes. The tab never knows which mode it runs
- * in — only the injected face does.
+ * the official Plugins settings section (`settings.plugins.tab` slot) and
+ * provides the same dual-channel face as the `'pluginManager'` cordis
+ * service for sibling client plugins. It is dual-channel: on runtimes with
+ * the official installer services (DSHCode, the 1.0.4 checkout web) every
+ * operation rides the official `/plugin-installer` and `/plugin-control`
+ * loopback RPC channels (the single writer); on the npm-published web runtime
+ * those channels do not exist, so the same face falls back to this package's
+ * own loopback HTTP gateway, which spawns the official CLI for writes.
+ * Neither the tab nor service consumers know which mode the face runs in.
  * @module @linxin666/dsh-client-ui-plugin-manager/client
  */
 
@@ -33,6 +34,7 @@ import {
   type PluginFailuresSnapshot,
   type PluginUpdateItem,
 } from '../core/protocol.ts'
+import { PLUGIN_MANAGER_SERVICE, type PluginManagerService } from '../core/service.ts'
 import type { ControlChange } from '../core/conflict.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -72,16 +74,22 @@ interface GatewayJobWire {
   error?: string
 }
 
-/** The face extended with the gateway's install-time conflict ledger. */
-export type PluginManagerFace = PluginManagerTabInjected & {
-  /** Conflicts the gateway host computed around the last install (gateway mode only). */
-  lastInstallConflicts?: () => readonly ControlChange[]
-}
+/**
+ * The face the Plugin manager tab and the `'pluginManager'` cordis service
+ * share: the full tab surface plus the cross-plugin service contract.
+ */
+export type PluginManagerFace = PluginManagerTabInjected & PluginManagerService
 
-/** Contribute the family plugin-manager tab to the Plugins settings section. */
-export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'plugin-manager: dictionaries')
-
+/**
+ * Build the dual-channel face once: official-channel and gateway-channel
+ * implementations, the mode detection that picks between them, the repair
+ * handoff, and the change-notification listener set. The returned face is
+ * both the tab's injected props and the value provided as the
+ * `'pluginManager'` cordis service.
+ * @param ctx - the client context (connection, workspaces, sessions).
+ * @returns the shared face.
+ */
+export function createPluginManagerFace(ctx: ClientContext): PluginManagerFace {
   const connection = ctx.get('connection') as ConnectionHandle
 
   // ── official channel implementations ──────────────────────────────────────
@@ -213,7 +221,7 @@ export function apply(ctx: ClientContext): void {
     },
   }
 
-  // ── mode selection and the shared injected face ───────────────────────────
+  // ── mode selection ────────────────────────────────────────────────────────
 
   let modePromise: Promise<'official' | 'gateway'> | undefined
   const ensureMode = (): Promise<'official' | 'gateway'> => {
@@ -262,13 +270,46 @@ export function apply(ctx: ClientContext): void {
     ctx.sessions.open(sessionId)
   }
 
-  const injected = (): PluginManagerFace => ({
+  // ── change notification ───────────────────────────────────────────────────
+
+  /** Listeners subscribed through onChange; fired after successful mutations. */
+  const listeners = new Set<() => void>()
+  /** Notify every listener; one listener throwing never breaks the others. */
+  const notifyChange = (): void => {
+    for (const listener of [...listeners]) {
+      try {
+        listener()
+      } catch {
+        // A consumer's listener failure is its own; keep notifying the rest.
+      }
+    }
+  }
+
+  // ── the shared face ───────────────────────────────────────────────────────
+
+  return {
     isLoopback: connection.isLoopback,
     list: async () => (await ensureMode()) === 'official' ? official.list() : gateway.list(),
-    install: async spec => (await ensureMode()) === 'official' ? official.install(spec) : gateway.install(spec),
-    update: async id => (await ensureMode()) === 'official' ? official.update(id) : gateway.update(id),
-    uninstall: async id => (await ensureMode()) === 'official' ? official.uninstall(id) : gateway.uninstall(id),
-    setEnabled: async (id, enabled) => (await ensureMode()) === 'official' ? official.setEnabled(id, enabled) : gateway.setEnabled(id, enabled),
+    install: async spec => {
+      const item = await ((await ensureMode()) === 'official' ? official.install(spec) : gateway.install(spec))
+      notifyChange()
+      return item
+    },
+    update: async id => {
+      const item = await ((await ensureMode()) === 'official' ? official.update(id) : gateway.update(id))
+      notifyChange()
+      return item
+    },
+    uninstall: async id => {
+      const rows = await ((await ensureMode()) === 'official' ? official.uninstall(id) : gateway.uninstall(id))
+      notifyChange()
+      return rows
+    },
+    setEnabled: async (id, enabled) => {
+      const item = await ((await ensureMode()) === 'official' ? official.setEnabled(id, enabled) : gateway.setEnabled(id, enabled))
+      notifyChange()
+      return item
+    },
     checkUpdates: async () => (await ensureMode()) === 'official' ? official.checkUpdates() : gateway.checkUpdates(),
     status: async () => (await ensureMode()) === 'official' ? official.status() : gateway.status(),
     failures: async () => (await ensureMode()) === 'official' ? official.failures() : gateway.failures(),
@@ -277,7 +318,21 @@ export function apply(ctx: ClientContext): void {
     controlsList: async () => (await ensureMode()) === 'official' ? official.controlsList() : gateway.controlsList(),
     controlsSetEnabled: async (id, enabled) => (await ensureMode()) === 'official' ? official.controlsSetEnabled(id, enabled) : gateway.controlsSetEnabled(id, enabled),
     lastInstallConflicts: () => lastInstallConflicts,
-  })
+    onChange: cb => {
+      listeners.add(cb)
+      return () => { listeners.delete(cb) }
+    },
+  }
+}
+
+/** Contribute the family plugin-manager tab and provide the shared face. */
+export function apply(ctx: ClientContext): void {
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'plugin-manager: dictionaries')
+
+  // Built once: the tab and the 'pluginManager' cordis service share one
+  // face, so consumers observe exactly the mutations the tab performs.
+  const face = createPluginManagerFace(ctx)
+  ctx.provide(PLUGIN_MANAGER_SERVICE, face)
 
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',
@@ -285,6 +340,6 @@ export function apply(ctx: ClientContext): void {
     order: 20,
     label: () => ctx.locale.bind(NS)('tab'),
     locale: NS,
-    inject: injected,
+    inject: () => face,
   }, PluginManagerTab))
 }

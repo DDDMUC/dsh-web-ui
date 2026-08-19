@@ -39,6 +39,19 @@ Restart `dsh web`; the tab appears in the settings page's Plugins section.
 
 The tab carries no configuration namespace. Enablement switches and installs apply at the next restart.
 
+## Cordis service
+
+The browser half provides the shared dual-channel face as the cordis service `pluginManager`, so sibling client plugins can drive and observe plugin management without re-implementing the channel detection. Consume it with `ctx.inject(['pluginManager'], cb)` and read `ctx.pluginManager`:
+
+- `isLoopback: boolean` — whether this browser has loopback authority to use the host routes.
+- `list(): Promise<InstalledPluginItem[]>` — read the installed snapshot.
+- `install(spec): Promise<InstalledPluginItem>` — install one plugin from an npm spec or git URL.
+- `uninstall(id): Promise<InstalledPluginItem[]>` — remove one plugin.
+- `status(): Promise<InstallProgressItem>` — read the current install/update progress.
+- `onChange(cb): () => void` — subscribe to successful mutations; fires after `install()`, `update()`, `uninstall()`, or `setEnabled()` resolves, and returns the unsubscribe function.
+
+The contract source of truth is `src/core/service.ts` (`PluginManagerService`). The service is provided for the plugin's lifetime and disappears when the plugin is unloaded. The service and the Plugin manager tab share one face, so `onChange` subscribers observe mutations from both.
+
 ## Known limitations
 
 - Loopback-only: on a LAN or remote browser the tab renders a local-only notice (the same boundary the official installer tab enforces; the gateway refuses non-loopback requests with 403).

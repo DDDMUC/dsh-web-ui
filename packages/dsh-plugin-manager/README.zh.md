@@ -39,6 +39,19 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-plugin-manager
 
 本 Tab 不携带配置命名空间。开关与安装在下次重启后生效。
 
+## cordis 服务
+
+浏览器半区把共享的双通道 face 以 cordis 服务名 `pluginManager` 提供，兄弟客户端插件无需重复实现通道探测即可驱动与观察插件管理。用 `ctx.inject(['pluginManager'], cb)` 注入并读取 `ctx.pluginManager`：
+
+- `isLoopback: boolean` — 本浏览器是否具有使用 host 路由的 loopback 权威。
+- `list(): Promise<InstalledPluginItem[]>` — 读取已装快照。
+- `install(spec): Promise<InstalledPluginItem>` — 从 npm spec 或 git URL 安装一个插件。
+- `uninstall(id): Promise<InstalledPluginItem[]>` — 卸载一个插件。
+- `status(): Promise<InstallProgressItem>` — 读取当前安装/更新进度。
+- `onChange(cb): () => void` — 订阅成功变更；`install()`、`update()`、`uninstall()`、`setEnabled()` 任一成功 resolve 后触发，返回退订函数。
+
+契约事实源在 `src/core/service.ts`（`PluginManagerService`）。服务随插件生命周期提供，插件卸载即消失。服务与「插件管理」Tab 共享同一个 face，因此 `onChange` 订阅者对两侧发起的变更都能收到通知。
+
 ## 已知限制
 
 - 仅限本机：LAN 或远程浏览器只显示「仅限本机操作」提示（与官方安装器 Tab 同一边界；网关对非 loopback 请求返回 403）。
