@@ -13,6 +13,11 @@
 # 用法：
 #   bash scripts/e2e-mount.sh
 #
+# 依赖改写（scripts/e2e-mount-rewrite，默认 auto 模式）：聚合包 tarball 里
+# 已在 npm 发布的 @linxin666/* 依赖保持 registry 安装（门禁原语义不变），
+# 仅尚未发布的新包（推送 → 发布窗口）自动打包仓库 workspace 改写为 file:
+# tarball——窗口期不再必红。
+#
 # 环境变量（均可省略）：
 #   DSH_CMD             dsh 命令；缺省 PATH 上的 `dsh`，回退 npx 拉官方包
 #   WEB_UI_ALL_DIR      聚合包目录；缺省 packages/dsh-web-ui-all
@@ -20,10 +25,10 @@
 #                       里的 dsh-better-sidebar 依赖改写为 file:<该 tarball>
 #                       （用于 dsh-better-sidebar@0.13.0 尚未发版前的本地
 #                       联调；CI 不设此变量，走 npm 已发布版本）
-#   FAMILY_TGZS_DIR     本地家族 tarball 目录；给出时把聚合包 tarball 里全部
-#                       @linxin666/* 依赖改写为 file:<目录内同名 tarball>
-#                       （验证仓库当前构建，而非 npm 已发布版本；与本地
-#                       全 tarball 安装流程一致。CI 不设此变量）
+#   FAMILY_TGZS_DIR     本地家族 tarball 目录（手工全覆盖，优先级高于 auto
+#                       模式）：给出时把聚合包 tarball 里全部 @linxin666/* 依赖
+#                       改写为 file:<目录内同名 tarball>（验证仓库当前构建，
+#                       而非 npm 已发布版本；与本地全 tarball 安装流程一致）
 #   PORT                固定端口（默认 0 = OS 分配，从日志解析 URL）
 #   DSH_HOME_BASE       覆盖 scratch 根目录（默认 mktemp -d）
 #   KEEP_HOME           非空时保留 scratch home（调试用）
@@ -92,56 +97,33 @@ TARBALL="$(cd "$WEB_UI_ALL_DIR" && pwd)/$TARBALL"
 [ -f "$TARBALL" ] || die "pnpm pack 未产出 tarball（${WEB_UI_ALL_DIR}）"
 say "tarball: $TARBALL"
 
-# 可选：把聚合包 tarball 的依赖改写为本地 tarball（发版前/仓库构建联调用）。
-# FAMILY_TGZS_DIR 覆盖全部 @linxin666/* 依赖；BETTER_SIDEBAR_TGZ 覆盖
-# dsh-better-sidebar 依赖。两者都不设时走 npm 已发布版本（CI 形态）。
-if [ -n "$FAMILY_TGZS_DIR" ] || [ -n "$BETTER_SIDEBAR_TGZ" ]; then
-  if [ -n "$FAMILY_TGZS_DIR" ]; then
-    [ -d "$FAMILY_TGZS_DIR" ] || die "FAMILY_TGZS_DIR 不存在：$FAMILY_TGZS_DIR"
-  fi
-  if [ -n "$BETTER_SIDEBAR_TGZ" ]; then
-    [ -f "$BETTER_SIDEBAR_TGZ" ] || die "BETTER_SIDEBAR_TGZ 不存在：$BETTER_SIDEBAR_TGZ"
-    BETTER_SIDEBAR_TGZ="$(cd "$(dirname "$BETTER_SIDEBAR_TGZ")" && pwd)/$(basename "$BETTER_SIDEBAR_TGZ")"
-  fi
-  say "改写聚合包 tarball 依赖（FAMILY_TGZS_DIR=${FAMILY_TGZS_DIR:-无}，BETTER_SIDEBAR_TGZ=${BETTER_SIDEBAR_TGZ:-无}）"
-  REWRITE_DIR="$SCRATCH/tarball-rewrite"
-  mkdir -p "$REWRITE_DIR"
-  tar -xzf "$TARBALL" -C "$REWRITE_DIR"
-  PACKAGE_JSON="$REWRITE_DIR/package/package.json"
-  node -e '
-    const fs = require("fs")
-    const { execSync } = require("child_process")
-    const path = process.argv[1]
-    const familyDir = process.argv[2] || ""
-    const betterSidebarTgz = process.argv[3] || ""
-    const pkg = JSON.parse(fs.readFileSync(path, "utf8"))
-    if (!pkg.dependencies) { console.error("[e2e-mount] tarball package.json 没有 dependencies"); process.exit(1) }
-    if (familyDir) {
-      const byName = {}
-      for (const f of fs.readdirSync(familyDir)) {
-        if (!f.endsWith(".tgz")) continue
-        const raw = execSync(`tar -xzf ${JSON.stringify(familyDir + "/" + f)} -O package/package.json`).toString()
-        byName[JSON.parse(raw).name] = familyDir + "/" + f
-      }
-      for (const [key] of Object.entries(pkg.dependencies)) {
-        if (!key.startsWith("@linxin666/")) continue
-        if (!byName[key]) { console.error("[e2e-mount] 缺少本地 tarball：", key); process.exit(1) }
-        pkg.dependencies[key] = "file:" + byName[key]
-      }
-    }
-    if (betterSidebarTgz) {
-      if (!("dsh-better-sidebar" in pkg.dependencies)) {
-        console.error("[e2e-mount] tarball package.json 缺少 dsh-better-sidebar 依赖")
-        process.exit(1)
-      }
-      pkg.dependencies["dsh-better-sidebar"] = "file:" + betterSidebarTgz
-    }
-    fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n")
-  ' "$PACKAGE_JSON" "$FAMILY_TGZS_DIR" "$BETTER_SIDEBAR_TGZ"
-  TARBALL="$SCRATCH/dsh-web-ui-all-rewritten.tgz"
-  tar -czf "$TARBALL" -C "$REWRITE_DIR" package
-  say "改写后 tarball: $TARBALL"
+# 步骤 1b：解析聚合包 tarball 依赖（scripts/e2e-mount-rewrite）。auto 模式
+# 只把 npm 上尚未发布的 @linxin666/* 依赖改写为仓库 workspace 打包的 file:
+# tarball（发布窗口治理）；FAMILY_TGZS_DIR / BETTER_SIDEBAR_TGZ 为手工全
+# 覆盖，优先级高于 auto 模式。
+if [ -n "$FAMILY_TGZS_DIR" ]; then
+  [ -d "$FAMILY_TGZS_DIR" ] || die "FAMILY_TGZS_DIR 不存在：$FAMILY_TGZS_DIR"
 fi
+if [ -n "$BETTER_SIDEBAR_TGZ" ]; then
+  [ -f "$BETTER_SIDEBAR_TGZ" ] || die "BETTER_SIDEBAR_TGZ 不存在：$BETTER_SIDEBAR_TGZ"
+  BETTER_SIDEBAR_TGZ="$(cd "$(dirname "$BETTER_SIDEBAR_TGZ")" && pwd)/$(basename "$BETTER_SIDEBAR_TGZ")"
+fi
+say "解析聚合包 tarball 依赖（auto=仅未发布走本地；FAMILY_TGZS_DIR=${FAMILY_TGZS_DIR:-无}，BETTER_SIDEBAR_TGZ=${BETTER_SIDEBAR_TGZ:-无}）"
+REWRITE_DIR="$SCRATCH/tarball-rewrite"
+mkdir -p "$REWRITE_DIR"
+tar -xzf "$TARBALL" -C "$REWRITE_DIR"
+PACKAGE_JSON="$REWRITE_DIR/package/package.json"
+REWRITE_ARGS=(--root "$ROOT")
+if [ -n "$FAMILY_TGZS_DIR" ]; then
+  REWRITE_ARGS+=(--family-dir "$FAMILY_TGZS_DIR")
+fi
+if [ -n "$BETTER_SIDEBAR_TGZ" ]; then
+  REWRITE_ARGS+=(--better-sidebar-tgz "$BETTER_SIDEBAR_TGZ")
+fi
+node "$ROOT/scripts/e2e-mount-rewrite" "$PACKAGE_JSON" "${REWRITE_ARGS[@]}"
+TARBALL="$SCRATCH/dsh-web-ui-all-rewritten.tgz"
+tar -czf "$TARBALL" -C "$REWRITE_DIR" package
+say "改写后 tarball: $TARBALL"
 
 # 步骤 2：引导 scratch profile（web 模板；先写 pnpm-workspace.yaml 的
 # allowBuilds / minimumReleaseAgeExclude，避免 pnpm 11 strict-dep-builds

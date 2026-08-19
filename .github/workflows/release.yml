@@ -2,8 +2,12 @@ name: Release
 
 # Tag-triggered publish pipeline: pushing a vX.Y.Z tag is the single release
 # switch. The workflow verifies every package version equals the tag version
-# (the tag is the version source of truth), runs the full gate, publishes all
-# packages to npm in dependency order, and creates the GitHub Release.
+# (the tag is the version source of truth), runs the full gate, and publishes
+# all packages to npm in dependency order. A second job then re-runs the
+# aggregate mount smoke in strict npm mode (every dependency resolves from
+# the registry — the real consumer install path, verified after publish when
+# the assertion holds) and only then creates the GitHub Release with the npm
+# tarball assets.
 #
 # Requires the repository secret NPM_TOKEN (npm automation token for the
 # @linxin666 scope) to publish.
@@ -22,7 +26,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Build, test, publish, release
+    name: Build, test, publish to npm
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -108,6 +112,16 @@ jobs:
             node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
           fi
 
+      # Hand the notes to the release job (job 2): they must exist before
+      # publish (a notes failure aborts before anything reaches npm), and
+      # the release job consumes them after the post-publish mount smoke.
+      - name: Upload release notes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/release-notes.md
+          if-no-files-found: error
+
       # Publish with the explicit "latest" dist-tag so that installing the
       # package without a version (or with @latest) always resolves to the
       # newest release, never a stale earlier one.
@@ -118,6 +132,68 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
           pnpm -r publish --no-git-checks --access public --registry=https://registry.npmjs.org/ --tag latest
 
+      # The GitHub Release is created by the verify-release job only after
+      # the post-publish mount smoke passes; a failed publish cannot be
+      # re-run for an already-published version, but a failed smoke leaves
+      # the tag without a release for inspection instead of shipping a bad
+      # consumer path silently.
+
+  verify-release:
+    name: Post-publish mount smoke (npm strict) + GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DSH_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Pin the DSH CLI the lane mounts into (same pin as ci.yml's
+      # plugin-mount lane).
+      - name: Install dsh CLI (pinned)
+        run: npm install -g @deepseek-ai/dsh@0.1.0-rc.6
+
+      # The aggregate tarball must be produced from a fresh build.
+      - name: Build
+        run: pnpm build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright Chromium
+        timeout-minutes: 10
+        run: pnpm exec playwright install chromium
+
+      # Strict npm mode: at this point every family dependency is published,
+      # so the auto rewrite in scripts/e2e-mount-rewrite leaves the tarball
+      # untouched and the smoke exercises the real consumer install path.
+      - name: Mount + headless-render smoke
+        run: bash scripts/e2e-mount.sh
+
+      - name: Download release notes artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -126,10 +202,9 @@ jobs:
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --title "dsh-web-ui $GITHUB_REF_NAME"
 
-      # A bare `gh release create` carries only GitHub's auto-generated
-      # source archives. Pack the published tarballs back from the npm
-      # registry (byte-identical to what pnpm -r publish pushed above) and
-      # attach them as real installable release artifacts.
+      # Pack the published tarballs back from the npm registry (byte-identical
+      # to what the publish job pushed) and attach them as real installable
+      # release artifacts.
       - name: Upload npm tarballs to the release
         env:
           GH_TOKEN: ${{ github.token }}
