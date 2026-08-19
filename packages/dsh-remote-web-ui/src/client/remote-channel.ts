@@ -74,10 +74,29 @@ export interface ChannelWindow {
 
 /** Options for {@link installRemoteChannel}. */
 export interface RemoteChannelOptions {
-  /** Called when a gated call came back 403 (the device is not paired). */
+  /** Called when a gated call came back unpaired (code `unpaired`). */
   onUnpaired?: () => void
   /** Called when a gated call succeeded (an unpaired banner can retire). */
   onPaired?: () => void
+}
+
+/**
+ * Whether a gated 403 is the unpaired-device fence (not a loopback-only
+ * method denial, which uses the same status with code `forbidden`).
+ */
+export async function isUnpairedDenied(response: Response): Promise<boolean> {
+  if (response.status !== 403) return false
+  try {
+    const value: unknown = await response.json()
+    if (typeof value !== 'object' || value === null) return false
+    const result = (value as { result?: unknown }).result
+    if (typeof result !== 'object' || result === null) return false
+    const error = (result as { error?: unknown }).error
+    if (typeof error !== 'object' || error === null) return false
+    return (error as { code?: unknown }).code === 'unpaired'
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -105,8 +124,8 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
       const next: RequestInfo | URL = typeof input === 'string' || input instanceof URL
         ? rewritten.toString()
         : new Request(rewritten, input)
-      return Promise.resolve(originalFetch.call(window, next, init)).then((response) => {
-        if (response.status === 403) options.onUnpaired?.()
+      return Promise.resolve(originalFetch.call(window, next, init)).then(async (response) => {
+        if (await isUnpairedDenied(response.clone())) options.onUnpaired?.()
         else options.onPaired?.()
         return response
       })

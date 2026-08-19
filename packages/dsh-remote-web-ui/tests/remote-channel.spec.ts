@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import {
   installRemoteChannel,
   isLoopbackHostname,
+  isUnpairedDenied,
   REMOTE_API_PREFIX,
   rewritePath,
   shouldRewriteFetchPath,
@@ -41,8 +42,19 @@ describe('rewrite rules', () => {
   })
 })
 
+const UNPAIRED_ENVELOPE = JSON.stringify({
+  type: 'server-response',
+  rpcId: 'invalid-request',
+  result: { ok: false, error: { code: 'unpaired', message: 'this device is not paired with the desktop' } },
+})
+const FORBIDDEN_ENVELOPE = JSON.stringify({
+  type: 'server-response',
+  rpcId: 'rpc-1',
+  result: { ok: false, error: { code: 'forbidden', message: 'loopback-only' } },
+})
+
 /** A minimal fake window recording resolved URLs (mutation via state object). */
-function makeWindow(origin = 'https://tunnel.example.com', status = 200): ChannelWindow & {
+function makeWindow(origin = 'https://tunnel.example.com', body = '{}', status = 200): ChannelWindow & {
   state: {
     fetchCalls: { url: string }[]
     wsUrls: string[]
@@ -58,7 +70,7 @@ function makeWindow(origin = 'https://tunnel.example.com', status = 200): Channe
   const fakeFetch = ((_input: RequestInfo | URL, _init?: RequestInit) => {
     const raw = typeof _input === 'string' || _input instanceof URL ? _input.toString() : _input.url
     state.fetchCalls.push({ url: new URL(raw, base).href })
-    return Promise.resolve(new Response('{}', { status: state.responseStatus }))
+    return Promise.resolve(new Response(body, { status: state.responseStatus, headers: { 'content-type': 'application/json' } }))
   }) as typeof globalThis.fetch
   class FakeWebSocket {
     constructor(url: string | URL) {
@@ -74,14 +86,36 @@ function makeWindow(origin = 'https://tunnel.example.com', status = 200): Channe
 }
 
 describe('installRemoteChannel', () => {
-  it('rewrites same-origin /api fetches and reports 403', async () => {
-    const window = makeWindow('https://tunnel.example.com', 403)
+  it('rewrites same-origin /api fetches and reports unpaired 403', async () => {
+    const window = makeWindow('https://tunnel.example.com', UNPAIRED_ENVELOPE, 403)
     let unpaired = 0
-    const restore = installRemoteChannel(window, { onUnpaired: () => { unpaired += 1 } })
+    let paired = 0
+    const restore = installRemoteChannel(window, {
+      onUnpaired: () => { unpaired += 1 },
+      onPaired: () => { paired += 1 },
+    })
     try {
       await window.fetch('/api/session.list', { method: 'POST' })
       expect(window.state.fetchCalls.map(call => call.url)).toEqual(['https://tunnel.example.com/remote/api/session.list'])
       expect(unpaired).toBe(1)
+      expect(paired).toBe(0)
+    } finally {
+      restore()
+    }
+  })
+
+  it('does not treat a loopback-only 403 as unpaired', async () => {
+    const window = makeWindow('https://tunnel.example.com', FORBIDDEN_ENVELOPE, 403)
+    let unpaired = 0
+    let paired = 0
+    const restore = installRemoteChannel(window, {
+      onUnpaired: () => { unpaired += 1 },
+      onPaired: () => { paired += 1 },
+    })
+    try {
+      await window.fetch('/api/host.dialog', { method: 'POST' })
+      expect(unpaired).toBe(0)
+      expect(paired).toBe(1)
     } finally {
       restore()
     }
@@ -137,5 +171,13 @@ describe('installRemoteChannel', () => {
     expect(window.WebSocket).toBe(OriginalWebSocket)
     expect(window.state.fetchCalls[0].url).toBe('https://tunnel.example.com/api/session.list')
     expect(window.state.wsUrls[0]).toBe('wss://tunnel.example.com/api/events.mux')
+  })
+})
+
+describe('isUnpairedDenied', () => {
+  it('keys off the unpaired envelope code, not every 403', async () => {
+    expect(await isUnpairedDenied(new Response(UNPAIRED_ENVELOPE, { status: 403 }))).toBe(true)
+    expect(await isUnpairedDenied(new Response(FORBIDDEN_ENVELOPE, { status: 403 }))).toBe(false)
+    expect(await isUnpairedDenied(new Response('{}', { status: 200 }))).toBe(false)
   })
 })

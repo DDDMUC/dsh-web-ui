@@ -134,3 +134,21 @@ export async function probePosture(options: ProbePostureOptions): Promise<Postur
   }
   return { checkedAt: now(), hosts }
 }
+
+/**
+ * Reserve an advertised-target key so a second trigger with the same set
+ * does not overlap an in-flight round. Pair with {@link releasePostureKey}
+ * on failure — otherwise that key never retries.
+ */
+export function claimPostureKey(current: string | undefined, key: string): { run: boolean; next: string } {
+  if (current === key) return { run: false, next: current }
+  return { run: true, next: key }
+}
+
+/**
+ * Drop a failed in-flight key so the next trigger re-probes the same targets.
+ * A newer key that started meanwhile is left alone.
+ */
+export function releasePostureKey(current: string | undefined, attempted: string): string | undefined {
+  return current === attempted ? undefined : current
+}

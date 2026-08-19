@@ -9,7 +9,8 @@
  *
  * Security model:
  * - Every request must carry a live paired-device cookie (the same gate
- *   semantic as /m/api and the LAN fence), enforced before any host call.
+ *   semantic as /m/api and the LAN fence), enforced before the body is
+ *   read and before any host call.
  * - The SDK's loopback-only privileged methods (native dialogs, the settings
  *   plane, credentials — the `PRIVILEGED_METHODS` set of client-connection)
  *   are denied here: a paired remote desktop must not reach them. The set is
@@ -128,20 +129,21 @@ export function makeRemoteApiRoutes(deps: RemoteApiDeps): WebRoute[] {
   }
 
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    // The gate runs before anything touches the body.
+    // Cookie gate first, then the body — same order as /m/api. Reading up to
+    // 160 MiB before 403 would let an unpaired client force the allocation.
     const deviceId = readCookie(req.headers.cookie, service.config.cookieName)
     const paired = deviceId !== undefined && service.touchDevice(deviceId)
+    if (!paired) {
+      req.resume()
+      envelopeError(res, 403, 'invalid-request', 'unpaired', 'this device is not paired with the desktop')
+      return
+    }
 
     let body: Buffer | undefined
     try {
       body = await readRawBody(req, REMOTE_API_MAX_BODY_BYTES)
     } catch {
       writeJson(res, 413, { ok: false, error: { code: 'payload-too-large', message: 'body too large' } })
-      return
-    }
-
-    if (!paired) {
-      envelopeError(res, 403, rpcIdOf(body), 'unpaired', 'this device is not paired with the desktop')
       return
     }
 
@@ -182,8 +184,8 @@ export function makeRemoteApiRoutes(deps: RemoteApiDeps): WebRoute[] {
     let response
     try {
       response = await apiFetch(upstream)
-    } catch (error) {
-      writeJson(res, 502, { ok: false, error: { code: 'upstream-failure', message: String(error) } })
+    } catch {
+      writeJson(res, 502, { ok: false, error: { code: 'upstream-failure', message: 'upstream request failed' } })
       return
     }
     const outHeaders: Record<string, string> = {}

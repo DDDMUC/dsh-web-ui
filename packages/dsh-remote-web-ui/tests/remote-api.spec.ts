@@ -144,7 +144,7 @@ const ENVELOPE = (rpcId: string, method: string, payload: unknown): string =>
   JSON.stringify({ type: 'client-request', rpcId, method, payload })
 
 describe('remote desktop channel (/remote/api)', () => {
-  it('refuses unpaired requests with a SDK-shaped envelope carrying the rpcId', async () => {
+  it('refuses unpaired requests before reading the body', async () => {
     const service = makeService()
     const { port, close } = await serve(makeRoutesForTest(service))
     try {
@@ -152,7 +152,7 @@ describe('remote desktop channel (/remote/api)', () => {
       expect(result.status).toBe(403)
       const body = JSON.parse(result.body) as { type: string; rpcId: string; result: { ok: boolean; error: { code: string } } }
       expect(body.type).toBe('server-response')
-      expect(body.rpcId).toBe('rpc-9')
+      expect(body.rpcId).toBe('invalid-request')
       expect(body.result.ok).toBe(false)
       expect(body.result.error.code).toBe('unpaired')
     } finally {
@@ -235,6 +235,34 @@ describe('remote desktop channel (/remote/api)', () => {
       expect((await call(port, 'PUT', '/remote/api/session.list', { cookie })).status).toBe(405)
       expect((await call(port, 'POST', '/remote/api/', { body: ENVELOPE('r', 'x', {}), cookie })).status).toBe(404)
       expect((await call(port, 'POST', '/remote/api/a/b', { body: ENVELOPE('r', 'a', {}), cookie })).status).toBe(404)
+    } finally {
+      await close()
+    }
+  })
+
+  it('returns a fixed 502 message instead of the upstream error text', async () => {
+    const service = makeService()
+    const cookie = pairedCookie(service)
+    const routes = makeRemoteApiRoutes({
+      service,
+      apiProxy: makeApiProxy(),
+      port: 1,
+      apiFetch: async () => {
+        throw new Error('secret-host-detail')
+      },
+    })
+    const { port, close } = await serve(routes)
+    try {
+      const result = await call(port, 'POST', '/remote/api/session.list', {
+        body: ENVELOPE('rpc-502', 'session.list', {}),
+        cookie,
+      })
+      expect(result.status).toBe(502)
+      expect(result.body).not.toContain('secret-host-detail')
+      const body = JSON.parse(result.body) as { ok: boolean; error: { code: string; message: string } }
+      expect(body.ok).toBe(false)
+      expect(body.error.code).toBe('upstream-failure')
+      expect(body.error.message).toBe('upstream request failed')
     } finally {
       await close()
     }

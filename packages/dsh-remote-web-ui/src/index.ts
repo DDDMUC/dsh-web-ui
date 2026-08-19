@@ -22,7 +22,7 @@ import { isTrustedApiRequest, makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
 import { makeRemoteApiRoutes, makeRemoteApiUpgradeRoutes } from './remote-api.ts'
-import { anyExposed, postureTargets, probePosture } from './posture.ts'
+import { anyExposed, claimPostureKey, postureTargets, probePosture, releasePostureKey } from './posture.ts'
 import { lanIPv4Addresses } from './lan.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 import {
@@ -370,8 +370,9 @@ function applyImpl(ctx: Context, config?: Config): void {
       return
     }
     const key = targets.join('|')
-    if (key === postureKey) return
-    postureKey = key
+    const claim = claimPostureKey(postureKey, key)
+    if (!claim.run) return
+    postureKey = claim.next
     void probePosture({ port: ctx.webServer.port, targets }).then((snapshot) => {
       service.setPosture(snapshot)
       const exposedHosts = snapshot.hosts.filter(host => host.exposed).map(host => host.host)
@@ -383,7 +384,9 @@ function applyImpl(ctx: Context, config?: Config): void {
       }
       postureWasExposed = exposed
     }).catch(() => {
-      // A failed probe round keeps the previous snapshot; the next trigger re-probes.
+      // Keep the previous snapshot; drop the in-flight key so the same
+      // targets retry instead of sticking on a failed round.
+      postureKey = releasePostureKey(postureKey, key)
     })
   }
   // The first round waits for the connection plugin's /api route: a probe

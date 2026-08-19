@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ClientRequest, ClientRequestArgs } from 'node:http'
-import { anyExposed, postureTargets, probePosture, type ProbeRequest } from '../src/posture.ts'
+import { anyExposed, claimPostureKey, postureTargets, probePosture, releasePostureKey, type ProbeRequest } from '../src/posture.ts'
 
 /** A fake transport answering every probe with a fixed status. */
 function statusTransport(status: number): ProbeRequest {
@@ -71,5 +71,19 @@ describe('probePosture', () => {
     }
     const snapshot = await probePosture({ port: 3080, targets: ['a.example'], request: failing, now: () => 42 })
     expect(snapshot.hosts).toEqual([{ host: 'a.example', exposed: false }])
+  })
+})
+
+describe('posture probe key', () => {
+  it('skips a second claim for the same targets and retries after release', () => {
+    const first = claimPostureKey(undefined, 'a|b')
+    expect(first).toEqual({ run: true, next: 'a|b' })
+    expect(claimPostureKey(first.next, 'a|b')).toEqual({ run: false, next: 'a|b' })
+    expect(releasePostureKey(first.next, 'a|b')).toBeUndefined()
+    expect(claimPostureKey(undefined, 'a|b')).toEqual({ run: true, next: 'a|b' })
+  })
+
+  it('does not drop a newer in-flight key when an older round fails', () => {
+    expect(releasePostureKey('new-targets', 'old-targets')).toBe('new-targets')
   })
 })

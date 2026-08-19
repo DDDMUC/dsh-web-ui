@@ -45,7 +45,8 @@ update.
   every paired device and the current token — paired devices are cut off on
   their next request. Pairing is this plugin's access control for its own
   remote channels: `/m/api` for the phone and `/remote/api` for a desktop
-  browser opened at a non-loopback origin. Loopback (127.0.0.1) keeps using
+  browser opened at a non-loopback origin. Unpaired `/remote/api` callers
+  are refused before the request body is read. Loopback (127.0.0.1) keeps using
   `/api` directly. The default remote-desktop path does not use
   `--trusted-host`: the connection plugin's `/api` fence stays closed for
   public and LAN hosts, and the paired PC rides `/remote/api` instead.
@@ -59,14 +60,16 @@ update.
   SDK's loopback-only privileged methods (native dialogs, the settings and
   credentials plane) stay unreachable from a paired remote desktop, and the
   `/api/update/*` control endpoints stay loopback-only. Unpaired desktop
-  browsers get a persistent "pair this device" banner instead of data.
+  browsers get a persistent "pair this device" banner instead of data
+  (the banner keys off the `unpaired` error code, not every 403).
 - **Posture probe**: the plugin probes the SDK `/api` fence with forged
   Host headers (the public base and every LAN base). A 403 is the default
   stance (fence closed; remote access goes through pairing). Anything other
   than a 403 — `--trusted-host`, or the SDK's LAN auto-trust under
   `--host 0.0.0.0` — is surfaced as a CRITICAL log line and a red banner on
   the pairing panel, so the SDK `/api` trust stance is visible rather than
-  assumed.
+  assumed. A failed probe round drops the in-flight target key so the same
+  origins are retried.
 - **Live status**: the desktop panel mirrors the pairing state in real time
   (waiting → connected → disconnected) over an SSE stream.
 - **Remote update**: the download trigger in the sidebar foot (left of the
