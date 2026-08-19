@@ -162,6 +162,57 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('applies fit mode (cover / contain / fill) and updates media objectFit', () => {
+    const { scope, calls } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(video)
+    const [media] = layers()
+    const vid = media.querySelector('video')
+    expect(vid?.style.objectFit).toBe('cover')
+    controller.setFit('contain')
+    expect(controller.fit()).toBe('contain')
+    expect(calls.some(c => c.field === 'fit' && c.value === 'contain')).toBe(true)
+    const [media2] = layers()
+    const vid2 = media2.querySelector('video')
+    expect(vid2?.style.objectFit).toBe('contain')
+    controller.dispose()
+  })
+
+  it('keeps the media element across fit changes instead of rebuilding (#717 follow-up)', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(video)
+    const [media] = layers()
+    const vid = media.querySelector('video')
+    expect(vid).not.toBeNull()
+    controller.setFit('fill')
+    const [media2] = layers()
+    const vid2 = media2.querySelector('video')
+    expect(vid2).toBe(vid) // same element: only objectFit updated
+    expect(vid2?.style.objectFit).toBe('fill')
+    controller.dispose()
+  })
+
+  it('mounts video for scene wallpaper when videoUrl is present in live mode', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    const sceneWithVideo: WallpaperDescriptor = {
+      id: 'scene-vid',
+      title: 'Scene with MP4',
+      type: 'scene',
+      videoUrl: '/api/skin-center/we/scene-video/eee',
+      webUrl: null,
+      frameUrl: '/api/skin-center/we/scene-frame/eee',
+      previewUrl: '/api/skin-center/we/preview/eee',
+    }
+    controller.applySelection(sceneWithVideo)
+    const [media] = layers()
+    const vid = media.querySelector('video')
+    expect(vid).not.toBeNull()
+    expect(vid?.src).toContain('/api/skin-center/we/scene-video/eee')
+    controller.dispose()
+  })
+
   it('keeps videos muted by default and applies sound/volume live (#580)', () => {
     const { scope, calls } = fakeScope()
     const controller = new WallpaperController(scope)
@@ -272,6 +323,75 @@ describe('WallpaperController', () => {
     controller.sync(null)
     expect(layers()).toHaveLength(0)
     controller.dispose()
+  })
+
+  it('fetchAndSync loads wallpaper inventory on boot when selection is set (#604)', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        wallpapers: [video, scene],
+      }),
+    })) as unknown as typeof fetch
+    const { scope } = fakeScope({ enabled: true, selection: '111' })
+    const controller = new WallpaperController(scope, {
+      fetchImpl,
+      doc: document,
+    })
+
+    // Allow promise microtasks in fetchAndSync to resolve
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/skin-center/we/inventory')
+    expect(controller.activeId()).toBe('111')
+    expect(document.body.dataset.dshWallpaperActive).toBe('true')
+    expect(document.documentElement.dataset.dshWallpaperActive).toBe('true')
+    const [media] = layers()
+    expect(media.querySelector('video')).not.toBeNull()
+    controller.dispose()
+  })
+
+  it('fetchAndSync triggers on scope selection update when descriptor not yet loaded', async () => {
+    let inventory = [video]
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        wallpapers: inventory,
+      }),
+    })) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope, {
+      fetchImpl,
+      doc: document,
+    })
+
+    expect(controller.activeId()).toBeNull()
+    inventory = [video, scene]
+    await scope.set('selection', '333')
+
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(controller.activeId()).toBe('333')
+    const [media] = layers()
+    expect(media.querySelector('img')?.src).toContain('/api/skin-center/we/scene-frame/ccc')
+    controller.dispose()
+  })
+
+  it('neutralizer CSS contains background-image none and removes on teardown', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(video)
+    const style = document.head.querySelector('style[data-dsh-wallpaper-root]')
+    expect(style?.textContent).toContain('background-image: none !important;')
+    expect(style?.textContent).toContain('background-color: transparent !important;')
+    expect(document.body.dataset.dshWallpaperActive).toBe('true')
+    expect(document.documentElement.dataset.dshWallpaperActive).toBe('true')
+
+    controller.dispose()
+    expect(document.head.querySelector('style[data-dsh-wallpaper-root]')).toBeNull()
+    expect(document.body.dataset.dshWallpaperActive).toBeUndefined()
+    expect(document.documentElement.dataset.dshWallpaperActive).toBeUndefined()
   })
 })
 
