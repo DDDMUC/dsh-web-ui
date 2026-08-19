@@ -115,6 +115,23 @@ describe('stripManaged / stripLegacySkinState', () => {
     expect(out).not.toContain('ui-skin-old')
     expect(out).toContain('ui-skin-center')
   })
+
+  it('removes every managed section, not just the first (issue #676)', () => {
+    const doubleManaged = INSERT_PATCH + WIRED_PATCH
+    const out = stripLegacySkinState(doubleManaged)
+    expect(out).not.toContain(MANAGED_START)
+    expect(out).not.toContain(MANAGED_END)
+    expect(out).not.toContain('ui-skin-xp')
+    expect(out).not.toContain('ui-skin-matrix')
+    expect(out).toContain('ui-skin-center')
+  })
+
+  it('drops a stray empty - insert: [] row (issue #676)', () => {
+    const withEmptyInsert = '- insert: []\n- insert:\n    - id: ui-skin-center\n      name: \'@linxin666/dsh-client-ui-skin-center\'\n'
+    const out = stripLegacySkinState(withEmptyInsert)
+    expect(out).not.toContain('insert: []')
+    expect(out).toContain('ui-skin-center')
+  })
 })
 
 describe('migrateLegacySelection', () => {
@@ -141,6 +158,22 @@ describe('migrateLegacySelection', () => {
     const second = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath, patchPath })
     expect(second.migrated).toBeNull()
     expect(second.patchCleaned).toBe(false)
+  })
+
+  it('migrates once even when a second managed section lingers (issue #676)', () => {
+    writeFileSync(patchPath, INSERT_PATCH + WIRED_PATCH)
+    const first = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath, patchPath })
+    expect(first.migrated).toBe('xp')
+    expect(first.patchCleaned).toBe(true)
+    const rewritten = readFileSync(patchPath, 'utf8')
+    expect(rewritten).not.toContain(MANAGED_START)
+    expect(rewritten).not.toContain(MANAGED_END)
+    expect(rewritten).not.toContain('ui-skin-xp')
+    expect(rewritten).toContain('ui-skin-center')
+    const second = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath, patchPath })
+    expect(second.migrated).toBeNull()
+    expect(second.patchCleaned).toBe(false)
+    expect(readFileSync(patchPath, 'utf8')).toBe(rewritten)
   })
 
   it('does not clobber an existing v2 selection but still cleans', () => {
