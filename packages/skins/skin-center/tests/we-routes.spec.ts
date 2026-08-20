@@ -508,7 +508,9 @@ describe('scene-probe cache (#817)', () => {
     expect(probeReads()).toBeGreaterThanOrEqual(1)
   })
 
-  it('evicts the oldest probe entries instead of clearing the whole cache at the cap', async () => {
+  // 258 real HTTP probes with a full library scan each: slow runners can
+  // exceed the default 5s timeout, so budget this case explicitly.
+  it('evicts the oldest probe entries instead of clearing the whole cache at the cap', { timeout: 30000 }, async () => {
     for (let i = 0; i < 258; i++) {
       const name = 's' + String(i).padStart(3, '0')
       makeProject(join(library, name), { title: name, type: 'scene', file: 'scene.pkg' }, {
