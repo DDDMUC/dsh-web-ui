@@ -1103,6 +1103,155 @@ describe('extractSceneMainImageFromDir', () => {
       rmSync(tmp, { recursive: true, force: true })
     }
   })
+
+  it('folds parent transform chains for grouped objects (#742)', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'dsh-2d-parent-'))
+    try {
+      mkdirSync(join(tmp, 'models'), { recursive: true })
+      mkdirSync(join(tmp, 'materials'), { recursive: true })
+      writeFileSync(join(tmp, 'materials', 'pole.tex'), buildTex({
+        width: 128, height: 128,
+        mipmaps: [{ width: 128, height: 128, data: new Uint8Array(128 * 128 * 4) }],
+      }))
+      writeFileSync(join(tmp, 'models', 'pole.json'), JSON.stringify({ material: 'materials/pole.json', width: 128, height: 128 }))
+      writeFileSync(join(tmp, 'materials', 'pole.json'), JSON.stringify({ passes: [{ shader: 'genericimage', textures: ['pole'] }] }))
+      writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+        general: { orthogonalprojection: { width: 1000, height: 800 } },
+        objects: [
+          // WE editor group: children are relative to the resolved parent.
+          { id: 1, name: 'pole-group', origin: '100 50 0', scale: '2 2 1', angles: '0 0 0.25' },
+          { id: 2, name: 'pole', image: 'models/pole.json', parent: 1, origin: '10 5 0', scale: '0.5 0.5 1', angles: '0 0 0.25' },
+        ],
+      }), 'utf8')
+
+      const manifest = buildSceneManifestFromDir(tmp, 'tok_parent')
+      expect(manifest?.layers.length).toBe(1)
+      const layer = manifest?.layers[0]
+      const c = Math.cos(0.25)
+      const s = Math.sin(0.25)
+      expect(layer?.x).toBeCloseTo(100 + 10 * 2 * c - 5 * 2 * s)
+      expect(layer?.y).toBeCloseTo(50 + 10 * 2 * s + 5 * 2 * c)
+      expect(layer?.w).toBe(128) // folded scale 2 * 0.5
+      expect(layer?.h).toBe(128)
+      expect(layer?.angle).toBeCloseTo(0.5)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('survives parent cycles without hanging (#742)', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'dsh-2d-cycle-'))
+    try {
+      mkdirSync(join(tmp, 'models'), { recursive: true })
+      mkdirSync(join(tmp, 'materials'), { recursive: true })
+      writeFileSync(join(tmp, 'materials', 'pole.tex'), buildTex({
+        width: 128, height: 128,
+        mipmaps: [{ width: 128, height: 128, data: new Uint8Array(128 * 128 * 4) }],
+      }))
+      writeFileSync(join(tmp, 'models', 'pole.json'), JSON.stringify({ material: 'materials/pole.json', width: 128, height: 128 }))
+      writeFileSync(join(tmp, 'materials', 'pole.json'), JSON.stringify({ passes: [{ shader: 'genericimage', textures: ['pole'] }] }))
+      writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+        general: { orthogonalprojection: { width: 1000, height: 800 } },
+        objects: [
+          { id: 1, name: 'a', image: 'models/pole.json', parent: 2, origin: '10 0 0' },
+          { id: 2, name: 'b', parent: 1, origin: '20 0 0' },
+        ],
+      }), 'utf8')
+
+      const manifest = buildSceneManifestFromDir(tmp, 'tok_cycle')
+      expect(manifest?.layers.length).toBe(1)
+      expect(Number.isFinite(manifest?.layers[0].x)).toBe(true)
+      expect(Number.isFinite(manifest?.layers[0].y)).toBe(true)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('applies alignment offsets and keeps cropoffset out of the world position (#742)', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'dsh-2d-align-'))
+    try {
+      mkdirSync(join(tmp, 'models'), { recursive: true })
+      mkdirSync(join(tmp, 'materials'), { recursive: true })
+      // 128x128 content padded into a 256x256 tex, sampled from (32, 16).
+      writeFileSync(join(tmp, 'materials', 'photo.tex'), buildTex({
+        width: 256, height: 256,
+        mipmaps: [{ width: 256, height: 256, data: new Uint8Array(256 * 256 * 4) }],
+      }))
+      writeFileSync(join(tmp, 'models', 'photo.json'), JSON.stringify({
+        material: 'materials/photo.json', width: 128, height: 128, cropoffset: '32 16',
+      }))
+      writeFileSync(join(tmp, 'materials', 'photo.json'), JSON.stringify({ passes: [{ shader: 'genericimage', textures: ['photo'] }] }))
+      writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+        general: { orthogonalprojection: { width: 1000, height: 800 } },
+        objects: [
+          { name: 'photo', image: 'models/photo.json', origin: '500 400 0', alignment: 'left top' },
+        ],
+      }), 'utf8')
+
+      const manifest = buildSceneManifestFromDir(tmp, 'tok_align')
+      expect(manifest?.layers.length).toBe(1)
+      const layer = manifest?.layers[0]
+      // left/top anchor shifts the quad center by half its size; the crop
+      // offset only selects the sampled UV rect and must not move the quad.
+      expect(layer?.x).toBe(500 + 64)
+      expect(layer?.y).toBe(400 - 64)
+      expect(layer?.uvCrop).toEqual([0.125, 0.0625, 0.625, 0.5625])
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('anchors effects-driven reflection layers to the object rect with a data-driven water line (#742)', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'dsh-2d-reflect-'))
+    try {
+      mkdirSync(join(tmp, 'models'), { recursive: true })
+      mkdirSync(join(tmp, 'materials'), { recursive: true })
+      mkdirSync(join(tmp, 'masks'), { recursive: true })
+      writeFileSync(join(tmp, 'materials', 'water.tex'), buildTex({
+        width: 128, height: 128,
+        mipmaps: [{ width: 128, height: 128, data: new Uint8Array(128 * 128 * 4) }],
+      }))
+      writeFileSync(join(tmp, 'masks', 'reflection_mask_0.tex'), buildTex({
+        width: 128, height: 128,
+        mipmaps: [{ width: 128, height: 128, data: new Uint8Array(128 * 128 * 4) }],
+      }))
+      writeFileSync(join(tmp, 'models', 'water.json'), JSON.stringify({ material: 'materials/water.json', width: 128, height: 128 }))
+      writeFileSync(join(tmp, 'materials', 'water.json'), JSON.stringify({ passes: [{ shader: 'genericimage', textures: ['water'] }] }))
+      writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+        general: { orthogonalprojection: { width: 1000, height: 800 } },
+        objects: [
+          {
+            name: 'water', image: 'models/water.json', origin: '500 400 0',
+            effects: [{ file: 'effects/reflection/effect.json' }],
+          },
+          // Legacy form: a conventionally named object without its own image
+          // keeps the fullscreen layer and leaves the water line to the player.
+          { name: 'reflection' },
+        ],
+      }), 'utf8')
+
+      const manifest = buildSceneManifestFromDir(tmp, 'tok_reflect')
+      const reflections = manifest?.layers.filter((l) => l.isReflection)
+      expect(reflections?.length).toBe(2)
+      const anchored = reflections?.find((l) => typeof l.waterLine === 'number')
+      expect(anchored).toBeDefined()
+      expect(anchored?.x).toBe(500)
+      expect(anchored?.y).toBe(400)
+      expect(anchored?.w).toBe(128)
+      expect(anchored?.h).toBe(128)
+      // Water surface at the object top edge: 1 - (400 + 64) / 800.
+      expect(anchored?.waterLine).toBeCloseTo(0.42)
+      expect(anchored?.texUrl).toContain('reflection_mask_0')
+      const legacy = reflections?.find((l) => l.waterLine == null)
+      expect(legacy).toBeDefined()
+      expect(legacy?.w).toBe(1000)
+      expect(legacy?.h).toBe(800)
+      // The water object itself still renders as a normal layer.
+      expect(manifest?.layers.some((l) => l.name === 'water' && !l.isReflection)).toBe(true)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
 })
 
 describe('untrusted input allocation caps (#717 hardening)', () => {

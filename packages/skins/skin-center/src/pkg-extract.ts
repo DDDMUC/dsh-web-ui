@@ -1515,6 +1515,9 @@ export interface SceneManifestLayer {
   userColors?: Record<string, [number, number, number]>
   isGround?: boolean
   isReflection?: boolean
+  /** Water surface height as screen v (0 at the top); player falls back to its
+   *  legacy default when absent. */
+  waterLine?: number
   sway?: number
   swaySpeed?: number
 }
@@ -2311,11 +2314,58 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
   const sparkleTexPath = allTex.find((p) => p.toLowerCase().includes('sparkle') || p.toLowerCase().includes('halo') || p.toLowerCase().includes('star'))
   if (sparkleTexPath) manifest.sparkleTex = resourceBase + sparkleTexPath
 
-  for (const obj of scene.objects as Array<Record<string, unknown>>) {
+  const sceneObjects = scene.objects as Array<Record<string, unknown>>
+
+  // Fold the parent transform chain (linux-wallpaperengine CImage::resolveTransform):
+  // a child's origin/scale/angles are relative to the already-resolved parent, so
+  // grouped objects (props like utility poles) only land correctly after folding.
+  // Walk leaf-first with a visited check + depth cap against cycles, then
+  // accumulate root-down: offset = rotate(childOrigin * parentScale, parentAngle).
+  const resolveObjectTransform = (obj: Record<string, unknown>) => {
+    const chain = [obj]
+    let cur = obj
+    while (cur.parent != null && chain.length <= 32) {
+      const parent = sceneObjects.find((o) => o.id === cur.parent)
+      if (!parent || chain.includes(parent)) break
+      chain.push(parent)
+      cur = parent
+    }
+    const root = chain[chain.length - 1]
+    let origin = parseVec3(root.origin, [width / 2, height / 2, 0])
+    let scale = parseVec3(root.scale, [1, 1, 1])
+    let angle = parseVec3(root.angles, [0, 0, 0])[2]
+    for (let i = chain.length - 2; i >= 0; i--) {
+      const localOrigin = parseVec3(chain[i].origin, [0, 0, 0])
+      const localScale = parseVec3(chain[i].scale, [1, 1, 1])
+      const localAngle = parseVec3(chain[i].angles, [0, 0, 0])[2]
+      const c = Math.cos(angle)
+      const s = Math.sin(angle)
+      origin = [
+        origin[0] + localOrigin[0] * scale[0] * c - localOrigin[1] * scale[1] * s,
+        origin[1] + localOrigin[0] * scale[0] * s + localOrigin[1] * scale[1] * c,
+        origin[2] + localOrigin[2] * scale[2],
+      ]
+      scale = [scale[0] * localScale[0], scale[1] * localScale[1], scale[2] * localScale[2]]
+      angle += localAngle
+    }
+    return { origin, scale, angle }
+  }
+
+  // In real WE scenes the water reflection is an object effect
+  // (effects/reflection/effect.json), not only a conventionally named object.
+  const hasReflectionEffect = (obj: Record<string, unknown>) =>
+    (Array.isArray(obj.effects) ? obj.effects : []).some(
+      (e) => typeof (e as Record<string, unknown> | null)?.file === 'string' &&
+        ((e as Record<string, unknown>).file as string).toLowerCase().includes('effects/reflection'),
+    )
+
+  for (const obj of sceneObjects) {
     if (!obj.image || typeof obj.image !== 'string' || obj.image.startsWith('models/util/')) {
-      if (typeof obj.name === 'string' && obj.name.toLowerCase() === 'reflection') {
+      if ((typeof obj.name === 'string' && obj.name.toLowerCase() === 'reflection') || hasReflectionEffect(obj)) {
         const reflTex = allTex.find((p) => p.toLowerCase().includes('reflection_mask'))
         if (reflTex) {
+          // No image means no own rect: keep the legacy fullscreen layer and
+          // let the player fall back to its default water line.
           manifest.layers.push({
             name: 'Reflection',
             isReflection: true,
@@ -2428,10 +2478,12 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
     // Layer geometry follows the scene object (open-wallpaper-engine
     // ImageObject::FromJson): size comes from the image json width/height,
     // then the object size, then the decoded texture; the object origin is
-    // the quad center and scale/angles/alpha apply on top.
-    const objOrigin = parseVec3(obj.origin, [width / 2, height / 2, 0])
-    const objScale = parseVec3(obj.scale, [1, 1, 1])
-    const objAngles = parseVec3(obj.angles, [0, 0, 0])
+    // the quad center and scale/angles/alpha apply on top. Grouped objects
+    // resolve their transform through the parent chain first.
+    const resolvedTransform = resolveObjectTransform(obj)
+    const objOrigin: [number, number, number] = [...resolvedTransform.origin]
+    const objScale = resolvedTransform.scale
+    const objAngles: [number, number, number] = [0, 0, resolvedTransform.angle]
     let lw = 0
     let lh = 0
     if (typeof modelJson.width === 'number' && typeof modelJson.height === 'number') {
@@ -2460,6 +2512,17 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
       objOrigin[1] = height / 2
       objAngles[2] = 0
     }
+
+    // alignment anchors the quad by half its scaled size per side
+    // (linux-wallpaperengine CImage::updateScenePosition); default 'center'
+    // leaves the origin at the quad center.
+    const alignment = typeof obj.alignment === 'string' ? obj.alignment.toLowerCase() : ''
+    let alignDx = 0
+    let alignDy = 0
+    if (alignment.includes('left')) alignDx = lw / 2
+    else if (alignment.includes('right')) alignDx = -lw / 2
+    if (alignment.includes('top')) alignDy = -lh / 2
+    else if (alignment.includes('bottom')) alignDy = lh / 2
 
     let ox = 0
     let oy = 0
@@ -2498,11 +2561,36 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
       nameLower.includes('bush') ||
       nameLower.includes('fence')
 
+    const layerX = objOrigin[0] + alignDx
+    const layerY = objOrigin[1] + alignDy
+
+    // Reflection carried as an object effect (effects/reflection/effect.json):
+    // emit the reflection layer anchored to this object's own rect with the
+    // water line at its top edge (screen v, 0 at the top). The object itself
+    // still renders as a normal layer below.
+    if (hasReflectionEffect(obj) || nameLower === 'reflection') {
+      const reflTex = allTex.find((p) => p.toLowerCase().includes('reflection_mask'))
+      if (reflTex) {
+        manifest.layers.push({
+          name: 'Reflection',
+          isReflection: true,
+          texUrl: resourceBase + reflTex,
+          x: layerX,
+          y: layerY,
+          w: lw,
+          h: lh,
+          waterLine: Math.min(1, Math.max(0, 1 - (layerY + lh / 2) / height)),
+        })
+      }
+    }
+
     manifest.layers.push({
       name: typeof obj.name === 'string' ? obj.name : 'layer',
       texUrl: resourceBase + texPath,
-      x: objOrigin[0] + ox,
-      y: objOrigin[1] + oy,
+      // cropoffset (ox/oy) only crops the sampled UV rect; it must not move
+      // the quad in world space.
+      x: layerX,
+      y: layerY,
       w: lw,
       h: lh,
       alpha,

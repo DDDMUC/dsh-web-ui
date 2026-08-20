@@ -4079,9 +4079,72 @@ function buildSceneManifestVia(access, token) {
 	if (meteorTexPath) manifest.meteorTex = resourceBase + meteorTexPath;
 	const sparkleTexPath = allTex.find((p) => p.toLowerCase().includes("sparkle") || p.toLowerCase().includes("halo") || p.toLowerCase().includes("star"));
 	if (sparkleTexPath) manifest.sparkleTex = resourceBase + sparkleTexPath;
-	for (const obj of scene.objects) {
+	const sceneObjects = scene.objects;
+	const resolveObjectTransform = (obj) => {
+		const chain = [obj];
+		let cur = obj;
+		while (cur.parent != null && chain.length <= 32) {
+			const parent = sceneObjects.find((o) => o.id === cur.parent);
+			if (!parent || chain.includes(parent)) break;
+			chain.push(parent);
+			cur = parent;
+		}
+		const root = chain[chain.length - 1];
+		let origin = parseVec3(root.origin, [
+			width / 2,
+			height / 2,
+			0
+		]);
+		let scale = parseVec3(root.scale, [
+			1,
+			1,
+			1
+		]);
+		let angle = parseVec3(root.angles, [
+			0,
+			0,
+			0
+		])[2];
+		for (let i = chain.length - 2; i >= 0; i--) {
+			const localOrigin = parseVec3(chain[i].origin, [
+				0,
+				0,
+				0
+			]);
+			const localScale = parseVec3(chain[i].scale, [
+				1,
+				1,
+				1
+			]);
+			const localAngle = parseVec3(chain[i].angles, [
+				0,
+				0,
+				0
+			])[2];
+			const c = Math.cos(angle);
+			const s = Math.sin(angle);
+			origin = [
+				origin[0] + localOrigin[0] * scale[0] * c - localOrigin[1] * scale[1] * s,
+				origin[1] + localOrigin[0] * scale[0] * s + localOrigin[1] * scale[1] * c,
+				origin[2] + localOrigin[2] * scale[2]
+			];
+			scale = [
+				scale[0] * localScale[0],
+				scale[1] * localScale[1],
+				scale[2] * localScale[2]
+			];
+			angle += localAngle;
+		}
+		return {
+			origin,
+			scale,
+			angle
+		};
+	};
+	const hasReflectionEffect = (obj) => (Array.isArray(obj.effects) ? obj.effects : []).some((e) => typeof e?.file === "string" && e.file.toLowerCase().includes("effects/reflection"));
+	for (const obj of sceneObjects) {
 		if (!obj.image || typeof obj.image !== "string" || obj.image.startsWith("models/util/")) {
-			if (typeof obj.name === "string" && obj.name.toLowerCase() === "reflection") {
+			if (typeof obj.name === "string" && obj.name.toLowerCase() === "reflection" || hasReflectionEffect(obj)) {
 				const reflTex = allTex.find((p) => p.toLowerCase().includes("reflection_mask"));
 				if (reflTex) manifest.layers.push({
 					name: "Reflection",
@@ -4160,21 +4223,14 @@ function buildSceneManifestVia(access, token) {
 		} catch {
 			decoded = null;
 		}
-		const objOrigin = parseVec3(obj.origin, [
-			width / 2,
-			height / 2,
-			0
-		]);
-		const objScale = parseVec3(obj.scale, [
-			1,
-			1,
-			1
-		]);
-		const objAngles = parseVec3(obj.angles, [
+		const resolvedTransform = resolveObjectTransform(obj);
+		const objOrigin = [...resolvedTransform.origin];
+		const objScale = resolvedTransform.scale;
+		const objAngles = [
 			0,
 			0,
-			0
-		]);
+			resolvedTransform.angle
+		];
 		let lw = 0;
 		let lh = 0;
 		if (typeof modelJson.width === "number" && typeof modelJson.height === "number") {
@@ -4203,6 +4259,13 @@ function buildSceneManifestVia(access, token) {
 			objOrigin[1] = height / 2;
 			objAngles[2] = 0;
 		}
+		const alignment = typeof obj.alignment === "string" ? obj.alignment.toLowerCase() : "";
+		let alignDx = 0;
+		let alignDy = 0;
+		if (alignment.includes("left")) alignDx = lw / 2;
+		else if (alignment.includes("right")) alignDx = -lw / 2;
+		if (alignment.includes("top")) alignDy = -lh / 2;
+		else if (alignment.includes("bottom")) alignDy = lh / 2;
 		let ox = 0;
 		let oy = 0;
 		if (typeof modelJson.cropoffset === "string") {
@@ -4225,11 +4288,26 @@ function buildSceneManifestVia(access, token) {
 			];
 		}
 		const isGround = nameLower.includes("land") || nameLower.includes("grass") || nameLower.includes("railing") || nameLower.includes("betong") || nameLower.includes("sign") || nameLower.includes("cabinet") || nameLower.includes("bush") || nameLower.includes("fence");
+		const layerX = objOrigin[0] + alignDx;
+		const layerY = objOrigin[1] + alignDy;
+		if (hasReflectionEffect(obj) || nameLower === "reflection") {
+			const reflTex = allTex.find((p) => p.toLowerCase().includes("reflection_mask"));
+			if (reflTex) manifest.layers.push({
+				name: "Reflection",
+				isReflection: true,
+				texUrl: resourceBase + reflTex,
+				x: layerX,
+				y: layerY,
+				w: lw,
+				h: lh,
+				waterLine: Math.min(1, Math.max(0, 1 - (layerY + lh / 2) / height))
+			});
+		}
 		manifest.layers.push({
 			name: typeof obj.name === "string" ? obj.name : "layer",
 			texUrl: resourceBase + texPath,
-			x: objOrigin[0] + ox,
-			y: objOrigin[1] + oy,
+			x: layerX,
+			y: layerY,
 			w: lw,
 			h: lh,
 			alpha,
@@ -4756,13 +4834,21 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     uniform sampler2D u_mask;
     uniform float u_time;
     uniform float u_alpha;
+    // Scene-uv rect of the reflection quad: (leftU, topV, scaleU, scaleV);
+    // (0,0,1,1) for a fullscreen layer. Scene v grows downward (0 at the top).
+    uniform vec4 u_rect;
+    // Data-driven water surface from the scene object (legacy default 0.65).
+    uniform float u_waterLine;
+    // Reflection sample window: start + puddleDepth * span (legacy 0.42/0.38).
+    uniform vec2 u_reflectRange;
     void main() {
       float mask = texture2D(u_mask, v_uv).r;
-      if (mask < 0.05 || v_uv.y < 0.65) {
+      vec2 sceneUv = u_rect.xy + v_uv * u_rect.zw;
+      if (mask < 0.05 || sceneUv.y < u_waterLine) {
         discard;
       }
-      float puddleDepth = (v_uv.y - 0.65) / 0.35;
-      vec2 uvReflect = vec2(v_uv.x, 0.42 + puddleDepth * 0.38);
+      float puddleDepth = (sceneUv.y - u_waterLine) / max(1.0 - u_waterLine, 0.0001);
+      vec2 uvReflect = vec2(sceneUv.x, u_reflectRange.x + puddleDepth * u_reflectRange.y);
       // water wave ripple perturbation
       float wave = sin(v_uv.y * 120.0 + u_time * 2.8) * 0.002 +
                    cos(v_uv.x * 90.0 + u_time * 1.9) * 0.0015;
@@ -6009,12 +6095,27 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
         gl.vertexAttribPointer(rPos, 2, gl.FLOAT, false, 16, 0);
         gl.vertexAttribPointer(rUv, 2, gl.FLOAT, false, 16, 8);
 
-        const model = mat4Transform2D(sceneW / 2, sceneH / 2, sceneW, sceneH, 0);
+        // Draw the reflection quad at the layer's own rect (fullscreen for
+        // legacy scene-wide reflection layers).
+        const model = mat4Transform2D(layer.x, layer.y, layer.w, layer.h, layer.angle || 0);
         gl.uniformMatrix4fv(gl.getUniformLocation(progReflection, 'u_proj'), false, proj);
         gl.uniformMatrix4fv(gl.getUniformLocation(progReflection, 'u_model'), false, model);
         gl.uniform4f(gl.getUniformLocation(progReflection, 'u_uvRect'), 0, 0, 1, 1);
         gl.uniform1f(gl.getUniformLocation(progReflection, 'u_time'), elapsed);
         gl.uniform1f(gl.getUniformLocation(progReflection, 'u_alpha'), 0.85);
+
+        // Scene-uv rect of the quad (scene v grows downward, 0 at the top).
+        const rectLeftU = (layer.x - layer.w / 2) / sceneW;
+        const rectTopV = 1 - (layer.y + layer.h / 2) / sceneH;
+        gl.uniform4f(gl.getUniformLocation(progReflection, 'u_rect'),
+          rectLeftU, rectTopV, layer.w / sceneW, layer.h / sceneH);
+        // Water line follows the scene data when the parser resolved one;
+        // otherwise keep the legacy 0.65 / 0.42 / 0.38 window.
+        const waterLine = typeof layer.waterLine === 'number' ? layer.waterLine : 0.65;
+        const depthScale = (1 - waterLine) / 0.35;
+        gl.uniform1f(gl.getUniformLocation(progReflection, 'u_waterLine'), waterLine);
+        gl.uniform2f(gl.getUniformLocation(progReflection, 'u_reflectRange'),
+          waterLine - 0.23 * depthScale, 0.38 * depthScale);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, fboTex);
