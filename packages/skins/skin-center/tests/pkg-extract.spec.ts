@@ -178,6 +178,9 @@ interface TexSpec {
   flags?: number
   width: number
   height: number
+  /** TEXI image rect; defaults to width/height (no power-of-two padding). */
+  imageWidth?: number
+  imageHeight?: number
   mipmaps: MipSpec[]
   containerVersion?: 1 | 2 | 3 | 4
   freeImageFormat?: number
@@ -195,8 +198,8 @@ const buildTex = (spec: TexSpec): Uint8Array => {
     i32le(spec.flags ?? 0),
     i32le(spec.width),
     i32le(spec.height),
-    i32le(spec.width),
-    i32le(spec.height),
+    i32le(spec.imageWidth ?? spec.width),
+    i32le(spec.imageHeight ?? spec.height),
     u32le(0),
     nstring('TEXB000' + version),
     i32le(1), // image count
@@ -606,6 +609,36 @@ describe('decodeTex', () => {
     expect(parseTex(tex).formatName).toBe('BC7')
     expect(() => decodeTex(tex)).toThrow(/tex: unsupported format 12/)
   })
+
+  it('crops power-of-two padding to the TEXI image rect (top-left)', () => {
+    // 4x2 real image stored in a padded 4x4 mip (like WE's 1920x1080 in
+    // 2048x2048); top rows are the content, bottom rows are filler.
+    const pixels = new Uint8Array(4 * 4 * 4)
+    for (let y = 0; y < 4; y++) {
+      for (let x = 0; x < 4; x++) {
+        const i = (y * 4 + x) * 4
+        const v = y < 2 ? 200 : 9
+        pixels[i] = v
+        pixels[i + 1] = v
+        pixels[i + 2] = v
+        pixels[i + 3] = 255
+      }
+    }
+    const tex = buildTex({
+      width: 4,
+      height: 4,
+      imageWidth: 4,
+      imageHeight: 2,
+      containerVersion: 3,
+      mipmaps: [{ width: 4, height: 4, data: pixels }],
+    })
+    const decoded = decodeTex(tex)
+    expect(decoded.width).toBe(4)
+    expect(decoded.height).toBe(2)
+    expect(decoded.rgba.length).toBe(4 * 2 * 4)
+    expect(decoded.rgba[0]).toBe(200)
+    expect(decoded.rgba[decoded.rgba.length - 4]).toBe(200)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -699,6 +732,33 @@ describe('extractSceneMainImage', () => {
     const result = extractSceneMainImage(pkg)
     expect(result.texturePath).toBe('materials/bg.tex')
     expect(decodePng(result.png).rgba).toEqual(bgPixels)
+  })
+
+  it('reports the real decode error instead of a later missing-texture fallback (#752)', () => {
+    // The best candidate exists but fails to decode; a later object-referenced
+    // texture is missing from the package and must not overwrite the decode
+    // error with a misleading "not found".
+    const brokenTex = buildTex({
+      width: 4,
+      height: 4,
+      containerVersion: 3,
+      mipmaps: [{ width: 4, height: 4, data: new Uint8Array(16) }],
+    })
+    const pkg = buildPkg([
+      {
+        path: 'scene.json',
+        data: encoder.encode(
+          JSON.stringify({
+            objects: [
+              { id: 1, name: 'background', image: 'materials/broken.tex' },
+              { id: 2, name: 'overlay', image: 'materials/missing.tex' },
+            ],
+          }),
+        ),
+      },
+      { path: 'materials/broken.tex', data: brokenTex },
+    ])
+    expect(() => extractSceneMainImage(pkg)).toThrow(/tex: mipmap size mismatch for RGBA8888/)
   })
 
   it('throws when scene.json is absent', () => {

@@ -2875,6 +2875,9 @@ function decodeDxt5(src, width, height) {
 * Decode the first (largest) mipmap of a TEX container to RGBA8888.
 * Supports RGBA8888, R8, RG88 and DXT1/DXT3/DXT5; embedded MP4 textures and
 * unknown formats throw a descriptive error instead of failing silently.
+* WE pads mipmaps to power-of-two sizes (e.g. a 1920x1080 image stored in a
+* 2048x2048 mip); the TEXI header's image rect is the real content, anchored
+* top-left, so the result is cropped to it before returning.
 */
 function decodeTex(data) {
 	const parsed = parseTexInternal(data);
@@ -2882,14 +2885,16 @@ function decodeTex(data) {
 	const mip = parsed.mipmaps[0];
 	if (isPngBuffer(mip.bytes)) return decodePngToRgba(mip.bytes);
 	const { width, height, bytes } = mip;
+	let decoded;
 	switch (parsed.format) {
 		case TexFormat.RGBA8888:
-			if (bytes.length < width * height * 4) throw new Error("tex: mipmap size mismatch for RGBA8888");
-			return {
+			if (bytes.length < width * height * 4) throw new Error("tex: mipmap size mismatch for RGBA8888 (actual " + bytes.length + " < expected " + width * height * 4 + ")");
+			decoded = {
 				width,
 				height,
 				rgba: bytes.slice(0, width * height * 4)
 			};
+			break;
 		case TexFormat.R8: {
 			if (bytes.length < width * height) throw new Error("tex: mipmap size mismatch for R8");
 			const rgba = new Uint8Array(width * height * 4);
@@ -2899,11 +2904,12 @@ function decodeTex(data) {
 				rgba[i * 4 + 2] = bytes[i];
 				rgba[i * 4 + 3] = 255;
 			}
-			return {
+			decoded = {
 				width,
 				height,
 				rgba
 			};
+			break;
 		}
 		case TexFormat.RG88: {
 			if (bytes.length < width * height * 2) throw new Error("tex: mipmap size mismatch for RG88");
@@ -2914,41 +2920,57 @@ function decodeTex(data) {
 				rgba[i * 4 + 2] = 0;
 				rgba[i * 4 + 3] = 255;
 			}
-			return {
+			decoded = {
 				width,
 				height,
 				rgba
 			};
+			break;
 		}
 		case TexFormat.DXT1: {
 			const expected = Math.ceil(width / 4) * Math.ceil(height / 4) * 8;
 			if (bytes.length < expected) throw new Error("tex: mipmap size mismatch for DXT1");
-			return {
+			decoded = {
 				width,
 				height,
 				rgba: decodeDxt1(bytes, width, height)
 			};
+			break;
 		}
 		case TexFormat.DXT3: {
 			const expected = Math.ceil(width / 4) * Math.ceil(height / 4) * 16;
 			if (bytes.length < expected) throw new Error("tex: mipmap size mismatch for DXT3");
-			return {
+			decoded = {
 				width,
 				height,
 				rgba: decodeDxt3(bytes, width, height)
 			};
+			break;
 		}
 		case TexFormat.DXT5: {
 			const expected = Math.ceil(width / 4) * Math.ceil(height / 4) * 16;
 			if (bytes.length < expected) throw new Error("tex: mipmap size mismatch for DXT5");
-			return {
+			decoded = {
 				width,
 				height,
 				rgba: decodeDxt5(bytes, width, height)
 			};
+			break;
 		}
 		default: throw new Error("tex: unsupported format " + parsed.format);
 	}
+	const cropW = Math.min(parsed.width, width);
+	const cropH = Math.min(parsed.height, height);
+	if (cropW > 0 && cropH > 0 && (cropW < width || cropH < height)) {
+		const cropped = new Uint8Array(cropW * cropH * 4);
+		for (let y = 0; y < cropH; y++) cropped.set(decoded.rgba.subarray(y * width * 4, (y * width + cropW) * 4), y * cropW * 4);
+		return {
+			width: cropW,
+			height: cropH,
+			rgba: cropped
+		};
+	}
+	return decoded;
 }
 const CRC_TABLE = (() => {
 	const table = /* @__PURE__ */ new Uint32Array(256);
@@ -3350,7 +3372,7 @@ function extractSceneMainImageVia(access, label) {
 		if (isLikelyMaskOrHelper(path)) continue;
 		const file = access.readFile(path);
 		if (!file) {
-			lastError = /* @__PURE__ */ new Error(label + ": texture '" + path + "' not found in " + (label === "pkg" ? "package" : "directory"));
+			if (lastError === null) lastError = /* @__PURE__ */ new Error(label + ": texture '" + path + "' not found in " + (label === "pkg" ? "package" : "directory"));
 			continue;
 		}
 		try {
@@ -4255,26 +4277,6 @@ function buildSceneManifestVia(access, token) {
 		if (csv) {
 			for (const [k, v] of Object.entries(csv)) if (typeof v === "number" && Number.isFinite(v)) nums[k] = v;
 		}
-		let flowScale;
-		if (layerShader === "flowimage" && texPaths.length >= 2) {
-			const dimsOf = (p) => {
-				const f = access.readFile(p);
-				if (!f) return null;
-				try {
-					const info = parseTex(f.bytes);
-					return info.width > 0 && info.height > 0 ? [info.width, info.height] : null;
-				} catch {
-					return null;
-				}
-			};
-			const maskDims = dimsOf(texPaths[0]);
-			const contentDims = dimsOf(texPaths[1]);
-			if (maskDims && contentDims) {
-				const su = maskDims[0] / contentDims[0];
-				const sv = maskDims[1] / contentDims[1];
-				if (Math.abs(su - 1) > .001 || Math.abs(sv - 1) > .001) flowScale = [su, sv];
-			}
-		}
 		let layerUserColors;
 		const lusv = pass0?.usershadervalues;
 		if (lusv) for (const [key, uniformName] of Object.entries(lusv)) {
@@ -4387,7 +4389,6 @@ function buildSceneManifestVia(access, token) {
 			uvCrop,
 			shader: layerShader,
 			texUrls: texPaths.length > 1 ? texPaths.map((p) => resourceBase + p) : void 0,
-			flowScale,
 			userColors: layerUserColors,
 			nums: Object.keys(nums).length > 0 ? nums : void 0,
 			isGround,
@@ -4997,7 +4998,6 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     uniform vec3 u_speeds;
     uniform float u_amp;
     uniform float u_bright;
-    uniform vec2 u_contentScale;
     void main() {
       vec3 flowColors = texture2D(u_mask, v_uv).rgb;
       vec2 flowMask = (flowColors.rg - vec2(0.5, 0.5)) * 2.0;
@@ -5010,7 +5010,7 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       float b0 = 2.0 * abs(c0 - 0.5);
       float b1 = 2.0 * abs(c1 - 0.5);
       float b2 = 2.0 * abs(c2 - 0.5);
-      vec2 cuv = v_uv * u_contentScale;
+      vec2 cuv = v_uv;
       vec4 albedo = mix(texture2D(u_l1, cuv + flowMask * u_amp * 0.1 * c0),
                         texture2D(u_l1, cuv + flowMask * u_amp * 0.1 * c0b), b0);
       vec4 s1 = mix(texture2D(u_l2, cuv + flowMask * u_amp * 0.1 * c1),
@@ -6202,9 +6202,12 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
         continue;
       }
 
-      // WE flowimage layer (flowing nebula): mask + 3 cross-fading layers
+      // WE flowimage layer (flowing nebula): mask + 3 cross-fading layers.
+      // All four textures are sampled with the plain quad UV (WE stretches
+      // mask and content over the whole quad); served PNGs are already
+      // cropped to the image rect, and clamp wrapping matches clampuvs.
       if (layer.shader === 'flowimage' && layer.texUrls && layer.texUrls.length >= 4) {
-        const recs = layer.texUrls.slice(0, 4).map((u) => loadTexture(u, true));
+        const recs = layer.texUrls.slice(0, 4).map((u) => loadTexture(u));
         if (!recs.every((r) => r.loaded)) continue;
         gl.useProgram(progFlow);
         gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
@@ -6225,8 +6228,6 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
           nums.Speed0 ?? 0.01, nums.Speed1 ?? 0.01, nums.Speed2 ?? 0.01);
         gl.uniform1f(gl.getUniformLocation(progFlow, 'u_amp'), nums.Amount ?? 1);
         gl.uniform1f(gl.getUniformLocation(progFlow, 'u_bright'), nums.Bright ?? 1);
-        const fs2 = layer.flowScale || [1, 1];
-        gl.uniform2f(gl.getUniformLocation(progFlow, 'u_contentScale'), fs2[0], fs2[1]);
         const units = ['u_mask', 'u_l1', 'u_l2', 'u_l3'];
         for (let ui = 0; ui < 4; ui++) {
           gl.activeTexture(gl.TEXTURE0 + ui);

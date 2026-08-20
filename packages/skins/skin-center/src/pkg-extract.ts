@@ -810,6 +810,9 @@ function decodeDxt5(src: Uint8Array, width: number, height: number): Uint8Array 
  * Decode the first (largest) mipmap of a TEX container to RGBA8888.
  * Supports RGBA8888, R8, RG88 and DXT1/DXT3/DXT5; embedded MP4 textures and
  * unknown formats throw a descriptive error instead of failing silently.
+ * WE pads mipmaps to power-of-two sizes (e.g. a 1920x1080 image stored in a
+ * 2048x2048 mip); the TEXI header's image rect is the real content, anchored
+ * top-left, so the result is cropped to it before returning.
  */
 export function decodeTex(data: Uint8Array): DecodedImage {
   const parsed = parseTexInternal(data)
@@ -821,12 +824,16 @@ export function decodeTex(data: Uint8Array): DecodedImage {
     return decodePngToRgba(mip.bytes)
   }
   const { width, height, bytes } = mip
+  let decoded: DecodedImage
   switch (parsed.format) {
     case TexFormat.RGBA8888: {
       if (bytes.length < width * height * 4) {
-        throw new Error('tex: mipmap size mismatch for RGBA8888')
+        throw new Error(
+          'tex: mipmap size mismatch for RGBA8888 (actual ' + bytes.length + ' < expected ' + width * height * 4 + ')',
+        )
       }
-      return { width, height, rgba: bytes.slice(0, width * height * 4) }
+      decoded = { width, height, rgba: bytes.slice(0, width * height * 4) }
+      break
     }
     case TexFormat.R8: {
       if (bytes.length < width * height) throw new Error('tex: mipmap size mismatch for R8')
@@ -837,7 +844,8 @@ export function decodeTex(data: Uint8Array): DecodedImage {
         rgba[i * 4 + 2] = bytes[i]
         rgba[i * 4 + 3] = 255
       }
-      return { width, height, rgba }
+      decoded = { width, height, rgba }
+      break
     }
     case TexFormat.RG88: {
       if (bytes.length < width * height * 2) throw new Error('tex: mipmap size mismatch for RG88')
@@ -848,26 +856,42 @@ export function decodeTex(data: Uint8Array): DecodedImage {
         rgba[i * 4 + 2] = 0
         rgba[i * 4 + 3] = 255
       }
-      return { width, height, rgba }
+      decoded = { width, height, rgba }
+      break
     }
     case TexFormat.DXT1: {
       const expected = Math.ceil(width / 4) * Math.ceil(height / 4) * 8
       if (bytes.length < expected) throw new Error('tex: mipmap size mismatch for DXT1')
-      return { width, height, rgba: decodeDxt1(bytes, width, height) }
+      decoded = { width, height, rgba: decodeDxt1(bytes, width, height) }
+      break
     }
     case TexFormat.DXT3: {
       const expected = Math.ceil(width / 4) * Math.ceil(height / 4) * 16
       if (bytes.length < expected) throw new Error('tex: mipmap size mismatch for DXT3')
-      return { width, height, rgba: decodeDxt3(bytes, width, height) }
+      decoded = { width, height, rgba: decodeDxt3(bytes, width, height) }
+      break
     }
     case TexFormat.DXT5: {
       const expected = Math.ceil(width / 4) * Math.ceil(height / 4) * 16
       if (bytes.length < expected) throw new Error('tex: mipmap size mismatch for DXT5')
-      return { width, height, rgba: decodeDxt5(bytes, width, height) }
+      decoded = { width, height, rgba: decodeDxt5(bytes, width, height) }
+      break
     }
     default:
       throw new Error('tex: unsupported format ' + parsed.format)
   }
+  // Crop the power-of-two padding: the image rect sits at the top-left of the
+  // stored mip (verified by render probe), anything beyond it is filler.
+  const cropW = Math.min(parsed.width, width)
+  const cropH = Math.min(parsed.height, height)
+  if (cropW > 0 && cropH > 0 && (cropW < width || cropH < height)) {
+    const cropped = new Uint8Array(cropW * cropH * 4)
+    for (let y = 0; y < cropH; y++) {
+      cropped.set(decoded.rgba.subarray(y * width * 4, (y * width + cropW) * 4), y * cropW * 4)
+    }
+    return { width: cropW, height: cropH, rgba: cropped }
+  }
+  return decoded
 }
 
 const CRC_TABLE = (() => {
@@ -1459,7 +1483,12 @@ function extractSceneMainImageVia(access: SceneAccess, label: string): SceneMain
     if (isLikelyMaskOrHelper(path)) continue
     const file = access.readFile(path)
     if (!file) {
-      lastError = new Error(label + ": texture '" + path + "' not found in " + (label === 'pkg' ? 'package' : 'directory'))
+      // Keep a previously recorded decode error as the more truthful one: a
+      // later candidate missing from the package must not mask why the best
+      // candidate failed to decode (#752).
+      if (lastError === null) {
+        lastError = new Error(label + ": texture '" + path + "' not found in " + (label === 'pkg' ? 'package' : 'directory'))
+      }
       continue
     }
     try {
@@ -1574,14 +1603,13 @@ export interface SceneManifestLayer {
   alpha?: number
   /** Z rotation in radians (2D scene object angles). */
   angle?: number
-  /** UV sub-rect [u0, v0, u1, v1] sampled from the (possibly padded) texture. */
+  /** UV sub-rect [u0, v0, u1, v1] sampled from the texture (cropoffset only;
+   *  power-of-two padding is already cropped away at decode time). */
   uvCrop?: [number, number, number, number]
   /** Material shader name (genericimage default; flowimage gets its own pass). */
   shader?: string
   /** All pass textures resolved (flowimage: mask + content layers). */
   texUrls?: string[]
-  /** flowimage content-layer UV scale (mask/content texture size ratio). */
-  flowScale?: [number, number]
   /** constantshadervalues numerics (flow Speed/Amount/Bright etc.). */
   nums?: Record<string, number>
   /** Resolved color user properties, keyed by shader uniform name. */
@@ -2505,28 +2533,9 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
         if (typeof v === 'number' && Number.isFinite(v)) nums[k] = v
       }
     }
-    // flowimage content layers may sit in differently-padded textures than
-    // the flow mask; scale their UVs by the mask/content texture size ratio.
-    let flowScale: [number, number] | undefined
-    if (layerShader === 'flowimage' && texPaths.length >= 2) {
-      const dimsOf = (p: string) => {
-        const f = access.readFile(p)
-        if (!f) return null
-        try {
-          const info = parseTex(f.bytes)
-          return info.width > 0 && info.height > 0 ? ([info.width, info.height] as const) : null
-        } catch {
-          return null
-        }
-      }
-      const maskDims = dimsOf(texPaths[0])
-      const contentDims = dimsOf(texPaths[1])
-      if (maskDims && contentDims) {
-        const su = maskDims[0] / contentDims[0]
-        const sv = maskDims[1] / contentDims[1]
-        if (Math.abs(su - 1) > 0.001 || Math.abs(sv - 1) > 0.001) flowScale = [su, sv]
-      }
-    }
+    // flowimage content layers and the flow mask are all sampled with the
+    // quad UV [0,1]; decodeTex already crops power-of-two padding, so no
+    // per-texture UV scaling is needed here.
     // Layer user colors (flag tint colors etc.), keyed by uniform name.
     let layerUserColors: Record<string, [number, number, number]> | undefined
     const lusv = pass0?.usershadervalues as Record<string, unknown> | undefined
@@ -2609,8 +2618,8 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
       ? Math.min(1, Math.max(0, obj.alpha))
       : 1
 
-    // DXT textures are padded (e.g. 1536x1024 content in a 2048x1024 tex);
-    // the image json width/height + cropoffset define the sampled sub-rect.
+    // decodeTex already crops power-of-two padding to the TEXI image rect,
+    // so only an explicit cropoffset produces a sampled sub-rect here.
     // Verified by render probe: texture v=0 is the first uploaded PNG row
     // (image top), matching WE's top-left crop convention.
     let uvCrop: [number, number, number, number] | undefined
@@ -2673,7 +2682,6 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
       texUrls: texPaths.length > 1
         ? texPaths.map((p) => resourceBase + p)
         : undefined,
-      flowScale,
       userColors: layerUserColors,
       nums: Object.keys(nums).length > 0 ? nums : undefined,
       isGround,
