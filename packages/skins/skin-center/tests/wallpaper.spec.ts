@@ -214,6 +214,222 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('applySelection probes scene capabilities lazily and mounts live video', async () => {
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input.includes('/scene-probe')) {
+        return { ok: true, json: async () => ({ ok: true, videoUrl: '/api/skin-center/we/scene-video/lazy', sceneUrl: null }) }
+      }
+      return { ok: true, json: async () => ({ ok: true, wallpapers: [] }) }
+    }) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    let controller: WallpaperController | null = null
+    try {
+      controller = new WallpaperController(scope, { fetchImpl, doc: document })
+      controller.applySelection({ ...scene, id: 'lazy', frameUrl: '/api/skin-center/we/scene-frame/lazy' })
+      // Before the probe resolves, the static frame is mounted.
+      expect(document.body.querySelector('img')).not.toBeNull()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(fetchImpl).toHaveBeenCalledWith('/api/skin-center/we/scene-probe?id=lazy')
+      const [media] = layers()
+      const vid = media.querySelector('video')
+      expect(vid).not.toBeNull()
+      expect(vid?.src).toContain('/api/skin-center/we/scene-video/lazy')
+    } finally {
+      controller?.dispose()
+    }
+  })
+
+  it('tryOn probes scene capabilities and mounts live video for the preview', async () => {
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input.includes('/scene-probe')) {
+        return { ok: true, json: async () => ({ ok: true, videoUrl: '/api/skin-center/we/scene-video/preview', sceneUrl: null }) }
+      }
+      return { ok: true, json: async () => ({ ok: true, wallpapers: [] }) }
+    }) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    let controller: WallpaperController | null = null
+    try {
+      controller = new WallpaperController(scope, { fetchImpl, doc: document })
+      controller.tryOn({ ...scene, id: 'preview', frameUrl: '/api/skin-center/we/scene-frame/preview' })
+      await new Promise((r) => setTimeout(r, 10))
+      expect(fetchImpl).toHaveBeenCalledWith('/api/skin-center/we/scene-probe?id=preview')
+      const [media] = layers()
+      const vid = media.querySelector('video')
+      expect(vid).not.toBeNull()
+      expect(vid?.src).toContain('/api/skin-center/we/scene-video/preview')
+    } finally {
+      controller?.dispose()
+    }
+  })
+
+  it('stale probe responses never overwrite a newer selection', async () => {
+    const probes = new Map<string, (value: unknown) => void>()
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input.includes('/scene-probe')) {
+        const id = input.split('id=')[1]
+        return new Promise((resolve) => { probes.set(id, resolve) })
+      }
+      return { ok: true, json: async () => ({ ok: true, wallpapers: [] }) }
+    }) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    let controller: WallpaperController | null = null
+    try {
+      controller = new WallpaperController(scope, { fetchImpl, doc: document })
+      controller.tryOn({ ...scene, id: 'slow-a', frameUrl: '/api/skin-center/we/scene-frame/slow-a' })
+      await new Promise((r) => setTimeout(r, 5))
+      // Switch to a different wallpaper before slow-a's probe answers.
+      controller.tryOn({ ...scene, id: 'slow-b', frameUrl: '/api/skin-center/we/scene-frame/slow-b' })
+      probes.get('slow-b')?.({ ok: true, json: async () => ({ ok: true, videoUrl: '/api/skin-center/we/scene-video/slow-b', sceneUrl: null }) })
+      await new Promise((r) => setTimeout(r, 5))
+      const [media] = layers()
+      expect(media.querySelector('video')?.src).toContain('/api/skin-center/we/scene-video/slow-b')
+      // slow-a's stale probe resolves late: the preview now belongs to slow-b,
+      // so the response must be dropped, not merged.
+      probes.get('slow-a')?.({ ok: true, json: async () => ({ ok: true, videoUrl: '/api/skin-center/we/scene-video/stale', sceneUrl: null }) })
+      await new Promise((r) => setTimeout(r, 10))
+      expect(media.querySelector('video')?.src).toContain('/api/skin-center/we/scene-video/slow-b')
+      expect(media.querySelector('video')?.src).not.toContain('/api/skin-center/we/scene-video/stale')
+    } finally {
+      controller?.dispose()
+    }
+  })
+
+  it('dedupes concurrent scene probes for the same id across entry points', async () => {
+    let probeCalls = 0
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input.includes('/scene-probe')) {
+        probeCalls++
+        await new Promise((r) => setTimeout(r, 30))
+        return { ok: true, json: async () => ({ ok: true, videoUrl: '/api/skin-center/we/scene-video/dedup', sceneUrl: null }) }
+      }
+      return { ok: true, json: async () => ({ ok: true, wallpapers: [] }) }
+    }) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    let controller: WallpaperController | null = null
+    try {
+      controller = new WallpaperController(scope, { fetchImpl, doc: document })
+      controller.tryOn({ ...scene, id: 'dedup', frameUrl: '/api/skin-center/we/scene-frame/dedup' })
+      controller.applySelection({ ...scene, id: 'dedup', frameUrl: '/api/skin-center/we/scene-frame/dedup' })
+      controller.sync({ ...scene, id: 'dedup', frameUrl: '/api/skin-center/we/scene-frame/dedup' })
+      await new Promise((r) => setTimeout(r, 10))
+      expect(probeCalls).toBe(1)
+      await new Promise((r) => setTimeout(r, 50))
+      controller.tryOn({ ...scene, id: 'dedup', videoUrl: '/api/skin-center/we/scene-video/dedup', frameUrl: '/api/skin-center/we/scene-frame/dedup' })
+      await new Promise((r) => setTimeout(r, 10))
+      expect(probeCalls).toBe(1)
+      const [media] = layers()
+      expect(media.querySelector('video')?.src).toContain('/api/skin-center/we/scene-video/dedup')
+    } finally {
+      controller?.dispose()
+    }
+  })
+
+  it('applied capabilities survive exiting a try-on that probed the same wallpaper', async () => {
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input.includes('/scene-probe')) {
+        return { ok: true, json: async () => ({ ok: true, videoUrl: '/api/skin-center/we/scene-video/shared', sceneUrl: null }) }
+      }
+      return { ok: true, json: async () => ({ ok: true, wallpapers: [] }) }
+    }) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    let controller: WallpaperController | null = null
+    try {
+      controller = new WallpaperController(scope, { fetchImpl, doc: document })
+      const desc = { ...scene, id: 'shared', frameUrl: '/api/skin-center/we/scene-frame/shared' }
+      controller.applySelection(desc)
+      controller.tryOn(desc)
+      await new Promise((r) => setTimeout(r, 10))
+      controller.exitTryOn()
+      await new Promise((r) => setTimeout(r, 10))
+      const [media] = layers()
+      const vid = media.querySelector('video')
+      expect(vid).not.toBeNull()
+      expect(vid?.src).toContain('/api/skin-center/we/scene-video/shared')
+    } finally {
+      controller?.dispose()
+    }
+  })
+
+  it('releases the capture video on error before loadeddata', () => {
+    const { scope } = fakeScope()
+    const origCreate = document.createElement.bind(document)
+    const createdVideos: HTMLVideoElement[] = []
+    const createSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag)
+      if (tag === 'video') createdVideos.push(el as HTMLVideoElement)
+      return el
+    })
+    let controller: WallpaperController | null = null
+    try {
+      controller = new WallpaperController(scope)
+      controller.setMode('frame')
+      controller.applySelection({ ...video, id: 'cap-err', previewUrl: '/api/skin-center/we/preview/cap-err' })
+      const capture = createdVideos.find((v) => v.getAttribute('src') !== null)
+      expect(capture).not.toBeNull()
+      // A decode/network failure fires error before loadeddata: the src must
+      // still be released instead of keeping preload=auto buffering.
+      capture?.dispatchEvent(new Event('error'))
+      expect(capture?.hasAttribute('src')).toBe(false)
+    } finally {
+      controller?.dispose()
+      createSpy.mockRestore()
+    }
+  })
+
+  it('releases the capture video on teardown when loadeddata never fires', () => {
+    const { scope } = fakeScope()
+    const origCreate = document.createElement.bind(document)
+    const createdVideos: HTMLVideoElement[] = []
+    const createSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag)
+      if (tag === 'video') createdVideos.push(el as HTMLVideoElement)
+      return el
+    })
+    let controller: WallpaperController | null = null
+    try {
+      controller = new WallpaperController(scope)
+      controller.setMode('frame')
+      controller.applySelection({ ...video, id: 'cap-teardown', previewUrl: '/api/skin-center/we/preview/cap-teardown' })
+      const capture = createdVideos.find((v) => v.getAttribute('src') !== null)
+      expect(capture).not.toBeNull()
+      // Mode switch / dispose before any media event: teardown must release.
+      controller.dispose()
+      controller = null
+      expect(capture?.hasAttribute('src')).toBe(false)
+    } finally {
+      controller?.dispose()
+      createSpy.mockRestore()
+    }
+  })
+
+  it('releases the capture video on a media-key transition before loadeddata', () => {
+    const { scope } = fakeScope()
+    const origCreate = document.createElement.bind(document)
+    const createdVideos: HTMLVideoElement[] = []
+    const createSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag)
+      if (tag === 'video') createdVideos.push(el as HTMLVideoElement)
+      return el
+    })
+    let controller: WallpaperController | null = null
+    try {
+      controller = new WallpaperController(scope)
+      controller.setMode('frame')
+      controller.applySelection({ ...video, id: 'cap-switch', previewUrl: '/api/skin-center/we/preview/cap-switch' })
+      const capture = createdVideos.find((v) => v.getAttribute('src') !== null)
+      expect(capture).not.toBeNull()
+      // frame -> live rebuilds the media layer and must release the
+      // abandoned capture instead of leaving it buffering.
+      controller.setMode('live')
+      expect(capture?.hasAttribute('src')).toBe(false)
+      const [media] = layers()
+      expect(media.querySelector('video')).not.toBeNull()
+    } finally {
+      controller?.dispose()
+      createSpy.mockRestore()
+    }
+  })
+
   it('keeps videos muted by default and applies sound/volume live (#580)', () => {
     const { scope, calls } = fakeScope()
     const controller = new WallpaperController(scope)

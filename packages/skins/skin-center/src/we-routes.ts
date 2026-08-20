@@ -276,41 +276,9 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
 
   const entryToJson = (entry: WallpaperEntry): WallpaperJson => {
     const hasFile = existsSync(entry.fileAbs)
-    let hasVideo = false
-    let hasSceneWebGL = false
-    if (entry.type === 'scene' && hasFile) {
-      let mtimeMs = 0
-      let size = 0
-      try { const st = statSync(entry.fileAbs); mtimeMs = st.mtimeMs; size = st.size } catch { /* probe once without a key */ }
-      const key = entry.fileAbs + ':' + mtimeMs + ':' + size
-      let probe = mtimeMs > 0 ? sceneProbeCache.get(key) : undefined
-      if (!probe) {
-        let hasVideoNow = false
-        let hasSceneWebGLNow = false
-        try {
-          hasVideoNow = entry.fileAbs.toLowerCase().endsWith('.json')
-            ? hasSceneVideoFromDir(dirname(entry.fileAbs))
-            : hasSceneVideo(new Uint8Array(readFileSync(entry.fileAbs)))
-          if (!hasVideoNow) {
-            const manifest = entry.fileAbs.toLowerCase().endsWith('.json')
-              ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
-              : buildSceneManifest(new Uint8Array(readFileSync(entry.fileAbs)), 'check')
-            if (manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0))) {
-              hasSceneWebGLNow = true
-            }
-          }
-        } catch {
-          hasSceneWebGLNow = false
-        }
-        probe = { hasVideo: hasVideoNow, hasSceneWebGL: hasSceneWebGLNow }
-        if (mtimeMs > 0) {
-          if (sceneProbeCache.size >= MAX_PROBE_CACHE) sceneProbeCache.clear()
-          sceneProbeCache.set(key, probe)
-        }
-      }
-      hasVideo = probe.hasVideo
-      hasSceneWebGL = probe.hasSceneWebGL
-    }
+    // Scene video/WebGL capabilities are probed lazily by the scene-probe
+    // route for the selected wallpaper only; probing every scene here would
+    // read the whole packed payload of a large library on every inventory.
     return {
       id: entry.id,
       title: entry.title,
@@ -318,15 +286,10 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       source: entry.source,
       playable: entry.playable,
       updateAvailable: entry.updateAvailable,
-      videoUrl:
-        entry.type === 'video' && hasFile
-          ? WE_API_PREFIX + '/media/' + tokenFor(entry.fileAbs)
-          : hasVideo
-            ? WE_API_PREFIX + '/scene-video/' + tokenFor(entry.fileAbs)
-            : null,
+      videoUrl: entry.type === 'video' && hasFile ? WE_API_PREFIX + '/media/' + tokenFor(entry.fileAbs) : null,
       webUrl: entry.type === 'web' && hasFile ? WE_API_PREFIX + '/web/' + tokenFor(entry.fileAbs) + '/' : null,
       frameUrl: entry.type === 'scene' && hasFile ? WE_API_PREFIX + '/scene-frame/' + tokenFor(entry.fileAbs) : null,
-      sceneUrl: hasSceneWebGL ? WE_API_PREFIX + '/scene-runtime/' + tokenFor(entry.fileAbs) : null,
+      sceneUrl: null,
       previewUrl: entry.previewAbs ? WE_API_PREFIX + '/preview/' + tokenFor(entry.previewAbs) : null,
     }
   }
@@ -370,6 +333,72 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           total: inventory.total,
           portableCount: inventory.portableCount,
           wallpapers,
+        })
+      } catch (error) {
+        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+      }
+    },
+  })
+
+  // GET /scene-probe?id=<id> — lazy per-item capability probe. Inventory
+  // stays cheap by never reading scene payloads; the client asks this route
+  // only for the wallpaper the user actually selects. The probe reads the
+  // whole packed scene file once (cached by path+mtime+size), so a large
+  // library is never scanned up front.
+  routes.push({
+    kind: 'exact',
+    path: WE_API_PREFIX + '/scene-probe',
+    handler: (req, res) => {
+      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (!requireSameOrigin(req, res)) return
+      try {
+        const url = new URL(req.url ?? '', 'http://localhost')
+        const id = url.searchParams.get('id')
+        if (!id) { json(res, 400, { ok: false, error: 'missing-id' }); return }
+        const entry = freshInventory().wallpapers.find((w) => w.id === id && w.type === 'scene')
+        if (!entry || !existsSync(entry.fileAbs)) { json(res, 404, { ok: false, error: 'not-found' }); return }
+        let mtimeMs = 0
+        let size = 0
+        try { const st = statSync(entry.fileAbs); mtimeMs = st.mtimeMs; size = st.size } catch { /* probe once without a key */ }
+        // Loose .json scenes probe the whole directory (video/manifest
+        // siblings), which a single-file stat key cannot fingerprint; skip
+        // the cache for them so sibling changes never serve stale results.
+        const isLooseScene = entry.fileAbs.toLowerCase().endsWith('.json')
+        if (isLooseScene) mtimeMs = 0
+        const key = entry.fileAbs + ':' + mtimeMs + ':' + size
+        let probe = mtimeMs > 0 ? sceneProbeCache.get(key) : undefined
+        if (!probe) {
+          let hasVideo = false
+          let hasSceneWebGL = false
+          try {
+            const pkgData = readFileSync(entry.fileAbs)
+            const u8 = new Uint8Array(pkgData.buffer, pkgData.byteOffset, pkgData.byteLength)
+            hasVideo = entry.fileAbs.toLowerCase().endsWith('.json')
+              ? hasSceneVideoFromDir(dirname(entry.fileAbs))
+              : hasSceneVideo(u8)
+            if (!hasVideo) {
+              const manifest = entry.fileAbs.toLowerCase().endsWith('.json')
+                ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
+                : buildSceneManifest(u8, 'check')
+              hasSceneWebGL = Boolean(manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0)))
+            }
+          } catch {
+            // probe failure: capabilities stay negative
+          }
+          probe = { hasVideo, hasSceneWebGL }
+          if (mtimeMs > 0) {
+            if (sceneProbeCache.size >= MAX_PROBE_CACHE) sceneProbeCache.clear()
+            sceneProbeCache.set(key, probe)
+          }
+        }
+        const videoToken = probe.hasVideo ? tokenFor(entry.fileAbs) : null
+        const sceneToken = probe.hasSceneWebGL ? tokenFor(entry.fileAbs) : null
+        // Persist after issuing so freshly minted tokens survive a restart.
+        persistTokens()
+        json(res, 200, {
+          ok: true,
+          videoUrl: videoToken !== null ? WE_API_PREFIX + '/scene-video/' + videoToken : null,
+          sceneUrl: sceneToken !== null ? WE_API_PREFIX + '/scene-runtime/' + sceneToken : null,
         })
       } catch (error) {
         json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })

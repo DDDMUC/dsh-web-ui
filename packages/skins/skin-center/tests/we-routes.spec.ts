@@ -162,6 +162,23 @@ describe('inventory', () => {
     expect(String(scene?.frameUrl)).toContain(WE_API_PREFIX + '/scene-frame/')
   })
 
+  it('probes scene capabilities lazily and fails closed on unreadable pkg', async () => {
+    const inv = await call('GET', WE_API_PREFIX + '/inventory')
+    const scene = (inv.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '333')
+    expect(scene?.videoUrl).toBe(null)
+    expect(scene?.sceneUrl).toBe(null)
+    // scene.pkg in the fixture is not a real PKG: the probe fails closed.
+    const probe = await call('GET', WE_API_PREFIX + '/scene-probe?id=333')
+    expect(probe.status).toBe(200)
+    expect(probe.body.ok).toBe(true)
+    expect(probe.body.videoUrl).toBe(null)
+    expect(probe.body.sceneUrl).toBe(null)
+    // Unknown id 404s; missing id 400s; cross-site is fenced.
+    expect((await call('GET', WE_API_PREFIX + '/scene-probe?id=999')).status).toBe(404)
+    expect((await call('GET', WE_API_PREFIX + '/scene-probe')).status).toBe(400)
+    expect((await call('GET', WE_API_PREFIX + '/scene-probe?id=333', { headers: { 'sec-fetch-site': 'cross-site' } })).status).toBe(403)
+  })
+
   it('rejects cross-site requests', async () => {
     const res = await call('GET', WE_API_PREFIX + '/inventory', { headers: { 'sec-fetch-site': 'cross-site' } })
     expect(res.status).toBe(403)
@@ -359,16 +376,23 @@ describe('scene container resolution (#521)', () => {
 
     const inventory = await call('GET', WE_API_PREFIX + '/inventory')
     const entry = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '666')
-    expect(String(entry?.sceneUrl)).toContain(WE_API_PREFIX + '/scene-runtime/')
+    // Scene capabilities are probed lazily: the inventory never reads packed
+    // payloads, so the selected wallpaper asks the probe route.
+    expect(entry?.sceneUrl).toBe(null)
+    const probe = await call('GET', WE_API_PREFIX + '/scene-probe?id=666')
+    expect(probe.status).toBe(200)
+    expect(probe.body.ok).toBe(true)
+    expect(probe.body.videoUrl).toBe(null)
+    expect(String(probe.body.sceneUrl)).toContain(WE_API_PREFIX + '/scene-runtime/')
 
     // Scene runtime HTML
-    const runtimeRes = await call('GET', String(entry?.sceneUrl))
+    const runtimeRes = await call('GET', String(probe.body.sceneUrl))
     expect(runtimeRes.status).toBe(200)
     expect(String(runtimeRes.headers['content-type'])).toContain('text/html')
     expect(runtimeRes.raw).toContain('<canvas id="canvas"></canvas>')
 
     // Scene manifest JSON
-    const token = String(entry?.sceneUrl).split('/').pop()
+    const token = String(probe.body.sceneUrl).split('/').pop()
     const manifestRes = await call('GET', WE_API_PREFIX + '/scene-manifest/' + token)
     expect(manifestRes.status).toBe(200)
     expect(manifestRes.body.ok).toBe(true)

@@ -261,6 +261,13 @@ export class WallpaperController implements WallpaperHandle {
   /** Shell surfaces tagged with data-dsh-wallpaper-surface during this mount. */
   private taggedSurfaces: HTMLElement[] = []
   private disposed = false
+  /** In-flight scene probes by wallpaper id; overlapping entry points
+   *  (applySelection / tryOn / sync / fetchAndSync) must not re-read the
+   *  same packed scene concurrently. */
+  private probePending = new Map<string, Promise<void>>()
+  /** Detached frame-capture video; released on error/abort/loadeddata and on
+   *  teardown so it never keeps buffering the source file. */
+  private captureVideo: HTMLVideoElement | null = null
 
   constructor(scope: SettingsScope<WallpaperSection>, options: WallpaperControllerOptions = {}) {
     this.scope = scope
@@ -307,12 +314,75 @@ export class WallpaperController implements WallpaperHandle {
             this.applied = item
             this.render()
             this.publish()
+            this.probeSceneCapabilitiesIfNeeded(item)
           }
         }
       })
       .catch(() => {
         // Fail-silent on network errors
       })
+  }
+
+  /**
+   * Lazily probe a scene's video/WebGL capabilities: the inventory never
+   * reads packed scene payloads, so only the wallpaper the user actually
+   * selects (apply, try-on or boot sync) asks the probe route. The response
+   * is merged into every slot (previewing and applied) that holds the id.
+   */
+  private probeSceneCapabilitiesIfNeeded(descriptor: WallpaperDescriptor): void {
+    if (this.disposed || descriptor.type !== 'scene' || descriptor.videoUrl !== null || descriptor.sceneUrl != null) return
+    const targetId = descriptor.id
+    if (this.probePending.has(targetId)) return
+    const fetchFn = this.options.fetchImpl ?? (typeof fetch !== 'undefined' ? fetch.bind(this.doc.defaultView ?? globalThis) : undefined)
+    if (!fetchFn) return
+    const apiBase = this.options.apiBase ?? '/api/skin-center/we'
+    const pending = fetchFn(apiBase + '/scene-probe?id=' + encodeURIComponent(targetId))
+      .then(async (response) => {
+        if (this.disposed || !response.ok) return
+        const payload = (await response.json().catch(() => null)) as {
+          ok?: boolean
+          videoUrl?: string | null
+          sceneUrl?: string | null
+        } | null
+        if (!payload || payload.ok !== true) return
+        // Merge the capabilities into every slot holding the id: a probe
+        // issued by try-on may land while sync/apply has already installed
+        // the same wallpaper as applied, and exiting the try-on must not
+        // fall back to a static frame without capabilities.
+        let changed = false
+        if (this.previewing?.id === targetId) {
+          const merged: WallpaperDescriptor = {
+            ...this.previewing,
+            videoUrl: payload.videoUrl ?? this.previewing.videoUrl,
+            sceneUrl: payload.sceneUrl ?? this.previewing.sceneUrl,
+          }
+          if (merged.videoUrl !== this.previewing.videoUrl || merged.sceneUrl !== this.previewing.sceneUrl) {
+            this.previewing = merged
+            changed = true
+          }
+        }
+        if (this.applied?.id === targetId) {
+          const merged: WallpaperDescriptor = {
+            ...this.applied,
+            videoUrl: payload.videoUrl ?? this.applied.videoUrl,
+            sceneUrl: payload.sceneUrl ?? this.applied.sceneUrl,
+          }
+          if (merged.videoUrl !== this.applied.videoUrl || merged.sceneUrl !== this.applied.sceneUrl) {
+            this.applied = merged
+            changed = true
+          }
+        }
+        if (!changed) return
+        this.render()
+        this.publish()
+      })
+      .catch(() => {
+        // Fail-silent on network errors
+      })
+      .finally(() => {
+        this.probePending.delete(targetId)
+      })
+    this.probePending.set(targetId, pending)
   }
 
   enabled = (): boolean => this.enabledValue
@@ -415,6 +485,7 @@ export class WallpaperController implements WallpaperHandle {
     this.render()
     this.publish()
     void this.scope.set('selection', descriptor.id)
+    this.probeSceneCapabilitiesIfNeeded(descriptor)
   }
 
   clearSelection(): void {
@@ -429,12 +500,14 @@ export class WallpaperController implements WallpaperHandle {
   sync(descriptor: WallpaperDescriptor | null): void {
     this.applied = descriptor
     this.render()
+    if (descriptor !== null) this.probeSceneCapabilitiesIfNeeded(descriptor)
   }
 
   tryOn(descriptor: WallpaperDescriptor): void {
     this.previewing = descriptor
     this.render()
     this.publish()
+    this.probeSceneCapabilitiesIfNeeded(descriptor)
   }
 
   exitTryOn(): void {
@@ -578,9 +651,17 @@ export class WallpaperController implements WallpaperHandle {
       styleLayer(this.scrimLayer, -2)
       this.doc.body.appendChild(this.scrimLayer)
     }
+    // Capabilities (videoUrl/sceneUrl) participate in the key: the lazy
+    // scene probe merges them into the same descriptor id after the first
+    // render, and the static frame must be rebuilt as live media.
     const mediaKey = descriptor.id + ':' + this.modeValue
+      + ':' + (descriptor.videoUrl ?? '') + ':' + (descriptor.sceneUrl ?? '')
     if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
       this.mediaLayer.dataset.mediaKey = mediaKey
+      // A media transition (frame->live, mode switch) abandons the current
+      // capture: release its src before replacing, otherwise the detached
+      // video keeps buffering until teardown or the next capture.
+      this.releaseCaptureVideo()
       this.mediaLayer.replaceChildren()
       this.videoElement = null
       const child = this.buildMedia(descriptor)
@@ -722,6 +803,17 @@ export class WallpaperController implements WallpaperHandle {
     video.playsInline = true
     video.preload = 'auto'
     video.src = url
+    // The capture video is owned by the controller: it is released on
+    // error/abort, on a successful capture, and on teardown, so a decode
+    // failure or an early mode switch cannot leave it buffering detached.
+    this.releaseCaptureVideo()
+    this.captureVideo = video
+    const release = (): void => {
+      video.removeAttribute('src')
+      video.load()
+    }
+    video.addEventListener('error', release, { once: true })
+    video.addEventListener('abort', release, { once: true })
     video.addEventListener('loadeddata', () => {
       try {
         const scale = Math.min(1, FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight))
@@ -729,18 +821,27 @@ export class WallpaperController implements WallpaperHandle {
         canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
         canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
         const context = canvas.getContext('2d')
-        if (context === null) return
-        context.drawImage(video, 0, 0, canvas.width, canvas.height)
-        image.src = canvas.toDataURL('image/jpeg', 0.85)
-        // Stop buffering: the capture is done, the hidden video must not
-        // keep streaming the file.
-        video.removeAttribute('src')
-        video.load()
+        if (context !== null) {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height)
+          image.src = canvas.toDataURL('image/jpeg', 0.85)
+        }
       } catch {
         // Capture failed (codec/format): the preview image stays.
+      } finally {
+        // Stop buffering whether the capture succeeded or not (a missing 2d
+        // context or a decode failure must not leave the hidden video
+        // streaming the file).
+        release()
       }
     }, { once: true })
     return image
+  }
+
+  private releaseCaptureVideo(): void {
+    if (this.captureVideo === null) return
+    this.captureVideo.removeAttribute('src')
+    this.captureVideo.load()
+    this.captureVideo = null
   }
 
   private buildImage(url: string | null, fallbackUrl: string | null = null): HTMLElement | null {
@@ -805,6 +906,7 @@ export class WallpaperController implements WallpaperHandle {
   }
 
   private teardownLayers(): void {
+    this.releaseCaptureVideo()
     this.untagSurfaces()
     delete this.doc.body.dataset.dshWallpaperActive
     delete this.doc.documentElement.dataset.dshWallpaperActive
