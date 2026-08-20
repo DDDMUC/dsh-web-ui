@@ -395,17 +395,46 @@ describe('WallpaperController', () => {
     expect(document.documentElement.dataset.dshWallpaperActive).toBeUndefined()
   })
 
-  it('removes the composer seat mask while a wallpaper is mounted (#734)', () => {
+  it('reports the unified backdrop-active marker and installs the shared composer-seat neutralizer (#777)', async () => {
     const { scope } = fakeScope()
     const controller = new WallpaperController(scope)
+    expect(document.body.hasAttribute('data-dsh-backdrop-active')).toBe(false)
     controller.applySelection(video)
-    const style = document.head.querySelector('style[data-dsh-wallpaper-root]')
-    expect(style?.textContent).toContain('html[data-dsh-wallpaper-active] [data-composer-seat]')
-    expect(style?.textContent).toContain('background: none !important;')
-    // The rule exists only while a wallpaper is mounted: teardown removes it.
+    expect(document.body.getAttribute('data-dsh-backdrop-active')).toBe('true')
+    expect(document.documentElement.getAttribute('data-dsh-backdrop-active')).toBe('true')
+    const neutralizer = document.head.querySelector('style[data-dsh-scene-neutralizer]')
+    expect(neutralizer).not.toBeNull()
+    // The official seat mask ::before stays neutralized.
+    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat]::before')
+    expect(neutralizer?.textContent).toContain('background: none !important;')
+    // The input card only gets frosted blur while the conversation has
+    // content (data-dsh-conversation-content); its own translucent tint
+    // keeps readability instead of a hardcoded color.
+    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card]')
+    expect(neutralizer?.textContent).toContain('backdrop-filter: blur(10px) !important;')
+    // Empty conversation: the content marker is absent, so the frost is off.
+    expect(document.body.hasAttribute('data-dsh-conversation-content')).toBe(false)
+    // Adding a message row flips the marker on (observer-driven).
+    const row = document.createElement('div')
+    row.setAttribute('data-chat-anchor-key', '')
+    document.body.appendChild(row)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(document.body.getAttribute('data-dsh-conversation-content')).toBe('true')
+    expect(document.documentElement.getAttribute('data-dsh-conversation-content')).toBe('true')
+    // Removing the row flips it back off.
+    row.remove()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(document.body.hasAttribute('data-dsh-conversation-content')).toBe(false)
+    // The wallpaper-specific neutralizer also owns the composer seat rule as
+    // hardening: some skins (summer-liquid-glass) paint a frosted ::before on
+    // the seat that would blur the wallpaper if the shared marker were absent.
+    const root = document.head.querySelector('style[data-dsh-wallpaper-root]')
+    expect(root?.textContent).toContain('html[data-dsh-wallpaper-active] [data-composer-seat]::before')
+    expect(root?.textContent).toContain('backdrop-filter: none !important;')
+    // Teardown clears the shared marker; the shared neutralizer style stays inert.
     controller.clearSelection()
-    expect(document.head.querySelector('style[data-dsh-wallpaper-root]')).toBeNull()
-    expect(document.documentElement.dataset.dshWallpaperActive).toBeUndefined()
+    expect(document.body.hasAttribute('data-dsh-backdrop-active')).toBe(false)
+    expect(document.documentElement.hasAttribute('data-dsh-backdrop-active')).toBe(false)
     controller.dispose()
   })
 

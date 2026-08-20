@@ -6,6 +6,134 @@ window.__ModuleLoader__.load({
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		let react = require("react");
 		let react_jsx_runtime = require("react/jsx-runtime");
+		//#region src/client/runtime/backdrop-scene.ts
+		/**
+		* Unified "backdrop visible" scene marker (issue #777).
+		*
+		* A skin with painted background media or a mounted Wallpaper Engine
+		* wallpaper both put real backdrop art behind the app. The two runtime
+		* controllers (skin-controller and wallpaper) report their mount state
+		* through setSceneBackdropActive(); this module folds them into ONE body /
+		* html marker `data-dsh-backdrop-active` and installs the shared composer
+		* seat neutralizer that keys on it.
+		*
+		* The composer seat paints an opaque base fade under the input card (rc.8: a
+		* linear gradient to --dsw-alias-bg-base, z-index 7; some builds additionally
+		* use a ::before with backdrop-filter). While ANY backdrop art is visible the
+		* fade would hide it behind the input area, so the official mask is
+		* neutralized uniformly for skins and wallpapers alike (issue #747 direction).
+		*
+		* Readability after the mask is gone comes from the input card itself
+		* ([data-composer-card], the official shell's stable card anchor): the card
+		* keeps its own translucent tint (--dsw-specific-* tokens, not a hardcoded
+		* opacity) and gains a fixed backdrop blur (INPUT_FROST_BLUR_PX). The blur
+		* occludes the backdrop art and any message content scrolling under the
+		* input, so typed text never overlaps — a frosted pane instead of the older
+		* flat mask. The frost is only enabled while the conversation actually has
+		* message content (data-dsh-conversation-content): an empty conversation has
+		* no正文 to occlude, so the input card keeps only its own translucent tint
+		* and does not flash an extra blur patch (issue #777 follow-up).
+		* The strength is a baked constant (not a slider) until the unified
+		* dialog-blur control lands.
+		*
+		* The marker is body/html level (managed outside the surface/part/plugin
+		* enum, see contracts/semantic-attrs-v1.md) and survives a neutralizer
+		* teardown; the style is inert whenever the marker is absent.
+		* @module @linxin666/dsh-client-ui-skin-center/runtime/backdrop-scene
+		*/
+		/** Shared marker: set on html + body while a source reports backdrop art. */
+		const BACKDROP_ACTIVE_ATTR = "data-dsh-backdrop-active";
+		/** The shared composer-seat neutralizer style's own attribute. */
+		const SCENE_NEUTRALIZER_ATTR = "data-dsh-scene-neutralizer";
+		/** Conversation-content marker: set while the active conversation has rows. */
+		const CONVERSATION_CONTENT_ATTR = "data-dsh-conversation-content";
+		const sourceSets = /* @__PURE__ */ new WeakMap();
+		const contentObservers = /* @__PURE__ */ new WeakMap();
+		/**
+		* Report one source's backdrop-art presence. The marker stays on while any
+		* source is active, so the skin and wallpaper controllers never clobber each
+		* other across their mount/unmount cycles.
+		*/
+		function setSceneBackdropActive(doc, source, active) {
+			let sources = sourceSets.get(doc);
+			if (sources === void 0) {
+				sources = /* @__PURE__ */ new Set();
+				sourceSets.set(doc, sources);
+			}
+			if (active) sources.add(source);
+			else sources.delete(source);
+			syncMarker(doc, sources);
+		}
+		/** Reflect the source set onto html/body and ensure the neutralizer on use. */
+		function syncMarker(doc, sources) {
+			if (sources.size > 0) {
+				doc.body?.setAttribute(BACKDROP_ACTIVE_ATTR, "true");
+				doc.documentElement?.setAttribute(BACKDROP_ACTIVE_ATTR, "true");
+				ensureSceneNeutralizer(doc);
+				startContentObserver(doc);
+			} else {
+				doc.body?.removeAttribute(BACKDROP_ACTIVE_ATTR);
+				doc.documentElement?.removeAttribute(BACKDROP_ACTIVE_ATTR);
+				stopContentObserver(doc);
+			}
+		}
+		/** Track whether the active conversation has message rows for the frost gate. */
+		function updateConversationContent(doc) {
+			if (doc.body !== null && doc.body.querySelector("[data-chat-anchor-key]") !== null) {
+				doc.body?.setAttribute(CONVERSATION_CONTENT_ATTR, "true");
+				doc.documentElement?.setAttribute(CONVERSATION_CONTENT_ATTR, "true");
+			} else {
+				doc.body?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+				doc.documentElement?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+			}
+		}
+		/** Observe the conversation tree while a backdrop is visible. */
+		function startContentObserver(doc) {
+			if (contentObservers.has(doc)) return;
+			updateConversationContent(doc);
+			const win = doc.defaultView;
+			if (win === null || typeof win.MutationObserver !== "function") return;
+			const observer = new win.MutationObserver(() => updateConversationContent(doc));
+			observer.observe(doc.body ?? doc.documentElement, {
+				childList: true,
+				subtree: true
+			});
+			contentObservers.set(doc, observer);
+		}
+		/** Stop the content observer and drop the content marker. */
+		function stopContentObserver(doc) {
+			const observer = contentObservers.get(doc);
+			if (observer !== void 0) {
+				observer.disconnect();
+				contentObservers.delete(doc);
+			}
+			doc.body?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+			doc.documentElement?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+		}
+		/**
+		* Install the shared composer-seat neutralizer, keyed by head presence so a
+		* cleared head (tests) or a re-mount re-creates it. Without the marker the
+		* rules are inert, so the style can outlive a single mount without changing
+		* any other look.
+		*/
+		function ensureSceneNeutralizer(doc) {
+			if (doc.head === null) return;
+			if (doc.head.querySelector(`style[data-dsh-scene-neutralizer]`) !== null) return;
+			const style = doc.createElement("style");
+			style.setAttribute(SCENE_NEUTRALIZER_ATTR, "");
+			style.textContent = `
+    html[data-dsh-backdrop-active] [data-composer-seat]::before {
+      background: none !important;
+      backdrop-filter: none !important;
+    }
+    html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card] {
+      backdrop-filter: blur(10px) !important;
+      -webkit-backdrop-filter: blur(10px) !important;
+    }
+  `;
+			doc.head.appendChild(style);
+		}
+		//#endregion
 		//#region src/client/wallpaper.ts
 		/** The namespace string the Host registers (mirrors src/index.ts). */
 		const SKIN_WALLPAPER_NS = "skin-wallpaper";
@@ -341,13 +469,11 @@ window.__ModuleLoader__.load({
           background-color: transparent !important;
           background-image: none !important;
         }
-        /* The composer seat paints an opaque base fade under the input card
-           (rc.8: a linear gradient to --dsw-alias-bg-base, z-index 7; some
-           builds additionally use a ::before with backdrop-filter). Remove it
-           while the WE wallpaper is mounted so the backdrop shows behind the
-           input area (issue #734). It is anchored on the stable semantic
-           attribute data-composer-seat that the official shell outputs, so it
-           does not depend on hashed class names. */
+        /* Some skins (e.g. summer-liquid-glass) paint a frosted ::before on
+           the composer seat that backdrop-blurs the area behind the input.
+           While a WE wallpaper is mounted the wallpaper must stay sharp under
+           its own blur control, so neutralize the seat pseudo independently
+           of the shared scene marker (issue #777 / summer-liquid-glass). */
         html[data-dsh-wallpaper-active] [data-composer-seat],
         html[data-dsh-wallpaper-active] [data-composer-seat]::before {
           background: none !important;
@@ -368,6 +494,7 @@ window.__ModuleLoader__.load({
 				}
 				this.doc.body.dataset.dshWallpaperActive = "true";
 				this.doc.documentElement.dataset.dshWallpaperActive = "true";
+				setSceneBackdropActive(this.doc, "wallpaper", true);
 				this.markSurfaces();
 				if (this.mediaLayer === null) {
 					this.mediaLayer = this.doc.createElement("div");
@@ -385,7 +512,10 @@ window.__ModuleLoader__.load({
 					this.mediaLayer.replaceChildren();
 					this.videoElement = null;
 					const child = this.buildMedia(descriptor);
-					if (child !== null) this.mediaLayer.appendChild(child);
+					if (child !== null) {
+						this.mediaLayer.appendChild(child);
+						if (child instanceof HTMLVideoElement && child.paused) child.play()?.catch(() => {});
+					}
 				}
 				this.applyFit();
 				const blur = this.blurValue > 0 ? "blur(" + String(this.blurValue) + "px)" : "";
@@ -460,6 +590,7 @@ window.__ModuleLoader__.load({
 				video.loop = true;
 				video.autoplay = true;
 				video.playsInline = true;
+				video.preload = "auto";
 				video.setAttribute("aria-hidden", "true");
 				styleCover(video, this.fitValue);
 				this.videoElement = video;
@@ -555,6 +686,7 @@ window.__ModuleLoader__.load({
 				this.untagSurfaces();
 				delete this.doc.body.dataset.dshWallpaperActive;
 				delete this.doc.documentElement.dataset.dshWallpaperActive;
+				setSceneBackdropActive(this.doc, "wallpaper", false);
 				if (this.rootNeutralizer !== null) {
 					this.rootNeutralizer.remove();
 					this.rootNeutralizer = null;
@@ -1769,6 +1901,10 @@ window.__ModuleLoader__.load({
 			*/
 			syncBlur() {
 				if (this.disposed) return;
+				if (this.hasWallpaper()) {
+					this.removeBlurElement();
+					return;
+				}
 				if (!this.enabledValue) {
 					this.removeBlurElement();
 					return;
@@ -1781,6 +1917,10 @@ window.__ModuleLoader__.load({
 			/** True when the conversation pane hosts at least one message row. */
 			hasConversationContent() {
 				return document.querySelector(CONVERSATION_CONTENT_SELECTOR) !== null;
+			}
+			/** True while a Wallpaper Engine wallpaper is mounted. */
+			hasWallpaper() {
+				return document.documentElement.hasAttribute("data-dsh-wallpaper-active");
 			}
 			/** Create (if needed) and size the fixed backdrop-filter element. */
 			ensureBlurElement(active) {
@@ -1818,6 +1958,10 @@ window.__ModuleLoader__.load({
 					subtree: true,
 					attributes: true,
 					attributeFilter: ["class"]
+				});
+				this.observer.observe(document.documentElement, {
+					attributes: true,
+					attributeFilter: ["data-dsh-wallpaper-active"]
 				});
 			}
 			/** Coalesce burst mutations into one rAF-delayed recheck. */
@@ -2293,6 +2437,44 @@ window.__ModuleLoader__.load({
 				foreground: ensureOne(doc, "foreground")
 			};
 		}
+		/** Remove every node an activation left in a layer (used on dispose). */
+		function clearLayer(layer) {
+			while (layer.firstChild) layer.removeChild(layer.firstChild);
+		}
+		/**
+		* Build the background media element for a manifest backgroundMedia layer.
+		* Returns null when the theme variant has no media. The element fills the
+		* background layer; the scrim (when declared) is a sibling overlay.
+		*/
+		function buildBackgroundMedia(doc, layer, assetBase) {
+			const nodes = [];
+			const fullBleed = "position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:cover;";
+			if (layer.type === "image") {
+				const img = doc.createElement("img");
+				img.src = `${assetBase}/${layer.src}`;
+				img.alt = "";
+				img.setAttribute("aria-hidden", "true");
+				img.style.cssText = fullBleed;
+				nodes.push(img);
+			} else {
+				const video = doc.createElement("video");
+				video.src = `${assetBase}/${layer.src}`;
+				video.muted = true;
+				video.loop = true;
+				video.autoplay = true;
+				video.playsInline = true;
+				video.setAttribute("aria-hidden", "true");
+				video.style.cssText = fullBleed;
+				nodes.push(video);
+			}
+			if (layer.scrim) {
+				const scrim = doc.createElement("div");
+				scrim.setAttribute("aria-hidden", "true");
+				scrim.style.cssText = `position:absolute;inset:0;background:${layer.scrim};`;
+				nodes.push(scrim);
+			}
+			return nodes;
+		}
 		//#endregion
 		//#region src/client/runtime/skin-controller.ts
 		function createSkinController(deps) {
@@ -2372,61 +2554,69 @@ window.__ModuleLoader__.load({
 				const link = doc.head.querySelector(`link[href="${href}"]`);
 				ledger.record(activation, `style:${label}`, () => link?.remove());
 			}
-			const BODY_BG_PROPS = [
-				"background-image",
-				"background-position",
-				"background-size",
-				"background-attachment",
-				"background-repeat"
-			];
 			/**
-			* Write the skin background onto document.body with a snapshot for the
-			* activation ledger. Only the CURRENT activation may restore: when an
-			* older activation is disposed after a newer one already re-painted the
-			* body, restoring its snapshot would clobber the newer paint (the same
-			* value is written by both, so value comparison cannot arbitrate).
+			* Paint the skin background art into the `background` decoration layer
+			* (z-index:-2) with a snapshot for the activation ledger. Only the CURRENT
+			* activation may restore: when an older activation is disposed after a
+			* newer one already re-painted the layer, restoring its snapshot would
+			* clobber the newer paint.
+			*
+			* Two reasons the art lives in the layer, not on `document.body`:
+			*  - Chromium's backdrop-filter does not sample the canvas/body background,
+			*    so the skin-center blur layer (z-index:-1) could never blur body-painted
+			*    art (issue #732 defect A). A real fixed element IS sampled, so after
+			*    this change the same blur + scrim controls work on the skin backdrop
+			*    just like they already do on the Wallpaper Engine layers (issue #777).
+			*  - dragon-heir hooks expect the art in ctx.layers.background (they swap
+			*    the painted img and apply the v1 filter lift); the layer is the v2
+			*    contract and body painting was a leftover half-migration.
+			* The body's own opaque background is forced transparent while art is
+			* mounted, or the shell's static panels would cover the negative-z layer.
 			*/
-			function setBodyBackground(activation, values) {
+			function setBackgroundLayer(activation, nodes) {
 				const style = doc.body.style;
-				const previous = /* @__PURE__ */ new Map();
+				const previousBackgroundColor = style.getPropertyValue("background-color");
+				const previousScrim = style.getPropertyValue("--dsh-skin-scrim");
 				const restore = () => {
 					if (currentActivation !== activation) return;
-					for (const [prop, value] of previous) if (value === "") style.removeProperty(prop);
-					else style.setProperty(prop, value);
+					clearLayer(layers.background);
+					setSceneBackdropActive(doc, "skin", false);
+					if (previousScrim === "") style.removeProperty("--dsh-skin-scrim");
+					else style.setProperty("--dsh-skin-scrim", previousScrim);
+					if (previousBackgroundColor === "") style.removeProperty("background-color");
+					else style.setProperty("background-color", previousBackgroundColor);
 				};
-				for (const prop of BODY_BG_PROPS) {
-					previous.set(prop, style.getPropertyValue(prop));
-					const value = values?.[prop] ?? "";
-					if (value === "") style.removeProperty(prop);
-					else style.setProperty(prop, value);
+				clearLayer(layers.background);
+				if (nodes.length > 0) {
+					for (const node of nodes) layers.background.appendChild(node);
+					style.setProperty("background-color", "transparent");
+					style.setProperty("--dsh-skin-scrim", "1");
+					setSceneBackdropActive(doc, "skin", true);
+				} else {
+					setSceneBackdropActive(doc, "skin", false);
+					style.setProperty("--dsh-skin-scrim", "0");
+					if (previousBackgroundColor === "") style.removeProperty("background-color");
+					else style.setProperty("background-color", previousBackgroundColor);
 				}
-				previous.set("--dsh-skin-scrim", style.getPropertyValue("--dsh-skin-scrim"));
-				style.setProperty("--dsh-skin-scrim", values === null ? "0" : "1");
-				ledger.record(activation, "background:body", restore);
+				ledger.record(activation, "background:layer", restore);
 			}
 			function installBackground(activation, entry) {
 				const media = entry.manifest.contributes.backgroundMedia;
 				if (!media) {
-					setBodyBackground(activation, null);
+					setBackgroundLayer(activation, []);
 					return;
 				}
 				if (deps.suppressBackgroundMedia?.() === true) {
-					setBodyBackground(activation, null);
+					setBackgroundLayer(activation, []);
 					return;
 				}
 				const variant = themeGet() === "dark" ? media.dark ?? media.light : media.light ?? media.dark;
 				if (!variant) {
-					setBodyBackground(activation, null);
+					setBackgroundLayer(activation, []);
 					return;
 				}
-				const image = `url(${`${apiBase}/skins/${entry.manifest.id}`}/${variant.src})`;
-				setBodyBackground(activation, {
-					"background-image": variant.scrim ? `${variant.scrim}, ${image}` : image,
-					"background-position": "center",
-					"background-size": "cover",
-					"background-attachment": "fixed",
-					"background-repeat": "no-repeat"
-				});
+				const assetBase = `${apiBase}/skins/${entry.manifest.id}`;
+				setBackgroundLayer(activation, buildBackgroundMedia(doc, variant, assetBase));
 			}
 			async function installHooks(activation, entry) {
 				if (!entry.manifest.facets?.client) return;
@@ -2497,7 +2687,7 @@ window.__ModuleLoader__.load({
 						if (seq !== latestRequest) throw new StaleSwitch();
 						installBackground(activation, entry);
 						await installHooks(activation, entry);
-					} else setBodyBackground(activation, null);
+					} else setBackgroundLayer(activation, []);
 					if (seq !== latestRequest) throw new StaleSwitch();
 					if (id === null) doc.documentElement.removeAttribute("data-dsh-skin");
 					else doc.documentElement.setAttribute("data-dsh-skin", id);
