@@ -34,11 +34,18 @@
 
 ## 最新代码确认（Latest Codebase Confirmation）
 
-- [ ] 我已基于最新 `main` 分支开发，或在提交前已 rebase / 合并最新 `main`。
+- [ ] 我已基于最新 `dev` 分支开发，或在提交前已 rebase / 合并最新 `dev`。
 
 同步命令：
 
-<!-- 示例：git fetch origin && git rebase origin/main -->
+<!-- 示例：git fetch origin && git rebase origin/dev -->
+
+## 测试证据与上游同步（Test Evidence & Upstream Sync）
+
+<!-- 必填。缺少下列任一证据（含同步 dev 最新代码后的测试截图）的 PR 不予接受。 -->
+
+- [ ] 我提供了自己本地测试的证据（执行的命令 / 测试结果 / 运行截图）。
+- [ ] 我已同步上游最新 `dev` 分支（`git fetch origin && git rebase origin/dev`），并附上同步后重新测试通过的截图。
 
 ## AI 编码披露（AI Coding Disclosure）
 
