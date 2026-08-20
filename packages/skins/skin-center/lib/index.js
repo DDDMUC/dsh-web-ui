@@ -1563,11 +1563,13 @@ function makeSkinIndexTap(deps) {
 /**
 * Legacy bridge (issue #506, migration path): ONE-SHOT, THIN. On the first
 * v2 boot it reads the retired dsh-skin machinery's state — the
-* "dsh-skin managed" section of the active profile's cordis.patch.yml —
-* migrates the active skin id into the v2 selection store
-* (skin-center-active.json), and strips the managed/legacy skin rows so the
-* config watcher's next reload boots without the old bundle. No old runtime
-* is kept: after the migration the managed section is gone for good.
+* "dsh-skin managed" section of the harness home cordis.patch.yml (where the
+* v1 CLI wrote it; issue #788) with the active profile's cordis.patch.yml
+* probed as a secondary location — migrates the active skin id into the v2
+* selection store (skin-center-active.json), and strips the managed/legacy
+* skin rows so the config watcher's next reload boots without the old
+* bundle. No old runtime is kept: after the migration the managed section
+* is gone for good.
 *
 * Reading the active id without the retired registry:
 *  1. an insert row naming a dsh-client-ui-skin-<id> package → that id;
@@ -1711,6 +1713,16 @@ function readLegacyActiveId(patch, knownIds) {
 	return candidates.length === 1 ? candidates[0] : null;
 }
 /**
+* Candidate patch paths, harness home first (issue #788): the v1 dsh-skin
+* CLI wrote its managed section into the home cordis.patch.yml, not the
+* active profile's. An explicit override (test seam) stays single-path.
+*/
+function candidatePatchPaths(options) {
+	if (options.patchPath !== void 0) return [options.patchPath];
+	const paths = resolveHarnessPaths();
+	return [paths.legacyPatchPath, paths.patchPath];
+}
+/**
 * Run the one-shot migration. Idempotent: once the v2 selection file exists
 * and the patch carries no managed section, this is a no-op. Never throws —
 * a failed migration leaves the legacy state untouched (the old mechanism
@@ -1721,40 +1733,47 @@ function migrateLegacySelection(options) {
 	const result = {
 		migrated: null,
 		patchCleaned: false,
+		failed: false,
 		notes
 	};
 	try {
-		const patchPath = options.patchPath ?? resolveHarnessPaths().patchPath;
-		let patch;
-		try {
-			patch = readFileSync(patchPath, "utf8");
-		} catch {
-			notes.push("no readable cordis.patch.yml; nothing to migrate");
-			return result;
+		let sawLegacyState = false;
+		let readablePatch = false;
+		let idMigrationDone = false;
+		for (const patchPath of candidatePatchPaths(options)) {
+			let patch;
+			try {
+				patch = readFileSync(patchPath, "utf8");
+				readablePatch = true;
+			} catch {
+				continue;
+			}
+			if (!(patch.includes("# --- dsh-skin managed (auto-generated; do not edit) ---") || /name:\s*['"]?@linxin666\/dsh-client-ui-skin-/.test(patch))) continue;
+			sawLegacyState = true;
+			if (!idMigrationDone) {
+				if (readActiveSelection(options.activeStatePath) !== null) notes.push("v2 selection already present; skipped id migration");
+				else {
+					const active = readLegacyActiveId(patch, options.knownIds);
+					if (active !== null) {
+						writeActiveSelection(options.activeStatePath, active);
+						result.migrated = active;
+						notes.push(`migrated active skin "${active}" to the v2 selection store`);
+					} else notes.push("legacy state resolves to the stock look; selection store left unset");
+				}
+				idMigrationDone = true;
+			}
+			let cleaned = stripLegacySkinState(patch);
+			if (cleaned.split(/\r?\n/).every((line) => line.trim() === "" || line.trimStart().startsWith("#"))) cleaned = "[]\n";
+			if (cleaned !== patch) {
+				(options.writePatch ?? writePatchAtomic)(patchPath, cleaned);
+				result.patchCleaned = true;
+				notes.push("stripped the legacy managed skin rows from cordis.patch.yml");
+			}
 		}
-		const hasLegacyState = patch.includes("# --- dsh-skin managed (auto-generated; do not edit) ---") || /name:\s*['"]?@linxin666\/dsh-client-ui-skin-/.test(patch);
-		const alreadyMigrated = readActiveSelection(options.activeStatePath) !== null;
-		if (!hasLegacyState) {
-			notes.push("no legacy managed skin state; nothing to migrate");
-			return result;
-		}
-		if (!alreadyMigrated) {
-			const active = readLegacyActiveId(patch, options.knownIds);
-			if (active !== null) {
-				writeActiveSelection(options.activeStatePath, active);
-				result.migrated = active;
-				notes.push(`migrated active skin "${active}" to the v2 selection store`);
-			} else notes.push("legacy state resolves to the stock look; selection store left unset");
-		} else notes.push("v2 selection already present; skipped id migration");
-		let cleaned = stripLegacySkinState(patch);
-		if (cleaned.split(/\r?\n/).every((line) => line.trim() === "" || line.trimStart().startsWith("#"))) cleaned = "[]\n";
-		if (cleaned !== patch) {
-			(options.writePatch ?? writePatchAtomic)(patchPath, cleaned);
-			result.patchCleaned = true;
-			notes.push("stripped the legacy managed skin rows from cordis.patch.yml");
-		}
+		if (!sawLegacyState) notes.push(readablePatch ? "no legacy managed skin state; nothing to migrate" : "no readable cordis.patch.yml; nothing to migrate");
 		return result;
 	} catch (error) {
+		result.failed = true;
 		notes.push(`legacy migration failed closed: ${error?.message ?? error}`);
 		return result;
 	}
@@ -7305,7 +7324,8 @@ function applyImpl(ctx) {
 			knownIds: loadSkinCatalog().skins.map((s) => s.manifest.id),
 			activeStatePath: statePath
 		});
-		for (const note of migration.notes) console.info(`[ui-skin-center] legacy bridge: ${note}`);
+		if (migration.failed) for (const note of migration.notes) console.error(`[ui-skin-center] legacy bridge: ${note}`);
+		else if (migration.migrated !== null || migration.patchCleaned) for (const note of migration.notes) console.info(`[ui-skin-center] legacy bridge: ${note}`);
 	} catch (error) {
 		console.error("[ui-skin-center] legacy bridge failed:", error);
 	}

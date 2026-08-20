@@ -192,12 +192,18 @@ function applyImpl(ctx: Context): void {
 
   // One-shot legacy bridge (issue #506): migrate the retired dsh-skin
   // managed-section selection into the v2 store and strip the legacy rows.
-  // Idempotent and fail-closed; notes go to the host log.
+  // Idempotent and fail-closed. Notes go to the host log only when the
+  // bridge migrated, cleaned, or failed — the nothing-to-migrate steady
+  // state stays silent instead of logging on every boot (issue #788).
   try {
     const statePath = defaultActiveStatePath()
     const knownIds = loadSkinCatalog().skins.map((s) => s.manifest.id)
     const migration = migrateLegacySelection({ knownIds, activeStatePath: statePath })
-    for (const note of migration.notes) console.info(`[ui-skin-center] legacy bridge: ${note}`)
+    if (migration.failed) {
+      for (const note of migration.notes) console.error(`[ui-skin-center] legacy bridge: ${note}`)
+    } else if (migration.migrated !== null || migration.patchCleaned) {
+      for (const note of migration.notes) console.info(`[ui-skin-center] legacy bridge: ${note}`)
+    }
   } catch (error) {
     console.error('[ui-skin-center] legacy bridge failed:', error)
   }

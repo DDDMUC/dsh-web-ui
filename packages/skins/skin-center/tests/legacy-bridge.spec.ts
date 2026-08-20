@@ -226,3 +226,78 @@ describe('migrateLegacySelection', () => {
     expect(readActiveSelection(statePath)).toBeNull()
   })
 })
+
+
+describe('migrateLegacySelection home/profile patch probing (issue #788)', () => {
+  let home: string
+  let savedHome: string | undefined
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'legacy-bridge-home-'))
+    savedHome = process.env.DSH_HOME
+    process.env.DSH_HOME = home
+  })
+
+  afterEach(() => {
+    if (savedHome === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = savedHome
+    rmSync(home, { recursive: true, force: true })
+  })
+
+  const homePatch = () => join(home, 'cordis.patch.yml')
+  const profilePatch = () => join(home, 'profiles', 'web', 'cordis.patch.yml')
+
+  it('migrates legacy state from the home patch when the profile patch does not exist', () => {
+    writeFileSync(homePatch(), INSERT_PATCH)
+    const result = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath })
+    expect(result.migrated).toBe('xp')
+    expect(result.patchCleaned).toBe(true)
+    expect(result.failed).toBe(false)
+    expect(readActiveSelection(statePath)).toBe('xp')
+    expect(readFileSync(homePatch(), 'utf8')).not.toContain('dsh-skin managed')
+  })
+
+  it('still migrates from the profile patch when the home patch is clean', () => {
+    writeFileSync(homePatch(), '- insert: []\n')
+    mkdirSync(join(home, 'profiles', 'web'), { recursive: true })
+    writeFileSync(profilePatch(), WIRED_PATCH)
+    const result = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath })
+    expect(result.migrated).toBe('harbor')
+    expect(result.patchCleaned).toBe(true)
+    expect(readFileSync(profilePatch(), 'utf8')).not.toContain(MANAGED_START)
+    expect(readFileSync(homePatch(), 'utf8')).toBe('- insert: []\n')
+  })
+
+  it('migrates once and cleans both files when both carry legacy state', () => {
+    writeFileSync(homePatch(), INSERT_PATCH)
+    mkdirSync(join(home, 'profiles', 'web'), { recursive: true })
+    writeFileSync(profilePatch(), WIRED_PATCH)
+    const result = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath })
+    expect(result.migrated).toBe('xp')
+    expect(result.patchCleaned).toBe(true)
+    expect(readActiveSelection(statePath)).toBe('xp')
+    expect(readFileSync(homePatch(), 'utf8')).not.toContain(MANAGED_START)
+    expect(readFileSync(profilePatch(), 'utf8')).not.toContain(MANAGED_START)
+  })
+
+  it('reports nothing to migrate when neither patch carries legacy state', () => {
+    writeFileSync(homePatch(), '- insert: []\n')
+    mkdirSync(join(home, 'profiles', 'web'), { recursive: true })
+    writeFileSync(profilePatch(), '- insert: []\n')
+    const result = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath })
+    expect(result.migrated).toBeNull()
+    expect(result.patchCleaned).toBe(false)
+    expect(result.failed).toBe(false)
+    expect(result.notes.join(' ')).toContain('nothing to migrate')
+  })
+
+  it('fails closed and leaves the home patch untouched on an unterminated section', () => {
+    writeFileSync(homePatch(), MANAGED_START + '\n- id: ui-skin-xp\n')
+    const result = migrateLegacySelection({ knownIds: KNOWN, activeStatePath: statePath })
+    expect(result.failed).toBe(true)
+    expect(result.migrated).toBeNull()
+    expect(result.patchCleaned).toBe(false)
+    expect(result.notes.join(' ')).toContain('failed closed')
+    expect(readFileSync(homePatch(), 'utf8')).toContain(MANAGED_START)
+  })
+})

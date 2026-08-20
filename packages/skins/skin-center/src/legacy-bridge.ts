@@ -1,11 +1,13 @@
 /**
  * Legacy bridge (issue #506, migration path): ONE-SHOT, THIN. On the first
  * v2 boot it reads the retired dsh-skin machinery's state — the
- * "dsh-skin managed" section of the active profile's cordis.patch.yml —
- * migrates the active skin id into the v2 selection store
- * (skin-center-active.json), and strips the managed/legacy skin rows so the
- * config watcher's next reload boots without the old bundle. No old runtime
- * is kept: after the migration the managed section is gone for good.
+ * "dsh-skin managed" section of the harness home cordis.patch.yml (where the
+ * v1 CLI wrote it; issue #788) with the active profile's cordis.patch.yml
+ * probed as a secondary location — migrates the active skin id into the v2
+ * selection store (skin-center-active.json), and strips the managed/legacy
+ * skin rows so the config watcher's next reload boots without the old
+ * bundle. No old runtime is kept: after the migration the managed section
+ * is gone for good.
  *
  * Reading the active id without the retired registry:
  *  1. an insert row naming a dsh-client-ui-skin-<id> package → that id;
@@ -177,10 +179,23 @@ export function readLegacyActiveId(patch: string, knownIds: readonly string[]): 
 export interface LegacyMigrationResult {
   /** The migrated skin id, or null when there was nothing to migrate. */
   migrated: string | null
-  /** Whether the patch file was rewritten (legacy rows stripped). */
+  /** Whether a patch file was rewritten (legacy rows stripped). */
   patchCleaned: boolean
+  /** Whether the migration failed closed (old state untouched, error in notes). */
+  failed: boolean
   /** Human-readable notes for the host log. */
   notes: string[]
+}
+
+/**
+ * Candidate patch paths, harness home first (issue #788): the v1 dsh-skin
+ * CLI wrote its managed section into the home cordis.patch.yml, not the
+ * active profile's. An explicit override (test seam) stays single-path.
+ */
+function candidatePatchPaths(options: { patchPath?: string }): string[] {
+  if (options.patchPath !== undefined) return [options.patchPath]
+  const paths = resolveHarnessPaths()
+  return [paths.legacyPatchPath, paths.patchPath]
 }
 
 /**
@@ -196,53 +211,63 @@ export function migrateLegacySelection(options: {
   writePatch?: (path: string, next: string) => void
 }): LegacyMigrationResult {
   const notes: string[] = []
-  const result: LegacyMigrationResult = { migrated: null, patchCleaned: false, notes }
+  const result: LegacyMigrationResult = { migrated: null, patchCleaned: false, failed: false, notes }
   try {
-    const patchPath = options.patchPath ?? resolveHarnessPaths().patchPath
-    let patch: string
-    try {
-      patch = readFileSync(patchPath, 'utf8')
-    } catch {
-      notes.push('no readable cordis.patch.yml; nothing to migrate')
-      return result
-    }
-    const hasLegacyState = patch.includes(MANAGED_START)
-      || /name:\s*['"]?@linxin666\/dsh-client-ui-skin-/.test(patch)
-    const alreadyMigrated = readActiveSelection(options.activeStatePath) !== null
-
-    if (!hasLegacyState) {
-      notes.push('no legacy managed skin state; nothing to migrate')
-      return result
-    }
-
-    if (!alreadyMigrated) {
-      const active = readLegacyActiveId(patch, options.knownIds)
-      if (active !== null) {
-        writeActiveSelection(options.activeStatePath, active)
-        result.migrated = active
-        notes.push(`migrated active skin "${active}" to the v2 selection store`)
-      } else {
-        notes.push('legacy state resolves to the stock look; selection store left unset')
+    let sawLegacyState = false
+    let readablePatch = false
+    let idMigrationDone = false
+    for (const patchPath of candidatePatchPaths(options)) {
+      let patch: string
+      try {
+        patch = readFileSync(patchPath, 'utf8')
+        readablePatch = true
+      } catch {
+        // Unreadable path (never created): no legacy state there, keep probing.
+        continue
       }
-    } else {
-      notes.push('v2 selection already present; skipped id migration')
-    }
+      const hasLegacyState = patch.includes(MANAGED_START)
+        || /name:\s*['"]?@linxin666\/dsh-client-ui-skin-/.test(patch)
+      if (!hasLegacyState) continue
+      sawLegacyState = true
 
-    let cleaned = stripLegacySkinState(patch)
-    // A patch whose only content was the managed section would be left
-    // empty — and an empty cordis.patch.yml is not a valid patch list (the
-    // next boot fails on it). Normalize to the stock empty-sequence root.
-    const isCommentOnly = cleaned.split(/\r?\n/)
-      .every(line => line.trim() === '' || line.trimStart().startsWith('#'))
-    if (isCommentOnly) cleaned = '[]\n'
-    if (cleaned !== patch) {
-      const write = options.writePatch ?? writePatchAtomic
-      write(patchPath, cleaned)
-      result.patchCleaned = true
-      notes.push('stripped the legacy managed skin rows from cordis.patch.yml')
+      if (!idMigrationDone) {
+        if (readActiveSelection(options.activeStatePath) !== null) {
+          notes.push('v2 selection already present; skipped id migration')
+        } else {
+          const active = readLegacyActiveId(patch, options.knownIds)
+          if (active !== null) {
+            writeActiveSelection(options.activeStatePath, active)
+            result.migrated = active
+            notes.push(`migrated active skin "${active}" to the v2 selection store`)
+          } else {
+            notes.push('legacy state resolves to the stock look; selection store left unset')
+          }
+        }
+        idMigrationDone = true
+      }
+
+      let cleaned = stripLegacySkinState(patch)
+      // A patch whose only content was the managed section would be left
+      // empty — and an empty cordis.patch.yml is not a valid patch list (the
+      // next boot fails on it). Normalize to the stock empty-sequence root.
+      const isCommentOnly = cleaned.split(/\r?\n/)
+        .every(line => line.trim() === '' || line.trimStart().startsWith('#'))
+      if (isCommentOnly) cleaned = '[]\n'
+      if (cleaned !== patch) {
+        const write = options.writePatch ?? writePatchAtomic
+        write(patchPath, cleaned)
+        result.patchCleaned = true
+        notes.push('stripped the legacy managed skin rows from cordis.patch.yml')
+      }
+    }
+    if (!sawLegacyState) {
+      notes.push(readablePatch
+        ? 'no legacy managed skin state; nothing to migrate'
+        : 'no readable cordis.patch.yml; nothing to migrate')
     }
     return result
   } catch (error) {
+    result.failed = true
     notes.push(`legacy migration failed closed: ${(error as Error)?.message ?? error}`)
     return result
   }
