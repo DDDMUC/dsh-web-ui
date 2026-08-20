@@ -60,6 +60,7 @@ jobs:
 
             const prType = readSection('PR 类型（PR Type）');
             const latest = readSection('最新代码确认（Latest Codebase Confirmation）');
+            const evidenceRules = readSection('测试证据与上游同步（Test Evidence & Upstream Sync）');
             const validation = readSection('本地验证（Local Validation）');
             const evidence = readSection('用户可见变更证据（Local Feature Evidence）');
 
@@ -67,8 +68,8 @@ jobs:
             if (!hasAnyCheckedBox(prType)) {
               errors.push('请在 `PR 类型（PR Type）` 中至少勾选一项。');
             }
-            if (!hasCheckedLine(latest, '我已基于最新 `main` 分支开发，或在提交前已 rebase / 合并最新 `main`。')) {
-              errors.push('请在 `最新代码确认（Latest Codebase Confirmation）` 中确认本 PR 基于最新 `main`。');
+            if (!hasCheckedLine(latest, '我已基于最新 `dev` 分支开发，或在提交前已 rebase / 合并最新 `dev`。')) {
+              errors.push('请在 `最新代码确认（Latest Codebase Confirmation）` 中确认本 PR 基于最新 `dev` 分支。');
             }
             const validationCommands = readValidationPart(validation, '执行的命令', '结果摘要');
             const validationSummary = readValidationPart(validation, '结果摘要');
@@ -76,12 +77,20 @@ jobs:
               errors.push('请填写 `本地验证（Local Validation）` 中的执行的命令与结果摘要。');
             }
 
-            const userFacing = hasCheckedLine(prType, '面向用户的功能或行为变更');
-            // 仓库所有者自审的 PR 由发布构建与自动化套件把关，
-            // 截图/录屏证据门槛面向外部贡献者。
+            // 证据门槛面向外部贡献者：自测证据 + 同步上游最新 dev 分支后
+            // 重新测试通过的截图，缺一即拒绝；仓库所有者自审的 PR 由发布
+            // 构建与自动化套件把关。
             const isRepoOwner = pr.user.login === context.repo.owner;
-            if (userFacing && !isRepoOwner && !hasEvidence(evidence)) {
-              errors.push('面向用户的功能 PR 必须附带本地功能证据：截图、短视频、Markdown 图片或图片/视频链接。');
+            if (!isRepoOwner) {
+              if (!hasCheckedLine(evidenceRules, '我提供了自己本地测试的证据（执行的命令 / 测试结果 / 运行截图）。')) {
+                errors.push('请在 `测试证据与上游同步（Test Evidence & Upstream Sync）` 中勾选「我提供了自己本地测试的证据」。');
+              }
+              if (!hasCheckedLine(evidenceRules, '我已同步上游最新 `dev` 分支（`git fetch origin && git rebase origin/dev`），并附上同步后重新测试通过的截图。')) {
+                errors.push('请在 `测试证据与上游同步（Test Evidence & Upstream Sync）` 中勾选上游同步项，并附上同步 `dev` 最新代码后重新测试通过的截图。');
+              }
+              if (!hasEvidence(evidence)) {
+                errors.push('贡献者 PR 必须附带测试截图 / 视频证据：自测证据 + 同步上游最新 `dev` 分支后重新测试通过的截图。');
+              }
             }
 
             if (errors.length === 0) {
@@ -95,7 +104,7 @@ jobs:
               '',
               ...errors.map((error) => `- ${error}`),
               '',
-              '新增或变更的用户可见功能必须附带本地截图或短视频，展示插件从最新代码 / 本 PR head 加载，以及功能正常工作。',
+              '贡献者 PR 必须附带本地测试证据：自测截图 / 短视频 + 同步上游最新 dev 分支后重新测试通过的截图，展示插件从最新代码 / 本 PR head 加载，以及功能正常工作。',
             ].join('\n');
 
             if (context.payload.action !== 'synchronize') {

@@ -428,6 +428,7 @@ export function checkTemplate(prInfo, repoOwner) {
   const summary = readSection(body, `摘要（Summary）`)
   const prType = readSection(body, `PR 类型（PR Type）`)
   const latest = readSection(body, `最新代码确认（Latest Codebase Confirmation）`)
+  const evidenceRules = readSection(body, `测试证据与上游同步（Test Evidence & Upstream Sync）`)
   const validation = readSection(body, `本地验证（Local Validation）`)
   const evidence = readSection(body, `用户可见变更证据（Local Feature Evidence）`)
   const packages = readSection(body, `涉及包（Affected Packages）`)
@@ -439,7 +440,7 @@ export function checkTemplate(prInfo, repoOwner) {
     findings.push({ severity: `reject`, rule: `template`, message: `PR 类型（PR Type）未勾选任何一项` })
   }
   if (!hasCheckedLine(latest, `我已基于最新`)) {
-    findings.push({ severity: `reject`, rule: `template`, message: `最新代码确认（Latest Codebase Confirmation）未勾选` })
+    findings.push({ severity: `reject`, rule: `template`, message: `最新代码确认（Latest Codebase Confirmation）未勾选（须基于最新 dev 分支）` })
   }
   const validationCommands = readField(validation, `执行的命令`)
   const validationSummary = readField(validation, `结果摘要`)
@@ -461,10 +462,19 @@ export function checkTemplate(prInfo, repoOwner) {
     }
   }
 
-  const userFacing = hasCheckedLine(prType, `面向用户的功能或行为变更`)
   const isRepoOwner = prInfo.author && prInfo.author.login === repoOwner
-  if (userFacing && !isRepoOwner && !hasEvidence(evidence)) {
-    findings.push({ severity: `reject`, rule: `template`, message: `面向用户的功能 PR 必须附带本地功能证据（截图 / 视频 / 链接）` })
+  if (!isRepoOwner) {
+    // 贡献者 PR 证据门槛（模板「测试证据与上游同步」必填）：自测证据 +
+    // 同步上游最新 dev 分支后重新测试通过的截图，缺失即拒绝。
+    if (!hasCheckedLine(evidenceRules, `我提供了自己本地测试的证据`)) {
+      findings.push({ severity: `reject`, rule: `template`, message: `贡献者 PR 必须勾选「测试证据与上游同步」的自测证据项（提供自己本地测试的证据）` })
+    }
+    if (!hasCheckedLine(evidenceRules, `我已同步上游最新`)) {
+      findings.push({ severity: `reject`, rule: `template`, message: `贡献者 PR 必须勾选「测试证据与上游同步」的上游同步项（同步 dev 最新代码并附重测截图）` })
+    }
+    if (!hasEvidence(evidence)) {
+      findings.push({ severity: `reject`, rule: `template`, message: `贡献者 PR 必须附带测试截图 / 视频证据（自测证据 + 同步上游最新 dev 后重新测试通过的截图）` })
+    }
   }
 
   if (packages && !hasAnyCheckedBox(packages)) {

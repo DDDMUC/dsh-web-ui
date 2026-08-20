@@ -199,7 +199,10 @@ function makeBody(overrides = {}) {
     `## PR 类型（PR Type）`,
     `- [x] 面向用户的功能或行为变更`,
     `## 最新代码确认（Latest Codebase Confirmation）`,
-    `- [x] 我已基于最新 main 分支开发，或在提交前已 rebase / 合并最新 main。`,
+    `- [x] 我已基于最新 \`dev\` 分支开发，或在提交前已 rebase / 合并最新 \`dev\`。`,
+    `## 测试证据与上游同步（Test Evidence & Upstream Sync）`,
+    `- [x] 我提供了自己本地测试的证据（执行的命令 / 测试结果 / 运行截图）。`,
+    `- [x] 我已同步上游最新 \`dev\` 分支（\`git fetch origin && git rebase origin/dev\`），并附上同步后重新测试通过的截图。`,
     `## AI 编码披露（AI Coding Disclosure）`,
     `- [x] 部分 AI 辅助：AI 帮助编写或修改了部分编程改动。`,
     `使用的 AI 模型：DeepSeek`,
@@ -241,13 +244,25 @@ test(`声明 AI 但模型为空拒绝`, () => {
   assert.ok(f.some((x) => x.message.includes(`AI 模型`)))
 })
 
-test(`外部贡献者功能 PR 无证据拒绝；仓库所有者豁免`, () => {
+test(`外部贡献者 PR 无测试截图拒绝；仓库所有者豁免`, () => {
   const noEvidence = makeBody({ author: { login: `someone` } }).body
     .replace(/^\!\[screenshot\].*$/m, ``)
   const f1 = checkTemplate({ body: noEvidence, author: { login: `someone` } }, `owner`)
   assert.ok(f1.some((x) => x.message.includes(`证据`)))
   const f2 = checkTemplate({ body: noEvidence, author: { login: `owner` } }, `owner`)
   assert.ok(!f2.some((x) => x.message.includes(`证据`)))
+})
+
+test(`外部贡献者 PR 未勾选自测证据 / 上游同步项拒绝；所有者豁免`, () => {
+  let body = makeBody({ author: { login: `someone` } }).body
+  body = body.replace(/^\- \[x\] 我提供了自己本地测试的证据.*$/m, ``)
+  const f1 = checkTemplate({ body, author: { login: `someone` } }, `owner`)
+  assert.ok(f1.some((x) => x.message.includes(`自测证据`)))
+  body = body.replace(/^\- \[x\] 我已同步上游最新.*$/m, ``)
+  const f2 = checkTemplate({ body, author: { login: `someone` } }, `owner`)
+  assert.ok(f2.some((x) => x.message.includes(`上游同步`)))
+  const f3 = checkTemplate({ body, author: { login: `owner` } }, `owner`)
+  assert.ok(!f3.some((x) => x.message.includes(`上游同步`)))
 })
 
 test(`本地验证为空拒绝`, () => {
