@@ -10,10 +10,18 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { AddressInfo } from 'node:net'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFile } from 'node:fs/promises'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { TexFormat } from '../src/pkg-extract.ts'
 import { makeWeRoutes, SCENE_EXTRACTOR_VERSION, WE_API_PREFIX } from '../src/we-routes.ts'
+
+// The probe path reads scene payloads through node:fs/promises; spy on it so
+// the cache tests can assert exactly when a payload is (not) re-read.
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return { ...actual, readFile: vi.fn(actual.readFile) }
+})
 
 /** Minimal 1x1 RGBA8888 TEX (container v2, uncompressed) for scene decode tests. */
 const tex1x1Red = ((): Buffer => {
@@ -451,5 +459,72 @@ describe('import lifecycle', () => {
     rmSync(join(library, '222'), { recursive: true, force: true })
     const res = await call('POST', WE_API_PREFIX + '/reimport', { body: { id: 'imported/222' } })
     expect(res.status).toBe(410)
+  })
+})
+
+describe('scene-probe cache (#817)', () => {
+  const probeReads = (): number =>
+    (vi.mocked(readFile) as unknown as { mock: { calls: unknown[][] } }).mock.calls.length
+
+  it('persists probe results and reuses them after a route-family restart', async () => {
+    makeProject(join(library, '444'), { title: 'Packed Scene', type: 'scene', file: 'scene.pkg' }, {
+      'scene.pkg': 'NOT-A-REAL-PKG',
+    })
+    ;(vi.mocked(readFile) as unknown as { mockClear: () => void }).mockClear()
+    const first = await call('GET', WE_API_PREFIX + '/scene-probe?id=444')
+    expect(first.status).toBe(200)
+    expect(first.body.ok).toBe(true)
+    expect(probeReads()).toBeGreaterThanOrEqual(1)
+
+    // The probe result landed in the persisted cache.
+    const persistedPath = join(store, '.cache', 'we-scene-probes.json')
+    expect(existsSync(persistedPath)).toBe(true)
+    const persisted = JSON.parse(readFileSync(persistedPath, 'utf8')) as Record<string, unknown>
+    const key = Object.keys(persisted)[0] ?? ''
+    expect(key).toContain('scene.pkg')
+    expect(persisted[key]).toEqual({ hasVideo: false, hasSceneWebGL: false })
+
+    // Simulate a host restart: a fresh route family must serve the same
+    // result from the persisted cache without re-reading the payload.
+    await new Promise<void>((resolve, reject) => server.close(e => (e ? reject(e) : resolve())))
+    await serve(makeWeRoutes({ getConfig: () => ({ weLibraryDirs: [library] }), storeDir: store, autoDetect: false }))
+    ;(vi.mocked(readFile) as unknown as { mockClear: () => void }).mockClear()
+    const second = await call('GET', WE_API_PREFIX + '/scene-probe?id=444')
+    expect(second.status).toBe(200)
+    expect(second.body).toEqual(first.body)
+    expect(probeReads()).toBe(0)
+  })
+
+  it('re-probes when the pkg changes (mtime+size key invalidation)', async () => {
+    makeProject(join(library, '555'), { title: 'Changed Scene', type: 'scene', file: 'scene.pkg' }, {
+      'scene.pkg': 'NOT-A-REAL-PKG',
+    })
+    const first = await call('GET', WE_API_PREFIX + '/scene-probe?id=555')
+    expect(first.status).toBe(200)
+    ;(vi.mocked(readFile) as unknown as { mockClear: () => void }).mockClear()
+    writeFileSync(join(library, '555', 'scene.pkg'), 'DIFFERENT-BYTES')
+    const second = await call('GET', WE_API_PREFIX + '/scene-probe?id=555')
+    expect(second.status).toBe(200)
+    expect(probeReads()).toBeGreaterThanOrEqual(1)
+  })
+
+  it('evicts the oldest probe entries instead of clearing the whole cache at the cap', async () => {
+    for (let i = 0; i < 258; i++) {
+      const name = 's' + String(i).padStart(3, '0')
+      makeProject(join(library, name), { title: name, type: 'scene', file: 'scene.pkg' }, {
+        'scene.pkg': 'NOT-A-REAL-PKG',
+      })
+    }
+    for (let i = 0; i < 258; i++) {
+      const res = await call('GET', WE_API_PREFIX + '/scene-probe?id=s' + String(i).padStart(3, '0'))
+      expect(res.status).toBe(200)
+    }
+    const persisted = JSON.parse(
+      readFileSync(join(store, '.cache', 'we-scene-probes.json'), 'utf8',
+    )) as Record<string, unknown>
+    const keys = Object.keys(persisted)
+    expect(keys.length).toBe(256)
+    expect(keys.filter(k => k.includes('/s000/') || k.includes('/s001/'))).toHaveLength(0)
+    expect(keys.some(k => k.includes('/s257/'))).toBe(true)
   })
 })
