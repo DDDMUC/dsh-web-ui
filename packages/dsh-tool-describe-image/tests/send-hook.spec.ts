@@ -203,7 +203,8 @@ describe('installSendHook rc.8 signal and outcome contract', () => {
     const prompt = vi.fn(async () => ({ ok: true }))
     installSendHook(face)
     const signal = new AbortController().signal
-    await face.sendSession({ prompt } as never, 'look', ['id1'], 'queue', signal)
+    const outcome = await face.sendSession({ prompt } as never, 'look', ['id1'], 'queue', signal)
+    expect(outcome).toEqual({ kind: 'success' })
     expect(log).toEqual(['release'])
     const call = prompt.mock.calls[0] as unknown as [unknown, unknown, AbortSignal]
     expect(call[2]).toBe(signal)
@@ -220,4 +221,3 @@ describe('installSendHook rc.8 signal and outcome contract', () => {
     expect(original).toHaveBeenCalledWith(expect.anything(), 'look', ['id1'], 'queue', signal)
   })
 })
-

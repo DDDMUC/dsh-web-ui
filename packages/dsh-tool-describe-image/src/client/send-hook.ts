@@ -31,6 +31,9 @@ interface SessionPromptFace {
   prompt(content: readonly TextBlock[], mode: string, signal?: AbortSignal): Promise<PromptResult>
 }
 
+/** Submission result consumed by the conversation input state machine. */
+interface SubmitOutcome { kind: 'success' | 'error'; text?: string }
+
 /**
  * The conversation-service surface this hook wraps. rc.8 added the optional
  * AbortSignal (send cancellation) and a SubmitOutcome return on sendSession;
@@ -40,7 +43,7 @@ interface SessionPromptFace {
  */
 interface ConversationSendFace {
   send(text: string): Promise<void>
-  sendSession(session: SessionPromptFace, text: string, imageIds: readonly string[], mode: string, signal?: AbortSignal): Promise<unknown>
+  sendSession(session: SessionPromptFace, text: string, imageIds: readonly string[], mode: string, signal?: AbortSignal): Promise<SubmitOutcome>
   draftImages(ids: readonly string[]): readonly DraftImageFace[]
   releaseDraftImage(id: string): void
 }
@@ -72,7 +75,7 @@ export function installSendHook(conversation: unknown, isEnabled?: () => boolean
   if ((face as unknown as Record<string, unknown>)[HOOK_MARKER] === true) return
 
   const original = face.sendSession
-  face.sendSession = async (session, text, imageIds, mode, signal): Promise<unknown> => {
+  face.sendSession = async (session, text, imageIds, mode, signal): Promise<SubmitOutcome> => {
     if (isEnabled !== undefined && !isEnabled()) {
       return original.call(face, session, text, imageIds, mode, signal)
     }
@@ -115,6 +118,7 @@ export function installSendHook(conversation: unknown, isEnabled?: () => boolean
       throw new Error(`conversation.send failed: ${result.error?.code ?? 'unknown'}: ${result.error?.message ?? ''}`)
     }
     for (const id of imageIds) face.releaseDraftImage(id)
+    return { kind: 'success' }
   }
   ;(face as unknown as Record<string, unknown>)[HOOK_MARKER] = true
 }
