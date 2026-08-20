@@ -1,6 +1,6 @@
 > 提 PR 前请阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 与 [AGENTS.md](../AGENTS.md)；
 > 提交信息用 Conventional Commits（`type(scope): subject`），禁止 emoji。
-> 本仓库接受修复、增强与优化类 PR（bug 修复、现有功能的增强、性能 / 体验优化、维护）；新皮肤始终欢迎。全新特性 / 新功能的 PR 暂不接受，请先提 Issue 讨论。
+> 本仓库接受修复、增强与优化类 PR（bug 修复、现有功能的增强、性能 / 体验优化、维护）；新皮肤始终欢迎，但无背景图、仅简单改色且样式存在问题的低质皮肤 PR 不予接受。全新特性 / 新功能的 PR 暂不接受，请先提 Issue 讨论。
 > 仅文档类 PR（标题以 `docs:` 开头或勾选「仅文档」）不接受，会被自动关闭；文档改动请先提 Issue 讨论。
 ## 摘要（Summary）
 
@@ -89,13 +89,14 @@
 
 ## 新皮肤收录（New Skin）
 
-<!-- 仅当本 PR 新增皮肤时必填；其余改动可跳过本节。新皮肤属于内容贡献，欢迎直接提交（无需先提 issue）。 -->
+<!-- 仅当本 PR 新增皮肤时必填；其余改动可跳过本节。新皮肤属于内容贡献，欢迎直接提交（无需先提 issue）；但没有任何背景图、仅简单改色且样式存在明显问题（如暗色缺失、对比度不足、布局错位）的低质皮肤 PR 不予接受。 -->
 
 - [ ] 纯资产目录契约：`packages/skins/skin-center/skins/<name>/` 只含 skin.json + skin.css（+ 可选 patches.css / hooks.mjs / assets/），无 package.json 与构建文件；`node scripts/dsh-skin validate` 通过；纯呈现层约束满足（不注入服务、不发事件、不触及模型请求）。
 - [ ] `skin.json` 符合 v2 清单（contracts/skin-manifest-v2.schema.json：skinManifestVersion / id / name / nameEn / version / author / contributes，另含 tagline / description / tags / accent / preview / order）。
 - [ ] `pnpm skin-center:check` 通过（新皮肤出现在设置 → 皮肤中心）；已重跑 `node scripts/gallery-build` 并提交 gallery 产物（`gallery/manifest.js` / `gallery/styles.js`）。
 - [ ] 已用 `node scripts/capture-previews` 重拍并提交 `preview/{light,dark}.png`。
 - [ ] README 中英双语、LICENSE 与贡献者版权声明齐全；PR 描述附 gallery 试穿截图（亮 / 暗）。
+- [ ] 非低质皮肤：亮 / 暗双态样式完整（无暗色缺失、对比度不足、布局错位），不是无背景图、仅简单改色的低质皮肤（此类 PR 不予接受）。
 
 ## 社区插件索引登记（Community Plugin Index）
 
