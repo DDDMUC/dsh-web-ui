@@ -500,7 +500,6 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     uniform vec3 u_speeds;
     uniform float u_amp;
     uniform float u_bright;
-    uniform vec2 u_contentScale;
     void main() {
       vec3 flowColors = texture2D(u_mask, v_uv).rgb;
       vec2 flowMask = (flowColors.rg - vec2(0.5, 0.5)) * 2.0;
@@ -513,7 +512,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       float b0 = 2.0 * abs(c0 - 0.5);
       float b1 = 2.0 * abs(c1 - 0.5);
       float b2 = 2.0 * abs(c2 - 0.5);
-      vec2 cuv = v_uv * u_contentScale;
+      vec2 cuv = v_uv;
       vec4 albedo = mix(texture2D(u_l1, cuv + flowMask * u_amp * 0.1 * c0),
                         texture2D(u_l1, cuv + flowMask * u_amp * 0.1 * c0b), b0);
       vec4 s1 = mix(texture2D(u_l2, cuv + flowMask * u_amp * 0.1 * c1),
@@ -1705,9 +1704,12 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
         continue;
       }
 
-      // WE flowimage layer (flowing nebula): mask + 3 cross-fading layers
+      // WE flowimage layer (flowing nebula): mask + 3 cross-fading layers.
+      // All four textures are sampled with the plain quad UV (WE stretches
+      // mask and content over the whole quad); served PNGs are already
+      // cropped to the image rect, and clamp wrapping matches clampuvs.
       if (layer.shader === 'flowimage' && layer.texUrls && layer.texUrls.length >= 4) {
-        const recs = layer.texUrls.slice(0, 4).map((u) => loadTexture(u, true));
+        const recs = layer.texUrls.slice(0, 4).map((u) => loadTexture(u));
         if (!recs.every((r) => r.loaded)) continue;
         gl.useProgram(progFlow);
         gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
@@ -1728,8 +1730,6 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
           nums.Speed0 ?? 0.01, nums.Speed1 ?? 0.01, nums.Speed2 ?? 0.01);
         gl.uniform1f(gl.getUniformLocation(progFlow, 'u_amp'), nums.Amount ?? 1);
         gl.uniform1f(gl.getUniformLocation(progFlow, 'u_bright'), nums.Bright ?? 1);
-        const fs2 = layer.flowScale || [1, 1];
-        gl.uniform2f(gl.getUniformLocation(progFlow, 'u_contentScale'), fs2[0], fs2[1]);
         const units = ['u_mask', 'u_l1', 'u_l2', 'u_l3'];
         for (let ui = 0; ui < 4; ui++) {
           gl.activeTexture(gl.TEXTURE0 + ui);

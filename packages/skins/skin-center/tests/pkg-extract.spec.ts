@@ -178,6 +178,9 @@ interface TexSpec {
   flags?: number
   width: number
   height: number
+  /** TEXI image rect; defaults to width/height (no power-of-two padding). */
+  imageWidth?: number
+  imageHeight?: number
   mipmaps: MipSpec[]
   containerVersion?: 1 | 2 | 3 | 4
   freeImageFormat?: number
@@ -195,8 +198,8 @@ const buildTex = (spec: TexSpec): Uint8Array => {
     i32le(spec.flags ?? 0),
     i32le(spec.width),
     i32le(spec.height),
-    i32le(spec.width),
-    i32le(spec.height),
+    i32le(spec.imageWidth ?? spec.width),
+    i32le(spec.imageHeight ?? spec.height),
     u32le(0),
     nstring('TEXB000' + version),
     i32le(1), // image count
@@ -606,6 +609,36 @@ describe('decodeTex', () => {
     expect(parseTex(tex).formatName).toBe('BC7')
     expect(() => decodeTex(tex)).toThrow(/tex: unsupported format 12/)
   })
+
+  it('crops power-of-two padding to the TEXI image rect (top-left)', () => {
+    // 4x2 real image stored in a padded 4x4 mip (like WE's 1920x1080 in
+    // 2048x2048); top rows are the content, bottom rows are filler.
+    const pixels = new Uint8Array(4 * 4 * 4)
+    for (let y = 0; y < 4; y++) {
+      for (let x = 0; x < 4; x++) {
+        const i = (y * 4 + x) * 4
+        const v = y < 2 ? 200 : 9
+        pixels[i] = v
+        pixels[i + 1] = v
+        pixels[i + 2] = v
+        pixels[i + 3] = 255
+      }
+    }
+    const tex = buildTex({
+      width: 4,
+      height: 4,
+      imageWidth: 4,
+      imageHeight: 2,
+      containerVersion: 3,
+      mipmaps: [{ width: 4, height: 4, data: pixels }],
+    })
+    const decoded = decodeTex(tex)
+    expect(decoded.width).toBe(4)
+    expect(decoded.height).toBe(2)
+    expect(decoded.rgba.length).toBe(4 * 2 * 4)
+    expect(decoded.rgba[0]).toBe(200)
+    expect(decoded.rgba[decoded.rgba.length - 4]).toBe(200)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -701,6 +734,33 @@ describe('extractSceneMainImage', () => {
     expect(decodePng(result.png).rgba).toEqual(bgPixels)
   })
 
+  it('reports the real decode error instead of a later missing-texture fallback (#752)', () => {
+    // The best candidate exists but fails to decode; a later object-referenced
+    // texture is missing from the package and must not overwrite the decode
+    // error with a misleading "not found".
+    const brokenTex = buildTex({
+      width: 4,
+      height: 4,
+      containerVersion: 3,
+      mipmaps: [{ width: 4, height: 4, data: new Uint8Array(16) }],
+    })
+    const pkg = buildPkg([
+      {
+        path: 'scene.json',
+        data: encoder.encode(
+          JSON.stringify({
+            objects: [
+              { id: 1, name: 'background', image: 'materials/broken.tex' },
+              { id: 2, name: 'overlay', image: 'materials/missing.tex' },
+            ],
+          }),
+        ),
+      },
+      { path: 'materials/broken.tex', data: brokenTex },
+    ])
+    expect(() => extractSceneMainImage(pkg)).toThrow(/tex: mipmap size mismatch for RGBA8888/)
+  })
+
   it('throws when scene.json is absent', () => {
     const pkg = buildPkg([{ path: 'materials/bg.tex', data: bgTex }])
     expect(() => extractSceneMainImage(pkg)).toThrow(/pkg: scene.json not found or invalid/)
@@ -739,6 +799,73 @@ describe('extractSceneMainImageFromDir', () => {
       expect(result.width).toBe(2)
       expect(result.height).toBe(2)
       expect(decodePng(result.png).rgba).toEqual(bgPixels)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('crops a square texture to the scene projection ratio (16:9 cover)', () => {
+    const wide = 8
+    const tall = 8
+    const pixels = solidPixels(wide, tall, 40, 80, 120)
+    // Two distinct horizontal bands so a vertical crop is observable: top
+    // half stays opaque dark, bottom half stays opaque light; the center
+    // crop keeps both (an all-same solid would mask an off-center crop bug).
+    for (let y = 0; y < tall; y++) {
+      const band = y < tall / 2 ? 200 : 40
+      for (let x = 0; x < wide; x++) {
+        const i = (y * wide + x) * 4
+        pixels[i] = band
+        pixels[i + 1] = band
+        pixels[i + 2] = band
+        pixels[i + 3] = 255
+      }
+    }
+    const squareTex = buildTex({
+      width: wide,
+      height: tall,
+      containerVersion: 3,
+      mipmaps: [{ width: wide, height: tall, data: pixels }],
+    })
+    const dir = makeSceneDir({
+      // Scene declares a 16:9 viewport while the texture is square.
+      'scene.json': JSON.stringify({
+        general: { orthogonalprojection: { width: 1920, height: 1080 } },
+        objects: [{ id: 1, name: 'background', image: 'materials/bg.tex' }],
+      }),
+      'materials/bg.tex': squareTex,
+    })
+    try {
+      const result = extractSceneMainImageFromDir(dir)
+      // 8x8 square cropped to 16:9 cover keeps full width and floor(8 / (16/9)) height.
+      expect(result.width).toBe(8)
+      expect(result.height).toBe(Math.floor(8 / (1920 / 1080))) // 4
+      const out = decodePng(result.png)
+      expect(out.width).toBe(8)
+      expect(out.height).toBe(4)
+      // Vertical center crop: source rows 2..5 remain (startY = floor((8-4)/2) = 2).
+      const row = (y: number): number => out.rgba[(y * out.width) * 4]
+      expect(row(0)).toBe(200) // source row 2 (top half band)
+      expect(row(out.height - 1)).toBe(40) // source row 5 (bottom half band)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps the native ratio when the scene declares no projection', () => {
+    const dir = makeSceneDir({
+      'scene.json': sceneJson('materials/bg.tex'),
+      'materials/bg.tex': buildTex({
+        width: 4,
+        height: 4,
+        containerVersion: 3,
+        mipmaps: [{ width: 4, height: 4, data: solidPixels(4, 4, 7, 7, 7) }],
+      }),
+    })
+    try {
+      const result = extractSceneMainImageFromDir(dir)
+      expect(result.width).toBe(4)
+      expect(result.height).toBe(4)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
