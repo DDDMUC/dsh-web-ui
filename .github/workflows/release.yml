@@ -97,11 +97,12 @@ jobs:
       # before anything reaches npm (a failed publish cannot be re-run
       # for an already-published version).
       #
-      # Bilingual convention (v0.2.1+): the maintainer commits a per-item
-      # EN + ZH translation of the notes at docs/release-notes/<tag>.md
-      # together with the release commit; the pipeline prefers that file.
-      # The scripts/release-notes.mjs draft (single-language items) is only
-      # a fallback when the committed file is missing.
+      # Bilingual convention (v0.2.6+): the maintainer commits the split-view
+      # notes at docs/release-notes/<tag>.md together with the release
+      # commit; the pipeline prefers that file. The notes show Chinese by
+      # default with the English version behind a <details> toggle. The
+      # scripts/release-notes.mjs draft (authored subjects in both views) is
+      # only a fallback when the committed file is missing.
       - name: Generate release notes
         run: |
           NOTES_FILE="docs/release-notes/${GITHUB_REF_NAME}.md"

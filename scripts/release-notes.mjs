@@ -5,15 +5,17 @@
  * Collects conventional-commit subjects across the whole previous-tag..
  * release-tag range (including work merged in on side branches), groups them
  * into New Features / Bug Fixes / Other Changes sections, and renders the
- * notes with bilingual headings/summary/footer (each bullet keeps its
- * authored commit subject). Links (#123) issue references, and skips merge
- * commits and the chore(release) bump commit itself.
+ * notes in a split bilingual layout (v0.2.6+): the default view is Chinese
+ * (summary, section headings, footer), and the English equivalents live in
+ * a collapsible <details> block the reader clicks open. Each bullet keeps
+ * its authored commit subject in both views. Links (#123) issue references,
+ * and skips merge commits and the chore(release) bump commit itself.
  *
- * Bilingual convention (v0.2.1+): the maintainer translates every bullet
- * into "EN / 中文" and commits the result at docs/release-notes/<tag>.md;
- * the release workflow prefers that committed file and uses this script's
- * single-language-item draft only as a fallback. For an already-created
- * release, update the body with:
+ * Bilingual convention (v0.2.6+): the maintainer translates the default-view
+ * items into Chinese and the <details> items into English, and commits the
+ * result at docs/release-notes/<tag>.md; the release workflow prefers that
+ * committed file and uses this script's authored-subject draft only as a
+ * fallback. For an already-created release, update the body with:
  *   gh release edit <tag> --notes-file docs/release-notes/<tag>.md
  *
  * Usage:
@@ -88,9 +90,13 @@ export function bulletOf(row, repo) {
 
 /**
  * Render the full markdown notes body for one release. The notes are
- * bilingual (English + Chinese): summary, section headings and footer carry
- * both languages, while each bullet keeps its authored commit subject (the
- * repo mixes Chinese and English subjects).
+ * bilingual with a split layout (v0.2.6+): the default view shows the
+ * Chinese summary, section headings and footer, and the English equivalents
+ * live inside a collapsible <details> block the reader clicks open. Each
+ * bullet keeps its authored commit subject in both views (the repo mixes
+ * Chinese and English subjects); the maintainer translates the default-view
+ * items into Chinese and the details items into English in
+ * docs/release-notes/<tag>.md.
  */
 export function renderNotes(version, rows, repo) {
   const bySection = { feat: [], fix: [], other: [] }
@@ -107,28 +113,38 @@ export function renderNotes(version, rows, repo) {
     bySection.other.length > 0 ? bySection.other.length + ' 项其他改动' : '',
   ].filter((part) => part !== '').join('、')
 
-  const lines = []
-  if (enParts !== '') {
-    lines.push('This release contains ' + enParts + '.')
-    lines.push('本次发布包含 ' + zhParts + '。', '')
-  }
-  if (rows.length === 0) {
-    lines.push('No user-facing changes in this release. / 本次发布没有需要说明的功能性变更。', '')
-  }
-
-  const sections = [
-    ['New Features / 新功能', bySection.feat],
-    ['Bug Fixes / 修复', bySection.fix],
-    ['Other Changes / 其他改动', bySection.other],
+  const zhSections = [
+    ['新功能', bySection.feat],
+    ['修复', bySection.fix],
+    ['其他改动', bySection.other],
   ]
-  for (const [title, sectionRows] of sections) {
+  const enSections = [
+    ['New Features', bySection.feat],
+    ['Bug Fixes', bySection.fix],
+    ['Other Changes', bySection.other],
+  ]
+
+  const lines = []
+  lines.push(zhParts !== '' ? '本次发布包含 ' + zhParts + '。' : '本次发布没有需要说明的功能性变更。', '')
+  for (const [title, sectionRows] of zhSections) {
     if (sectionRows.length === 0) continue
     lines.push('### ' + title, '')
     for (const row of sectionRows) lines.push(bulletOf(row, repo))
     lines.push('')
   }
 
-  lines.push('---', '', 'Generated automatically by the release pipeline (scripts/release-notes.mjs). / 由发布管线自动生成（scripts/release-notes.mjs）。')
+  lines.push('<details>', '<summary>English</summary>', '')
+  lines.push(enParts !== '' ? 'This release contains ' + enParts + '.' : 'No user-facing changes in this release.')
+  lines.push('')
+  for (const [title, sectionRows] of enSections) {
+    if (sectionRows.length === 0) continue
+    lines.push('### ' + title, '')
+    for (const row of sectionRows) lines.push(bulletOf(row, repo))
+    lines.push('')
+  }
+  lines.push('---', '', 'Generated automatically by the release pipeline (scripts/release-notes.mjs).', '', '</details>', '')
+
+  lines.push('---', '', '由发布管线自动生成（scripts/release-notes.mjs）。')
   return lines.join('\n')
 }
 

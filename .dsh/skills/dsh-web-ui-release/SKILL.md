@@ -117,10 +117,11 @@ git push origin main               # 分支保护允许管理员直推；非管�
 git add <修复文件...>
 git commit -m "fix(...): <改动摘要>"
 
-# 双语 notes（v0.2.1 起强制，逐条 EN / 中文）：先跑脚本出草稿（条目单语），
-# 再由维护者（AI）逐条翻译，存 docs/release-notes/vX.Y.Z.md（管线优先用该文件）
+# 双语 notes（v0.2.6 起强制，中文默认 + English 折叠）：先跑脚本出草稿（两视图条目相同，
+# 均为原始提交主题），再由维护者（AI）逐条翻译——默认视图译成中文、English 折叠视图
+# 译成英文，存 docs/release-notes/vX.Y.Z.md（管线优先用该文件）
 node scripts/release-notes.mjs "vX.Y.Z" > /tmp/notes-draft.md
-# 维护者逐条翻译后写入 docs/release-notes/vX.Y.Z.md；对已发布版本用
+# 维护者翻译后写入 docs/release-notes/vX.Y.Z.md；对已发布版本用
 #   gh release edit "vX.Y.Z" --notes-file docs/release-notes/vX.Y.Z.md 校正
 
 # 发版提交：全部 14 个 package.json 版本 bump + 发布相关变更（管线、skill、AGENTS.md）
@@ -143,7 +144,7 @@ git checkout dev && git merge main && git push origin dev
 1. actionlint + pnpm install（frozen lockfile，checkout 用 fetch-depth: 0 取全量历史）；
 2. 全量 gate：typecheck / build / test / test:scripts / aggregate --check；
 3. **版本一致性校验**：tag 版本必须与全部 17 个家族包的 package.json version 完全一致（walkFamilyPackages：packages/* 与 packages/skins/* 非递归），不一致直接失败（防止忘 bump 就发版）；
-4. **生成 release notes**：优先使用已提交的 `docs/release-notes/$TAG.md`（v0.2.1 起维护者在发版提交中附带逐条 EN / 中文 双语版，管线直接采用）；文件缺失时兜底跑 `node scripts/release-notes.mjs $TAG` 生成单语草稿（把上一 tag 以来的**全部**常规提交——含合并进来的分支提交，不能只走 --first-parent，v0.1.15 曾因此漏掉整条 perf/refactor 分支——分组为 New Features / Bug Fixes / Other Changes 并链接 issue）。发布前执行，失败即中止，不触碰 npm；
+4. **生成 release notes**：优先使用已提交的 `docs/release-notes/$TAG.md`（v0.2.6 起维护者在发版提交中附带中文默认 + English 折叠的双语版，管线直接采用）；文件缺失时兜底跑 `node scripts/release-notes.mjs $TAG` 生成双视图草稿（把上一 tag 以来的**全部**常规提交——含合并进来的分支提交，不能只走 --first-parent，v0.1.15 曾因此漏掉整条 perf/refactor 分支——分组为新功能 / 修复 / 其他改动并链接 issue，中文默认视图与 English 折叠视图条目相同、均为原始提交主题）。发布前执行，失败即中止，不触碰 npm；
 5. `pnpm -r publish --no-git-checks --access public`（NPM_TOKEN 写入 ~/.npmrc，拓扑序发布，workspace:* 自动转真实版本；private 包由 pnpm 自动跳过——若某 private 包被聚合依赖引用，先解除引用或改为公开，否则全家桶安装 404）；
 6. `gh release create --notes-file` 创建 GitHub Release（notes 即第 4 步生成的内容）；Release 只保留 GitHub 自动源码归档，不附 npm tarball（与官方 DSH 一致，v0.2.4 起约定）。
 
@@ -166,7 +167,7 @@ gh run list --workflow=release.yml    # 查历史
 ```sh
 npm view @linxin666/dsh-web-ui-all version          # 期望 = X.Y.Z
 npm view @linxin666/dsh-client-ui-skin-center version
-gh release view "vX.Y.Z" --json body --jq .body    # Release 已创建；v0.2.1 起每个条目必须为 "EN / 中文" 双语（逐条抽查）
+gh release view "vX.Y.Z" --json body --jq .body    # Release 已创建；v0.2.6 起默认视图为中文、English 折叠视图为英文（逐条抽查）
 gh run list --workflow=release.yml                  # 全部成功
 git ls-remote --tags origin | grep "vX.Y.Z"         # tag 已在远端
 ```
@@ -185,8 +186,9 @@ git ls-remote --tags origin | grep "vX.Y.Z"         # tag 已在远端
   `dev` 全绿后才合入 `main`；发版 tag 只从 `main` 打，发布后把 `main`
   合回 `dev`。分支保护下非管理员无法直推 `main` / `dev`，维护者直推
   仍可用（管理员绕过），但功能改动仍须先经 `dev`。
-- **Release 更新说明必须逐条中英双语**（v0.2.1 起强制，用户约定）：每个条目
-  `EN / 中文` 成对出现（不只是标题/摘要双语）。双语 notes 作为 `docs/release-notes/vX.Y.Z.md`
-  随发版提交入库，管线优先使用；漏提交时脚本草稿兜底，但发布后必须立即用
-  `gh release edit` 校正为逐条双语，不得保留单语条目。
+- **Release 更新说明必须中英双语、视图分离**（v0.2.6 起强制，用户约定）：默认视图为中文，
+  English 折叠视图为英文，不再逐条 `EN / 中文` 混排。双语 notes 作为
+  `docs/release-notes/vX.Y.Z.md` 随发版提交入库，管线优先使用；漏提交时脚本草稿兜底
+  （两视图均为原始提交主题），但发布后必须立即用 `gh release edit` 校正为
+  「中文默认 + English 折叠」双语，不得保留未翻译条目。
 - 本技能适用于 @linxin666/dsh-* 全家桶整体发版；单包 hotfix 也遵循同一流程（版本仍全仓统一）。
