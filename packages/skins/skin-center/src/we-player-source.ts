@@ -409,13 +409,21 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     uniform sampler2D u_mask;
     uniform float u_time;
     uniform float u_alpha;
+    // Scene-uv rect of the reflection quad: (leftU, topV, scaleU, scaleV);
+    // (0,0,1,1) for a fullscreen layer. Scene v grows downward (0 at the top).
+    uniform vec4 u_rect;
+    // Data-driven water surface from the scene object (legacy default 0.65).
+    uniform float u_waterLine;
+    // Reflection sample window: start + puddleDepth * span (legacy 0.42/0.38).
+    uniform vec2 u_reflectRange;
     void main() {
       float mask = texture2D(u_mask, v_uv).r;
-      if (mask < 0.05 || v_uv.y < 0.65) {
+      vec2 sceneUv = u_rect.xy + v_uv * u_rect.zw;
+      if (mask < 0.05 || sceneUv.y < u_waterLine) {
         discard;
       }
-      float puddleDepth = (v_uv.y - 0.65) / 0.35;
-      vec2 uvReflect = vec2(v_uv.x, 0.42 + puddleDepth * 0.38);
+      float puddleDepth = (sceneUv.y - u_waterLine) / max(1.0 - u_waterLine, 0.0001);
+      vec2 uvReflect = vec2(sceneUv.x, u_reflectRange.x + puddleDepth * u_reflectRange.y);
       // water wave ripple perturbation
       float wave = sin(v_uv.y * 120.0 + u_time * 2.8) * 0.002 +
                    cos(v_uv.x * 90.0 + u_time * 1.9) * 0.0015;
@@ -1662,12 +1670,27 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
         gl.vertexAttribPointer(rPos, 2, gl.FLOAT, false, 16, 0);
         gl.vertexAttribPointer(rUv, 2, gl.FLOAT, false, 16, 8);
 
-        const model = mat4Transform2D(sceneW / 2, sceneH / 2, sceneW, sceneH, 0);
+        // Draw the reflection quad at the layer's own rect (fullscreen for
+        // legacy scene-wide reflection layers).
+        const model = mat4Transform2D(layer.x, layer.y, layer.w, layer.h, layer.angle || 0);
         gl.uniformMatrix4fv(gl.getUniformLocation(progReflection, 'u_proj'), false, proj);
         gl.uniformMatrix4fv(gl.getUniformLocation(progReflection, 'u_model'), false, model);
         gl.uniform4f(gl.getUniformLocation(progReflection, 'u_uvRect'), 0, 0, 1, 1);
         gl.uniform1f(gl.getUniformLocation(progReflection, 'u_time'), elapsed);
         gl.uniform1f(gl.getUniformLocation(progReflection, 'u_alpha'), 0.85);
+
+        // Scene-uv rect of the quad (scene v grows downward, 0 at the top).
+        const rectLeftU = (layer.x - layer.w / 2) / sceneW;
+        const rectTopV = 1 - (layer.y + layer.h / 2) / sceneH;
+        gl.uniform4f(gl.getUniformLocation(progReflection, 'u_rect'),
+          rectLeftU, rectTopV, layer.w / sceneW, layer.h / sceneH);
+        // Water line follows the scene data when the parser resolved one;
+        // otherwise keep the legacy 0.65 / 0.42 / 0.38 window.
+        const waterLine = typeof layer.waterLine === 'number' ? layer.waterLine : 0.65;
+        const depthScale = (1 - waterLine) / 0.35;
+        gl.uniform1f(gl.getUniformLocation(progReflection, 'u_waterLine'), waterLine);
+        gl.uniform2f(gl.getUniformLocation(progReflection, 'u_reflectRange'),
+          waterLine - 0.23 * depthScale, 0.38 * depthScale);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, fboTex);
