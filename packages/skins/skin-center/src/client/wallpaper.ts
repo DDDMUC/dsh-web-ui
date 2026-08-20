@@ -130,10 +130,94 @@ function styleCover(element: HTMLElement, fit: 'cover' | 'contain' | 'fill' = 'c
 /** Max static-frame capture edge (the backdrop never needs more pixels). */
 const FRAME_MAX_EDGE = 1920
 
+/**
+ * Default full-viewport-surface detector for WE wallpaper neutralization
+ * (#734): an element is a shell surface when its rendered box is the full
+ * viewport height AND its computed background-color equals the resolved
+ * --dsw-alias-bg-base color. The height check uses GEOMETRY, not the literal
+ * computed "100%": real browsers return the used value in px (e.g. "913px")
+ * for rendered elements, and the literal "100%" only appears on unrendered
+ * 0x0 subtrees — a style-string check would silently never tag the
+ * AppFrame / conversation / details roots. jsdom does no layout (every rect
+ * is 0 and clientHeight is 0), so when no viewport height is measurable the
+ * check falls back to the style string to keep jsdom tests meaningful. The
+ * color check matches the official shell frame/root containers which paint
+ * the app base background at full height and only carry hashed CSS-module
+ * classes, so this selector-free check never depends on class names. Returns
+ * false when the token cannot be resolved.
+ */
+export function defaultWallpaperSurface(el: HTMLElement, doc: Document): boolean {
+  const win = doc.defaultView
+  if (win === null) return false
+  let rectHeight = 0
+  let viewportHeight = 0
+  let heightStyle = ''
+  let background = ''
+  try {
+    rectHeight = el.getBoundingClientRect().height
+    viewportHeight = doc.documentElement.clientHeight || win.innerHeight || 0
+    const cs = win.getComputedStyle(el)
+    heightStyle = cs.height
+    background = cs.backgroundColor
+  } catch {
+    return false
+  }
+  // Geometry wins when the element is laid out (real browsers return px used
+  // values and real rects); jsdom and unrendered subtrees report rect 0, so
+  // fall back to the style-string check there — an unrendered element is
+  // invisible, so a false tag has no visual effect.
+  const isFullHeight = rectHeight > 0
+    ? Math.abs(rectHeight - viewportHeight) <= 2
+    : heightStyle === '100%' || heightStyle === '100vh'
+  if (!isFullHeight) return false
+  const base = resolveCssColor(doc, '--dsw-alias-bg-base')
+  return base !== null && background === base
+}
+
+/** Resolve a color custom property to its computed CSS color, if any. */
+function resolveCssColor(doc: Document, name: string): string | null {
+  const win = doc.defaultView
+  if (win === null || doc.documentElement === null) return null
+  const raw = win.getComputedStyle(doc.documentElement).getPropertyValue(name).trim()
+  if (raw === '') return null
+  const probe = doc.createElement('div')
+  probe.style.setProperty('background-color', raw)
+  doc.documentElement.appendChild(probe)
+  try {
+    return win.getComputedStyle(probe).backgroundColor
+  } catch {
+    return null
+  } finally {
+    probe.remove()
+  }
+}
+
+/**
+ * Workspace-list end-fade detector (#734): a gradient-background element inside
+ * the sidebar workspaces slot. The official `data-slot="sidebar.workspaces"`
+ * anchor is stable; the fade element only carries hashed CSS-module classes, so
+ * this selects it by computed style instead of class names.
+ */
+export function defaultWorkspaceFade(el: HTMLElement, doc: Document): boolean {
+  const win = doc.defaultView
+  if (win === null) return false
+  try {
+    return win.getComputedStyle(el).backgroundImage.includes('gradient')
+  } catch {
+    return false
+  }
+}
+
 export interface WallpaperControllerOptions {
   apiBase?: string
   fetchImpl?: typeof fetch
   doc?: Document
+  /** Override the full-viewport-surface detector (tests); defaults to the
+   * computed-style heuristic in defaultWallpaperSurface. */
+  declareSurface?: (el: HTMLElement, doc: Document) => boolean
+  /** Override the sidebar workspaces end-fade detector (tests); defaults to
+   * defaultWorkspaceFade. */
+  declareWorkspaceFade?: (el: HTMLElement, doc: Document) => boolean
 }
 
 /**
@@ -165,6 +249,8 @@ export class WallpaperController implements WallpaperHandle {
   private scrimLayer: HTMLDivElement | null = null
   private videoElement: HTMLVideoElement | null = null
   private rootNeutralizer: HTMLStyleElement | null = null
+  /** Shell surfaces tagged with data-dsh-wallpaper-surface during this mount. */
+  private taggedSurfaces: HTMLElement[] = []
   private disposed = false
 
   constructor(scope: SettingsScope<WallpaperSection>, options: WallpaperControllerOptions = {}) {
@@ -420,13 +506,15 @@ export class WallpaperController implements WallpaperHandle {
   }
 
   private ensureLayers(descriptor: WallpaperDescriptor): void {
-    // The stock shell paints an opaque background on the app root, which
-    // fully covers the negative-z wallpaper layers (issue #505). Neutralize
-    // it while a wallpaper is mounted — the same contract the v2 skin CSS
-    // pipeline appends for every skin (`[id="root"] { background:
-    // transparent }`). The id selector outranks the shell's class rule, and
-    // the token itself is left untouched so every other --dsw-alias-bg-base
-    // consumer keeps its color.
+    // The stock shell paints opaque backgrounds on the app root and on the
+    // composer seat, which fully cover the negative-z wallpaper layers
+    // (issue #505, #632). Neutralize them ONLY while the own marker
+    // data-dsh-wallpaper-active is present, so no skin or plugin style is
+    // affected outside a mounted wallpaper (#506). The app-root rules mirror
+    // the contract the v2 skin CSS pipeline appends for every skin
+    // (`[id="root"] { background: transparent }`); the id/attribute selectors
+    // outrank the shell's class rules, and the --dsw-alias-bg-base token
+    // itself is left untouched for every other consumer.
     if (this.rootNeutralizer === null) {
       this.rootNeutralizer = this.doc.createElement('style')
       this.rootNeutralizer.dataset.dshWallpaperRoot = ''
@@ -442,11 +530,34 @@ export class WallpaperController implements WallpaperHandle {
           background-color: transparent !important;
           background-image: none !important;
         }
+        /* The composer seat paints an opaque base fade under the input card
+           (rc.8: a linear gradient to --dsw-alias-bg-base, z-index 7; some
+           builds additionally use a ::before with backdrop-filter). Remove it
+           while the WE wallpaper is mounted so the backdrop shows behind the
+           input area (issue #734). It is anchored on the stable semantic
+           attribute data-composer-seat that the official shell outputs, so it
+           does not depend on hashed class names. */
+        html[data-dsh-wallpaper-active] [data-composer-seat],
+        html[data-dsh-wallpaper-active] [data-composer-seat]::before {
+          background: none !important;
+          backdrop-filter: none !important;
+        }
+        /* Full-viewport shell surfaces (AppFrame frame, conversation root,
+           details root) paint the opaque app base background via hashed
+           CSS-module classes. While a WE wallpaper is mounted the controller
+           tags them with the own marker data-dsh-wallpaper-surface
+           (markWallpaperSurfaces), and this rule neutralizes them with no
+           class-name dependency (issue #734). */
+        html[data-dsh-wallpaper-active] [data-dsh-wallpaper-surface] {
+          background-color: transparent !important;
+          background-image: none !important;
+        }
       `
       this.doc.head.appendChild(this.rootNeutralizer)
     }
     this.doc.body.dataset.dshWallpaperActive = 'true'
     this.doc.documentElement.dataset.dshWallpaperActive = 'true'
+    this.markSurfaces()
     if (this.mediaLayer === null) {
       this.mediaLayer = this.doc.createElement('div')
       styleLayer(this.mediaLayer, -3)
@@ -627,7 +738,53 @@ export class WallpaperController implements WallpaperHandle {
     return image
   }
 
+  /** Tag the official shell full-viewport background surfaces (AppFrame
+   * frame, conversation root, details root) and the sidebar workspace-list
+   * end fade with the own marker data-dsh-wallpaper-surface so the
+   * neutralizer can target them without hashed class names (#734). Idempotent
+   * across renders within one mount; untagged on teardown. */
+  private markSurfaces(): void {
+    const root = this.doc.getElementById('root')
+    if (root !== null) {
+      const isSurface = this.options.declareSurface ?? defaultWallpaperSurface
+      const stack: Element[] = [root]
+      while (stack.length > 0) {
+        const node = stack.pop()
+        if (node === undefined) continue
+        if (node instanceof HTMLElement && !node.hasAttribute('data-dsh-wallpaper-surface') && isSurface(node, this.doc)) {
+          node.setAttribute('data-dsh-wallpaper-surface', '')
+          this.taggedSurfaces.push(node)
+        }
+        for (const child of Array.from(node.children)) stack.push(child)
+      }
+    }
+    this.markWorkspaceFades()
+  }
+
+  /** Tag the sidebar workspaces list-end fade with the same own marker (#734). */
+  private markWorkspaceFades(): void {
+    const slot = this.doc.querySelector('[data-slot="sidebar.workspaces"]')
+    if (slot === null) return
+    const isFade = this.options.declareWorkspaceFade ?? defaultWorkspaceFade
+    const stack: Element[] = [slot]
+    while (stack.length > 0) {
+      const node = stack.pop()
+      if (node === undefined) continue
+      if (node instanceof HTMLElement && !node.hasAttribute('data-dsh-wallpaper-surface') && isFade(node, this.doc)) {
+        node.setAttribute('data-dsh-wallpaper-surface', '')
+        this.taggedSurfaces.push(node)
+      }
+      for (const child of Array.from(node.children)) stack.push(child)
+    }
+  }
+
+  private untagSurfaces(): void {
+    for (const el of this.taggedSurfaces) el.removeAttribute('data-dsh-wallpaper-surface')
+    this.taggedSurfaces = []
+  }
+
   private teardownLayers(): void {
+    this.untagSurfaces()
     delete this.doc.body.dataset.dshWallpaperActive
     delete this.doc.documentElement.dataset.dshWallpaperActive
     if (this.rootNeutralizer !== null) {
