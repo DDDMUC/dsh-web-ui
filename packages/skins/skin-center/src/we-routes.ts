@@ -28,6 +28,7 @@
  */
 
 import { cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { readFile, stat } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath, sep } from 'node:path'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
@@ -237,6 +238,16 @@ interface WallpaperJson {
   previewUrl: string | null
 }
 
+/** Cached per-scene capability probe result. */
+interface SceneProbe { hasVideo: boolean; hasSceneWebGL: boolean }
+
+/** Shape-check an entry loaded from the persisted probe cache. */
+function isSceneProbe(value: unknown): value is SceneProbe {
+  return value !== null && typeof value === 'object'
+    && typeof (value as SceneProbe).hasVideo === 'boolean'
+    && typeof (value as SceneProbe).hasSceneWebGL === 'boolean'
+}
+
 /** Build the route family. */
 export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
   // token -> absolute path, issued by the inventory handler only. The map
@@ -269,10 +280,27 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
   })
 
   // hasVideo / hasSceneWebGL probes parse whole pkgs (LZ4 decompress, tex
-  // decode), so cache them by path+mtime+size: /inventory and boot would
-  // otherwise re-parse the whole library synchronously on every request.
-  const sceneProbeCache = new Map<string, { hasVideo: boolean; hasSceneWebGL: boolean }>()
+  // decode), so cache them by path+mtime+size: the probe route would
+  // otherwise re-parse the selected scene's whole payload on every request.
+  // The cache persists to the import store so a host restart does not
+  // re-read a large scene.pkg on the first selection after boot (#817).
+  const probeCachePath = joinPath(deps.storeDir, '.cache', 'we-scene-probes.json')
+  let sceneProbeCache = new Map<string, SceneProbe>()
+  try {
+    const saved = JSON.parse(readFileSync(probeCachePath, 'utf8')) as Record<string, unknown>
+    if (saved !== null && typeof saved === 'object') {
+      for (const [key, value] of Object.entries(saved)) {
+        if (isSceneProbe(value)) sceneProbeCache.set(key, value)
+      }
+    }
+  } catch { /* no cache yet: start empty */ }
   const MAX_PROBE_CACHE = 256
+  const persistProbes = (): void => {
+    try {
+      mkdirSync(dirname(probeCachePath), { recursive: true })
+      writeFileSync(probeCachePath, JSON.stringify(Object.fromEntries(sceneProbeCache)), 'utf8')
+    } catch { /* best effort; a failed persist only costs a re-probe */ }
+  }
 
   const entryToJson = (entry: WallpaperEntry): WallpaperJson => {
     const hasFile = existsSync(entry.fileAbs)
@@ -343,12 +371,13 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
   // GET /scene-probe?id=<id> — lazy per-item capability probe. Inventory
   // stays cheap by never reading scene payloads; the client asks this route
   // only for the wallpaper the user actually selects. The probe reads the
-  // whole packed scene file once (cached by path+mtime+size), so a large
-  // library is never scanned up front.
+  // whole packed scene file once (cached by path+mtime+size, persisted to
+  // the import store so restarts do not re-read it), and only on a cache
+  // miss — a large library is never scanned up front (#817).
   routes.push({
     kind: 'exact',
     path: WE_API_PREFIX + '/scene-probe',
-    handler: (req, res) => {
+    handler: async (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireSameOrigin(req, res)) return
       try {
@@ -359,7 +388,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         if (!entry || !existsSync(entry.fileAbs)) { json(res, 404, { ok: false, error: 'not-found' }); return }
         let mtimeMs = 0
         let size = 0
-        try { const st = statSync(entry.fileAbs); mtimeMs = st.mtimeMs; size = st.size } catch { /* probe once without a key */ }
+        try { const st = await stat(entry.fileAbs); mtimeMs = st.mtimeMs; size = st.size } catch { /* probe once without a key */ }
         // Loose .json scenes probe the whole directory (video/manifest
         // siblings), which a single-file stat key cannot fingerprint; skip
         // the cache for them so sibling changes never serve stale results.
@@ -371,15 +400,14 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           let hasVideo = false
           let hasSceneWebGL = false
           try {
-            const pkgData = readFileSync(entry.fileAbs)
-            const u8 = new Uint8Array(pkgData.buffer, pkgData.byteOffset, pkgData.byteLength)
+            const pkgData = await readFile(entry.fileAbs)
             hasVideo = entry.fileAbs.toLowerCase().endsWith('.json')
               ? hasSceneVideoFromDir(dirname(entry.fileAbs))
-              : hasSceneVideo(u8)
+              : hasSceneVideo(pkgData)
             if (!hasVideo) {
               const manifest = entry.fileAbs.toLowerCase().endsWith('.json')
                 ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
-                : buildSceneManifest(u8, 'check')
+                : buildSceneManifest(pkgData, 'check')
               hasSceneWebGL = Boolean(manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0)))
             }
           } catch {
@@ -387,8 +415,16 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           }
           probe = { hasVideo, hasSceneWebGL }
           if (mtimeMs > 0) {
-            if (sceneProbeCache.size >= MAX_PROBE_CACHE) sceneProbeCache.clear()
+            // Bound the cache by evicting the oldest entries instead of
+            // clearing everything at once: the whole-map clear would make a
+            // library just above the cap re-probe on every open.
             sceneProbeCache.set(key, probe)
+            while (sceneProbeCache.size > MAX_PROBE_CACHE) {
+              const oldest = sceneProbeCache.keys().next().value
+              if (oldest === undefined) break
+              sceneProbeCache.delete(oldest)
+            }
+            persistProbes()
           }
         }
         const videoToken = probe.hasVideo ? tokenFor(entry.fileAbs) : null
