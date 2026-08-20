@@ -100,7 +100,8 @@ jobs:
             // 重新测试通过的截图，缺一即拒绝；仓库所有者自审的 PR 由发布
             // 构建与自动化套件把关。
             const isRepoOwner = pr.user.login === context.repo.owner;
-            if (!isRepoOwner) {
+            const isBot = pr.user.login === 'github-actions[bot]';
+            if (!isRepoOwner && !isBot) {
               if (!hasCheckedLine(evidenceRules, '我提供了自己本地测试的证据（执行的命令 / 测试结果 / 运行截图）。')) {
                 errors.push('请在 `测试证据与上游同步（Test Evidence & Upstream Sync）` 中勾选「我提供了自己本地测试的证据」。');
               }
