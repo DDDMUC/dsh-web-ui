@@ -20,7 +20,7 @@
 | 自定义指令 | `prompt` 参数携带你的精确指令（OCR、图表解读、UI 诊断、翻译…）；`defaultPrompt` 配置设置模型未传指令时的兜底文案 |
 | 实时配置卡 | 设置 → 插件配置 → Web UI 插件组 → 「图像理解」卡修改 `baseURL` / `apiStyle` / `model` / API key / 默认指令 / 各项上限（走设置服务），即时生效，无需重启 |
 | 连通测试与模型获取 | 模型字段带「获取模型」控件，模型字段有值时再出现「测试连通性」控件，两者未保存也可用。获取把草稿提交到 `POST /describe-image/models`，Host 侧按密钥解析链解析凭证、只回模型 id 列表；列出成功即端点可达且鉴权通过，模型字段随之切换为已获取模型的下拉选择。测试连通性用所选模型发一次最小补全（`max_tokens` 1），回报模型本身的往返延迟 |
-| 多协议 | `apiStyle: chat-completions`（默认）请求 `baseURL/chat/completions`；`apiStyle: responses` 请求 `baseURL/responses`，使用 `input` / `max_output_tokens` 并读取 `output_text`，兼容只返回 SSE 流式响应的端点（自动解析 `text/event-stream`）；`apiStyle: anthropic-messages` 请求 `baseURL/v1/messages`（`x-api-key` 鉴权，Claude 风格端点如 OpenCode Go / 智谱 GLM / 月之暗面 Kimi），读取 `content[].text` |
+| 多协议 | `apiStyle: chat-completions`（默认）请求 `baseURL/chat/completions` 并读取 `message.content`，content 为空时回退 `reasoning_content`（推理模型如 Kimi K2.x 可能把全部输出预算花在思维链上——issue #637；调大 `maxOutputTokens` 或用 `model:off` 可避免）；`apiStyle: responses` 请求 `baseURL/responses`，使用 `input` / `max_output_tokens` 并读取 `output_text`，兼容只返回 SSE 流式响应的端点（自动解析 `text/event-stream`）；`apiStyle: anthropic-messages` 请求 `baseURL/v1/messages`（`x-api-key` 鉴权，Claude 风格端点如 OpenCode Go / 智谱 GLM / 月之暗面 Kimi），读取 `content[].text` |
 | 思考控制 | 模型 id 带可选后缀：`model:off` 禁用思考，`model:low` / `model:medium` / `model:high` 开启思考；不带后缀则不发送控制、沿用端点默认（MiMo-V2.5、DeepSeek V4 默认开启思考） |
 | 原图路由 | `GET /describe-image/raw/<id>` 回读已存字节（仅回环、内容寻址 id），让贴入的引用在会话中渲染 |
 | 能力探测路由 | `GET /describe-image/capability?session=<id>` 回答该会话模型是否声明图片输入（以会话自身的请求头路由确认生效模型——恢复的会话沿用其日志模型、无请求历史的新会话取当前默认模型选择；模态经 `resolveModelInfo` 精确解析）。无路由可解析、一切未知与失败都保守回答 false，保留改写行为 |

@@ -196,17 +196,28 @@ export async function readBoundedText(response: Response, cap: number): Promise<
   return text.length > cap ? text.slice(0, cap) : text
 }
 
-/** Extract the single text answer from an OpenAI-compatible chat-completions payload. */
+/**
+ * Extract the single text answer from an OpenAI-compatible chat-completions
+ * payload. Reasoning models (Kimi K2.x and friends) can spend the whole
+ * max_tokens budget on the thinking chain and leave `content` empty while the
+ * answer lives in `reasoning_content` (issue #637) — fall back to it instead
+ * of failing the call outright.
+ */
 export function extractChatCompletionsContent(payload: unknown): string {
   const root = asRecord(payload)
   const choices = root?.choices
   if (root === undefined || !Array.isArray(choices) || choices.length === 0) unexpectedShape()
   const message = asRecord(asRecord(choices[0])?.message)
   const content = message?.['content']
-  if (typeof content !== 'string' || content.trim().length === 0) {
-    throw new Error('describe-image: vision endpoint returned no text content')
+  if (typeof content === 'string' && content.trim().length > 0) return content
+
+  const reasoning = message?.['reasoning_content']
+  if (typeof reasoning === 'string' && reasoning.trim().length > 0) return reasoning
+  if (Array.isArray(reasoning)) {
+    const parts = reasoning.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    if (parts.length > 0) return parts.join('\n')
   }
-  return content
+  throw new Error('describe-image: vision endpoint returned no text content (the model may have spent the whole output budget on reasoning; raise the max output tokens or disable thinking for this model)')
 }
 
 /** Extract the text answer from an OpenAI Responses payload: every `output_text` part of assistant messages. */
