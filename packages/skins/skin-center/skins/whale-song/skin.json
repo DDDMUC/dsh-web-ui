@@ -16,7 +16,7 @@
     "translucent"
   ],
   "accent": "#4d8fd4",
-  "order": 2,
+  "order": 1,
   "version": "0.2.0",
   "preview": {
     "light": "preview/light.png",
