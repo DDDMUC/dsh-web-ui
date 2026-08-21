@@ -52,7 +52,7 @@ dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everythin
 | Mobile remote control | None | QR pairing with SSE real-time sync; the same link also pairs a PC browser to run the full Web GUI remotely |
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
 | Image understanding | None | `describe_image` vision tool |
-| Themes & skins | Default theme | Skin center with 11 skins, try-on before apply |
+| Themes & skins | Default theme | Skin center with 17 skins, try-on before apply |
 
 ## Feature Plugins
 
@@ -124,13 +124,13 @@ A whale girl lives at the edge of the UI and changes animation with the agent's 
 
 ## Skins
 
-The skin center has eleven skins, each with try-on before apply: the preview applies instantly and reverts fully on exit; apply with one click once you are happy.
+The skin center has 17 skins, each with try-on before apply: the preview applies instantly and reverts fully on exit; apply with one click once you are happy.
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-All 12 skins at a glance; Maid Atelier has its own preview below:
+All 17 skins at a glance; Maid Atelier has its own preview below:
 
-![All 12 skins](docs/images/skins-montage.png)
+![All 17 skins](docs/images/skins-montage.png)
 
 ### Windows XP (Luna)
 

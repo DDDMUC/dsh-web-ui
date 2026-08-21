@@ -84,6 +84,7 @@ node scripts/dsh-plugin-new <name>   # 生成 packages/<name>/ 骨架
 node scripts/dsh-skin-new          # 生成 packages/skins/skin-center/skins/<id>/ 纯资产骨架
 node scripts/capture-previews <id>  # 重拍 preview/{light,dark}.png
 pnpm gallery:build                # 画廊产物
+node scripts/skins-montage.mjs    # 重排根 README 皮肤一览图（docs/images/skins-montage.png）
 ```
 
 皮肤启用互斥由 `dsh-skin use` 管理（客户端原子切换，不改 cordis.patch.yml）；皮肤资产全部内置在皮肤中心包，不单独发 npm 包。

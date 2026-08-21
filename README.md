@@ -50,7 +50,7 @@ dsh-web-ui 继承 DeepSeek Harness（DSH）「一切皆开发、一切皆插件�
 | 移动端远程 | 无 | 扫码配对，SSE 实时同步；同一链接也可配对 PC 浏览器远程使用完整 Web GUI |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
 | 图像理解 | 无 | `describe_image` 视觉工具 |
-| 主题皮肤 | 默认主题 | 皮肤中心 12 款，先试穿再应用 |
+| 主题皮肤 | 默认主题 | 皮肤中心 17 款，先试穿再应用 |
 
 ## 功能插件
 
@@ -122,13 +122,13 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ## 皮肤
 
-皮肤中心有 12 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
+皮肤中心有 17 款皮肤，都支持先试穿再应用：试穿即时生效、退出完全还原，满意再一键应用。
 
 ![皮肤中心](docs/screenshots/03-settings-skin-center.png)
 
-12 款皮肤一览；Maid Atelier 预览见下方：
+17 款皮肤一览；Maid Atelier 预览见下方：
 
-![12 款皮肤一览](docs/images/skins-montage.png)
+![17 款皮肤一览](docs/images/skins-montage.png)
 
 ### Windows XP（Luna）
 
