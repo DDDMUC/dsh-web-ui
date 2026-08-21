@@ -30,6 +30,12 @@ export interface DoctorConsoleInjected {
 /** Composed props: the injected face plus the locale seat. */
 export interface DoctorConsoleProps extends DoctorConsoleInjected {
   t: TranslateNS<'doctor'>
+  /**
+   * Render inside the family plugin settings card: the card chrome provides
+   * the header and the form staging owns the enable switch, so the console
+   * skips both and keeps only the live status, incidents, probe and actions.
+   */
+  embedded?: boolean
 }
 
 /** Fallback settings state when the handle is absent. */
@@ -48,9 +54,10 @@ function stableSettingsAdapter(settings: DoctorSettingsHandle | null): DoctorSet
   return settings ?? UNAVAILABLE_ADAPTER
 }
 
-/** The first-level settings entry. */
+/** The recovery console: a first-level settings section, or the card body when embedded. */
 export function DoctorRecoveryConsole(props: DoctorConsoleProps): ReactNode {
   const { t, controller } = props
+  const embedded = props.embedded === true
   const view = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const adapter = useMemo(() => stableSettingsAdapter(props.settings), [props.settings])
   const settingsState = useSyncExternalStore(adapter.listen, adapter.getState)
@@ -82,12 +89,18 @@ export function DoctorRecoveryConsole(props: DoctorConsoleProps): ReactNode {
       className={css.section}
       aria-label={t('settings.title')}
     >
-      <header className={css.header} data-dsh-part="header">
-        <h2 className={css.title}>{t('settings.title')}</h2>
-        <p className={css.subtitle}>{t('settings.subtitle')}</p>
-      </header>
+      {embedded === false
+        ? (
+          <header className={css.header} data-dsh-part="header">
+            <h2 className={css.title}>{t('settings.title')}</h2>
+            <p className={css.subtitle}>{t('settings.subtitle')}</p>
+          </header>
+        )
+        : null}
 
-      <div className={css.enableRow} data-dsh-part="enable">
+      {embedded === false
+        ? (
+          <div className={css.enableRow} data-dsh-part="enable">
         <div className={css.enableCopy}>
           <span className={css.enableLabel}>{t('enable.label')}</span>
           <span className={css.enableHint}>{enableHint(t, settingsState)}</span>
@@ -110,7 +123,9 @@ export function DoctorRecoveryConsole(props: DoctorConsoleProps): ReactNode {
           </span>
         </button>
         {saveError !== undefined && <p className={css.errorLine} role="status">{t('enable.saveFailed', { reason: saveError })}</p>}
-      </div>
+          </div>
+        )
+        : null}
 
       <DoctorErrorBoundary
         t={t}

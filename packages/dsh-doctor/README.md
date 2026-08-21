@@ -7,17 +7,19 @@ Supervisor plus a transparent Doctor Launcher keep an isolated rescue capsule
 ready, detect boot failures, process crashes, heartbeat timeouts, Web failures
 and browser white screens, and restore the profile through snapshots,
 deterministic repairs, isolated health gates and atomic promote or rollback.
-The package ships disabled by default and is enabled from the Doctor section in
-DSH Web settings. It does not modify a DSH installation.
+The package ships disabled by default and is enabled from its Doctor card in
+Settings → Plugin configuration → Web UI plugins. It does not modify a DSH
+installation.
 
 ## What it does
 
 - The Doctor Host Plugin runs inside every protected DSH host: it exposes the
   loopback recovery API, reports heartbeat and launch-phase facts to the
   Supervisor, and collects browser failure reports.
-- The Doctor Web Console (a first-level settings section) shows the system
-  phase, protected profiles, incidents and the client failure probe, and offers
-  diagnose, repair, rollback, pause, resume and uninstall actions.
+- The Doctor Web Console (the family plugin card inside Settings → Plugin
+  configuration → Web UI plugins) shows the system phase, protected profiles,
+  incidents and the client failure probe, and offers diagnose, repair, rollback,
+  pause, resume and uninstall actions alongside the enable switch.
 - The Doctor Supervisor runs as a per-user background service. It classifies
   exits into user stops, task completion and real failures, applies the
   crash-loop circuit breaker, and owns rescue scheduling.
@@ -65,7 +67,8 @@ pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 ```
 
-Restart `dsh web`, open Settings → Doctor, and enable the plugin. The package
+Restart `dsh web`, open Settings → Plugin configuration → Web UI plugins, expand
+the Doctor card, and enable it. The package
 also ships the `dsh-doctor` CLI for the Supervisor, the Launcher, provisioning
 and the user-level service adapters.
 

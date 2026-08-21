@@ -108,7 +108,7 @@ family / 插件区域：
 | `web-ui-settings` | dsh-web-ui-settings | settings.section id `web-ui-plugins` |
 | `community-plugins` | dsh-community-plugins | settings.section id `community-plugins` |
 | `skill-explorer` | dsh-skill-explorer | `[data-dsh-skill-explorer-view]` / `[data-dsh-skill-explorer-entry]` |
-| `doctor` | dsh-doctor | 根容器 `data-dsh-plugin="doctor"`；settings.section id `doctor` |
+| `doctor` | dsh-doctor | web-ui.plugin.item 槽 entry id `doctor`（设置 → Web UI 插件 → Doctor 卡片）；卡片内 `[data-dsh-plugin="doctor"]` |
 | `aionui-panel` | dsh-aionui-panel（停更） | dock entry id `aionui-*` |
 | `skin-center` | skins/skin-center | settings.section 一级页 |
 
