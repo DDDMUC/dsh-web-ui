@@ -1206,6 +1206,7 @@ function transformSkinCss(css, options) {
 	}
 	out += css.slice(cursor);
 	out += `\n${scope} [id="root"] { background: transparent; }\n`;
+	out += `\n${scope} body { --shiki-background: var(--dsw-alias-markdown-code-block); }\n`;
 	if (options.deriveFallbacks === true) {
 		const fallbacks = deriveFallbackTokens(defined);
 		if (fallbacks.length > 0) out += `\n${scope} body {\n  ${fallbacks.join("\n  ")}\n}\n`;
