@@ -62,7 +62,7 @@ export interface Config {
 }
 
 export const Config: z<Config> = z.object({
-  announceToAgent: z.boolean().default(true),
+  announceToAgent: z.boolean().default(false),
   enabled: z.boolean().default(true),
   dshCommand: z.string().default(DEFAULT_DSH_COMMAND),
   url: z.string().default(DEFAULT_URL),
@@ -72,7 +72,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** Schema default, re-read for hand-built test contexts (the loader applies them normally). */
-const DEFAULT_ANNOUNCE = true
+const DEFAULT_ANNOUNCE = false
 
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 210

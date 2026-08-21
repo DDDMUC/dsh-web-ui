@@ -63,6 +63,15 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 node tools/analyze-session.mjs <导出的 session.jsonl>
 ```
 
+## 配置
+
+| 键 | 默认值 | 行为 |
+| --- | --- | --- |
+| `enabled` | `true` | 总开关：关闭后预设同步与公告都不执行。 |
+| `announceToAgent` | `false` | 按需开启：开启后向 agent 系统提示注入本插件公告。默认关闭，保持系统提示词干净。 |
+
+两个字段都可在 Web 设置界面（插件配置，即时生效）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。
+
 ## 行为与限制
 
 - 第一次模型响应如果没有调用工具，在响应后即自动晋升；锚定门控中的会话也会在首轮结束（`turn/end`）时释放。释放判定发生在 prompt assemble 阶段，所以新用户轮次一开始就拿到晋升后的 PTC 目录，其消息也不会再被剥离；

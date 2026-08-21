@@ -63,6 +63,15 @@ Trajectory drift can be measured without reading raw reasoning:
 node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jsonl
 ```
 
+## Configuration
+
+| Key | Default | Behavior |
+| --- | --- | --- |
+| `enabled` | `true` | Master switch: when false, neither preset sync nor announcement runs. |
+| `announceToAgent` | `false` | Opt-in: when true, a system-prompt section announces the plugin. Off by default so agent system prompts stay clean. |
+
+Both fields are editable in the web settings surface (plugin config, live) or through the profile patch (`dsh plugin` / `cordis.patch.yml`).
+
 ## Behavior and limits
 
 - A first model response that calls no tool promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`). The release is decided during prompt assembly, so the new user turn already gets the promoted PTC catalog and its messages are not stripped;

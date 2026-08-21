@@ -52,7 +52,7 @@ All fields live in the plugin settings card (or in the composition entry):
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `true` | Master switch for the plugin. |
-| `announceToAgent` | `true` | Announce the plugin in the system prompt. |
+| `announceToAgent` | `false` | Opt-in: when true, announces the plugin in the system prompt. |
 | `dshCommand` | `dsh` | Command that starts dsh; must be on PATH. |
 | `url` | `http://127.0.0.1:3080` | GUI URL the launcher waits for and opens. |
 | `profile` | unset | Optional `--profile` argument passed to `dsh web`. |

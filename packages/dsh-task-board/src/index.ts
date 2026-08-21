@@ -55,7 +55,7 @@ export interface Config {
 }
 
 export const Config: z<Config> = z.object({
-  announceToAgent: z.boolean().default(true),
+  announceToAgent: z.boolean().default(false),
   enabled: z.boolean().default(true),
   preventIdleSleep: z.boolean().default(false),
   trustedProxyHosts: z.array(z.string()).default([]),
@@ -76,7 +76,7 @@ export function resolveProxyAccess(config: Config | undefined, env: NodeJS.Proce
 }
 
 /** Schema default, re-read for hand-built test contexts (the loader applies them normally). */
-const DEFAULT_ANNOUNCE = true
+const DEFAULT_ANNOUNCE = false
 
 /**
  * Register the board's announcement section, gated on the composition entry's

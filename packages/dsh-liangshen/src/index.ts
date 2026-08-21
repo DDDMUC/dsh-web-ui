@@ -3,9 +3,11 @@
  *
  * Host half only: on startup it syncs the bundled `presets/` tree into the
  * harness-home agent-presets root (`~/.dsh/.agent-presets`), making the
- * LiangShen preset selectable for new sessions without copying files by hand,
- * and announces the capability through a system-prompt section. No browser
- * half, no routes, no agent tools — the preset itself provides the tools.
+ * LiangShen preset selectable for new sessions without copying files by hand.
+ * The capability announcement is a system-prompt section that ships OFF by
+ * default (`announceToAgent: false`) and can be enabled in the web settings
+ * surface (plugin config) or the profile patch. No browser half, no routes,
+ * no agent tools — the preset itself provides the tools.
  *
  * The preset is the "anchored-standard" idea shipped as a named mode: the
  * first model request sees only the builtin Minimal preset's exact two tools
@@ -18,6 +20,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import z from 'schemastery'
 import { dshHome } from './dsh-home.ts'
@@ -27,6 +30,9 @@ import { mountOnce } from './mount-once.ts'
 /** Stable cordis plugin name. */
 export const name = 'liangshen'
 
+/** Settings namespace of the plugin (the web settings surface edits it). */
+export const LIANGSHEN_SETTINGS_NAMESPACE = settingsNamespace('dsh-liangshen')
+
 /** Prompt assembly must exist before the announcement section can register. */
 export const inject = ['systemPrompt']
 
@@ -34,17 +40,17 @@ export const inject = ['systemPrompt']
 export interface Config {
   /** Master switch: when false, neither sync nor announcement runs. */
   enabled?: boolean
-  /** When true (default), a system-prompt section announces the plugin. */
+  /** When true, a system-prompt section announces the plugin (default false — keep prompts clean unless the user opts in). */
   announceToAgent?: boolean
 }
 
 export const Config: z<Config> = z.object({
   enabled: z.boolean().default(true),
-  announceToAgent: z.boolean().default(true),
+  announceToAgent: z.boolean().default(false),
 })
 
 /** Schema default, re-read for hand-built test contexts. */
-const DEFAULT_ANNOUNCE = true
+const DEFAULT_ANNOUNCE = false
 
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 150
@@ -65,16 +71,22 @@ export function bundledPresetsRoot(): string {
 
 /**
  * Mount the plugin: sync bundled presets into the harness-home agent-presets
- * root, then announce through a system-prompt section.
+ * root, register the settings namespace (enabled / announceToAgent, live),
+ * and announce through a system-prompt section when announceToAgent is on
+ * (off by default).
  * @param ctx - host plugin context carrying systemPrompt.
  * @param config - resolved plugin config (schema defaults applied by the loader).
  */
 export const apply = mountOnce('@linxin666/dsh-liangshen', applyImpl)
 
 function applyImpl(ctx: Context, config?: Config): void {
+  // The live source the announcement reads: the settings section once the web
+  // settings surface is served, the composition entry otherwise
+  // (installSettingsSection swaps it when the namespace registers).
+  let current: () => Config = () => config ?? {}
   const resolve = (): Config => ({
-    announceToAgent: config?.announceToAgent ?? DEFAULT_ANNOUNCE,
-    enabled: config?.enabled ?? true,
+    announceToAgent: current().announceToAgent ?? DEFAULT_ANNOUNCE,
+    enabled: current().enabled ?? true,
   })
 
   const sync = (): void => {
@@ -110,6 +122,17 @@ function applyImpl(ctx: Context, config?: Config): void {
       })
     }
   }
+
+  // The web settings surface gets the plugin's enabled / announceToAgent
+  // fields from this namespace; a settings edit re-runs refresh live, and
+  // deployments without a settings service keep the composition entry.
+  installSettingsSection(ctx, LIANGSHEN_SETTINGS_NAMESPACE, Config, config ?? {}, {
+    setSource: (source) => {
+      current = source
+      refresh()
+    },
+    onChange: refresh,
+  })
 
   refresh()
   ctx.effect(() => () => { disposeSection?.(); disposeSection = undefined }, 'dsh-liangshen: announcement')
