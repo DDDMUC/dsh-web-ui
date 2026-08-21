@@ -16,6 +16,11 @@ describe('skin-center background slider track', () => {
     expect(block).toContain('box-shadow: 0 0 0 1px var(--dsw-alias-border-l3, #cbd5e1)')
   })
 
+  it('lifts the webkit thumb onto the 4px track so its center stays aligned (#725)', () => {
+    const block = css.match(/.backgroundRange::-webkit-slider-thumb\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(block).toContain('margin-top: -5px')
+  })
+
   it('styles the webkit runnable track explicitly', () => {
     const block = css.match(/.backgroundRange::-webkit-slider-runnable-track\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(block).toContain('height: 4px')

@@ -401,6 +401,9 @@ body[data-dsh-skin-center] .backgroundRange::-webkit-slider-thumb {
   appearance: none;
   width: 14px;
   height: 14px;
+  /* WebKit aligns the thumb top to the 4px track top; lift it by half the
+     difference so the thumb center rides the track center (#725). */
+  margin-top: -5px;
   border-radius: 50%;
   border: 2px solid var(--dsw-alias-label-primary-foreground, #ffffff);
   background: var(--dsw-alias-brand-primary, #2b7cd9);

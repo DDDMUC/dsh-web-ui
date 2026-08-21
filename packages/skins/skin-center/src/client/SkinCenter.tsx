@@ -24,6 +24,7 @@ import type { PreviewCoordinator } from './preview-coordinator.ts'
 import type { CustomThemeController } from './custom-theme-controller.ts'
 import { CustomThemeCard } from './CustomThemePanel.tsx'
 import { WallpaperPanel } from './WallpaperPanel.tsx'
+import { SliderControl } from './SliderControl.tsx'
 import css from './skin-center.module.css'
 
 /** Business face the skin-center apply() injects into the card. */
@@ -53,6 +54,18 @@ export type SkinCenterComponentProps =
 const OFFICIAL = 'official'
 
 /**
+ * Live-label helper: the shown value follows the in-drag thumb immediately,
+ * and falls back to the store value once the store settles (issue #725).
+ */
+function useLiveValue(value: number): [number, (v: number | null) => void] {
+  const [live, setLive] = useState<number | null>(null)
+  useEffect(() => {
+    setLive(null)
+  }, [value])
+  return [live ?? value, setLive]
+}
+
+/**
  * Render the skin-center card: a static header naming the plugin, with the
  * always-visible skin list (official default + every catalog skin; try-on /
  * theme preview / one-click apply) rendered below it.
@@ -66,6 +79,10 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview, 
   const blurEmpty = useSyncExternalStore(background.subscribe, background.blurEmpty)
   const blurContent = useSyncExternalStore(background.subscribe, background.blurContent)
   const inputCardBlur = useSyncExternalStore(background.subscribe, background.inputCardBlur)
+  const [shownOpacity, setShownOpacity] = useLiveValue(opacity)
+  const [shownBlurEmpty, setShownBlurEmpty] = useLiveValue(blurEmpty)
+  const [shownBlurContent, setShownBlurContent] = useLiveValue(blurContent)
+  const [shownInputCardBlur, setShownInputCardBlur] = useLiveValue(inputCardBlur)
   const catalog = useSyncExternalStore(runtime.subscribe, runtime.catalog)
   const state = useSyncExternalStore(runtime.subscribe, runtime.controller.getState)
   const customThemeState = useSyncExternalStore(customTheme.subscribe, customTheme.getState)
@@ -287,19 +304,19 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview, 
                   <div className={css.backgroundRow}>
                     <div className={css.backgroundHead}>
                       <span className={css.backgroundLabel}>{t('backgroundOpacity')}</span>
-                      <span className={css.backgroundValue} aria-hidden="true">{opacity}%</span>
+                      <span className={css.backgroundValue} aria-hidden="true">{shownOpacity}%</span>
                     </div>
-                    <input
+                                        <SliderControl
                       id="skin-center-background-opacity"
                       className={css.backgroundRange}
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
+                      min={0}
+                      max={100}
+                      step={5}
                       value={opacity}
-                      aria-valuetext={`${opacity}%`}
-                      aria-label={t('backgroundOpacity')}
-                      onChange={(event) => { background.set(Number(event.target.value)) }}
+                      ariaValuetext={shownOpacity + '%'}
+                      ariaLabel={t('backgroundOpacity')}
+                      onChanging={setShownOpacity}
+                      onChange={(value) => { background.set(value) }}
                     />
                     <p className={backdropActive ? css.backgroundHint : css.backgroundHintMuted}>
                       {backdropActive ? t('backgroundHint') : t('backgroundHintInert')}
@@ -308,35 +325,35 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview, 
                   <div className={css.backgroundRow}>
                     <div className={css.backgroundHead}>
                       <span className={css.backgroundLabel}>{t('backgroundBlurEmpty')}</span>
-                      <span className={css.backgroundValue} aria-hidden="true">{blurEmpty}px</span>
+                      <span className={css.backgroundValue} aria-hidden="true">{shownBlurEmpty}px</span>
                     </div>
-                    <input
+                                        <SliderControl
                       id="skin-center-background-blur-empty"
                       className={css.backgroundRange}
-                      type="range"
-                      min="0"
-                      max="20"
-                      step="1"
+                      min={0}
+                      max={20}
+                      step={1}
                       value={blurEmpty}
-                      aria-valuetext={`${blurEmpty}px`}
-                      aria-label={t('backgroundBlurEmpty')}
-                      onChange={(event) => { background.setBlurEmpty(Number(event.target.value)) }}
+                      ariaValuetext={shownBlurEmpty + 'px'}
+                      ariaLabel={t('backgroundBlurEmpty')}
+                      onChanging={setShownBlurEmpty}
+                      onChange={(value) => { background.setBlurEmpty(value) }}
                     />
                     <div className={css.backgroundHead}>
                       <span className={css.backgroundLabel}>{t('backgroundBlurContent')}</span>
-                      <span className={css.backgroundValue} aria-hidden="true">{blurContent}px</span>
+                      <span className={css.backgroundValue} aria-hidden="true">{shownBlurContent}px</span>
                     </div>
-                    <input
+                                        <SliderControl
                       id="skin-center-background-blur-content"
                       className={css.backgroundRange}
-                      type="range"
-                      min="0"
-                      max="20"
-                      step="1"
+                      min={0}
+                      max={20}
+                      step={1}
                       value={blurContent}
-                      aria-valuetext={`${blurContent}px`}
-                      aria-label={t('backgroundBlurContent')}
-                      onChange={(event) => { background.setBlurContent(Number(event.target.value)) }}
+                      ariaValuetext={shownBlurContent + 'px'}
+                      ariaLabel={t('backgroundBlurContent')}
+                      onChanging={setShownBlurContent}
+                      onChange={(value) => { background.setBlurContent(value) }}
                     />
                     <p className={backdropActive ? css.backgroundHint : css.backgroundHintMuted}>
                       {backdropActive ? t('backgroundBlurHint') : t('backgroundBlurInert')}
@@ -347,19 +364,19 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview, 
                   <div className={css.backgroundRow}>
                     <div className={css.backgroundHead}>
                       <span className={css.backgroundLabel}>{t('inputCardBlur')}</span>
-                      <span className={css.backgroundValue} aria-hidden="true">{inputCardBlur}px</span>
+                      <span className={css.backgroundValue} aria-hidden="true">{shownInputCardBlur}px</span>
                     </div>
-                    <input
+                                        <SliderControl
                       id="skin-center-input-card-blur"
                       className={css.backgroundRange}
-                      type="range"
-                      min="0"
-                      max="20"
-                      step="1"
+                      min={0}
+                      max={20}
+                      step={1}
                       value={inputCardBlur}
-                      aria-valuetext={`${inputCardBlur}px`}
-                      aria-label={t('inputCardBlur')}
-                      onChange={(event) => { background.setInputCardBlur(Number(event.target.value)) }}
+                      ariaValuetext={shownInputCardBlur + 'px'}
+                      ariaLabel={t('inputCardBlur')}
+                      onChanging={setShownInputCardBlur}
+                      onChange={(value) => { background.setInputCardBlur(value) }}
                     />
                     <p className={css.backgroundHint}>{t('inputCardBlurHint')}</p>
                   </div>
