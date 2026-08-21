@@ -589,7 +589,8 @@ function applyTurnEnd(state: FoldState, event: WireEvent): void {
       ...message,
       ...(wasPending ? { pending: false } : {}),
       ...(failed ? { failed: true } : {}),
-      seq: Math.max(message.seq, event.seq),
+      // Preserve each step's own final-event seq. Collapsing every message
+      // onto turn/end makes same-turn ordering depend on arbitrary ids.
       time: event.time,
     })
   }
@@ -666,10 +667,11 @@ function snapshotOf(state: FoldState): RenderMessage[] {
   for (let index = 1; index < out.length; index += 1) {
     const prev = out[index - 1]!
     const current = out[index]!
-    if (prev.seq > current.seq || (prev.seq === current.seq && prev.id >= current.id)) {
+    if (prev.seq > current.seq) {
       ordered = false
       break
     }
   }
-  return ordered ? out : out.sort((a, b) => a.seq - b.seq || (a.id < b.id ? -1 : 1))
+  // Array.sort is stable: equal-seq rows keep their event insertion order.
+  return ordered ? out : out.sort((a, b) => a.seq - b.seq)
 }
