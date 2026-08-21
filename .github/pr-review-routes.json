@@ -1,0 +1,23 @@
+{
+  "comment": true,
+  "routes": [
+    {
+      "name": "renderer",
+      "label": "渲染器 / Wallpaper Engine / WebGL",
+      "paths": [
+        "packages/skins/skin-center/src/we-*.ts",
+        "packages/skins/skin-center/src/pkg-extract.ts",
+        "packages/skins/skin-center/src/client/wallpaper.ts",
+        "packages/skins/skin-center/src/client/background.ts",
+        "packages/skins/skin-center/src/client/runtime/backdrop-scene.ts",
+        "packages/skins/skin-center/src/client/WallpaperPanel.tsx",
+        "packages/skins/skin-center/tests/we-*.spec.ts",
+        "packages/skins/skin-center/tests/wallpaper.spec.ts",
+        "packages/skins/skin-center/tests/wallpaper-panel.spec.tsx",
+        "packages/skins/skin-center/tests/pkg-extract.spec.ts"
+      ],
+      "title": "(wallpaper|webgl|scene player|scene runtime|pkg[-_ ]?extract|we[-_ ]?(library|routes|player|shim)|renderer)",
+      "reviewers": ["Aa728848"]
+    }
+  ]
+}

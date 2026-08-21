@@ -8,6 +8,9 @@
 
 - `dev` 是开发分支（集成分支）：本地开发与远程 PR 统一以 `dev` 为
   目标分支；`dev` 上测试通过后，由维护者合入 `main`。
+- PR 打开后由 `.github/workflows/auto-assign-pr-reviewers.yml` 按类型自动路由
+  到对应审批者（渲染器 / Wallpaper Engine / WebGL 相关 PR 由 Aa728848 审查），
+  路由规则见 [PR_TRIAGE.md](PR_TRIAGE.md)。
 - `main` 是稳定分支：只接收从 `dev` 合入且测试通过的代码。
 - 提 PR 一律以 `dev` 为 base，不要以 `main` 为 base。
 
