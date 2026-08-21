@@ -65,11 +65,42 @@ export class DoctorSupervisor {
     } else if (request.type === 'action') {
       if (request.action === 'pause') { this.state.paused = true; this.state.phase = 'disabled' }
       else if (request.action === 'resume') { this.state.paused = false; this.state.phase = 'armed' }
-      else if (request.incidentId) { const incident = this.state.incidents[request.incidentId]; if (incident) incident.phase = request.action === 'rollback' ? 'rolled-back' : request.action === 'confirm' ? 'promoting' : request.action === 'repair' ? 'repairing' : request.action === 'diagnose' ? 'diagnosing' : incident.phase }
+      else if (request.incidentId) { const incident = this.state.incidents[request.incidentId]; if (incident) { incident.phase = request.action === 'rollback' ? 'rolled-back' : request.action === 'confirm' || request.action === 'repair' ? 'repairing' : request.action === 'diagnose' ? 'diagnosing' : incident.phase; if (request.action === 'diagnose' || request.action === 'repair' || request.action === 'confirm' || request.action === 'rollback') await this.runRecovery(request.action, request.incidentId, at) } }
     }
     await appendJsonLine(join(this.paths.logs, 'journal.jsonl'), { at, request: request.type })
     await this.persist()
     return { ok: true, snapshot: snapshotOf(this.state, this.version, at) }
+  }
+  /** Run the deterministic recovery workflow for one incident; records the outcome on the incident. */
+  private async runRecovery(action: 'diagnose' | 'repair' | 'confirm' | 'rollback', incidentId: string, at: string): Promise<void> {
+    const incident = this.state.incidents[incidentId]
+    const profile = this.state.profiles[incident?.profileId ?? '']
+    if (incident === undefined || profile === undefined) return
+    try {
+      const request = { home: profile.identity.dshHome, profile: profile.identity.name, dshPath: profile.identity.dshExecutable }
+      const { diagnoseAndPlan, repairProfile, rollbackTransaction } = await import('../core/recover.ts')
+      let outcome
+      if (action === 'diagnose') outcome = await diagnoseAndPlan(request)
+      else if (action === 'rollback') {
+        const { readdir, readFile } = await import('node:fs/promises')
+        const { doctorRoot } = await import('../core/paths.ts')
+        const dir = doctorRoot(request.home) + '/transactions'
+        let latest
+        try { latest = (await readdir(dir)).filter(name => name.endsWith('.json')).sort().reverse()[0] } catch { latest = undefined }
+        outcome = latest === undefined ? undefined : await rollbackTransaction(request, latest.slice(0, -5))
+      } else {
+        const running = profile.phase === 'starting' || profile.phase === 'healthy' || profile.phase === 'degraded'
+        outcome = await repairProfile({ ...request, allowLive: !running, dshPath: profile.identity.dshExecutable })
+      }
+      if (outcome === undefined) return
+      incident.updatedAt = at
+      incident.evidence = [...new Set([...incident.evidence, 'recovery: ' + outcome.phase + (outcome.message !== undefined ? ' - ' + outcome.message : '')])]
+      if (outcome.ok) incident.phase = action === 'rollback' ? 'rolled-back' : 'recovered'
+      else if (outcome.phase === 'failed' || outcome.phase === 'blocked' || outcome.phase === 'aborted') incident.phase = 'unresolved'
+    } catch (error) {
+      incident.updatedAt = at
+      incident.evidence = [...incident.evidence, 'recovery error: ' + (error instanceof Error ? error.message : String(error))]
+    }
   }
   private async persist(): Promise<void> { await writeJsonAtomic(join(this.paths.state, 'supervisor.json'), this.state) }
   private async sweepHeartbeats(): Promise<void> { const at = this.now(); const now = Date.parse(at); for (const profile of Object.values(this.state.profiles)) { if (profile.phase === 'healthy' && profile.lastHealthyAt && now - Date.parse(profile.lastHealthyAt) > this.heartbeatTimeoutMs) { profile.phase = 'suspected'; openIncident(this.state, profile.identity.id, 'heartbeat-timeout', 'Doctor heartbeat timed out', [`last heartbeat: ${profile.lastHealthyAt}`], at) } } await this.persist() }

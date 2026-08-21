@@ -78,6 +78,10 @@ profile，创建首个已知正常快照，最后把系统切换到 armed 状态
 | `dsh-doctor launch [dsh 参数...]` | 在监督下转发一次 `dsh` 调用 |
 | `dsh-doctor status` | 以 JSON 打印 Supervisor 快照 |
 | `dsh-doctor provision` | 配置或刷新救援胶囊 |
+| `dsh-doctor snapshot [profile]` | 快照一个 profile |
+| `dsh-doctor diagnose [profile]` | 只诊断与规划，不写文件 |
+| `dsh-doctor repair [profile] --allow-live` | 运行暂存修复事务（门禁后提升） |
+| `dsh-doctor rollback <txnId>` | 从隔离区恢复已提升的事务 |
 | `dsh-doctor service-plan` | 打印平台服务文件与命令 |
 | `dsh-doctor service-install` | 写服务文件并注册服务 |
 | `dsh-doctor service-uninstall` | 注销并删除服务文件 |

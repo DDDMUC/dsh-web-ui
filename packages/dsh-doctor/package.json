@@ -7,7 +7,7 @@
   "engines": { "node": "^22.19.0 || >=24.0.0" },
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
-  "bin": { "dsh-doctor": "lib/cli.js" },
+  "bin": { "dsh-doctor": "lib/cli.mjs" },
   "exports": {
     ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
     "./client": { "types": "./lib/types/client/index.d.ts", "default": "./lib/client.js" },

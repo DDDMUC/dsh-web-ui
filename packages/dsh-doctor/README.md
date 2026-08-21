@@ -88,6 +88,10 @@ The `dsh-doctor` binary exposes the operational commands:
 | `dsh-doctor launch [dsh args...]` | relay one `dsh` invocation under supervision |
 | `dsh-doctor status` | print the Supervisor snapshot as JSON |
 | `dsh-doctor provision` | provision or refresh the rescue capsule |
+| `dsh-doctor snapshot [profile]` | capture one profile snapshot |
+| `dsh-doctor diagnose [profile]` | diagnose and plan one profile without writing |
+| `dsh-doctor repair [profile] --allow-live` | run the staged repair transaction (gated promote) |
+| `dsh-doctor rollback <txnId>` | restore a promoted transaction from quarantine |
 | `dsh-doctor service-plan` | print the platform service files and commands |
 | `dsh-doctor service-install` | write the service files and register the service |
 | `dsh-doctor service-uninstall` | deregister and remove the service files |
