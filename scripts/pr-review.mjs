@@ -440,6 +440,7 @@ export function checkTemplate(prInfo, repoOwner) {
   const findings = []
   const summary = readSection(body, `摘要（Summary）`)
   const prType = readSection(body, `PR 类型（PR Type）`)
+  const prCategory = readSection(body, `PR 类别（PR Category）`)
   const latest = readSection(body, `最新代码确认（Latest Codebase Confirmation）`)
   const evidenceRules = readSection(body, `测试证据与上游同步（Test Evidence & Upstream Sync）`)
   const visualRules = readSection(body, `视觉修复要求（Visual Fix Requirements）`)
@@ -452,6 +453,9 @@ export function checkTemplate(prInfo, repoOwner) {
   }
   if (!hasAnyCheckedBox(prType)) {
     findings.push({ severity: `reject`, rule: `template`, message: `PR 类型（PR Type）未勾选任何一项` })
+  }
+  if (!hasAnyCheckedBox(prCategory)) {
+    findings.push({ severity: `reject`, rule: `template`, message: `PR 类别（PR Category）未勾选任何一项` })
   }
   if (!hasCheckedLine(latest, `我已基于最新`)) {
     findings.push({ severity: `reject`, rule: `template`, message: `最新代码确认（Latest Codebase Confirmation）未勾选（须基于最新 dev 分支）` })

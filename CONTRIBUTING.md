@@ -8,9 +8,10 @@
 
 - `dev` 是开发分支（集成分支）：本地开发与远程 PR 统一以 `dev` 为
   目标分支；`dev` 上测试通过后，由维护者合入 `main`。
-- PR 打开后由 `.github/workflows/auto-assign-pr-reviewers.yml` 按类型自动路由
-  到对应审批者（渲染器 / Wallpaper Engine / WebGL 相关 PR 由 Aa728848 审查），
-  路由规则见 [PR_TRIAGE.md](PR_TRIAGE.md)。
+- PR 打开后由 `.github/workflows/auto-assign-pr-reviewers.yml` 按 PR 描述中
+  勾选的「PR 类别」自动分派：把对应协作者设为负责人并请求其审查（渲染器 /
+  Wallpaper Engine / WebGL 相关 PR 由 Aa728848 负责并审查），路由规则见
+  [PR_TRIAGE.md](PR_TRIAGE.md)。
 - `main` 是稳定分支：只接收从 `dev` 合入且测试通过的代码。
 - 提 PR 一律以 `dev` 为 base，不要以 `main` 为 base。
 
@@ -73,8 +74,8 @@ pnpm docs:write-pair <包目录名>   # 如 dsh-ssh 或 xp
 3. **无 emoji**：代码、注释、文档、提交信息均不得出现 emoji（CI 有全树
    检查）。
 4. **一次性记录**（任务交接、验证快照）放 `docs/archive/`，不进长期文档目录。
-5. **按模板填 PR**：摘要、涉及包、类型、最新代码确认、AI 编码披露、仓库
-   规范检查、本地验证结果；**测试证据与上游同步必填**：提供自己本地测试
+5. **按模板填 PR**：摘要、涉及包、**PR 类别（必填，决定自动分派给哪位
+   协作者）**、类型、最新代码确认、AI 编码披露、仓库规范检查、本地验证结果；**测试证据与上游同步必填**：提供自己本地测试
    的证据，并附上同步上游最新 `dev` 分支（`git fetch origin && git
    rebase origin/dev`）后重新测试通过的证据。文本类改动可不附截图；
    **视觉修复 / 用户可见变更必须附截图**（视觉修复还需完成态或修复前后

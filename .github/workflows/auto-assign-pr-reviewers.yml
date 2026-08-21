@@ -65,6 +65,25 @@ jobs:
             }
             console.log('PR #' + pr.number + ': ' + files.length + ' changed files.');
 
+            // PR 描述中勾选的类别（`## PR 类别（PR Category）` 小节）。
+            const body = pr.body || '';
+            const categoryPattern = /(?:^|\n)##\s+PR 类别（PR Category）\s*\n+([\s\S]*?)(?=\n##\s+|$)/i;
+            const categoryMatch = body.match(categoryPattern);
+            const selectedTypes = [];
+            if (categoryMatch) {
+              const section = categoryMatch[1].replace(/<!--[\s\S]*?-->/g, '');
+              for (const line of section.split('\n')) {
+                const m = line.match(/^-\s*\[[xX]\]\s*(.+)$/);
+                if (m) {
+                  selectedTypes.push(m[1].trim());
+                }
+              }
+            }
+            console.log(
+              'PR #' + pr.number + ': selected categories: ' +
+                (selectedTypes.join(', ') || 'none')
+            );
+
             const globToRegExp = (pattern) => {
               const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
               const tokenized = escaped
@@ -98,7 +117,11 @@ jobs:
                   );
                 }
               }
-              if (pathHit || titleHit) {
+              const routeTypes = Array.isArray(route.types) ? route.types : [];
+              const typeHit =
+                routeTypes.length > 0 &&
+                selectedTypes.some((type) => routeTypes.includes(type));
+              if (pathHit || titleHit || typeHit) {
                 matched.push(route);
               }
             }
@@ -112,24 +135,39 @@ jobs:
               matched.flatMap((route) => route.reviewers || [])
             )].filter((user) => user !== pr.user.login);
 
-            if (reviewers.length === 0) {
+            const assignees = [...new Set(
+              matched.flatMap((route) => route.assignees || [])
+            )].filter((user) => user !== pr.user.login);
+
+            if (reviewers.length > 0) {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                reviewers,
+              });
+              console.log(
+                'PR #' + pr.number + ': requested review from ' + reviewers.join(', ') + '.'
+              );
+            } else {
               console.log(
                 'PR #' + pr.number + ': matched ' +
                   matched.map((route) => route.name).join(', ') +
                   ' but no reviewer to request.'
               );
-              return;
             }
 
-            await github.rest.pulls.requestReviewers({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              reviewers,
-            });
-            console.log(
-              'PR #' + pr.number + ': requested review from ' + reviewers.join(', ') + '.'
-            );
+            if (assignees.length > 0) {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                assignees,
+              });
+              console.log(
+                'PR #' + pr.number + ': assigned ' + assignees.join(', ') + '.'
+              );
+            }
 
             if (context.payload.action !== 'opened') {
               return;
@@ -138,12 +176,19 @@ jobs:
             const lines = matched.map(
               (route) => '- ' + route.name + (route.label ? '（' + route.label + '）' : '')
             );
+            const summary = [];
+            if (assignees.length > 0) {
+              summary.push('已将 ' + assignees.join('、') + ' 设为负责人。');
+            }
+            if (reviewers.length > 0) {
+              summary.push('已请求 ' + reviewers.join('、') + ' 审查。');
+            }
             const comment = [
-              '本 PR 已按类型自动路由到对应审批者：',
+              '本 PR 已按类别自动路由：',
               '',
               ...lines,
               '',
-              '已请求 ' + reviewers.join('、') + ' 审查。路由规则见 `.github/pr-review-routes.json`。',
+              summary.join('') + '路由规则见 `.github/pr-review-routes.json`。',
             ].join('\n');
             try {
               await github.rest.issues.createComment({

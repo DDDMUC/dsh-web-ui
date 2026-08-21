@@ -59,6 +59,7 @@ jobs:
             };
 
             const prType = readSection('PR 类型（PR Type）');
+            const prCategory = readSection('PR 类别（PR Category）');
             const latest = readSection('最新代码确认（Latest Codebase Confirmation）');
             const evidenceRules = readSection('测试证据与上游同步（Test Evidence & Upstream Sync）');
             const visualRules = readSection('视觉修复要求（Visual Fix Requirements）');
@@ -86,6 +87,9 @@ jobs:
             const errors = [];
             if (!hasAnyCheckedBox(prType)) {
               errors.push('请在 `PR 类型（PR Type）` 中至少勾选一项。');
+            }
+            if (!hasAnyCheckedBox(prCategory)) {
+              errors.push('请在 `PR 类别（PR Category）` 中至少勾选一项。');
             }
             if (!hasCheckedLine(latest, '我已基于最新 `dev` 分支开发，或在提交前已 rebase / 合并最新 `dev`。')) {
               errors.push('请在 `最新代码确认（Latest Codebase Confirmation）` 中确认本 PR 基于最新 `dev` 分支。');
