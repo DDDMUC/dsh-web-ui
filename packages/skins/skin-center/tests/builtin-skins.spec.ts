@@ -41,6 +41,30 @@ const skinIds = readdirSync(SKINS_DIR, { withFileTypes: true })
 
 const hookSkinIds = skinIds.filter((id) => existsSync(join(SKINS_DIR, id, 'hooks.mjs')))
 
+function rootThemeTokens(css: string): string[] {
+  const tokens = new Set<string>()
+  for (const block of css.matchAll(/(?:^|\n)\s*(?::root|html)(?:\s*,[^{]+)?\s*\{([^}]*)\}/g)) {
+    const declarations = (block[1] ?? '').replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const match of declarations.matchAll(/(?:^|[;{])\s*(--dsw-(?:alias|specific)-[\w-]+)\s*:/gm)) {
+      const token = match[1]
+      if (token !== undefined) tokens.add(token)
+    }
+  }
+  return [...tokens]
+}
+
+function expectRootThemeTokensBodyScoped(css: string, code: string, skinId: string): void {
+  const scope = `html[data-dsh-skin="${skinId}"]`
+  for (const token of rootThemeTokens(css)) {
+    const reset = code.indexOf(`${token}: initial;`)
+    const bodyCloneStart = code.indexOf(`${scope} body {`, reset)
+    const bodyClone = code.slice(bodyCloneStart, code.indexOf('}', bodyCloneStart) + 1)
+    expect(reset, `${skinId}: ${token} root reset`).toBeGreaterThanOrEqual(0)
+    expect(bodyCloneStart, `${skinId}: ${token} body clone`).toBeGreaterThan(reset)
+    expect(bodyClone, `${skinId}: ${token} cloned token`).toContain(`${token}:`)
+  }
+}
+
 describe('built-in v2 skins: catalog and stylesheets', () => {
   it('loads the catalog with no diagnostics and every skin present', () => {
     const catalog = loadSkinCatalog({ builtinDir: SKINS_DIR, userDir: NO_USER_SKINS })
@@ -58,10 +82,12 @@ describe('built-in v2 skins: catalog and stylesheets', () => {
       expect(manifest).toBeDefined()
       if (!manifest) return
       const css = readFileSync(join(dir, manifest.contributes.stylesheet), 'utf8')
-      expect(() => transformSkinCss(css, { skinId: id, filename: 'skin.css' })).not.toThrow()
+      const transformed = transformSkinCss(css, { skinId: id, filename: 'skin.css' })
+      expectRootThemeTokensBodyScoped(css, transformed.code, id)
       if (manifest.contributes.patches !== undefined) {
         const patches = readFileSync(join(dir, manifest.contributes.patches), 'utf8')
-        expect(() => transformSkinCss(patches, { skinId: id, filename: 'patches.css' })).not.toThrow()
+        const transformedPatches = transformSkinCss(patches, { skinId: id, filename: 'patches.css' })
+        expectRootThemeTokensBodyScoped(patches, transformedPatches.code, id)
       }
     })
   }

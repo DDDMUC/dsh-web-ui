@@ -10,6 +10,10 @@
  *    `:root` / `html` merge into the scope; `body` and bare official
  *    `[data-ds-*]` heads (the official dark-theme attribute lives on BODY)
  *    become descendants of the scope; everything else becomes a descendant.
+ *  - ROOT THEME TOKENS: per-theme `--dsw-alias-*` and
+ *    `--dsw-specific-*` declarations from bare `:root` / `html` are reset
+ *    on the scope and cloned to body. Root-level shell variables therefore
+ *    cannot capture a light token while its dark variant belongs on body (#646).
  *  - WHITELIST (fail-closed): no `@import`, no remote or protocol-relative
  *    URLs, no absolute paths escaping the skin directory; only relative
  *    in-directory assets (and `data:`, which warns — prefer assets/ files).
@@ -188,6 +192,50 @@ export function scopeSelectorList(selectorText: string, skinId: string): string 
     .join(',')
 }
 
+const ROOT_BODY_TOKEN = /^(?:--dsw-alias-|--dsw-specific-)/
+
+interface RootBodyToken {
+  name: string
+  important: boolean
+}
+
+/** A bare root selector owns custom properties evaluated on html itself. */
+function hasBareRootSelector(selectorText: string): boolean {
+  return splitSelectors(selectorText).some((selector) => {
+    const trimmed = selector.trim()
+    return trimmed === ':root' || trimmed === 'html'
+  })
+}
+
+function withoutCssComments(value: string): string {
+  return value.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/** Per-theme root declarations that must instead take effect from body. */
+function rootBodyTokens(block: string): RootBodyToken[] {
+  const tokens = new Map<string, boolean>()
+  const declarations = withoutCssComments(block)
+  for (const match of declarations.matchAll(/(?:^|[;{])\s*(--[\w-]+)\s*:\s*([^;}]*)/gm)) {
+    const name = match[1]
+    if (name !== undefined && ROOT_BODY_TOKEN.test(name)) {
+      tokens.set(name, /!\s*important\s*$/i.test(match[2] ?? ''))
+    }
+  }
+  return [...tokens].map(([name, important]) => ({ name, important }))
+}
+
+/** Normalize cloned root tokens so dark body declarations can override them. */
+function bodyCloneProperty(line: string): string | null {
+  const custom = line.match(/^(--[\w-]+)\s*:/)
+  if (custom !== null) {
+    const name = custom[1] ?? ''
+    return ROOT_BODY_TOKEN.test(name)
+      ? line.replace(/\s*!important(?=\s*;?\s*$)/i, '')
+      : line
+  }
+  return /^background-(color|image)\s*:/.test(line) ? line : null
+}
+
 /** Check one url() target against the whitelist. */
 function checkUrl(raw: string, context: string, violations: string[], warnings: string[]): void {
   const url = raw.trim().replace(/^["']|["']$/g, '')
@@ -294,20 +342,24 @@ export function transformSkinCss(css: string, options: SkinCssTransformOptions):
     const scoped = scopeSelectorList(selectorText, skinId)
     const block = close === -1 ? css.slice(span.openBrace) : css.slice(span.openBrace, close + 1)
     out += scoped + block
-    // The official shell paints its own opaque body background, and its
-    // light alias tokens live on plain body: a body-level definition beats
-    // anything a skin writes on html for every descendant (custom-property
-    // inheritance is tree-based, not specificity-based). :root-derived
-    // custom properties AND background declarations therefore get a
-    // body-level clone so the light remap and the skin's base background
-    // actually reach the shell surfaces. Dark remaps are already body-scoped
-    // (body[data-ds-dark-theme]) and need no clone.
-    if (/^:root\b/.test(selectorText.trim()) && close !== -1) {
+    // Official shell theme variables are consumed by root-level CSS (notably
+    // Shiki), while skins place dark variants on body. Leave those root values
+    // invalid so the body clone below remains the effective skin token scope.
+    if (close !== -1 && hasBareRootSelector(selectorText)) {
+      const tokens = rootBodyTokens(block)
+      if (tokens.length > 0) {
+        out += `\n${scope} {\n  ${tokens.map(({ name, important }) => `${name}: initial${important ? ' !important' : ''};`).join('\n  ')}\n}\n`
+      }
+    }
+    // The reset above restores stock root semantics. Clone root custom
+    // properties and background declarations to body, where normal descendants
+    // and body[data-ds-dark-theme] variants resolve their active skin token.
+    if (hasBareRootSelector(selectorText) && close !== -1) {
       const body = css.slice(span.openBrace + 1, close)
-      const props = body
+      const props = withoutCssComments(body)
         .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => /^--[\w-]+\s*:/.test(line) || /^background-(color|image)\s*:/.test(line))
+        .map((line) => bodyCloneProperty(line.trim()))
+        .filter((line): line is string => line !== null)
       if (props.length > 0) {
         out += `\n${scope} body {\n  ${props.join('\n  ')}\n}\n`
       }

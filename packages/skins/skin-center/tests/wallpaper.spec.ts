@@ -680,73 +680,85 @@ describe('WallpaperController', () => {
     expect(shellSurface.getAttribute('data-dsh-wallpaper-surface')).toBeNull()
   })
 
-  it('defaultWallpaperSurface matches full-height bg-base surfaces', () => {
+  it('defaultWallpaperSurface matches tall visible shell surfaces without theme-token equality (#712)', () => {
     document.body.innerHTML = ''
     const root = document.createElement('div')
     root.id = 'root'
     document.body.appendChild(root)
-    document.documentElement.style.setProperty('--dsw-alias-bg-base', '#f6f7f8')
     const surface = document.createElement('div')
-    surface.style.height = '100%'
     surface.style.backgroundColor = '#f6f7f8'
+    const alternate = document.createElement('div')
+    alternate.style.backgroundColor = '#101010'
+    const translucent = document.createElement('div')
+    translucent.style.backgroundColor = 'rgba(21, 21, 23, 0.42)'
     const short = document.createElement('div')
-    short.style.height = '50%'
-    short.style.backgroundColor = '#f6f7f8'
-    const offColor = document.createElement('div')
-    offColor.style.height = '100%'
-    offColor.style.backgroundColor = '#101010'
-    root.append(surface, short, offColor)
-    expect(defaultWallpaperSurface(surface, document)).toBe(true)
-    expect(defaultWallpaperSurface(short, document)).toBe(false)
-    expect(defaultWallpaperSurface(offColor, document)).toBe(false)
-    document.documentElement.style.removeProperty('--dsw-alias-bg-base')
+    short.style.backgroundColor = '#101010'
+    const transparent = document.createElement('div')
+    transparent.style.backgroundColor = 'transparent'
+    const modal = document.createElement('dialog')
+    const ariaModal = document.createElement('div')
+    ariaModal.setAttribute('aria-modal', 'true')
+    const shellOverlay = document.createElement('div')
+    shellOverlay.setAttribute('data-shell-overlay', '')
+    const slotOverlay = document.createElement('div')
+    slotOverlay.setAttribute('data-slot', 'shell.overlay')
+    const pluginSurface = document.createElement('div')
+    pluginSurface.setAttribute('data-dsh-plugin', 'skin-center')
+    const excluded = [modal, ariaModal, shellOverlay, slotOverlay, pluginSurface]
+    for (const element of excluded) element.style.backgroundColor = '#101010'
+    const hidden = document.createElement('div')
+    hidden.style.display = 'none'
+    hidden.style.height = '100%'
+    hidden.style.backgroundColor = '#101010'
+    root.append(surface, alternate, translucent, short, transparent, ...excluded, hidden)
+    const rect = (height: number): DOMRect => ({ height } as DOMRect)
+    vi.spyOn(surface, 'getBoundingClientRect').mockReturnValue(rect(1000))
+    vi.spyOn(alternate, 'getBoundingClientRect').mockReturnValue(rect(1000))
+    vi.spyOn(translucent, 'getBoundingClientRect').mockReturnValue(rect(1000))
+    vi.spyOn(short, 'getBoundingClientRect').mockReturnValue(rect(500))
+    vi.spyOn(transparent, 'getBoundingClientRect').mockReturnValue(rect(1000))
+    for (const element of excluded) vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(1000))
+    const doc = { defaultView: window, documentElement: { clientHeight: 1000 } } as unknown as Document
+    expect(defaultWallpaperSurface(surface, doc)).toBe(true)
+    expect(defaultWallpaperSurface(alternate, doc)).toBe(true)
+    expect(defaultWallpaperSurface(translucent, doc)).toBe(true)
+    expect(defaultWallpaperSurface(short, doc)).toBe(false)
+    expect(defaultWallpaperSurface(transparent, doc)).toBe(false)
+    for (const element of excluded) expect(defaultWallpaperSurface(element, doc)).toBe(false)
+    expect(defaultWallpaperSurface(hidden, doc)).toBe(false)
   })
 
-  it('defaultWallpaperSurface resolves tokens defined on body (official shells)', () => {
-    // The official shells define --dsw-alias-* on body, never on :root
-    // (rc.7 dsh-web-frontend index.css and the rc.8 dsh-client-ui-theme
-    // design-platform.css alike), and custom properties do not inherit
-    // upward — a documentElement-only read resolves nothing, the surface
-    // detector tags zero elements, and the WE wallpaper stays covered under
-    // the stock look. The detector must fall back to body.
-    document.body.innerHTML = ''
-    const root = document.createElement('div')
-    root.id = 'root'
-    document.body.appendChild(root)
-    document.body.style.setProperty('--dsw-alias-bg-base', '#f6f7f8')
-    const surface = document.createElement('div')
-    surface.style.height = '100%'
-    surface.style.backgroundColor = '#f6f7f8'
-    root.appendChild(surface)
-    expect(defaultWallpaperSurface(surface, document)).toBe(true)
-    document.body.style.removeProperty('--dsw-alias-bg-base')
-  })
-
-  it('defaultWallpaperSurface uses rendered px geometry in real browsers (#734 review)', () => {
-    // Real browsers return USED values: computed height in px ("913px") and
-    // layout rects in px. jsdom lays nothing out, so this fake exercises the
-    // geometry branch the review asked for: a full-height rect within 2px of
-    // the viewport height wins; a half-height rect is rejected even though
-    // the computed style string would have said "100%".
-    const probe = { style: { setProperty: () => {} }, remove: () => {} }
-    const html = { clientHeight: 1000, appendChild: () => {} }
+  it('defaultWallpaperSurface accepts 90% rendered height and excludes high overlays (#712)', () => {
+    const html = { clientHeight: 1000 }
+    const shell = { getBoundingClientRect: () => ({ height: 900 }) } as unknown as HTMLElement
+    const short = { getBoundingClientRect: () => ({ height: 899 }) } as unknown as HTMLElement
+    const transparent = { getBoundingClientRect: () => ({ height: 1000 }) } as unknown as HTMLElement
+    const cssTransparent = { getBoundingClientRect: () => ({ height: 1000 }) } as unknown as HTMLElement
+    const cssTranslucent = { getBoundingClientRect: () => ({ height: 1000 }) } as unknown as HTMLElement
+    const boundary = { getBoundingClientRect: () => ({ height: 1000 }) } as unknown as HTMLElement
+    const overlay = { getBoundingClientRect: () => ({ height: 1000 }) } as unknown as HTMLElement
     const win = {
       innerHeight: 1000,
       getComputedStyle: (target: unknown) => {
-        if (target === probe) return { backgroundColor: 'rgb(246, 247, 248)' }
-        if (target === html) return { getPropertyValue: () => '#f6f7f8' }
-        return { height: '913px', backgroundColor: 'rgb(246, 247, 248)' }
+        if (target === transparent) return { height: '1000px', backgroundColor: 'rgba(21, 21, 23, 0)', zIndex: 'auto' }
+        if (target === cssTransparent) return { height: '1000px', backgroundColor: 'color(srgb 1 0 0 / 0)', zIndex: 'auto' }
+        if (target === cssTranslucent) return { height: '1000px', backgroundColor: 'color(srgb 1 0 0 / 0.5)', zIndex: 'auto' }
+        if (target === boundary) return { height: '1000px', backgroundColor: 'rgb(21, 21, 23)', zIndex: '100' }
+        if (target === overlay) return { height: '1000px', backgroundColor: 'rgb(21, 21, 23)', zIndex: '101' }
+        return { height: '900px', backgroundColor: 'rgba(21, 21, 23, 0.42)', zIndex: 'auto' }
       },
     } as unknown as Window
     const doc = {
       defaultView: win,
       documentElement: html,
-      createElement: () => probe,
     } as unknown as Document
-    const full = { getBoundingClientRect: () => ({ height: 1000 }) } as unknown as HTMLElement
-    const short = { getBoundingClientRect: () => ({ height: 500 }) } as unknown as HTMLElement
-    expect(defaultWallpaperSurface(full, doc)).toBe(true)
+    expect(defaultWallpaperSurface(shell, doc)).toBe(true)
     expect(defaultWallpaperSurface(short, doc)).toBe(false)
+    expect(defaultWallpaperSurface(transparent, doc)).toBe(false)
+    expect(defaultWallpaperSurface(cssTransparent, doc)).toBe(false)
+    expect(defaultWallpaperSurface(cssTranslucent, doc)).toBe(true)
+    expect(defaultWallpaperSurface(boundary, doc)).toBe(true)
+    expect(defaultWallpaperSurface(overlay, doc)).toBe(false)
   })
 
   it('tags the sidebar workspaces fade while a wallpaper is mounted (#734)', () => {

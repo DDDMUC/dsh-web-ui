@@ -131,74 +131,66 @@ function styleCover(element: HTMLElement, fit: 'cover' | 'contain' | 'fill' = 'c
 /** Max static-frame capture edge (the backdrop never needs more pixels). */
 const FRAME_MAX_EDGE = 1920
 
+const MIN_VIEWPORT_SURFACE_HEIGHT = 0.9
+const MAX_SURFACE_OVERLAY_Z_INDEX = 100
+
+/** Any nontransparent background blocks some of the wallpaper. */
+function hasVisibleBackground(color: string): boolean {
+  const normalized = color.trim().toLowerCase()
+  if (normalized === '' || normalized === 'transparent') return false
+  const match = normalized.match(/^[a-z-]+\((.*)\)$/)
+  if (match === null) return true
+  const args = match[1]
+  const slash = args.lastIndexOf('/')
+  if (slash >= 0) return hasVisibleAlpha(args.slice(slash + 1))
+  const channels = args.split(',')
+  return channels.length === 4 ? hasVisibleAlpha(channels[3] ?? '') : true
+}
+
+function hasVisibleAlpha(value: string): boolean {
+  const alpha = Number.parseFloat(value)
+  return Number.isFinite(alpha) && alpha > 0
+}
+
+/** Exclude modal and plugin surfaces that must remain readable above the shell. */
+function isExcludedWallpaperSurface(el: HTMLElement, zIndex: string): boolean {
+  const semanticOverlay = typeof el.closest === 'function'
+    && el.closest('dialog, [role="dialog"], [aria-modal="true"], [data-shell-overlay], [data-slot="shell.overlay"], [data-dsh-plugin]') !== null
+  if (semanticOverlay) return true
+  const numericZIndex = Number.parseFloat(zIndex)
+  return Number.isFinite(numericZIndex) && numericZIndex > MAX_SURFACE_OVERLAY_Z_INDEX
+}
+
 /**
- * Default full-viewport-surface detector for WE wallpaper neutralization
- * (#734): an element is a shell surface when its rendered box is the full
- * viewport height AND its computed background-color equals the resolved
- * --dsw-alias-bg-base color. The height check uses GEOMETRY, not the literal
- * computed "100%": real browsers return the used value in px (e.g. "913px")
- * for rendered elements, and the literal "100%" only appears on unrendered
- * 0x0 subtrees — a style-string check would silently never tag the
- * AppFrame / conversation / details roots. jsdom does no layout (every rect
- * is 0 and clientHeight is 0), so when no viewport height is measurable the
- * check falls back to the style string to keep jsdom tests meaningful. The
- * color check matches the official shell frame/root containers which paint
- * the app base background at full height and only carry hashed CSS-module
- * classes, so this selector-free check never depends on class names. Returns
- * false when the token cannot be resolved.
+ * Default shell-surface detector for WE wallpaper neutralization (#712). A
+ * target must cover most of the visible viewport and paint a nontransparent
+ * background. It deliberately avoids equality against a theme token because
+ * real shell surfaces can resolve a different or partially transparent color.
+ * Modal and plugin overlays stay out of scope even when they fill the viewport.
  */
 export function defaultWallpaperSurface(el: HTMLElement, doc: Document): boolean {
   const win = doc.defaultView
   if (win === null) return false
   let rectHeight = 0
   let viewportHeight = 0
-  let heightStyle = ''
   let background = ''
+  let zIndex = ''
   try {
     rectHeight = el.getBoundingClientRect().height
     viewportHeight = doc.documentElement.clientHeight || win.innerHeight || 0
     const cs = win.getComputedStyle(el)
-    heightStyle = cs.height
     background = cs.backgroundColor
+    zIndex = cs.zIndex
   } catch {
     return false
   }
-  // Geometry wins when the element is laid out (real browsers return px used
-  // values and real rects); jsdom and unrendered subtrees report rect 0, so
-  // fall back to the style-string check there — an unrendered element is
-  // invisible, so a false tag has no visual effect.
-  const isFullHeight = rectHeight > 0
-    ? Math.abs(rectHeight - viewportHeight) <= 2
-    : heightStyle === '100%' || heightStyle === '100vh'
-  if (!isFullHeight) return false
-  const base = resolveCssColor(doc, '--dsw-alias-bg-base')
-  return base !== null && background === base
-}
-
-/** Resolve a color custom property to its computed CSS color, if any. */
-function resolveCssColor(doc: Document, name: string): string | null {
-  const win = doc.defaultView
-  if (win === null || doc.documentElement === null) return null
-  // The official shells define the --dsw-alias-* tokens on body, not on :root
-  // (rc.7 dsh-web-frontend index.css and the rc.8 dsh-client-ui-theme
-  // design-platform.css alike), and custom properties never inherit upward,
-  // so a documentElement-only read resolves nothing and the wallpaper-surface
-  // detector silently tags zero elements. Fall back to body.
-  let raw = win.getComputedStyle(doc.documentElement).getPropertyValue(name).trim()
-  if (raw === '' && doc.body !== null) {
-    raw = win.getComputedStyle(doc.body).getPropertyValue(name).trim()
-  }
-  if (raw === '') return null
-  const probe = doc.createElement('div')
-  probe.style.setProperty('background-color', raw)
-  doc.documentElement.appendChild(probe)
-  try {
-    return win.getComputedStyle(probe).backgroundColor
-  } catch {
-    return null
-  } finally {
-    probe.remove()
-  }
+  // Only a rendered surface can obscure the wallpaper. In particular, avoid
+  // tagging a hidden 100%-height subtree before it has a real layout box.
+  const fillsViewport = viewportHeight > 0
+    && rectHeight >= viewportHeight * MIN_VIEWPORT_SURFACE_HEIGHT
+  return fillsViewport
+    && hasVisibleBackground(background)
+    && !isExcludedWallpaperSurface(el, zIndex)
 }
 
 /**

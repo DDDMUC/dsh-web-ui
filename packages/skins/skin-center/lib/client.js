@@ -157,59 +157,54 @@ window.__ModuleLoader__.load({
 		}
 		/** Max static-frame capture edge (the backdrop never needs more pixels). */
 		const FRAME_MAX_EDGE = 1920;
+		const MIN_VIEWPORT_SURFACE_HEIGHT = .9;
+		const MAX_SURFACE_OVERLAY_Z_INDEX = 100;
+		/** Any nontransparent background blocks some of the wallpaper. */
+		function hasVisibleBackground(color) {
+			const normalized = color.trim().toLowerCase();
+			if (normalized === "" || normalized === "transparent") return false;
+			const match = normalized.match(/^[a-z-]+\((.*)\)$/);
+			if (match === null) return true;
+			const args = match[1];
+			const slash = args.lastIndexOf("/");
+			if (slash >= 0) return hasVisibleAlpha(args.slice(slash + 1));
+			const channels = args.split(",");
+			return channels.length === 4 ? hasVisibleAlpha(channels[3] ?? "") : true;
+		}
+		function hasVisibleAlpha(value) {
+			const alpha = Number.parseFloat(value);
+			return Number.isFinite(alpha) && alpha > 0;
+		}
+		/** Exclude modal and plugin surfaces that must remain readable above the shell. */
+		function isExcludedWallpaperSurface(el, zIndex) {
+			if (typeof el.closest === "function" && el.closest("dialog, [role=\"dialog\"], [aria-modal=\"true\"], [data-shell-overlay], [data-slot=\"shell.overlay\"], [data-dsh-plugin]") !== null) return true;
+			const numericZIndex = Number.parseFloat(zIndex);
+			return Number.isFinite(numericZIndex) && numericZIndex > MAX_SURFACE_OVERLAY_Z_INDEX;
+		}
 		/**
-		* Default full-viewport-surface detector for WE wallpaper neutralization
-		* (#734): an element is a shell surface when its rendered box is the full
-		* viewport height AND its computed background-color equals the resolved
-		* --dsw-alias-bg-base color. The height check uses GEOMETRY, not the literal
-		* computed "100%": real browsers return the used value in px (e.g. "913px")
-		* for rendered elements, and the literal "100%" only appears on unrendered
-		* 0x0 subtrees — a style-string check would silently never tag the
-		* AppFrame / conversation / details roots. jsdom does no layout (every rect
-		* is 0 and clientHeight is 0), so when no viewport height is measurable the
-		* check falls back to the style string to keep jsdom tests meaningful. The
-		* color check matches the official shell frame/root containers which paint
-		* the app base background at full height and only carry hashed CSS-module
-		* classes, so this selector-free check never depends on class names. Returns
-		* false when the token cannot be resolved.
+		* Default shell-surface detector for WE wallpaper neutralization (#712). A
+		* target must cover most of the visible viewport and paint a nontransparent
+		* background. It deliberately avoids equality against a theme token because
+		* real shell surfaces can resolve a different or partially transparent color.
+		* Modal and plugin overlays stay out of scope even when they fill the viewport.
 		*/
 		function defaultWallpaperSurface(el, doc) {
 			const win = doc.defaultView;
 			if (win === null) return false;
 			let rectHeight = 0;
 			let viewportHeight = 0;
-			let heightStyle = "";
 			let background = "";
+			let zIndex = "";
 			try {
 				rectHeight = el.getBoundingClientRect().height;
 				viewportHeight = doc.documentElement.clientHeight || win.innerHeight || 0;
 				const cs = win.getComputedStyle(el);
-				heightStyle = cs.height;
 				background = cs.backgroundColor;
+				zIndex = cs.zIndex;
 			} catch {
 				return false;
 			}
-			if (!(rectHeight > 0 ? Math.abs(rectHeight - viewportHeight) <= 2 : heightStyle === "100%" || heightStyle === "100vh")) return false;
-			const base = resolveCssColor(doc, "--dsw-alias-bg-base");
-			return base !== null && background === base;
-		}
-		/** Resolve a color custom property to its computed CSS color, if any. */
-		function resolveCssColor(doc, name) {
-			const win = doc.defaultView;
-			if (win === null || doc.documentElement === null) return null;
-			let raw = win.getComputedStyle(doc.documentElement).getPropertyValue(name).trim();
-			if (raw === "" && doc.body !== null) raw = win.getComputedStyle(doc.body).getPropertyValue(name).trim();
-			if (raw === "") return null;
-			const probe = doc.createElement("div");
-			probe.style.setProperty("background-color", raw);
-			doc.documentElement.appendChild(probe);
-			try {
-				return win.getComputedStyle(probe).backgroundColor;
-			} catch {
-				return null;
-			} finally {
-				probe.remove();
-			}
+			return viewportHeight > 0 && rectHeight >= viewportHeight * MIN_VIEWPORT_SURFACE_HEIGHT && hasVisibleBackground(background) && !isExcludedWallpaperSurface(el, zIndex);
 		}
 		/**
 		* Workspace-list end-fade detector (#734): a gradient-background element inside
@@ -256,6 +251,13 @@ window.__ModuleLoader__.load({
 			/** Shell surfaces tagged with data-dsh-wallpaper-surface during this mount. */
 			taggedSurfaces = [];
 			disposed = false;
+			/** In-flight scene probes by wallpaper id; overlapping entry points
+			*  (applySelection / tryOn / sync / fetchAndSync) must not re-read the
+			*  same packed scene concurrently. */
+			probePending = /* @__PURE__ */ new Map();
+			/** Detached frame-capture video; released on error/abort/loadeddata and on
+			*  teardown so it never keeps buffering the source file. */
+			captureVideo = null;
 			constructor(scope, options = {}) {
 				this.scope = scope;
 				this.options = options;
@@ -288,9 +290,57 @@ window.__ModuleLoader__.load({
 							this.applied = item;
 							this.render();
 							this.publish();
+							this.probeSceneCapabilitiesIfNeeded(item);
 						}
 					}
 				}).catch(() => {});
+			}
+			/**
+			* Lazily probe a scene's video/WebGL capabilities: the inventory never
+			* reads packed scene payloads, so only the wallpaper the user actually
+			* selects (apply, try-on or boot sync) asks the probe route. The response
+			* is merged into every slot (previewing and applied) that holds the id.
+			*/
+			probeSceneCapabilitiesIfNeeded(descriptor) {
+				if (this.disposed || descriptor.type !== "scene" || descriptor.videoUrl !== null || descriptor.sceneUrl != null) return;
+				const targetId = descriptor.id;
+				if (this.probePending.has(targetId)) return;
+				const fetchFn = this.options.fetchImpl ?? (typeof fetch !== "undefined" ? fetch.bind(this.doc.defaultView ?? globalThis) : void 0);
+				if (!fetchFn) return;
+				const pending = fetchFn((this.options.apiBase ?? "/api/skin-center/we") + "/scene-probe?id=" + encodeURIComponent(targetId)).then(async (response) => {
+					if (this.disposed || !response.ok) return;
+					const payload = await response.json().catch(() => null);
+					if (!payload || payload.ok !== true) return;
+					let changed = false;
+					if (this.previewing?.id === targetId) {
+						const merged = {
+							...this.previewing,
+							videoUrl: payload.videoUrl ?? this.previewing.videoUrl,
+							sceneUrl: payload.sceneUrl ?? this.previewing.sceneUrl
+						};
+						if (merged.videoUrl !== this.previewing.videoUrl || merged.sceneUrl !== this.previewing.sceneUrl) {
+							this.previewing = merged;
+							changed = true;
+						}
+					}
+					if (this.applied?.id === targetId) {
+						const merged = {
+							...this.applied,
+							videoUrl: payload.videoUrl ?? this.applied.videoUrl,
+							sceneUrl: payload.sceneUrl ?? this.applied.sceneUrl
+						};
+						if (merged.videoUrl !== this.applied.videoUrl || merged.sceneUrl !== this.applied.sceneUrl) {
+							this.applied = merged;
+							changed = true;
+						}
+					}
+					if (!changed) return;
+					this.render();
+					this.publish();
+				}).catch(() => {}).finally(() => {
+					this.probePending.delete(targetId);
+				});
+				this.probePending.set(targetId, pending);
 			}
 			enabled = () => this.enabledValue;
 			selection = () => this.selectionValue;
@@ -381,6 +431,7 @@ window.__ModuleLoader__.load({
 				this.render();
 				this.publish();
 				this.scope.set("selection", descriptor.id);
+				this.probeSceneCapabilitiesIfNeeded(descriptor);
 			}
 			clearSelection() {
 				this.applied = null;
@@ -393,11 +444,13 @@ window.__ModuleLoader__.load({
 			sync(descriptor) {
 				this.applied = descriptor;
 				this.render();
+				if (descriptor !== null) this.probeSceneCapabilitiesIfNeeded(descriptor);
 			}
 			tryOn(descriptor) {
 				this.previewing = descriptor;
 				this.render();
 				this.publish();
+				this.probeSceneCapabilitiesIfNeeded(descriptor);
 			}
 			exitTryOn() {
 				if (this.previewing === null) return;
@@ -506,9 +559,10 @@ window.__ModuleLoader__.load({
 					styleLayer(this.scrimLayer, -2);
 					this.doc.body.appendChild(this.scrimLayer);
 				}
-				const mediaKey = descriptor.id + ":" + this.modeValue;
+				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + (descriptor.videoUrl ?? "") + ":" + (descriptor.sceneUrl ?? "");
 				if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
 					this.mediaLayer.dataset.mediaKey = mediaKey;
+					this.releaseCaptureVideo();
 					this.mediaLayer.replaceChildren();
 					this.videoElement = null;
 					const child = this.buildMedia(descriptor);
@@ -613,6 +667,14 @@ window.__ModuleLoader__.load({
 				video.playsInline = true;
 				video.preload = "auto";
 				video.src = url;
+				this.releaseCaptureVideo();
+				this.captureVideo = video;
+				const release = () => {
+					video.removeAttribute("src");
+					video.load();
+				};
+				video.addEventListener("error", release, { once: true });
+				video.addEventListener("abort", release, { once: true });
 				video.addEventListener("loadeddata", () => {
 					try {
 						const scale = Math.min(1, FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
@@ -620,14 +682,21 @@ window.__ModuleLoader__.load({
 						canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
 						canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
 						const context = canvas.getContext("2d");
-						if (context === null) return;
-						context.drawImage(video, 0, 0, canvas.width, canvas.height);
-						image.src = canvas.toDataURL("image/jpeg", .85);
-						video.removeAttribute("src");
-						video.load();
-					} catch {}
+						if (context !== null) {
+							context.drawImage(video, 0, 0, canvas.width, canvas.height);
+							image.src = canvas.toDataURL("image/jpeg", .85);
+						}
+					} catch {} finally {
+						release();
+					}
 				}, { once: true });
 				return image;
+			}
+			releaseCaptureVideo() {
+				if (this.captureVideo === null) return;
+				this.captureVideo.removeAttribute("src");
+				this.captureVideo.load();
+				this.captureVideo = null;
 			}
 			buildImage(url, fallbackUrl = null) {
 				if (url === null) return null;
@@ -683,6 +752,7 @@ window.__ModuleLoader__.load({
 				this.taggedSurfaces = [];
 			}
 			teardownLayers() {
+				this.releaseCaptureVideo();
 				this.untagSurfaces();
 				delete this.doc.body.dataset.dshWallpaperActive;
 				delete this.doc.documentElement.dataset.dshWallpaperActive;

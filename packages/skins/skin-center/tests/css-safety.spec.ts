@@ -3,6 +3,8 @@
  * Scoping is skin-center owned; violations fail closed.
  */
 
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 
 import { SkinCssSafetyError, transformSkinCss } from '../src/core/css-safety/transform.ts'
@@ -74,8 +76,65 @@ describe('transformSkinCss scoping', () => {
     expect(bodyClone).toContain('background-color: #eef')
   })
 
-  it('clones custom properties from comma-listed :root heads and skips body-scoped rules', () => {
+  it('resets root-level Shiki aliases while preserving body theme variants (#646)', () => {
     const css = [
+      ':root {',
+      '  --dsw-alias-markdown-code-block: #ecf4fce6;',
+      '  --dsw-specific-input-major: #f0f7fdf0;',
+      '  --dsh-skin-grid-line: #123456;',
+      '}',
+      'body[data-ds-dark-theme] {',
+      '  --dsw-alias-markdown-code-block: #17243ad9;',
+      '}',
+    ].join('\n')
+    const token = '--dsw-alias-markdown-code-block'
+    const { code } = scope(css)
+    const rootValue = code.indexOf(`${token}: #ecf4fce6;`)
+    const rootReset = code.indexOf(`${token}: initial;`)
+    const bodyCloneStart = code.indexOf(`${SCOPE} body {`, rootReset)
+    const bodyClone = code.slice(bodyCloneStart, code.indexOf('}', bodyCloneStart) + 1)
+    expect(rootValue).toBeGreaterThanOrEqual(0)
+    expect(rootReset).toBeGreaterThan(rootValue)
+    expect(bodyCloneStart).toBeGreaterThan(rootReset)
+    expect(bodyClone).toContain(`${token}: #ecf4fce6;`)
+    expect(code).toContain('--dsw-specific-input-major: initial;')
+    expect(code).not.toContain('--dsh-skin-grid-line: initial')
+    expect(code).toContain(`${SCOPE} body[data-ds-dark-theme]`)
+    expect(code).toContain('--dsw-alias-markdown-code-block: #17243ad9;')
+  })
+
+  it('keeps whale mom markdown code aliases body-scoped (#646)', () => {
+    const css = readFileSync(new URL('../skins/whale-mom/skin.css', import.meta.url), 'utf8')
+    const whaleScope = 'html[data-dsh-skin="whale-mom"]'
+    const token = '--dsw-alias-markdown-code-block'
+    const { code } = transformSkinCss(css, { skinId: 'whale-mom', filename: 'skin.css' })
+    const rootReset = code.indexOf(`${token}: initial;`)
+    const bodyCloneStart = code.indexOf(`${whaleScope} body {`, rootReset)
+    const bodyClone = code.slice(bodyCloneStart, code.indexOf('}', bodyCloneStart) + 1)
+    expect(css).toContain(token)
+    expect(rootReset).toBeGreaterThanOrEqual(0)
+    expect(bodyCloneStart).toBeGreaterThan(rootReset)
+    expect(bodyClone).toContain(`${token}:`)
+  })
+
+  it('normalizes commented important html tokens for body themes (#646)', () => {
+    const token = '--dsw-alias-markdown-code-block'
+    const css = [
+      `html { /* light palette */ ${token}: #ecf4fce6 !important; }`,
+      `body[data-ds-dark-theme] { ${token}: #17243ad9; }`,
+    ].join('\n')
+    const { code } = scope(css)
+    const rootReset = code.indexOf(`${token}: initial !important;`)
+    const bodyCloneStart = code.indexOf(`${SCOPE} body {`, rootReset)
+    const bodyClone = code.slice(bodyCloneStart, code.indexOf('}', bodyCloneStart) + 1)
+    expect(rootReset).toBeGreaterThanOrEqual(0)
+    expect(bodyCloneStart).toBeGreaterThan(rootReset)
+    expect(bodyClone).toContain(`${token}: #ecf4fce6;`)
+    expect(bodyClone).not.toContain(`${token}: #ecf4fce6 !important;`)
+    expect(code).toContain(`${token}: #17243ad9;`)
+  })
+
+  it('clones custom properties from comma-listed :root heads and skips body-scoped rules', () => {    const css = [
       ':root, body[data-ds-dark-theme] {',
       '  --dsw-alias-bg-base: #141a2eb3;',
       '}',

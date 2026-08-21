@@ -940,6 +940,10 @@ function deriveFallbackTokens(defined) {
 *    `:root` / `html` merge into the scope; `body` and bare official
 *    `[data-ds-*]` heads (the official dark-theme attribute lives on BODY)
 *    become descendants of the scope; everything else becomes a descendant.
+*  - ROOT THEME TOKENS: per-theme `--dsw-alias-*` and
+*    `--dsw-specific-*` declarations from bare `:root` / `html` are reset
+*    on the scope and cloned to body. Root-level shell variables therefore
+*    cannot capture a light token while its dark variant belongs on body (#646).
 *  - WHITELIST (fail-closed): no `@import`, no remote or protocol-relative
 *    URLs, no absolute paths escaping the skin directory; only relative
 *    in-directory assets (and `data:`, which warns — prefer assets/ files).
@@ -1068,6 +1072,39 @@ function scopeSelectorText(selector, skinId) {
 function scopeSelectorList(selectorText, skinId) {
 	return splitSelectors(selectorText).map((sel) => scopeSelectorText(sel, skinId)).join(",");
 }
+const ROOT_BODY_TOKEN = /^(?:--dsw-alias-|--dsw-specific-)/;
+/** A bare root selector owns custom properties evaluated on html itself. */
+function hasBareRootSelector(selectorText) {
+	return splitSelectors(selectorText).some((selector) => {
+		const trimmed = selector.trim();
+		return trimmed === ":root" || trimmed === "html";
+	});
+}
+function withoutCssComments(value) {
+	return value.replace(/\/\*[\s\S]*?\*\//g, "");
+}
+/** Per-theme root declarations that must instead take effect from body. */
+function rootBodyTokens(block) {
+	const tokens = /* @__PURE__ */ new Map();
+	const declarations = withoutCssComments(block);
+	for (const match of declarations.matchAll(/(?:^|[;{])\s*(--[\w-]+)\s*:\s*([^;}]*)/gm)) {
+		const name = match[1];
+		if (name !== void 0 && ROOT_BODY_TOKEN.test(name)) tokens.set(name, /!\s*important\s*$/i.test(match[2] ?? ""));
+	}
+	return [...tokens].map(([name, important]) => ({
+		name,
+		important
+	}));
+}
+/** Normalize cloned root tokens so dark body declarations can override them. */
+function bodyCloneProperty(line) {
+	const custom = line.match(/^(--[\w-]+)\s*:/);
+	if (custom !== null) {
+		const name = custom[1] ?? "";
+		return ROOT_BODY_TOKEN.test(name) ? line.replace(/\s*!important(?=\s*;?\s*$)/i, "") : line;
+	}
+	return /^background-(color|image)\s*:/.test(line) ? line : null;
+}
 /** Check one url() target against the whitelist. */
 function checkUrl(raw, context, violations, warnings) {
 	const url = raw.trim().replace(/^["']|["']$/g, "");
@@ -1157,8 +1194,12 @@ function transformSkinCss(css, options) {
 		const scoped = scopeSelectorList(selectorText, skinId);
 		const block = close === -1 ? css.slice(span.openBrace) : css.slice(span.openBrace, close + 1);
 		out += scoped + block;
-		if (/^:root\b/.test(selectorText.trim()) && close !== -1) {
-			const props = css.slice(span.openBrace + 1, close).split("\n").map((line) => line.trim()).filter((line) => /^--[\w-]+\s*:/.test(line) || /^background-(color|image)\s*:/.test(line));
+		if (close !== -1 && hasBareRootSelector(selectorText)) {
+			const tokens = rootBodyTokens(block);
+			if (tokens.length > 0) out += `\n${scope} {\n  ${tokens.map(({ name, important }) => `${name}: initial${important ? " !important" : ""};`).join("\n  ")}\n}\n`;
+		}
+		if (hasBareRootSelector(selectorText) && close !== -1) {
+			const props = withoutCssComments(css.slice(span.openBrace + 1, close)).split("\n").map((line) => bodyCloneProperty(line.trim())).filter((line) => line !== null);
 			if (props.length > 0) out += `\n${scope} body {\n  ${props.join("\n  ")}\n}\n`;
 		}
 		cursor = close === -1 ? span.openBrace : close + 1;
