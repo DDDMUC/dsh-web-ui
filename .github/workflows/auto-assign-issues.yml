@@ -1,0 +1,30 @@
+name: Auto-assign new issues
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  assign:
+    name: Assign to Aa728848
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Assign new issue to Aa728848
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issue = context.payload.issue;
+            if (!issue || issue.pull_request) {
+              return;
+            }
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              assignees: ['Aa728848'],
+            });
