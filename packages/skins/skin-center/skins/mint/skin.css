@@ -58,6 +58,7 @@
 
   /* overlays + elevation (the shadow group is part of the L1 whitelist) */
   --dsw-alias-tooltip-bg: #123528;
+  --dsw-alias-tooltip-fg: #e3f4ec;
   --dsw-shadow-lv1: 0 1px 2px #0f513214;
   --dsw-shadow-lv2: 0 4px 12px #0f51321f;
   --dsw-shadow-lv3: 0 12px 32px #0f51322b;
@@ -113,6 +114,7 @@ body[data-ds-dark-theme] {
 
   /* overlays + elevation */
   --dsw-alias-tooltip-bg: #e3f4ec;
+  --dsw-alias-tooltip-fg: #123528;
   --dsw-shadow-lv1: 0 1px 2px #00000066;
   --dsw-shadow-lv2: 0 4px 12px #00000080;
   --dsw-shadow-lv3: 0 12px 32px #00000099;
