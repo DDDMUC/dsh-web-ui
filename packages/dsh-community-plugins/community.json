@@ -366,5 +366,16 @@
     "repo": "https://github.com/Aa728848/dsh-chatgpt-subscription",
     "npm": "@eddyskywalker/dsh-chatgpt-subscription",
     "category": "integration"
+  },
+  {
+    "id": "dsh-imagegen",
+    "name": "AI 生图",
+    "nameEn": "AI ImageGen",
+    "author": "dickpy",
+    "description": "AI 生图插件：通过可配置的 OpenAI 兼容端点（gpt-image-2 / gpt-image-1 / dall-e-3）实现文生图与图生图，提供生成历史、提示词模板库与 API 设置卡片。",
+    "descriptionEn": "AI image generation for the DSH Web GUI: text-to-image and image-to-image through a configurable OpenAI-compatible endpoint (gpt-image-2 / gpt-image-1 / dall-e-3), with generation history, a prompt template library and an API settings card.",
+    "repo": "https://github.com/dickpy/dsh-imagegen",
+    "npm": "@dickpy/dsh-imagegen",
+    "category": "tools"
   }
 ]
