@@ -375,6 +375,13 @@ export function transformSkinCss(css: string, options: SkinCssTransformOptions):
   // tokens are unaffected: the shell surfaces keep their colors, and the
   // body clone above keeps the same base color behind transparent areas.
   out += `\n${scope} [id="root"] { background: transparent; }\n`
+  // The official shell declares --shiki-background: var(--dsw-alias-markdown-code-block)
+  // on :root, but skins (and the official dark theme) place the dark code-block
+  // alias on body — the root-level declaration therefore captures the light
+  // alias, and Shiki highlights paint a fixed light background in dark mode.
+  // Re-bind the variable on body, where the active-theme alias resolves, so
+  // the highlight layer follows the skin in both themes (issue #826).
+  out += `\n${scope} body { --shiki-background: var(--dsw-alias-markdown-code-block); }\n`
   if (options.deriveFallbacks === true) {
     const fallbacks = deriveFallbackTokens(defined)
     if (fallbacks.length > 0) {
