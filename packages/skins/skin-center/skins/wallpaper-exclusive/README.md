@@ -3,22 +3,23 @@
 English | [中文](README.zh.md)
 
 A wallpaper-first skin for the DeepSeek Harness web GUI. The default official
-base is kept, and the surfaces that float over the wallpaper — the input card,
-message bubbles, code blocks, inline code, settings cards, plugin panels, the
-skill center and the task list — are frosted with liquid glass so the Wallpaper
-Engine video shows through. The skin ships a built-in default wallpaper
-(`whale-art-v2.png`) that is used only when no Wallpaper Engine wallpaper is
-selected; otherwise the WE wallpaper is the backdrop.
+base is kept, and the surfaces that float over the wallpaper — message bubbles,
+code blocks, inline code, settings cards, plugin panels, the skill center and
+the task list — are frosted with liquid glass so the Wallpaper Engine video
+shows through. The input card itself follows the web-ui unified design. The
+skin ships a built-in default wallpaper (`whale-art-v2.png`) that is used only
+when no Wallpaper Engine wallpaper is selected; otherwise the WE wallpaper is
+the backdrop.
 
 ## What it does
 
 - Wallpaper-first: the WE wallpaper is the backdrop; nothing opaque is drawn
   over it.
-- Liquid glass everywhere: input card, user bubble, code block, inline code,
-  settings surface, plugin panels, sidebar keys (新会话 / 任务看板 / ssh /
-  技能中心) and session/workspace cards, the top-bar subagent board, bottom
-  panel chrome, composer `+`/`/` menus, skill-center panel, git-graph chips,
-  ssh panel chrome, the queued-send card, and the task-board columns and cards.
+- Liquid glass everywhere: user bubble, code block, inline code, settings
+  surface, plugin panels, sidebar keys (新会话 / 任务看板 / ssh / 技能中心) and
+  session/workspace cards, the top-bar subagent board, bottom panel chrome,
+  composer `+`/`/` menus, skill-center panel, git-graph chips, ssh panel
+  chrome, the queued-send card, and the task-board columns and cards.
 - Fixed frosted glass: every non-input-card surface uses a fixed
   semi-transparent frosted material; the input card itself follows the web-ui
   unified design.

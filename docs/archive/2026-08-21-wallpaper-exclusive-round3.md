@@ -302,4 +302,3 @@ commit 0b774b8f）之后的用户验收反馈与下一轮分工。一次性交�
   （`--dsw-wallpaper-glass-float/tooltip/hover/active/...`）；终端视口保持深色。
 - `skin.json` 浅色 scrim 调轻（`rgba(7,19,33,0.18/0.12/0.22)`）。
 - README 中英补充「深浅双主题」；gallery/skin-center/docs 门禁全绿；profile 已部署。
-
