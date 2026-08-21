@@ -10,9 +10,11 @@
   目标分支；`dev` 上测试通过后，由维护者合入 `main`。
 - PR 打开后由 `.github/workflows/auto-assign-pr-reviewers.yml` 按 PR 描述中
   勾选的「PR 类别」自动分派：把对应协作者设为负责人并请求其审查（渲染器 /
-  Wallpaper Engine / WebGL 相关 PR 由 Aa728848 负责并审查）；协作者
-  （Aa728848）自己提交的 PR 会自动转交维护者（zhu1090093659）跟进，
-  无需私下联系。路由规则见 [PR_TRIAGE.md](PR_TRIAGE.md)。
+  Wallpaper Engine / WebGL 相关 PR 由 Aa728848 负责并审查），路由规则见
+  [PR_TRIAGE.md](PR_TRIAGE.md)。
+- 合并门禁：`dev` / `main` 要求 3 个必需检查全绿，**不要求人工审批**；
+  具有 write 权限的协作者检查通过后即可自行合并（含自己的 PR），无需等待
+  维护者审批。
 - `main` 是稳定分支：只接收从 `dev` 合入且测试通过的代码。
 - 提 PR 一律以 `dev` 为 base，不要以 `main` 为 base。
 

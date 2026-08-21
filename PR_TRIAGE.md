@@ -14,7 +14,7 @@
 | `routes[].name` | 分类唯一名，出现在路由日志与评论中 |
 | `routes[].label` | 分类的中文展示名 |
 | `routes[].types` | PR 描述「PR 类别（PR Category）」中勾选项的标签列表，勾中任一项即匹配 |
-| `routes[].authors` | PR 作者登录名列表，作者是其中任一用户即匹配（用于协作者提交的 PR 自动转交维护者跟进） |
+| `routes[].authors` | PR 作者登录名列表，作者是其中任一用户即匹配（可选维度，用于需要按作者转交的场景） |
 | `routes[].paths` | 变更文件 glob 列表（`*` 不跨目录，`**` 跨目录），命中任一文件即匹配 |
 | `routes[].title` | 标题正则（大小写不敏感），可选 |
 | `routes[].reviewers` | GitHub 用户名列表，命中后请求这些用户审查 |
@@ -30,13 +30,13 @@
 | name | 分类 | 类别勾选 | 负责人 / 审批者 |
 | --- | --- | --- | --- |
 | `renderer` | 渲染器 / Wallpaper Engine / WebGL（`packages/skins/skin-center` 的 we-*、pkg-extract、wallpaper、backdrop-scene、WallpaperPanel 等） | 壁纸 / 渲染器 | Aa728848 |
-| `maintainer` | 协作者（Aa728848）提交的 PR | 作者为 Aa728848 | zhu1090093659 |
+
 
 新增分类：在 `routes` 追加条目并同步本表格；纯按标题路由可只写 `title`，
 例如 `{"name": "community", "title": "^社区", "reviewers": ["zhu1090093659"]}`；
 按类别路由可只写 `types`，值为 PR 描述「PR 类别」勾选项的完整标签（须与模板一致），例如
 `{"name": "skin-content", "types": ["皮肤 / 皮肤中心（新皮肤收录、皮肤样式）"], "assignees": ["Aa728848"], "reviewers": ["Aa728848"]}`；
-协作者提交的 PR 可只写 `authors`：`{"name": "maintainer", "authors": ["Aa728848"], "reviewers": ["zhu1090093659"]}`。
+按作者转交可只写 `authors`：`{"name": "maintainer", "authors": ["Aa728848"], "reviewers": ["zhu1090093659"]}`（当前未启用）。
 
 ## 自动化行为
 
@@ -46,6 +46,14 @@
   `issues.addAssignees` 把 `assignees` 中的用户设为 PR 负责人；
 - `opened` 时另发布一条分类路由说明评论（负责人与审查者）；
 - 无命中时不设置负责人、不请求审查者，只记录日志。
+
+## 合并门禁
+
+`dev` 与 `main` 分支保护：必需状态检查为 `CI checks` / `plugin-mount` /
+`Validate PR contribution evidence`（GitHub Actions，strict 关闭）；
+**必需人工审批为 0** —— 检查全绿后，具有 write 权限的协作者（如 Aa728848）
+即可自行合并 PR（含自己提交的 PR），无需等待维护者审批；维护者仍可随时
+追加审查。
 
 ## 维护者速查
 
