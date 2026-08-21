@@ -39,6 +39,14 @@
 - **样式**：CSS Modules（`*.module.css`）经 lightningcss 编译进 bundle；不引入
   UI 框架样式库。
 
+## Agent 公告约定（issue #839）
+
+- 会向 agent 系统提示注入公告（systemPrompt section）的插件必须提供
+  `announceToAgent` 开关：schema 默认 `false`（默认不注入，保持系统提示词干净），
+  用户在设置界面（或 profile patch）按需开启；开关必须经
+  `installSettingsSection`（或等价的自定义设置卡）暴露到 Web 设置界面并即时生效。
+- 公告文本只陈述能力、约束与触发词，不包含与当前任务无关的长段声明。
+
 ## 测试纪律
 
 - 每个包必须有 `vitest run` 可通过的测试（`pnpm test` 全仓门禁）。行为变化必须

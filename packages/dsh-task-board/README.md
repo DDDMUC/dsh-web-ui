@@ -52,7 +52,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board
 | Key | Default | Behavior |
 | --- | --- | --- |
 | `enabled` | `true` | Enables the Host service and browser board. |
-| `announceToAgent` | `true` | Adds the task-board guidance section to agent system prompts. |
+| `announceToAgent` | `false` | Opt-in: when true, adds the task-board guidance section to agent system prompts. |
 | `preventIdleSleep` | `false` | Holds one system idle-sleep assertion while any DSH session runs, any schedule is enabled, or session state is unknown. |
 | `trustedProxyHosts` | `[]` | Canonical `host[:port]` authorities accepted only through the authenticated loopback reverse-proxy path. |
 | `proxyTokenEnv` | `DSH_TASK_BOARD_PROXY_TOKEN` | Environment variable containing the reverse-proxy token; the token itself is never stored in plugin config. |

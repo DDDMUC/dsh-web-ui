@@ -35,6 +35,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.8",
     "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.8",
     "@types/node": "^22.20.0",
     "tsdown": "0.22.2",

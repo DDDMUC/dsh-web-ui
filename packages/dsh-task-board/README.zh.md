@@ -52,7 +52,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board
 | 键 | 默认值 | 行为 |
 | --- | --- | --- |
 | `enabled` | `true` | 启用 Host 服务与浏览器看板。 |
-| `announceToAgent` | `true` | 向 agent 系统提示加入任务看板说明。 |
+| `announceToAgent` | `false` | 按需开启：开启后向 agent 系统提示加入任务看板说明。 |
 | `preventIdleSleep` | `false` | 存在运行中的 DSH 会话、已启用计划或未知会话状态时，持有一个系统空闲睡眠断言。 |
 | `trustedProxyHosts` | `[]` | 仅通过已认证 loopback 反向代理路径接受的规范 `host[:port]` authority 白名单。 |
 | `proxyTokenEnv` | `DSH_TASK_BOARD_PROXY_TOKEN` | 保存反向代理 token 的环境变量名；token 本身不会写入插件配置。 |

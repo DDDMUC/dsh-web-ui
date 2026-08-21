@@ -44,7 +44,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-desktop-launcher
 | 字段 | 默认值 | 含义 |
 | --- | --- | --- |
 | `enabled` | `true` | 插件总开关。 |
-| `announceToAgent` | `true` | 是否在系统提示词中公告本插件。 |
+| `announceToAgent` | `false` | 按需开启：开启后在系统提示词中公告本插件。 |
 | `dshCommand` | `dsh` | 启动 dsh 的命令，需在 PATH 中。 |
 | `url` | `http://127.0.0.1:3080` | 启动器等待就绪并打开的 GUI 地址。 |
 | `profile` | 未设置 | 可选的 `dsh web` 的 `--profile` 参数。 |
