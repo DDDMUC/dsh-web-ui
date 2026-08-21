@@ -18,6 +18,7 @@ import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
 import { SKIN_WALLPAPER_NS, WallpaperController, installBootRestore } from './wallpaper.ts'
 import { en, zh, type SkinCenterKey } from './locales.ts'
 import { bootSkinRuntime } from './runtime/boot.ts'
+import { PreviewCoordinator } from './preview-coordinator.ts'
 
 export type { SkinCenterComponentProps, SkinCenterInjected } from './SkinCenter.tsx'
 export { bootSkinRuntime } from './runtime/boot.ts'
@@ -71,6 +72,7 @@ export function apply(ctx: ClientContext): void {
     backgroundOpacity?: number
     backgroundBlurEmpty?: number
     backgroundBlurContent?: number
+    inputCardBlur?: number
   }>({ namespace: SKIN_BACKGROUND_NS })
   const background = new BackgroundController(backgroundScope)
   // Tear the blur element + observer down when this plugin's fiber goes away.
@@ -104,8 +106,14 @@ export function apply(ctx: ClientContext): void {
     () => wallpaper.subscribe(() => { void runtime.controller.refresh() }),
     'ui-skin-center: wallpaper priority refresh',
   )
+  const preview = new PreviewCoordinator(runtime.controller, wallpaper)
+  ctx.effect(
+    () => ctx.on('theme/change', () => wallpaper.recoverScenePlayer()),
+    'ui-skin-center: scene recovery after theme change',
+  )
   const injected = (): SkinCenterInjected => ({
     runtime,
+    preview,
     theme: {
       getTheme: () => theme.getTheme(),
       subscribe: listener => ctx.on('theme/change', listener),
@@ -117,10 +125,12 @@ export function apply(ctx: ClientContext): void {
       opacity: () => background.opacity(),
       blurEmpty: () => background.blurEmpty(),
       blurContent: () => background.blurContent(),
+      inputCardBlur: () => background.inputCardBlur(),
       subscribe: listener => background.subscribe(listener),
       set: opacity => background.set(opacity),
       setBlurEmpty: value => background.setBlurEmpty(value),
       setBlurContent: value => background.setBlurContent(value),
+      setInputCardBlur: value => background.setInputCardBlur(value),
       dispose: () => background.dispose(),
     },
     wallpaper: {
@@ -147,11 +157,12 @@ export function apply(ctx: ClientContext): void {
       setPauseOnHidden: value => wallpaper.setPauseOnHidden(value),
       setSound: value => wallpaper.setSound(value),
       setVolume: value => wallpaper.setVolume(value),
-      applySelection: descriptor => wallpaper.applySelection(descriptor),
+      applySelection: descriptor => { void preview.runWallpaper(() => wallpaper.applySelection(descriptor)) },
       clearSelection: () => wallpaper.clearSelection(),
       sync: descriptor => wallpaper.sync(descriptor),
-      tryOn: descriptor => wallpaper.tryOn(descriptor),
+      tryOn: descriptor => { void preview.runWallpaper(() => wallpaper.tryOn(descriptor)) },
       exitTryOn: () => wallpaper.exitTryOn(),
+      recoverScenePlayer: () => wallpaper.recoverScenePlayer(),
       dispose: () => wallpaper.dispose(),
     },
   })

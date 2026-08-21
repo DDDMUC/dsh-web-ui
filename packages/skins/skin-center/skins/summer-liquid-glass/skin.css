@@ -91,9 +91,9 @@
 
   /* ── Alias palette ───────────────────────────────────────────────────────── */
   --dsw-alias-bg-base: var(--dsw-glass-normal);
-  --dsw-alias-bg-layer-1: rgba(17, 25, 39, calc(.42 + var(--dsh-skin-scrim, 0) * .3));
-  --dsw-alias-bg-layer-2: rgba(24, 31, 46, calc(.46 + var(--dsh-skin-scrim, 0) * .3));
-  --dsw-alias-bg-layer-3: rgba(30, 28, 44, calc(.46 + var(--dsh-skin-scrim, 0) * .3));
+  --dsw-alias-bg-layer-1: rgba(17, 25, 39, calc(.42 + var(--dsw-skin-scrim, 0) * .3));
+  --dsw-alias-bg-layer-2: rgba(24, 31, 46, calc(.46 + var(--dsw-skin-scrim, 0) * .3));
+  --dsw-alias-bg-layer-3: rgba(30, 28, 44, calc(.46 + var(--dsw-skin-scrim, 0) * .3));
   --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.5);
   --dsw-alias-bg-mask-2: rgba(0, 0, 0, 0.28);
   --dsw-alias-bg-mask-3: rgba(0, 0, 0, 0.58);

@@ -20,6 +20,7 @@ import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 import type { CatalogSkin, SkinRuntimeStore } from './runtime/boot.ts'
 import type { SkinBackgroundHandle } from './background.ts'
 import type { WallpaperHandle } from './wallpaper.ts'
+import type { PreviewCoordinator } from './preview-coordinator.ts'
 import { WallpaperPanel } from './WallpaperPanel.tsx'
 import css from './skin-center.module.css'
 
@@ -36,6 +37,8 @@ export interface SkinCenterInjected {
   background: SkinBackgroundHandle
   /** Wallpaper Engine bridge over the skin-wallpaper namespace. */
   wallpaper: WallpaperHandle
+  /** One serialized preview session shared by skins and wallpapers. */
+  preview: PreviewCoordinator
 }
 
 /** Plugin-card component props: locale seat + injected face. */
@@ -52,12 +55,13 @@ const OFFICIAL = 'official'
  * @param props - card props.
  * @returns the plugin card.
  */
-export function SkinCenter({ t, runtime, theme, background, wallpaper }: SkinCenterComponentProps) {
+export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }: SkinCenterComponentProps) {
   const snapshot = useSyncExternalStore((listener) => theme.subscribe(listener), () => theme.getTheme())
   const enabled = useSyncExternalStore(background.subscribe, background.enabled)
   const opacity = useSyncExternalStore(background.subscribe, background.opacity)
   const blurEmpty = useSyncExternalStore(background.subscribe, background.blurEmpty)
   const blurContent = useSyncExternalStore(background.subscribe, background.blurContent)
+  const inputCardBlur = useSyncExternalStore(background.subscribe, background.inputCardBlur)
   const catalog = useSyncExternalStore(runtime.subscribe, runtime.catalog)
   const state = useSyncExternalStore(runtime.subscribe, runtime.controller.getState)
   const activeId = state.active
@@ -93,11 +97,11 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper }: SkinCen
   }
 
   const tryOn = (entry: CatalogSkin): void => {
-    run(entry.manifest.id, () => runtime.controller.tryOn(entry.manifest.id, entry))
+    run(entry.manifest.id, () => preview.runSkin(() => runtime.controller.tryOn(entry.manifest.id, entry)))
   }
 
   const tryOnOfficial = (): void => {
-    run(OFFICIAL, () => runtime.controller.tryOn(null, null))
+    run(OFFICIAL, () => preview.runSkin(() => runtime.controller.tryOn(null, null)))
   }
 
   const exitTryOn = (): void => {
@@ -112,7 +116,7 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper }: SkinCen
    */
   const applySkin = (target: string): void => {
     if (target === OFFICIAL) {
-      run(OFFICIAL, () => runtime.controller.switchTo(null, null))
+      run(OFFICIAL, () => preview.runSkin(() => runtime.controller.switchTo(null, null)))
       return
     }
     const entry = runtime.find(target)
@@ -120,7 +124,7 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper }: SkinCen
       setError(t('applyFailed'))
       return
     }
-    run(target, () => runtime.controller.switchTo(target, entry))
+    run(target, () => preview.runSkin(() => runtime.controller.switchTo(target, entry)))
   }
 
   const dark = snapshot.active.colorScheme === 'dark'
@@ -274,6 +278,26 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper }: SkinCen
                   </div>
 
 
+                  <div className={css.backgroundRow}>
+                    <div className={css.backgroundHead}>
+                      <span className={css.backgroundLabel}>{t('inputCardBlur')}</span>
+                      <span className={css.backgroundValue} aria-hidden="true">{inputCardBlur}px</span>
+                    </div>
+                    <input
+                      id="skin-center-input-card-blur"
+                      className={css.backgroundRange}
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="1"
+                      value={inputCardBlur}
+                      aria-valuetext={`${inputCardBlur}px`}
+                      aria-label={t('inputCardBlur')}
+                      onChange={(event) => { background.setInputCardBlur(Number(event.target.value)) }}
+                    />
+                    <p className={css.backgroundHint}>{t('inputCardBlurHint')}</p>
+                  </div>
+
                   <WallpaperPanel t={t} wallpaper={wallpaper} />
 
                   {error !== null && <div className={css.error}>{error}</div>}
@@ -358,10 +382,10 @@ export type SkinCenterSectionProps =
 
 /** Render the skin-center card as a first-level settings page. */
 export function SkinCenterSection(props: SkinCenterSectionProps): ReactNode {
-  const { t, runtime, theme, background, wallpaper } = props
+  const { t, runtime, theme, background, wallpaper, preview } = props
   return (
     <ul className={css.sectionList}>
-      <SkinCenter t={t} runtime={runtime} theme={theme} background={background} wallpaper={wallpaper} />
+      <SkinCenter t={t} runtime={runtime} theme={theme} background={background} wallpaper={wallpaper} preview={preview} />
     </ul>
   )
 }

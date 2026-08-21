@@ -545,6 +545,27 @@ describe('scene container resolution (#521)', () => {
     expect(resRes.status).toBe(200)
     expect(String(resRes.headers['content-type'])).toContain('image/png')
   })
+
+  it('withholds live playback from recursively scripted scenes', async () => {
+    makeProject(join(library, '777'), { title: 'Scripted', type: 'scene', file: 'scene.json' }, {
+      'scene.json': JSON.stringify({
+        objects: [{
+          name: 'dino',
+          image: 'models/dino.json',
+          effects: [{ overrides: [{ visible: { value: false, script: 'engine.registerAsset(1)' } }] }],
+        }],
+      }),
+      'models/dino.json': JSON.stringify({ material: 'materials/dino.json', width: 64, height: 64 }),
+      'materials/dino.json': JSON.stringify({ passes: [{ textures: ['materials/dino.tex'] }] }),
+    })
+    mkdirSync(join(library, '777', 'materials'), { recursive: true })
+    writeFileSync(join(library, '777', 'materials', 'dino.tex'), tex64Red)
+    const probe = await call('GET', WE_API_PREFIX + '/scene-probe?id=777')
+    expect(probe.status).toBe(200)
+    expect(probe.body.sceneUrl).toBe(null)
+    expect(probe.body.compatibility).toBe('static-only')
+    expect(probe.body.unsupportedFeatures).toEqual(['embedded-script'])
+  })
 })
 
 describe('import lifecycle', () => {
@@ -616,7 +637,13 @@ describe('scene-probe cache (#817)', () => {
     const persisted = JSON.parse(readFileSync(persistedPath, 'utf8')) as Record<string, unknown>
     const key = Object.keys(persisted)[0] ?? ''
     expect(key).toContain('scene.pkg')
-    expect(persisted[key]).toEqual({ hasVideo: false, hasSceneWebGL: false })
+    expect(persisted[key]).toEqual({
+      v: 2,
+      hasVideo: false,
+      hasSceneWebGL: false,
+      compatibility: 'full',
+      unsupportedFeatures: [],
+    })
 
     // Simulate a host restart: a fresh route family must serve the same
     // result from the persisted cache without re-reading the payload.
@@ -658,7 +685,7 @@ describe('scene-probe cache (#817)', () => {
     const persisted = JSON.parse(
       readFileSync(join(store, '.cache', 'we-scene-probes.json'), 'utf8',
     )) as Record<string, unknown>
-    const keys = Object.keys(persisted)
+    const keys = Object.keys(persisted).map(key => key.replaceAll('\\', '/'))
     expect(keys.length).toBe(256)
     expect(keys.filter(k => k.includes('/s000/') || k.includes('/s001/'))).toHaveLength(0)
     expect(keys.some(k => k.includes('/s257/'))).toBe(true)

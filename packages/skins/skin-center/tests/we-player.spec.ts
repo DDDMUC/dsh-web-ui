@@ -19,6 +19,13 @@ describe('WE scene player reflection pass (#742)', () => {
     expect(WE_SCENE_PLAYER_HTML).not.toContain('0.42 + puddleDepth * 0.38')
   })
 
+  it('recovers explicitly after theme changes and reloads after context restoration', () => {
+    expect(WE_SCENE_PLAYER_HTML).toContain("canvas.addEventListener('webglcontextlost'")
+    expect(WE_SCENE_PLAYER_HTML).toContain("canvas.addEventListener('webglcontextrestored'")
+    expect(WE_SCENE_PLAYER_HTML).toContain("msg.type === 'dsh-recover-renderer'")
+    expect(WE_SCENE_PLAYER_HTML).toContain("type: 'dsh-scene-needs-reload'")
+  })
+
   it('draws the reflection quad at the layer rect instead of forcing fullscreen', () => {
     expect(WE_SCENE_PLAYER_HTML).not.toContain('mat4Transform2D(sceneW / 2, sceneH / 2, sceneW, sceneH, 0)')
     expect(WE_SCENE_PLAYER_HTML).toContain("gl.getUniformLocation(progReflection, 'u_waterLine')")

@@ -73,6 +73,8 @@ export interface SkinBackgroundConfig {
    * the with-content blur.
    */
   backgroundBlurContent?: number
+  /** Backdrop blur on the composer card while backdrop art is visible. */
+  inputCardBlur?: number
 }
 
 /**
@@ -84,6 +86,7 @@ export const SkinBackgroundConfigSchema: z<SkinBackgroundConfig> = z.object({
   backgroundOpacity: z.number().min(0).max(100).step(5).default(0),
   backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(0),
   backgroundBlurContent: z.number().min(0).max(20).step(1).default(0),
+  inputCardBlur: z.number().min(0).max(20).step(1).default(10),
 })
 
 /**
