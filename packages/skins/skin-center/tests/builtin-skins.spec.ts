@@ -65,6 +65,37 @@ function expectRootThemeTokensBodyScoped(css: string, code: string, skinId: stri
   }
 }
 
+function declarationsForSelector(css: string, selector: string): Map<string, string> {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))
+  const out = new Map<string, string>()
+  const body = match?.[1]?.replace(/\/\*[\s\S]*?\*\//g, '') ?? ''
+  for (const declaration of body.matchAll(/(--dsw-[\w-]+)\s*:\s*([^;]+);/g)) {
+    const name = declaration[1]
+    const value = declaration[2]
+    if (name !== undefined && value !== undefined) out.set(name, value.trim())
+  }
+  return out
+}
+
+function relativeLuminance(hex: string): number {
+  const match = hex.match(/^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i)
+  if (match?.[1] === undefined) throw new Error(`unsupported color ${hex}`)
+  const channel = (offset: number): number => {
+    const raw = Number.parseInt(match[1]!.slice(offset, offset + 2), 16) / 255
+    return raw <= 0.03928 ? raw / 12.92 : ((raw + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const fg = relativeLuminance(foreground)
+  const bg = relativeLuminance(background)
+  const lighter = Math.max(fg, bg)
+  const darker = Math.min(fg, bg)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
 describe('built-in v2 skins: catalog and stylesheets', () => {
   it('loads the catalog with no diagnostics and every skin present', () => {
     const catalog = loadSkinCatalog({ builtinDir: SKINS_DIR, userDir: NO_USER_SKINS })
@@ -91,6 +122,18 @@ describe('built-in v2 skins: catalog and stylesheets', () => {
       }
     })
   }
+
+  it('mint: tooltip foreground keeps light and dark mode popovers readable (#924)', () => {
+    const css = readFileSync(join(SKINS_DIR, 'mint', 'skin.css'), 'utf8')
+    for (const selector of [':root', 'body[data-ds-dark-theme]']) {
+      const tokens = declarationsForSelector(css, selector)
+      const bg = tokens.get('--dsw-alias-tooltip-bg')
+      const fg = tokens.get('--dsw-alias-tooltip-fg')
+      expect(fg, `${selector}: tooltip foreground token`).toBeDefined()
+      expect(bg, `${selector}: tooltip background token`).toBeDefined()
+      expect(contrastRatio(fg!, bg!), `${selector}: tooltip contrast`).toBeGreaterThanOrEqual(4.5)
+    }
+  })
 })
 
 describe('built-in v2 skins: hooks lifecycle', () => {
