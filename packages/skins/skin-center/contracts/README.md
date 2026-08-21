@@ -45,6 +45,13 @@ first-class in v2.
   (`[class*=...]`) warns. Only relative in-directory assets.
 - Every file reference in the manifest is a relative path inside the skin
   directory (no leading slash, no `..`, no protocol URLs).
+- The loader re-binds the official shell's `--shiki-background` variable to
+  `var(--dsw-alias-markdown-code-block)` on the skin-scoped body, because
+  the shell declares it on `:root` where the dark code-block alias (scoped
+  to `body[data-ds-dark-theme]`) cannot reach it — without the re-bind,
+  Shiki code blocks paint the fixed light background in dark mode (issue
+  #826). Skins keep owning the alias values; the loader only restores
+  theme-awareness.
 
 ## Automatic token fallbacks
 

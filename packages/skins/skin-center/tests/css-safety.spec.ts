@@ -155,6 +155,22 @@ describe('transformSkinCss scoping', () => {
     expect(code).toContain(`${SCOPE} [id="root"] { background: transparent; }`)
   })
 
+  it('re-binds --shiki-background to the code-block alias on body (issue #826)', () => {
+    const css = [
+      ':root {',
+      '  --dsw-alias-markdown-code-block: #ecf4fce6;',
+      '}',
+      'body[data-ds-dark-theme] {',
+      '  --dsw-alias-markdown-code-block: #17243ad9;',
+      '}',
+    ].join('\n')
+    const { code } = scope(css)
+    expect(code).toContain(`${SCOPE} body { --shiki-background: var(--dsw-alias-markdown-code-block); }`)
+    // The dark alias itself stays body-scoped so the re-bound variable
+    // resolves the dark value in dark mode and the light value in light mode.
+    expect(code).toContain(`${SCOPE} body[data-ds-dark-theme]`)
+  })
+
   it('scopes :root token remaps to the skin scope', () => {
     const { code } = scope(':root { --dsw-primary: #ff9d5c; }')
     expect(code).toContain(`${SCOPE} {`)
