@@ -157,7 +157,7 @@ describe('PluginManagerTab', () => {
 
       await screen.findByText('p1')
       fireEvent.click(screen.getByRole('button', { name: t('checkUpdates') }))
-      expect(await screen.findByText(t('updateBlockedDsh', { min: '>=0.1.0-rc.8' }))).toBeTruthy()
+      expect(await screen.findByText(t('updateBlockedDsh', { min: '0.1.0-rc.8' }))).toBeTruthy()
       const updateButton = screen.getByRole('button', { name: t('update') })
       expect((updateButton as HTMLButtonElement).disabled).toBe(true)
     })
@@ -172,7 +172,7 @@ describe('PluginManagerTab', () => {
 
       await screen.findByText('p1')
       fireEvent.click(screen.getByRole('button', { name: t('checkUpdates') }))
-      expect(await screen.findByText(t('updateRequiresDsh', { min: '>=0.1.0-rc.8' }))).toBeTruthy()
+      expect(await screen.findByText(t('updateRequiresDsh', { min: '0.1.0-rc.8' }))).toBeTruthy()
       const updateButton = screen.getByRole('button', { name: t('update') })
       expect((updateButton as HTMLButtonElement).disabled).toBe(false)
     })

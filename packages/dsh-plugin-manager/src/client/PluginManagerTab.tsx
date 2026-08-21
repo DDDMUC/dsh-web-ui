@@ -26,6 +26,7 @@ import type {
   PluginUpdateItem,
 } from '../core/protocol.ts'
 import { conflictRepairMessage, failureRepairMessage, installRepairMessage, type RepairCopy } from '../core/repair.ts'
+import { displayMinimumVersion } from '../core/version.ts'
 import type { PluginManagerKey } from './locales.ts'
 import css from './plugin-manager.module.css'
 
@@ -542,8 +543,8 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
                       {updateItem !== undefined && dshRequirement !== undefined && (
                         <span className={updateItem.compatible === false ? css.compatBlocked : css.compatHint}>
                           {updateItem.compatible === false
-                            ? t('updateBlockedDsh', { min: dshRequirement })
-                            : t('updateRequiresDsh', { min: dshRequirement })}
+                            ? t('updateBlockedDsh', { min: displayMinimumVersion(dshRequirement) })
+                            : t('updateRequiresDsh', { min: displayMinimumVersion(dshRequirement) })}
                         </span>
                       )}
                       {failure !== undefined && (

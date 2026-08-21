@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareVersions, dshRequirementOf, meetsMinimumDsh, parseDshVersion } from '../src/core/version.ts'
+import { compareVersions, displayMinimumVersion, dshRequirementOf, meetsMinimumDsh, parseDshVersion } from '../src/core/version.ts'
 
 describe('parseDshVersion', () => {
   it('parses plain and prerelease versions, with v prefix and whitespace', () => {
@@ -88,5 +88,16 @@ describe('dshRequirementOf', () => {
     expect(dshRequirementOf({ engines: { dsh: 7 } })).toBeUndefined()
     expect(dshRequirementOf({ dsh: 'not-an-object', engines: null })).toBeUndefined()
     expect(dshRequirementOf({ dsh: { engines: { dsh: '   ' } } })).toBeUndefined()
+  })
+})
+
+describe('displayMinimumVersion', () => {
+  it('strips the >= operator and v prefix so UI copy stays unambiguous', () => {
+    expect(displayMinimumVersion('>=0.1.1-rc.1')).toBe('0.1.1-rc.1')
+    expect(displayMinimumVersion('>= v0.1.0-rc.8')).toBe('0.1.0-rc.8')
+  })
+
+  it('renders unsupported forms unchanged', () => {
+    expect(displayMinimumVersion('^0.1.0-rc.8')).toBe('^0.1.0-rc.8')
   })
 })

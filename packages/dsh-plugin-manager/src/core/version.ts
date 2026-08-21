@@ -10,7 +10,8 @@
  * major.minor.patch tuple, which would reject a newer host line (0.1.1-rc.2)
  * against a declared `>=0.1.0-rc.8` — exactly the cross-cohort upgrade path
  * this check must allow. Everything here is pure and tolerant of untrusted
- * input: a malformed value means "no constraint".
+ * input: a malformed value means "cannot verify", which the callers treat as
+ * a fail-closed verdict when a requirement was declared (issue #754).
  * @module @linxin666/dsh-client-ui-plugin-manager/core
  */
 
@@ -95,7 +96,7 @@ const MINIMUM_RANGE_PATTERN = /^>=\s*(v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/
  * (plain semver, `^`, `~`, multi-comparator ranges, empty) returns undefined.
  * @returns true / false, or undefined when the host version is malformed or
  * the minimum uses an unsupported form — callers treat undefined as
- * "no constraint" so the update stays fail-open for undeclared metadata.
+ * "cannot verify" and fail closed for declared requirements.
  */
 export function meetsMinimumDsh(host: string, minimum: string): boolean | undefined {
   const match = MINIMUM_RANGE_PATTERN.exec(minimum.trim())
@@ -103,6 +104,19 @@ export function meetsMinimumDsh(host: string, minimum: string): boolean | undefi
   const compared = compareVersions(host, match[1])
   if (compared === undefined) return undefined
   return compared >= 0
+}
+
+/**
+ * The bare minimum version for display: strips the `>=` operator (and an
+ * optional leading `v`) from a declared requirement so UI copy that already
+ * contains the comparison operator renders `0.1.1-rc.1` instead of
+ * `>= >=0.1.1-rc.1`. Unsupported range forms render unchanged.
+ * @param minimum - the declared minimum range.
+ * @returns the version portion for display.
+ */
+export function displayMinimumVersion(minimum: string): string {
+  const match = MINIMUM_RANGE_PATTERN.exec(minimum.trim())
+  return match === null ? minimum.trim() : match[1].replace(/^v/, '')
 }
 
 /**

@@ -32,6 +32,15 @@ const VERSION_TIMEOUT_MS = 10_000
 /** Bounded capture of the version probe output. */
 const VERSION_MAX_OUTPUT_CHARS = 4_096
 
+/** Grace period after SIGTERM before a stuck probe child is SIGKILLed. */
+const VERSION_ESCALATION_TIMEOUT_MS = 5_000
+
+/** Successful probe freshness window before the host version is re-read. */
+const VERSION_PROBE_TTL_MS = 5 * 60_000
+
+/** Minimum gap between failed version probes (avoids a spawn per request). */
+const VERSION_PROBE_COOLDOWN_MS = 60_000
+
 /** Dependencies every route shares. */
 export interface GatewayRouteDeps {
   facts: ProfileFacts
@@ -112,7 +121,8 @@ async function fetchRegistryManifest(name: string): Promise<RegistryVersionManif
  * Read the running DSH host version through `dsh --version` (the CLI is the
  * gateway's write path already; this package has no in-process source).
  * Returns undefined when the binary is unavailable or the output is not a
- * plain semver; callers fail open on an unknown host version.
+ * plain semver; callers treat an unknown host version as a fail-closed
+ * verdict for declared requirements (issue #754).
  */
 async function probeDshVersion(cliAvailable: () => boolean): Promise<string | undefined> {
   if (!cliAvailable()) return undefined
@@ -122,9 +132,27 @@ async function probeDshVersion(cliAvailable: () => boolean): Promise<string | un
   const child = spawnDsh(binary, ['--version'], process.env)
   child.stdout?.on('data', (chunk: Buffer) => { captureProbe(chunk, output) })
   child.stderr?.on('data', (chunk: Buffer) => { captureProbe(chunk, output) })
-  const timer = setTimeout(() => { child.kill() }, VERSION_TIMEOUT_MS)
-  const code = await new Promise<number | null>(resolve => { child.on('close', resolve) })
-  clearTimeout(timer)
+  // SIGTERM can be ignored by a stuck CLI; escalate once so a probe can never
+  // hang the update/check endpoints for the host process lifetime, and always
+  // settle the promise on spawn failure (an 'error' event follows a vanished
+  // or unexecutable binary between findDshBinary and spawnDsh).
+  let escalated: ReturnType<typeof setTimeout> | undefined
+  const timer = setTimeout(() => {
+    child.kill()
+    escalated = setTimeout(() => { child.kill('SIGKILL') }, VERSION_ESCALATION_TIMEOUT_MS)
+  }, VERSION_TIMEOUT_MS)
+  const code = await new Promise<number | null>(resolve => {
+    let settled = false
+    const finish = (value: number | null): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (escalated !== undefined) clearTimeout(escalated)
+      resolve(value)
+    }
+    child.once('error', () => finish(null))
+    child.once('close', finish)
+  })
   if (code !== 0) return undefined
   const version = output.value.trim().split(/\r?\n/, 1)[0]?.trim() ?? ''
   return parseDshVersion(version) === undefined ? undefined : version
@@ -143,14 +171,46 @@ function isDirectRegistrySpec(spec: string): boolean {
 export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
   const { facts, gateway } = deps
   const fetchManifest = deps.fetchManifest ?? fetchRegistryManifest
-  /** One `dsh --version` probe per host process. */
-  let dshVersionResult: Promise<string | undefined> | undefined
+  /**
+   * Cached `dsh --version`: successful verdicts refresh after a TTL (the CLI
+   * update path is the gateway itself, so a stale success is wrong long-term),
+   * failed probes are retried after a cooldown instead of being cached forever,
+   * and concurrent requests share one in-flight probe.
+   */
+  let dshVersion: string | undefined
+  let dshVersionAt = 0
+  let dshVersionPending: Promise<string | undefined> | undefined
   const resolveDshVersion = (): Promise<string | undefined> => {
     if (deps.dshVersion !== undefined) return deps.dshVersion()
-    if (dshVersionResult === undefined) {
-      dshVersionResult = probeDshVersion(deps.cliAvailable).catch(() => undefined)
+    const now = Date.now()
+    if (dshVersion !== undefined && now - dshVersionAt < VERSION_PROBE_TTL_MS) return Promise.resolve(dshVersion)
+    if (dshVersionAt !== 0 && now - dshVersionAt < VERSION_PROBE_COOLDOWN_MS) return Promise.resolve(undefined)
+    if (dshVersionPending === undefined) {
+      dshVersionAt = now
+      dshVersionPending = probeDshVersion(deps.cliAvailable)
+        .catch(() => undefined)
+        .then(version => {
+          dshVersionPending = undefined
+          if (version !== undefined) {
+            dshVersion = version
+            dshVersionAt = now
+          }
+          return version
+        })
     }
-    return dshVersionResult
+    return dshVersionPending
+  }
+
+  /**
+   * Compat verdict for one declared requirement. Unverified (unknown host,
+   * malformed host output, unsupported range) is incompatible so an update
+   * can never run against a runtime we cannot prove compatible (issue #754);
+   * only absent metadata keeps the update fail-open.
+   */
+  const compatibleVerdict = async (requiresDsh: string): Promise<{ hostVersion?: string; compatible: boolean }> => {
+    const hostVersion = await resolveDshVersion()
+    if (hostVersion === undefined) return { compatible: false }
+    return { hostVersion, compatible: meetsMinimumDsh(hostVersion, requiresDsh) === true }
   }
 
   /** Wrap a handler with the loopback fence and JSON error reporting. */
@@ -226,11 +286,13 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       if (row.version === latest) return { status: 409, error: `plugin-manager: ${target} is already at ${latest}` }
       const requiresDsh = dshRequirementOf(manifest)
       if (requiresDsh !== undefined) {
-        const hostVersion = await resolveDshVersion()
-        if (hostVersion !== undefined && meetsMinimumDsh(hostVersion, requiresDsh) === false) {
+        const { hostVersion, compatible } = await compatibleVerdict(requiresDsh)
+        if (!compatible) {
           return {
             status: 412,
-            error: `plugin-manager: ${target} 需要 DSH ${requiresDsh}（当前 DSH ${hostVersion}），请先升级 DSH 再更新`,
+            error: hostVersion === undefined
+              ? `plugin-manager: cannot verify the DSH version for ${target} (dsh --version failed); upgrade DSH before updating`
+              : `plugin-manager: ${target} requires DSH ${requiresDsh} (current DSH ${hostVersion}); upgrade DSH before updating`,
           }
         }
       }
@@ -365,11 +427,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       const requiresDsh = dshRequirementOf(manifest)
       if (requiresDsh !== undefined) {
         update.requiresDsh = requiresDsh
-        const hostVersion = await resolveDshVersion()
-        if (hostVersion !== undefined) {
-          const compatible = meetsMinimumDsh(hostVersion, requiresDsh)
-          if (compatible !== undefined) update.compatible = compatible
-        }
+        update.compatible = (await compatibleVerdict(requiresDsh)).compatible
       }
       updates.push(update)
     }

@@ -139,7 +139,7 @@ describe('gateway update route', () => {
     await handler(request({ id: 'dsh-memoir' }), captured.res)
 
     expect(captured.status()).toBe(412)
-    expect(captured.body()).toMatchObject({ error: expect.stringContaining('需要 DSH >=0.1.0-rc.8') })
+    expect(captured.body()).toMatchObject({ error: expect.stringContaining('requires DSH >=0.1.0-rc.8') })
     expect(dshVersion).toHaveBeenCalledTimes(1)
     expect(update).not.toHaveBeenCalled()
   })
@@ -176,7 +176,7 @@ describe('gateway update route', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
-  it('fails open when the host version is unknown or the range is unsupported', async () => {
+  it('fails closed when a declared requirement cannot be verified', async () => {
     const { facts, dir } = profile('^1.0.0')
     tempDirs.push(dir)
 
@@ -187,8 +187,9 @@ describe('gateway update route', () => {
     )
     const unknownResponse = response()
     await unknownHost.handler(request({ id: 'dsh-memoir' }), unknownResponse.res)
-    expect(unknownResponse.status()).toBe(200)
-    expect(unknownHost.update).toHaveBeenCalledWith('dsh-memoir', '1.1.0')
+    expect(unknownResponse.status()).toBe(412)
+    expect(unknownResponse.body()).toMatchObject({ error: expect.stringContaining('cannot verify the DSH version') })
+    expect(unknownHost.update).not.toHaveBeenCalled()
 
     const unsupported = updateHandler(
       facts,
@@ -197,8 +198,20 @@ describe('gateway update route', () => {
     )
     const unsupportedResponse = response()
     await unsupported.handler(request({ id: 'dsh-memoir' }), unsupportedResponse.res)
-    expect(unsupportedResponse.status()).toBe(200)
-    expect(unsupported.update).toHaveBeenCalledWith('dsh-memoir', '1.1.0')
+    expect(unsupportedResponse.status()).toBe(412)
+    expect(unsupported.update).not.toHaveBeenCalled()
+  })
+
+  it('fails open only when the manifest declares no DSH requirement', async () => {
+    const { facts, dir } = profile('^1.0.0')
+    tempDirs.push(dir)
+    const { handler, update } = updateHandler(facts, async () => manifest('1.1.0'), async () => undefined)
+    const captured = response()
+
+    await handler(request({ id: 'dsh-memoir' }), captured.res)
+
+    expect(captured.status()).toBe(200)
+    expect(update).toHaveBeenCalledWith('dsh-memoir', '1.1.0')
   })
 })
 
@@ -241,7 +254,7 @@ describe('gateway check-updates route', () => {
     expect(captured.body()).toEqual({ updates: [{ id: 'dsh-memoir', current: '1.0.0', latest: '1.1.0' }] })
   })
 
-  it('omits compatible but keeps requiresDsh when the host version is unknown', async () => {
+  it('marks a declared requirement incompatible when the host version is unknown', async () => {
     const { facts, dir } = profile('^1.0.0')
     tempDirs.push(dir)
     const handler = checkUpdatesHandler(facts, async () => manifest('1.1.0', { dsh: { engines: { dsh: '>=0.1.0-rc.8' } } }), async () => undefined)
@@ -250,7 +263,7 @@ describe('gateway check-updates route', () => {
     await handler(request({}), captured.res)
 
     expect(captured.body()).toEqual({
-      updates: [{ id: 'dsh-memoir', current: '1.0.0', latest: '1.1.0', requiresDsh: '>=0.1.0-rc.8' }],
+      updates: [{ id: 'dsh-memoir', current: '1.0.0', latest: '1.1.0', requiresDsh: '>=0.1.0-rc.8', compatible: false }],
     })
   })
 
