@@ -30,6 +30,7 @@
 import { cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { pipeline, type Readable } from 'node:stream'
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath, sep } from 'node:path'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { json, readJsonBody, requireSameOrigin } from './http-utils.ts'
@@ -167,6 +168,8 @@ export interface WeRouteDeps {
   storeDir: string
   /** Auto-detect Steam / Wallpaper Engine installation (default true). */
   autoDetect?: boolean
+  /** Internal stream factory override used by route-level lifecycle tests. */
+  openReadStream?: (path: string, options?: { start?: number; end?: number }) => Readable
 }
 
 /** Sanitize a wallpaper id into a safe store directory name. */
@@ -191,8 +194,29 @@ function mimeFor(absPath: string): string {
   }[ext] || 'application/octet-stream'
 }
 
+/** Pipe one file while coupling its descriptor lifetime to the HTTP response. */
+function pipeFile(
+  absPath: string,
+  res: ServerResponse,
+  openReadStream: NonNullable<WeRouteDeps['openReadStream']>,
+  options?: { start?: number; end?: number },
+): void {
+  const source = openReadStream(absPath, options)
+  const closeSource = () => source.destroy()
+  res.once('close', closeSource)
+  pipeline(source, res, () => {
+    res.off('close', closeSource)
+    // The callback consumes read and premature-close errors.
+  })
+}
+
 /** Stream one file with Range support (video seeking needs 206). */
-function serveFile(absPath: string, req: IncomingMessage, res: ServerResponse): void {
+function serveFile(
+  absPath: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+  openReadStream: NonNullable<WeRouteDeps['openReadStream']>,
+): void {
   if (!existsSync(absPath) || !statSync(absPath).isFile()) {
     json(res, 404, { ok: false, error: 'not-found' })
     return
@@ -216,11 +240,11 @@ function serveFile(absPath: string, req: IncomingMessage, res: ServerResponse): 
     res.statusCode = 206
     res.setHeader('Content-Range', 'bytes ' + String(start) + '-' + String(end) + '/' + String(size))
     res.setHeader('Content-Length', String(end - start + 1))
-    createReadStream(absPath, { start, end }).pipe(res)
+    pipeFile(absPath, res, openReadStream, { start, end })
     return
   }
   res.setHeader('Content-Length', String(size))
-  createReadStream(absPath).pipe(res)
+  pipeFile(absPath, res, openReadStream)
 }
 
 /** The JSON shape of one wallpaper entry sent to the browser. */
@@ -250,6 +274,8 @@ function isSceneProbe(value: unknown): value is SceneProbe {
 
 /** Build the route family. */
 export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
+  const openReadStream = deps.openReadStream ?? createReadStream
+
   // token -> absolute path, issued by the inventory handler only. The map
   // is persisted under the import store cache so issued media URLs survive
   // host restarts without ever accepting a client-supplied path.
@@ -478,7 +504,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
             }
           } catch { /* fall through to serveFile */ }
         }
-        serveFile(abs, req, res)
+        serveFile(abs, req, res, openReadStream)
       },
     })
   }
@@ -513,7 +539,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           writeFileSync(cachePath, videoBytes)
           pruneStaleSceneCache(cacheDir, base, key)
         }
-        serveFile(cachePath, req, res)
+        serveFile(cachePath, req, res, openReadStream)
       })().catch((error: unknown) => {
         json(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
       })
@@ -557,7 +583,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         res.end(injected)
         return
       }
-      serveFile(abs, req, res)
+      serveFile(abs, req, res, openReadStream)
     },
   })
 
@@ -594,7 +620,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         }
         res.setHeader('Content-Type', 'image/png')
         res.setHeader('Cache-Control', 'no-store')
-        createReadStream(cachePath).pipe(res)
+        pipeFile(cachePath, res, openReadStream)
       })().catch((error: unknown) => {
         json(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
       })
