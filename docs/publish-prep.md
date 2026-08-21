@@ -79,6 +79,8 @@ npm 版 `@deepseek-ai/dsh@0.1.0-rc.6`：
 
 npm 侧已发布 @deepseek-ai 核心 SDK 包至 `0.1.0-rc.6`，插件包仍按本仓库版本管理。
 
+从 2026-08-21 起（issue #754），家族包在 `dsh.engines.dsh` 声明最低 DSH 运行时（当前 `>=0.1.1-rc.1`），插件管理器据此在更新时提示并拦截不兼容版本。**发布约束**：SDK cohort 升级后，若新合同需要更高 DSH 运行时，必须在同一发布里同步提升所有家族包（`packages/` 与 `packages/skins/`）及 `scripts/plugin-template/package.json` 的 `dsh.engines.dsh`，并确保 `scripts/family-dsh-engines.test.mjs`（形式校验）与 `pnpm docs:check` 通过；不允许只升代码不升声明。
+
 ## 四、建议的发布流程（批准后执行）
 
 1. 同步官方版本号节奏（当前为 `0.1.0-rc.6`，与 @deepseek-ai/dsh 对齐）；
