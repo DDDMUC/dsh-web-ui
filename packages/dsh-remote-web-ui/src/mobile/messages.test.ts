@@ -183,6 +183,29 @@ describe('foldEvents', () => {
     expect(assistant?.pending).toBeFalsy()
   })
 
+  it('keeps same-turn steps in final-event order after turn/end', () => {
+    const result = foldEvents([
+      makeEvent('user/message', userMessageData('u-1', 'multi-step'), 0),
+      makeEvent('assistant/message', assistantMessageData('step-z', 0, 0, 'first'), 2),
+      makeEvent('assistant/message', assistantMessageData('step-a', 0, 1, 'second'), 4),
+      makeEvent('assistant/message', assistantMessageData('step-m', 0, 2, 'third'), 6),
+      makeEvent('turn/end', { turn: 0, reason: { kind: 'completed' } }, 7),
+    ])
+
+    const assistants = result.filter(message => message.kind === 'assistant')
+    expect(assistants.map(message => message.id)).toEqual(['step-z', 'step-a', 'step-m'])
+    expect(assistants.map(message => message.seq)).toEqual([2, 4, 6])
+    expect(assistants.every(message => message.pending !== true)).toBe(true)
+  })
+
+  it('keeps stable insertion order when legacy rows share a seq', () => {
+    const folder = new EventFolder([
+      { id: 'z-last-lexically', kind: 'assistant', text: 'first', seq: 5, time: 5_000 },
+      { id: 'a-first-lexically', kind: 'assistant', text: 'second', seq: 5, time: 5_000 },
+    ])
+    expect(folder.snapshot().map(message => message.id)).toEqual(['z-last-lexically', 'a-first-lexically'])
+  })
+
   it('is idempotent: applying the same batch twice yields an identical list', () => {
     const events: WireEvent[] = [
       makeEvent('user/message', userMessageData('u-1', 'hi'), 0),

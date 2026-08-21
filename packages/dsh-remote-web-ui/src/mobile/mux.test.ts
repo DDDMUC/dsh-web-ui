@@ -95,6 +95,22 @@ describe('MuxClient polling fallback', () => {
     client.stop()
   })
 
+  it('sorts an out-of-order history page before advancing the watermark', async () => {
+    const { factory } = makeSources()
+    const pollLatest = vi.fn(async (_sessionId: string) => pageOf([2, 1, 3]))
+    const client = new MuxClient('/m/api/events.mux', baseOptions(pollLatest, factory))
+    const seqs: number[] = []
+    client.onFrame((frame) => {
+      if (frame.type === 'session/event' && typeof frame.event.seq === 'number') seqs.push(frame.event.seq)
+    })
+    client.start()
+    client.observe('s1')
+
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(seqs).toEqual([1, 2, 3])
+    client.stop()
+  })
+
   it('keeps the watermark so a repeated page never re-emits old events', async () => {
     const { factory } = makeSources()
     // Two calls return the same page: the second must emit nothing.
@@ -168,6 +184,54 @@ describe('MuxClient polling fallback', () => {
     const live = frames.filter(frame => (frame as { type?: string })?.type === 'session/subscribed')
     expect(live).toHaveLength(1)
     expect(live[0]).toMatchObject({ type: 'session/subscribed', sessionId: 's1' })
+    client.stop()
+  })
+
+  it('recovers when a previously-live SSE stream becomes silently stalled', async () => {
+    const { factory, sources } = makeSources()
+    const pollLatest = vi.fn(async (_sessionId: string) => pageOf([5]))
+    const client = new MuxClient('/m/api/events.mux', baseOptions(pollLatest, factory))
+    const frames: Array<{ type: string; event?: { seq: number } }> = []
+    client.onFrame(frame => { frames.push(frame as never) })
+    client.start()
+    client.observe('s1')
+
+    sources[0]?.onmessage?.({ data: envelopeWith({ type: 'session/subscribed', sessionId: 's1', lastSeq: 4 }) })
+    await vi.advanceTimersByTimeAsync(2400)
+    expect(pollLatest).not.toHaveBeenCalled()
+
+    // A once-live stream gets three stall windows; the next scheduler tick
+    // crosses that boundary and starts the ordinary-HTTP recovery path.
+    await vi.advanceTimersByTimeAsync(400)
+    expect(pollLatest).toHaveBeenCalledTimes(1)
+    expect(frames.at(-1)?.event).toMatchObject({ seq: 5 })
+    client.stop()
+  })
+
+  it('backs empty polls off and resets to the base cadence after progress', async () => {
+    const { factory } = makeSources()
+    const pages = [pageOf([]), pageOf([1]), pageOf([1, 2])]
+    const pollLatest = vi.fn(async (_sessionId: string) => pages.shift() ?? pageOf([]))
+    const client = new MuxClient('/m/api/events.mux', baseOptions(pollLatest, factory))
+    client.start()
+    client.observe('s1')
+
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(pollLatest).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(pollLatest).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(pollLatest).toHaveBeenCalledTimes(2)
+
+    // The productive second poll resets the next delay from 800 ms to 400 ms.
+    await vi.advanceTimersByTimeAsync(400)
+    expect(pollLatest).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(pollLatest).toHaveBeenCalledTimes(4)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(pollLatest).toHaveBeenCalledTimes(4)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(pollLatest).toHaveBeenCalledTimes(5)
     client.stop()
   })
 
