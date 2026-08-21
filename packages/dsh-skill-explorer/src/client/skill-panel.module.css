@@ -72,8 +72,8 @@
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb);
-  background: var(--dsw-alias-bg-layer-1, #f7f8fa);
+  /* No divider: the header blends with the modal surface. */
+  background: var(--dsw-alias-bg-base, #fff);
 }
 
 .headTitle {
@@ -92,8 +92,10 @@
 }
 
 .headButton {
-  border: 1px solid var(--dsw-alias-border-l1, #d7dae0);
-  background: var(--dsw-alias-bg-base, #fff);
+  /* Background-based distinction (no border), consistent with the
+     inputs and the dark treatment. */
+  border: none;
+  background: #f2f3f5;
   color: var(--dsw-alias-label-primary, #3a3f4b);
   border-radius: 6px;
   padding: 4px 10px;
@@ -102,7 +104,7 @@
 }
 
 .headButton:hover {
-  background: var(--dsw-alias-interactive-bg-hover, #eef1f5);
+  background: #e7e8ea;
 }
 
 .tabs {
@@ -243,13 +245,17 @@
 }
 
 .deleteButton {
-  border: 1px solid var(--dsw-alias-border-l1, #d7dae0);
-  background: var(--dsw-alias-bg-base, #fff);
-  color: var(--dsw-alias-state-error-primary, #b42318);
+  border: none;
+  background: #feeceb;
+  color: #d92d20;
   border-radius: 6px;
   padding: 3px 9px;
   font-size: 11px;
   cursor: pointer;
+}
+
+.deleteButton:hover {
+  background: #fbdcd9;
 }
 
 .skillDesc {
@@ -290,17 +296,31 @@
 }
 
 .formLabel {
+  /* Stack label above the control so long labels and full-width inputs
+     align cleanly (was inline: label and control shared one row). */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   font-size: 12px;
   color: var(--dsw-alias-label-secondary, #5f6672);
 }
 
 .formInput {
+  width: 100%;
+  box-sizing: border-box;
   background: var(--dsw-alias-bg-layer-1, #f7f8fa);
   color: var(--dsw-alias-label-primary, #1c1e26);
-  border: 1px solid var(--dsw-alias-border-l1, #d7dae0);
+  border: 1px solid transparent;
   border-radius: 6px;
   padding: 6px 8px;
   font-size: 12px;
+}
+
+select.formInput {
+  /* Match the input controls exactly: the native select renders shorter
+     than the padded inputs, breaking the form's vertical rhythm. */
+  height: 30px;
+  padding: 0 8px;
 }
 
 .formTextarea {
@@ -310,14 +330,26 @@
 }
 
 .formButton {
-  border: 1px solid var(--dsw-alias-border-l1, #d7dae0);
-  background: var(--dsw-alias-bg-base, #fff);
-  color: var(--dsw-alias-label-primary, #3a3f4b);
+  /* Primary action: inverted surface in both themes (black on light,
+     white on dark) so the submit action reads at a glance. */
+  border: 1px solid transparent;
+  background: #111;
+  color: #fff;
   border-radius: 6px;
   padding: 6px 14px;
   font-size: 12px;
   cursor: pointer;
   align-self: flex-start;
+}
+.formButton:hover {
+  background: #2a2a2c;
+}
+body[data-ds-dark-theme] .formButton {
+  background: #e5e5ea;
+  color: #111827;
+}
+body[data-ds-dark-theme] .formButton:hover {
+  background: #d1d5db;
 }
 
 .note {
@@ -325,4 +357,73 @@
   color: var(--dsw-alias-label-tertiary, #a0a5b1);
   line-height: 1.7;
   margin-top: 10px;
+}
+
+/* ---- Dark theme overrides ----
+ * The --dsw-alias-* fallbacks above are light-palette values; several of
+ * the semantic tokens they fall back to (state-business/success-*,
+ * bg-layer-1) are absent from the dark palette, so the light colors leak
+ * into dark mode.  Pin explicit dark values for the affected surfaces.
+ * Hierarchy: panel (darkest) < head/tabs < cards/inputs < active tab. */
+body[data-ds-dark-theme] .card {
+  /* Elevation matches the settings panel: app #0a0a0b < modal #2c2c2e
+     < head #3a3a3c < cards #48484a < active controls #636366. */
+  background: #2c2c2e;
+}
+body[data-ds-dark-theme] .head {
+  background: #2c2c2e;
+}
+body[data-ds-dark-theme] .tabs {
+  /* Recessed track: a step darker than the modal (not pure black). */
+  background: #1e1e1e;
+}
+body[data-ds-dark-theme] .skill {
+  background: #48484a;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+body[data-ds-dark-theme] .badge {
+  background: rgba(99, 120, 220, 0.22);
+  color: #a5b4fc;
+  border-color: rgba(99, 120, 220, 0.4);
+}
+body[data-ds-dark-theme] .badgeInvokable {
+  background: rgba(48, 209, 88, 0.15);
+  color: #30d158;
+  border-color: rgba(48, 209, 88, 0.3);
+}
+body[data-ds-dark-theme] .switchThumb {
+  background: #fff;
+}
+body[data-ds-dark-theme] .tab {
+  color: rgba(255, 255, 255, 0.5);
+}
+body[data-ds-dark-theme] .tabActive {
+  background: #3a3a3c;
+  color: #fff;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+body[data-ds-dark-theme] .formInput {
+  background: #1c1c1e;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+body[data-ds-dark-theme] .headButton {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: transparent;
+  color: rgba(255, 255, 255, 0.85);
+}
+body[data-ds-dark-theme] .headButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+body[data-ds-dark-theme] .headButton:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+body[data-ds-dark-theme] .deleteButton {
+  background: rgba(255, 59, 48, 0.16);
+  border-color: transparent;
+  color: #ff6b61;
+}
+body[data-ds-dark-theme] .deleteButton:hover {
+  background: rgba(255, 59, 48, 0.26);
 }
