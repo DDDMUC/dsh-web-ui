@@ -7,6 +7,7 @@ node_modules/
 # 本地工具缓存
 *.log
 .DS_Store
+.codegraph/
 
 # GUI 测试截图
 gui-test-screenshots/
