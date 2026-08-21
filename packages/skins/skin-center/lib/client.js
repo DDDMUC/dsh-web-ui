@@ -2015,6 +2015,11 @@ window.__ModuleLoader__.load({
 					throw error;
 				}
 			};
+			const restoreOfficialLook = async () => {
+				const active = await switchAndDeactivateCustomTheme(null, null);
+				if (wallpaper.selection() !== "") wallpaper.clearSelection();
+				return active;
+			};
 			/**
 			* One-click apply: atomic client-side switch + persisted selection. No
 			* reload, no boot-graph wait — the tapIndex adapter makes the next page
@@ -2023,7 +2028,7 @@ window.__ModuleLoader__.load({
 			*/
 			const applySkin = (target) => {
 				if (target === OFFICIAL) {
-					run(OFFICIAL, () => preview.runSkin(() => switchAndDeactivateCustomTheme(null, null)));
+					run(OFFICIAL, () => preview.runSkin(restoreOfficialLook));
 					return;
 				}
 				const entry = runtime.find(target);
