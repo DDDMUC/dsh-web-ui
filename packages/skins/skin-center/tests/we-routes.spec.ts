@@ -65,6 +65,26 @@ const tex64Red = ((): Buffer => {
   ])
 })()
 
+/** Minimal 4x4 BC7 TEX (recognized format with no decoder here) for
+ *  unsupported-format scene-frame tests (#906). */
+const texBc7 = ((): Buffer => {
+  const enc = new TextEncoder()
+  const nstr = (s: string): number[] => [...enc.encode(s), 0]
+  const i32 = (v: number): number[] => {
+    const b = new DataView(new ArrayBuffer(4))
+    b.setInt32(0, v, true)
+    return [...new Uint8Array(b.buffer)]
+  }
+  return Buffer.from([
+    ...nstr('TEXV0005'), ...nstr('TEXI0001'),
+    ...i32(TexFormat.BC7), ...i32(0),
+    ...i32(4), ...i32(4), ...i32(4), ...i32(4), ...i32(0),
+    ...nstr('TEXB0002'), ...i32(1),
+    ...i32(1), ...i32(4), ...i32(4),
+    ...i32(0), ...i32(16), ...i32(16), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  ])
+})()
+
 let root: string
 let library: string
 let store: string
@@ -415,6 +435,19 @@ describe('scene-frame', () => {
     const res = await call('GET', String(scene?.frameUrl))
     expect(res.status).toBe(422)
     expect(res.body.ok).toBe(false)
+  })
+
+  it('answers a structured unsupported-tex-format 422 for BC7-only scenes (#906)', async () => {
+    makeProject(join(library, '999'), { title: 'BC7Scene', type: 'scene', file: 'scene.json' }, {
+      'scene.json': JSON.stringify({ objects: [{ image: 'materials/art.tex' }] }),
+    })
+    mkdirSync(join(library, '999', 'materials'), { recursive: true })
+    writeFileSync(join(library, '999', 'materials', 'art.tex'), texBc7)
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const scene = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '999')
+    const res = await call('GET', String(scene?.frameUrl))
+    expect(res.status).toBe(422)
+    expect(res.body).toMatchObject({ ok: false, error: 'unsupported-tex-format', format: 12, formatName: 'BC7' })
   })
 })
 
