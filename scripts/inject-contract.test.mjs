@@ -8,9 +8,9 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
 /**
  * Pinned union of dsh.client.inject module ids across every workspace
- * package. Approved for the 0.1.0-rc.8 cohort: each name resolves to an
- * official package that publishes 0.1.0-rc.8, exposes the same ./client
- * entry in rc.7 and rc.8, and is present in the rc.8 shell composition
+ * package. Approved for the 0.1.1-rc.1 cohort: each name resolves to an
+ * official package that publishes 0.1.1-rc.1, preserves its ./client export,
+ * and is present in the 0.1.1-rc.1 shell composition
  * (dsh-web-app cordis patch rows). A rename, removal, or new inject name
  * must update this list together with its runtime-module-table evidence.
  */
@@ -41,11 +41,11 @@ function collectInjects() {
   return [...names].sort()
 }
 
-test('every dsh.client.inject name is an approved rc.8 client module', () => {
+test('every dsh.client.inject name is an approved 0.1.1-rc.1 client module', () => {
   for (const name of collectInjects()) {
     assert.ok(
       APPROVED_INJECT_MODULES.includes(name),
-      `inject name outside the approved rc.8 module set: ${name}`,
+      `inject name outside the approved 0.1.1-rc.1 module set: ${name}`,
     )
   }
 })

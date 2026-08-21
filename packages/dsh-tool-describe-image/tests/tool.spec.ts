@@ -7,7 +7,15 @@ import { CallId } from '@deepseek-ai/dsh-llm'
 import { AttachmentError, AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentLimits, ImageAttachmentRef, SaveImageAttachment, StoredImageAttachment } from '@deepseek-ai/dsh-attachment'
 import { CredentialProvider } from '@deepseek-ai/dsh-credentials'
-import type { CredentialInfo, CredentialRef, ResolvedCredential } from '@deepseek-ai/dsh-credentials'
+import type {
+  CredentialInfo,
+  CredentialKey,
+  CredentialRecord,
+  CredentialRecordEntry,
+  CredentialRecordInfo,
+  CredentialRef,
+  ResolvedCredential,
+} from '@deepseek-ai/dsh-credentials'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 
@@ -83,6 +91,29 @@ class FakeCredentials extends CredentialProvider {
   unset(ref: CredentialRef): Promise<void> {
     this.values.delete(ref)
     return Promise.resolve()
+  }
+
+  readRecord(_key: CredentialKey): Promise<CredentialRecord | undefined> {
+    return Promise.resolve(undefined)
+  }
+
+  describeRecord(_key: CredentialKey): Promise<CredentialRecordInfo> {
+    return Promise.resolve({ configured: false, writable: false })
+  }
+
+  listRecords(): Promise<readonly CredentialRecordEntry[]> {
+    return Promise.resolve([])
+  }
+
+  modifyRecord(
+    _key: CredentialKey,
+    _mutate: (current: CredentialRecord | undefined) => Promise<CredentialRecord | undefined>,
+  ): Promise<CredentialRecord | undefined> {
+    return Promise.reject(new Error('FakeCredentials does not support record writes'))
+  }
+
+  deleteRecord(_key: CredentialKey): Promise<void> {
+    return Promise.reject(new Error('FakeCredentials does not support record writes'))
   }
 }
 

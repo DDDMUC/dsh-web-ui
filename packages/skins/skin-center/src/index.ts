@@ -14,7 +14,7 @@ import z from 'schemastery'
 // Type-only: pulls the dsh-host-webserver service seat (ctx.webServer).
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { makeSkinCenterV2Routes } from './routes-v2.ts'
-import { makeSkinIndexTap } from './tap-index-adapter.ts'
+import { makeSkinIndexRows, makeSkinIndexTap } from './tap-index-adapter.ts'
 import { defaultActiveStatePath, readActiveSelection } from './active-state.ts'
 import { migrateLegacySelection } from './legacy-bridge.ts'
 import { loadSkinCatalog } from './skin-repo.ts'
@@ -174,13 +174,16 @@ function applyImpl(ctx: Context): void {
       const disposers: Array<() => void> = []
       try {
         for (const route of routes) disposers.push(ctx.webServer.register(route))
-        // The anti-FOUC seam (issue #506): stamp html[data-dsh-skin] and the
-        // stylesheet links into every served index.html. All tapIndex usage
-        // converges in the adapter; it fails closed to the stock look.
+        // The anti-FOUC seam (issue #506): contribute stylesheet links through
+        // DSH 0.1.1's structured table, then stamp html[data-dsh-skin] through
+        // the raw tap because the table cannot mutate the opening html tag.
         const statePath = defaultActiveStatePath()
-        disposers.push(ctx.webServer.tapIndex(makeSkinIndexTap({
-          readActiveId: () => readActiveSelection(statePath),
-        })))
+        const indexDeps = { readActiveId: () => readActiveSelection(statePath) }
+        const collectSkinRows = makeSkinIndexRows(indexDeps)
+        disposers.push(ctx.on('webserver/index-inject', (table) => {
+          table.push(...collectSkinRows())
+        }))
+        disposers.push(ctx.webServer.tapIndex(makeSkinIndexTap(indexDeps)))
       } catch (error) {
         // Roll back whatever registered before the failure so a partial
         // mount never leaves half a route family live; the outer catch logs.

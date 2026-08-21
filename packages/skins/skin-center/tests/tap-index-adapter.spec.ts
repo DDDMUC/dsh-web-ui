@@ -1,10 +1,10 @@
 /**
- * tapIndex adapter tests: stamping, link injection, fail-closed paths.
+ * Skin index adapter tests: structured rows, stamping, fallback, fail-closed paths.
  */
 
 import { describe, expect, it } from 'vitest'
 
-import { makeSkinIndexTap, skinLinkTags, stampSkinAttribute } from '../src/tap-index-adapter.ts'
+import { makeSkinIndexRows, makeSkinIndexTap, skinLinkTags, stampSkinAttribute } from '../src/tap-index-adapter.ts'
 import type { SkinCatalog } from '../src/skin-repo.ts'
 
 const HTML = '<!doctype html><html lang="zh-CN"><head><title>dsh</title></head><body><div id="root"></div></body></html>'
@@ -62,6 +62,41 @@ describe('skinLinkTags', () => {
     expect(tags).toContain('/stylesheet')
     expect(tags).toContain('/patches')
   })
+
+  it('rejects an invalid id before it reaches raw HTML', () => {
+    expect(() => skinLinkTags('bad\" onload=\"alert(1)', false)).toThrow('invalid skin id')
+  })
+})
+
+describe('makeSkinIndexRows', () => {
+  it('returns no rows without an active skin', () => {
+    const rows = makeSkinIndexRows({ readActiveId: () => null, loadCatalog: () => catalogWith(['harbor']) })
+    expect(rows()).toEqual([])
+  })
+
+  it('emits one worker-compatible head row with stylesheet and patches', () => {
+    const rows = makeSkinIndexRows({
+      readActiveId: () => 'harbor',
+      loadCatalog: () => catalogWith(['harbor'], ['harbor']),
+    })
+    expect(rows()).toEqual([{
+      kind: 'html',
+      placement: 'head',
+      html: skinLinkTags('harbor', true),
+    }])
+  })
+
+  it('fails closed for an unknown active id, warning once', () => {
+    const warnings: string[] = []
+    const rows = makeSkinIndexRows({
+      readActiveId: () => 'ghost',
+      loadCatalog: () => catalogWith(['harbor']),
+      warn: message => warnings.push(message),
+    })
+    expect(rows()).toEqual([])
+    expect(rows()).toEqual([])
+    expect(warnings).toHaveLength(1)
+  })
 })
 
 describe('makeSkinIndexTap', () => {
@@ -70,13 +105,21 @@ describe('makeSkinIndexTap', () => {
     expect(tap(HTML)).toBe(HTML)
   })
 
-  it('stamps and injects links for the active skin', () => {
+  it('stamps and injects fallback links for the active skin', () => {
     const tap = makeSkinIndexTap({ readActiveId: () => 'harbor', loadCatalog: () => catalogWith(['harbor'], ['harbor']) })
     const out = tap(HTML)
     expect(out).toContain('data-dsh-skin="harbor"')
     expect(out).toContain('/api/skin-center/v2/skins/harbor/stylesheet')
     expect(out).toContain('/api/skin-center/v2/skins/harbor/patches')
     expect(out.indexOf('data-dsh-skin-link')).toBeLessThan(out.indexOf('</head>'))
+  })
+
+  it('does not duplicate structured rows rendered before the tap', () => {
+    const tap = makeSkinIndexTap({ readActiveId: () => 'harbor', loadCatalog: () => catalogWith(['harbor'], ['harbor']) })
+    const rows = skinLinkTags('harbor', true)
+    const out = tap(HTML.replace('<head>', `<head>${rows}`))
+    expect(out).toContain('data-dsh-skin="harbor"')
+    expect(out.match(/data-dsh-skin-link=/g)).toHaveLength(2)
   })
 
   it('fails closed (stock look) for an unknown active id, warning once', () => {

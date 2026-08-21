@@ -115,7 +115,7 @@ const DEPRECATED_V1_FIELDS = [
 *    by the loader, not here.
 */
 const REL_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*:\/\/)[A-Za-z0-9._\-/]+$/;
-const SKIN_ID = /^[a-z][a-z0-9-]{0,31}$/;
+const SKIN_ID$1 = /^[a-z][a-z0-9-]{0,31}$/;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const API_VERSION = /^x-org\.linxin666\.skin-center\/[a-z0-9]+$/;
@@ -208,7 +208,7 @@ function validateSkinManifestV2(input) {
 	for (const field of Object.keys(input)) if (DEPRECATED_SET.has(field)) warnings.push(`deprecated v1 field "${field}" ignored; run the v1→v2 migration codemod`);
 	checkKeys(input, TOP_LEVEL_KEYS, "manifest", errors);
 	if (input.skinManifestVersion !== 2) errors.push("manifest.skinManifestVersion: must be 2 (v1 manifests need the migration codemod)");
-	if (typeof input.id !== "string" || !SKIN_ID.test(input.id)) errors.push(`manifest.id: must match ${SKIN_ID} (got ${JSON.stringify(input.id)})`);
+	if (typeof input.id !== "string" || !SKIN_ID$1.test(input.id)) errors.push(`manifest.id: must match ${SKIN_ID$1} (got ${JSON.stringify(input.id)})`);
 	for (const field of [
 		"name",
 		"nameEn",
@@ -1535,25 +1535,9 @@ function makeSkinCenterV2Routes(deps = {}) {
 }
 //#endregion
 //#region src/tap-index-adapter.ts
-/**
-* tapIndex adapter (issue #506, contract section 8) — the ONLY module in the
-* repo that calls webServer.tapIndex for skin purposes. All tapIndex usage
-* converges here so an upstream semantic change has exactly one fail-closed
-* off switch.
-*
-* What it does on every index.html response:
-*  1. stamps html[data-dsh-skin="<id>"] for the persisted active skin;
-*  2. inserts render-blocking <link> tags for the transformed stylesheet
-*     (and patches, when declared) so first paint is already skinned
-*     (anti-FOUC; mirrors the official boot-theme precedent).
-*
-* Fail-closed: any problem (no active skin, unknown id, invalid manifest,
-* malformed html) yields the unmodified document — the stock look — plus at
-* most one warning per process per reason. The tap never throws.
-* @module @linxin666/dsh-client-ui-skin-center/tap-index-adapter
-*/
 const HTML_TAG = /<html(\s[^>]*)?>/i;
 const HEAD_CLOSE = /<\/head>/i;
+const SKIN_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** Stamp or replace data-dsh-skin on the <html> tag. */
 function stampSkinAttribute(html, skinId) {
 	return html.replace(HTML_TAG, (match, attrs) => {
@@ -1564,14 +1548,46 @@ function stampSkinAttribute(html, skinId) {
 }
 /** Build the link tags injected before </head>. */
 function skinLinkTags(skinId, hasPatches) {
+	if (!SKIN_ID.test(skinId)) throw new TypeError(`invalid skin id: ${skinId}`);
 	const base = `${SKIN_CENTER_V2_PREFIX}/skins/${skinId}`;
 	const links = [`<link rel="stylesheet" href="${base}/stylesheet" data-dsh-skin-link="stylesheet">`];
 	if (hasPatches) links.push(`<link rel="stylesheet" href="${base}/patches" data-dsh-skin-link="patches">`);
 	return links.join("");
 }
+/** Build the structured rows collected fresh for every index render. */
+function makeSkinIndexRows(deps) {
+	const loadCatalog = deps.loadCatalog ?? (() => loadSkinCatalog());
+	const warn = deps.warn ?? ((message) => console.warn(`[skin-center] ${message}`));
+	const warned = /* @__PURE__ */ new Set();
+	const warnOnce = (reason, message) => {
+		if (warned.has(reason)) return;
+		warned.add(reason);
+		warn(message);
+	};
+	return () => {
+		try {
+			const active = deps.readActiveId();
+			if (!active) return [];
+			const entry = findSkin(loadCatalog(), active);
+			if (!entry) {
+				warnOnce(`missing:${active}`, `active skin "${active}" not in catalog; serving stock look`);
+				return [];
+			}
+			return [{
+				kind: "html",
+				placement: "head",
+				html: skinLinkTags(active, entry.manifest.contributes.patches !== void 0)
+			}];
+		} catch (error) {
+			warnOnce("row-error", `skin index rows failed closed: ${error?.message ?? error}`);
+			return [];
+		}
+	};
+}
 /**
-* Create the index.html tap. Pure html→html, safe to register with
-* webServer.tapIndex; never throws.
+* Create the raw index tap. Structured rows run before it on DSH 0.1.1; when
+* their marker is present the tap only stamps the html element. Without the
+* marker it also injects links, preserving fail-closed behavior on older hosts.
 */
 function makeSkinIndexTap(deps) {
 	const loadCatalog = deps.loadCatalog ?? (() => loadSkinCatalog());
@@ -1595,8 +1611,10 @@ function makeSkinIndexTap(deps) {
 				warnOnce("malformed-html", "index.html has no <html>/</head> anchors; skipping skin injection");
 				return html;
 			}
+			const stamped = stampSkinAttribute(html, active);
+			if (stamped.includes("data-dsh-skin-link=")) return stamped;
 			const links = skinLinkTags(active, entry.manifest.contributes.patches !== void 0);
-			return stampSkinAttribute(html, active).replace(HEAD_CLOSE, `${links}</head>`);
+			return stamped.replace(HEAD_CLOSE, `${links}</head>`);
 		} catch (error) {
 			warnOnce("tap-error", `skin index tap failed closed: ${error?.message ?? error}`);
 			return html;
@@ -7493,7 +7511,12 @@ function applyImpl(ctx) {
 			try {
 				for (const route of routes) disposers.push(ctx.webServer.register(route));
 				const statePath = defaultActiveStatePath();
-				disposers.push(ctx.webServer.tapIndex(makeSkinIndexTap({ readActiveId: () => readActiveSelection(statePath) })));
+				const indexDeps = { readActiveId: () => readActiveSelection(statePath) };
+				const collectSkinRows = makeSkinIndexRows(indexDeps);
+				disposers.push(ctx.on("webserver/index-inject", (table) => {
+					table.push(...collectSkinRows());
+				}));
+				disposers.push(ctx.webServer.tapIndex(makeSkinIndexTap(indexDeps)));
 			} catch (error) {
 				for (const dispose of disposers) dispose();
 				throw error;
