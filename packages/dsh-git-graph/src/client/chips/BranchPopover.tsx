@@ -45,6 +45,11 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Tooltip state for long branch names: first hover needs a 500ms dwell,
+  // once shown, switching items shows immediately; leaving resets the dwell.
+  const [tipReadyName, setTipReadyName] = useState<string | null>(null)
+  const [tipActive, setTipActive] = useState(false)
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => () => {
     if (dismissTimer.current !== undefined) clearTimeout(dismissTimer.current)
@@ -99,11 +104,32 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
                 onClick={() => { switchTo(branch.name) }}
                 role="option"
                 aria-selected={branch.current}
+                data-tip={branch.name.length > 18 ? branch.name : ''}
+                data-tip-ready={branch.name === tipReadyName ? 'true' : ''}
+                onMouseEnter={() => {
+                  if (tipTimer.current !== undefined) clearTimeout(tipTimer.current)
+                  if (tipActive) {
+                    setTipReadyName(branch.name)
+                  } else {
+                    tipTimer.current = setTimeout(() => {
+                      setTipActive(true)
+                      setTipReadyName(branch.name)
+                    }, 500)
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (tipTimer.current !== undefined) {
+                    clearTimeout(tipTimer.current)
+                    tipTimer.current = undefined
+                  }
+                  setTipActive(false)
+                  setTipReadyName(null)
+                }}
                 disabled={pending !== null}
               >
                 <IconBranchOutline16 size={14} />
                 <span className={css.itemText}>
-                  <span className={css.itemName} title={branch.name}>{branch.name}</span>
+                  <span className={css.itemName} title={branch.name.length > 18 ? '' : branch.name}>{branch.name}</span>
                 </span>
                 {branch.current && <IconCheckOutline14 className={css.check} size={14} />}
               </button>
