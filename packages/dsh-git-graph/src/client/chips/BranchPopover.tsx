@@ -106,6 +106,7 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
                 aria-selected={branch.current}
                 data-tip={branch.name.length > 18 ? branch.name : ''}
                 data-tip-ready={branch.name === tipReadyName ? 'true' : ''}
+                aria-label={branch.name}
                 onMouseEnter={() => {
                   if (tipTimer.current !== undefined) clearTimeout(tipTimer.current)
                   if (tipActive) {
@@ -129,7 +130,7 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
               >
                 <IconBranchOutline16 size={14} />
                 <span className={css.itemText}>
-                  <span className={css.itemName} title={branch.name.length > 18 ? '' : branch.name}>{branch.name}</span>
+                  <span className={css.itemName} title={branch.name}>{branch.name}</span>
                 </span>
                 {branch.current && <IconCheckOutline14 className={css.check} size={14} />}
               </button>
