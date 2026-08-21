@@ -4,6 +4,9 @@
   "version": "0.2.7",
   "type": "module",
   "dsh": {
+    "engines": {
+      "dsh": ">=0.1.1-rc.1"
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     }

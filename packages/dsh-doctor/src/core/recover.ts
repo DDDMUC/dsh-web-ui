@@ -1,0 +1,376 @@
+/**
+ * Recovery orchestration: snapshot, diagnose, plan, stage, verify, promote.
+ *
+ * This module wires the deterministic engine pieces into one fail-closed
+ * transaction. It never edits a live profile directly: every mutation lands
+ * in a staged candidate, the candidate passes isolated health gates, and
+ * only then is promoted with the original quarantined. Any gate failure
+ * aborts or rolls back the transaction and leaves a journal trail.
+ *
+ * Everything external (fs, yaml engine, process client, http client, clocks)
+ * is injected so the flow is hermetic in tests.
+ */
+import { createRequire } from 'node:module'
+import { createYamlEngine, type YamlEngine } from './yaml.ts'
+import { createLockManager } from './lock.ts'
+import { createJournal } from './journal.ts'
+import { captureSnapshot, listProfileFiles } from './snapshot.ts'
+import { diagnoseProfile, diagnoseFallback } from './diagnose.ts'
+import { planRepair } from './plan.ts'
+import { createCandidateTransaction, type CandidateTransactionDeps } from './transaction.ts'
+import { redactText } from './redact.ts'
+import { readProfileManifest } from './manifest.ts'
+import { parsePatchList } from './patch.ts'
+import { nodeFs, type FsLike } from './fs.ts'
+import type { GateDeps as GateDepsAlias } from './gates.ts'
+import { runDumpDefaultGate, runStartGate } from './gates.ts'
+import {
+  doctorRoot,
+  journalPath,
+  resolveProfileDir,
+  profilesDir,
+  snapshotsDir,
+  workDir,
+} from './paths.ts'
+import type { Diagnostic, GateReport, PlanAction } from './types.ts'
+
+const nodeRequire = createRequire(import.meta.url)
+
+export interface RecoveryRequest {
+  /** The harness home (DSH_HOME) holding the profile. */
+  home: string
+  /** Safe profile name under profiles/. */
+  profile: string
+  /** Absolute path of the dsh executable used by the gates. */
+  dshPath: string
+  /** Injected filesystem (default nodeFs). */
+  fs?: FsLike
+  /** Injected gate dependencies (process, http, yaml, redaction, clock). */
+  gate?: GateDepsAlias
+  /** ISO timestamp provider (default now). */
+  now?: () => string
+  /** Milliseconds clock for locks and gate duration (default Date.now). */
+  clock?: () => number
+  /** Process id for lock tokens (default process.pid). */
+  pid?: number
+  /** Alive probe for stale-lock detection (default: pid 0 dead, others alive). */
+  pidAlive?: (pid: number) => boolean
+  /**
+   * Promote only when truthy. The supervisor passes whether the profile is
+   * currently running; the CLI defaults to blocked (fail-closed).
+   */
+  allowLive?: boolean
+}
+
+export interface RecoveryOutcome {
+  ok: boolean
+  phase: 'blocked' | 'diagnosed' | 'noop' | 'planned' | 'staged' | 'verified' | 'promoted' | 'rolled-back' | 'aborted' | 'failed'
+  diagnostics: Diagnostic[]
+  actions: PlanAction[]
+  /** Actions that touch files outside the profile dir (home-level patch). Never auto-applied. */
+  manualActions: PlanAction[]
+  snapshotId?: string
+  gates?: GateReport[]
+  txnId?: string
+  message?: string
+}
+
+export interface RealGateOptions {
+  /** Extra env for the gate runs (default process.env). */
+  env?: Record<string, string | undefined>
+  timeoutMs?: number
+}
+
+/** Build real process/http gate dependencies for a repair run. */
+export function realGateDeps(options: { clock?: () => number; engine?: YamlEngine } = {}): GateDepsAlias {
+  const engine = options.engine ?? createYamlEngine()
+  const clock = options.clock ?? Date.now
+  return {
+    client: {
+      spawn(command: string[], opts: { cwd?: string; env?: Record<string, string | undefined> }) {
+        const child = spawnNode(command, opts)
+        return {
+          onStdout(cb) { (child.stdout as NodeJS.ReadableStream | null)?.on('data', (chunk: Buffer) => cb(String(chunk))) },
+          onStderr(cb) { (child.stderr as NodeJS.ReadableStream | null)?.on('data', (chunk: Buffer) => cb(String(chunk))) },
+          onExit(cb) { child.once('close', (code, signal) => cb(code, signal)) },
+          kill(signal?: string) { child.kill(signal as NodeJS.Signals) },
+        }
+      },
+    },
+    http: {
+      async get(url: string, opts: { timeoutMs: number }) {
+        const response = await fetch(url, { signal: AbortSignal.timeout(opts.timeoutMs) })
+        return { status: response.status, body: await response.text() }
+      },
+    },
+    engine,
+    redactText: (text) => redactText(text),
+    clock,
+  }
+}
+
+function spawnNode(command: string[], opts: { cwd?: string; env?: Record<string, string | undefined> }) {
+  const cp = nodeRequire('node:child_process') as typeof import('node:child_process')
+  return cp.spawn(command[0]!, command.slice(1), { cwd: opts.cwd, env: opts.env as NodeJS.ProcessEnv })
+}
+
+/** Snapshot one profile (read-only aside from the snapshot store). */
+export async function snapshotProfile(request: RecoveryRequest): Promise<RecoveryOutcome> {
+  const fs: FsLike = request.fs ?? nodeFs
+  const now = request.now ?? (() => new Date().toISOString())
+  const dir = resolveProfileDir(request.home, request.profile)
+  const snapshotDir = snapshotsDir(request.home) + '/' + makeId(request.profile, now())
+  await fs.mkdir(snapshotDir, { recursive: true })
+  const manifest = await captureSnapshot({
+    fs, home: request.home, profile: request.profile, profileDir: dir, snapshotDir, now,
+    redactTexts: (text) => redactText(text),
+  })
+  return { ok: true, phase: 'diagnosed', diagnostics: [], actions: [], manualActions: [], snapshotId: manifest.snapshotId }
+}
+
+/** Diagnose and plan one profile without mutating it. */
+export async function diagnoseAndPlan(request: RecoveryRequest): Promise<RecoveryOutcome> {
+  const fs: FsLike = request.fs ?? nodeFs
+  const engine: YamlEngine = request.gate?.engine ?? createYamlEngine()
+  return await diagnoseAndPlanInner(request, fs, engine)
+}
+
+async function diagnoseAndPlanInner(request: RecoveryRequest, fs: FsLike, engine: YamlEngine): Promise<RecoveryOutcome> {
+  const home = request.home
+  const profile = request.profile
+  const dir = resolveProfileDir(home, profile)
+  const profilePatchPath = dir + '/cordis.patch.yml'
+  const homePatchPath = home + '/cordis.patch.yml'
+  const manifest = await readProfileManifest(fs, dir).catch(() => null)
+  const manifestFacts: import('./types.ts').ManifestFacts = manifest?.facts ?? ({ hasDshProfile: false, bundles: [] } as unknown as import('./types.ts').ManifestFacts)
+  const manifestText = manifest?.text ?? ''
+  const profilePatch = parsePatchListSafe(await patchText(fs, profilePatchPath), engine, 'profile patch')
+  const homePatch = parsePatchListSafe(await patchText(fs, homePatchPath), engine, 'home patch')
+  const fallbacks = await diagnoseFallback(fs, home)
+  const moduleNames = await collectModuleNames(fs, profilesDir(home) + '/node_modules')
+  const profileModules = await collectModuleNames(fs, dir + '/node_modules')
+  const bundleResolvable = (name: string): boolean =>
+    name.startsWith('@deepseek-ai/') || profileModules.has(name) || moduleNames.has(name)
+  const diagnostics = [
+    ...diagnoseProfile({
+      home,
+      profile,
+      dir,
+      fs,
+      manifest: manifestFacts,
+      manifestText,
+      bundleResolvable,
+      bundleDeclaresPatch: () => undefined,
+      profilePatch,
+      homePatch,
+      env: { DSH_HOME: home },
+    }),
+    ...fallbacks,
+  ]
+  const files: Record<string, string> = {}
+  const addFile = async (path: string): Promise<void> => {
+    if (files[path] !== undefined) return
+    files[path] = await patchText(fs, path)
+  }
+  for (const diag of diagnostics) await addFile(diag.path)
+  await addFile(profilePatchPath)
+  await addFile(homePatchPath)
+  const plan = planRepair({
+    profile,
+    diagnostics,
+    files,
+    patchPathByCode: { 'D-040': profilePatchPath, 'D-050': homePatchPath },
+  })
+  const manualActions = plan.actions.filter(action => !isInsideProfile(action.target, dir))
+  const autoActions = plan.actions.filter(action => isInsideProfile(action.target, dir))
+  const critical = diagnostics.filter(d => d.severity === 'critical' || d.severity === 'error')
+  const actionable = critical.length > 0 || autoActions.length > 0 || manualActions.length > 0
+  return {
+    ok: critical.length === 0 || autoActions.length > 0,
+    phase: actionable ? 'planned' : 'noop',
+    diagnostics,
+    actions: autoActions,
+    manualActions,
+    message: critical.length === 0 ? 'profile is healthy or advisory only' : undefined,
+  }
+}
+
+async function collectModuleNames(fs: FsLike, root: string): Promise<Set<string>> {
+  const names = new Set<string>()
+  let entries
+  try { entries = await fs.readdir(root) } catch { return names }
+  for (const entry of entries) {
+    if (entry.name.startsWith('@') && entry.kind === 'dir') {
+      let scoped
+      try { scoped = await fs.readdir(root + '/' + entry.name) } catch { continue }
+      for (const child of scoped) names.add(entry.name + '/' + child.name)
+    } else {
+      names.add(entry.name)
+    }
+  }
+  return names
+}
+
+async function patchText(fs: FsLike, path: string): Promise<string> {
+  try { return await fs.readText(path) } catch { return '' }
+}
+
+function parsePatchListSafe(text: string, engine: YamlEngine, label: string): ReturnType<typeof parsePatchList> {
+  if (text.trim() === '') return { entries: [], warnings: [], error: undefined } as unknown as ReturnType<typeof parsePatchList>
+  try {
+    return parsePatchList(text, engine, label)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) } as unknown as ReturnType<typeof parsePatchList>
+  }
+}
+
+function isInsideProfile(target: string, profileDir: string): boolean {
+  return target === profileDir || target.startsWith(profileDir + '/')
+}
+
+function makeId(profile: string, now: string): string {
+  return profile + '-' + now.replace(/[^0-9]/g, '').slice(0, 14)
+}
+
+/** Run the full repair transaction (stage, apply, gates, promote, verify, commit). */
+export async function repairProfile(request: RecoveryRequest, gateOptions: RealGateOptions = {}): Promise<RecoveryOutcome> {
+  if (request.allowLive !== true) {
+    return { ok: false, phase: 'blocked', diagnostics: [], actions: [], manualActions: [], message: 'repair blocked: allowLive is not set (a running instance may own the profile)' }
+  }
+  const fs: FsLike = request.fs ?? nodeFs
+  const now = request.now ?? (() => new Date().toISOString())
+  const clock = request.clock ?? Date.now
+  const engine: YamlEngine = createYamlEngine()
+  const gates = request.gate ?? realGateDeps({ clock, engine })
+  const home = request.home
+  const dir = resolveProfileDir(home, request.profile)
+  if (!(await fs.exists(dir))) return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], message: 'profile dir missing: ' + dir }
+
+  const journal = createJournal({ fs, file: journalPath(home), now })
+  const locks = createLockManager({ fs, home, pid: request.pid ?? process.pid, host: 'local', clock, iso: now, pidAlive: request.pidAlive ?? ((pid) => pid !== 0) })
+  const globalLock = await locks.acquire('global', undefined, { intent: 'repair ' + request.profile })
+  let profileLock: Awaited<ReturnType<typeof locks.acquire>> | undefined
+  try {
+    profileLock = await locks.acquire('profile', request.profile, { intent: 'repair' })
+    const diagnosis = await diagnoseAndPlan(request)
+    const snapshotResult = await snapshotProfile(request)
+    const txnDeps: CandidateTransactionDeps = { fs, home, profile: request.profile, now, journal }
+    const txn = createCandidateTransaction(txnDeps)
+    if (diagnosis.actions.length === 0 && diagnosis.manualActions.length > 0) {
+      await journal.append({ op: 'repair:manual-required', ok: false, detail: { profile: request.profile, manual: diagnosis.manualActions } })
+      await profileLock.release()
+      profileLock = undefined
+      return { ok: false, phase: 'planned', diagnostics: diagnosis.diagnostics, actions: [], manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, message: 'manual confirmation required for home-level repairs' }
+    }
+    if (diagnosis.actions.length === 0 && diagnosis.manualActions.length === 0) {
+      await journal.append({ op: 'repair:noop', ok: true, detail: { profile: request.profile } })
+      await profileLock.release()
+      profileLock = undefined
+      return { ...diagnosis, ok: true, phase: 'noop', snapshotId: snapshotResult.snapshotId, txnId: txn.txnId }
+    }
+    await txn.stage()
+    await journal.append({ op: 'repair:stage', ok: true, detail: { txn: txn.txnId } })
+    for (const action of diagnosis.actions) {
+      const rel = action.target.slice(dir.length + 1)
+      const stagedTarget = txn.record.stagingPath + '/' + rel
+      if (action.op === 'move-path') {
+        await fs.rename(stagedTarget, stagedTarget + '.doctor-broken')
+        await journal.append({ op: 'repair:apply-move', ok: true, detail: { txn: txn.txnId, target: action.target } })
+      } else if (action.op === 'write-file' && action.content !== undefined) {
+        await fs.writeText(stagedTarget, action.content)
+        await journal.append({ op: 'repair:apply-write', ok: true, detail: { txn: txn.txnId, target: action.target } })
+      }
+    }
+    const isolated = workDir(home) + '/' + txn.txnId
+    await fs.mkdir(isolated, { recursive: true })
+    const isolatedProfileDir = isolated + '/profiles/' + request.profile
+    await fs.mkdir(isolatedProfileDir, { recursive: true })
+    await copyProfileFiles(fs, txn.record.stagingPath, isolatedProfileDir)
+    const env = gateEnvironmentOf(request, gateOptions, isolated)
+    const dump = await runDumpDefaultGateSafe(gates, request.dshPath, isolated, request.profile, env, gateOptions.timeoutMs)
+    const start = dump.ok ? await runStartGateSafe(gates, request.dshPath, isolated, request.profile, env, gateOptions.timeoutMs) : undefined
+    const gateReports = [dump, ...(start !== undefined ? [start] : [])]
+    if (!dump.ok || start === undefined || !start.ok) {
+      await txn.abort()
+      await journal.append({ op: 'repair:gates-failed', ok: false, detail: { txn: txn.txnId, report: gateReports } })
+      return { ok: false, phase: 'aborted', diagnostics: diagnosis.diagnostics, actions: diagnosis.actions, manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, gates: gateReports, txnId: txn.txnId, message: 'candidate failed the isolated health gates' }
+    }
+    await txn.promote()
+    await journal.append({ op: 'repair:promote', ok: true, detail: { txn: txn.txnId } })
+    await fs.mkdir(doctorRoot(home) + '/transactions', { recursive: true })
+    await fs.writeText(doctorRoot(home) + '/transactions/' + txn.txnId + '.json', JSON.stringify(txn.record, null, 2) + '\n')
+    const liveEnv = gateEnvironmentOf(request, gateOptions, home)
+    const liveDump = await runDumpDefaultGateSafe(gates, request.dshPath, home, request.profile, liveEnv, gateOptions.timeoutMs)
+    if (!liveDump.ok) {
+      await txn.rollback()
+      await journal.append({ op: 'repair:live-verify-failed', ok: false, detail: { txn: txn.txnId } })
+      return { ok: false, phase: 'rolled-back', diagnostics: diagnosis.diagnostics, actions: diagnosis.actions, manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, gates: gateReports, txnId: txn.txnId, message: 'live verification failed after promote; rolled back' }
+    }
+    await txn.commit()
+    await journal.append({ op: 'repair:commit', ok: true, detail: { txn: txn.txnId } })
+    return { ok: true, phase: 'promoted', diagnostics: diagnosis.diagnostics, actions: diagnosis.actions, manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, gates: gateReports, txnId: txn.txnId }
+  } catch (error) {
+    await journal.append({ op: 'repair:error', ok: false, detail: { error: error instanceof Error ? error.message : String(error) } }).catch(() => undefined)
+    return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], message: error instanceof Error ? error.message : String(error) }
+  } finally {
+    await profileLock?.release().catch(() => undefined)
+    await globalLock.release().catch(() => undefined)
+  }
+}
+
+/** Restore a promoted transaction by moving the quarantine back. */
+export async function rollbackTransaction(request: RecoveryRequest, txnId: string): Promise<RecoveryOutcome> {
+  const fs: FsLike = request.fs ?? nodeFs
+  const home = request.home
+  const recordPath = doctorRoot(home) + '/transactions/' + txnId + '.json'
+  let record: { livePath: string; quarantinePath: string; phase: string }
+  try {
+    record = JSON.parse(await fs.readText(recordPath)) as { livePath: string; quarantinePath: string; phase: string }
+  } catch (error) {
+    return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], message: 'no transaction record for ' + txnId + ': ' + String(error) }
+  }
+  if (record.phase !== 'promoted' && record.phase !== 'committed') {
+    return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], message: 'transaction ' + txnId + ' is ' + record.phase + '; only promoted transactions roll back' }
+  }
+  const journal = createJournal({ fs, file: journalPath(home), now: request.now ?? (() => new Date().toISOString()) })
+  try {
+    if (await fs.exists(record.livePath)) {
+      const discarded = record.livePath + '.doctor-discarded-' + txnId
+      await fs.rename(record.livePath, discarded)
+      await fs.remove(discarded, { recursive: true }).catch(() => undefined)
+    }
+    await fs.rename(record.quarantinePath, record.livePath)
+    await journal.append({ op: 'repair:rollback', ok: true, detail: { txn: txnId } })
+    return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'restored quarantine to ' + record.livePath }
+  } catch (error) {
+    await journal.append({ op: 'repair:rollback-error', ok: false, detail: { error: String(error) } }).catch(() => undefined)
+    return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], txnId, message: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+async function copyProfileFiles(fs: FsLike, fromDir: string, toDir: string): Promise<void> {
+  await fs.mkdir(toDir, { recursive: true })
+  const files = await listProfileFiles(fs, fromDir, ['node_modules', '.git', '.pnpm'])
+  for (const file of files) {
+    const target = toDir + '/' + file.rel
+    await fs.mkdir(target.slice(0, target.lastIndexOf('/')), { recursive: true })
+    const data = await fs.readText(file.path).catch(() => '')
+    await fs.writeText(target, data)
+  }
+}
+
+function gateEnvironmentOf(request: RecoveryRequest, options: RealGateOptions, isolatedHome: string): Record<string, string | undefined> {
+  return { ...(options.env ?? processEnviron()), DSH_HOME: isolatedHome, DSH_TELEMETRY_DISABLED: '1' }
+}
+
+function processEnviron(): Record<string, string | undefined> {
+  return typeof process !== 'undefined' && typeof process.env === 'object' ? { ...process.env } : {}
+}
+
+async function runDumpDefaultGateSafe(gates: GateDepsAlias, dshPath: string, isolatedHome: string, profile: string, env: Record<string, string | undefined>, timeoutMs?: number): Promise<GateReport> {
+  return await runDumpDefaultGate(gates, { dshPath, isolatedHome, profile, env, timeoutMs }, env)
+}
+
+async function runStartGateSafe(gates: GateDepsAlias, dshPath: string, isolatedHome: string, profile: string, env: Record<string, string | undefined>, timeoutMs?: number): Promise<GateReport> {
+  return await runStartGate(gates, { dshPath, isolatedHome, profile, env, timeoutMs }, env)
+}

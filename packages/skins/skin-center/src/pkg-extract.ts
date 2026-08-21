@@ -105,6 +105,31 @@ const TEX_FORMAT_NAMES: Record<number, string> = {
   15: 'RGB161616F',
 }
 
+/**
+ * A TEX format that is recognized but has no decode implementation in this
+ * build (e.g. BC7, 16-bit float). Callers treat it as 'not supported here'
+ * rather than a data-corruption failure, so the scene pipeline never emits a
+ * partially decoded frame for it and falls back to the author preview (#906).
+ */
+export class TexUnsupportedError extends Error {
+  /** Raw TEXI0001 format id. */
+  readonly format: number
+  /** Human-readable name of the format id, or 'unknown(N)'. */
+  readonly formatName: string
+  /** Declared TEXI0001 texture dimensions. */
+  readonly width: number
+  readonly height: number
+
+  constructor(format: number, formatName: string, width: number, height: number) {
+    super('tex: unsupported format ' + format)
+    this.name = 'TexUnsupportedError'
+    this.format = format
+    this.formatName = formatName
+    this.width = width
+    this.height = height
+  }
+}
+
 /** TEXI0001 flags bit marking an animated (sprite-sheet / gif) texture. */
 const TEX_FLAG_IS_GIF = 4
 
@@ -557,7 +582,7 @@ function parseTexInternal(data: Uint8Array): TexParsed {
   const imageHeight = r.i32()
   r.u32() // unknown
   if (TEX_FORMAT_NAMES[format] === undefined) {
-    throw new Error('tex: unsupported format ' + format)
+    throw new TexUnsupportedError(format, 'unknown(' + format + ')', textureWidth, textureHeight)
   }
   const containerMagic = r.nstring(16)
   const containerMatch = /^TEXB000([1-4])$/.exec(containerMagic)
@@ -903,7 +928,12 @@ export function decodeTex(data: Uint8Array): DecodedImage {
       break
     }
     default:
-      throw new Error('tex: unsupported format ' + parsed.format)
+      throw new TexUnsupportedError(
+        parsed.format,
+        TEX_FORMAT_NAMES[parsed.format] ?? 'unknown(' + parsed.format + ')',
+        parsed.width,
+        parsed.height,
+      )
   }
   return cropToImageRect(decoded, parsed.width, parsed.height)
 }
@@ -1297,8 +1327,16 @@ function getTextureScore(path: string): number {
   return score
 }
 
-/** Composite layered 2D sprite scenes into a single full-resolution frame. */
-function tryCompositeMultiLayerScene(scene: Record<string, unknown>, access: SceneAccess): SceneMainImage | null {
+/** Composite layered 2D sprite scenes into a single full-resolution frame.
+ * Rejects the composite when the scene's top-ranked texture (the intended
+ * main art) is not among the decoded layers — e.g. an unsupported BC7 main
+ * texture — so the caller falls back to the per-candidate path and the
+ * author preview instead of emitting a partial frame (#906). */
+function tryCompositeMultiLayerScene(
+  scene: Record<string, unknown>,
+  access: SceneAccess,
+  topCandidate: string | null,
+): SceneMainImage | null {
   const objects = Array.isArray(scene.objects) ? (scene.objects as Array<Record<string, unknown>>) : []
   const imageObjects = objects.filter(
     (obj) =>
@@ -1314,6 +1352,7 @@ function tryCompositeMultiLayerScene(scene: Record<string, unknown>, access: Sce
   let canvasHeight = 1080
 
   const layers: { x: number; y: number; width: number; height: number; rgba: Uint8Array }[] = []
+  const layerSources: string[] = []
   let hasLargeBase = false
 
   for (const obj of objects) {
@@ -1386,12 +1425,18 @@ function tryCompositeMultiLayerScene(scene: Record<string, unknown>, access: Sce
     const startY = Math.round(centerY - decoded.height / 2)
 
     layers.push({ x: startX, y: startY, width: decoded.width, height: decoded.height, rgba: decoded.rgba })
+    layerSources.push(texPath)
   }
 
   if (imageObjects.length >= 3 && layers.length <= 1) {
     throw new Error('pkg: multi-layer scene composition requires full preview render')
   }
   if (layers.length <= 1 || !hasLargeBase) return null
+  if (topCandidate !== null && !layerSources.some((p) => p.toLowerCase() === topCandidate.toLowerCase())) {
+    // The scene's intended main texture never decoded; a composite built
+    // from the leftover layers would be a broken frame (#906).
+    return null
+  }
 
   const canvas = new Uint8Array(canvasWidth * canvasHeight * 4)
   for (const layer of layers) {
@@ -1450,11 +1495,6 @@ function extractSceneMainImageVia(access: SceneAccess, label: string): SceneMain
     throw new Error(label + ': 3D scene cannot be extracted as 2D frame')
   }
 
-  const composite = tryCompositeMultiLayerScene(scene, access)
-  if (composite !== null) {
-    return composite
-  }
-
   const rawCandidates: string[] = []
   for (const obj of scene.objects as unknown[]) {
     if (obj && typeof obj === 'object' && typeof (obj as { image?: unknown }).image === 'string') {
@@ -1491,6 +1531,14 @@ function extractSceneMainImageVia(access: SceneAccess, label: string): SceneMain
   const candidates = ranked.map((r) => r.path)
   if (candidates.length === 0) {
     throw new Error(label + ': no texture candidates found')
+  }
+
+  // The top-ranked candidate is the intended main texture: the composite
+  // layer must include it, and the decode loop must stop on its unsupported
+  // format, or the pipeline would emit a partial frame as the wallpaper.
+  const composite = tryCompositeMultiLayerScene(scene, access, candidates[0] ?? null)
+  if (composite !== null) {
+    return composite
   }
   let lastError: unknown = null
   for (const path of candidates) {
@@ -1538,6 +1586,11 @@ function extractSceneMainImageVia(access: SceneAccess, label: string): SceneMain
       }
       return { width, height, png: encodePng(width, height, rgba), texturePath: file.path }
     } catch (err) {
+      // The top-ranked candidate is the intended main texture: a
+      // known-but-undecodable format must stop here so the frame route
+      // reports it and the client falls back to the author preview instead
+      // of substituting a lower-ranked partial layer as the frame (#906).
+      if (err instanceof TexUnsupportedError && path === candidates[0]) throw err
       lastError = err
     }
   }

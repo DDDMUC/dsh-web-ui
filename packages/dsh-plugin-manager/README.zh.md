@@ -10,6 +10,7 @@
 - 双通道传输：带官方安装器服务的运行时（DSHCode 与 1.0.4 checkout 版 web）走官方 `/plugin-installer`、`/plugin-control` loopback RPC 通道；npm 发布的官方 web 没有这些通道，本包的 host 半区挂载 loopback 门禁的 HTTP 网关——安装/卸载 spawn 官方 `dsh plugin` CLI（唯一写入器），启停写入 `disabled` 覆盖行。
 - 从 npm 包名或 git 仓库 URL 安装插件，带进度。
 - 列出已装用户插件：下次启动生效的启用开关、更新检查（npm 源走 registry）、已核验的 npm 更新与卸载。
+- 更新前校验 DSH 运行时兼容（issue #754）：更新检查读取最新版本清单声明的 DSH 最低版本（`dsh.engines.dsh`，兼容回退读顶层 `engines.dsh`），在更新按钮旁显示要求，运行 DSH 低于要求时禁用按钮；host 更新路由在启动任何 CLI 任务前若无法核实时也会返回 412 并拒绝。
 - 官方 plugin-control 面存在时展示内置产品开关。
 - 安装时冲突对账：官方模式对产品快照前后 diff；网关模式对每次 CLI 运行前后的 profile 层 diff，可撤销的动作给一键撤销，每条冲突都给「让 Agent 修复」转交。
 - 按插件渲染启动失败环：「让 Agent 修复」（以插件安装根为工作区的修复会话）与「复制错误」；npm web 运行时没有失败环，只有安装错误提供修复转交。
@@ -56,6 +57,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-plugin-manager
 
 - 仅限本机：LAN 或远程浏览器只显示「仅限本机操作」提示（与官方安装器 Tab 同一边界；网关对非 loopback 请求返回 403）。
 - npm 发布的官方 web 上，网关写入经官方 CLI 执行。网关先从 host 进程 PATH 解析 `dsh`，再从运行中 host 入口上层各项目根的 `node_modules/.bin` 回退查找，覆盖本地包装器与 npx 启动；两处都没有 CLI 时才不可写。git 源安装可能耗时数分钟，以后台任务运行。网关更新只适用于 npm registry 源，由 host 解析最新版本，且仅当同一已装包报告该精确版本时才算成功。
+- 兼容性门禁只在目标清单声明了最低 DSH 版本时生效；未声明 `dsh.engines.dsh` 的包更新不被检查，官方安装器运行时（DSHCode 与 checkout 版 web）不经过本门禁（其更新走官方安装器）。
 - npm 发布的官方 web 没有启动失败环与安全模式：这两处界面降级为空，只有安装错误提供修复转交。
 - npm 运行时上的启停会在 profile 的 cordis.patch.yml 写入裸 `disabled` 覆盖行；该运行时 loader 在下次启动时认读这些行，但这条路径不如官方桌面写入器经过充分锻炼。
 - web 端无壳内重启：变更在下次手动重启后生效。

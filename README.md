@@ -228,6 +228,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # 任
 dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # 远程连接（SSH）
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # 图像理解工具
 dsh plugin --profile web add @linxin666/dsh-pet@latest                     # 鲸鱼娘宠物
+dsh plugin --profile web add @linxin666/dsh-doctor@latest                 # 救助模式（默认关闭，设置中启用）
 dsh plugin --profile web add dsh-better-sidebar@latest                     # 右侧面板（推荐；资源管理器/编辑器/终端/Git/浏览器）
 dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # 旧右侧面板（aionui-panel，已停止支持，仅过渡保留）
 ```
@@ -330,7 +331,7 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 - [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) —— Claude Code 风格全屏交互终端插件，补位官方缺失的终端 TUI：像素鲸鱼顶栏、实时工作状态行、思考流式展开、双击 Esc 回滚、上下文进度条与 TPS 仪表。
 - [dsh-tianshu-tui](https://github.com/huiliyi37/dsh-tianshu-tui) —— 基于官方 DeepSeek Harness 的交互式终端 UI 插件，在官方基础上增加 TDD 与证据门等工作流。
 - [dsh-genui](https://github.com/omdsh-dev/dsh-genui) —— 助手回复内联渲染生成式 UI（dsh-ui fence）：布局、图表、表格、表单、Mermaid、3D 与原生音视频，双通道渲染兼容原版 DSH 与新构建，支持流式渲染、面板停靠与组件交互回传模型。
-- [dsh-annotation](https://github.com/omdsh-dev/dsh-annotation) —— DSH Web 选中批注插件：选文字、写批注、随消息发送，模型按 Annotation N 逐条对照回复。
+- [dsh-annotation](https://github.com/omdsh-dev/dsh-annotation) —— DSH Web 选中批注插件：选文字、写批注、随消息发送，模型按 Annotation N 逐条对照回复；UI 与批注块跟随 DSH 语言切换 zh/en，Cmd/Ctrl+Enter 直发纯批注，斜杠命令原样放行。
 
 </details>
 
@@ -349,7 +350,7 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 
 | 包 | 来源 | 版权 |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-ui-settings / dsh-liangshen / dsh-doctor / dsh-skins / dsh-web-ui-all / skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
 | dsh-client-ui-skin-matrix | 贡献者原创（Matrix 深夜护眼暗色皮肤） | Apache-2.0（贡献者 seanchen 声明） |
 | dsh-tool-describe-image | 移植自 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)（deepseek-harness `packages/vision/tool-describe-image`） | Apache-2.0（zhu1090093659） |
 | dsh-better-sidebar | 外部集成插件 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（右侧面板，npm 依赖引用） | MIT（omdsh-dev） |

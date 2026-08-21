@@ -2368,6 +2368,7 @@ function buildInventory(opts = {}) {
 var pkg_extract_exports = /* @__PURE__ */ __exportAll({
 	PKG_ENTRY_FLAG_LZ4: () => 1,
 	TexFormat: () => TexFormat,
+	TexUnsupportedError: () => TexUnsupportedError,
 	buildSceneManifest: () => buildSceneManifest,
 	buildSceneManifestFromDir: () => buildSceneManifestFromDir,
 	decodePngToRgba: () => decodePngToRgba,
@@ -2429,6 +2430,29 @@ const TEX_FORMAT_NAMES = {
 	13: "RGBA1010102",
 	14: "RGBA16161616F",
 	15: "RGB161616F"
+};
+/**
+* A TEX format that is recognized but has no decode implementation in this
+* build (e.g. BC7, 16-bit float). Callers treat it as 'not supported here'
+* rather than a data-corruption failure, so the scene pipeline never emits a
+* partially decoded frame for it and falls back to the author preview (#906).
+*/
+var TexUnsupportedError = class extends Error {
+	/** Raw TEXI0001 format id. */
+	format;
+	/** Human-readable name of the format id, or 'unknown(N)'. */
+	formatName;
+	/** Declared TEXI0001 texture dimensions. */
+	width;
+	height;
+	constructor(format, formatName, width, height) {
+		super("tex: unsupported format " + format);
+		this.name = "TexUnsupportedError";
+		this.format = format;
+		this.formatName = formatName;
+		this.width = width;
+		this.height = height;
+	}
 };
 /** TEXI0001 flags bit marking an animated (sprite-sheet / gif) texture. */
 const TEX_FLAG_IS_GIF = 4;
@@ -2768,7 +2792,7 @@ function parseTexInternal(data) {
 	const imageWidth = r.i32();
 	const imageHeight = r.i32();
 	r.u32();
-	if (TEX_FORMAT_NAMES[format] === void 0) throw new Error("tex: unsupported format " + format);
+	if (TEX_FORMAT_NAMES[format] === void 0) throw new TexUnsupportedError(format, "unknown(" + format + ")", textureWidth, textureHeight);
 	const containerMagic = r.nstring(16);
 	const containerMatch = /^TEXB000([1-4])$/.exec(containerMagic);
 	if (!containerMatch) throw new Error("tex: bad mipmap container magic '" + containerMagic + "'");
@@ -3128,7 +3152,7 @@ function decodeTex(data) {
 			};
 			break;
 		}
-		default: throw new Error("tex: unsupported format " + parsed.format);
+		default: throw new TexUnsupportedError(parsed.format, TEX_FORMAT_NAMES[parsed.format] ?? "unknown(" + parsed.format + ")", parsed.width, parsed.height);
 	}
 	return cropToImageRect(decoded, parsed.width, parsed.height);
 }
@@ -3398,14 +3422,19 @@ function getTextureScore(path) {
 	if (lower.includes("昼夜变化") || lower.includes("mddn") || lower.includes("transition")) score -= 30;
 	return score;
 }
-/** Composite layered 2D sprite scenes into a single full-resolution frame. */
-function tryCompositeMultiLayerScene(scene, access) {
+/** Composite layered 2D sprite scenes into a single full-resolution frame.
+* Rejects the composite when the scene's top-ranked texture (the intended
+* main art) is not among the decoded layers — e.g. an unsupported BC7 main
+* texture — so the caller falls back to the per-candidate path and the
+* author preview instead of emitting a partial frame (#906). */
+function tryCompositeMultiLayerScene(scene, access, topCandidate) {
 	const objects = Array.isArray(scene.objects) ? scene.objects : [];
 	const imageObjects = objects.filter((obj) => obj && typeof obj === "object" && typeof obj.image === "string" && !String(obj.image).startsWith("models/util/") && !isLikelyMaskOrHelper(String(obj.image)));
 	if (imageObjects.length <= 1) return null;
 	let canvasWidth = 1920;
 	let canvasHeight = 1080;
 	const layers = [];
+	const layerSources = [];
 	let hasLargeBase = false;
 	for (const obj of objects) {
 		if (!obj.image || typeof obj.image !== "string" || obj.image.startsWith("models/util/")) continue;
@@ -3455,9 +3484,11 @@ function tryCompositeMultiLayerScene(scene, access) {
 			height: decoded.height,
 			rgba: decoded.rgba
 		});
+		layerSources.push(texPath);
 	}
 	if (imageObjects.length >= 3 && layers.length <= 1) throw new Error("pkg: multi-layer scene composition requires full preview render");
 	if (layers.length <= 1 || !hasLargeBase) return null;
+	if (topCandidate !== null && !layerSources.some((p) => p.toLowerCase() === topCandidate.toLowerCase())) return null;
 	const canvas = new Uint8Array(canvasWidth * canvasHeight * 4);
 	for (const layer of layers) for (let y = 0; y < layer.height; y++) {
 		const cy = layer.y + y;
@@ -3495,8 +3526,6 @@ function extractSceneMainImageVia(access, label) {
 	if (!scene || !Array.isArray(scene.objects)) throw new Error(label + ": scene.json not found or invalid");
 	const projection = sceneProjectionSize(scene);
 	if (scene.objects.some((obj) => obj && typeof obj === "object" && typeof obj.model === "string" && obj.model.length > 0)) throw new Error(label + ": 3D scene cannot be extracted as 2D frame");
-	const composite = tryCompositeMultiLayerScene(scene, access);
-	if (composite !== null) return composite;
 	const rawCandidates = [];
 	for (const obj of scene.objects) if (obj && typeof obj === "object" && typeof obj.image === "string") rawCandidates.push(...collectImageObjectTextures(obj, access.readJson));
 	const allCandidates = [];
@@ -3527,6 +3556,8 @@ function extractSceneMainImageVia(access, label) {
 	});
 	const candidates = ranked.map((r) => r.path);
 	if (candidates.length === 0) throw new Error(label + ": no texture candidates found");
+	const composite = tryCompositeMultiLayerScene(scene, access, candidates[0] ?? null);
+	if (composite !== null) return composite;
 	let lastError = null;
 	for (const path of candidates) {
 		if (isLikelyMaskOrHelper(path)) continue;
@@ -3577,6 +3608,7 @@ function extractSceneMainImageVia(access, label) {
 				texturePath: file.path
 			};
 		} catch (err) {
+			if (err instanceof TexUnsupportedError && path === candidates[0]) throw err;
 			lastError = err;
 		}
 	}
@@ -7196,6 +7228,16 @@ function makeWeRoutes(deps) {
 				res.setHeader("Cache-Control", "no-store");
 				pipeFile(cachePath, res, openReadStream);
 			})().catch((error) => {
+				if (error instanceof TexUnsupportedError) {
+					json(res, 422, {
+						ok: false,
+						error: "unsupported-tex-format",
+						format: error.format,
+						formatName: error.formatName,
+						message: error.message
+					});
+					return;
+				}
 				json(res, 422, {
 					ok: false,
 					error: error instanceof Error ? error.message : String(error)

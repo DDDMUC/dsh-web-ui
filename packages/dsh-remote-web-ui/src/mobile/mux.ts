@@ -39,9 +39,9 @@ export interface MuxClientOptions {
    * the ordinary HTTP channel (unaffected by SSE-impairing tunnels).
    */
   pollLatest?: (sessionId: string) => Promise<HistoryPage>
-  /** Poll cadence while SSE is stalled (default 3000 ms). */
+  /** Initial poll cadence while SSE is stalled (default 3000 ms). Empty polls back off to 60000 ms. */
   pollIntervalMs?: number
-  /** How long SSE must go without a frame before fallback kicks in (default 12000 ms). */
+  /** Initial SSE stall window (default 12000 ms); a previously-live stream gets three windows before fallback. */
   stallThresholdMs?: number
   /** Clock seam for tests (defaults to Date.now). */
   now?: () => number
@@ -66,6 +66,8 @@ type SessionEventFrame = Extract<MuxFrame, { type: 'session/event' }>
 
 const DEFAULT_POLL_INTERVAL_MS = 3000
 const DEFAULT_STALL_THRESHOLD_MS = 12000
+const LIVE_SSE_STALL_MULTIPLIER = 3
+const MAX_POLL_BACKOFF_MS = 60000
 /**
  * Stall-check granularity: the single scheduler tick runs at least this
  * often so fallback arms within a second of the stall threshold passing,
@@ -98,8 +100,8 @@ export class MuxClient {
   private lastDataAt = 0
   /**
    * Whether the SSE channel has ever delivered a frame in this stream (a
-   * delivered frame proves the tunnel forwards SSE; silence alone then means
-   * the agent idle, not a dead channel — only an onerror re-arms fallback).
+   * delivered frame proves the tunnel can forward SSE; sustained silence may
+   * still mean a suspended mobile tunnel, so polling re-arms after 3 windows).
    */
   private sseAlive = false
   /** Per-session highest event seq already emitted, for poll dedup. */
@@ -109,6 +111,8 @@ export class MuxClient {
   private polling = false
   /** Epoch ms of the next due poll while polling (kept on the same tick timer). */
   private nextPollAt = 0
+  /** Adaptive delay: productive polls reset it; empty/error polls add one base interval up to one minute. */
+  private pollDelayMs: number
 
   /**
    * @param url - the mobile events endpoint (browser-relative).
@@ -119,6 +123,7 @@ export class MuxClient {
     this.sourceFactory = options.sourceFactory ?? browserSource
     this.pollLatest = options.pollLatest ?? ((sessionId) => fetchHistory(sessionId, undefined, DEFAULT_POLL_PAGE_SIZE))
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
+    this.pollDelayMs = this.pollIntervalMs
     this.stallThresholdMs = options.stallThresholdMs ?? DEFAULT_STALL_THRESHOLD_MS
     this.now = options.now ?? (() => Date.now())
   }
@@ -159,9 +164,7 @@ export class MuxClient {
       return
     }
     // If SSE is already stalled for this session, start patching right away.
-    if (!this.polling && !this.stopped && !this.sseAlive && (this.now() - this.lastDataAt) > this.stallThresholdMs) {
-      this.startPolling()
-    }
+    if (!this.polling && !this.stopped && this.isSseStalled()) this.startPolling()
   }
 
   private connect(): void {
@@ -208,29 +211,37 @@ export class MuxClient {
     if (this.stopped) return
     if (this.observeSessionId === undefined) return
     if (this.polling) {
-      // The stall phase has ended; the same tick now paces the polls.
+      // The stall phase has ended; the same tick now paces the adaptive polls.
       if (this.now() >= this.nextPollAt) {
-        this.nextPollAt = this.now() + this.pollIntervalMs
+        // pollTick schedules the next run after it settles, so slow requests
+        // cannot overlap with another scheduler tick.
+        this.nextPollAt = Number.POSITIVE_INFINITY
         void this.pollTick()
       }
       return
     }
-    // A live SSE channel only goes silent while the agent idles; never poll
-    // against it. Fallback arms again only via onerror or a stream that has
-    // never delivered.
-    if (this.sseAlive) return
-    if ((this.now() - this.lastDataAt) > this.stallThresholdMs) this.startPolling()
+    if (this.isSseStalled()) this.startPolling()
+  }
+
+  private isSseStalled(): boolean {
+    const windowMs = this.sseAlive
+      ? this.stallThresholdMs * LIVE_SSE_STALL_MULTIPLIER
+      : this.stallThresholdMs
+    return (this.now() - this.lastDataAt) > windowMs
   }
 
   private startPolling(): void {
     if (this.polling || this.stopped) return
     this.polling = true
-    this.nextPollAt = this.now() + this.pollIntervalMs
+    this.pollDelayMs = this.pollIntervalMs
+    this.nextPollAt = Number.POSITIVE_INFINITY
     void this.pollTick()
   }
 
   private stopPolling(): void {
     this.polling = false
+    this.pollDelayMs = this.pollIntervalMs
+    this.nextPollAt = 0
   }
 
   /**
@@ -244,19 +255,35 @@ export class MuxClient {
       this.stopPolling()
       return
     }
+    let emitted = 0
     try {
       const page = await this.pollLatest(sessionId)
       let maxSeq = this.pollWatermark.get(sessionId) ?? -1
-      for (const entry of page.events) {
+      const ordered = [...page.events].sort((left, right) => {
+        const leftSeq = typeof left.event?.seq === 'number' ? left.event.seq : -1
+        const rightSeq = typeof right.event?.seq === 'number' ? right.event.seq : -1
+        return leftSeq - rightSeq
+      })
+      for (const entry of ordered) {
         const event = entry.event
         const seq = typeof event?.seq === 'number' ? event.seq : -1
         if (seq <= maxSeq) continue
         maxSeq = seq
+        emitted += 1
         this.emit({ type: 'session/event', sessionId: sessionId as SessionEventFrame['sessionId'], event } as SessionEventFrame)
       }
       this.pollWatermark.set(sessionId, maxSeq)
     } catch {
-      // Transient (network, pairing, history paging); the next tick retries.
+      // Transient (network, pairing, history paging); retry with backoff.
+    } finally {
+      if (emitted > 0) {
+        this.pollDelayMs = this.pollIntervalMs
+      } else {
+        this.pollDelayMs = Math.min(MAX_POLL_BACKOFF_MS, this.pollDelayMs + this.pollIntervalMs)
+      }
+      if (this.polling && this.observeSessionId === sessionId) {
+        this.nextPollAt = this.now() + this.pollDelayMs
+      }
     }
   }
 

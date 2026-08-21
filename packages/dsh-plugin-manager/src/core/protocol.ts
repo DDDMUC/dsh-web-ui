@@ -35,6 +35,10 @@ export interface PluginUpdateItem {
   id: string
   current: string
   latest: string
+  /** Declared DSH minimum the update needs (package manifest's `dsh.engines.dsh`). */
+  requiresDsh?: string
+  /** Whether the running DSH host satisfies requiresDsh; absent when unknown. */
+  compatible?: boolean
 }
 
 /** One recorded plugin boot failure served by the host. */
@@ -179,7 +183,20 @@ export function parseUpdateList(value: unknown): PluginUpdateItem[] {
     if (!isRecord(update) || !isString(update.id) || !isString(update.current) || !isString(update.latest)) {
       throw new Error(`plugin-manager: update row ${String(index)} is invalid`)
     }
-    return { id: update.id, current: update.current, latest: update.latest }
+    const row: PluginUpdateItem = { id: update.id, current: update.current, latest: update.latest }
+    if (update.requiresDsh !== undefined) {
+      if (!isString(update.requiresDsh)) {
+        throw new Error(`plugin-manager: update row ${String(index)} is invalid`)
+      }
+      row.requiresDsh = update.requiresDsh
+    }
+    if (update.compatible !== undefined) {
+      if (typeof update.compatible !== 'boolean') {
+        throw new Error(`plugin-manager: update row ${String(index)} is invalid`)
+      }
+      row.compatible = update.compatible
+    }
+    return row
   })
 }
 

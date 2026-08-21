@@ -32,6 +32,7 @@ import {
   parseTexToRGBA,
   readPkgEntry,
   extractSceneResourceFromDir,
+  TexUnsupportedError,
 } from '../src/pkg-extract.ts'
 import { encode as encodeJpeg } from 'jpeg-js'
 
@@ -611,6 +612,28 @@ describe('decodeTex', () => {
     expect(() => decodeTex(tex)).toThrow(/tex: unsupported format 12/)
   })
 
+  it('throws a typed TexUnsupportedError with format metadata for BC7 (#906)', () => {
+    const tex = buildTex({
+      width: 8,
+      height: 6,
+      format: TexFormat.BC7,
+      mipmaps: [{ width: 8, height: 6, data: new Uint8Array(48) }],
+    })
+    let caught: unknown = null
+    try {
+      decodeTex(tex)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toBeInstanceOf(TexUnsupportedError)
+    const err = caught as TexUnsupportedError
+    expect(err.format).toBe(TexFormat.BC7)
+    expect(err.formatName).toBe('BC7')
+    expect(err.width).toBe(8)
+    expect(err.height).toBe(6)
+  })
+
+
   it('crops power-of-two padding to the TEXI image rect (top-left)', () => {
     // 4x2 real image stored in a padded 4x4 mip (like WE's 1920x1080 in
     // 2048x2048); top rows are the content, bottom rows are filler.
@@ -733,6 +756,74 @@ describe('extractSceneMainImage', () => {
     const result = extractSceneMainImage(pkg)
     expect(result.texturePath).toBe('materials/bg.tex')
     expect(decodePng(result.png).rgba).toEqual(bgPixels)
+  })
+
+  it('fails with a typed unsupported error instead of a frame when the only texture is BC7 (#906)', () => {
+    const bc7Tex = buildTex({
+      width: 4,
+      height: 4,
+      format: TexFormat.BC7,
+      mipmaps: [{ width: 4, height: 4, data: new Uint8Array(16) }],
+    })
+    const pkg = buildPkg([
+      { path: 'scene.json', data: sceneJson('materials/art.tex') },
+      { path: 'materials/art.tex', data: bc7Tex },
+    ])
+    let caught: unknown = null
+    try {
+      extractSceneMainImage(pkg)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toBeInstanceOf(TexUnsupportedError)
+    expect((caught as TexUnsupportedError).format).toBe(TexFormat.BC7)
+  })
+
+  it('does not emit a partial composite frame when the top-ranked main texture is BC7 (#906)', () => {
+    const mainTex = buildTex({
+      width: 1600,
+      height: 900,
+      format: TexFormat.BC7,
+      mipmaps: [{ width: 1600, height: 900, data: new Uint8Array(64) }],
+    })
+    const baseTex = buildTex({
+      width: 1280,
+      height: 720,
+      mipmaps: [{ width: 1280, height: 720, data: solidPixels(1280, 720, 10, 20, 30) }],
+    })
+    const decoTex = buildTex({
+      width: 64,
+      height: 64,
+      mipmaps: [{ width: 64, height: 64, data: solidPixels(64, 64, 200, 0, 0) }],
+    })
+    const layeredScene = encoder.encode(
+      JSON.stringify({
+        objects: [
+          { id: 1, name: 'zz-main', image: 'models/zz-main.json' },
+          { id: 2, name: 'zz-base', image: 'models/zz-base.json' },
+          { id: 3, name: 'zz-deco', image: 'models/zz-deco.json' },
+        ],
+      }),
+    )
+    const pkg = buildPkg([
+      { path: 'scene.json', data: layeredScene },
+      { path: 'models/zz-main.json', data: encoder.encode(JSON.stringify({ material: 'materials/zz-main.json' })) },
+      { path: 'materials/zz-main.json', data: encoder.encode(JSON.stringify({ passes: [{ textures: ['materials/zz-main.tex'] }] })) },
+      { path: 'models/zz-base.json', data: encoder.encode(JSON.stringify({ material: 'materials/zz-base.json' })) },
+      { path: 'materials/zz-base.json', data: encoder.encode(JSON.stringify({ passes: [{ textures: ['materials/zz-base.tex'] }] })) },
+      { path: 'models/zz-deco.json', data: encoder.encode(JSON.stringify({ material: 'materials/zz-deco.json' })) },
+      { path: 'materials/zz-deco.json', data: encoder.encode(JSON.stringify({ passes: [{ textures: ['materials/zz-deco.tex'] }] })) },
+      { path: 'materials/zz-main.tex', data: mainTex },
+      { path: 'materials/zz-base.tex', data: baseTex },
+      { path: 'materials/zz-deco.tex', data: decoTex },
+    ])
+    let caught: unknown = null
+    try {
+      extractSceneMainImage(pkg)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toBeInstanceOf(TexUnsupportedError)
   })
 
   it('reports the real decode error instead of a later missing-texture fallback (#752)', () => {

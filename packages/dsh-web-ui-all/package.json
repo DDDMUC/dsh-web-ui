@@ -10,6 +10,9 @@
     "./package.json": "./package.json"
   },
   "dsh": {
+    "engines": {
+      "dsh": ">=0.1.1-rc.1"
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
@@ -46,6 +49,7 @@
     "@linxin666/dsh-liangshen": "workspace:*",
     "@linxin666/dsh-client-ui-skill-explorer": "workspace:*",
     "@linxin666/dsh-desktop-launcher": "workspace:*",
+    "@linxin666/dsh-doctor": "workspace:*",
     "@linxin666/dsh-client-ui-web-ui-settings": "workspace:*",
     "@linxin666/dsh-skins": "workspace:*",
     "@linxin666/dsh-client-ui-skin-center": "workspace:*",

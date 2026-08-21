@@ -1,0 +1,50 @@
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { basename, dirname, join, resolve } from 'node:path'
+import { spawn } from 'node:child_process'
+
+export interface ServiceSpec { platform: NodeJS.Platform; label: string; executable: string; args: string[]; doctorHome: string }
+export interface ServicePlan { files: Array<{ path: string; content: string; mode?: number }>; install: string[]; uninstall: string[] }
+const quoteXml = (value: string): string => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+const quoteExec = (value: string): string => JSON.stringify(value)
+
+export function servicePlan(spec: ServiceSpec, env: NodeJS.ProcessEnv = process.env): ServicePlan {
+  const executable = resolve(spec.executable)
+  const home = env.HOME?.trim() || homedir()
+  if (spec.platform === 'darwin') {
+    const path = join(home, 'Library', 'LaunchAgents', `${spec.label}.plist`)
+    const args = [executable, ...spec.args].map(value => `<string>${quoteXml(value)}</string>`).join('')
+    const content = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>${quoteXml(spec.label)}</string><key>ProgramArguments</key><array>${args}</array><key>EnvironmentVariables</key><dict><key>DSH_DOCTOR_HOME</key><string>${quoteXml(spec.doctorHome)}</string></dict><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ProcessType</key><string>Background</string></dict></plist>
+`
+    return { files: [{ path, content, mode: 0o600 }], install: ['launchctl', 'bootstrap', `gui/${process.getuid?.() ?? 0}`, path], uninstall: ['launchctl', 'bootout', `gui/${process.getuid?.() ?? 0}`, path] }
+  }
+  if (spec.platform === 'linux') {
+    const config = env.XDG_CONFIG_HOME?.trim() || join(home, '.config')
+    const path = join(config, 'systemd', 'user', `${spec.label}.service`)
+    const command = [executable, ...spec.args].map(quoteExec).join(' ')
+    const content = `[Unit]\nDescription=DSH Doctor Supervisor\nAfter=default.target\n\n[Service]\nType=simple\nExecStart=${command}\nEnvironment=DSH_DOCTOR_HOME=${quoteExec(spec.doctorHome)}\nRestart=on-failure\nRestartSec=2\nNoNewPrivileges=true\nPrivateTmp=true\n\n[Install]\nWantedBy=default.target\n`
+    return { files: [{ path, content, mode: 0o600 }], install: ['systemctl', '--user', 'enable', '--now', basename(path)], uninstall: ['systemctl', '--user', 'disable', '--now', basename(path)] }
+  }
+  if (spec.platform === 'win32') {
+    const path = join(env.LOCALAPPDATA || join(home, 'AppData', 'Local'), 'DSH Doctor', 'supervisor.cmd')
+    const content = `@echo off\r\nset "DSH_DOCTOR_HOME=${spec.doctorHome}"\r\n"${executable}" ${spec.args.map(quoteExec).join(' ')}\r\n`
+    const task = '\DSH Doctor Supervisor'
+    return { files: [{ path, content, mode: 0o600 }], install: ['schtasks', '/Create', '/F', '/SC', 'ONLOGON', '/TN', task, '/TR', path], uninstall: ['schtasks', '/Delete', '/F', '/TN', task] }
+  }
+  throw new Error(`doctor: unsupported service platform ${spec.platform}`)
+}
+
+export async function writeServiceFiles(plan: ServicePlan): Promise<void> {
+  for (const file of plan.files) { await mkdir(dirname(file.path), { recursive: true }); await writeFile(file.path, file.content, { mode: file.mode ?? 0o600 }) }
+}
+
+export async function removeServiceFiles(plan: ServicePlan): Promise<void> { for (const file of plan.files) await rm(file.path, { force: true }) }
+
+export async function runCommand(command: string[], timeoutMs = 30_000): Promise<void> {
+  await new Promise<void>((resolvePromise, reject) => {
+    const child = spawn(command[0]!, command.slice(1), { stdio: 'inherit', shell: process.platform === 'win32' })
+    const timer = setTimeout(() => child.kill(), timeoutMs)
+    child.once('close', code => { clearTimeout(timer); code === 0 ? resolvePromise() : reject(new Error(`doctor: command failed (${code ?? 'signal'}): ${command.join(' ')}`)) })
+    child.once('error', reject)
+  })
+}

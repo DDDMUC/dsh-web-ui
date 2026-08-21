@@ -93,6 +93,17 @@
     "category": "knowledge"
   },
   {
+    "id": "dsh-plugin-hub",
+    "name": "插件中心（dsh-plugin-hub）",
+    "nameEn": "Plugin Hub",
+    "author": "Noob-stupid",
+    "description": "插件管理面板：已安装插件一键启用/停用，内置 GitHub dsh-plugin 插件市场（官方/聚合识别、子包浏览、一键安装与本地 AI 兜底修复、删除卸载），版本检测与一键更新、框架一键升级。",
+    "descriptionEn": "Plugin management panel: one-click enable/disable, a GitHub dsh-plugin marketplace with official/aggregate detection, subpackage browsing, one-click installs with local-AI fallback repair, uninstall, update detection and one-click framework upgrade.",
+    "repo": "https://github.com/Noob-stupid/dsh-plugin-hub",
+    "npm": "@noob-stupid/dsh-plugin-console",
+    "category": "tools"
+  },
+  {
     "id": "dsh-genui",
     "name": "GenUI 生成式 UI",
     "nameEn": "GenUI",
@@ -107,8 +118,8 @@
     "name": "选中批注",
     "nameEn": "Selection Annotation",
     "author": "omdsh-dev",
-    "description": "选中助手文字即可批注，回车随消息发送；自己的气泡只显示问题与「批注 ×N」标签，模型按 Annotation N 逐条对照回复（悬浮芯片）。",
-    "descriptionEn": "Select text in an assistant reply to annotate it; annotations are sent with your next message, hidden from your own bubble behind an Annotations xN chip, and the model replies per Annotation N with hoverable chips.",
+    "description": "选中助手文字即可批注，回车随消息发送；自己的气泡只显示问题与「批注 ×N」标签，模型按 Annotation N 逐条对照回复（悬浮芯片）；UI 与批注块跟随 DSH 语言切换 zh/en，Cmd/Ctrl+Enter 可直发纯批注，斜杠命令原样放行。",
+    "descriptionEn": "Select text in an assistant reply to annotate it; annotations ride along with your next message, hidden in your own bubble behind an Annotations xN chip, and the model replies per Annotation N with hoverable chips. UI and annotation block follow the DSH locale (zh/en); Cmd/Ctrl+Enter sends annotations alone; slash commands pass through.",
     "repo": "https://github.com/omdsh-dev/dsh-annotation",
     "category": "ui"
   },
@@ -366,5 +377,16 @@
     "repo": "https://github.com/Aa728848/dsh-chatgpt-subscription",
     "npm": "@eddyskywalker/dsh-chatgpt-subscription",
     "category": "integration"
+  },
+  {
+    "id": "dsh-imagegen",
+    "name": "AI 生图",
+    "nameEn": "AI ImageGen",
+    "author": "dickpy",
+    "description": "AI 生图插件：通过可配置的 OpenAI 兼容端点（gpt-image-2 / gpt-image-1 / dall-e-3）实现文生图与图生图，提供生成历史、提示词模板库与 API 设置卡片。",
+    "descriptionEn": "AI image generation for the DSH Web GUI: text-to-image and image-to-image through a configurable OpenAI-compatible endpoint (gpt-image-2 / gpt-image-1 / dall-e-3), with generation history, a prompt template library and an API settings card.",
+    "repo": "https://github.com/dickpy/dsh-imagegen",
+    "npm": "@dickpy/dsh-imagegen",
+    "category": "tools"
   }
 ]
