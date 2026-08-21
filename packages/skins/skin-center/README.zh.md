@@ -78,4 +78,3 @@ skins/skin-center/
 - [x] 一键应用原子切换、无需刷新；后续页面加载直接以该皮肤启动（无 FOUC）
 - [x] 自定义主题保留独立浅色/深色配置、刷新后恢复，且不会覆盖已激活的目录册皮肤
 - [x] Wallpaper Engine 桥、背景遮罩与模糊控制不受换肤影响
-- [x] e2e 截图在 `docs/e2e/skin-center/`

@@ -78,4 +78,3 @@ skins/skin-center/
 - [x] One-click apply switches atomically with no reload; a later page load boots straight into the skin (no FOUC)
 - [x] The custom theme keeps independent light/dark profiles, survives reload, and never overrides an active catalog skin
 - [x] The Wallpaper Engine bridge, background scrim and blur controls are unaffected by skin switches
-- [x] e2e screenshots live in `docs/e2e/skin-center/`
