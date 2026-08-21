@@ -21,6 +21,8 @@ import type { CatalogSkin, SkinRuntimeStore } from './runtime/boot.ts'
 import type { SkinBackgroundHandle } from './background.ts'
 import type { WallpaperHandle } from './wallpaper.ts'
 import type { PreviewCoordinator } from './preview-coordinator.ts'
+import type { CustomThemeController } from './custom-theme-controller.ts'
+import { CustomThemeCard } from './CustomThemePanel.tsx'
 import { WallpaperPanel } from './WallpaperPanel.tsx'
 import css from './skin-center.module.css'
 
@@ -39,6 +41,8 @@ export interface SkinCenterInjected {
   wallpaper: WallpaperHandle
   /** One serialized preview session shared by skins and wallpapers. */
   preview: PreviewCoordinator
+  /** User palette derived from the official stock theme. */
+  customTheme: CustomThemeController
 }
 
 /** Plugin-card component props: locale seat + injected face. */
@@ -55,7 +59,7 @@ const OFFICIAL = 'official'
  * @param props - card props.
  * @returns the plugin card.
  */
-export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }: SkinCenterComponentProps) {
+export function SkinCenter({ t, runtime, theme, background, wallpaper, preview, customTheme }: SkinCenterComponentProps) {
   const snapshot = useSyncExternalStore((listener) => theme.subscribe(listener), () => theme.getTheme())
   const enabled = useSyncExternalStore(background.subscribe, background.enabled)
   const opacity = useSyncExternalStore(background.subscribe, background.opacity)
@@ -64,6 +68,7 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }
   const inputCardBlur = useSyncExternalStore(background.subscribe, background.inputCardBlur)
   const catalog = useSyncExternalStore(runtime.subscribe, runtime.catalog)
   const state = useSyncExternalStore(runtime.subscribe, runtime.controller.getState)
+  const customThemeState = useSyncExternalStore(customTheme.subscribe, customTheme.getState)
   const activeId = state.active
   const previewing = state.previewing
   const tryingId = state.trying
@@ -105,7 +110,40 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }
   }
 
   const exitTryOn = (): void => {
-    run(tryingId ?? OFFICIAL, () => runtime.controller.exitTryOn())
+    run(tryingId ?? OFFICIAL, () => preview.runSkin(() => runtime.controller.exitTryOn()))
+  }
+
+  const restoreCommittedSkin = async (state: { active: string | null }): Promise<void> => {
+    const entry = state.active === null ? null : runtime.find(state.active)
+    if (state.active !== null && entry === null) {
+      throw new Error(`cannot restore skin ${state.active}`)
+    }
+    const restored = await runtime.controller.switchTo(state.active, entry)
+    if (restored !== state.active) {
+      throw new Error(`skin ${state.active ?? 'stock'} did not restore`)
+    }
+  }
+
+  const switchAndDeactivateCustomTheme = async (
+    target: string | null,
+    entry: CatalogSkin | null,
+  ): Promise<string | null> => {
+    const previous = { ...runtime.controller.getState() }
+    const active = await runtime.controller.switchTo(target, entry)
+    if (active !== target) {
+      throw new Error(`${target === null ? 'stock theme' : `skin ${target}`} did not activate`)
+    }
+    try {
+      await customTheme.deactivate()
+      return active
+    } catch (error) {
+      try {
+        await restoreCommittedSkin(previous)
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError], 'skin switch cleanup and rollback failed')
+      }
+      throw error
+    }
   }
 
   /**
@@ -116,7 +154,7 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }
    */
   const applySkin = (target: string): void => {
     if (target === OFFICIAL) {
-      run(OFFICIAL, () => preview.runSkin(() => runtime.controller.switchTo(null, null)))
+      run(OFFICIAL, () => preview.runSkin(() => switchAndDeactivateCustomTheme(null, null)))
       return
     }
     const entry = runtime.find(target)
@@ -124,7 +162,35 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }
       setError(t('applyFailed'))
       return
     }
-    run(target, () => preview.runSkin(() => runtime.controller.switchTo(target, entry)))
+    run(target, () => preview.runSkin(() => switchAndDeactivateCustomTheme(target, entry)))
+  }
+
+  const tryOnCustomTheme = (): void => {
+    run('custom-theme', () => preview.runCustomTheme(async () => {
+      const active = await runtime.controller.tryOn(null, null)
+      if (active !== null) throw new Error('stock preview did not activate')
+      customTheme.tryOn()
+      return active
+    }))
+  }
+
+  const exitCustomThemeTryOn = (): void => {
+    run('custom-theme', () => preview.runCustomTheme(async () => {
+      customTheme.exitTryOn()
+      return await runtime.controller.exitTryOn()
+    }))
+  }
+
+  const applyCustomTheme = (): void => {
+    run('custom-theme', () => preview.runCustomTheme(async () => {
+      await customTheme.apply()
+      const active = await runtime.controller.switchTo(null, null)
+      if (active !== null) {
+        await customTheme.deactivate()
+        throw new Error('stock theme did not activate')
+      }
+      return active
+    }))
   }
 
   const dark = snapshot.active.colorScheme === 'dark'
@@ -143,14 +209,14 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }
           {t('tryOn')}
         </button>
       ) : opts.isTrying ? (
-        <button type="button" className={`${css.button} ${css.buttonPrimary}`} onClick={exitTryOn}>
+        <button type="button" className={`${css.button} ${css.buttonPrimary}`} disabled={busyId !== null} onClick={exitTryOn}>
           {t('exitTryOn')}
         </button>
       ) : (
         <button
           type="button"
           className={`${css.button} ${css.buttonPrimary}`}
-          disabled={busyId === opts.key}
+          disabled={busyId !== null}
           onClick={opts.onTryOn}
         >
           {busyId === opts.key ? t('loading') : t('tryOn')}
@@ -304,8 +370,8 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }
 
                   <div className={css.list}>
                     {(() => {
-                      const isActive = activeId === null && !previewing
-                      const isTrying = previewing && tryingId === null
+                      const isActive = activeId === null && !previewing && !customThemeState.applied
+                      const isTrying = previewing && tryingId === null && !customThemeState.previewing
                       const badge = isActive ? t('active') : isTrying ? t('tryingOn') : null
                       return (
                         <div className={css.card} key={OFFICIAL}>
@@ -363,6 +429,20 @@ export function SkinCenter({ t, runtime, theme, background, wallpaper, preview }
                         </div>
                       )
                     })}
+
+                    <CustomThemeCard
+                      t={t}
+                      customTheme={customTheme}
+                      scheme={dark ? 'dark' : 'light'}
+                      setScheme={scheme => { theme.setTheme(scheme) }}
+                      isActive={customThemeState.applied && activeId === null && !previewing}
+                      isTrying={customThemeState.previewing}
+                      busy={busyId === 'custom-theme'}
+                      disabled={busyId !== null}
+                      onTryOn={tryOnCustomTheme}
+                      onExitTryOn={exitCustomThemeTryOn}
+                      onApply={applyCustomTheme}
+                    />
                   </div>
                 </>
               )
@@ -382,10 +462,18 @@ export type SkinCenterSectionProps =
 
 /** Render the skin-center card as a first-level settings page. */
 export function SkinCenterSection(props: SkinCenterSectionProps): ReactNode {
-  const { t, runtime, theme, background, wallpaper, preview } = props
+  const { t, runtime, theme, background, wallpaper, preview, customTheme } = props
   return (
     <ul className={css.sectionList}>
-      <SkinCenter t={t} runtime={runtime} theme={theme} background={background} wallpaper={wallpaper} preview={preview} />
+      <SkinCenter
+        t={t}
+        runtime={runtime}
+        theme={theme}
+        background={background}
+        wallpaper={wallpaper}
+        preview={preview}
+        customTheme={customTheme}
+      />
     </ul>
   )
 }
