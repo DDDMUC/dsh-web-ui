@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { transform } from "lightningcss";
 import { readFile, stat } from "node:fs/promises";
+import { pipeline } from "node:stream";
 import { execFileSync } from "node:child_process";
 import { Buffer as Buffer$1 } from "node:buffer";
 import { decode } from "jpeg-js";
@@ -6620,8 +6621,28 @@ function mimeFor(absPath) {
 		wasm: "application/wasm"
 	}[extname(absPath).slice(1).toLowerCase()] || "application/octet-stream";
 }
+/** Pipe one file while coupling its descriptor lifetime to the HTTP response. */
+function pipeFile(absPath, res, openReadStream, options) {
+	if (res.destroyed || res.writableEnded) return;
+	const source = openReadStream(absPath, options);
+	const closeSource = () => source.destroy();
+	res.once("close", closeSource);
+	if (res.destroyed || res.writableEnded) {
+		res.off("close", closeSource);
+		source.destroy();
+		return;
+	}
+	try {
+		pipeline(source, res, () => {
+			res.off("close", closeSource);
+		});
+	} catch {
+		res.off("close", closeSource);
+		source.destroy();
+	}
+}
 /** Stream one file with Range support (video seeking needs 206). */
-function serveFile(absPath, req, res) {
+function serveFile(absPath, req, res, openReadStream) {
 	if (!existsSync(absPath) || !statSync(absPath).isFile()) {
 		json(res, 404, {
 			ok: false,
@@ -6648,14 +6669,14 @@ function serveFile(absPath, req, res) {
 		res.statusCode = 206;
 		res.setHeader("Content-Range", "bytes " + String(start) + "-" + String(end) + "/" + String(size));
 		res.setHeader("Content-Length", String(end - start + 1));
-		createReadStream(absPath, {
+		pipeFile(absPath, res, openReadStream, {
 			start,
 			end
-		}).pipe(res);
+		});
 		return;
 	}
 	res.setHeader("Content-Length", String(size));
-	createReadStream(absPath).pipe(res);
+	pipeFile(absPath, res, openReadStream);
 }
 /** Shape-check an entry loaded from the persisted probe cache. */
 function isSceneProbe(value) {
@@ -6663,6 +6684,7 @@ function isSceneProbe(value) {
 }
 /** Build the route family. */
 function makeWeRoutes(deps) {
+	const openReadStream = deps.openReadStream ?? createReadStream;
 	const tokenStorePath = join(deps.storeDir, ".cache", "we-tokens.json");
 	let mediaMap = /* @__PURE__ */ new Map();
 	try {
@@ -6899,7 +6921,7 @@ function makeWeRoutes(deps) {
 						return;
 					}
 				} catch {}
-				serveFile(abs, req, res);
+				serveFile(abs, req, res, openReadStream);
 			}
 		});
 	}
@@ -6941,7 +6963,7 @@ function makeWeRoutes(deps) {
 					writeFileSync(cachePath, videoBytes);
 					pruneStaleSceneCache(cacheDir, base, key);
 				}
-				serveFile(cachePath, req, res);
+				serveFile(cachePath, req, res, openReadStream);
 			})().catch((error) => {
 				json(res, 422, {
 					ok: false,
@@ -7009,7 +7031,7 @@ function makeWeRoutes(deps) {
 				res.end(injected);
 				return;
 			}
-			serveFile(abs, req, res);
+			serveFile(abs, req, res, openReadStream);
 		}
 	});
 	const framePrefix = "/api/skin-center/we/scene-frame/";
@@ -7045,7 +7067,7 @@ function makeWeRoutes(deps) {
 				}
 				res.setHeader("Content-Type", "image/png");
 				res.setHeader("Cache-Control", "no-store");
-				createReadStream(cachePath).pipe(res);
+				pipeFile(cachePath, res, openReadStream);
 			})().catch((error) => {
 				json(res, 422, {
 					ok: false,

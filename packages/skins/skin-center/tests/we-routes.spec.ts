@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { AddressInfo } from 'node:net'
+import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
@@ -204,6 +205,139 @@ describe('media and preview', () => {
     expect(partial.status).toBe(206)
     expect(partial.raw).toBe('FAKE')
     expect(String(partial.headers['content-range'])).toContain('bytes 0-3/')
+  })
+
+  it('destroys the source stream when the client disconnects', async () => {
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const video = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '111')
+    expect(String(video?.videoUrl)).toContain(WE_API_PREFIX + '/media/')
+    await new Promise<void>((resolve, reject) => server.close(e => (e ? reject(e) : resolve())))
+
+    let source: Readable | undefined
+    let sent = false
+    const routes = makeWeRoutes({
+      getConfig: () => ({ weLibraryDirs: [library] }),
+      storeDir: store,
+      autoDetect: false,
+      openReadStream: () => {
+        source = new Readable({
+          read() {
+            if (!sent) {
+              sent = true
+              this.push(Buffer.from('x'))
+            }
+          },
+        })
+        return source
+      },
+    })
+    await serve(routes)
+
+    await new Promise<void>((resolve, reject) => {
+      const req = httpRequest({ host: '127.0.0.1', port, path: String(video?.videoUrl), method: 'GET' }, (response) => {
+        response.once('data', () => response.destroy())
+        response.once('close', resolve)
+        response.once('error', reject)
+      })
+      req.once('error', reject)
+      req.end()
+    })
+    if (!source?.destroyed) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('source stream stayed open after disconnect')), 1000)
+        source?.once('close', () => {
+          clearTimeout(timeout)
+          resolve()
+        })
+      })
+    }
+
+    expect(source?.destroyed).toBe(true)
+  })
+
+  it('contains source stream errors and keeps the server responsive', async () => {
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const video = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '111')
+    expect(String(video?.videoUrl)).toContain(WE_API_PREFIX + '/media/')
+    await new Promise<void>((resolve, reject) => server.close(e => (e ? reject(e) : resolve())))
+
+    let openCalls = 0
+    const routes = makeWeRoutes({
+      getConfig: () => ({ weLibraryDirs: [library] }),
+      storeDir: store,
+      autoDetect: false,
+      openReadStream: () => {
+        openCalls++
+        return new Readable({
+          read() { this.destroy(new Error('synthetic-read-failure')) },
+        })
+      },
+    })
+    await serve(routes)
+
+    const outcome = await new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('stream error did not close the response')), 1000)
+      const settle = (value: string) => {
+        clearTimeout(timeout)
+        resolve(value)
+      }
+      const req = httpRequest({ host: '127.0.0.1', port, path: String(video?.videoUrl), method: 'GET' }, (response) => {
+        response.resume()
+        response.once('aborted', () => settle('response-aborted'))
+        response.once('close', () => settle('response-closed'))
+        response.once('error', () => settle('response-error'))
+      })
+      req.once('error', () => settle('request-error'))
+      req.end()
+    })
+
+    expect(openCalls).toBe(1)
+    expect(['response-aborted', 'response-closed', 'response-error', 'request-error']).toContain(outcome)
+    expect((await call('GET', WE_API_PREFIX + '/inventory')).status).toBe(200)
+  })
+
+  it('does not open a source after the response has already closed', async () => {
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const video = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '111')
+    expect(String(video?.videoUrl)).toContain(WE_API_PREFIX + '/media/')
+    await new Promise<void>((resolve, reject) => server.close(e => (e ? reject(e) : resolve())))
+
+    let openCalls = 0
+    const routes = makeWeRoutes({
+      getConfig: () => ({ weLibraryDirs: [library] }),
+      storeDir: store,
+      autoDetect: false,
+      openReadStream: () => {
+        openCalls++
+        return Readable.from('unused')
+      },
+    })
+    let handled!: () => void
+    const handlerDone = new Promise<void>(resolve => { handled = resolve })
+    server = createServer((request, response) => {
+      const pathname = new URL(request.url ?? '/', 'http://x').pathname
+      const route = routes.find(r => r.kind === 'exact'
+        ? r.path === pathname
+        : pathname === r.path || pathname.startsWith(r.path + '/'))
+      response.destroy()
+      setImmediate(() => {
+        if (route !== undefined) void route.handler(request, response)
+        handled()
+      })
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    port = (server.address() as AddressInfo).port
+
+    await Promise.all([
+      handlerDone,
+      new Promise<void>(resolve => {
+        const req = httpRequest({ host: '127.0.0.1', port, path: String(video?.videoUrl), method: 'GET' })
+        req.once('error', () => resolve())
+        req.end()
+      }),
+    ])
+
+    expect(openCalls).toBe(0)
   })
 
   it('404s on unknown tokens', async () => {
