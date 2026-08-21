@@ -8,11 +8,12 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
 /**
  * Pinned union of dsh.client.inject module ids across every workspace
- * package. Approved for the 0.1.1-rc.1 cohort: each name resolves to an
- * official package that publishes 0.1.1-rc.1, preserves its ./client export,
- * and is present in the 0.1.1-rc.1 shell composition
- * (dsh-web-app cordis patch rows). A rename, removal, or new inject name
- * must update this list together with its runtime-module-table evidence.
+ * package. Approved for the 0.1.1-rc.2 cohort: each name resolves to an
+ * official package that publishes 0.1.1-rc.2 and is present in the rc.2
+ * shell composition (dsh-web-app browser roster rows; dsh-client-ui-slots
+ * is a frozen static module of the shell, so it has no ./client export).
+ * A rename, removal, or new inject name must update this list together with
+ * its runtime-module-table evidence.
  */
 const APPROVED_INJECT_MODULES = [
   '@deepseek-ai/dsh-client-runtime',
@@ -41,11 +42,11 @@ function collectInjects() {
   return [...names].sort()
 }
 
-test('every dsh.client.inject name is an approved 0.1.1-rc.1 client module', () => {
+test('every dsh.client.inject name is an approved 0.1.1-rc.2 client module', () => {
   for (const name of collectInjects()) {
     assert.ok(
       APPROVED_INJECT_MODULES.includes(name),
-      `inject name outside the approved 0.1.1-rc.1 module set: ${name}`,
+      `inject name outside the approved 0.1.1-rc.2 module set: ${name}`,
     )
   }
 })

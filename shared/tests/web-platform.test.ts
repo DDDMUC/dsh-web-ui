@@ -3,7 +3,8 @@ import { PLATFORM_MODULES } from '../web-platform.ts'
 
 /**
  * Mirrors the shell's frozen module table (dsh-web-frontend dist
- * staticModules, verified against 0.1.1-rc.1). The rc.8 shell replaced
+ * staticModules, verified against 0.1.1-rc.2; the rc.2 dist carries the same
+ * set with no new frozen modules). The rc.8 shell replaced
  * dsh-client-web-react with dsh-client-ui-renderer (a dynamic plugin bundle,
  * not a static module) and stopped sharing dsh-client-schema-form.
  */
