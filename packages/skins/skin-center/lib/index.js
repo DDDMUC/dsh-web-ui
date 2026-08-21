@@ -3871,6 +3871,16 @@ function parseMdl(buf) {
 	}
 	return meshes;
 }
+function containsEmbeddedScript(value, seen = /* @__PURE__ */ new Set()) {
+	if (value === null || typeof value !== "object") return false;
+	if (seen.has(value)) return false;
+	seen.add(value);
+	if (!Array.isArray(value)) {
+		const record = value;
+		if (typeof record.script === "string" && record.script.trim() !== "") return true;
+	}
+	return Object.values(value).some((child) => containsEmbeddedScript(child, seen));
+}
 function buildSceneManifestVia(access, token) {
 	let scene = access.readJson("scene.json");
 	const project = access.readJson("project.json");
@@ -3887,6 +3897,7 @@ function buildSceneManifestVia(access, token) {
 		height,
 		hasMeteors: false,
 		hasFireflies: false,
+		scripted: containsEmbeddedScript(scene),
 		layers: []
 	};
 	const allTex = access.listTexPaths();
@@ -4620,6 +4631,7 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
 
   let sceneData = null;
   let isPaused = false;
+  let contextLost = false;
   let fitMode = 'cover';
   let startTime = performance.now();
   let lastTime = performance.now();
@@ -6442,6 +6454,7 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
   // Crash guard: a render exception must not freeze the wallpaper silently.
   function render(now) {
     try {
+      if (contextLost) { requestAnimationFrame(render); return; }
       renderFrame(now);
     } catch (e) {
       if (!window.__weRenderErr) {
@@ -6451,6 +6464,17 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       requestAnimationFrame(render);
     }
   }
+
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    contextLost = true;
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    // WebGL objects are invalid after restoration. Ask the embedding
+    // controller to rebuild this isolated renderer instead of drawing with
+    // stale programs/textures.
+    window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, window.location.origin);
+  });
 
   // Load manifest
   const token = window.location.pathname.split('/').filter(Boolean).pop();
@@ -6473,6 +6497,15 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       fitMode = msg.fit;
     } else if (msg.type === 'dsh-set-pause') {
       isPaused = !!msg.paused;
+    } else if (msg.type === 'dsh-recover-renderer') {
+      if (gl.isContextLost()) {
+        const ext = gl.getExtension('WEBGL_lose_context');
+        if (ext) ext.restoreContext();
+        else window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, window.location.origin);
+      } else {
+        // Force an immediate fresh frame after compositor/theme changes.
+        renderFrame(performance.now());
+      }
     }
   });
 
@@ -6679,9 +6712,11 @@ function serveFile(absPath, req, res, openReadStream) {
 	res.setHeader("Content-Length", String(size));
 	pipeFile(absPath, res, openReadStream);
 }
+/** Cached per-scene capability probe result. */
+const SCENE_PROBE_VERSION = 2;
 /** Shape-check an entry loaded from the persisted probe cache. */
 function isSceneProbe(value) {
-	return value !== null && typeof value === "object" && typeof value.hasVideo === "boolean" && typeof value.hasSceneWebGL === "boolean";
+	return value !== null && typeof value === "object" && value.v === SCENE_PROBE_VERSION && typeof value.hasVideo === "boolean" && typeof value.hasSceneWebGL === "boolean" && (value.compatibility === "full" || value.compatibility === "static-only") && Array.isArray(value.unsupportedFeatures);
 }
 /** Build the route family. */
 function makeWeRoutes(deps) {
@@ -6835,17 +6870,26 @@ function makeWeRoutes(deps) {
 				if (!probe) {
 					let hasVideo = false;
 					let hasSceneWebGL = false;
+					let compatibility = "full";
+					const unsupportedFeatures = [];
 					try {
 						const pkgData = await readFile(entry.fileAbs);
 						hasVideo = entry.fileAbs.toLowerCase().endsWith(".json") ? hasSceneVideoFromDir(dirname(entry.fileAbs)) : hasSceneVideo(pkgData);
 						if (!hasVideo) {
 							const manifest = entry.fileAbs.toLowerCase().endsWith(".json") ? buildSceneManifestFromDir(dirname(entry.fileAbs), "check") : buildSceneManifest(pkgData, "check");
-							hasSceneWebGL = Boolean(manifest && (manifest.layers && manifest.layers.length >= 1 || manifest.is3D && manifest.models && manifest.models.length > 0));
+							if (manifest?.scripted) {
+								compatibility = "static-only";
+								unsupportedFeatures.push("embedded-script");
+							}
+							hasSceneWebGL = compatibility === "full" && Boolean(manifest && (manifest.layers && manifest.layers.length >= 1 || manifest.is3D && manifest.models && manifest.models.length > 0));
 						}
 					} catch {}
 					probe = {
+						v: SCENE_PROBE_VERSION,
 						hasVideo,
-						hasSceneWebGL
+						hasSceneWebGL,
+						compatibility,
+						unsupportedFeatures
 					};
 					if (mtimeMs > 0) {
 						sceneProbeCache.set(key, probe);
@@ -6863,7 +6907,9 @@ function makeWeRoutes(deps) {
 				json(res, 200, {
 					ok: true,
 					videoUrl: videoToken !== null ? "/api/skin-center/we/scene-video/" + videoToken : null,
-					sceneUrl: sceneToken !== null ? "/api/skin-center/we/scene-runtime/" + sceneToken : null
+					sceneUrl: sceneToken !== null ? "/api/skin-center/we/scene-runtime/" + sceneToken : null,
+					compatibility: probe.compatibility,
+					unsupportedFeatures: probe.unsupportedFeatures
 				});
 			} catch (error) {
 				json(res, 500, {
@@ -7391,7 +7437,8 @@ const SkinBackgroundConfigSchema = z.object({
 	enabled: z.boolean().default(true),
 	backgroundOpacity: z.number().min(0).max(100).step(5).default(0),
 	backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(0),
-	backgroundBlurContent: z.number().min(0).max(20).step(1).default(0)
+	backgroundBlurContent: z.number().min(0).max(20).step(1).default(0),
+	inputCardBlur: z.number().min(0).max(20).step(1).default(10)
 });
 /**
 * Settings namespace for the Wallpaper Engine bridge, owned by the skin

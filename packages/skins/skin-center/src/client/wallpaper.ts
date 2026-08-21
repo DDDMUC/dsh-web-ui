@@ -103,6 +103,8 @@ export interface WallpaperHandle {
   tryOn(descriptor: WallpaperDescriptor): void
   /** Drop the try-on mount and restore the applied selection, if any. */
   exitTryOn(): void
+  /** Reconcile a live scene player after an external theme/compositor change. */
+  recoverScenePlayer(): void
   dispose(): void
 }
 
@@ -278,6 +280,7 @@ export class WallpaperController implements WallpaperHandle {
     // Pause-on-hidden wiring lives for the controller's whole life; it only
     // ever acts while a video is mounted.
     this.doc.addEventListener('visibilitychange', this.onVisibility)
+    this.doc.defaultView?.addEventListener('message', this.onSceneMessage)
     // Audible autoplay stays blocked until the first user gesture; retry
     // play() on that gesture so an unmuted live wallpaper starts (#580).
     this.doc.addEventListener('pointerdown', this.onFirstGesture)
@@ -509,9 +512,20 @@ export class WallpaperController implements WallpaperHandle {
     this.publish()
   }
 
+  recoverScenePlayer(): void {
+    const scenePlayer = this.mediaLayer?.firstElementChild ?? null
+    if (!(scenePlayer instanceof HTMLIFrameElement) || scenePlayer.dataset.dshScenePlayer !== '') return
+    try {
+      scenePlayer.contentWindow?.postMessage({ type: 'dsh-recover-renderer' }, window.location.origin)
+    } catch {
+      // A failed recovery message is harmless; the next render keeps the current frame.
+    }
+  }
+
   dispose(): void {
     this.disposed = true
     this.doc.removeEventListener('visibilitychange', this.onVisibility)
+    this.doc.defaultView?.removeEventListener('message', this.onSceneMessage)
     this.doc.removeEventListener('pointerdown', this.onFirstGesture)
     this.doc.removeEventListener('keydown', this.onFirstGesture)
     this.teardownLayers()
@@ -546,6 +560,17 @@ export class WallpaperController implements WallpaperHandle {
     if (this.videoElement === null || !this.videoElement.paused) return
     // jsdom (and older engines) return undefined, real browsers a promise.
     void this.videoElement.play()?.catch(() => { /* still blocked: retry on the next gesture */ })
+  }
+
+  private readonly onSceneMessage = (event: MessageEvent): void => {
+    const scenePlayer = this.mediaLayer?.firstElementChild ?? null
+    if (!(scenePlayer instanceof HTMLIFrameElement) || scenePlayer.dataset.dshScenePlayer !== '') return
+    if (event.source !== scenePlayer.contentWindow || event.origin !== this.doc.location?.origin) return
+    const message = event.data as { type?: unknown } | null
+    if (message?.type !== 'dsh-scene-needs-reload') return
+    // Context restoration invalidates every WebGL object. Reloading only the
+    // isolated renderer keeps the wallpaper selection and shell state intact.
+    scenePlayer.src = scenePlayer.src
   }
 
   private readonly onVisibility = (): void => {

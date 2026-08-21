@@ -42,6 +42,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
 
   let sceneData = null;
   let isPaused = false;
+  let contextLost = false;
   let fitMode = 'cover';
   let startTime = performance.now();
   let lastTime = performance.now();
@@ -1864,6 +1865,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
   // Crash guard: a render exception must not freeze the wallpaper silently.
   function render(now) {
     try {
+      if (contextLost) { requestAnimationFrame(render); return; }
       renderFrame(now);
     } catch (e) {
       if (!window.__weRenderErr) {
@@ -1873,6 +1875,17 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       requestAnimationFrame(render);
     }
   }
+
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    contextLost = true;
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    // WebGL objects are invalid after restoration. Ask the embedding
+    // controller to rebuild this isolated renderer instead of drawing with
+    // stale programs/textures.
+    window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, window.location.origin);
+  });
 
   // Load manifest
   const token = window.location.pathname.split('/').filter(Boolean).pop();
@@ -1895,6 +1908,15 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       fitMode = msg.fit;
     } else if (msg.type === 'dsh-set-pause') {
       isPaused = !!msg.paused;
+    } else if (msg.type === 'dsh-recover-renderer') {
+      if (gl.isContextLost()) {
+        const ext = gl.getExtension('WEBGL_lose_context');
+        if (ext) ext.restoreContext();
+        else window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, window.location.origin);
+      } else {
+        // Force an immediate fresh frame after compositor/theme changes.
+        renderFrame(performance.now());
+      }
     }
   });
 

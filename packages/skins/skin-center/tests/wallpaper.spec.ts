@@ -627,7 +627,7 @@ describe('WallpaperController', () => {
     // content (data-dsh-conversation-content); its own translucent tint
     // keeps readability instead of a hardcoded color.
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card]')
-    expect(neutralizer?.textContent).toContain('backdrop-filter: blur(10px) !important;')
+    expect(neutralizer?.textContent).toContain('backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;')
     // Empty conversation: the content marker is absent, so the frost is off.
     expect(document.body.hasAttribute('data-dsh-conversation-content')).toBe(false)
     // Adding a message row flips the marker on (observer-driven).

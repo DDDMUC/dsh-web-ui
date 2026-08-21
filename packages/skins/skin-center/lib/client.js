@@ -26,15 +26,15 @@ window.__ModuleLoader__.load({
 		* Readability after the mask is gone comes from the input card itself
 		* ([data-composer-card], the official shell's stable card anchor): the card
 		* keeps its own translucent tint (--dsw-specific-* tokens, not a hardcoded
-		* opacity) and gains a fixed backdrop blur (INPUT_FROST_BLUR_PX). The blur
+		* opacity) and gains a configurable backdrop blur (default INPUT_FROST_BLUR_PX). The blur
 		* occludes the backdrop art and any message content scrolling under the
 		* input, so typed text never overlaps — a frosted pane instead of the older
 		* flat mask. The frost is only enabled while the conversation actually has
 		* message content (data-dsh-conversation-content): an empty conversation has
 		* no正文 to occlude, so the input card keeps only its own translucent tint
 		* and does not flash an extra blur patch (issue #777 follow-up).
-		* The strength is a baked constant (not a slider) until the unified
-		* dialog-blur control lands.
+		* The strength is provided by --dsh-input-card-blur and falls back to the
+		* compatibility default when the setting has not loaded yet.
 		*
 		* The marker is body/html level (managed outside the surface/part/plugin
 		* enum, see contracts/semantic-attrs-v1.md) and survives a neutralizer
@@ -127,8 +127,8 @@ window.__ModuleLoader__.load({
       backdrop-filter: none !important;
     }
     html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card] {
-      backdrop-filter: blur(10px) !important;
-      -webkit-backdrop-filter: blur(10px) !important;
+      backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;
+      -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;
     }
   `;
 			doc.head.appendChild(style);
@@ -272,6 +272,7 @@ window.__ModuleLoader__.load({
 					}
 				});
 				this.doc.addEventListener("visibilitychange", this.onVisibility);
+				this.doc.defaultView?.addEventListener("message", this.onSceneMessage);
 				this.doc.addEventListener("pointerdown", this.onFirstGesture);
 				this.doc.addEventListener("keydown", this.onFirstGesture);
 				if (this.enabledValue && this.selectionValue) this.fetchAndSync();
@@ -458,9 +459,17 @@ window.__ModuleLoader__.load({
 				this.render();
 				this.publish();
 			}
+			recoverScenePlayer() {
+				const scenePlayer = this.mediaLayer?.firstElementChild ?? null;
+				if (!(scenePlayer instanceof HTMLIFrameElement) || scenePlayer.dataset.dshScenePlayer !== "") return;
+				try {
+					scenePlayer.contentWindow?.postMessage({ type: "dsh-recover-renderer" }, window.location.origin);
+				} catch {}
+			}
 			dispose() {
 				this.disposed = true;
 				this.doc.removeEventListener("visibilitychange", this.onVisibility);
+				this.doc.defaultView?.removeEventListener("message", this.onSceneMessage);
 				this.doc.removeEventListener("pointerdown", this.onFirstGesture);
 				this.doc.removeEventListener("keydown", this.onFirstGesture);
 				this.teardownLayers();
@@ -483,6 +492,13 @@ window.__ModuleLoader__.load({
 			onFirstGesture = () => {
 				if (this.videoElement === null || !this.videoElement.paused) return;
 				this.videoElement.play()?.catch(() => {});
+			};
+			onSceneMessage = (event) => {
+				const scenePlayer = this.mediaLayer?.firstElementChild ?? null;
+				if (!(scenePlayer instanceof HTMLIFrameElement) || scenePlayer.dataset.dshScenePlayer !== "") return;
+				if (event.source !== scenePlayer.contentWindow || event.origin !== this.doc.location?.origin) return;
+				if (event.data?.type !== "dsh-scene-needs-reload") return;
+				scenePlayer.src = scenePlayer.src;
 			};
 			onVisibility = () => {
 				if (!this.pauseOnHiddenValue) return;
@@ -1438,12 +1454,13 @@ window.__ModuleLoader__.load({
 		* @param props - card props.
 		* @returns the plugin card.
 		*/
-		function SkinCenter({ t, runtime, theme, background, wallpaper }) {
+		function SkinCenter({ t, runtime, theme, background, wallpaper, preview }) {
 			const snapshot = (0, react.useSyncExternalStore)((listener) => theme.subscribe(listener), () => theme.getTheme());
 			const enabled = (0, react.useSyncExternalStore)(background.subscribe, background.enabled);
 			const opacity = (0, react.useSyncExternalStore)(background.subscribe, background.opacity);
 			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
 			const blurContent = (0, react.useSyncExternalStore)(background.subscribe, background.blurContent);
+			const inputCardBlur = (0, react.useSyncExternalStore)(background.subscribe, background.inputCardBlur);
 			const catalog = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.catalog);
 			const state = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.controller.getState);
 			const activeId = state.active;
@@ -1473,10 +1490,10 @@ window.__ModuleLoader__.load({
 				});
 			};
 			const tryOn = (entry) => {
-				run(entry.manifest.id, () => runtime.controller.tryOn(entry.manifest.id, entry));
+				run(entry.manifest.id, () => preview.runSkin(() => runtime.controller.tryOn(entry.manifest.id, entry)));
 			};
 			const tryOnOfficial = () => {
-				run(OFFICIAL, () => runtime.controller.tryOn(null, null));
+				run(OFFICIAL, () => preview.runSkin(() => runtime.controller.tryOn(null, null)));
 			};
 			const exitTryOn = () => {
 				run(tryingId ?? OFFICIAL, () => runtime.controller.exitTryOn());
@@ -1489,7 +1506,7 @@ window.__ModuleLoader__.load({
 			*/
 			const applySkin = (target) => {
 				if (target === OFFICIAL) {
-					run(OFFICIAL, () => runtime.controller.switchTo(null, null));
+					run(OFFICIAL, () => preview.runSkin(() => runtime.controller.switchTo(null, null)));
 					return;
 				}
 				const entry = runtime.find(target);
@@ -1497,7 +1514,7 @@ window.__ModuleLoader__.load({
 					setError(t("applyFailed"));
 					return;
 				}
-				run(target, () => runtime.controller.switchTo(target, entry));
+				run(target, () => preview.runSkin(() => runtime.controller.switchTo(target, entry)));
 			};
 			const dark = snapshot.active.colorScheme === "dark";
 			/** One row: try-on control + apply button. Shared by the official card and every skin card. */
@@ -1699,6 +1716,40 @@ window.__ModuleLoader__.load({
 								})
 							]
 						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.backgroundRow,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.backgroundHead,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.backgroundLabel,
+										children: t("inputCardBlur")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+										className: skin_center_module_css_default.backgroundValue,
+										"aria-hidden": "true",
+										children: [inputCardBlur, "px"]
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									id: "skin-center-input-card-blur",
+									className: skin_center_module_css_default.backgroundRange,
+									type: "range",
+									min: "0",
+									max: "20",
+									step: "1",
+									value: inputCardBlur,
+									"aria-valuetext": `${inputCardBlur}px`,
+									"aria-label": t("inputCardBlur"),
+									onChange: (event) => {
+										background.setInputCardBlur(Number(event.target.value));
+									}
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: skin_center_module_css_default.backgroundHint,
+									children: t("inputCardBlurHint")
+								})
+							]
+						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(WallpaperPanel, {
 							t,
 							wallpaper
@@ -1804,7 +1855,7 @@ window.__ModuleLoader__.load({
 		}
 		/** Render the skin-center card as a first-level settings page. */
 		function SkinCenterSection(props) {
-			const { t, runtime, theme, background, wallpaper } = props;
+			const { t, runtime, theme, background, wallpaper, preview } = props;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
 				className: skin_center_module_css_default.sectionList,
 				children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SkinCenter, {
@@ -1812,7 +1863,8 @@ window.__ModuleLoader__.load({
 					runtime,
 					theme,
 					background,
-					wallpaper
+					wallpaper,
+					preview
 				})
 			});
 		}
@@ -1826,8 +1878,12 @@ window.__ModuleLoader__.load({
 		const BLUR_EMPTY_FIELD = "backgroundBlurEmpty";
 		/** Field of the with-content backdrop blur inside the namespace section. */
 		const BLUR_CONTENT_FIELD = "backgroundBlurContent";
+		/** Field of the composer card backdrop blur inside the namespace section. */
+		const INPUT_CARD_BLUR_FIELD = "inputCardBlur";
 		/** CSS custom property written to document.body and read by backdrop skins. */
 		const SCRIM_VAR = "--dsw-skin-scrim";
+		/** CSS custom property consumed by the shared composer neutralizer. */
+		const INPUT_CARD_BLUR_VAR = "--dsh-input-card-blur";
 		/**
 		* Selector for a conversation message row inside the shell's center column.
 		* Official shell message rows carry `data-chat-anchor-key`; the
@@ -1853,6 +1909,7 @@ window.__ModuleLoader__.load({
 			opacityValue = 0;
 			blurEmptyValue = 0;
 			blurContentValue = 0;
+			inputCardBlurValue = 10;
 			listeners = /* @__PURE__ */ new Set();
 			scope;
 			/** The fixed backdrop-filter element, present only while active blur > 0. */
@@ -1872,14 +1929,18 @@ window.__ModuleLoader__.load({
 				this.opacityValue = this.readOpacity();
 				this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
 				this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
+				this.inputCardBlurValue = this.readInputCardBlur();
 				this.applyOcclusion();
+				this.applyInputCardBlur();
 				this.syncBlur();
 				scope.subscribe(() => {
 					this.enabledValue = this.readEnabled();
 					this.opacityValue = this.readOpacity();
 					this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
 					this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
+					this.inputCardBlurValue = this.readInputCardBlur();
 					this.applyOcclusion();
+					this.applyInputCardBlur();
 					this.syncBlur();
 					this.publish();
 				});
@@ -1888,6 +1949,7 @@ window.__ModuleLoader__.load({
 			setEnabled(value) {
 				this.enabledValue = value;
 				this.applyOcclusion();
+				this.applyInputCardBlur();
 				this.syncBlur();
 				this.publish();
 				this.scope.set("enabled", value);
@@ -1895,6 +1957,7 @@ window.__ModuleLoader__.load({
 			opacity = () => this.opacityValue;
 			blurEmpty = () => this.blurEmptyValue;
 			blurContent = () => this.blurContentValue;
+			inputCardBlur = () => this.inputCardBlurValue;
 			subscribe = (listener) => {
 				this.listeners.add(listener);
 				return () => {
@@ -1924,6 +1987,13 @@ window.__ModuleLoader__.load({
 				this.publish();
 				this.scope.set(BLUR_CONTENT_FIELD, clamped);
 			}
+			setInputCardBlur(value) {
+				const clamped = this.clampBlur(value);
+				this.inputCardBlurValue = clamped;
+				this.applyInputCardBlur();
+				this.publish();
+				this.scope.set(INPUT_CARD_BLUR_FIELD, clamped);
+			}
 			dispose() {
 				this.disposed = true;
 				if (this.rafId !== null) {
@@ -1931,6 +2001,7 @@ window.__ModuleLoader__.load({
 					this.rafId = null;
 				}
 				this.removeBlurElement();
+				document.body.style.removeProperty(INPUT_CARD_BLUR_VAR);
 				if (this.observer !== null) {
 					this.observer.disconnect();
 					this.observer = null;
@@ -1947,6 +2018,11 @@ window.__ModuleLoader__.load({
 				if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
 				return Math.max(0, Math.min(100, raw));
 			}
+			readInputCardBlur() {
+				const raw = this.scope.getSnapshot().value?.inputCardBlur;
+				if (typeof raw !== "number" || !Number.isFinite(raw)) return 10;
+				return this.clampBlur(raw);
+			}
 			/** The effective blur section value for one field, clamped 0-20, defaulting to 0. */
 			readBlur(field) {
 				const raw = this.scope.getSnapshot().value?.[field];
@@ -1955,6 +2031,13 @@ window.__ModuleLoader__.load({
 			}
 			clampBlur(value) {
 				return Math.max(0, Math.min(20, Math.round(value)));
+			}
+			applyInputCardBlur() {
+				if (!this.enabledValue) {
+					document.body.style.removeProperty(INPUT_CARD_BLUR_VAR);
+					return;
+				}
+				document.body.style.setProperty(INPUT_CARD_BLUR_VAR, this.inputCardBlurValue + "px");
 			}
 			/** Write the current occlusion onto the body CSS variable (0..1 alpha). */
 			applyOcclusion() {
@@ -2076,6 +2159,8 @@ window.__ModuleLoader__.load({
 			backgroundOpacity: "Background occlusion",
 			backgroundBlurEmpty: "Blur when empty",
 			backgroundBlurContent: "Blur with content",
+			inputCardBlur: "Input card blur",
+			inputCardBlurHint: "Blurs only the area behind the input card while backdrop art is visible; it does not blur the entire wallpaper.",
 			backgroundBlurHint: "Applies a separate Gaussian blur to the backdrop for the empty conversation and the conversation with content; 0 disables.",
 			backgroundBlurInert: "Visible only with skins that paint a backdrop; the official default has none.",
 			backgroundHint: "Instantly veils the backdrop behind the panels — higher values obscure the art to help you focus.",
@@ -2145,6 +2230,8 @@ window.__ModuleLoader__.load({
 			backgroundOpacity: "背景遮挡",
 			backgroundBlurEmpty: "空对话背景模糊",
 			backgroundBlurContent: "有对话背景模糊",
+			inputCardBlur: "输入卡模糊",
+			inputCardBlurHint: "仅模糊输入卡背后的区域，不会让整张壁纸变糊。",
 			backgroundBlurHint: "对话为空与有内容时分别应用不同的背景高斯模糊强度，0 为关闭。",
 			backgroundBlurInert: "仅对带背景图插画的皮肤可见；官方默认无背景图。",
 			backgroundHint: "即时为面板背后的背景加遮罩——数值越高越能弱化插画，帮你集中注意力。",
@@ -2943,6 +3030,34 @@ window.__ModuleLoader__.load({
 			return store;
 		}
 		//#endregion
+		//#region src/client/preview-coordinator.ts
+		var PreviewCoordinator = class {
+			skin;
+			wallpaper;
+			tail = Promise.resolve();
+			constructor(skin, wallpaper) {
+				this.skin = skin;
+				this.wallpaper = wallpaper;
+			}
+			runSkin(action) {
+				return this.enqueue(async () => {
+					if (this.wallpaper.trying()) this.wallpaper.exitTryOn();
+					return await action();
+				});
+			}
+			runWallpaper(action) {
+				return this.enqueue(async () => {
+					if (this.skin.getState().previewing) await this.skin.exitTryOn();
+					action();
+				});
+			}
+			enqueue(action) {
+				const run = this.tail.then(action, action);
+				this.tail = run.then(() => void 0, () => void 0);
+				return run;
+			}
+		};
+		//#endregion
 		//#region src/client/index.ts
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
@@ -2983,8 +3098,11 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => wallpaper.subscribe(() => {
 				runtime.controller.refresh();
 			}), "ui-skin-center: wallpaper priority refresh");
+			const preview = new PreviewCoordinator(runtime.controller, wallpaper);
+			ctx.effect(() => ctx.on("theme/change", () => wallpaper.recoverScenePlayer()), "ui-skin-center: scene recovery after theme change");
 			const injected = () => ({
 				runtime,
+				preview,
 				theme: {
 					getTheme: () => theme.getTheme(),
 					subscribe: (listener) => ctx.on("theme/change", listener),
@@ -2996,10 +3114,12 @@ window.__ModuleLoader__.load({
 					opacity: () => background.opacity(),
 					blurEmpty: () => background.blurEmpty(),
 					blurContent: () => background.blurContent(),
+					inputCardBlur: () => background.inputCardBlur(),
 					subscribe: (listener) => background.subscribe(listener),
 					set: (opacity) => background.set(opacity),
 					setBlurEmpty: (value) => background.setBlurEmpty(value),
 					setBlurContent: (value) => background.setBlurContent(value),
+					setInputCardBlur: (value) => background.setInputCardBlur(value),
 					dispose: () => background.dispose()
 				},
 				wallpaper: {
@@ -3026,11 +3146,16 @@ window.__ModuleLoader__.load({
 					setPauseOnHidden: (value) => wallpaper.setPauseOnHidden(value),
 					setSound: (value) => wallpaper.setSound(value),
 					setVolume: (value) => wallpaper.setVolume(value),
-					applySelection: (descriptor) => wallpaper.applySelection(descriptor),
+					applySelection: (descriptor) => {
+						preview.runWallpaper(() => wallpaper.applySelection(descriptor));
+					},
 					clearSelection: () => wallpaper.clearSelection(),
 					sync: (descriptor) => wallpaper.sync(descriptor),
-					tryOn: (descriptor) => wallpaper.tryOn(descriptor),
+					tryOn: (descriptor) => {
+						preview.runWallpaper(() => wallpaper.tryOn(descriptor));
+					},
 					exitTryOn: () => wallpaper.exitTryOn(),
+					recoverScenePlayer: () => wallpaper.recoverScenePlayer(),
 					dispose: () => wallpaper.dispose()
 				}
 			});

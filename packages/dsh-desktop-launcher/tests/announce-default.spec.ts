@@ -9,7 +9,7 @@ describe('announcement default (issue #839)', () => {
   it('resolves announceToAgent to false by default', () => {
     const value = Config({}) as { announceToAgent: boolean; enabled: boolean }
     expect(value.announceToAgent).toBe(false)
-    expect(value.enabled).toBe(true)
+    expect(value.enabled).toBe(false)
   })
 
   it('keeps an explicit true override', () => {

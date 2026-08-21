@@ -1762,6 +1762,8 @@ export interface SceneManifest {
   hasFireflies?: boolean
   meteorTex?: string
   sparkleTex?: string
+  /** Scene contains WE embedded scripts the browser renderer cannot execute. */
+  scripted?: boolean
   layers: SceneManifestLayer[]
 }
 
@@ -2059,6 +2061,17 @@ export function parseMdl(buf: Uint8Array): DecodedMesh[] {
   return meshes
 }
 
+function containsEmbeddedScript(value: unknown, seen = new Set<object>()): boolean {
+  if (value === null || typeof value !== 'object') return false
+  if (seen.has(value)) return false
+  seen.add(value)
+  if (!Array.isArray(value)) {
+    const record = value as Record<string, unknown>
+    if (typeof record.script === 'string' && record.script.trim() !== '') return true
+  }
+  return Object.values(value).some(child => containsEmbeddedScript(child, seen))
+}
+
 function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifest | null {
   let scene = access.readJson('scene.json') as Record<string, unknown> | null
   const project = access.readJson('project.json') as Record<string, unknown> | null
@@ -2081,6 +2094,7 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
     height,
     hasMeteors: false,
     hasFireflies: false,
+    scripted: containsEmbeddedScript(scene),
     layers: [],
   }
 

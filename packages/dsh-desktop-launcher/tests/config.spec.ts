@@ -5,8 +5,8 @@ describe('desktop-launcher config defaults', () => {
   it('defaults the plugin master switch to off', () => {
     const resolved = Config({})
     expect(resolved.enabled).toBe(false)
-    // The announcement still defaults on; it is gated by `enabled`.
-    expect(resolved.announceToAgent).toBe(true)
+    // Agent announcements are separately opt-in, even while the plugin is enabled.
+    expect(resolved.announceToAgent).toBe(false)
   })
 
   it('preserves an explicit enabled value', () => {

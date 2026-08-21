@@ -69,8 +69,8 @@ describe('desktop-launcher host apply', () => {
     expect(announced.size).toBe(0)
   })
 
-  it('mounts the routes and the announcement once enabled', () => {
-    const { ctx, registered, announced } = makeCtx(makeScope({ enabled: true }))
+  it('mounts the routes and an explicitly enabled announcement', () => {
+    const { ctx, registered, announced } = makeCtx(makeScope({ enabled: true, announceToAgent: true }))
     apply(ctx, {})
     expect(registered).toEqual(new Set([
       '/api/dsh-desktop-launcher/create',

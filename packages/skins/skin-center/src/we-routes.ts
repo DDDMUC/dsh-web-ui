@@ -276,13 +276,24 @@ interface WallpaperJson {
 }
 
 /** Cached per-scene capability probe result. */
-interface SceneProbe { hasVideo: boolean; hasSceneWebGL: boolean }
+const SCENE_PROBE_VERSION = 2
+
+interface SceneProbe {
+  v: number
+  hasVideo: boolean
+  hasSceneWebGL: boolean
+  compatibility: 'full' | 'static-only'
+  unsupportedFeatures: string[]
+}
 
 /** Shape-check an entry loaded from the persisted probe cache. */
 function isSceneProbe(value: unknown): value is SceneProbe {
   return value !== null && typeof value === 'object'
+    && (value as SceneProbe).v === SCENE_PROBE_VERSION
     && typeof (value as SceneProbe).hasVideo === 'boolean'
     && typeof (value as SceneProbe).hasSceneWebGL === 'boolean'
+    && ((value as SceneProbe).compatibility === 'full' || (value as SceneProbe).compatibility === 'static-only')
+    && Array.isArray((value as SceneProbe).unsupportedFeatures)
 }
 
 /** Build the route family. */
@@ -438,6 +449,8 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         if (!probe) {
           let hasVideo = false
           let hasSceneWebGL = false
+          let compatibility: SceneProbe['compatibility'] = 'full'
+          const unsupportedFeatures: string[] = []
           try {
             const pkgData = await readFile(entry.fileAbs)
             hasVideo = entry.fileAbs.toLowerCase().endsWith('.json')
@@ -447,12 +460,17 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
               const manifest = entry.fileAbs.toLowerCase().endsWith('.json')
                 ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
                 : buildSceneManifest(pkgData, 'check')
-              hasSceneWebGL = Boolean(manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0)))
+              if (manifest?.scripted) {
+                compatibility = 'static-only'
+                unsupportedFeatures.push('embedded-script')
+              }
+              hasSceneWebGL = compatibility === 'full'
+                && Boolean(manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0)))
             }
           } catch {
             // probe failure: capabilities stay negative
           }
-          probe = { hasVideo, hasSceneWebGL }
+          probe = { v: SCENE_PROBE_VERSION, hasVideo, hasSceneWebGL, compatibility, unsupportedFeatures }
           if (mtimeMs > 0) {
             // Bound the cache by evicting the oldest entries instead of
             // clearing everything at once: the whole-map clear would make a
@@ -474,6 +492,8 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           ok: true,
           videoUrl: videoToken !== null ? WE_API_PREFIX + '/scene-video/' + videoToken : null,
           sceneUrl: sceneToken !== null ? WE_API_PREFIX + '/scene-runtime/' + sceneToken : null,
+          compatibility: probe.compatibility,
+          unsupportedFeatures: probe.unsupportedFeatures,
         })
       } catch (error) {
         json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })

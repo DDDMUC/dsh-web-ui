@@ -17,15 +17,15 @@
  * Readability after the mask is gone comes from the input card itself
  * ([data-composer-card], the official shell's stable card anchor): the card
  * keeps its own translucent tint (--dsw-specific-* tokens, not a hardcoded
- * opacity) and gains a fixed backdrop blur (INPUT_FROST_BLUR_PX). The blur
+ * opacity) and gains a configurable backdrop blur (default INPUT_FROST_BLUR_PX). The blur
  * occludes the backdrop art and any message content scrolling under the
  * input, so typed text never overlaps — a frosted pane instead of the older
  * flat mask. The frost is only enabled while the conversation actually has
  * message content (data-dsh-conversation-content): an empty conversation has
  * no正文 to occlude, so the input card keeps only its own translucent tint
  * and does not flash an extra blur patch (issue #777 follow-up).
- * The strength is a baked constant (not a slider) until the unified
- * dialog-blur control lands.
+ * The strength is provided by --dsh-input-card-blur and falls back to the
+ * compatibility default when the setting has not loaded yet.
  *
  * The marker is body/html level (managed outside the surface/part/plugin
  * enum, see contracts/semantic-attrs-v1.md) and survives a neutralizer
@@ -45,7 +45,7 @@ export const CONVERSATION_CONTENT_ATTR = 'data-dsh-conversation-content'
 /** One source that can make backdrop art visible. */
 export type BackdropSource = 'skin' | 'wallpaper'
 
-/** Fixed input-card backdrop blur strength (px). Baked, not a slider yet. */
+/** Compatibility default for the input-card backdrop blur strength (px). */
 export const INPUT_FROST_BLUR_PX = 10
 
 const sourceSets = new WeakMap<Document, Set<BackdropSource>>()
@@ -133,8 +133,8 @@ export function ensureSceneNeutralizer(doc: Document): void {
       backdrop-filter: none !important;
     }
     html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card] {
-      backdrop-filter: blur(${INPUT_FROST_BLUR_PX}px) !important;
-      -webkit-backdrop-filter: blur(${INPUT_FROST_BLUR_PX}px) !important;
+      backdrop-filter: blur(var(--dsh-input-card-blur, ${INPUT_FROST_BLUR_PX}px)) !important;
+      -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, ${INPUT_FROST_BLUR_PX}px)) !important;
     }
   `
   doc.head.appendChild(style)
