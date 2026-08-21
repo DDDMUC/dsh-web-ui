@@ -564,8 +564,12 @@ window.__ModuleLoader__.load({
 			scrimLayer = null;
 			videoElement = null;
 			rootNeutralizer = null;
+			/** Re-asserts the wallpaper layers if the shell tears the body subtree down. */
+			mountObserver = null;
+			/** Re-tags full-viewport surfaces after navigation rebuilds #root (#805). */
+			surfaceObserver = null;
 			/** Shell surfaces tagged with data-dsh-wallpaper-surface during this mount. */
-			taggedSurfaces = [];
+			taggedSurfaces = /* @__PURE__ */ new Set();
 			disposed = false;
 			/** In-flight scene probes by wallpaper id; overlapping entry points
 			*  (applySelection / tryOn / sync / fetchAndSync) must not re-read the
@@ -591,6 +595,15 @@ window.__ModuleLoader__.load({
 				this.doc.defaultView?.addEventListener("message", this.onSceneMessage);
 				this.doc.addEventListener("pointerdown", this.onFirstGesture);
 				this.doc.addEventListener("keydown", this.onFirstGesture);
+				const win = this.doc.defaultView;
+				if (win !== null && typeof win.MutationObserver === "function") {
+					this.mountObserver = new win.MutationObserver(() => {
+						if (this.disposed) return;
+						if ((this.previewing ?? this.applied) === null) return;
+						if (this.mediaLayer === null || !this.mediaLayer.isConnected) this.render();
+					});
+					this.mountObserver.observe(this.doc.body, { childList: true });
+				}
 				if (this.enabledValue && this.selectionValue) this.fetchAndSync();
 			}
 			fetchAndSync() {
@@ -784,6 +797,8 @@ window.__ModuleLoader__.load({
 			}
 			dispose() {
 				this.disposed = true;
+				this.mountObserver?.disconnect();
+				this.mountObserver = null;
 				this.doc.removeEventListener("visibilitychange", this.onVisibility);
 				this.doc.defaultView?.removeEventListener("message", this.onSceneMessage);
 				this.doc.removeEventListener("pointerdown", this.onFirstGesture);
@@ -881,11 +896,14 @@ window.__ModuleLoader__.load({
 				this.doc.documentElement.dataset.dshWallpaperActive = "true";
 				setSceneBackdropActive(this.doc, "wallpaper", true);
 				this.markSurfaces();
+				this.ensureSurfaceObserver();
+				if (this.mediaLayer !== null && !this.mediaLayer.isConnected) this.doc.body.appendChild(this.mediaLayer);
 				if (this.mediaLayer === null) {
 					this.mediaLayer = this.doc.createElement("div");
 					styleLayer(this.mediaLayer, -3);
 					this.doc.body.appendChild(this.mediaLayer);
 				}
+				if (this.scrimLayer !== null && !this.scrimLayer.isConnected) this.doc.body.appendChild(this.scrimLayer);
 				if (this.scrimLayer === null) {
 					this.scrimLayer = this.doc.createElement("div");
 					styleLayer(this.scrimLayer, -2);
@@ -902,6 +920,10 @@ window.__ModuleLoader__.load({
 						this.mediaLayer.appendChild(child);
 						if (child instanceof HTMLVideoElement && child.paused) child.play()?.catch(() => {});
 					}
+				} else {
+					const child = this.mediaLayer.firstElementChild;
+					const VideoCtor = this.doc.defaultView?.HTMLVideoElement;
+					if (VideoCtor !== void 0 && child instanceof VideoCtor && child.paused) child.play()?.catch(() => {});
 				}
 				this.applyFit();
 				const blur = this.blurValue > 0 ? "blur(" + String(this.blurValue) + "px)" : "";
@@ -1049,14 +1071,15 @@ window.__ModuleLoader__.load({
 			markSurfaces() {
 				const root = this.doc.getElementById("root");
 				if (root !== null) {
-					const isSurface = this.options.declareSurface ?? defaultWallpaperSurface;
+					const custom = this.options.declareSurface;
+					const isSurface = custom !== void 0 ? (el) => custom(el, this.doc) : (el) => defaultWallpaperSurface(el, this.doc);
 					const stack = [root];
 					while (stack.length > 0) {
 						const node = stack.pop();
 						if (node === void 0) continue;
-						if (node instanceof HTMLElement && !node.hasAttribute("data-dsh-wallpaper-surface") && isSurface(node, this.doc)) {
+						if (node instanceof HTMLElement && !node.hasAttribute("data-dsh-wallpaper-surface") && isSurface(node)) {
 							node.setAttribute("data-dsh-wallpaper-surface", "");
-							this.taggedSurfaces.push(node);
+							this.taggedSurfaces.add(node);
 						}
 						for (const child of Array.from(node.children)) stack.push(child);
 					}
@@ -1074,17 +1097,75 @@ window.__ModuleLoader__.load({
 					if (node === void 0) continue;
 					if (node instanceof HTMLElement && !node.hasAttribute("data-dsh-wallpaper-surface") && isFade(node, this.doc)) {
 						node.setAttribute("data-dsh-wallpaper-surface", "");
-						this.taggedSurfaces.push(node);
+						this.taggedSurfaces.add(node);
 					}
 					for (const child of Array.from(node.children)) stack.push(child);
 				}
 			}
+			/**
+			* Watch document.body (subtree) while a wallpaper is active and re-tag only
+			* the surfaces affected by each mutation. Navigation rebuilds #root by
+			* replacing its children, so the added subtrees are scanned instead of the
+			* whole tree; removed nodes are untagged immediately. This avoids repeated
+			* full-tree scans and forced layout during chat streaming (#review).
+			*/
+			ensureSurfaceObserver() {
+				if (this.disposed || this.surfaceObserver !== null) return;
+				const win = this.doc.defaultView;
+				if (win === null || typeof win.MutationObserver !== "function") return;
+				this.surfaceObserver = new win.MutationObserver((records) => this.handleSurfaceMutations(records));
+				this.surfaceObserver.observe(this.doc.body, {
+					childList: true,
+					subtree: true
+				});
+			}
+			/** Incrementally tag added subtrees and untag removed subtrees. */
+			handleSurfaceMutations(records) {
+				if (this.disposed || (this.previewing ?? this.applied) === null) return;
+				for (const record of records) {
+					for (const node of record.addedNodes) if (node instanceof HTMLElement) this.tagAddedSubtree(node);
+					for (const node of record.removedNodes) if (node instanceof HTMLElement) this.untagRemovedSubtree(node);
+				}
+			}
+			/** Tag newly added elements that qualify as full-viewport surfaces or workspace fades. */
+			tagAddedSubtree(root) {
+				const isSurface = this.options.declareSurface !== void 0 ? (el) => this.options.declareSurface(el, this.doc) : (el) => defaultWallpaperSurface(el, this.doc);
+				const isFade = this.options.declareWorkspaceFade ?? defaultWorkspaceFade;
+				const stack = [root];
+				while (stack.length > 0) {
+					const node = stack.pop();
+					if (node === void 0) continue;
+					if (!node.hasAttribute("data-dsh-wallpaper-surface")) {
+						const inWorkspaces = node.closest("[data-slot=\"sidebar.workspaces\"]") !== null;
+						if (isSurface(node) || inWorkspaces && isFade(node, this.doc)) {
+							node.setAttribute("data-dsh-wallpaper-surface", "");
+							this.taggedSurfaces.add(node);
+						}
+					}
+					for (const child of Array.from(node.children)) if (child instanceof HTMLElement) stack.push(child);
+				}
+			}
+			/** Remove tags from a removed subtree and drop its references. */
+			untagRemovedSubtree(root) {
+				const stack = [root];
+				while (stack.length > 0) {
+					const node = stack.pop();
+					if (node === void 0) continue;
+					if (node.hasAttribute("data-dsh-wallpaper-surface")) {
+						node.removeAttribute("data-dsh-wallpaper-surface");
+						this.taggedSurfaces.delete(node);
+					}
+					for (const child of Array.from(node.children)) if (child instanceof HTMLElement) stack.push(child);
+				}
+			}
 			untagSurfaces() {
-				for (const el of this.taggedSurfaces) el.removeAttribute("data-dsh-wallpaper-surface");
-				this.taggedSurfaces = [];
+				for (const el of Array.from(this.taggedSurfaces)) el.removeAttribute("data-dsh-wallpaper-surface");
+				this.taggedSurfaces.clear();
 			}
 			teardownLayers() {
 				this.releaseCaptureVideo();
+				this.surfaceObserver?.disconnect();
+				this.surfaceObserver = null;
 				this.untagSurfaces();
 				delete this.doc.body.dataset.dshWallpaperActive;
 				delete this.doc.documentElement.dataset.dshWallpaperActive;
