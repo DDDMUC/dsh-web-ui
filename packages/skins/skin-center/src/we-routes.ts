@@ -47,6 +47,7 @@ import {
   hasSceneVideo,
   hasSceneVideoFromDir,
   parseTexToRGBA,
+  TexUnsupportedError,
 } from './pkg-extract.ts'
 import { WE_SHIM_JS } from './we-shim-source.ts'
 import { WE_SCENE_PLAYER_HTML } from './we-player-source.ts'
@@ -655,6 +656,20 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         res.setHeader('Cache-Control', 'no-store')
         pipeFile(cachePath, res, openReadStream)
       })().catch((error: unknown) => {
+        if (error instanceof TexUnsupportedError) {
+          // Machine-readable signal for the client: the scene's textures use
+          // a format this build cannot decode, so the frame route reports it
+          // and the wallpaper controller falls back to the author preview
+          // (#906).
+          json(res, 422, {
+            ok: false,
+            error: 'unsupported-tex-format',
+            format: error.format,
+            formatName: error.formatName,
+            message: error.message,
+          })
+          return
+        }
         json(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
       })
     },
