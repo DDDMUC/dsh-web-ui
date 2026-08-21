@@ -17,6 +17,13 @@
  *   --better-sidebar-tgz TGZ: rewrite the dsh-better-sidebar dependency to
  *     the given tarball (pre-release local 联调).
  *
+ * Tarballs switched to a file: spec are patched recursively: the packed
+ * (or copied) tarball's own package.json goes through the same dependency
+ * rewrite, so a nested family edge (dsh-skins -> dsh-client-ui-skin-center)
+ * cannot fall back to the not-yet-published registry version while npm is
+ * still propagating the release. Already-published siblings keep resolving
+ * from npm — the registry probe stays authoritative.
+ *
  * Usage:
  *   node scripts/e2e-mount-rewrite <tarball package.json> [--root DIR]
  *     [--family-dir DIR] [--better-sidebar-tgz TGZ]
@@ -81,8 +88,163 @@ function readTgzName(tgz) {
   return JSON.parse(raw).name
 }
 
+/** Extract a tarball into a fresh staging directory. */
+function extractTarball(tgz) {
+  const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-tgz-extract-'))
+  execFileSync('tar', ['-xzf', tgz, '-C', staging], { stdio: 'pipe' })
+  return staging
+}
+
+/** Repack the staging package/ dir as the given tarball, then drop staging. */
+function repackTarball(tgz, staging) {
+  execFileSync('tar', ['-czf', tgz, '-C', staging, 'package'], { stdio: 'pipe' })
+  fs.rmSync(staging, { recursive: true, force: true })
+}
+
 /**
- * Rewrite the tarball's dependency table in place.
+ * Rewrite one package.json's @linxin666/* dependency table. Shared by the
+ * aggregate entry manifest and every nested family tarball; `prefix`
+ * decorates the report lines so nested rewrites stay distinguishable.
+ */
+async function rewriteManifestDeps(pkgPath, opts, state, prefix) {
+  const log = opts.log ?? (() => {})
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+  // A nested family tarball without dependencies has nothing to rewrite;
+  // only the aggregate entry enforces a dependency table.
+  if (!pkg.dependencies) return []
+  const report = []
+  const familyNames = Object.keys(pkg.dependencies).filter(key => key.startsWith(FAMILY_SCOPE))
+
+  if (opts.familyDir) {
+    for (const name of familyNames) {
+      const tgz = await ensureFamilyDirTgz(name, opts, state)
+      pkg.dependencies[name] = 'file:' + tgz
+      report.push(name + ' → file:' + tgz + '（family-dir 全覆盖）')
+    }
+  } else {
+    const check = opts.checkPublished ?? checkPublished
+    for (const name of familyNames) {
+      const version = pkg.dependencies[name]
+      if (await check(name, version)) {
+        report.push(name + '@' + version + ' npm 已发布（保持 registry 安装）')
+        continue
+      }
+      const tgz = await ensurePackedTgz(name, version, opts, state)
+      pkg.dependencies[name] = 'file:' + tgz
+      report.push(name + '@' + version + ' npm 未发布 → file:' + tgz + '（发布窗口本地 tarball）')
+    }
+  }
+
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+  const decorated = prefix === '' ? report : report.map(line => prefix + line)
+  for (const line of decorated) log(line)
+  return decorated
+}
+
+/**
+ * Patch one family tarball in place: extract, rewrite its own family
+ * dependencies with the same rules, repack. A family tarball switched to
+ * file: must not keep an unpublished sibling on the registry — the nested
+ * edge is exactly what made the publish-window smoke fail.
+ */
+async function patchTarball(tgz, opts, state) {
+  const staging = extractTarball(tgz)
+  try {
+    const pkgPath = path.join(staging, 'package', 'package.json')
+    if (!fs.existsSync(pkgPath)) {
+      throw new Error('tarball 缺少 package/package.json：' + tgz)
+    }
+    await rewriteManifestDeps(pkgPath, opts, state, '[嵌套] ')
+    repackTarball(tgz, staging)
+  } catch (error) {
+    fs.rmSync(staging, { recursive: true, force: true })
+    throw error
+  }
+}
+
+/** Per-run state: patched-tarball cache, recursion guards, scratch dirs. */
+function createState() {
+  return {
+    patched: new Map(),
+    pendingPath: new Map(),
+    inProgress: new Set(),
+    packedTgz: new Set(),
+    familyTgzByName: null,
+    packOut: fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-family-tgz-')),
+    scratch: fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-family-patch-')),
+  }
+}
+
+/**
+ * Auto mode: pack an unpublished family package from the workspace and
+ * patch its own family deps; returns the patched tarball path.
+ */
+async function ensurePackedTgz(name, version, opts, state) {
+  const key = name + '@' + version
+  const cached = state.patched.get(key)
+  if (cached) return cached
+  if (state.inProgress.has(key)) {
+    // Cyclic family edge: the path was assigned on first pack, before
+    // patching started; the caller can reference it directly.
+    return state.pendingPath.get(key)
+  }
+  const dir = findWorkspacePackage(opts.root, name)
+  if (!dir) throw new Error('npm 未发布且仓库内找不到 workspace 包：' + name)
+  const pack = opts.pack ?? packWorkspace
+  const tgz = pack(dir, state.packOut)
+  if (state.packedTgz.has(tgz)) {
+    throw new Error('pack 给 ' + name + ' 返回了已占用的 tarball：' + tgz)
+  }
+  state.packedTgz.add(tgz)
+  state.inProgress.add(key)
+  state.pendingPath.set(key, tgz)
+  try {
+    await patchTarball(tgz, opts, state)
+    state.patched.set(key, tgz)
+  } finally {
+    state.inProgress.delete(key)
+    state.pendingPath.delete(key)
+  }
+  return tgz
+}
+
+/**
+ * Family-dir mode: copy the same-named tarball from the override dir to a
+ * scratch location, patch the copy (its own family deps follow the same
+ * rules), and return the patched copy path. The override dir stays
+ * read-only.
+ */
+async function ensureFamilyDirTgz(name, opts, state) {
+  const key = 'family:' + name
+  const cached = state.patched.get(key)
+  if (cached) return cached
+  if (state.inProgress.has(key)) return state.pendingPath.get(key)
+  if (!state.familyTgzByName) {
+    state.familyTgzByName = new Map()
+    for (const file of fs.readdirSync(opts.familyDir)) {
+      if (!file.endsWith('.tgz')) continue
+      state.familyTgzByName.set(readTgzName(path.join(opts.familyDir, file)), path.join(opts.familyDir, file))
+    }
+  }
+  const src = state.familyTgzByName.get(name)
+  if (!src) throw new Error('缺少本地 tarball：' + name)
+  const dest = fs.mkdtempSync(path.join(state.scratch, 'family-'))
+  const copy = path.join(dest, path.basename(src))
+  fs.copyFileSync(src, copy)
+  state.inProgress.add(key)
+  state.pendingPath.set(key, copy)
+  try {
+    await patchTarball(copy, opts, state)
+    state.patched.set(key, copy)
+  } finally {
+    state.inProgress.delete(key)
+    state.pendingPath.delete(key)
+  }
+  return copy
+}
+
+/**
+ * Rewrite the aggregate tarball's dependency table in place.
  * @param {object} opts
  * @param {string} opts.pkgPath - path to the extracted tarball's package.json.
  * @param {string} opts.root - repository root (workspace package lookup).
@@ -94,7 +256,7 @@ function readTgzName(tgz) {
  * @returns {Promise<string[]>} human-readable report lines.
  */
 async function rewriteDependencies(opts) {
-  const { pkgPath, root, familyDir, betterSidebarTgz } = opts
+  const { pkgPath, betterSidebarTgz } = opts
   const log = opts.log ?? (() => {})
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
   if (!pkg.dependencies) throw new Error('tarball package.json 没有 dependencies')
@@ -105,46 +267,11 @@ async function rewriteDependencies(opts) {
     pkg.dependencies['dsh-better-sidebar'] = 'file:' + betterSidebarTgz
     report.push('dsh-better-sidebar → file:' + betterSidebarTgz + '（手工覆盖）')
   }
-
-  const familyNames = Object.keys(pkg.dependencies).filter(key => key.startsWith(FAMILY_SCOPE))
-
-  if (familyDir) {
-    const byName = {}
-    for (const file of fs.readdirSync(familyDir)) {
-      if (!file.endsWith('.tgz')) continue
-      byName[readTgzName(path.join(familyDir, file))] = path.join(familyDir, file)
-    }
-    for (const name of familyNames) {
-      if (!byName[name]) throw new Error('缺少本地 tarball：' + name)
-      pkg.dependencies[name] = 'file:' + byName[name]
-      report.push(name + ' → file:' + byName[name] + '（family-dir 全覆盖）')
-    }
-  } else {
-    const check = opts.checkPublished ?? checkPublished
-    const pack = opts.pack ?? packWorkspace
-    const packOut = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-family-tgz-'))
-    const packedTgz = new Set()
-    for (const name of familyNames) {
-      const version = pkg.dependencies[name]
-      if (await check(name, version)) {
-        report.push(name + '@' + version + ' npm 已发布（保持 registry 安装）')
-        continue
-      }
-      const dir = findWorkspacePackage(root, name)
-      if (!dir) throw new Error('npm 未发布且仓库内找不到 workspace 包：' + name)
-      const tgz = pack(dir, packOut)
-      if (packedTgz.has(tgz)) {
-        throw new Error('pack 给 ' + name + ' 返回了已占用的 tarball：' + tgz)
-      }
-      packedTgz.add(tgz)
-      pkg.dependencies[name] = 'file:' + tgz
-      report.push(name + '@' + version + ' npm 未发布 → file:' + tgz + '（发布窗口本地 tarball）')
-    }
-  }
-
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
-  for (const line of report) log(line)
-  return report
+
+  const state = createState()
+  const nested = await rewriteManifestDeps(pkgPath, { ...opts, log }, state, '')
+  return report.concat(nested)
 }
 
 function parseArgs(argv) {

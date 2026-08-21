@@ -43,12 +43,28 @@ function makeTarballPkg(dir) {
   })
 }
 
-function makeTgz(dir, pkgName) {
+function makeTgz(dir, pkgBody) {
   const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-tgz-stage-'))
-  writePkg(path.join(staging, 'package'), { name: pkgName, version: '0.0.0' })
-  const tgz = path.join(dir, pkgName.split('/').pop() + '.tgz')
+  writePkg(path.join(staging, 'package'), pkgBody)
+  const tgz = path.join(dir, pkgBody.name.split('/').pop() + '.tgz')
   execFileSync('tar', ['-czf', tgz, '-C', staging, 'package'])
+  fs.rmSync(staging, { recursive: true, force: true })
   return tgz
+}
+
+/** A pack fake: pack the workspace package.json as a real tarball. */
+function packFake(packed) {
+  return (dir, outDir) => {
+    packed.push(dir)
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
+    return makeTgz(outDir, pkg)
+  }
+}
+
+/** Read the package.json embedded in a tarball. */
+function readTgzPkg(tgz) {
+  const raw = execFileSync('tar', ['-xzf', tgz, '-O', 'package/package.json'], { stdio: 'pipe' }).toString()
+  return JSON.parse(raw)
 }
 
 test('auto mode: published deps stay on npm, unpublished deps rewrite to file:', async () => {
@@ -62,12 +78,7 @@ test('auto mode: published deps stay on npm, unpublished deps rewrite to file:',
     pkgPath,
     root,
     checkPublished: async (name, version) => published.has(name + '@' + version),
-    pack: (dir, outDir) => {
-      packed.push(dir)
-      const tgz = path.join(outDir, path.basename(dir) + '.tgz')
-      fs.writeFileSync(tgz, 'fake')
-      return tgz
-    },
+    pack: packFake(packed),
   })
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
   assert.equal(pkg.dependencies['@linxin666/dsh-a'], '0.1.0')
@@ -90,13 +101,7 @@ test('auto mode: two unpublished deps rewrite to distinct tarballs', async () =>
     pkgPath,
     root,
     checkPublished: async () => false,
-    pack: (dir, outDir) => {
-      packed.push(dir)
-      const dest = fs.mkdtempSync(path.join(outDir, 'pack-'))
-      const tgz = path.join(dest, path.basename(dir) + '.tgz')
-      fs.writeFileSync(tgz, 'fake')
-      return tgz
-    },
+    pack: packFake(packed),
   })
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
   const tgzA = pkg.dependencies['@linxin666/dsh-a']
@@ -113,12 +118,17 @@ test('auto mode: pack returning the same tarball twice fails loudly', async () =
   const root = path.join(tmp, 'repo')
   makeWorkspace(root)
   const pkgPath = makeTarballPkg(path.join(tmp, 'tarball'))
+  let first = null
   await assert.rejects(
     rewriteDependencies({
       pkgPath,
       root,
       checkPublished: async () => false,
-      pack: () => '/tmp/same.tgz',
+      pack: (dir, outDir) => {
+        if (first !== null) return first
+        first = makeTgz(outDir, { name: '@linxin666/dsh-a', version: '0.1.0' })
+        return first
+      },
     }),
     /已占用的 tarball/,
   )
@@ -141,6 +151,22 @@ test('packWorkspace: two packs into the same parent dir stay distinct', () => {
   assert.equal(fs.readdirSync(path.dirname(tgzB)).filter(name => name.endsWith('.tgz')).length, 1)
 })
 
+test('auto mode: default packWorkspace packs and patches unpublished deps', async () => {
+  const tmp = makeTmp()
+  const root = path.join(tmp, 'repo')
+  makeWorkspace(root)
+  const pkgPath = makeTarballPkg(path.join(tmp, 'tarball'))
+  await rewriteDependencies({
+    pkgPath,
+    root,
+    checkPublished: async () => false,
+  })
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+  assert.match(pkg.dependencies['@linxin666/dsh-b'], /^file:.*dsh-b.*\.tgz$/)
+  // The packed tarball is a real tar and survives the in-place patch.
+  assert.equal(JSON.parse(execFileSync('tar', ['-xzf', pkg.dependencies['@linxin666/dsh-b'].slice(5), '-O', 'package/package.json'], { stdio: 'pipe' }).toString()).name, '@linxin666/dsh-b')
+})
+
 test('auto mode: unpublished dep missing from the workspace fails loudly', async () => {
   const tmp = makeTmp()
   const root = path.join(tmp, 'repo')
@@ -152,17 +178,23 @@ test('auto mode: unpublished dep missing from the workspace fails loudly', async
   )
 })
 
-test('family-dir mode: every family dep rewrites to the same-named tarball', async () => {
+test('family-dir mode: every family dep rewrites to a patched same-named copy', async () => {
   const tmp = makeTmp()
   const familyDir = path.join(tmp, 'family')
   fs.mkdirSync(familyDir, { recursive: true })
-  const tgzA = makeTgz(familyDir, '@linxin666/dsh-a')
-  const tgzB = makeTgz(familyDir, '@linxin666/dsh-b')
+  const tgzA = makeTgz(familyDir, { name: '@linxin666/dsh-a', version: '0.1.0' })
+  const tgzB = makeTgz(familyDir, { name: '@linxin666/dsh-b', version: '0.2.0' })
   const pkgPath = makeTarballPkg(path.join(tmp, 'tarball'))
   await rewriteDependencies({ pkgPath, root: tmp, familyDir })
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
-  assert.equal(pkg.dependencies['@linxin666/dsh-a'], 'file:' + tgzA)
-  assert.equal(pkg.dependencies['@linxin666/dsh-b'], 'file:' + tgzB)
+  const fileA = pkg.dependencies['@linxin666/dsh-a']
+  const fileB = pkg.dependencies['@linxin666/dsh-b']
+  assert.match(fileA, /^file:.*dsh-a\.tgz$/)
+  assert.match(fileB, /^file:.*dsh-b\.tgz$/)
+  assert.notEqual(fileA, 'file:' + tgzA)
+  assert.notEqual(fileB, 'file:' + tgzB)
+  assert.equal(fs.existsSync(fileA.slice(5)), true)
+  assert.equal(fs.existsSync(fileB.slice(5)), true)
   assert.equal(pkg.dependencies['react'], '^18.3.1')
 })
 
@@ -170,7 +202,7 @@ test('family-dir mode: missing tarball fails loudly', async () => {
   const tmp = makeTmp()
   const familyDir = path.join(tmp, 'family')
   fs.mkdirSync(familyDir, { recursive: true })
-  makeTgz(familyDir, '@linxin666/dsh-a')
+  makeTgz(familyDir, { name: '@linxin666/dsh-a', version: '0.1.0' })
   const pkgPath = makeTarballPkg(path.join(tmp, 'tarball'))
   await assert.rejects(
     rewriteDependencies({ pkgPath, root: tmp, familyDir }),
@@ -191,6 +223,60 @@ test('better-sidebar manual override rewrites only that dep', async () => {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
   assert.equal(pkg.dependencies['dsh-better-sidebar'], 'file:/tmp/bs.tgz')
   assert.equal(pkg.dependencies['@linxin666/dsh-a'], '0.1.0')
+})
+
+test('auto mode: nested unpublished family deps rewrite inside the packed tarball', async () => {
+  const tmp = makeTmp()
+  const root = path.join(tmp, 'repo')
+  makeWorkspace(root)
+  // dsh-b depends on the unpublished skin-x: the nested edge must be
+  // rewritten inside the packed dsh-b tarball (dsh-skins -> skin-center).
+  writePkg(path.join(root, 'packages', 'dsh-b'), {
+    name: '@linxin666/dsh-b',
+    version: '0.2.0',
+    dependencies: { '@linxin666/dsh-skin-x': '0.1.0' },
+  })
+  const pkgPath = writePkg(path.join(tmp, 'tarball'), {
+    name: '@linxin666/dsh-web-ui-all',
+    version: '9.9.9',
+    dependencies: {
+      '@linxin666/dsh-a': '0.1.0',
+      '@linxin666/dsh-b': '0.2.0',
+      '@linxin666/dsh-skin-x': '0.1.0',
+    },
+  })
+  const packed = []
+  await rewriteDependencies({
+    pkgPath,
+    root,
+    checkPublished: async () => false,
+    pack: packFake(packed),
+  })
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+  const fileB = pkg.dependencies['@linxin666/dsh-b'].slice(5)
+  const fileX = pkg.dependencies['@linxin666/dsh-skin-x'].slice(5)
+  // The nested dep resolves to the same patched skin-x tarball the aggregate uses.
+  assert.equal(readTgzPkg(fileB).dependencies['@linxin666/dsh-skin-x'], 'file:' + fileX)
+  // skin-x is packed exactly once and shared by both edges.
+  assert.equal(packed.length, 3)
+})
+
+test('family-dir mode: nested family deps rewrite inside the patched copies', async () => {
+  const tmp = makeTmp()
+  const familyDir = path.join(tmp, 'family')
+  fs.mkdirSync(familyDir, { recursive: true })
+  makeTgz(familyDir, { name: '@linxin666/dsh-a', version: '0.1.0' })
+  makeTgz(familyDir, {
+    name: '@linxin666/dsh-b',
+    version: '0.2.0',
+    dependencies: { '@linxin666/dsh-a': '0.1.0' },
+  })
+  const pkgPath = makeTarballPkg(path.join(tmp, 'tarball'))
+  await rewriteDependencies({ pkgPath, root: tmp, familyDir })
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+  const fileB = pkg.dependencies['@linxin666/dsh-b'].slice(5)
+  const fileA = pkg.dependencies['@linxin666/dsh-a'].slice(5)
+  assert.equal(readTgzPkg(fileB).dependencies['@linxin666/dsh-a'], 'file:' + fileA)
 })
 
 test('findWorkspacePackage scans packages/ and packages/skins/', () => {

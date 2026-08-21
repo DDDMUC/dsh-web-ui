@@ -16,7 +16,9 @@
 # 依赖改写（scripts/e2e-mount-rewrite，默认 auto 模式）：聚合包 tarball 里
 # 已在 npm 发布的 @linxin666/* 依赖保持 registry 安装（门禁原语义不变），
 # 仅尚未发布的新包（推送 → 发布窗口）自动打包仓库 workspace 改写为 file:
-# tarball——窗口期不再必红。
+# tarball——窗口期不再必红。改写为 file: 的家族 tarball 会被递归打补丁：它
+# 自己的 @linxin666/* 依赖（如 dsh-skins → dsh-client-ui-skin-center）走
+# 同一套规则，避免嵌套边在 npm 传播完成前回落到未发布的 registry 版本。
 #
 # 环境变量（均可省略）：
 #   DSH_CMD             dsh 命令；缺省 PATH 上的 `dsh`，回退 npx 拉官方包
