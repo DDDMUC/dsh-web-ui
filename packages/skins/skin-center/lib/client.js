@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
 		let react = require("react");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		//#region \0dsh-css:packages/skins/skin-center/src/client/skin-center.module.css.mjs
-		const css = "body[data-dsh-skin-center] .eDzMgW_sectionList{margin:0;padding:0;list-style:none}body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeaderStatic{align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12.5px;line-height:1.55}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-border-l4,#94a3b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:7px;padding:6px 12px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-fill,#2b7cd9);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:focus-visible:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_buttonGhost{background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.55;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-label-tertiary,#9aa4b5);background:color-mix(in srgb, var(--dsw-alias-label-tertiary,#9aa4b5) 45%, transparent);width:100%;height:4px;box-shadow:0 0 0 1px var(--dsw-alias-border-l3,#cbd5e1);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-runnable-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}body[data-dsh-skin-center] .eDzMgW_wallpaperSection{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatus{color:var(--dsw-alias-label-secondary,#6b7280);align-items:center;gap:8px;font-size:12px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatusError{color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperControls{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_wallpaperCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:6px;padding:8px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap{aspect-ratio:16/9;background:var(--dsw-alias-bg-layer-1,#f1f5f9);border-radius:6px;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperThumb{object-fit:cover;width:100%;height:100%;display:block}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbEmpty{width:100%;height:100%}body[data-dsh-skin-center] .eDzMgW_wallpaperType{color:var(--dsw-alias-label-primary,#172a45);background:var(--dsw-alias-bg-layer-2,#ffffffd9);border-radius:4px;padding:3px 6px;font-size:10.5px;line-height:1;position:absolute;top:6px;left:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap .eDzMgW_badge{position:absolute;top:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperActions{flex-wrap:wrap;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeCard{overflow:hidden}body[data-dsh-skin-center] .eDzMgW_customThemeEditor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:9px;flex-direction:column;gap:14px;margin:2px -2px -2px;padding:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeScheme{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_customThemeField,body[data-dsh-skin-center] .eDzMgW_customThemeContrast{flex-direction:column;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFieldLabel{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_customThemeInputRow{align-items:center;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeColor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);cursor:pointer;border-radius:7px;flex:none;width:34px;height:30px;padding:2px}body[data-dsh-skin-center] .eDzMgW_customThemeHex{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major);width:100%;min-width:0;height:30px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:7px;outline:none;padding:0 9px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_customThemeHex:focus,body[data-dsh-skin-center] .eDzMgW_customThemeColor:focus-visible{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed)}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{justify-content:space-between;align-items:center;gap:12px;padding-top:2px;display:flex}@media (width<=680px){body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:1fr}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{flex-direction:column;align-items:flex-start}}";
+		const css = "body[data-dsh-skin-center] .eDzMgW_sectionList{margin:0;padding:0;list-style:none}body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeaderStatic{align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12.5px;line-height:1.55}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-border-l4,#94a3b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l1,#e2e8f0);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#172a45);cursor:pointer;border-radius:7px;padding:6px 12px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-fill,#2b7cd9);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8);color:var(--dsw-alias-label-primary-foreground,#fff)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:focus-visible:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-hover,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_buttonGhost{background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.55;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary,#172a45);font-size:12.5px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-label-tertiary,#9aa4b5);background:color-mix(in srgb, var(--dsw-alias-label-tertiary,#9aa4b5) 45%, transparent);width:100%;height:4px;box-shadow:0 0 0 1px var(--dsw-alias-border-l3,#cbd5e1);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-runnable-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%;margin-top:-5px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}body[data-dsh-skin-center] .eDzMgW_wallpaperSection{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatus{color:var(--dsw-alias-label-secondary,#6b7280);align-items:center;gap:8px;font-size:12px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatusError{color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperControls{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_wallpaperCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2,#fff);border-radius:10px;flex-direction:column;gap:6px;padding:8px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap{aspect-ratio:16/9;background:var(--dsw-alias-bg-layer-1,#f1f5f9);border-radius:6px;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperThumb{object-fit:cover;width:100%;height:100%;display:block}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbEmpty{width:100%;height:100%}body[data-dsh-skin-center] .eDzMgW_wallpaperType{color:var(--dsw-alias-label-primary,#172a45);background:var(--dsw-alias-bg-layer-2,#ffffffd9);border-radius:4px;padding:3px 6px;font-size:10.5px;line-height:1;position:absolute;top:6px;left:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap .eDzMgW_badge{position:absolute;top:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperActions{flex-wrap:wrap;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeCard{overflow:hidden}body[data-dsh-skin-center] .eDzMgW_customThemeEditor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:9px;flex-direction:column;gap:14px;margin:2px -2px -2px;padding:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeScheme{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_customThemeField,body[data-dsh-skin-center] .eDzMgW_customThemeContrast{flex-direction:column;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFieldLabel{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_customThemeInputRow{align-items:center;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeColor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);cursor:pointer;border-radius:7px;flex:none;width:34px;height:30px;padding:2px}body[data-dsh-skin-center] .eDzMgW_customThemeHex{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major);width:100%;min-width:0;height:30px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:7px;outline:none;padding:0 9px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_customThemeHex:focus,body[data-dsh-skin-center] .eDzMgW_customThemeColor:focus-visible{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed)}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{justify-content:space-between;align-items:center;gap:12px;padding-top:2px;display:flex}@media (width<=680px){body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:1fr}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{flex-direction:column;align-items:flex-start}}";
 		const tagId = "@linxin666/dsh-client-ui-skin-center/skin-center.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1225,6 +1225,107 @@ window.__ModuleLoader__.load({
 			wallpaper.subscribe(restore);
 		}
 		//#endregion
+		//#region src/client/SliderControl.tsx
+		/**
+		* A drag-smooth range slider that decouples the visible value from the
+		* external store while the user drags (issue #725).
+		*
+		* Binding <input type="range"> directly to a useSyncExternalStore value
+		* causes two defects during drag:
+		* 1. Snapping back: the store subscription re-reads the scope snapshot while
+		*    the async scope.set() write is still in flight, resetting the thumb
+		*    to the old value mid-drag.
+		* 2. Lag and stale labels: every onChange drives a full set -> publish ->
+		*    React render cycle, and the displayed number only updates once the
+		*    external store settles instead of following the thumb.
+		*
+		* This control keeps the input effectively uncontrolled: the browser moves
+		* the thumb on the compositor thread with zero React involvement while
+		* dragging, onInput reports the live value (one callback per animation
+		* frame) so labels update in real time, and the final value is committed to
+		* the external store only through the native change event, which fires
+		* exactly once per completed interaction (pointer release or keyboard). A
+		* pointer cancel aborts without committing, and the external value is
+		* re-synced into the DOM only while the user is neither dragging nor
+		* keyboard-focusing the input.
+		* @module @linxin666/dsh-client-ui-skin-center/slider-control
+		*/
+		/**
+		* A range slider that stays smooth during drag (issue #725).
+		*
+		* @param props - slider props.
+		* @returns the range input element.
+		*/
+		function SliderControl({ value: externalValue, min = 0, max = 100, step = 1, onChange, onChanging, className, id, ariaLabel, ariaValuetext }) {
+			const inputRef = (0, react.useRef)(null);
+			const draggingRef = (0, react.useRef)(false);
+			const rafRef = (0, react.useRef)(null);
+			const liveRef = (0, react.useRef)(0);
+			const onChangingRef = (0, react.useRef)(onChanging);
+			onChangingRef.current = onChanging;
+			(0, react.useEffect)(() => {
+				const input = inputRef.current;
+				if (input !== null && !draggingRef.current && input !== input.ownerDocument.activeElement) input.value = String(externalValue);
+			}, [externalValue]);
+			const commitRef = (0, react.useRef)(onChange);
+			commitRef.current = onChange;
+			(0, react.useEffect)(() => {
+				const input = inputRef.current;
+				if (input === null) return;
+				const listener = () => {
+					draggingRef.current = false;
+					if (rafRef.current !== null) {
+						cancelAnimationFrame(rafRef.current);
+						rafRef.current = null;
+					}
+					commitRef.current(Number(input.value));
+				};
+				input.addEventListener("change", listener);
+				return () => {
+					input.removeEventListener("change", listener);
+				};
+			}, []);
+			(0, react.useEffect)(() => {
+				return () => {
+					if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+				};
+			}, []);
+			/** Throttled live-value reporter: fires onChanging at most once per frame. */
+			const reportLive = (0, react.useCallback)((value) => {
+				liveRef.current = value;
+				if (rafRef.current !== null) return;
+				rafRef.current = requestAnimationFrame(() => {
+					rafRef.current = null;
+					onChangingRef.current?.(liveRef.current);
+				});
+			}, []);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+				ref: inputRef,
+				id,
+				className,
+				type: "range",
+				min,
+				max,
+				step,
+				defaultValue: externalValue,
+				"aria-label": ariaLabel,
+				"aria-valuetext": ariaValuetext,
+				onPointerDown: (0, react.useCallback)(() => {
+					draggingRef.current = true;
+				}, []),
+				onPointerCancel: (0, react.useCallback)(() => {
+					draggingRef.current = false;
+					if (rafRef.current !== null) {
+						cancelAnimationFrame(rafRef.current);
+						rafRef.current = null;
+					}
+				}, []),
+				onInput: (0, react.useCallback)((event) => {
+					reportLive(Number(event.currentTarget.value));
+				}, [reportLive])
+			});
+		}
+		//#endregion
 		//#region src/client/WallpaperPanel.tsx
 		/**
 		* The wallpaper panel of the skin-center card: lists the user's local
@@ -1237,6 +1338,15 @@ window.__ModuleLoader__.load({
 		* subscriptions or manual folders). The panel never downloads or shares
 		* content; import only copies files within the user's machine.
 		*/
+		/** Live-label helper: the shown value follows the in-drag thumb immediately,
+		* and falls back to the store value once the store settles (issue #725). */
+		function useLiveValue$1(value) {
+			const [live, setLive] = (0, react.useState)(null);
+			(0, react.useEffect)(() => {
+				setLive(null);
+			}, [value]);
+			return [live ?? value, setLive];
+		}
 		/** Host base path of the wallpaper API (mirrors src/we-routes.ts). */
 		const WE_API = "/api/skin-center/we";
 		/** Post one wallpaper action and return whether it succeeded. */
@@ -1277,6 +1387,9 @@ window.__ModuleLoader__.load({
 			const activeId = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.activeId);
 			const trying = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.trying);
 			const dirs = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.dirs);
+			const [shownDim, setShownDim] = useLiveValue$1(dim);
+			const [shownBlur, setShownBlur] = useLiveValue$1(blur);
+			const [shownVolume, setShownVolume] = useLiveValue$1(volume);
 			const [dirInput, setDirInput] = (0, react.useState)("");
 			const [items, setItems] = (0, react.useState)(null);
 			const [installDir, setInstallDir] = (0, react.useState)(null);
@@ -1471,19 +1584,20 @@ window.__ModuleLoader__.load({
 										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 											className: skin_center_module_css_default.backgroundValue,
 											"aria-hidden": "true",
-											children: [dim, "%"]
+											children: [shownDim, "%"]
 										})]
 									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
 										className: skin_center_module_css_default.backgroundRange,
-										type: "range",
-										min: "0",
-										max: "90",
-										step: "5",
+										min: 0,
+										max: 90,
+										step: 5,
 										value: dim,
-										"aria-label": t("wallpaperDim"),
-										onChange: (event) => {
-											wallpaper.setDim(Number(event.target.value));
+										ariaValuetext: shownDim + "%",
+										ariaLabel: t("wallpaperDim"),
+										onChanging: setShownDim,
+										onChange: (value) => {
+											wallpaper.setDim(value);
 										}
 									}),
 									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -1494,19 +1608,20 @@ window.__ModuleLoader__.load({
 										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 											className: skin_center_module_css_default.backgroundValue,
 											"aria-hidden": "true",
-											children: [blur, "px"]
+											children: [shownBlur, "px"]
 										})]
 									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
 										className: skin_center_module_css_default.backgroundRange,
-										type: "range",
-										min: "0",
-										max: "60",
-										step: "1",
+										min: 0,
+										max: 60,
+										step: 1,
 										value: blur,
-										"aria-label": t("wallpaperBlur"),
-										onChange: (event) => {
-											wallpaper.setBlur(Number(event.target.value));
+										ariaValuetext: shownBlur + "px",
+										ariaLabel: t("wallpaperBlur"),
+										onChanging: setShownBlur,
+										onChange: (value) => {
+											wallpaper.setBlur(value);
 										}
 									})
 								]
@@ -1556,18 +1671,19 @@ window.__ModuleLoader__.load({
 									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 										className: skin_center_module_css_default.backgroundValue,
 										"aria-hidden": "true",
-										children: [volume, "%"]
+										children: [shownVolume, "%"]
 									})]
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
 									className: skin_center_module_css_default.backgroundRange,
-									type: "range",
-									min: "0",
-									max: "100",
-									step: "5",
+									min: 0,
+									max: 100,
+									step: 5,
 									value: volume,
-									"aria-label": t("wallpaperVolume"),
-									onChange: (event) => {
-										wallpaper.setVolume(Number(event.target.value));
+									ariaValuetext: shownVolume + "%",
+									ariaLabel: t("wallpaperVolume"),
+									onChanging: setShownVolume,
+									onChange: (value) => {
+										wallpaper.setVolume(value);
 									}
 								})]
 							})
@@ -1778,6 +1894,17 @@ window.__ModuleLoader__.load({
 		/** The apply target of the official stock-look card. */
 		const OFFICIAL = "official";
 		/**
+		* Live-label helper: the shown value follows the in-drag thumb immediately,
+		* and falls back to the store value once the store settles (issue #725).
+		*/
+		function useLiveValue(value) {
+			const [live, setLive] = (0, react.useState)(null);
+			(0, react.useEffect)(() => {
+				setLive(null);
+			}, [value]);
+			return [live ?? value, setLive];
+		}
+		/**
 		* Render the skin-center card: a static header naming the plugin, with the
 		* always-visible skin list (official default + every catalog skin; try-on /
 		* theme preview / one-click apply) rendered below it.
@@ -1791,6 +1918,10 @@ window.__ModuleLoader__.load({
 			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
 			const blurContent = (0, react.useSyncExternalStore)(background.subscribe, background.blurContent);
 			const inputCardBlur = (0, react.useSyncExternalStore)(background.subscribe, background.inputCardBlur);
+			const [shownOpacity, setShownOpacity] = useLiveValue(opacity);
+			const [shownBlurEmpty, setShownBlurEmpty] = useLiveValue(blurEmpty);
+			const [shownBlurContent, setShownBlurContent] = useLiveValue(blurContent);
+			const [shownInputCardBlur, setShownInputCardBlur] = useLiveValue(inputCardBlur);
 			const catalog = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.catalog);
 			const state = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.controller.getState);
 			const customThemeState = (0, react.useSyncExternalStore)(customTheme.subscribe, customTheme.getState);
@@ -2012,21 +2143,21 @@ window.__ModuleLoader__.load({
 									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 										className: skin_center_module_css_default.backgroundValue,
 										"aria-hidden": "true",
-										children: [opacity, "%"]
+										children: [shownOpacity, "%"]
 									})]
 								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
 									id: "skin-center-background-opacity",
 									className: skin_center_module_css_default.backgroundRange,
-									type: "range",
-									min: "0",
-									max: "100",
-									step: "5",
+									min: 0,
+									max: 100,
+									step: 5,
 									value: opacity,
-									"aria-valuetext": `${opacity}%`,
-									"aria-label": t("backgroundOpacity"),
-									onChange: (event) => {
-										background.set(Number(event.target.value));
+									ariaValuetext: shownOpacity + "%",
+									ariaLabel: t("backgroundOpacity"),
+									onChanging: setShownOpacity,
+									onChange: (value) => {
+										background.set(value);
 									}
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
@@ -2046,21 +2177,21 @@ window.__ModuleLoader__.load({
 									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 										className: skin_center_module_css_default.backgroundValue,
 										"aria-hidden": "true",
-										children: [blurEmpty, "px"]
+										children: [shownBlurEmpty, "px"]
 									})]
 								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
 									id: "skin-center-background-blur-empty",
 									className: skin_center_module_css_default.backgroundRange,
-									type: "range",
-									min: "0",
-									max: "20",
-									step: "1",
+									min: 0,
+									max: 20,
+									step: 1,
 									value: blurEmpty,
-									"aria-valuetext": `${blurEmpty}px`,
-									"aria-label": t("backgroundBlurEmpty"),
-									onChange: (event) => {
-										background.setBlurEmpty(Number(event.target.value));
+									ariaValuetext: shownBlurEmpty + "px",
+									ariaLabel: t("backgroundBlurEmpty"),
+									onChanging: setShownBlurEmpty,
+									onChange: (value) => {
+										background.setBlurEmpty(value);
 									}
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -2071,21 +2202,21 @@ window.__ModuleLoader__.load({
 									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 										className: skin_center_module_css_default.backgroundValue,
 										"aria-hidden": "true",
-										children: [blurContent, "px"]
+										children: [shownBlurContent, "px"]
 									})]
 								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
 									id: "skin-center-background-blur-content",
 									className: skin_center_module_css_default.backgroundRange,
-									type: "range",
-									min: "0",
-									max: "20",
-									step: "1",
+									min: 0,
+									max: 20,
+									step: 1,
 									value: blurContent,
-									"aria-valuetext": `${blurContent}px`,
-									"aria-label": t("backgroundBlurContent"),
-									onChange: (event) => {
-										background.setBlurContent(Number(event.target.value));
+									ariaValuetext: shownBlurContent + "px",
+									ariaLabel: t("backgroundBlurContent"),
+									onChanging: setShownBlurContent,
+									onChange: (value) => {
+										background.setBlurContent(value);
 									}
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
@@ -2105,21 +2236,21 @@ window.__ModuleLoader__.load({
 									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 										className: skin_center_module_css_default.backgroundValue,
 										"aria-hidden": "true",
-										children: [inputCardBlur, "px"]
+										children: [shownInputCardBlur, "px"]
 									})]
 								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
 									id: "skin-center-input-card-blur",
 									className: skin_center_module_css_default.backgroundRange,
-									type: "range",
-									min: "0",
-									max: "20",
-									step: "1",
+									min: 0,
+									max: 20,
+									step: 1,
 									value: inputCardBlur,
-									"aria-valuetext": `${inputCardBlur}px`,
-									"aria-label": t("inputCardBlur"),
-									onChange: (event) => {
-										background.setInputCardBlur(Number(event.target.value));
+									ariaValuetext: shownInputCardBlur + "px",
+									ariaLabel: t("inputCardBlur"),
+									onChanging: setShownInputCardBlur,
+									onChange: (value) => {
+										background.setInputCardBlur(value);
 									}
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
