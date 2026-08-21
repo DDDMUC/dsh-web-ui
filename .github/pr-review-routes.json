@@ -4,7 +4,9 @@
     {
       "name": "renderer",
       "label": "渲染器 / Wallpaper Engine / WebGL",
-      "types": ["壁纸 / 渲染器（Wallpaper Engine / WebGL / 背景场景）"],
+      "types": [
+        "壁纸 / 渲染器（Wallpaper Engine / WebGL / 背景场景）"
+      ],
       "paths": [
         "packages/skins/skin-center/src/we-*.ts",
         "packages/skins/skin-center/src/pkg-extract.ts",
@@ -18,8 +20,25 @@
         "packages/skins/skin-center/tests/pkg-extract.spec.ts"
       ],
       "title": "(wallpaper|webgl|scene player|scene runtime|pkg[-_ ]?extract|we[-_ ]?(library|routes|player|shim)|renderer)",
-      "reviewers": ["Aa728848"],
-      "assignees": ["Aa728848"]
+      "reviewers": [
+        "Aa728848"
+      ],
+      "assignees": [
+        "Aa728848"
+      ]
+    },
+    {
+      "name": "maintainer",
+      "label": "协作者提交 / 维护者跟进",
+      "authors": [
+        "Aa728848"
+      ],
+      "reviewers": [
+        "zhu1090093659"
+      ],
+      "assignees": [
+        "zhu1090093659"
+      ]
     }
   ]
 }

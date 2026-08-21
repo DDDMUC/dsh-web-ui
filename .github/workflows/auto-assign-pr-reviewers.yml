@@ -121,7 +121,9 @@ jobs:
               const typeHit =
                 routeTypes.length > 0 &&
                 selectedTypes.some((type) => routeTypes.includes(type));
-              if (pathHit || titleHit || typeHit) {
+              const routeAuthors = Array.isArray(route.authors) ? route.authors : [];
+              const authorHit = routeAuthors.includes(pr.user.login);
+              if (pathHit || titleHit || typeHit || authorHit) {
                 matched.push(route);
               }
             }

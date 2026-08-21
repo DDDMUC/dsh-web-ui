@@ -14,25 +14,29 @@
 | `routes[].name` | 分类唯一名，出现在路由日志与评论中 |
 | `routes[].label` | 分类的中文展示名 |
 | `routes[].types` | PR 描述「PR 类别（PR Category）」中勾选项的标签列表，勾中任一项即匹配 |
+| `routes[].authors` | PR 作者登录名列表，作者是其中任一用户即匹配（用于协作者提交的 PR 自动转交维护者跟进） |
 | `routes[].paths` | 变更文件 glob 列表（`*` 不跨目录，`**` 跨目录），命中任一文件即匹配 |
 | `routes[].title` | 标题正则（大小写不敏感），可选 |
 | `routes[].reviewers` | GitHub 用户名列表，命中后请求这些用户审查 |
 | `routes[].assignees` | GitHub 用户名列表，命中后把这些用户设为 PR 负责人（可选） |
 
-匹配规则：`types`、`paths` 与 `title` 任一命中即匹配；多个分类可同时命中，
-负责人与审查者各取并集；PR 作者本人会被过滤，draft PR 不触发。工作流从 base
-分支读取配置（PR 自身无法修改自己的路由），读取失败时跳过并记录警告。
+匹配规则：`authors`、`types`、`paths` 与 `title` 任一命中即匹配；多个分类可同时命中，
+负责人与审查者各取并集；PR 作者本人会被过滤（避免自审，作者本人命中的路由贡献
+空集，由其他命中的路由接管），draft PR 不触发。工作流从 base 分支读取配置
+（PR 自身无法修改自己的路由），读取失败时跳过并记录警告。
 
 ## 当前路由
 
 | name | 分类 | 类别勾选 | 负责人 / 审批者 |
 | --- | --- | --- | --- |
 | `renderer` | 渲染器 / Wallpaper Engine / WebGL（`packages/skins/skin-center` 的 we-*、pkg-extract、wallpaper、backdrop-scene、WallpaperPanel 等） | 壁纸 / 渲染器 | Aa728848 |
+| `maintainer` | 协作者（Aa728848）提交的 PR | 作者为 Aa728848 | zhu1090093659 |
 
 新增分类：在 `routes` 追加条目并同步本表格；纯按标题路由可只写 `title`，
 例如 `{"name": "community", "title": "^社区", "reviewers": ["zhu1090093659"]}`；
 按类别路由可只写 `types`，值为 PR 描述「PR 类别」勾选项的完整标签（须与模板一致），例如
-`{"name": "skin-content", "types": ["皮肤 / 皮肤中心（新皮肤收录、皮肤样式）"], "assignees": ["Aa728848"], "reviewers": ["Aa728848"]}`。
+`{"name": "skin-content", "types": ["皮肤 / 皮肤中心（新皮肤收录、皮肤样式）"], "assignees": ["Aa728848"], "reviewers": ["Aa728848"]}`；
+协作者提交的 PR 可只写 `authors`：`{"name": "maintainer", "authors": ["Aa728848"], "reviewers": ["zhu1090093659"]}`。
 
 ## 自动化行为
 
