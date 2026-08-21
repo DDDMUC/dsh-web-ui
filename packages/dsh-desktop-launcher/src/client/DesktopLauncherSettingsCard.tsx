@@ -118,6 +118,10 @@ export function DesktopLauncherSettingsCard(props: DesktopLauncherSettingsCardPr
   const [created, setCreated] = useState<CreateResult | undefined>()
   const [error, setError] = useState<string | undefined>()
   const disabled = !state.writable
+  // The create action calls the host route, which mounts only while the
+  // saved `enabled` is on; a staged draft does not mount it yet, so the
+  // button stays inert until the toggle lands (save).
+  const createReady = state.enabled.text === 'true'
   const fieldProps = {
     overriddenLabel: t('settings.overridden'),
     resetLabel: t('settings.reset'),
@@ -213,11 +217,14 @@ export function DesktopLauncherSettingsCard(props: DesktopLauncherSettingsCardPr
         <button
           type="button"
           className={css.create}
-          disabled={creating || disabled}
+          disabled={creating || disabled || !createReady}
           onClick={() => { void create() }}
         >
           {t(creating ? 'settings.creating' : 'settings.create')}
         </button>
+        {!createReady && !disabled
+          ? <p className={css.off} role="status">{t('settings.requireEnabled')}</p>
+          : null}
         {created
           ? (
             <p className={css.ok} role="status">

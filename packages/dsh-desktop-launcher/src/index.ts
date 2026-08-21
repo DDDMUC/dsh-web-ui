@@ -47,7 +47,7 @@ export const DESKTOP_LAUNCHER_SETTINGS_NAMESPACE = settingsNamespace('desktop-la
 export interface Config {
   /** When true (default), a system-prompt section announces the plugin. */
   announceToAgent?: boolean
-  /** Master switch for the plugin. */
+  /** Master switch for the plugin; off by default. */
   enabled?: boolean
   /** Command that starts dsh (must be on PATH when the launcher runs). */
   dshCommand?: string
@@ -63,7 +63,9 @@ export interface Config {
 
 export const Config: z<Config> = z.object({
   announceToAgent: z.boolean().default(false),
-  enabled: z.boolean().default(true),
+  // Off by default: the launcher surfaces (routes, announcement, floating
+  // shutdown button) mount only after the user enables the plugin.
+  enabled: z.boolean().default(false),
   dshCommand: z.string().default(DEFAULT_DSH_COMMAND),
   url: z.string().default(DEFAULT_URL),
   profile: z.string().default(''),
@@ -121,7 +123,8 @@ function applyImpl(ctx: Context, config?: Config): void {
       disposeShutdownRoute = undefined
     }
     const value = current()
-    if ((value.enabled ?? true) === false) return
+    // The plugin is off unless the resolved config says otherwise.
+    if ((value.enabled ?? false) === false) return
     disposeRoutes = ctx.effect(
       () => {
         const disposers = makeRoutes({

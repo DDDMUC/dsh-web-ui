@@ -42,8 +42,8 @@ pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-desktop-launcher
 ```
 
-Restart `dsh web`, open Settings → Plugin configuration → Web UI plugins, and
-click "Create desktop icon".
+Restart `dsh web`, open Settings → Plugin configuration → Web UI plugins,
+enable the plugin (it ships off by default), and click "Create desktop icon".
 
 ## Config
 
@@ -51,7 +51,7 @@ All fields live in the plugin settings card (or in the composition entry):
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `enabled` | `true` | Master switch for the plugin. |
+| `enabled` | `false` | Master switch for the plugin; off by default. |
 | `announceToAgent` | `false` | Opt-in: when true, announces the plugin in the system prompt. |
 | `dshCommand` | `dsh` | Command that starts dsh; must be on PATH. |
 | `url` | `http://127.0.0.1:3080` | GUI URL the launcher waits for and opens. |

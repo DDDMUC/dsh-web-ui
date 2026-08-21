@@ -35,7 +35,7 @@ pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-desktop-launcher
 ```
 
-重启 `dsh web`，打开「设置 → 插件配置 → Web UI 插件」，点「创建桌面图标」。
+重启 `dsh web`，打开「设置 → 插件配置 → Web UI 插件」，先开启插件（默认关闭），再点「创建桌面图标」。
 
 ## 配置
 
@@ -43,7 +43,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-desktop-launcher
 
 | 字段 | 默认值 | 含义 |
 | --- | --- | --- |
-| `enabled` | `true` | 插件总开关。 |
+| `enabled` | `false` | 插件总开关；默认关闭。 |
 | `announceToAgent` | `false` | 按需开启：开启后在系统提示词中公告本插件。 |
 | `dshCommand` | `dsh` | 启动 dsh 的命令，需在 PATH 中。 |
 | `url` | `http://127.0.0.1:3080` | 启动器等待就绪并打开的 GUI 地址。 |

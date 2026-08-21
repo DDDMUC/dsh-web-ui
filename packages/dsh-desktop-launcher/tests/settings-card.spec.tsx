@@ -99,3 +99,24 @@ describe('DesktopLauncherSettingsCard disclosure', () => {
     expect(screen.queryByRole('button', { name: 'Create desktop icon' })).toBeNull()
   })
 })
+
+describe('DesktopLauncherSettingsCard create action gating', () => {
+  it('keeps the create button inert with a hint while the plugin is off', () => {
+    renderCard(baseState({
+      enabled: { text: 'false', overridden: false, invalid: false },
+    }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show settings: Desktop launcher' }))
+    const create = screen.getByRole('button', { name: 'Create desktop icon' }) as HTMLButtonElement
+    expect(create.disabled).toBe(true)
+    expect(screen.getByText('Enable the plugin and save to use this button.')).toBeTruthy()
+  })
+
+  it('enables the create button once the plugin is on', () => {
+    renderCard(baseState({
+      enabled: { text: 'true', overridden: true, invalid: false },
+    }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show settings: Desktop launcher' }))
+    const create = screen.getByRole('button', { name: 'Create desktop icon' }) as HTMLButtonElement
+    expect(create.disabled).toBe(false)
+  })
+})

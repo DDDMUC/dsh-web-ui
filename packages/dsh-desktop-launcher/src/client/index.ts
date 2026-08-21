@@ -74,7 +74,10 @@ export function apply(ctx: ClientContext): void {
   const enabled = (): boolean => {
     const snapshot = settingsScope.getSnapshot()
     return snapshot.status === 'ready'
-      ? snapshot.value?.enabled ?? true
+      // Default off: a snapshot without an explicit `enabled` stays off.
+      ? snapshot.value?.enabled ?? false
+      // Fail-open when the settings surface is unreachable: the shutdown
+      // control must stay reachable even if the plugin config cannot be read.
       : snapshot.status === 'unavailable'
   }
   const confirmShutdown = (): boolean => read()?.confirmShutdown ?? true

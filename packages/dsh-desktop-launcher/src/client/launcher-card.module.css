@@ -44,3 +44,11 @@
   line-height: 1.5;
   word-break: break-all;
 }
+
+.off {
+  color: var(--dsw-alias-label-secondary);
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-all;
+}
