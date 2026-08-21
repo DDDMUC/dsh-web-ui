@@ -145,4 +145,52 @@ describe('PluginManagerTab', () => {
       expect(screen.queryByText(t('conflictDisabled', { name: 'dsh-web-ui' }))).toBeNull()
     })
   })
+
+  describe('DSH compatibility gating', () => {
+    it('disables update and shows the requirement hint when the update is incompatible', async () => {
+      const injected = face({
+        checkUpdates: vi.fn(async () => [{
+          id: 'p1', current: '1.0.0', latest: '1.1.0', requiresDsh: '>=0.1.0-rc.8', compatible: false,
+        }]),
+      })
+      renderTab(injected)
+
+      await screen.findByText('p1')
+      fireEvent.click(screen.getByRole('button', { name: t('checkUpdates') }))
+      expect(await screen.findByText(t('updateBlockedDsh', { min: '>=0.1.0-rc.8' }))).toBeTruthy()
+      const updateButton = screen.getByRole('button', { name: t('update') })
+      expect((updateButton as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('keeps update enabled and shows the requirement note when compatible', async () => {
+      const injected = face({
+        checkUpdates: vi.fn(async () => [{
+          id: 'p1', current: '1.0.0', latest: '1.1.0', requiresDsh: '>=0.1.0-rc.8', compatible: true,
+        }]),
+      })
+      renderTab(injected)
+
+      await screen.findByText('p1')
+      fireEvent.click(screen.getByRole('button', { name: t('checkUpdates') }))
+      expect(await screen.findByText(t('updateRequiresDsh', { min: '>=0.1.0-rc.8' }))).toBeTruthy()
+      const updateButton = screen.getByRole('button', { name: t('update') })
+      expect((updateButton as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    it('keeps the update flow unchanged (fail open) when compatibility is unknown', async () => {
+      const injected = face({
+        checkUpdates: vi.fn(async () => [{ id: 'p1', current: '1.0.0', latest: '1.1.0' }]),
+        update: vi.fn(async () => plugin),
+      })
+      renderTab(injected)
+
+      await screen.findByText('p1')
+      fireEvent.click(screen.getByRole('button', { name: t('checkUpdates') }))
+      expect(await screen.findByText(t('latest', { version: '1.1.0' }))).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: t('update') }))
+      await waitFor(() => {
+        expect(injected.update).toHaveBeenCalledWith('p1')
+      })
+    })
+  })
 })

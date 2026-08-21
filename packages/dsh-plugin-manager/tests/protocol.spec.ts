@@ -85,8 +85,18 @@ describe('parseUpdateList', () => {
       .toEqual([{ id: 'a', current: '1.0.0', latest: '1.1.0' }])
   })
 
+  it('parses optional DSH compatibility fields', () => {
+    expect(parseUpdateList({ updates: [{ id: 'a', current: '1.0.0', latest: '1.1.0', requiresDsh: '>=0.1.0-rc.8', compatible: false }] }))
+      .toEqual([{ id: 'a', current: '1.0.0', latest: '1.1.0', requiresDsh: '>=0.1.0-rc.8', compatible: false }])
+  })
+
   it('rejects a bad row', () => {
     expect(() => parseUpdateList({ updates: [{ id: 'a' }] })).toThrow(/update row 0/)
+  })
+
+  it('rejects a malformed compatibility field', () => {
+    expect(() => parseUpdateList({ updates: [{ id: 'a', current: '1.0.0', latest: '1.1.0', compatible: 'no' }] })).toThrow(/update row 0/)
+    expect(() => parseUpdateList({ updates: [{ id: 'a', current: '1.0.0', latest: '1.1.0', requiresDsh: 7 }] })).toThrow(/update row 0/)
   })
 })
 

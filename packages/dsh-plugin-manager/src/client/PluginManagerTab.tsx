@@ -168,7 +168,7 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
   const [dirty, setDirty] = useState(false)
   const [repairing, setRepairing] = useState<string | undefined>(undefined)
   const [copied, setCopied] = useState<string | undefined>(undefined)
-  const [updates, setUpdates] = useState<ReadonlyMap<string, string>>(new Map())
+  const [updates, setUpdates] = useState<ReadonlyMap<string, PluginUpdateItem>>(new Map())
   const [uninstallTarget, setUninstallTarget] = useState<UninstallTarget | undefined>(undefined)
   const [conflicts, setConflicts] = useState<readonly ControlChange[]>([])
   const [progress, setProgress] = useState<InstallProgressItem>({ kind: 'idle', stage: 'fetch' })
@@ -298,7 +298,7 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
   const onCheck = (): void => {
     void run({ kind: 'check' }, async () => {
       const found = await checkUpdates()
-      setUpdates(new Map(found.map(item => [item.id, item.latest])))
+      setUpdates(new Map(found.map(item => [item.id, item])))
     })
   }
 
@@ -523,7 +523,9 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
           : (
             <ul className={css.list}>
               {view.plugins.map(plugin => {
-                const latest = updates.get(plugin.id)
+                const updateItem = updates.get(plugin.id)
+                const latest = updateItem?.latest
+                const dshRequirement = updateItem?.requiresDsh
                 const failure = attributable.get(plugin.id)
                 return (
                   <li key={plugin.id} className={css.row} data-plugin-id={plugin.id}>
@@ -537,6 +539,13 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
                         <span className={css.specText} title={plugin.source.spec}>{plugin.source.spec}</span>
                       </span>
                       {latest !== undefined && <span className={css.latest}>{t('latest', { version: latest })}</span>}
+                      {updateItem !== undefined && dshRequirement !== undefined && (
+                        <span className={updateItem.compatible === false ? css.compatBlocked : css.compatHint}>
+                          {updateItem.compatible === false
+                            ? t('updateBlockedDsh', { min: dshRequirement })
+                            : t('updateRequiresDsh', { min: dshRequirement })}
+                        </span>
+                      )}
                       {failure !== undefined && (
                         <div className={css.failure} data-plugin-failure={plugin.id}>
                           <span className={css.badge}>{t('failureBadge')}</span>
@@ -570,7 +579,11 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
                         onClick={() => { onUserToggle(plugin.id, !plugin.enabled) }}
                       />
                       {latest !== undefined && (
-                        <Button variant="outline" disabled={busy !== undefined} onClick={() => { onUpdate(plugin.id) }}>
+                        <Button
+                          variant="outline"
+                          disabled={busy !== undefined || updateItem?.compatible === false}
+                          onClick={() => { onUpdate(plugin.id) }}
+                        >
                           {busy?.kind === 'update' && busy.id === plugin.id ? t('updating') : t('update')}
                         </Button>
                       )}
