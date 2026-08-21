@@ -6582,12 +6582,23 @@ function mimeFor(absPath) {
 }
 /** Pipe one file while coupling its descriptor lifetime to the HTTP response. */
 function pipeFile(absPath, res, openReadStream, options) {
+	if (res.destroyed || res.writableEnded) return;
 	const source = openReadStream(absPath, options);
 	const closeSource = () => source.destroy();
 	res.once("close", closeSource);
-	pipeline(source, res, () => {
+	if (res.destroyed || res.writableEnded) {
 		res.off("close", closeSource);
-	});
+		source.destroy();
+		return;
+	}
+	try {
+		pipeline(source, res, () => {
+			res.off("close", closeSource);
+		});
+	} catch {
+		res.off("close", closeSource);
+		source.destroy();
+	}
 }
 /** Stream one file with Range support (video seeking needs 206). */
 function serveFile(absPath, req, res, openReadStream) {

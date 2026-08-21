@@ -201,13 +201,26 @@ function pipeFile(
   openReadStream: NonNullable<WeRouteDeps['openReadStream']>,
   options?: { start?: number; end?: number },
 ): void {
+  if (res.destroyed || res.writableEnded) return
+
   const source = openReadStream(absPath, options)
   const closeSource = () => source.destroy()
   res.once('close', closeSource)
-  pipeline(source, res, () => {
+  if (res.destroyed || res.writableEnded) {
     res.off('close', closeSource)
-    // The callback consumes read and premature-close errors.
-  })
+    source.destroy()
+    return
+  }
+
+  try {
+    pipeline(source, res, () => {
+      res.off('close', closeSource)
+      // The callback consumes read and premature-close errors.
+    })
+  } catch {
+    res.off('close', closeSource)
+    source.destroy()
+  }
 }
 
 /** Stream one file with Range support (video seeking needs 206). */
