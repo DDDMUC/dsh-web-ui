@@ -145,4 +145,111 @@ describe('SliderControl', () => {
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange).toHaveBeenCalledWith(24)
   })
+
+  it('does not commit on pointerleave mid-drag and commits on the eventual release (#725)', () => {
+    const onChange = vi.fn()
+    const Harness = ({ value }: { value: number }) => (
+      <SliderControl value={value} onChange={onChange} ariaLabel="dim" />
+    )
+    act(() => {
+      root.render(<Harness value={50} />)
+    })
+    const input = range()
+    act(() => { fire(input, 'pointerdown') })
+    act(() => {
+      input.value = '62'
+      fire(input, 'input')
+    })
+    // Pointer leaving mid-drag must neither abort the interaction nor
+    // commit prematurely: the drag stays active and the external value is
+    // still not allowed to overwrite the DOM value.
+    act(() => { fire(input, 'pointerleave') })
+    expect(onChange).not.toHaveBeenCalled()
+    act(() => {
+      root.render(<Harness value={80} />)
+    })
+    expect(input.value).toBe('62')
+    // The release commits the dragged value exactly once.
+    act(() => { fire(input, 'change') })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith(62)
+  })
+
+  it('commits the keyboard value when the input loses focus (onBlur) (#725)', async () => {
+    const onChange = vi.fn()
+    const onChanging = vi.fn()
+    act(() => {
+      root.render(<SliderControl value={20} onChange={onChange} onChanging={onChanging} ariaLabel="blur" />)
+    })
+    const input = range()
+    act(() => { input.focus() })
+    act(() => {
+      input.value = '34'
+      fire(input, 'input')
+    })
+    await act(async () => { await flushRaf() })
+    expect(onChanging).toHaveBeenLastCalledWith(34)
+    expect(onChange).not.toHaveBeenCalled()
+    act(() => { input.blur() })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith(34)
+  })
+
+  it('commits the keyboard value on the Enter key (#725)', () => {
+    const onChange = vi.fn()
+    act(() => {
+      root.render(<SliderControl value={20} onChange={onChange} ariaLabel="dim" />)
+    })
+    const input = range()
+    act(() => { input.focus() })
+    act(() => {
+      input.value = '41'
+      fire(input, 'input')
+    })
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith(41)
+  })
+
+  it('commits the keyboard value on the Escape key (#725)', () => {
+    const onChange = vi.fn()
+    act(() => {
+      root.render(<SliderControl value={20} onChange={onChange} ariaLabel="dim" />)
+    })
+    const input = range()
+    act(() => { input.focus() })
+    act(() => {
+      input.value = '41'
+      fire(input, 'input')
+    })
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith(41)
+  })
+
+  it('does not double-commit when the native change event follows a keyboard commit (#725)', () => {
+    const onChange = vi.fn()
+    act(() => {
+      root.render(<SliderControl value={20} onChange={onChange} ariaLabel="dim" />)
+    })
+    const input = range()
+    act(() => { input.focus() })
+    act(() => {
+      input.value = '30'
+      fire(input, 'input')
+    })
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith(30)
+    // Real browsers also emit the native change event after Enter; the
+    // de-duplication must keep this a single commit.
+    act(() => { fire(input, 'change') })
+    expect(onChange).toHaveBeenCalledTimes(1)
+  })
 })

@@ -1243,11 +1243,14 @@ window.__ModuleLoader__.load({
 		* the thumb on the compositor thread with zero React involvement while
 		* dragging, onInput reports the live value (one callback per animation
 		* frame) so labels update in real time, and the final value is committed to
-		* the external store only through the native change event, which fires
-		* exactly once per completed interaction (pointer release or keyboard). A
-		* pointer cancel aborts without committing, and the external value is
-		* re-synced into the DOM only while the user is neither dragging nor
-		* keyboard-focusing the input.
+		* the external store through the native change event, which fires once per
+		* completed pointer interaction (pointer release). Keyboard-only users get
+		* an explicit commit path through onBlur and the Enter/Escape keydown
+		* handlers, because not every engine fires the native change event for
+		* range inputs on blur or Enter (jsdom does not; behavior varies by
+		* browser). A pointer cancel aborts without committing, and the external
+		* value is re-synced into the DOM only while the user is neither dragging
+		* nor keyboard-focusing the input.
 		* @module @linxin666/dsh-client-ui-skin-center/slider-control
 		*/
 		/**
@@ -1261,14 +1264,36 @@ window.__ModuleLoader__.load({
 			const draggingRef = (0, react.useRef)(false);
 			const rafRef = (0, react.useRef)(null);
 			const liveRef = (0, react.useRef)(0);
+			const lastCommittedRef = (0, react.useRef)(null);
 			const onChangingRef = (0, react.useRef)(onChanging);
 			onChangingRef.current = onChanging;
+			const commitRef = (0, react.useRef)(onChange);
+			commitRef.current = onChange;
+			/**
+			* Persist a value to the external store, de-duplicated against the last
+			* committed value so the explicit keyboard/onBlur commit paths never
+			* double-fire alongside the native change event (which real browsers also
+			* emit on blur or Enter for range inputs).
+			*/
+			const commit = (0, react.useCallback)((value) => {
+				if (lastCommittedRef.current === value) return;
+				lastCommittedRef.current = value;
+				commitRef.current(value);
+			}, []);
+			const commitCurrent = (0, react.useCallback)(() => {
+				const input = inputRef.current;
+				if (input === null) return;
+				draggingRef.current = false;
+				if (rafRef.current !== null) {
+					cancelAnimationFrame(rafRef.current);
+					rafRef.current = null;
+				}
+				commit(Number(input.value));
+			}, [commit]);
 			(0, react.useEffect)(() => {
 				const input = inputRef.current;
 				if (input !== null && !draggingRef.current && input !== input.ownerDocument.activeElement) input.value = String(externalValue);
 			}, [externalValue]);
-			const commitRef = (0, react.useRef)(onChange);
-			commitRef.current = onChange;
 			(0, react.useEffect)(() => {
 				const input = inputRef.current;
 				if (input === null) return;
@@ -1278,13 +1303,13 @@ window.__ModuleLoader__.load({
 						cancelAnimationFrame(rafRef.current);
 						rafRef.current = null;
 					}
-					commitRef.current(Number(input.value));
+					commit(Number(input.value));
 				};
 				input.addEventListener("change", listener);
 				return () => {
 					input.removeEventListener("change", listener);
 				};
-			}, []);
+			}, [commit]);
 			(0, react.useEffect)(() => {
 				return () => {
 					if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -1322,7 +1347,16 @@ window.__ModuleLoader__.load({
 				}, []),
 				onInput: (0, react.useCallback)((event) => {
 					reportLive(Number(event.currentTarget.value));
-				}, [reportLive])
+				}, [reportLive]),
+				onBlur: (0, react.useCallback)(() => {
+					if (draggingRef.current) return;
+					commitCurrent();
+				}, [commitCurrent]),
+				onKeyDown: (0, react.useCallback)((event) => {
+					if (event.key !== "Enter" && event.key !== "Escape") return;
+					if (draggingRef.current) return;
+					commitCurrent();
+				}, [commitCurrent])
 			});
 		}
 		//#endregion
