@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  channelTransition,
   installRemoteChannel,
   isLoopbackHostname,
   isUnpairedDenied,
@@ -57,6 +58,13 @@ describe('rewrite rules', () => {
       .toBe('/remote/pet/a.png?v=1#sprite')
     expect(rewriteRawUrl('https://elsewhere.example.com/pet/a.png', 'https://tunnel.example.com/page', 'https://tunnel.example.com'))
       .toBe('https://elsewhere.example.com/pet/a.png')
+  })
+
+  it('decides the channel lifecycle transitions (issue #808)', () => {
+    expect(channelTransition(true, false)).toBe('install')
+    expect(channelTransition(false, true)).toBe('retire')
+    expect(channelTransition(true, true)).toBe('none')
+    expect(channelTransition(false, false)).toBe('none')
   })
 })
 

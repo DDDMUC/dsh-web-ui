@@ -65,7 +65,10 @@ that probes and runs the update.
   `/api/dsh-desktop-launcher/*` and `/api/dsh-web-ui-settings/*` control
   endpoints stay loopback-only. Unpaired desktop browsers get a persistent
   full-page block instead of data (the page keys off the `unpaired` error
-  code, not every 403).
+  code, not every 403). The block retires once a gated call succeeds or the
+  channel itself is torn down — turning `requirePairingForLan` off (or the
+  plugin off) also clears a notice raised while the channel was briefly
+  active.
 - **Posture probe**: the plugin probes the SDK `/api` fence with forged
   Host headers (the public base and every LAN base). A 403 is the default
   stance (fence closed; remote access goes through pairing). Anything other
