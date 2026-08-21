@@ -87,8 +87,16 @@ family / 插件区域：
 | `card` | skill-explorer | 技能中心模态卡；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="card"]` |
 | `tab-bar` / `tab` | skill-explorer | 技能中心页签条/页签；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="tab-bar"]` / `[data-dsh-plugin="skill-explorer"] [data-dsh-part="tab"]` |
 | `skill-row` | skill-explorer | 技能卡行；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="skill-row"]` |
+| `header` | doctor | 救助控制台头部；`[data-dsh-plugin="doctor"] [data-dsh-part="header"]` |
+| `enable` | doctor | 救助模式启用行 |
+| `status` | doctor | 系统状态卡 |
+| `profiles` | doctor | 受保护 profile 列表 |
+| `incidents` | doctor | 故障事件列表 |
+| `probe` | doctor | 客户端故障探针列表 |
+| `actions` | doctor | 诊断/修复动作组 |
+| `boundary` | doctor | 错误边界回退提示；`role="alert"` |
 
-## plugin 组（10 个，含停更 aionui-panel）
+## plugin 组（11 个，含停更 aionui-panel）
 
 | data-dsh-plugin | owner | 锚定方式 |
 | --- | --- | --- |
@@ -100,6 +108,7 @@ family / 插件区域：
 | `web-ui-settings` | dsh-web-ui-settings | settings.section id `web-ui-plugins` |
 | `community-plugins` | dsh-community-plugins | settings.section id `community-plugins` |
 | `skill-explorer` | dsh-skill-explorer | `[data-dsh-skill-explorer-view]` / `[data-dsh-skill-explorer-entry]` |
+| `doctor` | dsh-doctor | 根容器 `data-dsh-plugin="doctor"`；settings.section id `doctor` |
 | `aionui-panel` | dsh-aionui-panel（停更） | dock entry id `aionui-*` |
 | `skin-center` | skins/skin-center | settings.section 一级页 |
 

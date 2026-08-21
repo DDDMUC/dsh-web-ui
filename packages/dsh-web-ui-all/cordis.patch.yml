@@ -78,6 +78,11 @@
     - id: web-ui-desktop-launcher
       name: '@linxin666/dsh-desktop-launcher'
 
+# from ../dsh-doctor
+- insert:
+    - id: web-ui-doctor
+      name: '@linxin666/dsh-doctor'
+
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:
     - id: web-ui-skin-center
