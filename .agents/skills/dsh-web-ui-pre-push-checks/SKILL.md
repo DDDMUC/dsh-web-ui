@@ -14,6 +14,7 @@ Run checks from the repository root after the implementation is stable. This wor
 1. Confirm the branch, repository root, and worktree status.
 2. Inspect the requested base-to-head diff and every dirty file that will be included.
 3. Run `git diff --check` before reporting success. Do not stage unrelated changes with `git add -A`.
+4. Sync collaborator merges before validating: `git fetch origin` and rebase onto `origin/dev` (`git rebase origin/dev`). Aa728848 merges renderer / Wallpaper Engine / WebGL PRs into `dev`; when the rebase pulls in new base commits, re-run the affected gates on the rebased tree before reporting.
 
 ## Required repository gates
 
