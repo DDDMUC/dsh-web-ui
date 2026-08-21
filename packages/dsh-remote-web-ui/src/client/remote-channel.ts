@@ -267,3 +267,24 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
     for (const restore of restoreSrc) restore()
   }
 }
+
+/**
+ * The remote-channel lifecycle transition between two steady states:
+ * running (active + installed) and retired (inactive + not installed).
+ * The client apply drives the channel with this decision and retires the
+ * unpaired fence notice together with the channel itself — a notice raised
+ * while the channel was briefly active must not outlive it (issue #808).
+ */
+export type ChannelTransition = 'install' | 'retire' | 'none'
+
+/**
+ * Decide what the channel lifecycle must do next.
+ * @param active - whether the gated remote channel should be running now.
+ * @param installed - whether it currently is (disposer !== undefined).
+ * @returns the transition to apply.
+ */
+export function channelTransition(active: boolean, installed: boolean): ChannelTransition {
+  if (active && !installed) return 'install'
+  if (!active && installed) return 'retire'
+  return 'none'
+}

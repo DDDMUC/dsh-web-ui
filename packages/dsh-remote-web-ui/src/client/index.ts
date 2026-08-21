@@ -24,7 +24,7 @@ import { RemoteSettingsCard, RemoteSettingsCardController, type RemoteSettings }
 import { en, zh, type RemoteKey } from './locales.ts'
 import { PAIR_FAILED_MARKER, runPairBootFlow } from './deep-link.ts'
 import { sendHeartbeat } from './pair-api.ts'
-import { installRemoteChannel, isLoopbackHostname } from './remote-channel.ts'
+import { channelTransition, installRemoteChannel, isLoopbackHostname } from './remote-channel.ts'
 import { FenceNotice } from './FenceNotice.tsx'
 
 export type { RemoteEntryProps } from './RemoteEntry.tsx'
@@ -226,14 +226,22 @@ export function apply(ctx: ClientContext): void {
     return (value?.enabled ?? true) && (value?.requirePairingForLan ?? true)
   }
   const syncChannel = (): void => {
-    if (channelActive() && disposeChannel === undefined) {
+    const transition = channelTransition(channelActive(), disposeChannel !== undefined)
+    if (transition === 'install') {
       disposeChannel = ctx.effect(() => {
         const restore = installRemoteChannel(window, { onUnpaired: showFenceNotice, onPaired: hideFenceNotice })
         return restore
       }, 'remote-web-ui: remote desktop channel')
-    } else if (!channelActive() && disposeChannel !== undefined) {
+    } else if (transition === 'retire' && disposeChannel !== undefined) {
       disposeChannel()
       disposeChannel = undefined
+      // Retire the notice with the channel: once requirePairingForLan turns
+      // off (or the plugin is disabled) the desktop rides plain /api again,
+      // so an unpaired notice raised while the channel was briefly active
+      // (the settings snapshot loads after boot) must not outlive it. The
+      // installed channel is the only path that raises the notice, so with
+      // the channel gone nothing can re-raise it (issue #808).
+      hideFenceNotice()
     }
   }
   settingsScope.subscribe(syncChannel)
