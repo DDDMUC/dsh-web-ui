@@ -556,7 +556,9 @@ describe('branch name tooltip', () => {
       fireEvent.mouseEnter(first)
       act(() => { vi.advanceTimersByTime(500) })
       expect(first.getAttribute('data-tip-ready')).toBe('true')
-      // While one bubble is visible, moving to another item shows it at once.
+      // Realistic pointer move: entering another row while the bubble is
+      // visible shows it at once (row-level leave has no handler; only the
+      // list-level leave below resets the instant-handoff state).
       fireEvent.mouseEnter(second)
       expect(second.getAttribute('data-tip-ready')).toBe('true')
     } finally {
@@ -564,7 +566,7 @@ describe('branch name tooltip', () => {
     }
   })
 
-  it('resets readiness when the pointer leaves the list', async () => {
+  it('resets readiness only when the pointer leaves the whole list', async () => {
     bench({ branchesView: longBranchesView })
     const chip = await screen.findByRole('button', { name: '分支' })
     fireEvent.click(chip)
@@ -574,10 +576,39 @@ describe('branch name tooltip', () => {
       fireEvent.mouseEnter(long)
       act(() => { vi.advanceTimersByTime(500) })
       expect(long.getAttribute('data-tip-ready')).toBe('true')
-      fireEvent.mouseLeave(long)
+      // Leaving the whole list resets readiness (re-arms the dwell).
+      const list = long.parentElement
+      expect(list).not.toBeNull()
+      fireEvent.mouseLeave(list as HTMLElement)
       expect(long.getAttribute('data-tip-ready')).toBe('')
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('clears the dwell timer on unmount', async () => {
+    bench({ branchesView: longBranchesView })
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const long = await screen.findByRole('option', { name: LONG_A })
+    vi.useFakeTimers()
+    try {
+      fireEvent.mouseEnter(long)
+      cleanup()
+      // Advancing past the dwell must not throw after unmount (timer cleared).
+      expect(() => { act(() => { vi.advanceTimersByTime(600) }) }).not.toThrow()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('flips the bubble below for items near the top of the list', async () => {
+    bench({ branchesView: longBranchesView })
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const long = await screen.findByRole('option', { name: LONG_A })
+    // jsdom rects are all zero, so itemTop - listTop (0) < 56 → 'down'.
+    fireEvent.mouseEnter(long)
+    expect(long.getAttribute('data-tip-dir')).toBe('down')
   })
 })

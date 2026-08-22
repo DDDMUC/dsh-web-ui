@@ -737,8 +737,7 @@
 .item[data-tip='']::after {
   display: none !important;
 }
-.item:first-child::after,
-.item:nth-child(2)::after {
+.item[data-tip-dir='down']::after {
   top: calc(100% + 4px);
   bottom: auto;
 }
