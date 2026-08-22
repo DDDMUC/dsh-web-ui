@@ -11,8 +11,8 @@ window.SKIN_MANIFEST = {
       "description": "《鲸吟》— 深海鲸语女神主题：无文字纯氛围背景画（蓝发女神与鲸群居左、冰蓝星座网格与金线点缀、右侧大量留白）垫在半透明面板之下，遮罩随亮/暗主题实时切换，冰蓝/浅青/深海军蓝/钴蓝冷色体系重映射到全部 dsh token，暗色变体为深海夜航调。",
       "accent": "#4d8fd4",
       "preview": {
-        "light": "assets/skins/whale-song/preview/light.png",
-        "dark": "assets/skins/whale-song/preview/dark.png"
+        "light": "assets/skins/whale-song/preview/light.jpg",
+        "dark": "assets/skins/whale-song/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -40,8 +40,8 @@ window.SKIN_MANIFEST = {
       "description": "DreamSkin「DeepSeek-鲸鱼娘」Codex 桌面主题的 dsh 适配：鲸鱼插画背景垫在半透明面板之下，遮罩随亮/暗主题实时切换，periwinkle 靛蓝色调重映射到全部 dsh token。",
       "accent": "#4a5fa8",
       "preview": {
-        "light": "assets/skins/blue-fantasy/preview/light.png",
-        "dark": "assets/skins/blue-fantasy/preview/dark.png"
+        "light": "assets/skins/blue-fantasy/preview/light.jpg",
+        "dark": "assets/skins/blue-fantasy/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -69,8 +69,8 @@ window.SKIN_MANIFEST = {
       "description": "《夕港》黄昏港口主题：动漫少女黄昏港口背景（暮光蓝天空渐入日落橙）垫在半透明面板之下，遮罩随亮/暗主题实时切换，深暮蓝 #141a2e 底与日落橙 #ff9d5c 主色重映射到 dsh token，亮色是薄暮纱、暗色是深海夜航纱，同一幅画两种读法。",
       "accent": "#ff9d5c",
       "preview": {
-        "light": "assets/skins/harbor/preview/light.png",
-        "dark": "assets/skins/harbor/preview/dark.png"
+        "light": "assets/skins/harbor/preview/light.jpg",
+        "dark": "assets/skins/harbor/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -98,8 +98,8 @@ window.SKIN_MANIFEST = {
       "description": "Windows XP (Luna) 复古主题：蓝色渐变窗口条带窗口按钮、米色状态栏（大写/数字/滚动指示灯）、侧边栏任务栏上的绿色「开始」按钮、资源管理器风格树行和 Bliss 蓝天桌面，全局直角。",
       "accent": "#316ac5",
       "preview": {
-        "light": "assets/skins/xp/preview/light.png",
-        "dark": "assets/skins/xp/preview/dark.png"
+        "light": "assets/skins/xp/preview/light.jpg",
+        "dark": "assets/skins/xp/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -115,8 +115,8 @@ window.SKIN_MANIFEST = {
       "description": "龙的传人 — 一面是不屈龙魂（墨龙穿云、朱砂印章、不屈锋芒），一面是万里长城（青黛山色、金晖镀墙、苍茫暮色）。亮暗主题各自配一幅画与一枚龙印 favicon，面板半透明磨砂，让画透出来。",
       "accent": "#c3272b",
       "preview": {
-        "light": "assets/skins/dragon-heir/preview/light.png",
-        "dark": "assets/skins/dragon-heir/preview/dark.png"
+        "light": "assets/skins/dragon-heir/preview/light.jpg",
+        "dark": "assets/skins/dragon-heir/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -144,8 +144,8 @@ window.SKIN_MANIFEST = {
       "description": "复刻《我的世界》主界面氛围的方块皮肤：程序化绘制的像素全景天空盒（方块山、像素云、方块树、草方块地面）在身后缓慢旋转，界面浮在石板上；按钮还原 MC 菜单按钮（灰石板、悬停变黄、按下下沉），输入框做成带钉子的木告示牌。",
       "accent": "#7cbd4b",
       "preview": {
-        "light": "assets/skins/minecraft/preview/light.png",
-        "dark": "assets/skins/minecraft/preview/dark.png"
+        "light": "assets/skins/minecraft/preview/light.jpg",
+        "dark": "assets/skins/minecraft/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -161,8 +161,8 @@ window.SKIN_MANIFEST = {
       "description": "结合 dsh-fun-ticker 行情跑马灯与 dsh-longbridge 港美股行情的炒股皮肤：顶栏滚动 A股/港股/美股/指数/加密/外汇报价（装 fun-ticker 后跟随你的自选列表），状态栏展示长桥行情快照与 A股/港股/美股交易时段，写代码也像盯盘。",
       "accent": "#f23645",
       "preview": {
-        "light": "assets/skins/trading/preview/light.png",
-        "dark": "assets/skins/trading/preview/dark.png"
+        "light": "assets/skins/trading/preview/light.jpg",
+        "dark": "assets/skins/trading/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -178,8 +178,8 @@ window.SKIN_MANIFEST = {
       "description": "以世界第一的虚拟歌姬初音未来为灵感的主题皮肤：蓝紫洋红渐变贯穿全局，音符与声波曲线点缀在半透明面板之间，标题栏与状态栏带有 01 编号徽标与音乐波形，半透明毛玻璃面板透出背景图——沉浸式电子歌姬氛围。",
       "accent": "#2e9bff",
       "preview": {
-        "light": "assets/skins/miku/preview/light.png",
-        "dark": "assets/skins/miku/preview/dark.png"
+        "light": "assets/skins/miku/preview/light.jpg",
+        "dark": "assets/skins/miku/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -207,8 +207,8 @@ window.SKIN_MANIFEST = {
       "description": "dsh web ui 的鲸鱼妈妈主题皮肤：深海鲸鱼妈妈与幼崽们的氛围画作铺满视口，面板全透（透明度由设置-皮肤中心的背景遮挡滑杆驱动，侧边栏基准透明度可用 --dsw-skin-sidebar-alpha 微调），深蓝 / 奶油 / 金色配色贯穿全局，暗色是深海夜航。",
       "accent": "#d9a53c",
       "preview": {
-        "light": "assets/skins/whale-mom/preview/light.png",
-        "dark": "assets/skins/whale-mom/preview/dark.png"
+        "light": "assets/skins/whale-mom/preview/light.jpg",
+        "dark": "assets/skins/whale-mom/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -236,8 +236,8 @@ window.SKIN_MANIFEST = {
       "description": "深夜卧室场景的护眼暗色皮肤：近黑墨绿背景、墨绿等宽字体、低透明度数字雨。强制暗色（不跟随系统主题），整体低亮度，长时间使用不刺眼、不打扰家人睡觉。",
       "accent": "#00e676",
       "preview": {
-        "light": "assets/skins/matrix/preview/light.png",
-        "dark": "assets/skins/matrix/preview/dark.png"
+        "light": "assets/skins/matrix/preview/light.jpg",
+        "dark": "assets/skins/matrix/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -253,8 +253,8 @@ window.SKIN_MANIFEST = {
       "description": "一套面向 DeepSeek Harness Web GUI 的高定制动漫角色皮肤。它使用双女仆工坊场景作为对话区背景，以深海蓝、陶瓷白、长春花蓝和柔金构成可热切换的界面覆盖层，并为加载、思考和工具运行状态提供动画反馈。",
       "accent": "#c5a468",
       "preview": {
-        "light": "assets/skins/maid-atelier/preview/light.webp",
-        "dark": "assets/skins/maid-atelier/preview/dark.webp"
+        "light": "assets/skins/maid-atelier/preview/light.jpg",
+        "dark": "assets/skins/maid-atelier/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -270,8 +270,8 @@ window.SKIN_MANIFEST = {
       "description": "《夏沫琉璃》— 日系夏祭背景 + iOS 26 液态玻璃主题：人物与烟花在分层半透明玻璃面板之后若隐若现，玻璃面板带内缘高光、非均匀边缘反射与柔和扩散阴影；冰青 #67DCE7 作主要交互、玫瑰粉 #DD8FAC 作选中与品牌细节、琥珀金 #F3B75F 作运行中与重要提示、黄绿 #CBE77D 仅用于成功。代码、终端、日志与聊天区使用更低透明度的高可读玻璃，长时间使用不累眼。",
       "accent": "#67DCE7",
       "preview": {
-        "light": "assets/skins/summer-liquid-glass/preview/light.png",
-        "dark": "assets/skins/summer-liquid-glass/preview/dark.png"
+        "light": "assets/skins/summer-liquid-glass/preview/light.jpg",
+        "dark": "assets/skins/summer-liquid-glass/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -299,8 +299,8 @@ window.SKIN_MANIFEST = {
       "description": "基于原神角色芙宁娜的dsh-web-ui主题",
       "accent": "#4a5fb5",
       "preview": {
-        "light": "assets/skins/furina/preview/light.png",
-        "dark": "assets/skins/furina/preview/dark.png"
+        "light": "assets/skins/furina/preview/light.jpg",
+        "dark": "assets/skins/furina/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -328,8 +328,8 @@ window.SKIN_MANIFEST = {
       "description": "薄荷是官方锚定的范例皮肤：只重映射官方 --dsw-alias-* 语义 token（L1），不含 patches.css、hooks.mjs 与背景媒体，展示一个新皮肤所需的全部最小要素。社区作者复制本目录、改颜色、改 id 即可发布一个永远安全的皮肤。",
       "accent": "#2fbf8f",
       "preview": {
-        "light": "assets/skins/mint/preview/light.png",
-        "dark": "assets/skins/mint/preview/dark.png"
+        "light": "assets/skins/mint/preview/light.jpg",
+        "dark": "assets/skins/mint/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css"
@@ -344,8 +344,8 @@ window.SKIN_MANIFEST = {
       "description": "《赛博夜城》— 赛博朋克夜城主题：俯视科幻都市漩涡画作铺满视口（深蓝夜空与霓虹都市、中央明亮暗角构图），遮罩随亮/暗主题实时切换并支持皮肤中心背景遮挡滑杆；青色家族替代 blue/deepseek 全部 token，品红与电紫作强调、霓虹黄作警示，深墨半透明面板让夜景透出，暗色为经典夜城调、亮色为日间霓虹变体。",
       "accent": "#00e5ff",
       "preview": {
-        "light": "assets/skins/cyber-night/preview/light.png",
-        "dark": "assets/skins/cyber-night/preview/dark.png"
+        "light": "assets/skins/cyber-night/preview/light.jpg",
+        "dark": "assets/skins/cyber-night/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -373,8 +373,8 @@ window.SKIN_MANIFEST = {
       "description": "《深流》为长时间使用 dsh web 的工作界面引入海洋测绘语言：亮色模式以深海墨绿侧栏衬托珍珠主画布，暗色模式整体下潜为低亮度深海层级；空会话首页的有机等深线场与柔和洋流带以分层速度横向流过输入区，进入对话后恢复静止，蓝色负责主要操作，薄荷绿标记选中与成功状态，珊瑚色只用于错误提示。",
       "accent": "#2D6CDF",
       "preview": {
-        "light": "assets/skins/deep-current/preview/light.png",
-        "dark": "assets/skins/deep-current/preview/dark.png"
+        "light": "assets/skins/deep-current/preview/light.jpg",
+        "dark": "assets/skins/deep-current/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -390,8 +390,8 @@ window.SKIN_MANIFEST = {
       "description": "粉樱以低饱和奶油粉、玫瑰强调色和暖灰文字重塑 DSH Web GUI。亮暗两态均保留成功、警告、错误等语义色，并通过 L2 语义属性覆盖任务看板、Git 图谱、SSH、设置卡和鲸鱼娘等插件区域；Wallpaper Engine 启用时自动切换为半透明面板。",
       "accent": "#ff7fae",
       "preview": {
-        "light": "assets/skins/pink-sakura/preview/light.png",
-        "dark": "assets/skins/pink-sakura/preview/dark.png"
+        "light": "assets/skins/pink-sakura/preview/light.jpg",
+        "dark": "assets/skins/pink-sakura/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css"
@@ -406,8 +406,8 @@ window.SKIN_MANIFEST = {
       "description": "官方默认底座 + 气泡/代码块/任务清单/插件面板等浮层液态玻璃，壁纸从背后透出，不画自己的背景；输入卡由 web-ui 统一设计，面板固定半透明磨砂，不随滑杆驱动。",
       "accent": "#0d1627",
       "preview": {
-        "light": "assets/skins/wallpaper-exclusive/preview/light.png",
-        "dark": "assets/skins/wallpaper-exclusive/preview/dark.png"
+        "light": "assets/skins/wallpaper-exclusive/preview/light.jpg",
+        "dark": "assets/skins/wallpaper-exclusive/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
