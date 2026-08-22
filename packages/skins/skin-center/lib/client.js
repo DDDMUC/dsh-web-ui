@@ -471,8 +471,9 @@ window.__ModuleLoader__.load({
 		/** The namespace string the Host registers (mirrors src/index.ts). */
 		const SKIN_WALLPAPER_NS = "skin-wallpaper";
 		const clamp = (value, min, max) => Math.max(min, Math.min(max, Math.round(value)));
-		/** Style one fixed, non-interactive, under-everything layer. */
-		function styleLayer(element, zIndex) {
+		/** Style one fixed, non-interactive, under-everything wallpaper layer. */
+		function styleLayer(element, zIndex, layer) {
+			element.dataset.dshWallpaperLayer = layer;
 			element.style.position = "fixed";
 			element.style.inset = "0";
 			element.style.zIndex = String(zIndex);
@@ -508,9 +509,9 @@ window.__ModuleLoader__.load({
 			const alpha = Number.parseFloat(value);
 			return Number.isFinite(alpha) && alpha > 0;
 		}
-		/** Exclude modal and plugin surfaces that must remain readable above the shell. */
+		/** Exclude owned layers plus modal/plugin surfaces that must retain their paint. */
 		function isExcludedWallpaperSurface(el, zIndex) {
-			if (typeof el.closest === "function" && el.closest("dialog, [role=\"dialog\"], [aria-modal=\"true\"], [data-shell-overlay], [data-slot=\"shell.overlay\"], [data-dsh-plugin]") !== null) return true;
+			if (typeof el.closest === "function" && el.closest("[data-dsh-wallpaper-layer], dialog, [role=\"dialog\"], [aria-modal=\"true\"], [data-shell-overlay], [data-slot=\"shell.overlay\"], [data-dsh-plugin]") !== null) return true;
 			const numericZIndex = Number.parseFloat(zIndex);
 			return Number.isFinite(numericZIndex) && numericZIndex > MAX_SURFACE_OVERLAY_Z_INDEX;
 		}
@@ -917,13 +918,13 @@ window.__ModuleLoader__.load({
 				if (this.mediaLayer !== null && !this.mediaLayer.isConnected) this.doc.body.appendChild(this.mediaLayer);
 				if (this.mediaLayer === null) {
 					this.mediaLayer = this.doc.createElement("div");
-					styleLayer(this.mediaLayer, -3);
+					styleLayer(this.mediaLayer, -3, "media");
 					this.doc.body.appendChild(this.mediaLayer);
 				}
 				if (this.scrimLayer !== null && !this.scrimLayer.isConnected) this.doc.body.appendChild(this.scrimLayer);
 				if (this.scrimLayer === null) {
 					this.scrimLayer = this.doc.createElement("div");
-					styleLayer(this.scrimLayer, -2);
+					styleLayer(this.scrimLayer, -2, "scrim");
 					this.doc.body.appendChild(this.scrimLayer);
 				}
 				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + (descriptor.videoUrl ?? "") + ":" + (descriptor.sceneUrl ?? "");
@@ -1153,8 +1154,9 @@ window.__ModuleLoader__.load({
 					const node = stack.pop();
 					if (node === void 0) continue;
 					if (!node.hasAttribute("data-dsh-wallpaper-surface")) {
+						const inWallpaperLayer = node.closest("[data-dsh-wallpaper-layer]") !== null;
 						const inWorkspaces = node.closest("[data-slot=\"sidebar.workspaces\"]") !== null;
-						if (isSurface(node) || inWorkspaces && isFade(node, this.doc)) {
+						if (!inWallpaperLayer && (isSurface(node) || inWorkspaces && isFade(node, this.doc))) {
 							node.setAttribute("data-dsh-wallpaper-surface", "");
 							this.taggedSurfaces.add(node);
 						}
