@@ -45,6 +45,10 @@ describe('launcher script rendering', () => {
     expect(script).toContain("-match '\\.(?:cmd|exe|bat|com)$'")
     expect(script).toContain("Start-Process -FilePath 'powershell.exe'")
     expect(script).toContain("@('-NoProfile', '-File', $command.Source)")
+    expect(script).toContain("[guid]::NewGuid().ToString('N')")
+    expect(script).toContain("SetEnvironmentVariable('DSH_DESKTOP_LAUNCHER_TOKEN', $launchToken")
+    expect(script).toContain('Start-Process $managedUrl')
+    expect(script.indexOf('if (Test-DshUrl) {')).toBeLessThan(script.indexOf("SetEnvironmentVariable('DSH_DESKTOP_LAUNCHER_TOKEN'"))
   })
 
   it('omits the profile flag when no profile is set', () => {
@@ -60,6 +64,8 @@ describe('launcher script rendering', () => {
     expect(mac).toContain('command -v "$DASH"')
     const linux = renderLauncherScript('linux', { dshCommand: 'dsh', url: 'http://127.0.0.1:3080' })
     expect(linux).toContain('xdg-open "$URL"')
+    expect(linux).toContain('DSH_DESKTOP_LAUNCHER_TOKEN="$LAUNCH_TOKEN"')
+    expect(linux).toContain('xdg-open "$MANAGED_URL"')
   })
 
   it('escapes single quotes in embedded values', () => {

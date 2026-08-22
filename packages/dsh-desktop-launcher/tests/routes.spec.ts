@@ -131,6 +131,26 @@ describe('createDesktopShortcut', () => {
     }
   })
 
+  it('passes a bare POSIX command as data instead of shell source', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-desktop-launcher-safe-probe-'))
+    try {
+      const calls: Call[] = []
+      const command = 'dsh; echo injected'
+      await createDesktopShortcut({
+        resolveSpec: () => ({ dshCommand: command, url: 'http://127.0.0.1:3080' }),
+        homeDir: dir,
+        dshHomeDir: dir,
+        platform: 'linux',
+        run: recordingRunner(calls),
+      })
+      const probe = calls.find(call => call.file === 'sh')
+      expect(probe?.args).toEqual(['-lc', 'command -v -- "$1"', 'dsh-desktop-launcher', command])
+      expect(probe?.args[1]).not.toContain(command)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('warns when dsh is missing from PATH', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'dsh-desktop-launcher-warn-'))
     try {

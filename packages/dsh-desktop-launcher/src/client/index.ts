@@ -8,6 +8,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { DesktopLauncherSettingsCard, DesktopLauncherSettingsCardController, type DesktopLauncherSettings } from './DesktopLauncherSettingsCard.tsx'
 import { en, zh, type DesktopLauncherKey } from './locales.ts'
 import { mountShutdownButton } from './floating-mount.tsx'
+import { startLauncherLifecycle } from './lifecycle.ts'
 
 export { DesktopLauncherSettingsCard, DesktopLauncherSettingsCardController } from './DesktopLauncherSettingsCard.tsx'
 export type { DesktopLauncherSettings, DesktopLauncherSettingsCardFace, DesktopLauncherSettingsCardState } from './DesktopLauncherSettingsCard.tsx'
@@ -63,6 +64,7 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  ctx.effect(startLauncherLifecycle, 'desktop-launcher: managed browser lifecycle')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'desktop-launcher: dictionaries')
 
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope

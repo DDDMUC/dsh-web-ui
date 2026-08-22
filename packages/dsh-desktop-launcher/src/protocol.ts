@@ -11,7 +11,19 @@ export const LAUNCHER_API = {
   create: '/api/dsh-desktop-launcher/create',
   /** Request the host process to exit gracefully. */
   shutdown: '/api/dsh-desktop-launcher/shutdown',
+  /** Maintain the browser lease of a shortcut-started host process. */
+  lifecycle: '/api/dsh-desktop-launcher/lifecycle',
 } as const
+
+/** Browser lifecycle operations for a shortcut-managed host process. */
+export type LauncherLifecycleAction = 'attach' | 'heartbeat' | 'release'
+
+/** Authenticated browser lease message. */
+export interface LauncherLifecycleMessage {
+  action: LauncherLifecycleAction
+  token: string
+  clientId: string
+}
 
 /** Result of a desktop-icon creation. */
 export interface CreateResult {

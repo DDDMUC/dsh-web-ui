@@ -129,7 +129,7 @@ async function probeDsh(platform: LauncherPlatform, run: CommandRunner, dshComma
   try {
     const result = platform === 'win32'
       ? await run('where', [dshCommand])
-      : await run('sh', ['-lc', `command -v ${dshCommand}`])
+      : await run('sh', ['-lc', 'command -v -- "$1"', 'dsh-desktop-launcher', dshCommand])
     return result.code === 0
   } catch {
     return false
