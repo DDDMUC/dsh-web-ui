@@ -69,3 +69,7 @@ minimumReleaseAgeExclude:
   # minimum-release-age guard must not reject the fresh version. Scoped to
   # that exact version so later upstream publishes get no cooldown bypass.
   - 'dsh-better-sidebar@0.14.0'
+  # The aggregate bundle mounts @mlgbnb/dsh-archive-manager at exactly 1.0.7;
+  # pnpm 11's minimum-release-age guard must not reject the fresh version.
+  # Scoped to that exact version so later upstream publishes get no cooldown bypass.
+  - '@mlgbnb/dsh-archive-manager@1.0.7'

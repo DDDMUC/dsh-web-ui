@@ -1038,6 +1038,9 @@ importers:
       '@linxin666/dsh-tool-describe-image':
         specifier: workspace:*
         version: link:../dsh-tool-describe-image
+      '@mlgbnb/dsh-archive-manager':
+        specifier: 1.0.7
+        version: 1.0.7(react@18.3.1)
       dsh-better-sidebar:
         specifier: 0.14.0
         version: 0.14.0(bc87b4acea0ead060a176b8af9a1b6b3)
@@ -2131,6 +2134,11 @@ packages:
 
   '@mermaid-js/parser@1.2.1':
     resolution: {integrity: sha512-n12NohV3mrUyUL2o93IgG/ifeW9FTyeJn3zDxkhwa8MJ9Fxg3HQMlA3RiGmD/3UnJvheztkjjQAjA2T4LmUcpw==}
+
+  '@mlgbnb/dsh-archive-manager@1.0.7':
+    resolution: {integrity: sha512-OvdrCOJN+gm9VAHvm1B0LNdf1xaRP8uOQ98qSQsstXMVqSa2jXw899P8S8hb153GgEFT9gkd6W4ZT0byjonzjg==}
+    peerDependencies:
+      react: ^18.2.0
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     resolution: {integrity: sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ==}
@@ -5327,6 +5335,10 @@ snapshots:
   '@mermaid-js/parser@1.2.1':
     dependencies:
       '@chevrotain/types': 11.1.2
+
+  '@mlgbnb/dsh-archive-manager@1.0.7(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
