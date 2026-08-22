@@ -487,7 +487,7 @@
       var tryon = el('a', 'mk-skin-tryon', '实时试穿 ↗')
       tryon.rel = 'noopener'
       tryon.target = '_blank'
-      tryon.href = 'preview.html?skin=' + encodeURIComponent(item.id) + '&theme=light'
+      tryon.href = 'tryon/?skin=' + encodeURIComponent(item.id) + '&theme=light'
       function skinSrc(theme) {
         var p = item.preview || {}
         return p[theme] || p.light || p.dark || ''
@@ -500,7 +500,7 @@
           skinImg.src = skinSrc(theme)
           modes.querySelectorAll('button').forEach(function (o) { o.classList.remove('on') })
           b.classList.add('on')
-          tryon.href = 'preview.html?skin=' + encodeURIComponent(item.id) + '&theme=' + theme
+          tryon.href = 'tryon/?skin=' + encodeURIComponent(item.id) + '&theme=' + theme
         })
         modes.appendChild(b)
       }
