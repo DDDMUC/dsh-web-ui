@@ -15,7 +15,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === 'supervisor') { await runSupervisor(); return 0 }
   if (command === 'launch') { const token = (await readFile(paths.token, 'utf8')).trim(); return managedLaunch({ argv: argv.slice(1), endpoint: paths.socket, token }) }
   if (command === 'status') { const token = (await readFile(paths.token, 'utf8')).trim(); console.log(JSON.stringify(await callSupervisor(paths.socket, token, { protocol: DOCTOR_PROTOCOL_VERSION, type: 'status' }), null, 2)); return 0 }
-  if (command === 'provision') { const dsh = process.env.DSH_DOCTOR_REAL_DSH || 'dsh'; const manifest = await provisionCapsule({ paths, dshExecutable: dsh, doctorSpec: process.env.DSH_DOCTOR_PACKAGE || '@linxin666/dsh-doctor@0.2.7', doctorPackageDir: process.env.DSH_DOCTOR_PACKAGE_DIR }); console.log(JSON.stringify(manifest, null, 2)); return 0 }
+  if (command === 'provision') { const dsh = process.env.DSH_DOCTOR_REAL_DSH || 'dsh'; const manifest = await provisionCapsule({ paths, dshExecutable: dsh, doctorSpec: process.env.DSH_DOCTOR_PACKAGE || '@linxin666/dsh-doctor@0.2.8', doctorPackageDir: process.env.DSH_DOCTOR_PACKAGE_DIR }); console.log(JSON.stringify(manifest, null, 2)); return 0 }
   if (command === 'diagnose' || command === 'repair' || command === 'snapshot' || command === 'rollback') {
     const profile = argv[1] ?? 'web'
     const base: RecoveryRequest = {

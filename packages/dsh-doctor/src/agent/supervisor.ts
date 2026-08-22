@@ -17,7 +17,7 @@ export class DoctorSupervisor {
   private readonly version: string
   private readonly now: () => string
   private readonly heartbeatTimeoutMs: number
-  constructor(options: SupervisorOptions = {}) { this.paths = options.paths ?? doctorPaths(); this.version = options.version ?? '0.2.7'; this.now = options.now ?? (() => new Date().toISOString()); this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 15_000 }
+  constructor(options: SupervisorOptions = {}) { this.paths = options.paths ?? doctorPaths(); this.version = options.version ?? '0.2.8'; this.now = options.now ?? (() => new Date().toISOString()); this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 15_000 }
   async start(): Promise<void> {
     await mkdir(this.paths.state, { recursive: true, mode: 0o700 })
     this.token = await ensureToken(this.paths.token)

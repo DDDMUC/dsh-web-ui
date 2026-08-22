@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-client-ui-skin-whale-song",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "No-op compatibility shim for the retired whale-song skin package.",
   "type": "module",
   "main": "lib/index.js",
