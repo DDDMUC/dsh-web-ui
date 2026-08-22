@@ -579,25 +579,42 @@ describe('scene container resolution (#521)', () => {
     expect(String(resRes.headers['content-type'])).toContain('image/png')
   })
 
-  it('withholds live playback from recursively scripted scenes', async () => {
-    makeProject(join(library, '777'), { title: 'Scripted', type: 'scene', file: 'scene.json' }, {
+  it('keeps supported water and particle passes live when embedded scripts are ignored', async () => {
+    makeProject(join(library, '777'), { title: 'Scripted water and meteors', type: 'scene', file: 'scene.json' }, {
       'scene.json': JSON.stringify({
-        objects: [{
-          name: 'dino',
-          image: 'models/dino.json',
-          effects: [{ overrides: [{ visible: { value: false, script: 'engine.registerAsset(1)' } }] }],
-        }],
+        general: { orthogonalprojection: { width: 1000, height: 800 } },
+        objects: [
+          {
+            name: 'water',
+            image: 'models/water.json',
+            origin: '500 400 0',
+            effects: [{
+              file: 'effects/reflection/effect.json',
+              overrides: [{ visible: { value: false, script: 'engine.registerAsset(1)' } }],
+            }],
+          },
+          { name: 'meteor emitter' },
+        ],
       }),
-      'models/dino.json': JSON.stringify({ material: 'materials/dino.json', width: 64, height: 64 }),
-      'materials/dino.json': JSON.stringify({ passes: [{ textures: ['materials/dino.tex'] }] }),
+      'models/water.json': JSON.stringify({ material: 'materials/water.json', width: 64, height: 64 }),
+      'materials/water.json': JSON.stringify({ passes: [{ textures: ['materials/water.tex'] }] }),
     })
     mkdirSync(join(library, '777', 'materials'), { recursive: true })
-    writeFileSync(join(library, '777', 'materials', 'dino.tex'), tex64Red)
+    writeFileSync(join(library, '777', 'materials', 'water.tex'), tex64Red)
+    writeFileSync(join(library, '777', 'materials', 'reflection_mask.tex'), tex1x1Red)
     const probe = await call('GET', WE_API_PREFIX + '/scene-probe?id=777')
     expect(probe.status).toBe(200)
-    expect(probe.body.sceneUrl).toBe(null)
-    expect(probe.body.compatibility).toBe('static-only')
+    expect(String(probe.body.sceneUrl)).toContain(WE_API_PREFIX + '/scene-runtime/')
+    expect(probe.body.compatibility).toBe('partial')
     expect(probe.body.unsupportedFeatures).toEqual(['embedded-script'])
+
+    const manifestResponse = await call('GET', String(probe.body.sceneUrl).replace('/scene-runtime/', '/scene-manifest/'))
+    const manifest = manifestResponse.body.manifest as Record<string, unknown>
+    const layers = manifest.layers as Array<Record<string, unknown>>
+    expect(manifest.scripted).toBe(true)
+    expect(manifest.hasMeteors).toBe(true)
+    expect(layers.some(layer => layer.isReflection === true && typeof layer.waterLine === 'number')).toBe(true)
+    expect(layers.some(layer => layer.name === 'water' && layer.isReflection !== true)).toBe(true)
   })
 })
 
@@ -671,7 +688,7 @@ describe('scene-probe cache (#817)', () => {
     const key = Object.keys(persisted)[0] ?? ''
     expect(key).toContain('scene.pkg')
     expect(persisted[key]).toEqual({
-      v: 2,
+      v: 3,
       hasVideo: false,
       hasSceneWebGL: false,
       compatibility: 'full',
