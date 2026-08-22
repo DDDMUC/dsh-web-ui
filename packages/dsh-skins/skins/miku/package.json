@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-client-ui-skin-miku",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "No-op compatibility shim for the retired miku skin package.",
   "type": "module",
   "main": "lib/index.js",
