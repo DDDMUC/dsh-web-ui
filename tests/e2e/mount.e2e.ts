@@ -23,16 +23,16 @@ if (!BASE_URL) {
 }
 
 /** Plugin crash-marker prefixes (the client renders a strip instead of crashing). */
-const CRASH_STRIP_PATTERNS = [/^dsh-better-sidebar:/, /^\[dsh-better-sidebar\]/]
+const CRASH_STRIP_PATTERNS = [/^dsh-better-sidebar:/, /^\[dsh-better-sidebar\]/, /^dsh-archive-manager:/, /^\[dsh-archive-manager\]/]
 
-test('family bundle mounts dsh-better-sidebar without crash markers', async ({ page }) => {
+test('family bundle mounts the external plugins without crash markers', async ({ page }) => {
   const pageErrors: string[] = []
   const pluginConsoleErrors: string[] = []
   page.on('pageerror', (error) => { pageErrors.push(error.message) })
   page.on('console', (message) => {
     if (message.type() !== 'error') return
     const text = message.text()
-    if (/dsh-better-sidebar/.test(text)) pluginConsoleErrors.push(text)
+    if (/dsh-better-sidebar|archive-manager/.test(text)) pluginConsoleErrors.push(text)
   })
 
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' })
@@ -43,7 +43,7 @@ test('family bundle mounts dsh-better-sidebar without crash markers', async ({ p
   await page.waitForSelector('[data-dsh-better-sidebar]', { state: 'attached', timeout: 30_000 })
   await expect(page.locator('[data-dsh-better-sidebar]')).toHaveCount(1)
 
-  // No better-sidebar crash strips anywhere on the page.
+  // No better-sidebar / archive-manager crash strips anywhere on the page.
   for (const pattern of CRASH_STRIP_PATTERNS) {
     await expect(page.getByText(pattern)).toHaveCount(0)
   }
