@@ -221,17 +221,6 @@
     "category": "knowledge"
   },
   {
-    "id": "dsh-archive-manager",
-    "name": "归档管理",
-    "nameEn": "Archive Manager",
-    "author": "z953218350",
-    "description": "设置页 Codex 风格会话归档管理：按项目分组、搜索筛选、预览对话内容、一键恢复与彻底物理删除，内置 zstd 解压引擎。",
-    "descriptionEn": "Codex-style archived session manager in settings: group by project, search and filter, preview conversation history, restore to sidebar, and permanently delete from disk; built-in zstd decompression.",
-    "repo": "https://github.com/z953218350/dsh-archive-manager",
-    "npm": "@mlgbnb/dsh-archive-manager",
-    "category": "utility"
-  },
-  {
     "id": "dsh-history-tree",
     "name": "历史树",
     "nameEn": "History Tree",
