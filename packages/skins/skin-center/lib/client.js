@@ -1971,10 +1971,12 @@ window.__ModuleLoader__.load({
 			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
 			const blurContent = (0, react.useSyncExternalStore)(background.subscribe, background.blurContent);
 			const inputCardBlur = (0, react.useSyncExternalStore)(background.subscribe, background.inputCardBlur);
+			const bubbleOpacity = (0, react.useSyncExternalStore)(background.subscribe, background.bubbleOpacity);
 			const [shownOpacity, setShownOpacity] = useLiveValue(opacity);
 			const [shownBlurEmpty, setShownBlurEmpty] = useLiveValue(blurEmpty);
 			const [shownBlurContent, setShownBlurContent] = useLiveValue(blurContent);
 			const [shownInputCardBlur, setShownInputCardBlur] = useLiveValue(inputCardBlur);
+			const [shownBubbleOpacity, setShownBubbleOpacity] = useLiveValue(bubbleOpacity);
 			const catalog = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.catalog);
 			const state = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.controller.getState);
 			const customThemeState = (0, react.useSyncExternalStore)(customTheme.subscribe, customTheme.getState);
@@ -2317,6 +2319,40 @@ window.__ModuleLoader__.load({
 								})
 							]
 						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.backgroundRow,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.backgroundHead,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.backgroundLabel,
+										children: t("bubbleOpacity")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+										className: skin_center_module_css_default.backgroundValue,
+										"aria-hidden": "true",
+										children: [shownBubbleOpacity, "%"]
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+									id: "skin-center-bubble-opacity",
+									className: skin_center_module_css_default.backgroundRange,
+									min: 0,
+									max: 100,
+									step: 5,
+									value: bubbleOpacity,
+									ariaValuetext: shownBubbleOpacity + "%",
+									ariaLabel: t("bubbleOpacity"),
+									onChanging: setShownBubbleOpacity,
+									onChange: (value) => {
+										background.setBubbleOpacity(value);
+									}
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: skin_center_module_css_default.backgroundHint,
+									children: t("bubbleOpacityHint")
+								})
+							]
+						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(WallpaperPanel, {
 							t,
 							wallpaper
@@ -2468,6 +2504,10 @@ window.__ModuleLoader__.load({
 		const INPUT_CARD_BLUR_FIELD = "inputCardBlur";
 		/** CSS custom property written to document.body and read by backdrop skins. */
 		const SCRIM_VAR = "--dsw-skin-scrim";
+		/** Field of the message bubble opacity inside the namespace section. */
+		const BUBBLE_OPACITY_FIELD = "bubbleOpacity";
+		/** CSS custom property consumed by skins that expose translucent bubbles. */
+		const BUBBLE_ALPHA_VAR = "--dsh-skin-bubble-alpha";
 		/** CSS custom property consumed by the shared composer neutralizer. */
 		const INPUT_CARD_BLUR_VAR = "--dsh-input-card-blur";
 		/**
@@ -2496,6 +2536,7 @@ window.__ModuleLoader__.load({
 			blurEmptyValue = 0;
 			blurContentValue = 0;
 			inputCardBlurValue = 10;
+			bubbleOpacityValue = 50;
 			listeners = /* @__PURE__ */ new Set();
 			scope;
 			/** The fixed backdrop-filter element, present only while active blur > 0. */
@@ -2516,8 +2557,10 @@ window.__ModuleLoader__.load({
 				this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
 				this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
 				this.inputCardBlurValue = this.readInputCardBlur();
+				this.bubbleOpacityValue = this.readBubbleOpacity();
 				this.applyOcclusion();
 				this.applyInputCardBlur();
+				this.applyBubbleOpacity();
 				this.syncBlur();
 				scope.subscribe(() => {
 					this.enabledValue = this.readEnabled();
@@ -2525,8 +2568,10 @@ window.__ModuleLoader__.load({
 					this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
 					this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
 					this.inputCardBlurValue = this.readInputCardBlur();
+					this.bubbleOpacityValue = this.readBubbleOpacity();
 					this.applyOcclusion();
 					this.applyInputCardBlur();
+					this.applyBubbleOpacity();
 					this.syncBlur();
 					this.publish();
 				});
@@ -2544,6 +2589,7 @@ window.__ModuleLoader__.load({
 			blurEmpty = () => this.blurEmptyValue;
 			blurContent = () => this.blurContentValue;
 			inputCardBlur = () => this.inputCardBlurValue;
+			bubbleOpacity = () => this.bubbleOpacityValue;
 			subscribe = (listener) => {
 				this.listeners.add(listener);
 				return () => {
@@ -2580,6 +2626,13 @@ window.__ModuleLoader__.load({
 				this.publish();
 				this.scope.set(INPUT_CARD_BLUR_FIELD, clamped);
 			}
+			setBubbleOpacity(value) {
+				const clamped = this.clampPercent(value);
+				this.bubbleOpacityValue = clamped;
+				this.applyBubbleOpacity();
+				this.publish();
+				this.scope.set(BUBBLE_OPACITY_FIELD, clamped);
+			}
 			dispose() {
 				this.disposed = true;
 				if (this.rafId !== null) {
@@ -2588,6 +2641,7 @@ window.__ModuleLoader__.load({
 				}
 				this.removeBlurElement();
 				document.body.style.removeProperty(INPUT_CARD_BLUR_VAR);
+				document.body.style.removeProperty(BUBBLE_ALPHA_VAR);
 				if (this.observer !== null) {
 					this.observer.disconnect();
 					this.observer = null;
@@ -2609,6 +2663,11 @@ window.__ModuleLoader__.load({
 				if (typeof raw !== "number" || !Number.isFinite(raw)) return 10;
 				return this.clampBlur(raw);
 			}
+			readBubbleOpacity() {
+				const raw = this.scope.getSnapshot().value?.bubbleOpacity;
+				if (typeof raw !== "number" || !Number.isFinite(raw)) return 50;
+				return this.clampPercent(raw);
+			}
 			/** The effective blur section value for one field, clamped 0-20, defaulting to 0. */
 			readBlur(field) {
 				const raw = this.scope.getSnapshot().value?.[field];
@@ -2618,12 +2677,22 @@ window.__ModuleLoader__.load({
 			clampBlur(value) {
 				return Math.max(0, Math.min(20, Math.round(value)));
 			}
+			clampPercent(value) {
+				return Math.max(0, Math.min(100, Math.round(value)));
+			}
 			applyInputCardBlur() {
 				if (!this.enabledValue) {
 					document.body.style.removeProperty(INPUT_CARD_BLUR_VAR);
 					return;
 				}
 				document.body.style.setProperty(INPUT_CARD_BLUR_VAR, this.inputCardBlurValue + "px");
+			}
+			applyBubbleOpacity() {
+				if (!this.enabledValue) {
+					document.body.style.removeProperty(BUBBLE_ALPHA_VAR);
+					return;
+				}
+				document.body.style.setProperty(BUBBLE_ALPHA_VAR, String(this.bubbleOpacityValue / 100));
 			}
 			/** Write the current occlusion onto the body CSS variable (0..1 alpha). */
 			applyOcclusion() {
@@ -2747,6 +2816,8 @@ window.__ModuleLoader__.load({
 			backgroundBlurContent: "Blur with content",
 			inputCardBlur: "Input card blur",
 			inputCardBlurHint: "Blurs only the area behind the input card while backdrop art is visible; it does not blur the entire wallpaper.",
+			bubbleOpacity: "Bubble opacity",
+			bubbleOpacityHint: "Controls translucent message bubbles for skins that expose bubble alpha, such as Whale Mom.",
 			backgroundBlurHint: "Applies a separate Gaussian blur to the backdrop for the empty conversation and the conversation with content; 0 disables.",
 			backgroundBlurInert: "Visible only with skins that paint a backdrop; the official default has none.",
 			backgroundHint: "Instantly veils the backdrop behind the panels — higher values obscure the art to help you focus.",
@@ -2832,6 +2903,8 @@ window.__ModuleLoader__.load({
 			backgroundBlurContent: "有对话背景模糊",
 			inputCardBlur: "输入卡模糊",
 			inputCardBlurHint: "仅模糊输入卡背后的区域，不会让整张壁纸变糊。",
+			bubbleOpacity: "气泡不透明度",
+			bubbleOpacityHint: "调节支持气泡 alpha 的皮肤消息气泡，例如鲸鱼妈妈。",
 			backgroundBlurHint: "对话为空与有内容时分别应用不同的背景高斯模糊强度，0 为关闭。",
 			backgroundBlurInert: "仅对带背景图插画的皮肤可见；官方默认无背景图。",
 			backgroundHint: "即时为面板背后的背景加遮罩——数值越高越能弱化插画，帮你集中注意力。",
@@ -4077,11 +4150,13 @@ window.__ModuleLoader__.load({
 					blurEmpty: () => background.blurEmpty(),
 					blurContent: () => background.blurContent(),
 					inputCardBlur: () => background.inputCardBlur(),
+					bubbleOpacity: () => background.bubbleOpacity(),
 					subscribe: (listener) => background.subscribe(listener),
 					set: (opacity) => background.set(opacity),
 					setBlurEmpty: (value) => background.setBlurEmpty(value),
 					setBlurContent: (value) => background.setBlurContent(value),
 					setInputCardBlur: (value) => background.setInputCardBlur(value),
+					setBubbleOpacity: (value) => background.setBubbleOpacity(value),
 					dispose: () => background.dispose()
 				},
 				wallpaper: {

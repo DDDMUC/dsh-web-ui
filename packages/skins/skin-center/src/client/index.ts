@@ -75,6 +75,7 @@ export function apply(ctx: ClientContext): void {
     backgroundBlurEmpty?: number
     backgroundBlurContent?: number
     inputCardBlur?: number
+    bubbleOpacity?: number
   }>({ namespace: SKIN_BACKGROUND_NS })
   const background = new BackgroundController(backgroundScope)
   // Tear the blur element + observer down when this plugin's fiber goes away.
@@ -132,11 +133,13 @@ export function apply(ctx: ClientContext): void {
       blurEmpty: () => background.blurEmpty(),
       blurContent: () => background.blurContent(),
       inputCardBlur: () => background.inputCardBlur(),
+      bubbleOpacity: () => background.bubbleOpacity(),
       subscribe: listener => background.subscribe(listener),
       set: opacity => background.set(opacity),
       setBlurEmpty: value => background.setBlurEmpty(value),
       setBlurContent: value => background.setBlurContent(value),
       setInputCardBlur: value => background.setInputCardBlur(value),
+      setBubbleOpacity: value => background.setBubbleOpacity(value),
       dispose: () => background.dispose(),
     },
     wallpaper: {

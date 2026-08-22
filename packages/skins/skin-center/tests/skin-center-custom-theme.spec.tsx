@@ -59,6 +59,7 @@ async function renderSkinCenter(options: {
   switchTo?: (id: string | null, state: { active: string | null }) => Promise<string | null>
   runSkin?: (action: () => Promise<string | null>) => Promise<string | null>
   runCustomTheme?: (action: () => Promise<string | null>) => Promise<string | null>
+  setBubbleOpacity?: (value: number) => void
 } = {}): Promise<void> {
   const active = options.active ?? null
   const controllerState = { active, trying: null, previewing: false }
@@ -111,12 +112,20 @@ async function renderSkinCenter(options: {
       }}
       background={{
         enabled: () => true, opacity: () => 0, blurEmpty: () => 0, blurContent: () => 0,
-        inputCardBlur: () => 10, subscribe: () => () => {}, setEnabled: () => {}, set: () => {},
-        setBlurEmpty: () => {}, setBlurContent: () => {}, setInputCardBlur: () => {}, dispose: () => {},
+        inputCardBlur: () => 10, bubbleOpacity: () => 50, subscribe: () => () => {}, setEnabled: () => {}, set: () => {},
+        setBlurEmpty: () => {}, setBlurContent: () => {}, setInputCardBlur: () => {},
+        setBubbleOpacity: options.setBubbleOpacity ?? (() => {}),
+        dispose: () => {},
       }}
       wallpaper={wallpaper as never}
     />)
   })
+}
+
+function inputByLabel(label: string): HTMLInputElement {
+  const input = host.querySelector(`input[aria-label="${label}"]`)
+  if (!(input instanceof HTMLInputElement)) throw new Error(`missing input ${label}`)
+  return input
 }
 
 function cardNamed(name: string): HTMLElement {
@@ -166,6 +175,23 @@ describe('SkinCenter custom theme placement', () => {
     expect(customCard).not.toBeNull()
     expect(customCard?.parentElement?.lastElementChild).toBe(customCard)
     expect(customCard?.previousElementSibling?.textContent).toContain('Mint')
+  })
+})
+
+describe('SkinCenter background controls', () => {
+  it('renders and persists the bubble opacity slider', async () => {
+    const setBubbleOpacity = vi.fn()
+    await renderSkinCenter({ setBubbleOpacity })
+
+    const input = inputByLabel(t('bubbleOpacity'))
+    expect(input.id).toBe('skin-center-bubble-opacity')
+    expect(input.value).toBe('50')
+    await act(async () => {
+      input.value = '65'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(setBubbleOpacity).toHaveBeenCalledWith(65)
   })
 })
 
