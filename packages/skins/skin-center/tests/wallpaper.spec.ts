@@ -645,11 +645,10 @@ describe('WallpaperController', () => {
     // The official seat mask ::before stays neutralized.
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat]::before')
     expect(neutralizer?.textContent).toContain('background: none !important;')
-    // The whole seat gets a content-gated overlay frost so message text
-    // scrolling below the card cannot remain readable in the stats strip.
-    // The input card keeps the same blur contract on top of that shared pane.
-    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-seat]')
-    expect(neutralizer?.textContent).toContain('var(--dsw-alias-bg-overlay) 36px')
+    // The wider seat stays transparent; only the input card receives the
+    // content-gated blur, so the mask cannot cover the task strip above it.
+    expect(neutralizer?.textContent).not.toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-seat] {')
+    expect(neutralizer?.textContent).not.toContain('var(--dsw-alias-bg-overlay) 36px')
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card]')
     expect(neutralizer?.textContent).toContain('backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;')
     // Empty conversation: the content marker is absent, so the frost is off.
