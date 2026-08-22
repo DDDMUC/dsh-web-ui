@@ -14,6 +14,11 @@ import {
   setLayerContent,
 } from '../src/client/runtime/decoration-layers.ts'
 import { createSemanticAdapter } from '../src/client/runtime/semantic-adapter.ts'
+import {
+  installShellRenderingAdapter,
+  SHELL_RENDERING_STYLE_ATTR,
+  shellRenderingCss,
+} from '../src/client/runtime/shell-rendering.ts'
 import { createSkinController } from '../src/client/runtime/skin-controller.ts'
 import type { ControllerSkinEntry } from '../src/client/runtime/skin-controller.ts'
 
@@ -102,6 +107,41 @@ describe('semantic adapter', () => {
     const diag = adapter.diagnostics()
     expect(diag.unmatchedRules.length).toBeGreaterThan(0)
     adapter.stop()
+  })
+})
+
+describe('shared shell rendering adapter (#954)', () => {
+  it('scopes the workspace fade correction to active skin-center visual modes', () => {
+    const css = shellRenderingCss()
+    expect(css).toContain('html[data-dsh-skin] [data-slot="sidebar.workspaces"] [class*="_fade"]')
+    expect(css).toContain('html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-slot="sidebar.workspaces"]')
+    expect(css).toContain('html[data-dsh-wallpaper-active] [data-slot="sidebar.workspaces"]')
+    expect(css).toContain('background-image: none !important;')
+    expect(css).not.toMatch(/^\s*\[data-slot="sidebar\.workspaces"\]/m)
+  })
+
+  it('uses readable theme text tokens for the composer placeholder', () => {
+    const css = shellRenderingCss()
+    expect(css).toContain('[data-composer-card] textarea[data-phase]::placeholder')
+    expect(css).toContain('textarea[data-dsh-part="composer-input"]::placeholder')
+    expect(css).toContain('var(--dsw-alias-label-secondary, var(--dsw-alias-label-caption))')
+    expect(css).toContain('-webkit-text-fill-color:')
+    expect(css).toContain('opacity: 1 !important;')
+  })
+
+  it('installs once and removes only the owned stylesheet on teardown', () => {
+    document.head.innerHTML = ''
+    const dispose = installShellRenderingAdapter(document)
+    expect(document.head.querySelectorAll(`style[${SHELL_RENDERING_STYLE_ATTR}]`)).toHaveLength(1)
+
+    const disposeDuplicate = installShellRenderingAdapter(document)
+    expect(document.head.querySelectorAll(`style[${SHELL_RENDERING_STYLE_ATTR}]`)).toHaveLength(1)
+    disposeDuplicate()
+    expect(document.head.querySelector(`style[${SHELL_RENDERING_STYLE_ATTR}]`)).not.toBeNull()
+
+    dispose()
+    dispose()
+    expect(document.head.querySelector(`style[${SHELL_RENDERING_STYLE_ATTR}]`)).toBeNull()
   })
 })
 
@@ -639,4 +679,3 @@ describe('skin controller', () => {
     expect(errors.some((m) => m.includes('broken-skin'))).toBe(true)
   })
 })
-

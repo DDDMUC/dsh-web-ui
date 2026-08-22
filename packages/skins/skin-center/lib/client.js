@@ -3234,6 +3234,59 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
+		//#region src/client/runtime/shell-rendering.ts
+		/**
+		* Shared shell rendering corrections for every visual mode owned by the skin
+		* center (issue #954). The official shell exposes stable slot / composer
+		* anchors, while the workspace-list fade itself is still a CSS-module class.
+		* Keep that fallback scoped below sidebar.workspaces so an unrelated animation
+		* or overlay whose class contains "fade" is never affected.
+		*
+		* The stylesheet is inert for the stock look: a catalog skin, custom theme or
+		* wallpaper must be active. It is installed once per runtime and removed with
+		* that runtime, so disabling the plugin restores the shell unchanged.
+		* @module @linxin666/dsh-client-ui-skin-center/runtime/shell-rendering
+		*/
+		/** Marker owned by the shared shell-rendering stylesheet. */
+		const SHELL_RENDERING_STYLE_ATTR = "data-dsh-shell-rendering";
+		const ACTIVE_VISUAL_SELECTOR = [
+			"html[data-dsh-skin]",
+			"html[data-dsh-custom-theme]:not([data-dsh-skin])",
+			"html[data-dsh-wallpaper-active]"
+		].join(", ");
+		/** Build the inert-by-default public rendering corrections. */
+		function shellRenderingCss() {
+			const scopes = ACTIVE_VISUAL_SELECTOR.split(", ");
+			const scoped = (selector) => scopes.map((scope) => `${scope} ${selector}`).join(",\n");
+			return `
+    ${scoped("[data-slot=\"sidebar.workspaces\"] [class*=\"_fade\"]")} {
+      background: none !important;
+      background-image: none !important;
+    }
+    ${scoped("[data-composer-card] textarea[data-phase]::placeholder")},
+    ${scoped("textarea[data-dsh-part=\"composer-input\"]::placeholder")} {
+      color: var(--dsw-alias-label-secondary, var(--dsw-alias-label-caption)) !important;
+      -webkit-text-fill-color: var(--dsw-alias-label-secondary, var(--dsw-alias-label-caption)) !important;
+      opacity: 1 !important;
+    }
+  `;
+		}
+		/** Install the shared corrections and return their idempotent teardown. */
+		function installShellRenderingAdapter(doc) {
+			if (doc.head === null) return () => {};
+			if (doc.head.querySelector(`style[data-dsh-shell-rendering]`) !== null) return () => {};
+			const style = doc.createElement("style");
+			style.setAttribute(SHELL_RENDERING_STYLE_ATTR, "");
+			style.textContent = shellRenderingCss();
+			doc.head.appendChild(style);
+			let disposed = false;
+			return () => {
+				if (disposed) return;
+				disposed = true;
+				style.remove();
+			};
+		}
+		//#endregion
 		//#region src/client/runtime/decoration-layers.ts
 		const LAYER_ATTR = "data-dsh-skin-layer";
 		/**
@@ -3673,6 +3726,7 @@ window.__ModuleLoader__.load({
 			});
 			const adapter = createSemanticAdapter(doc);
 			adapter.start();
+			const disposeShellRendering = installShellRenderingAdapter(doc);
 			let catalog = null;
 			let diagnostics = [];
 			const listeners = /* @__PURE__ */ new Set();
@@ -3706,6 +3760,7 @@ window.__ModuleLoader__.load({
 				},
 				shutdown() {
 					adapter.stop();
+					disposeShellRendering();
 					controller.shutdown();
 				}
 			};
