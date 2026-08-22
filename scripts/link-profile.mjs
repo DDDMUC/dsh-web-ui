@@ -89,7 +89,7 @@ function externalPackages() {
     } catch {}
   }
   return externals
-}
+} 
 
 function main() {
   const DRY = process.argv.includes('--dry-run')
