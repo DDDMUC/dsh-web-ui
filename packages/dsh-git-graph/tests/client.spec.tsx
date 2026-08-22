@@ -612,3 +612,13 @@ describe('branch name tooltip', () => {
     expect(long.getAttribute('data-tip-dir')).toBe('down')
   })
 })
+
+describe('popover search box focus', () => {
+  it('auto-focuses the search input when the popover opens', async () => {
+    bench()
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const input = await screen.findByPlaceholderText(/搜索分支/)
+    expect(document.activeElement).toBe(input)
+  })
+})
