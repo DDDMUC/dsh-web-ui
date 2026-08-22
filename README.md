@@ -65,6 +65,7 @@ dsh-web-ui 继承 DeepSeek Harness（DSH）「一切皆开发、一切皆插件�
 | [@linxin666/dsh-web-ui-all](https://www.npmjs.com/package/@linxin666/dsh-web-ui-all) | 全家桶聚合包：一个包装齐全部功能插件与皮肤 |
 | [@linxin666/dsh-client-ui-plugin-manager](https://www.npmjs.com/package/@linxin666/dsh-client-ui-plugin-manager) | 插件管理器：从 npm / git 安装、启停与配置 |
 | [@linxin666/dsh-client-ui-community-plugins](https://www.npmjs.com/package/@linxin666/dsh-client-ui-community-plugins) | 社区插件索引卡：列出社区贡献的插件 |
+| [@linxin666/dsh-client-ui-market](https://www.npmjs.com/package/@linxin666/dsh-client-ui-market) | 市场卡：浏览 dsh-market.com 的皮肤 / 宠物 / 插件并一键安装 |
 | [@linxin666/dsh-liangshen](https://www.npmjs.com/package/@linxin666/dsh-liangshen) | 梁神模式：面向 V4 Pro 的两阶段锚定预设 |
 | [@linxin666/dsh-client-ui-task-board](https://www.npmjs.com/package/@linxin666/dsh-client-ui-task-board) | 任务看板：真实会话执行 + cron 定时 |
 | [@linxin666/dsh-client-ui-git-graph](https://www.npmjs.com/package/@linxin666/dsh-client-ui-git-graph) | Git 分支选择器与提交历史图谱 |

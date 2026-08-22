@@ -16,6 +16,7 @@ patchFrom:
   - ../dsh-web-ui-settings
   - ../dsh-plugin-manager
   - ../dsh-community-plugins
+  - ../dsh-market
   - ../dsh-aionui-panel
   - ../dsh-task-board
   - ../dsh-git-graph
@@ -35,6 +36,7 @@ self:
 deps:
   - ../dsh-plugin-manager
   - ../dsh-community-plugins
+  - ../dsh-market
   - ../dsh-aionui-panel
   - ../dsh-task-board
   - ../dsh-git-graph

@@ -27,7 +27,7 @@ export const REPO_ROOT = resolve(SCRIPT_DIR, '..')
  * live exactly once under shared/; consumers import the committed copy.
  */
 // Consumers of the settings card trio: one list, three derivations below.
-const SETTINGS_CONSUMERS = ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-aionui-panel', 'dsh-tool-describe-image', 'dsh-community-plugins', 'dsh-desktop-launcher', 'dsh-doctor']
+const SETTINGS_CONSUMERS = ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-aionui-panel', 'dsh-tool-describe-image', 'dsh-community-plugins', 'dsh-desktop-launcher', 'dsh-doctor', 'dsh-market']
 
 const MANIFEST = [
   {
@@ -64,6 +64,7 @@ const MANIFEST = [
       'packages/dsh-ssh/src/dsh-home.ts',
       'packages/dsh-desktop-launcher/src/dsh-home.ts',
       'packages/dsh-web-ui-settings/src/dsh-home.ts',
+      'packages/dsh-market/src/dsh-home.ts',
     ],
   },
   {
@@ -90,6 +91,7 @@ const MANIFEST = [
       'packages/dsh-skill-explorer/src/mount-once.ts',
       'packages/dsh-doctor/src/mount-once.ts',
       'packages/skins/skin-center/src/mount-once.ts',
+      'packages/dsh-market/src/mount-once.ts',
     ],
   },
 
@@ -101,7 +103,7 @@ const MANIFEST = [
   {
     file: 'loopback.ts',
     source: 'shared/host/loopback.ts',
-    targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts', 'packages/dsh-skill-explorer/src/loopback.ts', 'packages/dsh-pet/src/loopback.ts', 'packages/dsh-plugin-manager/src/host/loopback.ts', 'packages/dsh-tool-describe-image/src/loopback.ts', 'packages/dsh-desktop-launcher/src/loopback.ts', 'packages/dsh-doctor/src/host/loopback.ts'],
+    targets: ['packages/dsh-ssh/src/loopback.ts', 'packages/dsh-git-graph/src/host/loopback.ts', 'packages/dsh-remote-web-ui/src/loopback.ts', 'packages/dsh-task-board/src/loopback.ts', 'packages/dsh-skill-explorer/src/loopback.ts', 'packages/dsh-pet/src/loopback.ts', 'packages/dsh-plugin-manager/src/host/loopback.ts', 'packages/dsh-tool-describe-image/src/loopback.ts', 'packages/dsh-desktop-launcher/src/loopback.ts', 'packages/dsh-doctor/src/host/loopback.ts', 'packages/dsh-market/src/loopback.ts'],
   },
   {
     file: 'sidebar-entry-core.ts',

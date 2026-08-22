@@ -23,6 +23,16 @@
         "light": "assets/skins/whale-song/preview/light.jpg",
         "dark": "assets/skins/whale-song/preview/dark.jpg"
       },
+      "files": [
+        "assets/whale-art.webp",
+        "assets/whale-icon.png",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -76,6 +86,16 @@
         "light": "assets/skins/blue-fantasy/preview/light.jpg",
         "dark": "assets/skins/blue-fantasy/preview/dark.jpg"
       },
+      "files": [
+        "assets/whale-art.jpg",
+        "assets/whale-icon.png",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -131,6 +151,16 @@
         "light": "assets/skins/harbor/preview/light.jpg",
         "dark": "assets/skins/harbor/preview/dark.jpg"
       },
+      "files": [
+        "assets/harbor-art.webp",
+        "assets/harbor-icon.svg",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -184,6 +214,14 @@
         "light": "assets/skins/xp/preview/light.jpg",
         "dark": "assets/skins/xp/preview/dark.jpg"
       },
+      "files": [
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css"
@@ -226,6 +264,16 @@
         "light": "assets/skins/dragon-heir/preview/light.jpg",
         "dark": "assets/skins/dragon-heir/preview/dark.jpg"
       },
+      "files": [
+        "assets/dark-art.webp",
+        "assets/light-art.webp",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -280,6 +328,14 @@
         "light": "assets/skins/minecraft/preview/light.jpg",
         "dark": "assets/skins/minecraft/preview/dark.jpg"
       },
+      "files": [
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css"
@@ -322,6 +378,14 @@
         "light": "assets/skins/trading/preview/light.jpg",
         "dark": "assets/skins/trading/preview/dark.jpg"
       },
+      "files": [
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css"
@@ -364,6 +428,16 @@
         "light": "assets/skins/miku/preview/light.jpg",
         "dark": "assets/skins/miku/preview/dark.jpg"
       },
+      "files": [
+        "assets/miku-art-light.jpg",
+        "assets/miku-art.webp",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -417,6 +491,16 @@
         "light": "assets/skins/whale-mom/preview/light.jpg",
         "dark": "assets/skins/whale-mom/preview/dark.jpg"
       },
+      "files": [
+        "assets/whale-icon.svg",
+        "assets/whale-mom-art.jpg",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -471,6 +555,14 @@
         "light": "assets/skins/matrix/preview/light.jpg",
         "dark": "assets/skins/matrix/preview/dark.jpg"
       },
+      "files": [
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css"
@@ -513,6 +605,33 @@
         "light": "assets/skins/maid-atelier/preview/light.jpg",
         "dark": "assets/skins/maid-atelier/preview/dark.jpg"
       },
+      "files": [
+        "LICENSE",
+        "NOTICE",
+        "assets/maid-atelier-icon.webp",
+        "assets/maid-atelier-maid-left-v5.webp",
+        "assets/maid-atelier-maid-right-v6.webp",
+        "assets/maid-atelier-palace-day-v4.webp",
+        "assets/maid-atelier-palace-night-v4.webp",
+        "assets/maid-bottom-crest-v1.webp",
+        "assets/maid-bottom-trim-tile-v1.webp",
+        "assets/maid-bow-v1.webp",
+        "assets/maid-chibi-v1.webp",
+        "assets/maid-composer-frame-v4.webp",
+        "assets/maid-new-session-v1.webp",
+        "assets/maid-settings-frame-v1.webp",
+        "assets/maid-sidebar-corner-v1.webp",
+        "assets/maid-sidebar-swag-v1.webp",
+        "assets/maid-top-trim-tile-v1.webp",
+        "assets/maid-workspace-ribbon-v2.webp",
+        "assets/maid-workspace-shield-v2.webp",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css"
@@ -556,6 +675,16 @@
         "light": "assets/skins/summer-liquid-glass/preview/light.jpg",
         "dark": "assets/skins/summer-liquid-glass/preview/dark.jpg"
       },
+      "files": [
+        "README.md",
+        "README.zh.md",
+        "assets/summer-liquid-glass-art.jpg",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -593,6 +722,19 @@
         "light": "assets/skins/furina/preview/light.jpg",
         "dark": "assets/skins/furina/preview/dark.jpg"
       },
+      "files": [
+        "LICENSE",
+        "README.md",
+        "README.zh.md",
+        "assets/furina-art.jpg",
+        "assets/furina-icon.png",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -646,6 +788,12 @@
         "light": "assets/skins/mint/preview/light.jpg",
         "dark": "assets/skins/mint/preview/dark.jpg"
       },
+      "files": [
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css"
       }
@@ -673,6 +821,18 @@
         "light": "assets/skins/cyber-night/preview/light.jpg",
         "dark": "assets/skins/cyber-night/preview/dark.jpg"
       },
+      "files": [
+        "README.md",
+        "README.zh.md",
+        "assets/cyber-night-art.webp",
+        "assets/cyber-night-icon.svg",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",
@@ -728,6 +888,22 @@
         "light": "assets/skins/deep-current/preview/light.jpg",
         "dark": "assets/skins/deep-current/preview/dark.jpg"
       },
+      "files": [
+        "README.i18n.yaml",
+        "README.md",
+        "README.zh.md",
+        "assets/contour-field.svg",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/gui-dark.gif",
+        "preview/gui-dark.png",
+        "preview/gui-light.png",
+        "preview/gui-settings-dark.png",
+        "preview/gui-settings-light.png",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css"
@@ -756,6 +932,15 @@
         "light": "assets/skins/pink-sakura/preview/light.jpg",
         "dark": "assets/skins/pink-sakura/preview/dark.jpg"
       },
+      "files": [
+        "LICENSE",
+        "README.md",
+        "README.zh.md",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css"
       }
@@ -779,6 +964,16 @@
         "light": "assets/skins/wallpaper-exclusive/preview/light.jpg",
         "dark": "assets/skins/wallpaper-exclusive/preview/dark.jpg"
       },
+      "files": [
+        "README.md",
+        "README.zh.md",
+        "assets/whale-art-v2.png",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
       "contributes": {
         "stylesheet": "skin.css",
         "patches": "patches.css",

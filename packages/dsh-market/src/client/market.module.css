@@ -1,0 +1,31 @@
+/** market card layout */
+.market { display: flex; flex-direction: column; gap: 10px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { border: 1px solid var(--card-border, rgba(255,255,255,.16)); background: transparent; color: var(--text-2, rgba(235,242,250,.72)); padding: 6px 14px; border-radius: 10px; cursor: pointer; }
+.tab:hover { color: var(--text-1, rgba(245,248,252,.96)); }
+.tabActive { background: var(--accent-soft, rgba(58,101,194,.2)); color: var(--text-1, rgba(245,248,252,.96)); border-color: var(--accent, #3a65c2); }
+.tabCount { margin-left: 6px; font-size: 12px; opacity: .72; }
+.search { width: 100%; max-width: 460px; border: 1px solid var(--card-border, rgba(255,255,255,.16)); background: transparent; color: var(--text-1, rgba(245,248,252,.96)); padding: 7px 12px; border-radius: 10px; }
+.search::placeholder { color: var(--text-3, rgba(235,242,250,.44)); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; list-style: none; margin: 4px 0 0; padding: 0; }
+.card { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--card-border, rgba(255,255,255,.16)); border-radius: 12px; background: var(--card, rgba(255,255,255,.03)); min-width: 0; }
+.thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; background: var(--card, rgba(255,255,255,.04)); flex: none; display: grid; place-items: center; }
+.thumbPlaceholder { color: var(--text-3, rgba(235,242,250,.6)); font-weight: 700; font-size: 22px; }
+.cardBody { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.cardName { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cardVersion { margin-left: 6px; font-size: 11px; opacity: .6; font-weight: 400; }
+.cardMeta { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--text-3, rgba(235,242,250,.55)); white-space: nowrap; overflow: hidden; }
+.badge { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--card-border, rgba(255,255,255,.16)); }
+.badgeInstalled { color: #7fd0a4; border-color: rgba(127,208,164,.4); }
+.cardDesc { font-size: 12px; color: var(--text-2, rgba(235,242,250,.66)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cardFooter { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 2px; }
+.like, .previewLink, .install { border: 1px solid var(--card-border, rgba(255,255,255,.16)); background: transparent; color: var(--text-2, rgba(235,242,250,.74)); border-radius: 8px; padding: 3px 10px; font-size: 12px; cursor: pointer; text-decoration: none; }
+.like:hover, .previewLink:hover, .install:hover { color: var(--text-1, rgba(245,248,252,.96)); }
+.installPrimary { background: var(--accent, #3a65c2); border-color: var(--accent, #3a65c2); color: #fff; }
+.installPrimary:disabled { opacity: .55; cursor: default; }
+.error { font-size: 12px; color: #e58d8d; }
+.callout { font-size: 12px; color: #7fd0a4; }
+.empty { color: var(--text-3, rgba(235,242,250,.5)); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.retry { font-size: 12px; padding: 3px 10px; }
+.remoteNote { font-size: 12px; color: var(--text-3, rgba(235,242,250,.5)); margin: 6px 0 0; }
+.modalActions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }

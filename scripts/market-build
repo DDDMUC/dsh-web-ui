@@ -53,6 +53,20 @@ function assertInside(base, rel, label) {
   return abs
 }
 
+/** 列出目录内全部文件的相对路径（无视隐藏文件与目录名要求），排序稳定。 */
+function listFiles(dir, base) {
+  base = base || ''
+  const out = []
+  for (const name of fs.readdirSync(dir).sort()) {
+    if (name.startsWith('.')) continue
+    const abs = path.join(dir, name)
+    const rel = base ? base + '/' + name : name
+    if (fs.statSync(abs).isDirectory()) out.push(...listFiles(abs, rel))
+    else out.push(rel)
+  }
+  return out
+}
+
 function readJson(file, label) {
   let text
   try {
@@ -131,6 +145,7 @@ function scanSkins() {
     if (meta.version) item.version = meta.version
     if (meta.accent) item.accent = meta.accent
     item.preview = { light: `assets/skins/${name}/${preview.light}`, dark: `assets/skins/${name}/${preview.dark}` }
+    item.files = listFiles(dir)
     if (Object.keys(contributes).length) item.contributes = contributes
     if (meta.requires) item.requires = meta.requires
     if (meta.facets) item.facets = meta.facets
@@ -189,6 +204,7 @@ function scanPets() {
     if (previews.length) item.previews = previews
     if (Array.isArray(sprite2d.frames)) item.frames = sprite2d.frames
     if (sprite2d.tracks) item.tracks = Object.keys(sprite2d.tracks)
+    item.files = listFiles(dir)
     pets.push({ name, dir, item })
   }
   return pets
@@ -310,27 +326,17 @@ function main() {
   if (!fs.existsSync(facade)) throw new Error('gallery/official-facade.js missing (run scripts/export-official-facade)')
   files.set('official-facade.js', fs.readFileSync(facade, 'utf8').replace(/\r\n?/g, '\n'))
 
-  // binary assets
+  // binary assets — full tree copy per skin/pet so a consumer can install
+  // the exact directory from the static site (files list mirrors this layout)
   const binary = new Map()
   for (const { name, dir, item } of skins) {
-    for (const mode of ['light', 'dark']) {
-      const rel = item.preview[mode].replace(`assets/skins/${name}/`, '')
-      binary.set(item.preview[mode], assertInside(dir, rel, 'preview'))
-    }
-    const bg = (item.contributes && item.contributes.backgroundMedia) || {}
-    for (const mode of ['light', 'dark']) {
-      const v = bg[mode]
-      if (!v) continue
-      const rel = v.src.replace(`assets/skins/${name}/`, '')
-      binary.set(v.src, assertInside(dir, rel, 'backgroundMedia'))
+    for (const rel of item.files) {
+      binary.set(`assets/skins/${name}/${rel}`, assertInside(dir, rel, 'skin file'))
     }
   }
   for (const { name, dir, item } of pets) {
-    const relSheet = item.spritesheet.replace(`assets/pets/${name}/`, '')
-    binary.set(item.spritesheet, assertInside(dir, relSheet, 'spritesheet'))
-    for (const pv of item.previews || []) {
-      const rel = pv.replace(`assets/pets/${name}/`, '')
-      binary.set(pv, assertInside(dir, rel, 'preview'))
+    for (const rel of item.files) {
+      binary.set(`assets/pets/${name}/${rel}`, assertInside(dir, rel, 'pet file'))
     }
   }
 
