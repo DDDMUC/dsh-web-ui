@@ -31,3 +31,6 @@ REVIEW-PROMPT.md
 *.tgz
 playwright-report/
 test-results/
+
+# Cloudflare Workers 本地状态（wrangler dev 缓存，不入库）
+.wrangler/
