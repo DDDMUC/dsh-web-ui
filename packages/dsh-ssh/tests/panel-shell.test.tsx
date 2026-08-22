@@ -54,6 +54,31 @@ describe('SshPanel L2 semantic attributes (#506)', () => {
     expect(tabBar).not.toBeNull()
     expect(tabBar!.getAttribute('data-dsh-part')).toBe('tab-bar')
   })
+
+  it('tags the panel root with the ssh plugin marker', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    roots.push(root)
+    await act(async () => { root.render(<SshPanel controller={fakeController()} api={fakeApi()} />) })
+
+    const panel = container.querySelector('[data-dsh-plugin="ssh"]')
+    expect(panel).not.toBeNull()
+  })
+
+  it('tags every tab button as the tab part', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    roots.push(root)
+    await act(async () => { root.render(<SshPanel controller={fakeController()} api={fakeApi()} />) })
+
+    const tabs = container.querySelectorAll('[role="tab"]')
+    expect(tabs.length).toBe(5)
+    for (const tab of tabs) {
+      expect(tab.getAttribute('data-dsh-part')).toBe('tab')
+    }
+  })
 })
 
 describe('mountPanel L2 semantic attributes (#506)', () => {
