@@ -34,6 +34,9 @@
       "ai": false,
       "assignees": [
         "Aa728848"
+      ],
+      "issueTypes": [
+        "壁纸 / 渲染器（Wallpaper Engine / WebGL / 背景场景）"
       ]
     },
     {
@@ -49,6 +52,9 @@
       ],
       "assignees": [
         "Aa728848"
+      ],
+      "issueTypes": [
+        "皮肤 / 皮肤中心 (dsh-skins)"
       ]
     },
     {
@@ -64,6 +70,15 @@
       ],
       "assignees": [
         "Aa728848"
+      ],
+      "issueTypes": [
+        "任务看板 (dsh-task-board)",
+        "Git 图谱 (dsh-git-graph)",
+        "右侧面板 (dsh-aionui-panel)",
+        "远程 Web UI (dsh-remote-web-ui)",
+        "SSH 远程运维 (dsh-ssh)",
+        "宠物 (dsh-pet)",
+        "聚合包 / 安装 (dsh-web-ui-all / dsh-web-ui-settings)"
       ]
     },
     {
@@ -79,7 +94,8 @@
       ],
       "assignees": [
         "Aa728848"
-      ]
+      ],
+      "issueTypes": []
     },
     {
       "name": "maintenance",
@@ -94,6 +110,9 @@
       ],
       "assignees": [
         "Aa728848"
+      ],
+      "issueTypes": [
+        "其他 / 不确定"
       ]
     }
   ]
