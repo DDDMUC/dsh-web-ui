@@ -152,7 +152,8 @@
   padding: 6px 10px;
   /* Background-based distinction (no border): on light the muted grey
      separates the field from the white panel; dark overrides below. */
-  border: 1px solid transparent;
+  /* 2px transparent slot: focus paints the brand color without shift. */
+  border: 2px solid transparent;
   border-radius: 8px;
   /* Classic input-field grey on light (interactive-bg-hover-solid is the
      standard #f1f3f5 input tone), overridden below in dark. */
@@ -162,11 +163,9 @@
 }
 
 .searchBox:focus-within {
-  /* Focused state = a slightly deeper surface (no border, no ring):
-     the background shift plus the caret signal focus for keyboard
-     users without adding visual noise. */
-  border-color: transparent;
-  background: var(--dsw-alias-interactive-bg-hover);
+  /* Focused state = brand-colored 2px border (theme token, visible in
+     both themes), no extra ring. */
+  border-color: var(--dsw-alias-brand-primary);
   box-shadow: none;
 }
 body[data-ds-dark-theme] .searchBox {
