@@ -494,16 +494,26 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
-  it('applies dim and blur to the layers', () => {
+  it('keeps the owned dim scrim out of shell-surface neutralization', async () => {
     const { scope } = fakeScope()
-    const controller = new WallpaperController(scope)
+    const controller = new WallpaperController(scope, {
+      // Force every non-owned added element through the surface path so this
+      // catches a future observer regression even though jsdom has no layout.
+      declareSurface: () => true,
+    })
     controller.applySelection(video)
     controller.setDim(60)
     controller.setBlur(10)
     const [media, scrim] = layers()
+    expect(media.dataset.dshWallpaperLayer).toBe('media')
+    expect(scrim.dataset.dshWallpaperLayer).toBe('scrim')
     expect(scrim.style.background).toContain('0.6')
     expect(media.style.filter).toContain('blur(10px)')
     expect(media.style.transform).toContain('scale')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(media.hasAttribute('data-dsh-wallpaper-surface')).toBe(false)
+    expect(scrim.hasAttribute('data-dsh-wallpaper-surface')).toBe(false)
+    expect(scrim.style.background).toContain('0.6')
     controller.dispose()
   })
 
