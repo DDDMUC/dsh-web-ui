@@ -77,6 +77,24 @@ function previewPaths(manifestText) {
   return paths
 }
 
+/** 从 manifest.js 解析出每个皮肤 contributes.backgroundMedia 的媒体相对路径。 */
+function backgroundPaths(manifestText) {
+  const json = manifestText
+    .replace(/^\/\*[\s\S]*?\*\/\s*/, '')
+    .replace(/^window\.SKIN_MANIFEST = /, '')
+    .replace(/;\s*$/, '')
+  const manifest = JSON.parse(json)
+  const paths = []
+  for (const skin of manifest.skins || []) {
+    const media = (skin.contributes && skin.contributes.backgroundMedia) || {}
+    for (const mode of ['light', 'dark']) {
+      const variant = media[mode]
+      if (variant && typeof variant.src === 'string' && variant.src) paths.push(variant.src)
+    }
+  }
+  return paths
+}
+
 function stage(outDir) {
   fs.rmSync(outDir, { recursive: true, force: true })
   fs.mkdirSync(outDir, { recursive: true })
@@ -106,6 +124,16 @@ function stage(outDir) {
     copy(src, path.join(outDir, rel))
   }
   if (missing.length) fail('以下 preview 文件不存在：\n  ' + missing.join('\n  '))
+
+  // 3) backgroundMedia 资产 -> packages/skins/<id>/assets/（试穿页静态铺底用）
+  const media = backgroundPaths(fs.readFileSync(path.join(outDir, 'manifest.js'), 'utf8'))
+  const missingMedia = []
+  for (const rel of media) {
+    const src = path.resolve(ROOT, rel)
+    if (!fs.existsSync(src)) { missingMedia.push(rel); continue }
+    copy(src, path.join(outDir, rel))
+  }
+  if (missingMedia.length) fail('以下 backgroundMedia 文件不存在：\n  ' + missingMedia.join('\n  '))
   return rels.length
 }
 

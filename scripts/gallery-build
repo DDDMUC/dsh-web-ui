@@ -18,9 +18,10 @@
  * string literal, so any CSS content is safe.
  *
  * The preview simulator renders a skin statically: it injects skin.css (and
- * the optional patches.css) into the official-facade snapshot. Skin JS
- * (hooks.mjs) is never executed and declarative backgroundMedia is not
- * rendered, so the gallery needs no per-skin bundles.
+ * the optional patches.css) into the official-facade snapshot and paints the
+ * declarative contributes.backgroundMedia (image/video + scrim) on a fixed
+ * layer, mirroring the skin-center runtime. Skin JS (hooks.mjs) is never
+ * executed, so the gallery needs no per-skin bundles.
  *
  * Usage: node scripts/gallery-build [--check]
  *   --check  verify the committed gallery assets are up to date (exit 1 if
@@ -95,6 +96,34 @@ function scanSkins() {
  * emitted manifest rewrites them to repo-root-relative paths, exactly how
  * gallery/index.html loads them ('../' + preview.light).
  */
+/**
+ * Rewrite contributes.backgroundMedia srcs the same way as previews: the
+ * emitted manifest carries repo-root-relative paths so gallery/preview.html
+ * (and the deployed site root) can resolve them as '..' + src, and validates
+ * that every declared media file exists.
+ */
+function resolveBackgroundMedia(skins) {
+  for (const { name, dir, meta } of skins) {
+    const media = meta.contributes && meta.contributes.backgroundMedia
+    if (!media) continue
+    for (const mode of ['light', 'dark']) {
+      const variant = media[mode]
+      if (!variant) continue
+      if (variant.type !== 'image' && variant.type !== 'video') {
+        throw new Error(`skin ${name}: backgroundMedia.${mode}.type must be "image" or "video"`)
+      }
+      if (typeof variant.src !== 'string' || !variant.src || variant.src.includes('..') || path.isAbsolute(variant.src)) {
+        throw new Error(`skin ${name}: backgroundMedia.${mode}.src must be a skin-relative path: ${variant.src}`)
+      }
+      const abs = path.resolve(dir, variant.src)
+      if (!fs.existsSync(abs)) {
+        throw new Error(`skin ${name}: backgroundMedia.${mode} does not exist: ${variant.src} (resolved inside ${path.relative(ROOT, dir)})`)
+      }
+      variant.src = path.posix.join('packages', 'skins', 'skin-center', 'skins', name, ...variant.src.split('/'))
+    }
+  }
+}
+
 function resolvePreviews(skins) {
   for (const { name, dir, meta } of skins) {
     const preview = meta.preview
@@ -183,6 +212,7 @@ function writeIfChanged(file, content) {
 const check = process.argv.includes('--check')
 const skins = scanSkins()
 resolvePreviews(skins)
+resolveBackgroundMedia(skins)
 
 const manifest = renderManifestJs(skins)
 const styles = renderStylesJs(skins)
