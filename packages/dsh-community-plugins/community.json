@@ -358,16 +358,6 @@
     "category": "tools"
   },
   {
-    "id": "dsh-session-delete",
-    "name": "会话删除",
-    "nameEn": "Session Delete",
-    "author": "xohmai",
-    "description": "真正删除会话磁盘日志：归档清理、批量删除、回收站还原；官方归档只隐藏不删盘。",
-    "descriptionEn": "Real session deletion with trash and restore, archived cleanup and batch delete. Official archive only hides sessions.",
-    "repo": "https://github.com/xohmai/dsh-session-delete",
-    "category": "utility"
-  },
-  {
     "id": "dsh-chatgpt-subscription",
     "name": "子代理管理",
     "nameEn": "Subagent Management",
