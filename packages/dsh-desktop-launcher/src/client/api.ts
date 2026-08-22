@@ -14,12 +14,18 @@ export class DesktopLauncherApiError extends Error {
 
 /** Create (or refresh) the desktop icon. */
 export async function createDesktopShortcut(): Promise<CreateResult> {
-  const response = await fetch(LAUNCHER_API.create, { method: 'POST' })
+  const response = await fetch(LAUNCHER_API.create, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  })
+  const copy = response.clone()
   let body: unknown
   try {
     body = await response.json()
   } catch {
-    throw new DesktopLauncherApiError(`HTTP ${response.status}: invalid JSON response`)
+    const detail = await copy.text().catch(() => '')
+    throw new DesktopLauncherApiError(`HTTP ${response.status}${detail === '' ? ': invalid JSON response' : `: ${detail}`}`)
   }
   if (!response.ok) {
     const message = typeof body === 'object' && body !== null && typeof (body as { error?: unknown }).error === 'string'
