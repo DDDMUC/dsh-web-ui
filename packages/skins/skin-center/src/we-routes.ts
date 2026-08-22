@@ -277,13 +277,13 @@ interface WallpaperJson {
 }
 
 /** Cached per-scene capability probe result. */
-const SCENE_PROBE_VERSION = 2
+const SCENE_PROBE_VERSION = 3
 
 interface SceneProbe {
   v: number
   hasVideo: boolean
   hasSceneWebGL: boolean
-  compatibility: 'full' | 'static-only'
+  compatibility: 'full' | 'partial' | 'static-only'
   unsupportedFeatures: string[]
 }
 
@@ -293,7 +293,7 @@ function isSceneProbe(value: unknown): value is SceneProbe {
     && (value as SceneProbe).v === SCENE_PROBE_VERSION
     && typeof (value as SceneProbe).hasVideo === 'boolean'
     && typeof (value as SceneProbe).hasSceneWebGL === 'boolean'
-    && ((value as SceneProbe).compatibility === 'full' || (value as SceneProbe).compatibility === 'static-only')
+    && ((value as SceneProbe).compatibility === 'full' || (value as SceneProbe).compatibility === 'partial' || (value as SceneProbe).compatibility === 'static-only')
     && Array.isArray((value as SceneProbe).unsupportedFeatures)
 }
 
@@ -462,11 +462,13 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
                 ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
                 : buildSceneManifest(pkgData, 'check')
               if (manifest?.scripted) {
-                compatibility = 'static-only'
+                // Embedded scripts are ignored by the renderer, but the parsed
+                // layers remain safe to replay. Report partial compatibility
+                // without withholding water, particle and other supported passes.
+                compatibility = 'partial'
                 unsupportedFeatures.push('embedded-script')
               }
-              hasSceneWebGL = compatibility === 'full'
-                && Boolean(manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0)))
+              hasSceneWebGL = Boolean(manifest && ((manifest.layers && manifest.layers.length >= 1) || (manifest.is3D && manifest.models && manifest.models.length > 0)))
             }
           } catch {
             // probe failure: capabilities stay negative
