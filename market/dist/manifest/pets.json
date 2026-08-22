@@ -60,6 +60,9 @@
       "rank": 2,
       "renderer": "sprite2d",
       "spritesheet": "assets/pets/whale-refined/spritesheet.webp",
+      "previews": [
+        "assets/pets/whale-refined/previews/idle.gif"
+      ],
       "frames": [
         6,
         8,
@@ -84,6 +87,7 @@
       ],
       "files": [
         "pet.json",
+        "previews/idle.gif",
         "spritesheet.webp"
       ]
     }
