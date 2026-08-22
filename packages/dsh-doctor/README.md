@@ -20,10 +20,14 @@ installation.
   Supervisor, and collects browser failure reports.
 - The Doctor Web Console (the family plugin card inside Settings → Plugin
   configuration → Web UI plugins) shows the system phase, protected profiles,
-  incidents and the client failure probe, and offers diagnose, repair, rollback,
-  pause and resume actions alongside the enable switch plus a Service and
-  capsule card: one-click install, restart-upgrade and uninstall of the
-  user-level service.
+  incidents and the client failure probe, records Web UI plugins that were
+  enabled but never started, and offers diagnose, repair, rollback, pause and
+  resume actions alongside the enable switch plus a Service and capsule card:
+  one-click install, restart-upgrade and uninstall of the user-level service.
+- The Send to Harness window composes a troubleshooting prompt from the newest
+  recorded failure (summary plus error stack) and queues it into the current
+  DSH session as a new turn, so the user's agent can diagnose and fix it in
+  place; the prompt is editable and copyable before sending.
 - The Doctor Supervisor runs as a per-user background service. It classifies
   exits into user stops, task completion and real failures, applies the
   crash-loop circuit breaker, and owns rescue scheduling.

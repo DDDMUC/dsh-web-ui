@@ -95,6 +95,7 @@ family / 插件区域：
 | `probe` | doctor | 客户端故障探针列表 |
 | `actions` | doctor | 诊断/修复动作组 |
 | `boundary` | doctor | 错误边界回退提示；`role="alert"` |
+| `harness-target` | doctor | “发送给 Harness” 对话框内的目标会话行 |
 | `entry` | session-id | 侧栏 footer 触发器；`button[data-dsh-part="entry"]`（`[data-dsh-plugin="session-id"]` 容器内） |
 | `panel` | session-id | 会话 ID 模态面板；`[role="dialog"]` 根（`[data-dsh-part="panel"]`） |
 | `row` | session-id | 会话列表行；面板内行容器（`[data-dsh-part="row"]`） |

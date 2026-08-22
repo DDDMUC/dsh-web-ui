@@ -99,4 +99,26 @@ describe('DoctorSettingsCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Show settings/ }))
     expect(screen.getByText('The recovery console is currently unavailable.')).toBeTruthy()
   })
+
+  it('opens the send-to-Harness dialog from the newest recorded failure', async () => {
+    const controller = makeController()
+    controller.recordBoundary(new Error('boundary boom stack'))
+    const props = {
+      t,
+      useDoctorSettingsCard: (select: (state: typeof cardState) => typeof cardState) => select(cardState),
+      edit: vi.fn(),
+      resetField: vi.fn(),
+      save: vi.fn(),
+      discard: vi.fn(),
+      controller,
+    } as unknown as DoctorSettingsCardProps
+    render(<DoctorSettingsCard {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: /Show settings/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send to Harness' }))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toBeTruthy()
+    const textarea = screen.getByLabelText('Troubleshooting prompt') as HTMLTextAreaElement
+    expect(textarea.value).toContain('boundary boom stack')
+    expect(screen.getByText(/No session is currently open/)).toBeTruthy()
+  })
 })

@@ -17,6 +17,11 @@ import type {
   DoctorSnapshot,
 } from './doctor-types.ts'
 import { PassiveProbe, type PassiveIncident } from './doctor-passive.ts'
+import { detectFailedPluginIds, type PluginModulesSeam } from './plugin-failures.ts'
+import type { HarnessPort, HarnessTarget } from './harness-send.ts'
+
+/** Settled outcome of one send-to-Harness call. */
+export type HarnessSendOutcome = { ok: true } | { ok: false; message: string }
 
 /** Console load phase. */
 export type DoctorPhase = 'idle' | 'loading' | 'ready'
@@ -32,7 +37,7 @@ export interface DoctorBootSignal {
 
 /** Settled outcome of one console action. */
 export type DoctorActionOutcome =
-  | { ok: true; kind: 'reported' | 'completed' }
+  | { ok: true; kind: 'reported' | 'completed' | 'sent' }
   | { ok: false; message: string }
 
 /** Immutable snapshot consumed by the console. */
@@ -116,6 +121,19 @@ export interface DoctorControllerOptions {
   now?: () => number
   /** Timer seam (default window.globalThis-based). */
   timers?: DoctorTimers
+  /**
+   * The web shell module system (ctx.modules), structurally. When present, the
+   * controller reconciles the boot graph against the materialized registry and
+   * records plugins that were enabled but never started.
+   */
+  modules?: PluginModulesSeam | undefined
+  /**
+   * Send-to-Harness port. When absent (no sessions service), the console
+   * explains the gap instead of offering a dead send button.
+   */
+  harness?: HarnessPort | undefined
+  /** How long an unresolved plugin must stay missing before it is recorded (default 8000 ms). */
+  failureGraceMs?: number
 }
 
 /** Cap for the boot-signal ring. */
@@ -163,6 +181,13 @@ export class DoctorController {
   private readonly intervalMs: number
   private readonly now: () => number
   private readonly timers: DoctorTimers
+  private readonly modules: PluginModulesSeam | undefined
+  private readonly harness: HarnessPort | undefined
+  private readonly failureGraceMs: number
+  /** Plugin ids seen missing so far; a steady config lets failures be confirmed across a poll. */
+  private readonly pendingPluginFailures = new Map<string, number>()
+  /** Plugin ids already recorded as startup failures. */
+  private readonly recordedPluginFailures = new Set<string>()
   private timer: unknown | undefined
   private visibilityListener: ((event: Event) => void) | undefined
   private disposed = false
@@ -176,6 +201,9 @@ export class DoctorController {
     this.intervalMs = options.intervalMs ?? DEFAULT_POLL_INTERVAL_MS
     this.now = options.now ?? (() => Date.now())
     this.timers = options.timers ?? defaultTimers
+    this.modules = options.modules
+    this.harness = options.harness
+    this.failureGraceMs = options.failureGraceMs ?? 8_000
   }
 
   /** Merge the passive probe's current ring into the snapshot. */
@@ -187,8 +215,103 @@ export class DoctorController {
     }
   }
 
+  /**
+   * Reconcile the boot graph against the module registry and record plugins
+   * that were enabled but never started. A plugin must stay missing across the
+   * grace window before it is recorded, so entries that materialize slightly
+   * after this console's own apply are never misreported.
+   */
+  scanPluginFailures(): void {
+    try {
+      const missing = detectFailedPluginIds(this.modules)
+      if (missing.length === 0) {
+        this.pendingPluginFailures.clear()
+        return
+      }
+      const nowMs = this.now()
+      const missingSet = new Set(missing)
+      for (const id of missing) {
+        if (this.recordedPluginFailures.has(id) || this.pendingPluginFailures.has(id)) continue
+        this.pendingPluginFailures.set(id, nowMs)
+      }
+      for (const [id, seenAt] of [...this.pendingPluginFailures]) {
+        if (missingSet.has(id)) {
+          if (nowMs - seenAt < this.failureGraceMs) continue
+          this.recordedPluginFailures.add(id)
+          this.pendingPluginFailures.delete(id)
+          this.passive.recordPluginStartupFailure(id)
+        } else {
+          // The plugin materialized after all - never record it.
+          this.pendingPluginFailures.delete(id)
+        }
+      }
+      this.syncProbe()
+    } catch {
+      // The controller must never throw.
+    }
+  }
+
+  /** Record a plugin startup failure observed by an external signal (loader event). */
+  notePluginStartupFailure(pluginId: string): void {
+    try {
+      const id = typeof pluginId === 'string' ? pluginId.trim() : ''
+      if (id === '') return
+      if (this.recordedPluginFailures.has(id)) return
+      this.recordedPluginFailures.add(id)
+      this.passive.recordPluginStartupFailure(id)
+      this.syncProbe()
+    } catch {
+      // The controller must never throw.
+    }
+  }
+
+  /** Resolve the current session the console would send into. */
+  harnessTarget(): HarnessTarget | undefined {
+    try {
+      return this.harness?.current()
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
+   * Queue the composed prompt into the current session; the outcome lands in
+   * the snapshot's action line ('sent' on success).
+   */
+  async sendToHarness(text: string): Promise<HarnessSendOutcome> {
+    const trimmed = typeof text === 'string' ? text.trim() : ''
+    if (trimmed === '') {
+      this.store.set({ action: { ok: false, message: 'empty prompt' } })
+      return { ok: false, message: 'empty prompt' }
+    }
+    const port = this.harness
+    const target = port?.current()
+    if (port === undefined || target === undefined) {
+      const message = 'no current session'
+      this.store.set({ action: { ok: false, message } })
+      return { ok: false, message }
+    }
+    if (this.disposed) return { ok: false, message: 'disposed' }
+    this.store.set({ actionRunning: true, action: undefined })
+    let outcome: DoctorActionOutcome
+    let result: HarnessSendOutcome
+    try {
+      const sent = await port.send(target, trimmed)
+      result = sent.ok ? { ok: true } : { ok: false, message: sent.message }
+      outcome = sent.ok ? { ok: true, kind: 'sent' } : { ok: false, message: sent.message }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      result = { ok: false, message }
+      outcome = { ok: false, message }
+    }
+    if (this.disposed) return result
+    this.store.set({ actionRunning: false, action: outcome })
+    return result
+  }
+
   /** One refresh cycle: the supervisor snapshot over the loopback API. */
   async refresh(): Promise<void> {
+    this.scanPluginFailures()
     if (this.disposed) return
     const previous = this.store.getSnapshot()
     if (previous.host === 'unknown') this.store.set({ phase: 'loading' })

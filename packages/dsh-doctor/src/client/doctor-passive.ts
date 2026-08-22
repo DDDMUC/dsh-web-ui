@@ -18,6 +18,7 @@ export type PassiveKind =
   | 'unhandled-rejection'
   | 'react-boundary'
   | 'connection-reset'
+  | 'plugin-startup-failure'
 
 /** One captured passive incident. */
 export interface PassiveIncident {
@@ -209,6 +210,17 @@ export class PassiveProbe {
   record(kind: 'react-boundary' | 'connection-reset', message: string, detail?: string): void {
     try {
       this.push(kind, { message, detail })
+    } catch {
+      // The probe must never take the GUI down.
+    }
+  }
+
+  /** Record a Web UI plugin that was listed in the boot graph but never started. */
+  recordPluginStartupFailure(pluginId: string, detail?: string): void {
+    try {
+      const id = typeof pluginId === 'string' ? pluginId.trim() : ''
+      if (id === '') return
+      this.push('plugin-startup-failure', { message: 'plugin failed to start: ' + id, detail })
     } catch {
       // The probe must never take the GUI down.
     }
