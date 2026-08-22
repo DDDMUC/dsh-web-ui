@@ -12,10 +12,7 @@ and Linux (.desktop).
 - Settings → Plugin configuration → Web UI plugins card with a "Create desktop
   icon" button; the host writes the launcher script under
   `~/.dsh/desktop-launcher/` and places the icon on the Desktop.
-- Double-click behavior: probe the GUI URL; if it responds, open the browser.
-  Otherwise start `dsh web` (hidden on Windows), poll for up to 30 seconds,
-  then open the browser. If the `dsh` command is missing, the launcher shows a
-  message instead of failing silently.
+- Double-click behavior: probe the GUI URL; if it responds, open the browser without taking ownership of the existing process. Otherwise start `dsh web` (hidden on Windows), poll for up to 30 seconds, then open a managed browser tab. Closing the final managed tab stops that launcher-started host after a short reload grace; another managed tab or an ordinary page refresh keeps it alive. If the `dsh` command is missing, the launcher shows a message instead of failing silently.
 - The launcher is regenerated from the live settings each time you click the
   button, so `dshCommand`, `url` and `profile` changes apply on the next
   creation without editing the icon target.
@@ -61,8 +58,7 @@ All fields live in the plugin settings card (or in the composition entry):
 
 ## Security model
 
-- The host API is loopback-only: requests from non-local addresses, foreign
-  Host headers and cross-site origins are rejected with 403.
+- The host API is loopback-only: requests from non-local addresses, foreign Host headers and cross-site origins are rejected with 403. Automatic lifecycle requests additionally require a random token inherited only by the shortcut-started host; the token is delivered in the URL fragment, removed from history, and scoped to the managed tab's session storage.
 - The plugin writes only two places: `~/.dsh/desktop-launcher/` (launcher
   scripts) and the user's Desktop directory (the icon).
 - On Linux the icon creation best-effort marks the `.desktop` file as trusted
