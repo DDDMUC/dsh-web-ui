@@ -51,7 +51,7 @@ const COLS = 6
 
 for (const skin of skins) {
   if (!existsSync(join(root, skin.preview?.light ?? ''))) {
-    console.error(`skin ${skin.id}: preview/light.png missing; run node scripts/capture-previews ${skin.id}`)
+    console.error(`skin ${skin.id}: preview/light image missing; run node scripts/capture-previews ${skin.id}`)
     process.exit(1)
   }
 }

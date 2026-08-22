@@ -365,7 +365,7 @@ test(`皮肤变更识别：源码类命中，README 与 skin-center 排除`, () 
   assert.deepEqual(f1, { isSkin: true, skinIds: [`xp`] })
   const f2 = checkSkinChanges([
     { status: `M`, path: `packages/skins/skin-center/skins/xp/README.md` },
-    { status: `M`, path: `packages/skins/skin-center/skins/xp/preview/light.png` },
+    { status: `M`, path: `packages/skins/skin-center/skins/xp/preview/light.jpg` },
     { status: `M`, path: `docs/development.md` },
   ])
   assert.deepEqual(f2, { isSkin: false, skinIds: [] })

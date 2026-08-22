@@ -20,8 +20,8 @@
   "accent": "#67DCE7",
   "order": 14,
   "preview": {
-    "light": "preview/light.png",
-    "dark": "preview/dark.png"
+    "light": "preview/light.jpg",
+    "dark": "preview/dark.jpg"
   },
   "contributes": {
     "stylesheet": "skin.css",

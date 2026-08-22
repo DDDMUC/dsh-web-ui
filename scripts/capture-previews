@@ -19,9 +19,10 @@
  *   node scripts/capture-previews xp miku      # only named skins
  *   node scripts/capture-previews --serve      # serve via http instead of file://
  *
- * Outputs PNGs at 1440×900 device scale 2 (2880×1800); the gallery cards
- * downscale them, so they stay crisp. Re-run after any skin change and
- * commit the PNGs together with the skin source.
+ * Outputs 1440×900 JPEGs (quality 85) at device scale 1; the gallery cards
+ * downscale them, so they stay crisp while the published package stays
+ * small (the old 2880×1800 PNGs made dsh-client-ui-skin-center ~78MB).
+ * Re-run after any skin change and commit the JPEGs with the skin source.
  */
 
 const { execSync } = require('node:child_process')
@@ -90,7 +91,7 @@ async function main() {
 
   const { chromium } = loadPlaywright()
   const browser = await chromium.launch()
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 })
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })
 
   for (const skin of skins) {
     for (const theme of ['light', 'dark']) {
@@ -111,8 +112,8 @@ async function main() {
       })
       if (errText) throw new Error(`${skin.id}/${theme}: ${errText}`)
       await page.waitForTimeout(350) // 让背景图/过渡稳定
-      const out = path.join(dir, `${theme}.png`)
-      await page.screenshot({ path: out })
+      const out = path.join(dir, `${theme}.jpg`)
+      await page.screenshot({ path: out, type: 'jpeg', quality: 85 })
       console.log(`  ok ${skin.id}/${theme} → ${path.relative(ROOT, out)}`)
     }
   }

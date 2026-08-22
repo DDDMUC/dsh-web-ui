@@ -18,8 +18,8 @@
   "order": 2,
   "version": "0.2.0",
   "preview": {
-    "light": "preview/light.png",
-    "dark": "preview/dark.png"
+    "light": "preview/light.jpg",
+    "dark": "preview/dark.jpg"
   },
   "requires": {
     "contracts": [

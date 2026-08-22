@@ -23,8 +23,8 @@ window.SKIN_MANIFEST = {
       "order": 1,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/whale-song/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/whale-song/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/whale-song/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/whale-song/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -78,8 +78,8 @@ window.SKIN_MANIFEST = {
       "order": 2,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/blue-fantasy/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/blue-fantasy/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/blue-fantasy/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/blue-fantasy/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -135,8 +135,8 @@ window.SKIN_MANIFEST = {
       "order": 3,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/harbor/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/harbor/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/harbor/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/harbor/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -190,8 +190,8 @@ window.SKIN_MANIFEST = {
       "order": 6,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/xp/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/xp/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/xp/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/xp/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -234,8 +234,8 @@ window.SKIN_MANIFEST = {
       "order": 7,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/dragon-heir/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/dragon-heir/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/dragon-heir/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/dragon-heir/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -290,8 +290,8 @@ window.SKIN_MANIFEST = {
       "order": 8,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/minecraft/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/minecraft/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/minecraft/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/minecraft/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -334,8 +334,8 @@ window.SKIN_MANIFEST = {
       "order": 9,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/trading/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/trading/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/trading/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/trading/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -378,8 +378,8 @@ window.SKIN_MANIFEST = {
       "order": 10,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/miku/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/miku/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/miku/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/miku/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -433,8 +433,8 @@ window.SKIN_MANIFEST = {
       "order": 11,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/whale-mom/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/whale-mom/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/whale-mom/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/whale-mom/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -489,8 +489,8 @@ window.SKIN_MANIFEST = {
       "order": 12,
       "version": "0.2.0",
       "preview": {
-        "light": "packages/skins/skin-center/skins/matrix/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/matrix/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/matrix/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/matrix/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -538,8 +538,8 @@ window.SKIN_MANIFEST = {
       "sourceUrl": "https://github.com/Small-tailqwq/dsh-deep-whale/tree/main/maid-atelier",
       "attribution": "上善 → zipzip → Small-tailqwq",
       "preview": {
-        "light": "packages/skins/skin-center/skins/maid-atelier/preview/light.webp",
-        "dark": "packages/skins/skin-center/skins/maid-atelier/preview/dark.webp"
+        "light": "packages/skins/skin-center/skins/maid-atelier/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/maid-atelier/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -583,8 +583,8 @@ window.SKIN_MANIFEST = {
       "accent": "#67DCE7",
       "order": 14,
       "preview": {
-        "light": "packages/skins/skin-center/skins/summer-liquid-glass/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/summer-liquid-glass/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/summer-liquid-glass/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/summer-liquid-glass/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -622,8 +622,8 @@ window.SKIN_MANIFEST = {
       "order": 67,
       "version": "0.1.20",
       "preview": {
-        "light": "packages/skins/skin-center/skins/furina/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/furina/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/furina/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/furina/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -677,8 +677,8 @@ window.SKIN_MANIFEST = {
       "accent": "#2fbf8f",
       "order": 99,
       "preview": {
-        "light": "packages/skins/skin-center/skins/mint/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/mint/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/mint/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/mint/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css"
@@ -709,8 +709,8 @@ window.SKIN_MANIFEST = {
       "accent": "#00e5ff",
       "order": 100,
       "preview": {
-        "light": "packages/skins/skin-center/skins/cyber-night/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/cyber-night/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/cyber-night/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/cyber-night/preview/dark.jpg"
       },
       "requires": {
         "contracts": [
@@ -766,8 +766,8 @@ window.SKIN_MANIFEST = {
       "accent": "#2D6CDF",
       "order": 101,
       "preview": {
-        "light": "packages/skins/skin-center/skins/deep-current/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/deep-current/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/deep-current/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/deep-current/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
@@ -795,8 +795,8 @@ window.SKIN_MANIFEST = {
       "accent": "#ff7fae",
       "order": 101,
       "preview": {
-        "light": "packages/skins/skin-center/skins/pink-sakura/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/pink-sakura/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/pink-sakura/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/pink-sakura/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css"
@@ -820,8 +820,8 @@ window.SKIN_MANIFEST = {
       "accent": "#0d1627",
       "order": 999,
       "preview": {
-        "light": "packages/skins/skin-center/skins/wallpaper-exclusive/preview/light.png",
-        "dark": "packages/skins/skin-center/skins/wallpaper-exclusive/preview/dark.png"
+        "light": "packages/skins/skin-center/skins/wallpaper-exclusive/preview/light.jpg",
+        "dark": "packages/skins/skin-center/skins/wallpaper-exclusive/preview/dark.jpg"
       },
       "contributes": {
         "stylesheet": "skin.css",
