@@ -25,6 +25,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { DoctorApi } from './doctor-api.ts'
 import { DoctorController } from './doctor-controller.ts'
 import { createHarnessPort } from './harness-send.ts'
+import { createPluginRepairPort } from './plugin-repair.ts'
 import type { PluginModulesSeam } from './plugin-failures.ts'
 import { PassiveProbe } from './doctor-passive.ts'
 import {
@@ -93,7 +94,8 @@ export function apply(ctx: ClientContext): void {
     // service degrades the console instead of failing apply.
     const modules = ctx.get('modules') as unknown as PluginModulesSeam | undefined
     const harness = createHarnessPort(ctx.get('sessions'))
-    controller = new DoctorController({ api: new DoctorApi(), passive, modules, harness })
+    const pluginRepair = createPluginRepairPort(ctx.get('pluginManager'))
+    controller = new DoctorController({ api: new DoctorApi(), passive, modules, harness, pluginRepair })
     passive.start()
     ctx.effect(() => {
       controller?.start()

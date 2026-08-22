@@ -10,6 +10,7 @@ import { DoctorApi } from '../src/client/doctor-api.ts'
 import { DoctorController } from '../src/client/doctor-controller.ts'
 import { PassiveProbe } from '../src/client/doctor-passive.ts'
 import { DoctorSettingsCard, type DoctorSettingsCardProps, type DoctorSettingsCardState } from '../src/client/DoctorSettingsCard.tsx'
+import { pluginIdOf } from '../src/client/DoctorRecoveryConsole.tsx'
 import type { DoctorSupervisorResponse } from '../src/client/doctor-types.ts'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { en } from '../src/client/locales.ts'
@@ -98,6 +99,35 @@ describe('DoctorSettingsCard', () => {
     render(<DoctorSettingsCard {...props} />)
     fireEvent.click(screen.getByRole('button', { name: /Show settings/ }))
     expect(screen.getByText('The recovery console is currently unavailable.')).toBeTruthy()
+  })
+
+  it('offers copy and disable actions on failed-plugin probe rows', async () => {
+    const controller = makeController()
+    controller.notePluginStartupFailure('qa-broken')
+    const props = {
+      t,
+      useDoctorSettingsCard: (select: (state: typeof cardState) => typeof cardState) => select(cardState),
+      edit: vi.fn(),
+      resetField: vi.fn(),
+      save: vi.fn(),
+      discard: vi.fn(),
+      controller,
+    } as unknown as DoctorSettingsCardProps
+    render(<DoctorSettingsCard {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: /Show settings/ }))
+    expect(screen.getByText('Plugin startup failure')).toBeTruthy()
+    const copy = screen.getByTestId('doctor-copy-0')
+    expect(copy).toBeTruthy()
+    fireEvent.click(copy)
+    const disable = screen.getByTestId('doctor-disable-0')
+    expect(disable).toBeTruthy()
+    fireEvent.click(disable)
+    expect(await screen.findByText(/plugin manager unavailable/)).toBeTruthy()
+  })
+
+  it('parses the plugin id off a startup-failure probe message', () => {
+    expect(pluginIdOf('plugin failed to start: @scope/pkg')).toBe('@scope/pkg')
+    expect(pluginIdOf('anything else')).toBe('anything else')
   })
 
   it('opens the send-to-Harness dialog from the newest recorded failure', async () => {

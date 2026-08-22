@@ -12,6 +12,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { HarnessTarget } from './harness-send.ts'
+import { copyText } from './clipboard.ts'
 import css from './doctor.module.css'
 
 /** Props of the send-to-Harness dialog. */
@@ -54,27 +55,7 @@ export function HarnessSendDialog(props: HarnessSendDialogProps): ReactNode {
   if (!open) return null
 
   const copy = (): void => {
-    try {
-      const value = text
-      const done = (): void => setCopied(true)
-      if (typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function') {
-        void navigator.clipboard.writeText(value).then(done, () => setCopied(false))
-      } else {
-        const area = document.createElement('textarea')
-        area.value = value
-        document.body.appendChild(area)
-        area.select()
-        try {
-          document.execCommand('copy')
-        } catch {
-          // Fallback failures are ignored; the user can select manually.
-        }
-        document.body.removeChild(area)
-        done()
-      }
-    } catch {
-      setCopied(false)
-    }
+    void copyText(text).then(ok => { setCopied(ok) })
   }
 
   return (

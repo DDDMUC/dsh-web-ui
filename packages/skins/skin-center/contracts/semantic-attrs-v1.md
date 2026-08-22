@@ -93,6 +93,7 @@ family / 插件区域：
 | `profiles` | doctor | 受保护 profile 列表 |
 | `incidents` | doctor | 故障事件列表 |
 | `probe` | doctor | 客户端故障探针列表 |
+| `plugin-row-actions` | doctor | 失败插件行「复制错误 / 禁用并重启」动作组 |
 | `actions` | doctor | 诊断/修复动作组 |
 | `boundary` | doctor | 错误边界回退提示；`role="alert"` |
 | `harness-target` | doctor | “发送给 Harness” 对话框内的目标会话行 |

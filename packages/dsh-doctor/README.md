@@ -27,7 +27,10 @@ installation.
 - The Send to Harness window composes a troubleshooting prompt from the newest
   recorded failure (summary plus error stack) and queues it into the current
   DSH session as a new turn, so the user's agent can diagnose and fix it in
-  place; the prompt is editable and copyable before sending.
+  place; the prompt is editable and copyable before sending. Failed-plugin rows
+  also carry one-click Copy error and Disable and restart actions (disable
+  writes the profile patch enabled row through the plugin-manager channel and
+  takes effect after the host restart).
 - The Doctor Supervisor runs as a per-user background service. It classifies
   exits into user stops, task completion and real failures, applies the
   crash-loop circuit breaker, and owns rescue scheduling.

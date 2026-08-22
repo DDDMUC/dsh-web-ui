@@ -20,6 +20,7 @@ import type { DoctorSettingsHandle, DoctorSettingsState } from './doctor-setting
 import type { PassiveIncident } from './doctor-passive.ts'
 import { composeHarnessPrompt, type HarnessFailureInput } from './harness-send.ts'
 import { HarnessSendDialog } from './HarnessSendDialog.tsx'
+import { copyText } from './clipboard.ts'
 import type { DoctorKey } from './locales.ts'
 import css from './doctor.module.css'
 
@@ -187,7 +188,7 @@ export function DoctorRecoveryConsole(props: DoctorConsoleProps): ReactNode {
               onUninstall={() => { void controller.runUninstall() }}
             />
             <IncidentsCard t={t} view={view} />
-            <ProbeCard t={t} view={view} />
+            <ProbeCard t={t} view={view} controller={controller} />
             <ActionsCard
               t={t}
               view={view}
@@ -381,7 +382,18 @@ function IncidentsCard({ t, view }: { t: TranslateNS<'doctor'>; view: DoctorView
 }
 
 /** Browser probe card (passive incidents). */
-function ProbeCard({ t, view }: { t: TranslateNS<'doctor'>; view: DoctorView }): ReactNode {
+function ProbeCard({ t, view, controller }: { t: TranslateNS<'doctor'>; view: DoctorView; controller: DoctorController }): ReactNode {
+  const [copiedId, setCopiedId] = useState<string | undefined>(undefined)
+  const copyFailure = (incident: PassiveIncident): void => {
+    const stack = failureStackFor(incident, view)
+    const text = t(probeKindKey(incident.kind)) + ': ' + incident.message + (stack !== '' ? '\n\n' + stack : '')
+    void copyText(text).then(ok => {
+      if (ok) setCopiedId(incident.id)
+    })
+  }
+  const disablePlugin = (incident: PassiveIncident): void => {
+    void controller.disablePlugin(pluginIdOf(incident.message))
+  }
   return (
     <div className={css.card} data-dsh-part="probe">
       <h3 className={css.cardTitle}>{t('probe.title')}</h3>
@@ -394,6 +406,28 @@ function ProbeCard({ t, view }: { t: TranslateNS<'doctor'>; view: DoctorView }):
                 <span className={css.dot} data-state={incident.kind === 'unhandled-rejection' ? 'warn' : 'fail'} />
                 <span className={css.incidentTitle}>{t(probeKindKey(incident.kind))}</span>
                 <span className={css.incidentDetail}>{probeIncidentText(t, incident)}</span>
+                {incident.kind === 'plugin-startup-failure' && (
+                  <span className={css.rowActions} data-dsh-part="plugin-row-actions">
+                    <button
+                      type="button"
+                      className={css.miniButton}
+                      data-testid={'doctor-copy-' + String(index)}
+                      disabled={controller.getSnapshot().actionRunning}
+                      onClick={() => { copyFailure(incident) }}
+                    >
+                      {copiedId === incident.id ? t('actions.copied') : t('actions.copyError')}
+                    </button>
+                    <button
+                      type="button"
+                      className={css.miniButton}
+                      data-testid={'doctor-disable-' + String(index)}
+                      disabled={controller.getSnapshot().actionRunning}
+                      onClick={() => { disablePlugin(incident) }}
+                    >
+                      {t('actions.disable')}
+                    </button>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -405,6 +439,21 @@ function ProbeCard({ t, view }: { t: TranslateNS<'doctor'>; view: DoctorView }):
       )}
     </div>
   )
+}
+
+/** The plugin id recorded in a startup-failure probe message. */
+export function pluginIdOf(message: string): string {
+  const prefix = 'plugin failed to start: '
+  return message.startsWith(prefix) ? message.slice(prefix.length) : message
+}
+
+/** Best available stack for one probe failure: probe detail, then the plugin-manager ring. */
+function failureStackFor(incident: PassiveIncident, view: DoctorView): string {
+  if (incident.kind !== 'plugin-startup-failure') return incident.detail ?? ''
+  if (incident.detail !== undefined && incident.detail !== '') return incident.detail
+  const id = pluginIdOf(incident.message)
+  const recorded = view.pluginFailures.find(item => item.pluginId === id)
+  return recorded?.stack ?? ''
 }
 
 /** Actions card. */
@@ -452,9 +501,15 @@ function ActionsCard({ t, view, onDiagnose, onRepair, onReport, onSendToHarness,
 }
 
 /** Action result line. */
-function ActionOutcome({ t, outcome }: { t: TranslateNS<'doctor'>; outcome: { ok: boolean; kind?: 'reported' | 'completed' | 'sent'; message?: string } }): ReactNode {
+function ActionOutcome({ t, outcome }: { t: TranslateNS<'doctor'>; outcome: { ok: boolean; kind?: 'reported' | 'completed' | 'sent' | 'disabled'; id?: string; message?: string } }): ReactNode {
   if (outcome.ok) {
-    const label = outcome.kind === 'reported' ? t('actions.reported') : outcome.kind === 'sent' ? t('actions.sent') : t('actions.completed')
+    const label = outcome.kind === 'reported'
+      ? t('actions.reported')
+      : outcome.kind === 'sent'
+        ? t('actions.sent')
+        : outcome.kind === 'disabled'
+          ? t('actions.disabled', { id: outcome.id ?? '' })
+          : t('actions.completed')
     return <p className={css.meta} role="status">{label}</p>
   }
   return <p className={css.errorLine} role="status">{outcome.message ?? t('api.supervisor', { reason: '' })}</p>
