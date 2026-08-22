@@ -37,6 +37,7 @@ const has = (name) => process.argv.includes(name)
 
 const wranglerCmd = opt('--wrangler', 'wrangler')
 const skipRedirect = has('--skip-redirect')
+const redirectOnly = has('--redirect-only')
 
 function fail(msg) {
   console.error('deploy-market: ' + msg)
@@ -79,8 +80,9 @@ async function ensureRedirectRule() {
   const zone = (zones || []).find((z) => z.name === ZONE_NAME)
   if (!zone) fail('zone not found: ' + ZONE_NAME)
 
-  const phase = 'http_request_redirect'
-  const existing = await cf('/zones/' + zone.id + '/rulesets?phase=' + phase)
+  const phase = 'http_request_dynamic_redirect'
+  const all = await cf('/zones/' + zone.id + '/rulesets?phase=' + phase)
+  const existing = (all || []).filter((r) => r.phase === phase && r.kind === 'zone')
   const rule = {
     expression: '(http.host eq "' + GALLERY_HOST + '")',
     description: '301 ' + GALLERY_HOST + ' -> https://' + ZONE_NAME,
@@ -96,6 +98,7 @@ async function ensureRedirectRule() {
   if (!existing || !existing.length) {
     await cf('/zones/' + zone.id + '/rulesets', 'POST', {
       name: 'dsh-market redirects',
+      kind: 'zone',
       phase: phase,
       rules: [rule],
     })
@@ -108,6 +111,11 @@ async function ensureRedirectRule() {
 }
 
 async function main() {
+  if (redirectOnly) {
+    await ensureRedirectRule()
+    console.log('deploy-market: redirect rule ensured')
+    return
+  }
   // 1) 产物一致性（CI 只部署已提交产物）
   const check = spawnSync('node', [path.join(ROOT, 'scripts', 'market-build'), '--check'], {
     cwd: ROOT, stdio: 'inherit',
