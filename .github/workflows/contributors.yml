@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: contributors-${ github.ref }
+  group: contributors-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
           # bypass 名单仅含两个用户），因此这里使用有 bypass 权限的 PAT；
           # checkout 会把该 token 持久化为 push 凭据，使 bot 能直接推到 dev，
           # 不再产生 chore/contributors-sync 分支和 PR。
-          token: ${ secrets.CONTRIBUTORS_PUSH_PAT }
+          token: ${{ secrets.CONTRIBUTORS_PUSH_PAT }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -45,8 +45,8 @@ jobs:
         run: |
           node scripts/update-contributors.mjs
         env:
-          GITHUB_REPOSITORY: ${ github.repository }
-          GITHUB_TOKEN: ${ secrets.GITHUB_TOKEN }
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Commit and push to dev if changed
         run: |
