@@ -147,6 +147,39 @@ export default {
       return json({ ok: true, liked: voteResult.liked, votes: row ? row.votes : 0 })
     }
 
+    // --- GET /api/skin-center/v2/skins/<id>/<resource> (try-on shell) -----
+    // The try-on shell (market/dist/tryon) serves the real skin-center client
+    // in the page; its stylesheet/hooks/media load through ordinary
+    // <link>/<img>/import() requests, which bypass the in-page fetch patch, so
+    // this worker proxies them from the static skin assets. fetch() calls from
+    // the shell are answered by the in-page host and never reach here.
+    if (path.startsWith('/api/skin-center/v2/skins/') && request.method === 'GET') {
+      const rest = path.slice('/api/skin-center/v2/skins/'.length)
+      const slash = rest.indexOf('/')
+      const skinId = slash === -1 ? '' : rest.slice(0, slash)
+      const sub = slash === -1 ? '' : rest.slice(slash + 1)
+      const rel = (
+        sub === 'stylesheet' ? 'skin.css'
+          : sub === 'patches' ? 'patches.css'
+            : sub === 'hooks.mjs' ? 'hooks.mjs'
+              : /^(assets|preview)\//.test(sub) ? sub
+                : null
+      )
+      if (/^[a-z][a-z0-9-]{0,31}$/.test(skinId) && rel !== null && !rel.includes('..')) {
+        const asset = await env.ASSETS.fetch(new URL('/assets/skins/' + encodeURIComponent(skinId) + '/' + rel, url))
+        if (asset && asset.status !== 404) {
+          return new Response(asset.body, {
+            status: asset.status,
+            headers: {
+              'content-type': asset.headers.get('content-type') || 'application/octet-stream',
+              'cache-control': 'no-store',
+            },
+          })
+        }
+      }
+      return json({ ok: false, error: 'skin-asset-not-found' }, 404)
+    }
+
     return json({ ok: false, error: 'not-found' }, 404)
   },
 }
