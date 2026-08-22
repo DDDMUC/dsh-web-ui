@@ -153,13 +153,25 @@
   function cloneRootTokensToBody(css) {
     var clones = []
     walkTopRules(css, function (selector, body) {
-      if (!/^(:root|html)$/i.test(selector)) return
+      // 皮肤常见写法 `:root, body[data-ds-dark-theme] { ... }`：只要选择器组里
+      // 含 :root/html 就克隆其 alias/specific 声明到 body（真实加载器里
+      // :root 声明对两种主题都生效；模拟器把官方 token 定义在 body 上，
+      // 必须克隆到 body 才能覆盖。body[data-ds-dark-theme] 特异性更高，
+      // 暗色主题仍由皮肤自身的暗色块决定）。
+      var rootItems = selector.split(',')
+      var isRoot = false
+      for (var r = 0; r < rootItems.length; r++) {
+        if (/^\s*(:root|html)\s*$/i.test(rootItems[r])) { isRoot = true; break }
+      }
+      if (!isRoot) return
       var decls = []
       var parts = body.split(';')
       for (var i = 0; i < parts.length; i++) {
-        var decl = parts[i]
-        var m = decl.match(/^\s*--(dsw-alias|dsw-specific)-[a-z0-9-]+\s*:/i)
-        if (m) decls.push(decl.trim())
+        // 块内注释会与下一条声明粘在同一段（如 '/* ---- Alias ---- */\n  --dsw-alias-bg-base: ...'），
+        // 先剥掉注释再做前缀匹配，否则该条声明会被跳过。
+        var bare = parts[i].replace(/\/\*[\s\S]*?\*\//g, ' ')
+        var m = bare.match(/^\s*--(dsw-alias|dsw-specific)-[a-z0-9-]+\s*:/i)
+        if (m) decls.push(parts[i].trim())
       }
       if (decls.length) clones.push('body {\n  ' + decls.join(';\n  ') + ';\n}')
     })
