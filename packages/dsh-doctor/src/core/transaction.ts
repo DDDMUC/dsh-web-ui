@@ -23,6 +23,10 @@ export interface CandidateTransactionDeps {
   journal?: { append(entry: { op: string; ok: boolean; detail?: Record<string, unknown> }): Promise<unknown> }
   /** Optional same-device assertion; when provided and false, promote refuses. */
   sameDevice?(a: string, b: string): Promise<boolean>
+  /** Persist recovery intent while the candidate is still staged. */
+  beforePromote?(record: CandidateRecord): Promise<void>
+  /** Revalidate the caller's ownership before any compensating live move. */
+  beforeCompensation?(): Promise<void>
 }
 
 export interface CandidateTransaction {
@@ -79,6 +83,40 @@ export function createCandidateTransaction(deps: CandidateTransactionDeps): Cand
     }
   }
 
+  const rollbackPromoted = async (): Promise<void> => {
+    await deps.beforeCompensation?.()
+    // Keep one transaction-owned discard convention across in-process and
+    // CLI rollback so a later invocation can finalize an interrupted restore.
+    const discarded = livePath + '.doctor-discarded-' + txnId
+    if (!(await fs.exists(quarantinePath))) {
+      throw txnError(txnId, phase, 'quarantine path missing at ' + quarantinePath + '; live profile left untouched')
+    }
+    if (await fs.exists(discarded)) {
+      throw txnError(txnId, phase, 'discarded path already exists at ' + discarded + '; live profile left untouched')
+    }
+    await movePath(fs, livePath, discarded)
+    try {
+      await movePath(fs, quarantinePath, livePath)
+    } catch (error) {
+      try {
+        await deps.beforeCompensation?.()
+        await movePath(fs, discarded, livePath)
+      } catch (restoreError) {
+        setPhase('failed')
+        record.error = 'rollback failed and restoring the live profile failed: ' + String(error) + ' / ' + String(restoreError)
+        throw txnError(txnId, phase, record.error)
+      }
+      record.error = String(error)
+      await journal('rollback-failed', { error: String(error) }).catch(() => undefined)
+      throw txnError(txnId, phase, 'rollback failed: ' + String(error))
+    }
+    setPhase('rolled-back')
+    delete record.error
+    steps.push({ step: 'rollback-restore', from: quarantinePath, to: livePath })
+    await fs.remove(discarded, { recursive: true }).catch(() => undefined)
+    await journal('rollback-restore')
+  }
+
   return {
     txnId,
     record,
@@ -100,27 +138,54 @@ export function createCandidateTransaction(deps: CandidateTransactionDeps): Cand
         throw txnError(txnId, phase, 'quarantine path already exists: ' + quarantinePath)
       }
       await fs.mkdir(quarantineBase + '/' + profile + '/' + txnId, { recursive: true })
-      const first = await movePath(fs, livePath, quarantinePath)
-      steps.push({ step: 'promote-quarantine', from: livePath, to: quarantinePath, copied: first.copied })
-      await journal('promote-quarantine', { from: livePath, to: quarantinePath, copied: first.copied })
+      if (deps.beforePromote === undefined) {
+        throw txnError(txnId, phase, 'promote requires a durable recovery-intent writer')
+      }
+      // This atomic record write is the crash-recovery boundary. It must land
+      // before live is renamed so every partially promoted layout has durable
+      // profile, staging and quarantine identities.
+      await deps.beforePromote(record)
+      let originalQuarantined = false
+      let candidateActivated = false
       try {
+        const first = await movePath(fs, livePath, quarantinePath)
+        originalQuarantined = true
+        steps.push({ step: 'promote-quarantine', from: livePath, to: quarantinePath, copied: first.copied })
+        await journal('promote-quarantine', { from: livePath, to: quarantinePath, copied: first.copied })
         const second = await movePath(fs, stagingPath, livePath)
+        candidateActivated = true
         steps.push({ step: 'promote-activate', from: stagingPath, to: livePath, copied: second.copied })
-        await journal('promote-activate', { from: stagingPath, to: livePath, copied: second.copied })
         setPhase('promoted')
+        await journal('promote-activate', { from: stagingPath, to: livePath, copied: second.copied })
       } catch (error) {
-        try {
-          await movePath(fs, quarantinePath, livePath)
-          steps.push({ step: 'promote-rollback', from: quarantinePath, to: livePath })
-        } catch (rollbackError) {
-          setPhase('failed')
-          record.error = 'promote failed and rollback failed: ' + String(error) + ' / ' + String(rollbackError)
-          throw txnError(txnId, 'failed', record.error)
+        if (!originalQuarantined) {
+          record.error = String(error)
+          await journal('promote-failed', { error: record.error }).catch(() => undefined)
+          throw txnError(txnId, phase, 'promote failed before quarantining live: ' + record.error)
         }
-        setPhase('rolled-back')
-        record.error = String(error)
-        await journal('promote-failed', { error: String(error) })
-        throw txnError(txnId, 'rolled-back', 'promote failed: ' + String(error))
+        let rollbackError: unknown
+        try {
+          if (candidateActivated) {
+            await rollbackPromoted()
+          } else if (originalQuarantined) {
+            await deps.beforeCompensation?.()
+            await movePath(fs, quarantinePath, livePath)
+            steps.push({ step: 'promote-rollback', from: quarantinePath, to: livePath })
+            await fs.remove(stagingPath, { recursive: true })
+            setPhase('rolled-back')
+          }
+        } catch (caught) {
+          rollbackError = caught
+        }
+        const phaseAfterRollback = record.phase
+        if (phaseAfterRollback !== 'rolled-back') {
+          if (phaseAfterRollback !== 'promoted' && phaseAfterRollback !== 'failed') setPhase('failed')
+          record.error = 'promote failed and rollback failed: ' + String(error) + ' / ' + String(rollbackError)
+          throw txnError(txnId, phase, record.error)
+        }
+        record.error = String(error) + (rollbackError === undefined ? '' : '; rollback warning: ' + String(rollbackError))
+        await journal('promote-failed', { error: record.error }).catch(() => undefined)
+        throw txnError(txnId, phase, 'promote failed: ' + record.error)
       }
     },
     async rollback() {
@@ -131,18 +196,12 @@ export function createCandidateTransaction(deps: CandidateTransactionDeps): Cand
         return
       }
       if (phase !== 'promoted') throw txnError(txnId, phase, 'rollback requires state staged or promoted')
-      const discarded = stagingBase + '/' + profile + '/' + txnId + '.discarded'
-      await movePath(fs, livePath, discarded)
-      await movePath(fs, quarantinePath, livePath)
-      await fs.remove(discarded, { recursive: true })
-      setPhase('rolled-back')
-      steps.push({ step: 'rollback-restore', from: quarantinePath, to: livePath })
-      await journal('rollback-restore')
+      await rollbackPromoted()
     },
     async abort() {
       if (phase === 'created') return
       if (phase === 'promoted') {
-        await this.rollback()
+        await rollbackPromoted()
         return
       }
       if (phase === 'rolled-back' || phase === 'aborted') return
@@ -152,8 +211,8 @@ export function createCandidateTransaction(deps: CandidateTransactionDeps): Cand
     },
     async commit() {
       if (phase !== 'promoted') throw txnError(txnId, phase, 'commit requires state promoted')
-      setPhase('committed')
       await journal('commit', { quarantinePath })
+      setPhase('committed')
     },
   }
 }
@@ -169,4 +228,3 @@ function txnError(txnId: string, phase: CandidatePhase, detail: string): Error {
   error.phase = phase
   return error
 }
-
