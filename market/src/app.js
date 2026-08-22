@@ -370,10 +370,13 @@
         img.loading = 'lazy'
         media.appendChild(img)
       }
-      if (kind === 'skin' && item.accent) {
-        var bar = el('div', 'mk-accent-bar')
-        bar.style.background = item.accent
-        media.appendChild(bar)
+      if (kind === 'skin') {
+        media.classList.add('mk-card-media-skin')
+        if (item.accent) {
+          var bar = el('div', 'mk-accent-bar')
+          bar.style.background = item.accent
+          media.appendChild(bar)
+        }
       }
     }
     card.appendChild(media)

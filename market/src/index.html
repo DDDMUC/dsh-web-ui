@@ -185,6 +185,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .mk-card-media {
   position: relative; height: 148px; background: rgba(96, 128, 178, .16); overflow: hidden;
 }
+/* 皮肤预览图为 1440x900（16:10），媒体区同比例时 cover 零裁切、完整展示 */
+.mk-card-media-skin { height: auto; aspect-ratio: 16 / 10; }
 .mk-card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mk-card-media .mk-accent-bar { position: absolute; left: 0; right: 0; top: 0; height: 4px; }
 .mk-card-media .mk-cat {
