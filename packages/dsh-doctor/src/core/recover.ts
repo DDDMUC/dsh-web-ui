@@ -267,6 +267,14 @@ export async function repairProfile(request: RecoveryRequest, gateOptions: RealG
       profile: request.profile,
       now,
       journal,
+      beforePromote: async (record) => {
+        // The staged record is a durable promotion intent. Persist it while
+        // both leases are owned and before the first live-profile rename.
+        await globalLock.touch(clock())
+        if (profileLock === undefined) throw new LockError('LOCK_LOST', 'profile', 'profile/' + request.profile, 'profile lock is no longer held')
+        await profileLock.touch(clock())
+        await writeTransactionRecord(fs, home, record)
+      },
       beforeCompensation: async () => {
         await globalLock.touch(clock())
         if (profileLock === undefined) throw new LockError('LOCK_LOST', 'profile', 'profile/' + request.profile, 'profile lock is no longer held')
@@ -417,7 +425,7 @@ export async function rollbackTransaction(request: RollbackRequest, txnId: strin
     } catch (error) {
       throw new Error('no readable transaction record for ' + txnId + ': ' + String(error))
     }
-    const { record, livePath, quarantinePath } = validateRollbackRecord(parsed, home, profile, txnId)
+    const { record, livePath, quarantinePath, stagingPath } = validateRollbackRecord(parsed, home, profile, txnId)
     // The heartbeat runs in the background, but an explicit refresh turns a
     // prior ownership loss into a fail-closed result before filesystem moves.
     await globalLock.touch(clock())
@@ -425,14 +433,53 @@ export async function rollbackTransaction(request: RollbackRequest, txnId: strin
     const discardedPath = livePath + '.doctor-discarded-' + txnId
     if (record.phase === 'rolled-back') {
       await fs.remove(discardedPath, { recursive: true }).catch(() => undefined)
+      await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
       return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'transaction ' + txnId + ' is already rolled back' }
     }
-    if (record.phase !== 'promoted' && record.phase !== 'committed') {
-      throw new Error('transaction ' + txnId + ' is ' + record.phase + '; only promoted or committed transactions roll back')
+    if (record.phase !== 'staged' && record.phase !== 'promoted' && record.phase !== 'committed') {
+      throw new Error('transaction ' + txnId + ' is ' + record.phase + '; only staged, promoted or committed transactions roll back')
     }
-    const quarantineExists = await fs.exists(quarantinePath)
-    const liveExists = await fs.exists(livePath)
+    let quarantineExists = await fs.exists(quarantinePath)
+    let liveExists = await fs.exists(livePath)
+    const stagingExists = await fs.exists(stagingPath)
     const discardedExists = await fs.exists(discardedPath)
+
+    if (record.phase === 'staged' && !quarantineExists) {
+      if (!liveExists || !stagingExists || discardedExists) {
+        throw new Error('staged transaction ' + txnId + ' has an ambiguous pre-promote layout; live profile left untouched')
+      }
+      const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
+      await writeTransactionRecord(fs, home, rolledBackRecord)
+      await globalLock.touch(clock())
+      await profileLock.touch(clock())
+      await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
+      return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: record.steps.some(step => step.step === 'rollback-restore') ? 'finalized restored interrupted promotion' : 'cancelled durable promotion intent before live mutation' }
+    }
+    if (record.phase === 'staged' && quarantineExists && !liveExists) {
+      if (!stagingExists || discardedExists) {
+        throw new Error('staged transaction ' + txnId + ' has an ambiguous interrupted-promote layout; live profile left untouched')
+      }
+      // Promotion stopped after live -> quarantine but before the candidate
+      // became live. Restoring the original is the only data-preserving move.
+      await movePath(fs, quarantinePath, livePath)
+      const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
+      try {
+        await globalLock.touch(clock())
+        await profileLock.touch(clock())
+        await writeTransactionRecord(fs, home, rolledBackRecord)
+      } catch (error) {
+        // Keep the durable staged record retryable. The original is already
+        // restored, so a retry sees the safe pre-promote layout and finalizes.
+        throw new Error('restored interrupted promotion but could not persist rolled-back state: ' + String(error))
+      }
+      await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
+      return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'restored promotion interrupted before candidate activation' }
+    }
+    if (record.phase === 'staged' && quarantineExists && liveExists && stagingExists) {
+      throw new Error('staged transaction ' + txnId + ' has both live and staged candidates after quarantine; live profile left untouched')
+    }
+    quarantineExists = await fs.exists(quarantinePath)
+    liveExists = await fs.exists(livePath)
     if (!quarantineExists && liveExists && discardedExists) {
       // A previous rollback restored the quarantined original, then stopped
       // before its phase update became durable. This exact layout is
@@ -551,7 +598,7 @@ export async function discoverRollbackProfile(home: string, txnId: string, fs: F
   return profile
 }
 
-function validateRollbackRecord(value: unknown, home: string, profile: string, txnId: string): { record: CandidateRecord; livePath: string; quarantinePath: string } {
+function validateRollbackRecord(value: unknown, home: string, profile: string, txnId: string): { record: CandidateRecord; livePath: string; quarantinePath: string; stagingPath: string } {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('transaction ' + txnId + ' has a malformed record; live profile left untouched')
   }
@@ -572,6 +619,7 @@ function validateRollbackRecord(value: unknown, home: string, profile: string, t
   }
 
   const livePath = resolveProfileDir(home, profile)
+  const stagingPath = join(profilesDir(home), '.doctor-staging', profile, txnId)
   const quarantinePath = join(quarantineDir(home), profile, txnId, 'original')
   if (!samePath(record.livePath, livePath)) {
     throw new Error('transaction ' + txnId + ' live path does not match profile ' + profile + '; live profile left untouched')
@@ -579,7 +627,10 @@ function validateRollbackRecord(value: unknown, home: string, profile: string, t
   if (!samePath(record.quarantinePath, quarantinePath)) {
     throw new Error('transaction ' + txnId + ' quarantine path does not match profile ' + profile + '; live profile left untouched')
   }
-  return { record: record as CandidateRecord, livePath, quarantinePath }
+  if (!samePath(record.stagingPath, stagingPath)) {
+    throw new Error('transaction ' + txnId + ' staging path does not match profile ' + profile + '; live profile left untouched')
+  }
+  return { record: record as CandidateRecord, livePath, quarantinePath, stagingPath }
 }
 
 function samePath(left: string, right: string): boolean {

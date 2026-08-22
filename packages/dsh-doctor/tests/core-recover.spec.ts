@@ -78,7 +78,7 @@ async function seedPromotedTransaction(fs: FsLike, home: string, txnId = 'web-20
   await fs.writeText(join(quarantinePath, 'package.json'), JSON.stringify({ name: 'web', dsh: { profile: { bundles: ['@deepseek-ai/dsh-base'] } } }))
   await fs.writeText(join(quarantinePath, 'cordis.patch.yml'), 'bad: [unclosed\n')
   await fs.mkdir(join(home, '.dsh-doctor', 'transactions'), { recursive: true })
-  await fs.writeText(recordPath, JSON.stringify({ txnId, profile: 'web', phase: 'promoted', livePath, stagingPath: join(home, 'staging', txnId), quarantinePath, steps: [] }, null, 2) + '\n')
+  await fs.writeText(recordPath, JSON.stringify({ txnId, profile: 'web', phase: 'promoted', livePath, stagingPath: join(home, 'profiles', '.doctor-staging', 'web', txnId), quarantinePath, steps: [] }, null, 2) + '\n')
   return { livePath, quarantinePath, recordPath }
 }
 
@@ -172,6 +172,49 @@ describe('recovery orchestration', () => {
     const outcome = await diagnoseAndPlan(request(fs, home))
     expect(outcome.phase).toBe('noop')
     expect(outcome.ok).toBe(true)
+  })
+
+
+  it('restores a durable promotion interrupted between the two live renames', async () => {
+    await withRealHome(async (fs, home) => {
+      const txnId = 'web-20260101000000'
+      const livePath = join(home, 'profiles', 'web')
+      const stagingPath = join(home, 'profiles', '.doctor-staging', 'web', txnId)
+      const quarantinePath = join(home, '.dsh-doctor', 'quarantine', 'web', txnId, 'original')
+      const recordPath = join(home, '.dsh-doctor', 'transactions', txnId + '.json')
+      await fs.mkdir(stagingPath, { recursive: true })
+      await fs.writeText(join(stagingPath, 'package.json'), '{"name":"web","version":2}')
+      await fs.mkdir(quarantinePath, { recursive: true })
+      await fs.writeText(join(quarantinePath, 'package.json'), '{"name":"web","version":1}')
+      await fs.mkdir(join(home, '.dsh-doctor', 'transactions'), { recursive: true })
+      await fs.writeText(recordPath, JSON.stringify({ txnId, profile: 'web', phase: 'staged', livePath, stagingPath, quarantinePath, steps: [] }) + '\n')
+
+      const outcome = await rollbackTransaction({ ...request(fs, home) }, txnId)
+
+      expect(outcome).toMatchObject({ ok: true, phase: 'rolled-back' })
+      expect(outcome.message).toContain('interrupted before candidate activation')
+      expect(await fs.readText(join(livePath, 'package.json'))).toBe('{"name":"web","version":1}')
+      expect(await fs.exists(stagingPath)).toBe(false)
+      expect(await fs.exists(quarantinePath)).toBe(false)
+      expect(JSON.parse(await fs.readText(recordPath))).toMatchObject({ phase: 'rolled-back' })
+    })
+  })
+
+  it('finalizes an interrupted in-process rollback using the shared discard path', async () => {
+    await withRealHome(async (fs, home) => {
+      const txnId = 'web-20260101000000'
+      const { livePath, quarantinePath, recordPath } = await seedPromotedTransaction(fs, home, txnId)
+      const discardedPath = livePath + '.doctor-discarded-' + txnId
+      await fs.rename(livePath, discardedPath)
+      await fs.rename(quarantinePath, livePath)
+
+      const outcome = await rollbackTransaction({ ...request(fs, home) }, txnId)
+
+      expect(outcome).toMatchObject({ ok: true, phase: 'rolled-back' })
+      expect(await fs.exists(discardedPath)).toBe(false)
+      expect(await fs.readText(join(livePath, 'cordis.patch.yml'))).toBe('bad: [unclosed\n')
+      expect(JSON.parse(await fs.readText(recordPath))).toMatchObject({ phase: 'rolled-back' })
+    })
   })
 
   it('persists a rollback and treats a repeated request as a no-op', async () => {
@@ -581,14 +624,14 @@ describe('recovery orchestration', () => {
     expect(await fs.readText(join(quarantinePath, 'cordis.patch.yml'))).toBe('bad: [unclosed\n')
   })
 
-  it('rolls back when the first transaction record write fails after promote', async () => {
+  it('does not mutate live when the durable promotion-intent write fails', async () => {
     const fs = withPortablePaths(createMemoryFs())
     const home = '/h'
     const txnId = 'web-20260101000000'
     const livePath = join(home, 'profiles', 'web')
     const recordPath = join(home, '.dsh-doctor', 'transactions', txnId + '.json')
     const quarantinePath = join(home, '.dsh-doctor', 'quarantine', 'web', txnId, 'original')
-    const discardedPath = join(home, 'profiles', '.doctor-staging', 'web', txnId + '.discarded')
+    const discardedPath = livePath + '.doctor-discarded-' + txnId
     await fs.mkdir(livePath, { recursive: true })
     await fs.writeText(join(livePath, 'package.json'), JSON.stringify({ dsh: { profile: { bundles: ['@deepseek-ai/dsh-base'] } }, name: 'web' }))
     await fs.writeText(join(livePath, 'cordis.patch.yml'), 'bad: [unclosed\n')
@@ -612,11 +655,10 @@ describe('recovery orchestration', () => {
     expect(outcome).toMatchObject({ ok: false, phase: 'failed' })
     expect(outcome.message).toContain('injected post-promote transaction write failure')
     expect(await fs.readText(join(livePath, 'cordis.patch.yml'))).toBe('bad: [unclosed\n')
-    expect(JSON.parse(await fs.readText(recordPath))).toMatchObject({ phase: 'rolled-back' })
+    expect(await fs.exists(recordPath)).toBe(false)
     expect(await fs.exists(quarantinePath)).toBe(false)
     expect(await fs.exists(discardedPath)).toBe(false)
-    const journal = createJournal({ fs, file: join(home, '.dsh-doctor', 'journal.jsonl'), now: () => '2026-01-01T00:00:00Z' })
-    expect((await journal.replay()).entries.some((entry) => entry.op === 'repair:post-promote-rollback')).toBe(true)
+    expect(await fs.readText(join(livePath, 'cordis.patch.yml'))).toBe('bad: [unclosed\n')
   })
 })
 

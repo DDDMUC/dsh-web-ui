@@ -27,7 +27,7 @@ describe('doctor rollback CLI', () => {
         profile: 'web',
         phase: 'promoted',
         livePath,
-        stagingPath: join(home, 'staging', txnId),
+        stagingPath: join(home, 'profiles', '.doctor-staging', 'web', txnId),
         quarantinePath,
         steps: [],
       }) + '\n')
@@ -85,7 +85,7 @@ describe('doctor rollback CLI', () => {
         profile: 'web',
         phase: 'promoted',
         livePath,
-        stagingPath: join(home, 'staging', txnId),
+        stagingPath: join(home, 'profiles', '.doctor-staging', 'web', txnId),
         quarantinePath,
         steps: [],
       }) + '\n')

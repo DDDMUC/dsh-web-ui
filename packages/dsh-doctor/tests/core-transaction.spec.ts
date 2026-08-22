@@ -29,6 +29,7 @@ function makeTxn(fs: ReturnType<typeof createMemoryFs>, txnId = 'web-20260821230
       profile: 'web',
       now: () => '2026-08-21T23:00:00.000Z',
       txnId: () => txnId,
+      beforePromote: async () => undefined,
       journal: { append: async (entry) => { journalEntries.push(entry) } },
     }),
     journalEntries,
@@ -73,6 +74,7 @@ describe('candidate transaction', () => {
         profile: 'web',
         now: () => '2026-08-21T23:00:00.000Z',
         txnId: () => 'web-20260821230000',
+        beforePromote: async () => undefined,
         journal: {
           async append(entry) {
             if (entry.op.endsWith(':' + failedStep)) throw new Error('injected ' + failedStep + ' journal failure')
@@ -107,6 +109,7 @@ describe('candidate transaction', () => {
         profile: 'web',
         now: () => '2026-08-21T23:00:00.000Z',
         txnId: () => 'web-20260821230000',
+        beforePromote: async () => undefined,
         beforeCompensation: async () => {
           compensationChecks += 1
           throw new Error('injected lost ownership')
@@ -169,7 +172,7 @@ describe('candidate transaction', () => {
           await originalRename(from, to)
         },
       }
-      const txn = createCandidateTransaction({ fs: failingFs, home, profile: 'web', now: () => '2026-08-21T23:00:00.000Z', txnId: () => 'web-20260821230000' })
+      const txn = createCandidateTransaction({ fs: failingFs, home, profile: 'web', now: () => '2026-08-21T23:00:00.000Z', txnId: () => 'web-20260821230000', beforePromote: async () => undefined })
       quarantine = txn.record.quarantinePath
       livePath = txn.record.livePath
       await txn.stage()
@@ -220,7 +223,7 @@ describe('candidate transaction', () => {
         return originalRename(from, to)
       },
     }
-    const failed = createCandidateTransaction({ fs: fsSabotaged, home: HOME, profile: 'web', now: () => '2026-08-21T23:00:00.000Z', txnId: () => 'web-20260821230000' })
+    const failed = createCandidateTransaction({ fs: fsSabotaged, home: HOME, profile: 'web', now: () => '2026-08-21T23:00:00.000Z', txnId: () => 'web-20260821230000', beforePromote: async () => undefined })
     await failed.stage()
     await expect(failed.promote()).rejects.toMatchObject({ code: 'TXN_STATE' })
     expect(await fs.exists(LIVE + '/package.json')).toBe(true)
@@ -259,6 +262,7 @@ describe('candidate transaction', () => {
         profile: 'web',
         now: () => '2026-08-21T23:00:00.000Z',
         txnId: () => 'web-20260821230000',
+        beforePromote: async () => undefined,
         journal: {
           async append(entry) {
             if (entry.op.endsWith(':commit')) throw new Error('injected commit journal failure')

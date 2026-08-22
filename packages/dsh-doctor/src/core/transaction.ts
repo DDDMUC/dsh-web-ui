@@ -23,6 +23,8 @@ export interface CandidateTransactionDeps {
   journal?: { append(entry: { op: string; ok: boolean; detail?: Record<string, unknown> }): Promise<unknown> }
   /** Optional same-device assertion; when provided and false, promote refuses. */
   sameDevice?(a: string, b: string): Promise<boolean>
+  /** Persist recovery intent while the candidate is still staged. */
+  beforePromote?(record: CandidateRecord): Promise<void>
   /** Revalidate the caller's ownership before any compensating live move. */
   beforeCompensation?(): Promise<void>
 }
@@ -83,7 +85,9 @@ export function createCandidateTransaction(deps: CandidateTransactionDeps): Cand
 
   const rollbackPromoted = async (): Promise<void> => {
     await deps.beforeCompensation?.()
-    const discarded = stagingBase + '/' + profile + '/' + txnId + '.discarded'
+    // Keep one transaction-owned discard convention across in-process and
+    // CLI rollback so a later invocation can finalize an interrupted restore.
+    const discarded = livePath + '.doctor-discarded-' + txnId
     if (!(await fs.exists(quarantinePath))) {
       throw txnError(txnId, phase, 'quarantine path missing at ' + quarantinePath + '; live profile left untouched')
     }
@@ -134,6 +138,13 @@ export function createCandidateTransaction(deps: CandidateTransactionDeps): Cand
         throw txnError(txnId, phase, 'quarantine path already exists: ' + quarantinePath)
       }
       await fs.mkdir(quarantineBase + '/' + profile + '/' + txnId, { recursive: true })
+      if (deps.beforePromote === undefined) {
+        throw txnError(txnId, phase, 'promote requires a durable recovery-intent writer')
+      }
+      // This atomic record write is the crash-recovery boundary. It must land
+      // before live is renamed so every partially promoted layout has durable
+      // profile, staging and quarantine identities.
+      await deps.beforePromote(record)
       let originalQuarantined = false
       let candidateActivated = false
       try {
