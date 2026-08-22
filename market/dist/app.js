@@ -296,41 +296,43 @@
   function renderPodium() {
     var root = $('#podium')
     root.innerHTML = ''
-    ;['skin', 'pet', 'plugin'].forEach(function (kind) {
-      var group = el('div', 'mk-podium-group')
-      var title = el('div', 'mk-podium-title', KIND_LABEL[kind])
-      title.appendChild(el('span', 'mk-podium-kind', 'TOP 3'))
-      group.appendChild(title)
-      var list = el('div', 'mk-podium-list')
-      var top = podiumTop(kind)
-      if (!top.length) {
-        list.appendChild(el('div', 'mk-podium-empty', '暂无条目'))
-      } else {
-        top.forEach(function (item, i) {
-          var rank = i + 1
-          var votes = votesFor(kind, item.id)
-          var pending = votes === 0
-          var slot = el('button', 'mk-podium-slot rank-' + rank + (pending ? ' pending' : ''))
-          slot.type = 'button'
-          slot.setAttribute('aria-label', KIND_LABEL[kind] + ' 第 ' + rank + ' 名: ' + (item.name || item.displayName))
-          slot.appendChild(el('span', 'mk-medal', String(rank)))
-          var src = thumbSrc(kind, item)
-          if (src) {
-            var img = el('img', 'mk-podium-thumb')
-            img.src = src
-            img.alt = ''
-            img.loading = 'lazy'
-            slot.appendChild(img)
-          }
-          slot.appendChild(el('div', 'mk-podium-name', item.name || item.displayName))
-          slot.appendChild(el('div', 'mk-podium-votes', pending ? '待点亮' : votes + ' 票'))
-          slot.addEventListener('click', function () { openDetail(kind, item.id) })
-          list.appendChild(slot)
-        })
-      }
-      group.appendChild(list)
-      root.appendChild(group)
-    })
+    // 冠军台只展示当前 tab 类别；布局为经典阶梯：第 1 名居中最高，
+    // 第 2 名在左、略低，第 3 名在右、更低（DOM 按 1/2/3 顺序，
+    // 视觉顺序由 CSS order 重排为 2/1/3）。
+    var kind = state.kind
+    var group = el('div', 'mk-podium-group')
+    var title = el('div', 'mk-podium-title', KIND_LABEL[kind])
+    title.appendChild(el('span', 'mk-podium-kind', 'TOP 3'))
+    group.appendChild(title)
+    var list = el('div', 'mk-podium-list')
+    var top = podiumTop(kind)
+    if (!top.length) {
+      list.appendChild(el('div', 'mk-podium-empty', '暂无条目'))
+    } else {
+      top.forEach(function (item, i) {
+        var rank = i + 1
+        var votes = votesFor(kind, item.id)
+        var pending = votes === 0
+        var slot = el('button', 'mk-podium-slot rank-' + rank + (pending ? ' pending' : ''))
+        slot.type = 'button'
+        slot.setAttribute('aria-label', KIND_LABEL[kind] + ' 第 ' + rank + ' 名: ' + (item.name || item.displayName))
+        slot.appendChild(el('span', 'mk-medal', String(rank)))
+        var src = thumbSrc(kind, item)
+        if (src) {
+          var img = el('img', 'mk-podium-thumb')
+          img.src = src
+          img.alt = ''
+          img.loading = 'lazy'
+          slot.appendChild(img)
+        }
+        slot.appendChild(el('div', 'mk-podium-name', item.name || item.displayName))
+        slot.appendChild(el('div', 'mk-podium-votes', pending ? '待点亮' : votes + ' 票'))
+        slot.addEventListener('click', function () { openDetail(kind, item.id) })
+        list.appendChild(slot)
+      })
+    }
+    group.appendChild(list)
+    root.appendChild(group)
   }
 
   function renderCatFilter() {
