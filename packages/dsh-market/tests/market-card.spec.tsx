@@ -166,11 +166,11 @@ describe('MarketCard', () => {
   it('installs plugins through the pluginManager face when loopback', async () => {
     const install = vi.fn(async () => ({ id: 'dsh-tui', name: 'dsh-TUI', version: '1.0.0', source: { kind: 'npm', spec: 'dsh-tui' }, installedAt: '', enabled: true }))
     const list = vi.fn(async () => [])
-    const face = { isLoopback: true, install, list, uninstall: vi.fn(), status: vi.fn(), onChange: vi.fn(() => () => {}) }
+    const face = { isLoopback: true, install, list, uninstall: vi.fn(), status: vi.fn(), onChange: vi.fn((): (() => void) => () => {}), failures: vi.fn(), setEnabled: vi.fn() }
     render(<MarketCard {...cardProps(new FakeScope({}), {
       remote: REMOTE,
       gateway: null,
-      pluginManager: face,
+      pluginManager: face as unknown as import('../src/client/plugin-manager-bridge.ts').PluginManagerService,
     })} />)
     fireEvent.click(screen.getByRole('tab', { name: /插件/ }))
     fireEvent.click(screen.getByRole('button', { name: /一键安装/ }))

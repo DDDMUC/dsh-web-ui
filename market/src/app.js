@@ -432,22 +432,24 @@
     var cur = votesFor(kind, id)
     state.votes[kind][id] = Math.max(0, cur + (myVotes[key] ? 1 : -1))
     renderAll()
-    fetch('/api/like', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ kind: kind, asset_id: id, device_fp: deviceFp(), unlike: !myVotes[key] }),
-    }).then(function (r) {
+    turnstileToken().then(function (token) {
+      fetch('/api/like', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ kind: kind, asset_id: id, device_fp: deviceFp(), unlike: !myVotes[key], turnstile_token: token }),
+      }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status)
       return r.json()
     }).then(function (d) {
       if (typeof d.votes === 'number') state.votes[kind][id] = d.votes
       renderAll()
-    }).catch(function () {
-      myVotes[key] = wasLiked
-      saveMyVotes(myVotes)
-      state.votes[kind][id] = Math.max(0, votesFor(kind, id) + (wasLiked ? 1 : -1))
-      renderAll()
-      toast('点赞失败，请稍后再试')
+      }).catch(function () {
+        myVotes[key] = wasLiked
+        saveMyVotes(myVotes)
+        state.votes[kind][id] = Math.max(0, votesFor(kind, id) + (wasLiked ? 1 : -1))
+        renderAll()
+        toast('点赞失败，请稍后再试')
+      })
     })
   }
 
@@ -655,9 +657,60 @@
     dlg.addEventListener('close', function () { dlg.innerHTML = '' })
   }
 
+  // ---------- Turnstile (invisible) for public-site likes ----------
+  var TURNSTILE_SITEKEY = '0x4AAAAAAEYeoSRJRjgCOiZI'
+  var tsWidgetId = null
+  var tsResolve = null
+  var tsError = false
+  window.__dshTsCallback = function (token) {
+    if (tsResolve) { var resolve = tsResolve; tsResolve = null; resolve(token) }
+  }
+  function loadTurnstile() {
+    if (tsError) return Promise.resolve(false)
+    if (window.turnstile) return Promise.resolve(true)
+    return new Promise(function (resolve) {
+      var s = document.createElement('script')
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      s.async = true
+      s.onload = function () { resolve(true) }
+      s.onerror = function () { tsError = true; resolve(false) }
+      document.head.appendChild(s)
+    })
+  }
+  function renderTurnstile() {
+    return loadTurnstile().then(function (ok) {
+      if (!ok || !window.turnstile) return false
+      var div = document.getElementById('ts-anchor')
+      if (!div) {
+        div = document.createElement('div')
+        div.id = 'ts-anchor'
+        div.style.display = 'none'
+        document.body.appendChild(div)
+      }
+      try {
+        tsWidgetId = window.turnstile.render(div, {
+          sitekey: TURNSTILE_SITEKEY,
+          callback: window.__dshTsCallback,
+          action: 'market-like',
+        })
+        return true
+      } catch (e) { return false }
+    })
+  }
+  function turnstileToken() {
+    if (tsWidgetId === null || !window.turnstile) return Promise.resolve('')
+    return new Promise(function (resolve) {
+      var timer = window.setTimeout(function () { if (tsResolve) { var r = tsResolve; tsResolve = null; r('') } }, 8000)
+      tsResolve = function (token) { window.clearTimeout(timer); resolve(token) }
+      try { window.turnstile.reset(tsWidgetId) } catch (e) { }
+      try { window.turnstile.execute(tsWidgetId) } catch (e) { if (tsResolve) { var r2 = tsResolve; tsResolve = null; r2('') } }
+    })
+  }
+
   function boot() {
     bind()
     renderAll()
+    renderTurnstile()
     load()
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot)

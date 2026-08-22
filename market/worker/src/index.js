@@ -90,6 +90,32 @@ export default {
         return json({ ok: false, error: 'invalid-params' }, 400)
       }
 
+      // Turnstile gate: when the secret is configured, public-site likes must
+      // carry a valid token. The market card (dsh web client) marks itself
+      // with x-dsh-market-client: market-card and stays on the device-fp
+      // model — an attacker driving the card still needs the plugin installed
+      // and a loopback browser, a much smaller surface than the open site.
+      const cardClient = request.headers.get('x-dsh-market-client') === 'market-card'
+      if (!cardClient && env.TURNSTILE_SECRET) {
+        const token = typeof body.turnstile_token === 'string' ? body.turnstile_token : ''
+        if (!token) {
+          return json({ ok: false, error: 'captcha-required' }, 403)
+        }
+        const form = new URLSearchParams()
+        form.set('secret', env.TURNSTILE_SECRET)
+        form.set('response', token)
+        const ip = request.headers.get('cf-connecting-ip') || ''
+        if (ip) form.set('remoteip', ip)
+        const vr = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+          method: 'POST',
+          body: form,
+        })
+        const vd = await vr.json().catch(() => ({ success: false }))
+        if (!vd.success) {
+          return json({ ok: false, error: 'captcha-invalid' }, 403)
+        }
+      }
+
       const hash = await sha256(fp)
       let voteResult = null
       if (unlike) {

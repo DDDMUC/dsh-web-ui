@@ -1,5 +1,6 @@
 /manifest/*
 	Cache-Control: public, max-age=300
+	Access-Control-Allow-Origin: *
 
 /assets/*
 	Cache-Control: public, max-age=86400

@@ -211,18 +211,46 @@ export function MarketCard(props: MarketCardProps): ReactNode {
     return () => { alive = false }
   }, [props.remote])
 
-  // Host gateway loopback probe + installed snapshot.
-  const gateway = props.gateway ?? null
+  // Host gateway probe: POST install routes + GET installed snapshot. When
+  // the loopback gateway answers, asset install buttons become available;
+  // otherwise the card degrades to copy-only with the market-site link.
+  interface AssetGateway {
+    install(kind: Kind, id: string, force: boolean): Promise<{ dest: string }>
+    list(): Promise<{ skins: string[]; pets: string[] }>
+  }
+  const [liveGateway, setLiveGateway] = useState<AssetGateway | null | undefined>(undefined)
   useEffect(() => {
     if (props.gateway !== undefined) return
     let alive = true
-    void fetchJson('/api/market/installed').then((raw) => {
+    const gatewayClient: AssetGateway = {
+      async install(kind, id, force) {
+        const res = await fetch('/api/market/install-' + (kind === 'skin' ? 'skin' : 'pet'), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id, force }),
+        })
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; dest?: string; error?: string }
+        if (!res.ok || data.ok !== true) {
+          const err = new Error(data.error ?? 'HTTP ' + res.status) as Error & { code?: string }
+          err.code = data.error ?? 'write'
+          throw err
+        }
+        return { dest: data.dest ?? id }
+      },
+      async list() {
+        const raw = await fetchJson('/api/market/installed')
+        const r = raw as { skins: string[]; pets: string[] }
+        return { skins: r.skins ?? [], pets: r.pets ?? [] }
+      },
+    }
+    void gatewayClient.list().then((list) => {
       if (!alive) return
-      const r = raw as { skins: string[]; pets: string[] }
-      setInstalled({ skins: r.skins ?? [], pets: r.pets ?? [] })
-    }).catch(() => { /* no gateway: degraded copy-only */ })
+      setInstalled(list)
+      setLiveGateway(gatewayClient)
+    }).catch(() => { if (alive) setLiveGateway(null) })
     return () => { alive = false }
   }, [props.gateway])
+  const gateway = props.gateway !== undefined ? props.gateway : (liveGateway ?? null)
 
   // Plugin-manager face (optional) for the plugins tab.
   const bridge = useSyncExternalStore(subscribePluginManager, getPluginManagerSnapshot)
@@ -342,7 +370,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
     try {
       const res = await fetch(MARKET_ORIGIN + '/api/like', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-dsh-market-client': 'market-card' },
         body: JSON.stringify({ kind, asset_id: id, device_fp: deviceFp() }),
       })
       if (!res.ok) throw new Error('HTTP ' + res.status)

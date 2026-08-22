@@ -898,22 +898,48 @@ window.__ModuleLoader__.load({
 					alive = false;
 				};
 			}, [props.remote]);
-			const gateway = props.gateway ?? null;
+			const [liveGateway, setLiveGateway] = (0, react.useState)(void 0);
 			(0, react.useEffect)(() => {
 				if (props.gateway !== void 0) return;
 				let alive = true;
-				fetchJson("/api/market/installed").then((raw) => {
+				const gatewayClient = {
+					async install(kind, id, force) {
+						const res = await fetch("/api/market/install-" + (kind === "skin" ? "skin" : "pet"), {
+							method: "POST",
+							headers: { "content-type": "application/json" },
+							body: JSON.stringify({
+								id,
+								force
+							})
+						});
+						const data = await res.json().catch(() => ({}));
+						if (!res.ok || data.ok !== true) {
+							const err = new Error(data.error ?? "HTTP " + res.status);
+							err.code = data.error ?? "write";
+							throw err;
+						}
+						return { dest: data.dest ?? id };
+					},
+					async list() {
+						const r = await fetchJson("/api/market/installed");
+						return {
+							skins: r.skins ?? [],
+							pets: r.pets ?? []
+						};
+					}
+				};
+				gatewayClient.list().then((list) => {
 					if (!alive) return;
-					const r = raw;
-					setInstalled({
-						skins: r.skins ?? [],
-						pets: r.pets ?? []
-					});
-				}).catch(() => {});
+					setInstalled(list);
+					setLiveGateway(gatewayClient);
+				}).catch(() => {
+					if (alive) setLiveGateway(null);
+				});
 				return () => {
 					alive = false;
 				};
 			}, [props.gateway]);
+			const gateway = props.gateway !== void 0 ? props.gateway : liveGateway ?? null;
 			const bridge = (0, react.useSyncExternalStore)(subscribePluginManager, getPluginManagerSnapshot);
 			const face = props.pluginManager !== void 0 ? props.pluginManager : bridge.face;
 			const faceLoopback = face !== null && face.isLoopback;
@@ -1058,7 +1084,10 @@ window.__ModuleLoader__.load({
 				try {
 					const res = await fetch("https://dsh-market.com/api/like", {
 						method: "POST",
-						headers: { "content-type": "application/json" },
+						headers: {
+							"content-type": "application/json",
+							"x-dsh-market-client": "market-card"
+						},
 						body: JSON.stringify({
 							kind,
 							asset_id: id,
