@@ -42,6 +42,19 @@ export const SCENE_NEUTRALIZER_ATTR = 'data-dsh-scene-neutralizer'
 /** Conversation-content marker: set while the active conversation has rows. */
 export const CONVERSATION_CONTENT_ATTR = 'data-dsh-conversation-content'
 
+/**
+ * Stable shell scrollport scoped row selectors. Official builds emit the chat
+ * anchor; the CSS-module suffix fallbacks retain compatibility with older
+ * shells without returning to a body-wide topic/session query.
+ */
+const ACTIVE_CONVERSATION_CONTENT_SELECTOR = [
+  '[data-conversation-scroll] [data-chat-anchor-key]',
+  '[data-conversation-scroll] [class*="_userRow"]',
+  '[data-conversation-scroll] [class*="_compactionRow"]',
+  '[data-conversation-scroll] [class*="_contextRow"]',
+  '[data-conversation-scroll] [class*="_turnErrorRow"]',
+].join(', ')
+
 /** One source that can make backdrop art visible. */
 export type BackdropSource = 'skin' | 'wallpaper'
 
@@ -82,9 +95,14 @@ function syncMarker(doc: Document, sources: Set<BackdropSource>): void {
   }
 }
 
-/** Track whether the active conversation has message rows for the frost gate. */
+/**
+ * Track whether the active conversation scrollport has message rows for the
+ * frost gate. Topic pickers and outgoing session trees can retain their own
+ * data-chat-anchor-key nodes during a switch; a body-wide query would count
+ * those stale rows and flash the composer frost over the new empty topic.
+ */
 function updateConversationContent(doc: Document): void {
-  const has = doc.body !== null && doc.body.querySelector('[data-chat-anchor-key]') !== null
+  const has = doc.body !== null && doc.body.querySelector(ACTIVE_CONVERSATION_CONTENT_SELECTOR) !== null
   if (has) {
     doc.body?.setAttribute(CONVERSATION_CONTENT_ATTR, 'true')
     doc.documentElement?.setAttribute(CONVERSATION_CONTENT_ATTR, 'true')

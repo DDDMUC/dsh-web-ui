@@ -15,6 +15,7 @@ import {
   type WallpaperDescriptor,
   type WallpaperHandle,
 } from '../src/client/wallpaper.ts'
+import { setSceneBackdropActive } from '../src/client/runtime/backdrop-scene.ts'
 
 interface Section {
   enabled?: boolean
@@ -83,6 +84,14 @@ const scene: WallpaperDescriptor = {
   webUrl: null,
   frameUrl: '/api/skin-center/we/scene-frame/ccc',
   previewUrl: '/api/skin-center/we/preview/ddd',
+}
+
+/** Wait until the observer-driven marker reaches an expected state. */
+async function waitForContentMarker(expected: boolean): Promise<void> {
+  await vi.waitFor(() => {
+    expect(document.body.hasAttribute('data-dsh-conversation-content')).toBe(expected)
+    expect(document.documentElement.hasAttribute('data-dsh-conversation-content')).toBe(expected)
+  })
 }
 
 /** The fixed wallpaper layers, in mount order. */
@@ -615,6 +624,9 @@ describe('WallpaperController', () => {
     const { scope } = fakeScope()
     const controller = new WallpaperController(scope)
     expect(document.body.hasAttribute('data-dsh-backdrop-active')).toBe(false)
+    // A painted skin and a WE/WebGL wallpaper may report the shared scene at
+    // the same time; removing either source must not clobber the other.
+    setSceneBackdropActive(document, 'skin', true)
     controller.applySelection(video)
     expect(document.body.getAttribute('data-dsh-backdrop-active')).toBe('true')
     expect(document.documentElement.getAttribute('data-dsh-backdrop-active')).toBe('true')
@@ -630,25 +642,46 @@ describe('WallpaperController', () => {
     expect(neutralizer?.textContent).toContain('backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;')
     // Empty conversation: the content marker is absent, so the frost is off.
     expect(document.body.hasAttribute('data-dsh-conversation-content')).toBe(false)
-    // Adding a message row flips the marker on (observer-driven).
+    // A topic-picker or outgoing-session row outside the active scrollport
+    // must not enable the composer frost during a topic switch.
+    const staleRow = document.createElement('div')
+    staleRow.setAttribute('data-chat-anchor-key', 'stale-topic-row')
+    document.body.appendChild(staleRow)
+    await waitForContentMarker(false)
+    // A row inside the official active scrollport flips the marker on.
+    const outgoingScrollport = document.createElement('div')
+    outgoingScrollport.setAttribute('data-conversation-scroll', '')
     const row = document.createElement('div')
-    row.setAttribute('data-chat-anchor-key', '')
-    document.body.appendChild(row)
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(document.body.getAttribute('data-dsh-conversation-content')).toBe('true')
-    expect(document.documentElement.getAttribute('data-dsh-conversation-content')).toBe('true')
-    // Removing the row flips it back off.
-    row.remove()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(document.body.hasAttribute('data-dsh-conversation-content')).toBe(false)
+    row.setAttribute('data-chat-anchor-key', 'active-turn')
+    outgoingScrollport.appendChild(row)
+    document.body.appendChild(outgoingScrollport)
+    await waitForContentMarker(true)
+    // Topic switching can leave stale rows elsewhere while replacing the
+    // active scrollport. The empty incoming topic must clear the marker.
+    const incomingScrollport = document.createElement('div')
+    incomingScrollport.setAttribute('data-conversation-scroll', '')
+    outgoingScrollport.replaceWith(incomingScrollport)
+    await waitForContentMarker(false)
+    // Older shell row suffixes remain supported, but only in the scrollport.
+    const fallbackRow = document.createElement('div')
+    fallbackRow.className = 'hash_userRow'
+    incomingScrollport.appendChild(fallbackRow)
+    await waitForContentMarker(true)
+    incomingScrollport.remove()
+    await waitForContentMarker(false)
     // The wallpaper-specific neutralizer also owns the composer seat rule as
     // hardening: some skins (summer-liquid-glass) paint a frosted ::before on
     // the seat that would blur the wallpaper if the shared marker were absent.
     const root = document.head.querySelector('style[data-dsh-wallpaper-root]')
     expect(root?.textContent).toContain('html[data-dsh-wallpaper-active] [data-composer-seat]::before')
     expect(root?.textContent).toContain('backdrop-filter: none !important;')
-    // Teardown clears the shared marker; the shared neutralizer style stays inert.
+    // Wallpaper teardown leaves the marker active for the painted skin.
     controller.clearSelection()
+    expect(document.body.getAttribute('data-dsh-backdrop-active')).toBe('true')
+    expect(document.documentElement.getAttribute('data-dsh-backdrop-active')).toBe('true')
+    // Removing the final source clears the shared marker; the neutralizer style
+    // remains safely inert in the head.
+    setSceneBackdropActive(document, 'skin', false)
     expect(document.body.hasAttribute('data-dsh-backdrop-active')).toBe(false)
     expect(document.documentElement.hasAttribute('data-dsh-backdrop-active')).toBe(false)
     controller.dispose()
