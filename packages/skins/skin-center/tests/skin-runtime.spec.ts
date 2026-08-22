@@ -15,6 +15,7 @@ import {
 } from '../src/client/runtime/decoration-layers.ts'
 import { createSemanticAdapter } from '../src/client/runtime/semantic-adapter.ts'
 import {
+  DEFAULT_COMPOSER_CLEARANCE_PX,
   installShellRenderingAdapter,
   SHELL_RENDERING_STYLE_ATTR,
   shellRenderingCss,
@@ -127,6 +128,37 @@ describe('shared shell rendering adapter (#954)', () => {
     expect(css).toContain('var(--dsw-alias-label-secondary, var(--dsw-alias-label-caption))')
     expect(css).toContain('-webkit-text-fill-color:')
     expect(css).toContain('opacity: 1 !important;')
+  })
+
+  it('applies scrollport clearance with fallback for message readability (#978)', () => {
+    const css = shellRenderingCss()
+    expect(css).toContain('[data-conversation-scroll]')
+    expect(css).toContain('[data-dsh-part="scrollport"]')
+    expect(css).toContain(`padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;`)
+    expect(css).toContain(`scroll-padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;`)
+  })
+
+  it('measures composer height and cleans up custom property on teardown (#978)', () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = '<div data-slot="conversation.composer" style="height: 128px;"></div>'
+    const composer = document.body.querySelector('[data-slot="conversation.composer"]')!
+    vi.spyOn(composer, 'getBoundingClientRect').mockReturnValue({
+      height: 128,
+      width: 800,
+      top: 500,
+      bottom: 628,
+      left: 0,
+      right: 800,
+      x: 0,
+      y: 500,
+      toJSON: () => {},
+    })
+
+    const dispose = installShellRenderingAdapter(document)
+    expect(document.documentElement.style.getPropertyValue('--dsh-composer-height')).toBe('128px')
+
+    dispose()
+    expect(document.documentElement.style.getPropertyValue('--dsh-composer-height')).toBe('')
   })
 
   it('installs once and removes only the owned stylesheet on teardown', () => {

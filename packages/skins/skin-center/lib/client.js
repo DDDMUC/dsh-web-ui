@@ -3254,6 +3254,11 @@ window.__ModuleLoader__.load({
 			"html[data-dsh-custom-theme]:not([data-dsh-skin])",
 			"html[data-dsh-wallpaper-active]"
 		].join(", ");
+		const COMPOSER_SEAT_SELECTORS = [
+			"[data-slot=\"conversation.composer\"]",
+			"[data-composer-seat]",
+			"[data-dsh-surface=\"composer\"]"
+		];
 		/** Build the inert-by-default public rendering corrections. */
 		function shellRenderingCss() {
 			const scopes = ACTIVE_VISUAL_SELECTOR.split(", ");
@@ -3269,6 +3274,11 @@ window.__ModuleLoader__.load({
       -webkit-text-fill-color: var(--dsw-alias-label-secondary, var(--dsw-alias-label-caption)) !important;
       opacity: 1 !important;
     }
+    ${scoped("[data-conversation-scroll]")},
+    ${scoped("[data-dsh-part=\"scrollport\"]")} {
+      padding-bottom: var(--dsh-composer-height, 100px) !important;
+      scroll-padding-bottom: var(--dsh-composer-height, 100px) !important;
+    }
   `;
 		}
 		/** Install the shared corrections and return their idempotent teardown. */
@@ -3279,10 +3289,46 @@ window.__ModuleLoader__.load({
 			style.setAttribute(SHELL_RENDERING_STYLE_ATTR, "");
 			style.textContent = shellRenderingCss();
 			doc.head.appendChild(style);
+			const win = doc.defaultView;
+			let resizeObserver = null;
+			let mutationObserver = null;
+			let observedComposer = null;
+			const syncHeight = () => {
+				if (doc.body === null) return;
+				const composer = doc.body.querySelector(COMPOSER_SEAT_SELECTORS.join(", "));
+				if (composer !== null) {
+					if (observedComposer !== composer) {
+						if (observedComposer !== null && resizeObserver !== null) resizeObserver.unobserve(observedComposer);
+						observedComposer = composer;
+						if (resizeObserver !== null) resizeObserver.observe(composer);
+					}
+					const rect = composer.getBoundingClientRect();
+					if (rect.height > 0) doc.documentElement?.style.setProperty("--dsh-composer-height", `${Math.ceil(rect.height)}px`);
+				}
+			};
+			if (win !== null && typeof win.ResizeObserver === "function") resizeObserver = new win.ResizeObserver(() => syncHeight());
+			if (win !== null && typeof win.MutationObserver === "function" && doc.body !== null) {
+				mutationObserver = new win.MutationObserver(() => syncHeight());
+				mutationObserver.observe(doc.body, {
+					childList: true,
+					subtree: true
+				});
+			}
+			syncHeight();
 			let disposed = false;
 			return () => {
 				if (disposed) return;
 				disposed = true;
+				if (resizeObserver !== null) {
+					resizeObserver.disconnect();
+					resizeObserver = null;
+				}
+				if (mutationObserver !== null) {
+					mutationObserver.disconnect();
+					mutationObserver = null;
+				}
+				observedComposer = null;
+				doc.documentElement?.style.removeProperty("--dsh-composer-height");
 				style.remove();
 			};
 		}

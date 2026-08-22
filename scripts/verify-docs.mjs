@@ -135,7 +135,7 @@ if (import.meta.main) {
     const record = readPairing(p.yaml)
     const hEn = blobHash(p.en)
     const hZh = blobHash(p.zh)
-    if (writeMode && (!namedPairs.length || namedPairs.some((n) => p.rel.includes(n)))) {
+    if (writeMode && (!namedPairs.length || namedPairs.some((n) => p.rel.replace(/\\/g, '/').includes(n.replace(/\\/g, '/'))))) {
       writePairing(p.yaml, { 'README.md': hEn, 'README.zh.md': hZh })
       rows.push('re-record ' + p.rel)
       continue

@@ -14,11 +14,20 @@
 /** Marker owned by the shared shell-rendering stylesheet. */
 export const SHELL_RENDERING_STYLE_ATTR = 'data-dsh-shell-rendering'
 
+/** Fallback composer seat height for scrollport bottom clearance (px). */
+export const DEFAULT_COMPOSER_CLEARANCE_PX = 100
+
 const ACTIVE_VISUAL_SELECTOR = [
   'html[data-dsh-skin]',
   'html[data-dsh-custom-theme]:not([data-dsh-skin])',
   'html[data-dsh-wallpaper-active]',
 ].join(', ')
+
+const COMPOSER_SEAT_SELECTORS = [
+  '[data-slot="conversation.composer"]',
+  '[data-composer-seat]',
+  '[data-dsh-surface="composer"]',
+]
 
 /** Build the inert-by-default public rendering corrections. */
 export function shellRenderingCss(): string {
@@ -35,6 +44,11 @@ export function shellRenderingCss(): string {
       -webkit-text-fill-color: var(--dsw-alias-label-secondary, var(--dsw-alias-label-caption)) !important;
       opacity: 1 !important;
     }
+    ${scoped('[data-conversation-scroll]')},
+    ${scoped('[data-dsh-part="scrollport"]')} {
+      padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;
+      scroll-padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;
+    }
   `
 }
 
@@ -49,10 +63,56 @@ export function installShellRenderingAdapter(doc: Document): () => void {
   style.textContent = shellRenderingCss()
   doc.head.appendChild(style)
 
+  const win = doc.defaultView
+  let resizeObserver: ResizeObserver | null = null
+  let mutationObserver: MutationObserver | null = null
+  let observedComposer: Element | null = null
+
+  const syncHeight = (): void => {
+    if (doc.body === null) return
+    const composer = doc.body.querySelector(COMPOSER_SEAT_SELECTORS.join(', '))
+    if (composer !== null) {
+      if (observedComposer !== composer) {
+        if (observedComposer !== null && resizeObserver !== null) {
+          resizeObserver.unobserve(observedComposer)
+        }
+        observedComposer = composer
+        if (resizeObserver !== null) {
+          resizeObserver.observe(composer)
+        }
+      }
+      const rect = composer.getBoundingClientRect()
+      if (rect.height > 0) {
+        doc.documentElement?.style.setProperty('--dsh-composer-height', `${Math.ceil(rect.height)}px`)
+      }
+    }
+  }
+
+  if (win !== null && typeof win.ResizeObserver === 'function') {
+    resizeObserver = new win.ResizeObserver(() => syncHeight())
+  }
+
+  if (win !== null && typeof win.MutationObserver === 'function' && doc.body !== null) {
+    mutationObserver = new win.MutationObserver(() => syncHeight())
+    mutationObserver.observe(doc.body, { childList: true, subtree: true })
+  }
+
+  syncHeight()
+
   let disposed = false
   return () => {
     if (disposed) return
     disposed = true
+    if (resizeObserver !== null) {
+      resizeObserver.disconnect()
+      resizeObserver = null
+    }
+    if (mutationObserver !== null) {
+      mutationObserver.disconnect()
+      mutationObserver = null
+    }
+    observedComposer = null
+    doc.documentElement?.style.removeProperty('--dsh-composer-height')
     style.remove()
   }
 }
