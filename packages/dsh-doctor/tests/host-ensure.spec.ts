@@ -12,6 +12,7 @@ import {
   type DoctorLifecycleDeps,
   type SpawnResult,
 } from '../src/host/ensure.ts'
+import { credentialsFingerprint } from '../src/agent/capsule.ts'
 import type { SupervisorResponse } from '../src/core/protocol.ts'
 
 const okResponse: SupervisorResponse = { ok: true, snapshot: { protocol: 1, phase: 'armed', version: '9.9.9', profiles: [], incidents: [], updatedAt: '2026-01-01T00:00:00Z' } }
@@ -125,6 +126,25 @@ describe('capsule staleness and provisioning state', () => {
       expect(await defaultCapsuleStale(paths, '2.0.0')).toBe(true)
       await writeFile(join(paths.capsule, 'current', 'manifest.json'), JSON.stringify({}), 'utf8')
       expect(await defaultCapsuleStale(paths, '1.0.0')).toBe(true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('treats a changed credential source as stale', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-cap-'))
+    const paths = doctorPaths({ DSH_DOCTOR_HOME: dir })
+    const source = join(dir, 'source-home')
+    await mkdir(join(source, 'profiles', 'web'), { recursive: true })
+    await writeFile(join(source, '.env'), 'DSH_API_KEY=first\n', 'utf8')
+    await mkdir(join(paths.capsule, 'current'), { recursive: true })
+    try {
+      const fingerprint = await credentialsFingerprint(source, 'web')
+      await writeFile(join(paths.capsule, 'current', 'manifest.json'), JSON.stringify({ doctorVersion: '9.9.9', credentialsMirror: ['.env'], credentialsFingerprint: fingerprint }), 'utf8')
+      expect(await defaultCapsuleStale(paths, '9.9.9', { home: source, profile: 'web' })).toBe(false)
+      await writeFile(join(source, '.env'), 'DSH_API_KEY=changed\n', 'utf8')
+      expect(await defaultCapsuleStale(paths, '9.9.9', { home: source, profile: 'web' })).toBe(true)
+      expect(await defaultCapsuleStale(paths, '9.9.9')).toBe(true)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
