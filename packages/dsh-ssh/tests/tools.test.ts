@@ -174,3 +174,39 @@ describe('ssh_upload / ssh_download', () => {
     expect(down.bytes).toBe(34)
   })
 })
+
+describe('path-scope guidance for agents (issue #760)', () => {
+  it('ssh_upload draws the local-vs-remote boundary and points local files to local tools', () => {
+    const tool = sshUploadTool(engine(new StubEngine()))
+    const name = tool.description.toLowerCase()
+    expect(name).toContain('from this machine')
+    expect(name).toContain('remote ssh host')
+    expect(name).toContain('local file tools')
+    const lparams = tool.parameters as unknown as { properties: Record<string, { description: string }> }
+    const localPath = lparams.properties.localPath.description.toLowerCase()
+    expect(localPath).toContain('this machine')
+    expect(localPath).toContain('not a path on the remote host')
+    const remotePath = lparams.properties.remotePath.description.toLowerCase()
+    expect(remotePath).toContain('remote ssh host')
+  })
+
+  it('ssh_download draws the same boundary', () => {
+    const tool = sshDownloadTool(engine(new StubEngine()))
+    const name = tool.description.toLowerCase()
+    expect(name).toContain('remote file')
+    expect(name).toContain('local file tools')
+    const dparams = tool.parameters as unknown as { properties: Record<string, { description: string }> }
+    const remotePath = dparams.properties.remotePath.description.toLowerCase()
+    expect(remotePath).toContain('remote ssh host')
+    const localPath = dparams.properties.localPath.description.toLowerCase()
+    expect(localPath).toContain('this machine')
+  })
+
+  it('ssh_exec is scoped to the remote host only', () => {
+    const tool = sshExecTool(engine(new StubEngine()))
+    const name = tool.description.toLowerCase()
+    expect(name).toContain('remote ssh host')
+    expect(name).toContain('never on this machine')
+    expect(name).toContain('local bash tool')
+  })
+})

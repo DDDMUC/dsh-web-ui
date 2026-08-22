@@ -109,7 +109,7 @@ export function sshListTool(engine: SshEngine) {
 export function sshExecTool(engine: SshEngine) {
   return defineTool({
     name: 'ssh_exec',
-    description: 'Execute a command on a configured SSH host by alias. Prefer combining independent read-only queries into one command. ' +
+    description: 'Execute a shell command on a REMOTE SSH host by alias; the command runs on the remote host, never on this machine. For commands on this machine, use the local bash tool. Prefer combining independent read-only queries into one command. ' +
       'Triggers: run command on server, deploy, check server/status, service control, view logs, any remote operation.',
     parameters: {
       alias: { type: 'string', required: true, description: 'Host alias from ssh_list.' },
@@ -154,12 +154,12 @@ export function sshExecTool(engine: SshEngine) {
 export function sshUploadTool(engine: SshEngine) {
   return defineTool({
     name: 'ssh_upload',
-    description: 'Upload a local file to a configured SSH host. The local path is on THIS machine (the dsh host). ' +
+    description: 'Transfer a file FROM this machine (the dsh host) TO a remote SSH host. Use this only when the file must be copied to the remote host. Files that stay on this machine are handled with the local file tools (read / write / edit), not ssh_upload. ' +
       'Triggers: upload file to server, deploy artifact, copy config to server.',
     parameters: {
       alias: { type: 'string', required: true, description: 'Host alias from ssh_list.' },
-      localPath: { type: 'string', required: true, description: 'Absolute local file path on this machine.' },
-      remotePath: { type: 'string', required: true, description: 'Destination path on the remote host (parent dirs are created).' },
+      localPath: { type: 'string', required: true, description: 'Absolute path of the source file on THIS machine (the dsh host) — not a path on the remote host.' },
+      remotePath: { type: 'string', required: true, description: 'Absolute destination path on the remote SSH host (parent dirs are created).' },
     },
     output: {
       schema: {
@@ -191,12 +191,12 @@ export function sshUploadTool(engine: SshEngine) {
 export function sshDownloadTool(engine: SshEngine) {
   return defineTool({
     name: 'ssh_download',
-    description: 'Download a remote FILE from a configured SSH host to a local path on this machine. Directory download is not supported — download files individually. ' +
+    description: 'Copy a remote FILE from a configured SSH host to this machine (the dsh host). Use this only when the source is on the remote host; files already on this machine are read with the local file tools (read / write / edit), not ssh_download. Directory download is not supported — download files individually. ' +
       'Triggers: download file from server, fetch remote log/artifact.',
     parameters: {
       alias: { type: 'string', required: true, description: 'Host alias from ssh_list.' },
-      remotePath: { type: 'string', required: true, description: 'Remote file path.' },
-      localPath: { type: 'string', required: true, description: 'Absolute destination path on this machine.' },
+      remotePath: { type: 'string', required: true, description: 'Absolute path of the source file on the remote SSH host.' },
+      localPath: { type: 'string', required: true, description: 'Absolute destination path on THIS machine (the dsh host).' },
     },
     output: {
       schema: {

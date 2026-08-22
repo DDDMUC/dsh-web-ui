@@ -27,6 +27,7 @@
 - 删除主机或修改其连接字段（host / port / user / auth / proxyJump）会立即断开该别名的池化连接与隧道，后续操作按新配置重新建连，不会复用旧凭据的已认证连接。
 - Agent 使用工具前，主机需先在 GUI 中配置（或从 ~/.ssh/config 导入）。
 - `ssh_upload` / `ssh_download` 以宿主进程权限直接读写本机任意路径（不经 bash 沙箱）——与 ssh-skill 的宿主本地路径语义一致，注意该权限面。
+- Agent 传输工具只在本机与远程 SSH 主机之间移动文件；本机文件的读写一律使用本地文件工具（read / write / edit / bash），不要使用 `ssh_*` 工具。
 - exec / cluster 的远程输出原样返回（不脱敏），命令如 `env` 可能把远端环境中的密钥带回对话记录。
 
 ## 安装
