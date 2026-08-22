@@ -3,9 +3,10 @@
   --ds-font-family-code: "JetBrains Mono", "Cascadia Code", "Consolas", "Courier New", monospace;
   color: #14263f;
   box-sizing: border-box;
-  background-color: #eef5ff;
-  background-image: radial-gradient(circle at 16% 10%, #2e9bff24, #0000 40%), radial-gradient(circle at 84% 22%, #a0beff33, #0000 36%), radial-gradient(circle at 58% 94%, #2e9bff29, #0000 44%), linear-gradient(168deg, #f2f8ff 0%, #e4f0ff 46%, #d4e8ff 100%);
-  padding: 34px 8px 32px;
+  /* No white/light base: the bright background is the photo on <body>. */
+  background-color: transparent;
+  background-image: none;
+  padding: 0;
 }
 
 body[data-ds-dark-theme] {
@@ -13,6 +14,10 @@ body[data-ds-dark-theme] {
   background-color: #0a1430;
   background-image: radial-gradient(circle at 16% 10%, #2e9bff1f, #0000 42%), radial-gradient(circle at 84% 22%, #58aaff1a, #0000 38%), radial-gradient(circle at 58% 94%, #2e9bff24, #0000 45%), linear-gradient(168deg, #041110 0%, #0a1430 48%, #101f42 100%);
 }
+
+/* 背景由皮肤中心运行时按 skin.json 的 contributes.backgroundMedia 统一绘制
+   （light=assets/miku-art-light.jpg，dark=assets/miku-art.webp），
+   不使用 body 背景声明，避免绕过 WE 壁纸 / 用户手动背景 的优先级与 scrim 契约。 */
 
 :root {
   --dsw-alias-bg-base: #ffffff29;
