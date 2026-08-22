@@ -445,18 +445,31 @@ export async function rollbackTransaction(request: RollbackRequest, txnId: strin
     const discardedExists = await fs.exists(discardedPath)
 
     if (record.phase === 'staged' && !quarantineExists) {
-      if (!liveExists || !stagingExists || discardedExists) {
-        throw new Error('staged transaction ' + txnId + ' has an ambiguous pre-promote layout; live profile left untouched')
+      if (!liveExists) {
+        throw new Error('staged transaction ' + txnId + ' has no recoverable live or quarantine profile')
       }
       const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
       await writeTransactionRecord(fs, home, rolledBackRecord)
       await globalLock.touch(clock())
       await profileLock.touch(clock())
+      await fs.remove(discardedPath, { recursive: true }).catch(() => undefined)
       await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
-      return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: record.steps.some(step => step.step === 'rollback-restore') ? 'finalized restored interrupted promotion' : 'cancelled durable promotion intent before live mutation' }
+      return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: stagingExists && !discardedExists ? 'cancelled durable promotion intent before live mutation' : 'finalized restored interrupted promotion' }
     }
     if (record.phase === 'staged' && quarantineExists && !liveExists) {
-      if (!stagingExists || discardedExists) {
+      if (discardedExists) {
+        // In-process rollback stopped after displacing the candidate. The
+        // transaction quarantine still uniquely owns the original profile.
+        await movePath(fs, quarantinePath, livePath)
+        const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
+        await writeTransactionRecord(fs, home, rolledBackRecord)
+        await globalLock.touch(clock())
+        await profileLock.touch(clock())
+        await fs.remove(discardedPath, { recursive: true }).catch(() => undefined)
+        await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
+        return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'resumed interrupted in-process rollback' }
+      }
+      if (!stagingExists) {
         throw new Error('staged transaction ' + txnId + ' has an ambiguous interrupted-promote layout; live profile left untouched')
       }
       // Promotion stopped after live -> quarantine but before the candidate

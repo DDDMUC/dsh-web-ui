@@ -217,6 +217,47 @@ describe('recovery orchestration', () => {
     })
   })
 
+
+  it('resumes an in-process rollback interrupted after displacing the candidate', async () => {
+    await withRealHome(async (fs, home) => {
+      const txnId = 'web-20260101000000'
+      const { livePath, quarantinePath, recordPath } = await seedPromotedTransaction(fs, home, txnId)
+      const stagingPath = join(home, 'profiles', '.doctor-staging', 'web', txnId)
+      const discardedPath = livePath + '.doctor-discarded-' + txnId
+      const record = JSON.parse(await fs.readText(recordPath))
+      record.phase = 'staged'
+      await fs.writeText(recordPath, JSON.stringify(record) + '\n')
+      await fs.rename(livePath, discardedPath)
+
+      const outcome = await rollbackTransaction({ ...request(fs, home) }, txnId)
+
+      expect(outcome).toMatchObject({ ok: true, phase: 'rolled-back' })
+      expect(outcome.message).toContain('resumed interrupted in-process rollback')
+      expect(await fs.readText(join(livePath, 'cordis.patch.yml'))).toBe('bad: [unclosed\n')
+      expect(await fs.exists(discardedPath)).toBe(false)
+      expect(await fs.exists(stagingPath)).toBe(false)
+    })
+  })
+
+  it('finalizes a staged record after in-process restore cleanup completed', async () => {
+    await withRealHome(async (fs, home) => {
+      const txnId = 'web-20260101000000'
+      const { livePath, quarantinePath, recordPath } = await seedPromotedTransaction(fs, home, txnId)
+      const record = JSON.parse(await fs.readText(recordPath))
+      record.phase = 'staged'
+      await fs.writeText(recordPath, JSON.stringify(record) + '\n')
+      await fs.remove(livePath, { recursive: true })
+      await fs.rename(quarantinePath, livePath)
+
+      const outcome = await rollbackTransaction({ ...request(fs, home) }, txnId)
+
+      expect(outcome).toMatchObject({ ok: true, phase: 'rolled-back' })
+      expect(outcome.message).toContain('finalized restored interrupted promotion')
+      expect(await fs.readText(join(livePath, 'cordis.patch.yml'))).toBe('bad: [unclosed\n')
+      expect(JSON.parse(await fs.readText(recordPath))).toMatchObject({ phase: 'rolled-back' })
+    })
+  })
+
   it('persists a rollback and treats a repeated request as a no-op', async () => {
     await withRealHome(async (fs, home) => {
       const txnId = 'web-20260101000000'
