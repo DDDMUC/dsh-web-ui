@@ -33,7 +33,7 @@ window.__ModuleLoader__.load({
 		module.exports = __toCommonJS(client_exports);
 		var import_react = require("react");
 		var import_jsx_runtime = require("react/jsx-runtime");
-		var REPO = "futrime/webdsh";
+		var REPO = "zhu1090093659/dsh-web-ui";
 		var REPO_URL = `https://github.com/${REPO}`;
 		var API_URL = `https://api.github.com/repos/${REPO}`;
 		var CACHE_KEY = "dsh-web-star:count";

@@ -15,8 +15,11 @@
 import { useEffect, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 
-/** The repository this build comes from. */
-const REPO = 'futrime/webdsh'
+// market/tryon: the shell is the dsh-market try-on build; the repo the
+// visitor should star is the plugin family this market sells, not the
+// vendored upstream shell.
+/** The repository the button points at. */
+const REPO = 'zhu1090093659/dsh-web-ui'
 
 /** Where the button sends the visitor. */
 const REPO_URL = `https://github.com/${REPO}`
