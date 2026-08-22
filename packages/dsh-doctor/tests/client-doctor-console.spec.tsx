@@ -31,6 +31,7 @@ function supervisorBody(incidents: DoctorIncident[] = [
 ]): DoctorSupervisorResponse {
   return {
     ok: true,
+    hostVersion: '0.2.7',
     snapshot: {
       protocol: 1,
       phase: 'armed',
@@ -194,6 +195,74 @@ describe('DoctorRecoveryConsole', () => {
     const toggle = screen.getByTestId('doctor-enable-switch') as HTMLButtonElement
     expect(toggle.disabled).toBe(true)
     expect(screen.getByText(t('enable.unavailable'))).toBeTruthy()
+  })
+
+  it('renders the lifecycle card with version identity', async () => {
+    const { controller } = makeController(supervisorBody())
+    await controller.refresh()
+    render(<DoctorRecoveryConsole t={t} controller={controller} settings={null} />)
+    expect(screen.getByText(t('lifecycle.title'))).toBeTruthy()
+    expect(screen.getByText(t('lifecycle.version', { supervisor: '0.2.7', web: '0.2.7' }))).toBeTruthy()
+    expect(screen.getByTestId('doctor-uninstall-button')).toBeTruthy()
+  })
+
+  it('offers one-click install when the supervisor service is not provisioned', async () => {
+    const api = {
+      status: vi.fn(async () => ({ ok: false, kind: 'unprovisioned' as const, status: 503, code: 'SUPERVISOR_UNPROVISIONED', message: 'ENOENT' })),
+      action: vi.fn(async () => ({ ok: true, value: supervisorBody() })),
+      reportClientFailure: vi.fn(async () => ({ ok: false, kind: 'unprovisioned' as const })),
+    }
+    const passive = new PassiveProbe({ notify: () => {}, now: () => 1 })
+    const offline = new DoctorController({ api: api as unknown as DoctorApi, passive })
+    await offline.refresh()
+    render(<DoctorRecoveryConsole t={t} controller={offline} settings={null} />)
+    expect(screen.getByText(t('lifecycle.neverInstalled'))).toBeTruthy()
+    expect(screen.getByText(t('api.unprovisioned'))).toBeTruthy()
+    const install = screen.getByTestId('doctor-ensure-button') as HTMLButtonElement
+    expect(install.textContent).toBe(t('lifecycle.install'))
+    expect(screen.queryByTestId('doctor-uninstall-button')).toBeNull()
+    fireEvent.click(install)
+    await waitFor(() => { expect(api.action).toHaveBeenCalledWith('provision', undefined) })
+  })
+
+  it('offers repair when the service is installed but silent', async () => {
+    const api = {
+      status: vi.fn(async () => ({ ok: false, kind: 'supervisor-down' as const, status: 503, code: 'SUPERVISOR_DOWN', message: 'ECONNREFUSED' })),
+      action: vi.fn(async () => ({ ok: true, value: supervisorBody() })),
+      reportClientFailure: vi.fn(async () => ({ ok: false, kind: 'supervisor-down' as const })),
+    }
+    const passive = new PassiveProbe({ notify: () => {}, now: () => 1 })
+    const offline = new DoctorController({ api: api as unknown as DoctorApi, passive })
+    await offline.refresh()
+    render(<DoctorRecoveryConsole t={t} controller={offline} settings={null} />)
+    expect(screen.getByText(t('lifecycle.serviceDown'))).toBeTruthy()
+    const install = screen.getByTestId('doctor-ensure-button') as HTMLButtonElement
+    expect(install.textContent).toBe(t('lifecycle.repair'))
+  })
+
+  it('offers upgrade when supervisor and web versions differ', async () => {
+    const api = {
+      status: vi.fn(async () => ({ ok: true, value: { ...supervisorBody(), hostVersion: '0.2.9' } })),
+      action: vi.fn(async () => ({ ok: true, value: { ...supervisorBody(), snapshot: { ...supervisorBody().snapshot!, version: '0.2.9' } } })),
+      reportClientFailure: vi.fn(async () => ({ ok: false, kind: 'not-available' as const })),
+    }
+    const passive = new PassiveProbe({ notify: () => {}, now: () => 1 })
+    const stale = new DoctorController({ api: api as unknown as DoctorApi, passive })
+    await stale.refresh()
+    render(<DoctorRecoveryConsole t={t} controller={stale} settings={null} />)
+    expect(screen.getByText(t('lifecycle.versionMismatch', { supervisor: '0.2.7', web: '0.2.9' }))).toBeTruthy()
+    const upgrade = screen.getByTestId('doctor-ensure-button') as HTMLButtonElement
+    expect(upgrade.textContent).toBe(t('lifecycle.upgrade'))
+    fireEvent.click(upgrade)
+    await waitFor(() => { expect(api.action).toHaveBeenCalledWith('provision', undefined) })
+  })
+
+  it('uninstalls the rescue service from the lifecycle card', async () => {
+    const { controller, api } = makeController()
+    await controller.refresh()
+    render(<DoctorRecoveryConsole t={t} controller={controller} settings={null} />)
+    fireEvent.click(screen.getByTestId('doctor-uninstall-button'))
+    await waitFor(() => { expect(api.action).toHaveBeenCalledWith('uninstall', undefined) })
   })
 })
 

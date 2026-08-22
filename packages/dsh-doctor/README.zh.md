@@ -14,7 +14,7 @@ profile。插件默认关闭，在「设置 → 插件配置 → Web UI 插件�
   Supervisor 上报心跳与启动阶段事实，并收集浏览器故障上报。
 - Doctor Web 控制台（「设置 → 插件配置 → Web UI 插件」内的家族插件卡片）展示系统
   阶段、受保护 profile、故障事件与客户端故障探针，并在启用开关旁提供诊断、修复、
-  回滚、暂停、恢复与卸载动作。
+  回滚、暂停与恢复动作以及「服务与胶囊」卡片：一键安装、重启升级与卸载用户级服务。
 - Doctor Supervisor 作为用户级后台服务运行：把退出归类为用户停止、任务完成与
   真实故障，应用崩溃循环熔断，并负责救援调度。
 - Doctor Launcher 把 `dsh` 参数原样转发给真实 DSH 可执行文件，转发 stdin、
@@ -64,10 +64,20 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 
 ## 启用
 
-启用流程是带失败回滚的事务：检查工具链，定位真实 `dsh` 可执行文件，配置救援
-胶囊，验证隔离的恢复 Web，安装用户级 Supervisor 服务，注册 launcher，注册当前
-profile，创建首个已知正常快照，最后把系统切换到 armed 状态。救援 profile 永不
-成为救援目标。
+在 Doctor 卡片打开「启用救助模式」后，宿主半区挂载 `/api/doctor/*` 端点并开始上报
+心跳。若本机尚未安装 Doctor Supervisor 服务，控制台「宿主状态」显示「Doctor 离线」，
+「服务与胶囊」卡片给出「一键安装」：按当前包重新生成并注册用户级服务（先注销旧注册，
+再部署并重启，幂等），等待 Supervisor 应答，若救援胶囊缺失或其 Doctor 版本与当前包
+不一致则按当前包版本刷新胶囊。安装期间按钮进入「安装/修复中…」；失败时展示具体错误码
+与 stderr。
+
+## 更新
+
+更新到新版本后，先重启 `dsh web` 让宿主半区加载新代码，再在「服务与胶囊」卡片点
+「重启并升级服务」（Supervisor 上报版本滞后时该按钮自动出现）：重新部署用户级服务并
+重启 Supervisor 加载新代码，版本不一致时同步刷新救援胶囊。若包的安装路径发生变化
+（换目录、换 profile、重装），原服务记录指向旧路径，点一次「重启并升级服务」即重写
+服务定义。CLI 的 `service-install` 幂等，可安全重复执行。
 
 ## CLI
 
@@ -78,13 +88,13 @@ profile，创建首个已知正常快照，最后把系统切换到 armed 状态
 | `dsh-doctor supervisor` | 前台运行 Supervisor |
 | `dsh-doctor launch [dsh 参数...]` | 在监督下转发一次 `dsh` 调用 |
 | `dsh-doctor status` | 以 JSON 打印 Supervisor 快照 |
-| `dsh-doctor provision` | 配置或刷新救援胶囊 |
+| `dsh-doctor provision` | 配置或刷新救援胶囊（默认固定当前包版本，`DSH_DOCTOR_PACKAGE` 可覆盖） |
 | `dsh-doctor snapshot [profile]` | 快照一个 profile |
 | `dsh-doctor diagnose [profile]` | 只诊断与规划，不写文件 |
 | `dsh-doctor repair [profile] --allow-live` | 运行暂存修复事务（门禁后提升） |
 | `dsh-doctor rollback <txnId>` | 从隔离区恢复已提升的事务 |
 | `dsh-doctor service-plan` | 打印平台服务文件与命令 |
-| `dsh-doctor service-install` | 写服务文件并注册服务 |
+| `dsh-doctor service-install` | 写服务文件并幂等注册服务（先注销旧注册，部署后重启） |
 | `dsh-doctor service-uninstall` | 注销并删除服务文件 |
 
 退出码：0 正常，1 已修复并验证，2 需要关注，3 被阻塞（锁、离线或缺少密钥）。
@@ -145,6 +155,8 @@ host 设置命名空间为 `doctor`：
 - 救援胶囊只绑定 loopback，除显式检查外不读取 profile home overlay。
 - 写入范围限定在 `DSH_DOCTOR_HOME` 与包自有文件；profile 变更只经官方
   `dsh plugin` 命令。
+- 一键安装、升级与卸载只经本包 CLI 以参数数组发起（launchctl / systemd --user /
+  schtasks），从不启用 shell。
 
 ## 已知限制
 

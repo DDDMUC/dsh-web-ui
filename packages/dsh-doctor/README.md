@@ -19,7 +19,9 @@ installation.
 - The Doctor Web Console (the family plugin card inside Settings → Plugin
   configuration → Web UI plugins) shows the system phase, protected profiles,
   incidents and the client failure probe, and offers diagnose, repair, rollback,
-  pause, resume and uninstall actions alongside the enable switch.
+  pause and resume actions alongside the enable switch plus a Service and
+  capsule card: one-click install, restart-upgrade and uninstall of the
+  user-level service.
 - The Doctor Supervisor runs as a per-user background service. It classifies
   exits into user stops, task completion and real failures, applies the
   crash-loop circuit breaker, and owns rescue scheduling.
@@ -74,12 +76,26 @@ and the user-level service adapters.
 
 ## Enable
 
-The enable flow is one transaction with rollback on failure: check the
-toolchain, locate the real `dsh` executable, provision the rescue capsule,
-verify the isolated recovery Web, install the per-user Supervisor service,
-register the launcher, register the current profile, take the first
-known-good snapshot, and finally switch the system to armed. A rescue profile
-is never a rescue target.
+After the Doctor card switches enable rescue mode on, the host half mounts the
+`/api/doctor/*` endpoints and starts reporting heartbeats. When the per-user
+Doctor Supervisor service is not installed yet, the host status shows Doctor
+offline and the Service and capsule card offers Install now: it regenerates and
+registers the user-level service from the current package (previous
+registration dropped first, then deploy and restart, idempotent), waits for
+the Supervisor to answer, and refreshes the rescue capsule when it is missing
+or pinned to a different Doctor version. The button shows Installing/repairing
+while the verb runs; failures surface the error code and stderr.
+
+## Update
+
+After an update, restart `dsh web` so the host half loads the new code, then
+click Restart and upgrade in the Service and capsule card (the button appears
+whenever the reported Supervisor version lags): it redeploys the user-level
+service and restarts the Supervisor with the new code, and refreshes the
+capsule when its pinned version differs. When the package install path changed
+(new directory, new profile, reinstall), the previous service record points at
+a stale path and one click rewrites the service definition. The CLI
+`service-install` is idempotent and safe to repeat.
 
 ## CLI
 
@@ -90,13 +106,13 @@ The `dsh-doctor` binary exposes the operational commands:
 | `dsh-doctor supervisor` | run the Supervisor in the foreground |
 | `dsh-doctor launch [dsh args...]` | relay one `dsh` invocation under supervision |
 | `dsh-doctor status` | print the Supervisor snapshot as JSON |
-| `dsh-doctor provision` | provision or refresh the rescue capsule |
+| `dsh-doctor provision` | provision or refresh the rescue capsule (pinned to the current package version by default; `DSH_DOCTOR_PACKAGE` overrides) |
 | `dsh-doctor snapshot [profile]` | capture one profile snapshot |
 | `dsh-doctor diagnose [profile]` | diagnose and plan one profile without writing |
 | `dsh-doctor repair [profile] --allow-live` | run the staged repair transaction (gated promote) |
 | `dsh-doctor rollback <txnId>` | restore a promoted transaction from quarantine |
 | `dsh-doctor service-plan` | print the platform service files and commands |
-| `dsh-doctor service-install` | write the service files and register the service |
+| `dsh-doctor service-install` | write the service files and idempotently register the service (drop the old registration, deploy, restart) |
 | `dsh-doctor service-uninstall` | deregister and remove the service files |
 
 Exit codes: 0 ok, 1 repaired and verified, 2 attention needed, 3 blocked
@@ -165,6 +181,9 @@ recoverable across crashes.
   overlay except during explicit inspection.
 - Writes are confined to `DSH_DOCTOR_HOME` and the package-owned files;
   profile mutations happen only through the official `dsh plugin` command.
+- One-click install, upgrade and uninstall only invoke this package's CLI with
+  argument arrays (launchctl / systemd --user / schtasks) and never enable a
+  shell.
 
 ## Known limitations
 

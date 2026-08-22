@@ -65,7 +65,28 @@ describe('DoctorController.refresh', () => {
     const view = controller.getSnapshot()
     expect(view.host).toBe('unavailable')
     expect(view.lastError).toBe('endpoint unavailable')
+    expect(view.lastErrorCode).toBeUndefined()
     expect(view.phase).toBe('ready')
+  })
+
+  it('records the service failure code and clears the host version', async () => {
+    const api = stubApi({ status: vi.fn(async () => ({ ok: false, kind: 'unprovisioned' as const, status: 503, code: 'SUPERVISOR_UNPROVISIONED', message: 'ENOENT token' })) })
+    const controller = makeController(api)
+    await controller.refresh()
+    const view = controller.getSnapshot()
+    expect(view.host).toBe('unavailable')
+    expect(view.lastErrorCode).toBe('SUPERVISOR_UNPROVISIONED')
+    expect(view.hostVersion).toBeUndefined()
+  })
+
+  it('carries the host version on success', async () => {
+    const api = stubApi({ status: vi.fn(async () => ({ ok: true, value: { ...supervisorResponse(), hostVersion: '9.9.9' } })) })
+    const controller = makeController(api)
+    await controller.refresh()
+    const view = controller.getSnapshot()
+    expect(view.host).toBe('available')
+    expect(view.hostVersion).toBe('9.9.9')
+    expect(view.lastErrorCode).toBeUndefined()
   })
 
   it('never rejects even when the API rejects', async () => {
@@ -111,6 +132,24 @@ describe('DoctorController actions', () => {
     const controller = makeController(api)
     await controller.runDiagnose()
     expect(controller.getSnapshot().action).toMatchObject({ ok: false, message: 'supervisor refuses' })
+  })
+
+  it('runs the lifecycle provision verb through the action API', async () => {
+    const api = stubApi({ action: vi.fn(async () => ({ ok: true, value: { ...supervisorResponse({ phase: 'armed' }), hostVersion: '9.9.9' } })) })
+    const controller = makeController(api)
+    await controller.runProvision()
+    expect(api.action).toHaveBeenCalledWith('provision', undefined)
+    const view = controller.getSnapshot()
+    expect(view.snapshot?.phase).toBe('armed')
+    expect(view.hostVersion).toBe('9.9.9')
+    expect(view.action).toEqual({ ok: true, kind: 'completed' })
+  })
+
+  it('runs the lifecycle uninstall verb through the action API', async () => {
+    const api = stubApi()
+    const controller = makeController(api)
+    await controller.runUninstall()
+    expect(api.action).toHaveBeenCalledWith('uninstall', undefined)
   })
 
   it('guards against overlapping actions', async () => {

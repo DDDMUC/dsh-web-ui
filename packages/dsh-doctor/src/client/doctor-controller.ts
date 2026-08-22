@@ -47,6 +47,10 @@ export interface DoctorView {
   bootSignals: DoctorBootSignal[]
   lastCheckedAt: number | undefined
   lastError: string | undefined
+  /** Machine code of the last offline failure (SUPERVISOR_UNPROVISIONED etc.). */
+  lastErrorCode: string | undefined
+  /** Version of the host half, when the last status response carried it. */
+  hostVersion: string | undefined
   actionRunning: boolean
   action: DoctorActionOutcome | undefined
 }
@@ -63,6 +67,8 @@ export function initialDoctorView(): DoctorView {
     bootSignals: [],
     lastCheckedAt: undefined,
     lastError: undefined,
+    lastErrorCode: undefined,
+    hostVersion: undefined,
     actionRunning: false,
     action: undefined,
   }
@@ -126,7 +132,7 @@ const defaultTimers: DoctorTimers = {
 
 /** One-line summary of an API failure (never throws). */
 export function describeApiFailure(failure: DoctorApiFail): string {
-  if (failure.message !== undefined && failure.message !== '') return failure.message
+  if (failure.kind !== 'unprovisioned' && failure.kind !== 'supervisor-down' && failure.message !== undefined && failure.message !== '') return failure.message
   switch (failure.kind) {
     case 'network': return 'network error'
     case 'loopback': return 'loopback only'
@@ -134,6 +140,8 @@ export function describeApiFailure(failure: DoctorApiFail): string {
     case 'malformed': return 'malformed response'
     case 'http': return 'HTTP ' + String(failure.status ?? '')
     case 'supervisor': return 'supervisor refused'
+    case 'unprovisioned': return 'supervisor service not provisioned'
+    case 'supervisor-down': return 'supervisor service not answering'
   }
 }
 
@@ -201,12 +209,16 @@ export class DoctorController {
         incidents: snapshot?.incidents ?? previous.incidents,
         lastCheckedAt: this.now(),
         lastError: undefined,
+        lastErrorCode: undefined,
+        hostVersion: result.value.hostVersion,
       })
     } else {
       this.store.set({
         phase: 'ready',
         host: 'unavailable',
         lastError: describeApiFailure(result),
+        lastErrorCode: result.code,
+        hostVersion: undefined,
       })
     }
   }
@@ -214,6 +226,16 @@ export class DoctorController {
   /** Run the diagnose action and merge the resulting snapshot. */
   async runDiagnose(): Promise<void> {
     await this.invokeAction('diagnose')
+  }
+
+  /** One-click lifecycle install/repair: deploy the service and refresh the capsule. */
+  async runProvision(): Promise<void> {
+    await this.invokeAction('provision')
+  }
+
+  /** Remove the user-level supervisor service (state data is kept). */
+  async runUninstall(): Promise<void> {
+    await this.invokeAction('uninstall')
   }
 
   /** Run the repair action against the first repairable incident. */
@@ -310,6 +332,8 @@ export class DoctorController {
           profiles: snapshot?.profiles ?? this.store.getSnapshot().profiles,
           incidents: snapshot?.incidents ?? this.store.getSnapshot().incidents,
           lastCheckedAt: this.now(),
+          hostVersion: result.value.hostVersion,
+          ...(result.value.hostVersion !== undefined ? { lastErrorCode: undefined } : {}),
         })
         outcome = { ok: true, kind: 'completed' }
       } else {
@@ -382,4 +406,4 @@ export class DoctorController {
 }
 
 /** Structural alias used inside refresh. */
-type DoctorApiResultLike = { ok: true; value: { snapshot?: DoctorSnapshot } } | { ok: false; kind: DoctorApiFail['kind']; message?: string }
+type DoctorApiResultLike = { ok: true; value: { snapshot?: DoctorSnapshot; hostVersion?: string } } | { ok: false; kind: DoctorApiFail['kind']; message?: string; code?: string }

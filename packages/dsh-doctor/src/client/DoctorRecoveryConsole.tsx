@@ -135,6 +135,12 @@ export function DoctorRecoveryConsole(props: DoctorConsoleProps): ReactNode {
         {() => (
           <div className={css.dynamic}>
             <StatusCard t={t} view={view} settings={settingsState} />
+            <LifecycleCard
+              t={t}
+              view={view}
+              onEnsure={() => { void controller.runProvision() }}
+              onUninstall={() => { void controller.runUninstall() }}
+            />
             <IncidentsCard t={t} view={view} />
             <ProbeCard t={t} view={view} />
             <ActionsCard
@@ -180,14 +186,59 @@ function StatusCard({ t, view, settings }: { t: TranslateNS<'doctor'>; view: Doc
       </p>
       {settings.status === 'ready' && settings.enabled !== true && <p className={css.hint}>{t('host.disabledHint')}</p>}
       {view.lastError !== undefined && <p className={css.errorLine} role="status">{view.lastError}</p>}
-      {view.host === 'unavailable' && <p className={css.hint}>{t('host.unavailableHint')}</p>}
+      {view.host === 'unavailable' && <p className={css.hint}>{offlineHint(t, view.lastErrorCode)}</p>}
       {view.snapshot?.degradedReason !== undefined && <p className={css.hint}>{view.snapshot.degradedReason}</p>}
       {view.snapshot?.version !== undefined && (
-        <p className={css.meta}>{t('snapshot.version', { version: view.snapshot.version })}</p>
+        <p className={css.meta}>{view.hostVersion !== undefined
+          ? t('lifecycle.version', { supervisor: view.snapshot.version, web: view.hostVersion })
+          : t('snapshot.version', { version: view.snapshot.version })}</p>
       )}
       <ProfilesList t={t} view={view} />
     </div>
   )
+}
+
+/** Lifecycle card: one-click service install/repair/upgrade and uninstall. */
+function LifecycleCard({ t, view, onEnsure, onUninstall }: { t: TranslateNS<'doctor'>; view: DoctorView; onEnsure: () => void; onUninstall: () => void }): ReactNode {
+  const busy = view.actionRunning
+  const offline = view.host === 'unavailable'
+  const version = view.snapshot?.version
+  const mismatch = !offline && version !== undefined && view.hostVersion !== undefined && version !== view.hostVersion
+  const ensureLabel = offline && view.lastErrorCode === 'SUPERVISOR_UNPROVISIONED'
+    ? t('lifecycle.install')
+    : offline
+      ? t('lifecycle.repair')
+      : mismatch
+        ? t('lifecycle.upgrade')
+        : undefined
+  return (
+    <div className={css.card} data-dsh-part="lifecycle">
+      <h3 className={css.cardTitle}>{t('lifecycle.title')}</h3>
+      {offline && view.lastErrorCode === 'SUPERVISOR_UNPROVISIONED' && <p className={css.hint}>{t('lifecycle.neverInstalled')}</p>}
+      {offline && view.lastErrorCode === 'SUPERVISOR_DOWN' && <p className={css.hint}>{t('lifecycle.serviceDown')}</p>}
+      {mismatch && <p className={css.hint}>{t('lifecycle.versionMismatch', { supervisor: version ?? '', web: view.hostVersion ?? '' })}</p>}
+      <div className={css.actionRow}>
+        {ensureLabel !== undefined && (
+          <button type="button" className={css.button} data-variant="primary" data-testid="doctor-ensure-button" disabled={busy} onClick={onEnsure}>
+            {busy ? t('lifecycle.running') : ensureLabel}
+          </button>
+        )}
+        {!offline && (
+          <button type="button" className={css.button} data-testid="doctor-uninstall-button" disabled={busy} onClick={onUninstall}>
+            {t('lifecycle.uninstall')}
+          </button>
+        )}
+      </div>
+      {!offline && <p className={css.meta}>{t('lifecycle.uninstallHint')}</p>}
+    </div>
+  )
+}
+
+/** Offline copy keyed by the host failure code. */
+function offlineHint(t: TranslateNS<'doctor'>, code: string | undefined): string {
+  if (code === 'SUPERVISOR_UNPROVISIONED') return t('api.unprovisioned')
+  if (code === 'SUPERVISOR_DOWN') return t('api.supervisorDown')
+  return t('host.unavailableHint')
 }
 
 /** Protected profile rows. */
