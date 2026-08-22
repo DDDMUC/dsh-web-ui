@@ -228,7 +228,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       }
     }
 
-  const listHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+  const listHandler = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const patchText = await readPatchText(facts.patchPath)
     const snapshot = await snapshotGateway(facts, patchText)
     sendJson(res, 200, { plugins: snapshot.plugins })
@@ -385,7 +385,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
     sendJson(res, 200, { plugin: outcome.plugin })
   }
 
-  const failuresHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+  const failuresHandler = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
     // The npm web runtime keeps no boot-failure ring; the install-error path
     // is the only repair surface here.
     sendJson(res, 200, { items: [], pluginRoot: facts.profileDir, safeMode: false })
@@ -399,7 +399,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
     if (binary === null) return Promise.resolve(false)
     return detectOfficialChannels(binary, facts.profileName)
   }
-  const modeHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+  const modeHandler = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (modePromise === undefined) {
       if (facts.desktop) {
         // Desktop registers installer services programmatically, so the CLI
@@ -414,7 +414,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
     sendJson(res, 200, await modePromise)
   }
 
-  const checkUpdatesHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+  const checkUpdatesHandler = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const patchText = await readPatchText(facts.patchPath)
     const snapshot = await snapshotGateway(facts, patchText)
     const updates: Array<{ id: string; current: string; latest: string; requiresDsh?: string; compatible?: boolean }> = []

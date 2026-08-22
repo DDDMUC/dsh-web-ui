@@ -9,7 +9,7 @@
  */
 import { join } from 'node:path'
 import { sha256Hex, sha256Short } from './hash.ts'
-import type { FsLike, StatInfo } from './fs.ts'
+import type { FsLike } from './fs.ts'
 import { safeRelativePath } from './paths.ts'
 import type { RedactionResult, SnapshotDump, SnapshotFileEntry, SnapshotManifest } from './types.ts'
 

@@ -2,7 +2,6 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 
 import type { CustomThemeController, CustomThemeScheme } from './custom-theme-controller.ts'
-import type { CustomThemeProfile } from '../core/custom-theme.ts'
 import css from './skin-center.module.css'
 
 type ColorKey = 'accent' | 'background' | 'foreground'

@@ -6,8 +6,6 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { REPO_ROOT, applySync, checkSync, copyEntries, headerFor, renderCopy, stripHeader } from './sync-shared.mjs'
 
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
-
 test('header/strip round-trips every file kind', () => {
   for (const file of ['settings-form.ts', 'PluginSettingsCard.tsx', 'settings-card.module.css']) {
     const source = 'export const x = 1' + String.fromCharCode(10)

@@ -23,15 +23,6 @@ const COLUMN_SHIMS: ReadonlyArray<readonly [selector: string, attribute: string]
   ['[class*="detailsCol"]', 'data-pane="details"'],
 ]
 
-/** Stamp one attribute of the form `name="value"` onto an element, if found. */
-function stamp(el: Element | null, attribute: string): void {
-  if (el === null) return
-  const eq = attribute.indexOf('=')
-  const name = attribute.slice(0, eq)
-  const value = attribute.slice(eq + 1).replace(/^"|"$/g, '')
-  el.setAttribute(name, value)
-}
-
 /** One pass over the current DOM. Returns false once every stamp is already in place. */
 function applyShims(): boolean {
   let changed = false

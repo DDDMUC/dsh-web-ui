@@ -1225,22 +1225,6 @@ function isLikelyMaskOrHelper(path: string): boolean {
   )
 }
 
-function isNaturalImageRgba(rgba: Uint8Array, width: number, height: number): boolean {
-  const totalPixels = width * height
-  const step = Math.max(1, Math.floor(totalPixels / 2000))
-  let opaqueCount = 0
-  let sampleCount = 0
-  for (let i = 0; i < totalPixels; i += step) {
-    sampleCount++
-    const idx = i * 4
-    const a = rgba[idx + 3]
-    if (a >= 240) {
-      opaqueCount++
-    }
-  }
-  return sampleCount > 0 && (opaqueCount / sampleCount) >= 0.85
-}
-
 function hasContent(rgba: Uint8Array, width: number, height: number): boolean {
   const totalPixels = width * height
   const step = Math.max(1, Math.floor(totalPixels / 1000))
@@ -1902,8 +1886,6 @@ export function parseTexToRGBA(buf: Uint8Array): { width: number; height: number
 
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
   const fmt = dv.getUint32(18, true) // 0=ARGB8888, 4=DXT5, 6=DXT3, 7=DXT1
-  const texW = dv.getUint32(26, true)
-  const texH = dv.getUint32(30, true)
 
   // Find TEXB section
   let texbPos = -1
@@ -1915,9 +1897,7 @@ export function parseTexToRGBA(buf: Uint8Array): { width: number; height: number
   }
   if (texbPos < 0) return null
 
-  let p = texbPos + 9 // skip TEXB0003\0
-  const _containerFlag = dv.getUint32(p, true); p += 4
-  const _fmtRewrite = dv.getInt32(p, true); p += 4
+  let p = texbPos + 9 + 8 // skip TEXB0003\0 + containerFlag + fmtRewrite
   const numMips = dv.getUint32(p, true); p += 4
   if (numMips === 0 || numMips > 20) return null
 
@@ -2225,11 +2205,7 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
       const decodedMeshes = parseMdl(mdlFile.bytes)
       if (decodedMeshes.length === 0) continue
 
-      let texPath: string | undefined
       const baseName = obj.model.split('/').pop()?.replace(/\.mdl$/i, '')
-      if (baseName) {
-        texPath = allTex.find((p) => p.toLowerCase().includes(baseName.toLowerCase()) && !p.toLowerCase().includes('normal') && !p.toLowerCase().includes('mask'))
-      }
 
       // Resolve a WE material texture reference ('ricepod/jet') to a tex path.
       const resolveTexRef = (ref: string): string | undefined => {

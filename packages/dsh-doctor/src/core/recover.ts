@@ -665,7 +665,7 @@ async function copyProfileFiles(fs: FsLike, fromDir: string, toDir: string): Pro
   }
 }
 
-function gateEnvironmentOf(request: RecoveryRequest, options: RealGateOptions, isolatedHome: string): Record<string, string | undefined> {
+function gateEnvironmentOf(_request: RecoveryRequest, options: RealGateOptions, isolatedHome: string): Record<string, string | undefined> {
   return { ...(options.env ?? processEnviron()), DSH_HOME: isolatedHome, DSH_TELEMETRY_DISABLED: '1' }
 }
 

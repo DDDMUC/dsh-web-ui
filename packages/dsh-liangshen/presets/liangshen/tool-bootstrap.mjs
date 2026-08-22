@@ -82,9 +82,6 @@ const WORKSPACE_LINE_PREFIX = '\n\nYour working directory is '
  */
 const DEFAULT_MESSAGE_SOURCES = ['user', 'goal']
 
-/** Message-source kinds delayed after promotion. */
-const DEFAULT_DEFERRED_SOURCES = []
-
 function stringList(value, field, fallback) {
   if (value === undefined) return [...fallback]
   if (!Array.isArray(value) || value.length === 0 || value.some(item => typeof item !== 'string' || item.length === 0)) {

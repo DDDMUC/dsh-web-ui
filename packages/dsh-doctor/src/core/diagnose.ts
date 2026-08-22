@@ -9,8 +9,8 @@ import { join } from 'node:path'
 import type { FsLike } from './fs.ts'
 import { profilesNodeModulesDir } from './paths.ts'
 import { isPinned, isLocalSpec } from './spec.ts'
-import type { Diagnostic, DependencySpec, EntryRow, InventoryReport, ManifestFacts, PatchEntry, PatchParseResult, Severity, ToolchainReport, WorkspaceSettings } from './types.ts'
-import { applyPatches, collectIds, duplicateIds, findSettingsRow, rowNames } from './patch.ts'
+import type { Diagnostic, DependencySpec, EntryRow, InventoryReport, ManifestFacts, PatchParseResult, Severity, ToolchainReport, WorkspaceSettings } from './types.ts'
+import { duplicateIds, findSettingsRow, rowNames } from './patch.ts'
 
 /** Order for severity buckets; stable sort by this then code then path. */
 const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, error: 1, warn: 2, info: 3 }

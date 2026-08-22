@@ -540,7 +540,7 @@ export class DoctorController {
     let visibilityListener: ((event: Event) => void) | undefined
     try {
       if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-        const onVisibility = (event: Event): void => {
+        const onVisibility = (): void => {
           try {
             if (document.visibilityState === 'visible') {
               void this.refresh()

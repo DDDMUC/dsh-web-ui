@@ -13,8 +13,8 @@ import { readFile, stat } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import { ATTACHMENT_REF_GUIDANCE, parseImageAttachmentRef, parseMarkdownAttachmentReference } from './attachment-reference.ts'
 import { attachmentRefById } from './attach-routes.ts'
-import { DEFAULT_MAX_BYTES, isImageMimeType, sniffMimeType, type ImageMimeType } from './media.ts'
-import type { ApiStyle, ResolvedConfig } from './config-resolve.ts'
+import { sniffMimeType, type ImageMimeType } from './media.ts'
+import type { ResolvedConfig } from './config-resolve.ts'
 
 export { parseImageAttachmentRef } from './attachment-reference.ts'
 

@@ -27,7 +27,6 @@ import type {
 } from '../core/protocol.ts'
 import { conflictRepairMessage, failureRepairMessage, installRepairMessage, type RepairCopy } from '../core/repair.ts'
 import { displayMinimumVersion } from '../core/version.ts'
-import type { PluginManagerKey } from './locales.ts'
 import css from './plugin-manager.module.css'
 
 /** Registration-side wire face used by the tab. */

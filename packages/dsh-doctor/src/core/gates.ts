@@ -13,7 +13,6 @@
  * injected so tests run hermetic.
  */
 import { canonicalJson, sha256Short } from './hash.ts'
-import type { FsLike } from './fs.ts'
 import type { GateReport, HttpResult, ProcessResult, RedactionResult } from './types.ts'
 import type { YamlEngine } from './yaml.ts'
 

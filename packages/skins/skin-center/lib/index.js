@@ -3789,19 +3789,13 @@ function parseTexToRGBA(buf) {
 	if (String.fromCharCode(...buf.slice(9, 17)) !== "TEXI0001") return null;
 	const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
 	const fmt = dv.getUint32(18, true);
-	dv.getUint32(26, true);
-	dv.getUint32(30, true);
 	let texbPos = -1;
 	for (let i = 34; i < Math.min(buf.length, 100); i++) if (buf[i] === 84 && buf[i + 1] === 69 && buf[i + 2] === 88 && buf[i + 3] === 66) {
 		texbPos = i;
 		break;
 	}
 	if (texbPos < 0) return null;
-	let p = texbPos + 9;
-	dv.getUint32(p, true);
-	p += 4;
-	dv.getInt32(p, true);
-	p += 4;
+	let p = texbPos + 9 + 8;
 	const numMips = dv.getUint32(p, true);
 	p += 4;
 	if (numMips === 0 || numMips > 20) return null;
@@ -4101,7 +4095,6 @@ function buildSceneManifestVia(access, token) {
 			const decodedMeshes = parseMdl(mdlFile.bytes);
 			if (decodedMeshes.length === 0) continue;
 			const baseName = obj.model.split("/").pop()?.replace(/\.mdl$/i, "");
-			if (baseName) allTex.find((p) => p.toLowerCase().includes(baseName.toLowerCase()) && !p.toLowerCase().includes("normal") && !p.toLowerCase().includes("mask"));
 			const resolveTexRef = (ref) => {
 				const want = ref.toLowerCase().replace(/\.tex$/i, "");
 				return allTex.find((p) => {
