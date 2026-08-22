@@ -16,7 +16,7 @@ import { mountOnce } from './mount-once.ts'
 export const name = 'doctor'
 export const inject = ['webServer']
 export interface Config { enabled?: boolean; fullProtection?: boolean; autoRepair?: boolean; heartbeatIntervalMs?: number }
-export const Config: z<Config> = z.object({ enabled: z.boolean().default(false), fullProtection: z.boolean().default(true), autoRepair: z.boolean().default(true), heartbeatIntervalMs: z.number().min(1000).default(5000) })
+export const Config: z<Config> = z.object({ enabled: z.boolean().default(true), fullProtection: z.boolean().default(true), autoRepair: z.boolean().default(true), heartbeatIntervalMs: z.number().min(1000).default(5000) })
 export const DOCTOR_SETTINGS_NAMESPACE = settingsNamespace('doctor')
 
 export const apply = mountOnce('@linxin666/dsh-doctor', (ctx: Context, config?: Config): void => {

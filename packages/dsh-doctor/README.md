@@ -7,7 +7,9 @@ Supervisor plus a transparent Doctor Launcher keep an isolated rescue capsule
 ready, detect boot failures, process crashes, heartbeat timeouts, Web failures
 and browser white screens, and restore the profile through snapshots,
 deterministic repairs, isolated health gates and atomic promote or rollback.
-The package ships disabled by default and is enabled from its Doctor card in
+The package ships enabled by default: fresh installs and Web UI version
+updates boot with rescue mode active, while an explicit off choice in the
+Doctor card is preserved. It can be toggled from its Doctor card in
 Settings → Plugin configuration → Web UI plugins. It does not modify a DSH
 installation.
 
@@ -69,8 +71,8 @@ pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 ```
 
-Restart `dsh web`, open Settings → Plugin configuration → Web UI plugins, expand
-the Doctor card, and enable it. The package
+Restart `dsh web`, open Settings → Plugin configuration → Web UI plugins, and
+expand the Doctor card to confirm rescue mode is on (it is by default). The package
 also ships the `dsh-doctor` CLI for the Supervisor, the Launcher, provisioning
 and the user-level service adapters.
 
@@ -126,7 +128,7 @@ The host settings namespace is `doctor`:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `enabled` | `false` | master switch; routes mount only when enabled |
+| `enabled` | `true` | master switch; routes mount only when enabled |
 | `fullProtection` | `true` | install the Supervisor and launcher on enable |
 | `autoRepair` | `true` | allow deterministic repairs to promote after verification |
 | `heartbeatIntervalMs` | `5000` | host heartbeat cadence |
