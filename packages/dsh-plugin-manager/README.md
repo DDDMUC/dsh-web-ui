@@ -49,6 +49,8 @@ The browser half provides the shared dual-channel face as the cordis service `pl
 - `install(spec): Promise<InstalledPluginItem>` — install one plugin from an npm spec or git URL.
 - `uninstall(id): Promise<InstalledPluginItem[]>` — remove one plugin.
 - `status(): Promise<InstallProgressItem>` — read the current install/update progress.
+- `failures(): Promise<PluginFailuresSnapshot>` — read the recorded plugin boot-failure ring (plugin id, message, stack, install path); runtimes without a ring answer an empty snapshot.
+- `setEnabled(id, enabled): Promise<InstalledPluginItem>` — flip one plugin's next-start enablement through the active channel (official installer RPC or gateway patch `disabled` row); takes effect after the host restart.
 - `onChange(cb): () => void` — subscribe to successful mutations; fires after `install()`, `update()`, `uninstall()`, or `setEnabled()` resolves, and returns the unsubscribe function.
 
 The contract source of truth is `src/core/service.ts` (`PluginManagerService`). The service is provided for the plugin's lifetime and disappears when the plugin is unloaded. The service and the Plugin manager tab share one face, so `onChange` subscribers observe mutations from both.
