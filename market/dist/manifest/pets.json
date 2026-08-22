@@ -1,0 +1,74 @@
+{
+  "generated": "2026-08-22",
+  "items": [
+    {
+      "id": "whale-girl",
+      "displayName": "鲸鱼娘（原版）",
+      "rank": 1,
+      "renderer": "sprite2d",
+      "spritesheet": "assets/pets/whale/spritesheet.webp",
+      "previews": [
+        "assets/pets/whale/previews/idle.gif",
+        "assets/pets/whale/previews/running-right.gif",
+        "assets/pets/whale/previews/running-left.gif",
+        "assets/pets/whale/previews/waving.gif",
+        "assets/pets/whale/previews/jumping.gif",
+        "assets/pets/whale/previews/failed.gif",
+        "assets/pets/whale/previews/waiting.gif",
+        "assets/pets/whale/previews/running.gif",
+        "assets/pets/whale/previews/review.gif"
+      ],
+      "frames": [
+        6,
+        8,
+        8,
+        4,
+        5,
+        8,
+        6,
+        6,
+        6
+      ],
+      "tracks": [
+        "idle",
+        "running-right",
+        "running-left",
+        "waving",
+        "jumping",
+        "failed",
+        "waiting",
+        "running",
+        "review"
+      ]
+    },
+    {
+      "id": "whale-girl-refined",
+      "displayName": "鲸鱼娘（精致版）",
+      "rank": 2,
+      "renderer": "sprite2d",
+      "spritesheet": "assets/pets/whale-refined/spritesheet.webp",
+      "frames": [
+        6,
+        8,
+        8,
+        4,
+        5,
+        8,
+        6,
+        6,
+        6
+      ],
+      "tracks": [
+        "idle",
+        "running-right",
+        "running-left",
+        "waving",
+        "jumping",
+        "failed",
+        "waiting",
+        "running",
+        "review"
+      ]
+    }
+  ]
+}

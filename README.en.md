@@ -22,7 +22,7 @@
   <img src="https://img.shields.io/badge/coverage-pending-lightgrey?style=flat-square" alt="Coverage">
 </p>
 
-CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency. Coverage and code-style (Prettier / ESLint) gates are planned for CI.
+CI gates: typecheck / test / scripts / docs / aggregate, gallery and market consistency. Coverage and code-style (Prettier / ESLint) gates are planned for CI.
 
 <p align="center">
   <strong>The plugin and skin family for the DeepSeek Harness (DSH) Web GUI · Everything is development, everything is a plugin</strong><br>
@@ -31,7 +31,7 @@ CI gates: typecheck / test / scripts / docs / aggregate and gallery consistency.
 
 <div align="center">
 
-[What It Is](#what-it-is) · [npm Packages](#npm-packages) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
+[What It Is](#what-it-is) · [DSH Market](#dsh-marketdsh-marketcom) · [npm Packages](#npm-packages) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
 
 </div>
 
@@ -53,6 +53,10 @@ dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everythin
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
 | Image understanding | None | `describe_image` vision tool |
 | Themes & skins | Default theme | Skin center with 17 skins, try-on before apply |
+
+## DSH Market (dsh-market.com)
+
+The community skin gallery has been upgraded into [dsh-market.com](https://dsh-market.com) — a unified market for skins, pets and plugins: every category is ranked by device-backed likes, the top three claim the podium on the landing page, skins preview in a live try-on simulator, and plugins expose one-copy install commands. The site is a zero-build static artifact generated deterministically from the three asset sources (`skin.json` / `pet.json` / `community.json`) by `scripts/market-build`; dynamic abilities (liking, ranking) run on a Cloudflare Workers edge API backed by D1 (one vote per device), deployed automatically on every push to `main`. `gallery.dsh-market.com` permanently redirects here.
 
 ## npm Packages
 

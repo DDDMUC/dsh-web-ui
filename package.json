@@ -18,12 +18,14 @@
     "pr:review": "node scripts/pr-review.mjs",
     "gallery:build": "node scripts/gallery-build",
     "gallery:capture": "node scripts/capture-previews",
-    "deploy:gallery": "node scripts/deploy-gallery",
     "docs:check": "node scripts/verify-docs.mjs",
     "docs:list": "node scripts/verify-docs.mjs --list",
     "docs:write-pair": "node scripts/verify-docs.mjs --write",
     "sync-shared": "node scripts/sync-shared.mjs",
-    "sync-shared:check": "node scripts/sync-shared.mjs --check"
+    "sync-shared:check": "node scripts/sync-shared.mjs --check",
+    "market:build": "node scripts/market-build",
+    "market:check": "node scripts/market-build --check",
+    "deploy:market": "node scripts/deploy-market"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

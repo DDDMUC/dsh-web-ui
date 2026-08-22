@@ -1,0 +1,363 @@
+#!/usr/bin/env node
+'use strict'
+
+/**
+ * market-build — regenerate the dsh-market.com static site assets.
+ *
+ * Single source of truth: the repository itself.
+ *   skins   — packages/skins/skin-center/skins/<id>/skin.json        (v2)
+ *   pets    — packages/dsh-pet/assets/<dir>/pet.json                 (v2)
+ *   plugins — packages/dsh-community-plugins/community.json
+ *
+ * Emits market/dist/:
+ *   index.html, app.js, preview.html    copied from market/src/
+ *   _headers                            copied from market/src/_headers
+ *   official-facade.js                  copied from gallery/official-facade.js
+ *   styles.js   window.SKIN_STYLES = { "<id>": { stylesheet, patches } }
+ *   manifest.js window.SKIN_MANIFEST = { skins: [...] }  (preview.html compat)
+ *   manifest/skins.json  pets.json  plugins.json
+ *   assets/...                            previews, background media, pet media
+ *
+ * All emitted paths are site-root-relative ("assets/..."), so the deployed
+ * static site resolves them directly. Output is deterministic: no absolute
+ * paths, stable key order, LF normalized text.
+ *
+ * Usage: node scripts/market-build [--check]
+ */
+
+const fs = require('node:fs')
+const path = require('node:path')
+const crypto = require('node:crypto')
+
+const ROOT = path.resolve(__dirname, '..')
+const SKINS_DIR = path.join(ROOT, 'packages', 'skins', 'skin-center', 'skins')
+const PETS_DIR = path.join(ROOT, 'packages', 'dsh-pet', 'assets')
+const PLUGINS_FILE = path.join(ROOT, 'packages', 'dsh-community-plugins', 'community.json')
+const SRC_DIR = path.join(ROOT, 'market', 'src')
+const DIST_DIR = path.join(ROOT, 'market', 'dist')
+const GALLERY_DIR = path.join(ROOT, 'gallery')
+const CHECK = process.argv.includes('--check')
+
+function fail(msg) {
+  console.error('market-build: ' + msg)
+  process.exit(1)
+}
+
+function assertInside(base, rel, label) {
+  const abs = path.resolve(base, rel)
+  const relPath = path.relative(base, abs)
+  if (relPath.startsWith('..') || path.isAbsolute(relPath)) {
+    throw new Error(`${label} escapes source dir: ${rel}`)
+  }
+  if (!fs.existsSync(abs)) throw new Error(`${label} not found: ${rel}`)
+  return abs
+}
+
+function readJson(file, label) {
+  let text
+  try {
+    text = fs.readFileSync(file, 'utf8')
+  } catch (err) {
+    throw new Error(`${label} unreadable: ${file}`)
+  }
+  try {
+    return JSON.parse(text)
+  } catch (err) {
+    throw new Error(`${label} JSON parse error in ${file}: ${err.message}`)
+  }
+}
+
+/** --- skins ---------------------------------------------------------------- */
+
+function scanSkins() {
+  if (!fs.existsSync(SKINS_DIR)) return []
+  const skins = []
+  const dirs = fs.readdirSync(SKINS_DIR).sort()
+  if (!dirs.length) throw new Error('no skins found under packages/skins/skin-center/skins/')
+  for (const name of dirs) {
+    const dir = path.join(SKINS_DIR, name)
+    if (!fs.statSync(dir).isDirectory()) continue
+    const metaFile = path.join(dir, 'skin.json')
+    if (!fs.existsSync(metaFile)) continue
+    const meta = readJson(metaFile, 'skin')
+    if (meta.skinManifestVersion !== 2) throw new Error(`skin ${name}: skin.json must declare "skinManifestVersion": 2`)
+    for (const key of ['id', 'name', 'nameEn', 'author', 'version', 'accent']) {
+      if (!meta[key]) throw new Error(`skin ${name}: missing required skin.json field "${key}"`)
+    }
+    if (meta.id !== name) throw new Error(`skin ${name}: skin.json id "${meta.id}" must equal the directory name`)
+    const preview = meta.preview || {}
+    for (const mode of ['light', 'dark']) {
+      if (typeof preview[mode] !== 'string' || !preview[mode]) {
+        throw new Error(`skin ${name}: preview.${mode} is mandatory for the market`)
+      }
+      assertInside(dir, preview[mode], `skin ${name} preview.${mode}`)
+    }
+    const media = (meta.contributes && meta.contributes.backgroundMedia) || {}
+    const bg = {}
+    for (const mode of ['light', 'dark']) {
+      const variant = media[mode]
+      if (!variant) continue
+      if (variant.type !== 'image' && variant.type !== 'video') {
+        throw new Error(`skin ${name}: backgroundMedia.${mode}.type must be "image" or "video"`)
+      }
+      if (typeof variant.src !== 'string' || !variant.src || variant.src.includes('..') || path.isAbsolute(variant.src)) {
+        throw new Error(`skin ${name}: backgroundMedia.${mode}.src must be skin-relative`)
+      }
+      assertInside(dir, variant.src, `skin ${name} backgroundMedia.${mode}`)
+      bg[mode] = {
+        type: variant.type,
+        src: `assets/skins/${name}/${variant.src}`,
+        ...(variant.scrim ? { scrim: variant.scrim } : {}),
+      }
+    }
+    const contributes = {}
+    if (meta.contributes && typeof meta.contributes.stylesheet === 'string') {
+      contributes.stylesheet = meta.contributes.stylesheet
+    }
+    if (meta.contributes && typeof meta.contributes.patches === 'string') {
+      contributes.patches = meta.contributes.patches
+    }
+    if (bg.light || bg.dark) contributes.backgroundMedia = bg
+    const item = {
+      id: name,
+      name: meta.name,
+      nameEn: meta.nameEn,
+      author: meta.author,
+      rank: typeof meta.order === 'number' ? meta.order : 999,
+    }
+    if (meta.tagline) item.tagline = meta.tagline
+    if (meta.description) item.description = meta.description
+    if (Array.isArray(meta.tags)) item.tags = meta.tags
+    if (meta.version) item.version = meta.version
+    if (meta.accent) item.accent = meta.accent
+    item.preview = { light: `assets/skins/${name}/${preview.light}`, dark: `assets/skins/${name}/${preview.dark}` }
+    if (Object.keys(contributes).length) item.contributes = contributes
+    if (meta.requires) item.requires = meta.requires
+    if (meta.facets) item.facets = meta.facets
+    skins.push({ name, dir, item })
+  }
+  skins.sort((a, b) => (a.item.rank - b.item.rank) || a.name.localeCompare(b.name))
+  return skins
+}
+
+/** --- pets ----------------------------------------------------------------- */
+
+function scanPets() {
+  if (!fs.existsSync(PETS_DIR)) return []
+  const pets = []
+  const dirs = fs.readdirSync(PETS_DIR).sort()
+  for (const name of dirs) {
+    const dir = path.join(PETS_DIR, name)
+    if (!fs.statSync(dir).isDirectory()) continue
+    const metaFile = path.join(dir, 'pet.json')
+    if (!fs.existsSync(metaFile)) continue
+    const meta = readJson(metaFile, 'pet')
+    if (meta.petManifestVersion !== 2) {
+      throw new Error(`pet ${name}: pet.json must declare "petManifestVersion": 2`)
+    }
+    if (!meta.id || !meta.displayName) throw new Error(`pet ${name}: pet.json needs id and displayName`)
+    const sprite2d = meta.sprite2d || {}
+    if (typeof sprite2d.spritesheetPath !== 'string' || !sprite2d.spritesheetPath) {
+      throw new Error(`pet ${name}: sprite2d.spritesheetPath is mandatory`)
+    }
+    assertInside(dir, sprite2d.spritesheetPath, `pet ${name} spritesheet`)
+    const previewsDir = path.join(dir, 'previews')
+    let previews = []
+    if (fs.existsSync(previewsDir)) {
+      // 顺序对齐 tracks（如 idle 优先），无 tracks 时按字母序
+      const tracks = (sprite2d.tracks ? Object.keys(sprite2d.tracks) : [])
+      const files = fs.readdirSync(previewsDir).filter((f) => /\.(gif|webp|png)$/i.test(f))
+      files.sort((a, b) => {
+        const ka = a.replace(/\.[^.]+$/, '')
+        const kb = b.replace(/\.[^.]+$/, '')
+        const ia = tracks.indexOf(ka)
+        const ib = tracks.indexOf(kb)
+        if (ia !== -1 && ib !== -1) return ia - ib
+        if (ia !== -1) return -1
+        if (ib !== -1) return 1
+        return a.localeCompare(b)
+      })
+      previews = files.map((f) => `assets/pets/${name}/previews/${f}`)
+    }
+    const item = {
+      id: meta.id,
+      displayName: meta.displayName,
+      rank: pets.length + 1,
+      renderer: meta.renderer || 'sprite2d',
+      spritesheet: `assets/pets/${name}/${sprite2d.spritesheetPath}`,
+    }
+    if (previews.length) item.previews = previews
+    if (Array.isArray(sprite2d.frames)) item.frames = sprite2d.frames
+    if (sprite2d.tracks) item.tracks = Object.keys(sprite2d.tracks)
+    pets.push({ name, dir, item })
+  }
+  return pets
+}
+
+/** --- plugins -------------------------------------------------------------- */
+
+function scanPlugins() {
+  if (!fs.existsSync(PLUGINS_FILE)) return []
+  const raw = readJson(PLUGINS_FILE, 'community.json')
+  if (!Array.isArray(raw)) throw new Error('community.json must be an array')
+  const plugins = []
+  for (let i = 0; i < raw.length; i++) {
+    const p = raw[i]
+    if (!p.id || !p.name) throw new Error(`plugin #${i}: id and name are mandatory`)
+    const item = {
+      id: p.id,
+      name: p.name,
+      rank: i + 1,
+    }
+    if (p.nameEn) item.nameEn = p.nameEn
+    if (p.author) item.author = p.author
+    if (p.description) item.description = p.description
+    if (p.descriptionEn) item.descriptionEn = p.descriptionEn
+    if (p.repo) item.repo = p.repo
+    if (p.npm) item.npm = p.npm
+    item.category = typeof p.category === 'string' && p.category ? p.category : 'other'
+    plugins.push({ item })
+  }
+  return plugins
+}
+
+/** --- emit ---------------------------------------------------------------- */
+
+function emit(outDir, files, binary, skins, pets, plugins) {
+  fs.rmSync(outDir, { recursive: true, force: true })
+  fs.mkdirSync(outDir, { recursive: true })
+
+  for (const [rel, text] of files) {
+    const abs = path.join(outDir, rel)
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, text)
+  }
+  for (const [rel, srcAbs] of binary) {
+    if (!rel.startsWith('assets/')) continue
+    const abs = path.join(outDir, rel)
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.copyFileSync(srcAbs, abs)
+  }
+
+  // styles.js — window.SKIN_STYLES (stylesheet texts inlined)
+  const styles = {}
+  for (const { name, item } of skins) {
+    const entry = {}
+    const st = item.contributes && item.contributes.stylesheet
+    const pa = item.contributes && item.contributes.patches
+    if (st) entry.stylesheet = fs.readFileSync(assertInside(path.join(SKINS_DIR, name), st, 'stylesheet'), 'utf8').replace(/\r\n?/g, '\n')
+    if (pa) entry.patches = fs.readFileSync(assertInside(path.join(SKINS_DIR, name), pa, 'patches'), 'utf8').replace(/\r\n?/g, '\n')
+    styles[name] = entry
+  }
+  fs.writeFileSync(path.join(outDir, 'styles.js'),
+    '/* Generated by scripts/market-build — do not edit by hand. */\nwindow.SKIN_STYLES = ' +
+    JSON.stringify(styles, null, 2) + '\n')
+
+  // manifest.js — window.SKIN_MANIFEST (preview.html compat)
+  const skinsMeta = skins.map(({ item }) => ({
+    id: item.id,
+    name: item.name,
+    nameEn: item.nameEn,
+    author: item.author,
+    ...(item.tagline ? { tagline: item.tagline } : {}),
+    ...(item.description ? { description: item.description } : {}),
+    ...(item.accent ? { accent: item.accent } : {}),
+    preview: item.preview,
+    ...(item.contributes ? { contributes: item.contributes } : {}),
+  }))
+  fs.writeFileSync(path.join(outDir, 'manifest.js'),
+    '/* Generated by scripts/market-build — do not edit by hand. */\nwindow.SKIN_MANIFEST = ' +
+    JSON.stringify({ generated: new Date().toISOString().slice(0, 10), skins: skinsMeta }, null, 2) + '\n')
+
+  // tiered manifests
+  const mk = (o) => JSON.stringify({ generated: new Date().toISOString().slice(0, 10), items: o }, null, 2) + '\n'
+  const manDir = path.join(outDir, 'manifest')
+  fs.mkdirSync(manDir, { recursive: true })
+  fs.writeFileSync(path.join(manDir, 'skins.json'), mk(skins.map(({ item }) => item)))
+  fs.writeFileSync(path.join(manDir, 'pets.json'), mk(pets.map(({ item }) => item)))
+  fs.writeFileSync(path.join(manDir, 'plugins.json'), mk(plugins.map(({ item }) => item)))
+}
+
+function walkFiles(dir, base) {
+  base = base || ''
+  const out = []
+  for (const name of fs.readdirSync(dir).sort()) {
+    const abs = path.join(dir, name)
+    const rel = base ? base + '/' + name : name
+    if (fs.statSync(abs).isDirectory()) out.push(...walkFiles(abs, rel))
+    else out.push(rel)
+  }
+  return out
+}
+
+function sha256File(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+}
+
+function main() {
+  const skins = scanSkins()
+  const pets = scanPets()
+  const plugins = scanPlugins()
+
+  // static sources
+  const files = new Map()
+  for (const f of ['index.html', 'app.js', 'preview.html', '_headers']) {
+    const abs = path.join(SRC_DIR, f)
+    if (!fs.existsSync(abs)) throw new Error(`market/src missing: ${f}`)
+    files.set(f, fs.readFileSync(abs, 'utf8').replace(/\r\n?/g, '\n'))
+  }
+  const facade = path.join(GALLERY_DIR, 'official-facade.js')
+  if (!fs.existsSync(facade)) throw new Error('gallery/official-facade.js missing (run scripts/export-official-facade)')
+  files.set('official-facade.js', fs.readFileSync(facade, 'utf8').replace(/\r\n?/g, '\n'))
+
+  // binary assets
+  const binary = new Map()
+  for (const { name, dir, item } of skins) {
+    for (const mode of ['light', 'dark']) {
+      const rel = item.preview[mode].replace(`assets/skins/${name}/`, '')
+      binary.set(item.preview[mode], assertInside(dir, rel, 'preview'))
+    }
+    const bg = (item.contributes && item.contributes.backgroundMedia) || {}
+    for (const mode of ['light', 'dark']) {
+      const v = bg[mode]
+      if (!v) continue
+      const rel = v.src.replace(`assets/skins/${name}/`, '')
+      binary.set(v.src, assertInside(dir, rel, 'backgroundMedia'))
+    }
+  }
+  for (const { name, dir, item } of pets) {
+    const relSheet = item.spritesheet.replace(`assets/pets/${name}/`, '')
+    binary.set(item.spritesheet, assertInside(dir, relSheet, 'spritesheet'))
+    for (const pv of item.previews || []) {
+      const rel = pv.replace(`assets/pets/${name}/`, '')
+      binary.set(pv, assertInside(dir, rel, 'preview'))
+    }
+  }
+
+  if (CHECK) {
+    const tmp = path.join(ROOT, '.market-check-tmp')
+    fs.rmSync(tmp, { recursive: true, force: true })
+    emit(tmp, files, binary, skins, pets, plugins)
+    const tmpFiles = walkFiles(tmp).sort()
+    const distFiles = walkFiles(DIST_DIR).sort()
+    const diffs = []
+    const all = new Set([...tmpFiles, ...distFiles])
+    for (const rel of all) {
+      const a = path.join(tmp, rel)
+      const b = path.join(DIST_DIR, rel)
+      const same = fs.existsSync(a) && fs.existsSync(b) && sha256File(a) === sha256File(b)
+      if (!same) diffs.push(rel)
+    }
+    fs.rmSync(tmp, { recursive: true, force: true })
+    if (diffs.length) {
+      fail(`market/dist stale — run scripts/market-build and commit: ${diffs.join(', ')}`)
+    }
+    console.log('market-build: dist up to date (' + distFiles.length + ' files)')
+    return
+  }
+
+  emit(DIST_DIR, files, binary, skins, pets, plugins)
+  console.log(`market-build: wrote ${walkFiles(DIST_DIR).length} files (${skins.length} skins, ${pets.length} pets, ${plugins.length} plugins)`)
+}
+
+main()

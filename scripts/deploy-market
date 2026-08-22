@@ -1,0 +1,135 @@
+#!/usr/bin/env node
+'use strict'
+
+/**
+ * deploy-market — deploy the dsh-market.com Worker static site, apply D1
+ * migrations, and (re)create the 301 redirect from gallery.dsh-market.com.
+ *
+ * Pipeline of this script:
+ *   1. sanity: market-build --check (committed dist is up to date)
+ *   2. wrangler d1 migrations apply dsh-market --remote (idempotent)
+ *   3. wrangler deploy (worker + static assets + custom domain dsh-market.com)
+ *   4. Redirect Rule: gallery.dsh-market.com -> https://dsh-market.com (301) via CF API
+ *
+ * Auth: wrangler uses its own login/CI env; the CF API calls use
+ * CLOUDFLARE_API_TOKEN (must include Zone Redirect Rules edit) and
+ * CLOUDFLARE_ACCOUNT_ID.
+ *
+ * Usage:
+ *   node scripts/deploy-market --wrangler "npx wrangler@4"  # custom wrangler cmd
+ *   node scripts/deploy-market --skip-redirect              # skip step 4 (dry runs)
+ */
+
+const path = require('node:path')
+const { spawnSync } = require('node:child_process')
+
+const ROOT = path.resolve(__dirname, '..')
+const WORKER_DIR = path.join(ROOT, 'market', 'worker')
+const ZONE_NAME = 'dsh-market.com'
+const GALLERY_HOST = 'gallery.dsh-market.com'
+const D1_NAME = 'dsh-market'
+
+function opt(name, fallback) {
+  const i = process.argv.indexOf(name)
+  return i >= 0 && process.argv[i + 1] !== undefined ? process.argv[i + 1] : fallback
+}
+const has = (name) => process.argv.includes(name)
+
+const wranglerCmd = opt('--wrangler', 'wrangler')
+const skipRedirect = has('--skip-redirect')
+
+function fail(msg) {
+  console.error('deploy-market: ' + msg)
+  process.exit(1)
+}
+
+function sh(cmd, args, env) {
+  const r = spawnSync(cmd, args, {
+    cwd: WORKER_DIR,
+    env: Object.assign({}, process.env, env || {}),
+    stdio: 'inherit',
+  })
+  if (r.status !== 0) fail(cmd + ' ' + args.join(' ') + ' failed (exit ' + r.status + ')')
+}
+
+const [cmdExec, ...cmdArgs] = wranglerCmd.split(' ')
+const wr = (args, env) => sh(cmdExec, [...cmdArgs, ...args], env)
+
+const TOKEN = process.env.CLOUDFLARE_API_TOKEN
+
+async function cf(pathname, method, body) {
+  const res = await fetch('https://api.cloudflare.com/client/v4' + pathname, {
+    method: method || 'GET',
+    headers: {
+      Authorization: 'Bearer ' + TOKEN,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!data.success) {
+    throw new Error('CF API ' + method + ' ' + pathname + ' failed: ' + JSON.stringify(data.errors || data))
+  }
+  return data.result
+}
+
+async function ensureRedirectRule() {
+  if (!TOKEN) fail('CLOUDFLARE_API_TOKEN is required for redirect rules (also needed by wrangler CI)')
+  const zones = await cf('/zones?name=' + encodeURIComponent(ZONE_NAME))
+  const zone = (zones || []).find((z) => z.name === ZONE_NAME)
+  if (!zone) fail('zone not found: ' + ZONE_NAME)
+
+  const phase = 'http_request_redirect'
+  const existing = await cf('/zones/' + zone.id + '/rulesets?phase=' + phase)
+  const rule = {
+    expression: '(http.host eq "' + GALLERY_HOST + '")',
+    description: '301 ' + GALLERY_HOST + ' -> https://' + ZONE_NAME,
+    action: 'redirect',
+    action_parameters: {
+      from_value: {
+        target_url: { value: 'https://' + ZONE_NAME },
+        status_code: 301,
+        preserve_query_string: true,
+      },
+    },
+  }
+  if (!existing || !existing.length) {
+    await cf('/zones/' + zone.id + '/rulesets', 'POST', {
+      name: 'dsh-market redirects',
+      phase: phase,
+      rules: [rule],
+    })
+    console.log('deploy-market: created redirect ruleset (' + GALLERY_HOST + ' -> https://' + ZONE_NAME + ')')
+  } else {
+    const id = existing[0].id
+    await cf('/zones/' + zone.id + '/rulesets/' + id, 'PUT', { rules: [rule] })
+    console.log('deploy-market: updated redirect ruleset (' + GALLERY_HOST + ' -> https://' + ZONE_NAME + ')')
+  }
+}
+
+async function main() {
+  // 1) 产物一致性（CI 只部署已提交产物）
+  const check = spawnSync('node', [path.join(ROOT, 'scripts', 'market-build'), '--check'], {
+    cwd: ROOT, stdio: 'inherit',
+  })
+  if (check.status !== 0) fail('market-build --check failed — rebuild and commit market/dist first')
+
+  // 2) D1 migration（幂等）
+  wr(['d1', 'migrations', 'apply', D1_NAME, '--remote'])
+
+  // 3) Worker 部署（含静态资产与自定义域名）
+  wr(['deploy'])
+
+  // 4) 301 重定向
+  if (skipRedirect) {
+    console.log('deploy-market: skipped redirect rule (--skip-redirect)')
+  } else {
+    await ensureRedirectRule()
+  }
+
+  console.log('deploy-market: done — https://' + ZONE_NAME)
+}
+
+main().catch((err) => {
+  fail(err && err.message ? err.message : String(err))
+})
