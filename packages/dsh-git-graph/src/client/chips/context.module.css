@@ -190,6 +190,7 @@
   border-radius: 8px;
   cursor: pointer;
   text-align: left;
+  position: relative;
   transition: background-color 120ms ease;
 }
 
@@ -703,4 +704,43 @@
   .graphMore {
     transition: none;
   }
+}
+
+/* Full branch name tooltip on hover (long names only).
+ * Shown above the item by default; the top two items flip below so the
+ * bubble stays inside the scroll list.  Colors invert between themes so
+ * the bubble reads as a distinct surface. */
+.item::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: 80;
+  /* Inverted surface via theme tokens: label-primary is the ink color
+     (dark in light mode, white in dark mode) and bg-base is the paper
+     color, so the bubble reads as the opposite of the surrounding
+     surface in both themes and follows third-party skins. */
+  background: var(--dsw-alias-label-primary, #111);
+  color: var(--dsw-alias-bg-base, #fff);
+  border: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.25));
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-all;
+  box-shadow: var(--dsw-shadow-lv3);
+  display: none;
+  pointer-events: none;
+}
+.item[data-tip='']::after {
+  display: none !important;
+}
+.item[data-tip-dir='down']::after {
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+.item[data-tip-ready='true']:hover::after {
+  display: block;
 }

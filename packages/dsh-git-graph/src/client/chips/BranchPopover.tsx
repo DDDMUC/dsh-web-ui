@@ -45,9 +45,16 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Tooltip state for long branch names: first hover needs a 500ms dwell,
+  // once shown, switching items shows immediately; leaving resets the dwell.
+  const [tipReadyName, setTipReadyName] = useState<string | null>(null)
+  const [tipActive, setTipActive] = useState(false)
+  const [tipDir, setTipDir] = useState<'up' | 'down'>('up')
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => () => {
     if (dismissTimer.current !== undefined) clearTimeout(dismissTimer.current)
+    if (tipTimer.current !== undefined) clearTimeout(tipTimer.current)
   }, [])
 
   const filtered = useMemo(() => {
@@ -88,7 +95,20 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
         </div>
         {view.dirtyFiles > 0
           && <div className={css.dirty}>{t('branch.dirty', { count: view.dirtyFiles })}</div>}
-        <div className={css.list}>
+        <div
+          className={css.list}
+          onMouseLeave={() => {
+            // Leaving the whole list resets the instant-handoff state, so
+            // moving between items keeps the bubble immediate while leaving
+            // the popover re-arms the dwell threshold.
+            if (tipTimer.current !== undefined) {
+              clearTimeout(tipTimer.current)
+              tipTimer.current = undefined
+            }
+            setTipActive(false)
+            setTipReadyName(null)
+          }}
+        >
           {filtered.length === 0
             ? <div className={css.empty}>{t('branch.empty')}</div>
             : filtered.map(branch => (
@@ -99,6 +119,29 @@ export function BranchPopover({ view, onSwitch, onSwitched, onCreate, onGraph, o
                 onClick={() => { switchTo(branch.name) }}
                 role="option"
                 aria-selected={branch.current}
+                data-tip={branch.name.length > 18 ? branch.name : ''}
+                data-tip-ready={branch.name === tipReadyName ? 'true' : ''}
+                aria-label={branch.name}
+                data-tip-dir={tipDir}
+                onMouseEnter={(event) => {
+                  if (tipTimer.current !== undefined) clearTimeout(tipTimer.current)
+                  // Viewport-aware flip: near the top of the scroll list the
+                  // bubble would be clipped above — flip it below instead.
+                  const list = event.currentTarget.parentElement
+                  if (list !== null) {
+                    const itemTop = event.currentTarget.getBoundingClientRect().top
+                    const listTop = list.getBoundingClientRect().top
+                    setTipDir(itemTop - listTop < 56 ? 'down' : 'up')
+                  }
+                  if (tipActive) {
+                    setTipReadyName(branch.name)
+                  } else {
+                    tipTimer.current = setTimeout(() => {
+                      setTipActive(true)
+                      setTipReadyName(branch.name)
+                    }, 500)
+                  }
+                }}
                 disabled={pending !== null}
               >
                 <IconBranchOutline16 size={14} />
