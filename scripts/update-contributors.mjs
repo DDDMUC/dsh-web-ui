@@ -3,9 +3,9 @@
  * Regenerate the contributor sections in the root READMEs from the live GitHub
  * API contributor list.
  *
- * Run by .github/workflows/contributors.yml on every push to main (and daily,
- * or on demand); it commits only when the rendered list actually changed, so
- * the section always reflects the latest contributors.
+ * Run by .github/workflows/contributors.yml on every push to dev/main (and
+ * daily, or on demand); it commits directly to dev only when the rendered list
+ * actually changed, so the section always reflects the latest contributors.
  *
  * Usage:   node scripts/update-contributors.mjs
  * Env:     GITHUB_REPOSITORY (optional, defaults to this repo)
