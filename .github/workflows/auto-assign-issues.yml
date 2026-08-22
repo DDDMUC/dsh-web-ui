@@ -9,12 +9,12 @@ permissions:
   issues: write
 
 jobs:
-  assign:
-    name: Assign to Aa728848
+  route:
+    name: Route issue to category assignee
     runs-on: ubuntu-latest
 
     steps:
-      - name: Assign new issue to Aa728848
+      - name: Read routes and assign by category
         uses: actions/github-script@v8
         with:
           script: |
@@ -22,9 +22,63 @@ jobs:
             if (!issue || issue.pull_request) {
               return;
             }
+
+            let routes = [];
+            let defaultRoute = null;
+            try {
+              const meta = await github.rest.repos.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              const config = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: '.github/pr-review-routes.json',
+                ref: meta.data.default_branch,
+              });
+              const parsed = JSON.parse(
+                Buffer.from(config.data.content, 'base64').toString('utf8')
+              );
+              routes = Array.isArray(parsed.routes) ? parsed.routes : [];
+              defaultRoute = parsed.defaultRoute || null;
+            } catch (error) {
+              console.log(
+                'routing config unavailable, falling back to default assignee'
+              );
+            }
+
+            // Issue 表单的「涉及插件」下拉值（dropdown 提交为小节下的纯文本行）
+            const body = issue.body || '';
+            const match = body.match(/###\s*涉及插件\s*\n+([^\n#]+)/i);
+            const pluginText = match ? match[1].trim() : '';
+            console.log(
+              'Issue #' + issue.number + ': plugin field = "' + (pluginText || 'none') + '"'
+            );
+
+            const matched = routes.filter(
+              (route) =>
+                Array.isArray(route.issueTypes) &&
+                route.issueTypes.some(
+                  (t) =>
+                    pluginText !== '' &&
+                    (pluginText.includes(t) || t.includes(pluginText))
+                )
+            );
+            const route = matched[0] || defaultRoute || { assignees: ['Aa728848'] };
+            const assignees = [...new Set(route.assignees || [])].filter(
+              (user) => user !== issue.user.login
+            );
+            if (assignees.length === 0) {
+              console.log('Issue #' + issue.number + ': no assignee after filtering.');
+              return;
+            }
             await github.rest.issues.addAssignees({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-              assignees: ['Aa728848'],
+              assignees,
             });
+            console.log(
+              'Issue #' + issue.number + ': assigned ' + assignees.join(', ') +
+              (route.name ? ' via route ' + route.name : ' via default route') + '.'
+            );
