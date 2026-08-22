@@ -33,6 +33,7 @@ export const apply = mountOnce('@linxin666/dsh-doctor', (ctx: Context, config?: 
       version: hostVersion,
       status: () => client.status(),
       markUninstall: () => client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall', profileId: profile.id }),
+      source: { home: profile.dshHome, profile: profile.name },
     })
     const routeDisposers = makeDoctorRoutes(client, profile.id, { hostVersion, lifecycle, provisioned: () => defaultProvisioned(paths) }).map(route => ctx.webServer.register(route))
     const disposeHeartbeat = startHeartbeat({ client, profileId: profile.id, runId: process.env.DSH_DOCTOR_RUN_ID || 'unmanaged-' + process.pid, intervalMs: current().heartbeatIntervalMs ?? 5000, webUrl: () => `http://127.0.0.1:${ctx.webServer.port}` })

@@ -5,7 +5,8 @@ import { DOCTOR_PROTOCOL_VERSION, isSupervisorRequest, type SupervisorRequest, t
 import { appendJsonLine, readJson, writeJsonAtomic } from '../core/store.ts'
 import { ensureToken, tokensEqual, type WireEnvelope } from './ipc.ts'
 import { doctorPaths, type DoctorPaths } from './paths.ts'
-import { provisionCapsule } from './capsule.ts'
+import { provisionCapsule, removeCapsuleCredentialFiles } from './capsule.ts'
+import { resolveDshHome } from '../core/profile.ts'
 import { findRealDsh } from './launch.ts'
 import { currentPackageVersion } from './version.ts'
 import { emptyState, openIncident, recordFailure, snapshotOf, upsertProfile, type PersistedState } from './state.ts'
@@ -95,7 +96,7 @@ export class DoctorSupervisor {
       if (request.action === 'pause') { this.state.paused = true; this.state.phase = 'disabled' }
       else if (request.action === 'resume') { this.state.paused = false; this.state.phase = 'armed' }
       else if (request.action === 'provision') { await this.startProvision() }
-      else if (request.action === 'uninstall') { this.state.phase = 'uninstalling'; this.state.degradedReason = undefined }
+      else if (request.action === 'uninstall') { this.state.phase = 'uninstalling'; this.state.degradedReason = undefined; await this.cleanupCapsuleCredentials() }
       else if (request.incidentId) { const incident = this.state.incidents[request.incidentId]; if (incident) { incident.phase = request.action === 'rollback' ? 'rolled-back' : request.action === 'confirm' || request.action === 'repair' ? 'repairing' : request.action === 'diagnose' ? 'diagnosing' : incident.phase; if (request.action === 'diagnose' || request.action === 'repair' || request.action === 'confirm' || request.action === 'rollback') await this.runRecovery(request.action, request.incidentId, at) } }
     }
     await appendJsonLine(join(this.paths.logs, 'journal.jsonl'), { at, request: request.type })
@@ -172,13 +173,16 @@ export class DoctorSupervisor {
       return
     }
     const explicit = process.env.DSH_DOCTOR_REAL_DSH?.trim()
-    let dshExecutable = explicit
-    if (dshExecutable === undefined || dshExecutable === '') {
-      const first = Object.values(this.state.profiles).find(profile => profile.identity.role !== 'rescue')
-      dshExecutable = first?.identity.dshExecutable ?? this.locateDsh()
-    }
+    const first = Object.values(this.state.profiles).find(profile => profile.identity.role !== 'rescue')
+    const dshExecutable = explicit && explicit !== '' ? explicit : (first?.identity.dshExecutable ?? this.locateDsh())
     const spec = process.env.DSH_DOCTOR_PACKAGE?.trim() || '@linxin666/dsh-doctor@' + this.version
-    await provisionCapsule({ paths: this.paths, dshExecutable, doctorSpec: spec, doctorPackageDir: process.env.DSH_DOCTOR_PACKAGE_DIR?.trim(), doctorVersion: this.version })
+    const sourceHome = first?.identity.dshHome ?? resolveDshHome()
+    const sourceProfile = first?.identity.name ?? 'web'
+    await provisionCapsule({ paths: this.paths, dshExecutable, doctorSpec: spec, doctorPackageDir: process.env.DSH_DOCTOR_PACKAGE_DIR?.trim(), doctorVersion: this.version, sourceHome, sourceProfile, mirrorCredentials: process.env.DSH_DOCTOR_CREDENTIALS !== 'off' })
+  }
+
+  private async cleanupCapsuleCredentials(): Promise<void> {
+    try { await removeCapsuleCredentialFiles(this.paths) } catch { /* best effort */ }
   }
 
   private locateDsh(): string {

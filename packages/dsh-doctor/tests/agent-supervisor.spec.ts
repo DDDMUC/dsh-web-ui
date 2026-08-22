@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -186,6 +186,32 @@ describe('supervisor lifecycle actions', () => {
       const result = await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall' })
       expect(result.snapshot?.phase).toBe('uninstalling')
       expect(result.ok).toBe(true)
+    } finally {
+      await supervisor.stop()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('uninstall removes the mirrored credential files recorded in the capsule', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-sup-'))
+    const paths = doctorPaths({ DSH_DOCTOR_HOME: dir })
+    const rescueHome = join(paths.capsule, 'current', 'rescue-home')
+    await mkdir(join(rescueHome, 'profiles', 'web'), { recursive: true })
+    await writeFile(join(rescueHome, 'settings.yaml'), 'apiKey: secret\n', 'utf8')
+    await writeFile(join(rescueHome, 'profiles', 'web', '.env'), 'KEY=secret\n', 'utf8')
+    await writeFile(join(rescueHome, 'keep.txt'), 'keep\n', 'utf8')
+    await writeFile(
+      join(paths.capsule, 'current', 'manifest.json'),
+      JSON.stringify({ schemaVersion: 1, dshExecutable: '/usr/bin/dsh', dshVersion: 'x', doctorPackage: 'x', rescueHome, status: 'verified', credentialsMirror: ['settings.yaml', 'profiles/web/.env'], credentialsFingerprint: 'f' }),
+      'utf8',
+    )
+    const supervisor = new DoctorSupervisor({ paths })
+    await supervisor.start()
+    try {
+      await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall' })
+      await expect(stat(join(rescueHome, 'settings.yaml'))).rejects.toThrow()
+      await expect(stat(join(rescueHome, 'profiles', 'web', '.env'))).rejects.toThrow()
+      await expect(stat(join(rescueHome, 'keep.txt'))).resolves.toBeDefined()
     } finally {
       await supervisor.stop()
       await rm(dir, { recursive: true, force: true })

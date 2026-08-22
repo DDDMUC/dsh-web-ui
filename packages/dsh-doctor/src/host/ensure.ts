@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { access, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { credentialsFingerprint, removeCapsuleCredentialFiles } from '../agent/capsule.ts'
 import type { DoctorPaths } from '../agent/paths.ts'
 import type { SupervisorResponse } from '../core/protocol.ts'
 
@@ -47,8 +48,10 @@ export interface DoctorLifecycleDeps {
   spawn?: SpawnFn
   /** Whether the supervisor state is provisioned (token file exists). */
   provisioned?: () => Promise<boolean>
-  /** Whether the rescue capsule is missing or pinned to another doctor version. */
-  capsuleStale?: (currentVersion: string) => Promise<boolean>
+  /** Whether the rescue capsule is missing or pinned to another doctor/credentials version. */
+  capsuleStale?: (currentVersion: string, source?: { home: string; profile: string }) => Promise<boolean>
+  /** Source profile whose credentials mirror staleness is checked against. */
+  source?: { home: string; profile: string }
   pollAttempts?: number
   pollDelayMs?: number
 }
@@ -91,12 +94,21 @@ export async function defaultProvisioned(paths: DoctorPaths): Promise<boolean> {
   }
 }
 
-/** True when the capsule is absent or pinned to another doctor version. */
-export async function defaultCapsuleStale(paths: DoctorPaths, currentVersion: string): Promise<boolean> {
+/**
+ * True when the capsule is absent, pinned to another doctor version, or its
+ * mirrored credentials no longer match the current source files (the user
+ * changed providers or keys since the last provision).
+ */
+export async function defaultCapsuleStale(paths: DoctorPaths, currentVersion: string, source?: { home: string; profile: string }): Promise<boolean> {
   try {
     const raw = await readFile(join(paths.capsule, 'current', 'manifest.json'), 'utf8')
-    const manifest = JSON.parse(raw) as { doctorVersion?: unknown }
-    return manifest.doctorVersion !== currentVersion
+    const manifest = JSON.parse(raw) as { doctorVersion?: unknown; credentialsMirror?: unknown; credentialsFingerprint?: unknown }
+    if (manifest.doctorVersion !== currentVersion) return true
+    const mirror = Array.isArray(manifest.credentialsMirror) ? manifest.credentialsMirror : []
+    if (mirror.length === 0) return false
+    if (source === undefined) return true
+    const current = await credentialsFingerprint(source.home, source.profile)
+    return manifest.credentialsFingerprint !== current
   } catch {
     return true
   }
@@ -131,7 +143,7 @@ export async function ensureDoctor(deps: DoctorLifecycleDeps): Promise<Lifecycle
   if (!awaited.ok) {
     return { ok: false, code: 'SUPERVISOR_UNAVAILABLE', message: awaited.message ?? 'supervisor did not answer', steps }
   }
-  if (await (deps.capsuleStale ?? defaultCapsuleStale.bind(undefined, deps.paths))(deps.version)) {
+  if (await (deps.capsuleStale ?? defaultCapsuleStale.bind(undefined, deps.paths))(deps.version, deps.source)) {
     const second = await spawnImpl(process.execPath, [deps.cliPath, 'provision'], { timeoutMs: PROVISION_TIMEOUT_MS })
     if (second.code !== 0) {
       return { ok: false, code: 'PROVISION_FAILED', message: second.stderr.trim() || second.stdout.trim() || 'provision exited ' + String(second.code), steps }
@@ -159,6 +171,8 @@ export async function uninstallDoctor(deps: DoctorLifecycleDeps): Promise<Lifecy
     return { ok: false, code: 'SERVICE_UNINSTALL_FAILED', message: result.stderr.trim() || result.stdout.trim() || 'service uninstall exited ' + String(result.code), steps }
   }
   steps.push('service')
+  const removed = await removeCapsuleCredentialFiles(deps.paths).catch(() => ({ removed: 0 }))
+  if (removed.removed > 0) steps.push('credentials')
   return { ok: true, code: 'OK', steps }
 }
 

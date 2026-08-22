@@ -75,7 +75,8 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 
 更新到新版本后，先重启 `dsh web` 让宿主半区加载新代码，再在「服务与胶囊」卡片点
 「重启并升级服务」（Supervisor 上报版本滞后时该按钮自动出现）：重新部署用户级服务并
-重启 Supervisor 加载新代码，版本不一致时同步刷新救援胶囊。若包的安装路径发生变化
+重启 Supervisor 加载新代码，版本不一致时同步刷新救援胶囊。若用户更改了 provider 或密钥，
+胶囊的凭据指纹会检测到差异，同一按钮也会按新配置重新镜像。若包的安装路径发生变化
 （换目录、换 profile、重装），原服务记录指向旧路径，点一次「重启并升级服务」即重写
 服务定义。CLI 的 `service-install` 幂等，可安全重复执行。
 
@@ -88,7 +89,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 | `dsh-doctor supervisor` | 前台运行 Supervisor |
 | `dsh-doctor launch [dsh 参数...]` | 在监督下转发一次 `dsh` 调用 |
 | `dsh-doctor status` | 以 JSON 打印 Supervisor 快照 |
-| `dsh-doctor provision` | 配置或刷新救援胶囊（默认固定当前包版本，`DSH_DOCTOR_PACKAGE` 可覆盖） |
+| `dsh-doctor provision [profile] [--no-credentials]` | 配置或刷新救援胶囊（镜像 provider 配置与凭据、0600；默认固定当前包版本，`DSH_DOCTOR_PACKAGE` / `--no-credentials` / `DSH_DOCTOR_CREDENTIALS=off` 可调整） |
 | `dsh-doctor snapshot [profile]` | 快照一个 profile |
 | `dsh-doctor diagnose [profile]` | 只诊断与规划，不写文件 |
 | `dsh-doctor repair [profile] --allow-live` | 运行暂存修复事务（门禁后提升） |
@@ -118,6 +119,7 @@ host 设置命名空间为 `doctor`：
 | `DSH_DOCTOR_REAL_DSH` | 真实 `dsh` 可执行文件的绝对路径 |
 | `DSH_DOCTOR_PACKAGE` | 安装救援 Doctor 用的包规格 |
 | `DSH_DOCTOR_PACKAGE_DIR` | 开发时本地仓库路径 |
+| `DSH_DOCTOR_CREDENTIALS` | `off` 时禁止把凭据文件镜像进救援胶囊（默认镜像） |
 | `DSH_DOCTOR_ENDPOINT` | launcher 注入的 Supervisor 端点 |
 | `DSH_DOCTOR_TOKEN` | launcher 注入的单次 Supervisor token |
 | `DSH_DOCTOR_RUN_ID` | launcher 注入的单次启动标识 |
@@ -153,6 +155,9 @@ host 设置命名空间为 `doctor`：
 - launcher 与 Supervisor 从不运行 shell；DSH 参数原样转发。
 - 状态、日志与事件记录不写密钥；快照对凭据脱敏，脱敏层不可能恢复它们。
 - 救援胶囊只绑定 loopback，除显式检查外不读取 profile home overlay。
+- 救援胶囊镜像用户 profile 的设置与凭据文件（settings.yaml / .credentials.yaml /
+  .env 等，0600，仅规范文件名，备份变体不镜像）；manifest 只记录文件名与内容指纹，
+  绝不写密钥本身；卸载时按清单清除镜像。
 - 写入范围限定在 `DSH_DOCTOR_HOME` 与包自有文件；profile 变更只经官方
   `dsh plugin` 命令。
 - 一键安装、升级与卸载只经本包 CLI 以参数数组发起（launchctl / systemd --user /

@@ -16,7 +16,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === 'supervisor') { await runSupervisor(); return 0 }
   if (command === 'launch') { const token = (await readFile(paths.token, 'utf8')).trim(); return managedLaunch({ argv: argv.slice(1), endpoint: paths.socket, token }) }
   if (command === 'status') { const token = (await readFile(paths.token, 'utf8')).trim(); console.log(JSON.stringify(await callSupervisor(paths.socket, token, { protocol: DOCTOR_PROTOCOL_VERSION, type: 'status' }), null, 2)); return 0 }
-  if (command === 'provision') { const dsh = process.env.DSH_DOCTOR_REAL_DSH || 'dsh'; const version = currentPackageVersion(); const manifest = await provisionCapsule({ paths, dshExecutable: dsh, doctorSpec: process.env.DSH_DOCTOR_PACKAGE || '@linxin666/dsh-doctor@' + version, doctorPackageDir: process.env.DSH_DOCTOR_PACKAGE_DIR, doctorVersion: version }); console.log(JSON.stringify(manifest, null, 2)); return 0 }
+  if (command === 'provision') { const dsh = process.env.DSH_DOCTOR_REAL_DSH || 'dsh'; const version = currentPackageVersion(); const profileName = argv[1] ?? 'web'; const mirrorCredentials = !argv.includes('--no-credentials') && process.env.DSH_DOCTOR_CREDENTIALS !== 'off'; const manifest = await provisionCapsule({ paths, dshExecutable: dsh, doctorSpec: process.env.DSH_DOCTOR_PACKAGE || '@linxin666/dsh-doctor@' + version, doctorPackageDir: process.env.DSH_DOCTOR_PACKAGE_DIR, doctorVersion: version, sourceHome: resolveDshHome(), sourceProfile: profileName, mirrorCredentials }); console.log(JSON.stringify(manifest, null, 2)); return 0 }
   if (command === 'diagnose' || command === 'repair' || command === 'snapshot' || command === 'rollback') {
     const profile = argv[1] ?? 'web'
     const base: RecoveryRequest = {
@@ -36,7 +36,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return outcome.ok ? 0 : 2
   }
   if (command === 'service-plan' || command === 'service-install' || command === 'service-uninstall') { const plan = servicePlan({ platform: process.platform, label: 'com.dsh.doctor', executable: process.execPath, args: [process.argv[1]!, 'supervisor'], doctorHome: paths.root }); if (command === 'service-plan') console.log(JSON.stringify(plan, null, 2)); else if (command === 'service-install') { await ensureServiceInstalled(plan) } else { await removeService(plan) } return 0 }
-  console.log('Usage: dsh-doctor <supervisor|launch|status|provision|diagnose|repair|snapshot|rollback|service-plan|service-install|service-uninstall> [args...]')
+  console.log('Usage: dsh-doctor <supervisor|launch|status|provision [profile] [--no-credentials]|diagnose|repair|snapshot|rollback|service-plan|service-install|service-uninstall> [args...]')
   return command === 'help' || command === '--help' || command === '-h' ? 0 : 2
 }
 

@@ -92,7 +92,9 @@ After an update, restart `dsh web` so the host half loads the new code, then
 click Restart and upgrade in the Service and capsule card (the button appears
 whenever the reported Supervisor version lags): it redeploys the user-level
 service and restarts the Supervisor with the new code, and refreshes the
-capsule when its pinned version differs. When the package install path changed
+capsule when its pinned version differs. When the user changes a provider or
+its keys, the capsule credential fingerprint detects the drift and the same
+button re-mirrors the new configuration. When the package install path changed
 (new directory, new profile, reinstall), the previous service record points at
 a stale path and one click rewrites the service definition. The CLI
 `service-install` is idempotent and safe to repeat.
@@ -106,7 +108,7 @@ The `dsh-doctor` binary exposes the operational commands:
 | `dsh-doctor supervisor` | run the Supervisor in the foreground |
 | `dsh-doctor launch [dsh args...]` | relay one `dsh` invocation under supervision |
 | `dsh-doctor status` | print the Supervisor snapshot as JSON |
-| `dsh-doctor provision` | provision or refresh the rescue capsule (pinned to the current package version by default; `DSH_DOCTOR_PACKAGE` overrides) |
+| `dsh-doctor provision [profile] [--no-credentials]` | provision or refresh the rescue capsule (mirrors provider config and credentials with 0600; pinned to the current package version by default; `DSH_DOCTOR_PACKAGE`, `--no-credentials` and `DSH_DOCTOR_CREDENTIALS=off` adjust it) |
 | `dsh-doctor snapshot [profile]` | capture one profile snapshot |
 | `dsh-doctor diagnose [profile]` | diagnose and plan one profile without writing |
 | `dsh-doctor repair [profile] --allow-live` | run the staged repair transaction (gated promote) |
@@ -137,6 +139,7 @@ Environment:
 | `DSH_DOCTOR_REAL_DSH` | absolute path of the real `dsh` executable |
 | `DSH_DOCTOR_PACKAGE` | package spec used to install the rescue Doctor |
 | `DSH_DOCTOR_PACKAGE_DIR` | local checkout to link during development |
+| `DSH_DOCTOR_CREDENTIALS` | when `off`, credential files are not mirrored into the rescue capsule (mirrored by default) |
 | `DSH_DOCTOR_ENDPOINT` | Supervisor endpoint injected by the launcher |
 | `DSH_DOCTOR_TOKEN` | one-run Supervisor token injected by the launcher |
 | `DSH_DOCTOR_RUN_ID` | one-run launch identity injected by the launcher |
@@ -179,6 +182,11 @@ recoverable across crashes.
   credentials and the redacted tier can never restore them.
 - The rescue capsule binds only to loopback and never reads the profile home
   overlay except during explicit inspection.
+- The rescue capsule mirrors the user profile settings and credential files
+  (settings.yaml / .credentials.yaml / .env and peers, mode 0600, canonical
+  names only, never backup variants); the manifest records file names and a
+  content fingerprint only and never holds the secrets themselves; uninstall
+  removes the mirror per the recorded list.
 - Writes are confined to `DSH_DOCTOR_HOME` and the package-owned files;
   profile mutations happen only through the official `dsh plugin` command.
 - One-click install, upgrade and uninstall only invoke this package's CLI with
