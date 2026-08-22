@@ -1,12 +1,12 @@
 {
   "comment": true,
   "defaultRoute": {
-    "label": "默认负责人：未匹配类别时的兜底，确保每个 PR 都有人关联",
+    "label": "默认负责人：未匹配类别时的兜底，指向所有者（渲染器 / WebGL 类别除外）",
     "reviewers": [
-      "Aa728848"
+      "zhu1090093659"
     ],
     "assignees": [
-      "Aa728848"
+      "zhu1090093659"
     ],
     "ai": false
   },
@@ -37,7 +37,8 @@
       ],
       "issueTypes": [
         "壁纸 / 渲染器（Wallpaper Engine / WebGL / 背景场景）"
-      ]
+      ],
+      "reviewers": []
     },
     {
       "name": "skins",
@@ -48,10 +49,10 @@
       "prAllowed": true,
       "ai": false,
       "reviewers": [
-        "Aa728848"
+        "zhu1090093659"
       ],
       "assignees": [
-        "Aa728848"
+        "zhu1090093659"
       ],
       "issueTypes": [
         "皮肤 / 皮肤中心 (dsh-skins)"
@@ -66,10 +67,10 @@
       "prAllowed": true,
       "ai": false,
       "reviewers": [
-        "Aa728848"
+        "zhu1090093659"
       ],
       "assignees": [
-        "Aa728848"
+        "zhu1090093659"
       ],
       "issueTypes": [
         "任务看板 (dsh-task-board)",
@@ -90,10 +91,10 @@
       "prAllowed": true,
       "ai": false,
       "reviewers": [
-        "Aa728848"
+        "zhu1090093659"
       ],
       "assignees": [
-        "Aa728848"
+        "zhu1090093659"
       ],
       "issueTypes": []
     },
@@ -106,10 +107,10 @@
       "prAllowed": true,
       "ai": false,
       "reviewers": [
-        "Aa728848"
+        "zhu1090093659"
       ],
       "assignees": [
-        "Aa728848"
+        "zhu1090093659"
       ],
       "issueTypes": [
         "其他 / 不确定"
