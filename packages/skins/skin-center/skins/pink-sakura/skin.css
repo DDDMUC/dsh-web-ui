@@ -5,7 +5,12 @@
  * attributes owned by Skin Center, avoiding generated class names.
  */
 
-:root {
+/* Light tokens ride both :root and a body-scoped light head: the skin-center
+ * loader clones :root theme tokens onto body, but the static gallery preview
+ * (gallery/preview.html) injects this stylesheet without that transform, and
+ * the official facade defines its light token sheet on body. */
+:root,
+body:not([data-ds-dark-theme]) {
   --pink-sakura-accent: #e95c91;
   --pink-sakura-text: #3b2e36;
   --pink-sakura-panel: #fff7fa;
