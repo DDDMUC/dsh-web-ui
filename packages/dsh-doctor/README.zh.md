@@ -5,16 +5,22 @@
 DeepSeek Harness profile 的事务式救助模式：用户级 Doctor Supervisor 与透明
 Doctor Launcher 维持一份隔离救援胶囊，检测启动失败、进程崩溃、心跳丢失、Web
 故障与浏览器白屏，并通过快照、确定性修复、隔离健康门禁与原子提升或回滚恢复
-profile。插件默认关闭，在「设置 → 插件配置 → Web UI 插件」的 Doctor 卡片中开启。本插件
-不修改 DSH 安装。
+profile。插件默认开启：初次安装或 WebUI 版本更新后救援模式自动生效，用户在 Doctor
+卡片中显式关闭的选择会被保留；可在「设置 → 插件配置 → Web UI 插件」的 Doctor 卡片
+中切换。本插件不修改 DSH 安装。
 
 ## 能力
 
 - Doctor Host 插件运行在每个受保护 DSH host 内：暴露 loopback 恢复 API，向
   Supervisor 上报心跳与启动阶段事实，并收集浏览器故障上报。
 - Doctor Web 控制台（「设置 → 插件配置 → Web UI 插件」内的家族插件卡片）展示系统
-  阶段、受保护 profile、故障事件与客户端故障探针，并在启用开关旁提供诊断、修复、
-  回滚、暂停、恢复与卸载动作。
+  阶段、受保护 profile、故障事件与客户端故障探针，并记录已启用但从未启动的 Web UI
+  插件；在启用开关旁提供诊断、修复、回滚、暂停与恢复动作以及「服务与胶囊」卡片：
+  一键安装、重启升级与卸载用户级服务。
+- 「发送给 Harness」窗口把最近一次故障的摘要与错误堆栈组合成排障提示词，作为新回合
+  投递到当前 DSH 会话，让用户的 agent 就地诊断并修复；发送前可编辑或复制提示词。
+  失败插件行同时提供一键「复制错误」与「禁用并重启」（禁用经插件管理通道写入 profile
+  的启用行，宿主重启后生效）。
 - Doctor Supervisor 作为用户级后台服务运行：把退出归类为用户停止、任务完成与
   真实故障，应用崩溃循环熔断，并负责救援调度。
 - Doctor Launcher 把 `dsh` 参数原样转发给真实 DSH 可执行文件，转发 stdin、
@@ -59,15 +65,26 @@ pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 ```
 
-重启 `dsh web`，打开「设置 → 插件配置 → Web UI 插件」，展开 Doctor 卡片并启用。
+重启 `dsh web`，打开「设置 → 插件配置 → Web UI 插件」，展开 Doctor 卡片确认「启用救助模式」已开启（新安装默认开启）。
 包内同时提供 `dsh-doctor` CLI：Supervisor、Launcher、胶囊配置与用户级服务适配。
 
 ## 启用
 
-启用流程是带失败回滚的事务：检查工具链，定位真实 `dsh` 可执行文件，配置救援
-胶囊，验证隔离的恢复 Web，安装用户级 Supervisor 服务，注册 launcher，注册当前
-profile，创建首个已知正常快照，最后把系统切换到 armed 状态。救援 profile 永不
-成为救援目标。
+在 Doctor 卡片打开「启用救助模式」后，宿主半区挂载 `/api/doctor/*` 端点并开始上报
+心跳。若本机尚未安装 Doctor Supervisor 服务，控制台「宿主状态」显示「Doctor 离线」，
+「服务与胶囊」卡片给出「一键安装」：按当前包重新生成并注册用户级服务（先注销旧注册，
+再部署并重启，幂等），等待 Supervisor 应答，若救援胶囊缺失或其 Doctor 版本与当前包
+不一致则按当前包版本刷新胶囊。安装期间按钮进入「安装/修复中…」；失败时展示具体错误码
+与 stderr。
+
+## 更新
+
+更新到新版本后，先重启 `dsh web` 让宿主半区加载新代码，再在「服务与胶囊」卡片点
+「重启并升级服务」（Supervisor 上报版本滞后时该按钮自动出现）：重新部署用户级服务并
+重启 Supervisor 加载新代码，版本不一致时同步刷新救援胶囊。若用户更改了 provider 或密钥，
+胶囊的凭据指纹会检测到差异，同一按钮也会按新配置重新镜像。若包的安装路径发生变化
+（换目录、换 profile、重装），原服务记录指向旧路径，点一次「重启并升级服务」即重写
+服务定义。CLI 的 `service-install` 幂等，可安全重复执行。
 
 ## CLI
 
@@ -78,13 +95,13 @@ profile，创建首个已知正常快照，最后把系统切换到 armed 状态
 | `dsh-doctor supervisor` | 前台运行 Supervisor |
 | `dsh-doctor launch [dsh 参数...]` | 在监督下转发一次 `dsh` 调用 |
 | `dsh-doctor status` | 以 JSON 打印 Supervisor 快照 |
-| `dsh-doctor provision` | 配置或刷新救援胶囊 |
+| `dsh-doctor provision [profile] [--no-credentials]` | 配置或刷新救援胶囊（镜像 provider 配置与凭据、0600；默认固定当前包版本，`DSH_DOCTOR_PACKAGE` / `--no-credentials` / `DSH_DOCTOR_CREDENTIALS=off` 可调整） |
 | `dsh-doctor snapshot [profile]` | 快照一个 profile |
 | `dsh-doctor diagnose [profile]` | 只诊断与规划，不写文件 |
 | `dsh-doctor repair [profile] --allow-live` | 运行暂存修复事务（门禁后提升） |
 | `dsh-doctor rollback <txnId>` | 从隔离区恢复已提升的事务 |
 | `dsh-doctor service-plan` | 打印平台服务文件与命令 |
-| `dsh-doctor service-install` | 写服务文件并注册服务 |
+| `dsh-doctor service-install` | 写服务文件并幂等注册服务（先注销旧注册，部署后重启） |
 | `dsh-doctor service-uninstall` | 注销并删除服务文件 |
 
 退出码：0 正常，1 已修复并验证，2 需要关注，3 被阻塞（锁、离线或缺少密钥）。
@@ -95,7 +112,7 @@ host 设置命名空间为 `doctor`：
 
 | 键 | 默认值 | 含义 |
 | --- | --- | --- |
-| `enabled` | `false` | 总开关；仅开启时挂载路由 |
+| `enabled` | `true` | 总开关；仅开启时挂载路由 |
 | `fullProtection` | `true` | 启用时安装 Supervisor 与 launcher |
 | `autoRepair` | `true` | 允许确定性修复在验证后自动提升 |
 | `heartbeatIntervalMs` | `5000` | host 心跳周期 |
@@ -108,6 +125,7 @@ host 设置命名空间为 `doctor`：
 | `DSH_DOCTOR_REAL_DSH` | 真实 `dsh` 可执行文件的绝对路径 |
 | `DSH_DOCTOR_PACKAGE` | 安装救援 Doctor 用的包规格 |
 | `DSH_DOCTOR_PACKAGE_DIR` | 开发时本地仓库路径 |
+| `DSH_DOCTOR_CREDENTIALS` | `off` 时禁止把凭据文件镜像进救援胶囊（默认镜像） |
 | `DSH_DOCTOR_ENDPOINT` | launcher 注入的 Supervisor 端点 |
 | `DSH_DOCTOR_TOKEN` | launcher 注入的单次 Supervisor token |
 | `DSH_DOCTOR_RUN_ID` | launcher 注入的单次启动标识 |
@@ -143,8 +161,13 @@ host 设置命名空间为 `doctor`：
 - launcher 与 Supervisor 从不运行 shell；DSH 参数原样转发。
 - 状态、日志与事件记录不写密钥；快照对凭据脱敏，脱敏层不可能恢复它们。
 - 救援胶囊只绑定 loopback，除显式检查外不读取 profile home overlay。
+- 救援胶囊镜像用户 profile 的设置与凭据文件（settings.yaml / .credentials.yaml /
+  .env 等，0600，仅规范文件名，备份变体不镜像）；manifest 只记录文件名与内容指纹，
+  绝不写密钥本身；卸载时按清单清除镜像。
 - 写入范围限定在 `DSH_DOCTOR_HOME` 与包自有文件；profile 变更只经官方
   `dsh plugin` 命令。
+- 一键安装、升级与卸载只经本包 CLI 以参数数组发起（launchctl / systemd --user /
+  schtasks），从不启用 shell。
 
 ## 已知限制
 

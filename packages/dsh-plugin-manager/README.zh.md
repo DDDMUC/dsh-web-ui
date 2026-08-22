@@ -49,6 +49,8 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-plugin-manager
 - `install(spec): Promise<InstalledPluginItem>` — 从 npm spec 或 git URL 安装一个插件。
 - `uninstall(id): Promise<InstalledPluginItem[]>` — 卸载一个插件。
 - `status(): Promise<InstallProgressItem>` — 读取当前安装/更新进度。
+- `failures(): Promise<PluginFailuresSnapshot>` — 读取宿主侧记录的插件启动失败环（插件 id、消息、堆栈、安装路径）；无失败环的运行时返回空快照。
+- `setEnabled(id, enabled): Promise<InstalledPluginItem>` — 经当前通道（官方安装器 RPC，或网关写 profile patch 的 `disabled` 行）翻转插件的下次启动启用状态；宿主重启后生效。
 - `onChange(cb): () => void` — 订阅成功变更；`install()`、`update()`、`uninstall()`、`setEnabled()` 任一成功 resolve 后触发，返回退订函数。
 
 契约事实源在 `src/core/service.ts`（`PluginManagerService`）。服务随插件生命周期提供，插件卸载即消失。服务与「插件管理」Tab 共享同一个 face，因此 `onChange` 订阅者对两侧发起的变更都能收到通知。

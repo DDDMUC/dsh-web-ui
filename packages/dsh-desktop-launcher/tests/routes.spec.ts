@@ -199,7 +199,11 @@ describe('route fence', () => {
   })
 
   it('creates the icon through the route', async () => {
-    const response = await fetch(`http://127.0.0.1:${port}${LAUNCHER_API.create}`, { method: 'POST' })
+    const response = await fetch(`http://127.0.0.1:${port}${LAUNCHER_API.create}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    })
     expect(response.status).toBe(200)
     const body = await response.json() as { result: { ok: boolean; path: string } }
     expect(body.result.ok).toBe(true)

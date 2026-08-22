@@ -119,9 +119,9 @@ export function DesktopLauncherSettingsCard(props: DesktopLauncherSettingsCardPr
   const [error, setError] = useState<string | undefined>()
   const disabled = !state.writable
   // The create action calls the host route, which mounts only while the
-  // saved `enabled` is on; a staged draft does not mount it yet, so the
-  // button stays inert until the toggle lands (save).
-  const createReady = state.enabled.text === 'true'
+  // saved `enabled` is on. Keep it inert for every staged draft so the route
+  // and all launcher fields match what the card currently shows.
+  const createReady = state.enabled.text === 'true' && !state.dirty && !state.saving
   const fieldProps = {
     overriddenLabel: t('settings.overridden'),
     resetLabel: t('settings.reset'),

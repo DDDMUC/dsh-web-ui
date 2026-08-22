@@ -1,7 +1,7 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { DOCTOR_PROTOCOL_VERSION, type SupervisorRequest } from '../src/core/protocol.ts'
 import { DoctorSupervisor } from '../src/agent/supervisor.ts'
 import { doctorPaths } from '../src/agent/paths.ts'
@@ -102,6 +102,116 @@ describe('DoctorSupervisor', () => {
       await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'resume' })
       snap = (await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'status' })).snapshot!
       expect(snap.phase).toBe('armed')
+    } finally {
+      await supervisor.stop()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('supervisor lifecycle actions', () => {
+  it('provision enters the provisioning phase, refreshes the capsule and arms', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-sup-'))
+    const paths = doctorPaths({ DSH_DOCTOR_HOME: dir })
+    let release: (() => void) | undefined
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const provisioner = vi.fn(async () => { await gate })
+    const supervisor = new DoctorSupervisor({ paths, version: '0.2.9', provisioner })
+    await supervisor.start()
+    try {
+      const started = await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'provision' })
+      expect(started.snapshot?.phase).toBe('provisioning')
+      expect(provisioner).toHaveBeenCalledTimes(1)
+      release!()
+      await vi.waitFor(async () => {
+        const snap = (await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'status' })).snapshot!
+        expect(snap.phase).toBe('armed')
+        expect(snap.capsuleVersion).toBe('0.2.9')
+        expect(snap.degradedReason).toBeUndefined()
+      })
+    } finally {
+      release?.()
+      await supervisor.stop()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('coalesces concurrent provision requests', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-sup-'))
+    const paths = doctorPaths({ DSH_DOCTOR_HOME: dir })
+    let release: (() => void) | undefined
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const provisioner = vi.fn(async () => { await gate })
+    const supervisor = new DoctorSupervisor({ paths, provisioner })
+    await supervisor.start()
+    try {
+      await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'provision' })
+      await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'provision' })
+      expect(provisioner).toHaveBeenCalledTimes(1)
+      release!()
+      await vi.waitFor(async () => {
+        expect((await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'status' })).snapshot?.phase).toBe('armed')
+      })
+    } finally {
+      release?.()
+      await supervisor.stop()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('records a failed capsule provision as degraded with a reason', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-sup-'))
+    const paths = doctorPaths({ DSH_DOCTOR_HOME: dir })
+    const supervisor = new DoctorSupervisor({ paths, provisioner: async () => { throw new Error('dsh not found') } })
+    await supervisor.start()
+    try {
+      await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'provision' })
+      await vi.waitFor(async () => {
+        const snap = (await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'status' })).snapshot!
+        expect(snap.phase).toBe('degraded')
+        expect(snap.degradedReason).toContain('capsule provision failed')
+      })
+    } finally {
+      await supervisor.stop()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('uninstall marks the phase and keeps the state servable', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-sup-'))
+    const paths = doctorPaths({ DSH_DOCTOR_HOME: dir })
+    const supervisor = new DoctorSupervisor({ paths })
+    await supervisor.start()
+    try {
+      const result = await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall' })
+      expect(result.snapshot?.phase).toBe('uninstalling')
+      expect(result.ok).toBe(true)
+    } finally {
+      await supervisor.stop()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('uninstall removes the mirrored credential files recorded in the capsule', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-sup-'))
+    const paths = doctorPaths({ DSH_DOCTOR_HOME: dir })
+    const rescueHome = join(paths.capsule, 'current', 'rescue-home')
+    await mkdir(join(rescueHome, 'profiles', 'web'), { recursive: true })
+    await writeFile(join(rescueHome, 'settings.yaml'), 'apiKey: secret\n', 'utf8')
+    await writeFile(join(rescueHome, 'profiles', 'web', '.env'), 'KEY=secret\n', 'utf8')
+    await writeFile(join(rescueHome, 'keep.txt'), 'keep\n', 'utf8')
+    await writeFile(
+      join(paths.capsule, 'current', 'manifest.json'),
+      JSON.stringify({ schemaVersion: 1, dshExecutable: '/usr/bin/dsh', dshVersion: 'x', doctorPackage: 'x', rescueHome, status: 'verified', credentialsMirror: ['settings.yaml', 'profiles/web/.env'], credentialsFingerprint: 'f' }),
+      'utf8',
+    )
+    const supervisor = new DoctorSupervisor({ paths })
+    await supervisor.start()
+    try {
+      await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall' })
+      await expect(stat(join(rescueHome, 'settings.yaml'))).rejects.toThrow()
+      await expect(stat(join(rescueHome, 'profiles', 'web', '.env'))).rejects.toThrow()
+      await expect(stat(join(rescueHome, 'keep.txt'))).resolves.toBeDefined()
     } finally {
       await supervisor.stop()
       await rm(dir, { recursive: true, force: true })

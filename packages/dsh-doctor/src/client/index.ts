@@ -24,6 +24,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 
 import { DoctorApi } from './doctor-api.ts'
 import { DoctorController } from './doctor-controller.ts'
+import { createHarnessPort } from './harness-send.ts'
+import { createPluginRepairPort } from './plugin-repair.ts'
+import type { PluginModulesSeam } from './plugin-failures.ts'
 import { PassiveProbe } from './doctor-passive.ts'
 import {
   DoctorSettingsCard,
@@ -87,7 +90,12 @@ export function apply(ctx: ClientContext): void {
     const passive = new PassiveProbe({
       notify: () => { controller?.syncProbe() },
     })
-    controller = new DoctorController({ api: new DoctorApi(), passive })
+    // Optional seams: a shell without the modules service or the sessions
+    // service degrades the console instead of failing apply.
+    const modules = ctx.get('modules') as unknown as PluginModulesSeam | undefined
+    const harness = createHarnessPort(ctx.get('sessions'))
+    const pluginRepair = createPluginRepairPort(ctx.get('pluginManager'))
+    controller = new DoctorController({ api: new DoctorApi(), passive, modules, harness, pluginRepair })
     passive.start()
     ctx.effect(() => {
       controller?.start()
@@ -95,6 +103,24 @@ export function apply(ctx: ClientContext): void {
     }, 'doctor: poll loop')
     // Boot-phase signal: a rebuilt connection refreshes the snapshot.
     ctx.effect(() => ctx.on('connection/reset', () => { controller?.noteConnectionReset() }), 'doctor: connection signals')
+    // Plugin startup failures: the renderer module host emits
+    // loader/partial-dispose (loader, options, failed) when an entry fails to
+    // apply. The shared event registry delivers it to every plugin context, so
+    // a sibling's failure is recorded here; the boot-graph reconciliation in
+    // refresh() covers bundles that never even materialized. The event name is
+    // not part of the typed client Events surface, so the listener is attached
+    // through a narrow structural cast.
+    const events = ctx as unknown as { on(name: string, listener: (...args: unknown[]) => void): () => void }
+    ctx.effect(() => events.on('loader/partial-dispose', (_loader: unknown, options: unknown, failed: unknown) => {
+      try {
+        if (failed !== true) return
+        const row = (options ?? {}) as { id?: unknown; name?: unknown }
+        const id = typeof row.id === 'string' ? row.id : typeof row.name === 'string' ? row.name : undefined
+        if (id !== undefined && id !== '') controller?.notePluginStartupFailure(id)
+      } catch {
+        // Failure observation must never take the GUI down.
+      }
+    }), 'doctor: plugin failure events')
   })
 
   // Family settings card over the doctor namespace. Staged form owns the

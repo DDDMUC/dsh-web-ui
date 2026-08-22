@@ -339,16 +339,15 @@ window.__ModuleLoader__.load({
 		* fade would hide it behind the input area, so the official mask is
 		* neutralized uniformly for skins and wallpapers alike (issue #747 direction).
 		*
-		* Readability after the mask is gone comes from the input card itself
-		* ([data-composer-card], the official shell's stable card anchor): the card
-		* keeps its own translucent tint (--dsw-specific-* tokens, not a hardcoded
-		* opacity) and gains a configurable backdrop blur (default INPUT_FROST_BLUR_PX). The blur
-		* occludes the backdrop art and any message content scrolling under the
-		* input, so typed text never overlaps — a frosted pane instead of the older
-		* flat mask. The frost is only enabled while the conversation actually has
-		* message content (data-dsh-conversation-content): an empty conversation has
-		* no正文 to occlude, so the input card keeps only its own translucent tint
-		* and does not flash an extra blur patch (issue #777 follow-up).
+		* Readability after the mask is gone comes from a shared frost on the whole
+		* composer seat plus the input card itself ([data-composer-card], the official
+		* shell's stable card anchor). The seat uses the overlay surface token so the
+		* strip below the card occludes message text scrolling underneath without
+		* flattening backdrop art, while the card keeps its own translucent tint and
+		* gains the same configurable backdrop blur (default INPUT_FROST_BLUR_PX).
+		* Both rules are enabled only while the conversation actually has message
+		* content (data-dsh-conversation-content): an empty conversation has no正文 to
+		* occlude, so the input keeps its normal hero appearance without a frost flash.
 		* The strength is provided by --dsh-input-card-blur and falls back to the
 		* compatibility default when the setting has not loaded yet.
 		*
@@ -459,6 +458,15 @@ window.__ModuleLoader__.load({
       background: none !important;
       backdrop-filter: none !important;
     }
+    html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-seat] {
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--dsw-alias-bg-overlay) 0%, transparent) 0px,
+        var(--dsw-alias-bg-overlay) 36px
+      ) !important;
+      backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;
+      -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;
+    }
     html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card] {
       backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;
       -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;
@@ -471,8 +479,9 @@ window.__ModuleLoader__.load({
 		/** The namespace string the Host registers (mirrors src/index.ts). */
 		const SKIN_WALLPAPER_NS = "skin-wallpaper";
 		const clamp = (value, min, max) => Math.max(min, Math.min(max, Math.round(value)));
-		/** Style one fixed, non-interactive, under-everything layer. */
-		function styleLayer(element, zIndex) {
+		/** Style one fixed, non-interactive, under-everything wallpaper layer. */
+		function styleLayer(element, zIndex, layer) {
+			element.dataset.dshWallpaperLayer = layer;
 			element.style.position = "fixed";
 			element.style.inset = "0";
 			element.style.zIndex = String(zIndex);
@@ -508,9 +517,9 @@ window.__ModuleLoader__.load({
 			const alpha = Number.parseFloat(value);
 			return Number.isFinite(alpha) && alpha > 0;
 		}
-		/** Exclude modal and plugin surfaces that must remain readable above the shell. */
+		/** Exclude owned layers plus modal/plugin surfaces that must retain their paint. */
 		function isExcludedWallpaperSurface(el, zIndex) {
-			if (typeof el.closest === "function" && el.closest("dialog, [role=\"dialog\"], [aria-modal=\"true\"], [data-shell-overlay], [data-slot=\"shell.overlay\"], [data-dsh-plugin]") !== null) return true;
+			if (typeof el.closest === "function" && el.closest("[data-dsh-wallpaper-layer], dialog, [role=\"dialog\"], [aria-modal=\"true\"], [data-shell-overlay], [data-slot=\"shell.overlay\"], [data-dsh-plugin]") !== null) return true;
 			const numericZIndex = Number.parseFloat(zIndex);
 			return Number.isFinite(numericZIndex) && numericZIndex > MAX_SURFACE_OVERLAY_Z_INDEX;
 		}
@@ -887,11 +896,9 @@ window.__ModuleLoader__.load({
           background-image: none !important;
         }
         /* Some skins (e.g. summer-liquid-glass) paint a frosted ::before on
-           the composer seat that backdrop-blurs the area behind the input.
-           While a WE wallpaper is mounted the wallpaper must stay sharp under
-           its own blur control, so neutralize the seat pseudo independently
-           of the shared scene marker (issue #777 / summer-liquid-glass). */
-        html[data-dsh-wallpaper-active] [data-composer-seat],
+           the composer seat. Neutralize that pseudo independently of the
+           shared scene marker, but leave the seat element itself available
+           for the content-gated readability frost (issues #777 and #951). */
         html[data-dsh-wallpaper-active] [data-composer-seat]::before {
           background: none !important;
           backdrop-filter: none !important;
@@ -917,13 +924,13 @@ window.__ModuleLoader__.load({
 				if (this.mediaLayer !== null && !this.mediaLayer.isConnected) this.doc.body.appendChild(this.mediaLayer);
 				if (this.mediaLayer === null) {
 					this.mediaLayer = this.doc.createElement("div");
-					styleLayer(this.mediaLayer, -3);
+					styleLayer(this.mediaLayer, -3, "media");
 					this.doc.body.appendChild(this.mediaLayer);
 				}
 				if (this.scrimLayer !== null && !this.scrimLayer.isConnected) this.doc.body.appendChild(this.scrimLayer);
 				if (this.scrimLayer === null) {
 					this.scrimLayer = this.doc.createElement("div");
-					styleLayer(this.scrimLayer, -2);
+					styleLayer(this.scrimLayer, -2, "scrim");
 					this.doc.body.appendChild(this.scrimLayer);
 				}
 				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + (descriptor.videoUrl ?? "") + ":" + (descriptor.sceneUrl ?? "");
@@ -1153,8 +1160,9 @@ window.__ModuleLoader__.load({
 					const node = stack.pop();
 					if (node === void 0) continue;
 					if (!node.hasAttribute("data-dsh-wallpaper-surface")) {
+						const inWallpaperLayer = node.closest("[data-dsh-wallpaper-layer]") !== null;
 						const inWorkspaces = node.closest("[data-slot=\"sidebar.workspaces\"]") !== null;
-						if (isSurface(node) || inWorkspaces && isFade(node, this.doc)) {
+						if (!inWallpaperLayer && (isSurface(node) || inWorkspaces && isFade(node, this.doc))) {
 							node.setAttribute("data-dsh-wallpaper-surface", "");
 							this.taggedSurfaces.add(node);
 						}
@@ -1969,10 +1977,12 @@ window.__ModuleLoader__.load({
 			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
 			const blurContent = (0, react.useSyncExternalStore)(background.subscribe, background.blurContent);
 			const inputCardBlur = (0, react.useSyncExternalStore)(background.subscribe, background.inputCardBlur);
+			const bubbleOpacity = (0, react.useSyncExternalStore)(background.subscribe, background.bubbleOpacity);
 			const [shownOpacity, setShownOpacity] = useLiveValue(opacity);
 			const [shownBlurEmpty, setShownBlurEmpty] = useLiveValue(blurEmpty);
 			const [shownBlurContent, setShownBlurContent] = useLiveValue(blurContent);
 			const [shownInputCardBlur, setShownInputCardBlur] = useLiveValue(inputCardBlur);
+			const [shownBubbleOpacity, setShownBubbleOpacity] = useLiveValue(bubbleOpacity);
 			const catalog = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.catalog);
 			const state = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.controller.getState);
 			const customThemeState = (0, react.useSyncExternalStore)(customTheme.subscribe, customTheme.getState);
@@ -2315,6 +2325,40 @@ window.__ModuleLoader__.load({
 								})
 							]
 						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.backgroundRow,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.backgroundHead,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.backgroundLabel,
+										children: t("bubbleOpacity")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+										className: skin_center_module_css_default.backgroundValue,
+										"aria-hidden": "true",
+										children: [shownBubbleOpacity, "%"]
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+									id: "skin-center-bubble-opacity",
+									className: skin_center_module_css_default.backgroundRange,
+									min: 0,
+									max: 100,
+									step: 5,
+									value: bubbleOpacity,
+									ariaValuetext: shownBubbleOpacity + "%",
+									ariaLabel: t("bubbleOpacity"),
+									onChanging: setShownBubbleOpacity,
+									onChange: (value) => {
+										background.setBubbleOpacity(value);
+									}
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: skin_center_module_css_default.backgroundHint,
+									children: t("bubbleOpacityHint")
+								})
+							]
+						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(WallpaperPanel, {
 							t,
 							wallpaper
@@ -2466,6 +2510,10 @@ window.__ModuleLoader__.load({
 		const INPUT_CARD_BLUR_FIELD = "inputCardBlur";
 		/** CSS custom property written to document.body and read by backdrop skins. */
 		const SCRIM_VAR = "--dsw-skin-scrim";
+		/** Field of the message bubble opacity inside the namespace section. */
+		const BUBBLE_OPACITY_FIELD = "bubbleOpacity";
+		/** CSS custom property consumed by skins that expose translucent bubbles. */
+		const BUBBLE_ALPHA_VAR = "--dsh-skin-bubble-alpha";
 		/** CSS custom property consumed by the shared composer neutralizer. */
 		const INPUT_CARD_BLUR_VAR = "--dsh-input-card-blur";
 		/**
@@ -2494,6 +2542,7 @@ window.__ModuleLoader__.load({
 			blurEmptyValue = 0;
 			blurContentValue = 0;
 			inputCardBlurValue = 10;
+			bubbleOpacityValue = 50;
 			listeners = /* @__PURE__ */ new Set();
 			scope;
 			/** The fixed backdrop-filter element, present only while active blur > 0. */
@@ -2514,8 +2563,10 @@ window.__ModuleLoader__.load({
 				this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
 				this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
 				this.inputCardBlurValue = this.readInputCardBlur();
+				this.bubbleOpacityValue = this.readBubbleOpacity();
 				this.applyOcclusion();
 				this.applyInputCardBlur();
+				this.applyBubbleOpacity();
 				this.syncBlur();
 				scope.subscribe(() => {
 					this.enabledValue = this.readEnabled();
@@ -2523,8 +2574,10 @@ window.__ModuleLoader__.load({
 					this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
 					this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
 					this.inputCardBlurValue = this.readInputCardBlur();
+					this.bubbleOpacityValue = this.readBubbleOpacity();
 					this.applyOcclusion();
 					this.applyInputCardBlur();
+					this.applyBubbleOpacity();
 					this.syncBlur();
 					this.publish();
 				});
@@ -2542,6 +2595,7 @@ window.__ModuleLoader__.load({
 			blurEmpty = () => this.blurEmptyValue;
 			blurContent = () => this.blurContentValue;
 			inputCardBlur = () => this.inputCardBlurValue;
+			bubbleOpacity = () => this.bubbleOpacityValue;
 			subscribe = (listener) => {
 				this.listeners.add(listener);
 				return () => {
@@ -2578,6 +2632,13 @@ window.__ModuleLoader__.load({
 				this.publish();
 				this.scope.set(INPUT_CARD_BLUR_FIELD, clamped);
 			}
+			setBubbleOpacity(value) {
+				const clamped = this.clampPercent(value);
+				this.bubbleOpacityValue = clamped;
+				this.applyBubbleOpacity();
+				this.publish();
+				this.scope.set(BUBBLE_OPACITY_FIELD, clamped);
+			}
 			dispose() {
 				this.disposed = true;
 				if (this.rafId !== null) {
@@ -2586,6 +2647,7 @@ window.__ModuleLoader__.load({
 				}
 				this.removeBlurElement();
 				document.body.style.removeProperty(INPUT_CARD_BLUR_VAR);
+				document.body.style.removeProperty(BUBBLE_ALPHA_VAR);
 				if (this.observer !== null) {
 					this.observer.disconnect();
 					this.observer = null;
@@ -2607,6 +2669,11 @@ window.__ModuleLoader__.load({
 				if (typeof raw !== "number" || !Number.isFinite(raw)) return 10;
 				return this.clampBlur(raw);
 			}
+			readBubbleOpacity() {
+				const raw = this.scope.getSnapshot().value?.bubbleOpacity;
+				if (typeof raw !== "number" || !Number.isFinite(raw)) return 50;
+				return this.clampPercent(raw);
+			}
 			/** The effective blur section value for one field, clamped 0-20, defaulting to 0. */
 			readBlur(field) {
 				const raw = this.scope.getSnapshot().value?.[field];
@@ -2616,12 +2683,22 @@ window.__ModuleLoader__.load({
 			clampBlur(value) {
 				return Math.max(0, Math.min(20, Math.round(value)));
 			}
+			clampPercent(value) {
+				return Math.max(0, Math.min(100, Math.round(value)));
+			}
 			applyInputCardBlur() {
 				if (!this.enabledValue) {
 					document.body.style.removeProperty(INPUT_CARD_BLUR_VAR);
 					return;
 				}
 				document.body.style.setProperty(INPUT_CARD_BLUR_VAR, this.inputCardBlurValue + "px");
+			}
+			applyBubbleOpacity() {
+				if (!this.enabledValue) {
+					document.body.style.removeProperty(BUBBLE_ALPHA_VAR);
+					return;
+				}
+				document.body.style.setProperty(BUBBLE_ALPHA_VAR, String(this.bubbleOpacityValue / 100));
 			}
 			/** Write the current occlusion onto the body CSS variable (0..1 alpha). */
 			applyOcclusion() {
@@ -2745,6 +2822,8 @@ window.__ModuleLoader__.load({
 			backgroundBlurContent: "Blur with content",
 			inputCardBlur: "Input card blur",
 			inputCardBlurHint: "Blurs only the area behind the input card while backdrop art is visible; it does not blur the entire wallpaper.",
+			bubbleOpacity: "Bubble opacity",
+			bubbleOpacityHint: "Controls translucent message bubbles for skins that expose bubble alpha, such as Whale Mom.",
 			backgroundBlurHint: "Applies a separate Gaussian blur to the backdrop for the empty conversation and the conversation with content; 0 disables.",
 			backgroundBlurInert: "Visible only with skins that paint a backdrop; the official default has none.",
 			backgroundHint: "Instantly veils the backdrop behind the panels — higher values obscure the art to help you focus.",
@@ -2830,6 +2909,8 @@ window.__ModuleLoader__.load({
 			backgroundBlurContent: "有对话背景模糊",
 			inputCardBlur: "输入卡模糊",
 			inputCardBlurHint: "仅模糊输入卡背后的区域，不会让整张壁纸变糊。",
+			bubbleOpacity: "气泡不透明度",
+			bubbleOpacityHint: "调节支持气泡 alpha 的皮肤消息气泡，例如鲸鱼妈妈。",
 			backgroundBlurHint: "对话为空与有内容时分别应用不同的背景高斯模糊强度，0 为关闭。",
 			backgroundBlurInert: "仅对带背景图插画的皮肤可见；官方默认无背景图。",
 			backgroundHint: "即时为面板背后的背景加遮罩——数值越高越能弱化插画，帮你集中注意力。",
@@ -3269,6 +3350,23 @@ window.__ModuleLoader__.load({
 				});
 				return () => observer.disconnect();
 			});
+			/**
+			* Re-paint the current activation's background media for the live
+			* light/dark theme (the controller owns the layer, so a theme flip must
+			* swap the variant the same way an activation does). No-op when there is
+			* nothing painted or the manifest carries no backgroundMedia.
+			*/
+			function repaintBackgroundForTheme() {
+				if (active === null || currentActivation === null || lastEntry === null) return;
+				const media = lastEntry.manifest.contributes.backgroundMedia;
+				if (!media) return;
+				if (deps.suppressBackgroundMedia?.() === true) return;
+				const variant = themeGet() === "dark" ? media.dark ?? media.light : media.light ?? media.dark;
+				if (!variant) return;
+				const assetBase = `${apiBase}/skins/${lastEntry.manifest.id}`;
+				setBackgroundLayer(currentActivation, buildBackgroundMedia(doc, variant, assetBase));
+			}
+			const unsubscribeTheme = themeSubscribe(() => repaintBackgroundForTheme());
 			const loadStylesheet = deps.loadStylesheet ?? ((href) => new Promise((resolveLink, rejectLink) => {
 				const link = doc.createElement("link");
 				link.rel = "stylesheet";
@@ -3528,6 +3626,7 @@ window.__ModuleLoader__.load({
 				},
 				shutdown() {
 					latestRequest += 1;
+					unsubscribeTheme();
 					if (currentActivation !== null) {
 						ledger.disposeActivation(currentActivation);
 						currentActivation = null;
@@ -4075,11 +4174,13 @@ window.__ModuleLoader__.load({
 					blurEmpty: () => background.blurEmpty(),
 					blurContent: () => background.blurContent(),
 					inputCardBlur: () => background.inputCardBlur(),
+					bubbleOpacity: () => background.bubbleOpacity(),
 					subscribe: (listener) => background.subscribe(listener),
 					set: (opacity) => background.set(opacity),
 					setBlurEmpty: (value) => background.setBlurEmpty(value),
 					setBlurContent: (value) => background.setBlurContent(value),
 					setInputCardBlur: (value) => background.setInputCardBlur(value),
+					setBubbleOpacity: (value) => background.setBubbleOpacity(value),
 					dispose: () => background.dispose()
 				},
 				wallpaper: {

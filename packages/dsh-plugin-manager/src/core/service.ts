@@ -13,7 +13,7 @@
  * @module @linxin666/dsh-client-ui-plugin-manager/core
  */
 
-import type { InstallProgressItem, InstalledPluginItem } from './protocol.ts'
+import type { InstallProgressItem, InstalledPluginItem, PluginFailuresSnapshot } from './protocol.ts'
 
 /** The cordis service name the browser half provides the face under. */
 export const PLUGIN_MANAGER_SERVICE = 'pluginManager'
@@ -33,6 +33,19 @@ export interface PluginManagerService {
   uninstall(id: string): Promise<InstalledPluginItem[]>
   /** Read the current install/update progress. */
   status(): Promise<InstallProgressItem>
+  /**
+   * Read the recorded plugin boot-failure ring (plugin id, message, stack,
+   * install path). On runtimes without a failure ring the host answers an
+   * empty snapshot.
+   */
+  failures(): Promise<PluginFailuresSnapshot>
+  /**
+   * Flip one plugin's next-start enablement through the active channel (the
+   * official installer RPC when available, else the loopback gateway's patch
+   * `disabled` override row). The change takes effect after the host restart;
+   * a running plugin is not stopped.
+   */
+  setEnabled(id: string, enabled: boolean): Promise<InstalledPluginItem>
   /**
    * Subscribe to successful mutations: the callback runs after install(),
    * update(), uninstall(), or setEnabled() resolves. One listener throwing

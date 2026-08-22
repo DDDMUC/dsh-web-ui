@@ -41,12 +41,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/whale-art.webp",
+            "src": "packages/skins/skin-center/skins/whale-song/assets/whale-art.webp",
             "scrim": "linear-gradient(rgba(240, 246, 252, 0.05) 0%, rgba(234, 241, 250, 0.11) 55%, rgba(228, 237, 249, 0.16) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/whale-art.webp",
+            "src": "packages/skins/skin-center/skins/whale-song/assets/whale-art.webp",
             "scrim": "linear-gradient(rgba(6, 14, 36, 0.38) 0%, rgba(9, 19, 45, 0.48) 60%, rgba(13, 26, 58, 0.55) 100%)"
           }
         }
@@ -96,12 +96,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/whale-art.jpg",
+            "src": "packages/skins/skin-center/skins/blue-fantasy/assets/whale-art.jpg",
             "scrim": "linear-gradient(rgba(246, 248, 253, 0.08) 0%, rgba(240, 243, 251, 0.14) 55%, rgba(235, 239, 249, 0.2) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/whale-art.jpg",
+            "src": "packages/skins/skin-center/skins/blue-fantasy/assets/whale-art.jpg",
             "scrim": "linear-gradient(rgba(10, 14, 28, 0.35) 0%, rgba(13, 18, 34, 0.45) 60%, rgba(16, 22, 42, 0.5) 100%)"
           }
         }
@@ -153,12 +153,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/harbor-art.webp",
+            "src": "packages/skins/skin-center/skins/harbor/assets/harbor-art.webp",
             "scrim": "linear-gradient(rgba(20, 26, 46, 0.08) 0%, rgba(20, 26, 46, 0.16) 55%, rgba(20, 26, 46, 0.22) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/harbor-art.webp",
+            "src": "packages/skins/skin-center/skins/harbor/assets/harbor-art.webp",
             "scrim": "linear-gradient(rgba(11, 14, 26, 0.42) 0%, rgba(12, 16, 30, 0.52) 60%, rgba(14, 18, 34, 0.6) 100%)"
           }
         }
@@ -252,12 +252,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/light-art.webp",
+            "src": "packages/skins/skin-center/skins/dragon-heir/assets/light-art.webp",
             "scrim": "linear-gradient(rgba(240, 236, 224, 0.05) 0%, rgba(235, 228, 212, 0.09) 55%, rgba(228, 219, 199, 0.14) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/dark-art.webp",
+            "src": "packages/skins/skin-center/skins/dragon-heir/assets/dark-art.webp",
             "scrim": "linear-gradient(rgba(10, 6, 6, 0.14) 0%, rgba(14, 8, 7, 0.2) 60%, rgba(9, 5, 5, 0.24) 100%)"
           }
         }
@@ -396,12 +396,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/miku-art-light.jpg",
+            "src": "packages/skins/skin-center/skins/miku/assets/miku-art-light.jpg",
             "scrim": "linear-gradient(rgba(244, 250, 255, 0.5) 0%, rgba(235, 244, 255, 0.55) 55%, rgba(226, 238, 255, 0.62) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/miku-art.webp",
+            "src": "packages/skins/skin-center/skins/miku/assets/miku-art.webp",
             "scrim": "linear-gradient(rgba(4, 10, 28, 0.12) 0%, rgba(6, 14, 36, 0.16) 60%, rgba(8, 18, 42, 0.18) 100%)"
           }
         }
@@ -451,12 +451,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/whale-mom-art.jpg",
+            "src": "packages/skins/skin-center/skins/whale-mom/assets/whale-mom-art.jpg",
             "scrim": "linear-gradient(rgba(18, 28, 56, 0.10) 0%, rgba(20, 30, 60, 0.20) 55%, rgba(24, 34, 66, 0.30) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/whale-mom-art.jpg",
+            "src": "packages/skins/skin-center/skins/whale-mom/assets/whale-mom-art.jpg",
             "scrim": "linear-gradient(rgba(6, 10, 22, 0.42) 0%, rgba(8, 12, 26, 0.52) 60%, rgba(10, 15, 32, 0.62) 100%)"
           }
         }
@@ -592,12 +592,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/summer-liquid-glass-art.jpg",
+            "src": "packages/skins/skin-center/skins/summer-liquid-glass/assets/summer-liquid-glass-art.jpg",
             "scrim": "linear-gradient(rgba(7, 19, 33, 0.28) 0%, rgba(7, 19, 33, 0.22) 45%, rgba(7, 19, 33, 0.32) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/summer-liquid-glass-art.jpg",
+            "src": "packages/skins/skin-center/skins/summer-liquid-glass/assets/summer-liquid-glass-art.jpg",
             "scrim": "linear-gradient(rgba(7, 19, 33, 0.34) 0%, rgba(7, 19, 33, 0.28) 45%, rgba(7, 19, 33, 0.38) 100%)"
           }
         }
@@ -640,12 +640,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/furina-art.jpg",
+            "src": "packages/skins/skin-center/skins/furina/assets/furina-art.jpg",
             "scrim": "linear-gradient(rgba(246, 248, 253, 0.08) 0%, rgba(240, 243, 251, 0.08) 55%, rgba(235, 239, 249, 0.08) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/furina-art.jpg",
+            "src": "packages/skins/skin-center/skins/furina/assets/furina-art.jpg",
             "scrim": "linear-gradient(rgba(10, 14, 28, 0.1) 0%, rgba(13, 18, 34, 0.1) 60%, rgba(16, 22, 42, 0.1) 100%)"
           }
         }
@@ -727,12 +727,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/cyber-night-art.webp",
+            "src": "packages/skins/skin-center/skins/cyber-night/assets/cyber-night-art.webp",
             "scrim": "linear-gradient(rgba(244, 251, 255, 0.42) 0%, rgba(240, 249, 255, 0.52) 60%, rgba(236, 247, 255, 0.58) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/cyber-night-art.webp",
+            "src": "packages/skins/skin-center/skins/cyber-night/assets/cyber-night-art.webp",
             "scrim": "linear-gradient(rgba(5, 8, 18, 0.20) 0%, rgba(8, 12, 26, 0.26) 60%, rgba(12, 17, 34, 0.32) 100%)"
           }
         }
@@ -777,6 +777,34 @@ window.SKIN_MANIFEST = {
     {
       "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
       "skinManifestVersion": 2,
+      "id": "pink-sakura",
+      "name": "粉樱",
+      "nameEn": "Pink Sakura",
+      "version": "1.0.0",
+      "author": "guomengjia618-dot",
+      "tagline": "奶油粉与樱花玫瑰色组成的克制开发者主题",
+      "description": "粉樱以低饱和奶油粉、玫瑰强调色和暖灰文字重塑 DSH Web GUI。亮暗两态均保留成功、警告、错误等语义色，并通过 L2 语义属性覆盖任务看板、Git 图谱、SSH、设置卡和鲸鱼娘等插件区域；Wallpaper Engine 启用时自动切换为半透明面板。",
+      "tags": [
+        "pink",
+        "sakura",
+        "rose",
+        "developer",
+        "light-dark",
+        "wallpaper"
+      ],
+      "accent": "#ff7fae",
+      "order": 101,
+      "preview": {
+        "light": "packages/skins/skin-center/skins/pink-sakura/preview/light.png",
+        "dark": "packages/skins/skin-center/skins/pink-sakura/preview/dark.png"
+      },
+      "contributes": {
+        "stylesheet": "skin.css"
+      }
+    },
+    {
+      "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+      "skinManifestVersion": 2,
       "id": "wallpaper-exclusive",
       "name": "壁纸专属",
       "nameEn": "Wallpaper Exclusive",
@@ -801,12 +829,12 @@ window.SKIN_MANIFEST = {
         "backgroundMedia": {
           "light": {
             "type": "image",
-            "src": "assets/whale-art-v2.png",
+            "src": "packages/skins/skin-center/skins/wallpaper-exclusive/assets/whale-art-v2.png",
             "scrim": "linear-gradient(rgba(7, 19, 33, 0.18) 0%, rgba(7, 19, 33, 0.12) 45%, rgba(7, 19, 33, 0.22) 100%)"
           },
           "dark": {
             "type": "image",
-            "src": "assets/whale-art-v2.png",
+            "src": "packages/skins/skin-center/skins/wallpaper-exclusive/assets/whale-art-v2.png",
             "scrim": "linear-gradient(rgba(7, 19, 33, 0.34) 0%, rgba(7, 19, 33, 0.28) 45%, rgba(7, 19, 33, 0.38) 100%)"
           }
         }

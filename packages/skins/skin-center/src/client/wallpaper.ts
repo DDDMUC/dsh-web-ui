@@ -111,8 +111,9 @@ export interface WallpaperHandle {
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, Math.round(value)))
 
-/** Style one fixed, non-interactive, under-everything layer. */
-function styleLayer(element: HTMLElement, zIndex: number): void {
+/** Style one fixed, non-interactive, under-everything wallpaper layer. */
+function styleLayer(element: HTMLElement, zIndex: number, layer: 'media' | 'scrim'): void {
+  element.dataset.dshWallpaperLayer = layer
   element.style.position = 'fixed'
   element.style.inset = '0'
   element.style.zIndex = String(zIndex)
@@ -154,10 +155,10 @@ function hasVisibleAlpha(value: string): boolean {
   return Number.isFinite(alpha) && alpha > 0
 }
 
-/** Exclude modal and plugin surfaces that must remain readable above the shell. */
+/** Exclude owned layers plus modal/plugin surfaces that must retain their paint. */
 function isExcludedWallpaperSurface(el: HTMLElement, zIndex: string): boolean {
   const semanticOverlay = typeof el.closest === 'function'
-    && el.closest('dialog, [role="dialog"], [aria-modal="true"], [data-shell-overlay], [data-slot="shell.overlay"], [data-dsh-plugin]') !== null
+    && el.closest('[data-dsh-wallpaper-layer], dialog, [role="dialog"], [aria-modal="true"], [data-shell-overlay], [data-slot="shell.overlay"], [data-dsh-plugin]') !== null
   if (semanticOverlay) return true
   const numericZIndex = Number.parseFloat(zIndex)
   return Number.isFinite(numericZIndex) && numericZIndex > MAX_SURFACE_OVERLAY_Z_INDEX
@@ -656,11 +657,9 @@ export class WallpaperController implements WallpaperHandle {
           background-image: none !important;
         }
         /* Some skins (e.g. summer-liquid-glass) paint a frosted ::before on
-           the composer seat that backdrop-blurs the area behind the input.
-           While a WE wallpaper is mounted the wallpaper must stay sharp under
-           its own blur control, so neutralize the seat pseudo independently
-           of the shared scene marker (issue #777 / summer-liquid-glass). */
-        html[data-dsh-wallpaper-active] [data-composer-seat],
+           the composer seat. Neutralize that pseudo independently of the
+           shared scene marker, but leave the seat element itself available
+           for the content-gated readability frost (issues #777 and #951). */
         html[data-dsh-wallpaper-active] [data-composer-seat]::before {
           background: none !important;
           backdrop-filter: none !important;
@@ -695,7 +694,7 @@ export class WallpaperController implements WallpaperHandle {
     }
     if (this.mediaLayer === null) {
       this.mediaLayer = this.doc.createElement('div')
-      styleLayer(this.mediaLayer, -3)
+      styleLayer(this.mediaLayer, -3, 'media')
       this.doc.body.appendChild(this.mediaLayer)
     }
     if (this.scrimLayer !== null && !this.scrimLayer.isConnected) {
@@ -703,7 +702,7 @@ export class WallpaperController implements WallpaperHandle {
     }
     if (this.scrimLayer === null) {
       this.scrimLayer = this.doc.createElement('div')
-      styleLayer(this.scrimLayer, -2)
+      styleLayer(this.scrimLayer, -2, 'scrim')
       this.doc.body.appendChild(this.scrimLayer)
     }
     // Capabilities (videoUrl/sceneUrl) participate in the key: the lazy
@@ -1011,8 +1010,9 @@ export class WallpaperController implements WallpaperHandle {
       const node = stack.pop()
       if (node === undefined) continue
       if (!node.hasAttribute('data-dsh-wallpaper-surface')) {
+        const inWallpaperLayer = node.closest('[data-dsh-wallpaper-layer]') !== null
         const inWorkspaces = node.closest('[data-slot="sidebar.workspaces"]') !== null
-        if (isSurface(node) || (inWorkspaces && isFade(node, this.doc))) {
+        if (!inWallpaperLayer && (isSurface(node) || (inWorkspaces && isFade(node, this.doc)))) {
           node.setAttribute('data-dsh-wallpaper-surface', '')
           this.taggedSurfaces.add(node)
         }

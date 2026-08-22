@@ -106,6 +106,8 @@ export interface SkinBackgroundConfig {
   backgroundBlurContent?: number
   /** Backdrop blur on the composer card while backdrop art is visible. */
   inputCardBlur?: number
+  /** Message bubble opacity 0-100, consumed by skins that expose bubble alpha. */
+  bubbleOpacity?: number
 }
 
 /**
@@ -118,6 +120,7 @@ export const SkinBackgroundConfigSchema: z<SkinBackgroundConfig> = z.object({
   backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(0),
   backgroundBlurContent: z.number().min(0).max(20).step(1).default(0),
   inputCardBlur: z.number().min(0).max(20).step(1).default(10),
+  bubbleOpacity: z.number().min(0).max(100).step(5).default(50),
 })
 
 /**

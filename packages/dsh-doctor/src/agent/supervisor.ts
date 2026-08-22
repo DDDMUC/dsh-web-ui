@@ -5,9 +5,21 @@ import { DOCTOR_PROTOCOL_VERSION, isSupervisorRequest, type SupervisorRequest, t
 import { appendJsonLine, readJson, writeJsonAtomic } from '../core/store.ts'
 import { ensureToken, tokensEqual, type WireEnvelope } from './ipc.ts'
 import { doctorPaths, type DoctorPaths } from './paths.ts'
+import { provisionCapsule, removeCapsuleCredentialFiles } from './capsule.ts'
+import { resolveDshHome } from '../core/profile.ts'
+import { findRealDsh } from './launch.ts'
+import { currentPackageVersion } from './version.ts'
 import { emptyState, openIncident, recordFailure, snapshotOf, upsertProfile, type PersistedState } from './state.ts'
 
-export interface SupervisorOptions { paths?: DoctorPaths; version?: string; now?: () => string; heartbeatTimeoutMs?: number }
+export interface SupervisorOptions {
+  paths?: DoctorPaths
+  version?: string
+  now?: () => string
+  heartbeatTimeoutMs?: number
+  /** Capsule provisioning seam; tests inject a fake and skip real dsh runs. */
+  provisioner?: (paths: DoctorPaths) => Promise<void>
+}
+
 export class DoctorSupervisor {
   readonly paths: DoctorPaths
   private state: PersistedState = emptyState()
@@ -17,7 +29,17 @@ export class DoctorSupervisor {
   private readonly version: string
   private readonly now: () => string
   private readonly heartbeatTimeoutMs: number
-  constructor(options: SupervisorOptions = {}) { this.paths = options.paths ?? doctorPaths(); this.version = options.version ?? '0.2.8'; this.now = options.now ?? (() => new Date().toISOString()); this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 15_000 }
+  private readonly provisioner: ((paths: DoctorPaths) => Promise<void>) | undefined
+  private provisioning = false
+
+  constructor(options: SupervisorOptions = {}) {
+    this.paths = options.paths ?? doctorPaths()
+    this.version = options.version ?? currentPackageVersion()
+    this.now = options.now ?? (() => new Date().toISOString())
+    this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 15_000
+    this.provisioner = options.provisioner
+  }
+
   async start(): Promise<void> {
     await mkdir(this.paths.state, { recursive: true, mode: 0o700 })
     this.token = await ensureToken(this.paths.token)
@@ -38,7 +60,14 @@ export class DoctorSupervisor {
     this.sweep = setInterval(() => { void this.sweepHeartbeats() }, 5000); this.sweep.unref?.()
     await this.persist()
   }
-  async stop(): Promise<void> { if (this.sweep) clearInterval(this.sweep); if (this.server) await new Promise<void>(resolvePromise => this.server!.close(() => resolvePromise())); if (process.platform !== 'win32') await rm(this.paths.socket, { force: true }); await this.persist() }
+
+  async stop(): Promise<void> {
+    if (this.sweep) clearInterval(this.sweep)
+    if (this.server) await new Promise<void>(resolvePromise => this.server!.close(() => resolvePromise()))
+    if (process.platform !== 'win32') await rm(this.paths.socket, { force: true })
+    await this.persist()
+  }
+
   async handleWire(body: string): Promise<SupervisorResponse> {
     let envelope: WireEnvelope
     try { envelope = JSON.parse(body.trim()) as WireEnvelope } catch { return { ok: false, error: { code: 'INVALID_JSON', message: 'Invalid request' } } }
@@ -46,6 +75,7 @@ export class DoctorSupervisor {
     if (!isSupervisorRequest(envelope.request)) return { ok: false, error: { code: 'INVALID_REQUEST', message: 'Unsupported request' } }
     return this.handle(envelope.request)
   }
+
   async handle(request: SupervisorRequest): Promise<SupervisorResponse> {
     const at = this.now()
     if (request.type === 'status') return { ok: true, snapshot: snapshotOf(this.state, this.version, at) }
@@ -65,13 +95,18 @@ export class DoctorSupervisor {
     } else if (request.type === 'action') {
       if (request.action === 'pause') { this.state.paused = true; this.state.phase = 'disabled' }
       else if (request.action === 'resume') { this.state.paused = false; this.state.phase = 'armed' }
+      else if (request.action === 'provision') { await this.startProvision() }
+      else if (request.action === 'uninstall') { this.state.phase = 'uninstalling'; this.state.degradedReason = undefined; await this.cleanupCapsuleCredentials() }
       else if (request.incidentId) { const incident = this.state.incidents[request.incidentId]; if (incident) { incident.phase = request.action === 'rollback' ? 'rolled-back' : request.action === 'confirm' || request.action === 'repair' ? 'repairing' : request.action === 'diagnose' ? 'diagnosing' : incident.phase; if (request.action === 'diagnose' || request.action === 'repair' || request.action === 'confirm' || request.action === 'rollback') await this.runRecovery(request.action, request.incidentId, at) } }
     }
     await appendJsonLine(join(this.paths.logs, 'journal.jsonl'), { at, request: request.type })
     await this.persist()
     return { ok: true, snapshot: snapshotOf(this.state, this.version, at) }
   }
-  /** Run the deterministic recovery workflow for one incident; records the outcome on the incident. */
+
+  /**
+   * Run the deterministic recovery workflow for one incident; records the outcome on the incident.
+   */
   private async runRecovery(action: 'diagnose' | 'repair' | 'confirm' | 'rollback', incidentId: string, at: string): Promise<void> {
     const incident = this.state.incidents[incidentId]
     const profile = this.state.profiles[incident?.profileId ?? '']
@@ -102,8 +137,81 @@ export class DoctorSupervisor {
       incident.evidence = [...incident.evidence, 'recovery error: ' + (error instanceof Error ? error.message : String(error))]
     }
   }
-  private async persist(): Promise<void> { await writeJsonAtomic(join(this.paths.state, 'supervisor.json'), this.state) }
-  private async sweepHeartbeats(): Promise<void> { const at = this.now(); const now = Date.parse(at); for (const profile of Object.values(this.state.profiles)) { if (profile.phase === 'healthy' && profile.lastHealthyAt && now - Date.parse(profile.lastHealthyAt) > this.heartbeatTimeoutMs) { profile.phase = 'suspected'; openIncident(this.state, profile.identity.id, 'heartbeat-timeout', 'Doctor heartbeat timed out', [`last heartbeat: ${profile.lastHealthyAt}`], at) } } await this.persist() }
+
+  /**
+   * Enter the provisioning phase and refresh the rescue capsule in the
+   * background. The IPC response returns immediately with the provisioning
+   * snapshot; the outcome (armed or degraded) is persisted when the capsule
+   * run settles. Concurrent provision requests are coalesced.
+   */
+  async startProvision(): Promise<void> {
+    if (this.provisioning) return
+    this.provisioning = true
+    this.state.phase = 'provisioning'
+    await this.persist()
+    void this.finishProvision(this.runCapsuleProvision())
+  }
+
+  private async finishProvision(pending: Promise<void>): Promise<void> {
+    try {
+      await pending
+      this.state.phase = this.state.paused ? 'disabled' : 'armed'
+      this.state.degradedReason = undefined
+      this.state.capsuleVersion = this.version
+    } catch (error) {
+      this.state.phase = 'degraded'
+      this.state.degradedReason = 'capsule provision failed: ' + (error instanceof Error ? error.message : String(error))
+    } finally {
+      this.provisioning = false
+      await this.persist()
+    }
+  }
+
+  private async runCapsuleProvision(): Promise<void> {
+    if (this.provisioner !== undefined) {
+      await this.provisioner(this.paths)
+      return
+    }
+    const explicit = process.env.DSH_DOCTOR_REAL_DSH?.trim()
+    const first = Object.values(this.state.profiles).find(profile => profile.identity.role !== 'rescue')
+    const dshExecutable = explicit && explicit !== '' ? explicit : (first?.identity.dshExecutable ?? this.locateDsh())
+    const spec = process.env.DSH_DOCTOR_PACKAGE?.trim() || '@linxin666/dsh-doctor@' + this.version
+    const sourceHome = first?.identity.dshHome ?? resolveDshHome()
+    const sourceProfile = first?.identity.name ?? 'web'
+    await provisionCapsule({ paths: this.paths, dshExecutable, doctorSpec: spec, doctorPackageDir: process.env.DSH_DOCTOR_PACKAGE_DIR?.trim(), doctorVersion: this.version, sourceHome, sourceProfile, mirrorCredentials: process.env.DSH_DOCTOR_CREDENTIALS !== 'off' })
+  }
+
+  private async cleanupCapsuleCredentials(): Promise<void> {
+    try { await removeCapsuleCredentialFiles(this.paths) } catch { /* best effort */ }
+  }
+
+  private locateDsh(): string {
+    try { return findRealDsh() } catch { return 'dsh' }
+  }
+
+  private persistQueue: Promise<void> = Promise.resolve()
+
+  /** Serialized persist: concurrent handle/sweep writes queue instead of racing on the temp file. */
+  private persist(): Promise<void> {
+    const write = (): Promise<void> => writeJsonAtomic(join(this.paths.state, 'supervisor.json'), this.state)
+    this.persistQueue = this.persistQueue.catch(() => undefined).then(write)
+    return this.persistQueue
+  }
+
+  private async sweepHeartbeats(): Promise<void> {
+    const at = this.now(); const now = Date.parse(at)
+    for (const profile of Object.values(this.state.profiles)) {
+      if (profile.phase === 'healthy' && profile.lastHealthyAt && now - Date.parse(profile.lastHealthyAt) > this.heartbeatTimeoutMs) {
+        profile.phase = 'suspected'
+        openIncident(this.state, profile.identity.id, 'heartbeat-timeout', 'Doctor heartbeat timed out', ['last heartbeat: ' + profile.lastHealthyAt], at)
+      }
+    }
+    await this.persist()
+  }
 }
 
-export async function runSupervisor(): Promise<void> { const supervisor = new DoctorSupervisor(); await supervisor.start(); const stop = (): void => { void supervisor.stop().finally(() => process.exit(0)) }; process.on('SIGINT', stop); process.on('SIGTERM', stop) }
+export async function runSupervisor(): Promise<void> {
+  const supervisor = new DoctorSupervisor(); await supervisor.start()
+  const stop = (): void => { void supervisor.stop().finally(() => process.exit(0)) }
+  process.on('SIGINT', stop); process.on('SIGTERM', stop)
+}

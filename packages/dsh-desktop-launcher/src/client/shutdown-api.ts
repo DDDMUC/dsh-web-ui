@@ -12,7 +12,11 @@ import { LAUNCHER_API } from '../protocol.ts'
  * @returns settlement after the acknowledgement.
  */
 export async function requestShutdown(): Promise<void> {
-  const response = await fetch(LAUNCHER_API.shutdown, { method: 'POST' })
+  const response = await fetch(LAUNCHER_API.shutdown, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  })
   if (!response.ok) throw new Error('shutdown request failed (HTTP ' + String(response.status) + ')')
 }
 

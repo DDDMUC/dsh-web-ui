@@ -7,7 +7,9 @@ Supervisor plus a transparent Doctor Launcher keep an isolated rescue capsule
 ready, detect boot failures, process crashes, heartbeat timeouts, Web failures
 and browser white screens, and restore the profile through snapshots,
 deterministic repairs, isolated health gates and atomic promote or rollback.
-The package ships disabled by default and is enabled from its Doctor card in
+The package ships enabled by default: fresh installs and Web UI version
+updates boot with rescue mode active, while an explicit off choice in the
+Doctor card is preserved. It can be toggled from its Doctor card in
 Settings → Plugin configuration → Web UI plugins. It does not modify a DSH
 installation.
 
@@ -18,8 +20,17 @@ installation.
   Supervisor, and collects browser failure reports.
 - The Doctor Web Console (the family plugin card inside Settings → Plugin
   configuration → Web UI plugins) shows the system phase, protected profiles,
-  incidents and the client failure probe, and offers diagnose, repair, rollback,
-  pause, resume and uninstall actions alongside the enable switch.
+  incidents and the client failure probe, records Web UI plugins that were
+  enabled but never started, and offers diagnose, repair, rollback, pause and
+  resume actions alongside the enable switch plus a Service and capsule card:
+  one-click install, restart-upgrade and uninstall of the user-level service.
+- The Send to Harness window composes a troubleshooting prompt from the newest
+  recorded failure (summary plus error stack) and queues it into the current
+  DSH session as a new turn, so the user's agent can diagnose and fix it in
+  place; the prompt is editable and copyable before sending. Failed-plugin rows
+  also carry one-click Copy error and Disable and restart actions (disable
+  writes the profile patch enabled row through the plugin-manager channel and
+  takes effect after the host restart).
 - The Doctor Supervisor runs as a per-user background service. It classifies
   exits into user stops, task completion and real failures, applies the
   crash-loop circuit breaker, and owns rescue scheduling.
@@ -67,19 +78,35 @@ pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 ```
 
-Restart `dsh web`, open Settings → Plugin configuration → Web UI plugins, expand
-the Doctor card, and enable it. The package
+Restart `dsh web`, open Settings → Plugin configuration → Web UI plugins, and
+expand the Doctor card to confirm rescue mode is on (it is by default). The package
 also ships the `dsh-doctor` CLI for the Supervisor, the Launcher, provisioning
 and the user-level service adapters.
 
 ## Enable
 
-The enable flow is one transaction with rollback on failure: check the
-toolchain, locate the real `dsh` executable, provision the rescue capsule,
-verify the isolated recovery Web, install the per-user Supervisor service,
-register the launcher, register the current profile, take the first
-known-good snapshot, and finally switch the system to armed. A rescue profile
-is never a rescue target.
+After the Doctor card switches enable rescue mode on, the host half mounts the
+`/api/doctor/*` endpoints and starts reporting heartbeats. When the per-user
+Doctor Supervisor service is not installed yet, the host status shows Doctor
+offline and the Service and capsule card offers Install now: it regenerates and
+registers the user-level service from the current package (previous
+registration dropped first, then deploy and restart, idempotent), waits for
+the Supervisor to answer, and refreshes the rescue capsule when it is missing
+or pinned to a different Doctor version. The button shows Installing/repairing
+while the verb runs; failures surface the error code and stderr.
+
+## Update
+
+After an update, restart `dsh web` so the host half loads the new code, then
+click Restart and upgrade in the Service and capsule card (the button appears
+whenever the reported Supervisor version lags): it redeploys the user-level
+service and restarts the Supervisor with the new code, and refreshes the
+capsule when its pinned version differs. When the user changes a provider or
+its keys, the capsule credential fingerprint detects the drift and the same
+button re-mirrors the new configuration. When the package install path changed
+(new directory, new profile, reinstall), the previous service record points at
+a stale path and one click rewrites the service definition. The CLI
+`service-install` is idempotent and safe to repeat.
 
 ## CLI
 
@@ -90,13 +117,13 @@ The `dsh-doctor` binary exposes the operational commands:
 | `dsh-doctor supervisor` | run the Supervisor in the foreground |
 | `dsh-doctor launch [dsh args...]` | relay one `dsh` invocation under supervision |
 | `dsh-doctor status` | print the Supervisor snapshot as JSON |
-| `dsh-doctor provision` | provision or refresh the rescue capsule |
+| `dsh-doctor provision [profile] [--no-credentials]` | provision or refresh the rescue capsule (mirrors provider config and credentials with 0600; pinned to the current package version by default; `DSH_DOCTOR_PACKAGE`, `--no-credentials` and `DSH_DOCTOR_CREDENTIALS=off` adjust it) |
 | `dsh-doctor snapshot [profile]` | capture one profile snapshot |
 | `dsh-doctor diagnose [profile]` | diagnose and plan one profile without writing |
 | `dsh-doctor repair [profile] --allow-live` | run the staged repair transaction (gated promote) |
 | `dsh-doctor rollback <txnId>` | restore a promoted transaction from quarantine |
 | `dsh-doctor service-plan` | print the platform service files and commands |
-| `dsh-doctor service-install` | write the service files and register the service |
+| `dsh-doctor service-install` | write the service files and idempotently register the service (drop the old registration, deploy, restart) |
 | `dsh-doctor service-uninstall` | deregister and remove the service files |
 
 Exit codes: 0 ok, 1 repaired and verified, 2 attention needed, 3 blocked
@@ -108,7 +135,7 @@ The host settings namespace is `doctor`:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `enabled` | `false` | master switch; routes mount only when enabled |
+| `enabled` | `true` | master switch; routes mount only when enabled |
 | `fullProtection` | `true` | install the Supervisor and launcher on enable |
 | `autoRepair` | `true` | allow deterministic repairs to promote after verification |
 | `heartbeatIntervalMs` | `5000` | host heartbeat cadence |
@@ -121,6 +148,7 @@ Environment:
 | `DSH_DOCTOR_REAL_DSH` | absolute path of the real `dsh` executable |
 | `DSH_DOCTOR_PACKAGE` | package spec used to install the rescue Doctor |
 | `DSH_DOCTOR_PACKAGE_DIR` | local checkout to link during development |
+| `DSH_DOCTOR_CREDENTIALS` | when `off`, credential files are not mirrored into the rescue capsule (mirrored by default) |
 | `DSH_DOCTOR_ENDPOINT` | Supervisor endpoint injected by the launcher |
 | `DSH_DOCTOR_TOKEN` | one-run Supervisor token injected by the launcher |
 | `DSH_DOCTOR_RUN_ID` | one-run launch identity injected by the launcher |
@@ -163,8 +191,16 @@ recoverable across crashes.
   credentials and the redacted tier can never restore them.
 - The rescue capsule binds only to loopback and never reads the profile home
   overlay except during explicit inspection.
+- The rescue capsule mirrors the user profile settings and credential files
+  (settings.yaml / .credentials.yaml / .env and peers, mode 0600, canonical
+  names only, never backup variants); the manifest records file names and a
+  content fingerprint only and never holds the secrets themselves; uninstall
+  removes the mirror per the recorded list.
 - Writes are confined to `DSH_DOCTOR_HOME` and the package-owned files;
   profile mutations happen only through the official `dsh plugin` command.
+- One-click install, upgrade and uninstall only invoke this package's CLI with
+  argument arrays (launchctl / systemd --user / schtasks) and never enable a
+  shell.
 
 ## Known limitations
 

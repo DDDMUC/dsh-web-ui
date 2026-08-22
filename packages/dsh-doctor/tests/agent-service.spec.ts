@@ -1,5 +1,8 @@
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { servicePlan } from '../src/agent/service.ts'
+import { ensureServiceInstalled, removeService, servicePlan, type ServiceRunner } from '../src/agent/service.ts'
 
 const base = { label: 'com.dsh.doctor', executable: '/usr/local/bin/node', args: ['/usr/local/lib/cli.js', 'supervisor'], doctorHome: '/Users/u/.dsh-doctor' }
 
@@ -38,5 +41,62 @@ describe('service adapters', () => {
 
   it('rejects unknown platforms', () => {
     expect(() => servicePlan({ ...base, platform: 'freebsd' as never })).toThrow(/unsupported service platform/)
+  })
+
+  it('carries a restart command for every platform', () => {
+    expect(servicePlan({ ...base, platform: 'darwin' }, { HOME: '/Users/u' }).restart[1]).toBe('kickstart')
+    expect(servicePlan({ ...base, platform: 'linux' }, { XDG_CONFIG_HOME: '/home/u/.config' }).restart[2]).toBe('restart')
+    expect(servicePlan({ ...base, platform: 'win32' }, { LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local' }).restart[0]).toBe('schtasks')
+  })
+})
+
+describe('service redeploy', () => {
+  it('boots out the previous registration, writes files, bootstraps and restarts', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-svc-'))
+    const plan = servicePlan({ ...base, platform: 'darwin' }, { HOME: dir })
+    const calls: string[][] = []
+    const runner: ServiceRunner = async command => { calls.push(command) }
+    try {
+      await ensureServiceInstalled(plan, runner)
+      expect(calls.map(call => call.slice(0, 2))).toEqual([
+        ['launchctl', 'bootout'],
+        ['launchctl', 'bootstrap'],
+        ['launchctl', 'kickstart'],
+      ])
+      await expect(readFile(plan.files[0]!.path, 'utf8')).resolves.toContain('com.dsh.doctor')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('tolerates a missing previous registration and a failed restart', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-svc-'))
+    const plan = servicePlan({ ...base, platform: 'darwin' }, { HOME: dir })
+    let called = 0
+    const runner: ServiceRunner = async () => {
+      called += 1
+      if (called === 1) throw new Error('no such service')
+      if (called === 3) throw new Error('not loaded')
+    }
+    try {
+      await expect(ensureServiceInstalled(plan, runner)).resolves.toBeUndefined()
+      expect(called).toBe(3)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('unregisters and removes the definition files', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-svc-'))
+    const plan = servicePlan({ ...base, platform: 'darwin' }, { HOME: dir })
+    await ensureServiceInstalled(plan, async () => {})
+    const calls: string[][] = []
+    try {
+      await removeService(plan, async command => { calls.push(command) })
+      expect(calls.map(call => call.slice(0, 2))).toEqual([['launchctl', 'bootout']])
+      await expect(stat(plan.files[0]!.path)).rejects.toThrow()
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })

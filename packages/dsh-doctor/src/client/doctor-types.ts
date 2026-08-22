@@ -108,11 +108,13 @@ export interface DoctorSnapshot {
   degradedReason?: string
 }
 
-/** Wire body of every /api/doctor endpoint (SupervisorResponse). */
+/** Wire body of every /api/doctor endpoint (SupervisorResponse plus the host envelope). */
 export interface DoctorSupervisorResponse {
   ok?: boolean
   snapshot?: DoctorSnapshot
   error?: { code?: string; message?: string }
+  /** Version of the host half (package.json); compares with snapshot.version. */
+  hostVersion?: string
 }
 
 /** Allowed actions accepted by POST /api/doctor/action. */

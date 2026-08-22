@@ -13,6 +13,7 @@ vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
 }))
 import { apply } from '../src/client/index.ts'
 import { createDesktopShortcut, DesktopLauncherApiError } from '../src/client/api.ts'
+import { requestShutdown } from '../src/client/shutdown-api.ts'
 
 describe('desktop-launcher client apply', () => {
   afterEach(() => {
@@ -70,7 +71,20 @@ describe('createDesktopShortcut api', () => {
       expect(result.path).toBe('/desktop/DSH.lnk')
       const [url, init] = fetchMock.mock.calls[0]!
       expect(url).toBe('/api/dsh-desktop-launcher/create')
-      expect(init?.method).toBe('POST')
+      expect(init).toEqual({
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('reports a plain-text transport error without hiding its detail', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('content type must be application/json', { status: 415 })))
+    try {
+      await expect(createDesktopShortcut()).rejects.toThrow('HTTP 415: content type must be application/json')
     } finally {
       vi.unstubAllGlobals()
     }
@@ -89,6 +103,22 @@ describe('createDesktopShortcut api', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ result: { ok: false } }), { status: 200 })))
     try {
       await expect(createDesktopShortcut()).rejects.toThrow(DesktopLauncherApiError)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe('requestShutdown api', () => {
+  it('sends a valid empty JSON request', async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      await requestShutdown()
+      expect(fetchMock.mock.calls[0]).toEqual([
+        '/api/dsh-desktop-launcher/shutdown',
+        { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      ])
     } finally {
       vi.unstubAllGlobals()
     }

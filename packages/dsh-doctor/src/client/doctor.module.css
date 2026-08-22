@@ -285,3 +285,89 @@
   color: var(--dsw-alias-label-primary, #1f2328);
   font-size: 12px;
 }
+
+/* Send-to-Harness dialog overlay. */
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.dialog {
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--dsw-alias-border-l2, #d0d7de);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1, #ffffff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dialogLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+
+.dialogTextarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 8px;
+  border: 1px solid var(--dsw-alias-border-l1, #d0d7de);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-base, #ffffff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.dialogTarget {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+
+.dialogTargetValue {
+  overflow-wrap: anywhere;
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+/* Per-failed-plugin row actions. */
+.rowActions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.miniButton {
+  padding: 1px 8px;
+  border: 1px solid var(--dsw-alias-border-l1, #d0d7de);
+  border-radius: 5px;
+  background: var(--dsw-alias-bg-base, #ffffff);
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.miniButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

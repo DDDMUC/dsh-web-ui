@@ -18,6 +18,9 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DoctorController, DoctorView } from './doctor-controller.ts'
 import type { DoctorSettingsHandle, DoctorSettingsState } from './doctor-settings.ts'
 import type { PassiveIncident } from './doctor-passive.ts'
+import { composeHarnessPrompt, type HarnessFailureInput } from './harness-send.ts'
+import { HarnessSendDialog } from './HarnessSendDialog.tsx'
+import { copyText } from './clipboard.ts'
 import type { DoctorKey } from './locales.ts'
 import css from './doctor.module.css'
 
@@ -63,7 +66,50 @@ export function DoctorRecoveryConsole(props: DoctorConsoleProps): ReactNode {
   const settingsState = useSyncExternalStore(adapter.listen, adapter.getState)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | undefined>(undefined)
+  const [harnessOpen, setHarnessOpen] = useState(false)
+  const [harnessBusy, setHarnessBusy] = useState(false)
+  const [harnessError, setHarnessError] = useState<string | undefined>(undefined)
   const toggleLock = useRef(false)
+
+  // Composed send-to-Harness facts (recomputed per render; the dialog seeds
+  // its editable text only when it opens).
+  const harnessFailure = newestFailure(t, view)
+  const harnessInitialText = harnessFailure === undefined
+    ? ''
+    : composeHarnessPrompt(harnessFailure, {
+      webVersion: view.hostVersion,
+      supervisorVersion: view.snapshot?.version,
+    }, {
+      title: t('harness.prompt.title'),
+      summary: t('harness.prompt.summary'),
+      kind: t('harness.prompt.kind'),
+      stack: t('harness.prompt.stack'),
+      environment: t('harness.prompt.environment'),
+    })
+  const harnessTarget = controller.harnessTarget()
+  const hasFailures = view.probe.length > 0 || view.incidents.length > 0
+
+  const openHarness = (): void => {
+    setHarnessError(undefined)
+    setHarnessOpen(true)
+  }
+
+  const sendHarness = async (text: string): Promise<void> => {
+    setHarnessBusy(true)
+    setHarnessError(undefined)
+    try {
+      const result = await controller.sendToHarness(text)
+      if (result.ok) {
+        setHarnessOpen(false)
+      } else {
+        setHarnessError(result.message)
+      }
+    } catch (error) {
+      setHarnessError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setHarnessBusy(false)
+    }
+  }
 
   const toggleEnabled = async (): Promise<void> => {
     if (settingsState.status !== 'ready' || !settingsState.writable || toggleLock.current) return
@@ -135,22 +181,67 @@ export function DoctorRecoveryConsole(props: DoctorConsoleProps): ReactNode {
         {() => (
           <div className={css.dynamic}>
             <StatusCard t={t} view={view} settings={settingsState} />
+            <LifecycleCard
+              t={t}
+              view={view}
+              onEnsure={() => { void controller.runProvision() }}
+              onUninstall={() => { void controller.runUninstall() }}
+            />
             <IncidentsCard t={t} view={view} />
-            <ProbeCard t={t} view={view} />
+            <ProbeCard t={t} view={view} controller={controller} />
             <ActionsCard
               t={t}
               view={view}
               onDiagnose={() => { void controller.runDiagnose() }}
               onRepair={() => { void controller.runRepair() }}
               onReport={() => { void controller.reportProbe() }}
+              onSendToHarness={openHarness}
               onRefresh={() => { void controller.refresh() }}
               onClear={() => { controller.clearProbe() }}
+              hasFailures={hasFailures}
             />
           </div>
         )}
       </DoctorErrorBoundary>
+      <HarnessSendDialog
+        t={t}
+        open={harnessOpen}
+        initialText={harnessInitialText}
+        target={harnessTarget}
+        canSend={hasFailures && harnessTarget !== undefined}
+        busy={harnessBusy}
+        error={harnessError}
+        onClose={() => { if (!harnessBusy) setHarnessOpen(false) }}
+        onSend={(text) => { void sendHarness(text) }}
+      />
     </section>
   )
+}
+
+/** Newest recorded failure for the send-to-Harness prompt (probe first, then supervisor incidents). */
+function newestFailure(t: TranslateNS<'doctor'>, view: DoctorView): HarnessFailureInput | undefined {
+  const probe = view.probe[view.probe.length - 1]
+  if (probe !== undefined) {
+    try {
+      return {
+        summary: probe.message,
+        kind: t(probeKindKey(probe.kind)),
+        stack: probe.detail,
+        at: probe.at,
+      }
+    } catch {
+      return { summary: probe.message, stack: probe.detail, at: probe.at }
+    }
+  }
+  const incident = view.incidents[view.incidents.length - 1]
+  if (incident === undefined) return undefined
+  const evidence = (incident.evidence ?? []).filter((line: unknown): line is string => typeof line === 'string' && line.trim() !== '')
+  return {
+    summary: incident.summary,
+    kind: kindLabel(t, incident.kind),
+    stack: evidence.join('\n'),
+    at: incident.updatedAt === undefined ? undefined : parseTime(incident.updatedAt),
+  }
 }
 
 /** Enable-switch helper copy. */
@@ -180,14 +271,59 @@ function StatusCard({ t, view, settings }: { t: TranslateNS<'doctor'>; view: Doc
       </p>
       {settings.status === 'ready' && settings.enabled !== true && <p className={css.hint}>{t('host.disabledHint')}</p>}
       {view.lastError !== undefined && <p className={css.errorLine} role="status">{view.lastError}</p>}
-      {view.host === 'unavailable' && <p className={css.hint}>{t('host.unavailableHint')}</p>}
+      {view.host === 'unavailable' && <p className={css.hint}>{offlineHint(t, view.lastErrorCode)}</p>}
       {view.snapshot?.degradedReason !== undefined && <p className={css.hint}>{view.snapshot.degradedReason}</p>}
       {view.snapshot?.version !== undefined && (
-        <p className={css.meta}>{t('snapshot.version', { version: view.snapshot.version })}</p>
+        <p className={css.meta}>{view.hostVersion !== undefined
+          ? t('lifecycle.version', { supervisor: view.snapshot.version, web: view.hostVersion })
+          : t('snapshot.version', { version: view.snapshot.version })}</p>
       )}
       <ProfilesList t={t} view={view} />
     </div>
   )
+}
+
+/** Lifecycle card: one-click service install/repair/upgrade and uninstall. */
+function LifecycleCard({ t, view, onEnsure, onUninstall }: { t: TranslateNS<'doctor'>; view: DoctorView; onEnsure: () => void; onUninstall: () => void }): ReactNode {
+  const busy = view.actionRunning
+  const offline = view.host === 'unavailable'
+  const version = view.snapshot?.version
+  const mismatch = !offline && version !== undefined && view.hostVersion !== undefined && version !== view.hostVersion
+  const ensureLabel = offline && view.lastErrorCode === 'SUPERVISOR_UNPROVISIONED'
+    ? t('lifecycle.install')
+    : offline
+      ? t('lifecycle.repair')
+      : mismatch
+        ? t('lifecycle.upgrade')
+        : undefined
+  return (
+    <div className={css.card} data-dsh-part="lifecycle">
+      <h3 className={css.cardTitle}>{t('lifecycle.title')}</h3>
+      {offline && view.lastErrorCode === 'SUPERVISOR_UNPROVISIONED' && <p className={css.hint}>{t('lifecycle.neverInstalled')}</p>}
+      {offline && view.lastErrorCode === 'SUPERVISOR_DOWN' && <p className={css.hint}>{t('lifecycle.serviceDown')}</p>}
+      {mismatch && <p className={css.hint}>{t('lifecycle.versionMismatch', { supervisor: version ?? '', web: view.hostVersion ?? '' })}</p>}
+      <div className={css.actionRow}>
+        {ensureLabel !== undefined && (
+          <button type="button" className={css.button} data-variant="primary" data-testid="doctor-ensure-button" disabled={busy} onClick={onEnsure}>
+            {busy ? t('lifecycle.running') : ensureLabel}
+          </button>
+        )}
+        {!offline && (
+          <button type="button" className={css.button} data-testid="doctor-uninstall-button" disabled={busy} onClick={onUninstall}>
+            {t('lifecycle.uninstall')}
+          </button>
+        )}
+      </div>
+      {!offline && <p className={css.meta}>{t('lifecycle.uninstallHint')}</p>}
+    </div>
+  )
+}
+
+/** Offline copy keyed by the host failure code. */
+function offlineHint(t: TranslateNS<'doctor'>, code: string | undefined): string {
+  if (code === 'SUPERVISOR_UNPROVISIONED') return t('api.unprovisioned')
+  if (code === 'SUPERVISOR_DOWN') return t('api.supervisorDown')
+  return t('host.unavailableHint')
 }
 
 /** Protected profile rows. */
@@ -246,7 +382,18 @@ function IncidentsCard({ t, view }: { t: TranslateNS<'doctor'>; view: DoctorView
 }
 
 /** Browser probe card (passive incidents). */
-function ProbeCard({ t, view }: { t: TranslateNS<'doctor'>; view: DoctorView }): ReactNode {
+function ProbeCard({ t, view, controller }: { t: TranslateNS<'doctor'>; view: DoctorView; controller: DoctorController }): ReactNode {
+  const [copiedId, setCopiedId] = useState<string | undefined>(undefined)
+  const copyFailure = (incident: PassiveIncident): void => {
+    const stack = failureStackFor(incident, view)
+    const text = t(probeKindKey(incident.kind)) + ': ' + incident.message + (stack !== '' ? '\n\n' + stack : '')
+    void copyText(text).then(ok => {
+      if (ok) setCopiedId(incident.id)
+    })
+  }
+  const disablePlugin = (incident: PassiveIncident): void => {
+    void controller.disablePlugin(pluginIdOf(incident.message))
+  }
   return (
     <div className={css.card} data-dsh-part="probe">
       <h3 className={css.cardTitle}>{t('probe.title')}</h3>
@@ -259,6 +406,28 @@ function ProbeCard({ t, view }: { t: TranslateNS<'doctor'>; view: DoctorView }):
                 <span className={css.dot} data-state={incident.kind === 'unhandled-rejection' ? 'warn' : 'fail'} />
                 <span className={css.incidentTitle}>{t(probeKindKey(incident.kind))}</span>
                 <span className={css.incidentDetail}>{probeIncidentText(t, incident)}</span>
+                {incident.kind === 'plugin-startup-failure' && (
+                  <span className={css.rowActions} data-dsh-part="plugin-row-actions">
+                    <button
+                      type="button"
+                      className={css.miniButton}
+                      data-testid={'doctor-copy-' + String(index)}
+                      disabled={controller.getSnapshot().actionRunning}
+                      onClick={() => { copyFailure(incident) }}
+                    >
+                      {copiedId === incident.id ? t('actions.copied') : t('actions.copyError')}
+                    </button>
+                    <button
+                      type="button"
+                      className={css.miniButton}
+                      data-testid={'doctor-disable-' + String(index)}
+                      disabled={controller.getSnapshot().actionRunning}
+                      onClick={() => { disablePlugin(incident) }}
+                    >
+                      {t('actions.disable')}
+                    </button>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -272,15 +441,33 @@ function ProbeCard({ t, view }: { t: TranslateNS<'doctor'>; view: DoctorView }):
   )
 }
 
+/** The plugin id recorded in a startup-failure probe message. */
+export function pluginIdOf(message: string): string {
+  const prefix = 'plugin failed to start: '
+  return message.startsWith(prefix) ? message.slice(prefix.length) : message
+}
+
+/** Best available stack for one probe failure: probe detail, then the plugin-manager ring. */
+function failureStackFor(incident: PassiveIncident, view: DoctorView): string {
+  if (incident.kind !== 'plugin-startup-failure') return incident.detail ?? ''
+  if (incident.detail !== undefined && incident.detail !== '') return incident.detail
+  const id = pluginIdOf(incident.message)
+  const recorded = view.pluginFailures.find(item => item.pluginId === id)
+  return recorded?.stack ?? ''
+}
+
 /** Actions card. */
-function ActionsCard({ t, view, onDiagnose, onRepair, onReport, onRefresh, onClear }: {
+function ActionsCard({ t, view, onDiagnose, onRepair, onReport, onSendToHarness, onRefresh, onClear, hasFailures }: {
   t: TranslateNS<'doctor'>
   view: DoctorView
   onDiagnose: () => void
   onRepair: () => void
   onReport: () => void
+  onSendToHarness: () => void
   onRefresh: () => void
   onClear: () => void
+  /** Whether a recorded failure exists to compose the prompt from. */
+  hasFailures: boolean
 }): ReactNode {
   const busy = view.actionRunning
   const offline = view.host === 'unavailable'
@@ -298,6 +485,9 @@ function ActionsCard({ t, view, onDiagnose, onRepair, onReport, onRefresh, onCle
         <button type="button" className={css.button} disabled={busy || offline || view.probe.length === 0} onClick={onReport}>
           {t('actions.report')}
         </button>
+        <button type="button" className={css.button} data-variant="primary" disabled={busy || !hasFailures} onClick={onSendToHarness}>
+          {t('actions.sendToHarness')}
+        </button>
         <button type="button" className={css.button} disabled={busy || offline} onClick={onRefresh}>
           {t('actions.refresh')}
         </button>
@@ -311,8 +501,17 @@ function ActionsCard({ t, view, onDiagnose, onRepair, onReport, onRefresh, onCle
 }
 
 /** Action result line. */
-function ActionOutcome({ t, outcome }: { t: TranslateNS<'doctor'>; outcome: { ok: boolean; kind?: 'reported' | 'completed'; message?: string } }): ReactNode {
-  if (outcome.ok) return <p className={css.meta} role="status">{outcome.kind === 'reported' ? t('actions.reported') : t('actions.completed')}</p>
+function ActionOutcome({ t, outcome }: { t: TranslateNS<'doctor'>; outcome: { ok: boolean; kind?: 'reported' | 'completed' | 'sent' | 'disabled'; id?: string; message?: string } }): ReactNode {
+  if (outcome.ok) {
+    const label = outcome.kind === 'reported'
+      ? t('actions.reported')
+      : outcome.kind === 'sent'
+        ? t('actions.sent')
+        : outcome.kind === 'disabled'
+          ? t('actions.disabled', { id: outcome.id ?? '' })
+          : t('actions.completed')
+    return <p className={css.meta} role="status">{label}</p>
+  }
   return <p className={css.errorLine} role="status">{outcome.message ?? t('api.supervisor', { reason: '' })}</p>
 }
 
@@ -371,6 +570,7 @@ function probeKindKey(kind: PassiveIncident['kind']): DoctorKey {
     case 'unhandled-rejection': return 'kind.unhandled-rejection'
     case 'react-boundary': return 'kind.react-boundary'
     case 'connection-reset': return 'kind.connection-reset'
+    case 'plugin-startup-failure': return 'kind.plugin-startup-failure'
   }
 }
 

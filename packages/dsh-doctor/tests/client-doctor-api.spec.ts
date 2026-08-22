@@ -63,6 +63,12 @@ describe('parseSupervisorResponse', () => {
     expect(parseSupervisorResponse([1])).toBeUndefined()
   })
 
+  it('reads the host version envelope field', () => {
+    const parsed = parseSupervisorResponse({ ok: true, snapshot: {}, hostVersion: '1.2.3' })
+    expect(parsed?.hostVersion).toBe('1.2.3')
+    expect(parseSupervisorResponse({ ok: true, snapshot: {}, hostVersion: 4 })?.hostVersion).toBeUndefined()
+  })
+
   it('preserves the business error', () => {
     const parsed = parseSupervisorResponse({ ok: false, error: { code: 'SUPERVISOR_DOWN', message: 'socket gone' } })
     expect(parsed?.ok).toBe(false)
@@ -103,6 +109,32 @@ describe('DoctorApi.status', () => {
     const { api } = apiWith(async () => jsonResponse(404, {}))
     const result = await api.status()
     expect(result).toMatchObject({ ok: false, kind: 'not-available', status: 404 })
+  })
+
+  it('maps 503 SUPERVISOR_UNPROVISIONED to the service kind with its code', async () => {
+    const { api } = apiWith(async () => jsonResponse(503, { ok: false, error: { code: 'SUPERVISOR_UNPROVISIONED', message: 'ENOENT token' } }))
+    const result = await api.status()
+    expect(result).toMatchObject({ ok: false, kind: 'unprovisioned', status: 503, code: 'SUPERVISOR_UNPROVISIONED' })
+    expect(result).toMatchObject({ message: 'ENOENT token' })
+  })
+
+  it('maps 503 SUPERVISOR_DOWN to the supervisor-down kind', async () => {
+    const { api } = apiWith(async () => jsonResponse(503, { ok: false, error: { code: 'SUPERVISOR_DOWN', message: 'ECONNREFUSED' } }))
+    const result = await api.status()
+    expect(result).toMatchObject({ ok: false, kind: 'supervisor-down', code: 'SUPERVISOR_DOWN' })
+  })
+
+  it('degrades an unexpected 503 body to http', async () => {
+    const { api } = apiWith(async () => jsonResponse(503, {}) )
+    const result = await api.status()
+    expect(result).toMatchObject({ ok: false, kind: 'http', status: 503 })
+  })
+
+  it('carries the host version from the envelope', async () => {
+    const { api } = apiWith(async () => jsonResponse(200, supervisorBody({ hostVersion: '9.9.9' })))
+    const result = await api.status()
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.hostVersion).toBe('9.9.9')
   })
 
   it('maps a 200 HTML fallback to not-available', async () => {

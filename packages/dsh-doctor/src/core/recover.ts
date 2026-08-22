@@ -11,28 +11,32 @@
  * is injected so the flow is hermetic in tests.
  */
 import { createRequire } from 'node:module'
+import { join, resolve } from 'node:path'
 import { createYamlEngine, type YamlEngine } from './yaml.ts'
-import { createLockManager } from './lock.ts'
-import { createJournal } from './journal.ts'
+import { createLockManager, LockError } from './lock.ts'
+import { createJournal, type Journal } from './journal.ts'
 import { captureSnapshot, listProfileFiles } from './snapshot.ts'
 import { diagnoseProfile, diagnoseFallback } from './diagnose.ts'
 import { planRepair } from './plan.ts'
-import { createCandidateTransaction, type CandidateTransactionDeps } from './transaction.ts'
+import { createCandidateTransaction, type CandidateTransaction, type CandidateTransactionDeps } from './transaction.ts'
 import { redactText } from './redact.ts'
 import { readProfileManifest } from './manifest.ts'
 import { parsePatchList } from './patch.ts'
-import { nodeFs, type FsLike } from './fs.ts'
+import { movePath, nodeFs, type FsLike } from './fs.ts'
+import { writeJsonAtomicFs } from './store.ts'
 import type { GateDeps as GateDepsAlias } from './gates.ts'
 import { runDumpDefaultGate, runStartGate } from './gates.ts'
 import {
   doctorRoot,
   journalPath,
+  quarantineDir,
   resolveProfileDir,
   profilesDir,
   snapshotsDir,
+  validateSegment,
   workDir,
 } from './paths.ts'
-import type { Diagnostic, GateReport, PlanAction } from './types.ts'
+import type { CandidateRecord, Diagnostic, GateReport, PlanAction } from './types.ts'
 
 const nodeRequire = createRequire(import.meta.url)
 
@@ -74,6 +78,9 @@ export interface RecoveryOutcome {
   txnId?: string
   message?: string
 }
+
+/** Inputs needed to restore an existing transaction; no DSH process is run. */
+export type RollbackRequest = Pick<RecoveryRequest, 'home' | 'profile' | 'fs' | 'now' | 'clock' | 'pid' | 'pidAlive'>
 
 export interface RealGateOptions {
   /** Extra env for the gate runs (default process.env). */
@@ -254,7 +261,26 @@ export async function repairProfile(request: RecoveryRequest, gateOptions: RealG
     profileLock = await locks.acquire('profile', request.profile, { intent: 'repair' })
     const diagnosis = await diagnoseAndPlan(request)
     const snapshotResult = await snapshotProfile(request)
-    const txnDeps: CandidateTransactionDeps = { fs, home, profile: request.profile, now, journal }
+    const txnDeps: CandidateTransactionDeps = {
+      fs,
+      home,
+      profile: request.profile,
+      now,
+      journal,
+      beforePromote: async (record) => {
+        // The staged record is a durable promotion intent. Persist it while
+        // both leases are owned and before the first live-profile rename.
+        await globalLock.touch(clock())
+        if (profileLock === undefined) throw new LockError('LOCK_LOST', 'profile', 'profile/' + request.profile, 'profile lock is no longer held')
+        await profileLock.touch(clock())
+        await writeTransactionRecord(fs, home, record)
+      },
+      beforeCompensation: async () => {
+        await globalLock.touch(clock())
+        if (profileLock === undefined) throw new LockError('LOCK_LOST', 'profile', 'profile/' + request.profile, 'profile lock is no longer held')
+        await profileLock.touch(clock())
+      },
+    }
     const txn = createCandidateTransaction(txnDeps)
     if (diagnosis.actions.length === 0 && diagnosis.manualActions.length > 0) {
       await journal.append({ op: 'repair:manual-required', ok: false, detail: { profile: request.profile, manual: diagnosis.manualActions } })
@@ -295,20 +321,53 @@ export async function repairProfile(request: RecoveryRequest, gateOptions: RealG
       await journal.append({ op: 'repair:gates-failed', ok: false, detail: { txn: txn.txnId, report: gateReports } })
       return { ok: false, phase: 'aborted', diagnostics: diagnosis.diagnostics, actions: diagnosis.actions, manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, gates: gateReports, txnId: txn.txnId, message: 'candidate failed the isolated health gates' }
     }
-    await txn.promote()
-    await journal.append({ op: 'repair:promote', ok: true, detail: { txn: txn.txnId } })
-    await fs.mkdir(doctorRoot(home) + '/transactions', { recursive: true })
-    await fs.writeText(doctorRoot(home) + '/transactions/' + txn.txnId + '.json', JSON.stringify(txn.record, null, 2) + '\n')
-    const liveEnv = gateEnvironmentOf(request, gateOptions, home)
-    const liveDump = await runDumpDefaultGateSafe(gates, request.dshPath, home, request.profile, liveEnv, gateOptions.timeoutMs)
-    if (!liveDump.ok) {
-      await txn.rollback()
-      await journal.append({ op: 'repair:live-verify-failed', ok: false, detail: { txn: txn.txnId } })
-      return { ok: false, phase: 'rolled-back', diagnostics: diagnosis.diagnostics, actions: diagnosis.actions, manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, gates: gateReports, txnId: txn.txnId, message: 'live verification failed after promote; rolled back' }
+    // Surface a lost background lease before the first live-profile mutation.
+    await globalLock.touch(clock())
+    await profileLock.touch(clock())
+    try {
+      await txn.promote()
+      // Persist the promoted layout before any auxiliary journal write. If
+      // lease verification then fails, a new owner can recover from this
+      // record without relying on the in-memory transaction object.
+      await writeTransactionRecord(fs, home, txn.record)
+      await globalLock.touch(clock())
+      await profileLock.touch(clock())
+      await journal.append({ op: 'repair:promote', ok: true, detail: { txn: txn.txnId } })
+      const liveEnv = gateEnvironmentOf(request, gateOptions, home)
+      const liveDump = await runDumpDefaultGateSafe(gates, request.dshPath, home, request.profile, liveEnv, gateOptions.timeoutMs)
+      // A live verification can outlast the lease interval. Revalidate both
+      // generations before rollback or commit mutates the promoted layout.
+      await globalLock.touch(clock())
+      await profileLock.touch(clock())
+      if (!liveDump.ok) {
+        await rollbackPromotedFailure(fs, home, journal, txn, 'live verification failed')
+        await journal.append({ op: 'repair:live-verify-failed', ok: false, detail: { txn: txn.txnId } })
+        return { ok: false, phase: 'rolled-back', diagnostics: diagnosis.diagnostics, actions: diagnosis.actions, manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, gates: gateReports, txnId: txn.txnId, message: 'live verification failed after promote; rolled back' }
+      }
+      // Keep the transaction rollback-capable until every fallible recovery
+      // side effect has completed. commit() is deliberately the final await.
+      await journal.append({ op: 'repair:commit', ok: true, detail: { txn: txn.txnId } })
+      await txn.commit()
+      return { ok: true, phase: 'promoted', diagnostics: diagnosis.diagnostics, actions: diagnosis.actions, manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, gates: gateReports, txnId: txn.txnId }
+    } catch (error) {
+      // If ownership cannot be proved, do not perform compensating live-path
+      // mutations either. The durable promoted record is safe to recover on
+      // the next invocation that successfully acquires both locks.
+      if (error instanceof LockError) throw error
+      if (txn.phase() === 'promoted') {
+        // The triggering error may be unrelated to the lock while a
+        // background heartbeat has already failed. Prove both generations
+        // again before any compensating live-profile move.
+        await globalLock.touch(clock())
+        await profileLock.touch(clock())
+        try {
+          await rollbackPromotedFailure(fs, home, journal, txn, error instanceof Error ? error.message : String(error))
+        } catch (rollbackError) {
+          throw new Error('post-promote failure: ' + String(error) + '; automatic rollback failed: ' + String(rollbackError))
+        }
+      }
+      throw error
     }
-    await txn.commit()
-    await journal.append({ op: 'repair:commit', ok: true, detail: { txn: txn.txnId } })
-    return { ok: true, phase: 'promoted', diagnostics: diagnosis.diagnostics, actions: diagnosis.actions, manualActions: diagnosis.manualActions, snapshotId: snapshotResult.snapshotId, gates: gateReports, txnId: txn.txnId }
   } catch (error) {
     await journal.append({ op: 'repair:error', ok: false, detail: { error: error instanceof Error ? error.message : String(error) } }).catch(() => undefined)
     return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], message: error instanceof Error ? error.message : String(error) }
@@ -318,34 +377,281 @@ export async function repairProfile(request: RecoveryRequest, gateOptions: RealG
   }
 }
 
+async function rollbackPromotedFailure(fs: FsLike, home: string, journal: Journal, txn: CandidateTransaction, cause: string): Promise<void> {
+  let rollbackWarning: string | undefined
+  try {
+    await txn.rollback()
+  } catch (error) {
+    rollbackWarning = error instanceof Error ? error.message : String(error)
+  }
+  if (txn.phase() !== 'rolled-back') {
+    throw new Error(rollbackWarning ?? 'transaction remained in phase ' + txn.phase())
+  }
+  await writeTransactionRecord(fs, home, txn.record)
+  await journal.append({
+    op: 'repair:post-promote-rollback',
+    ok: false,
+    detail: { txn: txn.txnId, cause, ...(rollbackWarning === undefined ? {} : { rollbackWarning }) },
+  }).catch(() => undefined)
+}
+
 /** Restore a promoted transaction by moving the quarantine back. */
-export async function rollbackTransaction(request: RecoveryRequest, txnId: string): Promise<RecoveryOutcome> {
+export async function rollbackTransaction(request: RollbackRequest, txnId: string): Promise<RecoveryOutcome> {
   const fs: FsLike = request.fs ?? nodeFs
   const home = request.home
-  const recordPath = doctorRoot(home) + '/transactions/' + txnId + '.json'
-  let record: { livePath: string; quarantinePath: string; phase: string }
+  const now = request.now ?? (() => new Date().toISOString())
+  const clock = request.clock ?? Date.now
+  let profile: string
   try {
-    record = JSON.parse(await fs.readText(recordPath)) as { livePath: string; quarantinePath: string; phase: string }
+    validateSegment(txnId, 'transaction id')
+    profile = validateSegment(request.profile, 'profile')
+    resolveProfileDir(home, profile)
   } catch (error) {
-    return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], message: 'no transaction record for ' + txnId + ': ' + String(error) }
+    return rollbackFailure(txnId, 'invalid rollback request: ' + String(error))
   }
-  if (record.phase !== 'promoted' && record.phase !== 'committed') {
-    return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], message: 'transaction ' + txnId + ' is ' + record.phase + '; only promoted transactions roll back' }
-  }
-  const journal = createJournal({ fs, file: journalPath(home), now: request.now ?? (() => new Date().toISOString()) })
+
+  const recordPath = transactionRecordPath(home, txnId)
+  const journal = createJournal({ fs, file: journalPath(home), now })
+  const locks = createLockManager({ fs, home, pid: request.pid ?? process.pid, host: 'local', clock, iso: now, pidAlive: request.pidAlive ?? ((pid) => pid !== 0) })
+  let globalLock: Awaited<ReturnType<typeof locks.acquire>> | undefined
+  let profileLock: Awaited<ReturnType<typeof locks.acquire>> | undefined
   try {
-    if (await fs.exists(record.livePath)) {
-      const discarded = record.livePath + '.doctor-discarded-' + txnId
-      await fs.rename(record.livePath, discarded)
-      await fs.remove(discarded, { recursive: true }).catch(() => undefined)
+    globalLock = await locks.acquire('global', undefined, { intent: 'rollback ' + profile + '/' + txnId })
+    profileLock = await locks.acquire('profile', profile, { intent: 'rollback ' + txnId })
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(await fs.readText(recordPath)) as unknown
+    } catch (error) {
+      throw new Error('no readable transaction record for ' + txnId + ': ' + String(error))
     }
-    await fs.rename(record.quarantinePath, record.livePath)
+    const { record, livePath, quarantinePath, stagingPath } = validateRollbackRecord(parsed, home, profile, txnId)
+    // The heartbeat runs in the background, but an explicit refresh turns a
+    // prior ownership loss into a fail-closed result before filesystem moves.
+    await globalLock.touch(clock())
+    await profileLock.touch(clock())
+    const discardedPath = livePath + '.doctor-discarded-' + txnId
+    if (record.phase === 'rolled-back') {
+      await fs.remove(discardedPath, { recursive: true }).catch(() => undefined)
+      await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
+      return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'transaction ' + txnId + ' is already rolled back' }
+    }
+    if (record.phase !== 'staged' && record.phase !== 'promoted' && record.phase !== 'committed') {
+      throw new Error('transaction ' + txnId + ' is ' + record.phase + '; only staged, promoted or committed transactions roll back')
+    }
+    let quarantineExists = await fs.exists(quarantinePath)
+    let liveExists = await fs.exists(livePath)
+    const stagingExists = await fs.exists(stagingPath)
+    const discardedExists = await fs.exists(discardedPath)
+
+    if (record.phase === 'staged' && !quarantineExists) {
+      if (!liveExists) {
+        throw new Error('staged transaction ' + txnId + ' has no recoverable live or quarantine profile')
+      }
+      const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
+      await writeTransactionRecord(fs, home, rolledBackRecord)
+      await globalLock.touch(clock())
+      await profileLock.touch(clock())
+      await fs.remove(discardedPath, { recursive: true }).catch(() => undefined)
+      await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
+      return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: stagingExists && !discardedExists ? 'cancelled durable promotion intent before live mutation' : 'finalized restored interrupted promotion' }
+    }
+    if (record.phase === 'staged' && quarantineExists && !liveExists) {
+      if (discardedExists) {
+        // In-process rollback stopped after displacing the candidate. The
+        // transaction quarantine still uniquely owns the original profile.
+        await movePath(fs, quarantinePath, livePath)
+        const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
+        await writeTransactionRecord(fs, home, rolledBackRecord)
+        await globalLock.touch(clock())
+        await profileLock.touch(clock())
+        await fs.remove(discardedPath, { recursive: true }).catch(() => undefined)
+        await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
+        return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'resumed interrupted in-process rollback' }
+      }
+      if (!stagingExists) {
+        throw new Error('staged transaction ' + txnId + ' has an ambiguous interrupted-promote layout; live profile left untouched')
+      }
+      // Promotion stopped after live -> quarantine but before the candidate
+      // became live. Restoring the original is the only data-preserving move.
+      await movePath(fs, quarantinePath, livePath)
+      const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
+      try {
+        await globalLock.touch(clock())
+        await profileLock.touch(clock())
+        await writeTransactionRecord(fs, home, rolledBackRecord)
+      } catch (error) {
+        // Keep the durable staged record retryable. The original is already
+        // restored, so a retry sees the safe pre-promote layout and finalizes.
+        throw new Error('restored interrupted promotion but could not persist rolled-back state: ' + String(error))
+      }
+      await fs.remove(stagingPath, { recursive: true }).catch(() => undefined)
+      return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'restored promotion interrupted before candidate activation' }
+    }
+    if (record.phase === 'staged' && quarantineExists && liveExists && stagingExists) {
+      throw new Error('staged transaction ' + txnId + ' has both live and staged candidates after quarantine; live profile left untouched')
+    }
+    quarantineExists = await fs.exists(quarantinePath)
+    liveExists = await fs.exists(livePath)
+    if (!quarantineExists && liveExists && discardedExists) {
+      // A previous rollback restored the quarantined original, then stopped
+      // before its phase update became durable. This exact layout is
+      // unambiguous: the canonical live path is already restored and the
+      // displaced promoted candidate remains at this transaction's path.
+      const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
+      await writeTransactionRecord(fs, home, rolledBackRecord)
+      await globalLock.touch(clock())
+      await profileLock.touch(clock())
+      await fs.remove(discardedPath, { recursive: true }).catch(() => undefined)
+      await journal.append({ op: 'repair:rollback-finalize', ok: true, detail: { txn: txnId } }).catch(() => undefined)
+      return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'finalized interrupted rollback at ' + livePath }
+    }
+    if (!quarantineExists) {
+      throw new Error('quarantine path missing at ' + quarantinePath + '; live profile left untouched')
+    }
+    let discarded: string | undefined
+    if (liveExists) {
+      discarded = discardedPath
+      if (discardedExists) {
+        throw new Error('discarded path already exists at ' + discardedPath + '; live profile left untouched')
+      }
+      await movePath(fs, livePath, discarded)
+    } else if (discardedExists) {
+      // Resume an earlier rollback that stopped after displacing the
+      // promoted candidate but before restoring the quarantine.
+      discarded = discardedPath
+    }
+    try {
+      await movePath(fs, quarantinePath, livePath)
+    } catch (error) {
+      if (discarded !== undefined) {
+        try {
+          await movePath(fs, discarded, livePath)
+        } catch (restoreError) {
+          throw new Error('quarantine restore failed: ' + String(error) + '; restoring the live profile also failed: ' + String(restoreError))
+        }
+      }
+      throw error
+    }
+
+    await globalLock.touch(clock())
+    await profileLock.touch(clock())
+
+    const rolledBackRecord = makeRolledBackRecord(record, quarantinePath, livePath)
+    try {
+      await writeTransactionRecord(fs, home, rolledBackRecord)
+    } catch (error) {
+      // Atomic record replacement can itself block long enough for a lease
+      // failure. Never reverse the file moves unless both locks are still
+      // owned by this rollback generation.
+      await globalLock.touch(clock())
+      await profileLock.touch(clock())
+      try {
+        await movePath(fs, livePath, quarantinePath)
+        if (discarded !== undefined) await movePath(fs, discarded, livePath)
+      } catch (restoreError) {
+        throw new Error('transaction record persistence failed: ' + String(error) + '; restoring the promoted layout also failed: ' + String(restoreError))
+      }
+      throw new Error('transaction record persistence failed; rollback file moves were reverted: ' + String(error))
+    }
+    await globalLock.touch(clock())
+    await profileLock.touch(clock())
+    if (discarded !== undefined) await fs.remove(discarded, { recursive: true }).catch(() => undefined)
     await journal.append({ op: 'repair:rollback', ok: true, detail: { txn: txnId } })
-    return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'restored quarantine to ' + record.livePath }
+    return { ok: true, phase: 'rolled-back', diagnostics: [], actions: [], manualActions: [], txnId, message: 'restored quarantine to ' + livePath }
   } catch (error) {
     await journal.append({ op: 'repair:rollback-error', ok: false, detail: { error: String(error) } }).catch(() => undefined)
-    return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], txnId, message: error instanceof Error ? error.message : String(error) }
+    return rollbackFailure(txnId, error instanceof Error ? error.message : String(error))
+  } finally {
+    await profileLock?.release().catch(() => undefined)
+    await globalLock?.release().catch(() => undefined)
   }
+}
+
+function makeRolledBackRecord(record: CandidateRecord, quarantinePath: string, livePath: string): CandidateRecord {
+  const rolledBackRecord: CandidateRecord = {
+    ...record,
+    phase: 'rolled-back',
+    steps: [...record.steps, { step: 'rollback-restore', from: quarantinePath, to: livePath }],
+  }
+  delete rolledBackRecord.error
+  return rolledBackRecord
+}
+
+async function writeTransactionRecord(fs: FsLike, home: string, record: CandidateRecord): Promise<void> {
+  validateSegment(record.txnId, 'transaction id')
+  await writeJsonAtomicFs(fs, transactionRecordPath(home, record.txnId), record)
+}
+
+function transactionRecordPath(home: string, txnId: string): string {
+  return join(doctorRoot(home), 'transactions', txnId + '.json')
+}
+
+/** Read and validate the profile identity needed by `rollback <txnId>`. */
+export async function discoverRollbackProfile(home: string, txnId: string, fs: FsLike = nodeFs): Promise<string> {
+  validateSegment(txnId, 'transaction id')
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(await fs.readText(transactionRecordPath(home, txnId))) as unknown
+  } catch (error) {
+    throw new Error('no readable transaction record for ' + txnId + ': ' + String(error))
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('transaction ' + txnId + ' has a malformed record')
+  }
+  const record = parsed as { txnId?: unknown; profile?: unknown }
+  if (record.txnId !== txnId) {
+    throw new Error('transaction record id mismatch: expected ' + txnId + ', got ' + String(record.txnId))
+  }
+  if (typeof record.profile !== 'string') {
+    throw new Error('transaction ' + txnId + ' has no valid profile')
+  }
+  const profile = validateSegment(record.profile, 'transaction profile')
+  resolveProfileDir(home, profile)
+  return profile
+}
+
+function validateRollbackRecord(value: unknown, home: string, profile: string, txnId: string): { record: CandidateRecord; livePath: string; quarantinePath: string; stagingPath: string } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('transaction ' + txnId + ' has a malformed record; live profile left untouched')
+  }
+  const record = value as Partial<CandidateRecord>
+  if (record.txnId !== txnId) {
+    throw new Error('transaction record id mismatch: expected ' + txnId + ', got ' + String(record.txnId))
+  }
+  if (typeof record.profile !== 'string') {
+    throw new Error('transaction ' + txnId + ' has no valid profile; live profile left untouched')
+  }
+  validateSegment(record.profile, 'transaction profile')
+  resolveProfileDir(home, record.profile)
+  if (record.profile !== profile) {
+    throw new Error('transaction ' + txnId + ' belongs to profile ' + record.profile + ', not ' + profile)
+  }
+  if (typeof record.phase !== 'string' || typeof record.livePath !== 'string' || typeof record.quarantinePath !== 'string' || typeof record.stagingPath !== 'string' || !Array.isArray(record.steps)) {
+    throw new Error('transaction ' + txnId + ' has a malformed record; live profile left untouched')
+  }
+
+  const livePath = resolveProfileDir(home, profile)
+  const stagingPath = join(profilesDir(home), '.doctor-staging', profile, txnId)
+  const quarantinePath = join(quarantineDir(home), profile, txnId, 'original')
+  if (!samePath(record.livePath, livePath)) {
+    throw new Error('transaction ' + txnId + ' live path does not match profile ' + profile + '; live profile left untouched')
+  }
+  if (!samePath(record.quarantinePath, quarantinePath)) {
+    throw new Error('transaction ' + txnId + ' quarantine path does not match profile ' + profile + '; live profile left untouched')
+  }
+  if (!samePath(record.stagingPath, stagingPath)) {
+    throw new Error('transaction ' + txnId + ' staging path does not match profile ' + profile + '; live profile left untouched')
+  }
+  return { record: record as CandidateRecord, livePath, quarantinePath, stagingPath }
+}
+
+function samePath(left: string, right: string): boolean {
+  return resolve(left) === resolve(right)
+}
+
+function rollbackFailure(txnId: string, message: string): RecoveryOutcome {
+  return { ok: false, phase: 'failed', diagnostics: [], actions: [], manualActions: [], txnId, message }
 }
 
 async function copyProfileFiles(fs: FsLike, fromDir: string, toDir: string): Promise<void> {

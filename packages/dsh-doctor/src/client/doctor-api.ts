@@ -41,12 +41,14 @@ export type DoctorApiFailureKind =
   | 'malformed'
   | 'http'
   | 'supervisor'
+  | 'unprovisioned'
+  | 'supervisor-down'
 
 /** Successful verdict of one endpoint call. */
 export type DoctorApiOk<T> = { ok: true; value: T }
 
 /** Failed verdict of one endpoint call. */
-export type DoctorApiFail = { ok: false; kind: DoctorApiFailureKind; status?: number; message?: string }
+export type DoctorApiFail = { ok: false; kind: DoctorApiFailureKind; status?: number; message?: string; code?: string }
 
 /** Result of one endpoint call (never a rejected promise). */
 export type DoctorApiResult<T> = DoctorApiOk<T> | DoctorApiFail
@@ -167,6 +169,7 @@ export function parseSupervisorResponse(value: unknown): DoctorSupervisorRespons
   const snapshot = parseSnapshot(record['snapshot'])
   const error = asRecord(record['error'])
   const message = error?.['message']
+  const hostVersion = record['hostVersion']
   return {
     ok,
     snapshot: snapshot === undefined ? undefined : (snapshot as DoctorSupervisorResponse['snapshot']),
@@ -174,6 +177,7 @@ export function parseSupervisorResponse(value: unknown): DoctorSupervisorRespons
       code: typeof error['code'] === 'string' ? error['code'] : undefined,
       message: typeof message === 'string' ? message : undefined,
     },
+    hostVersion: typeof hostVersion === 'string' ? hostVersion : undefined,
   }
 }
 
@@ -233,6 +237,9 @@ export class DoctorApi {
     if (response.status === 404) {
       return { ok: false, kind: 'not-available', status: response.status }
     }
+    if (response.status === 503) {
+      return { ok: false, ...await serviceError(response) }
+    }
     if (!response.ok) {
       return { ok: false, kind: 'http', status: response.status, message: await bodyError(response) }
     }
@@ -250,6 +257,25 @@ export class DoctorApi {
       return { ok: false, kind: 'supervisor', status: response.status, message: message ?? 'supervisor refused' }
     }
     return { ok: true, value: parsed as unknown as T }
+  }
+}
+
+/**
+ * Classify a 503 service-deployment error. The host half answers 503 with
+ * SUPERVISOR_UNPROVISIONED (state missing) or SUPERVISOR_DOWN (state present
+ * but the daemon is not answering); anything else degrades to the http kind.
+ */
+async function serviceError(response: DoctorHttpResponse): Promise<{ kind: DoctorApiFailureKind; status: number; message?: string; code?: string }> {
+  try {
+    const body = await response.json()
+    const record = asRecord(body)
+    const error = asRecord(record?.['error'])
+    const code = typeof error?.['code'] === 'string' ? error['code'] : undefined
+    const message = typeof error?.['message'] === 'string' ? error['message'] : undefined
+    const kind: DoctorApiFailureKind = code === 'SUPERVISOR_UNPROVISIONED' ? 'unprovisioned' : code === 'SUPERVISOR_DOWN' ? 'supervisor-down' : 'http'
+    return { kind, status: response.status, message, code }
+  } catch {
+    return { kind: 'http', status: response.status }
   }
 }
 

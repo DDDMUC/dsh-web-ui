@@ -494,16 +494,26 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
-  it('applies dim and blur to the layers', () => {
+  it('keeps the owned dim scrim out of shell-surface neutralization', async () => {
     const { scope } = fakeScope()
-    const controller = new WallpaperController(scope)
+    const controller = new WallpaperController(scope, {
+      // Force every non-owned added element through the surface path so this
+      // catches a future observer regression even though jsdom has no layout.
+      declareSurface: () => true,
+    })
     controller.applySelection(video)
     controller.setDim(60)
     controller.setBlur(10)
     const [media, scrim] = layers()
+    expect(media.dataset.dshWallpaperLayer).toBe('media')
+    expect(scrim.dataset.dshWallpaperLayer).toBe('scrim')
     expect(scrim.style.background).toContain('0.6')
     expect(media.style.filter).toContain('blur(10px)')
     expect(media.style.transform).toContain('scale')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(media.hasAttribute('data-dsh-wallpaper-surface')).toBe(false)
+    expect(scrim.hasAttribute('data-dsh-wallpaper-surface')).toBe(false)
+    expect(scrim.style.background).toContain('0.6')
     controller.dispose()
   })
 
@@ -635,9 +645,11 @@ describe('WallpaperController', () => {
     // The official seat mask ::before stays neutralized.
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat]::before')
     expect(neutralizer?.textContent).toContain('background: none !important;')
-    // The input card only gets frosted blur while the conversation has
-    // content (data-dsh-conversation-content); its own translucent tint
-    // keeps readability instead of a hardcoded color.
+    // The whole seat gets a content-gated overlay frost so message text
+    // scrolling below the card cannot remain readable in the stats strip.
+    // The input card keeps the same blur contract on top of that shared pane.
+    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-seat]')
+    expect(neutralizer?.textContent).toContain('var(--dsw-alias-bg-overlay) 36px')
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card]')
     expect(neutralizer?.textContent).toContain('backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;')
     // Empty conversation: the content marker is absent, so the frost is off.
@@ -674,6 +686,7 @@ describe('WallpaperController', () => {
     // the seat that would blur the wallpaper if the shared marker were absent.
     const root = document.head.querySelector('style[data-dsh-wallpaper-root]')
     expect(root?.textContent).toContain('html[data-dsh-wallpaper-active] [data-composer-seat]::before')
+    expect(root?.textContent).not.toContain('html[data-dsh-wallpaper-active] [data-composer-seat],')
     expect(root?.textContent).toContain('backdrop-filter: none !important;')
     // Wallpaper teardown leaves the marker active for the painted skin.
     controller.clearSelection()

@@ -83,6 +83,11 @@
     - id: web-ui-doctor
       name: '@linxin666/dsh-doctor'
 
+# from ../dsh-session-id
+- insert:
+    - id: web-ui-session-id
+      name: '@linxin666/dsh-client-ui-session-id'
+
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:
     - id: web-ui-skin-center
@@ -92,3 +97,8 @@
 - insert:
     - id: web-ui-better-sidebar
       name: 'dsh-better-sidebar'
+
+# external: @mlgbnb/dsh-archive-manager
+- insert:
+    - id: web-ui-archive-manager
+      name: '@mlgbnb/dsh-archive-manager'

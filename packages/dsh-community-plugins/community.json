@@ -221,17 +221,6 @@
     "category": "knowledge"
   },
   {
-    "id": "dsh-archive-manager",
-    "name": "归档管理",
-    "nameEn": "Archive Manager",
-    "author": "z953218350",
-    "description": "设置页 Codex 风格会话归档管理：按项目分组、搜索筛选、预览对话内容、一键恢复与彻底物理删除，内置 zstd 解压引擎。",
-    "descriptionEn": "Codex-style archived session manager in settings: group by project, search and filter, preview conversation history, restore to sidebar, and permanently delete from disk; built-in zstd decompression.",
-    "repo": "https://github.com/z953218350/dsh-archive-manager",
-    "npm": "@mlgbnb/dsh-archive-manager",
-    "category": "utility"
-  },
-  {
     "id": "dsh-history-tree",
     "name": "历史树",
     "nameEn": "History Tree",
@@ -378,5 +367,36 @@
     "repo": "https://github.com/dickpy/dsh-imagegen",
     "npm": "@dickpy/dsh-imagegen",
     "category": "tools"
+  },
+  {
+    "id": "dsh-api-visualizer",
+    "name": "接口捕获",
+    "nameEn": "API Capture",
+    "author": "lemonmmice",
+    "description": "Fiddler 式实时抓包面板：tail 客户端 System.Net 跟踪日志自动解析 HTTP 请求/响应（gzip 自动解包）并实时入库，内置本地 MITM 代理可抓任意进程，支持筛选 / 详情 / 导出 / 重放 / 标记。",
+    "descriptionEn": "Fiddler-style realtime capture panel: tails the client's System.Net trace log into live HTTP request/response records (gzip auto-decompressed), plus a built-in local MITM proxy for arbitrary processes, with filters, detail view, export, replay and flags.",
+    "repo": "https://github.com/lemonmmice/dsh-api-visualizer",
+    "category": "tools"
+  },
+  {
+    "id": "dsh-postman",
+    "name": "接口调试",
+    "nameEn": "API Debugger",
+    "author": "lemonmmice",
+    "description": "类 Postman 接口调试面板：由宿主服务端发起 HTTP 请求（绕过浏览器 CORS），支持 WebSocket / 原始 TCP / gRPC、鉴权助手、环境变量、cURL 导入导出、请求集合与历史。",
+    "descriptionEn": "Postman-style API debug panel: host-side HTTP requests without browser CORS limits, plus WebSocket / raw TCP / gRPC, auth helpers, env variables, cURL import/export, request collections and history.",
+    "repo": "https://github.com/lemonmmice/dsh-postman",
+    "category": "tools"
+  },
+  {
+    "id": "dsh-workspace-api",
+    "name": "企业信息查询 Agent",
+    "nameEn": "Workspace API",
+    "author": "liaoyonghong",
+    "description": "把企业文档变成可对话的聊天机器人：员工或应用系统用自然语言提问，AI 代理查阅文档后带出处回答；同时提供 workspace 内容 HTTP API。",
+    "descriptionEn": "Turn enterprise documents into a conversational Q&A bot: employees or apps ask in natural language and an AI agent answers with cited sources; also exposes a workspace content HTTP API.",
+    "repo": "https://github.com/liaoyonghong/dsh-workspace-api",
+    "npm": "dsh-workspace-api",
+    "category": "knowledge"
   }
 ]

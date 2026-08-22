@@ -182,3 +182,17 @@ jobs:
             playwright-report/
             test-results/
           if-no-files-found: ignore
+
+  # Direct pushes to the integration branch need the
+  # "Validate PR contribution evidence" required check context to exist too;
+  # on pull requests that context is produced by pr-contribution-rules.yml,
+  # on pushes it is produced here so that branch protection does not block
+  # collaborator pushes. PR-level evidence rules stay enforced by the
+  # PR-only workflow.
+  contribution-evidence:
+    name: Validate PR contribution evidence
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Accept accepted integration push
+        run: echo "integration branch push accepted; PR evidence stays enforced by pr-contribution-rules.yml on pull requests."

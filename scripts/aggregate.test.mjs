@@ -70,3 +70,12 @@ test('web-ui-all mounts dsh-better-sidebar as an external row', () => {
   // The paired name line resolves the row from the profile root (npm package).
   assert.match(lines[idx + 1] ?? '', /^ {6}name: 'dsh-better-sidebar'$/)
 })
+
+test('web-ui-all mounts @mlgbnb/dsh-archive-manager as an external row', () => {
+  const patch = readFileSync(join(ROOT, 'packages/dsh-web-ui-all/cordis.patch.yml'), 'utf8')
+  const lines = patch.split(/\r?\n/)
+  const idx = lines.findIndex((line) => /^ {4}- id: web-ui-archive-manager$/.test(line))
+  assert.ok(idx >= 0, 'web-ui-archive-manager row is missing from the aggregate patch')
+  // The paired name line resolves the scoped npm package from the profile root.
+  assert.match(lines[idx + 1] ?? '', /^ {6}name: '@mlgbnb\/dsh-archive-manager'$/)
+})

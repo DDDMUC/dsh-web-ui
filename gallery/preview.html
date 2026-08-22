@@ -17,7 +17,8 @@
      默认外观 = 官方 dsh web GUI 的真实快照（scripts/export-official-facade
      从运行中的 GUI 导出：官方样式表 + 脱敏 #root DOM）。皮肤 = 静态注入所选
      皮肤的样式表（skin.css + 可选 patches.css，gallery/styles.js 内嵌文本），
-     配色与补丁真实渲染；皮肤 JS（hooks.mjs）不执行、backgroundMedia 不渲染。
+     配色与补丁真实渲染；皮肤 JS（hooks.mjs）不执行，背景画（manifest 里的
+     contributes.backgroundMedia）由模拟器静态铺底（与皮肤中心运行时同构）。
      ?skin=<id>&theme=light|dark 控制选择；?chrome=0 隐藏右上工具栏（截图用）。
      skin=stock 显示官方默认外观。
      ========================================================================== */
@@ -89,6 +90,82 @@
   }
   if (params.skin !== 'stock' && ids.indexOf(params.skin) === -1) params.skin = ids[0] || 'stock'
 
+  /**
+   * 轻量 CSS 规则遍历：找顶层选择器块（跳过注释与嵌套的 @ 块）。
+   * 只处理皮肤自身生成、结构规整的样式表，不做完整 CSS 解析。
+   */
+  function walkTopRules(css, cb) {
+    var i = 0
+    var n = css.length
+    while (i < n) {
+      while (i < n && /\s/.test(css[i])) i++
+      if (i >= n) break
+      if (css[i] === '/' && css[i + 1] === '*') {
+        var closeComment = css.indexOf('*/', i + 2)
+        i = closeComment === -1 ? n : closeComment + 2
+        continue
+      }
+      var open = -1
+      var parens = 0
+      var brackets = 0
+      var quote = null
+      for (var p = i; p < n; p++) {
+        var ch = css[p]
+        if (quote !== null) {
+          if (ch === '\\') p++
+          else if (ch === quote) quote = null
+          continue
+        }
+        if (ch === '"' || ch === "'") { quote = ch; continue }
+        if (ch === '(') parens++
+        else if (ch === ')') parens--
+        else if (ch === '[') brackets++
+        else if (ch === ']') brackets--
+        else if (ch === '{' && parens === 0 && brackets === 0) { open = p; break }
+        else if (ch === ';' && parens === 0 && brackets === 0) { open = -2; break }
+      }
+      if (open === -2) { i += 1; continue } // at-rule statement，跳过
+      if (open === -1) break
+      var selector = css.slice(i, open).trim()
+      var depth = 0
+      var close = -1
+      for (var q = open; q < n; q++) {
+        if (css[q] === '{') depth++
+        else if (css[q] === '}') {
+          depth--
+          if (depth === 0) { close = q; break }
+        }
+      }
+      if (close === -1) break
+      var body = css.slice(open + 1, close)
+      var isAtRule = selector.indexOf('@') === 0
+      if (!isAtRule) cb(selector, body)
+      i = close + 1
+    }
+  }
+
+  /**
+   * 把裸 :root / html 规则里的 --dsw-alias-* 与 --dsw-specific-* 声明克隆到
+   * body：官方样式在 body 上定义了同名主题 token，皮肤只写 :root 时 body 子树
+   * 会继承官方值而看不到皮肤的亮色 token（与真实加载器 #646 的"克隆到 body"
+   * 同语义；暗色走 body[data-ds-dark-theme]，不受影响）。
+   */
+  function cloneRootTokensToBody(css) {
+    var clones = []
+    walkTopRules(css, function (selector, body) {
+      if (!/^(:root|html)$/i.test(selector)) return
+      var decls = []
+      var parts = body.split(';')
+      for (var i = 0; i < parts.length; i++) {
+        var decl = parts[i]
+        var m = decl.match(/^\s*--(dsw-alias|dsw-specific)-[a-z0-9-]+\s*:/i)
+        if (m) decls.push(decl.trim())
+      }
+      if (decls.length) clones.push('body {\n  ' + decls.join(';\n  ') + ';\n}')
+    })
+    return clones.length ? '\n' + clones.join('\n') + '\n' : ''
+  }
+
   /** 官方 facade：样式注入 + 骨架挂载（只做一次）。 */
   function mountOfficialFacade() {
     if (document.getElementById('official-facade-css')) return
@@ -153,6 +230,72 @@
     el.style.display = 'block'
   }
 
+  /**
+   * 声明式背景画（contributes.backgroundMedia）静态渲染：镜像皮肤中心运行时的
+   * installBackground()——固定 background 装饰层（z-index:-2）放主题变体的媒体
+   * （cover 铺满 + 可选 scrim 蒙层），并把 body 背景临时置为透明、写入
+   * --dsh-skin-scrim 标记，让全透面板正确透出画作。换肤/切主题时重建。 */
+  var skinBackdrop = null
+  var bodyPrevBg = null
+
+  function clearSkinBackdrop() {
+    if (skinBackdrop !== null) {
+      skinBackdrop.remove()
+      skinBackdrop = null
+    }
+    if (bodyPrevBg !== null) {
+      document.body.style.backgroundColor = bodyPrevBg
+      bodyPrevBg = null
+    }
+    document.body.style.removeProperty('--dsh-skin-scrim')
+  }
+
+  function renderSkinBackdrop(theme) {
+    clearSkinBackdrop()
+    var entry = null
+    for (var i = 0; manifest && i < manifest.length; i++) {
+      if (manifest[i].id === params.skin) { entry = manifest[i]; break }
+    }
+    var media = entry && entry.contributes && entry.contributes.backgroundMedia
+    if (!media) return
+    var variant = theme === 'dark' ? (media.dark || media.light) : (media.light || media.dark)
+    if (!variant || !variant.src) return
+    var layer = document.createElement('div')
+    layer.id = 'skin-backdrop'
+    layer.setAttribute('aria-hidden', 'true')
+    layer.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:-2;pointer-events:none;'
+    var cover = 'position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:cover;'
+    if (variant.type === 'video') {
+      var video = document.createElement('video')
+      video.src = '../' + variant.src
+      video.muted = true
+      video.loop = true
+      video.autoplay = true
+      video.playsInline = true
+      video.setAttribute('aria-hidden', 'true')
+      video.style.cssText = cover
+      layer.appendChild(video)
+      void video.play().catch(function () { /* 自动播放策略：保持暂停 */ })
+    } else {
+      var img = document.createElement('img')
+      img.src = '../' + variant.src
+      img.alt = ''
+      img.setAttribute('aria-hidden', 'true')
+      img.style.cssText = cover
+      layer.appendChild(img)
+    }
+    if (variant.scrim) {
+      var scrim = document.createElement('div')
+      scrim.setAttribute('aria-hidden', 'true')
+      scrim.style.cssText = 'position:absolute;inset:0;background:' + variant.scrim + ';'
+      layer.appendChild(scrim)
+    }
+    document.body.insertBefore(layer, document.body.firstChild)
+    bodyPrevBg = document.body.style.getPropertyValue('background-color')
+    document.body.style.setProperty('background-color', 'transparent')
+    document.body.style.setProperty('--dsh-skin-scrim', '1')
+  }
+
   /** 静态应用皮肤：注入 skin.css（+ 可选 patches.css）并在 <html> 上标记
       data-dsh-skin（与真实加载器的作用域属性一致，也供截图脚本等待）。
       皮肤 JS（hooks.mjs）在模拟器中不执行。 */
@@ -162,7 +305,7 @@
     document.documentElement.dataset.dshSkin = id
     var style = document.createElement('style')
     style.id = 'skin-css'
-    style.textContent = entry.stylesheet + (entry.patches ? '\n' + entry.patches : '')
+    style.textContent = cloneRootTokensToBody(entry.stylesheet) + entry.stylesheet + (entry.patches ? '\n' + entry.patches : '')
     document.head.appendChild(style)
   }
 
@@ -173,6 +316,8 @@
     if (params.skin !== 'stock') {
       try { loadSkin(params.skin) } catch (err) { fail(err && err.message || String(err)) }
     }
+    // 声明式背景画在皮肤样式之后注入，覆盖在官方快照之下（z-index:-2）
+    renderSkinBackdrop(params.theme)
     // stock 时钉住官方标题（静态渲染下皮肤不改标题）
     if (params.skin === 'stock') document.title = 'DeepSeek Harness'
   }
@@ -203,6 +348,7 @@
       setTheme(params.theme !== 'dark')
       params.theme = params.theme === 'dark' ? 'light' : 'dark'
       themeBtn.textContent = params.theme === 'dark' ? '亮色' : '暗色'
+      renderSkinBackdrop(params.theme)
     })
   } else {
     chrome.remove()

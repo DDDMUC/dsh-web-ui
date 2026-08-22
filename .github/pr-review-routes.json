@@ -1,5 +1,15 @@
 {
   "comment": true,
+  "defaultRoute": {
+    "label": "默认负责人：未匹配类别时的兜底，确保每个 PR 都有人关联",
+    "reviewers": [
+      "Aa728848"
+    ],
+    "assignees": [
+      "Aa728848"
+    ],
+    "ai": false
+  },
   "routes": [
     {
       "name": "renderer",
@@ -20,11 +30,89 @@
         "packages/skins/skin-center/tests/pkg-extract.spec.ts"
       ],
       "title": "(wallpaper|webgl|scene player|scene runtime|pkg[-_ ]?extract|we[-_ ]?(library|routes|player|shim)|renderer)",
+      "prAllowed": false,
+      "ai": false,
+      "assignees": [
+        "Aa728848"
+      ],
+      "issueTypes": [
+        "壁纸 / 渲染器（Wallpaper Engine / WebGL / 背景场景）"
+      ]
+    },
+    {
+      "name": "skins",
+      "label": "皮肤 / 皮肤中心（新皮肤收录、皮肤样式）",
+      "types": [
+        "皮肤 / 皮肤中心（新皮肤收录、皮肤样式）"
+      ],
+      "prAllowed": true,
+      "ai": false,
       "reviewers": [
         "Aa728848"
       ],
       "assignees": [
         "Aa728848"
+      ],
+      "issueTypes": [
+        "皮肤 / 皮肤中心 (dsh-skins)"
+      ]
+    },
+    {
+      "name": "plugins",
+      "label": "插件功能（任务看板 / Git 图谱 / 右侧面板 / 远程 Web UI / SSH / 宠物 / 设置 / 聚合包）",
+      "types": [
+        "插件功能（任务看板 / Git 图谱 / 右侧面板 / 远程 Web UI / SSH / 宠物 / 设置 / 聚合包）"
+      ],
+      "prAllowed": true,
+      "ai": false,
+      "reviewers": [
+        "Aa728848"
+      ],
+      "assignees": [
+        "Aa728848"
+      ],
+      "issueTypes": [
+        "任务看板 (dsh-task-board)",
+        "Git 图谱 (dsh-git-graph)",
+        "右侧面板 (dsh-aionui-panel)",
+        "远程 Web UI (dsh-remote-web-ui)",
+        "SSH 远程运维 (dsh-ssh)",
+        "宠物 (dsh-pet)",
+        "聚合包 / 安装 (dsh-web-ui-all / dsh-web-ui-settings)"
+      ]
+    },
+    {
+      "name": "community-plugins",
+      "label": "社区插件索引",
+      "types": [
+        "社区插件索引"
+      ],
+      "prAllowed": true,
+      "ai": false,
+      "reviewers": [
+        "Aa728848"
+      ],
+      "assignees": [
+        "Aa728848"
+      ],
+      "issueTypes": []
+    },
+    {
+      "name": "maintenance",
+      "label": "维护 / 其他",
+      "types": [
+        "维护 / 其他"
+      ],
+      "prAllowed": true,
+      "ai": false,
+      "reviewers": [
+        "Aa728848"
+      ],
+      "assignees": [
+        "Aa728848"
+      ],
+      "issueTypes": [
+        "其他 / 不确定"
       ]
     }
   ]

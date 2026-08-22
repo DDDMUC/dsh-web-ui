@@ -492,3 +492,123 @@ describe('GraphDialog', () => {
     expect(calls.length).toBe(callsAfterMount)
   })
 })
+describe('branch name tooltip', () => {
+  const LONG_A = 'feature/very-long-branch-name-over-eighteen-chars'
+  const LONG_B = 'feature/another-long-branch-name-exceeding-limit'
+  const longBranchesView: BranchesView = {
+    root: '/ws/proj', branch: 'main',
+    branches: [
+      { name: LONG_A, current: false },
+      { name: 'main', current: true },
+    ],
+    dirtyFiles: 0, untrackedFiles: 0, conflicts: 0, operationInProgress: false,
+  }
+
+  it('keeps the native title and adds aria-label on long names', async () => {
+    bench({ branchesView: longBranchesView })
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const long = await screen.findByRole('option', { name: LONG_A })
+    expect(long.getAttribute('data-tip')).toBe(LONG_A)
+    // Pointer-independent fallback stays intact: aria-label on the button
+    // and the native title on the name span (keyboard / SR / touch).
+    expect(long.getAttribute('aria-label')).toBe(LONG_A)
+    const name = long.querySelector('[class*=itemName]')
+    expect(name?.getAttribute('title')).toBe(LONG_A)
+  })
+
+  it('keeps data-tip empty on short names', async () => {
+    bench()
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const short = await screen.findByRole('option', { name: 'feature/x' })
+    expect(short.getAttribute('data-tip')).toBe('')
+    const name = short.querySelector('[class*=itemName]')
+    expect(name?.getAttribute('title')).toBe('feature/x')
+  })
+
+  it('defers tooltip readiness until the 500ms dwell elapses', async () => {
+    bench({ branchesView: longBranchesView })
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const long = await screen.findByRole('option', { name: LONG_A })
+    expect(long.getAttribute('data-tip-ready')).toBe('')
+    vi.useFakeTimers()
+    try {
+      fireEvent.mouseEnter(long)
+      act(() => { vi.advanceTimersByTime(499) })
+      expect(long.getAttribute('data-tip-ready')).toBe('')
+      act(() => { vi.advanceTimersByTime(2) })
+      expect(long.getAttribute('data-tip-ready')).toBe('true')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows the tooltip immediately when switching items after one is visible', async () => {
+    bench({ branchesView: { ...longBranchesView, branches: [...longBranchesView.branches, { name: LONG_B, current: false }] } })
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const first = await screen.findByRole('option', { name: LONG_A })
+    const second = screen.getByRole('option', { name: LONG_B })
+    vi.useFakeTimers()
+    try {
+      fireEvent.mouseEnter(first)
+      act(() => { vi.advanceTimersByTime(500) })
+      expect(first.getAttribute('data-tip-ready')).toBe('true')
+      // Realistic pointer move: entering another row while the bubble is
+      // visible shows it at once (row-level leave has no handler; only the
+      // list-level leave below resets the instant-handoff state).
+      fireEvent.mouseEnter(second)
+      expect(second.getAttribute('data-tip-ready')).toBe('true')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('resets readiness only when the pointer leaves the whole list', async () => {
+    bench({ branchesView: longBranchesView })
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const long = await screen.findByRole('option', { name: LONG_A })
+    vi.useFakeTimers()
+    try {
+      fireEvent.mouseEnter(long)
+      act(() => { vi.advanceTimersByTime(500) })
+      expect(long.getAttribute('data-tip-ready')).toBe('true')
+      // Leaving the whole list resets readiness (re-arms the dwell).
+      const list = long.parentElement
+      expect(list).not.toBeNull()
+      fireEvent.mouseLeave(list as HTMLElement)
+      expect(long.getAttribute('data-tip-ready')).toBe('')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('clears the dwell timer on unmount', async () => {
+    bench({ branchesView: longBranchesView })
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const long = await screen.findByRole('option', { name: LONG_A })
+    vi.useFakeTimers()
+    try {
+      fireEvent.mouseEnter(long)
+      cleanup()
+      // Advancing past the dwell must not throw after unmount (timer cleared).
+      expect(() => { act(() => { vi.advanceTimersByTime(600) }) }).not.toThrow()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('flips the bubble below for items near the top of the list', async () => {
+    bench({ branchesView: longBranchesView })
+    const chip = await screen.findByRole('button', { name: '分支' })
+    fireEvent.click(chip)
+    const long = await screen.findByRole('option', { name: LONG_A })
+    // jsdom rects are all zero, so itemTop - listTop (0) < 56 → 'down'.
+    fireEvent.mouseEnter(long)
+    expect(long.getAttribute('data-tip-dir')).toBe('down')
+  })
+})

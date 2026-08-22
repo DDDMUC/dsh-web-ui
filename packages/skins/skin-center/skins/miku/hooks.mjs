@@ -141,6 +141,32 @@ export default function defineSkinHooks() {
   return {
     apply(ctx) {
       const body = document.body
+      const html = document.documentElement
+      const originalHtmlTranslate = html.getAttribute('translate')
+      const originalBodyTranslate = body.getAttribute('translate')
+      const originalHtmlClass = html.getAttribute('class')
+      const originalBodyClass = body.getAttribute('class')
+      html.setAttribute('translate', 'no')
+      body.setAttribute('translate', 'no')
+      // Use an explicit class-attribute append (not classList.add) so teardown
+      // can restore the exact original class attribute (jsdom keeps an empty
+      // `class=""` after classList.remove, which the lifecycle test flags).
+      const appendClass = (el, token) => {
+        const current = el.getAttribute('class') ?? ''
+        const tokens = current.split(/\s+/).filter(Boolean)
+        if (!tokens.includes(token)) tokens.push(token)
+        el.setAttribute('class', tokens.join(' '))
+      }
+      appendClass(html, 'notranslate')
+      appendClass(body, 'notranslate')
+      let translateMeta = document.querySelector('meta[name="google"][content="notranslate"]')
+      const ownsTranslateMeta = translateMeta === null
+      if (translateMeta === null) {
+        translateMeta = document.createElement('meta')
+        translateMeta.name = 'google'
+        translateMeta.content = 'notranslate'
+        document.head.prepend(translateMeta)
+      }
 
       // Port of the v1 custom Miku cursors: a scoped style block injected for
       // this skin's active-skin scoping html[data-dsh-skin="miku"] (see
@@ -165,6 +191,12 @@ export default function defineSkinHooks() {
       }
       syncPanelCollapsed()
       const panelTimer = setInterval(syncPanelCollapsed, 500)
+
+      // 输入卡（composer）settling 阶段可见性改由 patches.css 用稳定语义锚点
+      // （data-composer-seat / data-composer-card / data-dsh-part）声明式修复，
+      // 颜色走 --dsw-alias-* token。不再用 JS 每帧写内联 !important，避免对抗
+      // rc.8 shell 的 settling 状态机并绕过皮肤中心 token 体系。
+
       const originalTitle = document.title
       // Resolve the pinned title once up front so the title-bar text and the
       // document title always agree, and the dispose check compares against the
@@ -224,6 +256,17 @@ export default function defineSkinHooks() {
       ctx.onCleanup(() => {
         cursorStyle.remove()
         clearInterval(panelTimer)
+        if (originalHtmlTranslate === null) html.removeAttribute('translate')
+        else html.setAttribute('translate', originalHtmlTranslate)
+        if (originalBodyTranslate === null) body.removeAttribute('translate')
+        else body.setAttribute('translate', originalBodyTranslate)
+        // Restore the exact original class attribute (or remove it when it did
+        // not exist) so no empty class="" survives in jsdom/real DOM.
+        if (originalHtmlClass === null) html.removeAttribute('class')
+        else html.setAttribute('class', originalHtmlClass)
+        if (originalBodyClass === null) body.removeAttribute('class')
+        else body.setAttribute('class', originalBodyClass)
+        if (ownsTranslateMeta) translateMeta.remove()
         delete body.dataset.dshAionuiCollapsed
         titlebar.remove()
         statusbar.remove()

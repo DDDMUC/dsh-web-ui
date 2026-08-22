@@ -6825,10 +6825,10 @@ function serveFile(absPath, req, res, openReadStream) {
 	pipeFile(absPath, res, openReadStream);
 }
 /** Cached per-scene capability probe result. */
-const SCENE_PROBE_VERSION = 2;
+const SCENE_PROBE_VERSION = 3;
 /** Shape-check an entry loaded from the persisted probe cache. */
 function isSceneProbe(value) {
-	return value !== null && typeof value === "object" && value.v === SCENE_PROBE_VERSION && typeof value.hasVideo === "boolean" && typeof value.hasSceneWebGL === "boolean" && (value.compatibility === "full" || value.compatibility === "static-only") && Array.isArray(value.unsupportedFeatures);
+	return value !== null && typeof value === "object" && value.v === SCENE_PROBE_VERSION && typeof value.hasVideo === "boolean" && typeof value.hasSceneWebGL === "boolean" && (value.compatibility === "full" || value.compatibility === "partial" || value.compatibility === "static-only") && Array.isArray(value.unsupportedFeatures);
 }
 /** Build the route family. */
 function makeWeRoutes(deps) {
@@ -6990,10 +6990,10 @@ function makeWeRoutes(deps) {
 						if (!hasVideo) {
 							const manifest = entry.fileAbs.toLowerCase().endsWith(".json") ? buildSceneManifestFromDir(dirname(entry.fileAbs), "check") : buildSceneManifest(pkgData, "check");
 							if (manifest?.scripted) {
-								compatibility = "static-only";
+								compatibility = "partial";
 								unsupportedFeatures.push("embedded-script");
 							}
-							hasSceneWebGL = compatibility === "full" && Boolean(manifest && (manifest.layers && manifest.layers.length >= 1 || manifest.is3D && manifest.models && manifest.models.length > 0));
+							hasSceneWebGL = Boolean(manifest && (manifest.layers && manifest.layers.length >= 1 || manifest.is3D && manifest.models && manifest.models.length > 0));
 						}
 					} catch {}
 					probe = {
@@ -7600,7 +7600,8 @@ const SkinBackgroundConfigSchema = z.object({
 	backgroundOpacity: z.number().min(0).max(100).step(5).default(0),
 	backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(0),
 	backgroundBlurContent: z.number().min(0).max(20).step(1).default(0),
-	inputCardBlur: z.number().min(0).max(20).step(1).default(10)
+	inputCardBlur: z.number().min(0).max(20).step(1).default(10),
+	bubbleOpacity: z.number().min(0).max(100).step(5).default(50)
 });
 /**
 * Settings namespace for the Wallpaper Engine bridge, owned by the skin

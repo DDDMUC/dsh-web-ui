@@ -129,6 +129,7 @@ body[data-ds-dark-theme] {
 }
 
 body[data-ds-dark-theme] {
+  --dsw-static-neutral-bluish-1000: #f0f5fc;
   --dsw-alias-bg-base: rgba(6, 10, 20, calc(var(--dsw-skin-scrim, 0) * .5));
   --dsw-alias-bg-layer-1: rgba(var(--dsh-skin-sidebar-rgb), calc(var(--dsh-skin-sidebar-alpha) + var(--dsw-skin-scrim, 0) * .3));
   --dsh-skin-sidebar-rgb: 8, 12, 24;

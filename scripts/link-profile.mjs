@@ -21,14 +21,16 @@
  *   node scripts/link-profile.mjs            # link/refresh the family
  *   node scripts/link-profile.mjs --dry-run  # report without changing
  */
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmdirSync, symlinkSync, unlinkSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmdirSync, symlinkSync, unlinkSync } from 'node:fs'
 import { dirname, join, relative, resolve as resolvePath } from 'node:path'
 import { homedir } from 'node:os'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { walkFamilyPackages } from './lib/family-packages.mjs'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolvePath(SCRIPT_DIR, '..')
+const require = createRequire(import.meta.url)
 
 /**
  * Pure decision logic for one link path: what should the caller do with the
@@ -69,6 +71,25 @@ function familyPackages() {
   }
   return found
 }
+
+/** External non-family dependencies required by aggregate packages (e.g. dsh-better-sidebar, @mlgbnb/dsh-archive-manager). */
+function externalPackages() {
+  const dshWebUiAllDir = join(REPO_ROOT, 'packages', 'dsh-web-ui-all')
+  const pkgJsonPath = join(dshWebUiAllDir, 'package.json')
+  if (!existsSync(pkgJsonPath)) return []
+  const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'))
+  const deps = pkgJson.dependencies || {}
+  const externals = []
+  for (const name of Object.keys(deps)) {
+    if (name.startsWith(FAMILY_SCOPE)) continue
+    try {
+      const entryPkg = resolvePath(dirname(require.resolve(`${name}/package.json`, { paths: [dshWebUiAllDir] })))
+      const realDir = realpathSync(entryPkg)
+      externals.push({ fullName: name, dir: realDir })
+    } catch {}
+  }
+  return externals
+} 
 
 function main() {
   const DRY = process.argv.includes('--dry-run')
@@ -158,6 +179,54 @@ function main() {
   }
 
   report(changed === 0 ? 'nothing to do' : `${changed} link(s) ${DRY ? 'would be ' : ''}updated`)
+
+  // Also link external dependencies required by dsh-web-ui-all (e.g. @mlgbnb/dsh-archive-manager, dsh-better-sidebar)
+  const extPkgs = externalPackages()
+  if (extPkgs.length) {
+    report(`found ${extPkgs.length} external package(s) from dsh-web-ui-all`)
+    let extChanged = 0
+    for (const { fullName, dir } of extPkgs) {
+      const linkPath = join(PROFILES_NM, fullName)
+      const parentDir = dirname(linkPath)
+      if (!existsSync(parentDir)) {
+        if (!DRY) mkdirSync(parentDir, { recursive: true })
+      }
+      const WIN32 = process.platform === 'win32'
+      const target = WIN32 ? dir : relative(parentDir, dir)
+      let existing = 'missing'
+      let linkIsJunctionDir = false
+      try {
+        const st = lstatSync(linkPath)
+        existing = st.isSymbolicLink() ? 'symlink' : st.isDirectory() ? 'dir' : 'file'
+        if (existing === 'symlink' && st.isDirectory()) linkIsJunctionDir = true
+      } catch {}
+      let current = null
+      if (existing === 'symlink') {
+        try { current = readlinkSync(linkPath) } catch {}
+      }
+      const action = decideLinkAction(existing, target, current)
+      if (action === 'keep') continue
+      if (action === 'skip-report') {
+        report(`skipped external (not a symlink, untouched): ${linkPath}`)
+        continue
+      }
+      if (action === 'create') {
+        if (DRY) { report(`would link external ${fullName} -> ${target}`); extChanged++; continue }
+        symlinkSync(target, linkPath, WIN32 ? 'junction' : undefined)
+        report(`linked external ${fullName} -> ${target}`)
+      } else {
+        if (DRY) { report(`would replace external ${fullName} -> ${current ?? '(broken)'}`); extChanged++; continue }
+        if (linkIsJunctionDir) rmdirSync(linkPath)
+        else unlinkSync(linkPath)
+        symlinkSync(target, linkPath, WIN32 ? 'junction' : undefined)
+        report(`replaced external ${fullName} -> ${target} (was ${current ?? '(broken)'})`)
+      }
+      extChanged++
+    }
+    if (extChanged > 0) {
+      report(`${extChanged} external link(s) ${DRY ? 'would be ' : ''}updated`)
+    }
+  }
 }
 
 // Run only when invoked as the entry script, so the module can be imported
