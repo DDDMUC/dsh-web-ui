@@ -54,6 +54,8 @@ const mint = {
 
 async function renderSkinCenter(options: {
   active?: string | null
+  wallpaperSelection?: string
+  clearSelection?: () => void
   switchTo?: (id: string | null, state: { active: string | null }) => Promise<string | null>
   runSkin?: (action: () => Promise<string | null>) => Promise<string | null>
   runCustomTheme?: (action: () => Promise<string | null>) => Promise<string | null>
@@ -84,12 +86,12 @@ async function renderSkinCenter(options: {
     shutdown: () => {},
   }
   const wallpaper = {
-    enabled: () => true, selection: () => '', mode: () => 'live', fit: () => 'cover', dim: () => 0,
+    enabled: () => true, selection: () => options.wallpaperSelection ?? '', mode: () => 'live', fit: () => 'cover', dim: () => 0,
     wallpaperBlur: () => 0, pauseOnHidden: () => false, sound: () => false, volume: () => 100,
     dirs: () => noDirs, addDir: () => {}, removeDir: () => {}, activeId: () => null, trying: () => false,
     subscribe: () => () => {}, setEnabled: () => {}, setMode: () => {}, setFit: () => {}, setDim: () => {},
     setBlur: () => {}, setPauseOnHidden: () => {}, setSound: () => {}, setVolume: () => {},
-    applySelection: () => {}, clearSelection: () => {}, sync: () => {}, tryOn: () => {}, exitTryOn: () => {},
+    applySelection: () => {}, clearSelection: options.clearSelection ?? (() => {}), sync: () => {}, tryOn: () => {}, exitTryOn: () => {},
     recoverScenePlayer: () => {}, dispose: () => {},
   }
   await act(async () => {
@@ -217,6 +219,15 @@ describe('SkinCenter custom theme transactions', () => {
     expect(calls).toEqual([null, 'mint'])
     expect(customTheme.getState().applied).toBe(true)
     expect(host.textContent).toContain(t('applyFailed'))
+  })
+
+  it('clears the persisted wallpaper when restoring the official default look (#920)', async () => {
+    const clearSelection = vi.fn()
+    await renderSkinCenter({ active: 'mint', wallpaperSelection: '1218076433', clearSelection })
+
+    await click(buttonNamed(cardNamed('官方默认'), t('restore')))
+
+    expect(clearSelection).toHaveBeenCalledTimes(1)
   })
 
   it('does not leave the current skin when custom-theme persistence is rejected', async () => {
