@@ -20,12 +20,17 @@
         "packages/skins/skin-center/tests/pkg-extract.spec.ts"
       ],
       "title": "(wallpaper|webgl|scene player|scene runtime|pkg[-_ ]?extract|we[-_ ]?(library|routes|player|shim)|renderer)",
-      "reviewers": [
-        "Aa728848"
+      "prAllowed": false,
+      "ai": false
+    },
+    {
+      "name": "skins",
+      "label": "皮肤 / 皮肤中心（新皮肤收录、皮肤样式）",
+      "types": [
+        "皮肤 / 皮肤中心（新皮肤收录、皮肤样式）"
       ],
-      "assignees": [
-        "Aa728848"
-      ]
+      "prAllowed": true,
+      "ai": false
     }
   ]
 }

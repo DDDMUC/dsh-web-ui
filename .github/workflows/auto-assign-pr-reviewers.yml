@@ -133,12 +133,57 @@ jobs:
               return;
             }
 
+            // 类别只收 Issue（prAllowed === false）：自动关闭该类 PR 并引导改提 Issue；
+            // 同时命中允许 PR 的类别（如「皮肤 + 渲染器兼容」）时按允许类别走分配。
+            const blockedRoutes = matched.filter(
+              (route) => route.prAllowed === false
+            );
+            const allowedRoutes = matched.filter(
+              (route) => route.prAllowed !== false
+            );
+            if (blockedRoutes.length > 0 && allowedRoutes.length === 0) {
+              const isRepoOwner =
+                pr.user.login === context.repo.owner ||
+                pr.user.login === 'github-actions[bot]';
+              if (!isRepoOwner) {
+                const labels = blockedRoutes
+                  .map((route) => route.label || route.name)
+                  .join('、');
+                const comment = [
+                  '本 PR 只命中只收 Issue 的类别（' + labels + '），该类别不接受 PR，已自动关闭。',
+                  '',
+                  'Wallpaper Engine / WebGL / 渲染器相关问题请改提 Issue（附复现步骤、环境信息与截图），修复由维护者在本地完成：',
+                  '',
+                  '- 提交 Issue：https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/issues/new',
+                  '- 类别规则见 `.github/pr-review-routes.json`。',
+                ].join('\n');
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: comment,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  state: 'closed',
+                  state_reason: 'not_planned',
+                });
+                core.setFailed(
+                  'PR #' + pr.number +
+                    ' matches issue-only categories and was auto-closed.'
+                );
+              }
+              return;
+            }
+
             const reviewers = [...new Set(
-              matched.flatMap((route) => route.reviewers || [])
+              allowedRoutes.flatMap((route) => route.reviewers || [])
             )].filter((user) => user !== pr.user.login);
 
             const assignees = [...new Set(
-              matched.flatMap((route) => route.assignees || [])
+              allowedRoutes.flatMap((route) => route.assignees || [])
             )].filter((user) => user !== pr.user.login);
 
             if (reviewers.length > 0) {
@@ -154,7 +199,7 @@ jobs:
             } else {
               console.log(
                 'PR #' + pr.number + ': matched ' +
-                  matched.map((route) => route.name).join(', ') +
+                  allowedRoutes.map((route) => route.name).join(', ') +
                   ' but no reviewer to request.'
               );
             }
