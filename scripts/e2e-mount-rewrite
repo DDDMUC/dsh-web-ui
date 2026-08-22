@@ -190,6 +190,18 @@ async function ensurePackedTgz(name, version, opts, state) {
   }
   const dir = findWorkspacePackage(opts.root, name)
   if (!dir) throw new Error('npm 未发布且仓库内找不到 workspace 包：' + name)
+  // A private workspace package can never be published: the auto-mode
+  // publish-window pack must not mask it, or the aggregate ships a
+  // registry dependency that fails every consumer install.
+  let manifest
+  try {
+    manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
+  } catch (error) {
+    throw new Error('workspace 包清单不可读：' + name + '（' + error.message + '）')
+  }
+  if (manifest.private === true) {
+    throw new Error('npm 未发布且 workspace 包为 private（永远不会发布）：' + name + ' —— 公有聚合包不能依赖私有包')
+  }
   const pack = opts.pack ?? packWorkspace
   const tgz = pack(dir, state.packOut)
   if (state.packedTgz.has(tgz)) {

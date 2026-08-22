@@ -255,15 +255,20 @@ function resolveEntries(pkgDir, entries, section, errors) {
       errors.push(`${section} target has no package.json: ${join(pkgDir, 'aggregate.yml')} -> ${entry} (${pkgPath})`)
       continue
     }
-    let name
+    let manifest
     try {
-      name = JSON.parse(readFileSync(pkgPath, 'utf8')).name
+      manifest = JSON.parse(readFileSync(pkgPath, 'utf8'))
     } catch (e) {
       errors.push(`cannot read ${pkgPath}: ${e.message}`)
       continue
     }
+    const name = manifest.name
     if (!name) {
       errors.push(`no "name" field in ${pkgPath}`)
+      continue
+    }
+    if (manifest.private === true) {
+      errors.push(`${section} target is a private package: ${join(pkgDir, 'aggregate.yml')} -> ${entry} (${pkgPath}); private workspace packages are never published and cannot be a public aggregate's runtime dependency`)
       continue
     }
     resolved.push({ name, entry })

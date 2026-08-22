@@ -178,6 +178,26 @@ test('auto mode: unpublished dep missing from the workspace fails loudly', async
   )
 })
 
+test('auto mode: unpublished private workspace dep fails loudly (never publishable)', async () => {
+  const tmp = makeTmp()
+  const root = path.join(tmp, 'repo')
+  makeWorkspace(root)
+  writePkg(path.join(root, 'packages', 'dsh-private'), {
+    name: '@linxin666/dsh-private',
+    version: '0.1.0',
+    private: true,
+  })
+  const pkgPath = writePkg(path.join(tmp, 'tarball'), {
+    name: '@linxin666/dsh-web-ui-all',
+    version: '9.9.9',
+    dependencies: { '@linxin666/dsh-private': '0.1.0' },
+  })
+  await assert.rejects(
+    rewriteDependencies({ pkgPath, root, checkPublished: async () => false }),
+    /private（永远不会发布）/,
+  )
+})
+
 test('family-dir mode: every family dep rewrites to a patched same-named copy', async () => {
   const tmp = makeTmp()
   const familyDir = path.join(tmp, 'family')

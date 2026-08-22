@@ -5,7 +5,7 @@
  * files are the contract — scripts/aggregate.mjs --check enforces drift
  * separately.
  */
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
@@ -58,6 +58,35 @@ test('aggregate ids never collide with standalone package ids', () => {
   for (const patch of standalonePatches) {
     for (const id of idsOf(patch)) {
       assert.ok(!aggregateIds.has(id), `aggregate id "${id}" collides with standalone row in ${patch}`)
+    }
+  }
+})
+
+test('no aggregate deps entry resolves to a private workspace package', () => {
+  const aggregates = []
+  for (const base of ['packages', 'packages/skins']) {
+    for (const entry of readdirSync(join(ROOT, base), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const yml = join(base, entry.name, 'aggregate.yml')
+      if (existsSync(join(ROOT, yml))) aggregates.push(yml)
+    }
+  }
+  assert.ok(aggregates.length >= 1, 'expected at least one aggregate manifest')
+  for (const yml of aggregates) {
+    let section = null
+    for (const raw of readFileSync(join(ROOT, yml), 'utf8').split(/\r?\n/)) {
+      const line = raw.trim()
+      if (!line || line.startsWith('#')) continue
+      const sectionMatch = line.match(/^[A-Za-z0-9_-]+:\s*$/)
+      if (sectionMatch) {
+        section = line.slice(0, -1)
+        continue
+      }
+      if (section !== 'deps' || !line.startsWith('- ')) continue
+      const entry = line.slice(2).trim().replace(/\s+#.*$/, '')
+      const pkgPath = join(ROOT, dirname(yml), entry, 'package.json')
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+      assert.notEqual(pkg.private, true, 'aggregate deps entry is private: ' + yml + ' -> ' + entry)
     }
   }
 })
