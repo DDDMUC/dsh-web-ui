@@ -13,19 +13,19 @@
    ========================================================================= */
 :root {
   --g-bg: #050a13;
-  --g-bg-soft: rgba(255, 255, 255, .065);
-  --g-card: rgba(9, 17, 29, .72);
-  --g-card-hover: rgba(14, 25, 41, .84);
-  --g-line: rgba(213, 231, 250, .13);
-  --g-line-strong: rgba(213, 231, 250, .28);
-  --g-text: #f5f8fc;
-  --g-muted: #a9b7c8;
-  --g-faint: #74869c;
+  --g-bg-soft: rgba(255, 255, 255, .11);
+  --g-card: rgba(96, 132, 190, .20);
+  --g-card-hover: rgba(124, 158, 214, .30);
+  --g-line: rgba(214, 232, 252, .26);
+  --g-line-strong: rgba(214, 232, 252, .44);
+  --g-text: #f7fafd;
+  --g-muted: #c7d3e4;
+  --g-faint: #9fb1c9;
   --g-accent: #3a65c2;
   --g-accent-hover: #456fca;
   --g-accent-deep: #9bb2e2;
   --g-accent-soft: rgba(58, 101, 194, .18);
-  --g-shadow: 0 16px 46px rgba(0, 4, 12, .28), 0 2px 8px rgba(0, 4, 12, .22);
+  --g-shadow: 0 16px 46px rgba(4, 14, 32, .26), 0 2px 8px rgba(4, 14, 32, .18);
   --g-radius: 15px;
   --g-gold: #f2c14e;
   --g-silver: #b9c4d4;
@@ -94,7 +94,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .mk-tab .mk-tab-count { color: var(--g-faint); font-size: 12px; margin-left: 5px; }
 .mk-search {
   flex: 1 1 220px; min-width: 180px;
-  border: 1px solid var(--g-line); background: rgba(5, 10, 19, .55);
+  border: 1px solid var(--g-line); background: rgba(120, 155, 210, .18);
   color: var(--g-text); padding: 8px 14px; border-radius: var(--g-radius);
 }
 .mk-search::placeholder { color: var(--g-faint); }
@@ -143,7 +143,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .mk-podium-slot.rank-3 .mk-medal { background: var(--g-bronze); }
 .mk-podium-thumb {
   width: 100%; height: 90px; object-fit: contain; border-radius: 8px;
-  background: #0b1424; display: block;
+  background: rgba(96, 128, 178, .20); display: block;
 }
 .mk-podium-name {
   font-size: 12px; font-weight: 600; margin-top: 7px;
@@ -183,7 +183,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 .mk-card:hover { transform: translateY(-3px); background: var(--g-card-hover); border-color: var(--g-line-strong); }
 .mk-card-media {
-  position: relative; height: 148px; background: #0b1424; overflow: hidden;
+  position: relative; height: 148px; background: rgba(96, 128, 178, .16); overflow: hidden;
 }
 .mk-card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mk-card-media .mk-accent-bar { position: absolute; left: 0; right: 0; top: 0; height: 4px; }
@@ -230,13 +230,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* ---------- detail modal ---------- */
 dialog.mk-dialog {
   border: 1px solid var(--g-line-strong); border-radius: 18px;
-  background: #0a1120; color: var(--g-text);
-  width: min(960px, 94vw); max-height: 92vh;
-  padding: 0; box-shadow: 0 26px 80px rgba(0, 4, 12, .6);
+  background: rgba(30, 47, 76, .96); color: var(--g-text);
+  width: min(1100px, 96vw); max-height: 92vh;
+  padding: 0; box-shadow: 0 26px 80px rgba(2, 8, 20, .5);
+  backdrop-filter: blur(10px);
 }
-dialog.mk-dialog::backdrop { background: rgba(2, 6, 14, .72); backdrop-filter: blur(4px); }
-.mk-dialog-inner { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 0; min-height: 420px; }
-.mk-dialog-media { border-right: 1px solid var(--g-line); padding: 16px; min-width: 0; }
+dialog.mk-dialog::backdrop { background: rgba(5, 12, 26, .66); backdrop-filter: blur(4px); }
+.mk-dialog-inner { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 0; min-height: 540px; }
+.mk-dialog-media { border-right: 1px solid var(--g-line); padding: 16px; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .mk-dialog-info { padding: 20px 22px; overflow: auto; }
 .mk-dialog-close {
   position: absolute; top: 10px; right: 12px; z-index: 2;
@@ -264,7 +265,7 @@ dialog.mk-dialog::backdrop { background: rgba(2, 6, 14, .72); backdrop-filter: b
 .mk-install-steps li { margin: 4px 0; }
 .mk-code {
   display: flex; align-items: center; gap: 8px;
-  background: #060d1a; border: 1px solid var(--g-line);
+  background: #10203a; border: 1px solid var(--g-line);
   border-radius: 9px; padding: 7px 10px;
   font: 12px var(--g-mono); color: var(--g-accent-deep);
   margin-top: 8px; overflow-x: auto;
@@ -275,21 +276,23 @@ dialog.mk-dialog::backdrop { background: rgba(2, 6, 14, .72); backdrop-filter: b
   color: var(--g-muted); border-radius: 7px; padding: 3px 9px; font-size: 11px; cursor: pointer;
 }
 .mk-code button:hover { color: var(--g-text); }
-.mk-skin-modes { display: flex; gap: 6px; margin-bottom: 10px; }
-.mk-iframe {
-  width: 100%; height: 100%; min-height: 360px;
+.mk-skin-modes { display: flex; gap: 6px; margin: 0 0 10px; align-items: center; flex-wrap: wrap; }
+.mk-skin-tryon { margin-left: auto; font-size: 11px; color: var(--g-accent-deep); white-space: nowrap; }
+.mk-skin-tryon:hover { text-decoration: underline; }
+.mk-skin-img {
+  width: 100%; flex: 1; min-height: 0; object-fit: contain;
   border: 1px solid var(--g-line); border-radius: 12px;
-  background: #0b1424;
+  background: rgba(96, 128, 178, .16); display: block;
 }
 .mk-pet-media { display: grid; grid-template-rows: auto auto; gap: 10px; }
-.mk-pet-main { width: 100%; border-radius: 12px; background: #0b1424; border: 1px solid var(--g-line); }
+.mk-pet-main { width: 100%; border-radius: 12px; background: rgba(96, 128, 178, .16); border: 1px solid var(--g-line); }
 .mk-pet-thumbs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
 .mk-pet-thumbs img {
   width: 64px; height: 64px; object-fit: cover; border-radius: 8px;
-  border: 1px solid var(--g-line); cursor: pointer; background: #0b1424;
+  border: 1px solid var(--g-line); cursor: pointer; background: rgba(96, 128, 178, .16);
 }
 .mk-pet-thumbs img.on { border-color: var(--g-accent); }
-.mk-pet-sheet { width: 100%; border-radius: 10px; border: 1px solid var(--g-line); background: #0b1424; }
+.mk-pet-sheet { width: 100%; border-radius: 10px; border: 1px solid var(--g-line); background: rgba(96, 128, 178, .16); }
 .mk-tracks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .mk-plugin-logo {
   width: 100%; height: 100%; display: grid; place-items: center;
@@ -304,7 +307,7 @@ dialog.mk-dialog::backdrop { background: rgba(2, 6, 14, .72); backdrop-filter: b
 }
 .mk-toast {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
-  background: rgba(9, 17, 29, .92); border: 1px solid var(--g-line-strong);
+  background: rgba(38, 58, 92, .95); border: 1px solid var(--g-line-strong);
   color: var(--g-text); border-radius: 10px; padding: 9px 16px;
   font-size: 13px; opacity: 0; pointer-events: none;
   transition: opacity .2s ease, transform .2s ease; z-index: 50;
@@ -316,6 +319,7 @@ dialog.mk-dialog::backdrop { background: rgba(2, 6, 14, .72); backdrop-filter: b
   .mk-podium-slot { flex-basis: 140px; }
   .mk-dialog-inner { grid-template-columns: 1fr; }
   .mk-dialog-media { border-right: 0; border-bottom: 1px solid var(--g-line); }
+  .mk-skin-img { min-height: 300px; max-height: 52vh; }
   .wrap { padding: 14px 14px 50px; }
 }
 @media (prefers-reduced-motion: reduce) {

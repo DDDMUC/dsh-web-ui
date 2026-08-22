@@ -23,7 +23,7 @@
     var scroll = { target: window.scrollY || 0, smooth: window.scrollY || 0 }
     var clicks = []
     var CLICK_MAX = 3, CLICK_FADE = 0.5
-    var fx = { brightThreshold: 0.55, stretch: 3.20, scale: 3.20, contrast: 1.15, brightness: 0.72, speed: 0.95 }
+    var fx = { brightThreshold: 0.50, stretch: 3.20, scale: 3.20, contrast: 1.08, brightness: 0.96, speed: 0.95 }
     var prog, uRes, uTime, uClicks, uClicksT, uClicksFade, uScroll, uFxA, uFxB, uMeteor, uSeed
 
     var VERT = [
@@ -49,13 +49,13 @@
       'void main() { vec2 uv = gl_FragCoord.xy / uRes; vec2 aspect = vec2(uRes.x / uRes.y, 1.0); vec2 p = (uv - 0.5) * aspect; float t = uTime * uFxB.y; float scrollOffset = uScroll * 0.000018; vec2 flowDir = normalize(vec2(1.0, 0.28)); vec2 flowNormal = vec2(-flowDir.y, flowDir.x); float transport = t * 0.019 + scrollOffset; float morphTime = t * 0.30 + uSeed * 0.7;',
       '  vec2 rippleCdir = vec2(0.0); vec2 rippleCdirN = vec2(0.0); float totalRing = 0.0; float totalInner = 0.0;',
       '  for (int i = 0; i < 3; i++) { vec2 cpos = uClicks[i]; float ct = uClicksT[i]; float cf = uClicksFade[i]; vec2 cd = p - (cpos - 0.5) * aspect; float cdist = length(cd); vec2 cdir = cd / max(cdist, 0.0008); float fadeK = 1.0 - smoothstep(0.0, 0.5, cf); float rippleAttack = smoothstep(0.0, 0.18, ct); float rippleR = ct * 0.22; float rippleLife = rippleAttack * exp(-ct * 0.78) * fadeK; float ring = exp(-pow((cdist - rippleR) * 13.0, 2.0)) * rippleLife; float innerRing = exp(-pow((cdist - rippleR * 0.72) * 9.0, 2.0)) * rippleLife * exp(-ct * 0.14); totalRing += ring; totalInner += innerRing; rippleCdir += cdir * ring; rippleCdirN += vec2(-cdir.y, cdir.x) * innerRing; }',
-      '  vec2 flowSpace = vec2(dot(p, flowDir) / uFxA.y, dot(p, flowNormal)); vec2 advected = (flowDir * flowSpace.x + flowNormal * flowSpace.y) * uFxA.z - flowDir * transport; vec2 localCurl = curlish(advected, morphTime * 0.040); vec2 fluidUv = advected + localCurl * 12.0; fluidUv += rippleCdir * 0.30 + rippleCdirN * 0.14; float f = fluidNoise(fluidUv, morphTime); float swirl = snoise(vec3(fluidUv * 0.80 + f * 1.50, morphTime * 0.035)) * 0.50 + 0.50; float n = f * 0.50 + 0.50; float brightStart = uFxA.x; float tone1 = smoothstep(brightStart - 0.24, brightStart + 0.05, n); float tone2 = smoothstep(brightStart - 0.08, brightStart + 0.20, n + (swirl - 0.5) * 0.18); float tone3 = smoothstep(brightStart + 0.10, brightStart + 0.28, n * 0.72 + swirl * 0.28) * 0.48; float tone4 = smoothstep(0.56, 0.84, n * swirl) * 0.28;',
-      '  vec3 c1 = vec3(0.039, 0.102, 0.227); vec3 c2 = vec3(0.102, 0.220, 0.439); vec3 c3 = vec3(0.176, 0.373, 0.620); vec3 c4 = vec3(0.290, 0.541, 0.769); vec3 c5 = vec3(0.051, 0.122, 0.290); vec3 col = mix(c1, c2, tone1); col = mix(col, c3, tone2); col = mix(col, c4, tone3); col = mix(col, c5, tone4); col = (col - vec3(0.18)) * uFxA.w + vec3(0.18); col *= uFxB.x; col += vec3(0.20, 0.42, 0.82) * totalRing * (0.28 + tone2 * 0.48); col += vec3(0.10, 0.24, 0.54) * totalInner * 0.28;',
+      '  vec2 flowSpace = vec2(dot(p, flowDir) / uFxA.y, dot(p, flowNormal)); vec2 advected = (flowDir * flowSpace.x + flowNormal * flowSpace.y) * uFxA.z - flowDir * transport; vec2 localCurl = curlish(advected, morphTime * 0.040); vec2 fluidUv = advected + localCurl * 12.0; fluidUv += rippleCdir * 0.30 + rippleCdirN * 0.14; float f = fluidNoise(fluidUv, morphTime); float swirl = snoise(vec3(fluidUv * 0.80 + f * 1.50, morphTime * 0.035)) * 0.50 + 0.50; float n = f * 0.50 + 0.50; float brightStart = uFxA.x; float tone1 = smoothstep(brightStart - 0.24, brightStart + 0.05, n); float tone2 = smoothstep(brightStart - 0.08, brightStart + 0.20, n + (swirl - 0.5) * 0.18); float tone3 = smoothstep(brightStart + 0.10, brightStart + 0.28, n * 0.72 + swirl * 0.28) * 0.48; float tone4 = smoothstep(0.56, 0.84, n * swirl) * 0.22;',
+      '  vec3 c1 = vec3(0.070, 0.152, 0.312); vec3 c2 = vec3(0.156, 0.306, 0.562); vec3 c3 = vec3(0.224, 0.448, 0.712); vec3 c4 = vec3(0.348, 0.596, 0.844); vec3 c5 = vec3(0.096, 0.196, 0.388); vec3 col = mix(c1, c2, tone1); col = mix(col, c3, tone2); col = mix(col, c4, tone3); col = mix(col, c5, tone4); col = (col - vec3(0.18)) * uFxA.w + vec3(0.18); col *= uFxB.x; col += vec3(0.20, 0.42, 0.82) * totalRing * (0.28 + tone2 * 0.48); col += vec3(0.10, 0.24, 0.54) * totalInner * 0.28;',
       '  vec2 rippleShift = rippleCdir * 0.15 + rippleCdirN * 0.07; vec2 flowFollow = localCurl * 7.0; vec2 dustP = p - flowDir * (t * 0.0045 + scrollOffset * 0.70); dustP += flowFollow * 0.30 + flowNormal * (f * 0.024) + rippleShift; vec2 starP = p - flowDir * (t * 0.0070 + scrollOffset * 0.42); starP += flowFollow * 0.21 + flowNormal * (swirl * 0.019) + rippleShift * 0.82;',
       '  float nebula = clamp(tone1 * 0.30 + tone2 * 0.56 + (1.0 - tone4) * 0.14, 0.0, 1.0); float rippleDust = clamp(max(totalRing, totalInner * 0.88), 0.0, 1.0); vec3 dustLayer = starLayer(dustP, 66.0, 4.7 + uSeed, t * 0.68, 0.816 - rippleDust * 0.176, 0.10, flowDir, f); vec3 brightLayer = starLayer(starP, 37.0, 19.3 + uSeed, t * 0.78, 0.904 - rippleDust * 0.272, 0.08, flowDir, swirl * 2.0 - 1.0); vec3 rippleLayer = starLayer(starP - rippleCdir * 0.12, 48.0, 52.6 + uSeed, t * 0.74, 0.976 - rippleDust * 0.576, 0.08, flowDir, f);',
       '  col += vec3(0.64, 0.80, 1.00) * dustLayer.x * nebula * (0.28 + tone2 * 0.44); col += vec3(0.76, 0.88, 1.00) * brightLayer.x * nebula * (0.42 + swirl * 0.36); col += vec3(0.82, 0.92, 1.00) * rippleLayer.x * rippleDust * 1.46; float randomTwinkle = dustLayer.y * 0.48 + brightLayer.y * 0.92 + rippleLayer.y * rippleDust * 1.05; col += vec3(0.78, 0.94, 1.00) * randomTwinkle; float flareMask = clamp(tone2 * 0.76 + tone3 * 0.24, 0.0, 1.0); float fastFlare = dustLayer.z * 0.62 + brightLayer.z * 1.12 + rippleLayer.z * rippleDust * 1.28; col += vec3(0.94, 1.08, 1.24) * fastFlare * (0.52 + flareMask * 0.82);',
       '  float mSlot = floor(t / 10.5); float meteor = 0.0; for (int sj = 0; sj < 3; sj++) { float slotF = mSlot - float(sj); float mCount = 1.0 + floor(hash2(vec2(slotF + uSeed, 1.7)).x * 2.5); for (int mk = 0; mk < 3; mk++) { float kf = float(mk); if (kf >= mCount) break; float appear = slotF * 10.5 + hash2(vec2(slotF + uSeed, 3.1 + kf * 7.7)).x * 9.0; float mT = t - appear; float ySeed = hash2(vec2(slotF + uSeed, 5.3 + kf * 9.1)).x; float xSeed = hash2(vec2(slotF + uSeed, 11.1 + kf * 5.5)).x; float vSeed = hash2(vec2(slotF + uSeed, 7.9 + kf * 3.3)).x; float aSeed = hash2(vec2(slotF + uSeed, 13.7 + kf * 3.9)).x; vec2 mStart = vec2(-0.2 + xSeed * 0.18, 0.08 + ySeed * 0.62); float angOff = (aSeed - 0.5) * 0.6; vec2 mDir = vec2(flowDir.x * cos(angOff) - flowDir.y * sin(angOff), flowDir.x * sin(angOff) + flowDir.y * cos(angOff)); float needX = (1.12 - mStart.x) / mDir.x; float needY = mDir.y > 0.02 ? (1.08 - mStart.y) / mDir.y : -1.0; float mLen = max(needX, needY); float mSpeed = 0.135 + vSeed * 0.365; float mFlight = mLen / mSpeed; float mProg = mT / mFlight; if (mProg < 0.0 || mProg >= 1.0) continue; vec2 mPos = mStart + mDir * mProg * mLen; vec2 md = uv - mPos; vec2 mPerpDir = vec2(-mDir.y, mDir.x); float mAlong = dot(md, mDir); float mPerp = dot(md, mPerpDir); float mHead = exp(-dot(md, md) * 1000000.0); float mTrailLen = 0.12 + (mSpeed - 0.135) * 0.904; float mTrail = exp(-mPerp * mPerp * 2000000.0) * smoothstep(-mTrailLen, -0.015, mAlong) * step(mAlong, 0.0); float mFade = smoothstep(0.0, 0.08, mProg) * (1.0 - smoothstep(0.88, 1.0, mProg)); meteor += (mHead * 0.7 + mTrail * 0.35) * mFade; } } meteor *= uMeteor; float mLum = dot(col, vec3(0.299, 0.587, 0.114)); float mDarkMask = 1.0 - smoothstep(0.10, 0.24, mLum); col += vec3(0.85, 0.95, 1.05) * meteor * mDarkMask;',
-      '  float vignette = 1.0 - smoothstep(0.48, 1.06, length((uv - 0.5) * vec2(0.86, 1.0))); col *= 0.82 + vignette * 0.18; col = pow(max(col, 0.0), vec3(0.94)); gl_FragColor = vec4(col, 1.0); }',
+      '  float vignette = 1.0 - smoothstep(0.48, 1.06, length((uv - 0.5) * vec2(0.86, 1.0))); col *= 0.88 + vignette * 0.12; col = pow(max(col, 0.0), vec3(0.94)); gl_FragColor = vec4(col, 1.0); }',
     ].join('\n')
 
     function compileSh(type, src) {
@@ -475,22 +475,37 @@
     info.appendChild(head)
 
     if (kind === 'skin') {
+      // 预览用 manifest 的完整截图（1440x900），contain 完整展示；
+      // 实时试穿独立在新标签页打开完整模拟器（视口足够大，不会裁剪）。
       var modes = el('div', 'mk-skin-modes')
-      var frame = el('iframe', 'mk-iframe')
-      frame.title = '皮肤实时预览'
-      frame.src = 'preview.html?skin=' + encodeURIComponent(item.id) + '&theme=light&chrome=0'
+      var skinImg = el('img', 'mk-skin-img')
+      skinImg.alt = (item.name || item.displayName) + ' 皮肤预览'
+      skinImg.loading = 'lazy'
+      var tryon = el('a', 'mk-skin-tryon', '实时试穿 ↗')
+      tryon.rel = 'noopener'
+      tryon.target = '_blank'
+      tryon.href = 'preview.html?skin=' + encodeURIComponent(item.id) + '&theme=light'
+      function skinSrc(theme) {
+        var p = item.preview || {}
+        return p[theme] || p.light || p.dark || ''
+      }
+      skinImg.src = skinSrc('light')
       function mkMode(theme, label) {
-        var b = el('button', 'mk-chip', label)
+        var b = el('button', 'mk-chip' + (theme === 'light' ? ' on' : ''), label)
         b.type = 'button'
         b.addEventListener('click', function () {
-          frame.src = 'preview.html?skin=' + encodeURIComponent(item.id) + '&theme=' + theme + '&chrome=0'
+          skinImg.src = skinSrc(theme)
+          modes.querySelectorAll('button').forEach(function (o) { o.classList.remove('on') })
+          b.classList.add('on')
+          tryon.href = 'preview.html?skin=' + encodeURIComponent(item.id) + '&theme=' + theme
         })
         modes.appendChild(b)
       }
       mkMode('light', '亮色预览')
       mkMode('dark', '暗色预览')
+      modes.appendChild(tryon)
       media.appendChild(modes)
-      media.appendChild(frame)
+      media.appendChild(skinImg)
       if (item.tagline) info.appendChild(el('div', 'mk-dialog-tagline', item.tagline))
       if (item.description) info.appendChild(el('div', 'mk-dialog-text', item.description))
       if (item.tags && item.tags.length) {
