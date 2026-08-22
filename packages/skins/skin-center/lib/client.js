@@ -455,9 +455,11 @@ window.__ModuleLoader__.load({
 			const style = doc.createElement("style");
 			style.setAttribute(SCENE_NEUTRALIZER_ATTR, "");
 			style.textContent = `
+    html[data-dsh-backdrop-active] [data-composer-seat],
     html[data-dsh-backdrop-active] [data-composer-seat]::before {
       background: none !important;
       backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }
     html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card] {
       backdrop-filter: blur(var(--dsh-input-card-blur, 10px)) !important;

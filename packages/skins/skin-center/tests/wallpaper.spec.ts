@@ -642,11 +642,12 @@ describe('WallpaperController', () => {
     expect(document.documentElement.getAttribute('data-dsh-backdrop-active')).toBe('true')
     const neutralizer = document.head.querySelector('style[data-dsh-scene-neutralizer]')
     expect(neutralizer).not.toBeNull()
-    // The official seat mask ::before stays neutralized.
+    // Neutralize both the official seat gradient and its optional ::before
+    // mask. Only the input card may retain a content-gated blur.
+    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat],')
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat]::before')
     expect(neutralizer?.textContent).toContain('background: none !important;')
-    // The wider seat stays transparent; only the input card receives the
-    // content-gated blur, so the mask cannot cover the task strip above it.
+    expect(neutralizer?.textContent).toContain('-webkit-backdrop-filter: none !important;')
     expect(neutralizer?.textContent).not.toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-seat] {')
     expect(neutralizer?.textContent).not.toContain('var(--dsw-alias-bg-overlay) 36px')
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-card]')
