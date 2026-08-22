@@ -15,6 +15,7 @@
 import { createEffectLedger } from './effect-ledger.ts'
 import { createSemanticAdapter } from './semantic-adapter.ts'
 import type { SemanticAdapter } from './semantic-adapter.ts'
+import { installShellRenderingAdapter } from './shell-rendering.ts'
 import { createSkinController } from './skin-controller.ts'
 import type { ControllerSkinEntry, SkinController } from './skin-controller.ts'
 
@@ -87,6 +88,7 @@ export function bootSkinRuntime(options: BootOptions = {}): SkinRuntimeStore {
   })
   const adapter = createSemanticAdapter(doc)
   adapter.start()
+  const disposeShellRendering = installShellRenderingAdapter(doc)
 
   let catalog: CatalogSkin[] | null = null
   let diagnostics: CatalogDiagnostic[] = []
@@ -127,6 +129,7 @@ export function bootSkinRuntime(options: BootOptions = {}): SkinRuntimeStore {
     },
     shutdown() {
       adapter.stop()
+      disposeShellRendering()
       controller.shutdown()
     },
   }
