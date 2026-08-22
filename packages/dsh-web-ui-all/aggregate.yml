@@ -29,7 +29,7 @@ patchFrom:
   - ../dsh-desktop-launcher
   - ../dsh-doctor
   - ../dsh-session-id
-  - ../dsh-skins
+  - ../skins/skin-center
 self:
   - web-ui-compat
 deps:
@@ -49,9 +49,6 @@ deps:
   - ../dsh-doctor
   - ../dsh-session-id
   - ../dsh-web-ui-settings
-  - ../dsh-skins
-  # skin-center 是 dsh-skins patch 行（web-ui-skin-center）的宿主，必须与
-  # dsh-skins 一样落在 profile 顶层，loader 才能从顶层解析到该行
   - ../skins/skin-center
 # 外部 npm 插件：dsh-better-sidebar 接管右侧面板位置。行名从 profile 顶层
 # 解析（hoisted 布局下由 web-ui-all 的 dependencies 提升），dependencies 里

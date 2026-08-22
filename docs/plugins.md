@@ -1,6 +1,6 @@
 # 如何把新插件加入全家桶
 
-本指南说明如何把一个新插件加入 dsh-web-ui 全家桶，使其可以被聚合插件包（`dsh-web-ui-all` / `dsh-skins`）一键装齐，也可独立安装。
+本指南说明如何把一个新插件加入 dsh-web-ui 全家桶，使其可以被聚合插件包（`dsh-web-ui-all`）一键装齐，也可独立安装。
 
 ## 流程
 
@@ -40,7 +40,7 @@ packages/<name>/
 - `patchFrom`：该包的 `cordis.patch.yml` insert 行会被汇总进聚合包 patch；
 - `deps`：解析为包名写入聚合包 `package.json` 的 `dependencies`（`workspace:*`）。
 
-皮肤（新增或改动）不需要进任何 aggregate.yml：皮肤是纯资产目录，内置在 `packages/skins/skin-center/skins/<id>/`，随 `@linxin666/dsh-client-ui-skin-center` 一个包分发（`dsh-skins` 聚合包是只带依赖的退役载具，保留一个发布周期）。改完皮肤后运行 `pnpm skin-center:check` 与 `node scripts/gallery-build`。皮肤启用互斥由 `dsh-skin use` 管理（客户端原子切换，不改 cordis.patch.yml）。
+皮肤（新增或改动）不需要进任何 aggregate.yml：皮肤是纯资产目录，内置在 `packages/skins/skin-center/skins/<id>/`，随 `@linxin666/dsh-client-ui-skin-center` 一个包分发。改完皮肤后运行 `pnpm skin-center:check` 与 `node scripts/gallery-build`。皮肤启用互斥由 `dsh-skin use` 管理（客户端原子切换，不改 cordis.patch.yml）。
 
 ### 4. 重新生成聚合包
 

@@ -23,7 +23,7 @@ function idsOf(relPath) {
     .map((line) => line.trim().replace(/^- id: /, ''))
 }
 
-const AGGREGATES = ['packages/dsh-web-ui-all/cordis.patch.yml', 'packages/dsh-skins/cordis.patch.yml']
+const AGGREGATES = ['packages/dsh-web-ui-all/cordis.patch.yml']
 
 test('aggregate rows are web-ui-* namespaced and unique', () => {
   for (const rel of AGGREGATES) {
@@ -50,7 +50,7 @@ test('aggregate ids never collide with standalone package ids', () => {
         continue
       }
       const normPatch = patch.replaceAll('\\', '/')
-      if (normPatch === 'packages/dsh-web-ui-all/cordis.patch.yml' || normPatch === 'packages/dsh-skins/cordis.patch.yml') continue
+      if (normPatch === 'packages/dsh-web-ui-all/cordis.patch.yml') continue
       standalonePatches.push(patch)
     }
   }

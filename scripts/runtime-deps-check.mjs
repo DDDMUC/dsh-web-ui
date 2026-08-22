@@ -24,7 +24,7 @@
  * Tests: node --test scripts/runtime-deps-check.test.mjs
  */
 
-import { readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
@@ -90,7 +90,9 @@ if (isCli) {
   let scanned = 0
   for (const [dir, files] of byDir) {
     if (!files.includes(`${dir}/package.json`)) continue
-    const pkgJson = JSON.parse(readFileSync(join(ROOT, dir, 'package.json'), 'utf8'))
+    const pkgPath = join(ROOT, dir, 'package.json')
+    if (!existsSync(pkgPath)) continue
+    const pkgJson = JSON.parse(readFileSync(pkgPath, 'utf8'))
     const libPrefix = `${dir}/lib/`
     const libFiles = files.filter((f) => f.startsWith(libPrefix) && /\.(?:js|cjs|mjs)$/.test(f))
     if (libFiles.length === 0) continue

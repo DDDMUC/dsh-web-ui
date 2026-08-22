@@ -71,9 +71,6 @@ importers:
       lightningcss:
         specifier: ^1.32.0
         version: 1.32.0
-      mermaid:
-        specifier: 11.16.1
-        version: 11.16.1
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -793,12 +790,6 @@ importers:
         specifier: ^3.0.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jsdom@25.0.1)(lightningcss@1.33.0)(yaml@2.9.0)
 
-  packages/dsh-skins:
-    dependencies:
-      '@linxin666/dsh-client-ui-skin-center':
-        specifier: workspace:*
-        version: link:../skins/skin-center
-
   packages/dsh-ssh:
     dependencies:
       '@xterm/addon-fit':
@@ -1089,9 +1080,6 @@ importers:
       '@linxin666/dsh-remote-web-ui':
         specifier: workspace:*
         version: link:../dsh-remote-web-ui
-      '@linxin666/dsh-skins':
-        specifier: workspace:*
-        version: link:../dsh-skins
       '@linxin666/dsh-ssh':
         specifier: workspace:*
         version: link:../dsh-ssh

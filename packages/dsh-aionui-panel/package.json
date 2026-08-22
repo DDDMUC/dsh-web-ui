@@ -35,8 +35,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -b && node scripts/copy-mermaid.mjs && tsdown",
-    "prepare": "node scripts/copy-mermaid.mjs && tsdown",
+    "build": "tsc -b && tsdown",
+    "prepare": "tsdown",
     "watch": "tsdown --watch"
   },
   "peerDependencies": {
@@ -63,8 +63,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tsdown": "0.22.2",
-    "typescript": "~5.7.2",
-    "mermaid": "11.16.1"
+    "typescript": "~5.7.2"
   },
   "files": [
     "lib",

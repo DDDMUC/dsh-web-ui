@@ -24,8 +24,6 @@
   },
   "include": [
     "src/index.ts",
-    "src/mount-once.ts",
-    "src/core/**/*.ts",
-    "src/host/**/*.ts"
+    "src/mount-once.ts"
   ]
 }

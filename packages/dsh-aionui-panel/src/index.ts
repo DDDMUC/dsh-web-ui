@@ -1,10 +1,7 @@
 /**
  * @linxin666/dsh-client-ui-aionui-panel — host half. The AionUi panel is
  * retired: the provider choice was removed and the right panel is always
- * the external dsh-better-sidebar side card, so this half no longer mounts
- * the /aionui-panel/* HTTP routes, the workspace fs watch, the git polling,
- * or the agent prompt section (the panel implementation under ./host stays
- * in the package as the unsupported historical record).
+ * the external dsh-better-sidebar side card.
  *
  * What remains is the 'aionui-panel' settings namespace: the browser
  * side-card card binds it as its availability anchor, and keeping the

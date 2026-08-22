@@ -9,7 +9,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 16 个插件包（截至快照日）。皮肤不再独立成包：全部内置皮肤是纯资产目录（`packages/skins/skin-center/skins/<id>/`），随 `@linxin666/dsh-client-ui-skin-center` 分发；`@linxin666/dsh-skins` 是只带依赖的退役载具（保留一个发布周期）：
+`packages/` 与 `packages/skins/` 下共 15 个插件包（截至快照日）。皮肤不再独立成包：全部内置皮肤是纯资产目录（`packages/skins/skin-center/skins/<id>/`），随 `@linxin666/dsh-client-ui-skin-center` 分发：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |
@@ -27,7 +27,6 @@
 | packages/dsh-chat-recovery | @linxin666/dsh-chat-recovery | 0.2.4 | false |
 | packages/dsh-desktop-launcher | @linxin666/dsh-desktop-launcher | 0.2.3 | false |
 | packages/dsh-doctor | @linxin666/dsh-doctor | 0.2.7 | false |
-| packages/dsh-skins | @linxin666/dsh-skins（聚合） | 0.1.1 | true |
 | packages/dsh-web-ui-all | @linxin666/dsh-web-ui-all（聚合） | 0.1.1 | true |
 | packages/skins/skin-center | @linxin666/dsh-client-ui-skin-center | 0.1.1 | true |
 
@@ -39,7 +38,7 @@
 1. **11 包 `private: true`** — npm 直接拒绝发布 private 包
    （`This package has been marked as private`）。发布前需逐个移除。
    **（发布前需按流程移除，当前仍保留）**
-2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-skins 1 处、dsh-web-ui-all 13 处）—
+2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-web-ui-all 17 处）—
    [已确认] **已确认修复方式**：实测 `pnpm pack` 会把 `workspace:*` 改写为真实版本号
    （无残留）。
    发布时必须用 **`pnpm publish`**（不要用 `npm publish`），`npm pack` 不改写。
@@ -87,7 +86,7 @@ npm 侧已发布 @deepseek-ai 核心 SDK 包至 `0.1.0-rc.6`，插件包仍按�
 1. 同步官方版本号节奏（当前为 `0.1.0-rc.6`，与 @deepseek-ai/dsh 对齐）；
 2. 发布前仍需处理：移除 `private: true`（11 包）；
 3. 按依赖顺序发布（用 **`pnpm publish`**，自动改写 workspace:*）：
-   各功能包 > skin-center > dsh-skins > web-ui-all；
+   各功能包 > skin-center > web-ui-all；
 4. **外部依赖先行**：web-ui-all 的 dependencies 含 `dsh-better-sidebar`（0.14.0，
    非本仓库出品，已发布并适配 rc.8 官方 SDK cohort）与 `@mlgbnb/dsh-archive-manager`
    （1.0.7，社区插件，已发布），其版本必须已在 npm 上可解析，再更新 lockfile；

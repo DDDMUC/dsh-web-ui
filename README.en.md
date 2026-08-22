@@ -80,7 +80,6 @@ Every plugin is published on npm under the `@linxin666/dsh-*` scope; each packag
 | [@linxin666/dsh-client-ui-skill-explorer](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skill-explorer) | Skill center: browse, toggle and manage skills |
 | [@linxin666/dsh-desktop-launcher](https://www.npmjs.com/package/@linxin666/dsh-desktop-launcher) | Desktop launcher: one-click start and shutdown for dsh |
 | [@linxin666/dsh-doctor](https://www.npmjs.com/package/@linxin666/dsh-doctor) | Transactional rescue mode: repairs DSH profiles |
-| [@linxin666/dsh-skins](https://www.npmjs.com/package/@linxin666/dsh-skins) | Compatibility carrier: one release window for skin compatibility |
 | [@linxin666/dsh-client-ui-aionui-panel](https://www.npmjs.com/package/@linxin666/dsh-client-ui-aionui-panel) | Legacy right panel (no longer supported, off by default) |
 
 ## Feature Plugins
@@ -381,7 +380,7 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 
 | Package | Origin | License |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-ui-settings / dsh-liangshen / dsh-skins / dsh-web-ui-all / skins | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-ui-settings / dsh-liangshen / dsh-web-ui-all / skins | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
 | dsh-tool-describe-image | Ported from [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image) (deepseek-harness `packages/vision/tool-describe-image`) | Apache-2.0 (zhu1090093659) |
 | dsh-better-sidebar | External integrated plugin [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (right panel, npm dependency reference) | MIT (omdsh-dev) |
 | dsh-archive-manager | External integrated plugin [z953218350/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager) (settings-page archive manager, npm dependency reference) | MIT (z953218350) |
