@@ -99,6 +99,17 @@ describe('gateway body failure contract', () => {
     expect(status()).toBe(200)
   })
 
+  it('writes a JSON loopback rejection envelope with family headers', async () => {
+    const { request } = fakeRequest()
+    Object.assign(request, { socket: { remoteAddress: '10.0.0.5' } })
+    const { res, body, status, headers } = captureResponse()
+    await route('/api/plugin-manager/install')(request, res)
+    expect(status()).toBe(403)
+    expect(JSON.parse(body())).toEqual({ ok: false, error: 'forbidden: loopback-only' })
+    expect(headers()['content-type']).toBe('application/json; charset=utf-8')
+    expect(headers()['referrer-policy']).toBe('no-referrer')
+  })
+
   it('writes family JSON headers through the shared writer', async () => {
     const { request } = fakeRequest([Buffer.from('{"spec":"dsh-pet"}')])
     const { res, status, headers } = captureResponse()

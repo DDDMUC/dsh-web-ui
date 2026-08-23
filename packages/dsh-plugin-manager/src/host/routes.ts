@@ -189,8 +189,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
   const guard = (handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>) =>
     async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
       if (!isLoopbackRequest(req)) {
-        res.writeHead(403)
-        res.end('forbidden')
+        writeJson(res, 403, { ok: false, error: 'forbidden: loopback-only' })
         return
       }
       try {
