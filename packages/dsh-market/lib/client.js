@@ -772,6 +772,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region src/client/install-source.ts
+		/**
+		* npm package name (optionally scoped, lowercase) as the store manifest
+		* uses it, plus the optional concrete version/tag suffix npm accepts
+		* (e.g. pkg@1.2.3, @scope/pkg@next). Range operators are not part of the
+		* store convention, so `^1.0.0`-style specs stay rejected.
+		*/
+		const NPM_SPEC = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*(?:@[0-9A-Za-z][0-9A-Za-z._-]*)?$/;
 		/** The command to install a plugin entry (npm package when published, else its repository URL). */
 		function installCommand(entry) {
 			return `dsh plugin --profile web add ${entry.npm ?? entry.repo ?? entry.id}`;
@@ -779,6 +786,28 @@ window.__ModuleLoader__.load({
 		/** The spec handed to the pluginManager service. */
 		function installSpec(entry) {
 			return entry.npm ?? entry.repo ?? entry.id;
+		}
+		/**
+		* Whether an install spec may be handed to the plugin manager. Acceptable
+		* shapes are an npm package name (optionally pkg@version) or a plain
+		* https:// git URL; ssh://, git@-style, file://, http://, relative paths and
+		* bare repo names are rejected, so the remote manifest can never drive a
+		* non-https or local install.
+		*/
+		function isInstallSpecValid(spec) {
+			if (spec.startsWith("https://")) return isHttpsGitUrl(spec);
+			return NPM_SPEC.test(spec);
+		}
+		/** Whether a spec is a well-formed https:// URL with a host. */
+		function isHttpsGitUrl(spec) {
+			if (!/^https:\/\/[A-Za-z0-9]/.test(spec)) return false;
+			if (/[\s\u0000-\u001F\u007F]/.test(spec)) return false;
+			try {
+				const url = new URL(spec);
+				return url.protocol === "https:" && url.hostname !== "";
+			} catch {
+				return false;
+			}
 		}
 		/** Find the installed row for an entry (null when not installed or no snapshot). */
 		function entryInstalled(entry, installed) {
@@ -1122,8 +1151,16 @@ window.__ModuleLoader__.load({
 			const onInstallPlugin = (item) => {
 				if (face === null || !face.isLoopback || installing !== null) return;
 				const id = item.id;
+				const spec = installSpec(item);
+				if (!isInstallSpecValid(spec)) {
+					setPluginErrors((prev) => ({
+						...prev,
+						[id]: t("installFailed", { reason: t("installSpecInvalid") })
+					}));
+					return;
+				}
 				setInstalling("plugin:" + id);
-				face.install(installSpec(item)).then(() => face.list()).then((list) => {
+				face.install(spec).then(() => face.list()).then((list) => {
 					setPluginList(list);
 					callout(id, t("installed", {}));
 				}).catch((reason) => {
@@ -1473,6 +1510,7 @@ window.__ModuleLoader__.load({
 			"installing": "安装中…",
 			"installed": "已安装",
 			"installFailed": "安装失败：{reason}",
+			"installSpecInvalid": "安装来源无效，仅支持 npm 包名或 https:// git 地址",
 			"copied": "已复制",
 			"copyCommand": "复制安装命令",
 			"command.title": "复制下方命令到 dsh host 终端执行",
@@ -1528,6 +1566,7 @@ window.__ModuleLoader__.load({
 			"installing": "Installing…",
 			"installed": "Installed",
 			"installFailed": "Install failed: {reason}",
+			"installSpecInvalid": "Invalid install source; only npm package names and https:// git URLs are supported",
 			"copied": "Copied",
 			"copyCommand": "Copy install command",
 			"command.title": "Copy this command into a dsh host terminal",

@@ -41,3 +41,5 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-market
 - 安装路由仅回环可访问（与插件管理器同一门禁）；远程浏览器无法驱动。
 - 下载内容全部来自 `https://dsh-market.com`（URL 由验证后的清单重建）；皮肤 CSS 由皮肤中心运行时净化后才应用。
 - 插件安装走与插件管理器页相同的确认与 CLI 路径。
+- 卡片在调用插件管理器前校验清单安装来源：仅接受 npm 包名（可带版本标签）与纯 https:// git
+  地址；ssh://、file://、http:// 及相对路径、裸仓库名一律拒绝并报错，不发起安装。
