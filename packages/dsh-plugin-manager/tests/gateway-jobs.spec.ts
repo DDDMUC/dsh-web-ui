@@ -538,4 +538,3 @@ describe('CliGateway finished-job retention', () => {
     expect(gateway.status(queued.jobId)).toMatchObject({ phase: 'done' })
   })
 })
-

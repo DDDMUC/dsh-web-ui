@@ -1117,4 +1117,3 @@ describe('macOS system wallpapers', () => {
     expect(res.body).toEqual({ ok: false, error: 'not-an-image' })
   })
 })
-

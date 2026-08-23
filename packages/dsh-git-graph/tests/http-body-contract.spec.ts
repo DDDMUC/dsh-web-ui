@@ -135,4 +135,3 @@ describe('json body failure contract', () => {
     expect(response.headers['referrer-policy']).toBe('no-referrer')
   })
 })
-
