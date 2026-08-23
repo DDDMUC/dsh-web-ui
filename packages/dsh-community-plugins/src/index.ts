@@ -1,7 +1,7 @@
 /**
  * Host half of the community plugin index data source. The package no longer
  * ships a settings surface: the community index (community.json) is consumed
- * by the DSH Market store plugin list and the dsh-market.com plugin
+ * by the Workshop store plugin list and the dsh-market.com plugin
  * manifest. The host half stays as an inert cordis entry so existing
  * profiles and the aggregate keep resolving the row; the row can be removed
  * through the plugin manager.

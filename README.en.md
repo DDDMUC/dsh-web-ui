@@ -22,24 +22,22 @@
   <img src="https://img.shields.io/badge/coverage-pending-lightgrey?style=flat-square" alt="Coverage">
 </p>
 
-CI gates: typecheck / test / scripts / docs / aggregate, gallery and market consistency. Coverage and code-style (Prettier / ESLint) gates are planned for CI.
-
 <p align="center">
-  <strong>The plugin and skin family for the DeepSeek Harness (DSH) Web GUI · Everything is development, everything is a plugin</strong><br>
-  <em>Liang Shen Mode · Task board · Git graph · Right panel · Mobile remote · SSH ops · Image understanding · Whale-girl pet · Skin center</em>
+  <strong>The plugin and skin ecosystem for the DeepSeek Harness (DSH) Web GUI · Everything is a plugin</strong><br>
+  <em>Liang Shen Mode · Task Board · Mobile Remote · SSH Ops · Image Understanding · Whale-Girl Pet · Skin Center · Workshop</em>
 </p>
 
 <div align="center">
 
-[What It Is](#what-it-is) · [DSH Market](#dsh-marketdsh-marketcom) · [npm Packages](#npm-packages) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
+[What It Is](#what-it-is) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Workshop](#workshop-dsh-marketcom) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
 
 </div>
 
 ## What It Is
 
-dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everything is development, everything is a plugin" — and is its most complete realization on the Web GUI: not just a plugin package, but a plugin ecosystem with extreme extensibility. The "Liang Shen Mode" agent preset tuned for DeepSeek V4 Pro, plus a task board, Git graph, right panel, mobile remote, SSH ops, image understanding, a whale-girl pet and the skin center — each ships as an independent, self-contained module: pluggable, swappable, re-developable. Install the whole family to assemble a complete workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate package can even bolt on external plugins like `dsh-better-sidebar` — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md).
+dsh-web-ui is the plugin and skin ecosystem for the DeepSeek Harness (DSH) Web GUI — the most complete realization of "everything is development, everything is a plugin" on the web: Liang Shen Mode, the task board, mobile remote, SSH ops, image understanding, the right panel, the whale-girl pet and the skin center each ship as an independent, self-contained plugin — pluggable, swappable, re-developable. Install the whole family to assemble a complete dev workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate can even bolt on external plugins like `dsh-better-sidebar` — see the [dsh-web-ui-all README](packages/dsh-web-ui-all/README.md).
 
-"Everything is a plugin" now extends to the skins themselves: after the v2 skin-center refactor, a skin is no longer an npm package coupled to the official DSH — it is a pure asset directory (a skin.json manifest plus styles, art and optional effect scripts) loaded on demand by the skin center, the single loader. Skins are fully decoupled from the official core and coupled only to the skin center: official upgrades no longer touch any skin, and adding a skin means dropping in a directory — no publish, no install. Plugins own the logic, skins own the look; the boundary is finally clean.
+Skins follow the same philosophy: a v2 skin is no longer an npm package coupled to the official core, but a pure asset directory (a skin.json manifest plus styles, art and optional effect scripts) loaded on demand by the skin center, the single loader — official upgrades no longer touch any skin, and adding one means dropping in a directory: no publish, no install. Plugins own the logic, skins own the look; skins, pets and plugins are all distributed through the [Workshop](#workshop-dsh-marketcom) (dsh-market.com).
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
@@ -47,41 +45,13 @@ dsh-web-ui inherits the core philosophy of DeepSeek Harness (DSH) — "everythin
 | --- | --- | --- |
 | Agent presets | Official presets (Standard / Minimal…) | Liang Shen Mode: two-phase anchoring tuned for V4 Pro |
 | Task board | None | Multi-column board + cron-scheduled real runs |
-| Git visualization | None | Branch lanes + commit history graph |
-| File preview & changes | None | Right panel: better-sidebar (explorer / editor / terminal / git / browser); the legacy aionui panel is no longer supported (off by default; the settings card can switch back temporarily) |
-| Mobile remote control | None | QR pairing with SSE real-time sync; the same link also pairs a PC browser to run the full Web GUI remotely |
+| Mobile remote control | None | QR pairing with SSE real-time sync; the same link also pairs a PC browser |
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
 | Image understanding | None | `describe_image` vision tool |
-| Themes & skins | Default theme | Skin center with 17 skins, try-on before apply |
-
-## DSH Market (dsh-market.com)
-
-The community skin gallery has been upgraded into [dsh-market.com](https://dsh-market.com) — a unified market for skins, pets and plugins: every category is ranked by device-backed likes, the top three claim the podium on the landing page, skins preview in a live try-on simulator, and plugins expose one-copy install commands. The site is a zero-build static artifact generated deterministically from the three asset sources (`skin.json` / `pet.json` / `community.json`) by `scripts/market-build`; dynamic abilities (liking, ranking) run on a Cloudflare Workers edge API backed by D1 (one vote per device), deployed automatically on every push to `main`. `gallery.dsh-market.com` permanently redirects here.
-
-## npm Packages
-
-Every plugin is published on npm under the `@linxin666/dsh-*` scope; each package in this repository has a matching npm page where you can view it and install it directly:
-
-| npm package | What it is |
-| --- | --- |
-| [@linxin666/dsh-web-ui-all](https://www.npmjs.com/package/@linxin666/dsh-web-ui-all) | All-in-one aggregate: every feature plugin plus the skin set in one install |
-| [@linxin666/dsh-client-ui-plugin-manager](https://www.npmjs.com/package/@linxin666/dsh-client-ui-plugin-manager) | Plugin manager: install from npm or git, enable, disable and configure |
-| [@linxin666/dsh-client-ui-community-plugins](https://www.npmjs.com/package/@linxin666/dsh-client-ui-community-plugins) | Community plugin index card: community-contributed plugins with links |
-| [@linxin666/dsh-client-ui-market](https://www.npmjs.com/package/@linxin666/dsh-client-ui-market) | Market card: browse skins / pets / plugins from dsh-market.com and install with one click |
-| [@linxin666/dsh-liangshen](https://www.npmjs.com/package/@linxin666/dsh-liangshen) | Liang Shen Mode: two-phase anchoring agent preset for V4 Pro |
-| [@linxin666/dsh-client-ui-task-board](https://www.npmjs.com/package/@linxin666/dsh-client-ui-task-board) | Task board: real session execution plus cron scheduling |
-| [@linxin666/dsh-client-ui-git-graph](https://www.npmjs.com/package/@linxin666/dsh-client-ui-git-graph) | Git branch selector and commit history graph |
-| [@linxin666/dsh-client-ui-web-ui-settings](https://www.npmjs.com/package/@linxin666/dsh-client-ui-web-ui-settings) | Settings section for the dsh-web-ui plugin group |
-| [@linxin666/dsh-client-ui-skin-center](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skin-center) | Skin center: the single skin loader; each skin ships as a `@linxin666/dsh-client-ui-skin-*` package and loads on demand |
-| [@linxin666/dsh-remote-web-ui](https://www.npmjs.com/package/@linxin666/dsh-remote-web-ui) | Scan-to-pair remote control of the Web GUI from mobile or PC |
-| [@linxin666/dsh-ssh](https://www.npmjs.com/package/@linxin666/dsh-ssh) | SSH panel: terminal / transfer / tunnel / cluster |
-| [@linxin666/dsh-tool-describe-image](https://www.npmjs.com/package/@linxin666/dsh-tool-describe-image) | `describe_image` vision tool |
-| [@linxin666/dsh-pet](https://www.npmjs.com/package/@linxin666/dsh-pet) | Registry-driven floating pet companion |
-| [@linxin666/dsh-chat-recovery](https://www.npmjs.com/package/@linxin666/dsh-chat-recovery) | Chat recovery: fork-based edit and failed-turn retry |
-| [@linxin666/dsh-client-ui-skill-explorer](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skill-explorer) | Skill center: browse, toggle and manage skills |
-| [@linxin666/dsh-desktop-launcher](https://www.npmjs.com/package/@linxin666/dsh-desktop-launcher) | Desktop launcher: one-click start and shutdown for dsh |
-| [@linxin666/dsh-doctor](https://www.npmjs.com/package/@linxin666/dsh-doctor) | Transactional rescue mode: repairs DSH profiles |
-| [@linxin666/dsh-client-ui-aionui-panel](https://www.npmjs.com/package/@linxin666/dsh-client-ui-aionui-panel) | Legacy right panel (no longer supported, off by default) |
+| File preview & changes | None | Right panel: explorer / editor / terminal / git / browser |
+| Companion pet | None | Whale girl: reacts to agent state, feeding and bonding |
+| Git visualization | None | Branch picker + commit history graph |
+| Themes & skins | Default theme | Skin center with 18 skins + a custom-theme editor, try-on before apply |
 
 ## Feature Plugins
 
@@ -103,12 +73,6 @@ Tasks can also run on schedule: set a cron expression in the detail view (auto-u
 | --- | --- |
 | ![Task board](docs/screenshots/09-task-board.png) | ![Scheduled task detail](docs/screenshots/10-task-board-detail-cron.png) |
 
-### Git Graph
-
-The branch picker above the input box switches branches and browses commit history. The Git graph draws branch lanes and commits on a timeline, which stays readable even in big repositories.
-
-![Git graph](docs/screenshots/04-git-graph.png)
-
 ### Mobile Remote Control
 
 The phone icon at the bottom of the sidebar opens the pairing panel. Scan the QR code (or copy the link) and the phone lands on a standalone mobile surface for the current dsh web workspace: browse and create sessions, send and receive messages, switch models and reasoning effort, adjust the permission preset, all in sync with the desktop. The same pairing link also pairs a **PC browser** (the phone pairing flow extended to the desktop Web GUI): open the desktop-URL form of the link on another computer and the full Web GUI runs there, its traffic on the pairing-gated `/remote/api` channel — unpaired devices get a banner and no data. Pairing tokens are one-time and time-limited; "Stop" revokes every device at any time. The QR targets the LAN by default; turn on the cloudflared public tunnel and the phone (and PC) can pair from any network. PC remote desktop should prefer this plugin's device-pairing channel; setting `--trusted-host` for a tunnel domain is not recommended on security grounds because that flag lets the SDK's `/api` bypass the pairing gate (see the [plugin README](packages/dsh-remote-web-ui/README.md)).
@@ -121,7 +85,7 @@ The phone icon at the bottom of the sidebar opens the pairing panel. Scan the QR
 | Chat (folded reasoning & tool calls) | Model & reasoning-effort picker |
 | ![Mobile chat](docs/screenshots/22-mobile-chat.png) | ![Model picker](docs/screenshots/23-mobile-model-sheet.png) |
 
-### Remote Connection
+### Remote Connection (SSH)
 
 The "SSH" sidebar entry opens the remote-ops panel. Hosts support key / password auth and one-click import from `~/.ssh/config`; config lives in `~/.dsh/dsh-ssh.json`. Real operations on configured hosts:
 
@@ -145,21 +109,36 @@ The right panel is provided by the external plugin [dsh-better-sidebar](https://
 
 ### Whale-Girl Pet
 
-A whale girl lives at the edge of the UI and changes animation with the agent's state: thinking, waiting, working, celebrating. Click her to interact (head pats), feed dried fish to raise affinity, and grow her from a baby whale to "deep-sea bond". Rename her, drag her anywhere, or hide her whenever you want.
+A whale girl lives at the edge of the UI and changes animation with the agent's state: thinking, waiting, working, celebrating. Click her to interact (head pats), feed dried fish to raise affinity, and grow her from a baby whale to "deep-sea bond". Rename her, drag her anywhere, or hide her whenever you want. The pet framework is registry-driven, Live2D pets render on demand via PixiJS/WebGL, and the [Workshop](#workshop-dsh-marketcom) has more pets to adopt in one click.
 
 | Working companion | Interaction panel |
 | --- | --- |
 | ![Whale pet](docs/screenshots/11-pet-new-chat.png) | ![Pet interaction panel](docs/screenshots/12-pet-panel.png) |
 
+### Git Graph
+
+The branch picker above the input box switches branches and browses commit history. The Git graph draws branch lanes and commits on a timeline, which stays readable even in big repositories.
+
+![Git graph](docs/screenshots/04-git-graph.png)
+
+### More Plugins
+
+- **Skill center** (`dsh-client-ui-skill-explorer`): browse loaded skills by source; enable, disable, create and delete.
+- **Plugin manager** (`dsh-client-ui-plugin-manager`): install plugins from npm or git through the official host channels; manage enablement and configuration.
+- **Chat recovery** (`dsh-chat-recovery`): fork-based editing of past messages and one-click retry of a failed turn, leaving the original session intact.
+- **Desktop launcher** (`dsh-desktop-launcher`): a double-click desktop icon starts `dsh web` and opens the Web GUI; a floating power button exits the host process gracefully.
+- **Rescue mode** (`dsh-doctor`): transactionally repairs a broken DSH profile — supervised launcher, isolated recovery capsule and a local web recovery console; off by default, enable it in settings.
+- **Archive manager** (external plugin [@mlgbnb/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager), bundled in the aggregate): group sessions by project, search and filter, preview conversations, restore or delete in one click.
+
 ## Skins
 
-The skin center has 17 skins, each with try-on before apply: the preview applies instantly and reverts fully on exit; apply with one click once you are happy.
+The skin center is the single skin loader: 18 theme skins try on before apply — previews apply instantly and revert fully on exit, apply with one click once happy; the list ends with a custom-theme editor previewing accent, background, foreground and contrast live. Blue Fantasy ships with the skin center; every other skin downloads on demand from the [Workshop](#workshop-dsh-marketcom).
 
 ![Skin center](docs/screenshots/03-settings-skin-center.png)
 
-All 17 skins at a glance; Maid Atelier has its own preview below:
+All theme skins at a glance:
 
-![All 17 skins](docs/images/skins-montage.png)
+![All theme skins](docs/images/skins-montage.png)
 
 ### Windows XP (Luna)
 
@@ -169,19 +148,19 @@ A faithful recreation of the classic Luna interface: blue gradient window chrome
 
 ### Blue Fantasy
 
-Whale artwork sits beneath translucent panes in a periwinkle-indigo palette. It reads best in dark mode.
+Whale artwork sits beneath translucent panes in a periwinkle-indigo palette. It reads best in dark mode. Ships with the skin center, ready out of the box.
 
 ![Blue Fantasy dark](docs/screenshots/17-skin-blue-fantasy-dark.png)
 
 ### Whale Song
 
-The deep-sea whale-goddess theme: a text-free ambience painting (a blue-haired goddess with a whale pod on the left, an ice-blue constellation grid with gold-thread accents, and generous open water on the right) sits beneath translucent panes, wrapped in an ice-blue / cyan / navy / cobalt palette, with a night-cruise dark variant.
+The deep-sea whale-goddess theme: a text-free ambience painting sits beneath translucent panes in an ice-blue palette, with a night-cruise dark variant.
 
 ![Whale Song light](docs/screenshots/24-skin-whale-song-light.png) · ![Whale Song dark](docs/screenshots/25-skin-whale-song-dark.png)
 
 ### Harbor
 
-A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting into sunset orange) sits beneath translucent panes, wrapped in a deep-navy base with amber-orange accents, a thin twilight scrim in light mode and a deeper dusk veil in dark mode.
+A dusk-harbor theme: a twilight-blue sky melting into sunset orange sits beneath translucent panes, wrapped in a deep-navy base with amber-orange accents.
 
 ![Harbor light](docs/screenshots/26-skin-harbor-light.png) · ![Harbor dark](docs/screenshots/27-skin-harbor-dark.png)
 
@@ -189,13 +168,21 @@ A dusk-harbor theme: the anime-girl harbor painting (a twilight-blue sky melting
 
 An ornate navy workshop skin with two character layers and responsive sidebar decoration. This skin is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use.
 
-![Maid Atelier light](packages/skins/skin-center/skins/maid-atelier/preview/light.png) · ![Maid Atelier dark](packages/skins/skin-center/skins/maid-atelier/preview/dark.png)
+![Maid Atelier light](packages/skins/skin-center/skins/maid-atelier/preview/light.jpg) · ![Maid Atelier dark](packages/skins/skin-center/skins/maid-atelier/preview/dark.jpg)
 
 ### Wallpaper Engine Wallpapers
 
-The skin center can use your local Wallpaper Engine library as the GUI backdrop, with support for importing dynamic and static wallpapers: video and web wallpapers render dynamically, scene wallpapers as a static frame, and any type can be pinned to a zero-animation "static frame" image. Import a single wallpaper into `skin-center/wallpapers/` to keep it working outside the Steam library, with update detection against the workshop original; without a Wallpaper Engine install (e.g. macOS), manual folders can add any `.mp4`/`.webm` folder or wallpaper project folder as the library. Wallpapers are your own local files and are never uploaded or redistributed.
+The skin center can use your local Wallpaper Engine library as the GUI backdrop: video, web and scene wallpapers all render live — scene wallpapers are driven by a built-in WebGL player — and any type can be pinned to a zero-animation "static frame" image. Import a single wallpaper into `skin-center/wallpapers/` to keep it working outside the Steam library, with update detection against the workshop original; without a Wallpaper Engine install (e.g. macOS), manual folders can add any `.mp4`/`.webm` folder or wallpaper project folder as the library. Wallpapers are your own local files and are never uploaded or redistributed.
 
 ![Wallpaper Engine wallpapers](docs/screenshots/29-skin-wallpaper-engine.png)
+
+## Workshop (dsh-market.com)
+
+The [Workshop](https://dsh-market.com) (dsh-market.com) is DSH's one-stop home for creations: skins, pets and plugins in one place, each category ranked by device-backed likes with the top three on the landing-page podium; skins preview in a live try-on, plugins expose one-copy install commands. The Workshop settings card inside the Web GUI browses the catalog directly — skins and pets install into the DSH home directories in one click, plugins go through the plugin manager, and everything shows up in the skin center and pet panel afterwards.
+
+The site itself is also built from this repository: a static build generated deterministically by `scripts/market-build` from the three sources of truth (`skin.json` / `pet.json` / `community.json`); dynamic features like likes run on a Cloudflare Workers edge API (D1 persistence, one vote per device) and deploy automatically on every push to `main`.
+
+The Workshop takes its cue from the Steam Workshop: a place where community creations are discovered, tried on and installed in one click, and where authors' work gets seen and liked. Come build it with us.
 
 ## Quick Start
 
@@ -204,25 +191,15 @@ The skin center can use your local Wallpaper Engine library as the GUI backdrop,
 - DeepSeek Harness installed, with `dsh web` starting normally.
 - npm installs need nothing extra; repository installs need Node.js >= 22 and pnpm.
 
-### Get Started in 3 Steps
+### Get Started in 3 Steps (npm, Recommended)
 
 1. Install the aggregate package: `dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest`
 2. Restart `dsh web`, every plugin entry appears in the sidebar
 3. Open "Settings > Plugin config" to toggle plugins, or try on skins in the skin center
 
-### Install from npm (Recommended)
+> Skins only? Install `@linxin666/dsh-client-ui-skin-center`. If you ended up with an old version (pnpm 11's release-age gate), see "Install Troubleshooting" below.
 
-The plugins are on npm (the `@linxin666` scope). One command installs everything:
-
-```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
-```
-
-Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-client-ui-skin-center`.
-
-> **Ended up with an old version?** pnpm 11+ gates brand-new releases via the built-in `minimumReleaseAge` (24 hours by default) and silently installs the previous version instead of the latest (e.g. `0.1.20` instead of `0.2.0`); an explicit `@latest` is gated the same way. Old skin-center versions lack the "bundled-carrier skin entry" fix, so applying a skin then restarting dies with `ERR_MODULE_NOT_FOUND .../dsh-client-ui-skin-<id>/index.js`. Fix: set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (or add `@linxin666/*` to `minimumReleaseAgeExclude`), then run `dsh plugin --profile web update @linxin666/dsh-web-ui-all@latest` to reach the latest. See [issue #71](https://github.com/zhu1090093659/dsh-web-ui/issues/71).
-
-### Install from the GitHub Repository (Development)
+### Install from the Repository (Development)
 
 The packages are already on npm; installing from this repository is only for development (requires Node.js >= 22 and pnpm):
 
@@ -260,9 +237,38 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # Tas
 dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # Remote connection (SSH)
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # Image understanding tool
 dsh plugin --profile web add @linxin666/dsh-pet@latest                     # Whale-girl pet
+dsh plugin --profile web add @linxin666/dsh-doctor@latest                  # Rescue mode (off by default, enable in settings)
 dsh plugin --profile web add dsh-better-sidebar@latest                     # Right panel (recommended; explorer/editor/terminal/git/browser)
 dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # Legacy right panel (aionui-panel, unsupported, transitional only)
 ```
+
+<details>
+<summary><strong>All npm packages</strong></summary>
+
+Every plugin is published on npm under the `@linxin666/dsh-*` scope and can be viewed and installed directly:
+
+| npm package | What it is |
+| --- | --- |
+| [@linxin666/dsh-web-ui-all](https://www.npmjs.com/package/@linxin666/dsh-web-ui-all) | All-in-one aggregate: every feature plugin plus the skin set in one install |
+| [@linxin666/dsh-liangshen](https://www.npmjs.com/package/@linxin666/dsh-liangshen) | Liang Shen Mode: two-phase anchoring agent preset for V4 Pro |
+| [@linxin666/dsh-client-ui-task-board](https://www.npmjs.com/package/@linxin666/dsh-client-ui-task-board) | Task board: real session execution plus cron scheduling |
+| [@linxin666/dsh-remote-web-ui](https://www.npmjs.com/package/@linxin666/dsh-remote-web-ui) | Scan-to-pair remote control of the Web GUI from mobile or PC |
+| [@linxin666/dsh-ssh](https://www.npmjs.com/package/@linxin666/dsh-ssh) | SSH panel: terminal / transfer / tunnel / cluster |
+| [@linxin666/dsh-tool-describe-image](https://www.npmjs.com/package/@linxin666/dsh-tool-describe-image) | `describe_image` vision tool |
+| [@linxin666/dsh-pet](https://www.npmjs.com/package/@linxin666/dsh-pet) | Registry-driven floating pet companion |
+| [@linxin666/dsh-client-ui-git-graph](https://www.npmjs.com/package/@linxin666/dsh-client-ui-git-graph) | Git branch selector and commit history graph |
+| [@linxin666/dsh-client-ui-skin-center](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skin-center) | Skin center: the single skin loader, with skins installed on demand from the Workshop |
+| [@linxin666/dsh-client-ui-market](https://www.npmjs.com/package/@linxin666/dsh-client-ui-market) | Workshop card: browse skins / pets / plugins from dsh-market.com and install with one click |
+| [@linxin666/dsh-client-ui-plugin-manager](https://www.npmjs.com/package/@linxin666/dsh-client-ui-plugin-manager) | Plugin manager: install from npm or git, enable, disable and configure |
+| [@linxin666/dsh-client-ui-skill-explorer](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skill-explorer) | Skill center: browse, toggle and manage skills |
+| [@linxin666/dsh-chat-recovery](https://www.npmjs.com/package/@linxin666/dsh-chat-recovery) | Chat recovery: fork-based edit and failed-turn retry |
+| [@linxin666/dsh-desktop-launcher](https://www.npmjs.com/package/@linxin666/dsh-desktop-launcher) | Desktop launcher: one-click start and shutdown for dsh |
+| [@linxin666/dsh-doctor](https://www.npmjs.com/package/@linxin666/dsh-doctor) | Transactional rescue mode: repairs DSH profiles |
+| [@linxin666/dsh-client-ui-community-plugins](https://www.npmjs.com/package/@linxin666/dsh-client-ui-community-plugins) | Community plugin data source: the market plugin list is generated from it |
+| [@linxin666/dsh-client-ui-web-ui-settings](https://www.npmjs.com/package/@linxin666/dsh-client-ui-web-ui-settings) | Settings section for the dsh-web-ui plugin group |
+| [@linxin666/dsh-client-ui-aionui-panel](https://www.npmjs.com/package/@linxin666/dsh-client-ui-aionui-panel) | Legacy right panel (no longer supported, off by default) |
+
+</details>
 
 ### Verify and Uninstall
 
@@ -279,7 +285,7 @@ Technical details live in [docs/plugins.md](docs/plugins.md).
 
 <br>
 
-> pnpm's strict (isolated) layout only puts the aggregate package at the profile top level, so the 11 child packages referenced by the patch rows (12 insert rows) stay nested and `dsh web` fails with `Cannot find package '@linxin666/dsh-...'`. The children are declared as dependencies of this package; on a strict layout, add `nodeLinker: hoisted` (or the legacy `public-hoist-pattern: ['@linxin666/*']`) to the profile's `pnpm-workspace.yaml` and reinstall.
+> pnpm's strict (isolated) layout only puts the aggregate package at the profile top level, so the child packages referenced by the patch rows stay nested and `dsh web` fails with `Cannot find package '@linxin666/dsh-...'`. The children are declared as dependencies of this package; on a strict layout, add `nodeLinker: hoisted` (or the legacy `public-hoist-pattern: ['@linxin666/*']`) to the profile's `pnpm-workspace.yaml` and reinstall.
 
 > First install may stop on `ERR_PNPM_IGNORED_BUILDS` (pnpm blocks dependency build scripts): copy the printed keys (`cloudflared` / `cpu-features` / `ssh2`) into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
 
@@ -381,7 +387,8 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 
 | Package | Origin | License |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-ui-settings / dsh-liangshen / dsh-web-ui-all / skins | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-ui-settings / dsh-liangshen / dsh-doctor / dsh-ssh / dsh-chat-recovery / dsh-skill-explorer / dsh-desktop-launcher / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-ui-all / skins | Authored by zhu1090093659 | Apache-2.0 (zhu1090093659) |
+| dsh-client-ui-skin-matrix | Contributor original (Matrix dark eye-care skin) | Apache-2.0 (declared by contributor seanchen) |
 | dsh-tool-describe-image | Ported from [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image) (deepseek-harness `packages/vision/tool-describe-image`) | Apache-2.0 (zhu1090093659) |
 | dsh-better-sidebar | External integrated plugin [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (right panel, npm dependency reference) | MIT (omdsh-dev) |
 | dsh-archive-manager | External integrated plugin [z953218350/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager) (settings-page archive manager, npm dependency reference) | MIT (z953218350) |

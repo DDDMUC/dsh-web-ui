@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 /**
- * DSH Market client registration: apply() contributes ONE first-level
+ * Workshop client registration: apply() contributes ONE first-level
  * settings section (id `dsh-market`) that renders the store card directly —
  * no tab slot, no hub wrapper. The old hub-based registrations (the
  * `dsh-market.tab` child slot and the Store tab entry) must be gone.

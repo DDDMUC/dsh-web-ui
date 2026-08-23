@@ -1,6 +1,6 @@
 /**
- * DSH Market store, browser half. Registers the dsh-market dictionaries and
- * the single first-level DSH Market settings section (settings.section id
+ * Workshop store, browser half. Registers the dsh-market dictionaries and
+ * the single first-level Workshop settings section (settings.section id
  * `dsh-market`) that renders the store card: browsing dsh-market.com
  * manifests (skins / pets / plugins) with one-click install into the DSH
  * home directories, and bridging the optional pluginManager service for
@@ -47,7 +47,7 @@ export function apply(ctx: ClientContext): void {
   const settingsScope = binder.bind<MarketSettings>({ namespace: MARKET_NS })
   const controller = new MarketCardController(settingsScope)
 
-  // The DSH Market: one first-level settings section rendering the store
+  // The Workshop: one first-level settings section rendering the store
   // card. Clients install skins / pets / plugins here; management of
   // installed items lives in their own first-level sections (Skin Center,
   // Pet) and in the official Plugins settings section (plugin manager).

@@ -2,14 +2,14 @@
 
 English | [中文](README.zh.md)
 
-DSH Market store card for the DSH Web GUI settings page: one first-level DSH Market
+Workshop store card for the DSH Web GUI settings page: one first-level Workshop
 section that browses [dsh-market.com](https://dsh-market.com) from inside the GUI and installs skins,
 pets and plugins locally with one click; installed items are managed by their own settings sections
 (Skin Center, Pet, and the plugin manager in the official Plugins section).
 
 ## What it does
 
-- Three-category catalog (skins / pets / plugins) with the same ranking used by the market site:
+- Three-category catalog (skins / pets / plugins) with the same ranking used by the Workshop site:
   device-backed likes first (tie-broken by the manifest order), a search box, and per-card preview
   links (skins open the live try-on simulator).
 - One-click asset install (loopback browsers): skins download into `$DSH_HOME/skins/<id>/` and pets
@@ -18,7 +18,7 @@ pets and plugins locally with one click; installed items are managed by their ow
   directory asks for confirmation and replaces it atomically.
 - One-click plugin install through the optional `pluginManager` service (provided by
   `@linxin666/dsh-client-ui-plugin-manager`); without it the card degrades to the copy-command index.
-- Remote browsers see the read-only catalog: install buttons are hidden, the market site link and
+- Remote browsers see the read-only catalog: install buttons are hidden, the Workshop site link and
   copy-command fallbacks stay available.
 
 ## Install
@@ -27,7 +27,7 @@ pets and plugins locally with one click; installed items are managed by their ow
 dsh plugin --profile web add @linxin666/dsh-client-ui-market
 ```
 
-Restart `dsh web`; the DSH Market section appears in the settings page and opens this store card
+Restart `dsh web`; the Workshop section appears in the settings page and opens this store card
 directly (skins / pets / plugins tabs). The Skin Center, the Pet section and the plugin manager in the
 official Plugins section are separate first-level settings entries.
 
@@ -41,7 +41,7 @@ official Plugins section are separate first-level settings entries.
 
 - Remote (non-loopback) browsers cannot drive installs at all; they get the read-only catalog with
   copy-command fallbacks.
-- Asset installs require the market site to be reachable; a manifest or download failure leaves the
+- Asset installs require the Workshop site to be reachable; a manifest or download failure leaves the
   existing asset directory untouched.
 - Likes are per-device (the browser stores one anonymous fingerprint); they are not tied to any login.
 

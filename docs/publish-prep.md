@@ -9,7 +9,7 @@
 
 ## 一、范围
 
-`packages/` 与 `packages/skins/` 下共 16 个插件包（截至快照日）。皮肤不再独立成包：皮肤是纯资产目录（仓库内 `packages/skins/skin-center/skins/<id>/` 为市场/画廊来源），仅默认皮肤 `blue-fantasy` 随 `@linxin666/dsh-client-ui-skin-center` 的 `files` 白名单分发，其余皮肤由市场按需安装：
+`packages/` 与 `packages/skins/` 下共 16 个插件包（截至快照日）。皮肤不再独立成包：皮肤是纯资产目录（仓库内 `packages/skins/skin-center/skins/<id>/` 为创意工坊/画廊来源），仅默认皮肤 `blue-fantasy` 随 `@linxin666/dsh-client-ui-skin-center` 的 `files` 白名单分发，其余皮肤由市场按需安装：
 
 | 目录 | 包名 | 当前版本 | private |
 | --- | --- | --- | --- |

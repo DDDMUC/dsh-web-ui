@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-client-ui-market",
-  "description": "DSH market browser card: browse skins, pets and community plugins from dsh-market.com and install them in the GUI (assets into the DSH home directories, plugins through the optional plugin manager).",
+  "description": "Workshop browser card: browse skins, pets and community plugins from dsh-market.com and install them in the GUI (assets into the DSH home directories, plugins through the optional plugin manager).",
   "version": "0.2.9",
   "type": "module",
   "main": "lib/index.js",
