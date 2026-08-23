@@ -84,13 +84,14 @@ async function serve(routes: WebRoute[]): Promise<TestServer> {
   }
 }
 
-async function call(port: number, path: string, options: { method?: string, body?: unknown, paired?: boolean } = {}): Promise<{ status: number, body: unknown }> {
+async function call(port: number, path: string, options: { method?: string, body?: unknown, paired?: boolean, host?: string } = {}): Promise<{ status: number, body: unknown }> {
   const method = options.method ?? 'POST'
   const serialized = options.body === undefined ? undefined : typeof options.body === 'string' ? options.body : JSON.stringify(options.body)
   return await new Promise((resolve, reject) => {
     const req = httpRequest({
       host: '127.0.0.1', port, path, method,
       headers: {
+        ...(options.host === undefined ? {} : { host: options.host }),
         ...(serialized === undefined ? {} : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(serialized) }),
         ...(options.paired === false ? {} : { cookie: `${cookieName}=device-1` }),
       },
@@ -104,9 +105,9 @@ async function call(port: number, path: string, options: { method?: string, body
   })
 }
 
-function makeRoutes(apiProxy: ApiProxy, paired: { value: boolean } = { value: true }): WebRoute[] {
-  const service = { config: { cookieName }, touchDevice: () => paired.value } as never
-  return makePairedModelCatalogRoutes({ service, apiProxy })
+function makeRoutes(apiProxy: ApiProxy, paired: { value: boolean } = { value: true }, fence: { lanAddresses?: string[], publicBaseUrl?: string } = {}): WebRoute[] {
+  const service = { config: { cookieName }, touchDevice: () => paired.value, lanAddresses: fence.lanAddresses ?? [], publicBaseUrl: fence.publicBaseUrl } as never
+  return makePairedModelCatalogRoutes({ service, apiProxy, lanAddresses: fence.lanAddresses ?? [] })
 }
 
 describe('paired model catalog API', () => {
@@ -118,6 +119,37 @@ describe('paired model catalog API', () => {
       expect(result.status).toBe(403)
       expect(result.body).toEqual({ error: 'paired model catalog requires a live paired device' })
       expect(calls).toEqual([])
+    } finally { await server.close() }
+  })
+
+  it('refuses a request whose Host is not loopback or an advertised LAN literal, before any host call', async () => {
+    const { apiProxy, calls } = makeApiProxy()
+    const server = await serve(makeRoutes(apiProxy))
+    try {
+      const result = await call(server.port, PAIRED_MODEL_CATALOG_PATHS.catalog, { method: 'GET', host: 'attacker.example:9999' })
+      expect(result.status).toBe(403)
+      expect(result.body).toEqual({ error: 'paired model catalog is not reachable for this origin' })
+      expect(calls).toEqual([])
+    } finally { await server.close() }
+  })
+
+  it('accepts a paired request from an advertised LAN literal with the exact authority', async () => {
+    const { apiProxy } = makeApiProxy()
+    const server = await serve(makeRoutes(apiProxy, { value: true }, { lanAddresses: ['192.168.1.5'] }))
+    try {
+      const result = await call(server.port, PAIRED_MODEL_CATALOG_PATHS.catalog, { method: 'GET', host: '192.168.1.5:3456' })
+      expect(result.status).toBe(200)
+      expect(result.body).toEqual({ capability: 'paired-model-catalog', providers: [{ provider: 'acme', displayName: 'Acme' }] })
+    } finally { await server.close() }
+  })
+
+  it('refuses to adopt when the provider is absent from the live catalog groups without a listed failure', async () => {
+    const { apiProxy, calls } = makeApiProxy({ groups: [], namespace: namespace({ providers: { acme: {} } }) })
+    const server = await serve(makeRoutes(apiProxy))
+    try {
+      const result = await call(server.port, PAIRED_MODEL_CATALOG_PATHS.upsert, { body: { provider: 'acme', model: { id: 'new' } } })
+      expect(result.status).toBe(502)
+      expect(calls.filter(call => call.method === 'settings.mutate')).toEqual([])
     } finally { await server.close() }
   })
 
