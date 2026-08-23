@@ -37,14 +37,15 @@ function fakeRequest(chunks: Buffer[] = []): { request: IncomingMessage; destroy
   return { request, destroyCalls: () => destroyCalls }
 }
 
-function fakeRes(): { res: ServerResponse; read: () => { status: number; body: string } } {
+function fakeRes(): { res: ServerResponse; read: () => { status: number; body: string; headers: Record<string, string> } } {
   let status = 0
   let body = ''
+  let headers: Record<string, string> = {}
   const res = {
-    writeHead: (code: number) => { status = code },
+    writeHead: (code: number, head: Record<string, string> = {}) => { status = code; headers = { ...head } },
     end: (value?: unknown) => { body = String(value ?? '') },
   } as unknown as ServerResponse
-  return { res, read: () => ({ status, body }) }
+  return { res, read: () => ({ status, body, headers }) }
 }
 
 function routes(): { webRoutes: ReturnType<typeof makeDoctorRoutes>; call: ReturnType<typeof vi.fn> } {
@@ -127,5 +128,16 @@ describe('doctor body failure contract', () => {
     expect(call).toHaveBeenCalledTimes(1)
     expect(read().status).toBe(200)
     expect(JSON.parse(read().body).ok).toBe(true)
+  })
+
+  it('writes family JSON headers and keeps no-store on the status response', async () => {
+    const { request } = fakeRequest()
+    const { webRoutes } = routes()
+    const { res, read } = fakeRes()
+    await webRoutes[0]!.handler(request as never, res)
+    expect(read().status).toBe(200)
+    expect(read().headers['content-type']).toBe('application/json; charset=utf-8')
+    expect(read().headers['referrer-policy']).toBe('no-referrer')
+    expect(read().headers['cache-control']).toBe('no-store')
   })
 })

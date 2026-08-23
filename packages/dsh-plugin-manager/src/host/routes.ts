@@ -10,7 +10,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { readJsonBody } from './http.ts'
+import { readJsonBody, writeJson } from './http.ts'
 import { isLoopbackRequest } from './loopback.ts'
 import { detectOfficialChannels, findDshBinary, spawnDsh, unsafeSpecReason, type CliGateway } from './gateway.ts'
 import { dshRequirementOf, meetsMinimumDsh, parseDshVersion } from '../core/version.ts'
@@ -57,13 +57,6 @@ export interface GatewayRouteDeps {
 /** Error text for a caught request or lifecycle failure. */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-/** Send one JSON response. */
-function sendJson(res: ServerResponse, status: number, value: unknown): void {
-  const body = JSON.stringify(value)
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
-  res.end(body)
 }
 
 /** The published `/latest` manifest: version plus the compat metadata fields. */
@@ -203,50 +196,50 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       try {
         await handler(req, res)
       } catch (error) {
-        sendJson(res, 500, { error: messageOf(error) })
+        writeJson(res, 500, { error: messageOf(error) })
       }
     }
 
   const listHandler = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const patchText = await readPatchText(facts.patchPath)
     const snapshot = await snapshotGateway(facts, patchText)
-    sendJson(res, 200, { plugins: snapshot.plugins })
+    writeJson(res, 200, { plugins: snapshot.plugins })
   }
 
   const installHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const body = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
     const spec = body['spec']
     if (typeof spec !== 'string' || spec.trim() === '') {
-      sendJson(res, 400, { error: 'plugin-manager: install needs a spec' })
+      writeJson(res, 400, { error: 'plugin-manager: install needs a spec' })
       return
     }
     const unsafeSpec = unsafeSpecReason(spec.trim())
     if (unsafeSpec !== undefined) {
-      sendJson(res, 400, { error: unsafeSpec })
+      writeJson(res, 400, { error: unsafeSpec })
       return
     }
     if (!deps.cliAvailable()) {
-      sendJson(res, 500, { error: 'plugin-manager: dsh CLI not found on PATH' })
+      writeJson(res, 500, { error: 'plugin-manager: dsh CLI not found on PATH' })
       return
     }
-    sendJson(res, 200, gateway.install(spec.trim()))
+    writeJson(res, 200, gateway.install(spec.trim()))
   }
 
   const updateHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const body = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
     const id = body['id']
     if (typeof id !== 'string' || id.trim() === '') {
-      sendJson(res, 400, { error: 'plugin-manager: update needs an id' })
+      writeJson(res, 400, { error: 'plugin-manager: update needs an id' })
       return
     }
     const target = id.trim()
     const unsafe = unsafeSpecReason(target)
     if (unsafe !== undefined) {
-      sendJson(res, 400, { error: unsafe })
+      writeJson(res, 400, { error: unsafe })
       return
     }
     if (!deps.cliAvailable()) {
-      sendJson(res, 500, { error: 'plugin-manager: dsh CLI not found on PATH' })
+      writeJson(res, 500, { error: 'plugin-manager: dsh CLI not found on PATH' })
       return
     }
     const outcome = await gateway.withMutationLock(async () => {
@@ -278,44 +271,44 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       return { status: 200, job: gateway.update(target, latest) }
     })
     if ('error' in outcome) {
-      sendJson(res, outcome.status, { error: outcome.error })
+      writeJson(res, outcome.status, { error: outcome.error })
       return
     }
-    sendJson(res, outcome.status, outcome.job)
+    writeJson(res, outcome.status, outcome.job)
   }
 
   const removeHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const body = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
     const id = body['id']
     if (typeof id !== 'string' || id.trim() === '') {
-      sendJson(res, 400, { error: 'plugin-manager: remove needs an id' })
+      writeJson(res, 400, { error: 'plugin-manager: remove needs an id' })
       return
     }
     const unsafeId = unsafeSpecReason(id.trim())
     if (unsafeId !== undefined) {
-      sendJson(res, 400, { error: unsafeId })
+      writeJson(res, 400, { error: unsafeId })
       return
     }
     if (!deps.cliAvailable()) {
-      sendJson(res, 500, { error: 'plugin-manager: dsh CLI not found on PATH' })
+      writeJson(res, 500, { error: 'plugin-manager: dsh CLI not found on PATH' })
       return
     }
-    sendJson(res, 200, gateway.remove(id.trim()))
+    writeJson(res, 200, gateway.remove(id.trim()))
   }
 
   const statusHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const url = new URL(req.url ?? '/', 'http://localhost')
     const jobId = url.searchParams.get('job')
     if (jobId === null) {
-      sendJson(res, 400, { error: 'plugin-manager: status needs a job id' })
+      writeJson(res, 400, { error: 'plugin-manager: status needs a job id' })
       return
     }
     const job = gateway.status(jobId)
     if (job === undefined) {
-      sendJson(res, 404, { error: 'plugin-manager: unknown job' })
+      writeJson(res, 404, { error: 'plugin-manager: unknown job' })
       return
     }
-    sendJson(res, 200, { job })
+    writeJson(res, 200, { job })
   }
 
   const setEnabledHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -323,13 +316,13 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
     const id = body['id']
     const enabled = body['enabled']
     if (typeof id !== 'string' || id.trim() === '' || typeof enabled !== 'boolean') {
-      sendJson(res, 400, { error: 'plugin-manager: set-enabled needs an id and a boolean enabled' })
+      writeJson(res, 400, { error: 'plugin-manager: set-enabled needs an id and a boolean enabled' })
       return
     }
     const target = id.trim()
     const unsafeTarget = unsafeSpecReason(target)
     if (unsafeTarget !== undefined) {
-      sendJson(res, 400, { error: unsafeTarget })
+      writeJson(res, 400, { error: unsafeTarget })
       return
     }
     const outcome = await gateway.withMutationLock(async () => {
@@ -358,16 +351,16 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
         : { plugin } as const
     })
     if ('error' in outcome) {
-      sendJson(res, 404, { error: outcome.error })
+      writeJson(res, 404, { error: outcome.error })
       return
     }
-    sendJson(res, 200, { plugin: outcome.plugin })
+    writeJson(res, 200, { plugin: outcome.plugin })
   }
 
   const failuresHandler = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
     // The npm web runtime keeps no boot-failure ring; the install-error path
     // is the only repair surface here.
-    sendJson(res, 200, { items: [], pluginRoot: facts.profileDir, safeMode: false })
+    writeJson(res, 200, { items: [], pluginRoot: facts.profileDir, safeMode: false })
   }
 
   // One verdict per host process: the browser half reads it instead of
@@ -390,7 +383,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
         modePromise = probe().then(official => ({ official })).catch(() => ({ official: false }))
       }
     }
-    sendJson(res, 200, await modePromise)
+    writeJson(res, 200, await modePromise)
   }
 
   const checkUpdatesHandler = async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -410,7 +403,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       }
       updates.push(update)
     }
-    sendJson(res, 200, { updates })
+    writeJson(res, 200, { updates })
   }
 
   return [

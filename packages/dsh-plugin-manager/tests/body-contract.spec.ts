@@ -34,14 +34,15 @@ function fakeRequest(chunks: Buffer[] = []): { request: IncomingMessage; destroy
   return { request, destroyCalls: () => destroyCalls }
 }
 
-function captureResponse(): { res: ServerResponse; body: () => string; status: () => number } {
+function captureResponse(): { res: ServerResponse; body: () => string; status: () => number; headers: () => Record<string, string> } {
   let status = 200
   let text = ''
+  let headers: Record<string, string> = {}
   const res = {
-    writeHead(code: number) { status = code },
+    writeHead(code: number, head: Record<string, string> = {}) { status = code; headers = { ...head } },
     end(chunk: string) { text = chunk },
   } as unknown as ServerResponse
-  return { res, body: () => text, status: () => status }
+  return { res, body: () => text, status: () => status, headers: () => headers }
 }
 
 const facts = { profileName: 'web', profileDir: '', patchPath: '', packageJsonPath: '' } as ProfileFacts
@@ -96,5 +97,14 @@ describe('gateway body failure contract', () => {
     const { res, status } = captureResponse()
     await route('/api/plugin-manager/install')(request, res)
     expect(status()).toBe(200)
+  })
+
+  it('writes family JSON headers through the shared writer', async () => {
+    const { request } = fakeRequest([Buffer.from('{"spec":"dsh-pet"}')])
+    const { res, status, headers } = captureResponse()
+    await route('/api/plugin-manager/install')(request, res)
+    expect(status()).toBe(200)
+    expect(headers()['content-type']).toBe('application/json; charset=utf-8')
+    expect(headers()['referrer-policy']).toBe('no-referrer')
   })
 })
