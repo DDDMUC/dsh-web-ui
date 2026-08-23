@@ -39,6 +39,24 @@ jobs:
               console.log(`PR #${pr.number}: authored by repo owner or bot, keeping open.`);
               return;
             }
+            // 拥有写权限的协作者（维护者）同样不受此限制，可直接提交任意改动。
+            let hasWriteAccess = false;
+            try {
+              const perms = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: pr.user.login,
+              });
+              hasWriteAccess = ['admin', 'write', 'maintain'].includes(perms.data.permission);
+            } catch (error) {
+              // 权限查询失败时保持打开（fail-open），避免误关维护者 / 协作者的 PR。
+              hasWriteAccess = true;
+              core.warning('collaborator permission lookup failed, keeping PR open: ' + String((error && error.message) || error));
+            }
+            if (hasWriteAccess) {
+              console.log(`PR #${pr.number}: authored by write-access collaborator, keeping open.`);
+              return;
+            }
 
             const comment = [
               '本仓库不接受仅文档类 PR（标题以 `docs:` 开头或勾选了「仅文档」类型），此 PR 已被自动关闭。',
