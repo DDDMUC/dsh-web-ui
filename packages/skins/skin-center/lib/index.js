@@ -388,6 +388,226 @@ function validateSkinManifestV2(input) {
 	};
 }
 //#endregion
+//#region src/core/css-safety/token-audit.ts
+const PRIMARY_ACTION_FILL$1 = "--dsw-alias-button-primary-fill";
+const PRIMARY_ACTION_HOVER$1 = "--dsw-alias-button-primary-hover";
+const PRIMARY_ACTION_DIMMED$1 = "--dsw-alias-button-primary-dimmed";
+const PRIMARY_ACTION_FOREGROUND$1 = "--dsw-alias-label-primary-foreground";
+const BRAND_PRIMARY = "--dsw-alias-brand-primary";
+const BRAND_PRIMARY_INVERT = "--dsw-alias-brand-primary-invert";
+/** Shell fill/foreground defaults per theme (both resolve to the official
+* theme's own matched CTA: #0f1115 on #ffffff light, #f9fafb on #0f1115 dark). */
+const SHELL_CTA = {
+	light: {
+		fill: "#0f1115",
+		foreground: "#ffffff"
+	},
+	dark: {
+		fill: "#f9fafb",
+		foreground: "#0f1115"
+	}
+};
+/**
+* Official static palette values referenced through var() by skinned tokens
+* (the subset the built-in skins actually use; mirrors the official
+* dsh-client-ui-theme static table). If a value ever drifts, contrast
+* resolution degrades to "skip", never to a wrong verdict.
+*/
+const STATIC_PALETTE = {
+	"--dsw-static-amber-400": "#f7ad31",
+	"--dsw-static-amber-500": "#f59e0b",
+	"--dsw-static-blue-100": "#dbeafe",
+	"--dsw-static-blue-300": "#93c5fd",
+	"--dsw-static-blue-400": "#60a5fa",
+	"--dsw-static-blue-450": "#4d93f8",
+	"--dsw-static-blue-500": "#3b82f6",
+	"--dsw-static-blue-600": "#2563eb",
+	"--dsw-static-blue-800": "#1e40af",
+	"--dsw-static-green-400": "#4ed17e",
+	"--dsw-static-green-500": "#22c55e",
+	"--dsw-static-neutral-bluish-00": "#fff",
+	"--dsw-static-neutral-bluish-1000": "#0f1115",
+	"--dsw-static-neutral-bluish-200": "#e1e5ee",
+	"--dsw-static-neutral-bluish-300": "#cfd3d6",
+	"--dsw-static-neutral-bluish-400": "#adb2b8",
+	"--dsw-static-neutral-bluish-500": "#979da6",
+	"--dsw-static-neutral-bluish-600": "#81858c",
+	"--dsw-static-neutral-bluish-700": "#61666b",
+	"--dsw-static-neutral-bluish-750": "#43454a",
+	"--dsw-static-neutral-bluish-800": "#353638",
+	"--dsw-static-neutral-bluish-950": "#151517"
+};
+/** Index of the brace that closes the one opened at `open`. */
+function matchClose(css, open) {
+	let depth = 0;
+	for (let i = open; i < css.length; i += 1) {
+		const ch = css[i];
+		if (ch === "{") depth += 1;
+		else if (ch === "}") {
+			depth -= 1;
+			if (depth === 0) return i;
+		}
+	}
+	return -1;
+}
+/** Recursive scan: map every custom-property declaration to a theme bucket. */
+function parseDefinitions(css) {
+	const defined = /* @__PURE__ */ new Set();
+	const light = /* @__PURE__ */ new Map();
+	const dark = /* @__PURE__ */ new Map();
+	const source = withoutComments(css);
+	const visit = (start, parentDark) => {
+		let i = start;
+		for (;;) {
+			const open = source.indexOf("{", i);
+			if (open === -1) return;
+			const close = matchClose(source, open);
+			const head = source.slice(i, open);
+			const atRule = head.trimStart().startsWith("@");
+			const darkHere = parentDark || /data-ds-dark-theme/.test(head) || /prefers-color-scheme\s*:\s*dark/i.test(head);
+			if (atRule) {
+				visit(open + 1, darkHere);
+				i = close === -1 ? source.length : close + 1;
+			} else {
+				const end = close === -1 ? source.length : close;
+				const body = source.slice(open + 1, end);
+				const target = darkHere ? dark : light;
+				for (const match of body.matchAll(/(--[\w-]+)\s*:\s*([^;}]+)/g)) {
+					const name = match[1];
+					const value = match[2];
+					if (name === void 0 || value === void 0) continue;
+					defined.add(name);
+					target.set(name, value.trim());
+				}
+				i = end + 1;
+			}
+		}
+	};
+	visit(0, false);
+	return {
+		defined,
+		byTheme: {
+			light,
+			dark
+		}
+	};
+}
+function withoutComments(css) {
+	return css.replace(/\/\*[\s\S]*?\*\//g, "");
+}
+/** Normalize #rgb / #rrggbb / #rrggbbaa to #rrggbb (alpha ignored). */
+function normalizeHex(v) {
+	const m = /^#([0-9a-f]{3,8})$/i.exec(v);
+	if (m === null) return null;
+	const h = m[1] ?? "";
+	if (h.length === 3) return "#" + h.split("").map((c) => c + c).join("");
+	if (h.length >= 6) return "#" + h.slice(0, 6);
+	return null;
+}
+/** Resolve one declaration value to a #rrggbb color (one theme map). */
+function resolveColor(value, theme, parsed, depth = 0) {
+	const v = value.trim();
+	const hex = normalizeHex(v);
+	if (hex !== null) return hex;
+	const viaVar = /^var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\s*\)$/.exec(v);
+	if (viaVar === null || depth >= 4) return null;
+	const name = viaVar[1];
+	if (name !== void 0 && STATIC_PALETTE[name] !== void 0) return STATIC_PALETTE[name];
+	const own = name !== void 0 ? parsed.byTheme[theme].get(name) ?? parsed.byTheme[theme === "light" ? "dark" : "light"].get(name) : void 0;
+	if (own !== void 0) return resolveColor(own, theme, parsed, depth + 1);
+	const fallback = viaVar[2];
+	return fallback !== void 0 ? resolveColor(fallback, theme, parsed, depth + 1) : null;
+}
+function rgbOf(hex) {
+	const m = /^#([0-9a-f]{6})$/i.exec(hex);
+	if (m === null) return null;
+	const h = m[1] ?? "";
+	return [
+		parseInt(h.slice(0, 2), 16),
+		parseInt(h.slice(2, 4), 16),
+		parseInt(h.slice(4, 6), 16)
+	];
+}
+/** WCAG 2.x relative luminance of a #rrggbb/#rgb color. */
+function luminance(hex) {
+	const rgb = rgbOf(hex);
+	if (rgb === null) return null;
+	const [r, g, b] = rgb;
+	const linear = (c) => {
+		const s = c / 255;
+		return s <= .04045 ? s / 12.92 : Math.pow((s + .055) / 1.055, 2.4);
+	};
+	return .2126 * linear(r) + .7152 * linear(g) + .0722 * linear(b);
+}
+/** WCAG contrast ratio between two colors (foreground over background). */
+function contrastRatio(fg, bg) {
+	const l1 = luminance(fg);
+	const l2 = luminance(bg);
+	if (l1 === null || l2 === null) return null;
+	const high = Math.max(l1, l2);
+	const low = Math.min(l1, l2);
+	return (high + .05) / (low + .05);
+}
+function anchorDefined(defined) {
+	return [...ANCHOR_TOKENS].some((token) => defined.has(token));
+}
+const ANCHOR_TOKENS = [
+	PRIMARY_ACTION_FILL$1,
+	PRIMARY_ACTION_HOVER$1,
+	PRIMARY_ACTION_DIMMED$1,
+	PRIMARY_ACTION_FOREGROUND$1,
+	BRAND_PRIMARY,
+	BRAND_PRIMARY_INVERT
+];
+/**
+* Audit one skin's stylesheets (in application order) against the
+* primary-action token contract. Warning-only: the loader's completion
+* rules keep every outcome legible, so this never fails a skin.
+*/
+function auditTokenContract(stylesheets) {
+	const warnings = [];
+	if (stylesheets.length === 0) return { warnings };
+	const parsed = mergeTokens(stylesheets);
+	const { defined, byTheme } = parsed;
+	if (!anchorDefined(defined)) return { warnings };
+	const fillDefined = defined.has("--dsw-alias-button-primary-fill") || defined.has("--dsw-alias-brand-primary");
+	const hoverDefined = defined.has("--dsw-alias-button-primary-hover") || fillDefined;
+	const foregroundDefined = defined.has("--dsw-alias-label-primary-foreground") || defined.has("--dsw-alias-brand-primary") && defined.has("--dsw-alias-brand-primary-invert");
+	if (!fillDefined) warnings.push("primary action contract: \"button-primary-fill\" is not defined and \"brand-primary\" is not an anchor; buttons render the official shell CTA — define button-primary-fill (with button-primary-hover and label-primary-foreground) to adopt the skin palette");
+	if (!hoverDefined) warnings.push("primary action contract: \"button-primary-hover\" is not defined; the loader derives it from the button fill (color-mix toward the surface) — define it explicitly for the exact hover look");
+	if (!foregroundDefined) warnings.push("primary action contract: \"label-primary-foreground\" is not defined; the loader keeps the official shell foreground (#fff light / #0f1115 dark) — pair it with the fill, or declare the matched pair brand-primary + brand-primary-invert (legacy convention)");
+	for (const theme of ["light", "dark"]) {
+		const map = byTheme[theme];
+		const fill = map.get("--dsw-alias-button-primary-fill") ?? map.get("--dsw-alias-brand-primary") ?? SHELL_CTA[theme].fill;
+		const brandInvert = map.get(BRAND_PRIMARY_INVERT);
+		const foreground = map.get("--dsw-alias-label-primary-foreground") ?? (map.get("--dsw-alias-brand-primary") !== void 0 && brandInvert !== void 0 ? brandInvert : SHELL_CTA[theme].foreground);
+		const fillResolved = resolveColor(fill, theme, parsed);
+		const foregroundResolved = resolveColor(foreground, theme, parsed);
+		if (fillResolved === null || foregroundResolved === null) continue;
+		const ratio = contrastRatio(foregroundResolved, fillResolved);
+		if (ratio !== null && ratio < 3) warnings.push(`primary action contrast: ${foregroundResolved} on ${fillResolved} is ${ratio.toFixed(2)}:1 (${theme} theme) — below the 3:1 UI gate; pick a foreground that pairs with the fill`);
+	}
+	return { warnings };
+}
+function mergeTokens(stylesheets) {
+	const defined = /* @__PURE__ */ new Set();
+	const light = /* @__PURE__ */ new Map();
+	const dark = /* @__PURE__ */ new Map();
+	for (const sheet of stylesheets) {
+		const parsed = parseDefinitions(sheet.css);
+		for (const name of parsed.defined) defined.add(name);
+		for (const [name, value] of parsed.byTheme.light) light.set(name, value);
+		for (const [name, value] of parsed.byTheme.dark) dark.set(name, value);
+	}
+	return {
+		defined,
+		byTheme: {
+			light,
+			dark
+		}
+	};
+}
+//#endregion
 //#region src/harness-home.ts
 /**
 * DSH harness-home / profile path resolution. Extracted from the retired
@@ -511,6 +731,20 @@ function resolveHarnessPaths(home, profile, fromUrl = import.meta.url) {
 * sources (POST /active state) never invalidate it.
 * @module @linxin666/dsh-client-ui-skin-center/skin-repo
 */
+/** Read the manifest-referenced stylesheets for one skin directory. */
+function stylesheetEntries(manifest, dir) {
+	const entries = [];
+	const rels = [manifest.contributes.stylesheet, manifest.contributes.patches ?? null];
+	for (const rel of rels) {
+		if (!rel) continue;
+		const abs = join(dir, rel);
+		if (existsSync(abs)) entries.push({
+			filename: rel,
+			css: readFileSync(abs, "utf8")
+		});
+	}
+	return entries;
+}
 /** Built-in skins ship inside the skin-center package under skins/. */
 function builtinSkinsDir(fromUrl = import.meta.url) {
 	return join(dirname(fileURLToPath(fromUrl)), "..", "skins");
@@ -611,6 +845,8 @@ function collectSource(spec, catalog, claimed) {
 		}
 		const warnings = [...result.warnings];
 		if (spec.origin === "user" && manifest.facets?.client) warnings.push("declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused");
+		const contractWarnings = auditTokenContract(stylesheetEntries(manifest, dir));
+		warnings.push(...contractWarnings.warnings);
 		const entry = {
 			manifest,
 			origin: spec.origin,
@@ -1172,6 +1408,49 @@ function deriveFallbackTokens(defined) {
 	}
 	return out;
 }
+/**
+* Primary-action completion (issue #506 follow-up): filled primary buttons
+* render from one matched set — button-primary-fill, button-primary-hover,
+* label-primary-foreground. The official theme itself wires
+* button-primary-fill to brand-primary, so a skin that remaps the brand
+* already colors the fill; hover and foreground do NOT follow the brand and
+* would snap to the shell's static values. To keep a partially-declared or
+* legacy (brand-primary + brand-primary-invert) skin coherent, the loader
+* completes the set here:
+*
+*  - fill: derive from brand-primary when the skin declares its brand but
+*    no explicit fill (the shell chain does this anyway; the derivation
+*    makes the intent explicit and keeps the textual derivation table
+*    self-contained);
+*  - hover / dimmed: blend the fill toward the surface (color-mix) — a
+*    direction-agnostic press/disabled tint that works in both themes;
+*  - foreground: inherit the skin's own brand-primary-invert ONLY when the
+*    skin declares both brand tokens (the legacy matched convention); the
+*    shell foreground stands in otherwise.
+*
+* Never overrides a token the skin defines, and never derives without an
+* anchor: a skin with no brand and no button tokens keeps the official
+* shell's own matched CTA.
+*/
+/** The primary-action token family (see ./token-audit.ts for the audit). */
+const PRIMARY_ACTION_FILL = "--dsw-alias-button-primary-fill";
+const PRIMARY_ACTION_HOVER = "--dsw-alias-button-primary-hover";
+const PRIMARY_ACTION_DIMMED = "--dsw-alias-button-primary-dimmed";
+const PRIMARY_ACTION_FOREGROUND = "--dsw-alias-label-primary-foreground";
+const PRIMARY_ACTION_BRAND = "--dsw-alias-brand-primary";
+const PRIMARY_ACTION_BRAND_INVERT = "--dsw-alias-brand-primary-invert";
+/** Derive the primary-action tokens the skin did not define. */
+function derivePrimaryActionFallbacks(defined) {
+	const out = [];
+	const hasBrand = defined.has(PRIMARY_ACTION_BRAND);
+	const branded = hasBrand || defined.has("--dsw-alias-button-primary-fill");
+	if (!hasBrand && !defined.has("--dsw-alias-button-primary-fill")) return out;
+	if (!defined.has("--dsw-alias-button-primary-fill") && hasBrand) out.push(`${PRIMARY_ACTION_FILL}: var(${PRIMARY_ACTION_BRAND});`);
+	if (branded && !defined.has("--dsw-alias-button-primary-hover")) out.push(`${PRIMARY_ACTION_HOVER}: color-mix(in srgb, var(${PRIMARY_ACTION_FILL}) 82%, var(--dsw-alias-bg-layer-1));`);
+	if (branded && !defined.has("--dsw-alias-button-primary-dimmed")) out.push(`${PRIMARY_ACTION_DIMMED}: color-mix(in srgb, var(${PRIMARY_ACTION_FILL}) 60%, var(--dsw-alias-bg-layer-1));`);
+	if (!defined.has("--dsw-alias-label-primary-foreground") && hasBrand && defined.has("--dsw-alias-brand-primary-invert")) out.push(`${PRIMARY_ACTION_FOREGROUND}: var(${PRIMARY_ACTION_BRAND_INVERT});`);
+	return out;
+}
 //#endregion
 //#region src/core/css-safety/transform.ts
 /**
@@ -1454,7 +1733,7 @@ function transformSkinCss(css, options) {
 	out += `\n${scope} [id="root"] { background: transparent; }\n`;
 	out += `\n${scope} body { --shiki-background: var(--dsw-alias-markdown-code-block); }\n`;
 	if (options.deriveFallbacks === true) {
-		const fallbacks = deriveFallbackTokens(defined);
+		const fallbacks = [...deriveFallbackTokens(defined), ...derivePrimaryActionFallbacks(defined)];
 		if (fallbacks.length > 0) out += `\n${scope} body {\n  ${fallbacks.join("\n  ")}\n}\n`;
 	}
 	return {
@@ -8514,4 +8793,4 @@ function applyImpl(ctx) {
 	}
 }
 //#endregion
-export { SKIN_BACKGROUND_NAMESPACE, SKIN_CENTER_V2_PREFIX, SKIN_CUSTOM_THEME_NAMESPACE, SKIN_WALLPAPER_NAMESPACE, SkinBackgroundConfigSchema, SkinCssSafetyError, SkinCustomThemeConfigSchema, SkinWallpaperConfigSchema, WE_API_PREFIX, apply, builtinSkinsDir, defaultActiveStatePath, findSkin, inject, loadSkinCatalog, makeSkinCenterV2Routes, makeWeRoutes, name, readActiveSelection, resolveInsideSkin, transformSkinCss, userSkinsDir, validateSkinManifestV2, writeActiveSelection };
+export { SKIN_BACKGROUND_NAMESPACE, SKIN_CENTER_V2_PREFIX, SKIN_CUSTOM_THEME_NAMESPACE, SKIN_WALLPAPER_NAMESPACE, SkinBackgroundConfigSchema, SkinCssSafetyError, SkinCustomThemeConfigSchema, SkinWallpaperConfigSchema, WE_API_PREFIX, apply, auditTokenContract, builtinSkinsDir, defaultActiveStatePath, findSkin, inject, loadSkinCatalog, makeSkinCenterV2Routes, makeWeRoutes, name, readActiveSelection, resolveInsideSkin, transformSkinCss, userSkinsDir, validateSkinManifestV2, writeActiveSelection };

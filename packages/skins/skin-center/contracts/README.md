@@ -12,6 +12,7 @@ every official-DSH coupling behind them.
 | `skin-manifest-v2.schema.json` | skin.json v2 structure. Editors/IDEs may point at it; validators must use this local copy and never fetch the `$id` URL. |
 | `hooks-api.d.ts` | The `facets.client` escape-hatch API (`x-org.linxin666.skin-center/v1alpha1`): `SkinHooksContext`, `defineSkinHooks()`. |
 | `semantic-attrs-v1.md` | The L2 semantic-attribute enumeration (`data-dsh-surface` / `data-dsh-part` / `data-dsh-plugin`) with owner, version and meaning per value. |
+| `primary-action-tokens-v1.md` | The filled-primary-button token set (fill / hover / dimmed / foreground), the skin author rules, the loader completion matrix and the warning-only audit. |
 
 The runtime validator (`src/core/manifest-v2/validate.ts`) is the
 authoritative fail-closed check; the JSON Schema mirrors it for editors and

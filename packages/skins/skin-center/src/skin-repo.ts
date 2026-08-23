@@ -31,6 +31,7 @@ import { dirname, join, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { validateSkinManifestV2 } from './core/manifest-v2/validate.ts'
+import { auditTokenContract, type TokenAuditStylesheet } from './core/css-safety/token-audit.ts'
 import type { SkinManifestV2 } from './core/manifest-v2/types.ts'
 import { resolveHarnessHome } from './harness-home.ts'
 
@@ -51,6 +52,18 @@ export interface SkinCatalogDiagnostic {
   subject: string
   origin: SkinOrigin
   errors: string[]
+}
+
+/** Read the manifest-referenced stylesheets for one skin directory. */
+function stylesheetEntries(manifest: SkinManifestV2, dir: string): TokenAuditStylesheet[] {
+  const entries: TokenAuditStylesheet[] = []
+  const rels = [manifest.contributes.stylesheet, manifest.contributes.patches ?? null]
+  for (const rel of rels) {
+    if (!rel) continue
+    const abs = join(dir, rel)
+    if (existsSync(abs)) entries.push({ filename: rel, css: readFileSync(abs, 'utf8') })
+  }
+  return entries
 }
 
 export interface SkinCatalog {
@@ -176,6 +189,10 @@ function collectSource(spec: SourceSpec, catalog: SkinCatalog, claimed: Map<stri
     if (spec.origin === 'user' && manifest.facets?.client) {
       warnings.push('declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused')
     }
+    // Token contract audit is warning-only (the loader completes partial
+    // sets); surface it on the catalog so third-party skins show their gaps.
+    const contractWarnings = auditTokenContract(stylesheetEntries(manifest, dir))
+    warnings.push(...contractWarnings.warnings)
     const entry: SkinCatalogEntry = { manifest, origin: spec.origin, dir, warnings }
     claimed.set(manifest.id, entry)
     catalog.skins.push(entry)
