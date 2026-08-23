@@ -482,6 +482,12 @@ function resolveHarnessPaths(home, profile, fromUrl = import.meta.url) {
 * The catalog is an immutable snapshot: callers keep the object they got and
 * an activation never sees the catalog change underneath it (contract
 * section 8, "catalog immutable snapshot per activation").
+*
+* Scans are memoized per (builtinDir, userDir): a snapshot is reused until a
+* cheap fingerprint of both roots (skin-dir names plus skin.json stat)
+* changes, so client requests never rescan the same sources. The fingerprint
+* covers add/remove/change of any skin directory, while writes outside the
+* sources (POST /active state) never invalidate it.
 * @module @linxin666/dsh-client-ui-skin-center/skin-repo
 */
 /** Built-in skins ship inside the skin-center package under skins/. */
@@ -595,10 +601,63 @@ function collectSource(spec, catalog, claimed) {
 	}
 }
 /**
+* Process-wide cache: (builtinDir, userDir) -> latest snapshot. Shared by
+* every loadSkinCatalog caller in the host process (index tap, v2 routes,
+* seed). Tests inject their own Map through the catalogCache option.
+*/
+const DEFAULT_CATALOG_CACHE = /* @__PURE__ */ new Map();
+/** Bound the process cache so a long-lived process can never accumulate. */
+const CATALOG_CACHE_MAX_ENTRIES = 16;
+/**
+* Cheap invalidation fingerprint of one catalog root: the sorted skin-dir
+* names plus the stat of each skin.json. The catalog content depends only on
+* skin.json, so this is the exact change signal — a new or removed skin dir
+* changes the name set, an in-place manifest change changes the stat. A
+* missing or unreadable root yields the same marker as an empty source,
+* mirroring collectSource's silent empty result.
+*/
+function rootFingerprint(root) {
+	let dirNames;
+	try {
+		dirNames = readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+	} catch {
+		return "";
+	}
+	const lines = [];
+	for (const dirName of dirNames) {
+		const manifestPath = join(root, dirName, "skin.json");
+		try {
+			const st = statSync(manifestPath);
+			lines.push(JSON.stringify([
+				dirName,
+				st.mtimeMs,
+				st.size,
+				st.mode
+			]));
+		} catch {
+			lines.push(JSON.stringify([dirName]));
+		}
+	}
+	return lines.join("\n");
+}
+/**
 * Snapshot the skin catalog from both sources. Never throws: unreadable
-* roots and invalid skins land in diagnostics instead.
+* roots and invalid skins land in diagnostics instead. When the source
+* fingerprint matches the last scan the memoized snapshot is returned as-is
+* (capturedAt re-stamped to the observation time); a changed fingerprint
+* triggers a fresh scan and updates the cache.
 */
 function loadSkinCatalog(options = {}) {
+	const builtinDir = options.builtinDir ?? builtinSkinsDir();
+	const userDir = options.userDir ?? userSkinsDir();
+	const cache = options.catalogCache ?? DEFAULT_CATALOG_CACHE;
+	const cacheKey = builtinDir + "\0" + userDir;
+	const fingerprint = JSON.stringify([rootFingerprint(builtinDir), rootFingerprint(userDir)]);
+	const hit = cache.get(cacheKey);
+	if (hit && hit.fingerprint === fingerprint) return {
+		...hit.catalog,
+		capturedAt: (options.now ?? Date.now)()
+	};
 	const catalog = {
 		skins: [],
 		diagnostics: [],
@@ -607,13 +666,18 @@ function loadSkinCatalog(options = {}) {
 	const claimed = /* @__PURE__ */ new Map();
 	collectSource({
 		origin: "builtin",
-		root: options.builtinDir ?? builtinSkinsDir()
+		root: builtinDir
 	}, catalog, claimed);
 	collectSource({
 		origin: "user",
-		root: options.userDir ?? userSkinsDir()
+		root: userDir
 	}, catalog, claimed);
 	catalog.skins.sort((a, b) => (a.manifest.order ?? Number.MAX_SAFE_INTEGER) - (b.manifest.order ?? Number.MAX_SAFE_INTEGER) || a.manifest.id.localeCompare(b.manifest.id));
+	cache.set(cacheKey, {
+		fingerprint,
+		catalog
+	});
+	if (cache.size > CATALOG_CACHE_MAX_ENTRIES) cache.clear();
 	return catalog;
 }
 /** Find one skin in a snapshot by id. */
