@@ -4399,10 +4399,16 @@ window.__ModuleLoader__.load({
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			ctx.effect(() => ctx.locale.register(NS, {
-				zh,
-				en
-			}), "ui-skin-center: dictionaries");
+			ctx.effect(() => {
+				try {
+					return ctx.locale.register(NS, {
+						zh,
+						en
+					});
+				} catch {
+					return () => {};
+				}
+			}, "ui-skin-center: dictionaries");
 			ctx.effect(() => {
 				document.body.dataset.dshSkinCenter = "";
 				return () => {
@@ -4530,14 +4536,20 @@ window.__ModuleLoader__.load({
 					dispose: () => wallpaper.dispose()
 				}
 			});
-			ctx.slots.inject("settings.section", () => ctx.slots.register({
-				name: "settings.section",
-				id: "skin-center",
-				order: 120,
-				label: () => ctx.locale.bind("skinCenter")("title"),
-				locale: "skinCenter",
-				inject: injected
-			}, SkinCenterSection));
+			ctx.slots.inject("settings.section", () => {
+				try {
+					return ctx.slots.register({
+						name: "settings.section",
+						id: "skin-center",
+						order: 120,
+						label: () => ctx.locale.bind("skinCenter")("title"),
+						locale: "skinCenter",
+						inject: injected
+					}, SkinCenterSection);
+				} catch {
+					return () => {};
+				}
+			});
 		}
 		//#endregion
 		exports.NS = NS;
