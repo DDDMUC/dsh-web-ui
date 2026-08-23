@@ -52,6 +52,14 @@ Market build order: build `market/shell` first (`npm run build` in `market/shell
 - After all code changes in a session, before final validation, run `codegraph sync <project-root>` and `codegraph status <project-root>`. If the index is missing or sync fails, run `codegraph index <project-root>`.
 - Keep changes focused, preserve existing work, and verify real behavior. User-visible changes require appropriate runtime evidence; visual changes require screenshots and multimodal validation.
 
+## 运行中的 DSH 服务
+
+- 会话运行期间不得中断或重启当前正在运行的 DSH 服务（`dsh web` 及其宿主进程）：禁止
+  `kill` / `pkill` / `SIGTERM`，禁止抢占其端口另起替代实例。
+- 改动需要服务重启才生效时（例如 bundle 行或 `cordis.patch.yml` 变化），不要自行
+  重启；改为在交付报告中明确标注「需要用户重启 DSH 服务后生效」，由用户自行
+  重启验证。页面刷新、只读探测等不打扰服务的验证不受此限制。
+
 ## Branches, Commits, and PRs
 
 - `dev` is the integration branch. Rebase on `origin/dev` before submitting a PR. `main` receives tested changes from `dev` through maintainer integration.
