@@ -44,7 +44,7 @@ import {
 } from '../src/client/MarketCard.tsx'
 import { zh } from '../src/client/locales.ts'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 const t: MarketCardProps['t'] = (key, params) => {
   const text = (zh as Record<string, string>)[key] ?? key
@@ -181,4 +181,54 @@ describe('MarketCard', () => {
     render(<MarketCard {...cardProps(new FakeScope({}), { remote: REMOTE, gateway: null, pluginManager: null })} />)
     expect(screen.queryByRole('button', { name: /一键安装/ })).toBeNull()
   })
+  it('rolls back an optimistic like when Turnstile fails', async () => {
+    render(<MarketCard {...cardProps(new FakeScope({}), {
+      remote: REMOTE,
+      gateway: null,
+      pluginManager: null,
+      turnstileToken: async () => { throw new Error('captcha unavailable') },
+    })} />)
+    fireEvent.click(screen.getByRole('button', { name: /赞 3/ }))
+    expect(screen.getByRole('button', { name: /赞 4/ })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('button', { name: /赞 3/ })).toBeTruthy())
+    expect(screen.getByText('点赞失败')).toBeTruthy()
+  })
+
+  it('sends a Turnstile token and never a bypass header', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ ok: true, votes: 9 })))
+    render(<MarketCard {...cardProps(new FakeScope({}), {
+      remote: REMOTE,
+      gateway: null,
+      pluginManager: null,
+      turnstileToken: async () => 'verified-token',
+    })} />)
+    fireEvent.click(screen.getByRole('button', { name: /赞 3/ }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(String(url)).toContain('/api/like')
+    const headers = new Headers(init.headers)
+    expect(headers.has('x-dsh-market-client')).toBe(false)
+    const body = JSON.parse(String(init.body)) as { turnstile_token?: string }
+    expect(body.turnstile_token).toBe('verified-token')
+  })
+
+  it('retries a failed live manifest load', async () => {
+    const good = (value: unknown) => new Response(JSON.stringify(value))
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(good({ items: REMOTE.items.skin }))
+      .mockResolvedValueOnce(good({ items: REMOTE.items.pet }))
+      .mockResolvedValueOnce(good({ items: REMOTE.items.plugin }))
+      .mockResolvedValueOnce(good(REMOTE.stats))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<MarketCard {...cardProps(new FakeScope({}), { gateway: null, pluginManager: null })} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: '重试' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    await waitFor(() => expect(screen.getByText('鲸吟')).toBeTruthy())
+    expect(fetchMock).toHaveBeenCalledTimes(8)
+  })
+
 })

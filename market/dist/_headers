@@ -5,6 +5,9 @@
 /assets/*
 	Cache-Control: public, max-age=86400
 
+/tryon-assets/*
+	Cache-Control: public, max-age=86400
+
 /official-facade.js
 	Cache-Control: public, max-age=0, must-revalidate
 

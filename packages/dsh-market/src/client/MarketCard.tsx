@@ -6,7 +6,8 @@
  * optional pluginManager service (with the copy-command degradation).
  */
 
-import { useEffect, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
+import { marketTurnstileToken } from './turnstile.ts'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
@@ -113,10 +114,19 @@ const KIND_LABEL: Record<Kind, MarketKey> = {
 
 function deviceFp(): string {
   const key = 'dsh-market-web-fp'
-  let fp = window.localStorage.getItem(key)
+  let fp = ''
+  try {
+    fp = window.localStorage.getItem(key) || ''
+  } catch {
+    /* storage unavailable (private mode, sandboxed): use an ephemeral fingerprint */
+  }
   if (!fp || !/^[A-Za-z0-9_-]{16,64}$/.test(fp)) {
     fp = window.crypto.randomUUID ? window.crypto.randomUUID() : 'fp-' + Math.random().toString(36).slice(2) + '-' + Date.now().toString(36)
-    window.localStorage.setItem(key, fp)
+    try {
+      window.localStorage.setItem(key, fp)
+    } catch {
+      /* ephemeral for this tab */
+    }
   }
   return fp
 }
@@ -145,6 +155,8 @@ export type MarketCardProps =
     } | null
     /** Plugin-manager face override; undefined reads the bridged cordis service. */
     pluginManager?: PluginManagerService | null
+    /** Turnstile token override (injected for tests). */
+    turnstileToken?: () => Promise<string>
   }
 
 /**
@@ -167,6 +179,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
   const [data, setData] = useState<MarketData | null>(null)
   const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [installed, setInstalled] = useState<{ skins: string[]; pets: string[] }>({ skins: [], pets: [] })
   const [installing, setInstalling] = useState<string | null>(null)
   const [conflict, setConflict] = useState<{ kind: Kind; id: string; dest: string } | null>(null)
@@ -174,6 +187,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
   const [callouts, setCallouts] = useState<Record<string, string>>({})
   const [pluginList, setPluginList] = useState<readonly InstalledPluginItem[] | null>(null)
   const [pluginErrors, setPluginErrors] = useState<Record<string, string>>({})
+  const likeSeq = useRef(new Map<string, number>())
 
   // Remote data (test override or the live market site).
   useEffect(() => {
@@ -209,7 +223,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
       setLoading(false)
     })
     return () => { alive = false }
-  }, [props.remote])
+  }, [props.remote, loadAttempt])
 
   // Host gateway probe: POST install routes + GET installed snapshot. When
   // the loopback gateway answers, asset install buttons become available;
@@ -359,27 +373,34 @@ export function MarketCard(props: MarketCardProps): ReactNode {
   }
 
   const onLike = async (kind: Kind, id: string): Promise<void> => {
+    const key = kind + ':' + id
+    const seq = (likeSeq.current.get(key) ?? 0) + 1
+    likeSeq.current.set(key, seq)
     const current = votesOf(kind, id)
-    setData((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        stats: { ...prev.stats, [kind]: { ...prev.stats[kind], [id]: current + 1 } },
-      }
-    })
+    setData((prev) => prev ? {
+      ...prev,
+      stats: { ...prev.stats, [kind]: { ...prev.stats[kind], [id]: current + 1 } },
+    } : prev)
     try {
+      const token = await (props.turnstileToken ?? marketTurnstileToken)()
       const res = await fetch(MARKET_ORIGIN + '/api/like', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-dsh-market-client': 'market-card' },
-        body: JSON.stringify({ kind, asset_id: id, device_fp: deviceFp() }),
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ kind, asset_id: id, device_fp: deviceFp(), turnstile_token: token }),
       })
       if (!res.ok) throw new Error('HTTP ' + res.status)
       const out = (await res.json()) as { votes?: number }
+      if (likeSeq.current.get(key) !== seq) return
       setData((prev) => prev ? {
         ...prev,
         stats: { ...prev.stats, [kind]: { ...prev.stats[kind], [id]: out.votes ?? current + 1 } },
       } : prev)
     } catch {
+      if (likeSeq.current.get(key) !== seq) return
+      setData((prev) => prev ? {
+        ...prev,
+        stats: { ...prev.stats, [kind]: { ...prev.stats[kind], [id]: current } },
+      } : prev)
       setCallouts((prev) => ({ ...prev, [id]: t('likeFailed', {}) }))
     }
   }
@@ -437,7 +458,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
           {failed ? (
             <p className={css.empty} role="status">
               {t('empty')}
-              <Button className={css.retry} onClick={() => { setFailed(false); setLoading(true) }}>{t('retry')}</Button>
+              <Button className={css.retry} onClick={() => { setLoadAttempt((value) => value + 1) }}>{t('retry')}</Button>
             </p>
           ) : loading ? (
             <p className={css.empty} role="status">{t('loading')}</p>

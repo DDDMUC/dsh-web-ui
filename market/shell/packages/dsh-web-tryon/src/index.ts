@@ -13,10 +13,8 @@
  * skin runtime, and only the asset source differs — so what the visitor sees
  * is what a local install applies.
  *
- * CSS is served as authored (no server-side scoping/whitelist transform): the
- * skins shipped here are the repository's own reviewed set, and the try-on
- * shell shows one skin at a time, so the transform's atomic-swap scaffolding
- * has nothing extra to make safe.
+ * CSS is pre-transformed during market-build with Skin Center's canonical
+ * safety pipeline, so light tokens and scoping match a local installation.
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -65,7 +63,8 @@ interface Catalog {
 }
 
 let catalogCache: { at: number; value: Catalog } | null = null
-const CATALOG_TTL = 60_000
+let catalogPending: Promise<Catalog> | null = null
+const CATALOG_TTL = 300_000
 
 async function fetchJson(url: string): Promise<unknown> {
   const res = await fetch(url)
@@ -77,24 +76,33 @@ async function fetchJson(url: string): Promise<unknown> {
 async function buildCatalog(): Promise<Catalog> {
   const now = Date.now()
   if (catalogCache !== null && now - catalogCache.at < CATALOG_TTL) return catalogCache.value
-  const diagnostics: { subject: string; origin: string; errors: string[] }[] = []
-  const skins: Catalog['skins'] = []
-  const list = (await fetchJson(skinListUrl())) as { items?: unknown[] } | null
-  const items = Array.isArray(list?.items) ? list.items : []
-  for (const raw of items) {
-    const item = raw as { id?: unknown }
-    const id = typeof item.id === 'string' ? item.id : ''
-    if (id === '') continue
-    const manifest = (await fetchJson(skinAssetBase() + encodeURIComponent(id) + '/skin.json')) as Record<string, unknown> | null
-    if (manifest === null || typeof manifest.id !== 'string') {
-      diagnostics.push({ subject: id, origin: 'builtin', errors: ['skin.json missing or invalid'] })
-      continue
+  if (catalogPending !== null) return catalogPending
+  catalogPending = (async () => {
+    const diagnostics: Catalog['diagnostics'] = []
+    const list = (await fetchJson(skinListUrl())) as { items?: unknown[] } | null
+    const items = Array.isArray(list?.items) ? list.items : []
+    const loaded = await Promise.all(items.map(async (raw) => {
+      const item = raw as { id?: unknown }
+      const id = typeof item.id === 'string' ? item.id : ''
+      if (id === '') return null
+      const manifest = (await fetchJson(skinAssetBase() + encodeURIComponent(id) + '/skin.json')) as Record<string, unknown> | null
+      if (manifest === null || typeof manifest.id !== 'string') {
+        diagnostics.push({ subject: id, origin: 'builtin', errors: ['skin.json missing or invalid'] })
+        return null
+      }
+      const entry: Catalog['skins'][number] = { origin: 'builtin', warnings: [], manifest }
+      return entry
+    }))
+    const value: Catalog = {
+      ok: true,
+      capturedAt: Date.now(),
+      skins: loaded.filter((entry): entry is Catalog['skins'][number] => entry !== null),
+      diagnostics,
     }
-    skins.push({ origin: 'builtin', warnings: [], manifest })
-  }
-  const value: Catalog = { ok: true, capturedAt: now, skins, diagnostics }
-  catalogCache = { at: now, value }
-  return value
+    catalogCache = { at: Date.now(), value }
+    return value
+  })()
+  try { return await catalogPending } finally { catalogPending = null }
 }
 
 /** Read a JSON request body (bounded at 16KB, like the real route). */
@@ -138,7 +146,7 @@ function json(res: unknown, status: number, body: unknown): void {
 
 function serveBytes(res: unknown, status: number, body: Uint8Array, type: string): void {
   const r = res as { writeHead(code: number, headers: Record<string, string>): void; end(payload: Uint8Array | string): void }
-  r.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' })
+  r.writeHead(status, { 'content-type': type, 'cache-control': status === 200 ? 'public, max-age=86400' : 'no-store' })
   r.end(body)
 }
 
@@ -151,6 +159,10 @@ async function serveSkinResource(res: unknown, rest: string): Promise<void> {
     json(res, 404, { ok: false, error: 'skin-asset-not-found' })
     return
   }
+  if (!/^[a-z][a-z0-9-]{0,31}$/.test(id)) {
+    json(res, 404, { ok: false, error: 'skin-not-found' })
+    return
+  }
   const catalog = await buildCatalog()
   const entry = catalog.skins.find((s) => s.manifest.id === id)
   if (entry === undefined) {
@@ -161,7 +173,7 @@ async function serveSkinResource(res: unknown, rest: string): Promise<void> {
   if (sub === 'stylesheet') {
     const rel = contributes?.stylesheet
     if (rel === undefined) { json(res, 404, { ok: false, error: 'stylesheet-not-found' }); return }
-    const fetched = await fetch(skinAssetBase() + encodeURIComponent(id) + '/' + rel).catch(() => null)
+    const fetched = await fetch(new URL('../tryon-assets/skins/' + encodeURIComponent(id) + '/skin.css', new URL('.', location.href))).catch(() => null)
     if (fetched === null || !fetched.ok) { json(res, 404, { ok: false, error: 'stylesheet-not-found' }); return }
     serveBytes(res, 200, new TextEncoder().encode(await fetched.text()), 'text/css; charset=utf-8')
     return
@@ -169,7 +181,7 @@ async function serveSkinResource(res: unknown, rest: string): Promise<void> {
   if (sub === 'patches') {
     const rel = contributes?.patches
     if (rel === undefined) { json(res, 404, { ok: false, error: 'no-patches' }); return }
-    const fetched = await fetch(skinAssetBase() + encodeURIComponent(id) + '/' + rel).catch(() => null)
+    const fetched = await fetch(new URL('../tryon-assets/skins/' + encodeURIComponent(id) + '/patches.css', new URL('.', location.href))).catch(() => null)
     if (fetched === null || !fetched.ok) { json(res, 404, { ok: false, error: 'no-patches' }); return }
     serveBytes(res, 200, new TextEncoder().encode(await fetched.text()), 'text/css; charset=utf-8')
     return
@@ -264,7 +276,7 @@ export function apply(ctx: Context): void {
     path: API_PREFIX + '/active',
     handler: (req: unknown, res: unknown) => {
       const method = (req as { method?: string }).method ?? 'GET'
-      void handleActive(req, res, method)
+      void handleActive(req, res, method).catch(() => json(res, 500, { ok: false, error: 'active-failed' }))
     },
   })
   webServer.register({

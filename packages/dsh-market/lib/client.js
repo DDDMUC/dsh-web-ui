@@ -8,6 +8,64 @@ window.__ModuleLoader__.load({
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let _deepseek_ai_dsh_client_runtime_client = require("@deepseek-ai/dsh-client-runtime/client");
+		//#region src/client/turnstile.ts
+		/** Turnstile token relay hosted on the market origin. */
+		const MARKET_ORIGIN = "https://dsh-market.com";
+		const CHALLENGE_URL = "https://dsh-market.com/api/turnstile/challenge";
+		const TIMEOUT_MS = 1e4;
+		let ready = null;
+		let chain = Promise.resolve();
+		function challengeFrame() {
+			if (ready !== null) return ready;
+			ready = new Promise((resolve, reject) => {
+				const iframe = document.createElement("iframe");
+				iframe.src = CHALLENGE_URL;
+				iframe.hidden = true;
+				iframe.title = "Market verification";
+				iframe.setAttribute("aria-hidden", "true");
+				iframe.onload = () => {
+					resolve(iframe);
+				};
+				iframe.onerror = () => {
+					ready = null;
+					reject(/* @__PURE__ */ new Error("turnstile-frame-failed"));
+				};
+				document.body.append(iframe);
+			});
+			return ready;
+		}
+		async function requestOne() {
+			const iframe = await challengeFrame();
+			const id = crypto.randomUUID();
+			return new Promise((resolve, reject) => {
+				const timer = window.setTimeout(() => finish(/* @__PURE__ */ new Error("turnstile-timeout")), TIMEOUT_MS);
+				const onMessage = (event) => {
+					const data = event.data;
+					if (event.origin !== MARKET_ORIGIN || event.source !== iframe.contentWindow) return;
+					if (data?.source !== "dsh-market-card" || data.type !== "token" || data.id !== id) return;
+					finish(null, typeof data.token === "string" ? data.token : "");
+				};
+				const finish = (error, token = "") => {
+					window.clearTimeout(timer);
+					window.removeEventListener("message", onMessage);
+					if (error !== null) reject(error);
+					else resolve(token);
+				};
+				window.addEventListener("message", onMessage);
+				iframe.contentWindow?.postMessage({
+					source: "dsh-market-card",
+					type: "request",
+					id
+				}, MARKET_ORIGIN);
+			});
+		}
+		/** Serialize challenges because one invisible widget can execute only once at a time. */
+		function marketTurnstileToken() {
+			const request = chain.then(requestOne);
+			chain = request.then(() => void 0, () => void 0);
+			return request;
+		}
+		//#endregion
 		//#region \0dsh-css:packages/dsh-market/src/client/settings-card.module.css.mjs
 		const css$1 = ".RcIGlq_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}.RcIGlq_card:hover{border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_cardOpen{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_header{appearance:none;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:12px;align-items:center;gap:12px;padding:14px 16px;display:flex}.RcIGlq_header:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.RcIGlq_headerStatic{border-radius:12px;align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}.RcIGlq_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.RcIGlq_name{color:var(--dsw-alias-label-primary);font-size:15px;font-weight:600;line-height:1.4}.RcIGlq_description{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}.RcIGlq_pending{white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.RcIGlq_chevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}.RcIGlq_chevronOpen{transform:rotate(180deg)}.RcIGlq_body{border-top:1px solid var(--dsw-alias-border-l2);margin:0 16px;padding-bottom:8px}.RcIGlq_readOnly{color:var(--dsw-alias-label-tertiary);margin:12px 0 0;font-size:12px;line-height:1.5}.RcIGlq_notExposed{color:var(--dsw-alias-state-warn-primary);margin:12px 0 0;font-size:12px;line-height:1.5}.RcIGlq_footer{border-top:1px solid var(--dsw-alias-border-l2);justify-content:flex-end;align-items:center;gap:8px;padding:12px 0 4px;display:flex}.RcIGlq_failed{min-width:0;color:var(--dsw-alias-label-error);text-overflow:ellipsis;white-space:nowrap;flex:1;margin:0;font-size:12px;line-height:1.5;overflow:hidden}.RcIGlq_discard,.RcIGlq_save{appearance:none;font:inherit;cursor:pointer;border:1px solid #0000;border-radius:8px;padding:5px 14px;font-size:13px;line-height:1.5}.RcIGlq_discard{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:0 0}.RcIGlq_discard:hover:not(:disabled){color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_save{background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-layer-3)}.RcIGlq_discard:disabled,.RcIGlq_save:disabled{opacity:.4;cursor:default}.RcIGlq_discard:focus-visible,.RcIGlq_save:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.RcIGlq_field{flex-direction:column;gap:6px;padding:12px 0;display:flex}.RcIGlq_field+.RcIGlq_field{border-top:1px solid var(--dsw-alias-border-l2)}.RcIGlq_head{align-items:center;gap:8px;display:flex}.RcIGlq_label{min-width:0;color:var(--dsw-alias-label-primary);flex:1;font-size:13px;font-weight:500;line-height:1.5}.RcIGlq_badges{align-items:center;gap:8px;display:inline-flex}.RcIGlq_badge{white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.RcIGlq_reset{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;padding:0;font-size:12px;line-height:1.5}.RcIGlq_reset:hover:not(:disabled){color:var(--dsw-alias-label-primary)}.RcIGlq_reset:disabled{cursor:default}.RcIGlq_reset:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.RcIGlq_input,.RcIGlq_select{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);height:34px;font:inherit;color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 12px;font-size:13px;line-height:1.5}.RcIGlq_input:focus-visible,.RcIGlq_select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:none}.RcIGlq_input:disabled,.RcIGlq_select:disabled{color:var(--dsw-alias-label-tertiary);cursor:default}.RcIGlq_inputInvalid{border:1px solid var(--dsw-alias-label-error);background:var(--dsw-alias-bg-layer-3);height:34px;font:inherit;color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 12px;font-size:13px;line-height:1.5}.RcIGlq_inputInvalid:focus-visible{outline:2px solid var(--dsw-alias-label-error);outline-offset:1px;border-color:var(--dsw-alias-label-error)}.RcIGlq_selectWrap{position:relative}.RcIGlq_selectButton{appearance:none;text-align:left;cursor:pointer;justify-content:space-between;align-items:center;gap:8px;width:100%;display:flex}.RcIGlq_selectLabel{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.RcIGlq_selectChevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}.RcIGlq_selectChevronOpen{transform:rotate(180deg)}.RcIGlq_selectPopup{z-index:40;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);max-height:240px;box-shadow:0 8px 24px var(--dsw-alias-bg-mask-2);opacity:0;border-radius:8px;flex-direction:column;padding:4px;transition:opacity .1s,transform .1s;display:flex;position:absolute;top:calc(100% + 4px);left:0;right:0;overflow-y:auto;transform:translateY(-4px)}.RcIGlq_selectPopupOpen{opacity:1;transform:none}.RcIGlq_selectPopupClose{opacity:0;pointer-events:none;transform:translateY(-4px)}.RcIGlq_selectOption{color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;text-overflow:ellipsis;border-radius:6px;flex-shrink:0;padding:6px 10px;font-size:13px;line-height:1.5;overflow:hidden}.RcIGlq_selectOption:hover,.RcIGlq_selectOptionActive{background:var(--dsw-alias-interactive-bg-hover)}.RcIGlq_selectOptionSelected{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 10%, transparent);font-weight:500}.RcIGlq_invalid{color:var(--dsw-alias-label-error);margin:0;font-size:12px;line-height:1.5}.RcIGlq_hint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){.RcIGlq_card,.RcIGlq_header,.RcIGlq_chevron,.RcIGlq_chevronOpen,.RcIGlq_discard,.RcIGlq_save,.RcIGlq_selectChevron,.RcIGlq_selectChevronOpen,.RcIGlq_selectPopup{transition:none}}";
 		const tagId$1 = "@linxin666/dsh-client-ui-market/settings-card.module.css";
@@ -810,10 +868,15 @@ window.__ModuleLoader__.load({
 		};
 		function deviceFp() {
 			const key = "dsh-market-web-fp";
-			let fp = window.localStorage.getItem(key);
+			let fp = "";
+			try {
+				fp = window.localStorage.getItem(key) || "";
+			} catch {}
 			if (!fp || !/^[A-Za-z0-9_-]{16,64}$/.test(fp)) {
 				fp = window.crypto.randomUUID ? window.crypto.randomUUID() : "fp-" + Math.random().toString(36).slice(2) + "-" + Date.now().toString(36);
-				window.localStorage.setItem(key, fp);
+				try {
+					window.localStorage.setItem(key, fp);
+				} catch {}
 			}
 			return fp;
 		}
@@ -844,6 +907,7 @@ window.__ModuleLoader__.load({
 			const [data, setData] = (0, react.useState)(null);
 			const [failed, setFailed] = (0, react.useState)(false);
 			const [loading, setLoading] = (0, react.useState)(true);
+			const [loadAttempt, setLoadAttempt] = (0, react.useState)(0);
 			const [installed, setInstalled] = (0, react.useState)({
 				skins: [],
 				pets: []
@@ -854,6 +918,7 @@ window.__ModuleLoader__.load({
 			const [callouts, setCallouts] = (0, react.useState)({});
 			const [pluginList, setPluginList] = (0, react.useState)(null);
 			const [pluginErrors, setPluginErrors] = (0, react.useState)({});
+			const likeSeq = (0, react.useRef)(/* @__PURE__ */ new Map());
 			(0, react.useEffect)(() => {
 				if (props.remote !== void 0) {
 					setData(props.remote);
@@ -897,7 +962,7 @@ window.__ModuleLoader__.load({
 				return () => {
 					alive = false;
 				};
-			}, [props.remote]);
+			}, [props.remote, loadAttempt]);
 			const [liveGateway, setLiveGateway] = (0, react.useState)(void 0);
 			(0, react.useEffect)(() => {
 				if (props.gateway !== void 0) return;
@@ -1067,35 +1132,35 @@ window.__ModuleLoader__.load({
 				}).finally(() => setInstalling(null));
 			};
 			const onLike = async (kind, id) => {
+				const key = kind + ":" + id;
+				const seq = (likeSeq.current.get(key) ?? 0) + 1;
+				likeSeq.current.set(key, seq);
 				const current = votesOf(kind, id);
-				setData((prev) => {
-					if (!prev) return prev;
-					return {
-						...prev,
-						stats: {
-							...prev.stats,
-							[kind]: {
-								...prev.stats[kind],
-								[id]: current + 1
-							}
+				setData((prev) => prev ? {
+					...prev,
+					stats: {
+						...prev.stats,
+						[kind]: {
+							...prev.stats[kind],
+							[id]: current + 1
 						}
-					};
-				});
+					}
+				} : prev);
 				try {
+					const token = await (props.turnstileToken ?? marketTurnstileToken)();
 					const res = await fetch("https://dsh-market.com/api/like", {
 						method: "POST",
-						headers: {
-							"content-type": "application/json",
-							"x-dsh-market-client": "market-card"
-						},
+						headers: { "content-type": "application/json" },
 						body: JSON.stringify({
 							kind,
 							asset_id: id,
-							device_fp: deviceFp()
+							device_fp: deviceFp(),
+							turnstile_token: token
 						})
 					});
 					if (!res.ok) throw new Error("HTTP " + res.status);
 					const out = await res.json();
+					if (likeSeq.current.get(key) !== seq) return;
 					setData((prev) => prev ? {
 						...prev,
 						stats: {
@@ -1107,6 +1172,17 @@ window.__ModuleLoader__.load({
 						}
 					} : prev);
 				} catch {
+					if (likeSeq.current.get(key) !== seq) return;
+					setData((prev) => prev ? {
+						...prev,
+						stats: {
+							...prev.stats,
+							[kind]: {
+								...prev.stats[kind],
+								[id]: current
+							}
+						}
+					} : prev);
 					setCallouts((prev) => ({
 						...prev,
 						[id]: t("likeFailed", {})
@@ -1181,8 +1257,7 @@ window.__ModuleLoader__.load({
 								children: [t("empty"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									className: market_module_css_default.retry,
 									onClick: () => {
-										setFailed(false);
-										setLoading(true);
+										setLoadAttempt((value) => value + 1);
 									},
 									children: t("retry")
 								})]

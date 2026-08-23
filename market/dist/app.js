@@ -428,33 +428,39 @@
     $('#apiState').textContent = state.apiOk ? '' : '离线模式：点赞暂不可用'
   }
 
+  var likeSeq = {}
   function toggleLike(kind, id) {
     if (!state.apiOk) { toast('点赞服务暂时不可用，请稍后再试'); return }
     var key = kind + ':' + id
+    var seq = (likeSeq[key] || 0) + 1
+    likeSeq[key] = seq
     var wasLiked = !!myVotes[key]
-    myVotes[key] = !wasLiked
+    var prevVotes = votesFor(kind, id)
+    var nextLiked = !wasLiked
+    myVotes[key] = nextLiked
     saveMyVotes(myVotes)
-    var cur = votesFor(kind, id)
-    state.votes[kind][id] = Math.max(0, cur + (myVotes[key] ? 1 : -1))
+    state.votes[kind][id] = Math.max(0, prevVotes + (nextLiked ? 1 : -1))
     renderAll()
     turnstileToken().then(function (token) {
-      fetch('/api/like', {
+      return fetch('/api/like', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ kind: kind, asset_id: id, device_fp: deviceFp(), unlike: !myVotes[key], turnstile_token: token }),
-      }).then(function (r) {
+        body: JSON.stringify({ kind: kind, asset_id: id, device_fp: deviceFp(), unlike: !nextLiked, turnstile_token: token }),
+      })
+    }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status)
       return r.json()
     }).then(function (d) {
+      if (likeSeq[key] !== seq) return
       if (typeof d.votes === 'number') state.votes[kind][id] = d.votes
       renderAll()
-      }).catch(function () {
-        myVotes[key] = wasLiked
-        saveMyVotes(myVotes)
-        state.votes[kind][id] = Math.max(0, votesFor(kind, id) + (wasLiked ? 1 : -1))
-        renderAll()
-        toast('点赞失败，请稍后再试')
-      })
+    }).catch(function () {
+      if (likeSeq[key] !== seq) return
+      myVotes[key] = wasLiked
+      saveMyVotes(myVotes)
+      state.votes[kind][id] = prevVotes
+      renderAll()
+      toast('点赞失败，请稍后再试')
     })
   }
 
@@ -681,6 +687,7 @@
   var TURNSTILE_SITEKEY = '0x4AAAAAAEYeoSRJRjgCOiZI'
   var tsWidgetId = null
   var tsResolve = null
+  var tsChain = Promise.resolve()
   var tsError = false
   window.__dshTsCallback = function (token) {
     if (tsResolve) { var resolve = tsResolve; tsResolve = null; resolve(token) }
@@ -719,12 +726,25 @@
   }
   function turnstileToken() {
     if (tsWidgetId === null || !window.turnstile) return Promise.resolve('')
-    return new Promise(function (resolve) {
-      var timer = window.setTimeout(function () { if (tsResolve) { var r = tsResolve; tsResolve = null; r('') } }, 8000)
-      tsResolve = function (token) { window.clearTimeout(timer); resolve(token) }
-      try { window.turnstile.reset(tsWidgetId) } catch (e) { }
-      try { window.turnstile.execute(tsWidgetId) } catch (e) { if (tsResolve) { var r2 = tsResolve; tsResolve = null; r2('') } }
+    var attempt = tsChain.then(function () {
+      return new Promise(function (resolve) {
+        var settled = false
+        var timer = 0
+        function done(token) {
+          if (settled) return
+          settled = true
+          window.clearTimeout(timer)
+          if (tsResolve === done) tsResolve = null
+          resolve(token)
+        }
+        timer = window.setTimeout(function () { done('') }, 8000)
+        tsResolve = done
+        try { window.turnstile.reset(tsWidgetId) } catch (e) { }
+        try { window.turnstile.execute(tsWidgetId) } catch (e) { done('') }
+      })
     })
+    tsChain = attempt.then(function () {}, function () {})
+    return attempt
   }
 
   function boot() {
