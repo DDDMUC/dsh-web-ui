@@ -17,7 +17,12 @@ function challengeFrame(): Promise<HTMLIFrameElement> {
     iframe.title = 'Market verification'
     iframe.setAttribute('aria-hidden', 'true')
     iframe.onload = () => { frame = iframe; resolve(iframe) }
-    iframe.onerror = () => { ready = null; reject(new Error('turnstile-frame-failed')) }
+    iframe.onerror = () => {
+      iframe.remove()
+      frame = null
+      ready = null
+      reject(new Error('turnstile-frame-failed'))
+    }
     document.body.append(iframe)
   })
   return ready
@@ -37,8 +42,14 @@ async function requestOne(): Promise<string> {
     const finish = (error: Error | null, token = ''): void => {
       window.clearTimeout(timer)
       window.removeEventListener('message', onMessage)
-      if (error !== null) reject(error)
-      else resolve(token)
+      if (error !== null) {
+        iframe.remove()
+        frame = null
+        ready = null
+        reject(error)
+      } else {
+        resolve(token)
+      }
     }
     window.addEventListener('message', onMessage)
     iframe.contentWindow?.postMessage({ source: 'dsh-market-card', type: 'request', id }, MARKET_ORIGIN)
