@@ -49,7 +49,9 @@ export const apply = mountOnce('@linxin666/dsh-doctor', (ctx: Context, config?: 
     disposeRuntime?.(); disposeRuntime = undefined
     const value = effectiveConfig(current())
     const policy = { fullProtection: value.fullProtection, autoRepair: value.autoRepair }
-    void syncPolicy(policy)
+    // A policy sync must never take the host down: a failed atomic write or
+    // IPC round-trip is a warning, not a fatal load failure.
+    void syncPolicy(policy).catch((error) => console.warn('[dsh-doctor] policy sync failed:', error))
     if (!value.enabled) {
       autoEnsure.suppress()
       void client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'pause', profileId: profile.id }).catch(() => undefined)
