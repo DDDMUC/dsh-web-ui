@@ -1578,7 +1578,7 @@
       "external": true,
       "spriteGrid": {
         "columns": 8,
-        "rows": 11
+        "rows": 9
       },
       "files": [
         "pet.json",
@@ -3597,7 +3597,7 @@
       "external": true,
       "spriteGrid": {
         "columns": 8,
-        "rows": 11
+        "rows": 9
       },
       "files": [
         "pet.json",
@@ -6390,7 +6390,7 @@
       "external": true,
       "spriteGrid": {
         "columns": 8,
-        "rows": 11
+        "rows": 9
       },
       "files": [
         "pet.json",
@@ -7512,7 +7512,7 @@
       "external": true,
       "spriteGrid": {
         "columns": 8,
-        "rows": 11
+        "rows": 9
       },
       "files": [
         "pet.json",
@@ -11447,7 +11447,7 @@
       "external": true,
       "spriteGrid": {
         "columns": 8,
-        "rows": 11
+        "rows": 9
       },
       "files": [
         "pet.json",
@@ -11799,7 +11799,7 @@
       "external": true,
       "spriteGrid": {
         "columns": 8,
-        "rows": 11
+        "rows": 9
       },
       "files": [
         "pet.json",
@@ -12788,7 +12788,7 @@
       "external": true,
       "spriteGrid": {
         "columns": 8,
-        "rows": 11
+        "rows": 9
       },
       "files": [
         "pet.json",

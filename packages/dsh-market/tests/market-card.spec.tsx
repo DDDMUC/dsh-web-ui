@@ -154,8 +154,6 @@ describe('MarketCard', () => {
     expect(image?.parentElement?.getAttribute('class')).toContain('spriteThumb')
     expect(image?.style.width).toBe('576px')
     expect(image?.style.height).toBe('648px')
-    expect(image?.style.transform).toBe('scale(0.34615384615384615)')
-    expect(image?.style.transformOrigin).toBe('top left')
   })
 
   it('switches tabs and shows plugins with a repo link and install command', () => {

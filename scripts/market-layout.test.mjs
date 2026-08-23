@@ -58,8 +58,7 @@ test('pets.json 契约与资产存在性', () => {
       // files 固定为 worker 重定向直通的两个文件。
       assert.ok(/^https:\/\/assets\.petdex\.dev\//.test(item.spritesheet), 'external spritesheet origin: ' + item.id)
       assert.deepEqual(item.files, ['pet.json', 'spritesheet.webp'], 'external files: ' + item.id)
-      assert.equal(item.spriteGrid.columns, 8, 'external sprite columns: ' + item.id)
-      assert.ok(item.spriteGrid.rows === 9 || item.spriteGrid.rows === 11, 'external sprite rows: ' + item.id)
+      assert.deepEqual(item.spriteGrid, { columns: 8, rows: 9 }, 'external sprite grid: ' + item.id)
       assert.equal(typeof item.credit, 'object', 'external credit: ' + item.id)
     } else {
       assert.ok(exists(item.spritesheet), 'spritesheet missing: ' + item.spritesheet)
