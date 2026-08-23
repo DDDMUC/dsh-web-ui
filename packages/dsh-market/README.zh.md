@@ -21,7 +21,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-market
 
 ## 配置
 
-- 启用开关：卡片在插件配置区带自己的总开关（持久化于 `dsh-market` 设置命名空间）；关闭后隐藏目录内容、仅保留开关本身。
+- 启用开关：卡片在插件配置区带自己的总开关（持久化于 `dsh-web-ui-market` 设置命名空间）；关闭后隐藏目录内容、仅保留开关本身。
 - 无其他配置项；目录数据始终来自 dsh-market.com。
 
 ## 已知限制
@@ -32,7 +32,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-market
 
 ## 架构
 
-- host 半区（`src/index.ts`）注册 `dsh-market` 设置命名空间并挂载仅回环的网关（`/api/market/installed`、`/api/market/install-skin`、`/api/market/install-pet`）。
+- host 半区（`src/index.ts`）注册 `dsh-web-ui-market` 设置命名空间并挂载仅回环的网关（`/api/market/installed`、`/api/market/install-skin`、`/api/market/install-pet`）。
 - 安装器核心（`src/core/installer.ts`）自行从 `dsh-market.com` 拉取清单、按保守白名单校验每个路径、原子写入（临时目录后 rename）——失败下载不会留下半成品目录；客户端从不提供 URL 或文件列表。
 - 创意工坊每项资产带明确的文件清单，`scripts/market-build` 重新生成 `market/dist` 后，新皮肤包即自动可装。
 

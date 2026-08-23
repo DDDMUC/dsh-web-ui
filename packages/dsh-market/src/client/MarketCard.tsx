@@ -48,7 +48,7 @@ export class MarketCardController {
   private readonly form: CardForm<MarketSettings>
   private readonly store: SnapshotStore<MarketCardState>
 
-  /** @param scope - the bound settings scope for the dsh-market namespace. */
+  /** @param scope - the bound settings scope for the dsh-web-ui-market namespace. */
   constructor(scope: SettingsScope<MarketSettings>) {
     this.form = new CardForm(scope, [
       booleanField('enabled'),
@@ -143,7 +143,7 @@ async function fetchJson(url: string): Promise<unknown> {
 
 /** Props the renderer binds for the market card. */
 export type MarketCardProps =
-  PropsLocale<'dsh-market'>
+  PropsLocale<'dsh-web-ui-market'>
   & InjectFace<MarketCardFace>
   & {
     /** Remote data override (injected for tests). */

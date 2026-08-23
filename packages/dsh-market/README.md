@@ -34,7 +34,7 @@ official Plugins section are separate first-level settings entries.
 ## Config
 
 - Enable switch: the card carries its own master switch in the plugin configuration section (persisted
-  in the `dsh-market` settings namespace). Turning it off hides the catalog and keeps the switch only.
+  in the `dsh-web-ui-market` settings namespace). Turning it off hides the catalog and keeps the switch only.
 - No other configuration; the catalog data always comes from dsh-market.com.
 
 ## Known limitations
@@ -47,7 +47,7 @@ official Plugins section are separate first-level settings entries.
 
 ## Architecture
 
-- The host half (`src/index.ts`) registers the `dsh-market` settings namespace and mounts the
+- The host half (`src/index.ts`) registers the `dsh-web-ui-market` settings namespace and mounts the
   loopback-only gateway (`/api/market/installed`, `/api/market/install-skin`, `/api/market/install-pet`).
 - The installer core (`src/core/installer.ts`) fetches the manifest from `dsh-market.com` itself,
   validates every path against a conservative allowlist, and writes atomically (temp dir then rename),

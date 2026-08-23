@@ -21,7 +21,7 @@ export const name = 'ui-market'
 export const inject = ['webServer']
 
 /** Settings namespace of the card's enable switch. */
-export const MARKET_SETTINGS_NAMESPACE = settingsNamespace('dsh-market')
+export const MARKET_SETTINGS_NAMESPACE = settingsNamespace('dsh-web-ui-market')
 
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
@@ -47,7 +47,7 @@ function applyImpl(ctx: Context): void {
       ctx.effect(() => {
         const dispose = ctx.webServer.register(route)
         return () => { dispose() }
-      }, 'dsh-market: routes')
+      }, 'dsh-web-ui-market: routes')
     } catch {
       /* settings-only install: keep the card usable without the gateway */
     }

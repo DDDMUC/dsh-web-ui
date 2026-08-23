@@ -1,7 +1,7 @@
 /**
  * Workshop store, browser half. Registers the dsh-market dictionaries and
  * the single first-level Workshop settings section (settings.section id
- * `dsh-market`) that renders the store card: browsing dsh-market.com
+ * `dsh-web-ui-market`) that renders the store card: browsing dsh-market.com
  * manifests (skins / pets / plugins) with one-click install into the DSH
  * home directories, and bridging the optional pluginManager service for
  * one-click plugin installs.
@@ -19,12 +19,12 @@ import { bridgePluginManager } from './plugin-manager-bridge.ts'
 export type { MarketCardProps, MarketSectionProps } from './MarketCard.tsx'
 export type { InstalledPluginItem, InstallProgressItem, PluginManagerService } from './plugin-manager-bridge.ts'
 
-const MARKET_NS = 'dsh-market'
+const MARKET_NS = 'dsh-web-ui-market'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Market card copy. */
-    'dsh-market': MarketKey
+    'dsh-web-ui-market': MarketKey
   }
 }
 
@@ -39,7 +39,7 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
 
 /** Register the market section and the plugin-manager bridge. */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register('dsh-market', { zh, en }), 'dsh-market: dictionaries')
+  ctx.effect(() => ctx.locale.register(MARKET_NS, { zh, en }), 'dsh-web-ui-market: dictionaries')
 
   bridgePluginManager(ctx)
 
@@ -56,10 +56,10 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('settings.section', () => {
     const unregister = ctx.slots.register({
       name: 'settings.section',
-      id: 'dsh-market',
+      id: MARKET_NS,
       order: 150,
-      label: () => ctx.locale.bind('dsh-market')('settings.title'),
-      locale: 'dsh-market',
+      label: () => ctx.locale.bind(MARKET_NS)('settings.title'),
+      locale: MARKET_NS,
       inject: () => controller.inject(),
     }, MarketSection)
     return () => {

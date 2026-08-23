@@ -771,7 +771,7 @@ window.__ModuleLoader__.load({
 					return () => {
 						setFace(null);
 					};
-				}, "dsh-market: pluginManager bridge");
+				}, "dsh-web-ui-market: pluginManager bridge");
 			});
 		}
 		//#endregion
@@ -873,7 +873,7 @@ window.__ModuleLoader__.load({
 		var MarketCardController = class {
 			form;
 			store;
-			/** @param scope - the bound settings scope for the dsh-market namespace. */
+			/** @param scope - the bound settings scope for the dsh-web-ui-market namespace. */
 			constructor(scope) {
 				this.form = new CardForm(scope, [booleanField("enabled")]);
 				this.store = this.form.bind(() => this.projection());
@@ -1593,7 +1593,7 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region src/client/index.ts
-		const MARKET_NS = "dsh-market";
+		const MARKET_NS = "dsh-web-ui-market";
 		const inject = [
 			"slots",
 			"locale",
@@ -1603,19 +1603,19 @@ window.__ModuleLoader__.load({
 		];
 		/** Register the market section and the plugin-manager bridge. */
 		function apply(ctx) {
-			ctx.effect(() => ctx.locale.register("dsh-market", {
+			ctx.effect(() => ctx.locale.register(MARKET_NS, {
 				zh,
 				en
-			}), "dsh-market: dictionaries");
+			}), "dsh-web-ui-market: dictionaries");
 			bridgePluginManager(ctx);
 			const controller = new MarketCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: MARKET_NS }));
 			ctx.slots.inject("settings.section", () => {
 				const unregister = ctx.slots.register({
 					name: "settings.section",
-					id: "dsh-market",
+					id: MARKET_NS,
 					order: 150,
-					label: () => ctx.locale.bind("dsh-market")("settings.title"),
-					locale: "dsh-market",
+					label: () => ctx.locale.bind(MARKET_NS)("settings.title"),
+					locale: MARKET_NS,
 					inject: () => controller.inject()
 				}, MarketSection);
 				return () => {

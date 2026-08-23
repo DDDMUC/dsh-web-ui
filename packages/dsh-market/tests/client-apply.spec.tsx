@@ -2,7 +2,7 @@
 
 /**
  * Workshop client registration: apply() contributes ONE first-level
- * settings section (id `dsh-market`) that renders the store card directly —
+ * settings section (id `dsh-web-ui-market`) that renders the store card directly —
  * no tab slot, no hub wrapper. The old hub-based registrations (the
  * `dsh-market.tab` child slot and the Store tab entry) must be gone.
  */
@@ -72,18 +72,18 @@ function makeCtx() {
   return { fakeCtx, injected, registered }
 }
 
-describe('dsh-market client store registration', () => {
-  it('registers the single dsh-market section rendering the store card', () => {
+describe('dsh-web-ui-market client store registration', () => {
+  it('registers the single dsh-web-ui-market section rendering the store card', () => {
     const { fakeCtx, injected, registered } = makeCtx()
     apply(fakeCtx as never)
 
     expect(injected).toEqual(['settings.section'])
 
-    const section = registered.find((entry) => entry.name === 'settings.section' && entry.id === 'dsh-market') as RegisteredEntry | undefined
+    const section = registered.find((entry) => entry.name === 'settings.section' && entry.id === 'dsh-web-ui-market') as RegisteredEntry | undefined
     expect(section).toBeDefined()
     expect(section?.children).toBeUndefined()
     expect(section?.order).toBe(150)
-    expect(section?.locale).toBe('dsh-market')
+    expect(section?.locale).toBe('dsh-web-ui-market')
     expect(labelOf(section)).toBe('settings.title')
   })
 

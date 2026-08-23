@@ -480,7 +480,7 @@ const name = "ui-market";
 /** Services the routes need; the gateway requires the host webserver. */
 const inject = ["webServer"];
 /** Settings namespace of the card's enable switch. */
-const MARKET_SETTINGS_NAMESPACE = settingsNamespace("dsh-market");
+const MARKET_SETTINGS_NAMESPACE = settingsNamespace("dsh-web-ui-market");
 const Config = z.object({ enabled: z.boolean().default(true) });
 /** Register the namespace and mount the install gateway (once). */
 const apply = mountOnce("@linxin666/dsh-client-ui-market", applyImpl);
@@ -496,7 +496,7 @@ function applyImpl(ctx) {
 			return () => {
 				dispose();
 			};
-		}, "dsh-market: routes");
+		}, "dsh-web-ui-market: routes");
 	} catch {}
 }
 //#endregion
