@@ -13,7 +13,13 @@
  *    skin runtime, and HMR (ensure* is idempotent);
  *  - stacking stays below the official shell overlay: background/ambient sit
  *    behind the app, the strip/foreground layers use moderate z-indices that
- *    lose to dialogs/overlays (official overlay paints above 1000).
+ *    lose to dialogs/overlays (official overlay paints above 1000);
+ *  - the background layer carries its own compositor layer (will-change:
+ *    transform): a full-viewport skin background image is expensive to
+ *    re-rasterize, and without isolation Chromium re-rasterizes it in
+ *    horizontal bands whenever unrelated repaint bursts (streaming chat,
+ *    animated pets, overlay menus) invalidate the same area — visible as
+ *    vertical band flicker (issue #1013).
  * @module @linxin666/dsh-client-ui-skin-center/runtime/decoration-layers
  */
 
@@ -45,7 +51,7 @@ const LAYER_ATTR = 'data-dsh-skin-layer'
 const LAYER_STYLE: Record<DecorationLayerName, string> = {
   // Explicit longhands only: the inset shorthand has burned us once (a
   // mid-session layer lost its bottom edge), longhands parse everywhere.
-  background: 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:-2;pointer-events:none;',
+  background: 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:-2;pointer-events:none;will-change:transform;',
   ambient: 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;pointer-events:none;',
   top: 'position:fixed;top:0;left:0;right:0;z-index:40;pointer-events:none;',
   bottom: 'position:fixed;bottom:0;left:0;right:0;z-index:40;pointer-events:none;',
