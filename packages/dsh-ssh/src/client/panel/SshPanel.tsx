@@ -57,10 +57,12 @@ export function SshPanel({ controller, api, terminalFont }: SshPanelProps) {
   return (
     <div className={css.panel} data-dsh-plugin="ssh">
       <div className={css.panelHeader}>
+        {/* Shared hook: dsh-web-ui-all offsets center-view back controls beside the collapsed mobile sidebar. */}
         <button
           type="button"
           className={`${css.ghostButton} ${css.backButton}`}
           aria-label={tt('panel.backToConversation')}
+          data-dsh-center-view-back=""
           onClick={() => { controller.close() }}
         >
           <span aria-hidden="true">‹</span>

@@ -79,6 +79,18 @@ describe('SshPanel L2 semantic attributes (#506)', () => {
       expect(tab.getAttribute('data-dsh-part')).toBe('tab')
     }
   })
+
+  it('tags the back-to-conversation button with a stable center-view hook', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    roots.push(root)
+    await act(async () => { root.render(<SshPanel controller={fakeController()} api={fakeApi()} />) })
+
+    const back = container.querySelector('[data-dsh-center-view-back=""]')
+    expect(back).not.toBeNull()
+    expect(back?.tagName).toBe('BUTTON')
+  })
 })
 
 describe('mountPanel L2 semantic attributes (#506)', () => {

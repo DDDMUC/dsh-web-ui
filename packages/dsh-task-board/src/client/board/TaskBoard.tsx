@@ -52,9 +52,11 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
   return (
     <div className={css.board} data-dsh-taskboard-board="" data-dsh-plugin="task-board">
       <header className={css.boardHeader}>
+        {/* Shared hook: dsh-web-ui-all offsets center-view back controls beside the collapsed mobile sidebar. */}
         <button
           type="button"
           className={`${css.ghostButton} ${css.backButton}`}
+          data-dsh-center-view-back=""
           aria-label={t('board.close')}
           onClick={() => { controller.closeBoard() }}
         >

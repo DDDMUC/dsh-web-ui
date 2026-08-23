@@ -73,6 +73,7 @@ describe('TaskBoard L2 semantic attributes (#506)', () => {
     const board = container.querySelector('[data-dsh-taskboard-board]')
     expect(board).not.toBeNull()
     expect(board!.getAttribute('data-dsh-plugin')).toBe('task-board')
+    expect(board!.querySelector('button[data-dsh-center-view-back]')).not.toBeNull()
 
     const columns = container.querySelectorAll('section[data-status]')
     expect(columns.length).toBeGreaterThan(0)

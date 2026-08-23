@@ -23,6 +23,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "test": "vitest run",
     "prepare": "tsdown",
     "watch": "tsdown --watch"
   },
@@ -34,6 +35,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/zhu1090093659/dsh-web-ui.git"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "@linxin666/dsh-client-ui-plugin-manager": "workspace:*",
