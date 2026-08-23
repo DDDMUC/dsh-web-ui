@@ -22,6 +22,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SkinCenterSection, type SkinCenterInjected } from './SkinCenter.tsx'
+import { installMarketTabSeat, MARKET_TAB_KEY } from './market-tab.ts'
 import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
 import { SKIN_BACKGROUND_FIELDS, type SkinBackgroundConfig } from '../core/background.ts'
 import { SKIN_WALLPAPER_NS, WallpaperController, installBootRestore } from './wallpaper.ts'
@@ -232,12 +233,29 @@ export function apply(ctx: ClientContext): void {
     },
   })
 
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
-    id: 'skin-center',
-    order: 120,
-    label: () => ctx.locale.bind('skinCenter')('title'),
-    locale: 'skinCenter',
-    inject: injected,
-  }, SkinCenterSection))
+  // Two-seat registration (the DSH Market hub contract, see market-tab.ts):
+  // with the hub installed this card becomes the Skin Center tab; standalone
+  // it keeps its own first-level settings section. The seat machine keeps the
+  // modes mutually exclusive regardless of boot order.
+  installMarketTabSeat(ctx, {
+    registerTab: () => ctx.slots.register({
+      name: MARKET_TAB_KEY,
+      id: 'skin-center',
+      order: 200,
+      label: () => ctx.locale.bind('skinCenter')('title'),
+      locale: 'skinCenter',
+      inject: injected,
+    }, SkinCenterSection),
+    registerSection: () => ctx.slots.register({
+      name: 'settings.section',
+      id: 'skin-center',
+      order: 120,
+      label: () => ctx.locale.bind('skinCenter')('title'),
+      locale: 'skinCenter',
+      inject: injected,
+    }, SkinCenterSection),
+    // The injected face reads controllers owned by this apply fiber; no
+    // per-entry resources are released through the seat.
+    release: () => {},
+  })
 }

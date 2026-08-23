@@ -46,6 +46,16 @@ const MANIFEST = [
     targets: SETTINGS_CONSUMERS.map(pkg => `packages/${pkg}/src/client/settings-card.module.css`),
   },
   {
+    file: 'market-tab.ts',
+    source: 'shared/client/settings/market-tab.ts',
+    targets: [
+      'packages/dsh-pet/src/client/market-tab.ts',
+      'packages/dsh-community-plugins/src/client/market-tab.ts',
+      'packages/dsh-market/src/client/market-tab.ts',
+      'packages/skins/skin-center/src/client/market-tab.ts',
+    ],
+  },
+  {
     file: 'poll-guard.ts',
     source: 'shared/host/poll-guard.ts',
     targets: [

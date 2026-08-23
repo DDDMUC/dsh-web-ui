@@ -29,3 +29,6 @@
 .retry { font-size: 12px; padding: 3px 10px; }
 .remoteNote { font-size: 12px; color: var(--text-3, rgba(235,242,250,.5)); margin: 6px 0 0; }
 .modalActions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.hub { display: flex; flex-direction: column; gap: 10px; }
+.hubHeading { margin: 0; font-size: 16px; font-weight: 600; }
+.hubLede { margin: 0; font-size: 13px; color: var(--text-2, rgba(235,242,250,.66)); }
