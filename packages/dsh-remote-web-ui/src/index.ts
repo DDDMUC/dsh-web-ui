@@ -23,6 +23,7 @@ import { RemoteWebUiPairing } from './pairing-access.ts'
 import { isTrustedApiRequest, makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
+import { makePairedModelCatalogRoutes } from './paired-model-catalog.ts'
 import { makeRemoteApiRoutes, makeRemoteApiUpgradeRoutes } from './remote-api.ts'
 import { claimPostureKey, postureTargets, probePosture, releasePostureKey } from './posture.ts'
 import { lanIPv4Addresses } from './lan.ts'
@@ -359,6 +360,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     ...(apiProxy !== undefined
       ? makeMobileApiRoutes({ service, apiProxy, mobileEnterToSend: () => resolve().mobileEnterToSend })
       : []),
+    ...(apiProxy !== undefined ? makePairedModelCatalogRoutes({ service, apiProxy }) : []),
     // The remote desktop channel: policy-gated `/remote` prefix that
     // re-issues fenced paths to loopback (see remote-api.ts). The live
     // requirePairingForLan is re-read per request, same as the gate listener
