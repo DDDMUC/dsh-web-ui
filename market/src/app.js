@@ -234,6 +234,31 @@
     if (kind === 'pet') return (item.previews && item.previews[0]) || item.spritesheet
     return ''
   }
+  // Petdex rejects image hotlinks that carry an external Referer. Keep this on
+  // every market image so both upstream and same-origin assets share one safe
+  // loading contract.
+  function noReferrer(img) {
+    img.referrerPolicy = 'no-referrer'
+    return img
+  }
+  function spriteGrid(item) {
+    var grid = item && item.spriteGrid
+    return grid && grid.columns > 0 && grid.rows > 0 ? grid : null
+  }
+  function applySpriteFrame(img, item) {
+    var grid = spriteGrid(item)
+    if (!grid) return img
+    img.classList.add('mk-sprite-frame-image')
+    img.style.width = (grid.columns * 100) + '%'
+    img.style.height = (grid.rows * 100) + '%'
+    img.style.maxWidth = 'none'
+    return img
+  }
+  function spriteFrame(item, className) {
+    var frame = el('div', className + ' mk-sprite-frame')
+    frame.appendChild(applySpriteFrame(noReferrer(el('img')), item))
+    return frame
+  }
 
   function fetchJson(url) {
     return fetch(url, { headers: { accept: 'application/json' } }).then(function (r) {
@@ -319,7 +344,7 @@
         slot.appendChild(el('span', 'mk-medal', String(rank)))
         var src = thumbSrc(kind, item)
         if (src) {
-          var img = el('img', 'mk-podium-thumb')
+          var img = noReferrer(el('img', 'mk-podium-thumb'))
           img.src = src
           img.alt = ''
           img.loading = 'lazy'
@@ -364,11 +389,20 @@
     } else {
       var src = thumbSrc(kind, item)
       if (src) {
-        var img = el('img')
-        img.src = src
-        img.alt = ''
-        img.loading = 'lazy'
-        media.appendChild(img)
+        if (kind === 'pet' && spriteGrid(item) && !(item.previews && item.previews.length)) {
+          var frame = spriteFrame(item, 'mk-card-sprite')
+          var frameImg = frame.querySelector('img')
+          frameImg.src = src
+          frameImg.alt = ''
+          frameImg.loading = 'lazy'
+          media.appendChild(frame)
+        } else {
+          var img = noReferrer(el('img'))
+          img.src = src
+          img.alt = ''
+          img.loading = 'lazy'
+          media.appendChild(img)
+        }
       }
       if (kind === 'skin') {
         media.classList.add('mk-card-media-skin')
@@ -487,7 +521,7 @@
       // 预览用 manifest 的完整截图（1440x900），contain 完整展示；
       // 实时试穿独立在新标签页打开完整模拟器（视口足够大，不会裁剪）。
       var modes = el('div', 'mk-skin-modes')
-      var skinImg = el('img', 'mk-skin-img')
+      var skinImg = noReferrer(el('img', 'mk-skin-img'))
       skinImg.alt = (item.name || item.displayName) + ' 皮肤预览'
       skinImg.loading = 'lazy'
       var tryon = el('a', 'mk-skin-tryon', '实时试穿 ↗')
@@ -533,14 +567,23 @@
     } else if (kind === 'pet') {
       var petMedia = el('div', 'mk-pet-media')
       var previews = item.previews || []
-      var mainImg = el('img', 'mk-pet-main')
-      mainImg.src = previews[0] || item.spritesheet
+      var mainImg = noReferrer(el('img', 'mk-pet-main'))
+      var mainSrc = previews[0] || item.spritesheet
+      mainImg.src = mainSrc
       mainImg.alt = item.displayName
-      petMedia.appendChild(mainImg)
+      if (!previews.length && spriteGrid(item)) {
+        var mainFrame = spriteFrame(item, 'mk-pet-main-frame')
+        var mainFrameImg = mainFrame.querySelector('img')
+        mainFrameImg.src = mainSrc
+        mainFrameImg.alt = item.displayName
+        petMedia.appendChild(mainFrame)
+      } else {
+        petMedia.appendChild(mainImg)
+      }
       if (previews.length > 1) {
         var thumbs = el('div', 'mk-pet-thumbs')
         previews.forEach(function (pv, i) {
-          var t = el('img')
+          var t = noReferrer(el('img'))
           t.src = pv
           t.alt = ''
           if (i === 0) t.className = 'on'
@@ -554,7 +597,7 @@
         petMedia.appendChild(thumbs)
       }
       if (item.spritesheet) {
-        var sheet = el('img', 'mk-pet-sheet')
+        var sheet = noReferrer(el('img', 'mk-pet-sheet'))
         sheet.src = item.spritesheet
         sheet.alt = '精灵表'
         sheet.style.maxHeight = '170px'
