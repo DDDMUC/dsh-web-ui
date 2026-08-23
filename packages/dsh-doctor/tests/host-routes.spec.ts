@@ -19,14 +19,15 @@ function statusReq(): IncomingMessage {
   return { headers: { host: '127.0.0.1:3080' }, socket: { remoteAddress: '127.0.0.1' } } as unknown as IncomingMessage
 }
 
-function fakeRes(): { res: ServerResponse; read: () => { status: number; body: string } } {
+function fakeRes(): { res: ServerResponse; read: () => { status: number; body: string; headers: Record<string, string> } } {
   let status = 0
   let body = ''
+  let headers: Record<string, string> = {}
   const res = {
-    writeHead: (code: number) => { status = code },
+    writeHead: (code: number, head: Record<string, string> = {}) => { status = code; headers = { ...head } },
     end: (value?: unknown) => { body = String(value ?? '') },
   } as unknown as ServerResponse
-  return { res, read: () => ({ status, body }) }
+  return { res, read: () => ({ status, body, headers }) }
 }
 
 function routes(overrides?: { statusError?: Error; provisioned?: boolean; call?: ReturnType<typeof vi.fn> }): {
@@ -141,8 +142,11 @@ describe('doctor host routes lifecycle', () => {
     Object.assign(req, { headers: { host: '127.0.0.1:3080' }, socket: { remoteAddress: '10.0.0.5' } })
     const { res, read } = fakeRes()
     await webRoutes[1]!.handler(req, res)
-    expect(read().status).toBe(403)
-    expect(read().body).toBe('forbidden')
+    const settled = read()
+    expect(settled.status).toBe(403)
+    expect(JSON.parse(settled.body)).toEqual({ ok: false, error: 'forbidden: loopback-only' })
+    expect(settled.headers['content-type']).toBe('application/json; charset=utf-8')
+    expect(settled.headers['referrer-policy']).toBe('no-referrer')
     expect(ensure).not.toHaveBeenCalled()
   })
 })

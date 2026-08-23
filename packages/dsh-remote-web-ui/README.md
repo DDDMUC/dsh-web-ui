@@ -487,6 +487,10 @@ accept → UI. Only `publicBaseUrl` (plugin config) names the tunneled host;
 `--trusted-host` is not part of this pairing flow. The desktop panel still
 opens at `http://127.0.0.1`.
 
+## Security model
+
+- Mobile unary routes and the mux event stream require a live paired-device session. A missing or revoked session receives HTTP 403 with a JSON rejection carrying `error.code: "unpaired"`; the browser's `EventSource` API exposes only the stream failure, not that response body.
+
 ## Known Limitations and Deferred Work
 
 - **Revocation is per-request**: a paired phone whose request is already in

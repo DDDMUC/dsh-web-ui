@@ -157,7 +157,7 @@ host 设置命名空间为 `doctor`：
 - 全部以当前用户权限运行；不使用 root 或管理员提权。
 - Supervisor 只监听本地 Unix socket（Windows 命名管道）；请求带按实例生成的
   bearer token，文件权限 0600。
-- Web API 仅限 loopback，绝不把 token 交给浏览器。
+- Web API 仅限 loopback，绝不把 token 交给浏览器；被拒请求返回 HTTP 403 与 `{ ok: false, error: "forbidden: loopback-only" }`。
 - launcher 与 Supervisor 从不运行 shell；DSH 参数原样转发。
 - 状态、日志与事件记录不写密钥；快照对凭据脱敏，脱敏层不可能恢复它们。
 - 救援胶囊只绑定 loopback，除显式检查外不读取 profile home overlay。

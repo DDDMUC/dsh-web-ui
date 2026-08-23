@@ -185,7 +185,7 @@ recoverable across crashes.
 - Everything runs as the current user; no root or admin elevation.
 - The Supervisor listens only on a local Unix socket (named pipe on Windows);
   requests carry a per-install bearer token stored with mode 0600.
-- The Web API is loopback-only and never hands the browser the token.
+- The Web API is loopback-only and never hands the browser the token; rejected requests receive HTTP 403 with `{ ok: false, error: "forbidden: loopback-only" }`.
 - The launcher and Supervisor never run a shell; DSH argv is relayed verbatim.
 - No secrets are written to state, logs or incident records; snapshots redact
   credentials and the redacted tier can never restore them.
