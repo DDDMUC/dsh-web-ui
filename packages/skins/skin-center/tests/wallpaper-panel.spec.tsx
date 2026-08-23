@@ -20,7 +20,7 @@ const t = (key: SkinCenterKey): string => zh[key] ?? key
 // fresh object on every call.
 const NO_DIRS: string[] = []
 
-const stubWallpaper = (): WallpaperHandle => ({
+const stubWallpaper = (overrides: Partial<WallpaperHandle> = {}): WallpaperHandle => ({
   enabled: () => true,
   selection: () => '',
   mode: () => 'live',
@@ -33,6 +33,7 @@ const stubWallpaper = (): WallpaperHandle => ({
   dirs: () => NO_DIRS,
   addDir: () => {},
   removeDir: () => {},
+  pickDir: async () => null,
   activeId: () => null,
   trying: () => false,
   subscribe: () => () => {},
@@ -50,6 +51,7 @@ const stubWallpaper = (): WallpaperHandle => ({
   tryOn: () => {},
   exitTryOn: () => {},
   dispose: () => {},
+  ...overrides,
 })
 
 const inventory = (wallpapers: unknown[]) => ({
@@ -74,7 +76,7 @@ afterEach(() => {
 })
 
 /** Render the panel against one stubbed inventory payload. */
-async function render(wallpapers: unknown[]): Promise<void> {
+async function render(wallpapers: unknown[], wallpaper: WallpaperHandle = stubWallpaper()): Promise<void> {
   vi.stubGlobal('fetch', vi.fn(async () => ({
     ok: true,
     status: 200,
@@ -82,8 +84,14 @@ async function render(wallpapers: unknown[]): Promise<void> {
   })))
   root = createRoot(host)
   await act(async () => {
-    root.render(<WallpaperPanel t={t as never} wallpaper={stubWallpaper()} />)
+    root.render(<WallpaperPanel t={t as never} wallpaper={wallpaper} />)
   })
+}
+
+/** The browse button of the manual-folder row. */
+function browseButton(): HTMLButtonElement | null {
+  const buttons = Array.from(host.querySelectorAll('button'))
+  return (buttons.find((button) => button.textContent === zh.wallpaperDirBrowse) ?? null) as HTMLButtonElement | null
 }
 
 describe('WallpaperPanel thumbs', () => {
@@ -124,5 +132,47 @@ describe('WallpaperPanel thumbs', () => {
     const img = host.querySelector('img')
     expect(img?.getAttribute('src')).toBe('/api/skin-center/we/preview/CCC')
     expect(host.querySelector('video')).toBeNull()
+  })
+})
+
+describe('WallpaperPanel directory picker', () => {
+  it('adds the picked folder directly through the native picker', async () => {
+    const added: string[] = []
+    await render([], stubWallpaper({
+      pickDir: async () => '/Users/demo/Pictures/wallpapers',
+      addDir: (dir) => { added.push(dir) },
+    }))
+    const button = browseButton()
+    expect(button).not.toBeNull()
+    await act(async () => { button!.click() })
+    expect(added).toEqual(['/Users/demo/Pictures/wallpapers'])
+  })
+
+  it('does nothing when the picker is cancelled', async () => {
+    const added: string[] = []
+    await render([], stubWallpaper({
+      pickDir: async () => null,
+      addDir: (dir) => { added.push(dir) },
+    }))
+    await act(async () => { browseButton()!.click() })
+    expect(added).toEqual([])
+    expect(host.textContent).not.toContain(zh.wallpaperDirBrowseFailed)
+  })
+
+  it('shows the fallback error when the native picker is unavailable', async () => {
+    await render([], stubWallpaper({
+      pickDir: async () => { throw new Error('directory picker failed: no native capability') },
+    }))
+    await act(async () => { browseButton()!.click() })
+    expect(host.textContent).toContain(zh.wallpaperDirBrowseFailed)
+    // The manual input remains usable as the fallback.
+    expect(host.querySelector('input')).not.toBeNull()
+  })
+
+  it('hides the browse button when the face provides no picker', async () => {
+    const stub = stubWallpaper()
+    delete (stub as { pickDir?: unknown }).pickDir
+    await render([], stub)
+    expect(browseButton()).toBeNull()
   })
 })

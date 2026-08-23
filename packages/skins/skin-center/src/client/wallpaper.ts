@@ -84,6 +84,15 @@ export interface WallpaperHandle {
   addDir(dir: string): void
   /** Remove a manual library folder and persist. */
   removeDir(dir: string): void
+  /**
+   * Open the host's native directory picker (the SDK's loopback-only
+   * host.pickDirectory: Finder on macOS, Explorer on Windows). Resolves to
+   * the chosen absolute path, or null when the user cancelled. Rejects when
+   * the native capability is unavailable (e.g. a paired remote client), in
+   * which case the manual input remains the fallback. Optional: faces
+   * without host access omit it and the panel hides the browse button.
+   */
+  pickDir?(): Promise<string | null>
   /** The currently mounted wallpaper id (try-on included), or null. */
   activeId(): string | null
   /** True while a try-on mount is up. */

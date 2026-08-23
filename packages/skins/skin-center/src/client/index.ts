@@ -56,8 +56,8 @@ declare module '@deepseek-ai/cordis' {
 }
 
 
-/** Required services: slots + locale (plugin card), theme (preview toggle), and settingsScope + its transport (background scrim). */
-export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection', 'remote']
+/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and workspaces (native directory picker for wallpaper folders). */
+export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection', 'remote', 'workspaces']
 
 /**
  * Register the skin-center dictionaries, the body scope attribute, and the
@@ -211,6 +211,7 @@ export function apply(ctx: ClientContext): void {
       dirs: () => wallpaper.dirs(),
       addDir: dir => wallpaper.addDir(dir),
       removeDir: dir => wallpaper.removeDir(dir),
+      pickDir: () => ctx.workspaces.pickDirectory(),
       activeId: () => wallpaper.activeId(),
       trying: () => wallpaper.trying(),
       subscribe: listener => wallpaper.subscribe(listener),

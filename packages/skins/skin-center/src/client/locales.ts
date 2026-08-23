@@ -77,6 +77,9 @@ export type SkinCenterKey =
   | 'wallpaperDirsHint'
   | 'wallpaperDirPlaceholder'
   | 'wallpaperDirAdd'
+  | 'wallpaperDirBrowse'
+  | 'wallpaperDirBrowseHint'
+  | 'wallpaperDirBrowseFailed'
   | 'customThemeTitle'
   | 'customThemeTagline'
   | 'customThemeEdit'
@@ -164,6 +167,9 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperDirsHint: 'No Wallpaper Engine (e.g. macOS)? Point a folder at any .mp4/.webm files, a wallpaper project folder, or a folder of projects — they become your wallpaper library.',
   wallpaperDirPlaceholder: '/path/to/wallpapers or ~/Movies/wallpapers',
   wallpaperDirAdd: 'Add',
+  wallpaperDirBrowse: 'Browse…',
+  wallpaperDirBrowseHint: 'Pick a folder with the system file manager (Finder / Explorer)',
+  wallpaperDirBrowseFailed: 'Could not open the system folder picker — type the path manually instead',
   customThemeTitle: 'Custom theme',
   customThemeTagline: 'A separately saved palette derived from the official default theme.',
   customThemeEdit: 'Edit',
@@ -252,6 +258,9 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperDirsHint: '没有 Wallpaper Engine（如 macOS）？把任意 .mp4/.webm 视频、单个壁纸项目文件夹或项目合集文件夹加进来，就是你的壁纸库。',
   wallpaperDirPlaceholder: '/path/to/wallpapers 或 ~/Movies/wallpapers',
   wallpaperDirAdd: '添加',
+  wallpaperDirBrowse: '浏览…',
+  wallpaperDirBrowseHint: '通过系统文件管理器（访达 / 资源管理器）选择文件夹',
+  wallpaperDirBrowseFailed: '无法打开系统目录选择框——请手动输入路径',
   customThemeTitle: '自定义主题',
   customThemeTagline: '基于官方默认主题生成并独立保存的配色方案。',
   customThemeEdit: '编辑',

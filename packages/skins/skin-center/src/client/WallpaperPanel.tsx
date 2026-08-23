@@ -89,6 +89,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const [shownBlur, setShownBlur] = useLiveValue(blur)
   const [shownVolume, setShownVolume] = useLiveValue(volume)
   const [dirInput, setDirInput] = useState('')
+  const [picking, setPicking] = useState(false)
 
   const [items, setItems] = useState<WallpaperItem[] | null>(null)
   const [installDir, setInstallDir] = useState<string | null>(null)
@@ -141,6 +142,29 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
       after?.()
       load()
     })
+  }
+
+  /** Open the host's native folder picker and add the chosen directory. */
+  const browseDir = (): void => {
+    const pick = wallpaper.pickDir
+    if (pick === undefined) return
+    setActionError(null)
+    setPicking(true)
+    void pick()
+      .then(path => {
+        if (!mounted.current) return
+        setPicking(false)
+        if (path === null || path.trim() === '') return // cancelled
+        wallpaper.addDir(path)
+        load()
+      })
+      .catch((error: unknown) => {
+        // Non-loopback (paired remote) or a host without the native
+        // capability: the manual input stays the fallback.
+        if (!mounted.current) return
+        setPicking(false)
+        setActionError(t('wallpaperDirBrowseFailed') + ': ' + (error instanceof Error ? error.message : String(error)))
+      })
   }
 
   const descriptorOf = (item: WallpaperItem): WallpaperDescriptor => ({
@@ -358,6 +382,17 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
               >
                 {t('wallpaperDirAdd')}
               </button>
+              {wallpaper.pickDir !== undefined && (
+                <button
+                  type="button"
+                  className={css.button}
+                  disabled={picking}
+                  title={t('wallpaperDirBrowseHint')}
+                  onClick={browseDir}
+                >
+                  {picking ? t('loading') : t('wallpaperDirBrowse')}
+                </button>
+              )}
             </span>
             <p className={css.backgroundHintMuted}>{t('wallpaperDirsHint')}</p>
           </div>
