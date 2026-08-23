@@ -85,10 +85,24 @@ class FakePorts implements RetryPorts {
 
   /** The retry child: turn 2 = the replayed prompt, still failing recoverably. */
   setChildFailing(childId: SessionId, errorMessage = 'request timed out'): void {
+    this.setChildFailingAttempt(childId, 1, errorMessage)
+  }
+
+  /** A reused retry child with one completed failure per attempted replay. */
+  setChildFailingAttempt(childId: SessionId, attempt: number, errorMessage = 'request timed out'): void {
+    const nodes = [userMsg(1, 'a'), assistantMsg(3, 1), userMsg(5, 'b'), turnErr(9, 2, errorMessage, 'timeout')]
+    const turnEnds = new Map([[1, 3], [2, 9]])
+    for (let replay = 2; replay <= attempt; replay += 1) {
+      const turn = replay + 1
+      const userSeq = 5 + (replay - 1) * 5
+      const endSeq = userSeq + 4
+      nodes.push(userMsg(userSeq, 'b'), turnErr(endSeq, turn, errorMessage, 'timeout'))
+      turnEnds.set(turn, endSeq)
+    }
     this.snaps.set(childId, snapshot({
       sessionId: childId as SessionId,
-      nodes: [userMsg(1, 'a'), assistantMsg(3, 1), userMsg(5, 'b'), turnErr(9, 2, errorMessage, 'timeout')],
-      turnEnds: new Map([[1, 3], [2, 9]]),
+      nodes,
+      turnEnds,
     }))
   }
 
@@ -115,7 +129,7 @@ function make(ports: FakePorts): { supervisor: RetrySupervisor; ports: FakePorts
 }
 
 describe('default retry policy', () => {
-  it('does not create retry forks automatically unless fork-per-attempt automation is enabled', () => {
+  it('does not start retry automation unless it is explicitly enabled', () => {
     const ports = new FakePorts()
     ports.snaps.set(SRC, failedSource())
     const supervisor = new RetrySupervisor(ports)
@@ -157,7 +171,7 @@ describe('auto retry cycle', () => {
       expect(supervisor.getSnapshot().phase).toBe('running')
       const child = ports.opened[ports.opened.length - 1]
       expect(ports.prompts.filter((p) => p.id === child)).toHaveLength(attempt)
-      ports.setChildFailing(child as SessionId)
+      ports.setChildFailingAttempt(child as SessionId, attempt)
       supervisor.review()
       if (attempt < 5) {
         expect(supervisor.getSnapshot().phase).toBe('waiting')
@@ -175,6 +189,246 @@ describe('auto retry cycle', () => {
     expect(new Set(ports.prompts.map((p) => p.id)).size).toBe(1)
     // The user is returned to the original failed turn.
     expect(ports.opened[ports.opened.length - 1]).toBe(SRC)
+  })
+
+  it('keeps each child backoff armed across duplicate reviews and refreshes its takeover baseline', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const child = 'child1' as SessionId
+    ports.setChildFailing(child)
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({
+      phase: 'waiting',
+      attempt: 2,
+      delayMs: 2000,
+      sourceId: SRC,
+      targetId: child,
+    })
+    expect(ports.activeTimerCount()).toBe(1)
+
+    // sessions.list and the active session can both publish the same terminal
+    // snapshot. The second review must not cancel the already-armed backoff.
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 2, targetId: child })
+    expect(ports.activeTimerCount()).toBe(1)
+
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'running', attempt: 2, targetId: child })
+
+    ports.snaps.set(child, snapshot({
+      sessionId: child,
+      nodes: [
+        userMsg(1, 'a'),
+        assistantMsg(3, 1),
+        userMsg(5, 'b'),
+        turnErr(9, 2, 'request timed out', 'timeout'),
+        userMsg(11, 'b'),
+        turnErr(14, 3, 'request timed out', 'timeout'),
+      ],
+      turnEnds: new Map([[1, 3], [2, 9], [3, 14]]),
+    }))
+    supervisor.review()
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 3, targetId: child })
+    expect(ports.activeTimerCount()).toBe(1)
+
+    ports.snaps.set(child, snapshot({
+      sessionId: child,
+      nodes: [
+        userMsg(1, 'a'),
+        assistantMsg(3, 1),
+        userMsg(5, 'b'),
+        turnErr(9, 2, 'request timed out', 'timeout'),
+        userMsg(11, 'b'),
+        turnErr(14, 3, 'request timed out', 'timeout'),
+        userMsg(16, 'manual takeover'),
+      ],
+      turnEnds: new Map([[1, 3], [2, 9], [3, 14]]),
+    }))
+    supervisor.review()
+    expect(supervisor.getSnapshot().phase).toBe('cancelled')
+    expect(ports.activeTimerCount()).toBe(0)
+    expect(ports.forked).toHaveLength(1)
+    expect(ports.prompts.map((prompt) => prompt.id)).toEqual([child, child])
+  })
+
+  it('uses the pre-prompt child count when retryable prompt rejection has no snapshot', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    ports.promptResult = { ok: false, code: 'network error', message: 'connection reset' }
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const child = 'child1' as SessionId
+    expect(ports.snaps.has(child)).toBe(false)
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 2, targetId: child })
+    expect(ports.activeTimerCount()).toBe(1)
+    supervisor.review()
+    expect(supervisor.getSnapshot().phase).toBe('waiting')
+
+    ports.snaps.set(child, snapshot({
+      sessionId: child,
+      nodes: [userMsg(1, 'a'), assistantMsg(3, 1)],
+      turnEnds: new Map([[1, 3]]),
+    }))
+    supervisor.review()
+    expect(supervisor.getSnapshot().phase).toBe('waiting')
+    expect(ports.activeTimerCount()).toBe(1)
+
+    ports.snaps.set(child, snapshot({
+      sessionId: child,
+      nodes: [userMsg(1, 'a'), assistantMsg(3, 1), userMsg(5, 'manual takeover')],
+      turnEnds: new Map([[1, 3]]),
+    }))
+    supervisor.review()
+    expect(supervisor.getSnapshot().phase).toBe('cancelled')
+    expect(ports.activeTimerCount()).toBe(0)
+  })
+
+  it('retains the known child baseline when a reused child snapshot is temporarily unavailable', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const child = 'child1' as SessionId
+    ports.setChildFailing(child)
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 2, targetId: child })
+
+    ports.snaps.delete(child)
+    ports.promptResult = { ok: false, code: 'network error', message: 'connection reset' }
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 3, targetId: child })
+
+    ports.setChildFailing(child)
+    supervisor.review()
+    expect(supervisor.getSnapshot().phase).toBe('waiting')
+    expect(ports.activeTimerCount()).toBe(1)
+
+    ports.snaps.set(child, snapshot({
+      sessionId: child,
+      nodes: [
+        userMsg(1, 'a'),
+        assistantMsg(3, 1),
+        userMsg(5, 'b'),
+        turnErr(9, 2, 'request timed out', 'timeout'),
+        userMsg(11, 'manual takeover'),
+      ],
+      turnEnds: new Map([[1, 3], [2, 9]]),
+    }))
+    supervisor.review()
+    expect(supervisor.getSnapshot().phase).toBe('cancelled')
+    expect(ports.activeTimerCount()).toBe(0)
+  })
+
+  it('cancels instead of retrying when the child advances before a failed prompt response returns', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    ports.promptDeferred = deferred<PromptOutcome>()
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const child = 'child1' as SessionId
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'running', attempt: 1, targetId: child })
+    ports.snaps.set(child, snapshot({
+      sessionId: child,
+      nodes: [userMsg(1, 'a'), assistantMsg(3, 1), userMsg(5, 'advanced while prompt was pending')],
+      turnEnds: new Map([[1, 3]]),
+    }))
+    ports.promptDeferred.resolve({ ok: false, code: 'network error', message: 'connection reset' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(supervisor.getSnapshot().phase).toBe('cancelled')
+    expect(ports.activeTimerCount()).toBe(0)
+    ports.fireTimers()
+    await Promise.resolve()
+    expect(ports.prompts).toEqual([{ id: child, text: 'b' }])
+  })
+
+  it('cancels a child backoff when the user navigates away from that child', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const child = 'child1' as SessionId
+    ports.setChildFailing(child)
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 2, targetId: child })
+
+    ports.current = SRC
+    supervisor.review()
+    expect(supervisor.getSnapshot().phase).toBe('cancelled')
+    expect(ports.activeTimerCount()).toBe(0)
+  })
+
+  it('rechecks child takeover before a backoff timer can send another prompt', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const child = 'child1' as SessionId
+    ports.setChildFailing(child)
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 2, targetId: child })
+
+    ports.snaps.set(child, snapshot({
+      sessionId: child,
+      nodes: [
+        userMsg(1, 'a'),
+        assistantMsg(3, 1),
+        userMsg(5, 'b'),
+        turnErr(9, 2, 'request timed out', 'timeout'),
+        userMsg(11, 'manual takeover'),
+      ],
+      turnEnds: new Map([[1, 3], [2, 9]]),
+    }))
+    ports.fireTimers()
+    await Promise.resolve()
+
+    expect(supervisor.getSnapshot().phase).toBe('cancelled')
+    expect(ports.prompts).toEqual([{ id: child, text: 'b' }])
+    expect(ports.activeTimerCount()).toBe(0)
+  })
+
+  it('rechecks navigation after a slow fork before opening or prompting its child', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    ports.forkDeferred = deferred<SessionId>()
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+
+    ports.current = 'other-session' as SessionId
+    ports.forkDeferred.resolve('child1' as SessionId)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(supervisor.getSnapshot().phase).toBe('cancelled')
+    expect(ports.opened).toHaveLength(0)
+    expect(ports.prompts).toHaveLength(0)
   })
 
   it('starts the next attempt when the child settles before the previous prompt call returns', async () => {
@@ -203,6 +457,62 @@ describe('auto retry cycle', () => {
     expect(supervisor.getSnapshot()).toMatchObject({ phase: 'running', targetId: 'child1' })
     expect(ports.forked).toHaveLength(1)
     expect(ports.activeTimerCount()).toBe(0)
+  })
+
+  it('does not settle a fresh child from its inherited prefix snapshot', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    ports.snaps.set('child1', snapshot({
+      sessionId: 'child1' as SessionId,
+      nodes: [userMsg(1, 'a'), assistantMsg(3, 1)],
+      turnEnds: new Map([[1, 3]]),
+    }))
+    ports.promptDeferred = deferred<PromptOutcome>()
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'running', attempt: 1, targetId: 'child1' })
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'running', attempt: 1, targetId: 'child1' })
+    expect(ports.activeTimerCount()).toBe(0)
+
+    ports.promptDeferred.resolve({ ok: true })
+    await Promise.resolve()
+    await Promise.resolve()
+    supervisor.dispose()
+  })
+
+  it('does not settle a reused child from the previous attempt failure', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const child = 'child1' as SessionId
+    ports.setChildFailing(child)
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 2, targetId: child })
+
+    ports.snaps.delete(child)
+    ports.promptDeferred = deferred<PromptOutcome>()
+    supervisor.retryNow()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'running', attempt: 2, targetId: child })
+
+    ports.setChildFailing(child)
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'running', attempt: 2, targetId: child })
+    expect(ports.activeTimerCount()).toBe(0)
+
+    ports.promptDeferred.resolve({ ok: true })
+    await Promise.resolve()
+    await Promise.resolve()
+    supervisor.dispose()
   })
 
   it('finishes done once the child turn settles with a finalized assistant message', async () => {
@@ -325,6 +635,33 @@ describe('cancel semantics', () => {
     expect(ports.activeTimerCount()).toBe(0)
   })
 
+  it('does not quarantine a settled child after cancelling its backoff wait', async () => {
+    const { supervisor, ports } = make(new FakePorts())
+    ports.snaps.set(SRC, failedSource())
+    ports.promptResult = { ok: false, code: 'network error', message: 'connection reset' }
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const child = 'child1' as SessionId
+    ports.snaps.set(child, snapshot({
+      sessionId: child,
+      nodes: [userMsg(1, 'a'), assistantMsg(3, 1)],
+      turnEnds: new Map([[1, 3]]),
+    }))
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 2, targetId: child })
+
+    supervisor.cancel()
+    supervisor.review()
+    expect(supervisor.getSnapshot().phase).toBe('idle')
+
+    ports.setChildFailing(child)
+    supervisor.review()
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'waiting', attempt: 1, sourceId: child })
+    expect(ports.activeTimerCount()).toBe(1)
+  })
+
   it('absorbs a prompt rejection that arrives after cancel', async () => {
     const { supervisor, ports } = make(new FakePorts())
     ports.snaps.set(SRC, failedSource())
@@ -434,6 +771,7 @@ describe('cancel semantics', () => {
     supervisor.review() // reset to idle
     expect(supervisor.getSnapshot().phase).toBe('idle')
 
+    ports.current = SRC
     supervisor.manualRetry(SRC)
     await Promise.resolve()
     await Promise.resolve()
@@ -490,6 +828,57 @@ describe('non-retryable and manual paths', () => {
     expect(ports.forked).toHaveLength(1)
     expect(ports.prompts).toEqual([{ id: 'child1', text: 'b' }])
     expect(supervisor.getSnapshot()).toMatchObject({ kind: 'manual', maxAttempts: 1 })
+  })
+
+  it('never schedules a second attempt after a manual retry settles with a retryable failure', async () => {
+    const ports = new FakePorts()
+    const supervisor = new RetrySupervisor(ports)
+    ports.snaps.set(SRC, failedSource())
+
+    supervisor.manualRetry(SRC)
+    await Promise.resolve()
+    await Promise.resolve()
+    const child = 'child1' as SessionId
+    expect(supervisor.getSnapshot()).toMatchObject({
+      phase: 'running',
+      kind: 'manual',
+      attempt: 1,
+      maxAttempts: 1,
+      targetId: child,
+    })
+
+    ports.setChildFailing(child)
+    supervisor.review()
+    supervisor.review()
+    ports.fireTimers()
+    await Promise.resolve()
+
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'failed', kind: 'manual' })
+    expect(ports.activeTimerCount()).toBe(0)
+    expect(ports.forked).toHaveLength(1)
+    expect(ports.prompts).toEqual([{ id: child, text: 'b' }])
+    expect(ports.opened[ports.opened.length - 1]).toBe(SRC)
+  })
+
+  it.each([
+    { code: 'network error', message: 'connection reset' },
+    { code: 'invalid-request', message: 'bad args' },
+  ])('settles a manual prompt rejection as failed without another attempt ($code)', async ({ code, message }) => {
+    const ports = new FakePorts()
+    const supervisor = new RetrySupervisor(ports)
+    ports.snaps.set(SRC, failedSource())
+    ports.promptResult = { ok: false, code, message }
+
+    supervisor.manualRetry(SRC)
+    await Promise.resolve()
+    await Promise.resolve()
+    ports.fireTimers()
+    await Promise.resolve()
+
+    expect(supervisor.getSnapshot()).toMatchObject({ phase: 'failed', kind: 'manual', attempt: 1 })
+    expect(ports.activeTimerCount()).toBe(0)
+    expect(ports.prompts).toEqual([{ id: 'child1' as SessionId, text: 'b' }])
+    expect(ports.opened[ports.opened.length - 1]).toBe(SRC)
   })
 
   it('a retryable prompt rejection schedules the next attempt; a business rejection ends the cycle', async () => {
