@@ -2218,6 +2218,23 @@ function steamPathFromRegistry(run = () => execFileSync(join(process.env.SystemR
 		return null;
 	}
 }
+/**
+* Memoize a zero-argument probe so it runs at most once per process.
+* The default Windows registry probe is wrapped in this: reg.exe is a
+* synchronous child process with a 5s timeout on the request path, and a
+* Steam install path is stable for the life of the host process, so one
+* probe per process is enough. Injected probes (tests) bypass the memo —
+* only the default runner is wrapped.
+*/
+function memoizedProbe(probe) {
+	let cached;
+	return () => {
+		if (cached === void 0) cached = probe();
+		return cached;
+	};
+}
+/** Default registry probe, process-memoized (see memoizedProbe). */
+const defaultRegistryProbe = memoizedProbe(() => steamPathFromRegistry());
 /** Parse libraryfolders.vdf for library roots that own app 431960. */
 function librariesFromVdf(vdfText) {
 	const libraries = [];
@@ -2258,7 +2275,7 @@ function libraryOwnsAppFromManifest(library, appid, exists = existsSync) {
 function locateWallpaperEngine(opts = {}) {
 	const exists = opts.exists ?? existsSync;
 	if (((opts.env ?? process.env).OS ?? "") !== "" || process.platform === "win32") {
-		const registry = opts.registry ?? (() => steamPathFromRegistry());
+		const registry = opts.registry ?? defaultRegistryProbe;
 		const probes = [...new Set([registry(), ...STEAM_PROBE_DIRS].filter((d) => !!d))];
 		const libraries = [];
 		for (const probe of probes) {
@@ -2281,7 +2298,7 @@ function locateWallpaperEngine(opts = {}) {
 function owningLibraries(opts = {}) {
 	const exists = opts.exists ?? existsSync;
 	if (process.platform !== "win32" && !opts.exists) return [];
-	const registry = opts.registry ?? (() => steamPathFromRegistry());
+	const registry = opts.registry ?? defaultRegistryProbe;
 	const probes = [...new Set([registry(), ...STEAM_PROBE_DIRS].filter((d) => !!d))];
 	const libraries = /* @__PURE__ */ new Set();
 	for (const probe of probes) {
@@ -2619,6 +2636,71 @@ function buildInventory(opts = {}) {
 		portableCount: wallpapers.filter((w) => w.playable).length,
 		wallpapers
 	};
+}
+/**
+* Staleness fingerprint of everything buildInventory reads, so callers can
+* cache the assembled inventory and re-scan only when this changes.
+*
+* Signed inputs, in order:
+*   - every scan root's existence + directory mtime, including roots that
+*     do not exist yet (a project added or removed under a root changes its
+*     mtime; a root that appears later flips from 'missing' to an mtime);
+*   - per previously scanned entry: the project dir mtime, the
+*     project.json / manifest.json mtime and the main + preview file
+*     mtime/size. A root mtime alone cannot see a file rewritten in place
+*     (workshop updates replace files inside an existing project dir
+*     without touching the root), and update detection compares source
+*     mtimes, so entries are signed individually.
+*
+* The caller supplies the current detection result (installDir and
+* libraryDirs) — detection itself is cheap because the default registry
+* probe is process-memoized — and the config (manualDirs), so a changed
+* Steam layout or a settings edit also invalidates. The key for a freshly
+* scanned value must be computed from that value's own entries (the
+* previous entry set described the previous scan, not this one).
+*/
+function inventoryFingerprint(opts = {}) {
+	const parts = [];
+	const statSig = (path) => {
+		try {
+			const stats = statSync(path);
+			return String(stats.mtimeMs) + ":" + (stats.isDirectory() ? "d" : String(stats.size));
+		} catch {
+			return "missing";
+		}
+	};
+	const signDir = (dir) => {
+		parts.push("d:" + dir + "\0" + statSig(dir));
+	};
+	const signFile = (file) => {
+		parts.push("f:" + file + "\0" + statSig(file));
+	};
+	const installDir = opts.installDir ?? null;
+	if (installDir) {
+		signDir(join(installDir, "projects", "defaultprojects"));
+		signDir(join(installDir, "projects", "myprojects"));
+	}
+	for (const library of opts.libraryDirs ?? []) signDir(join(library, "steamapps", "workshop", "content", WE_APPID));
+	for (const manual of opts.manualDirs ?? []) {
+		const trimmed = firstNonBlank(manual);
+		if (trimmed === void 0) continue;
+		const dir = expandUser(trimmed);
+		signDir(dir);
+		signDir(join(dir, "projects", "defaultprojects"));
+		signDir(join(dir, "projects", "myprojects"));
+		signDir(join(dir, "steamapps", "workshop", "content", WE_APPID));
+		signDir(join(dir, "workshop", "content", WE_APPID));
+		if (basename(dir).toLowerCase() === "wallpaper_engine") signDir(join(dirname(dirname(dir)), "workshop", "content", WE_APPID));
+	}
+	if (opts.storeDir) signDir(opts.storeDir);
+	for (const entry of opts.entries ?? []) {
+		const manifest = entry.source === "imported" ? join(dirname(entry.dir), "manifest.json") : join(entry.dir, "project.json");
+		signDir(entry.dir);
+		signFile(manifest);
+		signFile(entry.fileAbs);
+		if (entry.previewAbs) signFile(entry.previewAbs);
+	}
+	return parts.join(";");
 }
 //#endregion
 //#region src/pkg-extract.ts
@@ -7101,11 +7183,42 @@ function makeWeRoutes(deps) {
 		mediaMap.set(token, absPath);
 		return token;
 	};
-	const freshInventory = () => buildInventory({
-		manualDirs: deps.getConfig().weLibraryDirs ?? [],
-		storeDir: deps.storeDir,
-		autoDetect: deps.autoDetect
-	});
+	let inventoryCache = null;
+	const invalidateInventory = () => {
+		inventoryCache = null;
+	};
+	const freshInventory = () => {
+		const manualDirs = deps.getConfig().weLibraryDirs ?? [];
+		const autoDetect = deps.autoDetect ?? true;
+		const installDir = autoDetect ? locateWallpaperEngine() : null;
+		const libraryDirs = autoDetect ? owningLibraries() : [];
+		const key = inventoryFingerprint({
+			installDir,
+			libraryDirs,
+			manualDirs,
+			storeDir: deps.storeDir,
+			entries: inventoryCache?.value.wallpapers
+		});
+		if (inventoryCache && inventoryCache.key === key) return inventoryCache.value;
+		const value = buildInventory({
+			manualDirs,
+			storeDir: deps.storeDir,
+			autoDetect: false,
+			installDir,
+			libraryDirs
+		});
+		inventoryCache = {
+			key: inventoryFingerprint({
+				installDir,
+				libraryDirs,
+				manualDirs,
+				storeDir: deps.storeDir,
+				entries: value.wallpapers
+			}),
+			value
+		};
+		return value;
+	};
 	const probeCachePath = join(deps.storeDir, ".cache", "we-scene-probes.json");
 	let sceneProbeCache = /* @__PURE__ */ new Map();
 	try {
@@ -7699,6 +7812,7 @@ function makeWeRoutes(deps) {
 			return;
 		}
 		copyIntoStore(entry, dest);
+		invalidateInventory();
 		json(res, 200, {
 			ok: true,
 			id: "imported/" + entry.id
@@ -7734,6 +7848,7 @@ function makeWeRoutes(deps) {
 			force: true
 		});
 		copyIntoStore(source, dest);
+		invalidateInventory();
 		json(res, 200, {
 			ok: true,
 			id
@@ -7759,6 +7874,7 @@ function makeWeRoutes(deps) {
 			recursive: true,
 			force: true
 		});
+		invalidateInventory();
 		json(res, 200, { ok: true });
 	});
 	return routes;

@@ -41,8 +41,12 @@ import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { json, readJsonBody, requireContentOrigin, requireSameOrigin } from './http-utils.ts'
 import {
   buildInventory,
+  inventoryFingerprint,
+  locateWallpaperEngine,
+  owningLibraries,
   type WallpaperEntry,
   type WallpaperType,
+  type WeInventory,
 } from './we-library.ts'
 import {
   buildSceneManifest,
@@ -283,11 +287,54 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     return token
   }
 
-  const freshInventory = () => buildInventory({
-    manualDirs: deps.getConfig().weLibraryDirs ?? [],
-    storeDir: deps.storeDir,
-    autoDetect: deps.autoDetect,
-  })
+  // In-process inventory cache (#T2-10): the full library scan (per-project
+  // readdir + project.json parse + stats, plus the registry probe under
+  // auto-detect) used to run on every inventory / scene-probe / import
+  // request. The scan is now cached and re-run only when the fingerprint of
+  // everything it reads changes; import / reimport / remove writes
+  // invalidate proactively (a write inside the same mtime tick or a brand
+  // new entry the previous scan never saw must not be hidden). The reg.exe
+  // registry probe is process-memoized in we-library.ts.
+  let inventoryCache: { key: string; value: WeInventory } | null = null
+  const invalidateInventory = (): void => { inventoryCache = null }
+  const freshInventory = (): WeInventory => {
+    const manualDirs = deps.getConfig().weLibraryDirs ?? []
+    const autoDetect = deps.autoDetect ?? true
+    // Detection runs before every fingerprint: a Steam library added or
+    // removed mid-session must invalidate the cache, and detection itself
+    // only re-runs reg.exe once per process (memoized).
+    const installDir = autoDetect ? locateWallpaperEngine() : null
+    const libraryDirs = autoDetect ? owningLibraries() : []
+    const key = inventoryFingerprint({
+      installDir,
+      libraryDirs,
+      manualDirs,
+      storeDir: deps.storeDir,
+      entries: inventoryCache?.value.wallpapers,
+    })
+    if (inventoryCache && inventoryCache.key === key) return inventoryCache.value
+    const value = buildInventory({
+      manualDirs,
+      storeDir: deps.storeDir,
+      autoDetect: false,
+      installDir,
+      libraryDirs,
+    })
+    // Store a key computed from the entries this scan produced; the
+    // previous entry set described the previous scan and would invalidate
+    // the cache on every request.
+    inventoryCache = {
+      key: inventoryFingerprint({
+        installDir,
+        libraryDirs,
+        manualDirs,
+        storeDir: deps.storeDir,
+        entries: value.wallpapers,
+      }),
+      value,
+    }
+    return value
+  }
 
   // hasVideo / hasSceneWebGL probes parse whole pkgs (LZ4 decompress, tex
   // decode), so cache them by path+mtime+size: the probe route would
@@ -780,6 +827,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     const dest = joinPath(deps.storeDir, safeStoreId(id))
     if (existsSync(dest)) { json(res, 409, { ok: false, error: 'already-imported' }); return }
     copyIntoStore(entry, dest)
+    invalidateInventory()
     json(res, 200, { ok: true, id: 'imported/' + entry.id })
   })
 
@@ -793,6 +841,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     if (!source) { json(res, 410, { ok: false, error: 'source-gone' }); return }
     rmSync(dest, { recursive: true, force: true })
     copyIntoStore(source, dest)
+    invalidateInventory()
     json(res, 200, { ok: true, id })
   })
 
@@ -802,6 +851,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     const dest = joinPath(deps.storeDir, safeStoreId(id.slice('imported/'.length)))
     if (!existsSync(dest)) { json(res, 404, { ok: false, error: 'import-not-found' }); return }
     rmSync(dest, { recursive: true, force: true })
+    invalidateInventory()
     json(res, 200, { ok: true })
   })
 

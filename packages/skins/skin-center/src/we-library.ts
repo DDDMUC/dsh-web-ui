@@ -151,6 +151,25 @@ export function steamPathFromRegistry(
   }
 }
 
+/**
+ * Memoize a zero-argument probe so it runs at most once per process.
+ * The default Windows registry probe is wrapped in this: reg.exe is a
+ * synchronous child process with a 5s timeout on the request path, and a
+ * Steam install path is stable for the life of the host process, so one
+ * probe per process is enough. Injected probes (tests) bypass the memo —
+ * only the default runner is wrapped.
+ */
+export function memoizedProbe(probe: () => string | null): () => string | null {
+  let cached: string | null | undefined
+  return () => {
+    if (cached === undefined) cached = probe()
+    return cached
+  }
+}
+
+/** Default registry probe, process-memoized (see memoizedProbe). */
+const defaultRegistryProbe = memoizedProbe(() => steamPathFromRegistry())
+
 /** Parse libraryfolders.vdf for library roots that own app 431960. */
 export function librariesFromVdf(vdfText: string): string[] {
   const libraries: string[] = []
@@ -205,7 +224,7 @@ export function locateWallpaperEngine(opts: {
   const exists = opts.exists ?? existsSync
   const env = opts.env ?? process.env
   if ((env.OS ?? '') !== '' || process.platform === 'win32') {
-    const registry = opts.registry ?? (() => steamPathFromRegistry())
+    const registry = opts.registry ?? defaultRegistryProbe
     const probes = [...new Set([registry(), ...STEAM_PROBE_DIRS].filter((d): d is string => !!d))]
     const libraries: string[] = []
     for (const probe of probes) {
@@ -240,7 +259,7 @@ export function owningLibraries(opts: {
 } = {}): string[] {
   const exists = opts.exists ?? existsSync
   if (process.platform !== 'win32' && !opts.exists) return []
-  const registry = opts.registry ?? (() => steamPathFromRegistry())
+  const registry = opts.registry ?? defaultRegistryProbe
   const probes = [...new Set([registry(), ...STEAM_PROBE_DIRS].filter((d): d is string => !!d))]
   const libraries = new Set<string>()
   for (const probe of probes) {
@@ -608,4 +627,83 @@ export function buildInventory(opts: {
     portableCount: wallpapers.filter((w) => w.playable).length,
     wallpapers,
   }
+}
+
+/**
+ * Staleness fingerprint of everything buildInventory reads, so callers can
+ * cache the assembled inventory and re-scan only when this changes.
+ *
+ * Signed inputs, in order:
+ *   - every scan root's existence + directory mtime, including roots that
+ *     do not exist yet (a project added or removed under a root changes its
+ *     mtime; a root that appears later flips from 'missing' to an mtime);
+ *   - per previously scanned entry: the project dir mtime, the
+ *     project.json / manifest.json mtime and the main + preview file
+ *     mtime/size. A root mtime alone cannot see a file rewritten in place
+ *     (workshop updates replace files inside an existing project dir
+ *     without touching the root), and update detection compares source
+ *     mtimes, so entries are signed individually.
+ *
+ * The caller supplies the current detection result (installDir and
+ * libraryDirs) — detection itself is cheap because the default registry
+ * probe is process-memoized — and the config (manualDirs), so a changed
+ * Steam layout or a settings edit also invalidates. The key for a freshly
+ * scanned value must be computed from that value's own entries (the
+ * previous entry set described the previous scan, not this one).
+ */
+export function inventoryFingerprint(opts: {
+  installDir?: string | null
+  libraryDirs?: string[]
+  manualDirs?: string[]
+  storeDir?: string
+  entries?: WallpaperEntry[]
+} = {}): string {
+  const parts: string[] = []
+  const statSig = (path: string): string => {
+    try {
+      const stats = statSync(path)
+      return String(stats.mtimeMs) + ':' + (stats.isDirectory() ? 'd' : String(stats.size))
+    } catch {
+      return 'missing'
+    }
+  }
+  const signDir = (dir: string): void => { parts.push('d:' + dir + '\u0000' + statSig(dir)) }
+  const signFile = (file: string): void => { parts.push('f:' + file + '\u0000' + statSig(file)) }
+
+  const installDir = opts.installDir ?? null
+  if (installDir) {
+    signDir(joinPath(installDir, 'projects', 'defaultprojects'))
+    signDir(joinPath(installDir, 'projects', 'myprojects'))
+  }
+  for (const library of opts.libraryDirs ?? []) {
+    signDir(joinPath(library, 'steamapps', 'workshop', 'content', WE_APPID))
+  }
+  for (const manual of opts.manualDirs ?? []) {
+    const trimmed = firstNonBlank(manual)
+    if (trimmed === undefined) continue
+    const dir = expandUser(trimmed)
+    signDir(dir)
+    signDir(joinPath(dir, 'projects', 'defaultprojects'))
+    signDir(joinPath(dir, 'projects', 'myprojects'))
+    signDir(joinPath(dir, 'steamapps', 'workshop', 'content', WE_APPID))
+    signDir(joinPath(dir, 'workshop', 'content', WE_APPID))
+    if (basename(dir).toLowerCase() === 'wallpaper_engine') {
+      signDir(joinPath(dirname(dirname(dir)), 'workshop', 'content', WE_APPID))
+    }
+  }
+  if (opts.storeDir) signDir(opts.storeDir)
+  for (const entry of opts.entries ?? []) {
+    // Imported projects keep their manifest one level above the copied
+    // project dir; scanned projects keep project.json inside the dir.
+    const manifest = entry.source === 'imported'
+      ? joinPath(dirname(entry.dir), 'manifest.json')
+      : joinPath(entry.dir, 'project.json')
+    signDir(entry.dir)
+    signFile(manifest)
+    signFile(entry.fileAbs)
+    // A preview appearing or disappearing changes the project dir mtime
+    // (already signed); only an in-place rewrite needs its own signature.
+    if (entry.previewAbs) signFile(entry.previewAbs)
+  }
+  return parts.join(';')
 }
