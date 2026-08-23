@@ -35,9 +35,30 @@ describe('board responsive css', () => {
 
   it('responds to the board container rather than only the viewport', () => {
     expect(css).toMatch(/\[data-dsh-taskboard-view\]\s*\{[^}]*container-name:\s*task-board-view/s)
+    expect(css).toContain('@container task-board-view (max-width: 768px)')
     expect(css).toContain('@container task-board-view (max-width: 720px)')
     expect(css).toContain('@container task-board-view (max-width: 600px)')
     expect(css).toMatch(/\.boardHeader\s*\{[^}]*flex-wrap:\s*wrap/s)
-    expect(css).toMatch(/\.search\s*\{[^}]*flex:\s*1 1 calc\(100% - 72px\)/s)
+    expect(css).toMatch(/\.search\s*\{[^}]*flex:\s*1 0 100%/s)
+  })
+
+  it('turns phone columns into one-card-per-swipe snap points', () => {
+    expect(css).toMatch(/@container task-board-view \(max-width: 768px\)[\s\S]*?\.columns\s*\{[^}]*grid-auto-columns:\s*86cqw/s)
+    expect(css).toMatch(/@container task-board-view \(max-width: 768px\)[\s\S]*?\.columns\s*\{[^}]*scroll-snap-type:\s*inline mandatory/s)
+    expect(css).toMatch(/\.column\s*\{[^}]*scroll-snap-align:\s*start[^}]*scroll-snap-stop:\s*always/s)
+  })
+
+  it('uses the dynamic viewport and safe areas for phone overlays', () => {
+    expect(css).toContain('@media (max-width: 768px)')
+    expect(css).toMatch(/\.modalBackdrop\s*\{[^}]*height:\s*100dvh/s)
+    expect(css).toMatch(/\.modal,\s*\.detail\s*\{[^}]*height:\s*100dvh[^}]*max-height:\s*none/s)
+    expect(css).toContain('env(safe-area-inset-top)')
+    expect(css).toContain('env(safe-area-inset-bottom)')
+  })
+
+  it('keeps phone actions reachable with touch-sized controls', () => {
+    expect(css).toMatch(/@media \(max-width: 768px\)[\s\S]*?\.primaryButton,[\s\S]*?\.scheduleToggle\s*\{[^}]*min-height:\s*44px/s)
+    expect(css).toMatch(/\.modalFooter\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/s)
+    expect(css).toMatch(/\.detailFooter\s*\{[^}]*flex-wrap:\s*wrap/s)
   })
 })
