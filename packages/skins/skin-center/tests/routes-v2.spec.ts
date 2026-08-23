@@ -244,6 +244,60 @@ describe('v2 active selection', () => {
     await server.close()
   })
 
+  it('roundtrips background preferences with merge semantics (issue #996)', async () => {
+    writeFixtureSkin('harbor')
+    const server = await serve(makeRoutes())
+    // The v2 state starts without a background section.
+    const initial = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/active`)
+    expect(initial.jsonBody.background).toBeNull()
+    // A remote client persists background values without naming a skin.
+    const set = await call(server.port, 'POST', `${SKIN_CENTER_V2_PREFIX}/active`, {
+      body: { background: { backgroundOpacity: 100, backgroundBlurEmpty: 4, backgroundBlurContent: 5 } },
+    })
+    expect(set.status).toBe(200)
+    expect(set.jsonBody.background).toEqual({ backgroundOpacity: 100, backgroundBlurEmpty: 4, backgroundBlurContent: 5 })
+    // A skin switch must not wipe the background section, and vice versa.
+    const skin = await call(server.port, 'POST', `${SKIN_CENTER_V2_PREFIX}/active`, { body: { active: 'harbor' } })
+    expect(skin.status).toBe(200)
+    expect(skin.jsonBody.background).toEqual({ backgroundOpacity: 100, backgroundBlurEmpty: 4, backgroundBlurContent: 5 })
+    const after = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/active`)
+    expect(after.jsonBody.active).toBe('harbor')
+    expect(after.jsonBody.background.backgroundOpacity).toBe(100)
+    await server.close()
+  })
+
+  it('clamps out-of-range background values and rejects wrongly typed ones', async () => {
+    const server = await serve(makeRoutes())
+    const clamped = await call(server.port, 'POST', `${SKIN_CENTER_V2_PREFIX}/active`, {
+      body: { background: { backgroundOpacity: 250, backgroundBlurEmpty: -2 } },
+    })
+    expect(clamped.status).toBe(200)
+    expect(clamped.jsonBody.background).toEqual({ backgroundOpacity: 100, backgroundBlurEmpty: 0 })
+    const wrongType = await call(server.port, 'POST', `${SKIN_CENTER_V2_PREFIX}/active`, {
+      body: { background: { backgroundOpacity: '100' } },
+    })
+    expect(wrongType.status).toBe(400)
+    expect(wrongType.jsonBody.error).toBe('invalid-background')
+    const notObject = await call(server.port, 'POST', `${SKIN_CENTER_V2_PREFIX}/active`, {
+      body: { background: 5 },
+    })
+    expect(notObject.status).toBe(400)
+    const empty = await call(server.port, 'POST', `${SKIN_CENTER_V2_PREFIX}/active`, { body: {} })
+    expect(empty.status).toBe(400)
+    expect(empty.jsonBody.error).toBe('nothing-to-update')
+    await server.close()
+  })
+
+  it('fences cross-site background writes', async () => {
+    const server = await serve(makeRoutes())
+    const res = await call(server.port, 'POST', `${SKIN_CENTER_V2_PREFIX}/active`, {
+      body: { background: { backgroundOpacity: 90 } },
+      headers: { 'sec-fetch-site': 'cross-site', origin: 'https://evil.example' },
+    })
+    expect(res.status).toBe(403)
+    await server.close()
+  })
+
   it('fences cross-site writes', async () => {
     writeFixtureSkin('harbor')
     const server = await serve(makeRoutes())

@@ -10,8 +10,8 @@
  *  - GET  /skins/<id>/patches          transformed + scoped patches.css (404 when absent)
  *  - GET  /skins/<id>/hooks.mjs        the escape-hatch entry (404 when absent)
  *  - GET  /skins/<id>/assets/<path>    static in-directory assets (incl. preview/)
- *  - GET  /active                      the persisted active skin id (or null)
- *  - POST /active                      persist the active skin id (same-origin fenced)
+ *  - GET  /active                      the persisted active skin id + background preferences
+ *  - POST /active                      persist active id and/or background (same-origin fenced)
  *
  * The stylesheet/patches responses pass through the CSS safety pipeline
  * (force-scoped under html[data-dsh-skin="<id>"], whitelist fail-closed), so
@@ -27,7 +27,8 @@ import { extname } from 'node:path'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 
 import { json, requireSameOrigin } from './http-utils.ts'
-import { defaultActiveStatePath, readActiveSelection, writeActiveSelection } from './active-state.ts'
+import { defaultActiveStatePath, readActiveState, writeActiveState } from './active-state.ts'
+import { sanitizeSkinBackground, type SkinBackgroundConfig } from './core/background.ts'
 import { transformSkinCss, SkinCssSafetyError } from './core/css-safety/transform.ts'
 import { findSkin, loadSkinCatalog, resolveInsideSkin } from './skin-repo.ts'
 import type { SkinCatalog, SkinCatalogEntry } from './skin-repo.ts'
@@ -214,9 +215,13 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
   }
 
   const activeGetHandler: WebRoute['handler'] = (_req, res) => {
-    json(res, 200, { ok: true, active: readActiveSelection(activeStatePath) })
+    const state = readActiveState(activeStatePath)
+    json(res, 200, { ok: true, active: state.active, background: state.background })
   }
 
+  // POST accepts { active?, background? } with merge semantics (issue #996):
+  // a key left out keeps its stored value, so a remote background write never
+  // disturbs the active selection and vice versa.
   const activePostHandler: WebRoute['handler'] = async (req, res) => {
     if (!requireSameOrigin(req, res)) return
     let body: unknown
@@ -226,8 +231,14 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
       json(res, 400, { ok: false, error: 'invalid-body' })
       return
     }
+    const hasActive = typeof body === 'object' && body !== null && 'active' in body
+    const hasBackground = typeof body === 'object' && body !== null && 'background' in body
+    if (!hasActive && !hasBackground) {
+      json(res, 400, { ok: false, error: 'nothing-to-update' })
+      return
+    }
     const active = (body as { active?: unknown }).active
-    if (active !== null && typeof active !== 'string') {
+    if (hasActive && active !== null && typeof active !== 'string') {
       json(res, 400, { ok: false, error: 'active-must-be-string-or-null' })
       return
     }
@@ -235,8 +246,19 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
       json(res, 404, { ok: false, error: 'skin-not-found' })
       return
     }
-    writeActiveSelection(activeStatePath, active)
-    json(res, 200, { ok: true, active })
+    const update: { active?: string | null; background?: SkinBackgroundConfig | null } = {}
+    if (hasActive) update.active = active as string | null
+    if (hasBackground) {
+      const background = sanitizeSkinBackground((body as { background?: unknown }).background)
+      if (background === null) {
+        json(res, 400, { ok: false, error: 'invalid-background' })
+        return
+      }
+      update.background = background
+    }
+    writeActiveState(activeStatePath, update)
+    const state = readActiveState(activeStatePath)
+    json(res, 200, { ok: true, active: state.active, background: state.background })
   }
 
   return [

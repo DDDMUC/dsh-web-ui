@@ -2491,25 +2491,69 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region src/core/background.ts
+		/** Effective value of every field when the state carries none. */
+		const SKIN_BACKGROUND_DEFAULTS = {
+			enabled: true,
+			backgroundOpacity: 0,
+			backgroundBlurEmpty: 0,
+			backgroundBlurContent: 0,
+			inputCardBlur: 10,
+			bubbleOpacity: 50
+		};
+		/** The fields normalize/sanitize know about; unknown keys are dropped. */
+		const SKIN_BACKGROUND_FIELDS = Object.keys(SKIN_BACKGROUND_DEFAULTS);
+		/** Fill every absent field from {@link SKIN_BACKGROUND_DEFAULTS}. */
+		function resolveSkinBackground(value) {
+			return {
+				...SKIN_BACKGROUND_DEFAULTS,
+				...value ?? {}
+			};
+		}
+		//#endregion
 		//#region src/client/background.ts
+		/**
+		* Background-scrim handle for the skin center: applies the chosen occlusion
+		* to the page's backdrop, plus an optional per-state Gaussian blur of that
+		* backdrop.
+		*
+		* Occlusion is a CSS variable on `document.body` (--dsw-skin-scrim), which
+		* backdrop-painting skins (blue-fantasy / whale-song) read inside their
+		* setBackdrop() so the veil stays in sync across theme flips and try-on
+		* restores. The official stock look paints no backdrop, so the variable is
+		* inert there — the value still persists so it is ready for the next backdrop
+		* skin.
+		*
+		* The Gaussian blur targets the same painted backdrop through a fixed child
+		* of `document.body` using backdrop-filter: it samples the body's own
+		* background painted behind it. Separate strengths apply to the empty
+		* conversation and the conversation-with-content states, detected from the
+		* shell's stable message-row class suffixes (hash prefix varies, suffix is
+		* stable). When the active blur is 0 no element exists, so there is no GPU
+		* cost. Blur never changes the occlusion behavior above.
+		*
+		* Occlusion values are 0-100 (0 = no extra veil, 100 = fully obscured); they
+		* are written through as a 0..1 alpha for the CSS variable. Blur values are
+		* 0-20 px. Dragging the controls applies instantly (live).
+		*
+		* Persistence (issue #996): the controller owns no settings scope — the
+		* remote pairing channel fences settings.* as loopback-only, which is what
+		* stranded remote clients on defaults. The caller hands in the initial
+		* values and a `persist` callback (the v2 /active channel); later external
+		* edits (the official settings page locally, the refetched state remotely)
+		* arrive through `init()`.
+		*/
 		/** The namespace string the Host registers (mirrors src/index.ts). */
 		const SKIN_BACKGROUND_NS = "skin-background";
-		/** Field of the background value inside the namespace section. */
-		const OPACITY_FIELD = "backgroundOpacity";
-		/** Field of the empty-conversation backdrop blur inside the namespace section. */
-		const BLUR_EMPTY_FIELD = "backgroundBlurEmpty";
-		/** Field of the with-content backdrop blur inside the namespace section. */
-		const BLUR_CONTENT_FIELD = "backgroundBlurContent";
-		/** Field of the composer card backdrop blur inside the namespace section. */
-		const INPUT_CARD_BLUR_FIELD = "inputCardBlur";
 		/** CSS custom property written to document.body and read by backdrop skins. */
 		const SCRIM_VAR = "--dsw-skin-scrim";
-		/** Field of the message bubble opacity inside the namespace section. */
-		const BUBBLE_OPACITY_FIELD = "bubbleOpacity";
 		/** CSS custom property consumed by skins that expose translucent bubbles. */
 		const BUBBLE_ALPHA_VAR = "--dsh-skin-bubble-alpha";
 		/** CSS custom property consumed by the shared composer neutralizer. */
 		const INPUT_CARD_BLUR_VAR = "--dsh-input-card-blur";
+		SKIN_BACKGROUND_DEFAULTS.backgroundOpacity;
+		SKIN_BACKGROUND_DEFAULTS.bubbleOpacity;
+		SKIN_BACKGROUND_DEFAULTS.backgroundBlurEmpty;
 		/**
 		* Selector for a conversation message row inside the shell's center column.
 		* Official shell message rows carry `data-chat-anchor-key`; the
@@ -2526,19 +2570,18 @@ window.__ModuleLoader__.load({
 			"[data-pane=\"conversation\"] [class*=\"_turnErrorRow\"]"
 		].join(", ");
 		/**
-		* Own the skin-background scope: read the latest occlusion + blur strengths,
-		* apply them to the body instantly, and persist changes through the settings
-		* scope.
+		* Own the background preference set: apply the values to the body instantly
+		* and persist user edits through the caller-provided channel.
 		*/
 		var BackgroundController = class {
-			enabledValue = true;
-			opacityValue = 0;
-			blurEmptyValue = 0;
-			blurContentValue = 0;
-			inputCardBlurValue = 10;
-			bubbleOpacityValue = 50;
+			enabledValue = SKIN_BACKGROUND_DEFAULTS.enabled;
+			opacityValue = SKIN_BACKGROUND_DEFAULTS.backgroundOpacity;
+			blurEmptyValue = SKIN_BACKGROUND_DEFAULTS.backgroundBlurEmpty;
+			blurContentValue = SKIN_BACKGROUND_DEFAULTS.backgroundBlurContent;
+			inputCardBlurValue = SKIN_BACKGROUND_DEFAULTS.inputCardBlur;
+			bubbleOpacityValue = SKIN_BACKGROUND_DEFAULTS.bubbleOpacity;
 			listeners = /* @__PURE__ */ new Set();
-			scope;
+			persist;
 			/** The fixed backdrop-filter element, present only while active blur > 0. */
 			blurElement = null;
 			/** The body MutationObserver, installed lazily once a blur is active. */
@@ -2548,42 +2591,53 @@ window.__ModuleLoader__.load({
 			/** Guard: after dispose no scheduled work may reinstall anything. */
 			disposed = false;
 			/**
-			* @param scope - the bound skin-background settings scope.
+			* @param initial - values known at construction (the local settings scope
+			*   snapshot on loopback); null starts from defaults until init() arrives.
+			* @param persist - persistence channel for user edits (v2 /active POST).
 			*/
-			constructor(scope) {
-				this.scope = scope;
-				this.enabledValue = this.readEnabled();
-				this.opacityValue = this.readOpacity();
-				this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
-				this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
-				this.inputCardBlurValue = this.readInputCardBlur();
-				this.bubbleOpacityValue = this.readBubbleOpacity();
+			constructor(initial, persist) {
+				this.persist = persist;
+				if (initial !== null) this.assign(initial);
 				this.applyOcclusion();
 				this.applyInputCardBlur();
 				this.applyBubbleOpacity();
 				this.syncBlur();
-				scope.subscribe(() => {
-					this.enabledValue = this.readEnabled();
-					this.opacityValue = this.readOpacity();
-					this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
-					this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
-					this.inputCardBlurValue = this.readInputCardBlur();
-					this.bubbleOpacityValue = this.readBubbleOpacity();
-					this.applyOcclusion();
-					this.applyInputCardBlur();
-					this.applyBubbleOpacity();
-					this.syncBlur();
-					this.publish();
-				});
+			}
+			/**
+			* Replace the current values with externally sourced ones (the refetched
+			* v2 state, or a live settings-scope publish). Never persists — the source
+			* already owns the stored copy; the caller decides whether to forward the
+			* change into the v2 store.
+			*/
+			init(next) {
+				if (this.disposed) return;
+				this.assign(next ?? {});
+				this.applyOcclusion();
+				this.applyInputCardBlur();
+				this.applyBubbleOpacity();
+				this.syncBlur();
+				this.publish();
+			}
+			/** The current values as a persistable config (every field concrete). */
+			snapshot() {
+				return {
+					enabled: this.enabledValue,
+					backgroundOpacity: this.opacityValue,
+					backgroundBlurEmpty: this.blurEmptyValue,
+					backgroundBlurContent: this.blurContentValue,
+					inputCardBlur: this.inputCardBlurValue,
+					bubbleOpacity: this.bubbleOpacityValue
+				};
 			}
 			enabled = () => this.enabledValue;
 			setEnabled(value) {
 				this.enabledValue = value;
 				this.applyOcclusion();
 				this.applyInputCardBlur();
+				this.applyBubbleOpacity();
 				this.syncBlur();
 				this.publish();
-				this.scope.set("enabled", value);
+				this.persist(this.snapshot());
 			}
 			opacity = () => this.opacityValue;
 			blurEmpty = () => this.blurEmptyValue;
@@ -2597,41 +2651,36 @@ window.__ModuleLoader__.load({
 				};
 			};
 			set(opacity) {
-				const clamped = Math.max(0, Math.min(100, Math.round(opacity)));
-				this.opacityValue = clamped;
+				this.opacityValue = this.clampPercent(opacity);
 				this.applyOcclusion();
 				this.publish();
-				this.scope.set(OPACITY_FIELD, clamped);
+				this.persist(this.snapshot());
 			}
 			setBlurEmpty(value) {
-				const clamped = this.clampBlur(value);
-				this.blurEmptyValue = clamped;
+				this.blurEmptyValue = this.clampBlur(value);
 				this.ensureObserver();
 				this.syncBlur();
 				this.publish();
-				this.scope.set(BLUR_EMPTY_FIELD, clamped);
+				this.persist(this.snapshot());
 			}
 			setBlurContent(value) {
-				const clamped = this.clampBlur(value);
-				this.blurContentValue = clamped;
+				this.blurContentValue = this.clampBlur(value);
 				this.ensureObserver();
 				this.syncBlur();
 				this.publish();
-				this.scope.set(BLUR_CONTENT_FIELD, clamped);
+				this.persist(this.snapshot());
 			}
 			setInputCardBlur(value) {
-				const clamped = this.clampBlur(value);
-				this.inputCardBlurValue = clamped;
+				this.inputCardBlurValue = this.clampBlur(value);
 				this.applyInputCardBlur();
 				this.publish();
-				this.scope.set(INPUT_CARD_BLUR_FIELD, clamped);
+				this.persist(this.snapshot());
 			}
 			setBubbleOpacity(value) {
-				const clamped = this.clampPercent(value);
-				this.bubbleOpacityValue = clamped;
+				this.bubbleOpacityValue = this.clampPercent(value);
 				this.applyBubbleOpacity();
 				this.publish();
-				this.scope.set(BUBBLE_OPACITY_FIELD, clamped);
+				this.persist(this.snapshot());
 			}
 			dispose() {
 				this.disposed = true;
@@ -2647,32 +2696,15 @@ window.__ModuleLoader__.load({
 					this.observer = null;
 				}
 			}
-			/** The effective master-switch section value, defaulting to true when absent. */
-			readEnabled() {
-				const raw = this.scope.getSnapshot().value?.enabled;
-				return typeof raw !== "boolean" ? true : raw;
-			}
-			/** The effective occlusion section value, clamped 0-100, defaulting to 0. */
-			readOpacity() {
-				const raw = this.scope.getSnapshot().value?.backgroundOpacity;
-				if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
-				return Math.max(0, Math.min(100, raw));
-			}
-			readInputCardBlur() {
-				const raw = this.scope.getSnapshot().value?.inputCardBlur;
-				if (typeof raw !== "number" || !Number.isFinite(raw)) return 10;
-				return this.clampBlur(raw);
-			}
-			readBubbleOpacity() {
-				const raw = this.scope.getSnapshot().value?.bubbleOpacity;
-				if (typeof raw !== "number" || !Number.isFinite(raw)) return 50;
-				return this.clampPercent(raw);
-			}
-			/** The effective blur section value for one field, clamped 0-20, defaulting to 0. */
-			readBlur(field) {
-				const raw = this.scope.getSnapshot().value?.[field];
-				if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
-				return this.clampBlur(raw);
+			/** Copy one config into the live fields, defaults filling the gaps. */
+			assign(config) {
+				const resolved = resolveSkinBackground(config);
+				this.enabledValue = resolved.enabled;
+				this.opacityValue = resolved.backgroundOpacity;
+				this.blurEmptyValue = resolved.backgroundBlurEmpty;
+				this.blurContentValue = resolved.backgroundBlurContent;
+				this.inputCardBlurValue = resolved.inputCardBlur;
+				this.bubbleOpacityValue = resolved.bubbleOpacity;
 			}
 			clampBlur(value) {
 				return Math.max(0, Math.min(20, Math.round(value)));
@@ -4239,8 +4271,50 @@ window.__ModuleLoader__.load({
 			}, "ui-skin-center: body scope");
 			const theme = ctx.get("theme");
 			const binder = ctx.get("webUiSettings") ?? ctx.settingsScope;
-			const background = new BackgroundController(binder.bind({ namespace: SKIN_BACKGROUND_NS }));
-			ctx.effect(() => () => background.dispose(), "ui-skin-center: background dispose");
+			const V2_ACTIVE_URL = "/api/skin-center/v2/active";
+			let persistTimer = null;
+			const postBackground = (next, keepalive = false) => {
+				fetch(V2_ACTIVE_URL, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ background: next }),
+					keepalive
+				}).catch(() => {});
+			};
+			const persistBackground = (next) => {
+				if (persistTimer !== null) clearTimeout(persistTimer);
+				persistTimer = setTimeout(() => {
+					persistTimer = null;
+					postBackground(next);
+				}, 250);
+			};
+			const flushBackground = () => {
+				if (persistTimer === null) return;
+				clearTimeout(persistTimer);
+				persistTimer = null;
+				postBackground(background.snapshot(), true);
+			};
+			const backgroundScope = binder.bind({ namespace: SKIN_BACKGROUND_NS });
+			const scopeConfig = () => {
+				const value = backgroundScope.getSnapshot().value;
+				if (value === void 0 || value === null) return null;
+				if (!SKIN_BACKGROUND_FIELDS.some((field) => value[field] !== void 0)) return null;
+				return value;
+			};
+			const background = new BackgroundController(scopeConfig(), persistBackground);
+			fetch(V2_ACTIVE_URL).then((res) => res.ok ? res.json() : null).then((body) => {
+				if (body) background.init(body.background ?? null);
+			}).catch(() => {});
+			ctx.effect(() => backgroundScope.subscribe(() => {
+				const next = scopeConfig();
+				if (next === null) return;
+				background.init(next);
+				persistBackground(background.snapshot());
+			}), "ui-skin-center: background scope sync");
+			ctx.effect(() => () => {
+				flushBackground();
+				background.dispose();
+			}, "ui-skin-center: background dispose");
 			const customTheme = new CustomThemeController(binder.bind({ namespace: SKIN_CUSTOM_THEME_NS }));
 			ctx.effect(() => () => customTheme.dispose(), "ui-skin-center: custom theme dispose");
 			const wallpaper = new WallpaperController(binder.bind({ namespace: SKIN_WALLPAPER_NS }));

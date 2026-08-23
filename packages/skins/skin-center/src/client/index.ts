@@ -6,6 +6,14 @@
  * $DSH_HOME/skins), tries it on live, and applies in one click — no reload,
  * no cordis.patch.yml rewrite (issue #506). The plugin writes only DOM and
  * the settings ledger — no services, no events, no model access.
+ *
+ * Background preferences persist through the v2 /active channel instead of
+ * the settings scope (issue #996): the remote pairing channel fences
+ * settings.* as loopback-only, so scope-backed writes never reached the
+ * server from a paired desktop. The legacy skin-background scope is still
+ * bound as a live input for the official settings page (loopback only);
+ * card edits flow card -> POST /active, page edits flow scope -> POST
+ * /active.
  */
 import type { ClientContext, SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
@@ -15,6 +23,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SkinCenterSection, type SkinCenterInjected } from './SkinCenter.tsx'
 import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
+import { SKIN_BACKGROUND_FIELDS, type SkinBackgroundConfig } from '../core/background.ts'
 import { SKIN_WALLPAPER_NS, WallpaperController, installBootRestore } from './wallpaper.ts'
 import { en, zh, type SkinCenterKey } from './locales.ts'
 import { bootSkinRuntime } from './runtime/boot.ts'
@@ -66,20 +75,67 @@ export function apply(ctx: ClientContext): void {
   }, 'ui-skin-center: body scope')
 
   const theme = ctx.get('theme') as ThemeRuntime
-  // Background occluder over the shared skin-background namespace. The scope
-  // is bound to this plugin's fiber, so it is torn down with the card.
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
-  const backgroundScope = binder.bind<{
-    enabled?: boolean
-    backgroundOpacity?: number
-    backgroundBlurEmpty?: number
-    backgroundBlurContent?: number
-    inputCardBlur?: number
-    bubbleOpacity?: number
-  }>({ namespace: SKIN_BACKGROUND_NS })
-  const background = new BackgroundController(backgroundScope)
+  // The v2 state channel: GET backfills on boot, edits POST back debounced.
+  // The remote proxy rewrites this path into the allow-listed channel, so it
+  // works from paired desktops where the settings scope is fenced (#996).
+  const V2_ACTIVE_URL = '/api/skin-center/v2/active'
+  let persistTimer: ReturnType<typeof setTimeout> | null = null
+  const postBackground = (next: SkinBackgroundConfig, keepalive = false): void => {
+    void fetch(V2_ACTIVE_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ background: next }),
+      keepalive,
+    }).catch(() => { /* offline or pre-boot: the in-memory values stay applied */ })
+  }
+  // Coalesce slider drags into one write; dispose flushes the pending one.
+  const persistBackground = (next: SkinBackgroundConfig): void => {
+    if (persistTimer !== null) clearTimeout(persistTimer)
+    persistTimer = setTimeout(() => {
+      persistTimer = null
+      postBackground(next)
+    }, 250)
+  }
+  const flushBackground = (): void => {
+    if (persistTimer === null) return
+    clearTimeout(persistTimer)
+    persistTimer = null
+    postBackground(background.snapshot(), true)
+  }
+  // The legacy scope as a live INPUT face only: on loopback its snapshot
+  // carries the section (immediate boot values + settings-page edits); on a
+  // paired remote it stays empty and every read is skipped.
+  const backgroundScope = binder.bind<SkinBackgroundConfig>({ namespace: SKIN_BACKGROUND_NS })
+  const scopeConfig = (): SkinBackgroundConfig | null => {
+    const value = backgroundScope.getSnapshot().value
+    if (value === undefined || value === null) return null
+    if (!SKIN_BACKGROUND_FIELDS.some((field) => value[field] !== undefined)) return null
+    return value
+  }
+  const background = new BackgroundController(scopeConfig(), persistBackground)
+  // Refetch the authoritative v2 state once booted; it wins over the scope
+  // snapshot (the migration may only have run with this boot).
+  void fetch(V2_ACTIVE_URL)
+    .then((res) => (res.ok ? res.json() as Promise<{ background?: SkinBackgroundConfig | null }> : null))
+    .then((body) => { if (body) background.init(body.background ?? null) })
+    .catch(() => { /* keep the constructor values */ })
+  // Settings-page edits arrive through the scope publish; forward them into
+  // the v2 store so remote clients pick them up on their next load.
+  ctx.effect(
+    () => backgroundScope.subscribe(() => {
+      const next = scopeConfig()
+      if (next === null) return
+      background.init(next)
+      persistBackground(background.snapshot())
+    }),
+    'ui-skin-center: background scope sync',
+  )
   // Tear the blur element + observer down when this plugin's fiber goes away.
-  ctx.effect(() => () => background.dispose(), 'ui-skin-center: background dispose')
+  ctx.effect(() => () => {
+    flushBackground()
+    background.dispose()
+  }, 'ui-skin-center: background dispose')
   const customThemeScope = binder.bind<CustomThemeConfig>({ namespace: SKIN_CUSTOM_THEME_NS })
   const customTheme = new CustomThemeController(customThemeScope)
   ctx.effect(() => () => customTheme.dispose(), 'ui-skin-center: custom theme dispose')

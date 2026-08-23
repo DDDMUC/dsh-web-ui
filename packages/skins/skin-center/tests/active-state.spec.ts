@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { readActiveSelection, writeActiveSelection } from '../src/active-state.ts'
+import { readActiveSelection, readActiveState, writeActiveSelection, writeActiveState } from '../src/active-state.ts'
 
 const { originalRename } = vi.hoisted(() => ({
   originalRename: { impl: null as unknown as typeof renameSync },
@@ -49,6 +49,39 @@ describe('active-state persistence (issue #678: atomic write)', () => {
   it('leaves no temp directories behind after a successful write', () => {
     writeActiveSelection(path, 'skin-a')
     expect(readdirSync(dir)).toEqual(['skin-center-active.json'])
+  })
+
+  it('roundtrips the background section (issue #996)', () => {
+    writeActiveState(path, { active: 'skin-a', background: { backgroundOpacity: 100, backgroundBlurEmpty: 4 } })
+    expect(readActiveState(path)).toEqual({
+      active: 'skin-a',
+      background: { backgroundOpacity: 100, backgroundBlurEmpty: 4 },
+    })
+  })
+
+  it('merges updates: a skin switch keeps the background and vice versa', () => {
+    writeActiveState(path, { active: 'skin-a', background: { backgroundOpacity: 80 } })
+    writeActiveState(path, { background: { backgroundOpacity: 60, backgroundBlurContent: 5 } })
+    expect(readActiveState(path)).toEqual({
+      active: 'skin-a',
+      background: { backgroundOpacity: 60, backgroundBlurContent: 5 },
+    })
+    writeActiveSelection(path, 'skin-b')
+    expect(readActiveState(path)).toEqual({
+      active: 'skin-b',
+      background: { backgroundOpacity: 60, backgroundBlurContent: 5 },
+    })
+  })
+
+  it('normalizes stored background data and drops unknown keys', () => {
+    writeActiveState(path, { background: { backgroundOpacity: 140, backgroundBlurEmpty: -3, bogus: 1 } as never })
+    expect(readActiveState(path).background).toEqual({ backgroundOpacity: 100, backgroundBlurEmpty: 0 })
+  })
+
+  it('reads legacy files without a background key as null', () => {
+    writeActiveSelection(path, 'skin-a')
+    expect(readActiveState(path)).toEqual({ active: 'skin-a', background: null })
+    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({ active: 'skin-a' })
   })
 
   it('keeps the previous content when the rename fails mid-write', () => {

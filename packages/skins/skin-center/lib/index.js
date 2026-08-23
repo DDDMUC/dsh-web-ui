@@ -89,6 +89,67 @@ function readJsonBody(req) {
 	});
 }
 //#endregion
+//#region src/core/background.ts
+/** Effective value of every field when the state carries none. */
+const SKIN_BACKGROUND_DEFAULTS = {
+	enabled: true,
+	backgroundOpacity: 0,
+	backgroundBlurEmpty: 0,
+	backgroundBlurContent: 0,
+	inputCardBlur: 10,
+	bubbleOpacity: 50
+};
+/** The fields normalize/sanitize know about; unknown keys are dropped. */
+const SKIN_BACKGROUND_FIELDS = Object.keys(SKIN_BACKGROUND_DEFAULTS);
+function clampInt(value, min, max) {
+	return Math.max(min, Math.min(max, Math.round(value)));
+}
+const RANGES = {
+	backgroundOpacity: [0, 100],
+	backgroundBlurEmpty: [0, 20],
+	backgroundBlurContent: [0, 20],
+	inputCardBlur: [0, 20],
+	bubbleOpacity: [0, 100]
+};
+function isRecord$1(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/**
+* Lenient normalization for stored/legacy data: unknown keys and wrongly
+* typed fields are dropped, numeric fields are clamped into range. Never
+* fails; a non-object input yields an empty config.
+*/
+function normalizeSkinBackground(value) {
+	if (!isRecord$1(value)) return {};
+	const out = {};
+	if (typeof value.enabled === "boolean") out.enabled = value.enabled;
+	for (const field of Object.keys(RANGES)) {
+		const raw = value[field];
+		if (typeof raw !== "number" || !Number.isFinite(raw)) continue;
+		const [min, max] = RANGES[field];
+		out[field] = clampInt(raw, min, max);
+	}
+	return out;
+}
+/**
+* Strict validation for the POST /active write surface: a background value
+* must be an object whose known fields are correctly typed (numbers are then
+* clamped). Returns null for anything else so the route can answer 400.
+*/
+function sanitizeSkinBackground(value) {
+	if (!isRecord$1(value)) return null;
+	if (value.enabled !== void 0 && typeof value.enabled !== "boolean") return null;
+	for (const field of Object.keys(RANGES)) {
+		const raw = value[field];
+		if (raw !== void 0 && (typeof raw !== "number" || !Number.isFinite(raw))) return null;
+	}
+	return normalizeSkinBackground(value);
+}
+/** True when at least one field departs from its default (customized data). */
+function hasCustomSkinBackground(value) {
+	return SKIN_BACKGROUND_FIELDS.some((field) => value[field] !== void 0 && value[field] !== SKIN_BACKGROUND_DEFAULTS[field]);
+}
+//#endregion
 //#region src/core/manifest-v2/types.ts
 /** v1 fields accepted but ignored with a migration warning (never fail-closed). */
 const DEPRECATED_V1_FIELDS = [
@@ -526,7 +587,10 @@ function resolveInsideSkin(entry, relPath) {
 /**
 * Active-skin selection persistence (issue #506): a tiny JSON document under
 * $DSH_HOME written by POST /api/skin-center/v2/active and read on every
-* index.html response by the tapIndex adapter. Kept dependency-free and
+* index.html response by the tapIndex adapter. Since issue #996 the same
+* document also carries the skin-background preference set, so paired remote
+* desktops (where the settings scope is loopback-only) read and persist
+* background values through the v2 channel. Kept dependency-free and
 * synchronous: the tap runs per response and must never await.
 * @module @linxin666/dsh-client-ui-skin-center/active-state
 */
@@ -534,23 +598,43 @@ function resolveInsideSkin(entry, relPath) {
 function defaultActiveStatePath() {
 	return join(userSkinsDir(), "..", "skin-center-active.json");
 }
-/** Read the persisted active skin id (null = stock look / unreadable). */
-function readActiveSelection(path) {
+/** Read the whole state document; unreadable data yields all-null fields. */
+function readActiveState(path) {
 	try {
 		const parsed = JSON.parse(readFileSync(path, "utf8"));
-		return typeof parsed.active === "string" ? parsed.active : null;
+		return {
+			active: typeof parsed.active === "string" ? parsed.active : null,
+			background: parsed.background === void 0 || parsed.background === null ? null : normalizeSkinBackground(parsed.background)
+		};
 	} catch {
-		return null;
+		return {
+			active: null,
+			background: null
+		};
 	}
 }
-/** Persist the active skin id (creates the parent directory). */
-function writeActiveSelection(path, id) {
+/** Read the persisted active skin id (null = stock look / unreadable). */
+function readActiveSelection(path) {
+	return readActiveState(path).active;
+}
+/**
+* Persist an update with merge semantics: keys absent from `update` keep
+* their stored value, so a skin switch never wipes the background section
+* and a background write never wipes the selection. The background key is
+* omitted from the document while it is null, keeping legacy files clean.
+*/
+function writeActiveState(path, update) {
+	const current = readActiveState(path);
+	const active = update.active === void 0 ? current.active : update.active;
+	const background = update.background === void 0 ? current.background : update.background;
 	const dir = dirname(path);
 	mkdirSync(dir, { recursive: true });
 	const tmpDir = mkdtempSync(join(dir, `${basename(path)}.tmp-`));
 	const tmp = join(tmpDir, basename(path));
+	const document = { active };
+	if (background !== null) document.background = background;
 	try {
-		writeFileSync(tmp, JSON.stringify({ active: id }, null, 2) + "\n", {
+		writeFileSync(tmp, JSON.stringify(document, null, 2) + "\n", {
 			encoding: "utf8",
 			flag: "wx"
 		});
@@ -561,6 +645,10 @@ function writeActiveSelection(path, id) {
 			force: true
 		});
 	}
+}
+/** Persist the active skin id (creates the parent directory). */
+function writeActiveSelection(path, id) {
+	writeActiveState(path, { active: id });
 }
 //#endregion
 //#region src/core/css-safety/official-tokens.generated.ts
@@ -1274,8 +1362,8 @@ function findCloseBrace(css, openBrace) {
 *  - GET  /skins/<id>/patches          transformed + scoped patches.css (404 when absent)
 *  - GET  /skins/<id>/hooks.mjs        the escape-hatch entry (404 when absent)
 *  - GET  /skins/<id>/assets/<path>    static in-directory assets (incl. preview/)
-*  - GET  /active                      the persisted active skin id (or null)
-*  - POST /active                      persist the active skin id (same-origin fenced)
+*  - GET  /active                      the persisted active skin id + background preferences
+*  - POST /active                      persist active id and/or background (same-origin fenced)
 *
 * The stylesheet/patches responses pass through the CSS safety pipeline
 * (force-scoped under html[data-dsh-skin="<id>"], whitelist fail-closed), so
@@ -1472,9 +1560,11 @@ function makeSkinCenterV2Routes(deps = {}) {
 		});
 	};
 	const activeGetHandler = (_req, res) => {
+		const state = readActiveState(activeStatePath);
 		json(res, 200, {
 			ok: true,
-			active: readActiveSelection(activeStatePath)
+			active: state.active,
+			background: state.background
 		});
 	};
 	const activePostHandler = async (req, res) => {
@@ -1489,8 +1579,17 @@ function makeSkinCenterV2Routes(deps = {}) {
 			});
 			return;
 		}
+		const hasActive = typeof body === "object" && body !== null && "active" in body;
+		const hasBackground = typeof body === "object" && body !== null && "background" in body;
+		if (!hasActive && !hasBackground) {
+			json(res, 400, {
+				ok: false,
+				error: "nothing-to-update"
+			});
+			return;
+		}
 		const active = body.active;
-		if (active !== null && typeof active !== "string") {
+		if (hasActive && active !== null && typeof active !== "string") {
 			json(res, 400, {
 				ok: false,
 				error: "active-must-be-string-or-null"
@@ -1504,10 +1603,25 @@ function makeSkinCenterV2Routes(deps = {}) {
 			});
 			return;
 		}
-		writeActiveSelection(activeStatePath, active);
+		const update = {};
+		if (hasActive) update.active = active;
+		if (hasBackground) {
+			const background = sanitizeSkinBackground(body.background);
+			if (background === null) {
+				json(res, 400, {
+					ok: false,
+					error: "invalid-background"
+				});
+				return;
+			}
+			update.background = background;
+		}
+		writeActiveState(activeStatePath, update);
+		const state = readActiveState(activeStatePath);
 		json(res, 200, {
 			ok: true,
-			active
+			active: state.active,
+			background: state.background
 		});
 	};
 	return [
@@ -1622,6 +1736,51 @@ function makeSkinIndexTap(deps) {
 			return html;
 		}
 	};
+}
+//#endregion
+//#region src/background-migration.ts
+/**
+* One-shot background-preference migration (issue #996): the
+* `skin-background` settings namespace used to be the only store, but the
+* remote pairing channel fences settings.* as loopback-only, so paired
+* desktops read defaults and dropped writes. The values now live in the v2
+* active-state document; on boot the host copies a customized legacy section
+* into it exactly once (later boots see the background key and stop). The
+* legacy namespace stays registered as the official settings page's input
+* face — the browser half keeps listening to it and forwards page edits into
+* the v2 store.
+*
+* "Customized" means at least one field departs from its schema default:
+* resolved settings always carry defaults, so a never-touched section is
+* indistinguishable from an explicit all-defaults section — migrating either
+* is a no-op in behavior, and skipping both keeps the state document clean.
+* Never throws: a failed migration leaves both stores untouched.
+* @module @linxin666/dsh-client-ui-skin-center/background-migration
+*/
+/**
+* Run the one-shot migration. Idempotent: once the v2 state carries a
+* background section this is a silent no-op.
+* @param options.activeStatePath - the v2 state document location.
+* @param options.readSettings - thunk resolving the legacy settings section.
+*/
+function migrateBackgroundFromSettings(options) {
+	const notes = [];
+	const result = {
+		migrated: false,
+		notes
+	};
+	try {
+		if (readActiveState(options.activeStatePath).background !== null) return result;
+		const legacy = normalizeSkinBackground(options.readSettings());
+		if (!hasCustomSkinBackground(legacy)) return result;
+		writeActiveState(options.activeStatePath, { background: legacy });
+		result.migrated = true;
+		notes.push("migrated the skin-background settings section into the v2 active state");
+		return result;
+	} catch (error) {
+		notes.push(`background migration failed closed: ${error?.message ?? error}`);
+		return result;
+	}
 }
 //#endregion
 //#region src/legacy-bridge.ts
@@ -7589,12 +7748,12 @@ const SkinCustomThemeConfigSchema = z.object({
 * (`enabled`) alongside the background strength fields.
 */
 const SkinBackgroundConfigSchema = z.object({
-	enabled: z.boolean().default(true),
-	backgroundOpacity: z.number().min(0).max(100).step(5).default(0),
-	backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(0),
-	backgroundBlurContent: z.number().min(0).max(20).step(1).default(0),
-	inputCardBlur: z.number().min(0).max(20).step(1).default(10),
-	bubbleOpacity: z.number().min(0).max(100).step(5).default(50)
+	enabled: z.boolean().default(SKIN_BACKGROUND_DEFAULTS.enabled),
+	backgroundOpacity: z.number().min(0).max(100).step(5).default(SKIN_BACKGROUND_DEFAULTS.backgroundOpacity),
+	backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(SKIN_BACKGROUND_DEFAULTS.backgroundBlurEmpty),
+	backgroundBlurContent: z.number().min(0).max(20).step(1).default(SKIN_BACKGROUND_DEFAULTS.backgroundBlurContent),
+	inputCardBlur: z.number().min(0).max(20).step(1).default(SKIN_BACKGROUND_DEFAULTS.inputCardBlur),
+	bubbleOpacity: z.number().min(0).max(100).step(5).default(SKIN_BACKGROUND_DEFAULTS.bubbleOpacity)
 });
 /**
 * Settings namespace for the Wallpaper Engine bridge, owned by the skin
@@ -7629,7 +7788,14 @@ const SkinWallpaperConfigSchema = z.object({
 const apply = mountOnce("@linxin666/dsh-client-ui-skin-center", applyImpl);
 function applyImpl(ctx) {
 	installSettingsSection(ctx, SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, {}, {
-		setSource: () => {},
+		setSource: (source) => {
+			const migration = migrateBackgroundFromSettings({
+				activeStatePath: defaultActiveStatePath(),
+				readSettings: source
+			});
+			for (const note of migration.notes) if (migration.migrated) console.info(`[ui-skin-center] background migration: ${note}`);
+			else console.error(`[ui-skin-center] background migration: ${note}`);
+		},
 		onChange: () => {}
 	});
 	installSettingsSection(ctx, SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, {

@@ -28,8 +28,9 @@ skin-center is a self-contained bundle meeting the official DSH plugin standard 
 
 ## Configuration
 
-- **Enable switch**: turns the whole card (try-on / apply / background controls) on or off; persisted in the `skin-background` settings namespace.
-- **Background sliders**: occlusion (0–100%), two backdrop blur radii, input-card blur (0–20 px), and bubble opacity (0–100%); persisted in the same namespace.
+- **Enable switch**: turns the whole card (try-on / apply / background controls) on or off; persisted in the v2 active-state document.
+- **Background sliders**: occlusion (0–100%), two backdrop blur radii, input-card blur (0–20 px), and bubble opacity (0–100%); persisted in the same v2 document.
+- **Background persistence (remote-capable)**: background values live in the v2 active-state document (`$DSH_HOME/skin-center-active.json`, the `background` section) and are read/written through `GET|POST /api/skin-center/v2/active`, so paired remote desktops — where the settings scope is loopback-only — load and keep them across sessions. The legacy `skin-background` settings namespace remains as the official settings page's input face: a customized section is migrated into the v2 store once at boot, and later page edits are forwarded by the client. Card edits do not write back to `settings.yaml`, so the settings page may show stale values until its next edit.
 - **Wallpaper panel**: library folders, selection, render mode (live / static frame), dim, blur, pause-on-hidden, sound toggle and volume; persisted in the `skin-wallpaper` namespace.
 - **Custom theme**: light/dark accent, background, foreground and contrast profiles plus the applied marker; persisted as a versioned contract in the independent `skin-custom-theme` namespace. Wallpaper selection and rendering remain owned by `skin-wallpaper`.
 - **User skin directory**: `$DSH_HOME/skins/<id>/`; override precedence is `DSH_SKINS_HOME`, then `DSH_SKINS_DIR`, then `$DSH_HOME/skins`.
