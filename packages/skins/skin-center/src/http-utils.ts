@@ -66,31 +66,5 @@ export function requireContentOrigin(req: IncomingMessage, res: ServerResponse):
   return true
 }
 
-/** Read a JSON request body (bounded to 64KB). */
-export function readJsonBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let size = 0
-    const chunks: Buffer[] = []
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length
-      if (size > 64 * 1024) {
-        reject(new Error('body-too-large'))
-        queueMicrotask(() => req.destroy())
-        return
-      }
-      chunks.push(chunk)
-    })
-    req.on('end', () => {
-      if (chunks.length === 0) {
-        resolve({})
-        return
-      }
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')))
-      } catch {
-        reject(new Error('invalid-json'))
-      }
-    })
-    req.on('error', reject)
-  })
-}
+/** Lenient bounded body reader (64 KiB default cap), re-exported from the shared helper copy. */
+export { readJsonBody } from './http.ts'

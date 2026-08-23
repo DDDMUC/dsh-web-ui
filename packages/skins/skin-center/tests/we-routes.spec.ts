@@ -962,3 +962,58 @@ describe('inventory cache (#T2-10)', () => {
     expect((after.body.wallpapers as Array<Record<string, unknown>>).map(w => w.id)).toEqual(['777'])
   })
 })
+
+/** Raw-string POST for body-contract cases (call() serializes JSON objects). */
+async function postRawText(
+  path: string,
+  payload: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  return await new Promise((resolve, reject) => {
+    const req = httpRequest(
+      {
+        host: '127.0.0.1',
+        port,
+        path,
+        method: 'POST',
+        headers: {
+          connection: 'close',
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(payload)),
+        },
+      },
+      (response) => {
+        const chunks: Buffer[] = []
+        response.on('data', (chunk) => { chunks.push(chunk as Buffer) })
+        response.on('end', () => {
+          const raw = Buffer.concat(chunks).toString('utf8')
+          let body: Record<string, unknown> = {}
+          try { body = JSON.parse(raw) as Record<string, unknown> } catch { /* non-JSON */ }
+          resolve({ status: response.statusCode ?? 0, body })
+        })
+      },
+    )
+    req.on('error', reject)
+    if (payload !== '') req.write(payload)
+    req.end()
+  })
+}
+
+describe('import POST body contract (shared readJsonBody migration)', () => {
+  it('answers 400 invalid-body to a body that is not JSON (was 500)', async () => {
+    const res = await postRawText(WE_API_PREFIX + '/import', 'not-json')
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'invalid-body' })
+  })
+
+  it('answers 400 invalid-body to an empty POST body (was 400 bad-id)', async () => {
+    const res = await postRawText(WE_API_PREFIX + '/import', '')
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'invalid-body' })
+  })
+
+  it('destroys the connection on an over-limit body instead of answering JSON', async () => {
+    await expect(
+      postRawText(WE_API_PREFIX + '/import', '{"id":"' + 'x'.repeat(64 * 1024) + '"}'),
+    ).rejects.toThrow()
+  })
+})

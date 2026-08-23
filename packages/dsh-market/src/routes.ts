@@ -16,36 +16,13 @@ import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { dshHome } from './dsh-home.ts'
 import { isLoopbackRequest } from './loopback.ts'
 import { installAsset, isSafeRel, MARKET_ORIGIN, type MarketKind } from './core/installer.ts'
+import { readJsonBody } from './http.ts'
 
 export const MARKET_API_PREFIX = '/api/market'
 
 function json(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
   res.end(JSON.stringify(body))
-}
-
-function readJsonBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let size = 0
-    const chunks: Buffer[] = []
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length
-      if (size > 16 * 1024) {
-        reject(new Error('body too large'))
-        req.destroy()
-        return
-      }
-      chunks.push(chunk)
-    })
-    req.on('end', () => {
-      const text = Buffer.concat(chunks).toString('utf8')
-      if (!text) { resolve({}); return }
-      try { resolve(JSON.parse(text)) } catch {
-        reject(new Error('invalid json'))
-      }
-    })
-    req.on('error', reject)
-  })
 }
 
 function isLoopback(req: IncomingMessage): boolean {
@@ -75,9 +52,13 @@ export function makeMarketRoutes(deps: MakeMarketRoutesDeps = {}): WebRoute[] {
       json(res, 405, { ok: false, error: 'method-not-allowed' })
       return
     }
+    // Shared lenient reader (16 KiB cap): an empty body lands on {} (legacy
+    // empty-body semantics); invalid JSON and over-limit bodies also yield
+    // null, so the id validator below keeps answering 400 with the same
+    // { ok: false, error } envelope (the stream-error catch stays as a guard).
     let body: { id?: unknown; force?: unknown }
     try {
-      body = (await readJsonBody(req)) as { id?: unknown; force?: unknown }
+      body = ((await readJsonBody(req, { maxBytes: 16 * 1024 })) ?? {}) as { id?: unknown; force?: unknown }
     } catch {
       json(res, 400, { ok: false, error: 'invalid-body' })
       return
