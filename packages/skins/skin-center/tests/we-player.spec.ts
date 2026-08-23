@@ -28,7 +28,26 @@ describe('WE scene player reflection pass (#742)', () => {
 
   it('uses the 3D-only renderer only when the scene contains actual models', () => {
     expect(WE_SCENE_PLAYER_HTML).toContain('sceneData.is3D && sceneData.models && sceneData.models.length > 0')
+    expect(WE_SCENE_PLAYER_HTML).toContain('sceneData.models && sceneData.models.length > 0 && (sprites3d.length > 0 || systems3d.length > 0)')
     expect(WE_SCENE_PLAYER_HTML).not.toContain('if (sceneData.is3D) {')
+  })
+
+  it('repeats model base textures when the manifest marks tiled UVs', () => {
+    expect(WE_SCENE_PLAYER_HTML).toContain('Boolean(mesh.repeatBase || flags.aurora || flags.bg)')
+  })
+
+  it('uses authored point lights and baked lightmaps for generic 3D scenes', () => {
+    expect(WE_SCENE_PLAYER_HTML).toContain('u_lightPos[4]')
+    expect(WE_SCENE_PLAYER_HTML).toContain('u_lightColorRadius[4]')
+    expect(WE_SCENE_PLAYER_HTML).toContain('texture2D(u_lightmap, v_uv2).rgb')
+    expect(WE_SCENE_PLAYER_HTML).toContain('sceneData.ambientColor || [0, 0, 0]')
+    expect(WE_SCENE_PLAYER_HTML).not.toContain('Math.max(amb[0], 0.3)')
+  })
+
+  it('uses Wallpaper Engine 50-degree projection defaults for 3D scenes', () => {
+    expect(WE_SCENE_PLAYER_HTML).toContain('fov: 50')
+    expect(WE_SCENE_PLAYER_HTML).toContain('(cam.fov || 50) * Math.PI / 180')
+    expect(WE_SCENE_PLAYER_HTML).not.toContain('(cam.fov || 45) * Math.PI / 180')
   })
 
   it('preserves Wallpaper Engine painter order for image and effect layers', () => {

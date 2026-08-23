@@ -1195,16 +1195,39 @@ describe('extractSceneMainImageFromDir', () => {
       mkdirSync(join(tmp, 'models/car'), { recursive: true })
       writeFileSync(join(tmp, 'models/car/car.mdl'), mdlBuf)
       writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+        general: { fov: 50 },
         camera: { eye: '1 2 3', center: '0 0 0', up: '0 1 0', fov: 60 },
         objects: [{ name: 'car', model: 'models/car/car.mdl', origin: '0 0 0', angles: '0 0 0', scale: '1 1 1' }]
       }), 'utf8')
 
       const manifest = buildSceneManifestFromDir(tmp, 'tok_test')
       expect(manifest?.is3D).toBe(true)
+      // Older scenes can carry a camera-local override; it wins over the
+      // standard scene.general FOV.
       expect(manifest?.camera?.fov).toBe(60)
       expect(manifest?.models?.length).toBe(1)
       expect(manifest?.models?.[0].meshes.length).toBe(1)
       expect(manifest?.models?.[0].meshes[0].materialPath).toBe('materials/car/body.json')
+      expect(manifest?.models?.[0].meshes[0].uv2B64).toBeUndefined()
+
+      const writeFovScene = (general: Record<string, unknown> | undefined): void => {
+        writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+          ...(general === undefined ? {} : { general }),
+          camera: { eye: '1 2 3', center: '0 0 0', up: '0 1 0' },
+          objects: [
+            { name: 'car', model: 'models/car/car.mdl', origin: '0 0 0', angles: '0 0 0', scale: '1 1 1' },
+            { light: 'point', origin: '1 2 3', color: '0.5 0.25 0.125', intensity: 2, radius: 16 },
+          ],
+        }), 'utf8')
+      }
+      writeFovScene({ fov: 50 })
+      const litManifest = buildSceneManifestFromDir(tmp, 'tok_general_fov')
+      expect(litManifest?.camera?.fov).toBe(50)
+      expect(litManifest?.pointLights).toEqual([{ origin: [1, 2, 3], color: [1, 0.5, 0.25], radius: 16 }])
+      writeFovScene({ fov: 0 })
+      expect(buildSceneManifestFromDir(tmp, 'tok_invalid_fov')?.camera?.fov).toBe(50)
+      writeFovScene(undefined)
+      expect(buildSceneManifestFromDir(tmp, 'tok_default_fov')?.camera?.fov).toBe(50)
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

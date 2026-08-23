@@ -62,6 +62,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     attribute vec3 a_pos;
     attribute vec3 a_norm;
     attribute vec2 a_uv;
+    attribute vec2 a_uv2;
     uniform mat4 u_proj;
     uniform mat4 u_view;
     uniform mat4 u_model;
@@ -75,10 +76,12 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     varying vec3 v_norm;
     varying vec3 v_worldPos;
     varying vec2 v_uv;
+    varying vec2 v_uv2;
     varying vec4 v_uv4;
     varying float v_alpha;
     void main() {
       v_uv = a_uv;
+      v_uv2 = a_uv2;
       v_uv4 = a_uv.xyxy;
       v_alpha = 1.0;
       vec3 pos = a_pos;
@@ -135,6 +138,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     varying vec3 v_norm;
     varying vec3 v_worldPos;
     varying vec2 v_uv;
+    varying vec2 v_uv2;
     varying vec4 v_uv4;
     varying float v_alpha;
     uniform sampler2D u_tex;
@@ -168,6 +172,12 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     uniform vec3 u_tint;
     uniform vec3 u_tint2;
     uniform sampler2D u_tex2;
+    uniform sampler2D u_lightmap;
+    uniform int u_hasLightmap;
+    uniform vec3 u_lightPos[4];
+    uniform vec4 u_lightColorRadius[4];
+    uniform int u_lightCount;
+    uniform vec3 u_skyLightColor;
     uniform sampler2D u_reflTex;
     uniform vec2 u_resolution;
     uniform int u_hasReflTex;
@@ -314,11 +324,28 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       vec3 halfDir = normalize(lightDir + viewDir);
 
       if (u_sceneStd == 1) {
-        // WE standard scene shading (shaders/ricepod.frag): warm key light,
-        // strong planet sky-light from below, engine glow boost, gloss specular.
-        float NdotL = max(dot(norm, lightDir), 0.0);
-        vec3 lighting = NdotL * vec3(1.15, 1.1, 1.0);
-        lighting += max(dot(norm, vec3(0.0, -3.0, 0.0)), 0.0) * vec3(0.4, 0.45, 0.55);
+        // Wallpaper Engine generic.frag: authored point lights, black-capable
+        // ambient/skylight, and the first light attenuated by the baked map.
+        vec3 lighting = u_ambientColor;
+        vec3 specularResult = vec3(0.0);
+        for (int li = 0; li < 4; li++) {
+          if (li < u_lightCount) {
+            vec3 delta = u_lightPos[li] - v_worldPos;
+            float distanceToLight = length(delta);
+            vec3 pointDir = delta / max(distanceToLight, 0.0001);
+            float attenuation = clamp((u_lightColorRadius[li].w - distanceToLight) / u_lightColorRadius[li].w, 0.0, 1.0);
+            vec3 pointColor = u_lightColorRadius[li].rgb;
+            float diffuse = max(dot(norm, pointDir), 0.0) * attenuation * attenuation;
+            vec3 diffuseLight = pointColor * diffuse;
+            if (li == 0 && u_hasLightmap == 1) {
+              diffuseLight *= texture2D(u_lightmap, v_uv2).rgb;
+            }
+            lighting += diffuseLight;
+            vec3 pointHalf = normalize(pointDir + viewDir);
+            specularResult += pointColor * pow(max(dot(norm, pointHalf), 0.0), u_specPower) * u_specStrength * attenuation;
+          }
+        }
+        lighting += max(dot(norm, vec3(0.0, -1.0, 0.0)), 0.0) * u_skyLightColor;
         float boostAmt = 0.0;
         for (int i = 0; i < 4; i++) {
           if (i < u_jetCount) {
@@ -326,9 +353,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
           }
         }
         vec3 boost = vec3(3.0, 1.2, 0.2) * boostAmt;
-        float specBase = max(dot(halfDir, norm), 0.0);
-        lighting += pow(specBase, 25.0 + 100.0 * smoothstep(0.3, 0.15, baseColor.r)) * 2.0;
-        gl_FragColor = vec4(baseColor.rgb * (lighting + boost), alpha);
+        gl_FragColor = vec4(baseColor.rgb * (lighting + boost) + specularResult, alpha);
         return;
       }
 
@@ -1082,12 +1107,16 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
     gl.bufferData(gl.ARRAY_BUFFER, b64ToF32(mesh.uvB64), gl.STATIC_DRAW);
 
+    const uv2Buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uv2Buf);
+    gl.bufferData(gl.ARRAY_BUFFER, b64ToF32(mesh.uv2B64 || mesh.uvB64), gl.STATIC_DRAW);
+
     const idxBuf = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
     const idx32 = Boolean(mesh.idx32) && uintIndexExt;
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx32 ? b64ToU32(mesh.indicesB64) : b64ToU16(mesh.indicesB64), gl.STATIC_DRAW);
 
-    const gpu = { posBuf, normBuf, uvBuf, idxBuf, iCount: mesh.iCount, idxType: idx32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+    const gpu = { posBuf, normBuf, uvBuf, uv2Buf, idxBuf, iCount: mesh.iCount, idxType: idx32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
     modelGpuCache.set(mesh, gpu);
     return gpu;
   }
@@ -1225,8 +1254,8 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
 
       const isCarScene = Boolean(sceneData.carBodyColor);
       const aspect = width / height;
-      const cam = sceneData.camera || { eye: [2.18, 1.98, 4.63], center: [0, 0.45, 0], up: [0, 1, 0], fov: 45 };
-      const proj3D = mat4Perspective((cam.fov || 45) * Math.PI / 180, aspect, 0.1, 1000.0);
+      const cam = sceneData.camera || { eye: [2.18, 1.98, 4.63], center: [0, 0.45, 0], up: [0, 1, 0], fov: 50 };
+      const proj3D = mat4Perspective((cam.fov || 50) * Math.PI / 180, aspect, 0.1, 1000.0);
 
       // Camera animation: use scene-specific paths if available, otherwise slow orbit
       const camPaths = sceneData.cameraPaths;
@@ -1301,11 +1330,21 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
           const jp = jetPos[ji] || [0, 0, 0];
           gl.uniform3f(gl.getUniformLocation(prog3D, 'u_jetPos[' + ji + ']'), jp[0], jp[1], jp[2]);
         }
+        const pointLights = sceneData.pointLights || [];
+        gl.uniform1i(gl.getUniformLocation(prog3D, 'u_lightCount'), pointLights.length);
+        for (let li = 0; li < 4; li++) {
+          const light = pointLights[li] || { origin: [0, 0, 0], color: [0, 0, 0], radius: 1 };
+          gl.uniform3f(gl.getUniformLocation(prog3D, 'u_lightPos[' + li + ']'), light.origin[0], light.origin[1], light.origin[2]);
+          gl.uniform4f(gl.getUniformLocation(prog3D, 'u_lightColorRadius[' + li + ']'), light.color[0], light.color[1], light.color[2], light.radius);
+        }
+        const sky = sceneData.skyLightColor || [0, 0, 0];
+        gl.uniform3f(gl.getUniformLocation(prog3D, 'u_skyLightColor'), sky[0], sky[1], sky[2]);
         // Ricepod uses lightDir (-0.577, 0.577, 0.577), car uses (0.577, 0.577, 0.577)
         gl.uniform3f(gl.getUniformLocation(prog3D, 'u_lightDir'), isCarScene ? 0.577 : -0.577, 0.577, 0.577);
         const amb = sceneData.clearColor || [0.1, 0.1, 0.15];
-        // For car scenes use schemecolor as ambient; for others use brighter neutral
-        const ambColor = isCarScene ? amb : [Math.max(amb[0], 0.3), Math.max(amb[1], 0.3), Math.max(amb[2], 0.35)];
+        // Generic scenes must preserve authored black ambient. Artificially
+        // lifting it illuminated distant geometry that WE intentionally hides.
+        const ambColor = isCarScene ? amb : (sceneData.ambientColor || [0, 0, 0]);
         gl.uniform3f(gl.getUniformLocation(prog3D, 'u_ambientColor'), ambColor[0], ambColor[1], ambColor[2]);
         gl.uniform3f(gl.getUniformLocation(prog3D, 'u_paintColor'), bodyCol[0], bodyCol[1], bodyCol[2]);
       }
@@ -1314,9 +1353,11 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       const locPos = gl.getAttribLocation(prog3D, 'a_pos');
       const locNorm = gl.getAttribLocation(prog3D, 'a_norm');
       const locUv = gl.getAttribLocation(prog3D, 'a_uv');
+      const locUv2 = gl.getAttribLocation(prog3D, 'a_uv2');
       gl.enableVertexAttribArray(locPos);
       gl.enableVertexAttribArray(locNorm);
       gl.enableVertexAttribArray(locUv);
+      gl.enableVertexAttribArray(locUv2);
 
       // Per-submesh specular params (from WE material JSONs)
       const specMap = {
@@ -1380,6 +1421,8 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
         gl.vertexAttribPointer(locNorm, 3, gl.FLOAT, false, 0, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, gpu.uvBuf);
         gl.vertexAttribPointer(locUv, 2, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, gpu.uv2Buf);
+        gl.vertexAttribPointer(locUv2, 2, gl.FLOAT, false, 0, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gpu.idxBuf);
 
         gl.uniform1i(gl.getUniformLocation(prog3D, 'u_isDome'), flags.dome ? 1 : 0);
@@ -1405,7 +1448,18 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
         }
         gl.uniform3f(gl.getUniformLocation(prog3D, 'u_tint'), tintCol[0], tintCol[1], tintCol[2]);
         gl.uniform3f(gl.getUniformLocation(prog3D, 'u_tint2'), tint2Col[0], tint2Col[1], tint2Col[2]);
-        // Second pass texture (bg pattern overlay), repeat-wrapped like the bg clouds.
+        gl.uniform1i(gl.getUniformLocation(prog3D, 'u_hasLightmap'), 0);
+        if (mesh.lightmapUrl) {
+          const lightmapRec = loadTexture(mesh.lightmapUrl, false);
+          if (lightmapRec.loaded) {
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, lightmapRec.texture);
+            gl.uniform1i(gl.getUniformLocation(prog3D, 'u_lightmap'), 2);
+            gl.uniform1i(gl.getUniformLocation(prog3D, 'u_hasLightmap'), 1);
+            gl.activeTexture(gl.TEXTURE0);
+          }
+        }
+        // Second pass texture (normal/pattern slot), repeat-wrapped like bg clouds.
         if (mesh.texUrl2) {
           const tex2Rec = loadTexture(mesh.texUrl2, true);
           if (tex2Rec.loaded) {
@@ -1432,7 +1486,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
 
         // Load texture for all meshes that have one (including skybox)
         if (mesh.texUrl && !flags.dome && !flags.shadow && !flags.grid) {
-          const texRec = loadTexture(mesh.texUrl, flags.aurora || flags.bg);
+          const texRec = loadTexture(mesh.texUrl, Boolean(mesh.repeatBase || flags.aurora || flags.bg));
           if (texRec.loaded) {
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texRec.texture);
@@ -1596,7 +1650,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       // 7. 3D sprites (sun glow billboards) and particle streaks (starfield)
       const sprites3d = sceneData.sprites || [];
       const systems3d = sceneData.particles3d || [];
-      if (sprites3d.length > 0 || systems3d.length > 0) {
+      if (sceneData.models && sceneData.models.length > 0 && (sprites3d.length > 0 || systems3d.length > 0)) {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive, texture-alpha shaped
         for (const sp of sprites3d) {
           // View-space offset = camera-facing quad (WE sprite.vert semantics:
