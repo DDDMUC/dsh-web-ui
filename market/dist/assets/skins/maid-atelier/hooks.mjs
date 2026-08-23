@@ -109,8 +109,15 @@ const PROJECTED_STATE_SELECTOR = [
   "[data-slot='sidebar.settings']",
 ].join(', ')
 
+// Every dynamic property apply() writes to body.style must be registered
+// here: cleanup restores the pre-apply value (an empty string removes the
+// property) and the hooks-lifecycle test fails when a write leaks past
+// teardown.
 const BACKDROP_PROPERTIES = [
   '--maid-sidebar-width',
+  '--maid-sidebar-swag-height',
+  '--maid-sidebar-mascot-width',
+  '--maid-titlebar-height',
   '--maid-top-trim-art',
   '--maid-bottom-trim-art',
   '--maid-bottom-crest-art',
