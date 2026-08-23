@@ -48,7 +48,10 @@ const mint = {
   warnings: [],
   manifest: {
     id: 'mint', name: 'Mint', nameEn: 'Mint', tagline: 'Mint skin',
-    contributes: { stylesheet: 'skin.css' },
+    contributes: {
+      stylesheet: 'skin.css',
+      backgroundMedia: [{ src: 'wallpaper.jpg', type: 'image' as const }],
+    },
   },
 }
 
@@ -254,6 +257,38 @@ describe('SkinCenter custom theme transactions', () => {
     await click(buttonNamed(cardNamed('官方默认'), t('restore')))
 
     expect(clearSelection).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears the persisted wallpaper after an installed skin activates', async () => {
+    const clearSelection = vi.fn()
+    await renderSkinCenter({ wallpaperSelection: 'macos-aerial', clearSelection })
+
+    await click(buttonNamed(cardNamed('Mint'), t('apply')))
+
+    expect(clearSelection).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the persisted wallpaper when an installed skin fails to activate', async () => {
+    const clearSelection = vi.fn()
+    await renderSkinCenter({
+      wallpaperSelection: 'macos-aerial',
+      clearSelection,
+      switchTo: async () => null,
+    })
+
+    await click(buttonNamed(cardNamed('Mint'), t('apply')))
+
+    expect(clearSelection).not.toHaveBeenCalled()
+    expect(host.textContent).toContain(t('applyFailed'))
+  })
+
+  it('keeps the persisted wallpaper while trying on an installed skin', async () => {
+    const clearSelection = vi.fn()
+    await renderSkinCenter({ wallpaperSelection: 'macos-aerial', clearSelection })
+
+    await click(buttonNamed(cardNamed('Mint'), t('tryOn')))
+
+    expect(clearSelection).not.toHaveBeenCalled()
   })
 
   it('does not leave the current skin when custom-theme persistence is rejected', async () => {
