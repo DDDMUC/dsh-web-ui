@@ -1335,7 +1335,9 @@ window.__ModuleLoader__.load({
 												style: {
 													width: `${72 * spriteGrid.columns}px`,
 													height: `${72 * spriteGrid.rows}px`,
-													maxWidth: "none"
+													maxWidth: "none",
+													transform: `scale(${Math.min(1, 72 / 208)})`,
+													transformOrigin: "top left"
 												}
 											})
 										}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {

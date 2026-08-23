@@ -252,6 +252,16 @@
     img.style.width = (grid.columns * 100) + '%'
     img.style.height = (grid.rows * 100) + '%'
     img.style.maxWidth = 'none'
+    img.addEventListener('load', function () {
+      var frameWidth = img.naturalWidth / grid.columns
+      var frameHeight = img.naturalHeight / grid.rows
+      var holder = img.parentElement
+      if (!frameWidth || !frameHeight || !holder) return
+      var scale = Math.min(holder.clientWidth / frameWidth, holder.clientHeight / frameHeight)
+      img.style.transform = 'scale(' + scale + ')'
+      img.style.left = ((holder.clientWidth - frameWidth * scale) / 2) + 'px'
+      img.style.top = ((holder.clientHeight - frameHeight * scale) / 2) + 'px'
+    })
     return img
   }
   function spriteFrame(item, className) {
