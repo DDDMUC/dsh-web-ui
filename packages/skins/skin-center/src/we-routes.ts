@@ -47,16 +47,16 @@ import {
 import {
   buildSceneManifest,
   buildSceneManifestFromDir,
+  decodeTex,
+  encodePng,
   extractSceneResource,
   extractSceneResourceFromDir,
   hasSceneVideo,
   hasSceneVideoFromDir,
-  parseTexToRGBA,
   TexUnsupportedError,
 } from './pkg-extract.ts'
 import { WE_SHIM_JS } from './we-shim-source.ts'
 import { WE_SCENE_PLAYER_HTML } from './we-player-source.ts'
-import { deflateSync } from 'node:zlib'
 
 /**
  * Scene extraction cache format version, embedded in every frames/videos
@@ -107,54 +107,6 @@ function webPropertyDefaults(projectRoot: string): Record<string, { value: unkno
     }
   } catch { /* no project.json or unreadable: empty defaults */ }
   return out
-}
-
-/** Encode RGBA pixel data to PNG buffer using Node zlib for compression. */
-function encodeRGBAToPNG(width: number, height: number, rgba: Uint8Array): Buffer {
-  // Build raw scanlines: each row prefixed by filter byte 0 (None)
-  const rowBytes = width * 4
-  const raw = Buffer.alloc(height * (1 + rowBytes))
-  for (let y = 0; y < height; y++) {
-    raw[y * (1 + rowBytes)] = 0 // filter: None
-    raw.set(rgba.slice(y * rowBytes, (y + 1) * rowBytes), y * (1 + rowBytes) + 1)
-  }
-  const compressed = deflateSync(raw, { level: 1 }) // fast compression
-
-  // PNG CRC32
-  const crcTable: number[] = []
-  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c }
-  const crc32 = (buf: Buffer, start: number, len: number): number => {
-    let c = 0xffffffff
-    for (let i = start; i < start + len; i++) c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8)
-    return (c ^ 0xffffffff) >>> 0
-  }
-
-  // Assemble PNG
-  const pngSize = 8 + 25 + (12 + compressed.length) + 12 // signature + IHDR + IDAT + IEND
-  const png = Buffer.alloc(pngSize)
-  let p = 0
-  // Signature
-  png.set([137, 80, 78, 71, 13, 10, 26, 10], 0); p = 8
-  // IHDR
-  png.writeUInt32BE(13, p); p += 4
-  png.write('IHDR', p); p += 4
-  png.writeUInt32BE(width, p); p += 4
-  png.writeUInt32BE(height, p); p += 4
-  png[p++] = 8 // bit depth
-  png[p++] = 6 // RGBA
-  png[p++] = 0; png[p++] = 0; png[p++] = 0 // compression, filter, interlace
-  png.writeUInt32BE(crc32(png, 12, 17), p); p += 4
-  // IDAT
-  png.writeUInt32BE(compressed.length, p); p += 4
-  png.write('IDAT', p); p += 4
-  compressed.copy(png, p); p += compressed.length
-  png.writeUInt32BE(crc32(png, p - compressed.length - 4, compressed.length + 4), p); p += 4
-  // IEND
-  png.writeUInt32BE(0, p); p += 4
-  png.write('IEND', p); p += 4
-  png.writeUInt32BE(crc32(png, p - 4, 4), p); p += 4
-
-  return png
 }
 
 /** Browser-facing base path of the wallpaper API. */
@@ -546,13 +498,11 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         if (abs.toLowerCase().endsWith('.tex')) {
           try {
             const texBuf = readFileSync(abs)
-            const result = parseTexToRGBA(new Uint8Array(texBuf.buffer, texBuf.byteOffset, texBuf.byteLength))
-            if (result) {
-              const pngBuf = encodeRGBAToPNG(result.width, result.height, result.rgba)
-              res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': pngBuf.length, 'Cache-Control': 'public, max-age=86400' })
-              res.end(pngBuf)
-              return
-            }
+            const decoded = decodeTex(new Uint8Array(texBuf.buffer, texBuf.byteOffset, texBuf.byteLength))
+            const pngBuf = encodePng(decoded.width, decoded.height, decoded.rgba)
+            res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': pngBuf.length, 'Cache-Control': 'public, max-age=86400' })
+            res.end(pngBuf)
+            return
           } catch { /* fall through to serveFile */ }
         }
         serveFile(abs, req, res, openReadStream)

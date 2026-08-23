@@ -2617,7 +2617,6 @@ var pkg_extract_exports = /* @__PURE__ */ __exportAll({
 	parseMdl: () => parseMdl,
 	parsePkg: () => parsePkg,
 	parseTex: () => parseTex,
-	parseTexToRGBA: () => parseTexToRGBA,
 	readPkgEntry: () => readPkgEntry
 });
 /**
@@ -3901,178 +3900,6 @@ function hasSceneVideoFromDir(dir) {
 	} catch {
 		return false;
 	}
-}
-/** Decompress LZ4 block format (no frame header, raw block). */
-function decompressLz4Block(src, decompressedSize) {
-	if (decompressedSize < 0 || decompressedSize > MAX_DECOMPRESSED_BYTES) throw new Error("lz4: decompressed size out of bounds (" + String(decompressedSize) + ")");
-	const dst = new Uint8Array(decompressedSize);
-	let sp = 0, dp = 0;
-	while (sp < src.length && dp < decompressedSize) {
-		const token = src[sp++];
-		let litLen = token >> 4;
-		if (litLen === 15) {
-			let b;
-			do {
-				b = src[sp++];
-				litLen += b;
-			} while (b === 255);
-		}
-		for (let i = 0; i < litLen; i++) dst[dp++] = src[sp++];
-		if (sp >= src.length || dp >= decompressedSize) break;
-		const offset = src[sp] | src[sp + 1] << 8;
-		sp += 2;
-		let matchLen = (token & 15) + 4;
-		if (matchLen === 19) {
-			let b;
-			do {
-				b = src[sp++];
-				matchLen += b;
-			} while (b === 255);
-		}
-		const matchStart = dp - offset;
-		for (let i = 0; i < matchLen; i++) dst[dp++] = dst[matchStart + i];
-	}
-	return dst;
-}
-/** Decode DXT1 (BC1) 4x4 block into RGBA pixels. */
-function decodeDXT1Block(block, offset, out, outOffset, outStride) {
-	const c0 = block[offset] | block[offset + 1] << 8;
-	const c1 = block[offset + 2] | block[offset + 3] << 8;
-	const r0 = (c0 >> 11 & 31) * 255 / 31, g0 = (c0 >> 5 & 63) * 255 / 63, b0 = (c0 & 31) * 255 / 31;
-	const r1 = (c1 >> 11 & 31) * 255 / 31, g1 = (c1 >> 5 & 63) * 255 / 63, b1 = (c1 & 31) * 255 / 31;
-	const colors = [
-		[
-			r0,
-			g0,
-			b0,
-			255
-		],
-		[
-			r1,
-			g1,
-			b1,
-			255
-		],
-		c0 > c1 ? [
-			(2 * r0 + r1) / 3,
-			(2 * g0 + g1) / 3,
-			(2 * b0 + b1) / 3,
-			255
-		] : [
-			(r0 + r1) / 2,
-			(g0 + g1) / 2,
-			(b0 + b1) / 2,
-			255
-		],
-		c0 > c1 ? [
-			(r0 + 2 * r1) / 3,
-			(g0 + 2 * g1) / 3,
-			(b0 + 2 * b1) / 3,
-			255
-		] : [
-			0,
-			0,
-			0,
-			0
-		]
-	];
-	const bits = block[offset + 4] | block[offset + 5] << 8 | block[offset + 6] << 16 | block[offset + 7] << 24;
-	for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
-		const idx = bits >> (y * 4 + x) * 2 & 3;
-		const p = outOffset + y * outStride + x * 4;
-		out[p] = colors[idx][0];
-		out[p + 1] = colors[idx][1];
-		out[p + 2] = colors[idx][2];
-		out[p + 3] = colors[idx][3];
-	}
-}
-/** Decode DXT5 (BC3) 4x4 block into RGBA pixels. */
-function decodeDXT5Block(block, offset, out, outOffset, outStride) {
-	const a0 = block[offset], a1 = block[offset + 1];
-	const alphaLUT = [
-		a0,
-		a1,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0
-	];
-	if (a0 > a1) for (let i = 1; i <= 6; i++) alphaLUT[i + 1] = ((7 - i) * a0 + i * a1) / 7;
-	else {
-		for (let i = 1; i <= 4; i++) alphaLUT[i + 1] = ((5 - i) * a0 + i * a1) / 5;
-		alphaLUT[6] = 0;
-		alphaLUT[7] = 255;
-	}
-	let alphaBits = 0n;
-	for (let i = 0; i < 6; i++) alphaBits |= BigInt(block[offset + 2 + i]) << BigInt(i * 8);
-	decodeDXT1Block(block, offset + 8, out, outOffset, outStride);
-	for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
-		const ai = Number(alphaBits >> BigInt((y * 4 + x) * 3) & 7n);
-		out[outOffset + y * outStride + x * 4 + 3] = alphaLUT[ai];
-	}
-}
-/**
-* Parse Wallpaper Engine TEXV0005 .tex file and return raw RGBA pixel data.
-* Returns null if format is unsupported.
-*/
-function parseTexToRGBA(buf) {
-	if (buf.length < 55) return null;
-	if (String.fromCharCode(...buf.slice(0, 8)) !== "TEXV0005") return null;
-	if (String.fromCharCode(...buf.slice(9, 17)) !== "TEXI0001") return null;
-	const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-	const fmt = dv.getUint32(18, true);
-	let texbPos = -1;
-	for (let i = 34; i < Math.min(buf.length, 100); i++) if (buf[i] === 84 && buf[i + 1] === 69 && buf[i + 2] === 88 && buf[i + 3] === 66) {
-		texbPos = i;
-		break;
-	}
-	if (texbPos < 0) return null;
-	let p = texbPos + 9 + 8;
-	const numMips = dv.getUint32(p, true);
-	p += 4;
-	if (numMips === 0 || numMips > 20) return null;
-	const mipW = dv.getUint32(p, true);
-	p += 4;
-	const mipH = dv.getUint32(p, true);
-	p += 4;
-	if (mipW <= 0 || mipH <= 0 || mipW > MAX_TEX_DIMENSION || mipH > MAX_TEX_DIMENSION || mipW * mipH > MAX_TEX_PIXELS) throw new Error("tex: invalid mipmap dimensions " + mipW + "x" + mipH);
-	const isLz4 = dv.getUint32(p, true);
-	p += 4;
-	const decompSize = dv.getUint32(p, true);
-	p += 4;
-	const compSize = dv.getUint32(p, true);
-	p += 4;
-	let texData;
-	if (isLz4) texData = decompressLz4Block(buf.slice(p, p + compSize), decompSize);
-	else texData = buf.slice(p, p + compSize);
-	const rgba = new Uint8Array(mipW * mipH * 4);
-	const stride = mipW * 4;
-	if (fmt === 4) {
-		const blocksX = mipW / 4, blocksY = mipH / 4;
-		for (let by = 0; by < blocksY; by++) for (let bx = 0; bx < blocksX; bx++) {
-			const blockIdx = (by * blocksX + bx) * 16;
-			decodeDXT5Block(texData, blockIdx, rgba, by * 4 * stride + bx * 4 * 4, stride);
-		}
-	} else if (fmt === 7) {
-		const blocksX = mipW / 4, blocksY = mipH / 4;
-		for (let by = 0; by < blocksY; by++) for (let bx = 0; bx < blocksX; bx++) {
-			const blockIdx = (by * blocksX + bx) * 8;
-			decodeDXT1Block(texData, blockIdx, rgba, by * 4 * stride + bx * 4 * 4, stride);
-		}
-	} else if (fmt === 0) for (let i = 0; i < mipW * mipH; i++) {
-		rgba[i * 4] = texData[i * 4 + 1];
-		rgba[i * 4 + 1] = texData[i * 4 + 2];
-		rgba[i * 4 + 2] = texData[i * 4 + 3];
-		rgba[i * 4 + 3] = texData[i * 4];
-	}
-	else return null;
-	return {
-		width: mipW,
-		height: mipH,
-		rgba
-	};
 }
 const MDL_FLAG_NORMAL = 2;
 const MDL_FLAG_TANGENT = 4;
@@ -7089,71 +6916,6 @@ function webPropertyDefaults(projectRoot) {
 	} catch {}
 	return out;
 }
-/** Encode RGBA pixel data to PNG buffer using Node zlib for compression. */
-function encodeRGBAToPNG(width, height, rgba) {
-	const rowBytes = width * 4;
-	const raw = Buffer.alloc(height * (1 + rowBytes));
-	for (let y = 0; y < height; y++) {
-		raw[y * (1 + rowBytes)] = 0;
-		raw.set(rgba.slice(y * rowBytes, (y + 1) * rowBytes), y * (1 + rowBytes) + 1);
-	}
-	const compressed = deflateSync(raw, { level: 1 });
-	const crcTable = [];
-	for (let n = 0; n < 256; n++) {
-		let c = n;
-		for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
-		crcTable[n] = c;
-	}
-	const crc32 = (buf, start, len) => {
-		let c = 4294967295;
-		for (let i = start; i < start + len; i++) c = crcTable[(c ^ buf[i]) & 255] ^ c >>> 8;
-		return (c ^ 4294967295) >>> 0;
-	};
-	const pngSize = 33 + (12 + compressed.length) + 12;
-	const png = Buffer.alloc(pngSize);
-	let p = 0;
-	png.set([
-		137,
-		80,
-		78,
-		71,
-		13,
-		10,
-		26,
-		10
-	], 0);
-	p = 8;
-	png.writeUInt32BE(13, p);
-	p += 4;
-	png.write("IHDR", p);
-	p += 4;
-	png.writeUInt32BE(width, p);
-	p += 4;
-	png.writeUInt32BE(height, p);
-	p += 4;
-	png[p++] = 8;
-	png[p++] = 6;
-	png[p++] = 0;
-	png[p++] = 0;
-	png[p++] = 0;
-	png.writeUInt32BE(crc32(png, 12, 17), p);
-	p += 4;
-	png.writeUInt32BE(compressed.length, p);
-	p += 4;
-	png.write("IDAT", p);
-	p += 4;
-	compressed.copy(png, p);
-	p += compressed.length;
-	png.writeUInt32BE(crc32(png, p - compressed.length - 4, compressed.length + 4), p);
-	p += 4;
-	png.writeUInt32BE(0, p);
-	p += 4;
-	png.write("IEND", p);
-	p += 4;
-	png.writeUInt32BE(crc32(png, p - 4, 4), p);
-	p += 4;
-	return png;
-}
 /** Browser-facing base path of the wallpaper API. */
 const WE_API_PREFIX = "/api/skin-center/we";
 /** Sanitize a wallpaper id into a safe store directory name. */
@@ -7500,17 +7262,15 @@ function makeWeRoutes(deps) {
 				if (!abs) return;
 				if (abs.toLowerCase().endsWith(".tex")) try {
 					const texBuf = readFileSync(abs);
-					const result = parseTexToRGBA(new Uint8Array(texBuf.buffer, texBuf.byteOffset, texBuf.byteLength));
-					if (result) {
-						const pngBuf = encodeRGBAToPNG(result.width, result.height, result.rgba);
-						res.writeHead(200, {
-							"Content-Type": "image/png",
-							"Content-Length": pngBuf.length,
-							"Cache-Control": "public, max-age=86400"
-						});
-						res.end(pngBuf);
-						return;
-					}
+					const decoded = decodeTex(new Uint8Array(texBuf.buffer, texBuf.byteOffset, texBuf.byteLength));
+					const pngBuf = encodePng(decoded.width, decoded.height, decoded.rgba);
+					res.writeHead(200, {
+						"Content-Type": "image/png",
+						"Content-Length": pngBuf.length,
+						"Cache-Control": "public, max-age=86400"
+					});
+					res.end(pngBuf);
+					return;
 				} catch {}
 				serveFile(abs, req, res, openReadStream);
 			}
