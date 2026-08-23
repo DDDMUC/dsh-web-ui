@@ -39,6 +39,9 @@ browser half, live settings, no dsh source changes.
 - Only `http(s)` URLs and local paths are accepted; every other URL scheme is rejected.
 - The attach route validates base64, magic bytes, and the byte bound before the attachment store
   persists anything; only the reference JSON (text) crosses into the conversation.
+- The attach and raw-image routes are loopback-only with the same same-origin fence: the raw
+  read serves stored image bytes and the attach POST writes them, so a LAN or cross-site caller
+  is turned away before either runs.
 - Response bodies are truncated at the cap (`maxOutputTokens * 8 + 64 KiB`) before parsing.
 - The model probe's key stays on the host: the browser half only posts the connection
   drafts and receives only the model id list or a latency number; the fetch makes one
