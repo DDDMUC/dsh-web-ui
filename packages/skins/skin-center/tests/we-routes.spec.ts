@@ -1018,3 +1018,86 @@ describe('import POST body contract (shared readJsonBody migration)', () => {
     ).rejects.toThrow()
   })
 })
+
+
+describe('macOS system wallpapers', () => {
+  /** Build temp aerial + Desktop Pictures roots and serve routes over them. */
+  async function serveMacos(convertImage?: (src: string, dest: string) => Promise<void>): Promise<{ aerialRoot: string; pictureRoot: string }> {
+    const aerialRoot = join(root, 'com.apple.wallpaper', 'aerials')
+    const pictureRoot = join(root, 'Desktop Pictures')
+    mkdirSync(join(aerialRoot, 'videos'), { recursive: true })
+    mkdirSync(join(aerialRoot, 'thumbnails'), { recursive: true })
+    mkdirSync(join(aerialRoot, 'manifest'), { recursive: true })
+    writeFileSync(join(aerialRoot, 'videos', 'AAAA-1.mov'), 'FAKE-AERIAL', 'utf8')
+    writeFileSync(join(aerialRoot, 'thumbnails', 'AAAA-1.png'), 'FAKE-THUMB', 'utf8')
+    writeFileSync(join(aerialRoot, 'manifest', 'entries.json'), JSON.stringify({
+      assets: [{ id: 'AAAA-1', accessibilityLabel: 'Sonoma from Above' }],
+    }), 'utf8')
+    mkdirSync(pictureRoot, { recursive: true })
+    writeFileSync(join(pictureRoot, 'Tahoe Day.heic'), 'FAKE-HEIC', 'utf8')
+    await new Promise<void>((resolve, reject) => server.close(e => (e ? reject(e) : resolve())))
+    await serve(makeWeRoutes({
+      getConfig: () => ({}),
+      storeDir: store,
+      autoDetect: false,
+      macosRoots: { aerials: [aerialRoot], pictures: [pictureRoot] },
+      convertImage,
+    }))
+    return { aerialRoot, pictureRoot }
+  }
+
+  it('lists aerials and Desktop Pictures as system entries with titles and count', async () => {
+    await serveMacos()
+    const res = await call('GET', WE_API_PREFIX + '/inventory')
+    expect(res.status).toBe(200)
+    expect(res.body.systemCount).toBe(2)
+    const wallpapers = res.body.wallpapers as Array<Record<string, unknown>>
+    const aerial = wallpapers.find(w => w.id === 'macos-aerial/AAAA-1')
+    expect(aerial?.title).toBe('Sonoma from Above')
+    expect(aerial?.type).toBe('video')
+    expect(aerial?.source).toBe('system')
+    expect(String(aerial?.videoUrl)).toContain(WE_API_PREFIX + '/media/')
+    expect(String(aerial?.previewUrl)).toContain(WE_API_PREFIX + '/preview/')
+    const heic = wallpapers.find(w => w.id === 'macos-heic/Tahoe Day')
+    expect(heic?.type).toBe('image')
+    expect(heic?.source).toBe('system')
+    expect(heic?.playable).toBe(false)
+    expect(String(heic?.previewUrl)).toContain(WE_API_PREFIX + '/image/')
+  })
+
+  it('converts heic through the injected converter once and serves the cache', async () => {
+    let conversions = 0
+    await serveMacos(async (_src, dest) => {
+      conversions++
+      writeFileSync(dest, 'JPEG-BYTES', 'utf8')
+    })
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const heic = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === 'macos-heic/Tahoe Day')
+    const first = await callRaw('GET', String(heic?.previewUrl))
+    expect(first.status).toBe(200)
+    expect(first.headers['content-type']).toBe('image/jpeg')
+    expect(first.body.toString('utf8')).toBe('JPEG-BYTES')
+    const second = await callRaw('GET', String(heic?.previewUrl))
+    expect(second.status).toBe(200)
+    expect(conversions).toBe(1)
+  })
+
+  it('rejects import of macOS-managed entries', async () => {
+    await serveMacos()
+    const res = await call('POST', WE_API_PREFIX + '/import', { body: { id: 'macos-aerial/AAAA-1' } })
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'not-importable' })
+  })
+
+  it('answers 400 for a non-heic token on the image route', async () => {
+    // The default beforeEach library holds sea.mp4: its media token exists
+    // but the image route only converts HEIC paths.
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const video = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '111')
+    const token = String(video?.videoUrl).split('/media/')[1]
+    const res = await call('GET', WE_API_PREFIX + '/image/' + token)
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'not-a-heic' })
+  })
+})
+

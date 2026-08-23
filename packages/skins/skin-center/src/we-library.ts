@@ -15,7 +15,11 @@
  *      a workshop content dir) or a single project folder. A folder without
  *      a project.json is accepted when it directly contains a playable media
  *      file (e.g. a lone .mp4), which is the no-Steam fallback path.
- *   3. The import store (<harnessHome>/skin-center/wallpapers/<id>/): copies
+ *   3. macOS wallpaper stores (darwin only, src/macos-library.ts): the
+ *      user's downloaded aerial .mov wallpapers (com.apple.wallpaper /
+ *      idleassetsd) and Desktop Pictures *.heic — source 'system', never
+ *      importable.
+ *   4. The import store (<harnessHome>/skin-center/wallpapers/<id>/): copies
  *      made by the import route. Each holds a manifest.json recording the
  *      source identity and the source file mtime/size at import time, so a
  *      later workshop update can be flagged as updateAvailable.
@@ -30,15 +34,18 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join as joinPath, resolve as resolvePath } from 'node:path'
+import { defaultMacosWallpaperRoots, scanMacosWallpapers, type MacosWallpaperRoots } from './macos-library.ts'
+
+export type { MacosWallpaperRoots } from './macos-library.ts'
 
 /** Steam appid of Wallpaper Engine. */
 export const WE_APPID = '431960'
 
-/** Wallpaper Engine wallpaper kinds, as declared by project.json. */
-export type WallpaperType = 'video' | 'web' | 'scene' | 'application'
+/** Wallpaper Engine wallpaper kinds, as declared by project.json. 'image' is the macOS Desktop Pictures extension (HEIC rendered via host conversion). */
+export type WallpaperType = 'video' | 'web' | 'scene' | 'application' | 'image'
 
-/** Where one wallpaper entry came from. */
-export type WallpaperSource = 'workshop' | 'local' | 'imported'
+/** Where one wallpaper entry came from. 'system' entries are macOS-managed and never importable. */
+export type WallpaperSource = 'workshop' | 'local' | 'imported' | 'system'
 
 /** One discovered wallpaper project (plain data; routes assign tokens). */
 export interface WallpaperEntry {
@@ -286,7 +293,7 @@ export function inferType(file: string): WallpaperType {
   return 'scene'
 }
 
-const KNOWN_TYPES: readonly WallpaperType[] = ['scene', 'video', 'web', 'application']
+const KNOWN_TYPES: readonly WallpaperType[] = ['scene', 'video', 'web', 'application', 'image']
 
 /** Media file extensions playable through the video element. */
 const VIDEO_FILE_RE = /\.(mp4|webm|mkv|avi|mov)$/i
@@ -582,10 +589,18 @@ export function buildInventory(opts: {
   manualDirs?: string[]
   storeDir?: string
   autoDetect?: boolean
+  /**
+   * macOS wallpaper roots. Undefined + autoDetect scans the default roots on
+   * darwin; null disables the macOS sources explicitly.
+   */
+  macos?: MacosWallpaperRoots | null
 } = {}): WeInventory {
   const autoDetect = opts.autoDetect ?? true
   const installDir = opts.installDir !== undefined ? opts.installDir : (autoDetect ? locateWallpaperEngine() : null)
   const libraryDirs = opts.libraryDirs ?? (autoDetect ? owningLibraries() : [])
+  const macos = opts.macos !== undefined
+    ? opts.macos
+    : (autoDetect && process.platform === 'darwin' ? defaultMacosWallpaperRoots() : null)
   const found = new Map<string, WallpaperEntry>()
   const add = (entry: WallpaperEntry): void => {
     if (!found.has(entry.id)) found.set(entry.id, entry)
@@ -605,6 +620,9 @@ export function buildInventory(opts: {
     const trimmed = firstNonBlank(manual)
     const dir = trimmed !== undefined ? expandUser(trimmed) : undefined
     if (dir !== undefined && existsSync(dir)) for (const entry of scanManualWallpaperRoot(dir)) add(entry)
+  }
+  if (macos !== null) {
+    for (const entry of scanMacosWallpapers(macos)) add(entry)
   }
 
   const imported = opts.storeDir ? scanImportStore(opts.storeDir) : []
@@ -657,6 +675,8 @@ export function inventoryFingerprint(opts: {
   manualDirs?: string[]
   storeDir?: string
   entries?: WallpaperEntry[]
+  /** macOS roots in effect; their sub-layout dirs are signed too. */
+  macos?: MacosWallpaperRoots | null
 } = {}): string {
   const parts: string[] = []
   const statSig = (path: string): string => {
@@ -692,6 +712,19 @@ export function inventoryFingerprint(opts: {
     }
   }
   if (opts.storeDir) signDir(opts.storeDir)
+  if (opts.macos) {
+    for (const root of opts.macos.aerials) {
+      signDir(joinPath(root, 'videos'))
+      signDir(joinPath(root, 'thumbnails'))
+      signFile(joinPath(root, 'manifest', 'entries.json'))
+      // Legacy layout fingerprints its quality folders via the videos they
+      // hold; the root dir mtime covers folders appearing or disappearing.
+      signDir(root)
+    }
+    for (const root of opts.macos.pictures) {
+      signDir(root)
+    }
+  }
   for (const entry of opts.entries ?? []) {
     // Imported projects keep their manifest one level above the copied
     // project dir; scanned projects keep project.json inside the dir.

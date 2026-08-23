@@ -5,9 +5,9 @@ import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { transform } from "lightningcss";
+import { execFile, execFileSync } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { pipeline } from "node:stream";
-import { execFileSync } from "node:child_process";
 import { Buffer as Buffer$1 } from "node:buffer";
 import { decode } from "jpeg-js";
 import { deflateSync, inflateSync } from "node:zlib";
@@ -2144,6 +2144,235 @@ function migrateLegacySelection(options) {
 	}
 }
 //#endregion
+//#region src/macos-library.ts
+/**
+* macOS wallpaper auto-discovery for the skin center (host half).
+*
+* Wallpaper Engine ships Windows-only, so on macOS the inventory falls back
+* to the wallpapers macOS itself manages:
+*
+*   1. Aerial (dynamic) wallpapers the user downloaded in System Settings:
+*      - modern layout  ~/Library/Application Support/com.apple.wallpaper/
+*        aerials/videos/<asset-id>.mov with same-stem previews under
+*        aerials/thumbnails/<asset-id>.png and display names in
+*        aerials/manifest/entries.json (the official Apple manifest);
+*      - legacy layout  /Library/Application Support/com.apple.idleassetsd/
+*        Customer/<quality>/<asset-id>.mov (Sonoma and earlier).
+*      Entries become 'video' wallpapers; browsers without HEVC decode fall
+*      back to the thumbnail through the panel's existing video error path.
+*   2. Desktop Pictures (*.heic, static and Apple dynamic wallpapers — only
+*      the first frame is rendered): /System/Library/Desktop Pictures
+*      (built-in) and /Library/Desktop Pictures (legacy downloads). HEIC is
+*      not browser-renderable; the routes layer converts through sips lazily
+*      (see the /image route in we-routes.ts).
+*
+* Everything is injectable for tests: roots, platform and filesystem probes
+* are parameters, never hard reads. Scanning is synchronous like the rest
+* of we-library (directory listings only; no file payload is read except
+* the small entries.json manifest).
+* @module @linxin666/dsh-client-ui-skin-center/macos-library
+*/
+/** Default roots for the current user (both modern and legacy layouts). */
+function defaultMacosWallpaperRoots(home = homedir()) {
+	return {
+		aerials: [join(home, "Library", "Application Support", "com.apple.wallpaper", "aerials"), join("/Library", "Application Support", "com.apple.idleassetsd", "Customer")],
+		pictures: [join("/System", "Library", "Desktop Pictures"), join("/Library", "Desktop Pictures")]
+	};
+}
+function resolveFs(inject) {
+	return {
+		exists: inject.exists ?? existsSync,
+		readdir: inject.readdir ?? readdirSync,
+		readFile: inject.readFile ?? ((path) => readFileSync(path, "utf8")),
+		stat: inject.stat ?? statSync
+	};
+}
+/**
+* Read asset-id -> display name out of an aerial entries.json. Missing or
+* malformed manifests yield an empty map (titles then fall back to the file
+* stem). Only accessibilityLabel is trusted: it is the user-visible name in
+* System Settings across locales.
+*/
+function readAerialManifest(text) {
+	const titles = /* @__PURE__ */ new Map();
+	try {
+		const raw = JSON.parse(text);
+		if (typeof raw !== "object" || raw === null) return titles;
+		const assets = raw.assets;
+		if (!Array.isArray(assets)) return titles;
+		for (const asset of assets) {
+			if (typeof asset !== "object" || asset === null) continue;
+			if (typeof asset.id === "string" && typeof asset.accessibilityLabel === "string" && asset.accessibilityLabel !== "") titles.set(asset.id, asset.accessibilityLabel);
+		}
+	} catch {}
+	return titles;
+}
+const MOV_RE = /\.mov$/i;
+const HEIC_RE = /\.heic$/i;
+function statOrZero(fs, path) {
+	try {
+		const stat = fs.stat(path);
+		return {
+			mtimeMs: stat.mtimeMs,
+			size: stat.size,
+			isFile: stat.isFile()
+		};
+	} catch {
+		return {
+			mtimeMs: 0,
+			size: 0,
+			isFile: false
+		};
+	}
+}
+/** Build one aerial entry; the preview is the same-stem thumbnail when downloaded. */
+function aerialEntry(id, title, videoAbs, previewAbs, fs) {
+	const stat = statOrZero(fs, videoAbs);
+	return {
+		id: "macos-aerial/" + id,
+		title,
+		type: "video",
+		file: videoAbs,
+		preview: previewAbs,
+		dir: dirname(videoAbs),
+		fileAbs: videoAbs,
+		previewAbs: previewAbs !== null && fs.exists(previewAbs) ? previewAbs : null,
+		source: "system",
+		playable: stat.isFile,
+		srcMtime: stat.mtimeMs,
+		srcSize: stat.size,
+		updateAvailable: false
+	};
+}
+/**
+* Scan the modern per-user aerial layout: <root>/videos/*.mov with titles
+* from <root>/manifest/entries.json and previews from <root>/thumbnails.
+*/
+function scanAerialsModern(root, fs) {
+	const videosDir = join(root, "videos");
+	if (!fs.exists(videosDir)) return [];
+	let names = [];
+	try {
+		names = fs.readdir(videosDir);
+	} catch {
+		return [];
+	}
+	let titles = /* @__PURE__ */ new Map();
+	const manifestPath = join(root, "manifest", "entries.json");
+	if (fs.exists(manifestPath)) try {
+		titles = readAerialManifest(fs.readFile(manifestPath));
+	} catch {}
+	const thumbnailsDir = join(root, "thumbnails");
+	const entries = [];
+	for (const name of names) {
+		if (!MOV_RE.test(name)) continue;
+		const id = name.replace(MOV_RE, "");
+		const thumbnail = join(thumbnailsDir, id + ".png");
+		entries.push(aerialEntry(id, titles.get(id) ?? id, join(videosDir, name), thumbnail, fs));
+	}
+	return entries;
+}
+/**
+* Scan the legacy system-wide aerial layout: <root>/<quality>/<id>.mov
+* (2KSDR / 4KHDR / …). Titles come from <root>/entries.json when present.
+*/
+function scanAerialsLegacy(root, fs) {
+	if (!fs.exists(root)) return [];
+	let names = [];
+	try {
+		names = fs.readdir(root);
+	} catch {
+		return [];
+	}
+	let titles = /* @__PURE__ */ new Map();
+	const manifestPath = join(root, "entries.json");
+	if (fs.exists(manifestPath)) try {
+		titles = readAerialManifest(fs.readFile(manifestPath));
+	} catch {}
+	const entries = [];
+	for (const name of names) {
+		const sub = join(root, name);
+		try {
+			if (!fs.stat(sub).isDirectory()) continue;
+		} catch {
+			continue;
+		}
+		let videos = [];
+		try {
+			videos = fs.readdir(sub);
+		} catch {
+			continue;
+		}
+		for (const video of videos) {
+			if (!MOV_RE.test(video)) continue;
+			const id = video.replace(MOV_RE, "");
+			entries.push(aerialEntry(id, titles.get(id) ?? id, join(sub, video), null, fs));
+		}
+	}
+	return entries;
+}
+/**
+* Scan every configured aerial root. A root holding a videos/ subdirectory
+* is treated as the modern layout; otherwise as the legacy quality-folder
+* layout. Entries de-dupe by asset id (first root wins).
+*/
+function scanMacAerials(roots, inject = {}) {
+	const fs = resolveFs(inject);
+	const found = /* @__PURE__ */ new Map();
+	for (const root of roots) {
+		const entries = fs.exists(join(root, "videos")) ? scanAerialsModern(root, fs) : scanAerialsLegacy(root, fs);
+		for (const entry of entries) if (!found.has(entry.id)) found.set(entry.id, entry);
+	}
+	return [...found.values()];
+}
+/**
+* Scan Desktop Pictures roots for *.heic wallpapers (static + Apple dynamic;
+* only the first frame is rendered). .madesktop records are data files, not
+* folders, and are skipped. Entries de-dupe by stem (first root wins).
+*/
+function scanMacDesktopPictures(roots, inject = {}) {
+	const fs = resolveFs(inject);
+	const found = /* @__PURE__ */ new Map();
+	for (const root of roots) {
+		if (!fs.exists(root)) continue;
+		let names = [];
+		try {
+			names = fs.readdir(root);
+		} catch {
+			continue;
+		}
+		for (const name of names) {
+			if (!HEIC_RE.test(name)) continue;
+			const stem = name.replace(HEIC_RE, "");
+			const id = "macos-heic/" + stem;
+			if (found.has(id)) continue;
+			const fileAbs = join(root, name);
+			const stat = statOrZero(fs, fileAbs);
+			found.set(id, {
+				id,
+				title: stem,
+				type: "image",
+				file: name,
+				preview: null,
+				dir: root,
+				fileAbs,
+				previewAbs: null,
+				source: "system",
+				playable: false,
+				srcMtime: stat.mtimeMs,
+				srcSize: stat.size,
+				updateAvailable: false
+			});
+		}
+	}
+	return [...found.values()];
+}
+/** Scan every macOS wallpaper source; empty off darwin. */
+function scanMacosWallpapers(roots, inject = {}) {
+	if ((inject.platform ?? process.platform) !== "darwin") return [];
+	return [...scanMacAerials(roots.aerials, inject), ...scanMacDesktopPictures(roots.pictures, inject)];
+}
+//#endregion
 //#region src/we-library.ts
 /**
 * Wallpaper Engine library discovery for the skin center (host half).
@@ -2162,7 +2391,11 @@ function migrateLegacySelection(options) {
 *      a workshop content dir) or a single project folder. A folder without
 *      a project.json is accepted when it directly contains a playable media
 *      file (e.g. a lone .mp4), which is the no-Steam fallback path.
-*   3. The import store (<harnessHome>/skin-center/wallpapers/<id>/): copies
+*   3. macOS wallpaper stores (darwin only, src/macos-library.ts): the
+*      user's downloaded aerial .mov wallpapers (com.apple.wallpaper /
+*      idleassetsd) and Desktop Pictures *.heic — source 'system', never
+*      importable.
+*   4. The import store (<harnessHome>/skin-center/wallpapers/<id>/): copies
 *      made by the import route. Each holds a manifest.json recording the
 *      source identity and the source file mtime/size at import time, so a
 *      later workshop update can be flagged as updateAvailable.
@@ -2330,7 +2563,8 @@ const KNOWN_TYPES = [
 	"scene",
 	"video",
 	"web",
-	"application"
+	"application",
+	"image"
 ];
 /** Media file extensions playable through the video element. */
 const VIDEO_FILE_RE = /\.(mp4|webm|mkv|avi|mov)$/i;
@@ -2610,6 +2844,7 @@ function buildInventory(opts = {}) {
 	const autoDetect = opts.autoDetect ?? true;
 	const installDir = opts.installDir !== void 0 ? opts.installDir : autoDetect ? locateWallpaperEngine() : null;
 	const libraryDirs = opts.libraryDirs ?? (autoDetect ? owningLibraries() : []);
+	const macos = opts.macos !== void 0 ? opts.macos : autoDetect && process.platform === "darwin" ? defaultMacosWallpaperRoots() : null;
 	const found = /* @__PURE__ */ new Map();
 	const add = (entry) => {
 		if (!found.has(entry.id)) found.set(entry.id, entry);
@@ -2627,6 +2862,7 @@ function buildInventory(opts = {}) {
 		const dir = trimmed !== void 0 ? expandUser(trimmed) : void 0;
 		if (dir !== void 0 && existsSync(dir)) for (const entry of scanManualWallpaperRoot(dir)) add(entry);
 	}
+	if (macos !== null) for (const entry of scanMacosWallpapers(macos)) add(entry);
 	const imported = opts.storeDir ? scanImportStore(opts.storeDir) : [];
 	for (const entry of imported) {
 		const source = found.get(entry.id.replace(/^imported\//, ""));
@@ -2698,6 +2934,15 @@ function inventoryFingerprint(opts = {}) {
 		if (basename(dir).toLowerCase() === "wallpaper_engine") signDir(join(dirname(dirname(dir)), "workshop", "content", WE_APPID));
 	}
 	if (opts.storeDir) signDir(opts.storeDir);
+	if (opts.macos) {
+		for (const root of opts.macos.aerials) {
+			signDir(join(root, "videos"));
+			signDir(join(root, "thumbnails"));
+			signFile(join(root, "manifest", "entries.json"));
+			signDir(root);
+		}
+		for (const root of opts.macos.pictures) signDir(root);
+	}
 	for (const entry of opts.entries ?? []) {
 		const manifest = entry.source === "imported" ? join(dirname(entry.dir), "manifest.json") : join(entry.dir, "project.json");
 		signDir(entry.dir);
@@ -7197,12 +7442,14 @@ function makeWeRoutes(deps) {
 		const autoDetect = deps.autoDetect ?? true;
 		const installDir = autoDetect ? locateWallpaperEngine() : null;
 		const libraryDirs = autoDetect ? owningLibraries() : [];
+		const macos = deps.macosRoots !== void 0 ? deps.macosRoots : autoDetect && process.platform === "darwin" ? defaultMacosWallpaperRoots() : null;
 		const key = inventoryFingerprint({
 			installDir,
 			libraryDirs,
 			manualDirs,
 			storeDir: deps.storeDir,
-			entries: inventoryCache?.value.wallpapers
+			entries: inventoryCache?.value.wallpapers,
+			macos
 		});
 		if (inventoryCache && inventoryCache.key === key) return inventoryCache.value;
 		const value = buildInventory({
@@ -7210,7 +7457,8 @@ function makeWeRoutes(deps) {
 			storeDir: deps.storeDir,
 			autoDetect: false,
 			installDir,
-			libraryDirs
+			libraryDirs,
+			macos
 		});
 		inventoryCache = {
 			key: inventoryFingerprint({
@@ -7218,7 +7466,8 @@ function makeWeRoutes(deps) {
 				libraryDirs,
 				manualDirs,
 				storeDir: deps.storeDir,
-				entries: value.wallpapers
+				entries: value.wallpapers,
+				macos
 			}),
 			value
 		};
@@ -7241,6 +7490,19 @@ function makeWeRoutes(deps) {
 	};
 	const entryToJson = (entry) => {
 		const hasFile = existsSync(entry.fileAbs);
+		if (entry.type === "image") return {
+			id: entry.id,
+			title: entry.title,
+			type: entry.type,
+			source: entry.source,
+			playable: false,
+			updateAvailable: false,
+			videoUrl: null,
+			webUrl: null,
+			frameUrl: null,
+			sceneUrl: null,
+			previewUrl: hasFile ? "/api/skin-center/we/image/" + tokenFor(entry.fileAbs) : null
+		};
 		return {
 			id: entry.id,
 			title: entry.title,
@@ -7299,6 +7561,7 @@ function makeWeRoutes(deps) {
 					installDir: inventory.installDir,
 					total: inventory.total,
 					portableCount: inventory.portableCount,
+					systemCount: inventory.wallpapers.filter((w) => w.source === "system").length,
 					wallpapers
 				});
 			} catch (error) {
@@ -7458,6 +7721,78 @@ function makeWeRoutes(deps) {
 			}
 		});
 	}
+	/**
+	* Convert one HEIC wallpaper into a <=2560px JPEG with the macOS-native
+	* sips tool (no extra dependency). Darwin-only: Desktop Pictures scanning
+	* only runs there, and the token map only ever holds scanned paths.
+	*/
+	const defaultConvertImage = (src, dest) => new Promise((resolvePromise, reject) => {
+		if (process.platform !== "darwin") {
+			reject(/* @__PURE__ */ new Error("heic conversion requires macOS"));
+			return;
+		}
+		execFile("/usr/bin/sips", [
+			"-s",
+			"format",
+			"jpeg",
+			"-s",
+			"formatOptions",
+			"85",
+			"-Z",
+			"2560",
+			src,
+			"--out",
+			dest
+		], { timeout: 6e4 }, (error) => {
+			if (error !== null) reject(error);
+			else resolvePromise();
+		});
+	});
+	const imagePrefix = "/api/skin-center/we/image/";
+	routes.push({
+		kind: "prefix",
+		path: "/api/skin-center/we/image",
+		handler: (req, res) => {
+			if (req.method !== "GET") {
+				writeJson(res, 405, {
+					ok: false,
+					error: "method-not-allowed"
+				});
+				return;
+			}
+			if (!requireSameOrigin(req, res)) return;
+			const abs = resolveToken(req, res, imagePrefix);
+			if (!abs) return;
+			if (!/\.heic$/i.test(abs)) {
+				writeJson(res, 400, {
+					ok: false,
+					error: "not-a-heic"
+				});
+				return;
+			}
+			(async () => {
+				let mtime = 0;
+				try {
+					mtime = statSync(abs).mtimeMs;
+				} catch {}
+				const cacheDir = join(deps.storeDir, ".cache", "images");
+				const base = Buffer.from(abs, "utf8").toString("base64url");
+				const key = base + "_v1_" + String(Math.round(mtime)) + ".jpg";
+				const cachePath = join(cacheDir, key);
+				if (!existsSync(cachePath)) {
+					mkdirSync(cacheDir, { recursive: true });
+					await (deps.convertImage ?? defaultConvertImage)(abs, cachePath);
+					pruneStaleSceneCache(cacheDir, base, key);
+				}
+				serveFile(cachePath, req, res, openReadStream);
+			})().catch((error) => {
+				writeJson(res, 422, {
+					ok: false,
+					error: error instanceof Error ? error.message : String(error)
+				});
+			});
+		}
+	});
 	const sceneVideoPrefix = "/api/skin-center/we/scene-video/";
 	routes.push({
 		kind: "prefix",
@@ -7814,6 +8149,13 @@ function makeWeRoutes(deps) {
 			writeJson(res, 404, {
 				ok: false,
 				error: "wallpaper-not-found"
+			});
+			return;
+		}
+		if (entry.source === "system") {
+			writeJson(res, 400, {
+				ok: false,
+				error: "not-importable"
 			});
 			return;
 		}

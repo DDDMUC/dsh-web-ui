@@ -46,6 +46,7 @@ export type SkinCenterKey =
   | 'wallpaperLoadError'
   | 'wallpaperLibraryFound'
   | 'wallpaperLibraryManual'
+  | 'wallpaperLibrarySystem'
   | 'wallpaperRefresh'
   | 'wallpaperMode'
   | 'wallpaperModeLive'
@@ -72,6 +73,8 @@ export type SkinCenterKey =
   | 'wallpaperTypeWeb'
   | 'wallpaperTypeScene'
   | 'wallpaperTypeApp'
+  | 'wallpaperTypeImage'
+  | 'wallpaperLoadMore'
   | 'wallpaperDirs'
   | 'wallpaperDirsEmpty'
   | 'wallpaperDirsHint'
@@ -136,6 +139,7 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperLoadError: 'Wallpaper library failed to load',
   wallpaperLibraryFound: 'Wallpaper Engine library detected',
   wallpaperLibraryManual: 'Manual folders only (no Wallpaper Engine install found; set folders in the skin-wallpaper settings)',
+  wallpaperLibrarySystem: 'macOS wallpapers detected (aerials and Desktop Pictures)',
   wallpaperRefresh: 'Refresh',
   wallpaperMode: 'Render mode',
   wallpaperModeLive: 'Live',
@@ -162,6 +166,8 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperTypeWeb: 'Web',
   wallpaperTypeScene: 'Scene (static)',
   wallpaperTypeApp: 'Unsupported',
+  wallpaperTypeImage: 'Image',
+  wallpaperLoadMore: 'Load more',
   wallpaperDirs: 'Manual folders',
   wallpaperDirsEmpty: 'No manual folders yet.',
   wallpaperDirsHint: 'No Wallpaper Engine (e.g. macOS)? Point a folder at any .mp4/.webm files, a wallpaper project folder, or a folder of projects — they become your wallpaper library.',
@@ -227,6 +233,7 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperLoadError: '壁纸库加载失败',
   wallpaperLibraryFound: '已检测到 Wallpaper Engine 壁纸库',
   wallpaperLibraryManual: '仅手动目录（未检测到 Wallpaper Engine 安装，可在 skin-wallpaper 设置里添加目录）',
+  wallpaperLibrarySystem: '已检测到 macOS 系统壁纸（航拍与桌面图片）',
   wallpaperRefresh: '刷新',
   wallpaperMode: '渲染模式',
   wallpaperModeLive: '动态',
@@ -253,6 +260,8 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperTypeWeb: '网页',
   wallpaperTypeScene: '场景(静态)',
   wallpaperTypeApp: '不支持',
+  wallpaperTypeImage: '静态图片',
+  wallpaperLoadMore: '加载更多',
   wallpaperDirs: '手动目录',
   wallpaperDirsEmpty: '还没有手动目录。',
   wallpaperDirsHint: '没有 Wallpaper Engine（如 macOS）？把任意 .mp4/.webm 视频、单个壁纸项目文件夹或项目合集文件夹加进来，就是你的壁纸库。',

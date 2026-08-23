@@ -176,3 +176,73 @@ describe('WallpaperPanel directory picker', () => {
     expect(browseButton()).toBeNull()
   })
 })
+
+describe('WallpaperPanel macOS system wallpapers', () => {
+  const item = (id: string, overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+    id,
+    title: id,
+    type: 'video',
+    source: 'local',
+    playable: true,
+    updateAvailable: false,
+    videoUrl: '/api/skin-center/we/media/' + id,
+    webUrl: null,
+    frameUrl: null,
+    previewUrl: '/api/skin-center/we/preview/' + id,
+    ...overrides,
+  })
+
+  it('pages the grid instead of mounting every thumbnail at once', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => item('w' + String(i)))
+    await render(many)
+    // Every item carries a previewUrl, so mounted cards are countable via
+    // their thumbnail images.
+    const cards = (): number => host.querySelectorAll('img').length
+    expect(cards()).toBe(12)
+    const more = Array.from(host.querySelectorAll('button'))
+      .find((button) => button.textContent?.startsWith(zh.wallpaperLoadMore)) as HTMLButtonElement
+    expect(more.textContent).toContain('13')
+    await act(async () => { more.click() })
+    expect(cards()).toBe(24)
+    const moreAgain = Array.from(host.querySelectorAll('button'))
+      .find((button) => button.textContent?.startsWith(zh.wallpaperLoadMore)) as HTMLButtonElement
+    await act(async () => { moreAgain.click() })
+    expect(cards()).toBe(25)
+    expect(Array.from(host.querySelectorAll('button'))
+      .some((button) => button.textContent?.startsWith(zh.wallpaperLoadMore))).toBe(false)
+  })
+
+  it('shows the static-image badge and no import button for macOS system entries', async () => {
+    await render([item('macos-heic/Tahoe Day', {
+      type: 'image',
+      source: 'system',
+      playable: false,
+      videoUrl: null,
+      previewUrl: '/api/skin-center/we/image/AAA',
+    })])
+    expect(host.textContent).toContain(zh.wallpaperTypeImage)
+    expect(host.querySelector('img')?.getAttribute('src')).toBe('/api/skin-center/we/image/AAA')
+    const labels = Array.from(host.querySelectorAll('button')).map((button) => button.textContent)
+    expect(labels).not.toContain(zh.wallpaperImport)
+  })
+
+  it('reports the macOS library status line when system wallpapers exist', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        installDir: null,
+        total: 1,
+        portableCount: 1,
+        systemCount: 1,
+        wallpapers: [item('macos-aerial/AAAA-1', { source: 'system' })],
+      }),
+    })))
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<WallpaperPanel t={t as never} wallpaper={stubWallpaper()} />)
+    })
+    expect(host.textContent).toContain(zh.wallpaperLibrarySystem)
+  })
+})

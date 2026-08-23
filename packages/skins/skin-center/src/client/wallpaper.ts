@@ -32,7 +32,8 @@ export const SKIN_WALLPAPER_NS = 'skin-wallpaper'
 export interface WallpaperDescriptor {
   id: string
   title: string
-  type: 'video' | 'web' | 'scene' | 'application'
+  /** 'image' is the macOS Desktop Pictures kind: a static host-converted JPEG. */
+  type: 'video' | 'web' | 'scene' | 'application' | 'image'
   videoUrl: string | null
   webUrl: string | null
   frameUrl: string | null
