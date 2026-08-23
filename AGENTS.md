@@ -51,6 +51,7 @@ Market build order: build `market/shell` first (`npm run build` in `market/shell
 - Prefer CodeGraph for code navigation, symbol lookup, dependency analysis, review, and impact analysis. Use `query`, `explore`, `node`, `impact`, and `affected`; initialize with `codegraph init <project-root>` when needed.
 - After all code changes in a session, before final validation, run `codegraph sync <project-root>` and `codegraph status <project-root>`. If the index is missing or sync fails, run `codegraph index <project-root>`.
 - Keep changes focused, preserve existing work, and verify real behavior. User-visible changes require appropriate runtime evidence; visual changes require screenshots and multimodal validation.
+- Agent 的代码改动涉及 Wallpaper Engine / 渲染器域（如 `packages/skins/skin-center/src/client/wallpaper.ts`、`packages/skins/skin-center/src/we-player-source.ts` 及其测试 `packages/skins/skin-center/tests/wallpaper.spec.ts` / `packages/skins/skin-center/tests/we-player.spec.ts`）时，通知负责该域的协作者 Aa728848（EDDYCRAZY-CC）；域归属见 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [.github/pr-review-routes.json](.github/pr-review-routes.json)。
 
 ## 运行中的 DSH 服务
 
