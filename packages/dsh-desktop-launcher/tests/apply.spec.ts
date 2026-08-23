@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { apply } from '../src/index.ts'
 
 /**
@@ -24,8 +26,8 @@ function makeScope(value: Record<string, unknown>): FakeScope {
 /** Fiber disposers collected from the fake ctx; run after each case to reset mountOnce. */
 const disposers: Array<() => void> = []
 
-function makeCtx(scope: FakeScope) {
-  const registered = new Set<string>()
+function makeCtx(scope: FakeScope, appExit?: (code: number) => void) {
+  const registered = new Map<string, WebRoute>()
   const announced = new Set<string>()
   const effect = (fn: () => unknown) => {
     const disposer = fn()
@@ -34,7 +36,7 @@ function makeCtx(scope: FakeScope) {
   }
   const ctx = {
     effect,
-    get: () => undefined,
+    get: (name: string) => name === 'appExit' ? appExit : undefined,
     // dsh-settings checks ctx.fiber.state when a registration tears down.
     fiber: { state: 0 },
     inject: (_deps: string[], fn: (sctx: { settings: { register: () => FakeScope }; effect: typeof effect }) => void) => {
@@ -42,8 +44,8 @@ function makeCtx(scope: FakeScope) {
       return () => {}
     },
     webServer: {
-      register: (route: { path: string }) => {
-        registered.add(route.path)
+      register: (route: WebRoute) => {
+        registered.set(route.path, route)
         return () => {}
       },
     },
@@ -58,6 +60,7 @@ function makeCtx(scope: FakeScope) {
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   while (disposers.length > 0) disposers.pop()!()
 })
 
@@ -72,10 +75,38 @@ describe('desktop-launcher host apply', () => {
   it('mounts the routes and an explicitly enabled announcement', () => {
     const { ctx, registered, announced } = makeCtx(makeScope({ enabled: true, announceToAgent: true }))
     apply(ctx, {})
-    expect(registered).toEqual(new Set([
+    expect(new Set(registered.keys())).toEqual(new Set([
       '/api/dsh-desktop-launcher/create',
       '/api/dsh-desktop-launcher/shutdown',
     ]))
     expect(announced).toEqual(new Set(['plugin:dsh-desktop-launcher']))
+  })
+
+  it('acknowledges shutdown before requesting one bounded host exit', async () => {
+    vi.useFakeTimers()
+    const exits: number[] = []
+    const { ctx, registered } = makeCtx(makeScope({ enabled: true }), code => { exits.push(code) })
+    apply(ctx, {})
+    const route = registered.get('/api/dsh-desktop-launcher/shutdown')!
+    const req = {
+      method: 'POST',
+      socket: { remoteAddress: '127.0.0.1' },
+      headers: { host: '127.0.0.1:3080' },
+    } as unknown as IncomingMessage
+    const state = { status: 0, body: '' }
+    const res = {
+      writeHead: (status: number) => { state.status = status },
+      end: (body?: string) => { state.body = body ?? '' },
+    } as unknown as ServerResponse
+    await route.handler(req, res)
+    expect(state.status).toBe(200)
+    expect(JSON.parse(state.body)).toEqual({ ok: true })
+    expect(exits).toEqual([])
+    await vi.advanceTimersByTimeAsync(500)
+    expect(exits).toEqual([0])
+
+    await route.handler(req, res)
+    await vi.advanceTimersByTimeAsync(500)
+    expect(exits).toEqual([0])
   })
 })

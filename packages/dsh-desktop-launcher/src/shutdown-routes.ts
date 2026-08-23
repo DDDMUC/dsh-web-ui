@@ -11,7 +11,7 @@ import { LAUNCHER_API } from './protocol.ts'
 import { isLoopbackRequest } from './loopback.ts'
 
 /** How long the exit request waits after the response is flushed. */
-export const EXIT_DELAY_MS = 80
+export const EXIT_DELAY_MS = 500
 
 export { isLoopbackRequest }
 
@@ -54,7 +54,8 @@ export function makeShutdownRoute(deps: ShutdownRouteDeps): WebRoute {
       }
       writeJson(res, 200, { ok: true })
       // Flush first: the browser must see the acknowledgement before the
-      // process is gone. The beat also lets the response socket drain.
+      // process is gone. Leave enough time for fetch to settle before appExit
+      // disposes the web server and the rest of the plugin tree.
       schedule(() => deps.requestExit(0), EXIT_DELAY_MS)
     },
   }

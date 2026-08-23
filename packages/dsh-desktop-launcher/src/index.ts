@@ -17,7 +17,6 @@ import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import { DEFAULT_DSH_COMMAND, DEFAULT_URL, resolveLauncherSpec } from './core/launcher.ts'
 import { makeRoutes } from './routes.ts'
-import { LAUNCHER_TOKEN_ENV, makeLauncherLifecycleRoute } from './lifecycle-routes.ts'
 import { isLoopbackRequest, makeShutdownRoute } from './shutdown-routes.ts'
 import { mountOnce } from './mount-once.ts'
 
@@ -54,7 +53,7 @@ export interface Config {
   dshCommand?: string
   /** Base URL of the dsh web GUI. */
   url?: string
-  /** Optional profile passed as `dsh web --profile <profile>`. */
+  /** Optional profile started as `dsh --profile <profile> --no-open`. */
   profile?: string
   /** Optional icon file (.ico/.png) for the desktop icon; empty uses the bundled dsh icon. */
   iconPath?: string
@@ -95,12 +94,13 @@ function applyImpl(ctx: Context, config?: Config): void {
   let current: () => Config = () => config ?? {}
   let disposeRoutes: (() => void) | undefined
   let disposeShutdownRoute: (() => void) | undefined
-  let disposeLifecycleRoute: (() => void) | undefined
   let disposeSection: (() => void) | undefined
-  let managedToken = process.env[LAUNCHER_TOKEN_ENV]?.trim() || undefined
 
-  /** Ask the launcher for a bounded exit; fall back to a direct exit. */
+  /** Ask the launcher for a bounded exit at most once; fall back to a direct exit. */
+  let exitRequested = false
   const requestExit = (code: number): void => {
+    if (exitRequested) return
+    exitRequested = true
     const exit = ctx.get('appExit')
     if (exit !== undefined) {
       exit(code)
@@ -125,10 +125,6 @@ function applyImpl(ctx: Context, config?: Config): void {
       disposeShutdownRoute()
       disposeShutdownRoute = undefined
     }
-    if (disposeLifecycleRoute !== undefined) {
-      disposeLifecycleRoute()
-      disposeLifecycleRoute = undefined
-    }
     const value = current()
     // The plugin is off unless the resolved config says otherwise.
     if ((value.enabled ?? false) === false) return
@@ -141,20 +137,6 @@ function applyImpl(ctx: Context, config?: Config): void {
       },
       'dsh-desktop-launcher: routes',
     )
-    if (managedToken !== undefined) {
-      disposeLifecycleRoute = ctx.effect(() => {
-        const lifecycle = makeLauncherLifecycleRoute({
-          token: managedToken!,
-          requestExit,
-          fence: isLoopbackRequest,
-        })
-        const unregister = ctx.webServer.register(lifecycle.route)
-        return () => { unregister(); lifecycle.dispose() }
-      }, 'dsh-desktop-launcher: managed browser lifecycle')
-      // The inherited token only identifies the process instance that consumed it.
-      // Avoid exposing it to later route re-registration through a mutable environment.
-      managedToken = managedToken.trim()
-    }
     disposeShutdownRoute = ctx.effect(
       () => ctx.webServer.register(makeShutdownRoute({
         fence: isLoopbackRequest,
