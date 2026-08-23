@@ -7,7 +7,7 @@ The dsh web UI plugin group for the DSH settings page: it adds a first-level set
 ## What it is
 
 - **One section for the family**: on the DSH settings page it registers a first-level section with a static heading and cards for the remaining dsh web UI family plugins (task-board, remote-web-ui, describe-image). Each plugin card is collapsed by default and expands independently to show its enable switch and configuration form.
-- **DSH Market hub**: Skin Center, Community Plugins and the Desktop Pet (plus the Store card) ship as their own packages and register as tab panels of the single DSH Market settings section (the market hub); without the hub they fall back to their own first-level sections that open directly expanded.
+- **First-level sections**: the Skin Center, the Desktop Pet and the DSH Market (store card) each register as their own first-level settings section that opens directly expanded; the official Plugins section ships the official installer beside the plugin-manager tab provided by `dsh-plugin-manager`.
 
 ## Install
 

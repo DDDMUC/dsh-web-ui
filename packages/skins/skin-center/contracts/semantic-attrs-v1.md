@@ -82,7 +82,6 @@ family / 插件区域：
 | `panel` | pet | 交互面板；`[data-placement]` |
 | `summon-button` | pet | 召唤钮；`[data-testid="pet-summon"]` |
 | `plugin-item` | web-ui-settings | 家族插件设置卡；`[data-slot="web-ui.plugin.item"]` 内 entry |
-| `marketplace-card` | community-plugins | 社区插件卡；section 内 grid 项 |
 | `head` | skill-explorer | 技能中心模态卡头部；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="card"] > header` |
 | `card` | skill-explorer | 技能中心模态卡；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="card"]` |
 | `tab-bar` / `tab` | skill-explorer | 技能中心页签条/页签；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="tab-bar"]` / `[data-dsh-plugin="skill-explorer"] [data-dsh-part="tab"]` |
@@ -110,15 +109,14 @@ family / 插件区域：
 | `task-board` | dsh-task-board | `[data-dsh-taskboard-view]` / `[data-dsh-taskboard-entry]` / slot entry id |
 | `ssh` | dsh-ssh | `[data-dsh-ssh-view]` / `[data-dsh-ssh-entry]` |
 | `git-graph` | dsh-git-graph | slot entry id `git-graph`；`[data-gitgraph-chip-anchor]` / `[data-gitgraph-dialog]` |
-| `pet` | dsh-pet | `[data-dsh-pet-root]`；DSH 市场 hub 页签（settings.section id `dsh-market` 内 dsh-market.tab id `pet`）；独立安装时 settings.section id `pet` |
+| `pet` | dsh-pet | `[data-dsh-pet-root]`；一级设置分区 settings.section id `pet`（只列内置与已安装宠物） |
 | `remote-web-ui` | dsh-remote-web-ui | slot entry id `remote-web-ui` |
 | `web-ui-settings` | dsh-web-ui-settings | settings.section id `web-ui-plugins` |
-| `community-plugins` | dsh-community-plugins | DSH 市场 hub 页签（dsh-market.tab id `community-plugins`）；独立安装时 settings.section id `community-plugins` |
 | `skill-explorer` | dsh-skill-explorer | `[data-dsh-skill-explorer-view]` / `[data-dsh-skill-explorer-entry]` |
 | `doctor` | dsh-doctor | web-ui.plugin.item 槽 entry id `doctor`（设置 → Web UI 插件 → Doctor 卡片）；卡片内 `[data-dsh-plugin="doctor"]` |
 | `aionui-panel` | dsh-aionui-panel（停更） | dock entry id `aionui-*` |
-| `dsh-market` | dsh-market | DSH 市场 hub 一级页（settings.section id `dsh-market`），页签容器与商店页签 |
-| `skin-center` | skins/skin-center | DSH 市场 hub 页签（dsh-market.tab id `skin-center`）；独立安装时 settings.section 一级页 |
+| `dsh-market` | dsh-market | DSH 市场商店一级页（settings.section id `dsh-market`），商店卡与目录条目容器 |
+| `skin-center` | skins/skin-center | 一级设置分区 settings.section id `skin-center`（列已安装皮肤，属内置源时显式标记） |
 | `session-id` | dsh-session-id | footer action slot entry id `session-id`；`[data-dsh-plugin="session-id"]`（面板 overlay 根 + 入口触发器） |
 
 ## 已知脆弱点（上游主题缝 PR 诉求）

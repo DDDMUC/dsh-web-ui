@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-DSH Web GUI 设置页的 DSH 市场中枢与商店卡片：唯一的「DSH 市场」一级分区承载 商店 / 皮肤中心 / 宠物 / 社区插件 四个分类页签，在 GUI 内浏览 [dsh-market.com](https://dsh-market.com) 的皮肤、宠物与社区插件，并一键安装到本机。
+DSH Web GUI 设置页的 DSH 市场商店卡片：唯一的「DSH 市场」一级分区在 GUI 内浏览 [dsh-market.com](https://dsh-market.com) 的皮肤、宠物与插件，并一键安装到本机；已安装内容由各自的设置分区管理（皮肤中心、宠物、官方插件分区内的插件管理）。
 
 ## 功能
 
@@ -17,7 +17,7 @@ DSH Web GUI 设置页的 DSH 市场中枢与商店卡片：唯一的「DSH 市�
 dsh plugin --profile web add @linxin666/dsh-client-ui-market
 ```
 
-重启 `dsh web` 后，设置页出现唯一「DSH 市场」分区：本商店卡片与皮肤中心、宠物、社区插件卡片作为页签同置其中。没有本 hub 时，各兄弟卡片回退为自己的独立一级分区。
+重启 `dsh web` 后，设置页出现「DSH 市场」分区，直接展开本商店卡片（皮肤 / 宠物 / 插件三个类目）。皮肤中心、宠物与官方「插件」分区里的插件管理各自是独立的设置分区。
 
 ## 配置
 
