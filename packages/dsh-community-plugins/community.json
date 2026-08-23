@@ -17,6 +17,7 @@
     "description": "Claude Code 风格全屏交互终端插件：像素鲸鱼顶栏、实时工作状态行、思考流式展开、双击 Esc 回滚、上下文进度条与 TPS 仪表。",
     "descriptionEn": "A Claude Code style fullscreen interactive terminal plugin: pixel-whale header, live working-state line, streaming reasoning expansion, double-Esc rollback, context progress bar and TPS gauges.",
     "repo": "https://github.com/ccch1mneyyy/dsh-TUI",
+    "npm": "@deepseek-harness-tui/dsh-tui",
     "category": "ui"
   },
   {
@@ -28,16 +29,6 @@
     "descriptionEn": "An interactive terminal UI plugin for DeepSeek Harness that adds TDD and evidence-gate workflows on top of the official base.",
     "repo": "https://github.com/huiliyi37/dsh-tianshu-tui",
     "category": "ui"
-  },
-  {
-    "id": "dsh-chat-summary",
-    "name": "Chat Summary",
-    "nameEn": "Chat Summary",
-    "author": "v833",
-    "description": "总结当前对话并导出为 Markdown / DOCX / PDF，可选 LLM 智能总结（用户自配 API Key）。",
-    "descriptionEn": "Summarize the current conversation and export it as Markdown / DOCX / PDF, with optional LLM summarization using your own API key.",
-    "repo": "https://github.com/v833/dsh-chat-summary",
-    "category": "knowledge"
   },
   {
     "id": "dsh-builtin-toggles",
@@ -211,16 +202,6 @@
     "category": "integration"
   },
   {
-    "id": "dsh-palate",
-    "name": "Palate 品味训练",
-    "nameEn": "Palate Design Taste",
-    "author": "guo6x",
-    "description": "会长大的眼：可积累的设计品味语料库（好/坏例子 + 编码原则），喂得越多评审越准；6 个 palate_* 工具（review/add/learn/list/principles/stats）+ 成长面板，node:sqlite + 人可读 Markdown 镜像，零运行时依赖。",
-    "descriptionEn": "An eye that grows: an accumulated design-taste corpus (good/bad examples plus codified principles) that sharpens with every example you feed; six palate_* tools (review/add/learn/list/principles/stats) plus a growth panel, node:sqlite with human-readable Markdown mirrors, zero runtime dependencies.",
-    "repo": "https://github.com/guo6x/dsh-palate",
-    "category": "knowledge"
-  },
-  {
     "id": "dsh-history-tree",
     "name": "历史树",
     "nameEn": "History Tree",
@@ -272,31 +253,14 @@
     "category": "ui"
   },
   {
-    "id": "dsh-secret-redactor",
-    "name": "敏感信息脱敏",
-    "nameEn": "Secret Redactor",
-    "author": "DamonKoy",
-    "description": "自动掩码工具输出中的 API key、token、JWT、私钥与配置密钥。",
-    "descriptionEn": "Auto-masks API keys, tokens, JWTs and private keys in tool results shown to the model.",
-    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-secret-redactor"
-  },
-  {
     "id": "dsh-approve-for-me",
     "name": "自动审批审核",
     "nameEn": "Approve for Me",
     "author": "DamonKoy",
     "description": "只读工具自动放行、危险命令自动拒绝，可配置全自动模式。",
     "descriptionEn": "Auto-approves read-only tools, auto-denies dangerous commands, optional full-auto mode.",
-    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-approve-for-me"
-  },
-  {
-    "id": "dsh-mcp-client-v2",
-    "name": "MCP 客户端 v2",
-    "nameEn": "MCP Client v2",
-    "author": "DamonKoy",
-    "description": "MCP 客户端增强：分页工具发现、非阻塞启动、工具搜索。",
-    "descriptionEn": "Enhanced MCP client: paginated tool discovery, non-blocking startup, tool search.",
-    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-mcp-client-v2"
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-approve-for-me",
+    "npm": "dsh-approve-for-me"
   },
   {
     "id": "dsh-memories",
@@ -305,25 +269,8 @@
     "author": "DamonKoy",
     "description": "按项目作用域持久化的键值记忆，支持增删查列与搜索。",
     "descriptionEn": "Project-scoped persistent key-value memories with set/get/list/delete/search.",
-    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-memories"
-  },
-  {
-    "id": "dsh-system-proxy",
-    "name": "系统代理",
-    "nameEn": "System Proxy",
-    "author": "DamonKoy",
-    "description": "检测系统代理（scutil/环境变量/PAC）并为子进程导出代理环境变量。",
-    "descriptionEn": "Detects system proxy (scutil/env/PAC) and exports proxy env for child processes.",
-    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-system-proxy"
-  },
-  {
-    "id": "dsh-usage-cost",
-    "name": "用量成本提醒",
-    "nameEn": "Usage & Cost",
-    "author": "DamonKoy",
-    "description": "统计会话与每日 token 用量和估算成本，超预算提醒。",
-    "descriptionEn": "Tracks token usage and estimated cost per session/day with budget alerts.",
-    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-usage-cost"
+    "repo": "https://github.com/DamonKoy/dsh-plugins/tree/main/packages/dsh-memories",
+    "npm": "dsh-memories"
   },
   {
     "id": "dsh-notifier",
