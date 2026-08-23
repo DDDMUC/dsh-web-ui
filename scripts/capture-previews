@@ -5,8 +5,8 @@
  * capture-previews — regenerate every skin's light/dark preview screenshots.
  *
  * Opens gallery/preview.html (the v2 static renderer: the simulator injects
- * the skin's stylesheets into the official-facade snapshot; skin JS is never
- * executed, backgroundMedia is not rendered) in headless Chromium and
+ * the skin's stylesheets into the official-facade snapshot and paints
+ * declarative backgroundMedia; skin hooks JS is never executed) in headless Chromium and
  * screenshots each skin × {light, dark} into
  * packages/skins/skin-center/skins/<id>/preview/{light,dark}.png.
  *
@@ -44,7 +44,7 @@ function isInside(root, file) {
 }
 
 function serve() {
-  const types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png' }
+  const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp' }
   server = http.createServer((req, res) => {
     const url = decodeURIComponent((req.url || '/').split('?')[0])
     const file = path.normalize(path.join(ROOT, url === '/' ? 'gallery/preview.html' : url))
@@ -89,6 +89,9 @@ async function main() {
   const base = useServer ? await serve() + '/gallery' : 'file://' + GALLERY
   console.log(`capture-previews: ${skins.length} skins × {light,dark} @ ${base}`)
 
+  // hooks 动态场景皮肤清单（作用于 capture 渲染，不影响模拟器默认行为）
+  const HOOK_SCENE_SKINS = ['maid-atelier']
+
   const { chromium } = loadPlaywright()
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })
@@ -111,7 +114,37 @@ async function main() {
         return el && el.style.display === 'block' ? el.textContent : null
       })
       if (errText) throw new Error(`${skin.id}/${theme}: ${errText}`)
-      await page.waitForTimeout(350) // 让背景图/过渡稳定
+      // 等声明式背景画真正解码完成（冷启动首次加载 1600x900 WebP 可能慢于
+      // 固定等待，只等 data-dsh-skin 会先于 renderSkinBackdrop 命中）
+      await page.waitForFunction(() => {
+        const layer = document.getElementById('skin-backdrop')
+        if (!layer) return true
+        const img = layer.querySelector('img')
+        if (img) return img.complete && img.naturalWidth > 0
+        const video = layer.querySelector('video')
+        if (video) return video.readyState >= 2
+        return true
+      }, undefined, { timeout: 15000 })
+      await page.waitForTimeout(300) // 让 scrim/过渡稳定
+      // 部分皮肤的角色场景由 hooks.mjs 动态绘制（如 maid-atelier 的宫殿+双女仆），
+      // 模拟器默认不执行皮肤 JS；capture 时对这类皮肤用最小 ctx shim 运行 apply()，
+      // 让预览与真实观感一致（需 --serve：模块加载走 http）。
+      if (useServer && HOOK_SCENE_SKINS.indexOf(skin.id) !== -1) {
+        await page.evaluate(async (id) => {
+          const mod = await import('/packages/skins/skin-center/skins/' + id + '/hooks.mjs?t=' + Date.now())
+          const factory = mod && mod.default
+          if (typeof factory !== 'function') return
+          const hooks = factory()
+          if (!hooks || typeof hooks.apply !== 'function') return
+          hooks.apply({
+            assetBase: '/packages/skins/skin-center/skins/' + id,
+            scopeAttr: id,
+            theme: { get: () => (document.body.dataset.dsDarkTheme !== undefined ? 'dark' : 'light') },
+            onCleanup: function () {},
+          })
+        }, skin.id)
+        await page.waitForTimeout(700)
+      }
       const out = path.join(dir, `${theme}.jpg`)
       await page.screenshot({ path: out, type: 'jpeg', quality: 85 })
       console.log(`  ok ${skin.id}/${theme} → ${path.relative(ROOT, out)}`)

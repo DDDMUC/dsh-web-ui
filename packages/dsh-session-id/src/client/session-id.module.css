@@ -1,6 +1,7 @@
 /* Session-id seat + panel (design tokens only — no literal colors).
-   The footer trigger matches the settings row/rail geometry; the panel is a
-   centered modal (mask + card) following the remote-web-ui panel contract. */
+   The footer trigger is the 36px icon circle shared by row and rail; the
+   panel is a centered modal (mask + card) following the remote-web-ui panel
+   contract. */
 
 /* ── Sidebar foot trigger ── */
 
@@ -18,30 +19,10 @@
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
+  /* Last in the shared footer-action seat: beside the update/remote stack in
+     both wide (row) and rail (stacked column) modes. */
+  order: 1;
   transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
-}
-
-.trigger[data-wide='wide'] {
-  flex: 1 1 auto;
-  justify-content: flex-start;
-  width: auto;
-  min-width: 0;
-  border-radius: 8px;
-  gap: 8px;
-  padding: 0 10px;
-}
-
-.trigger[data-wide='wide'] .triggerLabel {
-  display: inline;
-}
-
-.triggerLabel {
-  display: none;
-  font-size: 14px;
-  line-height: 20px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .trigger:hover:not(:disabled) {
@@ -56,6 +37,21 @@
 .trigger:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);
+}
+
+/* ── Rail seat geometry (official-shell compatibility) ──
+
+   The shell renders `sidebar.footer.action` as a centered horizontal row.
+   With two occupied columns (this trigger + remote-web-ui's update/remote
+   stack) the row is 72px wide and overflows the 56px rail, clipping both
+   sides. When this trigger sits in the rail, stack the seat vertically so
+   every occupant keeps the 36px rail column the shell uses elsewhere. The
+   selectors carry no class names (they stay global under CSS Modules) and
+   match only the container that actually holds this trigger. */
+[class*='footerActions']:has([data-dsh-plugin='session-id'][data-wide='rail']) {
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ── Centered modal panel ── */

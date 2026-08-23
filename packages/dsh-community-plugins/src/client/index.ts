@@ -16,6 +16,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the slot-surface types (the settings.section seat).
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { CommunityPluginsCardController, CommunityPluginsSection, type CommunityPluginsSettings } from './CommunityPluginsCard.tsx'
+import { installMarketTabSeat, MARKET_TAB_KEY } from './market-tab.ts'
 import { en, zh, type CommunityPluginKey } from './locales.ts'
 import { bridgePluginManager } from './plugin-manager-bridge.ts'
 
@@ -64,8 +65,39 @@ export function apply(ctx: ClientContext): void {
   const settingsScope = binder.bind<CommunityPluginsSettings>({ namespace: COMMUNITY_PLUGINS_NS })
   const controller = new CommunityPluginsCardController(settingsScope)
 
-  ctx.slots.inject('settings.section', () => {
+  // Two-seat registration (the DSH Market hub contract, see market-tab.ts):
+  // with the hub installed this card becomes the Community Plugins tab;
+  // standalone it keeps its own first-level settings section. The seat flag
+  // makes both modes mutually exclusive and keeps the controller disposal on
+  // the seat that actually lives.
+  let seat: 'tab' | 'section' | null = null
+  let fallbackEntry: (() => void) | null = null
+  ctx.slots.inject(MARKET_TAB_KEY, () => {
+    seat = 'tab'
     const unregister = ctx.slots.register({
+      name: MARKET_TAB_KEY,
+      id: 'community-plugins',
+      order: 400,
+      label: () => ctx.locale.bind('community-plugins')('settings.title'),
+      locale: 'community-plugins',
+      inject: () => controller.inject(),
+    }, CommunityPluginsSection)
+    if (fallbackEntry) {
+      fallbackEntry()
+      fallbackEntry = null
+    }
+    return () => {
+      if (seat === 'tab') {
+        seat = null
+        controller.dispose()
+      }
+      unregister()
+    }
+  })
+  ctx.slots.inject('settings.section', () => {
+    if (seat === 'tab') return () => {}
+    seat = 'section'
+    fallbackEntry = ctx.slots.register({
       name: 'settings.section',
       id: 'community-plugins',
       order: 140,
@@ -74,8 +106,11 @@ export function apply(ctx: ClientContext): void {
       inject: () => controller.inject(),
     }, CommunityPluginsSection)
     return () => {
-      controller.dispose()
-      unregister()
+      if (seat === 'section') {
+        seat = null
+        controller.dispose()
+      }
+      fallbackEntry = null
     }
   })
 }

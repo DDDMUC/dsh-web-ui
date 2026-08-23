@@ -39,6 +39,19 @@
         "waiting",
         "running",
         "review"
+      ],
+      "files": [
+        "pet.json",
+        "previews/failed.gif",
+        "previews/idle.gif",
+        "previews/jumping.gif",
+        "previews/review.gif",
+        "previews/running-left.gif",
+        "previews/running-right.gif",
+        "previews/running.gif",
+        "previews/waiting.gif",
+        "previews/waving.gif",
+        "spritesheet.webp"
       ]
     },
     {
@@ -47,6 +60,9 @@
       "rank": 2,
       "renderer": "sprite2d",
       "spritesheet": "assets/pets/whale-refined/spritesheet.webp",
+      "previews": [
+        "assets/pets/whale-refined/previews/idle.gif"
+      ],
       "frames": [
         6,
         8,
@@ -68,6 +84,11 @@
         "waiting",
         "running",
         "review"
+      ],
+      "files": [
+        "pet.json",
+        "previews/idle.gif",
+        "spritesheet.webp"
       ]
     }
   ]

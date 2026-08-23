@@ -15,11 +15,11 @@ import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { makeSkinCenterV2Routes } from './routes-v2.ts'
 import { makeSkinIndexRows, makeSkinIndexTap } from './tap-index-adapter.ts'
-import { defaultActiveStatePath, readActiveSelection } from './active-state.ts'
+import { defaultActiveStatePath, readActiveSelection, seedDefaultActiveSkin } from './active-state.ts'
 import { migrateBackgroundFromSettings } from './background-migration.ts'
 import { migrateLegacySelection } from './legacy-bridge.ts'
 import { SKIN_BACKGROUND_DEFAULTS, type SkinBackgroundConfig } from './core/background.ts'
-import { loadSkinCatalog } from './skin-repo.ts'
+import { findSkin, loadSkinCatalog } from './skin-repo.ts'
 import { makeWeRoutes } from './we-routes.ts'
 import { defaultWallpapersStoreDir } from './we-library.ts'
 import { resolveHarnessHome } from './harness-home.ts'
@@ -227,6 +227,19 @@ function applyImpl(ctx: Context): void {
     }, 'ui-skin-center: routes')
   } catch (error) {
     console.error('[ui-skin-center] route registration failed:', error)
+  }
+
+  // Default-skin seed (market on-demand plan): only blue-fantasy ships in
+  // the package; every other skin is a market install into the user skins
+  // directory. A first boot with no persisted selection activates the shipped
+  // default once, so fresh installs see the intended look without the user
+  // opening the skin center. Existing selections are never overwritten; a
+  // selection no longer in the catalog resolves to the stock look browser-side.
+  try {
+    const statePath = defaultActiveStatePath()
+    seedDefaultActiveSkin(statePath, (id) => findSkin(loadSkinCatalog(), id) !== null)
+  } catch (error) {
+    console.error('[ui-skin-center] default-skin seed failed:', error)
   }
 
   // One-shot legacy bridge (issue #506): migrate the retired dsh-skin

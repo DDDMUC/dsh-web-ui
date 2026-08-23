@@ -81,9 +81,9 @@ body[data-dsh-skin-center] .titleBadge {
 }
 
 body[data-dsh-skin-center] .intro {
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--dsw-alias-label-secondary, #6b7280);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
 }
 
 body[data-dsh-skin-center] .themeRow {
@@ -100,19 +100,21 @@ body[data-dsh-skin-center] .themeLabel {
 }
 
 body[data-dsh-skin-center] .themeButton {
+  font: inherit;
   font-size: 12px;
-  line-height: 1;
-  padding: 5px 10px;
+  line-height: 1.5;
+  font-weight: 600;
+  padding: 4px 12px;
   border-radius: 6px;
-  border: 1px solid var(--dsw-alias-border-l3, #cbd5e1);
-  background: var(--dsw-alias-bg-layer-2, #ffffff);
-  color: var(--dsw-alias-label-primary, #172a45);
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 body[data-dsh-skin-center] .themeButton:hover {
-  border-color: var(--dsw-alias-border-l4, #94a3b8);
+  border-color: var(--dsw-alias-label-dimmed);
 }
 
 body[data-dsh-skin-center] .themeButton:active {
@@ -141,11 +143,16 @@ body[data-dsh-skin-center] .list {
 body[data-dsh-skin-center] .card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--dsw-alias-border-l1, #e2e8f0);
-  background: var(--dsw-alias-bg-layer-2, #ffffff);
+  gap: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  transition: border-color 0.16s;
+}
+
+body[data-dsh-skin-center] .card:hover {
+  border-color: var(--dsw-alias-label-dimmed);
 }
 
 body[data-dsh-skin-center] .cardHead {
@@ -164,7 +171,7 @@ body[data-dsh-skin-center] .swatch {
 }
 
 body[data-dsh-skin-center] .cardName {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   min-width: 0;
   overflow: hidden;
@@ -173,9 +180,10 @@ body[data-dsh-skin-center] .cardName {
 }
 
 body[data-dsh-skin-center] .cardTagline {
-  font-size: 12px;
+  margin: 0;
+  font-size: 13px;
   line-height: 1.45;
-  color: var(--dsw-alias-label-secondary, #6b7280);
+  color: var(--dsw-alias-label-secondary);
 }
 
 body[data-dsh-skin-center] .badge {
@@ -207,20 +215,21 @@ body[data-dsh-skin-center] .actions {
 }
 
 body[data-dsh-skin-center] .button {
+  font: inherit;
   font-size: 12px;
-  line-height: 1;
-  padding: 6px 12px;
-  border-radius: 7px;
-  border: 1px solid var(--dsw-alias-border-l3, #cbd5e1);
-  background: var(--dsw-alias-bg-layer-2, #ffffff);
-  color: var(--dsw-alias-label-primary, #172a45);
+  line-height: 1.5;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 body[data-dsh-skin-center] .button:hover:not(:disabled) {
-  border-color: var(--dsw-alias-brand-primary, #2b7cd9);
-  color: var(--dsw-alias-brand-primary, #1e63b8);
+  border-color: var(--dsw-alias-label-dimmed);
 }
 
 body[data-dsh-skin-center] .button:active:not(:disabled) {
@@ -235,30 +244,27 @@ body[data-dsh-skin-center] .button:focus-visible {
 }
 
 body[data-dsh-skin-center] .buttonPrimary {
-  border-color: var(--dsw-alias-brand-primary, #2b7cd9);
-  background: var(--dsw-alias-button-primary-fill, #2b7cd9);
-  color: var(--dsw-alias-label-primary-foreground, #ffffff);
+  border-color: var(--dsw-alias-button-info-fill);
+  background: var(--dsw-alias-button-info-fill);
+  color: var(--dsw-alias-bg-layer-3);
 }
 
 body[data-dsh-skin-center] .buttonPrimary:hover:not(:disabled) {
-  border-color: var(--dsw-alias-button-primary-hover, #1e63b8);
-  background: var(--dsw-alias-button-primary-hover, #1e63b8);
-  color: var(--dsw-alias-label-primary-foreground, #ffffff);
+  opacity: 0.88;
 }
 
-body[data-dsh-skin-center] .buttonPrimary:active:not(:disabled),
-body[data-dsh-skin-center] .buttonPrimary:focus-visible:not(:disabled) {
-  border-color: var(--dsw-alias-button-primary-hover, #1e63b8);
-  background: var(--dsw-alias-button-primary-hover, #1e63b8);
+body[data-dsh-skin-center] .buttonPrimary:active:not(:disabled) {
+  opacity: 0.88;
 }
 
 body[data-dsh-skin-center] .buttonGhost {
   border-color: transparent;
   background: transparent;
+  opacity: 0.5;
 }
 
 body[data-dsh-skin-center] .button:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: default;
 }
 
@@ -276,9 +282,9 @@ body[data-dsh-skin-center] .enableRow {
 }
 
 body[data-dsh-skin-center] .enableLabel {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--dsw-alias-label-primary, #172a45);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
 }
 
 body[data-dsh-skin-center] .enableHint {
@@ -351,9 +357,9 @@ body[data-dsh-skin-center] .backgroundHead {
 }
 
 body[data-dsh-skin-center] .backgroundLabel {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--dsw-alias-label-primary, #172a45);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
 }
 
 body[data-dsh-skin-center] .backgroundValue {
@@ -441,6 +447,7 @@ body[data-dsh-skin-center] .backgroundHintMuted {
 /* Respect users who disable motion: no transitioned state changes. */
 @media (prefers-reduced-motion: reduce) {
   body[data-dsh-skin-center] .pluginCard,
+  body[data-dsh-skin-center] .card,
   body[data-dsh-skin-center] .themeButton,
   body[data-dsh-skin-center] .button,
   body[data-dsh-skin-center] .switch,
@@ -489,9 +496,9 @@ body[data-dsh-skin-center] .wallpaperCard {
   flex-direction: column;
   gap: 6px;
   border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 8px;
-  background: var(--dsw-alias-bg-layer-2, #ffffff);
+  background: var(--dsw-alias-bg-layer-1);
   transition: border-color 0.16s;
 }
 

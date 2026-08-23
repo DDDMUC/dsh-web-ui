@@ -65,7 +65,7 @@
   "files": [
     "lib",
     "contracts",
-    "skins",
+    "skins/blue-fantasy",
     "cordis.patch.yml",
     "README.md"
   ],

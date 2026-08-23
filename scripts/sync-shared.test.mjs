@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import { REPO_ROOT, applySync, checkSync, copyEntries, headerFor, renderCopy, stripHeader } from './sync-shared.mjs'
 
 test('header/strip round-trips every file kind', () => {
-  for (const file of ['settings-form.ts', 'PluginSettingsCard.tsx', 'settings-card.module.css']) {
+  for (const file of ['settings-form.ts', 'PluginSettingsCard.tsx', 'settings-card.module.css', 'market-tab.ts']) {
     const source = 'export const x = 1' + String.fromCharCode(10)
     const sourceRel = 'shared/client/settings/' + file
     const rendered = renderCopy(source, file, sourceRel)
@@ -17,18 +17,18 @@ test('header/strip round-trips every file kind', () => {
   }
 })
 
-test('copies cover the settings trio for eight consumers plus host helpers', () => {
+test('copies cover the settings trio plus the market tab seat for nine consumers plus host helpers', () => {
   // Normalize separators: node:path join yields backslashes on Windows, and
   // the copy-count buckets below match on forward slashes.
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
-  assert.equal(entries.length, 63)
+  assert.equal(entries.length, 73)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
-  assert.equal(clientTrio.length, 28)
+  assert.equal(clientTrio.length, 35)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')
     || entry.target.includes('/src/loopback.ts'))
-  assert.equal(hostCopies.length, 35)
+  assert.equal(hostCopies.length, 38)
 })
 
 test('checkSync detects drift and applySync repairs it', async () => {
@@ -40,6 +40,7 @@ test('checkSync detects drift and applySync repairs it', async () => {
     await writeFile(join(sourceDir, 'settings-form.ts'), 'export const good = 1' + String.fromCharCode(10))
     await writeFile(join(sourceDir, 'PluginSettingsCard.tsx'), 'export const card = 1' + String.fromCharCode(10))
     await writeFile(join(sourceDir, 'settings-card.module.css'), '.card { color: red }' + String.fromCharCode(10))
+    await writeFile(join(sourceDir, 'market-tab.ts'), 'export const tab = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sse-leader.ts'), 'export const leader = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sidebar-entry-core.ts'), 'export const sidecore = 1' + String.fromCharCode(10))
     const hostDir = join(root, 'shared', 'host')

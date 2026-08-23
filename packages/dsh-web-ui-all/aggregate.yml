@@ -16,6 +16,7 @@ patchFrom:
   - ../dsh-web-ui-settings
   - ../dsh-plugin-manager
   - ../dsh-community-plugins
+  - ../dsh-market
   - ../dsh-aionui-panel
   - ../dsh-task-board
   - ../dsh-git-graph
@@ -28,13 +29,13 @@ patchFrom:
   - ../dsh-skill-explorer
   - ../dsh-desktop-launcher
   - ../dsh-doctor
-  - ../dsh-session-id
   - ../skins/skin-center
 self:
   - web-ui-compat
 deps:
   - ../dsh-plugin-manager
   - ../dsh-community-plugins
+  - ../dsh-market
   - ../dsh-aionui-panel
   - ../dsh-task-board
   - ../dsh-git-graph
@@ -47,7 +48,6 @@ deps:
   - ../dsh-skill-explorer
   - ../dsh-desktop-launcher
   - ../dsh-doctor
-  - ../dsh-session-id
   - ../dsh-web-ui-settings
   - ../skins/skin-center
 # 外部 npm 插件：dsh-better-sidebar 接管右侧面板位置。行名从 profile 顶层

@@ -54,10 +54,14 @@ async function main() {
     }
   }
   if (failed) process.exit(1)
+  // The package ships only the default skin (market on-demand plan); this
+  // check validates the whole repo catalog that market-build and the gallery
+  // serve. Keep both facts visible in the report.
+  const shipped = 'blue-fantasy'
   if (!checkMode) {
-    console.log(`skin-center:check: ${catalog.skins.length} built-in skins valid`)
+    console.log(`skin-center:check: ${catalog.skins.length} repo catalog skins valid (package ships ${shipped} only)`)
   } else {
-    console.log(`skin-center:check: check OK (${catalog.skins.length} built-in skins)`)
+    console.log(`skin-center:check: check OK (${catalog.skins.length} repo catalog skins; package ships ${shipped} only)`)
   }
 }
 

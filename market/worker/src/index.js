@@ -1,25 +1,14 @@
 /**
- * dsh-market — edge API for the DSH marketplace (Worker).
- *
- * Static assets (market/dist) are served by the platform; this Worker runs
- * only for /api/* (run_worker_first match) and provides:
- *   GET  /api/health  — liveness
- *   GET  /api/stats   — all vote counts { skin: {id: votes}, pet: {...}, plugin: {...} }
- *                       (cached 60s via Cache API)
- *   POST /api/like    — per-device like/unlike (D1-backed, idempotent)
- *
- * Security posture: anonymous device fingerprint (hashed at rest), one vote
- * per device per asset; no login system by design. Best-effort abuse
- * mitigation: fingerprint format check, payload size bound, and the
- * unique PRIMARY KEY in D1. Cloudflare-level bot protection applies in
- * front of the zone.
+ * dsh-market — edge API for the DSH marketplace.
+ * Anonymous likes are Turnstile-gated when configured and stored in D1.
  */
 
 const KINDS = new Set(['skin', 'pet', 'plugin'])
 const ASSET_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 const FP_RE = /^[A-Za-z0-9_-]{16,64}$/
-
-const STATS_CACHE = new Request('https://dsh-market.com/api/stats')
+const SKIN_RE = /^[a-z][a-z0-9-]{0,31}$/
+const TURNSTILE_ACTION = 'market-like'
+const TURNSTILE_SITEKEY = '0x4AAAAAAEYeoSRJRjgCOiZI'
 
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -27,9 +16,20 @@ function json(data, status = 200, extra = {}) {
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
+      'access-control-allow-origin': '*',
       ...extra,
     },
   })
+}
+
+function preflight(request) {
+  const headers = new Headers({
+    'access-control-allow-origin': '*',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers': request.headers.get('access-control-request-headers') || 'content-type',
+    'access-control-max-age': '86400',
+  })
+  return new Response(null, { status: 204, headers })
 }
 
 async function sha256(text) {
@@ -40,48 +40,81 @@ async function sha256(text) {
 async function readStats(env) {
   const { results } = await env.DB.prepare('SELECT kind, asset_id, votes FROM counts').all()
   const out = { skin: {}, pet: {}, plugin: {} }
-  for (const r of results || []) {
-    if (!(r.kind in out)) continue
-    out[r.kind][r.asset_id] = r.votes
+  for (const row of results || []) {
+    if (!(row.kind in out)) continue
+    out[row.kind][row.asset_id] = row.votes
   }
   return out
 }
 
+async function verifyTurnstile(request, env, token) {
+  if (!env.TURNSTILE_SECRET) return true
+  if (!token) return false
+  const form = new URLSearchParams()
+  form.set('secret', env.TURNSTILE_SECRET)
+  form.set('response', token)
+  form.set('idempotency_key', crypto.randomUUID())
+  const ip = request.headers.get('cf-connecting-ip') || ''
+  if (ip) form.set('remoteip', ip)
+  const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    body: form,
+  })
+  const result = await response.json().catch(() => ({ success: false }))
+  return result.success === true && result.action === TURNSTILE_ACTION && result.hostname === 'dsh-market.com'
+}
+
+const CHALLENGE_HTML = [
+  '<!doctype html><meta charset="utf-8"><title>Market verification</title>',
+  '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script>',
+  '<div id="challenge"></div>',
+  '<script>(function(){',
+  'var origin="",requestId="",widget=null;',
+  'function reply(token){if(!origin||!requestId)return;parent.postMessage({source:"dsh-market-card",type:"token",id:requestId,token:token||""},origin);requestId=""}',
+  'function ready(){if(widget!==null||!window.turnstile)return widget;widget=window.turnstile.render("#challenge",{sitekey:"' + TURNSTILE_SITEKEY + '",action:"' + TURNSTILE_ACTION + '",size:"invisible",callback:reply,"error-callback":function(){reply("")},"timeout-callback":function(){reply("")}});return widget}',
+  'addEventListener("message",function(event){if(event.source!==parent||!event.data||event.data.source!=="dsh-market-card"||event.data.type!=="request")return;origin=event.origin;requestId=String(event.data.id||"");var tries=0,timer=setInterval(function(){tries++;var id=ready();if(id!==null){clearInterval(timer);try{window.turnstile.reset(id);window.turnstile.execute(id)}catch(error){reply("")}}else if(tries>=160){clearInterval(timer);reply("")}},50)});',
+  '})()</script>',
+].join('')
+
+function challengePage() {
+  return new Response(CHALLENGE_HTML, {
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'content-security-policy': "default-src 'none'; script-src 'unsafe-inline' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src https://challenges.cloudflare.com; style-src 'unsafe-inline'",
+    },
+  })
+}
+
+async function mutateLike(env, kind, assetId, hash, unlike) {
+  const mutate = unlike
+    ? env.DB.prepare('DELETE FROM likes WHERE kind = ?1 AND asset_id = ?2 AND device_hash = ?3').bind(kind, assetId, hash)
+    : env.DB.prepare('INSERT OR IGNORE INTO likes (kind, asset_id, device_hash, created_at) VALUES (?1, ?2, ?3, ?4)').bind(kind, assetId, hash, Date.now())
+  const recount = env.DB.prepare(
+    'INSERT INTO counts (kind, asset_id, votes) SELECT ?1, ?2, COUNT(*) FROM likes WHERE kind = ?1 AND asset_id = ?2 ON CONFLICT(kind, asset_id) DO UPDATE SET votes = excluded.votes'
+  ).bind(kind, assetId)
+  const select = env.DB.prepare('SELECT votes FROM counts WHERE kind = ?1 AND asset_id = ?2').bind(kind, assetId)
+  const results = await env.DB.batch([mutate, recount, select])
+  const rows = results[2] && results[2].results
+  return Number(rows && rows[0] && rows[0].votes) || 0
+}
+
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const url = new URL(request.url)
     const path = url.pathname
 
-    // --- GET /api/health --------------------------------------------------
-    if (path === '/api/health') {
-      return json({ ok: true })
-    }
+    if (request.method === 'OPTIONS' && (path === '/api/like' || path === '/api/stats')) return preflight(request)
+    if (path === '/api/health') return json({ ok: true })
+    if (path === '/api/turnstile/challenge' && request.method === 'GET') return challengePage()
 
-    // --- GET /api/stats ---------------------------------------------------
     if (path === '/api/stats' && request.method === 'GET') {
-      const cache = caches.default
-      const hit = await cache.match(STATS_CACHE)
-      if (hit) return hit
-      const stats = await readStats(env)
-      const resp = new Response(JSON.stringify(stats), {
-        headers: {
-          'content-type': 'application/json; charset=utf-8',
-          'cache-control': 'public, max-age=60, stale-while-revalidate=300',
-          'access-control-allow-origin': '*',
-        },
-      })
-      ctx.waitUntil(cache.put(STATS_CACHE, resp.clone()))
-      return resp
+      return json(await readStats(env), 200, { 'cache-control': 'no-store' })
     }
 
-    // --- POST /api/like ---------------------------------------------------
     if (path === '/api/like' && request.method === 'POST') {
       let body
-      try {
-        body = await request.json()
-      } catch {
-        return json({ ok: false, error: 'invalid-json' }, 400)
-      }
+      try { body = await request.json() } catch { return json({ ok: false, error: 'invalid-json' }, 400) }
       const kind = typeof body.kind === 'string' ? body.kind : ''
       const assetId = typeof body.asset_id === 'string' ? body.asset_id : ''
       const fp = typeof body.device_fp === 'string' ? body.device_fp : ''
@@ -89,36 +122,41 @@ export default {
       if (!KINDS.has(kind) || !ASSET_RE.test(assetId) || !FP_RE.test(fp)) {
         return json({ ok: false, error: 'invalid-params' }, 400)
       }
-
       const hash = await sha256(fp)
-      let voteResult = null
-      if (unlike) {
-        const del = await env.DB.prepare(
-          'DELETE FROM likes WHERE kind = ?1 AND asset_id = ?2 AND device_hash = ?3'
-        ).bind(kind, assetId, hash).run()
-        if (del.meta && del.meta.changes > 0) {
-          await env.DB.prepare(
-            'UPDATE counts SET votes = MAX(votes - 1, 0) WHERE kind = ?1 AND asset_id = ?2 AND votes > 0'
-          ).bind(kind, assetId).run()
-        }
-        voteResult = { liked: false }
-      } else {
-        const ins = await env.DB.prepare(
-          'INSERT OR IGNORE INTO likes (kind, asset_id, device_hash, created_at) VALUES (?1, ?2, ?3, ?4)'
-        ).bind(kind, assetId, hash, Date.now()).run()
-        if (ins.meta && ins.meta.changes > 0) {
-          await env.DB.prepare(
-            'INSERT INTO counts (kind, asset_id, votes) VALUES (?1, ?2, 1) ON CONFLICT(kind, asset_id) DO UPDATE SET votes = votes + 1'
-          ).bind(kind, assetId).run()
-        }
-        voteResult = { liked: true }
+      const token = typeof body.turnstile_token === 'string' ? body.turnstile_token : ''
+      if (!(await verifyTurnstile(request, env, token))) {
+        return json({ ok: false, error: token ? 'captcha-invalid' : 'captcha-required' }, 403)
       }
-      ctx.waitUntil(caches.default.delete(STATS_CACHE))
+      const votes = await mutateLike(env, kind, assetId, hash, unlike)
+      return json({ ok: true, liked: !unlike, votes })
+    }
 
-      const row = await env.DB.prepare(
-        'SELECT votes FROM counts WHERE kind = ?1 AND asset_id = ?2'
-      ).bind(kind, assetId).first()
-      return json({ ok: true, liked: voteResult.liked, votes: row ? row.votes : 0 })
+    if (path.startsWith('/api/skin-center/v2/skins/') && request.method === 'GET') {
+      const rest = path.slice('/api/skin-center/v2/skins/'.length)
+      const slash = rest.indexOf('/')
+      const skinId = slash === -1 ? '' : rest.slice(0, slash)
+      const sub = slash === -1 ? '' : rest.slice(slash + 1)
+      const rel = sub === 'stylesheet' ? 'skin.css'
+        : sub === 'patches' ? 'patches.css'
+          : sub === 'hooks.mjs' ? 'hooks.mjs'
+            : /^(assets|preview)\//.test(sub) ? sub : null
+      if (SKIN_RE.test(skinId) && rel !== null && !rel.includes('..')) {
+        const assetPath = sub === 'stylesheet' || sub === 'patches'
+          ? '/tryon-assets/skins/' + encodeURIComponent(skinId) + '/' + rel
+          : '/assets/skins/' + encodeURIComponent(skinId) + '/' + rel
+        const asset = await env.ASSETS.fetch(new URL(assetPath, url))
+        if (asset && asset.status !== 404) {
+          const headers = new Headers()
+          headers.set('content-type', asset.headers.get('content-type') || 'application/octet-stream')
+          headers.set('cache-control', asset.headers.get('cache-control') || 'public, max-age=86400, stale-while-revalidate=86400')
+          for (const name of ['etag', 'last-modified']) {
+            const value = asset.headers.get(name)
+            if (value) headers.set(name, value)
+          }
+          return new Response(asset.body, { status: asset.status, headers })
+        }
+      }
+      return json({ ok: false, error: 'skin-asset-not-found' }, 404)
     }
 
     return json({ ok: false, error: 'not-found' }, 404)

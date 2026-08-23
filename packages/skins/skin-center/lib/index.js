@@ -594,6 +594,12 @@ function resolveInsideSkin(entry, relPath) {
 * synchronous: the tap runs per response and must never await.
 * @module @linxin666/dsh-client-ui-skin-center/active-state
 */
+/**
+* The single skin shipped with the package (the market on-demand plan): the
+* default look for a fresh install. Every other skin is a market download
+* into the user skins directory; nothing else is bundled.
+*/
+const DEFAULT_SKIN_ID = "blue-fantasy";
 /** Default location: $DSH_HOME/skin-center-active.json. */
 function defaultActiveStatePath() {
 	return join(userSkinsDir(), "..", "skin-center-active.json");
@@ -649,6 +655,22 @@ function writeActiveState(path, update) {
 /** Persist the active skin id (creates the parent directory). */
 function writeActiveSelection(path, id) {
 	writeActiveState(path, { active: id });
+}
+/**
+* Seed the active selection on a first boot (no persisted selection): the
+* shipped default skin becomes the active look. Never overwrites an existing
+* selection — in particular an upgrade keeps (and later resolves) whatever
+* the user had picked, and a selection that vanished from the catalog falls
+* back to the stock look on the browser side.
+* @param path - active-state file path.
+* @param find - whether the default id exists in the current catalog.
+* @returns whether the seed wrote the selection.
+*/
+function seedDefaultActiveSkin(path, find) {
+	if (readActiveSelection(path) !== null) return false;
+	if (!find("blue-fantasy")) return false;
+	writeActiveSelection(path, DEFAULT_SKIN_ID);
+	return true;
 }
 //#endregion
 //#region src/core/css-safety/official-tokens.generated.ts
@@ -7850,6 +7872,11 @@ function applyImpl(ctx) {
 		}, "ui-skin-center: routes");
 	} catch (error) {
 		console.error("[ui-skin-center] route registration failed:", error);
+	}
+	try {
+		seedDefaultActiveSkin(defaultActiveStatePath(), (id) => findSkin(loadSkinCatalog(), id) !== null);
+	} catch (error) {
+		console.error("[ui-skin-center] default-skin seed failed:", error);
 	}
 	try {
 		const statePath = defaultActiveStatePath();

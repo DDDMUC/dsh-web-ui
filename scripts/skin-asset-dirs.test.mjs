@@ -36,3 +36,22 @@ test('skin-center stays a real bundle; skin asset directories stay package-free'
     assert.equal(skin.id, name, name)
   }
 })
+
+test('the published package ships only the default skin; every other skin stays repo-side as the market source', () => {
+  // Market on-demand plan: the skin-center npm package bundles exactly the
+  // default skin (blue-fantasy). The remaining skins stay under the repo's
+  // skins/ directory — the single source for market-build, the gallery and
+  // the preview tooling — and users install them on demand from the market
+  // into $DSH_HOME/skins, where the same skin center manages them.
+  const center = readJson(join(skinsRoot, 'skin-center', 'package.json'))
+  const files = center.files
+  assert.ok(Array.isArray(files), 'files whitelist must exist')
+  const packagedSkins = files.filter((entry) => typeof entry === 'string' && entry.startsWith('skins/'))
+  assert.deepEqual(packagedSkins, ['skins/blue-fantasy'], 'only the default skin may ship in the package')
+  const skins = readdirSync(assetRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+  assert.ok(skins.includes('blue-fantasy'))
+  assert.ok(skins.length > 1, 'the other skins stay in the repo as the market-build source')
+  assert.ok(readJson(join(assetRoot, 'blue-fantasy', 'skin.json')).id === 'blue-fantasy')
+})

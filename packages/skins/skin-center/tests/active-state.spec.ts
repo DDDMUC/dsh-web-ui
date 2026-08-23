@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { readActiveSelection, readActiveState, writeActiveSelection, writeActiveState } from '../src/active-state.ts'
+import { DEFAULT_SKIN_ID, readActiveSelection, readActiveState, seedDefaultActiveSkin, writeActiveSelection, writeActiveState } from '../src/active-state.ts'
 
 const { originalRename } = vi.hoisted(() => ({
   originalRename: { impl: null as unknown as typeof renameSync },
@@ -49,6 +49,22 @@ describe('active-state persistence (issue #678: atomic write)', () => {
   it('leaves no temp directories behind after a successful write', () => {
     writeActiveSelection(path, 'skin-a')
     expect(readdirSync(dir)).toEqual(['skin-center-active.json'])
+  })
+
+  it('seeds the default shipped skin on a first boot with no selection', () => {
+    expect(seedDefaultActiveSkin(path, () => true)).toBe(true)
+    expect(readActiveSelection(path)).toBe(DEFAULT_SKIN_ID)
+  })
+
+  it('seeds nothing when the default skin is absent from the catalog', () => {
+    expect(seedDefaultActiveSkin(path, () => false)).toBe(false)
+    expect(readActiveSelection(path)).toBeNull()
+  })
+
+  it('never overwrites an existing selection', () => {
+    writeActiveSelection(path, 'maid-atelier')
+    expect(seedDefaultActiveSkin(path, () => true)).toBe(false)
+    expect(readActiveSelection(path)).toBe('maid-atelier')
   })
 
   it('roundtrips the background section (issue #996)', () => {

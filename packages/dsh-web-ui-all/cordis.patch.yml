@@ -23,6 +23,11 @@
     - id: web-ui-community-plugins
       name: '@linxin666/dsh-client-ui-community-plugins'
 
+# from ../dsh-market
+- insert:
+    - id: web-ui-market
+      name: '@linxin666/dsh-client-ui-market'
+
 # from ../dsh-aionui-panel
 - insert:
     - id: web-ui-dsh-aionui-panel
@@ -82,11 +87,6 @@
 - insert:
     - id: web-ui-doctor
       name: '@linxin666/dsh-doctor'
-
-# from ../dsh-session-id
-- insert:
-    - id: web-ui-session-id
-      name: '@linxin666/dsh-client-ui-session-id'
 
 # from ../skins/skin-center
 - insert:
