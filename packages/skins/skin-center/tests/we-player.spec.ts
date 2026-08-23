@@ -31,10 +31,10 @@ describe('WE scene player reflection pass (#742)', () => {
     expect(WE_SCENE_PLAYER_HTML).not.toContain('if (sceneData.is3D) {')
   })
 
-  it('composites serialized front-to-back image layers in reverse draw order', () => {
-    expect(WE_SCENE_PLAYER_HTML).toContain('const renderLayers = sceneData.layers.slice().reverse();')
+  it('preserves Wallpaper Engine painter order for image and effect layers', () => {
+    expect(WE_SCENE_PLAYER_HTML).toContain('const renderLayers = sceneData.layers;')
     expect(WE_SCENE_PLAYER_HTML).toContain('for (const layer of renderLayers)')
-    expect(WE_SCENE_PLAYER_HTML).not.toContain('for (const layer of sceneData.layers)')
+    expect(WE_SCENE_PLAYER_HTML).not.toContain('sceneData.layers.slice().reverse()')
   })
 
   it('draws the reflection quad at the layer rect instead of forcing fullscreen', () => {

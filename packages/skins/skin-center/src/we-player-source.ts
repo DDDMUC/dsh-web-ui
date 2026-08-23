@@ -1610,11 +1610,11 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     // Projection matrix mapping scene coords (0..sceneW, 0..sceneH) to clip space (-1..1)
     const proj = mat4Ortho(0, sceneW, 0, sceneH, -1000, 1000);
 
-    // WE serializes scene image objects from front to back. Composite in the
-    // reverse order so the authored background is painted first and the main
-    // artwork stays above it; drawing the manifest order directly lets a later
-    // fullscreen gradient cover the actual wallpaper after textures load.
-    const renderLayers = sceneData.layers.slice().reverse();
+    // WE serializes scene image objects in painter order: the base is first and
+    // overlays/effect layers follow it. Preserve that order. Reversing it makes
+    // an opaque base layer cover flow/sway shaders and every foreground component,
+    // which presents live scenes as a wrongly cropped static texture.
+    const renderLayers = sceneData.layers;
 
     // Pass 1: Render background and sky layers into FBO for reflections
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
