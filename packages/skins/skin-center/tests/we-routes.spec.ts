@@ -857,6 +857,7 @@ describe('sandboxed wallpaper loads (T1-1)', () => {
     expect(manifest.status).toBe(200)
     expect(manifest.body.ok).toBe(true)
     expect(String(manifest.headers['access-control-allow-origin'])).toBe('null')
+    expect(String(manifest.headers['referrer-policy'])).toBe('no-referrer')
     const resource = await call('GET', WE_API_PREFIX + '/scene-resource/' + token + '/materials/sky.tex', { headers })
     expect(resource.status).toBe(200)
     expect(String(resource.headers['access-control-allow-origin'])).toBe('null')

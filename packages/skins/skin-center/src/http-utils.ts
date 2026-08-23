@@ -8,11 +8,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-/** One JSON response. */
-export function json(res: ServerResponse, status: number, body: unknown, extraHeaders: Record<string, string> = {}): void {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', ...extraHeaders })
-  res.end(JSON.stringify(body))
-}
+import { writeJson } from './http.ts'
 
 /** True when an `Origin` header names a host other than the request Host.
  *  Browsers send Origin on CORS requests and on all POSTs; opaque origins
@@ -45,7 +41,7 @@ function isSameOriginRequest(req: IncomingMessage): boolean {
 /** Reject cross-site requests with 403. */
 export function requireSameOrigin(req: IncomingMessage, res: ServerResponse): boolean {
   if (isSameOriginRequest(req)) return true
-  json(res, 403, { ok: false, error: 'cross-site-request-rejected' })
+  writeJson(res, 403, { ok: false, error: 'cross-site-request-rejected' })
   return false
 }
 
@@ -60,7 +56,7 @@ export function requireSameOrigin(req: IncomingMessage, res: ServerResponse): bo
  */
 export function requireContentOrigin(req: IncomingMessage, res: ServerResponse): boolean {
   if (hasForeignOrigin(req)) {
-    json(res, 403, { ok: false, error: 'cross-site-request-rejected' })
+    writeJson(res, 403, { ok: false, error: 'cross-site-request-rejected' })
     return false
   }
   return true
@@ -68,3 +64,6 @@ export function requireContentOrigin(req: IncomingMessage, res: ServerResponse):
 
 /** Lenient bounded body reader (64 KiB default cap), re-exported from the shared helper copy. */
 export { readJsonBody } from './http.ts'
+
+/** Shared family JSON writer (default headers plus caller overrides), re-exported from the shared helper copy. */
+export { writeJson }

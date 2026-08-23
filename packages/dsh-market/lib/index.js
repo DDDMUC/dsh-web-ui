@@ -301,6 +301,11 @@ async function installAsset(kind, id, options) {
 //#region src/http.ts
 /** Default body cap for readJsonBody: 64 KiB. */
 const DEFAULT_JSON_BODY_MAX_BYTES = 64 * 1024;
+/** Family-default JSON response headers; callers may append or override. */
+const JSON_HEADERS = {
+	"content-type": "application/json; charset=utf-8",
+	"referrer-policy": "no-referrer"
+};
 /**
 * Lenient bounded body reader: parse a request body as JSON, or null on an
 * empty body, invalid JSON, or a body past maxBytes (default 64 KiB).
@@ -336,6 +341,19 @@ async function readJsonBody(req, opts = {}) {
 function isJsonObject(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+/**
+* Write one JSON response. Default headers are the family defaults
+* (content-type and referrer-policy); caller headers are appended or
+* override them.
+*/
+function writeJson(res, status, body, headers = {}) {
+	const payload = JSON.stringify(body);
+	res.writeHead(status, {
+		...JSON_HEADERS,
+		...headers
+	});
+	res.end(payload);
+}
 //#endregion
 //#region src/routes.ts
 /**
@@ -349,13 +367,6 @@ function isJsonObject(value) {
 * @module @linxin666/dsh-client-ui-market/routes
 */
 const MARKET_API_PREFIX = "/api/market";
-function json(res, status, body) {
-	res.writeHead(status, {
-		"content-type": "application/json; charset=utf-8",
-		"cache-control": "no-store"
-	});
-	res.end(JSON.stringify(body));
-}
 function isLoopback(req) {
 	try {
 		return isLoopbackRequest(req);
@@ -369,65 +380,65 @@ function makeMarketRoutes(deps = {}) {
 	const fetchImpl = deps.fetchImpl ?? fetch;
 	const handleInstall = (kind) => async (req, res) => {
 		if (!isLoopback(req)) {
-			json(res, 403, {
+			writeJson(res, 403, {
 				ok: false,
 				error: "loopback-only"
-			});
+			}, { "cache-control": "no-store" });
 			return;
 		}
 		if (req.method !== "POST") {
-			json(res, 405, {
+			writeJson(res, 405, {
 				ok: false,
 				error: "method-not-allowed"
-			});
+			}, { "cache-control": "no-store" });
 			return;
 		}
 		let body;
 		try {
 			body = await readJsonBody(req, { maxBytes: 16 * 1024 }) ?? {};
 		} catch {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "invalid-body"
-			});
+			}, { "cache-control": "no-store" });
 			return;
 		}
 		const id = typeof body.id === "string" ? body.id : "";
 		if (!id || typeof id === "string" && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(id)) {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "invalid-id"
-			});
+			}, { "cache-control": "no-store" });
 			return;
 		}
 		try {
-			json(res, 200, await installAsset(kind, id, {
+			writeJson(res, 200, await installAsset(kind, id, {
 				dshHome: home,
 				force: body.force === true,
 				fetchImpl
-			}));
+			}), { "cache-control": "no-store" });
 		} catch (err) {
 			const code = err instanceof Error && "code" in err ? String(err.code) : "write";
-			json(res, code === "conflict" ? 409 : code === "manifest" ? 502 : 500, {
+			writeJson(res, code === "conflict" ? 409 : code === "manifest" ? 502 : 500, {
 				ok: false,
 				error: code,
 				message: err instanceof Error ? err.message : String(err)
-			});
+			}, { "cache-control": "no-store" });
 		}
 	};
 	const handleInstalled = async (req, res) => {
 		if (!isLoopback(req)) {
-			json(res, 403, {
+			writeJson(res, 403, {
 				ok: false,
 				error: "loopback-only"
-			});
+			}, { "cache-control": "no-store" });
 			return;
 		}
 		if (req.method !== "GET") {
-			json(res, 405, {
+			writeJson(res, 405, {
 				ok: false,
 				error: "method-not-allowed"
-			});
+			}, { "cache-control": "no-store" });
 			return;
 		}
 		const listDirs = (base) => {
@@ -437,10 +448,10 @@ function makeMarketRoutes(deps = {}) {
 				return [];
 			}
 		};
-		json(res, 200, {
+		writeJson(res, 200, {
 			skins: listDirs(path.join(home, "skins")),
 			pets: listDirs(path.join(home, "pets"))
-		});
+		}, { "cache-control": "no-store" });
 	};
 	const installSkin = handleInstall("skin");
 	const installPet = handleInstall("pet");

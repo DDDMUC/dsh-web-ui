@@ -26,7 +26,7 @@ import { extname } from 'node:path'
 
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 
-import { json, requireSameOrigin } from './http-utils.ts'
+import { writeJson, requireSameOrigin } from './http-utils.ts'
 import { readJsonBody } from './http.ts'
 import { defaultActiveStatePath, readActiveState, writeActiveState } from './active-state.ts'
 import { sanitizeSkinBackground, type SkinBackgroundConfig } from './core/background.ts'
@@ -79,7 +79,7 @@ function serveStylesheet(
 ): void {
   const abs = resolveInsideSkin(entry, relPath)
   if (!abs || !existsSync(abs)) {
-    json(res, 404, { ok: false, error: 'stylesheet-not-found' })
+    writeJson(res, 404, { ok: false, error: 'stylesheet-not-found' })
     return
   }
   try {
@@ -96,10 +96,10 @@ function serveStylesheet(
     sendCss(res, 200, code)
   } catch (error) {
     if (error instanceof SkinCssSafetyError) {
-      json(res, 422, { ok: false, error: 'css-whitelist-violation', violations: error.violations })
+      writeJson(res, 422, { ok: false, error: 'css-whitelist-violation', violations: error.violations })
       return
     }
-    json(res, 500, { ok: false, error: 'css-transform-failed', detail: (error as Error)?.message ?? String(error) })
+    writeJson(res, 500, { ok: false, error: 'css-transform-failed', detail: (error as Error)?.message ?? String(error) })
   }
 }
 
@@ -107,7 +107,7 @@ function serveStylesheet(
 function serveAsset(res: ServerResponse, entry: SkinCatalogEntry, relPath: string): void {
   const abs = resolveInsideSkin(entry, relPath)
   if (!abs || !existsSync(abs) || !statSync(abs).isFile()) {
-    json(res, 404, { ok: false, error: 'asset-not-found' })
+    writeJson(res, 404, { ok: false, error: 'asset-not-found' })
     return
   }
   const mime = MIME[extname(abs).toLowerCase()] ?? 'application/octet-stream'
@@ -128,7 +128,7 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
 
   const catalogHandler: WebRoute['handler'] = (_req, res) => {
     const catalog = loadCatalog()
-    json(res, 200, {
+    writeJson(res, 200, {
       ok: true,
       capturedAt: catalog.capturedAt,
       skins: catalog.skins
@@ -152,7 +152,7 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
     const catalog = loadCatalog()
     const entry = id ? findSkin(catalog, id) : null
     if (!entry) {
-      json(res, 404, { ok: false, error: 'skin-not-found' })
+      writeJson(res, 404, { ok: false, error: 'skin-not-found' })
       return
     }
     if (sub === 'stylesheet') {
@@ -162,7 +162,7 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
     if (sub === 'patches') {
       const patches = entry.manifest.contributes.patches
       if (!patches) {
-        json(res, 404, { ok: false, error: 'no-patches' })
+        writeJson(res, 404, { ok: false, error: 'no-patches' })
         return
       }
       serveStylesheet(res, entry, patches, 'patches.css')
@@ -171,7 +171,7 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
     if (sub === 'hooks.mjs') {
       const facet = entry.manifest.facets?.client
       if (!facet) {
-        json(res, 404, { ok: false, error: 'no-hooks' })
+        writeJson(res, 404, { ok: false, error: 'no-hooks' })
         return
       }
       // Trust model (contracts/README.md): hooks are trusted code that shares
@@ -179,12 +179,12 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
       // went through that review, so its hooks are refused even though its
       // declarative parts load fine.
       if (entry.origin !== 'builtin') {
-        json(res, 403, { ok: false, error: 'hooks-require-review', origin: entry.origin })
+        writeJson(res, 403, { ok: false, error: 'hooks-require-review', origin: entry.origin })
         return
       }
       const abs = resolveInsideSkin(entry, facet.entry)
       if (!abs || !existsSync(abs)) {
-        json(res, 404, { ok: false, error: 'hooks-not-found' })
+        writeJson(res, 404, { ok: false, error: 'hooks-not-found' })
         return
       }
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' })
@@ -195,12 +195,12 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
       serveAsset(res, entry, sub)
       return
     }
-    json(res, 404, { ok: false, error: 'unknown-skin-resource' })
+    writeJson(res, 404, { ok: false, error: 'unknown-skin-resource' })
   }
 
   const activeGetHandler: WebRoute['handler'] = (_req, res) => {
     const state = readActiveState(activeStatePath)
-    json(res, 200, { ok: true, active: state.active, background: state.background })
+    writeJson(res, 200, { ok: true, active: state.active, background: state.background })
   }
 
   // POST accepts { active?, background? } with merge semantics (issue #996):
@@ -215,26 +215,26 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
     try {
       body = await readJsonBody(req, { maxBytes: 16 * 1024 })
     } catch {
-      json(res, 400, { ok: false, error: 'invalid-body' })
+      writeJson(res, 400, { ok: false, error: 'invalid-body' })
       return
     }
     if (body === null) {
-      json(res, 400, { ok: false, error: 'invalid-body' })
+      writeJson(res, 400, { ok: false, error: 'invalid-body' })
       return
     }
     const hasActive = typeof body === 'object' && body !== null && 'active' in body
     const hasBackground = typeof body === 'object' && body !== null && 'background' in body
     if (!hasActive && !hasBackground) {
-      json(res, 400, { ok: false, error: 'nothing-to-update' })
+      writeJson(res, 400, { ok: false, error: 'nothing-to-update' })
       return
     }
     const active = (body as { active?: unknown }).active
     if (hasActive && active !== null && typeof active !== 'string') {
-      json(res, 400, { ok: false, error: 'active-must-be-string-or-null' })
+      writeJson(res, 400, { ok: false, error: 'active-must-be-string-or-null' })
       return
     }
     if (typeof active === 'string' && !findSkin(loadCatalog(), active)) {
-      json(res, 404, { ok: false, error: 'skin-not-found' })
+      writeJson(res, 404, { ok: false, error: 'skin-not-found' })
       return
     }
     const update: { active?: string | null; background?: SkinBackgroundConfig | null } = {}
@@ -242,14 +242,14 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
     if (hasBackground) {
       const background = sanitizeSkinBackground((body as { background?: unknown }).background)
       if (background === null) {
-        json(res, 400, { ok: false, error: 'invalid-background' })
+        writeJson(res, 400, { ok: false, error: 'invalid-background' })
         return
       }
       update.background = background
     }
     writeActiveState(activeStatePath, update)
     const state = readActiveState(activeStatePath)
-    json(res, 200, { ok: true, active: state.active, background: state.background })
+    writeJson(res, 200, { ok: true, active: state.active, background: state.background })
   }
 
   return [
@@ -258,7 +258,7 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
     { kind: 'exact', path: `${SKIN_CENTER_V2_PREFIX}/active`, handler: (req, res) => {
       if (req.method === 'GET') return activeGetHandler(req, res)
       if (req.method === 'POST') return activePostHandler(req, res)
-      json(res, 405, { ok: false, error: 'method-not-allowed' })
+      writeJson(res, 405, { ok: false, error: 'method-not-allowed' })
     } },
   ]
 }

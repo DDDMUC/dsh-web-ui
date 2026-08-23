@@ -16,14 +16,9 @@ import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { dshHome } from './dsh-home.ts'
 import { isLoopbackRequest } from './loopback.ts'
 import { installAsset, isSafeRel, MARKET_ORIGIN, type MarketKind } from './core/installer.ts'
-import { readJsonBody } from './http.ts'
+import { readJsonBody, writeJson } from './http.ts'
 
 export const MARKET_API_PREFIX = '/api/market'
-
-function json(res: ServerResponse, status: number, body: unknown): void {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-  res.end(JSON.stringify(body))
-}
 
 function isLoopback(req: IncomingMessage): boolean {
   try { return isLoopbackRequest(req) } catch { return false }
@@ -45,11 +40,11 @@ export function makeMarketRoutes(deps: MakeMarketRoutesDeps = {}): WebRoute[] {
 
   const handleInstall = (kind: MarketKind) => async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!isLoopback(req)) {
-      json(res, 403, { ok: false, error: 'loopback-only' })
+      writeJson(res, 403, { ok: false, error: 'loopback-only' }, { 'cache-control': 'no-store' })
       return
     }
     if (req.method !== 'POST') {
-      json(res, 405, { ok: false, error: 'method-not-allowed' })
+      writeJson(res, 405, { ok: false, error: 'method-not-allowed' }, { 'cache-control': 'no-store' })
       return
     }
     // Shared lenient reader (16 KiB cap): an empty body lands on {} (legacy
@@ -60,12 +55,12 @@ export function makeMarketRoutes(deps: MakeMarketRoutesDeps = {}): WebRoute[] {
     try {
       body = ((await readJsonBody(req, { maxBytes: 16 * 1024 })) ?? {}) as { id?: unknown; force?: unknown }
     } catch {
-      json(res, 400, { ok: false, error: 'invalid-body' })
+      writeJson(res, 400, { ok: false, error: 'invalid-body' }, { 'cache-control': 'no-store' })
       return
     }
     const id = typeof body.id === 'string' ? body.id : ''
     if (!id || (typeof id === 'string' && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(id))) {
-      json(res, 400, { ok: false, error: 'invalid-id' })
+      writeJson(res, 400, { ok: false, error: 'invalid-id' }, { 'cache-control': 'no-store' })
       return
     }
     try {
@@ -74,21 +69,21 @@ export function makeMarketRoutes(deps: MakeMarketRoutesDeps = {}): WebRoute[] {
         force: body.force === true,
         fetchImpl,
       })
-      json(res, 200, result)
+      writeJson(res, 200, result, { 'cache-control': 'no-store' })
     } catch (err) {
       const code = err instanceof Error && 'code' in err ? String((err as { code: unknown }).code) : 'write'
       const status = code === 'conflict' ? 409 : code === 'manifest' ? 502 : 500
-      json(res, status, { ok: false, error: code, message: err instanceof Error ? err.message : String(err) })
+      writeJson(res, status, { ok: false, error: code, message: err instanceof Error ? err.message : String(err) }, { 'cache-control': 'no-store' })
     }
   }
 
   const handleInstalled = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!isLoopback(req)) {
-      json(res, 403, { ok: false, error: 'loopback-only' })
+      writeJson(res, 403, { ok: false, error: 'loopback-only' }, { 'cache-control': 'no-store' })
       return
     }
     if (req.method !== 'GET') {
-      json(res, 405, { ok: false, error: 'method-not-allowed' })
+      writeJson(res, 405, { ok: false, error: 'method-not-allowed' }, { 'cache-control': 'no-store' })
       return
     }
     const listDirs = (base: string): string[] => {
@@ -101,10 +96,10 @@ export function makeMarketRoutes(deps: MakeMarketRoutesDeps = {}): WebRoute[] {
         return []
       }
     }
-    json(res, 200, {
+    writeJson(res, 200, {
       skins: listDirs(path.join(home, 'skins')),
       pets: listDirs(path.join(home, 'pets')),
-    })
+    }, { 'cache-control': 'no-store' })
   }
 
   const installSkin = handleInstall('skin')

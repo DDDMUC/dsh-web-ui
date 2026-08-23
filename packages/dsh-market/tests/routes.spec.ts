@@ -102,4 +102,12 @@ describe('market install body contract', () => {
       body: '{"id":"' + 'x'.repeat(16 * 1024) + '"}',
     })).rejects.toThrow()
   })
+
+  it('writes family JSON headers through the shared writer with no-store preserved', async () => {
+    const res = await fetch(url('/api/market/install-skin'), { method: 'POST' })
+    expect(res.status).toBe(400)
+    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8')
+    expect(res.headers.get('referrer-policy')).toBe('no-referrer')
+    expect(res.headers.get('cache-control')).toBe('no-store')
+  })
 })
