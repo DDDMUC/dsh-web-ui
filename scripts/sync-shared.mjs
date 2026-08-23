@@ -2,8 +2,8 @@
 'use strict'
 
 /**
- * sync-shared — mirror shared/client/settings (the family-shared settings
- * card trio) into the consuming plugin packages.
+ * sync-shared — mirror shared/client/settings and shared/host (the
+ * family-shared modules) into the consuming plugin packages.
  *
  * The trio lives exactly once under shared/client/settings and is copied,
  * with a generated-file header, to each consumer's src/client/. The copies
@@ -44,16 +44,6 @@ const MANIFEST = [
     file: 'settings-card.module.css',
     source: 'shared/client/settings/settings-card.module.css',
     targets: SETTINGS_CONSUMERS.map(pkg => `packages/${pkg}/src/client/settings-card.module.css`),
-  },
-  {
-    file: 'market-tab.ts',
-    source: 'shared/client/settings/market-tab.ts',
-    targets: [
-      'packages/dsh-pet/src/client/market-tab.ts',
-      'packages/dsh-community-plugins/src/client/market-tab.ts',
-      'packages/dsh-market/src/client/market-tab.ts',
-      'packages/skins/skin-center/src/client/market-tab.ts',
-    ],
   },
   {
     file: 'poll-guard.ts',

@@ -60,6 +60,30 @@ export function builtinSkinsDir(fromUrl: string = import.meta.url): string {
   return join(dirname(fileURLToPath(fromUrl)), '..', 'skins')
 }
 
+/**
+ * Shipped builtin skin ids: the npm package.json files whitelist entries
+ * under `skins/` (the "<id>/" directory name). The published package
+ * contains only these directories, so a builtin catalog directory outside
+ * the set is a repository catalog source rather than an installed skin —
+ * the settings catalog lists shipped builtins plus user dirs and leaves
+ * the rest to the market store.
+ */
+export function shippedSkinIds(fromUrl: string = import.meta.url): Set<string> {
+  try {
+    const pkgPath = join(dirname(fileURLToPath(fromUrl)), '..', 'package.json')
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { files?: unknown }
+    const ids = new Set<string>()
+    for (const f of Array.isArray(pkg.files) ? pkg.files : []) {
+      if (typeof f !== 'string' || !f.startsWith('skins/')) continue
+      const id = f.slice('skins/'.length).split('/')[0]
+      if (id !== undefined && id !== '' && id !== '.') ids.add(id)
+    }
+    return ids
+  } catch {
+    return new Set<string>()
+  }
+}
+
 /** User skins live in $DSH_HOME/skins with explicit directory overrides. */
 export function userSkinsDir(env: NodeJS.ProcessEnv = process.env): string {
   const home = env.DSH_SKINS_HOME

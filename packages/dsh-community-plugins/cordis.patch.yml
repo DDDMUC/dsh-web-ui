@@ -1,13 +1,9 @@
-# dsh-community-plugins bundle patch: inserts the community plugin index row
-# into the web profile roster. Applied as a profile bundle layer (the
-# dsh.bundle.patch manifest field); install with
-# dsh plugin --profile web add link:<repo>/packages/dsh-community-plugins.
-#
-# The single row mounts BOTH halves: the host side registers the
-# community-plugins settings namespace (the card's enable switch), and the
-# dsh.client declaration in package.json makes the browser half (exports
-# "./client", served from lib/client.js) render the index card in the
-# plugin-configuration section.
+# dsh-community-plugins bundle patch: keeps the inert cordis row for the
+# community index data source. The package no longer ships a settings
+# surface — community.json feeds the DSH Market store plugin list and the
+# dsh-market.com manifest — so the row only holds the no-op host entry.
+# Profiles that previously mounted the card keep resolving; the row can be
+# removed through the plugin manager.
 - insert:
     - id: ui-community-plugins
       name: '@linxin666/dsh-client-ui-community-plugins'

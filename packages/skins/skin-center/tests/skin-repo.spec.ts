@@ -6,10 +6,11 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { findSkin, loadSkinCatalog, resolveInsideSkin, userSkinsDir } from '../src/skin-repo.ts'
+import { findSkin, loadSkinCatalog, resolveInsideSkin, shippedSkinIds, userSkinsDir } from '../src/skin-repo.ts'
 import type { SkinCatalogEntry } from '../src/skin-repo.ts'
 
 let root: string
@@ -45,6 +46,29 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(root, { recursive: true, force: true })
+})
+
+describe('shippedSkinIds', () => {
+  function fixturePackage(files: string[]): string {
+    const pkgRoot = join(root, 'pkg-' + files.length)
+    mkdirSync(join(pkgRoot, 'lib'), { recursive: true })
+    writeFileSync(join(pkgRoot, 'package.json'), JSON.stringify({ files }))
+    return pathToFileURL(join(pkgRoot, 'lib', 'x.js')).href
+  }
+
+  it('derives shipped ids from the package.json files whitelist', () => {
+    const ids = shippedSkinIds(fixturePackage(['lib', 'skins/blue-fantasy', 'skins/whale-song/README.md', 'README.md']))
+    expect([...ids].sort()).toEqual(['blue-fantasy', 'whale-song'])
+  })
+
+  it('returns an empty set without a skins whitelist entry', () => {
+    expect(shippedSkinIds(fixturePackage(['lib', 'README.md'])).size).toBe(0)
+  })
+
+  it('returns an empty set when the package.json cannot be read', () => {
+    const missing = join(root, 'missing', 'lib', 'x.js')
+    expect(shippedSkinIds(pathToFileURL(missing).href).size).toBe(0)
+  })
 })
 
 describe('loadSkinCatalog', () => {

@@ -1,8 +1,7 @@
 /**
  * The skin-center card: rendered as the content of a first-level settings
- * section, listing the official stock look plus every skin in the v2 catalog
- * (built-in asset directories inside the skin-center package + user dirs
- * under $DSH_HOME/skins).
+ * section, listing the official stock look plus every installed skin in the
+ * v2 catalog (package-shipped built-ins + user dirs under $DSH_HOME/skins).
  *
  * v2 architecture (issue #506): skins are pure asset directories loaded by
  * the skin-center runtime. Try-on and apply both go through the same atomic
@@ -67,7 +66,7 @@ function useLiveValue(value: number): [number, (v: number | null) => void] {
 
 /**
  * Render the skin-center card: a static header naming the plugin, with the
- * always-visible skin list (official default + every catalog skin; try-on /
+ * always-visible skin list (official default + every installed skin; try-on /
  * theme preview / one-click apply) rendered below it.
  * @param props - card props.
  * @returns the plugin card.

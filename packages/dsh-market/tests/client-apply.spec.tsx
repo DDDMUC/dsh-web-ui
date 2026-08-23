@@ -1,11 +1,10 @@
 /** @vitest-environment jsdom */
 
 /**
- * DSH Market hub client registration: apply() contributes ONE first-level
- * settings section (id `dsh-market`) declaring the `dsh-market.tab` child
- * slot, and registers the Store card itself as the first tab entry. The old
- * standalone `market` section id must be gone — the hub is the single
- * first-level entry of the market family.
+ * DSH Market client registration: apply() contributes ONE first-level
+ * settings section (id `dsh-market`) that renders the store card directly —
+ * no tab slot, no hub wrapper. The old hub-based registrations (the
+ * `dsh-market.tab` child slot and the Store tab entry) must be gone.
  */
 
 import { describe, expect, it, vi } from 'vitest'
@@ -73,31 +72,25 @@ function makeCtx() {
   return { fakeCtx, injected, registered }
 }
 
-describe('dsh-market client hub registration', () => {
-  it('registers the single dsh-market section declaring the tab child slot', () => {
+describe('dsh-market client store registration', () => {
+  it('registers the single dsh-market section rendering the store card', () => {
     const { fakeCtx, injected, registered } = makeCtx()
     apply(fakeCtx as never)
 
-    expect(injected).toContain('settings.section')
+    expect(injected).toEqual(['settings.section'])
 
     const section = registered.find((entry) => entry.name === 'settings.section' && entry.id === 'dsh-market') as RegisteredEntry | undefined
     expect(section).toBeDefined()
-    expect(section?.children).toEqual({ 'dsh-market.tab': { kind: 'list', scope: 'root' } })
+    expect(section?.children).toBeUndefined()
     expect(section?.order).toBe(150)
-    expect(labelOf(section)).toBe('hub.title')
-
-    // The old standalone market section id is replaced by the hub.
-    expect(registered.some((entry) => entry.name === 'settings.section' && entry.id === 'market')).toBe(false)
+    expect(section?.locale).toBe('dsh-market')
+    expect(labelOf(section)).toBe('settings.title')
   })
 
-  it('registers the Store card as the first market tab entry', () => {
+  it('no longer registers any tab slot entry', () => {
     const { fakeCtx, registered } = makeCtx()
     apply(fakeCtx as never)
 
-    const tab = registered.find((entry) => entry.name === 'dsh-market.tab' && entry.id === 'market') as RegisteredEntry | undefined
-    expect(tab).toBeDefined()
-    expect(tab?.order).toBe(100)
-    expect(tab?.locale).toBe('dsh-market')
-    expect(labelOf(tab)).toBe('tab.shop')
+    expect(registered.some((entry) => entry.name === 'dsh-market.tab')).toBe(false)
   })
 })

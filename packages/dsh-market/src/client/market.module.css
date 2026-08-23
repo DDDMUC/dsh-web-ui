@@ -1,14 +1,13 @@
 /** market card layout */
-/* The Store tab and the DSH Market hub share the community-plugin index
- * visual recipe: the same --dsw-alias-* semantic tokens, pill tabs, card
- * chrome and button states, so all four DSH Market tabs read as one family
- * and every label stays legible in both the light and the dark GUI theme. */
+/* The Store card follows the community-plugin index visual recipe: the same
+ * --dsw-alias-* semantic tokens, pill tabs, card chrome and button states,
+ * so the market reads as one family with the other settings sections and
+ * every label stays legible in both the light and the dark GUI theme. */
 .market { display: flex; flex-direction: column; gap: 10px; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-/* Scoped under the tab containers so the pill chrome beats each skin's
+/* Scoped under the tab container so the pill chrome beats each skin's
  * patches.css reset that strips button[role="tab"] styling (html[data-dsh-skin]
  * prefix, higher specificity than a bare class). */
-.hub .tabs > button.tab,
 .market .tabs > button.tab {
   font: inherit;
   font-size: 12px;
@@ -21,19 +20,16 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.hub .tabs > button.tab:hover:enabled,
 .market .tabs > button.tab:hover:enabled {
   color: var(--dsw-alias-label-primary);
   border-color: var(--dsw-alias-label-dimmed);
 }
-.hub .tabs > button.tab.tabActive,
 .market .tabs > button.tab.tabActive {
   color: var(--dsw-alias-bg-layer-3);
   background: var(--dsw-alias-label-primary);
   border-color: var(--dsw-alias-label-primary);
   font-weight: 600;
 }
-.hub .tabs > button.tab.tabActive:hover:enabled,
 .market .tabs > button.tab.tabActive:hover:enabled {
   color: var(--dsw-alias-bg-layer-3);
   border-color: var(--dsw-alias-label-primary);
@@ -41,13 +37,11 @@
 /* The skin patches reset also styles the pressed (:active) state; keep the
  * pill chrome during the press so the pill does not flash to a bare text
  * button between mousedown and mouseup. */
-.hub .tabs > button.tab:active:enabled,
 .market .tabs > button.tab:active:enabled {
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-layer-1);
   border: 1px solid var(--dsw-alias-border-l2);
 }
-.hub .tabs > button.tab.tabActive:active:enabled,
 .market .tabs > button.tab.tabActive:active:enabled {
   color: var(--dsw-alias-bg-layer-3);
   background: var(--dsw-alias-label-primary);
@@ -166,6 +160,3 @@
 .retry { font-size: 12px; padding: 3px 10px; }
 .remoteNote { margin: 6px 0 0; font-size: 12px; line-height: 1.4; color: var(--dsw-alias-label-tertiary); }
 .modalActions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
-.hub { display: flex; flex-direction: column; gap: 10px; }
-.hubHeading { margin: 0; font-size: 16px; font-weight: 600; color: var(--dsw-alias-label-primary); }
-.hubLede { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dsw-alias-label-tertiary); }

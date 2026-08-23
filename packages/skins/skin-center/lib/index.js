@@ -462,6 +462,29 @@ function resolveHarnessPaths(home, profile, fromUrl = import.meta.url) {
 function builtinSkinsDir(fromUrl = import.meta.url) {
 	return join(dirname(fileURLToPath(fromUrl)), "..", "skins");
 }
+/**
+* Shipped builtin skin ids: the npm package.json files whitelist entries
+* under `skins/` (the "<id>/" directory name). The published package
+* contains only these directories, so a builtin catalog directory outside
+* the set is a repository catalog source rather than an installed skin —
+* the settings catalog lists shipped builtins plus user dirs and leaves
+* the rest to the market store.
+*/
+function shippedSkinIds(fromUrl = import.meta.url) {
+	try {
+		const pkgPath = join(dirname(fileURLToPath(fromUrl)), "..", "package.json");
+		const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+		const ids = /* @__PURE__ */ new Set();
+		for (const f of Array.isArray(pkg.files) ? pkg.files : []) {
+			if (typeof f !== "string" || !f.startsWith("skins/")) continue;
+			const id = f.slice(6).split("/")[0];
+			if (id !== void 0 && id !== "" && id !== ".") ids.add(id);
+		}
+		return ids;
+	} catch {
+		return /* @__PURE__ */ new Set();
+	}
+}
 /** User skins live in $DSH_HOME/skins with explicit directory overrides. */
 function userSkinsDir(env = process.env) {
 	const home = env.DSH_SKINS_HOME;
@@ -1379,7 +1402,7 @@ function findCloseBrace(css, openBrace) {
 * reload, no cordis.patch.yml rewrite).
 *
 * Endpoints (all under /api/skin-center/v2):
-*  - GET  /catalog                     catalog snapshot (skins + diagnostics)
+*  - GET  /catalog                     catalog snapshot (installed skins + diagnostics)
 *  - GET  /skins/<id>/stylesheet       transformed + scoped skin.css
 *  - GET  /skins/<id>/patches          transformed + scoped patches.css (404 when absent)
 *  - GET  /skins/<id>/hooks.mjs        the escape-hatch entry (404 when absent)
@@ -1498,12 +1521,13 @@ function readBody(req) {
 function makeSkinCenterV2Routes(deps = {}) {
 	const loadCatalog = deps.loadCatalog ?? (() => loadSkinCatalog());
 	const activeStatePath = deps.activeStatePath ?? defaultActiveStatePath();
+	const shippedSet = (deps.shippedSkinIds ?? shippedSkinIds)();
 	const catalogHandler = (_req, res) => {
 		const catalog = loadCatalog();
 		json(res, 200, {
 			ok: true,
 			capturedAt: catalog.capturedAt,
-			skins: catalog.skins.map((s) => ({
+			skins: catalog.skins.filter((s) => s.origin === "user" || shippedSet.has(s.manifest.id)).map((s) => ({
 				origin: s.origin,
 				warnings: s.warnings,
 				manifest: s.manifest

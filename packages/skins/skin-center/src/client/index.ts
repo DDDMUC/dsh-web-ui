@@ -2,8 +2,8 @@
  * In-GUI skin center, browser half: registers the Skin Center as a first-level
  * settings section (`settings.section`) and boots the v2 skin runtime
  * (effect ledger + atomic switch controller + semantic adapter + catalog
- * store). The section lists every catalog skin (built-in asset directories +
- * $DSH_HOME/skins), tries it on live, and applies in one click — no reload,
+ * store). The section lists the installed skins (shipped built-ins +
+ * $DSH_HOME/skins), tries them on live, and applies in one click — no reload,
  * no cordis.patch.yml rewrite (issue #506). The plugin writes only DOM and
  * the settings ledger — no services, no events, no model access.
  *
@@ -22,7 +22,6 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SkinCenterSection, type SkinCenterInjected } from './SkinCenter.tsx'
-import { installMarketTabSeat, MARKET_TAB_KEY } from './market-tab.ts'
 import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
 import { SKIN_BACKGROUND_FIELDS, type SkinBackgroundConfig } from '../core/background.ts'
 import { SKIN_WALLPAPER_NS, WallpaperController, installBootRestore } from './wallpaper.ts'
@@ -233,29 +232,16 @@ export function apply(ctx: ClientContext): void {
     },
   })
 
-  // Two-seat registration (the DSH Market hub contract, see market-tab.ts):
-  // with the hub installed this card becomes the Skin Center tab; standalone
-  // it keeps its own first-level settings section. The seat machine keeps the
-  // modes mutually exclusive regardless of boot order.
-  installMarketTabSeat(ctx, {
-    registerTab: () => ctx.slots.register({
-      name: MARKET_TAB_KEY,
-      id: 'skin-center',
-      order: 200,
-      label: () => ctx.locale.bind('skinCenter')('title'),
-      locale: 'skinCenter',
-      inject: injected,
-    }, SkinCenterSection),
-    registerSection: () => ctx.slots.register({
-      name: 'settings.section',
-      id: 'skin-center',
-      order: 120,
-      label: () => ctx.locale.bind('skinCenter')('title'),
-      locale: 'skinCenter',
-      inject: injected,
-    }, SkinCenterSection),
-    // The injected face reads controllers owned by this apply fiber; no
-    // per-entry resources are released through the seat.
-    release: () => {},
-  })
+  // First-level settings section: the Skin Center card as its own top-level
+  // settings page. Browsing and installing new skins happens in the DSH
+  // Market store; this section manages the installed ones (try-on, apply,
+  // wallpaper, custom theme).
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'skin-center',
+    order: 120,
+    label: () => ctx.locale.bind('skinCenter')('title'),
+    locale: 'skinCenter',
+    inject: injected,
+  }, SkinCenterSection))
 }

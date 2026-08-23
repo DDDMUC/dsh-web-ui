@@ -1927,9 +1927,8 @@ window.__ModuleLoader__.load({
 		//#region src/client/SkinCenter.tsx
 		/**
 		* The skin-center card: rendered as the content of a first-level settings
-		* section, listing the official stock look plus every skin in the v2 catalog
-		* (built-in asset directories inside the skin-center package + user dirs
-		* under $DSH_HOME/skins).
+		* section, listing the official stock look plus every installed skin in the
+		* v2 catalog (package-shipped built-ins + user dirs under $DSH_HOME/skins).
 		*
 		* v2 architecture (issue #506): skins are pure asset directories loaded by
 		* the skin-center runtime. Try-on and apply both go through the same atomic
@@ -1956,7 +1955,7 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* Render the skin-center card: a static header naming the plugin, with the
-		* always-visible skin list (official default + every catalog skin; try-on /
+		* always-visible skin list (official default + every installed skin; try-on /
 		* theme preview / one-click apply) rendered below it.
 		* @param props - card props.
 		* @returns the plugin card.
@@ -2486,57 +2485,6 @@ window.__ModuleLoader__.load({
 					customTheme
 				})
 			});
-		}
-		//#endregion
-		//#region src/client/market-tab.ts
-		/** The child slot key the DSH Market hub declares and category cards register into. */
-		const MARKET_TAB_KEY = "dsh-market.tab";
-		/**
-		* Install the two-seat registration machine for one category card. The card
-		* applies waits on BOTH seats: the section fallback is skipped while the
-		* hub's tab declaration is live, and a late hub takeover unregisters the
-		* fallback entry (without releasing shared resources), so the two modes never
-		* render together regardless of boot order. `release` fires exactly once,
-		* when the LIVE seat dies.
-		* @param ctx - client root context (slots service).
-		* @param seat - the card's registrations and release hook.
-		* @returns an idempotent disposer for both waits (the waits are also collected
-		* by the caller's fiber, like every slots.inject effect).
-		*/
-		function installMarketTabSeat(ctx, seat) {
-			let live = null;
-			let fallbackEntry = null;
-			const disposeTabWait = ctx.slots.inject(MARKET_TAB_KEY, () => {
-				live = "tab";
-				const unregister = seat.registerTab();
-				if (fallbackEntry) {
-					fallbackEntry();
-					fallbackEntry = null;
-				}
-				return () => {
-					if (live === "tab") {
-						live = null;
-						seat.release();
-					}
-					unregister();
-				};
-			});
-			const disposeSectionWait = ctx.slots.inject("settings.section", () => {
-				if (live === "tab") return () => {};
-				live = "section";
-				fallbackEntry = seat.registerSection();
-				return () => {
-					if (live === "section") {
-						live = null;
-						seat.release();
-					}
-					fallbackEntry = null;
-				};
-			});
-			return () => {
-				disposeTabWait();
-				disposeSectionWait();
-			};
 		}
 		//#endregion
 		//#region src/core/background.ts
@@ -4461,25 +4409,14 @@ window.__ModuleLoader__.load({
 					dispose: () => wallpaper.dispose()
 				}
 			});
-			installMarketTabSeat(ctx, {
-				registerTab: () => ctx.slots.register({
-					name: MARKET_TAB_KEY,
-					id: "skin-center",
-					order: 200,
-					label: () => ctx.locale.bind("skinCenter")("title"),
-					locale: "skinCenter",
-					inject: injected
-				}, SkinCenterSection),
-				registerSection: () => ctx.slots.register({
-					name: "settings.section",
-					id: "skin-center",
-					order: 120,
-					label: () => ctx.locale.bind("skinCenter")("title"),
-					locale: "skinCenter",
-					inject: injected
-				}, SkinCenterSection),
-				release: () => {}
-			});
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "skin-center",
+				order: 120,
+				label: () => ctx.locale.bind("skinCenter")("title"),
+				locale: "skinCenter",
+				inject: injected
+			}, SkinCenterSection));
 		}
 		//#endregion
 		exports.NS = NS;

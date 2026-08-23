@@ -112,6 +112,7 @@ function makeRoutes() {
   return makeSkinCenterV2Routes({
     loadCatalog: () => loadSkinCatalog({ builtinDir: builtin, userDir: join(root, 'user') }),
     activeStatePath: statePath,
+    shippedSkinIds: () => new Set(['harbor', 'plain', 'patched', 'hooked', 'evil']),
   })
 }
 
@@ -126,6 +127,35 @@ describe('v2 catalog route', () => {
     expect(res.jsonBody.skins).toHaveLength(1)
     expect(res.jsonBody.skins[0].manifest.id).toBe('harbor')
     expect(res.jsonBody.diagnostics).toHaveLength(1)
+    await server.close()
+  })
+})
+
+describe('v2 catalog installed-only filter', () => {
+  it('lists shipped builtins and user skins, hiding catalog-only builtins', async () => {
+    writeFixtureSkin('stock')
+    writeFixtureSkin('pool')
+    const userDir = join(root, 'user')
+    mkdirSync(join(userDir, 'hatch'), { recursive: true })
+    writeFileSync(join(userDir, 'hatch', 'skin.json'), JSON.stringify({
+      skinManifestVersion: 2,
+      id: 'hatch',
+      name: 'hatch',
+      nameEn: 'hatch',
+      version: '1.0.0',
+      author: 'tester',
+      contributes: { stylesheet: 'skin.css' },
+    }))
+    writeFileSync(join(userDir, 'hatch', 'skin.css'), '.a { color: red; }')
+    const routes = makeSkinCenterV2Routes({
+      loadCatalog: () => loadSkinCatalog({ builtinDir: builtin, userDir }),
+      activeStatePath: statePath,
+      shippedSkinIds: () => new Set(['stock']),
+    })
+    const server = await serve(routes)
+    const res = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/catalog`)
+    expect(res.status).toBe(200)
+    expect(res.jsonBody.skins.map((s: { manifest: { id: string } }) => s.manifest.id)).toEqual(['hatch', 'stock'])
     await server.close()
   })
 })
