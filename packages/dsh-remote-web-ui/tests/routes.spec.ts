@@ -59,7 +59,7 @@ async function call(
   method: 'GET' | 'POST',
   path: string,
   opts: { host?: string; body?: unknown; cookie?: string; headers?: Record<string, string> } = {},
-): Promise<{ status: number; body: Record<string, unknown>; cookies: string[] }> {
+): Promise<{ status: number; body: Record<string, unknown>; cookies: string[]; referrerPolicy: string | undefined }> {
   return await new Promise((resolve, reject) => {
     const payload = opts.body === undefined ? undefined : JSON.stringify(opts.body)
     const headers: Record<string, string> = { host: opts.host ?? `127.0.0.1:${String(port)}` }
@@ -78,7 +78,12 @@ async function call(
           const raw = Buffer.concat(chunks).toString('utf8')
           let body: Record<string, unknown> = {}
           try { body = JSON.parse(raw) as Record<string, unknown> } catch { /* empty body */ }
-          resolve({ status: response.statusCode ?? 0, body, cookies: setCookie })
+          resolve({
+            status: response.statusCode ?? 0,
+            body,
+            cookies: setCookie,
+            referrerPolicy: response.headers['referrer-policy'],
+          })
         })
       },
     )
@@ -134,7 +139,11 @@ describe('/api/pair routes', () => {
       // A LAN phone accepts: sets the HttpOnly device cookie.
       const accepted = await call(port, 'POST', '/api/pair/accept', { host: '192.168.1.5:3080', body: { token: 'tok-1' } })
       expect(accepted.status).toBe(200)
-      expect(accepted.cookies[0]).toMatch(/^dsh_pair=tok-1; Path=\/; HttpOnly; SameSite=Lax/)
+      expect(accepted.body).toEqual({ ok: true, deviceId: 'tok-1' })
+      expect(accepted.referrerPolicy).toBe('no-referrer')
+      expect(accepted.cookies).toEqual([
+        'dsh_pair=tok-1; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000',
+      ])
       // The same token is one-time: reuse is refused.
       const reused = await call(port, 'POST', '/api/pair/accept', { host: '192.168.1.5:3080', body: { token: 'tok-1' } })
       expect(reused.status).toBe(409)

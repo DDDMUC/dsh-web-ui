@@ -319,13 +319,11 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     // No Secure attribute: LAN pairing runs over plain HTTP (the cookie must
     // work there), and the same cookie rides HTTPS on the tunnel. Lax keeps
     // top-level navigations working while blocking cross-site subrequests.
-    res.writeHead(200, {
-      'content-type': 'application/json; charset=utf-8',
+    writeJson(res, 200, { ok: true, deviceId: result.deviceId }, {
       'set-cookie': [
         `${service.config.cookieName}=${result.deviceId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${String(COOKIE_MAX_AGE_SEC)}`,
       ],
     })
-    res.end(JSON.stringify({ ok: true, deviceId: result.deviceId }))
   }
 
   const handleStop = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
