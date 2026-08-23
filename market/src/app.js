@@ -1,5 +1,5 @@
 // ====================================================================
-// DSH 大市场 · market/src/app.js
+// DSH 市场 · market/src/app.js
 // 视觉层：液态噪波流体背景（WebGL，源自 gallery 视觉语言）
 // 数据层：manifest/*.json（market-build 产物）+ /api/stats（投票计数）
 // 交互：点赞（每设备一票、可撤销）、热度/默认排序、顶部颁奖台、
@@ -747,11 +747,34 @@
     return attempt
   }
 
+  // ---------- 右上角 GitHub 仓库按钮（仓库 + Star 数） ----------
+  var GITHUB_REPO = 'zhu1090093659/dsh-web-ui'
+  function formatStars(n) {
+    if (n >= 10000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'
+    return String(n)
+  }
+  function loadGitHubStars() {
+    var host = document.querySelector('.mk-github-star')
+    if (!host) return
+    fetch('https://api.github.com/repos/' + GITHUB_REPO)
+      .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json() })
+      .then(function (data) {
+        if (typeof data.stargazers_count === 'number') {
+          host.textContent = formatStars(data.stargazers_count)
+          host.parentElement.setAttribute('aria-label', 'GitHub 仓库 · ' + data.stargazers_count + ' stars')
+          host.parentElement.title = 'GitHub 仓库 · ' + data.stargazers_count + ' stars'
+        }
+      })
+      .catch(function () { host.textContent = '' })
+  }
+
   function boot() {
     bind()
     renderAll()
     renderTurnstile()
     load()
+    loadGitHubStars()
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot)
   else boot()
