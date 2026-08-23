@@ -19,7 +19,7 @@ export interface DoctorRouteOptions {
 
 export function makeDoctorRoutes(client: SupervisorClient, profileId: string, options: DoctorRouteOptions): WebRoute[] {
   const guard = (handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>) => async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    if (!isLoopbackRequest(req)) { res.writeHead(403); res.end('forbidden'); return }
+    if (!isLoopbackRequest(req)) { writeJson(res, 403, { ok: false, error: 'forbidden: loopback-only' }); return }
     try { await handler(req, res) } catch (error) { writeJson(res, 500, { ok: false, error: { code: 'DOCTOR_ROUTE_FAILED', message: error instanceof Error ? error.message : String(error) } }, { 'cache-control': 'no-store' }) }
   }
   return [

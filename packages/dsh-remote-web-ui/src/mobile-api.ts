@@ -201,8 +201,10 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
       return
     }
     if (!gateOk(req)) {
-      res.writeHead(403)
-      res.end('forbidden')
+      writeJson(res, 403, {
+        ok: false,
+        error: { code: 'unpaired', message: 'mobile session is not paired' },
+      })
       return
     }
     res.writeHead(200, {

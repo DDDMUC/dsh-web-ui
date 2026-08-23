@@ -111,6 +111,30 @@ async function callNoCookie(port: number, method: string): Promise<{ status: num
 }
 
 describe('mobile api envelope', () => {
+  it('writes the unpaired SSE rejection as JSON with family headers', async () => {
+    const server = await serve(makeMobileApiRoutes({ service, apiProxy, mobileEnterToSend }))
+    try {
+      const result = await new Promise<{ status: number; body: string; headers: typeof import('node:http').IncomingHttpHeaders }>((resolve, reject) => {
+        const req = httpRequest({ host: '127.0.0.1', port: server.port, path: '/m/api/events.mux', method: 'GET' }, (response) => {
+          const chunks: Buffer[] = []
+          response.on('data', chunk => { chunks.push(chunk as Buffer) })
+          response.on('end', () => resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8'), headers: response.headers }))
+        })
+        req.on('error', reject)
+        req.end()
+      })
+      expect(result.status).toBe(403)
+      expect(JSON.parse(result.body)).toEqual({
+        ok: false,
+        error: { code: 'unpaired', message: 'mobile session is not paired' },
+      })
+      expect(result.headers['content-type']).toBe('application/json; charset=utf-8')
+      expect(result.headers['referrer-policy']).toBe('no-referrer')
+    } finally {
+      await server.close()
+    }
+  })
+
   it('wraps every allowlisted unary method in the server-response envelope', async () => {
     const server = await serve(makeMobileApiRoutes({ service, apiProxy, mobileEnterToSend }))
     try {
