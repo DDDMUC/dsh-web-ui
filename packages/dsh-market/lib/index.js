@@ -298,6 +298,45 @@ async function installAsset(kind, id, options) {
 	};
 }
 //#endregion
+//#region src/http.ts
+/** Default body cap for readJsonBody: 64 KiB. */
+const DEFAULT_JSON_BODY_MAX_BYTES = 64 * 1024;
+/**
+* Lenient bounded body reader: parse a request body as JSON, or null on an
+* empty body, invalid JSON, or a body past maxBytes (default 64 KiB).
+* Overflow destroys the request instead of draining the remainder (no drain
+* call, matching the current repo-wide behavior); callers must not keep
+* reading the request afterwards. With objectOnly, non-JSON-object payloads
+* also yield null.
+*/
+async function readJsonBody(req, opts = {}) {
+	const maxBytes = opts.maxBytes ?? DEFAULT_JSON_BODY_MAX_BYTES;
+	const chunks = [];
+	let size = 0;
+	for await (const chunk of req) {
+		const buffer = chunk;
+		size += buffer.length;
+		if (size > maxBytes) {
+			req.destroy();
+			return null;
+		}
+		chunks.push(buffer);
+	}
+	const text = Buffer.concat(chunks).toString("utf8");
+	if (text === "") return null;
+	try {
+		const parsed = JSON.parse(text);
+		if (opts.objectOnly && !isJsonObject(parsed)) return null;
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+/** Whether a value is a JSON object: typeof object, not null, not an array. */
+function isJsonObject(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+//#endregion
 //#region src/routes.ts
 /**
 * Market host HTTP routes — the loopback-only install gateway the browser
@@ -316,34 +355,6 @@ function json(res, status, body) {
 		"cache-control": "no-store"
 	});
 	res.end(JSON.stringify(body));
-}
-function readJsonBody(req) {
-	return new Promise((resolve, reject) => {
-		let size = 0;
-		const chunks = [];
-		req.on("data", (chunk) => {
-			size += chunk.length;
-			if (size > 16 * 1024) {
-				reject(/* @__PURE__ */ new Error("body too large"));
-				req.destroy();
-				return;
-			}
-			chunks.push(chunk);
-		});
-		req.on("end", () => {
-			const text = Buffer.concat(chunks).toString("utf8");
-			if (!text) {
-				resolve({});
-				return;
-			}
-			try {
-				resolve(JSON.parse(text));
-			} catch {
-				reject(/* @__PURE__ */ new Error("invalid json"));
-			}
-		});
-		req.on("error", reject);
-	});
 }
 function isLoopback(req) {
 	try {
@@ -373,7 +384,7 @@ function makeMarketRoutes(deps = {}) {
 		}
 		let body;
 		try {
-			body = await readJsonBody(req);
+			body = await readJsonBody(req, { maxBytes: 16 * 1024 }) ?? {};
 		} catch {
 			json(res, 400, {
 				ok: false,
