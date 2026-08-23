@@ -144,13 +144,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 .mk-podium-slot:hover { transform: translateY(-6px); border-color: var(--g-line-strong); }
 .mk-podium-slot.rank-1 {
-  order: 2; flex: 0 1 280px; height: 268px;
+  order: 2; flex: 0 1 280px; height: 288px;
   border-color: rgba(242, 193, 78, .55);
   background: linear-gradient(180deg, rgba(242, 193, 78, .10), rgba(96, 128, 178, .18) 45%, rgba(96, 128, 178, .14));
   animation: podiumGlow 3.2s ease-in-out infinite;
 }
-.mk-podium-slot.rank-2 { order: 1; flex: 0 1 252px; height: 234px; border-color: rgba(203, 213, 225, .45); }
-.mk-podium-slot.rank-3 { order: 3; flex: 0 1 232px; height: 206px; border-color: rgba(205, 127, 50, .42); }
+.mk-podium-slot.rank-2 { order: 1; flex: 0 1 252px; height: 248px; border-color: rgba(203, 213, 225, .45); }
+.mk-podium-slot.rank-3 { order: 3; flex: 0 1 232px; height: 218px; border-color: rgba(205, 127, 50, .42); }
 .mk-podium-slot.pending { opacity: .62; }
 
 @keyframes podiumGlow {
@@ -174,9 +174,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   50%      { box-shadow: 0 0 28px rgba(242, 193, 78, .75); }
 }
 .mk-podium-thumb {
-  width: 100%; height: 130px; object-fit: contain; border-radius: 10px;
+  width: 100%; height: 148px; object-fit: contain; border-radius: 10px;
   background: rgba(96, 128, 178, .20); display: block;
 }
+/* 预览图按名次递减，保证内容完整贴合卡片（低名次卡片更矮，文字绝不外溢）。 */
+.mk-podium-slot.rank-2 .mk-podium-thumb { height: 118px; }
+.mk-podium-slot.rank-3 .mk-podium-thumb { height: 98px; }
 .mk-podium-name {
   font-size: 14px; font-weight: 600; margin-top: 10px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -356,11 +359,13 @@ dialog.mk-dialog::backdrop { background: rgba(5, 12, 26, .66); backdrop-filter: 
   .mk-podium-title { font-size: 14px; margin-bottom: 12px; }
   .mk-podium-list { gap: 8px; min-height: 202px; }
   .mk-podium-slot { flex: 0 1 150px; padding: 8px 6px 12px; border-radius: 12px; }
-  .mk-podium-slot.rank-1 { flex: 0 1 172px; height: 198px; }
-  .mk-podium-slot.rank-2 { flex: 0 1 160px; height: 180px; }
-  .mk-podium-slot.rank-3 { flex: 0 1 150px; height: 162px; }
+  .mk-podium-slot.rank-1 { flex: 0 1 172px; height: 212px; }
+  .mk-podium-slot.rank-2 { flex: 0 1 160px; height: 190px; }
+  .mk-podium-slot.rank-3 { flex: 0 1 150px; height: 178px; }
   .mk-medal { width: 24px; height: 24px; font-size: 12px; }
-  .mk-podium-thumb { height: 96px; }
+  .mk-podium-thumb { height: 116px; }
+  .mk-podium-slot.rank-2 .mk-podium-thumb { height: 96px; }
+  .mk-podium-slot.rank-3 .mk-podium-thumb { height: 84px; }
   .mk-podium-name { font-size: 12px; margin-top: 8px; }
   .mk-podium-votes { font-size: 11px; }
   .mk-dialog-inner { grid-template-columns: 1fr; }
