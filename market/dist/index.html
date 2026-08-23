@@ -118,53 +118,72 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* ---------- podium ---------- */
 .mk-podium { margin: 6px 0 26px; }
 .mk-podium-group {
-  max-width: 780px;
+  max-width: 980px;
   margin: 0 auto;
-  border: 1px solid var(--g-line); border-radius: var(--g-radius);
-  background: var(--g-card); padding: 14px 14px 18px;
+  border: 1px solid var(--g-line); border-radius: 16px;
+  background: var(--g-card); padding: 18px 18px 22px;
   box-shadow: var(--g-shadow);
 }
 .mk-podium-title {
-  display: flex; align-items: baseline; gap: 8px;
-  font-size: 14px; font-weight: 700; margin: 0 0 12px;
+  display: flex; align-items: baseline; gap: 9px;
+  font-size: 16px; font-weight: 700; margin: 0 0 16px;
 }
 .mk-podium-title .mk-podium-kind { font-size: 12px; color: var(--g-faint); font-weight: 400; }
 .mk-podium-list {
-  display: flex; align-items: flex-end; gap: 10px;
-  min-height: 208px;
+  display: flex; align-items: flex-end; gap: 14px;
+  min-height: 268px;
   justify-content: center;
 }
-/* 经典阶梯：第 1 名居中最高；第 2 名左移、略低；第 3 名右移、更低。 */
+/* 经典阶梯：第 1 名居中最高最宽（金色光晕）；第 2 名左移次高（银边）；第 3 名右移更矮（铜边）。 */
 .mk-podium-slot {
-  flex: 0 1 210px; text-align: center; cursor: pointer;
-  border: 1px solid var(--g-line); border-radius: 12px;
+  flex: 0 1 232px; text-align: center; cursor: pointer;
+  border: 1px solid var(--g-line); border-radius: 14px;
   background: var(--g-bg-soft);
-  padding: 8px 6px 10px;
-  transition: transform .15s ease, border-color .15s ease;
+  padding: 10px 8px 14px;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
 }
-.mk-podium-slot:hover { transform: translateY(-3px); border-color: var(--g-line-strong); }
-.mk-podium-slot.rank-1 { order: 2; height: 206px; }
-.mk-podium-slot.rank-2 { order: 1; height: 190px; }
-.mk-podium-slot.rank-3 { order: 3; height: 174px; }
+.mk-podium-slot:hover { transform: translateY(-6px); border-color: var(--g-line-strong); }
+.mk-podium-slot.rank-1 {
+  order: 2; flex: 0 1 280px; height: 268px;
+  border-color: rgba(242, 193, 78, .55);
+  background: linear-gradient(180deg, rgba(242, 193, 78, .10), rgba(96, 128, 178, .18) 45%, rgba(96, 128, 178, .14));
+  animation: podiumGlow 3.2s ease-in-out infinite;
+}
+.mk-podium-slot.rank-2 { order: 1; flex: 0 1 252px; height: 234px; border-color: rgba(203, 213, 225, .45); }
+.mk-podium-slot.rank-3 { order: 3; flex: 0 1 232px; height: 206px; border-color: rgba(205, 127, 50, .42); }
 .mk-podium-slot.pending { opacity: .62; }
+
+@keyframes podiumGlow {
+  0%, 100% { box-shadow: 0 10px 30px rgba(242, 193, 78, .10), inset 0 0 0 1px rgba(242, 193, 78, .16); }
+  50%      { box-shadow: 0 16px 46px rgba(242, 193, 78, .28), inset 0 0 0 1px rgba(242, 193, 78, .36); }
+}
+.mk-podium-slot.rank-1:hover { animation: none; box-shadow: 0 18px 52px rgba(242, 193, 78, .34), inset 0 0 0 1px rgba(242, 193, 78, .44); }
+
 .mk-medal {
   display: inline-grid; place-items: center;
-  width: 22px; height: 22px; border-radius: 50%;
-  font-size: 11px; font-weight: 700; color: #0b1220;
-  margin-bottom: 6px;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 13px; font-weight: 700; color: #0b1220;
+  margin-bottom: 9px;
 }
-.mk-podium-slot.rank-1 .mk-medal { background: var(--g-gold); box-shadow: 0 0 14px rgba(242, 193, 78, .45); }
-.mk-podium-slot.rank-2 .mk-medal { background: var(--g-silver); }
-.mk-podium-slot.rank-3 .mk-medal { background: var(--g-bronze); }
+.mk-podium-slot.rank-1 .mk-medal { background: var(--g-gold); animation: medalPulse 2.4s ease-in-out infinite; }
+.mk-podium-slot.rank-2 .mk-medal { background: var(--g-silver); box-shadow: 0 0 12px rgba(203, 213, 225, .35); }
+.mk-podium-slot.rank-3 .mk-medal { background: var(--g-bronze); box-shadow: 0 0 10px rgba(205, 127, 50, .30); }
+
+@keyframes medalPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(242, 193, 78, .40); }
+  50%      { box-shadow: 0 0 28px rgba(242, 193, 78, .75); }
+}
 .mk-podium-thumb {
-  width: 100%; height: 90px; object-fit: contain; border-radius: 8px;
+  width: 100%; height: 130px; object-fit: contain; border-radius: 10px;
   background: rgba(96, 128, 178, .20); display: block;
 }
 .mk-podium-name {
-  font-size: 12px; font-weight: 600; margin-top: 7px;
+  font-size: 14px; font-weight: 600; margin-top: 10px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.mk-podium-votes { font-size: 11px; color: var(--g-faint); }
+.mk-podium-votes { font-size: 12px; color: var(--g-faint); }
+.mk-podium-slot.rank-1 .mk-podium-name { font-size: 15px; }
+.mk-podium-slot.rank-1 .mk-podium-votes { font-size: 13px; color: rgba(242, 193, 78, .85); }
 .mk-podium-empty {
   flex: 1; align-self: center; text-align: center;
   color: var(--g-faint); font-size: 12px;
@@ -332,15 +351,25 @@ dialog.mk-dialog::backdrop { background: rgba(5, 12, 26, .66); backdrop-filter: 
 .mk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 900px) {
-  .mk-podium-list { gap: 6px; }
-  .mk-podium-slot { flex-basis: 140px; }
+  .mk-podium { margin: 6px 0 22px; }
+  .mk-podium-group { max-width: 100%; padding: 14px 12px 16px; border-radius: 14px; }
+  .mk-podium-title { font-size: 14px; margin-bottom: 12px; }
+  .mk-podium-list { gap: 8px; min-height: 202px; }
+  .mk-podium-slot { flex: 0 1 150px; padding: 8px 6px 12px; border-radius: 12px; }
+  .mk-podium-slot.rank-1 { flex: 0 1 172px; height: 198px; }
+  .mk-podium-slot.rank-2 { flex: 0 1 160px; height: 180px; }
+  .mk-podium-slot.rank-3 { flex: 0 1 150px; height: 162px; }
+  .mk-medal { width: 24px; height: 24px; font-size: 12px; }
+  .mk-podium-thumb { height: 96px; }
+  .mk-podium-name { font-size: 12px; margin-top: 8px; }
+  .mk-podium-votes { font-size: 11px; }
   .mk-dialog-inner { grid-template-columns: 1fr; }
   .mk-dialog-media { border-right: 0; border-bottom: 1px solid var(--g-line); }
   .mk-skin-img { min-height: 300px; max-height: 52vh; }
   .wrap { padding: 14px 14px 50px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
+  * { transition: none !important; animation: none !important; }
 }
 </style>
 </head>
