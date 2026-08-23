@@ -223,6 +223,74 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('keeps a preview backdrop beneath live scenes when WebGL clears', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection({
+      ...scene,
+      id: 'live-backed',
+      sceneUrl: '/api/skin-center/we/scene-runtime/live-backed',
+    })
+    const [media] = layers()
+    expect(media.querySelector('iframe')).not.toBeNull()
+    expect(media.style.backgroundImage).toContain('/api/skin-center/we/scene-frame/ccc')
+    expect(media.style.backgroundSize).toBe('cover')
+    controller.setFit('fill')
+    expect(media.style.backgroundSize).toBe('100% 100%')
+    controller.dispose()
+  })
+
+  it('uses actual scene artwork for scripted partial scenes and de-duplicates their probe', async () => {
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input.includes('/scene-manifest/')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            manifest: {
+              width: 3840,
+              height: 2160,
+              layers: [
+                { x: 1920, y: 1080, w: 3840, h: 2160, texUrl: '/api/skin-center/we/scene-resource/scripted/artwork.tex' },
+                { x: 2000, y: 1100, w: 7200, h: 4800, texUrl: '/api/skin-center/we/scene-resource/scripted/gradient.tex' },
+              ],
+            },
+          }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          ok: true,
+          videoUrl: null,
+          sceneUrl: '/api/skin-center/we/scene-runtime/scripted',
+          compatibility: 'partial',
+          unsupportedFeatures: ['embedded-script'],
+        }),
+      }
+    }) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope, { fetchImpl, doc: document })
+    controller.applySelection({ ...scene, id: 'scripted' })
+    expect(document.body.querySelector('img')?.src).toContain('/scene-frame/')
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const [media] = layers()
+    const player = media.querySelector('iframe')
+    expect(player?.src).toContain('/api/skin-center/we/scene-runtime/scripted')
+    expect(player?.style.opacity).toBe('0')
+    expect(media.style.backgroundImage).toContain('/api/skin-center/we/scene-resource/scripted/artwork.tex')
+    expect(media.querySelector('img')).toBeNull()
+
+    // A later inventory sync retains the completed partial probe and must not
+    // start another probe or replace the stable frame.
+    controller.sync({ ...scene, id: 'scripted', title: 'Refreshed scripted scene' })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(media.querySelector('iframe')).toBe(player)
+    controller.dispose()
+  })
+
   it('applySelection probes scene capabilities lazily and mounts live video', async () => {
     const fetchImpl = vi.fn(async (input: string) => {
       if (input.includes('/scene-probe')) {
@@ -331,6 +399,27 @@ describe('WallpaperController', () => {
     } finally {
       controller?.dispose()
     }
+  })
+
+  it('keeps a live scene player mounted when Skin Center refreshes bare inventory data', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    const enriched: WallpaperDescriptor = {
+      ...scene,
+      id: 'persistent-scene',
+      sceneUrl: '/api/skin-center/we/scene-runtime/persistent-scene',
+    }
+    controller.applySelection(enriched)
+    const [media] = layers()
+    const player = media.querySelector('iframe')
+    expect(player).not.toBeNull()
+
+    // Inventory omits lazy scene capabilities on every panel open. Syncing it
+    // must update metadata in place without replacing/reloading the iframe.
+    controller.sync({ ...enriched, title: 'Refreshed title', sceneUrl: null })
+    expect(media.querySelector('iframe')).toBe(player)
+    expect(media.querySelector('img')).toBeNull()
+    controller.dispose()
   })
 
   it('applied capabilities survive exiting a try-on that probed the same wallpaper', async () => {

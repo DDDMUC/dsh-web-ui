@@ -6064,6 +6064,11 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       canvas.height = height;
     }
 
+    // Some WE scenes mark the project as 3D solely because they contain 3D
+    // particle systems while their visual base is still ordinary image layers.
+    // Route those mixed scenes through the 2D compositor and draw the decoded
+    // artwork; the 3D-only branch otherwise clears an opaque canvas and shows
+    // only particles over a gradient.
     if (sceneData.is3D && sceneData.models && sceneData.models.length > 0) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, width, height);
@@ -6504,6 +6509,12 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     // Projection matrix mapping scene coords (0..sceneW, 0..sceneH) to clip space (-1..1)
     const proj = mat4Ortho(0, sceneW, 0, sceneH, -1000, 1000);
 
+    // WE serializes scene image objects from front to back. Composite in the
+    // reverse order so the authored background is painted first and the main
+    // artwork stays above it; drawing the manifest order directly lets a later
+    // fullscreen gradient cover the actual wallpaper after textures load.
+    const renderLayers = sceneData.layers.slice().reverse();
+
     // Pass 1: Render background and sky layers into FBO for reflections
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, fboWidth, fboHeight);
@@ -6529,7 +6540,7 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     gl.uniform1f(gl.getUniformLocation(progBasic, 'u_power'), 1);
 
     // Render sky & upper layers into FBO
-    for (const layer of sceneData.layers) {
+    for (const layer of renderLayers) {
       if (layer.isGround || layer.isReflection) continue;
       const texRec = loadTexture(layer.texUrl);
       if (!texRec.loaded) continue;
@@ -6554,7 +6565,7 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // Render all layers (Sky -> Ground -> Reflection -> Particles)
-    for (const layer of sceneData.layers) {
+    for (const layer of renderLayers) {
       if (layer.isReflection) {
         // Water Reflection Pass
         const maskRec = loadTexture(layer.texUrl);

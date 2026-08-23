@@ -64,6 +64,19 @@ export function shellRenderingCss(): string {
       padding-top: 2px;
       padding-bottom: 2px;
     }
+    ${scoped('[data-slot="conversation.input.dock"] > [data-goal-bar="true"][data-goal-bar="true"][data-goal-bar="true"]')} {
+      /* The host goal dock spans the full composer seat and contains its own
+         centered compact bar. Do not paint the outer dock as an accessory: that
+         creates a viewport-wide veil behind the active-goal chip. The repeated
+         stable marker deliberately raises specificity above catalog-skin dock
+         selectors that load after this shared adapter. */
+      background: transparent !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
     ${scoped('[data-conversation-scroll]')},
     ${scoped('[data-dsh-part="scrollport"]')} {
       /* The composer is the scrollport's final in-flow child. Reserving physical

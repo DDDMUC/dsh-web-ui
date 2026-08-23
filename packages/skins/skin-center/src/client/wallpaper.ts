@@ -37,6 +37,11 @@ export interface WallpaperDescriptor {
   webUrl: string | null
   frameUrl: string | null
   sceneUrl?: string | null
+  /** Result of the lazy scene probe; retained for diagnostics and probe de-duping. */
+  sceneCompatibility?: 'full' | 'partial' | 'static-only'
+  unsupportedFeatures?: string[]
+  /** Decoded fullscreen artwork discovered from the scene manifest. */
+  sceneBaseUrl?: string | null
   previewUrl: string | null
 }
 
@@ -350,7 +355,7 @@ export class WallpaperController implements WallpaperHandle {
    * is merged into every slot (previewing and applied) that holds the id.
    */
   private probeSceneCapabilitiesIfNeeded(descriptor: WallpaperDescriptor): void {
-    if (this.disposed || descriptor.type !== 'scene' || descriptor.videoUrl !== null || descriptor.sceneUrl != null) return
+    if (this.disposed || descriptor.type !== 'scene' || descriptor.videoUrl !== null || descriptor.sceneUrl != null || descriptor.sceneCompatibility !== undefined) return
     const targetId = descriptor.id
     if (this.probePending.has(targetId)) return
     const fetchFn = this.options.fetchImpl ?? (typeof fetch !== 'undefined' ? fetch.bind(this.doc.defaultView ?? globalThis) : undefined)
@@ -363,8 +368,40 @@ export class WallpaperController implements WallpaperHandle {
           ok?: boolean
           videoUrl?: string | null
           sceneUrl?: string | null
+          compatibility?: 'full' | 'partial' | 'static-only'
+          unsupportedFeatures?: string[]
         } | null
         if (!payload || payload.ok !== true) return
+        let sceneBaseUrl: string | null = null
+        if (payload.sceneUrl && payload.compatibility === 'partial'
+          && payload.unsupportedFeatures?.includes('embedded-script') === true) {
+          try {
+            const manifestResponse = await fetchFn(payload.sceneUrl.replace('/scene-runtime/', '/scene-manifest/'))
+            const manifestPayload = manifestResponse.ok
+              ? await manifestResponse.json().catch(() => null) as {
+                ok?: boolean
+                manifest?: { width?: number; height?: number; layers?: Array<{ x?: number; y?: number; w?: number; h?: number; texUrl?: string }> }
+              } | null
+              : null
+            const manifest = manifestPayload?.ok === true ? manifestPayload.manifest : undefined
+            if (manifest && typeof manifest.width === 'number' && typeof manifest.height === 'number') {
+              sceneBaseUrl = manifest.layers?.find(layer =>
+                typeof layer.texUrl === 'string'
+                && Math.abs((layer.w ?? 0) - manifest.width!) <= 1
+                && Math.abs((layer.h ?? 0) - manifest.height!) <= 1
+                && Math.abs((layer.x ?? 0) - manifest.width! / 2) <= 1
+                && Math.abs((layer.y ?? 0) - manifest.height! / 2) <= 1
+              )?.texUrl ?? null
+            }
+          } catch {
+            // The ordinary decoded scene frame remains the fallback.
+          }
+        }
+        if (this.disposed) return
+        // Compatibility metadata is retained for diagnostics and probe de-duping.
+        // Partial scenes still use their actual scene runtime: unsupported scripts
+        // may omit individual effects, but the decoded Wallpaper Engine layers and
+        // supported particles must remain dynamic rather than becoming a cover.
         // Merge the capabilities into every slot holding the id: a probe
         // issued by try-on may land while sync/apply has already installed
         // the same wallpaper as applied, and exiting the try-on must not
@@ -375,8 +412,14 @@ export class WallpaperController implements WallpaperHandle {
             ...this.previewing,
             videoUrl: payload.videoUrl ?? this.previewing.videoUrl,
             sceneUrl: payload.sceneUrl ?? this.previewing.sceneUrl,
+            sceneCompatibility: payload.compatibility,
+            unsupportedFeatures: payload.unsupportedFeatures,
+            sceneBaseUrl: sceneBaseUrl ?? this.previewing.sceneBaseUrl,
           }
-          if (merged.videoUrl !== this.previewing.videoUrl || merged.sceneUrl !== this.previewing.sceneUrl) {
+          if (merged.videoUrl !== this.previewing.videoUrl
+            || merged.sceneUrl !== this.previewing.sceneUrl
+            || merged.sceneCompatibility !== this.previewing.sceneCompatibility
+            || merged.sceneBaseUrl !== this.previewing.sceneBaseUrl) {
             this.previewing = merged
             changed = true
           }
@@ -386,8 +429,14 @@ export class WallpaperController implements WallpaperHandle {
             ...this.applied,
             videoUrl: payload.videoUrl ?? this.applied.videoUrl,
             sceneUrl: payload.sceneUrl ?? this.applied.sceneUrl,
+            sceneCompatibility: payload.compatibility,
+            unsupportedFeatures: payload.unsupportedFeatures,
+            sceneBaseUrl: sceneBaseUrl ?? this.applied.sceneBaseUrl,
           }
-          if (merged.videoUrl !== this.applied.videoUrl || merged.sceneUrl !== this.applied.sceneUrl) {
+          if (merged.videoUrl !== this.applied.videoUrl
+            || merged.sceneUrl !== this.applied.sceneUrl
+            || merged.sceneCompatibility !== this.applied.sceneCompatibility
+            || merged.sceneBaseUrl !== this.applied.sceneBaseUrl) {
             this.applied = merged
             changed = true
           }
@@ -518,6 +567,22 @@ export class WallpaperController implements WallpaperHandle {
   }
 
   sync(descriptor: WallpaperDescriptor | null): void {
+    // Inventory descriptors intentionally omit lazily probed scene capabilities.
+    // Reopening Skin Center refreshes that inventory, so replacing an already
+    // enriched descriptor verbatim would drop sceneUrl/videoUrl, rebuild the
+    // media as a static frame, then probe and rebuild the live player again.
+    // Preserve capabilities for the same id while still accepting every other
+    // refreshed field from inventory.
+    if (descriptor !== null && this.applied?.id === descriptor.id) {
+      descriptor = {
+        ...descriptor,
+        videoUrl: descriptor.videoUrl ?? this.applied.videoUrl,
+        sceneUrl: descriptor.sceneUrl ?? this.applied.sceneUrl,
+        sceneCompatibility: descriptor.sceneCompatibility ?? this.applied.sceneCompatibility,
+        unsupportedFeatures: descriptor.unsupportedFeatures ?? this.applied.unsupportedFeatures,
+        sceneBaseUrl: descriptor.sceneBaseUrl ?? this.applied.sceneBaseUrl,
+      }
+    }
     this.applied = descriptor
     this.render()
     if (descriptor !== null) this.probeSceneCapabilitiesIfNeeded(descriptor)
@@ -703,11 +768,29 @@ export class WallpaperController implements WallpaperHandle {
       styleLayer(this.scrimLayer, -2, 'scrim')
       this.doc.body.appendChild(this.scrimLayer)
     }
+    // Keep the inventory preview painted beneath live scene iframes. A WebGL
+    // context can be temporarily lost (or its canvas can clear before the
+    // isolated player reloads); without this backing frame the transparent
+    // iframe exposes only the shell gradient and looks like the wallpaper was
+    // removed. Video/web wallpapers paint their own opaque media, so they do
+    // not need a duplicate backdrop.
+    const sceneBackdrop = descriptor.type === 'scene'
+      ? (descriptor.sceneBaseUrl ?? descriptor.frameUrl ?? descriptor.previewUrl)
+      : null
+    this.mediaLayer.style.backgroundImage = sceneBackdrop === null ? '' : `url(${JSON.stringify(sceneBackdrop)})`
+    this.mediaLayer.style.backgroundPosition = sceneBackdrop === null ? '' : 'center'
+    this.mediaLayer.style.backgroundRepeat = sceneBackdrop === null ? '' : 'no-repeat'
+    this.mediaLayer.style.backgroundSize = sceneBackdrop === null
+      ? ''
+      : (this.fitValue === 'fill' ? '100% 100%' : this.fitValue)
     // Capabilities (videoUrl/sceneUrl) participate in the key: the lazy
     // scene probe merges them into the same descriptor id after the first
     // render, and the static frame must be rebuilt as live media.
     const mediaKey = descriptor.id + ':' + this.modeValue
       + ':' + (descriptor.videoUrl ?? '') + ':' + (descriptor.sceneUrl ?? '')
+      + ':' + (descriptor.sceneCompatibility ?? '')
+      + ':' + (descriptor.unsupportedFeatures?.join(',') ?? '')
+      + ':' + (descriptor.sceneBaseUrl ?? '')
     if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
       this.mediaLayer.dataset.mediaKey = mediaKey
       // A media transition (frame->live, mode switch) abandons the current
@@ -800,6 +883,14 @@ export class WallpaperController implements WallpaperHandle {
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
         iframe.setAttribute('tabindex', '-1')
         iframe.dataset.dshScenePlayer = ''
+        if (descriptor.sceneCompatibility === 'partial'
+          && descriptor.unsupportedFeatures?.includes('embedded-script') === true
+          && descriptor.sceneBaseUrl) {
+          // The current host player cannot replay script-driven composition and
+          // paints an opaque gradient over the real artwork. Keep the actual
+          // decoded base visible until that renderer gains script parity.
+          iframe.style.opacity = '0'
+        }
         styleCover(iframe, this.fitValue)
         iframe.addEventListener('load', () => {
           try {
