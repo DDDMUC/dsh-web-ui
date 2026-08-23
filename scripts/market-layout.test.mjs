@@ -58,7 +58,6 @@ test('pets.json 契约与资产存在性', () => {
       // files 固定为 worker 重定向直通的两个文件。
       assert.ok(/^https:\/\/assets\.petdex\.dev\//.test(item.spritesheet), 'external spritesheet origin: ' + item.id)
       assert.deepEqual(item.files, ['pet.json', 'spritesheet.webp'], 'external files: ' + item.id)
-      assert.deepEqual(item.spriteGrid, { columns: 8, rows: 9 }, 'external sprite grid: ' + item.id)
       assert.equal(typeof item.credit, 'object', 'external credit: ' + item.id)
     } else {
       assert.ok(exists(item.spritesheet), 'spritesheet missing: ' + item.spritesheet)
@@ -78,15 +77,6 @@ test('plugins.json 契约', () => {
     assert.equal(typeof item.rank, 'number', 'plugin rank: ' + item.id)
     assert.ok(typeof item.category === 'string' && item.category, 'plugin category: ' + item.id)
   }
-})
-
-test('market 图片统一禁用 Referer，兼容 Petdex 防盗链', () => {
-  const text = fs.readFileSync(path.join(DIST, 'app.js'), 'utf8')
-  assert.ok(text.includes("img.referrerPolicy = 'no-referrer'"), 'no-referrer image contract missing')
-  assert.ok(text.includes("className + ' mk-sprite-frame'"), 'sprite first-frame cover contract missing')
-  const imageCreations = text.match(/el\('img'/g) || []
-  const protectedCreations = text.match(/noReferrer\(el\('img'/g) || []
-  assert.equal(protectedCreations.length, imageCreations.length, 'every runtime image must use noReferrer()')
 })
 
 test('styles.js 为全部皮肤生成 SKIN_STYLES', () => {

@@ -89,7 +89,6 @@ interface MarketRecord {
   preview?: { light?: string; dark?: string }
   spritesheet?: string
   previews?: string[]
-  spriteGrid?: { columns?: number; rows?: number }
   category?: string
   npm?: string
   repo?: string
@@ -483,26 +482,9 @@ export function MarketCard(props: MarketCardProps): ReactNode {
                 const thumb = tab === 'skin' ? item.preview?.light
                   : tab === 'pet' ? (item.previews?.[0] ?? item.spritesheet)
                   : ''
-                const spriteGrid = tab === 'pet' && !item.previews?.length ? item.spriteGrid : undefined
                 return (
                   <li key={id} className={css.card}>
-                    {thumb ? (
-                      spriteGrid?.columns && spriteGrid.rows ? (
-                        <span className={css.thumb + ' ' + css.spriteThumb}>
-                          <img
-                            src={MARKET_ORIGIN + '/' + thumb}
-                            alt=""
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                            style={{
-                              width: `${72 * spriteGrid.columns}px`,
-                              height: `${72 * spriteGrid.rows}px`,
-                              maxWidth: 'none',
-                            }}
-                          />
-                        </span>
-                      ) : <img className={css.thumb} src={MARKET_ORIGIN + '/' + thumb} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                    ) : (
+                    {thumb ? <img className={css.thumb} src={MARKET_ORIGIN + '/' + thumb} alt="" loading="lazy" /> : (
                       <span className={css.thumb + ' ' + css.thumbPlaceholder}>{(name[0] ?? '?').toUpperCase()}</span>
                     )}
                     <span className={css.cardBody}>

@@ -350,7 +350,6 @@ function scanPetdexIndex() {
       spritesheet: entry.sprite,
       credit: { site: 'Petdex', page: 'https://petdex.dev/pets/' + entry.slug },
       external: true,
-      spriteGrid: { columns: 8, rows: 9 },
       files: ['pet.json', 'spritesheet.webp'],
     }
     if (entry.description) item.description = String(entry.description)

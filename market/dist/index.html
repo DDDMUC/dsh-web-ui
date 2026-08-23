@@ -225,11 +225,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* 皮肤预览图为 1440x900（16:10），媒体区同比例时 cover 零裁切、完整展示 */
 .mk-card-media-skin { height: auto; aspect-ratio: 16 / 10; }
 .mk-card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.mk-sprite-frame { overflow: hidden; position: relative; background: rgba(96, 128, 178, .16); }
-.mk-sprite-frame .mk-sprite-frame-image {
-  display: block; object-fit: fill; transform-origin: top left;
-}
-.mk-card-sprite { width: 100%; height: 100%; }
 .mk-card-media .mk-accent-bar { position: absolute; left: 0; right: 0; top: 0; height: 4px; }
 .mk-card-media .mk-cat {
   position: absolute; left: 10px; top: 12px;
@@ -330,10 +325,6 @@ dialog.mk-dialog::backdrop { background: rgba(5, 12, 26, .66); backdrop-filter: 
 }
 .mk-pet-media { display: grid; grid-template-rows: auto auto; gap: 10px; }
 .mk-pet-main { width: 100%; border-radius: 12px; background: rgba(96, 128, 178, .16); border: 1px solid var(--g-line); }
-.mk-pet-main-frame {
-  width: min(100%, 360px); aspect-ratio: 192 / 208; justify-self: center;
-  border-radius: 12px; border: 1px solid var(--g-line);
-}
 .mk-pet-thumbs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
 .mk-pet-thumbs img {
   width: 64px; height: 64px; object-fit: cover; border-radius: 8px;

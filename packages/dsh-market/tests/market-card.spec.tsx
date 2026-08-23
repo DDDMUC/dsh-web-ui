@@ -128,34 +128,6 @@ describe('MarketCard', () => {
     expect(screen.getByText(/赞 3/)).toBeTruthy()
   })
 
-  it('loads pet covers without a referer so the upstream CDN accepts the image request', () => {
-    render(<MarketCard {...cardProps(new FakeScope({}), { remote: REMOTE, gateway: null, pluginManager: null })} />)
-    fireEvent.click(screen.getByRole('tab', { name: /宠物/ }))
-    const image = document.querySelector('img')
-    expect(image?.getAttribute('referrerpolicy')).toBe('no-referrer')
-    expect(image?.getAttribute('src')).toBe('https://dsh-market.com/idle.gif')
-  })
-
-  it('crops a Petdex sprite sheet to its first frame for the card cover', () => {
-    const remote = {
-      ...REMOTE,
-      items: {
-        ...REMOTE.items,
-        pet: [{
-          id: 'petdex-orb', displayName: 'Orb', rank: 1,
-          spritesheet: 'https://assets.petdex.dev/orb.webp',
-          spriteGrid: { columns: 8, rows: 9 },
-        }],
-      },
-    }
-    render(<MarketCard {...cardProps(new FakeScope({}), { remote, gateway: null, pluginManager: null })} />)
-    fireEvent.click(screen.getByRole('tab', { name: /宠物/ }))
-    const image = document.querySelector('img')
-    expect(image?.parentElement?.getAttribute('class')).toContain('spriteThumb')
-    expect(image?.style.width).toBe('576px')
-    expect(image?.style.height).toBe('648px')
-  })
-
   it('switches tabs and shows plugins with a repo link and install command', () => {
     render(<MarketCard {...cardProps(new FakeScope({}), { remote: REMOTE, gateway: null, pluginManager: null })} />)
     fireEvent.click(screen.getByRole('tab', { name: /插件/ }))
