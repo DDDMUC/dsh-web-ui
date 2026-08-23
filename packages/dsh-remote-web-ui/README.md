@@ -245,8 +245,12 @@ need **no harness source changes** — the phone's RPC calls ride the
 plugin's `/m/api` proxy (which delegates to the host ApiProxy service and
 pages `session.list` itself), so the tunneled Host never has to enter the
 connection plugin's trust fence. The phone is gated by its paired-device
-cookie and an explicit method allowlist (settings/credentials/host-action
-domains are never reachable from the phone; the `/m/api` proxy's model
+cookie and an explicit method allowlist. The allowlist constrains the
+`/m/api` proxy alone: the paired-device cookie itself also passes the global
+api/gate, so a paired device is a full-control credential for the host `/api`
+surface — settings/credentials/host-action domains stay unreachable only
+because the SDK pins those privileged methods to loopback. Pairing is full
+device trust; the `/m/api` proxy's model
 reads/writes are limited to the advisory `session.models` /
 `session.selectModel` pair. Separately, the exact paired-only model-catalog
 routes may adopt models for an existing eligible `llm-pi-ai` provider; they
