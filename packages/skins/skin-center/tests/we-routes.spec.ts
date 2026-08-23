@@ -6,7 +6,7 @@
  * same-origin fence on POST routes.
  */
 import { createServer, request as httpRequest, type Server } from 'node:http'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { AddressInfo } from 'node:net'
@@ -22,6 +22,18 @@ import { makeWeRoutes, SCENE_EXTRACTOR_VERSION, WE_API_PREFIX } from '../src/we-
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return { ...actual, readFile: vi.fn(actual.readFile) }
+})
+
+// The inventory cache must serve repeated /inventory calls without re-reading
+// project.json or re-listing roots; wrap the sync fs readers so the cache
+// tests can assert exactly when a full scan happens.
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...actual,
+    readFileSync: vi.fn(actual.readFileSync),
+    readdirSync: vi.fn(actual.readdirSync),
+  }
 })
 
 /** Minimal 1x1 RGBA8888 TEX (container v2, uncompressed) for scene decode tests. */
@@ -865,5 +877,88 @@ describe('sandboxed wallpaper loads (T1-1)', () => {
     expect((await call('GET', String(video?.videoUrl), { headers: cross })).status).toBe(403)
     expect((await call('GET', WE_API_PREFIX + '/inventory', { headers: cross })).status).toBe(403)
     expect((await call('GET', WE_API_PREFIX + '/scene-probe?id=111', { headers: cross })).status).toBe(403)
+  })
+})
+
+describe('inventory cache (#T2-10)', () => {
+  const readsEnding = (name: string): number =>
+    (vi.mocked(readFileSync) as unknown as { mock: { calls: unknown[][] } }).mock.calls
+      .filter((call) => String(call[0]).endsWith(name)).length
+
+  it('serves repeated inventories from the cache and re-scans when the library changes', async () => {
+    // Steady state: the store .cache dir exists (the routes create it on
+    // first use and it persists; a fresh store would see one extra scan
+    // while the .cache dir appears).
+    mkdirSync(join(store, '.cache'), { recursive: true })
+    ;(vi.mocked(readFileSync) as unknown as { mockClear: () => void }).mockClear()
+    ;(vi.mocked(readdirSync) as unknown as { mockClear: () => void }).mockClear()
+    const first = await call('GET', WE_API_PREFIX + '/inventory')
+    expect(first.status).toBe(200)
+    expect(first.body.wallpapers as Array<Record<string, unknown>>).toHaveLength(3)
+    // The first request performs the full scan: one project.json per project.
+    expect(readsEnding('project.json')).toBeGreaterThanOrEqual(3)
+
+    ;(vi.mocked(readFileSync) as unknown as { mockClear: () => void }).mockClear()
+    ;(vi.mocked(readdirSync) as unknown as { mockClear: () => void }).mockClear()
+    const second = await call('GET', WE_API_PREFIX + '/inventory')
+    expect(second.status).toBe(200)
+    expect(second.body).toEqual(first.body)
+    // Cache hit: no project.json read and no root listing.
+    expect(readsEnding('project.json')).toBe(0)
+    expect((vi.mocked(readdirSync) as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(0)
+
+    // A new project under the library root changes the root mtime: re-scan.
+    makeProject(join(library, '444'), { title: 'New', type: 'video', file: 'v.mp4' }, { 'v.mp4': 'x' })
+    ;(vi.mocked(readFileSync) as unknown as { mockClear: () => void }).mockClear()
+    const third = await call('GET', WE_API_PREFIX + '/inventory')
+    expect(third.status).toBe(200)
+    expect((third.body.wallpapers as Array<Record<string, unknown>>).some(w => w.id === '444')).toBe(true)
+    expect(readsEnding('project.json')).toBeGreaterThanOrEqual(4)
+  })
+
+  it('makes an import visible even when the store mtime does not advance (write-through invalidation)', async () => {
+    // Prime the cache with an inventory made before the import.
+    mkdirSync(store, { recursive: true })
+    const storeMtime = Math.round(statSync(store).mtimeMs)
+    utimesSync(store, new Date(storeMtime), new Date(storeMtime))
+    const before = await call('GET', WE_API_PREFIX + '/inventory')
+    expect(before.status).toBe(200)
+    expect((before.body.wallpapers as Array<Record<string, unknown>>)).toHaveLength(3)
+
+    const imported = await call('POST', WE_API_PREFIX + '/import', { body: { id: '111' } })
+    expect(imported.status).toBe(200)
+    // Roll the store directory mtime back to the pre-import value: only the
+    // explicit write-through invalidation (not the mtime fingerprint) can
+    // make the next inventory see the imported copy.
+    utimesSync(store, new Date(storeMtime), new Date(storeMtime))
+    const after = await call('GET', WE_API_PREFIX + '/inventory')
+    expect((after.body.wallpapers as Array<Record<string, unknown>>).map(w => w.id)).toContain('imported/111')
+  })
+
+  it('invalidates the cache after reimport and remove', async () => {
+    await call('POST', WE_API_PREFIX + '/import', { body: { id: '111' } })
+    const reimported = await call('POST', WE_API_PREFIX + '/reimport', { body: { id: 'imported/111' } })
+    expect(reimported.status).toBe(200)
+    const afterReimport = await call('GET', WE_API_PREFIX + '/inventory')
+    expect((afterReimport.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === 'imported/111')).toBeDefined()
+
+    const removed = await call('POST', WE_API_PREFIX + '/remove', { body: { id: 'imported/111' } })
+    expect(removed.status).toBe(200)
+    const afterRemove = await call('GET', WE_API_PREFIX + '/inventory')
+    expect((afterRemove.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === 'imported/111')).toBeUndefined()
+  })
+
+  it('re-scans when the manual library dirs setting changes', async () => {
+    await new Promise<void>((resolve, reject) => server.close(e => (e ? reject(e) : resolve())))
+    const second = join(root, 'second')
+    makeProject(join(second, '777'), { title: 'Second', type: 'video', file: 's.mp4' }, { 's.mp4': 'x' })
+    let dirs = [library]
+    const routes = makeWeRoutes({ getConfig: () => ({ weLibraryDirs: dirs }), storeDir: store, autoDetect: false })
+    await serve(routes)
+    const before = await call('GET', WE_API_PREFIX + '/inventory')
+    expect((before.body.wallpapers as Array<Record<string, unknown>>)).toHaveLength(3)
+    dirs = [second]
+    const after = await call('GET', WE_API_PREFIX + '/inventory')
+    expect((after.body.wallpapers as Array<Record<string, unknown>>).map(w => w.id)).toEqual(['777'])
   })
 })
