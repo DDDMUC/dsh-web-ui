@@ -59,7 +59,10 @@ that probes and runs the update.
   existing active `llm-pi-ai` provider only. The capability fixes the
   provider settings address internally and cannot create providers or read or
   change credentials, general settings, endpoints, headers, or arbitrary
-  configuration. Stop or device revocation disables it immediately; the
+  configuration. The exact routes are served ahead of the connection
+  plugin's `/api` prefix, so a paired LAN or tunnel client may call them
+  directly; through the `/remote` desktop channel all `/api/pair/*` paths
+  stay loopback-only. Stop or device revocation disables it immediately; the
   generic `settings.*`, `credentials.*`, and `llm.discoverModels` RPC methods
   remain loopback-only.
 - **Remote desktop channel**: with `requirePairingForLan` on (default), a
@@ -76,13 +79,10 @@ that probes and runs the update.
   without forwarding the remote Origin or pairing cookie; the authenticated
   proxy supplies its own same-origin browser marker for sibling route fences. The
   SDK's loopback-only privileged methods (native dialogs, the settings and
-  credentials plane) stay unreachable from a paired remote desktop. Except
-  for the exact paired-device model-catalog routes (`GET
-  /api/pair/model-catalog`, `POST /api/pair/model-catalog/discover`, and
-  `POST /api/pair/model-catalog/upsert`), `/api/pair/*`, `/api/update/*`,
-  `/api/plugin-manager/*`,
-  `/api/dsh-desktop-launcher/*` and `/api/dsh-web-ui-settings/*` control
-  endpoints stay loopback-only. Unpaired desktop browsers get a persistent
+  credentials plane) stay unreachable from a paired remote desktop;
+  `/api/pair/*` (including the paired model-catalog routes),
+  `/api/update/*`, `/api/plugin-manager/*`, `/api/dsh-desktop-launcher/*`
+  and `/api/dsh-web-ui-settings/*` control endpoints stay loopback-only. Unpaired desktop browsers get a persistent
   full-page block instead of data (the page keys off the `unpaired` error
   code, not every 403). The block retires once a gated call succeeds or the
   channel itself is torn down — turning `requirePairingForLan` off (or the
