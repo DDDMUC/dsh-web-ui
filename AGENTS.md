@@ -63,6 +63,10 @@ Market build order: build `market/shell` first (`npm run build` in `market/shell
 ## Branches, Commits, and PRs
 
 - `dev` is the integration branch. Rebase on `origin/dev` before submitting a PR. `main` receives tested changes from `dev` through maintainer integration.
+- 同步远程仓库代码时，本地与远程的同步对象只能是 `dev` 分支：`git fetch origin dev`，
+  需要整合时把本地 `dev` rebase 或 merge 到 `origin/dev`。禁止把 `main` / `origin/main`
+  作为本地 `dev` 的同步来源或重基目标——`main` 只通过维护者集成接收 `dev` 的
+  测试内容，agent 不向 main 同步，也不以 main 重写本地 dev 的历史。
 - Use Conventional Commits: `type(scope): subject`, with types such as `feat`, `fix`, `docs`, `test`, `refactor`, and `chore`. Do not include emoji.
 - PRs target `dev` and follow [.github/pull_request_template.md](.github/pull_request_template.md). Include scope, change type, upstream sync, AI disclosure, local test evidence, and user-visible evidence when applicable.
 - README changes update all paired files and run `pnpm docs:write-pair <package-or-skin-directory>`. Package or skin registry changes also update `docs/publish-prep.md` and regenerate `packages/dsh-web-ui-all/aggregate.yml` with `node scripts/aggregate.mjs`.
