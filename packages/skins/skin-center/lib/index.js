@@ -1,6 +1,6 @@
 import { installSettingsSection, settingsNamespace } from "@deepseek-ai/dsh-settings";
 import z from "schemastery";
-import { chmodSync, cpSync, createReadStream, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, cpSync, createReadStream, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -2160,11 +2160,14 @@ function migrateLegacySelection(options) {
 *        Customer/<quality>/<asset-id>.mov (Sonoma and earlier).
 *      Entries become 'video' wallpapers; browsers without HEVC decode fall
 *      back to the thumbnail through the panel's existing video error path.
-*   2. Desktop Pictures (*.heic, static and Apple dynamic wallpapers — only
-*      the first frame is rendered): /System/Library/Desktop Pictures
-*      (built-in) and /Library/Desktop Pictures (legacy downloads). HEIC is
-*      not browser-renderable; the routes layer converts through sips lazily
-*      (see the /image route in we-routes.ts).
+*   2. Desktop Pictures (image formats only — .heic/.heif converted through
+*      sips, .jpg/.jpeg/.png/.webp served directly; static and Apple dynamic
+*      wallpapers alike render their first frame): /System/Library/Desktop
+*      Pictures (built-in) and /Library/Desktop Pictures (legacy downloads).
+*
+* Every candidate is validated by extension AND magic bytes (ISO BMFF ftyp
+* for .mov/.heic, JPEG/PNG/WebP signatures for the rest); anything else is
+* skipped even inside a known wallpaper directory.
 *
 * Everything is injectable for tests: roots, platform and filesystem probes
 * are parameters, never hard reads. Scanning is synchronous like the rest
@@ -2179,13 +2182,60 @@ function defaultMacosWallpaperRoots(home = homedir()) {
 		pictures: [join("/System", "Library", "Desktop Pictures"), join("/Library", "Desktop Pictures")]
 	};
 }
+/** Default head reader: opens the file and reads at most `bytes` (never whole files — aerials are gigabytes). */
+function defaultReadHead(path, bytes) {
+	const fd = openSync(path, "r");
+	try {
+		const buffer = Buffer.alloc(bytes);
+		const read = readSync(fd, buffer, 0, bytes, 0);
+		return buffer.subarray(0, read);
+	} finally {
+		closeSync(fd);
+	}
+}
 function resolveFs(inject) {
 	return {
 		exists: inject.exists ?? existsSync,
 		readdir: inject.readdir ?? readdirSync,
 		readFile: inject.readFile ?? ((path) => readFileSync(path, "utf8")),
-		stat: inject.stat ?? statSync
+		stat: inject.stat ?? statSync,
+		readHead: inject.readHead ?? defaultReadHead
 	};
+}
+const bytes = (head, at, text) => [...text].every((ch, i) => head[at + i] === ch.charCodeAt(0));
+/** ISO BMFF container sniff (size + 'ftyp' + brand): covers .mov and .heic/.heif. */
+function hasBmffHeader(head) {
+	return head.length >= 12 && bytes(head, 4, "ftyp");
+}
+function hasJpegHeader(head) {
+	return head.length >= 3 && head[0] === 255 && head[1] === 216 && head[2] === 255;
+}
+function hasPngHeader(head) {
+	return head.length >= 8 && head[0] === 137 && bytes(head, 1, "PNG");
+}
+function hasWebpHeader(head) {
+	return head.length >= 12 && bytes(head, 0, "RIFF") && bytes(head, 8, "WEBP");
+}
+const HEAD_BYTES = 12;
+/** Content check for aerial videos: extension AND ISO BMFF magic must agree. */
+function isMovVideo(name, head) {
+	return MOV_RE.test(name) && hasBmffHeader(head);
+}
+/** Content check for desktop pictures: only image formats, magic verified. */
+function isSupportedImage(name, head) {
+	if (HEIC_RE.test(name)) return hasBmffHeader(head);
+	if (/\.jpe?g$/i.test(name)) return hasJpegHeader(head);
+	if (/\.png$/i.test(name)) return hasPngHeader(head);
+	if (/\.webp$/i.test(name)) return hasWebpHeader(head);
+	return false;
+}
+/** Read a file head for validation; null when unreadable. */
+function readHeadOrNull(fs, path) {
+	try {
+		return fs.readHead(path, HEAD_BYTES);
+	} catch {
+		return null;
+	}
 }
 /**
 * Read asset-id -> display name out of an aerial entries.json. Missing or
@@ -2208,7 +2258,7 @@ function readAerialManifest(text) {
 	return titles;
 }
 const MOV_RE = /\.mov$/i;
-const HEIC_RE = /\.heic$/i;
+const HEIC_RE = /\.hei[cf]$/i;
 function statOrZero(fs, path) {
 	try {
 		const stat = fs.stat(path);
@@ -2266,9 +2316,12 @@ function scanAerialsModern(root, fs) {
 	const entries = [];
 	for (const name of names) {
 		if (!MOV_RE.test(name)) continue;
+		const videoAbs = join(videosDir, name);
+		const head = readHeadOrNull(fs, videoAbs);
+		if (head === null || !isMovVideo(name, head)) continue;
 		const id = name.replace(MOV_RE, "");
 		const thumbnail = join(thumbnailsDir, id + ".png");
-		entries.push(aerialEntry(id, titles.get(id) ?? id, join(videosDir, name), thumbnail, fs));
+		entries.push(aerialEntry(id, titles.get(id) ?? id, videoAbs, thumbnail, fs));
 	}
 	return entries;
 }
@@ -2305,8 +2358,11 @@ function scanAerialsLegacy(root, fs) {
 		}
 		for (const video of videos) {
 			if (!MOV_RE.test(video)) continue;
+			const videoAbs = join(sub, video);
+			const head = readHeadOrNull(fs, videoAbs);
+			if (head === null || !isMovVideo(video, head)) continue;
 			const id = video.replace(MOV_RE, "");
-			entries.push(aerialEntry(id, titles.get(id) ?? id, join(sub, video), null, fs));
+			entries.push(aerialEntry(id, titles.get(id) ?? id, videoAbs, null, fs));
 		}
 	}
 	return entries;
@@ -2342,11 +2398,12 @@ function scanMacDesktopPictures(roots, inject = {}) {
 			continue;
 		}
 		for (const name of names) {
-			if (!HEIC_RE.test(name)) continue;
-			const stem = name.replace(HEIC_RE, "");
-			const id = "macos-heic/" + stem;
-			if (found.has(id)) continue;
 			const fileAbs = join(root, name);
+			const head = readHeadOrNull(fs, fileAbs);
+			if (head === null || !isSupportedImage(name, head)) continue;
+			const stem = name.replace(/\.[a-z0-9]+$/i, "");
+			const id = "macos-image/" + stem;
+			if (found.has(id)) continue;
 			const stat = statOrZero(fs, fileAbs);
 			found.set(id, {
 				id,
@@ -2563,8 +2620,7 @@ const KNOWN_TYPES = [
 	"scene",
 	"video",
 	"web",
-	"application",
-	"image"
+	"application"
 ];
 /** Media file extensions playable through the video element. */
 const VIDEO_FILE_RE = /\.(mp4|webm|mkv|avi|mov)$/i;
@@ -7763,10 +7819,14 @@ function makeWeRoutes(deps) {
 			if (!requireSameOrigin(req, res)) return;
 			const abs = resolveToken(req, res, imagePrefix);
 			if (!abs) return;
-			if (!/\.heic$/i.test(abs)) {
+			if (/\.(jpe?g|png|webp)$/i.test(abs)) {
+				serveFile(abs, req, res, openReadStream);
+				return;
+			}
+			if (!/\.hei[cf]$/i.test(abs)) {
 				writeJson(res, 400, {
 					ok: false,
-					error: "not-a-heic"
+					error: "not-an-image"
 				});
 				return;
 			}

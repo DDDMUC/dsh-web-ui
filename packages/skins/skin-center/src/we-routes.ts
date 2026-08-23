@@ -11,9 +11,10 @@
  *   GET  /scene-frame/<token> → PNG of a scene wallpaper's main texture,
  *                               decoded in-process (pkg-extract.ts), cached
  *                               under the import store's .cache directory
- *   GET  /image/<token>       → macOS Desktop Pictures HEIC converted to
- *                               JPEG through sips, cached under the import
- *                               store's .cache directory (darwin only)
+ *   GET  /image/<token>       → macOS Desktop Pictures: jpg/png/webp served
+ *                               directly, HEIC converted to JPEG through
+ *                               sips, cached under the import store's
+ *                               .cache directory (darwin only)
  *   POST /import              → copy a library wallpaper into the import
  *                               store (<harnessHome>/skin-center/wallpapers)
  *   POST /reimport            → refresh an imported copy from its source
@@ -611,9 +612,10 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       })
     })
 
-  // GET /image/<token> — HEIC → JPEG for macOS Desktop Pictures, cached
-  // under <store>/.cache/images keyed by path + mtime (stale keys pruned
-  // like the scene caches).
+  // GET /image/<token> — macOS Desktop Pictures: .jpg/.jpeg/.png/.webp are
+  // served directly; HEIC/HEIF converts to JPEG, cached under
+  // <store>/.cache/images keyed by path + mtime (stale keys pruned like the
+  // scene caches). Anything else is rejected: only image formats leave here.
   const imagePrefix = WE_API_PREFIX + '/image/'
   routes.push({
     kind: 'prefix',
@@ -623,7 +625,11 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       if (!requireSameOrigin(req, res)) return
       const abs = resolveToken(req, res, imagePrefix)
       if (!abs) return
-      if (!/\.heic$/i.test(abs)) { writeJson(res, 400, { ok: false, error: 'not-a-heic' }); return }
+      if (/\.(jpe?g|png|webp)$/i.test(abs)) {
+        serveFile(abs, req, res, openReadStream)
+        return
+      }
+      if (!/\.hei[cf]$/i.test(abs)) { writeJson(res, 400, { ok: false, error: 'not-an-image' }); return }
       void (async () => {
         let mtime = 0
         try { mtime = statSync(abs).mtimeMs } catch { /* stays 0 */ }

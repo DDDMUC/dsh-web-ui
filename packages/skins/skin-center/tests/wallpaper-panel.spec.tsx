@@ -213,7 +213,7 @@ describe('WallpaperPanel macOS system wallpapers', () => {
   })
 
   it('shows the static-image badge and no import button for macOS system entries', async () => {
-    await render([item('macos-heic/Tahoe Day', {
+    await render([item('macos-image/Tahoe Day', {
       type: 'image',
       source: 'system',
       playable: false,

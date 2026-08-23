@@ -293,7 +293,10 @@ export function inferType(file: string): WallpaperType {
   return 'scene'
 }
 
-const KNOWN_TYPES: readonly WallpaperType[] = ['scene', 'video', 'web', 'application', 'image']
+// Only the four project.json kinds: 'image' is reserved for the macOS
+// scanner (it builds entries directly) and must never become parseable from
+// a workshop project.json, keeping WE parsing behavior identical.
+const KNOWN_TYPES: readonly WallpaperType[] = ['scene', 'video', 'web', 'application']
 
 /** Media file extensions playable through the video element. */
 const VIDEO_FILE_RE = /\.(mp4|webm|mkv|avi|mov)$/i
