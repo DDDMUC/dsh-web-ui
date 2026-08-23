@@ -10,6 +10,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
+import { readJsonBody } from './http.ts'
 import { isLoopbackRequest } from './loopback.ts'
 import { detectOfficialChannels, findDshBinary, spawnDsh, unsafeSpecReason, type CliGateway } from './gateway.ts'
 import { dshRequirementOf, meetsMinimumDsh, parseDshVersion } from '../core/version.ts'
@@ -19,9 +20,6 @@ import { buildPluginRow, claimedEntryRowsOf, snapshotGateway } from './state.ts'
 
 /** Route prefix the browser half mirrors. */
 export const GATEWAY_PREFIX = '/api/plugin-manager'
-
-/** Cap on JSON request bodies (an install spec or a toggle is tiny). */
-const MAX_JSON_BODY_BYTES = 64 * 1024
 
 /** Registry timeout for one update check. */
 const REGISTRY_TIMEOUT_MS = 30_000
@@ -66,25 +64,6 @@ function sendJson(res: ServerResponse, status: number, value: unknown): void {
   const body = JSON.stringify(value)
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
   res.end(body)
-}
-
-/** Read a bounded JSON request body; throws on oversized or invalid input. */
-async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const chunk of req) {
-    const buffer = chunk as Buffer
-    size += buffer.length
-    if (size > MAX_JSON_BODY_BYTES) throw new Error('plugin-manager: request body too large')
-    chunks.push(buffer)
-  }
-  const text = Buffer.concat(chunks).toString('utf8')
-  if (text.trim() === '') return {}
-  const parsed = JSON.parse(text) as unknown
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error('plugin-manager: request body must be a JSON object')
-  }
-  return parsed as Record<string, unknown>
 }
 
 /** The published `/latest` manifest: version plus the compat metadata fields. */
@@ -235,7 +214,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
   }
 
   const installHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const body = await readJsonBody(req)
+    const body = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
     const spec = body['spec']
     if (typeof spec !== 'string' || spec.trim() === '') {
       sendJson(res, 400, { error: 'plugin-manager: install needs a spec' })
@@ -254,7 +233,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
   }
 
   const updateHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const body = await readJsonBody(req)
+    const body = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
     const id = body['id']
     if (typeof id !== 'string' || id.trim() === '') {
       sendJson(res, 400, { error: 'plugin-manager: update needs an id' })
@@ -306,7 +285,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
   }
 
   const removeHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const body = await readJsonBody(req)
+    const body = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
     const id = body['id']
     if (typeof id !== 'string' || id.trim() === '') {
       sendJson(res, 400, { error: 'plugin-manager: remove needs an id' })
@@ -340,7 +319,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
   }
 
   const setEnabledHandler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const body = await readJsonBody(req)
+    const body = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
     const id = body['id']
     const enabled = body['enabled']
     if (typeof id !== 'string' || id.trim() === '' || typeof enabled !== 'boolean') {

@@ -4,19 +4,11 @@ import { DOCTOR_PROTOCOL_VERSION, type SupervisorRequest } from '../core/protoco
 import { isLoopbackRequest } from './loopback.ts'
 import type { SupervisorClient } from './client.ts'
 import type { DoctorLifecycle } from './ensure.ts'
+import { readJsonBody } from './http.ts'
 
 const PREFIX = '/api/doctor'
-const MAX_BODY = 64 * 1024
 
 function json(res: ServerResponse, status: number, value: unknown): void { const body = JSON.stringify(value); res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(body) }
-
-async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
-  const chunks: Buffer[] = []; let size = 0
-  for await (const chunk of req) { const buffer = Buffer.from(chunk as Buffer); size += buffer.length; if (size > MAX_BODY) throw new Error('doctor: body too large'); chunks.push(buffer) }
-  const text = Buffer.concat(chunks).toString('utf8'); if (!text.trim()) return {}
-  const value = JSON.parse(text); if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('doctor: body must be an object')
-  return value as Record<string, unknown>
-}
 
 export interface DoctorRouteOptions {
   /** Version of the host half (package.json), surfaced for console comparisons. */
@@ -50,7 +42,7 @@ export function makeDoctorRoutes(client: SupervisorClient, profileId: string, op
       kind: 'exact',
       path: PREFIX + '/action',
       handler: guard(async (req, res) => {
-        const value = await body(req)
+        const value = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
         const allowed: readonly string[] = ['provision', 'exercise', 'diagnose', 'repair', 'confirm', 'rollback', 'pause', 'resume', 'uninstall']
         const action = value.action
         if (typeof action !== 'string' || !allowed.includes(action)) { json(res, 400, { ok: false, error: { code: 'INVALID_ACTION', message: 'Unsupported action' } }); return }
@@ -79,7 +71,7 @@ export function makeDoctorRoutes(client: SupervisorClient, profileId: string, op
       kind: 'exact',
       path: PREFIX + '/client-failure',
       handler: guard(async (req, res) => {
-        const value = await body(req)
+        const value = (await readJsonBody(req, { maxBytes: 64 * 1024, objectOnly: true }) ?? {}) as Record<string, unknown>
         if (typeof value.message !== 'string' || value.message.trim() === '') { json(res, 400, { ok: false, error: { code: 'INVALID_FAILURE', message: 'message is required' } }); return }
         json(res, 200, await client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'client-failure', profileId, runId: typeof value.runId === 'string' ? value.runId : process.env.DSH_DOCTOR_RUN_ID, at: new Date().toISOString(), message: value.message.slice(0, 4096), stack: typeof value.stack === 'string' ? value.stack.slice(0, 16_384) : undefined, phase: typeof value.phase === 'string' ? value.phase.slice(0, 128) : undefined }))
       }),
