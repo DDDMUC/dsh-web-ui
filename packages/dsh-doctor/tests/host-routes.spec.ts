@@ -9,7 +9,8 @@ import type { SupervisorResponse } from '../src/core/protocol.ts'
 const okResponse: SupervisorResponse = { ok: true, snapshot: { protocol: 1, phase: 'armed', version: '9.9.9', profiles: [], incidents: [], updatedAt: '2026-01-01T00:00:00Z' } }
 
 function bodyReq(body: string): IncomingMessage {
-  const req = Readable.from([body]) as unknown as IncomingMessage
+  // Real IncomingMessage chunks are Buffers; the shared body reader needs them.
+  const req = Readable.from([Buffer.from(body)]) as unknown as IncomingMessage
   Object.assign(req, { headers: { host: '127.0.0.1:3080' }, socket: { remoteAddress: '127.0.0.1' } })
   return req
 }
