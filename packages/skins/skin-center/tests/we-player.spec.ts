@@ -26,6 +26,17 @@ describe('WE scene player reflection pass (#742)', () => {
     expect(WE_SCENE_PLAYER_HTML).toContain("type: 'dsh-scene-needs-reload'")
   })
 
+  it('uses the 3D-only renderer only when the scene contains actual models', () => {
+    expect(WE_SCENE_PLAYER_HTML).toContain('sceneData.is3D && sceneData.models && sceneData.models.length > 0')
+    expect(WE_SCENE_PLAYER_HTML).not.toContain('if (sceneData.is3D) {')
+  })
+
+  it('composites serialized front-to-back image layers in reverse draw order', () => {
+    expect(WE_SCENE_PLAYER_HTML).toContain('const renderLayers = sceneData.layers.slice().reverse();')
+    expect(WE_SCENE_PLAYER_HTML).toContain('for (const layer of renderLayers)')
+    expect(WE_SCENE_PLAYER_HTML).not.toContain('for (const layer of sceneData.layers)')
+  })
+
   it('draws the reflection quad at the layer rect instead of forcing fullscreen', () => {
     expect(WE_SCENE_PLAYER_HTML).not.toContain('mat4Transform2D(sceneW / 2, sceneH / 2, sceneW, sceneH, 0)')
     expect(WE_SCENE_PLAYER_HTML).toContain("gl.getUniformLocation(progReflection, 'u_waterLine')")

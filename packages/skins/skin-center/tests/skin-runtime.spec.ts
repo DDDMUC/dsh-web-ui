@@ -140,6 +140,14 @@ describe('shared shell rendering adapter (#954)', () => {
     expect(css).toContain('var(--dsh-composer-accessory-gap, 4px)')
   })
 
+  it('keeps the wide goal dock transparent and lets its compact inner bar paint', () => {
+    const css = shellRenderingCss()
+    expect(css).toContain('[data-slot="conversation.input.dock"] > [data-goal-bar="true"][data-goal-bar="true"][data-goal-bar="true"]')
+    expect(css).toMatch(/\[data-goal-bar="true"\](?:\[data-goal-bar="true"\]){2}[^{]*\{[^}]*background: transparent !important;/s)
+    expect(css).toMatch(/\[data-goal-bar="true"\](?:\[data-goal-bar="true"\]){2}[^{]*\{[^}]*box-shadow: none !important;/s)
+    expect(css).not.toContain('[data-goal-bar="true"] > *')
+  })
+
   it('keeps composer geometry intact while retaining scroll clearance (#978)', () => {
     const css = shellRenderingCss()
     expect(css).toContain('[data-conversation-scroll]')

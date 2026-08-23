@@ -651,7 +651,7 @@ window.__ModuleLoader__.load({
 			* is merged into every slot (previewing and applied) that holds the id.
 			*/
 			probeSceneCapabilitiesIfNeeded(descriptor) {
-				if (this.disposed || descriptor.type !== "scene" || descriptor.videoUrl !== null || descriptor.sceneUrl != null) return;
+				if (this.disposed || descriptor.type !== "scene" || descriptor.videoUrl !== null || descriptor.sceneUrl != null || descriptor.sceneCompatibility !== void 0) return;
 				const targetId = descriptor.id;
 				if (this.probePending.has(targetId)) return;
 				const fetchFn = this.options.fetchImpl ?? (typeof fetch !== "undefined" ? fetch.bind(this.doc.defaultView ?? globalThis) : void 0);
@@ -660,14 +660,25 @@ window.__ModuleLoader__.load({
 					if (this.disposed || !response.ok) return;
 					const payload = await response.json().catch(() => null);
 					if (!payload || payload.ok !== true) return;
+					let sceneBaseUrl = null;
+					if (payload.sceneUrl && payload.compatibility === "partial" && payload.unsupportedFeatures?.includes("embedded-script") === true) try {
+						const manifestResponse = await fetchFn(payload.sceneUrl.replace("/scene-runtime/", "/scene-manifest/"));
+						const manifestPayload = manifestResponse.ok ? await manifestResponse.json().catch(() => null) : null;
+						const manifest = manifestPayload?.ok === true ? manifestPayload.manifest : void 0;
+						if (manifest && typeof manifest.width === "number" && typeof manifest.height === "number") sceneBaseUrl = manifest.layers?.find((layer) => typeof layer.texUrl === "string" && Math.abs((layer.w ?? 0) - manifest.width) <= 1 && Math.abs((layer.h ?? 0) - manifest.height) <= 1 && Math.abs((layer.x ?? 0) - manifest.width / 2) <= 1 && Math.abs((layer.y ?? 0) - manifest.height / 2) <= 1)?.texUrl ?? null;
+					} catch {}
+					if (this.disposed) return;
 					let changed = false;
 					if (this.previewing?.id === targetId) {
 						const merged = {
 							...this.previewing,
 							videoUrl: payload.videoUrl ?? this.previewing.videoUrl,
-							sceneUrl: payload.sceneUrl ?? this.previewing.sceneUrl
+							sceneUrl: payload.sceneUrl ?? this.previewing.sceneUrl,
+							sceneCompatibility: payload.compatibility,
+							unsupportedFeatures: payload.unsupportedFeatures,
+							sceneBaseUrl: sceneBaseUrl ?? this.previewing.sceneBaseUrl
 						};
-						if (merged.videoUrl !== this.previewing.videoUrl || merged.sceneUrl !== this.previewing.sceneUrl) {
+						if (merged.videoUrl !== this.previewing.videoUrl || merged.sceneUrl !== this.previewing.sceneUrl || merged.sceneCompatibility !== this.previewing.sceneCompatibility || merged.sceneBaseUrl !== this.previewing.sceneBaseUrl) {
 							this.previewing = merged;
 							changed = true;
 						}
@@ -676,9 +687,12 @@ window.__ModuleLoader__.load({
 						const merged = {
 							...this.applied,
 							videoUrl: payload.videoUrl ?? this.applied.videoUrl,
-							sceneUrl: payload.sceneUrl ?? this.applied.sceneUrl
+							sceneUrl: payload.sceneUrl ?? this.applied.sceneUrl,
+							sceneCompatibility: payload.compatibility,
+							unsupportedFeatures: payload.unsupportedFeatures,
+							sceneBaseUrl: sceneBaseUrl ?? this.applied.sceneBaseUrl
 						};
-						if (merged.videoUrl !== this.applied.videoUrl || merged.sceneUrl !== this.applied.sceneUrl) {
+						if (merged.videoUrl !== this.applied.videoUrl || merged.sceneUrl !== this.applied.sceneUrl || merged.sceneCompatibility !== this.applied.sceneCompatibility || merged.sceneBaseUrl !== this.applied.sceneBaseUrl) {
 							this.applied = merged;
 							changed = true;
 						}
@@ -791,6 +805,14 @@ window.__ModuleLoader__.load({
 				this.scope.set("selection", "");
 			}
 			sync(descriptor) {
+				if (descriptor !== null && this.applied?.id === descriptor.id) descriptor = {
+					...descriptor,
+					videoUrl: descriptor.videoUrl ?? this.applied.videoUrl,
+					sceneUrl: descriptor.sceneUrl ?? this.applied.sceneUrl,
+					sceneCompatibility: descriptor.sceneCompatibility ?? this.applied.sceneCompatibility,
+					unsupportedFeatures: descriptor.unsupportedFeatures ?? this.applied.unsupportedFeatures,
+					sceneBaseUrl: descriptor.sceneBaseUrl ?? this.applied.sceneBaseUrl
+				};
 				this.applied = descriptor;
 				this.render();
 				if (descriptor !== null) this.probeSceneCapabilitiesIfNeeded(descriptor);
@@ -924,7 +946,12 @@ window.__ModuleLoader__.load({
 					styleLayer(this.scrimLayer, -2, "scrim");
 					this.doc.body.appendChild(this.scrimLayer);
 				}
-				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + (descriptor.videoUrl ?? "") + ":" + (descriptor.sceneUrl ?? "");
+				const sceneBackdrop = descriptor.type === "scene" ? descriptor.sceneBaseUrl ?? descriptor.frameUrl ?? descriptor.previewUrl : null;
+				this.mediaLayer.style.backgroundImage = sceneBackdrop === null ? "" : `url(${JSON.stringify(sceneBackdrop)})`;
+				this.mediaLayer.style.backgroundPosition = sceneBackdrop === null ? "" : "center";
+				this.mediaLayer.style.backgroundRepeat = sceneBackdrop === null ? "" : "no-repeat";
+				this.mediaLayer.style.backgroundSize = sceneBackdrop === null ? "" : this.fitValue === "fill" ? "100% 100%" : this.fitValue;
+				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + (descriptor.videoUrl ?? "") + ":" + (descriptor.sceneUrl ?? "") + ":" + (descriptor.sceneCompatibility ?? "") + ":" + (descriptor.unsupportedFeatures?.join(",") ?? "") + ":" + (descriptor.sceneBaseUrl ?? "");
 				if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
 					this.mediaLayer.dataset.mediaKey = mediaKey;
 					this.releaseCaptureVideo();
@@ -983,6 +1010,7 @@ window.__ModuleLoader__.load({
 						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
 						iframe.setAttribute("tabindex", "-1");
 						iframe.dataset.dshScenePlayer = "";
+						if (descriptor.sceneCompatibility === "partial" && descriptor.unsupportedFeatures?.includes("embedded-script") === true && descriptor.sceneBaseUrl) iframe.style.opacity = "0";
 						styleCover(iframe, this.fitValue);
 						iframe.addEventListener("load", () => {
 							try {
@@ -3322,6 +3350,19 @@ window.__ModuleLoader__.load({
       margin-bottom: var(--dsh-composer-accessory-gap, 4px);
       padding-top: 2px;
       padding-bottom: 2px;
+    }
+    ${scoped("[data-slot=\"conversation.input.dock\"] > [data-goal-bar=\"true\"][data-goal-bar=\"true\"][data-goal-bar=\"true\"]")} {
+      /* The host goal dock spans the full composer seat and contains its own
+         centered compact bar. Do not paint the outer dock as an accessory: that
+         creates a viewport-wide veil behind the active-goal chip. The repeated
+         stable marker deliberately raises specificity above catalog-skin dock
+         selectors that load after this shared adapter. */
+      background: transparent !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }
     ${scoped("[data-conversation-scroll]")},
     ${scoped("[data-dsh-part=\"scrollport\"]")} {
