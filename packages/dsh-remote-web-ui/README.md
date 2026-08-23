@@ -55,7 +55,13 @@ that probes and runs the update.
   is reachable without pairing.
 - **Remote desktop channel**: with `requirePairingForLan` on (default), a
   desktop Web GUI opened at the LAN URL or through the tunnel transparently
-  rides `/remote` — the same UI, gated by the same pairing cookie. Browser
+  rides `/remote` — the same UI, gated by the same pairing cookie. The
+  rewrite installs twice-removed from the race it fixes: the host inlines a
+  small classic script right after the opening `<head>` tag
+  (`webserver/index-inject`), so fetch/WebSocket/EventSource and resource
+  `src` rewrites are active before any boot entry (the connection plugin
+  opens its event streams first); the browser half then adopts the installed
+  seat instead of patching twice. Loopback origins skip the patch entirely. Browser
   requests under `/api`, `/sidebar`, `/git`, and `/pet`, including the known
   event, terminal, and SSH WebSockets, are re-issued to the local web server
   without forwarding the remote Origin or pairing cookie; the authenticated

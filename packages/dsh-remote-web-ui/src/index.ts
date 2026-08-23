@@ -37,6 +37,7 @@ import {
 } from './update.ts'
 import { makeUpdateRoutes } from './update-routes.ts'
 import { mountOnce } from './mount-once.ts'
+import { REMOTE_CHANNEL_BOOT_SCRIPT } from './remote-channel-boot.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -482,6 +483,20 @@ function applyImpl(ctx: Context, config?: Config): void {
     // re-probe unless the target set is unchanged.
     runPostureProbe()
   }
+  // Issue #987: the browser-half channel patch installs at this plugin's
+  // boot entry, but dsh-client-connection boots earlier and opens its event
+  // streams unrewritten — on a non-loopback origin the SDK fence rejects
+  // them and the workspace list never loads. Contribute the rewrite as a
+  // parse-time head script so it is active before ANY boot entry runs; the
+  // client apply adopts the installed seat instead of patching twice. The
+  // row follows the live steady-state decision (enabled + pairing gate); the
+  // script itself skips loopback origins.
+  ctx.effect(() => ctx.on('webserver/index-inject', (table) => {
+    const value = resolve()
+    if (!value.enabled || !value.requirePairingForLan) return
+    table.push({ kind: 'script', placement: 'head', text: REMOTE_CHANNEL_BOOT_SCRIPT })
+  }), 'remote-web-ui: remote channel boot patch')
+
   installSettingsSection(ctx, REMOTE_WEB_UI_SETTINGS_NAMESPACE, Config, config ?? {}, {
     setSource: (source) => {
       current = source

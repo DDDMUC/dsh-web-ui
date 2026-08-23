@@ -24,27 +24,17 @@
  * the given window and returns their restore.
  */
 
-/** The gated mirror prefix (must match src/remote-methods.ts). */
-export const REMOTE_PREFIX = '/remote'
+import {
+  REMOTE_API_PREFIX,
+  REMOTE_CHANNEL_RULES,
+  REMOTE_PREFIX,
+} from '../remote-channel-rules.ts'
 
-/** Connection-plugin method prefix under the gated channel. */
-export const REMOTE_API_PREFIX = `${REMOTE_PREFIX}/api`
+export { REMOTE_API_PREFIX, REMOTE_PREFIX }
+export type { RemoteChannelBootSeat } from '../remote-channel-rules.ts'
+export { REMOTE_CHANNEL_BOOT_GLOBAL } from '../remote-channel-rules.ts'
 
-const API_PREFIX = '/api/'
-const PAIR_PREFIX = '/api/pair/'
-const UPDATE_PREFIX = '/api/update/'
-const DESKTOP_LAUNCHER_PREFIX = '/api/dsh-desktop-launcher'
-const SETTINGS_BRIDGE_PREFIX = '/api/dsh-web-ui-settings'
-const SIDEBAR_PREFIX = '/sidebar/'
-const GIT_PREFIX = '/git/'
-const PET_PREFIX = '/pet/'
-const WS_PATHS = new Set([
-  '/api/events.mux',
-  '/api/events.host',
-  '/sidebar/ws/terminal',
-  '/sidebar/ws/agent-terminals',
-  '/api/dsh-ssh/terminal',
-])
+const RULES = REMOTE_CHANNEL_RULES
 
 /** Minimal settings snapshot used by the remote channel decision. */
 export interface RemoteChannelSettingsSnapshot {
@@ -85,14 +75,14 @@ export function isLoopbackHostname(hostname: string): boolean {
  * @param pathname - the request URL pathname.
  */
 export function shouldRewriteFetchPath(pathname: string): boolean {
-  if (pathname.startsWith(PAIR_PREFIX)) return false
-  if (pathname.startsWith(UPDATE_PREFIX)) return false
-  if (pathname === DESKTOP_LAUNCHER_PREFIX || pathname.startsWith(`${DESKTOP_LAUNCHER_PREFIX}/`)) return false
-  if (pathname === SETTINGS_BRIDGE_PREFIX || pathname.startsWith(`${SETTINGS_BRIDGE_PREFIX}/`)) return false
-  if (pathname.startsWith(API_PREFIX)) return true
-  if (pathname.startsWith(SIDEBAR_PREFIX) || pathname === '/sidebar') return true
-  if (pathname.startsWith(GIT_PREFIX) || pathname === '/git') return true
-  if (pathname.startsWith(PET_PREFIX) || pathname === '/pet') return true
+  if (pathname.startsWith(RULES.pairPrefix)) return false
+  if (pathname.startsWith(RULES.updatePrefix)) return false
+  if (pathname === RULES.desktopLauncherPrefix || pathname.startsWith(`${RULES.desktopLauncherPrefix}/`)) return false
+  if (pathname === RULES.settingsBridgePrefix || pathname.startsWith(`${RULES.settingsBridgePrefix}/`)) return false
+  if (pathname.startsWith(RULES.apiPrefix)) return true
+  if (pathname.startsWith(RULES.sidebarPrefix) || pathname === '/sidebar') return true
+  if (pathname.startsWith(RULES.gitPrefix) || pathname === '/git') return true
+  if (pathname.startsWith(RULES.petPrefix) || pathname === '/pet') return true
   return false
 }
 
@@ -101,7 +91,7 @@ export function shouldRewriteFetchPath(pathname: string): boolean {
  * @param pathname - the WebSocket URL pathname.
  */
 export function shouldRewriteWsPath(pathname: string): boolean {
-  return WS_PATHS.has(pathname)
+  return RULES.wsPaths.includes(pathname)
 }
 
 /** The gated twin of one fenced path (`/remote` + original pathname). */

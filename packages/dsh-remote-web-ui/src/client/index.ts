@@ -24,7 +24,14 @@ import { RemoteSettingsCard, RemoteSettingsCardController, type RemoteSettings }
 import { en, zh, type RemoteKey } from './locales.ts'
 import { PAIR_FAILED_MARKER, runPairBootFlow } from './deep-link.ts'
 import { readPairGatePolicy, sendHeartbeat } from './pair-api.ts'
-import { channelTransition, installRemoteChannel, isLoopbackHostname, remoteChannelRequired } from './remote-channel.ts'
+import {
+  channelTransition,
+  installRemoteChannel,
+  isLoopbackHostname,
+  remoteChannelRequired,
+  REMOTE_CHANNEL_BOOT_GLOBAL,
+  type RemoteChannelBootSeat,
+} from './remote-channel.ts'
 import { FenceNotice } from './FenceNotice.tsx'
 
 export type { RemoteEntryProps } from './RemoteEntry.tsx'
@@ -228,16 +235,41 @@ export function apply(ctx: ClientContext): void {
     settingsScope.getSnapshot(),
     hostPairingPolicy,
   )
+  // The parse-time boot patch (issue #987), when the served index carried
+  // it: already installed before any boot entry ran, so adopting its seat
+  // beats patching a second time (which would double-rewrite onto
+  // /remote/remote/...).
+  const bootSeat = (): RemoteChannelBootSeat | undefined =>
+    (window as unknown as Record<string, RemoteChannelBootSeat | undefined>)[REMOTE_CHANNEL_BOOT_GLOBAL]
   const syncChannel = (): void => {
     const transition = channelTransition(channelActive(), disposeChannel !== undefined)
     if (transition === 'install') {
-      disposeChannel = ctx.effect(() => {
-        const restore = installRemoteChannel(window, { onUnpaired: handleUnpaired, onPaired: hideFenceNotice })
-        return restore
-      }, 'remote-web-ui: remote desktop channel')
+      const seat = bootSeat()
+      if (seat !== undefined) {
+        seat.onUnpaired = handleUnpaired
+        seat.onPaired = hideFenceNotice
+        // Replay a signal raised before adoption (early unpaired responses).
+        if (seat.pendingUnpaired) {
+          seat.pendingUnpaired = false
+          handleUnpaired()
+        }
+        disposeChannel = ctx.effect(() => () => {
+          seat.onUnpaired = null
+          seat.onPaired = null
+        }, 'remote-web-ui: remote desktop channel (boot patch)')
+      } else {
+        disposeChannel = ctx.effect(() => {
+          const restore = installRemoteChannel(window, { onUnpaired: handleUnpaired, onPaired: hideFenceNotice })
+          return restore
+        }, 'remote-web-ui: remote desktop channel')
+      }
     } else if (transition === 'retire' && disposeChannel !== undefined) {
       disposeChannel()
       disposeChannel = undefined
+      // Retire the provisional parse-time install with the channel: the
+      // desktop now rides plain /api, so the rewrite must go (its seat
+      // removes the global; a later re-activation patches afresh).
+      bootSeat()?.restore()
       // Retire the notice with the channel: once requirePairingForLan turns
       // off (or the plugin is disabled) the desktop rides plain /api again,
       // so an unpaired notice raised while the channel was briefly active
@@ -245,6 +277,10 @@ export function apply(ctx: ClientContext): void {
       // installed channel is the only path that raises the notice, so with
       // the channel gone nothing can re-raise it (issue #808).
       hideFenceNotice()
+    } else if (transition === 'none' && !channelActive()) {
+      // The channel was never adopted (policy settled to off before apply
+      // ran): the provisional boot patch still retires.
+      bootSeat()?.restore()
     }
   }
   settingsScope.subscribe(syncChannel)
