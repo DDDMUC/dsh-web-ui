@@ -19,7 +19,7 @@ import {
   type InstalledPluginItem,
   type PluginManagerService,
 } from './plugin-manager-bridge.ts'
-import { entryInstalled, installCommand, installSpec } from './install-source.ts'
+import { entryInstalled, installCommand, installSpec, isInstallSpecValid } from './install-source.ts'
 import type { MarketKey } from './locales.ts'
 import css from './market.module.css'
 
@@ -364,8 +364,13 @@ export function MarketCard(props: MarketCardProps): ReactNode {
   const onInstallPlugin = (item: MarketRecord): void => {
     if (face === null || !face.isLoopback || installing !== null) return
     const id = item.id
+    const spec = installSpec(item)
+    if (!isInstallSpecValid(spec)) {
+      setPluginErrors((prev) => ({ ...prev, [id]: t('installFailed', { reason: t('installSpecInvalid') }) }))
+      return
+    }
     setInstalling('plugin:' + id)
-    face.install(installSpec(item)).then(() => face.list()).then((list) => {
+    face.install(spec).then(() => face.list()).then((list) => {
       setPluginList(list)
       callout(id, t('installed', {}))
     }).catch((reason: unknown) => {

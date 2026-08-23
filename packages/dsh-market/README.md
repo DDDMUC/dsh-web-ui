@@ -63,3 +63,6 @@ official Plugins section are separate first-level settings entries.
 - All downloaded content comes from `https://dsh-market.com` (asset URLs are rebuilt from the
   validated manifest); skin CSS is sanitized by the Skin Center runtime before it is applied.
 - Plugin installs go through the same confirmation and CLI path as the Plugin manager tab.
+- The card validates manifest install sources before calling the plugin manager: only npm package
+  names (optionally pinned with a version tag) and plain https:// git URLs are accepted; ssh://,
+  file://, http:// and relative or bare-repo forms are rejected with an error and no install call.
