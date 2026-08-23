@@ -1117,9 +1117,6 @@ importers:
       '@linxin666/dsh-client-ui-plugin-manager':
         specifier: workspace:*
         version: link:../dsh-plugin-manager
-      '@linxin666/dsh-client-ui-session-id':
-        specifier: workspace:*
-        version: link:../dsh-session-id
       '@linxin666/dsh-client-ui-skill-explorer':
         specifier: workspace:*
         version: link:../dsh-skill-explorer

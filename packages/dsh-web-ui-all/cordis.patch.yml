@@ -88,11 +88,6 @@
     - id: web-ui-doctor
       name: '@linxin666/dsh-doctor'
 
-# from ../dsh-session-id
-- insert:
-    - id: web-ui-session-id
-      name: '@linxin666/dsh-client-ui-session-id'
-
 # from ../skins/skin-center
 - insert:
     - id: web-ui-skin-center
