@@ -3,6 +3,7 @@
 
 User-agent: *
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # AI crawlers — same open policy: explicit allow rules for each bot.
 User-agent: GPTBot
