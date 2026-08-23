@@ -333,17 +333,17 @@ window.__ModuleLoader__.load({
 		* html marker `data-dsh-backdrop-active` and installs the shared composer
 		* seat neutralizer that keys on it.
 		*
-		* The composer seat paints an opaque base fade under the input card (rc.8: a
-		* linear gradient to --dsw-alias-bg-base, z-index 7; some builds additionally
-		* use a ::before with backdrop-filter). While ANY backdrop art is visible the
-		* fade would hide it behind the input area, so the official mask is
-		* neutralized uniformly for skins and wallpapers alike (issue #747 direction).
+		* The active composer seat paints the shell's bottom occlusion gradient under
+		* the sticky input card (rc.8: a linear gradient to --dsw-alias-bg-base,
+		* z-index 7). Keep that gradient when chat content exists: removing it lets
+		* scrolled transcript text show through the task/stats/card gaps. The empty
+		* hero seat has no transcript to occlude and remains transparent so backdrop
+		* art is visible around its centered card. Skin-provided seat-wide ::before
+		* masks remain neutralized. Composer task/statistics surfaces are styled by
+		* the shared shell adapter from skin theme tokens, not by this scene layer.
 		*
-		* Readability after the mask is gone comes from a shared frost limited to the
-		* input card itself ([data-composer-card], the official shell's stable card
-		* anchor). The wider composer seat stays transparent so the bottom mask does
-		* not cover the task strip or wallpaper outside the input control. The card
-		* keeps its own translucent tint and gains the configurable backdrop blur
+		* The input card itself ([data-composer-card], the official shell's stable card
+		* anchor) keeps its translucent tint and gains the configurable backdrop blur
 		* (default INPUT_FROST_BLUR_PX).
 		*
 		* The card rule is enabled only while the conversation actually has message
@@ -455,8 +455,8 @@ window.__ModuleLoader__.load({
 			const style = doc.createElement("style");
 			style.setAttribute(SCENE_NEUTRALIZER_ATTR, "");
 			style.textContent = `
-    html[data-dsh-backdrop-active] [data-composer-seat],
-    html[data-dsh-backdrop-active] [data-composer-seat]::before {
+    html[data-dsh-backdrop-active] [data-composer-seat]::before,
+    html[data-dsh-backdrop-active] [data-phase="hero"] [data-composer-seat] {
       background: none !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
@@ -889,10 +889,8 @@ window.__ModuleLoader__.load({
           background-color: transparent !important;
           background-image: none !important;
         }
-        /* Some skins (e.g. summer-liquid-glass) paint a frosted ::before on
-           the composer seat. Neutralize that pseudo independently of the
-           shared scene marker, but leave the seat element itself available
-           for the content-gated readability frost (issues #777 and #951). */
+        /* Seat-wide skin pseudos would blur the whole footer. The shared dock
+           row owns the compact rounded transcript mask instead (#777/#978). */
         html[data-dsh-wallpaper-active] [data-composer-seat]::before {
           background: none !important;
           backdrop-filter: none !important;
@@ -3306,9 +3304,33 @@ window.__ModuleLoader__.load({
       -webkit-text-fill-color: var(--dsw-alias-label-secondary, var(--dsw-alias-label-caption)) !important;
       opacity: 1 !important;
     }
+    ${scoped("[data-phase=\"active\"] [data-slot=\"conversation.input.dock\"] > *")},
+    ${scoped("[data-phase=\"active\"] [data-slot=\"conversation.composer.dock\"] > *")} {
+      /* One skin-driven accessory surface for task and statistics docks. Skins
+         automatically follow their existing semantic theme tokens and may
+         override the --dsh-composer-accessory-* variables for a stronger
+         signature without coupling this adapter to a specific catalog skin. */
+      background: var(--dsh-composer-accessory-bg, var(--dsw-specific-tip, var(--dsw-alias-bg-layer-1))) !important;
+      color: var(--dsh-composer-accessory-color, var(--dsw-alias-label-tertiary)) !important;
+      border: var(--dsh-composer-accessory-border, none) !important;
+      border-radius: var(--dsh-composer-accessory-radius, 12px) !important;
+      box-shadow: var(--dsh-composer-accessory-shadow, var(--dsw-shadow-lv1, 0 2px 10px rgba(7, 20, 38, 0.18)));
+      backdrop-filter: blur(var(--dsh-composer-accessory-blur, var(--dsh-input-card-blur, 10px))) !important;
+      -webkit-backdrop-filter: blur(var(--dsh-composer-accessory-blur, var(--dsh-input-card-blur, 10px))) !important;
+    }
+    ${scoped("[data-phase=\"active\"] [data-slot=\"conversation.composer.dock\"] > *")} {
+      margin-top: var(--dsh-composer-accessory-gap, 4px);
+      margin-bottom: var(--dsh-composer-accessory-gap, 4px);
+      padding-top: 2px;
+      padding-bottom: 2px;
+    }
     ${scoped("[data-conversation-scroll]")},
     ${scoped("[data-dsh-part=\"scrollport\"]")} {
-      padding-bottom: var(--dsh-composer-height, 100px) !important;
+      /* The composer is the scrollport's final in-flow child. Reserving physical
+         padding after it lifts the active dock by one composer height and also
+         shifts the hero above center. Scroll padding keeps scrollIntoView()
+         clearance without changing either layout's geometry. */
+      padding-bottom: 0 !important;
       scroll-padding-bottom: var(--dsh-composer-height, 100px) !important;
     }
   `;

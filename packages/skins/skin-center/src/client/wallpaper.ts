@@ -656,10 +656,8 @@ export class WallpaperController implements WallpaperHandle {
           background-color: transparent !important;
           background-image: none !important;
         }
-        /* Some skins (e.g. summer-liquid-glass) paint a frosted ::before on
-           the composer seat. Neutralize that pseudo independently of the
-           shared scene marker, but leave the seat element itself available
-           for the content-gated readability frost (issues #777 and #951). */
+        /* Seat-wide skin pseudos would blur the whole footer. The shared dock
+           row owns the compact rounded transcript mask instead (#777/#978). */
         html[data-dsh-wallpaper-active] [data-composer-seat]::before {
           background: none !important;
           backdrop-filter: none !important;

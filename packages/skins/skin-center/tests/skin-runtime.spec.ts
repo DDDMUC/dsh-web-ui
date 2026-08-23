@@ -130,11 +130,22 @@ describe('shared shell rendering adapter (#954)', () => {
     expect(css).toContain('opacity: 1 !important;')
   })
 
-  it('applies scrollport clearance with fallback for message readability (#978)', () => {
+  it('themes task and statistics docks from one skin-driven accessory contract', () => {
+    const css = shellRenderingCss()
+    expect(css).toContain('[data-slot="conversation.input.dock"] > *')
+    expect(css).toContain('[data-slot="conversation.composer.dock"] > *')
+    expect(css).toContain('var(--dsh-composer-accessory-bg, var(--dsw-specific-tip, var(--dsw-alias-bg-layer-1)))')
+    expect(css).toContain('var(--dsh-composer-accessory-color, var(--dsw-alias-label-tertiary))')
+    expect(css).toContain('var(--dsh-composer-accessory-radius, 12px)')
+    expect(css).toContain('var(--dsh-composer-accessory-gap, 4px)')
+  })
+
+  it('keeps composer geometry intact while retaining scroll clearance (#978)', () => {
     const css = shellRenderingCss()
     expect(css).toContain('[data-conversation-scroll]')
     expect(css).toContain('[data-dsh-part="scrollport"]')
-    expect(css).toContain(`padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;`)
+    expect(css).toContain('padding-bottom: 0 !important;')
+    expect(css).toMatch(new RegExp(`\\[data-dsh-part=\"scrollport\"\\][^{]*\\{[^}]*padding-bottom: 0 !important;`, 's'))
     expect(css).toContain(`scroll-padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;`)
   })
 
@@ -627,6 +638,7 @@ describe('skin controller', () => {
     const neutralizer = document.head.querySelector('style[data-dsh-scene-neutralizer]')
     expect(neutralizer).not.toBeNull()
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat]::before')
+    expect(neutralizer?.textContent).not.toContain('[data-slot="conversation.composer.dock"] > *')
     // A plain skin (no background media) must never mark a backdrop.
     await controller.switchTo(null, null)
     expect(document.body.hasAttribute('data-dsh-backdrop-active')).toBe(false)

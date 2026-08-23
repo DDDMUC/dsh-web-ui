@@ -642,10 +642,14 @@ describe('WallpaperController', () => {
     expect(document.documentElement.getAttribute('data-dsh-backdrop-active')).toBe('true')
     const neutralizer = document.head.querySelector('style[data-dsh-scene-neutralizer]')
     expect(neutralizer).not.toBeNull()
-    // Neutralize both the official seat gradient and its optional ::before
-    // mask. Only the input card may retain a content-gated blur.
-    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat],')
+    // Preserve the active seat's official gradient so scrolled chat text cannot
+    // show through the composer. Hero remains transparent because it has no
+    // transcript to mask; the optional ::before backdrop is neutralized in both.
+    expect(neutralizer?.textContent).not.toContain('html[data-dsh-backdrop-active] [data-composer-seat],')
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat]::before')
+    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-phase="hero"] [data-composer-seat]')
+    expect(neutralizer?.textContent).not.toContain('[data-slot="conversation.composer.dock"] > *')
+    expect(neutralizer?.textContent).not.toContain('--dsh-composer-accessory-bg')
     expect(neutralizer?.textContent).toContain('background: none !important;')
     expect(neutralizer?.textContent).toContain('-webkit-backdrop-filter: none !important;')
     expect(neutralizer?.textContent).not.toContain('html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-composer-seat] {')
@@ -681,9 +685,8 @@ describe('WallpaperController', () => {
     await waitForContentMarker(true)
     incomingScrollport.remove()
     await waitForContentMarker(false)
-    // The wallpaper-specific neutralizer also owns the composer seat rule as
-    // hardening: some skins (summer-liquid-glass) paint a frosted ::before on
-    // the seat that would blur the wallpaper if the shared marker were absent.
+    // Wallpaper hardening removes the seat-wide pseudo; the shared rounded
+    // composer-dock row owns transcript occlusion instead.
     const root = document.head.querySelector('style[data-dsh-wallpaper-root]')
     expect(root?.textContent).toContain('html[data-dsh-wallpaper-active] [data-composer-seat]::before')
     expect(root?.textContent).not.toContain('html[data-dsh-wallpaper-active] [data-composer-seat],')

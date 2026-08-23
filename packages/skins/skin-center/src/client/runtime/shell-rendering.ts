@@ -44,9 +44,33 @@ export function shellRenderingCss(): string {
       -webkit-text-fill-color: var(--dsw-alias-label-secondary, var(--dsw-alias-label-caption)) !important;
       opacity: 1 !important;
     }
+    ${scoped('[data-phase="active"] [data-slot="conversation.input.dock"] > *')},
+    ${scoped('[data-phase="active"] [data-slot="conversation.composer.dock"] > *')} {
+      /* One skin-driven accessory surface for task and statistics docks. Skins
+         automatically follow their existing semantic theme tokens and may
+         override the --dsh-composer-accessory-* variables for a stronger
+         signature without coupling this adapter to a specific catalog skin. */
+      background: var(--dsh-composer-accessory-bg, var(--dsw-specific-tip, var(--dsw-alias-bg-layer-1))) !important;
+      color: var(--dsh-composer-accessory-color, var(--dsw-alias-label-tertiary)) !important;
+      border: var(--dsh-composer-accessory-border, none) !important;
+      border-radius: var(--dsh-composer-accessory-radius, 12px) !important;
+      box-shadow: var(--dsh-composer-accessory-shadow, var(--dsw-shadow-lv1, 0 2px 10px rgba(7, 20, 38, 0.18)));
+      backdrop-filter: blur(var(--dsh-composer-accessory-blur, var(--dsh-input-card-blur, 10px))) !important;
+      -webkit-backdrop-filter: blur(var(--dsh-composer-accessory-blur, var(--dsh-input-card-blur, 10px))) !important;
+    }
+    ${scoped('[data-phase="active"] [data-slot="conversation.composer.dock"] > *')} {
+      margin-top: var(--dsh-composer-accessory-gap, 4px);
+      margin-bottom: var(--dsh-composer-accessory-gap, 4px);
+      padding-top: 2px;
+      padding-bottom: 2px;
+    }
     ${scoped('[data-conversation-scroll]')},
     ${scoped('[data-dsh-part="scrollport"]')} {
-      padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;
+      /* The composer is the scrollport's final in-flow child. Reserving physical
+         padding after it lifts the active dock by one composer height and also
+         shifts the hero above center. Scroll padding keeps scrollIntoView()
+         clearance without changing either layout's geometry. */
+      padding-bottom: 0 !important;
       scroll-padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;
     }
   `
