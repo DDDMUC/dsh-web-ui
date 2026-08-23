@@ -39,6 +39,12 @@ const VERSION_PROBE_TTL_MS = 5 * 60_000
 /** Minimum gap between failed version probes (avoids a spawn per request). */
 const VERSION_PROBE_COOLDOWN_MS = 60_000
 
+/**
+ * Entry ids that must stay mounted so the local plugin-management escape hatch
+ * remains available. Aggregate packages may still disable every other entry.
+ */
+const SELF_MANAGED_ENTRY_IDS = new Set(['ui-plugin-manager', 'web-ui-plugin-manager'])
+
 /** Dependencies every route shares. */
 export interface GatewayRouteDeps {
   facts: ProfileFacts
@@ -338,7 +344,11 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       const entries = await claimedEntryRowsOf(facts, target)
       let next = patchText
       for (const entry of entries) {
-        next = setRowEnabled(next, facts.patchPath, entry.id, entry.name, enabled)
+        // Never persist a disabled override for the gateway that performs this
+        // write. For an aggregate package, all sibling entries are still
+        // disabled; for the standalone manager this makes the request a no-op.
+        const entryEnabled = enabled || SELF_MANAGED_ENTRY_IDS.has(entry.id)
+        next = setRowEnabled(next, facts.patchPath, entry.id, entry.name, entryEnabled)
       }
       if (next !== patchText) {
         await writePatchAtomic(facts.patchPath, next)
