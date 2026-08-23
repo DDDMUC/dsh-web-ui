@@ -62,3 +62,37 @@ describe('resolveProfile', () => {
     }
   })
 })
+
+describe('readProfileManifest and stripBom', () => {
+  it('strips leading UTF-8 BOM from package.json and cordis.patch.yml', async () => {
+    const { readPatchText, readProfileManifest, stripBom, stripProfileBundles } = await import('../src/host/profile.ts')
+    expect(stripBom('\uFEFF{"hello":"world"}')).toBe('{"hello":"world"}')
+    expect(stripBom('{"hello":"world"}')).toBe('{"hello":"world"}')
+
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-profile-bom-'))
+    try {
+      const pkgPath = join(dir, 'package.json')
+      const patchPath = join(dir, 'cordis.patch.yml')
+      writeFileSync(pkgPath, '\uFEFF' + JSON.stringify({
+        dsh: { profile: { bundles: ['@linxin666/dsh-web-ui-all'] } },
+        dependencies: { 'dsh-context': '^0.25.3' },
+      }), 'utf8')
+      writeFileSync(patchPath, '\uFEFF- id: test\n  name: test\n', 'utf8')
+
+      const manifest = await readProfileManifest(pkgPath)
+      expect(manifest.bundles).toEqual(['@linxin666/dsh-web-ui-all'])
+      expect(manifest.dependencies).toEqual({ 'dsh-context': '^0.25.3' })
+
+      const patchText = await readPatchText(patchPath)
+      expect(patchText.startsWith('\uFEFF')).toBe(false)
+      expect(patchText).toContain('id: test')
+
+      await stripProfileBundles(pkgPath, ['@linxin666/dsh-web-ui-all'])
+      const after = await readProfileManifest(pkgPath)
+      expect(after.bundles).toEqual([])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
