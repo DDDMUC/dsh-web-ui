@@ -1,8 +1,8 @@
 /**
- * Sidebar footer entry for the session-id plugin: the trigger beside the
- * sidebar settings seat (wide row / rail icon) that opens the session-id
- * panel. Registered into the official `sidebar.footer.action` list slot
- * (declared by ui-sidebar, same seat dsh-remote-web-ui shares).
+ * Sidebar footer entry for the session-id plugin: the icon-only trigger
+ * beside the sidebar settings seat (wide row / rail circle) that opens the
+ * session-id panel. Registered into the official `sidebar.footer.action`
+ * list slot (declared by ui-sidebar, same seat dsh-remote-web-ui shares).
  */
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -40,7 +40,6 @@ export function SessionIdEntry({ wide, list, t }: SessionIdEntryProps) {
       onClick={() => { setOpen(true) }}
     >
       <SessionIdIcon />
-      <span className={css.triggerLabel}>{t('entry.label')}</span>
     </button>
   )
 

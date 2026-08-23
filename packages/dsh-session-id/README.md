@@ -9,8 +9,11 @@ changes, nothing runs on the host.
 
 ## What it does
 
-- Adds a "Session ID" trigger beside the sidebar settings row (icon in the
-  56px rail, labeled row in the wide sidebar).
+- Adds a "Session ID" trigger beside the sidebar settings row: an icon-only
+  button in both the 56px rail and the wide sidebar (the label stays as the
+  accessible name and hover tooltip).
+- In the rail it stacks vertically with the update/remote actions on the rail
+  centerline; in the wide sidebar it sits inline with them.
 - Opens a centered panel listing every session: display title, full session id
   (monospace), and a per-row "Copy" button. The current session is marked.
 - A search box filters the list locally by title or id substring (read-only,
