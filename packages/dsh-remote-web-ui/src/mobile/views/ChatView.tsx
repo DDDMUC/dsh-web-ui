@@ -527,7 +527,7 @@ const MessageRow = memo(function MessageRow({ message, showToolCalls, showSystem
         <ToolDisclosure tools={message.tools} />
       )}
       {message.kind === 'assistant'
-        ? <MarkdownText text={message.text} />
+        ? <MarkdownText text={message.text} pending={message.pending === true} />
         : <CollapsibleText text={message.text} />}
       {message.failed === true && <span className="chat-msg-failtag">本次回复失败</span>}
       <span className="chat-msg-time">{formatTime(message.time)}</span>
@@ -588,15 +588,76 @@ function ToolDisclosure({ tools }: { tools: ToolCallInfo[] }) {
 }
 
 /**
+ * Minimum interval between full markdown re-parses of a live (pending)
+ * assistant message. Every streamed chunk replaces the message object, and
+ * re-parsing the whole accumulated text per chunk turns a long reply into
+ * O(n^2) work on mobile. Pending text keeps the last parsed result visible
+ * and re-parses at most once per interval; the moment the turn closes the
+ * final text parses immediately, so terminal messages render exactly as
+ * before.
+ */
+export const STREAM_RENDER_INTERVAL_MS = 120
+
+/**
  * Assistant text rendered as GFM markdown (escape-first, protocol
  * allow-list — see markdown.ts). Long replies collapse by clamping the
  * rendered block height instead of slicing the source, so half-cut code
  * fences or tables never leak malformed markup into the DOM. User
  * messages stay plain text (CollapsibleText).
  */
-function MarkdownText({ text }: { text: string }) {
+function MarkdownText({ text, pending }: { text: string; pending: boolean }) {
   const [open, setOpen] = useState(false)
-  const html = useMemo(() => renderMarkdown(text), [text])
+  const [html, setHtml] = useState<string>(() => renderMarkdown(text))
+  /** Text of the last render actually applied to `html`. */
+  const renderedTextRef = useRef(text)
+  /** Newest streamed text, read by the trailing render at fire time. */
+  const latestTextRef = useRef(text)
+  /** Timestamp of the last applied parse (throttle window start). */
+  const lastRenderAtRef = useRef(performance.now())
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Throttled parse for a live stream: skip parses while the newest text is
+  // already rendered, parse immediately once the throttle window elapsed,
+  // otherwise schedule one trailing render that picks up the newest text.
+  useEffect(() => {
+    latestTextRef.current = text
+    if (!pending) {
+      // Turn closed: terminal messages are never throttled, so cancel any
+      // scheduled stream render and parse the final text immediately.
+      if (timerRef.current !== undefined) {
+        clearTimeout(timerRef.current)
+        timerRef.current = undefined
+      }
+      if (text === renderedTextRef.current) return
+      lastRenderAtRef.current = performance.now()
+      renderedTextRef.current = text
+      setHtml(renderMarkdown(text))
+      return
+    }
+    if (text === renderedTextRef.current) return
+    const elapsed = performance.now() - lastRenderAtRef.current
+    if (elapsed >= STREAM_RENDER_INTERVAL_MS) {
+      lastRenderAtRef.current = performance.now()
+      renderedTextRef.current = text
+      setHtml(renderMarkdown(text))
+      return
+    }
+    if (timerRef.current === undefined) {
+      timerRef.current = setTimeout(() => {
+        timerRef.current = undefined
+        lastRenderAtRef.current = performance.now()
+        renderedTextRef.current = latestTextRef.current
+        setHtml(renderMarkdown(latestTextRef.current))
+      }, STREAM_RENDER_INTERVAL_MS - elapsed)
+    }
+  }, [text, pending])
+
+  // Cancel the trailing stream render if the row unmounts mid-stream.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== undefined) clearTimeout(timerRef.current)
+    }
+  }, [])
   const long = text.length > LONG_TEXT_LIMIT
   const collapsed = long && !open
   return (
