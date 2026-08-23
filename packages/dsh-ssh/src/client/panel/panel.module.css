@@ -66,12 +66,12 @@ html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [class*='centerCol'] 
 }
 
 .entry:hover {
-  background: var(--dsw-specific-sidebar-nav-item-hover);
+  background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-primary);
 }
 
 .entry[data-active] {
-  background: var(--dsw-specific-sidebar-nav-item-active);
+  background: var(--dsw-alias-interactive-bg-active);
   color: var(--dsw-alias-label-primary);
   font-weight: 600;
 }
@@ -100,9 +100,10 @@ html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [class*='centerCol'] 
 [data-dsh-frame][data-sidebar-collapsed] .entry {
   justify-content: center;
   padding: 0;
-  width: 40px;
-  min-height: 40px;
-  margin-inline: auto;
+  width: 36px;
+  min-height: 36px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
 }
 
 [data-dsh-frame][data-sidebar-collapsed] .entryLabel {

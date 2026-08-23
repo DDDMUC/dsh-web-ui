@@ -17,8 +17,8 @@ import { mountSidebarEntry as mountSharedSidebarEntry } from './sidebar-entry-co
 /** Stable data attribute identifying the injected entry row. */
 export const ENTRY_SELECTOR = '[data-dsh-skill-explorer-entry]'
 
-/** Inline icon (matches the shell's 16px nav-icon look): a book glyph. */
-const ICON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3.2C6.6 2 4.5 2 3 2v10.5c1.5 0 3.6 0 5 1.3 1.4-1.3 3.5-1.3 5-1.3V2c-1.5 0-3.6 0-5 1.2z"/><path d="M8 3.2v10.6"/></svg>'
+/** Inline book icon normalized to the shell's 18px navigation glyph size. */
+const ICON = '<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3.2C6.6 2 4.5 2 3 2v10.5c1.5 0 3.6 0 5 1.3 1.4-1.3 3.5-1.3 5-1.3V2c-1.5 0-3.6 0-5 1.2z"/><path d="M8 3.2v10.6"/></svg>'
 
 /**
  * Mount the sidebar entry, waiting for the shell to render and self-healing
