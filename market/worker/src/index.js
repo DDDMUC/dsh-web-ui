@@ -10,6 +10,8 @@ import OPENAPI_SPEC from './openapi.js'
 import API_DOCS_HTML from './api-doc.js'
 
 const KINDS = new Set(['skin', 'pet', 'plugin'])
+const HOMEPAGE_PATHS = new Set(['/', '/index.html'])
+const HOME_LINK = '</.well-known/api-catalog>; rel="api-catalog", </openapi.json>; rel="service-desc", </api-docs.html>; rel="service-doc", </api-docs.html>; rel="describedby"'
 const ASSET_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 const FP_RE = /^[A-Za-z0-9_-]{16,64}$/
 const SKIN_RE = /^[a-z][a-z0-9-]{0,31}$/
@@ -163,6 +165,23 @@ export default {
         }
       }
       return json({ ok: false, error: 'skin-asset-not-found' }, 404)
+    }
+
+    if (HOMEPAGE_PATHS.has(path) && (request.method === 'GET' || request.method === 'HEAD')) {
+      const asset = await env.ASSETS.fetch(new URL(path === '/' ? '/' : '/index.html', url))
+      if (asset && asset.status === 200) {
+        // RFC 8288 / RFC 9727 Section 3: advertise machine-readable resources.
+        const headers = new Headers()
+        headers.set('content-type', asset.headers.get('content-type') || 'text/html; charset=utf-8')
+        headers.set('cache-control', asset.headers.get('cache-control') || 'public, max-age=0, must-revalidate')
+        for (const name of ['etag', 'last-modified']) {
+          const value = asset.headers.get(name)
+          if (value) headers.set(name, value)
+        }
+        headers.set('link', HOME_LINK)
+        return new Response(asset.body, { status: asset.status, headers })
+      }
+      return json({ ok: false, error: 'not-found' }, 404)
     }
 
     if (path === '/.well-known/api-catalog' && (request.method === 'GET' || request.method === 'HEAD')) {

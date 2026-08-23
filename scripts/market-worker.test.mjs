@@ -117,6 +117,30 @@ test('worker serves the OpenAPI description and API docs', async () => {
   assert.match(await docs.text(), /创意工坊 API 文档/)
 })
 
+test('worker adds RFC 8288 Link headers on the homepage', async () => {
+  const response = await worker.fetch(new Request('https://dsh-market.com/'), {
+    ASSETS: {
+      async fetch(request) {
+        return new Response('<!doctype html><html></html>', { headers: { 'content-type': 'text/html', 'cache-control': 'public, max-age=0, must-revalidate', etag: 'abc' } })
+      },
+    },
+  }, context())
+  assert.equal(response.status, 200)
+  const link = response.headers.get('link') || ''
+  for (const rel of ['api-catalog', 'service-desc', 'service-doc', 'describedby']) {
+    assert.ok(link.includes('rel="' + rel + '"'), rel + ' missing: ' + link)
+  }
+  assert.ok(link.includes('/.well-known/api-catalog'))
+  assert.ok(link.includes('/openapi.json'))
+  assert.ok(link.includes('/api-docs.html'))
+  assert.equal(response.headers.get('etag'), 'abc')
+  const index = await worker.fetch(new Request('https://dsh-market.com/index.html'), {
+    ASSETS: { async fetch() { return new Response('<html></html>', { headers: { 'content-type': 'text/html' } }) } },
+  }, context())
+  assert.equal(index.status, 200)
+  assert.ok((index.headers.get('link') || '').includes('service-desc'))
+})
+
 test('worker answers /api with service info', async () => {
   const response = await worker.fetch(new Request('https://dsh-market.com/api'), {}, context())
   assert.equal(response.status, 200)
