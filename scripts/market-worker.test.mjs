@@ -141,6 +141,36 @@ test('worker adds RFC 8288 Link headers on the homepage', async () => {
   assert.ok((index.headers.get('link') || '').includes('service-desc'))
 })
 
+test('worker serves a markdown homepage via Accept: text/markdown', async () => {
+  const assets = {
+    async fetch(request) {
+      const pathname = request instanceof URL ? request.pathname : new URL(typeof request === 'string' ? request : request.url).pathname
+      const bodies = {
+        '/manifest/skins.json': JSON.stringify({ items: [{ id: 'harbor', name: '港湾', nameEn: 'Harbor', author: 'linxin', rank: 1, description: '海港灯火主题' }] }),
+        '/manifest/pets.json': JSON.stringify({ items: [{ id: 'whale', displayName: '鲸鱼', rank: 1 }] }),
+        '/manifest/plugins.json': JSON.stringify({ items: [{ id: 'dsh-ssh', name: 'SSH', rank: 1, category: 'dev', description: 'Remote shell host' }] }),
+      }
+      return new Response(bodies[pathname] || '{}', { headers: { 'content-type': 'application/json' } })
+    },
+  }
+  const response = await worker.fetch(new Request('https://dsh-market.com/', { headers: { accept: 'text/markdown' } }), { ASSETS: assets }, context())
+  assert.equal(response.status, 200)
+  assert.match(response.headers.get('content-type') || '', /text\/markdown/)
+  assert.ok(Number(response.headers.get('x-markdown-tokens')) > 0)
+  const body = await response.text()
+  assert.match(body, /^# DSH Web UI/)
+  assert.match(body, /港湾/)
+  assert.match(body, /HTTP\/dsh-ssh|dsh-ssh/) // plugin listed
+})
+
+test('worker keeps HTML when a browser Accept header is sent', async () => {
+  const response = await worker.fetch(new Request('https://dsh-market.com/', { headers: { accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' } }), {
+    ASSETS: { async fetch() { return new Response('<html></html>', { headers: { 'content-type': 'text/html; charset=utf-8' } }) } },
+  }, context())
+  assert.equal(response.status, 200)
+  assert.match(response.headers.get('content-type') || '', /text\/html/)
+})
+
 test('worker answers /api with service info', async () => {
   const response = await worker.fetch(new Request('https://dsh-market.com/api'), {}, context())
   assert.equal(response.status, 200)
