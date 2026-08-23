@@ -27,6 +27,7 @@ window.__ModuleLoader__.load({
 					resolve(iframe);
 				};
 				iframe.onerror = () => {
+					iframe.remove();
 					ready = null;
 					reject(/* @__PURE__ */ new Error("turnstile-frame-failed"));
 				};
@@ -48,8 +49,11 @@ window.__ModuleLoader__.load({
 				const finish = (error, token = "") => {
 					window.clearTimeout(timer);
 					window.removeEventListener("message", onMessage);
-					if (error !== null) reject(error);
-					else resolve(token);
+					if (error !== null) {
+						iframe.remove();
+						ready = null;
+						reject(error);
+					} else resolve(token);
 				};
 				window.addEventListener("message", onMessage);
 				iframe.contentWindow?.postMessage({
