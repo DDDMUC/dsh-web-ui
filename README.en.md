@@ -55,14 +55,6 @@ Skins follow the same philosophy: a v2 skin is no longer an npm package coupled 
 
 ## Feature Plugins
 
-### Liang Shen Mode
-
-DeepSeek V4 Pro cares a lot about the tool catalog it sees on the first turn. In community benchmarks the official Standard / PTC presets score 91 / 92 and Minimal scores 99 / 96, but Minimal only has two tools. Liang Shen Mode puts the two halves together: pick it in the preset selector when you start a new session. The first turn runs Minimal-style (only a persistent `bash` and `str_replace_editor`, only your own messages), and once the trajectory is anchored it switches to PTC Mode, with the full tool registry, workspace instructions and skill directory restored afterwards. Windows-native testing on DeepSeek V4 Pro: 98 / 99, average 98.5. Not luck of the draw, and no need to give up the full tool set.
-
-![Liang Shen Mode two-phase anchoring comparison (schematic, simulated render)](docs/images/liangshen-mode.png)
-
-The mechanics, stabilization controls and limits live in [dsh-liangshen README](packages/dsh-liangshen/README.md).
-
 ### Task Board
 
 Open it from the sidebar. Tasks sit in five columns: Planned, To-do, In Progress, Done, Failed. Click "Run" on a card and the task goes to a real DSH agent session; the card status updates itself when it finishes. Want to see what happened? Jump back into the execution session for the full transcript.
@@ -121,6 +113,14 @@ The branch picker above the input box switches branches and browses commit histo
 
 ![Git graph](docs/screenshots/04-git-graph.png)
 
+### Liang Shen Mode
+
+DeepSeek V4 Pro cares a lot about the tool catalog it sees on the first turn. In community benchmarks the official Standard / PTC presets score 91 / 92 and Minimal scores 99 / 96, but Minimal only has two tools. Liang Shen Mode puts the two halves together: pick it in the preset selector when you start a new session. The first turn runs Minimal-style (only a persistent `bash` and `str_replace_editor`, only your own messages), and once the trajectory is anchored it switches to PTC Mode, with the full tool registry, workspace instructions and skill directory restored afterwards. Windows-native testing on DeepSeek V4 Pro: 98 / 99, average 98.5. Not luck of the draw, and no need to give up the full tool set.
+
+![Liang Shen Mode two-phase anchoring comparison (schematic, simulated render)](docs/images/liangshen-mode.png)
+
+The mechanics, stabilization controls and limits live in [dsh-liangshen README](packages/dsh-liangshen/README.md).
+
 ### More Plugins
 
 - **Skill center** (`dsh-client-ui-skill-explorer`): browse loaded skills by source; enable, disable, create and delete.
@@ -139,6 +139,12 @@ The skin center is the single skin loader: 18 theme skins try on before apply �
 All theme skins at a glance:
 
 ![All theme skins](docs/images/skins-montage.png)
+
+### Wallpaper Engine Wallpapers
+
+The skin center can use your local Wallpaper Engine library as the GUI backdrop: video, web and scene wallpapers all render live — scene wallpapers are driven by a built-in WebGL player — and any type can be pinned to a zero-animation "static frame" image. Import a single wallpaper into `skin-center/wallpapers/` to keep it working outside the Steam library, with update detection against the workshop original; without a Wallpaper Engine install (e.g. macOS), manual folders can add any `.mp4`/`.webm` folder or wallpaper project folder as the library. Wallpapers are your own local files and are never uploaded or redistributed.
+
+![Wallpaper Engine wallpapers](docs/screenshots/30-skin-wallpaper-engine.png)
 
 ### Windows XP (Luna)
 
@@ -170,15 +176,11 @@ An ornate navy workshop skin with two character layers and responsive sidebar de
 
 ![Maid Atelier light](packages/skins/skin-center/skins/maid-atelier/preview/light.jpg) · ![Maid Atelier dark](packages/skins/skin-center/skins/maid-atelier/preview/dark.jpg)
 
-### Wallpaper Engine Wallpapers
-
-The skin center can use your local Wallpaper Engine library as the GUI backdrop: video, web and scene wallpapers all render live — scene wallpapers are driven by a built-in WebGL player — and any type can be pinned to a zero-animation "static frame" image. Import a single wallpaper into `skin-center/wallpapers/` to keep it working outside the Steam library, with update detection against the workshop original; without a Wallpaper Engine install (e.g. macOS), manual folders can add any `.mp4`/`.webm` folder or wallpaper project folder as the library. Wallpapers are your own local files and are never uploaded or redistributed.
-
-![Wallpaper Engine wallpapers](docs/screenshots/29-skin-wallpaper-engine.png)
-
 ## Workshop (dsh-market.com)
 
 The [Workshop](https://dsh-market.com) (dsh-market.com) is DSH's one-stop home for creations: skins, pets and plugins in one place, each category ranked by device-backed likes with the top three on the landing-page podium; skins preview in a live try-on, plugins expose one-copy install commands. The Workshop settings card inside the Web GUI browses the catalog directly — skins and pets install into the DSH home directories in one click, plugins go through the plugin manager, and everything shows up in the skin center and pet panel afterwards.
+
+![Workshop home](docs/screenshots/31-market-home.png)
 
 The site itself is also built from this repository: a static build generated deterministically by `scripts/market-build` from the three sources of truth (`skin.json` / `pet.json` / `community.json`); dynamic features like likes run on a Cloudflare Workers edge API (D1 persistence, one vote per device) and deploy automatically on every push to `main`.
 
