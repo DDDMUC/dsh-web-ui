@@ -8,6 +8,7 @@ window.__ModuleLoader__.load({
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let _deepseek_ai_dsh_client_runtime_client = require("@deepseek-ai/dsh-client-runtime/client");
+		let _deepseek_ai_dsh_client_ui_slots = require("@deepseek-ai/dsh-client-ui-slots");
 		//#region src/client/turnstile.ts
 		/** Turnstile token relay hosted on the market origin. */
 		const MARKET_ORIGIN = "https://dsh-market.com";
@@ -786,7 +787,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-market/src/client/market.module.css.mjs
-		const css = ".bkhjFa_market{flex-direction:column;gap:10px;display:flex}.bkhjFa_tabs{flex-wrap:wrap;gap:6px;display:flex}.bkhjFa_tab{border:1px solid var(--card-border,#ffffff29);color:var(--text-2,#ebf2fab8);cursor:pointer;background:0 0;border-radius:10px;padding:6px 14px}.bkhjFa_tab:hover{color:var(--text-1,#f5f8fcf5)}.bkhjFa_tabActive{background:var(--accent-soft,#3a65c233);color:var(--text-1,#f5f8fcf5);border-color:var(--accent,#3a65c2)}.bkhjFa_tabCount{opacity:.72;margin-left:6px;font-size:12px}.bkhjFa_search{border:1px solid var(--card-border,#ffffff29);width:100%;max-width:460px;color:var(--text-1,#f5f8fcf5);background:0 0;border-radius:10px;padding:7px 12px}.bkhjFa_search::placeholder{color:var(--text-3,#ebf2fa70)}.bkhjFa_grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin:4px 0 0;padding:0;list-style:none;display:grid}.bkhjFa_card{border:1px solid var(--card-border,#ffffff29);background:var(--card,#ffffff08);border-radius:12px;gap:10px;min-width:0;padding:10px;display:flex}.bkhjFa_thumb{object-fit:cover;background:var(--card,#ffffff0a);border-radius:8px;flex:none;place-items:center;width:72px;height:72px;display:grid}.bkhjFa_thumbPlaceholder{color:var(--text-3,#ebf2fa99);font-size:22px;font-weight:700}.bkhjFa_cardBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bkhjFa_cardName{text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}.bkhjFa_cardVersion{opacity:.6;margin-left:6px;font-size:11px;font-weight:400}.bkhjFa_cardMeta{color:var(--text-3,#ebf2fa8c);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:flex;overflow:hidden}.bkhjFa_badge{border:1px solid var(--card-border,#ffffff29);border-radius:999px;padding:1px 7px;font-size:10px}.bkhjFa_badgeInstalled{color:#7fd0a4;border-color:#7fd0a466}.bkhjFa_cardDesc{color:var(--text-2,#ebf2faa8);-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:12px;display:-webkit-box;overflow:hidden}.bkhjFa_cardFooter{flex-wrap:wrap;align-items:center;gap:6px;margin-top:2px;display:flex}.bkhjFa_like,.bkhjFa_previewLink,.bkhjFa_install{border:1px solid var(--card-border,#ffffff29);color:var(--text-2,#ebf2fabd);cursor:pointer;background:0 0;border-radius:8px;padding:3px 10px;font-size:12px;text-decoration:none}.bkhjFa_like:hover,.bkhjFa_previewLink:hover,.bkhjFa_install:hover{color:var(--text-1,#f5f8fcf5)}.bkhjFa_installPrimary{background:var(--accent,#3a65c2);border-color:var(--accent,#3a65c2);color:#fff}.bkhjFa_installPrimary:disabled{opacity:.55;cursor:default}.bkhjFa_error{color:#e58d8d;font-size:12px}.bkhjFa_callout{color:#7fd0a4;font-size:12px}.bkhjFa_empty{color:var(--text-3,#ebf2fa80);align-items:center;gap:8px;font-size:13px;display:flex}.bkhjFa_retry{padding:3px 10px;font-size:12px}.bkhjFa_remoteNote{color:var(--text-3,#ebf2fa80);margin:6px 0 0;font-size:12px}.bkhjFa_modalActions{justify-content:flex-end;gap:8px;margin-top:10px;display:flex}";
+		const css = ".bkhjFa_market{flex-direction:column;gap:10px;display:flex}.bkhjFa_tabs{flex-wrap:wrap;gap:6px;display:flex}.bkhjFa_tab{border:1px solid var(--card-border,#ffffff29);color:var(--text-2,#ebf2fab8);cursor:pointer;background:0 0;border-radius:10px;padding:6px 14px}.bkhjFa_tab:hover{color:var(--text-1,#f5f8fcf5)}.bkhjFa_tabActive{background:var(--accent-soft,#3a65c233);color:var(--text-1,#f5f8fcf5);border-color:var(--accent,#3a65c2)}.bkhjFa_tabCount{opacity:.72;margin-left:6px;font-size:12px}.bkhjFa_search{border:1px solid var(--card-border,#ffffff29);width:100%;max-width:460px;color:var(--text-1,#f5f8fcf5);background:0 0;border-radius:10px;padding:7px 12px}.bkhjFa_search::placeholder{color:var(--text-3,#ebf2fa70)}.bkhjFa_grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin:4px 0 0;padding:0;list-style:none;display:grid}.bkhjFa_card{border:1px solid var(--card-border,#ffffff29);background:var(--card,#ffffff08);border-radius:12px;gap:10px;min-width:0;padding:10px;display:flex}.bkhjFa_thumb{object-fit:cover;background:var(--card,#ffffff0a);border-radius:8px;flex:none;place-items:center;width:72px;height:72px;display:grid}.bkhjFa_thumbPlaceholder{color:var(--text-3,#ebf2fa99);font-size:22px;font-weight:700}.bkhjFa_cardBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bkhjFa_cardName{text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}.bkhjFa_cardVersion{opacity:.6;margin-left:6px;font-size:11px;font-weight:400}.bkhjFa_cardMeta{color:var(--text-3,#ebf2fa8c);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:flex;overflow:hidden}.bkhjFa_badge{border:1px solid var(--card-border,#ffffff29);border-radius:999px;padding:1px 7px;font-size:10px}.bkhjFa_badgeInstalled{color:#7fd0a4;border-color:#7fd0a466}.bkhjFa_cardDesc{color:var(--text-2,#ebf2faa8);-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:12px;display:-webkit-box;overflow:hidden}.bkhjFa_cardFooter{flex-wrap:wrap;align-items:center;gap:6px;margin-top:2px;display:flex}.bkhjFa_like,.bkhjFa_previewLink,.bkhjFa_install{border:1px solid var(--card-border,#ffffff29);color:var(--text-2,#ebf2fabd);cursor:pointer;background:0 0;border-radius:8px;padding:3px 10px;font-size:12px;text-decoration:none}.bkhjFa_like:hover,.bkhjFa_previewLink:hover,.bkhjFa_install:hover{color:var(--text-1,#f5f8fcf5)}.bkhjFa_installPrimary{background:var(--accent,#3a65c2);border-color:var(--accent,#3a65c2);color:#fff}.bkhjFa_installPrimary:disabled{opacity:.55;cursor:default}.bkhjFa_error{color:#e58d8d;font-size:12px}.bkhjFa_callout{color:#7fd0a4;font-size:12px}.bkhjFa_empty{color:var(--text-3,#ebf2fa80);align-items:center;gap:8px;font-size:13px;display:flex}.bkhjFa_retry{padding:3px 10px;font-size:12px}.bkhjFa_remoteNote{color:var(--text-3,#ebf2fa80);margin:6px 0 0;font-size:12px}.bkhjFa_modalActions{justify-content:flex-end;gap:8px;margin-top:10px;display:flex}.bkhjFa_hub{flex-direction:column;gap:10px;display:flex}.bkhjFa_hubHeading{margin:0;font-size:16px;font-weight:600}.bkhjFa_hubLede{color:var(--text-2,#ebf2faa8);margin:0;font-size:13px}";
 		const tagId = "@linxin666/dsh-client-ui-market/market.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -809,6 +810,9 @@ window.__ModuleLoader__.load({
 			"empty": "bkhjFa_empty",
 			"error": "bkhjFa_error",
 			"grid": "bkhjFa_grid",
+			"hub": "bkhjFa_hub",
+			"hubHeading": "bkhjFa_hubHeading",
+			"hubLede": "bkhjFa_hubLede",
 			"install": "bkhjFa_install",
 			"installPrimary": "bkhjFa_installPrimary",
 			"like": "bkhjFa_like",
@@ -1425,6 +1429,84 @@ window.__ModuleLoader__.load({
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MarketCard, { ...props });
 		}
 		//#endregion
+		//#region src/client/market-tab.ts
+		/** The child slot key the DSH Market hub declares and category cards register into. */
+		const MARKET_TAB_KEY = "dsh-market.tab";
+		//#endregion
+		//#region src/client/MarketHub.tsx
+		/**
+		* The DSH Market hub: the single first-level settings section that hosts the
+		* Store / Skin Center / Pet / Community Plugins category cards as tab panels.
+		* The hub declares the `dsh-market.tab` child slot (see the shared
+		* market-tab contract); category cards register into it, or fall back to
+		* their own first-level section when this hub is not installed.
+		*/
+		/** Builds the hub face over the live slot registry. */
+		var MarketHubController = class {
+			ctx;
+			/** @param ctx - client root context (for the slots registry). */
+			constructor(ctx) {
+				this.ctx = ctx;
+			}
+			/** Build the face the hub's slot registration injects. */
+			inject() {
+				return { hooks: { marketTabs: {
+					getSnapshot: () => this.snapshot(),
+					subscribe: (listener) => this.ctx.slots.subscribe(MARKET_TAB_KEY, listener)
+				} } };
+			}
+			snapshot() {
+				return this.ctx.slots.entries(MARKET_TAB_KEY).map((entry) => ({
+					id: entry.options.id ?? "",
+					label: (0, _deepseek_ai_dsh_client_ui_slots.resolveSlotLabel)(entry.options.label) ?? ""
+				}));
+			}
+		};
+		/**
+		* Render the hub: a heading plus a tab bar over the category cards. Only the
+		* active tab panel mounts, so a card re-fetches its local state (skin
+		* catalog, pet registry, plugin index) when the user returns to it.
+		*/
+		function MarketHub(props) {
+			const { t, useMarketTabs, renderSlot, close } = props;
+			const tabs = useMarketTabs((snapshot) => snapshot);
+			const [picked, setPicked] = (0, react.useState)(null);
+			const activeId = tabs.some((tab) => tab.id === picked) ? picked : tabs[0]?.id ?? null;
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: market_module_css_default.hub,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h2", {
+						className: market_module_css_default.hubHeading,
+						title: t("hub.title"),
+						children: t("hub.title")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: market_module_css_default.hubLede,
+						title: t("hub.description"),
+						children: t("hub.description")
+					}),
+					tabs.length > 1 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: market_module_css_default.tabs,
+						role: "tablist",
+						children: tabs.map((tab) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							role: "tab",
+							"aria-selected": tab.id === activeId,
+							className: tab.id === activeId ? market_module_css_default.tabActive : market_module_css_default.tab,
+							onClick: () => {
+								setPicked(tab.id);
+							},
+							children: tab.label
+						}, tab.id))
+					}) : null,
+					activeId !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						role: "tabpanel",
+						children: renderSlot(MARKET_TAB_KEY, { close }, { only: activeId })
+					}) : null
+				]
+			});
+		}
+		//#endregion
 		//#region src/client/locales.ts
 		/**
 		* Market card dictionaries. zh is the key source; en mirrors every key.
@@ -1445,7 +1527,10 @@ window.__ModuleLoader__.load({
 			"settings.inherit": "继承",
 			"settings.on": "开",
 			"settings.off": "关",
+			"hub.title": "DSH 市场",
+			"hub.description": "皮肤、宠物与社区插件的一站式市场：在线浏览、按需安装与本地管理。",
 			"settings.title": "市场",
+			"tab.shop": "商店",
 			"settings.description": "浏览 dsh-market.com 的皮肤、宠物与社区插件，一键安装到本机 dsh。",
 			"settings.enable": "启用市场卡片",
 			"settings.enableHint": "关闭后隐藏市场内容，仅保留开关本身。",
@@ -1500,7 +1585,10 @@ window.__ModuleLoader__.load({
 			"settings.inherit": "Inherit",
 			"settings.on": "On",
 			"settings.off": "Off",
+			"hub.title": "DSH Market",
+			"hub.description": "One-stop market for skins, pets and community plugins: browse, install on demand and manage locally.",
 			"settings.title": "Market",
+			"tab.shop": "Shop",
 			"settings.description": "Browse skins, pets and community plugins from dsh-market.com and install them locally with one click.",
 			"settings.enable": "Enable the market card",
 			"settings.enableHint": "Hides the market content and keeps the switch only.",
@@ -1557,12 +1645,25 @@ window.__ModuleLoader__.load({
 			}), "dsh-market: dictionaries");
 			bridgePluginManager(ctx);
 			const controller = new MarketCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: MARKET_NS }));
-			ctx.slots.inject("settings.section", () => {
+			const hub = new MarketHubController(ctx);
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "dsh-market",
+				order: 150,
+				label: () => ctx.locale.bind("dsh-market")("hub.title"),
+				locale: "dsh-market",
+				children: { "dsh-market.tab": {
+					kind: "list",
+					scope: "root"
+				} },
+				inject: () => hub.inject()
+			}, MarketHub));
+			ctx.slots.inject(MARKET_TAB_KEY, () => {
 				const unregister = ctx.slots.register({
-					name: "settings.section",
+					name: MARKET_TAB_KEY,
 					id: "market",
-					order: 150,
-					label: () => ctx.locale.bind("dsh-market")("settings.title"),
+					order: 100,
+					label: () => ctx.locale.bind("dsh-market")("tab.shop"),
 					locale: "dsh-market",
 					inject: () => controller.inject()
 				}, MarketSection);

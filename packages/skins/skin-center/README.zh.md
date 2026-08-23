@@ -2,9 +2,9 @@
 
 [English](README.md) | 中文
 
-`@linxin666/dsh-client-ui-skin-center`（cordis 插件 id `ui-skin-center`）是 dsh Web GUI 唯一的皮肤包：它把皮肤列表 / 试穿 / 应用做成设置里的一级页面（设置 → 皮肤中心），并且是所有皮肤的唯一加载器与渲染器。皮肤是纯资产目录——没有 package.json、不发 npm、不接 cordis 接线——只与皮肤中心契约（`contracts/`）耦合；皮肤中心把对官方 DSH 的全部耦合吸收在契约之后。卡片自带总开关（关闭即停用试穿、应用与背景控制）。
+`@linxin666/dsh-client-ui-skin-center`（cordis 插件 id `ui-skin-center`）是 dsh Web GUI 唯一的皮肤包：它把皮肤列表 / 试穿 / 应用做成唯一「DSH 市场」设置区里的皮肤中心页签（设置 → DSH 市场 → 皮肤中心；独立安装时保留自己的「皮肤中心」一级入口），并且是所有皮肤的唯一加载器与渲染器。皮肤是纯资产目录——没有 package.json、不发 npm、不接 cordis 接线——只与皮肤中心契约（`contracts/`）耦合；皮肤中心把对官方 DSH 的全部耦合吸收在契约之后。卡片自带总开关（关闭即停用试穿、应用与背景控制）。
 
-- 列表：展示「官方默认」加目录册里的每个皮肤（名称、标语、强调色），当前应用目标带「使用中」标记。目录册合并两个来源：随本包内置的皮肤（`skins/<id>/`）与放进 `$DSH_HOME/skins/<id>/` 的用户皮肤（同 id 时用户皮肤遮蔽内置皮肤）。`skin.json` 校验失败的皮肤按 fail-closed 排除，并作为目录诊断上报。
+- 列表：展示「官方默认」加目录册里的每个皮肤（名称、标语、强调色），当前应用目标带「使用中」标记。目录册合并两个来源：随本包内置的默认皮肤（`skins/blue-fantasy/`）与放进 `$DSH_HOME/skins/<id>/` 的用户皮肤（同 id 时用户皮肤遮蔽内置皮肤）。皮肤集中的其余皮肤都是市场条目：在 dsh-market.com 的市场卡片一键按需安装到 `$DSH_HOME/skins/<id>/`，即由同一目录册作为用户皮肤管理——无需重启，重开卡片或刷新页面即收录。`skin.json` 校验失败的皮肤按 fail-closed 排除，并作为目录诊断上报。
 - 自定义主题：列表末尾提供一张基于官方默认外观派生的用户级主题卡，与「官方默认」及目录册皮肤相互独立。浅色、深色分别编辑强调色、背景色、前景色和对比度（0–100），支持即时试穿、应用、恢复当前模式默认值和刷新持久化。生成的 CSS 只能覆盖经审计的官方 token 白名单，不接收选择器、任意 CSS 或资源 URL；不会修改任何第三方皮肤定义，目录册皮肤激活时自定义主题层自动停用。
 - 试穿 / 应用：两者走同一个原子切换引擎（`src/client/runtime/skin-controller.ts`）。一次切换 = 一个新的 activation identity：取回已限定作用域的样式表，安装样式、背景媒体与可选 hooks，翻转 `html[data-dsh-skin="<id>"]`，然后销毁上一个 activation（append-only 效果账本，幂等清理）。最新请求永远胜出；失败或被淘汰的切换完整保留旧皮肤。试穿是同一个切换但不落盘——「退出试穿」恢复已提交的皮肤。应用会持久化选择（`POST /api/skin-center/v2/active`）。不刷新页面、不改写 `cordis.patch.yml`、不重建启动图。
 - 首屏：host 半区注册一个 index.html 转换（`webServer.tapIndex`，单一适配模块 `src/tap-index-adapter.ts`），向每份送达的文档盖 `html[data-dsh-skin]` 属性并插入样式表链接，刷新后直接以当前皮肤启动，无官方原貌闪屏。tap 出任何问题都 fail-closed 回官方原貌。
@@ -22,7 +22,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center
 # 仓库开发：dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
 ```
 
-`$(pwd)` 是 dsh-web-ui monorepo 的本地克隆。全部内置皮肤随这一个包发布；社区皮肤就是普通目录，放进 `$DSH_HOME/skins/<id>/` 即可（无安装命令、无需重启——重开卡片或刷新页面即收录）。
+`$(pwd)` 是 dsh-web-ui monorepo 的本地克隆。只有默认皮肤（蓝色幻想）随这个包发布；其余皮肤在 dsh-market.com 按需安装到 `$DSH_HOME/skins/<id>/`，社区皮肤同样是放进该目录的普通目录（均无安装命令、无需重启——重开卡片或刷新页面即收录）。新装默认激活蓝色幻想（宿主种子）；升级后原激活皮肤已不可用时回退官方主题。包内只发布 `skins/blue-fantasy`；其余皮肤保留在仓库 `skins/` 下，作为市场构建与画廊的目录来源，绝不进入 npm 包。
 
 皮肤中心是符合官方 DSH 插件标准的自包含 bundle（`dsh.bundle.patch` 指向 `cordis.patch.yml`）；也可经 git 安装：`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`（`prepare` 脚本就地构建 `lib/`）。pnpm ≥10 安装 git 依赖前需授权 `allowBuilds`；本地 `link:` 安装无此要求。
 

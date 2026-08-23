@@ -29,7 +29,7 @@ function renderHub(close: () => void): ReturnType<typeof vi.fn> {
   ))
   render(React.createElement(MarketHub, {
     t,
-    useMarketTabs: (select) => select(tabs),
+    useMarketTabs: (select: (list: MarketTabRecord[]) => MarketTabRecord[]) => select(tabs),
     renderSlot,
     close,
   } as unknown as MarketHubProps))
@@ -63,7 +63,7 @@ describe('MarketHub', () => {
     ))
     const { rerender } = render(React.createElement(MarketHub, {
       t,
-      useMarketTabs: (select) => select(tabs),
+      useMarketTabs: (select: (list: MarketTabRecord[]) => MarketTabRecord[]) => select(tabs),
       renderSlot,
       close: () => {},
     } as unknown as MarketHubProps))
@@ -71,7 +71,7 @@ describe('MarketHub', () => {
     expect(renderSlot.mock.calls[1][2]).toEqual({ only: 'skin-center' })
     rerender(React.createElement(MarketHub, {
       t,
-      useMarketTabs: (select) => select([
+      useMarketTabs: (select: (list: MarketTabRecord[]) => MarketTabRecord[]) => select([
         { id: 'market', label: '商店' },
       ]),
       renderSlot,

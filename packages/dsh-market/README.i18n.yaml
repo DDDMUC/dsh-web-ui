@@ -1,6 +1,6 @@
 # Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
-#   node scripts/verify-docs.mjs --write packages/dsh-market
-README.md: c47002c1bfdd03ddd9f83c537a661c0638adbc45
-README.zh.md: 6357f0f7023a9ad359dc6000f3a233702312dff3
+#   node scripts/verify-docs.mjs --write <dir>
+README.md: ebf600d20c926379f981be04b807dceca9ed6981
+README.zh.md: e16c44e668abece96ff81c484628081968e2e7a2

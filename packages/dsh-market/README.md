@@ -2,8 +2,10 @@
 
 English | [中文](README.zh.md)
 
-Market card for the DSH Web GUI settings page: browses [dsh-market.com](https://dsh-market.com) —
-skins, pets and community plugins — from inside the GUI and installs them locally with one click.
+DSH Market hub and Store card for the DSH Web GUI settings page: one first-level DSH Market
+section hosting the Store / Skin Center / Pet / Community Plugins category tabs, browsing
+[dsh-market.com](https://dsh-market.com) from inside the GUI and installing skins, pets and community
+plugins locally with one click.
 
 ## What it does
 
@@ -25,8 +27,9 @@ skins, pets and community plugins — from inside the GUI and installs them loca
 dsh plugin --profile web add @linxin666/dsh-client-ui-market
 ```
 
-Restart `dsh web`; the Market section appears in the settings page beside Skin Center, Pet and
-Community Plugins.
+Restart `dsh web`; the single DSH Market section appears in the settings page, hosting this Store
+card together with the Skin Center, Pet and Community Plugins cards as tab panels. Without this hub,
+each sibling card falls back to its own first-level settings section.
 
 ## Config
 
