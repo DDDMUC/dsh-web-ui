@@ -287,8 +287,21 @@ function buildSitemap(skins) {
 /** --- emit ---------------------------------------------------------------- */
 
 function emit(outDir, files, binary, skins, pets, plugins, transformSkinCss) {
+  let preservedTryon = null
+  const tryonPath = path.join(outDir, 'tryon')
+  const canRebuildTryon = fs.existsSync(TRYON_SHELL_DIR) && fs.existsSync(path.join(TRYON_SHELL_DIR, 'index.html'))
+  if (!canRebuildTryon && fs.existsSync(tryonPath)) {
+    const tmpPreserve = path.join(ROOT, '.tryon-preserve-' + Date.now())
+    fs.renameSync(tryonPath, tmpPreserve)
+    preservedTryon = tmpPreserve
+  }
+
   fs.rmSync(outDir, { recursive: true, force: true })
   fs.mkdirSync(outDir, { recursive: true })
+
+  if (preservedTryon) {
+    fs.renameSync(preservedTryon, tryonPath)
+  }
 
   for (const [rel, text] of files) {
     const abs = path.join(outDir, rel)
@@ -300,6 +313,16 @@ function emit(outDir, files, binary, skins, pets, plugins, transformSkinCss) {
     const abs = path.join(outDir, rel)
     fs.mkdirSync(path.dirname(abs), { recursive: true })
     fs.copyFileSync(srcAbs, abs)
+  }
+
+  for (const { dir, name } of skins) {
+    const entries = listFiles(dir).map((rel) => ({
+      name: name + '/' + rel,
+      data: fs.readFileSync(path.join(dir, rel)),
+    }))
+    const zipDest = path.join(outDir, 'assets', 'skins', name + '.zip')
+    fs.mkdirSync(path.dirname(zipDest), { recursive: true })
+    fs.writeFileSync(zipDest, zipStore(entries))
   }
 
   // Try-on CSS uses the exact Skin Center safety transform. In particular it
@@ -445,11 +468,11 @@ function zipStore(files) {
  */
 function emitTryon(outDir, skins) {
   const tryonDir = path.join(outDir, 'tryon')
-  fs.rmSync(tryonDir, { recursive: true, force: true })
   if (!fs.existsSync(TRYON_SHELL_DIR) || !fs.existsSync(path.join(TRYON_SHELL_DIR, 'index.html'))) {
     console.warn('market-build: market/shell/dist missing; tryon/ not emitted')
     return
   }
+  fs.rmSync(tryonDir, { recursive: true, force: true })
   fs.cpSync(TRYON_SHELL_DIR, tryonDir, { recursive: true })
   // The shell dist may carry local-testing symlinks (manifest/ and
   // assets/skins point at the market output); deployment must receive real
@@ -466,13 +489,6 @@ function emitTryon(outDir, skins) {
     }
   }
   stripSymlinks(tryonDir)
-  for (const { dir, name } of skins) {
-    const entries = listFiles(dir).map((rel) => ({
-      name: name + '/' + rel,
-      data: fs.readFileSync(path.join(dir, rel)),
-    }))
-    fs.writeFileSync(path.join(outDir, 'assets', 'skins', name + '.zip'), zipStore(entries))
-  }
   // Deterministic hash manifest so market-build --check can verify the
   // committed tryon/ without rebuilding the vendored shell (its dist is not
   // tracked and CI does not build it).

@@ -365,7 +365,7 @@ header:has([role="tablist"]) {
   display: none;
 }
 
-:is([data-pane="conversation"], [class*="centerCol"]) {
+:is([data-pane="conversation"], [data-slot="conversation"], [data-dsh-surface="conversation"], [data-dsh-part="scrollport"], [data-conversation-scroll], [class*="centerCol"]) {
   background: none;
 }
 

@@ -65,7 +65,13 @@ export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection'
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-skin-center: dictionaries')
+  ctx.effect(() => {
+    try {
+      return ctx.locale.register(NS, { zh, en })
+    } catch {
+      return () => {}
+    }
+  }, 'ui-skin-center: dictionaries')
 
   // The card's own styles scope under this attribute so they keep applying
   // during try-on (when the active skin's attribute is retracted).
@@ -237,12 +243,18 @@ export function apply(ctx: ClientContext): void {
   // settings page. Browsing and installing new skins happens in the DSH
   // Market store; this section manages the installed ones (try-on, apply,
   // wallpaper, custom theme).
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
-    id: 'skin-center',
-    order: 120,
-    label: () => ctx.locale.bind('skinCenter')('title'),
-    locale: 'skinCenter',
-    inject: injected,
-  }, SkinCenterSection))
+  ctx.slots.inject('settings.section', () => {
+    try {
+      return ctx.slots.register({
+        name: 'settings.section',
+        id: 'skin-center',
+        order: 120,
+        label: () => ctx.locale.bind('skinCenter')('title'),
+        locale: 'skinCenter',
+        inject: injected,
+      }, SkinCenterSection)
+    } catch {
+      return () => {}
+    }
+  })
 }

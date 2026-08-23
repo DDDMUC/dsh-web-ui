@@ -365,7 +365,7 @@ html[data-dsh-skin="maid-atelier"] :is([data-pane="sidebar"], [class*="sidebarCo
   display: none;
 }
 
-html[data-dsh-skin="maid-atelier"] :is([data-pane="conversation"], [class*="centerCol"]) {
+html[data-dsh-skin="maid-atelier"] :is([data-pane="conversation"], [data-slot="conversation"], [data-dsh-surface="conversation"], [data-dsh-part="scrollport"], [data-conversation-scroll], [class*="centerCol"]) {
   background: none;
 }
 

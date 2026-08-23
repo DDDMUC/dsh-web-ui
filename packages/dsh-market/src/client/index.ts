@@ -39,7 +39,13 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
 
 /** Register the market section and the plugin-manager bridge. */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(MARKET_NS, { zh, en }), 'dsh-web-ui-market: dictionaries')
+  ctx.effect(() => {
+    try {
+      return ctx.locale.register(MARKET_NS, { zh, en })
+    } catch {
+      return () => {}
+    }
+  }, 'dsh-web-ui-market: dictionaries')
 
   bridgePluginManager(ctx)
 
@@ -54,17 +60,21 @@ export function apply(ctx: ClientContext): void {
   // The section entry owns the controller: unregistering it (fiber
   // disposal, hot reload) releases the scope subscription through dispose.
   ctx.slots.inject('settings.section', () => {
-    const unregister = ctx.slots.register({
-      name: 'settings.section',
-      id: MARKET_NS,
-      order: 150,
-      label: () => ctx.locale.bind(MARKET_NS)('settings.title'),
-      locale: MARKET_NS,
-      inject: () => controller.inject(),
-    }, MarketSection)
-    return () => {
-      unregister()
-      controller.dispose()
+    try {
+      const unregister = ctx.slots.register({
+        name: 'settings.section',
+        id: MARKET_NS,
+        order: 150,
+        label: () => ctx.locale.bind(MARKET_NS)('settings.title'),
+        locale: MARKET_NS,
+        inject: () => controller.inject(),
+      }, MarketSection)
+      return () => {
+        unregister()
+        controller.dispose()
+      }
+    } catch {
+      return () => {}
     }
   })
 }

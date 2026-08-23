@@ -110,11 +110,6 @@ const PROJECTED_STATE_SELECTOR = [
 ].join(', ')
 
 const BACKDROP_PROPERTIES = [
-  'background-image',
-  'background-position',
-  'background-size',
-  'background-attachment',
-  'background-repeat',
   '--maid-sidebar-width',
   '--maid-top-trim-art',
   '--maid-bottom-trim-art',
@@ -304,18 +299,6 @@ export default function defineSkinHooks() {
       body.style.setProperty('--maid-settings-frame-art', `url(${asset('maid-settings-frame-v1.webp')})`)
       body.style.setProperty('--maid-workspace-crest-art', `url(${asset('maid-workspace-shield-v2.webp')})`)
       body.style.setProperty('--maid-workspace-ribbon-art', `url(${asset('maid-workspace-ribbon-v2.webp')})`)
-
-      const syncBackdrop = () => {
-        const source = ctx.theme.get() === 'dark'
-          ? asset('maid-atelier-palace-night-v4.webp')
-          : asset('maid-atelier-palace-day-v4.webp')
-        body.style.setProperty('background-image', `url(${source})`)
-      }
-      syncBackdrop()
-      body.style.setProperty('background-position', 'center top')
-      body.style.setProperty('background-size', 'cover')
-      body.style.setProperty('background-attachment', 'scroll')
-      body.style.setProperty('background-repeat', 'no-repeat')
 
       // 宽度联动写入独立的 <style> 规则而非 body style：CSSOM 修改不产生
       // attribute mutation，Chrome autofill 的 MutationObserver 不会逐帧触发，
@@ -683,7 +666,6 @@ export default function defineSkinHooks() {
       observer = new MutationObserver((records) => {
         let sidebarStructureChanged = false
         let workspaceStateChanged = false
-        let backdropChanged = false
         let composerChanged = false
         let settingsStateChanged = false
         let projectedStateChanged = false
@@ -700,8 +682,6 @@ export default function defineSkinHooks() {
             } else if ((record.attributeName === 'aria-expanded' || record.attributeName === 'aria-selected')
               && target !== undefined && target.closest(SIDEBAR_COLUMN_SELECTOR) !== null) {
               workspaceStateChanged = true
-            } else if (record.attributeName === 'data-ds-dark-theme' && record.target === body) {
-              backdropChanged = true
             } else if (record.attributeName === 'data-phase') {
               composerChanged = true
             }
@@ -737,7 +717,6 @@ export default function defineSkinHooks() {
         if (projectedStateChanged) syncProjectedState()
         if (sidebarStructureChanged) syncSidebarDecorations()
         else if (workspaceStateChanged) decorateWorkspaceTree(decoratedElements)
-        if (backdropChanged) syncBackdrop()
         if (composerChanged) {
           syncComposerMotion()
         }
