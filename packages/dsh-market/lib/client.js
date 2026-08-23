@@ -15,6 +15,15 @@ window.__ModuleLoader__.load({
 		const TIMEOUT_MS = 1e4;
 		let ready = null;
 		let chain = Promise.resolve();
+		/** Create a UUID v4 even when randomUUID is unavailable on an HTTP LAN origin. */
+		function turnstileRequestId(source = crypto) {
+			if (typeof source.randomUUID === "function") return source.randomUUID();
+			const bytes = source.getRandomValues(/* @__PURE__ */ new Uint8Array(16));
+			bytes[6] = bytes[6] & 15 | 64;
+			bytes[8] = bytes[8] & 63 | 128;
+			const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+			return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+		}
 		function challengeFrame() {
 			if (ready !== null) return ready;
 			ready = new Promise((resolve, reject) => {
@@ -37,7 +46,7 @@ window.__ModuleLoader__.load({
 		}
 		async function requestOne() {
 			const iframe = await challengeFrame();
-			const id = crypto.randomUUID();
+			const id = turnstileRequestId();
 			return new Promise((resolve, reject) => {
 				const timer = window.setTimeout(() => finish(/* @__PURE__ */ new Error("turnstile-timeout")), TIMEOUT_MS);
 				const onMessage = (event) => {
