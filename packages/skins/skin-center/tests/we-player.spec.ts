@@ -71,4 +71,13 @@ describe('WE scene player reflection pass (#742)', () => {
     // Legacy manifests without a water line keep the historical default.
     expect(WE_SCENE_PLAYER_HTML).toContain("typeof layer.waterLine === 'number' ? layer.waterLine : 0.65")
   })
+
+  it('talks to the embedding parent by sender identity and wildcard targets (sandboxed opaque origin)', () => {
+    // The player frame is sandboxed without allow-same-origin, so it cannot
+    // know the embedding page's origin: sends use '*' and the receive side
+    // validates event.source instead of comparing origins.
+    expect(WE_SCENE_PLAYER_HTML).toContain("window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, '*')")
+    expect(WE_SCENE_PLAYER_HTML).toContain('if (ev.source !== window.parent) return;')
+    expect(WE_SCENE_PLAYER_HTML).not.toContain('ev.origin !== window.location.origin')
+  })
 })

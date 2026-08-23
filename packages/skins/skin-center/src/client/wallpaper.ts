@@ -630,7 +630,9 @@ export class WallpaperController implements WallpaperHandle {
     const scenePlayer = this.mediaLayer?.firstElementChild ?? null
     if (!(scenePlayer instanceof HTMLIFrameElement) || scenePlayer.dataset.dshScenePlayer !== '') return
     try {
-      scenePlayer.contentWindow?.postMessage({ type: 'dsh-recover-renderer' }, window.location.origin)
+      // The sandboxed player has an opaque origin, so a same-origin target
+      // would never match it; '*' delivers to the single identified window.
+      scenePlayer.contentWindow?.postMessage({ type: 'dsh-recover-renderer' }, '*')
     } catch {
       // A failed recovery message is harmless; the next render keeps the current frame.
     }
@@ -681,7 +683,10 @@ export class WallpaperController implements WallpaperHandle {
   private readonly onSceneMessage = (event: MessageEvent): void => {
     const scenePlayer = this.mediaLayer?.firstElementChild ?? null
     if (!(scenePlayer instanceof HTMLIFrameElement) || scenePlayer.dataset.dshScenePlayer !== '') return
-    if (event.source !== scenePlayer.contentWindow || event.origin !== this.doc.location?.origin) return
+    // The player is sandboxed without allow-same-origin, so its opaque origin
+    // arrives as Origin "null"; only the identity of the sender (this exact
+    // iframe window) proves the message came from the mounted player.
+    if (event.source !== scenePlayer.contentWindow) return
     const message = event.data as { type?: unknown } | null
     if (message?.type !== 'dsh-scene-needs-reload') return
     // Context restoration invalidates every WebGL object. Reloading only the
@@ -702,7 +707,8 @@ export class WallpaperController implements WallpaperHandle {
     const scenePlayer = this.mediaLayer?.firstElementChild ?? null
     if (scenePlayer instanceof HTMLIFrameElement && scenePlayer.dataset.dshScenePlayer === '') {
       try {
-        scenePlayer.contentWindow?.postMessage({ type: 'dsh-set-pause', paused: this.doc.hidden }, window.location.origin)
+        // '*' reaches the opaque-origin sandboxed player (see applyFit).
+        scenePlayer.contentWindow?.postMessage({ type: 'dsh-set-pause', paused: this.doc.hidden }, '*')
       } catch {
         // ignore
       }
@@ -864,7 +870,10 @@ export class WallpaperController implements WallpaperHandle {
     }
     if (child instanceof HTMLIFrameElement && child.dataset.dshScenePlayer === '') {
       try {
-        child.contentWindow?.postMessage({ type: 'dsh-set-fit', fit: this.fitValue }, window.location.origin)
+        // The player frame is sandboxed without allow-same-origin, so its
+        // origin is opaque and a real-origin targetOrigin would drop the
+        // message; '*' delivers to the identified contentWindow.
+        child.contentWindow?.postMessage({ type: 'dsh-set-fit', fit: this.fitValue }, '*')
       } catch {
         // ignore: the player also receives the fit on its own load handler
       }
@@ -886,11 +895,12 @@ export class WallpaperController implements WallpaperHandle {
       if (this.modeValue === 'live' && descriptor.webUrl !== null) {
         const iframe = this.doc.createElement('iframe')
         iframe.src = descriptor.webUrl
-        // Web wallpapers are the user's own installed local content (the
-        // same trust Wallpaper Engine extends to them); scripts + same-origin
-        // are required for textures/canvas/WebGL. Navigation, popups and
-        // downloads stay blocked.
-        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
+        // Web wallpapers are third-party HTML downloaded from the Workshop /
+        // user directories and run with the host same-origin, so they must be
+        // isolated: allow-scripts only gives an opaque origin (no parent DOM,
+        // no host storage, no same-origin /api access). Script-only sandboxing
+        // keeps textures/canvas/WebGL working; localStorage / cookies degrade.
+        iframe.setAttribute('sandbox', 'allow-scripts')
         iframe.setAttribute('tabindex', '-1')
         styleCover(iframe, this.fitValue)
         return iframe
@@ -904,14 +914,16 @@ export class WallpaperController implements WallpaperHandle {
       if (this.modeValue === 'live' && descriptor.sceneUrl) {
         const iframe = this.doc.createElement('iframe')
         iframe.src = descriptor.sceneUrl
-        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
+        // The scene player renders third-party scene data; same isolation as
+        // web wallpapers (opaque origin, steering via postMessage).
+        iframe.setAttribute('sandbox', 'allow-scripts')
         iframe.setAttribute('tabindex', '-1')
         iframe.dataset.dshScenePlayer = ''
         if (descriptor.preferSceneBase === true && descriptor.sceneBaseUrl) iframe.style.opacity = '0'
         styleCover(iframe, this.fitValue)
         iframe.addEventListener('load', () => {
           try {
-            iframe.contentWindow?.postMessage({ type: 'dsh-set-fit', fit: this.fitValue }, window.location.origin)
+            iframe.contentWindow?.postMessage({ type: 'dsh-set-fit', fit: this.fitValue }, '*')
           } catch {
             // ignore
           }

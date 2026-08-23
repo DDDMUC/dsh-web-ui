@@ -843,7 +843,7 @@ window.__ModuleLoader__.load({
 				const scenePlayer = this.mediaLayer?.firstElementChild ?? null;
 				if (!(scenePlayer instanceof HTMLIFrameElement) || scenePlayer.dataset.dshScenePlayer !== "") return;
 				try {
-					scenePlayer.contentWindow?.postMessage({ type: "dsh-recover-renderer" }, window.location.origin);
+					scenePlayer.contentWindow?.postMessage({ type: "dsh-recover-renderer" }, "*");
 				} catch {}
 			}
 			dispose() {
@@ -878,7 +878,7 @@ window.__ModuleLoader__.load({
 			onSceneMessage = (event) => {
 				const scenePlayer = this.mediaLayer?.firstElementChild ?? null;
 				if (!(scenePlayer instanceof HTMLIFrameElement) || scenePlayer.dataset.dshScenePlayer !== "") return;
-				if (event.source !== scenePlayer.contentWindow || event.origin !== this.doc.location?.origin) return;
+				if (event.source !== scenePlayer.contentWindow) return;
 				if (event.data?.type !== "dsh-scene-needs-reload") return;
 				scenePlayer.src = scenePlayer.src;
 			};
@@ -891,7 +891,7 @@ window.__ModuleLoader__.load({
 					scenePlayer.contentWindow?.postMessage({
 						type: "dsh-set-pause",
 						paused: this.doc.hidden
-					}, window.location.origin);
+					}, "*");
 				} catch {}
 			};
 			/** Reconcile the DOM with (enabled, previewing ?? applied, mode, dim, blur). */
@@ -991,7 +991,7 @@ window.__ModuleLoader__.load({
 					child.contentWindow?.postMessage({
 						type: "dsh-set-fit",
 						fit: this.fitValue
-					}, window.location.origin);
+					}, "*");
 				} catch {}
 			}
 			/** Build the cover child for one descriptor + mode; null when unrenderable. */
@@ -1005,7 +1005,7 @@ window.__ModuleLoader__.load({
 					if (this.modeValue === "live" && descriptor.webUrl !== null) {
 						const iframe = this.doc.createElement("iframe");
 						iframe.src = descriptor.webUrl;
-						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+						iframe.setAttribute("sandbox", "allow-scripts");
 						iframe.setAttribute("tabindex", "-1");
 						styleCover(iframe, this.fitValue);
 						return iframe;
@@ -1017,7 +1017,7 @@ window.__ModuleLoader__.load({
 					if (this.modeValue === "live" && descriptor.sceneUrl) {
 						const iframe = this.doc.createElement("iframe");
 						iframe.src = descriptor.sceneUrl;
-						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+						iframe.setAttribute("sandbox", "allow-scripts");
 						iframe.setAttribute("tabindex", "-1");
 						iframe.dataset.dshScenePlayer = "";
 						if (descriptor.preferSceneBase === true && descriptor.sceneBaseUrl) iframe.style.opacity = "0";
@@ -1027,7 +1027,7 @@ window.__ModuleLoader__.load({
 								iframe.contentWindow?.postMessage({
 									type: "dsh-set-fit",
 									fit: this.fitValue
-								}, window.location.origin);
+								}, "*");
 							} catch {}
 						});
 						return iframe;

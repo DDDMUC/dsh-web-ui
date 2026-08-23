@@ -741,3 +741,62 @@ describe('scene-probe cache (#817)', () => {
     expect(keys.some(k => k.includes('/s257/'))).toBe(true)
   })
 })
+
+describe('sandboxed wallpaper loads (T1-1)', () => {
+  it('serves web assets and the shim to sandboxed frames (cross-site Sec-Fetch-Site, Origin null)', async () => {
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const web = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '222')
+    const headers = { 'sec-fetch-site': 'cross-site', origin: 'null' }
+    const html = await call('GET', String(web?.webUrl), { headers })
+    expect(html.status).toBe(200)
+    expect(String(html.headers['access-control-allow-origin'])).toBe('null')
+    expect(html.raw).toContain(WE_API_PREFIX + '/shim.js')
+    const js = await call('GET', String(web?.webUrl) + 'app.js', { headers })
+    expect(js.status).toBe(200)
+    expect(String(js.headers['access-control-allow-origin'])).toBe('null')
+    expect(js.raw).toBe('console.log(1)')
+    const shim = await call('GET', WE_API_PREFIX + '/shim.js', { headers })
+    expect(shim.status).toBe(200)
+    expect(String(shim.headers['access-control-allow-origin'])).toBe('null')
+  })
+
+  it('serves scene manifest and resources to the sandboxed player (Origin null, ACAO null)', async () => {
+    makeProject(join(library, 'sbox'), { title: 'Sbox Scene', type: 'scene', file: 'scene.json' }, {
+      'scene.json': JSON.stringify({ objects: [{ name: 'sky', image: 'models/sky.json' }] }),
+      'models/sky.json': JSON.stringify({ material: 'materials/sky.json' }),
+      'materials/sky.json': JSON.stringify({ passes: [{ textures: ['materials/sky.tex'] }] }),
+    })
+    mkdirSync(join(library, 'sbox', 'materials'), { recursive: true })
+    writeFileSync(join(library, 'sbox', 'materials', 'sky.tex'), tex64Red)
+    const probe = await call('GET', WE_API_PREFIX + '/scene-probe?id=sbox')
+    expect(probe.status).toBe(200)
+    const sceneUrl = String(probe.body.sceneUrl)
+    expect(sceneUrl).toContain(WE_API_PREFIX + '/scene-runtime/')
+    const token = sceneUrl.split('/').pop()
+    const headers = { 'sec-fetch-site': 'cross-site', origin: 'null' }
+    const manifest = await call('GET', WE_API_PREFIX + '/scene-manifest/' + token, { headers })
+    expect(manifest.status).toBe(200)
+    expect(manifest.body.ok).toBe(true)
+    expect(String(manifest.headers['access-control-allow-origin'])).toBe('null')
+    const resource = await call('GET', WE_API_PREFIX + '/scene-resource/' + token + '/materials/sky.tex', { headers })
+    expect(resource.status).toBe(200)
+    expect(String(resource.headers['access-control-allow-origin'])).toBe('null')
+  })
+
+  it('still rejects foreign real origins on the content routes', async () => {
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const web = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '222')
+    const foreign = { origin: 'http://evil.example' }
+    expect((await call('GET', String(web?.webUrl), { headers: foreign })).status).toBe(403)
+    expect((await call('GET', WE_API_PREFIX + '/shim.js', { headers: foreign })).status).toBe(403)
+  })
+
+  it('keeps the strict same-origin fence on GUI-side routes', async () => {
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const video = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '111')
+    const cross = { 'sec-fetch-site': 'cross-site' }
+    expect((await call('GET', String(video?.videoUrl), { headers: cross })).status).toBe(403)
+    expect((await call('GET', WE_API_PREFIX + '/inventory', { headers: cross })).status).toBe(403)
+    expect((await call('GET', WE_API_PREFIX + '/scene-probe?id=111', { headers: cross })).status).toBe(403)
+  })
+})
