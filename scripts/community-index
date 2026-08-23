@@ -2,7 +2,7 @@
 /**
  * Validate the community plugin index: the only source is
  * packages/dsh-community-plugins/community.json. market-build turns that
- * file into manifest/plugins.json for the DSH Market store card and the
+ * file into manifest/plugins.json for the Workshop store card and the
  * dsh-market.com site; every entry points at the contributor's own
  * repository — this repository never vendors their code.
  *

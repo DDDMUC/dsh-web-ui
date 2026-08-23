@@ -102,7 +102,7 @@ dsh plugin --profile web add link:<dsh-web-ui>/packages/dsh-web-ui-all
 
 ### 社区插件索引登记
 
-第三方插件作者可把自己的插件登记进 DSH 市场商店的插件目录（设置 → DSH 市场 → 商店 → 插件）与 dsh-market.com 市场站：
+第三方插件作者可把自己的插件登记进创意工坊商店的插件目录（设置 → 创意工坊 → 插件）与 dsh-market.com 创意工坊站：
 
 1. 在 `packages/dsh-community-plugins/community.json` 追加条目：`id` / `name` / `nameEn` / `author` / `repo`（https:// 仓库 URL）必填，`description` / `descriptionEn` / `npm` 可选；
 2. 运行 `node scripts/community-index` 校验数据（CI 门禁同款校验）；
