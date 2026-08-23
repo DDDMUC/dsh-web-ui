@@ -9,9 +9,12 @@
  * Security model:
  * - Every request must carry a live paired-device cookie (the same gate
  *   semantic as the LAN fence), enforced before any host call.
- * - Only an explicit allowlist of methods is proxied; privileged domains
- *   (settings, credentials, host actions, goals, subagents, …) are never
- *   reachable from the phone.
+ * - Only an explicit allowlist of methods is proxied ON THIS PREFIX. The
+ *   allowlist constrains the /m/api proxy alone: the same paired-device
+ *   cookie also passes the global api/gate, so a paired device is a
+ *   full-control credential for the host /api surface outside the SDK's
+ *   loopback-pinned privileged set (settings/credentials/agentPreset/host
+ *   actions/llm.discoverModels). Pairing is full device trust.
  * - `session.list` is paged here (the host API returns everything; this
  *   layer slices stable pages) so the phone never transfers the whole list.
  * - The live mux stream is bridged over Server-Sent Events on the same

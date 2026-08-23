@@ -72,7 +72,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
  6. 桌面徽标实时翻到 已连接；手机离开时回落到离线/断开。
  7. 刷新二维码 使旧链接失效并铸一枚新的。停止 撤销移动端访问：已配对设备下一次请求 403，包括其实时流。
 
-该移动端界面完全自包含在本插件内：`/m/` 页面及其数据通道（`/m/api`）由插件自己的路由伺服，**无需任何 harness 源码改动**——手机的 RPC 调用走插件的 `/m/api` 代理（它委托给 host 的 ApiProxy 服务并自己分页 `session.list`），因此被隧道化的 Host 永远不必进入连接插件的信任围栏。手机受其已配对设备 cookie 与显式方法白名单门控（settings/credentials/host-action 域手机永远不可达；`/m/api` 代理的模型读写限制于建议性的 `session.models` / `session.selectModel` 对；另外，精确的已配对模型目录路由可为一个现有、合格的 `llm-pi-ai` provider 采纳模型，但不能创建 provider，也不能访问凭据或通用 settings；Agent 预设访问限制于只读 `agentPreset.list`，创建限制于 `session.create`（工作区 id 加清单中的可选 id——手机绝不自命名工作目录），权限选择器只通过已放行的 `session.prompt` 发送模式无关的 `/permission` 命令）；实时流在 `/m/api/events.mux` 上经 Server-Sent Events 送达。规范的 `/m/` 页面拥有同 scope 的 manifest 与 Service Worker；其缓存仅包含静态壳和离线页，绝不包含移动端 API 响应、会话数据或命令。
+该移动端界面完全自包含在本插件内：`/m/` 页面及其数据通道（`/m/api`）由插件自己的路由伺服，**无需任何 harness 源码改动**——手机的 RPC 调用走插件的 `/m/api` 代理（它委托给 host 的 ApiProxy 服务并自己分页 `session.list`），因此被隧道化的 Host 永远不必进入连接插件的信任围栏。手机受其已配对设备 cookie 与 `/m/api` 显式方法白名单门控（白名单只约束 `/m/api` 代理本身：该 cookie 同时通过全局 api/gate，对宿主 `/api` 面是全量控制凭证——settings/credentials/host-action 域仅因 SDK 把这些特权方法钉为仅 loopback 才不可达。配对即对设备的完全信任；`/m/api` 代理的模型读写限制于建议性的 `session.models` / `session.selectModel` 对；另外，精确的已配对模型目录路由可为一个现有、合格的 `llm-pi-ai` provider 采纳模型，但不能创建 provider，也不能访问凭据或通用 settings；Agent 预设访问限制于只读 `agentPreset.list`，创建限制于 `session.create`（工作区 id 加清单中的可选 id——手机绝不自命名工作目录），权限选择器只通过已放行的 `session.prompt` 发送模式无关的 `/permission` 命令）；实时流在 `/m/api/events.mux` 上经 Server-Sent Events 送达。规范的 `/m/` 页面拥有同 scope 的 manifest 与 Service Worker；其缓存仅包含静态壳和离线页，绝不包含移动端 API 响应、会话数据或命令。
 
 ### 行为说明
 
