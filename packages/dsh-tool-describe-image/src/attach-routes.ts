@@ -298,6 +298,14 @@ export function registerAttachRoute(ctx: Context, readMaxBytes: () => number = (
     kind: 'prefix',
     path: '/describe-image',
     handler: async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+      // Loopback fence first: the raw read serves stored image bytes and the
+      // attach POST writes them into the local attachment store, so a LAN or
+      // cross-site caller must be turned away regardless of method or
+      // content-type (same fence as the model probe routes below).
+      if (!isLoopbackRequest(req)) {
+        forbidden(res)
+        return
+      }
       // GET /describe-image/raw/<id>: serve the stored bytes so the
       // markdown image reference inserted into the draft renders. The id is
       // content-addressed and loopback-only, so a bare read carries no
