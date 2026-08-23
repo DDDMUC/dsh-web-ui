@@ -3830,24 +3830,27 @@ function extractSceneMainImage(pkgData) {
 function extractSceneMainImageFromDir(dir) {
 	return extractSceneMainImageVia(dirSceneAccess(dir), "scene");
 }
+/** Return an MP4 payload embedded in a TEX mipmap/file, if present. */
+function embeddedMp4Bytes(raw) {
+	for (let i = 0; i < 200 && i + 8 <= raw.length; i++) {
+		if (raw[i] !== 102 || raw[i + 1] !== 116 || raw[i + 2] !== 121 || raw[i + 3] !== 112) continue;
+		const ftypOffset = i - 4;
+		if (ftypOffset >= 0 && ftypOffset < raw.length) return raw.slice(ftypOffset);
+	}
+	return null;
+}
 /** Find and extract the primary MP4 video embedded inside a scene's .tex textures. */
 function extractSceneVideoVia(access) {
 	const candidates = [];
 	for (const path of access.listTexPaths()) {
 		const file = access.readFile(path);
 		if (!file) continue;
-		const raw = file.bytes;
-		for (let i = 0; i < 200 && i + 8 <= raw.length; i++) if (raw[i] === 102 && raw[i + 1] === 116 && raw[i + 2] === 121 && raw[i + 3] === 112) {
-			const ftypOffset = i - 4;
-			if (ftypOffset >= 0 && ftypOffset < raw.length) {
-				candidates.push({
-					path,
-					score: getTextureScore(path),
-					bytes: raw.slice(ftypOffset)
-				});
-				break;
-			}
-		}
+		const bytes = embeddedMp4Bytes(file.bytes);
+		if (bytes !== null) candidates.push({
+			path,
+			score: getTextureScore(path),
+			bytes
+		});
 	}
 	if (candidates.length === 0) return null;
 	candidates.sort((a, b) => b.score - a.score);
@@ -4192,9 +4195,9 @@ function containsEmbeddedScript(value, seen = /* @__PURE__ */ new Set()) {
 	}
 	return Object.values(value).some((child) => containsEmbeddedScript(child, seen));
 }
-function buildSceneManifestVia(access, token) {
+function buildSceneManifestVia(access, token, projectOverride) {
 	let scene = access.readJson("scene.json");
-	const project = access.readJson("project.json");
+	const project = projectOverride && typeof projectOverride === "object" ? projectOverride : access.readJson("project.json");
 	if (!scene && project && typeof project.file === "string" && project.file.endsWith(".json")) scene = access.readJson(project.file);
 	if (!scene || !Array.isArray(scene.objects)) return null;
 	const general = scene.general;
@@ -4224,6 +4227,26 @@ function buildSceneManifestVia(access, token) {
 		return def;
 	};
 	const props = (project?.general)?.properties;
+	const propertyValue = (name) => props?.[name]?.value;
+	const boundedHour = (name, fallback) => {
+		const raw = propertyValue(name);
+		const numeric = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+		return Number.isFinite(numeric) && numeric >= 0 && numeric < 24 ? numeric : fallback;
+	};
+	const timeVarying = propertyValue("timevarying") === true;
+	const timePeriods = /* @__PURE__ */ new Set([
+		"morning",
+		"day",
+		"dusk",
+		"night",
+		"mddn"
+	]);
+	if (timeVarying && scene.objects.some((obj) => timePeriods.has(String(obj.name).toLowerCase()))) manifest.timeSchedule = {
+		morning: boundedHour("morningtime", 4),
+		day: boundedHour("daytime", 8),
+		dusk: boundedHour("dusktime", 17),
+		night: boundedHour("nighttime", 20)
+	};
 	if (props?.schemecolor?.value && typeof props.schemecolor.value === "string") manifest.clearColor = parseVec3(props.schemecolor.value, [
 		.57,
 		.71,
@@ -4654,8 +4677,9 @@ function buildSceneManifestVia(access, token) {
 			continue;
 		}
 		if (obj.visible === false) continue;
-		if (obj.visible && typeof obj.visible === "object" && obj.visible.value === false) continue;
 		const nameLower = (typeof obj.name === "string" ? obj.name : "").toLowerCase();
+		const isTimePeriodLayer = manifest.timeSchedule !== void 0 && timePeriods.has(nameLower);
+		if (obj.visible && typeof obj.visible === "object" && obj.visible.value === false && !isTimePeriodLayer) continue;
 		if (nameLower.includes("black") || nameLower.includes("len") || nameLower.includes("util") || nameLower.includes("flare") || nameLower.includes("blend") || nameLower === "sun" || nameLower === "sun2") continue;
 		const modelJson = access.readJson(obj.image);
 		if (!modelJson || typeof modelJson.material !== "string") continue;
@@ -4749,6 +4773,10 @@ function buildSceneManifestVia(access, token) {
 			oy = parseFloat(parts[1]) || 0;
 		}
 		const alpha = typeof obj.alpha === "number" && Number.isFinite(obj.alpha) ? Math.min(1, Math.max(0, obj.alpha)) : 1;
+		let videoUrl;
+		try {
+			if (parseTexInternal(file.bytes).isVideoMp4) videoUrl = resourceBase + texPath;
+		} catch {}
 		let uvCrop;
 		if (decoded && typeof modelJson.width === "number" && typeof modelJson.height === "number") {
 			const u0 = ox / decoded.width;
@@ -4794,7 +4822,9 @@ function buildSceneManifestVia(access, token) {
 			nums: Object.keys(nums).length > 0 ? nums : void 0,
 			isGround,
 			sway: 0,
-			swaySpeed: 1.5
+			swaySpeed: 1.5,
+			timePeriod: isTimePeriodLayer ? nameLower === "mddn" ? "manual" : nameLower : void 0,
+			videoUrl
 		});
 	}
 	if (manifest.layers.length === 0) return null;
@@ -4805,7 +4835,9 @@ function extractSceneResourceVia(access, subpath) {
 	const file = access.readFile(norm) || access.readFile("materials/" + norm) || access.readFile(norm + ".tex");
 	if (!file) return null;
 	try {
-		const mip0 = parseTexInternal(file.bytes).mipmaps[0];
+		const parsed = parseTexInternal(file.bytes);
+		const mip0 = parsed.mipmaps[0];
+		if (parsed.isVideoMp4) return embeddedMp4Bytes(file.bytes) ?? mip0.bytes;
 		if (isPngBuffer(mip0.bytes)) return Buffer$1.from(mip0.bytes);
 		const dec = decodeTex(file.bytes);
 		return Buffer$1.from(encodePng(dec.width, dec.height, dec.rgba));
@@ -4813,8 +4845,8 @@ function extractSceneResourceVia(access, subpath) {
 		return file.bytes;
 	}
 }
-function buildSceneManifest(pkgData, token) {
-	return buildSceneManifestVia(pkgSceneAccess(pkgData), token);
+function buildSceneManifest(pkgData, token, project) {
+	return buildSceneManifestVia(pkgSceneAccess(pkgData), token, project);
 }
 function buildSceneManifestFromDir(dir, token) {
 	return buildSceneManifestVia(dirSceneAccess(dir), token);
@@ -4946,6 +4978,7 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
   let startTime = performance.now();
   let lastTime = performance.now();
   let textureCache = new Map();
+  let videoTextureCache = new Map();
   let activeParticles = [];
   let mouseX = 0.5, mouseY = 0.5;
   let curRotX = 0, curRotY = 0;
@@ -5795,6 +5828,49 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     return record;
   }
 
+  function activeTimePeriod(schedule, date) {
+    if (!schedule) return null;
+    const hour = date.getHours() + date.getMinutes() / 60;
+    if (hour >= schedule.morning && hour < schedule.day) return 'morning';
+    if (hour >= schedule.day && hour < schedule.dusk) return 'day';
+    if (hour >= schedule.dusk && hour < schedule.night) return 'dusk';
+    return 'night';
+  }
+
+  function layerEnabledByTime(layer, period) {
+    return !layer.timePeriod || layer.timePeriod === period || (layer.timePeriod === 'manual' && period === null);
+  }
+
+  function loadVideoTexture(layer, enabled) {
+    let record = videoTextureCache.get(layer.videoUrl);
+    if (!record) {
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,0]));
+      const video = document.createElement('video');
+      video.src = layer.videoUrl;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      record = { texture, video, loaded: false };
+      video.addEventListener('loadeddata', () => { record.loaded = true; });
+      videoTextureCache.set(layer.videoUrl, record);
+    }
+    if (enabled && !isPaused) { void record.video.play().catch(() => {}); }
+    else record.video.pause();
+    if (enabled && record.loaded && record.video.readyState >= 2) {
+      gl.bindTexture(gl.TEXTURE_2D, record.texture);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, record.video);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    return record;
+  }
+
   // FBO setup for reflection passes
   let fbo = null, fboTex = null, fboWidth = 0, fboHeight = 0;
   function ensureFbo(w, h) {
@@ -6513,7 +6589,13 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     // overlays/effect layers follow it. Preserve that order. Reversing it makes
     // an opaque base layer cover flow/sway shaders and every foreground component,
     // which presents live scenes as a wrongly cropped static texture.
-    const renderLayers = sceneData.layers;
+    const currentPeriod = activeTimePeriod(sceneData.timeSchedule, new Date());
+    const renderLayers = sceneData.layers.filter((layer) => layerEnabledByTime(layer, currentPeriod));
+    // Pause inactive time-period videos immediately; only the author-selected
+    // morning/day/dusk/night layer may consume decode resources.
+    for (const layer of sceneData.layers) {
+      if (layer.videoUrl) loadVideoTexture(layer, layerEnabledByTime(layer, currentPeriod));
+    }
 
     // Pass 1: Render background and sky layers into FBO for reflections
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -6542,7 +6624,7 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     // Render sky & upper layers into FBO
     for (const layer of renderLayers) {
       if (layer.isGround || layer.isReflection) continue;
-      const texRec = loadTexture(layer.texUrl);
+      const texRec = layer.videoUrl ? loadVideoTexture(layer, true) : loadTexture(layer.texUrl);
       if (!texRec.loaded) continue;
 
       const model = mat4Transform2D(layer.x, layer.y, layer.w, layer.h, layer.angle || 0);
@@ -6693,8 +6775,8 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
         continue;
       }
 
-      // Standard Layer
-      const texRec = loadTexture(layer.texUrl);
+      // Standard image or embedded-video layer.
+      const texRec = layer.videoUrl ? loadVideoTexture(layer, true) : loadTexture(layer.texUrl);
       if (!texRec.loaded) continue;
 
       gl.useProgram(progBasic);
@@ -7034,7 +7116,7 @@ function serveFile(absPath, req, res, openReadStream) {
 	pipeFile(absPath, res, openReadStream);
 }
 /** Cached per-scene capability probe result. */
-const SCENE_PROBE_VERSION = 3;
+const SCENE_PROBE_VERSION = 4;
 /** Shape-check an entry loaded from the persisted probe cache. */
 function isSceneProbe(value) {
 	return value !== null && typeof value === "object" && value.v === SCENE_PROBE_VERSION && typeof value.hasVideo === "boolean" && typeof value.hasSceneWebGL === "boolean" && (value.compatibility === "full" || value.compatibility === "partial" || value.compatibility === "static-only") && Array.isArray(value.unsupportedFeatures);
@@ -7196,8 +7278,14 @@ function makeWeRoutes(deps) {
 					try {
 						const pkgData = await readFile(entry.fileAbs);
 						hasVideo = entry.fileAbs.toLowerCase().endsWith(".json") ? hasSceneVideoFromDir(dirname(entry.fileAbs)) : hasSceneVideo(pkgData);
-						if (!hasVideo) {
-							const manifest = entry.fileAbs.toLowerCase().endsWith(".json") ? buildSceneManifestFromDir(dirname(entry.fileAbs), "check") : buildSceneManifest(pkgData, "check");
+						{
+							const manifest = entry.fileAbs.toLowerCase().endsWith(".json") ? buildSceneManifestFromDir(dirname(entry.fileAbs), "check") : buildSceneManifest(pkgData, "check", (() => {
+								try {
+									return JSON.parse(readFileSync(join(entry.dir, "project.json"), "utf8"));
+								} catch {
+									return null;
+								}
+							})());
 							if (manifest?.scripted) {
 								compatibility = "partial";
 								unsupportedFeatures.push("embedded-script");
@@ -7222,7 +7310,7 @@ function makeWeRoutes(deps) {
 						persistProbes();
 					}
 				}
-				const videoToken = probe.hasVideo ? tokenFor(entry.fileAbs) : null;
+				const videoToken = probe.hasVideo && !probe.hasSceneWebGL ? tokenFor(entry.fileAbs) : null;
 				const sceneToken = probe.hasSceneWebGL ? tokenFor(entry.fileAbs) : null;
 				persistTokens();
 				json(res, 200, {
@@ -7490,7 +7578,13 @@ function makeWeRoutes(deps) {
 			if (!abs) return;
 			try {
 				const token = Buffer.from(abs, "utf8").toString("base64url");
-				const manifest = abs.toLowerCase().endsWith(".json") ? buildSceneManifestFromDir(dirname(abs), token) : buildSceneManifest(new Uint8Array(readFileSync(abs)), token);
+				const manifest = abs.toLowerCase().endsWith(".json") ? buildSceneManifestFromDir(dirname(abs), token) : buildSceneManifest(new Uint8Array(readFileSync(abs)), token, (() => {
+					try {
+						return JSON.parse(readFileSync(join(dirname(abs), "project.json"), "utf8"));
+					} catch {
+						return null;
+					}
+				})());
 				if (!manifest) {
 					json(res, 404, {
 						ok: false,
@@ -7560,8 +7654,9 @@ function makeWeRoutes(deps) {
 					return;
 				}
 				const isPng = resBytes.length > 8 && resBytes[0] === 137 && resBytes[1] === 80 && resBytes[2] === 78 && resBytes[3] === 71;
+				const isMp4 = resBytes.length > 12 && resBytes[4] === 102 && resBytes[5] === 116 && resBytes[6] === 121 && resBytes[7] === 112;
 				res.writeHead(200, {
-					"content-type": isPng ? "image/png" : "application/octet-stream",
+					"content-type": isPng ? "image/png" : isMp4 ? "video/mp4" : "application/octet-stream",
 					"cache-control": "no-store"
 				});
 				res.end(Buffer.from(resBytes));

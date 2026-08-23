@@ -665,7 +665,7 @@ window.__ModuleLoader__.load({
 						const manifestResponse = await fetchFn(payload.sceneUrl.replace("/scene-runtime/", "/scene-manifest/"));
 						const manifestPayload = manifestResponse.ok ? await manifestResponse.json().catch(() => null) : null;
 						const manifest = manifestPayload?.ok === true ? manifestPayload.manifest : void 0;
-						if (manifest && typeof manifest.width === "number" && typeof manifest.height === "number") sceneBaseUrl = manifest.layers?.find((layer) => typeof layer.texUrl === "string" && Math.abs((layer.w ?? 0) - manifest.width) <= 1 && Math.abs((layer.h ?? 0) - manifest.height) <= 1 && Math.abs((layer.x ?? 0) - manifest.width / 2) <= 1 && Math.abs((layer.y ?? 0) - manifest.height / 2) <= 1)?.texUrl ?? null;
+						if (manifest && manifest.timeSchedule === void 0 && typeof manifest.width === "number" && typeof manifest.height === "number") sceneBaseUrl = manifest.layers?.find((layer) => typeof layer.texUrl === "string" && Math.abs((layer.w ?? 0) - manifest.width) <= 1 && Math.abs((layer.h ?? 0) - manifest.height) <= 1 && Math.abs((layer.x ?? 0) - manifest.width / 2) <= 1 && Math.abs((layer.y ?? 0) - manifest.height / 2) <= 1)?.texUrl ?? null;
 					} catch {}
 					if (this.disposed) return;
 					let changed = false;

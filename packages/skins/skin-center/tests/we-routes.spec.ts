@@ -688,7 +688,7 @@ describe('scene-probe cache (#817)', () => {
     const key = Object.keys(persisted)[0] ?? ''
     expect(key).toContain('scene.pkg')
     expect(persisted[key]).toEqual({
-      v: 3,
+      v: 4,
       hasVideo: false,
       hasSceneWebGL: false,
       compatibility: 'full',

@@ -1323,6 +1323,55 @@ describe('extractSceneMainImageFromDir', () => {
     }
   })
 
+  it('retains author time-period video layers and schedule defaults', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'dsh-time-scene-'))
+    try {
+      mkdirSync(join(tmp, 'models'), { recursive: true })
+      mkdirSync(join(tmp, 'materials'), { recursive: true })
+      const videoTex = buildTex({
+        width: 1920,
+        height: 1080,
+        containerVersion: 4,
+        freeImageFormat: -1,
+        isVideoMp4: true,
+        mipmaps: [{ width: 1920, height: 1080, data: encoder.encode('....ftypisom....video') }],
+      })
+      for (const period of ['morning', 'day', 'dusk', 'night']) {
+        writeFileSync(join(tmp, 'models', period + '.json'), JSON.stringify({ material: 'materials/' + period + '.json', width: 1920, height: 1080 }))
+        writeFileSync(join(tmp, 'materials', period + '.json'), JSON.stringify({ passes: [{ shader: 'genericimage4', textures: [period] }] }))
+        writeFileSync(join(tmp, 'materials', period + '.tex'), videoTex)
+      }
+      writeFileSync(join(tmp, 'project.json'), JSON.stringify({
+        file: 'scene.json',
+        general: { properties: {
+          timevarying: { type: 'bool', value: true },
+          morningtime: { type: 'textinput', value: '5' },
+          daytime: { type: 'textinput', value: '9' },
+          dusktime: { type: 'textinput', value: '17.5' },
+          nighttime: { type: 'textinput', value: '21' },
+        } },
+      }))
+      writeFileSync(join(tmp, 'scene.json'), JSON.stringify({
+        general: { orthogonalprojection: { width: 1920, height: 1080 } },
+        objects: ['morning', 'day', 'dusk', 'night'].map((period, index) => ({
+          name: period,
+          image: 'models/' + period + '.json',
+          origin: '960 540 0',
+          visible: { user: { name: 'display', condition: String(index) }, value: period === 'day' },
+        })),
+      }))
+
+      const manifest = buildSceneManifestFromDir(tmp, 'tok_time')
+      expect(manifest?.timeSchedule).toEqual({ morning: 5, day: 9, dusk: 17.5, night: 21 })
+      expect(manifest?.layers.map(layer => layer.timePeriod)).toEqual(['morning', 'day', 'dusk', 'night'])
+      expect(manifest?.layers.every(layer => layer.videoUrl?.includes('/scene-resource/tok_time/'))).toBe(true)
+      const mp4 = extractSceneResourceFromDir(tmp, 'materials/day.tex')
+      expect(new TextDecoder().decode(mp4 ?? new Uint8Array())).toContain('ftypisom')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('folds parent transform chains for grouped objects (#742)', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'dsh-2d-parent-'))
     try {

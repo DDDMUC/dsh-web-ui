@@ -291,6 +291,24 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('keeps the live player visible for scripted scenes with a supported time schedule', async () => {
+    const fetchImpl = vi.fn(async (input: string) => ({
+      ok: true,
+      json: async () => input.includes('/scene-manifest/')
+        ? ({ ok: true, manifest: { width: 3840, height: 2160, timeSchedule: { morning: 4, day: 9, dusk: 17, night: 20 }, layers: [] } })
+        : ({ ok: true, videoUrl: null, sceneUrl: '/api/skin-center/we/scene-runtime/timed', compatibility: 'partial', unsupportedFeatures: ['embedded-script'] }),
+    })) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope, { fetchImpl, doc: document })
+    controller.applySelection({ ...scene, id: 'timed' })
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const player = layers()[0].querySelector('iframe')
+    expect(player?.src).toContain('/scene-runtime/timed')
+    expect(player?.style.opacity).not.toBe('0')
+    controller.dispose()
+  })
+
   it('applySelection probes scene capabilities lazily and mounts live video', async () => {
     const fetchImpl = vi.fn(async (input: string) => {
       if (input.includes('/scene-probe')) {

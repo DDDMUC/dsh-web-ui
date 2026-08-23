@@ -32,9 +32,18 @@ describe('WE scene player reflection pass (#742)', () => {
   })
 
   it('preserves Wallpaper Engine painter order for image and effect layers', () => {
-    expect(WE_SCENE_PLAYER_HTML).toContain('const renderLayers = sceneData.layers;')
+    expect(WE_SCENE_PLAYER_HTML).toContain('const renderLayers = sceneData.layers.filter((layer) => layerEnabledByTime(layer, currentPeriod));')
     expect(WE_SCENE_PLAYER_HTML).toContain('for (const layer of renderLayers)')
     expect(WE_SCENE_PLAYER_HTML).not.toContain('sceneData.layers.slice().reverse()')
+  })
+
+  it('selects and plays time-period video layers from the browser local clock', () => {
+    expect(WE_SCENE_PLAYER_HTML).toContain('function activeTimePeriod(schedule, date)')
+    expect(WE_SCENE_PLAYER_HTML).toContain('date.getHours() + date.getMinutes() / 60')
+    expect(WE_SCENE_PLAYER_HTML).toContain('const currentPeriod = activeTimePeriod(sceneData.timeSchedule, new Date());')
+    expect(WE_SCENE_PLAYER_HTML).toContain('sceneData.layers.filter((layer) => layerEnabledByTime(layer, currentPeriod))')
+    expect(WE_SCENE_PLAYER_HTML).toContain("document.createElement('video')")
+    expect(WE_SCENE_PLAYER_HTML).toContain('record.video.pause();')
   })
 
   it('draws the reflection quad at the layer rect instead of forcing fullscreen', () => {

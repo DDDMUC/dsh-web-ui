@@ -380,11 +380,19 @@ export class WallpaperController implements WallpaperHandle {
             const manifestPayload = manifestResponse.ok
               ? await manifestResponse.json().catch(() => null) as {
                 ok?: boolean
-                manifest?: { width?: number; height?: number; layers?: Array<{ x?: number; y?: number; w?: number; h?: number; texUrl?: string }> }
+                manifest?: {
+                  width?: number
+                  height?: number
+                  timeSchedule?: unknown
+                  layers?: Array<{ x?: number; y?: number; w?: number; h?: number; texUrl?: string }>
+                }
               } | null
               : null
             const manifest = manifestPayload?.ok === true ? manifestPayload.manifest : undefined
-            if (manifest && typeof manifest.width === 'number' && typeof manifest.height === 'number') {
+            // The renderer implements author-configured real-time switching;
+            // do not replace that live player with one static base merely because
+            // unrelated embedded scripts remain unsupported.
+            if (manifest && manifest.timeSchedule === undefined && typeof manifest.width === 'number' && typeof manifest.height === 'number') {
               sceneBaseUrl = manifest.layers?.find(layer =>
                 typeof layer.texUrl === 'string'
                 && Math.abs((layer.w ?? 0) - manifest.width!) <= 1

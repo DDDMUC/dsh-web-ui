@@ -47,6 +47,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
   let startTime = performance.now();
   let lastTime = performance.now();
   let textureCache = new Map();
+  let videoTextureCache = new Map();
   let activeParticles = [];
   let mouseX = 0.5, mouseY = 0.5;
   let curRotX = 0, curRotY = 0;
@@ -896,6 +897,49 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     return record;
   }
 
+  function activeTimePeriod(schedule, date) {
+    if (!schedule) return null;
+    const hour = date.getHours() + date.getMinutes() / 60;
+    if (hour >= schedule.morning && hour < schedule.day) return 'morning';
+    if (hour >= schedule.day && hour < schedule.dusk) return 'day';
+    if (hour >= schedule.dusk && hour < schedule.night) return 'dusk';
+    return 'night';
+  }
+
+  function layerEnabledByTime(layer, period) {
+    return !layer.timePeriod || layer.timePeriod === period || (layer.timePeriod === 'manual' && period === null);
+  }
+
+  function loadVideoTexture(layer, enabled) {
+    let record = videoTextureCache.get(layer.videoUrl);
+    if (!record) {
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,0]));
+      const video = document.createElement('video');
+      video.src = layer.videoUrl;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      record = { texture, video, loaded: false };
+      video.addEventListener('loadeddata', () => { record.loaded = true; });
+      videoTextureCache.set(layer.videoUrl, record);
+    }
+    if (enabled && !isPaused) { void record.video.play().catch(() => {}); }
+    else record.video.pause();
+    if (enabled && record.loaded && record.video.readyState >= 2) {
+      gl.bindTexture(gl.TEXTURE_2D, record.texture);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, record.video);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    return record;
+  }
+
   // FBO setup for reflection passes
   let fbo = null, fboTex = null, fboWidth = 0, fboHeight = 0;
   function ensureFbo(w, h) {
@@ -1614,7 +1658,13 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     // overlays/effect layers follow it. Preserve that order. Reversing it makes
     // an opaque base layer cover flow/sway shaders and every foreground component,
     // which presents live scenes as a wrongly cropped static texture.
-    const renderLayers = sceneData.layers;
+    const currentPeriod = activeTimePeriod(sceneData.timeSchedule, new Date());
+    const renderLayers = sceneData.layers.filter((layer) => layerEnabledByTime(layer, currentPeriod));
+    // Pause inactive time-period videos immediately; only the author-selected
+    // morning/day/dusk/night layer may consume decode resources.
+    for (const layer of sceneData.layers) {
+      if (layer.videoUrl) loadVideoTexture(layer, layerEnabledByTime(layer, currentPeriod));
+    }
 
     // Pass 1: Render background and sky layers into FBO for reflections
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -1643,7 +1693,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     // Render sky & upper layers into FBO
     for (const layer of renderLayers) {
       if (layer.isGround || layer.isReflection) continue;
-      const texRec = loadTexture(layer.texUrl);
+      const texRec = layer.videoUrl ? loadVideoTexture(layer, true) : loadTexture(layer.texUrl);
       if (!texRec.loaded) continue;
 
       const model = mat4Transform2D(layer.x, layer.y, layer.w, layer.h, layer.angle || 0);
@@ -1794,8 +1844,8 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
         continue;
       }
 
-      // Standard Layer
-      const texRec = loadTexture(layer.texUrl);
+      // Standard image or embedded-video layer.
+      const texRec = layer.videoUrl ? loadVideoTexture(layer, true) : loadTexture(layer.texUrl);
       if (!texRec.loaded) continue;
 
       gl.useProgram(progBasic);

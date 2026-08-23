@@ -1594,25 +1594,25 @@ export function extractSceneMainImageFromDir(dir: string): SceneMainImage {
   return extractSceneMainImageVia(dirSceneAccess(dir), 'scene')
 }
 
+/** Return an MP4 payload embedded in a TEX mipmap/file, if present. */
+function embeddedMp4Bytes(raw: Uint8Array): Uint8Array | null {
+  for (let i = 0; i < 200 && i + 8 <= raw.length; i++) {
+    if (raw[i] !== 0x66 || raw[i + 1] !== 0x74 || raw[i + 2] !== 0x79 || raw[i + 3] !== 0x70) continue
+    const ftypOffset = i - 4
+    if (ftypOffset >= 0 && ftypOffset < raw.length) return raw.slice(ftypOffset)
+  }
+  return null
+}
+
 /** Find and extract the primary MP4 video embedded inside a scene's .tex textures. */
 function extractSceneVideoVia(access: SceneAccess): Uint8Array | null {
   const candidates: { path: string; score: number; bytes: Uint8Array }[] = []
   for (const path of access.listTexPaths()) {
     const file = access.readFile(path)
     if (!file) continue
-    const raw = file.bytes
-    for (let i = 0; i < 200 && i + 8 <= raw.length; i++) {
-      if (raw[i] === 0x66 && raw[i + 1] === 0x74 && raw[i + 2] === 0x79 && raw[i + 3] === 0x70) {
-        const ftypOffset = i - 4
-        if (ftypOffset >= 0 && ftypOffset < raw.length) {
-          candidates.push({
-            path,
-            score: getTextureScore(path),
-            bytes: raw.slice(ftypOffset),
-          })
-          break
-        }
-      }
+    const bytes = embeddedMp4Bytes(file.bytes)
+    if (bytes !== null) {
+      candidates.push({ path, score: getTextureScore(path), bytes })
     }
   }
   if (candidates.length === 0) return null
@@ -1672,6 +1672,10 @@ export interface SceneManifestLayer {
   waterLine?: number
   sway?: number
   swaySpeed?: number
+  /** Real-time period selected by an embedded WE time controller. */
+  timePeriod?: 'morning' | 'day' | 'dusk' | 'night' | 'manual'
+  /** An embedded MP4 texture served directly to the scene player. */
+  videoUrl?: string
 }
 
 export interface DecodedMesh {
@@ -1801,6 +1805,8 @@ export interface SceneManifest {
   sparkleTex?: string
   /** Scene contains WE embedded scripts the browser renderer cannot execute. */
   scripted?: boolean
+  /** Author-configured local-hour boundaries for real-time scene switching. */
+  timeSchedule?: { morning: number; day: number; dusk: number; night: number }
   layers: SceneManifestLayer[]
 }
 
@@ -2105,9 +2111,9 @@ function containsEmbeddedScript(value: unknown, seen = new Set<object>()): boole
   return Object.values(value).some(child => containsEmbeddedScript(child, seen))
 }
 
-function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifest | null {
+function buildSceneManifestVia(access: SceneAccess, token: string, projectOverride?: unknown): SceneManifest | null {
   let scene = access.readJson('scene.json') as Record<string, unknown> | null
-  const project = access.readJson('project.json') as Record<string, unknown> | null
+  const project = (projectOverride && typeof projectOverride === 'object' ? projectOverride : access.readJson('project.json')) as Record<string, unknown> | null
   if (!scene && project && typeof project.file === 'string' && project.file.endsWith('.json')) {
     scene = access.readJson(project.file) as Record<string, unknown> | null
   }
@@ -2141,6 +2147,22 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
   }
 
   const props = (project?.general as Record<string, unknown> | undefined)?.properties as Record<string, Record<string, unknown>> | undefined
+  const propertyValue = (name: string): unknown => props?.[name]?.value
+  const boundedHour = (name: string, fallback: number): number => {
+    const raw = propertyValue(name)
+    const numeric = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : Number.NaN
+    return Number.isFinite(numeric) && numeric >= 0 && numeric < 24 ? numeric : fallback
+  }
+  const timeVarying = propertyValue('timevarying') === true
+  const timePeriods = new Set(['morning', 'day', 'dusk', 'night', 'mddn'])
+  if (timeVarying && (scene.objects as Array<Record<string, unknown>>).some((obj) => timePeriods.has(String(obj.name).toLowerCase()))) {
+    manifest.timeSchedule = {
+      morning: boundedHour('morningtime', 4),
+      day: boundedHour('daytime', 8),
+      dusk: boundedHour('dusktime', 17),
+      night: boundedHour('nighttime', 20),
+    }
+  }
   if (props?.schemecolor?.value && typeof props.schemecolor.value === 'string') {
     manifest.clearColor = parseVec3(props.schemecolor.value, [0.57, 0.71, 0.81])
   }
@@ -2539,8 +2561,12 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
     }
 
     if (obj.visible === false) continue
-    if (obj.visible && typeof obj.visible === 'object' && (obj.visible as { value?: unknown }).value === false) continue
     const nameLower = (typeof obj.name === 'string' ? obj.name : '').toLowerCase()
+    const isTimePeriodLayer = manifest.timeSchedule !== undefined && timePeriods.has(nameLower)
+    // WE's time controller overrides the stored visibility of all period layers
+    // at runtime. Keep those layers in the manifest even when project.json's
+    // default selection marks them hidden; ordinary hidden layers stay skipped.
+    if (obj.visible && typeof obj.visible === 'object' && (obj.visible as { value?: unknown }).value === false && !isTimePeriodLayer) continue
     if (
       nameLower.includes('black') ||
       nameLower.includes('len') ||
@@ -2674,6 +2700,12 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
     const alpha = typeof obj.alpha === 'number' && Number.isFinite(obj.alpha)
       ? Math.min(1, Math.max(0, obj.alpha))
       : 1
+    let videoUrl: string | undefined
+    try {
+      if (parseTexInternal(file.bytes).isVideoMp4) videoUrl = resourceBase + texPath
+    } catch {
+      // Not a parseable TEX: the existing image/resource fallback decides it.
+    }
 
     // decodeTex already crops power-of-two padding to the TEXI image rect,
     // so only an explicit cropoffset produces a sampled sub-rect here.
@@ -2744,6 +2776,10 @@ function buildSceneManifestVia(access: SceneAccess, token: string): SceneManifes
       isGround,
       sway: 0,
       swaySpeed: 1.5,
+      timePeriod: isTimePeriodLayer
+        ? (nameLower === 'mddn' ? 'manual' : nameLower as 'morning' | 'day' | 'dusk' | 'night')
+        : undefined,
+      videoUrl,
     })
   }
 
@@ -2761,6 +2797,7 @@ function extractSceneResourceVia(access: SceneAccess, subpath: string): Uint8Arr
   try {
     const parsed = parseTexInternal(file.bytes)
     const mip0 = parsed.mipmaps[0]
+    if (parsed.isVideoMp4) return embeddedMp4Bytes(file.bytes) ?? mip0.bytes
     if (isPngBuffer(mip0.bytes)) {
       return Buffer.from(mip0.bytes)
     }
@@ -2771,8 +2808,8 @@ function extractSceneResourceVia(access: SceneAccess, subpath: string): Uint8Arr
   }
 }
 
-export function buildSceneManifest(pkgData: Uint8Array, token: string): SceneManifest | null {
-  return buildSceneManifestVia(pkgSceneAccess(pkgData), token)
+export function buildSceneManifest(pkgData: Uint8Array, token: string, project?: unknown): SceneManifest | null {
+  return buildSceneManifestVia(pkgSceneAccess(pkgData), token, project)
 }
 
 export function buildSceneManifestFromDir(dir: string, token: string): SceneManifest | null {

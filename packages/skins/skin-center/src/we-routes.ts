@@ -277,7 +277,7 @@ interface WallpaperJson {
 }
 
 /** Cached per-scene capability probe result. */
-const SCENE_PROBE_VERSION = 3
+const SCENE_PROBE_VERSION = 4
 
 interface SceneProbe {
   v: number
@@ -457,10 +457,14 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
             hasVideo = entry.fileAbs.toLowerCase().endsWith('.json')
               ? hasSceneVideoFromDir(dirname(entry.fileAbs))
               : hasSceneVideo(pkgData)
-            if (!hasVideo) {
+            {
+              // Video-backed image layers can still belong to a full WebGL
+              // composition (including author scripts that select one video by
+              // local time). Probe the manifest even when a video TEX exists;
+              // the scene player then owns the individual video layers.
               const manifest = entry.fileAbs.toLowerCase().endsWith('.json')
                 ? buildSceneManifestFromDir(dirname(entry.fileAbs), 'check')
-                : buildSceneManifest(pkgData, 'check')
+                : buildSceneManifest(pkgData, 'check', (() => { try { return JSON.parse(readFileSync(joinPath(entry.dir, 'project.json'), 'utf8')) as unknown } catch { return null } })())
               if (manifest?.scripted) {
                 // Embedded scripts are ignored by the renderer, but the parsed
                 // layers remain safe to replay. Report partial compatibility
@@ -487,7 +491,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
             persistProbes()
           }
         }
-        const videoToken = probe.hasVideo ? tokenFor(entry.fileAbs) : null
+        const videoToken = probe.hasVideo && !probe.hasSceneWebGL ? tokenFor(entry.fileAbs) : null
         const sceneToken = probe.hasSceneWebGL ? tokenFor(entry.fileAbs) : null
         // Persist after issuing so freshly minted tokens survive a restart.
         persistTokens()
@@ -703,7 +707,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         const token = Buffer.from(abs, 'utf8').toString('base64url')
         const manifest = abs.toLowerCase().endsWith('.json')
           ? buildSceneManifestFromDir(dirname(abs), token)
-          : buildSceneManifest(new Uint8Array(readFileSync(abs)), token)
+          : buildSceneManifest(new Uint8Array(readFileSync(abs)), token, (() => { try { return JSON.parse(readFileSync(joinPath(dirname(abs), 'project.json'), 'utf8')) as unknown } catch { return null } })())
         if (!manifest) {
           json(res, 404, { ok: false, error: 'manifest-build-failed' })
           return
@@ -744,7 +748,8 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         // The extractor falls back to raw file bytes when a texture cannot
         // be decoded: label by payload, not by route name.
         const isPng = resBytes.length > 8 && resBytes[0] === 0x89 && resBytes[1] === 0x50 && resBytes[2] === 0x4e && resBytes[3] === 0x47
-        res.writeHead(200, { 'content-type': isPng ? 'image/png' : 'application/octet-stream', 'cache-control': 'no-store' })
+        const isMp4 = resBytes.length > 12 && resBytes[4] === 0x66 && resBytes[5] === 0x74 && resBytes[6] === 0x79 && resBytes[7] === 0x70
+        res.writeHead(200, { 'content-type': isPng ? 'image/png' : isMp4 ? 'video/mp4' : 'application/octet-stream', 'cache-control': 'no-store' })
         res.end(Buffer.from(resBytes))
       } catch (err) {
         json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })
