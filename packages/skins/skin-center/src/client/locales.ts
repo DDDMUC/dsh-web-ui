@@ -68,7 +68,6 @@ export type SkinCenterKey =
   | 'wallpaperRemove'
   | 'wallpaperUpdateAvailable'
   | 'wallpaperEmpty'
-  | 'wallpaperLegal'
   | 'wallpaperTypeVideo'
   | 'wallpaperTypeWeb'
   | 'wallpaperTypeScene'
@@ -161,7 +160,6 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperRemove: 'Remove',
   wallpaperUpdateAvailable: 'The workshop original changed since import — update the local copy',
   wallpaperEmpty: 'No wallpapers found. Subscribe in the Wallpaper Engine workshop, or add manual folders to the skin-wallpaper settings.',
-  wallpaperLegal: 'Wallpapers belong to their Workshop authors. Everything stays on this machine for personal use; nothing is uploaded or shared.',
   wallpaperTypeVideo: 'Video',
   wallpaperTypeWeb: 'Web',
   wallpaperTypeScene: 'Scene (static)',
@@ -255,7 +253,6 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperRemove: '移除',
   wallpaperUpdateAvailable: '工坊原件在导入后有更新——同步更新本地副本',
   wallpaperEmpty: '未发现壁纸。可先在 Wallpaper Engine 创意工坊订阅，或在 skin-wallpaper 设置里添加手动目录。',
-  wallpaperLegal: '壁纸素材版权归创意工坊作者所有，仅供本机个人使用，不上传、不分享。',
   wallpaperTypeVideo: '视频',
   wallpaperTypeWeb: '网页',
   wallpaperTypeScene: '场景(静态)',

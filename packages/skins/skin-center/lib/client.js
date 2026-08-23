@@ -1462,9 +1462,13 @@ window.__ModuleLoader__.load({
 				case "video": return "wallpaperTypeVideo";
 				case "web": return "wallpaperTypeWeb";
 				case "scene": return "wallpaperTypeScene";
+				case "image": return "wallpaperTypeImage";
 				default: return "wallpaperTypeApp";
 			}
 		}
+		/** Wallpaper grid page size: the grid grows one page per Load-more click
+		* instead of mounting every thumbnail at once. */
+		const PAGE_SIZE = 12;
 		/** Render the Wallpaper Engine section of the skin-center card. */
 		function WallpaperPanel({ t, wallpaper }) {
 			const enabled = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.enabled);
@@ -1483,8 +1487,11 @@ window.__ModuleLoader__.load({
 			const [shownBlur, setShownBlur] = useLiveValue$1(blur);
 			const [shownVolume, setShownVolume] = useLiveValue$1(volume);
 			const [dirInput, setDirInput] = (0, react.useState)("");
+			const [picking, setPicking] = (0, react.useState)(false);
+			const [pageCount, setPageCount] = (0, react.useState)(1);
 			const [items, setItems] = (0, react.useState)(null);
 			const [installDir, setInstallDir] = (0, react.useState)(null);
+			const [systemCount, setSystemCount] = (0, react.useState)(0);
 			const [loadError, setLoadError] = (0, react.useState)(null);
 			const [actionError, setActionError] = (0, react.useState)(null);
 			const [workingId, setWorkingId] = (0, react.useState)(null);
@@ -1507,7 +1514,9 @@ window.__ModuleLoader__.load({
 					}
 					setLoadError(null);
 					setItems(payload.wallpapers);
+					setPageCount(1);
 					setInstallDir(typeof payload.installDir === "string" ? payload.installDir : null);
+					setSystemCount(typeof payload.systemCount === "number" ? payload.systemCount : 0);
 					const selected = wallpaper.selection();
 					wallpaper.sync(resolveSelection(payload.wallpapers, selected) ?? null);
 				}).catch((error) => {
@@ -1530,6 +1539,24 @@ window.__ModuleLoader__.load({
 					}
 					after?.();
 					load();
+				});
+			};
+			/** Open the host's native folder picker and add the chosen directory. */
+			const browseDir = () => {
+				const pick = wallpaper.pickDir;
+				if (pick === void 0) return;
+				setActionError(null);
+				setPicking(true);
+				pick().then((path) => {
+					if (!mounted.current) return;
+					setPicking(false);
+					if (path === null || path.trim() === "") return;
+					wallpaper.addDir(path);
+					load();
+				}).catch((error) => {
+					if (!mounted.current) return;
+					setPicking(false);
+					setActionError(t("wallpaperDirBrowseFailed") + ": " + (error instanceof Error ? error.message : String(error)));
 				});
 			};
 			const descriptorOf = (item) => ({
@@ -1583,6 +1610,10 @@ window.__ModuleLoader__.load({
 							]
 						}) : items === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("loading") }) : installDir !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
 							t("wallpaperLibraryFound"),
+							" · ",
+							items.length
+						] }) : systemCount > 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
+							t("wallpaperLibrarySystem"),
 							" · ",
 							items.length
 						] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
@@ -1811,32 +1842,43 @@ window.__ModuleLoader__.load({
 							}, dir)),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 								className: skin_center_module_css_default.wallpaperDirAdd,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									className: skin_center_module_css_default.wallpaperDirInput,
-									type: "text",
-									value: dirInput,
-									placeholder: t("wallpaperDirPlaceholder"),
-									onChange: (event) => {
-										setDirInput(event.target.value);
-									},
-									onKeyDown: (event) => {
-										if (event.key === "Enter" && dirInput.trim() !== "") {
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+										className: skin_center_module_css_default.wallpaperDirInput,
+										type: "text",
+										value: dirInput,
+										placeholder: t("wallpaperDirPlaceholder"),
+										onChange: (event) => {
+											setDirInput(event.target.value);
+										},
+										onKeyDown: (event) => {
+											if (event.key === "Enter" && dirInput.trim() !== "") {
+												wallpaper.addDir(dirInput);
+												setDirInput("");
+												load();
+											}
+										}
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: skin_center_module_css_default.button,
+										disabled: dirInput.trim() === "",
+										onClick: () => {
 											wallpaper.addDir(dirInput);
 											setDirInput("");
 											load();
-										}
-									}
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.button,
-									disabled: dirInput.trim() === "",
-									onClick: () => {
-										wallpaper.addDir(dirInput);
-										setDirInput("");
-										load();
-									},
-									children: t("wallpaperDirAdd")
-								})]
+										},
+										children: t("wallpaperDirAdd")
+									}),
+									wallpaper.pickDir !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: skin_center_module_css_default.button,
+										disabled: picking,
+										title: t("wallpaperDirBrowseHint"),
+										onClick: browseDir,
+										children: picking ? t("loading") : t("wallpaperDirBrowse")
+									})
+								]
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 								className: skin_center_module_css_default.backgroundHintMuted,
@@ -1850,7 +1892,7 @@ window.__ModuleLoader__.load({
 					}),
 					items !== null && items.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: skin_center_module_css_default.wallpaperGrid,
-						children: items.map((item) => {
+						children: items.slice(0, pageCount * PAGE_SIZE).map((item) => {
 							const isApplied = item.id === activeSelection;
 							const isMounted = item.id === activeId;
 							const busy = workingId === item.id;
@@ -1938,7 +1980,7 @@ window.__ModuleLoader__.load({
 													});
 												},
 												children: t("wallpaperRemove")
-											})] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											})] }) : item.source === "system" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, {}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 												type: "button",
 												className: skin_center_module_css_default.button,
 												disabled: busy,
@@ -1954,13 +1996,25 @@ window.__ModuleLoader__.load({
 							}, item.id);
 						})
 					}),
+					items !== null && items.length > pageCount * PAGE_SIZE && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: skin_center_module_css_default.wallpaperStatus,
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+							type: "button",
+							className: skin_center_module_css_default.button,
+							onClick: () => {
+								setPageCount((count) => count + 1);
+							},
+							children: [
+								t("wallpaperLoadMore"),
+								" (",
+								items.length - pageCount * PAGE_SIZE,
+								")"
+							]
+						})
+					}),
 					items !== null && items.length === 0 && loadError === null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: skin_center_module_css_default.backgroundHintMuted,
 						children: t("wallpaperEmpty")
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-						className: skin_center_module_css_default.backgroundHintMuted,
-						children: t("wallpaperLegal")
 					})
 				] })]
 			});
@@ -2898,6 +2952,7 @@ window.__ModuleLoader__.load({
 			wallpaperLoadError: "Wallpaper library failed to load",
 			wallpaperLibraryFound: "Wallpaper Engine library detected",
 			wallpaperLibraryManual: "Manual folders only (no Wallpaper Engine install found; set folders in the skin-wallpaper settings)",
+			wallpaperLibrarySystem: "macOS wallpapers detected (aerials and Desktop Pictures)",
 			wallpaperRefresh: "Refresh",
 			wallpaperMode: "Render mode",
 			wallpaperModeLive: "Live",
@@ -2919,16 +2974,20 @@ window.__ModuleLoader__.load({
 			wallpaperRemove: "Remove",
 			wallpaperUpdateAvailable: "The workshop original changed since import — update the local copy",
 			wallpaperEmpty: "No wallpapers found. Subscribe in the Wallpaper Engine workshop, or add manual folders to the skin-wallpaper settings.",
-			wallpaperLegal: "Wallpapers belong to their Workshop authors. Everything stays on this machine for personal use; nothing is uploaded or shared.",
 			wallpaperTypeVideo: "Video",
 			wallpaperTypeWeb: "Web",
 			wallpaperTypeScene: "Scene (static)",
 			wallpaperTypeApp: "Unsupported",
+			wallpaperTypeImage: "Image",
+			wallpaperLoadMore: "Load more",
 			wallpaperDirs: "Manual folders",
 			wallpaperDirsEmpty: "No manual folders yet.",
 			wallpaperDirsHint: "No Wallpaper Engine (e.g. macOS)? Point a folder at any .mp4/.webm files, a wallpaper project folder, or a folder of projects — they become your wallpaper library.",
 			wallpaperDirPlaceholder: "/path/to/wallpapers or ~/Movies/wallpapers",
 			wallpaperDirAdd: "Add",
+			wallpaperDirBrowse: "Browse…",
+			wallpaperDirBrowseHint: "Pick a folder with the system file manager (Finder / Explorer)",
+			wallpaperDirBrowseFailed: "Could not open the system folder picker — type the path manually instead",
 			customThemeTitle: "Custom theme",
 			customThemeTagline: "A separately saved palette derived from the official default theme.",
 			customThemeEdit: "Edit",
@@ -2985,6 +3044,7 @@ window.__ModuleLoader__.load({
 			wallpaperLoadError: "壁纸库加载失败",
 			wallpaperLibraryFound: "已检测到 Wallpaper Engine 壁纸库",
 			wallpaperLibraryManual: "仅手动目录（未检测到 Wallpaper Engine 安装，可在 skin-wallpaper 设置里添加目录）",
+			wallpaperLibrarySystem: "已检测到 macOS 系统壁纸（航拍与桌面图片）",
 			wallpaperRefresh: "刷新",
 			wallpaperMode: "渲染模式",
 			wallpaperModeLive: "动态",
@@ -3006,16 +3066,20 @@ window.__ModuleLoader__.load({
 			wallpaperRemove: "移除",
 			wallpaperUpdateAvailable: "工坊原件在导入后有更新——同步更新本地副本",
 			wallpaperEmpty: "未发现壁纸。可先在 Wallpaper Engine 创意工坊订阅，或在 skin-wallpaper 设置里添加手动目录。",
-			wallpaperLegal: "壁纸素材版权归创意工坊作者所有，仅供本机个人使用，不上传、不分享。",
 			wallpaperTypeVideo: "视频",
 			wallpaperTypeWeb: "网页",
 			wallpaperTypeScene: "场景(静态)",
 			wallpaperTypeApp: "不支持",
+			wallpaperTypeImage: "静态图片",
+			wallpaperLoadMore: "加载更多",
 			wallpaperDirs: "手动目录",
 			wallpaperDirsEmpty: "还没有手动目录。",
 			wallpaperDirsHint: "没有 Wallpaper Engine（如 macOS）？把任意 .mp4/.webm 视频、单个壁纸项目文件夹或项目合集文件夹加进来，就是你的壁纸库。",
 			wallpaperDirPlaceholder: "/path/to/wallpapers 或 ~/Movies/wallpapers",
 			wallpaperDirAdd: "添加",
+			wallpaperDirBrowse: "浏览…",
+			wallpaperDirBrowseHint: "通过系统文件管理器（访达 / 资源管理器）选择文件夹",
+			wallpaperDirBrowseFailed: "无法打开系统目录选择框——请手动输入路径",
 			customThemeTitle: "自定义主题",
 			customThemeTagline: "基于官方默认主题生成并独立保存的配色方案。",
 			customThemeEdit: "编辑",
@@ -4319,14 +4383,15 @@ window.__ModuleLoader__.load({
 		//#region src/client/index.ts
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
-		/** Required services: slots + locale (plugin card), theme (preview toggle), and settingsScope + its transport (background scrim). */
+		/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and workspaces (native directory picker for wallpaper folders). */
 		const inject = [
 			"slots",
 			"locale",
 			"theme",
 			"settingsScope",
 			"connection",
-			"remote"
+			"remote",
+			"workspaces"
 		];
 		/**
 		* Register the skin-center dictionaries, the body scope attribute, and the
@@ -4440,6 +4505,7 @@ window.__ModuleLoader__.load({
 					dirs: () => wallpaper.dirs(),
 					addDir: (dir) => wallpaper.addDir(dir),
 					removeDir: (dir) => wallpaper.removeDir(dir),
+					pickDir: () => ctx.workspaces.pickDirectory(),
 					activeId: () => wallpaper.activeId(),
 					trying: () => wallpaper.trying(),
 					subscribe: (listener) => wallpaper.subscribe(listener),

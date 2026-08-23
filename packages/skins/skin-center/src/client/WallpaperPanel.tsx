@@ -521,7 +521,6 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
           {items !== null && items.length === 0 && loadError === null && (
             <p className={css.backgroundHintMuted}>{t('wallpaperEmpty')}</p>
           )}
-          <p className={css.backgroundHintMuted}>{t('wallpaperLegal')}</p>
         </>
       )}
     </div>
