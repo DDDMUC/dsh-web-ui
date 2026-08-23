@@ -29,7 +29,7 @@
 
 <div align="center">
 
-[What It Is](#what-it-is) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Workshop](#workshop-dsh-marketcom) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
+[What It Is](#what-it-is) · [Workshop](#workshop-dsh-marketcom) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
 
 </div>
 
@@ -52,6 +52,16 @@ Skins follow the same philosophy: a v2 skin is no longer an npm package coupled 
 | Companion pet | None | Whale girl: reacts to agent state, feeding and bonding |
 | Git visualization | None | Branch picker + commit history graph |
 | Themes & skins | Default theme | Skin center with 18 skins + a custom-theme editor, try-on before apply |
+
+## Workshop (dsh-market.com)
+
+The [Workshop](https://dsh-market.com) (dsh-market.com) is DSH's one-stop home for creations: skins, pets and plugins in one place, each category ranked by device-backed likes with the top three on the landing-page podium; skins preview in a live try-on, plugins expose one-copy install commands. The Workshop settings card inside the Web GUI browses the catalog directly — skins and pets install into the DSH home directories in one click, plugins go through the plugin manager, and everything shows up in the skin center and pet panel afterwards.
+
+![Workshop home](docs/screenshots/31-market-home.png)
+
+The site itself is also built from this repository: a static build generated deterministically by `scripts/market-build` from the three sources of truth (`skin.json` / `pet.json` / `community.json`); dynamic features like likes run on a Cloudflare Workers edge API (D1 persistence, one vote per device) and deploy automatically on every push to `main`.
+
+The Workshop takes its cue from the Steam Workshop: a place where community creations are discovered, tried on and installed in one click, and where authors' work gets seen and liked. Come build it with us.
 
 ## Feature Plugins
 
@@ -175,16 +185,6 @@ A dusk-harbor theme: a twilight-blue sky melting into sunset orange sits beneath
 An ornate navy workshop skin with two character layers and responsive sidebar decoration. This skin is licensed separately under CC BY-NC-SA 4.0 and is restricted to non-commercial use.
 
 ![Maid Atelier light](packages/skins/skin-center/skins/maid-atelier/preview/light.jpg) · ![Maid Atelier dark](packages/skins/skin-center/skins/maid-atelier/preview/dark.jpg)
-
-## Workshop (dsh-market.com)
-
-The [Workshop](https://dsh-market.com) (dsh-market.com) is DSH's one-stop home for creations: skins, pets and plugins in one place, each category ranked by device-backed likes with the top three on the landing-page podium; skins preview in a live try-on, plugins expose one-copy install commands. The Workshop settings card inside the Web GUI browses the catalog directly — skins and pets install into the DSH home directories in one click, plugins go through the plugin manager, and everything shows up in the skin center and pet panel afterwards.
-
-![Workshop home](docs/screenshots/31-market-home.png)
-
-The site itself is also built from this repository: a static build generated deterministically by `scripts/market-build` from the three sources of truth (`skin.json` / `pet.json` / `community.json`); dynamic features like likes run on a Cloudflare Workers edge API (D1 persistence, one vote per device) and deploy automatically on every push to `main`.
-
-The Workshop takes its cue from the Steam Workshop: a place where community creations are discovered, tried on and installed in one click, and where authors' work gets seen and liked. Come build it with us.
 
 ## Quick Start
 

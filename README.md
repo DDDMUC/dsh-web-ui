@@ -29,7 +29,7 @@
 
 <div align="center">
 
-[是什么](#是什么) · [功能插件](#功能插件) · [皮肤](#皮肤) · [创意工坊](#创意工坊dsh-marketcom) · [快速上手](#快速上手) · [常见问题](#常见问题) · [已知限制](#已知限制) · [社区](#社区)
+[是什么](#是什么) · [创意工坊](#创意工坊dsh-marketcom) · [功能插件](#功能插件) · [皮肤](#皮肤) · [快速上手](#快速上手) · [常见问题](#常见问题) · [已知限制](#已知限制) · [社区](#社区)
 
 </div>
 
@@ -52,6 +52,16 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件与皮肤生态，也�
 | 陪伴宠物 | 无 | 鲸鱼娘：跟随智能体状态互动、喂养养成 |
 | Git 可视化 | 无 | 分支选择器 + 提交历史图谱 |
 | 主题皮肤 | 默认主题 | 皮肤中心 18 款主题皮肤 + 自定义主题编辑器，先试穿再应用 |
+
+## 创意工坊（dsh-market.com）
+
+[创意工坊](https://dsh-market.com)（dsh-market.com）是 DSH 的一站式创作空间：皮肤、宠物、插件三位一体，每类按设备点赞热度排序、前三名登上首页颁奖台；皮肤支持实时试穿预览，插件提供一键复制的安装命令。Web GUI 里的「创意工坊」设置卡直接浏览工坊清单——皮肤与宠物一键装进 DSH 主目录，插件经插件管理器安装，装完即可在皮肤中心与宠物面板中使用。
+
+![创意工坊首页](docs/screenshots/31-market-home.png)
+
+站点也是本仓库的产物：纯静态构建，由 `scripts/market-build` 从三类真值源（`skin.json` / `pet.json` / `community.json`）确定性生成；点赞等动态能力由 Cloudflare Workers 边缘 API 承载（D1 持久化、按设备一票），push 到 `main` 即自动部署。
+
+创意工坊对标 Steam Workshop 的定位：让社区创作被发现、被试穿、被一键装回家，让作者的作品被看见、被点赞——欢迎一起来建设。
 
 ## 功能插件
 
@@ -175,16 +185,6 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 深海蓝工坊主题，包含双角色图层与响应式侧边栏装饰。本皮肤单独采用 CC BY-NC-SA 4.0，仅限非商业使用。
 
 ![深海女仆工坊 亮色](packages/skins/skin-center/skins/maid-atelier/preview/light.jpg) · ![深海女仆工坊 暗色](packages/skins/skin-center/skins/maid-atelier/preview/dark.jpg)
-
-## 创意工坊（dsh-market.com）
-
-[创意工坊](https://dsh-market.com)（dsh-market.com）是 DSH 的一站式创作空间：皮肤、宠物、插件三位一体，每类按设备点赞热度排序、前三名登上首页颁奖台；皮肤支持实时试穿预览，插件提供一键复制的安装命令。Web GUI 里的「创意工坊」设置卡直接浏览工坊清单——皮肤与宠物一键装进 DSH 主目录，插件经插件管理器安装，装完即可在皮肤中心与宠物面板中使用。
-
-![创意工坊首页](docs/screenshots/31-market-home.png)
-
-站点也是本仓库的产物：纯静态构建，由 `scripts/market-build` 从三类真值源（`skin.json` / `pet.json` / `community.json`）确定性生成；点赞等动态能力由 Cloudflare Workers 边缘 API 承载（D1 持久化、按设备一票），push 到 `main` 即自动部署。
-
-创意工坊对标 Steam Workshop 的定位：让社区创作被发现、被试穿、被一键装回家，让作者的作品被看见、被点赞——欢迎一起来建设。
 
 ## 快速上手
 
