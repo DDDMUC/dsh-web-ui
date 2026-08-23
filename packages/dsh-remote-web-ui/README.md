@@ -53,6 +53,15 @@ that probes and runs the update.
   itself — pairing does not gate `/api` (no plugin can; the fence is the
   SDK's own seam). The posture probe below reports that stance when `/api`
   is reachable without pairing.
+- **Paired model catalog**: authenticated paired devices can use `GET
+  /api/pair/model-catalog`, `POST /api/pair/model-catalog/discover`, and
+  `POST /api/pair/model-catalog/upsert` to inspect and adopt models for an
+  existing active `llm-pi-ai` provider only. The capability fixes the
+  provider settings address internally and cannot create providers or read or
+  change credentials, general settings, endpoints, headers, or arbitrary
+  configuration. Stop or device revocation disables it immediately; the
+  generic `settings.*`, `credentials.*`, and `llm.discoverModels` RPC methods
+  remain loopback-only.
 - **Remote desktop channel**: with `requirePairingForLan` on (default), a
   desktop Web GUI opened at the LAN URL or through the tunnel transparently
   rides `/remote` — the same UI, gated by the same pairing cookie. The
@@ -67,8 +76,11 @@ that probes and runs the update.
   without forwarding the remote Origin or pairing cookie; the authenticated
   proxy supplies its own same-origin browser marker for sibling route fences. The
   SDK's loopback-only privileged methods (native dialogs, the settings and
-  credentials plane) stay unreachable from a paired remote desktop, and the
-  `/api/pair/*`, `/api/update/*`, `/api/plugin-manager/*`,
+  credentials plane) stay unreachable from a paired remote desktop. Except
+  for the exact paired-device model-catalog routes (`GET
+  /api/pair/model-catalog`, `POST /api/pair/model-catalog/discover`, and
+  `POST /api/pair/model-catalog/upsert`), `/api/pair/*`, `/api/update/*`,
+  `/api/plugin-manager/*`,
   `/api/dsh-desktop-launcher/*` and `/api/dsh-web-ui-settings/*` control
   endpoints stay loopback-only. Unpaired desktop browsers get a persistent
   full-page block instead of data (the page keys off the `unpaired` error
@@ -230,8 +242,11 @@ plugin's `/m/api` proxy (which delegates to the host ApiProxy service and
 pages `session.list` itself), so the tunneled Host never has to enter the
 connection plugin's trust fence. The phone is gated by its paired-device
 cookie and an explicit method allowlist (settings/credentials/host-action
-domains are never reachable from the phone; model reads/writes are limited
-to the advisory `session.models` / `session.selectModel` pair, agent preset
+domains are never reachable from the phone; the `/m/api` proxy's model
+reads/writes are limited to the advisory `session.models` /
+`session.selectModel` pair. Separately, the exact paired-only model-catalog
+routes may adopt models for an existing eligible `llm-pi-ai` provider; they
+cannot create providers or access credentials or general settings. Agent preset
 access to read-only `agentPreset.list`, creation to `session.create`
 (workspace id plus an optional id from that roster — the phone never names a
 working directory of its own), and the permission picker only ever sends the

@@ -1684,6 +1684,8 @@ export interface DecodedMesh {
   pos: Float32Array
   norm: Float32Array
   uv: Float32Array
+  /** Optional second UV channel used by baked lightmaps. */
+  uv2?: Float32Array
   /** u16 for meshes with <= 65535 vertices, u32 above that (mdlv >= 23). */
   indices: Uint16Array | Uint32Array
   materialPath?: string
@@ -1695,10 +1697,14 @@ export interface SceneManifestMesh {
   posB64: string
   normB64: string
   uvB64: string
+  /** Optional second UV channel used by baked lightmaps. */
+  uv2B64?: string
   indicesB64: string
   /** True when indicesB64 decodes to Uint32Array (mesh has > 65535 vertices). */
   idx32?: boolean
   texUrl?: string
+  /** Repeat the base texture when authored UVs leave the [0,1] range. */
+  repeatBase?: boolean
   materialPath?: string
   /** WE material shader name (passes[0].shader), e.g. 'ricepodjet'. */
   shader?: string
@@ -1712,8 +1718,10 @@ export interface SceneManifestMesh {
   tint?: [number, number, number]
   /** Second tint (usershadervalues entry mapped to the 'tint2' uniform). */
   tint2?: [number, number, number]
-  /** Second texture of the material pass (e.g. bg pattern overlay). */
+  /** Second texture of the material pass (e.g. normal map or bg overlay). */
   texUrl2?: string
+  /** Baked lightmap texture selected from the material combo texture slots. */
+  lightmapUrl?: string
   /** WE material blending 'translucent' (alpha-blended overlay). */
   translucent?: boolean
   /** GRADIENT_FADE combo: alpha fades towards the top/bottom edges. */
@@ -1769,6 +1777,12 @@ export interface SceneManifestModel {
   meshes: SceneManifestMesh[]
 }
 
+export interface SceneManifestPointLight {
+  origin: [number, number, number]
+  color: [number, number, number]
+  radius: number
+}
+
 export interface SceneManifestCamera {
   eye: [number, number, number]
   center: [number, number, number]
@@ -1784,6 +1798,9 @@ export interface SceneManifest {
   carBodyColor?: [number, number, number]
   carStripesColor?: [number, number, number]
   camera?: SceneManifestCamera
+  ambientColor?: [number, number, number]
+  skyLightColor?: [number, number, number]
+  pointLights?: SceneManifestPointLight[]
   /** Scene declares a camera but no animation paths: fixed viewpoint. */
   cameraStatic?: boolean
   cameraPaths?: Array<{
@@ -2048,6 +2065,7 @@ export function parseMdl(buf: Uint8Array): DecodedMesh[] {
     const pos = new Float32Array(vCount * 3)
     const norm = new Float32Array(vCount * 3)
     const uv = new Float32Array(vCount * 2)
+    const uv2 = (meshFlag & MDL_FLAG_UV2) !== 0 ? new Float32Array(vCount * 2) : undefined
     const hasNorm = (meshFlag & MDL_FLAG_NORMAL) !== 0
     const hasUv = (meshFlag & (MDL_FLAG_UV | MDL_FLAG_UV2)) !== 0
     for (let v = 0; v < vCount; v++) {
@@ -2074,7 +2092,11 @@ export function parseMdl(buf: Uint8Array): DecodedMesh[] {
         uv[v * 2 + 1] = dv.getFloat32(p + 4, true)
         p += 8
       }
-      if (meshFlag & MDL_FLAG_UV2) p += 8
+      if (uv2) {
+        uv2[v * 2] = dv.getFloat32(p, true)
+        uv2[v * 2 + 1] = dv.getFloat32(p + 4, true)
+        p += 8
+      }
     }
 
     if (p + 4 > buf.length) return meshes
@@ -2095,7 +2117,7 @@ export function parseMdl(buf: Uint8Array): DecodedMesh[] {
     }
     p += iBytes
 
-    meshes.push({ vCount, iCount, pos, norm, uv, indices, materialPath: materials[0] })
+    meshes.push({ vCount, iCount, pos, norm, uv, uv2, indices, materialPath: materials[0] })
   }
   return meshes
 }
@@ -2119,7 +2141,13 @@ function buildSceneManifestVia(access: SceneAccess, token: string, projectOverri
   }
   if (!scene || !Array.isArray(scene.objects)) return null
 
-  const general = scene.general as { orthogonalprojection?: { width?: number; height?: number } } | undefined
+  const general = scene.general as {
+    ambientcolor?: unknown
+    clearcolor?: unknown
+    fov?: unknown
+    skylightcolor?: unknown
+    orthogonalprojection?: { width?: number; height?: number }
+  } | undefined
   const projW = general?.orthogonalprojection?.width
   const projH = general?.orthogonalprojection?.height
   // Negative / NaN / non-numeric projection values must not leak into the
@@ -2145,6 +2173,25 @@ function buildSceneManifestVia(access: SceneAccess, token: string, projectOverri
     }
     return def
   }
+
+  manifest.clearColor = parseVec3(general?.clearcolor, [0.1, 0.1, 0.15])
+  manifest.ambientColor = parseVec3(general?.ambientcolor, [0, 0, 0])
+  manifest.skyLightColor = parseVec3(general?.skylightcolor, [0, 0, 0])
+  const pointLights = (scene.objects as Array<Record<string, unknown>>)
+    .filter((obj) => obj.light === 'point')
+    .slice(0, 4)
+    .map((obj) => {
+      const intensity = typeof obj.intensity === 'number' && Number.isFinite(obj.intensity)
+        ? Math.max(0, obj.intensity)
+        : 1
+      const color = parseVec3(obj.color, [1, 1, 1])
+      return {
+        origin: parseVec3(obj.origin, [0, 0, 0]),
+        color: color.map((channel) => channel * intensity) as [number, number, number],
+        radius: typeof obj.radius === 'number' && Number.isFinite(obj.radius) && obj.radius > 0 ? obj.radius : 1,
+      }
+    })
+  if (pointLights.length > 0) manifest.pointLights = pointLights
 
   const props = (project?.general as Record<string, unknown> | undefined)?.properties as Record<string, Record<string, unknown>> | undefined
   const propertyValue = (name: string): unknown => props?.[name]?.value
@@ -2209,11 +2256,19 @@ function buildSceneManifestVia(access: SceneAccess, token: string, projectOverri
         if (manifest.cameraPaths.length === 0) delete manifest.cameraPaths
       }
     }
+    const cameraFov = cam?.fov
+    const generalFov = general?.fov
+    const validFov = (value: unknown): value is number =>
+      typeof value === 'number' && Number.isFinite(value) && value > 0 && value < 180
     manifest.camera = {
       eye,
       center,
       up,
-      fov: typeof cam?.fov === 'number' ? cam.fov : 45,
+      // Wallpaper Engine serializes the projection FOV under scene.general;
+      // a few older projects put it on the camera itself. Prefer the explicit
+      // camera value, then the authored general value, then WE's 50-degree
+      // default. Falling back to 45 over-zooms official scenes such as Arsenal.
+      fov: validFov(cameraFov) ? cameraFov : validFov(generalFov) ? generalFov : 50,
     }
     // A scene camera without usable paths is a fixed viewpoint, not an orbit.
     if (cam && !(manifest.cameraPaths && manifest.cameraPaths.length > 0)) {
@@ -2247,6 +2302,7 @@ function buildSceneManifestVia(access: SceneAccess, token: string, projectOverri
         let tint: [number, number, number] | undefined
         let tint2: [number, number, number] | undefined
         let texPath2: string | undefined
+        let lightmapPath: string | undefined
         let translucent: boolean | undefined
         let gradFade: boolean | undefined
         let userColors: Record<string, [number, number, number]> | undefined
@@ -2270,8 +2326,15 @@ function buildSceneManifestVia(access: SceneAccess, token: string, projectOverri
               if (dt === 'disabled') noDepthTest = true
               if (dw === 'disabled') noDepthWrite = true
               if (Array.isArray(pass0.textures) && pass0.textures.length > 0) {
-                subTex = resolveTexRef(String(pass0.textures[0]))
-                if (pass0.textures.length > 1) texPath2 = resolveTexRef(String(pass0.textures[1]))
+                const texturePaths = pass0.textures.map((texture) => resolveTexRef(String(texture)))
+                subTex = texturePaths[0]
+                if (texturePaths.length > 1) texPath2 = texturePaths[1]
+                if (combos?.lightmap) {
+                  // generic.frag places the lightmap after the optional normal
+                  // map. Preserve its dedicated role instead of treating it as
+                  // an arbitrary second overlay texture.
+                  lightmapPath = texturePaths[combos?.normalmap ? 2 : 1]
+                }
               }
               // usershadervalues bind WE user properties (schemecolor etc.)
               // to shader uniforms; resolve colors and numbers at build time.
@@ -2326,9 +2389,11 @@ function buildSceneManifestVia(access: SceneAccess, token: string, projectOverri
           posB64: Buffer.from(m.pos.buffer, m.pos.byteOffset, m.pos.byteLength).toString('base64'),
           normB64: Buffer.from(m.norm.buffer, m.norm.byteOffset, m.norm.byteLength).toString('base64'),
           uvB64: Buffer.from(m.uv.buffer, m.uv.byteOffset, m.uv.byteLength).toString('base64'),
+          uv2B64: m.uv2 ? Buffer.from(m.uv2.buffer, m.uv2.byteOffset, m.uv2.byteLength).toString('base64') : undefined,
           indicesB64: Buffer.from(m.indices.buffer, m.indices.byteOffset, m.indices.byteLength).toString('base64'),
           idx32: m.indices instanceof Uint32Array || undefined,
           texUrl: subTex ? resourceBase + subTex : undefined,
+          repeatBase: m.uv.some((value) => value < 0 || value > 1) || undefined,
           materialPath: m.materialPath,
           shader,
           additive,
@@ -2337,6 +2402,7 @@ function buildSceneManifestVia(access: SceneAccess, token: string, projectOverri
           tint,
           tint2,
           texUrl2: texPath2 ? resourceBase + texPath2 : undefined,
+          lightmapUrl: lightmapPath ? resourceBase + lightmapPath : undefined,
           translucent,
           gradFade,
           userColors,

@@ -240,7 +240,7 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
-  it('uses actual scene artwork for scripted partial scenes and de-duplicates their probe', async () => {
+  it('keeps the live composition visible for scripted partial scenes and de-duplicates their probe', async () => {
     const fetchImpl = vi.fn(async (input: string) => {
       if (input.includes('/scene-manifest/')) {
         return {

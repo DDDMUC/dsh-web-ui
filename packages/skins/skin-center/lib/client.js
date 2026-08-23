@@ -661,11 +661,18 @@ window.__ModuleLoader__.load({
 					const payload = await response.json().catch(() => null);
 					if (!payload || payload.ok !== true) return;
 					let sceneBaseUrl = null;
+					let preferSceneBase = false;
 					if (payload.sceneUrl && payload.compatibility === "partial" && payload.unsupportedFeatures?.includes("embedded-script") === true) try {
 						const manifestResponse = await fetchFn(payload.sceneUrl.replace("/scene-runtime/", "/scene-manifest/"));
 						const manifestPayload = manifestResponse.ok ? await manifestResponse.json().catch(() => null) : null;
 						const manifest = manifestPayload?.ok === true ? manifestPayload.manifest : void 0;
-						if (manifest && manifest.timeSchedule === void 0 && typeof manifest.width === "number" && typeof manifest.height === "number") sceneBaseUrl = manifest.layers?.find((layer) => typeof layer.texUrl === "string" && Math.abs((layer.w ?? 0) - manifest.width) <= 1 && Math.abs((layer.h ?? 0) - manifest.height) <= 1 && Math.abs((layer.x ?? 0) - manifest.width / 2) <= 1 && Math.abs((layer.y ?? 0) - manifest.height / 2) <= 1)?.texUrl ?? null;
+						if (manifest && typeof manifest.width === "number" && typeof manifest.height === "number") {
+							const fullscreenIndex = manifest.layers?.findIndex((layer) => typeof layer.texUrl === "string" && Math.abs((layer.w ?? 0) - manifest.width) <= 1 && Math.abs((layer.h ?? 0) - manifest.height) <= 1 && Math.abs((layer.x ?? 0) - manifest.width / 2) <= 1 && Math.abs((layer.y ?? 0) - manifest.height / 2) <= 1) ?? -1;
+							if (fullscreenIndex >= 0) {
+								sceneBaseUrl = manifest.layers?.[fullscreenIndex]?.texUrl ?? null;
+								preferSceneBase = manifest.layers?.slice(fullscreenIndex + 1).some((layer) => (layer.w ?? 0) > manifest.width * 1.25 || (layer.h ?? 0) > manifest.height * 1.25) === true;
+							}
+						}
 					} catch {}
 					if (this.disposed) return;
 					let changed = false;
@@ -676,9 +683,10 @@ window.__ModuleLoader__.load({
 							sceneUrl: payload.sceneUrl ?? this.previewing.sceneUrl,
 							sceneCompatibility: payload.compatibility,
 							unsupportedFeatures: payload.unsupportedFeatures,
-							sceneBaseUrl: sceneBaseUrl ?? this.previewing.sceneBaseUrl
+							sceneBaseUrl: sceneBaseUrl ?? this.previewing.sceneBaseUrl,
+							preferSceneBase
 						};
-						if (merged.videoUrl !== this.previewing.videoUrl || merged.sceneUrl !== this.previewing.sceneUrl || merged.sceneCompatibility !== this.previewing.sceneCompatibility || merged.sceneBaseUrl !== this.previewing.sceneBaseUrl) {
+						if (merged.videoUrl !== this.previewing.videoUrl || merged.sceneUrl !== this.previewing.sceneUrl || merged.sceneCompatibility !== this.previewing.sceneCompatibility || merged.sceneBaseUrl !== this.previewing.sceneBaseUrl || merged.preferSceneBase !== this.previewing.preferSceneBase) {
 							this.previewing = merged;
 							changed = true;
 						}
@@ -690,9 +698,10 @@ window.__ModuleLoader__.load({
 							sceneUrl: payload.sceneUrl ?? this.applied.sceneUrl,
 							sceneCompatibility: payload.compatibility,
 							unsupportedFeatures: payload.unsupportedFeatures,
-							sceneBaseUrl: sceneBaseUrl ?? this.applied.sceneBaseUrl
+							sceneBaseUrl: sceneBaseUrl ?? this.applied.sceneBaseUrl,
+							preferSceneBase
 						};
-						if (merged.videoUrl !== this.applied.videoUrl || merged.sceneUrl !== this.applied.sceneUrl || merged.sceneCompatibility !== this.applied.sceneCompatibility || merged.sceneBaseUrl !== this.applied.sceneBaseUrl) {
+						if (merged.videoUrl !== this.applied.videoUrl || merged.sceneUrl !== this.applied.sceneUrl || merged.sceneCompatibility !== this.applied.sceneCompatibility || merged.sceneBaseUrl !== this.applied.sceneBaseUrl || merged.preferSceneBase !== this.applied.preferSceneBase) {
 							this.applied = merged;
 							changed = true;
 						}
@@ -811,7 +820,8 @@ window.__ModuleLoader__.load({
 					sceneUrl: descriptor.sceneUrl ?? this.applied.sceneUrl,
 					sceneCompatibility: descriptor.sceneCompatibility ?? this.applied.sceneCompatibility,
 					unsupportedFeatures: descriptor.unsupportedFeatures ?? this.applied.unsupportedFeatures,
-					sceneBaseUrl: descriptor.sceneBaseUrl ?? this.applied.sceneBaseUrl
+					sceneBaseUrl: descriptor.sceneBaseUrl ?? this.applied.sceneBaseUrl,
+					preferSceneBase: descriptor.preferSceneBase ?? this.applied.preferSceneBase
 				};
 				this.applied = descriptor;
 				this.render();
@@ -951,7 +961,7 @@ window.__ModuleLoader__.load({
 				this.mediaLayer.style.backgroundPosition = sceneBackdrop === null ? "" : "center";
 				this.mediaLayer.style.backgroundRepeat = sceneBackdrop === null ? "" : "no-repeat";
 				this.mediaLayer.style.backgroundSize = sceneBackdrop === null ? "" : this.fitValue === "fill" ? "100% 100%" : this.fitValue;
-				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + (descriptor.videoUrl ?? "") + ":" + (descriptor.sceneUrl ?? "") + ":" + (descriptor.sceneCompatibility ?? "") + ":" + (descriptor.unsupportedFeatures?.join(",") ?? "") + ":" + (descriptor.sceneBaseUrl ?? "");
+				const mediaKey = descriptor.id + ":" + this.modeValue + ":" + (descriptor.videoUrl ?? "") + ":" + (descriptor.sceneUrl ?? "") + ":" + (descriptor.sceneCompatibility ?? "") + ":" + (descriptor.unsupportedFeatures?.join(",") ?? "") + ":" + (descriptor.sceneBaseUrl ?? "") + ":" + String(descriptor.preferSceneBase ?? false);
 				if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
 					this.mediaLayer.dataset.mediaKey = mediaKey;
 					this.releaseCaptureVideo();
@@ -1010,7 +1020,7 @@ window.__ModuleLoader__.load({
 						iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
 						iframe.setAttribute("tabindex", "-1");
 						iframe.dataset.dshScenePlayer = "";
-						if (descriptor.sceneCompatibility === "partial" && descriptor.unsupportedFeatures?.includes("embedded-script") === true && descriptor.sceneBaseUrl) iframe.style.opacity = "0";
+						if (descriptor.preferSceneBase === true && descriptor.sceneBaseUrl) iframe.style.opacity = "0";
 						styleCover(iframe, this.fitValue);
 						iframe.addEventListener("load", () => {
 							try {

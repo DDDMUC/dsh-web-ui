@@ -40,8 +40,11 @@ export interface WallpaperDescriptor {
   /** Result of the lazy scene probe; retained for diagnostics and probe de-duping. */
   sceneCompatibility?: 'full' | 'partial' | 'static-only'
   unsupportedFeatures?: string[]
-  /** Decoded fullscreen artwork discovered from the scene manifest. */
+  /** Fullscreen authored layer placed beneath the live player when needed. */
   sceneBaseUrl?: string | null
+  /** Hide the player only when an unsupported script makes a later opaque layer invalid. */
+  preferSceneBase?: boolean
+  /** Decoded fullscreen artwork discovered from the scene manifest. */
   previewUrl: string | null
 }
 
@@ -373,6 +376,7 @@ export class WallpaperController implements WallpaperHandle {
         } | null
         if (!payload || payload.ok !== true) return
         let sceneBaseUrl: string | null = null
+        let preferSceneBase = false
         if (payload.sceneUrl && payload.compatibility === 'partial'
           && payload.unsupportedFeatures?.includes('embedded-script') === true) {
           try {
@@ -383,26 +387,33 @@ export class WallpaperController implements WallpaperHandle {
                 manifest?: {
                   width?: number
                   height?: number
-                  timeSchedule?: unknown
                   layers?: Array<{ x?: number; y?: number; w?: number; h?: number; texUrl?: string }>
                 }
               } | null
               : null
             const manifest = manifestPayload?.ok === true ? manifestPayload.manifest : undefined
-            // The renderer implements author-configured real-time switching;
-            // do not replace that live player with one static base merely because
-            // unrelated embedded scripts remain unsupported.
-            if (manifest && manifest.timeSchedule === undefined && typeof manifest.width === 'number' && typeof manifest.height === 'number') {
-              sceneBaseUrl = manifest.layers?.find(layer =>
+            if (manifest && typeof manifest.width === 'number' && typeof manifest.height === 'number') {
+              const fullscreenIndex = manifest.layers?.findIndex(layer =>
                 typeof layer.texUrl === 'string'
                 && Math.abs((layer.w ?? 0) - manifest.width!) <= 1
                 && Math.abs((layer.h ?? 0) - manifest.height!) <= 1
                 && Math.abs((layer.x ?? 0) - manifest.width! / 2) <= 1
                 && Math.abs((layer.y ?? 0) - manifest.height! / 2) <= 1
-              )?.texUrl ?? null
+              ) ?? -1
+              if (fullscreenIndex >= 0) {
+                sceneBaseUrl = manifest.layers?.[fullscreenIndex]?.texUrl ?? null
+                // A later oversized layer is generally a script-controlled
+                // project/compose surface. It can cover the real artwork when
+                // its script is unsupported; ordinary multi-layer scenes keep
+                // the live player visible.
+                preferSceneBase = manifest.layers?.slice(fullscreenIndex + 1).some(layer =>
+                  (layer.w ?? 0) > manifest.width! * 1.25
+                  || (layer.h ?? 0) > manifest.height! * 1.25
+                ) === true
+              }
             }
           } catch {
-            // The ordinary decoded scene frame remains the fallback.
+            // Keep the regular scene frame/player fallback.
           }
         }
         if (this.disposed) return
@@ -423,11 +434,13 @@ export class WallpaperController implements WallpaperHandle {
             sceneCompatibility: payload.compatibility,
             unsupportedFeatures: payload.unsupportedFeatures,
             sceneBaseUrl: sceneBaseUrl ?? this.previewing.sceneBaseUrl,
+            preferSceneBase,
           }
           if (merged.videoUrl !== this.previewing.videoUrl
             || merged.sceneUrl !== this.previewing.sceneUrl
             || merged.sceneCompatibility !== this.previewing.sceneCompatibility
-            || merged.sceneBaseUrl !== this.previewing.sceneBaseUrl) {
+            || merged.sceneBaseUrl !== this.previewing.sceneBaseUrl
+            || merged.preferSceneBase !== this.previewing.preferSceneBase) {
             this.previewing = merged
             changed = true
           }
@@ -440,11 +453,13 @@ export class WallpaperController implements WallpaperHandle {
             sceneCompatibility: payload.compatibility,
             unsupportedFeatures: payload.unsupportedFeatures,
             sceneBaseUrl: sceneBaseUrl ?? this.applied.sceneBaseUrl,
+            preferSceneBase,
           }
           if (merged.videoUrl !== this.applied.videoUrl
             || merged.sceneUrl !== this.applied.sceneUrl
             || merged.sceneCompatibility !== this.applied.sceneCompatibility
-            || merged.sceneBaseUrl !== this.applied.sceneBaseUrl) {
+            || merged.sceneBaseUrl !== this.applied.sceneBaseUrl
+            || merged.preferSceneBase !== this.applied.preferSceneBase) {
             this.applied = merged
             changed = true
           }
@@ -589,6 +604,7 @@ export class WallpaperController implements WallpaperHandle {
         sceneCompatibility: descriptor.sceneCompatibility ?? this.applied.sceneCompatibility,
         unsupportedFeatures: descriptor.unsupportedFeatures ?? this.applied.unsupportedFeatures,
         sceneBaseUrl: descriptor.sceneBaseUrl ?? this.applied.sceneBaseUrl,
+        preferSceneBase: descriptor.preferSceneBase ?? this.applied.preferSceneBase,
       }
     }
     this.applied = descriptor
@@ -798,7 +814,7 @@ export class WallpaperController implements WallpaperHandle {
       + ':' + (descriptor.videoUrl ?? '') + ':' + (descriptor.sceneUrl ?? '')
       + ':' + (descriptor.sceneCompatibility ?? '')
       + ':' + (descriptor.unsupportedFeatures?.join(',') ?? '')
-      + ':' + (descriptor.sceneBaseUrl ?? '')
+      + ':' + (descriptor.sceneBaseUrl ?? '') + ':' + String(descriptor.preferSceneBase ?? false)
     if (this.mediaLayer.dataset.mediaKey !== mediaKey) {
       this.mediaLayer.dataset.mediaKey = mediaKey
       // A media transition (frame->live, mode switch) abandons the current
@@ -891,14 +907,7 @@ export class WallpaperController implements WallpaperHandle {
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
         iframe.setAttribute('tabindex', '-1')
         iframe.dataset.dshScenePlayer = ''
-        if (descriptor.sceneCompatibility === 'partial'
-          && descriptor.unsupportedFeatures?.includes('embedded-script') === true
-          && descriptor.sceneBaseUrl) {
-          // The current host player cannot replay script-driven composition and
-          // paints an opaque gradient over the real artwork. Keep the actual
-          // decoded base visible until that renderer gains script parity.
-          iframe.style.opacity = '0'
-        }
+        if (descriptor.preferSceneBase === true && descriptor.sceneBaseUrl) iframe.style.opacity = '0'
         styleCover(iframe, this.fitValue)
         iframe.addEventListener('load', () => {
           try {
