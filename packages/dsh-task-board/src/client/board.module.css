@@ -821,31 +821,191 @@ html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [class*='centerCol'] 
 
 /* --- constrained board containers ------------------------------------------ */
 
-@container task-board-view (max-width: 720px) {
+@container task-board-view (max-width: 768px) {
   .board {
     gap: 10px;
     padding: 10px;
   }
 
-  .columns {
-    gap: 10px;
-  }
-}
-
-@container task-board-view (max-width: 600px) {
   .boardHeader {
+    align-items: center;
     flex-wrap: wrap;
     gap: 8px;
   }
 
+  .backButton {
+    flex: 0 0 auto;
+    order: 1;
+  }
+
+  .boardTitle {
+    flex: 1 1 auto;
+    order: 2;
+  }
+
+  .boardHeader > .detailMeta {
+    flex: 1 0 100%;
+    margin-left: 0;
+    order: 3;
+  }
+
   .search {
-    flex: 1 1 calc(100% - 72px);
+    flex: 1 0 100%;
+    min-width: 0;
+    order: 4;
+  }
+
+  .boardHeader > button:not(.backButton) {
+    flex: 1 1 0;
+    min-width: 0;
+    order: 5;
+  }
+
+  .columns {
+    grid-auto-columns: 86cqw;
+    gap: 10px;
+    padding-inline: 2px 14cqw;
+    scroll-padding-inline: 2px;
+    scroll-snap-type: inline mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .columns::-webkit-scrollbar {
+    display: none;
+  }
+
+  .column {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+}
+
+@container task-board-view (max-width: 720px) {
+  .boardHeader > .detailMeta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@container task-board-view (max-width: 600px) {
+  .board {
+    padding-inline: 8px;
+  }
+}
+
+/* Viewport-specific mobile treatment: overlays occupy the dynamic viewport,
+   preserve notches/home indicators, and keep their action rows reachable. */
+@media (max-width: 768px) {
+  [data-dsh-taskboard-view] {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .entry,
+  .card,
+  .primaryButton,
+  .ghostButton,
+  .dangerButton,
+  .iconButton,
+  .linkButton,
+  .search,
+  .input,
+  .select,
+  .schedulePreset,
+  .scheduleToggle {
+    min-height: 44px;
+  }
+
+  .search,
+  .input,
+  .select,
+  .schedulePreset {
+    box-sizing: border-box;
+    font-size: 16px;
+  }
+
+  .modalBackdrop {
+    align-items: stretch;
+    justify-content: stretch;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .modal,
+  .detail {
+    box-sizing: border-box;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .modal {
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+  }
+
+  .modalFooter {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    background: var(--dsw-alias-bg-base);
+  }
+
+  .modalFooter > button {
+    flex: 1 1 120px;
+  }
+
+  .detailHeader {
+    flex-wrap: wrap;
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-left: max(14px, env(safe-area-inset-left));
+  }
+
+  .detailTitle {
     min-width: 0;
   }
 
-  .boardHeader > button {
-    flex: 1 1 0;
-    min-width: max-content;
+  .detailBody {
+    overscroll-behavior-y: contain;
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-left: max(14px, env(safe-area-inset-left));
+  }
+
+  .detailFooter {
+    flex-wrap: wrap;
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-left: max(14px, env(safe-area-inset-left));
+  }
+
+  .detailFooter > button {
+    flex: 1 1 96px;
+  }
+
+  .detailFooter > .detailMeta {
+    flex: 1 0 100%;
+    margin-left: 0;
+    text-align: end;
+  }
+
+  .scheduleRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .schedulePreset {
+    width: 100%;
   }
 }
 
