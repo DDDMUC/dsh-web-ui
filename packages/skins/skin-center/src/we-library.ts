@@ -657,7 +657,7 @@ export function buildInventory(opts: {
  * Signed inputs, in order:
  *   - every scan root's existence + directory mtime, including roots that
  *     do not exist yet (a project added or removed under a root changes its
- *     mtime; a root that appears later flips from 'missing' to an mtime);
+ *     mtime; a root that appears later flips 'missing' into an mtime);
  *   - per previously scanned entry: the project dir mtime, the
  *     project.json / manifest.json mtime and the main + preview file
  *     mtime/size. A root mtime alone cannot see a file rewritten in place
