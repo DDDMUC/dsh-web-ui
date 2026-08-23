@@ -1,0 +1,7 @@
+# dsh-market.com — DSH Web UI marketplace (RFC 9309)
+# The site is public and agent-discoverable: no crawler or agent is blocked.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://dsh-market.com/sitemap.xml
