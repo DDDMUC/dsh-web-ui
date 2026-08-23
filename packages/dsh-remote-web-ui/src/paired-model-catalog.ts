@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { PairingService } from './pairing.ts'
 import { readCookie } from './gate.ts'
 import { readBoundedJson, writeJson } from './http.ts'
+import { isTrustedApiRequest, publicHostOf } from './routes.ts'
 
 const MAX_BODY_BYTES = 16 * 1024
 const MAX_IDENTIFIER_LENGTH = 160
@@ -37,7 +38,12 @@ export const PAIRED_MODEL_CATALOG_PATHS = {
   upsert: '/api/pair/model-catalog/upsert',
 } as const
 
-export interface PairedModelCatalogDeps { service: PairingService, apiProxy: ApiProxy }
+export interface PairedModelCatalogDeps {
+  service: PairingService
+  apiProxy: ApiProxy
+  /** The LAN IP literals the host fence accepts, mirroring the /api/pair fence. */
+  lanAddresses: readonly string[]
+}
 
 let rpcSequence = 0
 function request<T>(payload: T): { rpcId: RpcId, payload: T } {
@@ -128,8 +134,8 @@ function mutationPlan(profile: Record<string, unknown>, provider: string, model:
     const existing: Record<string, unknown> = isRecord(current) ? current : {}
     return { path: ['providers', provider, 'modelOverrides', model.id], value: { ...existing, ...fieldsOf(model, false) } }
   }
-  if (catalog.failures.some(failure => failure.id === provider)) return undefined
-  return { path: ['providers', provider, 'models'], value: [...(group?.models ?? []).map(entry => ({ id: entry.id })), fieldsOf(model, true)] }
+  if (group === undefined || catalog.failures.some(failure => failure.id === provider)) return undefined
+  return { path: ['providers', provider, 'models'], value: [...group.models.map(entry => ({ id: entry.id })), fieldsOf(model, true)] }
 }
 function paired(req: IncomingMessage, service: PairingService): boolean {
   const deviceId = readCookie(req.headers.cookie, service.config.cookieName)
@@ -141,12 +147,24 @@ async function bodyOf<T>(req: IncomingMessage, schema: z.ZodType<T>): Promise<T 
 
 /** Build the narrow paired-device model catalog routes. */
 export function makePairedModelCatalogRoutes(deps: PairedModelCatalogDeps): WebRoute[] {
-  const { service, apiProxy } = deps
+  const { service, apiProxy, lanAddresses } = deps
+  /** Same fence as the /api/pair family: loopback, the advertised LAN literals, or the configured public host. */
+  const fence = (req: IncomingMessage): boolean => {
+    const publicHost = publicHostOf(service.publicBaseUrl)
+    return isTrustedApiRequest(req, publicHost === undefined ? lanAddresses : [...lanAddresses, publicHost])
+  }
   const gate = (req: IncomingMessage, res: ServerResponse): boolean => {
-    if (paired(req, service)) return true
-    req.resume()
-    reject(res, 403, 'paired model catalog requires a live paired device')
-    return false
+    if (!fence(req)) {
+      req.resume()
+      reject(res, 403, 'paired model catalog is not reachable for this origin')
+      return false
+    }
+    if (!paired(req, service)) {
+      req.resume()
+      reject(res, 403, 'paired model catalog requires a live paired device')
+      return false
+    }
+    return true
   }
   const catalog = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!gate(req, res)) return

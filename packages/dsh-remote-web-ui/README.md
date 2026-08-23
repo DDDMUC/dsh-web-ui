@@ -61,8 +61,12 @@ that probes and runs the update.
   change credentials, general settings, endpoints, headers, or arbitrary
   configuration. The exact routes are served ahead of the connection
   plugin's `/api` prefix, so a paired LAN or tunnel client may call them
-  directly; through the `/remote` desktop channel all `/api/pair/*` paths
-  stay loopback-only. Stop or device revocation disables it immediately; the
+  directly, and they carry the same Host/Origin trust fence as the sibling
+  `/api/pair` endpoints: loopback, the advertised LAN literals, or the
+  configured public base URL. Through the `/remote` desktop channel all
+  `/api/pair/*` paths stay loopback-only. Adoption is refused while the
+  provider's live model catalog is unavailable or unknown. Stop or device
+  revocation disables it immediately; the
   generic `settings.*`, `credentials.*`, and `llm.discoverModels` RPC methods
   remain loopback-only.
 - **Remote desktop channel**: with `requirePairingForLan` on (default), a

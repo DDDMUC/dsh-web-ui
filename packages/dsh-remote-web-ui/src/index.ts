@@ -360,7 +360,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     ...(apiProxy !== undefined
       ? makeMobileApiRoutes({ service, apiProxy, mobileEnterToSend: () => resolve().mobileEnterToSend })
       : []),
-    ...(apiProxy !== undefined ? makePairedModelCatalogRoutes({ service, apiProxy }) : []),
+    ...(apiProxy !== undefined ? makePairedModelCatalogRoutes({ service, apiProxy, lanAddresses }) : []),
     // The remote desktop channel: policy-gated `/remote` prefix that
     // re-issues fenced paths to loopback (see remote-api.ts). The live
     // requirePairingForLan is re-read per request, same as the gate listener
