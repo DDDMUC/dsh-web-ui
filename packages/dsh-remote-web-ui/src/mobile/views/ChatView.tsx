@@ -16,7 +16,8 @@ import type { MuxFrame } from '@deepseek-ai/dsh-host-apiproxy/api/events'
 import type { SessionModels } from '@deepseek-ai/dsh-host-apiproxy/api/sessions'
 import { loadHistory, prompt, type SessionView } from './App.tsx'
 import { errorText, formatTime, staleHostHint } from './App.tsx'
-import { fetchMobilePreferences, models, selectModel, sendCommand } from '../api.ts'
+import { fetchMobilePreferences, models, selectModel, sendCommand, fetchPending, respondApproval, respondQuestion } from '../api.ts'
+import type { PendingApproval, PendingQuestionItem } from '../api.ts'
 import { EventFolder, foldEvents, type RenderMessage, type ToolCallInfo, type WireEvent } from '../messages.ts'
 import { renderMarkdown } from '../markdown.ts'
 import { MuxClient } from '../mux.ts'
@@ -164,6 +165,12 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
    * the legacy Enter-to-send behavior until the preference loads).
    */
   const [mobileEnterToSend, setMobileEnterToSend] = useState(true)
+  /** Whether the assistant is currently generating (turn/start..turn/end). */
+  const [running, setRunning] = useState(false)
+  /** Pending tool approvals awaiting user decision (#1025). */
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([])
+  /** Pending questions awaiting user answer (#1025). */
+  const [pendingQuestions, setPendingQuestions] = useState<PendingQuestionItem[]>([])
 
   // Read-only mobile display preferences ride the plugin's local
   // `/m/api` method; a failure keeps the default (Enter sends).
@@ -268,6 +275,11 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
       if (frame.type === 'session/event') {
         if (frame.sessionId !== session.sessionId) return
         const event = frame.event as WireEvent
+        // Track the turn running state for the "outputting" indicator (#1017).
+        if (typeof event.type === 'string') {
+          if (event.type === 'turn/start') setRunning(true)
+          if (event.type === 'turn/end') setRunning(false)
+        }
         if (tailLoadingRef.current) {
           if (liveBufferRef.current.length >= MAX_TAIL_BUFFER_EVENTS) {
             // Bound the tail-load window: drop the oldest buffered event and
@@ -295,9 +307,61 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
         && frame.sessionId === session.sessionId
         && frame.key === 'permissions') {
         setPermissions(parsePermissionSelect(frame.value))
+        return
+      }
+      // Approval/question frames for this session (#1025).
+      if (!('sessionId' in frame) || frame.sessionId !== session.sessionId) return
+      if (frame.type === 'approval/requested') {
+        setPendingApprovals(previous => {
+          if (previous.some(a => a.approvalId === frame.approvalId)) return previous
+          return [...previous, {
+            approvalId: frame.approvalId as string,
+            toolName: frame.toolName,
+            callId: frame.callId as string | undefined,
+            reason: frame.reason,
+          }]
+        })
+        return
+      }
+      if (frame.type === 'approval/resolved') {
+        setPendingApprovals(previous => previous.filter(a => a.approvalId !== frame.approvalId))
+        return
+      }
+      if (frame.type === 'question/requested') {
+        const items = (frame.questions as Array<{
+          id: string; question: string; detail?: string; header?: string
+          options?: Array<{ label: string; description?: string }>; multiSelect?: boolean
+        }>)
+        setPendingQuestions(items)
+        return
+      }
+      if (frame.type === 'question/resolved') {
+        setPendingQuestions([])
+        return
       }
     })
   }, [mux, session.sessionId])
+
+  // Weak-network polling fallback: when the assistant is running, poll for
+  // pending approvals/questions every 1.5 s so the phone can act even if the
+  // SSE channel drops frames (#1025).
+  useEffect(() => {
+    if (!running) return
+    let cancelled = false
+    const tick = (): void => {
+      void fetchPending(session.sessionId).then(
+        (state) => {
+          if (cancelled) return
+          setPendingApprovals(state.approvals)
+          setPendingQuestions(state.questions)
+        },
+        () => { /* transient; next tick retries */ },
+      )
+    }
+    tick()
+    const timer = setInterval(tick, 1500)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [running, session.sessionId])
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
@@ -424,6 +488,26 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
         ))}
         {loading && messages.length === 0 && <p className="chat-typing">加载中…</p>}
         {!loading && messages.length === 0 && <p className="chat-typing">还没有消息，发一句话开始吧</p>}
+        {running && (
+          <div className="chat-turn-status" role="status" aria-label="输出中">
+            输出中<span className="chat-turn-dots" aria-hidden><span /><span /><span /></span>
+          </div>
+        )}
+        {pendingApprovals.map(approval => (
+          <ApprovalPanel
+            key={approval.approvalId}
+            approval={approval}
+            sessionId={session.sessionId}
+            onResolved={(id) => { setPendingApprovals(prev => prev.filter(a => a.approvalId !== id)) }}
+          />
+        ))}
+        {pendingQuestions.length > 0 && (
+          <QuestionPanel
+            questions={pendingQuestions}
+            sessionId={session.sessionId}
+            onResolved={() => { setPendingQuestions([]) }}
+          />
+        )}
       </div>
       <div className="chat-tools">
         <button type="button" className="chat-chip" onClick={() => { setSheet('model') }} aria-haspopup="dialog">
@@ -556,10 +640,10 @@ function ReasoningDisclosure({ text, pending }: { text: string; pending: boolean
   )
 }
 
-/** Collapsed-by-default tool-call disclosure: summary row + expandable details. */
+/** Collapsed-by-default tool-call disclosure: pill tag summary + card details (#529). */
 function ToolDisclosure({ tools }: { tools: ToolCallInfo[] }) {
   const [open, setOpen] = useState(false)
-  const names = [...new Set(tools.map(tool => tool.name))].join(' / ')
+  const uniqueNames = [...new Set(tools.map(tool => tool.name))]
   return (
     <div className={`chat-disclosure chat-tools${open ? ' chat-disclosure-open' : ''}`}>
       <button
@@ -570,15 +654,23 @@ function ToolDisclosure({ tools }: { tools: ToolCallInfo[] }) {
       >
         <span className="chat-disclosure-caret" aria-hidden>›</span>
         <span className="chat-disclosure-label">工具</span>
-        {!open && <span className="chat-disclosure-summary">{names}</span>}
+        {!open && (
+          <span className="chat-disclosure-summary chat-tool-pills">
+            {uniqueNames.map(name => (
+              <span key={name} className="chat-tool-pill">{name}</span>
+            ))}
+          </span>
+        )}
         <span className="chat-disclosure-count">{tools.length} 次</span>
       </button>
       {open && (
         <div className="chat-disclosure-body chat-tools-body">
           {tools.map((tool, index) => (
-            <div className="chat-tool-item" key={`${tool.callId}-${index}`}>
-              <span className="chat-tool-name">{tool.name}</span>
-              {tool.arguments !== undefined && <pre className="chat-tool-args">{tool.arguments}</pre>}
+            <div className="chat-tool-card" key={`${tool.callId}-${index}`}>
+              <span className="chat-tool-pill">{tool.name}</span>
+              {tool.arguments !== undefined && (
+                <pre className="chat-tool-args">{tool.arguments}</pre>
+              )}
             </div>
           ))}
         </div>
@@ -935,5 +1027,170 @@ function DisplaySheet({ showToolCalls, showSystemMessages, onToolCalls, onSystem
         </div>
       </div>
     </Sheet>
+  )
+}
+
+/* ── approval / question panels (#1025) ──────────────────────────────── */
+
+/** One pending tool approval card with allow/reject actions. */
+function ApprovalPanel({ approval, sessionId, onResolved }: {
+  approval: PendingApproval
+  sessionId: string
+  onResolved(approvalId: string): void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [panelError, setPanelError] = useState<string | undefined>(undefined)
+
+  const act = (outcome: 'allowed-once' | 'rejected'): void => {
+    if (busy) return
+    setBusy(true)
+    setPanelError(undefined)
+    void respondApproval(sessionId, approval.approvalId, outcome).then(
+      () => { onResolved(approval.approvalId) },
+      (reason: unknown) => {
+        setBusy(false)
+        setPanelError(reason instanceof Error ? reason.message : String(reason))
+      },
+    )
+  }
+
+  return (
+    <div className="chat-approval-panel" role="alert">
+      <div className="chat-approval-header">
+        <span className="chat-tool-pill">{approval.toolName}</span>
+        {approval.reason !== undefined && (
+          <span className="chat-approval-reason">{approval.reason}</span>
+        )}
+      </div>
+      {panelError !== undefined && <p className="chat-approval-error">{panelError}</p>}
+      <div className="chat-approval-actions">
+        <button
+          type="button"
+          className="chat-approval-allow"
+          disabled={busy}
+          onClick={() => { act('allowed-once') }}
+        >
+          {busy ? '提交中…' : '允许一次'}
+        </button>
+        <button
+          type="button"
+          className="chat-approval-reject"
+          disabled={busy}
+          onClick={() => { act('rejected') }}
+        >
+          拒绝
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Question panel: renders one or more questions with option pickers and a submit button. */
+function QuestionPanel({ questions, sessionId, onResolved }: {
+  questions: PendingQuestionItem[]
+  sessionId: string
+  onResolved(): void
+}) {
+  const [selections, setSelections] = useState<Map<string, { selected: string[]; custom: string }>>(
+    () => new Map(questions.map(q => [q.id, { selected: [], custom: '' }])),
+  )
+  const [busy, setBusy] = useState(false)
+  const [panelError, setPanelError] = useState<string | undefined>(undefined)
+
+  const toggle = (questionId: string, label: string, multi: boolean): void => {
+    setSelections(previous => {
+      const next = new Map(previous)
+      const entry = next.get(questionId) ?? { selected: [], custom: '' }
+      if (multi) {
+        const set = new Set(entry.selected)
+        if (set.has(label)) set.delete(label); else set.add(label)
+        next.set(questionId, { ...entry, selected: [...set] })
+      } else {
+        next.set(questionId, { ...entry, selected: [label] })
+      }
+      return next
+    })
+  }
+
+  const setCustom = (questionId: string, value: string): void => {
+    setSelections(previous => {
+      const next = new Map(previous)
+      const entry = next.get(questionId) ?? { selected: [], custom: '' }
+      next.set(questionId, { ...entry, custom: value })
+      return next
+    })
+  }
+
+  const submit = (): void => {
+    if (busy) return
+    setBusy(true)
+    setPanelError(undefined)
+    const answers = questions.map(q => {
+      const entry = selections.get(q.id) ?? { selected: [], custom: '' }
+      return {
+        id: q.id,
+        selected: entry.selected,
+        ...(entry.custom.trim() !== '' ? { custom: entry.custom.trim() } : {}),
+      }
+    })
+    void respondQuestion(sessionId, answers).then(
+      () => { onResolved() },
+      (reason: unknown) => {
+        setBusy(false)
+        setPanelError(reason instanceof Error ? reason.message : String(reason))
+      },
+    )
+  }
+
+  return (
+    <div className="chat-question-panel" role="form" aria-label="问题">
+      {questions.map(q => {
+        const entry = selections.get(q.id) ?? { selected: [], custom: '' }
+        return (
+          <div className="chat-question-group" key={q.id}>
+            {q.header !== undefined && <div className="chat-question-header">{q.header}</div>}
+            <div className="chat-question-text">{q.question}</div>
+            {q.detail !== undefined && <div className="chat-question-detail">{q.detail}</div>}
+            {q.options !== undefined && q.options.length > 0 && (
+              <div className="chat-question-options" role="group" aria-label={q.question}>
+                {q.options.map(option => {
+                  const checked = entry.selected.includes(option.label)
+                  return (
+                    <label key={option.label} className={`chat-question-option${checked ? ' chat-question-option-selected' : ''}`}>
+                      <input
+                        type={q.multiSelect ? 'checkbox' : 'radio'}
+                        name={`q-${q.id}`}
+                        checked={checked}
+                        onChange={() => { toggle(q.id, option.label, q.multiSelect === true) }}
+                      />
+                      <span className="chat-question-option-label">{option.label}</span>
+                      {option.description !== undefined && (
+                        <span className="chat-question-option-desc">{option.description}</span>
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            <textarea
+              className="chat-question-custom"
+              placeholder="自定义回答（可选）"
+              rows={2}
+              value={entry.custom}
+              onChange={(e) => { setCustom(q.id, e.target.value) }}
+            />
+          </div>
+        )
+      })}
+      {panelError !== undefined && <p className="chat-approval-error">{panelError}</p>}
+      <button
+        type="button"
+        className="chat-question-submit"
+        disabled={busy}
+        onClick={submit}
+      >
+        {busy ? '提交中…' : '提交回答'}
+      </button>
+    </div>
   )
 }
