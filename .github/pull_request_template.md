@@ -1,6 +1,6 @@
 > 提 PR 前请阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 与 [AGENTS.md](../AGENTS.md)；
 > 提交信息用 Conventional Commits（`type(scope): subject`），禁止 emoji。
-> 本仓库接受修复、增强与优化类 PR（bug 修复、现有功能的增强、性能 / 体验优化、维护）；新皮肤始终欢迎，但无背景图、仅简单改色且样式存在问题的低质皮肤 PR 不予接受。全新特性 / 新功能的 PR 暂不接受，请先提 Issue 讨论。
+> 本仓库只接受三类内容贡献：插件申请（社区插件索引登记）、皮肤增加（新皮肤收录）、宠物增加（新宠物收录）。新皮肤收录进本仓库部署的 dsh-market.com 服务器（Workshop），按需安装，默认安装不带；无背景图、仅简单改色且样式存在问题的低质皮肤 PR 不予接受。其余改动（修复 / 增强 / 全新功能 / 文档 / 测试 / 维护）不接受直接 PR，请先提 Issue 讨论。
 > 仅文档类 PR（标题以 `docs:` 开头或勾选「仅文档」）不接受，会被自动关闭；文档改动请先提 Issue 讨论。
 ## 摘要（Summary）
 
@@ -22,7 +22,7 @@
 
 ## PR 类别（PR Category）
 
-<!-- 必填。勾选本 PR 最贴近的类别（可多选），用于机器人按类别自动分派给协作者。注意：只勾选「壁纸 / 渲染器」类别的 PR 不接受，会被自动关闭——Wallpaper Engine / WebGL / 渲染器相关问题请提 Issue；皮肤申请 / 调整可以提交 PR（如需同时保留渲染器兼容改动，可与皮肤类别一起勾选）。其余类别由维护者手动处理。 -->
+<!-- 必填。勾选本 PR 最贴近的类别（可多选），用于机器人按类别自动分派给协作者。注意：本仓库只接受三类内容贡献——新皮肤收录勾「皮肤 / 皮肤中心」、插件申请勾「社区插件索引」、新宠物收录勾「插件功能」类别（该类别括号内含宠物项），并在下方 PR 类型中勾选对应内容类型。只勾选「壁纸 / 渲染器」类别的 PR 不接受，会被自动关闭（Wallpaper Engine / WebGL / 渲染器相关问题请提 Issue）；其余类别（插件功能中的功能改动、维护 / 其他）不在接受范围，会被自动关闭，请改提 Issue。 -->
 
 - [ ] 壁纸 / 渲染器（Wallpaper Engine / WebGL / 背景场景）
 - [ ] 皮肤 / 皮肤中心（新皮肤收录、皮肤样式）
@@ -39,6 +39,7 @@
 - [ ] 视觉修复（UI / 视觉类问题的修复）
 - [ ] 增强 / 优化（现有功能的改进、性能 / 体验优化）
 - [ ] 新皮肤收录（内容贡献，欢迎直接提交，无需先提 issue）
+- [ ] 新宠物收录（内容贡献，欢迎直接提交，无需先提 issue）
 - [ ] 维护 / 重构
 
 <!-- 仅文档类 PR 不接受，会被自动关闭；文档改动请先提 Issue 讨论。 -->
@@ -99,7 +100,7 @@
 
 ## 新皮肤收录（New Skin）
 
-<!-- 仅当本 PR 新增皮肤时必填；其余改动可跳过本节。新皮肤属于内容贡献，欢迎直接提交（无需先提 issue）；但没有任何背景图、仅简单改色且样式存在明显问题（如暗色缺失、对比度不足、布局错位）的低质皮肤 PR 不予接受。 -->
+<!-- 仅当本 PR 新增皮肤时必填；其余改动可跳过本节。新皮肤属于内容贡献，欢迎直接提交（无需先提 issue）；但没有任何背景图、仅简单改色且样式存在明显问题（如暗色缺失、对比度不足、布局错位）的低质皮肤 PR 不予接受。皮肤收录进本仓库部署的 dsh-market.com 服务器（Workshop），用户按需安装到 `$DSH_HOME/skins/<id>/`，默认安装（skin-center npm 包）不带新皮肤。 -->
 
 - [ ] 纯资产目录契约：`packages/skins/skin-center/skins/<name>/` 只含 skin.json + skin.css（+ 可选 patches.css / hooks.mjs / assets/），无 package.json 与构建文件；`node scripts/dsh-skin validate` 通过；纯呈现层约束满足（不注入服务、不发事件、不触及模型请求）。
 - [ ] `skin.json` 符合 v2 清单（contracts/skin-manifest-v2.schema.json：skinManifestVersion / id / name / nameEn / version / author / contributes，另含 tagline / description / tags / accent / preview / order）。
@@ -107,6 +108,16 @@
 - [ ] 已用 `node scripts/capture-previews` 重拍并提交 `preview/{light,dark}.png`。
 - [ ] README 中英双语、LICENSE 与贡献者版权声明齐全；PR 描述附 gallery 试穿截图（亮 / 暗）。
 - [ ] 非低质皮肤：亮 / 暗双态样式完整（无暗色缺失、对比度不足、布局错位），不是无背景图、仅简单改色的低质皮肤（此类 PR 不予接受）。
+
+## 新宠物收录（New Pet）
+
+<!-- 仅当本 PR 新增宠物时必填；其余改动可跳过本节。新宠物属于内容贡献，欢迎直接提交（无需先提 issue）；需满足宠物契约，否则条目会被跳过或拒绝。 -->
+
+- [ ] 按宠物契约新增 `packages/dsh-pet/assets/<id>/`：`pet.json` 使用 v2 manifest（petManifestVersion / id 小写 kebab / displayName / license 必填 / renderer / sprite2d{} 或 live2d{} / sequences / remarks；未知顶层键 fail-closed 拒绝），资产路径全部为安全相对路径。
+- [ ] 图集为 8 列 × 9 行（v2 可声明 11 行），行序固定（0 idle / 1 running-right / 2 running-left / 3 waving / 4 jumping / 5 failed / 6 waiting / 7 running / 8 review），未用格子全透明；`node scripts/dsh-pet validate <dir>` 通过。
+- [ ] 在 `packages/dsh-pet/src/registry.test.ts` 增加该 manifest 的归一化断言；`pnpm --filter @linxin666/dsh-pet build` / `test` 与 `pnpm typecheck` 通过；提交重建的 `lib/`。
+- [ ] 同步维护 dsh-pet README 中英三件套（`README.md` / `README.zh.md` / `README.i18n.yaml`）并重录配对（`pnpm docs:write-pair dsh-pet`）。
+- [ ] README 动画预览与「许可证 / 版权」说明齐全；PR 描述附宠物实测截图（设置页「宠物」选择器出现新宠物、切换后动画正常）。
 
 ## 社区插件索引登记（Community Plugin Index）
 

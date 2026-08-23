@@ -18,22 +18,32 @@
 - `main` 是稳定分支：只接收从 `dev` 合入且测试通过的代码。
 - 提 PR 一律以 `dev` 为 base，不要以 `main` 为 base。
 
-## PR 范围：接受修复、增强与优化，暂不接受全新功能
+## PR 范围：只接受三类内容贡献
 
-本仓库接受以下 PR：
+本仓库对外部贡献者**只接受**以下三类 PR：
 
-- **修复**：bug 修复、兼容性适配；
-- **增强 / 优化**：现有功能的改进、性能 / 体验优化、维护；
-- **新皮肤**：属于内容贡献，始终欢迎直接提 PR；但**低质皮肤 PR 不予接受**：
-  没有任何背景图、仅简单改色且样式存在明显问题（如暗色缺失、对比度不足、
-  布局错位）的皮肤，请完善样式并附试穿截图后再提交。
+- **插件申请（社区插件索引登记）**：第三方插件由作者在自己的仓库按官方
+  cordis bundle 标准实现，向本仓库申请登记进社区插件索引——在
+  `packages/dsh-community-plugins/community.json` 追加条目并重新生成
+  注册表，随 PR 提交；
+- **皮肤增加（新皮肤收录）**：新皮肤作为纯资产收录进皮肤中心
+  （`packages/skins/skin-center/skins/<id>/`），收录到我们部署的
+  dsh-market.com 服务器（Workshop 商店）供用户按需安装——**默认安装不带**：
+  skin-center npm 包只随附 `blue-fantasy`，新皮肤由用户经 Workshop
+  按需安装到 `$DSH_HOME/skins/<id>/`。**低质皮肤 PR 不予接受**（没有
+  背景图、仅简单改色且样式存在明显问题，如暗色缺失、对比度不足、布局
+  错位），请完善样式并附亮 / 暗试穿截图后再提交；
+- **宠物增加（新宠物收录）**：按宠物契约新增
+  `packages/dsh-pet/assets/<id>/`（`pet.json` manifest + 图集，可选
+  语音包 / 预览 / 装饰），随 PR 收录为内置宠物。
 
-暂**不接受**全新特性 / 新功能的 PR；有相关需求请先在
-[Issues](https://github.com/zhu1090093659/dsh-web-ui/issues) 提 issue 讨论，
-确认后再开 PR。
-
-**不接受仅文档类 PR**（标题以 `docs:` 开头或勾选「仅文档」类型），会被
-自动关闭；文档改动请先提 issue 讨论，确认后由维护者处理。
+除上述三类外的所有改动（bug 修复、功能增强、全新功能、文档、测试、
+维护等）**不接受直接 PR**，请先在
+[Issues](https://github.com/zhu1090093659/dsh-web-ui/issues) 提 issue
+讨论，确认后由维护者处理。非三类范围的 PR 会被
+`.github/workflows/reject-non-content-pr.yml` 自动关闭（仅文档类 PR 由
+`reject-docs-pr.yml` 处理）；仓库所有者、机器人与拥有写权限的协作者
+（维护者）的 PR 不受此限制。
 
 ## 开发前置
 
@@ -87,24 +97,45 @@ pnpm docs:write-pair <包目录名>   # 如 dsh-ssh 或 xp
    的视觉类 PR 不予接受。缺少上述证据的 PR 不予接受。
 6. **AI 编码披露**：使用 AI 编码时在 PR 模板中如实披露模型与工具。
 
-## 新增包或皮肤
+## 三类内容贡献怎么做
 
-> 范围约束：外部贡献者目前**不要直接提交新插件 / 全新功能 PR**，请先提 issue；
-> 对现有插件的增强 / 优化与新皮肤不受此限制，可直接提 PR。下列命令供 issue
-> 确认后的实现使用。
+### 插件申请（社区插件索引登记）
 
-- 插件：`node scripts/dsh-plugin-new <name>` 生成骨架（自动含双语 README
-  三件套与 AGENTS.md 模板），然后按 [docs/plugins.md](docs/plugins.md)
-  注册进 `packages/dsh-web-ui-all/aggregate.yml` 并运行
-  `node scripts/aggregate.mjs`。
-- 皮肤：`node scripts/dsh-skin-new` 生成骨架，改完运行
-  `pnpm --filter @linxin666/dsh-skins build` 把皮肤资产并入聚合包。
-- 新增 / 删除包或改皮肤清单时，同步更新 [docs/publish-prep.md](docs/publish-prep.md)
-  的发布清单快照。
-- 第三方插件想进「社区插件」一级设置分区（设置 → 社区插件）时，按
-  [docs/plugins.md](docs/plugins.md) 的登记说明在
-  `packages/dsh-community-plugins/community.json` 追加条目并重新生成注册表
-  （`node scripts/community-index`）。
+插件在贡献者自己的仓库实现（官方 cordis bundle 标准：`dsh.bundle.patch`
+指向 `cordis.patch.yml`、`dsh.client` 浏览器半区、仅基于
+`@deepseek-ai/*` NPM SDK，不修改 DSH 源码），然后按
+[docs/plugins.md](docs/plugins.md) 的登记说明在
+`packages/dsh-community-plugins/community.json` 追加条目，运行
+`node scripts/community-index` 重新生成注册表并提交（含生成的
+`src/client/generated/community.ts`），随 PR 提交，PR 类别勾选
+「社区插件索引」。
+
+### 皮肤增加（新皮肤收录）
+
+`node scripts/dsh-skin-new` 生成纯资产骨架（无 package.json），
+`node scripts/dsh-skin validate` 校验后按皮肤契约完善（skin.json v2、
+skin.css token 重映射，可选 patches.css / hooks.mjs / assets/），用
+`node scripts/capture-previews <id>` 重拍 `preview/{light,dark}.png`，
+`pnpm gallery:build` 与 `pnpm skin-center:check` 通过后随 PR 提交，
+PR 类别勾选「皮肤 / 皮肤中心」。皮肤收录到我们部署的 dsh-market.com
+服务器（Workshop）供用户按需安装，默认安装不带（见上文 PR 范围）。
+
+### 宠物增加（新宠物收录）
+
+按 [dsh-pet README](packages/dsh-pet/README.zh.md) 的宠物契约新增
+`packages/dsh-pet/assets/<id>/`（`pet.json` v2 + 8 列 × 9 行图集，
+可选 `previews/`、`voice.json` 与状态装饰），在
+`src/registry.test.ts` 增加该 manifest 的归一化断言，同步维护 dsh-pet
+README 中英三件套（`pnpm docs:write-pair dsh-pet`），
+`pnpm --filter @linxin666/dsh-pet build`、`pnpm --filter @linxin666/dsh-pet test`
+与 `pnpm typecheck` 通过后随 PR 提交，PR 类别勾选「插件功能」（该类别括号内含宠物项），PR 类型勾选「新宠物收录」。
+
+### 范围边界
+
+新增内置插件包 / 全新功能不属于内容贡献：仅接受 Issue，确认后由维护者
+实现（`node scripts/dsh-plugin-new <name>` 等脚手架命令供维护者使用）。
+内部新增 / 删除包或改皮肤清单时，同步更新
+[docs/publish-prep.md](docs/publish-prep.md) 的发布清单快照。
 
 ## 文档体系
 
