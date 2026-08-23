@@ -23,6 +23,45 @@ var __exportAll = (all, no_symbols) => {
 	return target;
 };
 //#endregion
+//#region src/http.ts
+/** Default body cap for readJsonBody: 64 KiB. */
+const DEFAULT_JSON_BODY_MAX_BYTES = 64 * 1024;
+/**
+* Lenient bounded body reader: parse a request body as JSON, or null on an
+* empty body, invalid JSON, or a body past maxBytes (default 64 KiB).
+* Overflow destroys the request instead of draining the remainder (no drain
+* call, matching the current repo-wide behavior); callers must not keep
+* reading the request afterwards. With objectOnly, non-JSON-object payloads
+* also yield null.
+*/
+async function readJsonBody(req, opts = {}) {
+	const maxBytes = opts.maxBytes ?? DEFAULT_JSON_BODY_MAX_BYTES;
+	const chunks = [];
+	let size = 0;
+	for await (const chunk of req) {
+		const buffer = chunk;
+		size += buffer.length;
+		if (size > maxBytes) {
+			req.destroy();
+			return null;
+		}
+		chunks.push(buffer);
+	}
+	const text = Buffer.concat(chunks).toString("utf8");
+	if (text === "") return null;
+	try {
+		const parsed = JSON.parse(text);
+		if (opts.objectOnly && !isJsonObject(parsed)) return null;
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+/** Whether a value is a JSON object: typeof object, not null, not an array. */
+function isJsonObject(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+//#endregion
 //#region src/http-utils.ts
 /** One JSON response. */
 function json(res, status, body, extraHeaders = {}) {
@@ -85,34 +124,6 @@ function requireContentOrigin(req, res) {
 		return false;
 	}
 	return true;
-}
-/** Read a JSON request body (bounded to 64KB). */
-function readJsonBody(req) {
-	return new Promise((resolve, reject) => {
-		let size = 0;
-		const chunks = [];
-		req.on("data", (chunk) => {
-			size += chunk.length;
-			if (size > 64 * 1024) {
-				reject(/* @__PURE__ */ new Error("body-too-large"));
-				queueMicrotask(() => req.destroy());
-				return;
-			}
-			chunks.push(chunk);
-		});
-		req.on("end", () => {
-			if (chunks.length === 0) {
-				resolve({});
-				return;
-			}
-			try {
-				resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-			} catch {
-				reject(/* @__PURE__ */ new Error("invalid-json"));
-			}
-		});
-		req.on("error", reject);
-	});
 }
 //#endregion
 //#region src/core/background.ts
@@ -1581,29 +1592,6 @@ function serveAsset(res, entry, relPath) {
 	});
 	res.end(readFileSync(abs));
 }
-function readBody(req) {
-	return new Promise((resolveBody, reject) => {
-		const chunks = [];
-		let size = 0;
-		req.on("data", (chunk) => {
-			size += chunk.length;
-			if (size > 16 * 1024) {
-				reject(/* @__PURE__ */ new Error("body-too-large"));
-				req.destroy();
-				return;
-			}
-			chunks.push(chunk);
-		});
-		req.on("end", () => {
-			try {
-				resolveBody(chunks.length === 0 ? {} : JSON.parse(Buffer.concat(chunks).toString("utf8")));
-			} catch {
-				reject(/* @__PURE__ */ new Error("invalid-json"));
-			}
-		});
-		req.on("error", reject);
-	});
-}
 /**
 * Build the v2 route set. Registration is the caller's job (the host entry
 * keeps the mount-once discipline).
@@ -1707,8 +1695,15 @@ function makeSkinCenterV2Routes(deps = {}) {
 		if (!requireSameOrigin(req, res)) return;
 		let body;
 		try {
-			body = await readBody(req);
+			body = await readJsonBody(req, { maxBytes: 16 * 1024 });
 		} catch {
+			json(res, 400, {
+				ok: false,
+				error: "invalid-body"
+			});
+			return;
+		}
+		if (body === null) {
 			json(res, 400, {
 				ok: false,
 				error: "invalid-body"
@@ -7778,7 +7773,16 @@ function makeWeRoutes(deps) {
 					return;
 				}
 				if (!requireSameOrigin(req, res)) return;
-				readJsonBody(req).then((body) => run(readId(body), res)).catch((error) => {
+				readJsonBody(req).then((body) => {
+					if (body === null) {
+						json(res, 400, {
+							ok: false,
+							error: "invalid-body"
+						});
+						return;
+					}
+					run(readId(body), res);
+				}).catch((error) => {
 					json(res, 500, {
 						ok: false,
 						error: error instanceof Error ? error.message : String(error)

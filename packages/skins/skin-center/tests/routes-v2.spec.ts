@@ -339,3 +339,63 @@ describe('v2 active selection', () => {
     await server.close()
   })
 })
+/** Raw-string POST for body-contract cases (call() serializes JSON objects). */
+async function postRaw(
+  port: number,
+  path: string,
+  payload: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  return await new Promise((resolve, reject) => {
+    const req = httpRequest(
+      {
+        host: '127.0.0.1',
+        port,
+        path,
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(payload)),
+        },
+      },
+      (response) => {
+        const chunks: Buffer[] = []
+        response.on('data', (chunk) => { chunks.push(chunk as Buffer) })
+        response.on('end', () => {
+          const raw = Buffer.concat(chunks).toString('utf8')
+          let body: Record<string, unknown> = {}
+          try { body = JSON.parse(raw) as Record<string, unknown> } catch { /* non-JSON */ }
+          resolve({ status: response.statusCode ?? 0, body })
+        })
+      },
+    )
+    req.on('error', reject)
+    if (payload !== '') req.write(payload)
+    req.end()
+  })
+}
+
+describe('v2 active POST body contract (shared readJsonBody migration)', () => {
+  it('answers 400 invalid-body when the POST body is not JSON', async () => {
+    const server = await serve(makeRoutes())
+    const res = await postRaw(server.port, SKIN_CENTER_V2_PREFIX + '/active', 'not-json')
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'invalid-body' })
+    await server.close()
+  })
+
+  it('answers 400 invalid-body to an empty POST body (was nothing-to-update)', async () => {
+    const server = await serve(makeRoutes())
+    const res = await postRaw(server.port, SKIN_CENTER_V2_PREFIX + '/active', '')
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'invalid-body' })
+    await server.close()
+  })
+
+  it('destroys the connection on an over-limit body instead of answering JSON', async () => {
+    const server = await serve(makeRoutes())
+    await expect(
+      postRaw(server.port, SKIN_CENTER_V2_PREFIX + '/active', '{"p":"' + 'x'.repeat(16 * 1024) + '"}'),
+    ).rejects.toThrow()
+    await server.close()
+  })
+})

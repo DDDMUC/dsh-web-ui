@@ -27,6 +27,7 @@ import { extname } from 'node:path'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 
 import { json, requireSameOrigin } from './http-utils.ts'
+import { readJsonBody } from './http.ts'
 import { defaultActiveStatePath, readActiveState, writeActiveState } from './active-state.ts'
 import { sanitizeSkinBackground, type SkinBackgroundConfig } from './core/background.ts'
 import { transformSkinCss, SkinCssSafetyError } from './core/css-safety/transform.ts'
@@ -112,30 +113,6 @@ function serveAsset(res: ServerResponse, entry: SkinCatalogEntry, relPath: strin
   const mime = MIME[extname(abs).toLowerCase()] ?? 'application/octet-stream'
   res.writeHead(200, { 'content-type': mime, 'cache-control': 'no-store' })
   res.end(readFileSync(abs))
-}
-
-function readBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolveBody, reject) => {
-    const chunks: Buffer[] = []
-    let size = 0
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length
-      if (size > 16 * 1024) {
-        reject(new Error('body-too-large'))
-        req.destroy()
-        return
-      }
-      chunks.push(chunk)
-    })
-    req.on('end', () => {
-      try {
-        resolveBody(chunks.length === 0 ? {} : JSON.parse(Buffer.concat(chunks).toString('utf8')))
-      } catch {
-        reject(new Error('invalid-json'))
-      }
-    })
-    req.on('error', reject)
-  })
 }
 
 /**
@@ -231,10 +208,17 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
   // disturbs the active selection and vice versa.
   const activePostHandler: WebRoute['handler'] = async (req, res) => {
     if (!requireSameOrigin(req, res)) return
+    // Shared lenient reader (16 KiB cap): invalid JSON, an over-limit body
+    // (destroyed) and an empty body all yield null and answer the same 400
+    // invalid-body envelope the old reader's rejection branch used.
     let body: unknown
     try {
-      body = await readBody(req)
+      body = await readJsonBody(req, { maxBytes: 16 * 1024 })
     } catch {
+      json(res, 400, { ok: false, error: 'invalid-body' })
+      return
+    }
+    if (body === null) {
       json(res, 400, { ok: false, error: 'invalid-body' })
       return
     }

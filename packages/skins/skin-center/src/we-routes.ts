@@ -812,7 +812,13 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       handler: (req, res) => {
         if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
         if (!requireSameOrigin(req, res)) return
-        readJsonBody(req).then((body) => run(readId(body), res)).catch((error: unknown) => {
+        readJsonBody(req).then((body) => {
+          if (body === null) {
+            json(res, 400, { ok: false, error: 'invalid-body' })
+            return
+          }
+          run(readId(body), res)
+        }).catch((error: unknown) => {
           json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
         })
       },
