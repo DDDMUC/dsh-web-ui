@@ -22,7 +22,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import { settingsNamespace, type SettingsNamespace, type SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import { isLoopbackRequest } from './loopback.ts'
-import { readJsonBody } from './http.ts'
+import { readJsonBody, writeJson } from './http.ts'
 import { optionalService, UNKNOWN_CAPABILITY, type InvalidatableRouteResolver, type ModelImageCapability, type RouteCapabilityResolver } from './model-capability.ts'
 
 /** The DeepSeek adapter's settings namespace. */
@@ -149,13 +149,6 @@ export async function setNativeImageEnabled(ctx: Context, enabled: boolean, reso
   resolver?.invalidate(route)
 }
 
-/** One JSON envelope. */
-function json(res: ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body)
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'referrer-policy': 'no-referrer' })
-  res.end(payload)
-}
-
 /**
  * Register the native-image route pair. Both routes are loopback-fenced
  * with the same-origin browser markers; failures answer the official-shaped
@@ -174,7 +167,7 @@ interface NativeImageRoute {
 export function registerNativeImageRoutes(ctx: Context, resolver: InvalidatableRouteResolver): NativeImageRoute[] {
   const guard = (req: IncomingMessage, res: ServerResponse): boolean => {
     if (!isLoopbackRequest(req)) {
-      json(res, 403, { ok: false, code: 'forbidden', message: 'loopback only' })
+      writeJson(res, 403, { ok: false, code: 'forbidden', message: 'loopback only' })
       return false
     }
     return true
@@ -186,24 +179,24 @@ export function registerNativeImageRoutes(ctx: Context, resolver: InvalidatableR
       handler: async (req, res) => {
         if (!guard(req, res)) return
         if (req.method !== 'GET' && req.method !== 'POST') {
-          json(res, 405, { ok: false, code: 'method-not-allowed', message: 'method not allowed: ' + (req.method ?? '') })
+          writeJson(res, 405, { ok: false, code: 'method-not-allowed', message: 'method not allowed: ' + (req.method ?? '') })
           return
         }
         if (req.method === 'GET') {
-          json(res, 200, { ok: true, value: await readNativeImageState(ctx, resolver) })
+          writeJson(res, 200, { ok: true, value: await readNativeImageState(ctx, resolver) })
           return
         }
         const body = await readJsonBody(req, { maxBytes: 4096 })
         if (body === null || typeof body !== 'object' || typeof (body as { enabled?: unknown }).enabled !== 'boolean') {
-          json(res, 400, { ok: false, code: 'bad-request', message: 'native-images: expected { enabled: boolean }' })
+          writeJson(res, 400, { ok: false, code: 'bad-request', message: 'native-images: expected { enabled: boolean }' })
           return
         }
         try {
           await setNativeImageEnabled(ctx, (body as { enabled: boolean }).enabled, resolver)
-          json(res, 200, { ok: true, value: await readNativeImageState(ctx, resolver) })
+          writeJson(res, 200, { ok: true, value: await readNativeImageState(ctx, resolver) })
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          json(res, /revision|conflict/i.test(message) ? 409 : 400, { ok: false, code: 'settings-rejected', message })
+          writeJson(res, /revision|conflict/i.test(message) ? 409 : 400, { ok: false, code: 'settings-rejected', message })
         }
       },
     },

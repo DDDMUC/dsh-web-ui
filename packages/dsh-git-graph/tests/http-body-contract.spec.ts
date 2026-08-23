@@ -126,5 +126,13 @@ describe('json body failure contract', () => {
     await prefix().handler(req, response.res)
     expect(response.headers['content-type']).toBe('application/json; charset=utf-8')
   })
+
+  it('writes family JSON headers through the shared writer', async () => {
+    const { req } = fakeRequest('{not json')
+    const response = fakeResponse()
+    await prefix().handler(req, response.res)
+    expect(response.headers['content-type']).toBe('application/json; charset=utf-8')
+    expect(response.headers['referrer-policy']).toBe('no-referrer')
+  })
 })
 

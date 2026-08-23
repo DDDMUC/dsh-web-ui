@@ -405,9 +405,11 @@ describe('registerAttachRoute', () => {
   it('stores a valid upload and returns the note with 200', async () => {
     const { store } = await makeCtx(true)
     const registrations = capture(store, true)
-    const { res, status, body } = makeRes()
+    const { res, status, body, headers } = makeRes()
     await registrations[0].handler(makeReq('POST', JSON.stringify({ data: PNG_BASE64, mediaType: 'image/png' })), res)
     expect(status()).toBe(200)
+    expect(headers()?.['content-type']).toBe('application/json; charset=utf-8')
+    expect(headers()?.['referrer-policy']).toBe('no-referrer')
     const envelope = JSON.parse(body()) as { ok: boolean; value?: { note: string } }
     expect(envelope.ok).toBe(true)
     expect(envelope.value?.note.startsWith('[image attachment {')).toBe(true)
