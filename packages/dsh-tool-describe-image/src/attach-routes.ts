@@ -21,6 +21,7 @@ import { UNKNOWN_CAPABILITY, type CapabilityProbe } from './model-capability.ts'
 import { handleModelProbe, handleModelTest, type ProbeKeyResolver } from './model-probe.ts'
 import { isLoopbackRequest } from './loopback.ts'
 import type { Config } from './config-resolve.ts'
+import { readJsonBody } from './http.ts'
 
 export { renderAttachmentMarkdown as attachmentMarkdown }
 
@@ -181,25 +182,6 @@ export async function handleAttach(ctx: Context, maxBytes: number, payload: unkn
   }
 }
 
-/** Read a JSON request body up to a byte cap; null when unparseable or oversized. */
-async function readJsonBody(req: IncomingMessage, cap: number): Promise<unknown> {
-  const chunks: Buffer[] = []
-  let total = 0
-  for await (const chunk of req) {
-    const buffer = chunk as Buffer
-    chunks.push(buffer)
-    total += buffer.length
-    if (total > cap) return null
-  }
-  const text = Buffer.concat(chunks).toString('utf8')
-  if (text === '') return null
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    return null
-  }
-}
-
 /** Write one JSON envelope response. */
 function json(res: ServerResponse, envelope: unknown, status = 200): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
@@ -326,7 +308,7 @@ export function registerAttachRoute(ctx: Context, readMaxBytes: () => number = (
         return
       }
       const maxBytes = readMaxBytes()
-      const body = await readJsonBody(req, attachBodyCap(maxBytes))
+      const body = await readJsonBody(req, { maxBytes: attachBodyCap(maxBytes) })
       if (body === null) {
         json(res, { ok: false, error: { code: 'internal', message: 'request body must be JSON within the configured image bound' } }, 400)
         return
@@ -376,7 +358,7 @@ export function registerModelRoutes(ctx: Context, readConfig: () => Config, reso
         json(res, { ok: false, error: METHOD_NOT_ALLOWED }, 405)
         return
       }
-      const body = await readJsonBody(req, MAX_MODEL_PROBE_BODY_BYTES)
+      const body = await readJsonBody(req, { maxBytes: MAX_MODEL_PROBE_BODY_BYTES })
       const overrides = body !== null && typeof body === 'object' && !Array.isArray(body)
         ? body as Record<string, unknown>
         : {}

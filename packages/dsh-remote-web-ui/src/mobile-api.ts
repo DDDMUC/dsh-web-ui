@@ -154,7 +154,7 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
     }
     let envelope: unknown
     try {
-      envelope = await readJsonBody(req)
+      envelope = await readBoundedJson(req, 64 * 1024)
     } catch {
       writeJson(res, 400, { ok: false, error: { code: 'bad-request', message: 'invalid json body' } })
       return
@@ -248,11 +248,6 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
     { kind: 'prefix', path: MOBILE_API_PREFIX, handler: handleMethod },
     { kind: 'exact', path: MOBILE_API_PATHS.events, handler: handleEvents },
   ]
-}
-
-/** Read a request body as JSON (bounded). */
-async function readJsonBody(req: IncomingMessage): Promise<unknown> {
-  return readBoundedJson(req, 64 * 1024)
 }
 
 /** Dispatch one allowlisted method through the host ApiProxy. */

@@ -336,3 +336,65 @@ describe('mobile api envelope', () => {
     }
   })
 })
+describe('mobile api body failure contract (shared readBoundedJson)', () => {
+  /** Raw POST at /m/api/: raw text payload or no payload at all. */
+  async function rawPost(
+    port: number,
+    path: string,
+    payload: string | undefined,
+  ): Promise<{ status: number | null; body: string; error: string | null }> {
+    return await new Promise((resolve) => {
+      const headers: Record<string, string> = {
+        cookie: cookieName + '=device-1',
+        host: '127.0.0.1:' + String(port),
+        connection: 'close',
+      }
+      if (payload !== undefined) {
+        headers['content-type'] = 'application/json'
+        headers['content-length'] = String(Buffer.byteLength(payload))
+      }
+      const req = httpRequest({ host: '127.0.0.1', port, path, method: 'POST', headers }, (response) => {
+        const chunks: Buffer[] = []
+        response.on('data', (chunk) => { chunks.push(chunk as Buffer) })
+        response.on('end', () => {
+          resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8'), error: null })
+        })
+      })
+      req.on('error', (error: Error) => resolve({ status: null, body: '', error: error.message }))
+      if (payload !== undefined) req.write(payload)
+      req.end()
+    })
+  }
+
+  it('answers 400 for an unparseable, empty or oversized body', async () => {
+    const server = await serve(makeMobileApiRoutes({ service, apiProxy, mobileEnterToSend }))
+    try {
+      // Unparseable and explicit empty (content-length 0) bodies answer the
+      // full envelope; a body-less POST is a client-side transport nuance and
+      // is not part of the reader contract.
+      for (const payload of ['{not json', '']) {
+        const outcome = await rawPost(server.port, '/m/api/mobile.preferences', payload)
+        expect(outcome.error).toBeNull()
+        expect(outcome.status).toBe(400)
+        expect(JSON.parse(outcome.body)).toEqual({
+          ok: false,
+          error: { code: 'bad-request', message: 'invalid json body' },
+        })
+      }
+      // Oversize: readBoundedJson throws while the body is still in flight,
+      // so the strict reader keeps the socket-alive 400 contract (no destroy);
+      // the response body may be cut by the connection teardown, only the
+      // status is part of the contract.
+      const oversize = await rawPost(
+        server.port,
+        '/m/api/mobile.preferences',
+        JSON.stringify({ type: 'client-request', rpcId: 'p', payload: { blob: 'x'.repeat(70 * 1024) } }),
+      )
+      expect(oversize.error).toBeNull()
+      expect(oversize.status).toBe(400)
+    } finally {
+      await server.close()
+    }
+  })
+})
+

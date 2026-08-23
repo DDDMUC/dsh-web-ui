@@ -22,6 +22,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import { settingsNamespace, type SettingsNamespace, type SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import { isLoopbackRequest } from './loopback.ts'
+import { readJsonBody } from './http.ts'
 import { optionalService, UNKNOWN_CAPABILITY, type InvalidatableRouteResolver, type ModelImageCapability, type RouteCapabilityResolver } from './model-capability.ts'
 
 /** The DeepSeek adapter's settings namespace. */
@@ -155,23 +156,6 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload)
 }
 
-/** Read a small JSON request body (undefined when too large or unparseable). */
-async function readJsonBody(req: IncomingMessage, cap: number): Promise<unknown> {
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const chunk of req) {
-    const buffer = chunk as Buffer
-    size += buffer.length
-    if (size > cap) return undefined
-    chunks.push(buffer)
-  }
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
-  } catch {
-    return undefined
-  }
-}
-
 /**
  * Register the native-image route pair. Both routes are loopback-fenced
  * with the same-origin browser markers; failures answer the official-shaped
@@ -209,7 +193,7 @@ export function registerNativeImageRoutes(ctx: Context, resolver: InvalidatableR
           json(res, 200, { ok: true, value: await readNativeImageState(ctx, resolver) })
           return
         }
-        const body = await readJsonBody(req, 4096)
+        const body = await readJsonBody(req, { maxBytes: 4096 })
         if (body === null || typeof body !== 'object' || typeof (body as { enabled?: unknown }).enabled !== 'boolean') {
           json(res, 400, { ok: false, code: 'bad-request', message: 'native-images: expected { enabled: boolean }' })
           return

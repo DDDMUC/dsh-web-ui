@@ -564,3 +564,65 @@ describe('registerAttachRoute capability route', () => {
     expect(probe).not.toHaveBeenCalled()
   })
 })
+
+describe('attach route body failure contract (shared readJsonBody)', () => {
+  /** Async-iterable fake request with an exact destroy counter. */
+  function makeReq(body: string | undefined, destroySpy?: { calls: number }): IncomingMessage {
+    return {
+      method: 'POST',
+      url: '/describe-image/attach',
+      socket: { remoteAddress: '127.0.0.1' },
+      headers: { host: '127.0.0.1:3081', 'sec-fetch-site': 'same-origin' },
+      [Symbol.asyncIterator]: async function* () {
+        if (body !== undefined) yield Buffer.from(body)
+      },
+      destroy() {
+        if (destroySpy !== undefined) destroySpy.calls += 1
+        return this as never
+      },
+    } as unknown as IncomingMessage
+  }
+
+  /** Register the route against a fake webserver and return the handler. */
+  function capture(readMaxBytes?: () => number): { handler: (req: unknown, res: unknown) => Promise<void> } {
+    const registrations: Array<{ kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }> = []
+    const ctx = {
+      get: (key: string) => key === 'webServer'
+        ? { register: (row: { kind: string; path: string; handler: (req: unknown, res: unknown) => Promise<void> }) => { registrations.push(row); return () => {} } }
+        : undefined,
+    }
+    registerAttachRoute(ctx as unknown as Context, readMaxBytes)
+    return registrations[0]
+  }
+
+  /** One fake response collecting status/body. */
+  function makeRes(): { res: ServerResponse; status: () => number; body: () => string } {
+    let status = 0
+    let body = ''
+    const res = {
+      writeHead: (code: number) => { status = code },
+      end: (chunk?: unknown) => { if (chunk !== undefined && chunk !== null) body += String(chunk) },
+    } as unknown as ServerResponse
+    return { res, status: () => status, body: () => body }
+  }
+
+  it('answers an empty body with 400 without destroying the request', async () => {
+    const { handler } = capture()
+    const destroySpy = { calls: 0 }
+    const { res, status } = makeRes()
+    await handler(makeReq(undefined, destroySpy), res)
+    expect(status()).toBe(400)
+    expect(destroySpy.calls).toBe(0)
+  })
+
+  it('answers an oversized body with 400 and destroys the request', async () => {
+    // Zero image bound -> attachBodyCap(0) is 1024 bytes; a ~2 KiB body is past it.
+    const { handler } = capture(() => 0)
+    const destroySpy = { calls: 0 }
+    const { res, status } = makeRes()
+    const body = JSON.stringify({ data: 'x'.repeat(2048), mediaType: 'image/png' })
+    await handler(makeReq(body, destroySpy), res)
+    expect(status()).toBe(400)
+    expect(destroySpy.calls).toBe(1)
+  })
+})
