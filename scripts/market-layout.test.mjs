@@ -68,6 +68,13 @@ test('plugins.json 契约', () => {
   }
 })
 
+test('宠物卡片预览完整居中且不裁切', () => {
+  const app = fs.readFileSync(path.join(DIST, 'app.js'), 'utf8')
+  const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8')
+  assert.ok(app.includes("media.classList.add('mk-card-media-pet')"), 'pet media class missing')
+  assert.ok(html.includes('max-height: calc(100% - 16px);'), 'pet contain rule missing')
+})
+
 test('styles.js 为全部皮肤生成 SKIN_STYLES', () => {
   const skins = readJson('manifest/skins.json').items
   const text = fs.readFileSync(path.join(DIST, 'styles.js'), 'utf8')

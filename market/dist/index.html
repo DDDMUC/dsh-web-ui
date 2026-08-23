@@ -225,6 +225,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* 皮肤预览图为 1440x900（16:10），媒体区同比例时 cover 零裁切、完整展示 */
 .mk-card-media-skin { height: auto; aspect-ratio: 16 / 10; }
 .mk-card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 宠物帧接近竖方形；完整居中展示，不能为填满横向媒体区而裁掉头脚。 */
+.mk-card-media-pet { display: grid; place-items: center; padding: 8px; }
+.mk-card-media-pet img {
+  position: absolute; inset: 8px; width: auto; height: auto;
+  max-width: calc(100% - 16px); max-height: calc(100% - 16px);
+  margin: auto; object-fit: contain;
+}
 .mk-card-media .mk-accent-bar { position: absolute; left: 0; right: 0; top: 0; height: 4px; }
 .mk-card-media .mk-cat {
   position: absolute; left: 10px; top: 12px;
@@ -423,7 +430,7 @@ dialog.mk-dialog::backdrop { background: rgba(5, 12, 26, .66); backdrop-filter: 
   <main class="mk-grid" id="grid"></main>
 
   <footer class="mk-footer">
-    <span>DeepSeek Harness 创意工坊</span>
+    <span>DSH Web UI 创意工坊</span>
     <a href="https://github.com/zhu1090093659/dsh-web-ui" target="_blank" rel="noopener">仓库</a>
     <a href="https://github.com/zhu1090093659/dsh-web-ui/blob/dev/packages/skins/skin-center/README.md" target="_blank" rel="noopener">皮肤中心</a>
     <span>点赞按设备计一票；数据仅用于热度排序</span>
