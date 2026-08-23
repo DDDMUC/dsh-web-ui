@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import type { InstalledPluginItem } from '../core/protocol.ts'
 import type { LayerSnapshot } from '../core/patch-diff.ts'
 import { bareRowEnabled, bareRowId, claimedIdsOf, insertRowsOf, parsePatch } from './rows.ts'
-import { readProfileManifest, type ProfileFacts } from './profile.ts'
+import { readProfileManifest, stripBom, type ProfileFacts } from './profile.ts'
 
 /** The listing result: plugin rows plus the raw layer snapshot for diffs. */
 export interface GatewaySnapshot {
@@ -42,7 +42,7 @@ export function sourceKindOf(spec: string): 'npm' | 'git' {
 export async function claimedEntryIdsOf(facts: ProfileFacts, name: string): Promise<string[]> {
   const patchPath = join(modulePathOf(facts.profileDir, name), 'cordis.patch.yml')
   try {
-    const text = await readFile(patchPath, 'utf8')
+    const text = stripBom(await readFile(patchPath, 'utf8'))
     const ids = claimedIdsOf(text)
     if (ids.length > 0) return ids
   } catch {
@@ -63,7 +63,7 @@ export async function claimedEntryIdsOf(facts: ProfileFacts, name: string): Prom
 export async function claimedEntryRowsOf(facts: ProfileFacts, name: string): Promise<Array<{ id: string; name: string }>> {
   const patchPath = join(modulePathOf(facts.profileDir, name), 'cordis.patch.yml')
   try {
-    const text = await readFile(patchPath, 'utf8')
+    const text = stripBom(await readFile(patchPath, 'utf8'))
     const rows = insertRowsOf(text)
     const claimed = rows.filter((row): row is { id: string; name?: string } => row.id !== undefined)
     if (claimed.length > 0) return claimed.map(row => ({ id: row.id, name: row.name ?? name }))
@@ -92,7 +92,8 @@ export async function buildPluginRow(
   const moduleDir = modulePathOf(facts.profileDir, name)
   let version = 'unknown'
   try {
-    const parsed = JSON.parse(await readFile(join(moduleDir, 'package.json'), 'utf8')) as { version?: unknown }
+    const text = await readFile(join(moduleDir, 'package.json'), 'utf8')
+    const parsed = JSON.parse(stripBom(text)) as { version?: unknown }
     if (typeof parsed.version === 'string') version = parsed.version
   } catch {
     version = 'unknown'
@@ -102,7 +103,7 @@ export async function buildPluginRow(
   const bundlePatchPath = join(moduleDir, 'cordis.patch.yml')
   if (existsSync(bundlePatchPath)) {
     try {
-      bundlePatch = await readFile(bundlePatchPath, 'utf8')
+      bundlePatch = stripBom(await readFile(bundlePatchPath, 'utf8'))
     } catch {
       bundlePatch = '[]'
     }
