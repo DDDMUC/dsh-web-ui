@@ -2488,6 +2488,57 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region src/client/market-tab.ts
+		/** The child slot key the DSH Market hub declares and category cards register into. */
+		const MARKET_TAB_KEY = "dsh-market.tab";
+		/**
+		* Install the two-seat registration machine for one category card. The card
+		* applies waits on BOTH seats: the section fallback is skipped while the
+		* hub's tab declaration is live, and a late hub takeover unregisters the
+		* fallback entry (without releasing shared resources), so the two modes never
+		* render together regardless of boot order. `release` fires exactly once,
+		* when the LIVE seat dies.
+		* @param ctx - client root context (slots service).
+		* @param seat - the card's registrations and release hook.
+		* @returns an idempotent disposer for both waits (the waits are also collected
+		* by the caller's fiber, like every slots.inject effect).
+		*/
+		function installMarketTabSeat(ctx, seat) {
+			let live = null;
+			let fallbackEntry = null;
+			const disposeTabWait = ctx.slots.inject(MARKET_TAB_KEY, () => {
+				live = "tab";
+				const unregister = seat.registerTab();
+				if (fallbackEntry) {
+					fallbackEntry();
+					fallbackEntry = null;
+				}
+				return () => {
+					if (live === "tab") {
+						live = null;
+						seat.release();
+					}
+					unregister();
+				};
+			});
+			const disposeSectionWait = ctx.slots.inject("settings.section", () => {
+				if (live === "tab") return () => {};
+				live = "section";
+				fallbackEntry = seat.registerSection();
+				return () => {
+					if (live === "section") {
+						live = null;
+						seat.release();
+					}
+					fallbackEntry = null;
+				};
+			});
+			return () => {
+				disposeTabWait();
+				disposeSectionWait();
+			};
+		}
+		//#endregion
 		//#region src/core/background.ts
 		/** Effective value of every field when the state carries none. */
 		const SKIN_BACKGROUND_DEFAULTS = {
@@ -4410,14 +4461,25 @@ window.__ModuleLoader__.load({
 					dispose: () => wallpaper.dispose()
 				}
 			});
-			ctx.slots.inject("settings.section", () => ctx.slots.register({
-				name: "settings.section",
-				id: "skin-center",
-				order: 120,
-				label: () => ctx.locale.bind("skinCenter")("title"),
-				locale: "skinCenter",
-				inject: injected
-			}, SkinCenterSection));
+			installMarketTabSeat(ctx, {
+				registerTab: () => ctx.slots.register({
+					name: MARKET_TAB_KEY,
+					id: "skin-center",
+					order: 200,
+					label: () => ctx.locale.bind("skinCenter")("title"),
+					locale: "skinCenter",
+					inject: injected
+				}, SkinCenterSection),
+				registerSection: () => ctx.slots.register({
+					name: "settings.section",
+					id: "skin-center",
+					order: 120,
+					label: () => ctx.locale.bind("skinCenter")("title"),
+					locale: "skinCenter",
+					inject: injected
+				}, SkinCenterSection),
+				release: () => {}
+			});
 		}
 		//#endregion
 		exports.NS = NS;
