@@ -487,10 +487,14 @@ accept → UI. Only `publicBaseUrl` (plugin config) names the tunneled host;
 `--trusted-host` is not part of this pairing flow. The desktop panel still
 opens at `http://127.0.0.1`.
 
+## Security model
+
+- Mobile unary routes and the mux event stream require a live paired-device session. A missing or revoked session receives HTTP 403 with a JSON rejection carrying `error.code: "unpaired"`; the browser's `EventSource` API exposes only the stream failure, not that response body.
+
 ## Known Limitations and Deferred Work
 
 - **Revocation is per-request**: a paired phone whose request is already in
-  flight when 停止 lands completes that request; the next one receives HTTP 403. Unary routes and the mux event stream return a JSON rejection carrying `error.code: "unpaired"`; the browser's `EventSource` API still exposes only the stream failure, not that response body.
+  flight when 停止 lands completes that request; the next one 403s.
 - **Paired device sessions persist by default**: device sessions (not the
   one-time QR token) are written to `$DSH_HOME/remote-web-ui-devices.json`
   (0600, temp file + atomic rename). A paired cookie still works after a

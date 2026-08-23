@@ -169,9 +169,13 @@ pnpm run build
 
 公网路径是经隧道的同一往返（见「通过互联网远程访问」）：loopback mint → 手机或 PC 打开公网二维码 URL → accept → UI。只有 `publicBaseUrl`（插件配置）命名隧道主机；`--trusted-host` 不属于这条配对流。桌面面板仍在 `http://127.0.0.1` 打开。
 
+## 安全模型
+
+- 移动端普通接口与 mux 事件流都要求有效的已配对设备会话。会话缺失或已撤销时返回 HTTP 403，并使用带 `error.code: "unpaired"` 的 JSON 拒绝信封；浏览器 `EventSource` API 只暴露事件流失败，不暴露该响应体。
+
 ## 已知限制与待办
 
-- **撤销是逐请求的**：已配对手机请求已在 停止 落地时在途，完成该请求；下一个请求返回 HTTP 403。普通接口与 mux 事件流均返回带 `error.code: "unpaired"` 的 JSON 拒绝信封；浏览器 `EventSource` API 仍只暴露事件流失败，不暴露该响应体。
+- **撤销是逐请求的**：已配对手机请求已在 停止 落地时在途，完成该请求；下一个 403。
 - **已配对设备会话默认落盘**：设备会话（不含一次性二维码 token）写入 `$DSH_HOME/remote-web-ui-devices.json`（0600，临时文件加原子 rename）。已配对 cookie 在重启 `dsh web` 后仍然有效。刷新二维码仍会签发新 token；重启不会恢复当前二维码。点「停止」或单台「取消配对」会立即撤销并同步落盘。超过 `idleExpireMs`（默认 7 天，无心跳或门控请求）的会话会被删除，必须重新扫码。设备 id 即会话凭证（网关凭 cookie 中的设备 id 放行请求）。需要时可用 `devicesFile` 覆盖为其他绝对路径。变更 `cookieName` 会使旧设备失效（预期行为）。
 - **设备名单仅本机可见**：配对面板根据 User-Agent 显示精简设备名称（例如 `Windows · Chrome`）、在线/离线状态与最近活动时间，并可单台取消配对。界面不渲染作为会话凭据的设备 id 或原始 User-Agent。`/api/pair/status` 即使对已配对手机也不返回设备 id 名单。
 - **桌面门控策略是公开字段**：`/api/pair/status` 只公开布尔值 `requirePairingForLan`，让远程桌面在设置作用域不可用前选择正确传输通道。该字段不是凭据，也不暴露令牌、设备、计数或隧道 URL。
