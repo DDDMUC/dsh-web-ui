@@ -8,14 +8,13 @@
  * html marker `data-dsh-backdrop-active` and installs the shared composer
  * seat neutralizer that keys on it.
  *
- * The active composer seat paints the shell's bottom occlusion gradient under
+ * The shell's active composer seat paints a bottom occlusion gradient under
  * the sticky input card (rc.8: a linear gradient to --dsw-alias-bg-base,
- * z-index 7). Keep that gradient when chat content exists: removing it lets
- * scrolled transcript text show through the task/stats/card gaps. The empty
- * hero seat has no transcript to occlude and remains transparent so backdrop
- * art is visible around its centered card. Skin-provided seat-wide ::before
- * masks remain neutralized. Composer task/statistics surfaces are styled by
- * the shared shell adapter from skin theme tokens, not by this scene layer.
+ * z-index 7). Backdrop scenes intentionally remove that seat-wide gradient in
+ * both active and hero phases so wallpaper art remains unobstructed down to the
+ * viewport edge. Skin-provided seat-wide ::before masks are neutralized too.
+ * Composer task/statistics surfaces are styled by the shared shell adapter
+ * from skin theme tokens, not by this scene layer.
  *
  * The input card itself ([data-composer-card], the official shell's stable card
  * anchor) keeps its translucent tint and gains the configurable backdrop blur
@@ -146,8 +145,8 @@ export function ensureSceneNeutralizer(doc: Document): void {
   const style = doc.createElement('style')
   style.setAttribute(SCENE_NEUTRALIZER_ATTR, '')
   style.textContent = `
-    html[data-dsh-backdrop-active] [data-composer-seat]::before,
-    html[data-dsh-backdrop-active] [data-phase="hero"] [data-composer-seat] {
+    html[data-dsh-backdrop-active] [data-composer-seat],
+    html[data-dsh-backdrop-active] [data-composer-seat]::before {
       background: none !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;

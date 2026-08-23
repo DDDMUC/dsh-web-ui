@@ -642,12 +642,11 @@ describe('WallpaperController', () => {
     expect(document.documentElement.getAttribute('data-dsh-backdrop-active')).toBe('true')
     const neutralizer = document.head.querySelector('style[data-dsh-scene-neutralizer]')
     expect(neutralizer).not.toBeNull()
-    // Preserve the active seat's official gradient so scrolled chat text cannot
-    // show through the composer. Hero remains transparent because it has no
-    // transcript to mask; the optional ::before backdrop is neutralized in both.
-    expect(neutralizer?.textContent).not.toContain('html[data-dsh-backdrop-active] [data-composer-seat],')
+    // Remove the seat-wide bottom gradient in both active and hero phases so
+    // backdrop art remains visible down to the viewport edge.
+    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat],')
     expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-composer-seat]::before')
-    expect(neutralizer?.textContent).toContain('html[data-dsh-backdrop-active] [data-phase="hero"] [data-composer-seat]')
+    expect(neutralizer?.textContent).not.toContain('html[data-dsh-backdrop-active] [data-phase="hero"] [data-composer-seat]')
     expect(neutralizer?.textContent).not.toContain('[data-slot="conversation.composer.dock"] > *')
     expect(neutralizer?.textContent).not.toContain('--dsh-composer-accessory-bg')
     expect(neutralizer?.textContent).toContain('background: none !important;')
