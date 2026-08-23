@@ -9,6 +9,9 @@
  *    a conservative allowlist (no '..', no absolute paths, no empty parts);
  *  - the download URL is rebuilt from the validated rel, never taken from
  *    the client (the client only sends the asset id);
+ *  - the manifest and every downloaded file are size-capped (1 MiB manifest,
+ *    200 files per asset, 200 MiB per file) and every fetch has a 30 s
+ *    timeout, so a hostile manifest cannot exhaust host memory or disk;
  *  - writes are staged in a temp dir next to the destination and renamed
  *    into place only after every file downloaded successfully, so a failed
  *    install never leaves a half-written asset directory;
@@ -20,6 +23,18 @@ import { mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 
 export const MARKET_ORIGIN = 'https://dsh-market.com'
+
+/** Manifest response size cap (bytes). */
+export const MANIFEST_MAX_BYTES = 1024 * 1024
+
+/** Max files one asset may declare. */
+export const MAX_FILES_PER_ASSET = 200
+
+/** Per-file download size cap (bytes). */
+export const FILE_MAX_BYTES = 200 * 1024 * 1024
+
+/** Per-request timeout (ms). */
+export const FETCH_TIMEOUT_MS = 30_000
 
 export type MarketKind = 'skin' | 'pet'
 
@@ -63,6 +78,9 @@ export function planDownload(kind: MarketKind, id: string, files: readonly strin
   if (!Array.isArray(files) || files.length === 0) {
     throw new Error(`asset ${id} declares no files`)
   }
+  if (files.length > MAX_FILES_PER_ASSET) {
+    throw new Error(`asset ${id} declares too many files (${files.length}, max ${MAX_FILES_PER_ASSET})`)
+  }
   const base = assetBase(kind, id)
   const plan: DownloadPlanEntry[] = []
   const seen = new Set<string>()
@@ -87,6 +105,12 @@ export interface InstallOptions {
   force?: boolean
   /** fetch impl (test seam). */
   fetchImpl?: typeof fetch
+  /** Manifest size cap in bytes (default MANIFEST_MAX_BYTES). */
+  manifestMaxBytes?: number
+  /** Per-file size cap in bytes (default FILE_MAX_BYTES). */
+  fileMaxBytes?: number
+  /** Per-request timeout in ms (default FETCH_TIMEOUT_MS). */
+  fetchTimeoutMs?: number
 }
 
 export interface InstallResult {
@@ -105,11 +129,87 @@ export class MarketInstallError extends Error {
   }
 }
 
-async function fetchManifest(kind: MarketKind, fetchImpl: typeof fetch): Promise<MarketManifest> {
+function isAbortError(err: unknown): boolean {
+  const name = typeof err === 'object' && err !== null ? (err as { name?: unknown }).name : undefined
+  return name === 'AbortError' || name === 'TimeoutError'
+}
+
+/** fetch with a hard timeout; a timeout becomes a typed MarketInstallError. */
+async function fetchWithTimeout(
+  url: string,
+  fetchImpl: typeof fetch,
+  code: 'manifest' | 'download',
+  timeoutMs: number,
+): Promise<Response> {
+  try {
+    return await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs) })
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw new MarketInstallError(code, `fetch timed out after ${timeoutMs}ms: ${url}`)
+    }
+    throw err
+  }
+}
+
+/**
+ * Read a response body capped at maxBytes: a Content-Length pre-check when
+ * present, then a streaming count that cancels the body (and throws) once the
+ * cap is crossed, so an unannounced oversized body never fully buffers.
+ */
+async function readBodyLimited(
+  res: Response,
+  maxBytes: number,
+  code: 'manifest' | 'download',
+  what: string,
+  timeoutMs: number,
+): Promise<Buffer> {
+  const declared = Number(res.headers.get('content-length'))
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new MarketInstallError(code, `${what} exceeds ${maxBytes} bytes (content-length: ${declared})`)
+  }
+  const body = res.body
+  if (body === null) {
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (buf.byteLength > maxBytes) {
+      throw new MarketInstallError(code, `${what} exceeds ${maxBytes} bytes (received: ${buf.byteLength})`)
+    }
+    return buf
+  }
+  const reader = body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) {
+        throw new MarketInstallError(code, `${what} exceeds ${maxBytes} bytes (received: ${total})`)
+      }
+      chunks.push(value)
+    }
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw new MarketInstallError(code, `read timed out after ${timeoutMs}ms: ${what}`)
+    }
+    throw err
+  } finally {
+    try { await reader.cancel() } catch { /* best effort */ }
+  }
+  return Buffer.concat(chunks, total)
+}
+
+async function fetchManifest(
+  kind: MarketKind,
+  fetchImpl: typeof fetch,
+  maxBytes: number,
+  timeoutMs: number,
+): Promise<MarketManifest> {
   const url = `${MARKET_ORIGIN}/manifest/${kind === 'skin' ? 'skins' : 'pets'}.json`
-  const res = await fetchImpl(url)
+  const res = await fetchWithTimeout(url, fetchImpl, 'manifest', timeoutMs)
   if (!res.ok) throw new MarketInstallError('manifest', `manifest fetch failed: ${res.status}`)
-  const data = (await res.json()) as MarketManifest
+  const text = await readBodyLimited(res, maxBytes, 'manifest', `manifest ${url}`, timeoutMs)
+  const data = JSON.parse(text.toString('utf8')) as MarketManifest
   if (!data || !Array.isArray(data.items)) throw new MarketInstallError('manifest', 'manifest shape invalid')
   return data
 }
@@ -125,7 +225,10 @@ export async function installAsset(
   options: InstallOptions,
 ): Promise<InstallResult> {
   const fetchImpl = options.fetchImpl ?? fetch
-  const manifest = await fetchManifest(kind, fetchImpl)
+  const manifestMaxBytes = options.manifestMaxBytes ?? MANIFEST_MAX_BYTES
+  const fileMaxBytes = options.fileMaxBytes ?? FILE_MAX_BYTES
+  const fetchTimeoutMs = options.fetchTimeoutMs ?? FETCH_TIMEOUT_MS
+  const manifest = await fetchManifest(kind, fetchImpl, manifestMaxBytes, fetchTimeoutMs)
   const item = manifest.items.find((entry) => entry.id === id)
   if (!item) throw new MarketInstallError('manifest', `asset not in manifest: ${id}`)
   const plan = planDownload(kind, id, item.files ?? [])
@@ -146,9 +249,9 @@ export async function installAsset(
   try {
     mkdirSync(tmp, { recursive: true })
     for (const entry of plan) {
-      const res = await fetchImpl(entry.url)
+      const res = await fetchWithTimeout(entry.url, fetchImpl, 'download', fetchTimeoutMs)
       if (!res.ok) throw new MarketInstallError('download', `${entry.url} failed: ${res.status}`)
-      const buf = Buffer.from(await res.arrayBuffer())
+      const buf = await readBodyLimited(res, fileMaxBytes, 'download', entry.url, fetchTimeoutMs)
       const target = join(tmp, ...entry.rel.split('/'))
       const guard = entry.rel.split('/').slice(0, -1).join(sep)
       if (guard) mkdirSync(join(tmp, guard), { recursive: true })
