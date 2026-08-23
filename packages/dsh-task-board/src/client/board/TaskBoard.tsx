@@ -55,6 +55,7 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
         <button
           type="button"
           className={`${css.ghostButton} ${css.backButton}`}
+          data-dsh-center-view-back=""
           aria-label={t('board.close')}
           onClick={() => { controller.closeBoard() }}
         >

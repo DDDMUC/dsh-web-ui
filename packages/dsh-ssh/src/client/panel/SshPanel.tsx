@@ -61,6 +61,7 @@ export function SshPanel({ controller, api, terminalFont }: SshPanelProps) {
           type="button"
           className={`${css.ghostButton} ${css.backButton}`}
           aria-label={tt('panel.backToConversation')}
+          data-dsh-center-view-back=""
           onClick={() => { controller.close() }}
         >
           <span aria-hidden="true">‹</span>

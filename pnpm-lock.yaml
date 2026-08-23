@@ -1092,6 +1092,13 @@ importers:
       dsh-better-sidebar:
         specifier: 0.15.2
         version: 0.15.2(96d11d43015a66f723a480d8d38ac93f)
+    devDependencies:
+      jsdom:
+        specifier: 29.1.1
+        version: 29.1.1
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.11(@types/node@22.20.1)(esbuild@0.28.2)(jsdom@29.1.1)(yaml@2.9.0)
 
   packages/dsh-web-ui-settings:
     dependencies:
