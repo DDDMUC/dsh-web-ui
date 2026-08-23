@@ -721,6 +721,27 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('stops reacting to settings publishes after dispose (unsubscribe)', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, wallpapers: [video, scene] }),
+    })) as unknown as typeof fetch
+    const { scope } = fakeScope({ enabled: true, selection: '111' })
+    const controller = new WallpaperController(scope, { fetchImpl, doc: document })
+    await vi.waitFor(() => expect(controller.activeId()).toBe('111'))
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    controller.dispose()
+    expect(layers()).toHaveLength(0)
+    const fetchesBefore = fetchImpl.mock.calls.length
+    // A later settings publish (e.g. the card or another session) must not
+    // wake the disposed controller or issue another /inventory request.
+    await scope.set('selection', '333')
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(fetchImpl).toHaveBeenCalledTimes(fetchesBefore)
+    expect(document.body.hasAttribute('data-dsh-wallpaper-active')).toBe(false)
+    expect(controller.activeId()).toBeNull()
+  })
+
   it('neutralizer CSS contains background-image none and removes on teardown', () => {
     const { scope } = fakeScope()
     const controller = new WallpaperController(scope)

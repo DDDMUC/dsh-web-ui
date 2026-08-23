@@ -573,6 +573,7 @@ window.__ModuleLoader__.load({
 			dirsValue = [];
 			listeners = /* @__PURE__ */ new Set();
 			scope;
+			unsubscribe;
 			options;
 			doc;
 			/** The descriptor of the applied selection, resolved by the card. */
@@ -602,7 +603,8 @@ window.__ModuleLoader__.load({
 				this.options = options;
 				this.doc = options.doc ?? document;
 				this.readAll();
-				scope.subscribe(() => {
+				this.unsubscribe = scope.subscribe(() => {
+					if (this.disposed) return;
 					this.readAll();
 					if (this.enabledValue && this.selectionValue && (!this.applied || this.applied.id !== this.selectionValue)) this.fetchAndSync();
 					else {
@@ -847,7 +849,9 @@ window.__ModuleLoader__.load({
 				} catch {}
 			}
 			dispose() {
+				if (this.disposed) return;
 				this.disposed = true;
+				this.unsubscribe();
 				this.mountObserver?.disconnect();
 				this.mountObserver = null;
 				this.doc.removeEventListener("visibilitychange", this.onVisibility);
