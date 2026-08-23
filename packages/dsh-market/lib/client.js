@@ -1444,6 +1444,13 @@ window.__ModuleLoader__.load({
 		/** Builds the hub face over the live slot registry. */
 		var MarketHubController = class {
 			ctx;
+			/**
+			* Memoized snapshot, keyed on the entries array identity: the slot registry
+			* keeps a stable entries reference between mutations, so a selector hook
+			* mounted on this observable re-renders only on real changes — an array
+			* rebuilt per getSnapshot call would loop React (#185).
+			*/
+			cache = null;
 			/** @param ctx - client root context (for the slots registry). */
 			constructor(ctx) {
 				this.ctx = ctx;
@@ -1456,10 +1463,15 @@ window.__ModuleLoader__.load({
 				} } };
 			}
 			snapshot() {
-				return this.ctx.slots.entries(MARKET_TAB_KEY).map((entry) => ({
-					id: entry.options.id ?? "",
-					label: (0, _deepseek_ai_dsh_client_ui_slots.resolveSlotLabel)(entry.options.label) ?? ""
-				}));
+				const entries = this.ctx.slots.entries(MARKET_TAB_KEY);
+				if (this.cache === null || this.cache.entries !== entries) this.cache = {
+					entries,
+					mapped: entries.map((entry) => ({
+						id: entry.options.id ?? "",
+						label: (0, _deepseek_ai_dsh_client_ui_slots.resolveSlotLabel)(entry.options.label) ?? ""
+					}))
+				};
+				return this.cache.mapped;
 			}
 		};
 		/**

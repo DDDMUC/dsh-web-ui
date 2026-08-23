@@ -22,6 +22,14 @@ export interface MarketHubFace {
 
 /** Builds the hub face over the live slot registry. */
 export class MarketHubController {
+  /**
+   * Memoized snapshot, keyed on the entries array identity: the slot registry
+   * keeps a stable entries reference between mutations, so a selector hook
+   * mounted on this observable re-renders only on real changes — an array
+   * rebuilt per getSnapshot call would loop React (#185).
+   */
+  private cache: { entries: unknown; mapped: MarketTabRecord[] } | null = null
+
   /** @param ctx - client root context (for the slots registry). */
   constructor(private readonly ctx: ClientContext) {}
 
@@ -38,8 +46,14 @@ export class MarketHubController {
   }
 
   private snapshot(): MarketTabRecord[] {
-    return this.ctx.slots.entries(MARKET_TAB_KEY)
-      .map((entry) => ({ id: entry.options.id ?? '', label: resolveSlotLabel(entry.options.label) ?? '' }))
+    const entries = this.ctx.slots.entries(MARKET_TAB_KEY)
+    if (this.cache === null || this.cache.entries !== entries) {
+      this.cache = {
+        entries,
+        mapped: entries.map((entry) => ({ id: entry.options.id ?? '', label: resolveSlotLabel(entry.options.label) ?? '' })),
+      }
+    }
+    return this.cache.mapped
   }
 }
 
