@@ -90,6 +90,41 @@ test('worker stats endpoint is never cached', async () => {
   assert.equal(response.headers.get('access-control-allow-origin'), '*')
 })
 
+test('worker publishes the RFC 9727 API catalog at /.well-known/api-catalog', async () => {
+  const response = await worker.fetch(new Request('https://dsh-market.com/.well-known/api-catalog'), {}, context())
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('content-type'), 'application/linkset+json')
+  assert.match(response.headers.get('link') || '', /rel="api-catalog"/)
+  assert.match(response.headers.get('link') || '', /rfc-editor.org\/info\/rfc9727/)
+  const payload = await response.json()
+  const entry = payload.linkset && payload.linkset[0]
+  assert.equal(entry.anchor, 'https://dsh-market.com/api')
+  assert.match(entry['service-desc'][0].href, /openapi\.json$/)
+  assert.match(entry['service-doc'][0].href, /api-docs\.html$/)
+  assert.match(entry.status[0].href, /\/api\/health$/)
+})
+
+test('worker serves the OpenAPI description and API docs', async () => {
+  const spec = await worker.fetch(new Request('https://dsh-market.com/openapi.json'), {}, context())
+  assert.equal(spec.status, 200)
+  assert.match(spec.headers.get('content-type') || '', /application\/json/)
+  const openapi = await spec.json()
+  assert.equal(openapi.openapi, '3.1.0')
+  assert.ok(openapi.paths['/api/health'])
+  const docs = await worker.fetch(new Request('https://dsh-market.com/api-docs.html'), {}, context())
+  assert.equal(docs.status, 200)
+  assert.match(docs.headers.get('content-type') || '', /text\/html/)
+  assert.match(await docs.text(), /创意工坊 API 文档/)
+})
+
+test('worker answers /api with service info', async () => {
+  const response = await worker.fetch(new Request('https://dsh-market.com/api'), {}, context())
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.equal(payload.ok, true)
+  assert.equal(payload.catalog, 'https://dsh-market.com/.well-known/api-catalog')
+})
+
 test('challenge page renders the explicit Turnstile widget', async () => {
   const response = await worker.fetch(new Request('https://dsh-market.com/api/turnstile/challenge'), {}, context())
   assert.equal(response.status, 200)

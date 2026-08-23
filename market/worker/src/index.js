@@ -1,7 +1,13 @@
 /**
  * dsh-market — edge API for the DSH marketplace.
  * Anonymous likes are Turnstile-gated when configured and stored in D1.
+ * The API surface is advertised via /.well-known/api-catalog (RFC 9727),
+ * described by /openapi.json and documented at /api-docs.html.
  */
+
+import API_CATALOG from './api-catalog.js'
+import OPENAPI_SPEC from './openapi.js'
+import API_DOCS_HTML from './api-doc.js'
 
 const KINDS = new Set(['skin', 'pet', 'plugin'])
 const ASSET_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
@@ -157,6 +163,44 @@ export default {
         }
       }
       return json({ ok: false, error: 'skin-asset-not-found' }, 404)
+    }
+
+    if (path === '/.well-known/api-catalog' && (request.method === 'GET' || request.method === 'HEAD')) {
+      return new Response(JSON.stringify(API_CATALOG, null, 2) + '\n', {
+        status: 200,
+        headers: {
+          'content-type': 'application/linkset+json',
+          'cache-control': 'public, max-age=300',
+          'access-control-allow-origin': '*',
+          'link': '</.well-known/api-catalog>; rel="api-catalog", <https://www.rfc-editor.org/info/rfc9727>; rel="profile"',
+        },
+      })
+    }
+
+    if (path === '/api' && request.method === 'GET') {
+      return json({ ok: true, title: 'DSH Web UI Marketplace API', catalog: 'https://dsh-market.com/.well-known/api-catalog' }, 200, { 'cache-control': 'public, max-age=300' })
+    }
+
+    if (path === '/openapi.json' && (request.method === 'GET' || request.method === 'HEAD')) {
+      return new Response(JSON.stringify(OPENAPI_SPEC, null, 2) + '\n', {
+        status: 200,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          'cache-control': 'public, max-age=300',
+          'access-control-allow-origin': '*',
+        },
+      })
+    }
+
+    if (path === '/api-docs.html' && (request.method === 'GET' || request.method === 'HEAD')) {
+      return new Response(API_DOCS_HTML, {
+        status: 200,
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'public, max-age=300',
+          'access-control-allow-origin': '*',
+        },
+      })
     }
 
     return json({ ok: false, error: 'not-found' }, 404)
