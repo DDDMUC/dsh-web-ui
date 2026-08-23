@@ -27,6 +27,7 @@ import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
 import type { RpcRequest } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
 import { RpcId } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
+import type { PendingTracker } from './mobile-pending.ts'
 import type { PairingService } from './pairing.ts'
 import { readBoundedJson, writeJson } from './http.ts'
 import { readCookie } from './gate.ts'
@@ -40,6 +41,8 @@ import { readCookie } from './gate.ts'
  * device at a time.
  */
 const MOBILE_ALLOWLIST = new Set([
+  'host.listDirectory',
+  'workspace.create',
   'workspace.list',
   'agentPreset.list',
   'session.create',
@@ -58,6 +61,8 @@ const MOBILE_ALLOWLIST = new Set([
  * settings-domain write).
  */
 const MOBILE_PREFERENCES_METHOD = 'mobile.preferences'
+const MOBILE_PENDING_METHOD = 'mobile.pending'
+const MOBILE_RESPOND_METHOD = 'mobile.respond'
 
 /** One session.list page (thin phones load incrementally). */
 const SESSION_PAGE_SIZE = 20
@@ -90,6 +95,8 @@ export interface MobileApiDeps {
   service: PairingService
   /** The host ApiProxy service (injected by the plugin). */
   apiProxy: ApiProxy
+  /** The pending tracker. */
+  pendingTracker: PendingTracker
   /** The resolved mobile composer preference (live per request). */
   mobileEnterToSend: () => boolean
   /** SSE keep-alive ping cadence for the mux stream (default 15000 ms; test seam). */
@@ -150,7 +157,9 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
       return
     }
     const method = pathname.slice(MOBILE_API_METHOD_PREFIX.length)
-    const local = method === MOBILE_PREFERENCES_METHOD
+    const local = method === MOBILE_PREFERENCES_METHOD 
+      || method === MOBILE_PENDING_METHOD 
+      || method === MOBILE_RESPOND_METHOD
     if (!MOBILE_ALLOWLIST.has(method) && !local) {
       writeJson(res, 403, { ok: false, error: { code: 'forbidden', message: `method ${method} is not exposed to the mobile surface` } })
       return
@@ -169,11 +178,41 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
       return
     }
     if (local) {
-      writeJson(res, 200, {
-        type: 'server-response',
-        rpcId,
-        result: { ok: true, value: { mobileEnterToSend: mobileEnterToSend() } },
-      })
+      if (method === MOBILE_PREFERENCES_METHOD) {
+        writeJson(res, 200, {
+          type: 'server-response',
+          rpcId,
+          result: { ok: true, value: { mobileEnterToSend: mobileEnterToSend() } },
+        })
+      } else if (method === MOBILE_PENDING_METHOD) {
+        const payload = parsed.payload as any
+        writeJson(res, 200, {
+          type: 'server-response',
+          rpcId,
+          result: { ok: true, value: deps.pendingTracker.pending(payload?.sessionId) },
+        })
+      } else if (method === MOBILE_RESPOND_METHOD) {
+        const payload = parsed.payload as any
+        try {
+          const receipt = await apiProxy.respond({
+            type: 'client-response',
+            rpcId: RpcId(payload.rpcId),
+            result: { ok: true, value: payload.response },
+          })
+          writeJson(res, 200, {
+            type: 'server-response',
+            rpcId,
+            result: { ok: true, value: receipt },
+          })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          writeJson(res, 200, {
+            type: 'server-response',
+            rpcId,
+            result: { ok: false, error: { code: 'internal', message } },
+          })
+        }
+      }
       return
     }
     try {
@@ -238,6 +277,7 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
       const frames = apiProxy.events.mux({ rpcId: RpcId(`mobile-mux-${Date.now().toString(36)}`), payload: {} }, controller.signal)
       for await (const frame of frames) {
         if (closed) break
+        deps.pendingTracker.onFrame(frame as any)
         res.write(`data: ${JSON.stringify(frame)}\n\n`)
       }
     } catch {
@@ -303,6 +343,8 @@ async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rp
     result: response.result,
   })
   if (method === 'workspace.list') return wrap(await apiProxy.workspace.list(request as never))
+  if (method === 'workspace.create') return wrap(await apiProxy.workspace.create(request as never))
+  if (method === 'host.listDirectory') return wrap(await apiProxy.host.listDirectory(request as never, signal ?? new AbortController().signal))
   if (method === 'agentPreset.list') return wrap(await apiProxy.agentPresets.list(request as never))
   if (method === 'session.create') return wrap(await apiProxy.sessions.create(request as never))
   if (method === 'session.history') return wrap(await apiProxy.sessions.history(request as never))

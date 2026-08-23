@@ -23,6 +23,7 @@ import { RemoteWebUiPairing } from './pairing-access.ts'
 import { isTrustedApiRequest, makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
+import { PendingTracker } from './mobile-pending.ts'
 import { makePairedModelCatalogRoutes } from './paired-model-catalog.ts'
 import { makeRemoteApiRoutes, makeRemoteApiUpgradeRoutes } from './remote-api.ts'
 import { claimPostureKey, postureTargets, probePosture, releasePostureKey } from './posture.ts'
@@ -39,6 +40,7 @@ import {
 import { makeUpdateRoutes } from './update-routes.ts'
 import { mountOnce } from './mount-once.ts'
 import { REMOTE_CHANNEL_BOOT_SCRIPT } from './remote-channel-boot.ts'
+import { UUID_POLYFILL_SCRIPT } from './uuid-polyfill.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -358,7 +360,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     ...makeRoutes({ service, lanAddresses, requirePairingForLan: () => resolve().requirePairingForLan }),
     ...makeMobileRoutes(),
     ...(apiProxy !== undefined
-      ? makeMobileApiRoutes({ service, apiProxy, mobileEnterToSend: () => resolve().mobileEnterToSend })
+      ? makeMobileApiRoutes({ service, apiProxy, pendingTracker: new PendingTracker(), mobileEnterToSend: () => resolve().mobileEnterToSend })
       : []),
     ...(apiProxy !== undefined ? makePairedModelCatalogRoutes({ service, apiProxy, lanAddresses }) : []),
     // The remote desktop channel: policy-gated `/remote` prefix that
@@ -485,6 +487,12 @@ function applyImpl(ctx: Context, config?: Config): void {
     // re-probe unless the target set is unchanged.
     runPostureProbe()
   }
+  // Inject the crypto.randomUUID polyfill before any other script runs, so that
+  // the main bundle doesn't crash on non-secure contexts (LAN HTTP)
+  ctx.effect(() => ctx.on('webserver/index-inject', (table) => {
+    table.push({ kind: 'script', placement: 'head', text: UUID_POLYFILL_SCRIPT })
+  }), 'remote-web-ui: uuid polyfill')
+
   // Issue #987: the browser-half channel patch installs at this plugin's
   // boot entry, but dsh-client-connection boots earlier and opens its event
   // streams unrewritten — on a non-loopback origin the SDK fence rejects
