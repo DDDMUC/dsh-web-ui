@@ -37,6 +37,13 @@ browser half, live settings, no dsh source changes.
   and image bytes never reach a source other than the configured deployment.
 - The request body carries the base64 image but no key; request headers and resolved credentials are not logged.
 - Only `http(s)` URLs and local paths are accepted; every other URL scheme is rejected.
+- The image URL is model-controlled: private, loopback, link-local (cloud metadata), and
+  reserved addresses are refused before any connection — literal IPs are judged from the
+  normalized URL, domain names after every resolved address is checked, and an unresolvable
+  domain fails closed. Rejection messages never echo response statuses or host-internal facts.
+- Local file paths are readable only inside the session workspace (the session's canonical
+  working directory): `../` traversal and symlinks cannot escape it, and a call carrying no
+  session workspace can only use URLs or attachment references.
 - The attach route validates base64, magic bytes, and the byte bound before the attachment store
   persists anything; only the reference JSON (text) crosses into the conversation.
 - The attach and raw-image routes are loopback-only with the same same-origin fence: the raw
