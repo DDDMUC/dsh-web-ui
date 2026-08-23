@@ -129,6 +129,16 @@ describe('v2 catalog route', () => {
     expect(res.jsonBody.diagnostics).toHaveLength(1)
     await server.close()
   })
+
+  it('writes family JSON headers through the shared writer', async () => {
+    writeFixtureSkin('harbor')
+    const server = await serve(makeRoutes())
+    const res = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/catalog`)
+    expect(res.status).toBe(200)
+    expect(String(res.headers['content-type'])).toBe('application/json; charset=utf-8')
+    expect(String(res.headers['referrer-policy'])).toBe('no-referrer')
+    await server.close()
+  })
 })
 
 describe('v2 catalog installed-only filter', () => {

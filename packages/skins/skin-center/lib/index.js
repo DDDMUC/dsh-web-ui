@@ -26,6 +26,11 @@ var __exportAll = (all, no_symbols) => {
 //#region src/http.ts
 /** Default body cap for readJsonBody: 64 KiB. */
 const DEFAULT_JSON_BODY_MAX_BYTES = 64 * 1024;
+/** Family-default JSON response headers; callers may append or override. */
+const JSON_HEADERS = {
+	"content-type": "application/json; charset=utf-8",
+	"referrer-policy": "no-referrer"
+};
 /**
 * Lenient bounded body reader: parse a request body as JSON, or null on an
 * empty body, invalid JSON, or a body past maxBytes (default 64 KiB).
@@ -61,16 +66,21 @@ async function readJsonBody(req, opts = {}) {
 function isJsonObject(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+/**
+* Write one JSON response. Default headers are the family defaults
+* (content-type and referrer-policy); caller headers are appended or
+* override them.
+*/
+function writeJson(res, status, body, headers = {}) {
+	const payload = JSON.stringify(body);
+	res.writeHead(status, {
+		...JSON_HEADERS,
+		...headers
+	});
+	res.end(payload);
+}
 //#endregion
 //#region src/http-utils.ts
-/** One JSON response. */
-function json(res, status, body, extraHeaders = {}) {
-	res.writeHead(status, {
-		"content-type": "application/json; charset=utf-8",
-		...extraHeaders
-	});
-	res.end(JSON.stringify(body));
-}
 /** True when an `Origin` header names a host other than the request Host.
 *  Browsers send Origin on CORS requests and on all POSTs; opaque origins
 *  (sandboxed iframes) serialize as the literal string "null". */
@@ -100,7 +110,7 @@ function isSameOriginRequest(req) {
 /** Reject cross-site requests with 403. */
 function requireSameOrigin(req, res) {
 	if (isSameOriginRequest(req)) return true;
-	json(res, 403, {
+	writeJson(res, 403, {
 		ok: false,
 		error: "cross-site-request-rejected"
 	});
@@ -117,7 +127,7 @@ function requireSameOrigin(req, res) {
 */
 function requireContentOrigin(req, res) {
 	if (hasForeignOrigin(req)) {
-		json(res, 403, {
+		writeJson(res, 403, {
 			ok: false,
 			error: "cross-site-request-rejected"
 		});
@@ -1546,7 +1556,7 @@ function sendCss(res, status, code) {
 function serveStylesheet(res, entry, relPath, filename) {
 	const abs = resolveInsideSkin(entry, relPath);
 	if (!abs || !existsSync(abs)) {
-		json(res, 404, {
+		writeJson(res, 404, {
 			ok: false,
 			error: "stylesheet-not-found"
 		});
@@ -1561,14 +1571,14 @@ function serveStylesheet(res, entry, relPath, filename) {
 		sendCss(res, 200, code);
 	} catch (error) {
 		if (error instanceof SkinCssSafetyError) {
-			json(res, 422, {
+			writeJson(res, 422, {
 				ok: false,
 				error: "css-whitelist-violation",
 				violations: error.violations
 			});
 			return;
 		}
-		json(res, 500, {
+		writeJson(res, 500, {
 			ok: false,
 			error: "css-transform-failed",
 			detail: error?.message ?? String(error)
@@ -1579,7 +1589,7 @@ function serveStylesheet(res, entry, relPath, filename) {
 function serveAsset(res, entry, relPath) {
 	const abs = resolveInsideSkin(entry, relPath);
 	if (!abs || !existsSync(abs) || !statSync(abs).isFile()) {
-		json(res, 404, {
+		writeJson(res, 404, {
 			ok: false,
 			error: "asset-not-found"
 		});
@@ -1602,7 +1612,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 	const shippedSet = (deps.shippedSkinIds ?? shippedSkinIds)();
 	const catalogHandler = (_req, res) => {
 		const catalog = loadCatalog();
-		json(res, 200, {
+		writeJson(res, 200, {
 			ok: true,
 			capturedAt: catalog.capturedAt,
 			skins: catalog.skins.filter((s) => s.origin === "user" || shippedSet.has(s.manifest.id)).map((s) => ({
@@ -1620,7 +1630,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 		const catalog = loadCatalog();
 		const entry = id ? findSkin(catalog, id) : null;
 		if (!entry) {
-			json(res, 404, {
+			writeJson(res, 404, {
 				ok: false,
 				error: "skin-not-found"
 			});
@@ -1633,7 +1643,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 		if (sub === "patches") {
 			const patches = entry.manifest.contributes.patches;
 			if (!patches) {
-				json(res, 404, {
+				writeJson(res, 404, {
 					ok: false,
 					error: "no-patches"
 				});
@@ -1645,14 +1655,14 @@ function makeSkinCenterV2Routes(deps = {}) {
 		if (sub === "hooks.mjs") {
 			const facet = entry.manifest.facets?.client;
 			if (!facet) {
-				json(res, 404, {
+				writeJson(res, 404, {
 					ok: false,
 					error: "no-hooks"
 				});
 				return;
 			}
 			if (entry.origin !== "builtin") {
-				json(res, 403, {
+				writeJson(res, 403, {
 					ok: false,
 					error: "hooks-require-review",
 					origin: entry.origin
@@ -1661,7 +1671,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 			}
 			const abs = resolveInsideSkin(entry, facet.entry);
 			if (!abs || !existsSync(abs)) {
-				json(res, 404, {
+				writeJson(res, 404, {
 					ok: false,
 					error: "hooks-not-found"
 				});
@@ -1678,14 +1688,14 @@ function makeSkinCenterV2Routes(deps = {}) {
 			serveAsset(res, entry, sub);
 			return;
 		}
-		json(res, 404, {
+		writeJson(res, 404, {
 			ok: false,
 			error: "unknown-skin-resource"
 		});
 	};
 	const activeGetHandler = (_req, res) => {
 		const state = readActiveState(activeStatePath);
-		json(res, 200, {
+		writeJson(res, 200, {
 			ok: true,
 			active: state.active,
 			background: state.background
@@ -1697,14 +1707,14 @@ function makeSkinCenterV2Routes(deps = {}) {
 		try {
 			body = await readJsonBody(req, { maxBytes: 16 * 1024 });
 		} catch {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "invalid-body"
 			});
 			return;
 		}
 		if (body === null) {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "invalid-body"
 			});
@@ -1713,7 +1723,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 		const hasActive = typeof body === "object" && body !== null && "active" in body;
 		const hasBackground = typeof body === "object" && body !== null && "background" in body;
 		if (!hasActive && !hasBackground) {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "nothing-to-update"
 			});
@@ -1721,14 +1731,14 @@ function makeSkinCenterV2Routes(deps = {}) {
 		}
 		const active = body.active;
 		if (hasActive && active !== null && typeof active !== "string") {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "active-must-be-string-or-null"
 			});
 			return;
 		}
 		if (typeof active === "string" && !findSkin(loadCatalog(), active)) {
-			json(res, 404, {
+			writeJson(res, 404, {
 				ok: false,
 				error: "skin-not-found"
 			});
@@ -1739,7 +1749,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 		if (hasBackground) {
 			const background = sanitizeSkinBackground(body.background);
 			if (background === null) {
-				json(res, 400, {
+				writeJson(res, 400, {
 					ok: false,
 					error: "invalid-background"
 				});
@@ -1749,7 +1759,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 		}
 		writeActiveState(activeStatePath, update);
 		const state = readActiveState(activeStatePath);
-		json(res, 200, {
+		writeJson(res, 200, {
 			ok: true,
 			active: state.active,
 			background: state.background
@@ -1772,7 +1782,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 			handler: (req, res) => {
 				if (req.method === "GET") return activeGetHandler(req, res);
 				if (req.method === "POST") return activePostHandler(req, res);
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7117,7 +7127,7 @@ function pipeFile(absPath, res, openReadStream, options) {
 /** Stream one file with Range support (video seeking needs 206). */
 function serveFile(absPath, req, res, openReadStream, extraHeaders = {}) {
 	if (!existsSync(absPath) || !statSync(absPath).isFile()) {
-		json(res, 404, {
+		writeJson(res, 404, {
 			ok: false,
 			error: "not-found"
 		});
@@ -7259,7 +7269,7 @@ function makeWeRoutes(deps) {
 		} catch {}
 		const abs = mediaMap.get(token);
 		if (!abs) {
-			json(res, 404, {
+			writeJson(res, 404, {
 				ok: false,
 				error: "unknown-token"
 			});
@@ -7273,7 +7283,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/inventory",
 		handler: (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7284,7 +7294,7 @@ function makeWeRoutes(deps) {
 				const inventory = freshInventory();
 				const wallpapers = inventory.wallpapers.map(entryToJson);
 				persistTokens();
-				json(res, 200, {
+				writeJson(res, 200, {
 					ok: true,
 					installDir: inventory.installDir,
 					total: inventory.total,
@@ -7292,7 +7302,7 @@ function makeWeRoutes(deps) {
 					wallpapers
 				});
 			} catch (error) {
-				json(res, 500, {
+				writeJson(res, 500, {
 					ok: false,
 					error: error instanceof Error ? error.message : String(error)
 				});
@@ -7304,7 +7314,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/scene-probe",
 		handler: async (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7314,7 +7324,7 @@ function makeWeRoutes(deps) {
 			try {
 				const id = new URL(req.url ?? "", "http://localhost").searchParams.get("id");
 				if (!id) {
-					json(res, 400, {
+					writeJson(res, 400, {
 						ok: false,
 						error: "missing-id"
 					});
@@ -7322,7 +7332,7 @@ function makeWeRoutes(deps) {
 				}
 				const entry = freshInventory().wallpapers.find((w) => w.id === id && w.type === "scene");
 				if (!entry || !existsSync(entry.fileAbs)) {
-					json(res, 404, {
+					writeJson(res, 404, {
 						ok: false,
 						error: "not-found"
 					});
@@ -7381,7 +7391,7 @@ function makeWeRoutes(deps) {
 				const videoToken = probe.hasVideo && !probe.hasSceneWebGL ? tokenFor(entry.fileAbs) : null;
 				const sceneToken = probe.hasSceneWebGL ? tokenFor(entry.fileAbs) : null;
 				persistTokens();
-				json(res, 200, {
+				writeJson(res, 200, {
 					ok: true,
 					videoUrl: videoToken !== null ? "/api/skin-center/we/scene-video/" + videoToken : null,
 					sceneUrl: sceneToken !== null ? "/api/skin-center/we/scene-runtime/" + sceneToken : null,
@@ -7389,7 +7399,7 @@ function makeWeRoutes(deps) {
 					unsupportedFeatures: probe.unsupportedFeatures
 				});
 			} catch (error) {
-				json(res, 500, {
+				writeJson(res, 500, {
 					ok: false,
 					error: error instanceof Error ? error.message : String(error)
 				});
@@ -7401,7 +7411,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/shim.js",
 		handler: (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7423,7 +7433,7 @@ function makeWeRoutes(deps) {
 			path: "/api/skin-center/we/" + seg,
 			handler: (req, res) => {
 				if (req.method !== "GET") {
-					json(res, 405, {
+					writeJson(res, 405, {
 						ok: false,
 						error: "method-not-allowed"
 					});
@@ -7454,7 +7464,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/scene-video",
 		handler: (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7476,7 +7486,7 @@ function makeWeRoutes(deps) {
 					const { extractSceneVideo, extractSceneVideoFromDir } = await Promise.resolve().then(() => pkg_extract_exports);
 					const videoBytes = abs.toLowerCase().endsWith(".json") ? extractSceneVideoFromDir(dirname(abs)) : extractSceneVideo(new Uint8Array(readFileSync(abs)));
 					if (!videoBytes) {
-						json(res, 404, {
+						writeJson(res, 404, {
 							ok: false,
 							error: "no-video-found"
 						});
@@ -7488,7 +7498,7 @@ function makeWeRoutes(deps) {
 				}
 				serveFile(cachePath, req, res, openReadStream);
 			})().catch((error) => {
-				json(res, 422, {
+				writeJson(res, 422, {
 					ok: false,
 					error: error instanceof Error ? error.message : String(error)
 				});
@@ -7500,7 +7510,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/web",
 		handler: (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7512,7 +7522,7 @@ function makeWeRoutes(deps) {
 			try {
 				rest = decodeURIComponent(pathname.slice(24));
 			} catch {
-				json(res, 400, {
+				writeJson(res, 400, {
 					ok: false,
 					error: "bad-request"
 				});
@@ -7521,7 +7531,7 @@ function makeWeRoutes(deps) {
 			const token = rest.split("/")[0] ?? "";
 			const entryAbs = mediaMap.get(token);
 			if (!entryAbs) {
-				json(res, 404, {
+				writeJson(res, 404, {
 					ok: false,
 					error: "unknown-token"
 				});
@@ -7530,14 +7540,14 @@ function makeWeRoutes(deps) {
 			const root = dirname(entryAbs);
 			const abs = resolve(root, rest.slice(token.length).replace(/^\/+/, "") || basename(entryAbs));
 			if (abs !== root && !abs.startsWith(root + sep)) {
-				json(res, 403, {
+				writeJson(res, 403, {
 					ok: false,
 					error: "path-escape-rejected"
 				});
 				return;
 			}
 			if (!existsSync(abs) || !statSync(abs).isFile()) {
-				json(res, 404, {
+				writeJson(res, 404, {
 					ok: false,
 					error: "not-found"
 				});
@@ -7564,7 +7574,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/scene-frame",
 		handler: (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7594,7 +7604,7 @@ function makeWeRoutes(deps) {
 				pipeFile(cachePath, res, openReadStream);
 			})().catch((error) => {
 				if (error instanceof TexUnsupportedError) {
-					json(res, 422, {
+					writeJson(res, 422, {
 						ok: false,
 						error: "unsupported-tex-format",
 						format: error.format,
@@ -7603,7 +7613,7 @@ function makeWeRoutes(deps) {
 					});
 					return;
 				}
-				json(res, 422, {
+				writeJson(res, 422, {
 					ok: false,
 					error: error instanceof Error ? error.message : String(error)
 				});
@@ -7615,7 +7625,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/scene-runtime",
 		handler: (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7635,7 +7645,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/scene-manifest",
 		handler: (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7654,18 +7664,18 @@ function makeWeRoutes(deps) {
 					}
 				})());
 				if (!manifest) {
-					json(res, 404, {
+					writeJson(res, 404, {
 						ok: false,
 						error: "manifest-build-failed"
 					});
 					return;
 				}
-				json(res, 200, {
+				writeJson(res, 200, {
 					ok: true,
 					manifest
 				}, { "access-control-allow-origin": "null" });
 			} catch (err) {
-				json(res, 500, {
+				writeJson(res, 500, {
 					ok: false,
 					error: err instanceof Error ? err.message : String(err)
 				});
@@ -7677,7 +7687,7 @@ function makeWeRoutes(deps) {
 		path: "/api/skin-center/we/scene-resource",
 		handler: (req, res) => {
 			if (req.method !== "GET") {
-				json(res, 405, {
+				writeJson(res, 405, {
 					ok: false,
 					error: "method-not-allowed"
 				});
@@ -7689,7 +7699,7 @@ function makeWeRoutes(deps) {
 			try {
 				rest = decodeURIComponent(pathname.slice(35));
 			} catch {
-				json(res, 400, {
+				writeJson(res, 400, {
 					ok: false,
 					error: "bad-request"
 				});
@@ -7698,7 +7708,7 @@ function makeWeRoutes(deps) {
 			const token = rest.split("/")[0] ?? "";
 			const entryAbs = mediaMap.get(token);
 			if (!entryAbs) {
-				json(res, 404, {
+				writeJson(res, 404, {
 					ok: false,
 					error: "unknown-token"
 				});
@@ -7706,7 +7716,7 @@ function makeWeRoutes(deps) {
 			}
 			const subpath = rest.slice(token.length).replace(/^\/+/, "");
 			if (!subpath) {
-				json(res, 400, {
+				writeJson(res, 400, {
 					ok: false,
 					error: "missing-subpath"
 				});
@@ -7715,7 +7725,7 @@ function makeWeRoutes(deps) {
 			try {
 				const resBytes = entryAbs.toLowerCase().endsWith(".json") ? extractSceneResourceFromDir(dirname(entryAbs), subpath) : extractSceneResource(new Uint8Array(readFileSync(entryAbs)), subpath);
 				if (!resBytes) {
-					json(res, 404, {
+					writeJson(res, 404, {
 						ok: false,
 						error: "resource-not-found"
 					});
@@ -7730,7 +7740,7 @@ function makeWeRoutes(deps) {
 				});
 				res.end(Buffer.from(resBytes));
 			} catch (err) {
-				json(res, 500, {
+				writeJson(res, 500, {
 					ok: false,
 					error: err instanceof Error ? err.message : String(err)
 				});
@@ -7766,7 +7776,7 @@ function makeWeRoutes(deps) {
 			path,
 			handler: (req, res) => {
 				if (req.method !== "POST") {
-					json(res, 405, {
+					writeJson(res, 405, {
 						ok: false,
 						error: "method-not-allowed"
 					});
@@ -7775,7 +7785,7 @@ function makeWeRoutes(deps) {
 				if (!requireSameOrigin(req, res)) return;
 				readJsonBody(req).then((body) => {
 					if (body === null) {
-						json(res, 400, {
+						writeJson(res, 400, {
 							ok: false,
 							error: "invalid-body"
 						});
@@ -7783,7 +7793,7 @@ function makeWeRoutes(deps) {
 					}
 					run(readId(body), res);
 				}).catch((error) => {
-					json(res, 500, {
+					writeJson(res, 500, {
 						ok: false,
 						error: error instanceof Error ? error.message : String(error)
 					});
@@ -7793,7 +7803,7 @@ function makeWeRoutes(deps) {
 	};
 	postJson("/api/skin-center/we/import", (id, res) => {
 		if (id === "" || id.startsWith("imported/")) {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "bad-id"
 			});
@@ -7801,7 +7811,7 @@ function makeWeRoutes(deps) {
 		}
 		const entry = freshInventory().wallpapers.find((w) => w.id === id);
 		if (!entry) {
-			json(res, 404, {
+			writeJson(res, 404, {
 				ok: false,
 				error: "wallpaper-not-found"
 			});
@@ -7809,7 +7819,7 @@ function makeWeRoutes(deps) {
 		}
 		const dest = join(deps.storeDir, safeStoreId(id));
 		if (existsSync(dest)) {
-			json(res, 409, {
+			writeJson(res, 409, {
 				ok: false,
 				error: "already-imported"
 			});
@@ -7817,14 +7827,14 @@ function makeWeRoutes(deps) {
 		}
 		copyIntoStore(entry, dest);
 		invalidateInventory();
-		json(res, 200, {
+		writeJson(res, 200, {
 			ok: true,
 			id: "imported/" + entry.id
 		});
 	});
 	postJson("/api/skin-center/we/reimport", (id, res) => {
 		if (!id.startsWith("imported/")) {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "bad-id"
 			});
@@ -7833,7 +7843,7 @@ function makeWeRoutes(deps) {
 		const sourceId = id.slice(9);
 		const dest = join(deps.storeDir, safeStoreId(sourceId));
 		if (!existsSync(dest)) {
-			json(res, 404, {
+			writeJson(res, 404, {
 				ok: false,
 				error: "import-not-found"
 			});
@@ -7841,7 +7851,7 @@ function makeWeRoutes(deps) {
 		}
 		const source = freshInventory().wallpapers.find((w) => w.id === sourceId && w.source !== "imported");
 		if (!source) {
-			json(res, 410, {
+			writeJson(res, 410, {
 				ok: false,
 				error: "source-gone"
 			});
@@ -7853,14 +7863,14 @@ function makeWeRoutes(deps) {
 		});
 		copyIntoStore(source, dest);
 		invalidateInventory();
-		json(res, 200, {
+		writeJson(res, 200, {
 			ok: true,
 			id
 		});
 	});
 	postJson("/api/skin-center/we/remove", (id, res) => {
 		if (!id.startsWith("imported/")) {
-			json(res, 400, {
+			writeJson(res, 400, {
 				ok: false,
 				error: "bad-id"
 			});
@@ -7868,7 +7878,7 @@ function makeWeRoutes(deps) {
 		}
 		const dest = join(deps.storeDir, safeStoreId(id.slice(9)));
 		if (!existsSync(dest)) {
-			json(res, 404, {
+			writeJson(res, 404, {
 				ok: false,
 				error: "import-not-found"
 			});
@@ -7879,7 +7889,7 @@ function makeWeRoutes(deps) {
 			force: true
 		});
 		invalidateInventory();
-		json(res, 200, { ok: true });
+		writeJson(res, 200, { ok: true });
 	});
 	return routes;
 }

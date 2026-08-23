@@ -38,7 +38,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { pipeline, type Readable } from 'node:stream'
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath, sep } from 'node:path'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { json, readJsonBody, requireContentOrigin, requireSameOrigin } from './http-utils.ts'
+import { writeJson, readJsonBody, requireContentOrigin, requireSameOrigin } from './http-utils.ts'
 import {
   buildInventory,
   inventoryFingerprint,
@@ -194,7 +194,7 @@ function serveFile(
   extraHeaders: Record<string, string> = {},
 ): void {
   if (!existsSync(absPath) || !statSync(absPath).isFile()) {
-    json(res, 404, { ok: false, error: 'not-found' })
+    writeJson(res, 404, { ok: false, error: 'not-found' })
     return
   }
   const size = statSync(absPath).size
@@ -393,7 +393,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     } catch { /* malformed escape sequence: no such token */ }
     const abs = mediaMap.get(token)
     if (!abs) {
-      json(res, 404, { ok: false, error: 'unknown-token' })
+      writeJson(res, 404, { ok: false, error: 'unknown-token' })
       return null
     }
     return abs
@@ -406,13 +406,13 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'exact',
     path: WE_API_PREFIX + '/inventory',
     handler: (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireSameOrigin(req, res)) return
       try {
         const inventory = freshInventory()
         const wallpapers = inventory.wallpapers.map(entryToJson)
         persistTokens()
-        json(res, 200, {
+        writeJson(res, 200, {
           ok: true,
           installDir: inventory.installDir,
           total: inventory.total,
@@ -420,7 +420,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           wallpapers,
         })
       } catch (error) {
-        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        writeJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
       }
     },
   })
@@ -435,14 +435,14 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'exact',
     path: WE_API_PREFIX + '/scene-probe',
     handler: async (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireSameOrigin(req, res)) return
       try {
         const url = new URL(req.url ?? '', 'http://localhost')
         const id = url.searchParams.get('id')
-        if (!id) { json(res, 400, { ok: false, error: 'missing-id' }); return }
+        if (!id) { writeJson(res, 400, { ok: false, error: 'missing-id' }); return }
         const entry = freshInventory().wallpapers.find((w) => w.id === id && w.type === 'scene')
-        if (!entry || !existsSync(entry.fileAbs)) { json(res, 404, { ok: false, error: 'not-found' }); return }
+        if (!entry || !existsSync(entry.fileAbs)) { writeJson(res, 404, { ok: false, error: 'not-found' }); return }
         let mtimeMs = 0
         let size = 0
         try { const st = await stat(entry.fileAbs); mtimeMs = st.mtimeMs; size = st.size } catch { /* probe once without a key */ }
@@ -501,7 +501,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         const sceneToken = probe.hasSceneWebGL ? tokenFor(entry.fileAbs) : null
         // Persist after issuing so freshly minted tokens survive a restart.
         persistTokens()
-        json(res, 200, {
+        writeJson(res, 200, {
           ok: true,
           videoUrl: videoToken !== null ? WE_API_PREFIX + '/scene-video/' + videoToken : null,
           sceneUrl: sceneToken !== null ? WE_API_PREFIX + '/scene-runtime/' + sceneToken : null,
@@ -509,7 +509,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           unsupportedFeatures: probe.unsupportedFeatures,
         })
       } catch (error) {
-        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        writeJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
       }
     },
   })
@@ -519,7 +519,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'exact',
     path: WE_API_PREFIX + '/shim.js',
     handler: (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireContentOrigin(req, res)) return
       res.writeHead(200, {
         'content-type': 'text/javascript; charset=utf-8',
@@ -537,7 +537,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       kind: 'prefix',
       path: WE_API_PREFIX + '/' + seg,
       handler: (req, res) => {
-        if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+        if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
         if (!requireSameOrigin(req, res)) return
         const abs = resolveToken(req, res, prefix)
         if (!abs) return
@@ -563,7 +563,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'prefix',
     path: WE_API_PREFIX + '/scene-video',
     handler: (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireSameOrigin(req, res)) return
       const abs = resolveToken(req, res, sceneVideoPrefix)
       if (!abs) return
@@ -580,7 +580,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
             ? extractSceneVideoFromDir(dirname(abs))
             : extractSceneVideo(new Uint8Array(readFileSync(abs)))
           if (!videoBytes) {
-            json(res, 404, { ok: false, error: 'no-video-found' })
+            writeJson(res, 404, { ok: false, error: 'no-video-found' })
             return
           }
           mkdirSync(cacheDir, { recursive: true })
@@ -589,7 +589,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         }
         serveFile(cachePath, req, res, openReadStream)
       })().catch((error: unknown) => {
-        json(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        writeJson(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
       })
     },
   })
@@ -602,24 +602,24 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'prefix',
     path: WE_API_PREFIX + '/web',
     handler: (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireContentOrigin(req, res)) return
       const pathname = new URL(req.url || '/', 'http://localhost').pathname
       let rest = ''
       try {
         rest = decodeURIComponent(pathname.slice(webPrefix.length))
-      } catch { json(res, 400, { ok: false, error: 'bad-request' }); return }
+      } catch { writeJson(res, 400, { ok: false, error: 'bad-request' }); return }
       const token = rest.split('/')[0] ?? ''
       const entryAbs = mediaMap.get(token)
-      if (!entryAbs) { json(res, 404, { ok: false, error: 'unknown-token' }); return }
+      if (!entryAbs) { writeJson(res, 404, { ok: false, error: 'unknown-token' }); return }
       const root = dirname(entryAbs)
       const sub = rest.slice(token.length).replace(/^\/+/, '') || basename(entryAbs)
       const abs = resolvePath(root, sub)
       if (abs !== root && !abs.startsWith(root + sep)) {
-        json(res, 403, { ok: false, error: 'path-escape-rejected' })
+        writeJson(res, 403, { ok: false, error: 'path-escape-rejected' })
         return
       }
-      if (!existsSync(abs) || !statSync(abs).isFile()) { json(res, 404, { ok: false, error: 'not-found' }); return }
+      if (!existsSync(abs) || !statSync(abs).isFile()) { writeJson(res, 404, { ok: false, error: 'not-found' }); return }
       if (/\.html?$/i.test(abs)) {
         const html = readFileSync(abs, 'utf8')
         const defaultsTag = '<script>window.__dshWeDefaultProps = ' + JSON.stringify(webPropertyDefaults(root)).replace(/</g, '\\u003c') + ';</script>'
@@ -650,7 +650,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'prefix',
     path: WE_API_PREFIX + '/scene-frame',
     handler: (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireSameOrigin(req, res)) return
       const abs = resolveToken(req, res, framePrefix)
       if (!abs) return
@@ -682,7 +682,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           // a format this build cannot decode, so the frame route reports it
           // and the wallpaper controller falls back to the author preview
           // (#906).
-          json(res, 422, {
+          writeJson(res, 422, {
             ok: false,
             error: 'unsupported-tex-format',
             format: error.format,
@@ -691,7 +691,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           })
           return
         }
-        json(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        writeJson(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) })
       })
     },
   })
@@ -701,7 +701,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'prefix',
     path: WE_API_PREFIX + '/scene-runtime',
     handler: (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireSameOrigin(req, res)) return
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
       res.end(WE_SCENE_PLAYER_HTML)
@@ -714,7 +714,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'prefix',
     path: WE_API_PREFIX + '/scene-manifest',
     handler: (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireContentOrigin(req, res)) return
       const abs = resolveToken(req, res, sceneManifestPrefix)
       if (!abs) return
@@ -724,14 +724,14 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           ? buildSceneManifestFromDir(dirname(abs), token)
           : buildSceneManifest(new Uint8Array(readFileSync(abs)), token, (() => { try { return JSON.parse(readFileSync(joinPath(dirname(abs), 'project.json'), 'utf8')) as unknown } catch { return null } })())
         if (!manifest) {
-          json(res, 404, { ok: false, error: 'manifest-build-failed' })
+          writeJson(res, 404, { ok: false, error: 'manifest-build-failed' })
           return
         }
         // The sandboxed scene player fetches the manifest with an opaque
         // origin (Origin: null), so the CORS response must allow exactly it.
-        json(res, 200, { ok: true, manifest }, { 'access-control-allow-origin': 'null' })
+        writeJson(res, 200, { ok: true, manifest }, { 'access-control-allow-origin': 'null' })
       } catch (err) {
-        json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })
+        writeJson(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })
       }
     },
   })
@@ -742,24 +742,24 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     kind: 'prefix',
     path: WE_API_PREFIX + '/scene-resource',
     handler: (req, res) => {
-      if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+      if (req.method !== 'GET') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
       if (!requireContentOrigin(req, res)) return
       const pathname = new URL(req.url || '/', 'http://localhost').pathname
       let rest = ''
       try {
         rest = decodeURIComponent(pathname.slice(sceneResourcePrefix.length))
-      } catch { json(res, 400, { ok: false, error: 'bad-request' }); return }
+      } catch { writeJson(res, 400, { ok: false, error: 'bad-request' }); return }
       const token = rest.split('/')[0] ?? ''
       const entryAbs = mediaMap.get(token)
-      if (!entryAbs) { json(res, 404, { ok: false, error: 'unknown-token' }); return }
+      if (!entryAbs) { writeJson(res, 404, { ok: false, error: 'unknown-token' }); return }
       const subpath = rest.slice(token.length).replace(/^\/+/, '')
-      if (!subpath) { json(res, 400, { ok: false, error: 'missing-subpath' }); return }
+      if (!subpath) { writeJson(res, 400, { ok: false, error: 'missing-subpath' }); return }
       try {
         const resBytes = entryAbs.toLowerCase().endsWith('.json')
           ? extractSceneResourceFromDir(dirname(entryAbs), subpath)
           : extractSceneResource(new Uint8Array(readFileSync(entryAbs)), subpath)
         if (!resBytes) {
-          json(res, 404, { ok: false, error: 'resource-not-found' })
+          writeJson(res, 404, { ok: false, error: 'resource-not-found' })
           return
         }
         // The extractor falls back to raw file bytes when a texture cannot
@@ -775,7 +775,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         })
         res.end(Buffer.from(resBytes))
       } catch (err) {
-        json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })
+        writeJson(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })
       }
     },
   })
@@ -810,16 +810,16 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       kind: 'exact',
       path,
       handler: (req, res) => {
-        if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+        if (req.method !== 'POST') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
         if (!requireSameOrigin(req, res)) return
         readJsonBody(req).then((body) => {
           if (body === null) {
-            json(res, 400, { ok: false, error: 'invalid-body' })
+            writeJson(res, 400, { ok: false, error: 'invalid-body' })
             return
           }
           run(readId(body), res)
         }).catch((error: unknown) => {
-          json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+          writeJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
         })
       },
     })
@@ -827,38 +827,38 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
 
   // POST /import — copy a library wallpaper project into the import store.
   postJson(WE_API_PREFIX + '/import', (id, res) => {
-    if (id === '' || id.startsWith('imported/')) { json(res, 400, { ok: false, error: 'bad-id' }); return }
+    if (id === '' || id.startsWith('imported/')) { writeJson(res, 400, { ok: false, error: 'bad-id' }); return }
     const entry = freshInventory().wallpapers.find((w) => w.id === id)
-    if (!entry) { json(res, 404, { ok: false, error: 'wallpaper-not-found' }); return }
+    if (!entry) { writeJson(res, 404, { ok: false, error: 'wallpaper-not-found' }); return }
     const dest = joinPath(deps.storeDir, safeStoreId(id))
-    if (existsSync(dest)) { json(res, 409, { ok: false, error: 'already-imported' }); return }
+    if (existsSync(dest)) { writeJson(res, 409, { ok: false, error: 'already-imported' }); return }
     copyIntoStore(entry, dest)
     invalidateInventory()
-    json(res, 200, { ok: true, id: 'imported/' + entry.id })
+    writeJson(res, 200, { ok: true, id: 'imported/' + entry.id })
   })
 
   // POST /reimport — refresh an imported copy from its (still present) source.
   postJson(WE_API_PREFIX + '/reimport', (id, res) => {
-    if (!id.startsWith('imported/')) { json(res, 400, { ok: false, error: 'bad-id' }); return }
+    if (!id.startsWith('imported/')) { writeJson(res, 400, { ok: false, error: 'bad-id' }); return }
     const sourceId = id.slice('imported/'.length)
     const dest = joinPath(deps.storeDir, safeStoreId(sourceId))
-    if (!existsSync(dest)) { json(res, 404, { ok: false, error: 'import-not-found' }); return }
+    if (!existsSync(dest)) { writeJson(res, 404, { ok: false, error: 'import-not-found' }); return }
     const source = freshInventory().wallpapers.find((w) => w.id === sourceId && w.source !== 'imported')
-    if (!source) { json(res, 410, { ok: false, error: 'source-gone' }); return }
+    if (!source) { writeJson(res, 410, { ok: false, error: 'source-gone' }); return }
     rmSync(dest, { recursive: true, force: true })
     copyIntoStore(source, dest)
     invalidateInventory()
-    json(res, 200, { ok: true, id })
+    writeJson(res, 200, { ok: true, id })
   })
 
   // POST /remove — delete an imported copy (never touches the library).
   postJson(WE_API_PREFIX + '/remove', (id, res) => {
-    if (!id.startsWith('imported/')) { json(res, 400, { ok: false, error: 'bad-id' }); return }
+    if (!id.startsWith('imported/')) { writeJson(res, 400, { ok: false, error: 'bad-id' }); return }
     const dest = joinPath(deps.storeDir, safeStoreId(id.slice('imported/'.length)))
-    if (!existsSync(dest)) { json(res, 404, { ok: false, error: 'import-not-found' }); return }
+    if (!existsSync(dest)) { writeJson(res, 404, { ok: false, error: 'import-not-found' }); return }
     rmSync(dest, { recursive: true, force: true })
     invalidateInventory()
-    json(res, 200, { ok: true })
+    writeJson(res, 200, { ok: true })
   })
 
   return routes
