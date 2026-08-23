@@ -29,8 +29,8 @@ export const RESPONSIVE_CSS = `
 [data-dsh-frame] [data-dsh-responsive-part="composer"],
 [data-dsh-frame] [data-dsh-responsive-part="sidebar-toggle"],
   [data-dsh-frame] [data-dsh-responsive-part="menu"] { touch-action: manipulation; }
-[data-dsh-frame] [data-dsh-responsive-part="sidebar-toggle"] { min-width: 44px; min-height: 44px; }
 @media (max-width: 768px) {
+  [data-dsh-frame] [data-dsh-responsive-part="sidebar-toggle"] { min-width: 44px; min-height: 44px; }
   [data-dsh-frame] {
     height: 100dvh;
     min-height: 100dvh;
@@ -74,6 +74,7 @@ export const RESPONSIVE_CSS = `
     pointer-events: auto;
     display: inline-flex !important;
   }
+  /* Center-view plugins own this marker; the aggregate shell owns its mobile offset. */
   [data-dsh-frame][data-sidebar-collapsed] [data-dsh-center-view-back] {
     margin-inline-start: 52px;
   }
