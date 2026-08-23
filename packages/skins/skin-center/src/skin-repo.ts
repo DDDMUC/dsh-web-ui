@@ -17,10 +17,16 @@
  * The catalog is an immutable snapshot: callers keep the object they got and
  * an activation never sees the catalog change underneath it (contract
  * section 8, "catalog immutable snapshot per activation").
+ *
+ * Scans are memoized per (builtinDir, userDir): a snapshot is reused until a
+ * cheap fingerprint of both roots (skin-dir names plus skin.json stat)
+ * changes, so client requests never rescan the same sources. The fingerprint
+ * covers add/remove/change of any skin directory, while writes outside the
+ * sources (POST /active state) never invalidate it.
  * @module @linxin666/dsh-client-ui-skin-center/skin-repo
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -176,24 +182,92 @@ function collectSource(spec: SourceSpec, catalog: SkinCatalog, claimed: Map<stri
   }
 }
 
+/** One memoized catalog snapshot plus the fingerprint it was scanned under. */
+export interface CatalogCacheEntry {
+  /** Fingerprint of both roots at scan time (see rootFingerprint). */
+  fingerprint: string
+  catalog: SkinCatalog
+}
+
+/**
+ * Process-wide cache: (builtinDir, userDir) -> latest snapshot. Shared by
+ * every loadSkinCatalog caller in the host process (index tap, v2 routes,
+ * seed). Tests inject their own Map through the catalogCache option.
+ */
+const DEFAULT_CATALOG_CACHE = new Map<string, CatalogCacheEntry>()
+
+/** Bound the process cache so a long-lived process can never accumulate. */
+const CATALOG_CACHE_MAX_ENTRIES = 16
+
+/**
+ * Cheap invalidation fingerprint of one catalog root: the sorted skin-dir
+ * names plus the stat of each skin.json. The catalog content depends only on
+ * skin.json, so this is the exact change signal — a new or removed skin dir
+ * changes the name set, an in-place manifest change changes the stat. A
+ * missing or unreadable root yields the same marker as an empty source,
+ * mirroring collectSource's silent empty result.
+ */
+function rootFingerprint(root: string): string {
+  let dirNames: string[]
+  try {
+    dirNames = readdirSync(root, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort()
+  } catch {
+    return ''
+  }
+  const lines: string[] = []
+  for (const dirName of dirNames) {
+    const manifestPath = join(root, dirName, 'skin.json')
+    try {
+      const st = statSync(manifestPath)
+      lines.push(JSON.stringify([dirName, st.mtimeMs, st.size, st.mode]))
+    } catch {
+      lines.push(JSON.stringify([dirName]))
+    }
+  }
+  return lines.join('\n')
+}
+
 /**
  * Snapshot the skin catalog from both sources. Never throws: unreadable
- * roots and invalid skins land in diagnostics instead.
+ * roots and invalid skins land in diagnostics instead. When the source
+ * fingerprint matches the last scan the memoized snapshot is returned as-is
+ * (capturedAt re-stamped to the observation time); a changed fingerprint
+ * triggers a fresh scan and updates the cache.
  */
 export function loadSkinCatalog(options: {
   builtinDir?: string
   userDir?: string
   now?: () => number
+  /** Explicit cache (tests); defaults to the process-wide cache. */
+  catalogCache?: Map<string, CatalogCacheEntry>
 } = {}): SkinCatalog {
+  const builtinDir = options.builtinDir ?? builtinSkinsDir()
+  const userDir = options.userDir ?? userSkinsDir()
+  const cache = options.catalogCache ?? DEFAULT_CATALOG_CACHE
+  const cacheKey = builtinDir + '\u0000' + userDir
+  const fingerprint = JSON.stringify([rootFingerprint(builtinDir), rootFingerprint(userDir)])
+  const hit = cache.get(cacheKey)
+  if (hit && hit.fingerprint === fingerprint) {
+    // Sources unchanged: reuse the immutable snapshot. Only capturedAt is
+    // re-stamped so responses keep reflecting observation time; activation
+    // state lives outside both roots (defaultActiveStatePath), so POST
+    // /active never causes a rescan.
+    return { ...hit.catalog, capturedAt: (options.now ?? Date.now)() }
+  }
   const catalog: SkinCatalog = { skins: [], diagnostics: [], capturedAt: (options.now ?? Date.now)() }
   const claimed = new Map<string, SkinCatalogEntry>()
   // Builtin first so user entries can shadow them.
-  collectSource({ origin: 'builtin', root: options.builtinDir ?? builtinSkinsDir() }, catalog, claimed)
-  collectSource({ origin: 'user', root: options.userDir ?? userSkinsDir() }, catalog, claimed)
+  collectSource({ origin: 'builtin', root: builtinDir }, catalog, claimed)
+  collectSource({ origin: 'user', root: userDir }, catalog, claimed)
   // Unordered skins sort after every ordered one.
   catalog.skins.sort((a, b) => (a.manifest.order ?? Number.MAX_SAFE_INTEGER)
     - (b.manifest.order ?? Number.MAX_SAFE_INTEGER)
     || a.manifest.id.localeCompare(b.manifest.id))
+  cache.set(cacheKey, { fingerprint, catalog })
+  if (cache.size > CATALOG_CACHE_MAX_ENTRIES) cache.clear()
   return catalog
 }
 
