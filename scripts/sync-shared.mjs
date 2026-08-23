@@ -121,6 +121,7 @@ const MANIFEST = [
       'packages/dsh-plugin-manager/src/host/http.ts',
       'packages/skins/skin-center/src/http.ts',
       'packages/dsh-remote-web-ui/src/http.ts',
+      'packages/dsh-task-board/src/http.ts',
     ],
   },
   {
