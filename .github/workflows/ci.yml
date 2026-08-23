@@ -86,7 +86,12 @@ jobs:
               (0x1F1E6, 0x1F1FF),   # regional indicators
           ]
           singles = {0xFE0F, 0x200D}
-          skip_dirs = {'.git', 'node_modules', 'lib'}
+          # dist holds committed generated artifacts (market/dist from
+          # scripts/market-build, incl. vendored third-party bundles);
+          # market/shell is the vendored try-on shell, not our source.
+          # The emoji rule governs hand-written sources only.
+          skip_dirs = {'.git', 'node_modules', 'lib', 'dist'}
+          skip_prefixes = ('market/shell/',)
           skip_names = {'pnpm-lock.yaml'}
           skip_suffixes = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.pdf', '.zip', '.gz'}
           bad = []
@@ -94,6 +99,8 @@ jobs:
               if not p.is_file():
                   continue
               if any(part in skip_dirs for part in p.parts):
+                  continue
+              if any(str(p).startswith(pre) for pre in skip_prefixes):
                   continue
               if p.name in skip_names or p.suffix.lower() in skip_suffixes:
                   continue

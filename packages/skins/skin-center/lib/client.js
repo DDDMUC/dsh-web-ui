@@ -3439,7 +3439,7 @@ window.__ModuleLoader__.load({
 		* layers stay below the official overlay band (>=1000).
 		*/
 		const LAYER_STYLE = {
-			background: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:-2;pointer-events:none;",
+			background: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:-2;pointer-events:none;will-change:transform;",
 			ambient: "position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;pointer-events:none;",
 			top: "position:fixed;top:0;left:0;right:0;z-index:40;pointer-events:none;",
 			bottom: "position:fixed;bottom:0;left:0;right:0;z-index:40;pointer-events:none;",

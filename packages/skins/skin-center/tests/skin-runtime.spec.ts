@@ -57,6 +57,16 @@ describe('decoration layers', () => {
     expect(again.background).toBe(layers.background)
   })
 
+  it('isolates the background layer on its own compositor layer (issue #1013)', () => {
+    // A full-viewport skin background image is costly to re-rasterize; without
+    // compositing isolation, unrelated repaint bursts (streaming chat, animated
+    // pets, overlay menus) make Chromium re-rasterize it in horizontal bands,
+    // visible as vertical band flicker. Keep will-change on the layer so the
+    // raster stays cached.
+    const layers = ensureDecorationLayers(document)
+    expect(layers.background.style.willChange).toBe('transform')
+  })
+
   it('setLayerContent teardown removes exactly its nodes, idempotently', () => {
     const layers = ensureDecorationLayers(document)
     const node = document.createElement('div')
