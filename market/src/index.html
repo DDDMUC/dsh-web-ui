@@ -101,6 +101,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .mk-header-meta { font-size: 12px; color: var(--g-faint); }
 .mk-github {
   display: inline-flex; align-items: center; gap: 7px;
+  margin-left: auto; /* 紧贴所在行右端；固定定位时被覆盖 */
   border: 1px solid var(--g-line); background: var(--g-bg-soft);
   color: var(--g-muted); padding: 7px 12px; border-radius: var(--g-radius);
   text-decoration: none; font-size: 13px; line-height: 1;
