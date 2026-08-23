@@ -14,7 +14,7 @@ import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { TexFormat } from '../src/pkg-extract.ts'
+import { TexFormat, decodePngToRgba } from '../src/pkg-extract.ts'
 import { makeWeRoutes, SCENE_EXTRACTOR_VERSION, WE_API_PREFIX } from '../src/we-routes.ts'
 
 // The probe path reads scene payloads through node:fs/promises; spy on it so
@@ -62,6 +62,27 @@ const tex64Red = ((): Buffer => {
     ...nstr('TEXB0002'), ...i32(1),
     ...i32(1), ...i32(64), ...i32(64),
     ...i32(0), ...i32(px), ...i32(px), ...pixels,
+  ])
+})()
+
+/** Minimal 4x4 DXT1 TEX (one all-red block) for the /media .tex -> PNG path. */
+const texDxt1Red = ((): Buffer => {
+  const enc = new TextEncoder()
+  const nstr = (s: string): number[] => [...enc.encode(s), 0]
+  const i32 = (v: number): number[] => {
+    const b = new DataView(new ArrayBuffer(4))
+    b.setInt32(0, v, true)
+    return [...new Uint8Array(b.buffer)]
+  }
+  return Buffer.from([
+    ...nstr('TEXV0005'), ...nstr('TEXI0001'),
+    ...i32(TexFormat.DXT1), ...i32(0),
+    ...i32(4), ...i32(4), ...i32(4), ...i32(4), ...i32(0),
+    ...nstr('TEXB0002'), ...i32(1),
+    ...i32(1), ...i32(4), ...i32(4),
+    ...i32(0), ...i32(8), ...i32(8),
+    // c0 = 0xF800 (red), c1 = 0x07E0 (green), all 16 indices select c0
+    0x00, 0xf8, 0xe0, 0x07, 0x00, 0x00, 0x00, 0x00,
   ])
 })()
 
@@ -145,6 +166,26 @@ async function call(
     })
     req.on('error', reject)
     if (payload !== undefined) req.write(payload)
+    req.end()
+  })
+}
+
+/** Binary-safe HTTP GET for PNG payload assertions (call() decodes utf8). */
+async function callRaw(
+  method: string,
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<{ status: number; body: Buffer; headers: Record<string, unknown> }> {
+  return await new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { host: '127.0.0.1', port, path, method, headers: { connection: 'close', ...headers } },
+      (response) => {
+        const chunks: Buffer[] = []
+        response.on('data', (chunk) => { chunks.push(chunk as Buffer) })
+        response.on('end', () => resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks), headers: response.headers }))
+      },
+    )
+    req.on('error', reject)
     req.end()
   })
 }
@@ -395,6 +436,32 @@ describe('media and preview', () => {
     const res = await call('GET', url)
     expect(res.status).toBe(200)
     expect(res.raw).toBe('FAKE-VIDEO-BYTES')
+  })
+
+  it('converts .tex wallpapers to PNG through /media (decodeTex path)', async () => {
+    makeProject(join(library, '444'), { title: 'TexArt', type: 'video', file: 'art.tex' }, { 'art.tex': texDxt1Red })
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const tex = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '444')
+    expect(String(tex?.videoUrl)).toContain(WE_API_PREFIX + '/media/')
+    const res = await callRaw('GET', String(tex?.videoUrl))
+    expect(res.status).toBe(200)
+    expect(String(res.headers['content-type'])).toBe('image/png')
+    expect(String(res.headers['cache-control'])).toContain('max-age=86400')
+    const decoded = decodePngToRgba(new Uint8Array(res.body))
+    expect(decoded.width).toBe(4)
+    expect(decoded.height).toBe(4)
+    expect([...decoded.rgba.slice(0, 4)]).toEqual([255, 0, 0, 255])
+  })
+
+  it('serves raw .tex bytes when decodeTex cannot decode the format (fallback preserved)', async () => {
+    makeProject(join(library, '445'), { title: 'TexBc7', type: 'video', file: 'art.tex' }, { 'art.tex': texBc7 })
+    const inventory = await call('GET', WE_API_PREFIX + '/inventory')
+    const tex = (inventory.body.wallpapers as Array<Record<string, unknown>>).find(w => w.id === '445')
+    expect(String(tex?.videoUrl)).toContain(WE_API_PREFIX + '/media/')
+    const res = await callRaw('GET', String(tex?.videoUrl))
+    expect(res.status).toBe(200)
+    expect(String(res.headers['content-type'])).toBe('application/octet-stream')
+    expect(res.body.equals(texBc7)).toBe(true)
   })
 })
 
