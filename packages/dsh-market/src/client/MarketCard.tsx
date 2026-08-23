@@ -496,56 +496,62 @@ export function MarketCard(props: MarketCardProps): ReactNode {
                         <span className={css.cardDesc}>{(item.description ?? item.descriptionEn ?? '').slice(0, 140)}</span>
                       ) : null}
                       <span className={css.cardFooter}>
-                        <button type="button" className={css.like} onClick={() => { void onLike(tab, id) }}>
-                          {t('like')} {votesOf(tab, id)}
-                        </button>
-                        <button
-                          type="button"
-                          className={css.previewLink}
-                          onClick={() => {
-                            window.open(
-                              tab === 'skin'
-                                ? MARKET_ORIGIN + '/preview.html?skin=' + encodeURIComponent(id) + '&theme=light&chrome=0'
-                                : MARKET_ORIGIN + '/',
-                              '_blank',
-                              'noopener',
-                            )
-                          }}
-                        >
-                          {t('preview')}
-                        </button>
-                        {tab === 'plugin' ? (
+                        <span className={css.actionRow}>
+                          <button type="button" className={css.like} onClick={() => { void onLike(tab, id) }}>
+                            {t('like')} {votesOf(tab, id)}
+                          </button>
                           <button
                             type="button"
-                            className={css.install}
-                            title={command}
-                            onClick={() => { copyCommand(id, command) }}
+                            className={css.previewLink}
+                            onClick={() => {
+                              window.open(
+                                tab === 'skin'
+                                  ? MARKET_ORIGIN + '/preview.html?skin=' + encodeURIComponent(id) + '&theme=light&chrome=0'
+                                  : MARKET_ORIGIN + '/',
+                                '_blank',
+                                'noopener',
+                              )
+                            }}
                           >
-                            {copiedId === id ? t('copied') : t('copyCommand')}
+                            {t('preview')}
                           </button>
-                        ) : null}
-                        {tab === 'plugin' && faceLoopback && !installedHere ? (
-                          <button
-                            type="button"
-                            className={css.install + ' ' + css.installPrimary}
-                            disabled={installing !== null}
-                            onClick={() => { onInstallPlugin(item) }}
-                          >
-                            {isInstalling ? t('installing') : t('installNow')}
-                          </button>
-                        ) : null}
-                        {(tab === 'skin' || tab === 'pet') && gateway !== null ? (
-                          <button
-                            type="button"
-                            className={css.install + ' ' + css.installPrimary}
-                            disabled={installing !== null || installedHere}
-                            onClick={() => { onInstallAsset(tab, id) }}
-                          >
-                            {isInstalling ? t('installing') : installedHere ? t('installed') : t('installNow')}
-                          </button>
-                        ) : null}
-                        {tab === 'plugin' && item.repo ? (
-                          <a className={css.previewLink} href={item.repo} target="_blank" rel="noreferrer">{t('repository')}</a>
+                          {tab === 'plugin' && item.repo ? (
+                            <a className={css.previewLink} href={item.repo} target="_blank" rel="noreferrer">{t('repository')}</a>
+                          ) : null}
+                        </span>
+                        {tab === 'plugin' || gateway !== null ? (
+                          <span className={css.actionRowPrimary}>
+                            {tab === 'plugin' ? (
+                              <button
+                                type="button"
+                                className={css.install}
+                                title={command}
+                                onClick={() => { copyCommand(id, command) }}
+                              >
+                                {copiedId === id ? t('copied') : t('copyCommand')}
+                              </button>
+                            ) : null}
+                            {tab === 'plugin' && faceLoopback && !installedHere ? (
+                              <button
+                                type="button"
+                                className={css.install + ' ' + css.installPrimary}
+                                disabled={installing !== null}
+                                onClick={() => { onInstallPlugin(item) }}
+                              >
+                                {isInstalling ? t('installing') : t('installNow')}
+                              </button>
+                            ) : null}
+                            {(tab === 'skin' || tab === 'pet') && gateway !== null ? (
+                              <button
+                                type="button"
+                                className={css.install + ' ' + css.installPrimary}
+                                disabled={installing !== null || installedHere}
+                                onClick={() => { onInstallAsset(tab, id) }}
+                              >
+                                {isInstalling ? t('installing') : installedHere ? t('installed') : t('installNow')}
+                              </button>
+                            ) : null}
+                          </span>
                         ) : null}
                       </span>
                       {pluginErrors[id] ? <span className={css.error}>{pluginErrors[id]}</span> : null}

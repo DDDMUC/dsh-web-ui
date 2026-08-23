@@ -64,15 +64,15 @@
 .search:focus { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(256px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 10px;
   list-style: none;
   margin: 4px 0 0;
   padding: 0;
 }
 .card {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--dsw-alias-border-l2);
@@ -91,7 +91,7 @@
   place-items: center;
 }
 .thumbPlaceholder { color: var(--dsw-alias-label-tertiary); font-weight: 700; font-size: 22px; }
-.cardBody { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.cardBody { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .cardName { font-weight: 600; color: var(--dsw-alias-label-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cardVersion { margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--dsw-alias-label-tertiary); }
 .cardMeta {
@@ -131,8 +131,39 @@
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-.cardFooter { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 2px; }
-.like, .previewLink, .install {
+/* The footer splits into two rows: a quiet pill row for the lightweight
+ * actions (like / preview / repository) and an install row whose buttons
+ * share one height, the primary action taking the wider share.
+ * margin-top: auto pins the footer to the card bottom so the buttons of
+ * every card in a grid row line up. Rules are scoped under .market so
+ * they beat each skin's html[data-dsh-skin] element-level overrides
+ * (whale-song tints bare anchors brand blue, which broke the repo link). */
+.cardFooter { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 8px; }
+.actionRow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.market .actionRow > .like, .market .actionRow > .previewLink {
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-module-platform);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  padding: 1px 10px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+.market .actionRow > .like { font-variant-numeric: tabular-nums; }
+.market .actionRow > .like:hover:enabled, .market .actionRow > .previewLink:hover {
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-label-dimmed);
+}
+.actionRowPrimary { display: flex; align-items: stretch; gap: 8px; }
+.market .actionRowPrimary > .install {
+  flex: 1 1 0;
+  min-width: 0;
   font: inherit;
   font-size: 12px;
   line-height: 1.5;
@@ -141,19 +172,31 @@
   background: transparent;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
-  padding: 4px 12px;
+  min-height: 30px;
+  padding: 4px 14px;
   cursor: pointer;
-  text-decoration: none;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.like:hover:enabled, .previewLink:hover, .install:hover:enabled { border-color: var(--dsw-alias-label-dimmed); }
-.installPrimary {
-  color: var(--dsw-alias-bg-layer-3);
-  background: var(--dsw-alias-button-info-fill);
-  border-color: var(--dsw-alias-button-info-fill);
+.market .actionRowPrimary > .install:hover:enabled { border-color: var(--dsw-alias-label-dimmed); }
+/* Filled primary: the brand-primary / brand-primary-invert pairing every
+ * skin declares as a matched set (the shell's own primary buttons use it).
+ * info-fill was rejected: it is a light tint under deep-current light where
+ * a white label would vanish, and bg-layer-3 is translucent under the glass
+ * skins, rendering the label washed out. */
+.market .actionRowPrimary > .installPrimary {
+  flex-grow: 2;
+  color: var(--dsw-alias-brand-primary-invert);
+  background: var(--dsw-alias-brand-primary);
+  border-color: var(--dsw-alias-brand-primary);
 }
-.installPrimary:hover:enabled { opacity: 0.88; }
-.installPrimary:disabled { opacity: 0.5; cursor: default; }
+.market .actionRowPrimary > .installPrimary:hover:enabled {
+  background: var(--dsw-alias-button-primary-hover);
+  border-color: var(--dsw-alias-button-primary-hover);
+}
+.market .actionRowPrimary > .installPrimary:disabled { opacity: 0.55; cursor: default; }
 .error { margin: 0; font-size: 12px; line-height: 1.4; color: var(--dsw-alias-label-error, #c53030); }
 .callout { margin: 0; font-size: 12px; line-height: 1.4; color: var(--dsw-alias-state-success-primary); }
 .empty { color: var(--dsw-alias-label-tertiary); font-size: 13px; display: flex; align-items: center; gap: 8px; }
