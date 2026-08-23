@@ -62,6 +62,9 @@ official Plugins section are separate first-level settings entries.
   cannot drive them.
 - All downloaded content comes from `https://dsh-market.com` (asset URLs are rebuilt from the
   validated manifest); skin CSS is sanitized by the Skin Center runtime before it is applied.
+- The manifest (1 MiB), the per-asset file count (200) and the per-file size (200 MiB) are capped and
+  every fetch has a 30 s timeout; a manifest or download exceeding a cap or timing out fails cleanly
+  and leaves the existing asset directory untouched.
 - Plugin installs go through the same confirmation and CLI path as the Plugin manager tab.
 - The card validates manifest install sources before calling the plugin manager: only npm package
   names (optionally pinned with a version tag) and plain https:// git URLs are accepted; ssh://,
