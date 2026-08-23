@@ -86,7 +86,7 @@ export function MarketHub(props: MarketHubProps): ReactNode {
               type="button"
               role="tab"
               aria-selected={tab.id === activeId}
-              className={tab.id === activeId ? css.tabActive : css.tab}
+              className={tab.id === activeId ? css.tab + ' ' + css.tabActive : css.tab}
               onClick={() => { setPicked(tab.id) }}
             >
               {tab.label}
