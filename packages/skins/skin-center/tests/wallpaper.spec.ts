@@ -295,7 +295,20 @@ describe('WallpaperController', () => {
     const fetchImpl = vi.fn(async (input: string) => ({
       ok: true,
       json: async () => input.includes('/scene-manifest/')
-        ? ({ ok: true, manifest: { width: 3840, height: 2160, timeSchedule: { morning: 4, day: 9, dusk: 17, night: 20 }, layers: [] } })
+        ? ({
+          ok: true,
+          manifest: {
+            width: 3840,
+            height: 2160,
+            timeSchedule: { morning: 4, day: 9, dusk: 17, night: 20 },
+            // Time-varying scenes carry one fullscreen layer per period; none of
+            // them may replace the live player as a static base.
+            layers: [
+              { x: 1920, y: 1080, w: 3840, h: 2160, texUrl: '/api/skin-center/we/scene-resource/timed/day.tex' },
+              { x: 1920, y: 1080, w: 3840, h: 2160, texUrl: '/api/skin-center/we/scene-resource/timed/night.tex' },
+            ],
+          },
+        })
         : ({ ok: true, videoUrl: null, sceneUrl: '/api/skin-center/we/scene-runtime/timed', compatibility: 'partial', unsupportedFeatures: ['embedded-script'] }),
     })) as unknown as typeof fetch
     const { scope } = fakeScope()
@@ -303,9 +316,42 @@ describe('WallpaperController', () => {
     controller.applySelection({ ...scene, id: 'timed' })
     await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2))
     await new Promise(resolve => setTimeout(resolve, 0))
-    const player = layers()[0].querySelector('iframe')
+    const [media] = layers()
+    const player = media.querySelector('iframe')
     expect(player?.src).toContain('/scene-runtime/timed')
     expect(player?.style.opacity).not.toBe('0')
+    // The backdrop stays the host-decoded frame; a single period layer would
+    // freeze the wallpaper to one time of day while the player loads.
+    expect(media.style.backgroundImage).toContain('/scene-frame/ccc')
+    controller.dispose()
+  })
+
+  it('never picks a video-backed layer as the static scene base', async () => {
+    const fetchImpl = vi.fn(async (input: string) => ({
+      ok: true,
+      json: async () => input.includes('/scene-manifest/')
+        ? ({
+          ok: true,
+          manifest: {
+            width: 3840,
+            height: 2160,
+            layers: [
+              // Video layers serve MP4 bytes that a CSS background cannot paint.
+              { x: 1920, y: 1080, w: 3840, h: 2160, texUrl: '/api/skin-center/we/scene-resource/vid/backdrop.tex', videoUrl: '/api/skin-center/we/scene-resource/vid/backdrop.tex' },
+              { x: 1920, y: 1080, w: 3840, h: 2160, texUrl: '/api/skin-center/we/scene-resource/vid/still.tex' },
+            ],
+          },
+        })
+        : ({ ok: true, videoUrl: null, sceneUrl: '/api/skin-center/we/scene-runtime/vid', compatibility: 'partial', unsupportedFeatures: ['embedded-script'] }),
+    })) as unknown as typeof fetch
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope, { fetchImpl, doc: document })
+    controller.applySelection({ ...scene, id: 'vid' })
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const [media] = layers()
+    expect(media.style.backgroundImage).toContain('/scene-resource/vid/still.tex')
+    expect(media.style.backgroundImage).not.toContain('backdrop.tex')
     controller.dispose()
   })
 

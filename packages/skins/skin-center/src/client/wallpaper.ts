@@ -399,14 +399,21 @@ export class WallpaperController implements WallpaperHandle {
                 manifest?: {
                   width?: number
                   height?: number
-                  layers?: Array<{ x?: number; y?: number; w?: number; h?: number; texUrl?: string }>
+                  timeSchedule?: unknown
+                  layers?: Array<{ x?: number; y?: number; w?: number; h?: number; texUrl?: string; videoUrl?: string }>
                 }
               } | null
               : null
             const manifest = manifestPayload?.ok === true ? manifestPayload.manifest : undefined
-            if (manifest && typeof manifest.width === 'number' && typeof manifest.height === 'number') {
+            // The renderer implements author-configured real-time switching;
+            // do not replace that live player with one static base merely because
+            // unrelated embedded scripts remain unsupported.
+            if (manifest && manifest.timeSchedule === undefined && typeof manifest.width === 'number' && typeof manifest.height === 'number') {
+              // Video-backed layers serve MP4 bytes: a CSS background cannot
+              // paint them, so only still-image layers qualify as the base.
               const fullscreenIndex = manifest.layers?.findIndex(layer =>
                 typeof layer.texUrl === 'string'
+                && typeof layer.videoUrl !== 'string'
                 && Math.abs((layer.w ?? 0) - manifest.width!) <= 1
                 && Math.abs((layer.h ?? 0) - manifest.height!) <= 1
                 && Math.abs((layer.x ?? 0) - manifest.width! / 2) <= 1

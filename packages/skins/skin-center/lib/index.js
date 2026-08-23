@@ -6226,6 +6226,12 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,0]));
       const video = document.createElement('video');
+      // The player iframe is sandboxed without allow-same-origin, so every
+      // texture load is a cross-origin fetch from an opaque origin. Without
+      // CORS mode the video taints the WebGL texture and texImage2D throws a
+      // SecurityError, leaving the canvas blank (the scene-resource route
+      // answers Origin: null with access-control-allow-origin: null).
+      video.crossOrigin = 'anonymous';
       video.src = layer.videoUrl;
       video.loop = true;
       video.muted = true;
@@ -6515,8 +6521,12 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       updateParticles(dt);
     }
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    // Size the backing store in device pixels: on HiDPI displays a CSS-pixel
+    // canvas is upscaled by the compositor and the wallpaper looks soft
+    // (capped at 2x to bound GPU cost on very high DPR screens).
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, Math.round(window.innerWidth * dpr));
+    const height = Math.max(1, Math.round(window.innerHeight * dpr));
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;

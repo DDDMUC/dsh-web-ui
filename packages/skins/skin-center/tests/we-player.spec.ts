@@ -65,6 +65,22 @@ describe('WE scene player reflection pass (#742)', () => {
     expect(WE_SCENE_PLAYER_HTML).toContain('record.video.pause();')
   })
 
+  it('loads video textures in CORS mode for the sandboxed opaque-origin player', () => {
+    // The player iframe is sandboxed without allow-same-origin: a video
+    // element without crossOrigin taints the WebGL texture, texImage2D throws
+    // a SecurityError, and video-layer scenes (e.g. time-varying ones) render
+    // as a blank canvas over the shell.
+    expect(WE_SCENE_PLAYER_HTML).toContain("video.crossOrigin = 'anonymous';")
+  })
+
+  it('sizes the canvas backing store in device pixels for HiDPI displays', () => {
+    // A CSS-pixel canvas is upscaled by the compositor on scaled displays,
+    // which presents the live wallpaper at an abnormally low resolution.
+    expect(WE_SCENE_PLAYER_HTML).toContain('window.devicePixelRatio || 1')
+    expect(WE_SCENE_PLAYER_HTML).toContain('Math.round(window.innerWidth * dpr)')
+    expect(WE_SCENE_PLAYER_HTML).not.toContain('canvas.width = window.innerWidth')
+  })
+
   it('draws the reflection quad at the layer rect instead of forcing fullscreen', () => {
     expect(WE_SCENE_PLAYER_HTML).not.toContain('mat4Transform2D(sceneW / 2, sceneH / 2, sceneW, sceneH, 0)')
     expect(WE_SCENE_PLAYER_HTML).toContain("gl.getUniformLocation(progReflection, 'u_waterLine')")
