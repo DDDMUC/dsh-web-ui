@@ -255,6 +255,7 @@ export class WallpaperController implements WallpaperHandle {
   private dirsValue: string[] = []
   private readonly listeners = new Set<() => void>()
   private readonly scope: SettingsScope<WallpaperSection>
+  private readonly unsubscribe: () => void
   private readonly options: WallpaperControllerOptions
   private readonly doc: Document
 
@@ -287,7 +288,8 @@ export class WallpaperController implements WallpaperHandle {
     this.options = options
     this.doc = options.doc ?? document
     this.readAll()
-    scope.subscribe(() => {
+    this.unsubscribe = scope.subscribe(() => {
+      if (this.disposed) return
       this.readAll()
       if (this.enabledValue && this.selectionValue && (!this.applied || this.applied.id !== this.selectionValue)) {
         this.fetchAndSync()
@@ -639,7 +641,9 @@ export class WallpaperController implements WallpaperHandle {
   }
 
   dispose(): void {
+    if (this.disposed) return
     this.disposed = true
+    this.unsubscribe()
     this.mountObserver?.disconnect()
     this.mountObserver = null
     this.doc.removeEventListener('visibilitychange', this.onVisibility)
