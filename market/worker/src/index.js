@@ -3,8 +3,6 @@
  * Anonymous likes are Turnstile-gated when configured and stored in D1.
  */
 
-import { PETDEX_ASSETS } from './petdex-map.generated.js'
-
 const KINDS = new Set(['skin', 'pet', 'plugin'])
 const ASSET_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 const FP_RE = /^[A-Za-z0-9_-]{16,64}$/
@@ -159,17 +157,6 @@ export default {
         }
       }
       return json({ ok: false, error: 'skin-asset-not-found' }, 404)
-    }
-
-    // Petdex community index: metadata-only catalog. Asset bytes never touch
-    // this origin — requests for petdex-* assets miss the static dist and fall
-    // through to here, then redirect to the upstream R2 bucket.
-    const petdexAsset = path.match(/^\/assets\/pets\/(petdex-[a-z0-9][a-z0-9-]{0,63})\/(pet\.json|spritesheet\.webp)$/)
-    if (request.method === 'GET' && petdexAsset) {
-      const entry = PETDEX_ASSETS[petdexAsset[1]]
-      if (entry) {
-        return Response.redirect(petdexAsset[2] === 'pet.json' ? entry.petJson : entry.sprite, 302)
-      }
     }
 
     return json({ ok: false, error: 'not-found' }, 404)

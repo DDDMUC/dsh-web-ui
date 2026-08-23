@@ -47,21 +47,10 @@ test('skins.json 契约与资产存在性', () => {
 test('pets.json 契约与资产存在性', () => {
   const m = readJson('manifest/pets.json')
   assert.ok(Array.isArray(m.items), 'pets items array')
-  const ids = new Set()
   for (const item of m.items) {
     assert.ok(item.id && item.displayName, 'pet fields: ' + item.id)
     assert.equal(typeof item.rank, 'number', 'pet rank: ' + item.id)
-    assert.ok(!ids.has(item.id), 'duplicate pet id: ' + item.id)
-    ids.add(item.id)
-    if (item.external) {
-      // Petdex 索引条目：字节不落盘，spritesheet 必须是上游 https URL，
-      // files 固定为 worker 重定向直通的两个文件。
-      assert.ok(/^https:\/\/assets\.petdex\.dev\//.test(item.spritesheet), 'external spritesheet origin: ' + item.id)
-      assert.deepEqual(item.files, ['pet.json', 'spritesheet.webp'], 'external files: ' + item.id)
-      assert.equal(typeof item.credit, 'object', 'external credit: ' + item.id)
-    } else {
-      assert.ok(exists(item.spritesheet), 'spritesheet missing: ' + item.spritesheet)
-    }
+    assert.ok(exists(item.spritesheet), 'spritesheet missing: ' + item.spritesheet)
     for (const pv of item.previews || []) {
       assert.ok(exists(pv), 'pet preview missing: ' + pv)
     }
