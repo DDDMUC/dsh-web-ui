@@ -22,6 +22,8 @@ vi.mock('../api.ts', () => ({
   models: vi.fn(),
   selectModel: vi.fn(),
   sendCommand: vi.fn(),
+  cancelSession: vi.fn(),
+  fetchPending: vi.fn(),
 }))
 vi.mock('./App.tsx', async importOriginal => {
   const actual = await importOriginal<typeof import('./App.tsx')>()

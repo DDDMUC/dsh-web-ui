@@ -45,6 +45,7 @@ const apiProxy = {
     models: async () => ({ rpcId: 'r', result: { ok: true, value: { current: { provider: 'fx', model: 'fx-1' } } } }),
     selectModel: async () => ({ rpcId: 'r', result: { ok: true, value: { ok: true } } }),
     rename: async () => ({ rpcId: 'r', result: { ok: true, value: { ok: true } } }),
+    cancel: async () => ({ rpcId: 'r', result: { ok: true, value: { accepted: true } } }),
   },
   events: { mux: () => (async function* () {})() },
 } as unknown as ApiProxy
@@ -149,6 +150,7 @@ describe('mobile api envelope', () => {
         'session.models',
         'session.selectModel',
         'session.rename',
+        'session.cancel',
       ]) {
         const { status, body } = await call(server.port, method)
         expect(status).toBe(200)

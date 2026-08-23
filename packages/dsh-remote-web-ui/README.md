@@ -257,7 +257,9 @@ surface — settings/credentials/host-action domains stay unreachable only
 because the SDK pins those privileged methods to loopback. Pairing is full
 device trust; the `/m/api` proxy's model
 reads/writes are limited to the advisory `session.models` /
-`session.selectModel` pair. Separately, the exact paired-only model-catalog
+`session.selectModel` pair, and session control is limited to
+`session.cancel` (stops the active turn while preserving pending queued
+work — the phone has no queue management). Separately, the exact paired-only model-catalog
 routes may adopt models for an existing eligible `llm-pi-ai` provider; they
 cannot create providers or access credentials or general settings. Agent preset
 access to read-only `agentPreset.list`, creation to `session.create`
@@ -269,6 +271,12 @@ over Server-Sent Events on `/m/api/events.mux`. The canonical `/m/` page owns a 
 
 ### Behavior notes
 
+- While a turn runs (between its turn/start and turn/end frames), the
+  composer's primary button switches from 发送 to a stop button — the same
+  Send/Stop switch as the desktop input bar. Tapping it calls
+  `session.cancel` to stop the active turn (pending queued prompts resume
+  afterwards); the button is disabled while the stop request is in flight
+  and flips back to 发送 when the turn ends.
 - The mobile composer sends on Enter by default (Shift+Enter inserts a
   newline). Set `mobileEnterToSend: false` in the plugin settings card (or
   the profile patch) to make plain Enter insert a newline instead; sending
