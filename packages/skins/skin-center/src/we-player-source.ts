@@ -1998,8 +1998,10 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
   canvas.addEventListener('webglcontextrestored', () => {
     // WebGL objects are invalid after restoration. Ask the embedding
     // controller to rebuild this isolated renderer instead of drawing with
-    // stale programs/textures.
-    window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, window.location.origin);
+    // stale programs/textures. The player frame is sandboxed without
+    // allow-same-origin, so the embedding page's origin is unknown here;
+    // '*' delivers to the window the event source check identifies.
+    window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, '*');
   });
 
   // Load manifest
@@ -2013,10 +2015,13 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     })
     .catch(err => console.error('Failed to load scene manifest', err));
 
-  // Listen for controller messages; only the embedding parent on the same
-  // origin may steer the player.
+  // Listen for controller messages; only the embedding parent may steer the
+  // player. Origin cannot filter here: the player runs sandboxed without
+  // allow-same-origin, so an origin compare would be browser-dependent and
+  // the parent's messages carry its real origin. Only the identity of the
+  // sender (the exact embedding window) is trustworthy.
   window.addEventListener('message', (ev) => {
-    if (ev.source !== window.parent || ev.origin !== window.location.origin) return;
+    if (ev.source !== window.parent) return;
     const msg = ev.data;
     if (!msg || typeof msg !== 'object') return;
     if (msg.type === 'dsh-set-fit' && msg.fit) {
@@ -2027,7 +2032,7 @@ export const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       if (gl.isContextLost()) {
         const ext = gl.getExtension('WEBGL_lose_context');
         if (ext) ext.restoreContext();
-        else window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, window.location.origin);
+        else window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, '*');
       } else {
         // Force an immediate fresh frame after compositor/theme changes.
         renderFrame(performance.now());

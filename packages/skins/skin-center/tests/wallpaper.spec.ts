@@ -1166,3 +1166,100 @@ describe('installBootRestore', () => {
     expect(synced[0]).toEqual(scene)
   })
 })
+
+describe('wallpaper iframe sandbox (T1-1)', () => {
+  const web: WallpaperDescriptor = {
+    id: 'web-sandbox',
+    title: 'Web wallpaper',
+    type: 'web',
+    videoUrl: null,
+    webUrl: '/api/skin-center/we/web/sandbox/',
+    frameUrl: null,
+    sceneUrl: null,
+    previewUrl: '/api/skin-center/we/preview/sandbox',
+  }
+
+  it('mounts live web wallpapers in a script-only sandbox (no same-origin)', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(web)
+    const [media] = layers()
+    const iframe = media.querySelector('iframe')
+    expect(iframe).not.toBeNull()
+    expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts')
+    controller.dispose()
+  })
+
+  it('mounts live scene players in a script-only sandbox (no same-origin)', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection({
+      ...scene,
+      id: 'scene-sandbox',
+      sceneUrl: '/api/skin-center/we/scene-runtime/sandbox',
+    })
+    const [media] = layers()
+    const iframe = media.querySelector('iframe')
+    expect(iframe).not.toBeNull()
+    expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts')
+    expect(iframe?.dataset.dshScenePlayer).toBe('')
+    controller.dispose()
+  })
+
+  it('steers the sandboxed scene player through a wildcard target origin', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection({
+      ...scene,
+      id: 'steer',
+      sceneUrl: '/api/skin-center/we/scene-runtime/steer',
+    })
+    const player = layers()[0].querySelector('iframe')
+    const contentWindow = player?.contentWindow ?? null
+    expect(contentWindow).not.toBeNull()
+    if (contentWindow === null) { controller.dispose(); return }
+    const spy = vi.spyOn(contentWindow, 'postMessage')
+    controller.setFit('fill')
+    expect(spy).toHaveBeenCalledWith({ type: 'dsh-set-fit', fit: 'fill' }, '*')
+    controller.dispose()
+  })
+
+  it('validates scene reload messages by sender identity instead of origin', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection({
+      ...scene,
+      id: 'identity',
+      sceneUrl: '/api/skin-center/we/scene-runtime/identity',
+    })
+    const player = layers()[0].querySelector('iframe')
+    const contentWindow = player?.contentWindow ?? null
+    expect(contentWindow).not.toBeNull()
+    const win = document.defaultView
+    expect(win).not.toBeNull()
+    if (contentWindow === null || win === null) { controller.dispose(); return }
+    // Record src writes so the reload branch is observable (jsdom reloads
+    // nothing for an unchanged src).
+    const srcDescriptor = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'src')
+    expect(srcDescriptor).toBeDefined()
+    const writes: string[] = []
+    Object.defineProperty(player, 'src', {
+      configurable: true,
+      get() { return (srcDescriptor!.get as () => string).call(player) },
+      set(value: string) { writes.push(String(value)) },
+    })
+    const fire = (source: unknown, origin: string): void => {
+      const event = new win.MessageEvent('message', { data: { type: 'dsh-scene-needs-reload' }, origin })
+      Object.defineProperty(event, 'source', { value: source, configurable: true })
+      win.dispatchEvent(event)
+    }
+    // A message from any other window is ignored even with matching data.
+    fire(win, win.location.origin)
+    expect(writes).toHaveLength(0)
+    // The mounted player's message is honored even though its opaque origin
+    // surfaces as the literal string "null".
+    fire(contentWindow, 'null')
+    expect(writes.length).toBeGreaterThanOrEqual(1)
+    controller.dispose()
+  })
+})

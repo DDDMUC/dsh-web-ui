@@ -19,7 +19,12 @@
  * Tokens are base64url of an absolute path, issued only by the inventory
  * handler, so a crafted token can never reach a path the library scan did
  * not already expose. Every route rides the skin-center same-origin fence
- * (routes.ts) — wallpaper imports must not be triggerable cross-site.
+ * (routes.ts) — wallpaper imports must not be triggerable cross-site. The
+ * read-only content routes consumed by the wallpaper iframes themselves
+ * (/web/, /shim.js, /scene-manifest/, /scene-resource/) use the relaxed
+ * content-origin fence instead: those frames are sandboxed without
+ * allow-same-origin, so their own asset loads arrive as Sec-Fetch-Site:
+ * cross-site by design.
  *
  * Compliance note: this module only ever reads files already present on the
  * user's machine (their own Wallpaper Engine library) or copies them within
@@ -33,7 +38,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { pipeline, type Readable } from 'node:stream'
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath, sep } from 'node:path'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { json, readJsonBody, requireSameOrigin } from './http-utils.ts'
+import { json, readJsonBody, requireContentOrigin, requireSameOrigin } from './http-utils.ts'
 import {
   buildInventory,
   type WallpaperEntry,
@@ -230,6 +235,7 @@ function serveFile(
   req: IncomingMessage,
   res: ServerResponse,
   openReadStream: NonNullable<WeRouteDeps['openReadStream']>,
+  extraHeaders: Record<string, string> = {},
 ): void {
   if (!existsSync(absPath) || !statSync(absPath).isFile()) {
     json(res, 404, { ok: false, error: 'not-found' })
@@ -238,6 +244,7 @@ function serveFile(
   const size = statSync(absPath).size
   res.setHeader('Content-Type', mimeFor(absPath))
   res.setHeader('Accept-Ranges', 'bytes')
+  for (const [key, value] of Object.entries(extraHeaders)) res.setHeader(key, value)
   const range = req.headers.range
   if (range) {
     const match = /bytes=(\d*)-(\d*)/.exec(range)
@@ -514,8 +521,12 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/shim.js',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
-      if (!requireSameOrigin(req, res)) return
-      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' })
+      if (!requireContentOrigin(req, res)) return
+      res.writeHead(200, {
+        'content-type': 'text/javascript; charset=utf-8',
+        'cache-control': 'no-store',
+        'access-control-allow-origin': 'null',
+      })
       res.end(WE_SHIM_JS)
     },
   })
@@ -595,7 +606,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/web',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
-      if (!requireSameOrigin(req, res)) return
+      if (!requireContentOrigin(req, res)) return
       const pathname = new URL(req.url || '/', 'http://localhost').pathname
       let rest = ''
       try {
@@ -619,11 +630,18 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         const injected = /<head[^>]*>/i.test(html)
           ? html.replace(/<head[^>]*>/i, (m) => m + tag)
           : tag + html
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+          // The sandboxed wallpaper frame loads its own project files with an
+          // opaque origin, so module scripts and fetch() arrive as
+          // cross-origin CORS requests with Origin: null.
+          'access-control-allow-origin': 'null',
+        })
         res.end(injected)
         return
       }
-      serveFile(abs, req, res, openReadStream)
+      serveFile(abs, req, res, openReadStream, { 'Access-Control-Allow-Origin': 'null' })
     },
   })
 
@@ -700,7 +718,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/scene-manifest',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
-      if (!requireSameOrigin(req, res)) return
+      if (!requireContentOrigin(req, res)) return
       const abs = resolveToken(req, res, sceneManifestPrefix)
       if (!abs) return
       try {
@@ -712,7 +730,9 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
           json(res, 404, { ok: false, error: 'manifest-build-failed' })
           return
         }
-        json(res, 200, { ok: true, manifest })
+        // The sandboxed scene player fetches the manifest with an opaque
+        // origin (Origin: null), so the CORS response must allow exactly it.
+        json(res, 200, { ok: true, manifest }, { 'access-control-allow-origin': 'null' })
       } catch (err) {
         json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })
       }
@@ -726,7 +746,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
     path: WE_API_PREFIX + '/scene-resource',
     handler: (req, res) => {
       if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'method-not-allowed' }); return }
-      if (!requireSameOrigin(req, res)) return
+      if (!requireContentOrigin(req, res)) return
       const pathname = new URL(req.url || '/', 'http://localhost').pathname
       let rest = ''
       try {
@@ -749,7 +769,13 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
         // be decoded: label by payload, not by route name.
         const isPng = resBytes.length > 8 && resBytes[0] === 0x89 && resBytes[1] === 0x50 && resBytes[2] === 0x4e && resBytes[3] === 0x47
         const isMp4 = resBytes.length > 12 && resBytes[4] === 0x66 && resBytes[5] === 0x74 && resBytes[6] === 0x79 && resBytes[7] === 0x70
-        res.writeHead(200, { 'content-type': isPng ? 'image/png' : isMp4 ? 'video/mp4' : 'application/octet-stream', 'cache-control': 'no-store' })
+        // The sandboxed scene player textures load with crossOrigin, which
+        // makes them CORS requests with Origin: null.
+        res.writeHead(200, {
+          'content-type': isPng ? 'image/png' : isMp4 ? 'video/mp4' : 'application/octet-stream',
+          'cache-control': 'no-store',
+          'access-control-allow-origin': 'null',
+        })
         res.end(Buffer.from(resBytes))
       } catch (err) {
         json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) })

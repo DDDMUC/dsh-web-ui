@@ -25,9 +25,26 @@ var __exportAll = (all, no_symbols) => {
 //#endregion
 //#region src/http-utils.ts
 /** One JSON response. */
-function json(res, status, body) {
-	res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+function json(res, status, body, extraHeaders = {}) {
+	res.writeHead(status, {
+		"content-type": "application/json; charset=utf-8",
+		...extraHeaders
+	});
 	res.end(JSON.stringify(body));
+}
+/** True when an `Origin` header names a host other than the request Host.
+*  Browsers send Origin on CORS requests and on all POSTs; opaque origins
+*  (sandboxed iframes) serialize as the literal string "null". */
+function hasForeignOrigin(req) {
+	const origin = req.headers.origin;
+	if (typeof origin !== "string" || origin === "" || origin === "null") return false;
+	const host = req.headers.host;
+	if (typeof host !== "string" || host === "") return true;
+	try {
+		return new URL(origin).host !== host;
+	} catch {
+		return true;
+	}
 }
 /**
 * Same-origin fence. Browsers send Sec-Fetch-Site on every fetch: a
@@ -39,17 +56,7 @@ function json(res, status, body) {
 function isSameOriginRequest(req) {
 	const site = req.headers["sec-fetch-site"];
 	if (typeof site === "string" && site === "cross-site") return false;
-	const origin = req.headers.origin;
-	if (typeof origin === "string" && origin !== "" && origin !== "null") {
-		const host = req.headers.host;
-		if (typeof host !== "string" || host === "") return false;
-		try {
-			if (new URL(origin).host !== host) return false;
-		} catch {
-			return false;
-		}
-	}
-	return true;
+	return !hasForeignOrigin(req);
 }
 /** Reject cross-site requests with 403. */
 function requireSameOrigin(req, res) {
@@ -59,6 +66,25 @@ function requireSameOrigin(req, res) {
 		error: "cross-site-request-rejected"
 	});
 	return false;
+}
+/**
+* Fence for the read-only wallpaper-content serving routes (/web/,
+* /shim.js, /scene-manifest/, /scene-resource/). The wallpaper iframes are
+* sandboxed without allow-same-origin, so their documents carry an opaque
+* origin and every load they make (scripts, images, fetches) arrives as
+* Sec-Fetch-Site: cross-site — the strict fence would 403 the wallpaper's
+* own assets. These GETs are token-gated and side-effect free, so the
+* Sec-Fetch-Site check is dropped while the foreign-origin rejection stays.
+*/
+function requireContentOrigin(req, res) {
+	if (hasForeignOrigin(req)) {
+		json(res, 403, {
+			ok: false,
+			error: "cross-site-request-rejected"
+		});
+		return false;
+	}
+	return true;
 }
 /** Read a JSON request body (bounded to 64KB). */
 function readJsonBody(req) {
@@ -6977,8 +7003,10 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
   canvas.addEventListener('webglcontextrestored', () => {
     // WebGL objects are invalid after restoration. Ask the embedding
     // controller to rebuild this isolated renderer instead of drawing with
-    // stale programs/textures.
-    window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, window.location.origin);
+    // stale programs/textures. The player frame is sandboxed without
+    // allow-same-origin, so the embedding page's origin is unknown here;
+    // '*' delivers to the window the event source check identifies.
+    window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, '*');
   });
 
   // Load manifest
@@ -6992,10 +7020,13 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
     })
     .catch(err => console.error('Failed to load scene manifest', err));
 
-  // Listen for controller messages; only the embedding parent on the same
-  // origin may steer the player.
+  // Listen for controller messages; only the embedding parent may steer the
+  // player. Origin cannot filter here: the player runs sandboxed without
+  // allow-same-origin, so an origin compare would be browser-dependent and
+  // the parent's messages carry its real origin. Only the identity of the
+  // sender (the exact embedding window) is trustworthy.
   window.addEventListener('message', (ev) => {
-    if (ev.source !== window.parent || ev.origin !== window.location.origin) return;
+    if (ev.source !== window.parent) return;
     const msg = ev.data;
     if (!msg || typeof msg !== 'object') return;
     if (msg.type === 'dsh-set-fit' && msg.fit) {
@@ -7006,7 +7037,7 @@ const WE_SCENE_PLAYER_HTML = `<!DOCTYPE html>
       if (gl.isContextLost()) {
         const ext = gl.getExtension('WEBGL_lose_context');
         if (ext) ext.restoreContext();
-        else window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, window.location.origin);
+        else window.parent.postMessage({ type: 'dsh-scene-needs-reload' }, '*');
       } else {
         // Force an immediate fresh frame after compositor/theme changes.
         renderFrame(performance.now());
@@ -7181,7 +7212,7 @@ function pipeFile(absPath, res, openReadStream, options) {
 	}
 }
 /** Stream one file with Range support (video seeking needs 206). */
-function serveFile(absPath, req, res, openReadStream) {
+function serveFile(absPath, req, res, openReadStream, extraHeaders = {}) {
 	if (!existsSync(absPath) || !statSync(absPath).isFile()) {
 		json(res, 404, {
 			ok: false,
@@ -7192,6 +7223,7 @@ function serveFile(absPath, req, res, openReadStream) {
 	const size = statSync(absPath).size;
 	res.setHeader("Content-Type", mimeFor(absPath));
 	res.setHeader("Accept-Ranges", "bytes");
+	for (const [key, value] of Object.entries(extraHeaders)) res.setHeader(key, value);
 	const range = req.headers.range;
 	if (range) {
 		const match = /bytes=(\d*)-(\d*)/.exec(range);
@@ -7441,10 +7473,11 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
-			if (!requireSameOrigin(req, res)) return;
+			if (!requireContentOrigin(req, res)) return;
 			res.writeHead(200, {
 				"content-type": "text/javascript; charset=utf-8",
-				"cache-control": "no-store"
+				"cache-control": "no-store",
+				"access-control-allow-origin": "null"
 			});
 			res.end(WE_SHIM_JS);
 		}
@@ -7541,7 +7574,7 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
-			if (!requireSameOrigin(req, res)) return;
+			if (!requireContentOrigin(req, res)) return;
 			const pathname = new URL(req.url || "/", "http://localhost").pathname;
 			let rest = "";
 			try {
@@ -7584,12 +7617,13 @@ function makeWeRoutes(deps) {
 				const injected = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + tag) : tag + html;
 				res.writeHead(200, {
 					"content-type": "text/html; charset=utf-8",
-					"cache-control": "no-store"
+					"cache-control": "no-store",
+					"access-control-allow-origin": "null"
 				});
 				res.end(injected);
 				return;
 			}
-			serveFile(abs, req, res, openReadStream);
+			serveFile(abs, req, res, openReadStream, { "Access-Control-Allow-Origin": "null" });
 		}
 	});
 	const framePrefix = "/api/skin-center/we/scene-frame/";
@@ -7675,7 +7709,7 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
-			if (!requireSameOrigin(req, res)) return;
+			if (!requireContentOrigin(req, res)) return;
 			const abs = resolveToken(req, res, sceneManifestPrefix);
 			if (!abs) return;
 			try {
@@ -7697,7 +7731,7 @@ function makeWeRoutes(deps) {
 				json(res, 200, {
 					ok: true,
 					manifest
-				});
+				}, { "access-control-allow-origin": "null" });
 			} catch (err) {
 				json(res, 500, {
 					ok: false,
@@ -7717,7 +7751,7 @@ function makeWeRoutes(deps) {
 				});
 				return;
 			}
-			if (!requireSameOrigin(req, res)) return;
+			if (!requireContentOrigin(req, res)) return;
 			const pathname = new URL(req.url || "/", "http://localhost").pathname;
 			let rest = "";
 			try {
@@ -7759,7 +7793,8 @@ function makeWeRoutes(deps) {
 				const isMp4 = resBytes.length > 12 && resBytes[4] === 102 && resBytes[5] === 116 && resBytes[6] === 121 && resBytes[7] === 112;
 				res.writeHead(200, {
 					"content-type": isPng ? "image/png" : isMp4 ? "video/mp4" : "application/octet-stream",
-					"cache-control": "no-store"
+					"cache-control": "no-store",
+					"access-control-allow-origin": "null"
 				});
 				res.end(Buffer.from(resBytes));
 			} catch (err) {
