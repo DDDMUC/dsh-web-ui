@@ -597,6 +597,8 @@ export function buildInventory(opts: {
    * darwin; null disables the macOS sources explicitly.
    */
   macos?: MacosWallpaperRoots | null
+  /** Platform override for tests (the macOS scanner gates on darwin). */
+  platform?: NodeJS.Platform
 } = {}): WeInventory {
   const autoDetect = opts.autoDetect ?? true
   const installDir = opts.installDir !== undefined ? opts.installDir : (autoDetect ? locateWallpaperEngine() : null)
@@ -625,7 +627,7 @@ export function buildInventory(opts: {
     if (dir !== undefined && existsSync(dir)) for (const entry of scanManualWallpaperRoot(dir)) add(entry)
   }
   if (macos !== null) {
-    for (const entry of scanMacosWallpapers(macos)) add(entry)
+    for (const entry of scanMacosWallpapers(macos, { platform: opts.platform })) add(entry)
   }
 
   const imported = opts.storeDir ? scanImportStore(opts.storeDir) : []

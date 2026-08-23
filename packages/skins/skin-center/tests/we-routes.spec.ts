@@ -1044,6 +1044,7 @@ describe('macOS system wallpapers', () => {
       autoDetect: false,
       macosRoots: { aerials: [aerialRoot], pictures: [pictureRoot] },
       convertImage,
+      platform: 'darwin',
     }))
     return { aerialRoot, pictureRoot }
   }

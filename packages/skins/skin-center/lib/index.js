@@ -2918,7 +2918,7 @@ function buildInventory(opts = {}) {
 		const dir = trimmed !== void 0 ? expandUser(trimmed) : void 0;
 		if (dir !== void 0 && existsSync(dir)) for (const entry of scanManualWallpaperRoot(dir)) add(entry);
 	}
-	if (macos !== null) for (const entry of scanMacosWallpapers(macos)) add(entry);
+	if (macos !== null) for (const entry of scanMacosWallpapers(macos, { platform: opts.platform })) add(entry);
 	const imported = opts.storeDir ? scanImportStore(opts.storeDir) : [];
 	for (const entry of imported) {
 		const source = found.get(entry.id.replace(/^imported\//, ""));
@@ -7514,7 +7514,8 @@ function makeWeRoutes(deps) {
 			autoDetect: false,
 			installDir,
 			libraryDirs,
-			macos
+			macos,
+			platform: deps.platform
 		});
 		inventoryCache = {
 			key: inventoryFingerprint({

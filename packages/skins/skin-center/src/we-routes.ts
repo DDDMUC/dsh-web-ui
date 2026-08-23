@@ -139,6 +139,8 @@ export interface WeRouteDeps {
   autoDetect?: boolean
   /** macOS wallpaper roots override (tests); undefined uses the darwin defaults. */
   macosRoots?: MacosWallpaperRoots | null
+  /** Platform override for tests (the macOS scan gates on darwin). */
+  platform?: NodeJS.Platform
   /** HEIC converter override for tests (default: sips on darwin). */
   convertImage?: (src: string, dest: string) => Promise<void>
   /** Internal stream factory override used by route-level lifecycle tests. */
@@ -337,6 +339,7 @@ export function makeWeRoutes(deps: WeRouteDeps): WebRoute[] {
       installDir,
       libraryDirs,
       macos,
+      platform: deps.platform,
     })
     // Store a key computed from the entries this scan produced; the
     // previous entry set described the previous scan and would invalidate
