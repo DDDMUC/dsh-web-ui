@@ -913,14 +913,14 @@ export function makePetUI(rt: {
                 onClick: (e: ReactNS.MouseEvent<HTMLDivElement>) => e.stopPropagation(),
                 children: [
                   h('div', { className: 'miku-pet-shop-head', children: [
-                    h('span', { className: 'miku-pet-shop-head-deco', children: '✦' }),
+                    h('span', { className: 'miku-pet-shop-head-deco', children: '*' }),
                     h('b', { className: 'miku-pet-shop-title', children: 'miku商店' }),
-                    h('span', { className: 'miku-pet-shop-head-deco', children: '✦' }),
+                    h('span', { className: 'miku-pet-shop-head-deco', children: '*' }),
                   ] }),
                   h('button', {
                     className: 'miku-pet-shop-close',
                     onClick: (e: ReactNS.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setShopOpen(false); },
-                    children: '✕',
+                    children: '×',
                   }),
                   h('div', { className: 'miku-pet-shop-grid', children: SHOP_ITEMS.map((it) =>
                     h('div', { className: 'miku-pet-shop-cell', children: [
