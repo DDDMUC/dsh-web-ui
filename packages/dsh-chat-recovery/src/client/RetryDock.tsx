@@ -27,7 +27,7 @@ export const RetryDockView = memo(function RetryDockView(props: RetryDockProps) 
   const sessionId = session.sessionId
 
   const visible =
-    (state.phase === 'waiting' && state.sourceId === sessionId) ||
+    (state.phase === 'waiting' && (state.targetId ?? state.sourceId) === sessionId) ||
     (state.phase === 'running' && state.targetId === sessionId) ||
     ((state.phase === 'failed' || state.phase === 'exhausted') && state.sourceId === sessionId)
   if (!visible) return null

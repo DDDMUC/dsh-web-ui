@@ -52,7 +52,7 @@ export interface RetryState {
   delayMs: number | null
   /** The session the failed turn lives in. */
   sourceId: SessionId | null
-  /** The child currently re-running the turn (null while waiting). */
+  /** The retry child (null before creation; retained during later backoff waits). */
   targetId: SessionId | null
   /** Final failure reason (failed/exhausted states). */
   reason: string | null
@@ -78,7 +78,7 @@ export interface RetryPorts {
 }
 
 export interface RetrySupervisorOptions {
-  /** Fork-per-attempt automation is opt-in because every attempt creates a visible session. */
+  /** Automatic replay is opt-in because it creates a visible retry child and repeated messages. */
   autoRetry?: boolean
 }
 
@@ -98,8 +98,10 @@ export class RetrySupervisor {
   private readonly listeners = new Set<() => void>()
   private timer: (() => void) | null = null
   private plan: RetryPlan | null = null
-  /** User messages counted on the source when the cycle started (takeover guard). */
-  private userBaseline = 0
+  /** User messages counted on the session that owns the current backoff wait. */
+  private waitingUserBaseline = 0
+  /** Last completed turn/end on the session that owns the current backoff wait. */
+  private waitingEndBaseline = 0
   /** User messages the retry child is EXPECTED to carry (prefix + the replayed one). */
   private expectedUserCount = 0
   /** Last turn/end seq seen when the cycle reached a terminal phase (reset guard). */
@@ -157,13 +159,13 @@ export class RetrySupervisor {
         return
       }
       case 'waiting': {
-        const source = this.state.sourceId
-        if (source === null || current !== source) {
+        const owner = this.state.targetId ?? this.state.sourceId
+        if (owner === null || current !== owner) {
           this.cancel()
           return
         }
-        const snapshot = this.ports.snapshot(source)
-        if (snapshot !== undefined && (snapshot.running || userNodeCount(snapshot) > this.userBaseline)) {
+        const snapshot = this.ports.snapshot(owner)
+        if (snapshot !== undefined && (snapshot.running || userNodeCount(snapshot) > this.waitingUserBaseline)) {
           this.cancel()
         }
         return
@@ -182,6 +184,10 @@ export class RetrySupervisor {
           this.cancel()
           return
         }
+        // Opening or reusing a child can immediately replay its previous
+        // terminal snapshot through both subscriptions. Only a turn/end that
+        // advanced after this attempt started can settle the new prompt.
+        if (latestTurnEnd(snapshot) <= this.attemptStartEndSeq) return
         const verdict = verdictFor(snapshot)
         if (verdict.action === 'none') {
           const turn = lastTurnOf(snapshot)
@@ -192,11 +198,14 @@ export class RetrySupervisor {
           return
         }
         if (verdict.action === 'auto') {
-          if (this.state.attempt >= this.state.maxAttempts) {
+          if (this.state.kind === 'manual') {
+            this.settledEndSeq = verdict.failure.turnEndSeq
+            this.finish('failed', verdict.failure.message ?? '')
+          } else if (this.state.attempt >= this.state.maxAttempts) {
             this.settledEndSeq = verdict.failure.turnEndSeq
             this.finish('exhausted', verdict.failure.message ?? '')
           } else {
-            this.scheduleNext()
+            this.scheduleNext(userNodeCount(snapshot), latestTurnEnd(snapshot))
           }
           return
         }
@@ -258,14 +267,16 @@ export class RetrySupervisor {
     this.invalidateAttempt()
     this.resolveCycleTarget(sourceId)
     this.plan = plan
-    this.userBaseline = userNodeCount(snapshot)
-    this.publish({ phase: 'waiting', kind: 'manual', attempt: 0, maxAttempts: 1, delayMs: 0, sourceId, targetId: null, reason: null })
+    this.waitingUserBaseline = userNodeCount(snapshot)
+    this.waitingEndBaseline = latestTurnEnd(snapshot)
+    this.publish({ phase: 'waiting', kind: 'manual', attempt: 1, maxAttempts: 1, delayMs: 0, sourceId, targetId: null, reason: null })
     void this.runAttempt()
   }
 
   /** User-initiated cancel: no further attempts, ever (until a new failure arms one). */
   cancel(): void {
     if (this.disposed) return
+    const needsQuarantine = this.state.phase === 'running'
     this.invalidateAttempt()
     this.clearTimer()
     if (this.state.phase === 'idle' || this.state.phase === 'cancelled') return
@@ -276,7 +287,7 @@ export class RetrySupervisor {
     }
     const target = this.state.targetId
     if (target !== null) this.suppressFailure(this.ports.snapshot(target))
-    this.publish({ phase: 'cancelled', delayMs: null, reason: null })
+    this.publish({ phase: 'cancelled', delayMs: null, targetId: needsQuarantine ? target : null, reason: null })
   }
 
   /** UI "retry now": skip the remaining backoff wait. */
@@ -308,7 +319,8 @@ export class RetrySupervisor {
     this.resolveCycleTarget(sourceId)
     const snapshot = this.ports.snapshot(sourceId)
     this.plan = plan
-    this.userBaseline = snapshot === undefined ? 0 : userNodeCount(snapshot)
+    this.waitingUserBaseline = snapshot === undefined ? 0 : userNodeCount(snapshot)
+    this.waitingEndBaseline = latestTurnEnd(snapshot)
     this.publish({
       phase: 'waiting',
       kind: 'auto',
@@ -322,7 +334,10 @@ export class RetrySupervisor {
     this.scheduleNext()
   }
 
-  private scheduleNext(): void {
+  private scheduleNext(
+    waitingUserBaseline = this.waitingUserBaseline,
+    waitingEndBaseline = this.waitingEndBaseline,
+  ): void {
     if (this.disposed) return
     // A session event may settle the running child before prompt() returns.
     // Transfer ownership to the next timer now so that the late prompt result
@@ -333,7 +348,9 @@ export class RetrySupervisor {
     const delay = this.state.kind === 'manual'
       ? 0
       : BACKOFF_DELAYS_MS[Math.min(attempt - 1, BACKOFF_DELAYS_MS.length - 1)]
-    this.publish({ phase: 'waiting', attempt, delayMs: delay })
+    this.waitingUserBaseline = waitingUserBaseline
+    this.waitingEndBaseline = waitingEndBaseline
+    this.publish({ phase: 'waiting', attempt, delayMs: delay, targetId: this.state.targetId })
     const generation = this.operationGeneration
     this.timer = this.ports.schedule(() => {
       if (this.disposed || generation !== this.operationGeneration) return
@@ -350,6 +367,10 @@ export class RetrySupervisor {
     const plan = this.plan
     if (sourceId === null || plan === null) {
       this.reset()
+      return
+    }
+    if (!this.waitingOwnerIsValid()) {
+      this.cancel()
       return
     }
     const reused = this.cycleTargetId !== null
@@ -374,6 +395,12 @@ export class RetrySupervisor {
     }
     // Cancel raced a slow fork: do not open or prompt a cancelled cycle.
     if (!this.ownsAttempt(generation) || this.state.phase !== 'waiting') return
+    // Navigation or user input can race the timer/fork continuation before
+    // its subscription review runs. Revalidate at the last waiting boundary.
+    if (!this.waitingOwnerIsValid()) {
+      this.cancel()
+      return
+    }
     // A fresh child carries the source's history prefix (user messages at or
     // before the fork anchor) plus exactly one replayed message. A reused
     // child already carries one replayed message per finished attempt and is
@@ -381,13 +408,16 @@ export class RetrySupervisor {
     // expected count, never an absolute one.
     const sourceSnapshot = this.ports.snapshot(sourceId)
     const childSnapshot = reused ? this.ports.snapshot(targetId) : undefined
-    this.expectedUserCount = reused
-      ? (childSnapshot === undefined ? 0 : userNodeCount(childSnapshot)) + 1
+    const prePromptUserCount = reused
+      ? (childSnapshot === undefined ? this.waitingUserBaseline : userNodeCount(childSnapshot))
       : plan.forkAtSeq === null
-        ? 1
-        : (sourceSnapshot === undefined ? 0 : userNodeCountBefore(sourceSnapshot, plan.forkAtSeq)) + 1
-    this.attemptStartEndSeq = latestTurnEnd(this.ports.snapshot(targetId))
-    if (this.attemptStartEndSeq === 0) this.attemptStartEndSeq = plan.forkAtSeq ?? 0
+        ? 0
+        : (sourceSnapshot === undefined ? 0 : userNodeCountBefore(sourceSnapshot, plan.forkAtSeq))
+    this.expectedUserCount = prePromptUserCount + 1
+    const observedStartEndSeq = latestTurnEnd(childSnapshot)
+    this.attemptStartEndSeq = reused
+      ? Math.max(this.waitingEndBaseline, observedStartEndSeq)
+      : observedStartEndSeq || plan.forkAtSeq || 0
     this.publish({ phase: 'running', targetId })
     if (!this.ownsRunningAttempt(generation, targetId)) return
     this.ports.open(targetId)
@@ -407,10 +437,21 @@ export class RetrySupervisor {
     this.attemptInFlight = false
     if (!outcome.ok) {
       const reason = `${outcome.code ?? 'error'}: ${outcome.message ?? ''}`
-      if (this.state.kind === 'auto' && isRetryableError(outcome.code, outcome.message) && this.state.attempt < this.state.maxAttempts) {
-        this.scheduleNext()
+      const retryable = isRetryableError(outcome.code, outcome.message)
+      if (this.state.kind === 'auto' && retryable && this.state.attempt < this.state.maxAttempts) {
+        const snapshot = this.ports.snapshot(targetId)
+        // A failed prompt response cannot prove that the replay was not
+        // accepted. If the child advanced while the RPC was in flight, stop
+        // rather than blessing the new message as a backoff baseline and
+        // risking another replay.
+        if (snapshot !== undefined && (snapshot.running || userNodeCount(snapshot) > prePromptUserCount)) {
+          this.cancel()
+          return
+        }
+        this.scheduleNext(prePromptUserCount, this.attemptStartEndSeq)
       } else {
-        this.finish(this.state.attempt >= this.state.maxAttempts ? 'exhausted' : 'failed', reason)
+        const exhausted = this.state.kind === 'auto' && retryable && this.state.attempt >= this.state.maxAttempts
+        this.finish(exhausted ? 'exhausted' : 'failed', reason)
       }
       return
     }
@@ -437,6 +478,9 @@ export class RetrySupervisor {
     this.invalidateAttempt()
     this.clearTimer()
     this.plan = null
+    this.waitingUserBaseline = 0
+    this.waitingEndBaseline = 0
+    this.expectedUserCount = 0
     this.settledEndSeq = 0
     this.attemptStartEndSeq = 0
     this.publish({ ...IDLE })
@@ -454,6 +498,13 @@ export class RetrySupervisor {
 
   private ownsRunningAttempt(generation: number, targetId: SessionId): boolean {
     return this.ownsAttempt(generation) && this.state.phase === 'running' && this.state.targetId === targetId
+  }
+
+  private waitingOwnerIsValid(): boolean {
+    const owner = this.state.targetId ?? this.state.sourceId
+    if (owner === null || this.ports.currentId() !== owner) return false
+    const snapshot = this.ports.snapshot(owner)
+    return snapshot === undefined || (!snapshot.running && userNodeCount(snapshot) <= this.waitingUserBaseline)
   }
 
   /** Record one terminal failure so ordinary subscription churn cannot re-arm it. */

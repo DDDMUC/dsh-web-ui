@@ -24,7 +24,7 @@ text is re-submitted there, and the original conversation is never touched.
     transcript. One re-run is created per click, so no background retry can
     silently grow the session tree. Tool side effects are replayed only after
     this explicit confirmation.
-  - The supervisor still supports opt-in fork-per-attempt automation for
+  - The supervisor still supports opt-in automatic retry supervision for
     controlled integrations, but the shipped UI leaves it disabled because
     the current Host API has no in-place turn retry operation.
   - The composer dock shows a status row with the current attempt count,
@@ -52,8 +52,9 @@ text is re-submitted there, and the original conversation is never touched.
   inspection. The client runtime exposes no session-removal API, so stale
   retry forks must be cleaned up manually from the session list.
 - **No background session growth by default**: the shipped UI never starts
-  fork-per-attempt automation. Each Retry click creates exactly one branch;
-  tool side effects replay only on explicit user action.
+  automatic retry supervision. Each Retry click submits exactly one replay,
+  and a retry cycle creates at most one branch; tool side effects replay only
+  on explicit user action.
 - **Browser-side supervision**: retry state lives in the GUI tab. Closing
   the tab cancels supervision; the failed turn and its history remain
   durable on the host.
@@ -81,7 +82,7 @@ and the retry status row on the composer dock.
 
 ## Config
 
-The shipped UI keeps fork-per-attempt automatic retry disabled. Retry is an explicit transcript action and needs no configuration; controlled integrations that construct `RetrySupervisor` directly may opt in with `{ autoRetry: true }` while accepting visible child sessions for every attempt.
+The shipped UI keeps automatic retry disabled. Retry is an explicit transcript action and needs no configuration; controlled integrations that construct `RetrySupervisor` directly may opt in with `{ autoRetry: true }` while accepting one visible retry child per cycle and one replayed message there for every attempt.
 
 ## Known limitations
 
