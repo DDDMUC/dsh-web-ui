@@ -331,4 +331,3 @@ describe('primary-action derivation (issue #506 follow-up)', () => {
     expect(none.code).not.toContain('--dsw-alias-button-primary-')
   })
 })
-

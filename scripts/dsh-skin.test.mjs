@@ -132,4 +132,3 @@ test('validate warns (not fails) on a partial primary-action token set', () => {
   assert.match(r.out, /warning: primary action contrast/)
   rmSync(root, { recursive: true, force: true })
 })
-
