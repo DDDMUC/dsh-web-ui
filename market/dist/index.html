@@ -109,6 +109,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .mk-github:hover { color: var(--g-text); border-color: var(--g-line-strong); }
 .mk-github svg { width: 18px; height: 18px; }
 .mk-github-star { font-variant-numeric: tabular-nums; }
+/* 宽窗口下钉在视口右上角；窄窗口回到页头行尾。 */
+@media (min-width: 1400px) {
+  .mk-github { position: fixed; top: 14px; right: 18px; z-index: 30; }
+}
 
 /* ---------- podium ---------- */
 .mk-podium { margin: 6px 0 26px; }
