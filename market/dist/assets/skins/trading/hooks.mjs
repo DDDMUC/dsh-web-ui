@@ -35,9 +35,6 @@ const QUOTES_REFRESH_MS = 30_000
 /** Session-state refresh cadence. */
 const SESSION_REFRESH_MS = 60_000
 
-/** Workspace-count refresh cadence. */
-const WORKSPACES_REFRESH_MS = 30_000
-
 /** Title bar window buttons (decorative glyphs, aria-hidden). */
 const TITLEBAR_GLYPHS = ['–', '□', '×']
 
