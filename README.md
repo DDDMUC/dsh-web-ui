@@ -1,4 +1,4 @@
-# dsh-web · DSH Web UI
+# dsh-web · DSH Web 插件聚合生态包
 
 中文 | [English](README.en.md)
 

@@ -1,4 +1,4 @@
-# dsh-web · DSH Web UI
+# dsh-web · Aggregate Plugin Ecosystem for DSH Web
 
 [中文](README.md) | English
 
