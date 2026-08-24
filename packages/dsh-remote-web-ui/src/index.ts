@@ -31,10 +31,13 @@ import { lanIPv4Addresses } from './lan.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 import {
   checkUpdates,
+  fetchGitHubReleaseNotes,
   fetchLatestVersion,
+  RELEASE_NOTES_CACHE_TTL_MS,
   resolveAnchorManifest,
   resolveUpdateTarget,
   runUpdateVerified,
+  type UpdateReleaseNotes,
   type UpdateRunResult,
 } from './update.ts'
 import { makeUpdateRoutes } from './update-routes.ts'
@@ -309,6 +312,15 @@ function applyImpl(ctx: Context, config?: Config): void {
       return undefined
     }
   })
+
+  const releaseNotesCache = new Map<string, { at: number; notes?: UpdateReleaseNotes }>()
+  const fetchReleaseNotesCached = async (version: string): Promise<UpdateReleaseNotes | undefined> => {
+    const cached = releaseNotesCache.get(version)
+    if (cached !== undefined && Date.now() - cached.at < RELEASE_NOTES_CACHE_TTL_MS) return cached.notes
+    const notes = await fetchGitHubReleaseNotes(version, fetch)
+    releaseNotesCache.set(version, { at: Date.now(), notes })
+    return notes
+  }
   const updateRoutes = makeUpdateRoutes({
     // Control endpoints are host-surface only: a LAN/phone origin must never
     // trigger a real install on this machine.
@@ -323,6 +335,7 @@ function applyImpl(ctx: Context, config?: Config): void {
         }
       },
       fetchLatest: name => fetchLatestVersion(name, fetch),
+      fetchReleaseNotes: fetchReleaseNotesCached,
     }),
     run: async (): Promise<UpdateRunResult> => {
       const target = resolveUpdateTarget({ anchorManifestPath: resolveAnchorPath() })
@@ -352,6 +365,7 @@ function applyImpl(ctx: Context, config?: Config): void {
             }
           },
           fetchLatest: name => fetchLatestVersion(name, fetch),
+          fetchReleaseNotes: fetchReleaseNotesCached,
         },
       })
     },

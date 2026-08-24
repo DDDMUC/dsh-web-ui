@@ -11,9 +11,11 @@ import {
   checkUpdates,
   compareVersions,
   familyChildren,
+  fetchGitHubReleaseNotes,
   fetchLatestVersion,
   findProfile,
   isLinkedSpec,
+  parseReleaseNotesBody,
   parseSemver,
   resolveAnchorManifest,
   resolveUpdateTarget,
@@ -194,6 +196,53 @@ describe("resolveAnchorManifest", () => {
   })
 })
 
+describe("release notes", () => {
+  it("parses the Chinese release body into features, fixes, and other changes", () => {
+    const notes = parseReleaseNotesBody("0.1.11", `本次发布包含 1 项新功能、1 项修复、1 项其他改动。
+
+### 新功能
+
+- [market] add a new catalog page ([#123](https://github.com/zhu1090093659/dsh-web/issues/123))
+
+### 修复
+
+- [doctor] fix policy sync
+
+### 其他改动
+
+- [docs] update release notes
+
+<details>
+<summary>English</summary>
+
+### New Features
+
+- ignored English feature
+
+</details>`)
+    expect(notes).toEqual({
+      version: "0.1.11",
+      features: ["[market] add a new catalog page (#123)"],
+      fixes: ["[doctor] fix policy sync"],
+      other: ["[docs] update release notes"],
+    })
+  })
+
+  it("fetches and parses the GitHub Release body", async () => {
+    let requested = ""
+    const notes = await fetchGitHubReleaseNotes("0.1.11", async (url, init) => {
+      requested = url
+      expect(init?.headers).toMatchObject({ accept: "application/vnd.github+json" })
+      return {
+        ok: true,
+        json: async () => ({ body: "### 新功能\n- Add feature\n" }),
+      }
+    })
+    expect(requested).toBe("https://api.github.com/repos/zhu1090093659/dsh-web/releases/tags/v0.1.11")
+    expect(notes).toEqual({ version: "0.1.11", features: ["Add feature"], fixes: [], other: [] })
+  })
+})
+
 describe("checkUpdates", () => {
   it("checks every directly installed family package when the aggregate is absent", async () => {
     const { anchor } = standaloneFixture()
@@ -235,6 +284,30 @@ describe("checkUpdates", () => {
       { name: "@linxin666/dsh-ssh", current: "0.1.9", latest: "0.1.10", outdated: true },
     ])
   })
+  it("includes structured release notes when the seam returns them", async () => {
+    const anchor = npmFixture("0.1.10", "0.1.10")
+    const status = await checkUpdates({
+      anchorManifestPath: anchor,
+      resolve: () => join(fixture!, "profiles", "web", "node_modules", "@linxin666", "dsh-web-all", "package.json"),
+      fetchLatest: async () => "0.1.11",
+      fetchReleaseNotes: async version => ({ version, features: ["new"], fixes: ["fix"], other: ["other"] }),
+    })
+    expect(status.outdated).toBe(true)
+    expect(status.notes).toEqual({ version: "0.1.11", features: ["new"], fixes: ["fix"], other: ["other"] })
+  })
+
+  it("keeps the status usable when release-note fetching fails", async () => {
+    const anchor = npmFixture("0.1.10", "0.1.10")
+    const status = await checkUpdates({
+      anchorManifestPath: anchor,
+      resolve: () => join(fixture!, "profiles", "web", "node_modules", "@linxin666", "dsh-web-all", "package.json"),
+      fetchLatest: async () => "0.1.11",
+      fetchReleaseNotes: async () => { throw new Error("github unavailable") },
+    })
+    expect(status.outdated).toBe(true)
+    expect(status.notes).toBeUndefined()
+  })
+
   it("reports up-to-date when versions match", async () => {
     const anchor = npmFixture("0.1.10", "0.1.10")
     const status = await checkUpdates({

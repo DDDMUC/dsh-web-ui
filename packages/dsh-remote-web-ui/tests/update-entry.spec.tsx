@@ -117,6 +117,28 @@ describe("UpdateEntry", () => {
     expect(fetch).not.toHaveBeenCalledWith("/api/update/run", expect.anything())
   })
 
+  it("shows release-note sections and keeps component versions collapsible", async () => {
+    const status: UpdateStatus = {
+      ...outdatedStatus(),
+      notes: {
+        version: "0.1.11",
+        features: ["Add a new catalog page"],
+        fixes: ["Fix policy sync"],
+        other: ["Update documentation"],
+      },
+    }
+    mount(status)
+    fireEvent.click(screen.getByRole('button', { name: /Check for updates$/ }))
+    await waitFor(() => expect(screen.getByText('v0.1.11 release notes')).toBeTruthy())
+    expect(screen.getByText('New Features')).toBeTruthy()
+    expect(screen.getByText('Bug Fixes')).toBeTruthy()
+    expect(screen.getByText('Other Changes')).toBeTruthy()
+    expect(screen.getByText('Add a new catalog page')).toBeTruthy()
+    expect(screen.getByText('Fix policy sync')).toBeTruthy()
+    expect(screen.getByText('Update documentation')).toBeTruthy()
+    expect(screen.getByText('View component versions')).toBeTruthy()
+  })
+
   it("never starts the update from the check alone and runs it on confirmation (#507)", async () => {
     const { fetch } = mount(outdatedStatus(), { ok: true, exitCode: 0, output: "Done" })
     fireEvent.click(screen.getByRole('button', { name: /Check for updates$/ }))

@@ -116,8 +116,10 @@ that probes and runs the update.
   `@linxin666/dsh-*` family releases. Without the aggregate package, checks and
   updates cover every registry-managed direct `@linxin666/*` dependency in the
   profile; local link/file development dependencies are skipped. When a newer
-  release exists, the panel shows the version comparison and waits for
-  confirmation — clicking "Update now" runs the update (`pnpm update --latest` inside the
+  release exists, the panel shows the GitHub release notes grouped into New
+  Features / Bug Fixes / Other Changes and waits for confirmation; the exact
+  component-version list remains available in a collapsed section. Clicking
+  "Update now" runs the update (`pnpm update --latest` inside the
   owning dsh profile; when pnpm is missing it falls back to `corepack pnpm`
   and then `npx --yes pnpm`, and on Windows the command runs through
   `cmd.exe` so npm-installed `.cmd` shims resolve; the loopback-only
