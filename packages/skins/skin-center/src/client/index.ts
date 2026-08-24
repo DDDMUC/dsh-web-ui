@@ -23,7 +23,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SkinCenterSection, type SkinCenterInjected } from './SkinCenter.tsx'
 import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
-import { hasCustomSkinBackground, SKIN_BACKGROUND_FIELDS, type SkinBackgroundConfig } from '../core/background.ts'
+import type { SkinBackgroundConfig } from '../core/background.ts'
+import { reconcileSkinBackgroundScope } from '../core/background-scope.ts'
 import { SKIN_WALLPAPER_NS, WallpaperController, installBootRestore } from './wallpaper.ts'
 import { en, zh, type SkinCenterKey } from './locales.ts'
 import { bootSkinRuntime } from './runtime/boot.ts'
@@ -142,18 +143,36 @@ export function apply(ctx: ClientContext): void {
     persistTimer = null
     postBackground(background.snapshot(), true)
   }
-  // The legacy scope as a live INPUT face only: on loopback its snapshot
-  // carries the section (immediate boot values + settings-page edits); on a
-  // paired remote it stays empty and every read is skipped.
+  // The legacy scope is an input face for the loopback settings page only.
+  // Its resolved value contains schema defaults, so only the raw user layer may
+  // be reconciled into the authoritative v2 state.
   const backgroundScope = binder.bind<SkinBackgroundConfig>({ namespace: SKIN_BACKGROUND_NS })
   const scopeConfig = (): SkinBackgroundConfig | null => {
     const value = backgroundScope.getSnapshot().value
     if (value === undefined || value === null) return null
-    if (!SKIN_BACKGROUND_FIELDS.some((field) => value[field] !== undefined)) return null
     return value
   }
   let v2Loaded = false
+  // Scope revision fences unrelated settings-document publications. Seed it
+  // from the first view so the initial mirror publication is not mistaken for
+  // a user edit after the v2 fetch completes.
+  let lastScopeRevision: number | undefined = backgroundScope.getSnapshot().revision
   const background = new BackgroundController(scopeConfig(), persistBackground)
+  const reconcileScope = (): void => {
+    if (!v2Loaded) return
+    const snapshot = backgroundScope.getSnapshot()
+    const result = reconcileSkinBackgroundScope(
+      background.snapshot(),
+      { revision: snapshot.revision, user: snapshot.user },
+      lastScopeRevision,
+    )
+    if (!result.accepted) return
+    lastScopeRevision = result.revision
+    if (result.patch === null) return
+    const current = background.snapshot()
+    background.init({ ...current, ...result.patch })
+    persistBackground(background.snapshot())
+  }
   // Refetch the authoritative v2 state once booted; it wins over the scope
   // snapshot (the migration may only have run with this boot).
   void fetch(V2_ACTIVE_URL)
@@ -161,28 +180,19 @@ export function apply(ctx: ClientContext): void {
     .then((body) => {
       v2Loaded = true
       if (body?.background) background.init(body.background)
+      // Reconcile only a scope revision that changed while the v2 state was
+      // loading; an unchanged revision is the legacy boot snapshot.
+      reconcileScope()
     })
     .catch(() => {
       v2Loaded = true
+      reconcileScope()
     })
-  // Settings-page edits arrive through the scope publish; forward them into
-  // the v2 store so remote clients pick them up on their next load.
+  // Settings-page edits arrive through the scope publish. The settings mirror
+  // may republish this namespace for an unrelated document change, so fence on
+  // the namespace revision and use only explicitly stored user fields.
   ctx.effect(
-    () => backgroundScope.subscribe(() => {
-      if (!v2Loaded) return
-      const next = scopeConfig()
-      if (next === null) return
-      const current = background.snapshot()
-      const isDiff = (Object.keys(next) as Array<keyof SkinBackgroundConfig>).some(
-        (key) => next[key] !== undefined && next[key] !== current[key],
-      )
-      if (!isDiff) return
-      if (!hasCustomSkinBackground(next) && hasCustomSkinBackground(current)) {
-        return
-      }
-      background.init(next)
-      persistBackground(background.snapshot())
-    }),
+    () => backgroundScope.subscribe(reconcileScope),
     'ui-skin-center: background scope sync',
   )
   // Tear the blur element + observer down when this plugin's fiber goes away.
