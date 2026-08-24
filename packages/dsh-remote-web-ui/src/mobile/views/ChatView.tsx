@@ -625,11 +625,19 @@ const MessageRow = memo(function MessageRow({ message, showToolCalls, showSystem
   showSystemMessages: boolean
 }) {
   // Injected user messages (sourceKind defined and not 'user') hide behind
-  // the system-message toggle. Assistant messages are never hidden.
+  // the system-message toggle.
   if (message.kind === 'user'
     && message.sourceKind !== undefined
     && message.sourceKind !== 'user'
     && !showSystemMessages) {
+    return null
+  }
+  const hasReasoning = message.kind === 'assistant' && message.reasoning !== undefined && message.reasoning !== ''
+  const hasTools = showToolCalls && message.kind === 'assistant' && message.tools !== undefined && message.tools.length > 0
+  const hasText = message.text !== ''
+  const hasFailTag = message.failed === true
+
+  if (!hasReasoning && !hasTools && !hasText && !hasFailTag) {
     return null
   }
   return (
@@ -780,7 +788,7 @@ function MarkdownText({ text, pending }: { text: string; pending: boolean }) {
       if (timerRef.current !== undefined) clearTimeout(timerRef.current)
     }
   }, [])
-  const long = text.length > LONG_TEXT_LIMIT
+  const long = !pending && text.length > LONG_TEXT_LIMIT
   const collapsed = long && !open
   return (
     <div className={'chat-msg-text chat-md' + (collapsed ? ' chat-md-collapsed' : '')}>
@@ -811,7 +819,7 @@ function CollapsibleText({ text }: { text: string }) {
   )
 }
 
-const LONG_TEXT_LIMIT = 1600
+export const LONG_TEXT_LIMIT = 6000
 const LONG_TEXT_PREVIEW = 800
 
 /** Latest non-empty line of a streaming reasoning buffer. */
