@@ -37,21 +37,37 @@ function b64uToBytes(text) {
 
 /** Verify the Access JWT signature, audience and expiry against the team. */
 async function accessVerified(request, env) {
+  const fail = (reason) => { console.log('[access-denied] ' + reason); return false }
   const jwt = request.headers.get('cf-access-jwt-assertion')
-  if (!jwt || !env.ACCESS_TEAM || !env.ACCESS_AUD) return false
+  if (!jwt) return fail('no jwt header')
+  if (!env.ACCESS_TEAM || !env.ACCESS_AUD) return fail('secrets unset')
   const [headB64, claimsB64, sigB64] = jwt.split('.')
-  if (!headB64 || !claimsB64 || !sigB64) return false
+  if (!headB64 || !claimsB64 || !sigB64) return fail('malformed jwt')
   let header, claims
   try {
     header = JSON.parse(new TextDecoder().decode(b64uToBytes(headB64)))
     claims = JSON.parse(new TextDecoder().decode(b64uToBytes(claimsB64)))
-  } catch { return false }
-  if (claims.aud !== env.ACCESS_AUD || Number(claims.exp) * 1000 < Date.now()) return false
-  const keys = await getJwks(env.ACCESS_TEAM)
+  } catch { return fail('undecodable claims') }
+  // Access issues aud as a string for some app shapes and a single-element
+  // array for others; accept both.
+  const audOk = Array.isArray(claims.aud) ? claims.aud.includes(env.ACCESS_AUD) : claims.aud === env.ACCESS_AUD
+  if (!audOk) return fail('aud mismatch: ' + JSON.stringify(claims.aud))
+  if (Number(claims.exp) * 1000 < Date.now()) return fail('expired')
+  let keys
+  try {
+    keys = await getJwks(env.ACCESS_TEAM)
+  } catch (error) {
+    return fail('jwks fetch failed: ' + error.message)
+  }
   const jwk = keys.find((key) => key.kid === header.kid)
-  if (!jwk) return false
+  if (!jwk) return fail('kid not found: ' + JSON.stringify(header.kid))
   const cryptoKey = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'])
-  return crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, b64uToBytes(sigB64), b64uToBytes(headB64 + '.' + claimsB64))
+  // The signing input is the literal ASCII "header.payload" string, not
+  // base64-decoded data; only the signature itself is base64url.
+  const signingInput = new TextEncoder().encode(headB64 + '.' + claimsB64)
+  const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, b64uToBytes(sigB64), signingInput)
+  if (!ok) return fail('signature invalid')
+  return true
 }
 
 function page(status, title, body) {
@@ -82,29 +98,73 @@ function esc(text) {
   return String(text).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]))
 }
 
+/** Chinese dashboard for the private telemetry view. CSP-safe: no scripts,
+ * bars are pure CSS widths. */
 function renderDashboard(data, days) {
   const site = data.site || { totals: {}, daily: [], top_paths: [] }
   const plugins = data.plugins || { items: [] }
-  const dailyRows = site.daily.map((row) =>
-    '<tr><td>' + esc(row.day) + '</td><td>' + esc(row.pv) + '</td><td>' + esc(row.uv) + '</td></tr>').join('')
-  const pathRows = site.top_paths.map((row) =>
-    '<tr><td><code>' + esc(row.path) + '</code></td><td>' + esc(row.pv) + '</td></tr>').join('')
-  const itemRows = plugins.items.map((row) =>
-    '<tr><td><code>' + esc(row.item) + '</code></td><td>' + esc(row.instances) + '</td><td>' + esc(row.active_today) + '</td></tr>').join('')
+  const daily = [...site.daily]
+  const today = daily.at(-1) || { pv: 0, uv: 0 }
+  const maxPv = Math.max(1, ...daily.map((row) => Number(row.pv) || 0))
+
+  const cards = [
+    ['今日 PV', today.pv],
+    ['今日 UV', today.uv],
+    ['区间累计 PV', site.totals.pv || 0],
+    ['区间累计 UV（按日去重求和）', site.totals.uv_daily_sum || 0],
+  ].map(([label, value]) =>
+    '<div class="card"><div class="card-value">' + esc(value) + '</div><div class="card-label">' + esc(label) + '</div></div>').join('')
+
+  const barRows = daily.map((row) => {
+    const width = Math.max(2, Math.round((Number(row.pv) / maxPv) * 100))
+    return '<tr><td class="day">' + esc(row.day) + '</td>'
+      + '<td class="barcell"><div class="bar" style="width:' + width + '%"></div></td>'
+      + '<td class="num">' + esc(row.pv) + '</td><td class="num">' + esc(row.uv) + '</td></tr>'
+  }).join('')
+
+  const pathRows = site.top_paths.length
+    ? site.top_paths.map((row) =>
+        '<tr><td><code>' + esc(row.path) + '</code></td><td class="num">' + esc(row.pv) + '</td></tr>').join('')
+    : '<tr><td colspan="2" class="empty">暂无数据</td></tr>'
+
+  const itemRows = plugins.items.length
+    ? plugins.items.map((row) =>
+        '<tr><td><code>' + esc(row.item) + '</code></td><td class="num">' + esc(row.instances) + '</td><td class="num">' + esc(row.active_today) + '</td></tr>').join('')
+    : '<tr><td colspan="3" class="empty">暂无心跳数据——插件心跳要等含遥测的版本发布、用户更新后才会出现</td></tr>'
+
+  const ranges = [7, 30, 90, 365].map((n) =>
+    n === days ? '<b class="range on">' + n + ' 天</b>' : '<a class="range" href="?days=' + n + '">' + n + ' 天</a>').join(' · ')
+
   return [
-    '<style>body{font:14px/1.6 -apple-system,sans-serif;color:#e5e7eb;background:#111827;max-width:880px;margin:24px auto;padding:0 16px}',
-    'h1{font-size:20px}h2{font-size:16px;margin-top:24px}table{border-collapse:collapse;width:100%;margin:8px 0}',
-    'th,td{border:1px solid #374151;padding:5px 10px;text-align:left}th{background:#1f2937}code{color:#93c5fd}</style>',
-    '<h1>dsh-web-ui telemetry</h1>',
-    '<p>last ' + esc(days) + ' days &middot; <a href="?days=' + esc(days) + '" style="color:#93c5fd">refresh</a> &middot; ',
-    '<a href="?days=7" style="color:#93c5fd">7d</a> <a href="?days=30" style="color:#93c5fd">30d</a> <a href="?days=90" style="color:#93c5fd">90d</a> <a href="?days=365" style="color:#93c5fd">365d</a></p>',
-    '<h2>Site PV / UV</h2>',
-    '<p>Total PV <b>' + esc(site.totals.pv || 0) + '</b> &middot; UV sum <b>' + esc(site.totals.uv_daily_sum || 0) + '</b></p>',
-    '<table><tr><th>day</th><th>PV</th><th>UV</th></tr>' + dailyRows + '</table>',
-    '<h2>Top paths</h2>',
-    '<table><tr><th>path</th><th>PV</th></tr>' + pathRows + '</table>',
-    '<h2>Plugin installs (instances = distinct browsers; active today = heartbeated today)</h2>',
-    '<table><tr><th>package</th><th>instances</th><th>active today</th></tr>' + itemRows + '</table>',
+    '<style>',
+    '*{box-sizing:border-box}body{font:14px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#e5e7eb;background:#0f172a;max-width:920px;margin:0 auto;padding:32px 20px 64px}',
+    'h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:36px 0 12px;color:#93c5fd;font-weight:600}',
+    '.sub{color:#64748b;margin:0 0 20px}.meta{color:#94a3b8;margin-bottom:4px}',
+    '.range{color:#93c5fd;text-decoration:none}.range.on{color:#e5e7eb}',
+    '.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:20px 0}',
+    '.card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px 18px}',
+    '.card-value{font-size:28px;font-weight:700;color:#f1f5f9}',
+    '.card-label{font-size:12px;color:#94a3b8;margin-top:2px}',
+    'table{border-collapse:collapse;width:100%}th,td{padding:7px 12px;text-align:left;border-bottom:1px solid #1e293b}',
+    'th{color:#94a3b8;font-weight:500;font-size:12px}tr:hover td{background:#16213a}',
+    '.num{text-align:right;font-variant-numeric:tabular-nums;width:90px}',
+    '.day{color:#94a3b8;white-space:nowrap;width:110px}',
+    '.barcell{width:55%}.bar{height:14px;border-radius:4px;background:linear-gradient(90deg,#3b82f6,#60a5fa)}',
+    'code{color:#93c5fd;font-size:13px}.empty{color:#64748b;padding:18px 12px}',
+    '.foot{margin-top:40px;color:#475569;font-size:12px}',
+    '</style>',
+    '<h1>dsh-web-ui 使用统计</h1>',
+    '<p class="sub">站点与插件的匿名 UV / PV 实时汇总 · 数据源 dsh-market.com</p>',
+    '<p class="meta">最近 ' + esc(days) + ' 天 · ' + ranges + ' · <a class="range" href="?days=' + esc(days) + '">刷新</a></p>',
+    '<div class="cards">' + cards + '</div>',
+    '<h2>站点访问趋势</h2>',
+    '<table><tr><th>日期</th><th></th><th class="num">PV</th><th class="num">UV</th></tr>' + barRows + '</table>',
+    '<h2>热门路径</h2>',
+    '<table><tr><th>路径</th><th class="num">PV</th></tr>' + pathRows + '</table>',
+    '<h2>插件安装量</h2>',
+    '<p class="meta">独立实例 = 去重浏览器数；当日活跃 = 今日上报过心跳的实例数</p>',
+    '<table><tr><th>包</th><th class="num">独立实例</th><th class="num">当日活跃</th></tr>' + itemRows + '</table>',
+    '<p class="foot">所有事件均匿名（随机 ID 加盐哈希，不存 IP），仅展示聚合计数。契约见 docs/telemetry.md。</p>',
   ].join('')
 }
 
