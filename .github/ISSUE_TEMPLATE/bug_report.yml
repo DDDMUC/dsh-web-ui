@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        请保持本模板完整并填写所有必填部分。缺少截图证据、冒烟测试、代码引用或补丁的 Bug 报告将被自动关闭。
+        请保持本模板完整并填写所有必填部分。缺少截图证据、冒烟测试或代码引用的 Bug 报告将被自动关闭。
 
         提交前请先搜索确认没有重复：[搜索现有 Issue](https://github.com/zhu1090093659/dsh-web/issues?q=is%3Aissue)
   - type: checkboxes
@@ -110,19 +110,6 @@ body:
       placeholder: |
         packages/dsh-task-board/src/client/index.ts:120-135
         https://github.com/zhu1090093659/dsh-web/blob/main/packages/dsh-task-board/src/client/index.ts#L120-L135
-    validations:
-      required: true
-  - type: textarea
-    id: patch
-    attributes:
-      label: 补丁
-      description: 提供你建议的修复补丁或实现草案（diff 或代码片段），即使不完整；只描述问题而不附补丁或草案的 Issue 将被关闭。
-      placeholder: |
-        ```diff
-        --- a/packages/dsh-task-board/src/client/index.ts
-        +++ b/packages/dsh-task-board/src/client/index.ts
-        @@ ... @@
-        ```
     validations:
       required: true
   - type: textarea

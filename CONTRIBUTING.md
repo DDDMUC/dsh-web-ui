@@ -159,7 +159,7 @@ README 中英三件套（`pnpm docs:write-pair dsh-pet`），
 ## Issue 与讨论
 
 - Bug / 功能请求用 [Issue 模板](.github/ISSUE_TEMPLATE/standard_issue.yml) 提交，
-  Bug 用「Bug 报告」表单（自动附加 `bug` 标签），需附截图、冒烟测试、引用代码与建议补丁；
+  Bug 用「Bug 报告」表单（自动附加 `bug` 标签），需附截图、冒烟测试与引用代码；
 - 社区交流见根 README 的「社区」小节；
 - 提 Issue 前先按标签检索（`bug` / `enhancement` / `question` /
   `good first issue` / `duplicate`）并搜索关键词，确认没有重复再提交；

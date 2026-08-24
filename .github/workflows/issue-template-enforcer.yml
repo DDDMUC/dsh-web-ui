@@ -55,7 +55,7 @@ jobs:
             const hasBugLabel = (issue.labels || []).some((label) => String(label.name || '').toLowerCase() === 'bug');
             const isBug = issueType === 'bug 报告' || hasBugLabel;
             const requiredSections = isBug
-              ? [...baseRequiredSections, 'Bug 截图', '冒烟测试', '引用代码', '补丁']
+              ? [...baseRequiredSections, 'Bug 截图', '冒烟测试', '引用代码']
               : baseRequiredSections;
 
             const missingSections = requiredSections.filter((label) => isBlank(readSection(label)));
