@@ -6,6 +6,7 @@
  */
 
 import { handleTelemetryPost, handleTelemetrySummary } from './telemetry.js'
+import { handleNpmBadge } from './npm-badge.js'
 import API_CATALOG from './api-catalog.js'
 import OPENAPI_SPEC from './openapi.js'
 import API_DOCS_HTML from './api-doc.js'
@@ -209,6 +210,8 @@ export default {
 
     if (request.method === 'OPTIONS' && (path === '/api/like' || path === '/api/stats' || path === '/api/telemetry/event')) return preflight(request)
     if (path === '/api/health') return json({ ok: true })
+    if (path === '/api/npm-badge/downloads' && request.method === 'GET') return handleNpmBadge('downloads', json)
+    if (path === '/api/npm-badge/version' && request.method === 'GET') return handleNpmBadge('version', json)
     if (path === '/api/turnstile/challenge' && request.method === 'GET') return challengePage()
 
     if (path === '/api/stats' && request.method === 'GET') {

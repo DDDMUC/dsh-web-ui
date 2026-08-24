@@ -113,6 +113,18 @@ export default {
         },
       },
     },
+    '/api/npm-badge/downloads': {
+      get: {
+        summary: 'Shields endpoint badge: monthly npm downloads summed over the current and legacy aggregate package names',
+        responses: { 200: { description: 'Shields endpoint schema (schemaVersion 1)' } },
+      },
+    },
+    '/api/npm-badge/version': {
+      get: {
+        summary: 'Shields endpoint badge: latest aggregate version across the current and legacy package names',
+        responses: { 200: { description: 'Shields endpoint schema (schemaVersion 1)' } },
+      },
+    },
     '/api/skin-center/v2/skins/{skinId}/{asset}': {
       get: {
         summary: 'Skin asset (stylesheet, patches, hooks.mjs, assets/*, preview/*)',
