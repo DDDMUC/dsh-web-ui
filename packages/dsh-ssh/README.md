@@ -32,15 +32,15 @@ Built on the capability list of [badseal/ssh-skill](https://github.com/badseal/s
 
 ## Install
 
-Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
+Install the family aggregate package `@linxin666/dsh-web-all` (all plugins and skins in one) or this plugin alone:
 
 ```sh
 ### From npm (recommended)
 dsh plugin --profile web add @linxin666/dsh-ssh@latest
 
 ### From the repository (development)
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/zhu1090093659/dsh-web.git
+cd dsh-web
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-ssh
 

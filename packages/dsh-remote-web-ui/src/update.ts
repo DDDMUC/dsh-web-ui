@@ -1,6 +1,6 @@
 /**
- * Remote update support for the dsh-web-ui family — host half. Detects the
- * installed aggregate package (@linxin666/dsh-web-ui-all), or the directly
+ * Remote update support for the dsh-web family — host half. Detects the
+ * installed aggregate package (@linxin666/dsh-web-all), or the directly
  * installed family packages when the aggregate is absent, probes npm for newer
  * releases, and runs `pnpm update --latest` inside the owning dsh profile.
  *
@@ -16,11 +16,11 @@ import { spawn } from 'node:child_process'
 /** npm registry base used for version probes. */
 export const NPM_REGISTRY = 'https://registry.npmjs.org'
 
-/** The family scope every dsh-web-ui package is published under. */
+/** The family scope every dsh-web package is published under. */
 export const FAMILY_SCOPE = '@linxin666/'
 
 /** The aggregate package that is the canonical update entry point. */
-export const AGGREGATE_PACKAGE = '@linxin666/dsh-web-ui-all'
+export const AGGREGATE_PACKAGE = '@linxin666/dsh-web-all'
 
 /** Fallback anchor: this plugin's own package when the aggregate is absent. */
 export const SELF_PACKAGE = '@linxin666/dsh-remote-web-ui'

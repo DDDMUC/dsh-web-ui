@@ -1,4 +1,4 @@
-// Regenerate docs/dsh-web-ui-banner.png from banner.html.
+// Regenerate docs/dsh-web-banner.png from banner.html.
 // Usage: node scripts/banner/shoot.mjs
 import { chromium } from 'playwright'
 import { fileURLToPath } from 'node:url'
@@ -7,7 +7,7 @@ import path from 'node:path'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '../..')
 const page_path = path.join(here, 'banner.html')
-const out = path.join(root, 'docs/dsh-web-ui-banner.png')
+const out = path.join(root, 'docs/dsh-web-banner.png')
 
 const browser = await chromium.launch()
 const page = await browser.newPage({

@@ -2,9 +2,9 @@
 
 [English](README.md) | 中文
 
-> 手机与电脑远程访问 + 一键远程更新：扫码配对后用手机远程使用当前 dsh web 工作区，同一枚令牌也可配对电脑浏览器、在其他设备上运行完整 Web GUI；侧边栏加载后静默检查 dsh-web-ui 全家桶新版本，发现时标记更新按钮；点击按钮后自动更新全家桶。
+> 手机与电脑远程访问 + 一键远程更新：扫码配对后用手机远程使用当前 dsh web 工作区，同一枚令牌也可配对电脑浏览器、在其他设备上运行完整 Web GUI；侧边栏加载后静默检查 dsh-web 全家桶新版本，发现时标记更新按钮；点击按钮后自动更新全家桶。
 
-本仓库是 DeepSeek Harness（DSH）的外部插件包：为 dsh web GUI 提供基于配对的手机与电脑远程访问，外加 dsh-web-ui 全家桶的一键自更新。它是单一双半区包——host 半区持有配对令牌、设备会话、`/api/pair` 路由族、门控的 `/remote` 桌面通道与 `/api/update` 面板；浏览器半区渲染侧边栏底部入口（下载触发按钮与设置按钮旁的手机图标入口）、带二维码的配对面板、实时设备状态、已授权设备列表，以及停止/刷新/复制操作，还渲染探测并执行更新的更新面板。
+本仓库是 DeepSeek Harness（DSH）的外部插件包：为 dsh web GUI 提供基于配对的手机与电脑远程访问，外加 dsh-web 全家桶的一键自更新。它是单一双半区包——host 半区持有配对令牌、设备会话、`/api/pair` 路由族、门控的 `/remote` 桌面通道与 `/api/update` 面板；浏览器半区渲染侧边栏底部入口（下载触发按钮与设置按钮旁的手机图标入口）、带二维码的配对面板、实时设备状态、已授权设备列表，以及停止/刷新/复制操作，还渲染探测并执行更新的更新面板。
 
 ## 功能
 
@@ -37,15 +37,15 @@
 
 ## 安装
 
-推荐直接安装全家桶聚合包 `@linxin666/dsh-web-ui-all`（一个包装齐全部功能插件与皮肤），或单独安装本插件：
+推荐直接安装全家桶聚合包 `@linxin666/dsh-web-all`（一个包装齐全部功能插件与皮肤），或单独安装本插件：
 
 ```sh
 ### 从 npm 安装（推荐）
 dsh plugin --profile web add @linxin666/dsh-remote-web-ui@latest
 
 ### 从仓库安装（开发调试）
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/zhu1090093659/dsh-web.git
+cd dsh-web
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 

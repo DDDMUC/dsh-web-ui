@@ -63,7 +63,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
-    /** Optional rc.6 compatibility binder provided by dsh-web-ui-settings. */
+    /** Optional rc.6 compatibility binder provided by dsh-web-settings. */
     webUiSettings?: { bind<S>(spec: SettingsScopeSpec<S>): SettingsScope<S> }
   }
 }

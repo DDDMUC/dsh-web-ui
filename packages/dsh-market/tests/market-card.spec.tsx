@@ -109,7 +109,7 @@ function cardProps(
 const REMOTE = {
   items: {
     skin: [
-      { id: 'whale-song', name: '鲸吟', nameEn: 'Whale Song', author: 'dsh-web-ui', rank: 1, preview: { light: 'a.png' }, description: '深海' },
+      { id: 'whale-song', name: '鲸吟', nameEn: 'Whale Song', author: 'dsh-web', rank: 1, preview: { light: 'a.png' }, description: '深海' },
     ],
     pet: [
       { id: 'whale-girl', displayName: '鲸鱼娘（原版）', author: '', rank: 1, previews: ['idle.gif'] },

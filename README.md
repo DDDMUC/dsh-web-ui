@@ -1,21 +1,21 @@
-# dsh-web-ui · DSH Web UI
+# dsh-web · DSH Web UI
 
 中文 | [English](README.en.md)
 
 <p align="center">
-  <img src="docs/dsh-web-ui-banner.png" alt="dsh-web-ui" width="100%">
+  <img src="docs/dsh-web-banner.png" alt="dsh-web" width="100%">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/v/release/zhu1090093659/dsh-web-ui?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/github/v/release/zhu1090093659/dsh-web?style=flat-square" alt="Version">
   &nbsp;
-  <img src="https://img.shields.io/github/stars/zhu1090093659/dsh-web-ui?style=flat-square" alt="Stars">
+  <img src="https://img.shields.io/github/stars/zhu1090093659/dsh-web?style=flat-square" alt="Stars">
   &nbsp;
-  <img src="https://img.shields.io/github/forks/zhu1090093659/dsh-web-ui?style=flat-square" alt="Forks">
+  <img src="https://img.shields.io/github/forks/zhu1090093659/dsh-web?style=flat-square" alt="Forks">
   &nbsp;
-  <a href="https://www.npmjs.com/package/@linxin666/dsh-web-ui-all"><img src="https://img.shields.io/npm/v/@linxin666%2Fdsh-web-ui-all?style=flat-square&label=npm" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@linxin666/dsh-web-all"><img src="https://img.shields.io/npm/v/@linxin666%2Fdsh-web-all?style=flat-square&label=npm" alt="npm"></a>
   &nbsp;
-  <a href="https://www.npmjs.com/package/@linxin666/dsh-web-ui-all"><img src="https://img.shields.io/npm/dm/@linxin666%2Fdsh-web-ui-all?style=flat-square&label=downloads" alt="npm downloads"></a>
+  <a href="https://www.npmjs.com/package/@linxin666/dsh-web-all"><img src="https://img.shields.io/npm/dm/@linxin666%2Fdsh-web-all?style=flat-square&label=downloads" alt="npm downloads"></a>
   &nbsp;
   <img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License">
 </p>
@@ -33,13 +33,13 @@
 
 ## 是什么
 
-dsh-web-ui 是 DeepSeek Harness（DSH）Web GUI 的插件与皮肤生态，也是「一切皆开发、一切皆插件」理念在 Web 端最完整的落地：梁神模式、任务看板、移动端远程、SSH 运维、图像理解、右侧面板、鲸鱼娘宠物与皮肤中心，每一样都是独立成包的插件，可插拔、可替换、可再开发——一次装齐便是完整的开发工作台，只挑一两个也能安静融入原生界面。所有插件都经官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；聚合包还能把外部插件（如 `dsh-better-sidebar`）拼进全家桶，详见 [dsh-web-ui-all README](packages/dsh-web-ui-all/README.zh.md)。
+dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件与皮肤生态，也是「一切皆开发、一切皆插件」理念在 Web 端最完整的落地：梁神模式、任务看板、移动端远程、SSH 运维、图像理解、右侧面板、鲸鱼娘宠物与皮肤中心，每一样都是独立成包的插件，可插拔、可替换、可再开发——一次装齐便是完整的开发工作台，只挑一两个也能安静融入原生界面。所有插件都经官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；聚合包还能把外部插件（如 `dsh-better-sidebar`）拼进全家桶，详见 [dsh-web-all README](packages/dsh-web-all/README.zh.md)。
 
 皮肤贯彻同一理念：v2 皮肤不再是耦合官方的 npm 包，而是一份纯资产目录（skin.json 清单 + 样式、贴图与可选特效脚本），由皮肤中心这一唯一加载器即时加载，与官方彻底解耦——官方升级不再牵动皮肤，新增皮肤也只需落一个目录，无需发布、无需安装。插件负责逻辑，皮肤负责外观；皮肤、宠物与插件的分发统一走 [创意工坊](#创意工坊dsh-marketcom)（dsh-market.com）。
 
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
 
-| 能力 | 原生 dsh web | dsh-web-ui 全家桶 |
+| 能力 | 原生 dsh web | dsh-web 全家桶 |
 | --- | --- | --- |
 | Agent 预设 | 官方预设（Standard / Minimal 等） | 梁神模式：面向 V4 Pro 的两阶段锚定预设 |
 | 任务看板 | 无 | 多列看板 + cron 定时真实执行 |
@@ -193,7 +193,7 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ### 三步上手（npm 安装，推荐）
 
-1. 安装聚合包：`dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest`
+1. 安装聚合包：`dsh plugin --profile web add @linxin666/dsh-web-all@latest`
 2. 重启 `dsh web`，侧边栏出现全部插件入口
 3. 打开「设置 > 插件配置」按需开关插件，或在皮肤中心试穿皮肤
 
@@ -205,8 +205,8 @@ DeepSeek V4 Pro 对首轮工具目录很敏感。社区评测里，官方 Standa
 
 ```sh
 # 1. 克隆仓库
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/zhu1090093659/dsh-web.git
+cd dsh-web
 
 # 2. 安装依赖并构建
 pnpm install
@@ -214,7 +214,7 @@ pnpm -r build
 
 # 3. 把全家桶链接进 web profile（推荐，先链接全部子包再注册聚合包）
 node scripts/link-profile.mjs
-dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
+dsh plugin --profile web add link:$(pwd)/packages/dsh-web-all
 
 # 4. 重启 dsh web，侧边栏即可看到全部插件入口
 dsh web
@@ -248,7 +248,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # 旧
 
 | npm 包 | 说明 |
 | --- | --- |
-| [@linxin666/dsh-web-ui-all](https://www.npmjs.com/package/@linxin666/dsh-web-ui-all) | 全家桶聚合包：一个包装齐全部功能插件与皮肤 |
+| [@linxin666/dsh-web-all](https://www.npmjs.com/package/@linxin666/dsh-web-all) | 全家桶聚合包：一个包装齐全部功能插件与皮肤 |
 | [@linxin666/dsh-liangshen](https://www.npmjs.com/package/@linxin666/dsh-liangshen) | 梁神模式：面向 V4 Pro 的两阶段锚定预设 |
 | [@linxin666/dsh-client-ui-task-board](https://www.npmjs.com/package/@linxin666/dsh-client-ui-task-board) | 任务看板：真实会话执行 + cron 定时 |
 | [@linxin666/dsh-remote-web-ui](https://www.npmjs.com/package/@linxin666/dsh-remote-web-ui) | 扫码配对，移动端 / PC 远程使用 Web GUI |
@@ -264,7 +264,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # 旧
 | [@linxin666/dsh-desktop-launcher](https://www.npmjs.com/package/@linxin666/dsh-desktop-launcher) | 桌面启动器：一键启动与关闭 dsh |
 | [@linxin666/dsh-doctor](https://www.npmjs.com/package/@linxin666/dsh-doctor) | 事务式救助模式：修复 DSH profile |
 | [@linxin666/dsh-client-ui-community-plugins](https://www.npmjs.com/package/@linxin666/dsh-client-ui-community-plugins) | 社区插件数据源：市场插件清单由它生成 |
-| [@linxin666/dsh-client-ui-web-ui-settings](https://www.npmjs.com/package/@linxin666/dsh-client-ui-web-ui-settings) | dsh-web-ui 插件组设置区 |
+| [@linxin666/dsh-client-ui-web-ui-settings](https://www.npmjs.com/package/@linxin666/dsh-client-ui-web-ui-settings) | dsh-web 插件组设置区 |
 | [@linxin666/dsh-client-ui-aionui-panel](https://www.npmjs.com/package/@linxin666/dsh-client-ui-aionui-panel) | 旧右侧面板（已停止支持，默认关闭） |
 
 </details>
@@ -273,7 +273,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # 旧
 
 装好重启 `dsh web`，侧边栏出现对应入口就是生效了；也可以用 `dsh --profile web --dump-config` 确认插件配置层已挂载。侧边栏没新入口，多半是装完没重启 `dsh web`。
 
-卸载：`dsh plugin --profile web remove @linxin666/dsh-web-ui-all`，然后重启 `dsh web`。
+卸载：`dsh plugin --profile web remove @linxin666/dsh-web-all`，然后重启 `dsh web`。
 
 技术细节见 [docs/plugins.md](docs/plugins.md)。
 
@@ -288,7 +288,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel@latest  # 旧
 
 > 首次安装若提示 `ERR_PNPM_IGNORED_BUILDS`（pnpm 拒绝依赖的构建脚本），按提示把 `cloudflared` / `cpu-features` / `ssh2` 加入 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重新执行即可。
 
-> **pnpm 11 发布年龄门禁**：新版本发布后 24 小时内（`minimumReleaseAge` 内置默认值），pnpm 11 会静默装回更旧的 `@linxin666/*` 版本（如 `dsh-web-ui-all@0.1.20` 配旧版皮肤中心），显式写 `@latest` 同样被隔离。旧版皮肤中心 Apply 皮肤时会写入独立皮肤包引用，导致 `dsh web` 启动崩溃（`ERR_MODULE_NOT_FOUND ... dsh-client-ui-skin-*`）。在 profile 的 `pnpm-workspace.yaml` 中排除全部 `@linxin666/*` 包后再安装或更新：
+> **pnpm 11 发布年龄门禁**：新版本发布后 24 小时内（`minimumReleaseAge` 内置默认值），pnpm 11 会静默装回更旧的 `@linxin666/*` 版本（如 `dsh-web-all@0.1.20` 配旧版皮肤中心），显式写 `@latest` 同样被隔离。旧版皮肤中心 Apply 皮肤时会写入独立皮肤包引用，导致 `dsh web` 启动崩溃（`ERR_MODULE_NOT_FOUND ... dsh-client-ui-skin-*`）。在 profile 的 `pnpm-workspace.yaml` 中排除全部 `@linxin666/*` 包后再安装或更新：
 >
 > ```yaml
 > minimumReleaseAgeExclude:
@@ -354,7 +354,7 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 
 ![DSH Web UI 交流群](docs/community-center.jpg)
 
-也可以加 [Discord 社区](https://discord.gg/6v4gm9u4S)，或直接到 [GitHub Issues](https://github.com/zhu1090093659/dsh-web-ui/issues) 报 Bug / 提需求。
+也可以加 [Discord 社区](https://discord.gg/6v4gm9u4S)，或直接到 [GitHub Issues](https://github.com/zhu1090093659/dsh-web/issues) 报 Bug / 提需求。
 
 <details>
 <summary>友情链接</summary>
@@ -386,7 +386,7 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 
 | 包 | 来源 | 版权 |
 | --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-ui-settings / dsh-liangshen / dsh-doctor / dsh-ssh / dsh-chat-recovery / dsh-skill-explorer / dsh-desktop-launcher / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-ui-all / skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
+| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-web-settings / dsh-liangshen / dsh-doctor / dsh-ssh / dsh-chat-recovery / dsh-skill-explorer / dsh-desktop-launcher / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-all / skins | 作者 zhu1090093659 个人开发 | Apache-2.0（zhu1090093659） |
 | dsh-client-ui-skin-matrix | 贡献者原创（Matrix 深夜护眼暗色皮肤） | Apache-2.0（贡献者 seanchen 声明） |
 | dsh-tool-describe-image | 移植自 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)（deepseek-harness `packages/vision/tool-describe-image`） | Apache-2.0（zhu1090093659） |
 | dsh-better-sidebar | 外部集成插件 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（右侧面板，npm 依赖引用） | MIT（omdsh-dev） |
@@ -501,7 +501,7 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
   <a href="https://github.com/Lem0nTea2002"><img src="https://github.com/Lem0nTea2002.png?size=64" width="48" height="48" alt="Lem0nTea2002" title="Lem0nTea2002" /></a>
 </p>
 <p align="center">
-  <sub><a href="https://github.com/zhu1090093659/dsh-web-ui/graphs/contributors">查看全部贡献者</a></sub>
+  <sub><a href="https://github.com/zhu1090093659/dsh-web/graphs/contributors">查看全部贡献者</a></sub>
 </p>
 <!-- CONTRIBUTORS:END -->
 
@@ -509,6 +509,6 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 
 **喜欢这个项目？点个 Star。**
 
-[报告 Bug](https://github.com/zhu1090093659/dsh-web-ui/issues) · [请求功能](https://github.com/zhu1090093659/dsh-web-ui/issues) · [查看 Releases](https://github.com/zhu1090093659/dsh-web-ui/releases)
+[报告 Bug](https://github.com/zhu1090093659/dsh-web/issues) · [请求功能](https://github.com/zhu1090093659/dsh-web/issues) · [查看 Releases](https://github.com/zhu1090093659/dsh-web/releases)
 
 </div>

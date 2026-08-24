@@ -29,8 +29,8 @@ function upToDateStatus(): UpdateStatus {
   return {
     mode: "npm",
     profileName: "web",
-    anchor: "@linxin666/dsh-web-ui-all",
-    packages: [{ name: "@linxin666/dsh-web-ui-all", current: "0.1.10", latest: "0.1.10", outdated: false }],
+    anchor: "@linxin666/dsh-web-all",
+    packages: [{ name: "@linxin666/dsh-web-all", current: "0.1.10", latest: "0.1.10", outdated: false }],
     outdated: false,
   }
 }
@@ -40,8 +40,8 @@ function outdatedStatus(): UpdateStatus {
   return {
     mode: "npm",
     profileName: "web",
-    anchor: "@linxin666/dsh-web-ui-all",
-    packages: [{ name: "@linxin666/dsh-web-ui-all", current: "0.1.10", latest: "0.1.11", outdated: true }],
+    anchor: "@linxin666/dsh-web-all",
+    packages: [{ name: "@linxin666/dsh-web-all", current: "0.1.10", latest: "0.1.11", outdated: true }],
     outdated: true,
   }
 }
@@ -112,7 +112,7 @@ describe("UpdateEntry", () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/update/status"))
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     await waitFor(() => expect(screen.getByText('Everything is up to date')).toBeTruthy())
-    expect(screen.getByText('@linxin666/dsh-web-ui-all')).toBeTruthy()
+    expect(screen.getByText('@linxin666/dsh-web-all')).toBeTruthy()
     // No update run for an up-to-date install.
     expect(fetch).not.toHaveBeenCalledWith("/api/update/run", expect.anything())
   })
@@ -167,8 +167,8 @@ describe("UpdateEntry", () => {
   it("shows the dev-mode banner for link installs", async () => {
     const status: UpdateStatus = {
       mode: "link",
-      anchor: "@linxin666/dsh-web-ui-all",
-      packages: [{ name: "@linxin666/dsh-web-ui-all", current: "0.1.10", latest: "0.1.11", outdated: true }],
+      anchor: "@linxin666/dsh-web-all",
+      packages: [{ name: "@linxin666/dsh-web-all", current: "0.1.10", latest: "0.1.11", outdated: true }],
       outdated: true,
     }
     const { fetch } = mount(status)

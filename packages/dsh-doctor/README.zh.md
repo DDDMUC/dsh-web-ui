@@ -46,7 +46,7 @@ profile 的 package.json 与 cordis.patch.yml 只通过官方 `dsh plugin` 命�
 ### 从 npm 安装（全家桶优先）
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
+dsh plugin --profile web add @linxin666/dsh-web-all@latest
 ```
 
 ### 独立 bundle 安装
@@ -58,8 +58,8 @@ dsh plugin --profile web add @linxin666/dsh-doctor@latest
 ### 从仓库安装（开发调试）
 
 ```sh
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/zhu1090093659/dsh-web.git
+cd dsh-web
 pnpm install
 pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor

@@ -8,7 +8,7 @@ The family had no measure of real usage. npm download counts are inflated by the
 
 ## Decision
 
-dsh-web-ui counts usage through two anonymous event kinds stored in the existing dsh-market.com worker's D1 database:
+dsh-web counts usage through two anonymous event kinds stored in the existing dsh-market.com worker's D1 database:
 
 - Site pageviews from dsh-market.com pages (`market/src/app.js`).
 - Daily plugin heartbeats from the browser half of wired packages through `shared/client/telemetry.ts` (sync-shared copy), wired into all fifteen family client plugins: Skin Center, the Workshop store, Pet, and twelve more.

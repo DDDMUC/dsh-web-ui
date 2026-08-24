@@ -611,7 +611,7 @@ window.__ModuleLoader__.load({
 			/**
 			* Write every staged edit, then re-seed from what the Host accepted.
 			*
-			* When the scope carries the optional batch surface (the dsh-web-ui
+			* When the scope carries the optional batch surface (the dsh-web
 			* bridge scope), every planned write rides one mutation so cross-field
 			* validate hooks (baseURL+model) judge the batch as a unit instead of
 			* deadlocking on per-field writes. Otherwise the per-field loop runs.
@@ -1023,8 +1023,10 @@ window.__ModuleLoader__.load({
 						});
 						const data = await res.json().catch(() => ({}));
 						if (!res.ok || data.ok !== true) {
-							const err = new Error(data.error ?? "HTTP " + res.status);
+							const errMsg = data.message ?? data.error ?? "HTTP " + res.status;
+							const err = new Error(errMsg);
 							err.code = data.error ?? "write";
+							err.dest = data.dest;
 							throw err;
 						}
 						return { dest: data.dest ?? id };

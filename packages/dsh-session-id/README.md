@@ -37,8 +37,8 @@ at the bottom of the sidebar.
 ### From the repository (development)
 
 ```sh
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/zhu1090093659/dsh-web.git
+cd dsh-web
 pnpm install
 pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-session-id

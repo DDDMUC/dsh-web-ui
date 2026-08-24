@@ -162,7 +162,7 @@ function renderDashboard(data, days) {
     'code{color:#2563eb;font-size:13px;background:#eff5ff;padding:1px 6px;border-radius:5px}.empty{color:#94a3b8;padding:18px 12px}.dim{color:#64748b;font-size:12px}',
     '.foot{margin-top:40px;color:#94a3b8;font-size:12px}',
     '</style>',
-    '<h1>dsh-web-ui 使用统计</h1>',
+    '<h1>dsh-web 使用统计</h1>',
     '<p class="sub">站点与插件的匿名 UV / PV 实时汇总 · 数据源 dsh-market.com</p>',
     '<p class="meta">最近 ' + esc(days) + ' 天 · ' + ranges + ' · <a class="range" href="?days=' + esc(days) + '">刷新</a></p>',
     '<div class="cards">' + cards + '</div>',
@@ -197,6 +197,6 @@ export default {
       return page(502, 'telemetry view', '<h1>502</h1><p>Summary upstream returned ' + summaryRes.status + '.</p>')
     }
     const data = await summaryRes.json()
-    return page(200, 'dsh-web-ui telemetry', renderDashboard(data, days))
+    return page(200, 'dsh-web telemetry', renderDashboard(data, days))
   },
 }

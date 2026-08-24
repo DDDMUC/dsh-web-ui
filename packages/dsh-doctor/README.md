@@ -59,7 +59,7 @@ Profile package.json and cordis.patch.yml are only touched through the official
 ### From npm (family first)
 
 ```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all@latest
+dsh plugin --profile web add @linxin666/dsh-web-all@latest
 ```
 
 ### As a standalone bundle
@@ -71,8 +71,8 @@ dsh plugin --profile web add @linxin666/dsh-doctor@latest
 ### From the repository (development)
 
 ```sh
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/zhu1090093659/dsh-web.git
+cd dsh-web
 pnpm install
 pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor

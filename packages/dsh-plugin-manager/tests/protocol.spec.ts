@@ -50,7 +50,7 @@ describe('parsePluginControlSnapshot', () => {
   it('parses valid controls', () => {
     const controls = parsePluginControlSnapshot({
       controls: [
-        { id: 'web-ui', name: 'dsh-web-ui', repository: 'https://github.com/zhu1090093659/dsh-web-ui', state: 'enabled' },
+        { id: 'web-ui', name: 'dsh-web', repository: 'https://github.com/zhu1090093659/dsh-web', state: 'enabled' },
         { id: 'genui', name: 'dsh-genui', repository: 'https://github.com/omdsh-dev/dsh-genui', state: 'mixed' },
       ],
     })

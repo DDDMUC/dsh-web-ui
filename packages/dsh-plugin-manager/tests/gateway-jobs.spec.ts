@@ -346,9 +346,9 @@ describe('CliGateway duplicate-mount safeguard (B9)', () => {
     // package also sits in dependencies (not in bundles); any CLI mutation
     // re-adds it to bundles and the next boot double-mounts.
     const { facts, dir } = makeProfile({
-      '@linxin666/dsh-web-ui-all': { bundle: true, patch: AGGREGATE_PATCH },
+      '@linxin666/dsh-web-all': { bundle: true, patch: AGGREGATE_PATCH },
       'dsh-better-sidebar': { bundle: true },
-    }, { bundles: ['@linxin666/dsh-web-ui-all'] })
+    }, { bundles: ['@linxin666/dsh-web-all'] })
     tempDirs.push(dir)
     const calls: string[][] = []
     const gateway = gatewayFor(facts, (args) => {
@@ -365,7 +365,7 @@ describe('CliGateway duplicate-mount safeguard (B9)', () => {
     expect(job.plugin?.id).toBe('dsh-memoir')
     const manifest = readManifest(facts.profileDir)
     // The duplicate-mount entry is stripped; everything else is untouched.
-    expect(manifest.dsh.profile.bundles).toEqual(['@linxin666/dsh-web-ui-all', 'dsh-memoir'])
+    expect(manifest.dsh.profile.bundles).toEqual(['@linxin666/dsh-web-all', 'dsh-memoir'])
     expect(manifest.dependencies['dsh-better-sidebar']).toBe('1.0.0')
     // One notice per stripped entry, in the conflict-row shape.
     expect(job.notices).toEqual([{ id: 'dsh-better-sidebar', name: 'dsh-better-sidebar', from: 'enabled', to: 'uninstalled' }])
@@ -418,10 +418,10 @@ describe('CliGateway duplicate-mount safeguard (B9)', () => {
 
   it('a remove job does not resurrect a previously stripped bundles entry', async () => {
     const { facts, dir } = makeProfile({
-      '@linxin666/dsh-web-ui-all': { bundle: true, patch: AGGREGATE_PATCH },
+      '@linxin666/dsh-web-all': { bundle: true, patch: AGGREGATE_PATCH },
       'dsh-better-sidebar': { bundle: true },
       'dsh-memoir': { bundle: true },
-    }, { bundles: ['@linxin666/dsh-web-ui-all', 'dsh-memoir'] })
+    }, { bundles: ['@linxin666/dsh-web-all', 'dsh-memoir'] })
     tempDirs.push(dir)
     const calls: string[][] = []
     const gateway = gatewayFor(facts, (args) => {
@@ -437,7 +437,7 @@ describe('CliGateway duplicate-mount safeguard (B9)', () => {
     expect(job.phase).toBe('done')
     const manifest = readManifest(facts.profileDir)
     // Reconciliation re-added dsh-better-sidebar; the safeguard stripped it again.
-    expect(manifest.dsh.profile.bundles).toEqual(['@linxin666/dsh-web-ui-all'])
+    expect(manifest.dsh.profile.bundles).toEqual(['@linxin666/dsh-web-all'])
     expect(manifest.dependencies['dsh-better-sidebar']).toBe('1.0.0')
     expect(manifest.dependencies['dsh-memoir']).toBeUndefined()
     expect(job.notices).toEqual([{ id: 'dsh-better-sidebar', name: 'dsh-better-sidebar', from: 'enabled', to: 'uninstalled' }])

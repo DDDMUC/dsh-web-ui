@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-dsh-web-ui 通过两类匿名事件统计使用规模，存储在现有 dsh-market.com worker 的 D1 中：
+dsh-web 通过两类匿名事件统计使用规模，存储在现有 dsh-market.com worker 的 D1 中：
 
 - dsh-market.com 页面的站点 pageview（`market/src/app.js`）。
 - 已接入插件浏览器半区的每日心跳，经 `shared/client/telemetry.ts`（sync-shared 副本），已接入全部十五个全家桶客户端插件：皮肤中心、创意工坊、Pet 以及另外十二个。

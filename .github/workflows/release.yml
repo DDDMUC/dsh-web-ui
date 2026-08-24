@@ -200,4 +200,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
-            --title "dsh-web-ui $GITHUB_REF_NAME"
+            --title "dsh-web $GITHUB_REF_NAME"

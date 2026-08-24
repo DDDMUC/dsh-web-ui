@@ -9,7 +9,7 @@
 
 本包由 deepseek-harness `packages/vision/tool-describe-image` 移植（镜像仓库
 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)），
-按 dsh-web-ui 全家桶规范适配：仅官方 NPM SDK、host 侧插件配浏览器半部、设置区实时配置，不修改 DSH 源码。
+按 dsh-web 全家桶规范适配：仅官方 NPM SDK、host 侧插件配浏览器半部、设置区实时配置，不修改 DSH 源码。
 
 ## 能力
 
@@ -55,7 +55,7 @@
 
 ## 安装
 
-推荐直接安装全家桶聚合包 `@linxin666/dsh-web-ui-all`（一个包装齐全部功能插件与皮肤），或单独安装本插件：
+推荐直接安装全家桶聚合包 `@linxin666/dsh-web-all`（一个包装齐全部功能插件与皮肤），或单独安装本插件：
 
 ```sh
 # 推荐：直接从 npm 安装

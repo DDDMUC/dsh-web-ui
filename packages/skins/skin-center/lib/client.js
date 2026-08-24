@@ -2679,6 +2679,10 @@ window.__ModuleLoader__.load({
 				...value ?? {}
 			};
 		}
+		/** True when at least one field departs from its default (customized data). */
+		function hasCustomSkinBackground(value) {
+			return SKIN_BACKGROUND_FIELDS.some((field) => value[field] !== void 0 && value[field] !== SKIN_BACKGROUND_DEFAULTS[field]);
+		}
 		//#endregion
 		//#region src/client/background.ts
 		/**
@@ -2726,7 +2730,7 @@ window.__ModuleLoader__.load({
 		/**
 		* Selector for a conversation message row inside the shell's center column.
 		* Official shell message rows carry `data-chat-anchor-key`; the
-		* `data-pane="conversation"` attribute is stamped by the dsh-web-ui-all compat
+		* `data-pane="conversation"` attribute is stamped by the dsh-web-all compat
 		* shim on the center column, where the _userRow / _compactionRow /
 		* _contextRow / _turnErrorRow suffixes are CSS-module message-row classes
 		* (hash prefix varies, suffix is stable).
@@ -4619,13 +4623,21 @@ window.__ModuleLoader__.load({
 				if (!SKIN_BACKGROUND_FIELDS.some((field) => value[field] !== void 0)) return null;
 				return value;
 			};
+			let v2Loaded = false;
 			const background = new BackgroundController(scopeConfig(), persistBackground);
 			fetch(V2_ACTIVE_URL).then((res) => res.ok ? res.json() : null).then((body) => {
-				if (body) background.init(body.background ?? null);
-			}).catch(() => {});
+				v2Loaded = true;
+				if (body?.background) background.init(body.background);
+			}).catch(() => {
+				v2Loaded = true;
+			});
 			ctx.effect(() => backgroundScope.subscribe(() => {
+				if (!v2Loaded) return;
 				const next = scopeConfig();
 				if (next === null) return;
+				const current = background.snapshot();
+				if (!Object.keys(next).some((key) => next[key] !== void 0 && next[key] !== current[key])) return;
+				if (!hasCustomSkinBackground(next) && hasCustomSkinBackground(current)) return;
 				background.init(next);
 				persistBackground(background.snapshot());
 			}), "ui-skin-center: background scope sync");

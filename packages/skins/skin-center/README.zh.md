@@ -22,9 +22,9 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center
 # 仓库开发：dsh plugin --profile web add link:$(pwd)/packages/skins/skin-center
 ```
 
-`$(pwd)` 是 dsh-web-ui monorepo 的本地克隆。只有默认皮肤（蓝色幻想）随这个包发布；其余皮肤在 dsh-market.com 按需安装到 `$DSH_HOME/skins/<id>/`，社区皮肤同样是放进该目录的普通目录（均无安装命令、无需重启——重开卡片或刷新页面即收录）。新装默认激活蓝色幻想（宿主种子）；升级后原激活皮肤已不可用时回退官方主题。包内只发布 `skins/blue-fantasy`；其余皮肤保留在仓库 `skins/` 下，作为市场构建与画廊的目录来源，绝不进入 npm 包。
+`$(pwd)` 是 dsh-web monorepo 的本地克隆。只有默认皮肤（蓝色幻想）随这个包发布；其余皮肤在 dsh-market.com 按需安装到 `$DSH_HOME/skins/<id>/`，社区皮肤同样是放进该目录的普通目录（均无安装命令、无需重启——重开卡片或刷新页面即收录）。新装默认激活蓝色幻想（宿主种子）；升级后原激活皮肤已不可用时回退官方主题。包内只发布 `skins/blue-fantasy`；其余皮肤保留在仓库 `skins/` 下，作为市场构建与画廊的目录来源，绝不进入 npm 包。
 
-皮肤中心是符合官方 DSH 插件标准的自包含 bundle（`dsh.bundle.patch` 指向 `cordis.patch.yml`）；也可经 git 安装：`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`（`prepare` 脚本就地构建 `lib/`）。pnpm ≥10 安装 git 依赖前需授权 `allowBuilds`；本地 `link:` 安装无此要求。
+皮肤中心是符合官方 DSH 插件标准的自包含 bundle（`dsh.bundle.patch` 指向 `cordis.patch.yml`）；也可经 git 安装：`dsh plugin --profile web add github:<org>/dsh-web#<sha>`（`prepare` 脚本就地构建 `lib/`）。pnpm ≥10 安装 git 依赖前需授权 `allowBuilds`；本地 `link:` 安装无此要求。
 
 ## 配置
 

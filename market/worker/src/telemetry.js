@@ -4,7 +4,7 @@
  * Two event kinds live in one table:
  * - pageview ('pv'): one row per visitor per site path per UTC day.
  * - heartbeat ('hb'): one row per instance per reported item per UTC day,
- *   sent by dsh-web-ui family plugins from the user's browser.
+ *   sent by dsh-web family plugins from the user's browser.
  *
  * Privacy contract: the only identity-like field is a random UUID generated
  * client-side and stored in the browser's localStorage; the worker hashes it

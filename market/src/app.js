@@ -749,7 +749,7 @@
   }
 
   // ---------- 右上角 GitHub 仓库按钮（仓库 + Star 数） ----------
-  var GITHUB_REPO = 'zhu1090093659/dsh-web-ui'
+  var GITHUB_REPO = 'zhu1090093659/dsh-web'
   function formatStars(n) {
     if (n >= 10000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'
     if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'

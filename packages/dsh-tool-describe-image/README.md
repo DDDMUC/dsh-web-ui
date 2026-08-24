@@ -10,7 +10,7 @@ protocol; **only the returned text enters the conversation, the image itself nev
 
 Ported from deepseek-harness `packages/vision/tool-describe-image` (mirrored at
 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)),
-adapted to the dsh-web-ui family conventions: official NPM SDK only, host-side plugin with a
+adapted to the dsh-web family conventions: official NPM SDK only, host-side plugin with a
 browser half, live settings, no dsh source changes.
 
 ## Capabilities
@@ -63,7 +63,7 @@ browser half, live settings, no dsh source changes.
 
 ## Installation
 
-Install the family aggregate `@linxin666/dsh-web-ui-all` (all plugins and skins in one package), or this plugin alone:
+Install the family aggregate `@linxin666/dsh-web-all` (all plugins and skins in one package), or this plugin alone:
 
 ```sh
 # Recommended: install directly from npm

@@ -2,11 +2,11 @@
 
 
 English | [中文](README.zh.md)
-> Remote access for phones and computers + one-click updates: pair a phone to use the current dsh web workspace remotely, or pair a computer browser through the same token to run the full Web GUI from another device; the sidebar checks for a newer dsh-web-ui release after it loads and marks the update button when one is available; clicking it updates the family.
+> Remote access for phones and computers + one-click updates: pair a phone to use the current dsh web workspace remotely, or pair a computer browser through the same token to run the full Web GUI from another device; the sidebar checks for a newer dsh-web release after it loads and marks the update button when one is available; clicking it updates the family.
 
 This repository is an external plugin package for DeepSeek Harness (DSH):
 pairing-based remote access for the dsh web GUI on phones and computers, plus
-a one-click self-update for the dsh-web-ui family. It is a single
+a one-click self-update for the dsh-web family. It is a single
 dual-face package — the host half owns pairing tokens, device sessions, the
 `/api/pair` route family, the gated `/remote` desktop channel, and the
 `/api/update` surface; the browser half renders the sidebar-foot entries (the
@@ -171,15 +171,15 @@ sun/moon toggle in every header flips to the dark palette at any time.
 
 ## Install
 
-Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins and skins in one) or this plugin alone:
+Install the family aggregate package `@linxin666/dsh-web-all` (all plugins and skins in one) or this plugin alone:
 
 ```sh
 # Recommended: install directly from npm
 dsh plugin --profile web add @linxin666/dsh-remote-web-ui@latest
 
 # Or from the repository (development loop)
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/zhu1090093659/dsh-web.git
+cd dsh-web
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 
