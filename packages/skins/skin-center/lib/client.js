@@ -953,9 +953,14 @@ window.__ModuleLoader__.load({
 					this.rootNeutralizer.dataset.dshWallpaperRoot = "";
 					this.rootNeutralizer.textContent = `
         [id="root"] { background: transparent; }
+        /* Wallpaper opacity backdrop (#1051): light-mode fades to white,
+           dark-mode fades to black.  :has() tracks theme switches live. */
         html[data-dsh-wallpaper-active] {
-          background-color: black !important;
+          background-color: white !important;
           background-image: none !important;
+        }
+        html[data-dsh-wallpaper-active]:has(body[data-ds-dark-theme]) {
+          background-color: black !important;
         }
         body[data-dsh-wallpaper-active],
         html[data-dsh-skin][data-dsh-wallpaper-active] body,
