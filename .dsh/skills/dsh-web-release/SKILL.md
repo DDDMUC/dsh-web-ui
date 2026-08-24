@@ -44,7 +44,8 @@ GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发�
 - 包身份与加载契约：npm `name`、`exports`、`dsh.bundle` / `cordis.patch.yml`、`dsh.client`、浏览器 loader id、聚合包 self row、旧包别名和迁移元数据。
 - 用户 profile 与写入文件：`$DSH_HOME/profiles/*/package.json`、`pnpm-lock.yaml`、`dsh.profile.bundles`、`cordis.patch.yml`、`disabled` 覆盖行、bundle 顺序和官方 CLI 写入行为。
 - 持久化与线协议：设置 section id、API path、请求头、localStorage / 配置 key、IPC / wire shape、schema 默认值、旧字段读取和新字段写入。已经持久化或上线路径中的标识符默认视为冻结，除非有可验证的映射。
-- 宿主与 SDK 契约：`@deepseek-ai/*` 公共 API、服务注入、模块表、DSH 最低版本、Node 版本、CLI 参数、进程启动和退出语义。
+- 宿主与 SDK 契约：`@deepseek-ai/*` 公共 API、服务注入、模块表、DSH 最低版本、Node 版本、CLI 参数、进程启动和退出语义。包声明的 `dsh.engines.dsh` 下限必须不高于发布验证所使用的 DSH 版本；CI 固定版本低于声明下限时阻断发布。plugin-manager 与 Doctor 的 DSH 兼容判定必须一致，或在支持矩阵中明确差异与限制。
+- 自动迁移入口：分别验证 plugin-manager 的更新任务、Doctor 启动前迁移和直接 `dsh web`；直接入口若绕过 Doctor 迁移，必须补齐迁移或在 release notes 给出明确的不支持声明和人工恢复步骤。两条自动迁移路径的安装顺序、目标版本、回滚结果必须一致，不能只在一条路径修复。
 - 跨平台生命周期：macOS、Linux、Windows 的路径、权限、临时文件、备份、服务启动方式和崩溃恢复；不要只用当前 macOS 环境的路径或进程假设。
 - 生成与发布产物：共享源与同步副本、`lib/`、aggregate manifest、gallery / skin 产物、npm 包内文件白名单；不能只检查源码而漏掉实际 tarball。
 
