@@ -10,8 +10,8 @@ The README H1 still read "dsh-web · DSH Web UI" and the committed banner (docs/
 
 - Root README pair H1 renamed: "dsh-web · DSH Web 插件聚合生态包" / "dsh-web · Aggregate Plugin Ecosystem for DSH Web".
 - scripts/banner/banner.html rewritten to reproduce the whale-girl design in-repo: the blue-fantasy skin artwork (packages/skins/skin-center/skins/blue-fantasy/assets/whale-art.jpg) as the dimmed backdrop, brand block on the left (eyebrow "The Plugin Ecosystem for DeepSeek Harness", title "dsh-web", subtitle "DSH Web 插件聚合生态包", single-row chips listing current features: task board, Git graph, right panel, mobile remote, whale-girl pet, skins, workshop), and a chibi pet sticker cut from the dsh-pet whale spritesheet cell 0,0 with a CSS drop-shadow outline.
-- scripts/banner/shoot.mjs now renders two outputs: docs/dsh-web-banner.png (1280x400, README) and docs/dsh-web-social.png (1280x640, GitHub social preview dimensions).
-- The GitHub social preview must be replaced with docs/dsh-web-social.png in the repository settings; the upload was attempted through ego-browser but the browser wedged on the native file dialog, so the final upload step is manual.
+- scripts/banner/shoot.mjs now renders two outputs: docs/dsh-web-banner.png (1280x400, README) and docs/dsh-web-social.jpg (1280x640, JPEG to stay under the 1 MB GitHub limit, GitHub social preview dimensions).
+- The GitHub social preview must be replaced with docs/dsh-web-social.jpg in the repository settings; the upload was attempted through ego-browser but the browser wedged on the native file dialog, so the final upload step is manual.
 
 ## Alternatives considered
 
@@ -22,4 +22,4 @@ The README H1 still read "dsh-web · DSH Web UI" and the committed banner (docs/
 
 - The banner is reproducible again: edit banner.html, run node scripts/banner/shoot.mjs, commit both PNGs.
 - The chips row is the only place listing features in image form; update it when the headline feature set changes.
-- Follow-up: upload docs/dsh-web-social.png in GitHub repo settings (social preview), then the old "dsh-web-ui" image stops serving.
+- Follow-up: upload docs/dsh-web-social.jpg in GitHub repo settings (social preview), then the old "dsh-web-ui" image stops serving.
