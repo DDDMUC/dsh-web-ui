@@ -254,4 +254,42 @@ describe('MarketCard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(8)
   })
 
+  it('does not report success when copy fallback fails (issue #1091)', async () => {
+    const execMock = vi.fn().mockReturnValue(false)
+    document.execCommand = execMock
+    render(<MarketCard {...cardProps(new FakeScope({}), { remote: REMOTE, gateway: null, pluginManager: null })} />)
+    fireEvent.click(screen.getByRole('tab', { name: /插件/ }))
+    const copyBtn = screen.getByRole('button', { name: /复制安装命令/ })
+    fireEvent.click(copyBtn)
+    expect(execMock).toHaveBeenCalledWith('copy')
+    expect(screen.queryByText('已复制')).toBeNull()
+    expect(screen.getByRole('button', { name: /复制安装命令/ })).toBeTruthy()
+  })
+
+  it('reports success when copy fallback succeeds', async () => {
+    const execMock = vi.fn().mockReturnValue(true)
+    document.execCommand = execMock
+    render(<MarketCard {...cardProps(new FakeScope({}), { remote: REMOTE, gateway: null, pluginManager: null })} />)
+    fireEvent.click(screen.getByRole('tab', { name: /插件/ }))
+    const copyBtn = screen.getByRole('button', { name: /复制安装命令/ })
+    fireEvent.click(copyBtn)
+    expect(execMock).toHaveBeenCalledWith('copy')
+    await waitFor(() => expect(screen.getByText('已复制')).toBeTruthy())
+  })
+
+  it('handles clipboard.writeText rejection with fallback result', async () => {
+    const execMock = vi.fn().mockReturnValue(false)
+    document.execCommand = execMock
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('permission denied')) },
+      configurable: true,
+    })
+    render(<MarketCard {...cardProps(new FakeScope({}), { remote: REMOTE, gateway: null, pluginManager: null })} />)
+    fireEvent.click(screen.getByRole('tab', { name: /插件/ }))
+    const copyBtn = screen.getByRole('button', { name: /复制安装命令/ })
+    fireEvent.click(copyBtn)
+    await waitFor(() => expect(execMock).toHaveBeenCalledWith('copy'))
+    expect(screen.queryByText('已复制')).toBeNull()
+  })
 })
+
