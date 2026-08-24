@@ -48,6 +48,10 @@ skin-center is a self-contained bundle meeting the official DSH plugin standard 
 - Plugins that do not output semantic attributes (and have no stable DOM anchors) receive L1 token coverage only.
 - A skin video background keeps playing regardless of the wallpaper pause-on-hidden setting; pause-on-hidden applies to the Wallpaper Engine bridge only.
 
+## Telemetry
+
+The browser half sends one anonymous install heartbeat per UTC day to dsh-market.com: a random localStorage id plus this package's name, nothing else. The server stores only a salted hash of that id, never IP addresses, and exposes aggregate counts only. See [docs/telemetry.md](../../../docs/telemetry.md) for the full contract.
+
 ## Directory structure
 
 ```

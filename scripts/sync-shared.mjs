@@ -96,6 +96,15 @@ const MANIFEST = [
   },
 
   {
+    file: 'telemetry.ts',
+    source: 'shared/client/telemetry.ts',
+    targets: [
+      'packages/dsh-market/src/client/telemetry.ts',
+      'packages/dsh-pet/src/client/telemetry.ts',
+      'packages/skins/skin-center/src/client/telemetry.ts',
+    ],
+  },
+  {
     file: 'sse-leader.ts',
     source: 'shared/client/sse-leader.ts',
     targets: ['packages/dsh-git-graph/src/client/sse-leader.ts'],

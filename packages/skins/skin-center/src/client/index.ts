@@ -30,6 +30,7 @@ import { bootSkinRuntime } from './runtime/boot.ts'
 import { PreviewCoordinator } from './preview-coordinator.ts'
 import { CustomThemeController } from './custom-theme-controller.ts'
 import { SKIN_CUSTOM_THEME_NS, type CustomThemeConfig } from '../core/custom-theme.ts'
+import { reportDailyHeartbeat } from './telemetry.ts'
 
 export type { SkinCenterComponentProps, SkinCenterInjected } from './SkinCenter.tsx'
 export { bootSkinRuntime } from './runtime/boot.ts'
@@ -65,6 +66,10 @@ export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection'
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  // Anonymous install heartbeat (docs/telemetry.md): one beat per browser per
+  // UTC day, package name only, silent failure.
+  reportDailyHeartbeat([{ name: '@linxin666/dsh-client-ui-skin-center' }])
+
   ctx.effect(() => {
     try {
       return ctx.locale.register(NS, { zh, en })

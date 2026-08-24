@@ -21,9 +21,9 @@ test('copies cover the settings trio for eight consumers plus host and http help
   // Normalize separators: node:path join yields backslashes on Windows, and
   // the copy-count buckets below match on forward slashes.
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
-  assert.equal(entries.length, 79)
+  assert.equal(entries.length, 82)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
-  assert.equal(clientTrio.length, 28)
+  assert.equal(clientTrio.length, 31)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')
@@ -41,6 +41,7 @@ test('checkSync detects drift and applySync repairs it', async () => {
     await writeFile(join(sourceDir, 'settings-form.ts'), 'export const good = 1' + String.fromCharCode(10))
     await writeFile(join(sourceDir, 'PluginSettingsCard.tsx'), 'export const card = 1' + String.fromCharCode(10))
     await writeFile(join(sourceDir, 'settings-card.module.css'), '.card { color: red }' + String.fromCharCode(10))
+    await writeFile(join(root, 'shared', 'client', 'telemetry.ts'), 'export const beat = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sse-leader.ts'), 'export const leader = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sidebar-entry-core.ts'), 'export const sidecore = 1' + String.fromCharCode(10))
     const hostDir = join(root, 'shared', 'host')

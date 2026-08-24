@@ -63,6 +63,55 @@ export default {
         responses: { 200: { description: 'HTML challenge page' } },
       },
     },
+    '/api/telemetry/event': {
+      post: {
+        summary: 'Record one anonymous usage event (site pageview or plugin heartbeat)',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['kind', 'visitor'],
+                properties: {
+                  kind: { type: 'string', enum: ['pageview', 'heartbeat'] },
+                  visitor: { type: 'string', description: 'Random client-generated id; hashed with a server salt before storage' },
+                  path: { type: 'string', description: 'Site path, pageview kind only' },
+                  items: {
+                    type: 'array',
+                    description: 'Reported package names, heartbeat kind only',
+                    items: {
+                      type: 'object',
+                      required: ['name'],
+                      properties: {
+                        name: { type: 'string' },
+                        version: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Event accepted (duplicates collapse per day)' },
+          400: { description: 'Invalid parameters or JSON' },
+        },
+      },
+    },
+    '/api/telemetry/summary': {
+      get: {
+        summary: 'Aggregate UV/PV summary; counts only, never raw events',
+        parameters: [
+          { name: 'days', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 365 } },
+        ],
+        responses: {
+          200: { description: 'Per-day and per-item aggregates for site pageviews and plugin heartbeats' },
+          403: { description: 'TELEMETRY_READ_KEY configured and not presented' },
+        },
+      },
+    },
     '/api/skin-center/v2/skins/{skinId}/{asset}': {
       get: {
         summary: 'Skin asset (stylesheet, patches, hooks.mjs, assets/*, preview/*)',

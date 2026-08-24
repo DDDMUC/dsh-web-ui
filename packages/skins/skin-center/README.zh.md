@@ -48,6 +48,10 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center
 - 不输出语义属性（且无稳定 DOM 锚点）的插件只享受 L1 token 覆盖。
 - 皮肤视频背景不受壁纸「隐藏时暂停」设置影响；该设置仅作用于 Wallpaper Engine 桥。
 
+## 数据遥测
+
+浏览器半区每个 UTC 日向 dsh-market.com 发送一次匿名安装心跳：仅含一个 localStorage 随机 ID 与本包名，无其他数据。服务端只存储该 ID 的加盐哈希，不存 IP，且只暴露聚合计数。完整契约见 [docs/telemetry.md](../../../docs/telemetry.md)。
+
 ## 目录结构
 
 ```

@@ -4459,6 +4459,62 @@ window.__ModuleLoader__.load({
 			}
 		};
 		//#endregion
+		//#region src/client/telemetry.ts
+		const VISITOR_KEY = "dsh-web-ui-telemetry-visitor";
+		const DAY_KEY_PREFIX = "dsh-web-ui-telemetry-day:";
+		const ENDPOINT = "https://dsh-market.com/api/telemetry/event";
+		/** Read or lazily create the anonymous visitor id; null when storage is unavailable. */
+		function visitorId() {
+			try {
+				const existing = localStorage.getItem(VISITOR_KEY);
+				if (existing && /^[A-Za-z0-9_-]{16,64}$/.test(existing)) return existing;
+				const fresh = crypto.randomUUID().replaceAll("-", "");
+				localStorage.setItem(VISITOR_KEY, fresh);
+				return fresh;
+			} catch {
+				return null;
+			}
+		}
+		/** Drop stale per-day dedup keys so localStorage does not grow forever. */
+		function pruneDayKeys(today) {
+			try {
+				for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+					const key = localStorage.key(index);
+					if (key !== null && key.startsWith(DAY_KEY_PREFIX) && key !== DAY_KEY_PREFIX + today) localStorage.removeItem(key);
+				}
+			} catch {}
+		}
+		/**
+		* Fire the daily heartbeat for the given items at most once per UTC day per
+		* browser. Never throws and never blocks the caller.
+		*/
+		function reportDailyHeartbeat(items) {
+			try {
+				if (items.length === 0) return;
+				const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+				if (localStorage.getItem(DAY_KEY_PREFIX + today) !== null) return;
+				const visitor = visitorId();
+				if (visitor === null) return;
+				pruneDayKeys(today);
+				const body = JSON.stringify({
+					kind: "heartbeat",
+					visitor,
+					items: items.map((item) => item.version ? {
+						name: item.name,
+						version: item.version
+					} : { name: item.name })
+				});
+				fetch(ENDPOINT, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body,
+					keepalive: true
+				}).then((response) => {
+					if (response.ok) localStorage.setItem(DAY_KEY_PREFIX + today, "1");
+				}).catch(() => {});
+			} catch {}
+		}
+		//#endregion
 		//#region src/client/index.ts
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
@@ -4478,6 +4534,7 @@ window.__ModuleLoader__.load({
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
+			reportDailyHeartbeat([{ name: "@linxin666/dsh-client-ui-skin-center" }]);
 			ctx.effect(() => {
 				try {
 					return ctx.locale.register(NS, {
