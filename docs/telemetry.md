@@ -25,7 +25,11 @@ UV（独立实例数）= 当日去重访客 ID 数；因此「安装量」读作
 curl -s 'https://dsh-market.com/api/telemetry/summary?days=30'
 ```
 
-返回最近 N 天（1-365）的站点 PV/UV 日序列与热门路径、各包的累计实例数与当日活跃数。机器可读契约见 `/openapi.json` 中 `/api/telemetry/*` 两项。worker 配置了 `TELEMETRY_READ_KEY` secret 时，汇总接口需要携带 `x-telemetry-key` 头或 `?key=` 参数才可读取；未配置时公开可读。
+返回最近 N 天（1-365）的站点 PV/UV 日序列与热门路径、各包的累计实例数与当日活跃数。机器可读契约见 `/openapi.json` 中 `/api/telemetry/*` 两项。汇总接口由 `TELEMETRY_READ_KEY` secret 保护：携带 `x-telemetry-key` 头或 `?key=` 参数才可读取。
+
+### 私有实时视图
+
+`market/telemetry-view`（部署为 worker `dsh-market-telemetry-view`，地址 `tv.dsh-market.com`）是只读仪表盘：每次访问实时拉取汇总接口并渲染日 PV/UV、热门路径与各包安装量/当日活跃，自身不存任何数据。访问保护双层：路由应挂 Cloudflare Access 自托管应用（邮箱验证），worker 内部同时校验 Access JWT 签名（`ACCESS_TEAM` + `ACCESS_AUD` secret，未配置前默认拒绝服务）。
 
 ## 接入新包
 
