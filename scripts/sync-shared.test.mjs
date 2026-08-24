@@ -21,15 +21,16 @@ test('copies cover the settings trio for eight consumers plus host and http help
   // Normalize separators: node:path join yields backslashes on Windows, and
   // the copy-count buckets below match on forward slashes.
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
-  assert.equal(entries.length, 94)
+  assert.equal(entries.length, 96)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
   assert.equal(clientTrio.length, 43)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')
     || entry.target.includes('/src/loopback.ts')
+    || entry.target.includes('/src/agent/')
     || entry.target.endsWith('/packages/dsh-task-board/src/http.ts'))
-  assert.equal(hostCopies.length, 42)
+  assert.equal(hostCopies.length, 44)
 })
 
 test('checkSync detects drift and applySync repairs it', async () => {
@@ -52,6 +53,7 @@ test('checkSync detects drift and applySync repairs it', async () => {
     await writeFile(join(hostDir, 'git-runner.ts'), 'export const runner = 1' + String.fromCharCode(10))
     await writeFile(join(hostDir, 'mount-once.ts'), 'export const once = 1' + String.fromCharCode(10))
     await writeFile(join(hostDir, 'http.ts'), 'export const http = 1' + String.fromCharCode(10))
+    await writeFile(join(hostDir, 'legacy-migration.ts'), 'export const legacy = 1' + String.fromCharCode(10))
     const targetDir = join(root, 'packages', 'dsh-pet', 'src', 'client')
     await mkdir(targetDir, { recursive: true })
     await writeFile(join(targetDir, 'settings-form.ts'), renderCopy('export const bad = 2' + String.fromCharCode(10), 'settings-form.ts', 'shared/client/settings/settings-form.ts'))

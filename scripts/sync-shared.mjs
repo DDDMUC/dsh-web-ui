@@ -73,6 +73,14 @@ const MANIFEST = [
     targets: ['packages/dsh-git-graph/src/host/git-runner.ts'],
   },
   {
+    file: 'legacy-migration.ts',
+    source: 'shared/host/legacy-migration.ts',
+    targets: [
+      'packages/dsh-plugin-manager/src/host/legacy-migration.ts',
+      'packages/dsh-doctor/src/agent/legacy-migration.ts',
+    ],
+  },
+  {
     file: 'mount-once.ts',
     source: 'shared/host/mount-once.ts',
     targets: [

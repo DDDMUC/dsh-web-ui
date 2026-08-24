@@ -85,6 +85,23 @@ describe('parseUpdateList', () => {
       .toEqual([{ id: 'a', current: '1.0.0', latest: '1.1.0' }])
   })
 
+  it('parses a legacy migration row', () => {
+    expect(parseUpdateList({ updates: [{
+      id: '@linxin666/dsh-web-ui-all', current: '0.3.2', latest: '0.3.3',
+      kind: 'migrate', target: '@linxin666/dsh-web-all', targetVersion: '0.3.3',
+    }] }))
+      .toEqual([{
+        id: '@linxin666/dsh-web-ui-all', current: '0.3.2', latest: '0.3.3',
+        kind: 'migrate', target: '@linxin666/dsh-web-all', targetVersion: '0.3.3',
+      }])
+  })
+
+  it('rejects a migration row without target metadata', () => {
+    expect(() => parseUpdateList({ updates: [{
+      id: 'a', current: '1', latest: '2', kind: 'migrate', target: 'b',
+    }] })).toThrow(/update row 0/)
+  })
+
   it('parses optional DSH compatibility fields', () => {
     expect(parseUpdateList({ updates: [{ id: 'a', current: '1.0.0', latest: '1.1.0', requiresDsh: '>=0.1.0-rc.8', compatible: false }] }))
       .toEqual([{ id: 'a', current: '1.0.0', latest: '1.1.0', requiresDsh: '>=0.1.0-rc.8', compatible: false }])

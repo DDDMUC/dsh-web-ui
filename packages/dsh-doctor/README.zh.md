@@ -23,6 +23,7 @@ profile。插件默认开启：初次安装或 WebUI 版本更新后救援模式
   的启用行，宿主重启后生效）。
 - Doctor Supervisor 作为用户级后台服务运行：把退出归类为用户停止、任务完成与
   真实故障，应用崩溃循环熔断，并负责救援调度。
+- Doctor Launcher 会在启动 DSH 前检测旧聚合包，并在 `autoMigrate`（默认开启）且目标包可用时自动执行 `@linxin666/dsh-web-ui-all` 到 `@linxin666/dsh-web-all` 的迁移；迁移经官方 `dsh plugin` CLI 执行，带 package.json/pnpm-lock 备份和 `--dump-config` 门禁。
 - Doctor Launcher 把 `dsh` 参数原样转发给真实 DSH 可执行文件，转发 stdin、
   stdout、stderr 与信号，记录启动意图与退出事实，之后才上报事件。
 - 救援胶囊在机器本地目录准备固定版本 DSH 运行时、固定版本 Doctor 包与隔离的
@@ -89,6 +90,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 | --- | --- |
 | `dsh-doctor supervisor` | 前台运行 Supervisor |
 | `dsh-doctor launch [dsh 参数...]` | 在监督下转发一次 `dsh` 调用 |
+| `dsh-doctor migrate [profile]` | 直接执行确定性旧聚合包迁移 |
 | `dsh-doctor status` | 以 JSON 打印 Supervisor 快照 |
 | `dsh-doctor provision [profile] [--no-credentials]` | 配置或刷新救援胶囊（镜像 provider 配置与凭据、0600；默认固定当前包版本，`DSH_DOCTOR_PACKAGE` / `--no-credentials` / `DSH_DOCTOR_CREDENTIALS=off` 可调整） |
 | `dsh-doctor snapshot [profile]` | 快照一个 profile |
@@ -110,6 +112,7 @@ host 设置命名空间为 `doctor`：
 | `enabled` | `true` | 总开关；开启时挂载路由并自动核对部署，关闭时暂停 Supervisor 且不卸载 |
 | `fullProtection` | `true` | 托管保护；发送心跳、记录故障事件并执行熔断；关闭后进入观察模式 |
 | `autoRepair` | `false` | 隔离门禁通过后自动提升；关闭时保留候选并等待明确确认 |
+| `autoMigrate` | `true` | 启动前自动迁移旧聚合包；只对已知的 `dsh-web-ui-all` -> `dsh-web-all` 映射生效 |
 | `heartbeatIntervalMs` | `5000` | host 心跳周期 |
 
 环境变量：

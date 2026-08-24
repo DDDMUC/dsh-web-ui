@@ -226,6 +226,10 @@ dsh web
 > 若 npm 版本滞后或损坏会出现「宿主已挂载但 UI 不显示」，此时先用 `node scripts/link-profile.mjs`
 > 让全部子包走仓库构建产物。
 
+### 从旧聚合包升级
+
+已有 profile 如果仍挂在 `@linxin666/dsh-web-ui-all`，不需要手动先删旧包再装新包。启用 Doctor 后，Doctor Launcher 会在启动 DSH 前检测该旧聚合包并自动执行事务迁移：先安装 `@linxin666/dsh-web-all`，再移除旧包，保留原有 `web-ui-*` 行和 bundle 顺序，并通过 `--dump-config` 预检后才继续启动。用户通过 `dsh-doctor launch` 或 Doctor 服务启动即可；裸 `dsh web` 不经过该 preflight。
+
 ### 单独安装某个插件
 
 不想装全家桶时，可单独安装任意插件（npm 已发布，直接用包名）：

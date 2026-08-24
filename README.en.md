@@ -227,6 +227,10 @@ dsh web
 > missing". In that case run `node scripts/link-profile.mjs` first so every child package uses the
 > repository build output.
 
+### Upgrade from the legacy aggregate
+
+Profiles still mounted on `@linxin666/dsh-web-ui-all` do not need a manual remove-then-add step. With Doctor enabled, the Doctor Launcher detects the legacy aggregate before starting DSH and runs a transactional migration: installs `@linxin666/dsh-web-all`, removes the legacy package, preserves the existing `web-ui-*` rows and bundle order, and passes a `--dump-config` preflight before continuing. Launch through `dsh-doctor launch` or the Doctor service; a bare `dsh web` does not pass through this preflight.
+
 ### Install a Single Plugin
 
 Prefer individual plugins? Install them one by one (published on npm, so use the package name directly):

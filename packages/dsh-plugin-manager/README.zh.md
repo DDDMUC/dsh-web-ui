@@ -10,6 +10,7 @@
 - 双通道传输：带官方安装器服务的运行时（DSHCode 与 1.0.4 checkout 版 web）走官方 `/plugin-installer`、`/plugin-control` loopback RPC 通道；npm 发布的官方 web 没有这些通道，本包的 host 半区挂载 loopback 门禁的 HTTP 网关——安装/卸载 spawn 官方 `dsh plugin` CLI（唯一写入器），启停写入 `disabled` 覆盖行。
 - 从 npm 包名或 git 仓库 URL 安装插件，带进度。
 - 列出已装用户插件：下次启动生效的启用开关、更新检查（npm 源走 registry）、已核验的 npm 更新与卸载。
+- 检测旧聚合包 `@linxin666/dsh-web-ui-all`，把更新动作转换为到 `@linxin666/dsh-web-all` 的事务迁移；网关先移除旧包、安装精确版本的新包、恢复旧聚合包的层顺序，并在 `--dump-config` 通过后才报告成功。
 - 更新前校验 DSH 运行时兼容（issue #754）：更新检查读取最新版本清单声明的 DSH 最低版本（`dsh.engines.dsh`，兼容回退读顶层 `engines.dsh`），在更新按钮旁显示要求，运行 DSH 低于要求时禁用按钮；host 更新路由在启动任何 CLI 任务前若无法核实时也会返回 412 并拒绝。
 - 官方 plugin-control 面存在时展示内置产品开关。
 - 安装时冲突对账：官方模式对产品快照前后 diff；网关模式对每次 CLI 运行前后的 profile 层 diff，可撤销的动作给一键撤销，每条冲突都给「让 Agent 修复」转交。
