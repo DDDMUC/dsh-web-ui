@@ -409,20 +409,9 @@
       "category": "ui"
     },
     {
-      "id": "miku-pet",
-      "name": "Miku 桌宠",
-      "rank": 36,
-      "nameEn": "Miku Pet",
-      "author": "stushansusu",
-      "description": "只属于 Miku 的浮动桌宠：手绘风帧动画，5s 随机待机（连漏 2 次必演）、连续工作赚金币、商店恢复饥饿、属性彩条与两级悬停菜单；路由 /miku-pet 与内置 dsh-pet 共存。",
-      "descriptionEn": "A floating pet exclusively for Miku: hand-drawn frame animations, 5s random idle with a pity timer, a continuous work loop earning coins, a shop restoring hunger, stat bars and a two-level hover menu; coexists with the built-in dsh-pet under the /miku-pet namespace.",
-      "repo": "https://github.com/stushansusu/miku-pet",
-      "category": "ui"
-    },
-    {
       "id": "dsh-session-insights",
       "name": "会话复盘",
-      "rank": 37,
+      "rank": 36,
       "nameEn": "Session Insights",
       "author": "GreenLv",
       "description": "通过 /session-insights 把 DSH 会话历史生成为本地、基于证据的工作流复盘：自包含 HTML Dashboard 与配套 JSON，支持确定性分析与可选的模型辅助分析。",
