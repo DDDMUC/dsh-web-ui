@@ -37,6 +37,24 @@ manifests would be rejected by their own validator. Optional legal metadata
 (`license`, `licenseUrl`, `noticeUrl`, `sourceUrl`, `attribution`) is
 first-class in v2.
 
+## Hooks trust model
+
+`hooks.mjs` is trusted executable code that shares this repository's review
+and release. It is served verbatim over `GET /skins/<id>/hooks.mjs` only for:
+
+- **built-in skins** — shipped inside the skin-center npm package, same
+  review and release by definition;
+- **official-market installs** — user-directory skins carrying a
+  `dsh-market.provenance.json` whose sha256 pins the on-disk `skin.json`
+  and hooks entry to the bytes the official DSH Market served (the market
+  content is built from this repository, so a hash match means the bytes
+  are the reviewed ones). Verification lives in `src/provenance.ts` and
+  fails closed: any missing, foreign-source or mismatched provenance keeps
+  the hooks facet refused with a catalog warning while the declarative
+  parts (skin.css / patches.css / assets) still load (issue #1073).
+
+Locally dropped or third-party skin directories never run hooks.
+
 ## Loader-side rules (pinned here, enforced in M2)
 
 - All skin CSS is force-scoped under `html[data-dsh-skin="<id>"]` by the

@@ -3,6 +3,7 @@ import z from "schemastery";
 import { mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path, { isAbsolute, join, sep } from "node:path";
 import { homedir } from "node:os";
+import { createHash } from "node:crypto";
 //#region src/mount-once.ts
 /**
 * Host single-instance guard shared by the plugin family. The family bundle
@@ -138,10 +139,17 @@ function isLoopbackRequest(request) {
 *  - writes are staged in a temp dir next to the destination and renamed
 *    into place only after every file downloaded successfully, so a failed
 *    install never leaves a half-written asset directory;
-*  - an existing directory is replaced only with force (the UI confirms).
+*  - an existing directory is replaced only with force (the UI confirms);
+*  - every install records dsh-market.provenance.json (sha256 of each
+*    installed file, pinned to MARKET_ORIGIN), so consumers like the skin
+*    center can tell official-market content — same-review code built from
+*    the dsh-web-ui repository — apart from hand-dropped directories
+*    (issue #1073).
 * @module @linxin666/dsh-client-ui-market/core
 */
 const MARKET_ORIGIN = "https://dsh-market.com";
+/** Provenance manifest written into every installed asset directory. */
+const PROVENANCE_FILENAME = "dsh-market.provenance.json";
 const SAFE_REL_RE = /^[A-Za-z0-9._][A-Za-z0-9._\-/]{0,199}$/;
 /** Whether one manifest-relative path passes the conservative allowlist. */
 function isSafeRel(rel) {
@@ -265,6 +273,7 @@ async function installAsset(kind, id, options) {
 	const tmp = dest + ".install-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
 	try {
 		mkdirSync(tmp, { recursive: true });
+		const hashes = {};
 		for (const entry of plan) {
 			const res = await fetchWithTimeout(entry.url, fetchImpl, "download", fetchTimeoutMs);
 			if (!res.ok) throw new MarketInstallError("download", `${entry.url} failed: ${res.status}`);
@@ -273,7 +282,17 @@ async function installAsset(kind, id, options) {
 			const guard = entry.rel.split("/").slice(0, -1).join(sep);
 			if (guard) mkdirSync(join(tmp, guard), { recursive: true });
 			writeFileSync(target, buf);
+			hashes[entry.rel] = createHash("sha256").update(buf).digest("hex");
 		}
+		const provenance = {
+			version: 1,
+			source: MARKET_ORIGIN,
+			kind,
+			id,
+			installedAt: (/* @__PURE__ */ new Date()).toISOString(),
+			files: hashes
+		};
+		writeFileSync(join(tmp, PROVENANCE_FILENAME), JSON.stringify(provenance, null, 2) + "\n");
 		if (exists) rmSync(dest, {
 			recursive: true,
 			force: true
@@ -500,4 +519,4 @@ function applyImpl(ctx) {
 	} catch {}
 }
 //#endregion
-export { Config, MARKET_API_PREFIX, MARKET_ORIGIN, MARKET_SETTINGS_NAMESPACE, apply, inject, installAsset, isSafeRel, makeMarketRoutes, name, planDownload };
+export { Config, MARKET_API_PREFIX, MARKET_ORIGIN, MARKET_SETTINGS_NAMESPACE, PROVENANCE_FILENAME, apply, inject, installAsset, isSafeRel, makeMarketRoutes, name, planDownload };

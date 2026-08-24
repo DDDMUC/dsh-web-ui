@@ -15,14 +15,37 @@
  *  - writes are staged in a temp dir next to the destination and renamed
  *    into place only after every file downloaded successfully, so a failed
  *    install never leaves a half-written asset directory;
- *  - an existing directory is replaced only with force (the UI confirms).
+ *  - an existing directory is replaced only with force (the UI confirms);
+ *  - every install records dsh-market.provenance.json (sha256 of each
+ *    installed file, pinned to MARKET_ORIGIN), so consumers like the skin
+ *    center can tell official-market content — same-review code built from
+ *    the dsh-web-ui repository — apart from hand-dropped directories
+ *    (issue #1073).
  * @module @linxin666/dsh-client-ui-market/core
  */
 
+import { createHash } from 'node:crypto'
 import { mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 
 export const MARKET_ORIGIN = 'https://dsh-market.com'
+
+/** Provenance manifest written into every installed asset directory. */
+export const PROVENANCE_FILENAME = 'dsh-market.provenance.json'
+
+/**
+ * Install provenance: proof that the on-disk bytes are exactly what the
+ * official market served. files maps each manifest-relative path to its
+ * lowercase hex sha256.
+ */
+export interface InstallProvenance {
+  version: 1
+  source: typeof MARKET_ORIGIN
+  kind: MarketKind
+  id: string
+  installedAt: string
+  files: Record<string, string>
+}
 
 /** Manifest response size cap (bytes). */
 export const MANIFEST_MAX_BYTES = 1024 * 1024
@@ -248,6 +271,7 @@ export async function installAsset(
   const tmp = dest + '.install-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
   try {
     mkdirSync(tmp, { recursive: true })
+    const hashes: Record<string, string> = {}
     for (const entry of plan) {
       const res = await fetchWithTimeout(entry.url, fetchImpl, 'download', fetchTimeoutMs)
       if (!res.ok) throw new MarketInstallError('download', `${entry.url} failed: ${res.status}`)
@@ -256,7 +280,17 @@ export async function installAsset(
       const guard = entry.rel.split('/').slice(0, -1).join(sep)
       if (guard) mkdirSync(join(tmp, guard), { recursive: true })
       writeFileSync(target, buf)
+      hashes[entry.rel] = createHash('sha256').update(buf).digest('hex')
     }
+    const provenance: InstallProvenance = {
+      version: 1,
+      source: MARKET_ORIGIN,
+      kind,
+      id,
+      installedAt: new Date().toISOString(),
+      files: hashes,
+    }
+    writeFileSync(join(tmp, PROVENANCE_FILENAME), JSON.stringify(provenance, null, 2) + '\n')
     if (exists) rmSync(dest, { recursive: true, force: true })
     renameSync(tmp, dest)
   } catch (err) {

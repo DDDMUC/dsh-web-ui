@@ -54,6 +54,6 @@ function applyImpl(ctx: Context): void {
   }
 }
 
-export { installAsset, planDownload, isSafeRel, MARKET_ORIGIN } from './core/installer.ts'
-export type { DownloadPlanEntry, InstallResult, MarketKind } from './core/installer.ts'
+export { installAsset, planDownload, isSafeRel, MARKET_ORIGIN, PROVENANCE_FILENAME } from './core/installer.ts'
+export type { DownloadPlanEntry, InstallProvenance, InstallResult, MarketKind } from './core/installer.ts'
 export { makeMarketRoutes, MARKET_API_PREFIX } from './routes.ts'

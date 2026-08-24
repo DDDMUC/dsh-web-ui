@@ -4,6 +4,7 @@ import { chmodSync, closeSync, cpSync, createReadStream, existsSync, lstatSync, 
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { createHash } from "node:crypto";
 import { transform } from "lightningcss";
 import { execFile, execFileSync } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
@@ -703,6 +704,65 @@ function resolveHarnessPaths(home, profile, fromUrl = import.meta.url) {
 	};
 }
 //#endregion
+//#region src/provenance.ts
+/**
+* Official-market provenance verification (issue #1073).
+*
+* Skins installed one-click from the DSH Market carry a
+* dsh-market.provenance.json written by the market installer at install
+* time, pinning every installed file to its sha256 and to the market
+* origin. The market's skin content is built from THIS repository (same
+* review, same release), so when the on-disk skin.json and hooks entry
+* hash-match the provenance, the hooks bytes are exactly the reviewed
+* bytes and may run like a built-in skin's.
+*
+* Fail-closed: a missing/unparseable provenance, a foreign source, or any
+* hash mismatch (post-install tampering, partial copy) keeps the
+* hooks-refused behavior for user-directory skins. Forging the provenance
+* requires write access to $DSH_HOME itself — an attacker with that access
+* can already install full plugins, so the file is a provenance record,
+* not a capability guard against the local user.
+* @module @linxin666/dsh-client-ui-skin-center/provenance
+*/
+/** Provenance filename written by the market installer (mirrors PROVENANCE_FILENAME in @linxin666/dsh-client-ui-market; no cross-package runtime import). */
+const MARKET_PROVENANCE_FILENAME = "dsh-market.provenance.json";
+function sha256Hex(abs) {
+	try {
+		return createHash("sha256").update(readFileSync(abs)).digest("hex");
+	} catch {
+		return null;
+	}
+}
+/**
+* Whether the skin directory at dir carries valid official-market
+* provenance for skinId whose declared hooks entry (already validated as a
+* safe relative path by the manifest validator) hash-matches the recorded
+* bytes — skin.json included, so the facet entry path itself is pinned.
+*/
+function verifyMarketProvenance(dir, skinId, hooksEntry) {
+	let raw;
+	try {
+		raw = JSON.parse(readFileSync(join(dir, MARKET_PROVENANCE_FILENAME), "utf8"));
+	} catch {
+		return false;
+	}
+	if (typeof raw !== "object" || raw === null) return false;
+	const prov = raw;
+	if (prov.version !== 1) return false;
+	if (prov.source !== "https://dsh-market.com") return false;
+	if (prov.id !== skinId) return false;
+	const files = prov.files;
+	if (typeof files !== "object" || files === null) return false;
+	const hashes = files;
+	for (const rel of ["skin.json", hooksEntry]) {
+		const expected = hashes[rel];
+		if (typeof expected !== "string" || !/^[0-9a-f]{64}$/.test(expected)) return false;
+		const actual = sha256Hex(join(dir, ...rel.split("/")));
+		if (actual === null || actual !== expected) return false;
+	}
+	return true;
+}
+//#endregion
 //#region src/skin-repo.ts
 /**
 * Skin repository (issue #506, M2): dual-source discovery of v2 skin asset
@@ -789,6 +849,28 @@ function readManifest(dir) {
 		return null;
 	}
 }
+/**
+* Hooks trust for one user-directory skin: official-market installs
+* whose skin.json and hooks entry hash-match the recorded provenance
+* run their hooks (same-review content); anything else keeps the
+* refusal warning. Built-in skins never reach this — their origin
+* is the trust signal.
+*/
+function marketHooksTrust(manifest, dir) {
+	const facet = manifest.facets?.client;
+	if (!facet) return {
+		trusted: false,
+		warning: null
+	};
+	if (verifyMarketProvenance(dir, manifest.id, facet.entry)) return {
+		trusted: true,
+		warning: null
+	};
+	return {
+		trusted: false,
+		warning: "declares hooks.mjs, but hooks only run for built-in or verified official-market (same-review) skins; the hooks facet will be refused"
+	};
+}
 function collectSource(spec, catalog, claimed) {
 	if (!existsSync(spec.root)) return;
 	let dirNames;
@@ -831,12 +913,14 @@ function collectSource(spec, catalog, claimed) {
 			if (spec.origin === "user" && existing.origin === "builtin") {
 				catalog.skins = catalog.skins.filter((s) => s !== existing);
 				const winnerWarnings = [...result.warnings, `shadows the built-in "${manifest.id}" skin`];
-				if (manifest.facets?.client) winnerWarnings.push("declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused");
+				const trust = marketHooksTrust(manifest, dir);
+				if (trust.warning !== null) winnerWarnings.push(trust.warning);
 				const winner = {
 					manifest,
 					origin: "user",
 					dir,
-					warnings: winnerWarnings
+					warnings: winnerWarnings,
+					...trust.trusted ? { hooksTrusted: true } : {}
 				};
 				claimed.set(manifest.id, winner);
 				catalog.skins.push(winner);
@@ -844,14 +928,19 @@ function collectSource(spec, catalog, claimed) {
 			continue;
 		}
 		const warnings = [...result.warnings];
-		if (spec.origin === "user" && manifest.facets?.client) warnings.push("declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused");
+		const trust = spec.origin === "user" ? marketHooksTrust(manifest, dir) : {
+			trusted: false,
+			warning: null
+		};
+		if (trust.warning !== null) warnings.push(trust.warning);
 		const contractWarnings = auditTokenContract(stylesheetEntries(manifest, dir));
 		warnings.push(...contractWarnings.warnings);
 		const entry = {
 			manifest,
 			origin: spec.origin,
 			dir,
-			warnings
+			warnings,
+			...trust.trusted ? { hooksTrusted: true } : {}
 		};
 		claimed.set(manifest.id, entry);
 		catalog.skins.push(entry);
@@ -1803,7 +1892,9 @@ function findCloseBrace(css, openBrace) {
 * The stylesheet/patches responses pass through the CSS safety pipeline
 * (force-scoped under html[data-dsh-skin="<id>"], whitelist fail-closed), so
 * the browser can inject them blindly. hooks.mjs is served verbatim — it is
-* trusted, same-review same-release code (high sensitivity, see contracts/).
+* trusted, same-review same-release code (high sensitivity, see contracts/),
+* served for built-in skins and for user-directory skins whose install
+* provenance pins the bytes to the official DSH Market (issue #1073).
 * @module @linxin666/dsh-client-ui-skin-center/routes-v2
 */
 const SKIN_CENTER_V2_PREFIX = "/api/skin-center/v2";
@@ -1940,7 +2031,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 				});
 				return;
 			}
-			if (entry.origin !== "builtin") {
+			if (entry.origin !== "builtin" && entry.hooksTrusted !== true) {
 				writeJson(res, 403, {
 					ok: false,
 					error: "hooks-require-review",

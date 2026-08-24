@@ -4,10 +4,11 @@
  * and the active-skin selection roundtrip with the same-origin fence.
  */
 
+import { createHash } from 'node:crypto'
 import { createServer, request as httpRequest } from 'node:http'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -244,6 +245,66 @@ describe('v2 hooks trust gate', () => {
     // Its declarative parts still load.
     const css = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/skins/shady/stylesheet`)
     expect(css.status).toBe(200)
+    await server.close()
+  })
+
+  function writeMarketInstalledSkin(id: string): string {
+    const dir = join(root, 'user', id)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'skin.json'), JSON.stringify({
+      skinManifestVersion: 2,
+      id,
+      name: id,
+      nameEn: id,
+      version: '1.0.0',
+      author: 'contributed',
+      contributes: { stylesheet: 'skin.css' },
+      facets: { client: { entry: 'hooks.mjs', apiVersion: 'x-org.linxin666.skin-center/v1alpha1' } },
+    }, null, 2))
+    writeFileSync(join(dir, 'skin.css'), '.a { color: red; }')
+    writeFileSync(join(dir, 'hooks.mjs'), 'export default function defineSkinHooks() { return { apply() {} } }\n')
+    const files: Record<string, string> = {}
+    for (const rel of ['skin.json', 'skin.css', 'hooks.mjs']) {
+      files[rel] = createHash('sha256').update(readFileSync(join(dir, rel))).digest('hex')
+    }
+    writeFileSync(join(dir, 'dsh-market.provenance.json'), JSON.stringify({
+      version: 1,
+      source: 'https://dsh-market.com',
+      kind: 'skin',
+      id,
+      installedAt: new Date().toISOString(),
+      files,
+    }))
+    return dir
+  }
+
+  it('serves hooks for user skins whose bytes hash-match official-market provenance (issue #1073)', async () => {
+    writeMarketInstalledSkin('matrix')
+    const routes = makeSkinCenterV2Routes({
+      loadCatalog: () => loadSkinCatalog({ builtinDir: builtin, userDir: join(root, 'user') }),
+      activeStatePath: statePath,
+    })
+    const server = await serve(routes)
+    const res = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/skins/matrix/hooks.mjs`)
+    expect(res.status).toBe(200)
+    expect(res.text).toContain('defineSkinHooks')
+    const catalog = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/catalog`)
+    const row = catalog.jsonBody.skins.find((s: any) => s.manifest.id === 'matrix')
+    expect(row.warnings.join(' ')).not.toContain('refused')
+    await server.close()
+  })
+
+  it('refuses hooks again when the on-disk bytes no longer match the provenance', async () => {
+    const dir = writeMarketInstalledSkin('matrix')
+    writeFileSync(join(dir, 'hooks.mjs'), 'export default () => ({ apply() {} }) // tampered\n')
+    const routes = makeSkinCenterV2Routes({
+      loadCatalog: () => loadSkinCatalog({ builtinDir: builtin, userDir: join(root, 'user') }),
+      activeStatePath: statePath,
+    })
+    const server = await serve(routes)
+    const res = await call(server.port, 'GET', `${SKIN_CENTER_V2_PREFIX}/skins/matrix/hooks.mjs`)
+    expect(res.status).toBe(403)
+    expect(res.jsonBody.error).toBe('hooks-require-review')
     await server.close()
   })
 })

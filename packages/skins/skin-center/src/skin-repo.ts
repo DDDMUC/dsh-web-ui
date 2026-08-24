@@ -34,6 +34,7 @@ import { validateSkinManifestV2 } from './core/manifest-v2/validate.ts'
 import { auditTokenContract, type TokenAuditStylesheet } from './core/css-safety/token-audit.ts'
 import type { SkinManifestV2 } from './core/manifest-v2/types.ts'
 import { resolveHarnessHome } from './harness-home.ts'
+import { verifyMarketProvenance } from './provenance.ts'
 
 export type SkinOrigin = 'builtin' | 'user'
 
@@ -45,6 +46,14 @@ export interface SkinCatalogEntry {
   dir: string
   /** Non-fatal notes (deprecated v1 fields ignored, shadowing, etc). */
   warnings: string[]
+  /**
+   * True only for a user-directory skin whose declared hooks entry
+   * hash-matches official dsh-market.com install provenance — i.e. the
+   * on-disk hooks bytes are the same-review content this repository
+   * published to the market (issue #1073). Built-in skins are trusted
+   * by origin and never carry this flag.
+   */
+  hooksTrusted?: boolean
 }
 
 export interface SkinCatalogDiagnostic {
@@ -127,6 +136,25 @@ interface SourceSpec {
   root: string
 }
 
+/**
+ * Hooks trust for one user-directory skin: official-market installs
+ * whose skin.json and hooks entry hash-match the recorded provenance
+ * run their hooks (same-review content); anything else keeps the
+ * refusal warning. Built-in skins never reach this — their origin
+ * is the trust signal.
+ */
+function marketHooksTrust(manifest: SkinManifestV2, dir: string): { trusted: boolean; warning: string | null } {
+  const facet = manifest.facets?.client
+  if (!facet) return { trusted: false, warning: null }
+  if (verifyMarketProvenance(dir, manifest.id, facet.entry)) {
+    return { trusted: true, warning: null }
+  }
+  return {
+    trusted: false,
+    warning: 'declares hooks.mjs, but hooks only run for built-in or verified official-market (same-review) skins; the hooks facet will be refused',
+  }
+}
+
 function collectSource(spec: SourceSpec, catalog: SkinCatalog, claimed: Map<string, SkinCatalogEntry>): void {
   if (!existsSync(spec.root)) return
   let dirNames: string[]
@@ -169,14 +197,14 @@ function collectSource(spec: SourceSpec, catalog: SkinCatalog, claimed: Map<stri
         // User shadows builtin: replace and note it on the winning entry.
         catalog.skins = catalog.skins.filter((s) => s !== existing)
         const winnerWarnings = [...result.warnings, `shadows the built-in "${manifest.id}" skin`]
-        if (manifest.facets?.client) {
-          winnerWarnings.push('declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused')
-        }
+        const trust = marketHooksTrust(manifest, dir)
+        if (trust.warning !== null) winnerWarnings.push(trust.warning)
         const winner: SkinCatalogEntry = {
           manifest,
           origin: 'user',
           dir,
           warnings: winnerWarnings,
+          ...(trust.trusted ? { hooksTrusted: true } : {}),
         }
         claimed.set(manifest.id, winner)
         catalog.skins.push(winner)
@@ -186,14 +214,15 @@ function collectSource(spec: SourceSpec, catalog: SkinCatalog, claimed: Map<stri
       continue
     }
     const warnings = [...result.warnings]
-    if (spec.origin === 'user' && manifest.facets?.client) {
-      warnings.push('declares hooks.mjs, but hooks only run for built-in (same-review) skins; the hooks facet will be refused')
-    }
+    const trust = spec.origin === 'user'
+      ? marketHooksTrust(manifest, dir)
+      : { trusted: false, warning: null }
+    if (trust.warning !== null) warnings.push(trust.warning)
     // Token contract audit is warning-only (the loader completes partial
     // sets); surface it on the catalog so third-party skins show their gaps.
     const contractWarnings = auditTokenContract(stylesheetEntries(manifest, dir))
     warnings.push(...contractWarnings.warnings)
-    const entry: SkinCatalogEntry = { manifest, origin: spec.origin, dir, warnings }
+    const entry: SkinCatalogEntry = { manifest, origin: spec.origin, dir, warnings, ...(trust.trusted ? { hooksTrusted: true } : {}) }
     claimed.set(manifest.id, entry)
     catalog.skins.push(entry)
   }

@@ -4,6 +4,7 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest'
+import { createHash } from 'node:crypto'
 import { mkdtempSync, existsSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -11,6 +12,7 @@ import {
   FILE_MAX_BYTES,
   MANIFEST_MAX_BYTES,
   MARKET_ORIGIN,
+  PROVENANCE_FILENAME,
   MAX_FILES_PER_ASSET,
   MarketInstallError,
   installAsset,
@@ -111,6 +113,33 @@ describe('installAsset', () => {
     expect(result.dest).toBe(targetDir(home, 'skin', 'whale-song'))
     expect(readFileSync(join(home, 'skins', 'whale-song', 'skin.json'), 'utf8')).toBe('data-skin.json')
     expect(readFileSync(join(home, 'skins', 'whale-song', 'assets', 'whale-art.webp'), 'utf8')).toBe('data-whale-art.webp')
+  })
+
+  it('records sha256 install provenance for every installed file (issue #1073)', async () => {
+    const home = tmpHome()
+    await installAsset('skin', 'whale-song', { dshHome: home, fetchImpl: mockFetch() })
+    const provenance = JSON.parse(readFileSync(join(home, 'skins', 'whale-song', PROVENANCE_FILENAME), 'utf8'))
+    expect(provenance.version).toBe(1)
+    expect(provenance.source).toBe(MARKET_ORIGIN)
+    expect(provenance.kind).toBe('skin')
+    expect(provenance.id).toBe('whale-song')
+    expect(typeof provenance.installedAt).toBe('string')
+    const sha = (body: string) => createHash('sha256').update(body).digest('hex')
+    expect(provenance.files).toEqual({
+      'skin.json': sha('data-skin.json'),
+      'skin.css': sha('data-skin.css'),
+      'assets/whale-art.webp': sha('data-whale-art.webp'),
+    })
+  })
+
+  it('refreshes provenance on a force reinstall', async () => {
+    const home = tmpHome()
+    await installAsset('skin', 'whale-song', { dshHome: home, fetchImpl: mockFetch() })
+    const first = JSON.parse(readFileSync(join(home, 'skins', 'whale-song', PROVENANCE_FILENAME), 'utf8'))
+    await installAsset('skin', 'whale-song', { dshHome: home, fetchImpl: mockFetch(), force: true })
+    const second = JSON.parse(readFileSync(join(home, 'skins', 'whale-song', PROVENANCE_FILENAME), 'utf8'))
+    expect(second.files['skin.json']).toBe(first.files['skin.json'])
+    expect(second.id).toBe('whale-song')
   })
 
   it('refuses to overwrite without force and replaces with force', async () => {

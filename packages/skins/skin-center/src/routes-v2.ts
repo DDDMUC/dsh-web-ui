@@ -16,7 +16,9 @@
  * The stylesheet/patches responses pass through the CSS safety pipeline
  * (force-scoped under html[data-dsh-skin="<id>"], whitelist fail-closed), so
  * the browser can inject them blindly. hooks.mjs is served verbatim — it is
- * trusted, same-review same-release code (high sensitivity, see contracts/).
+ * trusted, same-review same-release code (high sensitivity, see contracts/),
+ * served for built-in skins and for user-directory skins whose install
+ * provenance pins the bytes to the official DSH Market (issue #1073).
  * @module @linxin666/dsh-client-ui-skin-center/routes-v2
  */
 
@@ -177,8 +179,11 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
       // Trust model (contracts/README.md): hooks are trusted code that shares
       // THIS repository's review and release. A user-directory skin never
       // went through that review, so its hooks are refused even though its
-      // declarative parts load fine.
-      if (entry.origin !== 'builtin') {
+      // declarative parts load fine — UNLESS it was installed from the
+      // official DSH Market and its skin.json + hooks bytes hash-match the
+      // recorded install provenance, which proves they are exactly the
+      // same-review content this repository published (issue #1073).
+      if (entry.origin !== 'builtin' && entry.hooksTrusted !== true) {
         writeJson(res, 403, { ok: false, error: 'hooks-require-review', origin: entry.origin })
         return
       }

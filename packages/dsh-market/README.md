@@ -65,6 +65,10 @@ official Plugins section are separate first-level settings entries.
 - The manifest (1 MiB), the per-asset file count (200) and the per-file size (200 MiB) are capped and
   every fetch has a 30 s timeout; a manifest or download exceeding a cap or timing out fails cleanly
   and leaves the existing asset directory untouched.
+- Every install writes `dsh-market.provenance.json` into the asset directory: the sha256 of each
+  installed file, pinned to `https://dsh-market.com`. The Skin Center uses it to run a market
+  skin's hooks only when the on-disk bytes hash-match what the market served (issue #1073);
+  hand-dropped or tampered directories keep hooks refused.
 - Plugin installs go through the same confirmation and CLI path as the Plugin manager tab.
 - The card validates manifest install sources before calling the plugin manager: only npm package
   names (optionally pinned with a version tag) and plain https:// git URLs are accepted; ssh://,
