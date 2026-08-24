@@ -8706,6 +8706,7 @@ const SkinWallpaperConfigSchema = z.object({
 	pauseOnHidden: z.boolean().default(true),
 	dim: z.number().min(0).max(90).step(5).default(25),
 	wallpaperBlur: z.number().min(0).max(60).step(1).default(0),
+	wallpaperOpacity: z.number().min(0).max(100).step(5).default(100),
 	fit: z.union([
 		"cover",
 		"contain",

@@ -86,6 +86,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const fit = useSyncExternalStore(wallpaper.subscribe, wallpaper.fit)
   const dim = useSyncExternalStore(wallpaper.subscribe, wallpaper.dim)
   const blur = useSyncExternalStore(wallpaper.subscribe, wallpaper.wallpaperBlur)
+  const opacity = useSyncExternalStore(wallpaper.subscribe, wallpaper.wallpaperOpacity)
   const pauseOnHidden = useSyncExternalStore(wallpaper.subscribe, wallpaper.pauseOnHidden)
   const sound = useSyncExternalStore(wallpaper.subscribe, wallpaper.sound)
   const volume = useSyncExternalStore(wallpaper.subscribe, wallpaper.volume)
@@ -94,6 +95,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const dirs = useSyncExternalStore(wallpaper.subscribe, wallpaper.dirs)
   const [shownDim, setShownDim] = useLiveValue(dim)
   const [shownBlur, setShownBlur] = useLiveValue(blur)
+  const [shownOpacity, setShownOpacity] = useLiveValue(opacity)
   const [shownVolume, setShownVolume] = useLiveValue(volume)
   const [dirInput, setDirInput] = useState('')
   const [picking, setPicking] = useState(false)
@@ -292,6 +294,21 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
                   ariaLabel={t('wallpaperDim')}
                   onChanging={setShownDim}
                   onChange={(value) => { wallpaper.setDim(value) }}
+                />
+                <div className={css.backgroundHead}>
+                  <span className={css.backgroundLabel}>{t('wallpaperOpacity')}</span>
+                  <span className={css.backgroundValue} aria-hidden="true">{shownOpacity}%</span>
+                </div>
+                <SliderControl
+                  className={css.backgroundRange}
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={opacity}
+                  ariaValuetext={shownOpacity + '%'}
+                  ariaLabel={t('wallpaperOpacity')}
+                  onChanging={setShownOpacity}
+                  onChange={(value) => { wallpaper.setOpacity(value) }}
                 />
                 <div className={css.backgroundHead}>
                   <span className={css.backgroundLabel}>{t('wallpaperBlur')}</span>

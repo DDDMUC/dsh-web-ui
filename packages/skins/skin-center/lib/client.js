@@ -570,6 +570,7 @@ window.__ModuleLoader__.load({
 			volumeValue = 100;
 			dimValue = 25;
 			blurValue = 0;
+			opacityValue = 100;
 			dirsValue = [];
 			listeners = /* @__PURE__ */ new Set();
 			scope;
@@ -598,13 +599,16 @@ window.__ModuleLoader__.load({
 			/** Detached frame-capture video; released on error/abort/loadeddata and on
 			*  teardown so it never keeps buffering the source file. */
 			captureVideo = null;
+			/** Guard flag: suppresses readAll during applyThemeDefaults scope writes
+			*  to prevent mid-write listener cascades from resetting values. */
+			seeding = false;
 			constructor(scope, options = {}) {
 				this.scope = scope;
 				this.options = options;
 				this.doc = options.doc ?? document;
 				this.readAll();
 				this.unsubscribe = scope.subscribe(() => {
-					if (this.disposed) return;
+					if (this.disposed || this.seeding) return;
 					this.readAll();
 					if (this.enabledValue && this.selectionValue && (!this.applied || this.applied.id !== this.selectionValue)) this.fetchAndSync();
 					else {
@@ -625,6 +629,7 @@ window.__ModuleLoader__.load({
 					});
 					this.mountObserver.observe(this.doc.body, { childList: true });
 				}
+				this.applyThemeDefaults();
 				if (this.enabledValue && this.selectionValue) this.fetchAndSync();
 			}
 			fetchAndSync() {
@@ -722,6 +727,7 @@ window.__ModuleLoader__.load({
 			fit = () => this.fitValue;
 			dim = () => this.dimValue;
 			wallpaperBlur = () => this.blurValue;
+			wallpaperOpacity = () => this.opacityValue;
 			pauseOnHidden = () => this.pauseOnHiddenValue;
 			sound = () => this.soundValue;
 			volume = () => this.volumeValue;
@@ -780,6 +786,12 @@ window.__ModuleLoader__.load({
 				this.render();
 				this.publish();
 				this.scope.set("wallpaperBlur", this.blurValue);
+			}
+			setOpacity(value) {
+				this.opacityValue = clamp(value, 0, 100);
+				this.render();
+				this.publish();
+				this.scope.set("wallpaperOpacity", this.opacityValue);
 			}
 			setPauseOnHidden(value) {
 				this.pauseOnHiddenValue = value;
@@ -860,6 +872,28 @@ window.__ModuleLoader__.load({
 				this.doc.removeEventListener("keydown", this.onFirstGesture);
 				this.teardownLayers();
 			}
+			/**
+			* Seed dim and opacity with theme-tuned values when neither has been
+			* explicitly set (both are at schema defaults: dim=25, opacity=100).
+			* This runs once at construction so a fresh wallpaper install gets
+			* readable defaults for the active theme. Users who have already
+			* adjusted either slider keep their values (#1051).
+			*/
+			applyThemeDefaults() {
+				const value = this.scope.getSnapshot().value ?? {};
+				if (value.dim !== void 0 || value.wallpaperOpacity !== void 0) return;
+				if ((this.options.themeGet !== void 0 ? this.options.themeGet() : this.doc.body?.hasAttribute("data-ds-dark-theme") ? "dark" : "light") === "light") {
+					this.dimValue = 0;
+					this.opacityValue = 40;
+				} else {
+					this.dimValue = 40;
+					this.opacityValue = 100;
+				}
+				this.seeding = true;
+				this.scope.set("dim", this.dimValue);
+				this.scope.set("wallpaperOpacity", this.opacityValue);
+				this.seeding = false;
+			}
 			readAll() {
 				const value = this.scope.getSnapshot().value ?? {};
 				this.enabledValue = typeof value.enabled === "boolean" ? value.enabled : true;
@@ -872,6 +906,7 @@ window.__ModuleLoader__.load({
 				this.volumeValue = typeof value.volume === "number" && Number.isFinite(value.volume) ? clamp(value.volume, 0, 100) : 100;
 				this.dimValue = typeof value.dim === "number" && Number.isFinite(value.dim) ? clamp(value.dim, 0, 90) : 25;
 				this.blurValue = typeof value.wallpaperBlur === "number" && Number.isFinite(value.wallpaperBlur) ? clamp(value.wallpaperBlur, 0, 60) : 0;
+				this.opacityValue = typeof value.wallpaperOpacity === "number" && Number.isFinite(value.wallpaperOpacity) ? clamp(value.wallpaperOpacity, 0, 100) : 100;
 				this.dirsValue = Array.isArray(value.weLibraryDirs) ? value.weLibraryDirs.filter((d) => typeof d === "string" && d.trim() !== "") : [];
 			}
 			/** Resume a policy-blocked video on the first user gesture (#580). */
@@ -985,6 +1020,7 @@ window.__ModuleLoader__.load({
 				const blur = this.blurValue > 0 ? "blur(" + String(this.blurValue) + "px)" : "";
 				this.mediaLayer.style.filter = blur;
 				this.mediaLayer.style.transform = this.blurValue > 0 ? "scale(1.05)" : "";
+				this.mediaLayer.style.opacity = this.opacityValue < 100 ? String(this.opacityValue / 100) : "";
 				this.scrimLayer.style.background = "rgba(0, 0, 0, " + String(this.dimValue / 100) + ")";
 			}
 			/** Push the current sizing mode onto the mounted media element. */
@@ -1477,6 +1513,7 @@ window.__ModuleLoader__.load({
 			const fit = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.fit);
 			const dim = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.dim);
 			const blur = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.wallpaperBlur);
+			const opacity = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.wallpaperOpacity);
 			const pauseOnHidden = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.pauseOnHidden);
 			const sound = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.sound);
 			const volume = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.volume);
@@ -1485,6 +1522,7 @@ window.__ModuleLoader__.load({
 			const dirs = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.dirs);
 			const [shownDim, setShownDim] = useLiveValue$1(dim);
 			const [shownBlur, setShownBlur] = useLiveValue$1(blur);
+			const [shownOpacity, setShownOpacity] = useLiveValue$1(opacity);
 			const [shownVolume, setShownVolume] = useLiveValue$1(volume);
 			const [dirInput, setDirInput] = (0, react.useState)("");
 			const [picking, setPicking] = (0, react.useState)(false);
@@ -1721,6 +1759,30 @@ window.__ModuleLoader__.load({
 										onChanging: setShownDim,
 										onChange: (value) => {
 											wallpaper.setDim(value);
+										}
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										className: skin_center_module_css_default.backgroundHead,
+										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: skin_center_module_css_default.backgroundLabel,
+											children: t("wallpaperOpacity")
+										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+											className: skin_center_module_css_default.backgroundValue,
+											"aria-hidden": "true",
+											children: [shownOpacity, "%"]
+										})]
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+										className: skin_center_module_css_default.backgroundRange,
+										min: 0,
+										max: 100,
+										step: 5,
+										value: opacity,
+										ariaValuetext: shownOpacity + "%",
+										ariaLabel: t("wallpaperOpacity"),
+										onChanging: setShownOpacity,
+										onChange: (value) => {
+											wallpaper.setOpacity(value);
 										}
 									}),
 									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -2967,6 +3029,7 @@ window.__ModuleLoader__.load({
 			wallpaperFitFill: "Stretch",
 			wallpaperClear: "Turn off wallpaper",
 			wallpaperDim: "Wallpaper dimming",
+			wallpaperOpacity: "Wallpaper opacity",
 			wallpaperBlur: "Wallpaper blur",
 			wallpaperPauseHidden: "Pause when window hidden",
 			wallpaperSound: "Wallpaper sound",
@@ -3059,6 +3122,7 @@ window.__ModuleLoader__.load({
 			wallpaperFitFill: "拉伸铺满",
 			wallpaperClear: "关闭壁纸",
 			wallpaperDim: "壁纸暗化",
+			wallpaperOpacity: "壁纸不透明度",
 			wallpaperBlur: "壁纸模糊",
 			wallpaperPauseHidden: "窗口隐藏时暂停",
 			wallpaperSound: "壁纸声音",

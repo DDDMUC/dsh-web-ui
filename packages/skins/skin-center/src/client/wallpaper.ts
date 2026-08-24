@@ -58,6 +58,8 @@ interface WallpaperSection {
   pauseOnHidden?: boolean
   dim?: number
   wallpaperBlur?: number
+  /** Opacity of the wallpaper media layer itself, 0-100 percent. */
+  wallpaperOpacity?: number
   /** Audible video wallpaper playback (default off = muted, #580). */
   sound?: boolean
   /** Wallpaper audio volume 0-100 (default 100). */
@@ -74,6 +76,8 @@ export interface WallpaperHandle {
   fit(): 'cover' | 'contain' | 'fill'
   dim(): number
   wallpaperBlur(): number
+  /** Opacity of the wallpaper media layer itself, 0-100. */
+  wallpaperOpacity(): number
   pauseOnHidden(): boolean
   /** Audible playback for video wallpapers (default false = muted). */
   sound(): boolean
@@ -104,6 +108,7 @@ export interface WallpaperHandle {
   setFit(fit: 'cover' | 'contain' | 'fill'): void
   setDim(value: number): void
   setBlur(value: number): void
+  setOpacity(value: number): void
   setPauseOnHidden(value: boolean): void
   setSound(value: boolean): void
   setVolume(value: number): void
@@ -246,6 +251,9 @@ export interface WallpaperControllerOptions {
    * mutations (chat streaming) into one settled sweep; tests pass 0 to flush
    * right after rAF. Defaults to 150. */
   surfaceTrailMs?: number
+  /** Override the light/dark theme detector (tests); defaults to
+   * body[data-ds-dark-theme] presence. */
+  themeGet?: () => 'light' | 'dark'
 }
 
 /**
@@ -262,6 +270,7 @@ export class WallpaperController implements WallpaperHandle {
   private volumeValue = 100
   private dimValue = 25
   private blurValue = 0
+  private opacityValue = 100
   private dirsValue: string[] = []
   private readonly listeners = new Set<() => void>()
   private readonly scope: SettingsScope<WallpaperSection>
@@ -292,6 +301,9 @@ export class WallpaperController implements WallpaperHandle {
   /** Detached frame-capture video; released on error/abort/loadeddata and on
    *  teardown so it never keeps buffering the source file. */
   private captureVideo: HTMLVideoElement | null = null
+  /** Guard flag: suppresses readAll during applyThemeDefaults scope writes
+   *  to prevent mid-write listener cascades from resetting values. */
+  private seeding = false
 
   constructor(scope: SettingsScope<WallpaperSection>, options: WallpaperControllerOptions = {}) {
     this.scope = scope
@@ -299,7 +311,7 @@ export class WallpaperController implements WallpaperHandle {
     this.doc = options.doc ?? document
     this.readAll()
     this.unsubscribe = scope.subscribe(() => {
-      if (this.disposed) return
+      if (this.disposed || this.seeding) return
       this.readAll()
       if (this.enabledValue && this.selectionValue && (!this.applied || this.applied.id !== this.selectionValue)) {
         this.fetchAndSync()
@@ -330,6 +342,10 @@ export class WallpaperController implements WallpaperHandle {
       })
       this.mountObserver.observe(this.doc.body, { childList: true })
     }
+    // Theme-aware defaults (#1051): when the scope has no explicit dim or
+    // opacity (both sit at schema defaults), seed values tuned for the
+    // current light/dark theme so text is readable out of the box.
+    this.applyThemeDefaults()
     if (this.enabledValue && this.selectionValue) {
       this.fetchAndSync()
     }
@@ -502,6 +518,7 @@ export class WallpaperController implements WallpaperHandle {
   fit = (): 'cover' | 'contain' | 'fill' => this.fitValue
   dim = (): number => this.dimValue
   wallpaperBlur = (): number => this.blurValue
+  wallpaperOpacity = (): number => this.opacityValue
   pauseOnHidden = (): boolean => this.pauseOnHiddenValue
   sound = (): boolean => this.soundValue
   volume = (): number => this.volumeValue
@@ -567,6 +584,13 @@ export class WallpaperController implements WallpaperHandle {
     this.render()
     this.publish()
     void this.scope.set('wallpaperBlur', this.blurValue)
+  }
+
+  setOpacity(value: number): void {
+    this.opacityValue = clamp(value, 0, 100)
+    this.render()
+    this.publish()
+    void this.scope.set('wallpaperOpacity', this.opacityValue)
   }
 
   setPauseOnHidden(value: boolean): void {
@@ -672,6 +696,37 @@ export class WallpaperController implements WallpaperHandle {
 
   // --- internals -----------------------------------------------------------
 
+  /**
+   * Seed dim and opacity with theme-tuned values when neither has been
+   * explicitly set (both are at schema defaults: dim=25, opacity=100).
+   * This runs once at construction so a fresh wallpaper install gets
+   * readable defaults for the active theme. Users who have already
+   * adjusted either slider keep their values (#1051).
+   */
+  private applyThemeDefaults(): void {
+    const snapshot = this.scope.getSnapshot()
+    const value = snapshot.value ?? {}
+    // Detect whether dim and opacity have never been written to the scope.
+    // A value of undefined means the field was never persisted; any number
+    // (even the schema default 25 for dim) means the user or a prior seed
+    // already set it, so we must not overwrite.
+    if (value.dim !== undefined || value.wallpaperOpacity !== undefined) return
+    const theme = this.options.themeGet !== undefined
+      ? this.options.themeGet()
+      : (this.doc.body?.hasAttribute('data-ds-dark-theme') ? 'dark' : 'light')
+    if (theme === 'light') {
+      this.dimValue = 0
+      this.opacityValue = 40
+    } else {
+      this.dimValue = 40
+      this.opacityValue = 100
+    }
+    this.seeding = true
+    void this.scope.set('dim', this.dimValue)
+    void this.scope.set('wallpaperOpacity', this.opacityValue)
+    this.seeding = false
+  }
+
   private readAll(): void {
     const snapshot: SettingsScopeSnapshot<WallpaperSection> = this.scope.getSnapshot()
     const value = snapshot.value ?? {}
@@ -689,6 +744,9 @@ export class WallpaperController implements WallpaperHandle {
     this.blurValue = typeof value.wallpaperBlur === 'number' && Number.isFinite(value.wallpaperBlur)
       ? clamp(value.wallpaperBlur, 0, 60)
       : 0
+    this.opacityValue = typeof value.wallpaperOpacity === 'number' && Number.isFinite(value.wallpaperOpacity)
+      ? clamp(value.wallpaperOpacity, 0, 100)
+      : 100
     this.dirsValue = Array.isArray(value.weLibraryDirs)
       ? value.weLibraryDirs.filter((d): d is string => typeof d === 'string' && d.trim() !== '')
       : []
@@ -880,6 +938,8 @@ export class WallpaperController implements WallpaperHandle {
     const blur = this.blurValue > 0 ? 'blur(' + String(this.blurValue) + 'px)' : ''
     this.mediaLayer.style.filter = blur
     this.mediaLayer.style.transform = this.blurValue > 0 ? 'scale(1.05)' : ''
+    // Wallpaper opacity controls the media layer's own transparency (#1051).
+    this.mediaLayer.style.opacity = this.opacityValue < 100 ? String(this.opacityValue / 100) : ''
     this.scrimLayer.style.background = 'rgba(0, 0, 0, ' + String(this.dimValue / 100) + ')'
   }
 

@@ -91,10 +91,10 @@ async function renderSkinCenter(options: {
   }
   const wallpaper = {
     enabled: () => true, selection: () => options.wallpaperSelection ?? '', mode: () => 'live', fit: () => 'cover', dim: () => 0,
-    wallpaperBlur: () => 0, pauseOnHidden: () => false, sound: () => false, volume: () => 100,
+    wallpaperBlur: () => 0, wallpaperOpacity: () => 100, pauseOnHidden: () => false, sound: () => false, volume: () => 100,
     dirs: () => noDirs, addDir: () => {}, removeDir: () => {}, activeId: () => null, trying: () => false,
     subscribe: () => () => {}, setEnabled: () => {}, setMode: () => {}, setFit: () => {}, setDim: () => {},
-    setBlur: () => {}, setPauseOnHidden: () => {}, setSound: () => {}, setVolume: () => {},
+    setBlur: () => {}, setOpacity: () => {}, setPauseOnHidden: () => {}, setSound: () => {}, setVolume: () => {},
     applySelection: () => {}, clearSelection: options.clearSelection ?? (() => {}), sync: () => {}, tryOn: () => {}, exitTryOn: () => {},
     recoverScenePlayer: () => {}, dispose: () => {},
   }

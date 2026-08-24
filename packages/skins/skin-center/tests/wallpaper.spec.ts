@@ -24,6 +24,7 @@ interface Section {
   pauseOnHidden?: boolean
   dim?: number
   wallpaperBlur?: number
+  wallpaperOpacity?: number
   sound?: boolean
   volume?: number
   weLibraryDirs?: string[]
@@ -1094,6 +1095,83 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('defaults wallpaperOpacity to 100 and applies setOpacity', () => {
+    // Provide dim to prevent applyThemeDefaults from overriding the default.
+    const { scope, calls } = fakeScope({ dim: 25 })
+    const controller = new WallpaperController(scope)
+    expect(controller.wallpaperOpacity()).toBe(100)
+    controller.applySelection(video)
+    controller.setOpacity(60)
+    expect(controller.wallpaperOpacity()).toBe(60)
+    expect(calls.some(c => c.field === 'wallpaperOpacity' && c.value === 60)).toBe(true)
+    controller.dispose()
+  })
+
+  it('clamps wallpaperOpacity to 0-100', () => {
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(video)
+    controller.setOpacity(-10)
+    expect(controller.wallpaperOpacity()).toBe(0)
+    controller.setOpacity(150)
+    expect(controller.wallpaperOpacity()).toBe(100)
+    controller.dispose()
+  })
+
+  it('applies opacity to mediaLayer.style.opacity', () => {
+    const { scope } = fakeScope()
+    // Dark theme seeds opacity=100, so the initial state has no explicit style.
+    const controller = new WallpaperController(scope, { themeGet: () => 'dark' })
+    controller.applySelection(video)
+    const [media] = layers()
+    // Default 100 means no explicit opacity style (avoid compositing overhead).
+    expect(media.style.opacity).toBe('')
+    controller.setOpacity(40)
+    expect(media.style.opacity).toBe('0.4')
+    controller.setOpacity(0)
+    expect(media.style.opacity).toBe('0')
+    controller.setOpacity(100)
+    expect(media.style.opacity).toBe('')
+    controller.dispose()
+  })
+
+  it('reads persisted wallpaperOpacity from the scope', () => {
+    const { scope } = fakeScope({ wallpaperOpacity: 55 })
+    const controller = new WallpaperController(scope)
+    expect(controller.wallpaperOpacity()).toBe(55)
+    controller.dispose()
+  })
+
+  it('applies light-theme defaults (dim=0, opacity=40) when both are untouched', () => {
+    const { scope, calls } = fakeScope()
+    const controller = new WallpaperController(scope, { themeGet: () => 'light' })
+    expect(controller.dim()).toBe(0)
+    expect(controller.wallpaperOpacity()).toBe(40)
+    expect(calls.some(c => c.field === 'dim' && c.value === 0)).toBe(true)
+    expect(calls.some(c => c.field === 'wallpaperOpacity' && c.value === 40)).toBe(true)
+    controller.dispose()
+  })
+
+  it('applies dark-theme defaults (dim=40, opacity=100) when both are untouched', () => {
+    const { scope, calls } = fakeScope()
+    const controller = new WallpaperController(scope, { themeGet: () => 'dark' })
+    expect(controller.dim()).toBe(40)
+    expect(controller.wallpaperOpacity()).toBe(100)
+    expect(calls.some(c => c.field === 'dim' && c.value === 40)).toBe(true)
+    expect(calls.some(c => c.field === 'wallpaperOpacity' && c.value === 100)).toBe(true)
+    controller.dispose()
+  })
+
+  it('does not override user-set dim/opacity with theme defaults', () => {
+    const { scope, calls } = fakeScope({ dim: 50 })
+    const controller = new WallpaperController(scope, { themeGet: () => 'light' })
+    // User explicitly set dim=50, so theme defaults must not fire.
+    expect(controller.dim()).toBe(50)
+    expect(controller.wallpaperOpacity()).toBe(100)
+    expect(calls.every(c => c.field !== 'wallpaperOpacity')).toBe(true)
+    controller.dispose()
+  })
+
 })
 
 /** A minimal fake WallpaperHandle recording every sync() call. */
@@ -1110,6 +1188,7 @@ function fakeHandle(selection: string): {
     mode: () => 'live',
     dim: () => 25,
     wallpaperBlur: () => 0,
+    wallpaperOpacity: () => 100,
     pauseOnHidden: () => true,
     sound: () => false,
     volume: () => 100,
@@ -1124,8 +1203,10 @@ function fakeHandle(selection: string): {
     },
     setEnabled: () => {},
     setMode: () => {},
+    setFit: () => {},
     setDim: () => {},
     setBlur: () => {},
+    setOpacity: () => {},
     setPauseOnHidden: () => {},
     setSound: () => {},
     setVolume: () => {},
@@ -1134,6 +1215,7 @@ function fakeHandle(selection: string): {
     sync: descriptor => { synced.push(descriptor) },
     tryOn: () => {},
     exitTryOn: () => {},
+    recoverScenePlayer: () => {},
     dispose: () => {},
   }
   return { handle, synced, listeners }

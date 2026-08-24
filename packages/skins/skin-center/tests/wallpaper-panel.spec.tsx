@@ -27,6 +27,7 @@ const stubWallpaper = (overrides: Partial<WallpaperHandle> = {}): WallpaperHandl
   fit: () => 'cover',
   dim: () => 0,
   wallpaperBlur: () => 0,
+  wallpaperOpacity: () => 100,
   pauseOnHidden: () => false,
   sound: () => false,
   volume: () => 100,
@@ -42,6 +43,7 @@ const stubWallpaper = (overrides: Partial<WallpaperHandle> = {}): WallpaperHandl
   setFit: () => {},
   setDim: () => {},
   setBlur: () => {},
+  setOpacity: () => {},
   setPauseOnHidden: () => {},
   setSound: () => {},
   setVolume: () => {},
@@ -50,6 +52,7 @@ const stubWallpaper = (overrides: Partial<WallpaperHandle> = {}): WallpaperHandl
   sync: () => {},
   tryOn: () => {},
   exitTryOn: () => {},
+  recoverScenePlayer: () => {},
   dispose: () => {},
   ...overrides,
 })

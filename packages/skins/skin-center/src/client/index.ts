@@ -153,6 +153,7 @@ export function apply(ctx: ClientContext): void {
     pauseOnHidden?: boolean
     dim?: number
     wallpaperBlur?: number
+    wallpaperOpacity?: number
     fit?: 'cover' | 'contain' | 'fill'
   }>({ namespace: SKIN_WALLPAPER_NS })
   const wallpaper = new WallpaperController(wallpaperScope)
@@ -211,6 +212,7 @@ export function apply(ctx: ClientContext): void {
       fit: () => wallpaper.fit(),
       dim: () => wallpaper.dim(),
       wallpaperBlur: () => wallpaper.wallpaperBlur(),
+      wallpaperOpacity: () => wallpaper.wallpaperOpacity(),
       pauseOnHidden: () => wallpaper.pauseOnHidden(),
       sound: () => wallpaper.sound(),
       volume: () => wallpaper.volume(),
@@ -226,6 +228,7 @@ export function apply(ctx: ClientContext): void {
       setFit: fit => wallpaper.setFit(fit),
       setDim: value => wallpaper.setDim(value),
       setBlur: value => wallpaper.setBlur(value),
+      setOpacity: value => wallpaper.setOpacity(value),
       setPauseOnHidden: value => wallpaper.setPauseOnHidden(value),
       setSound: value => wallpaper.setSound(value),
       setVolume: value => wallpaper.setVolume(value),

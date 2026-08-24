@@ -57,6 +57,7 @@ export type SkinCenterKey =
   | 'wallpaperFitFill'
   | 'wallpaperClear'
   | 'wallpaperDim'
+  | 'wallpaperOpacity'
   | 'wallpaperBlur'
   | 'wallpaperPauseHidden'
   | 'wallpaperSound'
@@ -149,6 +150,7 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperFitFill: 'Stretch',
   wallpaperClear: 'Turn off wallpaper',
   wallpaperDim: 'Wallpaper dimming',
+  wallpaperOpacity: 'Wallpaper opacity',
   wallpaperBlur: 'Wallpaper blur',
   wallpaperPauseHidden: 'Pause when window hidden',
   wallpaperSound: 'Wallpaper sound',
@@ -242,6 +244,7 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperFitFill: '拉伸铺满',
   wallpaperClear: '关闭壁纸',
   wallpaperDim: '壁纸暗化',
+  wallpaperOpacity: '壁纸不透明度',
   wallpaperBlur: '壁纸模糊',
   wallpaperPauseHidden: '窗口隐藏时暂停',
   wallpaperSound: '壁纸声音',
