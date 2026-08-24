@@ -1125,19 +1125,19 @@ window.__ModuleLoader__.load({
 					ta.value = command;
 					document.body.appendChild(ta);
 					ta.select();
+					let ok = false;
 					try {
-						document.execCommand("copy");
-					} catch {}
+						ok = document.execCommand("copy");
+					} catch {
+						ok = false;
+					}
 					ta.remove();
+					return ok;
 				};
 				if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(command).then(done, () => {
-					fallback();
-					done();
+					if (fallback()) done();
 				});
-				else {
-					fallback();
-					done();
-				}
+				else if (fallback()) done();
 			};
 			const installAssetKind = async (kind, id, force) => {
 				if (gateway === null) return;
