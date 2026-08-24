@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawnDsh } from './dsh-process.ts'
 import { randomUUID } from 'node:crypto'
 import { realpathSync } from 'node:fs'
 import { delimiter, dirname, resolve } from 'node:path'
@@ -69,7 +69,7 @@ export async function managedLaunch(options: ManagedLaunchOptions): Promise<numb
     }
   }
   const runId = randomUUID()
-  const child = spawn(realDsh, options.argv, { stdio: ['inherit', 'inherit', 'pipe'], env: { ...env, DSH_DOCTOR_ENDPOINT: options.endpoint, DSH_DOCTOR_TOKEN: options.token, DSH_DOCTOR_RUN_ID: runId, ...(identity ? { DSH_DOCTOR_PROFILE_ID: identity.id } : {}) } })
+  const child = spawnDsh(realDsh, options.argv, { stdio: ['inherit', 'inherit', 'pipe'], env: { ...env, DSH_DOCTOR_ENDPOINT: options.endpoint, DSH_DOCTOR_TOKEN: options.token, DSH_DOCTOR_RUN_ID: runId, ...(identity ? { DSH_DOCTOR_PROFILE_ID: identity.id } : {}) } })
   let tail = ''
   child.stderr?.on('data', (chunk: Buffer) => { process.stderr.write(chunk); tail = (tail + chunk.toString('utf8')).slice(-32_000) })
   if (kind === 'profile' && identity) {

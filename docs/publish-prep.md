@@ -1,102 +1,61 @@
-# dsh-web 插件包发布准备（内测已结束）
+# dsh-web 0.3.3 发布准备
 
-> **快照说明（重要）**：本文档是**当前时点（2026-08-13）**的发布前检查快照。
-> 插件全家桶已结束内测，但**清单与版本仍可能调整**：包可能增删、版本可能调整、
-> 字段可能变动。本文档需随仓库变更**重新核对**，不得当作永久事实使用。
->
-> **红线（务必遵守）**：发布动作仍须先经仓库维护者明确批准，并按 registry 规范
-> 操作（`npm pack --dry-run` 级别的演练可先行）。
+## 范围
 
-## 一、范围
+本版本统一发布 `packages/` 与 `packages/skins/` 下由 `scripts/lib/family-packages.mjs` 发现的 19 个公开家族包；根 package.json 与 shared 私有包不发布。所有家族包版本为 0.3.3，皮肤中心只随包分发 blue-fantasy，其余皮肤由 Workshop 按需安装。
 
-`packages/` 与 `packages/skins/` 下共 16 个插件包（截至快照日）。皮肤不再独立成包：皮肤是纯资产目录（仓库内 `packages/skins/skin-center/skins/<id>/` 为创意工坊/画廊来源），仅默认皮肤 `blue-fantasy` 随 `@linxin666/dsh-client-ui-skin-center` 的 `files` 白名单分发，其余皮肤由市场按需安装：
-
-| 目录 | 包名 | 当前版本 | private |
+| 目录 | npm 包 | 版本 | 发布状态 |
 | --- | --- | --- | --- |
-| packages/dsh-task-board | @linxin666/dsh-client-ui-task-board | 0.1.1 | true |
-| packages/dsh-git-graph | @linxin666/dsh-client-ui-git-graph | 0.1.1 | true |
-| packages/dsh-pet | @linxin666/dsh-pet | 0.1.1 | true |
-| packages/dsh-remote-web-ui | @linxin666/dsh-remote-web-ui | 0.1.1 | true |
-| packages/dsh-ssh | @linxin666/dsh-ssh | 0.1.1 | true |
-| packages/dsh-liangshen | @linxin666/dsh-liangshen | 0.1.12 | false |
-| packages/dsh-aionui-panel | @linxin666/dsh-client-ui-aionui-panel | 0.1.1 | true |
-| packages/dsh-web-settings | @linxin666/dsh-client-ui-web-ui-settings | 0.1.1 | true |
-| packages/dsh-skill-explorer | @linxin666/dsh-client-ui-skill-explorer | 0.1.20 | true |
-| packages/dsh-community-plugins | @linxin666/dsh-client-ui-community-plugins | 0.1.17 | false |
-| packages/dsh-market | @linxin666/dsh-client-ui-market | 0.2.9 | false |
-| packages/dsh-plugin-manager | @linxin666/dsh-client-ui-plugin-manager | 0.1.0 | true |
-| packages/dsh-chat-recovery | @linxin666/dsh-chat-recovery | 0.2.4 | false |
-| packages/dsh-desktop-launcher | @linxin666/dsh-desktop-launcher | 0.2.3 | false |
-| packages/dsh-doctor | @linxin666/dsh-doctor | 0.2.7 | false |
-| packages/dsh-web-all | @linxin666/dsh-web-all（聚合） | 0.1.1 | true |
-| packages/skins/skin-center | @linxin666/dsh-client-ui-skin-center | 0.1.1 | true |
+| packages/dsh-aionui-panel | @linxin666/dsh-client-ui-aionui-panel | 0.3.3 | public |
+| packages/dsh-chat-recovery | @linxin666/dsh-chat-recovery | 0.3.3 | public |
+| packages/dsh-community-plugins | @linxin666/dsh-client-ui-community-plugins | 0.3.3 | public |
+| packages/dsh-desktop-launcher | @linxin666/dsh-desktop-launcher | 0.3.3 | public |
+| packages/dsh-doctor | @linxin666/dsh-doctor | 0.3.3 | public |
+| packages/dsh-git-graph | @linxin666/dsh-client-ui-git-graph | 0.3.3 | public |
+| packages/dsh-liangshen | @linxin666/dsh-liangshen | 0.3.3 | public |
+| packages/dsh-market | @linxin666/dsh-client-ui-market | 0.3.3 | public |
+| packages/dsh-pet | @linxin666/dsh-pet | 0.3.3 | public |
+| packages/dsh-plugin-manager | @linxin666/dsh-client-ui-plugin-manager | 0.3.3 | public |
+| packages/dsh-remote-web-ui | @linxin666/dsh-remote-web-ui | 0.3.3 | public |
+| packages/dsh-session-id | @linxin666/dsh-client-ui-session-id | 0.3.3 | public |
+| packages/dsh-skill-explorer | @linxin666/dsh-client-ui-skill-explorer | 0.3.3 | public |
+| packages/dsh-ssh | @linxin666/dsh-ssh | 0.3.3 | public |
+| packages/dsh-task-board | @linxin666/dsh-client-ui-task-board | 0.3.3 | public |
+| packages/dsh-tool-describe-image | @linxin666/dsh-tool-describe-image | 0.3.3 | public |
+| packages/dsh-web-all | @linxin666/dsh-web-all | 0.3.3 | public |
+| packages/dsh-web-settings | @linxin666/dsh-client-ui-web-ui-settings | 0.3.3 | public |
+| packages/skins/skin-center | @linxin666/dsh-client-ui-skin-center | 0.3.3 | public |
 
+## Registry transition
 
-## 二、发布前检查结论（2026-08-11，已修复项标注 [已确认]）
+- `@linxin666/dsh-web-all@0.3.3` is the first release under the renamed aggregate identity and must be published before the legacy package.
+- `@linxin666/dsh-web-ui-all@0.3.2` is the previous release; `0.3.3` is unoccupied and is the first dual-published legacy transition version.
+- `scripts/publish-legacy-aggregate.mjs` limits the legacy transition to two versions and writes `dsh.migrate.to` / `dsh.migrate.since` into the legacy tarball.
+- After the second transition version, deprecate `@linxin666/dsh-web-ui-all` with the migration instruction instead of publishing another version.
+- External aggregate dependencies `dsh-better-sidebar@0.15.2` and `@mlgbnb/dsh-archive-manager@1.0.7` are registry-readable.
 
-### [阻断] 阻断项（不修复无法发布/无法被消费）
+## Compatibility boundary
 
-1. **11 包 `private: true`** — npm 直接拒绝发布 private 包
-   （`This package has been marked as private`）。发布前需逐个移除。
-   **（发布前需按流程移除，当前仍保留）**
-2. **聚合包 `workspace:*` 依赖原样进 tarball**（dsh-web-all 17 处）—
-   [已确认] **已确认修复方式**：实测 `pnpm pack` 会把 `workspace:*` 改写为真实版本号
-   （无残留）。
-   发布时必须用 **`pnpm publish`**（不要用 `npm publish`），`npm pack` 不改写。
-3. **类型产物缺失（1 包）** — [已确认] **已修复**：
-   - dsh-task-board：新增 `tsconfig.build.json`（emitDeclarationOnly → lib/types），
-     build 脚本改为 `tsc -p tsconfig.build.json && tsdown`；已产出 18 个 .d.ts；
-4. **`@deepseek-ai/dsh-code-kline` 未发布** — 原为 ui-code-kline 与 dsh-web-all
-   的依赖方（peerDeps/deps 引用），需在依赖它的包之前发布。
-   **（发布动作本身，无法提前修复；发布顺序已排定）**
-   [已确认] **已失效**：2026-08-12 调整移除 code-kline / ui-code-kline 包后，
-   该发布依赖不再存在，无需处理。
+All `web-ui-*` bundle ids, `dsh-web-ui-market`, `/api/dsh-web-ui-settings`, and the `dsh-web-ui-settings-proxy-token` header remain frozen. Doctor migration and plugin-manager migration use the shared legacy mapping; Doctor invokes Windows `.cmd` shims through constrained `cmd.exe` arguments. Direct `dsh web` bypasses Doctor migration.
 
-### [建议] 建议项（registry 安装兼容性）— [已确认] 已修复
+This release has fresh-install, unit migration, and Linux CI mount evidence. It does not claim real previous-version upgrade drills, failure-injection drills against published tarballs, or a macOS / Windows upgrade matrix. Manual recovery is documented in `docs/release-notes/v0.3.3.md`.
 
-5. **peerDeps 版本声明不匹配**：git-graph / pet / remote-web-ui
-   的 `@deepseek-ai/*` peerDeps
-   已从旧 `^0.0.1` 系列改为 **`^0.1.0-rc.6`**（与 npm 已发布版本匹配，避免 ERESOLVE）。
+## Required gates
 
-### [卫生] 卫生项
+```sh
+pnpm sync-shared:check
+pnpm typecheck
+pnpm test
+pnpm test:scripts
+pnpm aggregate:check
+pnpm runtime-deps:check
+pnpm docs:check
+pnpm gallery:check
+pnpm skin-center:check
+pnpm community:check
+pnpm market:check
+pnpm build
+node scripts/verify-version.mjs 0.3.3
+```
 
-6. **LICENSE 文件缺失 11 包** — [已确认] **已补全**（Apache-2.0），打包验证 LICENSE 已进 tarball。Maid Atelier 作为例外采用 CC BY-NC-SA 4.0，仅限非商业使用；其 LICENSE / NOTICE 随皮肤中心包内的 maid-atelier 皮肤目录分发。
-7. **files 缺 `cordis.patch.yml`**（发布后 bundle patch 缺失会装不上）—
-   [已确认] **已补全**：task-board
-   的 files 均加入 `cordis.patch.yml`（task-board 同时补齐
-   `src` 与 `lib/types/**/*.d.ts.map`）。打包验证全部进 tarball。
-8. **blue-fantasy 打包警告**：[已确认] **已失效**：独立皮肤包已退役（皮肤改为
-   skin-center 包内纯资产目录），该构建卫生问题随包移除不复存在。
-
-## 三、兼容性现状（npm 版 DSH × 插件）
-
-2026-08-13 用隔离环境（`DSH_HOME` 隔离 + `dsh plugin add link:`）实测
-npm 版 `@deepseek-ai/dsh@0.1.0-rc.6`：
-
-- web GUI 启动正常（HTTP 200），`dsh plugin` 安装 task-board / blue-fantasy 成功；
-- boot manifest 正确注册插件，`/plugins/@deepseek-ai/<pkg>/client.js` 可访问（200）；
-- 日志无 error/warn，插件 `dsh.client` 声明（platform/inject/exports["./client"]）
-  与 npm 版 `dsh-client-modules` 消费逻辑逐字段吻合。
-
-npm 侧已发布 @deepseek-ai 核心 SDK 包至 `0.1.0-rc.6`，插件包仍按本仓库版本管理。
-
-从 2026-08-21 起（issue #754），家族包在 `dsh.engines.dsh` 声明最低 DSH 运行时（当前 `>=0.1.1-rc.1`），插件管理器据此在更新时提示并拦截不兼容版本。**发布约束**：SDK cohort 升级后，若新合同需要更高 DSH 运行时，必须在同一发布里同步提升所有家族包（`packages/` 与 `packages/skins/`）及 `scripts/plugin-template/package.json` 的 `dsh.engines.dsh`，并确保 `scripts/family-dsh-engines.test.mjs`（形式校验）与 `pnpm docs:check` 通过；不允许只升代码不升声明。
-
-## 四、建议的发布流程（批准后执行）
-
-1. 同步官方版本号节奏（当前为 `0.1.0-rc.6`，与 @deepseek-ai/dsh 对齐）；
-2. 发布前仍需处理：移除 `private: true`（11 包）；
-3. 按依赖顺序发布（用 **`pnpm publish`**，自动改写 workspace:*）：
-   各功能包 > skin-center > web-ui-all；
-4. **外部依赖先行**：web-ui-all 的 dependencies 含 `dsh-better-sidebar`（0.15.2，
-   非本仓库出品，已发布并适配 0.1.0-rc.8 – 0.1.1-rc.2 官方 SDK cohort）与
-   `@mlgbnb/dsh-archive-manager`（1.0.7，社区插件，已发布），其版本必须已在 npm
-   上可解析，再更新 lockfile；
-5. 逐包 `pnpm pack --dry-run` 复核 tarball 内容（注意：dry-run 仍会执行
-   prepack/prepare 脚本）；
-6. 发布动作前**必须**经维护者确认。
-
-## 五、重新核对时机
-
-插件清单或版本发生任何变更后（新增/删除包、升版本、改字段），本节结论即失效，
-需重新执行本文档的检查流程（字段扫描 + pack 演练 + peerDeps 核对）。
+The CI and release smoke lanes use `@deepseek-ai/dsh@0.1.1-rc.2`, which satisfies the family declaration `dsh.engines.dsh >=0.1.1-rc.1`.

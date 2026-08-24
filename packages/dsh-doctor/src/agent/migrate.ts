@@ -16,6 +16,7 @@ import { parseProfileManifest } from '../core/manifest.ts'
 import { writeJsonAtomic } from '../core/store.ts'
 import { isLegacyAggregate, targetSpecForLegacy } from './legacy-migration.ts'
 import { currentPackageVersion } from './version.ts'
+import { spawnDsh } from './dsh-process.ts'
 
 export interface LegacyMigrationResult {
   kind: 'noop' | 'migrated' | 'error'
@@ -137,9 +138,8 @@ export async function migrateLegacyAggregate(
 
   try {
   const run = options.run ?? (async (args: string[], runEnv: NodeJS.ProcessEnv) => {
-    const { spawn } = await import('node:child_process')
     return await new Promise<{ code: number | null; output: string }>((resolve, reject) => {
-      const child = spawn(dshPath, args, { env: runEnv, stdio: ['ignore', 'pipe', 'pipe'] })
+      const child = spawnDsh(dshPath, args, { env: runEnv, stdio: ['ignore', 'pipe', 'pipe'] })
       let output = ''
       child.stdout?.on('data', (chunk: Buffer) => { output = (output + chunk.toString()).slice(-32_000) })
       child.stderr?.on('data', (chunk: Buffer) => { output = (output + chunk.toString()).slice(-32_000) })
