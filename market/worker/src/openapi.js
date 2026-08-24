@@ -125,6 +125,18 @@ export default {
         responses: { 200: { description: 'Shields endpoint schema (schemaVersion 1)' } },
       },
     },
+    '/api/npm-badge/total': {
+      get: {
+        summary: 'Shields endpoint badge: all-time cumulative npm downloads summed over every published family package (both aggregate names included)',
+        responses: { 200: { description: 'Shields endpoint schema (schemaVersion 1)' } },
+      },
+    },
+    '/api/telemetry/badge/users': {
+      get: {
+        summary: 'Shields endpoint badge: all-time distinct heartbeat visitors (anonymous install count); aggregate only, no key required',
+        responses: { 200: { description: 'Shields endpoint schema (schemaVersion 1)' } },
+      },
+    },
     '/api/skin-center/v2/skins/{skinId}/{asset}': {
       get: {
         summary: 'Skin asset (stylesheet, patches, hooks.mjs, assets/*, preview/*)',

@@ -359,3 +359,57 @@ test('telemetry endpoints degrade cleanly without D1', async () => {
   const summary = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), {}, context())
   assert.equal(summary.status, 503)
 })
+
+/** Fake D1 with a first() method for the users-badge count query. */
+function badgeDb(users) {
+  return {
+    prepare() {
+      return {
+        bind() { return this },
+        async first() { return { users } },
+      }
+    },
+  }
+}
+
+test('users badge returns the all-time distinct heartbeat visitor count', async () => {
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/badge/users'), { DB: badgeDb(1284) }, context())
+  assert.equal(response.status, 200)
+  const badge = await response.json()
+  assert.equal(badge.schemaVersion, 1)
+  assert.equal(badge.label, 'users')
+  assert.equal(badge.message, '1.3k')
+  assert.match(response.headers.get('cache-control') || '', /max-age/)
+})
+
+test('users badge degrades to grey without D1', async () => {
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/badge/users'), {}, context())
+  const badge = await response.json()
+  assert.equal(badge.message, 'unavailable')
+  assert.equal(badge.color, 'lightgrey')
+})
+
+test('total downloads badge sums the family range API with caching', async () => {
+  const originalFetch = globalThis.fetch
+  let npmCalls = 0
+  globalThis.fetch = async (url) => {
+    npmCalls += 1
+    assert.match(String(url), /api\.npmjs\.org\/downloads\/range\//)
+    return new Response(JSON.stringify({ downloads: [{ downloads: 100, day: '2026-01-01' }] }), { status: 200 })
+  }
+  try {
+    const first = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    const badge = await first.json()
+    assert.equal(badge.schemaVersion, 1)
+    assert.equal(badge.label, 'downloads')
+    assert.match(badge.message, /total$/)
+    assert.match(badge.message, /^1\.9k /) // 19 packages x 100
+    const callsAfterFirst = npmCalls
+    const second = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    await second.json()
+    assert.equal(npmCalls, callsAfterFirst, 'second hit within the TTL must reuse the cache')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+

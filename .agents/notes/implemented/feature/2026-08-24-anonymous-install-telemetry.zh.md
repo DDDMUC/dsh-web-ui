@@ -28,3 +28,4 @@ dsh-web 通过两类匿名事件统计使用规模，存储在现有 dsh-market.
 - 安装量覆盖加载了已接入包的浏览器；未接入包的纯 npm 安装在接入前不可见。
 - 写端点接受匿名流量，计数可被伪造心跳污染；接受其作为趋势读数的噪声，不为写入加 Turnstile。
 - 新增一个包只需一行 sync-shared 清单条目加一次 `reportDailyHeartbeat` 调用，共享同一实现。
+- 公开徽章端点把同一份数据对外展示而不暴露私有汇总：`GET /api/telemetry/badge/users` 以 shields 徽章形式返回心跳全量去重实例数（无需密钥、仅聚合），`GET /api/npm-badge/total` 聚合全部已发布家族包的 npm 累计下载量，两者用于 GitHub README 双语徽章。tv.dsh-market.com 私有仪表盘仍由 Access 保护。

@@ -4505,6 +4505,7 @@ window.__ModuleLoader__.load({
 			try {
 				if (items.length === 0) return;
 				const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+				if (navigator.webdriver) return;
 				if (localStorage.getItem(DAY_KEY_PREFIX + today) !== null) return;
 				const visitor = visitorId();
 				if (visitor === null) return;

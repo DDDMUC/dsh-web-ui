@@ -8,10 +8,28 @@
  */
 
 const PACKAGES = ['@linxin666/dsh-web-all', '@linxin666/dsh-web-ui-all']
+/**
+ * Every published family package (current names plus both aggregate names).
+ * Used by the all-time cumulative downloads badge; summing counts aggregate
+ * dependency pulls too, which is the standard "total npm downloads" badge
+ * convention.
+ */
+const FAMILY_PACKAGES = [
+  '@linxin666/dsh-web-all', '@linxin666/dsh-web-ui-all',
+  '@linxin666/dsh-chat-recovery', '@linxin666/dsh-client-ui-community-plugins',
+  '@linxin666/dsh-client-ui-git-graph', '@linxin666/dsh-client-ui-market',
+  '@linxin666/dsh-client-ui-plugin-manager', '@linxin666/dsh-client-ui-session-id',
+  '@linxin666/dsh-client-ui-skill-explorer', '@linxin666/dsh-client-ui-skin-center',
+  '@linxin666/dsh-client-ui-task-board', '@linxin666/dsh-client-ui-web-ui-settings',
+  '@linxin666/dsh-desktop-launcher', '@linxin666/dsh-doctor', '@linxin666/dsh-liangshen',
+  '@linxin666/dsh-pet', '@linxin666/dsh-remote-web-ui', '@linxin666/dsh-ssh',
+  '@linxin666/dsh-tool-describe-image',
+]
 const TTL_MS = 60 * 60 * 1000
 const BADGE_CACHE = { 'cache-control': 'public, max-age=1800' }
 
 let cache = { at: 0, downloads: null, version: null }
+let totalCache = { at: 0, total: null }
 
 async function fetchJson(url) {
   try {
@@ -28,6 +46,31 @@ function formatDownloads(n) {
   if (n >= 1e6) return trim(n / 1e6) + 'm/month'
   if (n >= 1e3) return trim(n / 1e3) + 'k/month'
   return String(n) + '/month'
+}
+
+/** Compact all-time count, e.g. 12.3k / 1.4m. */
+function formatTotal(n) {
+  const trim = (v) => String(Math.round(v * 10) / 10)
+  if (n >= 1e6) return trim(n / 1e6) + 'm'
+  if (n >= 1e3) return trim(n / 1e3) + 'k'
+  return String(n)
+}
+
+/** All-time cumulative downloads across the whole family (npm range API). */
+async function totalDownloads() {
+  const now = Date.now()
+  if (now - totalCache.at < TTL_MS && totalCache.total !== null) return totalCache.total
+  const sums = await Promise.all(FAMILY_PACKAGES.map(async (pkg) => {
+    const data = await fetchJson('https://api.npmjs.org/downloads/range/2000-01-01:2100-01-01/' + encodeURIComponent(pkg))
+    if (!data || !Array.isArray(data.downloads)) return null
+    return data.downloads.reduce((sum, day) => sum + (Number(day.downloads) || 0), 0)
+  }))
+  let total = null
+  for (const sum of sums) {
+    if (sum !== null) total = (total || 0) + sum
+  }
+  totalCache = { at: now, total }
+  return total
 }
 
 /** Compare two clean vX.Y.Z versions; returns positive when a > b. */
@@ -58,8 +101,13 @@ async function totals() {
   return cache
 }
 
-/** kind is 'downloads' or 'version'; json is the worker's JSON responder. */
+/** kind is 'downloads' | 'version' | 'total'; json is the worker's JSON responder. */
 export async function handleNpmBadge(kind, json) {
+  if (kind === 'total') {
+    const total = await totalDownloads()
+    if (total === null) return json({ schemaVersion: 1, label: 'downloads', message: 'unavailable', color: 'lightgrey' }, 200, BADGE_CACHE)
+    return json({ schemaVersion: 1, label: 'downloads', message: formatTotal(total) + ' total', color: 'blue', namedLogo: 'npm' }, 200, BADGE_CACHE)
+  }
   const data = await totals()
   if (kind === 'downloads') {
     if (data.downloads === null) return json({ schemaVersion: 1, label: 'downloads', message: 'unavailable', color: 'lightgrey' }, 200, BADGE_CACHE)

@@ -5,7 +5,7 @@
  * described by /openapi.json and documented at /api-docs.html.
  */
 
-import { handleTelemetryPost, handleTelemetrySummary } from './telemetry.js'
+import { handleTelemetryPost, handleTelemetrySummary, handleTelemetryUsersBadge } from './telemetry.js'
 import { handleNpmBadge } from './npm-badge.js'
 import API_CATALOG from './api-catalog.js'
 import OPENAPI_SPEC from './openapi.js'
@@ -212,6 +212,8 @@ export default {
     if (path === '/api/health') return json({ ok: true })
     if (path === '/api/npm-badge/downloads' && request.method === 'GET') return handleNpmBadge('downloads', json)
     if (path === '/api/npm-badge/version' && request.method === 'GET') return handleNpmBadge('version', json)
+    if (path === '/api/npm-badge/total' && request.method === 'GET') return handleNpmBadge('total', json)
+    if (path === '/api/telemetry/badge/users' && request.method === 'GET') return handleTelemetryUsersBadge(env, json)
     if (path === '/api/turnstile/challenge' && request.method === 'GET') return challengePage()
 
     if (path === '/api/stats' && request.method === 'GET') {

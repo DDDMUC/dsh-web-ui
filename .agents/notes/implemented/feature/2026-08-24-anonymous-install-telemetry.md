@@ -27,4 +27,5 @@ The mechanism contract lives in `docs/telemetry.md`; package README pairs link t
 
 - Install counts cover browsers that load a wired package; npm-only installs of unwired packages stay invisible until more packages adopt the two-step wiring.
 - The write endpoint accepts anonymous traffic, so counts can be polluted by forged heartbeats; accepted as noise for trend reading rather than gating writes behind Turnstile.
+- Public badge endpoints extend the same data outward without exposing the private summary: `GET /api/telemetry/badge/users` serves the all-time distinct heartbeat count as a shields endpoint badge (no key, aggregate only), and `GET /api/npm-badge/total` sums all-time npm downloads across every published family package for the GitHub README pair. The private dashboard at tv.dsh-market.com stays Access-gated.
 - Adding a package costs one sync-shared manifest line plus one `reportDailyHeartbeat` call and keeps one shared implementation.
