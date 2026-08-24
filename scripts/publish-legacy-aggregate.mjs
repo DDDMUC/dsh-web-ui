@@ -102,9 +102,12 @@ function main() {
   waitForCurrentPublished(version)
 
   const scratch = mkdtempSync(join(tmpdir(), 'dsh-legacy-publish-'))
-  const packed = execFileSync('pnpm', ['pack', '--pack-destination', scratch, '--silent'], { cwd: AGGREGATE_DIR, encoding: 'utf8' }).trim().split(/\r?\n/).at(-1) ?? ''
-  const tarball = join(scratch, packed)
-  if (!existsSync(tarball)) throw new Error(`legacy-aggregate-publish: pnpm pack produced no tarball in ${scratch}`)
+  const packOutput = execFileSync('pnpm', ['pack', '--pack-destination', scratch, '--silent'], { cwd: AGGREGATE_DIR, encoding: 'utf8' })
+  const candidates = readdirSync(scratch).filter(name => name.endsWith('.tgz')).map(name => join(scratch, name))
+  const outputName = packOutput.trim().split(/\r?\n/).at(-1) ?? ''
+  const outputPath = outputName === '' ? '' : join(scratch, outputName)
+  const tarball = candidates.length === 1 ? candidates[0] : outputPath
+  if (tarball === '' || !existsSync(tarball)) throw new Error(`legacy-aggregate-publish: pnpm pack produced no unambiguous tarball in ${scratch}`)
   const rewriteDir = join(scratch, 'rewrite')
   execFileSync('tar', ['-xzf', tarball, '-C', scratch])
   execFileSync('mv', [join(scratch, 'package'), rewriteDir])
@@ -117,7 +120,7 @@ function main() {
   const clientMapPath = join(rewriteDir, 'lib', 'client.js.map')
   if (existsSync(clientMapPath)) writeFileSync(clientMapPath, rewriteLegacyClient(readFileSync(clientMapPath, 'utf8')))
   const legacyTarball = join(scratch, `${LEGACY_NAME.replace(/^@/, '').replace('/', '-')}-${version}.tgz`)
-  execFileSync('tar', ['-czf', legacyTarball, '-C', rewriteDir, 'package'])
+  execFileSync('tar', ['-czf', legacyTarball, '-C', scratch, 'rewrite'])
   execFileSync('npm', ['publish', legacyTarball, '--access', 'public', '--tag', 'latest'], { stdio: 'inherit' })
   console.log(`[legacy-aggregate-publish] published ${LEGACY_NAME}@${version}`)
 }
