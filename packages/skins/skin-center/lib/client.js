@@ -953,9 +953,11 @@ window.__ModuleLoader__.load({
 					this.rootNeutralizer.dataset.dshWallpaperRoot = "";
 					this.rootNeutralizer.textContent = `
         [id="root"] { background: transparent; }
-        html[data-dsh-wallpaper-active],
+        html[data-dsh-wallpaper-active] {
+          background-color: black !important;
+          background-image: none !important;
+        }
         body[data-dsh-wallpaper-active],
-        html[data-dsh-skin][data-dsh-wallpaper-active],
         html[data-dsh-skin][data-dsh-wallpaper-active] body,
         html[data-dsh-skin] body[data-dsh-wallpaper-active],
         body[data-dsh-wallpaper-active][data-ds-dark-theme],

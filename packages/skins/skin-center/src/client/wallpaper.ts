@@ -824,9 +824,11 @@ export class WallpaperController implements WallpaperHandle {
       this.rootNeutralizer.dataset.dshWallpaperRoot = ''
       this.rootNeutralizer.textContent = `
         [id="root"] { background: transparent; }
-        html[data-dsh-wallpaper-active],
+        html[data-dsh-wallpaper-active] {
+          background-color: black !important;
+          background-image: none !important;
+        }
         body[data-dsh-wallpaper-active],
-        html[data-dsh-skin][data-dsh-wallpaper-active],
         html[data-dsh-skin][data-dsh-wallpaper-active] body,
         html[data-dsh-skin] body[data-dsh-wallpaper-active],
         body[data-dsh-wallpaper-active][data-ds-dark-theme],
@@ -942,7 +944,8 @@ export class WallpaperController implements WallpaperHandle {
     const blur = this.blurValue > 0 ? 'blur(' + String(this.blurValue) + 'px)' : ''
     this.mediaLayer.style.filter = blur
     this.mediaLayer.style.transform = this.blurValue > 0 ? 'scale(1.05)' : ''
-    // Wallpaper opacity controls the media layer's own transparency (#1051).
+    // Wallpaper opacity (#1051): the html element's neutralizer background is
+    // now black (not transparent) so reducing opacity fades toward black.
     this.mediaLayer.style.opacity = this.opacityValue < 100 ? String(this.opacityValue / 100) : ''
     this.scrimLayer.style.background = 'rgba(0, 0, 0, ' + String(this.dimValue / 100) + ')'
   }
