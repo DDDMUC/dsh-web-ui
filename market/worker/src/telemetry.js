@@ -196,6 +196,19 @@ export function summaryAuthorized(request, url, env) {
   return (request.headers.get('x-telemetry-key') || url.searchParams.get('key') || '') === key
 }
 
+/**
+ * Public shields endpoint badge: all-time distinct heartbeat visitors
+ * ("users"). Aggregate count only — no key required, no raw data exposed.
+ */
+export async function handleTelemetryUsersBadge(env, json) {
+  if (!env.DB) return json({ schemaVersion: 1, label: 'users', message: 'unavailable', color: 'lightgrey' }, 200)
+  const row = await env.DB.prepare("SELECT COUNT(DISTINCT visitor) AS users FROM telemetry_events WHERE kind = 'hb'").first()
+  const users = Number(row && row.users || 0)
+  const trim = (v) => String(Math.round(v * 10) / 10)
+  const message = users >= 1e6 ? trim(users / 1e6) + 'm' : users >= 1e3 ? trim(users / 1e3) + 'k' : String(users)
+  return json({ schemaVersion: 1, label: 'users', message, color: 'blue' }, 200, { 'cache-control': 'public, max-age=1800' })
+}
+
 export async function handleTelemetrySummary(request, url, env, json) {
   if (!env.DB) return json({ ok: false, error: 'storage-unavailable' }, 503)
   if (!summaryAuthorized(request, url, env)) return json({ ok: false, error: 'unauthorized' }, 403)

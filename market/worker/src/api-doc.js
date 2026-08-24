@@ -35,6 +35,8 @@ th { background: #f9fafb; }
 <tr><td>GET</td><td><code>/api/telemetry/summary?days=N</code></td><td>UV/PV 聚合摘要（仅计数，永不暴露原始事件）。配置 <code>TELEMETRY_READ_KEY</code> 后需携带 <code>x-telemetry-key</code> 头或 <code>?key=</code> 参数</td><td>200 / 403</td></tr>
 <tr><td>GET</td><td><code>/api/npm-badge/downloads</code></td><td>Shields 端点徽章：聚合包新旧两个 npm 名的月下载量合计</td><td>200</td></tr>
 <tr><td>GET</td><td><code>/api/npm-badge/version</code></td><td>Shields 端点徽章：聚合包新旧两个 npm 名中的最新版本</td><td>200</td></tr>
+<tr><td>GET</td><td><code>/api/npm-badge/total</code></td><td>Shields 端点徽章：全部已发布家族包的 npm 累计下载量合计</td><td>200</td></tr>
+<tr><td>GET</td><td><code>/api/telemetry/badge/users</code></td><td>Shields 端点徽章：匿名心跳的全量去重实例数（用户数），仅聚合计数，无需密钥</td><td>200</td></tr>
 <tr><td>GET</td><td><code>/api/skin-center/v2/skins/{skinId}/{asset}</code></td><td>皮肤资产：<code>stylesheet</code>、<code>patches</code>、<code>hooks.mjs</code>、<code>assets/*</code>、<code>preview/*</code></td><td>200 / 404</td></tr>
 </tbody>
 </table>
