@@ -19,4 +19,4 @@ Issue #1107 反馈移动鲸鱼宠物或切换模型后，Skin Center 的背景�
 - `pnpm --filter @linxin666/dsh-client-ui-skin-center typecheck`
 - `pnpm --filter @linxin666/dsh-client-ui-skin-center test -- --run tests/background-scope.spec.ts`（31 个测试文件、547 个测试通过）
 - Skin Center 包已通过工作区 prepare 阶段构建。
-- 重建前的真实 GUI 冒烟验证已完成 issue 场景设置，并确认当前运行 bundle 在鲸鱼宠物交互后仍保持 100%；改动后的 bundle 需要用户自行重启 DSH 服务后再做运行时复验。
+- 用户重启 DSH 服务后，真实 GUI 已加载重建后的 bundle；将背景遮挡设为 100%，拖动实际渲染的鲸鱼宠物后，控件值、`--dsw-skin-scrim` 与 `/api/skin-center/v2/active` 均保持 100%。

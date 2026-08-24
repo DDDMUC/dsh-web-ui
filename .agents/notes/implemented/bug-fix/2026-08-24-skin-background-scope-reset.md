@@ -19,4 +19,4 @@ Unrelated pet or model settings commits no longer change the live background or 
 - `pnpm --filter @linxin666/dsh-client-ui-skin-center typecheck`
 - `pnpm --filter @linxin666/dsh-client-ui-skin-center test -- --run tests/background-scope.spec.ts` (31 files, 547 tests passed)
 - Skin Center package build completed through the workspace prepare step.
-- Live GUI smoke test before rebuild reproduced the issue surface setup and confirmed the current running bundle retained 100% after whale-pet interaction; the changed bundle requires the user-managed DSH service reload before a post-build runtime check.
+- Live GUI verification after the user-managed DSH service restart loaded the rebuilt bundle, set background occlusion to 100%, dragged the rendered whale pet, and observed the control, `--dsw-skin-scrim`, and `/api/skin-center/v2/active` all remain at 100%.
