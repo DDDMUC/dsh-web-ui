@@ -880,8 +880,10 @@ window.__ModuleLoader__.load({
 			* adjusted either slider keep their values (#1051).
 			*/
 			applyThemeDefaults() {
-				const value = this.scope.getSnapshot().value ?? {};
+				const snapshot = this.scope.getSnapshot();
+				const value = snapshot.value ?? {};
 				if (value.dim !== void 0 || value.wallpaperOpacity !== void 0) return;
+				if (snapshot.writable === false) return;
 				if ((this.options.themeGet !== void 0 ? this.options.themeGet() : this.doc.body?.hasAttribute("data-ds-dark-theme") ? "dark" : "light") === "light") {
 					this.dimValue = 0;
 					this.opacityValue = 40;
@@ -890,8 +892,10 @@ window.__ModuleLoader__.load({
 					this.opacityValue = 100;
 				}
 				this.seeding = true;
-				this.scope.set("dim", this.dimValue);
-				this.scope.set("wallpaperOpacity", this.opacityValue);
+				try {
+					this.scope.set("dim", this.dimValue);
+					this.scope.set("wallpaperOpacity", this.opacityValue);
+				} catch {}
 				this.seeding = false;
 			}
 			readAll() {
@@ -4573,6 +4577,7 @@ window.__ModuleLoader__.load({
 					fit: () => wallpaper.fit(),
 					dim: () => wallpaper.dim(),
 					wallpaperBlur: () => wallpaper.wallpaperBlur(),
+					wallpaperOpacity: () => wallpaper.wallpaperOpacity(),
 					pauseOnHidden: () => wallpaper.pauseOnHidden(),
 					sound: () => wallpaper.sound(),
 					volume: () => wallpaper.volume(),
@@ -4588,6 +4593,7 @@ window.__ModuleLoader__.load({
 					setFit: (fit) => wallpaper.setFit(fit),
 					setDim: (value) => wallpaper.setDim(value),
 					setBlur: (value) => wallpaper.setBlur(value),
+					setOpacity: (value) => wallpaper.setOpacity(value),
 					setPauseOnHidden: (value) => wallpaper.setPauseOnHidden(value),
 					setSound: (value) => wallpaper.setSound(value),
 					setVolume: (value) => wallpaper.setVolume(value),

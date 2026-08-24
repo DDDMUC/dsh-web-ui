@@ -711,6 +711,8 @@ export class WallpaperController implements WallpaperHandle {
     // (even the schema default 25 for dim) means the user or a prior seed
     // already set it, so we must not overwrite.
     if (value.dim !== undefined || value.wallpaperOpacity !== undefined) return
+    // The scope may not yet be writable during early initialization.
+    if (snapshot.writable === false) return
     const theme = this.options.themeGet !== undefined
       ? this.options.themeGet()
       : (this.doc.body?.hasAttribute('data-ds-dark-theme') ? 'dark' : 'light')
@@ -722,8 +724,10 @@ export class WallpaperController implements WallpaperHandle {
       this.opacityValue = 100
     }
     this.seeding = true
-    void this.scope.set('dim', this.dimValue)
-    void this.scope.set('wallpaperOpacity', this.opacityValue)
+    try {
+      void this.scope.set('dim', this.dimValue)
+      void this.scope.set('wallpaperOpacity', this.opacityValue)
+    } catch { /* scope not ready — values stay local until next readAll */ }
     this.seeding = false
   }
 
