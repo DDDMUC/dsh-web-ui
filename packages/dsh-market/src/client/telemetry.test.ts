@@ -92,6 +92,16 @@ describe('daily telemetry heartbeat', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('skips automated browsers (navigator.webdriver)', () => {
+    Object.defineProperty(navigator, 'webdriver', { value: true, configurable: true })
+    try {
+      reportDailyHeartbeat([{ name: '@linxin666/dsh-pet' }])
+      expect(fetch).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(navigator, 'webdriver', { value: false, configurable: true })
+    }
+  })
+
   it('carries explicit version and channel, omitting absent fields', () => {
     reportDailyHeartbeat([
       { name: 'skin:harbor', version: '2.0.1', channel: 'market' },
