@@ -127,43 +127,53 @@ function renderDashboard(data, days) {
         '<tr><td><code>' + esc(row.path) + '</code></td><td class="num">' + esc(row.pv) + '</td></tr>').join('')
     : '<tr><td colspan="2" class="empty">暂无数据</td></tr>'
 
+  const channelText = (channels) => {
+    const parts = Object.entries(channels || {}).map(([name, count]) => name + ' ' + count)
+    return parts.length ? parts.join(' · ') : '—'
+  }
+  const versionText = (versions) => (versions || []).slice(0, 4).map((v) => v.version + '(' + v.instances + ')').join(', ') || '—'
   const itemRows = plugins.items.length
     ? plugins.items.map((row) =>
-        '<tr><td><code>' + esc(row.item) + '</code></td><td class="num">' + esc(row.instances) + '</td><td class="num">' + esc(row.active_today) + '</td></tr>').join('')
-    : '<tr><td colspan="3" class="empty">暂无心跳数据——插件心跳要等含遥测的版本发布、用户更新后才会出现</td></tr>'
+        '<tr><td><code>' + esc(row.item) + '</code></td><td class="num">' + esc(row.instances) + '</td><td class="num">' + esc(row.active_today) + '</td>'
+        + '<td class="dim">' + esc(channelText(row.channels)) + '</td><td class="dim">' + esc(versionText(row.versions)) + '</td></tr>').join('')
+    : '<tr><td colspan="5" class="empty">暂无心跳数据——插件心跳要等含遥测的版本发布、用户更新后才会出现</td></tr>'
 
   const ranges = [7, 30, 90, 365].map((n) =>
     n === days ? '<b class="range on">' + n + ' 天</b>' : '<a class="range" href="?days=' + n + '">' + n + ' 天</a>').join(' · ')
 
   return [
     '<style>',
-    '*{box-sizing:border-box}body{font:14px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#e5e7eb;background:#0f172a;max-width:920px;margin:0 auto;padding:32px 20px 64px}',
-    'h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:36px 0 12px;color:#93c5fd;font-weight:600}',
-    '.sub{color:#64748b;margin:0 0 20px}.meta{color:#94a3b8;margin-bottom:4px}',
-    '.range{color:#93c5fd;text-decoration:none}.range.on{color:#e5e7eb}',
+    // Light theme. Color roles: accent blue (#2563eb) for emphasis/actions,
+    // supporting sky tint inside the accent family for bars; surfaces stay
+    // low-saturation (off-white base, white cards) for long viewing sessions.
+    '*{box-sizing:border-box}body{font:14px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#1e293b;background:#f4f6f9;max-width:960px;margin:0 auto;padding:32px 20px 64px}',
+    'h1{font-size:22px;margin:0 0 4px;color:#0f172a}h2{font-size:15px;margin:36px 0 12px;color:#2563eb;font-weight:600;letter-spacing:.02em}',
+    '.sub{color:#64748b;margin:0 0 20px}.meta{color:#64748b;margin-bottom:6px;font-size:13px}',
+    '.range{color:#2563eb;text-decoration:none;padding:2px 8px;border-radius:6px}.range:hover{background:#e0e9fb}.range.on{color:#0f172a;font-weight:600;background:#dbe7fb}',
     '.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:20px 0}',
-    '.card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px 18px}',
-    '.card-value{font-size:28px;font-weight:700;color:#f1f5f9}',
-    '.card-label{font-size:12px;color:#94a3b8;margin-top:2px}',
-    'table{border-collapse:collapse;width:100%}th,td{padding:7px 12px;text-align:left;border-bottom:1px solid #1e293b}',
-    'th{color:#94a3b8;font-weight:500;font-size:12px}tr:hover td{background:#16213a}',
-    '.num{text-align:right;font-variant-numeric:tabular-nums;width:90px}',
-    '.day{color:#94a3b8;white-space:nowrap;width:110px}',
-    '.barcell{width:55%}.bar{height:14px;border-radius:4px;background:linear-gradient(90deg,#3b82f6,#60a5fa)}',
-    'code{color:#93c5fd;font-size:13px}.empty{color:#64748b;padding:18px 12px}',
-    '.foot{margin-top:40px;color:#475569;font-size:12px}',
+    '.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(15,23,42,.06)}',
+    '.card-value{font-size:28px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums}',
+    '.card-label{font-size:12px;color:#64748b;margin-top:2px}',
+    'table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.05)}th,td{padding:8px 14px;text-align:left;border-bottom:1px solid #eef2f7}',
+    'th{color:#64748b;font-weight:500;font-size:12px;background:#f8fafc}tr:last-child td{border-bottom:none}tr:hover td{background:#f5f8fd}',
+    '.num{text-align:right;font-variant-numeric:tabular-nums;width:90px;color:#334155}',
+    '.day{color:#64748b;white-space:nowrap;width:110px;font-size:13px}',
+    '.barcell{width:55%}.bar{height:14px;border-radius:4px;background:linear-gradient(90deg,#93c5fd,#3b82f6)}',
+    'code{color:#2563eb;font-size:13px;background:#eff5ff;padding:1px 6px;border-radius:5px}.empty{color:#94a3b8;padding:18px 12px}.dim{color:#64748b;font-size:12px}',
+    '.foot{margin-top:40px;color:#94a3b8;font-size:12px}',
     '</style>',
     '<h1>dsh-web-ui 使用统计</h1>',
     '<p class="sub">站点与插件的匿名 UV / PV 实时汇总 · 数据源 dsh-market.com</p>',
     '<p class="meta">最近 ' + esc(days) + ' 天 · ' + ranges + ' · <a class="range" href="?days=' + esc(days) + '">刷新</a></p>',
     '<div class="cards">' + cards + '</div>',
     '<h2>站点访问趋势</h2>',
+    '<p class="meta">口径：已过滤已知爬虫（UA 特征 + webdriver 检测），仅统计浏览器端上报的页面访问</p>',
     '<table><tr><th>日期</th><th></th><th class="num">PV</th><th class="num">UV</th></tr>' + barRows + '</table>',
     '<h2>热门路径</h2>',
     '<table><tr><th>路径</th><th class="num">PV</th></tr>' + pathRows + '</table>',
     '<h2>插件安装量</h2>',
-    '<p class="meta">独立实例 = 去重浏览器数；当日活跃 = 今日上报过心跳的实例数</p>',
-    '<table><tr><th>包</th><th class="num">独立实例</th><th class="num">当日活跃</th></tr>' + itemRows + '</table>',
+    '<p class="meta">独立实例 = 去重浏览器数；当日活跃 = 今日上报过心跳；渠道 = 安装来源（market=市场一键装，npm=仓库直装，unknown=无法判定）；皮肤条目以 skin: 前缀展示</p>',
+    '<table><tr><th>包 / 资产</th><th class="num">独立实例</th><th class="num">当日活跃</th><th>渠道分布</th><th>版本分布</th></tr>' + itemRows + '</table>',
     '<p class="foot">所有事件均匿名（随机 ID 加盐哈希，不存 IP），仅展示聚合计数。契约见 docs/telemetry.md。</p>',
   ].join('')
 }

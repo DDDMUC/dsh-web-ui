@@ -14,9 +14,17 @@
 
 const VISITOR_RE = /^[A-Za-z0-9_-]{16,64}$/
 const PATH_RE = /^\/[A-Za-z0-9._~!$&'()*+,;=:@%?/-]{0,127}$/
-const NAME_RE = /^[A-Za-z0-9@][A-Za-z0-9@/._-]{0,63}$/
+const NAME_RE = /^[A-Za-z0-9@][A-Za-z0-9@/._:-]{0,63}$/
 const VERSION_RE = /^[A-Za-z0-9.+~-]{1,32}$/
+const CHANNELS = new Set(['market', 'npm', 'unknown'])
 const KINDS = new Set(['pageview', 'heartbeat'])
+/**
+ * Honest-crawler filter for site pageviews: scanners and search bots that
+ * execute JS inflate UV 1:1 with PV because every crawl mints a fresh visitor
+ * id. UA is spoofable, so this only drops the honest bulk noise — plugin
+ * heartbeats stay unfiltered (they require a real DSH GUI anyway).
+ */
+const BOT_UA_RE = /bot|crawler|spider|scrape|curl|wget|python|httpclient|http-client|headless|phantom|slurp|archive|scanner|monitor|pingdom|uptime|lighthouse|preview/i
 const MAX_ITEMS = 64
 /** Events older than this many days are pruned opportunistically. */
 const RETENTION_DAYS = 400
@@ -65,14 +73,16 @@ export function parseHeartbeat(body) {
     seen.add(name)
     const version = typeof item.version === 'string' ? item.version : ''
     if (version && !VERSION_RE.test(version)) return { ok: false, error: 'invalid-item-version' }
-    items.push(version ? { name, version } : { name, version: '' })
+    const channel = typeof item.channel === 'string' ? item.channel : ''
+    if (channel && !CHANNELS.has(channel)) return { ok: false, error: 'invalid-item-channel' }
+    items.push({ name, version, channel })
   }
   return { ok: true, visitor: typeof body.visitor === 'string' ? body.visitor : '', items }
 }
 
 /** Deterministic per-day event id so replays collapse via INSERT OR IGNORE. */
-async function eventId(hash, kind, subject, version) {
-  return sha256('v1|' + kind + '|' + hash + '|' + subject + '|' + version)
+async function eventId(hash, kind, subject, version, channel) {
+  return sha256('v1|' + kind + '|' + hash + '|' + subject + '|' + version + '|' + (channel || ''))
 }
 
 /**
@@ -82,8 +92,8 @@ export async function recordEvents(env, rows) {
   if (rows.length === 0) return
   const now = Date.now()
   const statements = await Promise.all(rows.map(async (row) => env.DB.prepare(
-    'INSERT OR IGNORE INTO telemetry_events (id, day, kind, visitor, subject, version, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)'
-  ).bind(row.id, row.day, row.kind, row.visitor, row.subject, row.version, now)))
+    'INSERT OR IGNORE INTO telemetry_events (id, day, kind, visitor, subject, version, channel, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)'
+  ).bind(row.id, row.day, row.kind, row.visitor, row.subject, row.version, row.channel || '', now)))
   await env.DB.batch(statements)
 }
 
@@ -91,8 +101,8 @@ export async function recordEvents(env, rows) {
 export async function submissionRows(env, kind, hash, subjects) {
   const day = utcDay()
   const rows = []
-  for (const { subject, version } of subjects) {
-    rows.push({ id: await eventId(hash, kind, subject, version), day, kind, visitor: hash, subject, version })
+  for (const { subject, version, channel } of subjects) {
+    rows.push({ id: await eventId(hash, kind, subject, version, channel), day, kind, visitor: hash, subject, version, channel: channel || '' })
   }
   return rows
 }
@@ -104,14 +114,26 @@ export async function submissionRows(env, kind, hash, subjects) {
 export async function telemetrySummary(env, days) {
   const since = utcDay(Date.now() - (days - 1) * 86400000)
   const today = utcDay()
-  const [dailyPv, dailyHb, topPaths, itemsAll, itemsToday] = (await env.DB.batch([
+  const [dailyPv, dailyHb, topPaths, itemsAll, itemsToday, itemsChannels, itemsVersions] = (await env.DB.batch([
     env.DB.prepare("SELECT day, COUNT(*) AS pv, COUNT(DISTINCT visitor) AS uv FROM telemetry_events WHERE kind = 'pv' AND day >= ?1 GROUP BY day ORDER BY day").bind(since),
     env.DB.prepare("SELECT day, COUNT(*) AS pv, COUNT(DISTINCT visitor) AS uv FROM telemetry_events WHERE kind = 'hb' AND day >= ?1 GROUP BY day ORDER BY day").bind(since),
     env.DB.prepare("SELECT subject, COUNT(*) AS pv FROM telemetry_events WHERE kind = 'pv' AND day >= ?1 GROUP BY subject ORDER BY pv DESC LIMIT 20").bind(since),
     env.DB.prepare("SELECT subject, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND day >= ?1 GROUP BY subject ORDER BY visitors DESC LIMIT 200").bind(since),
     env.DB.prepare("SELECT subject, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND day = ?1 GROUP BY subject").bind(today),
+    env.DB.prepare("SELECT subject, channel, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND channel != '' AND day >= ?1 GROUP BY subject, channel").bind(since),
+    env.DB.prepare("SELECT subject, version, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND version != '' AND day >= ?1 GROUP BY subject, version ORDER BY visitors DESC").bind(since),
   ])).map((result) => result.results || [])
   const activeToday = new Map(itemsToday.map((row) => [row.subject, row.visitors]))
+  const channelsByItem = new Map()
+  for (const row of itemsChannels) {
+    if (!channelsByItem.has(row.subject)) channelsByItem.set(row.subject, {})
+    channelsByItem.get(row.subject)[row.channel] = row.visitors
+  }
+  const versionsByItem = new Map()
+  for (const row of itemsVersions) {
+    if (!versionsByItem.has(row.subject)) versionsByItem.set(row.subject, [])
+    versionsByItem.get(row.subject).push({ version: row.version, instances: row.visitors })
+  }
   const sumUv = (rows) => rows.reduce((total, row) => total + Number(row.uv || 0), 0)
   const sumPv = (rows) => rows.reduce((total, row) => total + Number(row.pv || 0), 0)
   return {
@@ -129,6 +151,8 @@ export async function telemetrySummary(env, days) {
         item: row.subject,
         instances: row.visitors,
         active_today: activeToday.get(row.subject) || 0,
+        channels: channelsByItem.get(row.subject) || {},
+        versions: versionsByItem.get(row.subject) || [],
       })),
     },
   }
@@ -152,11 +176,13 @@ export async function handleTelemetryPost(request, env, json) {
   if (body.kind === 'pageview') {
     const parsed = parsePageview(body)
     if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400)
+    // Accept-and-drop so crawlers learn nothing from the status code.
+    if (BOT_UA_RE.test(request.headers.get('user-agent') || '')) return json({ ok: true })
     subjects = [{ subject: parsed.path, version: '' }]
   } else {
     const parsed = parseHeartbeat(body)
     if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400)
-    subjects = parsed.items.map((item) => ({ subject: item.name, version: item.version }))
+    subjects = parsed.items.map((item) => ({ subject: item.name, version: item.version, channel: item.channel }))
   }
   await recordEvents(env, await submissionRows(env, body.kind === 'pageview' ? 'pv' : 'hb', hash, subjects))
   return json({ ok: true })

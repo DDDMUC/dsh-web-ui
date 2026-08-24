@@ -83,6 +83,10 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-skill-explorer
   符号链接（指向单个 `.md`）在原子改写（rename）时会被替换为一个普通文件
   （链接不再保留），目标文件本身不受影响。
 
+## 数据遥测
+
+浏览器半区每个 UTC 日向 dsh-market.com 发送一次匿名安装心跳：仅含一个 localStorage 随机 ID 与本包名，无其他数据。服务端只存储该 ID 的加盐哈希，不存 IP，且只暴露聚合计数。完整契约见 [docs/telemetry.md](../../docs/telemetry.md)。
+
 ## License
 
 BSD-3-Clause。

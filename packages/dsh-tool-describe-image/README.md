@@ -210,3 +210,7 @@ the same same-origin fence as the attach routes; the browser never sees credenti
   contributor under the family license.
 - **License**: the family is licensed under [Apache-2.0](../../LICENSE) (repository root LICENSE); this
   package's `license` field is `Apache-2.0`.
+
+## Telemetry
+
+The browser half sends one anonymous install heartbeat per UTC day to dsh-market.com: a random localStorage id plus this package's name, nothing else. The server stores only a salted hash of that id, never IP addresses, and exposes aggregate counts only. See [docs/telemetry.md](../../docs/telemetry.md) for the full contract.

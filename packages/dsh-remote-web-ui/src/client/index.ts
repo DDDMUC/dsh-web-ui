@@ -33,6 +33,7 @@ import {
   type RemoteChannelBootSeat,
 } from './remote-channel.ts'
 import { FenceNotice } from './FenceNotice.tsx'
+import { reportDailyHeartbeat } from './telemetry.ts'
 
 export type { RemoteEntryProps } from './RemoteEntry.tsx'
 export type { PanelState, RemotePanelProps } from './RemotePanel.tsx'
@@ -106,6 +107,10 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  // Anonymous install heartbeat (docs/telemetry.md): one beat per browser per
+  // UTC day, package name only, silent failure.
+  reportDailyHeartbeat([{ name: '@linxin666/dsh-remote-web-ui' }])
+
   ctx.effect(() => {
     try {
       return ctx.locale.register(NS, { zh, en })

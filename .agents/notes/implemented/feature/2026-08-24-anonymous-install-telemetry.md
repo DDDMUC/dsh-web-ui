@@ -11,7 +11,7 @@ The family had no measure of real usage. npm download counts are inflated by the
 dsh-web-ui counts usage through two anonymous event kinds stored in the existing dsh-market.com worker's D1 database:
 
 - Site pageviews from dsh-market.com pages (`market/src/app.js`).
-- Daily plugin heartbeats from the browser half of wired packages through `shared/client/telemetry.ts` (sync-shared copy), currently Skin Center, the Workshop store, and Pet.
+- Daily plugin heartbeats from the browser half of wired packages through `shared/client/telemetry.ts` (sync-shared copy), wired into all fifteen family client plugins: Skin Center, the Workshop store, Pet, and twelve more.
 
 Each browser generates a random UUID in localStorage once; payloads carry only that id, the UTC day, and package names or site paths. The worker hashes the id with a deployment salt before insert, never stores IPs, dedupes events per day by deterministic row id, prunes events older than 400 days, and serves aggregates only at `GET /api/telemetry/summary`. Sends are fire-and-forget and mark the local day flag only after an accepted response so offline browsers retry.
 

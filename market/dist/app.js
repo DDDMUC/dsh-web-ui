@@ -783,6 +783,8 @@
     } catch (e) { return '' }
   }
   function sendPageview() {
+    // Automated browsers (headless QA, webdriver-driven crawlers) never count.
+    if (navigator.webdriver) return
     var vid = visitorId()
     if (!vid) return
     var payload = JSON.stringify({ kind: 'pageview', path: location.pathname + location.search, visitor: vid })

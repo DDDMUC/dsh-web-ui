@@ -84,8 +84,9 @@ export default {
                       type: 'object',
                       required: ['name'],
                       properties: {
-                        name: { type: 'string' },
+                        name: { type: 'string', description: 'Package name or asset id (e.g. skin:harbor)' },
                         version: { type: 'string' },
+                        channel: { type: 'string', enum: ['market', 'npm', 'unknown'], description: 'Install channel hint when determinable' },
                       },
                     },
                   },

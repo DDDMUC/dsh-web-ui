@@ -78,3 +78,7 @@ reverse_proxy 127.0.0.1:3080 {
 - 仅当依赖的 `@deepseek-ai/dsh-client-ui-settings` 存在时，该菜单项才会出现在 dsh 设置页。
 - 认证代理模式本身不提供认证；没有正确配置并排序认证代理的部署必须让 `trustedProxyHosts` 保持为空。
 - 兼容桥只服务 dsh-web-ui 全家桶设置，不会让 DSH 官方设置或凭据平面可被远程访问。
+
+## 数据遥测
+
+浏览器半区每个 UTC 日向 dsh-market.com 发送一次匿名安装心跳：仅含一个 localStorage 随机 ID 与本包名，无其他数据。服务端只存储该 ID 的加盐哈希，不存 IP，且只暴露聚合计数。完整契约见 [docs/telemetry.md](../../docs/telemetry.md)。

@@ -91,4 +91,14 @@ describe('daily telemetry heartbeat', () => {
     reportDailyHeartbeat([])
     expect(fetch).not.toHaveBeenCalled()
   })
+
+  it('carries explicit version and channel, omitting absent fields', () => {
+    reportDailyHeartbeat([
+      { name: 'skin:harbor', version: '2.0.1', channel: 'market' },
+      { name: '@linxin666/dsh-pet' },
+    ])
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))
+    expect(body.items[0]).toEqual({ name: 'skin:harbor', version: '2.0.1', channel: 'market' })
+    expect(body.items[1]).toEqual({ name: '@linxin666/dsh-pet' })
+  })
 })

@@ -73,3 +73,7 @@ pnpm --filter @linxin666/dsh-ssh build   # tsc 类型 + tsdown 双半区产物
 - 跳板机 ProxyJump 的每一跳必须是本插件已配置的主机别名。
 - 断点续传（resume）暂未实现。
 - Agent 工具的传输为宿主机器本地路径（与 ssh-skill 相同的语义）。
+
+## 数据遥测
+
+浏览器半区每个 UTC 日向 dsh-market.com 发送一次匿名安装心跳：仅含一个 localStorage 随机 ID 与本包名，无其他数据。服务端只存储该 ID 的加盐哈希，不存 IP，且只暴露聚合计数。完整契约见 [docs/telemetry.md](../../docs/telemetry.md)。

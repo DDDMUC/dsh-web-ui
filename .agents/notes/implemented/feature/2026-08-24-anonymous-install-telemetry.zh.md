@@ -11,7 +11,7 @@ Status: implemented
 dsh-web-ui 通过两类匿名事件统计使用规模，存储在现有 dsh-market.com worker 的 D1 中：
 
 - dsh-market.com 页面的站点 pageview（`market/src/app.js`）。
-- 已接入插件浏览器半区的每日心跳，经 `shared/client/telemetry.ts`（sync-shared 副本），当前为皮肤中心、创意工坊与 Pet。
+- 已接入插件浏览器半区的每日心跳，经 `shared/client/telemetry.ts`（sync-shared 副本），已接入全部十五个全家桶客户端插件：皮肤中心、创意工坊、Pet 以及另外十二个。
 
 每个浏览器在 localStorage 里一次性生成随机 UUID；载荷只含该 ID、UTC 日期与包名或站点路径。worker 入库前用部署盐值对 ID 做 SHA-256 哈希，不存 IP，按确定性行 id 做每日去重，清理超过 400 天的事件，且只在 `GET /api/telemetry/summary` 暴露聚合计数。发送是 fire-and-forget，仅在服务端接受后才写本地日标记，离线浏览器随后补报。
 

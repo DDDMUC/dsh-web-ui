@@ -28,6 +28,7 @@ import { createImageCapabilityChecker } from './capability.ts'
 import { installConversationImagePreview, type ConversationImagePreview } from './preview.ts'
 import { DescribeImageSettingsCard, DescribeImageSettingsCardController, type DescribeImageSettings } from './DescribeImageSettingsCard.tsx'
 import { dictionaries, setLanguage, type DescribeImageClientKey } from './locales.ts'
+import { reportDailyHeartbeat } from './telemetry.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -70,6 +71,10 @@ export const inject = ['slots', 'conversation', 'settingsScope', 'locale']
 
 /** Apply the browser half. */
 export function apply(ctx: ClientContext): void {
+  // Anonymous install heartbeat (docs/telemetry.md): one beat per browser per
+  // UTC day, package name only, silent failure.
+  reportDailyHeartbeat([{ name: '@linxin666/dsh-tool-describe-image' }])
+
   ctx.effect(() => {
     try {
       return ctx.locale.register(NS, dictionaries)

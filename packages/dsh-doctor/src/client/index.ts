@@ -35,6 +35,7 @@ import {
   type DoctorSettingsCardFace,
 } from './DoctorSettingsCard.tsx'
 import { en, zh, type DoctorKey } from './locales.ts'
+import { reportDailyHeartbeat } from './telemetry.ts'
 
 /** Locale namespace owned by this plugin. */
 export const NS = 'doctor'
@@ -75,6 +76,10 @@ let claimed = false
 
 /** Apply the browser half; never throws. */
 export function apply(ctx: ClientContext): void {
+  // Anonymous install heartbeat (docs/telemetry.md): one beat per browser per
+  // UTC day, package name only, silent failure.
+  reportDailyHeartbeat([{ name: '@linxin666/dsh-doctor' }])
+
   if (claimed) return
   claimed = true
 

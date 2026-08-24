@@ -205,7 +205,7 @@ function telemetryDb(options = {}) {
     },
     async batch(statements) {
       batches.push(statements)
-      if (statements.length === 5 && options.summary) return options.summary.map((results) => ({ results }))
+      if (statements.length === 7 && options.summary) return options.summary.map((results) => ({ results }))
       return statements.map(() => ({ results: [] }))
     },
   }
@@ -246,6 +246,23 @@ test('telemetry stores only the salted visitor hash, never the raw id', async ()
   assert.ok(!JSON.stringify(db.batches).includes(VISITOR_OK), 'raw visitor must not reach storage')
 })
 
+test('telemetry drops honest-bot pageviews without tipping them off', async () => {
+  const db = telemetryDb()
+  const bot = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/event', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' },
+    body: JSON.stringify({ kind: 'pageview', path: '/', visitor: VISITOR_OK }),
+  }), { DB: db }, context())
+  assert.equal(bot.status, 200)
+  const human = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/event', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126 Safari/537.36' },
+    body: JSON.stringify({ kind: 'pageview', path: '/', visitor: VISITOR_OK }),
+  }), { DB: db }, context())
+  assert.equal(human.status, 200)
+  assert.equal(db.batches.length, 1, 'only the human pageview reaches storage')
+})
+
 test('telemetry heartbeat expands items into one idempotent row each', async () => {
   const db = telemetryDb()
   const response = await postEvent({ DB: db }, {
@@ -253,7 +270,7 @@ test('telemetry heartbeat expands items into one idempotent row each', async () 
     visitor: VISITOR_OK,
     items: [
       { name: '@linxin666/dsh-client-ui-market' },
-      { name: '@linxin666/dsh-pet', version: '1.2.3' },
+      { name: '@linxin666/dsh-pet', version: '1.2.3', channel: 'market' },
     ],
   })
   assert.equal(response.status, 200)
@@ -261,12 +278,15 @@ test('telemetry heartbeat expands items into one idempotent row each', async () 
   assert.equal(batch.length, 2)
   assert.equal(batch[0].args[2], 'hb')
   assert.equal(batch[0].args[5], '')
+  assert.equal(batch[0].args[6], '')
   assert.equal(batch[1].args[5], '1.2.3')
-  // Same-day replay collapses to identical ids.
+  assert.equal(batch[1].args[6], 'market')
+  // Same-day replay (same channel) collapses to identical ids; a channel
+  // flip is a deliberate re-count, so replays must echo the channel.
   await postEvent({ DB: db }, {
     kind: 'heartbeat',
     visitor: VISITOR_OK,
-    items: [{ name: '@linxin666/dsh-pet', version: '1.2.3' }],
+    items: [{ name: '@linxin666/dsh-pet', version: '1.2.3', channel: 'market' }],
   })
   assert.equal(db.batches[1][0].args[0], batch[1].args[0])
 })
@@ -280,6 +300,7 @@ test('telemetry rejects malformed submissions', async () => {
     { kind: 'heartbeat', visitor: VISITOR_OK, items: [] },
     { kind: 'heartbeat', visitor: VISITOR_OK, items: [{ name: 'bad name with spaces' }] },
     { kind: 'heartbeat', visitor: VISITOR_OK, items: [{ name: 'pkg', version: 'bad version!' }] },
+    { kind: 'heartbeat', visitor: VISITOR_OK, items: [{ name: 'pkg', channel: 'hacker' }] },
   ]
   for (const body of cases) {
     const response = await postEvent({ DB: db }, body)
@@ -296,6 +317,8 @@ test('telemetry summary returns aggregates only and prunes old events', async ()
       [{ subject: '/', pv: 9 }],
       [{ subject: '@linxin666/dsh-pet', visitors: 2 }],
       [{ subject: '@linxin666/dsh-pet', visitors: 1 }],
+      [{ subject: '@linxin666/dsh-pet', channel: 'market', visitors: 1 }],
+      [{ subject: '@linxin666/dsh-pet', version: '1.2.3', visitors: 2 }],
     ],
   })
   const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary?days=7'), { DB: db }, context())
@@ -306,6 +329,8 @@ test('telemetry summary returns aggregates only and prunes old events', async ()
   assert.equal(payload.plugins.items[0].item, '@linxin666/dsh-pet')
   assert.equal(payload.plugins.items[0].instances, 2)
   assert.equal(payload.plugins.items[0].active_today, 1)
+  assert.equal(payload.plugins.items[0].channels.market, 1)
+  assert.equal(payload.plugins.items[0].versions[0].version, '1.2.3')
   assert.equal(db.runs.length, 1)
   assert.match(db.runs[0].sql, /DELETE FROM telemetry_events/)
 })

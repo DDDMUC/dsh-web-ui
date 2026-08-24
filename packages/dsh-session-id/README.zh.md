@@ -57,6 +57,10 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-session-id
   旧版外壳上入口不会渲染。
 - 只读查看器：只展示与复制 ID，不打开或管理会话。
 
+## 数据遥测
+
+浏览器半区每个 UTC 日向 dsh-market.com 发送一次匿名安装心跳：仅含一个 localStorage 随机 ID 与本包名，无其他数据。服务端只存储该 ID 的加盐哈希，不存 IP，且只暴露聚合计数。完整契约见 [docs/telemetry.md](../../docs/telemetry.md)。
+
 ## 许可证
 
 BSD-3-Clause。

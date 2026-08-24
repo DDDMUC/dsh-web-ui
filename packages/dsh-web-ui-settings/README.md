@@ -78,3 +78,7 @@ See [issue #513](https://github.com/zhu1090093659/dsh-web-ui/issues/513).
 - The section shows on the dsh settings page only when its prerequisite (`@deepseek-ai/dsh-client-ui-settings`) is present.
 - Authenticated-proxy mode does not provide authentication itself; a deployment without a correctly ordered authentication proxy must leave `trustedProxyHosts` empty.
 - The compatibility bridge serves dsh-web-ui family settings only. It does not make the official DSH settings or credentials plane remotely available.
+
+## Telemetry
+
+The browser half sends one anonymous install heartbeat per UTC day to dsh-market.com: a random localStorage id plus this package's name, nothing else. The server stores only a salted hash of that id, never IP addresses, and exposes aggregate counts only. See [docs/telemetry.md](../../docs/telemetry.md) for the full contract.

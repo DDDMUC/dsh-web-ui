@@ -74,6 +74,10 @@ All fields live in the plugin settings card (or in the composition entry):
 - Creating the icon requires a Desktop directory; OneDrive-redirected Windows
   desktops are detected, other redirects may need a manual icon placement.
 
+## Telemetry
+
+The browser half sends one anonymous install heartbeat per UTC day to dsh-market.com: a random localStorage id plus this package's name, nothing else. The server stores only a salted hash of that id, never IP addresses, and exposes aggregate counts only. See [docs/telemetry.md](../../docs/telemetry.md) for the full contract.
+
 ## License
 
 Apache-2.0.

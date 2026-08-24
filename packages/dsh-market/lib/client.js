@@ -1605,6 +1605,14 @@ window.__ModuleLoader__.load({
 		const VISITOR_KEY = "dsh-web-ui-telemetry-visitor";
 		const DAY_KEY_PREFIX = "dsh-web-ui-telemetry-day:";
 		const ENDPOINT = "https://dsh-market.com/api/telemetry/event";
+		/** The building package's version, when the bundle carries it. */
+		function bakedVersion() {
+			try {
+				return "0.3.2";
+			} catch {
+				return;
+			}
+		}
 		/** Read or lazily create the anonymous visitor id; null when storage is unavailable. */
 		function visitorId() {
 			try {
@@ -1628,7 +1636,8 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* Fire the daily heartbeat for the given items at most once per UTC day per
-		* browser. Never throws and never blocks the caller.
+		* browser. Never throws and never blocks the caller. Items without an explicit
+		* version inherit the bundle's baked build version.
 		*/
 		function reportDailyHeartbeat(items) {
 			try {
@@ -1638,13 +1647,17 @@ window.__ModuleLoader__.load({
 				const visitor = visitorId();
 				if (visitor === null) return;
 				pruneDayKeys(today);
+				const payloadItems = items.map((item) => {
+					const out = { name: item.name };
+					const version = item.version ?? bakedVersion();
+					if (version !== void 0) out.version = version;
+					if (item.channel !== void 0) out.channel = item.channel;
+					return out;
+				});
 				const body = JSON.stringify({
 					kind: "heartbeat",
 					visitor,
-					items: items.map((item) => item.version ? {
-						name: item.name,
-						version: item.version
-					} : { name: item.name })
+					items: payloadItems
 				});
 				fetch(ENDPOINT, {
 					method: "POST",

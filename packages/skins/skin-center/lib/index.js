@@ -1988,7 +1988,8 @@ function makeSkinCenterV2Routes(deps = {}) {
 			skins: catalog.skins.filter((s) => s.origin === "user" || shippedSet.has(s.manifest.id)).map((s) => ({
 				origin: s.origin,
 				warnings: s.warnings,
-				manifest: s.manifest
+				manifest: s.manifest,
+				channel: s.origin === "user" ? existsSync(join(s.dir, "dsh-market.provenance.json")) ? "market" : "unknown" : "npm"
 			})),
 			diagnostics: catalog.diagnostics
 		});

@@ -17,6 +17,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { WebUiSettingsBinder } from './compat-settings-scope.ts'
 import { WebUIPluginsSection } from './WebUIPluginsCard.tsx'
 import { en, zh, type WebUIPluginsKey } from './locales.ts'
+import { reportDailyHeartbeat } from './telemetry.ts'
 
 export type { WebUIPluginsSectionProps } from './WebUIPluginsCard.tsx'
 
@@ -51,6 +52,10 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  // Anonymous install heartbeat (docs/telemetry.md): one beat per browser per
+  // UTC day, package name only, silent failure.
+  reportDailyHeartbeat([{ name: '@linxin666/dsh-client-ui-web-ui-settings' }])
+
   ctx.effect(() => {
     try {
       return ctx.locale.register('web-ui-plugins', { zh, en })

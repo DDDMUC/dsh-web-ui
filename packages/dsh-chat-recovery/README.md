@@ -94,6 +94,10 @@ The shipped UI keeps automatic retry disabled. Retry is an explicit transcript a
 - The Host API does not provide an in-place turn retry operation. Retry must
   therefore create a branch, which remains visible in the session list.
 
+## Telemetry
+
+The browser half sends one anonymous install heartbeat per UTC day to dsh-market.com: a random localStorage id plus this package's name, nothing else. The server stores only a salted hash of that id, never IP addresses, and exposes aggregate counts only. See [docs/telemetry.md](../../docs/telemetry.md) for the full contract.
+
 ## License
 
 BSD-3-Clause.

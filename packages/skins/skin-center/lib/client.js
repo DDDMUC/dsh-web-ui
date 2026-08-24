@@ -4463,6 +4463,14 @@ window.__ModuleLoader__.load({
 		const VISITOR_KEY = "dsh-web-ui-telemetry-visitor";
 		const DAY_KEY_PREFIX = "dsh-web-ui-telemetry-day:";
 		const ENDPOINT = "https://dsh-market.com/api/telemetry/event";
+		/** The building package's version, when the bundle carries it. */
+		function bakedVersion() {
+			try {
+				return "0.3.2";
+			} catch {
+				return;
+			}
+		}
 		/** Read or lazily create the anonymous visitor id; null when storage is unavailable. */
 		function visitorId() {
 			try {
@@ -4486,7 +4494,8 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* Fire the daily heartbeat for the given items at most once per UTC day per
-		* browser. Never throws and never blocks the caller.
+		* browser. Never throws and never blocks the caller. Items without an explicit
+		* version inherit the bundle's baked build version.
 		*/
 		function reportDailyHeartbeat(items) {
 			try {
@@ -4496,13 +4505,17 @@ window.__ModuleLoader__.load({
 				const visitor = visitorId();
 				if (visitor === null) return;
 				pruneDayKeys(today);
+				const payloadItems = items.map((item) => {
+					const out = { name: item.name };
+					const version = item.version ?? bakedVersion();
+					if (version !== void 0) out.version = version;
+					if (item.channel !== void 0) out.channel = item.channel;
+					return out;
+				});
 				const body = JSON.stringify({
 					kind: "heartbeat",
 					visitor,
-					items: items.map((item) => item.version ? {
-						name: item.name,
-						version: item.version
-					} : { name: item.name })
+					items: payloadItems
 				});
 				fetch(ENDPOINT, {
 					method: "POST",
@@ -4528,13 +4541,36 @@ window.__ModuleLoader__.load({
 			"remote",
 			"workspaces"
 		];
+		/** Self-report item for the install heartbeat. */
+		const SELF_ITEM = [{ name: "@linxin666/dsh-client-ui-skin-center" }];
+		/**
+		* Beat the install heartbeat (docs/telemetry.md), enriching it with the
+		* installed skin inventory (skin:<id> + version + channel) once the v2
+		* catalog answers. Offline or pre-boot the beat stays package-only.
+		*/
+		function beatHeartbeat() {
+			reportDailyHeartbeat(SELF_ITEM);
+			fetch("/api/skin-center/v2/catalog").then((res) => res.ok ? res.json() : null).then((catalog) => {
+				if (!catalog || !Array.isArray(catalog.skins)) return;
+				const items = [...SELF_ITEM];
+				for (const skin of catalog.skins) {
+					const id = skin && skin.manifest && typeof skin.manifest.id === "string" ? skin.manifest.id : "";
+					if (!id) continue;
+					const item = { name: "skin:" + id };
+					if (typeof skin.manifest.version === "string") item.version = skin.manifest.version;
+					if (typeof skin.channel === "string") item.channel = skin.channel;
+					items.push(item);
+				}
+				reportDailyHeartbeat(items.slice(0, 64));
+			}).catch(() => {});
+		}
 		/**
 		* Register the skin-center dictionaries, the body scope attribute, and the
 		* Skin Center as a first-level settings section.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			reportDailyHeartbeat([{ name: "@linxin666/dsh-client-ui-skin-center" }]);
+			beatHeartbeat();
 			ctx.effect(() => {
 				try {
 					return ctx.locale.register(NS, {

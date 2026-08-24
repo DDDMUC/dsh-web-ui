@@ -546,3 +546,7 @@ generation. It is inlined into the client bundle at build time (like the
 official skin/turtle-ui plugins inline their non-shared deps), so profile
 installations need no extra runtime dependency beyond the dsh peer closure.
 `schemastery` is the DSH-standard config schema validator.
+
+## Telemetry
+
+The browser half sends one anonymous install heartbeat per UTC day to dsh-market.com: a random localStorage id plus this package's name, nothing else. The server stores only a salted hash of that id, never IP addresses, and exposes aggregate counts only. See [docs/telemetry.md](../../docs/telemetry.md) for the full contract.

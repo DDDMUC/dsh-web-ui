@@ -102,6 +102,10 @@ sidebar.
   at one `.md`) is replaced by a plain file during the atomic rewrite — the link
   is not kept and the target file is left untouched.
 
+## Telemetry
+
+The browser half sends one anonymous install heartbeat per UTC day to dsh-market.com: a random localStorage id plus this package's name, nothing else. The server stores only a salted hash of that id, never IP addresses, and exposes aggregate counts only. See [docs/telemetry.md](../../docs/telemetry.md) for the full contract.
+
 ## License
 
 BSD-3-Clause.

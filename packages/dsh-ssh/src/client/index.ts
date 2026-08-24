@@ -23,6 +23,7 @@ import { mountPanel } from './mount.tsx'
 import { PanelController } from './panel/controller.ts'
 import type { TerminalFontSource } from './panel/helpers.ts'
 import { mountSidebarEntry } from './sidebar-entry.ts'
+import { reportDailyHeartbeat } from './telemetry.ts'
 
 /** Locale namespace this plugin owns. */
 const NS = 'dsh-ssh'
@@ -73,6 +74,10 @@ export type { SshKey } from './locales.ts'
  * @param ctx - client root context (locale service).
  */
 export function apply(ctx: ClientContext): void {
+  // Anonymous install heartbeat (docs/telemetry.md): one beat per browser per
+  // UTC day, package name only, silent failure.
+  reportDailyHeartbeat([{ name: '@linxin666/dsh-ssh' }])
+
   ctx.effect(() => {
     try {
       return ctx.locale.register(NS, { zh, en })
