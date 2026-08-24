@@ -1,6 +1,6 @@
 # dsh-web Repository Instructions
 
-This repository is a monorepo of DeepSeek Harness Web GUI plugins and skins. Each plugin is an independent Cordis bundle mounted through `cordis.patch.yml` and profiles. Never modify a DSH source checkout.
+This repository is a monorepo of DeepSeek Harness Web GUI plugins; skins ship as pure asset packs of the skins plugin, distributed through the Workshop. Each plugin is an independent Cordis bundle mounted through `cordis.patch.yml` and profiles. Never modify a DSH source checkout.
 
 Before changing `packages/`, read [packages/AGENTS.md](packages/AGENTS.md). Before editing documentation, read [docs/AGENTS.md](docs/AGENTS.md).
 
