@@ -961,23 +961,26 @@ export default function defineSkinHooks() {
       body.style.setProperty(DARK_HERO_ART_PROPERTY, 'url(' + asset(ART.darkHero) + ')')
       body.style.setProperty(DARK_ACTIVE_ART_PROPERTY, 'url(' + asset(ART.darkActive) + ')')
 
-      const makeScene = (name, chrome, layerNames) => {
+      const makeScene = (name, chrome) => {
         const scene = doc.createElement('div')
         scene.className = CH[name]
         scene.dataset.skinChrome = chrome
         scene.dataset.skinOwner = SKIN_OWNER
         scene.setAttribute('aria-hidden', 'true')
-        for (const layerName of layerNames) {
+        // The v1 stylesheet sizes the crossfade layers via the Layer class and
+        // paints the art via Hero/Active on the SAME element (one node carries
+        // both classes) — a separate Layer wrapper would be static and 0-high.
+        for (const variant of ['Hero', 'Active']) {
           const layer = doc.createElement('div')
-          layer.className = CH[name + layerName]
+          layer.className = CH[name + 'Layer'] + ' ' + CH[name + variant]
           scene.append(layer)
         }
         ownedNodes.add(scene)
         return scene
       }
 
-      const lightScene = makeScene('lightScene', 'light-scene', ['Layer', 'Hero', 'Active'])
-      const darkScene = makeScene('darkScene', 'dark-scene', ['Layer', 'Hero', 'Active'])
+      const lightScene = makeScene('lightScene', 'light-scene')
+      const darkScene = makeScene('darkScene', 'dark-scene')
       const spine = doc.createElement('div')
       spine.className = CH.spine
       spine.dataset.skinChrome = 'spine'
@@ -2635,10 +2638,16 @@ export default function defineSkinHooks() {
         pricingLightDisposer,
         sidebarSyncDisposer,
       )
-      for (const node of ownedWordmarkNodes) ownedNodes.add(node)
       mountDshWordmark()
+      // Register both the nodes mounted now and any the observer re-mounts
+      // later; re-created chrome is swept by the orphan cleanup below.
+      for (const node of ownedWordmarkNodes) ownedNodes.add(node)
       wordmarkObserver.observe(body, { childList: true, subtree: true })
-      disposers.push(() => wordmarkObserver.disconnect())
+      disposers.push(() => {
+        wordmarkObserver.disconnect()
+        doc.querySelectorAll('[data-orca-link-wordmark], [data-orca-link-signal]').forEach((node) => node.remove())
+        doc.querySelectorAll('[data-orca-link-brand]').forEach((node) => node.removeAttribute('data-orca-link-brand'))
+      })
     },
   }
 }
