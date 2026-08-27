@@ -477,5 +477,17 @@
     "npm": "dsh-delete-message",
     "category": "ui",
     "subcategory": "chat"
+  },
+  {
+    "id": "dsh-free-search",
+    "name": "免费搜索",
+    "nameEn": "Free Search",
+    "author": "DDDMUC",
+    "description": "无需 API key 的多引擎网络搜索：10 个引擎自动回退（Bing/DDG/AnySearch/SearXNG/Exa/Tavily/Keenable/Perplexity/DeepSeek 等）+ 时间过滤 + 8 个平台搜索 + Web 设置面板。",
+    "descriptionEn": "Multi-engine web search without API keys: 10 engines with auto-fallback, time filtering, 8 platform searches and a web settings panel.",
+    "repo": "https://github.com/DDDMUC/dsh-free-search",
+    "npm": "dsh-free-search",
+    "category": "tools",
+    "subcategory": "dev"
   }
 ]
