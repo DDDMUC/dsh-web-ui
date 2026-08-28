@@ -1,6 +1,5 @@
-en:
-  blob: ec48c4fa8ff259108961f7394a12db34c50d3a2b
-  path: 2026-08-28-preview-cohort-tarball-overrides.md
-zh:
-  blob: 76a1e19374a18b7fe1da1556e006570484027734
-  path: 2026-08-28-preview-cohort-tarball-overrides.zh.md
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-08-28-preview-cohort-tarball-overrides.md: b6dece5fdf28227110f0940fad1301ab8f4c9228
+2026-08-28-preview-cohort-tarball-overrides.zh.md: 022d486cbf5a8ffd0d7c840e8b974cd718e7f775
