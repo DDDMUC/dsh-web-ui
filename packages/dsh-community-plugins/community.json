@@ -572,5 +572,17 @@
     "npm": "dsh-archived-chats",
     "category": "ui",
     "subcategory": "panel"
+  },
+  {
+    "id": "dsh-audiogen",
+    "name": "AI 音频",
+    "nameEn": "AI AudioGen",
+    "author": "shimingming520",
+    "description": "AI 音频生成插件：通过可配置的多厂商渠道（OpenAI 兼容、ElevenLabs、MiniMax、Stability AI 与自定义）实现 TTS 文本转语音、音乐与音效生成，提供按渠道模型/音色目录、Agent 工具与侧边栏面板。",
+    "descriptionEn": "AI audio generation for the dsh web GUI: TTS, music and sound effects through configurable multi-vendor channels (OpenAI-compatible, ElevenLabs, MiniMax, Stability AI and custom), with per-channel model/voice catalogs, an Agent tool and a sidebar panel.",
+    "repo": "https://github.com/shimingming520/dsh-audiogen",
+    "npm": "dsh-audiogen",
+    "category": "tools",
+    "subcategory": "model"
   }
 ]
