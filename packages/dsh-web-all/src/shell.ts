@@ -67,20 +67,35 @@ function makeDegradedRoute(): WebRoute {
   }
 }
 
+/** Config shapes that must mount quietly: absent (self row) or a bare-row override. */
+function isOverrideShape(config: ShellConfig | undefined): boolean {
+  if (config === undefined) return true
+  if (typeof config !== 'object' || config === null) return false
+  const keys = Object.keys(config)
+  return keys.length === 0 || !('plugin' in config)
+}
+
 /** Apply one shell entry: mount the configured real plugin behind an isolation boundary. */
 export async function apply(ctx: Context, config: ShellConfig | undefined): Promise<void> {
   const spec = config?.plugin
   if (typeof spec !== 'string' || spec === '') {
-    // Config-less row = the aggregate's SELF row (web-ui-compat): the compat
-    // shim's host half has no host behavior, and the client half is served
-    // from the same package. The loader hands an absent row config through as
-    // an EMPTY object (not undefined), so the self-row shape is exactly
-    // `undefined` or `{}` — anything else with a config that lacks `plugin`
-    // is a mis-generated row. Even then the shell must not THROW: an async
-    // apply's rejection escapes the loader's lifecycle as an unhandled
-    // rejection, and the host's fail-loud guard kills the whole process —
-    // the exact failure this shell exists to prevent. Loud means loud in the
-    // ledger and the log, never in the process.
+    // Two legitimate shapes land here and must mount QUIETLY (no degraded
+    // record, no throw — an async apply's rejection escapes the loader
+    // lifecycle as an unhandled rejection and the host's fail-loud guard
+    // kills the whole process):
+    // - the SELF row (web-ui-compat): no config at all (undefined or {}).
+    //   The compat shim's host half has no host behavior; its browser half
+    //   rides the package's ./client face.
+    // - a USER bare-row override (`- id: <row>` + `config:` in a patch
+    //   layer): patch overrides REPLACE the row config wholesale, so the
+    //   user's tuning (e.g. remote-web-ui's autoTunnel) strips the `plugin`
+    //   key. The real plugin already mounted under the same entry id from
+    //   the bundle layer's shell config — a bare override is a RE-patch of
+    //   an existing shell entry, not a fresh mount, so mounting empty must
+    //   be silent (and the override should carry the plugin key; the
+    //   aggregate docs show the correct form).
+    // Anything else still lands in the ledger for visibility.
+    if (isOverrideShape(config)) return
     recordDegraded('(no plugin)', 'shape', new Error(`shell row config is missing the "plugin" package name (row config: ${JSON.stringify(config ?? null)}); the entry mounted empty`))
     return
   }

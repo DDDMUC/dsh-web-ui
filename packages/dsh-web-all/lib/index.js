@@ -44,10 +44,17 @@ function makeDegradedRoute() {
 		}
 	};
 }
+/** Config shapes that must mount quietly: absent (self row) or a bare-row override. */
+function isOverrideShape(config) {
+	if (config === void 0) return true;
+	if (typeof config !== "object" || config === null) return false;
+	return Object.keys(config).length === 0 || !("plugin" in config);
+}
 /** Apply one shell entry: mount the configured real plugin behind an isolation boundary. */
 async function apply$1(ctx, config) {
 	const spec = config?.plugin;
 	if (typeof spec !== "string" || spec === "") {
+		if (isOverrideShape(config)) return;
 		recordDegraded("(no plugin)", "shape", /* @__PURE__ */ new Error(`shell row config is missing the "plugin" package name (row config: ${JSON.stringify(config ?? null)}); the entry mounted empty`));
 		return;
 	}
