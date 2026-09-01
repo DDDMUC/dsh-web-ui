@@ -6,7 +6,7 @@
  * described by /openapi.json and documented at /api-docs.html.
  */
 
-import { handleTelemetryPost, handleTelemetrySummary, handleTelemetryUsersBadge, pruneOldEvents, refreshBadgeCache } from './telemetry.js'
+import { handleTelemetryPost, handleTelemetrySummary, handleTelemetryUsersBadge, pruneOldEvents, refreshBadgeCache, refreshSummaryCache } from './telemetry.js'
 import { readJsonCapped } from './body.js'
 import { isKnownAsset } from './asset-allowlist.js'
 import { handleNpmBadge, handleNpmDownloads } from './npm-badge.js'
@@ -261,12 +261,16 @@ async function mutateLike(env, kind, assetId, hash, unlike) {
 }
 
 export default {
-  /** Cron trigger: recompute the public badge counts and prune expired
-   * telemetry events (wrangler.jsonc triggers.crons). */
+  /** Cron trigger: recompute the public badge counts, refresh the summary
+   * rollup cache the dashboard reads, and prune expired telemetry events
+   * (wrangler.jsonc triggers.crons). */
   async scheduled(controller, env) {
     try {
       await refreshBadgeCache(env)
     } catch { /* best-effort; the badge serves the last computed row */ }
+    try {
+      await refreshSummaryCache(env)
+    } catch { /* best-effort; stale rows keep serving until the next tick */ }
     try {
       await pruneOldEvents(env)
     } catch { /* best-effort; pruning retries on the next tick */ }
