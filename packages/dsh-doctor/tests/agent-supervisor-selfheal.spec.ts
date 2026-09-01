@@ -32,9 +32,20 @@ function exitRequest(at: string, stderrTail: string): SupervisorRequest {
   return { protocol: DOCTOR_PROTOCOL_VERSION, type: 'launcher-exit', profileId: 'p1', runId: 'r', exitCode: 1, signal: null, intentional: false, started: false, at, stderrTail }
 }
 
-/** The self-heal runs detached (void); give the microtask/fswrite chain time to settle. */
-async function settle(): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, 150))
+/** The self-heal runs detached (void); wait for supervisor's self heal to settle. */
+async function settle(supervisor?: DoctorSupervisor, patchPath?: string, expectedText?: string): Promise<void> {
+  if (supervisor?.lastSelfHeal !== undefined) {
+    await supervisor.lastSelfHeal.catch(() => undefined)
+  }
+  for (let i = 0; i < 40; i++) {
+    if (patchPath !== undefined && expectedText !== undefined) {
+      try {
+        const text = await readFile(patchPath, 'utf8')
+        if (text.includes(expectedText)) return
+      } catch {}
+    }
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
 }
 
 async function setup(options: { autoRepair?: boolean } = {}): Promise<{ dir: string; patchPath: string; supervisor: DoctorSupervisor; paths: ReturnType<typeof doctorPaths> }> {
@@ -58,14 +69,14 @@ describe('supervisor boot self-heal', () => {
     const { dir, patchPath, supervisor } = await setup()
     try {
       await supervisor.handle(exitRequest('2026-01-01T00:00:10Z', APPLY_FAILURE_TAIL))
-      await settle()
+      await settle(supervisor)
       let patch = await readFile(patchPath, 'utf8')
       expect(patch).not.toContain('disabled: true')
       const snap1 = (await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'status' })).snapshot!
       expect(snap1.incidents[0]?.evidence.join()).not.toContain('disabled after repeated')
       await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'launcher-start', profile: { id: 'p1', dshHome: join(dir, 'home'), name: 'web', dshExecutable: '/usr/bin/dsh', role: 'protected' }, runId: 'r2', pid: 43, argv: ['dsh', 'web'], at: '2026-01-01T00:01:00Z' })
       await supervisor.handle(exitRequest('2026-01-01T00:01:10Z', APPLY_FAILURE_TAIL))
-      await settle()
+      await settle(supervisor, patchPath, '# dsh-doctor')
       patch = await readFile(patchPath, 'utf8')
       expect(patch).toContain('# dsh-doctor')
       expect(patch).toContain('- id: web-ui-usage\n  disabled: true')
@@ -86,7 +97,7 @@ describe('supervisor boot self-heal', () => {
       await supervisor.handle(exitRequest('2026-01-01T00:00:10Z', UNATTRIBUTED_TAIL))
       await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'launcher-start', profile: { id: 'p1', dshHome: join(dir, 'home'), name: 'web', dshExecutable: '/usr/bin/dsh', role: 'protected' }, runId: 'r2', pid: 43, argv: ['dsh', 'web'], at: '2026-01-01T00:01:00Z' })
       await supervisor.handle(exitRequest('2026-01-01T00:01:10Z', UNATTRIBUTED_TAIL))
-      await settle()
+      await settle(supervisor)
       const patch = await readFile(patchPath, 'utf8')
       expect(patch).not.toContain('disabled: true')
       const snap = (await supervisor.handle({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'status' })).snapshot!
