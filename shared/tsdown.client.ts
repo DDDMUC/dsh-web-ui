@@ -155,7 +155,7 @@ export function clientBundle(
     const hasClient = existsSync(resolvePath(process.cwd(), 'src/client/index.ts'))
     const client = hasClient ? clientConfig(id, face === undefined
       ? 'src/client/index.ts'
-      : 'lib/types/client/index.js') : undefined
+      : 'lib/types/client/index.js', options.clientPlugins) : undefined
     const node = [lib, ...(options.companions ?? [])]
     if (face === 'host') return options.hostPhase === true ? node : [SKIP_WORKSPACE_BUILD]
     if (face === 'client') return options.hostPhase === true ? (client ? [client] : []) : (client ? [...node, client] : node)
@@ -208,6 +208,10 @@ interface ClientBundleOptions {
   readonly lib?: UserConfig
   /** Extra Node-side externals (in addition to the default cordis entry). */
   readonly libExternal?: readonly (string | RegExp)[]
+  /** Extra browser-bundle resolve plugins, prepended ahead of the purity gate
+   *  so a package can remap generated specifiers onto sources before default
+   *  resolution (e.g. the aggregate's client-children alias). */
+  readonly clientPlugins?: readonly NonNullable<UserConfig['plugins']>
 }
 
 type BuildFace = 'host' | 'client' | undefined
@@ -244,7 +248,7 @@ function clientLibraryConfig(
   }
 }
 
-function clientConfig(id: string, entry: string): UserConfig {
+function clientConfig(id: string, entry: string, extraPlugins: readonly NonNullable<UserConfig['plugins']> = []): UserConfig {
   return {
     name: `${id}/client`,
     entry: { client: entry },
@@ -283,7 +287,9 @@ function clientConfig(id: string, entry: string): UserConfig {
     // guaranteed runtime throw, so the rule is the table list itself: no
     // opinion for table entries (external above wins), bundle everything else.
     noExternal: (id: string) => (CLIENT_EXTERNALS.includes(id) ? undefined : true),
-    plugins: [{
+    // Package-level resolve plugins run FIRST: they may remap generated
+    // specifiers onto sources before the purity gate and default resolution.
+    plugins: [...extraPlugins, {
       // Bundle purity gate (build-time mirror of the module-edge rules):
       // platform seed entries stay external, inline-safe wire layers inline,
       // and every other @deepseek-ai value import is a build error — a
