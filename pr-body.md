@@ -93,10 +93,13 @@ fork 时即基于最新 dev（commit 955e42a）。
 ### 试穿截图（亮 / 暗）
 
 亮色（preview/light.jpg）与暗色（preview/dark.jpg）已随本 PR 提交于
-`packages/skins/skin-center/skins/phoebe-atelier/preview/`，同图亦为
-capture-previews 官方静态渲染器输出（背景经 contributes.backgroundMedia
-声明式绘制；hooks 驱动的立绘层与装饰 DOM 在静态渲染器中不执行，完整
-效果见分发仓库 README 的整页渲染截图）。
+`packages/skins/skin-center/skins/phoebe-atelier/preview/`（capture-previews
+官方静态渲染器输出；hooks 驱动的立绘层与装饰 DOM 在静态渲染器中不执行）。
+
+含双立绘与全部装饰 DOM 的完整效果整页渲染（分发仓库 preview/ 目录，供审查参考）：
+
+- 亮色落地页: https://raw.githubusercontent.com/Theater-ahyeon/phoebe-atelier/main/phoebe-atelier/preview/render-light-hero.png
+- 暗色落地页: https://raw.githubusercontent.com/Theater-ahyeon/phoebe-atelier/main/phoebe-atelier/preview/render-dark-hero.png
 
 ### 实现说明
 
