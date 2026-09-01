@@ -31,6 +31,7 @@ export class DoctorSupervisor {
   private readonly heartbeatTimeoutMs: number
   private readonly provisioner: ((paths: DoctorPaths) => Promise<void>) | undefined
   private provisioning = false
+  lastSelfHeal: Promise<void> | undefined
 
   constructor(options: SupervisorOptions = {}) {
     this.paths = options.paths ?? doctorPaths()
@@ -107,7 +108,10 @@ export class DoctorSupervisor {
       const profile = this.state.profiles[request.profileId]
       if (profile) { profile.pid = undefined; profile.phase = request.intentional || request.exitCode === 0 ? 'exited' : 'failed'
         if (this.state.policy.fullProtection && !this.state.paused && !request.intentional && request.exitCode !== 0) { const failures = recordFailure(this.state, request.profileId, request.at); profile.restartCount = failures; if (failures >= 2) profile.phase = 'quarantined'; openIncident(this.state, request.profileId, request.started ? 'process-crash' : 'boot-failure', request.started ? 'DSH process crashed after startup' : 'DSH profile failed during startup', [request.stderrTail ?? ''].filter(Boolean), request.at) }
-        if (this.state.policy.autoRepair && this.state.policy.fullProtection && !this.state.paused && !request.intentional && request.exitCode !== 0 && !request.started) { void this.selfHealBootFailure(profile, request.stderrTail ?? '', request.at) }
+        if (this.state.policy.autoRepair && this.state.policy.fullProtection && !this.state.paused && !request.intentional && request.exitCode !== 0 && !request.started) {
+          this.lastSelfHeal = this.selfHealBootFailure(profile, request.stderrTail ?? '', request.at)
+          void this.lastSelfHeal
+        }
       }
     } else if (request.type === 'client-failure') {
       if (this.state.policy.fullProtection && !this.state.paused) openIncident(this.state, request.profileId, 'client-failure', request.message, [request.stack ?? '', request.phase ?? ''].filter(Boolean), request.at)
