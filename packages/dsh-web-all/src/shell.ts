@@ -24,6 +24,11 @@
  *       plugin: '@linxin666/dsh-usage'
  *       (config: {...})   forwarded verbatim to the real plugin
  *
+ * The aggregate's SELF row (web-ui-compat) mounts this package with NO
+ * config: that is the compat shim's own mount (its host half is a no-op and
+ * its browser half rides the package's ./client face), so a config-less row
+ * is accepted as a no-op rather than treated as a mis-generated row.
+ *
  * Health surface: a loopback-only GET /api/dsh-web-all/degraded answers with
  * the current degradation ledger so doctor/monitoring can surface "these
  * plugins are degraded, the rest of the Web is healthy" without log scraping.
@@ -63,12 +68,21 @@ function makeDegradedRoute(): WebRoute {
 }
 
 /** Apply one shell entry: mount the configured real plugin behind an isolation boundary. */
-export async function apply(ctx: Context, config: ShellConfig): Promise<void> {
+export async function apply(ctx: Context, config: ShellConfig | undefined): Promise<void> {
   const spec = config?.plugin
   if (typeof spec !== 'string' || spec === '') {
-    // A mis-generated row is a build bug, not a plugin failure: stay loud so
-    // the entry fails visibly instead of silently mounting nothing.
-    throw new Error('dsh-web-all shell: row config is missing the "plugin" package name')
+    // Config-less row = the aggregate's SELF row (web-ui-compat): the compat
+    // shim's host half has no host behavior, and the client half is served
+    // from the same package. The loader hands an absent row config through as
+    // an EMPTY object (not undefined), so the self-row shape is exactly
+    // `undefined` or `{}` — anything else with a config that lacks `plugin`
+    // is a mis-generated row. Even then the shell must not THROW: an async
+    // apply's rejection escapes the loader's lifecycle as an unhandled
+    // rejection, and the host's fail-loud guard kills the whole process —
+    // the exact failure this shell exists to prevent. Loud means loud in the
+    // ledger and the log, never in the process.
+    recordDegraded('(no plugin)', 'shape', new Error(`shell row config is missing the "plugin" package name (row config: ${JSON.stringify(config ?? null)}); the entry mounted empty`))
+    return
   }
   // Optional service read: a plugin-fiber context proxy throws on an
   // undeclared property read, so the optional webServer face goes through
@@ -94,7 +108,7 @@ export async function apply(ctx: Context, config: ShellConfig): Promise<void> {
     // Sync application errors (invalid config, throwing apply) escape the
     // ctx.plugin() call itself; async ones settle on the returned fiber.
     // Both paths are captured here so the shell fiber never fails.
-    const fiber = ctx.plugin(plugin as Parameters<Context['plugin']>[0], config.config)
+    const fiber = ctx.plugin(plugin as Parameters<Context['plugin']>[0], config?.config)
     void Promise.resolve(fiber).then(
       () => {},
       error => recordDegraded(spec, 'start', error),

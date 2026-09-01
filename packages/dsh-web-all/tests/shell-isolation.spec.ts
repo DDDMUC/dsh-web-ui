@@ -93,6 +93,39 @@ describe('dsh-web-all fault-isolation shell (real boot)', () => {
     expect(patch).toMatch(/- id: web-ui-i18n\n      name: '@linxin666\/dsh-i18n'/)
   })
 
+  dshIt('config-less row (the aggregate self row) mounts as a no-op, not an error', () => {
+    // The self row web-ui-compat mounts this package with NO config. The
+    // compat shim's host half is a no-op; treating it as a mis-generated row
+    // killed real boots (regression fixed 2026-09-01).
+    const result = runBootScenario([
+      { insert: [{ id: 'web-ui-compat', name: '__PKG__/index.js' }] },
+      { insert: [{ id: 'good-entry', name: '__DIR__/good.mjs' }] },
+    ])
+    expect(result.error).toBeUndefined()
+    const facts = JSON.parse(result.output) as { ok: boolean; entries: Array<{ id: string; state: number }>; goodSvc: unknown }
+    expect(facts.ok).toBe(true)
+    expect(facts.entries.find(e => e.id === 'web-ui-compat')?.state).toBe(2)
+    expect(facts.entries.find(e => e.id === 'good-entry')?.state).toBe(2)
+    expect(facts.goodSvc).toEqual({ ok: true })
+  })
+
+  dshIt('a row WITH config but no plugin name degrades loudly without killing the boot', () => {
+    // A mis-generated row used to throw from the async apply — the rejection
+    // escaped the loader lifecycle as unhandled and the host fail-loud guard
+    // killed the real `dsh web` (2026-09-01 boot regression). The shell now
+    // records + returns; loudness lives in the log and the degraded ledger.
+    const result = runBootScenario([
+      { insert: [{ id: 'shell-bad-config', name: '__PKG__/index.js', config: { notPlugin: true } }] },
+      { insert: [{ id: 'good-entry', name: '__DIR__/good.mjs' }] },
+    ])
+    expect(result.error).toBeUndefined()
+    const facts = JSON.parse(result.output) as { ok: boolean; entries: Array<{ id: string; state: number }>; goodSvc: unknown }
+    expect(facts.ok).toBe(true)
+    expect(facts.entries.find(e => e.id === 'shell-bad-config')?.state).toBe(2)
+    expect(facts.entries.find(e => e.id === 'good-entry')?.state).toBe(2)
+    expect(facts.goodSvc).toEqual({ ok: true })
+  })
+
   dshIt('start-failing plugin degrades alone; healthy sibling mounts', () => {
     const result = runBootScenario([
       { insert: [{ id: 'shell-entry', name: '__PKG__/index.js', config: { plugin: '__DIR__/bad.mjs' } }] },

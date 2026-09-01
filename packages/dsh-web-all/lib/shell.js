@@ -32,7 +32,10 @@ function makeDegradedRoute() {
 /** Apply one shell entry: mount the configured real plugin behind an isolation boundary. */
 async function apply(ctx, config) {
 	const spec = config?.plugin;
-	if (typeof spec !== "string" || spec === "") throw new Error("dsh-web-all shell: row config is missing the \"plugin\" package name");
+	if (typeof spec !== "string" || spec === "") {
+		recordDegraded("(no plugin)", "shape", /* @__PURE__ */ new Error(`shell row config is missing the "plugin" package name (row config: ${JSON.stringify(config ?? null)}); the entry mounted empty`));
+		return;
+	}
 	const disposeRoute = ctx.reflect.get("webServer", false)?.register(makeDegradedRoute());
 	ctx.effect(() => () => disposeRoute?.(), "dsh-web-all: degraded route");
 	let mod;
@@ -51,7 +54,7 @@ async function apply(ctx, config) {
 		return;
 	}
 	try {
-		const fiber = ctx.plugin(plugin, config.config);
+		const fiber = ctx.plugin(plugin, config?.config);
 		Promise.resolve(fiber).then(() => {}, (error) => recordDegraded(spec, "start", error));
 	} catch (error) {
 		recordDegraded(spec, "start", error);
