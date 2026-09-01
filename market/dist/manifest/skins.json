@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-31",
+  "generated": "2026-09-01",
   "items": [
     {
       "id": "whale-song",
@@ -723,6 +723,87 @@
             "src": "assets/skins/summer-liquid-glass/assets/summer-liquid-glass-art.jpg",
             "scrim": "linear-gradient(rgba(7, 19, 33, 0.34) 0%, rgba(7, 19, 33, 0.28) 45%, rgba(7, 19, 33, 0.38) 100%)"
           }
+        }
+      }
+    },
+    {
+      "id": "phoebe-atelier",
+      "name": "辉弦圣堂 · 菲比",
+      "nameEn": "Radiant Strings Atelier",
+      "author": "Theater-ahyeon",
+      "rank": 15,
+      "tagline": "双立绘圣堂背景 · 象牙白大理石廊柱侧栏 · 光环动效",
+      "description": "《鸣潮》菲比主题的高定制皮肤：双立绘与光弦圣堂场景垫在对话区之下，象牙白大理石廊柱侧栏与月白圣金 token 重映射覆盖全部 dsw 语义变量，为加载、思考与工具运行状态预留光弦/光环动效钩子。角色形象为 AI 辅助同人再创作，仅限非商业使用。",
+      "tags": [
+        "anime",
+        "phoebe",
+        "wuthering-waves",
+        "cathedral",
+        "gold",
+        "glass"
+      ],
+      "version": "0.1.0",
+      "accent": "#cfa968",
+      "preview": {
+        "light": "assets/skins/phoebe-atelier/preview/light.jpg",
+        "dark": "assets/skins/phoebe-atelier/preview/dark.jpg"
+      },
+      "files": [
+        "LICENSE",
+        "NOTICE",
+        "assets/bottom-crest.webp",
+        "assets/bottom-trim-tile.webp",
+        "assets/bow.webp",
+        "assets/chibi.webp",
+        "assets/composer-frame.webp",
+        "assets/icon.webp",
+        "assets/main-left.webp",
+        "assets/main-right-vision.webp",
+        "assets/main-right.webp",
+        "assets/new-session.webp",
+        "assets/palace-dark.webp",
+        "assets/palace-light.webp",
+        "assets/settings-frame.webp",
+        "assets/sidebar-corner.webp",
+        "assets/sidebar-swag.webp",
+        "assets/top-trim-tile.webp",
+        "assets/workspace-ribbon.webp",
+        "assets/workspace-shield.webp",
+        "hooks.mjs",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
+      "repo": "https://github.com/Theater-ahyeon/phoebe-atelier",
+      "contributes": {
+        "stylesheet": "skin.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/skins/phoebe-atelier/assets/palace-light.webp",
+            "scrim": "linear-gradient(rgba(250, 247, 240, 0.1) 0%, rgba(244, 243, 248, 0.16) 55%, rgba(238, 241, 248, 0.22) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/skins/phoebe-atelier/assets/palace-dark.webp",
+            "scrim": "linear-gradient(rgba(10, 14, 34, 0.18) 0%, rgba(12, 17, 40, 0.3) 60%, rgba(8, 11, 28, 0.4) 100%)"
+          }
+        }
+      },
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
         }
       }
     },
