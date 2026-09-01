@@ -334,8 +334,12 @@ export async function handleTelemetryUsersBadge(request, env, json) {
   return freshResponse
 }
 
-/** Summary rollup cache: freshness window and cache-row id for one window. */
-const SUMMARY_CACHE_TTL = 30 * 60 * 1000
+/** Summary rollup cache: freshness windows and cache-row id for one window.
+ * Heavy long windows recompute for tens of seconds, so they tolerate longer
+ * staleness than the badge-aligned 30 minutes of the light windows. */
+function summaryCacheTtl(days) {
+  return days <= 30 ? 30 * 60 * 1000 : 12 * 60 * 60 * 1000
+}
 
 function summaryCacheId(days, paths, items) {
   return ['d' + days, 'p' + paths.limit + '-' + paths.offset, 'i' + items.limit + '-' + items.offset].join('-')
@@ -373,7 +377,7 @@ export async function handleTelemetrySummary(request, url, env, json) {
   // The live aggregation scans millions of indexed rows (tens of seconds);
   // within the TTL every reader shares the one cached rollup, the same
   // trade-off the users badge already makes.
-  if (cached && Date.now() - cached.computedAt < SUMMARY_CACHE_TTL && cached.payload) {
+  if (cached && Date.now() - cached.computedAt < summaryCacheTtl(days) && cached.payload) {
     return json(cached.payload)
   }
   let summary
@@ -393,20 +397,22 @@ export async function handleTelemetrySummary(request, url, env, json) {
 const SUMMARY_DEFAULT_PAGE = { paths: { limit: 20, offset: 0 }, items: { limit: 200, offset: 0 } }
 const SUMMARY_FIRST_PAINT_PAGE = { paths: { limit: 10, offset: 0 }, items: { limit: 10, offset: 0 } }
 
+/** Range-button windows rotate one heavy slot per cron tick: scheduled
+ * invocations are killed after roughly two minutes, and each 90/365-day
+ * window costs ~40s, so pre-warming everything every tick dies mid-list. */
+const SUMMARY_PREWARM_ROTATION = [7, 30, 90, 365]
+
 /**
- * Cron pre-warm: refresh the rollup rows the dashboard actually requests —
- * the tv first paint (default 30d window, 10-row pages) and each range
- * button's /data refetch (default 20/200 pages). 90/365-day windows grow
- * with retention, so they refresh only here, never on a user request that
- * would time out waiting; a failed window keeps serving its previous row.
+ * Cron pre-warm: refresh the tv first-paint rollup every tick plus one
+ * rotation slot of the range-button windows (default /data pages). A failed
+ * or killed window keeps serving its previous row; pager offsets the owner
+ * clicks warm on demand.
  */
 export async function refreshSummaryCache(env) {
+  const tick = Math.floor(Date.now() / (30 * 60 * 1000))
   const windows = [
     { days: 30, page: SUMMARY_FIRST_PAINT_PAGE },
-    { days: 7, page: SUMMARY_DEFAULT_PAGE },
-    { days: 30, page: SUMMARY_DEFAULT_PAGE },
-    { days: 90, page: SUMMARY_DEFAULT_PAGE },
-    { days: 365, page: SUMMARY_DEFAULT_PAGE },
+    { days: SUMMARY_PREWARM_ROTATION[tick % SUMMARY_PREWARM_ROTATION.length], page: SUMMARY_DEFAULT_PAGE },
   ]
   for (const { days, page } of windows) {
     const id = summaryCacheId(days, page.paths, page.items)

@@ -39,10 +39,13 @@ applied to production on 2026-09-01:
   a whole exceeded D1 limits (a 43.8s cold call failed) while the heaviest
   single statement stays ~14s. Cold compute takes ~34s against production
   data; only the cron and an occasional TTL expiry pay it.
-- Cron pre-warm (`refreshSummaryCache`) refreshes the five windows the
-  dashboard actually requests: the tv first-paint key (30d, 10-row pages) and
-  each range button's /data window (7/30/90/365d, default pages). Pager
-  offsets the owner clicks warm on demand.
+- Cron pre-warm (`refreshSummaryCache`) refreshes the tv first-paint key
+  (30d, 10-row pages) every tick plus one rotation slot of the range-button
+  windows (7/30/90/365d, default pages): scheduled invocations are killed
+  after roughly two minutes, and five ~40s windows per tick die mid-list, so
+  each tick carries at most ~80s of work. Pager offsets the owner clicks warm
+  on demand, and windows up to 30 days serve with a 30-minute TTL while
+  90/365-day windows tolerate 12 hours of staleness.
 - All-time badge counting moved to `telemetry_visitors (kind, visitor)`: the
   heartbeat write path upserts the salted visitor hash in the same D1 batch as
   its event rows, the migration backfilled the existing visitors, and the cron

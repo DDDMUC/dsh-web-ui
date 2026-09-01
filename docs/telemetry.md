@@ -27,7 +27,7 @@ UV（独立实例数）= 当日去重访客 ID 数；因此「安装量」读作
 curl -s 'https://dsh-market.com/api/telemetry/summary?days=30'
 ```
 
-返回最近 N 天（1-365）的站点 PV/UV 日序列与热门路径、各包的累计实例数与当日活跃数。聚合由 30 分钟滚存缓存提供（cron 预热仪表盘常用窗口并按需刷新；实时聚合无法完成时回退上一份缓存），天数与分页窗口的组合即缓存键。热门路径与心跳条目按服务端分页返回：`paths_limit`/`paths_offset`（默认 20，上限 100，总量见响应的 `site.paths_total`）与 `items_limit`/`items_offset`（默认 200，上限 200，总量见 `plugins.totals.items`）。机器可读契约见 `/openapi.json` 中 `/api/telemetry/*` 两项。汇总接口由 `TELEMETRY_READ_KEY` secret 保护：只能通过 `x-telemetry-key` 请求头携带（URL `?key=` 参数不再接受，避免密钥落入边缘日志、浏览器历史与 referrer）。
+返回最近 N 天（1-365）的站点 PV/UV 日序列与热门路径、各包的累计实例数与当日活跃数。聚合由滚存缓存提供（cron 轮转预热仪表盘常用窗口并按需刷新；30 天内窗口最多滞后 30 分钟，90/365 天窗口最多 12 小时；实时聚合无法完成时回退上一份缓存），天数与分页窗口的组合即缓存键。热门路径与心跳条目按服务端分页返回：`paths_limit`/`paths_offset`（默认 20，上限 100，总量见响应的 `site.paths_total`）与 `items_limit`/`items_offset`（默认 200，上限 200，总量见 `plugins.totals.items`）。机器可读契约见 `/openapi.json` 中 `/api/telemetry/*` 两项。汇总接口由 `TELEMETRY_READ_KEY` secret 保护：只能通过 `x-telemetry-key` 请求头携带（URL `?key=` 参数不再接受，避免密钥落入边缘日志、浏览器历史与 referrer）。
 
 ### 公开徽章端点
 

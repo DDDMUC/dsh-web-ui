@@ -568,6 +568,19 @@ test('telemetry summary answers 503 when aggregation fails with no rollup at all
   assert.equal(response.status, 503)
 })
 
+test('telemetry summary keeps long-window rollups fresh for twelve hours', async () => {
+  const payload = { ok: true, cached: true }
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: JSON.stringify(payload), computed_at: Date.now() - 60 * 60 * 1000 }
+      : null,
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary?days=365'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), payload)
+  assert.equal(db.batches.length, 0, 'a one-hour-old 365-day rollup is still fresh')
+})
+
 test('telemetry endpoints degrade cleanly without D1', async () => {
   const post = await postEvent({}, { kind: 'pageview', path: '/', visitor: VISITOR_OK })
   assert.equal(post.status, 503)
@@ -605,18 +618,16 @@ test('users badge degrades to grey without D1', async () => {
   assert.equal(badge.color, 'lightgrey')
 })
 
-test('cron refreshes badge, pre-warms the summary rollups, and prunes', async () => {
+test('cron refreshes badge, pre-warms two rollup windows, and prunes', async () => {
   const db = telemetryDb({ first: (sql) => sql.includes('telemetry_visitors') ? { users: 7 } : null })
   await worker.scheduled({}, { DB: db })
   const lightChunks = db.batches.filter((stmts) => stmts.length === 6)
   const heavyChunks = db.batches.filter((stmts) => stmts.length === 1)
-  assert.equal(lightChunks.length, 5, 'one aggregate chunk per pre-warmed window')
-  assert.equal(heavyChunks.length, 15, 'three single-statement heartbeat chunks per window')
+  assert.equal(lightChunks.length, 2, 'the first-paint window plus one rotation slot per tick')
+  assert.equal(heavyChunks.length, 6, 'three single-statement chunks per window')
   const pathsLimit = (stmts) => stmts.find((stmt) => stmt.sql.includes('GROUP BY subject ORDER BY pv')).args[1]
   assert.equal(pathsLimit(lightChunks[0]), 10, 'the first-paint window uses the 10-row pages')
-  for (const stmts of lightChunks.slice(1)) {
-    assert.equal(pathsLimit(stmts), 20, 'range windows use the default /data pages')
-  }
+  assert.equal(pathsLimit(lightChunks[1]), 20, 'the rotation window uses the default /data pages')
   assert.equal(db.runs.some((entry) => entry.sql.includes('INSERT INTO badge_cache')), true)
   assert.equal(db.runs.some((entry) => entry.sql.includes('DELETE FROM telemetry_events')), true)
 })
