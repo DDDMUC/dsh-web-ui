@@ -419,6 +419,10 @@ export async function refreshSummaryCache(env) {
     try {
       const summary = await telemetrySummary(env, days, page)
       await writeSummaryCache(env, id, summary)
-    } catch { /* best-effort; the stale row survives until the next tick */ }
+    } catch (error) {
+      // Surface the skip: a silently missing rotation slot is indistinguishable
+      // from a killed invocation when diagnosing the next tick.
+      console.log('[summary-prewarm] ' + id + ' skipped: ' + ((error && error.message) || error))
+    }
   }
 }
