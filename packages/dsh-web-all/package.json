@@ -7,6 +7,8 @@
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
+    "./shell": "./lib/shell.js",
+    "./degraded": "./lib/degraded.js",
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -25,6 +27,7 @@
     "build": "tsdown",
     "test": "vitest run",
     "prepare": "tsdown",
+    "typecheck": "tsc --noEmit",
     "watch": "tsdown --watch"
   },
   "license": "Apache-2.0",
@@ -53,7 +56,9 @@
     "@deepseek-ai/dsh-typert-protocol": "^0.1.2-alpha.3",
     "@deepseek-ai/dsh-util-time": "^0.1.2-alpha.3",
     "@deepseek-ai/dsh-workspace": "^0.1.2-alpha.3",
+    "@types/node": "^22.20.0",
     "jsdom": "29.1.1",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   },
   "dependencies": {

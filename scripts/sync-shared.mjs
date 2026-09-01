@@ -53,6 +53,18 @@ const MANIFEST = [
     ],
   },
   {
+    // Async-boundary guard: routed HTTP handlers of every package with an
+    // in-process HTTP face adopt it; more packages adopt incrementally.
+    file: 'run-guarded.ts',
+    source: 'shared/host/run-guarded.ts',
+    targets: [
+      'packages/dsh-usage/src/host/run-guarded.ts',
+      'packages/dsh-task-board/src/host/run-guarded.ts',
+      'packages/dsh-git-graph/src/host/run-guarded.ts',
+      'packages/dsh-pet/src/host/run-guarded.ts',
+    ],
+  },
+  {
     file: 'dsh-home.ts',
     source: 'shared/host/dsh-home.ts',
     targets: [

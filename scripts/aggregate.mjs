@@ -81,6 +81,26 @@ const PATCH_HEADER = [
   '# Rows are namespaced web-ui-* so the bundle can coexist with standalone installs.',
 ]
 
+/**
+ * The fault-isolation shell: family insert rows mount @linxin666/dsh-web-all
+ * (this module never fails to import or start) and carry the real plugin
+ * package name in the row config. The shell imports the real module at start
+ * time and contains any import/activation failure to that entry, so one broken
+ * plugin can no longer roll back the whole boot group. Opt out per source
+ * package with a `"shell": false` comment entry in aggregate.yml patchFrom
+ * (see SHELL_EXEMPT below). External rows (npm packages outside the family)
+ * keep mounting directly: their owners manage their own failure semantics.
+ */
+const AGGREGATE_SHELL_PACKAGE = '@linxin666/dsh-web-all'
+
+/**
+ * Source packages exempted from shell wrapping (relative patchFrom spellings).
+ * The compat shim (self) and the i18n language pack stay direct: the self row
+ * IS the shell package's own plugin, and dsh-i18n's host half is an empty
+ * function that cannot fail meaningfully — wrapping would only obscure it.
+ */
+const SHELL_EXEMPT = new Set(['../dsh-i18n'])
+
 /** Directories directly under a path (non-recursive, sorted). */
 function listSubdirs(dir) {
   if (!existsSync(dir)) return []
@@ -351,6 +371,22 @@ function expandExternalRow(row, aggregateDir, errors, rel) {
   return { kind: 'bundle', name: row.name, dir, rows: parsePatchBlocks(patchPath, errors) }
 }
 
+/**
+ * Render one insert row's shell config block: the real plugin name plus its
+ * original config nested one level deeper. The child's own config lines carry
+ * 6-space indentation (id/name level) in the source patch; nesting them under
+ * `config:` keeps that relative shape with a 2-space shift (8 spaces under the
+ * shell row's own `config:`).
+ */
+function pushShellConfig(lines, row) {
+  lines.push('      config:')
+  lines.push(`        plugin: '${row.name}'`)
+  if (row.configLines?.length) {
+    lines.push('        config:')
+    for (const configLine of row.configLines) lines.push('  ' + configLine)
+  }
+}
+
 /** Render the aggregate cordis.patch.yml: header + per-source insert blocks, plus verbatim harness-row patches and own-row config overrides. */
 function renderPatch(blocks, externalRows, ownPatches, errors, rel, aggregateDir) {
   const lines = [...PATCH_HEADER]
@@ -368,8 +404,17 @@ function renderPatch(blocks, externalRows, ownPatches, errors, rel, aggregateDir
         if (seen.has(id)) errors.push(`${rel}: duplicate aggregate row id after namespacing: ${id} (${row.name})`)
         seen.add(id)
         lines.push(`    - id: ${id}`)
-        lines.push(`      name: '${row.name}'`)
-        pushConfig(lines, row.configLines ?? [], 6)
+        // Shell-wrapped family rows mount the aggregate's own never-failing
+        // shell module and carry the real plugin name in the row config, so
+        // one broken plugin degrades alone instead of rolling back the boot
+        // group. dsh-i18n (SHELL_EXEMPT) stays direct.
+        if (SHELL_EXEMPT.has(block.entry) || block.entry === 'self') {
+          lines.push(`      name: '${row.name}'`)
+          pushConfig(lines, row.configLines ?? [], 6)
+        } else {
+          lines.push(`      name: '${AGGREGATE_SHELL_PACKAGE}'`)
+          pushShellConfig(lines, row)
+        }
       }
     }
     for (const row of patchRows) {
