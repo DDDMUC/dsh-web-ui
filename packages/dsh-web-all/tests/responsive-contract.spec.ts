@@ -2,6 +2,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apply, RESPONSIVE_CSS } from '../src/client/index.ts'
 
+// The real children list pulls every family client source into this spec's
+// import graph (browser-only module-level code breaks under node vitest);
+// the shim contract under test here never mounts them.
+vi.mock('../src/client/children.generated.ts', () => ({ clientChildren: [] }))
+
 afterEach(() => {
   vi.unstubAllGlobals()
   document.body.innerHTML = ''
@@ -141,5 +146,22 @@ describe('aggregate responsive compat contract', () => {
     expect(toggleHandler).toHaveBeenCalledOnce()
     expect(underlayHandler).toHaveBeenCalledOnce()
     cleanup?.()
+  })
+
+  it('mounts boot shield overlay and dismisses once frame is stamped (#1301)', () => {
+    expect(RESPONSIVE_CSS).toContain('[data-dsh-boot-splash]')
+    expect(RESPONSIVE_CSS).toContain('[data-dsh-boot-splash][data-ready]')
+    document.body.innerHTML = `
+      <main class="shell_frame">
+        <aside class="hash_sidebarCol"><div data-slot="sidebar"><div><div><button>toggle</button></div></div></div></aside>
+        <section class="hash_centerCol"><div data-slot="conversation.session"></div></section>
+      </main>`
+    let cleanup: (() => void) | undefined
+    apply({ effect: (effect: () => (() => void) | void) => { cleanup = effect() ?? undefined } } as never)
+    const splash = document.querySelector<HTMLElement>('[data-dsh-boot-splash]')
+    expect(splash).not.toBeNull()
+    expect(splash?.hasAttribute('data-ready')).toBe(true)
+    cleanup?.()
+    expect(document.querySelector('[data-dsh-boot-splash]')).toBeNull()
   })
 })

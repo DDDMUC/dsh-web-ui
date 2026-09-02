@@ -1,4 +1,4 @@
-import{b as c}from"./index-Cp438i9e.js";import{foldGoal as d}from"./index-iY55awvO.js";import"./git-DJDr4heb.js";import"./index-Ca357ZEY.js";import"./index-BbBt-R_n.js";import"./schemas-BjdgLEE2.js";import"./json-schema-processors-6dmQcDt8.js";function u(e,o){return[{type:"text",text:`<goal_round>
+import{d as c}from"./index-DGS2ur_Y.js";import{foldGoal as d}from"./index-DJQl9kZy.js";import"./git-DJDr4heb.js";import"./index-Dw-e4ywL.js";import"./index-CYLJUZo6.js";import"./schemas-BjdgLEE2.js";import"./json-schema-processors-6dmQcDt8.js";function u(e,o){return[{type:"text",text:`<goal_round>
 Objective: ${JSON.stringify(e.objective)}
 Round: ${o}/${e.maxGoalRounds}
 

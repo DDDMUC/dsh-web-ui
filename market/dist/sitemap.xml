@@ -77,7 +77,22 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://dsh-market.com/tryon/?skin=phoebe-atelier</loc>
+    <loc>https://dsh-market.com/tryon/?skin=stellar-diva</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=starry-nocturne</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=hologram-sanctum</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=abyssal-serenade</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -128,6 +143,11 @@
   </url>
   <url>
     <loc>https://dsh-market.com/tryon/?skin=catppuccin</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=tokyo-night</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

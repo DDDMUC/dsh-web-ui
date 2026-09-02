@@ -1,4 +1,4 @@
-import{b as R,c as S}from"./index-Cp438i9e.js";import"./git-DJDr4heb.js";function G(r,s){return[{type:"text",text:`<goal_round>
+import{d as R,c as S}from"./index-DGS2ur_Y.js";import"./git-DJDr4heb.js";function G(r,s){return[{type:"text",text:`<goal_round>
 Objective: ${JSON.stringify(r.objective)}
 Round: ${s}/${r.maxGoalRounds}
 
