@@ -32,5 +32,17 @@ The named-tunnel mode (2026-09-02-named-tunnel-mode.md) fixed the restart churn 
 ## Consequences
 
 - Phone restarts are invisible by default; the price is one extra edge hop operated by the package author (disclosed in the README security model — the same edge that terminates the quick tunnel's TLS).
-- Deployment needs the worker route plus a wildcard DNS record `*.dsh-market.com` before the relay works; until then the plugin degrades to today's raw quick URL behavior.
+- Deployment needs the wildcard hostname binding before the relay works: the zone route (below) plus the `*.dsh-market.com` Workers custom domain that owns the wildcard DNS record; until both exist the plugin degrades to today's raw quick URL behavior.
 - Multiple profiles on one host each get their own identity and subdomain; rate limits and the TTL bound abuse; one D1 read per request is the proxy's only storage cost.
+
+## Production incident (2026-09-02 evening): the route pattern matched only the root path
+
+First real-world pairing after the restart landed the phone on a Cloudflare 522. Root cause: the zone route pattern `*.dsh-market.com` had no path part, and a Workers route pattern without a path component matches **only the root path** — every non-root request on a relay host (`/pair-app`, `/api/*`, `/remote`, anything) never reached the worker and fell through to the DNS origin: the manual `*` A record pointed at 192.0.2.1 (slow 522, ~19s connect timeout), later the CF-managed custom-domain placeholder (fast 522, ~0.25s). The relay's very first phone request is a non-root path, so the feature never worked for its intended flow, while every root-path probe succeeded.
+
+The misread lasted hours because root and non-root probes alternated: successes were all root-path, failures all non-root, which looked like minute-scale "edge flapping". Eliminated along the way: DNS (authoritative DoH), tunnel health (direct probes), worker invocation, D1 rows, response caches (fresh paths + `cache-control: no-cache`), and subrequest shape. The decisive instrument was a **rowless valid id**: the 503 offline page is a worker signature, and on non-root paths it 522'd instead — the worker was never invoked. Lesson: probe one variable at a time, and treat a worker-generated response (offline page, real auth page body) as the invocation signal rather than "any response".
+
+Fixes shipped together:
+
+- Route pattern corrected to `*.dsh-market.com/*` (the `/*` is mandatory for non-root paths; enforced by the config comment).
+- Wildcard DNS moved from the manual `*` A record to a dashboard-created `*.dsh-market.com` Workers custom domain, so CF owns the record and no placeholder origin exists.
+- `wrangler.jsonc` declares only zone routes, never `custom_domain`: wrangler (as of 4.128) rejects wildcard custom domains locally, and any deploy declaring even one `custom_domain` route PUT-replaces the worker's whole domain list (verified in wrangler source, `publishCustomDomains` → `PUT /domains/records`) — silently detaching dashboard-created domains, which actually happened once during diagnosis. Deploys print no warning for that detach; verify domain survival with a DoH lookup of a fresh subdomain after any route or domain change.

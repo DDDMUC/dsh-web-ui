@@ -15,9 +15,17 @@
       "database_id": "95f4e8ae-444a-46d0-98be-c367a9dbe6e8"
     }
   ],
+  // The wildcard ZONE ROUTE must carry the "/*" path part: a pattern without
+  // a path component matches ONLY the root path, so every non-root request on
+  // relay hosts fell through to the DNS origin (2026-09-02 phone 522 incident;
+  // misread for hours as temporal edge flapping). Custom domains stay
+  // dashboard-managed: wrangler (as of 4.128) cannot declare wildcard custom
+  // domains, and any deploy declaring even one custom_domain route
+  // PUT-replaces the worker's whole domain list, silently detaching
+  // dashboard-created domains. Current domains: dsh-market.com +
+  // *.dsh-market.com (both custom domains).
   "routes": [
-    { "pattern": "dsh-market.com", "custom_domain": true },
-    { "pattern": "*.dsh-market.com", "zone_name": "dsh-market.com" }
+    { "pattern": "*.dsh-market.com/*", "zone_name": "dsh-market.com" }
   ],
   "triggers": {
     "crons": ["*/30 * * * *"]
