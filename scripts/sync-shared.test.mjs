@@ -21,10 +21,11 @@ test('copies cover the settings trio for all consumers plus host and http helper
   // Normalize separators: node:path join yields backslashes on Windows, and
   // the copy-count buckets below match on forward slashes.
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
-  // 8 consumer packages for the card chrome pair, 7 for the form source.
-  assert.equal(entries.length, 112)
+  // 8 consumer packages for the card chrome pair, 7 for the form source,
+  // 2 panel-mount consumers for the takeover lifecycle source.
+  assert.equal(entries.length, 114)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
-  assert.equal(clientTrio.length, 41)
+  assert.equal(clientTrio.length, 43)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')
@@ -47,6 +48,7 @@ test('checkSync detects drift and applySync repairs it', async () => {
     await writeFile(join(root, 'shared', 'client', 'telemetry.ts'), 'export const beat = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sse-leader.ts'), 'export const leader = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sidebar-entry-core.ts'), 'export const sidecore = 1' + String.fromCharCode(10))
+    await writeFile(join(root, 'shared', 'client', 'panel-mount-core.ts'), 'export const panelcore = 1' + String.fromCharCode(10))
     const hostDir = join(root, 'shared', 'host')
     await mkdir(hostDir, { recursive: true })
     await writeFile(join(hostDir, 'poll-guard.ts'), 'export const guard = 1' + String.fromCharCode(10))

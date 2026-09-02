@@ -205,6 +205,17 @@ const MANIFEST = [
       'packages/dsh-skill-explorer/src/client/sidebar-entry-core.ts',
     ],
   },
+  {
+    // Center-column takeover lifecycle shared by the two family panels; the
+    // wrappers supply the panel tree, container attribute names, and CSS
+    // class (pinned by each package's CSS and the semantic-attrs contract).
+    file: 'panel-mount-core.ts',
+    source: 'shared/client/panel-mount-core.ts',
+    targets: [
+      'packages/dsh-ssh/src/client/panel-mount-core.ts',
+      'packages/dsh-task-board/src/client/panel-mount-core.ts',
+    ],
+  },
 ]
 
 /** One source-to-consumer copy step. */

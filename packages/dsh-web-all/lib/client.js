@@ -7748,47 +7748,47 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region ../dsh-task-board/src/client/board-mount.tsx
+		//#region ../dsh-task-board/src/client/panel-mount-core.ts
 		/**
-		* Board view mounting.
+		* Center-column panel takeover lifecycle.
 		*
 		* The `conversation` slot is single-occupant (ui-conversation) and external
-		* plugins cannot declare slots, so the board takes over the center column at
-		* the DOM level: a container is appended inside the center column
-		* (`[class*="centerCol"]`, the dsh 0.1.0-rc.6 AppFrame layout; previously
-		* `[data-pane="conversation"]` on older shells — the mount selector keeps both)
-		* as an extra trailing child
-		* React never manages, and a stylesheet
-		* rule hides the conversation content while the board is active. Toggling is
-		* a data attribute on <html> — no React involvement, so the conversation
-		* subtree underneath stays mounted and stateful.
+		* plugins cannot declare slots, so a family panel takes over the center
+		* column at the DOM level: a container is appended inside the center column
+		* (`[class*="centerCol"]`, the 0.1.0-rc.6+ AppFrame layout; previously
+		* `[data-pane="conversation"]` on older shells — the mount selector keeps
+		* both, ssh #243 / task-board #107) as an extra trailing child React never
+		* manages, and a stylesheet rule hides the conversation content while the
+		* panel is active. Toggling is a data attribute on <html> — no React
+		* involvement, so the conversation subtree underneath stays mounted and
+		* stateful.
+		*
+		* Consuming plugins keep a thin wrapper that supplies the panel tree,
+		* container attribute names, and stylesheet class; those names are pinned by
+		* each package's CSS, skins, and the semantic-attributes contract. The
+		* sidebar row toggling the panel shares its core the same way
+		* (shared/client/sidebar-entry-core.ts, synced copy).
 		*/
 		const CONVERSATION_COLUMN_SELECTOR$1 = "[data-pane=\"conversation\"], [class*=\"centerCol\"]";
-		const ACTIVE_ATTR$1 = "data-dsh-taskboard-active";
-		/** The sibling panel's activation attribute (ssh), removed when this panel opens. */
-		const OTHER_ACTIVE_ATTR$1 = "data-dsh-ssh-active";
 		/** Cross-plugin activation event; detail is the activating panel name. */
 		const ACTIVATE_EVENT$1 = "dsh-panel-activate";
-		const PANEL_NAME$1 = "taskboard";
+		const SIDEBAR_ROW_SELECTOR$1 = "[class*=\"sessionRow\"], [class*=\"projectRow\"], [class*=\"searchResultRow\"], [class*=\"searchResultWorkspace\"], [class*=\"newSession\"]";
 		/** Find the center column, or undefined while the frame is not mounted. */
 		function conversationColumn$1() {
 			return document.querySelector(CONVERSATION_COLUMN_SELECTOR$1) ?? void 0;
 		}
 		/**
-		* Mount the board React tree into the center column and bind its visibility
-		* to the controller's boardOpen state.
-		* @param controller - the board controller driving the view.
-		* @param locale - locale-change source; when given, re-renders a mounted board
-		*   on a Language switch.
+		* Mount a family panel into the center column and bind its visibility to the
+		* owning controller's open state.
 		* @returns disposer unmounting the tree and restoring the column.
 		*/
-		function mountBoard(controller, locale) {
+		function mountCenterPanel$1(options) {
 			let root;
 			let container;
 			let unsubscribeLocale;
 			try {
-				unsubscribeLocale = locale?.subscribe(() => {
-					if (root !== void 0) root.render(/* @__PURE__ */ (0, react_jsx_runtime.jsx)(TaskBoard, { controller }));
+				unsubscribeLocale = options.locale?.subscribe(() => {
+					if (root !== void 0) options.render(root);
 				});
 			} catch {}
 			const ensure = () => {
@@ -7802,12 +7802,12 @@ window.__ModuleLoader__.load({
 				const column = conversationColumn$1();
 				if (column === void 0) return;
 				container = document.createElement("div");
-				container.dataset.dshTaskboardView = "";
-				container.dataset.dshPlugin = "task-board";
-				container.className = board_module_css_default.boardView;
+				container.dataset[options.viewDatasetKey] = "";
+				container.dataset.dshPlugin = options.pluginName;
+				container.className = options.viewClassName;
 				column.appendChild(container);
 				root = (0, react_dom_client.createRoot)(container);
-				root.render(/* @__PURE__ */ (0, react_jsx_runtime.jsx)(TaskBoard, { controller }));
+				options.render(root);
 			};
 			const waitObserver = new MutationObserver(() => {
 				ensure();
@@ -7817,25 +7817,24 @@ window.__ModuleLoader__.load({
 				subtree: true
 			});
 			const applyActive = () => {
-				if (controller.getSnapshot().boardOpen) {
-					document.documentElement.removeAttribute(OTHER_ACTIVE_ATTR$1);
-					document.documentElement.setAttribute(ACTIVE_ATTR$1, "");
-					document.dispatchEvent(new CustomEvent(ACTIVATE_EVENT$1, { detail: PANEL_NAME$1 }));
-				} else document.documentElement.removeAttribute(ACTIVE_ATTR$1);
+				if (options.isOpen()) {
+					document.documentElement.removeAttribute(options.siblingActiveAttribute);
+					document.documentElement.setAttribute(options.activeAttribute, "");
+					document.dispatchEvent(new CustomEvent(ACTIVATE_EVENT$1, { detail: options.panelName }));
+				} else document.documentElement.removeAttribute(options.activeAttribute);
 			};
 			const onOtherActivate = (event) => {
-				if (event.detail === "ssh" && controller.getSnapshot().boardOpen) controller.closeBoard();
+				if (event.detail === options.siblingPanelName && options.isOpen()) options.close();
 			};
-			const SIDEBAR_ROW_SELECTOR = "[class*=\"sessionRow\"], [class*=\"projectRow\"], [class*=\"searchResultRow\"], [class*=\"searchResultWorkspace\"], [class*=\"newSession\"]";
 			const onClickSidebarRow = (event) => {
-				if (!controller.getSnapshot().boardOpen) return;
+				if (!options.isOpen()) return;
 				const target = event.target;
 				if (target === null) return;
-				if (target.closest(SIDEBAR_ROW_SELECTOR) !== null) controller.closeBoard();
+				if (target.closest(SIDEBAR_ROW_SELECTOR$1) !== null) options.close();
 			};
 			document.addEventListener("click", onClickSidebarRow, true);
 			document.addEventListener(ACTIVATE_EVENT$1, onOtherActivate);
-			const unsubscribe = controller.subscribe(applyActive);
+			const unsubscribe = options.subscribe(applyActive);
 			applyActive();
 			ensure();
 			return () => {
@@ -7844,12 +7843,38 @@ window.__ModuleLoader__.load({
 				waitObserver.disconnect();
 				unsubscribe();
 				unsubscribeLocale?.();
-				document.documentElement.removeAttribute(ACTIVE_ATTR$1);
+				document.documentElement.removeAttribute(options.activeAttribute);
 				root?.unmount();
 				root = void 0;
 				container?.remove();
 				container = void 0;
 			};
+		}
+		//#endregion
+		//#region ../dsh-task-board/src/client/board-mount.tsx
+		/**
+		* Mount the board React tree into the center column and bind its visibility
+		* to the controller's boardOpen state.
+		* @param controller - the board controller driving the view.
+		* @param locale - locale-change source; when given, re-renders a mounted board
+		*   on a Language switch.
+		* @returns disposer unmounting the tree and restoring the column.
+		*/
+		function mountBoard(controller, locale) {
+			return mountCenterPanel$1({
+				render: (root) => root.render(/* @__PURE__ */ (0, react_jsx_runtime.jsx)(TaskBoard, { controller })),
+				viewDatasetKey: "dshTaskboardView",
+				pluginName: "task-board",
+				viewClassName: board_module_css_default.boardView,
+				activeAttribute: "data-dsh-taskboard-active",
+				siblingActiveAttribute: "data-dsh-ssh-active",
+				panelName: "taskboard",
+				siblingPanelName: "ssh",
+				isOpen: () => controller.getSnapshot().boardOpen,
+				close: () => controller.closeBoard(),
+				subscribe: (listener) => controller.subscribe(listener),
+				locale
+			});
 		}
 		//#endregion
 		//#region ../dsh-task-board/src/client/sidebar-entry-core.ts
@@ -12888,7 +12913,7 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
-		//#region ../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
+		//#region ../../../../../Users/zcl/code/dsh-web/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 		function r(e) {
 			var t, f, n = "";
 			if ("string" == typeof e || "number" == typeof e) n += e;
@@ -12903,7 +12928,7 @@ window.__ModuleLoader__.load({
 			return n;
 		}
 		//#endregion
-		//#region ../../node_modules/.pnpm/qrcode.react@4.2.0_react@18.3.1/node_modules/qrcode.react/lib/esm/index.js
+		//#region ../../../../../Users/zcl/code/dsh-web/node_modules/.pnpm/qrcode.react@4.2.0_react@18.3.1/node_modules/qrcode.react/lib/esm/index.js
 		var __defProp = Object.defineProperty;
 		var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 		var __hasOwnProp = Object.prototype.hasOwnProperty;
@@ -23713,7 +23738,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region ../../node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js
+		//#region ../../../../../Users/zcl/code/dsh-web/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js
 		var require_xterm = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			(function(e, t) {
 				if ("object" == typeof exports && "object" == typeof module) module.exports = t();
@@ -36711,7 +36736,7 @@ window.__ModuleLoader__.load({
 			})()));
 		}));
 		//#endregion
-		//#region ../../node_modules/.pnpm/@xterm+addon-fit@0.11.0/node_modules/@xterm/addon-fit/lib/addon-fit.js
+		//#region ../../../../../Users/zcl/code/dsh-web/node_modules/.pnpm/@xterm+addon-fit@0.11.0/node_modules/@xterm/addon-fit/lib/addon-fit.js
 		var require_addon_fit = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			(function(e, t) {
 				"object" == typeof exports && "object" == typeof module ? module.exports = t() : "function" == typeof define && define.amd ? define([], t) : "object" == typeof exports ? exports.FitAddon = t() : e.FitAddon = t();
@@ -37782,52 +37807,47 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region ../dsh-ssh/src/client/mount.tsx
+		//#region ../dsh-ssh/src/client/panel-mount-core.ts
 		/**
-		* Panel view mounting.
+		* Center-column panel takeover lifecycle.
 		*
 		* The `conversation` slot is single-occupant (ui-conversation) and external
-		* plugins cannot declare slots, so the panel takes over the center column at
-		* the DOM level: a container is appended inside the center column
+		* plugins cannot declare slots, so a family panel takes over the center
+		* column at the DOM level: a container is appended inside the center column
 		* (`[class*="centerCol"]`, the 0.1.0-rc.6+ AppFrame layout; previously
 		* `[data-pane="conversation"]` on older shells — the mount selector keeps
-		* both, issue #243) as an extra trailing child React never manages, and a stylesheet
-		* rule hides the conversation content while the panel is active. Toggling is
-		* a data attribute on <html> — no React involvement, so the conversation
-		* subtree underneath stays mounted and stateful.
+		* both, ssh #243 / task-board #107) as an extra trailing child React never
+		* manages, and a stylesheet rule hides the conversation content while the
+		* panel is active. Toggling is a data attribute on <html> — no React
+		* involvement, so the conversation subtree underneath stays mounted and
+		* stateful.
+		*
+		* Consuming plugins keep a thin wrapper that supplies the panel tree,
+		* container attribute names, and stylesheet class; those names are pinned by
+		* each package's CSS, skins, and the semantic-attributes contract. The
+		* sidebar row toggling the panel shares its core the same way
+		* (shared/client/sidebar-entry-core.ts, synced copy).
 		*/
 		const CONVERSATION_COLUMN_SELECTOR = "[data-pane=\"conversation\"], [class*=\"centerCol\"]";
-		const ACTIVE_ATTR = "data-dsh-ssh-active";
-		/** The sibling panel's activation attribute (task board), removed when this panel opens. */
-		const OTHER_ACTIVE_ATTR = "data-dsh-taskboard-active";
 		/** Cross-plugin activation event; detail is the activating panel name. */
 		const ACTIVATE_EVENT = "dsh-panel-activate";
-		const PANEL_NAME = "ssh";
+		const SIDEBAR_ROW_SELECTOR = "[class*=\"sessionRow\"], [class*=\"projectRow\"], [class*=\"searchResultRow\"], [class*=\"searchResultWorkspace\"], [class*=\"newSession\"]";
 		/** Find the center column, or undefined while the frame is not mounted. */
 		function conversationColumn() {
 			return document.querySelector(CONVERSATION_COLUMN_SELECTOR) ?? void 0;
 		}
 		/**
-		* Mount the panel React tree into the center column and bind its visibility
-		* to the controller's panelOpen state.
-		* @param controller - the panel controller driving the view.
-		* @param api - the SSH API client the tabs operate through.
-		* @param terminalFont - live terminal-font setting source (issue #577).
-		* @param locale - locale-change source; when given, re-renders an open panel
-		*   on a Language switch.
+		* Mount a family panel into the center column and bind its visibility to the
+		* owning controller's open state.
 		* @returns disposer unmounting the tree and restoring the column.
 		*/
-		function mountPanel$1(controller, api, terminalFont, locale) {
+		function mountCenterPanel(options) {
 			let root;
 			let container;
 			let unsubscribeLocale;
 			try {
-				unsubscribeLocale = locale?.subscribe(() => {
-					if (root !== void 0) root.render(/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SshPanel, {
-						controller,
-						api,
-						terminalFont
-					}));
+				unsubscribeLocale = options.locale?.subscribe(() => {
+					if (root !== void 0) options.render(root);
 				});
 			} catch {}
 			const ensure = () => {
@@ -37841,16 +37861,12 @@ window.__ModuleLoader__.load({
 				const column = conversationColumn();
 				if (column === void 0) return;
 				container = document.createElement("div");
-				container.dataset.dshSshView = "";
-				container.dataset.dshPlugin = "ssh";
-				container.className = panel_module_css_default.view;
+				container.dataset[options.viewDatasetKey] = "";
+				container.dataset.dshPlugin = options.pluginName;
+				container.className = options.viewClassName;
 				column.appendChild(container);
 				root = (0, react_dom_client.createRoot)(container);
-				root.render(/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SshPanel, {
-					controller,
-					api,
-					terminalFont
-				}));
+				options.render(root);
 			};
 			const waitObserver = new MutationObserver(() => {
 				ensure();
@@ -37860,25 +37876,24 @@ window.__ModuleLoader__.load({
 				subtree: true
 			});
 			const applyActive = () => {
-				if (controller.getSnapshot().panelOpen) {
-					document.documentElement.removeAttribute(OTHER_ACTIVE_ATTR);
-					document.documentElement.setAttribute(ACTIVE_ATTR, "");
-					document.dispatchEvent(new CustomEvent(ACTIVATE_EVENT, { detail: PANEL_NAME }));
-				} else document.documentElement.removeAttribute(ACTIVE_ATTR);
+				if (options.isOpen()) {
+					document.documentElement.removeAttribute(options.siblingActiveAttribute);
+					document.documentElement.setAttribute(options.activeAttribute, "");
+					document.dispatchEvent(new CustomEvent(ACTIVATE_EVENT, { detail: options.panelName }));
+				} else document.documentElement.removeAttribute(options.activeAttribute);
 			};
 			const onOtherActivate = (event) => {
-				if (event.detail === "taskboard" && controller.getSnapshot().panelOpen) controller.close();
+				if (event.detail === options.siblingPanelName && options.isOpen()) options.close();
 			};
-			const SIDEBAR_ROW_SELECTOR = "[class*=\"sessionRow\"], [class*=\"projectRow\"], [class*=\"searchResultRow\"], [class*=\"searchResultWorkspace\"], [class*=\"newSession\"]";
 			const onClickSidebarRow = (event) => {
-				if (!controller.getSnapshot().panelOpen) return;
+				if (!options.isOpen()) return;
 				const target = event.target;
 				if (target === null) return;
-				if (target.closest(SIDEBAR_ROW_SELECTOR) !== null) controller.close();
+				if (target.closest(SIDEBAR_ROW_SELECTOR) !== null) options.close();
 			};
 			document.addEventListener("click", onClickSidebarRow, true);
 			document.addEventListener(ACTIVATE_EVENT, onOtherActivate);
-			const unsubscribe = controller.subscribe(applyActive);
+			const unsubscribe = options.subscribe(applyActive);
 			applyActive();
 			ensure();
 			return () => {
@@ -37887,12 +37902,44 @@ window.__ModuleLoader__.load({
 				waitObserver.disconnect();
 				unsubscribe();
 				unsubscribeLocale?.();
-				document.documentElement.removeAttribute(ACTIVE_ATTR);
+				document.documentElement.removeAttribute(options.activeAttribute);
 				root?.unmount();
 				root = void 0;
 				container?.remove();
 				container = void 0;
 			};
+		}
+		//#endregion
+		//#region ../dsh-ssh/src/client/mount.tsx
+		/**
+		* Mount the panel React tree into the center column and bind its visibility
+		* to the controller's panelOpen state.
+		* @param controller - the panel controller driving the view.
+		* @param api - the SSH API client the tabs operate through.
+		* @param terminalFont - live terminal-font setting source (issue #577).
+		* @param locale - locale-change source; when given, re-renders an open panel
+		*   on a Language switch.
+		* @returns disposer unmounting the tree and restoring the column.
+		*/
+		function mountPanel$1(controller, api, terminalFont, locale) {
+			return mountCenterPanel({
+				render: (root) => root.render(/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SshPanel, {
+					controller,
+					api,
+					terminalFont
+				})),
+				viewDatasetKey: "dshSshView",
+				pluginName: "ssh",
+				viewClassName: panel_module_css_default.view,
+				activeAttribute: "data-dsh-ssh-active",
+				siblingActiveAttribute: "data-dsh-taskboard-active",
+				panelName: "ssh",
+				siblingPanelName: "taskboard",
+				isOpen: () => controller.getSnapshot().panelOpen,
+				close: () => controller.close(),
+				subscribe: (listener) => controller.subscribe(listener),
+				locale
+			});
 		}
 		//#endregion
 		//#region ../dsh-ssh/src/client/panel/controller.ts
