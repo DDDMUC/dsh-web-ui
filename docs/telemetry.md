@@ -34,7 +34,7 @@ curl -s 'https://dsh-market.com/api/telemetry/summary?days=30'
 GitHub README 展示用两个无需密钥的 shields 端点徽章（只返回聚合计数，响应带 30 分钟缓存头）：
 
 - `GET /api/telemetry/badge/users` — 心跳全量去重实例数（用户数），数据随插件发版后增长。计数来源是写入路径维护的预去重访客表 `telemetry_visitors`（每次心跳上报按访客哈希 upsert 一行），cron 每 30 分钟把它预算到 D1 单行缓存，端点只做单行主键读，响应再经边缘缓存 30 分钟；D1 不可用时回退最近一次成功计数，端点始终向 shields 返回合法的 200 JSON，README 徽章不会渲染成 inaccessible
-- `GET /api/npm-badge/total` — 全部已发布家族包的 npm 累计下载量合计（worker 服务端聚合 npm 官方 range API，含聚合包连带下载的常规口径）
+- `GET /api/npm-badge/total` — 全部已发布家族包（含聚合包改名前后的两个名字与已退役包名）的全渠道累计下载量合计：npm 官方源 + 国内镜像源 registry.npmmirror.com + 本仓库 GitHub Releases 附件下载量（worker 服务端聚合，npm 与镜像按不超过一年的窗口分窗求和以绕过 range API 的 18 个月钳制；含聚合包连带下载的常规口径；单通道失败时徽章只显示其余通道之和，全部失败才降级灰色）。设置 `GITHUB_TOKEN` secret（只需公共仓库只读权限的 fine-grained token）可把 GitHub 通道切到认证配额；未设置时匿名读取并在限流时沿用最近一次成功值
 
 创意工坊卡片另用 `GET /api/npm-downloads` 展示每个带 npm 包名的插件近 30 天 registry 下载量（npm 公开口径，非工坊安装量；包名白名单由服务端已发布 manifest 派生，worker 小时级缓存，响应带 30 分钟缓存头）。工坊安装量本身由 `POST /api/install` 记录一次成功安装事件（幂等去重 + 每次安装计数，Turnstile 校验后一次 D1 批次写入），经 `GET /api/stats` 的 `installs` 字段向卡片与站点展示。
 

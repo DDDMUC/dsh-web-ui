@@ -169,7 +169,7 @@ export default {
     },
     '/api/npm-badge/total': {
       get: {
-        summary: 'Shields endpoint badge: all-time cumulative npm downloads summed over every published family package (both aggregate names included)',
+        summary: 'Shields endpoint badge: all-time cumulative downloads summed over every published family package (both aggregate names and retired names included) across npm, the npmmirror registry, and GitHub release assets',
         responses: { 200: { description: 'Shields endpoint schema (schemaVersion 1)' } },
       },
     },

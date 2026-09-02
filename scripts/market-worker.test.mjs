@@ -2,6 +2,7 @@ import test, { beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 
 import worker from '../market/worker/src/index.js'
+import { clearBadgeCaches, formatTotal, rangeWindows } from '../market/worker/src/npm-badge.js'
 
 const workerCacheEntries = new Map()
 const workerCache = {
@@ -669,27 +670,114 @@ test('batch npm downloads degrades to 503 when the manifest is unreadable', asyn
   assert.equal((await response.json()).error, 'downloads-unavailable')
 })
 
-test('total downloads badge sums the family range API with caching', async () => {
+test('total downloads badge sums the npm, npmmirror, and GitHub release channels with caching', async () => {
   const originalFetch = globalThis.fetch
-  let npmCalls = 0
+  const windows = rangeWindows(new Date().toISOString().slice(0, 10))
+  const calls = { npm: 0, mirror: 0, github: 0 }
   globalThis.fetch = async (url) => {
-    npmCalls += 1
-    assert.match(String(url), /api\.npmjs\.org\/downloads\/range\//)
-    return new Response(JSON.stringify({ downloads: [{ downloads: 100, day: '2026-01-01' }] }), { status: 200 })
+    const target = String(url)
+    if (target.includes('api.npmjs.org/downloads/range/')) {
+      calls.npm += 1
+      assert.match(target, /downloads\/range\/2026-01-01:/)
+      return new Response(JSON.stringify({ downloads: [{ downloads: 100, day: '2026-01-02' }] }), { status: 200 })
+    }
+    if (target.includes('registry.npmmirror.com/downloads/range/')) {
+      calls.mirror += 1
+      return new Response(JSON.stringify({ downloads: [{ downloads: 200, day: '2026-08-24' }] }), { status: 200 })
+    }
+    if (target.includes('api.github.com/repos/')) {
+      calls.github += 1
+      return new Response(JSON.stringify([{ assets: [{ download_count: 7 }, { download_count: 3 }] }]), { status: 200 })
+    }
+    return new Response('', { status: 404 })
   }
   try {
+    clearBadgeCaches()
+    const expected = formatTotal((25 * 100 + 25 * 200) * windows.length + 10) + ' total'
     const first = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
     const badge = await first.json()
     assert.equal(badge.schemaVersion, 1)
     assert.equal(badge.label, 'downloads')
-    assert.match(badge.message, /total$/)
-    assert.match(badge.message, /^1\.9k /) // 19 packages x 100
-    const callsAfterFirst = npmCalls
+    assert.equal(badge.message, expected)
+    assert.equal(calls.npm, 25 * windows.length)
+    assert.equal(calls.mirror, 25 * windows.length)
+    assert.equal(calls.github, 1)
+    const snapshot = { ...calls }
     const second = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
     await second.json()
-    assert.equal(npmCalls, callsAfterFirst, 'second hit within the TTL must reuse the cache')
+    assert.deepEqual(calls, snapshot, 'second hit within the TTL must reuse the cache')
   } finally {
     globalThis.fetch = originalFetch
+  }
+})
+
+test('total downloads badge keeps serving when one channel fails', async () => {
+  const originalFetch = globalThis.fetch
+  const windows = rangeWindows(new Date().toISOString().slice(0, 10))
+  globalThis.fetch = async (url) => {
+    const target = String(url)
+    if (target.includes('registry.npmmirror.com')) return new Response('', { status: 503 })
+    if (target.includes('api.github.com/repos/')) return new Response('', { status: 403 })
+    return new Response(JSON.stringify({ downloads: [{ downloads: 100, day: '2026-01-02' }] }), { status: 200 })
+  }
+  try {
+    clearBadgeCaches()
+    const response = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    const badge = await response.json()
+    assert.equal(badge.message, formatTotal(25 * 100 * windows.length) + ' total')
+    assert.equal(badge.color, 'blue')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('total badge passes the optional GITHUB_TOKEN secret to the releases API', async () => {
+  const originalFetch = globalThis.fetch
+  let auth = ''
+  globalThis.fetch = async (url, init) => {
+    const target = String(url)
+    if (target.includes('api.github.com/repos/')) {
+      auth = (init && init.headers && init.headers.authorization) || ''
+      return new Response(JSON.stringify([{ assets: [{ download_count: 5 }] }]), { status: 200 })
+    }
+    return new Response('', { status: 503 })
+  }
+  try {
+    clearBadgeCaches()
+    const response = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), { GITHUB_TOKEN: 'secret-token' }, context())
+    const badge = await response.json()
+    assert.equal(auth, 'Bearer secret-token')
+    assert.equal(badge.message, formatTotal(5) + ' total')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('total downloads badge goes grey only when every channel fails', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response('', { status: 503 })
+  try {
+    clearBadgeCaches()
+    const response = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    const badge = await response.json()
+    assert.equal(badge.message, 'unavailable')
+    assert.equal(badge.color, 'lightgrey')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('range windows tile the family epoch without overlap', () => {
+  const windows = rangeWindows('2028-06-01')
+  assert.ok(windows.length >= 2, 'a multi-year span needs multiple windows')
+  assert.equal(windows[0][0], '2026-01-01')
+  assert.equal(windows[windows.length - 1][1], '2028-06-01')
+  const DAY = 86400000
+  for (let i = 0; i < windows.length; i++) {
+    const [start, end] = windows[i]
+    const span = (Date.parse(end) - Date.parse(start)) / DAY + 1
+    assert.ok(span <= 365, 'each window stays within the range clamps')
+    if (i > 0) assert.equal(Date.parse(start), Date.parse(windows[i - 1][1]) + DAY, 'windows are contiguous without overlap')
   }
 })
 function manifestAssets(itemsByKind) {
