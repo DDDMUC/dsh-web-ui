@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import worker from '../market/worker/src/index.js'
 import { relayIdOf } from '../market/worker/src/relay.js'
 
-const RELAY_HOST = 'abcd1234abcd1234.t.dsh-market.com'
+const RELAY_HOST = 'abcd1234abcd1234.dsh-market.com'
 const SECRET = 'A'.repeat(43)
 const TARGET = 'https://minted-tunnel-name.trycloudflare.com'
 
@@ -88,12 +88,14 @@ const register = (db, body, headers = {}) => worker.fetch(new Request('https://d
 
 const proxy = (db, path = '/', init = {}) => worker.fetch(new Request('https://' + RELAY_HOST + path, init), { DB: db }, context())
 
-test('relay id extraction accepts only well-formed subdomains', () => {
+test('relay id extraction accepts only well-formed single-label subdomains', () => {
   assert.equal(relayIdOf(new URL('https://' + RELAY_HOST + '/x')), 'abcd1234abcd1234')
   assert.equal(relayIdOf(new URL('https://dsh-market.com/')), undefined)
-  assert.equal(relayIdOf(new URL('https://a.b.t.dsh-market.com/')), undefined, 'nested ids are rejected')
-  assert.equal(relayIdOf(new URL('https://UPPERCASE123456.t.dsh-market.com/')), undefined)
-  assert.equal(relayIdOf(new URL('https://short.t.dsh-market.com/')), undefined)
+  assert.equal(relayIdOf(new URL('https://a.b.dsh-market.com/')), undefined, 'two-level hostnames are rejected (no universal-ssl coverage)')
+  assert.equal(relayIdOf(new URL('https://abcd1234abcd1234.t.dsh-market.com/')), undefined, 'the old two-level relay shape is rejected')
+  assert.equal(relayIdOf(new URL('https://UPPERCASE123456.dsh-market.com/')), undefined)
+  assert.equal(relayIdOf(new URL('https://short.dsh-market.com/')), undefined)
+  assert.equal(relayIdOf(new URL('https://dsh-relay.dsh-market.com/')), undefined)
 })
 
 test('relay registration mints and refreshes with secret-hash auth', async () => {

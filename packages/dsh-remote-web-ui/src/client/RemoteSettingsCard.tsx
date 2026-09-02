@@ -41,7 +41,7 @@ export interface RemoteSettings {
   tunnelToken?: string
   /**
    * Stable-origin relay: when on (default), the quick tunnel is fronted by a
-   * fixed `<id>.t.dsh-market.com` subdomain so the phone's bookmark and
+   * fixed `<id>.dsh-market.com` subdomain so the phone's bookmark and
    * pairing cookie survive restarts without any setup.
    */
   relay?: boolean

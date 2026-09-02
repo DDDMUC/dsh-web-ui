@@ -1,6 +1,6 @@
 /**
  * dsh-market relay: stable subdomains in front of the plugin-managed quick
- * tunnels (`<id>.t.dsh-market.com` -> the instance's current tunnel URL).
+ * tunnels (`<id>.dsh-market.com` -> the instance's current tunnel URL).
  *
  * Trust model: the plugin mints an id + secret on first run and re-registers
  * its current tunnel URL on every tunnel start; registrations are
@@ -45,12 +45,15 @@ function timingSafeEqualStr(a, b) {
   return diff === 0
 }
 
-/** The `<id>` of `*.t.dsh-market.com`, else undefined. */
+/** The `<id>` of `<id>.dsh-market.com`, else undefined. Single label on
+ * purpose: Universal SSL covers exactly one subdomain level, so a two-level
+ * `*.t.dsh-market.com` hostname gets no certificate and fails the TLS
+ * handshake at the edge. */
 export function relayIdOf(url) {
   const host = url.hostname
   const parts = host.split('.')
-  if (parts.length !== 4) return undefined
-  if (parts.slice(-3).join('.') !== 't.dsh-market.com') return undefined
+  if (parts.length !== 3) return undefined
+  if (parts[1] !== 'dsh-market' || parts[2] !== 'com') return undefined
   const id = parts[0]
   return ID_RE.test(id) ? id : undefined
 }
@@ -189,7 +192,7 @@ const OFFLINE_HTML = [
 ].join('')
 
 /**
- * Proxy one request for `<id>.t.dsh-market.com` to the registered target.
+ * Proxy one request for `<id>.dsh-market.com` to the registered target.
  * The pairing cookie and every application check stay on the tunneled
  * instance; this hop rewrites only the Host header so the origin sees the
  * relay hostname (cookies and harness auth are Host-bound there).

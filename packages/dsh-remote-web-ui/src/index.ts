@@ -158,7 +158,7 @@ export interface Config {
   tunnelToken?: string
   /**
    * Stable-origin relay: when on (default), the quick tunnel is fronted by a
-   * fixed `https://<id>.t.dsh-market.com` subdomain (the dsh-market worker's
+   * fixed `https://<id>.dsh-market.com` subdomain (the dsh-market worker's
    * registry), so the phone's bookmark and pairing cookie survive `dsh web`
    * restarts without any user setup. Traffic transits the dsh-market edge
    * (the same trust point as the quick tunnel itself); turn off to fall back
@@ -324,7 +324,7 @@ function applyImpl(ctx: Context, config?: Config): void {
   // mutation is needed here (a distributable plugin must not change the
   // harness's connection plugin).
   const tunnel = new TunnelManager()
-  // Relay registry: one stable `<id>.t.dsh-market.com` subdomain per profile
+  // Relay registry: one stable `<id>.dsh-market.com` subdomain per profile
   // in front of the quick tunnel. The QR base prefers the relay origin once
   // it is registered; until then (or when the registry is unreachable) the
   // raw quick URL is used, exactly as before. Named tunnels keep their fixed

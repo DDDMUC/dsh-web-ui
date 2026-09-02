@@ -1,5 +1,5 @@
 /**
- * Relay registry client: a stable `https://<id>.t.dsh-market.com` origin in
+ * Relay registry client: a stable `https://<id>.dsh-market.com` origin in
  * front of the plugin-managed quick tunnel, so a paired phone keeps one
  * bookmark and one cookie context across `dsh web` restarts.
  *
@@ -18,8 +18,12 @@ import { dshHome } from './dsh-home.ts'
 /** The market worker's registration endpoints (dsh-market.com edge API). */
 export const RELAY_REGISTER_URL = 'https://dsh-market.com/api/relay/register'
 export const RELAY_UNREGISTER_URL = 'https://dsh-market.com/api/relay/unregister'
-/** The public origin template: one stable subdomain per registration id. */
-export const RELAY_BASE_SUFFIX = '.t.dsh-market.com'
+/**
+ * The public origin template: one stable single-label subdomain per
+ * registration id. Single label on purpose — Universal SSL covers exactly
+ * one subdomain level, so a two-level hostname would get no certificate.
+ */
+export const RELAY_BASE_SUFFIX = '.dsh-market.com'
 
 export const RELAY_ID_RE = /^[a-z0-9]{16}$/
 export const RELAY_SECRET_RE = /^[A-Za-z0-9_-]{43}$/

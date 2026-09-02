@@ -110,7 +110,7 @@ export interface TunnelStatus {
 export interface RelayStatus {
   /** registering: a sync is in flight; running: the mapping is accepted. */
   state: 'off' | 'registering' | 'running' | 'failed'
-  /** The stable relay origin (`https://<id>.t.dsh-market.com`). */
+  /** The stable relay origin (`https://<id>.dsh-market.com`). */
   url?: string
   /** Human-readable failure detail of the last sync attempt. */
   error?: string

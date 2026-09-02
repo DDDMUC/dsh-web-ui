@@ -72,7 +72,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 
 ### 固定域名中继（默认开启；配对一次，重启不再重配）
 
-快速隧道运行期间，插件会额外把当前隧道地址注册到 dsh-market 中继注册表，并把二维码重建在一个固定源上——`https://<id>.t.dsh-market.com`——每个 profile 首次运行铸造一次，存放在 `$DSH_HOME/remote-web-ui-registry/`。主机名永不变化，手机的书签与配对 Cookie 在 `dsh web` 重启后依然有效，且不需要 Cloudflare 账号、控制台操作或自己的域名。
+快速隧道运行期间，插件会额外把当前隧道地址注册到 dsh-market 中继注册表，并把二维码重建在一个固定源上——`https://<id>.dsh-market.com`——每个 profile 首次运行铸造一次，存放在 `$DSH_HOME/remote-web-ui-registry/`。主机名永不变化，手机的书签与配对 Cookie 在 `dsh web` 重启后依然有效，且不需要 Cloudflare 账号、控制台操作或自己的域名。
 
 - 注册以密钥认证：插件在身份旁铸造一个 256 位密钥，每次隧道启动（含崩溃重启）以退避重试同步映射。注册表不可达时，该次会话的二维码回退为裸快速隧道地址，并在面板中说明。
 - 实例离线时，手机打开固定源会看到明确的「实例离线——稍后刷新即可，无需重新配对」页面，而不是死链。
@@ -164,8 +164,8 @@ pnpm run build
 - **配对设备会话默认持久化**：设备会话（非一次性 QR 令牌）写入 `$DSH_HOME/remote-web-ui-devices.json`（0600，临时文件 + 原子改名）。`dsh web` 重启后配对 cookie 依然有效。刷新二维码铸造新令牌；重启不会恢复当前二维码。空闲超过 `idleExpireMs`（默认 30 天；重开 service worker 每次接管导航都会刷新该窗口）的会话被删除并须重新配对。设备 id 即会话凭据。需要时可用 `devicesFile` 指定其他绝对路径。更换 `cookieName` 会使现有设备失效（预期行为）。
 - **局域网绑定块拥有 webserver 行**：开关翻过后受管块固定绑定；插件每次启动重断言，显式 `--host`/`--port` 旗标通过重写块获胜。手工编辑该块会被检测并在卡片展示（`blockHost` 显示字面量）。
 - **桌面栅栏策略公开**：`/api/pair/status` 只暴露布尔 `requirePairingForLan` 策略，供远程桌面在设置作用域可用前选择正确传输。该字段不是凭据，不暴露令牌、设备、计数或隧道 URL。
-- **快速隧道主机名每次运行都变**：`trycloudflare.com` URL 每次 `cloudflared` 启动都随机，`publicBaseUrl`（或自动隧道）须随之刷新。固定域名中继会把一个固定的 `<id>.t.dsh-market.com` 源前置在该临时地址上（随自动隧道默认开启）；命名隧道模式（`tunnelToken`）是自带域名的替代路径。Token 本身作为设置密文存储（读取脱敏），不会写日志，也不会回传浏览器半区。
-- **中继只改变访问源，不改变信任根**：中继开启时，手机访问的是 `https://<id>.t.dsh-market.com`——一个 dsh-market 的 Cloudflare Worker，它查询实例当前的隧道地址并逐字节转发请求——配对 Cookie 与所有应用层校验仍留在实例上，worker 不终结任何配对。变化的是传输路径：中继流量经过包作者在 Cloudflare 边缘运营的基础设施，作者的 worker 可以观察到这些流量——这与 Cloudflare 自身对裸 `trycloudflare.com` 快速隧道的可见性相同。注册表把每个 id 绑定到一个 256 位密钥的 SHA-256 哈希（明文只存于 `$DSH_HOME`，0600），只接受 `*.trycloudflare.com` 目标，对注册做限流，且除映射外不存储任何数据；关闭中继即可让部署完全留在临时源上。
+- **快速隧道主机名每次运行都变**：`trycloudflare.com` URL 每次 `cloudflared` 启动都随机，`publicBaseUrl`（或自动隧道）须随之刷新。固定域名中继会把一个固定的 `<id>.dsh-market.com` 源前置在该临时地址上（随自动隧道默认开启）；命名隧道模式（`tunnelToken`）是自带域名的替代路径。Token 本身作为设置密文存储（读取脱敏），不会写日志，也不会回传浏览器半区。
+- **中继只改变访问源，不改变信任根**：中继开启时，手机访问的是 `https://<id>.dsh-market.com`——一个 dsh-market 的 Cloudflare Worker，它查询实例当前的隧道地址并逐字节转发请求——配对 Cookie 与所有应用层校验仍留在实例上，worker 不终结任何配对。变化的是传输路径：中继流量经过包作者在 Cloudflare 边缘运营的基础设施，作者的 worker 可以观察到这些流量——这与 Cloudflare 自身对裸 `trycloudflare.com` 快速隧道的可见性相同。注册表把每个 id 绑定到一个 256 位密钥的 SHA-256 哈希（明文只存于 `$DSH_HOME`，0600），只接受 `*.trycloudflare.com` 目标，对注册做限流，且除映射外不存储任何数据；关闭中继即可让部署完全留在临时源上。
 
 ## 已知限制与后续工作
 
