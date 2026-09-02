@@ -69,12 +69,11 @@ export const REVIEWED_SKIN_HOOKS: Readonly<Record<string, ReviewedSkinHooksIdent
     manifestSha256: "48b9c76b6f8fc4fad1473d987c0ebd8c10f4734e2eff2091bbb9040c9a5ce089",
     hooksSha256: "0ea2d7e3f7547d9a37884b788042557ec7c59b1416be527660329584c4d65254",
   },
-<<<<<<< HEAD
   "phoebe-atelier": {
     entry: "hooks.mjs",
     manifestSha256: "830b56be57f61c5176a858daa98b7ee06ff7da1139c94ad7ae4997cbfd31fc6f",
     hooksSha256: "89df9a23cd68748d61db1e333dbd85b88d4109e0d9a7029db66d10c764b20d18",
-=======
+  },
   "starry-nocturne": {
     entry: "hooks.mjs",
     manifestSha256: "5a5bd138ed156d1877e00ea9acfbf94f8342b751d21796942ed3175562801a61",
@@ -84,7 +83,6 @@ export const REVIEWED_SKIN_HOOKS: Readonly<Record<string, ReviewedSkinHooksIdent
     entry: "hooks.mjs",
     manifestSha256: "66a56618fbd36da1423d97a0f1196aec391c478f6bdc40fc38f99e23df3dbdbe",
     hooksSha256: "22efa5c0860f8f20c425c79d29a82ee9a98cfb710e2e9c3c6ca633a9eae7086b",
->>>>>>> upstream/dev
   },
   "trading": {
     entry: "hooks.mjs",
