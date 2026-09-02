@@ -139,6 +139,7 @@ export default {
     '/api/telemetry/summary': {
       get: {
         summary: 'Aggregate UV/PV summary; counts only, never raw events',
+        description: 'Served from a rollup cache refreshed by the cron trigger and on demand; windows up to 30 days can lag 30 minutes, 90/365-day windows up to 12 hours. A stale cached window is served when the live aggregation cannot run.',
         parameters: [
           { name: 'x-telemetry-key', in: 'header', required: false, schema: { type: 'string' }, description: 'Required when TELEMETRY_READ_KEY is configured; the key is never accepted as a URL query parameter' },
           { name: 'days', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 365 } },

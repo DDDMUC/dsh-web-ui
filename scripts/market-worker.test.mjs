@@ -286,21 +286,33 @@ test('challenge page renders the explicit Turnstile widget', async () => {
 function telemetryDb(options = {}) {
   const batches = []
   const runs = []
+  const firsts = []
   const db = {
     batches,
     runs,
+    firsts,
     prepare(sql) {
+      // Real D1 lets unbound statements run directly (prepare().first()),
+      // so the mock mirrors that instead of forcing a bind() hop.
+      const bound = (args) => ({
+        sql,
+        args,
+        async run() { runs.push({ sql, args }); return {} },
+        async first() {
+          firsts.push({ sql, args })
+          return options.first ? options.first(sql, args) : null
+        },
+      })
       return {
-        bind: (...args) => ({
-          sql,
-          args,
-          async run() { runs.push({ sql, args }); return {} },
-        }),
+        bind: (...args) => bound(args),
+        async run() { return bound([]).run() },
+        async first() { return bound([]).first() },
       }
     },
     async batch(statements) {
       batches.push(statements)
-      if (statements.length === 9 && options.summary) return options.summary.map((results) => ({ results }))
+      if (options.failBatch) throw new Error(options.failBatch)
+      if (options.summary) return options.summary.splice(0, statements.length).map((results) => ({ results }))
       return statements.map(() => ({ results: [] }))
     },
   }
@@ -370,12 +382,15 @@ test('telemetry heartbeat expands items into one idempotent row each', async () 
   })
   assert.equal(response.status, 200)
   const batch = db.batches[0]
-  assert.equal(batch.length, 2)
+  assert.equal(batch.length, 3, 'two event rows plus the telemetry_visitors upsert')
   assert.equal(batch[0].args[2], 'hb')
   assert.equal(batch[0].args[5], '')
   assert.equal(batch[0].args[6], '')
   assert.equal(batch[1].args[5], '1.2.3')
   assert.equal(batch[1].args[6], 'market')
+  assert.equal(batch[2].sql.includes('telemetry_visitors'), true)
+  assert.equal(batch[2].args[0], 'hb')
+  assert.equal(batch[2].args[1], batch[0].args[3], 'the upsert carries the same salted visitor hash')
   // Same-day replay (same channel) collapses to identical ids; a channel
   // flip is a deliberate re-count, so replays must echo the channel.
   await postEvent({ DB: db }, {
@@ -384,6 +399,13 @@ test('telemetry heartbeat expands items into one idempotent row each', async () 
     items: [{ name: '@linxin666/dsh-pet', version: '1.2.3', channel: 'market' }],
   })
   assert.equal(db.batches[1][0].args[0], batch[1].args[0])
+})
+
+test('telemetry pageviews never touch the telemetry_visitors table', async () => {
+  const db = telemetryDb()
+  const response = await postEvent({ DB: db }, { kind: 'pageview', path: '/', visitor: VISITOR_OK })
+  assert.equal(response.status, 200)
+  assert.equal(db.batches[0].some((stmt) => stmt.sql.includes('telemetry_visitors')), false)
 })
 
 test('telemetry rejects malformed submissions', async () => {
@@ -411,10 +433,10 @@ test('telemetry summary returns aggregates without pruning old events', async ()
       [{ day: '2026-05-01', pv: 3, uv: 2 }],
       [{ subject: '/', pv: 9 }],
       [{ n: 41 }],
-      [{ subject: '@linxin666/dsh-pet', visitors: 2 }],
       [{ subject: '@linxin666/dsh-pet', visitors: 1 }],
-      [{ n: 17 }],
       [{ subject: '@linxin666/dsh-pet', channel: 'market', visitors: 1 }],
+      [{ subject: '@linxin666/dsh-pet', visitors: 2 }],
+      [{ n: 17 }],
       [{ subject: '@linxin666/dsh-pet', version: '1.2.3', visitors: 2 }],
     ],
   })
@@ -432,7 +454,10 @@ test('telemetry summary returns aggregates without pruning old events', async ()
   assert.equal(payload.plugins.items[0].active_today, 1)
   assert.equal(payload.plugins.items[0].channels.market, 1)
   assert.equal(payload.plugins.items[0].versions[0].version, '1.2.3')
-  assert.equal(db.runs.length, 0)
+  assert.equal(db.runs.some((entry) => entry.sql.includes('DELETE FROM telemetry_events')), false)
+  const rollup = db.runs.find((entry) => entry.sql.includes('INSERT INTO telemetry_summary_cache'))
+  assert.ok(rollup, 'a live aggregation must seed the summary rollup cache')
+  assert.deepEqual(JSON.parse(rollup.args[1]).plugins.items[0].item, '@linxin666/dsh-pet')
 })
 
 test('telemetry summary binds the requested pagination windows', async () => {
@@ -444,7 +469,7 @@ test('telemetry summary binds the requested pagination windows', async () => {
   const payload = await response.json()
   assert.deepEqual(payload.site.paths_page, { offset: 20, limit: 10 })
   assert.deepEqual(payload.plugins.items_page, { offset: 50, limit: 25 })
-  const batch = db.batches[0]
+  const batch = db.batches.flat()
   const pathsQuery = batch.find((stmt) => stmt.sql.includes("kind = 'pv'") && stmt.sql.includes('GROUP BY subject'))
   const itemsQuery = batch.find((stmt) => stmt.sql.includes("kind = 'hb'") && stmt.sql.includes('GROUP BY subject ORDER BY visitors'))
   assert.deepEqual(pathsQuery.args.slice(1), [10, 20])
@@ -460,7 +485,7 @@ test('telemetry summary clamps out-of-range pagination parameters', async () => 
   const payload = await response.json()
   assert.deepEqual(payload.site.paths_page, { offset: 0, limit: 1 })
   assert.deepEqual(payload.plugins.items_page, { offset: 0, limit: 200 })
-  const batch = db.batches[0]
+  const batch = db.batches.flat()
   const pathsQuery = batch.find((stmt) => stmt.sql.includes("kind = 'pv'") && stmt.sql.includes('GROUP BY subject'))
   const itemsQuery = batch.find((stmt) => stmt.sql.includes("kind = 'hb'") && stmt.sql.includes('GROUP BY subject ORDER BY visitors'))
   assert.deepEqual(pathsQuery.args.slice(1), [1, 0])
@@ -485,6 +510,75 @@ test('telemetry summary enforces the read key only when configured', async () =>
     headers: { 'x-telemetry-key': 's3cret' },
   }), lockedEnv, context())
   assert.equal(headerOk.status, 200)
+})
+
+test('telemetry summary serves a fresh rollup row without querying events', async () => {
+  const payload = { ok: true, cached: true }
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: JSON.stringify(payload), computed_at: Date.now() - 60000 }
+      : null,
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), payload)
+  assert.equal(db.batches.length, 0, 'a fresh rollup must skip the aggregation batch')
+})
+
+test('telemetry summary recomputes after the TTL and re-seeds the rollup', async () => {
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: '{"stale":true}', computed_at: Date.now() - 31 * 60 * 1000 }
+      : null,
+    summary: [
+      [{ day: '2026-05-01', pv: 1, uv: 1 }],
+      [{ day: '2026-05-01', pv: 1, uv: 1 }],
+      [{ subject: '/', pv: 1 }],
+      [{ n: 1 }],
+      [{ subject: 'pkg', visitors: 1 }],
+      [{ subject: 'pkg', visitors: 1 }],
+      [{ n: 1 }],
+      [{ subject: 'pkg', channel: 'market', visitors: 1 }],
+      [{ subject: 'pkg', version: '1.0.0', visitors: 1 }],
+    ],
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.equal(db.batches.length, 4, 'the aggregation runs as one light chunk plus three single-statement chunks')
+  const rollup = db.runs.find((entry) => entry.sql.includes('INSERT INTO telemetry_summary_cache'))
+  assert.ok(rollup, 'the recomputed summary must be stored for the next reader')
+})
+
+test('telemetry summary falls back to a stale rollup when D1 cannot aggregate', async () => {
+  const payload = { ok: true, stale: true }
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: JSON.stringify(payload), computed_at: Date.now() - 3600 * 1000 }
+      : null,
+    failBatch: 'overloaded',
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), payload)
+})
+
+test('telemetry summary answers 503 when aggregation fails with no rollup at all', async () => {
+  const db = telemetryDb({ failBatch: 'overloaded' })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), { DB: db }, context())
+  assert.equal(response.status, 503)
+})
+
+test('telemetry summary keeps long-window rollups fresh for twelve hours', async () => {
+  const payload = { ok: true, cached: true }
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: JSON.stringify(payload), computed_at: Date.now() - 60 * 60 * 1000 }
+      : null,
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary?days=365'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), payload)
+  assert.equal(db.batches.length, 0, 'a one-hour-old 365-day rollup is still fresh')
 })
 
 test('telemetry endpoints degrade cleanly without D1', async () => {
@@ -522,6 +616,20 @@ test('users badge degrades to grey without D1', async () => {
   const badge = await response.json()
   assert.equal(badge.message, 'unavailable')
   assert.equal(badge.color, 'lightgrey')
+})
+
+test('cron refreshes badge, pre-warms two rollup windows, and prunes', async () => {
+  const db = telemetryDb({ first: (sql) => sql.includes('telemetry_visitors') ? { users: 7 } : null })
+  await worker.scheduled({}, { DB: db })
+  const lightChunks = db.batches.filter((stmts) => stmts.length === 6)
+  const heavyChunks = db.batches.filter((stmts) => stmts.length === 1)
+  assert.equal(lightChunks.length, 2, 'the first-paint window plus one rotation slot per tick')
+  assert.equal(heavyChunks.length, 6, 'three single-statement chunks per window')
+  const pathsLimit = (stmts) => stmts.find((stmt) => stmt.sql.includes('GROUP BY subject ORDER BY pv')).args[1]
+  assert.equal(pathsLimit(lightChunks[0]), 10, 'the first-paint window uses the 10-row pages')
+  assert.equal(pathsLimit(lightChunks[1]), 20, 'the rotation window uses the default /data pages')
+  assert.equal(db.runs.some((entry) => entry.sql.includes('INSERT INTO badge_cache')), true)
+  assert.equal(db.runs.some((entry) => entry.sql.includes('DELETE FROM telemetry_events')), true)
 })
 
 test('batch npm downloads endpoint derives its allowlist from the plugin manifest and caches', async () => {
