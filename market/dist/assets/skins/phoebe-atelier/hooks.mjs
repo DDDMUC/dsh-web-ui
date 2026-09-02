@@ -34,7 +34,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var v2_entry_exports = {};
 __export(v2_entry_exports, {
   __setPhoebeAssetBase: () => __setPhoebeAssetBase,
-  apply: () => apply
+  apply: () => apply2
 });
 module.exports = __toCommonJS(v2_entry_exports);
 
@@ -43,10 +43,16 @@ var PHOEBE_ATELIER_PALACE_LIGHT = "";
 var PHOEBE_ATELIER_PALACE_DARK = "";
 var PHOEBE_ATELIER_MAIN_LEFT = "";
 var PHOEBE_ATELIER_MAIN_RIGHT = "";
+var PHOEBE_ATELIER_SCENE_ALTAR_HEART = "";
+var PHOEBE_ATELIER_SCENE_NAVE = "";
+var PHOEBE_ATELIER_SCENE_BRIGHT = "";
 var PHOEBE_ATELIER_MAIN_RIGHT_VISION = "";
 var PHOEBE_ATELIER_BOTTOM_CREST = "";
 var PHOEBE_ATELIER_BOTTOM_TRIM_TILE = "";
+var PHOEBE_ATELIER_COMPOSER_CREST = "";
 var PHOEBE_ATELIER_COMPOSER_FRAME = "";
+var PHOEBE_ATELIER_FRAME_GEM = "";
+var PHOEBE_ATELIER_FRAME_GEM_V = "";
 var PHOEBE_ATELIER_SETTINGS_FRAME = "";
 var PHOEBE_ATELIER_SIDEBAR_CORNER = "";
 var PHOEBE_ATELIER_WORKSPACE_RIBBON = "";
@@ -65,10 +71,16 @@ function __setPhoebeAssetBase(base) {
   PHOEBE_ATELIER_PALACE_DARK = u("palace-dark.webp");
   PHOEBE_ATELIER_MAIN_LEFT = u("main-left.webp");
   PHOEBE_ATELIER_MAIN_RIGHT = u("main-right.webp");
+  PHOEBE_ATELIER_SCENE_ALTAR_HEART = u("scene-altar-heart.webp");
+  PHOEBE_ATELIER_SCENE_NAVE = u("scene-nave.webp");
+  PHOEBE_ATELIER_SCENE_BRIGHT = u("scene-bright.webp");
   PHOEBE_ATELIER_MAIN_RIGHT_VISION = u("main-right-vision.webp");
   PHOEBE_ATELIER_BOTTOM_CREST = u("bottom-crest.webp");
   PHOEBE_ATELIER_BOTTOM_TRIM_TILE = u("bottom-trim-tile.webp");
+  PHOEBE_ATELIER_COMPOSER_CREST = u("composer-crest.webp");
   PHOEBE_ATELIER_COMPOSER_FRAME = u("composer-frame.webp");
+  PHOEBE_ATELIER_FRAME_GEM = u("frame-gem.webp");
+  PHOEBE_ATELIER_FRAME_GEM_V = u("frame-gem-v.webp");
   PHOEBE_ATELIER_SETTINGS_FRAME = u("settings-frame.webp");
   PHOEBE_ATELIER_SIDEBAR_CORNER = u("sidebar-corner.webp");
   PHOEBE_ATELIER_WORKSPACE_RIBBON = u("workspace-ribbon.webp");
@@ -577,6 +589,7 @@ var ATTR_FONT = "data-dsh-phoebe-font";
 var ATTR_MODEL_EXIT = "data-dsh-phoebe-model-exit";
 var ATTR_MODEL = "data-dsh-phoebe-model";
 var ATTR_COMPOSER_MODE = "data-phoebe-composer-mode";
+var ATTR_SCENE = "data-phoebe-scene";
 function modelFamily(name) {
   const compact = name.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (compact.includes("v4pro")) return "pro";
@@ -631,7 +644,7 @@ function installPhoebeCustomization(root = document.documentElement) {
     frame = void 0;
     projector.release(ATTR_MODEL);
   };
-  const apply2 = (state) => {
+  const apply3 = (state) => {
     if (state === null) {
       stopModelObserver();
       projector.release();
@@ -646,6 +659,7 @@ function installPhoebeCustomization(root = document.documentElement) {
     if (modelExit) startModelObserver();
     else stopModelObserver();
     projector.set(ATTR_COMPOSER_MODE, typeof state.values.composerMode === "string" ? state.values.composerMode : "persistent");
+    projector.set(ATTR_SCENE, typeof state.values.scene === "string" ? state.values.scene : "cathedral");
   };
   return exposeSkinCustomization({
     protocol: SKIN_CUSTOMIZATION_PROTOCOL,
@@ -681,6 +695,21 @@ function installPhoebeCustomization(root = document.documentElement) {
         ]
       },
       {
+        key: "scene",
+        type: "select",
+        label: "\u5BF9\u8BDD\u533A\u573A\u666F",
+        labelEn: "Conversation scene",
+        description: "\u4EAE\u8272\u4E3B\u9898\u4E0B\u7684\u5723\u5802\u573A\u666F\u53D8\u4F53\uFF1B\u6697\u8272\u4E3B\u9898\u59CB\u7EC8\u4F7F\u7528\u661F\u591C\u5723\u5802\u3002",
+        descriptionEn: "Cathedral scene variants for the light theme; the dark theme always uses the starlit cathedral.",
+        defaultValue: "cathedral",
+        options: [
+          { value: "cathedral", label: "\u8F89\u5F26\u5723\u5802\uFF08\u9ED8\u8BA4\uFF09", labelEn: "Radiant cathedral (default)" },
+          { value: "altar", label: "\u5FC3\u8F89\u5723\u575B", labelEn: "Heart altar" },
+          { value: "nave", label: "\u4E2D\u6BBF\u957F\u5ECA", labelEn: "Cathedral nave" },
+          { value: "bright", label: "\u767D\u8F89\u5927\u5385", labelEn: "Bright hall" }
+        ]
+      },
+      {
         key: "modelExit",
         type: "boolean",
         label: "\u6839\u636E\u6240\u9009\u6A21\u578B\u663E\u793A\u7ACB\u7ED8",
@@ -702,7 +731,7 @@ function installPhoebeCustomization(root = document.documentElement) {
         ]
       }
     ],
-    apply: apply2
+    apply: apply3
   });
 }
 
@@ -989,6 +1018,7 @@ function installPhoebeTableCards(_ctx) {
 }
 
 // src/client/index.ts
+window.__BRAND_BUNDLE_VERSION = "v-final";
 var SKIN_TITLE = "\u8F89\u5F26\u5723\u5802 \xB7 \u83F2\u6BD4 \xB7 DeepSeek Harness";
 var SKIN_OWNER2 = "phoebe-atelier";
 var SKIN_SYSTEM_CHROME_COLOR = "#10152c";
@@ -1069,6 +1099,7 @@ var WORKSPACE_FLAGS = [
   "data-phoebe-session-last"
 ];
 var WORKSPACE_FLAG_SELECTOR = WORKSPACE_FLAGS.map((flag) => `[${flag}]`).join(", ");
+var userClickedWorkspaceKey = null;
 var SIDEBAR_FOOTER_FLAG = "data-phoebe-sidebar-footer";
 var BACKDROP_PROPERTIES = [
   "--phoebe-palace-art",
@@ -1080,7 +1111,13 @@ var BACKDROP_PROPERTIES = [
   "--phoebe-new-session-art",
   "--phoebe-sidebar-swag-art",
   "--phoebe-sidebar-corner-art",
+  "--phoebe-composer-crest-art",
   "--phoebe-composer-frame-art",
+  "--phoebe-frame-gem-art",
+  "--phoebe-frame-gem-v-art",
+  "--phoebe-scene-altar-art",
+  "--phoebe-scene-nave-art",
+  "--phoebe-scene-bright-art",
   "--phoebe-settings-frame-art",
   "--phoebe-workspace-crest-art",
   "--phoebe-workspace-ribbon-art"
@@ -1230,30 +1267,32 @@ function decorateWorkspaceTree(decoratedElements) {
     }
     let workspaceRow;
     let sessionRows = [];
-    const decorateGroup = () => {
-      if (!workspaceRow) return;
-      claim(workspaceRow, "data-phoebe-workspace-row");
-      if (workspaceRow.parentElement) {
-        claim(workspaceRow.parentElement, "data-phoebe-workspace-group");
-      }
-      sessionRows.forEach((sessionRow) => {
-        claim(sessionRow, "data-phoebe-session-row");
-      });
-      if (sessionRows[0]) claim(sessionRows[0], "data-phoebe-session-first");
-      if (sessionRows.at(-1)) claim(sessionRows.at(-1), "data-phoebe-session-last");
-      const containsCurrent = workspaceRow.getAttribute("aria-expanded") === "true" && sessionRows.some((sessionRow) => sessionRow.getAttribute("aria-selected") === "true");
-      if (containsCurrent) claim(workspaceRow, "data-phoebe-workspace-active");
-    };
+    const groups = [];
     rows.forEach((row) => {
       if (row.hasAttribute("aria-expanded")) {
-        decorateGroup();
+        if (workspaceRow) groups.push({ row: workspaceRow, sessions: sessionRows });
         workspaceRow = row;
         sessionRows = [];
       } else if (workspaceRow && row.hasAttribute("aria-selected")) {
         sessionRows.push(row);
       }
     });
-    decorateGroup();
+    if (workspaceRow) groups.push({ row: workspaceRow, sessions: sessionRows });
+    const selectedGroup = groups.find((group) => group.row.getAttribute("aria-expanded") === "true" && group.sessions.some((sessionRow) => sessionRow.getAttribute("aria-selected") === "true"));
+    const pointedGroup = userClickedWorkspaceKey === null ? void 0 : groups.find((group) => group.row.textContent?.trim() === userClickedWorkspaceKey);
+    const activeGroup = pointedGroup ?? selectedGroup;
+    groups.forEach((group) => {
+      claim(group.row, "data-phoebe-workspace-row");
+      if (group.row.parentElement) {
+        claim(group.row.parentElement, "data-phoebe-workspace-group");
+      }
+      group.sessions.forEach((sessionRow) => {
+        claim(sessionRow, "data-phoebe-session-row");
+      });
+      if (group.sessions[0]) claim(group.sessions[0], "data-phoebe-session-first");
+      if (group.sessions.at(-1)) claim(group.sessions.at(-1), "data-phoebe-session-last");
+      if (group === activeGroup) claim(group.row, "data-phoebe-workspace-active");
+    });
   });
   const touched = /* @__PURE__ */ new Set([...current.keys(), ...desired.keys()]);
   for (const element of touched) {
@@ -1273,25 +1312,21 @@ function decorateWorkspaceTree(decoratedElements) {
   }
 }
 function ensureComposerBrand(ownedNodes) {
+  ;
+  window.__EB_CALLED = (window.__EB_CALLED || 0) + 1;
   const phaseRoot = document.querySelector(
     "[data-phase='hero'], [data-phase='active'], [data-phase='settling']"
   );
-  console.debug("[brand] enter, phaseRoot", !!phaseRoot);
   if (!phaseRoot) {
-    console.debug("[brand] exit: no phaseRoot");
     return false;
   }
   const seat = phaseRoot.querySelector("[data-composer-seat]");
-  console.debug("[brand] seat", !!seat);
   if (!seat) {
-    console.debug("[brand] exit: no seat");
     return false;
   }
   const existing = phaseRoot.querySelector("[data-skin-chrome='composer-brand']");
-  console.debug("[brand] existing", !!existing, "sameParent", existing ? existing.parentElement === seat.parentElement : "-");
   if (existing && existing.parentElement === seat.parentElement) return true;
   existing?.remove();
-  console.debug("[brand] inserting");
   const brand = document.createElement("div");
   brand.dataset.skinChrome = "composer-brand";
   brand.dataset.skinOwner = SKIN_OWNER2;
@@ -1299,7 +1334,26 @@ function ensureComposerBrand(ownedNodes) {
   brand.innerHTML = PHOEBE_ATELIER_COMPOSER_BRAND;
   seat.parentElement?.insertBefore(brand, seat);
   ownedNodes.add(brand);
-  console.debug("[brand] inserted OK");
+  return true;
+}
+function ensureComposerCrest(ownedNodes) {
+  const cards = [...document.querySelectorAll("[data-composer-card]")];
+  if (cards.length === 0) return false;
+  const phaseRoot = document.querySelector(
+    "[data-phase='hero'], [data-phase='active'], [data-phase='settling']"
+  );
+  const card = cards.find((candidate) => phaseRoot?.contains(candidate)) ?? cards[0];
+  for (const other of cards) {
+    if (other === card) continue;
+    other.querySelectorAll("[data-skin-chrome='composer-crest']").forEach((el) => el.remove());
+  }
+  if (card.querySelector("[data-skin-chrome='composer-crest']")) return true;
+  const crest = document.createElement("div");
+  crest.dataset.skinChrome = "composer-crest";
+  crest.dataset.skinOwner = SKIN_OWNER2;
+  crest.setAttribute("aria-hidden", "true");
+  card.appendChild(crest);
+  ownedNodes.add(crest);
   return true;
 }
 function apply(ctx) {
@@ -1331,6 +1385,7 @@ function apply(ctx) {
   let handleViewportResize;
   let railSearchFocusFrame;
   let recoverRailSearchFocus;
+  let trackWorkspacePointer;
   let settingsBackdropFrame;
   let observer;
   let titlebarOverlay;
@@ -1342,6 +1397,7 @@ function apply(ctx) {
     delete body.dataset.phoebeComposerMotion;
     delete body.dataset.phoebeSidebarCompact;
     delete body.dataset.phoebeSidebarSize;
+    delete body.dataset.phoebeListOverflow;
     for (const [attribute, value] of previousProjectedStates) {
       if (value === null) body.removeAttribute(attribute);
       else body.setAttribute(attribute, value);
@@ -1358,6 +1414,10 @@ function apply(ctx) {
     if (recoverRailSearchFocus !== void 0) {
       document.removeEventListener("click", recoverRailSearchFocus);
     }
+    if (trackWorkspacePointer !== void 0) {
+      document.removeEventListener("click", trackWorkspacePointer);
+    }
+    userClickedWorkspaceKey = null;
     observer?.disconnect();
     themeColorObserver?.disconnect();
     if (titlebarOverlay !== void 0 && syncTitlebarHeight !== void 0) {
@@ -1423,7 +1483,13 @@ function apply(ctx) {
   body.style.setProperty("--phoebe-new-session-art", `url(${PHOEBE_ATELIER_NEW_SESSION})`);
   body.style.setProperty("--phoebe-sidebar-swag-art", `url(${PHOEBE_ATELIER_SIDEBAR_SWAG})`);
   body.style.setProperty("--phoebe-sidebar-corner-art", `url(${PHOEBE_ATELIER_SIDEBAR_CORNER})`);
+  body.style.setProperty("--phoebe-composer-crest-art", `url(${PHOEBE_ATELIER_COMPOSER_CREST})`);
   body.style.setProperty("--phoebe-composer-frame-art", `url(${PHOEBE_ATELIER_COMPOSER_FRAME})`);
+  body.style.setProperty("--phoebe-frame-gem-art", `url(${PHOEBE_ATELIER_FRAME_GEM})`);
+  body.style.setProperty("--phoebe-frame-gem-v-art", `url(${PHOEBE_ATELIER_FRAME_GEM_V})`);
+  body.style.setProperty("--phoebe-scene-altar-art", `url(${PHOEBE_ATELIER_SCENE_ALTAR_HEART})`);
+  body.style.setProperty("--phoebe-scene-nave-art", `url(${PHOEBE_ATELIER_SCENE_NAVE})`);
+  body.style.setProperty("--phoebe-scene-bright-art", `url(${PHOEBE_ATELIER_SCENE_BRIGHT})`);
   body.style.setProperty("--phoebe-settings-frame-art", `url(${PHOEBE_ATELIER_SETTINGS_FRAME})`);
   body.style.setProperty("--phoebe-workspace-crest-art", `url(${PHOEBE_ATELIER_WORKSPACE_SHIELD})`);
   body.style.setProperty("--phoebe-workspace-ribbon-art", `url(${PHOEBE_ATELIER_WORKSPACE_RIBBON})`);
@@ -1440,7 +1506,7 @@ function apply(ctx) {
   widthSheet.dataset.skinOwner = SKIN_OWNER2;
   ownedNodes.add(widthSheet);
   document.head.append(widthSheet);
-  widthSheet.sheet.insertRule("body { --phoebe-sidebar-width: 280px; --phoebe-sidebar-swag-height: 72.1px; --phoebe-sidebar-mascot-width: 229.6px; --phoebe-titlebar-height: 0px; }");
+  widthSheet.sheet.insertRule("body { --phoebe-sidebar-width: 280px; --phoebe-sidebar-swag-height: 72.1px; --phoebe-sidebar-mascot-width: 229.6px; --phoebe-sidebar-corner-size: 100px; --phoebe-titlebar-height: 0px; }");
   const appendRule = (rule) => {
     widthSheet.sheet.insertRule(rule, widthSheet.sheet.cssRules.length);
   };
@@ -1479,6 +1545,7 @@ function apply(ctx) {
     widthRule.style.setProperty("--phoebe-sidebar-width", roundPx(width));
     widthRule.style.setProperty("--phoebe-sidebar-swag-height", roundPx(Math.min(94, Math.max(54, width * 0.2575))));
     widthRule.style.setProperty("--phoebe-sidebar-mascot-width", roundPx(Math.min(320, width * 0.82)));
+    widthRule.style.setProperty("--phoebe-sidebar-corner-size", roundPx(Math.min(110, Math.max(64, width * 0.36))));
     body.dataset.phoebeSidebarSize = nextSize;
     if (compact) body.dataset.phoebeSidebarCompact = "";
     else delete body.dataset.phoebeSidebarCompact;
@@ -1487,6 +1554,7 @@ function apply(ctx) {
     widthRule.style.setProperty("--phoebe-sidebar-width", "0px");
     widthRule.style.setProperty("--phoebe-sidebar-swag-height", "54px");
     widthRule.style.setProperty("--phoebe-sidebar-mascot-width", "0px");
+    widthRule.style.setProperty("--phoebe-sidebar-corner-size", "0px");
     body.dataset.phoebeSidebarSize = "rail";
     body.dataset.phoebeSidebarCompact = "";
   };
@@ -1555,11 +1623,29 @@ function apply(ctx) {
     railSearchFocusFrame = requestAnimationFrame(recover);
   };
   document.addEventListener("click", recoverRailSearchFocus);
+  trackWorkspacePointer = (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[role="treeitem"]') : null;
+    const sidebar = target?.closest(SIDEBAR_COLUMN_SELECTOR);
+    if (target === null || sidebar === null) return;
+    if (target.hasAttribute("aria-expanded")) {
+      const key = target.textContent?.trim() ?? null;
+      if (userClickedWorkspaceKey !== key) {
+        userClickedWorkspaceKey = key;
+        decorateWorkspaceTree(decoratedElements);
+      }
+    } else if (target.hasAttribute("aria-selected") && userClickedWorkspaceKey !== null) {
+      userClickedWorkspaceKey = null;
+      decorateWorkspaceTree(decoratedElements);
+    }
+  };
+  document.addEventListener("click", trackWorkspacePointer);
   if (typeof ResizeObserver !== "undefined") {
     resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        if (entry.target === observedSidebar) applySidebarWidth(entry.contentRect.width);
-        else if (entry.target === observedChatArea) handleViewportResize?.();
+        if (entry.target === observedSidebar) {
+          applySidebarWidth(entry.contentRect.width);
+          syncListOverflow();
+        } else if (entry.target === observedChatArea) handleViewportResize?.();
       }
     });
   }
@@ -1614,6 +1700,8 @@ function apply(ctx) {
   decorateWorkspaceTree(decoratedElements);
   ensureChatAreaStage(characterStage);
   ensureChatAreaChrome(topTrim, bottomTrim);
+  ensureComposerBrand(ownedNodes);
+  ensureComposerCrest(ownedNodes);
   ensureResizeObserved();
   const initialSidebar = document.querySelector(SIDEBAR_COLUMN_SELECTOR);
   if (initialSidebar) applySidebarWidth(initialSidebar.getBoundingClientRect().width);
@@ -1628,10 +1716,30 @@ function apply(ctx) {
     ensureChatAreaStage(characterStage);
     ensureChatAreaChrome(topTrim, bottomTrim);
     ensureComposerBrand(ownedNodes);
+    ensureComposerCrest(ownedNodes);
     ensureResizeObserved();
     const sidebar = document.querySelector(SIDEBAR_COLUMN_SELECTOR);
     if (sidebar === null) clearSidebarWidth();
     else if (resizeObserver === void 0) applySidebarWidth(sidebar.getBoundingClientRect().width);
+    syncListOverflow();
+  };
+  const syncListOverflow = () => {
+    const sidebar = document.querySelector(SIDEBAR_COLUMN_SELECTOR);
+    const mascot = document.querySelector("[data-skin-chrome='sidebar-mascot']");
+    if (sidebar === null || mascot === null || !mascot.isConnected) return;
+    const mascotRect = mascot.getBoundingClientRect();
+    let overlap = false;
+    for (const row of sidebar.querySelectorAll('[role="treeitem"]')) {
+      const rect = row.getBoundingClientRect();
+      if (rect.height === 0) continue;
+      if (rect.bottom >= mascotRect.top && rect.top <= mascotRect.bottom) {
+        overlap = true;
+        break;
+      }
+    }
+    const current = body.getAttribute("data-phoebe-list-overflow");
+    if (overlap && current === null) body.dataset.phoebeListOverflow = "";
+    else if (!overlap && current !== null) delete body.dataset.phoebeListOverflow;
   };
   const isSkinChrome = (node) => node instanceof Element && node.getAttribute("data-skin-owner") === SKIN_OWNER2;
   const nodeTouches = (node, selector) => node instanceof Element && (node.matches(selector) || node.querySelector(selector) !== null);
@@ -1688,12 +1796,15 @@ function apply(ctx) {
       ensureChatAreaStage(characterStage);
       ensureChatAreaChrome(topTrim, bottomTrim);
       ensureComposerBrand(ownedNodes);
+      ensureComposerCrest(ownedNodes);
       ensureComposerBrand(ownedNodes);
+      ensureComposerCrest(ownedNodes);
       ensureResizeObserved();
     }
     if (backdropChanged) syncBackdrop();
     if (composerChanged) {
       syncComposerMotion();
+      ensureComposerCrest(ownedNodes);
     }
     if (settingsStateChanged || projectedStateChanged) syncSettingsBackdropFrame();
   });
@@ -1721,6 +1832,42 @@ function apply(ctx) {
   ownedNodes.add(favicon);
   document.head.append(favicon);
   document.title = SKIN_TITLE;
+}
+
+// scripts/v2-entry.ts
+var MIRRORED_ATTRS = [
+  "data-dsh-phoebe-art",
+  "data-dsh-phoebe-font",
+  "data-dsh-phoebe-model-exit",
+  "data-dsh-phoebe-model",
+  "data-phoebe-scene"
+];
+function apply2(hostCtx) {
+  const mirror = () => {
+    const html = document.documentElement;
+    const body = document.body;
+    for (const attr of MIRRORED_ATTRS) {
+      const value = html.getAttribute(attr);
+      if (value === null) body.removeAttribute(attr);
+      else body.setAttribute(attr, value);
+    }
+  };
+  const observer = new MutationObserver(mirror);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: MIRRORED_ATTRS
+  });
+  apply({
+    effect(fn) {
+      const cleanup = fn();
+      hostCtx.effect(() => () => {
+        observer.disconnect();
+        for (const attr of MIRRORED_ATTRS) document.body.removeAttribute(attr);
+        if (typeof cleanup === "function") cleanup();
+      });
+    }
+  });
+  mirror();
 }
 
   return module.exports;
