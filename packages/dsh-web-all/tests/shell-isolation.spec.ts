@@ -87,10 +87,28 @@ describe('dsh-web-all fault-isolation shell (real boot)', () => {
     expect(existsSync(join(PACKAGE_DIR, 'lib/shell.js'))).toBe(true)
     const patch = await_import_patch()
     expect(patch).toContain("name: '@linxin666/dsh-web-all'")
-    // A wrapped family row carries the real plugin name in config...
-    expect(patch).toMatch(/plugin: '@linxin666\/dsh-usage'/)
-    // ...while the exempted i18n row keeps its direct name.
+    // Family rows mount per-family subpath exports (distinct inventory
+    // titles) while still carrying the real plugin name in config...
+    expect(patch).toMatch(/- id: web-ui-usage\n      name: '@linxin666\/dsh-web-all\/usage'\n      config:\n        plugin: '@linxin666\/dsh-usage'/)
+    // ...and the built shells re-export exists for those specifiers.
+    expect(existsSync(join(PACKAGE_DIR, 'lib/shells/shell.js'))).toBe(true)
+    // The exempted i18n row keeps its direct name.
     expect(patch).toMatch(/- id: web-ui-i18n\n      name: '@linxin666\/dsh-i18n'/)
+  })
+
+  dshIt('a family subpath row degrades alone exactly like the main-face shell', () => {
+    // The subpath module is a pure re-export of the main face — prove the
+    // isolation semantics through the artifact the loader actually imports.
+    const result = runBootScenario([
+      { insert: [{ id: 'shell-subpath', name: '__PKG__/shells/shell.js', config: { plugin: '__DIR__/bad.mjs' } }] },
+      { insert: [{ id: 'good-entry-d', name: '__DIR__/good.mjs' }] },
+    ])
+    expect(result.error).toBeUndefined()
+    const facts = JSON.parse(result.output) as { ok: boolean; entries: Array<{ id: string; state: number }>; goodSvc: unknown }
+    expect(facts.ok).toBe(true)
+    expect(facts.entries.find(e => e.id === 'shell-subpath')?.state).toBe(2)
+    expect(facts.entries.find(e => e.id === 'good-entry-d')?.state).toBe(2)
+    expect(facts.goodSvc).toEqual({ ok: true })
   })
 
   dshIt('config-less row (the aggregate self row) mounts as a no-op, not an error', () => {

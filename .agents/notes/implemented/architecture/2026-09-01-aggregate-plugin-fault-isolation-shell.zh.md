@@ -8,7 +8,7 @@ dsh-web 家族以一个聚合 bundle 发布，patch 行经 DSH loader 挂载约 
 
 ## Decision
 
-故障单位从整个家族收缩为单个插件。`scripts/aggregate.mjs` 为每个家族 insert 行生成 `name: '@linxin666/dsh-web-all'`（聚合包自身，main 入口即故障隔离 shell），真插件包名放在行配置（`config.plugin`，行原有配置嵌套在 `config.config` 下）。shell（`packages/dsh-web-all/src/shell.ts`）在启动时 import 真模块；import 失败、模块形态不可用、或激活失败（同步抛错或 fiber 拒绝）都会被捕获、记日志并登记——shell entry 本身保持 active，boot 审计看到的是健康的树，其余插件照常挂载。
+故障单位从整个家族收缩为单个插件。`scripts/aggregate.mjs` 为每个家族 insert 行生成 `name: '@linxin666/dsh-web-all/<family>'`（聚合包按家族的子路径导出，共享目标是故障隔离 shell），真插件包名放在行配置（`config.plugin`，行原有配置嵌套在 `config.config` 下）。shell（`packages/dsh-web-all/src/shell.ts`）在启动时 import 真模块；import 失败、模块形态不可用、或激活失败（同步抛错或 fiber 拒绝）都会被捕获、记日志并登记——shell entry 本身保持 active，boot 审计看到的是健康的树，其余插件照常挂载。（行名最初是裸包名；子路径显示名是后续决策——见[聚合家族行显示名](2026-09-02-aggregate-family-row-display-names.zh.md)。）
 
 真插件作为 shell 子上下文上的嵌套插件运行，cordis 语义不变：它 provide 的服务经正常作用域链可见，生命周期跟随 shell entry，后续失败只撤回自己的服务。一个仅限 loopback 的健康路由（`GET /api/dsh-web-all/degraded`）报告当前降级台账（`@linxin666/dsh-web-all/degraded`），监控可以不刮日志就知道"哪些插件降级了"。`dsh-i18n` 保持直挂（宿主半区是空函数），外部行（家族之外的 npm 包）也全部直挂——失败语义由其属主负责。
 
@@ -20,7 +20,7 @@ dsh-web 家族以一个聚合 bundle 发布，patch 行经 DSH loader 挂载约 
 
 ## Consequences
 
-家族插件在 boot 期不再可能拖垮 Web：坏插件的影响半径是一个降级 entry 加一条日志。代价：插件管理类列表的行 `name` 显示 shell 包名（真插件名在行配置与健康路由中）、插件故障只经日志/degraded 路由呈现而非 boot 失败、未来每个新家族包都要经 `scripts/aggregate.mjs` 生成聚合行（这本来就是唯一合规路径）。runGuarded 纪律按包 opt-in，由 `scripts/sync-shared.mjs` 同步。
+家族插件在 boot 期不再可能拖垮 Web：坏插件的影响半径是一个降级 entry 加一条日志。代价：插件故障只经日志/degraded 路由呈现而非 boot 失败、未来每个新家族包都要经 `scripts/aggregate.mjs` 生成聚合行（这本来就是唯一合规路径）。原先"插件列表每行显示同一个 shell 包名"的显示代价已由按家族的子路径行名移除（见[聚合家族行显示名](2026-09-02-aggregate-family-row-display-names.zh.md)）。runGuarded 纪律按包 opt-in，由 `scripts/sync-shared.mjs` 同步。
 
 ## Testing
 

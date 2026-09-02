@@ -79,19 +79,61 @@ const PATCH_HEADER = [
   '# This file is derived from the aggregate.yml manifest in this package;',
   '# edit aggregate.yml and rerun `node scripts/aggregate.mjs`.',
   '# Rows are namespaced web-ui-* so the bundle can coexist with standalone installs.',
+  '# Family rows mount the aggregate\'s per-family subpath exports so the',
+  '# official plugin inventory renders one distinct "web-all/<family>" title per row.',
 ]
 
 /**
- * The fault-isolation shell: family insert rows mount @linxin666/dsh-web-all
- * (this module never fails to import or start) and carry the real plugin
- * package name in the row config. The shell imports the real module at start
- * time and contains any import/activation failure to that entry, so one broken
- * plugin can no longer roll back the whole boot group. Opt out per source
- * package with a `"shell": false` comment entry in aggregate.yml patchFrom
- * (see SHELL_EXEMPT below). External rows (npm packages outside the family)
- * keep mounting directly: their owners manage their own failure semantics.
+ * The fault-isolation shell: family insert rows mount a per-family subpath
+ * export of @linxin666/dsh-web-all (this module never fails to import or
+ * start) and carry the real plugin package name in the row config. The shell
+ * imports the real module at start time and contains any import/activation
+ * failure to that entry, so one broken plugin can no longer roll back the
+ * whole boot group. The subpath spelling (`@linxin666/dsh-web-all/<family>`)
+ * is what the official plugin inventory displays: titles render per family
+ * ("web-all/usage", "web-all/pet", ...) instead of a wall of identical
+ * "web-all" cards — the same multi-entry convention as the host's own
+ * `@deepseek-ai/dsh-web-app/startup` row. All subpath exports resolve to the
+ * shared shell re-export module; the row config contract is unchanged. Opt
+ * out per source package with a `"shell": false` comment entry in
+ * aggregate.yml (see SHELL_EXEMPT below). External rows (npm packages outside
+ * the family) keep mounting directly: their owners manage their own failure
+ * semantics.
  */
 const AGGREGATE_SHELL_PACKAGE = '@linxin666/dsh-web-all'
+
+/**
+ * Every family subpath export resolves to the shared shell re-export module
+ * (src/shells/shell.ts): the subpath is a display label, the mount contract
+ * lives entirely in the row config. The target must sit under lib/shells/ —
+ * the client module scanner walks up from the imported module to the nearest
+ * package.json, and the marker manifest beside it (src/shells/package.json,
+ * copied to lib/shells/ by the build) stops that walk before it reaches the
+ * package root, whose dsh.client face belongs to the compat row alone.
+ */
+const SHELL_EXPORT_TARGET = './lib/shells/shell.js'
+
+/**
+ * The display subpath of one shell-wrapped family row: the namespaced row id
+ * without the web-ui- prefix (web-ui-usage -> usage), so the subpath, the row
+ * id, and the inventory title stay traceable 1:1.
+ */
+function shellSubpath(id) {
+  return namespaceId(id).replace(/^web-ui-/, '')
+}
+
+/** Family subpaths of one aggregate, deduped and sorted for exports emission. */
+function collectShellSubpaths(blocks) {
+  const subs = new Set()
+  for (const block of blocks) {
+    if (block.entry === 'self' || SHELL_EXEMPT.has(block.entry)) continue
+    for (const row of block.rows) {
+      if (row.kind === 'patch') continue
+      subs.add(shellSubpath(row.id))
+    }
+  }
+  return [...subs].sort()
+}
 
 /**
  * Source packages exempted from shell wrapping (relative patchFrom spellings).
@@ -404,15 +446,16 @@ function renderPatch(blocks, externalRows, ownPatches, errors, rel, aggregateDir
         if (seen.has(id)) errors.push(`${rel}: duplicate aggregate row id after namespacing: ${id} (${row.name})`)
         seen.add(id)
         lines.push(`    - id: ${id}`)
-        // Shell-wrapped family rows mount the aggregate's own never-failing
-        // shell module and carry the real plugin name in the row config, so
-        // one broken plugin degrades alone instead of rolling back the boot
-        // group. dsh-i18n (SHELL_EXEMPT) stays direct.
+        // Shell-wrapped family rows mount the aggregate's per-family subpath
+        // export (a distinct inventory title per family) and carry the real
+        // plugin name in the row config, so one broken plugin degrades alone
+        // instead of rolling back the boot group. dsh-i18n (SHELL_EXEMPT)
+        // stays direct.
         if (SHELL_EXEMPT.has(block.entry) || block.entry === 'self') {
           lines.push(`      name: '${row.name}'`)
           pushConfig(lines, row.configLines ?? [], 6)
         } else {
-          lines.push(`      name: '${AGGREGATE_SHELL_PACKAGE}'`)
+          lines.push(`      name: '${AGGREGATE_SHELL_PACKAGE}/${shellSubpath(row.id)}'`)
           pushShellConfig(lines, row)
         }
       }
@@ -717,8 +760,14 @@ function resolveEntries(pkgDir, entries, section, errors) {
  * peerDependencies field is removed. The loader resolves patch rows from the
  * profile root, and pnpm installs these children as normal dependencies
  * (hoisting them to the top level in the default layout).
+ *
+ * The exports map is generator-owned for the family subpath keys: every
+ * shell-wrapped row's `./<sub>` key is added pointing at the shared shell
+ * re-export (SHELL_EXPORT_TARGET), stale keys of removed families are pruned,
+ * and a sub key already present with a different target is an error (the row
+ * would silently mount something else than the shell).
  */
-function renderPackageJson(pkgPath, resolvedDeps) {
+function renderPackageJson(pkgPath, resolvedDeps, shellSubpaths) {
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
   const next = {}
   for (const { name } of resolvedDeps) next[name] = 'workspace:*'
@@ -728,7 +777,58 @@ function renderPackageJson(pkgPath, resolvedDeps) {
   if (Object.keys(next).length) pkg.dependencies = next
   else delete pkg.dependencies
   delete pkg.peerDependencies
+  if (shellSubpaths.length > 0) {
+    const exports = { ...pkg.exports }
+    for (const key of Object.keys(exports)) {
+      if (exports[key] === SHELL_EXPORT_TARGET && !shellSubpaths.includes(key.slice('./'.length))) {
+        delete exports[key]
+      }
+    }
+    for (const sub of shellSubpaths) {
+      const key = `./${sub}`
+      if (exports[key] !== undefined && exports[key] !== SHELL_EXPORT_TARGET) {
+        throw new Error(`exports key "${key}" already exists with target "${exports[key]}"; the family subpath must resolve to the shell re-export ${SHELL_EXPORT_TARGET}`)
+      }
+      exports[key] = SHELL_EXPORT_TARGET
+    }
+    pkg.exports = exports
+  }
   return JSON.stringify(pkg, null, 2) + '\n'
+}
+
+/**
+ * Validate the hand-written shells files the family subpath display names
+ * depend on: the shared re-export module, and the scanner marker manifest —
+ * a string "name" and "type": "module" (Node stops format detection at the
+ * nearest manifest, so lib/shells/shell.js would parse as CJS without it),
+ * and no dsh declaration (the marker must never become a second
+ * client-module source for a package that already owns one).
+ */
+function validateShellFiles(pkgDir, rel, errors) {
+  if (!existsSync(join(pkgDir, 'src', 'shells', 'shell.ts'))) {
+    errors.push(`${rel}: missing src/shells/shell.ts (the shared family shell re-export)`)
+  }
+  const markerPath = join(pkgDir, 'src', 'shells', 'package.json')
+  if (!existsSync(markerPath)) {
+    errors.push(`${rel}: missing src/shells/package.json (the scanner marker manifest)`)
+    return
+  }
+  let marker
+  try {
+    marker = JSON.parse(readFileSync(markerPath, 'utf8'))
+  } catch (e) {
+    errors.push(`${rel}: cannot read src/shells/package.json: ${e.message}`)
+    return
+  }
+  if (typeof marker.name !== 'string' || marker.name === '') {
+    errors.push(`${rel}: src/shells/package.json must carry a non-empty string "name" (the scanner marker)`)
+  }
+  if (marker.type !== 'module') {
+    errors.push(`${rel}: src/shells/package.json must declare "type": "module" (Node format detection stops at the nearest manifest)`)
+  }
+  if (marker.dsh !== undefined) {
+    errors.push(`${rel}: src/shells/package.json must not declare a dsh field (the marker must never become a client-module source)`)
+  }
 }
 
 console.log(`[aggregate] scanning ${join(REPO_ROOT, 'packages')} for aggregate.yml manifests...`)
@@ -773,9 +873,11 @@ for (const { pkgDir, ymlPath } of aggregates) {
   if (manifest.patchFrom.length === 0 && !manifest.self) {
     console.log(`[aggregate] WARN ${rel}: aggregate.yml has no patchFrom entries (patch would be empty)`)
   }
+  const shellSubpaths = collectShellSubpaths(blocks)
+  if (shellSubpaths.length > 0) validateShellFiles(pkgDir, rel, errors)
   const patch = renderPatch(blocks, manifest.rows, manifest.patches ?? [], errors, rel, pkgDir)
   const resolvedDeps = resolveEntries(pkgDir, manifest.deps, 'deps', errors)
-  const pkgJson = renderPackageJson(join(pkgDir, 'package.json'), resolvedDeps)
+  const pkgJson = renderPackageJson(join(pkgDir, 'package.json'), resolvedDeps, shellSubpaths)
   // The shell aggregate additionally emits the client-children mount list:
   // the browser-side mirror of its host-side folded rows.
   let clientChildren
