@@ -69,6 +69,11 @@ export const REVIEWED_SKIN_HOOKS: Readonly<Record<string, ReviewedSkinHooksIdent
     manifestSha256: "48b9c76b6f8fc4fad1473d987c0ebd8c10f4734e2eff2091bbb9040c9a5ce089",
     hooksSha256: "0ea2d7e3f7547d9a37884b788042557ec7c59b1416be527660329584c4d65254",
   },
+  "phoebe-atelier": {
+    entry: "hooks.mjs",
+    manifestSha256: "76cfe0d34f644fcaff6c03dbf84fd82ececf18ef56f3c791a9ab0b5b17a30615",
+    hooksSha256: "f39b57db0de26c1b0972cd7160d6197c281c4d66ba6abb6fe193a666da0d5f22",
+  },
   "starry-nocturne": {
     entry: "hooks.mjs",
     manifestSha256: "5a5bd138ed156d1877e00ea9acfbf94f8342b751d21796942ed3175562801a61",
