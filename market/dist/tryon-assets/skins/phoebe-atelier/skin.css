@@ -2297,25 +2297,6 @@ html[data-dsh-skin="phoebe-atelier"] body[data-dsh-phoebe-atelier] [data-compose
   pointer-events: none;
 }
 
-/* The holy crest pendant: a real element so it paints ABOVE the frame's
-   border-image (a background layer would be covered by the porcelain band).
-   It hangs from the top rim — spire above the gold line, crown seated on the
-   porcelain band. */
-html[data-dsh-skin="phoebe-atelier"] body[data-dsh-phoebe-atelier] [data-composer-card] > [data-skin-chrome='composer-crest'] {
-  position: absolute;
-  /* The big shield stands on the top gold line (line = border-width 42px),
-     its glass body rising into the workspace-row band above the frame. */
-  top: -75px;
-  left: 50%;
-  width: 92px;
-  height: 122px;
-  transform: translateX(-50%);
-  z-index: 3;
-  background: var(--phoebe-bottom-crest-art, url('assets/skins/phoebe-atelier/assets/bottom-crest.webp')) center bottom / contain no-repeat;
-  filter: drop-shadow(0 3px 7px rgba(8, 16, 44, 0.28));
-  pointer-events: none;
-}
-
 /* The phase machine keeps one card mounted. A short one-shot translation
    bridges its layout move while min-height and the nine-slice frame interpolate
    in step with the 520ms top-curtain motion. */

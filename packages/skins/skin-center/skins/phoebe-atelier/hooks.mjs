@@ -49,7 +49,6 @@ var PHOEBE_ATELIER_SCENE_BRIGHT = "";
 var PHOEBE_ATELIER_MAIN_RIGHT_VISION = "";
 var PHOEBE_ATELIER_BOTTOM_CREST = "";
 var PHOEBE_ATELIER_BOTTOM_TRIM_TILE = "";
-var PHOEBE_ATELIER_COMPOSER_CREST = "";
 var PHOEBE_ATELIER_COMPOSER_FRAME = "";
 var PHOEBE_ATELIER_FRAME_GEM = "";
 var PHOEBE_ATELIER_FRAME_GEM_V = "";
@@ -77,7 +76,6 @@ function __setPhoebeAssetBase(base) {
   PHOEBE_ATELIER_MAIN_RIGHT_VISION = u("main-right-vision.webp");
   PHOEBE_ATELIER_BOTTOM_CREST = u("bottom-crest.webp");
   PHOEBE_ATELIER_BOTTOM_TRIM_TILE = u("bottom-trim-tile.webp");
-  PHOEBE_ATELIER_COMPOSER_CREST = u("composer-crest.webp");
   PHOEBE_ATELIER_COMPOSER_FRAME = u("composer-frame.webp");
   PHOEBE_ATELIER_FRAME_GEM = u("frame-gem.webp");
   PHOEBE_ATELIER_FRAME_GEM_V = u("frame-gem-v.webp");
@@ -1111,7 +1109,6 @@ var BACKDROP_PROPERTIES = [
   "--phoebe-new-session-art",
   "--phoebe-sidebar-swag-art",
   "--phoebe-sidebar-corner-art",
-  "--phoebe-composer-crest-art",
   "--phoebe-composer-frame-art",
   "--phoebe-frame-gem-art",
   "--phoebe-frame-gem-v-art",
@@ -1336,26 +1333,6 @@ function ensureComposerBrand(ownedNodes) {
   ownedNodes.add(brand);
   return true;
 }
-function ensureComposerCrest(ownedNodes) {
-  const cards = [...document.querySelectorAll("[data-composer-card]")];
-  if (cards.length === 0) return false;
-  const phaseRoot = document.querySelector(
-    "[data-phase='hero'], [data-phase='active'], [data-phase='settling']"
-  );
-  const card = cards.find((candidate) => phaseRoot?.contains(candidate)) ?? cards[0];
-  for (const other of cards) {
-    if (other === card) continue;
-    other.querySelectorAll("[data-skin-chrome='composer-crest']").forEach((el) => el.remove());
-  }
-  if (card.querySelector("[data-skin-chrome='composer-crest']")) return true;
-  const crest = document.createElement("div");
-  crest.dataset.skinChrome = "composer-crest";
-  crest.dataset.skinOwner = SKIN_OWNER2;
-  crest.setAttribute("aria-hidden", "true");
-  card.appendChild(crest);
-  ownedNodes.add(crest);
-  return true;
-}
 function apply(ctx) {
   const body = document.body;
   ctx.effect(() => installPhoebeCustomization(), "ui-skin-phoebe-atelier: customization declaration");
@@ -1483,7 +1460,6 @@ function apply(ctx) {
   body.style.setProperty("--phoebe-new-session-art", `url(${PHOEBE_ATELIER_NEW_SESSION})`);
   body.style.setProperty("--phoebe-sidebar-swag-art", `url(${PHOEBE_ATELIER_SIDEBAR_SWAG})`);
   body.style.setProperty("--phoebe-sidebar-corner-art", `url(${PHOEBE_ATELIER_SIDEBAR_CORNER})`);
-  body.style.setProperty("--phoebe-composer-crest-art", `url(${PHOEBE_ATELIER_COMPOSER_CREST})`);
   body.style.setProperty("--phoebe-composer-frame-art", `url(${PHOEBE_ATELIER_COMPOSER_FRAME})`);
   body.style.setProperty("--phoebe-frame-gem-art", `url(${PHOEBE_ATELIER_FRAME_GEM})`);
   body.style.setProperty("--phoebe-frame-gem-v-art", `url(${PHOEBE_ATELIER_FRAME_GEM_V})`);
@@ -1701,7 +1677,6 @@ function apply(ctx) {
   ensureChatAreaStage(characterStage);
   ensureChatAreaChrome(topTrim, bottomTrim);
   ensureComposerBrand(ownedNodes);
-  ensureComposerCrest(ownedNodes);
   ensureResizeObserved();
   const initialSidebar = document.querySelector(SIDEBAR_COLUMN_SELECTOR);
   if (initialSidebar) applySidebarWidth(initialSidebar.getBoundingClientRect().width);
@@ -1716,7 +1691,6 @@ function apply(ctx) {
     ensureChatAreaStage(characterStage);
     ensureChatAreaChrome(topTrim, bottomTrim);
     ensureComposerBrand(ownedNodes);
-    ensureComposerCrest(ownedNodes);
     ensureResizeObserved();
     const sidebar = document.querySelector(SIDEBAR_COLUMN_SELECTOR);
     if (sidebar === null) clearSidebarWidth();
@@ -1796,15 +1770,12 @@ function apply(ctx) {
       ensureChatAreaStage(characterStage);
       ensureChatAreaChrome(topTrim, bottomTrim);
       ensureComposerBrand(ownedNodes);
-      ensureComposerCrest(ownedNodes);
       ensureComposerBrand(ownedNodes);
-      ensureComposerCrest(ownedNodes);
       ensureResizeObserved();
     }
     if (backdropChanged) syncBackdrop();
     if (composerChanged) {
       syncComposerMotion();
-      ensureComposerCrest(ownedNodes);
     }
     if (settingsStateChanged || projectedStateChanged) syncSettingsBackdropFrame();
   });
