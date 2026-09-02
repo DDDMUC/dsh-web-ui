@@ -2285,7 +2285,7 @@ html[data-dsh-skin='phoebe-atelier'] body [data-composer-card] textarea {
   caret-color: #405a99;
 }
 
-/* The navy caret disappears against the dark composer card (≈2:1 contrast);
+/* The navy caret disappears against the dark composer card (about 2:1 contrast);
    the light periwinkle keeps the caret legible on the night palette. */
 html[data-dsh-skin='phoebe-atelier'] body[data-ds-dark-theme] [data-composer-card] textarea {
   caret-color: #bcd2ff;
@@ -2642,7 +2642,7 @@ html[data-dsh-skin='phoebe-atelier'] body
   align-self: flex-start;
   width: fit-content;
   /* DSH 0.1.1 sizes wide markdown tables (the renderer's `md-table-wide`
-     hook, ≥4 columns) against the official message column and breaks them
+     hook, 4+ columns) against the official message column and breaks them
      out to the transcript edges. The former fixed 680px cap left that
      breakout computed from a column 68px narrower than the official one, so
      wide tables stopped short of the transcript edges and their hover
@@ -2720,7 +2720,12 @@ html[data-dsh-skin='phoebe-atelier'] body
 
 html[data-dsh-skin='phoebe-atelier'] body
   [data-chat-flow-kind='assistant-step'] [data-phoebe-table-frame] > [data-phoebe-table-expand]::before {
-  content: '⤢';
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
 }
 
 html[data-dsh-skin='phoebe-atelier'] body
@@ -4130,7 +4135,7 @@ html[data-dsh-skin='phoebe-atelier'] body
   [data-phase='active']
   [data-composer-seat][data-phoebe-composer-capsule]
   [data-composer-card]::after {
-  content: '✎ 给智能体发消息';
+  content: '给智能体发消息';
   display: flex;
   align-items: center;
   justify-content: center;

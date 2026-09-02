@@ -22,7 +22,7 @@
   "licenseUrl": "https://github.com/Theater-ahyeon/phoebe-atelier/blob/main/phoebe-atelier/LICENSE",
   "noticeUrl": "https://github.com/Theater-ahyeon/phoebe-atelier/blob/main/phoebe-atelier/NOTICE",
   "sourceUrl": "https://github.com/Theater-ahyeon/phoebe-atelier",
-  "attribution": "Kuro Games《鸣潮》菲比 → Theater-ahyeon (AI 辅助再创作)；工程骨架改编自 Small-tailqwq 的 maid-atelier",
+  "attribution": "Kuro Games《鸣潮》菲比 -> Theater-ahyeon (AI 辅助再创作)；工程骨架改编自 Small-tailqwq 的 maid-atelier",
   "preview": {
     "light": "preview/light.jpg",
     "dark": "preview/dark.jpg"

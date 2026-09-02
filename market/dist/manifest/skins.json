@@ -749,6 +749,7 @@
         "dark": "assets/skins/phoebe-atelier/preview/dark.jpg"
       },
       "files": [
+        "NOTICE",
         "assets/bottom-crest.webp",
         "assets/bottom-trim-tile.webp",
         "assets/bow.webp",

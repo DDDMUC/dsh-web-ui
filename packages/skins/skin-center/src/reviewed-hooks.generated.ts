@@ -71,7 +71,7 @@ export const REVIEWED_SKIN_HOOKS: Readonly<Record<string, ReviewedSkinHooksIdent
   },
   "phoebe-atelier": {
     entry: "hooks.mjs",
-    manifestSha256: "830b56be57f61c5176a858daa98b7ee06ff7da1139c94ad7ae4997cbfd31fc6f",
+    manifestSha256: "696a93246cdc8e2b47c65952a635923a8f4d2941db1647609d3c6cacd40a3088",
     hooksSha256: "a4ccbb92a6322845de8f16d70e6ffdcda3f226f2e9643ed6f6559b72a5fe7e27",
   },
   "starry-nocturne": {
