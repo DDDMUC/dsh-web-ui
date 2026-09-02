@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-09-02-named-tunnel-mode.md: fcb2941983e9377569ae16add553482dc6b286cf
+2026-09-02-named-tunnel-mode.zh.md: 49af31591dd1bf4a898f5a358932e81e55fda1a0

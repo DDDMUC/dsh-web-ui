@@ -34,6 +34,7 @@ The paired remote desktop also runs in **host mode**: on this harness line the "
 - A DSH installation whose `dsh` CLI supports profiles (`dsh --profile`, `dsh plugin`) — the profile/bundle mechanism this package rides on.
 - For LAN use, either flip the **局域网访问** toggle in the settings card (writes the bind block; effective from the next `dsh web` start) or start with `dsh web --host 0.0.0.0`. With the default `127.0.0.1` bind the panel shows an explicit explanation instead of a dead QR code — unless a public base URL is configured (see "Remote access over the internet" below), which makes the QR reachable from anywhere without rebinding. The panel's mint/stop endpoints are loopback-only by design: a desktop browser opened at the LAN URL sees a "配对面板仅限本机使用" banner.
 - For the one-click public tunnel (`autoTunnel`), the `cloudflared` platform binary ships with the package (its postinstall downloads it; a runtime download covers installers that skip postinstall scripts). No user-side tooling, account, or domain is needed.
+- The same binary also powers the fixed-hostname named-tunnel mode (`tunnelToken`): the public hostname never changes, so a paired phone keeps its bookmark and its pairing cookie across restarts and never re-pairs.
 
 ## Install
 
@@ -61,13 +62,23 @@ Restart the profile (`dsh web`), then open the phone icon in the sidebar foot. T
 3. Scan with the phone (or open the copied link): the device pairs and boots the **official Web GUI** served cookieless by the plugin (`/pair-accept` → `/pair-app`), which reloads into `/`. On a phone, the portrait adaptation layer is already active — same layout as the desktop, same live state. Later reopens from history or a bookmark go straight back into the app (https origins; see Security model).
 4. **To pair a PC instead**: copy the same link and open it in a browser on the other computer. After the same round trip the full Web GUI runs there over the gated `/remote` channel; unpaired PCs see the guided blocking page and no data. One active token pairs one device; mint a fresh QR for the next device.
 5. The desktop badge flips to 已连接 in real time; the device roster lists the paired devices with per-device 取消配对, and 停止 revokes everything.
-6. Configure pairing lifetime, device limits, the LAN fence policy (`requirePairingForLan`), the public base URL, and the auto tunnel in the same settings card.
+6. Configure pairing lifetime, device limits, the LAN fence policy (`requirePairingForLan`), the public base URL, the auto tunnel, and the named-tunnel token in the same settings card.
 
 ## Remote access over the internet (tunnels)
 
 ### One-click public tunnel (recommended)
 
-Set **自动公网隧道** (autoTunnel) in the settings card. The plugin runs its own Cloudflare quick tunnel (`cloudflared` ships with the package), feeds the minted public URL into the QR base and the pairing fence dynamically, and keeps the posture probe informed — a phone anywhere can pair at any time. The manual public address below is ignored while this is on.
+Set **自动公网隧道** (autoTunnel) in the settings card. The plugin runs its own Cloudflare quick tunnel (`cloudflared` ships with the package), feeds the minted public URL into the QR base and the pairing fence dynamically, and keeps the posture probe informed — a phone anywhere can pair at any time. The manual public address and the named-tunnel token below are ignored while this is on. The minted hostname is ephemeral: it changes on every `dsh web` restart, so phones must scan a fresh QR after each restart — use the named tunnel below when a fixed identity matters.
+
+### Fixed-hostname named tunnel (pair once across restarts)
+
+The quick tunnel's hostname is minted fresh on every start, which forces a re-pair each time. A Cloudflare named tunnel removes that: its public hostname is permanent, so the phone's bookmark and its pairing cookie keep working across `dsh web` restarts — pair once, never again (until the session idles past `idleExpireMs`).
+
+1. In the Cloudflare dashboard create a Tunnel and map a public hostname — e.g. `dsh.example.com` — to `http://127.0.0.1:3080` (the port `dsh web` listens on).
+2. Copy the tunnel's token and paste it into **固定域名隧道令牌** (tunnelToken) in the settings card.
+3. Set the same hostname as **公网地址** (publicBaseUrl). The token does not carry the hostname, so without this step the tunnel stays off and a warning names the missing piece.
+
+The plugin then runs `cloudflared tunnel run --token` with the same lifecycle management as the quick tunnel: the binary ships with the package, unexpected exits restart with backoff, and the posture probe audits the `/api` fence for the fixed host. The token is stored as a settings secret and read back redacted. The auto quick tunnel takes precedence while it is on.
 
 ### Manual tunnels (bring your own)
 
@@ -145,7 +156,7 @@ The public path is the same round trip through a tunnel (see "Remote access over
 - **Paired device sessions persist by default**: device sessions (not the one-time QR token) are written to `$DSH_HOME/remote-web-ui-devices.json` (0600, temp file + atomic rename). A paired cookie still works after a `dsh web` restart. Refreshing the QR still mints a new token; restarting does not restore the current QR. Sessions idle for `idleExpireMs` (default 30 days; the reopen service worker refreshes the window on every navigation it serves) are deleted and must pair again. Device ids are session credentials. Override `devicesFile` with another absolute path when needed. Changing `cookieName` invalidates existing devices (expected).
 - **The LAN bind block owns the webserver row**: while the toggle has been flipped, the managed block pins the bind; the plugin re-asserts it each boot so explicit `--host`/`--port` flags win by rewriting the block. Hand-editing the block is detected and surfaced in the card (`blockHost` shows the literal).
 - **The desktop gate policy is public**: `/api/pair/status` exposes only the boolean `requirePairingForLan` policy so a remote desktop can choose the correct transport before its settings scope is available. This field is not a credential and does not expose tokens, devices, counts, or tunnel URLs.
-- **Quick-tunnel hostnames change per run**: a `trycloudflare.com` URL is random on every `cloudflared` start, so `publicBaseUrl` (or the auto tunnel) must be refreshed with it. A named tunnel avoids the churn.
+- **Quick-tunnel hostnames change per run**: a `trycloudflare.com` URL is random on every `cloudflared` start, so `publicBaseUrl` (or the auto tunnel) must be refreshed with it. The named-tunnel mode (`tunnelToken`) exists precisely to avoid this churn: its hostname is fixed, the phone's cookie keeps working, and the token itself is stored as a redacted settings secret — never logged, never echoed to the browser half.
 
 ## Known Limitations and Deferred Work
 
