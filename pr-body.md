@@ -1,9 +1,12 @@
 > 提 PR 前请阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 与 [AGENTS.md](../AGENTS.md)；
 > 提交信息用 Conventional Commits（`type(scope): subject`），禁止 emoji。
+> 已合并上游最新 dev（4213d31，v0.3.12 release run），并在合并后重跑全部门禁。
 
 ## 摘要（Summary）
 
 新增皮肤「辉弦圣堂 · 菲比 (phoebe-atelier)」：《鸣潮》菲比主题的高定制皮肤。双立绘与光弦圣堂场景垫在对话区之下，象牙白大理石廊柱侧栏与月白圣金 token 重映射覆盖全部 dsw 语义变量；为加载、思考与工具运行状态预留光弦/光环动效钩子。角色形象为 AI 辅助同人再创作（CC BY-NC-SA 4.0，仅限非商业使用），作者自建分发仓库 [Theater-ahyeon/phoebe-atelier](https://github.com/Theater-ahyeon/phoebe-atelier)。
+
+本 PR 已合并最新 `upstream/dev`（4213d31，v0.3.12 release run），合并后重新生成 hook 注册表与 `market/dist`（目录现为 28 skins / 5 pets / 52 plugins，本皮肤收录在内）。
 
 ## 涉及包（Affected Packages）
 
@@ -39,35 +42,26 @@
 
 - [x] 我已基于最新 `dev` 分支开发，或在提交前已 rebase / 合并最新 `dev`。
 
-fork 时即基于最新 dev（commit 955e42a）。
+已合并 `upstream/dev`（4213d31）并完成冲突解决与产物重建（合并提交 9dfd84d + 再生成提交 eb562ae）。
 
 ## 测试证据与上游同步（Test Evidence & Upstream Sync）
 
 - [x] 我提供了自己本地测试的证据（执行的命令 / 测试结果 / 运行截图）。
 - [x] 我已同步上游最新 `dev` 分支（`git fetch origin && git rebase origin/dev`），并附上同步后重新测试通过的证据（视觉 / 用户可见变更附截图）。
 
-本地执行并通过的门禁（Windows, Node 24, pnpm 11.24.0）：
-
-- `node scripts/dsh-skin validate packages/skins/skin-center/skins/phoebe-atelier` → PASS
-- `node scripts/skin-hooks-registry.mjs` → 生成 reviewed-hooks.generated.ts 并随本 PR 提交
-- `node scripts/skin-center-catalog-check --check` → check OK（23 repo catalog skins）
-- `node scripts/market-build` → wrote 418 files，`market/dist` 已随本 PR 提交
-- `node scripts/capture-previews phoebe-atelier` → preview/{light,dark}.jpg 已重拍并提交
-- `node scripts/verify-docs.mjs` → all documentation gates passed
-
-亮色试穿（本 PR 提交的 preview/light.jpg）与暗色试穿（preview/dark.jpg）见下方截图区。
+上游合并后重跑的全部命令与结果见下方「本地验证（Local Validation）」节。
 
 ## 视觉修复要求（Visual Fix Requirements）
 
-- [x] 未使用 AI 编码时此项视为满足；本 PR 为新皮肤收录（非视觉修复），亮 / 暗试穿截图已附。
+本 PR 为新皮肤收录（非视觉修复类）；亮 / 暗试穿截图已附于「用户可见变更证据」。
 
 ## AI 编码披露（AI Coding Disclosure）
 
 - [x] 完全 AI 编码：全部编程改动由 AI 产出，并由贡献者接受 / 审查。
 
-使用的 AI 模型：GLM（ZCode CLI，多模态）
+使用的 AI 模型：GLM（多模态）
 
-使用的编码 Agent 工具：ZCode
+使用的编码 Agent 工具：ZCode CLI
 
 ## 仓库规范检查（Repo Rules）
 
@@ -75,7 +69,7 @@ fork 时即基于最新 dev（commit 955e42a）。
 - [x] 未新增指向 DSH 源码 checkout 的 tsconfig `extends` / `paths` / `references`。
 - [x] 新增目录位于 `packages/skins/skin-center/skins/phoebe-atelier/`（皮肤中心契约目录，非新建包）。
 - [x] 所有新增 / 修改文件不含任何 emoji 字符。
-- [x] 根 README「来源与版权」表已追加本皮肤条目（README.md 与 README.en.md 同步）。
+- [x] 根 README「来源与版权」皮肤小节已追加条目（README.md 与 README.en.md 同步随本 PR 提交）。
 
 ## 贡献者版权声明（Contributor Copyright）
 
@@ -85,28 +79,51 @@ fork 时即基于最新 dev（commit 955e42a）。
 
 - [x] 纯资产目录契约：`packages/skins/skin-center/skins/phoebe-atelier/` 只含 skin.json + skin.css + hooks.mjs + assets/ + preview/ + LICENSE/NOTICE，无 package.json 与构建文件；`node scripts/dsh-skin validate` 通过；纯呈现层约束满足（不注入服务、不发事件、不触及模型请求，effect 销毁器完整还原）。
 - [x] `skin.json` 符合 v2 清单（skinManifestVersion / id / name / nameEn / version / author / contributes / facets.client，另含 tagline / description / tags / accent / preview / order / license / licenseUrl / noticeUrl / sourceUrl / attribution）。
-- [x] `pnpm skin-center:check` 通过（新皮肤出现在目录；23 repo catalog skins）；已重跑 `pnpm market:build` 并提交市场产物（`market/dist`）。
+- [x] `pnpm skin-center:check` 通过（合并上游后重跑：28 repo catalog skins，本皮肤在目录中）；已重跑 `pnpm market:build` 并提交市场产物（`market/dist`，`dist up to date (454 files)`）。
 - [x] 已用 `node scripts/capture-previews` 重拍并提交 `preview/{light,dark}.jpg`。
 - [x] 根 README「来源与版权」条目、包内 LICENSE 与 NOTICE 齐全；PR 描述附市场试穿截图（亮 / 暗）。
-- [x] 非低质皮肤：亮 / 暗双态样式完整（token 全量重映射、背景图、立绘资产、定制 hooks），非简单改色。
+- [x] 非低质皮肤：亮 / 暗双态样式完整（语义 token 全量重映射、双态背景图、双立绘资产、定制 hooks 动效层），非简单改色。
 
-### 试穿截图（亮 / 暗）
+## 社区插件索引登记（Community Plugin Index）
 
-亮色（preview/light.jpg）与暗色（preview/dark.jpg）已随本 PR 提交于
-`packages/skins/skin-center/skins/phoebe-atelier/preview/`（capture-previews
-官方静态渲染器输出；hooks 驱动的立绘层与装饰 DOM 在静态渲染器中不执行）。
+不适用（本 PR 为新皮肤收录，未接入社区插件）。
 
-含双立绘与全部装饰 DOM 的完整效果整页渲染（分发仓库 preview/ 目录，供审查参考）：
+## 本地验证（Local Validation）
 
-- 亮色落地页: https://raw.githubusercontent.com/Theater-ahyeon/phoebe-atelier/main/phoebe-atelier/preview/render-light-hero.png
-- 暗色落地页: https://raw.githubusercontent.com/Theater-ahyeon/phoebe-atelier/main/phoebe-atelier/preview/render-dark-hero.png
+执行的命令：
 
-### 实现说明
+```bash
+# 合并上游后（upstream/dev 4213d31），Windows + Node 24 + pnpm 11.24.0：
+npx pnpm@11.24.0 install --frozen-lockfile --filter @linxin666/dsh-client-ui-skin-center...
+node scripts/skin-hooks-registry.mjs
+node scripts/skin-center-catalog-check --check
+node scripts/dsh-skin validate packages/skins/skin-center/skins/phoebe-atelier
+node scripts/market-build
+node scripts/market-build --check
+node scripts/capture-previews phoebe-atelier
+node scripts/verify-docs.mjs
+```
 
-- hooks.mjs 为 v1 插件 client（src/client/index.ts）的 esbuild 打包：
-  所有 DOM 装饰与状态投影（MutationObserver 检查点、effect 销毁器、
-  属性租约）保持原语义；资产经 `__setPhoebeAssetBase(ctx.assetBase)`
-  以绝对 URL 运行时绑定。
-- skin.css 作用域挂 loader 拥有的 `html[data-dsh-skin="phoebe-atelier"]`；
-  资产 CSS 变量在静态渲染场景带 assets/ 相对路径兜底，运行时由 hooks
-  以绝对 URL 覆盖，避免 border-image 在变量缺失时以 currentColor 画实心板。
+结果摘要：
+
+- `skin-center-catalog-check --check` → `skin-center:check: check OK (28 repo catalog skins; package ships blue-fantasy only)`
+- `dsh-skin validate` → `result: PASS`（仅 [class*=] 版本漂移提醒，与既有皮肤一致）
+- `skin-hooks-registry.mjs` → 注册表重生成（本皮肤 hook 身份已入 `reviewed-hooks.generated.ts`）
+- `market-build` → `wrote 1239 files (28 skins, 5 pets, 52 plugins)`；`--check` → `dist up to date (454 files)`
+- `verify-docs.mjs` → `all documentation gates passed`
+- 全部通过，无失败项。
+
+## 用户可见变更证据（Local Feature Evidence）
+
+证据：
+
+市场静态试穿渲染（capture-previews 官方输出，已随 PR 提交于
+`packages/skins/skin-center/skins/phoebe-atelier/preview/`）：
+
+- 亮色：https://raw.githubusercontent.com/Theater-ahyeon/dsh-web/dev/packages/skins/skin-center/skins/phoebe-atelier/preview/light.jpg
+- 暗色：https://raw.githubusercontent.com/Theater-ahyeon/dsh-web/dev/packages/skins/skin-center/skins/phoebe-atelier/preview/dark.jpg
+
+含 hooks 驱动立绘层与全部装饰 DOM 的完整效果整页渲染（分发仓库，供审查参考）：
+
+- 亮色落地页：https://raw.githubusercontent.com/Theater-ahyeon/phoebe-atelier/main/phoebe-atelier/preview/render-light-hero.png
+- 暗色落地页：https://raw.githubusercontent.com/Theater-ahyeon/phoebe-atelier/main/phoebe-atelier/preview/render-dark-hero.png
