@@ -45,16 +45,37 @@ CHANGES_REQUESTED reviews with no new commits.
   zoomed inspection of the dark-mode halo found no clipping rectangle
   (pixel-step scan showed only organic falloff). hooks.mjs itself is clean:
   DOM-only decoration, no network/storage/eval, cleanup via ctx.onCleanup.
-- **#1321, #1318, #1306, #1144**: read-only confirmation only — no commits
-  since the maintainer reviews; no duplicate review, no remote actions.
+- **#1144 (dsh-deepsea) closed** under the user's standing 7-day rule (PRs
+  with no new commits for over 7 days get closed): last commit 08-25, nine
+  days silent after a CHANGES_REQUESTED that found reproducible upstream
+  test/typecheck failures and missing privacy/authorization gating. Reopen
+  invited once upstream is ready.
+- **#1349 follow-up and merge**: the author pushed 24c3061ea the same evening,
+  fixing all three findings (selector base re-keyed to `:root` with zero
+  `body[data-dsh-phoebe-atelier]` occurrences, lib registry hashes matching
+  the actual files, pr-body.md removed, url() fallbacks back to skin-relative
+  paths). Re-verified in the preview simulator: both themes now render the
+  skin where both previously rendered the stock theme; maid-atelier
+  calibration showed its dark sidebar stays readable in light mode while
+  phoebe's ivory sidebar text goes low-contrast without its hook-painted
+  panels — noted to the author as non-blocking. Server-side `--rebase` merge
+  failed ("This branch can't be rebased") on market/dist generated artifacts
+  (dev had rebuilt the tryon chunk hashes), so the PR merged as a merge
+  commit (48f62252a); post-merge `market:check` on dev passed with no
+  regeneration needed. The first dev CI run failed one dsh-task-board
+  zombie-process test that passes 31/31 locally — a CI timing flake
+  unrelated to the merge; the failed-jobs rerun went green.
+- **#1321, #1318, #1306**: read-only confirmation only — no commits since
+  the maintainer reviews (2-3 days old); no duplicate review, no remote
+  actions.
 
 ## Consequences
 
 - The community store copy for dsh-session-insights and dsh-completion-guard
-  is now the plain-language version on dev.
-- phoebe-atelier's fix belongs to the author (a substantive re-keying of the
-  stylesheet base, not a maintainer-side patch); the registry/lib rebuild and
-  the stray file removal ride along with that update.
+  is now the plain-language version on dev, and phoebe-atelier is merged and
+  live in the skin catalog (dev merge commit 48f62252a).
+- The standing 7-day no-commit closure rule is now applied; #1144 is the
+  first closure under it.
 - Reviewers of hook-carrying skins should test
   `market/dist/preview.html?skin=<id>` before approval: it is the documented
   acceptance gate and the only context that exposes hooks-owned selector
@@ -72,3 +93,11 @@ CHANGES_REQUESTED reviews with no new commits.
 - **Silently merging #1349 and letting hooks carry the skin**: rejected; the
   try-on page is the store's user-facing front door, and the provenance
   mismatch would disable the hooks regardless.
+- **Rebase-merge #1349 (the repo's usual PR shape)**: the server-side rebase
+  conflicted inside market/dist generated artifacts; resolving it locally
+  would have meant a full market-build toolchain inside a scratch worktree.
+  A merge commit plus the passing `market:check` achieves the same verified
+  tree with none of that.
+- **Treat the task-board CI failure as a merge regression**: rejected after
+  the local rerun passed 31/31; the spec spawns real processes and its
+  zombie-detection timing is environment-sensitive.
