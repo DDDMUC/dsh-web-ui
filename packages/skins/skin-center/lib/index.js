@@ -769,8 +769,8 @@ const REVIEWED_SKIN_HOOKS = {
 	},
 	"phoebe-atelier": {
 		entry: "hooks.mjs",
-		manifestSha256: "830b56be57f61c5176a858daa98b7ee06ff7da1139c94ad7ae4997cbfd31fc6f",
-		hooksSha256: "89df9a23cd68748d61db1e333dbd85b88d4109e0d9a7029db66d10c764b20d18"
+		manifestSha256: "76cfe0d34f644fcaff6c03dbf84fd82ececf18ef56f3c791a9ab0b5b17a30615",
+		hooksSha256: "f39b57db0de26c1b0972cd7160d6197c281c4d66ba6abb6fe193a666da0d5f22"
 	},
 	"starry-nocturne": {
 		entry: "hooks.mjs",
