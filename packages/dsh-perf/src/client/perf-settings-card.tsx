@@ -8,6 +8,7 @@ import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { PluginSettingsCard, ValueField, BooleanField, SelectField } from './plugin-settings-card.tsx'
 import { CardForm, booleanField, choiceField, numberField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
+import css from './settings-card.module.css'
 
 /** The dsh-perf settings namespace shape (mirrors the host Config schema). */
 export interface PerfSettings {
@@ -130,7 +131,7 @@ export function PerfSettingsCard(props: PerfSettingsCardProps) {
           invalid={state.mode.invalid}
           onEdit={(text) => { props.edit('mode', text) }}
         />
-        <p style={{ margin: '6px 0 0', opacity: 0.66, fontSize: '0.92em' }}>{t('settings.modeHint')}</p>
+        <p className={css.hint}>{t('settings.modeHint')}</p>
       </div>
       <BooleanField
         id="settings-perf-render-degrade"
@@ -157,7 +158,7 @@ export function PerfSettingsCard(props: PerfSettingsCardProps) {
           invalid={state.alertPreset.invalid}
           onEdit={(text) => { props.edit('alertPreset', text) }}
         />
-        <p style={{ margin: '6px 0 0', opacity: 0.66, fontSize: '0.92em' }}>{t('settings.alertPresetHint')}</p>
+        <p className={css.hint}>{t('settings.alertPresetHint')}</p>
       </div>
       <BooleanField
         id="settings-perf-hud-enabled"
