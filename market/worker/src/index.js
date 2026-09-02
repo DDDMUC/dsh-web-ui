@@ -10,6 +10,7 @@ import { handleTelemetryPost, handleTelemetrySummary, handleTelemetryUsersBadge,
 import { readJsonCapped } from './body.js'
 import { isKnownAsset } from './asset-allowlist.js'
 import { handleNpmBadge, handleNpmDownloads } from './npm-badge.js'
+import { handleRelay, handleRelayRegister, handleRelayUnregister, pruneRelay } from './relay.js'
 import API_CATALOG from './api-catalog.js'
 import OPENAPI_SPEC from './openapi.js'
 import API_DOCS_HTML from './api-doc.js'
@@ -274,11 +275,22 @@ export default {
     try {
       await pruneOldEvents(env)
     } catch { /* best-effort; pruning retries on the next tick */ }
+    try {
+      await pruneRelay(env)
+    } catch { /* best-effort; the relay GC retries on the next tick */ }
   },
 
   async fetch(request, env) {
+    // Relay traffic rides wildcard subdomains (<id>.t.dsh-market.com) and
+    // must dispatch before any dsh-market.com-path logic.
+    const relayed = await handleRelay(request, env)
+    if (relayed) return relayed
+
     const url = new URL(request.url)
     const path = url.pathname
+
+    if (path === '/api/relay/register' && request.method === 'PUT') return handleRelayRegister(request, env)
+    if (path === '/api/relay/unregister' && request.method === 'POST') return handleRelayUnregister(request, env)
 
     if (request.method === 'OPTIONS' && (path === '/api/like' || path === '/api/install' || path === '/api/stats' || path === '/api/telemetry/event')) return preflight(request)
     if (path === '/api/health') return json({ ok: true })

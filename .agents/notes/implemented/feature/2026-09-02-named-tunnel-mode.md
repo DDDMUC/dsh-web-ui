@@ -25,7 +25,7 @@ Mobile remote access rode the plugin's auto quick tunnel, and Cloudflare mints a
 - Paired-device sessions now realize their intended "no re-pairing after restart" behavior whenever the deployment uses a fixed hostname (named tunnel, or a LAN bind with a stable address).
 - The tunnel target is a union (`quick`/`named`) end to end: `TunnelManager.start` accepts both, the factory seam grew its parameter type (existing injectors keep working), and the settings sync drives everything through one planner.
 - A wrong token or unreachable Cloudflare edge surfaces as the standard tunnel failure state (phase `failed` + backoff), not a boot error; a token without a public base keeps the tunnel off by design.
-- The quick tunnel remains the zero-account default; nothing changes for deployments that never set `tunnelToken`.
+- The quick tunnel remains the zero-account default; nothing changes for deployments that never set `tunnelToken`. The zero-config restart-stability story itself moved to the stable-hostname relay (2026-09-02-stable-hostname-relay.md), which pins a fixed dsh-market subdomain in front of the quick tunnel with no user setup; this mode remains the own-domain alternative.
 
 ## Testing
 

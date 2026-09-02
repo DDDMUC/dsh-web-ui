@@ -25,7 +25,7 @@ Status: implemented
 - 只要部署使用固定主机名（命名隧道，或地址稳定的局域网绑定），配对设备会话就真正实现了设计初衷"重启后免重新配对"。
 - 隧道目标端到端改为联合类型（`quick`/`named`）：`TunnelManager.start` 两者皆收，factory seam 参数类型扩展（既有注入方不受影响），设置同步经唯一规划器驱动全部行为。
 - 错误 Token 或 Cloudflare 边缘不可达表现为标准隧道失败态（phase `failed` + 退避），不是启动错误；有 Token 但无公网地址时隧道按设计保持关闭。
-- 快速隧道仍是无账号默认；未设置 `tunnelToken` 的部署行为完全不变。
+- 快速隧道仍是无账号默认；未设置 `tunnelToken` 的部署行为完全不变。零配置的跨重启能力本身由固定域名中继（2026-09-02-stable-hostname-relay.zh.md）承接——在快速隧道前钉一个固定的 dsh-market 子域名、用户零配置；本模式保留为自带域名的替代路径。
 
 ## Testing
 

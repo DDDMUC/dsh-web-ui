@@ -12913,7 +12913,7 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
-		//#region ../../../../../Users/zcl/code/dsh-web/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
+		//#region ../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 		function r(e) {
 			var t, f, n = "";
 			if ("string" == typeof e || "number" == typeof e) n += e;
@@ -12928,7 +12928,7 @@ window.__ModuleLoader__.load({
 			return n;
 		}
 		//#endregion
-		//#region ../../../../../Users/zcl/code/dsh-web/node_modules/.pnpm/qrcode.react@4.2.0_react@18.3.1/node_modules/qrcode.react/lib/esm/index.js
+		//#region ../../node_modules/.pnpm/qrcode.react@4.2.0_react@18.3.1/node_modules/qrcode.react/lib/esm/index.js
 		var __defProp = Object.defineProperty;
 		var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 		var __hasOwnProp = Object.prototype.hasOwnProperty;
@@ -14539,6 +14539,16 @@ window.__ModuleLoader__.load({
 						role: "status",
 						children: state.tunnel.state === "failed" ? t("tunnel.failed", { error: state.tunnel.error ?? t("tunnel.unknownError") }) : t("tunnel.starting")
 					}),
+					state.relay?.state === "registering" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: remote_module_css_default.tunnelNote,
+						role: "status",
+						children: t("relay.registering")
+					}),
+					state.relay?.state === "failed" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: remote_module_css_default.tunnelFailed,
+						role: "status",
+						children: t("relay.failed", { error: state.relay.error ?? t("tunnel.unknownError") })
+					}),
 					(state.publicBaseUrl !== void 0 || state.lanAddresses.length > 1) && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("fieldset", {
 						className: remote_module_css_default.addresses,
 						children: [
@@ -15160,6 +15170,7 @@ window.__ModuleLoader__.load({
 				onlineCount: frame.onlineCount,
 				devices: frame.devices ?? [],
 				...frame.tunnel !== void 0 ? { tunnel: frame.tunnel } : {},
+				...frame.relay !== void 0 ? { relay: frame.relay } : {},
 				...frame.posture !== void 0 ? { posture: frame.posture } : {}
 			};
 		}
@@ -16179,6 +16190,7 @@ window.__ModuleLoader__.load({
 					textField$2("publicBaseUrl"),
 					booleanField$4("autoTunnel"),
 					secretField$1("tunnelToken"),
+					booleanField$4("relay"),
 					booleanField$4("lanBind")
 				]);
 				this.store = this.form.bind(() => this.projection());
@@ -16196,6 +16208,7 @@ window.__ModuleLoader__.load({
 					publicBaseUrl: this.form.field("publicBaseUrl"),
 					autoTunnel: this.form.field("autoTunnel"),
 					tunnelToken: this.form.field("tunnelToken"),
+					relay: this.form.field("relay"),
 					lanBind: this.form.field("lanBind")
 				};
 			}
@@ -16386,6 +16399,22 @@ window.__ModuleLoader__.load({
 							props.resetField("tunnelToken");
 						}
 					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$4, {
+						id: "settings-remote-relay",
+						label: t("settings.relay"),
+						hint: t("settings.relayHint"),
+						inheritLabel: t("settings.inherit"),
+						onLabel: t("settings.on"),
+						offLabel: t("settings.off"),
+						...fieldProps,
+						...state.relay,
+						onEdit: (text) => {
+							props.edit("relay", text);
+						},
+						onReset: () => {
+							props.resetField("relay");
+						}
+					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(LanBindStatus, { t }),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$4, {
 						id: "settings-remote-lan-bind",
@@ -16522,6 +16551,8 @@ window.__ModuleLoader__.load({
 			"tunnel.starting": "公网隧道启动中，二维码将自动变为公网链接…",
 			"tunnel.failed": "公网隧道启动失败：{error}",
 			"tunnel.unknownError": "未知错误",
+			"relay.registering": "正在把临时隧道同步到固定域名（<id>.t.dsh-market.com）…",
+			"relay.failed": "固定域名同步失败：{error}。正在自动重试，期间二维码可能使用临时地址。",
 			"close.label": "关闭远程访问面板",
 			"settings.title": "远程访问设置",
 			"settings.description": "配对安全与设备限额。",
@@ -16545,6 +16576,8 @@ window.__ModuleLoader__.load({
 			"settings.autoTunnelHint": "开启后插件自动启动 Cloudflare quick tunnel（无需安装任何工具），并自动更新公网地址与信任配置，手机随时可用公网配对；注意临时域名每次重启都会变化，手机需重新扫码。开启时忽略下方固定隧道令牌与上方手动公网地址。",
 			"settings.tunnelToken": "固定域名隧道令牌（Cloudflare Tunnel）",
 			"settings.tunnelTokenHint": "填入 Cloudflare 命名隧道的 Token（即 cloudflared tunnel run --token 的值），插件会自动运行该隧道：公共主机名固定不变，手机配对一次后重启也无需重新配对。需先在 Cloudflare 控制台把公共主机名映射到 http://127.0.0.1:<端口>，并在上方\"公网地址\"填写同一域名。优先级低于\"自动公网隧道\"。",
+			"settings.relay": "固定域名中继（推荐开启）",
+			"settings.relayHint": "开启后自动隧道会额外注册一个固定不变的公网子域名（<id>.t.dsh-market.com，由 dsh-market 边缘中继到你的临时隧道），手机配对一次后重启无需重新扫码，二维码与书签地址永远不变。流量经由 dsh-market 边缘转发（与临时隧道相同的信任面）；关闭则回退为纯临时地址，每次重启需重新配对。仅对\"自动公网隧道\"生效。",
 			"settings.lanBind": "局域网访问（绑定 0.0.0.0）",
 			"settings.lanBindHint": "开启后插件把绑定默认改写为 0.0.0.0 并写入 profile 补丁（显式 --host 仍优先），同时维护主机防火墙放行（Windows/Linux；macOS 无需管理）；关闭回退 127.0.0.1。绑定变化通常在重启 dsh web 后生效。",
 			"lan.cardTitle": "局域网访问",
@@ -16679,6 +16712,8 @@ window.__ModuleLoader__.load({
 			"tunnel.starting": "The public tunnel is starting; the QR code will switch to a public link shortly…",
 			"tunnel.failed": "The public tunnel failed to start: {error}",
 			"tunnel.unknownError": "unknown error",
+			"relay.registering": "Syncing the ephemeral tunnel to the stable hostname (<id>.t.dsh-market.com)…",
+			"relay.failed": "Stable-hostname sync failed: {error}. Retrying automatically; the QR may use the ephemeral address meanwhile.",
 			"close.label": "Close remote access panel",
 			"settings.title": "Remote access settings",
 			"settings.description": "Pairing security and device limits.",
@@ -16702,6 +16737,8 @@ window.__ModuleLoader__.load({
 			"settings.autoTunnelHint": "When on, the plugin runs its own Cloudflare quick tunnel (no tool installation needed) and keeps the public address and trust config in sync automatically, so a phone anywhere can pair at any time; note the ephemeral hostname changes on every restart, so phones must scan again. The named-tunnel token below and the manual public address above are ignored while this is on.",
 			"settings.tunnelToken": "Fixed-hostname tunnel token (Cloudflare Tunnel)",
 			"settings.tunnelTokenHint": "Paste a Cloudflare named-tunnel token (the value of cloudflared tunnel run --token) and the plugin runs the tunnel itself: the public hostname stays fixed, so a phone pairs once and never again across restarts. First map the public hostname to http://127.0.0.1:<port> in the Cloudflare dashboard and enter the same hostname as the public address above. Lower precedence than the auto quick tunnel.",
+			"settings.relay": "Stable-hostname relay (recommended)",
+			"settings.relayHint": "When on, the auto tunnel additionally registers a never-changing public subdomain (<id>.t.dsh-market.com, relayed by the dsh-market edge to your ephemeral tunnel), so a phone pairs once and the QR and bookmark stay valid across restarts. Traffic transits the dsh-market edge (the same trust point as the ephemeral tunnel); turn off to fall back to the raw ephemeral address, which needs re-pairing after every restart. Applies to the auto public tunnel only.",
 			"settings.lanBind": "LAN access (bind 0.0.0.0)",
 			"settings.lanBindHint": "When on, the plugin writes a managed block into the profile patch defaulting the bind to 0.0.0.0 (an explicit --host flag still wins), and maintains the matching host firewall rule (Windows/Linux; other platforms need none). When off, the block pins 127.0.0.1. The bind change usually takes effect after dsh web restarts.",
 			"lan.cardTitle": "LAN access",
@@ -23738,7 +23775,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region ../../../../../Users/zcl/code/dsh-web/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js
+		//#region ../../node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js
 		var require_xterm = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			(function(e, t) {
 				if ("object" == typeof exports && "object" == typeof module) module.exports = t();
@@ -36736,7 +36773,7 @@ window.__ModuleLoader__.load({
 			})()));
 		}));
 		//#endregion
-		//#region ../../../../../Users/zcl/code/dsh-web/node_modules/.pnpm/@xterm+addon-fit@0.11.0/node_modules/@xterm/addon-fit/lib/addon-fit.js
+		//#region ../../node_modules/.pnpm/@xterm+addon-fit@0.11.0/node_modules/@xterm/addon-fit/lib/addon-fit.js
 		var require_addon_fit = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			(function(e, t) {
 				"object" == typeof exports && "object" == typeof module ? module.exports = t() : "function" == typeof define && define.amd ? define([], t) : "object" == typeof exports ? exports.FitAddon = t() : e.FitAddon = t();

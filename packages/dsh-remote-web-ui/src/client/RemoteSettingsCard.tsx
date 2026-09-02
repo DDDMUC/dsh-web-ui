@@ -40,6 +40,12 @@ export interface RemoteSettings {
    */
   tunnelToken?: string
   /**
+   * Stable-origin relay: when on (default), the quick tunnel is fronted by a
+   * fixed `<id>.t.dsh-market.com` subdomain so the phone's bookmark and
+   * pairing cookie survive restarts without any setup.
+   */
+  relay?: boolean
+  /**
    * LAN bind toggle: once flipped, the plugin manages the profile patch's
    * webserver block (0.0.0.0 / 127.0.0.1) and the host firewall rule.
    */
@@ -68,6 +74,8 @@ export interface RemoteSettingsCardState extends CardShell {
   autoTunnel: CardFieldState
   /** Named-tunnel token (stored redacted by the Host). */
   tunnelToken: CardFieldState
+  /** Stable-origin relay switch. */
+  relay: CardFieldState
   /** LAN bind toggle. */
   lanBind: CardFieldState
 }
@@ -98,6 +106,7 @@ export class RemoteSettingsCardController {
       textField('publicBaseUrl'),
       booleanField('autoTunnel'),
       secretField('tunnelToken'),
+      booleanField('relay'),
       booleanField('lanBind'),
     ])
     this.store = this.form.bind(() => this.projection())
@@ -116,6 +125,7 @@ export class RemoteSettingsCardController {
       publicBaseUrl: this.form.field('publicBaseUrl'),
       autoTunnel: this.form.field('autoTunnel'),
       tunnelToken: this.form.field('tunnelToken'),
+      relay: this.form.field('relay'),
       lanBind: this.form.field('lanBind'),
     }
   }
@@ -272,6 +282,18 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
         {...state.tunnelToken}
         onEdit={(text) => { props.edit('tunnelToken', text) }}
         onReset={() => { props.resetField('tunnelToken') }}
+      />
+      <BooleanField
+        id="settings-remote-relay"
+        label={t('settings.relay')}
+        hint={t('settings.relayHint')}
+        inheritLabel={t('settings.inherit')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.relay}
+        onEdit={(text) => { props.edit('relay', text) }}
+        onReset={() => { props.resetField('relay') }}
       />
       <LanBindStatus t={t} />
       <BooleanField
