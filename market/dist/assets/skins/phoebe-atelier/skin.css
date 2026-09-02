@@ -179,11 +179,29 @@ body[data-dsh-phoebe-atelier] [data-phoebe-character='vision'] {
   visibility: hidden;
 }
 
+/* Night integration: dim the maids toward the scene, then wrap them in a
+   wide navy air halo so the cutout edge never reads as a pasted sticker. */
 body[data-dsh-phoebe-atelier][data-ds-dark-theme] [data-phoebe-character] {
   filter:
-    brightness(0.84)
-    saturate(0.92)
-    drop-shadow(0 22px 28px rgba(0, 0, 0, 0.3));
+    brightness(0.74)
+    saturate(0.8)
+    drop-shadow(0 16px 30px rgba(2, 6, 24, 0.6))
+    drop-shadow(0 0 24px rgba(16, 30, 70, 0.42));
+}
+
+body[data-dsh-phoebe-atelier][data-ds-dark-theme]
+  [data-skin-chrome='character-stage']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 10, 30, 0.1) 0%,
+    rgba(6, 10, 30, 0.04) 45%,
+    rgba(8, 14, 40, 0.26) 100%
+  );
 }
 
 /* Chat alone retreats the two figures toward the edges. Inspection views do
