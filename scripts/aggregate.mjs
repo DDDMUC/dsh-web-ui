@@ -520,7 +520,7 @@ function renderPatch(blocks, externalRows, ownPatches, errors, rel, aggregateDir
     if (inactiveIds.length > 0) {
       lines.push('', '# inactive by default: the rows above ship disabled, so the stock persistence',
         '# backend keeps serving sessions until you opt in. Enable with profile-level',
-        "# `disabled: false` overrides (or run scripts/dsh-better-session.mjs enable).")
+        "# `disabled: false` overrides.")
       for (const id of inactiveIds) {
         lines.push(`- id: ${id}`, '  disabled: true')
       }
