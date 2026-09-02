@@ -767,7 +767,17 @@ function applyImpl(ctx: Context, config?: Config): void {
       for (const ignored of plan.ignored) {
         console.warn(`remote-web-ui: autoTunnel is on — ignoring the configured ${ignored}`)
       }
-      tunnel.start(plan.targetUrl)
+      // With the relay on, the connector stamps the stable origin as the
+      // origin-side Host (`--http-host-header`): the plugin fence and the
+      // harness browser-auth are Host-bound to the relay origin, and the
+      // Workers relay cannot control the origin-side Host (fetch forces it
+      // to the URL authority). The target identity change is also what
+      // restarts a running tunnel on a relay toggle.
+      const registrar = ensureRelayRegistrar()
+      const originHostHeader = registrar === undefined ? undefined : new URL(registrar.baseUrl).host
+      tunnel.start(originHostHeader === undefined
+        ? plan.targetUrl
+        : { kind: 'quick', targetUrl: plan.targetUrl, originHostHeader })
     } else if (plan.mode === 'named') {
       tunnel.start({ kind: 'named', token: plan.token, publicUrl: plan.publicUrl })
     } else {

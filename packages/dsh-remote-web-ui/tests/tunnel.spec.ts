@@ -5,7 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
-import { TunnelManager, namedTunnelHandle, type TunnelHandle, type TunnelPhase, type TunnelTarget } from '../src/tunnel.ts'
+import { quickTunnelFlags, TunnelManager, namedTunnelHandle, type TunnelHandle, type TunnelPhase, type TunnelTarget } from '../src/tunnel.ts'
 
 /** A fake tunnel process: an EventEmitter the test drives by hand. */
 class FakeTunnel extends EventEmitter implements TunnelHandle {
@@ -266,6 +266,21 @@ describe('TunnelManager named mode', () => {
     expect(h.targets).toEqual([{ kind: 'quick', targetUrl: 'http://127.0.0.1:3080' }])
   })
 
+  it('restarts when the quick target gains or drops the origin Host header', async () => {
+    const h = makeHarness()
+    h.manager.start('http://127.0.0.1:3080')
+    const first = await nextTunnel(h)
+    h.manager.start({ kind: 'quick', targetUrl: 'http://127.0.0.1:3080', originHostHeader: '69f563d2939cc1f9.dsh-market.com' })
+    const second = await nextTunnel(h)
+    expect(h.tunnels).toHaveLength(2)
+    expect(first.stop).toHaveBeenCalled()
+    second.emitUrl('https://e.trycloudflare.com')
+    expect(h.manager.info).toEqual({ phase: 'running', url: 'https://e.trycloudflare.com' })
+    h.manager.start('http://127.0.0.1:3080')
+    await nextTunnel(h)
+    expect(h.tunnels).toHaveLength(3)
+  })
+
   it('is idempotent while running the same named target', async () => {
     const h = makeHarness()
     h.manager.start(NAMED)
@@ -326,5 +341,16 @@ describe('namedTunnelHandle', () => {
     expect(inner.stop).toHaveBeenCalled()
     expect(exits).toEqual([])
     expect(urls).toEqual([])
+  })
+})
+
+describe('quickTunnelFlags', () => {
+  it('shares the lifecycle flags and stamps the origin Host header only when set', () => {
+    expect(quickTunnelFlags()).toEqual({ '--no-autoupdate': true, '--protocol': 'http2' })
+    expect(quickTunnelFlags('69f563d2939cc1f9.dsh-market.com')).toEqual({
+      '--no-autoupdate': true,
+      '--protocol': 'http2',
+      '--http-host-header': '69f563d2939cc1f9.dsh-market.com',
+    })
   })
 })

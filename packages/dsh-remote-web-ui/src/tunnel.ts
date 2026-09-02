@@ -30,7 +30,7 @@ export type TunnelPhase = 'stopped' | 'starting' | 'running' | 'failed'
  * pairing cookie across restarts.
  */
 export type TunnelTarget =
-  | { kind: 'quick'; targetUrl: string }
+  | { kind: 'quick'; targetUrl: string; originHostHeader?: string }
   | { kind: 'named'; token: string; publicUrl: string }
 
 /** Compare two targets for the start idempotence check. */
@@ -130,6 +130,20 @@ async function defaultEnsureBinary(): Promise<void> {
 /** The flags every tunnel mode shares (see the quick factory comment). */
 const SHARED_TUNNEL_FLAGS = { '--no-autoupdate': true, '--protocol': 'http2' } as const
 
+/**
+ * Spawn flags for one quick target. `originHostHeader` stamps the Host the
+ * local webserver sees: the plugin's phone-facing fence trusts the configured
+ * public host (the stable relay origin, Host-bound) and the harness
+ * browser-auth binds cookies to the Host authority, while the Workers relay
+ * cannot control the origin-side Host at all (fetch forces it to the URL
+ * authority) — so the connector must restamp it with the stable origin.
+ */
+export function quickTunnelFlags(originHostHeader?: string): Record<string, string | boolean> {
+  return originHostHeader === undefined
+    ? { ...SHARED_TUNNEL_FLAGS }
+    : { ...SHARED_TUNNEL_FLAGS, '--http-host-header': originHostHeader }
+}
+
 /** Default factory: the cloudflared package's quick and named tunnels. */
 function defaultFactory(target: TunnelTarget): TunnelHandle {
   // `--no-autoupdate`: the binary must never upgrade itself out from under
@@ -141,7 +155,7 @@ function defaultFactory(target: TunnelTarget): TunnelHandle {
   // rides TCP through the same paths reliably (verified live: auto stuck at
   // ready 0 on two fresh registrations; http2 ready immediately).
   if (target.kind === 'quick') {
-    return Tunnel.quick(target.targetUrl, { ...SHARED_TUNNEL_FLAGS })
+    return Tunnel.quick(target.targetUrl, quickTunnelFlags(target.originHostHeader))
   }
   return namedTunnelHandle(Tunnel.withToken(target.token, { ...SHARED_TUNNEL_FLAGS }), target.publicUrl)
 }
