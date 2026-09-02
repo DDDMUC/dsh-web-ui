@@ -10,7 +10,7 @@ Status: implemented
 
 该集成从聚合包移除。`packages/dsh-web-all/aggregate.yml` 删除外部行及其 `"inactive": true` 标记；`node scripts/aggregate.mjs` 重新生成 `cordis.patch.yml`，不再产出 `web-ui-session-branch` / `web-ui-session-rdb` / `web-ui-conversation-message-actions` 行及其 `disabled: true` 覆盖；`@morlay/better-session` devDependency、四条 release-age 豁免、patchedDependency 条目加补丁文件、以及 `scripts/dsh-better-session.mjs` 及其测试一并删除。生成器的 inactive-external 机制与说明注释保留（通用逻辑），注释不再引用被删脚本。聚合测试的展开断言改为反向守卫：`cordis.patch.yml` 不得再出现任何 `@morlay/` 引用。
 
-dsh-perf 的 Better Session 卡片与其原生 `src/bsm` 迁移核心不动：它们是仓库自己的重新实现（只有出处引用，无 `@morlay/*` import），继续承担旧会话迁移面。卡片里针对已删聚合行写托管覆盖的启用开关现在成为空操作；裁剪它是后续独立工作，不属于本次移除。
+dsh-perf 的 Better Session 卡片与其原生 `src/bsm` 迁移核心在本次移除中不动：它们是仓库自己的重新实现（只有出处引用，无 `@morlay/*` import）。卡片里针对已删聚合行写托管覆盖的启用开关随之失效；裁剪它的后续工作于同日落地，见 [remove-dsh-perf-better-session-card](2026-09-02-remove-dsh-perf-better-session-card.md)。
 
 ## 已考虑的替代方案
 
@@ -19,7 +19,7 @@ dsh-perf 的 Better Session 卡片与其原生 `src/bsm` 迁移核心不动：�
 
 ## 后果
 
-会话存储运行在官方 jsonl 后端上，本仓库不再提供回到 RDB 持久层的启用路径；需要 better-session 的环境直接对自身 profile 安装。profile 中指向 `web-ui-session-branch` / `web-ui-session-rdb` / `web-ui-conversation-message-actions` 的覆盖行成为空操作。旧 jsonl.zstd 数据继续经 dsh-perf 的 Better Session 卡片迁移。dsh-web-all README 删除启用章节；根 README 的特性条目、npm 插件表格行与第三方许可条目随之移除。
+会话存储运行在官方 jsonl 后端上，本仓库不再提供回到 RDB 持久层的启用路径；需要 better-session 的环境直接对自身 profile 安装。profile 中指向 `web-ui-session-branch` / `web-ui-session-rdb` / `web-ui-conversation-message-actions` 的覆盖行成为空操作。旧 jsonl.zstd 数据原地留在官方后端上——dsh-perf 的 Better Session 卡片于同日随集成一并移除（见上文移除 note）。dsh-web-all README 删除启用章节；根 README 的特性条目、npm 插件表格行与第三方许可条目随之移除。
 
 ## 测试
 

@@ -19,10 +19,7 @@
       "default": "./lib/client.js"
     },
     "./src/*": "./src/*",
-    "./package.json": "./package.json",
-    "./better-session-import": {
-      "default": "./lib/better-session-import.mjs"
-    }
+    "./package.json": "./package.json"
   },
   "dsh": {
     "engines": {
