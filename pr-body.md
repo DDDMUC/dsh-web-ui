@@ -1,12 +1,11 @@
 > 提 PR 前请阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 与 [AGENTS.md](../AGENTS.md)；
 > 提交信息用 Conventional Commits（`type(scope): subject`），禁止 emoji。
-> 已合并上游最新 dev（4213d31，v0.3.12 release run），并在合并后重跑全部门禁。
 
 ## 摘要（Summary）
 
 新增皮肤「辉弦圣堂 · 菲比 (phoebe-atelier)」：《鸣潮》菲比主题的高定制皮肤。双立绘与光弦圣堂场景垫在对话区之下，象牙白大理石廊柱侧栏与月白圣金 token 重映射覆盖全部 dsw 语义变量；为加载、思考与工具运行状态预留光弦/光环动效钩子。角色形象为 AI 辅助同人再创作（CC BY-NC-SA 4.0，仅限非商业使用），作者自建分发仓库 [Theater-ahyeon/phoebe-atelier](https://github.com/Theater-ahyeon/phoebe-atelier)。
 
-本 PR 已合并最新 `upstream/dev`（4213d31，v0.3.12 release run），合并后重新生成 hook 注册表与 `market/dist`（目录现为 28 skins / 5 pets / 52 plugins，本皮肤收录在内）。
+本 PR 已合并最新 `upstream/dev`（5c650db，v0.3.12 release run 之后），合并后重新生成 hook 注册表与 `market/dist`（目录现为 28 skins / 5 pets / 52 plugins，本皮肤收录在内）。
 
 ## 涉及包（Affected Packages）
 
@@ -42,7 +41,7 @@
 
 - [x] 我已基于最新 `dev` 分支开发，或在提交前已 rebase / 合并最新 `dev`。
 
-已合并 `upstream/dev`（4213d31）并完成冲突解决与产物重建（合并提交 9dfd84d + 再生成提交 eb562ae）。
+已合并 `upstream/dev`（5c650db）并完成冲突解决与产物重建（合并提交 9dfd84d + 再生成提交 eb562ae）。
 
 ## 测试证据与上游同步（Test Evidence & Upstream Sync）
 
@@ -93,7 +92,7 @@
 执行的命令：
 
 ```bash
-# 合并上游后（upstream/dev 4213d31），Windows + Node 24 + pnpm 11.24.0：
+# 合并上游后（upstream/dev 5c650db），Windows + Node 24 + pnpm 11.24.0：
 npx pnpm@11.24.0 install --frozen-lockfile --filter @linxin666/dsh-client-ui-skin-center...
 node scripts/skin-hooks-registry.mjs
 node scripts/skin-center-catalog-check --check

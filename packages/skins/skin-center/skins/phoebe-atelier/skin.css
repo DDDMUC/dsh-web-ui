@@ -4344,3 +4344,28 @@ html[data-dsh-skin='phoebe-atelier'] body :is([data-pane='sidebar'], [class*='si
   box-shadow: none;
 }
 
+/* Composer brand: the PhoebeSeek wordmark above the composer card.
+   Halo-gold ring + serif dual-tone wordmark; ink follows the theme. */
+html[data-dsh-skin='phoebe-atelier'] body [data-skin-chrome='composer-brand'] {
+  position: relative;
+  z-index: 2;
+  width: min(212px, 62%);
+  margin: 8px auto -8px;
+  pointer-events: none;
+  color: #2a3450;
+  filter: drop-shadow(0 5px 12px rgba(27, 44, 91, 0.2));
+}
+
+html[data-dsh-skin='phoebe-atelier'] body[data-ds-dark-theme] [data-skin-chrome='composer-brand'] {
+  color: #e8ecf7;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+}
+
+/* Docked chat state: a smaller, quieter mark. */
+html[data-dsh-skin='phoebe-atelier'] body [data-phase='active'] [data-skin-chrome='composer-brand'],
+html[data-dsh-skin='phoebe-atelier'] body [data-phase='settling'] [data-skin-chrome='composer-brand'] {
+  width: 132px;
+  margin: 2px auto -6px;
+  opacity: 0.92;
+}
+
