@@ -21,9 +21,10 @@ test('copies cover the settings trio for all consumers plus host and http helper
   // Normalize separators: node:path join yields backslashes on Windows, and
   // the copy-count buckets below match on forward slashes.
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
-  assert.equal(entries.length, 110)
+  // 8 consumer packages for the card chrome pair, 7 for the form source.
+  assert.equal(entries.length, 112)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
-  assert.equal(clientTrio.length, 39)
+  assert.equal(clientTrio.length, 41)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')

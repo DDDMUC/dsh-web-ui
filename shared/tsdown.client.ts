@@ -15,7 +15,7 @@
 import { readFile } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } from 'node:path'
+import { dirname, isAbsolute, relative, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { UserConfig } from 'tsdown'
 import { transform } from 'lightningcss'
@@ -346,9 +346,15 @@ function clientConfig(id: string, entry: string, extraPlugins: readonly NonNulla
           classMap[local] = exp.name
         }
         // One <style data-plugin> per module file; idempotent under re-evaluation.
+        // The tag id carries the full repo-relative file id, not the basename:
+        // the aggregate build inlines several packages whose module files share
+        // a basename (eight settings-card.module.css copies), and a basename-only
+        // id lets the first tag suppress the others while each package's class
+        // map carries a path-derived hash — leaving every later copy's classes
+        // with no stylesheet at all.
         return [
           `const css = ${JSON.stringify(code.toString())};`,
-          `const tagId = ${JSON.stringify(`${id}/${basename(fileId)}`)};`,
+          `const tagId = ${JSON.stringify(`${id}/${fileId}`)};`,
           'if (typeof document !== \'undefined\' && document.querySelector(\'style[data-plugin-css=\' + JSON.stringify(tagId) + \']\') === null) {',
           '  const tag = document.createElement(\'style\');',
           `  tag.dataset.plugin = ${JSON.stringify(id)};`,

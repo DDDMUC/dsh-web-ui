@@ -28,6 +28,14 @@ export const REPO_ROOT = resolve(SCRIPT_DIR, '..')
  */
 // Consumers of the settings card trio: one list, three derivations below.
 const SETTINGS_CONSUMERS = ['dsh-pet', 'dsh-task-board', 'dsh-remote-web-ui', 'dsh-tool-describe-image', 'dsh-desktop-launcher', 'dsh-doctor', 'dsh-market']
+// dsh-perf still runs the pre-0.1.2 per-field settings-form generation (its
+// save path judges every write per-field instead of the shared atomic mutate
+// + read-back), so the form source must not overwrite it. Its card chrome and
+// stylesheet carry no local delta and sync like every other consumer; leaving
+// them out is what let dsh-perf serve a stale stylesheet while the aggregate
+// inlined the fresh one.
+const SETTINGS_CARD_ONLY_CONSUMERS = ['dsh-perf']
+const SETTINGS_CARD_CONSUMERS = [...SETTINGS_CONSUMERS, ...SETTINGS_CARD_ONLY_CONSUMERS]
 
 const MANIFEST = [
   {
@@ -38,12 +46,16 @@ const MANIFEST = [
   {
     file: 'PluginSettingsCard.tsx',
     source: 'shared/client/settings/PluginSettingsCard.tsx',
-    targets: SETTINGS_CONSUMERS.map(pkg => `packages/${pkg}/src/client/PluginSettingsCard.tsx`),
+    targets: [
+      ...SETTINGS_CONSUMERS.map(pkg => `packages/${pkg}/src/client/PluginSettingsCard.tsx`),
+      // dsh-perf imports the card under its pre-shared lowercase local name.
+      'packages/dsh-perf/src/client/plugin-settings-card.tsx',
+    ],
   },
   {
     file: 'settings-card.module.css',
     source: 'shared/client/settings/settings-card.module.css',
-    targets: SETTINGS_CONSUMERS.map(pkg => `packages/${pkg}/src/client/settings-card.module.css`),
+    targets: SETTINGS_CARD_CONSUMERS.map(pkg => `packages/${pkg}/src/client/settings-card.module.css`),
   },
   {
     file: 'poll-guard.ts',

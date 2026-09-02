@@ -7,7 +7,6 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { PluginSettingsCard, ValueField, BooleanField, SelectField } from './plugin-settings-card.tsx'
-import { BetterSessionCard } from './better-session-card.tsx'
 import { CardForm, booleanField, choiceField, numberField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
 
 /** The dsh-perf settings namespace shape (mirrors the host Config schema). */
@@ -172,10 +171,6 @@ export function PerfSettingsCard(props: PerfSettingsCardProps) {
         onEdit={(text) => { props.edit('hudEnabled', text) }}
         onReset={() => { props.resetField('hudEnabled') }}
       />
-      {/* Better Session 子节: 第三方外部集成(@morlay/better-session)的启用/迁移
-          管理面。better-session 本身是会话性能治理, 所以管理面嵌在本卡内部,
-          不再作为 Web 插件组的平级卡片。 */}
-      <BetterSessionCard t={t} />
     </PluginSettingsCard>
   )
 }
