@@ -17,17 +17,16 @@ files:
   - package.json
   - src/**
 
-# The runtime payload ships unpacked next to the app:
-#   runtime/node-<os>-<arch> -> runtime/node   (per-platform Node distribution)
+# The runtime payload (staged by scripts/build-runtime.mjs under
+# resources/runtime/) ships unpacked next to the app:
+#   runtime/node-<mac|win>-<arch> -> runtime/node   (per-platform Node distribution)
 #   runtime/host             -> runtime/host   (@deepseek-ai/dsh + closure)
 #   runtime/profile-web      -> runtime/profile-web (preinstalled web profile)
-extraResources:
-  - from: resources/runtime/host
-    to: runtime/host
-  - from: resources/runtime/profile-web
-    to: runtime/profile-web
-  - from: resources/runtime/node-${os}-${arch}
-    to: runtime/node
+# It is copied by the afterPack hook (scripts/after-pack.cjs), NOT by
+# extraResources: electron-builder applies the app dir's `!**/node_modules/**`
+# exclusion to extraResources too, silently dropping both payload
+# node_modules trees, and a missing extraResources source only warns.
+afterPack: ./scripts/after-pack.cjs
 
 mac:
   category: public.app-category.developer-tools

@@ -2,6 +2,8 @@
 
 Status: implemented
 
+部分被取代（2026-09-03，见[桌面版独立宿主与保留端口](../bug-fix/2026-09-03-desktop-separate-host-reserved-ports.zh.md)）：3080 移交设计与无约束的空闲端口选取已移除——应用现在始终启动自己的宿主，使用绝不占用 3080/3081 的专用端口段。
+
 ## Problem
 
 dsh-web 以插件包形态分发，前提是一套可用的 dsh 环境：Node 22+、npm 全局安装的 `@deepseek-ai/dsh` 宿主、初始化好的 `~/.dsh`，以及装好插件的 web profile。这是开发者工具链，不能要求非技术用户自行搭建。[desktop-launcher 插件](../bug-fix/2026-08-29-desktop-launcher-browser-launch.zh.md) 只是为「已安装的 `dsh web`」创建桌面快捷方式，并不消除环境要求（该插件其后已彻底移除，见[移除笔记](../simplification/2026-09-03-remove-dsh-desktop-launcher.zh.md)）。目标是做出一个人人可安装、双击即用、完全不用关心环境的桌面版。

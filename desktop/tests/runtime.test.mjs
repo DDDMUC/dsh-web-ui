@@ -1,20 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const {
+  RESERVED_PORTS,
+  DESKTOP_PORT_BASE,
+  DESKTOP_PORT_SPAN,
   resolveRuntimePaths,
   resolveDshHome,
   profileAction,
   applyProfileSeed,
   parseShasums,
   parseTokenUrlLine,
+  findHostPort,
+  isPortFree,
   SEED_MARKER,
 } = require('../src/runtime.cjs');
+
+function listenOn(port) {
+  const server = net.createServer();
+  return new Promise((resolvePromise) => {
+    server.listen(port, '127.0.0.1', () => resolvePromise(server));
+  });
+}
 
 test('resolveRuntimePaths picks the platform node binary', () => {
   const mac = resolveRuntimePaths('/res', 'darwin', 'arm64');
@@ -24,11 +37,11 @@ test('resolveRuntimePaths picks the platform node binary', () => {
   assert.ok(mac.hostBin.endsWith(path.join('@deepseek-ai', 'dsh', 'lib', 'bin.js')));
 });
 
-test('resolveRuntimePaths keeps the per-platform dir unpackaged', () => {
+test('resolveRuntimePaths keeps the per-platform dir unpackaged (electron-builder os spelling)', () => {
   const dev = resolveRuntimePaths('/res', 'darwin', 'arm64', false);
-  assert.equal(dev.nodeBin, path.join('/res', 'runtime', 'node-darwin-arm64', 'bin', 'node'));
+  assert.equal(dev.nodeBin, path.join('/res', 'runtime', 'node-mac-arm64', 'bin', 'node'));
   const devWin = resolveRuntimePaths('/res', 'win32', 'x64', false);
-  assert.equal(devWin.nodeBin, path.join('/res', 'runtime', 'node-win32-x64', 'node.exe'));
+  assert.equal(devWin.nodeBin, path.join('/res', 'runtime', 'node-win-x64', 'node.exe'));
 });
 
 test('resolveDshHome follows the host lookup order', () => {
@@ -87,4 +100,40 @@ test('parseTokenUrlLine extracts the host token URL', () => {
     parseTokenUrlLine('dsh web: http://127.0.0.1:34981/?token=abc-DEF_123'),
     'http://127.0.0.1:34981/?token=abc-DEF_123');
   assert.equal(parseTokenUrlLine('[desktop] boot failed'), undefined);
+});
+
+test('the reserved set is exactly the plain dsh web CLI defaults', () => {
+  assert.deepEqual([...RESERVED_PORTS].sort((a, b) => a - b), [3080, 3081]);
+  assert.equal(DESKTOP_PORT_BASE, 3082);
+  assert.equal(DESKTOP_PORT_SPAN, 100);
+});
+
+test('isPortFree sees an open listener as occupied', async () => {
+  const blocker = await listenOn(0);
+  const port = blocker.address().port;
+  try {
+    assert.equal(await isPortFree(port), false);
+    assert.notEqual(await findHostPort(), port);
+  } finally {
+    await new Promise((resolvePromise) => blocker.close(resolvePromise));
+  }
+});
+
+test('findHostPort serves the dedicated range above the reserved pair', async () => {
+  const port = await findHostPort();
+  assert.ok(port >= DESKTOP_PORT_BASE && port < DESKTOP_PORT_BASE + DESKTOP_PORT_SPAN,
+    `expected a port in the dedicated range, got ${port}`);
+  assert.equal(await isPortFree(port), true, 'the returned port must be immediately bindable');
+});
+
+test('findHostPort skips an occupied dedicated port and never returns a reserved one', async () => {
+  const first = await findHostPort();
+  const blocker = await listenOn(first);
+  try {
+    const second = await findHostPort();
+    assert.notEqual(second, first);
+    assert.equal(RESERVED_PORTS.has(second), false);
+  } finally {
+    await new Promise((resolvePromise) => blocker.close(resolvePromise));
+  }
 });

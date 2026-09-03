@@ -21,12 +21,14 @@ const require = createRequire(import.meta.url);
 const { parseShasums } = require('../src/runtime.cjs');
 
 const DEFAULT_NODE_VERSION = 'v24.20.0';
-// distOs is Node's own archive naming (win, not win32); the staged
-// directory keeps the Electron ${os}-${arch} naming for extraResources.
+// distOs is Node's own archive naming (darwin/win); the staged directory
+// keeps the electron-builder ${os}-${arch} spelling (mac/win) so the
+// extraResources glob `node-${os}-${arch}` resolves. A missing source only
+// WARNS in electron-builder and silently ships an app without the runtime.
 const TARGETS = [
-  { os: 'darwin', cpu: 'arm64', ext: 'tar.gz', distOs: 'darwin' },
-  { os: 'darwin', cpu: 'x64', ext: 'tar.gz', distOs: 'darwin' },
-  { os: 'win32', cpu: 'x64', ext: 'zip', distOs: 'win' },
+  { os: 'mac', cpu: 'arm64', ext: 'tar.gz', distOs: 'darwin' },
+  { os: 'mac', cpu: 'x64', ext: 'tar.gz', distOs: 'darwin' },
+  { os: 'win', cpu: 'x64', ext: 'zip', distOs: 'win' },
 ];
 
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');

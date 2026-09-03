@@ -10,8 +10,16 @@ const http = require('node:http');
 const net = require('node:net');
 const path = require('node:path');
 
-/** Default URL an already-running dsh web instance listens on. */
-const DEFAULT_GUI_URL = 'http://127.0.0.1:3080';
+/**
+ * Loopback ports a plain `dsh web` install owns (its CLI defaults). The
+ * desktop app always spawns its own separate host and never binds these, so
+ * the desktop instance and the user's own instance run side by side.
+ */
+const RESERVED_PORTS = new Set([3080, 3081]);
+
+/** Preferred loopback range for the desktop host: DESKTOP_PORT_BASE + SPAN. */
+const DESKTOP_PORT_BASE = 3082;
+const DESKTOP_PORT_SPAN = 100;
 
 /** Marker file written into a profile directory this app seeded itself. */
 const SEED_MARKER = '.dsh-desktop-seed.json';
@@ -29,8 +37,10 @@ const RUNTIME_STAMP = 'VERSION.json';
 function resolveRuntimePaths(resourcesRoot, platform, arch, packaged = true) {
   const runtimeRoot = path.join(resourcesRoot, 'runtime');
   // Packaged builds map node-<os>-<arch> to runtime/node via extraResources;
-  // a development checkout keeps the per-platform directory name.
-  const nodeRoot = packaged ? path.join(runtimeRoot, 'node') : path.join(runtimeRoot, 'node-' + platform + '-' + arch);
+  // a development checkout keeps the per-platform directory name in the same
+  // electron-builder os spelling (mac/win) the staged layout uses.
+  const runtimeOs = platform === 'darwin' ? 'mac' : platform === 'win32' ? 'win' : platform;
+  const nodeRoot = packaged ? path.join(runtimeRoot, 'node') : path.join(runtimeRoot, 'node-' + runtimeOs + '-' + arch);
   return {
     runtimeRoot,
     nodeBin: platform === 'win32'
@@ -145,6 +155,38 @@ function findFreePort() {
 }
 
 /**
+ * Bind-test one loopback port.
+ * @param {number} port
+ * @returns {Promise<boolean>}
+ */
+function isPortFree(port) {
+  return new Promise((resolvePromise) => {
+    const server = net.createServer();
+    server.once('error', () => resolvePromise(false));
+    server.listen(port, '127.0.0.1', () => {
+      server.close(() => resolvePromise(true));
+    });
+  });
+}
+
+/**
+ * Pick the loopback port for the desktop host: the dedicated range right
+ * above the reserved pair first (a stable address across launches while it
+ * has room), then an OS-assigned port. The user's own CLI defaults 3080/3081
+ * are excluded by contract on both paths — the desktop host never takes them.
+ * @returns {Promise<number>}
+ */
+async function findHostPort() {
+  for (let port = DESKTOP_PORT_BASE; port < DESKTOP_PORT_BASE + DESKTOP_PORT_SPAN; port++) {
+    if (await isPortFree(port)) return port;
+  }
+  for (;;) {
+    const port = await findFreePort();
+    if (!RESERVED_PORTS.has(port)) return port;
+  }
+}
+
+/**
  * Wait until the spawned host serves the GUI, or fail when the host exits
  * first or the deadline passes.
  */
@@ -187,7 +229,9 @@ function parseShasums(text) {
 }
 
 module.exports = {
-  DEFAULT_GUI_URL,
+  RESERVED_PORTS,
+  DESKTOP_PORT_BASE,
+  DESKTOP_PORT_SPAN,
   SEED_MARKER,
   RUNTIME_STAMP,
   resolveRuntimePaths,
@@ -197,6 +241,8 @@ module.exports = {
   applyProfileSeed,
   probeGui,
   findFreePort,
+  isPortFree,
+  findHostPort,
   waitForGui,
   parseTokenUrlLine,
   parseShasums,

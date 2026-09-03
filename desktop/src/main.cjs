@@ -5,11 +5,11 @@
  *
  * The app owns one dsh host child process: it seeds $DSH_HOME/profiles/web
  * from the bundled profile when needed, spawns the bundled Node runtime on a
- * free loopback port, waits for the GUI, and loads the tokenized URL the host
- * prints. When a GUI already answers on the default URL, the app hands that
- * URL to the system browser (whose cookie jar already holds the session) and
- * quits: the auth fence issues a per-process token this app cannot obtain
- * retroactively, and two web hosts on one $DSH_HOME are never started.
+ * dedicated loopback port (never the plain `dsh web` defaults 3080/3081),
+ * waits for the GUI, and loads the tokenized URL the host prints. The host is
+ * this app's own separate instance — it runs next to any `dsh web` the user
+ * starts themselves, and this app owns its full lifecycle (graceful stop on
+ * quit, forced after 5s).
  */
 
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
@@ -18,20 +18,17 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {
-  DEFAULT_GUI_URL,
   resolveRuntimePaths,
   resolveDshHome,
   readStampFile,
   profileAction,
   applyProfileSeed,
-  probeGui,
-  findFreePort,
+  findHostPort,
   waitForGui,
   parseTokenUrlLine,
 } = require('./runtime.cjs');
 
 const READY_TIMEOUT_MS = 180000;
-const ATTACH_PROBE_MS = 1500;
 const LOG_TAIL_LINES = 200;
 /** The host prints its tokenized GUI URL on this stdout line. */
 
@@ -176,13 +173,6 @@ async function boot() {
   const home = resolveDshHome(process.env, os.homedir());
   pushLogLine('[desktop] dsh home: ' + home);
 
-  if (process.env.DSH_DESKTOP_NO_ATTACH === undefined && await probeGui(DEFAULT_GUI_URL, ATTACH_PROBE_MS)) {
-    pushLogLine('[desktop] a GUI already answers at ' + DEFAULT_GUI_URL + ' — handing off to the system browser');
-    await shell.openExternal(DEFAULT_GUI_URL);
-    setImmediate(() => app.quit());
-    return;
-  }
-
   if (!fs.existsSync(runtime.nodeBin)) throw new Error('bundled Node runtime is missing: ' + runtime.nodeBin);
   if (!fs.existsSync(runtime.hostBin)) throw new Error('bundled dsh host is missing: ' + runtime.hostBin);
 
@@ -197,8 +187,9 @@ async function boot() {
   }
 
   setStatus('Starting the dsh host…');
-  const port = await findFreePort();
-  pushLogLine('[desktop] spawning host on 127.0.0.1:' + port);
+  const port = await findHostPort();
+  pushLogLine('[desktop] spawning the desktop host on 127.0.0.1:' + port
+    + ' (the user\u2019s own dsh web defaults 3080/3081 are never taken)');
   hostChild = startHost(runtime, home, port);
   const child = hostChild;
   let exited = false;

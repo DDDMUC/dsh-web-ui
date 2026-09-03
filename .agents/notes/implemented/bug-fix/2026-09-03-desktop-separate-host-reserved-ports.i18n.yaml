@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-09-03-desktop-separate-host-reserved-ports.md: 7b596d9154a57c528e13ffd9f44b2079a8e81ad5
+2026-09-03-desktop-separate-host-reserved-ports.zh.md: 06e333ac1479e6d7a1f1ee2745299e77b8ce8e88
