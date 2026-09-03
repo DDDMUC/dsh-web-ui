@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-session-archive",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "description": "Session archive management for DSH Web: centralized inventory, batch archive/restore, physical delete with family cascade, and optional auto-archive / auto-cleanup policies.",
   "type": "module",
   "main": "lib/index.js",
