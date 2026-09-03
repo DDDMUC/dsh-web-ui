@@ -133,7 +133,7 @@ describe('rescue capsule provisioning', () => {
       expect(second).not.toBe(first)
       const mirrored = await mirrorCredentialFiles({ sourceHome: source, sourceProfile: 'web', targetHome: join(dir, 'rescue') })
       expect(mirrored).toEqual(['settings.yaml', '.env'])
-      expect(stat(join(dir, 'rescue', 'settings.yaml'))).resolves.toBeDefined()
+      await expect(stat(join(dir, 'rescue', 'settings.yaml'))).resolves.toBeDefined()
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
