@@ -48,8 +48,9 @@ html[data-dsh-skin="blue-fantasy"] button[role="tab"], html[data-dsh-skin="blue-
   transform: none;
 }
 
-html[data-dsh-skin="blue-fantasy"] [data-aionui-explorer-col], html[data-dsh-skin="blue-fantasy"] [data-aionui-preview-col], html[data-dsh-skin="blue-fantasy"] .aionui-root {
+html[data-dsh-skin="blue-fantasy"] [data-aionui-explorer-col], html[data-dsh-skin="blue-fantasy"] [data-aionui-preview-col] {
   backdrop-filter: blur(12px);
+  contain: paint;
 }
 
 html[data-dsh-skin="blue-fantasy"] .aionui-dialog, html[data-dsh-skin="blue-fantasy"] .aionui-menu, html[data-dsh-skin="blue-fantasy"] .aionui-toast {
