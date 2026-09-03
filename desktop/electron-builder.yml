@@ -1,0 +1,55 @@
+# electron-builder configuration for the DeepSeek Harness desktop app.
+# Unsigned on purpose: internal/local distribution only (see desktop/README.md
+# Known limitations). Code signing and notarization are a separate follow-up.
+appId: com.deepseek.harness
+productName: DeepSeek Harness
+copyright: Copyright (c) DeepSeek Harness Contributors
+
+directories:
+  buildResources: resources
+  output: dist
+
+# The app itself is plain CommonJS plus two HTML pages; no native rebuilds.
+npmRebuild: false
+asar: true
+
+files:
+  - package.json
+  - src/**
+
+# The runtime payload ships unpacked next to the app:
+#   runtime/node-<os>-<arch> -> runtime/node   (per-platform Node distribution)
+#   runtime/host             -> runtime/host   (@deepseek-ai/dsh + closure)
+#   runtime/profile-web      -> runtime/profile-web (preinstalled web profile)
+extraResources:
+  - from: resources/runtime/host
+    to: runtime/host
+  - from: resources/runtime/profile-web
+    to: runtime/profile-web
+  - from: resources/runtime/node-${os}-${arch}
+    to: runtime/node
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  identity: null
+  gatekeeperAssess: false
+  hardenedRuntime: false
+  artifactName: dsh-desktop-${version}-mac-${arch}.${ext}
+
+win:
+  target:
+    - nsis
+    - zip
+  artifactName: dsh-desktop-${version}-win-${arch}.${ext}
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  shortcutName: DeepSeek Harness
+
+dmg:
+  writeUpdateInfo: false
