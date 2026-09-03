@@ -17,7 +17,7 @@ import { dshHome } from '../dsh-home.ts'
 import { adapterFor, isDeepSeekProviderRoute, providerErrorMessage } from '../core/adapters.ts'
 import type { BalanceParse, PlanParse } from '../core/adapters.ts'
 import { deepseekModelSpend, deepseekPeriodAt } from '../core/pricing.ts'
-import { createLedgerDocument, deserializeLedger, foldUsage, ledgerDayKeys, localDateKey, pruneLedger, summarizeDays } from '../core/ledger.ts'
+import { createLedgerDocument, deserializeLedger, foldUsage, ledgerDayKeys, localDateKey, pruneLedger, summarizeDays, totalTokens } from '../core/ledger.ts'
 import type { BalanceView, CredentialKind, PlanView, ProviderSnapshotState, ProviderSnapshotView, UsageLedgerDocument, UsageOverviewView, UsageTokenTotals } from '../core/types.ts'
 import { emptyTotals } from '../core/types.ts'
 
@@ -129,6 +129,43 @@ export function buildAnnouncement(
     ...(window.resetsAt !== undefined ? { resetAt: window.resetsAt } : {}),
     ...(snapshot.plan.planName !== undefined ? { note: snapshot.plan.planName } : {}),
     tone: planTone(window.percent),
+  }
+}
+
+/**
+ * Compact token-count display for the usage fallback bubble: `9805`,
+ * `8.7万`, `1.2亿`. The host-authored bubble copy is zh (like every other
+ * line this service speaks), so the magnitudes follow the zh convention.
+ */
+export function formatTokens(count: number): string {
+  const compact = (value: number): string => {
+    const rounded = Math.round(value * 10) / 10
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+  }
+  if (count >= 1e8) return compact(count / 1e8) + '亿'
+  if (count >= 1e4) return compact(count / 1e4) + '万'
+  return String(count)
+}
+
+/**
+ * The usage fallback for the session's provider: today's token consumption
+ * and call count, the one fact the ledger owns for every provider. Providers
+ * without a readable balance/plan endpoint (relay stations, local runtimes,
+ * token-plan vendors — and probeable providers whose probes are failing)
+ * would otherwise leave the pet bubble permanently silent even while their
+ * sessions run. Undefined when the provider has no usage today: a bubble
+ * about nothing is noise, not information. Pure; the payload satisfies the
+ * pet's `parseAnnouncement` contract.
+ */
+export function buildLedgerAnnouncement(input: { displayName: string; totals: UsageTokenTotals }): Record<string, unknown> | undefined {
+  const total = totalTokens(input.totals)
+  if (input.totals.calls <= 0 || total <= 0) return undefined
+  return {
+    kind: 'cost',
+    title: input.displayName,
+    amount: `今日 ${formatTokens(total)} tokens`,
+    note: `${input.totals.calls} 次调用`,
+    tone: 'ok',
   }
 }
 
@@ -308,6 +345,22 @@ export class UsageService {
       if (adapterFor(row.provider) === family) cost += row.totals.cost
     }
     return cost
+  }
+
+  /** Today's ledger totals for one provider route (the exact id, not the family). */
+  private providerUsageToday(provider: string): UsageTokenTotals {
+    const row = this.daySummary(localDateKey(Date.now())).providers.find((entry) => entry.provider === provider)
+    return row?.totals ?? emptyTotals()
+  }
+
+  /**
+   * The display name for a route key: the LLM runtime's first, then the
+   * adapter's, then the id itself — the snapshot may not exist for
+   * adapter-less routes, yet the bubble still needs a legible title.
+   */
+  private routeDisplayName(provider: string): string {
+    const route = this.listProviderRoutes().find((entry) => entry.id === provider)
+    return route?.displayName || adapterFor(provider)?.displayName || provider
   }
 
   // ------------------------------------------------------------------
@@ -651,9 +704,12 @@ export class UsageService {
    * cycle, so a TTL of two cycles + margin keeps the bubble continuous
    * across polls; the pet contract caps the ceiling). A route id the
    * catalogs spell differently than the snapshot keys falls back to its
-   * adapter family's snapshot. Fully guarded: a malformed snapshot or a
-   * failing pet service must never break the poll loop, and a disposed
-   * service never announces.
+   * adapter family's snapshot. When the provider has no announceable probe
+   * fact (no adapter, failing probes, percent-less windows) the bubble falls
+   * back to the provider's today ledger usage, and with neither fact nor
+   * usage it stays silent. Fully guarded: a malformed snapshot or a failing
+   * pet service must never break the poll loop, and a disposed service never
+   * announces.
    */
   private announceCurrent(): void {
     if (this.disposed || this.options.bubbleMode === 'off') return
@@ -680,11 +736,19 @@ export class UsageService {
           }
         }
       }
-      if (snapshot === undefined) return
-      const announcement = buildAnnouncement(snapshot, {
-        todayCost: this.familyCostToday(provider),
-        peak: deepseekPeriodAt(Date.now()).peak,
-      })
+      const displayName = snapshot?.displayName ?? this.routeDisplayName(provider)
+      let announcement = snapshot !== undefined
+        ? buildAnnouncement(snapshot, {
+            todayCost: this.familyCostToday(provider),
+            peak: deepseekPeriodAt(Date.now()).peak,
+          })
+        : undefined
+      // No probeable fact for the session's provider (no adapter at all,
+      // failing probes, or percent-less windows): the bubble still follows
+      // the provider with the one fact the ledger owns — today's usage.
+      if (announcement === undefined) {
+        announcement = buildLedgerAnnouncement({ displayName, totals: this.providerUsageToday(provider) })
+      }
       if (announcement === undefined) return
       const signature = JSON.stringify(announcement)
       if (this.options.bubbleMode === 'change' && signature === this.lastSignature) return

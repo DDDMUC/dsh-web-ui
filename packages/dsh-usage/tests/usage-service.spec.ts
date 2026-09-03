@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { parseAnnouncement } from '../../dsh-pet/src/announce.ts'
 import { createLedgerDocument, foldUsage, localDateKey } from '../src/core/ledger.ts'
 import { emptyTotals } from '../src/core/types.ts'
-import { buildAnnouncement, USAGE_ANNOUNCE_SOURCE, UsageService, type UsageServiceOptions } from '../src/host/usage-service.ts'
+import { buildAnnouncement, buildLedgerAnnouncement, formatTokens, USAGE_ANNOUNCE_SOURCE, UsageService, type UsageServiceOptions } from '../src/host/usage-service.ts'
 
 /**
  * Host-service behavior tests. The cordis Context is replaced by a minimal
@@ -316,6 +316,87 @@ describe('pet announce linkage', () => {
     expect(pet.announced[1]).toMatchObject({ amount: '¥99.00' })
     service.stop()
   })
+
+  it('falls back to the ledger usage bubble for a provider without any adapter', async () => {
+    const fetchMock = stubFetch(() => { throw new Error('no adapter route is ever probed') })
+    const pet = makeRecorderPet()
+    // jiyuan is a bare pi-ai relay route: no balance/plan adapter exists for it,
+    // so the probe cycle skips it entirely — yet its sessions still run.
+    const { ctx, fireSessionEvent } = makeCtx({ llm: {
+      listProviders: () => [{ id: 'jiyuan', name: 'jiyuan' }],
+      listConfigurableProviders: () => [],
+    }, credentials: CREDENTIALS_ENV, pet })
+    const service = new UsageService(ctx, OPTIONS)
+    service.start()
+    const session = {}
+    fireSessionEvent(session, requestHeaderEvent('jiyuan', 'glm-5.3-flash'))
+    fireSessionEvent(session, usageEvent(900_000, 66_000))
+    await service.refresh()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(pet.announced).toHaveLength(1)
+    const payload = pet.announced[0] as Record<string, unknown>
+    expect(payload).toMatchObject({ source: USAGE_ANNOUNCE_SOURCE, kind: 'cost', title: 'jiyuan', tone: 'ok' })
+    expect(payload.amount).toBe('今日 96.6万 tokens')
+    expect(payload.note).toBe('1 次调用')
+    expect(parseAnnouncement(payload, Date.now())).toBeDefined()
+    service.stop()
+  })
+
+  it('falls back to the ledger usage when the probed snapshot has no announceable fact', async () => {
+    // Kimi probes a percent-less plan (no balance adapter) — previously the
+    // pet went silent even while kimi sessions consumed tokens.
+    stubFetch(() => jsonResponse({ limits: [{ window: { duration: 300, timeUnit: 'TIME_UNIT_MINUTE' }, detail: { name: '5h limit' } }] }))
+    const pet = makeRecorderPet()
+    const { ctx, fireSessionEvent } = makeCtx({ llm: LLM_KIMI, credentials: CREDENTIALS_KIMI_KEY, pet })
+    const service = new UsageService(ctx, OPTIONS)
+    service.start()
+    const session = {}
+    fireSessionEvent(session, requestHeaderEvent('kimi-coding', 'kimi-latest'))
+    fireSessionEvent(session, usageEvent(10_000, 2_000))
+    await service.refresh()
+
+    expect(service.overview().providers[0]?.plan?.windows).toHaveLength(1)
+    expect(pet.announced).toHaveLength(1)
+    expect(pet.announced[0]).toMatchObject({ kind: 'cost', title: 'Kimi For Coding', amount: '今日 1.2万 tokens', note: '1 次调用' })
+    service.stop()
+  })
+
+  it('stays silent when the provider has neither probe facts nor usage today', async () => {
+    const pet = makeRecorderPet()
+    const { ctx, fireSessionEvent } = makeCtx({ llm: {
+      listProviders: () => [{ id: 'ollama', name: 'ollama' }],
+      listConfigurableProviders: () => [],
+    }, credentials: CREDENTIALS_ENV, pet })
+    const service = new UsageService(ctx, OPTIONS)
+    service.start()
+    fireSessionEvent({}, requestHeaderEvent('ollama', 'glm-5.3-flash:cloud'))
+    await service.refresh()
+
+    expect(pet.announced).toHaveLength(0)
+    service.stop()
+  })
+
+  it('re-announces the usage fallback in change mode as usage grows', async () => {
+    const pet = makeRecorderPet()
+    const { ctx, fireSessionEvent } = makeCtx({ llm: {
+      listProviders: () => [{ id: 'jiyuan', name: 'jiyuan' }],
+      listConfigurableProviders: () => [],
+    }, credentials: CREDENTIALS_ENV, pet })
+    const service = new UsageService(ctx, { ...OPTIONS, bubbleMode: 'change' })
+    service.start()
+    const session = {}
+    fireSessionEvent(session, requestHeaderEvent('jiyuan', 'glm-5.3-flash'))
+    fireSessionEvent(session, usageEvent(10_000, 0))
+    await service.refresh()
+    expect(pet.announced).toHaveLength(1)
+
+    fireSessionEvent(session, usageEvent(20_000, 0))
+    await service.refresh()
+    expect(pet.announced).toHaveLength(2)
+    expect((pet.announced[1] as Record<string, unknown>).amount).toBe('今日 3万 tokens')
+    service.stop()
+  })
 })
 
 describe('lifecycle fences', () => {
@@ -482,5 +563,27 @@ describe('buildAnnouncement contract', () => {
     // Percent-less plan windows never announce.
     expect(buildAnnouncement({ displayName: 'K', plan: { windows: [{ key: '5h' }, { key: 'week', resetsAt: 'x' }], updatedAt: 1 } })).toBeUndefined()
     expect(buildAnnouncement({ displayName: 'D' })).toBeUndefined()
+  })
+})
+
+describe('buildLedgerAnnouncement contract', () => {
+  it('builds a validator-valid usage bubble for providers without probeable facts', () => {
+    const totals = { ...emptyTotals(), inputTokens: 900_000, outputTokens: 66_000, calls: 42 }
+    const payload = buildLedgerAnnouncement({ displayName: 'jiyuan', totals })
+    expect(payload).toMatchObject({ kind: 'cost', title: 'jiyuan', amount: '今日 96.6万 tokens', note: '42 次调用', tone: 'ok' })
+    expect(parseAnnouncement({ source: USAGE_ANNOUNCE_SOURCE, ttlMs: 150_000, ...payload! }, 1)).toBeDefined()
+  })
+
+  it('stays undefined without usage today (calls and tokens both zero)', () => {
+    expect(buildLedgerAnnouncement({ displayName: 'x', totals: emptyTotals() })).toBeUndefined()
+    expect(buildLedgerAnnouncement({ displayName: 'x', totals: { ...emptyTotals(), inputTokens: 5, calls: 0 } })).toBeUndefined()
+    expect(buildLedgerAnnouncement({ displayName: 'x', totals: { ...emptyTotals(), inputTokens: 0, calls: 3 } })).toBeUndefined()
+  })
+
+  it('formats token magnitudes compactly on the zh convention', () => {
+    expect(formatTokens(9805)).toBe('9805')
+    expect(formatTokens(96_600)).toBe('9.7万')
+    expect(formatTokens(10_000)).toBe('1万')
+    expect(formatTokens(120_000_000)).toBe('1.2亿')
   })
 })
