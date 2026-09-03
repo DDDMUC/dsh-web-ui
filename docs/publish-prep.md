@@ -31,7 +31,7 @@
 - `@linxin666/dsh-web-ui-all@0.3.2` is the previous release; `0.3.3` is unoccupied and is the first dual-published legacy transition version.
 - `scripts/publish-legacy-aggregate.mjs` limits the legacy transition to two versions and writes `dsh.migrate.to` / `dsh.migrate.since` into the legacy tarball.
 - After the second transition version, deprecate `@linxin666/dsh-web-ui-all` with the migration instruction instead of publishing another version.
-- External aggregate dependency `dsh-better-sidebar@0.18.0-alpha.0` is registry-readable (the alpha.2-aligned build that brought better-sidebar back after its 2026-08-30 exclusion; its pnpm `minimumReleaseAgeExclude` pin stays required while the version is recent). `@mlgbnb/dsh-archive-manager@1.0.7` remains excluded from the 0.1.2-alpha.2 family bundle (its build still imports the removed `@deepseek-ai/dsh-client-runtime` face); re-add it to the aggregate when upstream ships a compatible build.
+- External aggregate dependency `dsh-better-sidebar@0.18.0` is registry-readable (the rc.1-aligned stable release that followed the 0.18.0-alpha.0 build which brought better-sidebar back after its 2026-08-30 exclusion; its pnpm `minimumReleaseAgeExclude` pin stays required while the version is recent). `@mlgbnb/dsh-archive-manager@1.0.7` remains excluded from the 0.1.2-alpha.2 family bundle (its build still imports the removed `@deepseek-ai/dsh-client-runtime` face); re-add it to the aggregate when upstream ships a compatible build.
 
 ## Compatibility boundary
 

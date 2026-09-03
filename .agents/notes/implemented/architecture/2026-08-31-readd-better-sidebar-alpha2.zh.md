@@ -12,6 +12,8 @@ alpha.2 cohort 迁移（2026-08-30）把 `dsh-better-sidebar` 与 `@mlgbnb/dsh-a
 
 `@mlgbnb/dsh-archive-manager` 仍排除：其最新上游构建（1.0.7）仍 import 已移除面。上游发布 alpha.2 兼容构建后，按同一模式恢复（aggregate.yml 行 + package.json 依赖 + `scripts/aggregate.test.mjs` 挂载断言）。
 
+2026-09-04 修正（仅事实——机制与决策不变）：聚合 pin 移到 `dsh-better-sidebar@0.18.0`——npm 于 2026-09-03 发布、peer 全面声明 `^0.1.2-rc.1` 的 rc.1 对齐正式版；它随 [rc.1 cohort 升级](2026-09-03-sdk-cohort-0.1.2-rc.1.md)落地，替代对齐 alpha.2 的 0.18.0-alpha.0 构建。`minimumReleaseAgeExclude` 引脚沿用同一精确版本惯例。desktop 运行时载荷在下次家族发包前仍通过已发布的 `@linxin666/dsh-web-all` 解析 better-sidebar。
+
 ## 备选方案
 
 - 停在 `0.17.1`（npm `latest`）：拒绝——其 peer 声明 `^0.1.0-rc.8`，是 rc.8 cohort 约束，alpha.2 loader 无法满足；且用户明确要求最新 alpha。

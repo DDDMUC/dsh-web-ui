@@ -12,6 +12,8 @@ The alpha.2 cohort migration (2026-08-30) excluded `dsh-better-sidebar` and `@ml
 
 `@mlgbnb/dsh-archive-manager` remains excluded: its latest build (1.0.7) still imports the removed face. Re-add it with the same pattern (aggregate.yml row + package.json dep + `scripts/aggregate.test.mjs` mount assertion) when upstream ships an alpha.2-compatible build.
 
+Amended 2026-09-04 (facts only — mechanism and decision unchanged): the aggregate pin moved to `dsh-better-sidebar@0.18.0`, the rc.1-aligned stable release npm published on 2026-09-03 whose peers declare `^0.1.2-rc.1` across the board; it rode the [rc.1 cohort upgrade](2026-09-03-sdk-cohort-0.1.2-rc.1.md) and replaced the alpha.2-aligned 0.18.0-alpha.0 build. The `minimumReleaseAgeExclude` pin followed the same exact-version convention. The desktop runtime payload keeps resolving better-sidebar through the published `@linxin666/dsh-web-all` release until the next family publish.
+
 ## Alternatives considered
 
 - Stay on `0.17.1` (npm `latest`): rejected — its peers declare `^0.1.0-rc.8`, an rc.8-cohort constraint that the alpha.2 loader would not satisfy, and the user explicitly asked for the latest alpha.

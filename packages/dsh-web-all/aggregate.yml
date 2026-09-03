@@ -63,7 +63,8 @@ deps:
 # 2026-08-30 曾因 alpha.2 移除 `@deepseek-ai/dsh-client-runtime` 面把本行
 # 与 dsh-archive-manager 一并排除（见协调升级 note）；better-sidebar 于
 # 2026-08-31 以 0.18.0-alpha.0（peer 对齐 alpha.2、inject 改用
-# dsh-client-modules）回归。@mlgbnb/dsh-archive-manager 仍排除：其 latest
+# dsh-client-modules）回归；2026-09-04 随 rc.1 cohort 升至 0.18.0 正式版
+# （2026-09-03 发布，peer 全面声明 ^0.1.2-rc.1）。@mlgbnb/dsh-archive-manager 仍排除：其 latest
 # 1.0.7 仍 import 已移除面，上游发布 alpha.2 兼容版后按同法恢复。
 rows:
   - {"id": "better-sidebar", "name": "dsh-better-sidebar"}
