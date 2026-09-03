@@ -47,6 +47,32 @@ export type WallpaperType = 'video' | 'web' | 'scene' | 'application' | 'image'
 /** Where one wallpaper entry came from. 'system' entries are macOS-managed and never importable. */
 export type WallpaperSource = 'workshop' | 'local' | 'imported' | 'system'
 
+/** Age rating of a wallpaper entry. */
+export type WallpaperRating = 'g' | 'pg13' | 'r18'
+
+/**
+ * Derive rating from project.json contentrating field, with regex title fallback.
+ * Everyone -> g, Questionable -> pg13, Mature -> r18.
+ * Unspecified contentrating inspects title for keywords (R18/NSFW, PG-13/R-16).
+ */
+export function deriveRating(contentRating: unknown, title?: string): WallpaperRating {
+  if (typeof contentRating === 'string') {
+    const normalized = contentRating.trim().toLowerCase()
+    if (normalized === 'everyone') return 'g'
+    if (normalized === 'questionable') return 'pg13'
+    if (normalized === 'mature') return 'r18'
+  }
+  if (typeof title === 'string' && title !== '') {
+    if (/(^|[^\w])(r-?18|nsfw|18\+)([^\w]|$)/i.test(title)) {
+      return 'r18'
+    }
+    if (/(^|[^\w])(pg-?13|r-?16)([^\w]|$)/i.test(title)) {
+      return 'pg13'
+    }
+  }
+  return 'g'
+}
+
 /** One discovered wallpaper project (plain data; routes assign tokens). */
 export interface WallpaperEntry {
   /** Stable id: project dir basename for scanned entries, imported id for store entries. */
@@ -77,6 +103,8 @@ export interface WallpaperEntry {
   /** Imported entries only: source mtime/size recorded in the manifest at import time. */
   importSrcMtime?: number
   importSrcSize?: number
+  /** Age rating derived from project.json or title. */
+  rating: WallpaperRating
 }
 
 /** The import-store manifest (<store>/<id>/manifest.json). */
@@ -308,6 +336,7 @@ interface ProjectJson {
   type: WallpaperType
   file: string
   preview: string | null
+  contentrating?: string | null
 }
 
 /** Read one project directory's project.json; null when absent/invalid. */
@@ -323,11 +352,13 @@ export function readProjectJson(dir: string): ProjectJson | null {
     const type = (KNOWN_TYPES as string[]).includes(declared)
       ? (declared as WallpaperType)
       : inferType(record.file)
+    const contentrating = typeof record.contentrating === 'string' && record.contentrating !== '' ? record.contentrating : undefined
     return {
       title: typeof record.title === 'string' && record.title !== '' ? record.title : null,
       type,
       file: record.file,
       preview: typeof record.preview === 'string' && record.preview !== '' ? record.preview : null,
+      ...(contentrating !== undefined ? { contentrating } : {}),
     }
   } catch {
     return null
@@ -354,7 +385,7 @@ function synthesizeMediaEntries(dir: string, source: WallpaperSource): Wallpaper
   for (const file of media) {
     const stem = file.replace(/\.[^.]+$/, '')
     const preview = images.find((image) => image.replace(/\.[^.]+$/, '') === stem) ?? null
-    entries.push(entryFromDir(dir, source, { title: stem, type: inferType(file), file, preview }, basename(dir) + '/' + file))
+    entries.push(entryFromDir(dir, source, { title: stem, type: inferType(file), file, preview, contentrating: null }, basename(dir) + '/' + file))
   }
   return entries
 }
@@ -405,9 +436,11 @@ function entryFromDir(dir: string, source: WallpaperSource, project: ProjectJson
   } catch {
     // Missing main file: keep zeros.
   }
+  const title = project.title ?? basename(dir)
+  const rating = deriveRating(project.contentrating, title)
   return {
     id: id ?? basename(dir),
-    title: project.title ?? basename(dir),
+    title,
     type: project.type,
     file,
     preview: project.preview,
@@ -419,6 +452,7 @@ function entryFromDir(dir: string, source: WallpaperSource, project: ProjectJson
     srcMtime: mtime,
     srcSize: size,
     updateAvailable: false,
+    rating,
   }
 }
 
@@ -570,6 +604,7 @@ export function scanImportStore(storeDir: string): WallpaperEntry[] {
       updateAvailable: false,
       importSrcMtime: manifest.srcMtime,
       importSrcSize: manifest.srcSize,
+      rating: deriveRating(undefined, manifest.title),
     })
   }
   return entries
