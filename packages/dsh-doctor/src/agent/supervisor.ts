@@ -18,6 +18,9 @@ export interface SupervisorOptions {
   heartbeatTimeoutMs?: number
   /** Capsule provisioning seam; tests inject a fake and skip real dsh runs. */
   provisioner?: (paths: DoctorPaths) => Promise<void>
+  /** Invoked once when an IPC `shutdown` action arrives; the supervisor keeps
+   *  answering the current request and the callback decides how to exit. */
+  onShutdown?: () => void
 }
 
 export class DoctorSupervisor {
@@ -30,6 +33,7 @@ export class DoctorSupervisor {
   private readonly now: () => string
   private readonly heartbeatTimeoutMs: number
   private readonly provisioner: ((paths: DoctorPaths) => Promise<void>) | undefined
+  private readonly onShutdown: (() => void) | undefined
   private provisioning = false
   lastSelfHeal: Promise<void> | undefined
 
@@ -39,6 +43,7 @@ export class DoctorSupervisor {
     this.now = options.now ?? (() => new Date().toISOString())
     this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 15_000
     this.provisioner = options.provisioner
+    this.onShutdown = options.onShutdown
   }
 
   async start(): Promise<void> {
@@ -118,6 +123,11 @@ export class DoctorSupervisor {
     } else if (request.type === 'action') {
       if (request.action === 'pause') { this.state.paused = true; this.state.phase = 'disabled' }
       else if (request.action === 'resume') { this.state.paused = false; this.state.phase = 'armed' }
+      else if (request.action === 'shutdown') {
+        // The response must still reach the caller (the socket write happens
+        // after this handler resolves), so exit asynchronously, not inline.
+        if (this.onShutdown !== undefined) setTimeout(() => this.onShutdown!(), 0)
+      }
       else if (request.action === 'provision') { await this.startProvision() }
       else if (request.action === 'uninstall') { this.state.phase = 'uninstalling'; this.state.degradedReason = undefined; await this.cleanupCapsuleCredentials() }
       else if (request.incidentId) { const incident = this.state.incidents[request.incidentId]; if (incident) { incident.phase = request.action === 'rollback' ? 'rolled-back' : request.action === 'confirm' || request.action === 'repair' ? 'repairing' : request.action === 'diagnose' ? 'diagnosing' : incident.phase; if (request.action === 'diagnose' || request.action === 'repair' || request.action === 'confirm' || request.action === 'rollback') await this.runRecovery(request.action, request.incidentId, at) } }
@@ -292,8 +302,40 @@ export class DoctorSupervisor {
   }
 }
 
-export async function runSupervisor(): Promise<void> {
-  const supervisor = new DoctorSupervisor(); await supervisor.start()
-  const stop = (): void => { void supervisor.stop().finally(() => process.exit(0)) }
+/**
+ * Poll one pid until it is gone (`kill(pid, 0)` fails with ESRCH) and invoke
+ * the callback. EPERM means the process exists under another account and is
+ * treated as alive. This is the parent-liveness watch that bounds a
+ * supervisor spawned as a host child: when the spawning host dies without a
+ * graceful shutdown, the supervisor stops instead of lingering as an orphan.
+ * Returns a stop function; the timer never keeps the event loop alive.
+ */
+export function watchParentPid(parentPid: number, onDead: () => void, intervalMs = 5000): () => void {
+  const timer = setInterval(() => {
+    try { process.kill(parentPid, 0) } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
+        clearInterval(timer)
+        onDead()
+      }
+    }
+  }, intervalMs)
+  timer.unref?.()
+  return () => clearInterval(timer)
+}
+
+export async function runSupervisor(options: { parentPid?: number } = {}): Promise<void> {
+  const supervisor = new DoctorSupervisor({
+    onShutdown: () => { void supervisor.stop().finally(() => process.exit(0)) },
+  })
+  await supervisor.start()
+  let stopping = false
+  const stop = (): void => {
+    if (stopping) return
+    stopping = true
+    void supervisor.stop().finally(() => process.exit(0))
+  }
+  if (options.parentPid !== undefined && Number.isFinite(options.parentPid) && options.parentPid > 0) {
+    watchParentPid(options.parentPid, stop)
+  }
   process.on('SIGINT', stop); process.on('SIGTERM', stop)
 }

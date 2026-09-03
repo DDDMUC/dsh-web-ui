@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-Transactional rescue mode for DeepSeek Harness profiles: a user-level Doctor
+Transactional rescue mode for DeepSeek Harness profiles: a Doctor
 Supervisor plus a transparent Doctor Launcher keep an isolated rescue capsule
 ready, detect boot failures, process crashes, heartbeat timeouts, Web failures
 and browser white screens, and restore the profile through snapshots,
@@ -23,7 +23,7 @@ installation.
   incidents and the client failure probe, records Web UI plugins that were
   enabled but never started, and offers diagnose, repair, rollback, pause and
   resume actions alongside the enable switch plus a Service and capsule card:
-  one-click install, restart-upgrade and uninstall of the user-level service.
+  one-click install, restart-upgrade and uninstall.
 - The Send to Harness window composes a troubleshooting prompt from the newest
   recorded failure (summary plus error stack) and queues it into the current
   DSH session as a new turn, so the user's agent can diagnose and fix it in
@@ -51,7 +51,7 @@ Profile package.json and cordis.patch.yml are only touched through the official
 | --- | --- | --- |
 | Doctor Host Plugin | inside every protected host | settings surface, loopback API, heartbeat and client failure reports |
 | Doctor Web Console | in the DSH Web GUI | enable flow, status, incidents, diagnose and repair actions |
-| Doctor Supervisor | as a user-level service | lifecycle monitoring, classification, circuit breaker, rescue scheduling |
+| Doctor Supervisor | as a host-bounded child process | lifecycle monitoring, classification, circuit breaker, rescue scheduling |
 | Doctor Launcher | at every `dsh` invocation | transparent relay of argv, signals and exit facts |
 | Rescue Capsule | machine-local isolated home | pinned runtime, isolated home, offline diagnostics and repair tooling |
 
@@ -82,24 +82,22 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-doctor
 Restart `dsh web`, open Settings → Plugin configuration → Web UI plugins, and
 expand the Doctor card to confirm rescue mode is on (it is by default). The package
 also ships the `dsh-doctor` CLI for the Supervisor, the Launcher, provisioning
-and the user-level service adapters.
+and the legacy-service cleanup.
 
 ## Enable
 
-When rescue mode is enabled, the host mounts `/api/doctor/*`, persists the effective protection policy, and reconciles the Supervisor service, package version, install path, and rescue capsule in the background without blocking Web startup. Disabling stops heartbeats and pauses automatic Supervisor intervention while retaining the service and capsule. An explicit uninstall writes a suppression marker, so later host starts never resurrect the service; Install now clears that marker. The console button remains available as a manual retry and repair entry point.
+When rescue mode is enabled, the host mounts `/api/doctor/*`, persists the effective protection policy, and reconciles the Supervisor, package version, install path, and rescue capsule in the background without blocking Web startup. The Supervisor runs as a bounded child of the host that spawned it — it answers on the same local socket, carries a parent-liveness watch so it can never outlive its host into a background daemon, and no OS-level service (LaunchAgent, systemd unit, scheduled task) is registered anymore; the first ensure on a machine that still carries one removes it. Disabling stops heartbeats and pauses automatic Supervisor intervention while retaining the capsule. An explicit uninstall writes a suppression marker, so later host starts never respawn the Supervisor; Install now clears that marker. The console button remains available as a manual retry and repair entry point.
 
 ## Update
 
-After an update, restart `dsh web` so the host half loads the new code, then
-click Restart and upgrade in the Service and capsule card (the button appears
-whenever the reported Supervisor version lags): it redeploys the user-level
-service and restarts the Supervisor with the new code, and refreshes the
-capsule when its pinned version differs. When the user changes a provider or
-its keys, the capsule credential fingerprint detects the drift and the same
-button re-mirrors the new configuration. When the package install path changed
-(new directory, new profile, reinstall), the previous service record points at
-a stale path and one click rewrites the service definition. The CLI
-`service-install` is idempotent and safe to repeat.
+After an update, restart `dsh web` so the host half loads the new code: the
+reconciler detects a Supervisor answering with an older version, asks it to
+shut down over IPC, and respawns the current one as its own child; the
+capsule is refreshed when its pinned version differs. When the user changes
+a provider or its keys, the capsule credential fingerprint detects the drift
+and the same reconcile re-mirrors the new configuration. The reconcile is
+idempotent and safe to repeat; `dsh-doctor service-uninstall` remains
+available as the manual removal of a pre-child OS service registration.
 
 ## CLI
 
@@ -116,9 +114,7 @@ The `dsh-doctor` binary exposes the operational commands:
 | `dsh-doctor diagnose [profile]` | diagnose and plan one profile without writing |
 | `dsh-doctor repair [profile] --allow-live` | run the staged repair transaction (gated promote) |
 | `dsh-doctor rollback <txnId>` | restore a promoted transaction from quarantine |
-| `dsh-doctor service-plan` | print the platform service files and commands |
-| `dsh-doctor service-install` | write the service files and idempotently register the service (drop the old registration, deploy, restart) |
-| `dsh-doctor service-uninstall` | deregister and remove the service files |
+| `dsh-doctor service-uninstall` | remove a legacy OS service registration left by an older doctor version |
 
 Exit codes: 0 ok, 1 repaired and verified, 2 attention needed, 3 blocked
 (lock, offline or missing secret).
@@ -211,16 +207,14 @@ recoverable across crashes.
 - Writes are confined to `DSH_DOCTOR_HOME` and the package-owned files;
   profile mutations happen only through the official `dsh plugin` command.
 - One-click install, upgrade and uninstall only invoke this package's CLI with
-  argument arrays (launchctl / systemd --user / schtasks) and never enable a
-  shell.
+  argument arrays and never enable a shell; no OS service is registered, so
+  there is no launchd/systemd/schtasks surface at all.
 
 ## Known limitations
 
 - A profile started by invoking the real `dsh` executable by absolute path
   bypasses the launcher; protection covers launcher-started runs, and
   bypassed hosts are reported as partially managed.
-- Without a user systemd manager on Linux, the service falls back to a login
-  autostart wrapper and stops at the last logout.
 - Machine-level damage (an unloadable Node binary, an unwritable home, a dead
   volume) cannot be repaired automatically; the console shows CLI recovery
   instructions instead.

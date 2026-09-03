@@ -15,7 +15,13 @@ import {
 import { credentialsFingerprint } from '../src/agent/capsule.ts'
 import type { SupervisorResponse } from '../src/core/protocol.ts'
 
-const okResponse: SupervisorResponse = { ok: true, snapshot: { protocol: 1, phase: 'armed', version: '9.9.9', profiles: [], incidents: [], updatedAt: '2026-01-01T00:00:00Z' } }
+const POLICY = { fullProtection: true, autoRepair: false, autoMigrate: true }
+
+function supervisorSnapshot(version: string): SupervisorResponse {
+  return { ok: true, snapshot: { protocol: 1, phase: 'armed', version, policy: POLICY, profiles: [], incidents: [], updatedAt: '2026-01-01T00:00:00Z' } }
+}
+
+const currentResponse = supervisorSnapshot('9.9.9')
 
 function okSpawn(code = 0): SpawnResult {
   return { code, stdout: '', stderr: code === 0 ? '' : 'boom' }
@@ -26,10 +32,16 @@ function depsWith(overrides: Partial<DoctorLifecycleDeps>): {
   spawn: ReturnType<typeof vi.fn>
   status: ReturnType<typeof vi.fn>
   capsuleStale: ReturnType<typeof vi.fn>
+  spawnSupervisor: ReturnType<typeof vi.fn>
+  shutdown: ReturnType<typeof vi.fn>
+  removeLegacyService: ReturnType<typeof vi.fn>
 } {
   const spawn = vi.fn(async () => okSpawn(0))
-  const status = vi.fn(async () => okResponse)
+  const status = vi.fn(async () => currentResponse)
   const capsuleStale = vi.fn(async () => false)
+  const spawnSupervisor = vi.fn(() => undefined)
+  const shutdown = vi.fn(async () => undefined)
+  const removeLegacyService = vi.fn(async () => false)
   const paths = doctorPaths({ DSH_DOCTOR_HOME: '/nonexistent' })
   const deps: DoctorLifecycleDeps = {
     paths,
@@ -38,61 +50,92 @@ function depsWith(overrides: Partial<DoctorLifecycleDeps>): {
     status,
     spawn,
     capsuleStale,
+    spawnSupervisor,
+    shutdown,
+    removeLegacyService,
     ...overrides,
   }
-  return { deps, spawn, status, capsuleStale }
+  return { deps, spawn, status, capsuleStale, spawnSupervisor, shutdown, removeLegacyService }
 }
 
 describe('ensureDoctor', () => {
-  it('deploys the service, waits for the supervisor and skips a fresh capsule', async () => {
-    const { deps, spawn, status } = depsWith({})
+  it('skips spawning when a current supervisor answers', async () => {
+    const { deps, status, spawnSupervisor } = depsWith({})
     const outcome = await ensureDoctor(deps)
     expect(outcome.ok).toBe(true)
-    expect(outcome.steps).toEqual(['service'])
-    expect(spawn).toHaveBeenCalledTimes(1)
-    expect(spawn.mock.calls[0]![1]).toEqual(['/site/lib/cli.mjs', 'service-install'])
+    expect(outcome.steps).toEqual([])
+    expect(spawnSupervisor).not.toHaveBeenCalled()
     expect(status).toHaveBeenCalled()
   })
 
+  it('spawns a bounded supervisor child and records the step when none answers', async () => {
+    const { deps, status, spawnSupervisor } = depsWith({})
+    status.mockRejectedValueOnce(new Error('ECONNREFUSED'))
+    const outcome = await ensureDoctor(deps)
+    expect(outcome.ok).toBe(true)
+    expect(outcome.steps).toEqual(['supervisor'])
+    expect(spawnSupervisor).toHaveBeenCalledTimes(1)
+  })
+
+  it('shuts down a stale supervisor before respawning the current one', async () => {
+    const { deps, status, shutdown, spawnSupervisor } = depsWith({})
+    status.mockResolvedValueOnce(supervisorSnapshot('0.0.1'))
+    const outcome = await ensureDoctor(deps)
+    expect(outcome.ok).toBe(true)
+    expect(outcome.steps).toEqual(['supervisor'])
+    expect(shutdown).toHaveBeenCalledTimes(1)
+    expect(spawnSupervisor).toHaveBeenCalledTimes(1)
+  })
+
+  it('records a legacy-service step only when a registration was removed', async () => {
+    const { deps, removeLegacyService } = depsWith({})
+    removeLegacyService.mockResolvedValue(true)
+    const outcome = await ensureDoctor(deps)
+    expect(outcome.ok).toBe(true)
+    expect(outcome.steps).toEqual(['legacy-service'])
+  })
+
   it('refreshes the capsule when stale and polls again', async () => {
-    const { deps, spawn, status, capsuleStale } = depsWith({})
+    const { deps, spawn, capsuleStale, status } = depsWith({})
     capsuleStale.mockResolvedValue(true)
     const outcome = await ensureDoctor(deps)
     expect(outcome.ok).toBe(true)
-    expect(outcome.steps).toEqual(['service', 'capsule'])
-    expect(spawn.mock.calls[1]![1]).toEqual(['/site/lib/cli.mjs', 'provision'])
+    expect(outcome.steps).toEqual(['capsule'])
+    expect(spawn.mock.calls[0]![1]).toEqual(['/site/lib/cli.mjs', 'provision'])
     expect(status.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('fails fast on a failed service install and never provisions', async () => {
-    const { deps, spawn, status, capsuleStale } = depsWith({})
-    spawn.mockResolvedValue(okSpawn(1))
-    const outcome = await ensureDoctor(deps)
-    expect(outcome.ok).toBe(false)
-    expect(outcome.code).toBe('SERVICE_INSTALL_FAILED')
-    expect(status).not.toHaveBeenCalled()
-    expect(capsuleStale).not.toHaveBeenCalled()
-  })
-
-  it('reports SUPERVISOR_UNAVAILABLE when the daemon never answers', async () => {
-    const { deps, status, capsuleStale } = depsWith({})
+  it('reports SUPERVISOR_UNAVAILABLE when the spawned supervisor never answers', async () => {
+    const { deps, status, capsuleStale, spawnSupervisor } = depsWith({})
     status.mockRejectedValue(new Error('ECONNREFUSED'))
     const outcome = await ensureDoctor({ ...deps, pollAttempts: 2, pollDelayMs: 1 })
     expect(outcome.ok).toBe(false)
     expect(outcome.code).toBe('SUPERVISOR_UNAVAILABLE')
+    expect(outcome.steps).toEqual(['supervisor'])
+    expect(spawnSupervisor).toHaveBeenCalledTimes(1)
     expect(capsuleStale).not.toHaveBeenCalled()
+  })
+
+  it('reports PROVISION_FAILED when the capsule provision fails', async () => {
+    const { deps, spawn, capsuleStale } = depsWith({})
+    capsuleStale.mockResolvedValue(true)
+    spawn.mockResolvedValue(okSpawn(1))
+    const outcome = await ensureDoctor(deps)
+    expect(outcome.ok).toBe(false)
+    expect(outcome.code).toBe('PROVISION_FAILED')
+    expect(outcome.steps).toEqual([])
   })
 })
 
 describe('uninstallDoctor', () => {
-  it('marks supervisor state and removes the service', async () => {
+  it('marks supervisor state, retires legacy registrations, and removes credentials', async () => {
     const markUninstall = vi.fn(async () => undefined)
-    const { deps, spawn } = depsWith({ markUninstall })
+    const removeLegacyService = vi.fn(async () => true)
+    const { deps } = depsWith({ markUninstall, removeLegacyService })
     const outcome = await uninstallDoctor(deps)
     expect(outcome.ok).toBe(true)
-    expect(outcome.steps).toEqual(['service'])
+    expect(outcome.steps).toEqual(['legacy-service'])
     expect(markUninstall).toHaveBeenCalledTimes(1)
-    expect(spawn.mock.calls[0]![1]).toEqual(['/site/lib/cli.mjs', 'service-uninstall'])
   })
 
   it('continues when the supervisor is already gone', async () => {
@@ -100,17 +143,20 @@ describe('uninstallDoctor', () => {
     const { deps } = depsWith({ markUninstall })
     const outcome = await uninstallDoctor(deps)
     expect(outcome.ok).toBe(true)
+    expect(outcome.steps).toEqual([])
   })
 })
 
 describe('createDoctorLifecycle', () => {
-  it('coalesces concurrent ensure calls into one deployment', async () => {
-    const { deps } = depsWith({})
+  it('coalesces concurrent ensure calls into one reconciliation', async () => {
+    const { deps, status, spawnSupervisor } = depsWith({})
     const cycle = createDoctorLifecycle(deps)
     const [a, b] = await Promise.all([cycle.ensure(), cycle.ensure()])
     expect(a.ok).toBe(true)
     expect(b.ok).toBe(true)
-    expect(deps.spawn).toHaveBeenCalledTimes(1)
+    // One reconciliation: one currency check plus one wait poll, no more.
+    expect(status).toHaveBeenCalledTimes(2)
+    expect(spawnSupervisor).not.toHaveBeenCalled()
   })
 })
 

@@ -1,90 +1,78 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { posix, win32 } from 'node:path'
 import { spawn } from 'node:child_process'
+import { rm, stat } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { join as win32Join } from 'node:path/win32'
 
-export interface ServiceSpec { platform: NodeJS.Platform; label: string; executable: string; args: string[]; doctorHome: string }
-export interface ServicePlan { files: Array<{ path: string; content: string; mode?: number }>; install: string[]; uninstall: string[]; restart: string[] }
-const quoteXml = (value: string): string => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-const quoteExec = (value: string): string => JSON.stringify(value)
+/**
+ * Legacy OS-service cleanup. Doctor supervisors used to run as persistent
+ * login services (a macOS LaunchAgent, a systemd --user unit, a Windows
+ * scheduled task) registered by the host on every boot: the registration was
+ * global state written with the registering boot's own paths, so any host —
+ * dev, e2e, or the desktop app — hijacked the same plist and the daemon
+ * outlived every process cleanup. Supervisors now run as host-bounded child
+ * processes (see host/ensure.ts); this module only removes the old
+ * registrations, idempotently, so the first boot of the new doctor migrates
+ * machines that still carry one.
+ */
 
-export function servicePlan(spec: ServiceSpec, env: NodeJS.ProcessEnv = process.env): ServicePlan {
-  const isWin = spec.platform === 'win32'
-  const pathMod = isWin ? win32 : posix
-  const executable = pathMod.resolve(spec.executable)
-  const home = env.HOME?.trim() || homedir()
+export interface LegacyServicePlan {
+  /** Definition files to delete. */
+  files: string[]
+  /** Unregister command (launchctl bootout / systemctl disable / schtasks delete). */
+  uninstall: string[]
+}
 
-  if (spec.platform === 'darwin') {
-    const path = posix.join(home, 'Library', 'LaunchAgents', `${spec.label}.plist`)
-    const args = [executable, ...spec.args].map(value => `<string>${quoteXml(value)}</string>`).join('')
-    const content = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>${quoteXml(spec.label)}</string><key>ProgramArguments</key><array>${args}</array><key>EnvironmentVariables</key><dict><key>DSH_DOCTOR_HOME</key><string>${quoteXml(spec.doctorHome)}</string></dict><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ProcessType</key><string>Background</string></dict></plist>
-`
-    const user = `gui/${process.getuid?.() ?? 0}`
-    return { files: [{ path, content, mode: 0o600 }], install: ['launchctl', 'bootstrap', user, path], uninstall: ['launchctl', 'bootout', user, path], restart: ['launchctl', 'kickstart', '-k', `${user}/${spec.label}`] }
-  }
-  if (spec.platform === 'linux') {
-    const config = env.XDG_CONFIG_HOME?.trim() || posix.join(home, '.config')
-    const path = posix.join(config, 'systemd', 'user', `${spec.label}.service`)
-    const command = [executable, ...spec.args].map(quoteExec).join(' ')
-    const content = `[Unit]\nDescription=DSH Doctor Supervisor\nAfter=default.target\n\n[Service]\nType=simple\nExecStart=${command}\nEnvironment=DSH_DOCTOR_HOME=${quoteExec(spec.doctorHome)}\nRestart=on-failure\nRestartSec=2\nNoNewPrivileges=true\nPrivateTmp=true\n\n[Install]\nWantedBy=default.target\n`
-    const unit = posix.basename(path)
-    return { files: [{ path, content, mode: 0o600 }], install: ['systemctl', '--user', 'enable', '--now', unit], uninstall: ['systemctl', '--user', 'disable', '--now', unit], restart: ['systemctl', '--user', 'restart', unit] }
-  }
-  if (spec.platform === 'win32') {
-    const localAppData = env.LOCALAPPDATA?.trim() || win32.join(home, 'AppData', 'Local')
-    const cmdPath = win32.join(localAppData, 'DSH Doctor', 'supervisor.cmd')
-    const vbsPath = win32.join(localAppData, 'DSH Doctor', 'supervisor.vbs')
-    const cmdContent = `@echo off\r\nset "DSH_DOCTOR_HOME=${spec.doctorHome}"\r\n"${executable}" ${spec.args.map(quoteExec).join(' ')}\r\n`
-    const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run Chr(34) & "${cmdPath}" & Chr(34), 0, False\r\n`
-    const task = 'DSH Doctor Supervisor'
+export function legacyServicePlan(platform: NodeJS.Platform, env: NodeJS.ProcessEnv = process.env, home = homedir()): LegacyServicePlan {
+  const homeDir = env.HOME?.trim() || home
+  if (platform === 'darwin') {
     return {
-      files: [
-        { path: cmdPath, content: cmdContent, mode: 0o600 },
-        { path: vbsPath, content: vbsContent, mode: 0o600 },
-      ],
-      install: ['schtasks', '/Create', '/F', '/SC', 'ONLOGON', '/TN', task, '/TR', `wscript.exe "${vbsPath}"`],
-      uninstall: ['schtasks', '/Delete', '/F', '/TN', task],
-      restart: ['schtasks', '/Run', '/TN', task],
+      files: [join(homeDir, 'Library', 'LaunchAgents', 'com.dsh.doctor.plist')],
+      uninstall: ['launchctl', 'bootout', `gui/${process.getuid?.() ?? 0}`, join(homeDir, 'Library', 'LaunchAgents', 'com.dsh.doctor.plist')],
     }
   }
-  throw new Error(`doctor: unsupported service platform ${spec.platform}`)
-}
-
-export async function writeServiceFiles(plan: ServicePlan): Promise<void> {
-  for (const file of plan.files) {
-    const dir = file.path.includes('\\') ? win32.dirname(file.path) : posix.dirname(file.path)
-    await mkdir(dir, { recursive: true })
-    await writeFile(file.path, file.content, { mode: file.mode ?? 0o600 })
+  if (platform === 'linux') {
+    const config = env.XDG_CONFIG_HOME?.trim() || join(homeDir, '.config')
+    const unit = join(config, 'systemd', 'user', 'com.dsh.doctor.service')
+    return {
+      files: [unit],
+      uninstall: ['systemctl', '--user', 'disable', '--now', 'com.dsh.doctor.service'],
+    }
   }
+  if (platform === 'win32') {
+    const localAppData = env.LOCALAPPDATA?.trim() || join(homeDir, 'AppData', 'Local')
+    return {
+      files: [win32Join(localAppData, 'DSH Doctor', 'supervisor.cmd'), win32Join(localAppData, 'DSH Doctor', 'supervisor.vbs')],
+      uninstall: ['schtasks', '/Delete', '/F', '/TN', 'DSH Doctor Supervisor'],
+    }
+  }
+  return { files: [], uninstall: [] }
 }
-
-export async function removeServiceFiles(plan: ServicePlan): Promise<void> { for (const file of plan.files) await rm(file.path, { force: true }) }
 
 export type ServiceRunner = (command: string[]) => Promise<void>
 
-/**
- * Idempotent service redeploy: drop any previous registration (a first
- * install fails harmlessly), write the definition, bootstrap it, then restart
- * it so the running process picks up the current package code.
- */
-export async function ensureServiceInstalled(plan: ServicePlan, run: ServiceRunner = runCommand): Promise<void> {
-  await run(plan.uninstall).catch(() => undefined)
-  await writeServiceFiles(plan)
-  await run(plan.install)
-  await run(plan.restart).catch(() => undefined)
-}
-
-/** Unregister the service and remove its definition files (tolerates absence). */
-export async function removeService(plan: ServicePlan, run: ServiceRunner = runCommand): Promise<void> {
-  await run(plan.uninstall).catch(() => undefined)
-  await removeServiceFiles(plan)
-}
-
 export async function runCommand(command: string[], timeoutMs = 30_000): Promise<void> {
   await new Promise<void>((resolvePromise, reject) => {
-    const child = spawn(command[0]!, command.slice(1), { stdio: 'inherit' })
+    const child = spawn(command[0]!, command.slice(1), { stdio: 'ignore' })
     const timer = setTimeout(() => child.kill(), timeoutMs)
     child.once('close', code => { clearTimeout(timer); code === 0 ? resolvePromise() : reject(new Error(`doctor: command failed (${code ?? 'signal'}): ${command.join(' ')}`)) })
     child.once('error', reject)
   })
+}
+
+/**
+ * Remove any legacy OS service registration. Returns true when definition
+ * files existed (the unregister command still runs best-effort either way —
+ * a registration can outlive its files). Never throws for a missing or
+ * already-removed registration.
+ */
+export async function removeLegacyService(run: ServiceRunner = runCommand, env: NodeJS.ProcessEnv = process.env, home = homedir()): Promise<boolean> {
+  const plan = legacyServicePlan(process.platform, env, home)
+  let removed = false
+  for (const file of plan.files) {
+    try { await stat(resolve(file)); removed = true } catch { continue }
+    await rm(file, { force: true })
+  }
+  if (removed) await run(plan.uninstall).catch(() => undefined)
+  return removed
 }

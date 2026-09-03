@@ -2,19 +2,22 @@ import { spawn } from 'node:child_process'
 import { access, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { credentialsFingerprint, removeCapsuleCredentialFiles } from '../agent/capsule.ts'
+import { removeLegacyService } from '../agent/service.ts'
 import type { DoctorPaths } from '../agent/paths.ts'
 import type { SupervisorResponse } from '../core/protocol.ts'
 
 /**
- * Lifecycle orchestration for the Doctor supervisor service.
+ * Lifecycle orchestration for the Doctor supervisor.
  *
- * The host half (the dsh web process) owns deployment because it always runs
- * the current package: it redeploys the user-level supervisor service through
- * the same package's CLI (idempotent, restart-inclusive), waits for the
- * supervisor to answer, refreshes the rescue capsule when its pinned version
- * is stale, and (on uninstall) marks the supervisor state before removing the
- * service. Every external effect sits behind injectable seams so tests verify
- * the full sequence without touching launchctl or a real dsh.
+ * The supervisor runs as a bounded child of the host that spawned it (with a
+ * parent-liveness watch, see agent/supervisor.ts): it dies with the host
+ * instead of living as an OS-registered login service. Ensure therefore
+ * idempotently retires any legacy service registration, (re)spawns the
+ * supervisor child when none answers with the current version, waits for it
+ * to answer, and refreshes the rescue capsule when its pinned version is
+ * stale. Uninstall marks the supervisor state, removes legacy registrations
+ * and the capsule credentials. Every external effect sits behind injectable
+ * seams so tests verify the full sequence without spawning real processes.
  * @module @linxin666/dsh-doctor/host
  */
 
@@ -38,14 +41,21 @@ export interface LifecycleReport {
 
 export interface DoctorLifecycleDeps {
   paths: DoctorPaths
-  /** Absolute path of the package CLI (lib/cli.mjs) driving the service. */
+  /** Absolute path of the package CLI (lib/cli.mjs) driving the supervisor. */
   cliPath: string
   /** Version of the host half (package.json); capsule staleness compares against it. */
   version: string
   status: StatusFn
-  /** Mark the supervisor state uninstalling before service removal. */
+  /** Mark the supervisor state uninstalling before cleanup. */
   markUninstall?: () => Promise<unknown>
+  /** One-shot command seam (capsule provisioning); tests inject fakes. */
   spawn?: SpawnFn
+  /** Spawn the supervisor as a bounded child of this process; tests inject fakes. */
+  spawnSupervisor?: () => void
+  /** Ask an answering-but-stale supervisor to exit (IPC shutdown). */
+  shutdown?: () => Promise<unknown>
+  /** Retire a legacy OS service registration; tests inject fakes. */
+  removeLegacyService?: () => Promise<boolean>
   /** Whether the supervisor state is provisioned (token file exists). */
   provisioned?: () => Promise<boolean>
   /** Whether the rescue capsule is missing or pinned to another doctor/credentials version. */
@@ -56,13 +66,11 @@ export interface DoctorLifecycleDeps {
   pollDelayMs?: number
 }
 
-/** In-flight dedupe face exposed to the routes. */
 export interface DoctorLifecycle {
   ensure(): Promise<LifecycleReport>
   uninstall(): Promise<LifecycleReport>
 }
 
-const DEPLOY_TIMEOUT_MS = 90_000
 const PROVISION_TIMEOUT_MS = 10 * 60_000
 
 /** Default spawn: buffer stdout/stderr, kill on timeout, never reject. */
@@ -82,6 +90,17 @@ function defaultSpawn(command: string, args: string[], opts: { timeoutMs: number
     child.once('error', error => { clearTimeout(timer); resolve({ code: -1, stdout, stderr: String(error) }) })
     child.once('close', code => { clearTimeout(timer); resolve({ code: code ?? -1, stdout, stderr }) })
   })
+}
+
+/**
+ * Default bounded-child spawn: the supervisor runs the current package CLI
+ * with a parent-liveness watch on this process. Not detached and unref'd —
+ * it joins this host's process group (process-group kills reach it) and it
+ * never keeps the host's event loop alive on its own.
+ */
+function defaultSpawnSupervisor(deps: DoctorLifecycleDeps): void {
+  const child = spawn(process.execPath, [deps.cliPath, 'supervisor', '--parent-pid', String(process.pid)], { env: process.env, stdio: 'ignore' })
+  child.unref()
 }
 
 /** True when the supervisor state directory holds the IPC token. */
@@ -130,20 +149,34 @@ export function createDoctorLifecycle(deps: DoctorLifecycleDeps): DoctorLifecycl
   }
 }
 
-/** Redeploy the service, wait for the supervisor, then refresh a stale capsule. */
+/** Retire legacy registrations, (re)spawn the supervisor, then refresh a stale capsule. */
 export async function ensureDoctor(deps: DoctorLifecycleDeps): Promise<LifecycleReport> {
   const steps: string[] = []
-  const spawnImpl = deps.spawn ?? defaultSpawn
-  const first = await spawnImpl(process.execPath, [deps.cliPath, 'service-install'], { timeoutMs: DEPLOY_TIMEOUT_MS })
-  if (first.code !== 0) {
-    return { ok: false, code: 'SERVICE_INSTALL_FAILED', message: first.stderr.trim() || first.stdout.trim() || 'service install exited ' + String(first.code), steps }
+  // One-time migration for pre-child deployments: the first ensure on a
+  // machine that still carries an OS-registered service removes it. Cheap
+  // and idempotent on every later run.
+  const removeLegacy = deps.removeLegacyService ?? (() => removeLegacyService())
+  if (await removeLegacy().catch(() => false)) steps.push('legacy-service')
+
+  let response: SupervisorResponse | undefined
+  try { response = await deps.status() } catch { response = undefined }
+  const current = response?.ok === true
+    && response.snapshot?.version === deps.version
+    && response.snapshot?.policy !== undefined
+  if (!current) {
+    // An answering supervisor pinned to another version must make room for
+    // the current one; a graceful IPC shutdown avoids racing its socket.
+    if (response?.ok === true) await deps.shutdown?.().catch(() => undefined)
+    ;(deps.spawnSupervisor ?? (() => defaultSpawnSupervisor(deps)))()
+    steps.push('supervisor')
   }
-  steps.push('service')
+
   const awaited = await waitForSupervisor(deps)
   if (!awaited.ok) {
     return { ok: false, code: 'SUPERVISOR_UNAVAILABLE', message: awaited.message ?? 'supervisor did not answer', steps }
   }
   if (await (deps.capsuleStale ?? defaultCapsuleStale.bind(undefined, deps.paths))(deps.version, deps.source)) {
+    const spawnImpl = deps.spawn ?? defaultSpawn
     const second = await spawnImpl(process.execPath, [deps.cliPath, 'provision'], { timeoutMs: PROVISION_TIMEOUT_MS })
     if (second.code !== 0) {
       return { ok: false, code: 'PROVISION_FAILED', message: second.stderr.trim() || second.stdout.trim() || 'provision exited ' + String(second.code), steps }
@@ -157,22 +190,18 @@ export async function ensureDoctor(deps: DoctorLifecycleDeps): Promise<Lifecycle
   return { ok: true, code: 'OK', steps }
 }
 
-/** Mark the supervisor state, then remove the user-level service. */
+/** Mark the supervisor state, retire legacy registrations, drop capsule credentials. */
 export async function uninstallDoctor(deps: DoctorLifecycleDeps): Promise<LifecycleReport> {
   const steps: string[] = []
   try {
     await deps.markUninstall?.()
   } catch {
-    // The supervisor may already be gone; the service removal still runs.
+    // The supervisor may already be gone; the cleanup still runs.
   }
-  const spawnImpl = deps.spawn ?? defaultSpawn
-  const result = await spawnImpl(process.execPath, [deps.cliPath, 'service-uninstall'], { timeoutMs: DEPLOY_TIMEOUT_MS })
-  if (result.code !== 0) {
-    return { ok: false, code: 'SERVICE_UNINSTALL_FAILED', message: result.stderr.trim() || result.stdout.trim() || 'service uninstall exited ' + String(result.code), steps }
-  }
-  steps.push('service')
-  const removed = await removeCapsuleCredentialFiles(deps.paths).catch(() => ({ removed: 0 }))
-  if (removed.removed > 0) steps.push('credentials')
+  const removed = await (deps.removeLegacyService ?? (() => removeLegacyService()))().catch(() => false)
+  if (removed) steps.push('legacy-service')
+  const removedCredentials = await removeCapsuleCredentialFiles(deps.paths).catch(() => ({ removed: 0 }))
+  if (removedCredentials.removed > 0) steps.push('credentials')
   return { ok: true, code: 'OK', steps }
 }
 

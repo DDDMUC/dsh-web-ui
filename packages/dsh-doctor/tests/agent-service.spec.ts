@@ -1,117 +1,97 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path/posix'
 import { describe, expect, it } from 'vitest'
-import { ensureServiceInstalled, removeService, servicePlan, type ServiceRunner } from '../src/agent/service.ts'
+import { legacyServicePlan, removeLegacyService, type ServiceRunner } from '../src/agent/service.ts'
 
-const base = { label: 'com.dsh.doctor', executable: '/usr/local/bin/node', args: ['/usr/local/lib/cli.js', 'supervisor'], doctorHome: '/Users/u/.dsh-doctor' }
-
-describe('service adapters', () => {
-  it('renders a macOS LaunchAgent', () => {
-    const plan = servicePlan({ ...base, platform: 'darwin' }, { HOME: '/Users/u' })
-    expect(plan.files[0]!.path).toBe('/Users/u/Library/LaunchAgents/com.dsh.doctor.plist')
-    expect(plan.files[0]!.content).toContain('<key>Label</key>')
-    expect(plan.files[0]!.content).toContain('RunAtLoad')
-    expect(plan.files[0]!.content).toContain('KeepAlive')
-    expect(plan.install[0]).toBe('launchctl')
-    expect(plan.install[1]).toBe('bootstrap')
+describe('legacy service plan', () => {
+  it('targets the macOS LaunchAgent plist and its bootout command', () => {
+    const plan = legacyServicePlan('darwin', { HOME: '/Users/u' }, '/Users/u')
+    expect(plan.files).toEqual(['/Users/u/Library/LaunchAgents/com.dsh.doctor.plist'])
+    expect(plan.uninstall[0]).toBe('launchctl')
+    expect(plan.uninstall[1]).toBe('bootout')
+    expect(plan.uninstall[2]).toContain('gui/')
+    expect(plan.uninstall[3]).toBe('/Users/u/Library/LaunchAgents/com.dsh.doctor.plist')
   })
 
-  it('escapes XML entities in LaunchAgent paths', () => {
-    const plan = servicePlan({ ...base, executable: '/Users/Anders & Co/node', doctorHome: '/Users/Anders & Co/.dsh-doctor', platform: 'darwin' }, { HOME: '/Users/Anders & Co' })
-    expect(plan.files[0]!.content).toContain('Anders &amp; Co')
+  it('targets the systemd user unit on Linux', () => {
+    const plan = legacyServicePlan('linux', { XDG_CONFIG_HOME: '/home/u/.config' }, '/home/u')
+    expect(plan.files).toEqual(['/home/u/.config/systemd/user/com.dsh.doctor.service'])
+    expect(plan.uninstall).toEqual(['systemctl', '--user', 'disable', '--now', 'com.dsh.doctor.service'])
   })
 
-  it('renders a systemd user unit with restart policy', () => {
-    const plan = servicePlan({ ...base, platform: 'linux' }, { XDG_CONFIG_HOME: '/home/u/.config' })
-    expect(plan.files[0]!.path).toBe('/home/u/.config/systemd/user/com.dsh.doctor.service')
-    expect(plan.files[0]!.content).toContain('[Service]')
-    expect(plan.files[0]!.content).toContain('Restart=on-failure')
-    expect(plan.files[0]!.content).toContain('NoNewPrivileges=true')
-    expect(plan.install[0]).toBe('systemctl')
-  })
-
-  it('renders a per-user Windows scheduled task', () => {
-    const plan = servicePlan({ ...base, executable: 'C:\\Program Files\\nodejs\\node.exe', platform: 'win32' }, { LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local' })
-    expect(plan.files[0]!.path).toBe('C:\\Users\\u\\AppData\\Local\\DSH Doctor\\supervisor.cmd')
-    expect(plan.files[0]!.content).toContain('@echo off')
-    expect(plan.files[0]!.content).toContain('"C:\\Program Files\\nodejs\\node.exe"')
-    expect(plan.files[1]!.path).toBe('C:\\Users\\u\\AppData\\Local\\DSH Doctor\\supervisor.vbs')
-    expect(plan.files[1]!.content).toContain('WScript.Shell')
-    expect(plan.files[1]!.content).toContain('supervisor.cmd')
-    expect(plan.install).toEqual([
-      'schtasks',
-      '/Create',
-      '/F',
-      '/SC',
-      'ONLOGON',
-      '/TN',
-      'DSH Doctor Supervisor',
-      '/TR',
-      'wscript.exe "C:\\Users\\u\\AppData\\Local\\DSH Doctor\\supervisor.vbs"',
+  it('targets the Windows scheduled task scripts', () => {
+    const plan = legacyServicePlan('win32', { LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local' }, 'C:\\Users\\u')
+    expect(plan.files).toEqual([
+      'C:\\Users\\u\\AppData\\Local\\DSH Doctor\\supervisor.cmd',
+      'C:\\Users\\u\\AppData\\Local\\DSH Doctor\\supervisor.vbs',
     ])
     expect(plan.uninstall).toEqual(['schtasks', '/Delete', '/F', '/TN', 'DSH Doctor Supervisor'])
-    expect(plan.restart).toEqual(['schtasks', '/Run', '/TN', 'DSH Doctor Supervisor'])
   })
 
-  it('rejects unknown platforms', () => {
-    expect(() => servicePlan({ ...base, platform: 'freebsd' as never })).toThrow(/unsupported service platform/)
-  })
-
-  it('carries a restart command for every platform', () => {
-    expect(servicePlan({ ...base, platform: 'darwin' }, { HOME: '/Users/u' }).restart[1]).toBe('kickstart')
-    expect(servicePlan({ ...base, platform: 'linux' }, { XDG_CONFIG_HOME: '/home/u/.config' }).restart[2]).toBe('restart')
-    expect(servicePlan({ ...base, platform: 'win32' }, { LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local' }).restart[0]).toBe('schtasks')
+  it('returns an empty plan on platforms that never had a service', () => {
+    expect(legacyServicePlan('freebsd', {}, '/home/u')).toEqual({ files: [], uninstall: [] })
   })
 })
 
-describe('service redeploy', () => {
-  it('boots out the previous registration, writes files, bootstraps and restarts', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-svc-'))
-    const plan = servicePlan({ ...base, platform: 'darwin' }, { HOME: dir })
-    const calls: string[][] = []
-    const runner: ServiceRunner = async command => { calls.push(command) }
+describe('removeLegacyService', () => {
+  it('deletes an existing registration, runs the unregister command, and reports the removal', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-legacy-'))
+    const original = process.platform
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
     try {
-      await ensureServiceInstalled(plan, runner)
-      expect(calls.map(call => call.slice(0, 2))).toEqual([
-        ['launchctl', 'bootout'],
-        ['launchctl', 'bootstrap'],
-        ['launchctl', 'kickstart'],
-      ])
-      await expect(readFile(plan.files[0]!.path, 'utf8')).resolves.toContain('com.dsh.doctor')
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('tolerates a missing previous registration and a failed restart', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-svc-'))
-    const plan = servicePlan({ ...base, platform: 'darwin' }, { HOME: dir })
-    let called = 0
-    const runner: ServiceRunner = async () => {
-      called += 1
-      if (called === 1) throw new Error('no such service')
-      if (called === 3) throw new Error('not loaded')
-    }
-    try {
-      await expect(ensureServiceInstalled(plan, runner)).resolves.toBeUndefined()
-      expect(called).toBe(3)
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('unregisters and removes the definition files', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-svc-'))
-    const plan = servicePlan({ ...base, platform: 'darwin' }, { HOME: dir })
-    await ensureServiceInstalled(plan, async () => {})
-    const calls: string[][] = []
-    try {
-      await removeService(plan, async command => { calls.push(command) })
+      const plist = join(dir, 'Library', 'LaunchAgents', 'com.dsh.doctor.plist')
+      await mkdir(join(dir, 'Library', 'LaunchAgents'), { recursive: true })
+      await writeFile(plist, '<?xml version="1.0"?>\n', 'utf8')
+      const calls: string[][] = []
+      const runner: ServiceRunner = async command => { calls.push(command) }
+      await expect(removeLegacyService(runner, { HOME: dir }, dir)).resolves.toBe(true)
       expect(calls.map(call => call.slice(0, 2))).toEqual([['launchctl', 'bootout']])
-      await expect(stat(plan.files[0]!.path)).rejects.toThrow()
+      await expect(stat(plist)).rejects.toThrow()
     } finally {
+      Object.defineProperty(process, 'platform', { value: original })
       await rm(dir, { recursive: true, force: true })
     }
+  })
+
+  it('is a no-op when nothing is registered', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-legacy-'))
+    const original = process.platform
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    try {
+      const calls: string[][] = []
+      const runner: ServiceRunner = async command => { calls.push(command) }
+      await expect(removeLegacyService(runner, { HOME: dir }, dir)).resolves.toBe(false)
+      expect(calls).toEqual([])
+    } finally {
+      Object.defineProperty(process, 'platform', { value: original })
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('tolerates a failing unregister command after deleting the files', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-legacy-'))
+    const original = process.platform
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    try {
+      const plist = join(dir, 'Library', 'LaunchAgents', 'com.dsh.doctor.plist')
+      await mkdir(join(dir, 'Library', 'LaunchAgents'), { recursive: true })
+      await writeFile(plist, '<?xml version="1.0"?>\n', 'utf8')
+      const runner: ServiceRunner = async () => { throw new Error('not loaded') }
+      await expect(removeLegacyService(runner, { HOME: dir }, dir)).resolves.toBe(true)
+      await expect(stat(plist)).rejects.toThrow()
+    } finally {
+      Object.defineProperty(process, 'platform', { value: original })
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('supervisor module surface', () => {
+  it('no longer exposes service installation helpers', async () => {
+    const mod = (await import('../src/agent/service.ts')) as unknown as Record<string, unknown>
+    expect(mod.ensureServiceInstalled).toBeUndefined()
+    expect(mod.servicePlan).toBeUndefined()
+    expect(typeof mod.removeLegacyService).toBe('function')
   })
 })

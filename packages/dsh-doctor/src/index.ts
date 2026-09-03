@@ -35,7 +35,7 @@ export const apply = mountOnce('@linxin666/dsh-doctor', (ctx: Context, config?: 
   const client = new SupervisorClient(paths)
   const hostVersion = currentPackageVersion()
   const cliPath = fileURLToPath(new URL('./cli.mjs', import.meta.url))
-  const baseLifecycle = serializeDoctorLifecycle(createDoctorLifecycle({ paths, cliPath, version: hostVersion, status: () => client.status(), markUninstall: () => client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall', profileId: profile.id }), source: { home: profile.dshHome, profile: profile.name } }))
+  const baseLifecycle = serializeDoctorLifecycle(createDoctorLifecycle({ paths, cliPath, version: hostVersion, status: () => client.status(), markUninstall: () => client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall', profileId: profile.id }), shutdown: () => client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'shutdown' }), source: { home: profile.dshHome, profile: profile.name } }))
   let lifecycle = baseLifecycle
   const autoEnsure = createAutoEnsure({ stateDir: paths.state, version: hostVersion, cliPath, profileId: profile.id, lifecycle: baseLifecycle, status: () => client.status(), enabled: () => effectiveConfig(current()).enabled })
   lifecycle = lifecycleWithUninstallMarker(baseLifecycle, autoEnsure)
@@ -59,7 +59,10 @@ export const apply = mountOnce('@linxin666/dsh-doctor', (ctx: Context, config?: 
       return
     }
     const routeDisposers = makeDoctorRoutes(client, profile.id, { hostVersion, lifecycle, provisioned: () => defaultProvisioned(paths) }).map(route => ctx.webServer.register(route))
-    const disposeHeartbeat = value.fullProtection ? startHeartbeat({ client, profileId: profile.id, runId: process.env.DSH_DOCTOR_RUN_ID || 'unmanaged-' + process.pid, intervalMs: value.heartbeatIntervalMs, webUrl: () => `http://127.0.0.1:${ctx.webServer.port}` }) : () => undefined
+    // A heartbeat failure means the supervisor child is gone (its spawning
+    // host exited, or it crashed): re-kick the reconciler so this host takes
+    // over spawning it. kick() coalesces concurrent runs.
+    const disposeHeartbeat = value.fullProtection ? startHeartbeat({ client, profileId: profile.id, runId: process.env.DSH_DOCTOR_RUN_ID || 'unmanaged-' + process.pid, intervalMs: value.heartbeatIntervalMs, webUrl: () => `http://127.0.0.1:${ctx.webServer.port}`, onFailure: () => { void autoEnsure.kick() } }) : () => undefined
     disposeRuntime = () => { disposeHeartbeat(); for (const dispose of routeDisposers) dispose() }
     if (!wasEnabled) void client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'resume', profileId: profile.id }).catch(() => undefined)
     wasEnabled = true

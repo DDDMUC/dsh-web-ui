@@ -68,7 +68,7 @@ export type SupervisorRequest =
   | { protocol: typeof DOCTOR_PROTOCOL_VERSION; type: 'client-failure'; profileId: string; runId?: string; at: string; message: string; stack?: string; phase?: string }
   | { protocol: typeof DOCTOR_PROTOCOL_VERSION; type: 'launcher-start'; profile: ProfileIdentity; runId: string; pid: number; argv: string[]; at: string }
   | { protocol: typeof DOCTOR_PROTOCOL_VERSION; type: 'launcher-exit'; profileId: string; runId: string; exitCode: number | null; signal: string | null; intentional: boolean; started: boolean; at: string; stderrTail?: string }
-  | { protocol: typeof DOCTOR_PROTOCOL_VERSION; type: 'action'; action: 'provision' | 'exercise' | 'diagnose' | 'repair' | 'confirm' | 'rollback' | 'pause' | 'resume' | 'uninstall'; profileId?: string; incidentId?: string }
+  | { protocol: typeof DOCTOR_PROTOCOL_VERSION; type: 'action'; action: 'provision' | 'exercise' | 'diagnose' | 'repair' | 'confirm' | 'rollback' | 'pause' | 'resume' | 'uninstall' | 'shutdown'; profileId?: string; incidentId?: string }
 
 export interface SupervisorResponse {
   ok: boolean

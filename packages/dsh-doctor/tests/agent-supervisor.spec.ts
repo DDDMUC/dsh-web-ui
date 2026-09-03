@@ -1,9 +1,10 @@
+import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { DOCTOR_PROTOCOL_VERSION, type SupervisorRequest } from '../src/core/protocol.ts'
-import { DoctorSupervisor } from '../src/agent/supervisor.ts'
+import { DoctorSupervisor, watchParentPid } from '../src/agent/supervisor.ts'
 import { doctorPaths } from '../src/agent/paths.ts'
 import { callSupervisor } from '../src/agent/ipc.ts'
 
@@ -216,5 +217,42 @@ describe('supervisor lifecycle actions', () => {
       await supervisor.stop()
       await rm(dir, { recursive: true, force: true })
     }
+  })
+})
+
+
+describe('host-bounded lifecycle', () => {
+  it('invokes onShutdown when the shutdown action arrives and still answers it', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-doctor-sup-'))
+    const paths = doctorPaths({ DSH_DOCTOR_HOME: dir })
+    const onShutdown = vi.fn()
+    const supervisor = new DoctorSupervisor({ paths, onShutdown })
+    await supervisor.start()
+    try {
+      const token = (await readFile(paths.token, 'utf8')).trim()
+      const response = await callSupervisor(paths.socket, token, { protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'shutdown' })
+      expect(response.ok).toBe(true)
+      await vi.waitFor(() => expect(onShutdown).toHaveBeenCalledTimes(1))
+    } finally {
+      await supervisor.stop()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('watchParentPid fires when the watched pid is gone and stop() cancels the watch', async () => {
+    const dead = await new Promise<number>((resolve, reject) => {
+      const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' })
+      child.once('exit', () => resolve(child.pid!))
+      child.once('error', reject)
+    })
+    await new Promise(resolve => setTimeout(resolve, 50))
+    const onDead = vi.fn()
+    const stop = watchParentPid(dead, onDead, 10)
+    await vi.waitFor(() => expect(onDead).toHaveBeenCalledTimes(1))
+    stop()
+    const alive = watchParentPid(process.pid, onDead, 10)
+    await new Promise(resolve => setTimeout(resolve, 60))
+    expect(onDead).toHaveBeenCalledTimes(1)
+    alive()
   })
 })

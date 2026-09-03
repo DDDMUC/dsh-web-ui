@@ -30,4 +30,6 @@ Status: implemented
 
 同一个 `~/.dsh` 上双宿主并存自此是设计内模式：CLI 实例守 3080/3081，桌面实例取 3082+，两个 GUI 各自持有独立会话。
 
-未决发现（已上报，待产品决策）：每次 dsh 宿主启动都会部署 dsh-doctor 用户服务（`service-install` 写入 `~/Library/LaunchAgents/com.dsh.doctor.plist`，带 `KeepAlive` + `RunAtLoad`），指向该次启动自己的安装路径。该守护进程由 launchd 所有，超出任何进程组清理的射程；且 plist 是全局状态，任何一次启动都会劫持它——本次验证期间它先后被桌面 dev 运行和另一个并发自动化的 e2e 实例改写，每次都通过真实 profile 的 `service-install` 恢复。候选方案：在桌面 profile 种子中禁用 doctor 行、应用退出时执行 `service-uninstall`，或接受一个常驻后台守护进程。
+下文记录为未决的 doctor 守护进程发现已于次日解决：supervisor 现以宿主受管子进程运行，不再注册任何 OS 服务——见 [dsh-doctor 受管子进程](../architecture/2026-09-04-dsh-doctor-bounded-supervisor.zh.md)。
+
+未决发现（当时上报，待产品决策）：每次 dsh 宿主启动都会部署 dsh-doctor 用户服务（`service-install` 写入 `~/Library/LaunchAgents/com.dsh.doctor.plist`，带 `KeepAlive` + `RunAtLoad`），指向该次启动自己的安装路径。该守护进程由 launchd 所有，超出任何进程组清理的射程；且 plist 是全局状态，任何一次启动都会劫持它——本次验证期间它先后被桌面 dev 运行和另一个并发自动化的 e2e 实例改写，每次都通过真实 profile 的 `service-install` 恢复。候选方案：在桌面 profile 种子中禁用 doctor 行、应用退出时执行 `service-uninstall`，或接受一个常驻后台守护进程。

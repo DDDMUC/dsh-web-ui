@@ -6,7 +6,7 @@ import { managedLaunch, findRealDsh } from './agent/launch.ts'
 import { DoctorSupervisor, runSupervisor } from './agent/supervisor.ts'
 import { doctorPaths } from './agent/paths.ts'
 import { callSupervisor } from './agent/ipc.ts'
-import { servicePlan, ensureServiceInstalled, removeService } from './agent/service.ts'
+import { removeLegacyService } from './agent/service.ts'
 import { currentPackageVersion } from './agent/version.ts'
 import { provisionCapsule } from './agent/capsule.ts'
 import { resolveDshHome } from './core/profile.ts'
@@ -16,7 +16,13 @@ import type { RecoveryRequest } from './core/recover.ts'
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const paths = doctorPaths(); const command = argv[0] ?? 'help'
-  if (command === 'supervisor') { await runSupervisor(); return 0 }
+  if (command === 'supervisor') {
+    const flag = argv.indexOf('--parent-pid')
+    const raw = flag >= 0 ? argv[flag + 1] : undefined
+    const parentPid = raw === undefined ? undefined : Number(raw)
+    await runSupervisor(parentPid !== undefined && Number.isFinite(parentPid) ? { parentPid } : {})
+    return 0
+  }
   if (command === 'launch') {
     const token = (await readFile(paths.token, 'utf8')).trim()
     let autoMigrate = true
@@ -77,8 +83,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     console.log(JSON.stringify(outcome, null, 2))
     return outcome.ok ? 0 : 2
   }
-  if (command === 'service-plan' || command === 'service-install' || command === 'service-uninstall') { const plan = servicePlan({ platform: process.platform, label: 'com.dsh.doctor', executable: process.execPath, args: [process.argv[1]!, 'supervisor'], doctorHome: paths.root }); if (command === 'service-plan') console.log(JSON.stringify(plan, null, 2)); else if (command === 'service-install') { await ensureServiceInstalled(plan) } else { await removeService(plan) } return 0 }
-  console.log('Usage: dsh-doctor <supervisor|launch|status|provision [profile] [--no-credentials]|migrate [profile]|diagnose|repair|snapshot|rollback|service-plan|service-install|service-uninstall> [args...]')
+  if (command === 'service-uninstall') { const removed = await removeLegacyService(); console.log(JSON.stringify({ removed }, null, 2)); return 0 }
+  console.log('Usage: dsh-doctor <supervisor [--parent-pid <pid>]|launch|status|provision [profile] [--no-credentials]|migrate [profile]|diagnose|repair|snapshot|rollback|service-uninstall> [args..]')
   return command === 'help' || command === '--help' || command === '-h' ? 0 : 2
 }
 
