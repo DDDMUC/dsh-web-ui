@@ -56,4 +56,4 @@ pnpm build
 node scripts/verify-version.mjs 0.3.3
 ```
 
-The CI and release smoke lanes mount into `@deepseek-ai/dsh@0.1.2-alpha.4`, the same host version the family requires through `dsh.engines.dsh >=0.1.2-alpha.4`.
+The CI and release smoke lanes mount into `@deepseek-ai/dsh@0.1.2-rc.1`, the same host version the family requires through `dsh.engines.dsh >=0.1.2-rc.1`.
