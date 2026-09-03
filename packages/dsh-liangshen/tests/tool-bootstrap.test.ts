@@ -866,4 +866,19 @@ describe('anchored-tool-bootstrap', () => {
     expect(result.sections[0].text).toContain('Programmatic Tool Calling (PTC) mode')
     expect(result.sections[0].text).toContain('run_code')
   })
+
+  test('scans events safely from session.snapshotEvents() (#1350)', async () => {
+    const events = [{ type: 'tool/call' }]
+    const sessionObj = {
+      snapshotEvents: () => events,
+      header: { cwd: '/workspace' },
+    }
+    const assembleListener = listener(register(), 'system-prompt/assemble')
+    const result = await assembleListener(
+      undefined,
+      { agent: { session: sessionObj } },
+      async () => ({ system: 'minimal persona', tools: [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }], contexts: [], sections: SECTIONS }),
+    )
+    expect(result.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read', 'edit'])
+  })
 })

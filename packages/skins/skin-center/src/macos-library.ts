@@ -206,6 +206,7 @@ function aerialEntry(id: string, title: string, videoAbs: string, previewAbs: st
     srcMtime: stat.mtimeMs,
     srcSize: stat.size,
     updateAvailable: false,
+    rating: 'g',
   }
 }
 
@@ -351,6 +352,7 @@ export function scanMacDesktopPictures(roots: string[], inject: MacosScanFs = {}
         srcMtime: stat.mtimeMs,
         srcSize: stat.size,
         updateAvailable: false,
+        rating: 'g',
       })
     }
   }

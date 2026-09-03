@@ -48,8 +48,9 @@ button[role="tab"], button[role="tab"]:hover, button[role="tab"]:active, button[
   transform: none;
 }
 
-[data-aionui-explorer-col], [data-aionui-preview-col], .aionui-root {
+[data-aionui-explorer-col], [data-aionui-preview-col] {
   backdrop-filter: blur(12px);
+  contain: paint;
 }
 
 .aionui-dialog, .aionui-menu, .aionui-toast {

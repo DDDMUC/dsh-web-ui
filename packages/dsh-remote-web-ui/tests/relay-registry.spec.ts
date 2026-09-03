@@ -104,7 +104,7 @@ describe('loadRelayIdentity', () => {
     const first = loadRelayIdentity('web', home, deterministicRandom)
     const file = relayIdentityFile('web', home)
     expect(existsSync(file)).toBe(true)
-    expect((statSync(file).mode & 0o777) === 0o600).toBe(true)
+    if (process.platform !== 'win32') expect((statSync(file).mode & 0o777) === 0o600).toBe(true)
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ id: first.id, secret: first.secret })
     const second = loadRelayIdentity('web', home, () => { throw new Error('must not remint') })
     expect(second).toEqual({ id: first.id, secret: first.secret })

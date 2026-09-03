@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   allLibrariesFromVdf,
   buildInventory,
+  deriveRating,
   expandUser,
   inferType,
   inventoryFingerprint,
@@ -380,5 +381,42 @@ describe('inventoryFingerprint', () => {
     const beforeLater = inventoryFingerprint({ manualDirs: [manual, later], storeDir: store, entries })
     mkdirSync(later, { recursive: true })
     expect(inventoryFingerprint({ manualDirs: [manual, later], storeDir: store, entries })).not.toBe(beforeLater)
+  })
+})
+
+describe('deriveRating & contentrating (#1354)', () => {
+  it('derives rating strictly from contentrating when declared', () => {
+    expect(deriveRating('Everyone')).toBe('g')
+    expect(deriveRating('everyone')).toBe('g')
+    expect(deriveRating('Questionable')).toBe('pg13')
+    expect(deriveRating('questionable')).toBe('pg13')
+    expect(deriveRating('Mature')).toBe('r18')
+    expect(deriveRating('mature')).toBe('r18')
+  })
+
+  it('falls back to title keywords when contentrating is not recognized or absent', () => {
+    expect(deriveRating(null, 'Cool Landscape [R18]')).toBe('r18')
+    expect(deriveRating(undefined, 'Cool Landscape (R-18)')).toBe('r18')
+    expect(deriveRating('', 'NSFW Anime Art')).toBe('r18')
+    expect(deriveRating(null, 'Girls 18+ Only')).toBe('r18')
+    expect(deriveRating(null, 'Some Action (PG-13)')).toBe('pg13')
+    expect(deriveRating(null, 'Battle R-16 Cut')).toBe('pg13')
+    expect(deriveRating(null, 'Normal Peaceful Wallpaper')).toBe('g')
+  })
+
+  it('parses contentrating from project.json and tags entry rating', () => {
+    const manual = join(root, 'rating-test')
+    makeProject(join(manual, 'g-item'), { title: 'Safe Item', file: 'v.mp4', contentrating: 'Everyone' }, ['v.mp4'])
+    makeProject(join(manual, 'r18-item'), { title: 'Adult Item', file: 'v.mp4', contentrating: 'Mature' }, ['v.mp4'])
+    makeProject(join(manual, 'fallback-item'), { title: 'Hidden [R18]', file: 'v.mp4' }, ['v.mp4'])
+
+    const entries = scanProjectsRoot(manual, 'local')
+    const gEntry = entries.find(e => e.id === 'g-item')
+    const r18Entry = entries.find(e => e.id === 'r18-item')
+    const fallbackEntry = entries.find(e => e.id === 'fallback-item')
+
+    expect(gEntry?.rating).toBe('g')
+    expect(r18Entry?.rating).toBe('r18')
+    expect(fallbackEntry?.rating).toBe('r18')
   })
 })

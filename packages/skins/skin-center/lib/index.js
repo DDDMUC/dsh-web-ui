@@ -3231,7 +3231,8 @@ function aerialEntry(id, title, videoAbs, previewAbs, fs) {
 		playable: stat.isFile,
 		srcMtime: stat.mtimeMs,
 		srcSize: stat.size,
-		updateAvailable: false
+		updateAvailable: false,
+		rating: "g"
 	};
 }
 /**
@@ -3358,7 +3359,8 @@ function scanMacDesktopPictures(roots, inject = {}) {
 				playable: false,
 				srcMtime: stat.mtimeMs,
 				srcSize: stat.size,
-				updateAvailable: false
+				updateAvailable: false,
+				rating: "g"
 			});
 		}
 	}
@@ -3404,6 +3406,24 @@ function scanMacosWallpapers(roots, inject = {}) {
 */
 /** Steam appid of Wallpaper Engine. */
 const WE_APPID = "431960";
+/**
+* Derive rating from project.json contentrating field, with regex title fallback.
+* Everyone -> g, Questionable -> pg13, Mature -> r18.
+* Unspecified contentrating inspects title for keywords (R18/NSFW, PG-13/R-16).
+*/
+function deriveRating(contentRating, title) {
+	if (typeof contentRating === "string") {
+		const normalized = contentRating.trim().toLowerCase();
+		if (normalized === "everyone") return "g";
+		if (normalized === "questionable") return "pg13";
+		if (normalized === "mature") return "r18";
+	}
+	if (typeof title === "string" && title !== "") {
+		if (/(^|[^\w])(r-?18|nsfw|18\+)([^\w]|$)/i.test(title)) return "r18";
+		if (/(^|[^\w])(pg-?13|r-?16)([^\w]|$)/i.test(title)) return "pg13";
+	}
+	return "g";
+}
 /** Common Steam install locations probed when libraryfolders.vdf is missing. */
 const STEAM_PROBE_DIRS = [
 	"C:\\Program Files (x86)\\Steam",
@@ -3577,11 +3597,13 @@ function readProjectJson(dir) {
 		if (typeof record.file !== "string" || record.file === "") return null;
 		const declared = typeof record.type === "string" ? record.type.toLowerCase() : "";
 		const type = KNOWN_TYPES.includes(declared) ? declared : inferType(record.file);
+		const contentrating = typeof record.contentrating === "string" && record.contentrating !== "" ? record.contentrating : void 0;
 		return {
 			title: typeof record.title === "string" && record.title !== "" ? record.title : null,
 			type,
 			file: record.file,
-			preview: typeof record.preview === "string" && record.preview !== "" ? record.preview : null
+			preview: typeof record.preview === "string" && record.preview !== "" ? record.preview : null,
+			...contentrating !== void 0 ? { contentrating } : {}
 		};
 	} catch {
 		return null;
@@ -3611,7 +3633,8 @@ function synthesizeMediaEntries(dir, source) {
 			title: stem,
 			type: inferType(file),
 			file,
-			preview
+			preview,
+			contentrating: null
 		}, basename(dir) + "/" + file));
 	}
 	return entries;
@@ -3659,9 +3682,11 @@ function entryFromDir(dir, source, project, id) {
 			size = stat.size;
 		}
 	} catch {}
+	const title = project.title ?? basename(dir);
+	const rating = deriveRating(project.contentrating, title);
 	return {
 		id: id ?? basename(dir),
-		title: project.title ?? basename(dir),
+		title,
 		type: project.type,
 		file,
 		preview: project.preview,
@@ -3672,7 +3697,8 @@ function entryFromDir(dir, source, project, id) {
 		playable: fileExists && (project.type === "video" || project.type === "web"),
 		srcMtime: mtime,
 		srcSize: size,
-		updateAvailable: false
+		updateAvailable: false,
+		rating
 	};
 }
 /**
@@ -3821,7 +3847,8 @@ function scanImportStore(storeDir) {
 			srcSize: size,
 			updateAvailable: false,
 			importSrcMtime: manifest.srcMtime,
-			importSrcSize: manifest.srcSize
+			importSrcSize: manifest.srcSize,
+			rating: deriveRating(void 0, manifest.title)
 		});
 	}
 	return entries;
@@ -8504,6 +8531,7 @@ function makeWeRoutes(deps) {
 			source: entry.source,
 			playable: false,
 			updateAvailable: false,
+			rating: entry.rating ?? "g",
 			videoUrl: null,
 			webUrl: null,
 			frameUrl: null,
@@ -8517,6 +8545,7 @@ function makeWeRoutes(deps) {
 			source: entry.source,
 			playable: entry.playable,
 			updateAvailable: entry.updateAvailable,
+			rating: entry.rating ?? "g",
 			videoUrl: entry.type === "video" && hasFile ? "/api/skin-center/we/media/" + tokenFor(entry.fileAbs) : null,
 			webUrl: entry.type === "web" && hasFile ? "/api/skin-center/we/web/" + tokenFor(entry.fileAbs) + "/" : null,
 			frameUrl: entry.type === "scene" && hasFile ? "/api/skin-center/we/scene-frame/" + tokenFor(entry.fileAbs) : null,
