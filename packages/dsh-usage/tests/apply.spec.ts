@@ -8,8 +8,8 @@ import { apply, resolveConfig, type Config } from '../src/index.ts'
 /**
  * Host apply wiring: config coercion, route registration gated on `enabled`,
  * live re-arm on settings change, and the mountOnce single-instance guard.
- * Modeled on dsh-desktop-launcher's apply spec: the settings scope is faked,
- * the UsageService runs against a temp DSH_HOME with no provider services.
+ * The settings scope is faked, the UsageService runs against a temp DSH_HOME
+ * with no provider services.
  */
 
 interface ScopeHandle {

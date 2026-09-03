@@ -24,7 +24,6 @@ export const FAMILY_NAMESPACES = [
   'skin-custom-theme',
   'skin-wallpaper',
   'community-plugins',
-  'desktop-launcher',
   'dsh-web-ui-market',
 ] as const
 
@@ -54,8 +53,6 @@ const NAMESPACE_ALIASES: Readonly<Record<string, string | null>> = {
   'community-plugins': 'community-plugins',
   'dsh-community-plugins': 'community-plugins',
   'dsh-client-ui-community-plugins': 'community-plugins',
-  'desktop-launcher': 'desktop-launcher',
-  'dsh-desktop-launcher': 'desktop-launcher',
   'dsh-market': 'dsh-web-ui-market',
   'dsh-client-ui-market': 'dsh-web-ui-market',
   'dsh-web-ui-market': 'dsh-web-ui-market',

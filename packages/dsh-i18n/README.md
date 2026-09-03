@@ -17,7 +17,6 @@ The plugin is a pure browser bundle (the host half intentionally has no behavior
 
 | Namespace | Source package |
 | --- | --- |
-| `desktop-launcher` | dsh-desktop-launcher |
 | `doctor` | dsh-doctor |
 | `git-graph` | dsh-git-graph |
 | `dsh-web-ui-market` | dsh-market |

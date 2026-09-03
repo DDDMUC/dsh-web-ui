@@ -4,7 +4,7 @@ Status: implemented
 
 ## Problem
 
-dsh-web ships as a plugin bundle that requires a working dsh installation: Node 22+, the npm-installed `@deepseek-ai/dsh` host, a seeded `~/.dsh`, and the web profile with the plugins installed. That is a developer toolchain, not something a non-technical user can be asked to set up. The existing [desktop-launcher plugin](../../../packages/dsh-desktop-launcher/README.md) only creates a desktop shortcut that starts an already-installed `dsh web` — it does not remove the environment requirement. The goal is a desktop app anyone can install and double-click, with zero environment concerns.
+dsh-web ships as a plugin bundle that requires a working dsh installation: Node 22+, the npm-installed `@deepseek-ai/dsh` host, a seeded `~/.dsh`, and the web profile with the plugins installed. That is a developer toolchain, not something a non-technical user can be asked to set up. The [desktop-launcher plugin](../bug-fix/2026-08-29-desktop-launcher-browser-launch.md) only created a desktop shortcut that started an already-installed `dsh web` — it did not remove the environment requirement (the plugin has since been removed completely; see [its removal note](../simplification/2026-09-03-remove-dsh-desktop-launcher.md)). The goal is a desktop app anyone can install and double-click, with zero environment concerns.
 
 ## Decision
 
@@ -24,7 +24,7 @@ A new top-level `desktop/` directory (outside the pnpm workspace globs) holds an
 - **Spawn with `ELECTRON_RUN_AS_NODE=1`** (Electron binary as plain Node child): still a child process, but the Node version is pinned to whatever the Electron release embeds, which did not satisfy the host's `^22.19 || >=24` engine range at the versions considered, and the host would again run on Electron-patched Node.
 - **First-run online install** (ship the app small, run `dsh plugin add` on first launch): fails the "install and use" promise offline, makes first launch depend on npm registry health, and pnpm is not present in the bundled runtime.
 - **Fence an app-private DSH_HOME** (Application Support): cleaner uninstall, but users who also use the dsh CLI would get two siloed configurations; sharing `~/.dsh` with marker-based ownership gives one source of truth while staying non-destructive.
-- **Extend the desktop-launcher plugin** instead of a new app: the plugin's premise is "an installed dsh exists"; the desktop app's premise is the opposite, so the plugin stays the lightweight path for existing installs.
+- **Extend the desktop-launcher plugin** instead of a new app: the plugin's premise is "an installed dsh exists"; the desktop app's premise is the opposite. Superseded 2026-09-03: the plugin is removed completely and this app is the only desktop path (see [the removal note](../simplification/2026-09-03-remove-dsh-desktop-launcher.md)).
 
 ## Consequences
 

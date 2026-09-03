@@ -7,7 +7,6 @@
 | 目录 | npm 包 | 版本 | 发布状态 |
 | --- | --- | --- | --- |
 | packages/dsh-community-plugins | @linxin666/dsh-client-ui-community-plugins | 0.3.3 | public |
-| packages/dsh-desktop-launcher | @linxin666/dsh-desktop-launcher | 0.3.3 | public |
 | packages/dsh-doctor | @linxin666/dsh-doctor | 0.3.3 | public |
 | packages/dsh-git-graph | @linxin666/dsh-client-ui-git-graph | 0.3.3 | public |
 | packages/dsh-i18n | @linxin666/dsh-i18n | 0.1.0 | public |

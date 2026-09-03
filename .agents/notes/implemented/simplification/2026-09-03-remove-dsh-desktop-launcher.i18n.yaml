@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-09-03-remove-dsh-desktop-launcher.md: 2b02f66daf22ee33f3ad15223ce3c757747a6470
+2026-09-03-remove-dsh-desktop-launcher.zh.md: e846b81b645d3c97bee6b82d68edb0868c50e402

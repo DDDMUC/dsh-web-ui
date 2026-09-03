@@ -59,11 +59,6 @@ declare module '@linxin666/dsh-client-ui-skill-explorer/client' {
   export const inject: readonly string[] | undefined
 }
 
-declare module '@linxin666/dsh-desktop-launcher/client' {
-  export const apply: unknown
-  export const inject: readonly string[] | undefined
-}
-
 declare module '@linxin666/dsh-doctor/client' {
   export const apply: unknown
   export const inject: readonly string[] | undefined

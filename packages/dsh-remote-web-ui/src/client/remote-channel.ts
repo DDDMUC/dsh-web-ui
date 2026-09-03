@@ -11,8 +11,6 @@
  * - the pairing routes (`/api/pair/*`) stay where they are — accept must
  *   work BEFORE a device is paired;
  * - the update endpoints (`/api/update/*`) stay loopback-only;
- * - desktop-launcher create/shutdown (`/api/dsh-desktop-launcher/*`) stay
- *   loopback-only (host-local files and process exit);
  * - the family settings bridge (`/api/dsh-web-ui-settings/*`) stays
  *   loopback-only (same plane as SDK settings.*);
  * - `/api/*` (SDK methods and `/api/<plugin>/...` plugin namespaces),
@@ -77,7 +75,6 @@ export function isLoopbackHostname(hostname: string): boolean {
 export function shouldRewriteFetchPath(pathname: string): boolean {
   if (pathname.startsWith(RULES.pairPrefix)) return false
   if (pathname.startsWith(RULES.updatePrefix)) return false
-  if (pathname === RULES.desktopLauncherPrefix || pathname.startsWith(`${RULES.desktopLauncherPrefix}/`)) return false
   if (pathname === RULES.settingsBridgePrefix || pathname.startsWith(`${RULES.settingsBridgePrefix}/`)) return false
   if (pathname.startsWith(RULES.apiPrefix)) return true
   if (pathname.startsWith(RULES.sidebarPrefix) || pathname === '/sidebar') return true

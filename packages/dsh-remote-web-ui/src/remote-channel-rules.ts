@@ -22,7 +22,6 @@ export interface RemoteChannelRules {
   readonly apiPrefix: string
   readonly pairPrefix: string
   readonly updatePrefix: string
-  readonly desktopLauncherPrefix: string
   readonly settingsBridgePrefix: string
   readonly sidebarPrefix: string
   readonly gitPrefix: string
@@ -42,7 +41,6 @@ export const REMOTE_CHANNEL_RULES: RemoteChannelRules = {
   apiPrefix: '/api/',
   pairPrefix: '/api/pair/',
   updatePrefix: '/api/update/',
-  desktopLauncherPrefix: '/api/dsh-desktop-launcher',
   settingsBridgePrefix: '/api/dsh-web-ui-settings',
   sidebarPrefix: '/sidebar/',
   gitPrefix: '/git/',

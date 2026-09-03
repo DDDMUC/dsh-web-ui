@@ -166,9 +166,6 @@ describe('innerPathOf / loopbackOnlyDenial', () => {
     expect(loopbackOnlyDenial('/api/update/run')).toBeDefined()
     expect(loopbackOnlyDenial('/api/update/status')).toBeDefined()
     expect(loopbackOnlyDenial('/api/plugin-manager/install')).toBeDefined()
-    expect(loopbackOnlyDenial('/api/dsh-desktop-launcher')).toBeDefined()
-    expect(loopbackOnlyDenial('/api/dsh-desktop-launcher/shutdown')).toBeDefined()
-    expect(loopbackOnlyDenial('/api/dsh-desktop-launcher/create')).toBeDefined()
     // No per-method host pin exists on this line: the configuration plane
     // (settings / credentials / presets) is a client-side branch, flipped by
     // the transport ownsHost hook, and rides the gated channel like any
@@ -310,10 +307,6 @@ describe('remote desktop channel (/remote)', () => {
       const pairBody = JSON.parse(pair.body) as { result: { ok: boolean; error: { code: string } } }
       expect(pairBody.result.ok).toBe(false)
       expect(pairBody.result.error.code).toBe('forbidden')
-      const launcher = await call(port, 'POST', '/remote/api/dsh-desktop-launcher/shutdown', { body: '{}' })
-      expect(launcher.status).toBe(403)
-      const launcherBody = JSON.parse(launcher.body) as { result: { error: { code: string } } }
-      expect(launcherBody.result.error.code).toBe('forbidden')
       // Non-control paths still proxy with the policy off (the stale client
       // rewrite must not 403), including the configuration plane.
       const settings = await call(port, 'POST', '/remote/api/settings/describe', { body: '{}' })
@@ -378,25 +371,6 @@ describe('remote desktop channel (/remote)', () => {
     const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port }))
     try {
       for (const path of ['/remote/api/pair/status', '/remote/api/pair/revoke', '/remote/api/pair/issue']) {
-        const result = await call(port, 'POST', path, { cookie, body: '{}' })
-        expect(result.status, path).toBe(403)
-        const body = JSON.parse(result.body) as { result: { error: { code: string } } }
-        expect(body.result.error.code, path).toBe('forbidden')
-      }
-      expect(upstream.hits).toHaveLength(0)
-    } finally {
-      await close()
-      await upstream.close()
-    }
-  })
-
-  it('denies the desktop-launcher control plane to a paired remote desktop', async () => {
-    const service = makeService()
-    const cookie = pairedCookie(service)
-    const upstream = await startUpstream(() => ({ status: 200, body: '{"leaked":true}' }))
-    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port }))
-    try {
-      for (const path of ['/remote/api/dsh-desktop-launcher/shutdown', '/remote/api/dsh-desktop-launcher/create']) {
         const result = await call(port, 'POST', path, { cookie, body: '{}' })
         expect(result.status, path).toBe(403)
         const body = JSON.parse(result.body) as { result: { error: { code: string } } }

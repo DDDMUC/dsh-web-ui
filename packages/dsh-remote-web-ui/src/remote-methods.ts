@@ -45,9 +45,6 @@ export const REMOTE_UPGRADE_PATHS = [
 /** Plugin-manager HTTP prefix: install/remove stay physically local. */
 export const PLUGIN_MANAGER_PATH = '/api/plugin-manager'
 
-/** Desktop-launcher HTTP prefix: shortcut create and host shutdown stay physically local. */
-export const DESKTOP_LAUNCHER_PATH = '/api/dsh-desktop-launcher'
-
 /** Family settings-bridge HTTP prefix — re-exposed to paired devices (plain settings parity). */
 export const WEB_UI_SETTINGS_BRIDGE_PATH = '/api/dsh-web-ui-settings'
 
@@ -68,14 +65,12 @@ export const REMOTE_DEVICE_QUERY = 'device'
  * paired remote desktop may use the full host API (chat, sessions,
  * settings, credentials, presets — it is a full-control credential), but it
  * must not reach the machine-control planes: pairing control itself, the
- * dsh-web self-update installer, plugin install/remove, and desktop
- * launcher actions (host shutdown, shortcuts).
+ * dsh-web self-update installer, and plugin install/remove.
  */
 export const LOCAL_ONLY_PREFIXES: readonly string[] = [
   '/api/pair',
   '/api/update',
   PLUGIN_MANAGER_PATH,
-  DESKTOP_LAUNCHER_PATH,
 ] as const
 
 /**

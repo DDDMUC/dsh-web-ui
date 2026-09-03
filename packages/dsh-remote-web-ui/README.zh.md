@@ -27,7 +27,7 @@
 - **移动端插件范围**：适配层激活时，右侧详情列与面向桌面的工具界面（SSH 终端、技能中心、任务看板、git graph、宠物、性能引擎、使用统计）一律隐藏——以 L2 语义根（`data-dsh-plugin`）为键，归属由声明方插件负责，官方类名变动也不会复活它们。这些是渲染抑制；客户端 bundle 仍会加载。激活时还会经官方 `ctx.layout.closeDetails()` 真正关闭详情面板。
 - **手动退出**：`sessionStorage.dsh-remote-force-desktop = 1` 关闭整个适配层；横屏、桌面与宽视口永不触碰。
 
-配对远程桌面同时运行在 **host 模式**：在本 harness 线上，「配置面仅限本机」的行为是客户端分支（`connection.isLoopback`），通道 boot 脚本在一切 boot entry 之前对非回环源安装传输钩子（`__DSH_TRANSPORT__.ownsHost = true`）。设置、凭据、Agent 预设与产出物在手机上与桌面完全一致——所有调用仍走门控 `/remote` 通道。四个控制面保持物理本地：`/api/pair/*`、`/api/update/*`、`/api/plugin-manager/*` 与 `/api/dsh-desktop-launcher/*`。
+配对远程桌面同时运行在 **host 模式**：在本 harness 线上，「配置面仅限本机」的行为是客户端分支（`connection.isLoopback`），通道 boot 脚本在一切 boot entry 之前对非回环源安装传输钩子（`__DSH_TRANSPORT__.ownsHost = true`）。设置、凭据、Agent 预设与产出物在手机上与桌面完全一致——所有调用仍走门控 `/remote` 通道。三个控制面保持物理本地：`/api/pair/*`、`/api/update/*` 与 `/api/plugin-manager/*`。
 
 ## 环境要求
 
@@ -156,7 +156,7 @@ pnpm run build
 - **配对是 `/remote` 通道的访问控制**：`requirePairingForLan` 开启（默认）时，每个请求必须携带有效配对设备 cookie，在任何字节转发之前强制。缺失或被撤销的会话收到 HTTP 403，JSON 拒绝携带 `error.code: "unpaired"`；浏览器 `EventSource` API 只暴露流失败，不暴露响应体。
 - **通道携带进程自己的内部凭据。** harness 浏览器认证 cookie 与 authority 绑定（为浏览器访问过的确切 `host:port` 签发）且没有回环豁免，因此转发到 `127.0.0.1` 的再发起请求无法复用设备的 cookie。插件因此自行兑换一次自己的启动令牌——与浏览器首次访问执行的是同一次交换——并把所得 cookie 附到再发起请求上。该凭据只在上面的配对门之后被使用；停止/取消配对会立即停止对它的使用。
 - **本 cohort 的现实：配对不门控直连 `/api`。** 在锚定的 0.1.2-alpha.2 线上，没有任何组件发出 `api/gate` seam，因此来自局域网源头的直连 `/api` 仅由 harness 围栏（`0.0.0.0` 绑定下自动信任局域网字面量）加 harness 浏览器认证 cookie 约束。设备已经兑换过的浏览器凭据在停止/取消配对后仍然有效，直到其自然过期（30 天）——撤销约束的是 `/remote` 通道与配对 cookie，而不是那个凭据。插件会对 `/api` 姿态做探测并大声告警；请把局域网绑定当作深思熟虑的决定，在共享机器上优先回环加隧道。
-- **配对设备是完全控制凭据。** host 模式下它可达完整 host API——聊天、会话、设置、凭据、Agent 预设、产出物——与 SDK 对回环桌面的信任一致。只有四个控制面（配对、自更新、插件安装/卸载、桌面启动器）保持物理本地。只配对你控制的设备；停止或逐设备取消配对立即撤销。
+- **配对设备是完全控制凭据。** host 模式下它可达完整 host API——聊天、会话、设置、凭据、Agent 预设、产出物——与 SDK 对回环桌面的信任一致。只有三个控制面（配对、自更新、插件安装/卸载）保持物理本地。只配对你控制的设备；停止或逐设备取消配对立即撤销。
 - **控制端点仅限回环**：铸造/停止/撤销、设备列表、lan-bind 状态与更新端点只应答回环。局域网源浏览器看到「配对面板仅限本机使用」横幅。
 - **应用落地页不依赖 cookie。** 配对后二维码把设备带到 `/pair-app`——由本插件直接交付官方应用壳，不经过 harness 索引认证门；设备凭据经 `x-dsh-remote-device` 请求头（fetch）与 `device` 查询参数（WebSocket 升级）由引导补丁从 sessionStorage 挂载。因此手机浏览器完全禁用 cookie 时链路依然成立；有 cookie 时配对 cookie 仍是主凭据，手机路径不再需要 harness 浏览器认证 cookie。
 - **重开由 service worker 接管（仅 https 源）。** 配对过的手机从历史、书签或标签恢复回来时导航到裸 `/`——插件不拥有的路径，harness 兜底座会用浏览器认证 401 应答（不依赖 cookie 的流程永远拿不到那份凭据）。应用壳因此注册 `/pair-app.sw.js`（与 `/pair-app` 同一栅栏；脚本是不含任何秘密的惰性逻辑）：只拦截对 `/` 的导航，经 `/pair-app` 网络优先地重发应用壳——同时校验设备 cookie 并刷新其活跃时间，每次重开也在为会话续期——离线时回退缓存的壳，插件不再应答时把导航原样放行（被撤销的设备随后看到 harness 应答或双语重扫页）。纯 HTTP 的局域网源不是安全上下文，永远不会注册该 worker；那里的重开意味着重新扫码。

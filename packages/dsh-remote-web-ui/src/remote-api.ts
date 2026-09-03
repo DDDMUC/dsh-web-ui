@@ -39,7 +39,6 @@ import {
 } from './remote-methods.ts'
 
 export {
-  DESKTOP_LAUNCHER_PATH,
   LOCAL_ONLY_PREFIXES,
   PLUGIN_MANAGER_PATH,
   REMOTE_API_PATHS,

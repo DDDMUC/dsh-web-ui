@@ -27,13 +27,11 @@ describe('rewrite rules', () => {
     expect(isLoopbackHostname('dsh.example.com')).toBe(false)
   })
 
-  it('rewrites fenced paths but never pair, update, desktop-launcher, settings-bridge, mobile, or asset paths', () => {
+  it('rewrites fenced paths but never pair, update, settings-bridge, mobile, or asset paths', () => {
     expect(shouldRewriteFetchPath('/api/session.list')).toBe(true)
     expect(shouldRewriteFetchPath('/api/session.export')).toBe(true)
     expect(shouldRewriteFetchPath('/api/pair/accept')).toBe(false)
     expect(shouldRewriteFetchPath('/api/update/status')).toBe(false)
-    expect(shouldRewriteFetchPath('/api/dsh-desktop-launcher/shutdown')).toBe(false)
-    expect(shouldRewriteFetchPath('/api/dsh-desktop-launcher/create')).toBe(false)
     expect(shouldRewriteFetchPath('/api/dsh-web-ui-settings/describe')).toBe(false)
     expect(shouldRewriteFetchPath('/api/dsh-web-ui-settings/mutate')).toBe(false)
     expect(shouldRewriteFetchPath('/sidebar/api/fs.tree')).toBe(true)

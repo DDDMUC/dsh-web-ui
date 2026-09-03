@@ -17,7 +17,6 @@ dsh Web GUI 的语言包插件：向 Web GUI 语言目录注册 Русский�
 
 | 命名空间 | 来源包 |
 | --- | --- |
-| `desktop-launcher` | dsh-desktop-launcher |
 | `doctor` | dsh-doctor |
 | `git-graph` | dsh-git-graph |
 | `dsh-web-ui-market` | dsh-market |

@@ -4,7 +4,7 @@ Status: implemented
 
 ## Problem
 
-dsh-web 以插件包形态分发，前提是一套可用的 dsh 环境：Node 22+、npm 全局安装的 `@deepseek-ai/dsh` 宿主、初始化好的 `~/.dsh`，以及装好插件的 web profile。这是开发者工具链，不能要求非技术用户自行搭建。已有的 [desktop-launcher 插件](../../../packages/dsh-desktop-launcher/README.zh.md) 只是为「已安装的 `dsh web`」创建桌面快捷方式，并不消除环境要求。目标是做出一个人人可安装、双击即用、完全不用关心环境的桌面版。
+dsh-web 以插件包形态分发，前提是一套可用的 dsh 环境：Node 22+、npm 全局安装的 `@deepseek-ai/dsh` 宿主、初始化好的 `~/.dsh`，以及装好插件的 web profile。这是开发者工具链，不能要求非技术用户自行搭建。[desktop-launcher 插件](../bug-fix/2026-08-29-desktop-launcher-browser-launch.zh.md) 只是为「已安装的 `dsh web`」创建桌面快捷方式，并不消除环境要求（该插件其后已彻底移除，见[移除笔记](../simplification/2026-09-03-remove-dsh-desktop-launcher.zh.md)）。目标是做出一个人人可安装、双击即用、完全不用关心环境的桌面版。
 
 ## Decision
 
@@ -24,7 +24,7 @@ dsh-web 以插件包形态分发，前提是一套可用的 dsh 环境：Node 22
 - **用 `ELECTRON_RUN_AS_NODE=1` 派生子进程**（把 Electron 二进制当纯 Node）：仍是子进程，但 Node 版本被 Electron 发行版钉死，考察过的版本不满足宿主的 `^22.19 || >=24` 引擎区间，且宿主依旧跑在 Electron 补丁版 Node 上。
 - **首启在线安装**（应用做小，首次启动跑 `dsh plugin add`）：违背「安装即用」承诺，离线即失败，首启依赖 npm registry 可用性，且内置运行时里没有 pnpm。
 - **隔离 App 专属 DSH_HOME**（Application Support）：卸载更干净，但同时使用 dsh CLI 的用户会得到两套互不相通的配置；共享 `~/.dsh` 加标记制归属既保持单一事实源又不破坏既有数据。
-- **扩展 desktop-launcher 插件**而非新建应用：该插件的前提是「dsh 已安装」，桌面版的前提恰恰相反；插件继续作为既有安装的轻量路径存在。
+- **扩展 desktop-launcher 插件**而非新建应用：该插件的前提是「dsh 已安装」，桌面版的前提恰恰相反。2026-09-03 起被取代：插件已彻底移除，本桌面应用是唯一的桌面路径（见[移除笔记](../simplification/2026-09-03-remove-dsh-desktop-launcher.zh.md)）。
 
 ## Consequences
 

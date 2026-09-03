@@ -26,7 +26,6 @@ patchFrom:
   - ../dsh-tool-describe-image
   - ../dsh-liangshen
   - ../dsh-skill-explorer
-  - ../dsh-desktop-launcher
   - ../dsh-doctor
   - ../dsh-usage
   - ../dsh-session-archive
@@ -49,7 +48,6 @@ deps:
   - ../dsh-tool-describe-image
   - ../dsh-liangshen
   - ../dsh-skill-explorer
-  - ../dsh-desktop-launcher
   - ../dsh-doctor
   - ../dsh-usage
   - ../dsh-session-archive

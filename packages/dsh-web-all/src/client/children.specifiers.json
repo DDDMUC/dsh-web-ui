@@ -55,11 +55,6 @@
     "source": "packages/dsh-skill-explorer/src/client/index.ts"
   },
   {
-    "name": "@linxin666/dsh-desktop-launcher",
-    "specifier": "@linxin666/dsh-desktop-launcher/client",
-    "source": "packages/dsh-desktop-launcher/src/client/index.ts"
-  },
-  {
     "name": "@linxin666/dsh-doctor",
     "specifier": "@linxin666/dsh-doctor/client",
     "source": "packages/dsh-doctor/src/client/index.ts"

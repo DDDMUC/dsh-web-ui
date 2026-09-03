@@ -117,13 +117,6 @@
       config:
         plugin: '@linxin666/dsh-client-ui-skill-explorer'
 
-# from ../dsh-desktop-launcher
-- insert:
-    - id: web-ui-desktop-launcher
-      name: '@linxin666/dsh-web-all/desktop-launcher'
-      config:
-        plugin: '@linxin666/dsh-desktop-launcher'
-
 # from ../dsh-doctor
 - insert:
     - id: web-ui-doctor

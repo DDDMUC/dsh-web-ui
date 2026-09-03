@@ -52,7 +52,6 @@ area/plugin:
   - changed-files:
       - any-glob-to-any-file:
           - 'packages/dsh-community-plugins/**'
-          - 'packages/dsh-desktop-launcher/**'
           - 'packages/dsh-doctor/**'
           - 'packages/dsh-git-graph/**'
           - 'packages/dsh-liangshen/**'

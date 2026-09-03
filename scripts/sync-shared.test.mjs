@@ -23,9 +23,9 @@ test('copies cover the settings trio for all consumers plus host and http helper
   const entries = copyEntries().map(entry => ({ ...entry, target: entry.target.replaceAll('\\', '/') }))
   // 8 consumer packages for the card chrome pair, 7 for the form source,
   // 2 panel-mount consumers for the takeover lifecycle source.
-  assert.equal(entries.length, 114)
+  assert.equal(entries.length, 106)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
-  assert.equal(clientTrio.length, 43)
+  assert.equal(clientTrio.length, 39)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')
@@ -33,7 +33,7 @@ test('copies cover the settings trio for all consumers plus host and http helper
     || entry.target.includes('/src/pair-access.ts')
     || entry.target.includes('/src/agent/')
     || entry.target.endsWith('/packages/dsh-task-board/src/http.ts'))
-  assert.equal(hostCopies.length, 59)
+  assert.equal(hostCopies.length, 56)
 })
 
 test('checkSync detects drift and applySync repairs it', async () => {

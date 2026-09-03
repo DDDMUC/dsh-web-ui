@@ -19,12 +19,11 @@ describe('remote channel contract pins (0.1.2 line)', () => {
     expect(REMOTE_UPGRADE_PATHS).toContain('/remote/api/dsh-ssh/terminal')
   })
 
-  it('exactly four control planes stay physically local', () => {
+  it('exactly three control planes stay physically local', () => {
     expect(LOCAL_ONLY_PREFIXES).toEqual([
       '/api/pair',
       '/api/update',
       '/api/plugin-manager',
-      '/api/dsh-desktop-launcher',
     ])
     for (const prefix of LOCAL_ONLY_PREFIXES) {
       expect(localOnlyDenial(prefix)).toBeDefined()
