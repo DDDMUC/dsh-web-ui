@@ -213,6 +213,21 @@ function ensureProfileFallbacks(home, hostRuntimeDir) {
 }
 
 /**
+ * Check whether required Visual C++ runtime libraries exist on Windows.
+ * Returns true on non-Windows platforms or when the required DLLs are present.
+ *
+ * @param {string} [platform] - process.platform override for testing.
+ * @param {string} [systemRoot] - Windows system directory override.
+ * @returns {boolean}
+ */
+function checkVcRuntime(platform = process.platform, systemRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows') {
+  if (platform !== 'win32') return true;
+  const sys32 = path.join(systemRoot, 'System32');
+  const vcruntime = path.join(sys32, 'vcruntime140.dll');
+  return fs.existsSync(vcruntime);
+}
+
+/**
  * Read a JSON stamp file; undefined when missing or unreadable.
  * @param {string} stampFile
  */
@@ -391,4 +406,5 @@ module.exports = {
   parseTokenUrlLine,
   parseShasums,
   ensureProfileFallbacks,
+  checkVcRuntime,
 };

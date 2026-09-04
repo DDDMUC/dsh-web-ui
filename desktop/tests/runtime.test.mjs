@@ -22,6 +22,7 @@ const {
   isPortFree,
   SEED_MARKER,
   ensureProfileFallbacks,
+  checkVcRuntime,
 } = require('../src/runtime.cjs');
 
 function listenOn(port) {
@@ -199,4 +200,22 @@ test('ensureProfileFallbacks creates junctions for declared peerDependencies', (
 
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
+
+test('checkVcRuntime detects presence or absence of vcruntime140.dll', () => {
+  assert.equal(checkVcRuntime('darwin'), true, 'non-Windows platforms pass');
+  assert.equal(checkVcRuntime('linux'), true, 'non-Windows platforms pass');
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-vc-test-'));
+  try {
+    assert.equal(checkVcRuntime('win32', tempRoot), false, 'missing System32/vcruntime140.dll fails');
+
+    const sys32 = path.join(tempRoot, 'System32');
+    fs.mkdirSync(sys32, { recursive: true });
+    fs.writeFileSync(path.join(sys32, 'vcruntime140.dll'), '');
+    assert.equal(checkVcRuntime('win32', tempRoot), true, 'present System32/vcruntime140.dll passes');
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 

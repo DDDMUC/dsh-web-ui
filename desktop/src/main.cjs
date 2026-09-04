@@ -12,7 +12,7 @@
  * quit, forced after 5s).
  */
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const { spawn, execFile } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -28,6 +28,7 @@ const {
   waitForGui,
   parseTokenUrlLine,
   ensureProfileFallbacks,
+  checkVcRuntime,
 } = require('./runtime.cjs');
 
 const READY_TIMEOUT_MS = 180000;
@@ -172,6 +173,25 @@ async function boot() {
   const runtime = resolveRuntimePaths(resourcesRoot(), process.platform, process.arch, app.isPackaged);
   const home = resolveDshHome(process.env, os.homedir());
   pushLogLine('[desktop] dsh home: ' + home);
+
+  if (process.platform === 'win32' && !checkVcRuntime()) {
+    pushLogLine('[desktop] warning: Visual C++ runtime (vcruntime140.dll) is missing');
+    if (mainWindow !== null && !mainWindow.isDestroyed()) {
+      void dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        buttons: ['前往微软官网下载 (Download)', '稍后手动安装 (Later)'],
+        defaultId: 0,
+        cancelId: 1,
+        title: '缺少系统组件 (Prerequisite Missing)',
+        message: '检测到当前系统缺少微软 Visual C++ 运行库（vcruntime140.dll）。',
+        detail: '没有该运行库，后台 Node 宿主服务可能无法启动。建议立即安装后再使用。',
+      }).then((result) => {
+        if (result.response === 0) {
+          void shell.openExternal('https://aka.ms/vs/17/release/vc_redist.x64.exe');
+        }
+      });
+    }
+  }
 
   if (!fs.existsSync(runtime.nodeBin)) throw new Error('bundled Node runtime is missing: ' + runtime.nodeBin);
   if (!fs.existsSync(runtime.hostBin)) throw new Error('bundled dsh host is missing: ' + runtime.hostBin);
