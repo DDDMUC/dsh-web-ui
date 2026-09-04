@@ -13,7 +13,7 @@
  * Usage: node scripts/build-runtime.mjs
  */
 
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,13 +39,33 @@ function pnpmInstall(part) {
   console.log('[build-runtime] pnpm install in runtime/' + part);
   // stdio is piped and relayed: inheriting a non-TTY stdout can stall pnpm's
   // progress renderer in background job contexts.
-  const output = execFileSync('pnpm', ['install'], {
-    cwd: path.join(runtimeSrc, part),
-    env: { ...process.env },
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  const text = String(output);
-  console.log(text.split('\n').slice(-6).join('\n'));
+  //
+  // pnpm >= 11.24 was observed exiting 1 with empty stderr on the live
+  // supply-chain policy verification of a cold install (CI runner, run
+  // 33824501455), and once locally behind a flaky proxy; a second attempt
+  // passes. Retry a few times and relay the captured output as text so the
+  // real diagnosis is not lost to a byte-array dump.
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const result = spawnSync('pnpm', ['install'], {
+      cwd: path.join(runtimeSrc, part),
+      env: { ...process.env },
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    if (result.status === 0) {
+      console.log(String(result.stdout).split('\n').slice(-6).join('\n'));
+      return;
+    }
+    console.log('[build-runtime] pnpm install failed (attempt ' + attempt + '/' + attempts + '), status=' + result.status);
+    if (result.stdout) console.log(String(result.stdout).split('\n').slice(-15).join('\n'));
+    if (result.stderr) console.log(String(result.stderr).split('\n').slice(-15).join('\n'));
+    if (attempt < attempts) {
+      // Synchronous, dependency-free sleep that works on every platform.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15000);
+    } else result.error && console.log(result.error);
+  }
+  throw new Error('pnpm install kept failing in runtime/' + part + ' after ' + attempts + ' attempts');
 }
 
 /** Remove every node_modules command-shim directory (.bin) at any depth. */
