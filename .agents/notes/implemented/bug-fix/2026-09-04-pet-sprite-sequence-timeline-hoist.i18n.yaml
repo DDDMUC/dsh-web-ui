@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   node scripts/verify-docs.mjs --write <dir>
+2026-09-04-pet-sprite-sequence-timeline-hoist.md: 1cbf1e56c9de1265463537ffb852471a81e54586
+2026-09-04-pet-sprite-sequence-timeline-hoist.zh.md: 234bd85a51d556ef9c28f593f77f991e17393a69
