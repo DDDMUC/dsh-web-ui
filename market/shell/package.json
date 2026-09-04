@@ -238,5 +238,9 @@
   "optionalDependencies": {
     "@deepseek-ai/node-addon-landlock-run": "0.1.1",
     "@deepseek-ai/node-addon-landlock-run-linux-x64": "0.1.1"
+  },
+  "overrides": {
+    "fast-uri": "3.1.6",
+    "qs": "6.16.0"
   }
 }
