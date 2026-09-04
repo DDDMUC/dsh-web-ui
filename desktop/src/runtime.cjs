@@ -70,6 +70,44 @@ function resolveDshHome(env, homedir) {
 }
 
 /**
+ * Construct the environment block for the spawned dsh host child process.
+ * Prepends the bundled Node distribution's bin directory to PATH so anything
+ * the host shells out to resolves against the bundled runtime.
+ *
+ * Normalizes PATH across platforms: on Windows, process.env frequently exposes 'Path'
+ * rather than 'PATH'. Spreading process.env into a plain JS object preserves 'Path',
+ * so assigning env.PATH directly would leave the existing system PATH under 'Path'
+ * while env.PATH only contains nodeBinDir. In Windows process creation, this duplicate
+ * or shadowed key causes spawned children (such as powershell.exe for DPAPI decryption)
+ * to fail with ENOENT. We normalize all case variants of PATH into a single env.PATH.
+ *
+ * @param {string} home - resolved DSH_HOME.
+ * @param {string} nodeHome - bundled node runtime directory.
+ * @param {string} [platform] - process.platform override for testing.
+ * @param {NodeJS.ProcessEnv} [baseEnv] - environment to derive from.
+ * @returns {Record<string, string | undefined>}
+ */
+function childEnv(home, nodeHome, platform = process.platform, baseEnv = process.env) {
+  const env = { ...baseEnv, DSH_HOME: home };
+  const delimiter = platform === 'win32' ? ';' : ':';
+  const nodeBinDir = platform === 'win32' ? nodeHome : path.posix.join(nodeHome, 'bin');
+
+  let existingPath = '';
+  for (const key of Object.keys(env)) {
+    if (key.toUpperCase() === 'PATH') {
+      if (!existingPath && typeof env[key] === 'string' && env[key] !== '') {
+        existingPath = env[key];
+      }
+      delete env[key];
+    }
+  }
+
+  env.PATH = nodeBinDir + (existingPath ? delimiter + existingPath : '');
+  delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+}
+
+/**
  * Read a JSON stamp file; undefined when missing or unreadable.
  * @param {string} stampFile
  */
@@ -236,6 +274,7 @@ module.exports = {
   RUNTIME_STAMP,
   resolveRuntimePaths,
   resolveDshHome,
+  childEnv,
   readStampFile,
   profileAction,
   applyProfileSeed,

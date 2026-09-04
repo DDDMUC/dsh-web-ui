@@ -13,6 +13,7 @@ const {
   DESKTOP_PORT_SPAN,
   resolveRuntimePaths,
   resolveDshHome,
+  childEnv,
   profileAction,
   applyProfileSeed,
   parseShasums,
@@ -48,7 +49,34 @@ test('resolveDshHome follows the host lookup order', () => {
   assert.equal(resolveDshHome({}, '/home/u'), path.join('/home/u', '.dsh'));
   assert.equal(resolveDshHome({ DSH_HOME: '' }, '/home/u'), path.join('/home/u', '.dsh'));
   assert.equal(resolveDshHome({ DSH_HOME: '~/custom' }, '/home/u'), path.join('/home/u', 'custom'));
-  assert.equal(resolveDshHome({ DSH_HOME: '/data/dsh' }, '/home/u'), '/data/dsh');
+  assert.equal(resolveDshHome({ DSH_HOME: '/data/dsh' }, '/home/u'), path.resolve('/data/dsh'));
+});
+
+test('childEnv normalizes PATH across platforms and case variants', () => {
+  // On POSIX
+  const posix = childEnv('/home/u/.dsh', '/opt/node', 'linux', {
+    PATH: '/usr/bin:/bin',
+    FOO: 'bar',
+  });
+  assert.equal(posix.DSH_HOME, '/home/u/.dsh');
+  assert.equal(posix.PATH, '/opt/node/bin:/usr/bin:/bin');
+  assert.equal(posix.FOO, 'bar');
+  assert.equal(posix.ELECTRON_RUN_AS_NODE, undefined);
+
+  // On Windows with lowercase/mixed-case Path
+  const win = childEnv('C:\\Users\\u\\.dsh', 'C:\\runtime\\node', 'win32', {
+    Path: 'C:\\Windows\\System32;C:\\Windows',
+    FOO: 'baz',
+  });
+  assert.equal(win.DSH_HOME, 'C:\\Users\\u\\.dsh');
+  assert.equal(win.PATH, 'C:\\runtime\\node;C:\\Windows\\System32;C:\\Windows');
+  assert.equal(win.Path, undefined, 'Path case variant should be removed');
+  assert.equal(win.path, undefined);
+  assert.equal(win.FOO, 'baz');
+
+  // On Windows with empty/missing PATH
+  const winEmpty = childEnv('C:\\Users\\u\\.dsh', 'C:\\runtime\\node', 'win32', {});
+  assert.equal(winEmpty.PATH, 'C:\\runtime\\node');
 });
 
 test('profileAction seeds missing, leaves user-managed, reseeds stale', () => {

@@ -20,6 +20,7 @@ const path = require('node:path');
 const {
   resolveRuntimePaths,
   resolveDshHome,
+  childEnv,
   readStampFile,
   profileAction,
   applyProfileSeed,
@@ -61,16 +62,6 @@ function pushLogLine(line) {
 
 function setStatus(text) {
   if (mainWindow !== null && !mainWindow.isDestroyed()) mainWindow.webContents.send('desktop:status', text);
-}
-
-function childEnv(home, nodeHome) {
-  const env = { ...process.env, DSH_HOME: home };
-  // The bundled Node distribution comes first so anything the host shells out
-  // to (npm, corepack) resolves against the bundled runtime, never the system.
-  const nodeBinDir = process.platform === 'win32' ? nodeHome : path.join(nodeHome, 'bin');
-  env.PATH = nodeBinDir + path.delimiter + (env.PATH ?? '');
-  delete env.ELECTRON_RUN_AS_NODE;
-  return env;
 }
 
 function startHost(runtime, home, port) {
