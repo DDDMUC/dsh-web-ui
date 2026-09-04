@@ -86,6 +86,14 @@ test('bulletOf: no scope badge when the scope is empty', () => {
   assert.equal(bulletOf({ type: 'fix', scope: '', subject: 'x (#1)' }, 'o/r'), '- x ([#1](https://github.com/o/r/issues/1))')
 })
 
+test('bulletOf: wraps scope-style tokens in backticks so they cannot render as GitHub mentions', () => {
+  assert.equal(
+    bulletOf({ type: 'chore', scope: 'deps', subject: 'move @deepseek-ai cohort to 0.1.2-rc.1' }, 'o/r'),
+    '- [deps] move `@deepseek-ai` cohort to 0.1.2-rc.1',
+  )
+  assert.equal(bulletOf({ type: 'fix', scope: '', subject: 'pin @linxin666/dsh-web-all' }, 'o/r'), '- pin `@linxin666/dsh-web-all`')
+})
+
 test('collectNotes: renders the commits between two tags of a real temp repo', () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-release-notes-'))
   try {

@@ -82,9 +82,20 @@ export function linkIssues(text, repo) {
   return single(grouped)
 }
 
+/**
+ * Neutralize GitHub @mentions so a scope/package token like `@deepseek-ai`
+ * inside a commit subject cannot render as a profile mention: the release
+ * page lists mentioned accounts in its Contributors box, which would
+ * misattribute the release to that account. Backticks keep the text
+ * readable and verbatim.
+ */
+function escapeMentions(text) {
+  return text.replace(/(^|\s)@([\w./-]+)/g, '$1`@$2`')
+}
+
 /** One bullet line: the scope badge (when present) plus the subject. */
 export function bulletOf(row, repo) {
-  const linked = linkIssues(row.subject, repo)
+  const linked = escapeMentions(linkIssues(row.subject, repo))
   return row.scope === '' ? '- ' + linked : '- [' + row.scope + '] ' + linked
 }
 
