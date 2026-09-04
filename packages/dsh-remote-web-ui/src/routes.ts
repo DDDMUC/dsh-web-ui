@@ -66,6 +66,57 @@ export function isTrustedApiRequest(request: IncomingMessage, trustedHosts: read
   }
 }
 
+/**
+ * Test whether a hostname represents a private local-area network (RFC 1918 / ULA / mDNS / loopback).
+ * Supports pairing in container-bridged (Docker) or NAT-proxied topologies where the host
+ * machine's LAN IP or proxy domain differs from the container's internal sampled network interface.
+ */
+export function isPrivateOrLocalHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().trim()
+  if (
+    normalized === 'localhost' ||
+    normalized.endsWith('.local') ||
+    normalized.endsWith('.lan') ||
+    normalized.endsWith('.internal') ||
+    normalized.endsWith('.home.arpa')
+  ) {
+    return true
+  }
+  let ip = normalized
+  if (ip.startsWith('[') && ip.endsWith(']')) ip = ip.slice(1, -1)
+  if (ip === '::1' || ip === '127.0.0.1') return true
+  if (ip.startsWith('fc') || ip.startsWith('fd') || ip.startsWith('fe80')) return true
+  const parts = ip.split('.').map(Number)
+  if (parts.length === 4 && parts.every(n => Number.isInteger(n) && n >= 0 && n <= 255)) {
+    const [a, b] = parts
+    if (a === 10) return true
+    if (a === 127) return true
+    if (a === 169 && b === 254) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+  }
+  return false
+}
+
+/**
+ * Validates that an incoming request is non-cross-site (rejects cross-site fetch metadata
+ * and ensures Origin matches Host when present).
+ */
+export function isNonCrossSite(request: IncomingMessage): boolean {
+  if (request.headers['sec-fetch-site'] === 'cross-site') return false
+  const host = request.headers.host
+  if (typeof host !== 'string') return false
+  const origin = request.headers.origin
+  if (origin === undefined) return true
+  try {
+    const originUrl = new URL(origin)
+    const hostUrl = new URL(`http://${host}`)
+    return originUrl.host === hostUrl.host
+  } catch {
+    return false
+  }
+}
+
 /** Cap on pairing request bodies (tokens and workspace ids are tiny). */
 const MAX_BODY_BYTES = 4096
 
@@ -359,6 +410,8 @@ export interface PairRoutesDeps {
    * cookieless header/query credential). Undefined drops the route (tests).
    */
   indexDocument?: (deviceId: string) => Promise<string | undefined>
+  /** Extra trusted non-loopback hosts (from config or environment). */
+  trustedHosts?: readonly string[] | (() => readonly string[])
 }
 
 /**
@@ -372,16 +425,44 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     ? requirePairingForLan()
     : requirePairingForLan
   const events = new PairingEventsStream(service)
+  const dynamicTrustedHosts = new Set<string>()
 
   /** Loopback-only fence: the desktop panel's control endpoints. */
   const loopbackFence = (req: IncomingMessage): boolean => isTrustedApiRequest(req, [])
-  /** Phone-facing fence: loopback, the service's live LAN literals, or the configured public host. */
+  /** Phone-facing fence: loopback, the service's live LAN literals, configured public host, extra trusted hosts, or dynamically paired hosts. */
   const lanFence = (req: IncomingMessage): boolean => {
     const publicHost = publicHostOf(service.publicBaseUrl)
     // The service's LAN bases re-read per request: a hot rebind (the lan-bind
     // toggle) updates them mid-process, and the fence must follow.
     const bases = service.lanAddresses
-    return isTrustedApiRequest(req, publicHost === undefined ? bases : [...bases, publicHost])
+    const extraHosts = typeof deps.trustedHosts === 'function' ? deps.trustedHosts() : (deps.trustedHosts ?? [])
+    const combined = [
+      ...bases,
+      ...(publicHost !== undefined ? [publicHost] : []),
+      ...extraHosts,
+      ...dynamicTrustedHosts,
+    ]
+    if (isTrustedApiRequest(req, combined)) return true
+
+    // If request carries a valid paired device cookie from a private LAN host (e.g. after service restart), trust and remember it
+    const host = req.headers.host
+    if (typeof host === 'string') {
+      let hostName = ''
+      try { hostName = new URL(`http://${host}`).hostname } catch {}
+      if (hostName !== '' && isPrivateOrLocalHostname(hostName) && isNonCrossSite(req)) {
+        const cookieDeviceId = readCookie(req.headers.cookie, service.config.cookieName)
+        let queryDeviceId: string | null = null
+        try {
+          queryDeviceId = new URL(req.url ?? '/', 'http://pair.invalid').searchParams.get('device')
+        } catch {}
+        const deviceId = cookieDeviceId ?? queryDeviceId ?? undefined
+        if (deviceId !== undefined && service.hasDevice(deviceId)) {
+          dynamicTrustedHosts.add(host)
+          return true
+        }
+      }
+    }
+    return false
   }
 
   const requireMethod = (req: IncomingMessage, res: ServerResponse, method: string): boolean => {
@@ -476,7 +557,15 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
 
   const handleAccept = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!requireMethod(req, res, 'POST')) return
-    if (!lanFence(req)) {
+    const host = req.headers.host
+    let hostName = ''
+    try {
+      if (typeof host === 'string') hostName = new URL(`http://${host}`).hostname
+    } catch {
+      // Invalid host
+    }
+    const isPrivateLan = hostName !== '' && isPrivateOrLocalHostname(hostName) && isNonCrossSite(req)
+    if (!lanFence(req) && !isPrivateLan) {
       writeJson(res, 403, { ok: false, code: 'forbidden' })
       return
     }
@@ -493,8 +582,15 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     const ua = req.headers['user-agent']
     const result = service.accept(payload.token, typeof ua === 'string' ? ua : undefined)
     if (!result.ok) {
+      if (!lanFence(req)) {
+        writeJson(res, 403, { ok: false, code: 'forbidden' })
+        return
+      }
       writeJson(res, result.code === 'used' ? 409 : 404, { ok: false, code: result.code })
       return
+    }
+    if (typeof host === 'string' && isPrivateLan) {
+      dynamicTrustedHosts.add(host)
     }
     // No Secure attribute: LAN pairing runs over plain HTTP (the cookie must
     // work there), and the same cookie rides HTTPS on the tunnel. Lax keeps
@@ -612,7 +708,15 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
    */
   const handleAcceptPage = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!requireMethod(req, res, 'GET')) return
-    if (!lanFence(req)) {
+    const host = req.headers.host
+    let hostName = ''
+    try {
+      if (typeof host === 'string') hostName = new URL(`http://${host}`).hostname
+    } catch {
+      // Invalid host
+    }
+    const isPrivateLan = hostName !== '' && isPrivateOrLocalHostname(hostName) && isNonCrossSite(req)
+    if (!lanFence(req) && !isPrivateLan) {
       res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
       res.end('forbidden')
       return
@@ -627,6 +731,11 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     const ua = req.headers['user-agent']
     const result = token === '' ? { ok: false as const, code: 'invalid' as const } : service.accept(token, typeof ua === 'string' ? ua : undefined)
     if (!result.ok) {
+      if (!lanFence(req)) {
+        res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
+        res.end('forbidden')
+        return
+      }
       // accept() now refuses only expired/unknown/stopped tokens: a consumed
       // token stays re-usable until its expiry or replacement, so a mobile
       // flow that split across cookie contexts (camera preview, in-app
@@ -645,6 +754,9 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' })
       res.end(pairingFailurePage())
       return
+    }
+    if (typeof host === 'string' && isPrivateLan) {
+      dynamicTrustedHosts.add(host)
     }
     // Land the paired device on the cookieless app page: the official shell
     // served by this plugin, with the device id in the URL. No harness index

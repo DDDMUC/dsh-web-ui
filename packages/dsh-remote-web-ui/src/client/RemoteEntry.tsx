@@ -62,6 +62,7 @@ export function RemoteEntry({ wide, t }: RemoteEntryProps) {
   const stateRef = useRef(state)
   useEffect(() => { stateRef.current = state }, [state])
   const [copied, setCopied] = useState<boolean>(false)
+  const [copiedToken, setCopiedToken] = useState<boolean>(false)
   const eventSource = useRef<EventSource | undefined>(undefined)
   // Generation counter for the open flow: closing (or re-opening) the panel
   // bumps it, so an in-flight issue() that resolves after a close does not
@@ -94,6 +95,7 @@ export function RemoteEntry({ wide, t }: RemoteEntryProps) {
     return {
       kind: 'ready',
       url: result.url,
+      token: result.token,
       expiresAt: result.expiresAt,
       expired: Date.now() > result.expiresAt,
       phase: 'waiting',
@@ -215,6 +217,14 @@ export function RemoteEntry({ wide, t }: RemoteEntryProps) {
     })
   }, [])
 
+  const handleCopyToken = useCallback((token: string) => {
+    void copyText(token).then((ok) => {
+      if (!ok) return
+      setCopiedToken(true)
+      window.setTimeout(() => { setCopiedToken(false) }, 1500)
+    })
+  }, [])
+
   return (
     <>
       <div className={css.entryRow} data-rail={wide ? undefined : 'rail'}>
@@ -228,10 +238,12 @@ export function RemoteEntry({ wide, t }: RemoteEntryProps) {
             t={t}
             state={state}
             copied={copied}
+            copiedToken={copiedToken}
             onClose={closePanel}
             onStop={handleStop}
             onRefresh={handleRefresh}
             onCopy={handleCopy}
+            onCopyToken={handleCopyToken}
             onPickAddress={handlePickAddress}
             onPickPublic={handlePickPublic}
             onRevoke={handleRevoke}

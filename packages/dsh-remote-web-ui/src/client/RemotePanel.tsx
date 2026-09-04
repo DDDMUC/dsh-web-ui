@@ -41,6 +41,8 @@ export type PanelState =
       address: string
       /** Every constructible LAN literal (interface order). */
       lanAddresses: string[]
+      /** The active pairing token itself (useful in Docker/reverse proxy topologies). */
+      token?: string
       /** Whether this QR is built on the configured public (tunneled) base. */
       public: boolean
       /** The configured public (tunneled) base URL, when present. */
@@ -58,10 +60,12 @@ export interface RemotePanelProps {
   t: TranslateNS<'remote'>
   state: PanelState
   copied: boolean
+  copiedToken?: boolean
   onClose(): void
   onStop(): void
   onRefresh(): void
   onCopy(url: string): void
+  onCopyToken?(token: string): void
   /** Re-mint the QR against a different LAN address. */
   onPickAddress(address: string): void
   /** Re-mint the QR against the configured public (tunneled) base. */
@@ -89,7 +93,20 @@ function statusOf(
  * @param props - copy, state, and actions.
  * @returns the panel element tree.
  */
-export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy, onPickAddress, onPickPublic, onRevoke }: RemotePanelProps) {
+export function RemotePanel({
+  t,
+  state,
+  copied,
+  copiedToken,
+  onClose,
+  onStop,
+  onRefresh,
+  onCopy,
+  onCopyToken,
+  onPickAddress,
+  onPickPublic,
+  onRevoke,
+}: RemotePanelProps) {
   return (
     <div className={css.panel} role="dialog" aria-modal="true" aria-label={t('title')}>
       <div className={css.header}>
@@ -157,8 +174,26 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
                 {copied ? t('action.copied') : t('action.copyLink')}
               </button>
             </div>
+            {state.token !== undefined && state.token !== '' && (
+              <div className={css.pairLinkRow}>
+                <div className={css.pairLinkText}>
+                  <span className={css.pairLinkLabel}>{t('pair.tokenLabel')}</span>
+                  <code className={css.link} title={state.token}>{state.token}</code>
+                </div>
+                <button
+                  type="button"
+                  className={css.copyLink}
+                  onClick={() => onCopyToken ? onCopyToken(state.token!) : onCopy(state.token!)}
+                >
+                  <IconCopyOutline16 size={14} />
+                  {copiedToken ? t('action.copiedToken') : t('action.copyToken')}
+                </button>
+              </div>
+            )}
           </div>
-          <p className={css.oneTimeHint}>{t('pair.oneTimeHint')}</p>
+          <p className={css.oneTimeHint}>
+            {t('pair.oneTimeHint')} {t('pair.dockerHint')}
+          </p>
           {state.phase === 'stopped' && <p className={css.stoppedHint}>{t('stopped.hint')}</p>}
           {state.tunnel !== undefined && state.tunnel.state !== 'running' && (
             <p className={state.tunnel.state === 'failed' ? css.tunnelFailed : css.tunnelNote} role="status">

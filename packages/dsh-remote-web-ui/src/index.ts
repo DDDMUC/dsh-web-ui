@@ -127,6 +127,13 @@ export interface Config {
    */
   publicBaseUrl?: string
   /**
+   * Extra trusted host authorities (exact host:port or port-less host) allowed
+   * to access pairing endpoints and remote web services. Useful in Docker, reverse proxy,
+   * or NAT environments where incoming request Host headers differ from the container's
+   * internal network addresses. Can also be set via the DSH_REMOTE_TRUSTED_HOSTS env var.
+   */
+  trustedHosts?: string[]
+  /**
    * Absolute path to a JSON file where paired device sessions are persisted.
    * Defaults to `$DSH_HOME/remote-web-ui-devices.json` so a paired device
    * keeps its session across `dsh web` restarts (the cookie already lives
@@ -199,6 +206,7 @@ export const Config: z<Config> = z.object({
   cookieName: z.string().min(1).default('dsh_pair'),
   requirePairingForLan: z.boolean().default(true),
   publicBaseUrl: z.string(),
+  trustedHosts: z.array(z.string()),
   devicesFile: z.string(),
   autoTunnel: z.boolean().default(false),
   tunnelToken: z.string().role('secret'),
@@ -216,8 +224,9 @@ const SWEEP_INTERVAL_MS = 10_000
  * which legitimately resolves to `undefined` when unset (the schema keeps it
  * optional, so `Required` alone would over-narrow it to `string`).
  */
-type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl' | 'devicesFile' | 'lanBind' | 'profile' | 'tunnelToken'>> & {
+type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl' | 'trustedHosts' | 'devicesFile' | 'lanBind' | 'profile' | 'tunnelToken'>> & {
   publicBaseUrl: string | undefined
+  trustedHosts: string[] | undefined
   devicesFile: string
   /** undefined until the user flips the toggle once; undefined never writes the patch. */
   lanBind: boolean | undefined
@@ -259,6 +268,7 @@ const DEFAULTS: ResolvedConfig = {
   cookieName: 'dsh_pair',
   requirePairingForLan: true,
   publicBaseUrl: undefined,
+  trustedHosts: undefined,
   devicesFile: defaultDevicesFile(),
   autoTunnel: false,
   tunnelToken: undefined,
@@ -276,6 +286,7 @@ const DEFAULTS: ResolvedConfig = {
 export const apply = mountOnce('@linxin666/dsh-remote-web-ui', applyImpl)
 
 function applyImpl(ctx: Context, config?: Config): void {
+  const envPublicBase = process.env.DSH_REMOTE_PUBLIC_BASE_URL?.trim() || undefined
   const resolved: ResolvedConfig = {
     tokenTtlMs: config?.tokenTtlMs ?? DEFAULTS.tokenTtlMs,
     offlineAfterMs: config?.offlineAfterMs ?? DEFAULTS.offlineAfterMs,
@@ -283,7 +294,8 @@ function applyImpl(ctx: Context, config?: Config): void {
     idleExpireMs: config?.idleExpireMs ?? DEFAULTS.idleExpireMs,
     cookieName: config?.cookieName ?? DEFAULTS.cookieName,
     requirePairingForLan: config?.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
-    publicBaseUrl: config?.publicBaseUrl,
+    publicBaseUrl: config?.publicBaseUrl ?? envPublicBase,
+    trustedHosts: config?.trustedHosts,
     devicesFile: config?.devicesFile ?? DEFAULTS.devicesFile,
     autoTunnel: config?.autoTunnel ?? DEFAULTS.autoTunnel,
     tunnelToken: config?.tunnelToken,
@@ -305,7 +317,8 @@ function applyImpl(ctx: Context, config?: Config): void {
       idleExpireMs: value.idleExpireMs ?? DEFAULTS.idleExpireMs,
       cookieName: value.cookieName ?? DEFAULTS.cookieName,
       requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
-      publicBaseUrl: value.publicBaseUrl,
+      publicBaseUrl: value.publicBaseUrl ?? envPublicBase,
+      trustedHosts: value.trustedHosts,
       devicesFile: value.devicesFile ?? DEFAULTS.devicesFile,
       autoTunnel: value.autoTunnel ?? DEFAULTS.autoTunnel,
       tunnelToken: value.tunnelToken,
@@ -593,6 +606,26 @@ function applyImpl(ctx: Context, config?: Config): void {
       requirePairingForLan: () => resolve().requirePairingForLan,
       lanBindStatus,
       indexDocument: fetchAppShell,
+      trustedHosts: () => {
+        const list: string[] = []
+        const envHosts = process.env.DSH_REMOTE_TRUSTED_HOSTS
+        if (typeof envHosts === 'string' && envHosts.trim() !== '') {
+          for (const item of envHosts.split(',')) {
+            const trimmed = item.trim()
+            if (trimmed !== '') list.push(trimmed)
+          }
+        }
+        const cfgHosts = resolve().trustedHosts
+        if (Array.isArray(cfgHosts)) {
+          for (const item of cfgHosts) {
+            if (typeof item === 'string') {
+              const trimmed = item.trim()
+              if (trimmed !== '') list.push(trimmed)
+            }
+          }
+        }
+        return list
+      },
     }),
     // The remote desktop channel: policy-gated `/remote` prefix that
     // re-issues fenced paths to loopback (see remote-api.ts). The live
