@@ -93,6 +93,17 @@ function pipeLoopbackHttp(
     }
     res.writeHead(upstreamRes.statusCode ?? 502, out)
     upstreamRes.pipe(res)
+    // Inner leg died mid-response (reset, truncation): tear the outer leg
+    // down instead of letting the truncated response raise an unhandled
+    // 'error' with no listener.
+    upstreamRes.on('error', () => { res.destroy() })
+    // Outer leg died before the response finished (phone left mid-request):
+    // reset the inner request so the loopback server stops working on a call
+    // nobody will read. Guarded so a normal completion never destroys a
+    // keep-alive socket the agent would reuse.
+    res.on('close', () => {
+      if (!upstreamRes.readableEnded) upstream.destroy()
+    })
   })
   upstream.on('error', () => {
     if (!res.headersSent) {
@@ -101,6 +112,10 @@ function pipeLoopbackHttp(
     }
     res.destroy()
   })
+  // The outer request aborted mid-body: reset the inner request instead of
+  // feeding it a truncated body that still gets processed (mirror of the
+  // upgrade path's two-leg teardown).
+  req.on('error', () => { upstream.destroy() })
   req.pipe(upstream)
 }
 
