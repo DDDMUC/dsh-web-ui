@@ -24,7 +24,7 @@
 - **可拖拽小鲸鱼按钮**作为折叠侧栏的展开入口（位置记忆；接到官方 `ctx.layout.toggleSidebar()`），侧栏展开时隐藏；
 - **手势**：左滑收起侧栏、会话区右滑展开；长按会话行打开与桌面省略号相同的操作菜单；点会话行或侧栏外任意位置再次收起；
 - **触控输入行为**：Enter 只换行（发送走发送按钮）、抑制程序化 composer 聚焦（不乱弹键盘）、隐藏官方 tooltip 气泡（触屏上会残留）；
-- **移动端插件范围**：适配层激活时，右侧详情列与面向桌面的工具界面（SSH 终端、技能中心、任务看板、git graph、宠物、性能引擎、使用统计）一律隐藏——以 L2 语义根（`data-dsh-plugin`）为键，归属由声明方插件负责，官方类名变动也不会复活它们。这些是渲染抑制；客户端 bundle 仍会加载。激活时还会经官方 `ctx.layout.closeDetails()` 真正关闭详情面板。
+- **移动端插件范围**：适配层激活时，右侧详情列与面向桌面的工具界面（SSH 终端、技能中心、任务看板、git graph、宠物、使用统计）一律隐藏——以 L2 语义根（`data-dsh-plugin`）为键，归属由声明方插件负责，官方类名变动也不会复活它们。这些是渲染抑制；客户端 bundle 仍会加载。激活时还会经官方 `ctx.layout.closeDetails()` 真正关闭详情面板。
 - **手动退出**：`sessionStorage.dsh-remote-force-desktop = 1` 关闭整个适配层；横屏、桌面与宽视口永不触碰。
 
 配对远程桌面同时运行在 **host 模式**：在本 harness 线上，「配置面仅限本机」的行为是客户端分支（`connection.isLoopback`），通道 boot 脚本在一切 boot entry 之前对非回环源安装传输钩子（`__DSH_TRANSPORT__.ownsHost = true`）。设置、凭据、Agent 预设与产出物在手机上与桌面完全一致——所有调用仍走门控 `/remote` 通道。三个控制面保持物理本地：`/api/pair/*`、`/api/update/*` 与 `/api/plugin-manager/*`。

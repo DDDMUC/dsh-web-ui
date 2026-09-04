@@ -15691,7 +15691,6 @@ window.__ModuleLoader__.load({
 			`body.${ACTIVE_CLASS} [data-dsh-plugin=\"task-board\"],`,
 			`body.${ACTIVE_CLASS} [data-dsh-plugin=\"git-graph\"],`,
 			`body.${ACTIVE_CLASS} [data-dsh-plugin=\"pet\"],`,
-			`body.${ACTIVE_CLASS} [data-dsh-plugin=\"perf\"],`,
 			`body.${ACTIVE_CLASS} [data-dsh-plugin=\"usage\"]{display:none !important}`,
 			`body.${ACTIVE_CLASS} [class$=\"_overlayLayer\"] [class$=\"_workbench\"]{display:none !important}`,
 			"[class$=\"_overlay\"] [class$=\"_panel\"]{flex-direction:column;max-height:calc(100dvh - 32px)}",

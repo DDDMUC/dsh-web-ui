@@ -236,7 +236,6 @@ const ADAPT_CSS: readonly string[] = [
   `body.${ACTIVE_CLASS} [data-dsh-plugin=\"task-board\"],`,
   `body.${ACTIVE_CLASS} [data-dsh-plugin=\"git-graph\"],`,
   `body.${ACTIVE_CLASS} [data-dsh-plugin=\"pet\"],`,
-  `body.${ACTIVE_CLASS} [data-dsh-plugin=\"perf\"],`,
   `body.${ACTIVE_CLASS} [data-dsh-plugin=\"usage\"]{display:none !important}`,
   // The official workbench (Files / source control) mounts into a
   // full-viewport portal layer with no data-dsh-plugin root, so the plugin
