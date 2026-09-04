@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net'
 import type { Server } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { PairingService } from '../src/pairing.ts'
-import { acceptLimitKey, makeRoutes, PAIR_PATHS } from '../src/routes.ts'
+import { MAX_DYNAMIC_TRUSTED_HOSTS, acceptLimitKey, addBounded, makeRoutes, PAIR_PATHS } from '../src/routes.ts'
 
 function makeService(): PairingService {
   const service = new PairingService({
@@ -644,6 +644,28 @@ describe('/api/pair routes', () => {
     expect(acceptLimitKey('192.168.1.50', undefined, 'api')).toBe('api|192.168.1.50')
     // Missing/blank XFF collapses onto the socket bucket.
     expect(acceptLimitKey('127.0.0.1', '', 'api')).toBe('api|127.0.0.1')
+  })
+
+  it('bounds the dynamic trusted-host table (FIFO eviction, idempotent re-add)', () => {
+    const set = new Set<string>()
+    addBounded(set, '10.0.0.1:3080', 3)
+    addBounded(set, '10.0.0.2:3080', 3)
+    // A repeat insert must not evict or reorder anything.
+    addBounded(set, '10.0.0.1:3080', 3)
+    addBounded(set, '10.0.0.3:3080', 3)
+    expect([...set]).toEqual(['10.0.0.1:3080', '10.0.0.2:3080', '10.0.0.3:3080'])
+    // Past the cap the OLDEST entry goes, so the table never exceeds max.
+    addBounded(set, '10.0.0.4:3080', 3)
+    expect([...set]).toEqual(['10.0.0.2:3080', '10.0.0.3:3080', '10.0.0.4:3080'])
+    addBounded(set, '10.0.0.5:3080', 3)
+    expect(set.size).toBe(3)
+    expect([...set]).toEqual(['10.0.0.3:3080', '10.0.0.4:3080', '10.0.0.5:3080'])
+    // The shipped cap holds under a Host-header flood.
+    const flooded = new Set<string>()
+    for (let i = 0; i < MAX_DYNAMIC_TRUSTED_HOSTS * 4; i += 1) addBounded(flooded, `host-${String(i)}.lan`, MAX_DYNAMIC_TRUSTED_HOSTS)
+    expect(flooded.size).toBe(MAX_DYNAMIC_TRUSTED_HOSTS)
+    expect(flooded.has('host-0.lan')).toBe(false)
+    expect(flooded.has(`host-${String(MAX_DYNAMIC_TRUSTED_HOSTS * 4 - 1)}.lan`)).toBe(true)
   })
 
   it('revokes one device from loopback and refuses LAN revoke', async () => {
