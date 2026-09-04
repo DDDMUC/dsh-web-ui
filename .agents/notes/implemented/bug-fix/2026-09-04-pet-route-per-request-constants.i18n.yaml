@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   node scripts/verify-docs.mjs --write <dir>
+2026-09-04-pet-route-per-request-constants.md: ed4dd0d0a887a3f6b02a20535c5756c9780f311b
+2026-09-04-pet-route-per-request-constants.zh.md: 85a90f0139b112aef51622e0b960f7a36bc0285d
