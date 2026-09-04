@@ -109,9 +109,13 @@ jobs:
           TAG: ${{ steps.resolve.outputs.tag }}
         run: npm version "${TAG#v}" --no-git-tag-version --allow-same-version
 
+      # Explicit arch flags: bare `dist` lets electron-builder default to the
+      # host arch (arm64) for Windows, which the staged payload does not cover.
       - name: Build mac and Windows installers
         working-directory: desktop
-        run: npm run dist
+        run: |
+          npm run dist:mac
+          npm run dist:win
 
       - name: Upload the installers to the release
         env:
