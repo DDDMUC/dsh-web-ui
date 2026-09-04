@@ -6,7 +6,7 @@ Follow-through of the [desktop-launcher removal note](../simplification/2026-09-
 
 ## Decision
 
-`desktop/runtime/profile-web/package.json` pins `@linxin666/dsh-web-all` `0.3.13` -> `0.3.14`; the `minimumReleaseAgeExclude` ledger re-rolls to the 19 family names at `0.3.14`, dropping the retired `@linxin666/dsh-desktop-launcher@0.3.13` entry (the 0.3.14 closure contains no launcher). `npm run build-runtime` re-staged the payload: `@deepseek-ai/dsh@0.1.2-rc.1 + @linxin666/dsh-web-all@0.3.14`, with the Node distributions unchanged (v24.20.0, cached).
+`desktop/runtime/profile-web/package.json` pins `@linxin666/dsh-web-all` `0.3.13` -> `0.3.14`; the `minimumReleaseAgeExclude` ledger re-rolls to the 19 family names at `0.3.14`, dropping the retired `@linxin666/dsh-desktop-launcher@0.3.13` entry (the 0.3.14 closure contains no launcher). It also carries `- 'dsh-better-sidebar@0.18.0'`: the 0.3.14 aggregate rides the aggregate's better-sidebar bump (c22fb42d) into the seed closure, and the package is not a family name so the family-name re-roll alone misses it — the desktop-release CI run (33825080509) failed on exactly this with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` because the runner's pnpm 11.24 enforces the 24h cutoff that local pnpm 11.9 does not. `npm run build-runtime` re-staged the payload: `@deepseek-ai/dsh@0.1.2-rc.1 + @linxin666/dsh-web-all@0.3.14`, with the Node distributions unchanged (v24.20.0, cached).
 
 One operational wrinkle: the first `build-runtime` attempt crashed mid-pnpm-install with a raw stdout buffer dump; an immediate clean rerun succeeded, so treat a single crash there as transient unless it repeats.
 

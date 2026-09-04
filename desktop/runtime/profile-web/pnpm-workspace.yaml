@@ -23,6 +23,7 @@ allowBuilds:
   ssh2: false
 
 minimumReleaseAgeExclude:
+  - 'dsh-better-sidebar@0.18.0'
   - '@linxin666/dsh-client-ui-community-plugins@0.3.14'
   - '@linxin666/dsh-client-ui-git-graph@0.3.14'
   - '@linxin666/dsh-client-ui-market@0.3.14'

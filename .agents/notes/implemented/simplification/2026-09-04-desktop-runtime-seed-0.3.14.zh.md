@@ -6,7 +6,7 @@
 
 ## 决策
 
-`desktop/runtime/profile-web/package.json` 将 `@linxin666/dsh-web-all` 由 `0.3.13` 改为 `0.3.14`；`minimumReleaseAgeExclude` 台账换成 `0.3.14` 的 19 个家族名，并移除已退役的 `@linxin666/dsh-desktop-launcher@0.3.13` 条目（0.3.14 闭包不含 launcher）。`npm run build-runtime` 重新 staging：payload 为 `@deepseek-ai/dsh@0.1.2-rc.1 + @linxin666/dsh-web-all@0.3.14`，Node 发行版不变（v24.20.0，缓存命中）。
+`desktop/runtime/profile-web/package.json` 将 `@linxin666/dsh-web-all` 由 `0.3.13` 改为 `0.3.14`；`minimumReleaseAgeExclude` 台账换成 `0.3.14` 的 19 个家族名，并移除已退役的 `@linxin666/dsh-desktop-launcher@0.3.13` 条目（0.3.14 闭包不含 launcher）。台账同时补上 `- 'dsh-better-sidebar@0.18.0'`：0.3.14 聚合带着 better-sidebar 升级（c22fb42d）进入 seed 闭包，而它不是家族名，只按家族名重排台账会漏掉它——desktop-release 的 CI run（33825080509）正是在这里以 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` 失败，因为 runner 的 pnpm 11.24 严格执行 24h 冷却，而本地的 pnpm 11.9 不执行。`npm run build-runtime` 重新 staging：payload 为 `@deepseek-ai/dsh@0.1.2-rc.1 + @linxin666/dsh-web-all@0.3.14`，Node 发行版不变（v24.20.0，缓存命中）。
 
 一个操作层面的小插曲：第一次 `build-runtime` 在 pnpm install 中途崩溃并吐出原始 stdout buffer；紧接着的干净重跑一次通过，因此单次崩溃先按瞬态处理，复发再查。
 
