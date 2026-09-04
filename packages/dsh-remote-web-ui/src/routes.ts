@@ -137,6 +137,28 @@ export function acceptLimitKey(socketIp: string, forwarded: string | undefined, 
 }
 
 /**
+ * Cap on the dynamically trusted hosts (see {@link addBounded}): room for
+ * every legitimate router/proxy aliasing shape, small enough that a flood of
+ * distinct private Host headers cannot grow the table unboundedly.
+ */
+export const MAX_DYNAMIC_TRUSTED_HOSTS = 64
+
+/**
+ * FIFO-bounded Set insert: past `max` entries the oldest one is evicted
+ * (a Set iterates in insertion order). The dynamic trusted-host table is fed
+ * by caller-controlled Host headers, so it must stay bounded; an evicted
+ * legitimate host re-adds itself on that device's next gated request.
+ */
+export function addBounded(set: Set<string>, value: string, max: number): void {
+  if (set.has(value)) return
+  if (set.size >= max) {
+    const oldest = set.values().next().value
+    if (oldest !== undefined) set.delete(oldest)
+  }
+  set.add(value)
+}
+
+/**
  * The host authority of a configured public base URL, e.g. `foo.trycloudflare.com`
  * from `https://foo.trycloudflare.com`. Undefined when the URL does not parse —
  * a malformed config then simply contributes no fence entry (and the panel
@@ -390,8 +412,6 @@ export class PairingEventsStream {
 export interface PairRoutesDeps {
   /** The pairing service. */
   service: PairingService
-  /** The LAN IP literals the fence accepts (derived from the bind host). */
-  lanAddresses: readonly string[]
   /** Current desktop gate policy, re-read for every status response. */
   requirePairingForLan?: boolean | (() => boolean)
   /**
@@ -420,7 +440,7 @@ export interface PairRoutesDeps {
  * @returns the exact routes to register on webServer.
  */
 export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
-  const { service, lanAddresses, requirePairingForLan = true } = deps
+  const { service, requirePairingForLan = true } = deps
   const pairingRequired = (): boolean => typeof requirePairingForLan === 'function'
     ? requirePairingForLan()
     : requirePairingForLan
@@ -457,7 +477,7 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
         } catch {}
         const deviceId = cookieDeviceId ?? queryDeviceId ?? undefined
         if (deviceId !== undefined && service.hasDevice(deviceId)) {
-          dynamicTrustedHosts.add(host)
+          addBounded(dynamicTrustedHosts, host, MAX_DYNAMIC_TRUSTED_HOSTS)
           return true
         }
       }
@@ -590,7 +610,7 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       return
     }
     if (typeof host === 'string' && isPrivateLan) {
-      dynamicTrustedHosts.add(host)
+      addBounded(dynamicTrustedHosts, host, MAX_DYNAMIC_TRUSTED_HOSTS)
     }
     // No Secure attribute: LAN pairing runs over plain HTTP (the cookie must
     // work there), and the same cookie rides HTTPS on the tunnel. Lax keeps
@@ -756,7 +776,7 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       return
     }
     if (typeof host === 'string' && isPrivateLan) {
-      dynamicTrustedHosts.add(host)
+      addBounded(dynamicTrustedHosts, host, MAX_DYNAMIC_TRUSTED_HOSTS)
     }
     // Land the paired device on the cookieless app page: the official shell
     // served by this plugin, with the device id in the URL. No harness index

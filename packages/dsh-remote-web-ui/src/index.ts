@@ -602,7 +602,6 @@ function applyImpl(ctx: Context, config?: Config): void {
   const routes = [
     ...makeRoutes({
       service,
-      lanAddresses: service.lanAddresses,
       requirePairingForLan: () => resolve().requirePairingForLan,
       lanBindStatus,
       indexDocument: fetchAppShell,

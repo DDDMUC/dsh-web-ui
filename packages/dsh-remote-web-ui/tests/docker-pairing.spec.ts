@@ -101,7 +101,7 @@ async function call(
 describe('docker & reverse-proxy pairing adaptation', () => {
   it('accepts token directly from external host and dynamically trusts the host for subsequent calls', async () => {
     const service = makeDockerService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['172.22.0.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       // 1. Issue a token from desktop loopback
       const issued = await call(port, 'POST', '/api/pair/issue', {})
@@ -143,7 +143,7 @@ describe('docker & reverse-proxy pairing adaptation', () => {
 
   it('handles GET /pair-accept from external host and dynamically trusts it', async () => {
     const service = makeDockerService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['172.22.0.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       // Issue token first
       const issued = await call(port, 'POST', '/api/pair/issue', {})
@@ -169,7 +169,7 @@ describe('docker & reverse-proxy pairing adaptation', () => {
 
   it('rejects cross-site attempts even if private LAN IP is targeted', async () => {
     const service = makeDockerService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['172.22.0.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       await call(port, 'POST', '/api/pair/issue', {})
       const externalHost = '192.168.1.100:3080'
@@ -196,7 +196,7 @@ describe('docker & reverse-proxy pairing adaptation', () => {
 
   it('rejects non-private external hosts when not in trusted whitelist', async () => {
     const service = makeDockerService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['172.22.0.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       await call(port, 'POST', '/api/pair/issue', {})
       // Public domain attempting accept without being configured in trusted hosts or publicBaseUrl
@@ -215,7 +215,6 @@ describe('docker & reverse-proxy pairing adaptation', () => {
     const customTrusted = ['dsh.homelab.internal:3080', '192.168.50.2:3080']
     const { port, close } = await serve(makeRoutes({
       service,
-      lanAddresses: ['172.22.0.5'],
       trustedHosts: customTrusted,
     }))
     try {
