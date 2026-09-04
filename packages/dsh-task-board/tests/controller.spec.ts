@@ -79,28 +79,49 @@ function seedTask(store: InMemoryTaskStore, overrides: Partial<Parameters<typeof
 describe('BoardController execution options', () => {
   it('starts with empty picker option sets and merges partial updates', () => {
     const { controller } = makeController()
-    expect(controller.getSnapshot().executionOptions).toEqual({ workspaces: [], presets: [] })
+    expect(controller.getSnapshot().executionOptions).toEqual({ workspaces: [], presets: [], models: [] })
     controller.setExecutionOptions({ workspaces: [{ workspaceId: 'ws-1', title: 'One' }] })
     expect(controller.getSnapshot().executionOptions.workspaces).toEqual([{ workspaceId: 'ws-1', title: 'One' }])
     expect(controller.getSnapshot().executionOptions.presets).toEqual([])
+    expect(controller.getSnapshot().executionOptions.models).toEqual([])
     controller.setExecutionOptions({ presets: [{ id: 'anchored', isDefault: true }] })
     expect(controller.getSnapshot().executionOptions).toEqual({
       workspaces: [{ workspaceId: 'ws-1', title: 'One' }],
       presets: [{ id: 'anchored', isDefault: true }],
+      models: [],
     })
+    controller.setExecutionOptions({ models: [{ id: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' }] })
+    expect(controller.getSnapshot().executionOptions.models).toEqual([
+      { id: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' },
+    ])
   })
 
   it('creates tasks carrying execution targets and updates them back', () => {
     const { controller } = makeController()
-    const task = controller.createTask({ title: 'x', description: '', prompt: '', workspaceId: 'ws-1', mode: 'anchored', permission: 'read-only' })
+    const task = controller.createTask({
+      title: 'x',
+      description: '',
+      prompt: '',
+      workspaceId: 'ws-1',
+      mode: 'anchored',
+      permission: 'read-only',
+      model: 'deepseek/deepseek-chat',
+    })
     expect(task?.workspaceId).toBe('ws-1')
     expect(task?.mode).toBe('anchored')
     expect(task?.permission).toBe('read-only')
-    controller.updateTask(task!.id, { workspaceId: undefined, mode: undefined, permission: undefined })
+    expect(task?.model).toBe('deepseek/deepseek-chat')
+    controller.updateTask(task!.id, {
+      workspaceId: undefined,
+      mode: undefined,
+      permission: undefined,
+      model: undefined,
+    })
     const after = controller.getSnapshot().tasks[0]
     expect(after.workspaceId).toBeUndefined()
     expect(after.mode).toBeUndefined()
     expect(after.permission).toBeUndefined()
+    expect(after.model).toBeUndefined()
   })
 })
 

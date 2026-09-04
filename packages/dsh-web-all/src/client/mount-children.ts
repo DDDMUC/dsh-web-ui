@@ -25,20 +25,46 @@ const MOUNTED_PLUGINS = Symbol.for('dsh-web.mounted-plugins')
 
 interface BootEntry {
   id?: unknown
+  name?: unknown
+  disabled?: unknown
 }
 
 interface BootPayload {
   entries?: readonly BootEntry[]
 }
 
-/** Package ids the loader already serves a client bundle for. */
-function ownClientEntryIds(): Set<string> {
+/** Mapping from real plugin package name to its aggregate patch row id. */
+export const CHILD_ROW_IDS: Readonly<Record<string, string>> = {
+  '@linxin666/dsh-client-ui-web-ui-settings': 'web-ui-settings',
+  '@linxin666/dsh-client-ui-plugin-manager': 'web-ui-plugin-manager',
+  '@linxin666/dsh-client-ui-market': 'web-ui-market',
+  '@linxin666/dsh-client-ui-task-board': 'web-ui-task-board',
+  '@linxin666/dsh-client-ui-git-graph': 'web-ui-git-graph',
+  '@linxin666/dsh-remote-web-ui': 'web-ui-remote-web-ui',
+  '@linxin666/dsh-pet': 'web-ui-pet',
+  '@linxin666/dsh-ssh': 'web-ui-ssh',
+  '@linxin666/dsh-tool-describe-image': 'web-ui-tool-describe-image',
+  '@linxin666/dsh-client-ui-skill-explorer': 'web-ui-skill-explorer',
+  '@linxin666/dsh-doctor': 'web-ui-doctor',
+  '@linxin666/dsh-usage': 'web-ui-usage',
+  '@linxin666/dsh-session-archive': 'web-ui-session-archive',
+  '@linxin666/dsh-client-ui-skin-center': 'web-ui-skin-center',
+  '@linxin666/dsh-liangshen': 'web-ui-liangshen',
+}
+
+/** Active entry ids and names in the browser boot payload. */
+function activeBootEntryIds(): { active: Set<string>; hasBootEntries: boolean } {
   const boot = (globalThis as { __DSH_BOOT__?: BootPayload }).__DSH_BOOT__
-  const ids = new Set<string>()
-  for (const entry of boot?.entries ?? []) {
-    if (typeof entry?.id === 'string') ids.add(entry.id)
+  if (boot === undefined || !Array.isArray(boot.entries)) {
+    return { active: new Set<string>(), hasBootEntries: false }
   }
-  return ids
+  const active = new Set<string>()
+  for (const entry of boot.entries) {
+    if (entry?.disabled === true) continue
+    if (typeof entry?.id === 'string' && entry.id.trim() !== '') active.add(entry.id.trim())
+    if (typeof entry?.name === 'string' && entry.name.trim() !== '') active.add(entry.name.trim())
+  }
+  return { active, hasBootEntries: true }
 }
 
 function mountedRegistry(): Set<string> {
@@ -49,10 +75,23 @@ function mountedRegistry(): Set<string> {
 
 /** Mount every generated family child that has no client bundle of its own. */
 export function mountClientChildren(ctx: ClientContext): void {
-  const own = ownClientEntryIds()
+  const { active, hasBootEntries } = activeBootEntryIds()
   const registry = mountedRegistry()
   for (const child of clientChildren) {
-    if (own.has(child.name)) continue
+    if (hasBootEntries) {
+      // Direct standalone entry already served by the loader: skip here to avoid double mount
+      if (active.has(child.name)) continue
+
+      // Gated aggregate row: if the child belongs to a known family row but that row
+      // is disabled or removed from active entries, skip mounting so its UI is hidden.
+      const rowId = CHILD_ROW_IDS[child.name]
+      if (rowId !== undefined) {
+        const subpathName = `@linxin666/dsh-web-all/${rowId.replace(/^web-ui-/, '')}`
+        if (!active.has(rowId) && !active.has(subpathName)) {
+          continue
+        }
+      }
+    }
     if (registry.has(child.name)) continue
     registry.add(child.name)
     const mod = child.module as { apply?: unknown; default?: unknown; inject?: readonly string[] }

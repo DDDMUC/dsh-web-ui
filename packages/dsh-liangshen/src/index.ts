@@ -127,13 +127,24 @@ function applyImpl(ctx: Context, config?: Config): void {
   // fields from this namespace; a settings edit re-runs refresh live, and
   // deployments without a settings service keep the composition entry.
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, LIANGSHEN_SETTINGS_NAMESPACE, Config, config ?? {}, {
-      setSource: (source) => {
-        current = source
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, LIANGSHEN_SETTINGS_NAMESPACE, Config, config ?? {}, {
+          setSource: (source) => {
+            current = source
+            refresh()
+          },
+          onChange: refresh,
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(LIANGSHEN_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
+        current = () => scope?.get?.() ?? (config ?? {})
+        scope?.watch?.(() => { refresh() })
         refresh()
-      },
-      onChange: refresh,
-    })
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
 
   refresh()

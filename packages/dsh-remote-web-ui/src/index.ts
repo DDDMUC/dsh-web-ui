@@ -885,13 +885,24 @@ function applyImpl(ctx: Context, config?: Config): void {
   }), 'remote-web-ui: remote channel boot patch')
 
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, REMOTE_WEB_UI_SETTINGS_NAMESPACE, Config, config ?? {}, {
-      setSource: (source) => {
-        current = source
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, REMOTE_WEB_UI_SETTINGS_NAMESPACE, Config, config ?? {}, {
+          setSource: (source) => {
+            current = source
+            sync()
+          },
+          onChange: sync,
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(REMOTE_WEB_UI_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
+        current = () => scope?.get?.() ?? (config ?? {})
+        scope?.watch?.(() => { sync() })
         sync()
-      },
-      onChange: sync,
-    })
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
   sync()
 }

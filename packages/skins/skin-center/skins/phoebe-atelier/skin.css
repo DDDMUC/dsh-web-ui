@@ -2184,8 +2184,10 @@ body [data-phase='hero']
    root that keeps workspace cards above the decorative mascot. */
 body
   :is([data-pane='sidebar'], [class*='sidebarCol'])
-  > div > [data-phoebe-sidebar-footer] {
-  z-index: auto;
+  [data-phoebe-sidebar-footer],
+body[data-phoebe-settings-open] [data-phoebe-sidebar-footer],
+body [data-phoebe-sidebar-footer]:has([role='dialog']) {
+  z-index: auto !important;
 }
 
 /* The sidebar content root normally sits at layer 2 above the mascot (the
@@ -2256,8 +2258,8 @@ body [data-phoebe-settings-backdrop-frame] {
 /* The settings surface is translucent by design. Demote the raster composer
    while the settings dialog is open. The projected attribute is driven by
    the actual dialog presence, so closing the panel always restores input. */
-body[data-phoebe-settings-open] [data-composer-card] {
-  z-index: 0;
+body[data-phoebe-settings-open] :is([data-composer-seat], [data-slot='conversation.composer'], [data-composer-card]) {
+  z-index: 0 !important;
   opacity: 0.75;
   pointer-events: none;
   animation: none;

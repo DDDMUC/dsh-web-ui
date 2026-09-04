@@ -86,10 +86,21 @@ export const apply = mountOnce('@linxin666/dsh-usage', (ctx: Context, config?: C
   }
 
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, USAGE_SETTINGS_NAMESPACE, Config, config ?? {}, {
-      setSource: (next) => { source = next; rearm() },
-      onChange: rearm,
-    })
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, USAGE_SETTINGS_NAMESPACE, Config, config ?? {}, {
+          setSource: (next) => { source = next; rearm() },
+          onChange: rearm,
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(USAGE_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
+        source = () => scope?.get?.() ?? (config ?? {})
+        scope?.watch?.(() => { rearm() })
+        rearm()
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
 
   ctx.effect(() => {

@@ -74,10 +74,19 @@ export interface ExecutionPresetOption {
   isDefault: boolean
 }
 
+/** One model option the execution-target pickers offer. */
+export interface ExecutionModelOption {
+  id: string
+  name?: string
+  label?: string
+  provider?: string
+}
+
 /** The execution-target option sets the UI feeds into the controller. */
 export interface ExecutionOptionsSnapshot {
   workspaces: readonly ExecutionWorkspaceOption[]
   presets: readonly ExecutionPresetOption[]
+  models?: readonly ExecutionModelOption[]
 }
 
 /** Immutable controller snapshot for UI subscriptions. */
@@ -129,7 +138,7 @@ export class BoardController {
   private boardOpen = false
   private archiveView = false
   private selectedTaskId: string | undefined
-  private executionOptions: ExecutionOptionsSnapshot = { workspaces: [], presets: [] }
+  private executionOptions: ExecutionOptionsSnapshot = { workspaces: [], presets: [], models: [] }
   private listeners = new Set<() => void>()
   private disposers: Array<() => void> = []
   private readonly now: () => number

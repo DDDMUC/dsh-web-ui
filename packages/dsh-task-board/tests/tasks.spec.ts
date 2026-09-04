@@ -41,21 +41,23 @@ describe('createTask', () => {
 
   it('carries the execution targets and collapses blank ones', () => {
     const task = createTask(
-      { title: 'x', description: '', prompt: '', workspaceId: '  ws-1  ', mode: 'anchored', permission: 'danger-full-access' },
+      { title: 'x', description: '', prompt: '', workspaceId: '  ws-1  ', mode: 'anchored', permission: 'danger-full-access', model: '  deepseek/deepseek-chat  ' },
       NOW,
       'task-3',
     )
     expect(task.workspaceId).toBe('ws-1')
     expect(task.mode).toBe('anchored')
     expect(task.permission).toBe('danger-full-access')
+    expect(task.model).toBe('deepseek/deepseek-chat')
     const blank = createTask(
-      { title: 'x', description: '', prompt: '', workspaceId: '   ', mode: '', permission: undefined },
+      { title: 'x', description: '', prompt: '', workspaceId: '   ', mode: '', permission: undefined, model: '   ' },
       NOW,
       'task-4',
     )
     expect(blank.workspaceId).toBeUndefined()
     expect(blank.mode).toBeUndefined()
     expect(blank.permission).toBeUndefined()
+    expect(blank.model).toBeUndefined()
   })
 
   it('drops unknown permission strings', () => {

@@ -202,6 +202,21 @@ export class HostExecutionRunner {
         if (command === undefined) throw new Error('permission command was not acknowledged')
         if (command.kind !== 'success') throw new Error(command.text ?? 'permission command failed')
       }
+      if (task.model !== undefined && task.model.trim() !== '') {
+        const rawModel = task.model.trim()
+        const slashIdx = rawModel.indexOf('/')
+        const provider = slashIdx >= 0 ? rawModel.slice(0, slashIdx).trim() : undefined
+        const modelId = slashIdx >= 0 ? rawModel.slice(slashIdx + 1).trim() : rawModel
+        try {
+          await this.invoke('session', 'selectModel', {
+            sessionId,
+            ...(provider ? { provider } : {}),
+            model: modelId,
+          })
+        } catch (modelError) {
+          console.warn(`[dsh-task-board] failed to select model "${task.model}" for session ${sessionId}, falling back to default:`, modelError)
+        }
+      }
       await this.invoke('session', 'prompt', {
         sessionId,
         requestId: 'task-board-' + crypto.randomUUID(),

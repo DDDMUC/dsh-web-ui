@@ -249,8 +249,40 @@ export function apply(ctx: ClientContext): void {
         console.error('[dsh-task-board] agent preset roster read failed', error)
       }
     }
-    void pushPresetOptions()
-    disposers.push(ctx.on('connection/reset', () => { void pushPresetOptions() }))
+    const pushModelOptions = async (): Promise<void> => {
+      try {
+        const conn = ctx.get('connection') as { api?: { llm?: { discoverModels?: () => Promise<unknown> }; sessions?: { modelCatalog?: () => Promise<unknown> } } } | undefined
+        if (conn?.api) {
+          let models: Array<{ id: string; name?: string; provider?: string }> = []
+          if (typeof conn.api.llm?.discoverModels === 'function') {
+            const res = await conn.api.llm.discoverModels() as { result?: { value?: { models?: Array<{ id: string; name?: string }> } } }
+            const list = res?.result?.value?.models
+            if (Array.isArray(list)) {
+              models = list.map(m => ({ id: m.id, name: m.name }))
+            }
+          }
+          if (models.length === 0 && typeof conn.api.sessions?.modelCatalog === 'function') {
+            const res = await conn.api.sessions.modelCatalog() as { result?: { value?: { groups?: Array<{ provider?: string; models?: Array<{ id: string; name?: string }> }> } } }
+            const groups = res?.result?.value?.groups
+            if (Array.isArray(groups)) {
+              for (const g of groups) {
+                for (const m of g.models ?? []) {
+                  const qualifiedId = g.provider ? `${g.provider}/${m.id}` : m.id
+                  models.push({ id: qualifiedId, name: m.name ?? m.id, provider: g.provider })
+                }
+              }
+            }
+          }
+          if (models.length > 0) {
+            controller.setExecutionOptions({ models })
+          }
+        }
+      } catch (error) {
+        console.error('[dsh-task-board] model options read failed', error)
+      }
+    }
+    void pushModelOptions()
+    disposers.push(ctx.on('connection/reset', () => { void pushModelOptions() }))
     try {
       disposers.push(mountSidebarEntry(controller, ctx.locale))
       disposers.push(mountBoard(controller, ctx.locale))

@@ -69,11 +69,13 @@ function ExecutionSettingsSection({ controller, task, pending }: { controller: B
   const workspaceId = task.workspaceId ?? ''
   const mode = task.mode ?? ''
   const permission = task.permission ?? ''
+  const model = task.model ?? ''
   // A pinned target may disappear from the runtime (workspace deleted,
   // preset removed); keep it selectable as a stale row instead of silently
   // dropping it, so the user sees exactly what the task will ask for.
   const workspaceKnown = workspaceId === '' || options.workspaces.some(item => item.workspaceId === workspaceId)
   const modeKnown = mode === '' || options.presets.some(item => item.id === mode)
+  const modelKnown = model === '' || (options.models ?? []).some(item => item.id === model)
   return (
     <section className={css.detailSection}>
       <h4>{t('detail.executionSettings')}</h4>
@@ -123,6 +125,21 @@ function ExecutionSettingsSection({ controller, task, pending }: { controller: B
           <option value="">{t('exec.permission.default')}</option>
           {TASK_PERMISSIONS.map(id => (
             <option key={id} value={id}>{t(`exec.permission.${id}` as TaskBoardKey)}</option>
+          ))}
+        </select>
+      </label>
+      <label className={css.field}>
+        <span className={css.fieldLabel}>{t('new.model')}</span>
+        <select
+          className={css.select}
+          value={model}
+          disabled={pending}
+          onChange={event => { controller.updateTask(task.id, { model: event.target.value === '' ? undefined : event.target.value }) }}
+        >
+          <option value="">{t('exec.model.default')}</option>
+          {!modelKnown && <option value={model}>{model}{t('exec.model.unknown')}</option>}
+          {options.models?.map(item => (
+            <option key={item.id} value={item.id}>{item.name ?? item.id}</option>
           ))}
         </select>
       </label>

@@ -28,6 +28,7 @@ const wireArgsKeys: Record<string, Record<string, readonly string[]>> = {
     list: ['_request'],
     page: ['request'],
     follow: ['request'],
+    selectModel: ['request'],
   },
 }
 
@@ -117,6 +118,45 @@ describe('HostExecutionRunner', () => {
     expect(order).toEqual(['preset', 'create', 'rename', 'permission', 'prompt'])
     expect(gateway.invoke.mock.calls[1]?.[0].args).toEqual({ request: { workspaceId: 'workspace-a', agentPreset: 'preset-a' } })
     expect(promptPayloads).toEqual([{ sessionId: 'session-a', requestId: expect.any(String), mode: 'queue', content: [{ type: 'text', text: 'do work' }] }])
+  })
+
+  it('selects the pinned model on the session before dispatching prompt', async () => {
+    const order: string[] = []
+    const gateway = {
+      stream: fakeStream(async () => ({ async *[Symbol.asyncIterator]() { yield snapshot([], 0, false) } })),
+      invoke: fakeInvoke(async (request: GatewayRequest) => {
+        if (request.namespace === 'agentPresets') return { presets: [] }
+        const payload = request.args.request as Record<string, unknown>
+        if (request.method === 'create') {
+          order.push('create')
+          return { sessionId: 'session-model' }
+        }
+        if (request.method === 'rename') {
+          order.push('rename')
+          return { title: payload.title, seq: 1 }
+        }
+        if (request.method === 'selectModel') {
+          order.push('selectModel')
+          expect(payload).toEqual({
+            sessionId: 'session-model',
+            provider: 'deepseek',
+            modelId: 'deepseek-chat',
+          })
+          return { currentModel: { provider: 'deepseek', modelId: 'deepseek-chat' } }
+        }
+        if (request.method === 'prompt') {
+          order.push('prompt')
+          return { accepted: true }
+        }
+        throw new Error('unexpected gateway call: ' + request.method)
+      }),
+    }
+    const taskWithModel: TaskRecord = {
+      ...createTask({ title: 'Task with model', description: '', prompt: 'hello' }, 1, 'task-m'),
+      model: 'deepseek/deepseek-chat',
+    }
+    await expect(new HostExecutionRunner(gateway).launch(taskWithModel)).resolves.toBe('session-model')
+    expect(order).toEqual(['create', 'rename', 'selectModel', 'prompt'])
   })
 
   it('fails closed on a stale workspace or unacknowledged permission command', async () => {

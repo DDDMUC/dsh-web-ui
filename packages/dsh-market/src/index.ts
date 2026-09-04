@@ -38,10 +38,18 @@ export const apply = mountOnce('@linxin666/dsh-client-ui-market', applyImpl)
 
 function applyImpl(ctx: Context): void {
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, MARKET_SETTINGS_NAMESPACE, Config, {}, {
-      setSource: () => { /* application is browser-side; value is read from the scope */ },
-      onChange: () => { /* browser half re-reads on scope publish */ },
-    })
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, MARKET_SETTINGS_NAMESPACE, Config, {}, {
+          setSource: () => { /* application is browser-side; value is read from the scope */ },
+          onChange: () => { /* browser half re-reads on scope publish */ },
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        settingsCtx.settings.register(MARKET_SETTINGS_NAMESPACE, Config, { base: {} })
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
   const routes = makeMarketRoutes()
   for (const route of routes) {

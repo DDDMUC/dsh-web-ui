@@ -1434,8 +1434,10 @@ body[data-ds-dark-theme] button[class*="workspace"][aria-expanded], body[data-ds
   z-index: auto;
 }
 
-body[data-maid-settings-open] :is([data-pane="sidebar"], [class*="sidebarCol"]) > div > :has([data-slot="sidebar.settings"] > :is(button, [role="button"])[aria-expanded="true"]) {
-  z-index: 1000;
+body[data-maid-settings-open] :is([data-pane="sidebar"], [class*="sidebarCol"]) > div > :has([data-slot="sidebar.settings"] :is(button, [role="button"])[aria-expanded="true"]),
+body[data-maid-settings-open] :is([data-pane="sidebar"], [class*="sidebarCol"]) > div > :has([data-slot="sidebar.settings"]),
+body[data-maid-settings-open] :is([data-pane="sidebar"], [class*="sidebarCol"]) > div > :has([role="dialog"][aria-modal="true"]) {
+  z-index: 1000 !important;
 }
 
 [data-maid-settings-backdrop-frame] {
@@ -1447,8 +1449,8 @@ body[data-maid-settings-open] :is([data-pane="sidebar"], [class*="sidebarCol"]) 
   inset: 0 auto 0 0;
 }
 
-body[data-maid-settings-open] [data-composer-card] {
-  z-index: 0;
+body[data-maid-settings-open] :is([data-composer-seat], [data-slot="conversation.composer"], [data-composer-card]) {
+  z-index: 0 !important;
   opacity: .75;
   pointer-events: none;
   animation: none;

@@ -164,46 +164,72 @@ function applyImpl(ctx: Context): void {
   // re-resolves across reloads. installSection is a no-op when no
   // settings service is mounted (pure skin-center installs skip it).
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, {}, {
-      setSource: (source) => {
-        // Issue #996: the authoritative store is now the v2 active-state
-        // document (reachable through the remote pairing channel); this legacy
-        // namespace stays as the official settings page's input face. Copy a
-        // customized legacy section into the v2 store exactly once — safe at
-        // detach too, since the entry fallback resolves to schema defaults,
-        // which hasCustomSkinBackground excludes.
-        const migration = migrateBackgroundFromSettings({
-          activeStatePath: defaultActiveStatePath(),
-          readSettings: source,
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, {}, {
+          setSource: (source) => {
+            // Issue #996: the authoritative store is now the v2 active-state
+            // document (reachable through the remote pairing channel); this legacy
+            // namespace stays as the official settings page's input face. Copy a
+            // customized legacy section into the v2 store exactly once — safe at
+            // detach too, since the entry fallback resolves to schema defaults,
+            // which hasCustomSkinBackground excludes.
+            const migration = migrateBackgroundFromSettings({
+              activeStatePath: defaultActiveStatePath(),
+              readSettings: source,
+            })
+            for (const note of migration.notes) {
+              if (migration.migrated) console.info(`[ui-skin-center] background migration: ${note}`)
+              else console.error(`[ui-skin-center] background migration: ${note}`)
+            }
+          },
+          onChange: () => { /* browser half re-applies on scope publish and persists via the v2 channel */ },
         })
-        for (const note of migration.notes) {
-          if (migration.migrated) console.info(`[ui-skin-center] background migration: ${note}`)
-          else console.error(`[ui-skin-center] background migration: ${note}`)
-        }
-      },
-      onChange: () => { /* browser half re-applies on scope publish and persists via the v2 channel */ },
-    })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        settingsCtx.settings.register(SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, { base: {} })
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
 
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, {
-      ...CUSTOM_THEME_DEFAULTS,
-      light: { ...CUSTOM_THEME_DEFAULTS.light },
-      dark: { ...CUSTOM_THEME_DEFAULTS.dark },
-    }, {
-      setSource: () => { /* application is browser-side; value is read from the scope */ },
-      onChange: () => { /* browser half re-applies on scope publish */ },
-    })
+    try {
+      const baseTheme = {
+        ...CUSTOM_THEME_DEFAULTS,
+        light: { ...CUSTOM_THEME_DEFAULTS.light },
+        dark: { ...CUSTOM_THEME_DEFAULTS.dark },
+      }
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, baseTheme, {
+          setSource: () => { /* application is browser-side; value is read from the scope */ },
+          onChange: () => { /* browser half re-applies on scope publish */ },
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        settingsCtx.settings.register(SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, { base: baseTheme })
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
 
   // The wallpaper bridge namespace; the host side keeps a live getter so
   // the /we routes see weLibraryDirs changes without a restart.
   let wallpaperSource: () => SkinWallpaperConfig = () => ({})
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, {}, {
-      setSource: (source) => { wallpaperSource = source },
-      onChange: () => { /* routes re-read through the getter per request */ },
-    })
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, {}, {
+          setSource: (source) => { wallpaperSource = source },
+          onChange: () => { /* routes re-read through the getter per request */ },
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, { base: {} })
+        wallpaperSource = () => scope?.get?.() ?? {}
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
 
   const routes = [

@@ -20,6 +20,7 @@ export function NewTaskModal({ controller, onClose }: { controller: BoardControl
   const [workspaceId, setWorkspaceId] = useState('')
   const [mode, setMode] = useState('')
   const [permission, setPermission] = useState('')
+  const [model, setModel] = useState('')
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [scheduleCron, setScheduleCron] = useState('')
   const [scheduleError, setScheduleError] = useState<string | undefined>(undefined)
@@ -76,6 +77,7 @@ export function NewTaskModal({ controller, onClose }: { controller: BoardControl
       workspaceId: workspaceId === '' ? undefined : workspaceId,
       mode: mode === '' ? undefined : mode,
       permission: permission === '' ? undefined : permission as TaskPermission,
+      model: model === '' ? undefined : model,
       schedule: scheduleEnabled ? { enabled: true, cron: scheduleCron.trim() } : undefined,
     })
     if (task === undefined) {
@@ -177,6 +179,20 @@ export function NewTaskModal({ controller, onClose }: { controller: BoardControl
             <option value="">{t('exec.permission.default')}</option>
             {TASK_PERMISSIONS.map(id => (
               <option key={id} value={id}>{t(`exec.permission.${id}` as TaskBoardKey)}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className={css.field}>
+          <span className={css.fieldLabel}>{t('new.model')}</span>
+          <select
+            className={css.select}
+            value={model}
+            onChange={event => { setModel(event.target.value) }}
+          >
+            <option value="">{t('exec.model.default')}</option>
+            {options.models?.map(item => (
+              <option key={item.id} value={item.id}>{item.name ?? item.id}</option>
             ))}
           </select>
         </label>

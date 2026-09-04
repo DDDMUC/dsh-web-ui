@@ -152,10 +152,20 @@ function applyImpl(ctx: Context, config?: Config): void {
   }
 
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, TASK_BOARD_SETTINGS_NAMESPACE, Config, config ?? {}, {
-      setSource: (source) => { current = source },
-      onChange: sync,
-    })
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, TASK_BOARD_SETTINGS_NAMESPACE, Config, config ?? {}, {
+          setSource: (source) => { current = source },
+          onChange: sync,
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(TASK_BOARD_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
+        current = () => scope?.get?.() ?? (config ?? {})
+        scope?.watch?.(() => { sync() })
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
 
   // Initial registration from the composition entry (covers deployments with

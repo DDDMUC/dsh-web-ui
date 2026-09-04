@@ -69,7 +69,18 @@ export const apply = mountOnce('@linxin666/dsh-doctor', (ctx: Context, config?: 
     void autoEnsure.kick()
   }
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, DOCTOR_SETTINGS_NAMESPACE, Config, config ?? {}, { setSource: source => { current = source; sync() }, onChange: sync })
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, DOCTOR_SETTINGS_NAMESPACE, Config, config ?? {}, { setSource: source => { current = source; sync() }, onChange: sync })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(DOCTOR_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
+        current = () => scope?.get?.() ?? (config ?? {})
+        scope?.watch?.(() => { sync() })
+        sync()
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
   ctx.effect(() => { sync(); return () => { autoEnsure.suppress(); disposeRuntime?.() } }, 'doctor: runtime')
 })

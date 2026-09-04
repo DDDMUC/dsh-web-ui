@@ -133,6 +133,11 @@ export interface TaskRecord {
    */
   permission?: TaskPermission
   /**
+   * Pinned model selection for the execution session (format: "provider/model" or model id);
+   * absent falls back to the host default (agent-default-model).
+   */
+  model?: string
+  /**
    * Frozen context snapshot for a continuation card; absent on plain tasks.
    * Sanitized before it enters the ledger (redaction, slash-command taint,
    * 8 KiB per-field cap) by the protocol gate and re-normalized on load.
@@ -185,6 +190,8 @@ export interface NewTaskInput {
   mode?: string
   /** Permission preset applied to the execution session; absent = session default. */
   permission?: TaskPermission
+  /** Optional pinned model for the execution session; absent = host default. */
+  model?: string
   /**
    * Optional scheduled-run rule requested at creation time (the new-task
    * dialog): an enable flag plus a 5-field cron expression. The create use
@@ -271,6 +278,7 @@ export function createTask(input: NewTaskInput, now: number, id: string): TaskRe
     workspaceId: normalizeTargetId(input.workspaceId),
     mode: normalizeTargetId(input.mode),
     permission: isTaskPermission(input.permission) ? input.permission : undefined,
+    model: normalizeTargetId(input.model),
     ...(input.freeze === undefined ? {} : { freeze: freezeOf(input.freeze, now) }),
     ...(input.handover === undefined ? {} : { handover: { ...input.handover, bundledAt: now } }),
   }

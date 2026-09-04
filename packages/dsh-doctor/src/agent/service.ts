@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { rm, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { join as posixJoin } from 'node:path/posix'
 import { join as win32Join } from 'node:path/win32'
 
 /**
@@ -27,13 +28,13 @@ export function legacyServicePlan(platform: NodeJS.Platform, env: NodeJS.Process
   const homeDir = env.HOME?.trim() || home
   if (platform === 'darwin') {
     return {
-      files: [join(homeDir, 'Library', 'LaunchAgents', 'com.dsh.doctor.plist')],
-      uninstall: ['launchctl', 'bootout', `gui/${process.getuid?.() ?? 0}`, join(homeDir, 'Library', 'LaunchAgents', 'com.dsh.doctor.plist')],
+      files: [posixJoin(homeDir, 'Library', 'LaunchAgents', 'com.dsh.doctor.plist')],
+      uninstall: ['launchctl', 'bootout', `gui/${process.getuid?.() ?? 0}`, posixJoin(homeDir, 'Library', 'LaunchAgents', 'com.dsh.doctor.plist')],
     }
   }
   if (platform === 'linux') {
-    const config = env.XDG_CONFIG_HOME?.trim() || join(homeDir, '.config')
-    const unit = join(config, 'systemd', 'user', 'com.dsh.doctor.service')
+    const config = env.XDG_CONFIG_HOME?.trim() || posixJoin(homeDir, '.config')
+    const unit = posixJoin(config, 'systemd', 'user', 'com.dsh.doctor.service')
     return {
       files: [unit],
       uninstall: ['systemctl', '--user', 'disable', '--now', 'com.dsh.doctor.service'],

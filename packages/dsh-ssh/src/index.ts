@@ -163,14 +163,25 @@ function applyImpl(ctx: Context, config?: Config): void {
   }
 
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, SSH_SETTINGS_NAMESPACE, Config, config ?? {}, {
-      setSource: (source) => {
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, SSH_SETTINGS_NAMESPACE, Config, config ?? {}, {
+          setSource: (source) => {
+            isSettingsBound = true
+            current = source
+            sync()
+          },
+          onChange: sync,
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(SSH_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
         isSettingsBound = true
-        current = source
-        sync()
-      },
-      onChange: sync,
-    })
+        current = () => scope?.get?.() ?? (config ?? {})
+        scope?.watch?.(() => { sync() })
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
 
   // Initial registration from the composition entry (covers deployments with

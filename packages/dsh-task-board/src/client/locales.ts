@@ -109,6 +109,7 @@ export const zh = {
   'new.workspace': '工作区',
   'new.mode': '模式',
   'new.permission': '权限',
+  'new.model': '模型',
   'exec.workspace.recent': '最近使用（默认）',
   'exec.mode.default': '部署默认',
   'exec.mode.defaultSuffix': '（默认）',
@@ -118,6 +119,8 @@ export const zh = {
   'exec.permission.read-only': '只读',
   'exec.permission.workspace-write': '工作区可写',
   'exec.permission.danger-full-access': '完全访问',
+  'exec.model.default': '宿主默认（agent-default-model）',
+  'exec.model.unknown': '（未知模型/回退默认）',
   'detail.executionSettings': '执行设置',
   'exec.hint': '执行时生效：工作区决定执行会话落在哪个工作区；模式决定会话的 agent 预设；权限经 /permission 命令应用到会话。留空则使用运行时默认。',
   // 插件设置卡片（settings.plugin.item 席位）。
@@ -254,6 +257,7 @@ export const en: Record<keyof typeof zh, string> = {
   'new.workspace': 'Workspace',
   'new.mode': 'Mode',
   'new.permission': 'Permission',
+  'new.model': 'Model',
   'exec.workspace.recent': 'Most recent (default)',
   'exec.mode.default': 'Deployment default',
   'exec.mode.defaultSuffix': ' (default)',
@@ -263,6 +267,8 @@ export const en: Record<keyof typeof zh, string> = {
   'exec.permission.read-only': 'Read-only',
   'exec.permission.workspace-write': 'Workspace Write',
   'exec.permission.danger-full-access': 'Full Access',
+  'exec.model.default': 'Host default (agent-default-model)',
+  'exec.model.unknown': ' (unknown / fallback to default)',
   'detail.executionSettings': 'Execution Settings',
   'exec.hint': 'Applied when the task runs: the workspace decides where the execution session lands; the mode composes the session\'s agent preset; the permission is applied through the /permission command. Blank = runtime default.',
   // Plugin settings card (the `settings.plugin.item` seat).

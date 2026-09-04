@@ -29,6 +29,47 @@ describe('task-board action protocol', () => {
     })?.action.kind).toBe('update')
   })
 
+  it('accepts model pinning in create input and update patch (#1359)', () => {
+    const createEnv = parseActionEnvelope({
+      requestId: 'create-with-model',
+      action: {
+        kind: 'create',
+        id: 'task-model',
+        input: {
+          title: 'Model task',
+          description: '',
+          prompt: 'prompt',
+          model: 'deepseek-official/deepseek-v4-flash',
+        },
+      },
+    })
+    expect(createEnv?.action.kind).toBe('create')
+
+    const updateEnv = parseActionEnvelope({
+      requestId: 'update-with-model',
+      action: {
+        kind: 'update',
+        taskId: 'task-model',
+        patch: {
+          model: 'openai/gpt-5-preview',
+        },
+      },
+    })
+    expect(updateEnv?.action.kind).toBe('update')
+
+    // Rejects non-string model values
+    expect(parseActionEnvelope({
+      requestId: 'update-with-bad-model',
+      action: {
+        kind: 'update',
+        taskId: 'task-model',
+        patch: {
+          model: 12345,
+        },
+      },
+    })).toBeUndefined()
+  })
+
   it('accepts benign future import fields but rejects executable command fields', () => {
     const valid = createTask({ title: 'A', description: '', prompt: '' }, 1, 'task-a')
     expect(parseActionEnvelope({ requestId: 'ok', action: { kind: 'import', sourceId: 'browser', tasks: [valid] } })).toBeDefined()

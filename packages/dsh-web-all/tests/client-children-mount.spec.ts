@@ -9,6 +9,7 @@ vi.mock('../src/client/children.generated.ts', () => ({
     { name: '@linxin666/fake-mounts', module: { apply: () => {} } },
     { name: '@linxin666/fake-sync-throw', module: { apply: () => {} } },
     { name: '@linxin666/fake-no-apply', module: {} },
+    { name: '@linxin666/dsh-client-ui-plugin-manager', module: { apply: () => {} } },
   ],
 }))
 
@@ -32,8 +33,10 @@ function fakeCtx(outcomes: Record<string, 'ok' | 'reject' | 'throw'> = {}) {
   return { ctx: ctx as never, mounted }
 }
 
-function bootWith(ids: string[]): void {
-  vi.stubGlobal('__DSH_BOOT__', { entries: ids.map((id) => ({ id })) })
+function bootWith(entries: Array<string | { id?: string; name?: string; disabled?: boolean }>): void {
+  vi.stubGlobal('__DSH_BOOT__', {
+    entries: entries.map((entry) => typeof entry === 'string' ? { id: entry } : entry),
+  })
 }
 
 describe('mountClientChildren', () => {
@@ -58,7 +61,32 @@ describe('mountClientChildren', () => {
   it('mounts every child when no boot payload is present', () => {
     const { ctx, mounted } = fakeCtx()
     mountClientChildren(ctx)
-    expect(mounted).toHaveLength(3) // every child except the no-apply shape
+    expect(mounted).toHaveLength(4) // every child except the no-apply shape
+  })
+
+  it('gates known child rows based on active boot entries (#1372)', () => {
+    // 1. When child row is not in entries, its client UI is not mounted
+    bootWith(['web-ui-settings'])
+    const { ctx: ctx1, mounted: mounted1 } = fakeCtx()
+    mountClientChildren(ctx1)
+    expect(mounted1.some(def => def.name === '@linxin666/dsh-client-ui-plugin-manager')).toBe(false)
+
+    // Reset mount registry for next run
+    delete (globalThis as Record<symbol, unknown>)[MOUNTED_PLUGINS]
+
+    // 2. When child row is explicitly disabled in entries, it is skipped
+    bootWith([{ id: 'web-ui-plugin-manager', disabled: true }])
+    const { ctx: ctx2, mounted: mounted2 } = fakeCtx()
+    mountClientChildren(ctx2)
+    expect(mounted2.some(def => def.name === '@linxin666/dsh-client-ui-plugin-manager')).toBe(false)
+
+    delete (globalThis as Record<symbol, unknown>)[MOUNTED_PLUGINS]
+
+    // 3. When child row is active, it mounts normally
+    bootWith(['web-ui-plugin-manager'])
+    const { ctx: ctx3, mounted: mounted3 } = fakeCtx()
+    mountClientChildren(ctx3)
+    expect(mounted3.some(def => def.name === '@linxin666/dsh-client-ui-plugin-manager')).toBe(true)
   })
 
   it('keeps mounting siblings when one child throws synchronously', () => {

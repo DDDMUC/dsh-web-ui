@@ -147,21 +147,25 @@ function applyImpl(ctx: Context, config: Config = {}): void {
   }
   let current: () => Config = () => config
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, Config, config, {
-      setSource: (source) => {
-        current = source
-      },
-      onChange: () => {},
-      validate: (value) => {
-        // The Host applies a batched edit op by op, so each intermediate state
-        // is judged too: a connection is only validated once both halves
-        // exist, otherwise baseURL alone (model not landed yet) or model alone
-        // would each refuse the other's op and strand the save. A partial
-        // config still fails loud at the first describe_image call.
-        if (value.baseURL !== undefined && value.model !== undefined) resolveConfig(value)
-        else if (Array.isArray(value.endpoints) && value.endpoints.length > 0) resolveConfig(value)
-      },
-    })
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, Config, config, {
+          setSource: (source) => {
+            current = source
+          },
+          onChange: () => {},
+          validate: (value) => {
+            if (value.baseURL !== undefined && value.model !== undefined) resolveConfig(value)
+            else if (Array.isArray(value.endpoints) && value.endpoints.length > 0) resolveConfig(value)
+          },
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(DESCRIBE_IMAGE_SETTINGS_NAMESPACE, Config, { base: config })
+        current = () => scope?.get?.() ?? config
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
   const spec = (): ResolvedConfig => resolveConfig(current())
   let rotationCursor = 0
