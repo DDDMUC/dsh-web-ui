@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-08-25-maintenance-run-skyrail-cabin-merge.md: 1db3d9a1f4bda5ec505dbdea0ec04e26cbbbfbb3
+2026-08-25-maintenance-run-skyrail-cabin-merge.zh.md: 83f2fc96b50acac05a539d4f0ee29cea7adf69c2

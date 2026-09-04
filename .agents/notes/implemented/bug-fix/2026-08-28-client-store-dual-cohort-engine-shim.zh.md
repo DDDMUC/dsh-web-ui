@@ -25,7 +25,7 @@ Status: implemented
 - **存储引擎（shared/tsdown.client.ts）：** `@deepseek-ai/dsh-client-store` 的值导入不再 external。bundle 纯度插件把它们重定向到生成的 shim 模块，shim 在 bundle 求值期通过 loader 注入的 `require` 解析引擎：先试平台模块，回落到旧 `@deepseek-ai/dsh-client-runtime/client` 面。shim 里的 specifier 用 `join('')` 拼出，静态解析器不可见，require 调用原样落进 factory 作用域。shim 只转发两个引擎共有的值面——`notifySubscribers` 仅存在于 cohort 包，绝不转发；未来对它的值导入会在构建期以缺导出报错，而不是在 rc.2 上静默坏掉。type-only 导入不受影响：打包前已被擦除，类型仍来自已发布的 0.1.2 声明。
 - **注入面（task-board 客户端）：** `remote.agentPresets` 移出硬 `inject` 清单（其余入口的服务在 rc.2 上都注册）。preset 名册在使用点经宿主实际提供的面读取——已注册则走 `remote.agentPresets`，否则回落 `connection.api.agentPresets`（迁移前的 rc.2 面）——两种 cohort 的 mode picker 都保留 preset，仅当宿主两者皆无时才空跑。读取失败保留旧选项并在下次重连重试，与之前一致。
 
-相关：[preview SDK cohort via source-built tarball overrides](../process/2026-08-28-preview-cohort-tarball-overrides.zh.md)（引入这一双轨的迁移）。
+相关：[preview SDK cohort via source-built tarball overrides](../../archived/process/2026-08-28-preview-cohort-tarball-overrides.zh.md)（引入这一双轨的迁移）。
 
 ## 落选方案
 
