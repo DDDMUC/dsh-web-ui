@@ -131,7 +131,7 @@ async function readFirstSse(port: number, path: string): Promise<Record<string, 
 describe('/api/pair routes', () => {
   it('runs the full flow: issue (loopback) → accept (LAN) → cookie → reuse refused', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       // The LAN authority cannot issue (loopback-only control plane).
       const lanIssue = await call(port, 'POST', '/api/pair/issue', { host: '192.168.1.5:3080' })
@@ -170,7 +170,6 @@ describe('/api/pair routes', () => {
     const service = makeService()
     const { port, close } = await serve(makeRoutes({
       service,
-      lanAddresses: ['192.168.1.5'],
       indexDocument: async () => '<html><head><title>shell</title></head><body>official</body></html>',
     }))
     try {
@@ -220,7 +219,6 @@ describe('/api/pair routes', () => {
     const service = makeService()
     const { port, close } = await serve(makeRoutes({
       service,
-      lanAddresses: ['192.168.1.5'],
       indexDocument: async () => '<html><head></head><body>official</body></html>',
     }))
     try {
@@ -254,7 +252,7 @@ describe('/api/pair routes', () => {
 
   it('does not register /pair-app without an index provider', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       service.issue()
       await call(port, 'GET', '/pair-accept?pair=tok-1', { host: '192.168.1.5:3080' })
@@ -269,7 +267,6 @@ describe('/api/pair routes', () => {
     const service = makeService()
     const { port, close } = await serve(makeRoutes({
       service,
-      lanAddresses: ['192.168.1.5'],
       indexDocument: async () => '<html><head><title>shell</title></head><body>official</body></html>',
     }))
     try {
@@ -304,7 +301,7 @@ describe('/api/pair routes', () => {
   })
 
   it('does not register the reopen worker without an app landing', async () => {
-    const { port, close } = await serve(makeRoutes({ service: makeService(), lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service: makeService() }))
     try {
       const missing = await call(port, 'GET', PAIR_PATHS.appServiceWorker, {})
       expect(missing.status).toBe(404)
@@ -315,7 +312,7 @@ describe('/api/pair routes', () => {
 
   it('refuses unknown/expired tokens and unpaired heartbeats', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const bad = await call(port, 'POST', '/api/pair/accept', { host: '192.168.1.5:3080', body: { token: 'nope' } })
       expect(bad.status).toBe(404)
@@ -332,7 +329,7 @@ describe('/api/pair routes', () => {
       { address: '192.168.1.5', base: 'http://192.168.1.5:3080' },
       { address: '10.0.0.3', base: 'http://10.0.0.3:3080' },
     ])
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5', '10.0.0.3'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const chosen = await call(port, 'POST', '/api/pair/issue', { body: { address: '10.0.0.3' } })
       expect(chosen.status).toBe(200)
@@ -348,7 +345,7 @@ describe('/api/pair routes', () => {
 
   it('stop revokes devices and the token from the control plane', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const issued = await call(port, 'POST', '/api/pair/issue', {})
       const token = issued.body.token as string
@@ -369,7 +366,7 @@ describe('/api/pair routes', () => {
   it('reports lan-required without a LAN bind (no dead QR)', async () => {
     const service = makeService()
     service.setLanBases([])
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: [] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const issued = await call(port, 'POST', '/api/pair/issue', {})
       expect(issued.status).toBe(409)
@@ -382,7 +379,7 @@ describe('/api/pair routes', () => {
   it('publicBaseUrl: issues a public link and trusts the tunneled host on the phone fence', async () => {
     const service = makeService()
     service.setPublicBaseUrl('https://phone.example.com')
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       // Loopback issues; the default URL is now built from the public base.
       const issued = await call(port, 'POST', '/api/pair/issue', {})
@@ -415,7 +412,7 @@ describe('/api/pair routes', () => {
     const service = makeService()
     service.setLanBases([])
     service.setPublicBaseUrl('https://phone.example.com:8443')
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: [] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const issued = await call(port, 'POST', '/api/pair/issue', {})
       expect(issued.status).toBe(200)
@@ -435,7 +432,6 @@ describe('/api/pair routes', () => {
     let requirePairingForLan = false
     const { port, close } = await serve(makeRoutes({
       service,
-      lanAddresses: ['192.168.1.5'],
       requirePairingForLan: () => requirePairingForLan,
     }))
     try {
@@ -455,7 +451,7 @@ describe('/api/pair routes', () => {
     service.setPublicBaseUrl('https://phone.example.com')
     service.setTunnelStatus({ state: 'running', url: 'https://xyz.trycloudflare.com' })
     service.issue('ws-7', undefined)
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       // No cookie: only pairing-relevant fields, no token/device/tunnel oracle.
       const unpaired = await call(port, 'GET', '/api/pair/status', { host: '192.168.1.5:3080' })
@@ -481,7 +477,7 @@ describe('/api/pair routes', () => {
 
   it('partitions the accept rate-limit buckets by the client-visible XFF hop', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       // Distinct XFF clients each get their own bucket: none trips the limit.
       for (let index = 0; index < 12; index += 1) {
@@ -513,7 +509,7 @@ describe('/api/pair routes', () => {
 
   it('rejects non-GET/POST methods with 405', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const status = await call(port, 'GET', '/api/pair/issue', {})
       expect(status.status).toBe(405)
@@ -525,7 +521,7 @@ describe('/api/pair routes', () => {
   it('malformed payloads are refused with the existing error shape', async () => {
     const service = makeService()
     service.setLanBases([{ address: '192.168.1.5', base: 'http://192.168.1.5:3080' }])
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const badIssue = await call(port, 'POST', '/api/pair/issue', { body: { address: 42 } })
       expect(badIssue.status).toBe(400)
@@ -540,7 +536,7 @@ describe('/api/pair routes', () => {
 
   it('omits the device roster from status even for a paired cookie', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       await call(port, 'POST', '/api/pair/issue', {})
       await call(port, 'POST', '/api/pair/accept', {
@@ -560,7 +556,7 @@ describe('/api/pair routes', () => {
     const service = makeService()
     service.issue()
     service.accept('tok-1', 'Mozilla/5.0 TestPhone')
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const frame = await readFirstSse(port, '/api/pair/events')
       expect(frame.type).toBe('state')
@@ -577,7 +573,6 @@ describe('/api/pair routes', () => {
     const calls: string[] = []
     const { port, close } = await serve(makeRoutes({
       service,
-      lanAddresses: ['192.168.1.5'],
       lanBindStatus: () => {
         calls.push('read')
         return { profile: 'web', setting: true, blockHost: '0.0.0.0', bindHost: '0.0.0.0', port, lanUrls: [], firewall: { ok: true, managed: false }, platform: 'darwin', pendingRestart: false }
@@ -600,7 +595,7 @@ describe('/api/pair routes', () => {
       await close()
     }
     // Without the provider the route is not registered at all.
-    const bare = await serve(makeRoutes({ service: makeService(), lanAddresses: ['192.168.1.5'] }))
+    const bare = await serve(makeRoutes({ service: makeService() }))
     try {
       const missing = await call(bare.port, 'GET', PAIR_PATHS.lanBind, {})
       expect(missing.status).toBe(404)
@@ -611,7 +606,7 @@ describe('/api/pair routes', () => {
 
   it('counts the accept page and the accept API in separate rate-limit buckets', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       // Exhaust the API bucket with token-guessing POSTs.
       for (let index = 0; index < 11; index += 1) {
@@ -670,7 +665,7 @@ describe('/api/pair routes', () => {
 
   it('revokes one device from loopback and refuses LAN revoke', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       await call(port, 'POST', '/api/pair/issue', {})
       await call(port, 'POST', '/api/pair/accept', { host: '192.168.1.5:3080', body: { token: 'tok-1' } })
@@ -718,7 +713,7 @@ describe('/api/pair body failure contract (shared readJsonBody)', () => {
 
   it('locks the lenient absent-body contract: empty or unparseable bodies act as an empty object', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       // stopPair() and sendHeartbeat() post with no body at all.
       const stop = await call(port, 'POST', '/api/pair/stop', {})
@@ -743,7 +738,7 @@ describe('/api/pair body failure contract (shared readJsonBody)', () => {
 
   it('locks the oversize contract: the shared reader destroys the request instead of answering', async () => {
     const service = makeService()
-    const { port, close } = await serve(makeRoutes({ service, lanAddresses: ['192.168.1.5'] }))
+    const { port, close } = await serve(makeRoutes({ service }))
     try {
       const outcome = await rawPost(port, '/api/pair/issue', JSON.stringify({ address: 'x'.repeat(5000) }))
       expect(outcome.status).toBeNull()

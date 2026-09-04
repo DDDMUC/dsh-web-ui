@@ -412,8 +412,6 @@ export class PairingEventsStream {
 export interface PairRoutesDeps {
   /** The pairing service. */
   service: PairingService
-  /** The LAN IP literals the fence accepts (derived from the bind host). */
-  lanAddresses: readonly string[]
   /** Current desktop gate policy, re-read for every status response. */
   requirePairingForLan?: boolean | (() => boolean)
   /**
@@ -442,7 +440,7 @@ export interface PairRoutesDeps {
  * @returns the exact routes to register on webServer.
  */
 export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
-  const { service, lanAddresses, requirePairingForLan = true } = deps
+  const { service, requirePairingForLan = true } = deps
   const pairingRequired = (): boolean => typeof requirePairingForLan === 'function'
     ? requirePairingForLan()
     : requirePairingForLan

@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+.agents/notes/implemented/simplification/2026-09-05-remote-web-ui-pair-routes-drop-dead-lan-addresses-dep.md: ce954ec3c282c2da08cb4152b2d0faaca92ed252
+.agents/notes/implemented/simplification/2026-09-05-remote-web-ui-pair-routes-drop-dead-lan-addresses-dep.zh.md: ef21199cc4385f095227d963a727f620c851c56d
