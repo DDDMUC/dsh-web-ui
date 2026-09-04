@@ -1,0 +1,125 @@
+name: Desktop release
+
+# Package the Electron desktop app and attach its installers to the GitHub
+# Release of a vX.Y.Z tag. Runs automatically on every version tag (it waits
+# for release.yml to create the Release first) and can be dispatched to
+# (re)build assets for an existing tag; the optional ref input lets a
+# dispatched run build a newer desktop tree than the tag itself.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach the assets to (vX.Y.Z)'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to build from (defaults to the tag)'
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    name: Package desktop app
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Resolve release tag and checkout ref
+        id: resolve
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_REF: ${{ github.event.inputs.ref }}
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${{ github.ref_name }}"
+            ref="${{ github.ref }}"
+          else
+            tag="$INPUT_TAG"
+            ref="$INPUT_REF"
+            if [ -z "$ref" ]; then ref="$tag"; fi
+          fi
+          case "$tag" in
+            v*) ;;
+            *) echo "tag must look like vX.Y.Z, got: $tag" >&2; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.resolve.outputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      # The packaged payload is resolved from the registry at build time
+      # (desktop/runtime/*/package.json pins), so building a tag whose seed
+      # was later advanced is done by checking out that newer ref, not by
+      # moving the tag.
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Stage the bundled runtime payload
+        working-directory: desktop
+        run: npm run prepare-runtime
+
+      - name: Wait for the GitHub Release to exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -eu
+          for i in $(seq 1 60); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              echo "Release $TAG found"
+              exit 0
+            fi
+            echo "waiting for release $TAG (attempt $i/60)"
+            sleep 20
+          done
+          echo "Release $TAG did not appear within 20 minutes; release.yml likely failed" >&2
+          exit 1
+
+      # Align the app version with the release tag so artifact names carry
+      # it (dsh-desktop-X.Y.Z-*); the edit stays runner-local.
+      - name: Stamp the release version into the app manifest
+        working-directory: desktop
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: npm version "${TAG#v}" --no-git-tag-version --allow-same-version
+
+      - name: Build mac and Windows installers
+        working-directory: desktop
+        run: npm run dist
+
+      - name: Upload the installers to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -eu
+          cd desktop/dist
+          ls -la *.dmg *.exe *.zip
+          gh release upload "$TAG" *.dmg *.exe *.zip --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
