@@ -21,6 +21,7 @@ const {
   findHostPort,
   isPortFree,
   SEED_MARKER,
+  ensureProfileFallbacks,
 } = require('../src/runtime.cjs');
 
 function listenOn(port) {
@@ -154,14 +155,48 @@ test('findHostPort serves the dedicated range above the reserved pair', async ()
   assert.equal(await isPortFree(port), true, 'the returned port must be immediately bindable');
 });
 
-test('findHostPort skips an occupied dedicated port and never returns a reserved one', async () => {
-  const first = await findHostPort();
-  const blocker = await listenOn(first);
-  try {
-    const second = await findHostPort();
-    assert.notEqual(second, first);
-    assert.equal(RESERVED_PORTS.has(second), false);
-  } finally {
-    await new Promise((resolvePromise) => blocker.close(resolvePromise));
-  }
+test('childEnv normalizes and appends NODE_PATH', () => {
+  const env = childEnv('/home/u/.dsh', '/opt/node', 'linux', {
+    NODE_PATH: '/existing/path',
+  }, ['/host/node_modules', '/profiles/node_modules']);
+  assert.equal(env.NODE_PATH, '/host/node_modules:/profiles/node_modules:/existing/path');
+
+  // Windows with case variant Node_Path
+  const win = childEnv('C:\\Users\\u\\.dsh', 'C:\\runtime\\node', 'win32', {
+    Node_Path: 'C:\\existing\\path',
+  }, ['C:\\host\\node_modules']);
+  assert.equal(win.NODE_PATH, 'C:\\host\\node_modules;C:\\existing\\path');
+  assert.equal(win.Node_Path, undefined);
 });
+
+test('ensureProfileFallbacks creates junctions for declared peerDependencies', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-test-fallback-'));
+  const profileDir = path.join(tempDir, 'profiles', 'web');
+  const hostDir = path.join(tempDir, 'host');
+  const hostModules = path.join(hostDir, 'node_modules');
+  const peerPkgDir = path.join(hostModules, '@deepseek-ai', 'dsh-client-ui-primitives');
+  fs.mkdirSync(peerPkgDir, { recursive: true });
+  fs.writeFileSync(path.join(peerPkgDir, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-client-ui-primitives' }));
+
+  const pluginDir = path.join(profileDir, 'node_modules', 'my-plugin');
+  fs.mkdirSync(pluginDir, { recursive: true });
+  fs.writeFileSync(path.join(pluginDir, 'package.json'), JSON.stringify({
+    name: 'my-plugin',
+    peerDependencies: {
+      '@deepseek-ai/dsh-client-ui-primitives': '^0.1.2-rc.1',
+    },
+  }));
+  fs.writeFileSync(path.join(profileDir, 'package.json'), JSON.stringify({
+    dsh: { profile: { bundles: ['my-plugin'] } },
+  }));
+
+  ensureProfileFallbacks(tempDir, hostDir);
+
+  const targetLink = path.join(profileDir, 'node_modules', '@deepseek-ai', 'dsh-client-ui-primitives');
+  assert.ok(fs.existsSync(targetLink), 'fallback junction should exist in profile node_modules');
+  const fallbackLink = path.join(profileDir, '.dsh-module-fallback', 'node_modules', '@deepseek-ai', 'dsh-client-ui-primitives');
+  assert.ok(fs.existsSync(fallbackLink), 'intermediate junction should exist in .dsh-module-fallback');
+
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+

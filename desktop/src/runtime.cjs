@@ -81,13 +81,19 @@ function resolveDshHome(env, homedir) {
  * or shadowed key causes spawned children (such as powershell.exe for DPAPI decryption)
  * to fail with ENOENT. We normalize all case variants of PATH into a single env.PATH.
  *
+ * Normalizes NODE_PATH across platforms: ensures node_modules search fallback
+ * reaches the bundled host runtime, the user's $DSH_HOME/profiles/node_modules,
+ * and any specified extra paths so dynamically installed profile plugins find
+ * their peer and shared dependencies without relying on CLI pre-healing.
+ *
  * @param {string} home - resolved DSH_HOME.
  * @param {string} nodeHome - bundled node runtime directory.
  * @param {string} [platform] - process.platform override for testing.
  * @param {NodeJS.ProcessEnv} [baseEnv] - environment to derive from.
+ * @param {readonly string[]} [extraNodePaths] - additional node_modules paths.
  * @returns {Record<string, string | undefined>}
  */
-function childEnv(home, nodeHome, platform = process.platform, baseEnv = process.env) {
+function childEnv(home, nodeHome, platform = process.platform, baseEnv = process.env, extraNodePaths = []) {
   const env = { ...baseEnv, DSH_HOME: home };
   const delimiter = platform === 'win32' ? ';' : ':';
   const nodeBinDir = platform === 'win32' ? nodeHome : path.posix.join(nodeHome, 'bin');
@@ -104,7 +110,106 @@ function childEnv(home, nodeHome, platform = process.platform, baseEnv = process
 
   env.PATH = nodeBinDir + (existingPath ? delimiter + existingPath : '');
   delete env.ELECTRON_RUN_AS_NODE;
+
+  let existingNodePath = '';
+  for (const key of Object.keys(env)) {
+    if (key.toUpperCase() === 'NODE_PATH') {
+      if (!existingNodePath && typeof env[key] === 'string' && env[key] !== '') {
+        existingNodePath = env[key];
+      }
+      delete env[key];
+    }
+  }
+
+  const nodePaths = [];
+  for (const entry of extraNodePaths) {
+    if (entry && !nodePaths.includes(entry)) nodePaths.push(entry);
+  }
+  if (existingNodePath) {
+    for (const entry of existingNodePath.split(delimiter)) {
+      if (entry && !nodePaths.includes(entry)) nodePaths.push(entry);
+    }
+  }
+  if (nodePaths.length > 0) {
+    env.NODE_PATH = nodePaths.join(delimiter);
+  }
+
   return env;
+}
+
+/**
+ * Ensure fallback module junctions exist for installed profile plugins so
+ * missing peer dependencies (such as @deepseek-ai/dsh-client-ui-primitives)
+ * resolve immediately on boot without requiring a terminal `dsh web` run.
+ *
+ * @param {string} home - $DSH_HOME.
+ * @param {string} hostRuntimeDir - runtimeRoot/host.
+ */
+function ensureProfileFallbacks(home, hostRuntimeDir) {
+  const profileDir = path.join(home, 'profiles', 'web');
+  const profilePkgFile = path.join(profileDir, 'package.json');
+  if (!fs.existsSync(profilePkgFile)) return;
+
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(profilePkgFile, 'utf8'));
+  } catch {
+    return;
+  }
+
+  const bundles = manifest && manifest.dsh && manifest.dsh.profile && Array.isArray(manifest.dsh.profile.bundles)
+    ? manifest.dsh.profile.bundles
+    : [];
+  const dependencies = Object.keys((manifest && manifest.dependencies) || {});
+  const allPluginNames = new Set([...bundles, ...dependencies]);
+  if (allPluginNames.size === 0) return;
+
+  const candidateSourceDirs = [
+    path.join(hostRuntimeDir, 'node_modules'),
+    path.join(home, 'profiles', 'node_modules'),
+  ];
+  if (process.platform === 'win32' && process.env.APPDATA) {
+    candidateSourceDirs.push(path.join(process.env.APPDATA, 'npm', 'node_modules'));
+  }
+
+  const profileModulesDir = path.join(profileDir, 'node_modules');
+  const fallbackModulesDir = path.join(profileDir, '.dsh-module-fallback', 'node_modules');
+
+  const ensureJunction = (target, linkPath) => {
+    try {
+      if (fs.existsSync(linkPath)) return;
+      fs.mkdirSync(path.dirname(linkPath), { recursive: true });
+      fs.symlinkSync(target, linkPath, 'junction');
+    } catch {
+      // Best-effort; continue
+    }
+  };
+
+  for (const pluginName of allPluginNames) {
+    const pluginPkg = path.join(profileModulesDir, pluginName, 'package.json');
+    if (!fs.existsSync(pluginPkg)) continue;
+    let pkg;
+    try {
+      pkg = JSON.parse(fs.readFileSync(pluginPkg, 'utf8'));
+    } catch {
+      continue;
+    }
+    const peers = Object.keys(pkg.peerDependencies || {});
+    for (const peer of peers) {
+      const targetInProfile = path.join(profileModulesDir, peer);
+      if (fs.existsSync(targetInProfile)) continue;
+
+      for (const sourceRoot of candidateSourceDirs) {
+        const candidate = path.join(sourceRoot, peer);
+        if (fs.existsSync(candidate)) {
+          const fallbackLink = path.join(fallbackModulesDir, peer);
+          ensureJunction(candidate, fallbackLink);
+          ensureJunction(fallbackLink, targetInProfile);
+          break;
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -285,4 +390,5 @@ module.exports = {
   waitForGui,
   parseTokenUrlLine,
   parseShasums,
+  ensureProfileFallbacks,
 };

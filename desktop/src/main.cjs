@@ -27,6 +27,7 @@ const {
   findHostPort,
   waitForGui,
   parseTokenUrlLine,
+  ensureProfileFallbacks,
 } = require('./runtime.cjs');
 
 const READY_TIMEOUT_MS = 180000;
@@ -65,10 +66,18 @@ function setStatus(text) {
 }
 
 function startHost(runtime, home, port) {
+  const nodePaths = [
+    path.join(runtime.runtimeRoot, 'host', 'node_modules'),
+    path.join(home, 'profiles', 'node_modules'),
+  ];
+  if (process.platform === 'win32' && process.env.APPDATA) {
+    const globalNpm = path.join(process.env.APPDATA, 'npm', 'node_modules');
+    if (fs.existsSync(globalNpm)) nodePaths.push(globalNpm);
+  }
   const args = [runtime.hostBin, 'web', '--no-open', '--host', '127.0.0.1', '--port', String(port)];
   const child = spawn(runtime.nodeBin, args, {
     cwd: home,
-    env: childEnv(home, runtime.nodeHome),
+    env: childEnv(home, runtime.nodeHome, process.platform, process.env, nodePaths),
     detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -175,6 +184,12 @@ async function boot() {
     setStatus(action === 'seed' ? 'Installing the bundled web profile…' : 'Updating the bundled web profile…');
     pushLogLine('[desktop] profile action: ' + action + ' (' + stampText + ')');
     applyProfileSeed(runtime.profileSeed, profileDir, action, stampText, { appVersion: app.getVersion() });
+  }
+
+  try {
+    ensureProfileFallbacks(home, path.join(runtime.runtimeRoot, 'host'));
+  } catch (error) {
+    pushLogLine('[desktop] fallback healing warning: ' + String(error && error.message ? error.message : error));
   }
 
   setStatus('Starting the dsh host…');
