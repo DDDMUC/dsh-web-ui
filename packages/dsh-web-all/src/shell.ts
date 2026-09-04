@@ -67,6 +67,27 @@ function makeDegradedRoute(): WebRoute {
   }
 }
 
+/**
+ * Shared route registration state: multiple shell entries (one per family
+ * plugin) mount sequentially under the aggregate. The degraded route is a
+ * singleton on the host webServer; ref-counting ensures it is registered
+ * exactly once on the first active shell entry and torn down only when the
+ * final entry disposes.
+ */
+let degradedRouteRefCount = 0
+let unregisterDegradedRoute: (() => void) | undefined
+
+/** For test teardown and test isolation only. */
+export function _resetDegradedRouteForTest(): void {
+  degradedRouteRefCount = 0
+  try {
+    unregisterDegradedRoute?.()
+  } catch {
+    // Ignore.
+  }
+  unregisterDegradedRoute = undefined
+}
+
 /** Config shapes that must mount quietly: absent (self row) or a bare-row override. */
 function isOverrideShape(config: ShellConfig | undefined): boolean {
   if (config === undefined) return true
@@ -105,8 +126,31 @@ export async function apply(ctx: Context, config: ShellConfig | undefined): Prom
   // degraded route is a best-effort surface — a host without webServer (some
   // minimal profiles) simply skips it.
   const webServer = ctx.reflect.get('webServer', false) as { register(route: WebRoute): () => void } | undefined
-  const disposeRoute = webServer?.register(makeDegradedRoute())
-  ctx.effect(() => () => disposeRoute?.(), 'dsh-web-all: degraded route')
+  if (webServer !== undefined) {
+    if (degradedRouteRefCount === 0) {
+      try {
+        unregisterDegradedRoute = webServer.register(makeDegradedRoute())
+      } catch (error) {
+        // Defensive fallback: if another module already owns the exact route,
+        // log a warning without throwing so the fault-isolation shell fiber
+        // never fails.
+        console.warn('[dsh-web-all] failed to register degraded route:', error)
+      }
+    }
+    degradedRouteRefCount += 1
+    ctx.effect(() => () => {
+      degradedRouteRefCount -= 1
+      if (degradedRouteRefCount <= 0) {
+        degradedRouteRefCount = 0
+        try {
+          unregisterDegradedRoute?.()
+        } catch {
+          // Dispose must never throw.
+        }
+        unregisterDegradedRoute = undefined
+      }
+    }, 'dsh-web-all: degraded route')
+  }
   let mod: unknown
   try {
     mod = await import(/* @vite-ignore */ spec)

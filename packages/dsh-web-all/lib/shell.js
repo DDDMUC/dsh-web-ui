@@ -29,6 +29,23 @@ function makeDegradedRoute() {
 		}
 	};
 }
+/**
+* Shared route registration state: multiple shell entries (one per family
+* plugin) mount sequentially under the aggregate. The degraded route is a
+* singleton on the host webServer; ref-counting ensures it is registered
+* exactly once on the first active shell entry and torn down only when the
+* final entry disposes.
+*/
+let degradedRouteRefCount = 0;
+let unregisterDegradedRoute;
+/** For test teardown and test isolation only. */
+function _resetDegradedRouteForTest() {
+	degradedRouteRefCount = 0;
+	try {
+		unregisterDegradedRoute?.();
+	} catch {}
+	unregisterDegradedRoute = void 0;
+}
 /** Config shapes that must mount quietly: absent (self row) or a bare-row override. */
 function isOverrideShape(config) {
 	if (config === void 0) return true;
@@ -43,8 +60,25 @@ async function apply(ctx, config) {
 		recordDegraded("(no plugin)", "shape", /* @__PURE__ */ new Error(`shell row config is missing the "plugin" package name (row config: ${JSON.stringify(config ?? null)}); the entry mounted empty`));
 		return;
 	}
-	const disposeRoute = ctx.reflect.get("webServer", false)?.register(makeDegradedRoute());
-	ctx.effect(() => () => disposeRoute?.(), "dsh-web-all: degraded route");
+	const webServer = ctx.reflect.get("webServer", false);
+	if (webServer !== void 0) {
+		if (degradedRouteRefCount === 0) try {
+			unregisterDegradedRoute = webServer.register(makeDegradedRoute());
+		} catch (error) {
+			console.warn("[dsh-web-all] failed to register degraded route:", error);
+		}
+		degradedRouteRefCount += 1;
+		ctx.effect(() => () => {
+			degradedRouteRefCount -= 1;
+			if (degradedRouteRefCount <= 0) {
+				degradedRouteRefCount = 0;
+				try {
+					unregisterDegradedRoute?.();
+				} catch {}
+				unregisterDegradedRoute = void 0;
+			}
+		}, "dsh-web-all: degraded route");
+	}
 	let mod;
 	try {
 		mod = await import(
@@ -68,6 +102,6 @@ async function apply(ctx, config) {
 	}
 }
 //#endregion
-export { apply, inject };
+export { _resetDegradedRouteForTest, apply, inject };
 
 //# sourceMappingURL=shell.js.map

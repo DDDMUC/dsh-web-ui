@@ -17,7 +17,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { apply, _resetDegradedRouteForTest } from '../src/shell.ts'
 
 const PACKAGE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const require = createRequire(import.meta.url)
@@ -192,6 +193,60 @@ describe('dsh-web-all fault-isolation shell (real boot)', () => {
     const facts = JSON.parse(result.output) as { ok: boolean; entries: Array<{ id: string; state: number }> }
     expect(facts.ok).toBe(true)
     expect(facts.entries.find(e => e.id === 'shell-no-web')?.state).toBe(2)
+  })
+
+  it('multiple shell entries share the singleton degraded route without duplicate exact route error (#1363)', async () => {
+    _resetDegradedRouteForTest()
+    try {
+      const routes = new Set<string>()
+      let unregisters = 0
+      const mockWebServer = {
+        register: vi.fn((route: { path: string }) => {
+          if (routes.has(route.path)) {
+            throw new Error(`webserver: duplicate exact route "${route.path}"`)
+          }
+          routes.add(route.path)
+          return () => {
+            unregisters += 1
+            routes.delete(route.path)
+          }
+        }),
+      }
+
+      const effects: Array<() => void> = []
+      const createMockCtx = () => ({
+        reflect: {
+          get: (name: string) => (name === 'webServer' ? mockWebServer : undefined),
+        },
+        effect: (fn: () => () => void) => {
+          effects.push(fn())
+        },
+        plugin: vi.fn(),
+      })
+
+      // Simulate 17 family subpath rows mounting sequentially
+      for (let i = 0; i < 17; i++) {
+        await apply(createMockCtx() as any, { plugin: 'node:events' })
+      }
+
+      // Route was registered exactly once
+      expect(mockWebServer.register).toHaveBeenCalledTimes(1)
+      expect(routes.has('/api/dsh-web-all/degraded')).toBe(true)
+
+      // Tear down 16 of the 17 entries: route must remain active
+      for (let i = 0; i < 16; i++) {
+        effects[i]?.()
+      }
+      expect(routes.has('/api/dsh-web-all/degraded')).toBe(true)
+      expect(unregisters).toBe(0)
+
+      // Final entry teardown: route is disposed
+      effects[16]?.()
+      expect(routes.has('/api/dsh-web-all/degraded')).toBe(false)
+      expect(unregisters).toBe(1)
+    } finally {
+      _resetDegradedRouteForTest()
+    }
   })
 })
 
