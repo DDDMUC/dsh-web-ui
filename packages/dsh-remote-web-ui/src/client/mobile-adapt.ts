@@ -920,15 +920,11 @@ export function startMobileAdapt(): void {
     }
     lanOrigFocus.call(this, options)
   }
-  let lastComposerTapRegistered = false
-  if (!lastComposerTapRegistered) {
-    lastComposerTapRegistered = true
-    document.addEventListener('pointerdown', (e) => {
-      if (!active) return
-      const t = e.target
-      if (t instanceof Element && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT') && t.closest('[class$="_composerSeat"]') !== null) lastComposerTap = Date.now()
-    }, true)
-  }
+  document.addEventListener('pointerdown', (e) => {
+    if (!active) return
+    const t = e.target
+    if (t instanceof Element && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT') && t.closest('[class$="_composerSeat"]') !== null) lastComposerTap = Date.now()
+  }, true)
 
   // The plugin apply() wires toggleSidebar/closeDetails to ctx.layout once
   // it is live, and flips the master switch when the settings snapshot

@@ -458,13 +458,15 @@ function applyImpl(ctx: Context, config?: Config): void {
   // directory on update, so a boot-time captured path would fail to read
   // after a successful update; versions are re-read from disk per check.
   const requireFromHost = createRequire(import.meta.url)
-  const resolveAnchorPath = (): string | undefined => resolveAnchorManifest(specifier => {
+  /** Host-process resolve that degrades to "not installed" (undefined) instead of throwing. */
+  const hostResolve = (specifier: string): string | undefined => {
     try {
       return requireFromHost.resolve(specifier)
     } catch {
       return undefined
     }
-  })
+  }
+  const resolveAnchorPath = (): string | undefined => resolveAnchorManifest(hostResolve)
 
   const releaseNotesCache = new Map<string, { at: number; notes?: UpdateReleaseNotes }>()
   const fetchReleaseNotesCached = async (version: string): Promise<UpdateReleaseNotes | undefined> => {
@@ -480,13 +482,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     fence: request => isTrustedApiRequest(request, []),
     check: () => checkUpdates({
       anchorManifestPath: resolveAnchorPath(),
-      resolve: specifier => {
-        try {
-          return requireFromHost.resolve(specifier)
-        } catch {
-          return undefined
-        }
-      },
+      resolve: hostResolve,
       fetchLatest: name => fetchLatestVersion(name, fetch),
       fetchReleaseNotes: fetchReleaseNotesCached,
     }),
@@ -510,13 +506,7 @@ function applyImpl(ctx: Context, config?: Config): void {
         run: { profileDir: target.profileDir, packages: target.packages },
         check: {
           anchorManifestPath: resolveAnchorPath(),
-          resolve: specifier => {
-            try {
-              return requireFromHost.resolve(specifier)
-            } catch {
-              return undefined
-            }
-          },
+          resolve: hostResolve,
           fetchLatest: name => fetchLatestVersion(name, fetch),
           fetchReleaseNotes: fetchReleaseNotesCached,
         },

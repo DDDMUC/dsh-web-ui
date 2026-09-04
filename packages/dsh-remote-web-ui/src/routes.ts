@@ -117,6 +117,26 @@ export function isNonCrossSite(request: IncomingMessage): boolean {
   }
 }
 
+/**
+ * The private-LAN fallback authority of a request: its Host header when the
+ * hostname is private/local (RFC 1918 / ULA / mDNS / loopback) and the
+ * browser markers are non-cross-site, else undefined. The accept paths and
+ * the lanFence fallback use this to serve container-bridged and reverse-proxy
+ * topologies whose Host is not among the advertised or configured authorities.
+ */
+function privateLanHostOf(request: IncomingMessage): string | undefined {
+  const host = request.headers.host
+  if (typeof host !== 'string') return undefined
+  let hostName = ''
+  try {
+    hostName = new URL(`http://${host}`).hostname
+  } catch {
+    return undefined
+  }
+  if (hostName === '' || !isPrivateOrLocalHostname(hostName) || !isNonCrossSite(request)) return undefined
+  return host
+}
+
 /** Cap on pairing request bodies (tokens and workspace ids are tiny). */
 const MAX_BODY_BYTES = 4096
 
@@ -465,21 +485,17 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     if (isTrustedApiRequest(req, combined)) return true
 
     // If request carries a valid paired device cookie from a private LAN host (e.g. after service restart), trust and remember it
-    const host = req.headers.host
-    if (typeof host === 'string') {
-      let hostName = ''
-      try { hostName = new URL(`http://${host}`).hostname } catch {}
-      if (hostName !== '' && isPrivateOrLocalHostname(hostName) && isNonCrossSite(req)) {
-        const cookieDeviceId = readCookie(req.headers.cookie, service.config.cookieName)
-        let queryDeviceId: string | null = null
-        try {
-          queryDeviceId = new URL(req.url ?? '/', 'http://pair.invalid').searchParams.get('device')
-        } catch {}
-        const deviceId = cookieDeviceId ?? queryDeviceId ?? undefined
-        if (deviceId !== undefined && service.hasDevice(deviceId)) {
-          addBounded(dynamicTrustedHosts, host, MAX_DYNAMIC_TRUSTED_HOSTS)
-          return true
-        }
+    const privateLanHost = privateLanHostOf(req)
+    if (privateLanHost !== undefined) {
+      const cookieDeviceId = readCookie(req.headers.cookie, service.config.cookieName)
+      let queryDeviceId: string | null = null
+      try {
+        queryDeviceId = new URL(req.url ?? '/', 'http://pair.invalid').searchParams.get('device')
+      } catch {}
+      const deviceId = cookieDeviceId ?? queryDeviceId ?? undefined
+      if (deviceId !== undefined && service.hasDevice(deviceId)) {
+        addBounded(dynamicTrustedHosts, privateLanHost, MAX_DYNAMIC_TRUSTED_HOSTS)
+        return true
       }
     }
     return false
@@ -577,15 +593,8 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
 
   const handleAccept = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!requireMethod(req, res, 'POST')) return
-    const host = req.headers.host
-    let hostName = ''
-    try {
-      if (typeof host === 'string') hostName = new URL(`http://${host}`).hostname
-    } catch {
-      // Invalid host
-    }
-    const isPrivateLan = hostName !== '' && isPrivateOrLocalHostname(hostName) && isNonCrossSite(req)
-    if (!lanFence(req) && !isPrivateLan) {
+    const privateLanHost = privateLanHostOf(req)
+    if (!lanFence(req) && privateLanHost === undefined) {
       writeJson(res, 403, { ok: false, code: 'forbidden' })
       return
     }
@@ -609,8 +618,8 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       writeJson(res, result.code === 'used' ? 409 : 404, { ok: false, code: result.code })
       return
     }
-    if (typeof host === 'string' && isPrivateLan) {
-      addBounded(dynamicTrustedHosts, host, MAX_DYNAMIC_TRUSTED_HOSTS)
+    if (privateLanHost !== undefined) {
+      addBounded(dynamicTrustedHosts, privateLanHost, MAX_DYNAMIC_TRUSTED_HOSTS)
     }
     // No Secure attribute: LAN pairing runs over plain HTTP (the cookie must
     // work there), and the same cookie rides HTTPS on the tunnel. Lax keeps
@@ -728,15 +737,8 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
    */
   const handleAcceptPage = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!requireMethod(req, res, 'GET')) return
-    const host = req.headers.host
-    let hostName = ''
-    try {
-      if (typeof host === 'string') hostName = new URL(`http://${host}`).hostname
-    } catch {
-      // Invalid host
-    }
-    const isPrivateLan = hostName !== '' && isPrivateOrLocalHostname(hostName) && isNonCrossSite(req)
-    if (!lanFence(req) && !isPrivateLan) {
+    const privateLanHost = privateLanHostOf(req)
+    if (!lanFence(req) && privateLanHost === undefined) {
       res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
       res.end('forbidden')
       return
@@ -775,8 +777,8 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       res.end(pairingFailurePage())
       return
     }
-    if (typeof host === 'string' && isPrivateLan) {
-      addBounded(dynamicTrustedHosts, host, MAX_DYNAMIC_TRUSTED_HOSTS)
+    if (privateLanHost !== undefined) {
+      addBounded(dynamicTrustedHosts, privateLanHost, MAX_DYNAMIC_TRUSTED_HOSTS)
     }
     // Land the paired device on the cookieless app page: the official shell
     // served by this plugin, with the device id in the URL. No harness index
