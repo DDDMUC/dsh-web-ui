@@ -23,11 +23,6 @@ area/i18n:
           - '**/README.zh-CN.md'
           - '**/locales/**'
 
-area/perf:
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'packages/dsh-perf/**'
-
 area/settings:
   - changed-files:
       - any-glob-to-any-file:

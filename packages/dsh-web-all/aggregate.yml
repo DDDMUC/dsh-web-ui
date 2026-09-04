@@ -19,7 +19,6 @@ patchFrom:
   - ../dsh-market
   - ../dsh-task-board
   - ../dsh-git-graph
-  - ../dsh-perf
   - ../dsh-remote-web-ui
   - ../dsh-pet
   - ../dsh-ssh
@@ -41,7 +40,6 @@ deps:
   - ../dsh-market
   - ../dsh-task-board
   - ../dsh-git-graph
-  - ../dsh-perf
   - ../dsh-pet
   - ../dsh-remote-web-ui
   - ../dsh-ssh

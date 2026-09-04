@@ -535,9 +535,6 @@ function renderPatch(blocks, externalRows, ownPatches, errors, rel, aggregateDir
           // they name, they are not self-inert. Skipping leaves the upstream
           // row exactly as other sources tuned it.
           if (row.inactive === true) continue
-          // The dsh-perf child intentionally patches session-persistence-jsonl,
-          // and better-session's bundle disables that same harness row. Emit
-          // the bundle patch after the child's row so its override wins.
           if (patchedIds.has(patchRow.id)) {
             lines.push('', `# from external bundle ${expanded.name} (patch row ${patchRow.id}; overrides earlier source patch)`)
           } else {

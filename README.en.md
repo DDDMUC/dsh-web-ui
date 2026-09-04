@@ -28,7 +28,7 @@
 
 <p align="center">
   <strong>The aggregate plugin ecosystem for DeepSeek Harness (DSH) Web · Everything is a plugin</strong><br>
-  <em>Performance Engine · Workshop · Task Board · Mobile Remote · SSH Ops · Image Understanding</em>
+  <em>Workshop · Task Board · Mobile Remote · SSH Ops · Image Understanding</em>
 </p>
 
 <div align="center">
@@ -68,21 +68,6 @@ The site itself is also built from this repository: a static build generated det
 The Workshop takes its cue from the Steam Workshop: a place where community creations are discovered, tried on and installed in one click, and where authors' work gets seen and liked. Come build it with us.
 
 ## Feature Plugins
-
-### Performance Engine (dsh-perf)
-
-Performance monitoring and governance for streaming and multi-session workloads. The bottom-right HUD panel is off by default; turn it on from the plugin settings and it shows per-session event rate, event-loop p99 latency, front-end FPS / Longtask, memory and write-batch delay, and alerts when active sessions cross the threshold (light / standard / strict presets). On the governance side: write-batch pacing lowers the fsync frequency while streaming; render degrade collapses oversized assistant messages and defers code highlighting, which is what removed the code-highlight spike at window open and turn end; plus agent idle badges and CSS render throttling.
-
-All the settings sit on one card, 'Web Plugins → Performance Engine': master switch (full-stack), monitoring tier (off / balanced / aggressive), alert preset, HUD panel and render degrade. Mode and sampling interval take effect immediately on the host side, no restart needed. The observability side reads aggregate metrics only (event rate, delay distribution, memory) and never session content; the API is loopback-fenced and accepts same-origin local requests only. See packages/dsh-perf/README.md.
-### Task Board（任务看板）
-
-Open it from the sidebar. Tasks sit in five columns: Planned, To-do, In Progress, Done, Failed. Click "Run" on a card and the task goes to a real DSH agent session; the card status updates itself when it finishes. Want to see what happened? Jump back into the execution session for the full transcript.
-
-Tasks can also run on schedule: set a cron expression in the detail view (auto-upgrade DSH at 23:00 every day, weekly report at 09:00 every Monday) and it starts on its own. No babysitting.
-
-| Multi-column board | Scheduled execution |
-| --- | --- |
-| ![Task board](docs/screenshots/09-task-board.png) | ![Scheduled task detail](docs/screenshots/10-task-board-detail-cron.png) |
 
 ### Mobile Remote Control（移动端远程控制）
 

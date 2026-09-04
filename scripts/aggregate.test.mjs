@@ -112,14 +112,10 @@ test('web-ui-all does not mount the dsh-client-runtime-dependent @mlgbnb/dsh-arc
 
 test('web-ui-all leaves the deprecated @morlay/better-session integration out', () => {
   const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
-  const lines = patch.split(/\r?\n/)
   // The deprecated integration was removed from the aggregate; these rows must
   // never come back without an explicit re-adoption decision (see the
   // simplification note removing better-session).
   assert.doesNotMatch(patch, /@morlay\//, 'the deprecated better-session integration must not reappear in the aggregate patch')
   assert.doesNotMatch(patch, /^- id: web-ui-(session-branch|session-rdb|conversation-message-actions)$/m, 'better-session sub-plugin rows must not mount')
-  // The bundle's own harness patch rows must NOT appear at all: they retune
-  // other entries, and emitting them behind another same-id row would merge
-  // into that target instead of staying inert.
-  assert.equal(lines.filter((line) => line === '- id: session-persistence-jsonl').length, 1, 'exactly the dsh-perf tuning row may touch session-persistence-jsonl')
+  assert.doesNotMatch(patch, /@linxin666\/dsh-perf/, 'the removed dsh-perf plugin must not reappear in the aggregate patch')
 })

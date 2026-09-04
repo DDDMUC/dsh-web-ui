@@ -20,7 +20,6 @@ The plugin is a pure browser bundle (the host half intentionally has no behavior
 | `doctor` | dsh-doctor |
 | `git-graph` | dsh-git-graph |
 | `dsh-web-ui-market` | dsh-market |
-| `dsh-perf` | dsh-perf |
 | `pet` | dsh-pet |
 | `settings.pluginManager` | dsh-plugin-manager |
 | `remote` | dsh-remote-web-ui |

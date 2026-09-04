@@ -74,7 +74,6 @@ describe('dsh-i18n client apply', () => {
     const namespaces = Object.keys(ruDictionaries)
     expect(new Set(namespaces).size).toBe(namespaces.length)
     expect(namespaces).toContain('task-board')
-    expect(namespaces).toContain('dsh-perf')
     expect(namespaces).toContain('settings.pluginManager')
     expect(namespaces).toContain('web-ui-plugins')
   })

@@ -25,11 +25,6 @@
     "source": "packages/dsh-git-graph/src/client/index.ts"
   },
   {
-    "name": "@linxin666/dsh-perf",
-    "specifier": "@linxin666/dsh-perf/client",
-    "source": "packages/dsh-perf/src/client/index.ts"
-  },
-  {
     "name": "@linxin666/dsh-remote-web-ui",
     "specifier": "@linxin666/dsh-remote-web-ui/client",
     "source": "packages/dsh-remote-web-ui/src/client/index.ts"

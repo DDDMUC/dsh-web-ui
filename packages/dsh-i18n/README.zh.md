@@ -20,7 +20,6 @@ dsh Web GUI 的语言包插件：向 Web GUI 语言目录注册 Русский�
 | `doctor` | dsh-doctor |
 | `git-graph` | dsh-git-graph |
 | `dsh-web-ui-market` | dsh-market |
-| `dsh-perf` | dsh-perf |
 | `pet` | dsh-pet |
 | `settings.pluginManager` | dsh-plugin-manager |
 | `remote` | dsh-remote-web-ui |

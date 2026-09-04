@@ -202,13 +202,6 @@ packages:
     resolution: {integrity: sha512-dwjppSyBjSq9KylfSFNn9cBG7EwHVkJMFDnd2mOBDjBU3rkaAHniMSlpkLHS5tpuNqCSi9wq6QJiwx6pEAI7Gw==}
     engines: {node: ^22.19.0 || >=24.0.0}
 
-  '@linxin666/dsh-perf@0.3.14':
-    resolution: {integrity: sha512-rYbOEr4EeUB7idPr3CQyCeL4Q52OVd468do3Oy51Lr4zAAXpYsaic5VtQ4N0P1gJI0FlYvD4D9L0T62WBwAlLA==}
-    engines: {node: ^22.19.0 || >=24.0.0}
-    peerDependencies:
-      react: ^18.2.0
-      react-dom: ^18.2.0
-
   '@linxin666/dsh-pet@0.3.14':
     resolution: {integrity: sha512-Yu8MgvUy9y+UxIYEypFqXSpkkT0vMVXBqu201b2eE6jChhWyUL5/orcu7G/LgxvEArXp2q/jQY07QWCYzDKHcg==}
     engines: {node: ^22.19.0 || >=24.0.0}
@@ -1158,10 +1151,6 @@ snapshots:
     dependencies:
       schemastery: 3.18.0
 
-  '@linxin666/dsh-perf@0.3.14':
-    dependencies:
-      schemastery: 3.18.0
-
   '@linxin666/dsh-pet@0.3.14':
     dependencies:
       clsx: 2.1.1
@@ -1210,7 +1199,6 @@ snapshots:
       '@linxin666/dsh-doctor': 0.3.14
       '@linxin666/dsh-i18n': 0.3.14
       '@linxin666/dsh-liangshen': 0.3.14
-      '@linxin666/dsh-perf': 0.3.14
       '@linxin666/dsh-pet': 0.3.14
       '@linxin666/dsh-remote-web-ui': 0.3.14
       '@linxin666/dsh-session-archive': 0.3.14

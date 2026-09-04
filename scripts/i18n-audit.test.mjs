@@ -81,7 +81,7 @@ test('diffPlaceholders compares placeholder sets per shared key', () => {
 
 test('deriveNamespace resolves identifier via const table or entry declaration', () => {
   assert.equal(deriveNamespace("ctx.locale.register(NS, { zh, en })", { NS: 'pet' }), 'pet')
-  assert.equal(deriveNamespace("const NS = 'dsh-perf'\nctx.locale.register(NS, merged)", {}), 'dsh-perf')
+  assert.equal(deriveNamespace("const NS = 'pet'\nctx.locale.register(NS, merged)", {}), 'pet')
   assert.equal(deriveNamespace("ctx.locale.register('web-ui-plugins', { zh, en })", {}), 'web-ui-plugins')
   assert.equal(deriveNamespace('ctx.slots.inject("x", () => {})', {}), undefined)
 })
