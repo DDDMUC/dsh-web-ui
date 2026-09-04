@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   node scripts/verify-docs.mjs --write <dir>
+2026-09-04-pet-client-session-watch-unsubscribe.md: 2e642431f88fd201b53bda15751acaa2418d9ad6
+2026-09-04-pet-client-session-watch-unsubscribe.zh.md: 4f4f2a6b0dfc32ecb82d545b82f2ee70ba1e725d
