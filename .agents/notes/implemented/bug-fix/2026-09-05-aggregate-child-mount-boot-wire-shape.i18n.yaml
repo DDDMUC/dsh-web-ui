@@ -1,5 +1,5 @@
 # Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with git hash-object.
-.agents/notes/implemented/bug-fix/2026-09-05-aggregate-child-mount-boot-wire-shape.md: e3be02de014150e7b8111e7be51457e238edc008
-.agents/notes/implemented/bug-fix/2026-09-05-aggregate-child-mount-boot-wire-shape.zh.md: 90e92366c2bc4f4979166f40d8b52d56744b5219
+.agents/notes/implemented/bug-fix/2026-09-05-aggregate-child-mount-boot-wire-shape.md: 9696c20cfc8e11123625e922db1e53a637be116e
+.agents/notes/implemented/bug-fix/2026-09-05-aggregate-child-mount-boot-wire-shape.zh.md: 082ccded995e7772aa28514ac76d6718d36f169c

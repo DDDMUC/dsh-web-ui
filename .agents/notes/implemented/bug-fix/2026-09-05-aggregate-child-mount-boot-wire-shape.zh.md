@@ -12,7 +12,7 @@ v0.3.15 的 #1372 修复([多问题合入](2026-09-04-multi-issue-landing-1368-1
 
 `mountClientChildren` 恢复为 0.3.15 之前的双挂载保护语义:仅当子插件自身的包 id 出现在 `__DSH_BOOT__.entries` 中(该子插件经自己的 loader entry 伺服,例如同一 profile 里独立安装的 `@linxin666/dsh-session-archive`)才跳过,否则一律挂载。`CHILD_ROW_IDS`、boot entry 的 `name`/`disabled` 字段和行状态分支全部移除。模块文档现在记录了真实 wire 形状,以及 boot entries 为何无法表达行级启用状态。
 
-本次回退实际上撤销了 #1372(隐藏已停用家族行的 UI 入口),该问题在出现真实信号前保持未解决:客户端需要宿主提供的行状态通道(或设置清单查询),而不是 bundle graph。新增回归测试钉住真实 wire 形状——一个填满包名 id 的 aggregate boot graph 必须仍然挂载全部家族子插件。
+本次回退实际上撤销了 #1372(隐藏已停用家族行的 UI 入口),该问题在出现真实信号前保持未解决:客户端需要宿主提供的行状态通道(或设置清单查询),而不是 bundle graph。新增回归测试钉住真实 wire 形状——一个填满包名 id 的 aggregate boot graph 必须仍然挂载全部家族子插件。正确信号的后续设计见[家族行状态路由](../../proposed/feature/2026-09-05-family-row-state-route.zh.md)。
 
 ## Testing
 

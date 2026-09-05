@@ -12,7 +12,7 @@ The unit tests shipped with the gate fabricated boot payloads containing row ids
 
 `mountClientChildren` is restored to the pre-0.3.15 double-mount semantics: skip a child only when the child's own package id appears in `__DSH_BOOT__.entries` (that child is served through its own loader entry, e.g. standalone `@linxin666/dsh-session-archive` in the same profile), otherwise mount it. `CHILD_ROW_IDS`, the `name`/`disabled` boot-entry fields, and the row-state branch are removed. The module doc now records the actual wire shape and why boot entries cannot express per-row enable state.
 
-Issue #1372 (hide UI entry points of disabled family rows) is effectively un-fixed by this revert and stays open until a real signal exists: the client would need a host-provided row-state channel (or a settings-inventory query), not the bundle graph. A regression test pins the real wire shape — a fully populated aggregate boot graph with package-name ids must still mount every family child.
+Issue #1372 (hide UI entry points of disabled family rows) is effectively un-fixed by this revert and stays open until a real signal exists: the client would need a host-provided row-state channel (or a settings-inventory query), not the bundle graph. A regression test pins the real wire shape — a fully populated aggregate boot graph with package-name ids must still mount every family child. A follow-up design for the proper signal now lives in [family row-state route](../../proposed/feature/2026-09-05-family-row-state-route.md).
 
 ## Testing
 
