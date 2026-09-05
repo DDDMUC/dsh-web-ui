@@ -9414,36 +9414,49 @@ const SkinWallpaperConfigSchema = z.object({
 const apply = mountOnce("@linxin666/dsh-client-ui-skin-center", applyImpl);
 function applyImpl(ctx) {
 	ctx.inject(["settings"], (settingsCtx) => {
-		settingsCtx.settings.installSection(ctx, SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, {}, {
-			setSource: (source) => {
-				const migration = migrateBackgroundFromSettings({
-					activeStatePath: defaultActiveStatePath(),
-					readSettings: source
-				});
-				for (const note of migration.notes) if (migration.migrated) console.info(`[ui-skin-center] background migration: ${note}`);
-				else console.error(`[ui-skin-center] background migration: ${note}`);
-			},
-			onChange: () => {}
-		});
+		try {
+			if (typeof settingsCtx.settings?.installSection === "function") settingsCtx.settings.installSection(ctx, SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, {}, {
+				setSource: (source) => {
+					const migration = migrateBackgroundFromSettings({
+						activeStatePath: defaultActiveStatePath(),
+						readSettings: source
+					});
+					for (const note of migration.notes) if (migration.migrated) console.info(`[ui-skin-center] background migration: ${note}`);
+					else console.error(`[ui-skin-center] background migration: ${note}`);
+				},
+				onChange: () => {}
+			});
+			else if (typeof settingsCtx.settings?.register === "function") settingsCtx.settings.register(SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, { base: {} });
+		} catch {}
 	});
 	ctx.inject(["settings"], (settingsCtx) => {
-		settingsCtx.settings.installSection(ctx, SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, {
-			...CUSTOM_THEME_DEFAULTS,
-			light: { ...CUSTOM_THEME_DEFAULTS.light },
-			dark: { ...CUSTOM_THEME_DEFAULTS.dark }
-		}, {
-			setSource: () => {},
-			onChange: () => {}
-		});
+		try {
+			const baseTheme = {
+				...CUSTOM_THEME_DEFAULTS,
+				light: { ...CUSTOM_THEME_DEFAULTS.light },
+				dark: { ...CUSTOM_THEME_DEFAULTS.dark }
+			};
+			if (typeof settingsCtx.settings?.installSection === "function") settingsCtx.settings.installSection(ctx, SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, baseTheme, {
+				setSource: () => {},
+				onChange: () => {}
+			});
+			else if (typeof settingsCtx.settings?.register === "function") settingsCtx.settings.register(SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, { base: baseTheme });
+		} catch {}
 	});
 	let wallpaperSource = () => ({});
 	ctx.inject(["settings"], (settingsCtx) => {
-		settingsCtx.settings.installSection(ctx, SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, {}, {
-			setSource: (source) => {
-				wallpaperSource = source;
-			},
-			onChange: () => {}
-		});
+		try {
+			if (typeof settingsCtx.settings?.installSection === "function") settingsCtx.settings.installSection(ctx, SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, {}, {
+				setSource: (source) => {
+					wallpaperSource = source;
+				},
+				onChange: () => {}
+			});
+			else if (typeof settingsCtx.settings?.register === "function") {
+				const scope = settingsCtx.settings.register(SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, { base: {} });
+				wallpaperSource = () => scope?.get?.() ?? {};
+			}
+		} catch {}
 	});
 	const routes = [...makeSkinCenterV2Routes(), ...makeWeRoutes({
 		getConfig: () => wallpaperSource(),

@@ -519,10 +519,13 @@ const Config = z.object({ enabled: z.boolean().default(true) });
 const apply = mountOnce("@linxin666/dsh-client-ui-market", applyImpl);
 function applyImpl(ctx) {
 	ctx.inject(["settings"], (settingsCtx) => {
-		settingsCtx.settings.installSection(ctx, MARKET_SETTINGS_NAMESPACE, Config, {}, {
-			setSource: () => {},
-			onChange: () => {}
-		});
+		try {
+			if (typeof settingsCtx.settings?.installSection === "function") settingsCtx.settings.installSection(ctx, MARKET_SETTINGS_NAMESPACE, Config, {}, {
+				setSource: () => {},
+				onChange: () => {}
+			});
+			else if (typeof settingsCtx.settings?.register === "function") settingsCtx.settings.register(MARKET_SETTINGS_NAMESPACE, Config, { base: {} });
+		} catch {}
 	});
 	const routes = makeMarketRoutes();
 	for (const route of routes) try {

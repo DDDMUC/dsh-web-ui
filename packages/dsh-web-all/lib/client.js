@@ -598,7 +598,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$11() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -1944,7 +1944,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$10() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -4377,7 +4377,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$9() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -4576,6 +4576,7 @@ window.__ModuleLoader__.load({
 				workspaceId: normalizeTargetId(input.workspaceId),
 				mode: normalizeTargetId(input.mode),
 				permission: isTaskPermission(input.permission) ? input.permission : void 0,
+				model: normalizeTargetId(input.model),
 				...input.freeze === void 0 ? {} : { freeze: freezeOf(input.freeze, now) },
 				...input.handover === void 0 ? {} : { handover: {
 					...input.handover,
@@ -4997,6 +4998,7 @@ window.__ModuleLoader__.load({
 				const workspaceId = "workspaceId" in patch ? normalizeTargetId(patch.workspaceId) : void 0;
 				const mode = "mode" in patch ? normalizeTargetId(patch.mode) : void 0;
 				const permission = "permission" in patch ? normalizePermission(task.permission, patch.permission) : void 0;
+				const model = "model" in patch ? normalizeTargetId(patch.model) : void 0;
 				const next = {
 					...task,
 					...rest,
@@ -5016,6 +5018,7 @@ window.__ModuleLoader__.load({
 				if (workspaceId !== void 0 || "workspaceId" in patch) next.workspaceId = workspaceId;
 				if (mode !== void 0 || "mode" in patch) next.mode = mode;
 				if (permission !== void 0 || "permission" in patch) next.permission = permission;
+				if (model !== void 0 || "model" in patch) next.model = model;
 				return next;
 			});
 		}
@@ -5054,7 +5057,8 @@ window.__ModuleLoader__.load({
 			selectedTaskId;
 			executionOptions = {
 				workspaces: [],
-				presets: []
+				presets: [],
+				models: []
 			};
 			listeners = /* @__PURE__ */ new Set();
 			disposers = [];
@@ -6063,6 +6067,7 @@ window.__ModuleLoader__.load({
 			"new.workspace": "工作区",
 			"new.mode": "模式",
 			"new.permission": "权限",
+			"new.model": "模型",
 			"exec.workspace.recent": "最近使用（默认）",
 			"exec.mode.default": "部署默认",
 			"exec.mode.defaultSuffix": "（默认）",
@@ -6072,6 +6077,8 @@ window.__ModuleLoader__.load({
 			"exec.permission.read-only": "只读",
 			"exec.permission.workspace-write": "工作区可写",
 			"exec.permission.danger-full-access": "完全访问",
+			"exec.model.default": "宿主默认（agent-default-model）",
+			"exec.model.unknown": "（未知模型/回退默认）",
 			"detail.executionSettings": "执行设置",
 			"exec.hint": "执行时生效：工作区决定执行会话落在哪个工作区；模式决定会话的 agent 预设；权限经 /permission 命令应用到会话。留空则使用运行时默认。",
 			"settings.title": "任务看板",
@@ -6206,6 +6213,7 @@ window.__ModuleLoader__.load({
 			"new.workspace": "Workspace",
 			"new.mode": "Mode",
 			"new.permission": "Permission",
+			"new.model": "Model",
 			"exec.workspace.recent": "Most recent (default)",
 			"exec.mode.default": "Deployment default",
 			"exec.mode.defaultSuffix": " (default)",
@@ -6215,6 +6223,8 @@ window.__ModuleLoader__.load({
 			"exec.permission.read-only": "Read-only",
 			"exec.permission.workspace-write": "Workspace Write",
 			"exec.permission.danger-full-access": "Full Access",
+			"exec.model.default": "Host default (agent-default-model)",
+			"exec.model.unknown": " (unknown / fallback to default)",
 			"detail.executionSettings": "Execution Settings",
 			"exec.hint": "Applied when the task runs: the workspace decides where the execution session lands; the mode composes the session's agent preset; the permission is applied through the /permission command. Blank = runtime default.",
 			"settings.title": "Task Board",
@@ -6470,6 +6480,7 @@ window.__ModuleLoader__.load({
 			const [workspaceId, setWorkspaceId] = (0, react.useState)("");
 			const [mode, setMode] = (0, react.useState)("");
 			const [permission, setPermission] = (0, react.useState)("");
+			const [model, setModel] = (0, react.useState)("");
 			const [scheduleEnabled, setScheduleEnabled] = (0, react.useState)(false);
 			const [scheduleCron, setScheduleCron] = (0, react.useState)("");
 			const [scheduleError, setScheduleError] = (0, react.useState)(void 0);
@@ -6517,6 +6528,7 @@ window.__ModuleLoader__.load({
 					workspaceId: workspaceId === "" ? void 0 : workspaceId,
 					mode: mode === "" ? void 0 : mode,
 					permission: permission === "" ? void 0 : permission,
+					model: model === "" ? void 0 : model,
 					schedule: scheduleEnabled ? {
 						enabled: true,
 						cron: scheduleCron.trim()
@@ -6652,6 +6664,26 @@ window.__ModuleLoader__.load({
 								value: id,
 								children: t$5(`exec.permission.${id}`)
 							}, id))]
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: board_module_css_default.field,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: board_module_css_default.fieldLabel,
+							children: t$5("new.model")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+							className: board_module_css_default.select,
+							value: model,
+							onChange: (event) => {
+								setModel(event.target.value);
+							},
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: "",
+								children: t$5("exec.model.default")
+							}), options.models?.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: item.id,
+								children: item.name ?? item.id
+							}, item.id))]
 						})]
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
@@ -7003,8 +7035,10 @@ window.__ModuleLoader__.load({
 			const workspaceId = task.workspaceId ?? "";
 			const mode = task.mode ?? "";
 			const permission = task.permission ?? "";
+			const model = task.model ?? "";
 			const workspaceKnown = workspaceId === "" || options.workspaces.some((item) => item.workspaceId === workspaceId);
 			const modeKnown = mode === "" || options.presets.some((item) => item.id === mode);
+			const modelKnown = model === "" || (options.models ?? []).some((item) => item.id === model);
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 				className: board_module_css_default.detailSection,
 				children: [
@@ -7093,6 +7127,34 @@ window.__ModuleLoader__.load({
 								value: id,
 								children: t$5(`exec.permission.${id}`)
 							}, id))]
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: board_module_css_default.field,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: board_module_css_default.fieldLabel,
+							children: t$5("new.model")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+							className: board_module_css_default.select,
+							value: model,
+							disabled: pending,
+							onChange: (event) => {
+								controller.updateTask(task.id, { model: event.target.value === "" ? void 0 : event.target.value });
+							},
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+									value: "",
+									children: t$5("exec.model.default")
+								}),
+								!modelKnown && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("option", {
+									value: model,
+									children: [model, t$5("exec.model.unknown")]
+								}),
+								options.models?.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+									value: item.id,
+									children: item.name ?? item.id
+								}, item.id))
+							]
 						})]
 					})
 				]
@@ -8957,7 +9019,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$8() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -9047,44 +9109,6 @@ window.__ModuleLoader__.load({
 			"remote"
 		];
 		/**
-		* Read the agent-preset roster through whichever face the running host
-		* serves: the generated api-remotes face (`remote.agentPresets`,
-		* 0.1.2-alpha.2) or the connection RPC face
-		* (`connection.api.agentPresets`, hosts below that cohort). Answers
-		* undefined when the host serves neither, so the caller leaves the picker
-		* options untouched instead of erroring.
-		*/
-		async function readPresetRoster(ctx, remote) {
-			let remotes;
-			try {
-				remotes = remote.agentPresets;
-			} catch {
-				remotes = void 0;
-			}
-			if (remotes !== void 0) {
-				const response = await remotes.list();
-				if (!response.ok) return {
-					ok: false,
-					presets: []
-				};
-				return {
-					ok: true,
-					presets: response.value.presets
-				};
-			}
-			const legacy = ctx.get("connection").api?.agentPresets;
-			if (legacy === void 0) return void 0;
-			const response = await legacy.list({});
-			if (!response.result.ok || response.result.value === void 0) return {
-				ok: false,
-				presets: []
-			};
-			return {
-				ok: true,
-				presets: response.result.value.presets ?? []
-			};
-		}
-		/**
 		* Mount the task board.
 		* @param ctx - client root context (services: sessions, workspaces).
 		*/
@@ -9129,7 +9153,7 @@ window.__ModuleLoader__.load({
 				if (uiDisposer !== void 0) return;
 				const sessions = ctx.get("sessions");
 				const workspaces = ctx.get("workspaces");
-				const remote = ctx.get("remote");
+				ctx.get("remote");
 				const controller = new BoardController({
 					store: new LocalStorageTaskStore(),
 					transport: new HttpTaskBoardHostTransport(),
@@ -9149,24 +9173,38 @@ window.__ModuleLoader__.load({
 				};
 				pushWorkspaceOptions();
 				disposers.push(workspaces.list.subscribe(pushWorkspaceOptions));
-				const pushPresetOptions = async () => {
+				const pushModelOptions = async () => {
 					try {
-						const roster = await readPresetRoster(ctx, remote);
-						if (roster === void 0 || !roster.ok) return;
-						controller.setExecutionOptions({ presets: roster.presets.map((preset) => ({
-							id: preset.id,
-							name: preset.name,
-							description: preset.description,
-							broken: preset.broken,
-							isDefault: preset.isDefault
-						})) });
+						const conn = ctx.get("connection");
+						if (conn?.api) {
+							let models = [];
+							if (typeof conn.api.llm?.discoverModels === "function") {
+								const list = (await conn.api.llm.discoverModels())?.result?.value?.models;
+								if (Array.isArray(list)) models = list.map((m) => ({
+									id: m.id,
+									name: m.name
+								}));
+							}
+							if (models.length === 0 && typeof conn.api.sessions?.modelCatalog === "function") {
+								const groups = (await conn.api.sessions.modelCatalog())?.result?.value?.groups;
+								if (Array.isArray(groups)) for (const g of groups) for (const m of g.models ?? []) {
+									const qualifiedId = g.provider ? `${g.provider}/${m.id}` : m.id;
+									models.push({
+										id: qualifiedId,
+										name: m.name ?? m.id,
+										provider: g.provider
+									});
+								}
+							}
+							if (models.length > 0) controller.setExecutionOptions({ models });
+						}
 					} catch (error) {
-						console.error("[dsh-task-board] agent preset roster read failed", error);
+						console.error("[dsh-task-board] model options read failed", error);
 					}
 				};
-				pushPresetOptions();
+				pushModelOptions();
 				disposers.push(ctx.on("connection/reset", () => {
-					pushPresetOptions();
+					pushModelOptions();
 				}));
 				try {
 					disposers.push(mountSidebarEntry$4(controller, ctx.locale));
@@ -10843,7 +10881,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$7() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -15532,7 +15570,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$6() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -16281,15 +16319,11 @@ window.__ModuleLoader__.load({
 				if (active && (this.tagName === "TEXTAREA" || this.tagName === "INPUT") && this.closest("[class$=\"_composerSeat\"]") !== null && Date.now() - lastComposerTap >= 800) return;
 				lanOrigFocus.call(this, options);
 			};
-			let lastComposerTapRegistered = false;
-			if (!lastComposerTapRegistered) {
-				lastComposerTapRegistered = true;
-				document.addEventListener("pointerdown", (e) => {
-					if (!active) return;
-					const t = e.target;
-					if (t instanceof Element && (t.tagName === "TEXTAREA" || t.tagName === "INPUT") && t.closest("[class$=\"_composerSeat\"]") !== null) lastComposerTap = Date.now();
-				}, true);
-			}
+			document.addEventListener("pointerdown", (e) => {
+				if (!active) return;
+				const t = e.target;
+				if (t instanceof Element && (t.tagName === "TEXTAREA" || t.tagName === "INPUT") && t.closest("[class$=\"_composerSeat\"]") !== null) lastComposerTap = Date.now();
+			}, true);
 			w.__dshRemoteAdapt = {
 				evaluate,
 				toggleSidebar: null,
@@ -16555,6 +16589,7 @@ window.__ModuleLoader__.load({
 				}),
 				actions: {
 					setSnapshot: (draft, snapshot) => {
+						if (draft.state === "ready" && draft.error === null && sameSnapshot(draft.snapshot, snapshot)) return;
 						draft.snapshot = snapshot;
 						draft.state = "ready";
 						draft.error = null;
@@ -16577,6 +16612,15 @@ window.__ModuleLoader__.load({
 					}
 				}
 			});
+		}
+		/**
+		* Content equality for consecutive poll snapshots. JSON compare, not field
+		* enumeration: an exact string match is the only way to skip the publish, so
+		* a missed field can never freeze the UI — it can only cost the render the
+		* optimization exists to save.
+		*/
+		function sameSnapshot(previous, next) {
+			return previous !== null && JSON.stringify(previous) === JSON.stringify(next);
 		}
 		//#endregion
 		//#region ../dsh-pet/src/announce.ts
@@ -16664,27 +16708,29 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-pet/src/client/sequences.ts
-		/** Resolve the active track and frame after elapsed milliseconds of a looping sequence. */
-		function sequenceFrameAt(sequence, tracks, elapsedMs) {
+		/** Build a {@link SequenceTimeline} over one manifest sequence. */
+		function createSequenceTimeline(sequence, tracks) {
 			const itemDurations = sequence.map((animation) => tracks[animation].durations.reduce((sum, value) => sum + value, 0));
 			const sequenceDuration = itemDurations.reduce((sum, value) => sum + value, 0);
-			let offset = Math.max(0, elapsedMs) % sequenceDuration;
-			let itemIndex = 0;
-			while (itemIndex < sequence.length - 1 && offset >= itemDurations[itemIndex]) {
-				offset -= itemDurations[itemIndex];
-				itemIndex += 1;
-			}
-			const animation = sequence[itemIndex];
-			const track = tracks[animation];
-			let frameIndex = 0;
-			while (frameIndex < track.frames.length - 1 && offset >= track.durations[frameIndex]) {
-				offset -= track.durations[frameIndex];
-				frameIndex += 1;
-			}
-			return {
-				animation,
-				frameIndex
-			};
+			return { frameAt(elapsedMs) {
+				let offset = Math.max(0, elapsedMs) % sequenceDuration;
+				let itemIndex = 0;
+				while (itemIndex < sequence.length - 1 && offset >= itemDurations[itemIndex]) {
+					offset -= itemDurations[itemIndex];
+					itemIndex += 1;
+				}
+				const animation = sequence[itemIndex];
+				const track = tracks[animation];
+				let frameIndex = 0;
+				while (frameIndex < track.frames.length - 1 && offset >= track.durations[frameIndex]) {
+					offset -= track.durations[frameIndex];
+					frameIndex += 1;
+				}
+				return {
+					animation,
+					frameIndex
+				};
+			} };
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-pet/src/client/pet.module.css.mjs
@@ -16965,6 +17011,14 @@ window.__ModuleLoader__.load({
 				if (props.visual !== void 0) return;
 				const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
 				const sequence = animation === animationForPhase(phase) ? sequences?.[phase] : void 0;
+				const timeline = sequence === void 0 ? void 0 : createSequenceTimeline(sequence, tracks);
+				const sequenceItems = sequence === void 0 ? void 0 : new Map(sequence.map((itemAnimation) => {
+					const itemRow = rowOfTrack(itemAnimation);
+					return [itemAnimation, {
+						row: itemRow,
+						track: trimTrack(tracks[itemAnimation], rows[itemRow] ?? tracks[itemAnimation].frames.length)
+					}];
+				}));
 				const leadAnimation = sequence?.[0] ?? animation;
 				const row = rowOfTrack(leadAnimation);
 				const track = trimTrack(tracks[leadAnimation], rows[row] ?? tracks[leadAnimation].frames.length);
@@ -16979,12 +17033,12 @@ window.__ModuleLoader__.load({
 				const tick = (ts) => {
 					const delta = ts - last;
 					last = ts;
-					if (sequence !== void 0) {
+					if (timeline !== void 0 && sequenceItems !== void 0) {
 						sequenceElapsed += delta;
-						const current = sequenceFrameAt(sequence, tracks, sequenceElapsed);
-						const currentRow = rowOfTrack(current.animation);
-						const col = trimTrack(tracks[current.animation], rows[currentRow] ?? tracks[current.animation].frames.length).frames[current.frameIndex];
-						const pos = framePosition(cell, currentRow, col, scaleRef.current);
+						const current = timeline.frameAt(sequenceElapsed);
+						const item = sequenceItems.get(current.animation);
+						const col = item.track.frames[current.frameIndex];
+						const pos = framePosition(cell, item.row, col, scaleRef.current);
 						const posStr = pos.x + "px " + pos.y + "px";
 						if (posStr !== lastPosStr) {
 							lastPosStr = posStr;
@@ -19967,7 +20021,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$5() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -20180,7 +20234,7 @@ window.__ModuleLoader__.load({
 							document.removeEventListener("visibilitychange", onVisibility);
 						};
 					}, "pet: poll");
-					ctx.effect(() => {
+					const disposeSessionWatch = ctx.effect(() => {
 						return sessions.list.subscribe(() => {
 							if (document.visibilityState === "visible") pollNow();
 						});
@@ -20265,6 +20319,7 @@ window.__ModuleLoader__.load({
 						petRoot.unmount();
 						container.remove();
 						disposePoll();
+						disposeSessionWatch();
 						disposeUi = void 0;
 					};
 					clearUiTeardown = registerPetUiTeardown(() => {
@@ -36426,7 +36481,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$4() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -38830,7 +38885,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$3() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -39885,7 +39940,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$2() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -43281,7 +43336,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$1() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -51814,7 +51869,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion() {
 			try {
-				return "0.3.14";
+				return "0.3.15";
 			} catch {
 				return;
 			}
@@ -52165,12 +52220,41 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/mount-children.ts
 		const MOUNTED_PLUGINS = Symbol.for("dsh-web.mounted-plugins");
-		/** Package ids the loader already serves a client bundle for. */
-		function ownClientEntryIds() {
+		/** Mapping from real plugin package name to its aggregate patch row id. */
+		const CHILD_ROW_IDS = {
+			"@linxin666/dsh-client-ui-web-ui-settings": "web-ui-settings",
+			"@linxin666/dsh-client-ui-plugin-manager": "web-ui-plugin-manager",
+			"@linxin666/dsh-client-ui-market": "web-ui-market",
+			"@linxin666/dsh-client-ui-task-board": "web-ui-task-board",
+			"@linxin666/dsh-client-ui-git-graph": "web-ui-git-graph",
+			"@linxin666/dsh-remote-web-ui": "web-ui-remote-web-ui",
+			"@linxin666/dsh-pet": "web-ui-pet",
+			"@linxin666/dsh-ssh": "web-ui-ssh",
+			"@linxin666/dsh-tool-describe-image": "web-ui-tool-describe-image",
+			"@linxin666/dsh-client-ui-skill-explorer": "web-ui-skill-explorer",
+			"@linxin666/dsh-doctor": "web-ui-doctor",
+			"@linxin666/dsh-usage": "web-ui-usage",
+			"@linxin666/dsh-session-archive": "web-ui-session-archive",
+			"@linxin666/dsh-client-ui-skin-center": "web-ui-skin-center",
+			"@linxin666/dsh-liangshen": "web-ui-liangshen"
+		};
+		/** Active entry ids and names in the browser boot payload. */
+		function activeBootEntryIds() {
 			const boot = globalThis.__DSH_BOOT__;
-			const ids = /* @__PURE__ */ new Set();
-			for (const entry of boot?.entries ?? []) if (typeof entry?.id === "string") ids.add(entry.id);
-			return ids;
+			if (boot === void 0 || !Array.isArray(boot.entries)) return {
+				active: /* @__PURE__ */ new Set(),
+				hasBootEntries: false
+			};
+			const active = /* @__PURE__ */ new Set();
+			for (const entry of boot.entries) {
+				if (entry?.disabled === true) continue;
+				if (typeof entry?.id === "string" && entry.id.trim() !== "") active.add(entry.id.trim());
+				if (typeof entry?.name === "string" && entry.name.trim() !== "") active.add(entry.name.trim());
+			}
+			return {
+				active,
+				hasBootEntries: true
+			};
 		}
 		function mountedRegistry() {
 			const registry = globalThis;
@@ -52179,10 +52263,17 @@ window.__ModuleLoader__.load({
 		}
 		/** Mount every generated family child that has no client bundle of its own. */
 		function mountClientChildren(ctx) {
-			const own = ownClientEntryIds();
+			const { active, hasBootEntries } = activeBootEntryIds();
 			const registry = mountedRegistry();
 			for (const child of clientChildren) {
-				if (own.has(child.name)) continue;
+				if (hasBootEntries) {
+					if (active.has(child.name)) continue;
+					const rowId = CHILD_ROW_IDS[child.name];
+					if (rowId !== void 0) {
+						const subpathName = `@linxin666/dsh-web-all/${rowId.replace(/^web-ui-/, "")}`;
+						if (!active.has(rowId) && !active.has(subpathName)) continue;
+					}
+				}
 				if (registry.has(child.name)) continue;
 				registry.add(child.name);
 				const mod = child.module;
