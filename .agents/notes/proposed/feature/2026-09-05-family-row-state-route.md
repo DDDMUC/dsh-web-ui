@@ -28,6 +28,10 @@ Consistency gate: a test asserts that every aggregate patch row's `config.plugin
 
 One extra same-origin GET per page load (a few hundred bytes, `no-store`), one in-memory Map on the host, roughly 100 lines across shell/client plus tests. No schema, protocol, or on-disk format changes; the route is additive and version-skew-safe (a 404 degrades to fail-open).
 
+## Desktop shell
+
+The desktop app is an Electron window over the same origin: `desktop/src/main.cjs` spawns the plain `dsh web` host on a dedicated loopback port and `loadURL`s the token URL at `http://127.0.0.1:<port>/`, so the page, the index-tap boot payload, and same-origin `fetch` behave exactly as in a browser. `preload.cjs` only exposes a `desktop` bridge and touches no page globals, and the navigation guard allows loopback http(s), which covers the route. The desktop profile installs the aggregate through the normal plugin paths, so the ledger/route and the gating apply unchanged; the desktop-bundled host cohort needs no new host feature (the shell already registers routes), and the fail-open rule absorbs any cohort skew. The splash flow waits for GUI readiness before any page load, so the async fetch never races host startup.
+
 ## Alternatives considered
 
 - Query the host `loader` service (`inject: ['loader']`, read `entry.options.id`/`options.name`/`entry.disabled`): the most authoritative signal (evaluates `!!js` disabled expressions and ancestor inheritance), but it couples the plugin to host loader internals and buys nothing over the ledger — the loader only starts enabled rows, so an absent shell apply already means disabled, whatever the reason.

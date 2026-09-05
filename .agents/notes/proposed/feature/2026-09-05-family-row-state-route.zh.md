@@ -28,6 +28,10 @@ Status: proposed
 
 每次页面加载多一个同源 GET(几百字节,`no-store`),宿主端一个内存 Map,shell/client 合计约 100 行外加测试。无 schema、协议或磁盘格式变更;路由纯增量且版本偏差安全(404 降级为失败放行)。
 
+## 桌面版
+
+桌面应用就是同一 origin 上的 Electron 窗口:`desktop/src/main.cjs` 在专用回环端口拉起普通 `dsh web` 宿主,并 `loadURL` 打开 `http://127.0.0.1:<port>/` 的 token URL——页面、index 注入的 boot payload、同源 `fetch` 与浏览器完全一致。`preload.cjs` 只暴露 `desktop` 桥,不触碰页面全局;导航守卫放行回环 http(s),覆盖该路由。桌面 profile 经正常插件路径安装 aggregate,ledger/路由与门控原样适用;桌面内置的宿主 cohort 不需要任何新宿主能力(shell 本就注册路由),任何 cohort 偏差由失败放行规则兜底。闪屏流程在页面加载前已等待 GUI 就绪,async fetch 不会与宿主启动竞争。
+
 ## Alternatives considered
 
 - 查询宿主 `loader` 服务(`inject: ['loader']`,读 `entry.options.id`/`options.name`/`entry.disabled`):信号最权威(能求值 `!!js` 禁用表达式与祖先继承),但把插件耦合到宿主 loader 内部实现,且相比 ledger 无增益——loader 只启动已启用的行,shell apply 缺席即意味着停用,无论原因是什么。
