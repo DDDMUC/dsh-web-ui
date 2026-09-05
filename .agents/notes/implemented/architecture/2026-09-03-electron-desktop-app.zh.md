@@ -24,7 +24,7 @@ dsh-web 以插件包形态分发，前提是一套可用的 dsh 环境：Node 22
 
 - **在 Electron 主进程内直接运行 dsh 宿主**（复用 Electron 内嵌 Node）：包体更小，但 dsh 的进程派生、插件加载器与文件系统假设将运行在 Electron 打过补丁的 Node 上，故障都要自己排。内置官方 Node 让宿主字节级等同插件测试所基于的 npm 安装拓扑。
 - **用 `ELECTRON_RUN_AS_NODE=1` 派生子进程**（把 Electron 二进制当纯 Node）：仍是子进程，但 Node 版本被 Electron 发行版钉死，考察过的版本不满足宿主的 `^22.19 || >=24` 引擎区间，且宿主依旧跑在 Electron 补丁版 Node 上。
-- **首启在线安装**（应用做小，首次启动跑 `dsh plugin add`）：违背「安装即用」承诺，离线即失败，首启依赖 npm registry 可用性，且内置运行时里没有 pnpm。
+- **首启在线安装**（应用做小，首次启动跑 `dsh plugin add`）：违背「安装即用」承诺，离线即失败，首启依赖 npm registry 可用性，且当时的内置运行时里没有 pnpm（2026-09-05 起已内置——见[内置工具链笔记](../bug-fix/2026-09-05-desktop-bundled-pnpm-toolchain.zh.md)）。
 - **隔离 App 专属 DSH_HOME**（Application Support）：卸载更干净，但同时使用 dsh CLI 的用户会得到两套互不相通的配置；共享 `~/.dsh` 加标记制归属既保持单一事实源又不破坏既有数据。
 - **扩展 desktop-launcher 插件**而非新建应用：该插件的前提是「dsh 已安装」，桌面版的前提恰恰相反。2026-09-03 起被取代：插件已彻底移除，本桌面应用是唯一的桌面路径（见[移除笔记](../simplification/2026-09-03-remove-dsh-desktop-launcher.zh.md)）。
 
@@ -32,7 +32,7 @@ dsh-web 以插件包形态分发，前提是一套可用的 dsh 环境：Node 22
 
 - 安装包体积大（数百 MB）：Node 发行版加两份依赖闭包，且可选依赖覆盖四个目标平台。内部分发可接受；裁剪（去掉 darwin-x64 或未用 bundle）留作后续优化，须有实测体积依据。
 - 内置 `cloudflared` 只拉取构建机平台的二进制，远程隧道插件在构建平台上开箱可用，其他平台按需拉取；已记入 `desktop/README.zh.md` 已知限制。
-- 依赖 pnpm 的应用内插件安装不可用（内置运行时无 pnpm）；Workshop 资产安装不受影响。
+- 依赖 pnpm 的应用内插件安装最初不可用（内置运行时无 pnpm）；内置运行时现在携带锁定的 pnpm（与可用的 npm），该限制退役——见[内置工具链笔记](../bug-fix/2026-09-05-desktop-bundled-pnpm-toolchain.zh.md)。Workshop 资产安装始终不受影响。
 - 宿主或插件全家桶的版本升级 = 修改 `desktop/runtime/*/package.json` 的锁定版本并重跑 `npm run prepare-runtime`；运行时戳驱动用户机器上的自动重新播种。
 - 未签名构建会触发 Gatekeeper / SmartScreen 提示；签名、公证与自动更新是明确的后续工作，不在本期范围。
 

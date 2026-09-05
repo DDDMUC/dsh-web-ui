@@ -24,7 +24,7 @@ A new top-level `desktop/` directory (outside the pnpm workspace globs) holds an
 
 - **Run the dsh host inside the Electron main process** (reuse Electron's embedded Node): smaller download, but dsh's process spawning, plugin loader, and file-system assumptions run on Electron's patched Node with `ELECTRON_RUN_AS_NODE`-adjacent quirks; failures would be ours to debug. A bundled official Node keeps the host byte-identical to the npm-installed topology the plugins are tested against.
 - **Spawn with `ELECTRON_RUN_AS_NODE=1`** (Electron binary as plain Node child): still a child process, but the Node version is pinned to whatever the Electron release embeds, which did not satisfy the host's `^22.19 || >=24` engine range at the versions considered, and the host would again run on Electron-patched Node.
-- **First-run online install** (ship the app small, run `dsh plugin add` on first launch): fails the "install and use" promise offline, makes first launch depend on npm registry health, and pnpm is not present in the bundled runtime.
+- **First-run online install** (ship the app small, run `dsh plugin add` on first launch): fails the "install and use" promise offline, makes first launch depend on npm registry health, and the bundled runtime did not carry pnpm at the time (it does since 2026-09-05 — see [the bundled toolchain note](../bug-fix/2026-09-05-desktop-bundled-pnpm-toolchain.md)).
 - **Fence an app-private DSH_HOME** (Application Support): cleaner uninstall, but users who also use the dsh CLI would get two siloed configurations; sharing `~/.dsh` with marker-based ownership gives one source of truth while staying non-destructive.
 - **Extend the desktop-launcher plugin** instead of a new app: the plugin's premise is "an installed dsh exists"; the desktop app's premise is the opposite. Superseded 2026-09-03: the plugin is removed completely and this app is the only desktop path (see [the removal note](../simplification/2026-09-03-remove-dsh-desktop-launcher.md)).
 
@@ -32,7 +32,7 @@ A new top-level `desktop/` directory (outside the pnpm workspace globs) holds an
 
 - Installers are large (hundreds of MB): Node distributions plus two dependency closures with optional dependencies for four targets. Accepted for internal distribution; pruning (dropping darwin-x64 or unused bundles) is a later optimization only if measured size matters.
 - The bundled `cloudflared` fetches its binary for the build machine's platform only, so the remote-tunnel plugin works out of the box on the build platform and on demand elsewhere; recorded in `desktop/README.md` known limitations.
-- In-app plugin installs that shell out to pnpm do not work because the bundled runtime carries no pnpm; Workshop asset installs are unaffected.
+- In-app plugin installs that shell out to pnpm initially did not work because the bundled runtime carried no pnpm; the runtime now bundles a pinned pnpm (and a working npm) and the limitation is retired — see [the bundled toolchain note](../bug-fix/2026-09-05-desktop-bundled-pnpm-toolchain.md). Workshop asset installs were never affected.
 - Version bumps of the host or the plugin collection are edits to `desktop/runtime/*/package.json` plus `npm run prepare-runtime`; the runtime stamp drives automatic re-seeding on user machines.
 - Unsigned builds trigger Gatekeeper/SmartScreen prompts; signing, notarization, and auto-update are follow-ups, deliberately out of scope.
 

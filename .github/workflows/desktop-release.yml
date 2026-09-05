@@ -84,6 +84,21 @@ jobs:
         working-directory: desktop
         run: npm run prepare-runtime
 
+      # Prove the bundled toolchain actually executes before installers are
+      # built: PATH resolves the staged mac-arm64 distribution first, so node,
+      # npm, and pnpm below run from inside the payload that ships to users
+      # (a machine with zero preinstalled tooling must be able to run
+      # `dsh plugin add`). The win payload is presence-checked by
+      # build-runtime.mjs's staged assertions; it cannot execute on macOS.
+      - name: Smoke-check the bundled toolchain
+        working-directory: desktop
+        run: |
+          set -eu
+          export PATH="$PWD/resources/runtime/node-mac-arm64/bin:$PATH"
+          echo "node: $(command -v node) $(node --version)"
+          echo "npm: $(command -v npm) $(npm --version)"
+          echo "pnpm: $(command -v pnpm) $(pnpm --version)"
+
       - name: Wait for the GitHub Release to exist
         env:
           GH_TOKEN: ${{ github.token }}

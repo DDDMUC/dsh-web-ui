@@ -1,4 +1,4 @@
 # Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
 # side as of the last confirmed-consistent state. Both languages carry equal authority.
-README.md: 51ad84847e21e918bf73eb59c89d84cde255ceab
-README.zh.md: 9a53fd50f152ba4bcc172febb3c27fa4b54b76d3
+README.md: 1a4383746b9d822797c53d717b246d571b0f4fc6
+README.zh.md: 7271369b0d65058b8484c4a64c7b883517434a87

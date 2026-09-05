@@ -52,6 +52,51 @@ function extract(archive, destDir) {
   execFileSync('tar', ['-xf', archive, '-C', destDir], { stdio: 'inherit' });
 }
 
+/**
+ * Copy a distribution tree, preserving symlinks verbatim. The official
+ * tarballs only carry in-tree relative links (bin/npm ->
+ * ../lib/node_modules/npm/bin/npm-cli.js) that stay valid after relocation,
+ * and npm's CLI resolves modules relative to its real path, so replacing
+ * links with their targets breaks it — while fs.cpSync's dereference: true
+ * rewrites the relative targets into absolute paths into the deleted
+ * extraction temp dir (observed on Node 25), which is worse.
+ */
+function copyTree(source, destination) {
+  const stat = fs.lstatSync(source);
+  if (stat.isSymbolicLink()) {
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.symlinkSync(fs.readlinkSync(source), destination);
+    return;
+  }
+  if (stat.isFile()) {
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(source, destination);
+    fs.chmodSync(destination, stat.mode);
+    return;
+  }
+  if (!stat.isDirectory()) throw new Error('unexpected file type while copying ' + source);
+  fs.mkdirSync(destination, { recursive: true });
+  for (const entry of fs.readdirSync(source)) {
+    copyTree(path.join(source, entry), path.join(destination, entry));
+  }
+}
+
+/** Fail when a staged symlink escapes the distribution or dangles. */
+function assertInTreeSymlinks(root) {
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        const resolved = path.resolve(path.dirname(full), fs.readlinkSync(full));
+        if (!resolved.startsWith(root + path.sep) || !fs.existsSync(resolved)) {
+          throw new Error('staged Node distribution contains a broken symlink: ' + path.relative(root, full) + ' -> ' + fs.readlinkSync(full));
+        }
+      } else if (entry.isDirectory()) walk(full);
+    }
+  };
+  walk(root);
+}
+
 async function main() {
   const version = process.argv[2] ?? DEFAULT_NODE_VERSION;
   const base = 'https://nodejs.org/dist/' + version;
@@ -68,6 +113,9 @@ async function main() {
     const marker = path.join(outDir, '.node-version');
     if (fs.existsSync(marker) && fs.readFileSync(marker, 'utf8').trim() === version) {
       console.log('[fetch-node] ' + target.os + '-' + target.cpu + ' already at ' + version + ', skipping');
+      // Assert even on the skip path: an older script version could have
+      // staged a distribution whose bin shims are dangling symlinks.
+      assertInTreeSymlinks(outDir);
       continue;
     }
 
@@ -85,7 +133,8 @@ async function main() {
 
     fs.rmSync(outDir, { recursive: true, force: true });
     fs.mkdirSync(outRoot, { recursive: true });
-    fs.cpSync(path.join(unpackDir, entries[0]), outDir, { recursive: true, dereference: true });
+    copyTree(path.join(unpackDir, entries[0]), outDir);
+    assertInTreeSymlinks(outDir);
     fs.writeFileSync(marker, version + '\n');
     fs.rmSync(tmp, { recursive: true, force: true });
     console.log('[fetch-node] staged ' + target.os + '-' + target.cpu + ' -> ' + path.relative(desktopDir, outDir));

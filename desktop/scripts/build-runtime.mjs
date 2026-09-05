@@ -120,15 +120,19 @@ function assertRuntimeEntrypoints() {
   if (!fs.existsSync(bundle)) throw new Error('staged profile is missing the dsh-web-all bundle patch');
   // The extraResources glob `node-${os}-${arch}` uses the electron-builder os
   // spelling (mac/win). electron-builder only WARNS when a source is missing,
-  // and the result is an app without a runtime — assert here instead.
+  // and the result is an app without a runtime — assert here instead. npm
+  // ships inside the official distributions; pnpm is staged by
+  // scripts/fetch-pnpm.mjs so in-app plugin flows work with zero tooling.
   const nodePayloads = [
-    ['node-mac-arm64', ['bin', 'node']],
-    ['node-mac-x64', ['bin', 'node']],
-    ['node-win-x64', ['node.exe']],
+    ['node-mac-arm64', [['bin', 'node'], ['bin', 'npm'], ['bin', 'pnpm']]],
+    ['node-mac-x64', [['bin', 'node'], ['bin', 'npm'], ['bin', 'pnpm']]],
+    ['node-win-x64', [['node.exe'], ['npm.cmd'], ['pnpm.cmd']]],
   ];
-  for (const [dir, segments] of nodePayloads) {
-    const bin = path.join(stagingRoot, dir, ...segments);
-    if (!fs.existsSync(bin)) throw new Error('staged payload is missing ' + path.relative(desktopDir, bin) + ' (electron-builder resolves node-${os}-${arch} as node-<mac|win>-<arch>)');
+  for (const [dir, required] of nodePayloads) {
+    for (const segments of required) {
+      const bin = path.join(stagingRoot, dir, ...segments);
+      if (!fs.existsSync(bin)) throw new Error('staged payload is missing ' + path.relative(desktopDir, bin) + ' (electron-builder resolves node-${os}-${arch} as node-<mac|win>-<arch>)');
+    }
   }
 }
 
