@@ -262,5 +262,11 @@ git ls-remote --tags origin | grep "vX.Y.Z"         # tag 已在远端
   English 折叠视图为英文，不再逐条 `EN / 中文` 混排。双语 notes 作为
   `docs/release-notes/vX.Y.Z.md` 随发版提交入库，管线优先使用；漏提交时脚本草稿兜底
   （两视图均为原始提交主题），但发布后必须立即用 `gh release edit` 校正为
-  「中文默认 + English 折叠」双语，不得保留未翻译条目。
+  「中文默认 + English 折叠」双语，不得保留未翻译条目。notes 正文不得出现裸的
+  `@org` token（如 `@deepseek-ai`）：GitHub 会渲染成 mention 并把该账号列进
+  release 页的 Contributors 框（v0.3.14 事故）；脚本渲染路径已自动加反引号转义，
+  维护者手写条目也必须用反引号包裹（release 页面同理，发布后抽查
+  `user-mention` 是否为 0）。桌面安装包由 `desktop-release.yml` 在 tag 推送后
+  自动构建并上传到 Release（dispatch 可为存量 tag 补发，`ref` 输入可指定
+  构建分支）。
 - 本技能适用于 @linxin666/dsh-* 全家桶整体发版；单包 hotfix 也遵循同一流程（版本仍全仓统一）。
