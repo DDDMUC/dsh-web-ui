@@ -52220,41 +52220,12 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/mount-children.ts
 		const MOUNTED_PLUGINS = Symbol.for("dsh-web.mounted-plugins");
-		/** Mapping from real plugin package name to its aggregate patch row id. */
-		const CHILD_ROW_IDS = {
-			"@linxin666/dsh-client-ui-web-ui-settings": "web-ui-settings",
-			"@linxin666/dsh-client-ui-plugin-manager": "web-ui-plugin-manager",
-			"@linxin666/dsh-client-ui-market": "web-ui-market",
-			"@linxin666/dsh-client-ui-task-board": "web-ui-task-board",
-			"@linxin666/dsh-client-ui-git-graph": "web-ui-git-graph",
-			"@linxin666/dsh-remote-web-ui": "web-ui-remote-web-ui",
-			"@linxin666/dsh-pet": "web-ui-pet",
-			"@linxin666/dsh-ssh": "web-ui-ssh",
-			"@linxin666/dsh-tool-describe-image": "web-ui-tool-describe-image",
-			"@linxin666/dsh-client-ui-skill-explorer": "web-ui-skill-explorer",
-			"@linxin666/dsh-doctor": "web-ui-doctor",
-			"@linxin666/dsh-usage": "web-ui-usage",
-			"@linxin666/dsh-session-archive": "web-ui-session-archive",
-			"@linxin666/dsh-client-ui-skin-center": "web-ui-skin-center",
-			"@linxin666/dsh-liangshen": "web-ui-liangshen"
-		};
-		/** Active entry ids and names in the browser boot payload. */
-		function activeBootEntryIds() {
+		/** Package ids the loader already serves a client bundle for. */
+		function ownClientEntryIds() {
 			const boot = globalThis.__DSH_BOOT__;
-			if (boot === void 0 || !Array.isArray(boot.entries)) return {
-				active: /* @__PURE__ */ new Set(),
-				hasBootEntries: false
-			};
-			const active = /* @__PURE__ */ new Set();
-			for (const entry of boot.entries) {
-				if (entry?.disabled === true) continue;
-				if (typeof entry?.id === "string" && entry.id.trim() !== "") active.add(entry.id.trim());
-				if (typeof entry?.name === "string" && entry.name.trim() !== "") active.add(entry.name.trim());
-			}
-			return {
-				active,
-				hasBootEntries: true
-			};
+			const ids = /* @__PURE__ */ new Set();
+			for (const entry of boot?.entries ?? []) if (typeof entry?.id === "string") ids.add(entry.id);
+			return ids;
 		}
 		function mountedRegistry() {
 			const registry = globalThis;
@@ -52263,17 +52234,10 @@ window.__ModuleLoader__.load({
 		}
 		/** Mount every generated family child that has no client bundle of its own. */
 		function mountClientChildren(ctx) {
-			const { active, hasBootEntries } = activeBootEntryIds();
+			const own = ownClientEntryIds();
 			const registry = mountedRegistry();
 			for (const child of clientChildren) {
-				if (hasBootEntries) {
-					if (active.has(child.name)) continue;
-					const rowId = CHILD_ROW_IDS[child.name];
-					if (rowId !== void 0) {
-						const subpathName = `@linxin666/dsh-web-all/${rowId.replace(/^web-ui-/, "")}`;
-						if (!active.has(rowId) && !active.has(subpathName)) continue;
-					}
-				}
+				if (own.has(child.name)) continue;
 				if (registry.has(child.name)) continue;
 				registry.add(child.name);
 				const mod = child.module;

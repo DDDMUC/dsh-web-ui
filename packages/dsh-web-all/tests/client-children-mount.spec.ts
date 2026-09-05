@@ -33,7 +33,7 @@ function fakeCtx(outcomes: Record<string, 'ok' | 'reject' | 'throw'> = {}) {
   return { ctx: ctx as never, mounted }
 }
 
-function bootWith(entries: Array<string | { id?: string; name?: string; disabled?: boolean }>): void {
+function bootWith(entries: Array<string | { id?: string }>): void {
   vi.stubGlobal('__DSH_BOOT__', {
     entries: entries.map((entry) => typeof entry === 'string' ? { id: entry } : entry),
   })
@@ -54,7 +54,11 @@ describe('mountClientChildren', () => {
     bootWith(['@linxin666/fake-own-entry'])
     const { ctx, mounted } = fakeCtx()
     mountClientChildren(ctx)
-    expect(mounted.map((def) => def.name)).toEqual(['@linxin666/fake-mounts', '@linxin666/fake-sync-throw'])
+    expect(mounted.map((def) => def.name)).toEqual([
+      '@linxin666/fake-mounts',
+      '@linxin666/fake-sync-throw',
+      '@linxin666/dsh-client-ui-plugin-manager',
+    ])
     expect(mounted[0].inject).toEqual([])
   })
 
@@ -64,36 +68,30 @@ describe('mountClientChildren', () => {
     expect(mounted).toHaveLength(4) // every child except the no-apply shape
   })
 
-  it('gates known child rows based on active boot entries (#1372)', () => {
-    // 1. When child row is not in entries, its client UI is not mounted
-    bootWith(['web-ui-settings'])
-    const { ctx: ctx1, mounted: mounted1 } = fakeCtx()
-    mountClientChildren(ctx1)
-    expect(mounted1.some(def => def.name === '@linxin666/dsh-client-ui-plugin-manager')).toBe(false)
-
-    // Reset mount registry for next run
-    delete (globalThis as Record<symbol, unknown>)[MOUNTED_PLUGINS]
-
-    // 2. When child row is explicitly disabled in entries, it is skipped
-    bootWith([{ id: 'web-ui-plugin-manager', disabled: true }])
-    const { ctx: ctx2, mounted: mounted2 } = fakeCtx()
-    mountClientChildren(ctx2)
-    expect(mounted2.some(def => def.name === '@linxin666/dsh-client-ui-plugin-manager')).toBe(false)
-
-    delete (globalThis as Record<symbol, unknown>)[MOUNTED_PLUGINS]
-
-    // 3. When child row is active, it mounts normally
-    bootWith(['web-ui-plugin-manager'])
-    const { ctx: ctx3, mounted: mounted3 } = fakeCtx()
-    mountClientChildren(ctx3)
-    expect(mounted3.some(def => def.name === '@linxin666/dsh-client-ui-plugin-manager')).toBe(true)
+  it('mounts family children under the real aggregate boot graph (#1372 regression)', () => {
+    // Real host wire shape: boot entries are client-bundle graph rows whose ids
+    // are package names (graphRow). Patch row ids like `web-ui-plugin-manager`
+    // never appear, so the children must mount despite a fully-populated graph.
+    bootWith([
+      { id: '@deepseek-ai/dsh-client-modules' },
+      { id: '@linxin666/dsh-web-all' },
+      { id: '@linxin666/dsh-perf' },
+    ])
+    const { ctx, mounted } = fakeCtx()
+    mountClientChildren(ctx)
+    expect(mounted.some((def) => def.name === '@linxin666/dsh-client-ui-plugin-manager')).toBe(true)
+    expect(mounted).toHaveLength(4) // every child except the no-apply shape
   })
 
   it('keeps mounting siblings when one child throws synchronously', () => {
     bootWith([])
     const { ctx, mounted } = fakeCtx({ '@linxin666/fake-mounts': 'throw' })
     expect(() => mountClientChildren(ctx)).not.toThrow()
-    expect(mounted.map((def) => def.name)).toEqual(['@linxin666/fake-own-entry', '@linxin666/fake-sync-throw'])
+    expect(mounted.map((def) => def.name)).toEqual([
+      '@linxin666/fake-own-entry',
+      '@linxin666/fake-sync-throw',
+      '@linxin666/dsh-client-ui-plugin-manager',
+    ])
     expect(console.error).toHaveBeenCalledTimes(2) // the throw + the no-apply shape
   })
 
@@ -101,7 +99,11 @@ describe('mountClientChildren', () => {
     bootWith([])
     const { ctx, mounted } = fakeCtx({ '@linxin666/fake-sync-throw': 'reject' })
     mountClientChildren(ctx)
-    expect(mounted.map((def) => def.name)).toEqual(['@linxin666/fake-own-entry', '@linxin666/fake-mounts'])
+    expect(mounted.map((def) => def.name)).toEqual([
+      '@linxin666/fake-own-entry',
+      '@linxin666/fake-mounts',
+      '@linxin666/dsh-client-ui-plugin-manager',
+    ])
     await new Promise<void>((resolve) => { setTimeout(resolve, 0) })
     expect(console.error).toHaveBeenCalledWith(
       '[dsh-web-all] client child degraded: @linxin666/fake-sync-throw',
@@ -114,6 +116,10 @@ describe('mountClientChildren', () => {
     ;(globalThis as Record<symbol, unknown>)[MOUNTED_PLUGINS] = new Set(['@linxin666/fake-mounts'])
     const { ctx, mounted } = fakeCtx()
     mountClientChildren(ctx)
-    expect(mounted.map((def) => def.name)).toEqual(['@linxin666/fake-own-entry', '@linxin666/fake-sync-throw'])
+    expect(mounted.map((def) => def.name)).toEqual([
+      '@linxin666/fake-own-entry',
+      '@linxin666/fake-sync-throw',
+      '@linxin666/dsh-client-ui-plugin-manager',
+    ])
   })
 })

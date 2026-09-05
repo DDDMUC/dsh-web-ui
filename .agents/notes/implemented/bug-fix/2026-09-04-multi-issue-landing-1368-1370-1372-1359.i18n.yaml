@@ -1,6 +1,5 @@
 # Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   node scripts/verify-docs.mjs --write <dir>
-2026-09-04-multi-issue-landing-1368-1370-1372-1359.md: 7714a93d2cd9c407ed50f1605b8d114190ca95cb
-2026-09-04-multi-issue-landing-1368-1370-1372-1359.zh.md: b27855cc18555fba399a98a24093acba2ff9d786
+# after editing either side, bring the other along and re-record with git hash-object.
+.agents/notes/implemented/bug-fix/2026-09-04-multi-issue-landing-1368-1370-1372-1359.md: 71bc9673a9a6f1eb49534e25b23f0fa9c5790b8e
+.agents/notes/implemented/bug-fix/2026-09-04-multi-issue-landing-1368-1370-1372-1359.zh.md: 6d68630d90bd8d12317bfbd096d04239801b1d50
