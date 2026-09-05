@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   extractSkinBackgroundUserLayer,
+  initialSkinBackgroundReconcileState,
+  reconcileSkinBackgroundPublication,
   reconcileSkinBackgroundScope,
   serializeSkinBackgroundUserLayer,
   skinBackgroundUserPatch,
@@ -135,3 +137,46 @@ describe('scope replay protection (#1109, #1107)', () => {
   })
 })
 
+describe('boot document sync gate (#1375)', () => {
+  const staleZeros = {
+    backgroundOpacity: 0,
+    backgroundBlurEmpty: 0,
+    backgroundBlurContent: 0,
+    inputCardBlur: 0,
+    bubbleOpacity: 0,
+  }
+
+  it('never merges a boot document that lands before the v2 GET completes', () => {
+    let state = initialSkinBackgroundReconcileState({ revision: undefined, user: undefined })
+    const docLands = reconcileSkinBackgroundPublication(state, current, { revision: 7, user: staleZeros })
+    expect(docLands.patch).toBeNull()
+    state = { ...docLands.state, v2Loaded: true }
+    // GET completion re-runs the reconcile with the same snapshot on the wire.
+    const afterLoad = reconcileSkinBackgroundPublication(state, current, { revision: 7, user: staleZeros })
+    expect(afterLoad.patch).toBeNull()
+  })
+
+  it('ignores a boot document that lands after the v2 GET completed', () => {
+    let state = initialSkinBackgroundReconcileState({ revision: undefined, user: undefined })
+    state = {
+      ...reconcileSkinBackgroundPublication(state, current, { revision: undefined, user: undefined }).state,
+      v2Loaded: true,
+    }
+    const docLands = reconcileSkinBackgroundPublication(state, current, { revision: 7, user: staleZeros })
+    expect(docLands.patch).toBeNull()
+    // WS replay of the same document with a bumped revision stays rejected.
+    const replay = reconcileSkinBackgroundPublication(docLands.state, current, { revision: 9, user: staleZeros })
+    expect(replay.patch).toBeNull()
+  })
+
+  it('still merges genuine settings-page edits after the boot sync', () => {
+    let state = initialSkinBackgroundReconcileState({ revision: undefined, user: undefined })
+    state = {
+      ...reconcileSkinBackgroundPublication(state, current, { revision: undefined, user: undefined }).state,
+      v2Loaded: true,
+    }
+    state = reconcileSkinBackgroundPublication(state, current, { revision: 7, user: staleZeros }).state
+    const edit = reconcileSkinBackgroundPublication(state, current, { revision: 8, user: { backgroundBlurEmpty: 4 } })
+    expect(edit.patch).toEqual({ backgroundBlurEmpty: 4 })
+  })
+})

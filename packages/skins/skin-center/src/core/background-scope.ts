@@ -65,6 +65,70 @@ export function serializeSkinBackgroundUserLayer(user: unknown): string {
 }
 
 /**
+ * Full reconciliation state the browser glue keeps across scope publications.
+ * It adds boot ordering to the revision/content fence so the settings
+ * document's initial sync can never be mistaken for a settings-page edit
+ * (#1375): a legacy user layer carrying stale explicit values (zeros written
+ * by the pre-#1107 bug family) would otherwise patch — and persist over — the
+ * authoritative v2 state on every boot where the document and the v2 GET
+ * finish in the unlucky order.
+ */
+export interface SkinBackgroundReconcileState {
+  /** Whether the authoritative v2 GET has completed and applied its values. */
+  v2Loaded: boolean
+  /** Whether the one-shot boot document sync (first revisioned publication) was consumed. */
+  bootSyncSeen: boolean
+  /** Last namespace revision seen (published, or seeded at construction). */
+  lastRevision: number | undefined
+  /** Serialized user layer seen last, for content-based replay dedup. */
+  lastUserJson: string
+}
+
+/** Seed the reconcile state from the scope snapshot visible at construction. */
+export function initialSkinBackgroundReconcileState(
+  snapshot: SkinBackgroundScopeSnapshot,
+): SkinBackgroundReconcileState {
+  return {
+    v2Loaded: false,
+    bootSyncSeen: false,
+    lastRevision: snapshot.revision,
+    lastUserJson: serializeSkinBackgroundUserLayer(snapshot.user),
+  }
+}
+
+/**
+ * Fold one scope publication into the reconcile state and produce the v2-safe
+ * patch to merge into the live background values (null = nothing to apply).
+ *
+ * The boot document never merges, whichever order it lands in:
+ *  - a publication seen before the v2 GET completes is only recorded, so the
+ *    post-load check reads it as the unchanged boot snapshot, not an edit;
+ *  - the first revisioned publication of the plugin's lifetime (the document
+ *    resync itself) is consumed as the boot sync even when it lands after the
+ *    GET, because a genuine settings-page edit can only follow the document.
+ */
+export function reconcileSkinBackgroundPublication(
+  state: SkinBackgroundReconcileState,
+  current: SkinBackgroundConfig,
+  snapshot: SkinBackgroundScopeSnapshot,
+): { state: SkinBackgroundReconcileState; patch: SkinBackgroundConfig | null } {
+  const seen: SkinBackgroundReconcileState = {
+    ...state,
+    lastRevision: snapshot.revision ?? state.lastRevision,
+    lastUserJson: serializeSkinBackgroundUserLayer(snapshot.user),
+  }
+  if (!state.v2Loaded) return { state: seen, patch: null }
+  if (!state.bootSyncSeen) {
+    return {
+      state: snapshot.revision === undefined ? seen : { ...seen, bootSyncSeen: true },
+      patch: null,
+    }
+  }
+  const result = reconcileSkinBackgroundScope(current, snapshot, state.lastRevision, state.lastUserJson)
+  return { state: seen, patch: result.patch }
+}
+
+/**
  * Accept a scope publication only when its namespace revision is new AND the
  * user layer has actually changed. A revision bump with identical user-layer
  * content is a replay (settings-mirror resync, WS reconnect, or another

@@ -29,7 +29,7 @@ import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { SkinCenterSection, type SkinCenterInjected } from './SkinCenter.tsx'
 import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
 import type { SkinBackgroundConfig } from '../core/background.ts'
-import { reconcileSkinBackgroundScope, serializeSkinBackgroundUserLayer } from '../core/background-scope.ts'
+import { initialSkinBackgroundReconcileState, reconcileSkinBackgroundPublication } from '../core/background-scope.ts'
 import { SKIN_WALLPAPER_NS, WallpaperController, installBootRestore } from './wallpaper.ts'
 import { en, zh, type SkinCenterKey } from './locales.ts'
 import { bootSkinRuntime } from './runtime/boot.ts'
@@ -157,31 +157,23 @@ export function apply(ctx: ClientContext): void {
     if (value === undefined || value === null) return null
     return value
   }
-  let v2Loaded = false
-  // Scope revision fences unrelated settings-document publications. Seed it
-  // from the first view so the initial mirror publication is not mistaken for
-  // a user edit after the v2 fetch completes.
-  let lastScopeRevision: number | undefined = backgroundScope.getSnapshot().revision
-  // Content-based dedup: a revision bump with identical user-layer content is
-  // a replay (WS reconnect, mirror resync, or another plugin writing to the
-  // global settings document) and must not overwrite the authoritative v2
-  // state (#1109, #1107).
-  let lastUserJson: string = serializeSkinBackgroundUserLayer(backgroundScope.getSnapshot().user)
   const background = new BackgroundController(scopeConfig(), persistBackground)
+  // Reconcile state for the legacy scope (revision + user-layer fence, plus
+  // the boot-sync gate #1375): the settings document's initial sync must never
+  // be mistaken for a settings-page edit, whichever order it and the v2 GET
+  // land in — stale legacy user-layer fields (e.g. zeros left by the pre-#1107
+  // bugs) would otherwise patch and persist over the authoritative v2 state.
+  let reconcileState = initialSkinBackgroundReconcileState(backgroundScope.getSnapshot())
   const reconcileScope = (): void => {
-    if (!v2Loaded) return
-    const snapshot = backgroundScope.getSnapshot()
-    const result = reconcileSkinBackgroundScope(
+    const result = reconcileSkinBackgroundPublication(
+      reconcileState,
       background.snapshot(),
-      { revision: snapshot.revision, user: snapshot.user },
-      lastScopeRevision,
-      lastUserJson,
+      backgroundScope.getSnapshot(),
     )
-    lastScopeRevision = result.revision
-    lastUserJson = result.lastUserJson
-    if (!result.accepted || result.patch === null) return
-    const current = background.snapshot()
-    background.init({ ...current, ...result.patch })
+    reconcileState = result.state
+    if (result.patch === null) return
+    const currentSnapshot = background.snapshot()
+    background.init({ ...currentSnapshot, ...result.patch })
     persistBackground(background.snapshot())
   }
   // Refetch the authoritative v2 state once booted; it wins over the scope
@@ -189,14 +181,14 @@ export function apply(ctx: ClientContext): void {
   void fetch(V2_ACTIVE_URL)
     .then((res) => (res.ok ? res.json() as Promise<{ background?: SkinBackgroundConfig | null }> : null))
     .then((body) => {
-      v2Loaded = true
+      reconcileState = { ...reconcileState, v2Loaded: true }
       if (body?.background) background.init(body.background)
       // Reconcile only a scope revision that changed while the v2 state was
       // loading; an unchanged revision is the legacy boot snapshot.
       reconcileScope()
     })
     .catch(() => {
-      v2Loaded = true
+      reconcileState = { ...reconcileState, v2Loaded: true }
       reconcileScope()
     })
   // Settings-page edits arrive through the scope publish. The settings mirror

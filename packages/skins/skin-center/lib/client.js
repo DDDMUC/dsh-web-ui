@@ -3365,6 +3365,48 @@ window.__ModuleLoader__.load({
 			const extracted = extractSkinBackgroundUserLayer(user);
 			return extracted === null ? "" : JSON.stringify(extracted);
 		}
+		/** Seed the reconcile state from the scope snapshot visible at construction. */
+		function initialSkinBackgroundReconcileState(snapshot) {
+			return {
+				v2Loaded: false,
+				bootSyncSeen: false,
+				lastRevision: snapshot.revision,
+				lastUserJson: serializeSkinBackgroundUserLayer(snapshot.user)
+			};
+		}
+		/**
+		* Fold one scope publication into the reconcile state and produce the v2-safe
+		* patch to merge into the live background values (null = nothing to apply).
+		*
+		* The boot document never merges, whichever order it lands in:
+		*  - a publication seen before the v2 GET completes is only recorded, so the
+		*    post-load check reads it as the unchanged boot snapshot, not an edit;
+		*  - the first revisioned publication of the plugin's lifetime (the document
+		*    resync itself) is consumed as the boot sync even when it lands after the
+		*    GET, because a genuine settings-page edit can only follow the document.
+		*/
+		function reconcileSkinBackgroundPublication(state, current, snapshot) {
+			const seen = {
+				...state,
+				lastRevision: snapshot.revision ?? state.lastRevision,
+				lastUserJson: serializeSkinBackgroundUserLayer(snapshot.user)
+			};
+			if (!state.v2Loaded) return {
+				state: seen,
+				patch: null
+			};
+			if (!state.bootSyncSeen) return {
+				state: snapshot.revision === void 0 ? seen : {
+					...seen,
+					bootSyncSeen: true
+				},
+				patch: null
+			};
+			return {
+				state: seen,
+				patch: reconcileSkinBackgroundScope(current, snapshot, state.lastRevision, state.lastUserJson).patch
+			};
+		}
 		/**
 		* Accept a scope publication only when its namespace revision is new AND the
 		* user layer has actually changed. A revision bump with identical user-layer
@@ -5121,33 +5163,31 @@ window.__ModuleLoader__.load({
 				if (value === void 0 || value === null) return null;
 				return value;
 			};
-			let v2Loaded = false;
-			let lastScopeRevision = backgroundScope.getSnapshot().revision;
-			let lastUserJson = serializeSkinBackgroundUserLayer(backgroundScope.getSnapshot().user);
 			const background = new BackgroundController(scopeConfig(), persistBackground);
+			let reconcileState = initialSkinBackgroundReconcileState(backgroundScope.getSnapshot());
 			const reconcileScope = () => {
-				if (!v2Loaded) return;
-				const snapshot = backgroundScope.getSnapshot();
-				const result = reconcileSkinBackgroundScope(background.snapshot(), {
-					revision: snapshot.revision,
-					user: snapshot.user
-				}, lastScopeRevision, lastUserJson);
-				lastScopeRevision = result.revision;
-				lastUserJson = result.lastUserJson;
-				if (!result.accepted || result.patch === null) return;
-				const current = background.snapshot();
+				const result = reconcileSkinBackgroundPublication(reconcileState, background.snapshot(), backgroundScope.getSnapshot());
+				reconcileState = result.state;
+				if (result.patch === null) return;
+				const currentSnapshot = background.snapshot();
 				background.init({
-					...current,
+					...currentSnapshot,
 					...result.patch
 				});
 				persistBackground(background.snapshot());
 			};
 			fetch(V2_ACTIVE_URL).then((res) => res.ok ? res.json() : null).then((body) => {
-				v2Loaded = true;
+				reconcileState = {
+					...reconcileState,
+					v2Loaded: true
+				};
 				if (body?.background) background.init(body.background);
 				reconcileScope();
 			}).catch(() => {
-				v2Loaded = true;
+				reconcileState = {
+					...reconcileState,
+					v2Loaded: true
+				};
 				reconcileScope();
 			});
 			ctx.effect(() => backgroundScope.subscribe(reconcileScope), "ui-skin-center: background scope sync");
