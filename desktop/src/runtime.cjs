@@ -359,8 +359,12 @@ async function waitForGui(port, options) {
   }
 }
 
-/** The host prints its tokenized GUI URL on this stdout line. */
-const TOKEN_URL_PATTERN = /^dsh web: (\S+)$/;
+/**
+ * The host prints its tokenized GUI URL on this stdout line. A non-loopback
+ * bind makes the host append a ` (LAN: …)` suffix (#1377), so the suffix is
+ * optional here; the line anchor stays so only full URL lines match.
+ */
+const TOKEN_URL_PATTERN = /^dsh web: (\S+)(?: \(LAN: \S+\))?$/;
 
 /**
  * Extract the tokenized GUI URL from one host stdout line, if any.

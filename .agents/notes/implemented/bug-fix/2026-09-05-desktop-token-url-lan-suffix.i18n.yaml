@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-09-05-desktop-token-url-lan-suffix.md: 79a475624efd97292d37510df204d2d1e7ca82f8
+2026-09-05-desktop-token-url-lan-suffix.zh.md: ee0d1537c717de4b06dfd6753f9bec925287484d

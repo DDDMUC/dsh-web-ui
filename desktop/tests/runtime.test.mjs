@@ -132,6 +132,14 @@ test('parseTokenUrlLine extracts the host token URL', () => {
   assert.equal(parseTokenUrlLine('[desktop] boot failed'), undefined);
 });
 
+test('parseTokenUrlLine accepts the LAN suffix a non-loopback bind prints (#1377)', () => {
+  assert.equal(
+    parseTokenUrlLine('dsh web: http://127.0.0.1:3082/?token=abc-DEF_123 (LAN: http://169.254.10.2:3082/?token=abc-DEF_123)'),
+    'http://127.0.0.1:3082/?token=abc-DEF_123');
+  // A truncated suffix is not a full URL line: keep the fallback path.
+  assert.equal(parseTokenUrlLine('dsh web: http://127.0.0.1:3082/?token=x (LAN:'), undefined);
+});
+
 test('the reserved set is exactly the plain dsh web CLI defaults', () => {
   assert.deepEqual([...RESERVED_PORTS].sort((a, b) => a - b), [3080, 3081]);
   assert.equal(DESKTOP_PORT_BASE, 3082);
