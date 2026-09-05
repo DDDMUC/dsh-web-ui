@@ -16,6 +16,8 @@ export const ru: Record<string, string> = {
   'pet.gameplay.menu': 'Играть',
   'pet.gameplay.prize': 'Выигрыш: +{amount} {currency}',
   'pet.gameplay.shop': 'Магазин',
+  'pet.gameplay.skin': 'Скин',
+  'pet.gameplay.skinDefault': 'По умолчанию',
   'pet.gameplay.sleep': 'Спать',
   'pet.gameplay.sleeping': 'Спит',
   'pet.gameplay.stat.affection': 'Привязанность',
