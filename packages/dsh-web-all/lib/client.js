@@ -17968,12 +17968,14 @@ window.__ModuleLoader__.load({
 			(0, react.useEffect)(() => {
 				const sleep = def?.sleep;
 				if (def === void 0 || sleep === void 0 || view?.mode !== "sleep") return void 0;
-				bus.setTrack?.(sleep.state);
+				const hold = (definition.frames2d?.skins?.find((skin) => skin.id === skinIdRef.current)?.gameplayTracks)?.["sleep"] ?? sleep.state;
+				bus.setTrack?.(hold);
 				return () => bus.setTrack?.(void 0);
 			}, [
 				definition.id,
 				def,
-				view?.mode
+				view?.mode,
+				skinId
 			]);
 			if (def === void 0 || view === void 0) return null;
 			const mode = view.mode;
@@ -18585,11 +18587,21 @@ window.__ModuleLoader__.load({
 						}
 						if (kept.length > 0) clickActions = kept;
 					}
+					let gameplayTracks;
+					if (isRecord$2(skin.gameplayTracks)) {
+						const kept = {};
+						for (const [state, trackName] of Object.entries(skin.gameplayTracks)) {
+							if (typeof trackName !== "string" || trackName === "" || tracks[trackName] === void 0) continue;
+							kept[state] = trackName;
+						}
+						if (Object.keys(kept).length > 0) gameplayTracks = kept;
+					}
 					resolved.push({
 						id: skin.id,
 						label: skin.label,
 						idleTrack: skin.idleTrack,
-						...clickActions === void 0 ? {} : { clickActions }
+						...clickActions === void 0 ? {} : { clickActions },
+						...gameplayTracks === void 0 ? {} : { gameplayTracks }
 					});
 				}
 				if (resolved.length > 0) skins = resolved;
@@ -19981,7 +19993,7 @@ window.__ModuleLoader__.load({
 			"pet.gameplay.menu": "玩法",
 			"pet.gameplay.work": "打工",
 			"pet.gameplay.stopWork": "收工",
-			"pet.gameplay.sleep": "睡觉",
+			"pet.gameplay.sleep": "休息",
 			"pet.gameplay.wake": "起床",
 			"pet.gameplay.shop": "商店",
 			"pet.gameplay.skin": "皮肤",
