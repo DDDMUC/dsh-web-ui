@@ -5,6 +5,10 @@ name: Desktop release
 # for release.yml to create the Release first) and can be dispatched to
 # (re)build assets for an existing tag; the optional ref input lets a
 # dispatched run build a newer desktop tree than the tag itself.
+#
+# A windows-latest job boots the staged win-x64 payload first (bundled node +
+# dsh host + GUI probe); the mac packaging job needs it, so a Windows boot
+# failure stops the installers from reaching the release.
 
 on:
   workflow_dispatch:
@@ -29,8 +33,108 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Real Windows execution evidence before installers are built: stage the
+  # same payload the mac job packages, then boot the bundled node.exe + dsh
+  # host on an empty scratch DSH_HOME and probe the GUI. The mac job cannot
+  # execute the win payload (presence checks only), so this gate is what
+  # proves the zero-tooling claim on Windows.
+  windows-smoke:
+    name: Windows payload boot smoke
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      DSH_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Resolve release tag and checkout ref
+        id: resolve
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_REF: ${{ github.event.inputs.ref }}
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${{ github.ref_name }}"
+            ref="${{ github.ref }}"
+          else
+            tag="$INPUT_TAG"
+            ref="$INPUT_REF"
+            if [ -z "$ref" ]; then ref="$tag"; fi
+          fi
+          case "$tag" in
+            v*) ;;
+            *) echo "tag must look like vX.Y.Z, got: $tag" >&2; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.resolve.outputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Stage the bundled runtime payload
+        working-directory: desktop
+        run: npm run prepare-runtime
+        shell: bash
+
+      # PATH resolves the staged win-x64 distribution first, so node, npm,
+      # and pnpm below run from inside the payload that ships to users.
+      - name: Smoke-check the bundled toolchain
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -eu
+          export PATH="$PWD/resources/runtime/node-win-x64:$PATH"
+          echo "node: $(command -v node) $(node --version)"
+          echo "npm: $(command -v npm) $(npm --version)"
+          echo "pnpm: $(command -v pnpm) $(pnpm --version)"
+
+      - name: Boot the staged host and probe the GUI
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -eu
+          NODE="$PWD/resources/runtime/node-win-x64/node.exe"
+          HOST="$PWD/resources/runtime/host/node_modules/@deepseek-ai/dsh/lib/bin.js"
+          SMOKE_HOME="$RUNNER_TEMP/dsh-smoke-home"
+          SMOKE_PORT=3987
+          rm -rf "$SMOKE_HOME"
+          mkdir -p "$SMOKE_HOME"
+          DSH_HOME="$SMOKE_HOME" "$NODE" "$HOST" --version
+          DSH_HOME="$SMOKE_HOME" "$NODE" "$HOST" web --no-open --host 127.0.0.1 --port "$SMOKE_PORT" \
+            > "$SMOKE_HOME/host.log" 2>&1 &
+          HOST_PID=$!
+          for i in $(seq 1 120); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SMOKE_PORT/" || true)
+            if [ "$code" != "000" ] && [ -n "$code" ] && [ "$code" -lt 500 ]; then
+              echo "the GUI answers with HTTP $code after ${i}s"
+              kill "$HOST_PID" 2>/dev/null || true
+              exit 0
+            fi
+            if ! kill -0 "$HOST_PID" 2>/dev/null; then
+              echo "the host exited before the GUI became ready" >&2
+              tail -40 "$SMOKE_HOME/host.log" >&2 || true
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "the GUI did not answer within 120s" >&2
+          tail -40 "$SMOKE_HOME/host.log" >&2 || true
+          kill "$HOST_PID" 2>/dev/null || true
+          exit 1
+
   desktop:
     name: Package desktop app
+    needs: windows-smoke
     runs-on: macos-latest
     timeout-minutes: 60
 

@@ -68,6 +68,11 @@ jobs:
       - name: Script tests
         run: pnpm test:scripts
 
+      # The desktop payload helpers live outside the pnpm workspace; their
+      # unit tests only need Node builtins.
+      - name: Desktop runtime unit tests
+        run: pnpm test:desktop
+
       - name: Runtime dependency check
         run: pnpm runtime-deps:check
 
@@ -121,6 +126,24 @@ jobs:
 
       - name: Documentation consistency
         run: pnpm docs:check
+
+  # The desktop helpers encode win32 semantics (Path/PATH case variants,
+  # NTFS junctions, Windows tmpdir layouts) that only a real Windows runner
+  # exercises; the suite itself needs nothing but Node builtins.
+  desktop-windows:
+    name: Desktop unit tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Desktop runtime unit tests
+        run: node --test desktop/tests/*.test.mjs
+        shell: bash
 
   # Pack the aggregate bundle as an npm tarball, mount it into a REAL DSH
   # instance through the official `dsh plugin --profile web add` channel, and

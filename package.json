@@ -19,6 +19,7 @@
     "build": "pnpm -r build",
     "dev:watch": "node scripts/dev-watch.mjs",
     "test": "pnpm -r test",
+    "test:desktop": "node --test desktop/tests/*.test.mjs",
     "typecheck": "pnpm -r typecheck",
     "aggregate:check": "node scripts/aggregate.mjs --check",
     "skin-center:check": "node scripts/skin-center-catalog-check --check",
