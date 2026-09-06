@@ -16346,15 +16346,14 @@ window.__ModuleLoader__.load({
 		* sidebar-foot entry (phone trigger + pairing panel + update trigger), and
 		* the pair boot flow (accept + presence heartbeats) plus the one-time
 		* failed-pair notice. The portrait-touch adaptation of the official UI
-		* starts at module scope (startMobileAdapt) so its focus guard is installed
-		* before the app boots. Export discipline: packages/client/AGENTS.md — the
+		* starts under the plugin lifecycle (startMobileAdapt inside apply) and reverts
+		* on dispose, so disabled plugin entries stay inert. Export discipline: packages/client/AGENTS.md — the
 		* /client surface carries only what cordis loading needs plus types.
 		*/
 		var client_exports$8 = /* @__PURE__ */ __exportAll({
 			apply: () => apply$9,
 			inject: () => inject$9
 		});
-		startMobileAdapt();
 		/** Dictionary namespace owned by this plugin. */
 		const NS$7 = "remote";
 		/** Settings namespace the remote-control card edits (the Host plugin registers it). */
@@ -16374,6 +16373,10 @@ window.__ModuleLoader__.load({
 		* @param ctx - client root context.
 		*/
 		function apply$9(ctx) {
+			startMobileAdapt();
+			ctx.effect(() => () => {
+				window.__dshRemoteAdapt?.setEnabled?.(false);
+			}, "remote-web-ui: mobile-adapt");
 			reportDailyHeartbeat$6([{ name: "@linxin666/dsh-remote-web-ui" }]);
 			ctx.effect(() => {
 				try {

@@ -59,9 +59,15 @@ function isOverrideShape(config) {
 	if (typeof config !== "object" || config === null) return false;
 	return Object.keys(config).length === 0 || !("plugin" in config);
 }
+/**
+* Known retired family plugins: stale rows from older user profiles mount as
+* silent no-ops so upgrading the aggregate package never breaks the host boot.
+*/
+const RETIRED_PLUGINS = /* @__PURE__ */ new Set(["@linxin666/dsh-perf", "@linxin666/dsh-desktop-launcher"]);
 /** Apply one shell entry: mount the configured real plugin behind an isolation boundary. */
 async function apply$1(ctx, config) {
 	const spec = config?.plugin;
+	if (typeof spec === "string" && RETIRED_PLUGINS.has(spec)) return;
 	if (typeof spec !== "string" || spec === "") {
 		if (isOverrideShape(config)) return;
 		recordDegraded("(no plugin)", "shape", /* @__PURE__ */ new Error(`shell row config is missing the "plugin" package name (row config: ${JSON.stringify(config ?? null)}); the entry mounted empty`));

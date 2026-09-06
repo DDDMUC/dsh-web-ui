@@ -123,8 +123,8 @@ function shellSubpath(id) {
 }
 
 /** Family subpaths of one aggregate, deduped and sorted for exports emission. */
-function collectShellSubpaths(blocks) {
-  const subs = new Set()
+function collectShellSubpaths(blocks, tombstones = []) {
+  const subs = new Set(tombstones)
   for (const block of blocks) {
     if (block.entry === 'self' || SHELL_EXEMPT.has(block.entry)) continue
     for (const row of block.rows) {
@@ -179,7 +179,7 @@ function findAggregates() {
  * while the generator can JSON.parse each entry).
  */
 function parseManifest(ymlPath, errors) {
-  const manifest = { patchFrom: [], deps: [], self: null, rows: [], patches: [] }
+  const manifest = { patchFrom: [], deps: [], self: null, rows: [], patches: [], tombstones: [] }
   let section = null
   for (const raw of readFileSync(ymlPath, 'utf8').split(/\r?\n/)) {
     const line = raw.trim()
@@ -200,6 +200,7 @@ function parseManifest(ymlPath, errors) {
     const entry = entryMatch[1].trim().replace(/\s+#.*$/, '')
     if (section === 'patchFrom') manifest.patchFrom.push(entry)
     else if (section === 'deps') manifest.deps.push(entry)
+    else if (section === 'tombstones') manifest.tombstones.push(entry)
     else if (section === 'rows') {
       let parsed
       try {
@@ -870,7 +871,7 @@ for (const { pkgDir, ymlPath } of aggregates) {
   if (manifest.patchFrom.length === 0 && !manifest.self) {
     console.log(`[aggregate] WARN ${rel}: aggregate.yml has no patchFrom entries (patch would be empty)`)
   }
-  const shellSubpaths = collectShellSubpaths(blocks)
+  const shellSubpaths = collectShellSubpaths(blocks, manifest.tombstones)
   if (shellSubpaths.length > 0) validateShellFiles(pkgDir, rel, errors)
   const patch = renderPatch(blocks, manifest.rows, manifest.patches ?? [], errors, rel, pkgDir)
   const resolvedDeps = resolveEntries(pkgDir, manifest.deps, 'deps', errors)

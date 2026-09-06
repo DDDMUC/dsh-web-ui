@@ -93,6 +93,11 @@ describe('family subpath display names', () => {
     }
   })
 
+  it('retired family subpaths (tombstones) resolve to the shell re-export for backwards compatibility', () => {
+    expect(manifest.exports['./desktop-launcher']).toBe('./lib/shells/shell.js')
+    expect(manifest.exports['./dsh-perf']).toBe('./lib/shells/shell.js')
+  })
+
   it('the built shells face re-exports the main face apply (one degraded ledger)', async () => {
     const shells = (await import(join(PACKAGE_DIR, 'lib/shells/shell.js'))) as { apply: unknown }
     const main = (await import(join(PACKAGE_DIR, 'lib/shell.js'))) as { apply: unknown }

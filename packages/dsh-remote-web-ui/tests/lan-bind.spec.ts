@@ -101,4 +101,39 @@ describe('writeLanBind / lanBindState', () => {
     writeLanBind('0.0.0.0', 3080, 'web', home)
     expect(statSync(patch).mode & 0o777).toBe(0o600)
   })
+
+  it('strips empty array placeholder [] so cordis.patch.yml remains valid YAML', () => {
+    const home = tempHome()
+
+    // Case 1: only []
+    const patch1 = join(home, 'profiles', 'p1', 'cordis.patch.yml')
+    mkdirSync(join(home, 'profiles', 'p1'), { recursive: true })
+    writeFileSync(patch1, '[]\n')
+    writeLanBind('0.0.0.0', 3080, 'p1', home)
+    const content1 = readFileSync(patch1, 'utf8')
+    expect(content1).not.toContain('[]')
+    expect(content1.startsWith(LAN_BIND_BLOCK_BEGIN)).toBe(true)
+    expect(managedBindOf(content1)).toEqual({ host: '0.0.0.0', port: 3080 })
+
+    // Case 2: # comment followed by []
+    const patch2 = join(home, 'profiles', 'p2', 'cordis.patch.yml')
+    mkdirSync(join(home, 'profiles', 'p2'), { recursive: true })
+    writeFileSync(patch2, '# user patch\n[]\n')
+    writeLanBind('0.0.0.0', 3080, 'p2', home)
+    const content2 = readFileSync(patch2, 'utf8')
+    expect(content2).not.toContain('[]')
+    expect(content2).toContain('# user patch')
+    expect(managedBindOf(content2)).toEqual({ host: '0.0.0.0', port: 3080 })
+
+    // Case 3: existing entries followed by []
+    const patch3 = join(home, 'profiles', 'p3', 'cordis.patch.yml')
+    mkdirSync(join(home, 'profiles', 'p3'), { recursive: true })
+    writeFileSync(patch3, '- id: keep\n  config:\n    x: 1\n[]\n')
+    writeLanBind('0.0.0.0', 3080, 'p3', home)
+    const content3 = readFileSync(patch3, 'utf8')
+    expect(content3).not.toContain('[]')
+    expect(content3).toContain('- id: keep')
+    expect(managedBindOf(content3)).toEqual({ host: '0.0.0.0', port: 3080 })
+  })
 })
+

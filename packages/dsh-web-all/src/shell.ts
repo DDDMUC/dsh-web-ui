@@ -96,9 +96,22 @@ function isOverrideShape(config: ShellConfig | undefined): boolean {
   return keys.length === 0 || !('plugin' in config)
 }
 
+/**
+ * Known retired family plugins: stale rows from older user profiles mount as
+ * silent no-ops so upgrading the aggregate package never breaks the host boot.
+ */
+const RETIRED_PLUGINS = new Set([
+  '@linxin666/dsh-perf',
+  '@linxin666/dsh-desktop-launcher',
+])
+
 /** Apply one shell entry: mount the configured real plugin behind an isolation boundary. */
 export async function apply(ctx: Context, config: ShellConfig | undefined): Promise<void> {
   const spec = config?.plugin
+  if (typeof spec === 'string' && RETIRED_PLUGINS.has(spec)) {
+    // Stale row from an older profile whose plugin has been retired. Mount empty quietly.
+    return
+  }
   if (typeof spec !== 'string' || spec === '') {
     // Two legitimate shapes land here and must mount QUIETLY (no degraded
     // record, no throw — an async apply's rejection escapes the loader

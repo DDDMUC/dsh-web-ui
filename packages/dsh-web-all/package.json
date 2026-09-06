@@ -25,7 +25,9 @@
     "./skin-center": "./lib/shells/shell.js",
     "./ssh": "./lib/shells/shell.js",
     "./task-board": "./lib/shells/shell.js",
-    "./usage": "./lib/shells/shell.js"
+    "./usage": "./lib/shells/shell.js",
+    "./desktop-launcher": "./lib/shells/shell.js",
+    "./dsh-perf": "./lib/shells/shell.js"
   },
   "dsh": {
     "engines": {

@@ -3,8 +3,8 @@
  * sidebar-foot entry (phone trigger + pairing panel + update trigger), and
  * the pair boot flow (accept + presence heartbeats) plus the one-time
  * failed-pair notice. The portrait-touch adaptation of the official UI
- * starts at module scope (startMobileAdapt) so its focus guard is installed
- * before the app boots. Export discipline: packages/client/AGENTS.md — the
+ * starts under the plugin lifecycle (startMobileAdapt inside apply) and reverts
+ * on dispose, so disabled plugin entries stay inert. Export discipline: packages/client/AGENTS.md — the
  * /client surface carries only what cordis loading needs plus types.
  */
 import { createElement } from 'react'
@@ -40,11 +40,9 @@ import { FenceNotice } from './FenceNotice.tsx'
 import { reportDailyHeartbeat } from './telemetry.ts'
 import { startMobileAdapt, type RemoteAdaptGlobal } from './mobile-adapt.ts'
 
-// Portrait-touch adaptation of the official UI: installed at module scope so
-// the composer focus guard exists before any app entry mounts React. The
-// layer self-evaluates and reverts with the viewport; the plugin apply below
-// wires its toggleSidebar onto the official layout service.
-startMobileAdapt()
+// Portrait-touch adaptation of the official UI: installed under the plugin
+// lifecycle (apply) so disabling the plugin in cordis patch (disabled: true)
+// leaves the DOM untouched.
 
 export type { RemoteEntryProps } from './RemoteEntry.tsx'
 export type { PanelState, RemotePanelProps } from './RemotePanel.tsx'
@@ -117,6 +115,14 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  // Portrait-touch adaptation of the official UI: installed under the plugin
+  // lifecycle so disabling the plugin in cordis patch (disabled: true) never
+  // injects mobile CSS, gesture hooks, or the whale floating button.
+  startMobileAdapt()
+  ctx.effect(() => () => {
+    ;(window as unknown as { __dshRemoteAdapt?: RemoteAdaptGlobal }).__dshRemoteAdapt?.setEnabled?.(false)
+  }, 'remote-web-ui: mobile-adapt')
+
   // Anonymous install heartbeat (docs/telemetry.md): one beat per browser per
   // UTC day, package name only, silent failure.
   reportDailyHeartbeat([{ name: '@linxin666/dsh-remote-web-ui' }])

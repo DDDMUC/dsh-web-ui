@@ -135,8 +135,10 @@ export function writeLanBind(host: LanBindHost, port: number, profile: string, h
   const file = profilePatchFile(profile, home)
   const stripped = stripManagedBlock(readPatchContent(file))
   const orphanBegin = stripped.indexOf(LAN_BIND_BLOCK_BEGIN)
-  const base = (orphanBegin === -1 ? stripped : stripped.slice(0, orphanBegin)).trimEnd()
-  const content = `${base}\n\n${managedBlock(host, port)}`
+  const rawBase = (orphanBegin === -1 ? stripped : stripped.slice(0, orphanBegin)).trimEnd()
+  const base = rawBase.replace(/\[\s*\]\s*$/, '').trimEnd()
+  const block = managedBlock(host, port)
+  const content = base.length > 0 ? `${base}\n\n${block}` : block
   const mode = existsSync(file) ? statSync(file).mode & 0o777 : 0o600
   mkdirSync(dirname(file), { recursive: true })
   const temp = `${file}.remote-web-ui-tmp-${process.pid.toString(36)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`

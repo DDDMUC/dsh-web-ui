@@ -66,3 +66,7 @@ deps:
 # 1.0.7 仍 import 已移除面，上游发布 alpha.2 兼容版后按同法恢复。
 rows:
   - {"id": "better-sidebar", "name": "dsh-better-sidebar"}
+# 兼容退役子插件导出：避免老用户 profile 残留旧条目时 Node.js 抛出 ERR_PACKAGE_PATH_NOT_EXPORTED
+tombstones:
+  - desktop-launcher
+  - dsh-perf
