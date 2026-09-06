@@ -1,0 +1,29 @@
+# Agent Note: Maintenance run — linkdigest merge, jyn recheck, approval-gate playbook
+
+Status: implemented
+
+## Problem
+
+The assigned queue on 2026-09-06 held four open PRs: one fresh third-party plugin registration needing the mandatory utility/stability/compatibility review (#1379 dsh-linkdigest, no review yet), one feedback-update re-review (#1362 jyn pet, force-pushed with a third skin and a revert after the 2026-09-04 changes-requested review), and two registrations still parked on their authors (#1318 dsh-git-badge, #1321 dsh-memory). Beyond per-PR verdicts, the run had to clear the ruleset's required-check machinery for an external contributor PR whose CI had never reported on the current head.
+
+## Decision
+
+Processed against `origin/dev` (`c14a0fdf`), one mutable action at a time:
+
+- **#1379 (dsh-linkdigest) approved and merged — merge commit `ec706c5d`.** All three mandatory dimensions were evidenced before approval. Utility: the tokenised-social-link niche is unique among the 54 index entries (deepread covers WeChat articles/files, free-search is web search). Compatibility: the entry passes `node scripts/community-index --check` and `node scripts/market-build --check` on the PR tree; the bundle's config keys (`transport: streamable-http`, `serverName`, `url`, `headers`, `toolCallTimeoutMs`) were verified against the installed `@deepseek-ai/dsh-mcp-client` type definitions, and `failOnStartupError` defaults to false, so a dead remote degrades one plugin instead of blocking host boot. Stability: the plugin is a zero-dependency pure config bridge, fails loud with 401 without a key, and the upstream repo is three days old with the maintenance commitment carrying the long tail. The live mount was not reproduced locally (no API key, no second host beside the running service); the author's mount evidence was accepted as declared and cross-checked structurally.
+- **Workflow-approval gates discovered and codified.** First-time-contributor fork PRs leave `pull_request` workflows in `action_required`; the required checks never report and the ruleset silently keeps the PR `BLOCKED`. Approving via `POST /repos/{owner}/{repo}/actions/runs/{id}/approve` released both `ci.yml` (CI checks + plugin-mount) and `agent-notes-guard.yml`. A second trap: `ci.yml` and `pr-contribution-rules.yml` both define a job named "Validate PR contribution evidence", and the completed `ci.yml` run reports a `skipped` check run (that job is push-gated) which becomes the *latest* run of that required check name — re-blocking the merge even though every required check has a success on the same sha. Rerunning the `pr-contribution-rules.yml` run (`gh run rerun <id>`) restores its success as the latest report. No admin bypass was needed; the gate was satisfied honestly in place.
+- **#1362 (jyn pet) re-reviewed — still changes requested.** All three 2026-09-04 items verified fixed on a test merge into latest `dev`: the `pet.gameplay.skin` / `pet.gameplay.skinDefault` keys are in `packages/dsh-i18n/src/client/ru/pet.ts` (zh/en/ru aligned), the README pair documents `frames2d.skins` with `clickActions`, the gameplay contract and the 32–1024 px display range, and the CJK-named preview is gone. The force-push adds a third skin `bingjing-gongzhu` (assets, tracks and spec assertions complete) and reverts the framework-level lowEnergy support entirely — the capability is now absent from the whole repo, and the docs match. Full gate set green: typecheck, test, i18n, market, aggregate. Two remaining doc items were requested: the jyn registry row still says "two selectable skins" where the pet now has three, and `README.i18n.yaml` was not re-recorded after the content edits (`docs:check` red, reproduced locally).
+- **#1318 / #1321 stay parked.** No author response since the outstanding changes-requested reviews — no commits, no comments; no re-review, no closure.
+
+Merge convention re-confirmed against history (#1306): community PRs land as merge commits.
+
+## Alternatives considered
+
+- Admin-merging #1379 past the `BLOCKED` state (the way #1371's approval-propagation lag was handled in the 2026-09-04 run): rejected — this block had a real, fixable cause (unreported and shadowed required checks), and resolving the gate in place keeps the required-check signal honest.
+- Fixing #1362's two remaining doc lines and pushing to the contributor's fork: rejected, same rationale as the 2026-09-04 run — the registry-row wording is the author's content, the author is demonstrably responsive, and bouncing precise findings keeps authorship clean.
+- Reproducing the #1379 live MCP mount in a second local DSH host: rejected — it needs an API key and a second host beside the running service; schema-level verification against the installed SDK plus the author's mount evidence is proportionate for an index-data PR whose runtime failure mode is a 401 inside one plugin.
+- Treating #1383 (dsh-search-router) as in-scope: not applicable — it closed before the run and the default scope is open PRs assigned to the maintainer; it was not processed.
+
+## Consequences
+
+Remote `dev` contains the dsh-linkdigest registration (merge commit `ec706c5d`) with regenerated `market/dist` verified consistent on the PR tree. The jyn pet lands once the author fixes the skin-count wording and re-records the pairing hash; lowEnergy support is gone from the codebase until someone proposes it again as a contract extension. Future first-time-contributor merges follow the two-step gate playbook — approve `action_required` runs, then rerun the evidence workflow when a skipped same-name run shadows the pass — without admin bypass. The stale committed aggregate bundle observed in the 2026-09-04 run self-heals here: the jyn test merge legitimately rebuilds `packages/dsh-web-all/lib/client.js` including the task-board model-selector deltas.
