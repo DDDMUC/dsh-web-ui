@@ -26,5 +26,5 @@ Load-bearing finding: the first two dispatches both failed in `pnpmInstall('prof
 ## Consequences
 
 - Future releases carry desktop installers without manual packaging; the desktop runtime staging note ("alpha.4 until prepare-runtime runs") is superseded for release builds — CI always stages fresh from the registry.
-- The cloudflared known limitation improves per build: each runner stages its own platform's cloudflared, so mac installers carry the darwin binary and win installers the win one.
+- Correction (2026-09-06): this note previously claimed each runner stages its own platform's cloudflared so win installers carry the win binary — wrong, the runner is always macOS and the win installers carried the darwin binary; fixed by [the cloudflared arch coverage fix](../bug-fix/2026-09-06-desktop-cloudflared-arch-coverage.md). See also [the Windows CI lanes](../testing/2026-09-06-windows-ci-lanes-for-desktop.md): the win payload now has a real Windows boot gate before installers build.
 - If the silent pnpm verification failure ever stops being transient, the relayed text output will carry the real diagnosis.

@@ -5,7 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
-import { quickTunnelFlags, TunnelManager, namedTunnelHandle, type TunnelHandle, type TunnelPhase, type TunnelTarget } from '../src/tunnel.ts'
+import { quickTunnelFlags, TunnelManager, namedTunnelHandle, binaryRuns, createBinaryReadiness, type TunnelHandle, type TunnelPhase, type TunnelTarget } from '../src/tunnel.ts'
 
 /** A fake tunnel process: an EventEmitter the test drives by hand. */
 class FakeTunnel extends EventEmitter implements TunnelHandle {
@@ -352,5 +352,42 @@ describe('quickTunnelFlags', () => {
       '--protocol': 'http2',
       '--http-host-header': '69f563d2939cc1f9.dsh-market.com',
     })
+  })
+})
+
+describe('createBinaryReadiness', () => {
+  it('skips the reinstall when the staged binary exists and runs, and caches the verdict', async () => {
+    const exists = vi.fn(() => true)
+    const runs = vi.fn(async () => true)
+    const install = vi.fn(async () => undefined)
+    const ensure = createBinaryReadiness('/payload/bin/cloudflared', { exists, runs, install })
+    await ensure()
+    await ensure()
+    expect(install).not.toHaveBeenCalled()
+    expect(runs).toHaveBeenCalledTimes(1)
+  })
+
+  it('reinstalls when the binary exists but does not run (wrong arch), then trusts the result', async () => {
+    let installed = false
+    const exists = vi.fn(() => true)
+    const runs = vi.fn(async () => installed)
+    const install = vi.fn(async () => { installed = true })
+    const ensure = createBinaryReadiness('/payload/bin/cloudflared', { exists, runs, install })
+    await ensure()
+    expect(install).toHaveBeenCalledOnce()
+  })
+
+  it('downloads when the binary is absent and fails loudly when the reinstall still does not run', async () => {
+    const exists = vi.fn(() => false)
+    const runs = vi.fn(async () => false)
+    const install = vi.fn(async () => undefined)
+    const ensure = createBinaryReadiness('/payload/bin/cloudflared.exe', { exists, runs, install })
+    await expect(ensure()).rejects.toThrow(/still does not run/)
+    expect(install).toHaveBeenCalledOnce()
+  })
+
+  it('binaryRuns probes real executability: node runs, a missing file does not', async () => {
+    expect(await binaryRuns(process.execPath)).toBe(true)
+    expect(await binaryRuns('/definitely/not/an/executable/binary')).toBe(false)
   })
 })

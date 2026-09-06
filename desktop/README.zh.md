@@ -22,7 +22,7 @@
 | `runtime/profile-web/` | web profile 种子清单：bundle 为 `dsh-base` + `dsh-web-app` + `@linxin666/dsh-web-all` |
 | `scripts/fetch-node.mjs` | 下载并校验 sha256 的内置 Node 发行版（`resources/runtime/node-<os>-<cpu>/`） |
 | `scripts/fetch-pnpm.mjs` | 把锁定版本的 pnpm 装进每个内置 Node 发行版（npm registry tarball，校验完整性，npm 式全局布局） |
-| `scripts/build-runtime.mjs` | 用 pnpm 安装两份载荷并暂存到 `resources/runtime/` |
+| `scripts/build-runtime.mjs` | 用 pnpm 安装两份载荷并暂存到 `resources/runtime/`（含 Windows 的 `cloudflared.exe` 隧道二进制） |
 | `scripts/after-pack.cjs` | 打包后把暂存载荷拷进应用（electron-builder 的 extraResources 会静默丢弃载荷的 node_modules） |
 | `resources/` | 应用图标 + 生成的运行时载荷（git 忽略） |
 
@@ -62,7 +62,7 @@ npm run dist:win         # dist/*.exe（nsis）+ *.zip（可从 macOS 交叉构�
 ## 已知限制
 
 - **未签名构建**：macOS 首次打开会有 Gatekeeper 警告（右键 → 打开，或 `xattr -dr com.apple.quarantine`）；Windows 有 SmartScreen 提示（更多信息 → 仍要运行）。签名与公证是后续计划。
-- **远程隧道（`dsh-remote-web-ui`）**：`cloudflared` 二进制只会拉取构建机平台的版本，因此隧道在 macOS arm64 上开箱可用，其他平台按需拉取。
+- **远程隧道（`dsh-remote-web-ui`）**：载荷内置 Windows x64 的 `cloudflared` 二进制（以及构建机平台自己的 macOS 二进制），隧道在 macOS arm64 与 Windows x64 上开箱可用；macOS x64 上隧道插件会在首次使用时校验出架构不符并按需重新拉取匹配的二进制（需联网一次）。
 - **Windows arm64 与 Linux** 暂不构建；运行时布局已支持后续加入。
 - 全新机器首次启动会花几秒钟把预装 profile 拷贝进 `~/.dsh`（一次性）。
 - **同一个 `~/.dsh` 上的两个宿主**：桌面应用与你自己的 `dsh web` 同时运行时，两个 dsh 宿主进程共享同一数据目录。这种并存是设计内模式——桌面应用不读取也不操控你的实例，两个 GUI 各自持有独立会话。

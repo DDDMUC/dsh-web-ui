@@ -1,6 +1,8 @@
 /**
  * Auto-tunnel manager: spawns a Cloudflare tunnel through the `cloudflared`
- * npm package — its postinstall downloads the platform binary, so no
+ * npm package — its postinstall downloads the platform binary and the
+ * readiness policy below validates it and re-fetches when it cannot run (the
+ * desktop payload stages one tree for every shipped OS/arch), so no
  * user-side tooling is involved — surfaces the public URL, and restarts the
  * process after unexpected exits with exponential backoff. Two modes: the
  * accountless quick tunnel (`https://xxx.trycloudflare.com`, hostname minted
@@ -16,6 +18,7 @@
  */
 
 import { existsSync } from 'node:fs'
+import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { bin, install, Tunnel } from 'cloudflared'
 
@@ -121,10 +124,66 @@ export interface TunnelManagerOptions {
   timer?: { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(t: unknown): void }
 }
 
-/** Default binary readiness: download the platform binary on first use. */
+/** Time box for the `--version` probe that validates a staged binary. */
+const BINARY_PROBE_TIMEOUT_MS = 10_000
+
+/**
+ * Probe whether the binary at `path` actually executes on this machine. The
+ * desktop payload stages one dependency tree for every shipped OS/arch, so a
+ * binary can exist with the wrong architecture (the arm64 darwin
+ * `bin/cloudflared` on an x64 mac); existence alone must not skip the
+ * reinstall.
+ */
+export function binaryRuns(executable: string): Promise<boolean> {
+  return new Promise((resolvePromise) => {
+    const child = spawn(executable, ['--version'], { stdio: 'ignore' })
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      resolvePromise(false)
+    }, BINARY_PROBE_TIMEOUT_MS)
+    child.once('error', () => { clearTimeout(timer); resolvePromise(false) })
+    child.once('exit', (code) => { clearTimeout(timer); resolvePromise(code === 0) })
+  })
+}
+
+/** Injectable seams of the default binary readiness (tests swap them all). */
+export interface BinaryReadinessSeams {
+  exists?: (path: string) => boolean
+  runs?: (executable: string) => Promise<boolean>
+  install?: (path: string) => Promise<unknown>
+}
+
+/**
+ * Build the default readiness policy over a binary path: skip when the
+ * binary has already proven runnable in this process, validate an existing
+ * file before trusting it (a stale or wrong-arch binary must not disable
+ * the reinstall), and re-fetch the current platform binary otherwise.
+ */
+export function createBinaryReadiness(executable: string, seams: BinaryReadinessSeams = {}): () => Promise<void> {
+  const exists = seams.exists ?? existsSync
+  const runs = seams.runs ?? binaryRuns
+  const installBinary = seams.install ?? install
+  const validated = new Set<string>()
+  return async () => {
+    if (validated.has(executable)) return
+    if (exists(executable) && await runs(executable)) {
+      validated.add(executable)
+      return
+    }
+    await installBinary(executable)
+    if (!(await runs(executable))) {
+      throw new Error(`the cloudflared binary at ${executable} still does not run after the reinstall`)
+    }
+    validated.add(executable)
+  }
+}
+
+/** The readiness policy the manager uses by default: the package's real binary path. */
+const defaultBinaryReadiness = createBinaryReadiness(bin)
+
+/** Default binary readiness: keep a working platform binary at `bin`. */
 async function defaultEnsureBinary(): Promise<void> {
-  if (existsSync(bin)) return
-  await install(bin)
+  await defaultBinaryReadiness()
 }
 
 /** The flags every tunnel mode shares (see the quick factory comment). */

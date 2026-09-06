@@ -22,7 +22,7 @@ An Electron shell that turns the DeepSeek Harness Web GUI into an installable de
 | `runtime/profile-web/` | Web profile seed manifest: bundles `dsh-base` + `dsh-web-app` + `@linxin666/dsh-web-all` |
 | `scripts/fetch-node.mjs` | Downloads + sha256-verifies the bundled Node distributions (`resources/runtime/node-<os>-<cpu>/`) |
 | `scripts/fetch-pnpm.mjs` | Installs the pinned pnpm into every bundled Node distribution (npm registry tarball, integrity-verified, npm-style global layout) |
-| `scripts/build-runtime.mjs` | pnpm-installs both payloads and stages them into `resources/runtime/` |
+| `scripts/build-runtime.mjs` | pnpm-installs both payloads and stages them into `resources/runtime/` (incl. the Windows `cloudflared.exe` tunnel binary) |
 | `scripts/after-pack.cjs` | Copies the staged payload into the packaged app after packing (electron-builder's extraResources would silently drop the payload node_modules) |
 | `resources/` | App icons + generated runtime payload (git-ignored) |
 
@@ -62,7 +62,7 @@ The bundled versions are pinned in `runtime/host/package.json` (`@deepseek-ai/ds
 ## Known limitations
 
 - **Unsigned builds**: macOS shows the Gatekeeper warning on first open (right-click → Open, or `xattr -dr com.apple.quarantine`); Windows shows SmartScreen (More info → Run anyway). Signing and notarization are a planned follow-up.
-- **Remote tunnel (`dsh-remote-web-ui`)**: the `cloudflared` binary is fetched for the build machine's platform only, so tunneling works out of the box on macOS arm64 and is fetched on demand elsewhere.
+- **Remote tunnel (`dsh-remote-web-ui`)**: the payload stages the Windows x64 `cloudflared` binary (plus the build machine's own macOS binary), so tunneling works out of the box on macOS arm64 and Windows x64; on macOS x64 the tunnel plugin detects the wrong-arch staged binary on first use and re-fetches the matching one (network required once).
 - **Windows arm64 and Linux** are not built; the runtime layout already covers adding them.
 - First launch on a fresh machine spends a few seconds copying the preinstalled profile into `~/.dsh` (one-time).
 - **Two hosts on one `~/.dsh`**: with the desktop app and your own `dsh web` running at the same time, two dsh host processes share the data home. This coexistence is the designed mode — the desktop app never reads or drives your instance; the two GUIs simply keep separate sessions.

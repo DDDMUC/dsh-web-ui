@@ -31,7 +31,7 @@ A new top-level `desktop/` directory (outside the pnpm workspace globs) holds an
 ## Consequences
 
 - Installers are large (hundreds of MB): Node distributions plus two dependency closures with optional dependencies for four targets. Accepted for internal distribution; pruning (dropping darwin-x64 or unused bundles) is a later optimization only if measured size matters.
-- The bundled `cloudflared` fetches its binary for the build machine's platform only, so the remote-tunnel plugin works out of the box on the build platform and on demand elsewhere; recorded in `desktop/README.md` known limitations.
+- The bundled `cloudflared` ships one binary per shipped OS since [the cloudflared arch coverage fix](../bug-fix/2026-09-06-desktop-cloudflared-arch-coverage.md): Windows x64 rides in the payload out of the box, and a darwin arch the build machine did not stage re-fetches its binary on first tunnel use; recorded in `desktop/README.md` known limitations.
 - In-app plugin installs that shell out to pnpm initially did not work because the bundled runtime carried no pnpm; the runtime now bundles a pinned pnpm (and a working npm) and the limitation is retired — see [the bundled toolchain note](../bug-fix/2026-09-05-desktop-bundled-pnpm-toolchain.md). Workshop asset installs were never affected.
 - Version bumps of the host or the plugin collection are edits to `desktop/runtime/*/package.json` plus `npm run prepare-runtime`; the runtime stamp drives automatic re-seeding on user machines.
 - Unsigned builds trigger Gatekeeper/SmartScreen prompts; signing, notarization, and auto-update are follow-ups, deliberately out of scope.

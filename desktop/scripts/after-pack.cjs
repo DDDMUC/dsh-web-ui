@@ -64,5 +64,9 @@ exports.default = async function afterPack(context) {
   assertDestFile(path.join(runtimeRoot, 'node', os === 'win' ? 'pnpm.cmd' : path.join('bin', 'pnpm')));
   assertDestFile(path.join(runtimeRoot, 'host', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'));
   assertDestFile(path.join(runtimeRoot, 'profile-web', 'node_modules', '@linxin666', 'dsh-web-all', 'cordis.patch.yml'));
+  // The windows tunnel binary is staged by build-runtime.mjs; without this
+  // assertion a broken payload copy would surface only as a failed first
+  // tunnel start on a user machine.
+  assertDestFile(path.join(runtimeRoot, 'profile-web', 'node_modules', 'cloudflared', 'bin', 'cloudflared.exe'));
   console.log(`[after-pack] runtime payload staged into ${path.relative(path.join(__dirname, '..'), runtimeRoot)} (${os}-${cpu})`);
 };

@@ -31,7 +31,7 @@ dsh-web 以插件包形态分发，前提是一套可用的 dsh 环境：Node 22
 ## Consequences
 
 - 安装包体积大（数百 MB）：Node 发行版加两份依赖闭包，且可选依赖覆盖四个目标平台。内部分发可接受；裁剪（去掉 darwin-x64 或未用 bundle）留作后续优化，须有实测体积依据。
-- 内置 `cloudflared` 只拉取构建机平台的二进制，远程隧道插件在构建平台上开箱可用，其他平台按需拉取；已记入 `desktop/README.zh.md` 已知限制。
+- 内置 `cloudflared` 自 [cloudflared 架构覆盖修复](../bug-fix/2026-09-06-desktop-cloudflared-arch-coverage.md) 起按发布 OS 各带一份二进制：Windows x64 随载荷开箱可用，构建机未 stage 的 darwin 架构在首次隧道使用时重新拉取；已记入 `desktop/README.zh.md` 已知限制。
 - 依赖 pnpm 的应用内插件安装最初不可用（内置运行时无 pnpm）；内置运行时现在携带锁定的 pnpm（与可用的 npm），该限制退役——见[内置工具链笔记](../bug-fix/2026-09-05-desktop-bundled-pnpm-toolchain.zh.md)。Workshop 资产安装始终不受影响。
 - 宿主或插件全家桶的版本升级 = 修改 `desktop/runtime/*/package.json` 的锁定版本并重跑 `npm run prepare-runtime`；运行时戳驱动用户机器上的自动重新播种。
 - 未签名构建会触发 Gatekeeper / SmartScreen 提示；签名、公证与自动更新是明确的后续工作，不在本期范围。

@@ -1,2 +1,5 @@
-.agents/notes/implemented/architecture/2026-09-03-electron-desktop-app.md: da5807bd1b71feb31ce114fa059a7e4a6f8389b3
-.agents/notes/implemented/architecture/2026-09-03-electron-desktop-app.zh.md: 6cebf4e595263e07cb0b240225aebe0c895c8f64
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-09-03-electron-desktop-app.md: a7fe912a06c84e1bb804bcc470dc58cdbe915d2f
+2026-09-03-electron-desktop-app.zh.md: e551f7e38628e8f1aac3dcd076929ad7521661ce

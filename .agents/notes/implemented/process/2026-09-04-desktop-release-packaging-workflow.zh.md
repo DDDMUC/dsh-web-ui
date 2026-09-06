@@ -26,5 +26,5 @@
 ## 后果
 
 - 未来 release 自动携带桌面安装包，无需手工打包；桌面运行时 staging 的旧备注（"alpha.4 直到跑 prepare-runtime"）对 release 构建而言作废——CI 永远从 registry 现场 staging。
-- cloudflared 的已知限制按构建改善：每个 runner 都会 staged 自己平台的 cloudflared，mac 安装包带 darwin 二进制、win 安装包带 win 二进制。
+- 本笔记曾记录「每个 runner 都会 staged 自己平台的 cloudflared，win 安装包带 win 二进制」——该事实有误（runner 始终是 macOS，win 安装包里是 darwin 二进制）；已由 [cloudflared 架构覆盖修复](../bug-fix/2026-09-06-desktop-cloudflared-arch-coverage.md) 修正。另见 [Windows CI lanes](../testing/2026-09-06-windows-ci-lanes-for-desktop.zh.md)：win 载荷在发布前多一道真实 Windows 启动门控。
 - 如果 pnpm 校验静默失败某天不再偶发，中继出来的文本会带出真实诊断。

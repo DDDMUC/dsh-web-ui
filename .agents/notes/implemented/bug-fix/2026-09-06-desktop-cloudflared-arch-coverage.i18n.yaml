@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-09-06-desktop-cloudflared-arch-coverage.md: b237031cc0f5ab76b6fb8fb9bf546b2cf87de4db
+2026-09-06-desktop-cloudflared-arch-coverage.zh.md: aa4e7e5f5bb77555c204143fa0af94e2934c7bb4
