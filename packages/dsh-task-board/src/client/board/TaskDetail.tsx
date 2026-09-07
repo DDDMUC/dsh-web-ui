@@ -15,6 +15,7 @@ import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
 import css from '../board.module.css'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { EditTaskModal } from './EditTaskModal.tsx'
+import { NewTaskModal } from './NewTaskModal.tsx'
 import { formatHostTimestamp, formatTime } from './TaskCard.tsx'
 import { STATUS_KEY } from './status-key.ts'
 
@@ -258,12 +259,16 @@ function ScheduleSection({ controller, task, pending }: { controller: BoardContr
 export function TaskDetail({ controller, task }: { controller: BoardController; task: TaskRecord }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [showDuplicate, setShowDuplicate] = useState(false)
 
   // Keep the overlay in sync if the task record changes underneath.
   const [latest, setLatest] = useState(task)
   useEffect(() => { setLatest(task) }, [task])
   // A re-used overlay instance must not carry an edit session across tasks.
-  useEffect(() => { setShowEdit(false) }, [task.id])
+  useEffect(() => {
+    setShowEdit(false)
+    setShowDuplicate(false)
+  }, [task.id])
   const current = latest
   const snapshot = controller.getSnapshot()
   const running = current.status === 'running'
@@ -417,6 +422,17 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
           {!archived && (
             <button
               type="button"
+              className={css.ghostButton}
+              disabled={pending}
+              onClick={() => { setShowDuplicate(true) }}
+              title={canEditTaskContent(current) ? t('detail.duplicate') : t('detail.duplicateAndEdit')}
+            >
+              {canEditTaskContent(current) ? t('detail.duplicate') : t('detail.duplicateAndEdit')}
+            </button>
+          )}
+          {!archived && (
+            <button
+              type="button"
               className={css.primaryButton}
               disabled={running || pending}
               onClick={() => {
@@ -484,6 +500,18 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
 
       {showEdit && !archived && canEditTaskContent(current) && (
         <EditTaskModal controller={controller} task={current} onClose={() => { setShowEdit(false) }} />
+      )}
+
+      {showDuplicate && !archived && (
+        <NewTaskModal
+          controller={controller}
+          initialTask={current}
+          onClose={() => { setShowDuplicate(false) }}
+          onDuplicateSuccess={async (sourceId) => {
+            await controller.archiveTask(sourceId)
+            controller.closeTask()
+          }}
+        />
       )}
     </div>
   )
