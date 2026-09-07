@@ -31,11 +31,11 @@ A built-in sprite2d pet for dsh-pet (`packages/dsh-pet/assets/blue-throated-bee-
 
 ## Real-GUI evidence
 
-Scratch DSH web instance (scratch home + official dsh CLI; verified against the real registry): the pet renders docked with the correct tray (小蜜蜂 treats stat, feed label from the i18n copy), the landing sequence plays on the done phase, and the nine previews animate with the final choreography. Evidence files in this directory: gui-pet-dock-a/b/c.png, gui-pet-animation-strip.png, gui-panel.png, gui-feed-bubble.png, pets-api.json, contact-sheet.png, zoom-sheet.png, strip-jump.png (landing), strip-idle.png, strip-front.png, strip-waiting.png, user-sheet*.png, compare-idle.png, pixel-style-gate.png, pixel-parts.png, whale-rows.png.
+Scratch DSH web instance (scratch home + official dsh CLI; verified against the real registry): the pet renders docked with the correct tray (小蜜蜂 treats stat, feed label from the i18n copy), the landing sequence plays on the done phase, and the nine previews animate with the final choreography. Evidence files in this directory: gui-pet-dock-a/b/c.png, gui-pet-animation-strip.png, gui-panel.png, pets-api.json, contact-sheet.png, zoom-sheet.png, strip-jump.png (landing), strip-idle.png, strip-front.png, strip-waiting.png, user-sheet*.png (source previews), compare-idle.png. Superseded-route evidence (from the flat PIL, gradient and pixel-art attempts) is kept only in git history, not in the shipped archive.
 
 ## Rejected / no-go notes (kept for the record)
 
-- Pixel-art and programmatic flat/gradient art: reached the contributor's visual ceiling; archived as experiments (gen-pet-pixel.py; early gen-pet revisions in git history).
+- Pixel-art and programmatic flat/gradient art: reached the contributor's visual ceiling; the pixel pipeline stays in git history as gen-pet-pixel.py (evidence files from those attempts were removed from the shipped archive).
 - Renaming the `jumping` row to `landing`: rejected — it is the shared hatch-pet contract name used by every existing pet (per the contributor's rule: repository convention stays).
 - Pet bubble color tokenization (skin-driven bubbles): attempted, then reverted per "if the repository owner would not want it, do not do it" — the shared pet client chrome stays untouched; bubble palette remains the pet plugin's blue family.
 - Blink on idle / front hover: removed after review (kept only on waiting).
