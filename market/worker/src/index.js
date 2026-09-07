@@ -281,6 +281,14 @@ export default {
   },
 
   async fetch(request, env) {
+    // tv.dsh-market.com rides the same wildcard routes as relay hosts (see
+    // wrangler.jsonc) but is the telemetry-view dashboard: forward the whole
+    // hostname to the dedicated worker via the service binding. The Access
+    // JWT header rides along; telemetry-view keeps verifying it itself.
+    if (new URL(request.url).hostname === 'tv.dsh-market.com') {
+      return env.TELEMETRY_VIEW.fetch(request)
+    }
+
     // Relay traffic rides wildcard subdomains (<id>.dsh-market.com) and
     // must dispatch before any dsh-market.com-path logic.
     const relayed = await handleRelay(request, env)
@@ -291,6 +299,12 @@ export default {
 
     if (path === '/api/relay/register' && request.method === 'PUT') return handleRelayRegister(request, env)
     if (path === '/api/relay/unregister' && request.method === 'POST') return handleRelayUnregister(request, env)
+
+    // /app.js is listed in run_worker_first only so the tv.dsh-market.com
+    // dashboard's same-origin script reaches its worker; every other hostname
+    // must keep serving the store asset, which assets-first hides behind this
+    // now-captured path.
+    if (path === '/app.js') return env.ASSETS.fetch(request)
 
     if (request.method === 'OPTIONS' && (path === '/api/like' || path === '/api/install' || path === '/api/stats' || path === '/api/telemetry/event')) return preflight(request)
     if (path === '/api/health') return json({ ok: true })
