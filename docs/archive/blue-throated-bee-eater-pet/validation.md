@@ -10,7 +10,15 @@ A new built-in sprite2d pet for dsh-pet:
 - Row order and frame counts follow the hatch-pet contract: idle 6 / running-right 8 / running-left 8 / waving 4 / jumping 5 / failed 8 / waiting 6 / running 6 / review 6 (frames [6, 8, 8, 4, 5, 8, 6, 6, 6]).
 - Track durations ride the shared global slow rhythm baseline (all nine tracks declared in the manifest).
 - All seven ActivityPhase sequences mapped; bee-eater voice remarks block (pet / petCooldown / feed / feedCooldown / noTreats).
-- Artwork is repository-original (Apache-2.0), flat-illustration style, palette from the blue-throated-bee-eater skin tokens (azure #2b87d8, light azure #41a3e8, chestnut #b26a3b, deep blue-ink #0c2029, cream #eef6f9) plus a dedicated green-teal for the plumage.
+- Artwork is repository-original (Apache-2.0): refined vector-illustration style (rework round, see below), palette from the blue-throated-bee-eater skin tokens (azure #2b87d8, light azure #41a3e8, chestnut #b26a3b, deep blue-ink #0c2029, cream #eef6f9) plus a dedicated green-teal for the plumage.
+
+## Rework round (refined vector-illustration pipeline)
+
+The first submission used flat PIL polygons (solid fills + 2.2 px outlines), which read as rough next to the ecosystem's gradient-shaded pets (see compare-idle.png: starry-doll / whale-girl / previous flat version). Per the review the artwork was redrawn with a pycairo two-pass pipeline:
+
+- Render core: FORMAT_RGB24 color pass + FORMAT_A8 alpha pass, drawing the same paths with linear/radial gradients and thin structural outlines; merged as RGB + mask, 8x supersampling, LANCZOS downscale to 192x208. (Color readback uses 4-byte raw mode: cairo RGB24 lays out BGRA.)
+- Refined design: fuller chestnut crown cap, thin black eye-mask band through the eye, white sclera + blue-gradient iris + pupil + double glints, gradient shading on body/throat/beak, wing layered as coverts -> secondaries -> separated primary fingers with light edges (far wing darker and semi-transparent in flight), a twig perch with leaves and a soft contact shadow on perched states, subtle feather strokes on the back.
+- Art direction fixes applied during multimodal review rounds: eye proportions, crown/mask balance, no white belly in the flight silhouette, redesign of the frontal hover view, slimmer beak, narrower primary fan.
 
 ## Generation
 
@@ -18,9 +26,9 @@ A new built-in sprite2d pet for dsh-pet:
 python3 docs/archive/blue-throated-bee-eater-pet/gen-pet.py
 ```
 
-Deterministic Pillow renderer (Catmull-Rom spline shapes at 4x supersampling, LANCZOS downscale). Outputs the atlas, the nine preview GIFs, and contact-sheet.png. The generator lives under docs/archive (not inside the pet directory, so it never installs into $DSH_HOME/pets).
+Deterministic renderer (Pillow + pycairo, see "Rework round"). Outputs the atlas, the nine preview GIFs, and contact-sheet.png. The generator lives under docs/archive (not inside the pet directory, so it never installs into $DSH_HOME/pets).
 
-Evidence files in this directory: contact-sheet.png (full 57-frame grid), zoom-sheet.png, strip-idle.png / strip-runright.png / strip-front.png (per-cycle filmstrips), zoom-idle0.png / zoom-fly4.png / zoom-front2.png.
+Evidence files in this directory: contact-sheet.png (full 57-frame grid), zoom-sheet.png (key frames at 3x after the rework), compare-idle.png (quality comparison: starry-doll / whale-girl / this pet), gui-pet-animation-strip.png + gui-pet-dock-a/b/c.png (real-GUI three-frame animation proof after the rework).
 
 ## Validation gates
 

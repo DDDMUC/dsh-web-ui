@@ -10,7 +10,7 @@ Status: implemented
 
 新增内置 sprite2d 宠物 `blue-throated-bee-eater`（选择器名「蓝喉蜂虎」，author dsh-web，Apache-2.0），落在 `packages/dsh-pet/assets/blue-throated-bee-eater/`：
 
-- **原创扁平插画素材**由 `docs/archive/blue-throated-bee-eater-pet/gen-pet.py` 程序化生成：Pillow Catmull-Rom 样条形状、4 倍超采样绘制，造型锚定蓝喉蜂虎（栗红羽冠、黑色过眼纹、湛蓝喉部、青绿体羽、湛蓝尾羽流、长弯黑喙），配色取自皮肤 token（#2b87d8 / #41a3e8 / #b26a3b / #0c2029 / #eef6f9）并为其羽毛补充专用青绿。
+- **原创扁平插画素材**由 `docs/archive/blue-throated-bee-eater-pet/gen-pet.py` 程序化生成：pycairo 双通道渲染器（不透明颜色通道承载线性/径向渐变光影，A8 阿尔法通道承载造型覆盖与柔和阴影，合并后自 8× 超采样降采样），造型锚定蓝喉蜂虎（栗红羽冠帽、黑色过眼纹、白色巩膜 + 蓝渐变虹膜与高光、湛蓝喉部、青绿体羽、湛蓝尾羽流、细长弯黑喙），配色取自皮肤 token（#2b87d8 / #41a3e8 / #b26a3b / #0c2029 / #eef6f9）并为其羽毛补充专用青绿；栖枝态立于带叶小枝并带柔和接触阴影，翅膀分层（覆羽、次级飞羽、带亮刃边的分离初级羽指；飞行时远侧翼更暗且半透明）。
 - **动画设计**：栖枝呼吸眨眼的待机、挥翼、昂首端详的 review、朝镜头悬停拍翅（`running` 轨道）、长翼拍动循环的 `running-right` / `running-left`（举翼 V 形呼应皮肤照片）、跳跃、垂头沮丧、歪头等待。
 - 清单：petManifestVersion 2、9 行图集、按全局慢节奏基线声明的逐轨道时长、七个 ActivityPhase 全部映射 sequences、蜂虎专属妙语 remarks 块（pet / petCooldown / feed / feedCooldown / noTreats）。
 - **分发**：按 CONTRIBUTING「随 PR 收录为内置宠物」随 npm 包内置（`files` 白名单增加条目，README 内置表与动画预览表中英双语更新），同时经 `scripts/market-build` 进入创意工坊目录（新增 market/dist/assets/pets 树与 pets.json 条目），用户亦可按需装入 `$DSH_HOME/pets/<id>`。
