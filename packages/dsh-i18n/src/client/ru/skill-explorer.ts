@@ -21,6 +21,9 @@ export const ru: Record<string, string> = {
   'create.submit': 'Создать навык',
   'create.whenToUse': 'Когда использовать (необязательно)',
   'cwd': 'cwd: {cwd}',
+  'filter.workspaceAll': 'Все рабочие пространства',
+  'filter.workspaceCurrent': 'Текущее рабочее пространство ({name})',
+  'filter.workspaceLabel': 'Рабочее пространство',
   'entry.label': 'Центр навыков',
   'entry.tooltip': 'Центр навыков: просмотр и управление загруженными навыками',
   'group.bundled': 'Встроенные в систему',
@@ -59,4 +62,6 @@ export const ru: Record<string, string> = {
   'refresh': 'Обновить',
   'tab.create': 'Создание',
   'tab.list': 'Навыки',
+  'workspace.isolated': 'Изоляция рабочей области',
+  'workspace.isolatedHint': 'Этот навык принадлежит рабочему пространству «{workspace}» и изолирован от контекста текущей сессии',
 }

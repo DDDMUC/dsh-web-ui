@@ -23,6 +23,12 @@ export interface SkillEntry {
   linked?: boolean
   modelInvocable: boolean
   userInvocable: boolean
+  /** Project workspace root path this skill belongs to. */
+  workspaceRoot?: string
+  /** Display name of the workspace directory. */
+  workspaceName?: string
+  /** True when the skill belongs to the primary active session workspace. */
+  isActiveWorkspace?: boolean
 }
 
 /** Group payload served by the host. */
@@ -33,12 +39,20 @@ export interface GroupPayload {
   skills: SkillEntry[]
 }
 
+/** Workspace item descriptor. */
+export interface WorkspaceItem {
+  root: string
+  name: string
+  active: boolean
+}
+
 /** List payload served by the host. */
 export interface ListPayload {
   cwd: string
   projectRoots: string[]
   complete: boolean
   groups: GroupPayload[]
+  workspaces?: WorkspaceItem[]
 }
 
 /** One thrown API error with the host-provided message. */
