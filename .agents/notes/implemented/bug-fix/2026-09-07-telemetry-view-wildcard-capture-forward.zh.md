@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-主 worker 显式接管 `tv.dsh-market.com` 主机名：fetch 入口在任何分发之前把整个主机名经 `TELEMETRY_VIEW` 服务绑定转发给 `dsh-market-telemetry-view`。服务绑定保留请求头，`Cf-Access-Jwt-Assertion` 随请求透传，看板继续自行校验 Access JWT。`/app.js` 加入 `run_worker_first`：不加的话，被捕获主机名上的该路径会在 worker 运行前被 assets-first 直接用主站自己的 `/app.js` 资源应答；其余主机名上，主 worker 对该路径显式回退到 `env.ASSETS.fetch`。事故前遗留的无路径 zone 路由 `*.dsh-market.com`（2026-09-02 事故的旧模式）已从 zone 删除，只保留带路径的 `*.dsh-market.com/*` 一条通配路由。`docs/telemetry.md` 记载了该路由关系。
+主 worker 显式接管 `tv.dsh-market.com` 主机名：fetch 入口在任何分发之前把整个主机名经 `TELEMETRY_VIEW` 服务绑定转发给 `dsh-market-telemetry-view`。服务绑定保留请求头，`Cf-Access-Jwt-Assertion` 随请求透传，看板继续自行校验 Access JWT。看板取数相应经反向的 `MARKET` 服务绑定直调 `dsh-market`：在转发链内用公开 fetch 回源会在同一请求上下文里二次进入主 worker，触发 Cloudflare 环路保护，表现为自定义域占位源站的 522（转发上线后第一次已认证访问即观察到；独立探针 Worker 证实同一 apex 请求在链外正常）。服务绑定完全绕开 zone 路由。`/app.js` 加入 `run_worker_first`：不加的话，被捕获主机名上的该路径会在 worker 运行前被 assets-first 直接用主站自己的 `/app.js` 资源应答；其余主机名上，主 worker 对该路径显式回退到 `env.ASSETS.fetch`。事故前遗留的无路径 zone 路由 `*.dsh-market.com`（2026-09-02 事故的旧模式）已从 zone 删除，只保留带路径的 `*.dsh-market.com/*` 一条通配路由。`docs/telemetry.md` 记载了该路由关系。
 
 ## Alternatives considered
 
@@ -16,8 +16,8 @@ Status: implemented
 
 ## Consequences
 
-主 worker 重新部署后，看板在 `tv.dsh-market.com` 上恢复工作；看板 worker 自身无需改动。主 worker 从此在部署时依赖 `dsh-market-telemetry-view` 存在——服务绑定解析失败会让部署直接失败，这是响亮且正确的失败。商店行为其余不变：`tv.` 以外所有主机名的 `/app.js` 与之前一样由同一份资源应答，中继主机照旧代理包括 `/app.js` 在内的全部路径（中继分发在新分支之前）。`/data` 代理路径无需加入 `run_worker_first`，因为没有资源遮蔽它。
+两个 worker 都重新部署后，看板在 `tv.dsh-market.com` 上恢复工作；看板的渲染代码零改动，改的只是取数传输方式。两个 worker 从此在部署时互相依赖对方存在——服务绑定解析失败会让部署直接失败，这是响亮且正确的失败。`fetchSummary` 仅在 `MARKET` 绑定缺失时回退公开 fetch（本地单 worker 开发场景）。商店行为其余不变：`tv.` 以外所有主机名的 `/app.js` 与之前一样由同一份资源应答，中继主机照旧代理包括 `/app.js` 在内的全部路径（中继分发在新分支之前）。`/data` 代理路径无需加入 `run_worker_first`，因为没有资源遮蔽它。
 
 ## Testing
 
-`node --test scripts/market-tv-forward.test.mjs`（3 通过）：`tv.` 主机名对 `/` 与 `/app.js` 的转发保留 Access JWT 头，商店主机名应答自己的 `/app.js` 资源且不触碰绑定。部署证据：deploy-market 工作流必须带新服务绑定通过，且一次已认证的 `tv.dsh-market.com` 访问必须看到看板（Access 门挡住未认证探测，需所有者在浏览器确认）。
+`node --test scripts/market-tv-forward.test.mjs`（3 通过）：`tv.` 主机名对 `/` 与 `/app.js` 的转发保留 Access JWT 头，商店主机名应答自己的 `/app.js` 资源且不触碰绑定。`node --test scripts/telemetry-view.test.mjs`（4 通过）：签名 JWT 用例驱动已认证的 `/data` 代理，钉死 summary 走 `MARKET` 绑定且 URL 与密钥正确、没有任何公开 fetch 发往 `dsh-market.com`。部署证据：两侧部署各带服务绑定通过，且一次已认证的 `tv.dsh-market.com` 访问必须看到看板（Access 门挡住未认证探测，需所有者在浏览器确认）。
