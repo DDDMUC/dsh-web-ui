@@ -18,7 +18,7 @@ Ship a new built-in sprite2d pet `blue-throated-bee-eater` (selector label è“å–
 
 ## Testing
 
-`node scripts/dsh-pet validate` passes the v2 contract with zero diagnostics; the registry test asserts the new entry (id, displayName, atlas geometry, atlas file presence) and green gates: dsh-pet build/test, typecheck, market:check, docs:check, i18n:check.
+`node scripts/dsh-pet validate` passes the v2 contract with zero diagnostics; the registry test asserts the new entry (id, displayName, atlas geometry, atlas file presence) and green gates: dsh-pet build/test, typecheck, market:check, docs:check, i18n:check. A real-GUI scratch run (scratch DSH home + Playwright) rendered the docked pet in three animation frames over the matching skin backdrop, with `/api/pet/pets` listing the registry entry (see docs/archive/blue-throated-bee-eater-pet/).
 
 ## Alternatives considered
 

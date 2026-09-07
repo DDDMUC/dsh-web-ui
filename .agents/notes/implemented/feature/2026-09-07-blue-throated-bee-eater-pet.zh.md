@@ -18,7 +18,7 @@ Status: implemented
 
 ## Testing
 
-`node scripts/dsh-pet validate` 通过 v2 契约、零诊断；registry 测试新增条目断言（id、displayName、图集几何、图集文件存在）且门禁全绿：dsh-pet build/test、typecheck、market:check、docs:check、i18n:check。
+`node scripts/dsh-pet validate` 通过 v2 契约、零诊断；registry 测试新增条目断言（id、displayName、图集几何、图集文件存在）且门禁全绿：dsh-pet build/test、typecheck、market:check、docs:check、i18n:check。另以临时 DSH home + Playwright 做了真实 GUI 冒烟：宠物在匹配皮肤背景上渲染出三帧动画，`/api/pet/pets` 列出注册条目（见 docs/archive/blue-throated-bee-eater-pet/）。
 
 ## Alternatives considered
 

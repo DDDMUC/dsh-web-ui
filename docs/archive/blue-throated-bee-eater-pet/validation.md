@@ -44,4 +44,14 @@ dsh-pet tests and every other package pass.
 
 ## Runtime note
 
-The pet is a pure asset addition: no host/client code, no cordis.patch.yml change, no DSH restart required. Verified by contract CLI and unit-level registry resolution; live GUI verification (Settings > Pet > select 蓝喉蜂虎) awaits a DSH web run on the contributing machine or the reviewer's instance — after that, either refresh from the Workshop's pet list (installs to $DSH_HOME/pets/blue-throated-bee-eater) or run `node scripts/dsh-pet install packages/dsh-pet/assets/blue-throated-bee-eater`.
+The pet is a pure asset addition: no host/client code, no cordis.patch.yml change, no DSH restart required (a DSH web instance picks it up on the next boot or, for a user pets-dir install, on the next settings refresh).
+
+## Real-GUI evidence
+
+A scratch DSH web instance was booted (a full copy of the machine's working harness profile, DSH_HOME pointed at `.scratch-dshhome` with the pet copied into `pets/blue-throated-bee-eater/`; `pet.json` set to `petId: blue-throated-bee-eater`; booted with the real dsh CLI — note the machine's `bin/dsh` is a wrapper that hard-codes DSH_HOME, so the nested CLI at `node_modules/.bin/dsh` was used). Evidence captured with Playwright Chromium:
+
+- `pets-api.json` — `/api/pet/pets` registry listing `ouo-neko`, `whale-girl`, `whale-girl-refined`, `blue-throated-bee-eater` (蓝喉蜂虎).
+- `gui-pet-dock-a/b/c.png` + `gui-pet-animation-strip.png` — the docked pet rendered bottom-right over the blue-throated-bee-eater skin backdrop, three frames 600 ms apart showing distinct poses (wing-wave, head-turn, breathing) — animation runs.
+- `gui-pet-settings.png` — the Settings > Pet card; this host's DSH version predates the settings-namespace bridge for the pet plugin (the card reports the form unavailable and the selector is edited through `$DSH_HOME/pet.json`), so the selector screenshot needs a current dev-stack instance; the selector data is the same `/api/pet/pets` listing above.
+
+The instance was stopped and the scratch home removed after capture; the user's real homes were not touched apart from the documented `$DSH_HOME/pets/blue-throated-bee-eater` install (dsh-home).
