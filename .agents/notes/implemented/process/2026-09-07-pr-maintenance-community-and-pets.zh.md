@@ -16,7 +16,7 @@ Status: implemented
 
 #1399（dsh-provider-signin）给出 changes-requested 评审，共三项：分支与 #1406 冲突（两者都在 community.json 和 plugins.json 尾部追加条目）、仓库没有 LICENSE 文件而 PR 版权声明写的是 MIT、声明的 llm-pi-ai 依赖在生态内无法获取（不在索引中、npm 404），工坊入口的用户拿不到它，条目没有可达的受众。代码审查本身结论良好：路由全部 loopback 限制且 scope 钉在 `llm-pi-ai/`，凭据只走官方 authorization 接缝，attempt 存储有界，dispose 完整。
 
-#1362（jyn 宠物）在核实 2026-09-06 评审遗留的两处文档项已修复后批准（注册表行双语更新为三款皮肤、配对已重录、i18n 对齐 1210/1210、dsh-pet 测试 489/489、market dist 一致）。尚未合并：#1402 在作者 force-push 之后合入 dev，冲突仅限生成产物（market/dist/manifest.*、packages/dsh-web-all/lib/client.js），由作者 rebase 后重新生成。
+#1362（jyn 宠物）在核实 2026-09-06 评审遗留的两处文档项已修复后批准（注册表行双语更新为三款皮肤、配对已重录、i18n 对齐、dsh-pet 测试、market dist 一致）。随后作者 rebase 到最新 dev 并以一个再生成提交解决了 #1402 合入带来的生成产物冲突；在 rebase 后的提交上重跑了验证组合（dsh-pet 测试 489/489，合并注册表中两只宠物均有断言；market dist up to date 1634 files；i18n 对齐 1219/1219），PR 以 c0ff0b24 合入。
 
 #1321 与 #1318 保持不动：作者自 2026-08-31 起无活动，既有阻塞结论继续有效（dsh-memory 的 npm 包名冲突与 tarball/仓库源码不一致；dsh-git-badge 缺少自动化测试与 CI，且属于安全敏感插件）。
 
@@ -26,7 +26,7 @@ Status: implemented
 
 ## Consequences
 
-市场现有 55 个社区插件与 6 个内置宠物。三个 PR 继续开放、等待作者动作：#1399（rebase、LICENSE、llm-pi-ai 渠道）、#1362（仅需 rebase 生成产物——源码文件可干净合并）、#1321/#1318 维持原状。首次贡献者 workflow 门禁从此列入新外部作者的合并清单：不批准被搁置的 `pull_request` 运行，必需 CI 检查永远不会出结果，ruleset 会在任何评审状态下阻塞合并。
+市场现有 55 个社区插件与 7 个内置宠物。两个 PR 继续开放、等待作者动作：#1399（rebase、LICENSE、llm-pi-ai 渠道）；#1321/#1318 维持原状。首次贡献者 workflow 门禁从此列入新外部作者的合并清单：不批准被搁置的 `pull_request` 运行，必需 CI 检查永远不会出结果，ruleset 会在任何评审状态下阻塞合并。
 
 ## Testing
 

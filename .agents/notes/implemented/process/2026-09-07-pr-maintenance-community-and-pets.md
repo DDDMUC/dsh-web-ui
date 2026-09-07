@@ -16,7 +16,7 @@ Two registrations merged, one changes-requested, one approved pending rebase, tw
 
 #1399 (dsh-provider-signin) received a changes-requested review with three items: the branch now conflicts with #1406 (both append a tail entry to community.json and plugins.json), the repository carries no LICENSE file despite the PR's MIT copyright claim, and the declared llm-pi-ai dependency is unobtainable through the ecosystem (not in the index, npm 404), which leaves the entry without an audience reachable from the market. The code review itself found the relay design sound: loopback-fenced routes scoped to `llm-pi-ai/` keys, credentials confined to the official authorization seam, bounded attempt store, complete dispose.
 
-#1362 (jyn pet) was approved after the two documentation leftovers from the 2026-09-06 review were verified fixed (three-skins registry rows in both languages, re-recorded pairing, i18n parity 1210/1210, dsh-pet tests 489/489, market dist consistent). It is not merged: #1402 landed after the author's force-push, and the conflicts are confined to generated artifacts (market/dist/manifest.*, packages/dsh-web-all/lib/client.js); the author rebases and regenerates.
+#1362 (jyn pet) was approved after the two documentation leftovers from the 2026-09-06 review were verified fixed (three-skins registry rows in both languages, re-recorded pairing, i18n parity, dsh-pet tests, market dist consistent). The author then rebased onto current dev with a regeneration commit that resolved the generated-artifact conflicts from #1402's landing; the verification battery was re-run on the rebased head (dsh-pet tests 489/489 with both pets asserted in the merged registry, market dist up to date at 1634 files, i18n parity 1219/1219) and the PR merged as c0ff0b24.
 
 #1321 and #1318 stay untouched: no author activity since 2026-08-31, and the documented blockers stand (dsh-memory's npm name collision plus tarball/repo source mismatch; dsh-git-badge missing automated tests and CI for a security-sensitive plugin).
 
@@ -26,7 +26,7 @@ Merging #1399 via admin bypass was rejected: the ruleset gates encode the contri
 
 ## Consequences
 
-The market now lists 55 community plugins and six built-in pets. Three PRs remain open with the ball in the authors' courts: #1399 (rebase, LICENSE, llm-pi-ai channel), #1362 (rebase of generated artifacts only — source files merge cleanly), #1321/#1318 unchanged. The first-time-contributor workflow hold is now a known merge-checklist step for new external authors: without approving the held `pull_request` runs, the required CI checks never report and the ruleset blocks the merge regardless of review state.
+The market now lists 55 community plugins and seven built-in pets. Two PRs remain open with the ball in the authors' courts: #1399 (rebase, LICENSE, llm-pi-ai channel) and #1321/#1318 unchanged. The first-time-contributor workflow hold is now a known merge-checklist step for new external authors: without approving the held `pull_request` runs, the required CI checks never report and the ruleset blocks the merge regardless of review state.
 
 ## Testing
 
