@@ -137,9 +137,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The suite needs Node builtins only. setup-node v5 defaults
+      # package-manager-cache to true, which detects the pnpm lockfile and
+      # demands pnpm on PATH — a tool this job never uses (first real run
+      # failed there), so the default is switched off explicitly.
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          package-manager-cache: false
 
       - name: Desktop runtime unit tests
         run: node --test desktop/tests/*.test.mjs
