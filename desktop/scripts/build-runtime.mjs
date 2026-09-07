@@ -46,13 +46,20 @@ function pnpmInstall(part) {
   // passes. Retry a few times and relay the captured output as text so the
   // real diagnosis is not lost to a byte-array dump.
   const attempts = 3;
+  // Windows resolves pnpm through a .cmd shim, which spawnSync cannot
+  // execute without a shell (ENOENT on every retry). The shell is only
+  // needed there, and every argument is a constant literal, so routing
+  // through cmd.exe adds no injection surface. Same fix as the dsh-trading
+  // desktop runtime; failure class surfaced by release run 34077107610.
+  const spawnOptions = {
+    cwd: path.join(runtimeSrc, part),
+    env: { ...process.env },
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    shell: process.platform === 'win32',
+  };
   for (let attempt = 1; attempt <= attempts; attempt++) {
-    const result = spawnSync('pnpm', ['install'], {
-      cwd: path.join(runtimeSrc, part),
-      env: { ...process.env },
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    });
+    const result = spawnSync('pnpm', ['install'], spawnOptions);
     if (result.status === 0) {
       console.log(String(result.stdout).split('\n').slice(-6).join('\n'));
       return;
