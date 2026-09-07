@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-09-07-blue-throated-bee-eater-pet.md: b03c80a1b225fced4a2bb1db8e77ec04a3d5c760
+2026-09-07-blue-throated-bee-eater-pet.zh.md: 18475632e0072b833b802296babd36e4e003fdea
