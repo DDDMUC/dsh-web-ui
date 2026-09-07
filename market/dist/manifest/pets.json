@@ -51,7 +51,8 @@
         "previews/running.gif",
         "previews/waiting.gif",
         "previews/waving.gif",
-        "spritesheet.webp"
+        "spritesheet.webp",
+        "voice.json"
       ]
     },
     {

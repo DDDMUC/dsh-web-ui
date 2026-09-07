@@ -1,65 +1,42 @@
 # Blue-throated Bee-eater pet — validation record
 
-Status: contribution validation snapshot (2026-09-07)
+Status: contribution validation snapshot (final, 2026-09-07)
 
 ## What shipped
 
-A new built-in sprite2d pet for dsh-pet:
+A built-in sprite2d pet for dsh-pet (`packages/dsh-pet/assets/blue-throated-bee-eater/`):
 
-- `packages/dsh-pet/assets/blue-throated-bee-eater/` — pet.json (manifest v2), spritesheet.webp (1536x1872 lossless webp, 8 columns x 9 rows of 192x208 cells), previews/<track>.gif x9 (192x208 animated).
-- Row order and frame counts follow the hatch-pet contract: idle 6 / running-right 8 / running-left 8 / waving 4 / jumping 5 / failed 8 / waiting 6 / running 6 / review 6 (frames [6, 8, 8, 4, 5, 8, 6, 6, 6]).
-- Track durations ride the shared global slow rhythm baseline (all nine tracks declared in the manifest).
-- All seven ActivityPhase sequences mapped; bee-eater voice remarks block (pet / petCooldown / feed / feedCooldown / noTreats).
-- Artwork is repository-original (Apache-2.0): refined vector-illustration style (rework round, see below), palette from the blue-throated-bee-eater skin tokens (azure #2b87d8, light azure #41a3e8, chestnut #b26a3b, deep blue-ink #0c2029, cream #eef6f9) plus a dedicated green-teal for the plumage.
+- `pet.json` — manifest v2; 8 columns x 9 rows of 192x208 cells; frames [6, 8, 8, 4, 5, 8, 6, 6, 6]; all nine track rhythms at the shared slow baseline; all seven ActivityPhase sequences (tool cycle: running-right, running, running-left, running, running-right; done: jumping, waving, idle, waving, idle, waving); bee remarks block (pet / petCooldown / feed / feedCooldown / noTreats).
+- `voice.json` — panel overrides: treats stat labelled 小蜜蜂 {n}; feed/rename/hide actions default labels (feed label left at the i18n copy 喂食/Feed).
+- `spritesheet.webp` + `previews/*.gif` x9 — composed by `docs/archive/blue-throated-bee-eater-pet/gen-pet.py` (AI-route composer; pixel pipeline archived as gen-pet-pixel.py, early procedural attempts superseded).
 
-## Rework round (refined vector-illustration pipeline)
+## Art route and provenance
 
-The first submission used flat PIL polygons (solid fills + 2.2 px outlines), which read as rough next to the ecosystem's gradient-shaded pets (see compare-idle.png: starry-doll / whale-girl / previous flat version). Per the review the artwork was redrawn with a pycairo two-pass pipeline:
-
-- Render core: FORMAT_RGB24 color pass + FORMAT_A8 alpha pass, drawing the same paths with linear/radial gradients and thin structural outlines; merged as RGB + mask, 8x supersampling, LANCZOS downscale to 192x208. (Color readback uses 4-byte raw mode: cairo RGB24 lays out BGRA.)
-- Refined design: fuller chestnut crown cap, thin black eye-mask band through the eye, white sclera + blue-gradient iris + pupil + double glints, gradient shading on body/throat/beak, wing layered as coverts -> secondaries -> separated primary fingers with light edges (far wing darker and semi-transparent in flight), a twig perch with leaves and a soft contact shadow on perched states, subtle feather strokes on the back.
-- Art direction fixes applied during multimodal review rounds: eye proportions, crown/mask balance, no white belly in the flight silhouette, redesign of the frontal hover view, slimmer beak, narrower primary fan.
-
-## Generation
-
-```
-python3 docs/archive/blue-throated-bee-eater-pet/gen-pet.py
-```
-
-Deterministic renderer (Pillow + pycairo, see "Rework round"). Outputs the atlas, the nine preview GIFs, and contact-sheet.png. The generator lives under docs/archive (not inside the pet directory, so it never installs into $DSH_HOME/pets).
-
-Evidence files in this directory: contact-sheet.png (full 57-frame grid), zoom-sheet.png (key frames at 3x after the rework), compare-idle.png (quality comparison: starry-doll / whale-girl / this pet), gui-pet-animation-strip.png + gui-pet-dock-a/b/c.png (real-GUI three-frame animation proof after the rework).
+- 12 transparent RGBA reference illustrations contributed by the repository contributor via an AI image tool (archived as source/ref-01..ref-12), same character throughout, palette anchored on the blue-throated-bee-eater skin tokens. Declared Apache-2.0, author dsh-web.
+- Per-track standalone poses: perched (ref-01), flying V (ref-02), front hover (ref-03), wing wave (ref-04), crouch (ref-05, retired from the pipeline), droop (ref-06), head tilt (ref-07), head-up review (ref-08), launch flare (ref-09), touchdown (ref-10), perched eyes-closed blink (ref-11, kept for the waiting track), front eyes-closed (ref-12, retired from the pipeline).
+- The `jumping` row is the landing sequence (done phase): cruise high -> descend -> flare wings wide -> touchdown -> settle; the contract row name stays `jumping` (shared hatch-pet contract, used by every existing pet).
+- Blink policy after review: idle and front hover do not blink; the waiting track keeps its blink beat (ref-11 at frame 4).
+- Procedural redraw attempts (flat PIL, gradient vector, programmatic pixel art) are archived as reviewed-and-rejected alternatives; the AI-illustration route is the shipped variant.
 
 ## Validation gates
 
 | Gate | Command | Result |
 | --- | --- | --- |
-| Manifest + assets contract | `node scripts/dsh-pet validate packages/dsh-pet/assets/blue-throated-bee-eater` | PASS — "valid: blue-throated-bee-eater (renderer sprite2d)", zero diagnostics |
-| Package build | `pnpm --filter @linxin666/dsh-pet build` | PASS |
-| Package tests | `pnpm --filter @linxin666/dsh-pet test` | PASS (registry test asserts the new entry: id, displayName 蓝喉蜂虎, atlasRows 9, columns 8, rows [6,8,8,4,5,8,6,6,6], atlas file present; entries list pinned first alphabetically) |
+| Manifest + assets + voice pack | `node scripts/dsh-pet validate packages/dsh-pet/assets/blue-throated-bee-eater` | PASS, zero diagnostics |
+| Package build / tests | `pnpm --filter @linxin666/dsh-pet build` / `test` | PASS (471 tests; registry entry assertions) |
 | Typecheck | `pnpm typecheck` | PASS |
-| Workshop build | `node scripts/market-build` | PASS — "wrote ... (29 skins, 6 pets, 54 plugins)"; new market/dist/assets/pets/blue-throated-bee-eater/ tree and pets.json rank-1 entry |
-| Workshop consistency | `node scripts/market-build --check` | PASS — "dist up to date" |
-| Docs pairs | `node scripts/verify-docs.mjs --write dsh-pet` + `pnpm docs:check` | PASS (hashes re-recorded after the bilingual README updates) |
-| i18n | `pnpm i18n:check` | PASS |
-
-The root `pnpm test` suite was run in full; the only red gate was
-`dsh-remote-web-ui tests/remote-api.spec.ts > returns a fixed 502 message instead of the upstream error text`
-(a 5 s timeout). It reproduces identically on a clean origin/dev baseline with
-this change stashed (verified before the PR), so it is a pre-existing
-environment-dependent failure unrelated to the pet contribution; all 471
-dsh-pet tests and every other package pass.
-
-## Runtime note
-
-The pet is a pure asset addition: no host/client code, no cordis.patch.yml change, no DSH restart required (a DSH web instance picks it up on the next boot or, for a user pets-dir install, on the next settings refresh).
+| Workshop build/consistency | `node scripts/market-build` / `--check` | PASS (new pets tree + pets.json rank-1 entry; dist up to date) |
+| Docs pairs / i18n | `node scripts/verify-docs.mjs --write dsh-pet` / `pnpm docs:check` / `pnpm i18n:check` | PASS |
+| Full suite | `pnpm test` | PASS except the pre-existing `dsh-remote-web-ui returns a fixed 502 message` 5 s timeout, reproduced on the clean origin/dev baseline (environment-dependent, unrelated) |
 
 ## Real-GUI evidence
 
-A scratch DSH web instance was booted (a full copy of the machine's working harness profile, DSH_HOME pointed at `.scratch-dshhome` with the pet copied into `pets/blue-throated-bee-eater/`; `pet.json` set to `petId: blue-throated-bee-eater`; booted with the real dsh CLI — note the machine's `bin/dsh` is a wrapper that hard-codes DSH_HOME, so the nested CLI at `node_modules/.bin/dsh` was used). Evidence captured with Playwright Chromium:
+Scratch DSH web instance (scratch home + official dsh CLI; verified against the real registry): the pet renders docked with the correct tray (小蜜蜂 treats stat, feed label from the i18n copy), the landing sequence plays on the done phase, and the nine previews animate with the final choreography. Evidence files in this directory: gui-pet-dock-a/b/c.png, gui-pet-animation-strip.png, gui-panel.png, gui-feed-bubble.png, pets-api.json, contact-sheet.png, zoom-sheet.png, strip-jump.png (landing), strip-idle.png, strip-front.png, strip-waiting.png, user-sheet*.png, compare-idle.png, pixel-style-gate.png, pixel-parts.png, whale-rows.png.
 
-- `pets-api.json` — `/api/pet/pets` registry listing `ouo-neko`, `whale-girl`, `whale-girl-refined`, `blue-throated-bee-eater` (蓝喉蜂虎).
-- `gui-pet-dock-a/b/c.png` + `gui-pet-animation-strip.png` — the docked pet rendered bottom-right over the blue-throated-bee-eater skin backdrop, three frames 600 ms apart showing distinct poses (wing-wave, head-turn, breathing) — animation runs.
-- `gui-pet-settings.png` — the Settings > Pet card; this host's DSH version predates the settings-namespace bridge for the pet plugin (the card reports the form unavailable and the selector is edited through `$DSH_HOME/pet.json`), so the selector screenshot needs a current dev-stack instance; the selector data is the same `/api/pet/pets` listing above.
+## Rejected / no-go notes (kept for the record)
 
-The instance was stopped and the scratch home removed after capture; the user's real homes were not touched apart from the documented `$DSH_HOME/pets/blue-throated-bee-eater` install (dsh-home).
+- Pixel-art and programmatic flat/gradient art: reached the contributor's visual ceiling; archived as experiments (gen-pet-pixel.py; early gen-pet revisions in git history).
+- Renaming the `jumping` row to `landing`: rejected — it is the shared hatch-pet contract name used by every existing pet (per the contributor's rule: repository convention stays).
+- Pet bubble color tokenization (skin-driven bubbles): attempted, then reverted per "if the repository owner would not want it, do not do it" — the shared pet client chrome stays untouched; bubble palette remains the pet plugin's blue family.
+- Blink on idle / front hover: removed after review (kept only on waiting).
+- Crouch absorb frame in the landing: removed (landing ends at touchdown; idle fallback handles the settle).

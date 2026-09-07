@@ -10,10 +10,10 @@ Status: implemented
 
 新增内置 sprite2d 宠物 `blue-throated-bee-eater`（选择器名「蓝喉蜂虎」，author dsh-web，Apache-2.0），落在 `packages/dsh-pet/assets/blue-throated-bee-eater/`：
 
-- **原创扁平插画素材**由 `docs/archive/blue-throated-bee-eater-pet/gen-pet.py` 程序化生成：pycairo 双通道渲染器（不透明颜色通道承载线性/径向渐变光影，A8 阿尔法通道承载造型覆盖与柔和阴影，合并后自 8× 超采样降采样），造型锚定蓝喉蜂虎（栗红羽冠帽、黑色过眼纹、白色巩膜 + 蓝渐变虹膜与高光、湛蓝喉部、青绿体羽、湛蓝尾羽流、细长弯黑喙），配色取自皮肤 token（#2b87d8 / #41a3e8 / #b26a3b / #0c2029 / #eef6f9）并为其羽毛补充专用青绿；栖枝态立于带叶小枝并带柔和接触阴影，翅膀分层（覆羽、次级飞羽、带亮刃边的分离初级羽指；飞行时远侧翼更暗且半透明）。
+- **贡献者提供的伙伴插画素材**（Apache-2.0）：12 张 AI 绘制的透明姿态立绘（source/ref-01..ref-12，全角色一致，配色取蓝喉蜂虎皮肤同源），由 `docs/archive/blue-throated-bee-eater-pet/gen-pet.py` 按轨道组装（纸偶摆位 + 逐轨独立姿态：栖枝、V 形飞行、正面悬停、挥翅、展翼离枝、触枝、垂头、歪头、昂首、闭眼眨眼）。
 - **动画设计**：栖枝呼吸眨眼的待机、挥翼、昂首端详的 review、朝镜头悬停拍翅（`running` 轨道）、长翼拍动循环的 `running-right` / `running-left`（举翼 V 形呼应皮肤照片）、跳跃、垂头沮丧、歪头等待。
 - 清单：petManifestVersion 2、9 行图集、按全局慢节奏基线声明的逐轨道时长、七个 ActivityPhase 全部映射 sequences、蜂虎专属妙语 remarks 块（pet / petCooldown / feed / feedCooldown / noTreats）。
-- **分发**：按 CONTRIBUTING「随 PR 收录为内置宠物」随 npm 包内置（`files` 白名单增加条目，README 内置表与动画预览表中英双语更新），同时经 `scripts/market-build` 进入创意工坊目录（新增 market/dist/assets/pets 树与 pets.json 条目），用户亦可按需装入 `$DSH_HOME/pets/<id>`。
+- **分发**：按 CONTRIBUTING「随 PR 收录为内置宠物」随 npm 包内置（`files` 白名单增加条目，README 内置表与动画预览表中英双语更新），同时经 `scripts/market-build` 进入创意工坊目录；饲料以「小蜜蜂」命名（每宠物 voice.json 面板覆盖，喂食按钮保持插件默认「喂食/Feed」）。
 - 出处：生成器、contact sheet 与验证记录放在 `docs/archive/blue-throated-bee-eater-pet/`（不放进宠物目录，避免安装器把工具文件复制进 `$DSH_HOME/pets`）。
 
 ## Testing
@@ -24,7 +24,10 @@ Status: implemented
 
 - **照片抠图派生**：把 CC BY-SA 飞行照片里的鸟抠出来、按星夜人偶先例做纸偶变换动画。否决：绿色模糊背景上抠图缺少可靠的分割手段、单一滑翔姿态表现力有限、派生作品将承担 CC BY-SA 4.0 却视觉价值不高；原创矢量插画更清晰且版权归仓库。
 - **frames2d 布局**：miku 式命名帧目录而非图集。否决：sprite2d 9 行契约与其他图集宠物及 README 预览表一致，陪伴型宠物不需要玩法块。
-- **仅走创意工坊**：不打进 npm 包（星夜人偶先例）。否决：CONTRIBUTING 的宠物贡献条款把新宠物记为内置，且配套皮肤同样是纯资产包；内置成本仅约 140 KB。
+- **仅走创意工坊**：不打进 npm 包（星夜人偶先例）。否决：CONTRIBUTING 的宠物贡献条款把新宠物记为内置，且配套皮肤同样是纯资产包；内置成本仅约 220 KB。
+- **程序化重绘（纯 PIL 平涂 / pycairo 渐变 / 程序化像素风）**：均已完整尝试并因视觉不达标被否决（达到程序化绘制上限，AI 立绘路线为最终方案）；像素管线存档为 gen-pet-pixel.py，证据含 pixel-parts.png / pixel-style-gate.png。
+- **契约改名 jumping → landing**：否决——jumping 是共享 hatch-pet 行名、所有现有宠物都在使用；降落语义沿用该行（按贡献者规则：仓库规范不动）。
+- **宠物气泡皮肤令牌化配色**：尝试后回滚——共享宠物客户端外观保持不变，气泡仍为插件蓝色家族。
 
 ## Consequences
 
