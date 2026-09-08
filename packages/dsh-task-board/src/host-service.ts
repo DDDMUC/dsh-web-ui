@@ -45,6 +45,7 @@ export class TaskBoardHostService {
     this.runner = new HostExecutionRunner(gateway, options.commandDispatcher, options.workspaceRegistry)
     this.power = options.power ?? new PowerInhibitor()
     this.now = options.now ?? Date.now
+    installStreamErrorGuards()
     this.ledger.subscribe(() => {
       this.syncPowerReasons()
       this.emit()
@@ -214,7 +215,7 @@ export class TaskBoardHostService {
 
   private scheduleLaunch(opened: OpenedRun): void {
     void this.launch(opened).catch(error => {
-      console.error('[dsh-task-board] execution launch settlement failed', error)
+      safeConsoleError('[dsh-task-board] execution launch settlement failed', error)
     })
   }
 
@@ -222,7 +223,7 @@ export class TaskBoardHostService {
     if (this.pollInFlight || this.disposed) return
     this.pollInFlight = true
     void this.pollSessions().catch(error => {
-      console.error('[dsh-task-board] session polling failed', error)
+      safeConsoleError('[dsh-task-board] session polling failed', error)
     }).finally(() => { this.pollInFlight = false })
   }
 
@@ -230,7 +231,7 @@ export class TaskBoardHostService {
     if (this.tickInFlight || this.disposed) return
     this.tickInFlight = true
     void this.tickSchedule(first).catch(error => {
-      console.error('[dsh-task-board] scheduler tick failed', error)
+      safeConsoleError('[dsh-task-board] scheduler tick failed', error)
     }).finally(() => { this.tickInFlight = false })
   }
 
@@ -246,5 +247,35 @@ export class TaskBoardHostService {
 
   private emit(): void {
     for (const listener of [...this.listeners]) listener()
+  }
+}
+
+/**
+ * Install stream error listeners on process.stderr and process.stdout so that
+ * transient write failures (e.g. ENOSPC when the disk is full, or EPIPE on a
+ * closed pipe) never emit unhandled 'error' events that kill the Node.js host process.
+ */
+export function installStreamErrorGuards(): void {
+  for (const stream of [process.stderr, process.stdout]) {
+    if (stream && typeof stream.on === 'function') {
+      const hasErrorListener = typeof stream.listenerCount === 'function' && stream.listenerCount('error') > 0
+      if (!hasErrorListener) {
+        stream.on('error', () => {
+          // Swallow write stream errors to keep the host process alive
+        })
+      }
+    }
+  }
+}
+
+/**
+ * Defensively log to console.error without letting stderr write failures
+ * (e.g. ENOSPC from SyncWriteStream on redirected logs) crash the host process.
+ */
+export function safeConsoleError(message: string, ...args: unknown[]): void {
+  try {
+    console.error(message, ...args)
+  } catch {
+    // Best-effort stderr write; ignore write errors when stderr stream fails
   }
 }

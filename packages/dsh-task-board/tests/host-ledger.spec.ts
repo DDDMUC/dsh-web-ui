@@ -1,8 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTask, EXECUTION_HISTORY_LIMIT, startExecution, withSchedule, type TaskRecord } from '../src/core/tasks.ts'
 import { HostTaskLedger, processIsAlive, processState } from '../src/host-ledger.ts'
 
@@ -560,6 +560,30 @@ describe('HostTaskLedger', () => {
     const restarted = new HostTaskLedger(root, () => NOW + 1_000)
     expect(restarted.state().scheduler.error).toBe('visible after restart')
     restarted.dispose()
+  })
+
+  it('cleans stale temporary files on ledger startup (#1427)', () => {
+    const root = tempRoot()
+    writeFileSync(join(root, 'scheduler-v2.json.tmp-12345'), 'orphaned', 'utf8')
+    writeFileSync(join(root, 'ledger-v2.json.tmp-99999'), 'orphaned', 'utf8')
+    const ledger = new HostTaskLedger(root, () => NOW)
+    expect(existsSync(join(root, 'scheduler-v2.json.tmp-12345'))).toBe(false)
+    expect(existsSync(join(root, 'ledger-v2.json.tmp-99999'))).toBe(false)
+    ledger.dispose()
+  })
+
+  it('gracefully handles ENOSPC during sidecar heartbeat write without throwing (#1427)', () => {
+    const root = tempRoot()
+    const ledger = new HostTaskLedger(root, () => NOW)
+    const enospcError = Object.assign(new Error('no space left on device'), { code: 'ENOSPC' })
+    vi.spyOn(ledger as never, 'writeSchedulerSidecar').mockImplementationOnce(() => {
+      throw enospcError
+    })
+    expect(() => {
+      ledger.setScheduler({ lastTickAt: NOW + 30_000 })
+    }).not.toThrow()
+    expect(ledger.state().scheduler.lastTickAt).toBe(NOW + 30_000)
+    ledger.dispose()
   })
 })
 
