@@ -687,19 +687,6 @@
       "repo": "https://github.com/jcaiagent7143-ui/linkdigest-mcp",
       "category": "integration",
       "subcategory": "remote"
-    },
-    {
-      "id": "dsh-quote-followup",
-      "name": "引用追问",
-      "rank": 55,
-      "nameEn": "Quote Follow-up",
-      "author": "tr1v3r",
-      "description": "在 Web 对话里划选任意文本，一键以原生引用 chip 追加进输入框进行针对性追问；发送时自动展开为模型可读的 Markdown 引文，旧宿主降级为纯文本引用。",
-      "descriptionEn": "Select any text in the Web transcript and append it to the composer as a native quote chip for a targeted follow-up; chips expand into model-readable Markdown quotes on send, with a plain-text fallback on older hosts.",
-      "repo": "https://github.com/tr1v3r/dsh-quote-followup",
-      "npm": "dsh-quote-followup",
-      "category": "ui",
-      "subcategory": "chat"
     }
   ]
 }
