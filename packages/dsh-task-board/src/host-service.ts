@@ -1,5 +1,6 @@
 import type { TypertGateway } from '@deepseek-ai/dsh-api-gateway'
 import { nextRunAtMs } from './core/schedule.ts'
+import { reusableSessionId } from './core/session-reuse.ts'
 import { HostTaskLedger, type OpenedRun, type OpenExecutionReference } from './host-ledger.ts'
 import { HostExecutionRunner, SessionLaunchError, type SessionCommandDispatcher, type SessionSummary, type TaskBoardWorkspaceRegistry } from './host-runner.ts'
 import { PowerInhibitor } from './power-inhibitor.ts'
@@ -21,6 +22,13 @@ export class TaskBoardHostService {
   private pollInFlight = false
   private tickInFlight = false
   private active = true
+  /**
+   * Ids the last roster poll saw as present and idle; undefined while the
+   * roster is unknown. Session reuse (issue #1419) requires this positive
+   * evidence, so a launch before the first successful poll mints a fresh
+   * conversation instead of prompting into a session it cannot see.
+   */
+  private idleSessionIds: ReadonlySet<string> | undefined
   private preventIdleSleep = false
   private lastPowerJson = ''
   private readonly now: () => number
@@ -127,7 +135,8 @@ export class TaskBoardHostService {
 
   private async launch(opened: OpenedRun): Promise<void> {
     try {
-      const sessionId = await this.runner.launch(opened.task)
+      const reuseSessionId = reusableSessionId(opened.task, this.idleSessionIds)
+      const sessionId = await this.runner.launch(opened.task, reuseSessionId === undefined ? {} : { reuseSessionId })
       this.ledger.attachSession(opened.task.id, opened.execution.id, sessionId)
     } catch (error) {
       if (error instanceof SessionLaunchError) {
@@ -143,6 +152,7 @@ export class TaskBoardHostService {
     const running = await this.runner.listRunning()
     const previous = this.power.snapshot()
     if (!running.known) {
+      this.idleSessionIds = undefined
       this.power.updateReasons({
         runningSessions: previous.runningSessions,
         armedSchedules: this.ledger.armedScheduleCount(),
@@ -150,6 +160,7 @@ export class TaskBoardHostService {
       })
       return
     }
+    this.idleSessionIds = new Set(running.items.filter(item => !item.running).map(item => item.sessionId))
     // Read after the RPC so executions attached while it was in flight are
     // included in this pass, matching the former full-state snapshot timing.
     const runtime = this.ledger.runtimeView()

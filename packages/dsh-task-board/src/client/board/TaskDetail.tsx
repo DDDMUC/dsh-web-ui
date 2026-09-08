@@ -144,6 +144,16 @@ function ExecutionSettingsSection({ controller, task, pending }: { controller: B
           ))}
         </select>
       </label>
+      <label className={css.scheduleToggle}>
+        <input
+          type="checkbox"
+          checked={task.reuseSession === true}
+          disabled={pending}
+          onChange={event => { controller.updateTask(task.id, { reuseSession: event.target.checked }) }}
+        />
+        <span>{t('exec.reuseSession')}</span>
+      </label>
+      <p className={css.detailText}>{t('exec.reuseSessionHint')}</p>
     </section>
   )
 }
