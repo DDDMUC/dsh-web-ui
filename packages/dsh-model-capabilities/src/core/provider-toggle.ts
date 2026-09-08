@@ -54,10 +54,24 @@ export function readDisabledStore(value: unknown): Record<string, StashedProvide
   return out
 }
 
-/** Whether the user layer of the pi-ai namespace holds a profile for the route. */
-export function userHasProfile(userSection: unknown, route: string): boolean {
-  if (!isPlainObject(userSection) || !isPlainObject(userSection['providers'])) return false
-  return isPlainObject(userSection['providers'][route])
+/** Whether one settings layer holds a profile for the route. */
+export function hasProfileAt(section: unknown, route: string): boolean {
+  if (!isPlainObject(section) || !isPlainObject(section['providers'])) return false
+  return isPlainObject(section['providers'][route])
+}
+
+/**
+ * Whether a layer other than the user section holds the route, so unsetting the
+ * user profile would not take the provider down. The composition `base` layer
+ * answers directly when the view carries it; a view without `base` falls back
+ * to "the resolved value has it but the user layer does not".
+ */
+export function hasNonUserProfile(
+  view: { user?: unknown, base?: unknown, value?: unknown },
+  route: string,
+): boolean {
+  if (view.base !== undefined) return hasProfileAt(view.base, route)
+  return !hasProfileAt(view.user, route) && hasProfileAt(view.value, route)
 }
 
 /** Archive one profile: `disabled.<route> = stash` in the plugin namespace. */

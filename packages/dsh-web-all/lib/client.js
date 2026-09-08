@@ -47173,6 +47173,8 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-model-capabilities/src/core/capabilities.ts
+		/** The official adapter family this plugin extends (the card slot's key). */
+		const PI_AI_SETTINGS_NAMESPACE = "llm-pi-ai";
 		/** The levels a capability draft may toggle, in escalation order. */
 		const THINKING_LEVELS = [
 			"off",
@@ -47367,10 +47369,20 @@ window.__ModuleLoader__.load({
 			}
 			return out;
 		}
-		/** Whether the user layer of the pi-ai namespace holds a profile for the route. */
-		function userHasProfile(userSection, route) {
-			if (!isPlainObject(userSection) || !isPlainObject(userSection["providers"])) return false;
-			return isPlainObject(userSection["providers"][route]);
+		/** Whether one settings layer holds a profile for the route. */
+		function hasProfileAt(section, route) {
+			if (!isPlainObject(section) || !isPlainObject(section["providers"])) return false;
+			return isPlainObject(section["providers"][route]);
+		}
+		/**
+		* Whether a layer other than the user section holds the route, so unsetting the
+		* user profile would not take the provider down. The composition `base` layer
+		* answers directly when the view carries it; a view without `base` falls back
+		* to "the resolved value has it but the user layer does not".
+		*/
+		function hasNonUserProfile(view, route) {
+			if (view.base !== void 0) return hasProfileAt(view.base, route);
+			return !hasProfileAt(view.user, route) && hasProfileAt(view.value, route);
 		}
 		/** Archive one profile: `disabled.<route> = stash` in the plugin namespace. */
 		function buildStashOp(route, stash) {
@@ -47439,6 +47451,7 @@ window.__ModuleLoader__.load({
 			if (llmView === void 0 || capsView === void 0) return { kind: "unavailable" };
 			const profile = profileAt(llmView.user, route);
 			if (profile === void 0) return { kind: "no-profile" };
+			if (hasNonUserProfile(llmView, route)) return { kind: "base-profile" };
 			const stash = {
 				profile,
 				...displayName !== void 0 ? { displayName } : {}
@@ -47463,7 +47476,7 @@ window.__ModuleLoader__.load({
 			const llmView = viewOf(described.value.namespaces, llmNs);
 			const capsView = viewOf(described.value.namespaces, CAPS_SETTINGS_NAMESPACE);
 			if (llmView === void 0 || capsView === void 0) return { kind: "unavailable" };
-			if (userHasProfile(llmView.user, route)) return { kind: "route-exists" };
+			if (hasProfileAt(llmView.user, route)) return { kind: "route-exists" };
 			const stash = readDisabledStore(capsView.value)[route];
 			if (stash === void 0) return { kind: "no-stash" };
 			const restored = await face.mutate(llmNs, [buildRestoreProviderOp(route, stash.profile)], llmView.revision);
@@ -47520,6 +47533,7 @@ window.__ModuleLoader__.load({
 			"caps.discard": "重置",
 			"caps.dirty": "有未保存的修改",
 			"caps.saved": "已保存",
+			"caps.staleDraft": "配置已被其他界面修改；你的未保存修改仍保留，保存时会再次校验。",
 			"caps.conflict": "配置已被其他界面修改，已重新读取，请重试。",
 			"caps.failed": "保存失败：{error}",
 			"caps.invalid.wire": "档位 {level} 需要非空的发送值。",
@@ -47535,6 +47549,7 @@ window.__ModuleLoader__.load({
 			"caps.footer.hint": "这些提供方的配置已存档；启用后恢复原配置，并重新出现在模型选择器与子代理可选列表中。",
 			"caps.error.routeExists": "该提供方已存在新配置，无法恢复存档；请先移除现有配置再启用。",
 			"caps.error.partialEnable": "已启用，但清理存档失败：{error}",
+			"caps.error.baseProfile": "该提供方在组合层也声明了配置，禁用无法让它下线，因此不提供此操作。",
 			"caps.error.unavailable": "无法切换：插件的存档命名空间未注册。"
 		};
 		/** English copy (full key parity with zh). */
@@ -47572,6 +47587,7 @@ window.__ModuleLoader__.load({
 			"caps.discard": "Reset",
 			"caps.dirty": "Unsaved changes",
 			"caps.saved": "Saved",
+			"caps.staleDraft": "The configuration changed in another surface; your unsaved changes are kept and re-checked when you save.",
 			"caps.conflict": "The configuration changed in another surface; reloaded — please retry.",
 			"caps.failed": "Save failed: {error}",
 			"caps.invalid.wire": "Level {level} needs a non-empty wire value.",
@@ -47587,6 +47603,7 @@ window.__ModuleLoader__.load({
 			"caps.footer.hint": "These providers have archived configurations; enabling restores the original profile and puts it back into the model picker and the subagent selection.",
 			"caps.error.routeExists": "The provider already has a newer configuration; the archive cannot be restored. Remove the current configuration first, then enable.",
 			"caps.error.partialEnable": "Enabled, but clearing the archive failed: {error}",
+			"caps.error.baseProfile": "The composition layer also declares this provider, so disabling cannot take it down; the action is not offered.",
 			"caps.error.unavailable": "Cannot toggle: the plugin archive namespace is not registered."
 		};
 		/**
@@ -47604,7 +47621,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-model-capabilities/src/client/capabilities.module.css.mjs
-		const css$1 = ".Qzh-QG_panel{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);border-radius:10px;margin:0 16px 12px;padding:0 12px}.Qzh-QG_header{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:8px;padding:10px 2px;display:flex}.Qzh-QG_header:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.Qzh-QG_title{color:var(--dsw-alias-label-primary);flex:1;font-size:13px;font-weight:600}.Qzh-QG_pending{color:var(--dsw-alias-label-secondary);font-size:12px}.Qzh-QG_chevron{color:var(--dsw-alias-label-dimmed);flex-shrink:0;transition:transform .16s}.Qzh-QG_chevronOpen{transform:rotate(180deg)}.Qzh-QG_body{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:8px;padding:8px 2px 10px;display:flex}.Qzh-QG_hint{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_status{color:var(--dsw-alias-label-dimmed);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_readOnly{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px}.Qzh-QG_failed{color:var(--dsw-alias-status-danger,#d0342c);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_statusRow{align-items:center;gap:10px;display:flex}.Qzh-QG_rows{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}.Qzh-QG_row{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-3);border-radius:8px}.Qzh-QG_rowHeader{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:8px;align-items:center;gap:8px;padding:8px 10px;display:flex}.Qzh-QG_rowHeader:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.Qzh-QG_modelId{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:13px;font-weight:500}.Qzh-QG_modelName{color:var(--dsw-alias-label-dimmed);text-overflow:ellipsis;white-space:nowrap;font-size:12px;overflow:hidden}.Qzh-QG_chips{flex-wrap:wrap;gap:4px;margin-left:auto;display:flex}.Qzh-QG_chip{color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 8px;font-size:11px;line-height:18px}.Qzh-QG_rowBody{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:12px;padding:10px;display:flex}.Qzh-QG_field{flex-direction:column;gap:4px;display:flex}.Qzh-QG_fieldLabel{color:var(--dsw-alias-label-primary);font-size:12px;font-weight:600}.Qzh-QG_checkLabel{color:var(--dsw-alias-label-primary);cursor:pointer;align-items:center;gap:6px;font-size:13px;display:flex}.Qzh-QG_checkLabel:has(input:disabled){cursor:default;opacity:.6}.Qzh-QG_modeGroup{flex-wrap:wrap;gap:4px;display:flex}.Qzh-QG_modeOption{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;border-radius:8px;align-items:center;gap:6px;padding:3px 10px;font-size:12px;display:flex}.Qzh-QG_modeOption:has(input:disabled){cursor:default;opacity:.6}.Qzh-QG_modeOptionActive{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary)}.Qzh-QG_levels{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:8px;padding:8px;display:flex}.Qzh-QG_levelChips{flex-wrap:wrap;gap:4px;display:flex}.Qzh-QG_levelChip{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:0 0;border-radius:999px;padding:2px 10px;font-size:12px;line-height:1.4}.Qzh-QG_levelChip:disabled{cursor:default;opacity:.6}.Qzh-QG_levelChipActive{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary);background:var(--dsw-alias-brand-primary-softer,transparent)}.Qzh-QG_wireRow{align-items:center;gap:8px;display:flex}.Qzh-QG_wireLabel{min-width:130px;color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:12px;display:flex}.Qzh-QG_wireLabel code{color:var(--dsw-alias-label-primary);font-size:12px}.Qzh-QG_wireInput{appearance:none;font:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;flex:1;min-width:0;padding:4px 8px;font-size:12px}.Qzh-QG_wireInput:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px}.Qzh-QG_wireInput::placeholder{color:var(--dsw-alias-label-dimmed)}.Qzh-QG_footer{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.Qzh-QG_spacer{flex:1}.Qzh-QG_ghost{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);background:0 0;border-radius:8px;padding:4px 12px;font-size:13px;line-height:1.5}.Qzh-QG_ghost:disabled{opacity:.4;cursor:default}.Qzh-QG_ghost:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_primary{appearance:none;font:inherit;cursor:pointer;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border:1px solid #0000;border-radius:8px;padding:4px 14px;font-size:13px;line-height:1.5}.Qzh-QG_primary:hover:enabled{background:var(--dsw-alias-button-primary-hover)}.Qzh-QG_primary:disabled{opacity:.4;cursor:default}.Qzh-QG_primary:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_offBadge{color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 8px;font-size:11px;line-height:18px}.Qzh-QG_disabledBox{border:1px dashed var(--dsw-alias-border-l2);border-radius:8px;align-items:center;gap:10px;padding:10px;display:flex}.Qzh-QG_disabledBox p{flex:1}.Qzh-QG_danger{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-status-danger,#d0342c);color:var(--dsw-alias-status-danger,#d0342c);background:0 0;border-radius:8px;padding:4px 12px;font-size:13px;line-height:1.5}.Qzh-QG_danger:disabled{opacity:.4;cursor:default}.Qzh-QG_danger:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_archive{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);border-radius:10px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.Qzh-QG_archiveTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:13px;font-weight:600}.Qzh-QG_archiveRows{flex-direction:column;gap:4px;margin:0;padding:0;list-style:none;display:flex}.Qzh-QG_archiveRow{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-3);border-radius:8px;align-items:center;gap:8px;padding:6px 10px;display:flex}";
+		const css$1 = ".Qzh-QG_panel{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);border-radius:10px;margin:0 16px 12px;padding:0 12px}.Qzh-QG_header{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:8px;padding:10px 2px;display:flex}.Qzh-QG_header:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.Qzh-QG_title{color:var(--dsw-alias-label-primary);flex:1;font-size:13px;font-weight:600}.Qzh-QG_pending{color:var(--dsw-alias-label-secondary);font-size:12px}.Qzh-QG_chevron{color:var(--dsw-alias-label-dimmed);flex-shrink:0;transition:transform .16s}.Qzh-QG_chevronOpen{transform:rotate(180deg)}.Qzh-QG_body{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:8px;padding:8px 2px 10px;display:flex}.Qzh-QG_hint{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_status{color:var(--dsw-alias-label-dimmed);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_readOnly{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px}.Qzh-QG_failed{color:var(--dsw-alias-status-danger,#d0342c);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_notice{color:var(--dsw-alias-state-warn-label);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_statusRow{align-items:center;gap:10px;display:flex}.Qzh-QG_rows{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}.Qzh-QG_row{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-3);border-radius:8px}.Qzh-QG_rowHeader{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:8px;align-items:center;gap:8px;padding:8px 10px;display:flex}.Qzh-QG_rowHeader:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.Qzh-QG_modelId{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:13px;font-weight:500}.Qzh-QG_modelName{color:var(--dsw-alias-label-dimmed);text-overflow:ellipsis;white-space:nowrap;font-size:12px;overflow:hidden}.Qzh-QG_chips{flex-wrap:wrap;gap:4px;margin-left:auto;display:flex}.Qzh-QG_chip{color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 8px;font-size:11px;line-height:18px}.Qzh-QG_rowBody{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:12px;padding:10px;display:flex}.Qzh-QG_field{flex-direction:column;gap:4px;display:flex}.Qzh-QG_fieldLabel{color:var(--dsw-alias-label-primary);font-size:12px;font-weight:600}.Qzh-QG_checkLabel{color:var(--dsw-alias-label-primary);cursor:pointer;align-items:center;gap:6px;font-size:13px;display:flex}.Qzh-QG_checkLabel:has(input:disabled){cursor:default;opacity:.6}.Qzh-QG_modeGroup{flex-wrap:wrap;gap:4px;display:flex}.Qzh-QG_modeOption{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;border-radius:8px;align-items:center;gap:6px;padding:3px 10px;font-size:12px;display:flex}.Qzh-QG_modeOption:has(input:disabled){cursor:default;opacity:.6}.Qzh-QG_modeOptionActive{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary)}.Qzh-QG_levels{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:8px;padding:8px;display:flex}.Qzh-QG_levelChips{flex-wrap:wrap;gap:4px;display:flex}.Qzh-QG_levelChip{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:0 0;border-radius:999px;padding:2px 10px;font-size:12px;line-height:1.4}.Qzh-QG_levelChip:disabled{cursor:default;opacity:.6}.Qzh-QG_levelChipActive{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary);background:var(--dsw-alias-brand-primary-softer,transparent)}.Qzh-QG_wireRow{align-items:center;gap:8px;display:flex}.Qzh-QG_wireLabel{min-width:130px;color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:12px;display:flex}.Qzh-QG_wireLabel code{color:var(--dsw-alias-label-primary);font-size:12px}.Qzh-QG_wireInput{appearance:none;font:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;flex:1;min-width:0;padding:4px 8px;font-size:12px}.Qzh-QG_wireInput:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px}.Qzh-QG_wireInput::placeholder{color:var(--dsw-alias-label-dimmed)}.Qzh-QG_footer{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.Qzh-QG_spacer{flex:1}.Qzh-QG_ghost{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);background:0 0;border-radius:8px;padding:4px 12px;font-size:13px;line-height:1.5}.Qzh-QG_ghost:disabled{opacity:.4;cursor:default}.Qzh-QG_ghost:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_primary{appearance:none;font:inherit;cursor:pointer;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border:1px solid #0000;border-radius:8px;padding:4px 14px;font-size:13px;line-height:1.5}.Qzh-QG_primary:hover:enabled{background:var(--dsw-alias-button-primary-hover)}.Qzh-QG_primary:disabled{opacity:.4;cursor:default}.Qzh-QG_primary:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_offBadge{color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 8px;font-size:11px;line-height:18px}.Qzh-QG_disabledBox{border:1px dashed var(--dsw-alias-border-l2);border-radius:8px;align-items:center;gap:10px;padding:10px;display:flex}.Qzh-QG_disabledBox p{flex:1}.Qzh-QG_danger{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-status-danger,#d0342c);color:var(--dsw-alias-status-danger,#d0342c);background:0 0;border-radius:8px;padding:4px 12px;font-size:13px;line-height:1.5}.Qzh-QG_danger:disabled{opacity:.4;cursor:default}.Qzh-QG_danger:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_archive{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);border-radius:10px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.Qzh-QG_archiveTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:13px;font-weight:600}.Qzh-QG_archiveRows{flex-direction:column;gap:4px;margin:0;padding:0;list-style:none;display:flex}.Qzh-QG_archiveRow{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-3);border-radius:8px;align-items:center;gap:8px;padding:6px 10px;display:flex}";
 		const tagId$1 = "@linxin666/dsh-web-all/packages/dsh-model-capabilities/src/client/capabilities.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
@@ -47642,6 +47659,7 @@ window.__ModuleLoader__.load({
 			"modeOptionActive": "Qzh-QG_modeOptionActive",
 			"modelId": "Qzh-QG_modelId",
 			"modelName": "Qzh-QG_modelName",
+			"notice": "Qzh-QG_notice",
 			"offBadge": "Qzh-QG_offBadge",
 			"panel": "Qzh-QG_panel",
 			"pending": "Qzh-QG_pending",
@@ -47704,6 +47722,9 @@ window.__ModuleLoader__.load({
 			const [toggleBusy, setToggleBusy] = (0, react.useState)(void 0);
 			const [toggleFailure, setToggleFailure] = (0, react.useState)(void 0);
 			const [toggleConflict, setToggleConflict] = (0, react.useState)(false);
+			const [staleDraft, setStaleDraft] = (0, react.useState)(false);
+			/** Revision the open draft was read from (the write's fence while it is open). */
+			const draftBasis = (0, react.useRef)(void 0);
 			const settingsPath = (0, react.useMemo)(() => [...provider.settingsPath], [provider.settingsPath]);
 			/** The models array lives one level below the profile the settings path addresses. */
 			const modelsPath = (0, react.useMemo)(() => [...settingsPath, "models"], [settingsPath]);
@@ -47718,19 +47739,22 @@ window.__ModuleLoader__.load({
 					if (view === void 0) throw new Error(`settings namespace "${provider.settingsNs}" is not registered on this host`);
 					const capsView = namespaces.find((candidate) => candidate.ns === CAPS_SETTINGS_NAMESPACE);
 					const stash = readDisabledStore(capsView?.value);
-					const userProfile = userHasProfile(view.user, provider.provider);
+					const userProfile = hasProfileAt(view.user, provider.provider);
 					const userModels = modelsArrayOf(readAt(view.user, modelsPath));
 					const effective = userModels ?? modelsArrayOf(readAt(view.value, modelsPath)) ?? [];
+					const basis = draftBasis.current;
 					setSnapshot({
 						entries: effective,
 						inherited: userModels === void 0,
-						revision: view.revision,
+						revision: basis ?? view.revision,
 						writable: described.value.writable,
 						userProfile,
+						baseProfile: hasNonUserProfile(view, provider.provider),
 						disabledHere: stash[provider.provider] !== void 0 && !userProfile,
 						capsKnown: capsView !== void 0
 					});
-					setDraft(null);
+					if (basis === void 0) setDraft(null);
+					setStaleDraft(basis !== void 0 && basis !== view.revision);
 					setPhase({ kind: "ready" });
 				} catch (error) {
 					setPhase({
@@ -47762,6 +47786,7 @@ window.__ModuleLoader__.load({
 			const toggleUnavailable = !editing || !snapshot.capsKnown || readOnly || toggleBusy !== void 0;
 			const updateEntry = (index, next) => {
 				if (!editing || readOnly) return;
+				if (draft === null) draftBasis.current = snapshot.revision;
 				setDraft((current) => {
 					const clone = (current ?? snapshot.entries.map(cloneEntry)).map((entry) => ({ ...entry }));
 					clone[index] = next;
@@ -47770,6 +47795,8 @@ window.__ModuleLoader__.load({
 				setSave({ kind: "idle" });
 			};
 			const discard = () => {
+				draftBasis.current = void 0;
+				setStaleDraft(false);
 				setDraft(null);
 				setSave({ kind: "idle" });
 			};
@@ -47795,11 +47822,15 @@ window.__ModuleLoader__.load({
 							revision: written.value.revision,
 							userProfile: true
 						});
+						draftBasis.current = void 0;
+						setStaleDraft(false);
 						setDraft(null);
 						setSave({ kind: "saved" });
 						return;
 					}
 					if (written.error.code === "settings/conflict") {
+						draftBasis.current = void 0;
+						setStaleDraft(false);
 						setSave({ kind: "conflict" });
 						await load(settings);
 						return;
@@ -47830,12 +47861,14 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				if (outcome.kind === "route-exists") setToggleFailure(t("caps.error.routeExists"));
+				else if (outcome.kind === "base-profile") setToggleFailure(t("caps.error.baseProfile"));
 				else if (outcome.kind === "unavailable") setToggleFailure(t("caps.error.unavailable"));
 				else if (outcome.kind === "partial") setToggleFailure(t("caps.error.partialEnable", { error: outcome.message }));
 				else setToggleFailure(t("caps.failed", { error: outcome.kind }));
+				await load(settings);
 			};
 			const doDisable = async () => {
-				if (toggleUnavailable || snapshot === void 0 || !snapshot.userProfile) return;
+				if (toggleUnavailable || snapshot === void 0 || !snapshot.userProfile || snapshot.baseProfile) return;
 				setToggleBusy("disabling");
 				setToggleFailure(void 0);
 				setToggleConflict(false);
@@ -47965,6 +47998,11 @@ window.__ModuleLoader__.load({
 						})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: capabilities_module_css_default.footer,
 							children: [
+								staleDraft ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: capabilities_module_css_default.notice,
+									role: "status",
+									children: t("caps.staleDraft")
+								}) : null,
 								save.kind === "saved" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 									className: capabilities_module_css_default.status,
 									role: "status",
@@ -47996,7 +48034,7 @@ window.__ModuleLoader__.load({
 									children: t("caps.invalid.offOnly")
 								}) : null,
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: capabilities_module_css_default.spacer }),
-								!disabledHere && snapshot.userProfile && snapshot.capsKnown ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								!disabledHere && snapshot.userProfile && !snapshot.baseProfile && snapshot.capsKnown ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									className: capabilities_module_css_default.danger,
 									"data-dsh-part": "disable",
@@ -48248,12 +48286,20 @@ window.__ModuleLoader__.load({
 		* A disabled provider's route is unregistered, so for hand-declared routes
 		* the provider card itself disappears from the Models page; this footer (the
 		* page's `settings.models.footer` seat) is where those providers come back:
-		* it lists the archive entries and restores a profile on enable. Renders
-		* nothing while the archive is empty.
+		* it lists the archive entries whose route is still down and restores a profile
+		* on enable. Renders nothing while no such entry exists.
 		* @module @linxin666/dsh-client-ui-model-capabilities/client/DisabledProvidersFooter
 		*/
-		/** The pi-ai family namespace the archived routes live in. */
-		const LLM_PI_AI_NAMESPACE = "llm-pi-ai";
+		/**
+		* Whether the route is configured again, which makes its archive entry stale:
+		* an entry whose provider came back (a re-added route, or a partial enable that
+		* restored the profile but failed to clear the archive) must not be listed as
+		* disabled. The entry itself stays in the archive as a restorable profile.
+		*/
+		function routeLive(view, route) {
+			if (view === void 0) return false;
+			return hasProfileAt(view.user, route) || hasNonUserProfile(view, route);
+		}
 		/**
 		* Render the disabled-provider archive.
 		* @param props - the injected settings face and refresh bus.
@@ -48262,6 +48308,7 @@ window.__ModuleLoader__.load({
 		function DisabledProvidersFooter(props) {
 			const { settings, refresh } = props;
 			const [stash, setStash] = (0, react.useState)({});
+			const [llmView, setLlmView] = (0, react.useState)(void 0);
 			const [known, setKnown] = (0, react.useState)(false);
 			const [busyRoute, setBusyRoute] = (0, react.useState)(void 0);
 			const [failure, setFailure] = (0, react.useState)(void 0);
@@ -48272,6 +48319,7 @@ window.__ModuleLoader__.load({
 					const view = described.value.namespaces.find((candidate) => candidate.ns === CAPS_SETTINGS_NAMESPACE);
 					if (view === void 0) return;
 					setStash(readDisabledStore(view.value));
+					setLlmView(described.value.namespaces.find((candidate) => candidate.ns === PI_AI_SETTINGS_NAMESPACE));
 					setKnown(true);
 				} catch {}
 			}, []);
@@ -48287,14 +48335,14 @@ window.__ModuleLoader__.load({
 				refresh,
 				settings
 			]);
-			const routes = Object.keys(stash).sort((a, b) => a.localeCompare(b));
+			const routes = Object.keys(stash).filter((route) => !routeLive(llmView, route)).sort((a, b) => a.localeCompare(b));
 			if (!known || routes.length === 0) return null;
 			const enable = async (route) => {
 				if (busyRoute !== void 0) return;
 				setBusyRoute(route);
 				setFailure(void 0);
 				try {
-					const outcome = await enableProvider(settings, LLM_PI_AI_NAMESPACE, route);
+					const outcome = await enableProvider(settings, PI_AI_SETTINGS_NAMESPACE, route);
 					if (outcome.kind === "ok") {
 						refresh.notify();
 						await load(settings);
@@ -48367,6 +48415,35 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region ../dsh-model-capabilities/src/client/settings-face.ts
+		/**
+		* Coalesce concurrent `describe` reads onto one wire call: every provider card
+		* panel and the footer area reload from the same document update, and each one
+		* describing the whole document separately would multiply the round trips by
+		* the number of custom providers. Only in-flight reads are shared, so a later
+		* call always observes the document as it stands then; `mutate` is passed
+		* through untouched.
+		* @param face - the generated remote settings face.
+		* @returns a face with the same contract whose concurrent describes share one read.
+		*/
+		function coalesceDescribe(face) {
+			let inflight;
+			return {
+				describe() {
+					if (inflight === void 0) {
+						const pending = face.describe();
+						inflight = pending;
+						const clear = () => {
+							if (inflight === pending) inflight = void 0;
+						};
+						pending.then(clear, clear);
+					}
+					return inflight;
+				},
+				mutate: (ns, ops, expectedRevision) => face.mutate(ns, ops, expectedRevision)
+			};
+		}
+		//#endregion
 		//#region ../dsh-model-capabilities/src/client/index.ts
 		var client_exports$1 = /* @__PURE__ */ __exportAll({
 			apply: () => apply$2,
@@ -48399,7 +48476,7 @@ window.__ModuleLoader__.load({
 					return () => {};
 				}
 			}, "dsh-model-capabilities: dictionaries");
-			const settings = ctx.get("remote").settings;
+			const settings = coalesceDescribe(ctx.get("remote").settings);
 			const listeners = /* @__PURE__ */ new Set();
 			const refresh = {
 				subscribe(callback) {
@@ -48414,8 +48491,8 @@ window.__ModuleLoader__.load({
 			};
 			ctx.effect(() => {
 				try {
-					return ctx.remote.$on("settings/document-updated", () => {
-						refresh.notify();
+					return ctx.remote.$on("settings/document-updated", (ns) => {
+						if (ns === "llm-pi-ai" || ns === "dsh-model-capabilities") refresh.notify();
 					});
 				} catch {
 					return () => {};

@@ -20,6 +20,9 @@
 
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
+/** The official adapter family this plugin extends (the card slot's key). */
+export const PI_AI_SETTINGS_NAMESPACE = 'llm-pi-ai'
+
 /** One request modality a pi-ai model profile may declare. */
 export type ModelModality = 'text' | 'image'
 

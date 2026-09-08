@@ -1,46 +1,42 @@
-# Agent Note: 模型能力声明插件(dsh-model-capabilities)
+# Agent Note: 自定义 pi-ai 提供方的逐模型能力声明
 
-状态: 已实现
+Status: implemented
 
-## 问题背景
+## Problem
 
-DSH 的自定义提供方(OpenAI 兼容网关等)在 Models 设置页只能填模型 ID、显示名称、上下文窗口与最大输出 token。未被内置目录覆盖的自定义模型因此丢失两类能力信息:
+Models 设置页上的自定义 DSH 提供方只能填模型 ID、显示名称、上下文窗口与最大输出，而官方 `llm-pi-ai` 设置命名空间一直承载的两个字段没有编辑入口：`models[].input`（适配器判断能否随请求携带图片附件时读取的模态）与 `models[].reasoningEfforts`（会话级 `reasoningEffort` 必须落入的档位字典）。手填的视觉模型因此永远收不到图片，手填的推理模型也永远不提供思考档位，而这两者本来都只是普通配置。
 
-1. **模态**:`llm-pi-ai` 适配器在 `resolveModelInfo` 时读取 `models[].input` 决定是否放行图片附件(session controller 以 `MODEL_DOES_NOT_SUPPORT_IMAGES` 拒绝);自定义模型没有声明,永远无法发图。
-2. **推理强度**:会话级 `reasoningEffort` 必须落在 `resolveCallConfig` 从模型 `reasoningEfforts` 字典物化的档位集合内,否则报 `UNSUPPORTED_REASONING_EFFORT`;自定义模型没有字典,选择器无从提供 low/high 等档位。
+## Decision
 
-官方 `ProviderEditor` 源码注释明确写着 "There is deliberately no reasoning-effort control"——字段在 settings 文档里一直存在,缺的只是编辑入口;官方同时预留了 `settings.models.provider-card` keyed 插槽(entryKey = settingsNs)作为第三方扩展座位。
+- 新增 `packages/dsh-model-capabilities`（`@linxin666/dsh-client-ui-model-capabilities`，bundle 行 `ui-model-capabilities`）占位官方 `settings.models.provider-card` keyed 插槽的 `llm-pi-ai` key，该家族每张已保存的卡片获得可折叠的「模型能力」扩展区；另占位 `settings.models.footer`，列出路由仍未下线的存档提供方。
+- 读写走官方 remote settings 线路（`remote.settings.describe` / `mutate`），目标是 `llm-pi-ai` 命名空间。保存是一次 `set` 路径操作，整体替换该提供方的 `models` 数组——settings 的路径遍历遇到数组会整体替换，无法按下标寻址单个模型；条目是结构开放对象，本插件不编辑的字段（id、name、contextWindow、compat 等）原样保留。
+- 图片输入是显式声明（`["text","image"]` 或 `["text"]`）；未声明态如实展示为继承并保留，而不是隐藏。
+- 推理是三态：不声明（继承）、`false`（声明无推理）、或 `off` 到 `max` 的显式档位字典，每档带发送值，且只有 `off` 可以留空（「支持，但发送时不带参数」）。编辑器在写入前拒绝「不含 off 以外档位」或「非 off 档位发送值为空」的字典，与适配器自身的接受规则一致，避免 host 事后拒绝。
+- 提供方禁用/启用只用唯一被认可的缝：`unset llm-pi-ai.providers.<route>`，与官方「移除提供方」按钮同款写入。禁用先把用户层 profile 存档进本包命名空间 `dsh-model-capabilities`（host 半区注册，共享 mount-once 副本防双源重复注册），再 unset 该路由；启用原样恢复存档并清空它。这个顺序让最坏情况只是重复存档而不是丢 profile，启用遇路线已有更新配置时拒绝，两个命名空间都做 revision 围栏。
+- 尊重组合层：base 层也声明的路由无法靠用户层 unset 下线，因此这类卡片不提供禁用开关，编排层即使被调用也以 `base-profile` 拒绝。
+- 页脚只列出路由仍下线的存档条目：路由回来（重新添加，或部分启用只恢复了 profile 却没清掉存档）后条目自动隐藏，存档本身仍可恢复。
+- 刷新按命名空间收窄：只有 `llm-pi-ai` 或存档命名空间的 `settings/document-updated` 才驱动界面，并发的 `describe` 合并为一次 wire 调用；未保存草稿在后台刷新后保留，并把写入围栏钉在草稿读取时的 revision，文档已变则冲突重读，既不静默丢弃编辑也不覆盖更新的状态。
+- 文案在包内出 zh/en（`model-caps` 命名空间），ru 集中在 `dsh-i18n`；`scripts/i18n-audit.mjs` 已登记本包，聚合 bundle 登记该 child。
 
-## 决策方案
+## Alternatives considered
 
-新增 `packages/dsh-model-capabilities`(`@linxin666/dsh-client-ui-model-capabilities`,bundle 行 `ui-model-capabilities`):
+- **能力表存本包命名空间、host 半区改写请求**：被否。会分裂事实源——适配器读的 `input` 与 `reasoningEfforts` 就在 `llm-pi-ai` 里；而且竞态与双写一致性要落到 host 半区。官方命名空间带这些字段，正是为「知道自身路由的部署」准备的。
+- **视频 / PDF 模态复选框**：被否。pi-ai 的模态词表只有 `text | image`，更宽的声明无法端到端生效，UI 等于欺骗。
+- **host 半区枚举内置目录**：v1 不做。路线直接服务内置目录且没有 `models` 数组时显示「先添加模型行」的指引而非编辑器，避免为枚举引入自定义 remote 面。
+- **用 enabled 标志隐藏已禁用提供方**：被否。pi-ai 没有该字段；被认可的移除就是官方卡片同款 unset，存档保证 profile 可恢复。
 
-1. **占位官方插槽**:client 半区向 `settings.models.provider-card` 注册 key `llm-pi-ai` 的 keyed entry,该家族每张已保存的提供方卡片获得可折叠「模型能力」扩展区。
-2. **纯官方线路读写**:读取走 `remote.settings.describe()` 的 `llm-pi-ai` 视图(user 层优先,resolved 兜底展示);写入走 `remote.settings.mutate` 单条 set 操作,整体替换 `providers.<route>.models` 数组,携带读取时 revision 做防陈旧围栏,`settings/conflict` 时重读并提示重试。
-3. **写入粒度为整数组**(关键约束):host 侧 `applyPathOp` 只下钻纯对象,路径遇到数组会整体替换——`models[i].input` 形式的下标寻址会把数组破坏成对象。条目为结构开放对象,未编辑字段(id/name/contextWindow/compat)经 `sanitizeEntry` 原样保留。
-4. **编辑语义**:图片输入为显式声明(`["text","image"]` / `["text"]`,未声明态如实展示);推理为三态(不声明 / `false` 无推理 / 档位字典),档位 off–max 七档,每档带发送值(默认同名),一键填入 low/medium/high 常用预设,off 可留空表示「不发参数」。
-5. **前置校验对齐适配器**:levels 模式必须含 off 以外档位、非 off 档位发送值非空,与 `dsh-llm-pi-ai` 的 `assertServiceable` 拒绝规则一致,编辑器先行拒绝。
-6. **提供方禁用/启用(同日追加)**:两个模型选择器(输入框 `session.modelCatalog` 消费者、子代理 `subagent-model-selection` 卡片)同源,均由 adapter 注册表驱动,而 pi-ai 无原生 enabled/disabled 字段;唯一官方缝是官方 Remove 按钮同款 `unset llm-pi-ai.providers.<route>`。禁用 = 先把用户层 profile 存档进本包命名空间 `dsh-model-capabilities`(host 半区 `installSection` 注册,mount-once 防双源重复注册),再 unset 路由;启用反向恢复。顺序保证最坏情况是重复存档、绝不丢配置;启用遇路线已有新配置拒绝恢复;双命名空间均 revision 围栏,冲突重读重试。已禁用提供方列在 `settings.models.footer` 存档区(手填路线禁用后卡片从 Models 页消失,页脚是唯一恢复入口);`settings/document-updated` remote 事件驱动跨界面即时刷新。已知边界:组合(base)层声明的 profile 用户层删不掉,这类卡片不提供禁用开关;存档只存配置,API 密钥始终留在凭据服务。
-7. **三语与登记**:zh/en 字典在包内(`model-caps` 命名空间),ru 集中在 dsh-i18n;i18n-audit 静态包表新增该包;聚合包 patchFrom/deps 登记并重新生成。
+## Consequences
 
-### 放弃的替代方案
+- 自定义模型可以在 Models 页就地声明图片输入、推理档位与每档发送值；输入框按声明的档位提供思考选项，且只有声明了图片的模型才会被 DSH 提供图片附件。
+- 禁用后提供方立即离开两个模型选择器，host 侧对它的委派以 `NO_ADAPTER` 失败关闭；配置在路由回来之前始终可从页脚恢复。
+- `THINKING_LEVELS` 是适配器档位词表的本地副本，上游变化必须同步；不一致会以 host 侧拒绝并点名该档位的方式暴露。
+- API 密钥留在凭据服务；存档只存配置。
+- 安装本包需要重启 DSH：`dsh plugin --profile web add link:<repo>/packages/dsh-model-capabilities`，或安装聚合包。
 
-- **自带 settings 命名空间存能力表、host 半区改写请求**:被否。会分裂事实源(settings.yaml 的 `input`/`reasoningEfforts` 才是适配器消费的事实),且 host 拦截层要处理竞态与双写一致性;官方文档注释明示 profile 字段就是给「知道路由的部署」留的。
-- **视频/PDF 模态复选框(对齐参考设计图)**:被否。pi-ai 的模态词表只有 `text | image`,声明无法端到端生效,UI 就是欺骗。
-- **host 半区暴露内置目录枚举**:v1 不做。内置目录路由没有用户 `models` 数组时显示指引(先在目录加行再声明),避免为枚举引入自定义 remote 面。
+## Testing
 
-## 测试验证
-
-- `tests/capabilities.spec.ts` 25 项:视图读取、模式分类、档位归一化、校验规则、草稿更新、op 构建。
-- `tests/provider-toggle.spec.ts` 13 项:存档解析、四个 op 构建器、禁用/启用两段式编排(顺序、围栏、冲突、partial、route-exists、no-profile、unavailable)。
-- `tests/panel.spec.tsx` 7 项 + `tests/toggle-ui.spec.tsx` 7 项(jsdom + 假 remote face):挂载、整数组写入、三态切换、冲突重载、只读禁用、失败内联提示、禁用态展示、卡片禁用/启用两段写入顺序、页脚存档列表与启用。测试曾抓出 `models` 少走一层的真实 bug。
-- 门禁:`pnpm typecheck`、`pnpm test`(21 包)、`pnpm docs:check`、`pnpm i18n:check`(15 命名空间 zh/ru 键数一致)、`pnpm aggregate:check`、`pnpm test:scripts`(255 通过)全部通过;聚合 bundle 重建后含 `ui-model-capabilities` 行与本包 client 模块。
-- 实机 GUI 验证依赖挂载与 DSH 重启,留给用户执行(见下)。
-
-## 影响
-
-自定义模型从此可以在 Models 页就地声明「能不能收图、支持哪些推理档位、每档发什么」:视觉模型能收图,推理档位出现在模型选择器并按声明拼写上线。提供方可一键禁用/启用:禁用即时从输入框选择器与子代理可选列表消失(host 侧委派同时失败关闭),配置可无损恢复。deepseek 直连适配器不覆盖(其控制已存在);文本/图片之外模态不提供(词表所限)。
-
-## 用户生效步骤
-
-`dsh plugin --profile web add link:<repo>/packages/dsh-model-capabilities`(或更新 dsh-web-all 聚合安装)后**需重启 DSH 服务生效**;重启后打开 Web 设置的 Models 页即可看到各提供方卡片的「模型能力」扩展区。
+- `tests/capabilities.spec.ts`（25 项）覆盖视图读取、模式分类、档位归一化、校验、草稿更新与 op 构建。
+- `tests/provider-toggle.spec.ts`（15 项）覆盖存档解析、四个 op 构建器、层判定谓词，以及带 revision 围栏的禁用/启用编排与全部失败分支。
+- `tests/panel.spec.tsx`（7 项）与 `tests/toggle-ui.spec.tsx`（12 项）用假 remote face 挂载真实组件：整数组写入、三态编辑、冲突重载、只读姿态、禁用态、禁用/启用两段写入顺序、存档条目过滤、base 层守卫，以及后台刷新下草稿存活。
+- 仓库门禁：`pnpm typecheck`、`pnpm test`、`pnpm docs:check`、`pnpm i18n:check`、`pnpm aggregate:check`、`pnpm test:scripts`、`pnpm sync-shared:check` 与 `pnpm runtime-deps:check`。
+- 插槽落座与两个模型选择器的实机验证由维护者执行：本插件需要重启 DSH 才挂载。

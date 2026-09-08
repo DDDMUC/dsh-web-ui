@@ -195,6 +195,66 @@ describe('CapabilitiesPanel disable/enable', () => {
     const disable = screen.getByRole('button', { name: '禁用此提供方' }) as HTMLButtonElement
     expect(disable.disabled).toBe(true)
   })
+
+  it('hides the disable control when the composition layer also declares the route', async () => {
+    const world = baseWorld()
+    world.llm.base = { providers: { 'acme-gateway': { apiKeyEnv: 'BASE_KEY' } } }
+    render(<CapabilitiesPanel provider={PROVIDER} configured keyConfigured settings={makeFace(world)} refresh={bus()} />)
+    fireEvent.click(screen.getByRole('button', { name: /模型能力/ }))
+    await waitFor(() => {
+      expect(screen.getByText('gpt-x')).toBeTruthy()
+    })
+    expect(screen.queryByRole('button', { name: '禁用此提供方' })).toBeNull()
+  })
+
+  it('keeps an open draft across a background refresh and fences it at its own revision', async () => {
+    const world = baseWorld()
+    const mirror = bus()
+    render(<CapabilitiesPanel provider={PROVIDER} configured keyConfigured settings={makeFace(world)} refresh={mirror} />)
+    fireEvent.click(screen.getByRole('button', { name: /模型能力/ }))
+    await waitFor(() => {
+      expect(screen.getByText('gpt-x')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /展开模型能力: gpt-x/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: '图片输入' }))
+
+    // Another surface rewrites the provider while the draft is open.
+    setUserSection(world.llm, { providers: { 'acme-gateway': { models: [{ ...STORED_ROW, name: 'Renamed' }] } } })
+    world.llm.revision = 9
+    mirror.notify()
+
+    await waitFor(() => {
+      expect(screen.getByText('配置已被其他界面修改；你的未保存修改仍保留，保存时会再次校验。')).toBeTruthy()
+    })
+    // The draft survived, and the write stays fenced at the revision it read.
+    expect((screen.getByRole('checkbox', { name: '图片输入' }) as HTMLInputElement).checked).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => {
+      expect(world.calls).toHaveLength(1)
+    })
+    expect(world.calls[0].revision).toBe(7)
+  })
+
+  it('leaves the disabled view after a partial enable restored the route', async () => {
+    const world = baseWorld()
+    setUserSection(world.llm, { providers: {} })
+    setUserSection(world.caps, { disabled: { 'acme-gateway': { profile: { apiKeyEnv: 'ACME_KEY', models: [{ ...STORED_ROW }] }, displayName: 'ACME Gateway' } } })
+    world.failNext = { ns: CAPS_SETTINGS_NAMESPACE, code: 'settings/conflict' }
+    render(<CapabilitiesPanel provider={PROVIDER} configured keyConfigured settings={makeFace(world)} refresh={bus()} />)
+    fireEvent.click(screen.getByRole('button', { name: /模型能力/ }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '启用' })).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: '启用' }))
+    await waitFor(() => {
+      expect(screen.getByText('已启用，但清理存档失败：boom')).toBeTruthy()
+    })
+    // The route is back, so the card must not keep claiming it is disabled.
+    expect(screen.queryByText('该提供方已禁用：模型不出现在输入框模型选择器与子代理可选列表中。配置已存档，启用即恢复。')).toBeNull()
+    await waitFor(() => {
+      expect(screen.getByText('gpt-x')).toBeTruthy()
+    })
+  })
 })
 
 describe('DisabledProvidersFooter', () => {
@@ -235,17 +295,46 @@ describe('DisabledProvidersFooter', () => {
     expect(mirror.notifyCount).toBe(1)
   })
 
-  it('reports a route that grew a new configuration instead of clobbering it', async () => {
+  it('reports a route that grew a new configuration between the listing and the click', async () => {
     const world = baseWorld()
+    setUserSection(world.llm, { providers: {} })
     setUserSection(world.caps, { disabled: { 'acme-gateway': { profile: { apiKeyEnv: 'OLD' } } } })
     render(<DisabledProvidersFooter settings={makeFace(world)} refresh={bus()} />)
     await waitFor(() => {
       expect(screen.getByText('已禁用的提供方')).toBeTruthy()
     })
+    // The route comes back after the listing read (a race, not a stale entry):
+    // the enable re-reads the document and must refuse instead of clobbering.
+    // A fresh view object mirrors the wire, where the listing's read cannot
+    // retroactively change.
+    world.llm = view('llm-pi-ai', { providers: { 'acme-gateway': { apiKeyEnv: 'NEW' } } }, 8)
     fireEvent.click(screen.getByRole('button', { name: '启用' }))
     await waitFor(() => {
       expect(screen.getByText('该提供方已存在新配置，无法恢复存档；请先移除现有配置再启用。')).toBeTruthy()
     })
     expect(world.calls).toHaveLength(0)
+  })
+
+  it('hides an archive entry whose provider is configured again', async () => {
+    const world = baseWorld()
+    // The archive still holds the profile, but the route is live in the user layer.
+    setUserSection(world.caps, { disabled: { 'acme-gateway': { profile: { apiKeyEnv: 'OLD' } } } })
+    const { container } = render(<DisabledProvidersFooter settings={makeFace(world)} refresh={bus()} />)
+    await waitFor(() => {
+      expect(world.describeCount).toBe(1)
+    })
+    expect(container.querySelector('[data-dsh-part="disabled-footer"]')).toBeNull()
+  })
+
+  it('hides an archive entry whose route is declared in the composition layer', async () => {
+    const world = baseWorld()
+    setUserSection(world.llm, { providers: {} })
+    world.llm.base = { providers: { 'acme-gateway': { apiKeyEnv: 'BASE_KEY' } } }
+    setUserSection(world.caps, { disabled: { 'acme-gateway': { profile: { apiKeyEnv: 'OLD' } } } })
+    const { container } = render(<DisabledProvidersFooter settings={makeFace(world)} refresh={bus()} />)
+    await waitFor(() => {
+      expect(world.describeCount).toBe(1)
+    })
+    expect(container.querySelector('[data-dsh-part="disabled-footer"]')).toBeNull()
   })
 })

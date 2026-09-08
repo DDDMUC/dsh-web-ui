@@ -4,24 +4,35 @@
  * A disabled provider's route is unregistered, so for hand-declared routes
  * the provider card itself disappears from the Models page; this footer (the
  * page's `settings.models.footer` seat) is where those providers come back:
- * it lists the archive entries and restores a profile on enable. Renders
- * nothing while the archive is empty.
+ * it lists the archive entries whose route is still down and restores a profile
+ * on enable. Renders nothing while no such entry exists.
  * @module @linxin666/dsh-client-ui-model-capabilities/client/DisabledProvidersFooter
  */
 
 import { useCallback, useEffect, useState } from 'react'
 import {
   CAPS_SETTINGS_NAMESPACE,
+  hasNonUserProfile,
+  hasProfileAt,
   readDisabledStore,
   type StashedProvider,
 } from '../core/provider-toggle.ts'
+import { PI_AI_SETTINGS_NAMESPACE } from '../core/capabilities.ts'
 import { enableProvider } from './provider-toggle.ts'
 import type { RefreshBus, SettingsNamespaceFace } from './settings-face.ts'
 import { t } from './locales.ts'
 import css from './capabilities.module.css'
 
-/** The pi-ai family namespace the archived routes live in. */
-const LLM_PI_AI_NAMESPACE = 'llm-pi-ai'
+/**
+ * Whether the route is configured again, which makes its archive entry stale:
+ * an entry whose provider came back (a re-added route, or a partial enable that
+ * restored the profile but failed to clear the archive) must not be listed as
+ * disabled. The entry itself stays in the archive as a restorable profile.
+ */
+function routeLive(view: { user?: unknown, base?: unknown, value?: unknown } | undefined, route: string): boolean {
+  if (view === undefined) return false
+  return hasProfileAt(view.user, route) || hasNonUserProfile(view, route)
+}
 
 /** Component props: the injected settings face and refresh bus. */
 export interface DisabledProvidersFooterProps {
@@ -42,6 +53,7 @@ type RowBusy = { route: string, busy: boolean } | undefined
 export function DisabledProvidersFooter(props: DisabledProvidersFooterProps) {
   const { settings, refresh } = props
   const [stash, setStash] = useState<Record<string, StashedProvider>>({})
+  const [llmView, setLlmView] = useState<{ user?: unknown, base?: unknown, value?: unknown } | undefined>(undefined)
   const [known, setKnown] = useState(false)
   const [busyRoute, setBusyRoute] = useState<string | undefined>(undefined)
   const [failure, setFailure] = useState<string | undefined>(undefined)
@@ -53,6 +65,7 @@ export function DisabledProvidersFooter(props: DisabledProvidersFooterProps) {
       const view = described.value.namespaces.find(candidate => candidate.ns === CAPS_SETTINGS_NAMESPACE)
       if (view === undefined) return
       setStash(readDisabledStore(view.value))
+      setLlmView(described.value.namespaces.find(candidate => candidate.ns === PI_AI_SETTINGS_NAMESPACE))
       setKnown(true)
     } catch {
       // The archive listing is additive; a failed read keeps the last one.
@@ -67,7 +80,7 @@ export function DisabledProvidersFooter(props: DisabledProvidersFooterProps) {
     return refresh.subscribe(() => { void load(settings) })
   }, [load, refresh, settings])
 
-  const routes = Object.keys(stash).sort((a, b) => a.localeCompare(b))
+  const routes = Object.keys(stash).filter(route => !routeLive(llmView, route)).sort((a, b) => a.localeCompare(b))
   if (!known || routes.length === 0) return null
 
   const enable = async (route: string) => {
@@ -75,7 +88,7 @@ export function DisabledProvidersFooter(props: DisabledProvidersFooterProps) {
     setBusyRoute(route)
     setFailure(undefined)
     try {
-      const outcome = await enableProvider(settings, LLM_PI_AI_NAMESPACE, route)
+      const outcome = await enableProvider(settings, PI_AI_SETTINGS_NAMESPACE, route)
       if (outcome.kind === 'ok') {
         refresh.notify()
         await load(settings)

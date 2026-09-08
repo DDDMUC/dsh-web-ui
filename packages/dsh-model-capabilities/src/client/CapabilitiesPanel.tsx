@@ -18,7 +18,7 @@
  * @module @linxin666/dsh-client-ui-model-capabilities/client/CapabilitiesPanel
  */
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { ProviderCardExtrasOwnerProps } from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import type { RemoteFailure } from '@deepseek-ai/dsh-typert-protocol'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-settings/types'
@@ -39,7 +39,7 @@ import {
   type ModelEntryDraft,
   type ModelThinkingLevel,
 } from '../core/capabilities.ts'
-import { CAPS_SETTINGS_NAMESPACE, readDisabledStore, userHasProfile } from '../core/provider-toggle.ts'
+import { CAPS_SETTINGS_NAMESPACE, hasNonUserProfile, hasProfileAt, readDisabledStore } from '../core/provider-toggle.ts'
 import { disableProvider, enableProvider } from './provider-toggle.ts'
 import type { SettingsNamespaceFace } from './settings-face.ts'
 import { t } from './locales.ts'
@@ -68,6 +68,8 @@ interface Snapshot {
   writable: boolean
   /** Whether the pi-ai user layer holds this provider's profile (the unit a disable archives). */
   userProfile: boolean
+  /** Whether another layer (the composition base) also holds the route, so a disable could not take it down. */
+  baseProfile: boolean
   /** Whether the provider is currently disabled (archived and taken down). */
   disabledHere: boolean
   /** Whether the plugin's archive namespace answered (disable needs it). */
@@ -111,6 +113,9 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
   const [toggleBusy, setToggleBusy] = useState<ToggleBusy>(undefined)
   const [toggleFailure, setToggleFailure] = useState<string | undefined>(undefined)
   const [toggleConflict, setToggleConflict] = useState(false)
+  const [staleDraft, setStaleDraft] = useState(false)
+  /** Revision the open draft was read from (the write's fence while it is open). */
+  const draftBasis = useRef<number | undefined>(undefined)
 
   const settingsPath = useMemo(() => [...provider.settingsPath], [provider.settingsPath])
   /** The models array lives one level below the profile the settings path addresses. */
@@ -129,19 +134,25 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
       }
       const capsView = namespaces.find(candidate => candidate.ns === CAPS_SETTINGS_NAMESPACE)
       const stash = readDisabledStore(capsView?.value)
-      const userProfile = userHasProfile(view.user, provider.provider)
+      const userProfile = hasProfileAt(view.user, provider.provider)
       const userModels = modelsArrayOf(readAt(view.user, modelsPath))
       const effective = userModels ?? modelsArrayOf(readAt(view.value, modelsPath)) ?? []
+      // An open draft keeps its own basis revision: a background refresh must
+      // neither drop unsaved edits nor let them ride a newer revision (the save
+      // stays fenced where the draft was read, so a moved document conflicts).
+      const basis = draftBasis.current
       setSnapshot({
         entries: effective,
         inherited: userModels === undefined,
-        revision: view.revision,
+        revision: basis ?? view.revision,
         writable: described.value.writable,
         userProfile,
+        baseProfile: hasNonUserProfile(view, provider.provider),
         disabledHere: stash[provider.provider] !== undefined && !userProfile,
         capsKnown: capsView !== undefined,
       })
-      setDraft(null)
+      if (basis === undefined) setDraft(null)
+      setStaleDraft(basis !== undefined && basis !== view.revision)
       setPhase({ kind: 'ready' })
     } catch (error) {
       setPhase({ kind: 'error', message: error instanceof Error ? error.message : String(error) })
@@ -164,6 +175,7 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
 
   const updateEntry = (index: number, next: ModelEntryDraft) => {
     if (!editing || readOnly) return
+    if (draft === null) draftBasis.current = snapshot.revision
     setDraft(current => {
       const base = current ?? snapshot.entries.map(cloneEntry)
       const clone = base.map(entry => ({ ...entry }))
@@ -174,6 +186,8 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
   }
 
   const discard = () => {
+    draftBasis.current = undefined
+    setStaleDraft(false)
     setDraft(null)
     setSave({ kind: 'idle' })
   }
@@ -202,11 +216,17 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
           revision: written.value.revision,
           userProfile: true,
         })
+        draftBasis.current = undefined
+        setStaleDraft(false)
         setDraft(null)
         setSave({ kind: 'saved' })
         return
       }
       if (written.error.code === 'settings/conflict') {
+        // The document moved under the draft: reload to the stored state and let
+        // the user re-apply, exactly the posture the official card takes.
+        draftBasis.current = undefined
+        setStaleDraft(false)
         setSave({ kind: 'conflict' })
         await load(settings)
         return
@@ -232,13 +252,17 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
       return
     }
     if (outcome.kind === 'route-exists') setToggleFailure(t('caps.error.routeExists'))
+    else if (outcome.kind === 'base-profile') setToggleFailure(t('caps.error.baseProfile'))
     else if (outcome.kind === 'unavailable') setToggleFailure(t('caps.error.unavailable'))
     else if (outcome.kind === 'partial') setToggleFailure(t('caps.error.partialEnable', { error: outcome.message }))
     else setToggleFailure(t('caps.failed', { error: outcome.kind }))
+    // A failed toggle can still have moved a namespace (a partial enable put the
+    // route back), so re-read instead of leaving a stale disabled view.
+    await load(settings)
   }
 
   const doDisable = async () => {
-    if (toggleUnavailable || snapshot === undefined || !snapshot.userProfile) return
+    if (toggleUnavailable || snapshot === undefined || !snapshot.userProfile || snapshot.baseProfile) return
     setToggleBusy('disabling')
     setToggleFailure(undefined)
     setToggleConflict(false)
@@ -339,6 +363,7 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
                               </>
                             )}
                       <div className={css.footer}>
+                        {staleDraft ? <p className={css.notice} role="status">{t('caps.staleDraft')}</p> : null}
                         {save.kind === 'saved' ? <p className={css.status} role="status">{t('caps.saved')}</p> : null}
                         {save.kind === 'conflict' || toggleConflict ? <p className={css.failed} role="alert">{t('caps.conflict')}</p> : null}
                         {save.kind === 'failed' ? <p className={css.failed} role="alert">{t('caps.failed', { error: save.message })}</p> : null}
@@ -350,7 +375,7 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
                           ? <p className={css.failed} role="alert">{t('caps.invalid.offOnly')}</p>
                           : null}
                         <span className={css.spacer} />
-                        {!disabledHere && snapshot.userProfile && snapshot.capsKnown
+                        {!disabledHere && snapshot.userProfile && !snapshot.baseProfile && snapshot.capsKnown
                           ? (
                               <button
                                 type="button"

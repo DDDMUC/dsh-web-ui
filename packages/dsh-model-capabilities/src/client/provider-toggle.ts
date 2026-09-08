@@ -18,8 +18,9 @@ import {
   buildUnsetProviderOp,
   buildUnstashOp,
   CAPS_SETTINGS_NAMESPACE,
+  hasNonUserProfile,
+  hasProfileAt,
   readDisabledStore,
-  userHasProfile,
   type StashedProvider,
 } from '../core/provider-toggle.ts'
 import { readAt } from '../core/capabilities.ts'
@@ -33,6 +34,8 @@ export type ToggleOutcome =
   | { kind: 'refused', message: string }
   /** The pi-ai user layer holds no profile for the route (nothing to take down). */
   | { kind: 'no-profile' }
+  /** Another layer (the composition base) holds the route, so the unset cannot take it down. */
+  | { kind: 'base-profile' }
   /** The route already has a profile; restoring the archive would clobber it. */
   | { kind: 'route-exists' }
   | { kind: 'no-stash' }
@@ -81,6 +84,9 @@ export async function disableProvider(
   if (llmView === undefined || capsView === undefined) return { kind: 'unavailable' }
   const profile = profileAt(llmView.user, route)
   if (profile === undefined) return { kind: 'no-profile' }
+  // A route the composition also declares would survive the unset: refuse
+  // rather than report a disable that did not take the provider down.
+  if (hasNonUserProfile(llmView, route)) return { kind: 'base-profile' }
   const stash: StashedProvider = { profile, ...(displayName !== undefined ? { displayName } : {}) }
   const stashed = await face.mutate(CAPS_SETTINGS_NAMESPACE, [buildStashOp(route, stash)], capsView.revision)
   if (!stashed.ok) return failureOf(CAPS_SETTINGS_NAMESPACE, stashed.error)
@@ -107,7 +113,7 @@ export async function enableProvider(
   const llmView = viewOf(described.value.namespaces, llmNs)
   const capsView = viewOf(described.value.namespaces, CAPS_SETTINGS_NAMESPACE)
   if (llmView === undefined || capsView === undefined) return { kind: 'unavailable' }
-  if (userHasProfile(llmView.user, route)) return { kind: 'route-exists' }
+  if (hasProfileAt(llmView.user, route)) return { kind: 'route-exists' }
   const stash = readDisabledStore(capsView.value)[route]
   if (stash === undefined) return { kind: 'no-stash' }
   const restored = await face.mutate(llmNs, [buildRestoreProviderOp(route, stash.profile)], llmView.revision)

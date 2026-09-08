@@ -12,8 +12,9 @@ import {
   buildUnsetProviderOp,
   buildUnstashOp,
   CAPS_SETTINGS_NAMESPACE,
+  hasNonUserProfile,
+  hasProfileAt,
   readDisabledStore,
-  userHasProfile,
 } from '../src/core/provider-toggle.ts'
 import { disableProvider, enableProvider, type ToggleOutcome } from '../src/client/provider-toggle.ts'
 import type { SettingsNamespaceFace } from '../src/client/settings-face.ts'
@@ -40,12 +41,23 @@ describe('archive store', () => {
     expect(readDisabledStore({ disabled: 'junk' })).toEqual({})
   })
 
-  it('checks the user layer for a provider profile', () => {
+  it('checks one layer for a provider profile', () => {
     const user = { providers: { acme: { apiKeyEnv: 'ACME_KEY' } } }
-    expect(userHasProfile(user, 'acme')).toBe(true)
-    expect(userHasProfile(user, 'other')).toBe(false)
-    expect(userHasProfile(undefined, 'acme')).toBe(false)
-    expect(userHasProfile({ providers: { acme: 'junk' } }, 'acme')).toBe(false)
+    expect(hasProfileAt(user, 'acme')).toBe(true)
+    expect(hasProfileAt(user, 'other')).toBe(false)
+    expect(hasProfileAt(undefined, 'acme')).toBe(false)
+    expect(hasProfileAt({ providers: { acme: 'junk' } }, 'acme')).toBe(false)
+  })
+
+  it('detects a profile another layer owns', () => {
+    const user = { providers: { acme: { apiKeyEnv: 'USER' } } }
+    const base = { providers: { acme: { apiKeyEnv: 'BASE' } } }
+    expect(hasNonUserProfile({ user, base, value: base }, 'acme')).toBe(true)
+    expect(hasNonUserProfile({ user, base: { providers: {} }, value: user }, 'acme')).toBe(false)
+    // No base in the view: the resolved value minus the user layer answers.
+    expect(hasNonUserProfile({ user: { providers: {} }, value: user }, 'acme')).toBe(true)
+    expect(hasNonUserProfile({ user, value: user }, 'acme')).toBe(false)
+    expect(hasNonUserProfile({}, 'acme')).toBe(false)
   })
 })
 
@@ -158,6 +170,14 @@ describe('disableProvider', () => {
     expect(readDisabledStore(w.caps.user)['acme']?.profile).toEqual({ apiKeyEnv: 'ACME_KEY', models: [{ id: 'm1', input: ['text', 'image'] }] })
   })
 
+  it('refuses when the composition layer also declares the route', async () => {
+    const w = world()
+    w.llm.base = { providers: { acme: { apiKeyEnv: 'BASE_KEY' } } }
+    const outcome = await disableProvider(faceOf(w), LLM_NS, 'acme', 'ACME')
+    expect(outcome).toEqual({ kind: 'base-profile' })
+    expect(w.calls).toHaveLength(0)
+  })
+
   it('refuses when the user layer holds no profile', async () => {
     const w = world()
     setUserSection(w.llm, { providers: {} })
@@ -231,6 +251,6 @@ describe('enableProvider', () => {
     expect(outcome.kind).toBe('partial')
     expect(outcome.kind === 'partial' && outcome.message).toBe('moved on')
     // The route is back regardless.
-    expect(userHasProfile(w.llm.user, 'acme')).toBe(true)
+    expect(hasProfileAt(w.llm.user, 'acme')).toBe(true)
   })
 })

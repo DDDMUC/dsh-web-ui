@@ -43,6 +43,7 @@ export const zh = {
   'caps.discard': '重置',
   'caps.dirty': '有未保存的修改',
   'caps.saved': '已保存',
+  'caps.staleDraft': '配置已被其他界面修改；你的未保存修改仍保留，保存时会再次校验。',
   'caps.conflict': '配置已被其他界面修改，已重新读取，请重试。',
   'caps.failed': '保存失败：{error}',
   'caps.invalid.wire': '档位 {level} 需要非空的发送值。',
@@ -58,6 +59,7 @@ export const zh = {
   'caps.footer.hint': '这些提供方的配置已存档；启用后恢复原配置，并重新出现在模型选择器与子代理可选列表中。',
   'caps.error.routeExists': '该提供方已存在新配置，无法恢复存档；请先移除现有配置再启用。',
   'caps.error.partialEnable': '已启用，但清理存档失败：{error}',
+  'caps.error.baseProfile': '该提供方在组合层也声明了配置，禁用无法让它下线，因此不提供此操作。',
   'caps.error.unavailable': '无法切换：插件的存档命名空间未注册。',
 }
 
@@ -98,6 +100,7 @@ export const en: Record<CapsKey, string> = {
   'caps.discard': 'Reset',
   'caps.dirty': 'Unsaved changes',
   'caps.saved': 'Saved',
+  'caps.staleDraft': 'The configuration changed in another surface; your unsaved changes are kept and re-checked when you save.',
   'caps.conflict': 'The configuration changed in another surface; reloaded — please retry.',
   'caps.failed': 'Save failed: {error}',
   'caps.invalid.wire': 'Level {level} needs a non-empty wire value.',
@@ -113,6 +116,7 @@ export const en: Record<CapsKey, string> = {
   'caps.footer.hint': 'These providers have archived configurations; enabling restores the original profile and puts it back into the model picker and the subagent selection.',
   'caps.error.routeExists': 'The provider already has a newer configuration; the archive cannot be restored. Remove the current configuration first, then enable.',
   'caps.error.partialEnable': 'Enabled, but clearing the archive failed: {error}',
+  'caps.error.baseProfile': 'The composition layer also declares this provider, so disabling cannot take it down; the action is not offered.',
   'caps.error.unavailable': 'Cannot toggle: the plugin archive namespace is not registered.',
 }
 

@@ -23,7 +23,9 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { CapabilitiesPanel } from './CapabilitiesPanel.tsx'
 import { DisabledProvidersFooter } from './DisabledProvidersFooter.tsx'
-import type { RefreshBus } from './settings-face.ts'
+import { coalesceDescribe, type RefreshBus } from './settings-face.ts'
+import { CAPS_SETTINGS_NAMESPACE } from '../core/provider-toggle.ts'
+import { PI_AI_SETTINGS_NAMESPACE } from '../core/capabilities.ts'
 import { NS, zh, en } from './locales.ts'
 
 /**
@@ -47,7 +49,9 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'dsh-model-capabilities: dictionaries')
 
-  const settings = (ctx.get('remote') as unknown as ClientRemote).settings
+  // Concurrent readers (every provider-card panel plus the footer area) share
+  // one describe per refresh instead of one full-document read each.
+  const settings = coalesceDescribe((ctx.get('remote') as unknown as ClientRemote).settings)
 
   // Refresh bus: our own toggles notify directly; the host's committed-change
   // event covers every other surface (official cards, other tabs) the same way
@@ -64,7 +68,11 @@ export function apply(ctx: ClientContext): void {
   }
   ctx.effect(() => {
     try {
-      return ctx.remote.$on('settings/document-updated', () => { refresh.notify() })
+      // Only the two namespaces this plugin renders from: a write anywhere else
+      // in the settings document cannot change what a panel shows.
+      return ctx.remote.$on('settings/document-updated', (ns) => {
+        if (ns === PI_AI_SETTINGS_NAMESPACE || ns === CAPS_SETTINGS_NAMESPACE) refresh.notify()
+      })
     } catch {
       return () => {}
     }
