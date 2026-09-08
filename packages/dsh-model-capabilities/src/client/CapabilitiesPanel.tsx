@@ -4,7 +4,7 @@
  *
  * The slot owner passes the card's directory row (`provider.settingsNs` /
  * `provider.settingsPath` address the profile inside the settings document)
- * and the apply body injects the browser remote face; this panel reads the
+ * and the apply body injects the settings namespace face; this panel reads the
  * redacted namespace view over the remote settings wire, drafts image-input
  * and reasoning-effort declarations per model, and saves them as one
  * whole-array path op with revision fencing — the same write granularity and
@@ -16,11 +16,14 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
-import type { ClientRemote, RemoteFailure, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 // Type-only: pulls the generated settings-namespace methods (describe/mutate)
 // into ClientRemote — the repo's dependency graph does not carry the
 // api-remotes full assembly, so this augmentation must be imported directly.
 import type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
+// View types from their owning package (the api-remotes re-export resolves to
+// `any` in this repo's dependency graph).
+import type { SettingsDescribeValue, SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-settings/types'
 import type { ProviderCardExtrasOwnerProps } from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import {
   buildModelsOp,
@@ -42,10 +45,21 @@ import {
 import { t } from './locales.ts'
 import css from './capabilities.module.css'
 
-/** Component props: the slot's owner share plus the injected remote face. */
+/**
+ * The settings namespace face this panel needs. Typed locally (the generated
+ * `ClientRemote['settings']` resolves to `any` fields under this repo's
+ * dependency graph, because skipLibCheck swallows the settings-controller
+ * d.ts's own unresolved imports).
+ */
+export interface SettingsNamespaceFace {
+  describe(): Promise<RemoteResult<SettingsDescribeValue>>
+  mutate(ns: string, ops: readonly SettingsPathOpView[], expectedRevision: number | undefined): Promise<RemoteResult<SettingsNamespaceView>>
+}
+
+/** Component props: the slot's owner share plus the settings namespace face. */
 export interface CapabilitiesPanelProps extends ProviderCardExtrasOwnerProps {
-  /** Browser remote face (injected by the apply body's registration). */
-  remote: ClientRemote
+  /** The generated remote settings namespace (extracted by the apply body, which declares the dotted inject). */
+  settings: SettingsNamespaceFace
 }
 
 /** One view snapshot the panel renders from. */
@@ -81,11 +95,11 @@ function cloneEntry(entry: ModelEntryDraft): ModelEntryDraft {
 
 /**
  * Render the capability editor for one provider card.
- * @param props - the card's directory row, its configured facts, and the remote face.
+ * @param props - the card's directory row, its configured facts, and the settings face.
  * @returns the extension area.
  */
 export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
-  const { provider, remote } = props
+  const { provider, settings } = props
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
   const [snapshot, setSnapshot] = useState<Snapshot | undefined>(undefined)
   const [draft, setDraft] = useState<ModelEntryDraft[] | null>(null)
@@ -98,10 +112,10 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
   const modelsPath = useMemo(() => [...settingsPath, 'models'], [settingsPath])
   const entries = draft ?? snapshot?.entries ?? []
 
-  const load = useCallback(async (face: ClientRemote) => {
+  const load = useCallback(async (face: SettingsNamespaceFace) => {
     setPhase({ kind: 'loading' })
     try {
-      const described = await face.settings.describe()
+      const described = await face.describe()
       if (!described.ok) throw new Error(failureText(described.error))
       const view = described.value.namespaces.find(candidate => candidate.ns === provider.settingsNs)
       if (view === undefined) {
@@ -123,8 +137,8 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
   }, [modelsPath, provider.settingsNs, settingsPath])
 
   useEffect(() => {
-    void load(remote)
-  }, [load, remote])
+    void load(settings)
+  }, [load, settings])
 
   const editing = phase.kind === 'ready' && snapshot !== undefined
   const readOnly = editing && !snapshot.writable
@@ -157,10 +171,10 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
   const doSave = async () => {
     if (!editing || readOnly || draft === null || snapshot === undefined) return
     if (firstIssue !== undefined) return
-    const op = buildModelsOp(settingsPath, draft) as unknown as SettingsPathOpView
+    const op = buildModelsOp(settingsPath, draft)
     setSave({ kind: 'saving' })
     try {
-      const written = await remote.settings.mutate(provider.settingsNs, [op], snapshot.revision)
+      const written = await settings.mutate(provider.settingsNs, [op], snapshot.revision)
       if (written.ok) {
         const userModels = modelsArrayOf(readAt(written.value.user, modelsPath)) ?? []
         setSnapshot({
@@ -175,7 +189,7 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
       }
       if (written.error.code === 'settings/conflict') {
         setSave({ kind: 'conflict' })
-        await load(remote)
+        await load(settings)
         return
       }
       setSave({ kind: 'failed', message: failureText(written.error) })
@@ -215,7 +229,7 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
                 ? (
                     <div className={css.statusRow}>
                       <p className={css.failed} role="alert">{t('caps.loadFailed', { error: phase.message })}</p>
-                      <button type="button" className={css.ghost} data-dsh-part="reload" onClick={() => { void load(remote) }}>
+                      <button type="button" className={css.ghost} data-dsh-part="reload" onClick={() => { void load(settings) }}>
                         {t('caps.reload')}
                       </button>
                     </div>

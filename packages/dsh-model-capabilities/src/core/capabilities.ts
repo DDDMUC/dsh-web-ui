@@ -18,6 +18,8 @@
  * @module @linxin666/dsh-client-ui-model-capabilities/core
  */
 
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+
 /** One request modality a pi-ai model profile may declare. */
 export type ModelModality = 'text' | 'image'
 
@@ -229,7 +231,7 @@ export function sanitizeEntry(entry: ModelEntryDraft): Record<string, unknown> {
 export interface PathOp {
   op: 'set'
   path: string[]
-  value: unknown
+  value: JsonValue
 }
 
 /**
@@ -242,7 +244,9 @@ export function buildModelsOp(settingsPath: readonly string[], entries: readonly
   return {
     op: 'set',
     path: [...settingsPath, 'models'],
-    value: entries.map(sanitizeEntry),
+    // Entries originate from JSON-parsed stored views plus editor primitives,
+    // so the sanitized output is JSON-shaped by construction.
+    value: entries.map(sanitizeEntry) as JsonValue,
   }
 }
 

@@ -23,8 +23,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { CapabilitiesPanel } from './CapabilitiesPanel.tsx'
 import { NS, zh, en } from './locales.ts'
 
-/** Required services: the slot registry, the dictionary registry, the remote wire. */
-export const inject = ['slots', 'locale', 'remote']
+/** Required services: slot registry, dictionary registry, and the traced settings namespace — accessing `remote.settings` without declaring the dotted path fails at runtime. */
+export const inject = ['slots', 'locale', 'remote', 'remote.settings']
 
 /**
  * Client plugin body: register dictionaries and seat the provider-card
@@ -40,14 +40,14 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'dsh-model-capabilities: dictionaries')
 
-  const remote = ctx.get('remote') as unknown as ClientRemote
+  const settings = (ctx.get('remote') as unknown as ClientRemote).settings
 
   ctx.slots.inject('settings.models.provider-card', () => {
     try {
       const unregister = ctx.slots.register({
         name: 'settings.models.provider-card',
         key: 'llm-pi-ai',
-        inject: () => ({ remote }),
+        inject: () => ({ settings }),
       }, CapabilitiesPanel)
       return () => {
         unregister()

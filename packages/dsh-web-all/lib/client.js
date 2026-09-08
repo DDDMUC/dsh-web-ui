@@ -47502,7 +47502,7 @@ window.__ModuleLoader__.load({
 		*
 		* The slot owner passes the card's directory row (`provider.settingsNs` /
 		* `provider.settingsPath` address the profile inside the settings document)
-		* and the apply body injects the browser remote face; this panel reads the
+		* and the apply body injects the settings namespace face; this panel reads the
 		* redacted namespace view over the remote settings wire, drafts image-input
 		* and reasoning-effort declarations per model, and saves them as one
 		* whole-array path op with revision fencing — the same write granularity and
@@ -47522,11 +47522,11 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* Render the capability editor for one provider card.
-		* @param props - the card's directory row, its configured facts, and the remote face.
+		* @param props - the card's directory row, its configured facts, and the settings face.
 		* @returns the extension area.
 		*/
 		function CapabilitiesPanel(props) {
-			const { provider, remote } = props;
+			const { provider, settings } = props;
 			const [phase, setPhase] = (0, react.useState)({ kind: "loading" });
 			const [snapshot, setSnapshot] = (0, react.useState)(void 0);
 			const [draft, setDraft] = (0, react.useState)(null);
@@ -47540,7 +47540,7 @@ window.__ModuleLoader__.load({
 			const load = (0, react.useCallback)(async (face) => {
 				setPhase({ kind: "loading" });
 				try {
-					const described = await face.settings.describe();
+					const described = await face.describe();
 					if (!described.ok) throw new Error(failureText(described.error));
 					const view = described.value.namespaces.find((candidate) => candidate.ns === provider.settingsNs);
 					if (view === void 0) throw new Error(`settings namespace "${provider.settingsNs}" is not registered on this host`);
@@ -47566,8 +47566,8 @@ window.__ModuleLoader__.load({
 				settingsPath
 			]);
 			(0, react.useEffect)(() => {
-				load(remote);
-			}, [load, remote]);
+				load(settings);
+			}, [load, settings]);
 			const editing = phase.kind === "ready" && snapshot !== void 0;
 			const readOnly = editing && !snapshot.writable;
 			const dirty = draft !== null;
@@ -47596,7 +47596,7 @@ window.__ModuleLoader__.load({
 				const op = buildModelsOp(settingsPath, draft);
 				setSave({ kind: "saving" });
 				try {
-					const written = await remote.settings.mutate(provider.settingsNs, [op], snapshot.revision);
+					const written = await settings.mutate(provider.settingsNs, [op], snapshot.revision);
 					if (written.ok) {
 						const userModels = modelsArrayOf(readAt(written.value.user, modelsPath)) ?? [];
 						setSnapshot({
@@ -47611,7 +47611,7 @@ window.__ModuleLoader__.load({
 					}
 					if (written.error.code === "settings/conflict") {
 						setSave({ kind: "conflict" });
-						await load(remote);
+						await load(settings);
 						return;
 					}
 					setSave({
@@ -47684,7 +47684,7 @@ window.__ModuleLoader__.load({
 								className: capabilities_module_css_default.ghost,
 								"data-dsh-part": "reload",
 								onClick: () => {
-									load(remote);
+									load(settings);
 								},
 								children: t("caps.reload")
 							})]
@@ -47982,11 +47982,12 @@ window.__ModuleLoader__.load({
 			apply: () => apply$2,
 			inject: () => inject$2
 		});
-		/** Required services: the slot registry, the dictionary registry, the remote wire. */
+		/** Required services: slot registry, dictionary registry, and the traced settings namespace — accessing `remote.settings` without declaring the dotted path fails at runtime. */
 		const inject$2 = [
 			"slots",
 			"locale",
-			"remote"
+			"remote",
+			"remote.settings"
 		];
 		/**
 		* Client plugin body: register dictionaries and seat the provider-card
@@ -48004,13 +48005,13 @@ window.__ModuleLoader__.load({
 					return () => {};
 				}
 			}, "dsh-model-capabilities: dictionaries");
-			const remote = ctx.get("remote");
+			const settings = ctx.get("remote").settings;
 			ctx.slots.inject("settings.models.provider-card", () => {
 				try {
 					const unregister = ctx.slots.register({
 						name: "settings.models.provider-card",
 						key: "llm-pi-ai",
-						inject: () => ({ remote })
+						inject: () => ({ settings })
 					}, CapabilitiesPanel);
 					return () => {
 						unregister();
