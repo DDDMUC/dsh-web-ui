@@ -1,0 +1,120 @@
+/**
+ * dsh-model-capabilities locale dictionaries (zh/en). The zh dictionary is
+ * the key source; `en` mirrors its full key set (packages/AGENTS.md bilingual
+ * discipline). Russian copy ships centrally in dsh-i18n.
+ * @module @linxin666/dsh-client-ui-model-capabilities/client/locales
+ */
+
+/** Dictionary namespace this package registers. */
+export const NS = 'model-caps'
+
+/** Chinese copy (key source). */
+export const zh = {
+  'caps.title': '模型能力',
+  'caps.hint': '为目录里的每个模型声明图片输入与推理档位，保存写入设置文档并立即生效。',
+  'caps.loading': '正在读取模型能力…',
+  'caps.loadFailed': '读取失败：{error}',
+  'caps.reload': '重新读取',
+  'caps.empty': '此提供方还没有可编辑的模型目录。先在上方模型目录中添加模型行，再回到这里为每个模型声明能力。',
+  'caps.readOnly': '当前设置文档只读，无法修改。',
+  'caps.model.count': '{n} 个模型',
+  'caps.model.expand': '展开模型能力',
+  'caps.model.collapse': '收起模型能力',
+  'caps.model.image': '图片输入',
+  'caps.model.image.hint': '勾选后 DSH 才允许向该模型发送图片附件。',
+  'caps.model.image.inherit': '未声明（默认仅文本）',
+  'caps.model.efforts': '推理档位',
+  'caps.efforts.inherit': '不声明',
+  'caps.efforts.none': '无推理',
+  'caps.efforts.levels': '声明档位',
+  'caps.efforts.inheritHint': '跟随内置目录的声明；自定义模型没有目录可跟随，等同无推理。',
+  'caps.efforts.noneHint': '声明该模型不参与推理（reasoningEfforts: false），模型选择器不再提供思考档位。',
+  'caps.efforts.levelsHint': '勾选模型支持的档位，并填写请求里实际发送的取值。',
+  'caps.wire.label': '发送值',
+  'caps.wire.placeholder': '请求参数取值',
+  'caps.wire.offHint': 'off 可留空：表示「支持，但发送时不带参数」。',
+  'caps.preset.common': '填入常用 low / medium / high',
+  'caps.summary.image': '图片',
+  'caps.summary.textOnly': '仅文本',
+  'caps.summary.noReasoning': '无推理',
+  'caps.summary.efforts': '推理：{levels}',
+  'caps.save': '保存',
+  'caps.saving': '保存中…',
+  'caps.discard': '重置',
+  'caps.dirty': '有未保存的修改',
+  'caps.saved': '已保存',
+  'caps.conflict': '配置已被其他界面修改，已重新读取，请重试。',
+  'caps.failed': '保存失败：{error}',
+  'caps.invalid.wire': '档位 {level} 需要非空的发送值。',
+  'caps.invalid.offOnly': '至少声明一个 off 以外的档位，或改选「无推理」。',
+}
+
+export type CapsKey = keyof typeof zh
+
+/** English copy (full key parity with zh). */
+export const en: Record<CapsKey, string> = {
+  'caps.title': 'Model capabilities',
+  'caps.hint': 'Declare image input and reasoning efforts per catalog model; saving writes the settings document and applies immediately.',
+  'caps.loading': 'Loading model capabilities…',
+  'caps.loadFailed': 'Failed to load: {error}',
+  'caps.reload': 'Reload',
+  'caps.empty': 'No editable model catalog for this provider yet. Add model rows in the catalog above, then come back here to declare capabilities per model.',
+  'caps.readOnly': 'The settings document is read-only; changes are disabled.',
+  'caps.model.count': '{n} models',
+  'caps.model.expand': 'Expand model capabilities',
+  'caps.model.collapse': 'Collapse model capabilities',
+  'caps.model.image': 'Image input',
+  'caps.model.image.hint': 'DSH only offers image attachments to this model when checked.',
+  'caps.model.image.inherit': 'Undeclared (defaults to text only)',
+  'caps.model.efforts': 'Reasoning efforts',
+  'caps.efforts.inherit': 'Undeclared',
+  'caps.efforts.none': 'No reasoning',
+  'caps.efforts.levels': 'Declare levels',
+  'caps.efforts.inheritHint': 'Follows the built-in catalog; a hand-declared model has nothing to follow, which behaves like no reasoning.',
+  'caps.efforts.noneHint': 'Declare this model as non-reasoning (reasoningEfforts: false); the model picker stops offering thinking levels.',
+  'caps.efforts.levelsHint': 'Check the levels the model supports and fill in the wire value each one sends.',
+  'caps.wire.label': 'Wire value',
+  'caps.wire.placeholder': 'request parameter value',
+  'caps.wire.offHint': 'off may stay empty: "supported, but send nothing when chosen".',
+  'caps.preset.common': 'Fill the common low / medium / high',
+  'caps.summary.image': 'image',
+  'caps.summary.textOnly': 'text only',
+  'caps.summary.noReasoning': 'no reasoning',
+  'caps.summary.efforts': 'reasoning: {levels}',
+  'caps.save': 'Save',
+  'caps.saving': 'Saving…',
+  'caps.discard': 'Reset',
+  'caps.dirty': 'Unsaved changes',
+  'caps.saved': 'Saved',
+  'caps.conflict': 'The configuration changed in another surface; reloaded — please retry.',
+  'caps.failed': 'Save failed: {error}',
+  'caps.invalid.wire': 'Level {level} needs a non-empty wire value.',
+  'caps.invalid.offOnly': 'Declare at least one level beyond off, or switch to "No reasoning".',
+}
+
+/**
+ * Active dictionary, picked by the document language at call time (the same
+ * tiny resolution every family settings card uses).
+ */
+export function dictionary(): Record<CapsKey, string> {
+  const lang = typeof document !== 'undefined' ? document.documentElement.lang : 'zh'
+  return lang.toLowerCase().startsWith('en') ? en : zh
+}
+
+/** Translate a key with optional `{name}` template params; missing keys degrade to the key. */
+export function t(key: CapsKey, params?: Record<string, unknown>): string {
+  let text: string = dictionary()[key] ?? key
+  if (params !== undefined) {
+    for (const [name, value] of Object.entries(params)) {
+      text = text.replaceAll(`{${name}}`, String(value))
+    }
+  }
+  return text
+}
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** dsh-model-capabilities UI copy. */
+    'model-caps': CapsKey
+  }
+}

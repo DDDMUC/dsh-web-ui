@@ -1,0 +1,29 @@
+# AGENTS.md — dsh-model-capabilities
+
+DSH web GUI plugin dsh-model-capabilities. 包级规则:只写本包特有约定,不重复根 AGENTS.md 与
+packages/AGENTS.md 的全局/包级规则。
+
+## 本包要点
+
+- 本包是官方 Models 设置页 `settings.models.provider-card` keyed 插槽(key `llm-pi-ai`)
+  的占位者:为该适配器家族的每张提供方卡片渲染「模型能力」扩展区,逐模型声明
+  图片输入(`models[].input`)与推理档位(`models[].reasoningEfforts`)。
+- 本包**没有自己的 settings 命名空间**,host 半区是无行为占位(见 `src/index.ts`);
+  读写全部走 `remote.settings.describe/mutate` 官方线路,目标是 `llm-pi-ai` 命名空间。
+- **写入粒度是整数组**:`src/core/capabilities.ts` 的 `buildModelsOp` 用一次 set 操作替换
+  `providers.<route>.models` 整个数组(settings mutate 的 path op 不支持下标进数组);
+  条目是结构开放对象,非本包编辑的字段(id/name/contextWindow/compat 等)原样保留。
+- **校验在写入前**:levels 模式必须含 off 以外档位、非 off 档位必须有非空发送值,
+  与 `dsh-llm-pi-ai` 适配器 `assertServiceable` 的拒绝规则一致(编辑器先拒绝,
+  host 免得写后被拒)。若上游词表变化(off/minimal/low/medium/high/xhigh/max),
+  以 `@earendil-works/pi-ai` 的 `ModelThinkingLevel` 为准同步 `THINKING_LEVELS`。
+- 冲突姿态与官方卡片一致:携带读取时的 revision 作为 `expectedRevision`,
+  收到 `settings/conflict` 后重新 describe 并提示用户重试,绝不盲写。
+
+## 提交前检查
+
+```sh
+pnpm --filter @linxin666/dsh-client-ui-model-capabilities typecheck
+pnpm --filter @linxin666/dsh-client-ui-model-capabilities test
+pnpm --filter @linxin666/dsh-client-ui-model-capabilities build
+```
