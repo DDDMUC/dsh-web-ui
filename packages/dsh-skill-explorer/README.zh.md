@@ -10,9 +10,11 @@ DSH Web GUI 的**技能中心**：按来源分级浏览已加载的全部 skill�
 - 侧边栏「技能中心」入口，打开面板含两个 tab。
 - **技能 tab**：按来源分级展示（系统内置 / 项目 `.dsh/skills` / 项目
   `.agents/skills` / 自定义目录 / 用户 `~/.dsh/skills` / 用户
-  `~/.agents/skills` / 运行时注册），每张卡片显示描述、适用场景、可调用标记、
-  启用/禁用开关（改写 SKILL.md frontmatter 的 `disable-model-invocation`，
-  模型目录热刷新）与删除按钮（文件移入 `.trash`，可恢复）。
+  `~/.agents/skills` / 运行时注册），顶部搜索框按技能名或描述即时过滤
+  （名称命中排在前面，Esc 或「清空」按钮复位），并与工作区选择叠加生效；
+  每张卡片显示描述、适用场景、可调用标记、启用/禁用开关（改写 SKILL.md
+  frontmatter 的 `disable-model-invocation`，模型目录热刷新）与删除按钮
+  （文件移入 `.trash`，可恢复）。
 - **创建 tab**：表单创建新技能，可写入用户根（`~/.dsh/skills`）或项目根
   （`.dsh/skills`），生成标准 SKILL.md。
 - 数据来自按官方 dsh-skill-filesystem 根约定的文件系统扫描，并与

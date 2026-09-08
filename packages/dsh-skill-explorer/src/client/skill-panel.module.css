@@ -230,24 +230,31 @@
   opacity: 0.98;
 }
 
-.workspaceFilterBar {
+.filterBar {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 12px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   background: var(--dsw-alias-bg-layer-1, #f7f8fa);
   border-radius: 6px;
   font-size: 12px;
 }
 
-.workspaceFilterLabel {
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterLabel {
   color: var(--dsw-alias-label-secondary, #6b7280);
   font-weight: 500;
   flex: none;
 }
 
-.workspaceFilterSelect {
+.filterInput,
+.filterSelect {
   flex: 1;
   max-width: 280px;
   height: 26px;
@@ -258,6 +265,34 @@
   color: var(--dsw-alias-label-primary, #1c1e26);
   font-size: 12px;
   outline: none;
+}
+
+.filterInput:focus,
+.filterSelect:focus {
+  border-color: var(--dsw-alias-border-l2, #d1d5db);
+}
+
+.filterClear {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid var(--dsw-alias-border-l1, #d7dae0);
+  background: none;
+  color: var(--dsw-alias-label-secondary, #6b7280);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.filterClear:hover {
+  color: var(--dsw-alias-label-primary, #1c1e26);
+}
+
+.filterEmpty {
+  padding: 18px 0;
+  color: var(--dsw-alias-label-secondary, #6b7280);
+  font-size: 13px;
+  text-align: center;
 }
 
 .switch {
@@ -479,14 +514,24 @@ body[data-ds-dark-theme]:not([data-dsh-skin]) .deleteButton:hover {
   background: rgba(255, 59, 48, 0.26);
 }
 
-body[data-ds-dark-theme]:not([data-dsh-skin]) .workspaceFilterBar {
+body[data-ds-dark-theme]:not([data-dsh-skin]) .filterBar {
   background: #1e1e1e;
 }
 
-body[data-ds-dark-theme]:not([data-dsh-skin]) .workspaceFilterSelect {
+body[data-ds-dark-theme]:not([data-dsh-skin]) .filterInput,
+body[data-ds-dark-theme]:not([data-dsh-skin]) .filterSelect {
   background: #2c2c2e;
   border-color: rgba(255, 255, 255, 0.1);
   color: #fff;
+}
+
+body[data-ds-dark-theme]:not([data-dsh-skin]) .filterClear {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+body[data-ds-dark-theme]:not([data-dsh-skin]) .filterEmpty {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 body[data-ds-dark-theme]:not([data-dsh-skin]) .badgeWorkspace {
