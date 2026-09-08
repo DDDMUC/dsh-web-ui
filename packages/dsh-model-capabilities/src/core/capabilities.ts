@@ -228,11 +228,18 @@ export function sanitizeEntry(entry: ModelEntryDraft): Record<string, unknown> {
 }
 
 /** One settings path op (the wire shape the remote mutate takes). */
-export interface PathOp {
+export interface SetPathOp {
   op: 'set'
   path: string[]
   value: JsonValue
 }
+
+export interface UnsetPathOp {
+  op: 'unset'
+  path: string[]
+}
+
+export type PathOp = SetPathOp | UnsetPathOp
 
 /**
  * Build the single op a save performs: replace the provider's whole `models`
@@ -240,7 +247,7 @@ export interface PathOp {
  * the array yet — the walker creates the intermediate objects, and every
  * other profile field keeps inheriting from its layer.
  */
-export function buildModelsOp(settingsPath: readonly string[], entries: readonly ModelEntryDraft[]): PathOp {
+export function buildModelsOp(settingsPath: readonly string[], entries: readonly ModelEntryDraft[]): SetPathOp {
   return {
     op: 'set',
     path: [...settingsPath, 'models'],

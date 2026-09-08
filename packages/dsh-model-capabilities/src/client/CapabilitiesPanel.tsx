@@ -1,30 +1,27 @@
 /**
  * Models-page provider-card extension area: per-model capability declarations
- * for one pi-ai provider route.
+ * and the provider disable/enable toggle for one pi-ai provider route.
  *
  * The slot owner passes the card's directory row (`provider.settingsNs` /
  * `provider.settingsPath` address the profile inside the settings document)
- * and the apply body injects the settings namespace face; this panel reads the
- * redacted namespace view over the remote settings wire, drafts image-input
- * and reasoning-effort declarations per model, and saves them as one
- * whole-array path op with revision fencing — the same write granularity and
- * conflict posture the official card uses.
+ * and the apply body injects the settings namespace face plus the refresh
+ * bus; this panel reads the redacted namespace views over the remote settings
+ * wire, drafts image-input and reasoning-effort declarations per model, and
+ * saves them as one whole-array path op with revision fencing — the same
+ * write granularity and conflict posture the official card uses.
  *
- * A missing namespace or a refused read renders the failure inline, never a
- * blank: the extension area must not read as a missing plugin.
+ * The toggle uses the plugin's archive namespace: disabling stashes the
+ * user-layer profile and unsets `providers.<route>` (the official
+ * Remove-provider seam), which takes the provider out of the model catalog
+ * both pickers read; enabling restores it. A missing namespace or a refused
+ * read renders the failure inline, never a blank.
  * @module @linxin666/dsh-client-ui-model-capabilities/client/CapabilitiesPanel
  */
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
-import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-// Type-only: pulls the generated settings-namespace methods (describe/mutate)
-// into ClientRemote — the repo's dependency graph does not carry the
-// api-remotes full assembly, so this augmentation must be imported directly.
-import type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
-// View types from their owning package (the api-remotes re-export resolves to
-// `any` in this repo's dependency graph).
-import type { SettingsDescribeValue, SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-settings/types'
 import type { ProviderCardExtrasOwnerProps } from '@deepseek-ai/dsh-client-ui-settings-models/client'
+import type { RemoteFailure } from '@deepseek-ai/dsh-typert-protocol'
+import type { SettingsNamespaceView } from '@deepseek-ai/dsh-settings/types'
 import {
   buildModelsOp,
   declaredLevelsOf,
@@ -42,24 +39,21 @@ import {
   type ModelEntryDraft,
   type ModelThinkingLevel,
 } from '../core/capabilities.ts'
+import { CAPS_SETTINGS_NAMESPACE, readDisabledStore, userHasProfile } from '../core/provider-toggle.ts'
+import { disableProvider, enableProvider } from './provider-toggle.ts'
+import type { SettingsNamespaceFace } from './settings-face.ts'
 import { t } from './locales.ts'
 import css from './capabilities.module.css'
 
-/**
- * The settings namespace face this panel needs. Typed locally (the generated
- * `ClientRemote['settings']` resolves to `any` fields under this repo's
- * dependency graph, because skipLibCheck swallows the settings-controller
- * d.ts's own unresolved imports).
- */
-export interface SettingsNamespaceFace {
-  describe(): Promise<RemoteResult<SettingsDescribeValue>>
-  mutate(ns: string, ops: readonly SettingsPathOpView[], expectedRevision: number | undefined): Promise<RemoteResult<SettingsNamespaceView>>
-}
+export type { SettingsNamespaceFace } from './settings-face.ts'
+import type { RefreshBus } from './settings-face.ts'
 
-/** Component props: the slot's owner share plus the settings namespace face. */
+/** Component props: the slot's owner share plus the injected faces. */
 export interface CapabilitiesPanelProps extends ProviderCardExtrasOwnerProps {
   /** The generated remote settings namespace (extracted by the apply body, which declares the dotted inject). */
   settings: SettingsNamespaceFace
+  /** Cross-surface refresh bus plus the surface for disable/enable; absent keeps the capability editor only. */
+  refresh?: RefreshBus
 }
 
 /** One view snapshot the panel renders from. */
@@ -72,6 +66,12 @@ interface Snapshot {
   revision: number
   /** Whether the settings provider accepts writes. */
   writable: boolean
+  /** Whether the pi-ai user layer holds this provider's profile (the unit a disable archives). */
+  userProfile: boolean
+  /** Whether the provider is currently disabled (archived and taken down). */
+  disabledHere: boolean
+  /** Whether the plugin's archive namespace answered (disable needs it). */
+  capsKnown: boolean
 }
 
 type Phase = { kind: 'loading' } | { kind: 'error', message: string } | { kind: 'ready' }
@@ -82,6 +82,8 @@ type SaveState =
   | { kind: 'saved' }
   | { kind: 'conflict' }
   | { kind: 'failed', message: string }
+
+type ToggleBusy = 'disabling' | 'enabling' | undefined
 
 /** Extract a display text from a remote failure (the host diagnostic, or its code). */
 function failureText(error: RemoteFailure): string {
@@ -95,17 +97,20 @@ function cloneEntry(entry: ModelEntryDraft): ModelEntryDraft {
 
 /**
  * Render the capability editor for one provider card.
- * @param props - the card's directory row, its configured facts, and the settings face.
+ * @param props - the card's directory row, its configured facts, and the injected faces.
  * @returns the extension area.
  */
 export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
-  const { provider, settings } = props
+  const { provider, settings, refresh } = props
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
   const [snapshot, setSnapshot] = useState<Snapshot | undefined>(undefined)
   const [draft, setDraft] = useState<ModelEntryDraft[] | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [save, setSave] = useState<SaveState>({ kind: 'idle' })
+  const [toggleBusy, setToggleBusy] = useState<ToggleBusy>(undefined)
+  const [toggleFailure, setToggleFailure] = useState<string | undefined>(undefined)
+  const [toggleConflict, setToggleConflict] = useState(false)
 
   const settingsPath = useMemo(() => [...provider.settingsPath], [provider.settingsPath])
   /** The models array lives one level below the profile the settings path addresses. */
@@ -117,10 +122,14 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
     try {
       const described = await face.describe()
       if (!described.ok) throw new Error(failureText(described.error))
-      const view = described.value.namespaces.find(candidate => candidate.ns === provider.settingsNs)
+      const namespaces = described.value.namespaces
+      const view = namespaces.find(candidate => candidate.ns === provider.settingsNs)
       if (view === undefined) {
         throw new Error(`settings namespace "${provider.settingsNs}" is not registered on this host`)
       }
+      const capsView = namespaces.find(candidate => candidate.ns === CAPS_SETTINGS_NAMESPACE)
+      const stash = readDisabledStore(capsView?.value)
+      const userProfile = userHasProfile(view.user, provider.provider)
       const userModels = modelsArrayOf(readAt(view.user, modelsPath))
       const effective = userModels ?? modelsArrayOf(readAt(view.value, modelsPath)) ?? []
       setSnapshot({
@@ -128,21 +137,30 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
         inherited: userModels === undefined,
         revision: view.revision,
         writable: described.value.writable,
+        userProfile,
+        disabledHere: stash[provider.provider] !== undefined && !userProfile,
+        capsKnown: capsView !== undefined,
       })
       setDraft(null)
       setPhase({ kind: 'ready' })
     } catch (error) {
       setPhase({ kind: 'error', message: error instanceof Error ? error.message : String(error) })
     }
-  }, [modelsPath, provider.settingsNs, settingsPath])
+  }, [modelsPath, provider.provider, provider.settingsNs])
 
   useEffect(() => {
     void load(settings)
   }, [load, settings])
 
+  useEffect(() => {
+    return refresh?.subscribe(() => { void load(settings) })
+  }, [load, refresh, settings])
+
   const editing = phase.kind === 'ready' && snapshot !== undefined
   const readOnly = editing && !snapshot.writable
   const dirty = draft !== null
+  const disabledHere = editing && snapshot.disabledHere
+  const toggleUnavailable = !editing || !snapshot.capsKnown || readOnly || toggleBusy !== undefined
 
   const updateEntry = (index: number, next: ModelEntryDraft) => {
     if (!editing || readOnly) return
@@ -177,11 +195,12 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
       const written = await settings.mutate(provider.settingsNs, [op], snapshot.revision)
       if (written.ok) {
         const userModels = modelsArrayOf(readAt(written.value.user, modelsPath)) ?? []
-        setSnapshot({
+        setSnapshot(current => current === undefined ? current : {
+          ...current,
           entries: userModels,
           inherited: false,
           revision: written.value.revision,
-          writable: true,
+          userProfile: true,
         })
         setDraft(null)
         setSave({ kind: 'saved' })
@@ -198,6 +217,50 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
     }
   }
 
+  const applyToggleOutcome = async (outcome: Awaited<ReturnType<typeof disableProvider>>) => {
+    if (outcome.kind === 'ok') {
+      setToggleFailure(undefined)
+      setToggleConflict(false)
+      refresh?.notify()
+      await load(settings)
+      return
+    }
+    if (outcome.kind === 'conflict') {
+      setToggleFailure(undefined)
+      setToggleConflict(true)
+      await load(settings)
+      return
+    }
+    if (outcome.kind === 'route-exists') setToggleFailure(t('caps.error.routeExists'))
+    else if (outcome.kind === 'unavailable') setToggleFailure(t('caps.error.unavailable'))
+    else if (outcome.kind === 'partial') setToggleFailure(t('caps.error.partialEnable', { error: outcome.message }))
+    else setToggleFailure(t('caps.failed', { error: outcome.kind }))
+  }
+
+  const doDisable = async () => {
+    if (toggleUnavailable || snapshot === undefined || !snapshot.userProfile) return
+    setToggleBusy('disabling')
+    setToggleFailure(undefined)
+    setToggleConflict(false)
+    try {
+      await applyToggleOutcome(await disableProvider(settings, provider.settingsNs, provider.provider, provider.displayName))
+    } finally {
+      setToggleBusy(undefined)
+    }
+  }
+
+  const doEnable = async () => {
+    if (toggleUnavailable) return
+    setToggleBusy('enabling')
+    setToggleFailure(undefined)
+    setToggleConflict(false)
+    try {
+      await applyToggleOutcome(await enableProvider(settings, provider.settingsNs, provider.provider))
+    } finally {
+      setToggleBusy(undefined)
+    }
+  }
+
   return (
     <section className={css.panel} data-dsh-plugin="model-capabilities" data-dsh-part="panel">
       <button
@@ -208,6 +271,7 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
         onClick={() => { setOpen(!open) }}
       >
         <span className={css.title}>{t('caps.title')}</span>
+        {disabledHere ? <span className={css.offBadge}>{t('caps.state.badge')}</span> : null}
         {dirty ? <span className={css.pending}>{t('caps.dirty')}</span> : null}
         <svg
           width="12"
@@ -238,27 +302,47 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
               {phase.kind === 'ready' && snapshot !== undefined
                 ? (
                     <>
-                      {readOnly ? <p className={css.readOnly} role="status">{t('caps.readOnly')}</p> : null}
-                      {snapshot.entries.length === 0
-                        ? <p className={css.status} role="status">{t('caps.empty')}</p>
-                        : (
-                            <ul className={css.rows}>
-                              {entries.map((entry, index) => (
-                                <ModelRow
-                                  key={typeof entry.id === 'string' ? entry.id : index}
-                                  entry={entry}
-                                  expanded={expandedId === entry.id}
-                                  disabled={readOnly}
-                                  onToggle={() => { setExpandedId(expandedId === entry.id ? null : entry.id) }}
-                                  onChange={next => { updateEntry(index, next) }}
-                                />
-                              ))}
-                            </ul>
-                          )}
+                      {disabledHere
+                        ? (
+                            <div className={css.disabledBox} data-dsh-part="disabled-state">
+                              <p className={css.status} role="status">{t('caps.state.disabled')}</p>
+                              <button
+                                type="button"
+                                className={css.ghost}
+                                data-dsh-part="enable"
+                                disabled={toggleUnavailable}
+                                onClick={() => { void doEnable() }}
+                              >
+                                {toggleBusy === 'enabling' ? t('caps.busy.enabling') : t('caps.action.enable')}
+                              </button>
+                            </div>
+                          )
+                          : (
+                              <>
+                                {readOnly ? <p className={css.readOnly} role="status">{t('caps.readOnly')}</p> : null}
+                                {snapshot.entries.length === 0
+                                  ? <p className={css.status} role="status">{t('caps.empty')}</p>
+                                  : (
+                                      <ul className={css.rows}>
+                                        {entries.map((entry, index) => (
+                                          <ModelRow
+                                            key={typeof entry.id === 'string' ? entry.id : index}
+                                            entry={entry}
+                                            expanded={expandedId === entry.id}
+                                            disabled={readOnly}
+                                            onToggle={() => { setExpandedId(expandedId === entry.id ? null : entry.id) }}
+                                            onChange={next => { updateEntry(index, next) }}
+                                          />
+                                        ))}
+                                      </ul>
+                                    )}
+                              </>
+                            )}
                       <div className={css.footer}>
                         {save.kind === 'saved' ? <p className={css.status} role="status">{t('caps.saved')}</p> : null}
-                        {save.kind === 'conflict' ? <p className={css.failed} role="alert">{t('caps.conflict')}</p> : null}
+                        {save.kind === 'conflict' || toggleConflict ? <p className={css.failed} role="alert">{t('caps.conflict')}</p> : null}
                         {save.kind === 'failed' ? <p className={css.failed} role="alert">{t('caps.failed', { error: save.message })}</p> : null}
+                        {toggleFailure !== undefined ? <p className={css.failed} role="alert">{toggleFailure}</p> : null}
                         {firstIssue?.kind === 'effortsWireMissing'
                           ? <p className={css.failed} role="alert">{t('caps.invalid.wire', { level: firstIssue.level })}</p>
                           : null}
@@ -266,24 +350,46 @@ export function CapabilitiesPanel(props: CapabilitiesPanelProps) {
                           ? <p className={css.failed} role="alert">{t('caps.invalid.offOnly')}</p>
                           : null}
                         <span className={css.spacer} />
-                        <button
-                          type="button"
-                          className={css.ghost}
-                          data-dsh-part="reset"
-                          disabled={!dirty || save.kind === 'saving'}
-                          onClick={discard}
-                        >
-                          {t('caps.discard')}
-                        </button>
-                        <button
-                          type="button"
-                          className={css.primary}
-                          data-dsh-part="save"
-                          disabled={!dirty || readOnly || save.kind === 'saving' || firstIssue !== undefined}
-                          onClick={() => { void doSave() }}
-                        >
-                          {save.kind === 'saving' ? t('caps.saving') : t('caps.save')}
-                        </button>
+                        {!disabledHere && snapshot.userProfile && snapshot.capsKnown
+                          ? (
+                              <button
+                                type="button"
+                                className={css.danger}
+                                data-dsh-part="disable"
+                                title={t('caps.disable.hint')}
+                                disabled={toggleUnavailable || dirty}
+                                onClick={() => { void doDisable() }}
+                              >
+                                {toggleBusy === 'disabling' ? t('caps.busy.disabling') : t('caps.action.disable')}
+                              </button>
+                            )
+                          : null}
+                        {!disabledHere
+                          ? (
+                              <button
+                                type="button"
+                                className={css.ghost}
+                                data-dsh-part="reset"
+                                disabled={!dirty || save.kind === 'saving'}
+                                onClick={discard}
+                              >
+                                {t('caps.discard')}
+                              </button>
+                            )
+                          : null}
+                        {!disabledHere
+                          ? (
+                              <button
+                                type="button"
+                                className={css.primary}
+                                data-dsh-part="save"
+                                disabled={!dirty || readOnly || save.kind === 'saving' || firstIssue !== undefined}
+                                onClick={() => { void doSave() }}
+                              >
+                                {save.kind === 'saving' ? t('caps.saving') : t('caps.save')}
+                              </button>
+                            )
+                          : null}
                       </div>
                     </>
                   )

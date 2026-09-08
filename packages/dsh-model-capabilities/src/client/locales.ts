@@ -47,6 +47,18 @@ export const zh = {
   'caps.failed': '保存失败：{error}',
   'caps.invalid.wire': '档位 {level} 需要非空的发送值。',
   'caps.invalid.offOnly': '至少声明一个 off 以外的档位，或改选「无推理」。',
+  'caps.action.disable': '禁用此提供方',
+  'caps.action.enable': '启用',
+  'caps.busy.disabling': '禁用中…',
+  'caps.busy.enabling': '启用中…',
+  'caps.disable.hint': '禁用后该提供方立即从输入框模型选择器与子代理可选模型中消失；配置会存档，可随时启用恢复。',
+  'caps.state.badge': '已禁用',
+  'caps.state.disabled': '该提供方已禁用：模型不出现在输入框模型选择器与子代理可选列表中。配置已存档，启用即恢复。',
+  'caps.footer.title': '已禁用的提供方',
+  'caps.footer.hint': '这些提供方的配置已存档；启用后恢复原配置，并重新出现在模型选择器与子代理可选列表中。',
+  'caps.error.routeExists': '该提供方已存在新配置，无法恢复存档；请先移除现有配置再启用。',
+  'caps.error.partialEnable': '已启用，但清理存档失败：{error}',
+  'caps.error.unavailable': '无法切换：插件的存档命名空间未注册。',
 }
 
 export type CapsKey = keyof typeof zh
@@ -90,6 +102,18 @@ export const en: Record<CapsKey, string> = {
   'caps.failed': 'Save failed: {error}',
   'caps.invalid.wire': 'Level {level} needs a non-empty wire value.',
   'caps.invalid.offOnly': 'Declare at least one level beyond off, or switch to "No reasoning".',
+  'caps.action.disable': 'Disable provider',
+  'caps.action.enable': 'Enable',
+  'caps.busy.disabling': 'Disabling…',
+  'caps.busy.enabling': 'Enabling…',
+  'caps.disable.hint': 'A disabled provider leaves the composer model picker and the subagent selection immediately; its configuration is archived and can be restored at any time.',
+  'caps.state.badge': 'disabled',
+  'caps.state.disabled': 'This provider is disabled: its models are absent from the composer picker and the subagent selection. The configuration is archived; enabling restores it.',
+  'caps.footer.title': 'Disabled providers',
+  'caps.footer.hint': 'These providers have archived configurations; enabling restores the original profile and puts it back into the model picker and the subagent selection.',
+  'caps.error.routeExists': 'The provider already has a newer configuration; the archive cannot be restored. Remove the current configuration first, then enable.',
+  'caps.error.partialEnable': 'Enabled, but clearing the archive failed: {error}',
+  'caps.error.unavailable': 'Cannot toggle: the plugin archive namespace is not registered.',
 }
 
 /**

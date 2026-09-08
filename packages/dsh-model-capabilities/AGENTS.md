@@ -7,12 +7,23 @@ packages/AGENTS.md 的全局/包级规则。
 
 - 本包是官方 Models 设置页 `settings.models.provider-card` keyed 插槽(key `llm-pi-ai`)
   的占位者:为该适配器家族的每张提供方卡片渲染「模型能力」扩展区,逐模型声明
-  图片输入(`models[].input`)与推理档位(`models[].reasoningEfforts`)。
+  图片输入(`models[].input`)与推理档位(`models[].reasoningEfforts`);
+  另占位 `settings.models.footer` 列出已禁用的提供方(手填路线禁用后卡片会从
+  Models 页消失,页脚是唯一恢复入口)。
+- host 半区注册本包命名空间 `dsh-model-capabilities`(存档用),经 `src/mount-once.ts`
+  (sync-shared 生成副本)防双源重复注册——settings 命名空间重复注册会 fail loud。
 - 本包**没有自己的 settings 命名空间**,host 半区是无行为占位(见 `src/index.ts`);
   读写全部走 `remote.settings.describe/mutate` 官方线路,目标是 `llm-pi-ai` 命名空间。
 - **写入粒度是整数组**:`src/core/capabilities.ts` 的 `buildModelsOp` 用一次 set 操作替换
   `providers.<route>.models` 整个数组(settings mutate 的 path op 不支持下标进数组);
   条目是结构开放对象,非本包编辑的字段(id/name/contextWindow/compat 等)原样保留。
+- **禁用/启用的唯一官方缝是「存档 + unset」**:host 半区注册本包命名空间
+  `dsh-model-capabilities` 存放被禁用提供方的 profile(`disabled.<route>`);禁用 =
+  先存档再 `unset llm-pi-ai.providers.<route>`(官方 Remove 按钮同款),路由注销后
+  provider 从 modelCatalog 消失,输入框选择器与子代理同时清空;启用反向恢复。
+  顺序保证最坏情况是重复存档,绝不丢 profile;启用遇路线已有新配置必须拒绝。
+  pi-ai schema 无原生 enabled/disabled 字段,勿寻找/伪造;组合(base)层声明的
+  profile 用户层删不掉,因此这类卡片不提供禁用开关。
 - **校验在写入前**:levels 模式必须含 off 以外档位、非 off 档位必须有非空发送值,
   与 `dsh-llm-pi-ai` 适配器 `assertServiceable` 的拒绝规则一致(编辑器先拒绝,
   host 免得写后被拒)。若上游词表变化(off/minimal/low/medium/high/xhigh/max),

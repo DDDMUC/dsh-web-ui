@@ -1,12 +1,13 @@
 /**
  * Browser-half entry for the dsh-model-capabilities plugin — runs inside the dsh web GUI.
  *
- * Seats the Models-page `settings.models.provider-card` extension area for the
- * `llm-pi-ai` adapter family: every custom-provider card of that family gets
- * the per-model capability editor (image input + reasoning efforts), which
- * reads and writes the official `llm-pi-ai` settings namespace over the
- * standard remote settings wire. The plugin has no host behavior and no
- * settings namespace of its own.
+ * Seats two Models-page extension areas for the `llm-pi-ai` adapter family:
+ * the `settings.models.provider-card` capability editor (image input +
+ * reasoning efforts + provider disable/enable) on every custom-provider card,
+ * and the `settings.models.footer` archive listing where disabled providers
+ * come back. Both read and write the official `llm-pi-ai` settings namespace
+ * plus the plugin's own archive namespace over the standard remote settings
+ * wire; the host half registers that archive namespace.
  * @module @linxin666/dsh-client-ui-model-capabilities/client
  */
 
@@ -17,18 +18,24 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the ctx.locale merge.
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the Models-page SlotMap declarations
-// ('settings.models.provider-card'), our own LocaleNamespaceMap merge, and the
-// owner-props types the panel reads.
+// ('settings.models.provider-card' / 'settings.models.footer'), our own
+// LocaleNamespaceMap merge, and the owner-props types the panel reads.
 import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { CapabilitiesPanel } from './CapabilitiesPanel.tsx'
+import { DisabledProvidersFooter } from './DisabledProvidersFooter.tsx'
+import type { RefreshBus } from './settings-face.ts'
 import { NS, zh, en } from './locales.ts'
 
-/** Required services: slot registry, dictionary registry, and the traced settings namespace — accessing `remote.settings` without declaring the dotted path fails at runtime. */
+/**
+ * Required services: slot registry, dictionary registry, the remote wire, and
+ * the traced settings namespace — accessing `remote.settings` without
+ * declaring the dotted path fails at runtime.
+ */
 export const inject = ['slots', 'locale', 'remote', 'remote.settings']
 
 /**
- * Client plugin body: register dictionaries and seat the provider-card
- * extension for the pi-ai family.
+ * Client plugin body: register dictionaries, wire the refresh bus, and seat
+ * both Models-page extension areas for the pi-ai family.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -42,12 +49,33 @@ export function apply(ctx: ClientContext): void {
 
   const settings = (ctx.get('remote') as unknown as ClientRemote).settings
 
+  // Refresh bus: our own toggles notify directly; the host's committed-change
+  // event covers every other surface (official cards, other tabs) the same way
+  // the official model picker refreshes its catalog.
+  const listeners = new Set<() => void>()
+  const refresh: RefreshBus = {
+    subscribe(callback) {
+      listeners.add(callback)
+      return () => { listeners.delete(callback) }
+    },
+    notify() {
+      for (const listener of [...listeners]) listener()
+    },
+  }
+  ctx.effect(() => {
+    try {
+      return ctx.remote.$on('settings/document-updated', () => { refresh.notify() })
+    } catch {
+      return () => {}
+    }
+  }, 'dsh-model-capabilities: document events')
+
   ctx.slots.inject('settings.models.provider-card', () => {
     try {
       const unregister = ctx.slots.register({
         name: 'settings.models.provider-card',
         key: 'llm-pi-ai',
-        inject: () => ({ settings }),
+        inject: () => ({ settings, refresh }),
       }, CapabilitiesPanel)
       return () => {
         unregister()
@@ -55,6 +83,22 @@ export function apply(ctx: ClientContext): void {
     } catch {
       // The seat is declared by the official Models section; a host without
       // it (older deployment) offers no slot to fill, so register nothing.
+      return () => {}
+    }
+  })
+
+  ctx.slots.inject('settings.models.footer', () => {
+    try {
+      const unregister = ctx.slots.register({
+        name: 'settings.models.footer',
+        id: 'ui-model-capabilities',
+        inject: () => ({ settings, refresh }),
+      }, DisabledProvidersFooter)
+      return () => {
+        unregister()
+      }
+    } catch {
+      // Same posture as the provider-card seat: no declaration, no entry.
       return () => {}
     }
   })

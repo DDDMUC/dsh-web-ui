@@ -47342,6 +47342,140 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
+		//#region ../dsh-model-capabilities/src/core/provider-toggle.ts
+		/** This plugin's own settings namespace (registered by the host half). */
+		const CAPS_SETTINGS_NAMESPACE = "dsh-model-capabilities";
+		/** Whether a value is a plain data object (not an array, null, or class instance). */
+		function isPlainObject(value) {
+			return typeof value === "object" && value !== null && !Array.isArray(value);
+		}
+		/**
+		* Parse the archive from the namespace's resolved value: `disabled` keyed by
+		* route id. Malformed entries are skipped (a stash this plugin did not write
+		* must not break the listing).
+		*/
+		function readDisabledStore(value) {
+			const out = {};
+			if (!isPlainObject(value) || !isPlainObject(value["disabled"])) return out;
+			const disabled = value["disabled"];
+			for (const [route, entry] of Object.entries(disabled)) {
+				if (!isPlainObject(entry) || !isPlainObject(entry["profile"])) continue;
+				out[route] = {
+					profile: entry["profile"],
+					...typeof entry["displayName"] === "string" && entry["displayName"].length > 0 ? { displayName: entry["displayName"] } : {}
+				};
+			}
+			return out;
+		}
+		/** Whether the user layer of the pi-ai namespace holds a profile for the route. */
+		function userHasProfile(userSection, route) {
+			if (!isPlainObject(userSection) || !isPlainObject(userSection["providers"])) return false;
+			return isPlainObject(userSection["providers"][route]);
+		}
+		/** Archive one profile: `disabled.<route> = stash` in the plugin namespace. */
+		function buildStashOp(route, stash) {
+			return {
+				op: "set",
+				path: ["disabled", route],
+				value: stash
+			};
+		}
+		/** Drop one archive entry: unset `disabled.<route>` in the plugin namespace. */
+		function buildUnstashOp(route) {
+			return {
+				op: "unset",
+				path: ["disabled", route]
+			};
+		}
+		/** Take the route down: unset `providers.<route>` in the pi-ai namespace. */
+		function buildUnsetProviderOp(route) {
+			return {
+				op: "unset",
+				path: ["providers", route]
+			};
+		}
+		/** Bring the route back: restore the archived profile verbatim. */
+		function buildRestoreProviderOp(route, profile) {
+			return {
+				op: "set",
+				path: ["providers", route],
+				value: profile
+			};
+		}
+		//#endregion
+		//#region ../dsh-model-capabilities/src/client/provider-toggle.ts
+		function refused(error) {
+			return {
+				kind: "refused",
+				message: typeof error.message === "string" && error.message.length > 0 ? error.message : error.code
+			};
+		}
+		function failureOf(ns, error) {
+			return error.code === "settings/conflict" ? {
+				kind: "conflict",
+				ns
+			} : refused(error);
+		}
+		function viewOf(namespaces, ns) {
+			return namespaces.find((candidate) => candidate.ns === ns);
+		}
+		function profileAt(userSection, route) {
+			const profile = readAt(userSection, ["providers", route]);
+			return typeof profile === "object" && profile !== null && !Array.isArray(profile) ? profile : void 0;
+		}
+		/**
+		* Take one provider down: archive its user-layer profile, then unset the
+		* profile so the route unregisters.
+		* @param face - the settings namespace face.
+		* @param llmNs - the pi-ai namespace the provider is declared in.
+		* @param route - provider route id.
+		* @param displayName - display name for the archive listing, when known.
+		*/
+		async function disableProvider(face, llmNs, route, displayName) {
+			const described = await face.describe();
+			if (!described.ok) return refused(described.error);
+			const llmView = viewOf(described.value.namespaces, llmNs);
+			const capsView = viewOf(described.value.namespaces, CAPS_SETTINGS_NAMESPACE);
+			if (llmView === void 0 || capsView === void 0) return { kind: "unavailable" };
+			const profile = profileAt(llmView.user, route);
+			if (profile === void 0) return { kind: "no-profile" };
+			const stash = {
+				profile,
+				...displayName !== void 0 ? { displayName } : {}
+			};
+			const stashed = await face.mutate(CAPS_SETTINGS_NAMESPACE, [buildStashOp(route, stash)], capsView.revision);
+			if (!stashed.ok) return failureOf(CAPS_SETTINGS_NAMESPACE, stashed.error);
+			const taken = await face.mutate(llmNs, [buildUnsetProviderOp(route)], llmView.revision);
+			if (!taken.ok) return failureOf(llmNs, taken.error);
+			return { kind: "ok" };
+		}
+		/**
+		* Bring one provider back: restore the archived profile verbatim, then clear
+		* the archive entry. Refuses when the route has grown a new profile in the
+		* meantime, so an enable can never clobber newer configuration.
+		* @param face - the settings namespace face.
+		* @param llmNs - the pi-ai namespace the provider is declared in.
+		* @param route - provider route id.
+		*/
+		async function enableProvider(face, llmNs, route) {
+			const described = await face.describe();
+			if (!described.ok) return refused(described.error);
+			const llmView = viewOf(described.value.namespaces, llmNs);
+			const capsView = viewOf(described.value.namespaces, CAPS_SETTINGS_NAMESPACE);
+			if (llmView === void 0 || capsView === void 0) return { kind: "unavailable" };
+			if (userHasProfile(llmView.user, route)) return { kind: "route-exists" };
+			const stash = readDisabledStore(capsView.value)[route];
+			if (stash === void 0) return { kind: "no-stash" };
+			const restored = await face.mutate(llmNs, [buildRestoreProviderOp(route, stash.profile)], llmView.revision);
+			if (!restored.ok) return failureOf(llmNs, restored.error);
+			const cleared = await face.mutate(CAPS_SETTINGS_NAMESPACE, [buildUnstashOp(route)], capsView.revision);
+			if (!cleared.ok) return {
+				kind: "partial",
+				message: cleared.error.message
+			};
+			return { kind: "ok" };
+		}
+		//#endregion
 		//#region ../dsh-model-capabilities/src/client/locales.ts
 		/**
 		* dsh-model-capabilities locale dictionaries (zh/en). The zh dictionary is
@@ -47389,7 +47523,19 @@ window.__ModuleLoader__.load({
 			"caps.conflict": "配置已被其他界面修改，已重新读取，请重试。",
 			"caps.failed": "保存失败：{error}",
 			"caps.invalid.wire": "档位 {level} 需要非空的发送值。",
-			"caps.invalid.offOnly": "至少声明一个 off 以外的档位，或改选「无推理」。"
+			"caps.invalid.offOnly": "至少声明一个 off 以外的档位，或改选「无推理」。",
+			"caps.action.disable": "禁用此提供方",
+			"caps.action.enable": "启用",
+			"caps.busy.disabling": "禁用中…",
+			"caps.busy.enabling": "启用中…",
+			"caps.disable.hint": "禁用后该提供方立即从输入框模型选择器与子代理可选模型中消失；配置会存档，可随时启用恢复。",
+			"caps.state.badge": "已禁用",
+			"caps.state.disabled": "该提供方已禁用：模型不出现在输入框模型选择器与子代理可选列表中。配置已存档，启用即恢复。",
+			"caps.footer.title": "已禁用的提供方",
+			"caps.footer.hint": "这些提供方的配置已存档；启用后恢复原配置，并重新出现在模型选择器与子代理可选列表中。",
+			"caps.error.routeExists": "该提供方已存在新配置，无法恢复存档；请先移除现有配置再启用。",
+			"caps.error.partialEnable": "已启用，但清理存档失败：{error}",
+			"caps.error.unavailable": "无法切换：插件的存档命名空间未注册。"
 		};
 		/** English copy (full key parity with zh). */
 		const en$1 = {
@@ -47429,7 +47575,19 @@ window.__ModuleLoader__.load({
 			"caps.conflict": "The configuration changed in another surface; reloaded — please retry.",
 			"caps.failed": "Save failed: {error}",
 			"caps.invalid.wire": "Level {level} needs a non-empty wire value.",
-			"caps.invalid.offOnly": "Declare at least one level beyond off, or switch to \"No reasoning\"."
+			"caps.invalid.offOnly": "Declare at least one level beyond off, or switch to \"No reasoning\".",
+			"caps.action.disable": "Disable provider",
+			"caps.action.enable": "Enable",
+			"caps.busy.disabling": "Disabling…",
+			"caps.busy.enabling": "Enabling…",
+			"caps.disable.hint": "A disabled provider leaves the composer model picker and the subagent selection immediately; its configuration is archived and can be restored at any time.",
+			"caps.state.badge": "disabled",
+			"caps.state.disabled": "This provider is disabled: its models are absent from the composer picker and the subagent selection. The configuration is archived; enabling restores it.",
+			"caps.footer.title": "Disabled providers",
+			"caps.footer.hint": "These providers have archived configurations; enabling restores the original profile and puts it back into the model picker and the subagent selection.",
+			"caps.error.routeExists": "The provider already has a newer configuration; the archive cannot be restored. Remove the current configuration first, then enable.",
+			"caps.error.partialEnable": "Enabled, but clearing the archive failed: {error}",
+			"caps.error.unavailable": "Cannot toggle: the plugin archive namespace is not registered."
 		};
 		/**
 		* Active dictionary, picked by the document language at call time (the same
@@ -47446,7 +47604,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-model-capabilities/src/client/capabilities.module.css.mjs
-		const css$1 = ".Qzh-QG_panel{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);border-radius:10px;margin:0 16px 12px;padding:0 12px}.Qzh-QG_header{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:8px;padding:10px 2px;display:flex}.Qzh-QG_header:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.Qzh-QG_title{color:var(--dsw-alias-label-primary);flex:1;font-size:13px;font-weight:600}.Qzh-QG_pending{color:var(--dsw-alias-label-secondary);font-size:12px}.Qzh-QG_chevron{color:var(--dsw-alias-label-dimmed);flex-shrink:0;transition:transform .16s}.Qzh-QG_chevronOpen{transform:rotate(180deg)}.Qzh-QG_body{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:8px;padding:8px 2px 10px;display:flex}.Qzh-QG_hint{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_status{color:var(--dsw-alias-label-dimmed);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_readOnly{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px}.Qzh-QG_failed{color:var(--dsw-alias-status-danger,#d0342c);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_statusRow{align-items:center;gap:10px;display:flex}.Qzh-QG_rows{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}.Qzh-QG_row{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-3);border-radius:8px}.Qzh-QG_rowHeader{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:8px;align-items:center;gap:8px;padding:8px 10px;display:flex}.Qzh-QG_rowHeader:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.Qzh-QG_modelId{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:13px;font-weight:500}.Qzh-QG_modelName{color:var(--dsw-alias-label-dimmed);text-overflow:ellipsis;white-space:nowrap;font-size:12px;overflow:hidden}.Qzh-QG_chips{flex-wrap:wrap;gap:4px;margin-left:auto;display:flex}.Qzh-QG_chip{color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 8px;font-size:11px;line-height:18px}.Qzh-QG_rowBody{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:12px;padding:10px;display:flex}.Qzh-QG_field{flex-direction:column;gap:4px;display:flex}.Qzh-QG_fieldLabel{color:var(--dsw-alias-label-primary);font-size:12px;font-weight:600}.Qzh-QG_checkLabel{color:var(--dsw-alias-label-primary);cursor:pointer;align-items:center;gap:6px;font-size:13px;display:flex}.Qzh-QG_checkLabel:has(input:disabled){cursor:default;opacity:.6}.Qzh-QG_modeGroup{flex-wrap:wrap;gap:4px;display:flex}.Qzh-QG_modeOption{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;border-radius:8px;align-items:center;gap:6px;padding:3px 10px;font-size:12px;display:flex}.Qzh-QG_modeOption:has(input:disabled){cursor:default;opacity:.6}.Qzh-QG_modeOptionActive{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary)}.Qzh-QG_levels{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:8px;padding:8px;display:flex}.Qzh-QG_levelChips{flex-wrap:wrap;gap:4px;display:flex}.Qzh-QG_levelChip{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:0 0;border-radius:999px;padding:2px 10px;font-size:12px;line-height:1.4}.Qzh-QG_levelChip:disabled{cursor:default;opacity:.6}.Qzh-QG_levelChipActive{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary);background:var(--dsw-alias-brand-primary-softer,transparent)}.Qzh-QG_wireRow{align-items:center;gap:8px;display:flex}.Qzh-QG_wireLabel{min-width:130px;color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:12px;display:flex}.Qzh-QG_wireLabel code{color:var(--dsw-alias-label-primary);font-size:12px}.Qzh-QG_wireInput{appearance:none;font:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;flex:1;min-width:0;padding:4px 8px;font-size:12px}.Qzh-QG_wireInput:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px}.Qzh-QG_wireInput::placeholder{color:var(--dsw-alias-label-dimmed)}.Qzh-QG_footer{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.Qzh-QG_spacer{flex:1}.Qzh-QG_ghost{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);background:0 0;border-radius:8px;padding:4px 12px;font-size:13px;line-height:1.5}.Qzh-QG_ghost:disabled{opacity:.4;cursor:default}.Qzh-QG_ghost:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_primary{appearance:none;font:inherit;cursor:pointer;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border:1px solid #0000;border-radius:8px;padding:4px 14px;font-size:13px;line-height:1.5}.Qzh-QG_primary:hover:enabled{background:var(--dsw-alias-button-primary-hover)}.Qzh-QG_primary:disabled{opacity:.4;cursor:default}.Qzh-QG_primary:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}";
+		const css$1 = ".Qzh-QG_panel{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);border-radius:10px;margin:0 16px 12px;padding:0 12px}.Qzh-QG_header{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:8px;padding:10px 2px;display:flex}.Qzh-QG_header:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.Qzh-QG_title{color:var(--dsw-alias-label-primary);flex:1;font-size:13px;font-weight:600}.Qzh-QG_pending{color:var(--dsw-alias-label-secondary);font-size:12px}.Qzh-QG_chevron{color:var(--dsw-alias-label-dimmed);flex-shrink:0;transition:transform .16s}.Qzh-QG_chevronOpen{transform:rotate(180deg)}.Qzh-QG_body{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:8px;padding:8px 2px 10px;display:flex}.Qzh-QG_hint{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_status{color:var(--dsw-alias-label-dimmed);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_readOnly{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px}.Qzh-QG_failed{color:var(--dsw-alias-status-danger,#d0342c);margin:0;font-size:12px;line-height:1.5}.Qzh-QG_statusRow{align-items:center;gap:10px;display:flex}.Qzh-QG_rows{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}.Qzh-QG_row{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-3);border-radius:8px}.Qzh-QG_rowHeader{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:8px;align-items:center;gap:8px;padding:8px 10px;display:flex}.Qzh-QG_rowHeader:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.Qzh-QG_modelId{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:13px;font-weight:500}.Qzh-QG_modelName{color:var(--dsw-alias-label-dimmed);text-overflow:ellipsis;white-space:nowrap;font-size:12px;overflow:hidden}.Qzh-QG_chips{flex-wrap:wrap;gap:4px;margin-left:auto;display:flex}.Qzh-QG_chip{color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 8px;font-size:11px;line-height:18px}.Qzh-QG_rowBody{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:12px;padding:10px;display:flex}.Qzh-QG_field{flex-direction:column;gap:4px;display:flex}.Qzh-QG_fieldLabel{color:var(--dsw-alias-label-primary);font-size:12px;font-weight:600}.Qzh-QG_checkLabel{color:var(--dsw-alias-label-primary);cursor:pointer;align-items:center;gap:6px;font-size:13px;display:flex}.Qzh-QG_checkLabel:has(input:disabled){cursor:default;opacity:.6}.Qzh-QG_modeGroup{flex-wrap:wrap;gap:4px;display:flex}.Qzh-QG_modeOption{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;border-radius:8px;align-items:center;gap:6px;padding:3px 10px;font-size:12px;display:flex}.Qzh-QG_modeOption:has(input:disabled){cursor:default;opacity:.6}.Qzh-QG_modeOptionActive{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary)}.Qzh-QG_levels{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:8px;padding:8px;display:flex}.Qzh-QG_levelChips{flex-wrap:wrap;gap:4px;display:flex}.Qzh-QG_levelChip{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:0 0;border-radius:999px;padding:2px 10px;font-size:12px;line-height:1.4}.Qzh-QG_levelChip:disabled{cursor:default;opacity:.6}.Qzh-QG_levelChipActive{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary);background:var(--dsw-alias-brand-primary-softer,transparent)}.Qzh-QG_wireRow{align-items:center;gap:8px;display:flex}.Qzh-QG_wireLabel{min-width:130px;color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:12px;display:flex}.Qzh-QG_wireLabel code{color:var(--dsw-alias-label-primary);font-size:12px}.Qzh-QG_wireInput{appearance:none;font:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;flex:1;min-width:0;padding:4px 8px;font-size:12px}.Qzh-QG_wireInput:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px}.Qzh-QG_wireInput::placeholder{color:var(--dsw-alias-label-dimmed)}.Qzh-QG_footer{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.Qzh-QG_spacer{flex:1}.Qzh-QG_ghost{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);background:0 0;border-radius:8px;padding:4px 12px;font-size:13px;line-height:1.5}.Qzh-QG_ghost:disabled{opacity:.4;cursor:default}.Qzh-QG_ghost:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_primary{appearance:none;font:inherit;cursor:pointer;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border:1px solid #0000;border-radius:8px;padding:4px 14px;font-size:13px;line-height:1.5}.Qzh-QG_primary:hover:enabled{background:var(--dsw-alias-button-primary-hover)}.Qzh-QG_primary:disabled{opacity:.4;cursor:default}.Qzh-QG_primary:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_offBadge{color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 8px;font-size:11px;line-height:18px}.Qzh-QG_disabledBox{border:1px dashed var(--dsw-alias-border-l2);border-radius:8px;align-items:center;gap:10px;padding:10px;display:flex}.Qzh-QG_disabledBox p{flex:1}.Qzh-QG_danger{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-status-danger,#d0342c);color:var(--dsw-alias-status-danger,#d0342c);background:0 0;border-radius:8px;padding:4px 12px;font-size:13px;line-height:1.5}.Qzh-QG_danger:disabled{opacity:.4;cursor:default}.Qzh-QG_danger:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Qzh-QG_archive{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);border-radius:10px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.Qzh-QG_archiveTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:13px;font-weight:600}.Qzh-QG_archiveRows{flex-direction:column;gap:4px;margin:0;padding:0;list-style:none;display:flex}.Qzh-QG_archiveRow{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-3);border-radius:8px;align-items:center;gap:8px;padding:6px 10px;display:flex}";
 		const tagId$1 = "@linxin666/dsh-web-all/packages/dsh-model-capabilities/src/client/capabilities.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
@@ -47456,12 +47614,18 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var capabilities_module_css_default = {
+			"archive": "Qzh-QG_archive",
+			"archiveRow": "Qzh-QG_archiveRow",
+			"archiveRows": "Qzh-QG_archiveRows",
+			"archiveTitle": "Qzh-QG_archiveTitle",
 			"body": "Qzh-QG_body",
 			"checkLabel": "Qzh-QG_checkLabel",
 			"chevron": "Qzh-QG_chevron",
 			"chevronOpen": "Qzh-QG_chevronOpen",
 			"chip": "Qzh-QG_chip",
 			"chips": "Qzh-QG_chips",
+			"danger": "Qzh-QG_danger",
+			"disabledBox": "Qzh-QG_disabledBox",
 			"failed": "Qzh-QG_failed",
 			"field": "Qzh-QG_field",
 			"fieldLabel": "Qzh-QG_fieldLabel",
@@ -47478,6 +47642,7 @@ window.__ModuleLoader__.load({
 			"modeOptionActive": "Qzh-QG_modeOptionActive",
 			"modelId": "Qzh-QG_modelId",
 			"modelName": "Qzh-QG_modelName",
+			"offBadge": "Qzh-QG_offBadge",
 			"panel": "Qzh-QG_panel",
 			"pending": "Qzh-QG_pending",
 			"primary": "Qzh-QG_primary",
@@ -47498,18 +47663,21 @@ window.__ModuleLoader__.load({
 		//#region ../dsh-model-capabilities/src/client/CapabilitiesPanel.tsx
 		/**
 		* Models-page provider-card extension area: per-model capability declarations
-		* for one pi-ai provider route.
+		* and the provider disable/enable toggle for one pi-ai provider route.
 		*
 		* The slot owner passes the card's directory row (`provider.settingsNs` /
 		* `provider.settingsPath` address the profile inside the settings document)
-		* and the apply body injects the settings namespace face; this panel reads the
-		* redacted namespace view over the remote settings wire, drafts image-input
-		* and reasoning-effort declarations per model, and saves them as one
-		* whole-array path op with revision fencing — the same write granularity and
-		* conflict posture the official card uses.
+		* and the apply body injects the settings namespace face plus the refresh
+		* bus; this panel reads the redacted namespace views over the remote settings
+		* wire, drafts image-input and reasoning-effort declarations per model, and
+		* saves them as one whole-array path op with revision fencing — the same
+		* write granularity and conflict posture the official card uses.
 		*
-		* A missing namespace or a refused read renders the failure inline, never a
-		* blank: the extension area must not read as a missing plugin.
+		* The toggle uses the plugin's archive namespace: disabling stashes the
+		* user-layer profile and unsets `providers.<route>` (the official
+		* Remove-provider seam), which takes the provider out of the model catalog
+		* both pickers read; enabling restores it. A missing namespace or a refused
+		* read renders the failure inline, never a blank.
 		* @module @linxin666/dsh-client-ui-model-capabilities/client/CapabilitiesPanel
 		*/
 		/** Extract a display text from a remote failure (the host diagnostic, or its code). */
@@ -47522,17 +47690,20 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* Render the capability editor for one provider card.
-		* @param props - the card's directory row, its configured facts, and the settings face.
+		* @param props - the card's directory row, its configured facts, and the injected faces.
 		* @returns the extension area.
 		*/
 		function CapabilitiesPanel(props) {
-			const { provider, settings } = props;
+			const { provider, settings, refresh } = props;
 			const [phase, setPhase] = (0, react.useState)({ kind: "loading" });
 			const [snapshot, setSnapshot] = (0, react.useState)(void 0);
 			const [draft, setDraft] = (0, react.useState)(null);
 			const [expandedId, setExpandedId] = (0, react.useState)(null);
 			const [open, setOpen] = (0, react.useState)(false);
 			const [save, setSave] = (0, react.useState)({ kind: "idle" });
+			const [toggleBusy, setToggleBusy] = (0, react.useState)(void 0);
+			const [toggleFailure, setToggleFailure] = (0, react.useState)(void 0);
+			const [toggleConflict, setToggleConflict] = (0, react.useState)(false);
 			const settingsPath = (0, react.useMemo)(() => [...provider.settingsPath], [provider.settingsPath]);
 			/** The models array lives one level below the profile the settings path addresses. */
 			const modelsPath = (0, react.useMemo)(() => [...settingsPath, "models"], [settingsPath]);
@@ -47542,15 +47713,22 @@ window.__ModuleLoader__.load({
 				try {
 					const described = await face.describe();
 					if (!described.ok) throw new Error(failureText(described.error));
-					const view = described.value.namespaces.find((candidate) => candidate.ns === provider.settingsNs);
+					const namespaces = described.value.namespaces;
+					const view = namespaces.find((candidate) => candidate.ns === provider.settingsNs);
 					if (view === void 0) throw new Error(`settings namespace "${provider.settingsNs}" is not registered on this host`);
+					const capsView = namespaces.find((candidate) => candidate.ns === CAPS_SETTINGS_NAMESPACE);
+					const stash = readDisabledStore(capsView?.value);
+					const userProfile = userHasProfile(view.user, provider.provider);
 					const userModels = modelsArrayOf(readAt(view.user, modelsPath));
 					const effective = userModels ?? modelsArrayOf(readAt(view.value, modelsPath)) ?? [];
 					setSnapshot({
 						entries: effective,
 						inherited: userModels === void 0,
 						revision: view.revision,
-						writable: described.value.writable
+						writable: described.value.writable,
+						userProfile,
+						disabledHere: stash[provider.provider] !== void 0 && !userProfile,
+						capsKnown: capsView !== void 0
 					});
 					setDraft(null);
 					setPhase({ kind: "ready" });
@@ -47562,15 +47740,26 @@ window.__ModuleLoader__.load({
 				}
 			}, [
 				modelsPath,
-				provider.settingsNs,
-				settingsPath
+				provider.provider,
+				provider.settingsNs
 			]);
 			(0, react.useEffect)(() => {
 				load(settings);
 			}, [load, settings]);
+			(0, react.useEffect)(() => {
+				return refresh?.subscribe(() => {
+					load(settings);
+				});
+			}, [
+				load,
+				refresh,
+				settings
+			]);
 			const editing = phase.kind === "ready" && snapshot !== void 0;
 			const readOnly = editing && !snapshot.writable;
 			const dirty = draft !== null;
+			const disabledHere = editing && snapshot.disabledHere;
+			const toggleUnavailable = !editing || !snapshot.capsKnown || readOnly || toggleBusy !== void 0;
 			const updateEntry = (index, next) => {
 				if (!editing || readOnly) return;
 				setDraft((current) => {
@@ -47599,11 +47788,12 @@ window.__ModuleLoader__.load({
 					const written = await settings.mutate(provider.settingsNs, [op], snapshot.revision);
 					if (written.ok) {
 						const userModels = modelsArrayOf(readAt(written.value.user, modelsPath)) ?? [];
-						setSnapshot({
+						setSnapshot((current) => current === void 0 ? current : {
+							...current,
 							entries: userModels,
 							inherited: false,
 							revision: written.value.revision,
-							writable: true
+							userProfile: true
 						});
 						setDraft(null);
 						setSave({ kind: "saved" });
@@ -47625,6 +47815,47 @@ window.__ModuleLoader__.load({
 					});
 				}
 			};
+			const applyToggleOutcome = async (outcome) => {
+				if (outcome.kind === "ok") {
+					setToggleFailure(void 0);
+					setToggleConflict(false);
+					refresh?.notify();
+					await load(settings);
+					return;
+				}
+				if (outcome.kind === "conflict") {
+					setToggleFailure(void 0);
+					setToggleConflict(true);
+					await load(settings);
+					return;
+				}
+				if (outcome.kind === "route-exists") setToggleFailure(t("caps.error.routeExists"));
+				else if (outcome.kind === "unavailable") setToggleFailure(t("caps.error.unavailable"));
+				else if (outcome.kind === "partial") setToggleFailure(t("caps.error.partialEnable", { error: outcome.message }));
+				else setToggleFailure(t("caps.failed", { error: outcome.kind }));
+			};
+			const doDisable = async () => {
+				if (toggleUnavailable || snapshot === void 0 || !snapshot.userProfile) return;
+				setToggleBusy("disabling");
+				setToggleFailure(void 0);
+				setToggleConflict(false);
+				try {
+					await applyToggleOutcome(await disableProvider(settings, provider.settingsNs, provider.provider, provider.displayName));
+				} finally {
+					setToggleBusy(void 0);
+				}
+			};
+			const doEnable = async () => {
+				if (toggleUnavailable) return;
+				setToggleBusy("enabling");
+				setToggleFailure(void 0);
+				setToggleConflict(false);
+				try {
+					await applyToggleOutcome(await enableProvider(settings, provider.settingsNs, provider.provider));
+				} finally {
+					setToggleBusy(void 0);
+				}
+			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 				className: capabilities_module_css_default.panel,
 				"data-dsh-plugin": "model-capabilities",
@@ -47642,6 +47873,10 @@ window.__ModuleLoader__.load({
 							className: capabilities_module_css_default.title,
 							children: t("caps.title")
 						}),
+						disabledHere ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: capabilities_module_css_default.offBadge,
+							children: t("caps.state.badge")
+						}) : null,
 						dirty ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: capabilities_module_css_default.pending,
 							children: t("caps.dirty")
@@ -47689,80 +47924,109 @@ window.__ModuleLoader__.load({
 								children: t("caps.reload")
 							})]
 						}) : null,
-						phase.kind === "ready" && snapshot !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-							readOnly ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-								className: capabilities_module_css_default.readOnly,
-								role: "status",
-								children: t("caps.readOnly")
-							}) : null,
-							snapshot.entries.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						phase.kind === "ready" && snapshot !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [disabledHere ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: capabilities_module_css_default.disabledBox,
+							"data-dsh-part": "disabled-state",
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 								className: capabilities_module_css_default.status,
 								role: "status",
-								children: t("caps.empty")
-							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
-								className: capabilities_module_css_default.rows,
-								children: entries.map((entry, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ModelRow, {
-									entry,
-									expanded: expandedId === entry.id,
-									disabled: readOnly,
-									onToggle: () => {
-										setExpandedId(expandedId === entry.id ? null : entry.id);
+								children: t("caps.state.disabled")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: capabilities_module_css_default.ghost,
+								"data-dsh-part": "enable",
+								disabled: toggleUnavailable,
+								onClick: () => {
+									doEnable();
+								},
+								children: toggleBusy === "enabling" ? t("caps.busy.enabling") : t("caps.action.enable")
+							})]
+						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [readOnly ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: capabilities_module_css_default.readOnly,
+							role: "status",
+							children: t("caps.readOnly")
+						}) : null, snapshot.entries.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: capabilities_module_css_default.status,
+							role: "status",
+							children: t("caps.empty")
+						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
+							className: capabilities_module_css_default.rows,
+							children: entries.map((entry, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ModelRow, {
+								entry,
+								expanded: expandedId === entry.id,
+								disabled: readOnly,
+								onToggle: () => {
+									setExpandedId(expandedId === entry.id ? null : entry.id);
+								},
+								onChange: (next) => {
+									updateEntry(index, next);
+								}
+							}, typeof entry.id === "string" ? entry.id : index))
+						})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: capabilities_module_css_default.footer,
+							children: [
+								save.kind === "saved" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: capabilities_module_css_default.status,
+									role: "status",
+									children: t("caps.saved")
+								}) : null,
+								save.kind === "conflict" || toggleConflict ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: capabilities_module_css_default.failed,
+									role: "alert",
+									children: t("caps.conflict")
+								}) : null,
+								save.kind === "failed" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: capabilities_module_css_default.failed,
+									role: "alert",
+									children: t("caps.failed", { error: save.message })
+								}) : null,
+								toggleFailure !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: capabilities_module_css_default.failed,
+									role: "alert",
+									children: toggleFailure
+								}) : null,
+								firstIssue?.kind === "effortsWireMissing" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: capabilities_module_css_default.failed,
+									role: "alert",
+									children: t("caps.invalid.wire", { level: firstIssue.level })
+								}) : null,
+								firstIssue?.kind === "effortsOffOnly" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: capabilities_module_css_default.failed,
+									role: "alert",
+									children: t("caps.invalid.offOnly")
+								}) : null,
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: capabilities_module_css_default.spacer }),
+								!disabledHere && snapshot.userProfile && snapshot.capsKnown ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: capabilities_module_css_default.danger,
+									"data-dsh-part": "disable",
+									title: t("caps.disable.hint"),
+									disabled: toggleUnavailable || dirty,
+									onClick: () => {
+										doDisable();
 									},
-									onChange: (next) => {
-										updateEntry(index, next);
-									}
-								}, typeof entry.id === "string" ? entry.id : index))
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: capabilities_module_css_default.footer,
-								children: [
-									save.kind === "saved" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-										className: capabilities_module_css_default.status,
-										role: "status",
-										children: t("caps.saved")
-									}) : null,
-									save.kind === "conflict" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-										className: capabilities_module_css_default.failed,
-										role: "alert",
-										children: t("caps.conflict")
-									}) : null,
-									save.kind === "failed" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-										className: capabilities_module_css_default.failed,
-										role: "alert",
-										children: t("caps.failed", { error: save.message })
-									}) : null,
-									firstIssue?.kind === "effortsWireMissing" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-										className: capabilities_module_css_default.failed,
-										role: "alert",
-										children: t("caps.invalid.wire", { level: firstIssue.level })
-									}) : null,
-									firstIssue?.kind === "effortsOffOnly" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-										className: capabilities_module_css_default.failed,
-										role: "alert",
-										children: t("caps.invalid.offOnly")
-									}) : null,
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: capabilities_module_css_default.spacer }),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: capabilities_module_css_default.ghost,
-										"data-dsh-part": "reset",
-										disabled: !dirty || save.kind === "saving",
-										onClick: discard,
-										children: t("caps.discard")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: capabilities_module_css_default.primary,
-										"data-dsh-part": "save",
-										disabled: !dirty || readOnly || save.kind === "saving" || firstIssue !== void 0,
-										onClick: () => {
-											doSave();
-										},
-										children: save.kind === "saving" ? t("caps.saving") : t("caps.save")
-									})
-								]
-							})
-						] }) : null
+									children: toggleBusy === "disabling" ? t("caps.busy.disabling") : t("caps.action.disable")
+								}) : null,
+								!disabledHere ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: capabilities_module_css_default.ghost,
+									"data-dsh-part": "reset",
+									disabled: !dirty || save.kind === "saving",
+									onClick: discard,
+									children: t("caps.discard")
+								}) : null,
+								!disabledHere ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: capabilities_module_css_default.primary,
+									"data-dsh-part": "save",
+									disabled: !dirty || readOnly || save.kind === "saving" || firstIssue !== void 0,
+									onClick: () => {
+										doSave();
+									},
+									children: save.kind === "saving" ? t("caps.saving") : t("caps.save")
+								}) : null
+							]
+						})] }) : null
 					]
 				}) : null]
 			});
@@ -47977,12 +48241,142 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region ../dsh-model-capabilities/src/client/DisabledProvidersFooter.tsx
+		/**
+		* Models-page footer extension area: the disabled-provider archive listing.
+		*
+		* A disabled provider's route is unregistered, so for hand-declared routes
+		* the provider card itself disappears from the Models page; this footer (the
+		* page's `settings.models.footer` seat) is where those providers come back:
+		* it lists the archive entries and restores a profile on enable. Renders
+		* nothing while the archive is empty.
+		* @module @linxin666/dsh-client-ui-model-capabilities/client/DisabledProvidersFooter
+		*/
+		/** The pi-ai family namespace the archived routes live in. */
+		const LLM_PI_AI_NAMESPACE = "llm-pi-ai";
+		/**
+		* Render the disabled-provider archive.
+		* @param props - the injected settings face and refresh bus.
+		* @returns the footer area, or nothing while the archive is empty.
+		*/
+		function DisabledProvidersFooter(props) {
+			const { settings, refresh } = props;
+			const [stash, setStash] = (0, react.useState)({});
+			const [known, setKnown] = (0, react.useState)(false);
+			const [busyRoute, setBusyRoute] = (0, react.useState)(void 0);
+			const [failure, setFailure] = (0, react.useState)(void 0);
+			const load = (0, react.useCallback)(async (face) => {
+				try {
+					const described = await face.describe();
+					if (!described.ok) return;
+					const view = described.value.namespaces.find((candidate) => candidate.ns === CAPS_SETTINGS_NAMESPACE);
+					if (view === void 0) return;
+					setStash(readDisabledStore(view.value));
+					setKnown(true);
+				} catch {}
+			}, []);
+			(0, react.useEffect)(() => {
+				load(settings);
+			}, [load, settings]);
+			(0, react.useEffect)(() => {
+				return refresh.subscribe(() => {
+					load(settings);
+				});
+			}, [
+				load,
+				refresh,
+				settings
+			]);
+			const routes = Object.keys(stash).sort((a, b) => a.localeCompare(b));
+			if (!known || routes.length === 0) return null;
+			const enable = async (route) => {
+				if (busyRoute !== void 0) return;
+				setBusyRoute(route);
+				setFailure(void 0);
+				try {
+					const outcome = await enableProvider(settings, LLM_PI_AI_NAMESPACE, route);
+					if (outcome.kind === "ok") {
+						refresh.notify();
+						await load(settings);
+						return;
+					}
+					if (outcome.kind === "conflict") {
+						setFailure(t("caps.conflict"));
+						await load(settings);
+						return;
+					}
+					if (outcome.kind === "route-exists") setFailure(t("caps.error.routeExists"));
+					else if (outcome.kind === "unavailable") setFailure(t("caps.error.unavailable"));
+					else if (outcome.kind === "partial") setFailure(t("caps.error.partialEnable", { error: outcome.message }));
+					else setFailure(t("caps.failed", { error: outcome.kind }));
+				} finally {
+					setBusyRoute(void 0);
+				}
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+				className: capabilities_module_css_default.archive,
+				"data-dsh-plugin": "model-capabilities",
+				"data-dsh-part": "disabled-footer",
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: capabilities_module_css_default.archiveTitle,
+						children: t("caps.footer.title")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
+						className: capabilities_module_css_default.archiveRows,
+						children: routes.map((route) => {
+							const entry = stash[route];
+							const name = entry.displayName !== void 0 && entry.displayName.length > 0 ? entry.displayName : route;
+							return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+								className: capabilities_module_css_default.archiveRow,
+								"data-dsh-part": "disabled-row",
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: capabilities_module_css_default.modelId,
+										children: name
+									}),
+									name !== route ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: capabilities_module_css_default.modelName,
+										children: route
+									}) : null,
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: capabilities_module_css_default.spacer }),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: capabilities_module_css_default.ghost,
+										"data-dsh-part": "enable",
+										disabled: busyRoute !== void 0,
+										onClick: () => {
+											enable(route);
+										},
+										children: busyRoute === route ? t("caps.busy.enabling") : t("caps.action.enable")
+									})
+								]
+							}, route);
+						})
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: capabilities_module_css_default.hint,
+						children: t("caps.footer.hint")
+					}),
+					failure !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: capabilities_module_css_default.failed,
+						role: "alert",
+						children: failure
+					}) : null
+				]
+			});
+		}
+		//#endregion
 		//#region ../dsh-model-capabilities/src/client/index.ts
 		var client_exports$1 = /* @__PURE__ */ __exportAll({
 			apply: () => apply$2,
 			inject: () => inject$2
 		});
-		/** Required services: slot registry, dictionary registry, and the traced settings namespace — accessing `remote.settings` without declaring the dotted path fails at runtime. */
+		/**
+		* Required services: slot registry, dictionary registry, the remote wire, and
+		* the traced settings namespace — accessing `remote.settings` without
+		* declaring the dotted path fails at runtime.
+		*/
 		const inject$2 = [
 			"slots",
 			"locale",
@@ -47990,8 +48384,8 @@ window.__ModuleLoader__.load({
 			"remote.settings"
 		];
 		/**
-		* Client plugin body: register dictionaries and seat the provider-card
-		* extension for the pi-ai family.
+		* Client plugin body: register dictionaries, wire the refresh bus, and seat
+		* both Models-page extension areas for the pi-ai family.
 		* @param ctx - client root context.
 		*/
 		function apply$2(ctx) {
@@ -48006,13 +48400,54 @@ window.__ModuleLoader__.load({
 				}
 			}, "dsh-model-capabilities: dictionaries");
 			const settings = ctx.get("remote").settings;
+			const listeners = /* @__PURE__ */ new Set();
+			const refresh = {
+				subscribe(callback) {
+					listeners.add(callback);
+					return () => {
+						listeners.delete(callback);
+					};
+				},
+				notify() {
+					for (const listener of [...listeners]) listener();
+				}
+			};
+			ctx.effect(() => {
+				try {
+					return ctx.remote.$on("settings/document-updated", () => {
+						refresh.notify();
+					});
+				} catch {
+					return () => {};
+				}
+			}, "dsh-model-capabilities: document events");
 			ctx.slots.inject("settings.models.provider-card", () => {
 				try {
 					const unregister = ctx.slots.register({
 						name: "settings.models.provider-card",
 						key: "llm-pi-ai",
-						inject: () => ({ settings })
+						inject: () => ({
+							settings,
+							refresh
+						})
 					}, CapabilitiesPanel);
+					return () => {
+						unregister();
+					};
+				} catch {
+					return () => {};
+				}
+			});
+			ctx.slots.inject("settings.models.footer", () => {
+				try {
+					const unregister = ctx.slots.register({
+						name: "settings.models.footer",
+						id: "ui-model-capabilities",
+						inject: () => ({
+							settings,
+							refresh
+						})
+					}, DisabledProvidersFooter);
 					return () => {
 						unregister();
 					};

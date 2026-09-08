@@ -115,6 +115,7 @@ const MANIFEST = [
       'packages/dsh-market/src/mount-once.ts',
       'packages/dsh-usage/src/mount-once.ts',
       'packages/dsh-session-archive/src/mount-once.ts',
+      'packages/dsh-model-capabilities/src/mount-once.ts',
     ],
   },
 
