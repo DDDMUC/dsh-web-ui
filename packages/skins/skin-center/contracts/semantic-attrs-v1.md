@@ -128,7 +128,7 @@ family / 插件区域：
 | `disabled-state` | model-capabilities | 已禁用提供方的卡片提示区（含启用按钮）；panel 内 `[data-dsh-part="disabled-state"]` |
 | `disabled-footer` / `disabled-row` | model-capabilities | Models 页底部存档区与其行；`settings.models.footer` 槽内 `section[data-dsh-part="disabled-footer"]` 与其中 `li[data-dsh-part="disabled-row"]` |
 
-## plugin 组（15 个，含停更 aionui-panel）
+## plugin 组（13 个）
 
 | data-dsh-plugin | owner | 锚定方式 |
 | --- | --- | --- |
@@ -140,11 +140,9 @@ family / 插件区域：
 | `web-ui-settings` | dsh-web-settings | settings.section id `web-ui-plugins` |
 | `skill-explorer` | dsh-skill-explorer | `[data-dsh-skill-explorer-view]` / `[data-dsh-skill-explorer-entry]` |
 | `doctor` | dsh-doctor | web-ui.plugin.item 槽 entry id `doctor`（设置 → Web 插件 → Doctor 卡片）；卡片内 `[data-dsh-plugin="doctor"]` |
-| `aionui-panel` | dsh-aionui-panel（停更） | dock entry id `aionui-*` |
 | `dsh-web-ui-market` | dsh-market | 创意工坊商店一级页（settings.section id `dsh-web-ui-market`），商店卡与目录条目容器 |
 | `skin-center` | skins/skin-center | 一级设置分区 settings.section id `skin-center`（列已安装皮肤，属内置源时显式标记） |
 | `session-id` | dsh-session-id | footer action slot entry id `session-id`；`[data-dsh-plugin="session-id"]`（面板 overlay 根 + 入口触发器） |
-| `miku-pet` | dsh-miku-pet | 宠物浮层根 `[data-dsh-plugin="miku-pet"]`；host 路由前缀 `/miku-pet/*`；设置页 settings.section id `miku-pet-config` |
 | `usage` | dsh-usage | 一级设置分区 settings.section id `dsh-usage`（创意工坊下方）；`[data-dsh-plugin="usage"]` |
 | `model-capabilities` | dsh-model-capabilities | Models 页 `settings.models.provider-card` keyed 槽 key `llm-pi-ai`（提供方卡片扩展区）+ `settings.models.footer` 槽 entry id `ui-model-capabilities`（存档区）；`[data-dsh-plugin="model-capabilities"]` |
 
