@@ -115,6 +115,13 @@
       config:
         plugin: '@linxin666/dsh-session-archive'
 
+# from ../dsh-model-capabilities
+- insert:
+    - id: web-ui-model-capabilities
+      name: '@linxin666/dsh-web-all/model-capabilities'
+      config:
+        plugin: '@linxin666/dsh-client-ui-model-capabilities'
+
 # from ../skins/skin-center
 - insert:
     - id: web-ui-skin-center
