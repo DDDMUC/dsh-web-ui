@@ -598,7 +598,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$11() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -1944,7 +1944,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$10() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -4377,7 +4377,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$9() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -4577,6 +4577,7 @@ window.__ModuleLoader__.load({
 				mode: normalizeTargetId(input.mode),
 				permission: isTaskPermission(input.permission) ? input.permission : void 0,
 				model: normalizeTargetId(input.model),
+				reuseSession: input.reuseSession === true ? true : void 0,
 				...input.freeze === void 0 ? {} : { freeze: freezeOf(input.freeze, now) },
 				...input.handover === void 0 ? {} : { handover: {
 					...input.handover,
@@ -5015,6 +5016,7 @@ window.__ModuleLoader__.load({
 					bundledAt: now
 				};
 				if ("permission" in patch && patch.permission !== void 0 && patch.permission !== task.permission || "handover" in patch) next.permissionConfirmedAt = void 0;
+				if ("reuseSession" in patch) next.reuseSession = patch.reuseSession === true ? true : void 0;
 				if (workspaceId !== void 0 || "workspaceId" in patch) next.workspaceId = workspaceId;
 				if (mode !== void 0 || "mode" in patch) next.mode = mode;
 				if (permission !== void 0 || "permission" in patch) next.permission = permission;
@@ -5762,6 +5764,7 @@ window.__ModuleLoader__.load({
 			if (record.workspaceId !== void 0 && typeof record.workspaceId !== "string") return false;
 			if (record.mode !== void 0 && typeof record.mode !== "string") return false;
 			if (record.permission !== void 0 && typeof record.permission !== "string") return false;
+			if (record.reuseSession !== void 0 && typeof record.reuseSession !== "boolean") return false;
 			if (!Array.isArray(record.executions)) return false;
 			for (const execution of record.executions) {
 				if (typeof execution !== "object" || execution === null) return false;
@@ -5871,6 +5874,7 @@ window.__ModuleLoader__.load({
 				task.mode = normalizeTargetId(row.mode);
 				task.archivedAt = typeof row.archivedAt === "number" && Number.isFinite(row.archivedAt) ? row.archivedAt : void 0;
 				task.permission = isTaskPermission(row.permission) ? row.permission : void 0;
+				task.reuseSession = row.reuseSession === true ? true : void 0;
 				task.freeze = normalizeFreeze(row.freeze);
 				task.handover = normalizeHandover(row.handover);
 				task.permissionConfirmedAt = typeof row.permissionConfirmedAt === "number" && Number.isFinite(row.permissionConfirmedAt) ? row.permissionConfirmedAt : void 0;
@@ -6083,6 +6087,8 @@ window.__ModuleLoader__.load({
 			"exec.permission.danger-full-access": "完全访问",
 			"exec.model.default": "宿主默认（agent-default-model）",
 			"exec.model.unknown": "（未知模型/回退默认）",
+			"exec.reuseSession": "在同一对话继续",
+			"exec.reuseSessionHint": "开启后，本任务的后续执行在上一次会话里继续（该会话空闲且仍存在时），不再每次新建对话；每次复用时都会重新应用上面钉住的权限与模型。",
 			"detail.executionSettings": "执行设置",
 			"exec.hint": "执行时生效：工作区决定执行会话落在哪个工作区；模式决定会话的 agent 预设；权限经 /permission 命令应用到会话。留空则使用运行时默认。",
 			"settings.title": "任务看板",
@@ -6233,6 +6239,8 @@ window.__ModuleLoader__.load({
 			"exec.permission.danger-full-access": "Full Access",
 			"exec.model.default": "Host default (agent-default-model)",
 			"exec.model.unknown": " (unknown / fallback to default)",
+			"exec.reuseSession": "Continue in the same conversation",
+			"exec.reuseSessionHint": "When on, later runs continue in the previous session (when that session is idle and still exists) instead of starting a new conversation each time; the pinned permission and model above are re-applied on every reuse.",
 			"detail.executionSettings": "Execution Settings",
 			"exec.hint": "Applied when the task runs: the workspace decides where the execution session lands; the mode composes the session's agent preset; the permission is applied through the /permission command. Blank = runtime default.",
 			"settings.title": "Task Board",
@@ -6490,6 +6498,7 @@ window.__ModuleLoader__.load({
 			const [mode, setMode] = (0, react.useState)(initialTask?.mode ?? "");
 			const [permission, setPermission] = (0, react.useState)(initialTask?.permission ?? "");
 			const [model, setModel] = (0, react.useState)(initialTask?.model ?? "");
+			const [reuseSession, setReuseSession] = (0, react.useState)(initialTask?.reuseSession ?? false);
 			const [scheduleEnabled, setScheduleEnabled] = (0, react.useState)(initialTask?.schedule?.enabled ?? false);
 			const [scheduleCron, setScheduleCron] = (0, react.useState)(initialTask?.schedule?.cron ?? "");
 			const [scheduleError, setScheduleError] = (0, react.useState)(void 0);
@@ -6539,6 +6548,7 @@ window.__ModuleLoader__.load({
 					mode: mode === "" ? void 0 : mode,
 					permission: permission === "" ? void 0 : permission,
 					model: model === "" ? void 0 : model,
+					...reuseSession ? { reuseSession: true } : {},
 					schedule: scheduleEnabled ? {
 						enabled: true,
 						cron: scheduleCron.trim()
@@ -6698,6 +6708,20 @@ window.__ModuleLoader__.load({
 								children: item.name ?? item.id
 							}, item.id))]
 						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: board_module_css_default.scheduleToggle,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							type: "checkbox",
+							checked: reuseSession,
+							onChange: (event) => {
+								setReuseSession(event.target.checked);
+							}
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t$6("exec.reuseSession") })]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: board_module_css_default.detailText,
+						children: t$6("exec.reuseSessionHint")
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 						className: board_module_css_default.detailSection,
@@ -7180,6 +7204,21 @@ window.__ModuleLoader__.load({
 								}, item.id))
 							]
 						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: board_module_css_default.scheduleToggle,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							type: "checkbox",
+							checked: task.reuseSession === true,
+							disabled: pending,
+							onChange: (event) => {
+								controller.updateTask(task.id, { reuseSession: event.target.checked });
+							}
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t$6("exec.reuseSession") })]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: board_module_css_default.detailText,
+						children: t$6("exec.reuseSessionHint")
 					})
 				]
 			});
@@ -9066,7 +9105,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$8() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -10928,7 +10967,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$7() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -15617,7 +15656,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$6() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -20202,7 +20241,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$5() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -20681,7 +20720,7 @@ window.__ModuleLoader__.load({
 			"cluster.command": "命令",
 			"cluster.run": "执行",
 			"cluster.confirm": "确定在匹配的主机上执行该命令吗？该操作会真实运行在远程服务器上。",
-			"cluster.aliases": "主机别名（逗号分隔，留空为全部）",
+			"cluster.aliases": "主机别名（逗号分隔，与环境、标签至少填一项）",
 			"cluster.environment": "环境过滤",
 			"cluster.tags": "标签过滤（逗号分隔）",
 			"cluster.results": "执行结果",
@@ -20828,7 +20867,7 @@ window.__ModuleLoader__.load({
 			"cluster.command": "Command",
 			"cluster.run": "Run",
 			"cluster.confirm": "Run this command on the matching hosts? It executes for real on the remote servers.",
-			"cluster.aliases": "Host aliases (comma-separated; empty = all)",
+			"cluster.aliases": "Host aliases (comma-separated; require at least one filter)",
 			"cluster.environment": "Environment filter",
 			"cluster.tags": "Tag filter (comma-separated)",
 			"cluster.results": "Results",
@@ -36680,7 +36719,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$4() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -39084,7 +39123,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$3() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -39354,6 +39393,11 @@ window.__ModuleLoader__.load({
 			"filter.workspaceLabel": "工作区",
 			"filter.workspaceAll": "全部工作区",
 			"filter.workspaceCurrent": "当前工作区 ({name})",
+			"filter.searchLabel": "搜索",
+			"filter.searchPlaceholder": "按名称或描述筛选",
+			"filter.clear": "清空",
+			"filter.empty": "没有匹配「{query}」的技能",
+			"filter.emptyWorkspace": "当前筛选下没有技能。",
 			"workspace.isolated": "工作区隔离",
 			"workspace.isolatedHint": "该技能属于工作区「{workspace}」，在当前会话上下文隔离不生效",
 			"refresh": "刷新",
@@ -39414,6 +39458,11 @@ window.__ModuleLoader__.load({
 			"filter.workspaceLabel": "Workspace",
 			"filter.workspaceAll": "All workspaces",
 			"filter.workspaceCurrent": "Current workspace ({name})",
+			"filter.searchLabel": "Search",
+			"filter.searchPlaceholder": "Filter by name or description",
+			"filter.clear": "Clear",
+			"filter.empty": "No skills match \"{query}\"",
+			"filter.emptyWorkspace": "No skills under the current filter.",
 			"workspace.isolated": "Workspace isolated",
 			"workspace.isolatedHint": "This skill belongs to workspace \"{workspace}\" and is isolated from the current session context",
 			"refresh": "Refresh",
@@ -39449,8 +39498,51 @@ window.__ModuleLoader__.load({
 			return text;
 		}
 		//#endregion
+		//#region ../dsh-skill-explorer/src/client/skill-filter.ts
+		/**
+		* Match rank of one skill against a lowercased needle: 0 when the name hits,
+		* 1 when only the description hits, undefined when neither does. An empty
+		* needle matches everything at rank 0.
+		*/
+		function matchRank(skill, needle) {
+			if (needle === "") return 0;
+			if (skill.name.toLowerCase().includes(needle)) return 0;
+			if (skill.description.toLowerCase().includes(needle)) return 1;
+		}
+		/**
+		* Whether a skill survives the workspace axis. Skills without a workspace
+		* root are global and stay visible in every selection; that is the pre-search
+		* behavior and the search must not change it.
+		*/
+		function inWorkspace(skill, workspace) {
+			if (workspace === "all") return true;
+			return skill.workspaceRoot === void 0 || skill.workspaceRoot === workspace;
+		}
+		/**
+		* Apply both axes to a payload's groups: workspace filter first, then the
+		* query (name hits ranked before description hits, stable within a rank).
+		* Empty groups are dropped so the caller renders only what has content.
+		* @param groups - host payload groups in host order.
+		* @param filter - workspace + query.
+		* @returns the visible groups; the input is never mutated.
+		*/
+		function selectGroups(groups, filter) {
+			const needle = filter.query.trim().toLowerCase();
+			return groups.map((group) => {
+				const ranked = group.skills.filter((skill) => inWorkspace(skill, filter.workspace)).map((skill) => ({
+					skill,
+					rank: matchRank(skill, needle)
+				})).filter((row) => row.rank !== void 0);
+				if (needle !== "") ranked.sort((left, right) => left.rank - right.rank);
+				return {
+					...group,
+					skills: ranked.map((row) => row.skill)
+				};
+			}).filter((group) => group.skills.length > 0);
+		}
+		//#endregion
 		//#region \0dsh-css:packages/dsh-skill-explorer/src/client/skill-panel.module.css.mjs
-		const css$6 = ".cBrkua_entry{box-sizing:border-box;width:100%;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 10px;font-size:13px;display:flex}.cBrkua_entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.cBrkua_entryIcon{flex:none;justify-content:center;align-items:center;width:24px;height:24px;display:inline-flex}.cBrkua_entryIcon svg{width:18px;height:18px;display:block}.cBrkua_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .cBrkua_entry,[data-sidebar-collapsed] .cBrkua_entry{border-radius:50%;justify-content:center;width:36px;height:36px;margin:0 auto 12px;padding:0}[data-dsh-frame][data-sidebar-collapsed] .cBrkua_entryLabel,[data-sidebar-collapsed] .cBrkua_entryLabel{display:none}.cBrkua_overlay{background:var(--dsw-alias-bg-mask-2,#080a1073);z-index:9999;justify-content:center;align-items:center;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:flex;position:fixed;inset:0}.cBrkua_card{background:var(--dsw-alias-bg-overlay,#fdfdfd);width:min(780px,92vw);max-height:84vh;color:var(--dsw-alias-label-primary,#1c1e26);border-radius:12px;flex-direction:column;display:flex;overflow:hidden;box-shadow:0 18px 60px #00000059}.cBrkua_head{background:var(--dsw-alias-bg-base,#fff);align-items:center;gap:10px;padding:12px 16px;display:flex}.cBrkua_headTitle{flex:1;margin:0;font-size:15px;font-weight:600}.cBrkua_headButton{color:var(--dsw-alias-label-primary,#3a3f4b);cursor:pointer;background:#f2f3f5;border:none;border-radius:6px;padding:4px 10px;font-size:12px}.cBrkua_headButton:hover{background:#e7e8ea}.cBrkua_tabs{background:var(--dsw-alias-bg-layer-1,#f7f8fa);gap:4px;padding:8px 16px 0;display:flex}.cBrkua_tab{border:1px solid var(--dsw-alias-border-l1,#d7dae0);color:var(--dsw-alias-label-secondary,#8a8f9c);cursor:pointer;background:0 0;border-bottom:none;border-radius:8px 8px 0 0;padding:6px 14px;font-size:12px}.cBrkua_tabActive{background:var(--dsw-alias-bg-base,#fdfdfd);color:var(--dsw-alias-label-primary,#1c1e26);font-weight:600}.cBrkua_body{padding:12px 16px;overflow:auto}.cBrkua_status{color:var(--dsw-alias-label-secondary,#6b7280);text-align:center;padding:18px;font-size:13px}.cBrkua_group{margin-bottom:18px}.cBrkua_groupTitle{color:var(--dsw-alias-label-primary,#2f3542);margin:0 0 2px;font-size:13px;font-weight:600}.cBrkua_groupHint{color:var(--dsw-alias-label-secondary,#8a8f9c);margin:0 0 8px;font-size:11px}.cBrkua_count{color:var(--dsw-alias-label-secondary,#8a8f9c);margin-left:6px;font-weight:400}.cBrkua_skill{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-base,#fff);border-radius:8px;margin-bottom:8px;padding:10px 12px}.cBrkua_skillHeader{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.cBrkua_skillName{color:var(--dsw-alias-label-primary,#111827);font-family:ui-monospace,Consolas,monospace;font-size:13px;font-weight:600}.cBrkua_badge{background:var(--dsw-alias-state-business-secondary,#eef2ff);color:var(--dsw-alias-state-business-primary,#4353a3);border:1px solid var(--dsw-alias-state-business-tertiary,#dde3f8);border-radius:99px;padding:1px 6px;font-size:10px}.cBrkua_badgeInvokable{background:var(--dsw-alias-state-success-secondary,#e6f4ea);color:var(--dsw-alias-state-success-primary,#0d6832);border-color:var(--dsw-alias-state-success-tertiary,#b7e1cd)}.cBrkua_badgeWorkspace{background:var(--dsw-alias-bg-layer-2,#ebeef5);color:var(--dsw-alias-label-secondary,#4b5563);border-color:var(--dsw-alias-border-l1,#d1d5db)}.cBrkua_badgeIsolated{color:#b45309;cursor:help;background:#f59e0b1f;border-color:#f59e0b59}.cBrkua_skillIsolated{opacity:.76}.cBrkua_skillIsolated:hover{opacity:.98}.cBrkua_workspaceFilterBar{background:var(--dsw-alias-bg-layer-1,#f7f8fa);border-radius:6px;align-items:center;gap:8px;margin-bottom:12px;padding:6px 10px;font-size:12px;display:flex}.cBrkua_workspaceFilterLabel{color:var(--dsw-alias-label-secondary,#6b7280);flex:none;font-weight:500}.cBrkua_workspaceFilterSelect{border:1px solid var(--dsw-alias-border-l1,#d7dae0);background:var(--dsw-alias-bg-base,#fff);max-width:280px;height:26px;color:var(--dsw-alias-label-primary,#1c1e26);border-radius:4px;outline:none;flex:1;padding:0 8px;font-size:12px}.cBrkua_switch{cursor:pointer;background:0 0;border:none;border-radius:99px;align-items:center;margin-left:auto;padding:2px;display:inline-flex}.cBrkua_switchTrack{background:var(--dsw-alias-border-l2,#d1d5db);border-radius:99px;flex:none;width:30px;height:16px;transition:background .18s;position:relative}.cBrkua_switchThumb{background:var(--dsw-alias-bg-base,#fff);border-radius:50%;width:12px;height:12px;transition:left .18s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #00000040}.cBrkua_switch[aria-checked=true] .cBrkua_switchTrack{background:var(--dsw-alias-state-success-primary,#10b981)}.cBrkua_switch[aria-checked=true] .cBrkua_switchThumb{left:16px}.cBrkua_deleteButton{color:#d92d20;cursor:pointer;background:#feeceb;border:none;border-radius:6px;padding:3px 9px;font-size:11px}.cBrkua_deleteButton:hover{background:#fbdcd9}.cBrkua_skillDesc{color:var(--dsw-alias-label-primary,#3a3f4b);margin:6px 0 0;font-size:12px;line-height:1.5}.cBrkua_skillWhen{color:var(--dsw-alias-label-secondary,#8a8f9c);margin:4px 0 0;font-size:11px}.cBrkua_skillPath{color:var(--dsw-alias-label-tertiary,#a2a7b3);word-break:break-all;margin:6px 0 0;font-family:ui-monospace,Consolas,monospace;font-size:10px}.cBrkua_feedback{color:var(--dsw-alias-state-error-primary,#b42318);font-size:11px}.cBrkua_feedbackOk{color:var(--dsw-alias-state-success-primary,#0f9d6e)}.cBrkua_form{flex-direction:column;gap:8px;max-width:640px;display:flex}.cBrkua_formLabel{color:var(--dsw-alias-label-secondary,#5f6672);flex-direction:column;gap:4px;font-size:12px;display:flex}.cBrkua_formInput{box-sizing:border-box;background:var(--dsw-alias-bg-layer-1,#f7f8fa);width:100%;color:var(--dsw-alias-label-primary,#1c1e26);border:1px solid #0000;border-radius:6px;padding:6px 8px;font-size:12px}select.cBrkua_formInput{height:30px;padding:0 8px}.cBrkua_formTextarea{resize:vertical;min-height:120px;font-family:ui-monospace,monospace}.cBrkua_formButton{color:#fff;cursor:pointer;background:#111;border:1px solid #0000;border-radius:6px;align-self:flex-start;padding:6px 14px;font-size:12px}.cBrkua_formButton:hover{background:#2a2a2c}body[data-ds-dark-theme] .cBrkua_formButton{color:#111827;background:#e5e5ea}body[data-ds-dark-theme] .cBrkua_formButton:hover{background:#d1d5db}.cBrkua_note{color:var(--dsw-alias-label-tertiary,#a0a5b1);margin-top:10px;font-size:11px;line-height:1.7}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_card,body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_head{background:#2c2c2e}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_tabs{background:#1e1e1e}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_skill{background:#48484a;border-color:#ffffff14}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_badge{color:#a5b4fc;background:#6378dc38;border-color:#6378dc66}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_badgeInvokable{color:#30d158;background:#30d15826;border-color:#30d1584d}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_switchThumb{background:#fff}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_tab{color:#ffffff80}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_tabActive{color:#fff;background:#3a3a3c;border:.5px solid #ffffff14;box-shadow:0 1px 3px #0000004d}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_formInput{background:#1c1c1e;border-color:#ffffff0f}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_headButton{color:#ffffffd9;background:#ffffff1a;border-color:#0000}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_headButton:hover{background:#ffffff26}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_headButton:active{background:#ffffff0d}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_deleteButton{color:#ff6b61;background:#ff3b3029;border-color:#0000}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_deleteButton:hover{background:#ff3b3042}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_workspaceFilterBar{background:#1e1e1e}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_workspaceFilterSelect{color:#fff;background:#2c2c2e;border-color:#ffffff1a}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_badgeWorkspace{color:#ffffffb3;background:#ffffff1a;border-color:#ffffff26}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_badgeIsolated{color:#fbbf24;background:#f59e0b33;border-color:#f59e0b66}";
+		const css$6 = ".cBrkua_entry{box-sizing:border-box;width:100%;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 10px;font-size:13px;display:flex}.cBrkua_entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.cBrkua_entryIcon{flex:none;justify-content:center;align-items:center;width:24px;height:24px;display:inline-flex}.cBrkua_entryIcon svg{width:18px;height:18px;display:block}.cBrkua_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .cBrkua_entry,[data-sidebar-collapsed] .cBrkua_entry{border-radius:50%;justify-content:center;width:36px;height:36px;margin:0 auto 12px;padding:0}[data-dsh-frame][data-sidebar-collapsed] .cBrkua_entryLabel,[data-sidebar-collapsed] .cBrkua_entryLabel{display:none}.cBrkua_overlay{background:var(--dsw-alias-bg-mask-2,#080a1073);z-index:9999;justify-content:center;align-items:center;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:flex;position:fixed;inset:0}.cBrkua_card{background:var(--dsw-alias-bg-overlay,#fdfdfd);width:min(780px,92vw);max-height:84vh;color:var(--dsw-alias-label-primary,#1c1e26);border-radius:12px;flex-direction:column;display:flex;overflow:hidden;box-shadow:0 18px 60px #00000059}.cBrkua_head{background:var(--dsw-alias-bg-base,#fff);align-items:center;gap:10px;padding:12px 16px;display:flex}.cBrkua_headTitle{flex:1;margin:0;font-size:15px;font-weight:600}.cBrkua_headButton{color:var(--dsw-alias-label-primary,#3a3f4b);cursor:pointer;background:#f2f3f5;border:none;border-radius:6px;padding:4px 10px;font-size:12px}.cBrkua_headButton:hover{background:#e7e8ea}.cBrkua_tabs{background:var(--dsw-alias-bg-layer-1,#f7f8fa);gap:4px;padding:8px 16px 0;display:flex}.cBrkua_tab{border:1px solid var(--dsw-alias-border-l1,#d7dae0);color:var(--dsw-alias-label-secondary,#8a8f9c);cursor:pointer;background:0 0;border-bottom:none;border-radius:8px 8px 0 0;padding:6px 14px;font-size:12px}.cBrkua_tabActive{background:var(--dsw-alias-bg-base,#fdfdfd);color:var(--dsw-alias-label-primary,#1c1e26);font-weight:600}.cBrkua_body{padding:12px 16px;overflow:auto}.cBrkua_status{color:var(--dsw-alias-label-secondary,#6b7280);text-align:center;padding:18px;font-size:13px}.cBrkua_group{margin-bottom:18px}.cBrkua_groupTitle{color:var(--dsw-alias-label-primary,#2f3542);margin:0 0 2px;font-size:13px;font-weight:600}.cBrkua_groupHint{color:var(--dsw-alias-label-secondary,#8a8f9c);margin:0 0 8px;font-size:11px}.cBrkua_count{color:var(--dsw-alias-label-secondary,#8a8f9c);margin-left:6px;font-weight:400}.cBrkua_skill{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-base,#fff);border-radius:8px;margin-bottom:8px;padding:10px 12px}.cBrkua_skillHeader{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.cBrkua_skillName{color:var(--dsw-alias-label-primary,#111827);font-family:ui-monospace,Consolas,monospace;font-size:13px;font-weight:600}.cBrkua_badge{background:var(--dsw-alias-state-business-secondary,#eef2ff);color:var(--dsw-alias-state-business-primary,#4353a3);border:1px solid var(--dsw-alias-state-business-tertiary,#dde3f8);border-radius:99px;padding:1px 6px;font-size:10px}.cBrkua_badgeInvokable{background:var(--dsw-alias-state-success-secondary,#e6f4ea);color:var(--dsw-alias-state-success-primary,#0d6832);border-color:var(--dsw-alias-state-success-tertiary,#b7e1cd)}.cBrkua_badgeWorkspace{background:var(--dsw-alias-bg-layer-2,#ebeef5);color:var(--dsw-alias-label-secondary,#4b5563);border-color:var(--dsw-alias-border-l1,#d1d5db)}.cBrkua_badgeIsolated{color:#b45309;cursor:help;background:#f59e0b1f;border-color:#f59e0b59}.cBrkua_skillIsolated{opacity:.76}.cBrkua_skillIsolated:hover{opacity:.98}.cBrkua_filterBar{background:var(--dsw-alias-bg-layer-1,#f7f8fa);border-radius:6px;flex-direction:column;gap:6px;margin-bottom:12px;padding:8px 10px;font-size:12px;display:flex}.cBrkua_filterRow{align-items:center;gap:8px;display:flex}.cBrkua_filterLabel{color:var(--dsw-alias-label-secondary,#6b7280);flex:none;font-weight:500}.cBrkua_filterInput,.cBrkua_filterSelect{border:1px solid var(--dsw-alias-border-l1,#d7dae0);background:var(--dsw-alias-bg-base,#fff);max-width:280px;height:26px;color:var(--dsw-alias-label-primary,#1c1e26);border-radius:4px;outline:none;flex:1;padding:0 8px;font-size:12px}.cBrkua_filterInput:focus,.cBrkua_filterSelect:focus{border-color:var(--dsw-alias-border-l2,#d1d5db)}.cBrkua_filterClear{border:1px solid var(--dsw-alias-border-l1,#d7dae0);height:24px;color:var(--dsw-alias-label-secondary,#6b7280);cursor:pointer;background:0 0;border-radius:4px;flex:none;padding:0 10px;font-size:12px}.cBrkua_filterClear:hover{color:var(--dsw-alias-label-primary,#1c1e26)}.cBrkua_filterEmpty{color:var(--dsw-alias-label-secondary,#6b7280);text-align:center;padding:18px 0;font-size:13px}.cBrkua_switch{cursor:pointer;background:0 0;border:none;border-radius:99px;align-items:center;margin-left:auto;padding:2px;display:inline-flex}.cBrkua_switchTrack{background:var(--dsw-alias-border-l2,#d1d5db);border-radius:99px;flex:none;width:30px;height:16px;transition:background .18s;position:relative}.cBrkua_switchThumb{background:var(--dsw-alias-bg-base,#fff);border-radius:50%;width:12px;height:12px;transition:left .18s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #00000040}.cBrkua_switch[aria-checked=true] .cBrkua_switchTrack{background:var(--dsw-alias-state-success-primary,#10b981)}.cBrkua_switch[aria-checked=true] .cBrkua_switchThumb{left:16px}.cBrkua_deleteButton{color:#d92d20;cursor:pointer;background:#feeceb;border:none;border-radius:6px;padding:3px 9px;font-size:11px}.cBrkua_deleteButton:hover{background:#fbdcd9}.cBrkua_skillDesc{color:var(--dsw-alias-label-primary,#3a3f4b);margin:6px 0 0;font-size:12px;line-height:1.5}.cBrkua_skillWhen{color:var(--dsw-alias-label-secondary,#8a8f9c);margin:4px 0 0;font-size:11px}.cBrkua_skillPath{color:var(--dsw-alias-label-tertiary,#a2a7b3);word-break:break-all;margin:6px 0 0;font-family:ui-monospace,Consolas,monospace;font-size:10px}.cBrkua_feedback{color:var(--dsw-alias-state-error-primary,#b42318);font-size:11px}.cBrkua_feedbackOk{color:var(--dsw-alias-state-success-primary,#0f9d6e)}.cBrkua_form{flex-direction:column;gap:8px;max-width:640px;display:flex}.cBrkua_formLabel{color:var(--dsw-alias-label-secondary,#5f6672);flex-direction:column;gap:4px;font-size:12px;display:flex}.cBrkua_formInput{box-sizing:border-box;background:var(--dsw-alias-bg-layer-1,#f7f8fa);width:100%;color:var(--dsw-alias-label-primary,#1c1e26);border:1px solid #0000;border-radius:6px;padding:6px 8px;font-size:12px}select.cBrkua_formInput{height:30px;padding:0 8px}.cBrkua_formTextarea{resize:vertical;min-height:120px;font-family:ui-monospace,monospace}.cBrkua_formButton{color:#fff;cursor:pointer;background:#111;border:1px solid #0000;border-radius:6px;align-self:flex-start;padding:6px 14px;font-size:12px}.cBrkua_formButton:hover{background:#2a2a2c}body[data-ds-dark-theme] .cBrkua_formButton{color:#111827;background:#e5e5ea}body[data-ds-dark-theme] .cBrkua_formButton:hover{background:#d1d5db}.cBrkua_note{color:var(--dsw-alias-label-tertiary,#a0a5b1);margin-top:10px;font-size:11px;line-height:1.7}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_card,body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_head{background:#2c2c2e}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_tabs{background:#1e1e1e}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_skill{background:#48484a;border-color:#ffffff14}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_badge{color:#a5b4fc;background:#6378dc38;border-color:#6378dc66}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_badgeInvokable{color:#30d158;background:#30d15826;border-color:#30d1584d}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_switchThumb{background:#fff}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_tab{color:#ffffff80}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_tabActive{color:#fff;background:#3a3a3c;border:.5px solid #ffffff14;box-shadow:0 1px 3px #0000004d}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_formInput{background:#1c1c1e;border-color:#ffffff0f}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_headButton{color:#ffffffd9;background:#ffffff1a;border-color:#0000}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_headButton:hover{background:#ffffff26}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_headButton:active{background:#ffffff0d}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_deleteButton{color:#ff6b61;background:#ff3b3029;border-color:#0000}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_deleteButton:hover{background:#ff3b3042}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_filterBar{background:#1e1e1e}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_filterInput,body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_filterSelect{color:#fff;background:#2c2c2e;border-color:#ffffff1a}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_filterClear{color:#ffffffb3;border-color:#ffffff1a}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_filterEmpty{color:#ffffffb3}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_badgeWorkspace{color:#ffffffb3;background:#ffffff1a;border-color:#ffffff26}body[data-ds-dark-theme]:not([data-dsh-skin]) .cBrkua_badgeIsolated{color:#fbbf24;background:#f59e0b33;border-color:#f59e0b66}";
 		const tagId$6 = "@linxin666/dsh-web-all/packages/dsh-skill-explorer/src/client/skill-panel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$6) + "]") === null) {
 			const tag = document.createElement("style");
@@ -39473,6 +39565,13 @@ window.__ModuleLoader__.load({
 			"entryLabel": "cBrkua_entryLabel",
 			"feedback": "cBrkua_feedback",
 			"feedbackOk": "cBrkua_feedbackOk",
+			"filterBar": "cBrkua_filterBar",
+			"filterClear": "cBrkua_filterClear",
+			"filterEmpty": "cBrkua_filterEmpty",
+			"filterInput": "cBrkua_filterInput",
+			"filterLabel": "cBrkua_filterLabel",
+			"filterRow": "cBrkua_filterRow",
+			"filterSelect": "cBrkua_filterSelect",
 			"form": "cBrkua_form",
 			"formButton": "cBrkua_formButton",
 			"formInput": "cBrkua_formInput",
@@ -39499,10 +39598,7 @@ window.__ModuleLoader__.load({
 			"switchTrack": "cBrkua_switchTrack",
 			"tab": "cBrkua_tab",
 			"tabActive": "cBrkua_tabActive",
-			"tabs": "cBrkua_tabs",
-			"workspaceFilterBar": "cBrkua_workspaceFilterBar",
-			"workspaceFilterLabel": "cBrkua_workspaceFilterLabel",
-			"workspaceFilterSelect": "cBrkua_workspaceFilterSelect"
+			"tabs": "cBrkua_tabs"
 		};
 		//#endregion
 		//#region ../dsh-skill-explorer/src/client/SkillPanel.tsx
@@ -39648,6 +39744,7 @@ window.__ModuleLoader__.load({
 		function ListTab({ api, refreshTick, onCwd }) {
 			const [payload, setPayload] = (0, react.useState)(void 0);
 			const [selectedWorkspace, setSelectedWorkspace] = (0, react.useState)("all");
+			const [query, setQuery] = (0, react.useState)("");
 			const [error, setError] = (0, react.useState)(void 0);
 			const loadSeq = (0, react.useRef)(0);
 			const load = async () => {
@@ -39678,45 +39775,77 @@ window.__ModuleLoader__.load({
 				className: skill_panel_module_css_default.status,
 				children: tt("list.empty")
 			});
-			const visibleGroups = payload.groups.map((group) => {
-				if (selectedWorkspace === "all") return group;
-				const filteredSkills = group.skills.filter((s) => {
-					if (s.workspaceRoot !== void 0) return s.workspaceRoot === selectedWorkspace;
-					return true;
-				});
-				return {
-					...group,
-					skills: filteredSkills
-				};
-			}).filter((group) => group.skills.length > 0);
+			const visibleGroups = selectGroups(payload.groups, {
+				workspace: selectedWorkspace,
+				query
+			});
+			const visibleCount = visibleGroups.reduce((total, group) => total + group.skills.length, 0);
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [
 				error !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: skill_panel_module_css_default.feedback,
 					children: error
 				}),
-				payload.workspaces !== void 0 && payload.workspaces.length > 1 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: skill_panel_module_css_default.workspaceFilterBar,
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-						htmlFor: "dsh-skill-workspace-filter",
-						className: skill_panel_module_css_default.workspaceFilterLabel,
-						children: [tt("filter.workspaceLabel"), ":"]
-					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-						id: "dsh-skill-workspace-filter",
-						className: skill_panel_module_css_default.workspaceFilterSelect,
-						value: selectedWorkspace,
-						onChange: (e) => {
-							setSelectedWorkspace(e.target.value);
-						},
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-							value: "all",
-							children: tt("filter.workspaceAll")
-						}), payload.workspaces.map((ws) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-							value: ws.root,
-							children: ws.active ? tt("filter.workspaceCurrent", { name: ws.name }) : ws.name
-						}, ws.root))]
+				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: skill_panel_module_css_default.filterBar,
+					"data-dsh-part": "filter-bar",
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: skill_panel_module_css_default.filterRow,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+								htmlFor: "dsh-skill-search",
+								className: skill_panel_module_css_default.filterLabel,
+								children: [tt("filter.searchLabel"), ":"]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								id: "dsh-skill-search",
+								className: skill_panel_module_css_default.filterInput,
+								type: "text",
+								value: query,
+								spellCheck: false,
+								placeholder: tt("filter.searchPlaceholder"),
+								onChange: (e) => {
+									setQuery(e.target.value);
+								},
+								onKeyDown: (e) => {
+									if (e.key === "Escape" && query !== "") setQuery("");
+								}
+							}),
+							query !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: skill_panel_module_css_default.filterClear,
+								onClick: () => {
+									setQuery("");
+								},
+								children: tt("filter.clear")
+							})
+						]
+					}), payload.workspaces !== void 0 && payload.workspaces.length > 1 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: skill_panel_module_css_default.filterRow,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+							htmlFor: "dsh-skill-workspace-filter",
+							className: skill_panel_module_css_default.filterLabel,
+							children: [tt("filter.workspaceLabel"), ":"]
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+							id: "dsh-skill-workspace-filter",
+							className: skill_panel_module_css_default.filterSelect,
+							value: selectedWorkspace,
+							onChange: (e) => {
+								setSelectedWorkspace(e.target.value);
+							},
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: "all",
+								children: tt("filter.workspaceAll")
+							}), payload.workspaces.map((ws) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: ws.root,
+								children: ws.active ? tt("filter.workspaceCurrent", { name: ws.name }) : ws.name
+							}, ws.root))]
+						})]
 					})]
 				}),
-				visibleGroups.map((group) => {
+				visibleCount === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					className: skill_panel_module_css_default.filterEmpty,
+					children: query.trim() === "" ? tt("filter.emptyWorkspace") : tt("filter.empty", { query: query.trim() })
+				}) : visibleGroups.map((group) => {
 					const groupKey = `group.${group.key}`;
 					const hintKey = `groupHint.${group.key}`;
 					const title = groupKey in zh$5 ? tt(groupKey) : group.title;
@@ -40202,7 +40331,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$2() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -43598,7 +43727,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$1() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
@@ -53539,7 +53668,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion() {
 			try {
-				return "0.3.17";
+				return "0.3.18";
 			} catch {
 				return;
 			}
