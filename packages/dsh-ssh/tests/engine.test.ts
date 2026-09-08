@@ -473,9 +473,14 @@ describe('cluster filters', () => {
     expect(results.map(r => r.alias)).toEqual(['tag-both'])
   })
 
+  it('rejects cluster execution when no selectors are provided', async () => {
+    await expect(engine.cluster({ command: 'true' })).rejects.toThrow(/ssh_cluster requires aliases, environment, or tags/)
+    await expect(engine.cluster({ command: 'true', aliases: [] })).rejects.toThrow(/ssh_cluster requires aliases, environment, or tags/)
+  })
+
   it('rejects invalid maxWorkers', async () => {
-    await expect(engine.cluster({ command: 'true', maxWorkers: 0 })).rejects.toThrow(/maxWorkers/)
-    await expect(engine.cluster({ command: 'true', maxWorkers: -2 })).rejects.toThrow(/maxWorkers/)
+    await expect(engine.cluster({ command: 'true', aliases: ['tag-both'], maxWorkers: 0 })).rejects.toThrow(/maxWorkers/)
+    await expect(engine.cluster({ command: 'true', aliases: ['tag-both'], maxWorkers: -2 })).rejects.toThrow(/maxWorkers/)
   })
 })
 

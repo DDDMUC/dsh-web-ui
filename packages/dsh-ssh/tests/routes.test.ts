@@ -402,3 +402,28 @@ describe('terminal upgrade', () => {
     ws.terminate()
   })
 })
+
+describe('cluster route', () => {
+  it('rejects with 400 when no selectors are provided', async () => {
+    const res = await fetch('http://127.0.0.1:' + port + SSH_API.cluster, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'uptime' }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json() as { error: string }
+    expect(body.error).toContain('ssh_cluster requires aliases, environment, or tags')
+  })
+
+  it('accepts cluster requests with valid selectors', async () => {
+    const res = await fetch('http://127.0.0.1:' + port + SSH_API.cluster, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'uptime', aliases: ['web-01'] }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json() as { results: unknown[] }
+    expect(Array.isArray(body.results)).toBe(true)
+  })
+})
+

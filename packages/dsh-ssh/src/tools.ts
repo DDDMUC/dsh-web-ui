@@ -327,13 +327,13 @@ export function sshTunnelTool(engine: SshEngine) {
 export function sshClusterTool(engine: SshEngine) {
   return defineTool({
     name: 'ssh_cluster',
-    description: 'Run one command concurrently across many SSH hosts (all hosts, or filtered by aliases / environment / tags). ' +
-      'Triggers: run on all servers, batch operation, production servers, cluster command.',
+    description: 'Run one command concurrently across selected SSH hosts; at least one aliases, environment, or tags filter is required. ' +
+      'Triggers: run on selected servers, batch operation, production servers, cluster command.',
     parameters: {
       command: { type: 'string', required: true, description: 'The shell command to run on every matched host.' },
-      aliases: { type: 'array', items: { type: 'string' }, description: 'Explicit alias list; when absent every configured host matches.' },
-      environment: { type: 'string', description: 'Only hosts with this environment label.' },
-      tags: { type: 'array', items: { type: 'string' }, description: 'Only hosts carrying ALL these tags.' },
+      aliases: { type: 'array', items: { type: 'string' }, description: 'Optional alias filter; at least one of aliases, environment, or tags is required.' },
+      environment: { type: 'string', description: 'Optional environment filter; at least one selector is required.' },
+      tags: { type: 'array', items: { type: 'string' }, description: 'Optional ALL-tags filter; at least one selector is required.' },
       timeoutMs: { type: 'integer', description: 'Per-host timeout in milliseconds.' },
       maxWorkers: { type: 'integer', description: 'Concurrency cap (default 8).' },
     },
@@ -365,6 +365,10 @@ export function sshClusterTool(engine: SshEngine) {
       render: (_args, value: { results?: ClusterResult[] }) => text(renderCluster(value.results ?? [])),
     },
     async execute(args) {
+      const hasSelector = (Array.isArray(args.aliases) && args.aliases.some((alias) => typeof alias === 'string' && alias.trim() !== '')) ||
+        (typeof args.environment === 'string' && args.environment.trim() !== '') ||
+        (Array.isArray(args.tags) && args.tags.some((tag) => typeof tag === 'string' && tag.trim() !== ''))
+      if (!hasSelector) throw new Error('ssh_cluster requires aliases, environment, or tags to limit the target set')
       return { results: await engine.cluster(args) }
     },
   })

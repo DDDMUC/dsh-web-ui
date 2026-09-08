@@ -6,7 +6,7 @@
  */
 
 export const ru: Record<string, string> = {
-  'cluster.aliases': 'Псевдонимы хостов (через запятую; пусто = все)',
+  'cluster.aliases': 'Псевдонимы хостов (через запятую; укажите хотя бы один фильтр)',
   'cluster.col.alias': 'Хост',
   'cluster.col.duration': 'Длительность',
   'cluster.col.error': 'Ошибка',

@@ -210,3 +210,32 @@ describe('path-scope guidance for agents (issue #760)', () => {
     expect(name).toContain('local bash tool')
   })
 })
+
+describe('ssh_cluster', () => {
+  it('enforces selector requirement in execute', async () => {
+    const stub = new StubEngine()
+    const tool = sshClusterTool(engine(stub))
+    await expect(run(tool, { command: 'uptime' })).rejects.toThrow(/ssh_cluster requires aliases, environment, or tags/)
+    await expect(run(tool, { command: 'uptime', aliases: [] })).rejects.toThrow(/ssh_cluster requires aliases, environment, or tags/)
+    await expect(run(tool, { command: 'uptime', aliases: [' '], environment: '', tags: [] })).rejects.toThrow(/ssh_cluster requires aliases, environment, or tags/)
+
+    const valid = await run(tool, { command: 'uptime', aliases: ['srv-1'] })
+    expect(valid).toEqual({ results: [] })
+
+    const validEnv = await run(tool, { command: 'uptime', environment: 'production' })
+    expect(validEnv).toEqual({ results: [] })
+
+    const validTags = await run(tool, { command: 'uptime', tags: ['api'] })
+    expect(validTags).toEqual({ results: [] })
+  })
+
+  it('documents selector requirement in tool and parameter descriptions', () => {
+    const tool = sshClusterTool(engine(new StubEngine()))
+    expect(tool.description).toContain('at least one aliases, environment, or tags filter is required')
+    const params = tool.parameters as unknown as { properties: Record<string, { description: string }> }
+    expect(params.properties.aliases.description).toContain('at least one')
+    expect(params.properties.environment.description).toContain('at least one')
+    expect(params.properties.tags.description).toContain('at least one')
+  })
+})
+
