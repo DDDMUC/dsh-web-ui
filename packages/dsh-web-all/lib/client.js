@@ -598,7 +598,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$11() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -2003,7 +2003,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$10() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -4466,7 +4466,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$9() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -9198,7 +9198,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$8() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -11060,7 +11060,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$7() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -15749,7 +15749,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$6() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -20493,7 +20493,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$5() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -36971,7 +36971,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$4() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -39375,7 +39375,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$3() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -40583,7 +40583,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$2() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -43979,7 +43979,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion$1() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -54622,7 +54622,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion() {
 			try {
-				return "0.3.18";
+				return "0.3.19";
 			} catch {
 				return;
 			}
