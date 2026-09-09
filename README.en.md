@@ -39,7 +39,7 @@
 
 ## What It Is
 
-dsh-web is the aggregate plugin ecosystem for the DeepSeek Harness (DSH) Web GUI — the most complete realization of "everything is development, everything is a plugin" on the web: the task board, mobile remote control, SSH ops, image understanding, the LiangShen anchored agent preset, rescue mode and the right panel each ship as an independent, self-contained plugin — pluggable, swappable, re-developable. Install the whole family to assemble a complete AI dev workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate can even bolt on external plugins like `dsh-better-sidebar`, while other skin and pet assets come from the Workshop — see the [dsh-web-all README](packages/dsh-web-all/README.md).
+dsh-web is the aggregate plugin ecosystem for the DeepSeek Harness (DSH) Web GUI — the most complete realization of "everything is development, everything is a plugin" on the web: the task board, mobile remote control, SSH ops, image understanding, custom model capabilities, the LiangShen anchored agent preset, rescue mode and the right panel each ship as an independent, self-contained plugin — pluggable, swappable, re-developable. Install the whole family to assemble a complete AI dev workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate can even bolt on external plugins like `dsh-better-sidebar`, while other skin and pet assets come from the Workshop — see the [dsh-web-all README](packages/dsh-web-all/README.md).
 
 Skins live inside the same plugin system: a v2 skin is not a standalone product but a pure asset pack of the skins plugin (a skin.json manifest plus styles, art and optional effect scripts), loaded on demand by that plugin, the single loader — official upgrades no longer touch any skin, and adding one means dropping in a directory: no publish, no install. Plugins own the logic, skin assets own the look; Blue Fantasy ships with the plugin, while other skin and pet assets are distributed through the [Workshop](#workshop-dsh-marketcom) (dsh-market.com).
 
@@ -47,8 +47,8 @@ Skins live inside the same plugin system: a v2 skin is not a standalone product 
 
 | Capability | Stock dsh web | dsh-web family |
 | --- | --- | --- |
-| Performance monitoring & governance | None | HUD panel + event / event-loop / memory metrics + write-batch pacing + render degrade + three-tier alerts |
 | Agent presets | Official presets (Standard / Minimal…) | Official and community presets |
+| Custom model capabilities | None | Declare image input and reasoning efforts per model, and disable / re-enable custom providers |
 | Task board | None | Multi-column board + cron-scheduled real runs |
 | Mobile remote control | None | QR pairing with SSE real-time sync; the same link also pairs a PC browser |
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
@@ -59,7 +59,7 @@ Skins live inside the same plugin system: a v2 skin is not a standalone product 
 
 ## Workshop (dsh-market.com)
 
-The [Workshop](https://dsh-market.com) (dsh-market.com) is DSH's one-stop home for creations: skins, pets and plugins in one place, each category ranked by device-backed likes with the top three on the landing-page podium; skins preview in a live try-on, plugins expose one-copy install commands. The Workshop settings card inside the Web GUI browses the catalog directly — skins and pets install into the DSH home directories in one click, plugins go through the plugin manager, and everything shows up in the skins and pet panels afterwards.
+The [Workshop](https://dsh-market.com) (dsh-market.com) is DSH's one-stop home for creations: skins, pets, plugins and community presets in one place, each category ranked by device-backed likes with the top three on the landing-page podium; skins preview in a live try-on, plugins expose one-copy install commands. The Workshop settings card inside the Web GUI browses the catalog directly — skins and pets install into the DSH home directories in one click, plugins go through the plugin manager, and everything shows up in the skins and pet panels afterwards; community presets install into an inert library and only appear under Settings → Agent presets once enabled.
 
 ![Workshop home](docs/screenshots/31-market-home.png)
 
@@ -68,6 +68,18 @@ The site itself is also built from this repository: a static build generated det
 The Workshop takes its cue from the Steam Workshop: a place where community creations are discovered, tried on and installed in one click, and where authors' work gets seen and liked. Come build it with us.
 
 ## Feature Plugins
+
+### Task Board（任务看板）
+
+Click "Task Board" in the sidebar. Tasks sit in five columns: backlog, to do, in progress, done, failed. Hit "Run" on a card and a real DSH agent session executes it, writing the status back when it finishes; jump into the execution session to review the whole run.
+
+Tasks also run on a Host schedule: set a cron expression in the detail view (upgrade DSH nightly at 23:00, generate the weekly report every Monday at 09:00) and it fires and settles even with the browser closed. The optional idle-sleep guard supports Windows, macOS and Linux with systemd-logind: the display may turn off while idle system sleep stays blocked. The setting is off by default.
+
+A task can opt into reusing its session: with reuse enabled, the next run continues in the previous execution's session when that session is still in the runtime roster and idle (the Host re-applies the task's pinned permission and model and keeps the title and history); when the session is missing or busy, the run mints a fresh session as before, so a scheduled run never stalls.
+
+| Multi-column board | Scheduled runs |
+| --- | --- |
+| ![Task board](docs/screenshots/09-task-board.png) | ![Task detail with cron](docs/screenshots/10-task-board-detail-cron.png) |
 
 ### Mobile Remote Control（移动端远程控制）
 
@@ -97,13 +109,17 @@ The "SSH" sidebar entry opens the remote-ops panel. Hosts support key / password
 
 Gives text-only models vision. When a conversation mentions an image (local path, http(s) URL, or session attachment), `describe_image` sends it to a configured OpenAI-compatible vision endpoint (Qwen-VL, GLM-4V, GPT-4o, a local Ollama endpoint, whatever you have) and returns the answer. **Only the returned text enters the conversation; the image itself never enters the session log.** Text-only models have no image entry in the input box, so the plugin adds an image button: pick a file, an attachment reference lands in your draft, and the model can analyze it via `describe_image`. A `prompt` argument takes custom instructions (OCR, UI diagnosis, translation) that beat the generic description. Endpoint, model, key and default instruction live under Settings > Plugin config > "Image understanding", applied immediately.
 
+### Model Capabilities（模型能力）
+
+Per-model capability declarations for custom providers happen on the Models settings page. The official pi-ai settings namespace has carried the image-input and reasoning-effort fields all along; this plugin adds the editor the official card deliberately ships without: every custom-provider card gains a collapsible "Model capabilities" area — tick image input per model (`["text","image"]` or `["text"]`; undeclared means inherit and is shown rather than hidden), and use a tri-state editor for reasoning efforts: undeclared (inherit), declared non-reasoning (the model picker stops offering thinking levels), or an explicit level dictionary whose every level can carry the wire value the request actually sends. Saves go through the official write path (one whole-array replacement of that provider's `models`), fields you did not edit survive, and the write applies live without a restart; each save carries the revision the panel read, so a change made elsewhere reloads and asks for a retry instead of being overwritten.
+
+Disabling and re-enabling a provider live on the same card: disable first archives that provider's profile in the plugin's own settings namespace, then takes the route down through the official Remove-provider seam, so the model picker and subagent selection lose it immediately (no restart) while API keys stay untouched in the credentials service; disabled providers are listed in a footer on the Models page and come back with one click. These fields are claims, not probes: a model claiming images its gateway refuses fails at request time — the fields exist precisely because nothing can infer them. See the [dsh-model-capabilities README](packages/dsh-model-capabilities/README.md).
+
 ### Right Panel（右侧面板）
 
 The right panel is provided by the external plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (integrated into the aggregate bundle and enabled by default), with its built-in features and third-party plugin registration — see its [README](https://github.com/omdsh-dev/DSH-better-sidebar). Note: as of DSH 0.1.2-alpha.2 the official `@deepseek-ai/dsh-client-runtime` face is removed; better-sidebar was temporarily excluded and is back in the aggregate and now pins 0.18.0 (the rc.1-aligned stable release published 2026-09-03).
 
 ![Right panel](docs/screenshots/19-right-panel.png)
-
-> The previous aionui-panel right panel has been **fully removed** (2026-08-28): the package and its family-bundle row are gone; the right panel is provided by [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar), whose preferences live in that plugin's own settings section.
 
 ### Git Graph（Git 图谱）
 
@@ -129,7 +145,7 @@ The Session Archive Manager (`dsh-session-archive`) is a built-in session manage
 
 ### More Plugins（更多插件）
 
-- **Skill center** (`dsh-client-ui-skill-explorer`): browse loaded skills by source; enable, disable, create and delete.
+- **Skill center** (`dsh-client-ui-skill-explorer`): browse loaded skills by source, with a search box that filters by name or description as you type and stacks with the workspace picker (each workspace presented separately); enable, disable, create and delete.
 - **Plugin manager** (`dsh-client-ui-plugin-manager`): install plugins from npm or git through the official host channels; manage enablement and configuration.
 - **External archive manager** (external plugin [@mlgbnb/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager)): not used. Its upstream build still imports the removed `@deepseek-ai/dsh-client-runtime` face and stays out of the alpha.2 family bundle; session archiving is covered by the built-in Session Archive Manager above, and the external plugin is re-evaluated only if upstream ships an alpha.2-compatible build.
 
@@ -210,6 +226,7 @@ Prefer individual plugins? Install them one by one (published on npm, so use the
 dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # Task board
 dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # Remote connection (SSH)
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # Image understanding tool
+dsh plugin --profile web add @linxin666/dsh-client-ui-model-capabilities@latest  # Model capabilities (image input and reasoning efforts)
 dsh plugin --profile web add @linxin666/dsh-pet@latest                     # Whale-girl pet
 dsh plugin --profile web add @linxin666/dsh-liangshen@latest               # LiangShen mode (two-phase anchored preset, pick in new sessions)
 dsh plugin --profile web add @linxin666/dsh-doctor@latest                  # Rescue mode (on by default, can be disabled in the Doctor card)
@@ -228,11 +245,13 @@ Every plugin is published on npm under the `@linxin666/dsh-*` scope and can be v
 | [@linxin666/dsh-remote-web-ui](https://www.npmjs.com/package/@linxin666/dsh-remote-web-ui) | Scan-to-pair remote control of the Web GUI from mobile or PC |
 | [@linxin666/dsh-ssh](https://www.npmjs.com/package/@linxin666/dsh-ssh) | SSH panel: terminal / transfer / tunnel / cluster |
 | [@linxin666/dsh-tool-describe-image](https://www.npmjs.com/package/@linxin666/dsh-tool-describe-image) | `describe_image` vision tool |
+| [@linxin666/dsh-client-ui-model-capabilities](https://www.npmjs.com/package/@linxin666/dsh-client-ui-model-capabilities) | Model capabilities: per-model image input and reasoning efforts for custom providers, plus disable / re-enable |
 | [@linxin666/dsh-pet](https://www.npmjs.com/package/@linxin666/dsh-pet) | Registry-driven floating pet companion |
 | [@linxin666/dsh-liangshen](https://www.npmjs.com/package/@linxin666/dsh-liangshen) | LiangShen mode: two-phase anchored agent preset |
 | [@linxin666/dsh-client-ui-git-graph](https://www.npmjs.com/package/@linxin666/dsh-client-ui-git-graph) | Git branch selector and commit history graph |
 | [@linxin666/dsh-client-ui-skin-center](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skin-center) | Skins: the single loader for every skin, with skin assets installed on demand from the Workshop |
-| [@linxin666/dsh-client-ui-market](https://www.npmjs.com/package/@linxin666/dsh-client-ui-market) | Workshop card: browse skins / pets / plugins from dsh-market.com and install with one click |
+| [@linxin666/dsh-client-ui-market](https://www.npmjs.com/package/@linxin666/dsh-client-ui-market) | Workshop card: browse skins / pets / plugins / presets from dsh-market.com and install with one click |
+| [@linxin666/dsh-client-ui-preset-center](https://www.npmjs.com/package/@linxin666/dsh-client-ui-preset-center) | Community presets: the Workshop's Presets panel plus install / enable / disable / uninstall |
 | [@linxin666/dsh-client-ui-plugin-manager](https://www.npmjs.com/package/@linxin666/dsh-client-ui-plugin-manager) | Plugin manager: install from npm or git, enable, disable and configure |
 | [@linxin666/dsh-client-ui-skill-explorer](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skill-explorer) | Skill center: browse, toggle and manage skills |
 | [@linxin666/dsh-doctor](https://www.npmjs.com/package/@linxin666/dsh-doctor) | Transactional rescue mode: repairs DSH profiles (on by default) |
@@ -367,7 +386,6 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 - **dsh-better-sidebar** — external integrated plugin [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (right panel, npm dependency reference), MIT (omdsh-dev)
 - **dsh-archive-manager** — external integrated plugin [z953218350/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager) (settings-page archive manager, npm dependency reference), MIT (z953218350)
 - **dsh-ssh** — implemented against the capability list of [badseal/ssh-skill](https://github.com/badseal/ssh-skill); code is this repository's Apache-2.0 (zhu1090093659), the upstream capability list belongs to badseal/ssh-skill
-- **dsh-miku-pet** — code and asset layout follow [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet) structure (MIT); the Hatsune Miku name, image and likeness belong to Crypton Future Media, INC. and usage follows the Piapro Character License (see [NOTICE.md](packages/dsh-miku-pet/NOTICE.md) in the package)
 - **Community plugin index** — 37 external plugins with sources and licenses declared by their authors, registered in [community.json](packages/dsh-community-plugins/community.json), browsable in Settings → Community Plugins and on dsh-market.com
 
 **Skins (third-party authors or artwork)**
@@ -392,7 +410,10 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 
 - **ouo-neko** — Pessimist0906, MIT (contribution record in [PR #1118](https://github.com/zhu1090093659/dsh-web/pull/1118) and dsh-pet [THIRD_PARTY_NOTICES.md](packages/dsh-pet/THIRD_PARTY_NOTICES.md))
 - **whale / whale-refined** — whale ornaments derived from the DeepSeek wordmark (MIT / BSD-3-Clause; materials and statements in dsh-pet THIRD_PARTY_NOTICES.md)
-- **miku-pet** — see the plugin entry above (character rights under the Piapro Character License)
+- **miku** — artwork by stushansusu (涂山苏苏), MIT; the "Hatsune Miku" name, likeness and portrait rights belong to Crypton Future Media, INC. (Piapro Character License)
+- **jyn (女仆鲸鱼娘)** — 11726, MIT (contribution record in [PR #1362](https://github.com/zhu1090093659/dsh-web/pull/1362))
+- **blue-throated-bee-eater (蓝喉蜂虎)** — original to this repository (dsh-web, Apache-2.0; contribution record in [PR #1402](https://github.com/zhu1090093659/dsh-web/pull/1402))
+- **starry-doll (星夜人偶)** — Theater-ahyeon, CC BY-NC-SA 4.0 (non-commercial use only)
 
 </details>
 

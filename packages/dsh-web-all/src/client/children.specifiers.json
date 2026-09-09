@@ -65,6 +65,16 @@
     "source": "packages/dsh-session-archive/src/client/index.ts"
   },
   {
+    "name": "@linxin666/dsh-client-ui-model-capabilities",
+    "specifier": "@linxin666/dsh-client-ui-model-capabilities/client",
+    "source": "packages/dsh-model-capabilities/src/client/index.ts"
+  },
+  {
+    "name": "@linxin666/dsh-client-ui-preset-center",
+    "specifier": "@linxin666/dsh-client-ui-preset-center/client",
+    "source": "packages/dsh-preset-center/src/client/index.ts"
+  },
+  {
     "name": "@linxin666/dsh-client-ui-skin-center",
     "specifier": "@linxin666/dsh-client-ui-skin-center/client",
     "source": "packages/skins/skin-center/src/client/index.ts"

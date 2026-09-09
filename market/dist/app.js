@@ -179,7 +179,7 @@
   // ====================================================================
   // 市场应用
   // ====================================================================
-  var KIND_LABEL = { skin: '皮肤', pet: '宠物', plugin: '插件' }
+  var KIND_LABEL = { skin: '皮肤', pet: '宠物', plugin: '插件', preset: '预设' }
   var CAT_LABEL = {
     agent: 'Agent', ui: '界面', tools: '工具', knowledge: '知识',
     integration: '集成', security: '安全', utility: '实用', other: '其他'
@@ -209,9 +209,9 @@
     query: '',
     cat: 'all',
     subcat: 'all',
-    data: { skin: [], pet: [], plugin: [] },
-    votes: { skin: {}, pet: {}, plugin: {} },
-    installs: { skin: {}, pet: {}, plugin: {} },
+    data: { skin: [], pet: [], plugin: [], preset: [] },
+    votes: { skin: {}, pet: {}, plugin: {}, preset: {} },
+    installs: { skin: {}, pet: {}, plugin: {}, preset: {} },
     npmDownloads: {},
     apiOk: false,
   }
@@ -271,10 +271,11 @@
       safe(fetchJson('manifest/skins.json')).then(function (x) { state.data.skin = x ? x.items : [] }),
       safe(fetchJson('manifest/pets.json')).then(function (x) { state.data.pet = x ? x.items : [] }),
       safe(fetchJson('manifest/plugins.json')).then(function (x) { state.data.plugin = x ? x.items : [] }),
+      safe(fetchJson('manifest/presets.json')).then(function (x) { state.data.preset = x ? x.items : [] }),
       safe(fetchJson('/api/stats')).then(function (s) {
         state.apiOk = !!s
-        if (s && s.skin) state.votes = { skin: s.skin || {}, pet: s.pet || {}, plugin: s.plugin || {} }
-        if (s && s.installs) state.installs = { skin: s.installs.skin || {}, pet: s.installs.pet || {}, plugin: s.installs.plugin || {} }
+        if (s && s.skin) state.votes = { skin: s.skin || {}, pet: s.pet || {}, plugin: s.plugin || {}, preset: s.preset || {} }
+        if (s && s.installs) state.installs = { skin: s.installs.skin || {}, pet: s.installs.pet || {}, plugin: s.installs.plugin || {}, preset: s.installs.preset || {} }
       }),
       safe(fetchJson('/api/npm-downloads')).then(function (d) {
         state.npmDownloads = (d && d.downloads) || {}
@@ -314,7 +315,7 @@
   }
 
   function renderTabCounts() {
-    var counts = { skin: state.data.skin.length, pet: state.data.pet.length, plugin: state.data.plugin.length }
+    var counts = { skin: state.data.skin.length, pet: state.data.pet.length, plugin: state.data.plugin.length, preset: state.data.preset.length }
     document.querySelectorAll('.mk-tab').forEach(function (t) {
       var k = t.getAttribute('data-kind')
       var span = t.querySelector('.mk-tab-count')
@@ -416,12 +417,12 @@
 
   function renderCard(kind, item) {
     var card = el('article', 'mk-card')
-    // Community plugins carry no artwork: skip the media block so the card
-    // renders text only; classification labels live in the meta line.
+    // Community plugins and presets carry no artwork: skip the media block so
+    // the card renders text only; classification labels live in the meta line.
     var media = null
-    if (kind !== 'plugin') {
+    if (kind !== 'plugin' && kind !== 'preset') {
       media = el('div', 'mk-card-media')
-      // (plugin branch removed; skins and pets keep their media below)
+      // (skins and pets keep their media below)
       var src = thumbSrc(kind, item)
       if (src) {
         var img = el('img')
@@ -454,7 +455,7 @@
     body.appendChild(name)
     var meta = []
     if (item.author) meta.push(item.author)
-    if (kind === 'skin' && item.version) meta.push('v' + item.version)
+    if ((kind === 'skin' || kind === 'preset') && item.version) meta.push('v' + item.version)
     if (kind === 'plugin') meta.push(CAT_LABEL[item.category] || item.category)
     if (kind === 'plugin' && item.subcategory) meta.push(SUB_LABEL[item.subcategory] || item.subcategory)
     if (kind === 'pet' && item.renderer) meta.push(item.renderer)
@@ -653,6 +654,42 @@
       steps2.appendChild(el('li', null, '内置鲸鱼娘开箱即用；自定义宠物目录放入 $DSH_HOME/pets/<id>/'))
       install2.appendChild(steps2)
       info.appendChild(install2)
+    } else if (kind === 'preset') {
+      // Preset detail is text only, exactly like a community plugin: no
+      // artwork block, the author line opens the info column.
+      var presetMeta = []
+      if (item.author) presetMeta.push(item.author)
+      if (item.version) presetMeta.push('v' + item.version)
+      if (presetMeta.length) info.appendChild(el('div', 'mk-dialog-tagline', presetMeta.join(' · ')))
+      if (item.description) info.appendChild(el('div', 'mk-dialog-text', item.description))
+      if (item.descriptionEn) {
+        var presetEn = el('div', 'mk-dialog-text')
+        presetEn.style.marginTop = '8px'
+        presetEn.textContent = item.descriptionEn
+        info.appendChild(presetEn)
+      }
+      if (item.tags && item.tags.length) {
+        var presetTags = el('div', 'mk-dialog-tags')
+        item.tags.forEach(function (t) { presetTags.appendChild(el('span', 'mk-tag', t)) })
+        info.appendChild(presetTags)
+      }
+      if (item.repo) {
+        var presetSource = el('div', null)
+        var presetRepo = el('a', null, '源码仓库')
+        presetRepo.href = item.repo
+        presetRepo.target = '_blank'
+        presetRepo.rel = 'noopener'
+        presetSource.appendChild(presetRepo)
+        presetSource.style.marginTop = '10px'
+        info.appendChild(presetSource)
+      }
+      var install4 = el('div', 'mk-install')
+      install4.appendChild(el('div', 'mk-install-title', '安装方式'))
+      var steps4 = el('ol', 'mk-install-steps')
+      steps4.appendChild(el('li', null, '运行 dsh plugin --profile web add @linxin666/dsh-client-ui-preset-center'))
+      steps4.appendChild(el('li', null, '在设置页创意工坊的预设分区安装并启用该预设；启用前不会出现在新会话的预设列表'))
+      install4.appendChild(steps4)
+      info.appendChild(install4)
     } else {
       // Plugin detail is text only: no artwork block, the classification and
       // author line opens the info column.
@@ -697,7 +734,7 @@
       info.appendChild(install3)
     }
 
-    if (kind !== 'plugin') inner.appendChild(media)
+    if (kind !== 'plugin' && kind !== 'preset') inner.appendChild(media)
     inner.appendChild(info)
     dlg.appendChild(close)
     dlg.appendChild(inner)

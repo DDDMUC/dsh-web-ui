@@ -115,6 +115,20 @@
       config:
         plugin: '@linxin666/dsh-session-archive'
 
+# from ../dsh-model-capabilities
+- insert:
+    - id: web-ui-model-capabilities
+      name: '@linxin666/dsh-web-all/model-capabilities'
+      config:
+        plugin: '@linxin666/dsh-client-ui-model-capabilities'
+
+# from ../dsh-preset-center
+- insert:
+    - id: web-ui-preset-center
+      name: '@linxin666/dsh-web-all/preset-center'
+      config:
+        plugin: '@linxin666/dsh-client-ui-preset-center'
+
 # from ../skins/skin-center
 - insert:
     - id: web-ui-skin-center
@@ -126,6 +140,19 @@
 - insert:
     - id: web-ui-i18n
       name: '@linxin666/dsh-i18n'
+
+# inactive by default (opt-in rows): these ship disabled; each is enabled per row in the
+# plugin manager, whose enable writes a user-layer "disabled: false" override that wins.
+- id: web-ui-ssh
+  disabled: true
+- id: web-ui-describe-image
+  disabled: true
+- id: web-ui-liangshen
+  disabled: true
+- id: web-ui-skill-explorer
+  disabled: true
+- id: web-ui-doctor
+  disabled: true
 
 # external bundle: dsh-better-sidebar
 

@@ -5,7 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
-import { quickTunnelFlags, TunnelManager, namedTunnelHandle, binaryRuns, createBinaryReadiness, type TunnelHandle, type TunnelPhase, type TunnelTarget } from '../src/tunnel.ts'
+import { quickTunnelFlags, namedTunnelArgs, TunnelManager, namedTunnelHandle, binaryRuns, createBinaryReadiness, type TunnelHandle, type TunnelPhase, type TunnelTarget } from '../src/tunnel.ts'
 
 /** A fake tunnel process: an EventEmitter the test drives by hand. */
 class FakeTunnel extends EventEmitter implements TunnelHandle {
@@ -352,6 +352,25 @@ describe('quickTunnelFlags', () => {
       '--protocol': 'http2',
       '--http-host-header': '69f563d2939cc1f9.dsh-market.com',
     })
+  })
+})
+
+describe('namedTunnelArgs', () => {
+  it('places top-level flags before the run subcommand and appends the token flag after run', () => {
+    const args = namedTunnelArgs('test-token-123')
+    expect(args).toEqual([
+      'tunnel',
+      '--no-autoupdate',
+      '--protocol',
+      'http2',
+      'run',
+      '--token',
+      'test-token-123',
+    ])
+    const runIdx = args.indexOf('run')
+    expect(args.indexOf('--no-autoupdate')).toBeLessThan(runIdx)
+    expect(args.indexOf('--protocol')).toBeLessThan(runIdx)
+    expect(args.indexOf('--token')).toBeGreaterThan(runIdx)
   })
 })
 

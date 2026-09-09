@@ -11,11 +11,13 @@ skills into a recoverable trash.
 - **Sidebar entry** "Skill Center" opens a panel with two tabs.
 - **Skills tab**: skills grouped by source (system bundled / project
   `.dsh/skills` / project `.agents/skills` / custom directories / user
-  `~/.dsh/skills` / user `~/.agents/skills` / runtime registered), each card
-  showing description, when-to-use, invocation marks, an enable/disable
-  switch (rewrites `disable-model-invocation` in the SKILL.md frontmatter,
-  hot-refreshed by the model catalog) and a delete button (moves the file
-  into `.trash`, recoverable).
+  `~/.dsh/skills` / user `~/.agents/skills` / runtime registered), with a
+  search box that filters by name or description as you type (name hits
+  listed first; Escape or the clear button resets it) and stacks with the
+  workspace picker. Each card shows description, when-to-use, invocation
+  marks, an enable/disable switch (rewrites `disable-model-invocation` in the
+  SKILL.md frontmatter, hot-refreshed by the model catalog) and a delete
+  button (moves the file into `.trash`, recoverable).
 - **Create tab**: a form to create a new skill under the user root
   (`~/.dsh/skills`) or the project root (`.dsh/skills`), generating a
   standard SKILL.md.

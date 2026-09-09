@@ -70,6 +70,42 @@ function renderTab(injected: PluginManagerTabInjected): void {
   render(<PluginManagerTab {...injected as unknown as ComponentProps<typeof PluginManagerTab>} t={t} />)
 }
 
+describe('PluginManagerTab aggregate children', () => {
+  const aggregatePlugin: InstalledPluginItem = {
+    id: '@linxin666/dsh-web-all', name: 'web-all', version: '0.3.18',
+    source: { kind: 'npm', spec: '@linxin666/dsh-web-all' }, installedAt: '', enabled: false,
+    children: [
+      { id: 'web-ui-pet', name: '@linxin666/dsh-pet', enabled: true },
+      { id: 'web-ui-plugin-manager', name: '@linxin666/dsh-client-ui-plugin-manager', enabled: true, locked: true },
+    ],
+  }
+
+  it('renders child rows with individual switches, a mixed parent state, and a locked hint', async () => {
+    renderTab(face({ list: vi.fn(async () => [aggregatePlugin]) }))
+    expect(await screen.findByText('@linxin666/dsh-pet')).toBeTruthy()
+    expect(screen.getByText('Partially on')).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Turn off @linxin666/dsh-pet' })).toBeTruthy()
+    expect(screen.queryByRole('switch', { name: /dsh-client-ui-plugin-manager/ })).toBeNull()
+    expect(screen.getByText('Core row')).toBeTruthy()
+  })
+
+  it('toggles a child row by entry id and refreshes from the returned parent row', async () => {
+    const refreshed: InstalledPluginItem = {
+      ...aggregatePlugin,
+      children: [
+        { id: 'web-ui-pet', name: '@linxin666/dsh-pet', enabled: false },
+        { id: 'web-ui-plugin-manager', name: '@linxin666/dsh-client-ui-plugin-manager', enabled: true, locked: true },
+      ],
+    }
+    const setEnabled = vi.fn(async () => refreshed)
+    renderTab(face({ list: vi.fn(async () => [aggregatePlugin]), setEnabled }))
+    fireEvent.click(await screen.findByRole('switch', { name: 'Turn off @linxin666/dsh-pet' }))
+    await waitFor(() => expect(setEnabled).toHaveBeenCalledWith('web-ui-pet', false))
+    expect(await screen.findByRole('switch', { name: 'Turn on @linxin666/dsh-pet' })).toBeTruthy()
+  })
+})
+
+
 describe('PluginManagerTab', () => {
   it('renders the local-only notice and nothing else when not loopback', async () => {
     renderTab(face({ isLoopback: false }))

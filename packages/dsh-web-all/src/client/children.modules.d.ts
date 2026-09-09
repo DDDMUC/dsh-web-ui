@@ -69,6 +69,16 @@ declare module '@linxin666/dsh-session-archive/client' {
   export const inject: readonly string[] | undefined
 }
 
+declare module '@linxin666/dsh-client-ui-model-capabilities/client' {
+  export const apply: unknown
+  export const inject: readonly string[] | undefined
+}
+
+declare module '@linxin666/dsh-client-ui-preset-center/client' {
+  export const apply: unknown
+  export const inject: readonly string[] | undefined
+}
+
 declare module '@linxin666/dsh-client-ui-skin-center/client' {
   export const apply: unknown
   export const inject: readonly string[] | undefined

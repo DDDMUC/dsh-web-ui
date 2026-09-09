@@ -124,6 +124,12 @@ export function claimedIdsOf(patchText: string): string[] {
 export interface InsertRow {
   id?: string
   name?: string
+  /**
+   * The real plugin package the row mounts, read from the aggregate shell
+   * row's config.plugin. Present on shell-wrapped family rows; the display
+   * name of a child row prefers it over the per-family subpath name.
+   */
+  plugin?: string
 }
 
 /**
@@ -148,9 +154,12 @@ export function insertRowsOf(patchText: string): InsertRow[] {
         if (!isMap(entry)) continue
         const id = entry.get('id', true)
         const name = entry.get('name', true)
+        const config = entry.get('config', true)
+        const plugin = isMap(config) ? config.get('plugin', true) : undefined
         rows.push({
           id: isScalar(id) && typeof id.value === 'string' ? id.value : undefined,
           name: isScalar(name) && typeof name.value === 'string' ? name.value : undefined,
+          plugin: isScalar(plugin) && typeof plugin.value === 'string' ? plugin.value : undefined,
         })
       }
     }

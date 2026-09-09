@@ -11,6 +11,18 @@
  * @module @linxin666/dsh-client-ui-plugin-manager/core
  */
 
+/** One loader entry row claimed by an installed bundle package (aggregate child). */
+export interface InstalledPluginChild {
+  /** The loader entry id, e.g. web-ui-pet. */
+  id: string
+  /** Display name: the real plugin package (shell config.plugin) when known. */
+  name: string
+  /** Saved next-start enablement of this row alone. */
+  enabled: boolean
+  /** Rows the manager must never disable (the manager tab itself, the compat face). */
+  locked?: boolean
+}
+
 /** One installed user-plugin row served by `/plugin-installer list`. */
 export interface InstalledPluginItem {
   id: string
@@ -21,6 +33,14 @@ export interface InstalledPluginItem {
   /** Saved next-start enablement from the managed profile patch row. */
   enabled: boolean
   commit?: string
+  /**
+   * Entry rows this package's bundle patch claims, present when the package
+   * is an aggregate claiming more than one row (gateway mode only — the
+   * official channel wire has no children). Child enablement is individually
+   * switchable; uninstall stays whole-package (the code ships in one npm
+   * package).
+   */
+  children?: InstalledPluginChild[]
 }
 
 /** Point-in-time install/update progress reported by the host. */
@@ -88,6 +108,19 @@ function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
+/** Validate one aggregate child row. */
+function parsePluginChild(value: unknown, rowIndex: number, childIndex: number): InstalledPluginChild {
+  if (!isRecord(value) || !isString(value.id) || !isString(value.name) || typeof value.enabled !== 'boolean') {
+    throw new Error(`plugin-manager: plugin row ${String(rowIndex)} child ${String(childIndex)} is invalid`)
+  }
+  return {
+    id: value.id,
+    name: value.name,
+    enabled: value.enabled,
+    ...typeof value.locked === 'boolean' ? { locked: value.locked } : {},
+  }
+}
+
 /** Validate one installed-plugin row. */
 function parsePlugin(value: unknown, index: number): InstalledPluginItem {
   if (!isRecord(value) || !isString(value.id) || !isString(value.name)
@@ -97,6 +130,10 @@ function parsePlugin(value: unknown, index: number): InstalledPluginItem {
     || !isString(value.source.spec)) {
     throw new Error(`plugin-manager: plugin row ${String(index)} is invalid`)
   }
+  if (value.children !== undefined && !Array.isArray(value.children)) {
+    throw new Error(`plugin-manager: plugin row ${String(index)} children is invalid`)
+  }
+  const children = (value.children as unknown[] | undefined)?.map((child, childIndex) => parsePluginChild(child, index, childIndex))
   return {
     id: value.id,
     name: value.name,
@@ -105,6 +142,7 @@ function parsePlugin(value: unknown, index: number): InstalledPluginItem {
     installedAt: value.installedAt,
     enabled: value.enabled,
     ...isString(value.commit) ? { commit: value.commit } : {},
+    ...children !== undefined ? { children } : {},
   }
 }
 

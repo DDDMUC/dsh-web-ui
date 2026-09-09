@@ -117,8 +117,13 @@ describe('startMobileAdapt', () => {
       removeItem: (key: string) => { delete store[key] },
     })
     // The whale is shown only while the official sidebar is collapsed.
+    // The app frame is identified by the aggregate compat stamp (or, without
+    // it, by the layout center column it contains) — a bare `_frame` suffix
+    // also matches unrelated official surfaces, so the fixture carries the
+    // stamp the running GUI has.
     const frame = document.createElement('div')
     frame.className = 'app_frame'
+    frame.setAttribute('data-dsh-frame', '')
     frame.setAttribute('data-sidebar-collapsed', '')
     document.body.appendChild(frame)
     const start = await freshStart()
@@ -137,9 +142,15 @@ describe('startMobileAdapt', () => {
     start()
     const execCommand = vi.fn()
     ;(document as unknown as { execCommand: unknown }).execCommand = execCommand
+    // The composer seat is the scope of the rewrite: the same `_input` class
+    // also sits on settings/plugin text fields, where a swallowed Enter left
+    // the key dead (a newline in a single-line input is discarded).
+    const seat = document.createElement('div')
+    seat.className = 'chat_composerSeat'
+    document.body.appendChild(seat)
     const target = document.createElement('textarea')
     target.className = 'chat_input'
-    document.body.appendChild(target)
+    seat.appendChild(target)
     const press = (keyCode: number | undefined, isComposing = false): boolean => {
       const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
       Object.defineProperty(event, 'keyCode', { value: keyCode })
@@ -243,6 +254,187 @@ describe('startMobileAdapt', () => {
     expect(css).not.toContain('_body"]{gap:6px}')
   })
 
+  it('treats only the application frame as the app frame, not a nested _frame surface', async () => {
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    // A nested official _frame (the chat turn rail / message thumbnail) must
+    // not be mistaken for the layout frame: the injected viewport rule and the
+    // whale visibility both key on the app frame.
+    const nested = document.createElement('div')
+    nested.className = 'chat_frame'
+    document.body.appendChild(nested)
+    const start = await freshStart()
+    start()
+    const css = document.querySelector('style[data-plugin-css="dsh-remote-web-ui/mobile-adapt.css"]')?.textContent ?? ''
+    expect(css).toContain('[class*="_frame"]:has([class*="_centerCol"]){width:100%;height:100dvh}')
+    expect(css).not.toContain('[class$="_frame"]{width:100%;height:100dvh}')
+    // With only the nested frame present the sidebar state is unknown, so the
+    // whale (the collapsed-rail entry) stays hidden.
+    const whale = document.getElementById('dshRemoteWhale') as HTMLElement | null
+    expect(whale).not.toBeNull()
+    expect(whale?.style.display).toBe('none')
+    // The aggregate compat stamp is the fast path and works without a column.
+    nested.setAttribute('data-dsh-frame', '')
+    nested.setAttribute('data-sidebar-collapsed', '')
+    ;(window as unknown as { __dshRemoteAdapt?: { evaluate: () => void } }).__dshRemoteAdapt?.evaluate()
+    await vi.waitFor(() => { expect(whale?.style.display).not.toBe('none') })
+  })
+
+  it('scopes the Enter rewrite to the composer, not every _input field', async () => {
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    const start = await freshStart()
+    start()
+    const execCommand = vi.fn()
+    ;(document as unknown as { execCommand: unknown }).execCommand = execCommand
+    const settingsField = document.createElement('input')
+    settingsField.className = 'settings_input'
+    document.body.appendChild(settingsField)
+    const press = (el: HTMLElement): boolean => {
+      const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+      el.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    // A settings/plugin text field: Enter must reach the official handler.
+    expect(press(settingsField)).toBe(false)
+    expect(execCommand).not.toHaveBeenCalled()
+    // The composer field (contenteditable input root) still gets the newline.
+    const seat = document.createElement('div')
+    seat.className = 'chat_composerSeat'
+    const composer = document.createElement('div')
+    composer.className = 'chat_input'
+    composer.setAttribute('data-composer-input', '')
+    seat.appendChild(composer)
+    document.body.appendChild(seat)
+    expect(press(composer)).toBe(true)
+    expect(execCommand).toHaveBeenCalledWith('insertText', false, '\n')
+  })
+
+  it('keeps rows draggable-suppressed only while active and restores them on revert', async () => {
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    const sidebar = document.createElement('div')
+    sidebar.className = 'app_sidebarCol'
+    // The flat-list rows carry a state modifier after the semantic class, so a
+    // suffix match missed every one of them.
+    const row = document.createElement('div')
+    row.className = 'x_sessionRow x_flatSessionRowWithoutStatus'
+    row.setAttribute('draggable', 'true')
+    sidebar.appendChild(row)
+    document.body.appendChild(sidebar)
+    const start = await freshStart()
+    start()
+    await vi.waitFor(() => { expect(row.getAttribute('draggable')).toBe('false') })
+    ;(window as unknown as { __dshRemoteAdapt?: { evaluate: () => void } }).__dshRemoteAdapt?.evaluate()
+    media.portrait = false
+    ;(window as unknown as { __dshRemoteAdapt?: { evaluate: () => void } }).__dshRemoteAdapt?.evaluate()
+    expect(row.getAttribute('draggable')).toBe('true')
+  })
+
+  it('takes the header actions out of flow only while seated, without moving them', async () => {
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    const start = await freshStart()
+    start()
+    const css = document.querySelector('style[data-plugin-css="dsh-remote-web-ui/mobile-adapt.css"]')?.textContent ?? ''
+    const seatRule = '[class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{position:absolute'
+    const at = css.indexOf(seatRule)
+    expect(at).toBeGreaterThan(-1)
+    // The rule exists only behind the seat body class, and it never hides the
+    // node: the actions stay in their React-owned slot and are painted over
+    // the tabs row by the transform (re-parenting them would break React's
+    // later insertBefore/removeChild anchors).
+    expect(css.slice(Math.max(0, at - 40), at)).toContain('body.dsh-remote-header-seated')
+    expect(css).not.toContain('[class$="_titleCluster"] [class$="_headerActions"]{display:none}')
+    // No tabs row (single-tab session) means no seat: the body class stays off.
+    expect(document.body.classList.contains('dsh-remote-header-seated')).toBe(false)
+  })
+
+  it('paints the header actions over the tabs row without re-parenting the React node', async () => {
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    const start = await freshStart()
+    start()
+    const header = document.createElement('div')
+    header.className = 'chat_header'
+    const cluster = document.createElement('div')
+    cluster.className = 'chat_titleCluster'
+    const actions = document.createElement('div')
+    actions.className = 'chat_headerActions'
+    cluster.appendChild(actions)
+    const tabs = document.createElement('div')
+    tabs.className = 'chat_tabs'
+    const tab = document.createElement('button')
+    tab.className = 'chat_tab'
+    tab.textContent = 'Chat'
+    tabs.appendChild(tab)
+    header.append(cluster, tabs)
+    document.body.appendChild(header)
+    await vi.waitFor(() => { expect(document.body.classList.contains('dsh-remote-header-seated')).toBe(true) })
+    // The node stays in its React-owned slot; only the injected CSS and the
+    // transform move it visually (a re-parented node breaks React's anchors).
+    expect(actions.parentElement).toBe(cluster)
+    expect(actions.style.transform).toBe('translate(0px, 0px)')
+    expect(tabs.style.paddingRight).toBe('8px')
+  })
+
+  it('drills into the picker sheet by structure when the cell labels are localized', async () => {
+    vi.useFakeTimers()
+    try {
+      media.portrait = true
+      media.coarse = true
+      setWidth(390)
+      const start = await freshStart()
+      start()
+      const seat = document.createElement('div')
+      seat.className = 'app_composerSeat'
+      const tools = document.createElement('div')
+      tools.className = 'x_tools'
+      const trailing = document.createElement('div')
+      trailing.className = 'x_trailing'
+      // The official trigger carries the `_trigger` class and wraps the
+      // `_triggerEffort` marker (the layer forwards to it, then drills).
+      trailing.innerHTML = '<div class="x_trigger"><div class="x_triggerEffort"></div></div>'
+      seat.append(tools, trailing)
+      document.body.appendChild(seat)
+      await vi.advanceTimersByTimeAsync(600)
+      const modelBtn = document.getElementById('dshRemoteModelPick')
+      const effortBtn = document.getElementById('dshRemoteEffortPick')
+      expect(modelBtn).not.toBeNull()
+      expect(effortBtn).not.toBeNull()
+      // A localized (ru) sheet: no zh/en label matches, so the chevron-cell
+      // order is the anchor — model first, effort second.
+      const menu = document.createElement('div')
+      menu.className = 'x_menu'
+      const clicks: number[] = []
+      const cells = ['Модель', 'Уровень рассуждений'].map((label, index) => {
+        const cell = document.createElement('button')
+        cell.className = 'x_cell'
+        cell.textContent = label
+        const chevron = document.createElement('svg')
+        chevron.setAttribute('class', 'x_cellChevron')
+        cell.appendChild(chevron)
+        cell.addEventListener('click', () => { clicks.push(index) })
+        menu.appendChild(cell)
+        return cell
+      })
+      seat.appendChild(menu)
+      modelBtn!.click()
+      await vi.advanceTimersByTimeAsync(400)
+      expect(clicks).toEqual([0])
+      effortBtn!.click()
+      await vi.advanceTimersByTimeAsync(400)
+      expect(clicks).toEqual([0, 1])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('reads injected-surface labels from the wired translate seat, not the browser language', async () => {
     vi.useFakeTimers()
     try {
@@ -284,43 +476,45 @@ describe('startMobileAdapt', () => {
     }
   })
 
-  it('falls back to the official rail toggle when the wired face is inert', async () => {
+  it('drives the official toggle first and never waits on the inert layout face', async () => {
     vi.useFakeTimers()
     try {
       media.portrait = true
       media.coarse = true
       setWidth(390)
-      // A collapsed frame + the official logo toggle button (the fallback target).
       const frame = document.createElement('div')
       frame.className = 'app_frame'
+      frame.setAttribute('data-dsh-frame', '')
       frame.setAttribute('data-sidebar-collapsed', '')
       document.body.appendChild(frame)
       const logoRow = document.createElement('div')
       logoRow.className = 'x_logoRow'
       const logoToggle = document.createElement('button')
       logoToggle.className = 'x_iconButton x_toggle'
-      const clickSpy = vi.spyOn(logoToggle, 'click')
+      const clickSpy = vi.spyOn(logoToggle, 'click').mockImplementation(() => {
+        frame.removeAttribute('data-sidebar-collapsed')
+      })
       logoRow.appendChild(logoToggle)
       document.body.appendChild(logoRow)
       const start = await freshStart()
       start()
-      // Wire an inert face: mounted, callable, but a silent no-op — the
-      // observed LayoutController state on the running local build.
+      // The wired face is a silent no-op on the installed cohort; it must not
+      // be needed at all when the official toggle exists.
+      const faceSpy = vi.fn()
       const adapt = (window as unknown as { __dshRemoteAdapt?: { toggleSidebar: () => void } }).__dshRemoteAdapt
-      adapt!.toggleSidebar = () => {}
+      adapt!.toggleSidebar = faceSpy
       const whale = document.getElementById('dshRemoteWhale') as HTMLElement | null
       expect(whale).not.toBeNull()
       whale!.click()
-      expect(clickSpy).not.toHaveBeenCalled()
-      await vi.advanceTimersByTimeAsync(200)
-      // The frame never flipped, so the official rail toggle took over.
       expect(clickSpy).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(600)
+      expect(faceSpy).not.toHaveBeenCalled()
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('does not fall back when the wired face flips the frame', async () => {
+  it('falls back to the wired face when the official toggle does not flip the frame', async () => {
     vi.useFakeTimers()
     try {
       media.portrait = true
@@ -328,6 +522,7 @@ describe('startMobileAdapt', () => {
       setWidth(390)
       const frame = document.createElement('div')
       frame.className = 'app_frame'
+      frame.setAttribute('data-dsh-frame', '')
       frame.setAttribute('data-sidebar-collapsed', '')
       document.body.appendChild(frame)
       const logoRow = document.createElement('div')
@@ -339,13 +534,16 @@ describe('startMobileAdapt', () => {
       document.body.appendChild(logoRow)
       const start = await freshStart()
       start()
-      // A healthy face: the call itself flips the frame out of collapsed.
+      const faceSpy = vi.fn(() => { frame.removeAttribute('data-sidebar-collapsed') })
       const adapt = (window as unknown as { __dshRemoteAdapt?: { toggleSidebar: () => void } }).__dshRemoteAdapt
-      adapt!.toggleSidebar = () => { frame.removeAttribute('data-sidebar-collapsed') }
+      adapt!.toggleSidebar = faceSpy
       const whale = document.getElementById('dshRemoteWhale') as HTMLElement | null
       whale!.click()
-      await vi.advanceTimersByTimeAsync(200)
-      expect(clickSpy).not.toHaveBeenCalled()
+      expect(clickSpy).toHaveBeenCalledTimes(1)
+      expect(faceSpy).not.toHaveBeenCalled()
+      // The toggle click never flipped the frame, so the face takes over.
+      await vi.advanceTimersByTimeAsync(400)
+      expect(faceSpy).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }

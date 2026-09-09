@@ -396,8 +396,12 @@ export const inject = [] as const
 export function apply(ctx: Context): void {
   // The family children ride this bundle (see mount-children.ts): the shell's
   // folded rows leave them invisible to the client module scanner, so they
-  // mount here as nested client plugins before the DOM shims settle in.
-  mountClientChildren(ctx)
+  // mount here as nested client plugins. Fire-and-forget: the row-state fetch
+  // must not delay the DOM shims (boot splash dismissal is time-critical),
+  // and the mount is fail-open and self-contained — it never rejects.
+  void mountClientChildren(ctx).catch(error => {
+    console.error('[dsh-web-all] client children mount failed', error)
+  })
   ctx.effect(() => {
     const responsiveStyle = ensureResponsiveStyle()
     const bootShield = installBootShield()

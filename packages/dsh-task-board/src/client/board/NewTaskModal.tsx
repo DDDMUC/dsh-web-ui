@@ -31,6 +31,7 @@ export function NewTaskModal({ controller, onClose, initialTask, onDuplicateSucc
   const [mode, setMode] = useState(initialTask?.mode ?? '')
   const [permission, setPermission] = useState(initialTask?.permission ?? '')
   const [model, setModel] = useState(initialTask?.model ?? '')
+  const [reuseSession, setReuseSession] = useState(initialTask?.reuseSession ?? false)
   const [scheduleEnabled, setScheduleEnabled] = useState(initialTask?.schedule?.enabled ?? false)
   const [scheduleCron, setScheduleCron] = useState(initialTask?.schedule?.cron ?? '')
   const [scheduleError, setScheduleError] = useState<string | undefined>(undefined)
@@ -91,6 +92,7 @@ export function NewTaskModal({ controller, onClose, initialTask, onDuplicateSucc
       mode: mode === '' ? undefined : mode,
       permission: permission === '' ? undefined : permission as TaskPermission,
       model: model === '' ? undefined : model,
+      ...(reuseSession ? { reuseSession: true } : {}),
       schedule: scheduleEnabled ? { enabled: true, cron: scheduleCron.trim() } : undefined,
     })
     if (task === undefined) {
@@ -218,6 +220,16 @@ export function NewTaskModal({ controller, onClose, initialTask, onDuplicateSucc
             ))}
           </select>
         </label>
+
+        <label className={css.scheduleToggle}>
+          <input
+            type="checkbox"
+            checked={reuseSession}
+            onChange={event => { setReuseSession(event.target.checked) }}
+          />
+          <span>{t('exec.reuseSession')}</span>
+        </label>
+        <p className={css.detailText}>{t('exec.reuseSessionHint')}</p>
 
         <section className={css.detailSection}>
           <h4>{t('detail.schedule')}</h4>

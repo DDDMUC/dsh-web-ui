@@ -1097,7 +1097,8 @@ window.__ModuleLoader__.load({
 		const KIND_LABEL = {
 			skin: "tab.skin",
 			pet: "tab.pet",
-			plugin: "tab.plugin"
+			plugin: "tab.plugin",
+			preset: "tab.preset"
 		};
 		function deviceFp() {
 			const key = "dsh-market-web-fp";
@@ -1137,7 +1138,7 @@ window.__ModuleLoader__.load({
 		* Render the market card.
 		*/
 		function MarketCard(props) {
-			const { t } = props;
+			const { t, renderSlot } = props;
 			const state = props.useMarketCard((snapshot) => snapshot);
 			const disabled = !state.writable;
 			const cardVisible = state.enabled.text !== "false";
@@ -1157,7 +1158,8 @@ window.__ModuleLoader__.load({
 			const [loadAttempt, setLoadAttempt] = (0, react.useState)(0);
 			const [installed, setInstalled] = (0, react.useState)({
 				skins: [],
-				pets: []
+				pets: [],
+				presets: []
 			});
 			const [installing, setInstalling] = (0, react.useState)(null);
 			const [conflict, setConflict] = (0, react.useState)(null);
@@ -1182,25 +1184,29 @@ window.__ModuleLoader__.load({
 					fetchJson("https://dsh-market.com/manifest/skins.json"),
 					fetchJson("https://dsh-market.com/manifest/pets.json"),
 					fetchJson("https://dsh-market.com/manifest/plugins.json"),
+					fetchJson("https://dsh-market.com/manifest/presets.json").catch(() => ({ items: [] })),
 					fetchJson("https://dsh-market.com/api/stats"),
 					downloadsLoader()
-				]).then(([skins, pets, plugins, stats, downloads]) => {
+				]).then(([skins, pets, plugins, presets, stats, downloads]) => {
 					if (!alive) return;
 					const s = stats ?? {
 						skin: {},
 						pet: {},
-						plugin: {}
+						plugin: {},
+						preset: {}
 					};
 					setData({
 						items: {
 							skin: skins.items ?? [],
 							pet: pets.items ?? [],
-							plugin: plugins.items ?? []
+							plugin: plugins.items ?? [],
+							preset: presets.items ?? []
 						},
 						stats: {
 							skin: s.skin ?? {},
 							pet: s.pet ?? {},
 							plugin: s.plugin ?? {},
+							preset: s.preset ?? {},
 							installs: s.installs ?? void 0
 						}
 					});
@@ -1235,7 +1241,7 @@ window.__ModuleLoader__.load({
 				let alive = true;
 				const gatewayClient = {
 					async install(kind, id, force) {
-						const res = await fetch("/api/market/install-" + (kind === "skin" ? "skin" : "pet"), {
+						const res = await fetch("/api/market/install-" + kind, {
 							method: "POST",
 							headers: { "content-type": "application/json" },
 							body: JSON.stringify({
@@ -1257,7 +1263,8 @@ window.__ModuleLoader__.load({
 						const r = await fetchJson("/api/market/installed");
 						return {
 							skins: r.skins ?? [],
-							pets: r.pets ?? []
+							pets: r.pets ?? [],
+							presets: r.presets ?? []
 						};
 					}
 				};
@@ -1298,14 +1305,16 @@ window.__ModuleLoader__.load({
 				return (data?.stats ?? {
 					skin: {},
 					pet: {},
-					plugin: {}
+					plugin: {},
+					preset: {}
 				})[kind][id] ?? 0;
 			};
 			const installsOf = (kind, id) => {
 				return (data?.stats?.installs ?? {
 					skin: {},
 					pet: {},
-					plugin: {}
+					plugin: {},
+					preset: {}
 				})[kind][id] ?? 0;
 			};
 			const sorted = (kind) => {
@@ -1393,7 +1402,8 @@ window.__ModuleLoader__.load({
 									...prev.stats.installs ?? {
 										skin: {},
 										pet: {},
-										plugin: {}
+										plugin: {},
+										preset: {}
 									},
 									[kind]: {
 										...prev.stats.installs?.[kind] ?? {},
@@ -1450,7 +1460,8 @@ window.__ModuleLoader__.load({
 									...prev.stats.installs ?? {
 										skin: {},
 										pet: {},
-										plugin: {}
+										plugin: {},
+										preset: {}
 									},
 									plugin: {
 										...prev.stats.installs?.plugin ?? {},
@@ -1598,7 +1609,8 @@ window.__ModuleLoader__.load({
 								children: [
 									"skin",
 									"pet",
-									"plugin"
+									"plugin",
+									"preset"
 								].map((kind) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 									type: "button",
 									role: "tab",
@@ -1615,7 +1627,7 @@ window.__ModuleLoader__.load({
 									})]
 								}, kind))
 							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							tab === "preset" ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 								className: market_module_css_default.search,
 								type: "search",
 								"aria-label": t("search.label"),
@@ -1697,7 +1709,21 @@ window.__ModuleLoader__.load({
 									}, id))]
 								}) : null]
 							}) : null,
-							failed ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
+							tab === "preset" ? renderSlot("dsh-workshop.panel", {
+								items: data?.items.preset ?? [],
+								catalogState: failed ? "error" : loading ? "loading" : "ready",
+								gateway: gateway !== null,
+								installs: data?.stats.installs?.preset ?? {},
+								install: gateway === null ? void 0 : (id, force) => gateway.install("preset", id, force),
+								reportInstall: (id) => reportInstall("preset", id)
+							}, {
+								entryKey: "preset",
+								fallback: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: market_module_css_default.empty,
+									role: "status",
+									children: t("presetPanel.missing")
+								})
+							}) : failed ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
 								className: market_module_css_default.empty,
 								role: "status",
 								children: [t("empty"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
@@ -1923,6 +1949,8 @@ window.__ModuleLoader__.load({
 			"tab.skin": "皮肤",
 			"tab.pet": "宠物",
 			"tab.plugin": "插件",
+			"tab.preset": "预设",
+			"presetPanel.missing": "未安装预设中心插件（@linxin666/dsh-client-ui-preset-center），无法管理社区预设。",
 			"search.label": "搜索名称、作者或描述…",
 			"filter.all": "全部",
 			"filter.category": "分类筛选",
@@ -2017,6 +2045,8 @@ window.__ModuleLoader__.load({
 			"tab.skin": "Skins",
 			"tab.pet": "Pets",
 			"tab.plugin": "Plugins",
+			"tab.preset": "Presets",
+			"presetPanel.missing": "The preset center plugin (@linxin666/dsh-client-ui-preset-center) is not installed, so community presets cannot be managed.",
 			"search.label": "Search name, author or description…",
 			"filter.all": "All",
 			"filter.category": "Category filter",
@@ -2094,7 +2124,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion() {
 			try {
-				return "0.3.17";
+				return "0.3.19";
 			} catch {
 				return;
 			}
@@ -2190,6 +2220,10 @@ window.__ModuleLoader__.load({
 						order: 150,
 						label: () => ctx.locale.bind(MARKET_NS)("settings.title"),
 						locale: MARKET_NS,
+						children: { "dsh-workshop.panel": {
+							kind: "keyed",
+							scope: "root"
+						} },
 						inject: () => controller.inject()
 					}, MarketSection);
 					return () => {

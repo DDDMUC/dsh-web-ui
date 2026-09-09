@@ -602,6 +602,42 @@ describe("runUpdate", () => {
     // stays in the tail) — the success output must be present.
     expect(result.output).toContain("corepack pnpm ok")
   })
+  it("falls back on win32 when cmd reports the shim missing in localized Chinese and decodes GBK correctly", async () => {
+    const pnpm = new FakeChild(1)
+    const corepack = new FakeChild(0)
+    const { spawnImpl, order } = dispatchFake({ pnpm, corepack })
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, platform: "win32" })
+    // GBK bytes for: 'pnpm' 不是内部或外部命令，也不是可运行的程序或批处理文件。\r\n
+    const gbkStderr = Buffer.from([
+      0x27, 0x70, 0x6e, 0x70, 0x6d, 0x27, 0x20, 0xb2, 0xbb, 0xca, 0xc7, 0xc4, 0xda, 0xb2, 0xbf,
+      0xbb, 0xf2, 0xcd, 0xe2, 0xb2, 0xbf, 0xc3, 0xfc, 0xc1, 0xee, 0xa3, 0xac, 0xd2, 0xb2, 0xb2,
+      0xbb, 0xca, 0xc7, 0xbf, 0xc9, 0xd4, 0xb4, 0xd0, 0xd0, 0xb5, 0xc4, 0xb3, 0xcc, 0xd0, 0xf2,
+      0xbb, 0xf2, 0xc5, 0xfa, 0xb4, 0xa6, 0xc0, 0xed, 0xce, 0xc4, 0xbc, 0xfe, 0xa1, 0xa3, 0x0d, 0x0a,
+    ])
+    pnpm.stderr.emit("data", gbkStderr)
+    pnpm.run(1)
+    corepack.emitOutput("corepack pnpm ok")
+    corepack.run(0)
+    const result = await promise
+    expect(order).toEqual(["pnpm", "corepack"])
+    expect(result.ok).toBe(true)
+    expect(result.output).not.toContain("\ufffd")
+    expect(result.output).toContain("不是内部或外部命令")
+    expect(result.output).toContain("corepack pnpm ok")
+  })
+  it("falls back on win32 when cmd exits with code 9009", async () => {
+    const pnpm = new FakeChild(9009)
+    const corepack = new FakeChild(0)
+    const { spawnImpl, order } = dispatchFake({ pnpm, corepack })
+    const promise = runUpdate({ profileDir: "/p", packages: ["a"], spawnImpl, platform: "win32" })
+    pnpm.run(9009)
+    corepack.emitOutput("corepack pnpm ok")
+    corepack.run(0)
+    const result = await promise
+    expect(order).toEqual(["pnpm", "corepack"])
+    expect(result.ok).toBe(true)
+    expect(result.output).toContain("corepack pnpm ok")
+  })
   it("keeps pnpm-failed on win32 for non-missing errors", async () => {
     const child = new FakeChild(1)
     const spawnImpl = (() => child) as never

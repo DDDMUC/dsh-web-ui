@@ -564,10 +564,28 @@ const OUTPUT_CAP = 16 * 1024
 
 /**
  * Windows cmd command-not-found stderr. With shell:true a missing shim
- * exits with code 1 (cmd cannot report ENOENT), so the fallback chain
- * detects this message instead of the spawn error event.
+ * exits with code 1 or 9009 (cmd cannot report ENOENT), so the fallback chain
+ * detects this message instead of the spawn error event. Supports both English
+ * and localized (e.g. Chinese) cmd error messages.
  */
-const WIN_CMD_MISSING_RE = /not recognized as an internal or external command/i
+const WIN_CMD_MISSING_RE = /not recognized as an internal or external command|不是内部或外部命令/i
+
+/**
+ * Decode process output with tolerant decoding:
+ * Defaults to UTF-8; if invalid byte sequences are encountered (common on
+ * Windows consoles using code page 936/GBK), falls back to GBK via TextDecoder.
+ */
+function decodeProcessChunk(chunk: Buffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(chunk)
+  } catch {
+    try {
+      return new TextDecoder('gbk').decode(chunk)
+    } catch {
+      return chunk.toString('utf8')
+    }
+  }
+}
 
 /**
  * Bypass for pnpm 11's supply-chain gate: `minimumReleaseAge` (default 24 h)
@@ -623,9 +641,10 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
     let output = ''
     let currentOutput = ''
     const append = (chunk: Buffer): void => {
-      output += chunk.toString('utf8')
+      const text = decodeProcessChunk(chunk)
+      output += text
       if (output.length > OUTPUT_CAP) output = output.slice(output.length - OUTPUT_CAP)
-      currentOutput += chunk.toString('utf8')
+      currentOutput += text
       if (currentOutput.length > OUTPUT_CAP) currentOutput = currentOutput.slice(currentOutput.length - OUTPUT_CAP)
     }
     let currentChild: ReturnType<typeof spawnImpl> | undefined
@@ -693,11 +712,11 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
       })
       child.on('close', (code: number | null) => {
         if (settled || finished) return
-        // Windows + shell: a missing command reports exit 1 with
-        // 'not recognized' instead of ENOENT — keep the chain going. Checked
-        // against this candidate's own output so a prior fallback's stderr
-        // cannot misclassify a real failure here.
-        if (platform === 'win32' && code !== 0 && WIN_CMD_MISSING_RE.test(currentOutput)) {
+        // Windows + shell: a missing command reports exit 1 or 9009 with
+        // 'not recognized' or localized message instead of ENOENT — keep the
+        // chain going. Checked against this candidate's own output so a prior
+        // fallback's stderr cannot misclassify a real failure here.
+        if (platform === 'win32' && (code === 9009 || (code !== 0 && WIN_CMD_MISSING_RE.test(currentOutput)))) {
           runCandidate(index + 1)
           return
         }
@@ -706,7 +725,7 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
           ok: code === 0,
           exitCode: code,
           output,
-          error: code === 0 ? undefined : 'pnpm exited with code ' + String(code),
+          error: code === 0 ? undefined : `${candidate.command} exited with code ` + String(code),
           ...(code === 0 ? {} : { errorCode: 'pnpm-failed' as const }),
         })
       })

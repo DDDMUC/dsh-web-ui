@@ -270,8 +270,11 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
     setToggleBusy({ kind: 'user', id })
     setError(undefined)
     void setEnabled(id, enabled).then(plugin => {
+      // Match by the RETURNED row id: a child-row toggle (id = entry id such
+      // as web-ui-pet) answers with its owning package row, which carries the
+      // refreshed children states.
       setView(current => current.status === 'ready'
-        ? { ...current, plugins: current.plugins.map(item => item.id === id ? plugin : item) }
+        ? { ...current, plugins: current.plugins.map(item => item.id === plugin.id ? plugin : item) }
         : current)
       setDirty(true)
       setToggleBusy(undefined)
@@ -527,8 +530,11 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
                 const latest = updateItem?.latest
                 const dshRequirement = updateItem?.requiresDsh
                 const failure = attributable.get(plugin.id)
+                const children = plugin.children
+                const mixed = children !== undefined && !plugin.enabled && children.some(child => child.enabled)
                 return (
-                  <li key={plugin.id} className={css.row} data-plugin-id={plugin.id}>
+                  <li key={plugin.id} data-plugin-id={plugin.id}>
+                  <div className={css.row}>
                     <div className={css.meta}>
                       <span className={css.name}>{plugin.name}</span>
                       <span className={css.sub}>
@@ -566,8 +572,8 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
                       )}
                     </div>
                     <div className={css.actions}>
-                      <span className={css.stateLabel} data-state={plugin.enabled ? 'enabled' : 'disabled'}>
-                        {plugin.enabled ? t('enabled') : t('disabled')}
+                      <span className={css.stateLabel} data-state={plugin.enabled ? 'enabled' : mixed ? 'mixed' : 'disabled'}>
+                        {plugin.enabled ? t('enabled') : mixed ? t('mixed') : t('disabled')}
                       </span>
                       <button
                         type="button"
@@ -595,6 +601,37 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
                         {t('uninstall')}
                       </Button>
                     </div>
+                  </div>
+                  {children !== undefined && (
+                    <>
+                      <ul className={css.childList}>
+                        {children.map(child => (
+                          <li key={child.id} className={css.childRow} data-plugin-row={child.id}>
+                            <span className={css.childName} title={child.id}>{child.name}</span>
+                            <div className={css.actions}>
+                              <span className={css.stateLabel} data-state={child.enabled ? 'enabled' : 'disabled'}>
+                                {child.enabled ? t('enabled') : t('disabled')}
+                              </span>
+                              {child.locked === true
+                                ? <span className={css.lockedHint}>{t('lockedRowHint')}</span>
+                                : (
+                                  <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={child.enabled}
+                                    aria-label={child.enabled ? t('disableSwitch', { name: child.name }) : t('enableSwitch', { name: child.name })}
+                                    className={css.switch}
+                                    disabled={toggleDisabled}
+                                    onClick={() => { onUserToggle(child.id, !child.enabled) }}
+                                  />
+                                )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className={css.hint}>{t('childrenHint')}</p>
+                    </>
+                  )}
                   </li>
                 )
               })}

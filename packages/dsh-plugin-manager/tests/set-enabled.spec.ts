@@ -182,14 +182,17 @@ describe('set-enabled id space', () => {
     expect(patch).not.toContain('name: dsh-memoir')
   })
 
-  it('keeps the plugin manager mounted when disabling an aggregate package', async () => {
+  it('keeps the locked rows mounted when disabling an aggregate package', async () => {
+    // web-ui-compat must stay enabled too: it serves the folded client
+    // bundle, so disabling it would unmount the manager tab itself and lock
+    // the user out of re-enabling anything from the GUI.
     const { facts, dir } = makeAggregateProfile()
     tempDirs.push(dir)
     const { res, body, status } = captureResponse()
     await setEnabledHandler(facts)(loopbackRequest({ id: '@linxin666/dsh-web-all', enabled: false }), res)
     expect(status()).toBe(200)
     const patch = readFileSync(facts.patchPath, 'utf8')
-    expect(patch).toContain('id: web-ui-compat')
+    expect(patch).not.toContain('id: web-ui-compat')
     expect(patch).toContain('id: web-ui-task-board')
     expect(patch).not.toContain('id: web-ui-plugin-manager')
     const parsed = JSON.parse(body()) as { plugin: { enabled: boolean } }
@@ -218,6 +221,77 @@ describe('set-enabled id space', () => {
     const parsed = JSON.parse(body()) as { plugin: { enabled: boolean } }
     expect(parsed.plugin.enabled).toBe(true)
   })
+
+  it('toggles one aggregate row without touching its siblings', async () => {
+    const { facts, dir } = makeAggregateProfile()
+    tempDirs.push(dir)
+    const { res, body, status } = captureResponse()
+    await setEnabledHandler(facts)(loopbackRequest({ id: 'web-ui-task-board', enabled: false }), res)
+    expect(status()).toBe(200)
+    const patch = readFileSync(facts.patchPath, 'utf8')
+    expect(patch).toContain('id: web-ui-task-board')
+    expect(patch).not.toContain('id: web-ui-compat')
+    expect(patch).not.toContain('id: web-ui-plugin-manager')
+    const parsed = JSON.parse(body()) as { plugin: { id: string; enabled: boolean; children?: Array<{ id: string; enabled: boolean; locked?: boolean }> } }
+    // The response row is the OWNING package, carrying the children states.
+    expect(parsed.plugin.id).toBe('@linxin666/dsh-web-all')
+    expect(parsed.plugin.enabled).toBe(false)
+    expect(parsed.plugin.children?.find(child => child.id === 'web-ui-task-board')?.enabled).toBe(false)
+    expect(parsed.plugin.children?.find(child => child.id === 'web-ui-compat')?.enabled).toBe(true)
+    expect(parsed.plugin.children?.find(child => child.id === 'web-ui-plugin-manager')?.locked).toBe(true)
+  })
+
+  it('re-enables one aggregate row by removing only its override', async () => {
+    const { facts, dir } = makeAggregateProfile()
+    tempDirs.push(dir)
+    const handler = setEnabledHandler(facts)
+    await handler(loopbackRequest({ id: 'web-ui-task-board', enabled: false }), captureResponse().res)
+    const { res, body, status } = captureResponse()
+    await handler(loopbackRequest({ id: 'web-ui-task-board', enabled: true }), res)
+    expect(status()).toBe(200)
+    expect(readFileSync(facts.patchPath, 'utf8')).not.toContain('disabled')
+    const parsed = JSON.parse(body()) as { plugin: { enabled: boolean; children?: Array<{ id: string; enabled: boolean }> } }
+    expect(parsed.plugin.enabled).toBe(true)
+    expect(parsed.plugin.children?.every(child => child.enabled)).toBe(true)
+  })
+
+  it('rejects disabling a locked row (the manager tab itself)', async () => {
+    const { facts, dir } = makeAggregateProfile()
+    tempDirs.push(dir)
+    const { res, body, status } = captureResponse()
+    await setEnabledHandler(facts)(loopbackRequest({ id: 'web-ui-plugin-manager', enabled: false }), res)
+    expect(status()).toBe(404)
+    expect(JSON.parse(body()).error).toContain('cannot be disabled')
+    expect(readFileSync(facts.patchPath, 'utf8')).toBe('# layer\n[]\n')
+    expect(existsSync(facts.patchPath + '.bak-plugin-manager')).toBe(false)
+  })
+
+  it('reports an unknown row id as not installed without writing', async () => {
+    const { facts, dir } = makeAggregateProfile()
+    tempDirs.push(dir)
+    const { res, status } = captureResponse()
+    await setEnabledHandler(facts)(loopbackRequest({ id: 'web-ui-nonexistent', enabled: false }), res)
+    expect(status()).toBe(404)
+    expect(readFileSync(facts.patchPath, 'utf8')).toBe('# layer\n[]\n')
+  })
+
+  it('row-level enable writes through the insert-format row when present', async () => {
+    const { facts, dir } = makeAggregateProfile()
+    tempDirs.push(dir)
+    writeFileSync(facts.patchPath, [
+      '- insert:',
+      '    - id: web-ui-task-board',
+      "      name: '@linxin666/dsh-web-all/task-board'",
+      '      disabled: true',
+      '',
+    ].join('\n'))
+    const { res, status } = captureResponse()
+    await setEnabledHandler(facts)(loopbackRequest({ id: 'web-ui-task-board', enabled: true }), res)
+    expect(status()).toBe(200)
+    const patch = readFileSync(facts.patchPath, 'utf8')
+    expect(patch).toContain('disabled: false')
+  })
+
 
   it('re-enabling removes the override and reports enabled', async () => {
     const { facts, dir } = makeProfile()

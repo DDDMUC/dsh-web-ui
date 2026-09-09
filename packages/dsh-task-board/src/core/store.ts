@@ -65,6 +65,7 @@ function isTaskRecordShape(value: unknown): value is Omit<TaskRecord, 'status'> 
   if (record.workspaceId !== undefined && typeof record.workspaceId !== 'string') return false
   if (record.mode !== undefined && typeof record.mode !== 'string') return false
   if (record.permission !== undefined && typeof record.permission !== 'string') return false
+  if (record.reuseSession !== undefined && typeof record.reuseSession !== 'boolean') return false
   if (!Array.isArray(record.executions)) return false
   for (const execution of record.executions) {
     if (typeof execution !== 'object' || execution === null) return false
@@ -185,6 +186,7 @@ export function parseLedger(raw: string | null): TaskRecord[] {
     task.mode = normalizeTargetId(row.mode)
     task.archivedAt = typeof row.archivedAt === 'number' && Number.isFinite(row.archivedAt) ? row.archivedAt : undefined
     task.permission = isTaskPermission(row.permission) ? row.permission as TaskPermission : undefined
+    task.reuseSession = row.reuseSession === true ? true : undefined
     task.freeze = normalizeFreeze(row.freeze)
     task.handover = normalizeHandover(row.handover)
     task.permissionConfirmedAt = typeof row.permissionConfirmedAt === 'number' && Number.isFinite(row.permissionConfirmedAt) ? row.permissionConfirmedAt : undefined

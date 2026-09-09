@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { dshHome } from './dsh-home.ts'
 import { isValidCron, nextRunAtMs } from './core/schedule.ts'
@@ -286,6 +286,7 @@ export class HostTaskLedger {
     this.file = join(dir, 'ledger-v2.json')
     this.lockFile = join(dir, 'ledger-v2.lock')
     this.schedulerFile = join(dir, 'scheduler-v2.json')
+    this.cleanStaleTemporaryFiles(dir)
     this.lockFd = this.acquireLock()
     try {
       this.document = this.load(dir)
@@ -300,6 +301,24 @@ export class HostTaskLedger {
     } catch (error) {
       this.dispose()
       throw error
+    }
+  }
+
+  /** Remove leftover *.tmp-* files from previous crashes or interrupted writes. */
+  private cleanStaleTemporaryFiles(dir: string): void {
+    try {
+      const entries = readdirSync(dir)
+      for (const entry of entries) {
+        if (entry.includes('.tmp-')) {
+          try {
+            unlinkSync(join(dir, entry))
+          } catch {
+            // Best-effort cleanup
+          }
+        }
+      }
+    } catch {
+      // Directory may not exist yet or cannot be read
     }
   }
 
@@ -443,7 +462,16 @@ export class HostTaskLedger {
     // tiny sidecar instead; any other patch still goes through the full
     // atomic commit.
     if (patch.lastTickAt !== undefined && Object.keys(patch).every(key => key === 'lastTickAt')) {
-      this.writeSchedulerSidecar()
+      try {
+        this.writeSchedulerSidecar()
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException)?.code === 'ENOSPC') {
+          // Disk is full; sidecar persistence fails, but in-memory heartbeat
+          // remains updated. Swallow to prevent unhandled log cascade crashes.
+          return
+        }
+        throw error
+      }
       return
     }
     this.commit(false)

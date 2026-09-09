@@ -125,6 +125,8 @@ export const zh = {
   'exec.permission.danger-full-access': '完全访问',
   'exec.model.default': '宿主默认（agent-default-model）',
   'exec.model.unknown': '（未知模型/回退默认）',
+  'exec.reuseSession': '在同一对话继续',
+  'exec.reuseSessionHint': '开启后，本任务的后续执行在上一次会话里继续（该会话空闲且仍存在时），不再每次新建对话；每次复用时都会重新应用上面钉住的权限与模型。',
   'detail.executionSettings': '执行设置',
   'exec.hint': '执行时生效：工作区决定执行会话落在哪个工作区；模式决定会话的 agent 预设；权限经 /permission 命令应用到会话。留空则使用运行时默认。',
   // 插件设置卡片（settings.plugin.item 席位）。
@@ -277,6 +279,8 @@ export const en: Record<keyof typeof zh, string> = {
   'exec.permission.danger-full-access': 'Full Access',
   'exec.model.default': 'Host default (agent-default-model)',
   'exec.model.unknown': ' (unknown / fallback to default)',
+  'exec.reuseSession': 'Continue in the same conversation',
+  'exec.reuseSessionHint': 'When on, later runs continue in the previous session (when that session is idle and still exists) instead of starting a new conversation each time; the pinned permission and model above are re-applied on every reuse.',
   'detail.executionSettings': 'Execution Settings',
   'exec.hint': 'Applied when the task runs: the workspace decides where the execution session lands; the mode composes the session\'s agent preset; the permission is applied through the /permission command. Blank = runtime default.',
   // Plugin settings card (the `settings.plugin.item` seat).

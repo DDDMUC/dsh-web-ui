@@ -25,8 +25,9 @@ GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发�
   `npm whoami` 401 属正常；本机当前以 linxin666 登录），发版不依赖本机登录态。
 - **npm 通道已恢复（2026-08-31 起）**：release.yml 的 workflow env
   `NPM_PUBLISH_ENABLED: 'true'`；发布管线执行完整门禁、版本校验后运行
-  `pnpm -r publish --tag latest` 与 legacy 双发（均以该开关门控），并在挂载
-  冒烟之后运行 npm-strict 的 registry 断言。开关曾因家族跟踪未上 npm 的
+  `pnpm -r publish --tag latest` 与 legacy 双发（均以该开关门控），发布后立即用
+  `scripts/verify-registry.mjs` 断言每个家族包的 tag 版本都能从 registry 解析
+  （带重试预算，覆盖 npm 传播延迟）。开关曾因家族跟踪未上 npm 的
   `@deepseek-ai/*` alpha cohort 而被暂停（决策记录
   `.agents/notes/implemented/process/2026-08-28-pause-release-npm-publish-unstable-dsh-alpha.md`，
   恢复记录
@@ -211,7 +212,7 @@ git checkout dev && git merge main && git push origin dev
 2. 全量 gate：typecheck / build / test / test:scripts / aggregate --check，并按变更范围执行 `market:check`、`skin-center:check`；`runtime-deps:check` 是发布前的运行时依赖安全门禁；
 3. **版本一致性校验**：运行 `node scripts/verify-version.mjs X.Y.Z`，由 `scripts/lib/family-packages.mjs` 遍历 `packages/` 与 `packages/skins/` 的全部家族包并逐一比对 tag 版本；数量以脚本输出为准，不手抄固定数字；
 4. **生成 release notes**：优先使用已提交的 `docs/release-notes/$TAG.md`（v0.2.6 起维护者在发版提交中附带中文默认 + English 折叠的双语版，管线直接采用）；文件缺失时兜底跑 `node scripts/release-notes.mjs $TAG` 生成双视图草稿（把上一 tag 以来的**全部**常规提交——含合并进来的分支提交，不能只走 --first-parent，v0.1.15 曾因此漏掉整条 perf/refactor 分支——分组为新功能 / 修复 / 其他改动并链接 issue，中文默认视图与 English 折叠视图条目相同、均为原始提交主题）。发布前执行，失败即中止，不触碰 npm；
-5. `pnpm -r publish --no-git-checks --access public`（NPM_TOKEN 写入 ~/.npmrc，拓扑序发布，workspace:* 自动转真实版本；private 包由 pnpm 自动跳过——若某 private 包被聚合依赖引用，先解除引用或改为公开，否则全家桶安装 404）；
+5. `pnpm -r publish --no-git-checks --access public`（NPM_TOKEN 写入 ~/.npmrc，拓扑序发布，workspace:* 自动转真实版本；private 包由 pnpm 自动跳过——若某 private 包被聚合依赖引用，先解除引用或改为公开，否则全家桶安装 404），随后 `node scripts/verify-registry.mjs <tag版本>` 断言每个家族包的该版本都能从 registry 解析：pnpm 的逐包成功行不是信任边界，registry 传播会滞后数分钟（v0.3.18 实测约 10 分钟）甚至静默丢版本，而挂载冒烟的 auto 改写会用 workspace tarball 掩盖缺失的家族依赖；断言失败即中止，不进入 legacy 双发与 GitHub Release；
 6. 仅当仍处于迁移双发窗口、目标包已从 registry 验证可读且旧包该版本尚未占用时，运行 `node scripts/publish-legacy-aggregate.mjs <tag版本>` 发布旧聚合包 `@linxin666/dsh-web-ui-all`；脚本必须有窗口计数 / 跳过已发布版本的保护。窗口结束后不得继续发布旧包，改为执行一次 `npm deprecate @linxin666/dsh-web-ui-all "迁移到 @linxin666/dsh-web-all；详见该版本 Release notes"` 并核对 deprecation 元数据；
 7. `gh release create --notes-file` 创建 GitHub Release（notes 即第 4 步生成的内容）；Release 只保留 GitHub 自动源码归档，不附 npm tarball（与官方 DSH 一致，v0.2.4 起约定）。
 

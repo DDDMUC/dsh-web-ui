@@ -9,10 +9,25 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { InstalledPluginItem } from '../core/protocol.ts'
+import type { InstalledPluginChild, InstalledPluginItem } from '../core/protocol.ts'
 import type { LayerSnapshot } from '../core/patch-diff.ts'
 import { bareRowEnabled, bareRowId, claimedIdsOf, insertRowsOf, parsePatch } from './rows.ts'
 import { readProfileManifest, stripBom, type ProfileFacts } from './profile.ts'
+
+/**
+ * Entry rows that must never carry a disabled override: the manager tab
+ * itself (the UI performing the write), the family settings surface the tab
+ * injects into, and the aggregate compat face (disabling it unmounts the
+ * whole folded client bundle while host rows keep running — a half-dead
+ * page). Covers both the standalone and the aggregate row ids.
+ */
+export const LOCKED_ENTRY_IDS: ReadonlySet<string> = new Set([
+  'ui-plugin-manager',
+  'web-ui-plugin-manager',
+  'ui-web-ui-settings',
+  'web-ui-settings',
+  'web-ui-compat',
+])
 
 /** The listing result: plugin rows plus the raw layer snapshot for diffs. */
 export interface GatewaySnapshot {
@@ -108,9 +123,22 @@ export async function buildPluginRow(
       bundlePatch = '[]'
     }
   }
-  const claimed = claimedIdsOf(bundlePatch)
-  const entryIds = claimed.length > 0 ? claimed : [name]
+  const insertRows = insertRowsOf(bundlePatch)
+    .filter((row): row is { id: string; name?: string; plugin?: string } => row.id !== undefined)
+  const entryIds = insertRows.length > 0 ? insertRows.map(row => row.id) : [name]
   const enabled = entryIds.every(id => rowEnabled.get(id) ?? true)
+  // Aggregate packages claim one row per family plugin: expose them as
+  // individually switchable children (uninstall stays whole-package — the
+  // code ships in this one npm package). The display name prefers the real
+  // plugin package (shell config.plugin) over the per-family subpath name.
+  const children: InstalledPluginChild[] | undefined = insertRows.length > 1
+    ? insertRows.map(row => ({
+      id: row.id,
+      name: row.plugin ?? row.name ?? row.id,
+      enabled: rowEnabled.get(row.id) ?? true,
+      ...LOCKED_ENTRY_IDS.has(row.id) ? { locked: true } : {},
+    }))
+    : undefined
 
   return {
     id: name,
@@ -119,7 +147,30 @@ export async function buildPluginRow(
     source: { kind: sourceKindOf(spec), spec },
     installedAt: '',
     enabled,
+    ...children !== undefined ? { children } : {},
   }
+}
+
+/**
+ * Find the dependency whose bundle patch claims one entry id (row-level
+ * set-enabled target). Reads every dependency's bundle patch; profiles carry
+ * a handful of dependencies, so the scan is cheap and needs no index.
+ * @param facts - resolved profile locations.
+ * @param dependencies - profile dependency names.
+ * @param entryId - the claimed entry id to locate.
+ * @returns the owning dependency name and the claimed row, or undefined.
+ */
+export async function findRowOwner(
+  facts: ProfileFacts,
+  dependencies: readonly string[],
+  entryId: string,
+): Promise<{ packageName: string; row: { id: string; name: string } } | undefined> {
+  for (const name of dependencies) {
+    const rows = await claimedEntryRowsOf(facts, name)
+    const row = rows.find(candidate => candidate.id === entryId)
+    if (row !== undefined) return { packageName: name, row }
+  }
+  return undefined
 }
 
 /**
