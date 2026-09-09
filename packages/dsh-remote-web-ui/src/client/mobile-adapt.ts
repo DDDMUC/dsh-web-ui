@@ -62,6 +62,29 @@ const MODEL_BTN_ID = 'dshRemoteModelPick'
 const EFFORT_BTN_ID = 'dshRemoteEffortPick'
 /** Body class while the compact picker buttons are wired. */
 const COMPACT_CLASS = 'dsh-remote-compact-picker'
+/** Body class while the header actions are seated in the tabs row. */
+const HEADER_SEATED_CLASS = 'dsh-remote-header-seated'
+/**
+ * The official application frame. The layout column classes are the anchor:
+ * `_frame` is shared by unrelated official components (the chat turn rail,
+ * message-image thumbnails, the subagent pill, PlanReviewPanel), so a bare
+ * suffix match would restyle and hit-block those. `data-dsh-frame` is the
+ * aggregate compat stamp, kept as the fast path.
+ */
+const APP_FRAME_SELECTOR = '[data-dsh-frame], [class*="_frame"]:has([class*="_centerCol"])'
+
+/**
+ * The official composer surface. `_composerSeat` is the plugin's historical
+ * anchor; the official `data-dsh-surface="composer"` part attribute is the
+ * stable alternative if the class ever gains a modifier.
+ */
+const COMPOSER_SELECTOR = '[class$="_composerSeat"], [data-dsh-surface="composer"]'
+
+/** Resolve the official application frame (never a nested `_frame` surface). */
+function appFrame(): HTMLElement | null {
+  const frame = document.querySelector(APP_FRAME_SELECTOR)
+  return frame instanceof HTMLElement ? frame : null
+}
 
 /**
  * Whether the current viewport is a portrait touch device small enough to
@@ -84,7 +107,10 @@ function isMobilePortrait(): boolean {
 const ADAPT_CSS: readonly string[] = [
   'html,body{height:100%}',
   // The app frame fills the dynamic viewport (browser chrome collapse).
-  '[class$="_frame"]{width:100%;height:100dvh}',
+  // Scoped to the application frame: a bare [class$="_frame"] also matches the
+  // chat turn rail, message thumbnails, the subagent pill and PlanReviewPanel,
+  // stretching each to a full-width 100dvh pointer-events:auto block.
+  '[class*="_frame"]:has([class*="_centerCol"]){width:100%;height:100dvh}',
   // Collapsed rail: bigger touch targets.
   '[class$="_railFish"] button,[class$="_panelIcon"],[class$="_newSession"]{min-width:44px;min-height:44px}',
   // Message list padding on narrow screens.
@@ -96,8 +122,8 @@ const ADAPT_CSS: readonly string[] = [
   '[class$="_scrollBody"] [class$="_root"]{font-size:14.5px}',
   '[class$="_scrollBody"] [class$="_bubble"]{font-size:14.5px}',
   '[class$="_titleRow"] *{font-size:13px}',
-  '[class$="_sidebarCol"] [class$="_root"],[class$="_sidebarCol"] [class$="_newSession"],[class$="_sidebarCol"] [class$="_trigger"],[class$="_sidebarCol"] [class$="_title"]{font-size:13px}',
-  '[class$="_sidebarCol"] [class$="_meta"],[class$="_sidebarCol"] [class$="_time"]{font-size:11.5px}',
+  '[class*="_sidebarCol"] [class$="_root"],[class*="_sidebarCol"] [class$="_newSession"],[class*="_sidebarCol"] [class$="_trigger"],[class*="_sidebarCol"] [class$="_title"]{font-size:13px}',
+  '[class*="_sidebarCol"] [class$="_meta"],[class*="_sidebarCol"] [class$="_time"]{font-size:11.5px}',
   // v50: collapsed rail hidden; the whale button is the entry. The frame's
   // grid is inline-styled (56px rail track when collapsed); pin the first
   // track to 0 so content uses the full width. On portrait phones the
@@ -111,7 +137,7 @@ const ADAPT_CSS: readonly string[] = [
   // host overlay mounts). Pin every column to an explicit track so the
   // center always lands on the 1fr track regardless of the sidebar's
   // computed position.
-  '[class$="_frame"][data-sidebar-collapsed] [class$="_sidebarCol"]{grid-column:1/2}',
+  '[class$="_frame"][data-sidebar-collapsed] [class*="_sidebarCol"]{grid-column:1/2}',
   '[class$="_frame"][data-sidebar-collapsed] [class$="_centerCol"]{grid-column:2/3}',
   '[class$="_frame"][data-sidebar-collapsed] [class$="_detailsCol"]{grid-column:3/4}',
   // Keep the chat header title clear of the floating whale.
@@ -125,13 +151,13 @@ const ADAPT_CSS: readonly string[] = [
   // carries two classes, so match by containment); v47's panelIcon touch
   // rule forces a 44px min on the icon itself — zero it out so the 13px
   // glyph fits the 18px button.
-  '[class$="_sidebarCol"] [class$="_logoRow"] [class*="_iconButton"]{width:18px;height:18px}',
-  '[class$="_sidebarCol"] [class$="_logoRow"] [class*="_iconButton"] svg{width:13px;height:13px;min-width:0;min-height:0}',
+  '[class*="_sidebarCol"] [class$="_logoRow"] [class*="_iconButton"]{width:18px;height:18px}',
+  '[class*="_sidebarCol"] [class$="_logoRow"] [class*="_iconButton"] svg{width:13px;height:13px;min-width:0;min-height:0}',
   // v77: workspace rows' right-side actions (menu + new session) are
   // hover-only on desktop; always show them on mobile touch.
-  '[class$="_sidebarCol"] [class$="_projectRow"] [class$="_rowActions"]{display:inline-flex}',
+  '[class*="_sidebarCol"] [class*="_projectRow"] [class*="_rowActions"]{display:inline-flex}',
   // v78: mobile long-press on a row must not start native drag.
-  '[class$="_sidebarCol"] [class$="_sessionRow"],[class$="_sidebarCol"] [class$="_projectRow"]{-webkit-user-drag:none;user-select:none}',
+  '[class*="_sidebarCol"] [class*="_sessionRow"],[class*="_sidebarCol"] [class*="_projectRow"]{-webkit-user-drag:none;user-select:none}',
   // Hide the header Session-log download button (no space on phones).
   '[class$="_headerUtilities"]{display:none}',
   // v52 composer: the two lines (permission / model) stay stacked with zero
@@ -211,11 +237,12 @@ const ADAPT_CSS: readonly string[] = [
   // v67: header actions (agent-preset mode label + background-task badge)
   // are re-seated from the title row into the tabs row; hidden in the
   // original spot so React re-renders do not flicker them back.
-  '[class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{display:none}',
-  // The official header keeps a 78px right padding on phones; stretch the
-  // tabs row so the seated actions sit flush against the right edge
-  // (verified 360/390/480 on the reference).
-  '[class$="_header"] [class$="_tabs"]{margin-right:-58px}',
+  // Only while a seat exists (the tabs row renders for multi-tab sessions).
+  `body.${HEADER_SEATED_CLASS} [class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{display:none}`,
+  // The seated actions are aligned to the header's right content edge by a
+  // runtime measurement (alignActionsText); the static value is only the
+  // first-paint guess for the widest supported phone.
+  '[class$="_header"] [class$="_tabs"]{margin-right:-8px}',
   // v70: match the tab text size with the seated mode label (12px); NB
   // [class$="_tab"] misses the active tab (its class ends in "_tabActive")
   // — containment so BOTH tabs match.
@@ -352,6 +379,7 @@ export function startMobileAdapt(): void {
     if (!active) return
     active = false
     unseatHeaderActions()
+    restoreRowDrag()
     removeCompactPicker()
     document.body.classList.remove(ACTIVE_CLASS)
     document.body.classList.remove(RAIL_HIDDEN_CLASS)
@@ -454,26 +482,65 @@ export function startMobileAdapt(): void {
     document.body.classList.add(COMPACT_CLASS)
   }
   /**
-   * Toggle the sidebar through the wired layout face, then verify the flip:
-   * the official LayoutController can be mounted yet inert (its bound store
-   * actions race the root entry on this cohort — observed on the running
-   * local build, where the face call silently did nothing and the whale
-   * was dead). When the frame state did not change shortly after the call,
-   * drive the official rail/logo toggle instead: that button owns its own
-   * store actions and flips the same state on every cohort we support.
+   * The official sidebar toggle in the logo row. The row's own `_toggle` class
+   * is the precise anchor; the row's last button is the fallback for cohorts
+   * that only expose the generic icon-button class (the first button is the
+   * brand, which navigates home — never click that one). `_railFish` is kept
+   * for older compositions that carried a rail fish button.
+   */
+  function officialSidebarToggle(): HTMLElement | null {
+    const rail = document.querySelector('[class$="_railFish"] button')
+    if (rail instanceof HTMLElement) return rail
+    const row = document.querySelector('[class$="_logoRow"]')
+    if (row === null) return null
+    const toggles = row.querySelectorAll('button[class*="_toggle"]')
+    const last = toggles.length > 0 ? toggles[toggles.length - 1] : row.querySelectorAll('button')[row.querySelectorAll('button').length - 1]
+    return last instanceof HTMLElement ? last : null
+  }
+  /**
+   * Toggle the sidebar through the official rail/logo toggle first, then
+   * verify the flip and fall back to the wired layout face.
+   *
+   * The order is evidence-driven: the official toggle owns its own store
+   * actions and flips the state on every cohort we support, while the wired
+   * LayoutController is mounted yet inert on the installed cohort — calling it
+   * left `data-sidebar-collapsed` untouched for the whole 800ms observation
+   * window, so face-first made every whale tap wait out the verification
+   * delay before anything moved. The face stays the fallback for compositions
+   * that render no logo-row toggle, and it is only called after the toggle
+   * demonstrably failed, so the two can never cancel each other out.
    */
   function toggleSidebarVerified(): void {
-    const frame = document.querySelector('[class$="_frame"]')
-    const collapsedBefore = frame instanceof HTMLElement ? frame.hasAttribute('data-sidebar-collapsed') : null
-    w.__dshRemoteAdapt?.toggleSidebar?.()
-    if (collapsedBefore === null) return
-    window.setTimeout(() => {
+    const frame = appFrame()
+    const collapsedBefore = frame !== null ? frame.hasAttribute('data-sidebar-collapsed') : null
+    const face = w.__dshRemoteAdapt?.toggleSidebar
+    const callFace = (): void => {
+      if (typeof face !== 'function') return
+      try { face() } catch {}
+    }
+    const toggle = officialSidebarToggle()
+    if (collapsedBefore === null || toggle === null) {
+      // No frame to verify against, or no official toggle: the face is the
+      // only available control.
+      if (toggle !== null) toggle.click()
+      else callFace()
+      return
+    }
+    toggle.click()
+    let tries = 0
+    const verify = (): void => {
       if (!active) return
-      const frameNow = document.querySelector('[class$="_frame"]')
-      if (!(frameNow instanceof HTMLElement)) return
+      const frameNow = appFrame()
+      if (frameNow === null) return
       if (frameNow.hasAttribute('data-sidebar-collapsed') !== collapsedBefore) return
-      ;(document.querySelector('[class$="_railFish"] button, [class$="_logoRow"] [class*="_iconButton"]') as HTMLElement | null)?.click()
-    }, 150)
+      tries += 1
+      if (tries < 2) {
+        window.setTimeout(verify, 120)
+        return
+      }
+      callFace()
+    }
+    window.setTimeout(verify, 120)
   }
   function ensureWhale(): void {
     if (whaleEl !== null || !document.body) return
@@ -503,12 +570,12 @@ export function startMobileAdapt(): void {
       // the keyboard (iOS) or keeps it open. Blur at pointerdown (before the
       // tap completes; click is too late for iOS) and block pending
       // programmatic refocus.
-      if (active) {
-        const ta = document.querySelector('[class$="_composerSeat"] textarea, [class$="_composerSeat"] input')
-        if (ta !== null && document.activeElement === ta) {
-          (ta as HTMLElement).blur()
-          lastComposerTap = 0
-        }
+      if (active && isComposerField(document.activeElement)) {
+        // The composer field is a contenteditable div (the official client
+        // renders no textarea), so the old textarea/input lookup never matched
+        // it while a bare `input` branch could blur an unrelated field.
+        document.activeElement.blur()
+        lastComposerTap = 0
       }
       drag = { x: e.clientX, y: e.clientY, left: whale.offsetLeft, top: whale.offsetTop, moved: false }
       try { whale.setPointerCapture(e.pointerId) } catch {}
@@ -535,9 +602,29 @@ export function startMobileAdapt(): void {
       } catch {}
     }
     whale.addEventListener('pointerup', endWhaleDrag)
-    whale.addEventListener('pointercancel', endWhaleDrag)
+    // A cancelled pointer (system gesture, incoming call) is not a drag end:
+    // keep the click un-suppressed so the next real tap still toggles.
+    whale.addEventListener('pointercancel', () => {
+      drag = null
+      whaleSuppressClick = false
+    })
     whaleEl = whale
     document.body.appendChild(whale)
+  }
+
+  /**
+   * Restore the official draggable state this layer overrode while active.
+   * Rows are React-owned and may have been re-created meanwhile, so only the
+   * tracked elements are touched; a detached element is skipped.
+   */
+  function restoreRowDrag(): void {
+    if (dragOverridden.size === 0) return
+    for (const [row, original] of dragOverridden) {
+      if (!row.isConnected) continue
+      if (original === null) row.removeAttribute('draggable')
+      else row.setAttribute('draggable', original)
+    }
+    dragOverridden.clear()
   }
 
   /** Restore a dragged position when the whale becomes visible again. */
@@ -562,11 +649,16 @@ export function startMobileAdapt(): void {
   // reordering; a long-press would start native drag instead of our action
   // menu. Force them non-draggable while the adapt is active (React may
   // re-create rows, so re-apply on the sync tick).
+  /** Rows whose official draggable state this layer overrode (restored on revert). */
+  const dragOverridden = new Map<Element, string | null>()
   function disableRowDrag(): void {
     if (!active) return
-    const rows = document.querySelectorAll('[class$="_sidebarCol"] [class$="_sessionRow"], [class$="_sidebarCol"] [class$="_projectRow"]')
+    const rows = document.querySelectorAll('[class*="_sidebarCol"] [class*="_sessionRow"], [class*="_sidebarCol"] [class*="_projectRow"]')
     for (const row of rows) {
-      if (row.getAttribute('draggable') !== 'false') row.setAttribute('draggable', 'false')
+      if (row.getAttribute('draggable') !== 'false') {
+        if (!dragOverridden.has(row)) dragOverridden.set(row, row.getAttribute('draggable'))
+        row.setAttribute('draggable', 'false')
+      }
     }
   }
 
@@ -579,7 +671,7 @@ export function startMobileAdapt(): void {
       whaleEl.style.display = 'none'
       return
     }
-    const collapsed = document.querySelector('[class$="_frame"][data-sidebar-collapsed]') !== null
+    const collapsed = appFrame()?.hasAttribute('data-sidebar-collapsed') === true
     const overlayUp = document.querySelector('[class$="_overlay"]') !== null
     const show = collapsed && !overlayUp
     // Restore on every hidden-to-shown transition — including the very
@@ -602,7 +694,9 @@ export function startMobileAdapt(): void {
   // v67: on mobile the header actions (agent-preset mode label + background
   // task badge) move from the title row into the tabs row. React re-creates
   // the node in its original spot on re-render, so the interval re-seats it;
-  // stale seated copies are removed first.
+  // stale seated copies are removed first. The original spot is only hidden
+  // while a seat actually exists: the tabs row renders only for multi-tab
+  // sessions, and hiding the actions without a seat target made them vanish.
   function seatHeaderActions(): void {
     if (!active) return
     const tabs = document.querySelector('[class$="_header"] [class$="_tabs"]')
@@ -614,6 +708,7 @@ export function startMobileAdapt(): void {
       seated?.remove()
       tabs.appendChild(fresh)
     }
+    document.body.classList.toggle(HEADER_SEATED_CLASS, tabs !== null && tabs.querySelector(':scope > [class$="_headerActions"]') !== null)
   }
 
   // Align the mode/badge text bottom edge with the tab text. The tabs row
@@ -649,16 +744,36 @@ export function startMobileAdapt(): void {
       const b = textBottom(actions.querySelector(sel))
       if (b !== null && (maxBottom === null || b - cur > maxBottom)) maxBottom = b - cur
     }
-    if (maxBottom === null) return
-    const delta = Math.round((tabBottom - maxBottom) * 10) / 10
-    if (Math.abs(delta) < 0.5) {
-      if ((actions as HTMLElement).style.transform !== '') (actions as HTMLElement).style.transform = ''
-      return
+    if (maxBottom !== null) {
+      const delta = Math.round((tabBottom - maxBottom) * 10) / 10
+      if (Math.abs(delta) < 0.5) {
+        if ((actions as HTMLElement).style.transform !== '') (actions as HTMLElement).style.transform = ''
+      } else {
+        ;(actions as HTMLElement).style.transform = `translateY(${delta}px)`
+      }
     }
-    ;(actions as HTMLElement).style.transform = `translateY(${delta}px)`
+    // Keep the seated actions inside the header: the official right padding
+    // differs per cohort/viewport, so a fixed negative margin either clips the
+    // mode label off the viewport or leaves a gap. Measure and converge (the
+    // effective margin is read back each tick, so one correction lands it).
+    const header = document.querySelector('[class$="_header"]')
+    if (header instanceof HTMLElement) {
+      const headerRect = header.getBoundingClientRect()
+      const padRight = parseFloat(getComputedStyle(header).paddingRight)
+      const desiredRight = headerRect.right - (Number.isFinite(padRight) ? padRight : 0)
+      const actionsRect = actions.getBoundingClientRect()
+      const diff = desiredRight - actionsRect.right
+      if (Math.abs(diff) >= 0.5) {
+        const tabsEl = tabs as HTMLElement
+        const effective = parseFloat(getComputedStyle(tabsEl).marginRight)
+        const next = Math.round(((Number.isFinite(effective) ? effective : 0) + diff) * 10) / 10
+        tabsEl.style.marginRight = `${next}px`
+      }
+    }
   }
 
   function unseatHeaderActions(): void {
+    document.body.classList.remove(HEADER_SEATED_CLASS)
     const tabs = document.querySelector('[class$="_header"] [class$="_tabs"]')
     const seated = tabs !== null ? tabs.querySelector(':scope > [class$="_headerActions"]') : null
     const wrap = document.querySelector('[class$="_titleCluster"] > div')
@@ -666,6 +781,7 @@ export function startMobileAdapt(): void {
       if (wrap !== null) wrap.appendChild(seated)
       else seated.remove()
     }
+    if (tabs instanceof HTMLElement) tabs.style.marginRight = ''
   }
 
   function ensureWhaleObserver(): void {
@@ -695,13 +811,16 @@ export function startMobileAdapt(): void {
 
   // v51: Enter only inserts a newline on mobile (send goes through the send
   // button). Captured at document level so the official Enter-to-send
-  // handler never sees the event.
+  // handler never sees the event. The rewrite is scoped to the composer:
+  // `_input` is also the class of the settings, plugin and agent-preset text
+  // fields, where swallowing Enter and inserting a newline into a single-line
+  // input left the key dead.
   function onKeydownCapture(e: KeyboardEvent): void {
     if (!active) return
     if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return
     const t = e.target
     if (!(t instanceof HTMLElement)) return
-    if (t.closest('[class$="_input"]') === null) return
+    if (composerFieldOf(t) === null) return
     // keyCode 229 is the classic IME-confirm signal (Safari fires
     // compositionend before the Enter keydown) — never treat it as a
     // plain newline.
@@ -721,11 +840,11 @@ export function startMobileAdapt(): void {
   // the whale excluded).
   function onClickCapture(e: MouseEvent): void {
     if (!active) return
-    const frame = document.querySelector('[class$="_frame"]')
+    const frame = appFrame()
     if (frame === null || frame.hasAttribute('data-sidebar-collapsed')) return
     const t = e.target
     if (!(t instanceof Element)) return
-    if (t.closest('[class$="_sidebarCol"]') !== null) {
+    if (t.closest('[class*="_sidebarCol"]') !== null) {
       // v68: opening settings also folds the sidebar so the modal closes
       // back into a clean conversation view. Clicks on the session
       // row-actions ellipsis (or its opened menu anchor) must NOT collapse
@@ -734,15 +853,15 @@ export function startMobileAdapt(): void {
       // button also folds.
       const topNewSessionClicked = t.closest('[class$="_newSession"], [class$="_brand"]') !== null
       let projectNewSessionClicked = false
-      const projectActions = t.closest('[class$="_projectRow"] [class$="_rowActions"]')
+      const projectActions = t.closest('[class*="_projectRow"] [class*="_rowActions"]')
       if (projectActions !== null) {
         const btn = t.closest('button')
         const btns = projectActions.querySelectorAll('button')
         projectNewSessionClicked = btn !== null && btns.length > 0 && btn === btns[btns.length - 1]
       }
       let shouldCollapse = false
-      if (t.closest('[class$="_sessionRow"]') !== null) {
-        shouldCollapse = t.closest('[class$="_rowActions"]') === null
+      if (t.closest('[class*="_sessionRow"]') !== null) {
+        shouldCollapse = t.closest('[class*="_rowActions"]') === null
       } else if (t.closest('[class$="_settingsArea"]') !== null || topNewSessionClicked || projectNewSessionClicked) {
         shouldCollapse = true
       }
@@ -769,8 +888,15 @@ export function startMobileAdapt(): void {
   }
   document.addEventListener('touchstart', (e) => {
     if (!active) return
+    // Multi-finger touches are never a swipe: a pinch that happens to end with
+    // >60px of horizontal finger travel would otherwise toggle the sidebar.
+    if (e.touches.length > 1) {
+      swipeTouch = null
+      return
+    }
     const t = e.target
-    if (t instanceof Element && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.closest(`#${WHALE_ID}`) !== null || insideHScrollable(t) || t.closest('table, [class$="_table"], [class$="_tablePane"]') !== null)) {
+    const editable = t instanceof HTMLElement && t.isContentEditable
+    if (t instanceof Element && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || editable || t.closest(`#${WHALE_ID}`) !== null || insideHScrollable(t) || t.closest('table, [class$="_table"], [class$="_tablePane"]') !== null)) {
       swipeTouch = null
       return
     }
@@ -780,6 +906,8 @@ export function startMobileAdapt(): void {
   }, { capture: true, passive: true })
   document.addEventListener('touchend', (e) => {
     if (swipeTouch === null) return
+    // Still more than one finger down: a pinch is in progress, not a swipe.
+    if (e.touches.length > 0) return
     const ct = e.changedTouches[0]
     if (ct === undefined || ct.identifier !== swipeTouch.id) return
     const dx = ct.clientX - swipeTouch.x
@@ -787,7 +915,7 @@ export function startMobileAdapt(): void {
     swipeTouch = null
     if (!active) return
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-    const frame = document.querySelector('[class$="_frame"]')
+    const frame = appFrame()
     if (frame === null) return
     if (document.querySelector('[class$="_overlay"], [class$="_dialog"], [class$="_menu"], [class*="_portal"]') !== null) return
     const collapsed = frame.hasAttribute('data-sidebar-collapsed')
@@ -816,7 +944,7 @@ export function startMobileAdapt(): void {
   }
 
   function openSessionMenu(row: Element): void {
-    const actions = row.querySelector('[class$="_rowActions"]')
+    const actions = row.querySelector('[class*="_rowActions"]')
     const btn = actions?.querySelector('button')
     if (actions === null || btn === null) return
     // The official row hides actions until hover/menuOpen; force the anchor
@@ -836,8 +964,8 @@ export function startMobileAdapt(): void {
       clearLongPress()
       return
     }
-    const row = t.closest('[class$="_sessionRow"]')
-    if (row === null || t.closest('[class$="_rowActions"]') !== null) {
+    const row = t.closest('[class*="_sessionRow"]')
+    if (row === null || t.closest('[class*="_rowActions"]') !== null) {
       clearLongPress()
       return
     }
@@ -895,7 +1023,7 @@ export function startMobileAdapt(): void {
     if (!active) return
     const t = e.target
     if (!(t instanceof Element)) return
-    if (t.closest('[class$="_sessionRow"]') !== null && ((longPress !== null && longPress.triggered) || Date.now() <= suppressSessionClickUntil)) {
+    if (t.closest('[class*="_sessionRow"]') !== null && ((longPress !== null && longPress.triggered) || Date.now() <= suppressSessionClickUntil)) {
       e.preventDefault()
     }
   }, true)
@@ -904,26 +1032,39 @@ export function startMobileAdapt(): void {
   document.addEventListener('pointerleave', (e) => {
     if (!active || Date.now() > longPressMenuGuardUntil) return
     const t = e.target
-    if (t instanceof Element && (t.closest('[class$="_rowActions"]') !== null || t.closest('[class$="_sessionRow"]') !== null || t.closest('[class$="_projectRow"]') !== null)) {
+    if (t instanceof Element && (t.closest('[class*="_rowActions"]') !== null || t.closest('[class*="_sessionRow"]') !== null || t.closest('[class*="_projectRow"]') !== null)) {
       e.stopPropagation()
     }
   }, true)
 
-  // Intercept programmatic .focus() on the composer input: the official
-  // conversation component focuses it on mount and on session changes;
-  // user taps focus it through the browser's own pipeline. Only allow
-  // composer focus that follows a real tap on the input itself.
+  // Intercept programmatic .focus() on the composer field: the official
+  // conversation component focuses it on mount and on session changes; user
+  // taps focus it through the browser's own pipeline. Only allow composer
+  // focus that follows a real tap on the field itself. The composer field is
+  // the official contenteditable input root (`data-composer-input`) on this
+  // cohort — matching only textarea/input missed it entirely, so every session
+  // open popped the phone keyboard. The queue-row editor input is deliberately
+  // NOT a composer field: its autoFocus must keep working.
+  const isComposerField = (el: Element | null): el is HTMLElement => {
+    if (!(el instanceof HTMLElement)) return false
+    if (el.closest(COMPOSER_SELECTOR) === null) return false
+    if (el.matches('[data-composer-input]')) return true
+    if (el.tagName === 'TEXTAREA') return true
+    return el.tagName === 'INPUT' && el.matches('[class*="_input"]')
+  }
+  /** The composer field that owns an event target, if any. */
+  const composerFieldOf = (target: EventTarget | null): HTMLElement | null => {
+    const el = target instanceof Element ? target.closest('[data-composer-input], [class*="_input"], textarea') : null
+    return isComposerField(el) ? el : null
+  }
   const lanOrigFocus = HTMLElement.prototype.focus
   HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions): void {
-    if (active && (this.tagName === 'TEXTAREA' || this.tagName === 'INPUT') && this.closest('[class$="_composerSeat"]') !== null && Date.now() - lastComposerTap >= 800) {
-      return
-    }
+    if (active && isComposerField(this) && Date.now() - lastComposerTap >= 800) return
     lanOrigFocus.call(this, options)
   }
   document.addEventListener('pointerdown', (e) => {
     if (!active) return
-    const t = e.target
-    if (t instanceof Element && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT') && t.closest('[class$="_composerSeat"]') !== null) lastComposerTap = Date.now()
+    if (composerFieldOf(e.target) !== null) lastComposerTap = Date.now()
   }, true)
 
   // The plugin apply() wires toggleSidebar/closeDetails to ctx.layout once

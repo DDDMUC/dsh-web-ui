@@ -12685,7 +12685,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-remote-web-ui/src/client/remote.module.css.mjs
-		const css$16 = ".fThDlq_overlay{z-index:1000;justify-content:center;align-items:center;display:flex;position:fixed;inset:0}.fThDlq_mask{background:var(--dsw-alias-bg-mask-1);backdrop-filter:var(--dsw-mask-blur);position:absolute;inset:0}.fThDlq_trigger{width:36px;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:50%;flex:none;justify-content:center;align-items:center;padding:0;transition:background-color .12s,color .12s,box-shadow .12s;display:inline-flex;position:relative}.fThDlq_trigger[data-update-available]{color:var(--dsw-alias-brand-primary)}.fThDlq_trigger[data-update-available]:after{box-sizing:border-box;border:2px solid var(--dsw-alias-bg-layer-1);background:var(--dsw-alias-brand-primary);content:\"\";pointer-events:none;border-radius:50%;width:8px;height:8px;position:absolute;top:4px;right:4px}.fThDlq_trigger[data-wide=wide]{border-radius:999px;flex:auto;justify-content:flex-start;gap:8px;width:auto;min-width:0;padding:0 10px}.fThDlq_trigger[data-update-available][data-wide=wide]{flex:none;gap:6px}.fThDlq_trigger[data-update-available][data-wide=wide]:after{display:none}.fThDlq_updateBadgeText{white-space:nowrap;font-size:13px;font-weight:500;line-height:1}.fThDlq_trigger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.fThDlq_trigger:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}.fThDlq_trigger:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);outline:none}.fThDlq_trigger:disabled{opacity:.5;cursor:default}.fThDlq_panel{z-index:1;box-sizing:border-box;background:var(--dsw-alias-bg-layer-2);width:560px;max-width:calc(100vw - 48px);max-height:calc(100vh - 48px);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-primary);border-radius:24px;flex-direction:column;gap:14px;padding:24px;font-size:14px;line-height:22px;display:flex;position:relative;overflow:auto}.fThDlq_header{align-items:flex-start;gap:12px;display:flex}.fThDlq_heading{flex:1;min-width:0}.fThDlq_title{margin:0;font-size:18px;font-weight:600;line-height:26px}.fThDlq_subtitle{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:13px}.fThDlq_close{width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:50%;flex:none;justify-content:center;align-items:center;padding:0;transition:background-color .12s,color .12s,box-shadow .12s;display:inline-flex}.fThDlq_close:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_close:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}.fThDlq_close:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);outline:none}.fThDlq_close:disabled{opacity:.5;cursor:default}.fThDlq_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:16px;flex-direction:column;align-items:center;gap:12px;padding:16px;display:flex}.fThDlq_cardHeader{justify-content:space-between;align-items:center;gap:12px;width:100%;display:flex}.fThDlq_cardTitle{font-weight:500}.fThDlq_badge{white-space:nowrap;border-radius:999px;flex:none;align-items:center;gap:6px;min-width:0;padding:2px 10px;font-size:12px;line-height:18px;display:inline-flex}.fThDlq_badge:before{content:\"\";background:currentColor;border-radius:50%;width:8px;height:8px}.fThDlq_badge-waiting{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badge-connected{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badge-disconnected{color:var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badge-stopped{color:var(--dsw-alias-state-error-primary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badgePublic{color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badges{flex:none;align-items:center;gap:6px;display:inline-flex}.fThDlq_qrWrap{background:var(--dsw-alias-bg-base);border-radius:12px;justify-content:center;align-items:center;padding:12px;display:flex}.fThDlq_qr{display:block}.fThDlq_expired{color:var(--dsw-alias-state-error-primary);margin:0;font-size:13px}.fThDlq_expiry{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px}.fThDlq_hint{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px}.fThDlq_link{text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-caption);font-family:var(--dsw-font-mono,ui-monospace, monospace);margin:0;font-size:12px;display:block;overflow:hidden}.fThDlq_pairLinks{flex-direction:column;gap:8px;display:flex}.fThDlq_pairLinkRow{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:10px;align-items:center;gap:10px;min-width:0;padding:10px 12px;display:flex}.fThDlq_pairLinkText{flex:1;min-width:0}.fThDlq_pairLinkLabel{color:var(--dsw-alias-label-secondary);margin-bottom:3px;font-size:12px;display:block}.fThDlq_copyLink{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-button-elevated-fill);min-height:30px;color:var(--dsw-alias-label-primary);cursor:pointer;border-radius:8px;flex:none;align-items:center;gap:5px;padding:0 10px;display:inline-flex}.fThDlq_oneTimeHint{color:var(--dsw-alias-label-caption);margin:0;font-size:12px}.fThDlq_stoppedHint{color:var(--dsw-alias-state-error-primary);margin:0;font-size:13px}.fThDlq_tunnelNote{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px}.fThDlq_tunnelFailed{color:var(--dsw-alias-state-error-primary);margin:0;font-size:13px}.fThDlq_actions{gap:8px;display:flex}.fThDlq_action{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-button-elevated-fill);height:34px;color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;border-radius:10px;justify-content:center;align-items:center;gap:6px;padding:0 14px;font-size:13px;transition:background-color .12s,border-color .12s,box-shadow .12s;display:inline-flex}.fThDlq_action:hover:not(:disabled){background:var(--dsw-alias-button-floating-hover)}.fThDlq_action:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}.fThDlq_action:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);outline:none}.fThDlq_action:disabled{opacity:.5;cursor:default}.fThDlq_banner{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:16px;padding:16px}.fThDlq_bannerTitle{color:var(--dsw-alias-state-warn-primary);margin:0;font-weight:500}.fThDlq_bannerHint{color:var(--dsw-alias-label-secondary);margin:6px 0 0;font-size:13px}.fThDlq_fencePage{z-index:2000;box-sizing:border-box;background:var(--dsw-alias-bg-base);text-align:center;flex-direction:column;justify-content:center;align-items:center;padding:40px 24px;display:flex;position:fixed;inset:0;overflow:auto}.fThDlq_fenceCard{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:min(520px,100%);box-shadow:var(--dsw-shadow-lv3);text-align:center;border-radius:20px;margin-inline:auto;padding:36px 40px}.fThDlq_fenceMark{background:var(--dsw-alias-state-error-secondary);width:44px;height:44px;color:var(--dsw-alias-state-error-primary);border-radius:50%;place-items:center;margin-inline:auto;font-size:24px;line-height:1;display:grid}.fThDlq_fenceEyebrow{color:var(--dsw-alias-state-error-primary);margin:22px 0 8px;font-size:13px;font-weight:600}.fThDlq_fenceTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:24px;line-height:1.35}.fThDlq_fenceDetail{color:var(--dsw-alias-label-secondary);margin:12px 0 0;font-size:14px;line-height:1.65}.fThDlq_fenceSteps{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);text-align:left;border-radius:12px;margin:24px auto 0;padding:20px 20px 20px 42px;font-size:14px;line-height:1.65}.fThDlq_fenceSteps li+li{margin-top:8px}.fThDlq_fenceForm{width:100%;margin-top:20px}.fThDlq_fenceInputRow{gap:8px;width:100%;display:flex}.fThDlq_fenceInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);min-width:0;color:var(--dsw-alias-label-primary);font:inherit;border-radius:10px;flex:1;padding:10px 14px;font-size:13px;transition:border-color .12s,box-shadow .12s}.fThDlq_fenceInput:focus{border-color:var(--dsw-alias-brand-primary);outline:none;box-shadow:0 0 0 2px #0066ff26}.fThDlq_fencePairButton{border:1px solid var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary);color:#fff;font:inherit;cursor:pointer;border-radius:10px;flex-shrink:0;padding:10px 18px;font-size:13px;font-weight:500;transition:filter .12s,opacity .12s}.fThDlq_fencePairButton:hover:not(:disabled){filter:brightness(.96)}.fThDlq_fencePairButton:disabled{opacity:.55;cursor:not-allowed}.fThDlq_fencePairButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.fThDlq_fenceError{color:var(--dsw-alias-state-error-primary);text-align:left;margin:10px 0 0;font-size:13px;line-height:1.4}.fThDlq_fenceRetry{border:1px solid var(--dsw-alias-border-l2);width:100%;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border-radius:10px;margin-top:12px;padding:10px 16px;font-weight:500;transition:background-color .12s,color .12s}.fThDlq_fenceRetry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.fThDlq_fenceRetry:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:3px}.fThDlq_fenceFootnote{color:var(--dsw-alias-label-tertiary);margin:14px 0 0;font-size:12px;line-height:1.55}.fThDlq_addresses{border:none;margin:12px 0 0;padding:0}.fThDlq_addresses legend{color:var(--dsw-alias-label-secondary);padding:0;font-size:13px}.fThDlq_address{color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums;cursor:pointer;border-radius:6px;align-items:center;gap:8px;margin-top:6px;padding:4px 6px;font-size:13px;transition:background-color .12s;display:flex}.fThDlq_address:hover{background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_address input:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);border-radius:50%;outline:none}.fThDlq_addressValue{text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--dsw-alias-label-secondary);flex:1;font-size:12px;overflow:hidden}.fThDlq_addressHint{color:var(--dsw-alias-label-tertiary);margin:6px 0 0;font-size:12px}.fThDlq_devices{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:16px;flex-direction:column;gap:8px;padding:12px 16px 14px;display:flex}.fThDlq_devicesTitle{margin:0;font-size:13px;font-weight:500;line-height:20px}.fThDlq_devicesEmpty{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px}.fThDlq_deviceList{flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;display:flex}.fThDlq_deviceRow{justify-content:space-between;align-items:flex-start;gap:12px;display:flex}.fThDlq_deviceMeta{flex-direction:column;gap:2px;min-width:0;display:flex}.fThDlq_deviceName{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;overflow:hidden}.fThDlq_devicePresence{font-size:12px;line-height:18px}.fThDlq_deviceOnline{color:var(--dsw-alias-state-success-primary)}.fThDlq_deviceOffline{color:var(--dsw-alias-label-secondary)}.fThDlq_deviceSeen{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;font-size:12px}.fThDlq_deviceRevoke{color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:8px;flex:none;padding:6px 10px;font-size:12px;transition:background-color .12s,color .12s}.fThDlq_deviceRevoke:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.fThDlq_deviceRevoke:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);outline:none}@media (prefers-reduced-motion:reduce){.fThDlq_trigger,.fThDlq_close,.fThDlq_action,.fThDlq_address,.fThDlq_deviceRevoke{transition:none}}.fThDlq_entryRow{flex:none;align-items:center;gap:6px;min-width:0;display:flex}.fThDlq_entryRow[data-rail=rail]{flex-direction:column-reverse;gap:4px}.fThDlq_updateStatus{margin:0;font-weight:600}.fThDlq_updateDetail{color:var(--dsw-alias-label-secondary);margin:6px 0 0;font-size:13px}.fThDlq_updateError{color:var(--dsw-alias-text-danger,var(--dsw-alias-label-primary));margin:0;font-weight:600}.fThDlq_updateOutput{background:var(--dsw-alias-bg-layer-1);max-height:180px;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;word-break:break-all;border-radius:10px;margin:10px 0 0;padding:10px 12px;font-size:12px;line-height:18px;overflow:auto}.fThDlq_updateList{flex-direction:column;gap:6px;margin:12px 0 0;padding:0;list-style:none;display:flex}.fThDlq_updateListItem{justify-content:space-between;align-items:baseline;gap:12px;font-size:13px;display:flex}.fThDlq_updateListName{text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--dsw-alias-label-primary);overflow:hidden}.fThDlq_updateListVersions{color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;flex:none}.fThDlq_updateNotes{margin-top:14px}.fThDlq_updateNotesTitle{margin:0 0 8px;font-size:14px;font-weight:600}.fThDlq_updateNoteSection{flex-direction:column;gap:4px;margin-top:10px;display:flex}.fThDlq_updateNoteHeading{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.fThDlq_updateNoteList{flex-direction:column;gap:4px;margin:0;padding-left:18px;font-size:13px;display:flex}.fThDlq_updateNoteItem{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere}.fThDlq_updateVersions{margin-top:12px}.fThDlq_updateVersionsSummary{cursor:pointer;color:var(--dsw-alias-label-secondary);user-select:none;font-size:12px}.fThDlq_updateActions{justify-content:flex-end;margin-top:16px;display:flex}.fThDlq_updateRetry{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:10px;align-items:center;gap:6px;padding:8px 14px;font-size:13px;transition:background-color .12s,color .12s;display:inline-flex}.fThDlq_updateRetry:hover{background:var(--dsw-alias-interactive-bg-active)}@media (prefers-reduced-motion:reduce){.fThDlq_updateRetry{transition:none}}";
+		const css$16 = ".fThDlq_overlay{z-index:1000;justify-content:center;align-items:center;display:flex;position:fixed;inset:0}.fThDlq_mask{background:var(--dsw-alias-bg-mask-1);backdrop-filter:var(--dsw-mask-blur);position:absolute;inset:0}.fThDlq_trigger{width:36px;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:50%;flex:none;justify-content:center;align-items:center;padding:0;transition:background-color .12s,color .12s,box-shadow .12s;display:inline-flex;position:relative}.fThDlq_trigger[data-update-available]{color:var(--dsw-alias-brand-primary)}.fThDlq_trigger[data-update-available]:after{box-sizing:border-box;border:2px solid var(--dsw-alias-bg-layer-1);background:var(--dsw-alias-brand-primary);content:\"\";pointer-events:none;border-radius:50%;width:8px;height:8px;position:absolute;top:4px;right:4px}.fThDlq_trigger[data-wide=wide]{border-radius:999px;flex:auto;justify-content:flex-start;gap:8px;width:auto;min-width:0;padding:0 10px}.fThDlq_trigger[data-update-available][data-wide=wide]{flex:none;gap:6px}.fThDlq_trigger[data-update-available][data-wide=wide]:after{display:none}.fThDlq_updateBadgeText{white-space:nowrap;font-size:13px;font-weight:500;line-height:1}.fThDlq_trigger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.fThDlq_trigger:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}.fThDlq_trigger:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);outline:none}.fThDlq_trigger:disabled{opacity:.5;cursor:default}.fThDlq_panel{z-index:1;box-sizing:border-box;background:var(--dsw-alias-bg-layer-2);width:560px;max-width:calc(100vw - 48px);max-height:calc(100vh - 48px);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-primary);border-radius:24px;flex-direction:column;gap:14px;padding:24px;font-size:14px;line-height:22px;display:flex;position:relative;overflow:auto}.fThDlq_header{align-items:flex-start;gap:12px;display:flex}.fThDlq_heading{flex:1;min-width:0}.fThDlq_title{margin:0;font-size:18px;font-weight:600;line-height:26px}.fThDlq_subtitle{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:13px}.fThDlq_close{width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:50%;flex:none;justify-content:center;align-items:center;padding:0;transition:background-color .12s,color .12s,box-shadow .12s;display:inline-flex}.fThDlq_close:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_close:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}.fThDlq_close:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);outline:none}.fThDlq_close:disabled{opacity:.5;cursor:default}.fThDlq_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:16px;flex-direction:column;align-items:center;gap:12px;padding:16px;display:flex}.fThDlq_cardHeader{justify-content:space-between;align-items:center;gap:12px;width:100%;display:flex}.fThDlq_cardTitle{font-weight:500}.fThDlq_badge{white-space:nowrap;border-radius:999px;flex:none;align-items:center;gap:6px;min-width:0;padding:2px 10px;font-size:12px;line-height:18px;display:inline-flex}.fThDlq_badge:before{content:\"\";background:currentColor;border-radius:50%;width:8px;height:8px}.fThDlq_badge-waiting{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badge-connected{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badge-disconnected{color:var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badge-stopped{color:var(--dsw-alias-state-error-primary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badgePublic{color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_badges{flex:none;align-items:center;gap:6px;display:inline-flex}.fThDlq_qrWrap{background:var(--dsw-alias-bg-base);border-radius:12px;justify-content:center;align-items:center;padding:12px;display:flex}.fThDlq_qr{display:block}.fThDlq_expired{color:var(--dsw-alias-state-error-primary);margin:0;font-size:13px}.fThDlq_expiry{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px}.fThDlq_hint{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px}.fThDlq_link{text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-caption);font-family:var(--dsw-font-mono,ui-monospace, monospace);margin:0;font-size:12px;display:block;overflow:hidden}.fThDlq_pairLinks{flex-direction:column;gap:8px;display:flex}.fThDlq_pairLinkRow{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:10px;align-items:center;gap:10px;min-width:0;padding:10px 12px;display:flex}.fThDlq_pairLinkText{flex:1;min-width:0}.fThDlq_pairLinkLabel{color:var(--dsw-alias-label-secondary);margin-bottom:3px;font-size:12px;display:block}.fThDlq_copyLink{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-button-elevated-fill);min-height:30px;color:var(--dsw-alias-label-primary);cursor:pointer;border-radius:8px;flex:none;align-items:center;gap:5px;padding:0 10px;display:inline-flex}.fThDlq_oneTimeHint{color:var(--dsw-alias-label-caption);margin:0;font-size:12px}.fThDlq_stoppedHint{color:var(--dsw-alias-state-error-primary);margin:0;font-size:13px}.fThDlq_tunnelNote{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px}.fThDlq_tunnelFailed{color:var(--dsw-alias-state-error-primary);margin:0;font-size:13px}.fThDlq_actions{gap:8px;display:flex}.fThDlq_action{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-button-elevated-fill);height:34px;color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;border-radius:10px;justify-content:center;align-items:center;gap:6px;padding:0 14px;font-size:13px;transition:background-color .12s,border-color .12s,box-shadow .12s;display:inline-flex}.fThDlq_action:hover:not(:disabled){background:var(--dsw-alias-button-floating-hover)}.fThDlq_action:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}.fThDlq_action:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);outline:none}.fThDlq_action:disabled{opacity:.5;cursor:default}.fThDlq_banner{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:16px;padding:16px}.fThDlq_bannerTitle{color:var(--dsw-alias-state-warn-primary);margin:0;font-weight:500}.fThDlq_bannerHint{color:var(--dsw-alias-label-secondary);margin:6px 0 0;font-size:13px}.fThDlq_fencePage{z-index:2000;box-sizing:border-box;background:var(--dsw-alias-bg-base);text-align:center;flex-direction:column;justify-content:center;align-items:center;padding:40px 24px;display:flex;position:fixed;inset:0;overflow:auto}.fThDlq_fenceCard{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:min(520px,100%);box-shadow:var(--dsw-shadow-lv3);text-align:center;border-radius:20px;margin-inline:auto;padding:36px 40px}.fThDlq_fenceMark{background:var(--dsw-alias-state-error-secondary);width:44px;height:44px;color:var(--dsw-alias-state-error-primary);border-radius:50%;place-items:center;margin-inline:auto;font-size:24px;line-height:1;display:grid}.fThDlq_fenceEyebrow{color:var(--dsw-alias-state-error-primary);margin:22px 0 8px;font-size:13px;font-weight:600}.fThDlq_fenceTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:24px;line-height:1.35}.fThDlq_fenceDetail{color:var(--dsw-alias-label-secondary);margin:12px 0 0;font-size:14px;line-height:1.65}.fThDlq_fenceSteps{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);text-align:left;border-radius:12px;margin:24px auto 0;padding:20px 20px 20px 42px;font-size:14px;line-height:1.65}.fThDlq_fenceSteps li+li{margin-top:8px}.fThDlq_fenceForm{width:100%;margin-top:20px}.fThDlq_fenceInputRow{gap:8px;width:100%;display:flex}.fThDlq_fenceInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);min-width:0;color:var(--dsw-alias-label-primary);font:inherit;border-radius:10px;flex:1;padding:10px 14px;font-size:13px;transition:border-color .12s,box-shadow .12s}.fThDlq_fenceInput:focus{border-color:var(--dsw-alias-brand-primary);outline:none;box-shadow:0 0 0 2px #0066ff26}.fThDlq_fencePairButton{border:1px solid var(--dsw-alias-button-primary-fill);background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);font:inherit;cursor:pointer;border-radius:10px;flex-shrink:0;padding:10px 18px;font-size:13px;font-weight:500;transition:filter .12s,opacity .12s}.fThDlq_fencePairButton:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover,var(--dsw-alias-button-primary-fill));border-color:var(--dsw-alias-button-primary-hover,var(--dsw-alias-button-primary-fill))}.fThDlq_fencePairButton:disabled{opacity:.55;cursor:not-allowed}.fThDlq_fencePairButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.fThDlq_fenceError{color:var(--dsw-alias-state-error-primary);text-align:left;margin:10px 0 0;font-size:13px;line-height:1.4}.fThDlq_fenceRetry{border:1px solid var(--dsw-alias-border-l2);width:100%;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border-radius:10px;margin-top:12px;padding:10px 16px;font-weight:500;transition:background-color .12s,color .12s}.fThDlq_fenceRetry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.fThDlq_fenceRetry:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:3px}.fThDlq_fenceFootnote{color:var(--dsw-alias-label-tertiary);margin:14px 0 0;font-size:12px;line-height:1.55}.fThDlq_addresses{border:none;margin:12px 0 0;padding:0}.fThDlq_addresses legend{color:var(--dsw-alias-label-secondary);padding:0;font-size:13px}.fThDlq_address{color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums;cursor:pointer;border-radius:6px;align-items:center;gap:8px;margin-top:6px;padding:4px 6px;font-size:13px;transition:background-color .12s;display:flex}.fThDlq_address:hover{background:var(--dsw-alias-interactive-bg-hover)}.fThDlq_address input:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);border-radius:50%;outline:none}.fThDlq_addressValue{text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--dsw-alias-label-secondary);flex:1;font-size:12px;overflow:hidden}.fThDlq_addressHint{color:var(--dsw-alias-label-tertiary);margin:6px 0 0;font-size:12px}.fThDlq_devices{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:16px;flex-direction:column;gap:8px;padding:12px 16px 14px;display:flex}.fThDlq_devicesTitle{margin:0;font-size:13px;font-weight:500;line-height:20px}.fThDlq_devicesEmpty{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px}.fThDlq_deviceList{flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;display:flex}.fThDlq_deviceRow{justify-content:space-between;align-items:flex-start;gap:12px;display:flex}.fThDlq_deviceMeta{flex-direction:column;gap:2px;min-width:0;display:flex}.fThDlq_deviceName{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;overflow:hidden}.fThDlq_devicePresence{font-size:12px;line-height:18px}.fThDlq_deviceOnline{color:var(--dsw-alias-state-success-primary)}.fThDlq_deviceOffline{color:var(--dsw-alias-label-secondary)}.fThDlq_deviceSeen{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;font-size:12px}.fThDlq_deviceRevoke{color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:8px;flex:none;padding:6px 10px;font-size:12px;transition:background-color .12s,color .12s}.fThDlq_deviceRevoke:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.fThDlq_deviceRevoke:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);outline:none}@media (prefers-reduced-motion:reduce){.fThDlq_trigger,.fThDlq_close,.fThDlq_action,.fThDlq_address,.fThDlq_deviceRevoke{transition:none}}.fThDlq_entryRow{flex:none;align-items:center;gap:6px;min-width:0;display:flex}.fThDlq_entryRow[data-rail=rail]{flex-direction:column-reverse;gap:4px}.fThDlq_updateStatus{margin:0;font-weight:600}.fThDlq_updateDetail{color:var(--dsw-alias-label-secondary);margin:6px 0 0;font-size:13px}.fThDlq_updateError{color:var(--dsw-alias-text-danger,var(--dsw-alias-label-primary));margin:0;font-weight:600}.fThDlq_updateOutput{background:var(--dsw-alias-bg-layer-1);max-height:180px;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;word-break:break-all;border-radius:10px;margin:10px 0 0;padding:10px 12px;font-size:12px;line-height:18px;overflow:auto}.fThDlq_updateList{flex-direction:column;gap:6px;margin:12px 0 0;padding:0;list-style:none;display:flex}.fThDlq_updateListItem{justify-content:space-between;align-items:baseline;gap:12px;font-size:13px;display:flex}.fThDlq_updateListName{text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--dsw-alias-label-primary);overflow:hidden}.fThDlq_updateListVersions{color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;flex:none}.fThDlq_updateNotes{margin-top:14px}.fThDlq_updateNotesTitle{margin:0 0 8px;font-size:14px;font-weight:600}.fThDlq_updateNoteSection{flex-direction:column;gap:4px;margin-top:10px;display:flex}.fThDlq_updateNoteHeading{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.fThDlq_updateNoteList{flex-direction:column;gap:4px;margin:0;padding-left:18px;font-size:13px;display:flex}.fThDlq_updateNoteItem{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere}.fThDlq_updateVersions{margin-top:12px}.fThDlq_updateVersionsSummary{cursor:pointer;color:var(--dsw-alias-label-secondary);user-select:none;font-size:12px}.fThDlq_updateActions{justify-content:flex-end;margin-top:16px;display:flex}.fThDlq_updateRetry{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:10px;align-items:center;gap:6px;padding:8px 14px;font-size:13px;transition:background-color .12s,color .12s;display:inline-flex}.fThDlq_updateRetry:hover{background:var(--dsw-alias-interactive-bg-active)}@media (prefers-reduced-motion:reduce){.fThDlq_updateRetry{transition:none}}";
 		const tagId$16 = "@linxin666/dsh-web-all/packages/dsh-remote-web-ui/src/client/remote.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$16) + "]") === null) {
 			const tag = document.createElement("style");
@@ -15831,6 +15831,27 @@ window.__ModuleLoader__.load({
 		const EFFORT_BTN_ID = "dshRemoteEffortPick";
 		/** Body class while the compact picker buttons are wired. */
 		const COMPACT_CLASS = "dsh-remote-compact-picker";
+		/** Body class while the header actions are seated in the tabs row. */
+		const HEADER_SEATED_CLASS = "dsh-remote-header-seated";
+		/**
+		* The official application frame. The layout column classes are the anchor:
+		* `_frame` is shared by unrelated official components (the chat turn rail,
+		* message-image thumbnails, the subagent pill, PlanReviewPanel), so a bare
+		* suffix match would restyle and hit-block those. `data-dsh-frame` is the
+		* aggregate compat stamp, kept as the fast path.
+		*/
+		const APP_FRAME_SELECTOR = "[data-dsh-frame], [class*=\"_frame\"]:has([class*=\"_centerCol\"])";
+		/**
+		* The official composer surface. `_composerSeat` is the plugin's historical
+		* anchor; the official `data-dsh-surface="composer"` part attribute is the
+		* stable alternative if the class ever gains a modifier.
+		*/
+		const COMPOSER_SELECTOR = "[class$=\"_composerSeat\"], [data-dsh-surface=\"composer\"]";
+		/** Resolve the official application frame (never a nested `_frame` surface). */
+		function appFrame() {
+			const frame = document.querySelector(APP_FRAME_SELECTOR);
+			return frame instanceof HTMLElement ? frame : null;
+		}
 		/**
 		* Whether the current viewport is a portrait touch device small enough to
 		* need the adaptation.
@@ -15850,7 +15871,7 @@ window.__ModuleLoader__.load({
 		*/
 		const ADAPT_CSS = [
 			"html,body{height:100%}",
-			"[class$=\"_frame\"]{width:100%;height:100dvh}",
+			"[class*=\"_frame\"]:has([class*=\"_centerCol\"]){width:100%;height:100dvh}",
 			"[class$=\"_railFish\"] button,[class$=\"_panelIcon\"],[class$=\"_newSession\"]{min-width:44px;min-height:44px}",
 			"[class$=\"_scroll\"]{padding:8px 10px}",
 			"[class$=\"_input\"],textarea,input{font-size:16px}",
@@ -15858,10 +15879,10 @@ window.__ModuleLoader__.load({
 			"[class$=\"_scrollBody\"] [class$=\"_root\"]{font-size:14.5px}",
 			"[class$=\"_scrollBody\"] [class$=\"_bubble\"]{font-size:14.5px}",
 			"[class$=\"_titleRow\"] *{font-size:13px}",
-			"[class$=\"_sidebarCol\"] [class$=\"_root\"],[class$=\"_sidebarCol\"] [class$=\"_newSession\"],[class$=\"_sidebarCol\"] [class$=\"_trigger\"],[class$=\"_sidebarCol\"] [class$=\"_title\"]{font-size:13px}",
-			"[class$=\"_sidebarCol\"] [class$=\"_meta\"],[class$=\"_sidebarCol\"] [class$=\"_time\"]{font-size:11.5px}",
+			"[class*=\"_sidebarCol\"] [class$=\"_root\"],[class*=\"_sidebarCol\"] [class$=\"_newSession\"],[class*=\"_sidebarCol\"] [class$=\"_trigger\"],[class*=\"_sidebarCol\"] [class$=\"_title\"]{font-size:13px}",
+			"[class*=\"_sidebarCol\"] [class$=\"_meta\"],[class*=\"_sidebarCol\"] [class$=\"_time\"]{font-size:11.5px}",
 			"[class$=\"_frame\"][data-sidebar-collapsed]{grid-template-columns:0 minmax(0,1fr) 0 !important}",
-			"[class$=\"_frame\"][data-sidebar-collapsed] [class$=\"_sidebarCol\"]{grid-column:1/2}",
+			"[class$=\"_frame\"][data-sidebar-collapsed] [class*=\"_sidebarCol\"]{grid-column:1/2}",
 			"[class$=\"_frame\"][data-sidebar-collapsed] [class$=\"_centerCol\"]{grid-column:2/3}",
 			"[class$=\"_frame\"][data-sidebar-collapsed] [class$=\"_detailsCol\"]{grid-column:3/4}",
 			`body.${RAIL_HIDDEN_CLASS} [class$="_titleRow"]{padding-left:52px}`,
@@ -15869,10 +15890,10 @@ window.__ModuleLoader__.load({
 			`#${WHALE_ID} svg{width:20px;height:15px;display:block}`,
 			`#${WHALE_ID}:active{opacity:.72}`,
 			`#${WHALE_ID}{touch-action:none}`,
-			"[class$=\"_sidebarCol\"] [class$=\"_logoRow\"] [class*=\"_iconButton\"]{width:18px;height:18px}",
-			"[class$=\"_sidebarCol\"] [class$=\"_logoRow\"] [class*=\"_iconButton\"] svg{width:13px;height:13px;min-width:0;min-height:0}",
-			"[class$=\"_sidebarCol\"] [class$=\"_projectRow\"] [class$=\"_rowActions\"]{display:inline-flex}",
-			"[class$=\"_sidebarCol\"] [class$=\"_sessionRow\"],[class$=\"_sidebarCol\"] [class$=\"_projectRow\"]{-webkit-user-drag:none;user-select:none}",
+			"[class*=\"_sidebarCol\"] [class$=\"_logoRow\"] [class*=\"_iconButton\"]{width:18px;height:18px}",
+			"[class*=\"_sidebarCol\"] [class$=\"_logoRow\"] [class*=\"_iconButton\"] svg{width:13px;height:13px;min-width:0;min-height:0}",
+			"[class*=\"_sidebarCol\"] [class*=\"_projectRow\"] [class*=\"_rowActions\"]{display:inline-flex}",
+			"[class*=\"_sidebarCol\"] [class*=\"_sessionRow\"],[class*=\"_sidebarCol\"] [class*=\"_projectRow\"]{-webkit-user-drag:none;user-select:none}",
 			"[class$=\"_headerUtilities\"]{display:none}",
 			"[class$=\"_composerSeat\"] [class$=\"_card\"]{margin-bottom:1px}",
 			"[class$=\"_composerSeat\"] [class$=\"_row\"]{flex-wrap:wrap;row-gap:0;padding:2px 8px 1px;position:relative}",
@@ -15898,8 +15919,8 @@ window.__ModuleLoader__.load({
 			"[class*=\"_bubble\"][role=\"tooltip\"]{display:none}",
 			"[class$=\"_composerSeat\"] [class$=\"_frame\"]{box-sizing:border-box;width:100%;max-width:100%;padding-left:12px;padding-right:12px;height:auto;max-height:calc(100dvh - 96px);align-items:flex-start;overflow-y:auto}",
 			"[class$=\"_composerSeat\"] [class$=\"_frame\"] [class$=\"_card\"]{max-width:none;width:100%}",
-			"[class$=\"_header\"] [class$=\"_titleCluster\"] [class$=\"_headerActions\"]{display:none}",
-			"[class$=\"_header\"] [class$=\"_tabs\"]{margin-right:-58px}",
+			`body.${HEADER_SEATED_CLASS} [class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{display:none}`,
+			"[class$=\"_header\"] [class$=\"_tabs\"]{margin-right:-8px}",
 			"[class$=\"_header\"] [class$=\"_tabs\"] [class*=\"_tab\"]{font-size:12px;white-space:nowrap}",
 			"[class$=\"_header\"] [class$=\"_tabs\"] [class$=\"_headerActions\"]{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}",
 			`body.${ACTIVE_CLASS} [class$=\"_detailsCol\"]{display:none !important}`,
@@ -15994,6 +16015,7 @@ window.__ModuleLoader__.load({
 				if (!active) return;
 				active = false;
 				unseatHeaderActions();
+				restoreRowDrag();
 				removeCompactPicker();
 				document.body.classList.remove(ACTIVE_CLASS);
 				document.body.classList.remove(RAIL_HIDDEN_CLASS);
@@ -16085,26 +16107,65 @@ window.__ModuleLoader__.load({
 				document.body.classList.add(COMPACT_CLASS);
 			}
 			/**
-			* Toggle the sidebar through the wired layout face, then verify the flip:
-			* the official LayoutController can be mounted yet inert (its bound store
-			* actions race the root entry on this cohort — observed on the running
-			* local build, where the face call silently did nothing and the whale
-			* was dead). When the frame state did not change shortly after the call,
-			* drive the official rail/logo toggle instead: that button owns its own
-			* store actions and flips the same state on every cohort we support.
+			* The official sidebar toggle in the logo row. The row's own `_toggle` class
+			* is the precise anchor; the row's last button is the fallback for cohorts
+			* that only expose the generic icon-button class (the first button is the
+			* brand, which navigates home — never click that one). `_railFish` is kept
+			* for older compositions that carried a rail fish button.
+			*/
+			function officialSidebarToggle() {
+				const rail = document.querySelector("[class$=\"_railFish\"] button");
+				if (rail instanceof HTMLElement) return rail;
+				const row = document.querySelector("[class$=\"_logoRow\"]");
+				if (row === null) return null;
+				const toggles = row.querySelectorAll("button[class*=\"_toggle\"]");
+				const last = toggles.length > 0 ? toggles[toggles.length - 1] : row.querySelectorAll("button")[row.querySelectorAll("button").length - 1];
+				return last instanceof HTMLElement ? last : null;
+			}
+			/**
+			* Toggle the sidebar through the official rail/logo toggle first, then
+			* verify the flip and fall back to the wired layout face.
+			*
+			* The order is evidence-driven: the official toggle owns its own store
+			* actions and flips the state on every cohort we support, while the wired
+			* LayoutController is mounted yet inert on the installed cohort — calling it
+			* left `data-sidebar-collapsed` untouched for the whole 800ms observation
+			* window, so face-first made every whale tap wait out the verification
+			* delay before anything moved. The face stays the fallback for compositions
+			* that render no logo-row toggle, and it is only called after the toggle
+			* demonstrably failed, so the two can never cancel each other out.
 			*/
 			function toggleSidebarVerified() {
-				const frame = document.querySelector("[class$=\"_frame\"]");
-				const collapsedBefore = frame instanceof HTMLElement ? frame.hasAttribute("data-sidebar-collapsed") : null;
-				w.__dshRemoteAdapt?.toggleSidebar?.();
-				if (collapsedBefore === null) return;
-				window.setTimeout(() => {
+				const frame = appFrame();
+				const collapsedBefore = frame !== null ? frame.hasAttribute("data-sidebar-collapsed") : null;
+				const face = w.__dshRemoteAdapt?.toggleSidebar;
+				const callFace = () => {
+					if (typeof face !== "function") return;
+					try {
+						face();
+					} catch {}
+				};
+				const toggle = officialSidebarToggle();
+				if (collapsedBefore === null || toggle === null) {
+					if (toggle !== null) toggle.click();
+					else callFace();
+					return;
+				}
+				toggle.click();
+				let tries = 0;
+				const verify = () => {
 					if (!active) return;
-					const frameNow = document.querySelector("[class$=\"_frame\"]");
-					if (!(frameNow instanceof HTMLElement)) return;
+					const frameNow = appFrame();
+					if (frameNow === null) return;
 					if (frameNow.hasAttribute("data-sidebar-collapsed") !== collapsedBefore) return;
-					document.querySelector("[class$=\"_railFish\"] button, [class$=\"_logoRow\"] [class*=\"_iconButton\"]")?.click();
-				}, 150);
+					tries += 1;
+					if (tries < 2) {
+						window.setTimeout(verify, 120);
+						return;
+					}
+					callFace();
+				};
+				window.setTimeout(verify, 120);
 			}
 			function ensureWhale() {
 				if (whaleEl !== null || !document.body) return;
@@ -16126,12 +16187,9 @@ window.__ModuleLoader__.load({
 				whale.addEventListener("pointerdown", (e) => {
 					if (whaleEl === null) return;
 					if (e.button !== 0 && e.pointerType === "mouse") return;
-					if (active) {
-						const ta = document.querySelector("[class$=\"_composerSeat\"] textarea, [class$=\"_composerSeat\"] input");
-						if (ta !== null && document.activeElement === ta) {
-							ta.blur();
-							lastComposerTap = 0;
-						}
+					if (active && isComposerField(document.activeElement)) {
+						document.activeElement.blur();
+						lastComposerTap = 0;
 					}
 					drag = {
 						x: e.clientX,
@@ -16169,9 +16227,26 @@ window.__ModuleLoader__.load({
 					} catch {}
 				};
 				whale.addEventListener("pointerup", endWhaleDrag);
-				whale.addEventListener("pointercancel", endWhaleDrag);
+				whale.addEventListener("pointercancel", () => {
+					drag = null;
+					whaleSuppressClick = false;
+				});
 				whaleEl = whale;
 				document.body.appendChild(whale);
+			}
+			/**
+			* Restore the official draggable state this layer overrode while active.
+			* Rows are React-owned and may have been re-created meanwhile, so only the
+			* tracked elements are touched; a detached element is skipped.
+			*/
+			function restoreRowDrag() {
+				if (dragOverridden.size === 0) return;
+				for (const [row, original] of dragOverridden) {
+					if (!row.isConnected) continue;
+					if (original === null) row.removeAttribute("draggable");
+					else row.setAttribute("draggable", original);
+				}
+				dragOverridden.clear();
 			}
 			/** Restore a dragged position when the whale becomes visible again. */
 			function applyWhalePos() {
@@ -16187,10 +16262,15 @@ window.__ModuleLoader__.load({
 					whaleEl.style.top = `${y}px`;
 				}
 			}
+			/** Rows whose official draggable state this layer overrode (restored on revert). */
+			const dragOverridden = /* @__PURE__ */ new Map();
 			function disableRowDrag() {
 				if (!active) return;
-				const rows = document.querySelectorAll("[class$=\"_sidebarCol\"] [class$=\"_sessionRow\"], [class$=\"_sidebarCol\"] [class$=\"_projectRow\"]");
-				for (const row of rows) if (row.getAttribute("draggable") !== "false") row.setAttribute("draggable", "false");
+				const rows = document.querySelectorAll("[class*=\"_sidebarCol\"] [class*=\"_sessionRow\"], [class*=\"_sidebarCol\"] [class*=\"_projectRow\"]");
+				for (const row of rows) if (row.getAttribute("draggable") !== "false") {
+					if (!dragOverridden.has(row)) dragOverridden.set(row, row.getAttribute("draggable"));
+					row.setAttribute("draggable", "false");
+				}
 			}
 			function syncWhale() {
 				if (active) ensureAdaptStyle();
@@ -16199,7 +16279,7 @@ window.__ModuleLoader__.load({
 					whaleEl.style.display = "none";
 					return;
 				}
-				const collapsed = document.querySelector("[class$=\"_frame\"][data-sidebar-collapsed]") !== null;
+				const collapsed = appFrame()?.hasAttribute("data-sidebar-collapsed") === true;
 				const overlayUp = document.querySelector("[class$=\"_overlay\"]") !== null;
 				const show = collapsed && !overlayUp;
 				if (show && !whaleShown) applyWhalePos();
@@ -16223,6 +16303,7 @@ window.__ModuleLoader__.load({
 					seated?.remove();
 					tabs.appendChild(fresh);
 				}
+				document.body.classList.toggle(HEADER_SEATED_CLASS, tabs !== null && tabs.querySelector(":scope > [class$=\"_headerActions\"]") !== null);
 			}
 			function alignActionsText() {
 				if (!active) return;
@@ -16252,20 +16333,33 @@ window.__ModuleLoader__.load({
 					const b = textBottom(actions.querySelector(sel));
 					if (b !== null && (maxBottom === null || b - cur > maxBottom)) maxBottom = b - cur;
 				}
-				if (maxBottom === null) return;
-				const delta = Math.round((tabBottom - maxBottom) * 10) / 10;
-				if (Math.abs(delta) < .5) {
-					if (actions.style.transform !== "") actions.style.transform = "";
-					return;
+				if (maxBottom !== null) {
+					const delta = Math.round((tabBottom - maxBottom) * 10) / 10;
+					if (Math.abs(delta) < .5) {
+						if (actions.style.transform !== "") actions.style.transform = "";
+					} else actions.style.transform = `translateY(${delta}px)`;
 				}
-				actions.style.transform = `translateY(${delta}px)`;
+				const header = document.querySelector("[class$=\"_header\"]");
+				if (header instanceof HTMLElement) {
+					const headerRect = header.getBoundingClientRect();
+					const padRight = parseFloat(getComputedStyle(header).paddingRight);
+					const diff = headerRect.right - (Number.isFinite(padRight) ? padRight : 0) - actions.getBoundingClientRect().right;
+					if (Math.abs(diff) >= .5) {
+						const tabsEl = tabs;
+						const effective = parseFloat(getComputedStyle(tabsEl).marginRight);
+						const next = Math.round(((Number.isFinite(effective) ? effective : 0) + diff) * 10) / 10;
+						tabsEl.style.marginRight = `${next}px`;
+					}
+				}
 			}
 			function unseatHeaderActions() {
+				document.body.classList.remove(HEADER_SEATED_CLASS);
 				const tabs = document.querySelector("[class$=\"_header\"] [class$=\"_tabs\"]");
 				const seated = tabs !== null ? tabs.querySelector(":scope > [class$=\"_headerActions\"]") : null;
 				const wrap = document.querySelector("[class$=\"_titleCluster\"] > div");
 				if (seated !== null) if (wrap !== null) wrap.appendChild(seated);
 				else seated.remove();
+				if (tabs instanceof HTMLElement) tabs.style.marginRight = "";
 			}
 			function ensureWhaleObserver() {
 				if (whaleObserver !== null || typeof MutationObserver === "undefined" || !document.body) return;
@@ -16299,7 +16393,7 @@ window.__ModuleLoader__.load({
 				if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
 				const t = e.target;
 				if (!(t instanceof HTMLElement)) return;
-				if (t.closest("[class$=\"_input\"]") === null) return;
+				if (composerFieldOf(t) === null) return;
 				if (e.isComposing || e.keyCode === 229) return;
 				e.preventDefault();
 				e.stopPropagation();
@@ -16313,21 +16407,21 @@ window.__ModuleLoader__.load({
 			}
 			function onClickCapture(e) {
 				if (!active) return;
-				const frame = document.querySelector("[class$=\"_frame\"]");
+				const frame = appFrame();
 				if (frame === null || frame.hasAttribute("data-sidebar-collapsed")) return;
 				const t = e.target;
 				if (!(t instanceof Element)) return;
-				if (t.closest("[class$=\"_sidebarCol\"]") !== null) {
+				if (t.closest("[class*=\"_sidebarCol\"]") !== null) {
 					const topNewSessionClicked = t.closest("[class$=\"_newSession\"], [class$=\"_brand\"]") !== null;
 					let projectNewSessionClicked = false;
-					const projectActions = t.closest("[class$=\"_projectRow\"] [class$=\"_rowActions\"]");
+					const projectActions = t.closest("[class*=\"_projectRow\"] [class*=\"_rowActions\"]");
 					if (projectActions !== null) {
 						const btn = t.closest("button");
 						const btns = projectActions.querySelectorAll("button");
 						projectNewSessionClicked = btn !== null && btns.length > 0 && btn === btns[btns.length - 1];
 					}
 					let shouldCollapse = false;
-					if (t.closest("[class$=\"_sessionRow\"]") !== null) shouldCollapse = t.closest("[class$=\"_rowActions\"]") === null;
+					if (t.closest("[class*=\"_sessionRow\"]") !== null) shouldCollapse = t.closest("[class*=\"_rowActions\"]") === null;
 					else if (t.closest("[class$=\"_settingsArea\"]") !== null || topNewSessionClicked || projectNewSessionClicked) shouldCollapse = true;
 					if (shouldCollapse) collapseSidebar();
 					return;
@@ -16347,8 +16441,13 @@ window.__ModuleLoader__.load({
 			}
 			document.addEventListener("touchstart", (e) => {
 				if (!active) return;
+				if (e.touches.length > 1) {
+					swipeTouch = null;
+					return;
+				}
 				const t = e.target;
-				if (t instanceof Element && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.closest(`#${WHALE_ID}`) !== null || insideHScrollable(t) || t.closest("table, [class$=\"_table\"], [class$=\"_tablePane\"]") !== null)) {
+				const editable = t instanceof HTMLElement && t.isContentEditable;
+				if (t instanceof Element && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || editable || t.closest(`#${WHALE_ID}`) !== null || insideHScrollable(t) || t.closest("table, [class$=\"_table\"], [class$=\"_tablePane\"]") !== null)) {
 					swipeTouch = null;
 					return;
 				}
@@ -16365,6 +16464,7 @@ window.__ModuleLoader__.load({
 			});
 			document.addEventListener("touchend", (e) => {
 				if (swipeTouch === null) return;
+				if (e.touches.length > 0) return;
 				const ct = e.changedTouches[0];
 				if (ct === void 0 || ct.identifier !== swipeTouch.id) return;
 				const dx = ct.clientX - swipeTouch.x;
@@ -16372,7 +16472,7 @@ window.__ModuleLoader__.load({
 				swipeTouch = null;
 				if (!active) return;
 				if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-				const frame = document.querySelector("[class$=\"_frame\"]");
+				const frame = appFrame();
 				if (frame === null) return;
 				if (document.querySelector("[class$=\"_overlay\"], [class$=\"_dialog\"], [class$=\"_menu\"], [class*=\"_portal\"]") !== null) return;
 				const collapsed = frame.hasAttribute("data-sidebar-collapsed");
@@ -16398,7 +16498,7 @@ window.__ModuleLoader__.load({
 				}
 			}
 			function openSessionMenu(row) {
-				const actions = row.querySelector("[class$=\"_rowActions\"]");
+				const actions = row.querySelector("[class*=\"_rowActions\"]");
 				const btn = actions?.querySelector("button");
 				if (actions === null || btn === null) return;
 				longPressMenuGuardUntil = Date.now() + 1200;
@@ -16418,8 +16518,8 @@ window.__ModuleLoader__.load({
 					clearLongPress();
 					return;
 				}
-				const row = t.closest("[class$=\"_sessionRow\"]");
-				if (row === null || t.closest("[class$=\"_rowActions\"]") !== null) {
+				const row = t.closest("[class*=\"_sessionRow\"]");
+				if (row === null || t.closest("[class*=\"_rowActions\"]") !== null) {
 					clearLongPress();
 					return;
 				}
@@ -16486,22 +16586,33 @@ window.__ModuleLoader__.load({
 				if (!active) return;
 				const t = e.target;
 				if (!(t instanceof Element)) return;
-				if (t.closest("[class$=\"_sessionRow\"]") !== null && (longPress !== null && longPress.triggered || Date.now() <= suppressSessionClickUntil)) e.preventDefault();
+				if (t.closest("[class*=\"_sessionRow\"]") !== null && (longPress !== null && longPress.triggered || Date.now() <= suppressSessionClickUntil)) e.preventDefault();
 			}, true);
 			document.addEventListener("pointerleave", (e) => {
 				if (!active || Date.now() > longPressMenuGuardUntil) return;
 				const t = e.target;
-				if (t instanceof Element && (t.closest("[class$=\"_rowActions\"]") !== null || t.closest("[class$=\"_sessionRow\"]") !== null || t.closest("[class$=\"_projectRow\"]") !== null)) e.stopPropagation();
+				if (t instanceof Element && (t.closest("[class*=\"_rowActions\"]") !== null || t.closest("[class*=\"_sessionRow\"]") !== null || t.closest("[class*=\"_projectRow\"]") !== null)) e.stopPropagation();
 			}, true);
+			const isComposerField = (el) => {
+				if (!(el instanceof HTMLElement)) return false;
+				if (el.closest(COMPOSER_SELECTOR) === null) return false;
+				if (el.matches("[data-composer-input]")) return true;
+				if (el.tagName === "TEXTAREA") return true;
+				return el.tagName === "INPUT" && el.matches("[class*=\"_input\"]");
+			};
+			/** The composer field that owns an event target, if any. */
+			const composerFieldOf = (target) => {
+				const el = target instanceof Element ? target.closest("[data-composer-input], [class*=\"_input\"], textarea") : null;
+				return isComposerField(el) ? el : null;
+			};
 			const lanOrigFocus = HTMLElement.prototype.focus;
 			HTMLElement.prototype.focus = function(options) {
-				if (active && (this.tagName === "TEXTAREA" || this.tagName === "INPUT") && this.closest("[class$=\"_composerSeat\"]") !== null && Date.now() - lastComposerTap >= 800) return;
+				if (active && isComposerField(this) && Date.now() - lastComposerTap >= 800) return;
 				lanOrigFocus.call(this, options);
 			};
 			document.addEventListener("pointerdown", (e) => {
 				if (!active) return;
-				const t = e.target;
-				if (t instanceof Element && (t.tagName === "TEXTAREA" || t.tagName === "INPUT") && t.closest("[class$=\"_composerSeat\"]") !== null) lastComposerTap = Date.now();
+				if (composerFieldOf(e.target) !== null) lastComposerTap = Date.now();
 			}, true);
 			w.__dshRemoteAdapt = {
 				evaluate,
