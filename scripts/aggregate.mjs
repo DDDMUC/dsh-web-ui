@@ -43,6 +43,12 @@
  *     written verbatim as inline YAML flow). They emit after all inserts so
  *     later patches can target earlier rows; use them to seed per-row defaults
  *     (e.g. enabled:false) without touching the standalone package distribution.
+ *   - inactive entries (plain row-id strings) mark OWN inserted rows that ship
+ *     DISABLED by default: each renders a trailing bare "disabled: true"
+ *     override after all inserts. New installs leave the row unmounted (its
+ *     settings entries stay off the page via the rows-route gating); users
+ *     opt in per row in the plugin manager, whose enable writes a user-layer
+ *     "disabled: false" override that wins over the bundle default.
  *
  * Idempotent: safe to rerun at any time. Writes only inside the aggregate
  * packages it owns; never touches other packages or git state.
@@ -179,7 +185,7 @@ function findAggregates() {
  * while the generator can JSON.parse each entry).
  */
 function parseManifest(ymlPath, errors) {
-  const manifest = { patchFrom: [], deps: [], self: null, rows: [], patches: [], tombstones: [] }
+  const manifest = { patchFrom: [], deps: [], self: null, rows: [], patches: [], inactive: [], tombstones: [] }
   let section = null
   for (const raw of readFileSync(ymlPath, 'utf8').split(/\r?\n/)) {
     const line = raw.trim()
@@ -201,6 +207,7 @@ function parseManifest(ymlPath, errors) {
     if (section === 'patchFrom') manifest.patchFrom.push(entry)
     else if (section === 'deps') manifest.deps.push(entry)
     else if (section === 'tombstones') manifest.tombstones.push(entry)
+    else if (section === 'inactive') manifest.inactive.push(entry)
     else if (section === 'rows') {
       let parsed
       try {
@@ -431,7 +438,7 @@ function pushShellConfig(lines, row) {
 }
 
 /** Render the aggregate cordis.patch.yml: header + per-source insert blocks, plus verbatim harness-row patches and own-row config overrides. */
-function renderPatch(blocks, externalRows, ownPatches, errors, rel, aggregateDir) {
+function renderPatch(blocks, externalRows, ownPatches, inactiveRows, errors, rel, aggregateDir) {
   const lines = [...PATCH_HEADER]
   const seen = new Set()
   const patchedIds = new Set()
@@ -491,6 +498,35 @@ function renderPatch(blocks, externalRows, ownPatches, errors, rel, aggregateDir
     patchedIds.add(targetId)
     lines.push('', `# config override for ${targetId} (seed default; settings wins once the user edits it)`, `- id: ${targetId}`)
     lines.push(`  config: ${JSON.stringify(patch.config)}`)
+  }
+  // Own rows that ship disabled by default (opt-in rows): trailing bare
+  // overrides emitted after every insert, so the row never mounts until the
+  // user enables it in the plugin manager (a user-layer disabled:false
+  // override wins over this bundle default). The id must reference one of
+  // this aggregate's own inserted rows.
+  const inactiveTargets = []
+  for (const rawId of inactiveRows) {
+    if (typeof rawId !== 'string' || !rawId) {
+      errors.push(`${rel}: inactive entry must be a non-empty row id string: ${JSON.stringify(rawId)}`)
+      continue
+    }
+    const targetId = namespaceId(rawId)
+    if (!seen.has(targetId)) {
+      errors.push(`${rel}: inactive entry "${rawId}" does not match any row of this aggregate`)
+      continue
+    }
+    if (inactiveTargets.includes(targetId)) {
+      errors.push(`${rel}: duplicate inactive entry for ${targetId}`)
+      continue
+    }
+    inactiveTargets.push(targetId)
+  }
+  if (inactiveTargets.length > 0) {
+    lines.push('', '# inactive by default (opt-in rows): these ship disabled; each is enabled per row in the',
+      '# plugin manager, whose enable writes a user-layer "disabled: false" override that wins.')
+    for (const id of inactiveTargets) {
+      lines.push(`- id: ${id}`, '  disabled: true')
+    }
   }
   // External rows: npm packages outside this repo. Plain plugins mount like
   // any child; external bundles expand their own patch rows here so their
@@ -873,7 +909,7 @@ for (const { pkgDir, ymlPath } of aggregates) {
   }
   const shellSubpaths = collectShellSubpaths(blocks, manifest.tombstones)
   if (shellSubpaths.length > 0) validateShellFiles(pkgDir, rel, errors)
-  const patch = renderPatch(blocks, manifest.rows, manifest.patches ?? [], errors, rel, pkgDir)
+  const patch = renderPatch(blocks, manifest.rows, manifest.patches ?? [], manifest.inactive ?? [], errors, rel, pkgDir)
   const resolvedDeps = resolveEntries(pkgDir, manifest.deps, 'deps', errors)
   const pkgJson = renderPackageJson(join(pkgDir, 'package.json'), resolvedDeps, shellSubpaths)
   // The shell aggregate additionally emits the client-children mount list:

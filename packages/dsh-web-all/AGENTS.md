@@ -17,8 +17,12 @@
 - `aggregate.yml` 是唯一手写清单：`patchFrom` 贡献 insert 行（嵌套聚合递归展开、
   按顺序、带源注释），`deps` 解析各子包 name 写入 dependencies。
 - `patches:` 段（单行 JSON flow mapping）对本聚合自插入行做整对象 config 覆写：
-  用于播种行级默认（如 web-ui-ssh 的 enabled:false），渲染在全部 insert 之后；
+  用于播种行级默认（如 enabled:false），渲染在全部 insert 之后；
   id 必须是本聚合已存在的行，settings 一经用户改动即优先于播种值。
+- `inactive:` 段（行 id 字符串清单）声明出厂默认关闭的自插入行：渲染为尾部
+  `disabled: true` 裸覆盖。新装用户该整行不加载、设置入口隐藏（rows 路由门控）；
+  用户在插件管理按行开启（写入用户层 disabled:false 覆盖，优先于本默认）。
+  锁定的核心行（compat/settings/plugin-manager）禁止列入。
 - 宿主半双入口：本包经两个入口 artifact 加载（lib/index.js 走 self 行、
   lib/shells/shell.js 走家族行），构建把共享代码拆成 chunk——每个入口持有自己的
   模块拷贝，任何模块级可变状态都会静默分裂（2026-09-09 事故：路由重复注册告警 +
