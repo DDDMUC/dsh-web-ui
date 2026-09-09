@@ -33,3 +33,8 @@
 node scripts/aggregate.mjs --check
 pnpm aggregate:check
 ```
+
+- 构建顺序：聚合客户端 bundle 内联各子插件的 src/client 源码，任何子插件
+  客户端改动后必须重新构建本包（pnpm --filter @linxin666/dsh-web-all build），
+  否则 profile link 安装下宿主代码是新的、页面仍跑旧子插件 UI（2026-09-09
+  行级开关"重启后没变化"事故即此原因）。`pnpm dev:watch` 在开发期自动覆盖。
