@@ -60,7 +60,7 @@ command -v pnpm >/dev/null 2>&1 || die "未找到 pnpm（dsh plugin 转发给 pn
 # dsh CLI 解析：PATH 上的 dsh 优先，否则 npx 拉官方包
 if ! command -v "$DSH_CMD" >/dev/null 2>&1; then
   if command -v npx >/dev/null 2>&1; then
-    say "PATH 上无 $DSH_CMD，回退 npx -y --package @deepseek-ai/dsh"
+    say "PATH 上无 ${DSH_CMD}，回退 npx -y --package @deepseek-ai/dsh"
     DSH_CMD="npx -y --package @deepseek-ai/dsh dsh"
   else
     die "未找到 $DSH_CMD 或 npx；请先安装 DSH CLI（npm i -g @deepseek-ai/dsh）或用 DSH_CMD 指定"
