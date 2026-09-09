@@ -272,14 +272,14 @@ html[data-dsh-skin="blue-throated-bee-eater"] body[data-ds-dark-theme]:is([data-
 
 /* Selected-element meadow: a low grass border runs along the bottom edge of
  * the active sidebar row and the selected tab (assets/selected-grass.svg,
- * repeat-x tile), and by the left border grows a single flower with a small
- * bee diving in to land on it (assets/selected-bee-scene.svg) - the
- * bee-eater's own larder, drawn in the empty marker slot area next to the
- * title so it never covers text. Original artwork, Apache-2.0. The gradient
- * layers beneath the url() keep the ornament visible where skin-dir assets
- * are not served (the static market preview embeds stylesheets inline).
- * Stable shell hooks only - data-pane / treeitem / aria-selected - no
- * hashed class names. */
+ * repeat-x tile), and by the left border grows a single white-petaled,
+ * chestnut-hearted flower with a leaf and a side bud
+ * (assets/selected-flower.svg) - the bee-eater's own larder, drawn in the
+ * empty marker slot area next to the title so it never covers text.
+ * Original artwork, Apache-2.0. The gradient layers beneath the url() keep
+ * the ornament visible where skin-dir assets are not served (the static
+ * market preview embeds stylesheets inline). Stable shell hooks only -
+ * data-pane / treeitem / aria-selected - no hashed class names. */
 html[data-dsh-skin="blue-throated-bee-eater"] [data-pane="sidebar"] [role="treeitem"][aria-selected="true"],
 html[data-dsh-skin="blue-throated-bee-eater"] [role="tab"][aria-selected="true"] {
   position: relative;
