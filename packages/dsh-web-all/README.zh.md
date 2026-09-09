@@ -12,6 +12,7 @@ DSH Web UI 全家桶聚合插件：一键安装家族的全部功能插件（任
 - **聚合载具**：`cordis.patch.yml` 汇总各子插件的 `insert` 行与外部插件行，经 dsh 插件 profile 机制挂载。外部 profile bundle 由生成器展开：其 patch 行变成可导入的聚合行，bundle 自身的 harness-row patch 原样保留；标记了 `"inactive": true` 的外部行会在产物之后统一追加 `disabled: true` 覆盖行，未主动启用前不会挂载。
 - **故障隔离（shell 壳）**：DSH loader 把全部 patch 行作为一个事务组挂载——任何一个插件 import 或启动失败都会回滚整组并中止 `dsh web`。因此聚合包让每个家族插件都挂在永不失败的 shell 模块（本包 main 入口）之后：行 `name` 指向按家族划分的子路径导出 `@linxin666/dsh-web-all/<family>`，行 `config` 携带真插件包名。子路径即官方插件列表（设置 → 插件列表）展示的名称——每行一个独立的 `web-all/<family>` 标题（与宿主自带 `web-app/startup` 行的多条目惯例一致），而全部子路径都解析到同一个共享 shell 再导出模块，隔离语义完全不变。坏插件现在只降级自身（记录日志，并可经仅限 loopback 的健康路由 `GET /api/dsh-web-all/degraded` 查询），其余插件照常挂载。外部行（家族之外的 npm 包）仍直接挂载；`dsh-i18n` 直挂（宿主半区为空）。
 - **选择性默认**：聚合行可携带与独立包默认值不同的播种配置。`@linxin666/dsh-ssh` 在本全家桶中默认关闭（多数用户使用频率低）：在 设置 → Web 插件 → SSH 中打开一次即可，开关像普通设置修改一样持久；独立包安装不受影响。
+- **逐行管理**：每个家族插件都可单独启停——设置 → 插件 → 插件管理 中本包行展开为子插件列表，逐行开关即时写入 profile 覆盖层；宿主半经 `GET /api/dsh-web-all/rows` 告知浏览器半哪些行活跃，被停用的行连设置入口一并消失（路由不可达时失败放行、全部照常挂载）。停用即不再加载，代码仍随全家桶更新；需要独立版本管理的插件可另行安装独立包（双挂载保护下独立安装优先）。
 - **右侧面板**：右侧面板固定为 `dsh-better-sidebar`，其偏好在 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 自身的设置区管理。
 
 ## 安装

@@ -239,6 +239,43 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+.stateLabel[data-state='mixed'] {
+  color: var(--dsw-alias-state-warning-primary, var(--dsw-alias-label-secondary));
+}
+
+/* Aggregate child rows (individually switchable family rows of a bundle). */
+.childList {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 2px 0 2px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 2px solid var(--dsw-alias-border-l1);
+}
+
+.childRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+}
+
+.childName {
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.lockedHint {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 /* Switch. */
 .switch {
   position: relative;

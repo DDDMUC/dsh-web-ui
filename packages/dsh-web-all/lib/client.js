@@ -54033,11 +54033,58 @@ window.__ModuleLoader__.load({
 			registry[MOUNTED_PLUGINS] ??= /* @__PURE__ */ new Set();
 			return registry[MOUNTED_PLUGINS];
 		}
-		/** Mount every generated family child that has no client bundle of its own. */
-		function mountClientChildren(ctx) {
+		/** Same-origin row-state route served by the host shell (src/shell.ts). */
+		const ROWS_ROUTE = "/api/dsh-web-all/rows";
+		/** Row-state fetch ceiling: a hung route must not delay the family UI. */
+		const ROWS_TIMEOUT_MS = 1500;
+		/**
+		* Ask the host half which family rows are active. Returns undefined on ANY
+		* uncertainty — network error, non-200, shape mismatch, timeout, or a stale
+		* host half without the route — so the caller fails open and mounts every
+		* child (the pre-gating behavior). Only a shape-clean answer may hide a
+		* child.
+		*/
+		async function fetchActiveRows() {
+			let response;
+			const controller = new AbortController();
+			const timer = setTimeout(() => {
+				controller.abort();
+			}, ROWS_TIMEOUT_MS);
+			try {
+				response = await fetch(ROWS_ROUTE, {
+					signal: controller.signal,
+					headers: { accept: "application/json" },
+					cache: "no-store"
+				});
+			} catch {
+				return;
+			} finally {
+				clearTimeout(timer);
+			}
+			if (!response.ok) return void 0;
+			let body;
+			try {
+				body = await response.json();
+			} catch {
+				return;
+			}
+			if (typeof body !== "object" || body === null) return void 0;
+			const children = body;
+			if (children.ok !== true || !Array.isArray(children.children)) return void 0;
+			if (children.children.some((name) => typeof name !== "string")) return void 0;
+			return new Set(children.children);
+		}
+		/**
+		* Mount every generated family child that has no client bundle of its own and
+		* whose family row is active. Never rejects: row-state uncertainty fails
+		* open, and per-child failures degrade alone.
+		*/
+		async function mountClientChildren(ctx) {
+			const active = await fetchActiveRows();
 			const own = ownClientEntryIds();
 			const registry = mountedRegistry();
 			for (const child of clientChildren) {
+				if (active !== void 0 && !active.has(child.name)) continue;
 				if (own.has(child.name)) continue;
 				if (registry.has(child.name)) continue;
 				registry.add(child.name);
@@ -54427,7 +54474,9 @@ window.__ModuleLoader__.load({
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			mountClientChildren(ctx);
+			mountClientChildren(ctx).catch((error) => {
+				console.error("[dsh-web-all] client children mount failed", error);
+			});
 			ctx.effect(() => {
 				const responsiveStyle = ensureResponsiveStyle();
 				const bootShield = installBootShield();

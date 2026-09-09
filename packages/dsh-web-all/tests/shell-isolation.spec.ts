@@ -229,21 +229,26 @@ describe('dsh-web-all fault-isolation shell (real boot)', () => {
         await apply(createMockCtx() as any, { plugin: 'node:events' })
       }
 
-      // Route was registered exactly once
-      expect(mockWebServer.register).toHaveBeenCalledTimes(1)
+      // Both health routes were registered exactly once
+      expect(mockWebServer.register).toHaveBeenCalledTimes(2)
       expect(routes.has('/api/dsh-web-all/degraded')).toBe(true)
+      expect(routes.has('/api/dsh-web-all/rows')).toBe(true)
 
-      // Tear down 16 of the 17 entries: route must remain active
+      // Each entry contributes two effects: the shared route hold (even
+      // indexes) and the active-row ledger removal (odd indexes). Release 16
+      // of the 17 route holds: both routes must remain active.
       for (let i = 0; i < 16; i++) {
-        effects[i]?.()
+        effects[i * 2]?.()
       }
       expect(routes.has('/api/dsh-web-all/degraded')).toBe(true)
+      expect(routes.has('/api/dsh-web-all/rows')).toBe(true)
       expect(unregisters).toBe(0)
 
-      // Final entry teardown: route is disposed
-      effects[16]?.()
+      // Final route-hold release: both routes are disposed
+      effects[32]?.()
       expect(routes.has('/api/dsh-web-all/degraded')).toBe(false)
-      expect(unregisters).toBe(1)
+      expect(routes.has('/api/dsh-web-all/rows')).toBe(false)
+      expect(unregisters).toBe(2)
     } finally {
       _resetDegradedRouteForTest()
     }

@@ -32,11 +32,21 @@
  * Health surface: a loopback-only GET /api/dsh-web-all/degraded answers with
  * the current degradation ledger so doctor/monitoring can surface "these
  * plugins are degraded, the rest of the Web is healthy" without log scraping.
+ *
+ * Row-state surface: GET /api/dsh-web-all/rows answers the active family rows
+ * (real plugin package names, see src/rows.ts) so the browser half can gate
+ * which folded client children mount (#1372): a row disabled through a user
+ * patch override never applies its shell entry, and its settings tabs stay
+ * off the page. Unlike the degraded route this one is NOT loopback-fenced —
+ * remote browsers (remote-web-ui) read it same-origin like every other family
+ * /api route; it only leaks active family package names, which the served
+ * client bundle already reveals.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { listDegraded, recordDegraded } from './degraded.ts'
+import { listActiveRows, recordActiveRow, removeActiveRow } from './rows.ts'
 
 /** Required services: none — the shell must activate before anything else. */
 export const inject = [] as const
@@ -68,24 +78,91 @@ function makeDegradedRoute(): WebRoute {
 }
 
 /**
- * Shared route registration state: multiple shell entries (one per family
- * plugin) mount sequentially under the aggregate. The degraded route is a
- * singleton on the host webServer; ref-counting ensures it is registered
- * exactly once on the first active shell entry and torn down only when the
- * final entry disposes.
+ * Row-state route: answers the active family rows (real plugin package
+ * names) for the browser half's mount gating (#1372). NOT loopback-fenced:
+ * remote browsers read it same-origin like every other family /api route;
+ * the payload (active family package names) is already public through the
+ * served client bundle.
  */
-let degradedRouteRefCount = 0
-let unregisterDegradedRoute: (() => void) | undefined
+function makeRowsRoute(): WebRoute {
+  return {
+    kind: 'exact',
+    path: '/api/dsh-web-all/rows',
+    handler: async (_req: IncomingMessage, res: ServerResponse): Promise<void> => {
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+      res.end(JSON.stringify({ ok: true, children: listActiveRows() }))
+    },
+  }
+}
+
+/**
+ * Shared route registration state: multiple shell entries (the self row plus
+ * one per family plugin) mount sequentially under the aggregate. Both health
+ * routes are singletons on the host webServer; ref-counting registers them
+ * exactly once on the first shell entry and tears them down with the last.
+ */
+let healthRouteRefCount = 0
+let unregisterHealthRoutes: (() => void) | undefined
 
 /** For test teardown and test isolation only. */
 export function _resetDegradedRouteForTest(): void {
-  degradedRouteRefCount = 0
+  healthRouteRefCount = 0
   try {
-    unregisterDegradedRoute?.()
+    unregisterHealthRoutes?.()
   } catch {
     // Ignore.
   }
-  unregisterDegradedRoute = undefined
+  unregisterHealthRoutes = undefined
+}
+
+/**
+ * Hold both health routes (degraded + rows) for this shell entry's lifetime.
+ * Every shell entry calls this — including the config-less self row — so the
+ * rows route stays up even when every family row is disabled. The optional
+ * webServer face goes through reflect.get(name, false) (strict=false: no
+ * inject requirement): a host without webServer (some minimal profiles)
+ * simply skips the routes.
+ */
+function holdHealthRoutes(ctx: Context): void {
+  const webServer = ctx.reflect.get('webServer', false) as { register(route: WebRoute): () => void } | undefined
+  if (webServer === undefined) return
+  if (healthRouteRefCount === 0) {
+    try {
+      const unregisterDegraded = webServer.register(makeDegradedRoute())
+      let unregisterRows: (() => void) | undefined
+      try {
+        unregisterRows = webServer.register(makeRowsRoute())
+      } catch (error) {
+        unregisterDegraded()
+        throw error
+      }
+      unregisterHealthRoutes = () => {
+        try {
+          unregisterRows?.()
+        } finally {
+          unregisterDegraded()
+        }
+      }
+    } catch (error) {
+      // Defensive fallback: if another module already owns an exact route,
+      // log a warning without throwing so the fault-isolation shell fiber
+      // never fails.
+      console.warn('[dsh-web-all] failed to register health routes:', error)
+    }
+  }
+  healthRouteRefCount += 1
+  ctx.effect(() => () => {
+    healthRouteRefCount -= 1
+    if (healthRouteRefCount <= 0) {
+      healthRouteRefCount = 0
+      try {
+        unregisterHealthRoutes?.()
+      } catch {
+        // Dispose must never throw.
+      }
+      unregisterHealthRoutes = undefined
+    }
+  }, 'dsh-web-all: health routes')
 }
 
 /** Config shapes that must mount quietly: absent (self row) or a bare-row override. */
@@ -107,6 +184,7 @@ const RETIRED_PLUGINS = new Set([
 
 /** Apply one shell entry: mount the configured real plugin behind an isolation boundary. */
 export async function apply(ctx: Context, config: ShellConfig | undefined): Promise<void> {
+  holdHealthRoutes(ctx)
   const spec = config?.plugin
   if (typeof spec === 'string' && RETIRED_PLUGINS.has(spec)) {
     // Stale row from an older profile whose plugin has been retired. Mount empty quietly.
@@ -133,37 +211,14 @@ export async function apply(ctx: Context, config: ShellConfig | undefined): Prom
     recordDegraded('(no plugin)', 'shape', new Error(`shell row config is missing the "plugin" package name (row config: ${JSON.stringify(config ?? null)}); the entry mounted empty`))
     return
   }
-  // Optional service read: a plugin-fiber context proxy throws on an
-  // undeclared property read, so the optional webServer face goes through
-  // reflect.get(name, false) (strict=false: no inject requirement). The
-  // degraded route is a best-effort surface — a host without webServer (some
-  // minimal profiles) simply skips it.
-  const webServer = ctx.reflect.get('webServer', false) as { register(route: WebRoute): () => void } | undefined
-  if (webServer !== undefined) {
-    if (degradedRouteRefCount === 0) {
-      try {
-        unregisterDegradedRoute = webServer.register(makeDegradedRoute())
-      } catch (error) {
-        // Defensive fallback: if another module already owns the exact route,
-        // log a warning without throwing so the fault-isolation shell fiber
-        // never fails.
-        console.warn('[dsh-web-all] failed to register degraded route:', error)
-      }
-    }
-    degradedRouteRefCount += 1
-    ctx.effect(() => () => {
-      degradedRouteRefCount -= 1
-      if (degradedRouteRefCount <= 0) {
-        degradedRouteRefCount = 0
-        try {
-          unregisterDegradedRoute?.()
-        } catch {
-          // Dispose must never throw.
-        }
-        unregisterDegradedRoute = undefined
-      }
-    }, 'dsh-web-all: degraded route')
-  }
+  // Record the row active BEFORE importing the real plugin: a row whose
+  // plugin degrades (import/start failure captured below) is still an ACTIVE
+  // row and keeps its UI entry — the degraded surface is the honest signal.
+  // Only a row the loader never applied (disabled) stays out of the ledger.
+  recordActiveRow(spec)
+  ctx.effect(() => () => {
+    removeActiveRow(spec)
+  }, 'dsh-web-all: active row ledger')
   let mod: unknown
   try {
     mod = await import(/* @vite-ignore */ spec)
