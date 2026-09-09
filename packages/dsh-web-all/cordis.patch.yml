@@ -122,6 +122,13 @@
       config:
         plugin: '@linxin666/dsh-client-ui-model-capabilities'
 
+# from ../dsh-preset-center
+- insert:
+    - id: web-ui-preset-center
+      name: '@linxin666/dsh-web-all/preset-center'
+      config:
+        plugin: '@linxin666/dsh-client-ui-preset-center'
+
 # from ../skins/skin-center
 - insert:
     - id: web-ui-skin-center

@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
 import { marketTurnstileToken, TURNSTILE_ACTION_INSTALL } from './turnstile.ts'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { PluginSettingsCard, BooleanField } from './PluginSettingsCard.tsx'
@@ -77,7 +77,47 @@ export class MarketCardController {
   }
 }
 
-type Kind = 'skin' | 'pet' | 'plugin'
+type Kind = 'skin' | 'pet' | 'plugin' | 'preset'
+
+/** One catalog record the store card hands to the Presets panel. */
+export interface WorkshopPresetRecord {
+  id: string
+  name?: string
+  nameEn?: string
+  author?: string
+  description?: string
+  descriptionEn?: string
+  version?: string
+  tags?: string[]
+  repo?: string
+  rank?: number
+}
+
+/** Marker key props of the Presets panel cell. */
+export interface WorkshopPanelKeyProps {
+  /** Marker field: key props are intentionally empty. */
+  children?: never
+}
+
+/**
+ * Owner share the store card passes to a contributed asset panel. The card
+ * owns the catalog fetch and the download gateway; the panel owns the
+ * kind-specific state machine behind them.
+ */
+export interface WorkshopPanelOwnerProps {
+  /** Catalog records for the panel's kind. */
+  items?: readonly WorkshopPresetRecord[]
+  /** Catalog fetch state. */
+  catalogState?: 'loading' | 'ready' | 'error'
+  /** Whether the loopback asset gateway answered. */
+  gateway?: boolean
+  /** Install-event counts by asset id. */
+  installs?: Record<string, number>
+  /** Download one asset into its DSH home directory. */
+  install?: (id: string, force: boolean) => Promise<{ dest: string }>
+  /** Record a successful install with the market. */
+  reportInstall?: (id: string) => Promise<number>
+}
 
 interface MarketRecord {
   id: string
@@ -103,6 +143,7 @@ interface MarketStats {
   skin: Record<string, number>
   pet: Record<string, number>
   plugin: Record<string, number>
+  preset: Record<string, number>
   installs?: Record<Kind, Record<string, number>>
 }
 
@@ -115,6 +156,7 @@ const KIND_LABEL: Record<Kind, MarketKey> = {
   skin: 'tab.skin',
   pet: 'tab.pet',
   plugin: 'tab.plugin',
+  preset: 'tab.preset',
 }
 
 function deviceFp(): string {
@@ -160,13 +202,14 @@ function formatCount(count: number): string {
 export type MarketCardProps =
   PropsLocale<'dsh-web-ui-market'>
   & InjectFace<MarketCardFace>
+  & PropsRenderSlots<'dsh-workshop.panel'>
   & {
     /** Remote data override (injected for tests). */
     remote?: MarketData | null
     /** Host gateway override; null forces the degraded copy-only UI (injected for tests). */
     gateway?: {
       install(kind: Kind, id: string, force: boolean): Promise<{ dest: string }>
-      list(): Promise<{ skins: string[]; pets: string[] }>
+      list(): Promise<{ skins: string[]; pets: string[]; presets: string[] }>
     } | null
     /** Plugin-manager face override; undefined reads the bridged cordis service. */
     pluginManager?: PluginManagerService | null
@@ -184,7 +227,7 @@ export type MarketCardProps =
  * Render the market card.
  */
 export function MarketCard(props: MarketCardProps): ReactNode {
-  const { t } = props
+  const { t, renderSlot } = props
   const state = props.useMarketCard((snapshot) => snapshot)
   const disabled = !state.writable
   const cardVisible = state.enabled.text !== 'false'
@@ -203,7 +246,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
   const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadAttempt, setLoadAttempt] = useState(0)
-  const [installed, setInstalled] = useState<{ skins: string[]; pets: string[] }>({ skins: [], pets: [] })
+  const [installed, setInstalled] = useState<{ skins: string[]; pets: string[]; presets: string[] }>({ skins: [], pets: [], presets: [] })
   const [installing, setInstalling] = useState<string | null>(null)
   const [conflict, setConflict] = useState<{ kind: Kind; id: string; dest: string } | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -233,18 +276,20 @@ export function MarketCard(props: MarketCardProps): ReactNode {
       fetchJson(MARKET_ORIGIN + '/manifest/skins.json'),
       fetchJson(MARKET_ORIGIN + '/manifest/pets.json'),
       fetchJson(MARKET_ORIGIN + '/manifest/plugins.json'),
+      fetchJson(MARKET_ORIGIN + '/manifest/presets.json').catch(() => ({ items: [] })),
       fetchJson(MARKET_ORIGIN + '/api/stats'),
       downloadsLoader(),
-    ]).then(([skins, pets, plugins, stats, downloads]) => {
+    ]).then(([skins, pets, plugins, presets, stats, downloads]) => {
       if (!alive) return
-      const s = (stats ?? { skin: {}, pet: {}, plugin: {} }) as MarketStats
+      const s = (stats ?? { skin: {}, pet: {}, plugin: {}, preset: {} }) as MarketStats
       setData({
         items: {
           skin: ((skins as { items: MarketRecord[] }).items) ?? [],
           pet: ((pets as { items: MarketRecord[] }).items) ?? [],
           plugin: ((plugins as { items: MarketRecord[] }).items) ?? [],
+          preset: ((presets as { items?: MarketRecord[] }).items) ?? [],
         },
-        stats: { skin: s.skin ?? {}, pet: s.pet ?? {}, plugin: s.plugin ?? {},
+        stats: { skin: s.skin ?? {}, pet: s.pet ?? {}, plugin: s.plugin ?? {}, preset: s.preset ?? {},
           installs: s.installs ?? undefined } as MarketStats,
       })
       if (downloads && typeof downloads === 'object' && (downloads as Record<string, unknown>).downloads) {
@@ -268,7 +313,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
   // otherwise the card degrades to copy-only with the market-site link.
   interface AssetGateway {
     install(kind: Kind, id: string, force: boolean): Promise<{ dest: string }>
-    list(): Promise<{ skins: string[]; pets: string[] }>
+    list(): Promise<{ skins: string[]; pets: string[]; presets: string[] }>
   }
   const [liveGateway, setLiveGateway] = useState<AssetGateway | null | undefined>(undefined)
   useEffect(() => {
@@ -276,7 +321,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
     let alive = true
     const gatewayClient: AssetGateway = {
       async install(kind, id, force) {
-        const res = await fetch('/api/market/install-' + (kind === 'skin' ? 'skin' : 'pet'), {
+        const res = await fetch('/api/market/install-' + kind, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id, force }),
@@ -293,8 +338,8 @@ export function MarketCard(props: MarketCardProps): ReactNode {
       },
       async list() {
         const raw = await fetchJson('/api/market/installed')
-        const r = raw as { skins: string[]; pets: string[] }
-        return { skins: r.skins ?? [], pets: r.pets ?? [] }
+        const r = raw as { skins?: string[]; pets?: string[]; presets?: string[] }
+        return { skins: r.skins ?? [], pets: r.pets ?? [], presets: r.presets ?? [] }
       },
     }
     void gatewayClient.list().then((list) => {
@@ -325,12 +370,12 @@ export function MarketCard(props: MarketCardProps): ReactNode {
   }, [face, faceLoopback])
 
   const votesOf = (kind: Kind, id: string): number => {
-    const bucket = data?.stats ?? { skin: {}, pet: {}, plugin: {} }
+    const bucket = data?.stats ?? { skin: {}, pet: {}, plugin: {}, preset: {} }
     return (bucket[kind] as Record<string, number>)[id] ?? 0
   }
 
   const installsOf = (kind: Kind, id: string): number => {
-    const bucket = data?.stats?.installs ?? { skin: {}, pet: {}, plugin: {} }
+    const bucket = data?.stats?.installs ?? { skin: {}, pet: {}, plugin: {}, preset: {} }
     return (bucket[kind] as Record<string, number>)[id] ?? 0
   }
 
@@ -415,7 +460,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
           ...prev,
           stats: {
             ...prev.stats,
-            installs: { ...(prev.stats.installs ?? { skin: {}, pet: {}, plugin: {} }), [kind]: { ...(prev.stats.installs?.[kind] ?? {}), [id]: count } },
+            installs: { ...(prev.stats.installs ?? { skin: {}, pet: {}, plugin: {}, preset: {} }), [kind]: { ...(prev.stats.installs?.[kind] ?? {}), [id]: count } },
           },
         } : prev)
       }).catch(() => { /* non-fatal */ })
@@ -465,7 +510,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
           ...prev,
           stats: {
             ...prev.stats,
-            installs: { ...(prev.stats.installs ?? { skin: {}, pet: {}, plugin: {} }), plugin: { ...(prev.stats.installs?.plugin ?? {}), [id]: count } },
+            installs: { ...(prev.stats.installs ?? { skin: {}, pet: {}, plugin: {}, preset: {} }), plugin: { ...(prev.stats.installs?.plugin ?? {}), [id]: count } },
           },
         } : prev)
       }).catch(() => { /* non-fatal */ })
@@ -563,7 +608,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
       {cardVisible ? (
         <div className={css.market}>
           <div className={css.tabs} role="tablist" aria-label={t('settings.title')}>
-            {(['skin', 'pet', 'plugin'] as Kind[]).map((kind) => (
+            {(['skin', 'pet', 'plugin', 'preset'] as Kind[]).map((kind) => (
               <button
                 key={kind}
                 type="button"
@@ -577,14 +622,16 @@ export function MarketCard(props: MarketCardProps): ReactNode {
               </button>
             ))}
           </div>
-          <input
-            className={css.search}
-            type="search"
-            aria-label={t('search.label')}
-            placeholder={t('search.label')}
-            value={query}
-            onChange={(event) => { setQuery(event.target.value) }}
-          />
+          {tab === 'preset' ? null : (
+            <input
+              className={css.search}
+              type="search"
+              aria-label={t('search.label')}
+              placeholder={t('search.label')}
+              value={query}
+              onChange={(event) => { setQuery(event.target.value) }}
+            />
+          )}
           {tab === 'plugin' ? (
             <div className={css.filterRows}>
               <div className={css.filterRow} role="group" aria-label={t('filter.category')}>
@@ -611,7 +658,19 @@ export function MarketCard(props: MarketCardProps): ReactNode {
               ) : null}
             </div>
           ) : null}
-          {failed ? (
+          {tab === 'preset' ? (
+            renderSlot('dsh-workshop.panel', {
+              items: data?.items.preset ?? [],
+              catalogState: failed ? 'error' : loading ? 'loading' : 'ready',
+              gateway: gateway !== null,
+              installs: data?.stats.installs?.preset ?? {},
+              install: gateway === null ? undefined : (id: string, force: boolean) => gateway.install('preset', id, force),
+              reportInstall: (id: string) => reportInstall('preset', id),
+            }, {
+              entryKey: 'preset',
+              fallback: <p className={css.empty} role="status">{t('presetPanel.missing')}</p>,
+            })
+          ) : failed ? (
             <p className={css.empty} role="status">
               {t('empty')}
               <Button className={css.retry} onClick={() => { setLoadAttempt((value) => value + 1) }}>{t('retry')}</Button>

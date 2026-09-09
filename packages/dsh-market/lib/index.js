@@ -129,7 +129,12 @@ function isLoopbackRequest(request) {
 /**
 * Market asset installer core: builds the download plan from the public
 * dsh-market.com manifest and writes it into the DSH home asset
-* directories ($DSH_HOME/skins/<id>, $DSH_HOME/pets/<id>).
+* directories ($DSH_HOME/skins/<id>, $DSH_HOME/pets/<id>,
+* $DSH_HOME/agent-presets/<id>).
+*
+* A `preset` install lands in the preset LIBRARY, never in the discovery root
+* ($DSH_HOME/.agent-presets): a downloaded composition must stay inert until
+* the user enables it through the preset center, because a preset is code.
 *
 * Security model (host half):
 *  - the manifest is fetched from MARKET_ORIGIN only;
@@ -154,6 +159,24 @@ function isLoopbackRequest(request) {
 const MARKET_ORIGIN = "https://dsh-market.com";
 /** Provenance manifest written into every installed asset directory. */
 const PROVENANCE_FILENAME = "dsh-market.provenance.json";
+/** DSH home directory per asset kind (presets land in the inert library). */
+const KIND_DIR = {
+	skin: "skins",
+	pet: "pets",
+	preset: "agent-presets"
+};
+/** Manifest basename per asset kind (dsh-market.com/manifest/<name>.json). */
+const KIND_MANIFEST = {
+	skin: "skins",
+	pet: "pets",
+	preset: "presets"
+};
+/** Asset id rule per kind: presets must match the official preset directory rule. */
+const KIND_ID_RE = {
+	skin: /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/,
+	pet: /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/,
+	preset: /^[a-z0-9][a-z0-9-]*$/
+};
 const SAFE_REL_RE = /^[A-Za-z0-9._][A-Za-z0-9._\-/]{0,199}$/;
 /** Whether one manifest-relative path passes the conservative allowlist. */
 function isSafeRel(rel) {
@@ -161,13 +184,13 @@ function isSafeRel(rel) {
 	if (rel.includes("..") || rel.includes("//") || rel.startsWith("/") || rel.endsWith("/")) return false;
 	return true;
 }
-/** The market asset base URL for one kind/id (skins/<id>/ or pets/<id>/). */
+/** The market asset base URL for one kind/id (skins/<id>/, pets/<id>/, presets/<id>/). */
 function assetBase(kind, id) {
-	return `${MARKET_ORIGIN}/assets/${kind === "skin" ? "skins" : "pets"}/${encodeURIComponent(id)}/`;
+	return `${MARKET_ORIGIN}/assets/${KIND_MANIFEST[kind]}/${encodeURIComponent(id)}/`;
 }
 /** Build the validated download plan from a manifest file list. */
 function planDownload(kind, id, files) {
-	if (!id || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(id)) throw new Error(`invalid asset id: ${id}`);
+	if (!id || !KIND_ID_RE[kind].test(id)) throw new Error(`invalid asset id: ${id}`);
 	if (!Array.isArray(files) || files.length === 0) throw new Error(`asset ${id} declares no files`);
 	if (files.length > 200) throw new Error(`asset ${id} declares too many files (${files.length}, max 200)`);
 	const base = assetBase(kind, id);
@@ -184,9 +207,9 @@ function planDownload(kind, id, files) {
 	}
 	return plan;
 }
-/** The destination directory for one asset (dsh home + skins|pets + id). */
+/** The destination directory for one asset (dsh home + kind directory + id). */
 function targetDir(dshHome, kind, id) {
-	return join(dshHome, kind === "skin" ? "skins" : "pets", id);
+	return join(dshHome, KIND_DIR[kind], id);
 }
 var MarketInstallError = class extends Error {
 	code;
@@ -244,7 +267,7 @@ async function readBodyLimited(res, maxBytes, code, what, timeoutMs) {
 	return Buffer.concat(chunks, total);
 }
 async function fetchManifest(kind, fetchImpl, maxBytes, timeoutMs) {
-	const url = `${MARKET_ORIGIN}/manifest/${kind === "skin" ? "skins" : "pets"}.json`;
+	const url = `${MARKET_ORIGIN}/manifest/${KIND_MANIFEST[kind]}.json`;
 	const res = await fetchWithTimeout(url, fetchImpl, "manifest", timeoutMs);
 	if (!res.ok) throw new MarketInstallError("manifest", `manifest fetch failed: ${res.status}`);
 	const text = await readBodyLimited(res, maxBytes, "manifest", `manifest ${url}`, timeoutMs);
@@ -294,6 +317,7 @@ async function installAsset(kind, id, options) {
 			kind,
 			id,
 			installedAt: (/* @__PURE__ */ new Date()).toISOString(),
+			...typeof item.version === "string" && item.version !== "" ? { assetVersion: item.version } : {},
 			files: hashes
 		};
 		writeFileSync(join(tmp, PROVENANCE_FILENAME), JSON.stringify(provenance, null, 2) + "\n");
@@ -391,10 +415,11 @@ function writeJson(res, status, body, headers = {}) {
 //#region src/routes.ts
 /**
 * Market host HTTP routes — the loopback-only install gateway the browser
-* half calls to install skins/pets from dsh-market.com into the DSH home
-* asset directories. Endpoints (all under /api/market):
+* half calls to install skins/pets/presets from dsh-market.com into the DSH
+* home asset directories. Endpoints (all under /api/market):
 *  - POST /api/market/install-skin { id, force? }
 *  - POST /api/market/install-pet { id, force? }
+*  - POST /api/market/install-preset { id, force? }  (writes the preset library)
 * The host fetches the manifest itself, validates every path, and never
 * accepts a URL or a file list from the client (see core/installer).
 * @module @linxin666/dsh-client-ui-market/routes
@@ -483,11 +508,13 @@ function makeMarketRoutes(deps = {}) {
 		};
 		writeJson(res, 200, {
 			skins: listDirs(path.join(home, "skins")),
-			pets: listDirs(path.join(home, "pets"))
+			pets: listDirs(path.join(home, "pets")),
+			presets: listDirs(path.join(home, "agent-presets"))
 		}, { "cache-control": "no-store" });
 	};
 	const installSkin = handleInstall("skin");
 	const installPet = handleInstall("pet");
+	const installPreset = handleInstall("preset");
 	return [
 		{
 			kind: "exact",
@@ -503,6 +530,11 @@ function makeMarketRoutes(deps = {}) {
 			kind: "exact",
 			path: `${MARKET_API_PREFIX}/install-pet`,
 			handler: installPet
+		},
+		{
+			kind: "exact",
+			path: `${MARKET_API_PREFIX}/install-preset`,
+			handler: installPreset
 		}
 	];
 }

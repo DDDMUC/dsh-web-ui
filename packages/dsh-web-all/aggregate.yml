@@ -29,6 +29,9 @@ patchFrom:
   - ../dsh-usage
   - ../dsh-session-archive
   - ../dsh-model-capabilities
+  # preset-center 排在 dsh-market 之后：创意工坊卡片先声明 dsh-workshop.panel
+  # 子槽位，预设面板再注册进该槽位（见 packages/dsh-preset-center）。
+  - ../dsh-preset-center
   - ../skins/skin-center
   # dsh-i18n 语言包无宿主行为、无时序依赖，放列表末尾：注册 ru 语言与全部
   # 家族插件命名空间的 ru 字典（见 packages/dsh-i18n）。
@@ -51,6 +54,7 @@ deps:
   - ../dsh-usage
   - ../dsh-session-archive
   - ../dsh-model-capabilities
+  - ../dsh-preset-center
   - ../dsh-web-settings
   - ../skins/skin-center
   - ../dsh-i18n

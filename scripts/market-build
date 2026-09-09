@@ -8,6 +8,9 @@
  *   skins   — packages/skins/skin-center/skins/<id>/skin.json        (v2)
  *   pets    — packages/dsh-pet/assets/<dir>/pet.json                 (v2)
  *   plugins — packages/dsh-community-plugins/community.json
+ *   presets — packages/dsh-preset-center/presets/<id>/preset.yml
+ *             + presets/catalog.json (market metadata: author, version,
+ *               tags, English copy); the preset directory is the asset
  *
  * Emits market/dist/:
  *   index.html, app.js, preview.html    copied from market/src/
@@ -17,7 +20,7 @@
  *   styles.js   window.SKIN_STYLES = { "<id>": { stylesheet, patches } }
  *   manifest.js window.SKIN_MANIFEST = { skins: [...] }  (preview.html compat)
  *   sitemap.xml                         generated from the skin catalog
- *   manifest/skins.json  pets.json  plugins.json
+ *   manifest/skins.json  pets.json  plugins.json  presets.json
  *   assets/...                            previews, background media, pet media
  *
  * All emitted paths are site-root-relative ("assets/..."), so the deployed
@@ -37,6 +40,8 @@ const ROOT = path.resolve(__dirname, '..')
 const SKINS_DIR = path.join(ROOT, 'packages', 'skins', 'skin-center', 'skins')
 const PETS_DIR = path.join(ROOT, 'packages', 'dsh-pet', 'assets')
 const PLUGINS_FILE = path.join(ROOT, 'packages', 'dsh-community-plugins', 'community.json')
+const PRESETS_DIR = path.join(ROOT, 'packages', 'dsh-preset-center', 'presets')
+const PRESET_CATALOG = path.join(PRESETS_DIR, 'catalog.json')
 const SRC_DIR = path.join(ROOT, 'market', 'src')
 const DIST_DIR = path.join(ROOT, 'market', 'dist')
 const CHECK = process.argv.includes('--check')
@@ -259,6 +264,82 @@ function scanPlugins() {
   return plugins
 }
 
+/** Preset ids the harness ships; a community preset may never claim one. */
+const PRESET_RESERVED_IDS = ['minimal', 'ptc', 'standard', 'cordis']
+
+/** Official preset directory rule (mirrors PRESET_ID in @deepseek-ai/dsh-agent-presets). */
+const PRESET_ID_RE = /^[a-z0-9][a-z0-9-]*$/
+
+/**
+ * Read the display scalars of a preset.yml. The official file carries only
+ * `name`, `description` and `order`; this is deliberately a shallow scalar
+ * reader, not a YAML parser (the build script has no YAML dependency). A
+ * published preset must keep its display text on single-line scalars.
+ */
+function parsePresetYml(text) {
+  const out = {}
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/\s+#.*$/, '')
+    const m = /^(name|description|order):\s*(.+?)\s*$/.exec(line)
+    if (!m) continue
+    let value = m[2]
+    if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
+      value = value.slice(1, -1)
+    }
+    if (m[1] === 'order') {
+      const n = Number(value)
+      if (Number.isFinite(n)) out.order = n
+      continue
+    }
+    out[m[1]] = value
+  }
+  return out
+}
+
+/**
+ * Scan the community preset catalog. The catalog is the market's metadata
+ * source; each entry's directory supplies the asset bytes and the display
+ * text the DSH roster shows.
+ */
+function scanPresets() {
+  if (!fs.existsSync(PRESET_CATALOG)) return []
+  const raw = readJson(PRESET_CATALOG, 'preset catalog')
+  if (!Array.isArray(raw)) throw new Error('preset catalog must be an array')
+  const presets = []
+  const seen = new Set()
+  for (let i = 0; i < raw.length; i++) {
+    const entry = raw[i]
+    if (!entry || typeof entry.id !== 'string' || entry.id === '') throw new Error(`preset #${i}: id is mandatory`)
+    if (!PRESET_ID_RE.test(entry.id)) throw new Error(`preset #${i}: id must match ${PRESET_ID_RE}: ${entry.id}`)
+    if (PRESET_RESERVED_IDS.includes(entry.id)) throw new Error(`preset #${i}: id is reserved by a shipped preset: ${entry.id}`)
+    if (seen.has(entry.id)) throw new Error(`preset #${i}: duplicate id: ${entry.id}`)
+    seen.add(entry.id)
+    const dir = path.join(PRESETS_DIR, entry.id)
+    if (!fs.existsSync(dir)) throw new Error(`preset #${i}: directory not found: presets/${entry.id}`)
+    const composition = path.join(dir, 'agent.cordis.yml')
+    if (!fs.existsSync(composition)) throw new Error(`preset #${i}: agent.cordis.yml missing: presets/${entry.id}`)
+    const metadataFile = path.join(dir, 'preset.yml')
+    if (!fs.existsSync(metadataFile)) throw new Error(`preset #${i}: preset.yml missing: presets/${entry.id}`)
+    const metadata = parsePresetYml(fs.readFileSync(metadataFile, 'utf8').replace(/\r\n?/g, '\n'))
+    if (!metadata.name) throw new Error(`preset #${i}: preset.yml needs a single-line name: presets/${entry.id}`)
+    const item = {
+      id: entry.id,
+      name: metadata.name,
+      rank: typeof entry.rank === 'number' ? entry.rank : i + 1,
+      files: listFiles(dir),
+    }
+    if (entry.nameEn) item.nameEn = entry.nameEn
+    if (entry.author) item.author = entry.author
+    if (metadata.description) item.description = metadata.description
+    if (entry.descriptionEn) item.descriptionEn = entry.descriptionEn
+    if (entry.version) item.version = entry.version
+    if (Array.isArray(entry.tags) && entry.tags.length) item.tags = entry.tags
+    if (entry.repo) item.repo = entry.repo
+    presets.push({ id: entry.id, dir, item })
+  }
+  return presets
+}
+
 /** --- robots / sitemap ----------------------------------------------------- */
 
 const SITE_ORIGIN = 'https://dsh-market.com'
@@ -300,7 +381,7 @@ function buildSitemap(skins) {
 
 /** --- emit ---------------------------------------------------------------- */
 
-function emit(outDir, files, binary, skins, pets, plugins, transformSkinCss) {
+function emit(outDir, files, binary, skins, pets, plugins, presets, transformSkinCss) {
   let preservedTryon = null
   const tryonPath = path.join(outDir, 'tryon')
   const canRebuildTryon = fs.existsSync(TRYON_SHELL_DIR) && fs.existsSync(path.join(TRYON_SHELL_DIR, 'index.html'))
@@ -392,6 +473,7 @@ function emit(outDir, files, binary, skins, pets, plugins, transformSkinCss) {
   fs.writeFileSync(path.join(manDir, 'skins.json'), mk(skins.map(({ item }) => item)))
   fs.writeFileSync(path.join(manDir, 'pets.json'), mk(pets.map(({ item }) => item)))
   fs.writeFileSync(path.join(manDir, 'plugins.json'), mk(plugins.map(({ item }) => item)))
+  fs.writeFileSync(path.join(manDir, 'presets.json'), mk(presets.map(({ item }) => item)))
 }
 
 function walkFiles(dir, base) {
@@ -562,6 +644,7 @@ async function main() {
   const skins = scanSkins()
   const pets = scanPets()
   const plugins = scanPlugins()
+  const presets = scanPresets()
 
   // static sources
   const files = new Map()
@@ -585,11 +668,16 @@ async function main() {
       binary.set(`assets/pets/${item.id}/${rel}`, assertInside(dir, rel, 'pet file'))
     }
   }
+  for (const { id, dir, item } of presets) {
+    for (const rel of item.files) {
+      binary.set(`assets/presets/${id}/${rel}`, assertInside(dir, rel, 'preset file'))
+    }
+  }
 
   if (CHECK) {
     const tmp = path.join(ROOT, '.market-check-tmp')
     fs.rmSync(tmp, { recursive: true, force: true })
-    emit(tmp, files, binary, skins, pets, plugins, transformSkinCss)
+    emit(tmp, files, binary, skins, pets, plugins, presets, transformSkinCss)
     const canRebuildTryon = fs.existsSync(path.join(TRYON_SHELL_DIR, 'index.html'))
     if (canRebuildTryon) {
       emitTryon(tmp, skins)
@@ -618,9 +706,9 @@ async function main() {
     return
   }
 
-  emit(DIST_DIR, files, binary, skins, pets, plugins, transformSkinCss)
+  emit(DIST_DIR, files, binary, skins, pets, plugins, presets, transformSkinCss)
   emitTryon(DIST_DIR, skins)
-  console.log(`market-build: wrote ${walkFiles(DIST_DIR).length} files (${skins.length} skins, ${pets.length} pets, ${plugins.length} plugins)`)
+  console.log(`market-build: wrote ${walkFiles(DIST_DIR).length} files (${skins.length} skins, ${pets.length} pets, ${plugins.length} plugins, ${presets.length} presets)`)
 }
 
 main().catch((error) => { console.error(error); process.exit(1) })

@@ -45,7 +45,7 @@
 | `data-dsh-wallpaper-active` | html + body（body/html 级，另行管理） | WE 壁纸挂载期间置 `true`，卸载 / 禁用清除；供皮肤 CSS 与壁纸中和规则锚定（#734） |
 | `data-dsh-wallpaper-surface` | 官方 shell 全视口背景元素 + 侧栏工作区淡化条（元素级） | `WallpaperController.markWallpaperSurfaces()` 在 WE 壁纸挂载期间打标（全视口 bg-base 背景 + `data-slot="sidebar.workspaces"` 内渐变淡化条），命中 `html[data-dsh-wallpaper-active] [data-dsh-wallpaper-surface]` 中和；卸载清除，不含哈希类依赖（#734） |
 
-## part 组（70 行，含各 owner 行）
+## part 组（71 行，含各 owner 行）
 
 shell 区域（owner: shell）：
 
@@ -84,6 +84,7 @@ family / 插件区域：
 | `announcement` | pet | 插件公告气泡（dsh-usage 联动）；`[data-dsh-pet-announcement]`，值来源插件标签 |
 | `panel` | pet | 交互面板；`[data-placement]` |
 | `summon-button` | pet | 召唤钮；`[data-testid="pet-summon"]` |
+| `preset-panel` | preset-center | 创意工坊「预设」标签页面板根；`[data-dsh-plugin="preset-center"] [data-dsh-part="preset-panel"]` |
 | `plugin-item` | web-ui-settings | 家族插件设置卡；`[data-slot="web-ui.plugin.item"]` 内 entry |
 | `head` | skill-explorer | 技能中心模态卡头部；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="card"] > header` |
 | `card` | skill-explorer | 技能中心模态卡；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="card"]` |
@@ -128,7 +129,7 @@ family / 插件区域：
 | `disabled-state` | model-capabilities | 已禁用提供方的卡片提示区（含启用按钮）；panel 内 `[data-dsh-part="disabled-state"]` |
 | `disabled-footer` / `disabled-row` | model-capabilities | Models 页底部存档区与其行；`settings.models.footer` 槽内 `section[data-dsh-part="disabled-footer"]` 与其中 `li[data-dsh-part="disabled-row"]` |
 
-## plugin 组（13 个）
+## plugin 组（14 个）
 
 | data-dsh-plugin | owner | 锚定方式 |
 | --- | --- | --- |
@@ -145,6 +146,7 @@ family / 插件区域：
 | `session-id` | dsh-session-id | footer action slot entry id `session-id`；`[data-dsh-plugin="session-id"]`（面板 overlay 根 + 入口触发器） |
 | `usage` | dsh-usage | 一级设置分区 settings.section id `dsh-usage`（创意工坊下方）；`[data-dsh-plugin="usage"]` |
 | `model-capabilities` | dsh-model-capabilities | Models 页 `settings.models.provider-card` keyed 槽 key `llm-pi-ai`（提供方卡片扩展区）+ `settings.models.footer` 槽 entry id `ui-model-capabilities`（存档区）；`[data-dsh-plugin="model-capabilities"]` |
+| `preset-center` | dsh-preset-center | 创意工坊卡片的「预设」标签页面板（`dsh-workshop.panel` keyed 槽 key `preset`）；`[data-dsh-plugin="preset-center"]` |
 
 ## 已知脆弱点（上游主题缝 PR 诉求）
 
