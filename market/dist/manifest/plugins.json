@@ -700,6 +700,19 @@
       "npm": "dsh-quote-followup",
       "category": "ui",
       "subcategory": "chat"
+    },
+    {
+      "id": "dsh-backup",
+      "name": "一键备份与恢复",
+      "rank": 56,
+      "nameEn": "One-command Backup & Restore",
+      "author": "xiaoyuyu6420",
+      "description": "一键备份与恢复 DSH 用户数据：定时自动备份（重启续跑）、每日/每周分级保留、分类型备份与 merge 恢复；sha256 校验与加固恢复（拒路径穿越/软链，失败自动回滚）；/backup doctor 从已知良好备份体检并定点修复会话日志；宿主起不来也能用的进程外救援台；升级前自动快照、损坏会话先隔离再入档；凭据默认脱敏进本地保险库，跨机迁移列出需重填项。",
+      "descriptionEn": "One-command backup and restore of DSH user data: scheduled auto-backup that survives restarts, daily/weekly tiered retention, per-type backup with merge restore; sha256 verification and hardened restore (path-traversal and symlink rejection, auto-rollback on failure); /backup doctor scans and repairs session logs from a known-good backup; an out-of-process rescue console that works even when the host will not boot; pre-upgrade snapshots and quarantine of corrupt session logs; credentials redacted into a local vault by default with a re-entry checklist for cross-machine moves.",
+      "repo": "https://github.com/xiaoyuyu6420/dsh-backup",
+      "npm": "@xiaoyuyu6420/dsh-backup",
+      "category": "tools",
+      "subcategory": "dev"
     }
   ]
 }
