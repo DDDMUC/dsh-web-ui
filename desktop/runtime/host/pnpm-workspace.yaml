@@ -225,8 +225,8 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-workspace@0.1.5-alpha.2'
   - '@deepseek-ai/dsh@0.1.5-alpha.2'
 
-# Second wave: packages the first auto-edit pass never saw blocked; a fresh
-# resolution otherwise drops them to 0.1.2-alpha.4 via the release-age gate.
+  # Second wave: packages the first auto-edit pass never saw blocked; a fresh
+  # resolution otherwise drops them to 0.1.2-alpha.4 via the release-age gate.
   - '@deepseek-ai/dsh-anonymous-user-id@0.1.5-alpha.2'
   - '@deepseek-ai/dsh-attachment@0.1.5-alpha.2'
   - '@deepseek-ai/dsh-authorization@0.1.5-alpha.2'
@@ -250,6 +250,23 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-util-time@0.1.5-alpha.2'
   - '@deepseek-ai/dsh-util-workspace-path@0.1.5-alpha.2'
   - '@deepseek-ai/dsh-workflow@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-api-workspace-files@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-chunked-list@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-client-file-upload@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-client-resources@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-open-in-app@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-sidebar-documentpreview@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-sidebar-files@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-sidebar-right@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-host-open-in-app@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-http-proxy@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-package-manifest@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-session-format-catalog@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-session-format-v0-to-v1@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-session-format-v1-to-v2@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-session-format-v2-to-v3@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-session-format@0.1.5-alpha.2'
+  - '@deepseek-ai/dsh-tool-present@0.1.5-alpha.2'
 
 # Pin the alpha.2 cohort faces that pnpm could otherwise resolve to an
 # older version through its release-age gate; the desktop payload must
