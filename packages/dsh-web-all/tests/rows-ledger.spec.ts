@@ -40,12 +40,19 @@ function mockHost() {
     }),
   }
   const effects: Array<() => void> = []
+  const pendingInject: Array<(scoped: unknown) => void> = []
   const createCtx = () => ({
-    reflect: { get: (name: string) => (name === 'webServer' ? webServer : undefined) },
+    // The shell applies before the web app provides webServer; route
+    // registration rides this nested inject fiber, fired by provideWebServer().
+    inject: (_deps: readonly string[], cb: (scoped: unknown) => void) => { pendingInject.push(cb) },
     effect: (fn: () => () => void) => { effects.push(fn()) },
     plugin: vi.fn(),
   })
-  return { routes, createCtx, effects, webServer, unregisterCount: () => unregisters }
+  const provideWebServer = () => {
+    const scoped = { webServer, effect: (fn: () => () => void) => { effects.push(fn()) } }
+    for (const cb of pendingInject.splice(0)) cb(scoped)
+  }
+  return { routes, createCtx, effects, webServer, provideWebServer, unregisterCount: () => unregisters }
 }
 
 function resetAll(): void {
@@ -73,6 +80,7 @@ describe('shell row-state surface', () => {
   it('a family row apply records the real plugin and registers both routes', async () => {
     const host = mockHost()
     await apply(host.createCtx() as never, { plugin: 'node:events' })
+    host.provideWebServer()
     expect(listActiveRows()).toEqual(['node:events'])
     expect(host.routes.has('/api/dsh-web-all/degraded')).toBe(true)
     expect(host.routes.has('/api/dsh-web-all/rows')).toBe(true)
@@ -82,6 +90,7 @@ describe('shell row-state surface', () => {
   it('the config-less self row holds the routes without recording a row', async () => {
     const host = mockHost()
     await apply(host.createCtx() as never, undefined)
+    host.provideWebServer()
     expect(listActiveRows()).toEqual([])
     expect(host.routes.has('/api/dsh-web-all/rows')).toBe(true)
   })
@@ -90,23 +99,41 @@ describe('shell row-state surface', () => {
     const host = mockHost()
     await apply(host.createCtx() as never, { plugin: 'node:events' })
     await apply(host.createCtx() as never, { plugin: 'node:path' })
+    host.provideWebServer()
     expect(listActiveRows()).toEqual(['node:events', 'node:path'])
-    // Each entry contributed two effects (route hold + ledger removal).
+    // Each entry contributed two effects: ledger removal at apply time
+    // (indexes 0-1), route hold when webServer arrived (indexes 2-3).
     expect(host.effects).toHaveLength(4)
-    host.effects[1]?.() // ledger removal of the first entry
+    host.effects[0]?.() // ledger removal of the first entry
     expect(listActiveRows()).toEqual(['node:path'])
-    host.effects[0]?.() // route hold release of the first entry
+    host.effects[2]?.() // route hold release of the first entry
     expect(host.routes.has('/api/dsh-web-all/rows')).toBe(true)
-    host.effects[2]?.()
+    host.effects[1]?.()
     host.effects[3]?.()
     expect(listActiveRows()).toEqual([])
     expect(host.routes.has('/api/dsh-web-all/rows')).toBe(false)
     expect(host.unregisterCount()).toBe(2)
   })
 
+  it('registers the routes when webServer appears only AFTER the shell applied', async () => {
+    // Real boot ordering: the shell runs with inject=[] before the web app
+    // provides webServer; a synchronous read at apply time misses it, so the
+    // routes must register late via the inject fiber — never stay absent.
+    const host = mockHost()
+    await apply(host.createCtx() as never, { plugin: 'node:events' })
+    expect(host.routes.has('/api/dsh-web-all/rows')).toBe(false)
+    expect(host.webServer.register).not.toHaveBeenCalled()
+    // The ledger does not wait for webServer: the row counts as active now.
+    expect(listActiveRows()).toEqual(['node:events'])
+    host.provideWebServer()
+    expect(host.routes.has('/api/dsh-web-all/rows')).toBe(true)
+    expect(host.routes.has('/api/dsh-web-all/degraded')).toBe(true)
+  })
+
   it('a retired plugin row holds the routes but records nothing', async () => {
     const host = mockHost()
     await apply(host.createCtx() as never, { plugin: '@linxin666/dsh-perf' })
+    host.provideWebServer()
     expect(listActiveRows()).toEqual([])
     expect(host.routes.has('/api/dsh-web-all/rows')).toBe(true)
   })
@@ -114,6 +141,7 @@ describe('shell row-state surface', () => {
   it('the rows route answers the active set without a loopback fence', async () => {
     const host = mockHost()
     await apply(host.createCtx() as never, { plugin: 'node:events' })
+    host.provideWebServer()
     const handler = host.routes.get('/api/dsh-web-all/rows')
     expect(handler).toBeDefined()
     const res = fakeRes()

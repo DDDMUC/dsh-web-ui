@@ -102,44 +102,51 @@ function _resetDegradedRouteForTest() {
 /**
 * Hold both health routes (degraded + rows) for this shell entry's lifetime.
 * Every shell entry calls this — including the config-less self row — so the
-* rows route stays up even when every family row is disabled. The optional
-* webServer face goes through reflect.get(name, false) (strict=false: no
-* inject requirement): a host without webServer (some minimal profiles)
-* simply skips the routes.
+* rows route stays up even when every family row is disabled.
+*
+* The shell applies with inject=[] (it must activate before anything else),
+* which means it usually runs BEFORE the web app provides webServer. A direct
+* read at apply time therefore misses the service and the routes would never
+* register — registration instead rides a nested inject fiber that starts
+* when webServer appears and disposes with this entry. Hosts without
+* webServer (some minimal profiles) simply never start the fiber: no routes,
+* no error.
 */
 function holdHealthRoutes(ctx) {
-	const webServer = ctx.reflect.get("webServer", false);
-	if (webServer === void 0) return;
-	if (healthRouteRefCount === 0) try {
-		const unregisterDegraded = webServer.register(makeDegradedRoute());
-		let unregisterRows;
-		try {
-			unregisterRows = webServer.register(makeRowsRoute());
-		} catch (error) {
-			unregisterDegraded();
-			throw error;
-		}
-		unregisterHealthRoutes = () => {
+	ctx.inject(["webServer"], (scoped) => {
+		const webServer = scoped.webServer;
+		if (webServer === void 0) return;
+		if (healthRouteRefCount === 0) try {
+			const unregisterDegraded = webServer.register(makeDegradedRoute());
+			let unregisterRows;
 			try {
-				unregisterRows?.();
-			} finally {
+				unregisterRows = webServer.register(makeRowsRoute());
+			} catch (error) {
 				unregisterDegraded();
+				throw error;
 			}
-		};
-	} catch (error) {
-		console.warn("[dsh-web-all] failed to register health routes:", error);
-	}
-	healthRouteRefCount += 1;
-	ctx.effect(() => () => {
-		healthRouteRefCount -= 1;
-		if (healthRouteRefCount <= 0) {
-			healthRouteRefCount = 0;
-			try {
-				unregisterHealthRoutes?.();
-			} catch {}
-			unregisterHealthRoutes = void 0;
+			unregisterHealthRoutes = () => {
+				try {
+					unregisterRows?.();
+				} finally {
+					unregisterDegraded();
+				}
+			};
+		} catch (error) {
+			console.warn("[dsh-web-all] failed to register health routes:", error);
 		}
-	}, "dsh-web-all: health routes");
+		healthRouteRefCount += 1;
+		scoped.effect(() => () => {
+			healthRouteRefCount -= 1;
+			if (healthRouteRefCount <= 0) {
+				healthRouteRefCount = 0;
+				try {
+					unregisterHealthRoutes?.();
+				} catch {}
+				unregisterHealthRoutes = void 0;
+			}
+		}, "dsh-web-all: health routes");
+	});
 }
 /** Config shapes that must mount quietly: absent (self row) or a bare-row override. */
 function isOverrideShape(config) {
@@ -191,4 +198,4 @@ async function apply(ctx, config) {
 //#endregion
 export { apply as n, inject as r, _resetDegradedRouteForTest as t };
 
-//# sourceMappingURL=shell-BAHqAuGY.js.map
+//# sourceMappingURL=shell-ZRys8XCc.js.map

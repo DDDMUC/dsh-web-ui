@@ -118,15 +118,21 @@ export function _resetDegradedRouteForTest(): void {
 /**
  * Hold both health routes (degraded + rows) for this shell entry's lifetime.
  * Every shell entry calls this — including the config-less self row — so the
- * rows route stays up even when every family row is disabled. The optional
- * webServer face goes through reflect.get(name, false) (strict=false: no
- * inject requirement): a host without webServer (some minimal profiles)
- * simply skips the routes.
+ * rows route stays up even when every family row is disabled.
+ *
+ * The shell applies with inject=[] (it must activate before anything else),
+ * which means it usually runs BEFORE the web app provides webServer. A direct
+ * read at apply time therefore misses the service and the routes would never
+ * register — registration instead rides a nested inject fiber that starts
+ * when webServer appears and disposes with this entry. Hosts without
+ * webServer (some minimal profiles) simply never start the fiber: no routes,
+ * no error.
  */
 function holdHealthRoutes(ctx: Context): void {
-  const webServer = ctx.reflect.get('webServer', false) as { register(route: WebRoute): () => void } | undefined
-  if (webServer === undefined) return
-  if (healthRouteRefCount === 0) {
+  ctx.inject(['webServer'], (scoped) => {
+    const webServer = (scoped as { webServer?: { register(route: WebRoute): () => void } }).webServer
+    if (webServer === undefined) return
+    if (healthRouteRefCount === 0) {
     try {
       const unregisterDegraded = webServer.register(makeDegradedRoute())
       let unregisterRows: (() => void) | undefined
@@ -151,7 +157,7 @@ function holdHealthRoutes(ctx: Context): void {
     }
   }
   healthRouteRefCount += 1
-  ctx.effect(() => () => {
+  scoped.effect(() => () => {
     healthRouteRefCount -= 1
     if (healthRouteRefCount <= 0) {
       healthRouteRefCount = 0
@@ -163,6 +169,7 @@ function holdHealthRoutes(ctx: Context): void {
       unregisterHealthRoutes = undefined
     }
   }, 'dsh-web-all: health routes')
+  })
 }
 
 /** Config shapes that must mount quietly: absent (self row) or a bare-row override. */

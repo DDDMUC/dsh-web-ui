@@ -13,7 +13,7 @@ Status: implemented
 宿主半（`packages/dsh-web-all/src/rows.ts` + `src/shell.ts`）：
 
 - `src/rows.ts` 持有活跃行 ledger：真实插件包名的模块级 Set。每次拿到合法 `config.plugin` 的 shell apply 在 apply 开始时记录该名字——而非成功启动后：已启用但降级的行保留其 UI 入口（诚实状态），只有被停用的行（loader 从未 apply）离开 ledger。entry dispose 时移除（`ctx.effect` 清理回调）。
-- 每个 shell entry——包括无配置的 self 行 `web-ui-compat`——都经同一个共享引用计数持有两条健康路由（`holdHealthRoutes`）：首个 entry 注册一次，末个 entry 随 dispose 拆除，因此即使全部家族行被停用，`GET /api/dsh-web-all/rows` 仍然存活。这把提案的「self 行负责注册」放宽为「每个 entry 共同持有」——一个引用计数覆盖两条路由。
+- 每个 shell entry——包括无配置的 self 行 `web-ui-compat`——都经同一个共享引用计数持有两条健康路由（`holdHealthRoutes`）：首个 entry 注册一次，末个 entry 随 dispose 拆除，因此即使全部家族行被停用，`GET /api/dsh-web-all/rows` 仍然存活。这把提案的「self 行负责注册」放宽为「每个 entry 共同持有」——一个引用计数覆盖两条路由。注册经由每个 entry 的嵌套 `ctx.inject(['webServer'], cb)` fiber（2026-09-09 修复）：shell 以 `inject = []` 运行，早于 web 应用提供 `webServer`，apply 时的同步读取必然落空、路由永不注册——嵌套 fiber 在服务出现时启动，在无该服务的宿主上则永不启动。
 - `GET /api/dsh-web-all/rows` 返回 `{ ok: true, children: ["@linxin666/dsh-client-ui-market", ...] }`——活跃的真实插件包名。与 degraded 路由不同，它不做 loopback 栅栏：远程浏览器（remote-web-ui）需要同源读取它做门控，且 payload 不暴露任何已发布 bundle 之外的信息。
 
 浏览器半（`src/client/mount-children.ts`）：
@@ -35,6 +35,7 @@ Status: implemented
 
 ## Consequences
 
+- 启动时序发现（2026-09-09）：同样的同步读取缺陷意味着 degraded 路由自引入以来在生产中从未真正注册过——单测全部在 apply 前就备妥 webServer，构成纯 mock 验证盲区。两条路由现均经 inject fiber 注册；`rows-ledger.spec.ts` 带有回归测试断言 webServer 出现前路由缺席、出现后注册。
 - 每次页面加载多一个同源 GET（几百字节，`no-store`），宿主端一个内存 Set，shell/client 合计约一百行外加测试。无 schema、协议或磁盘格式变更；路由纯增量且版本偏差安全（404 降级为失败放行）。
 - 验证：`pnpm --filter @linxin666/dsh-web-all test`（42 个测试，含门控、失败放行、ledger 与双路由引用计数十项用例），包级 typecheck 与 build 通过。
 - 桌面版：桌面应用就是同一 origin 上的 Electron 窗口，路由与门控原样适用；失败放行规则吸收任何 cohort 偏差。

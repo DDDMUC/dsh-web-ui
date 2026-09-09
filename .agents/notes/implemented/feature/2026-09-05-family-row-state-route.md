@@ -13,7 +13,7 @@ The aggregate's browser half gets an authoritative, self-hosted answer to "which
 Host half (`packages/dsh-web-all/src/rows.ts` + `src/shell.ts`):
 
 - `src/rows.ts` holds the active-rows ledger: a module-level Set of real plugin package names. Each shell apply with a valid `config.plugin` records the name at apply start — not after a successful start, so an enabled-but-degraded row keeps its UI entry (honest state) and only a disabled row (never applied by the loader) drops out. Entry dispose removes the name (`ctx.effect` cleanup).
-- Every shell entry — including the config-less self row `web-ui-compat` — holds both health routes through one shared ref-count (`holdHealthRoutes`): registration happens exactly once on the first entry, teardown with the last, so `GET /api/dsh-web-all/rows` survives even when every family row is disabled. This widened the proposal's "the self row owns registration" to "every entry holds the pair" — one refcount covers both routes.
+- Every shell entry — including the config-less self row `web-ui-compat` — holds both health routes through one shared ref-count (`holdHealthRoutes`): registration happens exactly once on the first entry, teardown with the last, so `GET /api/dsh-web-all/rows` survives even when every family row is disabled. This widened the proposal's "the self row owns registration" to "every entry holds the pair" — one refcount covers both routes. Registration rides a nested `ctx.inject(['webServer'], cb)` fiber per entry (2026-09-09 fix): the shell applies with `inject = []` and therefore runs before the web app provides `webServer`, so a synchronous read at apply time misses the service and the routes never register — the nested fiber starts when the service appears, and simply never starts on hosts without it.
 - `GET /api/dsh-web-all/rows` answers `{ ok: true, children: ["@linxin666/dsh-client-ui-market", ...] }` — the active real-plugin package names. Unlike the degraded route it is NOT loopback-fenced: remote browsers (remote-web-ui) read it same-origin for gating, and the payload exposes nothing beyond names already public in the served client bundle.
 
 Browser half (`src/client/mount-children.ts`):
@@ -35,6 +35,7 @@ Management entry point: the rows route is the read half; the write half (per-row
 
 ## Consequences
 
+- Boot-ordering discovery (2026-09-09): the same synchronous-read flaw meant the degraded route had never actually registered in production since its introduction — a mock-only verification blind spot, since every unit test supplied `webServer` before `apply`. Both routes now register via the inject fiber; `rows-ledger.spec.ts` carries a regression test asserting the routes stay absent before `webServer` exists and register when it appears.
 - One extra same-origin GET per page load (a few hundred bytes, `no-store`), one in-memory Set on the host, roughly a hundred lines across shell/client plus tests. No schema, protocol, or on-disk format changes; the route is additive and version-skew-safe (a 404 degrades to fail-open).
 - Verified: `pnpm --filter @linxin666/dsh-web-all test` (42 tests, incl. gating, fail-open, ledger, and both-route refcount cases), package typecheck and build.
 - Desktop shell: the desktop app is an Electron window over the same origin, so the route and the gating apply unchanged; the fail-open rule absorbs any cohort skew.
