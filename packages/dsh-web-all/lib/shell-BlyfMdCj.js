@@ -1,4 +1,4 @@
-import { listDegraded, recordDegraded } from "./degraded.js";
+import { i as shellState, n as listDegraded, r as recordDegraded } from "./degraded-CA6yzGPr.js";
 //#region src/rows.ts
 /**
 * Active-row ledger for the dsh-web-all fault-isolation shell. Each family
@@ -15,19 +15,22 @@ import { listDegraded, recordDegraded } from "./degraded.js";
 * an ACTIVE row and keeps its UI entry — the degraded state is the honest
 * signal the user must see. Only a row the loader never applied (disabled)
 * drops out of the ledger.
+*
+* The ledger lives in the process-wide shared state (src/state.ts): the shell
+* loads through two entry artifacts whose bundler chunk split would otherwise
+* give each its own copy.
 */
-const activeRows = /* @__PURE__ */ new Set();
 /** Mark one family row active (its shell entry applied). */
 function recordActiveRow(plugin) {
-	activeRows.add(plugin);
+	shellState().activeRows.add(plugin);
 }
 /** Mark one family row inactive (its shell entry disposed). */
 function removeActiveRow(plugin) {
-	activeRows.delete(plugin);
+	shellState().activeRows.delete(plugin);
 }
 /** Snapshot of the active real-plugin package names, in insertion order. */
 function listActiveRows() {
-	return [...activeRows];
+	return [...shellState().activeRows];
 }
 //#endregion
 //#region src/shell.ts
@@ -84,20 +87,23 @@ function makeRowsRoute() {
 	};
 }
 /**
-* Shared route registration state: multiple shell entries (the self row plus
-* one per family plugin) mount sequentially under the aggregate. Both health
-* routes are singletons on the host webServer; ref-counting registers them
-* exactly once on the first shell entry and tears them down with the last.
+* Route registration state lives in the process-wide shared state
+* (src/state.ts): multiple shell entries (the self row plus one per family
+* plugin) mount sequentially under the aggregate, AND the bundler splits the
+* two entry artifacts (lib/index.js vs lib/shells/shell.js) into separate
+* module copies — module-local state would double-register the routes. Both
+* health routes are singletons on the host webServer; ref-counting registers
+* them exactly once on the first shell entry and tears them down with the
+* last.
 */
-let healthRouteRefCount = 0;
-let unregisterHealthRoutes;
 /** For test teardown and test isolation only. */
 function _resetDegradedRouteForTest() {
-	healthRouteRefCount = 0;
+	const routes = shellState().healthRoutes;
+	routes.count = 0;
 	try {
-		unregisterHealthRoutes?.();
+		routes.unregister?.();
 	} catch {}
-	unregisterHealthRoutes = void 0;
+	routes.unregister = void 0;
 }
 /**
 * Hold both health routes (degraded + rows) for this shell entry's lifetime.
@@ -116,7 +122,8 @@ function holdHealthRoutes(ctx) {
 	ctx.inject(["webServer"], (scoped) => {
 		const webServer = scoped.webServer;
 		if (webServer === void 0) return;
-		if (healthRouteRefCount === 0) try {
+		const routes = shellState().healthRoutes;
+		if (routes.count === 0) try {
 			const unregisterDegraded = webServer.register(makeDegradedRoute());
 			let unregisterRows;
 			try {
@@ -125,7 +132,7 @@ function holdHealthRoutes(ctx) {
 				unregisterDegraded();
 				throw error;
 			}
-			unregisterHealthRoutes = () => {
+			routes.unregister = () => {
 				try {
 					unregisterRows?.();
 				} finally {
@@ -135,15 +142,15 @@ function holdHealthRoutes(ctx) {
 		} catch (error) {
 			console.warn("[dsh-web-all] failed to register health routes:", error);
 		}
-		healthRouteRefCount += 1;
+		routes.count += 1;
 		scoped.effect(() => () => {
-			healthRouteRefCount -= 1;
-			if (healthRouteRefCount <= 0) {
-				healthRouteRefCount = 0;
+			routes.count -= 1;
+			if (routes.count <= 0) {
+				routes.count = 0;
 				try {
-					unregisterHealthRoutes?.();
+					routes.unregister?.();
 				} catch {}
-				unregisterHealthRoutes = void 0;
+				routes.unregister = void 0;
 			}
 		}, "dsh-web-all: health routes");
 	});
@@ -198,4 +205,4 @@ async function apply(ctx, config) {
 //#endregion
 export { apply as n, inject as r, _resetDegradedRouteForTest as t };
 
-//# sourceMappingURL=shell-ZRys8XCc.js.map
+//# sourceMappingURL=shell-BlyfMdCj.js.map

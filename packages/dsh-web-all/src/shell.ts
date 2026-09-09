@@ -47,6 +47,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { listDegraded, recordDegraded } from './degraded.ts'
 import { listActiveRows, recordActiveRow, removeActiveRow } from './rows.ts'
+import { shellState } from './state.ts'
 
 /** Required services: none — the shell must activate before anything else. */
 export const inject = [] as const
@@ -96,23 +97,26 @@ function makeRowsRoute(): WebRoute {
 }
 
 /**
- * Shared route registration state: multiple shell entries (the self row plus
- * one per family plugin) mount sequentially under the aggregate. Both health
- * routes are singletons on the host webServer; ref-counting registers them
- * exactly once on the first shell entry and tears them down with the last.
+ * Route registration state lives in the process-wide shared state
+ * (src/state.ts): multiple shell entries (the self row plus one per family
+ * plugin) mount sequentially under the aggregate, AND the bundler splits the
+ * two entry artifacts (lib/index.js vs lib/shells/shell.js) into separate
+ * module copies — module-local state would double-register the routes. Both
+ * health routes are singletons on the host webServer; ref-counting registers
+ * them exactly once on the first shell entry and tears them down with the
+ * last.
  */
-let healthRouteRefCount = 0
-let unregisterHealthRoutes: (() => void) | undefined
 
 /** For test teardown and test isolation only. */
 export function _resetDegradedRouteForTest(): void {
-  healthRouteRefCount = 0
+  const routes = shellState().healthRoutes
+  routes.count = 0
   try {
-    unregisterHealthRoutes?.()
+    routes.unregister?.()
   } catch {
     // Ignore.
   }
-  unregisterHealthRoutes = undefined
+  routes.unregister = undefined
 }
 
 /**
@@ -132,43 +136,44 @@ function holdHealthRoutes(ctx: Context): void {
   ctx.inject(['webServer'], (scoped) => {
     const webServer = (scoped as { webServer?: { register(route: WebRoute): () => void } }).webServer
     if (webServer === undefined) return
-    if (healthRouteRefCount === 0) {
-    try {
-      const unregisterDegraded = webServer.register(makeDegradedRoute())
-      let unregisterRows: (() => void) | undefined
+    const routes = shellState().healthRoutes
+    if (routes.count === 0) {
       try {
-        unregisterRows = webServer.register(makeRowsRoute())
-      } catch (error) {
-        unregisterDegraded()
-        throw error
-      }
-      unregisterHealthRoutes = () => {
+        const unregisterDegraded = webServer.register(makeDegradedRoute())
+        let unregisterRows: (() => void) | undefined
         try {
-          unregisterRows?.()
-        } finally {
+          unregisterRows = webServer.register(makeRowsRoute())
+        } catch (error) {
           unregisterDegraded()
+          throw error
         }
+        routes.unregister = () => {
+          try {
+            unregisterRows?.()
+          } finally {
+            unregisterDegraded()
+          }
+        }
+      } catch (error) {
+        // Defensive fallback: if another module already owns an exact route,
+        // log a warning without throwing so the fault-isolation shell fiber
+        // never fails.
+        console.warn('[dsh-web-all] failed to register health routes:', error)
       }
-    } catch (error) {
-      // Defensive fallback: if another module already owns an exact route,
-      // log a warning without throwing so the fault-isolation shell fiber
-      // never fails.
-      console.warn('[dsh-web-all] failed to register health routes:', error)
     }
-  }
-  healthRouteRefCount += 1
-  scoped.effect(() => () => {
-    healthRouteRefCount -= 1
-    if (healthRouteRefCount <= 0) {
-      healthRouteRefCount = 0
-      try {
-        unregisterHealthRoutes?.()
-      } catch {
-        // Dispose must never throw.
+    routes.count += 1
+    scoped.effect(() => () => {
+      routes.count -= 1
+      if (routes.count <= 0) {
+        routes.count = 0
+        try {
+          routes.unregister?.()
+        } catch {
+          // Dispose must never throw.
+        }
+        routes.unregister = undefined
       }
-      unregisterHealthRoutes = undefined
-    }
-  }, 'dsh-web-all: health routes')
+    }, 'dsh-web-all: health routes')
   })
 }
 

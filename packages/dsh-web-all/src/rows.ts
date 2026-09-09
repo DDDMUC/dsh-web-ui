@@ -13,25 +13,29 @@
  * an ACTIVE row and keeps its UI entry — the degraded state is the honest
  * signal the user must see. Only a row the loader never applied (disabled)
  * drops out of the ledger.
+ *
+ * The ledger lives in the process-wide shared state (src/state.ts): the shell
+ * loads through two entry artifacts whose bundler chunk split would otherwise
+ * give each its own copy.
  */
-const activeRows = new Set<string>()
+import { shellState } from './state.ts'
 
 /** Mark one family row active (its shell entry applied). */
 export function recordActiveRow(plugin: string): void {
-  activeRows.add(plugin)
+  shellState().activeRows.add(plugin)
 }
 
 /** Mark one family row inactive (its shell entry disposed). */
 export function removeActiveRow(plugin: string): void {
-  activeRows.delete(plugin)
+  shellState().activeRows.delete(plugin)
 }
 
 /** Snapshot of the active real-plugin package names, in insertion order. */
 export function listActiveRows(): string[] {
-  return [...activeRows]
+  return [...shellState().activeRows]
 }
 
 /** For test teardown and test isolation only. */
 export function _resetActiveRowsForTest(): void {
-  activeRows.clear()
+  shellState().activeRows.clear()
 }

@@ -1,10 +1,21 @@
+//#region src/state.ts
+const KEY = Symbol.for("dsh-web-all.shell-state");
+/** The process-wide shared shell state (one instance across module copies). */
+function shellState() {
+	const registry = globalThis;
+	return registry[KEY] ??= {
+		activeRows: /* @__PURE__ */ new Set(),
+		degraded: /* @__PURE__ */ new Map(),
+		healthRoutes: { count: 0 }
+	};
+}
+//#endregion
 //#region src/degraded.ts
-const degraded = /* @__PURE__ */ new Map();
 /** Record (or refresh) one plugin's degraded state. Errors are logged here once. */
 function recordDegraded(plugin, stage, error) {
 	const message = error instanceof Error ? error.stack ?? error.message : String(error);
 	console.error(`[dsh-web-all] plugin degraded (${stage}): ${plugin}\n${message}`);
-	degraded.set(plugin, {
+	shellState().degraded.set(plugin, {
 		plugin,
 		stage,
 		message,
@@ -13,7 +24,7 @@ function recordDegraded(plugin, stage, error) {
 }
 /** Snapshot of all currently degraded plugins. */
 function listDegraded() {
-	return [...degraded.values()];
+	return [...shellState().degraded.values()];
 }
 //#endregion
 //#region src/rows.ts
@@ -32,19 +43,22 @@ function listDegraded() {
 * an ACTIVE row and keeps its UI entry — the degraded state is the honest
 * signal the user must see. Only a row the loader never applied (disabled)
 * drops out of the ledger.
+*
+* The ledger lives in the process-wide shared state (src/state.ts): the shell
+* loads through two entry artifacts whose bundler chunk split would otherwise
+* give each its own copy.
 */
-const activeRows = /* @__PURE__ */ new Set();
 /** Mark one family row active (its shell entry applied). */
 function recordActiveRow(plugin) {
-	activeRows.add(plugin);
+	shellState().activeRows.add(plugin);
 }
 /** Mark one family row inactive (its shell entry disposed). */
 function removeActiveRow(plugin) {
-	activeRows.delete(plugin);
+	shellState().activeRows.delete(plugin);
 }
 /** Snapshot of the active real-plugin package names, in insertion order. */
 function listActiveRows() {
-	return [...activeRows];
+	return [...shellState().activeRows];
 }
 //#endregion
 //#region src/shell.ts
@@ -99,14 +113,6 @@ function makeRowsRoute() {
 	};
 }
 /**
-* Shared route registration state: multiple shell entries (the self row plus
-* one per family plugin) mount sequentially under the aggregate. Both health
-* routes are singletons on the host webServer; ref-counting registers them
-* exactly once on the first shell entry and tears them down with the last.
-*/
-let healthRouteRefCount = 0;
-let unregisterHealthRoutes;
-/**
 * Hold both health routes (degraded + rows) for this shell entry's lifetime.
 * Every shell entry calls this — including the config-less self row — so the
 * rows route stays up even when every family row is disabled.
@@ -123,7 +129,8 @@ function holdHealthRoutes(ctx) {
 	ctx.inject(["webServer"], (scoped) => {
 		const webServer = scoped.webServer;
 		if (webServer === void 0) return;
-		if (healthRouteRefCount === 0) try {
+		const routes = shellState().healthRoutes;
+		if (routes.count === 0) try {
 			const unregisterDegraded = webServer.register(makeDegradedRoute());
 			let unregisterRows;
 			try {
@@ -132,7 +139,7 @@ function holdHealthRoutes(ctx) {
 				unregisterDegraded();
 				throw error;
 			}
-			unregisterHealthRoutes = () => {
+			routes.unregister = () => {
 				try {
 					unregisterRows?.();
 				} finally {
@@ -142,15 +149,15 @@ function holdHealthRoutes(ctx) {
 		} catch (error) {
 			console.warn("[dsh-web-all] failed to register health routes:", error);
 		}
-		healthRouteRefCount += 1;
+		routes.count += 1;
 		scoped.effect(() => () => {
-			healthRouteRefCount -= 1;
-			if (healthRouteRefCount <= 0) {
-				healthRouteRefCount = 0;
+			routes.count -= 1;
+			if (routes.count <= 0) {
+				routes.count = 0;
 				try {
-					unregisterHealthRoutes?.();
+					routes.unregister?.();
 				} catch {}
-				unregisterHealthRoutes = void 0;
+				routes.unregister = void 0;
 			}
 		}, "dsh-web-all: health routes");
 	});

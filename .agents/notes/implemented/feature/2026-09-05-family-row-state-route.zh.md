@@ -36,6 +36,7 @@ Status: implemented
 ## Consequences
 
 - 启动时序发现（2026-09-09）：同样的同步读取缺陷意味着 degraded 路由自引入以来在生产中从未真正注册过——单测全部在 apply 前就备妥 webServer，构成纯 mock 验证盲区。两条路由现均经 inject fiber 注册；`rows-ledger.spec.ts` 带有回归测试断言 webServer 出现前路由缺席、出现后注册。
+- chunk 拆分发现（2026-09-09）：构建产物经两个入口 artifact 加载（self 行走 `lib/index.js`，家族行走 `lib/shells/shell.js`），bundler 的 chunk 拆分让每个入口持有自己的模块拷贝，模块级状态因此静默分裂。第一症状：两份拷贝都注册健康路由产生 duplicate 告警；更糟的第二症状：抢到注册的拷贝伺服自己的空 ledger，`children: []` 这个「形状完好但内容错误」的回答让客户端门控隐藏了全部家族页签——失败放行只能覆盖不确定性，覆盖不了「错误的确定」。shell 全部状态（活跃行 ledger、degraded ledger、路由引用计数）现集中于 `src/state.ts` 的 globalThis 注册表（Symbol.for 键，与客户端 mounted-plugins 去重同一手法）；`vi.resetModules()` 双导入测试模拟该分裂。包级 AGENTS.md 已禁止本包使用模块级可变单例。
 - 每次页面加载多一个同源 GET（几百字节，`no-store`），宿主端一个内存 Set，shell/client 合计约一百行外加测试。无 schema、协议或磁盘格式变更；路由纯增量且版本偏差安全（404 降级为失败放行）。
 - 验证：`pnpm --filter @linxin666/dsh-web-all test`（42 个测试，含门控、失败放行、ledger 与双路由引用计数十项用例），包级 typecheck 与 build 通过。
 - 桌面版：桌面应用就是同一 origin 上的 Electron 窗口，路由与门控原样适用；失败放行规则吸收任何 cohort 偏差。

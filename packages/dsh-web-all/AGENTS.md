@@ -19,6 +19,12 @@
 - `patches:` 段（单行 JSON flow mapping）对本聚合自插入行做整对象 config 覆写：
   用于播种行级默认（如 web-ui-ssh 的 enabled:false），渲染在全部 insert 之后；
   id 必须是本聚合已存在的行，settings 一经用户改动即优先于播种值。
+- 宿主半双入口：本包经两个入口 artifact 加载（lib/index.js 走 self 行、
+  lib/shells/shell.js 走家族行），构建把共享代码拆成 chunk——每个入口持有自己的
+  模块拷贝，任何模块级可变状态都会静默分裂（2026-09-09 事故：路由重复注册告警 +
+  rows 路由伺服另一拷贝的空 ledger，门控据此隐藏了全部家族页签）。跨条目/跨拷贝
+  的状态一律走 `src/state.ts` 的 globalThis 注册表（Symbol.for 键），禁止模块级
+  可变单例。
 
 ## 新增 / 改动插件
 

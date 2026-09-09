@@ -153,6 +153,32 @@ describe('shell row-state surface', () => {
     expect(JSON.parse(res.body ?? '{}')).toEqual({ ok: true, children: ['node:events'] })
   })
 
+  it('two module copies share one ledger and one route registration (chunk split)', async () => {
+    // The built package loads through two entry artifacts (lib/index.js for
+    // the self row, lib/shells/shell.js for family rows) whose chunk split
+    // gives each its own module copy. A fresh dynamic import reproduces that
+    // split: both copies must see ONE ledger and register the routes ONCE.
+    const host = mockHost()
+    await apply(host.createCtx() as never, undefined) // the "index.js" copy
+    vi.resetModules()
+    const freshShell = await import('../src/shell.ts')
+    const freshRows = await import('../src/rows.ts')
+    try {
+      await freshShell.apply(host.createCtx() as never, { plugin: 'node:events' }) // the "shells chunk" copy
+      host.provideWebServer()
+      expect(host.webServer.register).toHaveBeenCalledTimes(2) // not 4
+      // The chunk copy recorded; BOTH copies read the same ledger.
+      expect(freshRows.listActiveRows()).toEqual(['node:events'])
+      expect(listActiveRows()).toEqual(['node:events'])
+      const res = fakeRes()
+      await host.routes.get('/api/dsh-web-all/rows')?.(fakeReq(), res)
+      expect(JSON.parse(res.body ?? '{}')).toEqual({ ok: true, children: ['node:events'] })
+    } finally {
+      freshShell._resetDegradedRouteForTest()
+      freshRows._resetActiveRowsForTest()
+    }
+  })
+
   it('an import-failing row still counts as active (degraded, not disabled)', async () => {
     const host = mockHost()
     vi.spyOn(console, 'error').mockImplementation(() => {})
