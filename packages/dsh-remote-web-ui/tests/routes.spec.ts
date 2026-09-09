@@ -1,6 +1,6 @@
 /** The /api/pair route family over a real HTTP server: fences, token flow, cookies. */
 import { createServer, request as httpRequest } from 'node:http'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { Server } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
@@ -211,6 +211,64 @@ describe('/api/pair routes', () => {
       expect(reOpen.location).toBe('http://192.168.1.5:3080/pair-app?device=tok-1')
       expect(reOpen.cookies ?? []).toEqual([])
     } finally {
+      await close()
+    }
+  })
+
+  it('accepts a pairing link opened as a cross-site top-level navigation (in-app browsers)', async () => {
+    const service = makeService()
+    const { port, close } = await serve(makeRoutes({
+      service,
+      indexDocument: async () => '<html><head><title>shell</title></head><body>official</body></html>',
+    }))
+    try {
+      // WeChat and every other WKWebView wrapper label the navigation
+      // cross-site and may attach an opaque Origin; the token in the URL is
+      // the credential, so the entry pages must still serve it.
+      const nav = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document', 'sec-fetch-site': 'cross-site', origin: 'null' }
+      const issued = await call(port, 'POST', '/api/pair/issue', {})
+      expect(issued.body.url).toBe('http://192.168.1.5:3080/pair-accept?pair=tok-1')
+      const accept = await call(port, 'GET', '/pair-accept?pair=tok-1', { host: '192.168.1.5:3080', headers: nav })
+      expect(accept.status).toBe(303)
+      expect(accept.location).toBe('http://192.168.1.5:3080/pair-app?device=tok-1')
+      const app = await call(port, 'GET', '/pair-app?device=tok-1', { host: '192.168.1.5:3080', headers: nav })
+      expect(app.status).toBe(200)
+      expect(app.raw).toContain('dsh-remote-device')
+      // The relaxation is navigation-only: the same markers on a fetch or an
+      // iframe keep the fence closed.
+      const fetchLike = await call(port, 'GET', '/pair-accept?pair=tok-1', { host: '192.168.1.5:3080', headers: { ...nav, 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' } })
+      expect(fetchLike.status).toBe(403)
+      const iframe = await call(port, 'GET', '/pair-app?device=tok-1', { host: '192.168.1.5:3080', headers: { ...nav, 'sec-fetch-dest': 'iframe' } })
+      expect(iframe.status).toBe(403)
+      const api = await call(port, 'POST', '/api/pair/accept', { host: '192.168.1.5:3080', body: { token: 'tok-1' }, headers: nav })
+      expect(api.status).toBe(403)
+    } finally {
+      await close()
+    }
+  })
+
+  it('logs an entry-page refusal once per shape so a phone failure is diagnosable', async () => {
+    const service = makeService()
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const { port, close } = await serve(makeRoutes({
+      service,
+      indexDocument: async () => '<html><head></head><body>official</body></html>',
+    }))
+    try {
+      // A host outside the service's LAN bases: the refusal is logged, and the
+      // same shape twice is logged once (the dedupe set is module-scoped, so
+      // the host also keeps this case independent of the specs above).
+      const headers = { 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty', 'sec-fetch-site': 'cross-site' }
+      expect((await call(port, 'GET', '/pair-accept?pair=tok-1', { host: '10.0.0.3:3080', headers })).status).toBe(403)
+      expect((await call(port, 'GET', '/pair-accept?pair=tok-1', { host: '10.0.0.3:3080', headers })).status).toBe(403)
+      const lines = spy.mock.calls
+        .map(args => String(args[0]))
+        .filter(line => line.startsWith('remote-web-ui: refused'))
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toContain('sec-fetch-site=cross-site')
+      expect(lines[0]).toContain('/pair-accept')
+    } finally {
+      spy.mockRestore()
       await close()
     }
   })
