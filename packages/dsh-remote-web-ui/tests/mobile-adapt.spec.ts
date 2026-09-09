@@ -334,21 +334,105 @@ describe('startMobileAdapt', () => {
     expect(row.getAttribute('draggable')).toBe('true')
   })
 
-  it('hides the original header actions only while they are seated', async () => {
+  it('takes the header actions out of flow only while seated, without moving them', async () => {
     media.portrait = true
     media.coarse = true
     setWidth(390)
     const start = await freshStart()
     start()
     const css = document.querySelector('style[data-plugin-css="dsh-remote-web-ui/mobile-adapt.css"]')?.textContent ?? ''
-    const hideRule = '[class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{display:none}'
-    const at = css.indexOf(hideRule)
+    const seatRule = '[class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{position:absolute'
+    const at = css.indexOf(seatRule)
     expect(at).toBeGreaterThan(-1)
-    // The rule exists only behind the seat body class.
+    // The rule exists only behind the seat body class, and it never hides the
+    // node: the actions stay in their React-owned slot and are painted over
+    // the tabs row by the transform (re-parenting them would break React's
+    // later insertBefore/removeChild anchors).
     expect(css.slice(Math.max(0, at - 40), at)).toContain('body.dsh-remote-header-seated')
-    // No tabs row (single-tab session) means no seat: the body class stays off
-    // and the actions keep rendering in their original spot.
+    expect(css).not.toContain('[class$="_titleCluster"] [class$="_headerActions"]{display:none}')
+    // No tabs row (single-tab session) means no seat: the body class stays off.
     expect(document.body.classList.contains('dsh-remote-header-seated')).toBe(false)
+  })
+
+  it('paints the header actions over the tabs row without re-parenting the React node', async () => {
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    const start = await freshStart()
+    start()
+    const header = document.createElement('div')
+    header.className = 'chat_header'
+    const cluster = document.createElement('div')
+    cluster.className = 'chat_titleCluster'
+    const actions = document.createElement('div')
+    actions.className = 'chat_headerActions'
+    cluster.appendChild(actions)
+    const tabs = document.createElement('div')
+    tabs.className = 'chat_tabs'
+    const tab = document.createElement('button')
+    tab.className = 'chat_tab'
+    tab.textContent = 'Chat'
+    tabs.appendChild(tab)
+    header.append(cluster, tabs)
+    document.body.appendChild(header)
+    await vi.waitFor(() => { expect(document.body.classList.contains('dsh-remote-header-seated')).toBe(true) })
+    // The node stays in its React-owned slot; only the injected CSS and the
+    // transform move it visually (a re-parented node breaks React's anchors).
+    expect(actions.parentElement).toBe(cluster)
+    expect(actions.style.transform).toBe('translate(0px, 0px)')
+    expect(tabs.style.paddingRight).toBe('8px')
+  })
+
+  it('drills into the picker sheet by structure when the cell labels are localized', async () => {
+    vi.useFakeTimers()
+    try {
+      media.portrait = true
+      media.coarse = true
+      setWidth(390)
+      const start = await freshStart()
+      start()
+      const seat = document.createElement('div')
+      seat.className = 'app_composerSeat'
+      const tools = document.createElement('div')
+      tools.className = 'x_tools'
+      const trailing = document.createElement('div')
+      trailing.className = 'x_trailing'
+      // The official trigger carries the `_trigger` class and wraps the
+      // `_triggerEffort` marker (the layer forwards to it, then drills).
+      trailing.innerHTML = '<div class="x_trigger"><div class="x_triggerEffort"></div></div>'
+      seat.append(tools, trailing)
+      document.body.appendChild(seat)
+      await vi.advanceTimersByTimeAsync(600)
+      const modelBtn = document.getElementById('dshRemoteModelPick')
+      const effortBtn = document.getElementById('dshRemoteEffortPick')
+      expect(modelBtn).not.toBeNull()
+      expect(effortBtn).not.toBeNull()
+      // A localized (ru) sheet: no zh/en label matches, so the chevron-cell
+      // order is the anchor — model first, effort second.
+      const menu = document.createElement('div')
+      menu.className = 'x_menu'
+      const clicks: number[] = []
+      const cells = ['Модель', 'Уровень рассуждений'].map((label, index) => {
+        const cell = document.createElement('button')
+        cell.className = 'x_cell'
+        cell.textContent = label
+        const chevron = document.createElement('svg')
+        chevron.setAttribute('class', 'x_cellChevron')
+        cell.appendChild(chevron)
+        cell.addEventListener('click', () => { clicks.push(index) })
+        menu.appendChild(cell)
+        return cell
+      })
+      seat.appendChild(menu)
+      modelBtn!.click()
+      await vi.advanceTimersByTimeAsync(400)
+      expect(clicks).toEqual([0])
+      effortBtn!.click()
+      await vi.advanceTimersByTimeAsync(400)
+      expect(clicks).toEqual([0, 1])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('reads injected-surface labels from the wired translate seat, not the browser language', async () => {

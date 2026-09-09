@@ -64,6 +64,15 @@ const EFFORT_BTN_ID = 'dshRemoteEffortPick'
 const COMPACT_CLASS = 'dsh-remote-compact-picker'
 /** Body class while the header actions are seated in the tabs row. */
 const HEADER_SEATED_CLASS = 'dsh-remote-header-seated'
+/** The two composer picker entries the compact buttons drill into. */
+type PickerKind = 'model' | 'effort'
+/** Locale-dependent fast path for the official picker cells (zh/en). */
+const PICKER_CELL_PATTERN: Record<PickerKind, RegExp> = {
+  model: /模型|Model/, // i18n-allow: matches official picker cell text, not plugin copy
+  effort: /推理等级|Reasoning|Effort/i, // i18n-allow: matches official picker cell text, not plugin copy
+}
+/** Position of each drill cell among the sheet's chevron cells. */
+const DRILL_INDEX: Record<PickerKind, number> = { model: 0, effort: 1 }
 /**
  * The official application frame. The layout column classes are the anchor:
  * `_frame` is shared by unrelated official components (the chat turn rail,
@@ -237,18 +246,14 @@ const ADAPT_CSS: readonly string[] = [
   // v67: header actions (agent-preset mode label + background-task badge)
   // are re-seated from the title row into the tabs row; hidden in the
   // original spot so React re-renders do not flicker them back.
-  // Only while a seat exists (the tabs row renders for multi-tab sessions).
-  `body.${HEADER_SEATED_CLASS} [class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{display:none}`,
-  // The seated actions are aligned to the header's right content edge by a
-  // runtime measurement (alignActionsText); the static value is only the
-  // first-paint guess for the widest supported phone.
-  '[class$="_header"] [class$="_tabs"]{margin-right:-8px}',
+  // Only while the layer has taken the actions over: out of flow (so the
+  // title row keeps its own layout and React keeps owning the node) and
+  // painted over the tabs row by the transform alignActionsText computes.
+  `body.${HEADER_SEATED_CLASS} [class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{position:absolute;left:0;top:0;margin:0;display:flex;align-items:center;gap:6px;flex:none;z-index:2}`,
   // v70: match the tab text size with the seated mode label (12px); NB
   // [class$="_tab"] misses the active tab (its class ends in "_tabActive")
   // — containment so BOTH tabs match.
   '[class$="_header"] [class$="_tabs"] [class*="_tab"]{font-size:12px;white-space:nowrap}',
-  // Text-bottom alignment is dynamic (alignActionsText below); flex seat.
-  '[class$="_header"] [class$="_tabs"] [class$="_headerActions"]{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}',
   // Mobile scope: hide the plugin surfaces that do not fit a phone — the
   // right-hand details column and every desktop-oriented tool surface. The
   // list keys on the L2 semantic roots (data-dsh-plugin, ownership stays
@@ -319,6 +324,11 @@ export function startMobileAdapt(): void {
   let savedViewportContent: string | null = null
   let whaleEl: HTMLButtonElement | null = null
   let whaleObserver: MutationObserver | null = null
+  /** Header subtree observer: marks the geometry measurement dirty on re-render. */
+  let headerObserver: MutationObserver | null = null
+  let observedHeader: Element | null = null
+  /** Whether the seated-actions geometry needs re-measuring (see alignActionsText). */
+  let headerGeometryDirty = true
   let whaleTimer: number | null = null
   let whaleSuppressClick = false
   let whaleShown = false
@@ -392,6 +402,10 @@ export function startMobileAdapt(): void {
     }
     if (whaleEl !== null) whaleEl.style.display = 'none'
     setWhaleTimer(false)
+    if (whaleObserver !== null) {
+      whaleObserver.disconnect()
+      whaleObserver = null
+    }
   }
 
   /** Start/stop the 600ms sync tick; a no-op when already in the asked state. */
@@ -419,7 +433,7 @@ export function startMobileAdapt(): void {
     document.getElementById(EFFORT_BTN_ID)?.remove()
   }
 
-  function drillIntoPicker(cellPattern: RegExp): void {
+  function drillIntoPicker(kind: PickerKind): void {
     const trigger = document.querySelector('[class$="_composerSeat"] [class$="_trailing"] [class$="_trigger"]:has([class$="_triggerEffort"])') as HTMLElement | null
     if (trigger === null) return
     trigger.click()
@@ -428,8 +442,13 @@ export function startMobileAdapt(): void {
     let tries = 0
     const tapCell = (): void => {
       tries += 1
-      const cell = Array.from(document.querySelectorAll('[class$="_composerSeat"] [class$="_menu"] [class$="_cell"]'))
-        .find((c) => cellPattern.test(c.textContent ?? ''))
+      const cells = Array.from(document.querySelectorAll('[class$="_composerSeat"] [class$="_menu"] [class$="_cell"]'))
+      // The official cell copy is localized (zh/en/ru), so the label match is
+      // only the fast path; the sheet's drill cells (label + value + chevron)
+      // are the structural anchor: model first, effort second, on every locale.
+      const byLabel = cells.find((c) => PICKER_CELL_PATTERN[kind].test(c.textContent ?? ''))
+      const drillable = cells.filter((c) => c.querySelector('[class*="_cellChevron"], [class*="_chevron"]'))
+      const cell = byLabel ?? drillable[DRILL_INDEX[kind]]
       if (cell !== undefined) {
         ;(cell as HTMLElement).click()
         return
@@ -439,7 +458,7 @@ export function startMobileAdapt(): void {
     window.setTimeout(tapCell, 150)
   }
 
-  function makeCompactButton(id: string, title: string, icon: string, cellPattern: RegExp): HTMLButtonElement {
+  function makeCompactButton(id: string, title: string, icon: string, kind: PickerKind): HTMLButtonElement {
     const btn = document.createElement('button')
     btn.id = id
     btn.type = 'button'
@@ -447,7 +466,7 @@ export function startMobileAdapt(): void {
     btn.title = title
     btn.setAttribute('aria-label', title)
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>`
-    btn.addEventListener('click', () => { drillIntoPicker(cellPattern) })
+    btn.addEventListener('click', () => { drillIntoPicker(kind) })
     return btn
   }
 
@@ -462,10 +481,10 @@ export function startMobileAdapt(): void {
     if (document.getElementById(MODEL_BTN_ID) === null) {
       // The cell pattern matches the OFFICIAL picker cell text (the official
       // client's own zh/en copy), not plugin-owned text.
-      tools.appendChild(makeCompactButton(MODEL_BTN_ID, surfaceText('mobile.composer.pickModel', 'Pick model'), CUBE_ICON, /模型|Model/)) // i18n-allow: matches official picker cell text, not plugin copy
+      tools.appendChild(makeCompactButton(MODEL_BTN_ID, surfaceText('mobile.composer.pickModel', 'Pick model'), CUBE_ICON, 'model'))
     }
     if (document.getElementById(EFFORT_BTN_ID) === null) {
-      tools.appendChild(makeCompactButton(EFFORT_BTN_ID, surfaceText('mobile.composer.pickEffort', 'Pick reasoning effort'), LEVELS_ICON, /推理等级|Reasoning|Effort/i)) // i18n-allow: matches official picker cell text, not plugin copy
+      tools.appendChild(makeCompactButton(EFFORT_BTN_ID, surfaceText('mobile.composer.pickEffort', 'Pick reasoning effort'), LEVELS_ICON, 'effort'))
     }
     // Titles re-read every tick so a locale switch (or the translate seat
     // arriving after this layer installed) is picked up without a reload.
@@ -699,30 +718,36 @@ export function startMobileAdapt(): void {
   // sessions, and hiding the actions without a seat target made them vanish.
   function seatHeaderActions(): void {
     if (!active) return
-    const tabs = document.querySelector('[class$="_header"] [class$="_tabs"]')
-    const fresh = document.querySelector('[class$="_titleCluster"] [class$="_headerActions"]')
-    const seated = tabs !== null ? tabs.querySelector(':scope > [class$="_headerActions"]') : null
-    // fresh === null means the node is either not rendered yet or already
-    // seated — the seated copy IS the moved node, so never remove it.
-    if (fresh !== null && tabs !== null) {
-      seated?.remove()
-      tabs.appendChild(fresh)
-    }
-    document.body.classList.toggle(HEADER_SEATED_CLASS, tabs !== null && tabs.querySelector(':scope > [class$="_headerActions"]') !== null)
+    const header = document.querySelector('[class$="_header"]')
+    const tabs = header !== null ? header.querySelector('[class$="_tabs"]') : null
+    const actions = header !== null ? header.querySelector('[class$="_titleCluster"] [class$="_headerActions"]') : null
+    // The actions node is NOT moved: it is a React-owned host node whose badge
+    // button carries live handlers, and re-parenting it makes React's later
+    // insertBefore/removeChild anchors point at a node that is no longer a
+    // child of the recorded parent (a NotFoundError in the commit phase). The
+    // injected CSS takes it out of flow and the transform below paints it over
+    // the tabs row instead.
+    const seated = header !== null && tabs !== null && actions !== null
+    document.body.classList.toggle(HEADER_SEATED_CLASS, seated)
+    ensureHeaderObserver(seated ? header : null)
   }
 
-  // Align the mode/badge text bottom edge with the tab text. The tabs row
-  // height is not stable (a background task badge grows it), so a static
-  // transform would be wrong half the time — measure the real text boxes
-  // each tick and compensate (converges; the previous transform is
-  // subtracted from the measurement).
+  // Paint the mode/badge over the tabs row: the actions keep their DOM slot in
+  // the title cluster (out of flow via CSS) and are moved with a transform, so
+  // the tabs row reserves room with padding instead of the node being moved.
+  // The tabs row height is not stable (a background task badge grows it) and
+  // the official right padding differs per cohort, so both axes are measured
+  // and converged each time the header geometry is dirty.
   function alignActionsText(): void {
     if (!active) return
-    const tabs = document.querySelector('[class$="_header"] [class$="_tabs"]')
-    if (tabs === null) return
-    const actions = tabs.querySelector(':scope > [class$="_headerActions"]')
+    const header = document.querySelector('[class$="_header"]')
+    if (header === null) return
+    const tabs = header.querySelector('[class$="_tabs"]')
+    const actions = header.querySelector('[class$="_titleCluster"] [class$="_headerActions"]')
+    if (tabs === null || actions === null || !(tabs instanceof HTMLElement) || !(actions instanceof HTMLElement)) return
+    if (!headerGeometryDirty) return
+    headerGeometryDirty = false
     const tabBtn = tabs.querySelector(':scope > [class*="_tab"]')
-    if (actions === null || tabBtn === null) return
     const textBottom = (el: Element | null): number | null => {
       if (el === null) return null
       const text = Array.from(el.childNodes).find((n) => n.nodeType === 3 && n.textContent !== null && n.textContent.trim() !== '')
@@ -735,53 +760,46 @@ export function startMobileAdapt(): void {
         return null
       }
     }
+    const translate = /translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(actions.style.transform ?? '')
+    let dx = translate !== null ? parseFloat(translate[1] ?? '0') : 0
+    let dy = translate !== null ? parseFloat(translate[2] ?? '0') : 0
+    const actionsRect = actions.getBoundingClientRect()
+    const tabsRect = tabs.getBoundingClientRect()
+    // Horizontal: the actions' right edge lands on the tabs row's right edge.
+    const rightDiff = tabsRect.right - actionsRect.right
+    if (Math.abs(rightDiff) >= 0.5) dx = Math.round((dx + rightDiff) * 10) / 10
+    // Vertical: the actions' text bottom lands on the tab text bottom.
     const tabBottom = textBottom(tabBtn)
-    if (tabBottom === null) return
-    const curMatch = /translateY\((-?[\d.]+)px\)/.exec((actions as HTMLElement).style.transform ?? '')
-    const cur = curMatch !== null ? parseFloat(curMatch[1] ?? '0') : 0
-    let maxBottom: number | null = null
-    for (const sel of ['[class$="_label"]', '[class$="_count"]']) {
-      const b = textBottom(actions.querySelector(sel))
-      if (b !== null && (maxBottom === null || b - cur > maxBottom)) maxBottom = b - cur
-    }
-    if (maxBottom !== null) {
-      const delta = Math.round((tabBottom - maxBottom) * 10) / 10
-      if (Math.abs(delta) < 0.5) {
-        if ((actions as HTMLElement).style.transform !== '') (actions as HTMLElement).style.transform = ''
-      } else {
-        ;(actions as HTMLElement).style.transform = `translateY(${delta}px)`
+    if (tabBottom !== null) {
+      let maxBottom: number | null = null
+      for (const sel of ['[class$="_label"]', '[class$="_count"]']) {
+        const b = textBottom(actions.querySelector(sel))
+        if (b !== null && (maxBottom === null || b > maxBottom)) maxBottom = b
+      }
+      if (maxBottom !== null) {
+        const bottomDiff = tabBottom - maxBottom
+        if (Math.abs(bottomDiff) >= 0.5) dy = Math.round((dy + bottomDiff) * 10) / 10
       }
     }
-    // Keep the seated actions inside the header: the official right padding
-    // differs per cohort/viewport, so a fixed negative margin either clips the
-    // mode label off the viewport or leaves a gap. Measure and converge (the
-    // effective margin is read back each tick, so one correction lands it).
-    const header = document.querySelector('[class$="_header"]')
-    if (header instanceof HTMLElement) {
-      const headerRect = header.getBoundingClientRect()
-      const padRight = parseFloat(getComputedStyle(header).paddingRight)
-      const desiredRight = headerRect.right - (Number.isFinite(padRight) ? padRight : 0)
-      const actionsRect = actions.getBoundingClientRect()
-      const diff = desiredRight - actionsRect.right
-      if (Math.abs(diff) >= 0.5) {
-        const tabsEl = tabs as HTMLElement
-        const effective = parseFloat(getComputedStyle(tabsEl).marginRight)
-        const next = Math.round(((Number.isFinite(effective) ? effective : 0) + diff) * 10) / 10
-        tabsEl.style.marginRight = `${next}px`
-      }
-    }
+    const next = `translate(${dx}px, ${dy}px)`
+    if (actions.style.transform !== next) actions.style.transform = next
+    // Reserve the painted width so the tab labels never slide under it.
+    const reserve = `${Math.ceil(actionsRect.width) + 8}px`
+    if (tabs.style.paddingRight !== reserve) tabs.style.paddingRight = reserve
   }
 
   function unseatHeaderActions(): void {
     document.body.classList.remove(HEADER_SEATED_CLASS)
-    const tabs = document.querySelector('[class$="_header"] [class$="_tabs"]')
-    const seated = tabs !== null ? tabs.querySelector(':scope > [class$="_headerActions"]') : null
-    const wrap = document.querySelector('[class$="_titleCluster"] > div')
-    if (seated !== null) {
-      if (wrap !== null) wrap.appendChild(seated)
-      else seated.remove()
+    const header = document.querySelector('[class$="_header"]')
+    const tabs = header !== null ? header.querySelector('[class$="_tabs"]') : null
+    const actions = header !== null ? header.querySelector('[class$="_titleCluster"] [class$="_headerActions"]') : null
+    if (actions instanceof HTMLElement) actions.style.transform = ''
+    if (tabs instanceof HTMLElement) tabs.style.paddingRight = ''
+    if (headerObserver !== null) {
+      headerObserver.disconnect()
+      headerObserver = null
+      observedHeader = null
     }
-    if (tabs instanceof HTMLElement) tabs.style.marginRight = ''
   }
 
   function ensureWhaleObserver(): void {
@@ -790,7 +808,29 @@ export function startMobileAdapt(): void {
     whaleObserver.observe(document.body, { attributes: true, attributeFilter: ['data-sidebar-collapsed'], subtree: true })
   }
 
+  /**
+   * Observe the conversation header subtree and mark its geometry dirty on any
+   * re-render (label text, badge count, node replacement). The per-tick
+   * alignment then reads layout only when the header actually changed instead
+   * of on every tick while a message streams. The observer is swapped when the
+   * header node is replaced and disconnected with the layer.
+   */
+  function ensureHeaderObserver(header: Element | null): void {
+    if (typeof MutationObserver === 'undefined') return
+    if (observedHeader === header && headerObserver !== null) return
+    headerObserver?.disconnect()
+    headerObserver = null
+    observedHeader = null
+    if (header === null) return
+    headerObserver = new MutationObserver(() => { headerGeometryDirty = true })
+    headerObserver.observe(header, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] })
+    observedHeader = header
+    headerGeometryDirty = true
+  }
+
   function evaluate(): void {
+    // A viewport change invalidates every measured position.
+    headerGeometryDirty = true
     if (!adaptEnabled) {
       revert()
       return

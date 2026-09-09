@@ -15833,6 +15833,16 @@ window.__ModuleLoader__.load({
 		const COMPACT_CLASS = "dsh-remote-compact-picker";
 		/** Body class while the header actions are seated in the tabs row. */
 		const HEADER_SEATED_CLASS = "dsh-remote-header-seated";
+		/** Locale-dependent fast path for the official picker cells (zh/en). */
+		const PICKER_CELL_PATTERN = {
+			model: /模型|Model/,
+			effort: /推理等级|Reasoning|Effort/i
+		};
+		/** Position of each drill cell among the sheet's chevron cells. */
+		const DRILL_INDEX = {
+			model: 0,
+			effort: 1
+		};
 		/**
 		* The official application frame. The layout column classes are the anchor:
 		* `_frame` is shared by unrelated official components (the chat turn rail,
@@ -15919,10 +15929,8 @@ window.__ModuleLoader__.load({
 			"[class*=\"_bubble\"][role=\"tooltip\"]{display:none}",
 			"[class$=\"_composerSeat\"] [class$=\"_frame\"]{box-sizing:border-box;width:100%;max-width:100%;padding-left:12px;padding-right:12px;height:auto;max-height:calc(100dvh - 96px);align-items:flex-start;overflow-y:auto}",
 			"[class$=\"_composerSeat\"] [class$=\"_frame\"] [class$=\"_card\"]{max-width:none;width:100%}",
-			`body.${HEADER_SEATED_CLASS} [class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{display:none}`,
-			"[class$=\"_header\"] [class$=\"_tabs\"]{margin-right:-8px}",
+			`body.${HEADER_SEATED_CLASS} [class$="_header"] [class$="_titleCluster"] [class$="_headerActions"]{position:absolute;left:0;top:0;margin:0;display:flex;align-items:center;gap:6px;flex:none;z-index:2}`,
 			"[class$=\"_header\"] [class$=\"_tabs\"] [class*=\"_tab\"]{font-size:12px;white-space:nowrap}",
-			"[class$=\"_header\"] [class$=\"_tabs\"] [class$=\"_headerActions\"]{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}",
 			`body.${ACTIVE_CLASS} [class$=\"_detailsCol\"]{display:none !important}`,
 			`body.${ACTIVE_CLASS} [data-dsh-plugin=\"ssh\"],`,
 			`body.${ACTIVE_CLASS} [data-dsh-plugin=\"skill-explorer\"],`,
@@ -15971,6 +15979,11 @@ window.__ModuleLoader__.load({
 			let savedViewportContent = null;
 			let whaleEl = null;
 			let whaleObserver = null;
+			/** Header subtree observer: marks the geometry measurement dirty on re-render. */
+			let headerObserver = null;
+			let observedHeader = null;
+			/** Whether the seated-actions geometry needs re-measuring (see alignActionsText). */
+			let headerGeometryDirty = true;
 			let whaleTimer = null;
 			let whaleSuppressClick = false;
 			let whaleShown = false;
@@ -16027,6 +16040,10 @@ window.__ModuleLoader__.load({
 				}
 				if (whaleEl !== null) whaleEl.style.display = "none";
 				setWhaleTimer(false);
+				if (whaleObserver !== null) {
+					whaleObserver.disconnect();
+					whaleObserver = null;
+				}
 			}
 			/** Start/stop the 600ms sync tick; a no-op when already in the asked state. */
 			function setWhaleTimer(on) {
@@ -16050,14 +16067,17 @@ window.__ModuleLoader__.load({
 				document.getElementById(MODEL_BTN_ID)?.remove();
 				document.getElementById(EFFORT_BTN_ID)?.remove();
 			}
-			function drillIntoPicker(cellPattern) {
+			function drillIntoPicker(kind) {
 				const trigger = document.querySelector("[class$=\"_composerSeat\"] [class$=\"_trailing\"] [class$=\"_trigger\"]:has([class$=\"_triggerEffort\"])");
 				if (trigger === null) return;
 				trigger.click();
 				let tries = 0;
 				const tapCell = () => {
 					tries += 1;
-					const cell = Array.from(document.querySelectorAll("[class$=\"_composerSeat\"] [class$=\"_menu\"] [class$=\"_cell\"]")).find((c) => cellPattern.test(c.textContent ?? ""));
+					const cells = Array.from(document.querySelectorAll("[class$=\"_composerSeat\"] [class$=\"_menu\"] [class$=\"_cell\"]"));
+					const byLabel = cells.find((c) => PICKER_CELL_PATTERN[kind].test(c.textContent ?? ""));
+					const drillable = cells.filter((c) => c.querySelector("[class*=\"_cellChevron\"], [class*=\"_chevron\"]"));
+					const cell = byLabel ?? drillable[DRILL_INDEX[kind]];
 					if (cell !== void 0) {
 						cell.click();
 						return;
@@ -16066,7 +16086,7 @@ window.__ModuleLoader__.load({
 				};
 				window.setTimeout(tapCell, 150);
 			}
-			function makeCompactButton(id, title, icon, cellPattern) {
+			function makeCompactButton(id, title, icon, kind) {
 				const btn = document.createElement("button");
 				btn.id = id;
 				btn.type = "button";
@@ -16075,7 +16095,7 @@ window.__ModuleLoader__.load({
 				btn.setAttribute("aria-label", title);
 				btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>`;
 				btn.addEventListener("click", () => {
-					drillIntoPicker(cellPattern);
+					drillIntoPicker(kind);
 				});
 				return btn;
 			}
@@ -16087,8 +16107,8 @@ window.__ModuleLoader__.load({
 					removeCompactPicker();
 					return;
 				}
-				if (document.getElementById(MODEL_BTN_ID) === null) tools.appendChild(makeCompactButton(MODEL_BTN_ID, surfaceText("mobile.composer.pickModel", "Pick model"), CUBE_ICON, /模型|Model/));
-				if (document.getElementById(EFFORT_BTN_ID) === null) tools.appendChild(makeCompactButton(EFFORT_BTN_ID, surfaceText("mobile.composer.pickEffort", "Pick reasoning effort"), LEVELS_ICON, /推理等级|Reasoning|Effort/i));
+				if (document.getElementById(MODEL_BTN_ID) === null) tools.appendChild(makeCompactButton(MODEL_BTN_ID, surfaceText("mobile.composer.pickModel", "Pick model"), CUBE_ICON, "model"));
+				if (document.getElementById(EFFORT_BTN_ID) === null) tools.appendChild(makeCompactButton(EFFORT_BTN_ID, surfaceText("mobile.composer.pickEffort", "Pick reasoning effort"), LEVELS_ICON, "effort"));
 				for (const [id, key, fallback] of [[
 					MODEL_BTN_ID,
 					"mobile.composer.pickModel",
@@ -16296,22 +16316,23 @@ window.__ModuleLoader__.load({
 			}
 			function seatHeaderActions() {
 				if (!active) return;
-				const tabs = document.querySelector("[class$=\"_header\"] [class$=\"_tabs\"]");
-				const fresh = document.querySelector("[class$=\"_titleCluster\"] [class$=\"_headerActions\"]");
-				const seated = tabs !== null ? tabs.querySelector(":scope > [class$=\"_headerActions\"]") : null;
-				if (fresh !== null && tabs !== null) {
-					seated?.remove();
-					tabs.appendChild(fresh);
-				}
-				document.body.classList.toggle(HEADER_SEATED_CLASS, tabs !== null && tabs.querySelector(":scope > [class$=\"_headerActions\"]") !== null);
+				const header = document.querySelector("[class$=\"_header\"]");
+				const tabs = header !== null ? header.querySelector("[class$=\"_tabs\"]") : null;
+				const actions = header !== null ? header.querySelector("[class$=\"_titleCluster\"] [class$=\"_headerActions\"]") : null;
+				const seated = header !== null && tabs !== null && actions !== null;
+				document.body.classList.toggle(HEADER_SEATED_CLASS, seated);
+				ensureHeaderObserver(seated ? header : null);
 			}
 			function alignActionsText() {
 				if (!active) return;
-				const tabs = document.querySelector("[class$=\"_header\"] [class$=\"_tabs\"]");
-				if (tabs === null) return;
-				const actions = tabs.querySelector(":scope > [class$=\"_headerActions\"]");
+				const header = document.querySelector("[class$=\"_header\"]");
+				if (header === null) return;
+				const tabs = header.querySelector("[class$=\"_tabs\"]");
+				const actions = header.querySelector("[class$=\"_titleCluster\"] [class$=\"_headerActions\"]");
+				if (tabs === null || actions === null || !(tabs instanceof HTMLElement) || !(actions instanceof HTMLElement)) return;
+				if (!headerGeometryDirty) return;
+				headerGeometryDirty = false;
 				const tabBtn = tabs.querySelector(":scope > [class*=\"_tab\"]");
-				if (actions === null || tabBtn === null) return;
 				const textBottom = (el) => {
 					if (el === null) return null;
 					const text = Array.from(el.childNodes).find((n) => n.nodeType === 3 && n.textContent !== null && n.textContent.trim() !== "");
@@ -16324,42 +16345,41 @@ window.__ModuleLoader__.load({
 						return null;
 					}
 				};
+				const translate = /translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(actions.style.transform ?? "");
+				let dx = translate !== null ? parseFloat(translate[1] ?? "0") : 0;
+				let dy = translate !== null ? parseFloat(translate[2] ?? "0") : 0;
+				const actionsRect = actions.getBoundingClientRect();
+				const rightDiff = tabs.getBoundingClientRect().right - actionsRect.right;
+				if (Math.abs(rightDiff) >= .5) dx = Math.round((dx + rightDiff) * 10) / 10;
 				const tabBottom = textBottom(tabBtn);
-				if (tabBottom === null) return;
-				const curMatch = /translateY\((-?[\d.]+)px\)/.exec(actions.style.transform ?? "");
-				const cur = curMatch !== null ? parseFloat(curMatch[1] ?? "0") : 0;
-				let maxBottom = null;
-				for (const sel of ["[class$=\"_label\"]", "[class$=\"_count\"]"]) {
-					const b = textBottom(actions.querySelector(sel));
-					if (b !== null && (maxBottom === null || b - cur > maxBottom)) maxBottom = b - cur;
-				}
-				if (maxBottom !== null) {
-					const delta = Math.round((tabBottom - maxBottom) * 10) / 10;
-					if (Math.abs(delta) < .5) {
-						if (actions.style.transform !== "") actions.style.transform = "";
-					} else actions.style.transform = `translateY(${delta}px)`;
-				}
-				const header = document.querySelector("[class$=\"_header\"]");
-				if (header instanceof HTMLElement) {
-					const headerRect = header.getBoundingClientRect();
-					const padRight = parseFloat(getComputedStyle(header).paddingRight);
-					const diff = headerRect.right - (Number.isFinite(padRight) ? padRight : 0) - actions.getBoundingClientRect().right;
-					if (Math.abs(diff) >= .5) {
-						const tabsEl = tabs;
-						const effective = parseFloat(getComputedStyle(tabsEl).marginRight);
-						const next = Math.round(((Number.isFinite(effective) ? effective : 0) + diff) * 10) / 10;
-						tabsEl.style.marginRight = `${next}px`;
+				if (tabBottom !== null) {
+					let maxBottom = null;
+					for (const sel of ["[class$=\"_label\"]", "[class$=\"_count\"]"]) {
+						const b = textBottom(actions.querySelector(sel));
+						if (b !== null && (maxBottom === null || b > maxBottom)) maxBottom = b;
+					}
+					if (maxBottom !== null) {
+						const bottomDiff = tabBottom - maxBottom;
+						if (Math.abs(bottomDiff) >= .5) dy = Math.round((dy + bottomDiff) * 10) / 10;
 					}
 				}
+				const next = `translate(${dx}px, ${dy}px)`;
+				if (actions.style.transform !== next) actions.style.transform = next;
+				const reserve = `${Math.ceil(actionsRect.width) + 8}px`;
+				if (tabs.style.paddingRight !== reserve) tabs.style.paddingRight = reserve;
 			}
 			function unseatHeaderActions() {
 				document.body.classList.remove(HEADER_SEATED_CLASS);
-				const tabs = document.querySelector("[class$=\"_header\"] [class$=\"_tabs\"]");
-				const seated = tabs !== null ? tabs.querySelector(":scope > [class$=\"_headerActions\"]") : null;
-				const wrap = document.querySelector("[class$=\"_titleCluster\"] > div");
-				if (seated !== null) if (wrap !== null) wrap.appendChild(seated);
-				else seated.remove();
-				if (tabs instanceof HTMLElement) tabs.style.marginRight = "";
+				const header = document.querySelector("[class$=\"_header\"]");
+				const tabs = header !== null ? header.querySelector("[class$=\"_tabs\"]") : null;
+				const actions = header !== null ? header.querySelector("[class$=\"_titleCluster\"] [class$=\"_headerActions\"]") : null;
+				if (actions instanceof HTMLElement) actions.style.transform = "";
+				if (tabs instanceof HTMLElement) tabs.style.paddingRight = "";
+				if (headerObserver !== null) {
+					headerObserver.disconnect();
+					headerObserver = null;
+					observedHeader = null;
+				}
 			}
 			function ensureWhaleObserver() {
 				if (whaleObserver !== null || typeof MutationObserver === "undefined" || !document.body) return;
@@ -16372,7 +16392,35 @@ window.__ModuleLoader__.load({
 					subtree: true
 				});
 			}
+			/**
+			* Observe the conversation header subtree and mark its geometry dirty on any
+			* re-render (label text, badge count, node replacement). The per-tick
+			* alignment then reads layout only when the header actually changed instead
+			* of on every tick while a message streams. The observer is swapped when the
+			* header node is replaced and disconnected with the layer.
+			*/
+			function ensureHeaderObserver(header) {
+				if (typeof MutationObserver === "undefined") return;
+				if (observedHeader === header && headerObserver !== null) return;
+				headerObserver?.disconnect();
+				headerObserver = null;
+				observedHeader = null;
+				if (header === null) return;
+				headerObserver = new MutationObserver(() => {
+					headerGeometryDirty = true;
+				});
+				headerObserver.observe(header, {
+					childList: true,
+					subtree: true,
+					characterData: true,
+					attributes: true,
+					attributeFilter: ["class"]
+				});
+				observedHeader = header;
+				headerGeometryDirty = true;
+			}
 			function evaluate() {
+				headerGeometryDirty = true;
 				if (!adaptEnabled) {
 					revert();
 					return;

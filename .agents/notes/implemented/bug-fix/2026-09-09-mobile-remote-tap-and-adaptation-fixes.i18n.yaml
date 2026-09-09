@@ -1,5 +1,5 @@
 # Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with git hash-object.
-2026-09-09-mobile-remote-tap-and-adaptation-fixes.md: 633c71b9e91391be08ba68e47117be3833633fb7
-2026-09-09-mobile-remote-tap-and-adaptation-fixes.zh.md: cffe9a6cd851b4810301474670ff78c3e2fe1685
+2026-09-09-mobile-remote-tap-and-adaptation-fixes.md: e8860cf2032181c18d87babcf905c336b88fa0c4
+2026-09-09-mobile-remote-tap-and-adaptation-fixes.zh.md: 04cd13f7492ff2d6f9123602aa77f28dd8c0f495
