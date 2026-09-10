@@ -117,7 +117,7 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web 
 
 ### 右侧面板（Right Panel）
 
-右侧面板由外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供（聚合包已集成并默认启用），支持其内置功能与第三方插件注册，详见其 [README](https://github.com/omdsh-dev/DSH-better-sidebar)。注：DSH 0.1.2-alpha.2 起官方移除了 `@deepseek-ai/dsh-client-runtime` 面，better-sidebar 曾暂被排除，现已回归聚合，当前钉在 0.19.0-alpha.1（2026-09-09 发布、对齐 0.1.5-alpha.2 cohort 的 alpha 构建）。
+右侧面板由外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供（聚合包已集成并默认启用），支持其内置功能与第三方插件注册，详见其 [README](https://github.com/omdsh-dev/DSH-better-sidebar)。注：DSH 0.1.2-alpha.2 起官方移除了 `@deepseek-ai/dsh-client-runtime` 面，better-sidebar 曾暂被排除，现已回归聚合，当前钉在 0.19.0（2026-09-10 发布的正式版，peer 对齐 0.1.5-rc.1 cohort）。
 
 ![右侧面板](docs/screenshots/19-right-panel.png)
 

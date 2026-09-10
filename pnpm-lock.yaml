@@ -1452,8 +1452,8 @@ importers:
         specifier: workspace:*
         version: link:../dsh-usage
       dsh-better-sidebar:
-        specifier: 0.19.0-alpha.1
-        version: 0.19.0-alpha.1(5d01a0121f53fce90355120f9d87b845)
+        specifier: 0.19.0
+        version: 0.19.0(5d01a0121f53fce90355120f9d87b845)
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: ^4.0.2
@@ -3573,25 +3573,25 @@ packages:
   dompurify@3.4.15:
     resolution: {integrity: sha512-EUBjM+B+lkDE41iE82DDSCfkoPGfXx8IxFxPMjNzm/Uk4xDet77rTN9wqlxlVg71kK7XGuUMv6wUxJUwwv+Xyw==}
 
-  dsh-better-sidebar@0.19.0-alpha.1:
-    resolution: {integrity: sha512-pQPb7iMETyUilLY16foC2CMIdRsF+6EGplMf0v1Wr4ieANBe9o6qOdWvspG8D5NVNA4SagzJq/ZKm3qq7HzO3w==}
+  dsh-better-sidebar@0.19.0:
+    resolution: {integrity: sha512-eUNfVfJScUfvBiiB7yqot4UDslTOaDcRxPR9LKWE2Kv/Mp/iSk14whgrVg2RggYLc5aq2c+zpXG6qeQ5+aiHrg==}
     engines: {node: '>=20'}
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-agent': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-client-locale': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-client-ui-conversation': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-client-ui-primitives': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-client-ui-settings': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-client-ui-sidebar-right': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-client-ui-slots': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-host-webserver': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-invariants': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-llm': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-session': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-settings': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-subagent': ^0.1.5-alpha.2
-      '@deepseek-ai/dsh-tools': ^0.1.5-alpha.2
+      '@deepseek-ai/dsh-agent': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-client-locale': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-client-ui-conversation': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-client-ui-primitives': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-client-ui-settings': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-client-ui-sidebar-right': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-client-ui-slots': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-host-webserver': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-invariants': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-llm': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-session': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-settings': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-subagent': ^0.1.5-rc.1
+      '@deepseek-ai/dsh-tools': ^0.1.5-rc.1
       '@huanlin/dsh-plugin-better-locale': ^0.1.0
       react: ^18.2.0
       react-dom: ^18.2.0
@@ -6612,7 +6612,7 @@ snapshots:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
-  dsh-better-sidebar@0.19.0-alpha.1(5d01a0121f53fce90355120f9d87b845):
+  dsh-better-sidebar@0.19.0(5d01a0121f53fce90355120f9d87b845):
     dependencies:
       '@codemirror/commands': 6.11.0
       '@codemirror/lang-cpp': 6.0.3

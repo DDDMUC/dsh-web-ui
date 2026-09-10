@@ -10,7 +10,7 @@
 #   4. 运行 tests/e2e 无头渲染 lane（Playwright Chromium）：以宿主官方帧
 #      锚定启动、断言 better-sidebar 挂载、断言被排除的 archive-manager
 #      缺席、无崩溃标记（aionui-panel 已停止支持、archive-manager 仍为
-#      alpha.2 排除；better-sidebar 以对齐当前 cohort 的 0.19.0-alpha.1 内置）。
+#      alpha.2 排除；better-sidebar 以对齐当前 cohort 的 0.19.0 内置）。
 #
 # 用法：
 #   bash scripts/e2e-mount.sh
@@ -161,7 +161,7 @@ allowBuilds:
   ssh2: true
 
 minimumReleaseAgeExclude:
-  - 'dsh-better-sidebar@0.19.0-alpha.1'
+  - 'dsh-better-sidebar@0.19.0'
   - '@linxin666/*'
 EOF
 

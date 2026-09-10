@@ -69,8 +69,8 @@ deps:
 # 2026-08-31 以 0.18.0-alpha.0（peer 对齐 alpha.2、inject 改用
 # dsh-client-modules）回归；2026-09-04 随 rc.1 cohort 升至 0.18.0 正式版
 # （2026-09-03 发布，peer 全面声明 ^0.1.2-rc.1）；2026-09-10 升至
-# 0.19.0-alpha.1（2026-09-09 发布，peer 全面声明 ^0.1.5-alpha.2，inject 新增
-# optional 的 dsh-client-ui-sidebar-right 面）。@mlgbnb/dsh-archive-manager
+# 0.19.0 正式版（peer 全面声明 ^0.1.5-rc.1，inject 含 optional 的
+# dsh-client-ui-sidebar-right 面）。@mlgbnb/dsh-archive-manager
 # 仍排除：其 latest 1.0.7 仍 import 已移除面，上游发布 alpha.2 兼容版后按同
 # 法恢复。
 rows:
