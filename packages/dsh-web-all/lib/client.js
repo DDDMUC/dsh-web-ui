@@ -846,7 +846,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-plugin-manager/src/client/plugin-manager.module.css.mjs
-		const css$22 = ".ZsMDKq_section{flex-direction:column;gap:12px;display:flex}.ZsMDKq_notice{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:8px;padding:16px;display:flex}.ZsMDKq_notice p{color:var(--dsw-alias-label-secondary);margin:0}.ZsMDKq_state{color:var(--dsw-alias-label-secondary);padding:16px 0}.ZsMDKq_installRow{gap:8px;display:flex}.ZsMDKq_spec{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);min-width:0;color:var(--dsw-alias-label-primary);border-radius:6px;flex:1;padding:6px 10px}.ZsMDKq_spec:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary)}.ZsMDKq_hint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.ZsMDKq_progressRow{flex-direction:column;gap:6px;display:flex}.ZsMDKq_progressTrack{background:var(--dsw-alias-bg-layer-2);border-radius:3px;height:6px;overflow:hidden}.ZsMDKq_progressBar{background:var(--dsw-alias-state-business-primary);height:100%;transition:width .2s}.ZsMDKq_progressBar[data-indeterminate=true]{width:40%;animation:1.2s ease-in-out infinite ZsMDKq_pluginManagerIndeterminate}@keyframes ZsMDKq_pluginManagerIndeterminate{0%{transform:translate(-100%)}to{transform:translate(250%)}}.ZsMDKq_progressLabel{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}@media (prefers-reduced-motion:reduce){.ZsMDKq_progressBar[data-indeterminate=true]{width:40%;animation:none}}.ZsMDKq_errorRow{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-danger);border-radius:8px;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;display:flex}.ZsMDKq_error{min-width:200px;color:var(--dsw-alias-label-danger);word-break:break-all;flex:1}.ZsMDKq_group{flex-direction:column;gap:8px;display:flex}.ZsMDKq_sectionTitle{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.ZsMDKq_list{flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;display:flex}.ZsMDKq_row{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);border-radius:8px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.ZsMDKq_meta{flex-direction:column;gap:4px;min-width:0;display:flex}.ZsMDKq_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}.ZsMDKq_sub{color:var(--dsw-alias-label-tertiary);flex-wrap:wrap;align-items:center;gap:6px;min-width:0;font-size:12px;display:flex}.ZsMDKq_version{white-space:nowrap}.ZsMDKq_sourceBadge{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);border-radius:4px;padding:0 4px;font-size:11px}.ZsMDKq_specText{text-overflow:ellipsis;white-space:nowrap;max-width:320px;overflow:hidden}.ZsMDKq_latest{color:var(--dsw-alias-state-business-primary);font-size:12px}.ZsMDKq_compatHint{color:var(--dsw-alias-label-tertiary);font-size:12px}.ZsMDKq_compatBlocked{color:var(--dsw-alias-label-danger);font-size:12px}.ZsMDKq_actions{flex-shrink:0;align-items:center;gap:8px;display:flex}.ZsMDKq_empty{color:var(--dsw-alias-label-tertiary);margin:0}.ZsMDKq_link{color:var(--dsw-alias-state-business-primary)}.ZsMDKq_stateLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.ZsMDKq_stateLabel[data-state=enabled]{color:var(--dsw-alias-state-success-primary)}.ZsMDKq_stateLabel[data-state=disabled]{color:var(--dsw-alias-label-tertiary)}.ZsMDKq_stateLabel[data-state=mixed]{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-label-secondary))}.ZsMDKq_childList{border-left:2px solid var(--dsw-alias-border-l1);flex-direction:column;gap:4px;margin:6px 0 0;padding:2px 0 2px 16px;list-style:none;display:flex}.ZsMDKq_childRow{justify-content:space-between;align-items:center;gap:12px;padding:4px 8px;display:flex}.ZsMDKq_childName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13px;overflow:hidden}.ZsMDKq_lockedHint{color:var(--dsw-alias-label-tertiary);font-size:12px}.ZsMDKq_switch{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);cursor:pointer;border-radius:10px;width:34px;height:20px;padding:0;transition:background .2s;position:relative}.ZsMDKq_switch:after{content:\"\";background:var(--dsw-alias-label-on-danger,#fff);border-radius:50%;width:14px;height:14px;transition:transform .2s;position:absolute;top:2px;left:2px}.ZsMDKq_switch[aria-checked=true]{background:var(--dsw-alias-state-success-primary)}.ZsMDKq_switch[aria-checked=true]:after{transform:translate(14px)}.ZsMDKq_switch:disabled{opacity:.5;cursor:not-allowed}.ZsMDKq_switch:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary)}@media (prefers-reduced-motion:reduce){.ZsMDKq_switch,.ZsMDKq_switch:after{transition:none}}.ZsMDKq_failure{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-danger);border-radius:6px;flex-direction:column;gap:6px;margin-top:4px;padding:8px;display:flex}.ZsMDKq_badge{background:var(--dsw-alias-label-danger);color:var(--dsw-alias-label-on-danger);border-radius:10px;align-self:flex-start;padding:2px 8px;font-size:11px}.ZsMDKq_failureMessage{color:var(--dsw-alias-label-danger);word-break:break-all;font-size:12px}.ZsMDKq_failureActions{flex-wrap:wrap;gap:8px;display:flex}.ZsMDKq_conflicts{flex-direction:column;gap:8px;display:flex}.ZsMDKq_actionsRow{align-items:center;gap:12px;display:flex}.ZsMDKq_ok{color:var(--dsw-alias-state-success-primary);margin:0;font-size:12px}.ZsMDKq_applying{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.ZsMDKq_restartRow{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-brand);border-radius:8px;padding:10px 12px}.ZsMDKq_restartRow p{color:var(--dsw-alias-brand-primary);margin:0}.ZsMDKq_safeModeBanner{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-warning);border-radius:8px;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;display:flex}.ZsMDKq_safeModeBanner p{color:var(--dsw-alias-label-primary);margin:0}.ZsMDKq_confirmBody{color:var(--dsw-alias-label-secondary);margin:0 0 12px}.ZsMDKq_modalActions{justify-content:flex-end;gap:8px;display:flex}.ZsMDKq_dangerButton{background:var(--dsw-alias-label-danger)!important;color:var(--dsw-alias-label-on-danger)!important}";
+		const css$22 = ".ZsMDKq_section{flex-direction:column;gap:12px;display:flex}.ZsMDKq_notice{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:8px;padding:16px;display:flex}.ZsMDKq_notice p{color:var(--dsw-alias-label-secondary);margin:0}.ZsMDKq_state{color:var(--dsw-alias-label-secondary);padding:16px 0}.ZsMDKq_installRow{gap:8px;display:flex}.ZsMDKq_spec{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);min-width:0;color:var(--dsw-alias-label-primary);border-radius:6px;flex:1;padding:6px 10px}.ZsMDKq_spec:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary)}.ZsMDKq_hint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.ZsMDKq_progressRow{flex-direction:column;gap:6px;display:flex}.ZsMDKq_progressTrack{background:var(--dsw-alias-bg-layer-2);border-radius:3px;height:6px;overflow:hidden}.ZsMDKq_progressBar{background:var(--dsw-alias-state-business-primary);height:100%;transition:width .2s}.ZsMDKq_progressBar[data-indeterminate=true]{width:40%;animation:1.2s ease-in-out infinite ZsMDKq_pluginManagerIndeterminate}@keyframes ZsMDKq_pluginManagerIndeterminate{0%{transform:translate(-100%)}to{transform:translate(250%)}}.ZsMDKq_progressLabel{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}@media (prefers-reduced-motion:reduce){.ZsMDKq_progressBar[data-indeterminate=true]{width:40%;animation:none}}.ZsMDKq_errorRow{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-danger);border-radius:8px;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;display:flex}.ZsMDKq_error{min-width:200px;color:var(--dsw-alias-label-danger);word-break:break-all;flex:1}.ZsMDKq_group{flex-direction:column;gap:8px;display:flex}.ZsMDKq_sectionTitle{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.ZsMDKq_list{flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;display:flex}.ZsMDKq_row{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);border-radius:8px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.ZsMDKq_meta{flex-direction:column;gap:4px;min-width:0;display:flex}.ZsMDKq_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}.ZsMDKq_sub{color:var(--dsw-alias-label-tertiary);flex-wrap:wrap;align-items:center;gap:6px;min-width:0;font-size:12px;display:flex}.ZsMDKq_version{white-space:nowrap}.ZsMDKq_sourceBadge{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);border-radius:4px;padding:0 4px;font-size:11px}.ZsMDKq_specText{text-overflow:ellipsis;white-space:nowrap;max-width:320px;overflow:hidden}.ZsMDKq_latest{color:var(--dsw-alias-state-business-primary);font-size:12px}.ZsMDKq_compatHint{color:var(--dsw-alias-label-tertiary);font-size:12px}.ZsMDKq_compatBlocked{color:var(--dsw-alias-label-danger);font-size:12px}.ZsMDKq_actions{flex-shrink:0;align-items:center;gap:8px;display:flex}.ZsMDKq_empty{color:var(--dsw-alias-label-tertiary);margin:0}.ZsMDKq_link{color:var(--dsw-alias-state-business-primary)}.ZsMDKq_stateLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.ZsMDKq_stateLabel[data-state=enabled]{color:var(--dsw-alias-state-success-primary)}.ZsMDKq_stateLabel[data-state=disabled]{color:var(--dsw-alias-label-tertiary)}.ZsMDKq_stateLabel[data-state=mixed]{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-label-secondary))}.ZsMDKq_childrenToggle{width:100%;color:var(--dsw-alias-label-secondary);text-align:left;cursor:pointer;background:0 0;border:none;border-radius:6px;align-items:center;gap:6px;margin:6px 0 0;padding:4px 8px;font-size:12px;display:flex}.ZsMDKq_childrenToggle:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}.ZsMDKq_childrenToggle:focus-visible{outline:2px solid var(--dsw-alias-border-l2);outline-offset:1px}.ZsMDKq_chevron{border-top:4px solid #0000;border-bottom:4px solid #0000;border-left:5px solid;flex:none;width:0;height:0;transition:transform .15s}.ZsMDKq_chevron[data-expanded=true]{transform:rotate(90deg)}@media (prefers-reduced-motion:reduce){.ZsMDKq_chevron{transition:none}}.ZsMDKq_childrenSummary{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.ZsMDKq_childList{border-left:2px solid var(--dsw-alias-border-l1);flex-direction:column;gap:4px;margin:6px 0 0;padding:2px 0 2px 16px;list-style:none;display:flex}.ZsMDKq_childRow{justify-content:space-between;align-items:center;gap:12px;padding:4px 8px;display:flex}.ZsMDKq_childName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13px;overflow:hidden}.ZsMDKq_lockedHint{color:var(--dsw-alias-label-tertiary);font-size:12px}.ZsMDKq_switch{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);cursor:pointer;border-radius:10px;width:34px;height:20px;padding:0;transition:background .2s;position:relative}.ZsMDKq_switch:after{content:\"\";background:var(--dsw-alias-label-on-danger,#fff);border-radius:50%;width:14px;height:14px;transition:transform .2s;position:absolute;top:2px;left:2px}.ZsMDKq_switch[aria-checked=true]{background:var(--dsw-alias-state-success-primary)}.ZsMDKq_switch[aria-checked=true]:after{transform:translate(14px)}.ZsMDKq_switch:disabled{opacity:.5;cursor:not-allowed}.ZsMDKq_switch:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary)}@media (prefers-reduced-motion:reduce){.ZsMDKq_switch,.ZsMDKq_switch:after{transition:none}}.ZsMDKq_failure{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-danger);border-radius:6px;flex-direction:column;gap:6px;margin-top:4px;padding:8px;display:flex}.ZsMDKq_badge{background:var(--dsw-alias-label-danger);color:var(--dsw-alias-label-on-danger);border-radius:10px;align-self:flex-start;padding:2px 8px;font-size:11px}.ZsMDKq_failureMessage{color:var(--dsw-alias-label-danger);word-break:break-all;font-size:12px}.ZsMDKq_failureActions{flex-wrap:wrap;gap:8px;display:flex}.ZsMDKq_conflicts{flex-direction:column;gap:8px;display:flex}.ZsMDKq_actionsRow{align-items:center;gap:12px;display:flex}.ZsMDKq_ok{color:var(--dsw-alias-state-success-primary);margin:0;font-size:12px}.ZsMDKq_applying{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.ZsMDKq_restartRow{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-brand);border-radius:8px;padding:10px 12px}.ZsMDKq_restartRow p{color:var(--dsw-alias-brand-primary);margin:0}.ZsMDKq_safeModeBanner{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-warning);border-radius:8px;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;display:flex}.ZsMDKq_safeModeBanner p{color:var(--dsw-alias-label-primary);margin:0}.ZsMDKq_confirmBody{color:var(--dsw-alias-label-secondary);margin:0 0 12px}.ZsMDKq_modalActions{justify-content:flex-end;gap:8px;display:flex}.ZsMDKq_dangerButton{background:var(--dsw-alias-label-danger)!important;color:var(--dsw-alias-label-on-danger)!important}";
 		const tagId$22 = "@linxin666/dsh-web-all/packages/dsh-plugin-manager/src/client/plugin-manager.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$22) + "]") === null) {
 			const tag = document.createElement("style");
@@ -860,9 +860,12 @@ window.__ModuleLoader__.load({
 			"actionsRow": "ZsMDKq_actionsRow",
 			"applying": "ZsMDKq_applying",
 			"badge": "ZsMDKq_badge",
+			"chevron": "ZsMDKq_chevron",
 			"childList": "ZsMDKq_childList",
 			"childName": "ZsMDKq_childName",
 			"childRow": "ZsMDKq_childRow",
+			"childrenSummary": "ZsMDKq_childrenSummary",
+			"childrenToggle": "ZsMDKq_childrenToggle",
 			"compatBlocked": "ZsMDKq_compatBlocked",
 			"compatHint": "ZsMDKq_compatHint",
 			"confirmBody": "ZsMDKq_confirmBody",
@@ -988,6 +991,8 @@ window.__ModuleLoader__.load({
 				kind: "idle",
 				stage: "fetch"
 			});
+			/** Parent rows whose aggregate child list is expanded; collapsed by default. */
+			const [expandedChildren, setExpandedChildren] = (0, react.useState)(() => /* @__PURE__ */ new Set());
 			/** Synchronous in-flight mirror of `busy`: the render-time guard alone lets a
 			* click and an Enter land in the same frame and double-fire. */
 			const busyRef = (0, react.useRef)(false);
@@ -1087,6 +1092,15 @@ window.__ModuleLoader__.load({
 				};
 			}, [busy, status]);
 			const toggleDisabled = busy !== void 0 || toggleBusy !== void 0 || view.status === "ready" && view.failures.safeMode;
+			/** Expand or collapse one aggregate row's child list (pure view state). */
+			const toggleChildren = (id) => {
+				setExpandedChildren((current) => {
+					const next = new Set(current);
+					if (next.has(id)) next.delete(id);
+					else next.add(id);
+					return next;
+				});
+			};
 			const onUserToggle = (id, enabled) => {
 				setToggleBusy({
 					kind: "user",
@@ -1486,41 +1500,67 @@ window.__ModuleLoader__.load({
 												})
 											]
 										})]
-									}), children !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
-										className: plugin_manager_module_css_default.childList,
-										children: children.map((child) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
-											className: plugin_manager_module_css_default.childRow,
-											"data-plugin-row": child.id,
+									}), children !== void 0 && children.length > 0 && (() => {
+										const listId = "pm-children-" + plugin.id.replace(/[^a-zA-Z0-9_-]/g, "-");
+										const expanded = expandedChildren.has(plugin.id);
+										const enabledCount = children.filter((child) => child.enabled).length;
+										return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+											type: "button",
+											className: plugin_manager_module_css_default.childrenToggle,
+											"aria-expanded": expanded,
+											"aria-controls": listId,
+											"aria-label": expanded ? t("childrenHide", { name: plugin.name }) : t("childrenShow", { name: plugin.name }),
+											onClick: () => {
+												toggleChildren(plugin.id);
+											},
 											children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: plugin_manager_module_css_default.childName,
-												title: child.id,
-												children: child.name
-											}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-												className: plugin_manager_module_css_default.actions,
-												children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-													className: plugin_manager_module_css_default.stateLabel,
-													"data-state": child.enabled ? "enabled" : "disabled",
-													children: child.enabled ? t("enabled") : t("disabled")
-												}), child.locked === true ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-													className: plugin_manager_module_css_default.lockedHint,
-													children: t("lockedRowHint")
-												}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-													type: "button",
-													role: "switch",
-													"aria-checked": child.enabled,
-													"aria-label": child.enabled ? t("disableSwitch", { name: child.name }) : t("enableSwitch", { name: child.name }),
-													className: plugin_manager_module_css_default.switch,
-													disabled: toggleDisabled,
-													onClick: () => {
-														onUserToggle(child.id, !child.enabled);
-													}
-												})]
+												className: plugin_manager_module_css_default.chevron,
+												"data-expanded": expanded,
+												"aria-hidden": "true"
+											}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: plugin_manager_module_css_default.childrenSummary,
+												children: t("childrenSummary", {
+													enabled: enabledCount,
+													total: children.length
+												})
 											})]
-										}, child.id))
-									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-										className: plugin_manager_module_css_default.hint,
-										children: t("childrenHint")
-									})] })]
+										}), expanded && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
+											id: listId,
+											className: plugin_manager_module_css_default.childList,
+											children: children.map((child) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+												className: plugin_manager_module_css_default.childRow,
+												"data-plugin-row": child.id,
+												children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: plugin_manager_module_css_default.childName,
+													title: child.id,
+													children: child.name
+												}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+													className: plugin_manager_module_css_default.actions,
+													children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+														className: plugin_manager_module_css_default.stateLabel,
+														"data-state": child.enabled ? "enabled" : "disabled",
+														children: child.enabled ? t("enabled") : t("disabled")
+													}), child.locked === true ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+														className: plugin_manager_module_css_default.lockedHint,
+														children: t("lockedRowHint")
+													}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+														type: "button",
+														role: "switch",
+														"aria-checked": child.enabled,
+														"aria-label": child.enabled ? t("disableSwitch", { name: child.name }) : t("enableSwitch", { name: child.name }),
+														className: plugin_manager_module_css_default.switch,
+														disabled: toggleDisabled,
+														onClick: () => {
+															onUserToggle(child.id, !child.enabled);
+														}
+													})]
+												})]
+											}, child.id))
+										}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+											className: plugin_manager_module_css_default.hint,
+											children: t("childrenHint")
+										})] })] });
+									})()]
 								}, plugin.id);
 							})
 						})]
@@ -1739,6 +1779,9 @@ window.__ModuleLoader__.load({
 			disableSwitch: "关闭 {name}",
 			lockedRowHint: "核心行",
 			childrenHint: "全家桶子插件可单独启停；停用后不再加载，代码仍随全家桶更新。",
+			childrenSummary: "子插件 {enabled}/{total} 已启用",
+			childrenShow: "展开 {name} 的子插件",
+			childrenHide: "收起 {name} 的子插件",
 			repairInstallTitle: "插件安装失败，请帮我诊断并修复。",
 			repairInstallSpecLabel: "安装目标",
 			repairInstallErrorLabel: "错误信息",
@@ -1823,6 +1866,9 @@ window.__ModuleLoader__.load({
 			disableSwitch: "Turn off {name}",
 			lockedRowHint: "Core row",
 			childrenHint: "Bundle child plugins toggle individually; a disabled child is never loaded, while its code still updates with the bundle.",
+			childrenSummary: "{enabled}/{total} child plugins on",
+			childrenShow: "Show child plugins of {name}",
+			childrenHide: "Hide child plugins of {name}",
 			repairInstallTitle: "The plugin installation failed. Please diagnose and fix it.",
 			repairInstallSpecLabel: "Install target",
 			repairInstallErrorLabel: "Error message",
