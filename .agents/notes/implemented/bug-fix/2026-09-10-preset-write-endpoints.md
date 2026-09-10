@@ -32,5 +32,5 @@ The durable rule this exposes: **a market asset kind is registered in three plac
 ## Testing
 
 - `scripts/market-worker.test.mjs`: a preset like and a preset install reach D1 with `kind: 'preset'` (both returned 400 `invalid-params` before the fix), and `/api/stats` returns the preset bucket; the manifest fixture now maps singular kinds onto the plural manifest files so the allowlist is genuinely exercised.
-- Live probe: `POST /api/like` with a published preset id returned `400 invalid-params` before the fix and reaches the Turnstile gate afterwards, matching what `skin` and `plugin` requests do.
+- Live probe: `POST /api/like` with a published preset id returned `400 invalid-params` before the fix and reaches the Turnstile gate afterwards, matching what `skin` and `plugin` requests do. A headless click-through cannot get past the Turnstile challenge (the vote is not recorded, and the site reverts to its unliked state), so the end-to-end confirmation is the reporter's: after the deploy a preset like records normally in a browser.
 - `pnpm test:scripts` passes with the new cases.

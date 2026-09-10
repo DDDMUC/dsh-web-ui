@@ -32,5 +32,5 @@ Status: implemented
 ## Testing
 
 - `scripts/market-worker.test.mjs`：预设点赞与预设安装都以 `kind: 'preset'` 抵达 D1（修复前两者都返回 400 `invalid-params`），且 `/api/stats` 返回 preset 桶；manifest fixture 现在把单数类别映射到复数 manifest 文件，允许名单被真正走通。
-- 线上探测：带已发布预设 id 的 `POST /api/like` 在修复前返回 `400 invalid-params`，修复后走到 Turnstile 门，与 `skin`、`plugin` 请求表现一致。
+- 线上探测：带已发布预设 id 的 `POST /api/like` 在修复前返回 `400 invalid-params`，修复后走到 Turnstile 门，与 `skin`、`plugin` 请求表现一致。无头浏览器点击无法通过 Turnstile 挑战（不记录投票，站点回退到未点赞状态），因此端到端确认来自报告者：部署后浏览器里的预设点赞正常记录。
 - `pnpm test:scripts` 带新用例通过。
