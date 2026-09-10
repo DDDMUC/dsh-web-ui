@@ -16,22 +16,22 @@ Six bug reports were reproduced, fixed on `dev`, and closed with the verified ev
 - #1453 (plugin-manager effective enablement) — commit `7375afad`, [note](../../bug-fix/2026-09-10-plugin-manager-effective-enablement.md).
 - #1442 (root alias aggregate pin) — commit `058c981c`, [note](../../bug-fix/2026-09-10-root-alias-exact-aggregate-pin.md).
 
-Two bug reports stay open with a stated position rather than a silent close:
+One bug report stays open with a stated position rather than a silent close, and one was closed on the owner's decision after the pass:
 
-- #1452: the crash needs a DSH host below the aggregate's declared floor (`>=0.1.5-rc.1`). Holding `dsh-better-sidebar` back to 0.18.0 would protect below-floor hosts but reverses the same-day [0.1.5-rc.1 cohort decision](../architecture/2026-09-10-sdk-cohort-0.1.5-rc.1.md) and has no rc.1 smoke on the older build, so the choice is left to the owner; the reporter got the two working paths (upgrade DSH, or pin the aggregate to 0.3.19).
+- #1452: the crash needs a DSH host below the aggregate's declared floor (`>=0.1.5-rc.1`). Holding `dsh-better-sidebar` back to 0.18.0 would protect below-floor hosts but reverses the same-day [0.1.5-rc.1 cohort decision](../architecture/2026-09-10-sdk-cohort-0.1.5-rc.1.md) and has no rc.1 smoke on the older build, so it was left to the owner. The owner then decided the handling: close it pointing at the host upgrade and keep the cohort pin. The thread now tells reporters to upgrade to the latest DSH (0.1.5-rc.1, the npm `latest` tag) and keeps pinning the aggregate to 0.3.19 as the fallback for hosts that cannot move.
 - #1397: root cause is the private `Symbol` registration key inside the official `@deepseek-ai/dsh-tools`, still present at 0.1.5-rc.1; this repository has no fix site and keeps tracking upstream.
 
 The two enhancement issues open at the time (#1439, #1448) were left untouched as out of scope.
 
 ## Alternatives considered
 
-- Closing #1452 as "not reproducible on a supported host". Rejected: it resolves the reporter's instance but buries the enforcement gap (the host ignores `dsh.engines.dsh`, and only the gateway update path blocks below-floor updates) and pre-empts a product decision the repository already made once.
+- Closing #1452 during the pass as "not reproducible on a supported host". Rejected then: it would have buried the enforcement gap (the host ignores `dsh.engines.dsh`, and only the gateway update path blocks below-floor updates) and pre-empted a product decision; the owner's later instruction supplied that decision, and the closure now states the upgrade requirement explicitly.
 - Downgrading `dsh-better-sidebar` to 0.18.0 unilaterally. Rejected: it contradicts the cohort note's explicit rejection of that bump, and the older build was never smoke-tested against rc.1.
 - Patching the DSH host or `dsh-tools` for #1397. Rejected: modifying a DSH checkout is outside this repository's bounds and would not survive the next install.
 
 ## Consequences
 
-- The open bug list is now one product-decision item (#1452) and one upstream tracker (#1397); neither is blocked on repository work.
+- The open bug list is now one upstream tracker (#1397); the other two open issues are the enhancements that were out of scope.
 - Every fix carries its own Agent Note with the verification commands and the rejected alternatives, so the reproduction evidence survives the issue threads.
 
 ## Testing
