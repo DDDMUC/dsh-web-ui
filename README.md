@@ -1,9 +1,11 @@
-# dsh-web · DeepSeek Harness（DSH）Web GUI 插件聚合生态包
+# dsh-web · DeepSeek Harness Web GUI 插件与主题
 
 中文 | [English](README.en.md)
 
+dsh-web 是 DeepSeek Harness（DSH）Web GUI 的开源插件集合，为 AI 编程工作台提供任务自动化、手机远程控制、SSH 终端、Git 可视化和自定义主题。既可将插件全家桶安装到 `dsh web`，也可下载内置运行时与插件的 macOS / Windows 桌面客户端 DSH Desktop。
+
 <p align="center">
-  <img src="docs/dsh-web-banner.png" alt="dsh-web" width="100%">
+  <img src="docs/dsh-web-banner.png" alt="dsh-web — DeepSeek Harness Web GUI 插件与主题" width="100%">
 </p>
 
 <p align="center">
@@ -39,11 +41,11 @@
 
 ## 是什么
 
-dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web plugin ecosystem），也是「一切皆开发、一切皆插件」理念在 Web 端最完整的落地：任务看板（task board）、移动端远程控制（mobile remote）、SSH 运维终端、图像理解（image understanding）、自定义模型能力（model capabilities）、会话归档管理与右侧面板，每一样都是独立成包的插件，可插拔、可替换、可再开发——一次装齐便是完整的 AI 开发工作台，只挑一两个也能安静融入原生界面。所有插件都经官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；聚合包还能把外部插件（如 `dsh-better-sidebar`）拼进全家桶，其他皮肤与宠物资产统一从创意工坊获取，详见 [dsh-web-all README](packages/dsh-web-all/README.zh.md)。
+任务看板、移动端远程控制、SSH 运维、图像理解、自定义模型能力、会话归档管理和右侧面板均为独立插件，可安装全家桶，也可按需选择；所有插件通过官方 profile 机制挂载到 `dsh web`，无需修改 DSH 源码。聚合包也集成 `dsh-better-sidebar` 等外部插件，安装与配置详见[插件全家桶使用指南](packages/dsh-web-all/README.zh.md)。
 
-皮肤同样长在插件体系里：v2 皮肤不是独立产品，而是「皮肤」插件的纯资产包（skin.json 清单 + 样式、贴图与可选特效脚本），由该插件这一唯一加载器即时加载，与官方彻底解耦——官方升级不再牵动皮肤，新增皮肤也只需落一个目录，无需发布、无需安装。插件负责逻辑，皮肤资产负责外观；Blue Fantasy 随插件内置，其他皮肤与宠物资产统一走 [创意工坊](#创意工坊dsh-marketcom)（dsh-market.com）。
+主题皮肤是由皮肤插件加载的资产包，包含 `skin.json` 清单、样式、贴图与可选特效脚本。插件负责功能，皮肤资产负责外观。Blue Fantasy 随皮肤插件内置，其他主题与宠物资产可从 [DSH 创意工坊](#创意工坊dsh-marketcom)按需获取。
 
-![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
+![DeepSeek Harness Web GUI 与 dsh-web 插件工作台主界面](docs/screenshots/13-hero-main.png)
 
 | 能力 | 原生 dsh web | dsh-web 全家桶 |
 | --- | --- | --- |
@@ -57,6 +59,17 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web 
 | Git 可视化 | 无 | 分支选择器 + 提交历史图谱 |
 | 会话归档 | 无 | 集中查看与筛选全部会话，批量归档 / 恢复 / 删除，含自动策略 |
 | 主题皮肤 | 默认主题 | Blue Fantasy 随皮肤插件内置，其他皮肤从创意工坊按需安装 |
+
+### 按使用场景选择 DSH 扩展
+
+| 你想做什么 | 从这里开始 |
+| --- | --- |
+| 执行和定时调度 AI 智能体任务 | [任务看板与 cron 定时执行](packages/dsh-task-board/README.zh.md) |
+| 用手机或另一台电脑访问 DSH | [手机与 PC 浏览器远程控制](packages/dsh-remote-web-ui/README.zh.md) |
+| 通过 SSH 管理远程服务器 | [SSH 终端、文件传输与隧道](packages/dsh-ssh/README.zh.md) |
+| 自定义主题皮肤与宠物 | [浏览 DSH 创意工坊](https://dsh-market.com) |
+| 使用 macOS 或 Windows 桌面应用 | [DSH Desktop 下载与使用要求](#dsh-desktop桌面客户端) |
+| 为已有 DSH 安装插件全家桶 | [插件安装快速上手](#快速上手) |
 
 ## DSH Desktop（桌面客户端）
 

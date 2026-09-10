@@ -1,9 +1,11 @@
-# dsh-web · DeepSeek Harness (DSH) Web GUI Plugin Ecosystem
+# dsh-web · DeepSeek Harness Web GUI Plugins & Themes
 
 [中文](README.md) | English
 
+dsh-web is an open-source plugin collection for the DeepSeek Harness (DSH) Web GUI, extending your AI coding workspace with task automation, mobile remote control, SSH terminals, Git visualization, and custom themes. Install the plugin bundle into `dsh web`, or download DSH Desktop for macOS and Windows with the runtime and plugins included.
+
 <p align="center">
-  <img src="docs/dsh-web-banner.png" alt="dsh-web" width="100%">
+  <img src="docs/dsh-web-banner.png" alt="dsh-web — DeepSeek Harness Web GUI plugins and themes" width="100%">
 </p>
 
 <p align="center">
@@ -39,11 +41,11 @@
 
 ## What It Is
 
-dsh-web is the aggregate plugin ecosystem for the DeepSeek Harness (DSH) Web GUI — the most complete realization of "everything is development, everything is a plugin" on the web: the task board, mobile remote control, SSH ops, image understanding, custom model capabilities, session archive management and the right panel each ship as an independent, self-contained plugin — pluggable, swappable, re-developable. Install the whole family to assemble a complete AI dev workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate can even bolt on external plugins like `dsh-better-sidebar`, while other skin and pet assets come from the Workshop — see the [dsh-web-all README](packages/dsh-web-all/README.md).
+Each feature ships as an independent plugin: task board, mobile remote control, SSH remote operations, image understanding, custom model capabilities, session archive management, and the right panel. Install the bundle or choose individual plugins; all mount through the official `dsh web` profile mechanism without modifying DSH source code. The bundle also integrates external plugins such as `dsh-better-sidebar`; see the [plugin bundle installation and configuration guide](packages/dsh-web-all/README.md).
 
-Skins live inside the same plugin system: a v2 skin is not a standalone product but a pure asset pack of the skins plugin (a skin.json manifest plus styles, art and optional effect scripts), loaded on demand by that plugin, the single loader — official upgrades no longer touch any skin, and adding one means dropping in a directory: no publish, no install. Plugins own the logic, skin assets own the look; Blue Fantasy ships with the plugin, while other skin and pet assets are distributed through the [Workshop](#workshop-dsh-marketcom) (dsh-market.com).
+Themes are asset packs loaded by the skins plugin: a `skin.json` manifest, styles, artwork, and optional effect scripts. Plugins provide behavior; skin assets customize appearance. Blue Fantasy is bundled with the skins plugin, while additional themes and pet assets are available from the [DSH Workshop](#workshop-dsh-marketcom).
 
-![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
+![DeepSeek Harness Web GUI with the dsh-web plugin workspace](docs/screenshots/13-hero-main.png)
 
 | Capability | Stock dsh web | dsh-web family |
 | --- | --- | --- |
@@ -57,6 +59,17 @@ Skins live inside the same plugin system: a v2 skin is not a standalone product 
 | Git visualization | None | Branch picker + commit history graph |
 | Session archive | None | Browse and filter every session, batch archive / restore / delete with automatic policies |
 | Themes & skins | Default theme | Blue Fantasy ships with the skins plugin; other skins install from the Workshop |
+
+### Find the Right DSH Extension
+
+| What you want to do | Where to start |
+| --- | --- |
+| Run and schedule AI agent tasks | [Task board and cron scheduling](packages/dsh-task-board/README.md) |
+| Access DSH from a phone or another computer | [Mobile and PC browser remote control](packages/dsh-remote-web-ui/README.md) |
+| Manage remote servers over SSH | [SSH terminals, file transfers, and tunnels](packages/dsh-ssh/README.md) |
+| Customize themes and pets | [Browse the DSH Workshop](https://dsh-market.com) |
+| Use a macOS or Windows desktop app | [DSH Desktop downloads and requirements](#dsh-desktop-desktop-client) |
+| Add the plugin bundle to an existing DSH install | [Plugin installation quick start](#quick-start) |
 
 ## DSH Desktop (Desktop Client)
 
