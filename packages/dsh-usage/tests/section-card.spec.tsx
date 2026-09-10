@@ -115,11 +115,29 @@ describe('Token 银行 tab', () => {
     }
     render(<UsageSectionCard {...cardProps(snapshot)} />)
     fireEvent.click(screen.getByRole('tab', { name: 'Token 银行' }))
-    expect(screen.getByText('累计铸造 1.23M tokens（约 ¥3.50）')).toBeTruthy()
+    // 1,234,567 tokens mint 1,235 whale yuan at the 1000:1 exchange rate.
+    expect(screen.getByText('累计铸造 1,235 鲸元（1.23M tokens）')).toBeTruthy()
+    expect(screen.getByText('消费估算：约 ¥3.50')).toBeTruthy()
     expect(screen.getByText('12 次调用')).toBeTruthy()
     expect(screen.getByText('统计窗口 2025-12-01 ~ 2026-01-01')).toBeTruthy()
     expect(screen.getByRole('button', { name: '保存图片' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: '分享' })).toBeNull()
+  })
+
+  it('prefers the official balance watch over the fold-time estimate for the spend line', () => {
+    const snapshot = overview([])
+    snapshot.usage.all = {
+      from: '2026-01-01',
+      to: '2026-01-01',
+      totals: emptyTotals(),
+      providers: [{ provider: 'deepseek', totals: { ...emptyTotals(), inputTokens: 50_000, calls: 2, cost: 0.1 }, models: [] }],
+    }
+    snapshot.usage.observedSpend = { cny: 12.5, since: new Date(2026, 0, 2, 12).getTime() }
+    render(<UsageSectionCard {...cardProps(snapshot)} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Token 银行' }))
+    expect(screen.getByText('累计铸造 50 鲸元（50k tokens）')).toBeTruthy()
+    expect(screen.getByText('官方余额实测花费 ¥12.50（自 2026-01-02 起）')).toBeTruthy()
+    expect(screen.queryByText(/消费估算/)).toBeNull()
   })
 
   it('falls back to the 30-day trend window when an older host serves no all aggregate', () => {

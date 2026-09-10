@@ -108,6 +108,14 @@ export interface UsageWindowSummary {
   providers: UsageProviderSummary[]
 }
 
+/** Real spend observed from an official balance series rather than priced locally. */
+export interface ObservedSpendView {
+  /** Accrued spend in the account currency (CNY for the DeepSeek official watch). */
+  cny: number
+  /** Epoch ms of the first balance observation the accrual starts at. */
+  since: number
+}
+
 /** One provider row of the overview snapshot. */
 export interface ProviderSnapshotView {
   /** Provider route key (`deepseek`, `kimi-coding`, custom routes, ...). */
@@ -154,6 +162,13 @@ export interface UsageOverviewView {
      * same older-host tolerance as `range`.
      */
     all?: UsageWindowSummary
+    /**
+     * Real CNY spend of the official DeepSeek family, accrued from observed
+     * decreases of the official balance (top-ups never count). Present once
+     * a decrease has been observed; until then the section falls back to the
+     * fold-time estimate.
+     */
+    observedSpend?: ObservedSpendView
   }
 }
 

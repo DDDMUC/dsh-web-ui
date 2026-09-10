@@ -240,6 +240,47 @@ describe('probes and per-fact errors', () => {
   })
 })
 
+describe('DeepSeek real-spend watch', () => {
+  it('accrues observed balance decreases, skips top-ups, and survives a restart', async () => {
+    const fetchMock = stubFetch(() => jsonResponse(BALANCE_BODY))
+    const { ctx } = makeCtx({ llm: LLM_DEEPSEEK, credentials: CREDENTIALS_ENV })
+    const service = new UsageService(ctx, OPTIONS)
+    service.start()
+    await sleep(30)
+    await service.refresh()
+    // The first observation only anchors the series; nothing accrued yet.
+    expect(service.overview().usage.observedSpend).toBeUndefined()
+
+    fetchMock.mockImplementation(async () => jsonResponse({ balance_infos: [{ currency: 'CNY', total_balance: '108.50' }] }))
+    await service.refresh()
+    const observed = service.overview().usage.observedSpend
+    expect(observed?.cny).toBeCloseTo(1.5)
+    expect(observed?.since).toBeGreaterThan(0)
+
+    // A balance rise is a top-up: it neither accrues nor resets the figure.
+    fetchMock.mockImplementation(async () => jsonResponse({ balance_infos: [{ currency: 'CNY', total_balance: '200.00' }] }))
+    await service.refresh()
+    expect(service.overview().usage.observedSpend?.cny).toBeCloseTo(1.5)
+    await service.stop()
+
+    // The accrual persists with the provider snapshots and revives on load.
+    const revived = new UsageService(ctx, OPTIONS)
+    revived.start()
+    await sleep(30)
+    expect(revived.overview().usage.observedSpend?.cny).toBeCloseTo(1.5)
+    await revived.stop()
+  })
+
+  it('keeps no observed spend for families without an official CNY balance', async () => {
+    stubFetch(() => jsonResponse({ error: 'no balance endpoint here' }, 404))
+    const { ctx } = makeCtx({ llm: LLM_KIMI, credentials: CREDENTIALS_KIMI_KEY })
+    const service = new UsageService(ctx, OPTIONS)
+    await service.refresh()
+    expect(service.overview().usage.observedSpend).toBeUndefined()
+    service.stop()
+  })
+})
+
 describe('pet announce linkage', () => {
   it('announces the balance and the payload passes the pet validator round-trip', async () => {
     stubFetch(() => jsonResponse(BALANCE_BODY))

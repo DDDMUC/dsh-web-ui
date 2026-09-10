@@ -15,8 +15,8 @@ import { t } from './locales.ts'
 import styles from './usage.module.css'
 import { isDeepSeekProviderRoute } from '../core/adapters.ts'
 import { deepseekPeriodAt } from '../core/pricing.ts'
-import { deepseekVoucherData, drawVoucher, loadVoucherArt } from './voucher.ts'
-import type { ProviderSnapshotView, UsageOverviewView, UsageProviderSummary, UsageTokenTotals, UsageWindowSummary } from '../core/types.ts'
+import { deepseekVoucherData, drawVoucher, faceValue, formatDay, formatDenomination, loadVoucherArt } from './voucher.ts'
+import type { ObservedSpendView, ProviderSnapshotView, UsageOverviewView, UsageProviderSummary, UsageTokenTotals, UsageWindowSummary } from '../core/types.ts'
 
 /** The settings fields this section edits (immediate-apply semantics). */
 export interface UsageSettings {
@@ -305,7 +305,7 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
           : planProviders.map((provider) => <PlanCard key={provider.provider} provider={provider} current={current.provider} />)
       )}
 
-      {tab === 'bank' && <VoucherCard window={snapshot.usage.all ?? snapshot.usage.range} />}
+      {tab === 'bank' && <VoucherCard window={snapshot.usage.all ?? snapshot.usage.range} observedSpend={snapshot.usage.observedSpend} />}
     </div>
   )
 }
@@ -381,13 +381,15 @@ function totalOf(totals: UsageTokenTotals): number {
 
 /**
  * The Token 银行 card: the DeepSeek official family's retained-ledger usage
- * minted onto the whale-yuan note. The window prefers the host's
- * whole-ledger aggregate and falls back to the 30-day trend when an older
- * host serves no `all`; the artwork draw failure degrades to an error line
- * and never takes the section down.
+ * minted onto the whale-yuan note at 1000 tokens per whale yuan. The window
+ * prefers the host's whole-ledger aggregate and falls back to the 30-day
+ * trend when an older host serves no `all`; the spend line prefers the
+ * official balance watch and falls back to the fold-time estimate; the
+ * artwork draw failure degrades to an error line and never takes the
+ * section down.
  */
-function VoucherCard(props: { window?: UsageWindowSummary }): ReactNode {
-  const { window: ledger } = props
+function VoucherCard(props: { window?: UsageWindowSummary; observedSpend?: ObservedSpendView }): ReactNode {
+  const { window: ledger, observedSpend } = props
   const data = deepseekVoucherData(ledger)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [drawError, setDrawError] = useState<string | undefined>(undefined)
@@ -458,9 +460,14 @@ function VoucherCard(props: { window?: UsageWindowSummary }): ReactNode {
             </div>
             {drawError !== undefined && <span className={styles.errorLine}>{t('usage.bank.drawError', { error: drawError })}</span>}
             <div className={styles.providerRow}>
-              <span className={styles.providerName}>{t('usage.bank.minted', { tokens: formatTokens(data.tokens), cost: data.cost.toFixed(2) })}</span>
+              <span className={styles.providerName}>{t('usage.bank.minted', { minted: formatDenomination(faceValue(data.tokens)), tokens: formatTokens(data.tokens) })}</span>
               <span className={styles.providerTokens}>{t('usage.calls', { n: data.calls })}</span>
             </div>
+            <span className={styles.muted}>
+              {observedSpend !== undefined
+                ? t('usage.bank.spend.observed', { cost: observedSpend.cny.toFixed(2), since: formatDay(observedSpend.since) })
+                : t('usage.bank.spend.estimated', { cost: data.cost.toFixed(2) })}
+            </span>
             <span className={styles.muted}>{t('usage.bank.window', { from: data.from, to: data.to })}</span>
             <div className={styles.buttonRow}>
               <button type="button" className={styles.refreshBtn} onClick={onSave}>{t('usage.bank.save')}</button>

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { deepseekVoucherData, formatDenomination, voucherSerial } from '../src/client/voucher.ts'
+import { faceValue, formatDay, formatDenomination, deepseekVoucherData, voucherSerial, TOKENS_PER_WHALE_YUAN } from '../src/client/voucher.ts'
 import { emptyTotals, type UsageProviderSummary, type UsageWindowSummary } from '../src/core/types.ts'
 
 /**
  * The voucher's pure face: DeepSeek official family summation over a usage
- * window, the banknote denomination formatting, and the deterministic
- * serial. The canvas draw itself is composition, verified visually.
+ * window, the 1000:1 whale-yuan exchange, the banknote denomination
+ * formatting, the deterministic serial, and the observed-since day. The
+ * canvas draw itself is composition, verified visually.
  */
 
 function row(provider: string, inputTokens: number, calls = 1, cost = 0): UsageProviderSummary {
@@ -42,6 +43,20 @@ describe('deepseekVoucherData', () => {
   })
 })
 
+describe('faceValue (1000 tokens = 1 whale yuan)', () => {
+  it('exchanges at the anti-inflation rate and rounds to whole yuan', () => {
+    expect(TOKENS_PER_WHALE_YUAN).toBe(1000)
+    expect(faceValue(1_234_567)).toBe(1235)
+    expect(faceValue(1_086_000_000)).toBe(1_086_000)
+    expect(faceValue(1000)).toBe(1)
+  })
+
+  it('keeps the smallest denomination at 1 instead of a zero note', () => {
+    expect(faceValue(42)).toBe(1)
+    expect(faceValue(999)).toBe(1)
+  })
+})
+
 describe('formatDenomination', () => {
   it('prints full digits with thousands separators', () => {
     expect(formatDenomination(0)).toBe('0')
@@ -57,10 +72,17 @@ describe('formatDenomination', () => {
 })
 
 describe('voucherSerial', () => {
-  it('derives a deterministic zero-padded serial from the minted total', () => {
+  it('derives a deterministic zero-padded serial from the face value', () => {
     expect(voucherSerial(42)).toBe('000000042')
     expect(voucherSerial(123_456_789)).toBe('123456789')
     expect(voucherSerial(1_000_000_000)).toBe('000000000')
     expect(voucherSerial(1_000_000_042)).toBe('000000042')
+  })
+})
+
+describe('formatDay', () => {
+  it('formats the observation start as a deterministic local day', () => {
+    expect(formatDay(new Date(2026, 0, 2, 12).getTime())).toBe('2026-01-02')
+    expect(formatDay(new Date(2026, 8, 10, 7, 30).getTime())).toBe('2026-09-10')
   })
 })

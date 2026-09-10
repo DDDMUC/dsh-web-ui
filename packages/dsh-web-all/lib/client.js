@@ -44435,9 +44435,11 @@ window.__ModuleLoader__.load({
 			"usage.config.bubbleMode.change": "仅变化时",
 			"usage.config.bubbleMode.off": "关闭",
 			"usage.bank.title": "鲸元券",
-			"usage.bank.hint": "在 DeepSeek 官方每消耗 1 token，即铸造 1 鲸元；保存或分享这张票券。",
+			"usage.bank.hint": "官方 API 每消耗 1000 tokens 铸造 1 鲸元；保存或分享这张票券。",
 			"usage.bank.noUsage": "暂无 DeepSeek 官方用量数据（统计自插件启用起）",
-			"usage.bank.minted": "累计铸造 {tokens} tokens（约 ¥{cost}）",
+			"usage.bank.minted": "累计铸造 {minted} 鲸元（{tokens} tokens）",
+			"usage.bank.spend.observed": "官方余额实测花费 ¥{cost}（自 {since} 起）",
+			"usage.bank.spend.estimated": "消费估算：约 ¥{cost}",
 			"usage.bank.window": "统计窗口 {from} ~ {to}",
 			"usage.bank.save": "保存图片",
 			"usage.bank.share": "分享",
@@ -44488,9 +44490,11 @@ window.__ModuleLoader__.load({
 			"usage.config.bubbleMode.change": "On change",
 			"usage.config.bubbleMode.off": "Off",
 			"usage.bank.title": "Whale-yuan voucher",
-			"usage.bank.hint": "Every token spent on the official DeepSeek API mints one whale yuan; save or share the note.",
+			"usage.bank.hint": "Every 1,000 tokens spent on the official API mint one whale yuan; save or share the note.",
 			"usage.bank.noUsage": "No official DeepSeek usage yet (counting starts when the plugin is enabled)",
-			"usage.bank.minted": "Minted {tokens} tokens (about ¥{cost})",
+			"usage.bank.minted": "Minted {minted} whale yuan ({tokens} tokens)",
+			"usage.bank.spend.observed": "Spent ¥{cost} observed on the official balance (watching since {since})",
+			"usage.bank.spend.estimated": "Estimated spend: about ¥{cost}",
 			"usage.bank.window": "Window {from} - {to}",
 			"usage.bank.save": "Save image",
 			"usage.bank.share": "Share",
@@ -45056,6 +45060,19 @@ window.__ModuleLoader__.load({
 		* section renders as its failure line.
 		* @module @linxin666/dsh-usage/client/voucher
 		*/
+		/** Anti-inflation exchange rate: 1000 tokens mint one whale yuan. */
+		const TOKENS_PER_WHALE_YUAN = 1e3;
+		/** The note's face value in whale yuan; the smallest denomination is 1. */
+		function faceValue(tokens) {
+			return Math.max(1, Math.round(tokens / TOKENS_PER_WHALE_YUAN));
+		}
+		/** Local calendar day (`YYYY-MM-DD`) for an epoch ms timestamp. */
+		function formatDay(ms) {
+			const date = new Date(ms);
+			const month = String(date.getMonth() + 1).padStart(2, "0");
+			const day = String(date.getDate()).padStart(2, "0");
+			return `${date.getFullYear()}-${month}-${day}`;
+		}
 		/**
 		* Sum the DeepSeek official family rows out of a usage window (both the
 		* `deepseek` catalog alias and the live `deepseek-official` route fold into
@@ -45086,9 +45103,9 @@ window.__ModuleLoader__.load({
 		function formatDenomination(value) {
 			return Math.max(0, Math.round(value)).toLocaleString("en-US");
 		}
-		/** Deterministic serial number flavor: the minted tokens mod 1e9, zero-padded. */
-		function voucherSerial(tokens) {
-			return String(Math.max(0, Math.round(tokens)) % 1e9).padStart(9, "0");
+		/** Deterministic serial number flavor: the face value mod 1e9, zero-padded. */
+		function voucherSerial(face) {
+			return String(Math.max(0, Math.round(face)) % 1e9).padStart(9, "0");
 		}
 		let artPromise;
 		/** Decode the note artwork once per page; a failed decode retries next call. */
@@ -45114,9 +45131,10 @@ window.__ModuleLoader__.load({
 		const DENOMINATION_FONT = "Georgia, 'Times New Roman', serif";
 		/**
 		* Stamp the denomination block onto a canvas sized to the artwork: the
-		* token total as the face value under the note title, a small `tokens`
-		* caption, and a seal-red serial line with the minting window. All geometry
-		* is relative to the artwork size so a regenerated asset reflows.
+		* minted whale yuan as the face value under the note title, a small
+		* `whale yuan` caption, and a seal-red serial line with the minting
+		* window. All geometry is relative to the artwork size so a regenerated
+		* asset reflows.
 		*/
 		function drawVoucher(canvas, art, data) {
 			canvas.width = art.width;
@@ -45124,8 +45142,9 @@ window.__ModuleLoader__.load({
 			const ctx = canvas.getContext("2d");
 			if (ctx === null) throw new Error("canvas 2d context unavailable");
 			ctx.drawImage(art.image, 0, 0, art.width, art.height);
+			const face = faceValue(data.tokens);
 			const centerX = Math.round(art.width * .67);
-			const denomination = formatDenomination(data.tokens);
+			const denomination = formatDenomination(face);
 			let size = Math.round(art.height * .115);
 			const minSize = Math.round(art.height * .055);
 			const maxWidth = art.width * .28;
@@ -45139,10 +45158,10 @@ window.__ModuleLoader__.load({
 			ctx.fillStyle = INK;
 			ctx.fillText(denomination, centerX, Math.round(art.height * .75));
 			ctx.font = `600 ${Math.round(art.height * .032)}px ${DENOMINATION_FONT}`;
-			ctx.fillText("tokens", centerX, Math.round(art.height * .8));
+			ctx.fillText("whale yuan", centerX, Math.round(art.height * .8));
 			ctx.fillStyle = SEAL_RED;
 			ctx.font = `500 ${Math.round(art.height * .026)}px ${DENOMINATION_FONT}`;
-			ctx.fillText(`NO.${voucherSerial(data.tokens)} ${data.from} - ${data.to}`, centerX, Math.round(art.height * .845));
+			ctx.fillText(`NO.${voucherSerial(face)} ${data.from} - ${data.to}`, centerX, Math.round(art.height * .845));
 		}
 		//#endregion
 		//#region ../dsh-usage/src/client/UsageSectionCard.tsx
@@ -45518,7 +45537,10 @@ window.__ModuleLoader__.load({
 						provider,
 						current: current.provider
 					}, provider.provider))),
-					tab === "bank" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(VoucherCard, { window: snapshot.usage.all ?? snapshot.usage.range })
+					tab === "bank" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(VoucherCard, {
+						window: snapshot.usage.all ?? snapshot.usage.range,
+						observedSpend: snapshot.usage.observedSpend
+					})
 				]
 			});
 		}
@@ -45623,13 +45645,15 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* The Token 银行 card: the DeepSeek official family's retained-ledger usage
-		* minted onto the whale-yuan note. The window prefers the host's
-		* whole-ledger aggregate and falls back to the 30-day trend when an older
-		* host serves no `all`; the artwork draw failure degrades to an error line
-		* and never takes the section down.
+		* minted onto the whale-yuan note at 1000 tokens per whale yuan. The window
+		* prefers the host's whole-ledger aggregate and falls back to the 30-day
+		* trend when an older host serves no `all`; the spend line prefers the
+		* official balance watch and falls back to the fold-time estimate; the
+		* artwork draw failure degrades to an error line and never takes the
+		* section down.
 		*/
 		function VoucherCard(props) {
-			const { window: ledger } = props;
+			const { window: ledger, observedSpend } = props;
 			const data = deepseekVoucherData(ledger);
 			const canvasRef = (0, react.useRef)(null);
 			const [drawError, setDrawError] = (0, react.useState)(void 0);
@@ -45712,13 +45736,20 @@ window.__ModuleLoader__.load({
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: usage_module_css_default.providerName,
 							children: t$2("usage.bank.minted", {
-								tokens: formatTokens(data.tokens),
-								cost: data.cost.toFixed(2)
+								minted: formatDenomination(faceValue(data.tokens)),
+								tokens: formatTokens(data.tokens)
 							})
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: usage_module_css_default.providerTokens,
 							children: t$2("usage.calls", { n: data.calls })
 						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.muted,
+						children: observedSpend !== void 0 ? t$2("usage.bank.spend.observed", {
+							cost: observedSpend.cny.toFixed(2),
+							since: formatDay(observedSpend.since)
+						}) : t$2("usage.bank.spend.estimated", { cost: data.cost.toFixed(2) })
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 						className: usage_module_css_default.muted,

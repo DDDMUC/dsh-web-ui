@@ -27,6 +27,22 @@ export interface VoucherData {
   to: string
 }
 
+/** Anti-inflation exchange rate: 1000 tokens mint one whale yuan. */
+export const TOKENS_PER_WHALE_YUAN = 1000
+
+/** The note's face value in whale yuan; the smallest denomination is 1. */
+export function faceValue(tokens: number): number {
+  return Math.max(1, Math.round(tokens / TOKENS_PER_WHALE_YUAN))
+}
+
+/** Local calendar day (`YYYY-MM-DD`) for an epoch ms timestamp. */
+export function formatDay(ms: number): string {
+  const date = new Date(ms)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
 /**
  * Sum the DeepSeek official family rows out of a usage window (both the
  * `deepseek` catalog alias and the live `deepseek-official` route fold into
@@ -53,9 +69,9 @@ export function formatDenomination(value: number): string {
   return Math.max(0, Math.round(value)).toLocaleString('en-US')
 }
 
-/** Deterministic serial number flavor: the minted tokens mod 1e9, zero-padded. */
-export function voucherSerial(tokens: number): string {
-  return String(Math.max(0, Math.round(tokens)) % 1_000_000_000).padStart(9, '0')
+/** Deterministic serial number flavor: the face value mod 1e9, zero-padded. */
+export function voucherSerial(face: number): string {
+  return String(Math.max(0, Math.round(face)) % 1_000_000_000).padStart(9, '0')
 }
 
 /** The decoded note artwork plus its intrinsic size. */
@@ -88,9 +104,10 @@ const DENOMINATION_FONT = "Georgia, 'Times New Roman', serif"
 
 /**
  * Stamp the denomination block onto a canvas sized to the artwork: the
- * token total as the face value under the note title, a small `tokens`
- * caption, and a seal-red serial line with the minting window. All geometry
- * is relative to the artwork size so a regenerated asset reflows.
+ * minted whale yuan as the face value under the note title, a small
+ * `whale yuan` caption, and a seal-red serial line with the minting
+ * window. All geometry is relative to the artwork size so a regenerated
+ * asset reflows.
  */
 export function drawVoucher(canvas: HTMLCanvasElement, art: VoucherArt, data: VoucherData): void {
   canvas.width = art.width
@@ -99,8 +116,9 @@ export function drawVoucher(canvas: HTMLCanvasElement, art: VoucherArt, data: Vo
   if (ctx === null) throw new Error('canvas 2d context unavailable')
   ctx.drawImage(art.image, 0, 0, art.width, art.height)
 
+  const face = faceValue(data.tokens)
   const centerX = Math.round(art.width * 0.67)
-  const denomination = formatDenomination(data.tokens)
+  const denomination = formatDenomination(face)
 
   // Fit the face value into the free band between the note title and the
   // bottom ornament (the red seal sits to its right).
@@ -118,9 +136,9 @@ export function drawVoucher(canvas: HTMLCanvasElement, art: VoucherArt, data: Vo
   ctx.fillText(denomination, centerX, Math.round(art.height * 0.75))
 
   ctx.font = `600 ${Math.round(art.height * 0.032)}px ${DENOMINATION_FONT}`
-  ctx.fillText('tokens', centerX, Math.round(art.height * 0.8))
+  ctx.fillText('whale yuan', centerX, Math.round(art.height * 0.8))
 
   ctx.fillStyle = SEAL_RED
   ctx.font = `500 ${Math.round(art.height * 0.026)}px ${DENOMINATION_FONT}`
-  ctx.fillText(`NO.${voucherSerial(data.tokens)} ${data.from} - ${data.to}`, centerX, Math.round(art.height * 0.845))
+  ctx.fillText(`NO.${voucherSerial(face)} ${data.from} - ${data.to}`, centerX, Math.round(art.height * 0.845))
 }
