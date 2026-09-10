@@ -16,10 +16,10 @@ Six bug reports were reproduced, fixed on `dev`, and closed with the verified ev
 - #1453 (plugin-manager effective enablement) — commit `7375afad`, [note](../../bug-fix/2026-09-10-plugin-manager-effective-enablement.md).
 - #1442 (root alias aggregate pin) — commit `058c981c`, [note](../../bug-fix/2026-09-10-root-alias-exact-aggregate-pin.md).
 
-One bug report stays open with a stated position rather than a silent close, and one was closed on the owner's decision after the pass:
+Both remaining bug reports were closed on the owner's decisions after the pass, each with its verified position recorded in its thread:
 
 - #1452: the crash needs a DSH host below the aggregate's declared floor (`>=0.1.5-rc.1`). Holding `dsh-better-sidebar` back to 0.18.0 would protect below-floor hosts but reverses the same-day [0.1.5-rc.1 cohort decision](../architecture/2026-09-10-sdk-cohort-0.1.5-rc.1.md) and has no rc.1 smoke on the older build, so it was left to the owner. The owner then decided the handling: close it pointing at the host upgrade and keep the cohort pin. The thread now tells reporters to upgrade to the latest DSH (0.1.5-rc.1, the npm `latest` tag) and keeps pinning the aggregate to 0.3.19 as the fallback for hosts that cannot move.
-- #1397: root cause is the private `Symbol` registration key inside the official `@deepseek-ai/dsh-tools`, still present at 0.1.5-rc.1; this repository has no fix site and keeps tracking upstream.
+- #1397: root cause is the private `Symbol` registration key inside the official `@deepseek-ai/dsh-tools`, still present at 0.1.5-rc.1, and this repository has no fix site. It was closed on the owner's instruction rather than kept as a local tracker: the thread carries the upstream root cause with line references, the two-line upstream fix (`Symbol(` → `Symbol.for(`), and the local workaround.
 
 The two enhancement issues open at the time (#1439, #1448) were left untouched as out of scope.
 
@@ -28,10 +28,11 @@ The two enhancement issues open at the time (#1439, #1448) were left untouched a
 - Closing #1452 during the pass as "not reproducible on a supported host". Rejected then: it would have buried the enforcement gap (the host ignores `dsh.engines.dsh`, and only the gateway update path blocks below-floor updates) and pre-empted a product decision; the owner's later instruction supplied that decision, and the closure now states the upgrade requirement explicitly.
 - Downgrading `dsh-better-sidebar` to 0.18.0 unilaterally. Rejected: it contradicts the cohort note's explicit rejection of that bump, and the older build was never smoke-tested against rc.1.
 - Patching the DSH host or `dsh-tools` for #1397. Rejected: modifying a DSH checkout is outside this repository's bounds and would not survive the next install.
+- Keeping #1397 open here purely as an upstream tracker. Rejected by the owner after the pass: there is no repository work item to track, and the thread already carries the root cause, the upstream fix, and the workaround; a fresh issue can be opened when the upstream release lands.
 
 ## Consequences
 
-- The open bug list is now one upstream tracker (#1397); the other two open issues are the enhancements that were out of scope.
+- No bug report remains open; the two open issues are the enhancements that were out of scope.
 - Every fix carries its own Agent Note with the verification commands and the rejected alternatives, so the reproduction evidence survives the issue threads.
 
 ## Testing
