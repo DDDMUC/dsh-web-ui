@@ -176,6 +176,59 @@ test('worker install endpoint rejects missing or invalid install params', async 
   assert.equal((await response.json()).error, 'invalid-params')
 })
 
+test('worker accepts preset likes and installs for published presets', async () => {
+  const realFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, action: 'market-like', hostname: 'dsh-market.com' }))
+  try {
+    const assets = manifestAssets({ preset: [{ id: 'roleplay-chengwei' }] })
+    const bound = []
+    const db = {
+      prepare: (sql) => ({
+        bind: (...args) => { bound.push({ sql, args }); return { kind: 'exec', sql } },
+        all: async () => ({ results: [] }),
+      }),
+      batch: async () => [{ results: [] }, { results: [] }, { results: [{ votes: 2, installs: 2 }] }],
+    }
+    const like = await worker.fetch(new Request('https://dsh-market.com/api/like', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'preset', asset_id: 'roleplay-chengwei', device_fp: '0123456789abcdef', turnstile_token: 'token-1' }),
+    }), { TURNSTILE_SECRET: 'configured', DB: db, ASSETS: assets }, context())
+    assert.equal(like.status, 200)
+    assert.equal((await like.json()).ok, true)
+    const install = await worker.fetch(new Request('https://dsh-market.com/api/install', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'preset',
+        asset_id: 'roleplay-chengwei',
+        device_fp: '0123456789abcdef',
+        install_id: 'install-1-abcdef1234567890',
+        turnstile_token: 'token-1',
+      }),
+    }), { TURNSTILE_SECRET: 'configured', DB: db, ASSETS: assets }, context())
+    assert.equal(install.status, 200)
+    assert.ok(
+      bound.some((entry) => entry.args[0] === 'preset' && entry.args[1] === 'roleplay-chengwei'),
+      'the preset kind must reach D1, not be rejected as invalid params',
+    )
+  } finally {
+    globalThis.fetch = realFetch
+  }
+})
+
+test('worker stats endpoint reports counts for every published asset kind', async () => {
+  const db = {
+    prepare: () => ({
+      all: async () => ({ results: [{ kind: 'preset', asset_id: 'roleplay-chengwei', votes: 5, installs: 3 }] }),
+    }),
+  }
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/stats'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.equal(payload.preset['roleplay-chengwei'], 5, 'preset votes must survive the stats bucket filter')
+})
+
 test('worker stats endpoint is never cached', async () => {
   const db = { prepare: () => ({ all: async () => ({ results: [] }) }) }
   const response = await worker.fetch(new Request('https://dsh-market.com/api/stats'), { DB: db }, context())
@@ -785,7 +838,10 @@ function manifestAssets(itemsByKind) {
     async fetch(request) {
       const pathname = request instanceof URL ? request.pathname : new URL(typeof request === 'string' ? request : request.url).pathname
       const kind = pathname.replace('/manifest/', '').replace('.json', '')
-      return new Response(JSON.stringify({ items: itemsByKind[kind] || [] }), { headers: { 'content-type': 'application/json' } })
+      // Call sites name kinds in the singular (skin/pet/plugin/preset); the
+      // served manifest files are plural.
+      const items = itemsByKind[kind] || itemsByKind[kind.replace(/s$/, '')] || []
+      return new Response(JSON.stringify({ items }), { headers: { 'content-type': 'application/json' } })
     },
   }
 }
