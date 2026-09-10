@@ -13,7 +13,7 @@
     "packages/dsh-web-all/cordis.patch.yml"
   ],
   "dependencies": {
-    "@linxin666/dsh-web-all": "^0.3.6"
+    "@linxin666/dsh-web-all": "0.3.20"
   },
   "scripts": {
     "build": "pnpm -r build",
