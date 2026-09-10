@@ -23,6 +23,7 @@ function fixture() {
     [join(ROOT, 'packages', 'skins', 'skin-center', 'skins'), join(dir, 'packages', 'skins', 'skin-center', 'skins')],
     [join(ROOT, 'packages', 'skins', 'skin-center', 'lib', 'index.js'), join(dir, 'packages', 'skins', 'skin-center', 'lib', 'index.js')],
     [join(ROOT, 'packages', 'dsh-pet', 'assets'), join(dir, 'packages', 'dsh-pet', 'assets')],
+    [join(ROOT, 'packages', 'dsh-preset-center', 'presets'), join(dir, 'packages', 'dsh-preset-center', 'presets')],
     [join(ROOT, 'packages', 'dsh-community-plugins', 'community.json'), join(dir, 'packages', 'dsh-community-plugins', 'community.json')],
   ]
   for (const [from, to] of pairs) {

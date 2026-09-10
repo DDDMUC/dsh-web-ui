@@ -22,7 +22,13 @@ import {
 } from './plugin-manager-bridge.ts'
 import { entryInstalled, installCommand, installSpec, isInstallSpecValid } from './install-source.ts'
 import { byCategory, bySubcategory, categoryCounts, subcategoryCounts } from './filter.ts'
-import { CATEGORY_LABEL_KEY, SUBCATEGORY_IDS, SUBCATEGORY_LABEL_KEY } from './categories.ts'
+import {
+  CATEGORY_LABEL_KEY,
+  PRESET_CATEGORY_LABEL_KEY,
+  PRESET_SUBCATEGORY_IDS,
+  SUBCATEGORY_IDS,
+  SUBCATEGORY_LABEL_KEY,
+} from './categories.ts'
 import type { MarketKey } from './locales.ts'
 import css from './market.module.css'
 
@@ -390,7 +396,15 @@ export function MarketCard(props: MarketCardProps): ReactNode {
     return items
   }
 
-  const categoryLabel = (id: string): string => CATEGORY_LABEL_KEY[id] ? t(CATEGORY_LABEL_KEY[id]) : id
+  // Plugins and presets each carry their own category vocabulary; the filter
+  // rows and the labels below are shared, the vocabularies are picked per tab.
+  const facetKind: Kind | null = tab === 'plugin' || tab === 'preset' ? tab : null
+  const facetItems: MarketRecord[] = (facetKind === null ? [] : data?.items[facetKind] ?? [])
+  const facetVocab = facetKind === 'preset'
+    ? { labelKey: PRESET_CATEGORY_LABEL_KEY, subIds: PRESET_SUBCATEGORY_IDS }
+    : { labelKey: CATEGORY_LABEL_KEY, subIds: SUBCATEGORY_IDS }
+  const facetSubs = cat === 'all' ? [] : subcategoryCounts(facetItems, cat, facetVocab.subIds[cat])
+  const categoryLabel = (id: string): string => facetVocab.labelKey[id] ? t(facetVocab.labelKey[id]) : id
   const subcategoryLabel = (id: string): string => SUBCATEGORY_LABEL_KEY[id] ? t(SUBCATEGORY_LABEL_KEY[id]) : id
 
   const matches = (item: MarketRecord): boolean => {
@@ -566,7 +580,6 @@ export function MarketCard(props: MarketCardProps): ReactNode {
     return out.installs ?? 0
   })
 
-  const pluginItems = data?.items.plugin ?? []
   const chipClass = (isOn: boolean, isSub: boolean): string => {
     const cls = [css.filterChip]
     if (isSub) cls.push(css.filterChipSub)
@@ -632,24 +645,24 @@ export function MarketCard(props: MarketCardProps): ReactNode {
               onChange={(event) => { setQuery(event.target.value) }}
             />
           )}
-          {tab === 'plugin' ? (
+          {facetKind !== null ? (
             <div className={css.filterRows}>
               <div className={css.filterRow} role="group" aria-label={t('filter.category')}>
                 <button type="button" className={chipClass(cat === 'all', false)} onClick={() => { setCat('all'); setSubcat('all') }}>
-                  {t('filter.all')} <span className={css.filterCount}>{pluginItems.length}</span>
+                  {t('filter.all')} <span className={css.filterCount}>{facetItems.length}</span>
                 </button>
-                {categoryCounts(pluginItems).map(({ id, count }) => (
+                {categoryCounts(facetItems).map(({ id, count }) => (
                   <button key={id} type="button" className={chipClass(cat === id, false)} onClick={() => { setCat(id); setSubcat('all') }}>
                     {categoryLabel(id)} <span className={css.filterCount}>{count}</span>
                   </button>
                 ))}
               </div>
-              {cat !== 'all' ? (
+              {cat !== 'all' && facetSubs.length > 0 ? (
                 <div className={css.filterRow} role="group" aria-label={t('filter.subcategory')}>
                   <button type="button" className={chipClass(subcat === 'all', true)} onClick={() => { setSubcat('all') }}>
-                    {t('filter.all')} <span className={css.filterCount}>{subcategoryCounts(pluginItems, cat, SUBCATEGORY_IDS[cat]).reduce((sum, entry) => sum + entry.count, 0)}</span>
+                    {t('filter.all')} <span className={css.filterCount}>{facetSubs.reduce((sum, entry) => sum + entry.count, 0)}</span>
                   </button>
-                  {subcategoryCounts(pluginItems, cat, SUBCATEGORY_IDS[cat]).map(({ id, count }) => (
+                  {facetSubs.map(({ id, count }) => (
                     <button key={id} type="button" className={chipClass(subcat === id, true)} onClick={() => { setSubcat(id) }}>
                       {subcategoryLabel(id)} <span className={css.filterCount}>{count}</span>
                     </button>
@@ -660,7 +673,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
           ) : null}
           {tab === 'preset' ? (
             renderSlot('dsh-workshop.panel', {
-              items: data?.items.preset ?? [],
+              items: bySubcategory(byCategory(data?.items.preset ?? [], cat), subcat),
               catalogState: failed ? 'error' : loading ? 'loading' : 'ready',
               gateway: gateway !== null,
               installs: data?.stats.installs?.preset ?? {},

@@ -23,6 +23,7 @@ Workshop. `scripts/market-build` reads this directory and emits
      "descriptionEn": "One sentence in English.",
      "author": "github-handle",
      "version": "1.0.0",
+     "category": "roleplay",
      "tags": ["review"],
      "rank": 10,
      "repo": "https://github.com/<owner>/<repo>"
@@ -30,11 +31,21 @@ Workshop. `scripts/market-build` reads this directory and emits
    ```
 
    `id`, `author` and `version` are required; `version` drives the Workshop's
-   update notification. The Chinese `name`/`description` come from `preset.yml`
+   update notification. `category` is optional and must come from the preset
+   category vocabulary in `scripts/market-build` (`roleplay` today); it becomes
+   the filter pill on the Workshop card and on the market site, and an entry
+   without it lands in the "other" bucket. The Chinese `name`/`description` come from `preset.yml`
    so the DSH roster and the store never disagree.
 4. Run `node scripts/market-build` and commit the regenerated `market/dist`.
 
 ## What review checks
+
+Content requirements: a published preset must be all-ages. Explicit sexual
+content is refused, and so is any character who is under 18 or who is a child
+in the work they come from; third-party material needs a redistribution right
+and a credited source. The rationale and the roster rules of the first
+published batch are recorded in
+[Roleplay preset catalog and its content boundary](../../../.agents/notes/implemented/feature/2026-09-10-roleplay-preset-catalog.md).
 
 A preset is code: its composition can name npm plugins, load files that travel
 inside the preset directory, and evaluate `!!js` expressions in the DSH host

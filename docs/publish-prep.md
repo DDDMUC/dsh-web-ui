@@ -31,7 +31,7 @@
 - `@linxin666/dsh-web-ui-all@0.3.2` is the previous release; `0.3.3` is unoccupied and is the first dual-published legacy transition version.
 - `scripts/publish-legacy-aggregate.mjs` limits the legacy transition to two versions and writes `dsh.migrate.to` / `dsh.migrate.since` into the legacy tarball.
 - After the second transition version, deprecate `@linxin666/dsh-web-ui-all` with the migration instruction instead of publishing another version.
-- External aggregate dependency `dsh-better-sidebar@0.19.0-alpha.1` is registry-readable (the 0.1.5-alpha.2-aligned alpha published 2026-09-09, successor of the rc.1-aligned 0.18.0 stable that had brought better-sidebar back after its 2026-08-30 exclusion; every peer declares `^0.1.5-alpha.2` and the inject list adds the optional `@deepseek-ai/dsh-client-ui-sidebar-right` face; its pnpm `minimumReleaseAgeExclude` pin stays required while the version is recent). `@mlgbnb/dsh-archive-manager@1.0.7` remains excluded from the 0.1.2-alpha.2 family bundle (its build still imports the removed `@deepseek-ai/dsh-client-runtime` face); re-add it to the aggregate when upstream ships a compatible build.
+- External aggregate dependency `dsh-better-sidebar@0.19.0` is registry-readable (the stable release published 2026-09-10, successor of the alpha.2-aligned `0.19.0-alpha.1` and the rc.1-aligned 0.18.0 stable that had brought better-sidebar back after its 2026-08-30 exclusion; every peer declares `^0.1.5-rc.1` and the inject list adds the optional `@deepseek-ai/dsh-client-ui-sidebar-right` face; its pnpm `minimumReleaseAgeExclude` pin stays required while the version is recent). `@mlgbnb/dsh-archive-manager@1.0.7` remains excluded from the 0.1.2-alpha.2 family bundle (its build still imports the removed `@deepseek-ai/dsh-client-runtime` face); re-add it to the aggregate when upstream ships a compatible build.
 
 ## Compatibility boundary
 
@@ -56,4 +56,4 @@ pnpm build
 node scripts/verify-version.mjs 0.3.3
 ```
 
-The CI and release smoke lanes mount into `@deepseek-ai/dsh@0.1.5-alpha.2`, the same host version the family requires through `dsh.engines.dsh >=0.1.5-alpha.2`.
+The CI and release smoke lanes mount into `@deepseek-ai/dsh@0.1.5-rc.1`, the same host version the family requires through `dsh.engines.dsh >=0.1.5-rc.1`.

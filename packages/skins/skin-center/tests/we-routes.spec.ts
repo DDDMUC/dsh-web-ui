@@ -658,6 +658,36 @@ describe('scene container resolution (#521)', () => {
     expect(String(resRes.headers['content-type'])).toContain('image/png')
   })
 
+  it('serves a material named with URL-reserved characters through its encoded URL (issue #1458)', async () => {
+    const texName = '# background 100%'
+    makeProject(join(library, '888'), { title: 'Encoded scene', type: 'scene', file: 'scene.json' }, {
+      'scene.json': JSON.stringify({ objects: [{ name: 'bg', image: 'models/bg.json' }] }),
+      'models/bg.json': JSON.stringify({ material: 'materials/bg.json', width: 64, height: 64 }),
+      'materials/bg.json': JSON.stringify({ passes: [{ shader: 'genericimage', textures: [texName] }] }),
+    })
+    writeFileSync(join(library, '888', 'materials', texName + '.tex'), tex64Red)
+
+    const probe = await call('GET', WE_API_PREFIX + '/scene-probe?id=888')
+    expect(probe.status).toBe(200)
+    expect(probe.body.ok).toBe(true)
+    const token = String(probe.body.sceneUrl).split('/').pop()
+
+    const manifestRes = await call('GET', WE_API_PREFIX + '/scene-manifest/' + token)
+    expect(manifestRes.status).toBe(200)
+    const layer = (manifestRes.body.manifest as { layers: Array<{ texUrl?: string }> }).layers[0]
+    expect(layer.texUrl).toBe(WE_API_PREFIX + '/scene-resource/' + token + '/materials/%23%20background%20100%25.tex')
+
+    // The encoded URL the manifest hands the browser resolves to the texture.
+    const encoded = await callRaw('GET', String(layer.texUrl))
+    expect(encoded.status).toBe(200)
+    expect(String(encoded.headers['content-type'])).toContain('image/png')
+
+    // The pre-fix raw form documents the reported failure: the request stops at
+    // the fragment separator and the route finds no such material.
+    const raw = await callRaw('GET', WE_API_PREFIX + '/scene-resource/' + token + '/materials/#%20background%20100%25.tex')
+    expect(raw.status).toBe(404)
+  })
+
   it('keeps supported water and particle passes live when embedded scripts are ignored', async () => {
     makeProject(join(library, '777'), { title: 'Scripted water and meteors', type: 'scene', file: 'scene.json' }, {
       'scene.json': JSON.stringify({

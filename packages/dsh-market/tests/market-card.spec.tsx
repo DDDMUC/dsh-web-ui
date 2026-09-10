@@ -386,6 +386,48 @@ describe('MarketCard', () => {
     expect(screen.getByText('工具 C')).toBeTruthy()
   })
 
+  it('filters presets by category and hands the filtered records to the panel', () => {
+    const renderSlot = vi.fn(() => null)
+    const remote = {
+      items: {
+        skin: [],
+        pet: [],
+        plugin: [],
+        preset: [
+          { id: 'roleplay-a', name: '角色 A', rank: 1, category: 'roleplay' },
+          { id: 'roleplay-b', name: '角色 B', rank: 2, category: 'roleplay' },
+          { id: 'plain-c', name: '未分类 C', rank: 3 },
+        ],
+      },
+      stats: { skin: {}, pet: {}, plugin: {}, preset: {} },
+    }
+    render(<MarketCard {...cardProps(new FakeScope({}), {
+      remote,
+      gateway: null,
+      pluginManager: null,
+      renderSlot: renderSlot as unknown as ComponentProps<typeof MarketCard>['renderSlot'],
+    })} />)
+    fireEvent.click(screen.getByRole('tab', { name: /预设/ }))
+    const slotItems = (): string[] => {
+      const call = renderSlot.mock.calls.at(-1) as unknown as [string, { items: { id: string }[] }]
+      return call[1].items.map((item) => item.id)
+    }
+    // Preset categories render one level: no second-level vocabulary exists yet.
+    expect(screen.getAllByRole('button', { name: /^全部/ })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /^角色扮演/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^其他/ })).toBeTruthy()
+    expect(screen.queryByRole('group', { name: '二级分类' })).toBeNull()
+    expect(slotItems()).toEqual(['roleplay-a', 'roleplay-b', 'plain-c'])
+    fireEvent.click(screen.getByRole('button', { name: /^角色扮演/ }))
+    expect(slotItems()).toEqual(['roleplay-a', 'roleplay-b'])
+    fireEvent.click(screen.getByRole('button', { name: /^其他/ }))
+    expect(slotItems()).toEqual(['plain-c'])
+    // Switching tabs resets the filter, like the plugin tab does.
+    fireEvent.click(screen.getByRole('tab', { name: /皮肤/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /预设/ }))
+    expect(slotItems()).toEqual(['roleplay-a', 'roleplay-b', 'plain-c'])
+  })
+
   it('renders the contributed preset panel with the catalog records and gateway face', () => {
     const renderSlot = vi.fn(() => null)
     const install = vi.fn(async () => ({ dest: '/home/.dsh/agent-presets/demo-preset' }))

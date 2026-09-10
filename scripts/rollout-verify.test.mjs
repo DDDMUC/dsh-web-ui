@@ -23,7 +23,7 @@ test('the plugin scaffold declares a >= floor and the current cohort matches it'
   assert.match(floor, /^>=\s*\d+\.\d+\.\d+/)
   // The scaffold floor names the cohort the repository installs; when the
   // cohort moves, this assertion and the manifest move together.
-  assert.equal(floor, '>=0.1.5-alpha.2')
+  assert.equal(floor, '>=0.1.5-rc.1')
 })
 
 test('satisfiesFloor follows semver prerelease ordering', () => {
@@ -117,4 +117,17 @@ test('lockfile purity rejects family keys off the cohort version', () => {
 test('the real root lockfile resolves the family at the scaffold floor', () => {
   const floor = readDshFloor(join(ROOT, 'scripts/plugin-template/package.json'))
   assert.deepEqual(lockfileCohortViolations(readFileSync(join(ROOT, 'pnpm-lock.yaml'), 'utf8'), floor), [])
+})
+
+test('the desktop runtime seed pins the scaffold floor cohort exactly', () => {
+  const expected = floorVersion(readDshFloor(join(ROOT, 'scripts/plugin-template/package.json')))
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'desktop/runtime/host/package.json'), 'utf8'))
+  // The GH Actions desktop packaging resolves the bundled host from this pin
+  // at build time, so it must move with every cohort bump — an exact pin one
+  // cohort behind ships a split runtime against the newer family.
+  assert.equal(
+    manifest.dependencies?.['@deepseek-ai/dsh'],
+    expected,
+    `desktop/runtime/host must pin @deepseek-ai/dsh at the cohort version ${expected}`,
+  )
 })

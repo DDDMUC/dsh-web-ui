@@ -889,10 +889,6 @@ html[data-dsh-skin="orca-link"] .orca-ch-statusCharacter[data-orca-link-status="
   height: 18px;
 }
 
-html[data-dsh-skin="orca-link"] body[data-orca-sidebar-wide] [data-orca-link-brand] {
-  pointer-events: none;
-}
-
 html[data-dsh-skin="orca-link"] body[data-orca-sidebar-wide] [data-dsh-surface="sidebar"] > :first-child > button:not([data-dsh-part="sidebar-entry"]) {
   z-index: 2;
   box-shadow: none;

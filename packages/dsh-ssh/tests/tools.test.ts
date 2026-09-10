@@ -108,10 +108,29 @@ describe('ssh_list', () => {
     stub.hosts = [host]
     const tool = sshListTool(engine(stub))
     const result = await run(tool, {})
-    expect((result.hosts as SshHostSummary[])).toEqual([host])
+    // The model-facing row never carries the ProxyCommand string itself, only
+    // whether one is configured (it may embed bastion credentials).
+    expect(result.hosts).toEqual([{ ...host, proxyCommandConfigured: false }])
     const text = render(tool, result)
     expect(text).toContain('web-01')
     expect(text).toContain('10.0.0.1')
+    expect(text).toContain('| - |')
+  })
+
+  it('marks a ProxyCommand host and a jump chain in the table', async () => {
+    const stub = new StubEngine()
+    stub.hosts = [
+      { ...host, proxyCommand: 'corp proxy %h %p' },
+      { ...host, alias: 'jump-host', proxyJump: ['bastion'] },
+    ]
+    const tool = sshListTool(engine(stub))
+    const result = await run(tool, {})
+    const rows = result.hosts as Array<Record<string, unknown>>
+    expect(rows[0]?.['proxyCommandConfigured']).toBe(true)
+    expect('proxyCommand' in (rows[0] ?? {})).toBe(false)
+    const text = render(tool, result)
+    expect(text).toContain('proxy-command')
+    expect(text).toContain('jump:bastion')
   })
 })
 

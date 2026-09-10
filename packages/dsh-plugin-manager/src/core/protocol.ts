@@ -17,7 +17,7 @@ export interface InstalledPluginChild {
   id: string
   /** Display name: the real plugin package (shell config.plugin) when known. */
   name: string
-  /** Saved next-start enablement of this row alone. */
+  /** Effective next-start enablement of this row alone (bundle default plus user override). */
   enabled: boolean
   /** Rows the manager must never disable (the manager tab itself, the compat face). */
   locked?: boolean
@@ -30,7 +30,7 @@ export interface InstalledPluginItem {
   version: string
   source: { kind: 'npm' | 'git'; spec: string }
   installedAt: string
-  /** Saved next-start enablement from the managed profile patch row. */
+  /** Effective next-start enablement across the bundle's own rows and the managed profile patch row. */
   enabled: boolean
   commit?: string
   /**
