@@ -889,10 +889,6 @@ body[data-ds-dark-theme] .orca-ch-statusCharacterSprite {
   height: 18px;
 }
 
-body[data-orca-sidebar-wide] [data-orca-link-brand] {
-  pointer-events: none;
-}
-
 body[data-orca-sidebar-wide] [data-dsh-surface="sidebar"] > :first-child > button:not([data-dsh-part="sidebar-entry"]) {
   z-index: 2;
   box-shadow: none;
