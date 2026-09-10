@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bareRowEnabled, bareRowId, claimedIdsOf, parsePatch, setRowEnabled } from '../src/host/rows.ts'
+import { bareRowEnabled, bareRowId, claimedIdsOf, parsePatch, rowDefaultEnabledOf, setRowEnabled } from '../src/host/rows.ts'
 
 const SAMPLE = `[
   # a top-level comment that must survive every edit
@@ -54,6 +54,47 @@ describe('claimedIdsOf', () => {
   })
 })
 
+const AGGREGATE = [
+  '- insert:',
+  '    - id: web-ui-skin-center',
+  "      name: '@linxin666/dsh-web-all/skin-center'",
+  '- insert:',
+  '    - id: web-ui-i18n',
+  "      name: '@linxin666/dsh-i18n'",
+  '# inactive by default (opt-in rows)',
+  '- id: web-ui-ssh',
+  '  disabled: true',
+  '- id: web-ui-doctor',
+  '  disabled: true',
+  '',
+].join('\n')
+
+describe('rowDefaultEnabledOf', () => {
+  it('reads the bundle inactive-by-default rows and leaves undeclared ids absent', () => {
+    const defaults = rowDefaultEnabledOf(AGGREGATE)
+    expect(defaults.get('web-ui-ssh')).toBe(false)
+    expect(defaults.get('web-ui-doctor')).toBe(false)
+    // A row the bundle never mentions carries no opinion, not "enabled".
+    expect(defaults.has('web-ui-skin-center')).toBe(false)
+  })
+
+  it('reads an insert entry own disabled flag', () => {
+    const defaults = rowDefaultEnabledOf('- insert:\n    - id: x\n      name: x\n      disabled: true\n')
+    expect(defaults.get('x')).toBe(false)
+  })
+
+  it('applies later bare rows last-wins', () => {
+    const defaults = rowDefaultEnabledOf('- id: x\n  disabled: true\n- id: x\n  disabled: false\n')
+    expect(defaults.get('x')).toBe(true)
+  })
+
+  it('returns an empty map for empty and malformed patches', () => {
+    expect(rowDefaultEnabledOf('[]').size).toBe(0)
+    expect(rowDefaultEnabledOf('').size).toBe(0)
+    expect(rowDefaultEnabledOf('{ broken').size).toBe(0)
+  })
+})
+
 describe('setRowEnabled', () => {
   it('creates a bare disabled row and preserves comments and other rows', () => {
     const next = setRowEnabled(SAMPLE, 'cordis.patch.yml', 'ui-plugin-manager', 'ui-plugin-manager', false)
@@ -83,6 +124,26 @@ describe('setRowEnabled', () => {
 
   it('returns the original text when enabling an absent row', () => {
     expect(setRowEnabled(SAMPLE, 'p', 'absent', 'absent', true)).toBe(SAMPLE)
+  })
+
+  it('writes an explicit disabled: false override for a bundle-disabled row', () => {
+    // Removing the user row is only equivalent to enabling when no lower layer
+    // disables the id; a bundle that ships it disabled needs the explicit flag.
+    const next = setRowEnabled(SAMPLE, 'p', 'web-ui-ssh', '@linxin666/dsh-web-all/ssh', true, false)
+    expect(next).not.toBe(SAMPLE)
+    const { root } = parsePatch(next, 'p')
+    const appended = root.items.find(item => bareRowId(item) === 'web-ui-ssh')
+    expect(appended).toBeDefined()
+    expect(bareRowEnabled(appended)).toBe(true)
+  })
+
+  it('flips an existing user disable to disabled: false when the bundle disables the row', () => {
+    const disabled = setRowEnabled(SAMPLE, 'p', 'web-ui-ssh', 'web-ui-ssh', false)
+    const enabled = setRowEnabled(disabled, 'p', 'web-ui-ssh', 'web-ui-ssh', true, false)
+    const { root } = parsePatch(enabled, 'p')
+    const rows = root.items.filter(item => bareRowId(item) === 'web-ui-ssh')
+    expect(rows).toHaveLength(1)
+    expect(bareRowEnabled(rows[0])).toBe(true)
   })
 
   it('edits the inner row of insert-format managed rows in place', () => {

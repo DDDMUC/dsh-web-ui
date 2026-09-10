@@ -136,7 +136,7 @@ const maxUploadBytes = deps.maxUploadBytes ?? MAX_UPLOAD_BYTES
             // without this the pool would keep running commands on the old
             // host/credentials until the idle sweep (up to 30 min later).
             const patch = body as Record<string, unknown>
-            if (['host', 'port', 'user', 'auth', 'proxyJump'].some(key => patch[key] !== undefined)) {
+            if (['host', 'port', 'user', 'auth', 'proxyJump', 'proxyCommand'].some(key => patch[key] !== undefined)) {
               engine.dropAlias(alias)
             }
             writeJson(res, 200, { host: store.summarize(entry) })

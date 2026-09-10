@@ -102,6 +102,8 @@ test('presets.json 契约', () => {
     assert.equal(typeof item.rank, 'number', 'preset rank: ' + item.id)
     assert.ok(Array.isArray(item.files) && item.files.length > 0, 'preset files: ' + item.id)
     assert.ok(item.files.includes('agent.cordis.yml'), 'preset composition must ship: ' + item.id)
+    // Category drives the workshop/site filter pills; omitted entries land in 'other'.
+    assert.ok(typeof item.category === 'string' && item.category, 'preset category: ' + item.id)
     assert.ok(!ids.has(item.id), 'duplicate preset id: ' + item.id)
     ids.add(item.id)
     if (item.repo) assert.ok(/^https:\/\//.test(item.repo), 'preset repo must be https: ' + item.id)
@@ -115,6 +117,7 @@ test('预设分区由市场站渲染', () => {
   assert.ok(html.includes('data-kind="preset"'), 'preset tab missing from the site markup')
   assert.ok(app.includes("preset: '预设'"), 'preset kind label missing')
   assert.ok(app.includes("fetchJson('manifest/presets.json')"), 'preset manifest fetch missing')
+  assert.ok(app.includes("roleplay: '角色扮演'"), 'preset category label missing')
 })
 
 test('皮肤与插件卡片名称以源码仓库链接渲染', () => {

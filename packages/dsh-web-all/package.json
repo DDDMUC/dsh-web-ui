@@ -1,7 +1,7 @@
 {
   "name": "@linxin666/dsh-web-all",
   "description": "DSH Web UI 全家桶聚合插件：一键安装全部功能插件（task-board / git-graph / pet / remote-web-ui / web-ui-settings / skin-center / community-plugins / compat shim）。compat 桥接层已并入本包（src/client），无需独立 compat npm 包。",
-  "version": "0.3.19",
+  "version": "0.3.20",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -33,7 +33,7 @@
   },
   "dsh": {
     "engines": {
-      "dsh": ">=0.1.2-rc.1"
+      "dsh": ">=0.1.5-rc.1"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -61,21 +61,21 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/dsh-agent": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-api-session-controller": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-attachment": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-host-webserver": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-invariants": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-llm": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-scope": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-session": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-settings": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-subagent": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-system-prompt": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-tools": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-typert-protocol": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-util-time": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-workspace": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-agent": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-api-session-controller": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-attachment": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-invariants": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-llm": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-scope": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-session": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-settings": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-subagent": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-typert-protocol": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-util-time": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-workspace": "^0.1.5-rc.1",
     "@types/node": "^22.20.0",
     "jsdom": "29.1.1",
     "typescript": "^6.0.3",
@@ -101,6 +101,6 @@
     "@linxin666/dsh-client-ui-web-ui-settings": "workspace:*",
     "@linxin666/dsh-client-ui-skin-center": "workspace:*",
     "@linxin666/dsh-i18n": "workspace:*",
-    "dsh-better-sidebar": "0.18.0"
+    "dsh-better-sidebar": "0.19.0"
   }
 }

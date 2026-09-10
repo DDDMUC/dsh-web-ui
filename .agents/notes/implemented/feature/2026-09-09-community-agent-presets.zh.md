@@ -39,7 +39,7 @@ Status: implemented
 
 - 本仓库内的唯一事实源：`packages/dsh-preset-center/presets/<id>/`（预设目录本身）加 `presets/catalog.json`（作者、版本、标签、英文展示文案、排序）。预设 id 必须符合官方规则 `^[a-z0-9][a-z0-9-]*$`。
 - `scripts/market-build` 产出 `market/dist/manifest/presets.json` 与 `market/dist/assets/presets/<id>/`，并校验每条 catalog 条目（id 规则、保留的内置 id、组合与元数据文件存在、`preset.yml` 的 name 可读），使坏 preset 无法发布。中文展示文案取自 `preset.yml`，因此 roster 与商店不会互相矛盾；catalog 承载英文文案与市场元数据。
-- `market/worker` 的资产白名单把 `preset` 映射到 `/manifest/presets.json`，匿名点赞与安装计数继续有效。
+- `market/worker` 的资产白名单把 `preset` 映射到 `/manifest/presets.json`；Worker 的可接受类别集合与统计桶也需要同样的注册，首个发布批次暴露了这一点（见 [预设的点赞与安装上报被 Worker 拒绝](../../bug-fix/2026-09-10-preset-write-endpoints.zh.md)）。
 
 ### Ownership and UI
 
@@ -67,7 +67,7 @@ Status: implemented
 - 创意工坊卡片多出第四个标签页；未安装预设中心时渲染兜底提示而不是面板，因此商店是降级而非损坏。
 - 启用后新会话立即可用（discovery 每次调用都重读根目录），但官方设置分区可能需要刷新页面才会显示。
 - 禁用或卸载不会影响已经由该预设组合的会话——会话的组合在创建时固定。
-- 目录出厂为空：`packages/dsh-preset-center/presets/catalog.json` 是发布源，首个发布的预设决定审查门槛。组合文件的审查质量仍是人工流程；确认门与 provenance 降低的是误操作风险，不是恶意意图。
+- 目录的首批内容是由 [角色扮演预设目录及其内容边界](2026-09-10-roleplay-preset-catalog.zh.md) 记录的 32 条目角色扮演批次；`packages/dsh-preset-center/presets/catalog.json` 仍是发布源，内容要求写在 `presets/README.md`。组合文件的审查质量仍是人工流程；确认门与 provenance 降低的是误操作风险，不是恶意意图。
 - 用户可能在官方分区或手工删掉已启用预设；此时面板报告为未安装，因此「卸载」与「被别处删除」在设计中不可区分。
 - host 进程仍持有句柄时移动目录可能在 Windows 瞬时失败；移动路径会重试并报告写入错误，而不是留下半成品状态。
 

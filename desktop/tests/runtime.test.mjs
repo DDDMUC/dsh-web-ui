@@ -203,7 +203,7 @@ test('ensureProfileFallbacks creates junctions for declared peerDependencies', (
   fs.writeFileSync(path.join(pluginDir, 'package.json'), JSON.stringify({
     name: 'my-plugin',
     peerDependencies: {
-      '@deepseek-ai/dsh-client-ui-primitives': '^0.1.2-rc.1',
+      '@deepseek-ai/dsh-client-ui-primitives': '^0.1.5-alpha.2',
     },
   }));
   fs.writeFileSync(path.join(profileDir, 'package.json'), JSON.stringify({

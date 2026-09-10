@@ -10,7 +10,7 @@
 #   4. 运行 tests/e2e 无头渲染 lane（Playwright Chromium）：以宿主官方帧
 #      锚定启动、断言 better-sidebar 挂载、断言被排除的 archive-manager
 #      缺席、无崩溃标记（aionui-panel 已停止支持、archive-manager 仍为
-#      alpha.2 排除；better-sidebar 已以 0.18.0-alpha.0 回归）。
+#      alpha.2 排除；better-sidebar 以对齐当前 cohort 的 0.19.0 内置）。
 #
 # 用法：
 #   bash scripts/e2e-mount.sh
@@ -60,7 +60,7 @@ command -v pnpm >/dev/null 2>&1 || die "未找到 pnpm（dsh plugin 转发给 pn
 # dsh CLI 解析：PATH 上的 dsh 优先，否则 npx 拉官方包
 if ! command -v "$DSH_CMD" >/dev/null 2>&1; then
   if command -v npx >/dev/null 2>&1; then
-    say "PATH 上无 $DSH_CMD，回退 npx -y --package @deepseek-ai/dsh"
+    say "PATH 上无 ${DSH_CMD}，回退 npx -y --package @deepseek-ai/dsh"
     DSH_CMD="npx -y --package @deepseek-ai/dsh dsh"
   else
     die "未找到 $DSH_CMD 或 npx；请先安装 DSH CLI（npm i -g @deepseek-ai/dsh）或用 DSH_CMD 指定"
@@ -161,7 +161,7 @@ allowBuilds:
   ssh2: true
 
 minimumReleaseAgeExclude:
-  - 'dsh-better-sidebar@0.18.0-alpha.0'
+  - 'dsh-better-sidebar@0.19.0'
   - '@linxin666/*'
 EOF
 

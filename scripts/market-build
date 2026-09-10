@@ -267,6 +267,13 @@ function scanPlugins() {
 /** Preset ids the harness ships; a community preset may never claim one. */
 const PRESET_RESERVED_IDS = ['minimal', 'ptc', 'standard', 'cordis']
 
+/**
+ * Stable preset category ids rendered as filter pills on the market surfaces
+ * (mirrored by the workshop card's PRESET_CATEGORY_IDS and market/src/app.js).
+ * A catalog entry may omit the field; it then lands in 'other'.
+ */
+const PRESET_CATEGORIES = ['roleplay']
+
 /** Official preset directory rule (mirrors PRESET_ID in @deepseek-ai/dsh-agent-presets). */
 const PRESET_ID_RE = /^[a-z0-9][a-z0-9-]*$/
 
@@ -322,11 +329,18 @@ function scanPresets() {
     if (!fs.existsSync(metadataFile)) throw new Error(`preset #${i}: preset.yml missing: presets/${entry.id}`)
     const metadata = parsePresetYml(fs.readFileSync(metadataFile, 'utf8').replace(/\r\n?/g, '\n'))
     if (!metadata.name) throw new Error(`preset #${i}: preset.yml needs a single-line name: presets/${entry.id}`)
+    const category = typeof entry.category === 'string' && entry.category ? entry.category : 'other'
+    if (category !== 'other' && !PRESET_CATEGORIES.includes(category)) {
+      throw new Error(
+        `preset #${i}: category must be one of ${PRESET_CATEGORIES.join(' / ')} or omitted: ${entry.id}`,
+      )
+    }
     const item = {
       id: entry.id,
       name: metadata.name,
       rank: typeof entry.rank === 'number' ? entry.rank : i + 1,
       files: listFiles(dir),
+      category,
     }
     if (entry.nameEn) item.nameEn = entry.nameEn
     if (entry.author) item.author = entry.author

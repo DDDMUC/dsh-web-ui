@@ -39,7 +39,7 @@ State is derived from the filesystem on every read, never from a private ledger:
 
 - Source of truth in this repository: `packages/dsh-preset-center/presets/<id>/` (the preset directory itself) plus `presets/catalog.json` (author, version, tags, English display text, ranking). Preset ids must match the official rule `^[a-z0-9][a-z0-9-]*$`.
 - `scripts/market-build` emits `market/dist/manifest/presets.json` and `market/dist/assets/presets/<id>/`, and validates every catalog entry (id rule, reserved shipped ids, composition and metadata files present, `preset.yml` name readable) so a broken preset never publishes. The Chinese display text comes from `preset.yml` so the roster and the store cannot disagree; the catalog carries the English text and market metadata.
-- `market/worker`'s asset allowlist maps `preset` to `/manifest/presets.json`, so anonymous likes and install counts keep working.
+- `market/worker`'s asset allowlist maps `preset` to `/manifest/presets.json`; the worker's accepted-kind set and stats buckets needed the same registration, which the first published batch exposed ([Preset likes and installs were rejected by the worker](../../bug-fix/2026-09-10-preset-write-endpoints.md)).
 
 ### Ownership and UI
 
@@ -67,7 +67,7 @@ State is derived from the filesystem on every read, never from a private ledger:
 - The Workshop card carries a fourth tab; without the preset center installed it renders a fallback note instead of the panel, so the store degrades rather than breaking.
 - Enabling a preset makes it usable by a new session immediately (discovery re-reads its roots per call) but it may need a page refresh to appear in the official settings section.
 - Disabling or uninstalling a preset never affects a session already composed from it, because a session's composition is fixed at creation.
-- The catalog ships empty: `packages/dsh-preset-center/presets/catalog.json` is the publishing source, and the first published preset sets the review bar. Review quality of a composition remains a human process; the confirmation gate and provenance reduce accidental risk, not hostile intent.
+- The catalog's first content is the 32-entry role-play batch recorded in [Roleplay preset catalog and its content boundary](2026-09-10-roleplay-preset-catalog.md); `packages/dsh-preset-center/presets/catalog.json` remains the publishing source, with the content requirements stated in `presets/README.md`. Review quality of a composition remains a human process; the confirmation gate and provenance reduce accidental risk, not hostile intent.
 - A user can delete an enabled preset from the official section or by hand; the panel then reports it as not installed, so "uninstalled" and "deleted elsewhere" are indistinguishable by design.
 - Moving a directory the host process still has open can fail transiently on Windows; the move path retries and reports a write error instead of leaving a partial state.
 

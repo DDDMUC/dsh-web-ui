@@ -362,7 +362,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       // whose name mismatches the inserted entry.
       const manifest = await readProfileManifest(facts.packageJsonPath)
       let ownerName = target
-      let entries: Array<{ id: string; name: string }>
+      let entries: Array<{ id: string; name: string; baseEnabled: boolean }>
       if (manifest.dependencies[target] !== undefined) {
         entries = await claimedEntryRowsOf(facts, target)
       } else {
@@ -386,7 +386,7 @@ export function makeGatewayRoutes(deps: GatewayRouteDeps): WebRoute[] {
       for (const entry of entries) {
         // A whole-package disable still force-keeps the locked rows mounted.
         const entryEnabled = enabled || LOCKED_ENTRY_IDS.has(entry.id)
-        next = setRowEnabled(next, facts.patchPath, entry.id, entry.name, entryEnabled)
+        next = setRowEnabled(next, facts.patchPath, entry.id, entry.name, entryEnabled, entry.baseEnabled)
       }
       if (next !== patchText) {
         await writePatchAtomic(facts.patchPath, next)
