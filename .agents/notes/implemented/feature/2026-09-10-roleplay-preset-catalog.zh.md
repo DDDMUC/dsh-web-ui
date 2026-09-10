@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-32 个成年角色作为首批社区预设发布，每个角色一个目录：`packages/dsh-preset-center/presets/roleplay-<拼音>/`，并在 `catalog.json` 中以 1.0.0 版本署名上游收集库（`author: dongshuyan`、`repo: https://github.com/dongshuyan/Awesome-Prompts`）。
+32 个成年角色作为首批社区预设发布，每个角色一个目录：`packages/dsh-preset-center/presets/roleplay-<拼音>/`，并在 `catalog.json` 中以 1.0.0 版本署名上游收集库（`author: dongshuyan`、`repo: https://github.com/dongshuyan/Awesome-Prompts`），且把每个条目归类为 `roleplay`（词表与筛选界面记录在 [市场界面上的预设分类](2026-09-10-preset-category-filtering.zh.md)）。
 
 每个预设只有一个组合行：persona 行把整份角色设定作为完整系统提示（`complete: true`、`includeRuntimeContext: false`），不挂载其它内容。组合不引用任何工具、相对模块或内联 `!!js` 表达式，因此由它组成的会话只能对话：没有文件系统、没有 shell、没有网络。全年龄边界写在人设文本自身，约束随预设走，而不是只存在于评审清单里。
 

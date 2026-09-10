@@ -23,6 +23,7 @@ Workshop. `scripts/market-build` reads this directory and emits
      "descriptionEn": "One sentence in English.",
      "author": "github-handle",
      "version": "1.0.0",
+     "category": "roleplay",
      "tags": ["review"],
      "rank": 10,
      "repo": "https://github.com/<owner>/<repo>"
@@ -30,7 +31,10 @@ Workshop. `scripts/market-build` reads this directory and emits
    ```
 
    `id`, `author` and `version` are required; `version` drives the Workshop's
-   update notification. The Chinese `name`/`description` come from `preset.yml`
+   update notification. `category` is optional and must come from the preset
+   category vocabulary in `scripts/market-build` (`roleplay` today); it becomes
+   the filter pill on the Workshop card and on the market site, and an entry
+   without it lands in the "other" bucket. The Chinese `name`/`description` come from `preset.yml`
    so the DSH roster and the store never disagree.
 4. Run `node scripts/market-build` and commit the regenerated `market/dist`.
 

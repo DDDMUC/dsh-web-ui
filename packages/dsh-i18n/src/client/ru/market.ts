@@ -12,6 +12,7 @@ export const ru: Record<string, string> = {
   'category.integration': 'Интеграция',
   'category.knowledge': 'Знания',
   'category.other': 'Другое',
+  'category.roleplay': 'Ролевые игры',
   'category.security': 'Безопасность',
   'category.tools': 'Инструменты',
   'category.ui': 'Интерфейс',

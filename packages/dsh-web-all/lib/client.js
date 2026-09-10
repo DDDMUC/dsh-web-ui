@@ -3242,6 +3242,16 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-market/src/client/filter.ts
+		/** Keep items whose category matches; 'all' keeps everything. */
+		function byCategory(items, cat) {
+			if (cat === "all") return [...items];
+			return items.filter((it) => (it.category ?? "other") === cat);
+		}
+		/** Keep items whose subcategory matches; 'all' keeps everything. */
+		function bySubcategory(items, subcat) {
+			if (subcat === "all") return [...items];
+			return items.filter((it) => it.subcategory === subcat);
+		}
 		/** Present categories with counts (missing category counts as 'other'). */
 		function categoryCounts(items) {
 			const counts = /* @__PURE__ */ new Map();
@@ -3312,6 +3322,13 @@ window.__ModuleLoader__.load({
 				"notify",
 				"net"
 			]
+		};
+		/** Preset category → second-level ids; a category with no list renders one row. */
+		const PRESET_SUBCATEGORY_IDS = { roleplay: [] };
+		/** Locale-key lookup for preset category ids (shares the plugin category keys). */
+		const PRESET_CATEGORY_LABEL_KEY = {
+			roleplay: "category.roleplay",
+			other: "category.other"
 		};
 		/** Locale-key lookup for category ids (including the manifest default 'other'). */
 		const CATEGORY_LABEL_KEY = {
@@ -3669,7 +3686,17 @@ window.__ModuleLoader__.load({
 				});
 				return items;
 			};
-			const categoryLabel = (id) => CATEGORY_LABEL_KEY[id] ? t(CATEGORY_LABEL_KEY[id]) : id;
+			const facetKind = tab === "plugin" || tab === "preset" ? tab : null;
+			const facetItems = facetKind === null ? [] : data?.items[facetKind] ?? [];
+			const facetVocab = facetKind === "preset" ? {
+				labelKey: PRESET_CATEGORY_LABEL_KEY,
+				subIds: PRESET_SUBCATEGORY_IDS
+			} : {
+				labelKey: CATEGORY_LABEL_KEY,
+				subIds: SUBCATEGORY_IDS
+			};
+			const facetSubs = cat === "all" ? [] : subcategoryCounts(facetItems, cat, facetVocab.subIds[cat]);
+			const categoryLabel = (id) => facetVocab.labelKey[id] ? t(facetVocab.labelKey[id]) : id;
 			const subcategoryLabel = (id) => SUBCATEGORY_LABEL_KEY[id] ? t(SUBCATEGORY_LABEL_KEY[id]) : id;
 			const matches = (item) => {
 				if (tab === "plugin") {
@@ -3896,7 +3923,6 @@ window.__ModuleLoader__.load({
 				if (!res.ok) throw new Error("HTTP " + res.status);
 				return (await res.json()).installs ?? 0;
 			});
-			const pluginItems = data?.items.plugin ?? [];
 			const chipClass = (isOn, isSub) => {
 				const cls = [market_module_css_default.filterChip];
 				if (isSub) cls.push(market_module_css_default.filterChipSub);
@@ -3979,7 +4005,7 @@ window.__ModuleLoader__.load({
 									setQuery(event.target.value);
 								}
 							}),
-							tab === "plugin" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							facetKind !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 								className: market_module_css_default.filterRows,
 								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 									className: market_module_css_default.filterRow,
@@ -3997,10 +4023,10 @@ window.__ModuleLoader__.load({
 											" ",
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 												className: market_module_css_default.filterCount,
-												children: pluginItems.length
+												children: facetItems.length
 											})
 										]
-									}), categoryCounts(pluginItems).map(({ id, count }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+									}), categoryCounts(facetItems).map(({ id, count }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 										type: "button",
 										className: chipClass(cat === id, false),
 										onClick: () => {
@@ -4016,7 +4042,7 @@ window.__ModuleLoader__.load({
 											})
 										]
 									}, id))]
-								}), cat !== "all" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								}), cat !== "all" && facetSubs.length > 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 									className: market_module_css_default.filterRow,
 									role: "group",
 									"aria-label": t("filter.subcategory"),
@@ -4031,10 +4057,10 @@ window.__ModuleLoader__.load({
 											" ",
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 												className: market_module_css_default.filterCount,
-												children: subcategoryCounts(pluginItems, cat, SUBCATEGORY_IDS[cat]).reduce((sum, entry) => sum + entry.count, 0)
+												children: facetSubs.reduce((sum, entry) => sum + entry.count, 0)
 											})
 										]
-									}), subcategoryCounts(pluginItems, cat, SUBCATEGORY_IDS[cat]).map(({ id, count }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+									}), facetSubs.map(({ id, count }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 										type: "button",
 										className: chipClass(subcat === id, true),
 										onClick: () => {
@@ -4052,7 +4078,7 @@ window.__ModuleLoader__.load({
 								}) : null]
 							}) : null,
 							tab === "preset" ? renderSlot("dsh-workshop.panel", {
-								items: data?.items.preset ?? [],
+								items: bySubcategory(byCategory(data?.items.preset ?? [], cat), subcat),
 								catalogState: failed ? "error" : loading ? "loading" : "ready",
 								gateway: gateway !== null,
 								installs: data?.stats.installs?.preset ?? {},
@@ -4304,6 +4330,7 @@ window.__ModuleLoader__.load({
 			"category.integration": "集成",
 			"category.security": "安全",
 			"category.utility": "实用",
+			"category.roleplay": "角色扮演",
 			"category.other": "其他",
 			"subcategory.terminal": "终端界面",
 			"subcategory.chat": "对话增强",
@@ -4400,6 +4427,7 @@ window.__ModuleLoader__.load({
 			"category.integration": "Integration",
 			"category.security": "Security",
 			"category.utility": "Utility",
+			"category.roleplay": "Roleplay",
 			"category.other": "Other",
 			"subcategory.terminal": "Terminal UI",
 			"subcategory.chat": "Chat enhancements",
@@ -4583,8 +4611,18 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-task-board/src/core/tasks.ts
-		/** Statuses a settled task may be archived from. */
-		const ARCHIVABLE_STATUSES = ["done", "failed"];
+		/**
+		* Statuses a task may be archived from: every status but `running`, whose
+		* execution the runner still owns until it settles. A settled-only gate made
+		* the duplicate-and-archive flow a silent no-op for scheduled tasks, which
+		* return to `todo` after every successful run (issue #1447).
+		*/
+		const ARCHIVABLE_STATUSES = [
+			"backlog",
+			"todo",
+			"done",
+			"failed"
+		];
 		/** Permission presets a task may pin on its execution session (the `/permission <id>` ids). */
 		const TASK_PERMISSIONS = [
 			"read-only",
@@ -4720,10 +4758,10 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-task-board/src/core/use-cases/task-archive.ts
 		/**
-		* Archive one task: only settled statuses (done/failed) can be archived;
-		* a running or not-yet-settled task stays on the board (its runner still
-		* owns its lifecycle). Archiving disarms a schedule; already-archived tasks
-		* are a no-op.
+		* Archive one task: only a `running` task stays on the board (its runner
+		* still owns its lifecycle until the execution settles); every other status
+		* can be archived. Archiving disarms a schedule; already-archived tasks are
+		* a no-op.
 		*/
 		function applyArchiveTask(tasks, id, now) {
 			let applied = false;
@@ -5326,9 +5364,8 @@ window.__ModuleLoader__.load({
 				this.persistAndNotify();
 			}
 			/**
-			* Archive a settled task (done/failed). Running or on-board-unsettled
-			* tasks are refused so the runner keeps exclusive ownership of their
-			* lifecycle.
+			* Archive a task from any status but `running`, whose lifecycle the runner
+			* keeps exclusive ownership of until it settles.
 			* @returns true when applied.
 			*/
 			archiveTask(id) {

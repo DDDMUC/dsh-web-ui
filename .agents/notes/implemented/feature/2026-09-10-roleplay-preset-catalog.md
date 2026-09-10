@@ -10,7 +10,7 @@ The catalog is the publishing source for dsh-market.com: an entry added there is
 
 ## Decision
 
-Thirty-two adult characters ship as the first community preset batch, one directory per character at `packages/dsh-preset-center/presets/roleplay-<pinyin>/`, with `catalog.json` entries that credit the upstream collection (`author: dongshuyan`, `repo: https://github.com/dongshuyan/Awesome-Prompts`) at version 1.0.0.
+Thirty-two adult characters ship as the first community preset batch, one directory per character at `packages/dsh-preset-center/presets/roleplay-<pinyin>/`, with `catalog.json` entries that credit the upstream collection (`author: dongshuyan`, `repo: https://github.com/dongshuyan/Awesome-Prompts`) at version 1.0.0 and classify every entry as `roleplay` (the vocabulary and the filter surfaces are recorded in [Preset categories on the market surfaces](2026-09-10-preset-category-filtering.md)).
 
 Each preset is a single composition row: the persona section carries the whole character sheet as the complete system prompt (`complete: true`, `includeRuntimeContext: false`) and nothing else. The composition names no tools, no relative modules and no inline `!!js` expressions, so a session composed from it can talk and nothing more — no filesystem, no shell, no network. The persona text itself states the all-ages boundary, so the constraint travels with the preset rather than living only in a review checklist.
 

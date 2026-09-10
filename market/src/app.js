@@ -182,7 +182,9 @@
   var KIND_LABEL = { skin: '皮肤', pet: '宠物', plugin: '插件', preset: '预设' }
   var CAT_LABEL = {
     agent: 'Agent', ui: '界面', tools: '工具', knowledge: '知识',
-    integration: '集成', security: '安全', utility: '实用', other: '其他'
+    integration: '集成', security: '安全', utility: '实用', other: '其他',
+    // 预设分类（词表见 scripts/market-build 的 PRESET_CATEGORIES）。
+    roleplay: '角色扮演'
   }
   // 二级分类（category → subcategory）：词表与合法集合见 community-index 的同名映射。
   var SUB_ORDER = {
@@ -371,20 +373,24 @@
     var subBox = $('#subCatFilter')
     box.innerHTML = ''
     subBox.innerHTML = ''
-    if (state.kind !== 'plugin') { box.style.display = 'none'; subBox.style.display = 'none'; return }
+    // 插件与预设各自带分类词表；这里按当前 kind 取条目，词表只有预设缺二级。
+    var facet = (state.kind === 'plugin' || state.kind === 'preset') ? state.kind : null
+    var items = facet ? state.data[facet] : []
+    if (!facet) { box.style.display = 'none'; subBox.style.display = 'none'; return }
     box.style.display = ''
     var cats = {}
-    state.data.plugin.forEach(function (p) { var c = p.category || 'other'; cats[c] = (cats[c] || 0) + 1 })
-    box.appendChild(mkChipKey('all', '全部', state.data.plugin.length))
+    items.forEach(function (p) { var c = p.category || 'other'; cats[c] = (cats[c] || 0) + 1 })
+    box.appendChild(mkChipKey('all', '全部', items.length))
     Object.keys(cats).sort().forEach(function (c) { box.appendChild(mkChipKey(c, CAT_LABEL[c] || c, cats[c])) })
-    // 二级行只在选中具体一级分类时出现；切换一级分类时复位二级。
+    // 二级行只在选中具体一级分类、且该分类确有二级条目时出现。
     if (state.cat === 'all') { subBox.style.display = 'none'; return }
-    subBox.style.display = ''
     var subs = {}
-    state.data.plugin.forEach(function (p) {
+    items.forEach(function (p) {
       if (p.category !== state.cat || !p.subcategory) return
       subs[p.subcategory] = (subs[p.subcategory] || 0) + 1
     })
+    if (!Object.keys(subs).length) { subBox.style.display = 'none'; return }
+    subBox.style.display = ''
     var subTotal = 0
     Object.keys(subs).forEach(function (k) { subTotal += subs[k] })
     subBox.appendChild(mkSubChipKey('all', '全部', subTotal))
@@ -456,7 +462,7 @@
     var meta = []
     if (item.author) meta.push(item.author)
     if ((kind === 'skin' || kind === 'preset') && item.version) meta.push('v' + item.version)
-    if (kind === 'plugin') meta.push(CAT_LABEL[item.category] || item.category)
+    if (kind === 'plugin' || kind === 'preset') meta.push(CAT_LABEL[item.category] || item.category)
     if (kind === 'plugin' && item.subcategory) meta.push(SUB_LABEL[item.subcategory] || item.subcategory)
     if (kind === 'pet' && item.renderer) meta.push(item.renderer)
     body.appendChild(el('div', 'mk-card-meta', meta.join(' · ')))
@@ -658,6 +664,7 @@
       // Preset detail is text only, exactly like a community plugin: no
       // artwork block, the author line opens the info column.
       var presetMeta = []
+      presetMeta.push(CAT_LABEL[item.category] || item.category)
       if (item.author) presetMeta.push(item.author)
       if (item.version) presetMeta.push('v' + item.version)
       if (presetMeta.length) info.appendChild(el('div', 'mk-dialog-tagline', presetMeta.join(' · ')))

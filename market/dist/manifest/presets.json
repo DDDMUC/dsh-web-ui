@@ -9,6 +9,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Cheng Wei",
       "author": "dongshuyan",
       "description": "与独立咖啡馆咖啡师程未对话：文艺安静、慢热，把心意做进一杯手冲。全年龄向沉浸式角色扮演。",
@@ -29,6 +30,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Bai Xiaoxiao",
       "author": "dongshuyan",
       "description": "与互联网公司行政助理白晓晓对话：入职半年的职场新人，认真又手忙脚乱。全年龄向沉浸式角色扮演。",
@@ -49,6 +51,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Xie Wanzhou",
       "author": "dongshuyan",
       "description": "与互联网公司后端工程师谢晚舟对话：上班理性话少，下班宅家看番。全年龄向沉浸式角色扮演。",
@@ -69,6 +72,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Gu Qingyan",
       "author": "dongshuyan",
       "description": "与科技公司联合创始人兼 CEO顾清言对话：对外高冷果断，独处时温柔。全年龄向沉浸式角色扮演。",
@@ -89,6 +93,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Lin Jingshen",
       "author": "dongshuyan",
       "description": "与重点高中语文教师兼班主任林静深对话：课堂上不苟言笑，私下会撒娇。全年龄向沉浸式角色扮演。",
@@ -109,6 +114,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Wen Yining",
       "author": "dongshuyan",
       "description": "与国际航线乘务员温以宁对话：温柔细心，飞遍各地却最想回家。全年龄向沉浸式角色扮演。",
@@ -129,6 +135,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Ruan Qingxiao",
       "author": "dongshuyan",
       "description": "与三甲医院心内科护士阮清晓对话：夜班多、见过生死，细心又能扛。全年龄向沉浸式角色扮演。",
@@ -149,6 +156,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Ning Xiao",
       "author": "dongshuyan",
       "description": "与宠物医院兽医宁晓对话：对动物温柔耐心，会为小猫小狗较真。全年龄向沉浸式角色扮演。",
@@ -169,6 +177,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Xu Shuyan",
       "author": "dongshuyan",
       "description": "与市立图书馆采编部馆员许书言对话：知性温柔，与书为伴，熟了才话多。全年龄向沉浸式角色扮演。",
@@ -189,6 +198,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Gu Shumo",
       "author": "dongshuyan",
       "description": "与省博物馆文物研究员顾书墨对话：书卷气重，爱穿汉服，内向慢热。全年龄向沉浸式角色扮演。",
@@ -209,6 +219,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Fang Xiaotang",
       "author": "dongshuyan",
       "description": "与花艺工作室花艺师方小棠对话：治愈系温柔，用花说话。全年龄向沉浸式角色扮演。",
@@ -229,6 +240,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Lu Ciqing",
       "author": "dongshuyan",
       "description": "与独立纹身师陆刺青对话：外表酷、话少，内心细腻。全年龄向沉浸式角色扮演。",
@@ -249,6 +261,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Shen Ye",
       "author": "dongshuyan",
       "description": "与清吧调酒师沈夜对话：上夜班、见过各种人，礼貌而有距离。全年龄向沉浸式角色扮演。",
@@ -269,6 +282,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Qiao Youyou",
       "author": "dongshuyan",
       "description": "与民办幼儿园老师乔柚柚对话：活泼开朗，带班哄孩子一把好手。全年龄向沉浸式角色扮演。",
@@ -289,6 +303,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Su Wanxing",
       "author": "dongshuyan",
       "description": "与游戏区主播苏晚星对话：直播时活泼话多，私下其实很宅。全年龄向沉浸式角色扮演。",
@@ -309,6 +324,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Mo Ling",
       "author": "dongshuyan",
       "description": "与独立塔罗占卜师莫灵对话：说话带点神秘中二，认真起来很可靠。全年龄向沉浸式角色扮演。",
@@ -329,6 +345,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Jiang Wanyue",
       "author": "dongshuyan",
       "description": "与舞蹈机构芭蕾教师江挽月对话：因脚伤告别舞台，气质清冷坚韧。全年龄向沉浸式角色扮演。",
@@ -349,6 +366,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Song Ye",
       "author": "dongshuyan",
       "description": "与地下乐队主唱宋野对话：台上冷而炸，台下黏人。全年龄向沉浸式角色扮演。",
@@ -369,6 +387,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Leng Shuang",
       "author": "dongshuyan",
       "description": "与已金盆洗手的前组织成员冷霜对话：过去是杀手，现在只想安稳过日子。全年龄向沉浸式角色扮演。",
@@ -389,6 +408,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Xia Weiyang",
       "author": "dongshuyan",
       "description": "与娱乐公司偶像练习生夏未央对话：台上光芒四射，台下累得只想撒娇。全年龄向沉浸式角色扮演。",
@@ -409,6 +429,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Su Mianmian",
       "author": "dongshuyan",
       "description": "与重点大学经管系大一学生苏绵绵对话：呆萌的富家千金，从小被保护得很好。全年龄向沉浸式角色扮演。",
@@ -429,6 +450,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Norma",
       "author": "dongshuyan",
       "description": "与综合大学设计系大一学生诺玛对话：复读一年考上，温柔依赖型。全年龄向沉浸式角色扮演。",
@@ -449,6 +471,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Lin Xiaoman",
       "author": "dongshuyan",
       "description": "与高三美术艺考生林小满对话：嘴硬爱挑事的后辈，专业课很稳。全年龄向沉浸式角色扮演。",
@@ -469,6 +492,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Shen Nian",
       "author": "dongshuyan",
       "description": "与高三学生沈念对话：从小一起长大的义妹，懂事靠谱。全年龄向沉浸式角色扮演。",
@@ -489,6 +513,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Ye Tingyu",
       "author": "dongshuyan",
       "description": "与豪门千金叶听雨对话：体弱多病、很少出门的大小姐。全年龄向沉浸式角色扮演。",
@@ -509,6 +534,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Bai Li",
       "author": "dongshuyan",
       "description": "与修行逾千年的狐妖白漓对话：外表少女，玩世不恭，实则深情。全年龄向沉浸式角色扮演。",
@@ -529,6 +555,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Yun Zhi",
       "author": "dongshuyan",
       "description": "与魔法学院二年级见习生云织对话：主修元素魔法，对普通人隐瞒身份。全年龄向沉浸式角色扮演。",
@@ -549,6 +576,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Ailiya",
       "author": "dongshuyan",
       "description": "与异世界见习魔女艾莉娅对话：已能独立接委托的旅行魔女。全年龄向沉浸式角色扮演。",
@@ -569,6 +597,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Ye Ling",
       "author": "dongshuyan",
       "description": "与半精灵叶聆对话：离开森林留在人类侧，遮着尖耳生活。全年龄向沉浸式角色扮演。",
@@ -589,6 +618,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Lan Xi",
       "author": "dongshuyan",
       "description": "与上岸生活的人鱼蓝汐对话：化出双腿在人类世界生活，只有你知道她的身份。全年龄向沉浸式角色扮演。",
@@ -609,6 +639,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Jiang He",
       "author": "dongshuyan",
       "description": "与来自唐代的穿越者姜禾对话：身份证明缺失，在你这里落了脚。全年龄向沉浸式角色扮演。",
@@ -629,6 +660,7 @@
         "agent.cordis.yml",
         "preset.yml"
       ],
+      "category": "roleplay",
       "nameEn": "Roleplay · Su Nianqing",
       "author": "dongshuyan",
       "description": "与民国女学生苏念卿对话：一身民国学生装扮，只有你懂她的来历。全年龄向沉浸式角色扮演。",

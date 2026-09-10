@@ -21,13 +21,17 @@
      "descriptionEn": "One sentence in English.",
      "author": "github-handle",
      "version": "1.0.0",
+     "category": "roleplay",
      "tags": ["review"],
      "rank": 10,
      "repo": "https://github.com/<owner>/<repo>"
    }
    ```
 
-   `id`、`author`、`version` 必填；`version` 驱动创意工坊的更新提示。中文
+   `id`、`author`、`version` 必填；`version` 驱动创意工坊的更新提示。
+   `category` 可选，取值必须来自 `scripts/market-build` 的预设分类词表（目前为
+   `roleplay`）；它成为创意工坊卡片与市场站上的分类筛选胶囊，不填的条目落入
+   「其他」桶。中文
    `name`/`description` 来自 `preset.yml`，因此 DSH roster 与商店不会互相矛盾。
 4. 运行 `node scripts/market-build` 并提交重新生成的 `market/dist`。
 
