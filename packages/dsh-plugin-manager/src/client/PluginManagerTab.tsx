@@ -172,6 +172,8 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
   const [uninstallTarget, setUninstallTarget] = useState<UninstallTarget | undefined>(undefined)
   const [conflicts, setConflicts] = useState<readonly ControlChange[]>([])
   const [progress, setProgress] = useState<InstallProgressItem>({ kind: 'idle', stage: 'fetch' })
+  /** Parent rows whose aggregate child list is expanded; collapsed by default. */
+  const [expandedChildren, setExpandedChildren] = useState<ReadonlySet<string>>(() => new Set())
   /** Synchronous in-flight mirror of `busy`: the render-time guard alone lets a
    * click and an Enter land in the same frame and double-fire. */
   const busyRef = useRef(false)
@@ -265,6 +267,16 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
 
   const toggleDisabled = busy !== undefined || toggleBusy !== undefined
     || (view.status === 'ready' && view.failures.safeMode)
+
+  /** Expand or collapse one aggregate row's child list (pure view state). */
+  const toggleChildren = (id: string): void => {
+    setExpandedChildren(current => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const onUserToggle = (id: string, enabled: boolean): void => {
     setToggleBusy({ kind: 'user', id })
@@ -602,36 +614,63 @@ export function PluginManagerTab(props: PluginManagerTabProps) {
                       </Button>
                     </div>
                   </div>
-                  {children !== undefined && (
-                    <>
-                      <ul className={css.childList}>
-                        {children.map(child => (
-                          <li key={child.id} className={css.childRow} data-plugin-row={child.id}>
-                            <span className={css.childName} title={child.id}>{child.name}</span>
-                            <div className={css.actions}>
-                              <span className={css.stateLabel} data-state={child.enabled ? 'enabled' : 'disabled'}>
-                                {child.enabled ? t('enabled') : t('disabled')}
-                              </span>
-                              {child.locked === true
-                                ? <span className={css.lockedHint}>{t('lockedRowHint')}</span>
-                                : (
-                                  <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={child.enabled}
-                                    aria-label={child.enabled ? t('disableSwitch', { name: child.name }) : t('enableSwitch', { name: child.name })}
-                                    className={css.switch}
-                                    disabled={toggleDisabled}
-                                    onClick={() => { onUserToggle(child.id, !child.enabled) }}
-                                  />
-                                )}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className={css.hint}>{t('childrenHint')}</p>
-                    </>
-                  )}
+                  {children !== undefined && children.length > 0 && (() => {
+                    // Default-collapsed child list: an aggregate such as
+                    // @linxin666/dsh-web-all expands to 20+ rows that would
+                    // otherwise push the whole settings page down.
+                    const listId = 'pm-children-' + plugin.id.replace(/[^a-zA-Z0-9_-]/g, '-')
+                    const expanded = expandedChildren.has(plugin.id)
+                    const enabledCount = children.filter(child => child.enabled).length
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          className={css.childrenToggle}
+                          aria-expanded={expanded}
+                          aria-controls={listId}
+                          aria-label={expanded
+                            ? t('childrenHide', { name: plugin.name })
+                            : t('childrenShow', { name: plugin.name })}
+                          onClick={() => { toggleChildren(plugin.id) }}
+                        >
+                          <span className={css.chevron} data-expanded={expanded} aria-hidden="true" />
+                          <span className={css.childrenSummary}>
+                            {t('childrenSummary', { enabled: enabledCount, total: children.length })}
+                          </span>
+                        </button>
+                        {expanded && (
+                          <>
+                            <ul id={listId} className={css.childList}>
+                              {children.map(child => (
+                                <li key={child.id} className={css.childRow} data-plugin-row={child.id}>
+                                  <span className={css.childName} title={child.id}>{child.name}</span>
+                                  <div className={css.actions}>
+                                    <span className={css.stateLabel} data-state={child.enabled ? 'enabled' : 'disabled'}>
+                                      {child.enabled ? t('enabled') : t('disabled')}
+                                    </span>
+                                    {child.locked === true
+                                      ? <span className={css.lockedHint}>{t('lockedRowHint')}</span>
+                                      : (
+                                        <button
+                                          type="button"
+                                          role="switch"
+                                          aria-checked={child.enabled}
+                                          aria-label={child.enabled ? t('disableSwitch', { name: child.name }) : t('enableSwitch', { name: child.name })}
+                                          className={css.switch}
+                                          disabled={toggleDisabled}
+                                          onClick={() => { onUserToggle(child.id, !child.enabled) }}
+                                        />
+                                      )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                            <p className={css.hint}>{t('childrenHint')}</p>
+                          </>
+                        )}
+                      </>
+                    )
+                  })()}
                   </li>
                 )
               })}

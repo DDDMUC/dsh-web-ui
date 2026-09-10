@@ -36,6 +36,32 @@ import { readJsonBody, writeJson } from './http.ts'
  * browser markers are same-origin.
  */
 export function isTrustedApiRequest(request: IncomingMessage, trustedHosts: readonly string[]): boolean {
+  if (!isTrustedHost(request, trustedHosts)) return false
+  // Cross-site fence: an explicit cross-site marker is refused regardless of
+  // Origin (modern browsers label the initiator on every fetch).
+  if (request.headers['sec-fetch-site'] === 'cross-site') return false
+  // Origin fence: when a browser attaches an Origin it must be exactly this
+  // authority; absent Origin is fine — the Host fence already bound it.
+  const origin = request.headers.origin
+  if (origin === undefined) return true
+  try {
+    return new URL(origin).host === new URL(`http://${request.headers.host ?? ''}`).host
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether the request's Host is an authority this surface serves: loopback, or
+ * a trusted entry (exact `host:port`, or port-less `host` matching any port).
+ * The browser-marker checks stay in {@link isTrustedApiRequest}: a pairing
+ * entry page is a navigation, and its authority is the token or device
+ * credential it carries, not who linked to it.
+ * @param request - the node HTTP request.
+ * @param trustedHosts - non-loopback authorities this surface serves.
+ * @returns true when the Host is ours.
+ */
+export function isTrustedHost(request: IncomingMessage, trustedHosts: readonly string[]): boolean {
   const host = request.headers.host
   if (typeof host !== 'string') return false
   let hostUrl: URL
@@ -45,25 +71,27 @@ export function isTrustedApiRequest(request: IncomingMessage, trustedHosts: read
     return false
   }
   const hostname = hostUrl.hostname
-  const trusted = isLoopbackClient(request) || trustedHosts.some(entry => {
+  return isLoopbackClient(request) || trustedHosts.some(entry => {
     // A port-less entry matches the hostname on any port; an exact host:port
     // entry matches that authority verbatim (WHATWG normalization both sides).
     const entryUrl = new URL(`http://${entry}`)
     return entryUrl.port === '' ? entryUrl.hostname === hostname : entryUrl.host === hostUrl.host
   })
-  if (!trusted) return false
-  // Cross-site fence: an explicit cross-site marker is refused regardless of
-  // Origin (modern browsers label the initiator on every fetch).
-  if (request.headers['sec-fetch-site'] === 'cross-site') return false
-  // Origin fence: when a browser attaches an Origin it must be exactly this
-  // authority; absent Origin is fine — the Host fence already bound it.
-  const origin = request.headers.origin
-  if (origin === undefined) return true
-  try {
-    return new URL(origin).host === hostUrl.host
-  } catch {
-    return false
-  }
+}
+
+/**
+ * Whether the request is a top-level document navigation — the shape every
+ * phone uses to open a pairing link. Browsers label it `Sec-Fetch-Mode:
+ * navigate` with `Sec-Fetch-Dest: document`; in-app browsers (WeChat, and
+ * anything else wrapping a WKWebView) additionally attach `Sec-Fetch-Site:
+ * cross-site` or an opaque `Origin: null`, which the API fence must keep
+ * refusing but which says nothing about a document navigation: the pairing
+ * token or the device id in the URL is what authorizes it.
+ * @param request - the node HTTP request.
+ * @returns true for a top-level document navigation.
+ */
+export function isTopLevelDocumentNavigation(request: IncomingMessage): boolean {
+  return request.headers['sec-fetch-mode'] === 'navigate' && request.headers['sec-fetch-dest'] === 'document'
 }
 
 /**
@@ -124,7 +152,7 @@ export function isNonCrossSite(request: IncomingMessage): boolean {
  * the lanFence fallback use this to serve container-bridged and reverse-proxy
  * topologies whose Host is not among the advertised or configured authorities.
  */
-function privateLanHostOf(request: IncomingMessage): string | undefined {
+function privateLanHostOf(request: IncomingMessage, navigation = false): string | undefined {
   const host = request.headers.host
   if (typeof host !== 'string') return undefined
   let hostName = ''
@@ -133,7 +161,11 @@ function privateLanHostOf(request: IncomingMessage): string | undefined {
   } catch {
     return undefined
   }
-  if (hostName === '' || !isPrivateOrLocalHostname(hostName) || !isNonCrossSite(request)) return undefined
+  if (hostName === '' || !isPrivateOrLocalHostname(hostName)) return undefined
+  // A top-level navigation is judged by its credential, not by the initiator
+  // marker (see isTopLevelDocumentNavigation); every other request keeps the
+  // non-cross-site requirement.
+  if (!(navigation && isTopLevelDocumentNavigation(request)) && !isNonCrossSite(request)) return undefined
   return host
 }
 
@@ -162,6 +194,33 @@ export function acceptLimitKey(socketIp: string, forwarded: string | undefined, 
  * distinct private Host headers cannot grow the table unboundedly.
  */
 export const MAX_DYNAMIC_TRUSTED_HOSTS = 64
+
+/**
+ * Reasons a phone-facing entry page refused a request, logged once per shape
+ * so a real device failure is diagnosable from the host console without a
+ * debug build. Keyed by `reason|host|path`; bounded by construction (a handful
+ * of reasons, and only the first occurrence of each is printed).
+ */
+const loggedEntryRefusals = new Set<string>()
+
+/**
+ * Log one entry-page refusal (first occurrence per shape) and cap the set.
+ * @param request - the refused request.
+ * @param path - the entry path that refused it.
+ * @param reason - why the fence refused.
+ */
+function logEntryRefusal(request: IncomingMessage, path: string, reason: string): void {
+  const key = `${reason}|${request.headers.host ?? ''}|${path}`
+  if (loggedEntryRefusals.has(key) || loggedEntryRefusals.size >= 64) return
+  loggedEntryRefusals.add(key)
+  const markers = [
+    `sec-fetch-site=${request.headers['sec-fetch-site'] ?? '-'}`,
+    `sec-fetch-mode=${request.headers['sec-fetch-mode'] ?? '-'}`,
+    `sec-fetch-dest=${request.headers['sec-fetch-dest'] ?? '-'}`,
+    `origin=${request.headers.origin ?? '-'}`,
+  ].join(' ')
+  console.log(`remote-web-ui: refused ${path} from host ${request.headers.host ?? '-'} (${reason}; ${markers})`)
+}
 
 /**
  * FIFO-bounded Set insert: past `max` entries the oldest one is evicted
@@ -469,8 +528,13 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
 
   /** Loopback-only fence: the desktop panel's control endpoints. */
   const loopbackFence = (req: IncomingMessage): boolean => isTrustedApiRequest(req, [])
-  /** Phone-facing fence: loopback, the service's live LAN literals, configured public host, extra trusted hosts, or dynamically paired hosts. */
-  const lanFence = (req: IncomingMessage): boolean => {
+  /**
+   * Phone-facing fence: loopback, the service's live LAN literals, configured
+   * public host, extra trusted hosts, or dynamically paired hosts. `navigation`
+   * relaxes the browser-marker checks for a top-level document navigation (the
+   * pairing entry pages), never for an API or subresource request.
+   */
+  const lanFence = (req: IncomingMessage, navigation = false): boolean => {
     const publicHost = publicHostOf(service.publicBaseUrl)
     // The service's LAN bases re-read per request: a hot rebind (the lan-bind
     // toggle) updates them mid-process, and the fence must follow.
@@ -482,10 +546,10 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       ...extraHosts,
       ...dynamicTrustedHosts,
     ]
-    if (isTrustedApiRequest(req, combined)) return true
+    if (navigation && isTopLevelDocumentNavigation(req) ? isTrustedHost(req, combined) : isTrustedApiRequest(req, combined)) return true
 
     // If request carries a valid paired device cookie from a private LAN host (e.g. after service restart), trust and remember it
-    const privateLanHost = privateLanHostOf(req)
+    const privateLanHost = privateLanHostOf(req, navigation)
     if (privateLanHost !== undefined) {
       const cookieDeviceId = readCookie(req.headers.cookie, service.config.cookieName)
       let queryDeviceId: string | null = null
@@ -737,8 +801,9 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
    */
   const handleAcceptPage = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!requireMethod(req, res, 'GET')) return
-    const privateLanHost = privateLanHostOf(req)
-    if (!lanFence(req) && privateLanHost === undefined) {
+    const privateLanHost = privateLanHostOf(req, true)
+    if (!lanFence(req, true) && privateLanHost === undefined) {
+      logEntryRefusal(req, PAIR_PATHS.acceptPage, 'untrusted-host')
       res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
       res.end('forbidden')
       return
@@ -753,7 +818,8 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     const ua = req.headers['user-agent']
     const result = token === '' ? { ok: false as const, code: 'invalid' as const } : service.accept(token, typeof ua === 'string' ? ua : undefined)
     if (!result.ok) {
-      if (!lanFence(req)) {
+      if (!lanFence(req, true)) {
+        logEntryRefusal(req, PAIR_PATHS.acceptPage, 'untrusted-host-after-invalid-token')
         res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
         res.end('forbidden')
         return
@@ -803,7 +869,8 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
    */
   const handleAppPage = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!requireMethod(req, res, 'GET')) return
-    if (!lanFence(req)) {
+    if (!lanFence(req, true)) {
+      logEntryRefusal(req, PAIR_PATHS.appPage, 'untrusted-host')
       res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
       res.end('forbidden')
       return
@@ -852,7 +919,7 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
    */
   const handleAppServiceWorker = (req: IncomingMessage, res: ServerResponse): void => {
     if (!requireMethod(req, res, 'GET')) return
-    if (!lanFence(req)) {
+    if (!lanFence(req, true)) {
       res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
       res.end('forbidden')
       return

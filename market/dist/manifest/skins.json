@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-08",
+  "generated": "2026-09-10",
   "items": [
     {
       "id": "whale-song",
@@ -179,6 +179,61 @@
             "scrim": "linear-gradient(rgba(11, 14, 26, 0.42) 0%, rgba(12, 16, 30, 0.52) 60%, rgba(14, 18, 34, 0.6) 100%)"
           }
         }
+      },
+      "requires": {
+        "contracts": [
+          {
+            "apiVersion": "x-org.linxin666.skin-center/v1alpha1",
+            "kind": "SkinHooks",
+            "optional": true
+          }
+        ]
+      },
+      "facets": {
+        "client": {
+          "entry": "hooks.mjs",
+          "apiVersion": "x-org.linxin666.skin-center/v1alpha1"
+        }
+      }
+    },
+    {
+      "id": "blueprint",
+      "name": "工程蓝图",
+      "nameEn": "Blueprint",
+      "author": "stushansusu",
+      "rank": 5,
+      "tagline": "图纸母题 · 两套材质：夜图青线 / 暖纸墨线 · 图签栏与标尺刻度",
+      "description": "以工程图纸为视觉母题，明暗两套主题各自成篇。暗色是「夜图」：深靛蓝纸底、蓝图青线稿、荧光扫描线与四角衰减；亮色是「暖纸」：米黄纸底、墨褐线稿、纸张纤维纹理与边缘烧色，界面零纯白、零冷色，长时间阅读不刺眼。两层 HUD 做成图纸的标题栏与状态栏，含图号、比例、修订号、网格规格、实时坐标读数与标尺刻度，另有一枚主题化 favicon。背景人物为线稿：轮廓加重、内部以状态栏同款 24px 方格线填充。交互控件保留官方几何，只在配色、描边与标注层上做文章。",
+      "tags": [
+        "blueprint",
+        "technical",
+        "grid",
+        "monospace",
+        "drafting",
+        "paper",
+        "sepia",
+        "dual-theme"
+      ],
+      "version": "1.0.0",
+      "accent": "#4fd1ff",
+      "preview": {
+        "light": "assets/skins/blueprint/preview/light.jpg",
+        "dark": "assets/skins/blueprint/preview/dark.jpg"
+      },
+      "files": [
+        "assets/whale-fill.png",
+        "assets/whale-line.png",
+        "hooks.mjs",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
+      "repo": "https://github.com/zhu1090093659/dsh-web/tree/dev/packages/skins/skin-center/skins/blueprint",
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css"
       },
       "requires": {
         "contracts": [

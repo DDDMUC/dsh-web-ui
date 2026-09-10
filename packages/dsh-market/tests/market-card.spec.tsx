@@ -106,7 +106,9 @@ function cardProps(
       hooks.marketCard.subscribe,
       () => selector(hooks.marketCard.getSnapshot()),
     )
-  return { t, useMarketCard, ...actions, ...overrides } as unknown as ComponentProps<typeof MarketCard>
+  // The workshop panel slot is normally injected by the framework; the card
+  // test renders the shell, so a stub keeps the preset tab renderable.
+  return { t, useMarketCard, renderSlot: () => null, ...actions, ...overrides } as unknown as ComponentProps<typeof MarketCard>
 }
 
 const REMOTE = {
@@ -120,8 +122,11 @@ const REMOTE = {
     plugin: [
       { id: 'dsh-tui', name: 'dsh-TUI', nameEn: 'dsh-TUI', author: 'ccch1mneyyy', rank: 1, repo: 'https://github.com/ccch1mneyyy/dsh-TUI', npm: 'dsh-tui', category: 'ui', description: '终端' },
     ],
+    preset: [
+      { id: 'demo-preset', name: '演示预设', nameEn: 'Demo preset', author: 'dsh-web', rank: 1, version: '1.0.0', description: '社区预设' },
+    ],
   },
-  stats: { skin: { 'whale-song': 3 }, pet: {}, plugin: {} },
+  stats: { skin: { 'whale-song': 3 }, pet: {}, plugin: {}, preset: {} },
 }
 
 describe('MarketCard', () => {
@@ -136,7 +141,7 @@ describe('MarketCard', () => {
       ...REMOTE,
       stats: {
         ...REMOTE.stats,
-        installs: { skin: { 'whale-song': 3 }, pet: {}, plugin: { 'dsh-tui': 12 } },
+        installs: { skin: { 'whale-song': 3 }, pet: {}, plugin: { 'dsh-tui': 12 }, preset: {} },
       },
     }
     render(<MarketCard {...cardProps(new FakeScope({}), { remote: withMetrics, gateway: null, pluginManager: null, npmDownloads: { 'dsh-tui': 1_234 } })} />)
@@ -168,8 +173,9 @@ describe('MarketCard', () => {
         skin: [{ id: 'plain-skin', name: '素色皮肤', rank: 1, preview: { light: 'a.png' } }],
         pet: [],
         plugin: [],
+        preset: [],
       },
-      stats: { skin: {}, pet: {}, plugin: {} },
+      stats: { skin: {}, pet: {}, plugin: {}, preset: {} },
     }
     render(<MarketCard {...cardProps(new FakeScope({}), { remote: plain, gateway: null, pluginManager: null })} />)
     expect(screen.queryByRole('link', { name: /素色皮肤/ })).toBeNull()
@@ -185,7 +191,7 @@ describe('MarketCard', () => {
 
   it('calls the gateway install for skins (loopback) and marks installed', async () => {
     const install = vi.fn(async () => ({ dest: '/home/.dsh/skins/whale-song' }))
-    const list = vi.fn(async () => ({ skins: ['whale-song'], pets: [] }))
+    const list = vi.fn(async () => ({ skins: ['whale-song'], pets: [], presets: [] }))
     render(<MarketCard {...cardProps(new FakeScope({}), {
       remote: REMOTE,
       gateway: { install, list },
@@ -198,7 +204,7 @@ describe('MarketCard', () => {
 
   it('surfaces the conflict dialog and retries with force', async () => {
     const install = vi.fn(async () => { throw { code: 'conflict' } })
-    const list = vi.fn(async () => ({ skins: [], pets: [] }))
+    const list = vi.fn(async () => ({ skins: [], pets: [], presets: [] }))
     render(<MarketCard {...cardProps(new FakeScope({}), {
       remote: REMOTE,
       gateway: { install, list },
@@ -234,8 +240,9 @@ describe('MarketCard', () => {
         skin: [],
         pet: [],
         plugin: [{ id: 'evil-plugin', name: 'evil', rank: 1, repo: 'ssh://git@evil.example/repo.git' }],
+        preset: [],
       },
-      stats: { skin: {}, pet: {}, plugin: {} },
+      stats: { skin: {}, pet: {}, plugin: {}, preset: {} },
     }
     render(<MarketCard {...cardProps(new FakeScope({}), {
       remote: poisoned,
@@ -293,6 +300,7 @@ describe('MarketCard', () => {
       if (url.endsWith('/manifest/skins.json')) return Promise.resolve(good({ items: REMOTE.items.skin }))
       if (url.endsWith('/manifest/pets.json')) return Promise.resolve(good({ items: REMOTE.items.pet }))
       if (url.endsWith('/manifest/plugins.json')) return Promise.resolve(good({ items: REMOTE.items.plugin }))
+      if (url.endsWith('/manifest/presets.json')) return Promise.resolve(good({ items: REMOTE.items.preset }))
       if (url.endsWith('/api/stats')) return Promise.resolve(good(REMOTE.stats))
       if (url.endsWith('/api/npm-downloads')) return Promise.resolve(good({ downloads: { 'dsh-tui': 120 } }))
       return Promise.reject(new Error('offline'))
@@ -302,7 +310,7 @@ describe('MarketCard', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '重试' })).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: '重试' }))
     await waitFor(() => expect(screen.getByText('鲸吟')).toBeTruthy())
-    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(10)
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(12)
   })
 
   it('does not report success when copy fallback fails (issue #1091)', async () => {
@@ -352,8 +360,9 @@ describe('MarketCard', () => {
           { id: 'p-chat', name: '对话 B', rank: 2, repo: 'https://github.com/x/p-chat', category: 'ui', subcategory: 'chat' },
           { id: 'p-dev', name: '工具 C', rank: 3, repo: 'https://github.com/x/p-dev', category: 'tools', subcategory: 'dev' },
         ],
+        preset: [],
       },
-      stats: { skin: {}, pet: {}, plugin: {} },
+      stats: { skin: {}, pet: {}, plugin: {}, preset: {} },
     }
     render(<MarketCard {...cardProps(new FakeScope({}), { remote, gateway: null, pluginManager: null })} />)
     fireEvent.click(screen.getByRole('tab', { name: /插件/ }))
@@ -375,6 +384,80 @@ describe('MarketCard', () => {
     fireEvent.click(screen.getByRole('tab', { name: /皮肤/ }))
     fireEvent.click(screen.getByRole('tab', { name: /插件/ }))
     expect(screen.getByText('工具 C')).toBeTruthy()
+  })
+
+  it('filters presets by category and hands the filtered records to the panel', () => {
+    const renderSlot = vi.fn(() => null)
+    const remote = {
+      items: {
+        skin: [],
+        pet: [],
+        plugin: [],
+        preset: [
+          { id: 'roleplay-a', name: '角色 A', rank: 1, category: 'roleplay' },
+          { id: 'roleplay-b', name: '角色 B', rank: 2, category: 'roleplay' },
+          { id: 'plain-c', name: '未分类 C', rank: 3 },
+        ],
+      },
+      stats: { skin: {}, pet: {}, plugin: {}, preset: {} },
+    }
+    render(<MarketCard {...cardProps(new FakeScope({}), {
+      remote,
+      gateway: null,
+      pluginManager: null,
+      renderSlot: renderSlot as unknown as ComponentProps<typeof MarketCard>['renderSlot'],
+    })} />)
+    fireEvent.click(screen.getByRole('tab', { name: /预设/ }))
+    const slotItems = (): string[] => {
+      const call = renderSlot.mock.calls.at(-1) as unknown as [string, { items: { id: string }[] }]
+      return call[1].items.map((item) => item.id)
+    }
+    // Preset categories render one level: no second-level vocabulary exists yet.
+    expect(screen.getAllByRole('button', { name: /^全部/ })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /^角色扮演/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^其他/ })).toBeTruthy()
+    expect(screen.queryByRole('group', { name: '二级分类' })).toBeNull()
+    expect(slotItems()).toEqual(['roleplay-a', 'roleplay-b', 'plain-c'])
+    fireEvent.click(screen.getByRole('button', { name: /^角色扮演/ }))
+    expect(slotItems()).toEqual(['roleplay-a', 'roleplay-b'])
+    fireEvent.click(screen.getByRole('button', { name: /^其他/ }))
+    expect(slotItems()).toEqual(['plain-c'])
+    // Switching tabs resets the filter, like the plugin tab does.
+    fireEvent.click(screen.getByRole('tab', { name: /皮肤/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /预设/ }))
+    expect(slotItems()).toEqual(['roleplay-a', 'roleplay-b', 'plain-c'])
+  })
+
+  it('renders the contributed preset panel with the catalog records and gateway face', () => {
+    const renderSlot = vi.fn(() => null)
+    const install = vi.fn(async () => ({ dest: '/home/.dsh/agent-presets/demo-preset' }))
+    render(<MarketCard {...cardProps(new FakeScope({}), {
+      remote: REMOTE,
+      gateway: { install, list: vi.fn(async () => ({ skins: [], pets: [], presets: [] })) },
+      pluginManager: null,
+      renderSlot: renderSlot as unknown as ComponentProps<typeof MarketCard>['renderSlot'],
+    })} />)
+    fireEvent.click(screen.getByRole('tab', { name: /预设/ }))
+    expect(renderSlot).toHaveBeenCalledTimes(1)
+    const [key, owner, opts] = renderSlot.mock.calls[0] as unknown as [
+      string,
+      { items: { id: string }[]; gateway: boolean; install?: (id: string, force: boolean) => Promise<unknown>; installs: Record<string, number> },
+      { entryKey: string },
+    ]
+    expect(key).toBe('dsh-workshop.panel')
+    expect(opts.entryKey).toBe('preset')
+    expect(owner.items.map((item) => item.id)).toEqual(['demo-preset'])
+    expect(owner.gateway).toBe(true)
+    expect(typeof owner.install).toBe('function')
+    void owner.install?.('demo-preset', false)
+    expect(install).toHaveBeenCalledWith('preset', 'demo-preset', false)
+  })
+
+  it('renders the preset tab fallback when no panel plugin is installed', () => {
+    const renderSlot = ((_key: string, _owner: unknown, opts: { fallback?: unknown }) => opts.fallback ?? null) as unknown as ComponentProps<typeof MarketCard>['renderSlot']
+    render(<MarketCard {...cardProps(new FakeScope({}), { remote: REMOTE, gateway: null, pluginManager: null, renderSlot })} />)
+    fireEvent.click(screen.getByRole('tab', { name: /预设/ }))
+    expect(screen.getByText(/未安装预设中心插件/)).toBeTruthy()
   })
 })
 

@@ -21,7 +21,7 @@ test('market/dist 核心文件齐全', () => {
   for (const f of ['index.html', 'app.js', 'preview.html', 'styles.js', 'manifest.js', '_headers', 'official-facade.js']) {
     assert.ok(exists(f), f + ' missing')
   }
-  for (const f of ['skins.json', 'pets.json', 'plugins.json']) {
+  for (const f of ['skins.json', 'pets.json', 'plugins.json', 'presets.json']) {
     assert.ok(exists('manifest/' + f), 'manifest/' + f + ' missing')
   }
 })
@@ -90,6 +90,34 @@ test('plugins.json 契约', () => {
     }
     if (item.repo) assert.ok(/^https:\/\//.test(item.repo), 'plugin repo must be https: ' + item.id)
   }
+})
+
+test('presets.json 契约', () => {
+  const m = readJson('manifest/presets.json')
+  assert.ok(Array.isArray(m.items), 'presets items array')
+  const ids = new Set()
+  for (const item of m.items) {
+    assert.ok(item.id && /^[a-z0-9][a-z0-9-]*$/.test(item.id), 'preset id rule: ' + item.id)
+    assert.ok(item.name, 'preset name from preset.yml: ' + item.id)
+    assert.equal(typeof item.rank, 'number', 'preset rank: ' + item.id)
+    assert.ok(Array.isArray(item.files) && item.files.length > 0, 'preset files: ' + item.id)
+    assert.ok(item.files.includes('agent.cordis.yml'), 'preset composition must ship: ' + item.id)
+    // Category drives the workshop/site filter pills; omitted entries land in 'other'.
+    assert.ok(typeof item.category === 'string' && item.category, 'preset category: ' + item.id)
+    assert.ok(!ids.has(item.id), 'duplicate preset id: ' + item.id)
+    ids.add(item.id)
+    if (item.repo) assert.ok(/^https:\/\//.test(item.repo), 'preset repo must be https: ' + item.id)
+    for (const rel of item.files) assert.ok(exists('assets/presets/' + item.id + '/' + rel), 'preset asset missing: ' + item.id + '/' + rel)
+  }
+})
+
+test('预设分区由市场站渲染', () => {
+  const app = fs.readFileSync(path.join(DIST, 'app.js'), 'utf8')
+  const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8')
+  assert.ok(html.includes('data-kind="preset"'), 'preset tab missing from the site markup')
+  assert.ok(app.includes("preset: '预设'"), 'preset kind label missing')
+  assert.ok(app.includes("fetchJson('manifest/presets.json')"), 'preset manifest fetch missing')
+  assert.ok(app.includes("roleplay: '角色扮演'"), 'preset category label missing')
 })
 
 test('皮肤与插件卡片名称以源码仓库链接渲染', () => {

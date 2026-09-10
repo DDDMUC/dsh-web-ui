@@ -433,6 +433,12 @@ html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [class*='centerCol'] 
   border-color: var(--dsw-alias-state-success-primary);
 }
 
+.badge[data-kind='proxy'] {
+  margin-left: 6px;
+  color: var(--dsw-alias-state-business-primary);
+  border-color: var(--dsw-alias-state-business-primary);
+}
+
 .badge[data-status='ok'] {
   color: var(--dsw-alias-state-success-primary);
   border-color: var(--dsw-alias-state-success-primary);
@@ -560,6 +566,27 @@ html[data-dsh-ssh-active]:not([data-dsh-taskboard-active]) [class*='centerCol'] 
   border: 1px solid var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-secondary);
   overflow-wrap: anywhere;
+}
+
+/* Import skip detail: what an import left out and why (#1448). */
+.importSkips {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.importSkipRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 12px;
 }
 
 .banner[data-kind='ok'] {

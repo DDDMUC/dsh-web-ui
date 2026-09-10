@@ -34,7 +34,7 @@ export default {
     },
     '/api/install': {
       post: {
-        summary: 'Record one successful Workshop install (skins, pets or community plugins); one event per install, Turnstile-gated',
+        summary: 'Record one successful Workshop install (skins, pets, community plugins or presets); one event per install, Turnstile-gated',
         requestBody: {
           required: true,
           content: {
@@ -43,7 +43,7 @@ export default {
                 type: 'object',
                 required: ['kind', 'asset_id', 'device_fp', 'install_id', 'turnstile_token'],
                 properties: {
-                  kind: { type: 'string', enum: ['skin', 'pet', 'plugin'] },
+                  kind: { type: 'string', enum: ['skin', 'pet', 'plugin', 'preset'] },
                   asset_id: { type: 'string' },
                   device_fp: { type: 'string' },
                   install_id: { type: 'string' },
@@ -72,7 +72,7 @@ export default {
                 type: 'object',
                 required: ['kind', 'asset_id', 'device_fp'],
                 properties: {
-                  kind: { type: 'string', enum: ['skin', 'pet', 'plugin'] },
+                  kind: { type: 'string', enum: ['skin', 'pet', 'plugin', 'preset'] },
                   asset_id: { type: 'string' },
                   device_fp: { type: 'string' },
                   turnstile_token: { type: 'string' },

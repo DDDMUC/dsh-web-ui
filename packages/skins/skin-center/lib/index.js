@@ -717,6 +717,11 @@ const REVIEWED_SKIN_HOOKS = {
 		manifestSha256: "b22cc82145e1f90f4257af1411724e34a99513761290980fb5f8d25727809808",
 		hooksSha256: "21ac2ad4d4423acf31e3391bfba18ce2d9eec7b192f7a0ba47e8a0c843ff15a5"
 	},
+	"blueprint": {
+		entry: "hooks.mjs",
+		manifestSha256: "e36d9d53aae73c4693e36fc2e130bca2996cda6dcd8f80917627897774232a3e",
+		hooksSha256: "4f6c7db598e72469920d1dbafd5c20cec39f435f225220ffc860636523ed70bb"
+	},
 	"cyber-night": {
 		entry: "hooks.mjs",
 		manifestSha256: "38de22962a80602c22910324e7c5fec171342363760972b7421debeb628d8508",
@@ -5484,6 +5489,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 	const width = typeof projW === "number" && Number.isFinite(projW) && projW > 0 ? Math.floor(projW) : 3840;
 	const height = typeof projH === "number" && Number.isFinite(projH) && projH > 0 ? Math.floor(projH) : 2160;
 	const resourceBase = "/api/skin-center/we/scene-resource/" + token + "/";
+	const resourceUrl = (pkgPath) => resourceBase + pkgPath.split("/").map(encodeURIComponent).join("/");
 	const manifest = {
 		width,
 		height,
@@ -5724,7 +5730,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 					uv2B64: m.uv2 ? Buffer$1.from(m.uv2.buffer, m.uv2.byteOffset, m.uv2.byteLength).toString("base64") : void 0,
 					indicesB64: Buffer$1.from(m.indices.buffer, m.indices.byteOffset, m.indices.byteLength).toString("base64"),
 					idx32: m.indices instanceof Uint32Array || void 0,
-					texUrl: subTex ? resourceBase + subTex : void 0,
+					texUrl: subTex ? resourceUrl(subTex) : void 0,
 					repeatBase: m.uv.some((value) => value < 0 || value > 1) || void 0,
 					materialPath: m.materialPath,
 					shader,
@@ -5733,8 +5739,8 @@ function buildSceneManifestVia(access, token, projectOverride) {
 					noDepthWrite,
 					tint,
 					tint2,
-					texUrl2: texPath2 ? resourceBase + texPath2 : void 0,
-					lightmapUrl: lightmapPath ? resourceBase + lightmapPath : void 0,
+					texUrl2: texPath2 ? resourceUrl(texPath2) : void 0,
+					lightmapUrl: lightmapPath ? resourceUrl(lightmapPath) : void 0,
 					translucent,
 					gradFade,
 					userColors,
@@ -5796,7 +5802,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 						manifest.bgLayers.push({
 							name: typeof obj.name === "string" ? obj.name : "fullscreen",
 							shader: typeof pass0.shader === "string" ? pass0.shader : void 0,
-							texUrl: texPath ? resourceBase + texPath : void 0,
+							texUrl: texPath ? resourceUrl(texPath) : void 0,
 							userColors: Object.keys(userColors).length > 0 ? userColors : void 0,
 							userNums: Object.keys(userNums).length > 0 ? userNums : void 0
 						});
@@ -5819,7 +5825,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 				manifest.sprites = manifest.sprites ?? [];
 				manifest.sprites.push({
 					name: typeof obj.name === "string" ? obj.name : "sprite",
-					texUrl: texPath ? resourceBase + texPath : void 0,
+					texUrl: texPath ? resourceUrl(texPath) : void 0,
 					origin: parseVec3(obj.origin, [
 						0,
 						0,
@@ -5869,7 +5875,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 				manifest.particles3d = manifest.particles3d ?? [];
 				manifest.particles3d.push({
 					name: typeof obj.name === "string" ? obj.name : "particles",
-					texUrl: texPath ? resourceBase + texPath : void 0,
+					texUrl: texPath ? resourceUrl(texPath) : void 0,
 					origin: [
 						objOrigin[0] + emitterOrigin[0],
 						objOrigin[1] + emitterOrigin[1],
@@ -5914,9 +5920,9 @@ function buildSceneManifestVia(access, token, projectOverride) {
 		if (nameLower.includes("fireflies") || nameLower.includes("motes") || nameLower.includes("dust")) manifest.hasFireflies = true;
 	}
 	const meteorTexPath = allTex.find((p) => p.toLowerCase().includes("shootingstar") || p.toLowerCase().includes("meteor"));
-	if (meteorTexPath) manifest.meteorTex = resourceBase + meteorTexPath;
+	if (meteorTexPath) manifest.meteorTex = resourceUrl(meteorTexPath);
 	const sparkleTexPath = allTex.find((p) => p.toLowerCase().includes("sparkle") || p.toLowerCase().includes("halo") || p.toLowerCase().includes("star"));
-	if (sparkleTexPath) manifest.sparkleTex = resourceBase + sparkleTexPath;
+	if (sparkleTexPath) manifest.sparkleTex = resourceUrl(sparkleTexPath);
 	const sceneObjects = scene.objects;
 	const resolveObjectTransform = (obj) => {
 		const chain = [obj];
@@ -5987,7 +5993,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 				if (reflTex) manifest.layers.push({
 					name: "Reflection",
 					isReflection: true,
-					texUrl: resourceBase + reflTex,
+					texUrl: resourceUrl(reflTex),
 					x: width / 2,
 					y: height / 2,
 					w: width,
@@ -6095,7 +6101,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 		const alpha = typeof obj.alpha === "number" && Number.isFinite(obj.alpha) ? Math.min(1, Math.max(0, obj.alpha)) : 1;
 		let videoUrl;
 		try {
-			if (parseTexInternal(file.bytes).isVideoMp4) videoUrl = resourceBase + texPath;
+			if (parseTexInternal(file.bytes).isVideoMp4) videoUrl = resourceUrl(texPath);
 		} catch {}
 		let uvCrop;
 		if (decoded && typeof modelJson.width === "number" && typeof modelJson.height === "number") {
@@ -6118,7 +6124,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 			if (reflTex) manifest.layers.push({
 				name: "Reflection",
 				isReflection: true,
-				texUrl: resourceBase + reflTex,
+				texUrl: resourceUrl(reflTex),
 				x: layerX,
 				y: layerY,
 				w: lw,
@@ -6128,7 +6134,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 		}
 		manifest.layers.push({
 			name: typeof obj.name === "string" ? obj.name : "layer",
-			texUrl: resourceBase + texPath,
+			texUrl: resourceUrl(texPath),
 			x: layerX,
 			y: layerY,
 			w: lw,
@@ -6137,7 +6143,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 			angle: objAngles[2] || 0,
 			uvCrop,
 			shader: layerShader,
-			texUrls: texPaths.length > 1 ? texPaths.map((p) => resourceBase + p) : void 0,
+			texUrls: texPaths.length > 1 ? texPaths.map((p) => resourceUrl(p)) : void 0,
 			userColors: layerUserColors,
 			nums: Object.keys(nums).length > 0 ? nums : void 0,
 			isGround,
