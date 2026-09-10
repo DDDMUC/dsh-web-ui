@@ -327,9 +327,8 @@ export class BoardController {
   }
 
   /**
-   * Archive a settled task (done/failed). Running or on-board-unsettled
-   * tasks are refused so the runner keeps exclusive ownership of their
-   * lifecycle.
+   * Archive a task from any status but `running`, whose lifecycle the runner
+   * keeps exclusive ownership of until it settles.
    * @returns true when applied.
    */
   archiveTask(id: string): boolean {
