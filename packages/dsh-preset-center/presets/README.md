@@ -36,6 +36,13 @@ Workshop. `scripts/market-build` reads this directory and emits
 
 ## What review checks
 
+Content requirements: a published preset must be all-ages. Explicit sexual
+content is refused, and so is any character who is under 18 or who is a child
+in the work they come from; third-party material needs a redistribution right
+and a credited source. The rationale and the roster rules of the first
+published batch are recorded in
+[Roleplay preset catalog and its content boundary](../../../.agents/notes/implemented/feature/2026-09-10-roleplay-preset-catalog.md).
+
 A preset is code: its composition can name npm plugins, load files that travel
 inside the preset directory, and evaluate `!!js` expressions in the DSH host
 process. The Workshop therefore installs a preset into an inert library and

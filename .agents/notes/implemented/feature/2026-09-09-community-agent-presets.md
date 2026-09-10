@@ -67,7 +67,7 @@ State is derived from the filesystem on every read, never from a private ledger:
 - The Workshop card carries a fourth tab; without the preset center installed it renders a fallback note instead of the panel, so the store degrades rather than breaking.
 - Enabling a preset makes it usable by a new session immediately (discovery re-reads its roots per call) but it may need a page refresh to appear in the official settings section.
 - Disabling or uninstalling a preset never affects a session already composed from it, because a session's composition is fixed at creation.
-- The catalog ships empty: `packages/dsh-preset-center/presets/catalog.json` is the publishing source, and the first published preset sets the review bar. Review quality of a composition remains a human process; the confirmation gate and provenance reduce accidental risk, not hostile intent.
+- The catalog's first content is the 32-entry role-play batch recorded in [Roleplay preset catalog and its content boundary](2026-09-10-roleplay-preset-catalog.md); `packages/dsh-preset-center/presets/catalog.json` remains the publishing source, with the content requirements stated in `presets/README.md`. Review quality of a composition remains a human process; the confirmation gate and provenance reduce accidental risk, not hostile intent.
 - A user can delete an enabled preset from the official section or by hand; the panel then reports it as not installed, so "uninstalled" and "deleted elsewhere" are indistinguishable by design.
 - Moving a directory the host process still has open can fail transiently on Windows; the move path retries and reports a write error instead of leaving a partial state.
 
