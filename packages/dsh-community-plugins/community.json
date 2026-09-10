@@ -667,5 +667,17 @@
     "npm": "@xiaoyuyu6420/dsh-backup",
     "category": "tools",
     "subcategory": "dev"
+  },
+  {
+    "id": "dsh-taskfold",
+    "name": "任务折叠",
+    "nameEn": "Taskfold",
+    "author": "yindf",
+    "description": "把已完成的 agent 工作折叠成一条带标题的简短摘要，长会话保持可读、请求更省；每次折叠的原始内容随时可用 fold_recall 原样读回。",
+    "descriptionEn": "Folds finished agent work into a short titled summary so long sessions stay readable and requests stay cheap; every fold's original content can be read back verbatim on demand.",
+    "repo": "https://github.com/yindf/taskfold",
+    "npm": "dsh-taskfold",
+    "category": "tools",
+    "subcategory": "context"
   }
 ]
