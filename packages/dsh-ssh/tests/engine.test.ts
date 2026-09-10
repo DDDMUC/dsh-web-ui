@@ -235,6 +235,35 @@ describe('connection pool', () => {
   })
 })
 
+describe('proxyCommand transport', () => {
+  /**
+   * A ProxyCommand that bridges its stdio to the embedded test server through
+   * a node one-liner, so the whole exec path runs over a real subprocess
+   * transport instead of a direct TCP connection (issue #1448).
+   */
+  function bridgeCommand(): string {
+    const script = "const net=require('net');const s=net.connect(" + String(server.port)
+      + ",'127.0.0.1');s.pipe(process.stdout);process.stdin.pipe(s)"
+    return '"' + process.execPath + '" -e "' + script + '"'
+  }
+
+  it('runs exec over a ProxyCommand and drops it with the pooled connection', async () => {
+    // A deliberately unreachable HostName: OpenSSH semantics say a
+    // ProxyCommand replaces the direct TCP connection entirely.
+    addHost('via-proxy', { host: '10.255.255.1', proxyCommand: bridgeCommand() })
+    const result = await engine.exec('via-proxy', 'echo hello')
+    expect(result.success).toBe(true)
+    expect(result.stdout.trim()).toBe('hello')
+    engine.dropAlias('via-proxy')
+    expect(engine.pool.has('via-proxy')).toBe(false)
+  }, 15_000)
+
+  it('surfaces a failing ProxyCommand instead of waiting for the handshake timeout', async () => {
+    addHost('proxy-broken', { proxyCommand: 'definitely-not-a-real-binary-xyz' })
+    await expect(engine.exec('proxy-broken', 'true')).rejects.toThrow(/ProxyCommand/)
+  }, 15_000)
+})
+
 describe('key auth', () => {
   it('connects with a generated private key', async () => {
     addHost('key-auth', { auth: { kind: 'key', keyPath: server.keyPair.privateKey } })

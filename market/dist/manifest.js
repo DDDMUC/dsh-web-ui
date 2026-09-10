@@ -90,6 +90,23 @@ window.SKIN_MANIFEST = {
       }
     },
     {
+      "id": "blueprint",
+      "name": "工程蓝图",
+      "nameEn": "Blueprint",
+      "author": "stushansusu",
+      "tagline": "图纸母题 · 两套材质：夜图青线 / 暖纸墨线 · 图签栏与标尺刻度",
+      "description": "以工程图纸为视觉母题，明暗两套主题各自成篇。暗色是「夜图」：深靛蓝纸底、蓝图青线稿、荧光扫描线与四角衰减；亮色是「暖纸」：米黄纸底、墨褐线稿、纸张纤维纹理与边缘烧色，界面零纯白、零冷色，长时间阅读不刺眼。两层 HUD 做成图纸的标题栏与状态栏，含图号、比例、修订号、网格规格、实时坐标读数与标尺刻度，另有一枚主题化 favicon。背景人物为线稿：轮廓加重、内部以状态栏同款 24px 方格线填充。交互控件保留官方几何，只在配色、描边与标注层上做文章。",
+      "accent": "#4fd1ff",
+      "preview": {
+        "light": "assets/skins/blueprint/preview/light.jpg",
+        "dark": "assets/skins/blueprint/preview/dark.jpg"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css"
+      }
+    },
+    {
       "id": "xp",
       "name": "Windows XP (Luna)",
       "nameEn": "Windows XP Luna",
@@ -131,6 +148,33 @@ window.SKIN_MANIFEST = {
             "type": "image",
             "src": "assets/skins/dragon-heir/assets/dark-art.webp",
             "scrim": "linear-gradient(rgba(10, 6, 6, 0.14) 0%, rgba(14, 8, 7, 0.2) 60%, rgba(9, 5, 5, 0.24) 100%)"
+          }
+        }
+      }
+    },
+    {
+      "id": "cafe-roastery",
+      "name": "咖啡工坊",
+      "nameEn": "Cafe Roastery",
+      "author": "stushansusu",
+      "tagline": "拿铁奶油 / 浓缩焦糖 · 两套暖色材质 · 蒸汽与咖啡杯",
+      "description": "以烘焙咖啡馆为视觉母题，明暗两套主题各自成篇。暗色是「浓缩」：深烘焙咖啡豆色面板、焦糖/奶油黄的高亮与描边，像深夜还在营业的烘焙间；亮色是「拿铁」：奶泡米白面板、暖咖啡墨水文字、焦糖色交互，界面零纯白、零冷色。空会话首屏有一圈咖啡杯口的「奶泡罗塞塔」与上升的蒸汽，输入卡片做成熟纸杯套的样式，侧栏是烘焙工作台墙面。纯 CSS 实现，无 hooks，无图片资产。",
+      "accent": "#e2a84e",
+      "preview": {
+        "light": "assets/skins/cafe-roastery/preview/light.png",
+        "dark": "assets/skins/cafe-roastery/preview/dark.png"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/skins/cafe-roastery/assets/bg-final-latte.png"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/skins/cafe-roastery/assets/bg-final-espresso.png"
           }
         }
       }

@@ -206,10 +206,20 @@ describe('hosts CRUD (one handler per path)', () => {
     expect(authPatch.status).toBe(200)
     expect(stub.dropAliasCalls).toEqual(['web-01'])
 
+    // A transport change (ProxyCommand) is just as connection-relevant.
+    const proxyPatch = await fetch('http://127.0.0.1:' + port + SSH_API.hosts + '?alias=web-01', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ proxyCommand: 'corp proxy %h %p' }),
+    })
+    expect(proxyPatch.status).toBe(200)
+    expect(store.find('web-01')?.proxyCommand).toBe('corp proxy %h %p')
+    expect(stub.dropAliasCalls).toEqual(['web-01', 'web-01'])
+
     const del = await fetch('http://127.0.0.1:' + port + SSH_API.hosts + '?alias=web-01', { method: 'DELETE' })
     expect(del.status).toBe(200)
     expect(store.list()).toHaveLength(0)
-    expect(stub.dropAliasCalls).toEqual(['web-01', 'web-01'])
+    expect(stub.dropAliasCalls).toEqual(['web-01', 'web-01', 'web-01'])
   })
 
   it('rejects unknown methods on the hosts path with 405', async () => {

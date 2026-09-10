@@ -19,6 +19,11 @@ export const REVIEWED_SKIN_HOOKS: Readonly<Record<string, ReviewedSkinHooksIdent
     manifestSha256: "b22cc82145e1f90f4257af1411724e34a99513761290980fb5f8d25727809808",
     hooksSha256: "21ac2ad4d4423acf31e3391bfba18ce2d9eec7b192f7a0ba47e8a0c843ff15a5",
   },
+  "blueprint": {
+    entry: "hooks.mjs",
+    manifestSha256: "e36d9d53aae73c4693e36fc2e130bca2996cda6dcd8f80917627897774232a3e",
+    hooksSha256: "4f6c7db598e72469920d1dbafd5c20cec39f435f225220ffc860636523ed70bb",
+  },
   "cyber-night": {
     entry: "hooks.mjs",
     manifestSha256: "38de22962a80602c22910324e7c5fec171342363760972b7421debeb628d8508",
