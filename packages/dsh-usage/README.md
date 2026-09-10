@@ -17,7 +17,9 @@ Supported balance endpoints: DeepSeek (the official live route `deepseek-officia
 
 ### Spend estimate scope
 
-Today's spend is an estimate priced at fold time from the published DeepSeek V4 peak/off-peak price book (CNY per million tokens; peak = the windows above, off-peak half of peak). It covers the official DeepSeek routes only — relay traffic billed elsewhere (ZenMux, SiliconFlow, ...) stays unpriced — and unknown DeepSeek model ids take the flash-class row. Buckets recorded before a price change keep the old pricing, so a price-book update is reflected from the moment it ships, not retroactively.
+Today's spend is an estimate priced at fold time from the published DeepSeek peak/off-peak price book (CNY per million tokens; peak = the windows above, off-peak half of peak). The rows in force are `deepseek-flash` (DeepSeek-V4.1-Flash) and `deepseek-v4-pro`: the retired flash ids (`deepseek-v4-flash`, `deepseek-v4-flash-vision-exp`) bill the flash row, and `deepseek-v4-pro` moves to that row once DeepSeek routes the id to V4.1-Flash on 2026-09-14 12:00 Beijing.
+
+It covers the official DeepSeek routes only — relay traffic billed elsewhere (ZenMux, SiliconFlow, ...) stays unpriced — and unknown DeepSeek model ids take the flash-class row. Buckets recorded before a price change keep the old pricing, so a price-book update is reflected from the moment it ships, not retroactively.
 
 ## Install
 

@@ -28,3 +28,4 @@ Two defects and one missing surface in the dsh-usage pet linkage, reported toget
 - The spend estimate covers official DeepSeek routes only; relayed deepseek traffic (ZenMux, SiliconFlow) is unpriced, and unknown DeepSeek model ids take the flash-class row (documented in the README).
 - Pet announcements older than the new ceiling contract (pre-upgrade dsh-pet + post-upgrade dsh-usage) would clamp to 60 s — both halves ship in this repository together, and the mixed-version window only shortens the bubble, never breaks it.
 - Historical days before this change carry `cost: 0`; today-spend counts from the first post-update fold.
+- The price rows themselves are a shipped snapshot: [the V4.1-Flash price-book refresh](2026-09-10-deepseek-v41-flash-price-book.md) owns their current values and the `deepseek-v4-pro` routing fence.

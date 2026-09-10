@@ -17,7 +17,9 @@ dsh Web GUI 的使用统计插件：多 provider 余额与编程套餐用量检�
 
 ### 消费估算口径
 
-今日消费是折叠时刻按 DeepSeek V4 公布的峰谷价目表（CNY / 百万 tokens；高峰即上表时段，空闲为高峰一半）做出的估算，仅覆盖 DeepSeek 官方路由——其他渠道转发的流量（ZenMux、SiliconFlow 等）不计价；未识别的 DeepSeek 模型 id 按 flash 档估算。价目表调整前记录的桶保留旧价，因此调价从发布时点起生效，不追溯历史数据。
+今日消费是折叠时刻按 DeepSeek 公布的峰谷价目表（CNY / 百万 tokens；高峰即上表时段，空闲为高峰一半）做出的估算。当前生效的是 `deepseek-flash`（DeepSeek-V4.1-Flash）与 `deepseek-v4-pro` 两档：已下线的 flash 系列 id（`deepseek-v4-flash`、`deepseek-v4-flash-vision-exp`）按 flash 档计价，`deepseek-v4-pro` 在北京时间 2026-09-14 12:00 被 DeepSeek 路由到 V4.1-Flash 后同样按该档计价。
+
+估算仅覆盖 DeepSeek 官方路由——其他渠道转发的流量（ZenMux、SiliconFlow 等）不计价；未识别的 DeepSeek 模型 id 按 flash 档估算。价目表调整前记录的桶保留旧价，因此调价从发布时点起生效，不追溯历史数据。
 
 ## 安装
 
