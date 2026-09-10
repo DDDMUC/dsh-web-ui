@@ -45,7 +45,7 @@
 | `data-dsh-wallpaper-active` | html + body（body/html 级，另行管理） | WE 壁纸挂载期间置 `true`，卸载 / 禁用清除；供皮肤 CSS 与壁纸中和规则锚定（#734） |
 | `data-dsh-wallpaper-surface` | 官方 shell 全视口背景元素 + 侧栏工作区淡化条（元素级） | `WallpaperController.markWallpaperSurfaces()` 在 WE 壁纸挂载期间打标（全视口 bg-base 背景 + `data-slot="sidebar.workspaces"` 内渐变淡化条），命中 `html[data-dsh-wallpaper-active] [data-dsh-wallpaper-surface]` 中和；卸载清除，不含哈希类依赖（#734） |
 
-## part 组（71 行，含各 owner 行）
+## part 组（73 行，含各 owner 行）
 
 shell 区域（owner: shell）：
 
@@ -113,13 +113,15 @@ family / 插件区域：
 | `bubble` | miku-pet | 对话气泡；`[data-dsh-part="bubble"]` |
 | `float` | miku-pet | 互动飘字；`[data-dsh-part="float"]` |
 | `header` | usage | 使用统计分区头部（当前提供方 + 刷新钮）；`[data-dsh-plugin="usage"] [data-dsh-part="header"]` |
-| `tabs` / `tab` | usage | 用量/个人套餐页签；`[role="tablist"]` / `[role="tab"]` |
+| `tabs` / `tab` | usage | 用量/个人套餐/Token 银行页签；`[role="tablist"]` / `[role="tab"]` |
 | `today-card` | usage | 今日用量统计卡；`[data-dsh-part="today-card"]` |
 | `provider-list` / `provider-row` | usage | 今日分 provider 用量列表 / 余额行；卡片内行容器 |
 | `balance-card` | usage | 各 provider 余额卡；`[data-dsh-part="balance-card"]` |
 | `trend-card` / `usage-chart` | usage | 近 30 天卡 / 其中的提供方-模型条形图；`[data-dsh-part="trend-card"]` 内 `[data-dsh-part="usage-chart"]` |
 | `settings-row` | usage | 插件设置行；`[data-dsh-part="settings-row"]` |
 | `plan-card` / `plan-window` | usage | 套餐卡 / 套餐窗口行（个人套餐页签）；`[data-dsh-part="plan-card"]` 内窗口行 |
+| `bank-card` | usage | Token 银行卡（鲸元券，无官方用量时为空状态）；`[data-dsh-part="bank-card"]` |
+| `voucher-preview` | usage | 票面 canvas 容器；bank-card 内 `[data-dsh-part="voucher-preview"]` |
 | `panel` | model-capabilities | 提供方卡片能力扩展区根；`[data-dsh-plugin="model-capabilities"][data-dsh-part="panel"]` |
 | `toggle` | model-capabilities | 扩展区折叠头按钮；panel 内 `button[data-dsh-part="toggle"]` |
 | `model-row` / `model-toggle` | model-capabilities | 逐模型能力行与其展开按钮；panel 内 `li[data-dsh-part="model-row"]` 及其中 `button[data-dsh-part="model-toggle"]` |

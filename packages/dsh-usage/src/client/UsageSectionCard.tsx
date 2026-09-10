@@ -1,20 +1,22 @@
 /**
- * The usage statistics settings section: two tabs (用量: today's usage,
- * balances, trend; 个人套餐: per-provider plan quota windows) plus a compact
- * settings row. Data comes from the host's loopback-fenced
+ * The usage statistics settings section: three tabs (用量: today's usage,
+ * balances, trend; 个人套餐: per-provider plan quota windows; Token 银行:
+ * the whale-yuan voucher minted from the DeepSeek official family's usage)
+ * plus a compact settings row. Data comes from the host's loopback-fenced
  * /api/dsh-usage/overview document; polling runs only while the section is
  * mounted and the tab is visible.
  * @module @linxin666/dsh-usage/client/UsageSectionCard
  */
 
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { UsageStoreInstance } from './usage-store.ts'
 import { t } from './locales.ts'
 import styles from './usage.module.css'
 import { isDeepSeekProviderRoute } from '../core/adapters.ts'
 import { deepseekPeriodAt } from '../core/pricing.ts'
-import type { ProviderSnapshotView, UsageOverviewView, UsageProviderSummary, UsageTokenTotals } from '../core/types.ts'
+import { deepseekVoucherData, drawVoucher, loadVoucherArt } from './voucher.ts'
+import type { ProviderSnapshotView, UsageOverviewView, UsageProviderSummary, UsageTokenTotals, UsageWindowSummary } from '../core/types.ts'
 
 /** The settings fields this section edits (immediate-apply semantics). */
 export interface UsageSettings {
@@ -150,7 +152,7 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
   const ui = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const settingsSnapshot = settings.getSnapshot()
   const settingsValue = settingsSnapshot.value ?? {}
-  const [tab, setTab] = useState<'usage' | 'plans'>('usage')
+  const [tab, setTab] = useState<'usage' | 'plans' | 'bank'>('usage')
   const [refreshing, setRefreshing] = useState(false)
 
   // Poll while mounted and visible; the overview is cheap (no probes — the
@@ -234,6 +236,9 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
         <button type="button" role="tab" aria-selected={tab === 'plans'} className={tab === 'plans' ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setTab('plans')}>
           {t('usage.tab.plans')}
         </button>
+        <button type="button" role="tab" aria-selected={tab === 'bank'} className={tab === 'bank' ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setTab('bank')}>
+          {t('usage.tab.bank')}
+        </button>
       </div>
 
       {tab === 'usage' && (
@@ -299,6 +304,8 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
           ? <div className={styles.card}><span className={styles.muted}>{t('usage.plan.noneConfigured')}</span></div>
           : planProviders.map((provider) => <PlanCard key={provider.provider} provider={provider} current={current.provider} />)
       )}
+
+      {tab === 'bank' && <VoucherCard window={snapshot.usage.all ?? snapshot.usage.range} />}
     </div>
   )
 }
@@ -370,6 +377,98 @@ function ChartProviderRow(props: { row: UsageProviderSummary; name: string; max:
 
 function totalOf(totals: UsageTokenTotals): number {
   return totals.inputTokens + totals.cacheReadTokens + totals.cacheWriteTokens + totals.outputTokens
+}
+
+/**
+ * The Token 银行 card: the DeepSeek official family's retained-ledger usage
+ * minted onto the whale-yuan note. The window prefers the host's
+ * whole-ledger aggregate and falls back to the 30-day trend when an older
+ * host serves no `all`; the artwork draw failure degrades to an error line
+ * and never takes the section down.
+ */
+function VoucherCard(props: { window?: UsageWindowSummary }): ReactNode {
+  const { window: ledger } = props
+  const data = deepseekVoucherData(ledger)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [drawError, setDrawError] = useState<string | undefined>(undefined)
+  const dataKey = data === undefined ? '' : `${data.from}|${data.to}|${data.tokens}|${data.calls}|${data.cost}`
+
+  useEffect(() => {
+    if (data === undefined) return
+    const voucher = data
+    let cancelled = false
+    loadVoucherArt().then((art) => {
+      if (cancelled) return
+      const canvas = canvasRef.current
+      if (canvas !== null) {
+        try {
+          drawVoucher(canvas, art, voucher)
+        } catch (error) {
+          if (!cancelled) setDrawError(error instanceof Error ? error.message : String(error))
+        }
+      }
+    }, (error) => {
+      if (!cancelled) setDrawError(error instanceof Error ? error.message : String(error))
+    })
+    return () => {
+      cancelled = true
+    }
+  // dataKey covers every field the draw and the buttons read.
+  }, [dataKey])
+
+  const onSave = (): void => {
+    const canvas = canvasRef.current
+    if (canvas === null || data === undefined) return
+    canvas.toBlob((blob) => {
+      if (blob === null) return
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `dsh-whale-voucher-${data.to}.png`
+      anchor.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    }, 'image/png')
+  }
+
+  const shareSupported = typeof navigator !== 'undefined' && typeof navigator.canShare === 'function'
+  const onShare = (): void => {
+    const canvas = canvasRef.current
+    if (canvas === null || data === undefined || !shareSupported) return
+    canvas.toBlob(async (blob) => {
+      if (blob === null) return
+      const file = new File([blob], `dsh-whale-voucher-${data.to}.png`, { type: 'image/png' })
+      if (!navigator.canShare({ files: [file] })) return
+      try {
+        await navigator.share({ files: [file], title: t('usage.bank.title') })
+      } catch {
+        // A user-cancelled share sheet rejects; nothing to report.
+      }
+    }, 'image/png')
+  }
+
+  return (
+    <div className={styles.card} data-dsh-part="bank-card">
+      <span className={styles.cardTitle}>{t('usage.bank.title')}</span>
+      {data === undefined
+        ? <span className={styles.muted}>{t('usage.bank.noUsage')}</span>
+        : <>
+            <span className={styles.muted}>{t('usage.bank.hint')}</span>
+            <div className={styles.voucherPreview} data-dsh-part="voucher-preview">
+              <canvas ref={canvasRef} aria-label={t('usage.bank.title')} />
+            </div>
+            {drawError !== undefined && <span className={styles.errorLine}>{t('usage.bank.drawError', { error: drawError })}</span>}
+            <div className={styles.providerRow}>
+              <span className={styles.providerName}>{t('usage.bank.minted', { tokens: formatTokens(data.tokens), cost: data.cost.toFixed(2) })}</span>
+              <span className={styles.providerTokens}>{t('usage.calls', { n: data.calls })}</span>
+            </div>
+            <span className={styles.muted}>{t('usage.bank.window', { from: data.from, to: data.to })}</span>
+            <div className={styles.buttonRow}>
+              <button type="button" className={styles.refreshBtn} onClick={onSave}>{t('usage.bank.save')}</button>
+              {shareSupported && <button type="button" className={styles.refreshBtn} onClick={onShare}>{t('usage.bank.share')}</button>}
+            </div>
+          </>}
+    </div>
+  )
 }
 
 function PlanCard(props: { provider: ProviderSnapshotView; current?: string }): ReactNode {

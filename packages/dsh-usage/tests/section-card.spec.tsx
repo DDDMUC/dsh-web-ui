@@ -93,3 +93,46 @@ describe('UsageSectionCard configured-provider filter', () => {
     expect(screen.getByText('没有已配置的套餐类 provider（如 Kimi、GLM、OpenCode Go、MiniMax、Codex 订阅）')).toBeTruthy()
   })
 })
+
+describe('Token 银行 tab', () => {
+  it('shows the empty state when the DeepSeek official family has no usage', () => {
+    render(<UsageSectionCard {...cardProps(overview([]))} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Token 银行' }))
+    expect(screen.getByText('暂无 DeepSeek 官方用量数据（统计自插件启用起）')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '保存图片' })).toBeNull()
+  })
+
+  it('mints the voucher from the whole-ledger family rows and offers save (no share without navigator.canShare)', () => {
+    const snapshot = overview([])
+    snapshot.usage.all = {
+      from: '2025-12-01',
+      to: '2026-01-01',
+      totals: emptyTotals(),
+      providers: [
+        { provider: 'deepseek', totals: { ...emptyTotals(), inputTokens: 1_000_000, outputTokens: 234_567, calls: 12, cost: 3.5 }, models: [] },
+        { provider: 'kimi-coding', totals: { ...emptyTotals(), inputTokens: 999_999, calls: 5 }, models: [] },
+      ],
+    }
+    render(<UsageSectionCard {...cardProps(snapshot)} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Token 银行' }))
+    expect(screen.getByText('累计铸造 1.23M tokens（约 ¥3.50）')).toBeTruthy()
+    expect(screen.getByText('12 次调用')).toBeTruthy()
+    expect(screen.getByText('统计窗口 2025-12-01 ~ 2026-01-01')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '保存图片' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '分享' })).toBeNull()
+  })
+
+  it('falls back to the 30-day trend window when an older host serves no all aggregate', () => {
+    const snapshot = overview([])
+    snapshot.usage.range = {
+      from: '2026-01-01',
+      to: '2026-01-01',
+      totals: emptyTotals(),
+      providers: [{ provider: 'deepseek-official', totals: { ...emptyTotals(), inputTokens: 5000, calls: 2, cost: 0.01 }, models: [] }],
+    }
+    render(<UsageSectionCard {...cardProps(snapshot)} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Token 银行' }))
+    expect(screen.getByText('统计窗口 2026-01-01 ~ 2026-01-01')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '保存图片' })).toBeTruthy()
+  })
+})

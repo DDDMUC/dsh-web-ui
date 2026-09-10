@@ -307,8 +307,10 @@ export class UsageService {
       })
     }
     providers.sort((a, b) => Number(b.supported) - Number(a.supported) || a.displayName.localeCompare(b.displayName))
-    const days = ledgerDayKeys(this.ledger).slice(-TREND_DAYS)
+    const allKeys = ledgerDayKeys(this.ledger)
+    const days = allKeys.slice(-TREND_DAYS)
     const range = summarizeDays(days.map((key) => this.ledger.days[key] ?? {}))
+    const all = summarizeDays(allKeys.map((key) => this.ledger.days[key] ?? {}))
     return {
       updatedAt: Date.now(),
       providers,
@@ -324,6 +326,12 @@ export class UsageService {
           to: days[days.length - 1] ?? todayKey,
           totals: range.totals,
           providers: range.providers,
+        },
+        all: {
+          from: allKeys[0] ?? todayKey,
+          to: allKeys[allKeys.length - 1] ?? todayKey,
+          totals: all.totals,
+          providers: all.providers,
         },
       },
     }
