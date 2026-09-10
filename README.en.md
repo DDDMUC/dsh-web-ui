@@ -33,13 +33,13 @@
 
 <div align="center">
 
-[What It Is](#what-it-is) · [Workshop](#workshop-dsh-marketcom) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
+[What It Is](#what-it-is) · [DSH Desktop](#dsh-desktop-desktop-client) · [Workshop](#workshop-dsh-marketcom) · [Feature Plugins](#feature-plugins) · [Skins](#skins) · [Quick Start](#quick-start) · [FAQ](#faq) · [Known Limitations](#known-limitations) · [Community](#community)
 
 </div>
 
 ## What It Is
 
-dsh-web is the aggregate plugin ecosystem for the DeepSeek Harness (DSH) Web GUI — the most complete realization of "everything is development, everything is a plugin" on the web: the task board, mobile remote control, SSH ops, image understanding, custom model capabilities, the LiangShen anchored agent preset, rescue mode and the right panel each ship as an independent, self-contained plugin — pluggable, swappable, re-developable. Install the whole family to assemble a complete AI dev workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate can even bolt on external plugins like `dsh-better-sidebar`, while other skin and pet assets come from the Workshop — see the [dsh-web-all README](packages/dsh-web-all/README.md).
+dsh-web is the aggregate plugin ecosystem for the DeepSeek Harness (DSH) Web GUI — the most complete realization of "everything is development, everything is a plugin" on the web: the task board, mobile remote control, SSH ops, image understanding, custom model capabilities, session archive management and the right panel each ship as an independent, self-contained plugin — pluggable, swappable, re-developable. Install the whole family to assemble a complete AI dev workbench, or pick one or two and they melt quietly into the stock UI. Everything mounts into `dsh web` through the official profile mechanism, no DSH source changes; the aggregate can even bolt on external plugins like `dsh-better-sidebar`, while other skin and pet assets come from the Workshop — see the [dsh-web-all README](packages/dsh-web-all/README.md).
 
 Skins live inside the same plugin system: a v2 skin is not a standalone product but a pure asset pack of the skins plugin (a skin.json manifest plus styles, art and optional effect scripts), loaded on demand by that plugin, the single loader — official upgrades no longer touch any skin, and adding one means dropping in a directory: no publish, no install. Plugins own the logic, skin assets own the look; Blue Fantasy ships with the plugin, while other skin and pet assets are distributed through the [Workshop](#workshop-dsh-marketcom) (dsh-market.com).
 
@@ -55,7 +55,19 @@ Skins live inside the same plugin system: a v2 skin is not a standalone product 
 | Image understanding | None | `describe_image` vision tool |
 | File preview & changes | None | Right panel: explorer / editor / terminal / git / browser |
 | Git visualization | None | Branch picker + commit history graph |
+| Session archive | None | Browse and filter every session, batch archive / restore / delete with automatic policies |
 | Themes & skins | Default theme | Blue Fantasy ships with the skins plugin; other skins install from the Workshop |
+
+## DSH Desktop (Desktop Client)
+
+DSH Desktop turns the DeepSeek Harness Web GUI into an installable desktop app for macOS and Windows: the installer bundles a standalone Node.js runtime (with npm and pnpm), the dsh host, and a preinstalled web profile (the official web bundles plus the dsh-web family), so it works on double-click with no Node, npm or dsh CLI setup. Installers ship as the `dsh-desktop-*` assets of every [Release](https://github.com/zhu1090093659/dsh-web/releases) (macOS dmg / zip, Windows exe / zip).
+
+- **Own host, dedicated ports**: the app starts its own dsh host with the bundled runtime on the 3082-3181 port range and never binds the plain `dsh web` defaults 3080/3081; the desktop instance and your own `dsh web` run side by side, each with its own session.
+- **Shared `~/.dsh`**: it uses the same data home as the dsh CLI (config, sessions, keys); a profile the app seeded carries a marker and is re-seeded when the bundled runtime changes while keeping your patch layer, and user-managed profiles are never touched.
+- **In-app plugin management**: `dsh plugin add/remove` forwards to the bundled pnpm, so installing plugins needs no external toolchain.
+- **Startup failures are self-diagnosing**: a missing payload, a host that exits before ready, or a ready timeout lands on an error page with the host log tail, a retry button, and a direct way to open the log file.
+
+Installers are unsigned for now: macOS shows the Gatekeeper warning on first open (right-click → Open), Windows shows SmartScreen (More info → Run anyway). Build steps, configuration, the security model and known limitations live in the [desktop README](desktop/README.md).
 
 ## Workshop (dsh-market.com)
 
@@ -131,14 +143,6 @@ It also grows git worktree parallel sessions: "Start a new session in a worktree
 
 ![Git worktree parallel sessions](docs/screenshots/34-git-worktree.png)
 
-### LiangShen Mode (Anchored Agent Preset)（梁神模式）
-
-LiangShen Mode (`dsh-liangshen`) is a two-phase anchored agent preset that installs with the family bundle: pick "梁神模式" in the preset picker of a new session. The first model request sees only the builtin Minimal preset's exact two tools (persistent `bash` and `str_replace_editor`) plus a one-line persona — no runtime context, no injected instructions. After the first tool call, promotion waits for the first minimal-like reasoning block, then the wire switches to PTC Mode (a single `run_code` backed by the full tool registry through a generated SDK) and every prompt section and ordinary injection returns. It separates the first-trajectory choice from full later capability: in the community eval, Standard / PTC scored 91/92 while Minimal reached 99/96, and the two-phase setup measures a 98.5 mean on native Windows without sacrificing tool capability. The phase derives from persisted session events, so resume never loses state, and plan mode is supported. See the [dsh-liangshen README](packages/dsh-liangshen/README.md) for the rationale and stabilization controls.
-
-### Rescue Mode（救助模式）
-
-Rescue mode (`dsh-doctor`) is a transactional rescue system for DSH profiles, **on by default**: a user-level Doctor Supervisor service and a transparent Doctor Launcher maintain an isolated rescue capsule, detecting boot failures, process crashes, heartbeat loss, web faults and browser white-screens. Every repair is a transaction: snapshot the current profile, apply deterministic rules in a candidate environment, pass isolated dump-config and web health gates, then promote atomically — or roll back byte-for-byte. Profiles change only through the official `dsh plugin` command, and no unverified `latest` is ever installed. The web console (the Doctor card under Settings → Plugin config → Web Plugins) shows fault events with diagnose, repair and rollback actions; "Send to Harness" composes the latest fault's summary and error stack into a troubleshooting prompt delivered back into the current session so your agent can diagnose in place. The Supervisor listens only on a local socket (0600 token) and the web API is loopback-only; see the [dsh-doctor README](packages/dsh-doctor/README.md) for the security model and the `dsh-doctor` CLI.
-
 ### Session Archive Manager（会话归档管理）
 
 The Session Archive Manager (`dsh-session-archive`) is a built-in session management surface shipped with the family bundle: see every session in one place (active / archived / blank / sub-agent / workspace-less / historical rows with incomplete metadata), filter and search by status, workspace, title or ID, sort multiple ways, multi-select across the complete filtered result set, and batch archive, restore, or physically delete. Physical delete follows cascade semantics (a parent goes with all of its descendants), shows the direct count, cascade count, final total, estimated freed space and the protected sessions that will be skipped, and requires an extra acknowledgement for large deletes; running sessions, the session you are viewing, and sessions with running children are always protected. Two default-off automatic policies archive by last-activity time and purge expired archives by recorded archive time (historical archives with unknown archive time are never auto-deleted), each with a pre-enable preview and a run-now button. Deletion is unrecoverable; every route is loopback-only. See the [dsh-session-archive README](packages/dsh-session-archive/README.md).
@@ -147,7 +151,6 @@ The Session Archive Manager (`dsh-session-archive`) is a built-in session manage
 
 - **Skill center** (`dsh-client-ui-skill-explorer`): browse loaded skills by source, with a search box that filters by name or description as you type and stacks with the workspace picker (each workspace presented separately); enable, disable, create and delete.
 - **Plugin manager** (`dsh-client-ui-plugin-manager`): install plugins from npm or git through the official host channels; manage enablement and configuration.
-- **External archive manager** (external plugin [@mlgbnb/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager)): not used. Its upstream build still imports the removed `@deepseek-ai/dsh-client-runtime` face and stays out of the alpha.2 family bundle; session archiving is covered by the built-in Session Archive Manager above, and the external plugin is re-evaluated only if upstream ships an alpha.2-compatible build.
 
 ### Skins
 
@@ -169,9 +172,9 @@ Classic Blue Fantasy is the default skin shipped with the skins plugin: whale ar
   2. Restart `dsh web`, every plugin entry appears in the sidebar
   3. Open "Settings > Plugin config" to toggle plugins, or try on skins in the skins panel
 - **DSH Desktop (Desktop Client)**:
-  1. Install the aggregate package: `dsh plugin --profile desktop add @linxin666/dsh-web-all@latest`
-  2. Verify bundle mount: `dsh --profile desktop --dump-config`
-  3. Fully quit and restart the DSH Desktop application to see all plugin and skin entries
+  1. Download the `dsh-desktop-*` installer for your platform from [Releases](https://github.com/zhu1090093659/dsh-web/releases) (macOS dmg / zip, Windows exe / zip)
+  2. Install and launch: the bundled runtime and the whole family ship inside the installer, so nothing needs to be preinstalled
+  3. Add or remove plugins with the in-app plugin manager, or toggle them in the settings panel
 
 > Skins only? Install `@linxin666/dsh-client-ui-skin-center`. If you ended up with an old version (pnpm 11's release-age gate), see "Install Troubleshooting" below.
 
@@ -216,7 +219,7 @@ dsh web
 
 ### Upgrade from the legacy aggregate
 
-Profiles still mounted on `@linxin666/dsh-web-ui-all` do not need a manual remove-then-add step. With Doctor enabled, the Doctor Launcher detects the legacy aggregate before starting DSH and runs a transactional migration: installs `@linxin666/dsh-web-all`, removes the legacy package, preserves the existing `web-ui-*` rows and bundle order, and passes a `--dump-config` preflight before continuing. Launch through `dsh-doctor launch` or the Doctor service; a bare `dsh web` does not pass through this preflight.
+Profiles still mounted on `@linxin666/dsh-web-ui-all` do not need a manual remove-then-add step: the plugin manager's update check recognizes that row as a migration (`@linxin666/dsh-web-ui-all` → `@linxin666/dsh-web-all`) and the update action runs it as a transaction — remove the legacy package, install the new one, keep the existing bundle order, verify with a `--dump-config` preflight, and roll back automatically if any step fails. The migration first checks the DSH version the new aggregate declares and asks you to upgrade DSH when the host is too old.
 
 ### Install a Single Plugin
 
@@ -228,8 +231,7 @@ dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # Rem
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # Image understanding tool
 dsh plugin --profile web add @linxin666/dsh-client-ui-model-capabilities@latest  # Model capabilities (image input and reasoning efforts)
 dsh plugin --profile web add @linxin666/dsh-pet@latest                     # Whale-girl pet
-dsh plugin --profile web add @linxin666/dsh-liangshen@latest               # LiangShen mode (two-phase anchored preset, pick in new sessions)
-dsh plugin --profile web add @linxin666/dsh-doctor@latest                  # Rescue mode (on by default, can be disabled in the Doctor card)
+dsh plugin --profile web add @linxin666/dsh-session-archive@latest         # Session archive manager
 dsh plugin --profile web add dsh-better-sidebar@latest                     # Right panel (recommended; explorer/editor/terminal/git/browser)
 ```
 
@@ -247,14 +249,13 @@ Every plugin is published on npm under the `@linxin666/dsh-*` scope and can be v
 | [@linxin666/dsh-tool-describe-image](https://www.npmjs.com/package/@linxin666/dsh-tool-describe-image) | `describe_image` vision tool |
 | [@linxin666/dsh-client-ui-model-capabilities](https://www.npmjs.com/package/@linxin666/dsh-client-ui-model-capabilities) | Model capabilities: per-model image input and reasoning efforts for custom providers, plus disable / re-enable |
 | [@linxin666/dsh-pet](https://www.npmjs.com/package/@linxin666/dsh-pet) | Registry-driven floating pet companion |
-| [@linxin666/dsh-liangshen](https://www.npmjs.com/package/@linxin666/dsh-liangshen) | LiangShen mode: two-phase anchored agent preset |
 | [@linxin666/dsh-client-ui-git-graph](https://www.npmjs.com/package/@linxin666/dsh-client-ui-git-graph) | Git branch selector and commit history graph |
 | [@linxin666/dsh-client-ui-skin-center](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skin-center) | Skins: the single loader for every skin, with skin assets installed on demand from the Workshop |
 | [@linxin666/dsh-client-ui-market](https://www.npmjs.com/package/@linxin666/dsh-client-ui-market) | Workshop card: browse skins / pets / plugins / presets from dsh-market.com and install with one click |
 | [@linxin666/dsh-client-ui-preset-center](https://www.npmjs.com/package/@linxin666/dsh-client-ui-preset-center) | Community presets: the Workshop's Presets panel plus install / enable / disable / uninstall |
 | [@linxin666/dsh-client-ui-plugin-manager](https://www.npmjs.com/package/@linxin666/dsh-client-ui-plugin-manager) | Plugin manager: install from npm or git, enable, disable and configure |
 | [@linxin666/dsh-client-ui-skill-explorer](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skill-explorer) | Skill center: browse, toggle and manage skills |
-| [@linxin666/dsh-doctor](https://www.npmjs.com/package/@linxin666/dsh-doctor) | Transactional rescue mode: repairs DSH profiles (on by default) |
+| [@linxin666/dsh-session-archive](https://www.npmjs.com/package/@linxin666/dsh-session-archive) | Session archive manager: browse, filter and batch archive / restore / delete |
 | [@linxin666/dsh-client-ui-community-plugins](https://www.npmjs.com/package/@linxin666/dsh-client-ui-community-plugins) | Community plugin data source: the market plugin list is generated from it |
 | [@linxin666/dsh-client-ui-web-ui-settings](https://www.npmjs.com/package/@linxin666/dsh-client-ui-web-ui-settings) | Settings section for the dsh-web plugin group |
 
@@ -380,11 +381,9 @@ This repository is licensed under [Apache-2.0](LICENSE). Third-party code merged
 
 **Plugins**
 
-- **dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-web-settings / dsh-doctor / dsh-ssh / dsh-skill-explorer / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-all** — authored by zhu1090093659, Apache-2.0 (zhu1090093659)
+- **dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-web-settings / dsh-ssh / dsh-skill-explorer / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-all** — authored by zhu1090093659, Apache-2.0 (zhu1090093659)
 - **dsh-tool-describe-image** — ported from [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image) (deepseek-harness `packages/vision/tool-describe-image`), Apache-2.0 (zhu1090093659)
-- **dsh-liangshen** — plugin body original; preset derives from the DeepSeek Harness builtin Minimal / Standard presets and [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard), Apache-2.0 (zhu1090093659) + MIT (preset derivations)
 - **dsh-better-sidebar** — external integrated plugin [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (right panel, npm dependency reference), MIT (omdsh-dev)
-- **dsh-archive-manager** — external integrated plugin [z953218350/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager) (settings-page archive manager, npm dependency reference), MIT (z953218350)
 - **dsh-ssh** — implemented against the capability list of [badseal/ssh-skill](https://github.com/badseal/ssh-skill); code is this repository's Apache-2.0 (zhu1090093659), the upstream capability list belongs to badseal/ssh-skill
 - **Community plugin index** — 37 external plugins with sources and licenses declared by their authors, registered in [community.json](packages/dsh-community-plugins/community.json), browsable in Settings → Community Plugins and on dsh-market.com
 

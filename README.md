@@ -33,13 +33,13 @@
 
 <div align="center">
 
-[是什么](#是什么) · [创意工坊](#创意工坊dsh-marketcom) · [功能插件](#功能插件) · [皮肤](#皮肤) · [快速上手](#快速上手) · [常见问题](#常见问题) · [已知限制](#已知限制) · [社区](#社区)
+[是什么](#是什么) · [DSH Desktop](#dsh-desktop桌面客户端) · [创意工坊](#创意工坊dsh-marketcom) · [功能插件](#功能插件) · [皮肤](#皮肤) · [快速上手](#快速上手) · [常见问题](#常见问题) · [已知限制](#已知限制) · [社区](#社区)
 
 </div>
 
 ## 是什么
 
-dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web plugin ecosystem），也是「一切皆开发、一切皆插件」理念在 Web 端最完整的落地：任务看板（task board）、移动端远程控制（mobile remote）、SSH 运维终端、图像理解（image understanding）、自定义模型能力（model capabilities）、梁神模式 agent 预设、救助模式（rescue mode）与右侧面板，每一样都是独立成包的插件，可插拔、可替换、可再开发——一次装齐便是完整的 AI 开发工作台，只挑一两个也能安静融入原生界面。所有插件都经官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；聚合包还能把外部插件（如 `dsh-better-sidebar`）拼进全家桶，其他皮肤与宠物资产统一从创意工坊获取，详见 [dsh-web-all README](packages/dsh-web-all/README.zh.md)。
+dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web plugin ecosystem），也是「一切皆开发、一切皆插件」理念在 Web 端最完整的落地：任务看板（task board）、移动端远程控制（mobile remote）、SSH 运维终端、图像理解（image understanding）、自定义模型能力（model capabilities）、会话归档管理与右侧面板，每一样都是独立成包的插件，可插拔、可替换、可再开发——一次装齐便是完整的 AI 开发工作台，只挑一两个也能安静融入原生界面。所有插件都经官方 profile 机制挂载到 `dsh web`，不改 DSH 源码；聚合包还能把外部插件（如 `dsh-better-sidebar`）拼进全家桶，其他皮肤与宠物资产统一从创意工坊获取，详见 [dsh-web-all README](packages/dsh-web-all/README.zh.md)。
 
 皮肤同样长在插件体系里：v2 皮肤不是独立产品，而是「皮肤」插件的纯资产包（skin.json 清单 + 样式、贴图与可选特效脚本），由该插件这一唯一加载器即时加载，与官方彻底解耦——官方升级不再牵动皮肤，新增皮肤也只需落一个目录，无需发布、无需安装。插件负责逻辑，皮肤资产负责外观；Blue Fantasy 随插件内置，其他皮肤与宠物资产统一走 [创意工坊](#创意工坊dsh-marketcom)（dsh-market.com）。
 
@@ -55,7 +55,19 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web 
 | 图像理解 | 无 | `describe_image` 视觉工具 |
 | 文件预览与变更 | 无 | 右侧面板：资源管理器 / 编辑器 / 终端 / Git / 浏览器 |
 | Git 可视化 | 无 | 分支选择器 + 提交历史图谱 |
+| 会话归档 | 无 | 集中查看与筛选全部会话，批量归档 / 恢复 / 删除，含自动策略 |
 | 主题皮肤 | 默认主题 | Blue Fantasy 随皮肤插件内置，其他皮肤从创意工坊按需安装 |
+
+## DSH Desktop（桌面客户端）
+
+DSH Desktop 把 DeepSeek Harness Web GUI 装进一个可安装的桌面应用（macOS / Windows）：安装包内置独立的 Node.js 运行时（含 npm 与 pnpm）、dsh 宿主和预装好的 web profile（官方 web bundle + dsh-web 全家桶），到手双击即用，不需要预装 Node、npm 或 dsh CLI。安装包随每个 [Release](https://github.com/zhu1090093659/dsh-web/releases) 的 `dsh-desktop-*` 资产分发（macOS dmg / zip，Windows exe / zip）。
+
+- **独立宿主、专用端口**：应用用内置运行时在 3082-3181 端口段启动自己的 dsh 宿主，不碰原生 `dsh web` 的 3080/3081；桌面实例与已有 `dsh web` 并存，各自持有独立会话。
+- **共享 `~/.dsh`**：与 dsh CLI 共用同一份数据目录（配置、会话、密钥）；应用自己播种的 profile 带标记，内置运行时升级时自动重新播种并保留用户的 patch 层，用户自管的 profile 永不触碰。
+- **应用内插件管理**：`dsh plugin add/remove` 转发给内置 pnpm，装插件不需要外部工具链。
+- **启动失败可自诊**：载荷缺失、宿主提前退出或就绪超时进入错误页，展示宿主日志尾部，可重试或直接打开日志文件。
+
+安装包当前未做代码签名：macOS 首次打开有 Gatekeeper 警告（右键 → 打开），Windows 有 SmartScreen 提示（更多信息 → 仍要运行）。构建步骤、配置项、安全模型与已知限制见 [desktop README](desktop/README.zh.md)。
 
 ## 创意工坊（dsh-market.com）
 
@@ -131,14 +143,6 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web 
 
 ![Git worktree 并行会话](docs/screenshots/34-git-worktree.png)
 
-### 梁神模式（LiangShen Anchored Preset）
-
-梁神模式（`dsh-liangshen`）是两阶段锚定的 agent preset，随全家桶一键安装：新建会话时在预设选择器中选「梁神模式」即可。首轮模型请求只看到官方 Minimal 的精确双工具（持久 `bash` 与 `str_replace_editor`）和一行 persona，没有运行时上下文与指令注入；首次工具调用后，晋升等到首个 minimal-like 推理块出现，随后 wire 切换为 PTC Mode（单个 `run_code` 经生成 SDK 调起完整工具注册表），并恢复全部 prompt section 与常规注入。它把「首轮轨迹选择」与「后续完整工具能力」拆开——社区评测里 Standard / PTC 为 91/92 分、Minimal 达 99/96 分，而两阶段方案在 Windows 原生实测均值 98.5，不牺牲完整工具能力；阶段从持久化 session events 推导，resume 不丢状态，已支持 plan mode。原理与稳定化控制详见 [dsh-liangshen README](packages/dsh-liangshen/README.zh.md)。
-
-### 救助模式（Rescue Mode）
-
-救助模式（`dsh-doctor`）是 DSH profile 的事务式救援体系，**默认开启**：用户级 Doctor Supervisor 后台服务与透明的 Doctor Launcher 维持一份隔离救援胶囊，检测启动失败、进程崩溃、心跳丢失、Web 故障与浏览器白屏。每次修复都是一个事务：快照当前 profile，在候选环境应用确定性规则，经隔离的 dump-config 与 Web 健康门禁后原子提升，失败按字节回滚——profile 只经官方 `dsh plugin` 命令修改，不安装未验证的 latest。Web 控制台（设置 → 插件配置 → Web 插件的 Doctor 卡片）展示故障事件，提供诊断、修复与回滚动作；「发送给 Harness」把最近一次故障的摘要与错误堆栈组合成排障提示词投回当前会话，让 agent 就地诊断。Supervisor 只监听本地 socket（0600 token），Web API 仅限 loopback；安全模型与 `dsh-doctor` CLI 详见 [dsh-doctor README](packages/dsh-doctor/README.zh.md)。
-
 ### 会话归档管理（Session Archive Manager）
 
 会话归档管理（`dsh-session-archive`）是内置的会话管理入口，随全家桶安装：集中查看全部会话（活跃 / 已归档 / 空白 / 子代理 / 无工作区 / 元数据缺失的历史会话），支持按状态、工作区、标题或 ID 搜索筛选与多维排序，跨完整筛选结果集的多选，以及批量归档、批量恢复与物理删除。物理删除走级联语义（父会话连同全部后代），展示直接选中数、级联数、最终总数、预计释放空间与将被跳过的受保护会话，大批量删除需额外知情确认；运行中、当前正在查看、有运行中后代的会话始终受保护。两个默认关闭的自动策略可按"最后活动时间"自动归档、按"归档时间"自动清理超期归档（归档时间未知的历史会话永不自动删除），支持启用前预览与立即执行。删除不可恢复；全部路由仅限本机回环访问。详见 [dsh-session-archive README](packages/dsh-session-archive/README.zh.md)。
@@ -147,7 +151,6 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web 
 
 - **Skill 中心**（`dsh-client-ui-skill-explorer`）：按来源浏览已加载的 skill，搜索框按名称或描述即时筛选并与工作区选择器叠用（多工作区各自呈现），支持启停、创建与删除。
 - **插件管理器**（`dsh-client-ui-plugin-manager`）：经官方 host 通道从 npm / git 安装插件，管理启停与配置。
-- **外部归档管理**（外部插件 [@mlgbnb/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager)）：不使用。其上游构建仍 import 已移除的 `@deepseek-ai/dsh-client-runtime` 面，alpha.2 全家桶不内置；会话归档需求由上方内置的「会话归档管理」承担，该外部插件仅在上游发布 alpha.2 兼容构建后再评估。
 
 ### 皮肤
 
@@ -169,9 +172,9 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的插件聚合生态包（DSH Web 
   2. 重启 `dsh web`，侧边栏出现全部插件入口
   3. 打开「设置 > 插件配置」按需开关插件，或在皮肤面板试穿皮肤
 - **DSH Desktop（桌面客户端）**：
-  1. 安装聚合包：`dsh plugin --profile desktop add @linxin666/dsh-web-all@latest`
-  2. 验证挂载：`dsh --profile desktop --dump-config`
-  3. 完全退出并重新启动 DSH Desktop 客户端应用，界面即可显示全部插件与皮肤入口
+  1. 从 [Releases](https://github.com/zhu1090093659/dsh-web/releases) 下载对应平台的 `dsh-desktop-*` 安装包（macOS dmg / zip、Windows exe / zip）
+  2. 安装并启动应用：内置运行时与全家桶随安装包就位，无需预装任何工具
+  3. 需要增减插件时用应用内的插件管理器，或在设置面板按需开关
 
 > 只要皮肤就装 `@linxin666/dsh-client-ui-skin-center`。若装到了旧版本（pnpm 11 的发布年龄门禁），见下方「安装排障」。
 
@@ -215,7 +218,7 @@ dsh web
 
 ### 从旧聚合包升级
 
-已有 profile 如果仍挂在 `@linxin666/dsh-web-ui-all`，不需要手动先删旧包再装新包。启用 Doctor 后，Doctor Launcher 会在启动 DSH 前检测该旧聚合包并自动执行事务迁移：先安装 `@linxin666/dsh-web-all`，再移除旧包，保留原有 `web-ui-*` 行和 bundle 顺序，并通过 `--dump-config` 预检后才继续启动。用户通过 `dsh-doctor launch` 或 Doctor 服务启动即可；裸 `dsh web` 不经过该 preflight。
+已有 profile 如果仍挂在 `@linxin666/dsh-web-ui-all`，不需要手动先删旧包再装新包：插件管理器的更新检查会把这一行识别为迁移项（`@linxin666/dsh-web-ui-all` → `@linxin666/dsh-web-all`），点更新即完成事务迁移——先移除旧包、再安装新包，保留原有 bundle 顺序，迁移后用 `--dump-config` 预检，任一步失败自动回滚。迁移前会校验新聚合包声明的 DSH 版本要求，宿主版本过低时先升级 DSH。
 
 ### 单独安装某个插件
 
@@ -227,8 +230,7 @@ dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # 远
 dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # 图像理解工具
 dsh plugin --profile web add @linxin666/dsh-client-ui-model-capabilities@latest  # 模型能力（图片输入与推理档位）
 dsh plugin --profile web add @linxin666/dsh-pet@latest                     # 鲸鱼娘宠物
-dsh plugin --profile web add @linxin666/dsh-liangshen@latest               # 梁神模式（两阶段锚定 preset，新建会话选择）
-dsh plugin --profile web add @linxin666/dsh-doctor@latest                  # 救助模式（默认开启，可在 Doctor 卡片关闭）
+dsh plugin --profile web add @linxin666/dsh-session-archive@latest         # 会话归档管理
 dsh plugin --profile web add dsh-better-sidebar@latest                     # 右侧面板（推荐；资源管理器/编辑器/终端/Git/浏览器）
 ```
 
@@ -246,14 +248,13 @@ dsh plugin --profile web add dsh-better-sidebar@latest                     # 右
 | [@linxin666/dsh-tool-describe-image](https://www.npmjs.com/package/@linxin666/dsh-tool-describe-image) | `describe_image` 视觉工具 |
 | [@linxin666/dsh-client-ui-model-capabilities](https://www.npmjs.com/package/@linxin666/dsh-client-ui-model-capabilities) | 模型能力：自定义供应商逐模型声明图片输入与推理档位，并停用 / 启用 |
 | [@linxin666/dsh-pet](https://www.npmjs.com/package/@linxin666/dsh-pet) | 注册表驱动的悬浮宠物 |
-| [@linxin666/dsh-liangshen](https://www.npmjs.com/package/@linxin666/dsh-liangshen) | 梁神模式：两阶段锚定 agent preset |
 | [@linxin666/dsh-client-ui-git-graph](https://www.npmjs.com/package/@linxin666/dsh-client-ui-git-graph) | Git 分支选择器与提交历史图谱 |
 | [@linxin666/dsh-client-ui-skin-center](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skin-center) | 皮肤：全部皮肤的唯一加载器，皮肤资产按需从创意工坊安装 |
 | [@linxin666/dsh-client-ui-market](https://www.npmjs.com/package/@linxin666/dsh-client-ui-market) | 创意工坊商店卡：浏览 dsh-market.com 的皮肤 / 宠物 / 插件 / 预设并一键安装 |
 | [@linxin666/dsh-client-ui-preset-center](https://www.npmjs.com/package/@linxin666/dsh-client-ui-preset-center) | 社区预设：创意工坊的预设面板，安装 / 启用 / 禁用 / 卸载社区 agent 预设 |
 | [@linxin666/dsh-client-ui-plugin-manager](https://www.npmjs.com/package/@linxin666/dsh-client-ui-plugin-manager) | 插件管理器：从 npm / git 安装、启停与配置 |
 | [@linxin666/dsh-client-ui-skill-explorer](https://www.npmjs.com/package/@linxin666/dsh-client-ui-skill-explorer) | Skill 中心：浏览 / 启停 / 管理 |
-| [@linxin666/dsh-doctor](https://www.npmjs.com/package/@linxin666/dsh-doctor) | 事务式救助模式：修复 DSH profile（默认开启） |
+| [@linxin666/dsh-session-archive](https://www.npmjs.com/package/@linxin666/dsh-session-archive) | 会话归档管理：集中查看、筛选与批量归档 / 恢复 / 删除 |
 | [@linxin666/dsh-client-ui-community-plugins](https://www.npmjs.com/package/@linxin666/dsh-client-ui-community-plugins) | 社区插件数据源：市场插件清单由它生成 |
 | [@linxin666/dsh-client-ui-web-ui-settings](https://www.npmjs.com/package/@linxin666/dsh-client-ui-web-ui-settings) | dsh-web 插件组设置区 |
 
@@ -379,11 +380,9 @@ A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe
 
 **插件**
 
-- **dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-web-settings / dsh-doctor / dsh-ssh / dsh-skill-explorer / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-all** — 本仓库原创（zhu1090093659），Apache-2.0（zhu1090093659）
+- **dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-web-settings / dsh-ssh / dsh-skill-explorer / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-all** — 本仓库原创（zhu1090093659），Apache-2.0（zhu1090093659）
 - **dsh-tool-describe-image** — 移植自 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)（deepseek-harness `packages/vision/tool-describe-image`），Apache-2.0（zhu1090093659）
-- **dsh-liangshen** — 插件本体原创；preset 派生自 DeepSeek Harness 内置 Minimal / Standard preset 与 [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)，Apache-2.0（zhu1090093659）+ MIT（preset 派生件）
 - **dsh-better-sidebar** — 外部集成插件 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（右侧面板，npm 依赖引用），MIT（omdsh-dev）
-- **dsh-archive-manager** — 外部集成插件 [z953218350/dsh-archive-manager](https://github.com/z953218350/dsh-archive-manager)（设置页归档管理，npm 依赖引用），MIT（z953218350）
 - **dsh-ssh** — 依据 [badseal/ssh-skill](https://github.com/badseal/ssh-skill) 的能力清单实现；代码为本仓库 Apache-2.0（zhu1090093659），上游能力清单归属 badseal/ssh-skill
 - **社区插件索引** — 37 项外部插件，来源与版权由各作者声明，登记于 [community.json](packages/dsh-community-plugins/community.json)，可在「设置 → 社区插件」与 dsh-market.com 查看
 
