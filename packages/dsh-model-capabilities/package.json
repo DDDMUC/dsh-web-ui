@@ -1,7 +1,7 @@
 {
   "name": "@linxin666/dsh-client-ui-model-capabilities",
   "description": "Per-model capability declarations (image input and reasoning efforts) for custom pi-ai providers, edited in place on the Models settings cards; writes the official llm-pi-ai settings namespace, no DSH source changes.",
-  "version": "0.3.19",
+  "version": "0.3.20",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
