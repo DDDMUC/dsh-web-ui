@@ -30,7 +30,7 @@ dsh-web is an open-source plugin collection for the DeepSeek Harness (DSH) Web G
 
 <p align="center">
   <strong>The aggregate plugin ecosystem for DeepSeek Harness (DSH) Web · Everything is a plugin</strong><br>
-  <em>Workshop · Task Board · Mobile Remote · SSH Ops · Image Understanding</em>
+  <em>Workshop · Task Board · Mobile Remote · SSH Ops · Usage Statistics</em>
 </p>
 
 <div align="center">
@@ -41,7 +41,7 @@ dsh-web is an open-source plugin collection for the DeepSeek Harness (DSH) Web G
 
 ## What It Is
 
-Each feature ships as an independent plugin: task board, mobile remote control, SSH remote operations, image understanding, custom model capabilities, session archive management, and the right panel. Install the bundle or choose individual plugins; all mount through the official `dsh web` profile mechanism without modifying DSH source code. The bundle also integrates external plugins such as `dsh-better-sidebar`; see the [plugin bundle installation and configuration guide](packages/dsh-web-all/README.md).
+Each feature ships as an independent plugin: task board, mobile remote control, SSH remote operations, usage statistics, custom model capabilities, session archive management, and the right panel. Install the bundle or choose individual plugins; all mount through the official `dsh web` profile mechanism without modifying DSH source code. The bundle also integrates external plugins such as `dsh-better-sidebar`; see the [plugin bundle installation and configuration guide](packages/dsh-web-all/README.md).
 
 Themes are asset packs loaded by the skins plugin: a `skin.json` manifest, styles, artwork, and optional effect scripts. Plugins provide behavior; skin assets customize appearance. Blue Fantasy is bundled with the skins plugin, while additional themes and pet assets are available from the [DSH Workshop](#workshop-dsh-marketcom).
 
@@ -54,7 +54,7 @@ Themes are asset packs loaded by the skins plugin: a `skin.json` manifest, style
 | Task board | None | Multi-column board + cron-scheduled real runs |
 | Mobile remote control | None | QR pairing with SSE real-time sync; the same link also pairs a PC browser |
 | Remote server ops | None | SSH panel: terminal / transfer / tunnels / cluster |
-| Image understanding | None | `describe_image` vision tool |
+| Usage statistics | None | Token usage, provider balances, plan quotas, and Token Bank |
 | File preview & changes | None | Right panel: explorer / editor / terminal / git / browser |
 | Git visualization | None | Branch picker + commit history graph |
 | Session archive | None | Browse and filter every session, batch archive / restore / delete with automatic policies |
@@ -130,9 +130,18 @@ The "SSH" sidebar entry opens the remote-ops panel. Hosts support key / password
 - **Cluster runs**: one command across many hosts, filtered by alias / environment / tags;
 - **Agent direct control**: agents share the same host config. Say "check xxx" in chat and the agent runs the remote command.
 
-### Image Understanding（图像理解）
+### Usage Statistics（使用统计）
 
-Gives text-only models vision. When a conversation mentions an image (local path, http(s) URL, or session attachment), `describe_image` sends it to a configured OpenAI-compatible vision endpoint (Qwen-VL, GLM-4V, GPT-4o, a local Ollama endpoint, whatever you have) and returns the answer. **Only the returned text enters the conversation; the image itself never enters the session log.** Text-only models have no image entry in the input box, so the plugin adds an image button: pick a file, an attachment reference lands in your draft, and the model can analyze it via `describe_image`. A `prompt` argument takes custom instructions (OCR, UI diagnosis, translation) that beat the generic description. Endpoint, model, key and default instruction live under Settings > Plugin config > "Image understanding", applied immediately.
+Open Settings > Usage Statistics to view token consumption, provider balances, and coding-plan quotas, with automatic updates and manual refresh.
+
+- **Usage**: View today’s input, output, and cache usage by provider and model, plus 30-day trends. Supported providers show account balances; official DeepSeek routes also show peak/off-peak pricing periods and estimated costs.
+- **Personal plans**: Check usage percentages and reset times for supported plans, including Kimi, GLM, MiniMax, OpenCode Go, and Codex / ChatGPT.
+- **Token Bank**: Each token consumed through official DeepSeek earns one whale yuan. A whale-yuan voucher displays cumulative usage within the retained ledger, call count, and reporting window; save the voucher image or use system sharing where the browser supports it.
+- **Pet integration**: With the pet plugin installed, an announcement bubble shows the current session provider’s quota, balance, or today’s usage.
+
+Statistics start when the plugin is first enabled; historical sessions are not backfilled. Vouchers cover only official DeepSeek usage within the ledger retention window. See the [dsh-usage README](packages/dsh-usage/README.md) for supported providers, configuration, and limitations.
+
+![Usage Statistics plugin: Token Bank and whale-yuan voucher](docs/screenshots/35-usage-token-bank.webp)
 
 ### Model Capabilities（模型能力）
 
@@ -241,7 +250,7 @@ Prefer individual plugins? Install them one by one (published on npm, so use the
 ```sh
 dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # Task board
 dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # Remote connection (SSH)
-dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # Image understanding tool
+dsh plugin --profile web add @linxin666/dsh-usage@latest                   # Usage statistics
 dsh plugin --profile web add @linxin666/dsh-client-ui-model-capabilities@latest  # Model capabilities (image input and reasoning efforts)
 dsh plugin --profile web add @linxin666/dsh-pet@latest                     # Whale-girl pet
 dsh plugin --profile web add @linxin666/dsh-session-archive@latest         # Session archive manager
@@ -259,7 +268,7 @@ Every plugin is published on npm under the `@linxin666/dsh-*` scope and can be v
 | [@linxin666/dsh-client-ui-task-board](https://www.npmjs.com/package/@linxin666/dsh-client-ui-task-board) | Task board: real session execution plus cron scheduling |
 | [@linxin666/dsh-remote-web-ui](https://www.npmjs.com/package/@linxin666/dsh-remote-web-ui) | Scan-to-pair remote control of the Web GUI from mobile or PC |
 | [@linxin666/dsh-ssh](https://www.npmjs.com/package/@linxin666/dsh-ssh) | SSH panel: terminal / transfer / tunnel / cluster |
-| [@linxin666/dsh-tool-describe-image](https://www.npmjs.com/package/@linxin666/dsh-tool-describe-image) | `describe_image` vision tool |
+| [@linxin666/dsh-usage](https://www.npmjs.com/package/@linxin666/dsh-usage) | Usage statistics: tokens, balances, plan quotas, and Token Bank |
 | [@linxin666/dsh-client-ui-model-capabilities](https://www.npmjs.com/package/@linxin666/dsh-client-ui-model-capabilities) | Model capabilities: per-model image input and reasoning efforts for custom providers, plus disable / re-enable |
 | [@linxin666/dsh-pet](https://www.npmjs.com/package/@linxin666/dsh-pet) | Registry-driven floating pet companion |
 | [@linxin666/dsh-client-ui-git-graph](https://www.npmjs.com/package/@linxin666/dsh-client-ui-git-graph) | Git branch selector and commit history graph |
@@ -342,7 +351,7 @@ A: Install `@linxin666/dsh-client-ui-skin-center` for skins only, or use the pac
 <details>
 <summary><strong>Can I install a single plugin alongside the family bundle?</strong></summary>
 
-A: Yes. The aggregate namespaces every row id with a `web-ui-` prefix (e.g. `web-ui-describe-image`), which no longer collides with the standalone plugin's own id (e.g. `describe-image`), so `dsh web` no longer fails with `duplicate loader entry id`. When the same plugin is loaded from both sources, the host half registers once (the second source is a no-op) and the browser half is deduped by package name. Keeping both sources has no benefit, so prefer one. Note that profile patch config rows written by id must use the `web-ui-` prefixed id when the plugin comes from the bundle (e.g. the remote-web-ui `autoTunnel` row becomes `web-ui-remote-web-ui`); standalone installs keep the plugin's own id.
+A: Yes. The aggregate namespaces every row id with a `web-ui-` prefix (e.g. `web-ui-usage`), which no longer collides with the standalone plugin's own id (e.g. `usage`), so `dsh web` no longer fails with `duplicate loader entry id`. When the same plugin is loaded from both sources, the host half registers once (the second source is a no-op) and the browser half is deduped by package name. Keeping both sources has no benefit, so prefer one. Note that profile patch config rows written by id must use the `web-ui-` prefixed id when the plugin comes from the bundle (e.g. the remote-web-ui `autoTunnel` row becomes `web-ui-remote-web-ui`); standalone installs keep the plugin's own id.
 
 </details>
 

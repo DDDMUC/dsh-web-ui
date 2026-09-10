@@ -30,7 +30,7 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的开源插件集合，为 AI 编�
 
 <p align="center">
   <strong>DeepSeek Harness（DSH）Web 的插件聚合生态包 · 一切皆插件</strong><br>
-  <em>创意工坊 · 任务看板 · 移动端远程 · SSH 运维 · 图像理解</em>
+  <em>创意工坊 · 任务看板 · 移动端远程 · SSH 运维 · 使用统计</em>
 </p>
 
 <div align="center">
@@ -41,7 +41,7 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的开源插件集合，为 AI 编�
 
 ## 是什么
 
-任务看板、移动端远程控制、SSH 运维、图像理解、自定义模型能力、会话归档管理和右侧面板均为独立插件，可安装全家桶，也可按需选择；所有插件通过官方 profile 机制挂载到 `dsh web`，无需修改 DSH 源码。聚合包也集成 `dsh-better-sidebar` 等外部插件，安装与配置详见[插件全家桶使用指南](packages/dsh-web-all/README.zh.md)。
+任务看板、移动端远程控制、SSH 运维、使用统计、自定义模型能力、会话归档管理和右侧面板均为独立插件，可安装全家桶，也可按需选择；所有插件通过官方 profile 机制挂载到 `dsh web`，无需修改 DSH 源码。聚合包也集成 `dsh-better-sidebar` 等外部插件，安装与配置详见[插件全家桶使用指南](packages/dsh-web-all/README.zh.md)。
 
 主题皮肤是由皮肤插件加载的资产包，包含 `skin.json` 清单、样式、贴图与可选特效脚本。插件负责功能，皮肤资产负责外观。Blue Fantasy 随皮肤插件内置，其他主题与宠物资产可从 [DSH 创意工坊](#创意工坊dsh-marketcom)按需获取。
 
@@ -54,7 +54,7 @@ dsh-web 是 DeepSeek Harness（DSH）Web GUI 的开源插件集合，为 AI 编�
 | 任务看板 | 无 | 多列看板 + cron 定时真实执行 |
 | 移动端远程 | 无 | 扫码配对、SSE 实时同步；同一链接也可配对 PC 浏览器 |
 | 远程服务器运维 | 无 | SSH 面板：终端 / 传输 / 隧道 / 集群 |
-| 图像理解 | 无 | `describe_image` 视觉工具 |
+| 使用统计 | 无 | token 用量、供应商余额、套餐额度与 Token 银行 |
 | 文件预览与变更 | 无 | 右侧面板：资源管理器 / 编辑器 / 终端 / Git / 浏览器 |
 | Git 可视化 | 无 | 分支选择器 + 提交历史图谱 |
 | 会话归档 | 无 | 集中查看与筛选全部会话，批量归档 / 恢复 / 删除，含自动策略 |
@@ -130,9 +130,18 @@ DSH Desktop 把 DeepSeek Harness Web GUI 装进一个可安装的桌面应用（
 - **集群执行**：一条命令并发跑多台主机，按别名 / 环境 / 标签过滤；
 - **Agent 直连**：Agent 和面板共用同一份主机配置，对话里说一句「连一下 xxx 看看状态」，智能体就去执行远程命令。
 
-### 图像理解（Image Understanding）
+### 使用统计（Usage Statistics）
 
-给纯文本模型补上视觉：对话里提到图片（本地路径、http(s) URL、会话附件）时，`describe_image` 把图片发给配置好的 OpenAI 兼容视觉端点（Qwen-VL、GLM-4V、GPT-4o、本地 Ollama 都行）回答，**进会话的只有返回的文本，图片本身不进会话记录**。纯文本模型输入框没有图片入口，插件在输入框加了个图片按钮：选图后生成附件引用插进草稿，模型就能用 `describe_image` 分析；工具还支持 `prompt` 参数传自定义指令（OCR、UI 诊断、翻译），比默认描述准。端点、模型、密钥、默认指令在「设置 > 插件配置 > Image understanding」里配，即时生效。
+在「设置 > 使用统计」集中查看 token 消耗、供应商余额和编程套餐额度，支持自动更新与手动刷新。
+
+- **用量**：查看今日输入、输出与缓存用量，按供应商和模型细分，追踪近 30 天趋势；支持的供应商显示账户余额，DeepSeek 官方路由还提供峰谷计价时段与消费估算。
+- **个人套餐**：查看 Kimi、GLM、MiniMax、OpenCode Go、Codex / ChatGPT 等支持的套餐用量百分比与重置时间。
+- **Token 银行**：DeepSeek 官方每消耗 1 token 即铸造 1 鲸元，以「鲸元券」展示保留台账内的累计用量、调用次数和统计窗口；可保存票券图片，并在浏览器支持时调用系统分享。
+- **宠物联动**：安装宠物插件后，可通过公告气泡查看当前会话供应商的额度、余额或今日用量。
+
+统计自插件首次启用起计，不回填历史会话；鲸元券仅覆盖台账保留窗口内的 DeepSeek 官方用量。支持的供应商、配置与限制见 [dsh-usage README](packages/dsh-usage/README.zh.md)。
+
+![使用统计插件：Token 银行与鲸元券](docs/screenshots/35-usage-token-bank.webp)
 
 ### 模型能力（Model Capabilities）
 
@@ -240,7 +249,7 @@ dsh web
 ```sh
 dsh plugin --profile web add @linxin666/dsh-client-ui-task-board@latest    # 任务看板
 dsh plugin --profile web add @linxin666/dsh-ssh@latest                     # 远程连接（SSH）
-dsh plugin --profile web add @linxin666/dsh-tool-describe-image@latest     # 图像理解工具
+dsh plugin --profile web add @linxin666/dsh-usage@latest                   # 使用统计
 dsh plugin --profile web add @linxin666/dsh-client-ui-model-capabilities@latest  # 模型能力（图片输入与推理档位）
 dsh plugin --profile web add @linxin666/dsh-pet@latest                     # 鲸鱼娘宠物
 dsh plugin --profile web add @linxin666/dsh-session-archive@latest         # 会话归档管理
@@ -258,7 +267,7 @@ dsh plugin --profile web add dsh-better-sidebar@latest                     # 右
 | [@linxin666/dsh-client-ui-task-board](https://www.npmjs.com/package/@linxin666/dsh-client-ui-task-board) | 任务看板：真实会话执行 + cron 定时 |
 | [@linxin666/dsh-remote-web-ui](https://www.npmjs.com/package/@linxin666/dsh-remote-web-ui) | 扫码配对，移动端 / PC 远程使用 Web GUI |
 | [@linxin666/dsh-ssh](https://www.npmjs.com/package/@linxin666/dsh-ssh) | SSH 面板：终端 / 传输 / 隧道 / 集群 |
-| [@linxin666/dsh-tool-describe-image](https://www.npmjs.com/package/@linxin666/dsh-tool-describe-image) | `describe_image` 视觉工具 |
+| [@linxin666/dsh-usage](https://www.npmjs.com/package/@linxin666/dsh-usage) | 使用统计：token 用量、余额、套餐额度与 Token 银行 |
 | [@linxin666/dsh-client-ui-model-capabilities](https://www.npmjs.com/package/@linxin666/dsh-client-ui-model-capabilities) | 模型能力：自定义供应商逐模型声明图片输入与推理档位，并停用 / 启用 |
 | [@linxin666/dsh-pet](https://www.npmjs.com/package/@linxin666/dsh-pet) | 注册表驱动的悬浮宠物 |
 | [@linxin666/dsh-client-ui-git-graph](https://www.npmjs.com/package/@linxin666/dsh-client-ui-git-graph) | Git 分支选择器与提交历史图谱 |
@@ -341,7 +350,7 @@ A: 只要皮肤就装 `@linxin666/dsh-client-ui-skin-center`；只装某一个�
 <details>
 <summary><strong>装了全家桶还能再单独装同一个插件吗？</strong></summary>
 
-A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-describe-image`），与独立包自己的 id（如 `describe-image`）不冲突，`dsh web` 不会再报 `duplicate loader entry id`；同一插件双源加载时 host 半区只注册一次，浏览器半区按包名去重。两个来源并存没有额外收益，建议只保留一个。注意：profile 里按 id 写的配置行，若插件来自聚合包要用 `web-ui-` 前缀的 id（如 remote-web-ui 的 `autoTunnel` 配置行写成 `web-ui-remote-web-ui`）；独立安装时仍用插件原 id。
+A: 可以。聚合包的行 id 统一带 `web-ui-` 前缀（如 `web-ui-usage`），与独立包自己的 id（如 `usage`）不冲突，`dsh web` 不会再报 `duplicate loader entry id`；同一插件双源加载时 host 半区只注册一次，浏览器半区按包名去重。两个来源并存没有额外收益，建议只保留一个。注意：profile 里按 id 写的配置行，若插件来自聚合包要用 `web-ui-` 前缀的 id（如 remote-web-ui 的 `autoTunnel` 配置行写成 `web-ui-remote-web-ui`）；独立安装时仍用插件原 id。
 
 </details>
 
