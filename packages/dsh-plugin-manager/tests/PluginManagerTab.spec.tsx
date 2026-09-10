@@ -70,6 +70,84 @@ function renderTab(injected: PluginManagerTabInjected): void {
   render(<PluginManagerTab {...injected as unknown as ComponentProps<typeof PluginManagerTab>} t={t} />)
 }
 
+describe('PluginManagerTab aggregate children', () => {
+  const aggregatePlugin: InstalledPluginItem = {
+    id: '@linxin666/dsh-web-all', name: 'web-all', version: '0.3.18',
+    source: { kind: 'npm', spec: '@linxin666/dsh-web-all' }, installedAt: '', enabled: false,
+    children: [
+      { id: 'web-ui-pet', name: '@linxin666/dsh-pet', enabled: true },
+      { id: 'web-ui-plugin-manager', name: '@linxin666/dsh-client-ui-plugin-manager', enabled: true, locked: true },
+    ],
+  }
+
+  /** The disclosure toggle of one aggregate row (the child list is collapsed by default). */
+  const toggle = (name: string): HTMLElement => screen.getByRole('button', { name: `Show child plugins of ${name}` })
+
+  it('collapses the child rows behind an enablement summary by default', async () => {
+    renderTab(face({ list: vi.fn(async () => [aggregatePlugin]) }))
+    expect(await screen.findByText('web-all')).toBeTruthy()
+    expect(screen.getByText('2/2 child plugins on')).toBeTruthy()
+    expect(screen.queryByText('@linxin666/dsh-pet')).toBeNull()
+    expect(screen.queryByText('Core row')).toBeNull()
+    expect(toggle('web-all').getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('expands child rows with individual switches, a mixed parent state, and a locked hint', async () => {
+    renderTab(face({ list: vi.fn(async () => [aggregatePlugin]) }))
+    expect(await screen.findByText('web-all')).toBeTruthy()
+    expect(screen.getByText('Partially on')).toBeTruthy()
+    fireEvent.click(toggle('web-all'))
+    expect(await screen.findByText('@linxin666/dsh-pet')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Hide child plugins of web-all' }).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('switch', { name: 'Turn off @linxin666/dsh-pet' })).toBeTruthy()
+    expect(screen.queryByRole('switch', { name: /dsh-client-ui-plugin-manager/ })).toBeNull()
+    expect(screen.getByText('Core row')).toBeTruthy()
+    expect(screen.getByText(/Bundle child plugins toggle individually/)).toBeTruthy()
+  })
+
+  it('collapses the child list again on a second click', async () => {
+    renderTab(face({ list: vi.fn(async () => [aggregatePlugin]) }))
+    expect(await screen.findByText('web-all')).toBeTruthy()
+    fireEvent.click(toggle('web-all'))
+    expect(await screen.findByText('@linxin666/dsh-pet')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Hide child plugins of web-all' }))
+    await waitFor(() => expect(screen.queryByText('@linxin666/dsh-pet')).toBeNull())
+  })
+
+  it('toggles a child row by entry id and refreshes the summary from the returned parent row', async () => {
+    const refreshed: InstalledPluginItem = {
+      ...aggregatePlugin,
+      children: [
+        { id: 'web-ui-pet', name: '@linxin666/dsh-pet', enabled: false },
+        { id: 'web-ui-plugin-manager', name: '@linxin666/dsh-client-ui-plugin-manager', enabled: true, locked: true },
+      ],
+    }
+    const setEnabled = vi.fn(async () => refreshed)
+    renderTab(face({ list: vi.fn(async () => [aggregatePlugin]), setEnabled }))
+    expect(await screen.findByText('web-all')).toBeTruthy()
+    fireEvent.click(toggle('web-all'))
+    fireEvent.click(await screen.findByRole('switch', { name: 'Turn off @linxin666/dsh-pet' }))
+    await waitFor(() => expect(setEnabled).toHaveBeenCalledWith('web-ui-pet', false))
+    expect(await screen.findByRole('switch', { name: 'Turn on @linxin666/dsh-pet' })).toBeTruthy()
+    expect(screen.getByText('1/2 child plugins on')).toBeTruthy()
+  })
+
+  it('expands each aggregate row independently', async () => {
+    const second: InstalledPluginItem = {
+      id: '@linxin666/dsh-other-all', name: 'other-all', version: '0.1.0',
+      source: { kind: 'npm', spec: '@linxin666/dsh-other-all' }, installedAt: '', enabled: true,
+      children: [{ id: 'web-ui-other', name: '@linxin666/dsh-other', enabled: true }],
+    }
+    renderTab(face({ list: vi.fn(async () => [aggregatePlugin, second]) }))
+    expect(await screen.findByText('other-all')).toBeTruthy()
+    fireEvent.click(toggle('other-all'))
+    expect(await screen.findByText('@linxin666/dsh-other')).toBeTruthy()
+    expect(screen.queryByText('@linxin666/dsh-pet')).toBeNull()
+    expect(screen.getByText('1/1 child plugins on')).toBeTruthy()
+  })
+})
+
+
 describe('PluginManagerTab', () => {
   it('renders the local-only notice and nothing else when not loopback', async () => {
     renderTab(face({ isLoopback: false }))

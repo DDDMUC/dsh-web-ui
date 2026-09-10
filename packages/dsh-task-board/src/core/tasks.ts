@@ -172,8 +172,13 @@ export interface TaskRecord {
   archivedAt?: number
 }
 
-/** Statuses a settled task may be archived from. */
-export const ARCHIVABLE_STATUSES: readonly TaskStatus[] = ['done', 'failed']
+/**
+ * Statuses a task may be archived from: every status but `running`, whose
+ * execution the runner still owns until it settles. A settled-only gate made
+ * the duplicate-and-archive flow a silent no-op for scheduled tasks, which
+ * return to `todo` after every successful run (issue #1447).
+ */
+export const ARCHIVABLE_STATUSES: readonly TaskStatus[] = ['backlog', 'todo', 'done', 'failed']
 
 
 /** Permission presets a task may pin on its execution session (the `/permission <id>` ids). */

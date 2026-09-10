@@ -203,7 +203,14 @@ function buildInstructionHint(original, paths) {
         + 'Reading the relevant file before workspace tasks is recommended, but consult them only when you need those details; the task itself never depends on them.'
         + '\n</system-reminder>',
     }],
-    source: { kind: 'instruction-hint', plugin: name },
+    // The durable journal only classifies a fixed set of message sources on
+    // load: the v2->v3 migration whitelist (dsh-session-format-v2-to-v3) and
+    // the v3 MessageSourceMap both accept 'plugin' but neither knows the
+    // retired custom 'instruction-hint'; sessions carrying it failed to
+    // resume with "cannot safely transform unclassified message source"
+    // (#1455). The message already names its plugin, so 'plugin' keeps the
+    // same meaning while staying loadable.
+    source: { kind: 'plugin', plugin: name },
   }
 }
 

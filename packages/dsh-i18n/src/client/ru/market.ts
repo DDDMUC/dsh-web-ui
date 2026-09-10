@@ -12,6 +12,7 @@ export const ru: Record<string, string> = {
   'category.integration': 'Интеграция',
   'category.knowledge': 'Знания',
   'category.other': 'Другое',
+  'category.roleplay': 'Ролевые игры',
   'category.security': 'Безопасность',
   'category.tools': 'Инструменты',
   'category.ui': 'Интерфейс',
@@ -43,6 +44,7 @@ export const ru: Record<string, string> = {
   'offline': 'Данные Workshop недоступны.',
   'online': 'Онлайн',
   'openSite': 'Открыть сайт Workshop',
+  'presetPanel.missing': 'Плагин центра пресетов (@linxin666/dsh-client-ui-preset-center) не установлен, поэтому управлять пресетами сообщества невозможно.',
   'preview': 'Предпросмотр',
   'remote.note': 'В удалённом браузере доступен только просмотр и копирование команд; установка в один клик требует локального (loopback) браузера.',
   'replace': 'Заменить и установить',
@@ -96,6 +98,7 @@ export const ru: Record<string, string> = {
   'subcategory.terminal': 'Интерфейс терминала',
   'tab.pet': 'Питомцы',
   'tab.plugin': 'Плагины',
+  'tab.preset': 'Пресеты',
   'tab.skin': 'Скины',
   'votes': 'Голосов: {count}',
 }

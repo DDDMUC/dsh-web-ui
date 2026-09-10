@@ -15,7 +15,7 @@ import API_CATALOG from './api-catalog.js'
 import OPENAPI_SPEC from './openapi.js'
 import API_DOCS_HTML from './api-doc.js'
 
-const KINDS = new Set(['skin', 'pet', 'plugin'])
+const KINDS = new Set(['skin', 'pet', 'plugin', 'preset'])
 const INSTALL_ACTIONS = new Set(['market-like', 'market-install'])
 const HOMEPAGE_PATHS = new Set(['/', '/index.html'])
 const HOME_LINK = '</.well-known/api-catalog>; rel="api-catalog", </openapi.json>; rel="service-desc", </api-docs.html>; rel="service-doc", </api-docs.html>; rel="describedby"'
@@ -156,7 +156,7 @@ async function sha256(text) {
 
 async function readStats(env) {
   const { results } = await env.DB.prepare('SELECT kind, asset_id, votes FROM counts').all()
-  const out = { skin: {}, pet: {}, plugin: {} }
+  const out = { skin: {}, pet: {}, plugin: {}, preset: {} }
   for (const row of results || []) {
     if (!(row.kind in out)) continue
     out[row.kind][row.asset_id] = row.votes
@@ -234,7 +234,7 @@ async function mutateInstall(env, kind, assetId, hash, installId) {
 async function readInstalls(env) {
   try {
     const { results } = await env.DB.prepare('SELECT kind, asset_id, installs FROM install_counts').all()
-    const out = { skin: {}, pet: {}, plugin: {} }
+    const out = { skin: {}, pet: {}, plugin: {}, preset: {} }
     for (const row of results || []) {
       if (!(row.kind in out)) continue
       out[row.kind][row.asset_id] = row.installs

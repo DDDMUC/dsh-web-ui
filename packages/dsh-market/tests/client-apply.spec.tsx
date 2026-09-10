@@ -81,7 +81,9 @@ describe('dsh-web-ui-market client store registration', () => {
 
     const section = registered.find((entry) => entry.name === 'settings.section' && entry.id === 'dsh-workshop') as RegisteredEntry | undefined
     expect(section).toBeDefined()
-    expect(section?.children).toBeUndefined()
+    // The section declares the child slot asset-kind panels register into;
+    // the slot itself is empty until a contributor (the preset center) mounts.
+    expect(section?.children).toEqual({ 'dsh-workshop.panel': { kind: 'keyed', scope: 'root' } })
     expect(section?.order).toBe(150)
     expect(section?.locale).toBe('dsh-web-ui-market')
     expect(labelOf(section)).toBe('settings.title')

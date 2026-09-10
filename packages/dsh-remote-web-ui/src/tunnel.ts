@@ -203,6 +203,17 @@ export function quickTunnelFlags(originHostHeader?: string): Record<string, stri
     : { ...SHARED_TUNNEL_FLAGS, '--http-host-header': originHostHeader }
 }
 
+/**
+ * Command-line arguments for a named tunnel with a persistent Cloudflare token.
+ * Note: `--no-autoupdate` and `--protocol` are flags for the `tunnel` command
+ * and must appear BEFORE the `run` subcommand. Putting them after `run` causes
+ * cloudflared to exit immediately with "flag provided but not defined: -no-autoupdate"
+ * (issues #1432, #1433).
+ */
+export function namedTunnelArgs(token: string): string[] {
+  return ['tunnel', '--no-autoupdate', '--protocol', 'http2', 'run', '--token', token]
+}
+
 /** Default factory: the cloudflared package's quick and named tunnels. */
 function defaultFactory(target: TunnelTarget): TunnelHandle {
   // `--no-autoupdate`: the binary must never upgrade itself out from under
@@ -216,7 +227,7 @@ function defaultFactory(target: TunnelTarget): TunnelHandle {
   if (target.kind === 'quick') {
     return Tunnel.quick(target.targetUrl, quickTunnelFlags(target.originHostHeader))
   }
-  return namedTunnelHandle(Tunnel.withToken(target.token, { ...SHARED_TUNNEL_FLAGS }), target.publicUrl)
+  return namedTunnelHandle(new Tunnel(namedTunnelArgs(target.token)), target.publicUrl)
 }
 
 /** Node timers. */

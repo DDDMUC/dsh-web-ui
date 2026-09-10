@@ -83,6 +83,12 @@ function toneClass(percent: number): string {
   return styles.barFill
 }
 
+/** A provider row backed by a configured credential (api key, env key, or OAuth grant). */
+function isConfigured(provider: ProviderSnapshotView): boolean {
+  // An older wire document without the credential field renders as before.
+  return provider.credential !== 'none'
+}
+
 function TotalsRow(props: { totals: UsageTokenTotals }): ReactNode {
   const { totals } = props
   return (
@@ -199,10 +205,11 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
   const deepseekPeriod = deepseekPeriodAt(Date.now())
   const deepseekVisible = (current.provider !== undefined && isDeepSeekProviderRoute(current.provider))
     || snapshot.usage.today.providers.some((row) => isDeepSeekProviderRoute(row.provider))
-  // Plans tab: only routes with a real coding-plan/subscription adapter
-  // (planSupported; an older host without the flag falls back to "has a plan
-  // fact"). Balance-only providers (DeepSeek, ZenMux, ...) never appear here.
-  const planProviders = snapshot.providers.filter((provider) => provider.planSupported === true || (provider.planSupported === undefined && provider.plan !== undefined))
+  // Plans tab: only configured routes with a real coding-plan/subscription
+  // adapter (planSupported; an older host without the flag falls back to "has
+  // a plan fact"). Balance-only providers (DeepSeek, ZenMux, ...) and
+  // unconfigured routes (credential 'none') never appear here.
+  const planProviders = snapshot.providers.filter((provider) => isConfigured(provider) && (provider.planSupported === true || (provider.planSupported === undefined && provider.plan !== undefined)))
 
   return (
     <div className={styles.section} data-dsh-plugin="usage">
@@ -265,15 +272,18 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
           <div className={styles.card} data-dsh-part="balance-card">
             <span className={styles.cardTitle}>{t('usage.balance')}</span>
             {(() => {
-              const rows = snapshot.providers.filter((provider) => provider.balanceSupported === true || (provider.balanceSupported === undefined && provider.supported))
-              if (rows.length === 0) return <span className={styles.muted}>{t('usage.balance.unsupported')}</span>
+              const configured = snapshot.providers.filter(isConfigured)
+              const rows = configured.filter((provider) => provider.balanceSupported === true || (provider.balanceSupported === undefined && provider.supported))
+              if (rows.length === 0) {
+                return <span className={styles.muted}>{configured.length === 0 ? t('usage.balance.noneConfigured') : t('usage.balance.unsupported')}</span>
+              }
               return rows.map((provider) => (
                 <ProviderRow key={provider.provider} provider={provider} current={current.provider} />
               ))
             })()}
-            {snapshot.providers.some((provider) => provider.error !== undefined) && (
+            {snapshot.providers.some((provider) => isConfigured(provider) && provider.error !== undefined) && (
               <span className={styles.errorLine}>
-                {snapshot.providers.filter((provider) => provider.error !== undefined).map((provider) => `${provider.displayName}: ${t('usage.provider.error', { error: provider.error ?? '' })}`).join(t('usage.errorListSeparator'))}
+                {snapshot.providers.filter((provider) => isConfigured(provider) && provider.error !== undefined).map((provider) => `${provider.displayName}: ${t('usage.provider.error', { error: provider.error ?? '' })}`).join(t('usage.errorListSeparator'))}
               </span>
             )}
           </div>

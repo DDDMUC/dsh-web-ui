@@ -256,7 +256,7 @@ describe('anchored-tool-bootstrap', () => {
     const hint = first.messages[1]
     expect(typeof hint.id).toBe('string')
     expect(hint.id).not.toBe('')
-    expect(hint.source.kind).toBe('instruction-hint')
+    expect(hint.source.kind).toBe('plugin')
     expect(hint.id).toBe('instructions')
     expect(hint.content[0].text).toContain('Reference documents exist: ~/.dsh/AGENTS.md, AGENTS.md.')
     expect(hint.content[0].text).toContain('not task instructions')
@@ -294,7 +294,7 @@ describe('anchored-tool-bootstrap', () => {
       async () => ({ kind: 'enter', messages }),
     )
     const hint = result.messages[1]
-    expect(hint.source.kind).toBe('instruction-hint')
+    expect(hint.source.kind).toBe('plugin')
     expect(hint.id).toEqual(expect.any(String))
     expect(hint.id).not.toBe('')
   })
