@@ -63,7 +63,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-plugin-manager
 - npm 发布的官方 web 上，网关写入经官方 CLI 执行。网关先从 host 进程 PATH 解析 `dsh`，再从运行中 host 入口上层各项目根的 `node_modules/.bin` 回退查找，覆盖本地包装器与 npx 启动；两处都没有 CLI 时才不可写。git 源安装可能耗时数分钟，以后台任务运行。网关更新只适用于 npm registry 源，由 host 解析最新版本，且仅当同一已装包报告该精确版本时才算成功。
 - 兼容性门禁只在目标清单声明了最低 DSH 版本时生效；未声明 `dsh.engines.dsh` 的包更新不被检查，官方安装器运行时（DSHCode 与 checkout 版 web）不经过本门禁（其更新走官方安装器）。
 - npm 发布的官方 web 没有启动失败环与安全模式：这两处界面降级为空，只有安装错误提供修复转交。
-- npm 运行时上的启停会在 profile 的 cordis.patch.yml 写入裸 `disabled` 覆盖行；该运行时 loader 在下次启动时认读这些行，但这条路径不如官方桌面写入器经过充分锻炼。
+- npm 运行时上的启停显示下次启动的真实生效值：profile 覆盖行优先，其次由所装 bundle 自带的 `disabled` 行决定（聚合包的按需开启家族），两层都未提及的行视为启用。开启一个被 bundle 停用的行会写入显式 `disabled: false` 覆盖行——只删除用户行只会退回 bundle 默认值；该运行时 loader 在下次启动时认读这些行，但这条路径不如官方桌面写入器经过充分锻炼。
 - web 端无壳内重启：变更在下次手动重启后生效。
 - 安装时冲突检测报告安装实际改了什么（官方模式为产品行；网关模式为 profile 行与 bundle 条目）。npm 运行时上重复 insert id 认领在安装后即被检出并自动回滚新插件（共享 id 写 disabled 无法阻止 loader 的重复检查，只会误伤现有插件）；官方运行时由官方规则与失败环处置该类冲突。
 - npm 运行时的启动预检（`--dump-config`）能抓组合失败，静态 insert 检查能抓引用不存在包的 insert 行；真正的运行时 import/apply 失败仍要到下次启动才暴露，官方运行时靠失败环呈现，npm 运行时没有失败环。
