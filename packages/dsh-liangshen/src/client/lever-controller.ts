@@ -31,8 +31,17 @@ export type LeverError =
   | { kind: 'locked' }
   /** The deployment supplies no such preset. */
   | { kind: 'missing' }
+  /**
+   * The switch outlived its ceiling. A Remote answer can be lost on the way
+   * back even though the host committed the change, so the lever must stop
+   * claiming to be busy and let the next session read report the truth.
+   */
+  | { kind: 'timeout' }
   /** Anything else, carrying the host's own reason. */
   | { kind: 'failed'; reason: string }
+
+/** How long one preset switch may stay in flight before it is reported as timed out. */
+export const SELECT_TIMEOUT_MS = 10_000
 
 /** What the lever view renders. */
 export interface LeverSnapshot {
@@ -80,9 +89,15 @@ function presetOf(session: { projectionValues?: Record<string, unknown> } | unde
 export class LeverController {
   private readonly store: SnapshotStore<LeverSnapshot>
 
-  private readonly sessions: ISessions
+  /**
+   * The browser services this controller reads, resolved defensively: the
+   * context proxy throws on any service the fiber did not inject, so a
+   * deployment that cannot answer one of them must leave the lever inert
+   * rather than take the plugin (and the composer row) down with it.
+   */
+  private readonly sessions: ISessions | undefined
 
-  private readonly remote: AgentPresetRemote
+  private readonly remote: AgentPresetRemote | undefined
 
   /** Roster rows as last read; empty until the first read lands. */
   private rows: AgentPresetRoster['presets'] = []
@@ -92,11 +107,17 @@ export class LeverController {
 
   private loading = false
 
+  /** Ceiling on one in-flight switch, so a lost Remote answer cannot hang the row. */
+  private readonly selectTimeoutMs: number
+
   private readonly disposers: (() => void)[] = []
 
-  constructor(private readonly ctx: ClientContext) {
-    this.sessions = ctx.sessions as unknown as ISessions
-    this.remote = (ctx as unknown as { remote: { agentPresets: AgentPresetRemote } }).remote.agentPresets
+  constructor(private readonly ctx: ClientContext, options: LeverControllerOptions = {}) {
+    this.selectTimeoutMs = options.selectTimeoutMs ?? SELECT_TIMEOUT_MS
+    this.sessions = readService<ISessions>(() => (ctx as unknown as { sessions: ISessions }).sessions)
+    this.remote = readService<AgentPresetRemote>(
+      () => (ctx as unknown as { remote: { agentPresets: AgentPresetRemote } }).remote.agentPresets,
+    )
     this.store = createSnapshotStore<LeverSnapshot>({
       state: 'off',
       restoreLabel: '',
@@ -112,12 +133,20 @@ export class LeverController {
 
   /** Follow the roster and the current session, then read the roster once. */
   start(): void {
-    this.disposers.push(this.sessions.list.subscribe(() => { this.refresh() }))
-    this.disposers.push(this.ctx.remote.$on('settings/document-updated', (ns: string) => {
-      if (ns === 'agent-presets') void this.load()
-    }))
+    const list = this.sessions?.list
+    if (list !== undefined) {
+      this.disposers.push(list.subscribe(() => { this.refresh() }))
+    }
+    const remote = readService<{ $on?: (event: string, listener: (ns: string) => void) => () => void }>(
+      () => (this.ctx as unknown as { remote: { $on: (event: string, listener: (ns: string) => void) => () => void } }).remote,
+    )
+    if (typeof remote?.$on === 'function') {
+      this.disposers.push(remote.$on('settings/document-updated', (ns: string) => {
+        if (ns === 'agent-presets') void this.load()
+      }))
+    }
     this.refresh()
-    void this.load()
+    if (this.remote !== undefined) void this.load()
   }
 
   /** Release every subscription. Idempotent. */
@@ -131,16 +160,23 @@ export class LeverController {
       store: this.store,
       pull: () => { void this.toggle('down') },
       push: () => { void this.toggle('up') },
-      t: (key, vars) => this.ctx.locale.bind('liangshen')(key, vars),
+      t: (key, vars) => {
+        const translate = readService<(key: LiangShenKey, vars?: Record<string, string | number>) => string>(
+          () => this.ctx.locale.bind('liangshen'),
+        )
+        return translate === undefined ? key : translate(key, vars)
+      },
     }
   }
 
   /** Read the roster; a refusal leaves the lever as it was. */
   async load(): Promise<void> {
     if (this.loading) return
+    const remote = this.remote
+    if (remote === undefined) return
     this.loading = true
     try {
-      const result = await this.remote.list()
+      const result = await remote.list()
       if (result.ok) this.rows = result.value.presets
     } catch {
       // A carrier failure leaves the roster empty; the view reports `missing`.
@@ -169,6 +205,8 @@ export class LeverController {
   private async toggle(direction: 'down' | 'up'): Promise<void> {
     const snapshot = this.store.getSnapshot()
     if (snapshot.busy) return
+    const remote = this.remote
+    if (remote === undefined) return
     const facts = this.facts()
     if (!isActionable(leverState(facts))) return
     const target = direction === 'down' ? LIANGSHEN_PRESET_ID : restoreTarget(facts)
@@ -182,9 +220,16 @@ export class LeverController {
     this.store.set({ ...snapshot, busy: true, error: undefined })
     let result: RemoteResult<string>
     try {
-      result = await this.remote.select(sessionId, target)
+      result = await withTimeout(remote.select(sessionId, target), this.selectTimeoutMs)
     } catch (error) {
-      this.store.set({ ...this.store.getSnapshot(), busy: false, error: { kind: 'failed', reason: message(error) } })
+      // A timeout is its own copy: the host may well have committed the change
+      // even though its answer never arrived, so this reports the wait, and the
+      // next session read (or the next gesture) shows what actually happened.
+      const mapped: LeverError = error instanceof SwitchTimeout
+        ? { kind: 'timeout' }
+        : { kind: 'failed', reason: message(error) }
+      this.store.set({ ...this.store.getSnapshot(), busy: false, error: mapped })
+      this.refresh()
       return
     }
     if (!result.ok) {
@@ -215,14 +260,14 @@ export class LeverController {
   }
 
   private currentSessionId(): string | undefined {
-    const current = this.sessions.list.getSnapshot().current
+    const current = this.sessions?.list.getSnapshot().current
     return current === undefined ? undefined : String(current)
   }
 
   private currentSession(): { blank?: boolean, projectionValues?: Record<string, unknown> } | undefined {
-    const state = this.sessions.list.getSnapshot()
-    const current = state.current
-    if (current === undefined) return undefined
+    const state = this.sessions?.list.getSnapshot()
+    const current = state?.current
+    if (state === undefined || current === undefined) return undefined
     return state.byId[current] as unknown as { blank?: boolean, projectionValues?: Record<string, unknown> } | undefined
   }
 
@@ -230,6 +275,43 @@ export class LeverController {
   private labelOf(id: string): string {
     const row = this.rows.find(candidate => candidate.id === id)
     return row?.name ?? id
+  }
+}
+
+/** The face constructor options; tests narrow the switch ceiling. */
+export interface LeverControllerOptions {
+  /** Override {@link SELECT_TIMEOUT_MS}. */
+  selectTimeoutMs?: number
+}
+
+/** Raised when one switch outlives {@link SELECT_TIMEOUT_MS}. */
+class SwitchTimeout extends Error {
+  constructor() {
+    super('the preset switch did not answer in time')
+    this.name = 'SwitchTimeout'
+  }
+}
+
+/** Resolve with `work`, or reject with a {@link SwitchTimeout} after `ms`. */
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => { reject(new SwitchTimeout()) }, ms)
+    work.then(
+      (value) => { clearTimeout(timer); resolve(value) },
+      (error: unknown) => { clearTimeout(timer); reject(error instanceof Error ? error : new Error(String(error))) },
+    )
+  })
+}
+
+/**
+ * Read one context service, treating the proxy's "without inject" refusal (and
+ * any other resolution fault) as the service being absent.
+ */
+function readService<T>(read: () => T): T | undefined {
+  try {
+    return read()
+  } catch {
+    return undefined
   }
 }
 

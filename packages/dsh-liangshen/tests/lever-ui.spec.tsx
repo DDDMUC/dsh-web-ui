@@ -135,6 +135,11 @@ describe('LiangShenLever', () => {
     expect(status?.textContent).toBe('lever.failed.failed:{"reason":"boom"}')
   })
 
+  it('reports a timed-out switch in the composer row', () => {
+    const { face } = fakeFace({ error: { kind: 'timeout' } })
+    expect(mount(face).querySelector('[role="status"]')?.textContent).toBe('lever.failed.timeout')
+  })
+
   it('plays the jackpot burst when the controller reports a landed pull', () => {
     const { face, store } = fakeFace()
     const container = mount(face)

@@ -16,6 +16,7 @@ Status: implemented
 - 拨杆反映会话的 `agentPreset` 投影而非本地状态，因此刷新后展示的是真相；且只在会话仍为空时可操作——正是宿主接受的那个窗口。窗口之外它以 locked 呈现并给出原因。
 - 命中后播放特效：闪光、冲击环、火花，以及「模式名 + 文言文、二进制、摩斯三行」的横幅。特效由控制器只在宿主接受切换时推进的计数器驱动，因此被拒绝的切换不可能庆祝。`prefers-reduced-motion` 保留状态变化、去掉动画。
 - 切换走浏览器会话已完成鉴权的 agent-preset Remote 命名空间（`agentPresets.list` 与 `agentPresets.select`）。不引入官方预设包的浏览器模块：本仓库的跨插件协作只走 cordis 服务与 Remote 面，不走 value import，浏览器 bundle 的纯度门禁也强制这一点。
+- 控制器把自己读取的每个服务都写进 fiber 的 inject 清单——`slots`、`locale`、`sessions`、`remote`、`remote.agentPresets`。浏览器 context 是代理，读取未 inject 的服务会直接抛错，而嵌套服务名并不蕴含其父服务，所以 `remote` 必须与 `remote.agentPresets` 一起声明。每次读取另有一层保护：某个服务答不上来时拨杆保持惰性，而不是让本插件的 fiber 失败、把整条输入行一起带走。
 - 拨杆以状态而非槽位限定在新建会话页：槽对每个会话都渲染，而组件对已开始的会话报告 `locked`。
 
 ## Testing
@@ -23,6 +24,8 @@ Status: implemented
 - `tests/lever-logic.spec.ts` 覆盖纯决策：状态判定（on / off / locked / missing）、可操作性，以及上拨回到哪个预设——包括已记住但 roster 不再提供的预设。
 - `tests/lever-control.spec.ts` 在假客户端运行时上驱动控制器：各手势选择的预设、回退、locked 与 not-found 的拒绝映射、宿主原因的透传、被拒绝的切换绝不推进特效计数器、状态无法服务的手势，以及绑定命名空间的翻译函数。
 - `tests/lever-ui.spec.tsx` 在 jsdom 下渲染组件：语义属性、`role="switch"` 状态、指针拨下与上拨、键盘激活、locked 与 missing 状态、拒绝提示行，以及每次命中只出现一次的特效。
+- `tests/lever-control.spec.ts` 另外钉住服务解析与切换存活：`remote` 或 `sessions` 访问器被拒绝（inject 代理抛错）时拨杆必须惰性而不是抛错；Remote 调用永不应答的切换必须报超时，而不是永远停在忙碌态。
+- 已用发布产物在真实 GUI 上跑通：新建会话页渲染出拨杆，拨下真实提交 `liangshen`（官方预设 chip 同步变化）并播放特效，上拨恢复 `standard`；宿主持久日志里有一一对应的 `agent-preset/selected` 事件。
 - `pnpm --filter @linxin666/dsh-liangshen build` 经共享预设的纯度门禁与 CSS Modules 管线产出浏览器 bundle，所以跨插件 value import 或非平台外部依赖都会让构建失败。
 
 ## Alternatives considered
@@ -38,6 +41,7 @@ Status: implemented
 
 - 梁神模式在真正能选择该模式的屏幕上有了可见、一次手势的入口，插件的浏览器半区也随它所属的 preset 一起发布。
 - 拨杆无法开启部署未安装的模式：预设缺席时它以 `missing` 呈现并说明原因——插件行被禁用时用户看到的也正是这个状态。
+- 超过十秒上限的切换报为超时并清除忙碌态。宿主可能其实已经提交（Remote 的应答可能在回程丢失），因此下一次会话读取会给出真实结果，拨杆不会再一直声称「正在切换」。
 - 控件只在会话为空期间存在，对话开始后即消失；对话中途切换模式依然是设计上的不支持，而不是遗漏。
 - 拨杆文案是可翻译命名空间（`liangshen`），包内自带 zh/en 字典，ru 镜像在 `dsh-i18n`；其 DOM 输出 `liangshen` plugin 组与五个 `lever*` part 值，并已登记进语义属性契约。
 - 拨杆每次页面访问读一次 roster，并在 `agent-presets` 命名空间的 `settings/document-updated` 时重读，因此页面打开期间安装或删除预设都会让拨杆随之更新，无需刷新。

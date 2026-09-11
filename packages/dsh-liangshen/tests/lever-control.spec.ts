@@ -147,6 +147,20 @@ describe('LeverController', () => {
     expect(other.controller.snapshot().getSnapshot().error).toEqual({ kind: 'failed', reason: 'composition unusable' })
   })
 
+  it('reports a switch that never answers as a timeout instead of staying busy', async () => {
+    const fake = fakeCtx({ select: () => new Promise(() => {}) as never })
+    const controller = new LeverController(fake.ctx, { selectTimeoutMs: 5 })
+    controller.start()
+    await Promise.resolve()
+    controller.face().pull()
+    expect(controller.snapshot().getSnapshot().busy).toBe(true)
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(controller.snapshot().getSnapshot().busy).toBe(false)
+    expect(controller.snapshot().getSnapshot().error).toEqual({ kind: 'timeout' })
+    // The wait is not a landed switch, so it must not celebrate either.
+    expect(controller.snapshot().getSnapshot().burst).toBe(0)
+  })
+
   it('never celebrates a refused switch', async () => {
     const { controller } = await started({
       select: () => ({ ok: false, error: { code: 'agent-preset/locked', message: 'locked' } }),
@@ -176,5 +190,53 @@ describe('LeverController', () => {
     const { controller } = await started()
     expect(controller.face().t('lever.a11y')).toBe('lever.a11y')
     expect(controller.face().t('lever.hint.push', { preset: 'Standard' })).toBe('lever.hint.push{"preset":"Standard"}')
+  })
+})
+
+/**
+ * The browser context is a proxy that THROWS on any service the fiber did not
+ * inject ("cannot get property ... without inject"), and reading a nested
+ * remote namespace needs its parent declared too. A controller that reads an
+ * unavailable service must leave the lever inert instead of taking the composer
+ * row down with it.
+ */
+describe('LeverController service resolution', () => {
+  it('stays inert instead of throwing when the remote service is refused', async () => {
+    const ctx = {
+      get sessions() {
+        return { list: { getSnapshot: () => ({ current: 'session-1', byId: {} }), subscribe: () => () => {} } }
+      },
+      get remote(): never { throw new Error('cannot get property "remote" without inject') },
+      locale: { bind: () => (key: string) => key },
+    } as never
+    const controller = new LeverController(ctx)
+    expect(() => { controller.start() }).not.toThrow()
+    expect(() => { controller.face().pull(); controller.face().push() }).not.toThrow()
+    await Promise.resolve()
+    // No roster read landed, so the lever reports the preset as missing.
+    expect(controller.snapshot().getSnapshot().state).toBe('missing')
+    expect(controller.face().t('lever.a11y')).toBe('lever.a11y')
+  })
+
+  it('stays inert when the sessions service is refused', async () => {
+    const roster = { presets: [{ id: 'liangshen', trust: 'user' as const, isDefault: false }], authorable: false }
+    const ctx = {
+      get sessions(): never { throw new Error('cannot get property "sessions" without inject') },
+      remote: {
+        agentPresets: {
+          list: async () => ({ ok: true as const, value: roster }),
+          select: async () => ({ ok: true as const, value: 'liangshen' }),
+        },
+        $on: () => () => {},
+      },
+      locale: { bind: () => (key: string) => key },
+    } as never
+    const controller = new LeverController(ctx)
+    controller.start()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(() => { controller.face().pull() }).not.toThrow()
+    // No session to read means no switchable window, which reads as locked.
+    expect(controller.snapshot().getSnapshot().state).toBe('locked')
   })
 })

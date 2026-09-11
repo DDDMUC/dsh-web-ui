@@ -232,13 +232,18 @@
   place-items: center;
 }
 
+/*
+ * Sparks pivot about their own centre: the `rotate` property puts each one on
+ * its spoke, and the keyframes' translate then travels along that spoke, so
+ * they read as speed lines leaving the centre rather than stray hairlines.
+ */
 .spark {
   grid-area: 1 / 1;
-  width: 4px;
-  height: 46px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, rgb(255 230 130 / 95%), rgb(255 170 20 / 0%));
-  transform-origin: 50% 220px;
+  width: 3px;
+  height: 30px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgb(255 236 160 / 95%), rgb(255 170 20 / 0%));
+  transform-origin: 50% 50%;
   animation: spark-fly 0.95s ease-out both;
 }
 
@@ -272,9 +277,9 @@
 }
 
 @keyframes spark-fly {
-  0% { opacity: 0; transform: translateY(0) scaleY(0.4); }
-  20% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-260px) scaleY(1.6); }
+  0% { opacity: 0; transform: translateY(-40px) scaleY(0.3); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-300px) scaleY(1.15); }
 }
 
 @keyframes code-blink {

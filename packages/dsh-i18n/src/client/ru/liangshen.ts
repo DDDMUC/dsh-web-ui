@@ -13,6 +13,7 @@ export const ru: Record<string, string> = {
   'lever.failed.failed': 'Не удалось переключить: {reason}',
   'lever.failed.locked': 'Сессия уже началась, режим заблокирован',
   'lever.failed.missing': 'Пресет «Ляншэнь» не найден',
+  'lever.failed.timeout': 'Тайм-аут переключения; повторите попытку',
   'lever.hint.locked': 'Сессия уже началась, режим больше не изменить',
   'lever.hint.missing': 'Пресет «Ляншэнь» не установлен; сначала включите эту строку плагина',
   'lever.hint.pull': 'Потяните рычаг вниз, чтобы включить режим Ляншэнь',

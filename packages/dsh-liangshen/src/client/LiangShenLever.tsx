@@ -44,7 +44,9 @@ export function LiangShenLever(face: LeverFace): ReactElement {
       ? face.t('lever.failed.locked')
       : error.kind === 'missing'
         ? face.t('lever.failed.missing')
-        : face.t('lever.failed.failed', { reason: error.reason })
+        : error.kind === 'timeout'
+          ? face.t('lever.failed.timeout')
+          : face.t('lever.failed.failed', { reason: error.reason })
 
   // The burst is driven by the controller's counter, so a reload or a refresh
   // can never replay it and a refused switch can never start it.

@@ -39874,7 +39874,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-liangshen/src/client/LiangShenLever.module.css.mjs
-		const css$8 = ".hYkIZq_lever{align-items:center;font-size:12px;line-height:1;display:inline-flex;position:relative}.hYkIZq_control{color:var(--dsw-alias-label-secondary,inherit);font:inherit;cursor:pointer;touch-action:none;background:0 0;border:none;border-radius:999px;align-items:center;gap:6px;margin:0;padding:2px 8px 2px 4px;transition:background-color .16s,color .16s;display:inline-flex}.hYkIZq_control:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,#0000000f)}.hYkIZq_control:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,currentColor);outline-offset:2px}.hYkIZq_control:disabled{cursor:default;opacity:.55}.hYkIZq_track{background:linear-gradient(#2b2f36,#14161a);border-radius:8px;justify-content:center;align-items:flex-end;width:24px;height:28px;display:inline-flex;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px #ffffff24,inset 0 6px 10px #0000008c}.hYkIZq_track:after{content:\"\";background:#ffffff38;border-radius:2px;height:3px;position:absolute;bottom:2px;left:3px;right:3px}.hYkIZq_arm{transform-origin:50% 24px;width:16px;height:26px;margin-left:-8px;transition:transform .34s cubic-bezier(.2,1.7,.32,1);position:absolute;bottom:2px;left:50%;transform:rotate(-24deg)}.hYkIZq_lever[data-state=on] .hYkIZq_arm{transform:rotate(24deg)}.hYkIZq_rod{fill:#c9ced6;transition:fill .2s}.hYkIZq_knob{fill:#e04a33;stroke:#00000059;stroke-width:.6px;transition:fill .2s}.hYkIZq_lever[data-state=on] .hYkIZq_rod{fill:#ffd76a}.hYkIZq_lever[data-state=on] .hYkIZq_knob{fill:#f7c637}.hYkIZq_lever[data-state=on] .hYkIZq_track{box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l3,#0000001f), 0 0 10px #f7c6378c}.hYkIZq_lever[data-busy=true] .hYkIZq_arm{animation:.42s ease-in-out infinite hYkIZq_lever-jitter}.hYkIZq_readout{white-space:nowrap;letter-spacing:.02em;min-width:4.4em}.hYkIZq_lever[data-state=on] .hYkIZq_readout{color:var(--dsw-alias-label-primary,inherit);font-weight:600}.hYkIZq_error{background:var(--dsw-alias-bg-layer-3,#0000000f);max-width:22ch;color:var(--dsw-alias-state-error-primary,#c0392b);text-overflow:ellipsis;white-space:nowrap;border-radius:6px;margin-left:4px;padding:2px 6px;overflow:hidden}.hYkIZq_burst{z-index:60;pointer-events:none;place-items:center;display:grid;position:fixed;inset:0;overflow:hidden}.hYkIZq_flash{background:radial-gradient(circle at 50% 62%,#fff6c8eb,#ffd04a73 38%,#ffa00000 72%);animation:.72s ease-out both hYkIZq_burst-flash;position:absolute;inset:0}.hYkIZq_ring{border:6px solid #ffd65ad9;border-radius:50%;width:220px;height:220px;animation:1.1s cubic-bezier(.16,.9,.3,1) both hYkIZq_burst-ring;position:absolute}.hYkIZq_ring:nth-of-type(2){animation-delay:.12s}.hYkIZq_ring:nth-of-type(3){animation-delay:.24s}.hYkIZq_banner{color:#ffe9a8;text-align:center;background:linear-gradient(160deg,#181004f0,#402604eb);border-radius:22px;flex-direction:column;align-items:center;gap:6px;padding:22px 40px;animation:.6s cubic-bezier(.16,1.5,.3,1) both hYkIZq_banner-slam,.5s ease-in-out .6s 2 hYkIZq_banner-shake;display:flex;position:relative;box-shadow:0 0 0 2px #ffd65abf,0 24px 70px #00000073}.hYkIZq_bannerName{letter-spacing:.16em;background:linear-gradient(#fff6d0,#ffc93c 55%,#b8730a);color:#0000;text-shadow:0 0 24px #ffc93ca6;-webkit-background-clip:text;background-clip:text;font-size:44px;font-weight:800}.hYkIZq_line{letter-spacing:.08em;font-size:15px}.hYkIZq_code{font-family:var(--dsw-font-mono,ui-monospace, SFMono-Regular, Menlo, monospace);letter-spacing:.06em;opacity:.82;font-size:11px;animation:.5s steps(2,end) 6 hYkIZq_code-blink}.hYkIZq_sparks{place-items:center;display:grid;position:absolute;inset:0}.hYkIZq_spark{transform-origin:50% 220px;background:linear-gradient(#ffe682f2,#ffaa1400);border-radius:2px;grid-area:1/1;width:4px;height:46px;animation:.95s ease-out both hYkIZq_spark-fly}@keyframes hYkIZq_lever-jitter{0%,to{transform:rotate(-22deg)}50%{transform:rotate(-8deg)}}@keyframes hYkIZq_burst-flash{0%{opacity:0;transform:scale(.6)}18%{opacity:1}to{opacity:0;transform:scale(1.5)}}@keyframes hYkIZq_burst-ring{0%{opacity:.9;transform:scale(.2)}to{opacity:0;transform:scale(3.4)}}@keyframes hYkIZq_banner-slam{0%{opacity:0;transform:scale(3.6)rotate(-9deg)}55%{opacity:1;transform:scale(.94)rotate(1.5deg)}75%{transform:scale(1.06)rotate(-1deg)}to{opacity:1;transform:scale(1)rotate(0)}}@keyframes hYkIZq_banner-shake{0%,to{transform:translate(0)}25%{transform:translate(-9px)rotate(-.6deg)}75%{transform:translate(9px)rotate(.6deg)}}@keyframes hYkIZq_spark-fly{0%{opacity:0;transform:translateY(0)scaleY(.4)}20%{opacity:1}to{opacity:0;transform:translateY(-260px)scaleY(1.6)}}@keyframes hYkIZq_code-blink{0%,to{opacity:.35}50%{opacity:1}}@media (prefers-reduced-motion:reduce){.hYkIZq_arm,.hYkIZq_control,.hYkIZq_rod,.hYkIZq_knob{transition:none}.hYkIZq_lever[data-busy=true] .hYkIZq_arm,.hYkIZq_flash,.hYkIZq_ring,.hYkIZq_banner,.hYkIZq_code,.hYkIZq_spark{animation:none}.hYkIZq_burst{animation:.3s ease-out both hYkIZq_burst-flash}.hYkIZq_spark{display:none}}";
+		const css$8 = ".hYkIZq_lever{align-items:center;font-size:12px;line-height:1;display:inline-flex;position:relative}.hYkIZq_control{color:var(--dsw-alias-label-secondary,inherit);font:inherit;cursor:pointer;touch-action:none;background:0 0;border:none;border-radius:999px;align-items:center;gap:6px;margin:0;padding:2px 8px 2px 4px;transition:background-color .16s,color .16s;display:inline-flex}.hYkIZq_control:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,#0000000f)}.hYkIZq_control:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,currentColor);outline-offset:2px}.hYkIZq_control:disabled{cursor:default;opacity:.55}.hYkIZq_track{background:linear-gradient(#2b2f36,#14161a);border-radius:8px;justify-content:center;align-items:flex-end;width:24px;height:28px;display:inline-flex;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px #ffffff24,inset 0 6px 10px #0000008c}.hYkIZq_track:after{content:\"\";background:#ffffff38;border-radius:2px;height:3px;position:absolute;bottom:2px;left:3px;right:3px}.hYkIZq_arm{transform-origin:50% 24px;width:16px;height:26px;margin-left:-8px;transition:transform .34s cubic-bezier(.2,1.7,.32,1);position:absolute;bottom:2px;left:50%;transform:rotate(-24deg)}.hYkIZq_lever[data-state=on] .hYkIZq_arm{transform:rotate(24deg)}.hYkIZq_rod{fill:#c9ced6;transition:fill .2s}.hYkIZq_knob{fill:#e04a33;stroke:#00000059;stroke-width:.6px;transition:fill .2s}.hYkIZq_lever[data-state=on] .hYkIZq_rod{fill:#ffd76a}.hYkIZq_lever[data-state=on] .hYkIZq_knob{fill:#f7c637}.hYkIZq_lever[data-state=on] .hYkIZq_track{box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l3,#0000001f), 0 0 10px #f7c6378c}.hYkIZq_lever[data-busy=true] .hYkIZq_arm{animation:.42s ease-in-out infinite hYkIZq_lever-jitter}.hYkIZq_readout{white-space:nowrap;letter-spacing:.02em;min-width:4.4em}.hYkIZq_lever[data-state=on] .hYkIZq_readout{color:var(--dsw-alias-label-primary,inherit);font-weight:600}.hYkIZq_error{background:var(--dsw-alias-bg-layer-3,#0000000f);max-width:22ch;color:var(--dsw-alias-state-error-primary,#c0392b);text-overflow:ellipsis;white-space:nowrap;border-radius:6px;margin-left:4px;padding:2px 6px;overflow:hidden}.hYkIZq_burst{z-index:60;pointer-events:none;place-items:center;display:grid;position:fixed;inset:0;overflow:hidden}.hYkIZq_flash{background:radial-gradient(circle at 50% 62%,#fff6c8eb,#ffd04a73 38%,#ffa00000 72%);animation:.72s ease-out both hYkIZq_burst-flash;position:absolute;inset:0}.hYkIZq_ring{border:6px solid #ffd65ad9;border-radius:50%;width:220px;height:220px;animation:1.1s cubic-bezier(.16,.9,.3,1) both hYkIZq_burst-ring;position:absolute}.hYkIZq_ring:nth-of-type(2){animation-delay:.12s}.hYkIZq_ring:nth-of-type(3){animation-delay:.24s}.hYkIZq_banner{color:#ffe9a8;text-align:center;background:linear-gradient(160deg,#181004f0,#402604eb);border-radius:22px;flex-direction:column;align-items:center;gap:6px;padding:22px 40px;animation:.6s cubic-bezier(.16,1.5,.3,1) both hYkIZq_banner-slam,.5s ease-in-out .6s 2 hYkIZq_banner-shake;display:flex;position:relative;box-shadow:0 0 0 2px #ffd65abf,0 24px 70px #00000073}.hYkIZq_bannerName{letter-spacing:.16em;background:linear-gradient(#fff6d0,#ffc93c 55%,#b8730a);color:#0000;text-shadow:0 0 24px #ffc93ca6;-webkit-background-clip:text;background-clip:text;font-size:44px;font-weight:800}.hYkIZq_line{letter-spacing:.08em;font-size:15px}.hYkIZq_code{font-family:var(--dsw-font-mono,ui-monospace, SFMono-Regular, Menlo, monospace);letter-spacing:.06em;opacity:.82;font-size:11px;animation:.5s steps(2,end) 6 hYkIZq_code-blink}.hYkIZq_sparks{place-items:center;display:grid;position:absolute;inset:0}.hYkIZq_spark{transform-origin:50%;background:linear-gradient(#ffeca0f2,#ffaa1400);border-radius:3px;grid-area:1/1;width:3px;height:30px;animation:.95s ease-out both hYkIZq_spark-fly}@keyframes hYkIZq_lever-jitter{0%,to{transform:rotate(-22deg)}50%{transform:rotate(-8deg)}}@keyframes hYkIZq_burst-flash{0%{opacity:0;transform:scale(.6)}18%{opacity:1}to{opacity:0;transform:scale(1.5)}}@keyframes hYkIZq_burst-ring{0%{opacity:.9;transform:scale(.2)}to{opacity:0;transform:scale(3.4)}}@keyframes hYkIZq_banner-slam{0%{opacity:0;transform:scale(3.6)rotate(-9deg)}55%{opacity:1;transform:scale(.94)rotate(1.5deg)}75%{transform:scale(1.06)rotate(-1deg)}to{opacity:1;transform:scale(1)rotate(0)}}@keyframes hYkIZq_banner-shake{0%,to{transform:translate(0)}25%{transform:translate(-9px)rotate(-.6deg)}75%{transform:translate(9px)rotate(.6deg)}}@keyframes hYkIZq_spark-fly{0%{opacity:0;transform:translateY(-40px)scaleY(.3)}18%{opacity:1}to{opacity:0;transform:translateY(-300px)scaleY(1.15)}}@keyframes hYkIZq_code-blink{0%,to{opacity:.35}50%{opacity:1}}@media (prefers-reduced-motion:reduce){.hYkIZq_arm,.hYkIZq_control,.hYkIZq_rod,.hYkIZq_knob{transition:none}.hYkIZq_lever[data-busy=true] .hYkIZq_arm,.hYkIZq_flash,.hYkIZq_ring,.hYkIZq_banner,.hYkIZq_code,.hYkIZq_spark{animation:none}.hYkIZq_burst{animation:.3s ease-out both hYkIZq_burst-flash}.hYkIZq_spark{display:none}}";
 		const tagId$8 = "@linxin666/dsh-web-all/packages/dsh-liangshen/src/client/LiangShenLever.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$8) + "]") === null) {
 			const tag = document.createElement("style");
@@ -39941,7 +39941,7 @@ window.__ModuleLoader__.load({
 			const drag = (0, react.useRef)(void 0);
 			const actionable = !busy && (state === "on" || state === "off");
 			const on = state === "on";
-			const errorText = error === void 0 ? void 0 : error.kind === "locked" ? face.t("lever.failed.locked") : error.kind === "missing" ? face.t("lever.failed.missing") : face.t("lever.failed.failed", { reason: error.reason });
+			const errorText = error === void 0 ? void 0 : error.kind === "locked" ? face.t("lever.failed.locked") : error.kind === "missing" ? face.t("lever.failed.missing") : error.kind === "timeout" ? face.t("lever.failed.timeout") : face.t("lever.failed.failed", { reason: error.reason });
 			(0, react.useEffect)(() => {
 				if (burst > seen.current) setBurstKey(burst);
 				seen.current = burst;
@@ -40141,8 +40141,6 @@ window.__ModuleLoader__.load({
 		function isActionable(state) {
 			return state === "on" || state === "off";
 		}
-		//#endregion
-		//#region ../dsh-liangshen/src/client/lever-controller.ts
 		/** Read the preset a session summary reports, when it reports one. */
 		function presetOf(session) {
 			const value = session?.projectionValues?.["agentPreset"];
@@ -40152,6 +40150,12 @@ window.__ModuleLoader__.load({
 		var LeverController = class {
 			ctx;
 			store;
+			/**
+			* The browser services this controller reads, resolved defensively: the
+			* context proxy throws on any service the fiber did not inject, so a
+			* deployment that cannot answer one of them must leave the lever inert
+			* rather than take the plugin (and the composer row) down with it.
+			*/
 			sessions;
 			remote;
 			/** Roster rows as last read; empty until the first read lands. */
@@ -40159,11 +40163,14 @@ window.__ModuleLoader__.load({
 			/** The preset the user was on before the last pull-down. */
 			previous;
 			loading = false;
+			/** Ceiling on one in-flight switch, so a lost Remote answer cannot hang the row. */
+			selectTimeoutMs;
 			disposers = [];
-			constructor(ctx) {
+			constructor(ctx, options = {}) {
 				this.ctx = ctx;
-				this.sessions = ctx.sessions;
-				this.remote = ctx.remote.agentPresets;
+				this.selectTimeoutMs = options.selectTimeoutMs ?? 1e4;
+				this.sessions = readService(() => ctx.sessions);
+				this.remote = readService(() => ctx.remote.agentPresets);
 				this.store = createSnapshotStore({
 					state: "off",
 					restoreLabel: "",
@@ -40177,14 +40184,16 @@ window.__ModuleLoader__.load({
 			}
 			/** Follow the roster and the current session, then read the roster once. */
 			start() {
-				this.disposers.push(this.sessions.list.subscribe(() => {
+				const list = this.sessions?.list;
+				if (list !== void 0) this.disposers.push(list.subscribe(() => {
 					this.refresh();
 				}));
-				this.disposers.push(this.ctx.remote.$on("settings/document-updated", (ns) => {
+				const remote = readService(() => this.ctx.remote);
+				if (typeof remote?.$on === "function") this.disposers.push(remote.$on("settings/document-updated", (ns) => {
 					if (ns === "agent-presets") this.load();
 				}));
 				this.refresh();
-				this.load();
+				if (this.remote !== void 0) this.load();
 			}
 			/** Release every subscription. Idempotent. */
 			dispose() {
@@ -40200,15 +40209,20 @@ window.__ModuleLoader__.load({
 					push: () => {
 						this.toggle("up");
 					},
-					t: (key, vars) => this.ctx.locale.bind("liangshen")(key, vars)
+					t: (key, vars) => {
+						const translate = readService(() => this.ctx.locale.bind("liangshen"));
+						return translate === void 0 ? key : translate(key, vars);
+					}
 				};
 			}
 			/** Read the roster; a refusal leaves the lever as it was. */
 			async load() {
 				if (this.loading) return;
+				const remote = this.remote;
+				if (remote === void 0) return;
 				this.loading = true;
 				try {
-					const result = await this.remote.list();
+					const result = await remote.list();
 					if (result.ok) this.rows = result.value.presets;
 				} catch {} finally {
 					this.loading = false;
@@ -40237,6 +40251,8 @@ window.__ModuleLoader__.load({
 			async toggle(direction) {
 				const snapshot = this.store.getSnapshot();
 				if (snapshot.busy) return;
+				const remote = this.remote;
+				if (remote === void 0) return;
 				const facts = this.facts();
 				if (!isActionable(leverState(facts))) return;
 				const target = direction === "down" ? LIANGSHEN_PRESET_ID : restoreTarget(facts);
@@ -40253,16 +40269,18 @@ window.__ModuleLoader__.load({
 				});
 				let result;
 				try {
-					result = await this.remote.select(sessionId, target);
+					result = await withTimeout(remote.select(sessionId, target), this.selectTimeoutMs);
 				} catch (error) {
+					const mapped = error instanceof SwitchTimeout ? { kind: "timeout" } : {
+						kind: "failed",
+						reason: message(error)
+					};
 					this.store.set({
 						...this.store.getSnapshot(),
 						busy: false,
-						error: {
-							kind: "failed",
-							reason: message(error)
-						}
+						error: mapped
 					});
+					this.refresh();
 					return;
 				}
 				if (!result.ok) {
@@ -40298,13 +40316,13 @@ window.__ModuleLoader__.load({
 				};
 			}
 			currentSessionId() {
-				const current = this.sessions.list.getSnapshot().current;
+				const current = this.sessions?.list.getSnapshot().current;
 				return current === void 0 ? void 0 : String(current);
 			}
 			currentSession() {
-				const state = this.sessions.list.getSnapshot();
-				const current = state.current;
-				if (current === void 0) return void 0;
+				const state = this.sessions?.list.getSnapshot();
+				const current = state?.current;
+				if (state === void 0 || current === void 0) return void 0;
 				return state.byId[current];
 			}
 			/** Display name of one preset id, falling back to the id itself. */
@@ -40312,6 +40330,39 @@ window.__ModuleLoader__.load({
 				return this.rows.find((candidate) => candidate.id === id)?.name ?? id;
 			}
 		};
+		/** Raised when one switch outlives {@link SELECT_TIMEOUT_MS}. */
+		var SwitchTimeout = class extends Error {
+			constructor() {
+				super("the preset switch did not answer in time");
+				this.name = "SwitchTimeout";
+			}
+		};
+		/** Resolve with `work`, or reject with a {@link SwitchTimeout} after `ms`. */
+		function withTimeout(work, ms) {
+			return new Promise((resolve, reject) => {
+				const timer = setTimeout(() => {
+					reject(new SwitchTimeout());
+				}, ms);
+				work.then((value) => {
+					clearTimeout(timer);
+					resolve(value);
+				}, (error) => {
+					clearTimeout(timer);
+					reject(error instanceof Error ? error : new Error(String(error)));
+				});
+			});
+		}
+		/**
+		* Read one context service, treating the proxy's "without inject" refusal (and
+		* any other resolution fault) as the service being absent.
+		*/
+		function readService(read) {
+			try {
+				return read();
+			} catch {
+				return;
+			}
+		}
 		/** The host's own reason for a refusal, mapped to lever copy. */
 		function refusal(error) {
 			if (error.code === "agent-preset/locked") return { kind: "locked" };
@@ -40349,6 +40400,7 @@ window.__ModuleLoader__.load({
 			"lever.busy": "正在切换…",
 			"lever.failed.locked": "会话已经开始，模式已锁定",
 			"lever.failed.missing": "没有找到「梁神模式」预设",
+			"lever.failed.timeout": "切换超时，请重试",
 			"lever.failed.failed": "切换失败：{reason}",
 			"burst.line1": "三秒，三辈子的代码",
 			"burst.line2": "文言文 · 二进制 · 摩斯电码"
@@ -40366,6 +40418,7 @@ window.__ModuleLoader__.load({
 			"lever.busy": "Switching…",
 			"lever.failed.locked": "The session already started, so the mode is locked",
 			"lever.failed.missing": "The LiangShen preset was not found",
+			"lever.failed.timeout": "The switch timed out; try again",
 			"lever.failed.failed": "Switch failed: {reason}",
 			"burst.line1": "Three seconds, three lifetimes of code",
 			"burst.line2": "Classical Chinese · Binary · Morse code"
@@ -40384,11 +40437,17 @@ window.__ModuleLoader__.load({
 		});
 		/** Locale namespace this half owns. */
 		const NS$7 = "liangshen";
-		/** Required client services: the slot registry, locale, sessions, and the roster Remote. */
+		/**
+		* Required client services: the slot registry, locale, sessions, and the roster
+		* Remote. Both `remote` and `remote.agentPresets` are declared: the context
+		* proxy refuses an uninjected service, and a nested service name does not imply
+		* its parent, so reading `ctx.remote.agentPresets` needs `remote` as well.
+		*/
 		const inject$8 = [
 			"slots",
 			"locale",
 			"sessions",
+			"remote",
 			"remote.agentPresets"
 		];
 		/**

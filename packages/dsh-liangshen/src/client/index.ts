@@ -31,8 +31,13 @@ import { en, zh, type LiangShenKey } from './locales.ts'
 /** Locale namespace this half owns. */
 export const NS = 'liangshen'
 
-/** Required client services: the slot registry, locale, sessions, and the roster Remote. */
-export const inject = ['slots', 'locale', 'sessions', 'remote.agentPresets']
+/**
+ * Required client services: the slot registry, locale, sessions, and the roster
+ * Remote. Both `remote` and `remote.agentPresets` are declared: the context
+ * proxy refuses an uninjected service, and a nested service name does not imply
+ * its parent, so reading `ctx.remote.agentPresets` needs `remote` as well.
+ */
+export const inject = ['slots', 'locale', 'sessions', 'remote', 'remote.agentPresets']
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
