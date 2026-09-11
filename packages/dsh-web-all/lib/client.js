@@ -39955,6 +39955,7 @@ window.__ModuleLoader__.load({
 					clearTimeout(timer);
 				};
 			}, [burstKey]);
+			if (state === "locked" || state === "missing") return null;
 			const toggle = () => {
 				if (!actionable) return;
 				if (on) face.push();

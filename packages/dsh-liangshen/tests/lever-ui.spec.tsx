@@ -114,18 +114,25 @@ describe('LiangShenLever', () => {
     expect(calls).toEqual(['pull'])
   })
 
-  it('cannot be operated while locked or missing', () => {
+  it('renders nothing once the session has started or the preset is missing', () => {
     const locked = fakeFace({ state: 'locked' })
-    const lockedButton = button(mount(locked.face))
-    expect(lockedButton.disabled).toBe(true)
-    expect(lockedButton.title).toBe('lever.hint.locked')
-    gesture(lockedButton, 100, 160)
+    const lockedContainer = mount(locked.face)
+    expect(lockedContainer.querySelector('[data-dsh-plugin="liangshen"]')).toBeNull()
+    expect(lockedContainer.querySelector('button')).toBeNull()
     expect(locked.calls).toEqual([])
 
     const missing = fakeFace({ state: 'missing' })
-    const missingButton = button(mount(missing.face))
-    expect(missingButton.disabled).toBe(true)
-    expect(missingButton.title).toBe('lever.hint.missing')
+    expect(mount(missing.face).querySelector('[data-dsh-plugin="liangshen"]')).toBeNull()
+  })
+
+  it('leaves the composer row when the session leaves the blank window and returns on a blank one', () => {
+    const { face, store } = fakeFace()
+    const container = mount(face)
+    expect(container.querySelector('[data-dsh-plugin="liangshen"]')).not.toBeNull()
+    act(() => { store.set({ ...store.getSnapshot(), state: 'locked' }) })
+    expect(container.querySelector('[data-dsh-plugin="liangshen"]')).toBeNull()
+    act(() => { store.set({ ...store.getSnapshot(), state: 'off' }) })
+    expect(container.querySelector('[data-dsh-plugin="liangshen"]')).not.toBeNull()
   })
 
   it('reports a refused switch in the composer row', () => {

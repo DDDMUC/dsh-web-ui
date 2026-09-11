@@ -30,7 +30,7 @@ const MORSE = '-.. . . .--. ... . . -.- / .... .- .-. -. . ... ...'
 const SPARKS = Array.from({ length: 14 }, (_, index) => index)
 
 /** Slot entry for `conversation.input.right` (left of the model selector). */
-export function LiangShenLever(face: LeverFace): ReactElement {
+export function LiangShenLever(face: LeverFace): ReactElement | null {
   const snapshot = useSyncExternalStore(face.store.subscribe, face.store.getSnapshot)
   const { state, restoreLabel, busy, error, burst } = snapshot
   const [burstKey, setBurstKey] = useState(0)
@@ -60,6 +60,12 @@ export function LiangShenLever(face: LeverFace): ReactElement {
     const timer = setTimeout(() => { setBurstKey(0) }, BURST_MS)
     return () => { clearTimeout(timer) }
   }, [burstKey])
+
+  // The lever exists only while the preset can still change, which is the
+  // blank-session window: a started session reports `locked`, a deployment
+  // without the preset reports `missing`, and both mean the row renders
+  // nothing instead of a dead control in the composer of a running session.
+  if (state === 'locked' || state === 'missing') return null
 
   const toggle = (): void => {
     if (!actionable) return
