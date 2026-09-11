@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词永久保持官方 Minimal 那一行 persona（外加一行会话工作区目录），并从第一条用户消息起就把完整工具目录作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致——而工具 schema 本身按回合分层：首个（锚定）回合的请求只带极简工具面，从第二个回合起 wire 上才是官方 Standard 的完整清单。唯一的一次 wire 跃迁就是确定性的回合边界，没有推理内容门控、没有 PTC 切换。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
+把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词永久保持官方 Minimal 的一行 persona——外加本模式的固定工作纪律与会话工作区目录——并从第一条用户消息起就把完整工具目录作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致——而工具 schema 本身按回合分层：首个（锚定）回合的请求只带极简工具面，从第二个回合起 wire 上才是官方 Standard 的完整清单。唯一的一次 wire 跃迁就是确定性的回合边界，没有推理内容门控、没有 PTC 切换。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
 
 ## 原理
 
@@ -12,7 +12,7 @@ DeepSeek V4 Pro 在选择执行轨迹时，会强烈依赖**第一次请求的�
 
 ## 工作机制
 
-1. `minimal-prompt` 把每次组装出的提示词收窄到 persona 一段——`You are a helpful software engineer assistant.` 外加一行从会话头读取的方位信息 `Your working directory is <cwd>.`——因此 harness identity、web surface、工具用法、文件引用与结构化输出等 section 都不会到达模型；plan mode 的 `plan:policy` 保留，因为该 section 是 plan mode 唯一的执行依据（它的退出工具在任何模式下都保持注册）；
+1. `minimal-prompt` 把每次组装出的提示词收窄到 persona 一段——一行 persona、本模式的固定工作纪律（思维循环即断、先理解需求与方案再实现、YAGNI/PDCA、代码不加注释）、以及一行从会话头读取的方位信息 `Your working directory is <cwd>.`——因此 harness identity、web surface、工具用法、文件引用与结构化输出等 section 都不会到达模型；plan mode 的 `plan:policy` 保留，因为该 section 是 plan mode 唯一的执行依据（它的退出工具在任何模式下都保持注册）；
 2. 锚定回合（会话的第一个回合）把 wire 保持在极简面上：`bash`、`str_replace_editor`、`exit_plan_mode`、`skill`（`anchorTools`）；从第二个回合起 wire 带本 preset 的完整工具清单：Standard 的工具集，以持久 shell 取代一次性 shell，另加 `str_replace_editor`；
 3. `tool-catalog` 把工具清单——名称加一行摘要——从第一条用户消息起作为持久 user 消息追加在用户消息之后。条目索引的是**完整注册面**（在锚定回合的 wire 收窄之前读取），所以第一轮就点名了第二轮才上 wire 的全部工具；执行按名字解析会话注册表，与请求里是否声明无关。只在目录内容变化、或已发布副本离开可见面（压缩、恢复）时重发；
 4. 运行时上下文（sandbox 与 approval 快照）与 skill 目录按 Standard 模式正常注入，首次 AGENTS.md 注入替换为一次性的、非命令式的参考文件提示。
@@ -61,7 +61,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 导出 session JSONL，检查 `request/header`：
 
-- 第一份 header 的 `system` 应恰好是那一行 persona 加工作区目录一行（`Your working directory is <cwd>.`），plan mode 开启时另加其策略段；
+- 第一份 header 的 `system` 应恰好是 persona 块（一行 persona、工作纪律清单、工作区目录行 `Your working directory is <cwd>.`），plan mode 开启时另加其策略段；
 - 第一份 header 的 tools 应恰好是锚定集——`bash`、`str_replace_editor`、`exit_plan_mode`、`skill`——既不是完整清单，也不会是 `run_code`；
 - 首个回合放行的消息里应有一条来自 `liangshen-tool-catalog` 的 `plugin` 消息，位于用户消息之后，按名称列出完整工具清单；
 - 从第二个回合起，header 带完整工具清单；目录渲染文本不再变化，因此不会每步再追加目录消息；
@@ -85,7 +85,7 @@ node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jso
 
 ## 行为与限制
 
-- 系统提示词在整个会话中保持稳定：那一行 persona，plan mode 开启时另加其策略段。工具调用后不会再追加内容，也不施加任何输出预算上限；
+- 系统提示词在整个会话中保持稳定：persona 块（persona、工作纪律、工作区目录），plan mode 开启时另加其策略段。工具调用后不会再追加内容，也不施加任何输出预算上限；
 - wire 的 schema 集只在锚定回合边界变化一次；目录消息本身每会话写一次（另在压缩遮蔽时替换一次），因此不会出现每步、每回合的缓存前缀扰动；
 - 注入的目录是持久消息：每个会话写入一次，另在工具集变化或压缩遮蔽已发布副本时替换一次，并留在历史中供后续请求使用；
 - 未观测到 prompt 组装的步不注入任何内容——目录绝不会由过期视图推测；

@@ -43,10 +43,15 @@ describe('liangshen preset composition', () => {
     expect(preset).not.toContain('tool-bootstrap')
   })
 
-  it('keeps the persona row on the current schema with the one-line prefix', () => {
+  it('keeps the persona row on the current schema with the discipline prefix', () => {
     const persona = row('persona')
     expect(persona).toContain("name: '@deepseek-ai/dsh-persona'")
-    expect(persona).toContain('prefix: You are a helpful software engineer assistant.')
+    expect(persona).toContain('prefix: |-')
+    expect(persona).toContain('You are a helpful software engineer assistant.')
+    // The standing working discipline ships inside the persona prefix.
+    expect(persona).toContain('Avoid falling into repetitive loops during thinking')
+    expect(persona).toContain('YAGNI programming philosophy and the PDCA behavioral standard')
+    expect(persona).toContain('No need to write comments for the code.')
     expect(persona).not.toContain('text:')
     expect(persona).not.toContain('complete:')
     // Runtime contexts are durable user-role messages, not prompt text: they

@@ -1,18 +1,18 @@
-# The `liangshen` (梁神模式) agent preset: the builtin Minimal preset's exact
-# one-line persona (plus the session's workspace directory) as the WHOLE
-# system prompt, and the builtin Standard preset's complete tool catalog
-# delivered as a context injection while its schemas are staged behind the
-# anchor turn. The session's first request runs the minimal surface — the
-# one-line persona plus the four `anchorTools` schemas (`bash`,
-# `str_replace_editor`, `exit_plan_mode`, `skill`) — and from the second turn
-# the full Standard roster is on the wire. The capability facts the Standard
-# system prompt would carry as tool-guidance prose arrive instead as a durable
-# `tool-catalog` message appended after the user's own message from the FIRST
-# turn on, the way the skill catalog is injected; it indexes the full
-# registered surface from the start, and execution resolves by name against
-# the session registry, so the model can act on it before the schemas arrive.
-# The one wire transition is the deterministic turn boundary: no
-# reasoning-block gating, no PTC switch.
+# The `liangshen` (梁神模式) agent preset: the builtin Minimal preset's
+# one-line persona — extended with the mode's standing working discipline and
+# the session's workspace directory — as the WHOLE system prompt, and the
+# builtin Standard preset's complete tool catalog delivered as a context
+# injection while its schemas are staged behind the anchor turn. The session's
+# first request runs the minimal surface — the short persona block plus the
+# four `anchorTools` schemas (`bash`, `str_replace_editor`, `exit_plan_mode`,
+# `skill`) — and from the second turn the full Standard roster is on the wire.
+# The capability facts the Standard system prompt would carry as tool-guidance
+# prose arrive instead as a durable `tool-catalog` message appended after the
+# user's own message from the FIRST turn on, the way the skill catalog is
+# injected; it indexes the full registered surface from the start, and
+# execution resolves by name against the session registry, so the model can
+# act on it before the schemas arrive. The one wire transition is the
+# deterministic turn boundary: no reasoning-block gating, no PTC switch.
 #
 # The persistent shell replaces the Standard ephemeral shell for the whole
 # session (both register the name `bash`), and the editor inherits the host
@@ -40,16 +40,25 @@
 
 # ── identity ────────────────────────────────────────────────────────────────
 
-# This one-line persona is the preset's entire system prompt: `minimal-prompt`
-# narrows the assembled sections down to it (plus plan mode's `plan:policy`,
-# which no tool restriction backs — see that plugin), so identity, harness,
-# web-surface, and tool-guidance sections never reach the model. Runtime
-# context snapshots stay enabled: they are durable user-role messages, not
-# system-prompt text.
+# The persona prefix below is the preset's entire system prompt base:
+# `minimal-prompt` narrows the assembled sections down to it (plus plan mode's
+# `plan:policy`, which no tool restriction backs — see that plugin) and
+# appends the session's workspace directory at assembly time, so identity,
+# harness, web-surface, and tool-guidance sections never reach the model.
+# Besides the one-line persona it carries the standing working discipline the
+# mode ships with (thinking loops, design-first reasoning, YAGNI/PDCA, no
+# code comments). Runtime context snapshots stay enabled: they are durable
+# user-role messages, not system-prompt text.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    prefix: You are a helpful software engineer assistant.
+    prefix: |-
+      You are a helpful software engineer assistant.
+
+      - Avoid falling into repetitive loops during thinking; exit immediately once a loop is detected.
+      - Focus thinking on requirement understanding and solution design (key points, workflow, verification strategy), without pre-rehearsing specific code implementation. Code should be output during the "Do" phase based on the actual state of files, with correctness verified by the "Check" phase.
+      - When writing code, follow the YAGNI programming philosophy and the PDCA behavioral standard.
+      - No need to write comments for the code.
 
 # The two halves of the mode, both preset-local plugins:
 #
