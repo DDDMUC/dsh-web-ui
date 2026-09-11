@@ -749,7 +749,7 @@ const REVIEWED_SKIN_HOOKS = {
 	},
 	"maid-atelier": {
 		entry: "hooks.mjs",
-		manifestSha256: "f36e854f52f24939dfe6318ed6b1ff6fe33d0564e63255a22aaca459af1a84d9",
+		manifestSha256: "7596a704bce65006381d27417d4c12bb09d7e5ede038a6f486cfa58e62314aa5",
 		hooksSha256: "8a50922c970337ab07b0843e61b9a771f3a57baf54d18a24e906f13dbb39b4ff"
 	},
 	"matrix": {
