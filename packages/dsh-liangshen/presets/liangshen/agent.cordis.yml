@@ -1,15 +1,18 @@
 # The `liangshen` (梁神模式) agent preset: the builtin Minimal preset's exact
-# one-line persona as the WHOLE system prompt, and the builtin Standard
-# preset's complete tool catalog staged behind the anchor turn. The session's
-# first request runs the minimal surface — the one-line persona plus the four
-# `anchorTools` schemas (`bash`, `str_replace_editor`, `exit_plan_mode`,
-# `skill`) — and from the second turn the full Standard roster is on the wire.
-# The capability facts the Standard system prompt would carry as tool-guidance
-# prose arrive instead as a durable `tool-catalog` message appended after the
-# user's own message from that second turn on, so the stable prefix stays the
-# one-line anchor while the model still knows what it can call (see
-# `minimal-prompt.mjs` and `tool-catalog.mjs`). The one transition is the
-# deterministic turn boundary: no reasoning-block gating, no PTC switch.
+# one-line persona (plus the session's workspace directory) as the WHOLE
+# system prompt, and the builtin Standard preset's complete tool catalog
+# delivered as a context injection while its schemas are staged behind the
+# anchor turn. The session's first request runs the minimal surface — the
+# one-line persona plus the four `anchorTools` schemas (`bash`,
+# `str_replace_editor`, `exit_plan_mode`, `skill`) — and from the second turn
+# the full Standard roster is on the wire. The capability facts the Standard
+# system prompt would carry as tool-guidance prose arrive instead as a durable
+# `tool-catalog` message appended after the user's own message from the FIRST
+# turn on, the way the skill catalog is injected; it indexes the full
+# registered surface from the start, and execution resolves by name against
+# the session registry, so the model can act on it before the schemas arrive.
+# The one wire transition is the deterministic turn boundary: no
+# reasoning-block gating, no PTC switch.
 #
 # The persistent shell replaces the Standard ephemeral shell for the whole
 # session (both register the name `bash`), and the editor inherits the host
@@ -50,30 +53,37 @@
 
 # The two halves of the mode, both preset-local plugins:
 #
-# `minimal-prompt` keeps the system prompt on the persona above. It also
-# replaces the full-text AGENTS.md injection with a one-time non-imperative
-# pointer to the reference files (issue #388, upstream dsh-anchored-standard
-# #49: the full-text dump measurably flips the anchored trajectory). Set
-# `instructionHint: false` to restore the plain full-text injection, or
-# `keepPlanPolicy: false` to drop plan mode's policy section as well.
+# `minimal-prompt` keeps the system prompt on the persona above, plus the
+# session's workspace directory appended at assembly time (`Your working
+# directory is <cwd>.` — the one orientation fact the initial prompt carries).
+# It also replaces the full-text AGENTS.md injection with a one-time
+# non-imperative pointer to the reference files (issue #388, upstream
+# dsh-anchored-standard #49: the full-text dump measurably flips the anchored
+# trajectory). Set `instructionHint: false` to restore the plain full-text
+# injection, or `keepPlanPolicy: false` to drop plan mode's policy section as
+# well.
 #
 # `tool-catalog` appends the model-visible tool catalog — name plus one-line
-# summary, read from the step's assembled wire schemas — as a durable user
-# message after the user's own message, the way `dsh-tool-skill` injects the
-# skill catalog. It republishes only when that catalog's content changes or
-# the published copy left the visible surface (compaction, resume), so the
-# catalog is not appended once per step. `descriptionMaxLength` caps each
-# one-line summary; the full description stays in the tool schema.
+# summary — as a durable user message after the user's own message from the
+# first turn on, the way `dsh-tool-skill` injects the skill catalog. It
+# republishes only when that catalog's content changes or the published copy
+# left the visible surface (compaction, resume), so the catalog is not
+# appended once per step. `descriptionMaxLength` caps each one-line summary;
+# the full description stays in the tool schema.
 #
-# `anchorTools` stages the Standard roster behind the anchor turn: while the
-# session is in its first turn, the assembled wire narrows to these schemas
-# and the catalog publishes nothing; from the second turn the full roster is
-# on the wire and the catalog publishes after the user's message. The four
-# names are exactly what the anchor turn needs to stay coherent: the shell and
-# editor are the minimal working pair, `exit_plan_mode` backs the
-# `plan:policy` section that `minimal-prompt` keeps in the prompt, and `skill`
-# backs the skill catalog that arrives with the first injection. Set it to an
-# empty list to restore the full catalog from the first request.
+# `anchorTools` stages the Standard roster's SCHEMAS behind the anchor turn:
+# while the session is in its first turn, the assembled wire narrows to these
+# schemas, while the catalog already indexes the full registered surface
+# (entries are read before the narrowing). From the second turn the full
+# roster is on the wire and the rendered catalog no longer changes. Execution
+# resolves by name against the session registry — independent of what the
+# request declares — so a first-turn call against a not-yet-schematized tool
+# still runs. The four names are exactly what the anchor turn needs to stay
+# coherent: the shell and editor are the minimal working pair,
+# `exit_plan_mode` backs the `plan:policy` section that `minimal-prompt` keeps
+# in the prompt, and `skill` backs the skill catalog that arrives with the
+# first injection. Set it to an empty list to restore the full catalog on the
+# wire from the first request.
 - id: minimal-prompt
   name: ./minimal-prompt.mjs
   config:

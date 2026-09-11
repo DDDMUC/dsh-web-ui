@@ -252,42 +252,38 @@ describe('liangshen-tool-catalog', () => {
     expect(anchorToolsOf(wire, [])).toBe(wire)
   })
 
-  test('anchor turn narrows the wire to the anchor schemas and publishes no catalog', async () => {
+  test('anchor turn narrows the wire but publishes the full-surface catalog', async () => {
     const harness = register({ anchorTools: ['bash', 'str_replace_editor'] })
     const agent = agentOf([{ type: 'turn/start' }])
     const assembled = await assemble(harness, agent, [...TOOLS, { name: 'web_search', description: 'Search the web.' }])
+    // The request carries only the anchor schemas...
     expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['bash'])
-    const result = await preStep(harness, agent)
-    expect(catalogOf(result.messages)).toBeUndefined()
-    expect(result.messages).toHaveLength(1)
-  })
-
-  test('a catalog copy riding an anchor batch is stripped', async () => {
-    const harness = register({ anchorTools: ['bash'] })
-    const agent = agentOf([{ type: 'turn/start' }])
-    await assemble(harness, agent)
-    const stray = { id: 'stray', source: { kind: 'plugin', plugin: name }, content: [{ type: 'text', text: 'old' }] }
-    const result = await preStep(harness, agent, [{ id: 'user', source: { kind: 'user' } }, stray])
-    expect(result.messages.map((message: any) => message.id)).toEqual(['user'])
-  })
-
-  test('second turn carries the full roster and publishes the catalog after the user message', async () => {
-    const harness = register({ anchorTools: ['bash'] })
-    const agent = agentOf([{ type: 'turn/start' }, { type: 'turn/start' }])
-    const assembled = await assemble(harness, agent, TOOLS)
-    expect(assembled.tools).toBe(TOOLS)
+    // ...while the catalog indexes the full surface — the entries are read
+    // before the narrowing, so the first turn names what the second turn puts
+    // on the wire.
     const result = await preStep(harness, agent)
     const catalog = catalogOf(result.messages)
     expect(catalog).toBeDefined()
     expect(catalog.content[0].text).toContain('- `read`: Read a UTF-8 text file and return line-numbered content.')
+    expect(catalog.content[0].text).toContain('- `web_search`: Search the web.')
   })
 
-  test('a promoted step with no observed assembly injects nothing rather than reusing a stale stash', async () => {
+  test('second turn keeps the same catalog text and the full wire', async () => {
     const harness = register({ anchorTools: ['bash'] })
     const anchored = agentOf([{ type: 'turn/start' }])
     await assemble(harness, anchored, TOOLS)
-    const promotedNoAssembly = agentOf([{ type: 'turn/start' }, { type: 'turn/start' }])
-    expect((await preStep(harness, promotedNoAssembly)).messages).toHaveLength(1)
+    const firstStep = await preStep(harness, anchored)
+    const catalog = catalogOf(firstStep.messages)
+    const promoted = agentOf(
+      [{ type: 'turn/start', seq: 1 }, { type: 'turn/start', seq: 2 }, durableEvent(3, catalog)],
+      [3],
+    )
+    const assembled = await assemble(harness, promoted, TOOLS)
+    expect(assembled.tools).toBe(TOOLS)
+    const second = await preStep(harness, promoted, [{ id: 'user', source: { kind: 'user' } }])
+    // The rendered text is identical across the boundary: no republish.
+    expect(catalogOf(second.messages)).toBeUndefined()
+    expect(second.messages).toHaveLength(1)
   })
 
   test('staging off by default: the first request carries the full catalog', async () => {

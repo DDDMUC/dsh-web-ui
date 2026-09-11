@@ -48,10 +48,11 @@ async function assemble(
   harness: Harness,
   sections: unknown[] = FULL_SECTIONS,
   contexts: unknown[] = [{ name: 'sandbox:policy', text: 'Current DSH file policy: workspace-write.' }],
+  agent: unknown = agentOf(),
 ) {
   return listener(harness, 'system-prompt/assemble')(
     undefined,
-    { agent: agentOf() },
+    { agent },
     async () => ({ sections, contexts, tools: [], variables: {} }),
   )
 }
@@ -128,6 +129,38 @@ describe('liangshen-minimal-prompt', () => {
   test('rejects a non-boolean switch', () => {
     expect(() => register({ instructionHint: 'yes' })).toThrow(/instructionHint must be a boolean/)
     expect(() => register({ keepPlanPolicy: 1 })).toThrow(/keepPlanPolicy must be a boolean/)
+  })
+
+  test('appends the session workspace directory to the persona', async () => {
+    const agent = { session: { header: { cwd: '/Users/zcl/code/dsh-web' } } }
+    const result = await assemble(register(), FULL_SECTIONS, undefined, agent)
+    expect(result.sections[0].text)
+      .toBe('You are a helpful software engineer assistant.\n\nYour working directory is /Users/zcl/code/dsh-web.')
+    // The plan policy is not orientation: it stays verbatim.
+    expect(result.sections.find((section: any) => section.name === 'plan:policy').text).toBe(PLAN.text)
+  })
+
+  test('accepts the legacy persona name for the workspace line', async () => {
+    const agent = { session: { header: { cwd: '/w' } } }
+    const legacy = [{ name: 'persona', text: 'You are a helpful software engineer assistant.' }]
+    const result = await assemble(register(), legacy, undefined, agent)
+    expect(result.sections[0].text).toContain('Your working directory is /w.')
+  })
+
+  test('does not duplicate a workspace line the persona already carries', async () => {
+    const agent = { session: { header: { cwd: '/w' } } }
+    const carried = [{
+      name: 'deployment:persona-prefix',
+      text: 'You are a helpful software engineer assistant.\n\nYour working directory is /w.',
+    }]
+    const result = await assemble(register(), carried, undefined, agent)
+    expect(result.sections[0].text.match(/Your working directory is \/w\./g)).toHaveLength(1)
+  })
+
+  test('keeps the bare persona when the session reports no cwd', async () => {
+    const agent = { session: { header: {} } }
+    const result = await assemble(register(), FULL_SECTIONS, undefined, agent)
+    expect(result.sections[0].text).toBe(PERSONA.text)
   })
 
   test('replaces the first agent-instructions injection with a plugin hint', async () => {

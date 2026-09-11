@@ -2,19 +2,19 @@
 
 English | [中文](README.zh.md)
 
-Ships the LiangShen preset as a one-command plugin of the dsh-web family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker, and its browser half adds a slot-machine lever beside the model selector on the new-session screen for switching that mode on and off. The preset keeps the builtin Minimal preset's exact one-line persona as the whole system prompt; the session's first (anchor) turn runs a small anchor tool surface, and from the second turn the builtin Standard preset's complete tool catalog sits on the wire — the one transition is the deterministic turn boundary, with no reasoning gating and no PTC switch — and the tool list is injected as a durable user message after the user's own message, the way the harness injects the skill catalog. Built entirely on the official NPM SDK — no dsh source changes.
+Ships the LiangShen preset as a one-command plugin of the dsh-web family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker, and its browser half adds a slot-machine lever beside the model selector on the new-session screen for switching that mode on and off. The preset keeps the builtin Minimal preset's one-line persona (plus the session's workspace directory) as the whole system prompt, and delivers the complete tool catalog as a durable user message after the user's own message from the first turn on — the way the harness injects the skill catalog — while the tool schemas are staged: the first (anchor) turn's request carries a small anchor surface, and from the second turn the full builtin Standard roster sits on the wire. The one wire transition is the deterministic turn boundary, with no reasoning gating and no PTC switch. Built entirely on the official NPM SDK — no dsh source changes.
 
 ## Why
 
 DeepSeek V4 Pro conditions strongly on the model-visible surface of the FIRST request — the system prompt and the API tool catalog alike — when choosing its execution trajectory. In the community eval ([xiaobright/modeltest](https://github.com/xiaobright/modeltest)), Minimal reached 99/96 while Standard / PTC scored 91/92; Minimal's advantage is its one-line persona, and its price is that it keeps only two tools.
 
-LiangShen merges the two instead of switching between them: the anchoring part (the system prompt) stays Minimal for the whole session, and the capable part (the tool catalog) is Standard from the second turn, after the anchor turn has landed the trajectory on the minimal surface. The capability facts the Standard prompt would carry as tool-guidance prose arrive as a message at the prompt tail, so the stable prefix stays the one-line anchor.
+LiangShen merges the two instead of switching between them: the anchoring part (the system prompt) stays Minimal for the whole session, and the capable part (the tool catalog) is announced from the first user message through a skill-catalog-style injection, while its schemas engage at the deterministic turn boundary. The capability facts the Standard prompt would carry as tool-guidance prose arrive as a message at the prompt tail, so the stable prefix stays the one-line anchor.
 
 ## How it works
 
-1. `minimal-prompt` narrows every assembled prompt to the persona section — `You are a helpful software engineer assistant.` — so the harness identity, web-surface, tool-guidance, file-reference, and structured-output sections never reach the model; plan mode's `plan:policy` is kept, because that section is the only thing that enforces plan mode (its exit tool stays registered in every mode);
+1. `minimal-prompt` narrows every assembled prompt to the persona section — `You are a helpful software engineer assistant.` plus one appended orientation line, `Your working directory is <cwd>.` read from the session header — so the harness identity, web-surface, tool-guidance, file-reference, and structured-output sections never reach the model; plan mode's `plan:policy` is kept, because that section is the only thing that enforces plan mode (its exit tool stays registered in every mode);
 2. the anchor turn — the session's first — keeps the wire on the minimal surface: `bash`, `str_replace_editor`, `exit_plan_mode`, and `skill` (`anchorTools`); from the second turn the wire carries the preset's complete tool roster: the Standard set with the persistent shell in place of the ephemeral one, plus `str_replace_editor`;
-3. `tool-catalog` appends the tool list — name plus a one-line summary read from that step's assembled wire schemas — as a durable user message after the user's own message from the second turn on (the anchor schemas are already the whole anchor wire, so the anchor turn publishes no catalog), and republishes it only when the catalog changed or the published copy left the visible surface (a compaction, a resume);
+3. `tool-catalog` appends the tool list — name plus a one-line summary — as a durable user message after the user's own message from the first turn on. Its entries index the full registered surface (they are read before the anchor-turn wire narrowing), so the first turn already names what the second turn puts on the wire; execution resolves by name against the session registry, which is independent of what the request declares. It republishes only when the catalog changed or the published copy left the visible surface (a compaction, a resume);
 4. runtime contexts (the sandbox and approval snapshots) and the skill catalog flow as in Standard mode, and the first AGENTS.md injection becomes a one-time non-imperative pointer to the reference files.
 
 Windows note: DSH's PTY backend is linux/darwin-only, so on win32 the persistent-shell group is disabled and `bash` comes from `custom-bash` — the same tool name, spawning Git Bash through the ordinary cross-platform subprocess seam (see `presets/liangshen/custom-bash.mjs`).
@@ -61,10 +61,10 @@ Fully restart `dsh web`, open a NEW empty session, and pick "梁神模式" as th
 
 Export the session JSONL and inspect `request/header`:
 
-- the first header's `system` should be exactly the one-line persona, plus plan mode's policy while plan mode is on;
-- the first header's tools should be exactly the anchor set — `bash`, `str_replace_editor`, `exit_plan_mode`, `skill` — never the full roster, and never `run_code`; the first turn's admitted messages hold no tool catalog;
-- from the second turn on, headers carry the full roster, and the step's admitted messages hold one `plugin`-sourced message from `liangshen-tool-catalog` after the user message, listing the tools by name;
-- later headers keep the same tool list, and no further catalog message is appended per step;
+- the first header's `system` should be exactly the one-line persona plus the workspace line (`Your working directory is <cwd>.`), plus plan mode's policy while plan mode is on;
+- the first header's tools should be exactly the anchor set — `bash`, `str_replace_editor`, `exit_plan_mode`, `skill` — never the full roster, and never `run_code`;
+- the first turn's admitted messages should hold one `plugin`-sourced message from `liangshen-tool-catalog` after the user message, listing the full roster by name;
+- from the second turn on, headers carry the full roster; the rendered catalog no longer changes, so no further catalog message is appended per step;
 - after a compaction the catalog is republished once as a replacement list;
 - file writes obey the host file sandbox policy — there is no bare local-filesystem bypass.
 
@@ -86,7 +86,7 @@ Both fields are editable in the web settings surface (plugin config, live) or th
 ## Behavior and limits
 
 - The system prompt is stable for the whole session: the persona line, plus plan mode's policy while plan mode is on. Nothing is appended after a tool call, and no output-token cap is applied;
-- The tool catalog changes exactly once, at the anchor-turn boundary, so no catalog-driven prefix-cache break happens within a turn or after the second request;
+- The wire's schema set changes exactly once, at the anchor-turn boundary; the catalog message itself is written once per session (plus one replacement when a compaction shadows it), so no per-step or per-turn cache-prefix churn follows;
 - The injected catalog is durable: it is written once per session, plus one replacement when the tool set changes or a compaction shadows the published copy, and it stays in the history for later requests;
 - A step whose prompt assembly was not observed injects nothing — the catalog is never guessed from a stale view;
 - A composition exposing none of the accepted persona section names (`deployment:persona-prefix`, `deployment:persona`, `persona`) keeps the assembled prompt and warns once instead of sending an empty system prompt;

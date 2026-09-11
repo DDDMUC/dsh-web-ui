@@ -1,13 +1,18 @@
 /**
  * minimal-prompt — keep this preset's system prompt on the builtin Minimal
- * preset's exact one-line persona while the Standard tool catalog stays on the
- * wire.
+ * preset's one-line persona (plus the session's workspace directory) while
+ * the Standard tool catalog is staged behind the anchor turn.
  *
  * The assembled prompt is filtered down to the persona section, so the harness
  * identity, web-surface, tool-guidance, file-reference, and structured-output
  * sections never reach the model: the one-line surface is what anchors the
  * trajectory, and the model's capability facts arrive as the `tool-catalog`
  * pre-step message instead of system-prompt prose.
+ *
+ * WORKSPACE LINE: the bare persona says nothing about where the session
+ * operates, so the selected workspace directory is appended to the persona at
+ * assembly time (`Your working directory is <cwd>.`), read from the session
+ * header. This is the only orientation fact the initial system prompt carries.
  *
  * PLAN MODE is the one exception kept by default. `dsh-plan-mode` enforces its
  * rules through the `plan:policy` prompt section alone — the exit tool stays
@@ -130,6 +135,32 @@ export function instructionHintMessages(messages, state) {
   return kept
 }
 
+/**
+ * Workspace line the persona gains. The one-line persona carries no
+ * orientation facts, and the full-text workspace dump is deliberately reduced
+ * to the reference-file hint, so the session's selected workspace directory is
+ * appended to the persona section at assembly time — the one fact the model
+ * needs to orient before any tool runs. The literal cwd comes from the
+ * session header, so the line stays correct after a workspace switch, and a
+ * session without a readable cwd keeps the bare persona rather than failing.
+ */
+const WORKSPACE_LINE_PREFIX = '\n\nYour working directory is '
+
+/** Append the workspace line to the persona section, once. */
+export function withWorkspaceLine(sections, agent) {
+  const cwd = agent?.session?.header?.cwd
+  if (typeof cwd !== 'string' || cwd.length === 0) return sections
+  const line = `${WORKSPACE_LINE_PREFIX}${cwd}.`
+  const persona = sections.find(section =>
+    PERSONA_SECTION_NAMES.includes(section?.name)
+    && typeof section?.text === 'string'
+    && !section.text.includes(line))
+  if (persona === undefined) return sections
+  return sections.map(section => section === persona
+    ? { ...section, text: `${section.text}${line}` }
+    : section)
+}
+
 /** Register the section filter and the agent-instructions hint. */
 export function apply(ctx, config) {
   const keepPlanPolicy = optionalBoolean(config?.keepPlanPolicy, 'keepPlanPolicy', true)
@@ -157,7 +188,7 @@ export function apply(ctx, config) {
   // waterfall, so `await next()` always observes the complete downstream
   // section list (including sections other listeners added) before it is
   // narrowed to the persona.
-  ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
+  ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     // Downstream errors propagate untouched; only this filter's own logic is
     // guarded (a filter bug must never brick every request of a session).
     const assembled = await next()
@@ -179,7 +210,7 @@ export function apply(ctx, config) {
       }
       return assembled
     }
-    return { ...assembled, sections }
+    return { ...assembled, sections: withWorkspaceLine(sections, context?.agent) }
   }, { prepend: true })
 
   ctx.on('agent/pre-step', async (payload, next) => {

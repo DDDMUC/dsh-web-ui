@@ -5,31 +5,33 @@
  *
  * WHY: the preset's system prompt stays on the builtin Minimal preset's
  * one-line persona, so the tool-guidance sections the Standard prompt carries
- * are absent. The model gets the complete Standard tool catalog on the wire
- * from its second turn; this message is the index that names what is
- * available, placed at the prompt tail (Layer 3) instead of in the stable
- * prefix.
+ * are absent. This message is the index that names what is available, placed
+ * at the prompt tail (Layer 3) instead of in the stable prefix — the same
+ * channel the skill catalog uses.
  *
- * STAGING: the Standard catalog does not ride the session's first request.
- * The anchor turn — while the durable log has recorded fewer than two
- * `turn/start` events — runs the minimal surface instead: the assembled wire
- * tool list is narrowed to `anchorTools` before the request carries it, and
- * the catalog message is neither published nor kept (the anchor schemas are
- * already the whole wire, so a catalog listing them would be noise, and a
- * full-roster catalog would announce tools the wire does not carry). From the
- * second turn on the full assembled catalog is on the wire and the ordinary
- * publish logic below takes over, so the mode's one transition is the
- * deterministic turn boundary — no reasoning-block gating, no PTC switch.
- * Reading the turn count from the log (not memory) keeps the boundary stable
- * across resume, reload, and compaction. An empty `anchorTools` disables
- * staging entirely and restores the full catalog from the first request.
+ * STAGING: the Standard catalog's schemas do not ride the session's first
+ * request. The anchor turn — while the durable log has recorded fewer than
+ * two `turn/start` events — runs the minimal surface instead: the assembled
+ * wire tool list is narrowed to `anchorTools` before the request carries it.
+ * The catalog MESSAGE still publishes from the first step, and it indexes the
+ * full registered surface: the entries are read from the assembly BEFORE the
+ * wire narrowing, so the first turn already names every tool the second turn
+ * puts on the wire, the way the skill catalog names skills the model loads on
+ * demand. Execution resolves by name against the session registry, which is
+ * independent of what the request declares, so a first-turn call against a
+ * not-yet-schematized tool still runs. From the second turn on the full
+ * assembled catalog is on the wire and the rendered text no longer changes,
+ * so the mode's one wire transition is the deterministic turn boundary — no
+ * reasoning-block gating, no PTC switch. Reading the turn count from the log
+ * (not memory) keeps the boundary stable across resume, reload, and
+ * compaction. An empty `anchorTools` disables the narrowing entirely and
+ * restores the full catalog on the wire from the first request.
  *
- * The entries come from the LAST assembled wire catalog for that agent — the
- * `system-prompt/assemble` waterfall value, which is exactly the schema set
- * the request will carry (post-restriction and post-presentation). Assembly
- * runs immediately before the step's `agent/pre-step` dispatch, so the stash
- * is always the current step's catalog; a step with no observed assembly
- * injects nothing rather than guessing.
+ * The entries come from the LAST assembled catalog for that agent — the
+ * `system-prompt/assemble` waterfall value, before this plugin's own wire
+ * narrowing. Assembly runs immediately before the step's `agent/pre-step`
+ * dispatch, so the stash is always the current step's catalog; a step with no
+ * observed assembly injects nothing rather than guessing.
  *
  * DEDUPE: the message is durable, so publishing it every step would append a
  * copy per step. The rendering is a pure function of the entry list and the
@@ -246,35 +248,26 @@ export function apply(ctx, config) {
     anchorNames.length > 0 && agent !== undefined && inAnchorTurn(sessionEvents(agent?.session))
   )
 
-  // The last wire catalog each live agent assembled. `prepend: true` makes
-  // this listener outermost, so `await next()` yields the final assembly.
-  // An anchor-turn assembly stashes nothing: the catalog publishes only from
-  // a step whose own assembly was observed promoted, never from a stale stash.
+  // The last assembled catalog each live agent observed, read BEFORE this
+  // plugin's own wire narrowing so the index always names the full registered
+  // surface. `prepend: true` makes this listener outermost, so `await next()`
+  // yields the final assembly.
   const wireCatalogByAgent = new WeakMap()
 
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembled = await next()
     const agent = context?.agent
-    if (!anchoring(agent)) {
-      if (agent !== undefined) {
-        wireCatalogByAgent.set(agent, catalogEntries(assembled.tools, descriptionMaxLength))
-      }
-      return assembled
+    if (agent !== undefined) {
+      wireCatalogByAgent.set(agent, catalogEntries(assembled.tools, descriptionMaxLength))
     }
-    const tools = anchorToolsOf(assembled.tools, anchorNames)
-    return { ...assembled, tools }
+    if (!anchoring(agent)) return assembled
+    return { ...assembled, tools: anchorToolsOf(assembled.tools, anchorNames) }
   }, { prepend: true })
 
   ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next()
     if (decision.kind !== 'enter') return decision
     const agent = payload?.agent
-    if (anchoring(agent)) {
-      // Anchor turn: the narrowed wire is the whole surface, so no catalog is
-      // published and any catalog copy still riding the batch is stripped.
-      const existing = catalogMessage(decision.messages)
-      return existing === undefined ? decision : withoutMessage(decision, existing.message.id)
-    }
     const entries = agent === undefined ? undefined : wireCatalogByAgent.get(agent)
     if (entries === undefined) return decision
 
