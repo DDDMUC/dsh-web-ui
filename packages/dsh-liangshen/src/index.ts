@@ -11,10 +11,12 @@
  *
  * The preset is the "minimal persona + standard catalog" idea shipped as a
  * named mode: the system prompt stays the builtin Minimal preset's exact
- * one-line persona for the whole session, the wire carries the builtin
- * Standard preset's complete tool catalog from the first request, and the
- * tool list is injected as a durable message after the user's own message the
- * way the skill catalog is. There is no phase transition of any kind.
+ * one-line persona for the whole session, the session's first (anchor) turn
+ * runs the minimal surface — a small `anchorTools` schema set — and from the
+ * second turn the wire carries the builtin Standard preset's complete tool
+ * catalog, announced by the tool list injected as a durable message after the
+ * user's own message the way the skill catalog is. The one transition is the
+ * deterministic turn boundary.
  */
 
 import { mkdirSync } from 'node:fs'
@@ -57,7 +59,7 @@ const DEFAULT_ANNOUNCE = false
 const SECTION_ORDER = 150
 
 /** Model-facing announcement: plugin presence, principle, and limits. */
-export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：系统提示词永久保持官方 Minimal 那一行 persona（minimal-prompt 只放行该段与 plan 模式的 plan:policy），wire 上从第一次请求起就是官方 Standard 的完整工具目录，没有工具跃迁、没有 PTC 切换、没有输出预算上限；工具清单（名称加一行摘要）由 tool-catalog 以 user 消息注入在用户消息之后，形如 skill catalog，仅当工具集变化或该消息离开可见面（压缩、恢复）时重发。工作区指令的全文注入被替换为一次性的引用文件提示（instructionHint）。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
+export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：系统提示词永久保持官方 Minimal 那一行 persona（minimal-prompt 只放行该段与 plan 模式的 plan:policy）；首个回合锚定在极简面上，wire 只保留 bash、str_replace_editor、exit_plan_mode、skill 四个 schema，也不注入工具清单；从第二个回合起 wire 换成官方 Standard 的完整工具目录，没有 PTC 切换、没有输出预算上限，工具清单（名称加一行摘要）由 tool-catalog 以 user 消息注入在用户消息之后，形如 skill catalog，仅当工具集变化或该消息离开可见面（压缩、恢复）时重发。工作区指令的全文注入被替换为一次性的引用文件提示（instructionHint）。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
 // The harness-home resolution (DSH_HOME override with the platform-home
 // fallback and ~ expansion) lives in the family-shared copy ./dsh-home.ts.
 // Re-export it so the plugin surface stays stable while the implementation is

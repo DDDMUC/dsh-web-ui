@@ -60,6 +60,10 @@ describe('liangshen preset composition', () => {
     expect(row('tool-catalog')).toContain('descriptionMaxLength: 200')
   })
 
+  it('stages the Standard roster behind the anchor turn', () => {
+    expect(row('tool-catalog')).toContain('anchorTools: [bash, str_replace_editor, exit_plan_mode, skill]')
+  })
+
   it('accepts the persona section name the installed SDK registers', () => {
     expect(PERSONA_SECTION_NAMES).toContain(PERSONA_PREFIX_SECTION)
     expect(PERSONA_SECTION_NAMES).not.toContain(PERSONA_SUFFIX_SECTION)

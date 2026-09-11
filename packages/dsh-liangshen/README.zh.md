@@ -2,19 +2,19 @@
 
 [English](README.md) | 中文
 
-把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词永久保持官方 Minimal 那一行 persona，同时从第一次请求起就在 wire 上提供官方 Standard 的完整工具目录——没有阶段跃迁、没有 PTC 切换——并把工具清单以 user 消息注入在用户消息之后，形状与 harness 注入 skill 目录一致。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
+把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词永久保持官方 Minimal 那一行 persona；会话的首个（锚定）回合只跑极简工具面，从第二个回合起 wire 上才是官方 Standard 的完整工具目录——唯一的一次跃迁就是确定性的回合边界，没有推理内容门控、没有 PTC 切换——并把工具清单以 user 消息注入在用户消息之后，形状与 harness 注入 skill 目录一致。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
 
 ## 原理
 
 DeepSeek V4 Pro 在选择执行轨迹时，会强烈依赖**第一次请求的模型可见面**——既包括系统提示词，也包括 API 工具目录。社区评测（[xiaobright/modeltest](https://github.com/xiaobright/modeltest)）中，Minimal 达到 99/96，而 Standard / PTC 只有 91/92：Minimal 的优势来自那一行 persona，代价是它只保留两个工具。
 
-梁神模式不在这两者之间切换，而是把它们合并：负责锚定的部分（系统提示词）全程保持 Minimal，负责能力的部分（工具目录）从第一次请求起就是 Standard。Standard 提示词里以工具用法散文承载的能力事实，改为在提示词尾部以一条消息送达，因此稳定前缀始终是那一行锚定 persona。
+梁神模式不在这两者之间切换，而是把它们合并：负责锚定的部分（系统提示词）全程保持 Minimal，负责能力的部分（工具目录）从第二个回合起就是 Standard——锚定回合先把轨迹落在极简面上。Standard 提示词里以工具用法散文承载的能力事实，改为在提示词尾部以一条消息送达，因此稳定前缀始终是那一行锚定 persona。
 
 ## 工作机制
 
 1. `minimal-prompt` 把每次组装出的提示词收窄到 persona 一段——`You are a helpful software engineer assistant.`——因此 harness identity、web surface、工具用法、文件引用与结构化输出等 section 都不会到达模型；plan mode 的 `plan:policy` 保留，因为该 section 是 plan mode 唯一的执行依据（它的退出工具在任何模式下都保持注册）；
-2. wire 从第一次请求起就带本 preset 的完整工具清单：Standard 的工具集，以持久 shell 取代一次性 shell，另加 `str_replace_editor`；
-3. `tool-catalog` 把工具清单——名称加一行摘要，取自该步组装出的 wire schema——作为持久 user 消息追加在用户消息之后，并且只在目录内容变化、或已发布副本离开可见面（压缩、恢复）时重发；
+2. 锚定回合（会话的第一个回合）把 wire 保持在极简面上：`bash`、`str_replace_editor`、`exit_plan_mode`、`skill`（`anchorTools`）；从第二个回合起 wire 带本 preset 的完整工具清单：Standard 的工具集，以持久 shell 取代一次性 shell，另加 `str_replace_editor`；
+3. `tool-catalog` 把工具清单——名称加一行摘要，取自该步组装出的 wire schema——从第二个回合起作为持久 user 消息追加在用户消息之后（锚定回合的 wire 本来就只有锚定 schema，因此不发布目录），并且只在目录内容变化、或已发布副本离开可见面（压缩、恢复）时重发；
 4. 运行时上下文（sandbox 与 approval 快照）与 skill 目录按 Standard 模式正常注入，首次 AGENTS.md 注入替换为一次性的、非命令式的参考文件提示。
 
 Windows 说明：DSH 的 PTY 后端仅支持 linux/darwin，win32 上持久 shell 组被禁用，`bash` 由 `custom-bash` 提供——工具名相同，经普通跨平台子进程通道调起 Git Bash（见 `presets/liangshen/custom-bash.mjs`）。
@@ -25,7 +25,7 @@ Windows 说明：DSH 的 PTY 后端仅支持 linux/darwin，win32 上持久 shel
 
 - 把拨杆拨下——拖动、点击或用键盘激活都算——即将开始的会话就组合为梁神模式；命中后播放中奖特效（闪光、冲击环、火花，以及「梁神模式」横幅叠文言文、二进制、摩斯三行）；
 - 把拨杆上拨，就回到你此前的模式——还没有记住任何模式时，回到部署默认预设；
-- 拨杆始终反映会话真实的预设，刷新页面后状态依然正确；且只在会话仍为空时可用，因为宿主拒绝重新组合已经开始的会话；
+- 拨杆始终反映会话真实的预设，刷新页面后状态依然正确；且只在会话仍为空时渲染——会话一旦开始，宿主拒绝重新组合，整行控件直接从输入框中消失；
 - 被拒绝的切换会在拨杆下方显示宿主给出的原因，且不播放特效；`prefers-reduced-motion` 下保留状态变化、去掉动画。
 
 拨杆通过浏览器会话已经完成鉴权的 agent-preset Remote 命名空间驱动会话预设，不额外申请权限。它只在会话为空时改动预设，而那正是它渲染所在的新建会话页。
@@ -39,6 +39,7 @@ Windows 说明：DSH 的 PTY 后端仅支持 linux/darwin，win32 上持久 shel
 | `keepPlanPolicy` | `true` | 在只有一行 persona 的系统提示词中保留 plan mode 的 `plan:policy` 段。置 `false` 得到严格的一行表面，此时 plan mode 背后没有任何策略文本。 |
 | `instructionHint` | `true` | 把首次 AGENTS.md 全文注入替换为一次性提示（列出参考文件路径），并丢弃后续注入。置 `false` 恢复普通全文注入。 |
 | `descriptionMaxLength` | `200` | 注入目录中单个工具一行摘要的长度上限。完整描述仍留在工具 schema 中。 |
+| `anchorTools` | `[]` | 锚定回合 wire 上仅有的工具名，完整工具清单从第二个回合起生效；留空则关闭分层（第一次请求就带完整目录）。出厂 preset 设为 `bash`、`str_replace_editor`、`exit_plan_mode`、`skill`。 |
 
 ## 安装
 
@@ -61,8 +62,8 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 导出 session JSONL，检查 `request/header`：
 
 - 第一份 header 的 `system` 应恰好是那一行 persona，plan mode 开启时另加其策略段；
-- 第一份 header 的 tools 应是本 preset 的完整工具清单——既不是两个工具，也不会是 `run_code`；
-- 该步放行的消息里应有一条来自 `liangshen-tool-catalog` 的 `plugin` 消息，位于用户消息之后，按名称列出工具；
+- 第一份 header 的 tools 应恰好是锚定集——`bash`、`str_replace_editor`、`exit_plan_mode`、`skill`——既不是完整清单，也不会是 `run_code`；首个回合放行的消息里没有工具目录；
+- 从第二个回合起，header 带完整工具清单，该步放行的消息里应有一条来自 `liangshen-tool-catalog` 的 `plugin` 消息，位于用户消息之后，按名称列出工具；
 - 后续 header 的工具清单保持不变，且不会每步再追加目录消息；
 - 压缩之后目录会重发一次，形式为替换清单；
 - 文件写入受宿主文件沙箱策略约束，不存在裸本地文件系统绕过。
@@ -85,7 +86,7 @@ node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jso
 ## 行为与限制
 
 - 系统提示词在整个会话中保持稳定：那一行 persona，plan mode 开启时另加其策略段。工具调用后不会再追加内容，也不施加任何输出预算上限；
-- 工具目录全程不变，因此第一次请求之后不会再发生由目录引起的缓存前缀变化；
+- 工具目录只在锚定回合边界变化一次，因此回合内与第二次请求之后都不会再发生由目录引起的缓存前缀变化；
 - 注入的目录是持久消息：每个会话写入一次，另在工具集变化或压缩遮蔽已发布副本时替换一次，并留在历史中供后续请求使用；
 - 未观测到 prompt 组装的步不注入任何内容——目录绝不会由过期视图推测；
 - 若组合中不存在任何被接受的 persona section 名（`deployment:persona-prefix`、`deployment:persona`、`persona`），过滤器会保留组装结果并只告警一次，而不是发出空系统提示词；

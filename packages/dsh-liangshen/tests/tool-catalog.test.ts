@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest'
 
 import {
+  anchorToolsOf,
   apply,
   catalogDescription,
   catalogEntries,
+  inAnchorTurn,
   name,
   renderCatalogText,
 } from '../presets/liangshen/tool-catalog.mjs'
@@ -229,6 +231,71 @@ describe('liangshen-tool-catalog', () => {
   test('rejects an invalid description cap', () => {
     expect(() => register({ descriptionMaxLength: 0 })).toThrow(/descriptionMaxLength must be an integer >= 1/)
     expect(() => register({ descriptionMaxLength: 1.5 })).toThrow(/descriptionMaxLength must be an integer >= 1/)
+  })
+
+  test('rejects an invalid anchor tool list', () => {
+    expect(() => register({ anchorTools: 'bash' })).toThrow(/anchorTools must be an array/)
+    expect(() => register({ anchorTools: ['bash', ''] })).toThrow(/anchorTools entries must be non-empty/)
+  })
+
+  test('inAnchorTurn reads the turn boundary from the durable log', () => {
+    expect(inAnchorTurn(undefined)).toBe(true)
+    expect(inAnchorTurn([{ type: 'step/start' }, { type: 'user/message' }])).toBe(true)
+    expect(inAnchorTurn([{ type: 'turn/start' }])).toBe(true)
+    expect(inAnchorTurn([{ type: 'turn/start' }, { type: 'step/start' }, { type: 'turn/start' }])).toBe(false)
+  })
+
+  test('anchorToolsOf narrows to the anchor names in wire order and passes the list through when off', () => {
+    const wire = [{ name: 'skill' }, { name: 'bash' }, { name: 'web_search' }, { name: 'str_replace_editor' }]
+    expect(anchorToolsOf(wire, ['bash', 'str_replace_editor']).map((tool: any) => tool.name))
+      .toEqual(['bash', 'str_replace_editor'])
+    expect(anchorToolsOf(wire, [])).toBe(wire)
+  })
+
+  test('anchor turn narrows the wire to the anchor schemas and publishes no catalog', async () => {
+    const harness = register({ anchorTools: ['bash', 'str_replace_editor'] })
+    const agent = agentOf([{ type: 'turn/start' }])
+    const assembled = await assemble(harness, agent, [...TOOLS, { name: 'web_search', description: 'Search the web.' }])
+    expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['bash'])
+    const result = await preStep(harness, agent)
+    expect(catalogOf(result.messages)).toBeUndefined()
+    expect(result.messages).toHaveLength(1)
+  })
+
+  test('a catalog copy riding an anchor batch is stripped', async () => {
+    const harness = register({ anchorTools: ['bash'] })
+    const agent = agentOf([{ type: 'turn/start' }])
+    await assemble(harness, agent)
+    const stray = { id: 'stray', source: { kind: 'plugin', plugin: name }, content: [{ type: 'text', text: 'old' }] }
+    const result = await preStep(harness, agent, [{ id: 'user', source: { kind: 'user' } }, stray])
+    expect(result.messages.map((message: any) => message.id)).toEqual(['user'])
+  })
+
+  test('second turn carries the full roster and publishes the catalog after the user message', async () => {
+    const harness = register({ anchorTools: ['bash'] })
+    const agent = agentOf([{ type: 'turn/start' }, { type: 'turn/start' }])
+    const assembled = await assemble(harness, agent, TOOLS)
+    expect(assembled.tools).toBe(TOOLS)
+    const result = await preStep(harness, agent)
+    const catalog = catalogOf(result.messages)
+    expect(catalog).toBeDefined()
+    expect(catalog.content[0].text).toContain('- `read`: Read a UTF-8 text file and return line-numbered content.')
+  })
+
+  test('a promoted step with no observed assembly injects nothing rather than reusing a stale stash', async () => {
+    const harness = register({ anchorTools: ['bash'] })
+    const anchored = agentOf([{ type: 'turn/start' }])
+    await assemble(harness, anchored, TOOLS)
+    const promotedNoAssembly = agentOf([{ type: 'turn/start' }, { type: 'turn/start' }])
+    expect((await preStep(harness, promotedNoAssembly)).messages).toHaveLength(1)
+  })
+
+  test('staging off by default: the first request carries the full catalog', async () => {
+    const harness = register()
+    const agent = agentOf([{ type: 'turn/start' }])
+    const assembled = await assemble(harness, agent, TOOLS)
+    expect(assembled.tools).toBe(TOOLS)
+    expect(catalogOf((await preStep(harness, agent)).messages)).toBeDefined()
   })
 
   test('catalogDescription collapses whitespace and truncates', () => {

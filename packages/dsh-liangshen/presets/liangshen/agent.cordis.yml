@@ -1,11 +1,15 @@
 # The `liangshen` (梁神模式) agent preset: the builtin Minimal preset's exact
-# one-line persona as the WHOLE system prompt, with the builtin Standard
-# preset's complete tool catalog on the wire from the first request and no
-# catalog transition at any point. The capability facts the Standard system
-# prompt would carry as tool-guidance prose arrive instead as a durable
-# `tool-catalog` message appended after the user's own message, so the stable
-# prefix stays the one-line anchor while the model still knows what it can
-# call (see `minimal-prompt.mjs` and `tool-catalog.mjs`).
+# one-line persona as the WHOLE system prompt, and the builtin Standard
+# preset's complete tool catalog staged behind the anchor turn. The session's
+# first request runs the minimal surface — the one-line persona plus the four
+# `anchorTools` schemas (`bash`, `str_replace_editor`, `exit_plan_mode`,
+# `skill`) — and from the second turn the full Standard roster is on the wire.
+# The capability facts the Standard system prompt would carry as tool-guidance
+# prose arrive instead as a durable `tool-catalog` message appended after the
+# user's own message from that second turn on, so the stable prefix stays the
+# one-line anchor while the model still knows what it can call (see
+# `minimal-prompt.mjs` and `tool-catalog.mjs`). The one transition is the
+# deterministic turn boundary: no reasoning-block gating, no PTC switch.
 #
 # The persistent shell replaces the Standard ephemeral shell for the whole
 # session (both register the name `bash`), and the editor inherits the host
@@ -60,6 +64,16 @@
 # the published copy left the visible surface (compaction, resume), so the
 # catalog is not appended once per step. `descriptionMaxLength` caps each
 # one-line summary; the full description stays in the tool schema.
+#
+# `anchorTools` stages the Standard roster behind the anchor turn: while the
+# session is in its first turn, the assembled wire narrows to these schemas
+# and the catalog publishes nothing; from the second turn the full roster is
+# on the wire and the catalog publishes after the user's message. The four
+# names are exactly what the anchor turn needs to stay coherent: the shell and
+# editor are the minimal working pair, `exit_plan_mode` backs the
+# `plan:policy` section that `minimal-prompt` keeps in the prompt, and `skill`
+# backs the skill catalog that arrives with the first injection. Set it to an
+# empty list to restore the full catalog from the first request.
 - id: minimal-prompt
   name: ./minimal-prompt.mjs
   config:
@@ -70,6 +84,7 @@
   name: ./tool-catalog.mjs
   config:
     descriptionMaxLength: 200
+    anchorTools: [bash, str_replace_editor, exit_plan_mode, skill]
 
 # Workspace instructions arrive as an ordinary injection; `minimal-prompt`
 # turns the first one into the reference-file hint.

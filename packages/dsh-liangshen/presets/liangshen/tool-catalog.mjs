@@ -5,9 +5,24 @@
  *
  * WHY: the preset's system prompt stays on the builtin Minimal preset's
  * one-line persona, so the tool-guidance sections the Standard prompt carries
- * are absent. The model still gets the complete Standard tool catalog on the
- * wire; this message is the index that names what is available, placed at the
- * prompt tail (Layer 3) instead of in the stable prefix.
+ * are absent. The model gets the complete Standard tool catalog on the wire
+ * from its second turn; this message is the index that names what is
+ * available, placed at the prompt tail (Layer 3) instead of in the stable
+ * prefix.
+ *
+ * STAGING: the Standard catalog does not ride the session's first request.
+ * The anchor turn — while the durable log has recorded fewer than two
+ * `turn/start` events — runs the minimal surface instead: the assembled wire
+ * tool list is narrowed to `anchorTools` before the request carries it, and
+ * the catalog message is neither published nor kept (the anchor schemas are
+ * already the whole wire, so a catalog listing them would be noise, and a
+ * full-roster catalog would announce tools the wire does not carry). From the
+ * second turn on the full assembled catalog is on the wire and the ordinary
+ * publish logic below takes over, so the mode's one transition is the
+ * deterministic turn boundary — no reasoning-block gating, no PTC switch.
+ * Reading the turn count from the log (not memory) keeps the boundary stable
+ * across resume, reload, and compaction. An empty `anchorTools` disables
+ * staging entirely and restores the full catalog from the first request.
  *
  * The entries come from the LAST assembled wire catalog for that agent — the
  * `system-prompt/assemble` waterfall value, which is exactly the schema set
@@ -49,6 +64,45 @@ function integerAtLeast(value, field, minimum, fallback) {
     throw new TypeError(`${name}: ${field} must be an integer >= ${minimum}`)
   }
   return value
+}
+
+/** Parse the `anchorTools` config: absent means staging off, entries must be non-empty names. */
+function anchorToolNames(value) {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${name}: anchorTools must be an array of tool names`)
+  }
+  return value.map((entry) => {
+    if (typeof entry !== 'string' || entry.trim() === '') {
+      throw new TypeError(`${name}: anchorTools entries must be non-empty tool names`)
+    }
+    return entry
+  })
+}
+
+/**
+ * Whether the session is still in its anchor turn: the durable log has
+ * recorded fewer than two `turn/start` events. The count is read from the log
+ * on every decision, so resume, reload, and compaction cannot lose or revive
+ * the boundary, and a first turn that ends without a reply still promotes at
+ * the next one.
+ */
+export function inAnchorTurn(events) {
+  let turns = 0
+  for (const event of Array.isArray(events) ? events : []) {
+    if (event?.type !== 'turn/start') continue
+    turns += 1
+    if (turns >= 2) return false
+  }
+  return true
+}
+
+/** Narrow one assembled wire tool list to the anchor names, preserving wire order. */
+export function anchorToolsOf(tools, names) {
+  const wire = Array.isArray(tools) ? tools : []
+  if (names.length === 0) return wire
+  const keep = new Set(names)
+  return wire.filter(tool => keep.has(tool?.name))
 }
 
 /**
@@ -184,24 +238,43 @@ export function apply(ctx, config) {
     1,
     DEFAULT_DESCRIPTION_MAX_LENGTH,
   )
+  const anchorNames = anchorToolNames(config?.anchorTools)
+
+  // Whether this agent's session is still in its anchor turn. An empty
+  // `anchorTools` disables staging, so every session reads as promoted.
+  const anchoring = (agent) => (
+    anchorNames.length > 0 && agent !== undefined && inAnchorTurn(sessionEvents(agent?.session))
+  )
 
   // The last wire catalog each live agent assembled. `prepend: true` makes
   // this listener outermost, so `await next()` yields the final assembly.
+  // An anchor-turn assembly stashes nothing: the catalog publishes only from
+  // a step whose own assembly was observed promoted, never from a stale stash.
   const wireCatalogByAgent = new WeakMap()
 
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembled = await next()
     const agent = context?.agent
-    if (agent !== undefined) {
-      wireCatalogByAgent.set(agent, catalogEntries(assembled.tools, descriptionMaxLength))
+    if (!anchoring(agent)) {
+      if (agent !== undefined) {
+        wireCatalogByAgent.set(agent, catalogEntries(assembled.tools, descriptionMaxLength))
+      }
+      return assembled
     }
-    return assembled
+    const tools = anchorToolsOf(assembled.tools, anchorNames)
+    return { ...assembled, tools }
   }, { prepend: true })
 
   ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next()
     if (decision.kind !== 'enter') return decision
     const agent = payload?.agent
+    if (anchoring(agent)) {
+      // Anchor turn: the narrowed wire is the whole surface, so no catalog is
+      // published and any catalog copy still riding the batch is stripped.
+      const existing = catalogMessage(decision.messages)
+      return existing === undefined ? decision : withoutMessage(decision, existing.message.id)
+    }
     const entries = agent === undefined ? undefined : wireCatalogByAgent.get(agent)
     if (entries === undefined) return decision
 
