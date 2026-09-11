@@ -43,6 +43,22 @@ function isProgrammaticLaunch(argv) {
   return argv.some((arg) => PROGRAMMATIC_LAUNCH_MARKERS.some((marker) => String(arg).includes(marker)));
 }
 
+/**
+ * Decide whether a second-instance launch should restore and focus the window.
+ * Returns false if the launch is programmatic, if the app is already quitting,
+ * or if the main window has already been destroyed or not yet created.
+ * @param {readonly string[]} argv
+ * @param {{ quitting?: boolean, window?: { isDestroyed?: () => boolean } | null }} state
+ * @returns {boolean}
+ */
+function shouldRaiseWindowOnSecondInstance(argv, state) {
+  if (isProgrammaticLaunch(argv)) return false;
+  if (state && state.quitting) return false;
+  if (!state || state.window === null || state.window === undefined) return false;
+  if (typeof state.window.isDestroyed === 'function' && state.window.isDestroyed()) return false;
+  return true;
+}
+
 /** Version stamp file produced by scripts/build-runtime.mjs. */
 const RUNTIME_STAMP = 'VERSION.json';
 
@@ -419,6 +435,7 @@ module.exports = {
   resolveDshHome,
   childEnv,
   isProgrammaticLaunch,
+  shouldRaiseWindowOnSecondInstance,
   readStampFile,
   profileAction,
   applyProfileSeed,

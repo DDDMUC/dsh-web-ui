@@ -30,6 +30,7 @@ const {
   ensureProfileFallbacks,
   checkVcRuntime,
   isProgrammaticLaunch,
+  shouldRaiseWindowOnSecondInstance,
 } = require('./runtime.cjs');
 
 const READY_TIMEOUT_MS = 180000;
@@ -157,6 +158,11 @@ function createWindow() {
       if (/^https?:\/\//.test(url)) void shell.openExternal(url);
     }
   });
+  window.on('closed', () => {
+    if (mainWindow === window) {
+      mainWindow = null;
+    }
+  });
   return window;
 }
 
@@ -256,11 +262,9 @@ if (!gotLock) {
     // provisioning children, CLI helpers) must never raise the window: they
     // are headless Node children that fail the single-instance lock on
     // purpose, and focusing on every retry is the #1382 popup loop.
-    if (isProgrammaticLaunch(argv)) return;
-    if (mainWindow !== null) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
+    if (!shouldRaiseWindowOnSecondInstance(argv, { quitting, window: mainWindow })) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
   });
   app.whenReady().then(run).catch((error) => {
     console.error(error);

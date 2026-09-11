@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-10",
+  "generated": "2026-09-11",
   "items": [
     {
       "id": "whale-song",
@@ -715,7 +715,7 @@
         "ornate",
         "glass"
       ],
-      "version": "0.3.1",
+      "version": "0.3.2",
       "accent": "#c5a468",
       "preview": {
         "light": "assets/skins/maid-atelier/preview/light.jpg",
