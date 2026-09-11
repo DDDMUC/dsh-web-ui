@@ -279,8 +279,18 @@ html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-phase="active"
  *  - Turn-tail controls (copy / feedback / regenerate) sit on a plate so the
  *    icons stay legible where the art is busy.
  *
- * Blur reads var(--dsh-skin-bubble-blur, 10px): the variable is optional and
- * falls back to the value used here.
+ * Both knobs come from the skin-center Background card and are read as optional
+ * variables with fallbacks: the blur is var(--dsh-skin-bubble-blur, 10px), and
+ * every text plate alpha rides var(--dsh-skin-bubble-alpha, .5). Each plate keeps
+ * its own ratio so the default 50% reproduces the values this layer first shipped
+ * with. The "Bubble opacity" slider therefore drives everything painted *behind
+ * text* -- markdown blocks, tool output, the turn-process row -- and nothing else.
+ * The window chrome (header, right sidebar) is deliberately not on that slider:
+ * it is frame, not bubble, and it keeps a fixed density.
+ *
+ * The light base is the left pane's measured rgb(242 245 250) (dark:
+ * rgb(16 22 42)) instead of pure white, so the plates sit in the same colour
+ * family as the panels around them.
  */
 
 /* --- markdown: one plate per block ---------------------------------------- */
@@ -288,7 +298,7 @@ html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-phase="active"
 html[data-dsh-skin="blue-fantasy"] [class*="markdown"] > p,
 html[data-dsh-skin="blue-fantasy"] [class*="markdown"] > :where(h1, h2, h3, h4, h5, h6),
 html[data-dsh-skin="blue-fantasy"] [class*="markdown"] > blockquote {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1));
   -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   border-radius: 6px;
@@ -303,7 +313,7 @@ html[data-dsh-skin="blue-fantasy"] [class*="markdown"] > blockquote {
 /* One plate for the whole list: the markers sit outside the ul/ol box, and a
    plate per item would leave the markers on the bare illustration. */
 html[data-dsh-skin="blue-fantasy"] [class*="markdown"] > :where(ul, ol) {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1));
   -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   border-radius: 8px;
@@ -314,7 +324,7 @@ html[data-dsh-skin="blue-fantasy"] [class*="markdown"] > :where(ul, ol) {
 }
 
 html[data-dsh-skin="blue-fantasy"] [class*="markdown"] > pre {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1));
   -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   border-radius: 6px;
@@ -323,14 +333,40 @@ html[data-dsh-skin="blue-fantasy"] [class*="markdown"] > pre {
 }
 
 /* A table renders inside a scroll wrapper, so it is not a direct child of the
-   markdown box; plate the wrapper to frost the table as a whole. */
+   markdown box; plate the wrapper to frost the table as a whole.
+
+   The wrapper is a block and stretches to the column by default, so a table
+   narrower than the column leaves the plate hanging ~300px past the last cell --
+   a slab of empty glass next to prose plates that all hug their text. Shrink the
+   plate to its table (still capped at the column) and centre it. Wide tables are
+   unaffected: max-width keeps the plate inside the column and the wrapper's own
+   overflow-x:auto still scrolls the table itself. */
 html[data-dsh-skin="blue-fantasy"] [class*="markdown"] [class*="tableScroll"] {
-  background: rgba(255, 255, 255, 0.55);
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1.1));
   -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   border-radius: 10px;
   padding: 8px 10px;
   box-shadow: 0 1px 4px rgba(28, 37, 70, 0.08);
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* The shell ships two table shapes: the default hugs its content
+   (`.tableScroll table { width: max-content }`) and a fill variant stretches to
+   the column (`.tableFill table { width: 100% }`). Tables here were landing on
+   the fill variant, so a four-column table spanned the whole column while every
+   prose plate above it hugged its text -- the layer contradicted itself, and a
+   short table read as a slab of empty plate.
+
+   Put the fill variant back on the content-hugging shape. Wide tables still
+   behave: the wrapper keeps max-width:100% and overflow-x:auto, so an
+   over-long table scrolls instead of overflowing. */
+html[data-dsh-skin="blue-fantasy"] [class*="markdown"] [class*="tableFill"] table {
+  width: max-content;
+  max-width: 100%;
 }
 
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="markdown"] > p,
@@ -338,17 +374,17 @@ html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="markdown"] 
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="markdown"] > blockquote,
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="markdown"] > :where(ul, ol),
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="markdown"] > pre {
-  background: rgba(16, 22, 42, 0.4);
+  background: rgb(16 22 42 / calc(var(--dsh-skin-bubble-alpha, .5) * .8));
 }
 
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="markdown"] [class*="tableScroll"] {
-  background: rgba(16, 22, 42, 0.45);
+  background: rgb(16 22 42 / calc(var(--dsh-skin-bubble-alpha, .5) * .9));
 }
 
 /* --- disclosure rows: one plate per row, clipped to the text -------------- */
 
 html[data-dsh-skin="blue-fantasy"] [data-slot="conversation.session"] [data-disclosure-row] {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1));
   -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   border-radius: 8px;
@@ -358,7 +394,7 @@ html[data-dsh-skin="blue-fantasy"] [data-slot="conversation.session"] [data-disc
 }
 
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-slot="conversation.session"] [data-disclosure-row] {
-  background: rgba(16, 22, 42, 0.4);
+  background: rgb(16 22 42 / calc(var(--dsh-skin-bubble-alpha, .5) * .8));
 }
 
 /* --- turn status: keep the shimmer, plate behind the text ----------------- */
@@ -377,14 +413,14 @@ html[data-dsh-skin="blue-fantasy"] [class*="turnStatus"]:not([class*="turnStatus
   position: absolute;
   inset: -5px -10px;
   z-index: -1;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1.1));
   -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   border-radius: 8px;
 }
 
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="turnStatus"]:not([class*="turnStatusClock"])::before {
-  background: rgba(16, 22, 42, 0.5);
+  background: rgb(16 22 42 / calc(var(--dsh-skin-bubble-alpha, .5) * 1));
 }
 
 /* --- turn-tail controls: copy / feedback / regenerate --------------------- */
@@ -392,7 +428,7 @@ html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="turnStatus"
 html[data-dsh-skin="blue-fantasy"] [data-turn-tail] [class*="actions"],
 html[data-dsh-skin="blue-fantasy"] [data-chat-flow-kind="user"] [class*="actions"],
 html[data-dsh-skin="blue-fantasy"] [data-chat-flow-kind="steering"] [class*="actions"] {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1));
   -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   border-radius: 10px;
@@ -403,7 +439,7 @@ html[data-dsh-skin="blue-fantasy"] [data-chat-flow-kind="steering"] [class*="act
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-turn-tail] [class*="actions"],
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-chat-flow-kind="user"] [class*="actions"],
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-chat-flow-kind="steering"] [class*="actions"] {
-  background: rgba(16, 22, 42, 0.4);
+  background: rgb(16 22 42 / calc(var(--dsh-skin-bubble-alpha, .5) * .8));
 }
 
 /* --- expanded bodies: full width, plate only ----------------------------- */
@@ -413,7 +449,7 @@ html[data-dsh-skin="blue-fantasy"] [class*="lcKema_thinkBody"],
 html[data-dsh-skin="blue-fantasy"] [class*="XrJvXW_body"],
 html[data-dsh-skin="blue-fantasy"] [data-context-injection-body],
 html[data-dsh-skin="blue-fantasy"] [data-system-prompt-body] {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1));
   -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
   border-radius: 8px;
@@ -424,7 +460,93 @@ html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="lcKema_thin
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="XrJvXW_body"],
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-context-injection-body],
 html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-system-prompt-body] {
-  background: rgba(16, 22, 42, 0.4);
+  background: rgb(16 22 42 / calc(var(--dsh-skin-bubble-alpha, .5) * .8));
+}
+
+/* --- fenced code: the shell paints a plate but no frosting ---------------- */
+
+/* A fenced block renders through the shell as a <div class="md-code-block">, not
+   a <pre>, so the markdown block rule above never reached it. It already carries
+   the shell's own plate (rgba(243 245 251 / .58) light, and its banner + <pre>
+   rows repeat it), but with no backdrop-filter the art stays sharp underneath
+   and the block reads flatter than the prose around it. Frost it and leave the
+   shell's fill alone. */
+html[data-dsh-skin="blue-fantasy"] [class*="markdown"] [class*="md-code-block"] {
+  -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
+  backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
+}
+
+
+/* --- turn-process row: one plate, and only one ---------------------------- */
+
+/* The "N tool calls . M messages" row is one module whose three slots share a
+   single class prefix: the button, its label span and its chevron. Painting the
+   prefix lands on all three, the .5 plates stack, and the row reads as a double
+   background. The button carries a stable semantic attribute (data-turn-process,
+   stamped by TurnProcessNodeView with its turn number), so target that: an
+   attribute selector matches the name exactly and leaves the -member / -hidden /
+   -answer / -inline siblings alone.
+
+   Upstream that row is a separator (height 33px, padding 0 0 8px, a .5px bottom
+   border). Inside a plate the 8px reads as dead space with a stray line across
+   the rounded corner, so square it up with the tool rows and hand the separator
+   back only while expanded. */
+html[data-dsh-skin="blue-fantasy"] [data-slot="main.conversation"] [data-turn-process] {
+  background: rgb(242 245 250 / calc(var(--dsh-skin-bubble-alpha, .5) * 1));
+  -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
+  backdrop-filter: blur(var(--dsh-skin-bubble-blur, 10px)) saturate(1.3);
+  border-radius: 8px;
+  height: auto;
+  padding: 1px 8px;
+  border-bottom: none;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-slot="main.conversation"] [data-turn-process] {
+  background: rgb(16 22 42 / calc(var(--dsh-skin-bubble-alpha, .5) * .8));
+}
+
+html[data-dsh-skin="blue-fantasy"] [data-slot="main.conversation"] [data-turn-process][data-open] {
+  border-bottom: .5px solid var(--dsw-alias-border-l2);
+}
+
+/* --- chrome: the top bar and the right sidebar ---------------------------- */
+
+/* The three columns only read as one surface if they share a base, so the
+   conversation header and the right sidebar reuse the left pane's measured
+   rgb(242 245 250) at the same density instead of plain white. The density is
+   fixed rather than tied to --dsh-skin-bubble-alpha: this is window chrome, and
+   dragging the Bubble opacity slider should fade bubbles, not the frame.
+
+   The right sidebar renders as [class*="rightbarCol"] > [data-slot="rightbar"]
+   > [data-slot="rightbar.session"] > [class*="panel"]. The two slot hosts are
+   display:contents and measure 0x0, so a background on them paints nothing --
+   the plate has to land on .panel.
+
+   The items inside the header (session name, mode picker, the tabs) stay
+   background-free on purpose: plates under those labels read as smudges and
+   fight the official underline indicator. */
+html[data-dsh-skin="blue-fantasy"] [data-slot="main.conversation"] header,
+html[data-dsh-skin="blue-fantasy"] [data-slot="rightbar.session"] > *,
+html[data-dsh-skin="blue-fantasy"] [class*="rightbarCol"] [class*="panel"] {
+  background: rgba(242, 245, 250, 0.75);
+}
+
+html[data-dsh-skin="blue-fantasy"] [data-slot="main.conversation"] header {
+  border-bottom: 1px solid rgba(28, 37, 70, 0.08);
+}
+
+html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-slot="main.conversation"] header,
+html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-slot="rightbar.session"] > *,
+html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [class*="rightbarCol"] [class*="panel"] {
+  background: rgba(16, 22, 42, 0.75);
+}
+
+html[data-dsh-skin="blue-fantasy"] body[data-ds-dark-theme] [data-slot="main.conversation"] header {
+  border-bottom-color: rgba(160, 180, 230, 0.12);
 }
 
 html[data-dsh-skin="blue-fantasy"] [id="root"] { background: transparent; }
