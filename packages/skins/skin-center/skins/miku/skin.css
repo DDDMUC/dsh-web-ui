@@ -11,8 +11,8 @@
 
 body[data-ds-dark-theme] {
   color: #c2d4f0;
-  background-color: #0a1430;
-  background-image: radial-gradient(circle at 16% 10%, #2e9bff1f, #0000 42%), radial-gradient(circle at 84% 22%, #58aaff1a, #0000 38%), radial-gradient(circle at 58% 94%, #2e9bff24, #0000 45%), linear-gradient(168deg, #041110 0%, #0a1430 48%, #101f42 100%);
+  background-color: transparent;
+  background-image: none;
 }
 
 /* 背景由皮肤中心运行时按 skin.json 的 contributes.backgroundMedia 统一绘制
@@ -111,17 +111,17 @@ body[data-ds-dark-theme] {
 }
 
 body[data-ds-dark-theme] {
-  --dsw-alias-bg-base: #0d1a3a;
-  --dsw-alias-bg-layer-1: #12244a;
-  --dsw-alias-bg-layer-2: #182e5c;
-  --dsw-alias-bg-layer-3: #1d3668;
+  --dsw-alias-bg-base: #0d1a3a29;
+  --dsw-alias-bg-layer-1: #12244a2e;
+  --dsw-alias-bg-layer-2: #182e5c33;
+  --dsw-alias-bg-layer-3: #1d366838;
   --dsw-alias-bg-mask-1: #0000008c;
   --dsw-alias-bg-mask-2: #0000004d;
   --dsw-alias-bg-mask-3: #0009;
   --dsw-alias-bg-mask-photo: #000000e0;
-  --dsw-alias-bg-module-platform: #182e5c;
-  --dsw-alias-bg-multi-select: #162a52;
-  --dsw-alias-bg-overlay: #12244a;
+  --dsw-alias-bg-module-platform: #182e5c59;
+  --dsw-alias-bg-multi-select: #162a5259;
+  --dsw-alias-bg-overlay: #12244a66;
   --dsw-alias-bg-skeleton: #ffffff0f;
   --dsw-alias-border-inverted2: #fff9;
   --dsw-alias-border-inverted: #fff6;
@@ -259,11 +259,11 @@ body[data-ds-dark-theme] ::-webkit-scrollbar-thumb:hover {
 }
 
 body[data-ds-dark-theme] {
-  --aion-bg-base: #0d1a3a;
-  --aion-bg-1: #12244a;
-  --aion-bg-2: #162a54;
-  --aion-bg-3: #1d3668;
-  --aion-bg-4: #22407a;
+  --aion-bg-base: #0d1a3a29;
+  --aion-bg-1: #12244a2e;
+  --aion-bg-2: #162a5433;
+  --aion-bg-3: #1d366838;
+  --aion-bg-4: #22407a4d;
   --aion-bg-hover: #1c3468;
   --aion-bg-active: #1c3468;
   --aion-text-primary: #d6f1ec;

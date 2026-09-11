@@ -78,7 +78,7 @@ interface CompositionProfile {
   rows: number
 }
 
-interface PresetStateRow {
+export interface PresetStateRow {
   id: string
   installed: boolean
   enabled: boolean
@@ -128,11 +128,57 @@ async function postJson(url: string, body: unknown): Promise<PostResult> {
   return { status: res.status, data }
 }
 
+interface SemverParts {
+  major: number
+  minor: number
+  patch: number
+  prerelease: string[]
+}
+
+export function parseSemver(value: string): SemverParts | undefined {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(value.trim())
+  if (match === null) return undefined
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] === undefined ? [] : match[4].split('.'),
+  }
+}
+
+export function compareVersions(a: string, b: string): number {
+  const pa = parseSemver(a)
+  const pb = parseSemver(b)
+  if (pa === undefined && pb === undefined) return 0
+  if (pa === undefined) return -1
+  if (pb === undefined) return 1
+  for (const key of ['major', 'minor', 'patch'] as const) {
+    if (pa[key] !== pb[key]) return pa[key] < pb[key] ? -1 : 1
+  }
+  if (pa.prerelease.length === 0 && pb.prerelease.length === 0) return 0
+  if (pa.prerelease.length === 0) return 1
+  if (pb.prerelease.length === 0) return -1
+  for (let index = 0; index < Math.max(pa.prerelease.length, pb.prerelease.length); index++) {
+    const ra = pa.prerelease[index]
+    const rb = pb.prerelease[index]
+    if (ra === undefined) return -1
+    if (rb === undefined) return 1
+    if (ra === rb) continue
+    const numericA = /^\d+$/.test(ra)
+    const numericB = /^\d+$/.test(rb)
+    if (numericA && numericB) return Number(ra) < Number(rb) ? -1 : 1
+    if (numericA) return -1
+    if (numericB) return 1
+    return ra < rb ? -1 : 1
+  }
+  return 0
+}
+
 /** Whether the catalog advertises a version newer than the installed one. */
-function hasUpdate(record: WorkshopPresetRecord, row: PresetStateRow | undefined): boolean {
+export function hasUpdate(record: WorkshopPresetRecord, row: PresetStateRow | undefined): boolean {
   if (row === undefined || !row.installed && !row.enabled) return false
   if (record.version === undefined || row.assetVersion === undefined) return false
-  return record.version !== row.assetVersion
+  return compareVersions(record.version, row.assetVersion) > 0
 }
 
 /** Render the Presets panel. */

@@ -80,7 +80,7 @@ declare module '@deepseek-ai/cordis' {
  * on hosts below that cohort, which serve the same roster through the
  * connection RPC face.
  */
-export const inject = ['slots', 'sessions', 'workspaces', 'connection', 'settingsScope', 'locale', 'remote']
+export const inject = ['slots', 'sessions', 'workspaces', 'connection', 'settingsScope', 'locale', 'remote', 'remote.session']
 
 /** One agent-preset row the mode picker consumes (either face's wire shape). */
 interface PresetRosterRow {
@@ -251,31 +251,63 @@ export function apply(ctx: ClientContext): void {
     }
     const pushModelOptions = async (): Promise<void> => {
       try {
-        const conn = ctx.get('connection') as { api?: { llm?: { discoverModels?: () => Promise<unknown> }; sessions?: { modelCatalog?: () => Promise<unknown> } } } | undefined
-        if (conn?.api) {
-          let models: Array<{ id: string; name?: string; provider?: string }> = []
-          if (typeof conn.api.llm?.discoverModels === 'function') {
-            const res = await conn.api.llm.discoverModels() as { result?: { value?: { models?: Array<{ id: string; name?: string }> } } }
-            const list = res?.result?.value?.models
-            if (Array.isArray(list)) {
-              models = list.map(m => ({ id: m.id, name: m.name }))
+        let models: Array<{ id: string; name?: string; provider?: string }> = []
+        let sessionRemote: ClientRemote['session'] | undefined
+        try {
+          sessionRemote = (remote as Partial<ClientRemote>).session
+        } catch {
+          sessionRemote = undefined
+        }
+        if (typeof sessionRemote?.modelCatalog === 'function') {
+          const res = await sessionRemote.modelCatalog()
+          if (res.ok && Array.isArray(res.value?.groups)) {
+            for (const g of res.value.groups) {
+              const provider = (g as { id?: string; provider?: string }).id ?? (g as { id?: string; provider?: string }).provider
+              for (const m of g.models ?? []) {
+                const qualifiedId = provider ? `${provider}/${m.id}` : m.id
+                models.push({ id: qualifiedId, name: m.name ?? m.id, provider })
+              }
             }
           }
-          if (models.length === 0 && typeof conn.api.sessions?.modelCatalog === 'function') {
-            const res = await conn.api.sessions.modelCatalog() as { result?: { value?: { groups?: Array<{ provider?: string; models?: Array<{ id: string; name?: string }> }> } } }
-            const groups = res?.result?.value?.groups
-            if (Array.isArray(groups)) {
-              for (const g of groups) {
-                for (const m of g.models ?? []) {
-                  const qualifiedId = g.provider ? `${g.provider}/${m.id}` : m.id
-                  models.push({ id: qualifiedId, name: m.name ?? m.id, provider: g.provider })
+        }
+        if (models.length === 0) {
+          const conn = ctx.get('connection') as {
+            api?: {
+              llm?: { discoverModels?: () => Promise<unknown> }
+              sessions?: { modelCatalog?: () => Promise<unknown> }
+              session?: { modelCatalog?: () => Promise<unknown> }
+            }
+          } | undefined
+          if (conn?.api) {
+            if (typeof conn.api.llm?.discoverModels === 'function') {
+              const res = await conn.api.llm.discoverModels() as { result?: { value?: { models?: Array<{ id: string; name?: string }> } } }
+              const list = res?.result?.value?.models
+              if (Array.isArray(list)) {
+                models = list.map(m => ({ id: m.id, name: m.name }))
+              }
+            }
+            const catalogFn = typeof conn.api.session?.modelCatalog === 'function'
+              ? conn.api.session.modelCatalog
+              : typeof conn.api.sessions?.modelCatalog === 'function'
+                ? conn.api.sessions.modelCatalog
+                : undefined
+            if (models.length === 0 && catalogFn !== undefined) {
+              const res = await catalogFn() as { result?: { value?: { groups?: Array<{ id?: string; provider?: string; models?: Array<{ id: string; name?: string }> }> } } }
+              const groups = res?.result?.value?.groups
+              if (Array.isArray(groups)) {
+                for (const g of groups) {
+                  const provider = g.id ?? g.provider
+                  for (const m of g.models ?? []) {
+                    const qualifiedId = provider ? `${provider}/${m.id}` : m.id
+                    models.push({ id: qualifiedId, name: m.name ?? m.id, provider })
+                  }
                 }
               }
             }
           }
-          if (models.length > 0) {
-            controller.setExecutionOptions({ models })
-          }
+        }
+        if (models.length > 0) {
+          controller.setExecutionOptions({ models })
         }
       } catch (error) {
         console.error('[dsh-task-board] model options read failed', error)

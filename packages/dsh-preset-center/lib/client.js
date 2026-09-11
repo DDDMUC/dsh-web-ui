@@ -86,11 +86,50 @@ window.__ModuleLoader__.load({
 				data
 			};
 		}
+		function parseSemver(value) {
+			const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(value.trim());
+			if (match === null) return void 0;
+			return {
+				major: Number(match[1]),
+				minor: Number(match[2]),
+				patch: Number(match[3]),
+				prerelease: match[4] === void 0 ? [] : match[4].split(".")
+			};
+		}
+		function compareVersions(a, b) {
+			const pa = parseSemver(a);
+			const pb = parseSemver(b);
+			if (pa === void 0 && pb === void 0) return 0;
+			if (pa === void 0) return -1;
+			if (pb === void 0) return 1;
+			for (const key of [
+				"major",
+				"minor",
+				"patch"
+			]) if (pa[key] !== pb[key]) return pa[key] < pb[key] ? -1 : 1;
+			if (pa.prerelease.length === 0 && pb.prerelease.length === 0) return 0;
+			if (pa.prerelease.length === 0) return 1;
+			if (pb.prerelease.length === 0) return -1;
+			for (let index = 0; index < Math.max(pa.prerelease.length, pb.prerelease.length); index++) {
+				const ra = pa.prerelease[index];
+				const rb = pb.prerelease[index];
+				if (ra === void 0) return -1;
+				if (rb === void 0) return 1;
+				if (ra === rb) continue;
+				const numericA = /^\d+$/.test(ra);
+				const numericB = /^\d+$/.test(rb);
+				if (numericA && numericB) return Number(ra) < Number(rb) ? -1 : 1;
+				if (numericA) return -1;
+				if (numericB) return 1;
+				return ra < rb ? -1 : 1;
+			}
+			return 0;
+		}
 		/** Whether the catalog advertises a version newer than the installed one. */
 		function hasUpdate(record, row) {
 			if (row === void 0 || !row.installed && !row.enabled) return false;
 			if (record.version === void 0 || row.assetVersion === void 0) return false;
-			return record.version !== row.assetVersion;
+			return compareVersions(record.version, row.assetVersion) > 0;
 		}
 		/** Render the Presets panel. */
 		function PresetPanel(props) {
