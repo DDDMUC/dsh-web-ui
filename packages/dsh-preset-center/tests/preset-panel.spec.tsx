@@ -21,7 +21,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => {
   }
 })
 
-import { PresetPanel, type PresetPanelProps } from '../src/client/PresetPanel.tsx'
+import { PresetPanel, compareVersions, hasUpdate, type PresetPanelProps, type PresetStateRow } from '../src/client/PresetPanel.tsx'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
@@ -150,5 +150,30 @@ describe('PresetPanel', () => {
     render(<PresetPanel {...panelProps()} />)
     await waitFor(() => expect(screen.getByText(zh['state.shadowed'])).toBeTruthy())
     expect((screen.getByRole('button', { name: zh['action.install'] }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('hasUpdate and compareVersions', () => {
+  it('correctly compares semantic versions', () => {
+    expect(compareVersions('1.0.0', '1.0.1')).toBe(-1)
+    expect(compareVersions('1.1.0', '1.0.9')).toBe(1)
+    expect(compareVersions('1.0.0', '1.0.0')).toBe(0)
+    expect(compareVersions('0.3.2', '0.3.10')).toBe(-1)
+    expect(compareVersions('0.3.10', '0.3.2')).toBe(1)
+    expect(compareVersions('1.0.0-rc.1', '1.0.0')).toBe(-1)
+    expect(compareVersions('1.0.0', '1.0.0-rc.1')).toBe(1)
+    expect(compareVersions('1.0.0-rc.1', '1.0.0-rc.2')).toBe(-1)
+  })
+
+  it('only signals hasUpdate when the catalog version is strictly newer than installed', () => {
+    const record = { ...RECORD, version: '1.2.0' }
+    // Installed older version (1.1.0) -> has update
+    expect(hasUpdate(record, { id: 'demo', installed: true, enabled: false, assetVersion: '1.1.0' } as unknown as PresetStateRow)).toBe(true)
+    // Installed same version (1.2.0) -> no update
+    expect(hasUpdate(record, { id: 'demo', installed: true, enabled: false, assetVersion: '1.2.0' } as unknown as PresetStateRow)).toBe(false)
+    // Local ahead of catalog (e.g. dev build 1.3.0 vs catalog 1.2.0) -> no update (must NOT downgrade)
+    expect(hasUpdate(record, { id: 'demo', installed: true, enabled: false, assetVersion: '1.3.0' } as unknown as PresetStateRow)).toBe(false)
+    // Not installed and not enabled -> no update
+    expect(hasUpdate(record, { id: 'demo', installed: false, enabled: false, assetVersion: '1.1.0' } as unknown as PresetStateRow)).toBe(false)
   })
 })
