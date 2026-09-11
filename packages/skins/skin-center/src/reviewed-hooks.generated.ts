@@ -52,7 +52,7 @@ export const REVIEWED_SKIN_HOOKS: Readonly<Record<string, ReviewedSkinHooksIdent
   "maid-atelier": {
     entry: "hooks.mjs",
     manifestSha256: "7596a704bce65006381d27417d4c12bb09d7e5ede038a6f486cfa58e62314aa5",
-    hooksSha256: "8a50922c970337ab07b0843e61b9a771f3a57baf54d18a24e906f13dbb39b4ff",
+    hooksSha256: "c4668f9cee8192fe3c25e6a01b779bc9ec9ab1980061106e749551a7bafa4153",
   },
   "matrix": {
     entry: "hooks.mjs",
@@ -112,6 +112,6 @@ export const REVIEWED_SKIN_HOOKS: Readonly<Record<string, ReviewedSkinHooksIdent
   "xp": {
     entry: "hooks.mjs",
     manifestSha256: "8bceb95c45b400b67ceb80a7f063b6c2086c0e9f9907a7b72a592d33017623eb",
-    hooksSha256: "823f25fd5f969feb8e51d8ff1577c1cbecbad847b2abac6e5020fc9ef543663f",
+    hooksSha256: "1574d30f271f481a681feddc0608b04b0aec684e323fec0b00481f08450e4eb3",
   },
 }

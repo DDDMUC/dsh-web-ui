@@ -749,8 +749,8 @@ const REVIEWED_SKIN_HOOKS = {
 	},
 	"maid-atelier": {
 		entry: "hooks.mjs",
-		manifestSha256: "f36e854f52f24939dfe6318ed6b1ff6fe33d0564e63255a22aaca459af1a84d9",
-		hooksSha256: "8a50922c970337ab07b0843e61b9a771f3a57baf54d18a24e906f13dbb39b4ff"
+		manifestSha256: "7596a704bce65006381d27417d4c12bb09d7e5ede038a6f486cfa58e62314aa5",
+		hooksSha256: "03e66926a2a1b5ef74f01a81f515178d3edf968f973d93ad64b16ade4b70f6a9"
 	},
 	"matrix": {
 		entry: "hooks.mjs",
@@ -810,7 +810,7 @@ const REVIEWED_SKIN_HOOKS = {
 	"xp": {
 		entry: "hooks.mjs",
 		manifestSha256: "8bceb95c45b400b67ceb80a7f063b6c2086c0e9f9907a7b72a592d33017623eb",
-		hooksSha256: "823f25fd5f969feb8e51d8ff1577c1cbecbad847b2abac6e5020fc9ef543663f"
+		hooksSha256: "1574d30f271f481a681feddc0608b04b0aec684e323fec0b00481f08450e4eb3"
 	}
 };
 //#endregion
