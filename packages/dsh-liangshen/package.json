@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-liangshen",
-  "description": "LiangShen (梁神) agent preset for the dsh web GUI: the builtin Minimal preset's exact one-line persona stays the whole system prompt while the builtin Standard preset's complete tool catalog sits on the wire from the first request — no phase transition, no PTC switch. The tool list (names plus one-line summaries, read from the step's assembled schemas) is injected as a durable user message after the user's own message the way the skill catalog is, republished only when it changes or leaves the visible surface. The preset files are synced into ~/.dsh/.agent-presets on host startup. Hot-pluggable — mounted via cordis.patch.yml + a profile node_modules symlink, no dsh source changes.",
+  "description": "LiangShen (梁神) agent preset plus its composer lever for the dsh web GUI. The preset keeps the builtin Minimal preset's exact one-line persona as the whole system prompt while the builtin Standard preset's complete tool catalog sits on the wire from the first request — no phase transition, no PTC switch. The tool list (names plus one-line summaries, read from the step's assembled schemas) is injected as a durable user message after the user's own message the way the skill catalog is, republished only when it changes or leaves the visible surface. The browser half adds a slot-machine lever left of the model selector on the new-session screen: pull it down to compose LiangShen mode for the session about to start (with a jackpot burst), push it up to return to the preset used before. The preset files are synced into ~/.dsh/.agent-presets on host startup. Hot-pluggable — mounted via cordis.patch.yml + a profile node_modules symlink, no dsh source changes.",
   "version": "0.3.20",
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -14,6 +14,10 @@
       "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json",
     "./presets/*": "./presets/*"
   },
@@ -23,6 +27,15 @@
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-api-session-controller"
+      ],
+      "platform": "web"
     }
   },
   "scripts": {
@@ -38,9 +51,23 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-agent-presets": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-api-remotes": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-api-session-controller": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-connection": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-locale": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-store": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.5-rc.1",
     "@deepseek-ai/dsh-settings": "^0.1.5-rc.1",
     "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.1",
     "@types/node": "^22.20.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.1",
+    "jsdom": "^25.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tsdown": "0.22.2",
     "typescript": "~5.7.2",
     "vitest": "^3.0.0"

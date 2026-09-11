@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-Ships the LiangShen preset as a one-command plugin of the dsh-web family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker. The preset keeps the builtin Minimal preset's exact one-line persona as the whole system prompt while the builtin Standard preset's complete tool catalog sits on the wire from the first request — no phase transition, no PTC switch — and injects the tool list as a durable user message after the user's own message, the way the harness injects the skill catalog. Built entirely on the official NPM SDK — no dsh source changes.
+Ships the LiangShen preset as a one-command plugin of the dsh-web family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker, and its browser half adds a slot-machine lever beside the model selector on the new-session screen for switching that mode on and off. The preset keeps the builtin Minimal preset's exact one-line persona as the whole system prompt while the builtin Standard preset's complete tool catalog sits on the wire from the first request — no phase transition, no PTC switch — and injects the tool list as a durable user message after the user's own message, the way the harness injects the skill catalog. Built entirely on the official NPM SDK — no dsh source changes.
 
 ## Why
 
@@ -18,6 +18,17 @@ LiangShen merges the two instead of switching between them: the anchoring part (
 4. runtime contexts (the sandbox and approval snapshots) and the skill catalog flow as in Standard mode, and the first AGENTS.md injection becomes a one-time non-imperative pointer to the reference files.
 
 Windows note: DSH's PTY backend is linux/darwin-only, so on win32 the persistent-shell group is disabled and `bash` comes from `custom-bash` — the same tool name, spawning Git Bash through the ordinary cross-platform subprocess seam (see `presets/liangshen/custom-bash.mjs`).
+
+## The lever
+
+The browser half adds a slot-machine lever to the composer tool row, immediately left of the model selector, on the new-session screen:
+
+- pull the lever down — drag it, click it, or press it with the keyboard — and the session about to start composes LiangShen mode; a landed pull plays the jackpot burst (flash, shockwave, sparks, and a banner reading 梁神模式 over classical Chinese, binary, and Morse lines);
+- push it up and the preset you were on before comes back — with nothing remembered yet, that is the deployment default;
+- the arm always reports the session's real preset, so a reload shows the true state, and it is only operable while the session is still blank, because the host refuses to recompose a session that has already started;
+- a refused switch prints the host's reason under the lever and never plays the burst, and `prefers-reduced-motion` keeps the state change while dropping the animation.
+
+The lever drives the session's preset through the agent-preset Remote namespace the browser session is already authenticated for, so it needs no additional permissions. It acts on the preset only while the session is blank, which is exactly the new-session screen it renders on.
 
 ## Preset configuration
 
