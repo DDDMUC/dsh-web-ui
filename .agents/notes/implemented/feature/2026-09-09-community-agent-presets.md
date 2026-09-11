@@ -8,7 +8,7 @@ An agent preset is the composition a session runs: its tools, prompt sections, a
 
 The Workshop (`dsh-market`) already solved that shape for skins and pets: a manifest served by dsh-market.com, a loopback-only host gateway that downloads one asset into its DSH home directory with per-file sha256 provenance, and a settings surface that manages what is installed. Two properties of the preset domain made a naive copy of the skin flow wrong:
 
-- **A preset is code, not an asset.** A composition may name relative files (`name: ./tool-bootstrap.mjs`) and evaluate `!!js` expressions; both run inside the DSH host process when a session is composed from the preset. The official package states the trust plainly: a preset carries the same trust as shell access. Installing must therefore never be the same act as running.
+- **A preset is code, not an asset.** A composition may name relative files (`name: ./tool-catalog.mjs`) and evaluate `!!js` expressions; both run inside the DSH host process when a session is composed from the preset. The official package states the trust plainly: a preset carries the same trust as shell access. Installing must therefore never be the same act as running.
 - **The official roster has no disabled state.** Every directory under a discovery root is listed in Settings → Agent presets and offered by the new-session picker, and discovery re-reads the roots on every call. "Disabled" can only mean "not present under any discovery root", which forces an explicit two-directory storage contract rather than a marker file.
 
 ## Decision

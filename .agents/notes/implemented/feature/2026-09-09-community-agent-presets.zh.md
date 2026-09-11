@@ -8,7 +8,7 @@ Status: implemented
 
 创意工坊（`dsh-market`）对皮肤与宠物已经解决了同样的形态：dsh-market.com 提供 manifest，loopback-only 的 host 网关把一个资产下载进对应的 DSH home 目录并写入逐文件 sha256 provenance，再由各自的设置面管理已安装内容。preset 域的两个性质使得照抄皮肤流程是错误的：
 
-- **preset 是代码，不是资源。** 组合里可以写相对路径文件（`name: ./tool-bootstrap.mjs`），也可以写 `!!js` 表达式；两者都会在会话由该 preset 组合时于 DSH host 进程内执行。官方包对此的表述很直白：preset 拥有与 shell 访问同等的信任。因此「安装」绝不能等同于「运行」。
+- **preset 是代码，不是资源。** 组合里可以写相对路径文件（`name: ./tool-catalog.mjs`），也可以写 `!!js` 表达式；两者都会在会话由该 preset 组合时于 DSH host 进程内执行。官方包对此的表述很直白：preset 拥有与 shell 访问同等的信任。因此「安装」绝不能等同于「运行」。
 - **官方 roster 没有禁用状态。** 任何发现根下的目录都会被列进「设置 → Agent 预设」，并被新建会话的选择器提供；而 discovery 每次调用都重读根目录。所谓「禁用」只能等于「不在任何发现根里」，所以需要显式的双目录存储契约，而不是一个标记文件。
 
 ## Decision

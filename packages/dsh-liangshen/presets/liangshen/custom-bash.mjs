@@ -1,15 +1,15 @@
 /**
  * custom-bash — a Windows-capable `bash` tool for the liangshen preset. It
- * registers under the SAME name (`bash`) as the persistent shell so the
- * phase-1 Minimal anchor (bash + str_replace_editor) holds on every platform,
- * but executes through `ctx.subprocess.spawn` instead of a PTY.
+ * registers under the SAME name (`bash`) as the persistent shell so every
+ * platform exposes one shell tool of that name, but executes through
+ * `ctx.subprocess.spawn` instead of a PTY.
  *
  * WHY: DSH's PTY backend is linux/darwin-only — subprocess-local throws
  * "terminal inspection is unsupported on platform win32", so the
  * persistent-shell group (dsh-terminal + dsh-terminal-bash +
  * dsh-tool-bash-persistent) cannot spawn on Windows. agent.cordis.yml disables
  * that group on win32 and enables this tool instead; both platforms end up
- * with exactly one `bash` tool and the byte-exact schema anchor is kept.
+ * with exactly one `bash` tool.
  *
  * Executable resolution (config `bashPath`, no hardcoded install path):
  * an explicit non-empty `bashPath` wins unconditionally. Unset, the Git Bash

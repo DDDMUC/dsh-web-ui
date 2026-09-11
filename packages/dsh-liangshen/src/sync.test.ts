@@ -13,7 +13,7 @@ function fixture(): { source: string; target: string; dispose: () => void } {
   const target = join(base, 'agent-presets')
   mkdirSync(join(source, 'liangshen'), { recursive: true })
   writeFileSync(join(source, 'liangshen', 'agent.cordis.yml'), VALID_AGENT_YAML)
-  writeFileSync(join(source, 'liangshen', 'tool-bootstrap.mjs'), 'export const name = "x"\n')
+  writeFileSync(join(source, 'liangshen', 'tool-catalog.mjs'), 'export const name = "x"\n')
   writeFileSync(join(source, 'liangshen', 'preset.yml'), 'name: 梁神模式\n')
   return { source, target, dispose: () => rmSync(base, { recursive: true, force: true }) }
 }
@@ -27,7 +27,7 @@ describe('syncPresetTrees', () => {
       expect(result.current).toEqual([])
       expect(result.failed).toEqual([])
       expect(readFileSync(join(f.target, 'liangshen', 'preset.yml'), 'utf8')).toContain('梁神模式')
-      expect(readFileSync(join(f.target, 'liangshen', 'tool-bootstrap.mjs'), 'utf8')).toContain('x')
+      expect(readFileSync(join(f.target, 'liangshen', 'tool-catalog.mjs'), 'utf8')).toContain('x')
     } finally { f.dispose() }
   })
 
@@ -98,10 +98,10 @@ describe('syncPresetTrees', () => {
     const f = fixture()
     try {
       syncPresetTrees(f.source, f.target)
-      rmSync(join(f.source, 'liangshen', 'tool-bootstrap.mjs'))
+      rmSync(join(f.source, 'liangshen', 'tool-catalog.mjs'))
       const second = syncPresetTrees(f.source, f.target)
       expect(second.synced).toEqual(['liangshen'])
-      expect(existsSync(join(f.target, 'liangshen', 'tool-bootstrap.mjs'))).toBe(false)
+      expect(existsSync(join(f.target, 'liangshen', 'tool-catalog.mjs'))).toBe(false)
       expect(readFileSync(join(f.target, 'liangshen', 'agent.cordis.yml'), 'utf8')).toBe(VALID_AGENT_YAML)
     } finally { f.dispose() }
   })

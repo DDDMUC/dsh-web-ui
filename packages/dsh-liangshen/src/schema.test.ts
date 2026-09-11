@@ -5,7 +5,7 @@ const VALID = [
   "- id: persona",
   "  name: '@deepseek-ai/dsh-persona'",
   "- id: bootstrap",
-  "  name: ./tool-bootstrap.mjs",
+  "  name: ./tool-catalog.mjs",
   "- id: shell-group",
   "  name: cordis:group",
   "  group: true",

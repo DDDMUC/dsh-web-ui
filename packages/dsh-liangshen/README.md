@@ -1,35 +1,33 @@
-# dsh-liangshen — LiangShen Mode (two-phase anchored-standard agent preset)
+# dsh-liangshen — LiangShen Mode (minimal persona + standard tool catalog)
 
 English | [中文](README.zh.md)
 
-Ships the "Anchored Standard" preset as a one-command plugin of the dsh-web family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker. The first model request sees only the builtin Minimal preset's exact two tools — persistent `bash` plus `str_replace_editor` — only the one-line persona prompt section, no runtime contexts, and no injected instructions; after the anchor is established the wire switches to PTC Mode and the ordinary injections open. Built entirely on the official NPM SDK — no dsh source changes.
+Ships the LiangShen preset as a one-command plugin of the dsh-web family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker. The preset keeps the builtin Minimal preset's exact one-line persona as the whole system prompt while the builtin Standard preset's complete tool catalog sits on the wire from the first request — no phase transition, no PTC switch — and injects the tool list as a durable user message after the user's own message, the way the harness injects the skill catalog. Built entirely on the official NPM SDK — no dsh source changes.
 
 ## Why
 
-DeepSeek V4 Pro conditions strongly on the API tool catalog visible in the FIRST request when choosing its execution trajectory. In the community eval ([xiaobright/modeltest](https://github.com/xiaobright/modeltest)), Standard / PTC scored 91/92 while Minimal reached 99/96 — but Minimal keeps only two tools. This two-phase approach separates the first-trajectory choice from full later capability:
+DeepSeek V4 Pro conditions strongly on the model-visible surface of the FIRST request — the system prompt and the API tool catalog alike — when choosing its execution trajectory. In the community eval ([xiaobright/modeltest](https://github.com/xiaobright/modeltest)), Minimal reached 99/96 while Standard / PTC scored 91/92; Minimal's advantage is its one-line persona, and its price is that it keeps only two tools.
 
-1. The first model request exposes only the builtin Minimal preset's exact two tools (persistent `bash` plus `str_replace_editor`), keeps only the `deployment:persona` prompt section, empties runtime contexts, and passes only the user's own messages;
-2. After the session's first durable `tool/call`, promotion waits until the first reasoning block is minimal-like (contains `we` and no `let me`), with a four-step fallback; the wire then switches to PTC Mode — a single `run_code` tool backed by the full tool registry SDK — and every assembled prompt section plus the ordinary workspace-instruction, skill-catalog, and runtime-context injections return;
-3. The phase derives from persisted session events, so resume / reload never lose state.
+LiangShen merges the two instead of switching between them: the anchoring part (the system prompt) stays Minimal for the whole session, and the capable part (the tool catalog) is Standard from the first request. The capability facts the Standard prompt would carry as tool-guidance prose arrive as a message at the prompt tail, so the stable prefix stays the one-line anchor.
 
-Measured on native Windows (DeepSeek V4 Pro, max, V4.1b task): 98 / 99, mean 98.5, zero `let me` traces in the second run — reproducible, not a lucky draw, and no tool capability sacrificed. Original experiment: [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard).
+## How it works
 
-Windows note: DSH's PTY backend is linux/darwin-only, so on win32 the persistent-shell group is disabled and phase-1 `bash` switches to `custom-bash` — the same name and Minimal-compatible schema, spawning Git Bash through the ordinary cross-platform subprocess seam (see `presets/liangshen/custom-bash.mjs`).
+1. `minimal-prompt` narrows every assembled prompt to the persona section — `You are a helpful software engineer assistant.` — so the harness identity, web-surface, tool-guidance, file-reference, and structured-output sections never reach the model; plan mode's `plan:policy` is kept, because that section is the only thing that enforces plan mode (its exit tool stays registered in every mode);
+2. the wire carries the preset's complete tool roster from the first request: the Standard set with the persistent shell in place of the ephemeral one, plus `str_replace_editor`;
+3. `tool-catalog` appends the tool list — name plus a one-line summary read from that step's assembled wire schemas — as a durable user message after the user's own message, and republishes it only when the catalog changed or the published copy left the visible surface (a compaction, a resume);
+4. runtime contexts (the sandbox and approval snapshots) and the skill catalog flow as in Standard mode, and the first AGENTS.md injection becomes a one-time non-imperative pointer to the reference files.
 
-## Stabilization controls
+Windows note: DSH's PTY backend is linux/darwin-only, so on win32 the persistent-shell group is disabled and `bash` comes from `custom-bash` — the same tool name, spawning Git Bash through the ordinary cross-platform subprocess seam (see `presets/liangshen/custom-bash.mjs`).
 
-The preset ships with extra safeguards on top of the reference mechanism, all configured in `agent.cordis.yml` under `tool-bootstrap`:
+## Preset configuration
 
-- `anchorGate` — after the first `tool/call`, the catalog stays two-tool until the first reasoning block classifies minimal-like, so a `Let me` first block does not immediately earn the full catalog;
-- `maxBootstrapSteps` — fallback promotion after N steps when no anchored block appeared;
-- `promoteAfterFirstResponse` — a tool-less first response promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`), so the next user turn already sees the promoted catalog;
-- `promotedPresentation: code` — after promotion the wire is PTC Mode: one `run_code` tool with the full registry available through the generated SDK, switched at the step boundary so the current step's native calls are never interrupted;
-- `deferredSources` + `deferredGraceSteps` — workspace instructions and the skill catalog wait one extra step after promotion, so the tool-catalog switch and the injection shock do not land in the same step;
-- `instructionHint` (on by default, issue #388) — the post-promotion full-text AGENTS.md injection is replaced by a single non-imperative hint naming the reference files and suggesting on-demand reads, so the injection never flips the anchored trajectory; the model still reaches the knowledge through read / skill_load. Set `false` to restore the legacy full-text injection;
-- `bootstrapMaxTokens` — caps the phase-1 request output budget (community measurements put `max_tokens=1024` in the high-hit "We need" window, versus 0/5 at the 256k DSH default), and the cap is stripped again after promotion so `requestProposal` never solders 1024 into every later request;
-- `phase1FirstCallInstruction` — an opt-in extra line appended to the phase-1 persona, off by default: test builds use it to ask the model to ground its first answer with one Minimal-native tool call before responding, so first-turn capability questions are answered from the promoted registry instead of the cropped two-tool view. It deviates from the byte-exact Minimal surface, which is why it ships unset.
+Both preset-local plugins are configured in `agent.cordis.yml`:
 
-Plan mode is supported: phase 1 filters the assembled prompt sections down to the one-line `deployment:persona`, and promotion restores all sections and appends the session's working directory to the persona, so the agent knows its workspace and the plan-mode `plan:policy` section takes effect for every step after promotion.
+| Key | Default | Behavior |
+| --- | --- | --- |
+| `keepPlanPolicy` | `true` | Keep plan mode's `plan:policy` section in the otherwise one-line system prompt. Set `false` for the strict one-line surface, which leaves plan mode with no policy text behind it. |
+| `instructionHint` | `true` | Replace the first full-text AGENTS.md injection with a one-time pointer naming the reference files, and drop later injections. Set `false` to restore the plain full-text injection. |
+| `descriptionMaxLength` | `200` | Cap for one tool's one-line summary in the injected catalog. The full description stays in the tool schema. |
 
 ## Install
 
@@ -51,11 +49,12 @@ Fully restart `dsh web`, open a NEW empty session, and pick "梁神模式" as th
 
 Export the session JSONL and inspect `request/header`:
 
-- The first header should carry only `bash/str_replace_editor` (the persistent shell plus the sandboxed editor);
-- The first turn should contain only whitelisted source kinds (the user's own messages and `/goal` auto-round messages) — no workspace-instruction baseline, no runtime snapshot, no skill-catalog message — and only the `deployment:persona` prompt section;
-- After the first tool call, the next changed header should carry exactly `run_code` (PTC); the runtime snapshot and all prompt sections arrive with that step (including plan mode's `plan:policy`, and the persona now ends with the selected workspace path), and the workspace instructions and skill catalog arrive one step later;
-- Phase-1 editor writes obey the host file sandbox policy — there is no bare local-filesystem bypass;
-- Later requests keep `run_code`.
+- the first header's `system` should be exactly the one-line persona, plus plan mode's policy while plan mode is on;
+- the first header's tools should be the preset's full roster — never two tools, and never `run_code`;
+- the step's admitted messages should hold one `plugin`-sourced message from `liangshen-tool-catalog` after the user message, listing the tools by name;
+- later headers keep the same tool list, and no further catalog message is appended per step;
+- after a compaction the catalog is republished once as a replacement list;
+- file writes obey the host file sandbox policy — there is no bare local-filesystem bypass.
 
 Trajectory drift can be measured without reading raw reasoning:
 
@@ -74,20 +73,19 @@ Both fields are editable in the web settings surface (plugin config, live) or th
 
 ## Behavior and limits
 
-- A first model response that calls no tool promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`). The release is decided during prompt assembly, so the new user turn already gets the promoted PTC catalog and its messages are not stripped;
-- After the first tool call, promotion waits for the first minimal-like reasoning block or the `maxBootstrapSteps` fallback, whichever comes first;
-- A tool call that fails still counts toward promotion as long as `tool/call` was persisted;
-- Phase 1 keeps only the `deployment:persona` prompt section; promotion restores every assembled section and appends the session's working directory (`Your working directory is <cwd>.`) to the persona, so the agent works in the selected workspace and plan mode's `plan:policy` is enforced after phase 1;
-- Workspace instructions, the skill catalog, and the runtime snapshot stay out of phase 1; the snapshot returns with the catalog and the other two arrive one step later;
-- Phase-1 file tools inherit the host file sandbox (no bare `dsh-fs-local` filesystem);
-- The phase-1 persistent `bash` replaces the Standard ephemeral shell for the whole session (both tools register the name `bash`);
-- Phase 1 shows the two Minimal tools by design, so a first-turn capability question (for example "can you browse the web") can be answered from the cropped view and then corrected after promotion; the opt-in `phase1FirstCallInstruction` (see Stabilization controls) asks for a grounding tool call first, and otherwise task-style first turns avoid the mismatch;
-- The catalog changes exactly once, so a prefix-cache change happens between the first and second request;
+- The system prompt is stable for the whole session: the persona line, plus plan mode's policy while plan mode is on. Nothing is appended after a tool call, and no output-token cap is applied;
+- The tool catalog never changes, so no catalog-driven prefix-cache break happens after the first request;
+- The injected catalog is durable: it is written once per session, plus one replacement when the tool set changes or a compaction shadows the published copy, and it stays in the history for later requests;
+- A step whose prompt assembly was not observed injects nothing — the catalog is never guessed from a stale view;
+- A composition exposing none of the accepted persona section names (`deployment:persona-prefix`, `deployment:persona`, `persona`) keeps the assembled prompt and warns once instead of sending an empty system prompt;
+- Plan mode is supported through its `plan:policy` section; with `keepPlanPolicy: false` the mode keeps its tool but loses the policy text that enforces it;
+- The persistent `bash` replaces the Standard ephemeral shell for the whole session (both tools register the name `bash`), so shell state survives across calls; on win32 `custom-bash` provides the same-named tool through Git Bash, with no OS sandbox confinement;
+- The file tools inherit the host file sandbox (no bare `dsh-fs-local` filesystem);
 - The preset carries the same trust level as shell access — review `presets/liangshen/` before installing;
 - The plugin makes no network requests and adds no telemetry;
 - Do not switch presets mid-conversation;
-- Requires DSH 0.1.0-rc.5+ (preset mechanism and the `system-prompt/assemble` hook).
+- Requires DSH 0.1.5-rc.1+ (preset mechanism, the `system-prompt/assemble` waterfall, and the persona `prefix` schema).
 
 ## License
 
-Plugin body Apache-2.0 (zhu1090093659). `presets/liangshen/agent.cordis.yml` derives from the DeepSeek Harness builtin Minimal and Standard presets, and `tool-bootstrap.mjs` comes from xiaobright/dsh-anchored-standard — all MIT, with copyright and license notices kept in the preset's `NOTICE`.
+Plugin body Apache-2.0 (zhu1090093659). `presets/liangshen/agent.cordis.yml` derives from the DeepSeek Harness builtin Minimal and Standard presets (MIT), and `custom-bash.mjs` comes from xiaobright/dsh-anchored-standard (MIT) — copyright and license notices are kept in the preset's `NOTICE`.

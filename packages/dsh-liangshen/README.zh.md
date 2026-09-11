@@ -1,35 +1,33 @@
-# dsh-liangshen — 梁神模式（两阶段锚定 agent preset）
+# dsh-liangshen — 梁神模式（极简 persona + 标准工具目录）
 
 [English](README.md) | 中文
 
-把「Anchored Standard」preset 做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」。首轮模型请求只看到官方 Minimal 精确双工具——持久 `bash` 与 `str_replace_editor`——与一行 persona，没有运行时上下文和指令注入；锚定建立后 wire 切换为 PTC Mode，并开放全部 prompt section 与常规注入。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
+把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」。该 preset 让系统提示词永久保持官方 Minimal 那一行 persona，同时从第一次请求起就在 wire 上提供官方 Standard 的完整工具目录——没有阶段跃迁、没有 PTC 切换——并把工具清单以 user 消息注入在用户消息之后，形状与 harness 注入 skill 目录一致。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
 
 ## 原理
 
-DeepSeek V4 Pro 会强烈依赖 API 中可见的**首轮工具目录**选择执行轨迹。社区评测（[xiaobright/modeltest](https://github.com/xiaobright/modeltest)）中，Standard / PTC 只有 91/92 分，Minimal 达到 99/96，但 Minimal 只有两个工具。两阶段方案把「首次轨迹选择」与「后续完整工具能力」拆开：
+DeepSeek V4 Pro 在选择执行轨迹时，会强烈依赖**第一次请求的模型可见面**——既包括系统提示词，也包括 API 工具目录。社区评测（[xiaobright/modeltest](https://github.com/xiaobright/modeltest)）中，Minimal 达到 99/96，而 Standard / PTC 只有 91/92：Minimal 的优势来自那一行 persona，代价是它只保留两个工具。
 
-1. 首轮模型请求只暴露官方 Minimal 精确双工具（持久 `bash` 与 `str_replace_editor`），只保留 `deployment:persona` 一个 prompt section，清空运行时上下文，并且只放行白名单内的消息（用户自己的消息与 `/goal` 自动轮次消息）；
-2. 会话出现首次持久 `tool/call` 后，晋升会等到首个 reasoning 块呈 minimal-like（包含 `we` 且无 `let me`）才发生，四步兜底；随后 wire 切换为 PTC Mode——只暴露一个 `run_code`，完整工具注册表通过生成的 SDK 调用——并恢复全部 prompt section（含 plan mode 的 `plan:policy`）以及 workspace 指令、skill 目录与运行时快照等常规注入；
-3. 阶段从持久化 session events 推导，resume / reload 不丢失状态。
+梁神模式不在这两者之间切换，而是把它们合并：负责锚定的部分（系统提示词）全程保持 Minimal，负责能力的部分（工具目录）从第一次请求起就是 Standard。Standard 提示词里以工具用法散文承载的能力事实，改为在提示词尾部以一条消息送达，因此稳定前缀始终是那一行锚定 persona。
 
-Windows 原生环境实测（DeepSeek V4 Pro、max、V4.1b 题面）：98 / 99，均值 98.5，第二轮全程无 `let me` 痕迹，证明不是抽卡，也不需要牺牲完整工具能力。原始实验 preset：[xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
+## 工作机制
 
-Windows 说明：DSH 的 PTY 后端仅支持 linux/darwin，win32 上持久 shell 组被禁用，phase-1 的 `bash` 切换为 `custom-bash`——同名且 schema 与 Minimal 兼容，经普通跨平台子进程通道调起 Git Bash（见 `presets/liangshen/custom-bash.mjs`）。
+1. `minimal-prompt` 把每次组装出的提示词收窄到 persona 一段——`You are a helpful software engineer assistant.`——因此 harness identity、web surface、工具用法、文件引用与结构化输出等 section 都不会到达模型；plan mode 的 `plan:policy` 保留，因为该 section 是 plan mode 唯一的执行依据（它的退出工具在任何模式下都保持注册）；
+2. wire 从第一次请求起就带本 preset 的完整工具清单：Standard 的工具集，以持久 shell 取代一次性 shell，另加 `str_replace_editor`；
+3. `tool-catalog` 把工具清单——名称加一行摘要，取自该步组装出的 wire schema——作为持久 user 消息追加在用户消息之后，并且只在目录内容变化、或已发布副本离开可见面（压缩、恢复）时重发；
+4. 运行时上下文（sandbox 与 approval 快照）与 skill 目录按 Standard 模式正常注入，首次 AGENTS.md 注入替换为一次性的、非命令式的参考文件提示。
 
-## 稳定化控制
+Windows 说明：DSH 的 PTY 后端仅支持 linux/darwin，win32 上持久 shell 组被禁用，`bash` 由 `custom-bash` 提供——工具名相同，经普通跨平台子进程通道调起 Git Bash（见 `presets/liangshen/custom-bash.mjs`）。
 
-preset 在参考机制之上内置了额外保护，全部在 `agent.cordis.yml` 的 `tool-bootstrap` 段配置：
+## Preset 配置
 
-- `anchorGate`：首次 `tool/call` 后，目录继续保持双工具，直到首个 reasoning 块被判定为 minimal-like，避免 `Let me` 开局立刻拿到完整目录；
-- `maxBootstrapSteps`：N 步后仍无锚定块时强制晋升；
-- `promoteAfterFirstResponse`：首轮无工具调用的回答在响应后自动晋升；锚定门控中的会话也会在首轮结束时（`turn/end`）释放，因此新用户轮次一开始就拿到晋升后的目录；
-- `promotedPresentation: code`：晋升后 wire 为 PTC Mode——一个 `run_code` 工具、完整注册表通过生成 SDK 调用；切换发生在 step 边界，不会打断当前步的原生工具调用；
-- `deferredSources` + `deferredGraceSteps`：workspace 指令与 skill 目录在晋升后再等一步注入，工具目录切换和注入冲击不同时落地；
-- `instructionHint`（默认开启，issue #388）：晋升后的 AGENTS.md 全文注入替换为一条非命令式 hint（列出参考文件路径、建议按需读取），模型经 read / skill_load 按需获取，避免全量注入翻转锚定轨迹；置 `false` 恢复旧的全文注入；
-- `bootstrapMaxTokens`：phase 1 请求的输出预算封顶（社区实测 `max_tokens=1024` 是 "We need" 轨迹的高命中窗口，DSH 默认 256k 命中率为 0），晋升后自动剥离该封顶，避免 `requestProposal` 把 1024 焊进后续每个请求；
-- `phase1FirstCallInstruction`：追加到 phase-1 persona 的可选一行指令，默认关闭：测试版本用它要求模型在正式作答前先做一次 Minimal 原生工具调用，让首轮能力类提问在晋升后的完整目录下作答，而不是基于被裁剪的双工具视图回答。因为它偏离了逐字节一致的 Minimal 表面，所以默认不开启。
+两个 preset 内置插件都在 `agent.cordis.yml` 中配置：
 
-已支持 plan mode：phase 1 会把 prompt sections 过滤为仅剩一行 `deployment:persona`，晋升后恢复全部 sections 并在 persona 末尾追加所选工作区路径，因此 Agent 明确自己的工作目录，plan-mode 的 `plan:policy` 也在晋升后的每一步都生效。
+| 键 | 默认值 | 行为 |
+| --- | --- | --- |
+| `keepPlanPolicy` | `true` | 在只有一行 persona 的系统提示词中保留 plan mode 的 `plan:policy` 段。置 `false` 得到严格的一行表面，此时 plan mode 背后没有任何策略文本。 |
+| `instructionHint` | `true` | 把首次 AGENTS.md 全文注入替换为一次性提示（列出参考文件路径），并丢弃后续注入。置 `false` 恢复普通全文注入。 |
+| `descriptionMaxLength` | `200` | 注入目录中单个工具一行摘要的长度上限。完整描述仍留在工具 schema 中。 |
 
 ## 安装
 
@@ -51,16 +49,17 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 导出 session JSONL，检查 `request/header`：
 
-- 第一份 header 应只有 `bash/str_replace_editor`（持久 shell + 沙箱化编辑器）；
-- 第一轮应只包含用户自己的消息：没有 workspace 指令 baseline、没有运行时快照、没有 skill 目录消息，并且只有 `deployment:persona` 一个 prompt section；
-- 首次工具调用后，下一份变更 header 应恰好为 `run_code`（PTC）；运行时快照与全部 prompt section 随该步出现（含 plan mode 的 `plan:policy`，且 persona 末尾带有所选工作区路径），workspace 指令与 skill 目录再晚一步出现；
-- phase 1 编辑器写入受宿主文件沙箱策略约束，不存在裸本地文件系统绕过；
-- 此后的请求保持 `run_code`。
+- 第一份 header 的 `system` 应恰好是那一行 persona，plan mode 开启时另加其策略段；
+- 第一份 header 的 tools 应是本 preset 的完整工具清单——既不是两个工具，也不会是 `run_code`；
+- 该步放行的消息里应有一条来自 `liangshen-tool-catalog` 的 `plugin` 消息，位于用户消息之后，按名称列出工具；
+- 后续 header 的工具清单保持不变，且不会每步再追加目录消息；
+- 压缩之后目录会重发一次，形式为替换清单；
+- 文件写入受宿主文件沙箱策略约束，不存在裸本地文件系统绕过。
 
 不读原始 reasoning 也能测量轨迹漂移：
 
 ```sh
-node tools/analyze-session.mjs <导出的 session.jsonl>
+node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jsonl
 ```
 
 ## 配置
@@ -74,20 +73,19 @@ node tools/analyze-session.mjs <导出的 session.jsonl>
 
 ## 行为与限制
 
-- 第一次模型响应如果没有调用工具，在响应后即自动晋升；锚定门控中的会话也会在首轮结束（`turn/end`）时释放。释放判定发生在 prompt assemble 阶段，所以新用户轮次一开始就拿到晋升后的 PTC 目录，其消息也不会再被剥离；
-- 首次工具调用后，晋升等待首个 minimal-like reasoning 块或 `maxBootstrapSteps` 兜底，先到者生效；
-- 工具执行即使失败，只要 `tool/call` 已持久化，仍计入晋升条件；
-- phase 1 只保留 `deployment:persona` prompt section；晋升后恢复全部 assembled sections 并在 persona 末尾追加所选工作区路径（`Your working directory is <cwd>.`），因此 Agent 会在选中的工作区工作，plan mode 的 `plan:policy` 也在晋升后生效；
-- workspace 指令、skill 目录与运行时快照在首轮不注入；快照随 PTC 目录出现，前两者再晚一步出现；
-- phase 1 文件工具继承宿主文件沙箱（不挂载裸 `dsh-fs-local`）；
-- phase 1 的持久 `bash` 会替代 Standard 的一次性 shell 直到会话结束（两个工具都注册 `bash` 名字）；
-- phase 1 有意只显示 Minimal 双工具，因此首轮能力类提问（如「你能联网吗」）可能基于被裁剪的视图作答、晋升后再被纠正；可开启 `phase1FirstCallInstruction`（见稳定化控制）要求先做一次 grounding 工具调用，或首轮直接问任务类问题避免该错位；
-- 工具目录只变化一次，因此第一、二次请求之间会发生一次前缀缓存变化；
-- preset 与 shell 访问具有相同信任等级，安装前可自行审阅 `presets/`；
+- 系统提示词在整个会话中保持稳定：那一行 persona，plan mode 开启时另加其策略段。工具调用后不会再追加内容，也不施加任何输出预算上限；
+- 工具目录全程不变，因此第一次请求之后不会再发生由目录引起的缓存前缀变化；
+- 注入的目录是持久消息：每个会话写入一次，另在工具集变化或压缩遮蔽已发布副本时替换一次，并留在历史中供后续请求使用；
+- 未观测到 prompt 组装的步不注入任何内容——目录绝不会由过期视图推测；
+- 若组合中不存在任何被接受的 persona section 名（`deployment:persona-prefix`、`deployment:persona`、`persona`），过滤器会保留组装结果并只告警一次，而不是发出空系统提示词；
+- plan mode 通过其 `plan:policy` 段支持；置 `keepPlanPolicy: false` 后该模式仍有工具，但失去约束它的策略文本；
+- 持久 `bash` 会替代 Standard 的一次性 shell 直到会话结束（两个工具都注册 `bash` 名字），因此 shell 状态跨调用保留；win32 上由 `custom-bash` 经 Git Bash 提供同名工具，无 OS 沙箱约束；
+- 文件工具继承宿主文件沙箱（不挂载裸 `dsh-fs-local`）；
+- preset 与 shell 访问具有相同信任等级，安装前可自行审阅 `presets/liangshen/`；
 - 插件不发起网络请求，也不增加遥测；
 - 不要在已经产生内容的会话中途切换 preset；
-- 需要 DSH 0.1.0-rc.5+（preset 机制与 `system-prompt/assemble` 钩子）。
+- 需要 DSH 0.1.5-rc.1+（preset 机制、`system-prompt/assemble` 瀑布与 persona 的 `prefix` schema）。
 
 ## 许可
 
-插件本体 Apache-2.0（zhu1090093659）。`presets/liangshen/agent.cordis.yml` 基于 DeepSeek Harness 内置 Minimal 与 Standard preset 修改，`tool-bootstrap.mjs` 来自 xiaobright/dsh-anchored-standard，均为 MIT，版权与许可声明见 preset 的 `NOTICE`。
+插件本体 Apache-2.0（zhu1090093659）。`presets/liangshen/agent.cordis.yml` 基于 DeepSeek Harness 内置 Minimal 与 Standard preset 修改（MIT），`custom-bash.mjs` 来自 xiaobright/dsh-anchored-standard（MIT），版权与许可声明见 preset 的 `NOTICE`。
