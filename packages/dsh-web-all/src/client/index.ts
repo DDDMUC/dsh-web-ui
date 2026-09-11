@@ -16,6 +16,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { mountClientChildren } from './mount-children.ts'
+import { subscribeBodyMutations } from './body-mutations.ts'
 
 /** Column shims: element selector → attribute to stamp. */
 const COLUMN_SHIMS: ReadonlyArray<readonly [selector: string, attribute: string]> = [
@@ -408,12 +409,18 @@ export function apply(ctx: Context): void {
     applyShims()
     let removeMobileDismiss = (): void => {}
     let dismissFrame: HTMLElement | null = null
+    let resolvedFrame: HTMLElement | null = null
     const ensureMobileDismiss = (): void => {
-      const frame = document.querySelector<HTMLElement>('[data-dsh-frame]')
-      if (frame !== null) {
-        bootShield.dismiss()
-      }
-      if (frame === null || frame === dismissFrame) return
+      // The frame element is stable for the page lifetime; re-query only when
+      // the cached one is gone. A document.querySelector per mutation batch
+      // was paid for every streaming commit even though the answer never
+      // changed.
+      if (resolvedFrame !== null && !resolvedFrame.isConnected) resolvedFrame = null
+      const frame = resolvedFrame ?? document.querySelector<HTMLElement>('[data-dsh-frame]')
+      resolvedFrame = frame
+      if (frame === null) return
+      bootShield.dismiss()
+      if (frame === dismissFrame) return
       removeMobileDismiss()
       removeMobileDismiss = installMobileSidebarDismiss(frame)
       dismissFrame = frame
@@ -424,14 +431,15 @@ export function apply(ctx: Context): void {
     // columns on re-render; re-stamp on any DOM mutation. The callback only
     // schedules a coalesced pass — mutations never run the sweep inline, and
     // the pass short-circuits once every attribute is in place. Writes only
-    // the same attribute values, so this never fights React.
-    const observer = new MutationObserver(() => {
+    // the same attribute values, so this never fights React. The observation
+    // is the page-wide hub (shared/client/body-mutations.ts) so the aggregate
+    // no longer adds a body observer of its own beside the family plugins'.
+    const unsubscribeBody = subscribeBodyMutations(() => {
       schedulePass()
       ensureMobileDismiss()
     })
-    observer.observe(document.body, { childList: true, subtree: true })
     return () => {
-      observer.disconnect()
+      unsubscribeBody()
       bootShield.remove()
       responsiveStyle.remove()
       removeMobileDismiss()

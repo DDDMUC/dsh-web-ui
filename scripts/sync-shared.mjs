@@ -187,6 +187,19 @@ const MANIFEST = [
     ],
   },
   {
+    // Page-wide body mutation hub: exactly one document.body childList
+    // observer shared by every family consumer (sidebar entries, center
+    // panels, the aggregate shell shims), instead of one per plugin.
+    file: 'body-mutations.ts',
+    source: 'shared/client/body-mutations.ts',
+    targets: [
+      'packages/dsh-ssh/src/client/body-mutations.ts',
+      'packages/dsh-task-board/src/client/body-mutations.ts',
+      'packages/dsh-skill-explorer/src/client/body-mutations.ts',
+      'packages/dsh-web-all/src/client/body-mutations.ts',
+    ],
+  },
+  {
     file: 'sidebar-entry-core.ts',
     source: 'shared/client/sidebar-entry-core.ts',
     targets: [

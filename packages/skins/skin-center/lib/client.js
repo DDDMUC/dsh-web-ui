@@ -401,6 +401,16 @@ window.__ModuleLoader__.load({
 		].join(", ");
 		const sourceSets = /* @__PURE__ */ new WeakMap();
 		const contentObservers = /* @__PURE__ */ new WeakMap();
+		const contentFrames = /* @__PURE__ */ new WeakMap();
+		/** Write a marker attribute only when the desired state is not applied yet. */
+		function applyMarker(el, attr, active) {
+			if (el === null) return;
+			if (active) {
+				if (el.getAttribute(attr) !== "true") el.setAttribute(attr, "true");
+				return;
+			}
+			if (el.hasAttribute(attr)) el.removeAttribute(attr);
+		}
 		/**
 		* Report one source's backdrop-art presence. The marker stays on while any
 		* source is active, so the skin and wallpaper controllers never clobber each
@@ -418,16 +428,13 @@ window.__ModuleLoader__.load({
 		}
 		/** Reflect the source set onto html/body and ensure the neutralizer on use. */
 		function syncMarker(doc, sources) {
-			if (sources.size > 0) {
-				doc.body?.setAttribute(BACKDROP_ACTIVE_ATTR, "true");
-				doc.documentElement?.setAttribute(BACKDROP_ACTIVE_ATTR, "true");
+			const active = sources.size > 0;
+			applyMarker(doc.body, BACKDROP_ACTIVE_ATTR, active);
+			applyMarker(doc.documentElement, BACKDROP_ACTIVE_ATTR, active);
+			if (active) {
 				ensureSceneNeutralizer(doc);
 				startContentObserver(doc);
-			} else {
-				doc.body?.removeAttribute(BACKDROP_ACTIVE_ATTR);
-				doc.documentElement?.removeAttribute(BACKDROP_ACTIVE_ATTR);
-				stopContentObserver(doc);
-			}
+			} else stopContentObserver(doc);
 		}
 		/**
 		* Track whether the active conversation scrollport has message rows for the
@@ -436,13 +443,27 @@ window.__ModuleLoader__.load({
 		* those stale rows and flash the composer frost over the new empty topic.
 		*/
 		function updateConversationContent(doc) {
-			if (doc.body !== null && doc.body.querySelector(ACTIVE_CONVERSATION_CONTENT_SELECTOR) !== null) {
-				doc.body?.setAttribute(CONVERSATION_CONTENT_ATTR, "true");
-				doc.documentElement?.setAttribute(CONVERSATION_CONTENT_ATTR, "true");
-			} else {
-				doc.body?.removeAttribute(CONVERSATION_CONTENT_ATTR);
-				doc.documentElement?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+			const has = doc.body !== null && doc.body.querySelector(ACTIVE_CONVERSATION_CONTENT_SELECTOR) !== null;
+			applyMarker(doc.body, CONVERSATION_CONTENT_ATTR, has);
+			applyMarker(doc.documentElement, CONVERSATION_CONTENT_ATTR, has);
+		}
+		/**
+		* Coalesce the mutation bursts of a streaming conversation into one content
+		* check per frame; a check scheduled for a document that stopped observing is
+		* dropped so a late frame can never re-add the marker after teardown.
+		*/
+		function scheduleConversationContent(doc) {
+			if (contentFrames.has(doc)) return;
+			const win = doc.defaultView;
+			if (win === null || typeof win.requestAnimationFrame !== "function") {
+				updateConversationContent(doc);
+				return;
 			}
+			contentFrames.set(doc, win.requestAnimationFrame(() => {
+				contentFrames.delete(doc);
+				if (!contentObservers.has(doc)) return;
+				updateConversationContent(doc);
+			}));
 		}
 		/** Observe the conversation tree while a backdrop is visible. */
 		function startContentObserver(doc) {
@@ -450,22 +471,28 @@ window.__ModuleLoader__.load({
 			updateConversationContent(doc);
 			const win = doc.defaultView;
 			if (win === null || typeof win.MutationObserver !== "function") return;
-			const observer = new win.MutationObserver(() => updateConversationContent(doc));
+			const observer = new win.MutationObserver(() => scheduleConversationContent(doc));
 			observer.observe(doc.body ?? doc.documentElement, {
 				childList: true,
 				subtree: true
 			});
 			contentObservers.set(doc, observer);
 		}
-		/** Stop the content observer and drop the content marker. */
+		/** Stop the content observer, cancel pending work and drop the marker. */
 		function stopContentObserver(doc) {
+			const frame = contentFrames.get(doc);
+			if (frame !== void 0) {
+				const win = doc.defaultView;
+				if (win !== null && typeof win.cancelAnimationFrame === "function") win.cancelAnimationFrame(frame);
+				contentFrames.delete(doc);
+			}
 			const observer = contentObservers.get(doc);
 			if (observer !== void 0) {
 				observer.disconnect();
 				contentObservers.delete(doc);
 			}
-			doc.body?.removeAttribute(CONVERSATION_CONTENT_ATTR);
-			doc.documentElement?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+			applyMarker(doc.body, CONVERSATION_CONTENT_ATTR, false);
+			applyMarker(doc.documentElement, CONVERSATION_CONTENT_ATTR, false);
 		}
 		/**
 		* Install the shared composer-seat neutralizer, keyed by head presence so a
@@ -4076,35 +4103,62 @@ window.__ModuleLoader__.load({
 			try {
 				win?.scrollTo?.(0, 0);
 			} catch {}
+			const composerSelector = COMPOSER_SEAT_SELECTORS.join(", ");
 			let resizeObserver = null;
 			let mutationObserver = null;
 			let observedComposer = null;
+			let appliedHeight = "";
+			let scheduledFrame = null;
+			let disposed = false;
+			const resolveComposer = () => {
+				if (observedComposer !== null && observedComposer.isConnected) return observedComposer;
+				return doc.body === null ? null : doc.body.querySelector(composerSelector);
+			};
 			const syncHeight = () => {
 				if (doc.body === null) return;
-				const composer = doc.body.querySelector(COMPOSER_SEAT_SELECTORS.join(", "));
-				if (composer !== null) {
-					if (observedComposer !== composer) {
-						if (observedComposer !== null && resizeObserver !== null) resizeObserver.unobserve(observedComposer);
-						observedComposer = composer;
-						if (resizeObserver !== null) resizeObserver.observe(composer);
-					}
-					const rect = composer.getBoundingClientRect();
-					if (rect.height > 0) doc.documentElement?.style.setProperty("--dsh-composer-height", `${Math.ceil(rect.height)}px`);
+				const composer = resolveComposer();
+				if (composer === null) return;
+				if (observedComposer !== composer) {
+					if (observedComposer !== null && resizeObserver !== null) resizeObserver.unobserve(observedComposer);
+					observedComposer = composer;
+					if (resizeObserver !== null) resizeObserver.observe(composer);
 				}
+				const rect = composer.getBoundingClientRect();
+				if (rect.height <= 0) return;
+				const root = doc.documentElement;
+				const next = `${Math.ceil(rect.height)}px`;
+				if (next === appliedHeight || root === null) return;
+				appliedHeight = next;
+				root.style.setProperty("--dsh-composer-height", next);
+			};
+			const scheduleSync = () => {
+				if (scheduledFrame !== null || disposed) return;
+				if (win === null || typeof win.requestAnimationFrame !== "function") {
+					syncHeight();
+					return;
+				}
+				scheduledFrame = win.requestAnimationFrame(() => {
+					scheduledFrame = null;
+					if (disposed) return;
+					syncHeight();
+				});
 			};
 			if (win !== null && typeof win.ResizeObserver === "function") resizeObserver = new win.ResizeObserver(() => syncHeight());
 			if (win !== null && typeof win.MutationObserver === "function" && doc.body !== null) {
-				mutationObserver = new win.MutationObserver(() => syncHeight());
+				mutationObserver = new win.MutationObserver(() => scheduleSync());
 				mutationObserver.observe(doc.body, {
 					childList: true,
 					subtree: true
 				});
 			}
 			syncHeight();
-			let disposed = false;
 			return () => {
 				if (disposed) return;
 				disposed = true;
+				if (scheduledFrame !== null) {
+					if (win !== null && typeof win.cancelAnimationFrame === "function") win.cancelAnimationFrame(scheduledFrame);
+					scheduledFrame = null;
+				}
 				if (resizeObserver !== null) {
 					resizeObserver.disconnect();
 					resizeObserver = null;
@@ -4114,6 +4168,7 @@ window.__ModuleLoader__.load({
 					mutationObserver = null;
 				}
 				observedComposer = null;
+				appliedHeight = "";
 				doc.documentElement?.style.removeProperty("--dsh-composer-height");
 				style.remove();
 			};

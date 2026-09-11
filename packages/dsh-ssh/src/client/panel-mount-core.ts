@@ -20,6 +20,7 @@
  * (shared/client/sidebar-entry-core.ts, synced copy).
  */
 import { createRoot, type Root } from 'react-dom/client'
+import { subscribeBodyMutations } from './body-mutations.ts'
 
 /** Options for mountCenterPanel; dsh-ssh mount.tsx and dsh-task-board board-mount.tsx are the canonical consumers. */
 export interface CenterPanelMountOptions {
@@ -99,8 +100,10 @@ export function mountCenterPanel(options: CenterPanelMountOptions): () => void {
   }
 
   // The frame mounts after boot settlement; watch for the column's arrival.
-  const waitObserver = new MutationObserver(() => { ensure() })
-  waitObserver.observe(document.body, { childList: true, subtree: true })
+  // The observation is the page-wide hub (shared/client/body-mutations.ts):
+  // every family panel used to hold its own document.body subtree observer, so
+  // the per-mutation cost grew with the number of installed plugins.
+  const unsubscribeBody = subscribeBodyMutations(() => { ensure() })
 
   const applyActive = (): void => {
     if (options.isOpen()) {
@@ -135,7 +138,7 @@ export function mountCenterPanel(options: CenterPanelMountOptions): () => void {
   return () => {
     document.removeEventListener('click', onClickSidebarRow, true)
     document.removeEventListener(ACTIVATE_EVENT, onOtherActivate)
-    waitObserver.disconnect()
+    unsubscribeBody()
     unsubscribe()
     unsubscribeLocale?.()
     document.documentElement.removeAttribute(options.activeAttribute)

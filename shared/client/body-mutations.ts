@@ -1,0 +1,101 @@
+/**
+ * One `document.body` MutationObserver per page, shared by every family
+ * plugin bundle.
+ *
+ * Family plugins that inject at the DOM level must notice when the shell
+ * re-renders around their injected node: the sidebar entry rows
+ * (sidebar-entry-core), the center-column panel containers
+ * (panel-mount-core), and the aggregate shell's column shims. Each consumer
+ * used to install its OWN `MutationObserver` on `document.body` with
+ * `{ childList: true, subtree: true }`, so a page carrying N family plugins
+ * paid N native observers and N callback invocations for EVERY mutation batch
+ * the app produced — chat token streaming alone produces many per second, and
+ * the count grows with the number of installed plugins.
+ *
+ * This module keeps exactly ONE body observer per page. The registry lives on
+ * `globalThis` under a `Symbol.for` key, so the per-package generated copies
+ * of this file (scripts/sync-shared.mjs) and separately bundled plugins all
+ * reach the same hub at runtime instead of one hub per module instance.
+ * Subscribers receive the mutation records accumulated since the last flush
+ * and run at most once per animation frame; every current consumer is an
+ * idempotent "re-check my injected node" function, so coalescing only removes
+ * duplicate work. The last subscriber to leave disconnects the observer and
+ * drops the hub, leaving no listener behind.
+ *
+ * Failure policy: without a DOM or `MutationObserver` the subscription is a
+ * no-op disposer (the same silence the per-consumer observers had), and when
+ * `requestAnimationFrame` is unavailable the flush runs synchronously so a
+ * subscriber is never silently dropped. A throwing subscriber cannot stop the
+ * others.
+ */
+
+/** The page-wide hub: one observer plus its subscribers and pending records. */
+interface BodyMutationHub {
+  observer: MutationObserver
+  subscribers: Set<(records: MutationRecord[]) => void>
+  pending: MutationRecord[]
+  scheduled: boolean
+}
+
+/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
+const HUB_KEY = Symbol.for('dsh-web.body-mutation-hub')
+
+/**
+ * Subscribe to body-level childList mutations.
+ * @param subscriber - called at most once per animation frame with the records
+ *   collected since the previous flush; must be safe to run repeatedly.
+ * @returns the disposer removing this subscriber (and the observer when it was
+ *   the last one).
+ */
+export function subscribeBodyMutations(subscriber: (records: MutationRecord[]) => void): () => void {
+  if (typeof globalThis === 'undefined' || typeof document === 'undefined') return () => {}
+  if (typeof MutationObserver !== 'function') return () => {}
+  const registry = globalThis as unknown as Record<symbol, unknown>
+  let hub = registry[HUB_KEY] as BodyMutationHub | undefined
+  if (hub === undefined) {
+    const subscribers = new Set<(records: MutationRecord[]) => void>()
+    const created: BodyMutationHub = {
+      observer: undefined as unknown as MutationObserver,
+      subscribers,
+      pending: [],
+      scheduled: false,
+    }
+    const flush = (): void => {
+      created.scheduled = false
+      const batch = created.pending
+      created.pending = []
+      for (const listener of [...subscribers]) {
+        try {
+          listener(batch)
+        } catch {
+          // One subscriber must never break the others; the next flush retries it.
+        }
+      }
+    }
+    const schedule = (): void => {
+      if (created.scheduled) return
+      created.scheduled = true
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flush)
+      else flush()
+    }
+    created.observer = new MutationObserver((records) => {
+      for (const record of records) created.pending.push(record)
+      schedule()
+    })
+    created.observer.observe(document.body ?? document.documentElement, { childList: true, subtree: true })
+    registry[HUB_KEY] = created
+    hub = created
+  }
+  const active = hub
+  active.subscribers.add(subscriber)
+  let subscribed = true
+  return () => {
+    if (!subscribed) return
+    subscribed = false
+    active.subscribers.delete(subscriber)
+    if (active.subscribers.size === 0 && registry[HUB_KEY] === active) {
+      active.observer.disconnect()
+      delete registry[HUB_KEY]
+    }
+  }
+}

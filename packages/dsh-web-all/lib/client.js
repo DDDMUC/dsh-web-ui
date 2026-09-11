@@ -8072,6 +8072,68 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region ../dsh-task-board/src/client/body-mutations.ts
+		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
+		const HUB_KEY$3 = Symbol.for("dsh-web.body-mutation-hub");
+		/**
+		* Subscribe to body-level childList mutations.
+		* @param subscriber - called at most once per animation frame with the records
+		*   collected since the previous flush; must be safe to run repeatedly.
+		* @returns the disposer removing this subscriber (and the observer when it was
+		*   the last one).
+		*/
+		function subscribeBodyMutations$3(subscriber) {
+			if (typeof globalThis === "undefined" || typeof document === "undefined") return () => {};
+			if (typeof MutationObserver !== "function") return () => {};
+			const registry = globalThis;
+			let hub = registry[HUB_KEY$3];
+			if (hub === void 0) {
+				const subscribers = /* @__PURE__ */ new Set();
+				const created = {
+					observer: void 0,
+					subscribers,
+					pending: [],
+					scheduled: false
+				};
+				const flush = () => {
+					created.scheduled = false;
+					const batch = created.pending;
+					created.pending = [];
+					for (const listener of [...subscribers]) try {
+						listener(batch);
+					} catch {}
+				};
+				const schedule = () => {
+					if (created.scheduled) return;
+					created.scheduled = true;
+					if (typeof requestAnimationFrame === "function") requestAnimationFrame(flush);
+					else flush();
+				};
+				created.observer = new MutationObserver((records) => {
+					for (const record of records) created.pending.push(record);
+					schedule();
+				});
+				created.observer.observe(document.body ?? document.documentElement, {
+					childList: true,
+					subtree: true
+				});
+				registry[HUB_KEY$3] = created;
+				hub = created;
+			}
+			const active = hub;
+			active.subscribers.add(subscriber);
+			let subscribed = true;
+			return () => {
+				if (!subscribed) return;
+				subscribed = false;
+				active.subscribers.delete(subscriber);
+				if (active.subscribers.size === 0 && registry[HUB_KEY$3] === active) {
+					active.observer.disconnect();
+					delete registry[HUB_KEY$3];
+				}
+			};
+		}
+		//#endregion
 		//#region ../dsh-task-board/src/client/panel-mount-core.ts
 		/**
 		* Center-column panel takeover lifecycle.
@@ -8133,12 +8195,8 @@ window.__ModuleLoader__.load({
 				root = (0, react_dom_client.createRoot)(container);
 				options.render(root);
 			};
-			const waitObserver = new MutationObserver(() => {
+			const unsubscribeBody = subscribeBodyMutations$3(() => {
 				ensure();
-			});
-			waitObserver.observe(document.body, {
-				childList: true,
-				subtree: true
 			});
 			const applyActive = () => {
 				if (options.isOpen()) {
@@ -8164,7 +8222,7 @@ window.__ModuleLoader__.load({
 			return () => {
 				document.removeEventListener("click", onClickSidebarRow, true);
 				document.removeEventListener(ACTIVATE_EVENT$1, onOtherActivate);
-				waitObserver.disconnect();
+				unsubscribeBody();
 				unsubscribe();
 				unsubscribeLocale?.();
 				document.documentElement.removeAttribute(options.activeAttribute);
@@ -8202,6 +8260,21 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-task-board/src/client/sidebar-entry-core.ts
+		/**
+		* Shared sidebar entry injection core.
+		*
+		* dsh's sidebar shell exposes no slot an external plugin can register into,
+		* so the entry row is injected between the shell's New Session button and the
+		* workspace browser. The injection self-heals: a MutationObserver watches the
+		* sidebar root and re-inserts the row whenever a React re-render displaces it
+		* (re-insertion happens in the same frame, before paint, so no flicker).
+		*
+		* The row is plain DOM (no React tree) so it can never disturb the shell's
+		* reconciliation; the view it toggles is a separate root owned by the caller.
+		*
+		* Packages receive this file as a generated copy via scripts/sync-shared.mjs;
+		* edit the shared source and re-run the sync instead of editing a copy.
+		*/
 		/** Find the sidebar shell root element, or undefined while not yet mounted. */
 		function sidebarRoot$2() {
 			const column = document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
@@ -8290,12 +8363,8 @@ window.__ModuleLoader__.load({
 					subtree: true
 				});
 			};
-			const waitObserver = new MutationObserver(() => {
+			const unsubscribeBody = subscribeBodyMutations$3(() => {
 				tryPlace();
-			});
-			waitObserver.observe(document.body, {
-				childList: true,
-				subtree: true
 			});
 			const rootObserver = new MutationObserver(() => {
 				if (root === void 0 || !root.isConnected) {
@@ -8316,7 +8385,7 @@ window.__ModuleLoader__.load({
 			})();
 			tryPlace();
 			return () => {
-				waitObserver.disconnect();
+				unsubscribeBody();
 				rootObserver.disconnect();
 				unsubscribeRefresh?.();
 				unsubscribeActive?.();
@@ -36836,6 +36905,68 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region ../dsh-ssh/src/client/body-mutations.ts
+		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
+		const HUB_KEY$2 = Symbol.for("dsh-web.body-mutation-hub");
+		/**
+		* Subscribe to body-level childList mutations.
+		* @param subscriber - called at most once per animation frame with the records
+		*   collected since the previous flush; must be safe to run repeatedly.
+		* @returns the disposer removing this subscriber (and the observer when it was
+		*   the last one).
+		*/
+		function subscribeBodyMutations$2(subscriber) {
+			if (typeof globalThis === "undefined" || typeof document === "undefined") return () => {};
+			if (typeof MutationObserver !== "function") return () => {};
+			const registry = globalThis;
+			let hub = registry[HUB_KEY$2];
+			if (hub === void 0) {
+				const subscribers = /* @__PURE__ */ new Set();
+				const created = {
+					observer: void 0,
+					subscribers,
+					pending: [],
+					scheduled: false
+				};
+				const flush = () => {
+					created.scheduled = false;
+					const batch = created.pending;
+					created.pending = [];
+					for (const listener of [...subscribers]) try {
+						listener(batch);
+					} catch {}
+				};
+				const schedule = () => {
+					if (created.scheduled) return;
+					created.scheduled = true;
+					if (typeof requestAnimationFrame === "function") requestAnimationFrame(flush);
+					else flush();
+				};
+				created.observer = new MutationObserver((records) => {
+					for (const record of records) created.pending.push(record);
+					schedule();
+				});
+				created.observer.observe(document.body ?? document.documentElement, {
+					childList: true,
+					subtree: true
+				});
+				registry[HUB_KEY$2] = created;
+				hub = created;
+			}
+			const active = hub;
+			active.subscribers.add(subscriber);
+			let subscribed = true;
+			return () => {
+				if (!subscribed) return;
+				subscribed = false;
+				active.subscribers.delete(subscriber);
+				if (active.subscribers.size === 0 && registry[HUB_KEY$2] === active) {
+					active.observer.disconnect();
+					delete registry[HUB_KEY$2];
+				}
+			};
+		}
+		//#endregion
 		//#region ../dsh-ssh/src/client/panel-mount-core.ts
 		/**
 		* Center-column panel takeover lifecycle.
@@ -36897,12 +37028,8 @@ window.__ModuleLoader__.load({
 				root = (0, react_dom_client.createRoot)(container);
 				options.render(root);
 			};
-			const waitObserver = new MutationObserver(() => {
+			const unsubscribeBody = subscribeBodyMutations$2(() => {
 				ensure();
-			});
-			waitObserver.observe(document.body, {
-				childList: true,
-				subtree: true
 			});
 			const applyActive = () => {
 				if (options.isOpen()) {
@@ -36928,7 +37055,7 @@ window.__ModuleLoader__.load({
 			return () => {
 				document.removeEventListener("click", onClickSidebarRow, true);
 				document.removeEventListener(ACTIVATE_EVENT, onOtherActivate);
-				waitObserver.disconnect();
+				unsubscribeBody();
 				unsubscribe();
 				unsubscribeLocale?.();
 				document.documentElement.removeAttribute(options.activeAttribute);
@@ -37005,6 +37132,21 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region ../dsh-ssh/src/client/sidebar-entry-core.ts
+		/**
+		* Shared sidebar entry injection core.
+		*
+		* dsh's sidebar shell exposes no slot an external plugin can register into,
+		* so the entry row is injected between the shell's New Session button and the
+		* workspace browser. The injection self-heals: a MutationObserver watches the
+		* sidebar root and re-inserts the row whenever a React re-render displaces it
+		* (re-insertion happens in the same frame, before paint, so no flicker).
+		*
+		* The row is plain DOM (no React tree) so it can never disturb the shell's
+		* reconciliation; the view it toggles is a separate root owned by the caller.
+		*
+		* Packages receive this file as a generated copy via scripts/sync-shared.mjs;
+		* edit the shared source and re-run the sync instead of editing a copy.
+		*/
 		/** Find the sidebar shell root element, or undefined while not yet mounted. */
 		function sidebarRoot$1() {
 			const column = document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
@@ -37093,12 +37235,8 @@ window.__ModuleLoader__.load({
 					subtree: true
 				});
 			};
-			const waitObserver = new MutationObserver(() => {
+			const unsubscribeBody = subscribeBodyMutations$2(() => {
 				tryPlace();
-			});
-			waitObserver.observe(document.body, {
-				childList: true,
-				subtree: true
 			});
 			const rootObserver = new MutationObserver(() => {
 				if (root === void 0 || !root.isConnected) {
@@ -37119,7 +37257,7 @@ window.__ModuleLoader__.load({
 			})();
 			tryPlace();
 			return () => {
-				waitObserver.disconnect();
+				unsubscribeBody();
 				rootObserver.disconnect();
 				unsubscribeRefresh?.();
 				unsubscribeActive?.();
@@ -40606,7 +40744,84 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
+		//#region ../dsh-skill-explorer/src/client/body-mutations.ts
+		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
+		const HUB_KEY$1 = Symbol.for("dsh-web.body-mutation-hub");
+		/**
+		* Subscribe to body-level childList mutations.
+		* @param subscriber - called at most once per animation frame with the records
+		*   collected since the previous flush; must be safe to run repeatedly.
+		* @returns the disposer removing this subscriber (and the observer when it was
+		*   the last one).
+		*/
+		function subscribeBodyMutations$1(subscriber) {
+			if (typeof globalThis === "undefined" || typeof document === "undefined") return () => {};
+			if (typeof MutationObserver !== "function") return () => {};
+			const registry = globalThis;
+			let hub = registry[HUB_KEY$1];
+			if (hub === void 0) {
+				const subscribers = /* @__PURE__ */ new Set();
+				const created = {
+					observer: void 0,
+					subscribers,
+					pending: [],
+					scheduled: false
+				};
+				const flush = () => {
+					created.scheduled = false;
+					const batch = created.pending;
+					created.pending = [];
+					for (const listener of [...subscribers]) try {
+						listener(batch);
+					} catch {}
+				};
+				const schedule = () => {
+					if (created.scheduled) return;
+					created.scheduled = true;
+					if (typeof requestAnimationFrame === "function") requestAnimationFrame(flush);
+					else flush();
+				};
+				created.observer = new MutationObserver((records) => {
+					for (const record of records) created.pending.push(record);
+					schedule();
+				});
+				created.observer.observe(document.body ?? document.documentElement, {
+					childList: true,
+					subtree: true
+				});
+				registry[HUB_KEY$1] = created;
+				hub = created;
+			}
+			const active = hub;
+			active.subscribers.add(subscriber);
+			let subscribed = true;
+			return () => {
+				if (!subscribed) return;
+				subscribed = false;
+				active.subscribers.delete(subscriber);
+				if (active.subscribers.size === 0 && registry[HUB_KEY$1] === active) {
+					active.observer.disconnect();
+					delete registry[HUB_KEY$1];
+				}
+			};
+		}
+		//#endregion
 		//#region ../dsh-skill-explorer/src/client/sidebar-entry-core.ts
+		/**
+		* Shared sidebar entry injection core.
+		*
+		* dsh's sidebar shell exposes no slot an external plugin can register into,
+		* so the entry row is injected between the shell's New Session button and the
+		* workspace browser. The injection self-heals: a MutationObserver watches the
+		* sidebar root and re-inserts the row whenever a React re-render displaces it
+		* (re-insertion happens in the same frame, before paint, so no flicker).
+		*
+		* The row is plain DOM (no React tree) so it can never disturb the shell's
+		* reconciliation; the view it toggles is a separate root owned by the caller.
+		*
+		* Packages receive this file as a generated copy via scripts/sync-shared.mjs;
+		* edit the shared source and re-run the sync instead of editing a copy.
+		*/
 		/** Find the sidebar shell root element, or undefined while not yet mounted. */
 		function sidebarRoot() {
 			const column = document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
@@ -40695,12 +40910,8 @@ window.__ModuleLoader__.load({
 					subtree: true
 				});
 			};
-			const waitObserver = new MutationObserver(() => {
+			const unsubscribeBody = subscribeBodyMutations$1(() => {
 				tryPlace();
-			});
-			waitObserver.observe(document.body, {
-				childList: true,
-				subtree: true
 			});
 			const rootObserver = new MutationObserver(() => {
 				if (root === void 0 || !root.isConnected) {
@@ -40721,7 +40932,7 @@ window.__ModuleLoader__.load({
 			})();
 			tryPlace();
 			return () => {
-				waitObserver.disconnect();
+				unsubscribeBody();
 				rootObserver.disconnect();
 				unsubscribeRefresh?.();
 				unsubscribeActive?.();
@@ -50514,6 +50725,16 @@ window.__ModuleLoader__.load({
 		].join(", ");
 		const sourceSets = /* @__PURE__ */ new WeakMap();
 		const contentObservers = /* @__PURE__ */ new WeakMap();
+		const contentFrames = /* @__PURE__ */ new WeakMap();
+		/** Write a marker attribute only when the desired state is not applied yet. */
+		function applyMarker(el, attr, active) {
+			if (el === null) return;
+			if (active) {
+				if (el.getAttribute(attr) !== "true") el.setAttribute(attr, "true");
+				return;
+			}
+			if (el.hasAttribute(attr)) el.removeAttribute(attr);
+		}
 		/**
 		* Report one source's backdrop-art presence. The marker stays on while any
 		* source is active, so the skin and wallpaper controllers never clobber each
@@ -50531,16 +50752,13 @@ window.__ModuleLoader__.load({
 		}
 		/** Reflect the source set onto html/body and ensure the neutralizer on use. */
 		function syncMarker(doc, sources) {
-			if (sources.size > 0) {
-				doc.body?.setAttribute(BACKDROP_ACTIVE_ATTR, "true");
-				doc.documentElement?.setAttribute(BACKDROP_ACTIVE_ATTR, "true");
+			const active = sources.size > 0;
+			applyMarker(doc.body, BACKDROP_ACTIVE_ATTR, active);
+			applyMarker(doc.documentElement, BACKDROP_ACTIVE_ATTR, active);
+			if (active) {
 				ensureSceneNeutralizer(doc);
 				startContentObserver(doc);
-			} else {
-				doc.body?.removeAttribute(BACKDROP_ACTIVE_ATTR);
-				doc.documentElement?.removeAttribute(BACKDROP_ACTIVE_ATTR);
-				stopContentObserver(doc);
-			}
+			} else stopContentObserver(doc);
 		}
 		/**
 		* Track whether the active conversation scrollport has message rows for the
@@ -50549,13 +50767,27 @@ window.__ModuleLoader__.load({
 		* those stale rows and flash the composer frost over the new empty topic.
 		*/
 		function updateConversationContent(doc) {
-			if (doc.body !== null && doc.body.querySelector(ACTIVE_CONVERSATION_CONTENT_SELECTOR) !== null) {
-				doc.body?.setAttribute(CONVERSATION_CONTENT_ATTR, "true");
-				doc.documentElement?.setAttribute(CONVERSATION_CONTENT_ATTR, "true");
-			} else {
-				doc.body?.removeAttribute(CONVERSATION_CONTENT_ATTR);
-				doc.documentElement?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+			const has = doc.body !== null && doc.body.querySelector(ACTIVE_CONVERSATION_CONTENT_SELECTOR) !== null;
+			applyMarker(doc.body, CONVERSATION_CONTENT_ATTR, has);
+			applyMarker(doc.documentElement, CONVERSATION_CONTENT_ATTR, has);
+		}
+		/**
+		* Coalesce the mutation bursts of a streaming conversation into one content
+		* check per frame; a check scheduled for a document that stopped observing is
+		* dropped so a late frame can never re-add the marker after teardown.
+		*/
+		function scheduleConversationContent(doc) {
+			if (contentFrames.has(doc)) return;
+			const win = doc.defaultView;
+			if (win === null || typeof win.requestAnimationFrame !== "function") {
+				updateConversationContent(doc);
+				return;
 			}
+			contentFrames.set(doc, win.requestAnimationFrame(() => {
+				contentFrames.delete(doc);
+				if (!contentObservers.has(doc)) return;
+				updateConversationContent(doc);
+			}));
 		}
 		/** Observe the conversation tree while a backdrop is visible. */
 		function startContentObserver(doc) {
@@ -50563,22 +50795,28 @@ window.__ModuleLoader__.load({
 			updateConversationContent(doc);
 			const win = doc.defaultView;
 			if (win === null || typeof win.MutationObserver !== "function") return;
-			const observer = new win.MutationObserver(() => updateConversationContent(doc));
+			const observer = new win.MutationObserver(() => scheduleConversationContent(doc));
 			observer.observe(doc.body ?? doc.documentElement, {
 				childList: true,
 				subtree: true
 			});
 			contentObservers.set(doc, observer);
 		}
-		/** Stop the content observer and drop the content marker. */
+		/** Stop the content observer, cancel pending work and drop the marker. */
 		function stopContentObserver(doc) {
+			const frame = contentFrames.get(doc);
+			if (frame !== void 0) {
+				const win = doc.defaultView;
+				if (win !== null && typeof win.cancelAnimationFrame === "function") win.cancelAnimationFrame(frame);
+				contentFrames.delete(doc);
+			}
 			const observer = contentObservers.get(doc);
 			if (observer !== void 0) {
 				observer.disconnect();
 				contentObservers.delete(doc);
 			}
-			doc.body?.removeAttribute(CONVERSATION_CONTENT_ATTR);
-			doc.documentElement?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+			applyMarker(doc.body, CONVERSATION_CONTENT_ATTR, false);
+			applyMarker(doc.documentElement, CONVERSATION_CONTENT_ATTR, false);
 		}
 		/**
 		* Install the shared composer-seat neutralizer, keyed by head presence so a
@@ -54189,35 +54427,62 @@ window.__ModuleLoader__.load({
 			try {
 				win?.scrollTo?.(0, 0);
 			} catch {}
+			const composerSelector = COMPOSER_SEAT_SELECTORS.join(", ");
 			let resizeObserver = null;
 			let mutationObserver = null;
 			let observedComposer = null;
+			let appliedHeight = "";
+			let scheduledFrame = null;
+			let disposed = false;
+			const resolveComposer = () => {
+				if (observedComposer !== null && observedComposer.isConnected) return observedComposer;
+				return doc.body === null ? null : doc.body.querySelector(composerSelector);
+			};
 			const syncHeight = () => {
 				if (doc.body === null) return;
-				const composer = doc.body.querySelector(COMPOSER_SEAT_SELECTORS.join(", "));
-				if (composer !== null) {
-					if (observedComposer !== composer) {
-						if (observedComposer !== null && resizeObserver !== null) resizeObserver.unobserve(observedComposer);
-						observedComposer = composer;
-						if (resizeObserver !== null) resizeObserver.observe(composer);
-					}
-					const rect = composer.getBoundingClientRect();
-					if (rect.height > 0) doc.documentElement?.style.setProperty("--dsh-composer-height", `${Math.ceil(rect.height)}px`);
+				const composer = resolveComposer();
+				if (composer === null) return;
+				if (observedComposer !== composer) {
+					if (observedComposer !== null && resizeObserver !== null) resizeObserver.unobserve(observedComposer);
+					observedComposer = composer;
+					if (resizeObserver !== null) resizeObserver.observe(composer);
 				}
+				const rect = composer.getBoundingClientRect();
+				if (rect.height <= 0) return;
+				const root = doc.documentElement;
+				const next = `${Math.ceil(rect.height)}px`;
+				if (next === appliedHeight || root === null) return;
+				appliedHeight = next;
+				root.style.setProperty("--dsh-composer-height", next);
+			};
+			const scheduleSync = () => {
+				if (scheduledFrame !== null || disposed) return;
+				if (win === null || typeof win.requestAnimationFrame !== "function") {
+					syncHeight();
+					return;
+				}
+				scheduledFrame = win.requestAnimationFrame(() => {
+					scheduledFrame = null;
+					if (disposed) return;
+					syncHeight();
+				});
 			};
 			if (win !== null && typeof win.ResizeObserver === "function") resizeObserver = new win.ResizeObserver(() => syncHeight());
 			if (win !== null && typeof win.MutationObserver === "function" && doc.body !== null) {
-				mutationObserver = new win.MutationObserver(() => syncHeight());
+				mutationObserver = new win.MutationObserver(() => scheduleSync());
 				mutationObserver.observe(doc.body, {
 					childList: true,
 					subtree: true
 				});
 			}
 			syncHeight();
-			let disposed = false;
 			return () => {
 				if (disposed) return;
 				disposed = true;
+				if (scheduledFrame !== null) {
+					if (win !== null && typeof win.cancelAnimationFrame === "function") win.cancelAnimationFrame(scheduledFrame);
+					scheduledFrame = null;
+				}
 				if (resizeObserver !== null) {
 					resizeObserver.disconnect();
 					resizeObserver = null;
@@ -54227,6 +54492,7 @@ window.__ModuleLoader__.load({
 					mutationObserver = null;
 				}
 				observedComposer = null;
+				appliedHeight = "";
 				doc.documentElement?.style.removeProperty("--dsh-composer-height");
 				style.remove();
 			};
@@ -55571,6 +55837,68 @@ window.__ModuleLoader__.load({
 			}
 		}
 		//#endregion
+		//#region src/client/body-mutations.ts
+		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
+		const HUB_KEY = Symbol.for("dsh-web.body-mutation-hub");
+		/**
+		* Subscribe to body-level childList mutations.
+		* @param subscriber - called at most once per animation frame with the records
+		*   collected since the previous flush; must be safe to run repeatedly.
+		* @returns the disposer removing this subscriber (and the observer when it was
+		*   the last one).
+		*/
+		function subscribeBodyMutations(subscriber) {
+			if (typeof globalThis === "undefined" || typeof document === "undefined") return () => {};
+			if (typeof MutationObserver !== "function") return () => {};
+			const registry = globalThis;
+			let hub = registry[HUB_KEY];
+			if (hub === void 0) {
+				const subscribers = /* @__PURE__ */ new Set();
+				const created = {
+					observer: void 0,
+					subscribers,
+					pending: [],
+					scheduled: false
+				};
+				const flush = () => {
+					created.scheduled = false;
+					const batch = created.pending;
+					created.pending = [];
+					for (const listener of [...subscribers]) try {
+						listener(batch);
+					} catch {}
+				};
+				const schedule = () => {
+					if (created.scheduled) return;
+					created.scheduled = true;
+					if (typeof requestAnimationFrame === "function") requestAnimationFrame(flush);
+					else flush();
+				};
+				created.observer = new MutationObserver((records) => {
+					for (const record of records) created.pending.push(record);
+					schedule();
+				});
+				created.observer.observe(document.body ?? document.documentElement, {
+					childList: true,
+					subtree: true
+				});
+				registry[HUB_KEY] = created;
+				hub = created;
+			}
+			const active = hub;
+			active.subscribers.add(subscriber);
+			let subscribed = true;
+			return () => {
+				if (!subscribed) return;
+				subscribed = false;
+				active.subscribers.delete(subscriber);
+				if (active.subscribers.size === 0 && registry[HUB_KEY] === active) {
+					active.observer.disconnect();
+					delete registry[HUB_KEY];
+				}
+			};
+		}
+		//#endregion
 		//#region src/client/index.ts
 		/** Column shims: element selector → attribute to stamp. */
 		const COLUMN_SHIMS = [
@@ -55943,26 +56271,26 @@ window.__ModuleLoader__.load({
 				applyShims();
 				let removeMobileDismiss = () => {};
 				let dismissFrame = null;
+				let resolvedFrame = null;
 				const ensureMobileDismiss = () => {
-					const frame = document.querySelector("[data-dsh-frame]");
-					if (frame !== null) bootShield.dismiss();
-					if (frame === null || frame === dismissFrame) return;
+					if (resolvedFrame !== null && !resolvedFrame.isConnected) resolvedFrame = null;
+					const frame = resolvedFrame ?? document.querySelector("[data-dsh-frame]");
+					resolvedFrame = frame;
+					if (frame === null) return;
+					bootShield.dismiss();
+					if (frame === dismissFrame) return;
 					removeMobileDismiss();
 					removeMobileDismiss = installMobileSidebarDismiss(frame);
 					dismissFrame = frame;
 				};
 				ensureMobileDismiss();
 				shimAfterPass = ensureMobileDismiss;
-				const observer = new MutationObserver(() => {
+				const unsubscribeBody = subscribeBodyMutations(() => {
 					schedulePass();
 					ensureMobileDismiss();
 				});
-				observer.observe(document.body, {
-					childList: true,
-					subtree: true
-				});
 				return () => {
-					observer.disconnect();
+					unsubscribeBody();
 					bootShield.remove();
 					responsiveStyle.remove();
 					removeMobileDismiss();
