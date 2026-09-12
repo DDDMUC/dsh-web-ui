@@ -18261,6 +18261,7 @@ window.__ModuleLoader__.load({
 			const def = definition.gameplay;
 			const view = ui.snapshot?.gameplay;
 			const phase = ui.snapshot?.phase ?? "idle";
+			const persistedSkin = ui.snapshot?.skin;
 			const [open, setOpen] = (0, react.useState)(false);
 			const [page, setPage] = (0, react.useState)("root");
 			const [skinId, setSkinId] = (0, react.useState)(void 0);
@@ -18517,10 +18518,27 @@ window.__ModuleLoader__.load({
 			const setMode = (next) => {
 				api.setMode(next).then(applyResult, () => void 0);
 			};
+			(0, react.useEffect)(() => {
+				setSkinId(persistedSkin);
+			}, [definition.id, persistedSkin]);
+			(0, react.useEffect)(() => {
+				const skin = definition.frames2d?.skins?.find((candidate) => candidate.id === skinId);
+				bus.setIdleTrack?.(skin?.idleTrack);
+			}, [definition.id, skinId]);
 			const skins = definition.frames2d?.skins;
+			/** The base idle track one skin id resolves to (undefined = default look). */
+			const skinTrackOf = (id) => id === void 0 ? void 0 : definition.frames2d?.skins?.find((candidate) => candidate.id === id)?.idleTrack;
 			const selectSkin = (skin) => {
 				setSkinId(skin?.id);
 				bus.setIdleTrack?.(skin?.idleTrack);
+				const restore = () => {
+					setSkinId(persistedSkin);
+					bus.setIdleTrack?.(skinTrackOf(persistedSkin));
+				};
+				api.setSkin(skin?.id).then((result) => {
+					if (result.ok) return;
+					restore();
+				}, restore);
 			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				ref: hudRef,
@@ -20812,6 +20830,7 @@ window.__ModuleLoader__.load({
 			setConfig: (patch) => petFetch("/api/pet/set-config", patch),
 			setName: (name) => petFetch("/api/pet/set-name", { name }),
 			setPet: (petId) => petFetch("/api/pet/set-pet", { petId }),
+			setSkin: (skin) => petFetch("/api/pet/set-skin", skin === void 0 ? {} : { skin }),
 			gameplayTouch: (zone) => petFetch("/api/pet/gameplay/touch", zone === void 0 ? {} : { zone }),
 			gameplaySetMode: (mode) => petFetch("/api/pet/gameplay/mode", { mode }),
 			gameplayWorkTick: () => petFetch("/api/pet/gameplay/work-tick", {}),
@@ -21007,6 +21026,13 @@ window.__ModuleLoader__.load({
 						},
 						gameplay: {
 							touch: (zone) => petApi.gameplayTouch(zone),
+							setSkin: (skin) => petApi.setSkin(skin).then((result) => {
+								if (result.ok) pollNow();
+								return result;
+							}, () => ({
+								ok: false,
+								error: "transport"
+							})),
 							setMode: async (mode) => {
 								if (mode === "work") lastWorkTickAt = 0;
 								return petApi.gameplaySetMode(mode);
