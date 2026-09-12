@@ -5,6 +5,7 @@ import {
   apply,
   catalogDescription,
   catalogEntries,
+  createCatalogMessage,
   inAnchorTurn,
   name,
   renderCatalogText,
@@ -95,7 +96,12 @@ const WIRE = [
  * the durable log the catalog history is read back from, `surface` its visible
  * positions, and `ctx.tools.presentAs` the per-session presentation declaration.
  */
-function agentOf(events: unknown[] = [], surface?: number[], harness?: Harness) {
+function agentOf(
+  events: unknown[] = [],
+  surface?: number[],
+  harness?: Harness,
+  options?: { presentThrows?: boolean; disposers?: (() => void)[] },
+) {
   const session: any = { snapshotEvents: () => events }
   if (surface !== undefined) session.surface = { nodes: surface }
   return {
@@ -103,8 +109,12 @@ function agentOf(events: unknown[] = [], surface?: number[], harness?: Harness) 
     ctx: {
       tools: {
         presentAs(mode: string) {
+          if (options?.presentThrows) throw new Error('PTC declaration rejected by host policy')
           harness?.presentCalls.push(mode)
-          return () => {}
+          const disposer = () => {
+            options?.disposers?.push(disposer)
+          }
+          return disposer
         },
       },
     },
@@ -119,14 +129,14 @@ function emitSession(harness: Harness, session: unknown, event: unknown) {
 }
 
 /** Assemble and record how many presentation declarations had landed by the time `next()` ran. */
-async function assemble(harness: Harness, agent: unknown, tools: unknown[] = WIRE) {
+async function assemble(harness: Harness, agent: unknown, tools: unknown[] = WIRE, sections: unknown[] = []) {
   let declarationsBeforeNext = -1
   const assembled = await listener(harness, 'system-prompt/assemble')(
-    undefined,
+    { sections },
     { agent },
     async () => {
       declarationsBeforeNext = harness.presentCalls.length
-      return { sections: [], contexts: [], tools, variables: {} }
+      return { sections, contexts: [], tools, variables: {} }
     },
   )
   return { assembled, declarationsBeforeNext }
@@ -261,7 +271,9 @@ describe('liangshen-tool-catalog', () => {
     const agent = agentOf()
     await assemble(harness, agent)
     const first = await preStep(harness, agent)
-    const legacy: any = { session: { events: [durableEvent(2, catalogOf(first.messages))] } }
+    const legacy = agentOf([durableEvent(2, catalogOf(first.messages))], undefined, harness)
+    delete (legacy.session as any).snapshotEvents
+    ;(legacy.session as any).events = [durableEvent(2, catalogOf(first.messages))]
     await assemble(harness, legacy)
     const second = await preStep(harness, legacy)
     expect(second.messages).toHaveLength(1)
@@ -406,12 +418,15 @@ describe('liangshen-tool-catalog', () => {
     expect(harness.presentCalls).toEqual(['ptc'])
   })
 
-  test('declares PTC once per agent and keeps the catalog text stable across the boundary', async () => {
+  test('declares PTC once per agent, updates to full SDK at boundary, and stabilizes afterwards', async () => {
     const harness = register({ anchorTools: ['bash'] })
     const anchored = agentOf([{ type: 'turn/start' }], undefined, harness)
     await assemble(harness, anchored)
     const firstStep = await preStep(harness, anchored)
     const catalog = catalogOf(firstStep.messages)
+    // Anchor turn stays native and does not announce run_code
+    expect(catalogText(firstStep.messages)).not.toContain('presents these tools through `run_code`')
+
     const promoted = agentOf(
       [{ type: 'turn/start', seq: 1 }, { type: 'turn/start', seq: 2 }, durableEvent(3, catalog)],
       [3],
@@ -421,9 +436,22 @@ describe('liangshen-tool-catalog', () => {
     await assemble(harness, promoted)
     expect(harness.presentCalls).toEqual(['ptc'])
     const second = await preStep(harness, promoted, [{ id: 'user', source: { kind: 'user' } }])
-    // The rendered text is identical across the boundary: no republish.
-    expect(catalogOf(second.messages)).toBeUndefined()
-    expect(second.messages).toHaveLength(1)
+    // Across the promotion boundary, the catalog transitions to full SDK with ToolArgsMap
+    const promotedCatalog = catalogOf(second.messages)
+    expect(promotedCatalog).toBeDefined()
+    expect(promotedCatalog.content[0].text).toContain('presents these tools through `run_code`')
+    expect(promotedCatalog.content[0].text).not.toContain('ToolArgsMap')
+
+    // Stable after promotion: subsequent step with promoted catalog already visible does not republish
+    const thirdHistory = agentOf(
+      [{ type: 'turn/start', seq: 1 }, { type: 'turn/start', seq: 2 }, durableEvent(3, catalog), durableEvent(4, promotedCatalog)],
+      [4],
+      harness,
+    )
+    await assemble(harness, thirdHistory)
+    const third = await preStep(harness, thirdHistory, [{ id: 'user', source: { kind: 'user' } }])
+    expect(catalogOf(third.messages)).toBeUndefined()
+    expect(third.messages).toHaveLength(1)
   })
 
   test('stays native and says nothing about run_code without a code runtime', async () => {
@@ -534,15 +562,117 @@ describe('liangshen-tool-catalog', () => {
     expect(catalogEntries(undefined, 200)).toEqual([])
   })
 
-  test('renderCatalogText frames a list, the PTC contract, and an empty catalog', () => {
+  test('renderCatalogText frames a list, the PTC contract, and an empty catalog without schema lie', () => {
     const list = renderCatalogText([{ name: 'read', signature: '()', description: 'Read a file.' }], false)
     expect(list).toContain('<available_tools>')
     expect(list).toContain('- `read()`: Read a file.')
-    expect(list).toContain('the full parameter schema travels with its own tool definition')
+    // Requirement 3: the lie about full parameter schema traveling with tool definition is removed
+    expect(list).not.toContain('the full parameter schema travels with its own tool definition')
+    expect(list).toContain('This is the complete current list and replaces any earlier available-tools list in this session.')
     expect(list).not.toContain('run_code')
     expect(renderCatalogText([], false)).toContain('No tools are currently available in this session.')
     expect(renderCatalogText([], true)).toContain('presents these tools through `run_code`')
     expect(renderCatalogText([], true)).toContain('Compose one program per intent')
     expect(renderCatalogText([], false)).not.toContain('Promise.all')
+  })
+
+  test('presentAs failure degrades to native, does not announce PTC, and warns once', async () => {
+    const harness = register({ anchorTools: [] })
+    const agent = agentOf([], undefined, harness, { presentThrows: true })
+    const { assembled } = await assemble(harness, agent)
+    expect(assembled.tools).toBe(WIRE)
+    expect(harness.warnings).toHaveLength(1)
+    expect(harness.warnings[0]).toContain('PTC presentation declined')
+    const text = catalogText((await preStep(harness, agent)).messages)
+    expect(text).not.toContain('presents these tools through `run_code`')
+    expect(text).not.toContain('run_code')
+    expect(text).toContain('- `bash')
+  })
+
+  test('anchorTools supports 4 tools and stays native in anchor turn', async () => {
+    const harness = register({ anchorTools: ['bash', 'read', 'web_search'] })
+    const events: any[] = [{ type: 'turn/start', seq: 1 }]
+    const agent = agentOf(events, undefined, harness)
+    const { assembled } = await assemble(harness, agent)
+    expect(assembled.tools.map((t: any) => t.name)).toEqual(['bash', 'read', 'web_search'])
+    expect(harness.presentCalls).toEqual([])
+    const text = catalogText((await preStep(harness, agent)).messages)
+    expect(text).not.toContain('presents these tools through `run_code`')
+    expect(text).toContain('- `bash')
+    expect(text).toContain('- `read')
+
+    // Promotes on turn/end
+    events.push({ type: 'turn/end', seq: 2 })
+    emitSession(harness, agent.session, { type: 'turn/end' })
+    expect(harness.presentCalls).toEqual(['ptc'])
+  })
+
+  test('refreshes fallback every assembly when sdkSchemas fails instead of keeping stale catalog', async () => {
+    const harness = register({}, { sdk: [{ name: 'custom_turn1', description: 'Turn 1 tool' }] })
+    const agent = agentOf()
+    await assemble(harness, agent)
+    const firstText = catalogText((await preStep(harness, agent)).messages)
+    expect(firstText).toContain('custom_turn1')
+
+    // In step 2, SDK schemas throws or disappears; wire has fresh fallback tool
+    const harnessFail = register({}, { sdkThrows: true })
+    const agent2 = agentOf()
+    await assemble(harnessFail, agent2, [{ name: 'wire_fresh', description: 'Fresh fallback tool' }])
+    const secondText = catalogText((await preStep(harnessFail, agent2)).messages)
+    expect(secondText).toContain('wire_fresh')
+    expect(secondText).not.toContain('custom_turn1')
+  })
+
+  test('wire carrying only run_code reverts PTC when SDK projection is unavailable', async () => {
+    const disposers: (() => void)[] = []
+    const harness = register({}, { sdkThrows: true })
+    // With history previously published
+    const priorCatalog = createCatalogMessage([{ name: 'prior_tool', signature: '()', description: 'Prior' }], false)
+    const agent = agentOf([durableEvent(2, priorCatalog)], [2], harness, { disposers })
+    // Wire only has run_code
+    const { assembled } = await assemble(harness, agent, [{ name: 'run_code', description: 'transport' }])
+    expect(disposers.length).toBeGreaterThanOrEqual(1)
+    expect(harness.warnings.some(w => w.includes('tool schemas available') || w.includes('native tool surface'))).toBe(true)
+    const text = catalogText((await preStep(harness, agent)).messages)
+    // Does not falsely claim full tools exist; truthfully reports empty surface
+    expect(text).toContain('No tools are currently available in this session.')
+    expect(text).not.toContain('await tools.run_code')
+    expect(text).not.toContain('presents these tools through `run_code`')
+  })
+
+  test('does not duplicate giant SDK declarations in durable message, relying on official host tools:sdk', async () => {
+    const harness = register()
+    const agent = agentOf()
+    await assemble(harness, agent)
+    const text = catalogText((await preStep(harness, agent)).messages)
+    // PTC contract and compact index are present
+    expect(text).toContain('presents these tools through `run_code`')
+    expect(text).toContain('- `bash')
+    // Giant TypeScript SDK interface is NOT duplicated in durable message
+    expect(text).not.toContain('interface ToolArgsMap')
+    expect(text).not.toContain('interface ToolOutputMap')
+    // The false statement is removed
+    expect(text).not.toContain('the full parameter schema travels with its own tool definition')
+  })
+
+  test('prefers public schemas API over private methods', async () => {
+    let publicSchemasCalled = false
+    const harness = register()
+    const customAgent: any = {
+      session: { snapshotEvents: () => [] },
+      ctx: {
+        tools: {
+          presentAs: () => () => {},
+          schemas: () => {
+            publicSchemasCalled = true
+            return [{ name: 'public_tool', description: 'From public API' }]
+          },
+        },
+      },
+    }
+    await assemble(harness, customAgent)
+    const text = catalogText((await preStep(harness, customAgent)).messages)
+    expect(publicSchemasCalled).toBe(true)
+    expect(text).toContain('public_tool')
   })
 })

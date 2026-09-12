@@ -2,7 +2,9 @@
 
 Status: implemented
 
-部分取代[把 Standard 目录分层到锚定回合之后](2026-09-11-liangshen-anchor-turn-staging.zh.md)与[极简 persona 加注入式标准工具目录](2026-09-11-liangshen-minimal-prompt-tool-catalog.zh.md)的工具面部分：出厂锚定面只有 `bash`，晋升面以 PTC 呈现工具。持久回合边界、扁平锚定收窄与注入目录机制继续有效。
+部分被[恢复四工具锚定与 PTC 语义修正](2026-09-12-liangshen-anchor-tools-and-ptc-refinement.zh.md)取代：默认 `anchorTools` 恢复为 `[bash, str_replace_editor, exit_plan_mode, skill]`，保留 bash-only 作为配置实验；锚定回合覆盖首轮整个 user turn；PTC 仅在实际成功时声称激活；删除与 Minimal 完全一致、社区分数证明本版更好以及缓存等于行为等过度承诺。
+
+部分取代[把 Standard 目录分层到锚定回合之后](2026-09-11-liangshen-anchor-turn-staging.zh.md)与[极简 persona 加注入式标准工具目录](2026-09-11-liangshen-minimal-prompt-tool-catalog.zh.md)的工具面部分：此前出厂锚定面为 `bash` 单工具，晋升面以 PTC 呈现工具。持久回合边界、扁平锚定收窄与注入目录机制继续有效。
 
 ## Problem
 

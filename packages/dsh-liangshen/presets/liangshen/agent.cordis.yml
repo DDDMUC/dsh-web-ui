@@ -2,10 +2,11 @@
 # one-line persona — extended with the mode's standing working discipline and
 # the session's workspace directory — as the WHOLE system prompt, with the
 # session's tool surface staged behind the anchor turn and PTC presentation
-# taking over after it. The session's first request runs the builtin Minimal
-# surface exactly — the short persona block plus the single `anchorTools`
-# schema (`bash`), natively presented — and from the second turn this session
-# presents its tools in PTC mode: the wire carries the single `run_code`
+# taking over after it. The session's entire first user turn runs the anchored native
+# surface — the short persona block plus the default `anchorTools`
+# schemas (`[bash, str_replace_editor, exit_plan_mode, skill]`), natively presented —
+# and from the second turn this session presents its tools in PTC mode (when
+# successfully activated): the wire carries the single `run_code`
 # transport, and every other tool is reached from inside the program through
 # the generated SDK. The capability facts the Standard system prompt would
 # carry as tool-guidance prose — and, under PTC, the SDK bindings and the
@@ -88,24 +89,26 @@
 # catalog is not appended once per step. `descriptionMaxLength` caps each
 # one-line summary; the full description stays in the tool schema.
 #
-# `anchorTools` stages the tool SCHEMAS behind the anchor turn: while the
-# session is in its first turn the assembled wire narrows to these schemas and
-# the session keeps native presentation, while the catalog already names the
-# promoted surface (entries come from the registry, not from the narrowed
-# wire). The shipped anchor is `bash` alone — the builtin Minimal surface — so
-# the first request carries one schema and nothing else; execution resolves by
-# name against the session registry, independent of what the request declares.
-# Set it to an empty list to disable the narrowing entirely.
+# `anchorTools` stages the tool SCHEMAS behind the anchor turn: during the
+# session's entire first user turn the assembled wire narrows to these schemas
+# and the session keeps native presentation, while the catalog already names
+# the promoted surface (entries come from the registry, not from the narrowed
+# wire). The shipped default anchor tools are `[bash, str_replace_editor, exit_plan_mode, skill]`.
+# The bash-only configuration experiment (`anchorTools: [bash]`) is preserved
+# and supported via config without requiring extra preset registration or
+# registry changes. Set it to an empty list to disable the narrowing entirely.
 #
 # `ptcPresentation` declares this session's tools in PTC mode from the second
-# turn on: the wire collapses to the reserved `run_code` transport and every
-# other tool is reached inside the program through the generated SDK, which the
-# injected catalog names because `minimal-prompt` filters the harness's own
-# `tools:sdk` and `tools:ptc-only` sections out of the prompt. The declaration
-# is per session (`agent.ctx.tools.presentAs`), needs a mounted code runtime,
-# and degrades to the native surface with a one-time warning when either is
-# missing. Set `false` to restore the pre-PTC behavior: the full native roster
-# on the wire from the second turn.
+# turn on (when successfully activated): the wire collapses to the reserved
+# `run_code` transport and every other tool is reached inside the program through
+# the generated SDK, which the injected catalog names because `minimal-prompt`
+# filters the harness's own `tools:sdk` and `tools:ptc-only` sections out of the
+# prompt. The SDK preserves full input and output key parameter semantics rather
+# than a rigid short-summary contract. The declaration is per session
+# (`agent.ctx.tools.presentAs`), needs a mounted code runtime, and degrades to
+# the native surface with a one-time warning when either is missing or fails.
+# Set `false` to restore the pre-PTC behavior: the full native roster on the
+# wire from the second turn.
 - id: minimal-prompt
   name: ./minimal-prompt.mjs
   config:
@@ -117,7 +120,7 @@
   name: ./tool-catalog.mjs
   config:
     descriptionMaxLength: 200
-    anchorTools: [bash]
+    anchorTools: [bash, str_replace_editor, exit_plan_mode, skill]
     ptcPresentation: true
 
 # The harness's workspace-instruction loader. Under the default

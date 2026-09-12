@@ -6,9 +6,17 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import {
   apply,
+  discoverSubdirectoryInstructions,
   extractInstructionPaths,
+  filePathFromExecution,
+  FILE_TOUCH_TOOL_NAMES,
+  filterInstructionMessages,
+  isBaselineInstructionPath,
+  isMessagePureBaseline,
+  loadInstructionFiles,
   loadInstructionText,
   name,
+  PTC_SECTION_NAMES,
   renderInstructionSection,
   WORKSPACE_INSTRUCTIONS_SECTION_NAME,
 } from '../presets/liangshen/minimal-prompt.mjs'
@@ -414,5 +422,394 @@ describe('liangshen-minimal-prompt', () => {
     }
     expect(extractInstructionPaths(message)).toEqual(['/b.md', '/a.md'])
     expect(extractInstructionPaths({})).toEqual([])
+  })
+
+  describe('PTC prompt sections retention', () => {
+    test('retains tools:ptc-only and tools:sdk sections when present under PTC mode', async () => {
+      const sdkText = 'interface ToolArgsMap { read: { file_path: string } }'
+      const ptcOnlyText = '`run_code` is the only tool you can call directly.'
+      const ptcSections = [
+        PERSONA,
+        { name: 'tools:ptc-only', text: ptcOnlyText },
+        { name: 'tools:sdk', text: sdkText },
+        { name: 'web:surface', text: 'ignore' },
+      ]
+      const result = await assemble(register(), ptcSections)
+      const names = result.sections.map((s: any) => s.name)
+      expect(names).toContain('tools:ptc-only')
+      expect(names).toContain('tools:sdk')
+      expect(names).not.toContain('web:surface')
+      expect(result.sections.find((s: any) => s.name === 'tools:sdk').text).toBe(sdkText)
+      expect(result.sections.find((s: any) => s.name === 'tools:ptc-only').text).toBe(ptcOnlyText)
+    })
+
+    test('renders tools:sdk section through renderPrompt with variables intact', async () => {
+      const sdkText = 'interface ToolArgsMap {\n  /** Read a file */\n  read: { file_path: string }\n}'
+      writeHome('AGENTS.md', 'user-global rule')
+      const cwd = project({ 'AGENTS.md': 'repo rule' })
+      const ptcSections = [
+        PERSONA,
+        { name: 'tools:ptc-only', text: '`run_code` only' },
+        { name: 'tools:sdk', text: sdkText },
+      ]
+      const result = await assemble(register(), ptcSections, undefined, agentAt(cwd))
+      const rendered = renderPrompt({ sections: result.sections, variables: result.variables })
+      expect(rendered).toContain(sdkText)
+      expect(rendered).toContain('`run_code` only')
+      expect(rendered).toContain('user-global rule')
+      expect(rendered).toContain('repo rule')
+    })
+  })
+
+  describe('tool touch extraction and str_replace_editor bridging', () => {
+    test('extracts file path from native read/write/edit and str_replace_editor', () => {
+      expect(filePathFromExecution({ name: 'read', arguments: { file_path: 'foo.ts' } })).toBe('foo.ts')
+      expect(filePathFromExecution({ name: 'write', arguments: { file_path: 'bar.ts' } })).toBe('bar.ts')
+      expect(filePathFromExecution({ name: 'edit', arguments: { file_path: 'baz.ts' } })).toBe('baz.ts')
+      expect(filePathFromExecution({ name: 'str_replace_editor', arguments: { command: 'view', path: '/repo/src/a.ts' } })).toBe('/repo/src/a.ts')
+      expect(filePathFromExecution({ name: 'str_replace_editor', arguments: { command: 'create', path: '/repo/src/b.ts' } })).toBe('/repo/src/b.ts')
+      expect(filePathFromExecution({ name: 'str_replace_editor', arguments: { command: 'str_replace', path: '/repo/src/c.ts' } })).toBe('/repo/src/c.ts')
+      expect(filePathFromExecution({ name: 'str_replace_editor', arguments: { command: 'insert', path: '/repo/src/d.ts' } })).toBe('/repo/src/d.ts')
+      expect(filePathFromExecution({ name: 'bash', arguments: { command: 'ls' } })).toBeUndefined()
+      expect(filePathFromExecution(undefined)).toBeUndefined()
+      expect(filePathFromExecution({ name: 'read', arguments: {} })).toBeUndefined()
+      expect(filePathFromExecution({ name: 'read', arguments: null })).toBeUndefined()
+    })
+    test('str_replace_editor synchronously records touched directory and discovers in pre-step', async () => {
+      const rootDir = project({
+        'AGENTS.md': 'root rule',
+        'packages/subpkg/AGENTS.md': 'subpackage rule',
+        'packages/subpkg/file.ts': 'code',
+      })
+      const harness = register()
+      const agent = agentAt(rootDir)
+
+      await assemble(harness, FULL_SECTIONS, undefined, agent)
+
+      const exec = {
+        name: 'str_replace_editor',
+        arguments: { command: 'view', path: join(rootDir, 'packages/subpkg/file.ts') },
+        agent,
+        token: Symbol('token'),
+      }
+      listener(harness, 'tools/result')(exec, { isError: false })
+
+      const step = await preStep(harness, agent, [{ id: 'user-1', role: 'user', content: [] }])
+      expect(step.messages.some((m: any) => m.source?.kind === 'plugin' && m.content[0]?.text?.includes('subpackage rule'))).toBe(true)
+    })
+
+    test('does not record touched directory for failed or aborted tool executions', async () => {
+      const rootDir = project({
+        'packages/subpkg/AGENTS.md': 'subpackage rule',
+        'packages/subpkg/file.ts': 'code',
+      })
+      const harness = register()
+      const agent = agentAt(rootDir)
+      await assemble(harness, FULL_SECTIONS, undefined, agent)
+
+      // Error execution
+      listener(harness, 'tools/result')(
+        { name: 'str_replace_editor', arguments: { command: 'view', path: join(rootDir, 'packages/subpkg/file.ts') }, agent },
+        { isError: true },
+      )
+      const step1 = await preStep(harness, agent, [{ id: 'user-1', role: 'user', content: [] }])
+      expect(step1.messages.some((m: any) => m.source?.kind === 'plugin')).toBe(false)
+
+      // Aborted execution
+      const abortCtrl = new AbortController()
+      abortCtrl.abort()
+      listener(harness, 'tools/result')(
+        { name: 'str_replace_editor', arguments: { command: 'view', path: join(rootDir, 'packages/subpkg/file.ts') }, agent, signal: abortCtrl.signal },
+        { isError: false },
+      )
+      const step2 = await preStep(harness, agent, [{ id: 'user-2', role: 'user', content: [] }])
+      expect(step2.messages.some((m: any) => m.source?.kind === 'plugin')).toBe(false)
+    })
+
+    test('reconstructs touched directories from durable session history on replay', async () => {
+      const rootDir = project({
+        'AGENTS.md': 'root rule',
+        'packages/replayed/AGENTS.md': 'replayed subpackage rule',
+        'packages/replayed/file.ts': 'code',
+      })
+      const harness = register()
+      const pastEvents = [
+        {
+          type: 'tool/call',
+          data: {
+            name: 'str_replace_editor',
+            arguments: JSON.stringify({ command: 'view', path: join(rootDir, 'packages/replayed/file.ts') }),
+          },
+        },
+      ]
+      const agent = {
+        session: {
+          header: { cwd: rootDir },
+          snapshotEvents: () => pastEvents,
+        },
+      }
+      await assemble(harness, FULL_SECTIONS, undefined, agent)
+      const step = await preStep(harness, agent, [{ id: 'user-replay', role: 'user', content: [] }])
+      expect(step.messages.some((m: any) => m.content[0]?.text?.includes('replayed subpackage rule'))).toBe(true)
+    })
+  })
+
+  describe('dynamic subdirectory instruction reconciliation', () => {
+    test('condenses pure covered baseline message into concise legal message when baseline is loaded', async () => {
+      const rootDir = project({ 'AGENTS.md': 'root rule' })
+      const harness = register()
+      const agent = agentAt(rootDir)
+      await assemble(harness, FULL_SECTIONS, undefined, agent)
+
+      const pureBaselineMsg = {
+        id: 'base-1',
+        role: 'user',
+        content: [{
+          type: 'text',
+          text: '<system-reminder>\nInstructions from: AGENTS.md\n\nroot rule\n</system-reminder>',
+        }],
+        source: {
+          kind: 'agent-instructions',
+          form: 'instructions',
+          baseline: true,
+          baselineIdentity: 'id-baseline',
+          changes: [{ action: 'set', scope: '.\\0AGENTS.md', path: 'AGENTS.md' }],
+        },
+      }
+
+      const result = await preStep(harness, agent, [pureBaselineMsg])
+      expect(result.messages).toHaveLength(1)
+      expect(result.messages[0].id).toBe('base-1')
+      expect(result.messages[0].source.baseline).toBe(true)
+      expect(result.messages[0].source.baselineIdentity).toBe('id-baseline')
+      expect(result.messages[0].content[0].text).toContain('Workspace baseline instructions')
+      expect(result.messages[0].content[0].text).not.toContain('root rule')
+    })
+
+    test('passes through baseline message when baseline loading failed', async () => {
+      const harness = register()
+      const agent = agentAt('/nonexistent/path/for/failure')
+
+      const pureBaselineMsg = {
+        id: 'base-fail',
+        role: 'user',
+        content: [{
+          type: 'text',
+          text: '<system-reminder>\nInstructions from: AGENTS.md\n\nroot rule\n</system-reminder>',
+        }],
+        source: {
+          kind: 'agent-instructions',
+          form: 'instructions',
+          baseline: true,
+          baselineIdentity: 'id-baseline',
+          changes: [{ action: 'set', scope: '.\\0AGENTS.md', path: 'AGENTS.md' }],
+        },
+      }
+
+      const result = await preStep(harness, agent, [pureBaselineMsg])
+      expect(result.messages).toHaveLength(1)
+      expect(result.messages[0].content[0].text).toContain('root rule')
+    })
+
+    test('retains dynamic update and removal instructions', async () => {
+      const harness = register()
+      const agent = agentOf()
+
+      const updateMsg = {
+        id: 'update-1',
+        role: 'user',
+        content: [{
+          type: 'text',
+          text: '<system-reminder>\nUpdated instructions from: packages/subpkg/AGENTS.md\n\nnew rule\n</system-reminder>',
+        }],
+        source: {
+          kind: 'agent-instructions',
+          form: 'instructions',
+          changes: [{ action: 'replace', scope: 'packages/subpkg\\0AGENTS.md', path: 'packages/subpkg/AGENTS.md' }],
+        },
+      }
+
+      const removeMsg = {
+        id: 'remove-1',
+        role: 'user',
+        content: [{
+          type: 'text',
+          text: '<system-reminder>\nInstructions removed: packages/subpkg/AGENTS.md\n\nremoved\n</system-reminder>',
+        }],
+        source: {
+          kind: 'agent-instructions',
+          form: 'instructions',
+          changes: [{ action: 'remove', scope: 'packages/subpkg\\0AGENTS.md', path: 'packages/subpkg/AGENTS.md' }],
+        },
+      }
+
+      const resUpdate = await preStep(harness, agent, [updateMsg])
+      expect(resUpdate.messages).toHaveLength(1)
+      expect(resUpdate.messages[0].content[0].text).toContain('Updated instructions from: packages/subpkg/AGENTS.md')
+
+      const resRemove = await preStep(harness, agent, [removeMsg])
+      expect(resRemove.messages).toHaveLength(1)
+      expect(resRemove.messages[0].content[0].text).toContain('Instructions removed: packages/subpkg/AGENTS.md')
+    })
+
+    test('PTC nested dispatch touch bubbles up and multi-step in-flight limitation', () => {
+      const outerToken = Symbol('outer-run-code')
+      const innerReadExec = {
+        name: 'read',
+        arguments: { file_path: 'packages/subpkg/file.ts' },
+        parent: outerToken,
+        agent: agentOf(),
+      }
+      const innerWriteExec = {
+        name: 'write',
+        arguments: { file_path: 'packages/subpkg/file.ts', content: 'hello' },
+        parent: outerToken,
+        agent: innerReadExec.agent,
+      }
+
+      expect(filePathFromExecution(innerReadExec)).toBe('packages/subpkg/file.ts')
+      expect(filePathFromExecution(innerWriteExec)).toBe('packages/subpkg/file.ts')
+      expect(innerReadExec.parent).toBe(outerToken)
+      expect(innerWriteExec.parent).toBe(outerToken)
+    })
+  })
+
+  describe('deduplication, compaction and error recovery', () => {
+    test('clears per-session cached baseline paths on compaction/end event', async () => {
+      const harness = register()
+      const agent = agentAt(project({ 'AGENTS.md': 'rule' }))
+      await preStep(harness, agent, [])
+      const eventListener = listener(harness, 'session/event')
+      await eventListener(agent.session, { type: 'compaction/end' }, undefined)
+      const result = await preStep(harness, agent, [])
+      expect(result.kind).toBe('enter')
+    })
+
+    test('isBaselineInstructionPath handles invalid or empty inputs safely', () => {
+      expect(isBaselineInstructionPath('', new Set())).toBe(false)
+      expect(isBaselineInstructionPath(undefined as any, new Set())).toBe(false)
+      expect(isBaselineInstructionPath('  ', new Set())).toBe(false)
+      expect(isBaselineInstructionPath('~/.dsh/AGENTS.md', new Set())).toBe(true)
+      expect(isBaselineInstructionPath('$DSH_HOME/AGENTS.md', new Set())).toBe(true)
+      expect(isBaselineInstructionPath('AGENTS.md', new Set())).toBe(true)
+      expect(isBaselineInstructionPath('packages/other/AGENTS.md', new Set())).toBe(false)
+    })
+  })
+
+  describe('end-to-end multi-turn lifecycle scenarios', () => {
+    test('repo root start -> touch subpackage via str_replace_editor -> receive package-level AGENTS', async () => {
+      const rootDir = project({
+        'AGENTS.md': 'root repo rule',
+        'packages/subpkg/AGENTS.md': 'subpackage specific rule',
+        'packages/subpkg/file.ts': 'export const a = 1;',
+      })
+      const harness = register()
+      const agent = agentAt(rootDir)
+
+      // Turn 1: System prompt assemble carries root repo rule residently
+      const assembled1 = await assemble(harness, FULL_SECTIONS, undefined, agent)
+      expect(assembled1.variables.workspace_instructions).toContain('root repo rule')
+      expect(assembled1.variables.workspace_instructions).not.toContain('subpackage specific rule')
+
+      // Turn 1 Pre-step: Initial prompt with covered baseline is condensed into concise legal message
+      const baselineMsg = {
+        id: 'baseline-turn-1',
+        role: 'user',
+        content: [{
+          type: 'text',
+          text: '<system-reminder>\nInstructions from: AGENTS.md\n\nroot repo rule\n</system-reminder>',
+        }],
+        source: {
+          kind: 'agent-instructions',
+          form: 'instructions',
+          baseline: true,
+          baselineIdentity: 'baseline-root',
+          changes: [{ action: 'set', scope: '.\\0AGENTS.md', path: 'AGENTS.md' }],
+        },
+      }
+      const turn1Step = await preStep(harness, agent, [{ id: 'user-turn-1', role: 'user', content: [] }, baselineMsg])
+      expect(turn1Step.messages).toHaveLength(2)
+      expect(turn1Step.messages[0].id).toBe('user-turn-1')
+      expect(turn1Step.messages[1].id).toBe('baseline-turn-1')
+      expect(turn1Step.messages[1].source.baseline).toBe(true)
+      expect(turn1Step.messages[1].content[0].text).toContain('Workspace baseline instructions')
+      expect(turn1Step.messages[1].content[0].text).not.toContain('root repo rule')
+
+      // Turn 1 Tool execution: model calls str_replace_editor on subpackage file
+      listener(harness, 'tools/result')({
+        name: 'str_replace_editor',
+        arguments: { command: 'view', path: join(rootDir, 'packages/subpkg/file.ts') },
+        agent,
+        token: Symbol('token-1'),
+      }, { isError: false })
+
+      // Turn 2 Pre-step: Discovers package-level AGENTS and delivers legal plugin message
+      const turn2Step = await preStep(harness, agent, [{ id: 'user-turn-2', role: 'user', content: [] }])
+      expect(turn2Step.messages.length).toBeGreaterThanOrEqual(2)
+      const dynamicPluginMsg = turn2Step.messages.find((m: any) => m.source?.kind === 'plugin')
+      expect(dynamicPluginMsg).toBeDefined()
+      expect(dynamicPluginMsg.content[0].text).toContain('Additional instructions from: packages/subpkg/AGENTS.md')
+      expect(dynamicPluginMsg.content[0].text).toContain('subpackage specific rule')
+    })
+
+    test('compaction recovery preserves baseline system prompt and recovers state', async () => {
+      const rootDir = project({ 'AGENTS.md': 'persistent root rule' })
+      const harness = register()
+      const agent = agentAt(rootDir)
+
+      const firstAssembly = await assemble(harness, FULL_SECTIONS, undefined, agent)
+      expect(firstAssembly.variables.workspace_instructions).toContain('persistent root rule')
+
+      await listener(harness, 'session/event')(agent.session, { type: 'compaction/end' }, undefined)
+
+      const postCompactionAssembly = await assemble(harness, FULL_SECTIONS, undefined, agent)
+      expect(postCompactionAssembly.variables.workspace_instructions).toContain('persistent root rule')
+
+      const dynamicAfterCompact = {
+        id: 'dyn-after-compact',
+        role: 'user',
+        content: [{
+          type: 'text',
+          text: '<system-reminder>\nAdditional instructions from: packages/foo/AGENTS.md\n\nfoo rule\n</system-reminder>',
+        }],
+        source: {
+          kind: 'agent-instructions',
+          form: 'instructions',
+          changes: [{ action: 'set', scope: 'packages/foo\\0AGENTS.md', path: 'packages/foo/AGENTS.md' }],
+        },
+      }
+      const stepAfterCompact = await preStep(harness, agent, [dynamicAfterCompact])
+      expect(stepAfterCompact.messages).toHaveLength(1)
+      expect(stepAfterCompact.messages[0].content[0].text).toContain('foo rule')
+    })
+
+    test('deduplicates sibling instructions per directory and repeated touches', async () => {
+      const rootDir = project({
+        'packages/pkg/AGENTS.md': 'shared rule content',
+        'packages/pkg/CLAUDE.md': 'shared rule content',
+      })
+      const files = await loadInstructionFiles(join(rootDir, 'packages/pkg'))
+      expect(files).toHaveLength(1)
+      expect(files[0].content).toBe('shared rule content')
+    })
+
+    test('budget constraint truncates or omits files under tight budget without crashing', () => {
+      const files = [
+        { displayPath: '$DSH_HOME/AGENTS.md', content: 'global rule '.repeat(20) },
+        { displayPath: 'AGENTS.md', content: 'project rule '.repeat(20) },
+      ]
+      const rendered = renderInstructionSection(files, 650)
+      expect(rendered).toBeDefined()
+      expect(Buffer.byteLength(rendered!, 'utf8')).toBeLessThanOrEqual(650)
+      expect(rendered).toContain('omitted $DSH_HOME/AGENTS.md')
+      expect(rendered).toContain('project rule')
+    })
+
+    test('system instruction priority framework is maintained across sections', async () => {
+      const rootDir = project({ 'AGENTS.md': 'base rule' })
+      const text = await loadInstructionText(rootDir)
+      expect(text).toContain('more specific files take precedence over broader ones')
+      expect(text).toContain('direct user instruction for the current task takes precedence over all of them')
+    })
   })
 })

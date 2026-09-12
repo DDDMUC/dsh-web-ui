@@ -2,6 +2,8 @@
 
 Status: implemented
 
+部分被[恢复四工具锚定与 PTC 语义修正](2026-09-12-liangshen-anchor-tools-and-ptc-refinement.zh.md)取代：工作区子目录动态指令后续将支持注册文件工具（含 `str_replace_editor`）及 PTC 内子调用触达的目录。
+
 部分取代[极简 persona 加注入式标准工具目录](2026-09-11-liangshen-minimal-prompt-tool-catalog.zh.md)的指令部分：agent-instructions 提示不再是本模式的默认行为。该 note 的 persona、注入目录与消息来源决策全部继续有效。
 
 ## Problem

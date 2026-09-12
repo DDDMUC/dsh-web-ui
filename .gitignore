@@ -43,3 +43,6 @@ packages/dsh-usage/lib/
 
 # local wrangler dev secrets (market worker)
 .dev.vars
+
+# 梁神模式评测运行产物（本地临时报告，含本机路径，不入库）
+.benchmark-results/

@@ -2,6 +2,8 @@
 
 Status: implemented
 
+Partially superseded by [restoring foundational anchor tools and refining PTC semantics](2026-09-12-liangshen-anchor-tools-and-ptc-refinement.md) on dynamic instruction scope: notes upcoming support for registered file tools (including `str_replace_editor`) and PTC internal calls.
+
 Partially supersedes [minimal persona plus an injected standard tool catalog](2026-09-11-liangshen-minimal-prompt-tool-catalog.md) on the instruction half: the agent-instructions hint is no longer this mode's default. That note's persona, injected-catalog, and message-source decisions all still hold.
 
 ## Problem

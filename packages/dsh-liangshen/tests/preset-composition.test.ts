@@ -66,9 +66,17 @@ describe('liangshen preset composition', () => {
     expect(row('tool-catalog')).toContain('descriptionMaxLength: 200')
   })
 
-  it('anchors the first turn on the shell alone and presents PTC after it', () => {
-    expect(row('tool-catalog')).toContain('anchorTools: [bash]')
+  it('anchors the first turn on bash, str_replace_editor, exit_plan_mode, skill and presents PTC after it', () => {
+    expect(row('tool-catalog')).toContain('anchorTools: [bash, str_replace_editor, exit_plan_mode, skill]')
     expect(row('tool-catalog')).toContain('ptcPresentation: true')
+  })
+
+  it('supports bash-only configuration experiment via anchorTools row without registry changes', () => {
+    const bashOnlyPreset = preset.replace(
+      'anchorTools: [bash, str_replace_editor, exit_plan_mode, skill]',
+      'anchorTools: [bash]'
+    )
+    expect(validateAgentCordis(bashOnlyPreset)).toEqual([])
   })
 
   it('keeps run_code the only model-authored orchestration surface', () => {

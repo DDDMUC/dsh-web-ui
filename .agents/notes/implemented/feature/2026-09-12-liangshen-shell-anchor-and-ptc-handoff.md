@@ -2,7 +2,9 @@
 
 Status: implemented
 
-Supersedes in part [staging the Standard catalog behind the anchor turn](2026-09-11-liangshen-anchor-turn-staging.md) and the tool-surface half of [minimal persona plus an injected standard tool catalog](2026-09-11-liangshen-minimal-prompt-tool-catalog.md): the shipped anchor is `bash` alone and the promoted surface presents tools as PTC. The durable turn boundary, the flat anchor narrowing, and the injected-catalog mechanism stay in force.
+Partially superseded by [restoring foundational anchor tools and refining PTC semantics](2026-09-12-liangshen-anchor-tools-and-ptc-refinement.md): default `anchorTools` is restored to `[bash, str_replace_editor, exit_plan_mode, skill]` while preserving bash-only as a configuration experiment, the anchor turn covers the entire first user turn, PTC is claimed active only upon actual success, and overcommitments (exact Minimal match, benchmark score claims, cache equals behavior) are retracted.
+
+Supersedes in part [staging the Standard catalog behind the anchor turn](2026-09-11-liangshen-anchor-turn-staging.md) and the tool-surface half of [minimal persona plus an injected standard tool catalog](2026-09-11-liangshen-minimal-prompt-tool-catalog.md): the shipped anchor was previously `bash` alone and the promoted surface presents tools as PTC. The durable turn boundary, the flat anchor narrowing, and the injected-catalog mechanism stay in force.
 
 ## Problem
 
