@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with git hash-object.
+2026-09-12-chatgpt-subscription-remote-session-inject.md: eed1506daebaead637805929cee5b92f1522cd75
+2026-09-12-chatgpt-subscription-remote-session-inject.zh.md: 149f8b2b8722c38734766cf5fe6dfaf725031d3e
