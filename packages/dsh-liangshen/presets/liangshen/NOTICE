@@ -1,4 +1,4 @@
-agent.cordis.yml 改编自 DeepSeek Harness 内置 Minimal 与 Standard preset（MIT）。
+agent.cordis.yml 改编自 DeepSeek Harness 内置 Minimal、Standard 与 PTC preset（MIT）。
 minimal-prompt.mjs 与 tool-catalog.mjs 为 dsh-liangshen 自有实现；其中的
 agent-instructions 引用提示沿用 https://github.com/xiaobright/dsh-anchored-standard
 （MIT）的实验结论，消息注入形状参照 DeepSeek Harness 的 skill catalog。

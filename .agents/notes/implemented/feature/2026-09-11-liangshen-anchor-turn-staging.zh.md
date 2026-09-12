@@ -2,6 +2,8 @@
 
 Status: implemented
 
+部分取代于[只带 shell 的锚定与 PTC 晋升](2026-09-12-liangshen-shell-anchor-and-ptc-handoff.zh.md)：出厂锚定集只有 `bash`，晋升回合以 PTC 呈现该会话的工具；本记录里持久回合边界、扁平锚定收窄与注入目录的决定继续有效。
+
 ## Problem
 
 合并式设计（[极简 persona 加注入式标准工具目录](2026-09-11-liangshen-minimal-prompt-tool-catalog.md)）从会话的第一次请求起就把官方 Standard 预设的完整工具清单放上了 wire。在轨迹视图里看第一轮交换就能看到代价：初始系统条目的工具页在对话尚不存在时就带着完整的 Standard 目录——这正是该模式要避免的「提前注入」。那一行 persona 锚定的请求，工具面早就是 Standard 了，所谓「极简的第一波」只在散文层面极简。
@@ -14,7 +16,7 @@ Standard 清单的 schema 按锚定回合分层：会话的第一次请求带极
 - 锚定回合内，组装出的 wire 工具清单先收窄到 `anchorTools` 再随请求发出。
 - 目录消息从第一步就发布，而且索引的是**完整注册面**：条目在 wire 收窄**之前**读取，所以第一轮就点名了第二轮才上 wire 的全部工具——如同 skill 目录点名模型按需加载的技能。这样做是成立的：执行按名字解析会话注册表（`dsh-tools` 的 `resolveExecution`），与请求里声明了什么无关——第一轮对尚未上 schema 的工具发起的调用照样执行。
 - 目录渲染文本跨回合边界完全一致（两轮都是完整注册面），因此既有去重逻辑让每个会话恰好发布一条持久消息，边界只改变 wire 的 schema 集。
-- `anchorTools` 是 preset 配置（`agent.cordis.yml`），默认为空——完全关闭收窄，恢复「第一次请求就带完整目录」的行为。出厂 preset 设为 `bash`、`str_replace_editor`、`exit_plan_mode`、`skill`：shell 与编辑器是退役的 `tool-bootstrap` 当年锚定用的最小工作对，`exit_plan_mode` 背书提示词保留的 `plan:policy` 段，`skill` 背书随首批注入到达的 skill 目录——锚定回合里提示词引用到的每个工具都在 wire 上。
+- `anchorTools` 是 preset 配置（`agent.cordis.yml`），默认为空——完全关闭收窄，恢复「第一次请求就带组装出的 wire」的行为。出厂 preset 只设 `bash`——官方 Minimal 面——而晋升回合以 PTC 呈现该会话的工具（[只带 shell 的锚定与 PTC 晋升](2026-09-12-liangshen-shell-anchor-and-ptc-handoff.zh.md)）；锚定回合里其余被提示词引用的工具仍然可达，因为会话此时仍以原生呈现，注册表按名执行会解析任何已注册工具。
 - 首个回合的其余一切不变：一行 persona、plan 策略、运行时上下文、指令提示、skill 目录。
 
 ## Testing
@@ -34,7 +36,7 @@ Standard 清单的 schema 按锚定回合分层：会话的第一次请求带极
 
 ## Consequences
 
-- 第一次请求只带锚定 schema，但模型从第一轮起就能对整个目录采取行动：注册表按名执行覆盖了尚未上 schema 的工具，代价是在完整 schema 于边界到达之前，参数只能靠推测。
+- 第一次请求只带锚定 schema，但模型从第一轮起就能对整个目录采取行动：注册表按名执行覆盖了尚未上 schema 的工具，代价是在晋升回合的目录带上每个工具的参数签名之前，参数只能靠推测。
 - wire 的 schema 集每个会话只变化一次：边界处发生一次缓存前缀失效，回合内与之后都没有；目录消息本身整个会话保持稳定。
 - roster 在宿主启动时把 preset 组合挂载在常驻 scope 下一次，因此 preset 文件变更要在下一次 DSH 重启后、对之后新建的会话才生效；插件的启动同步会刷新已安装副本。
 - 拨杆的整行隐藏修复随同一轮交付（[梁神拨杆](2026-09-11-liangshen-composer-lever.md)）；两者回应的是同一条用户反馈在插件两个半区上的问题。

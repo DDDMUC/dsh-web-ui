@@ -1,18 +1,21 @@
 # The `liangshen` (梁神模式) agent preset: the builtin Minimal preset's
 # one-line persona — extended with the mode's standing working discipline and
-# the session's workspace directory — as the WHOLE system prompt, and the
-# builtin Standard preset's complete tool catalog delivered as a context
-# injection while its schemas are staged behind the anchor turn. The session's
-# first request runs the minimal surface — the short persona block plus the
-# four `anchorTools` schemas (`bash`, `str_replace_editor`, `exit_plan_mode`,
-# `skill`) — and from the second turn the full Standard roster is on the wire.
-# The capability facts the Standard system prompt would carry as tool-guidance
-# prose arrive instead as a durable `tool-catalog` message appended after the
-# user's own message from the FIRST turn on, the way the skill catalog is
-# injected; it indexes the full registered surface from the start, and
-# execution resolves by name against the session registry, so the model can
-# act on it before the schemas arrive. The one wire transition is the
-# deterministic turn boundary: no reasoning-block gating, no PTC switch.
+# the session's workspace directory — as the WHOLE system prompt, with the
+# session's tool surface staged behind the anchor turn and PTC presentation
+# taking over after it. The session's first request runs the builtin Minimal
+# surface exactly — the short persona block plus the single `anchorTools`
+# schema (`bash`), natively presented — and from the second turn this session
+# presents its tools in PTC mode: the wire carries the single `run_code`
+# transport, and every other tool is reached from inside the program through
+# the generated SDK. The capability facts the Standard system prompt would
+# carry as tool-guidance prose — and, under PTC, the SDK bindings and the
+# collapse rule that `minimal-prompt` filters out of the prompt along with
+# every other section — arrive instead as a durable `tool-catalog` message
+# appended after the user's own message from the FIRST turn on, the way the
+# skill catalog is injected; it names the PTC surface (each tool's argument
+# signature plus a one-line summary) from the start, so the model knows the
+# promoted surface before the schemas arrive. The one wire transition is the
+# deterministic turn boundary: no reasoning-block gating, no output budget cap.
 #
 # The persistent shell replaces the Standard ephemeral shell for the whole
 # session (both register the name `bash`), and the editor inherits the host
@@ -64,49 +67,64 @@
 #
 # `minimal-prompt` keeps the system prompt on the persona above, plus the
 # session's workspace directory appended at assembly time (`Your working
-# directory is <cwd>.` — the one orientation fact the initial prompt carries).
-# It also replaces the full-text AGENTS.md injection with a one-time
-# non-imperative pointer to the reference files (issue #388, upstream
-# dsh-anchored-standard #49: the full-text dump measurably flips the anchored
-# trajectory). Set `instructionHint: false` to restore the plain full-text
-# injection, or `keepPlanPolicy: false` to drop plan mode's policy section as
-# well.
+# directory is <cwd>.` — the one orientation fact the persona block carries).
+# It also lifts the AGENTS.md-style instruction files into the system prompt
+# itself: at assembly time it reads the harness's baseline chain
+# ($DSH_HOME/AGENTS.md, then the project root's ancestors down to the cwd) and
+# appends the content as one `workspace-instructions` section after the stable
+# prefix, re-read on every request so file edits propagate, and drops the
+# harness's own agent-instructions injections (they would duplicate the
+# prompt). Set `instructionSource: hint` to restore the one-time non-imperative
+# pointer to the reference files instead (issue #388, upstream
+# dsh-anchored-standard #49: a full-text dump as context measurably flips the
+# anchored trajectory), or `keepPlanPolicy: false` to drop plan mode's policy
+# section as well.
 #
-# `tool-catalog` appends the model-visible tool catalog — name plus one-line
-# summary — as a durable user message after the user's own message from the
-# first turn on, the way `dsh-tool-skill` injects the skill catalog. It
-# republishes only when that catalog's content changes or the published copy
-# left the visible surface (compaction, resume), so the catalog is not
-# appended once per step. `descriptionMaxLength` caps each one-line summary;
-# the full description stays in the tool schema.
+# `tool-catalog` appends the model-visible tool catalog — each tool's argument
+# signature plus a one-line summary — as a durable user message after the
+# user's own message from the first turn on, the way `dsh-tool-skill` injects
+# the skill catalog. It republishes only when that catalog's content changes or
+# the published copy left the visible surface (compaction, resume), so the
+# catalog is not appended once per step. `descriptionMaxLength` caps each
+# one-line summary; the full description stays in the tool schema.
 #
-# `anchorTools` stages the Standard roster's SCHEMAS behind the anchor turn:
-# while the session is in its first turn, the assembled wire narrows to these
-# schemas, while the catalog already indexes the full registered surface
-# (entries are read before the narrowing). From the second turn the full
-# roster is on the wire and the rendered catalog no longer changes. Execution
-# resolves by name against the session registry — independent of what the
-# request declares — so a first-turn call against a not-yet-schematized tool
-# still runs. The four names are exactly what the anchor turn needs to stay
-# coherent: the shell and editor are the minimal working pair,
-# `exit_plan_mode` backs the `plan:policy` section that `minimal-prompt` keeps
-# in the prompt, and `skill` backs the skill catalog that arrives with the
-# first injection. Set it to an empty list to restore the full catalog on the
-# wire from the first request.
+# `anchorTools` stages the tool SCHEMAS behind the anchor turn: while the
+# session is in its first turn the assembled wire narrows to these schemas and
+# the session keeps native presentation, while the catalog already names the
+# promoted surface (entries come from the registry, not from the narrowed
+# wire). The shipped anchor is `bash` alone — the builtin Minimal surface — so
+# the first request carries one schema and nothing else; execution resolves by
+# name against the session registry, independent of what the request declares.
+# Set it to an empty list to disable the narrowing entirely.
+#
+# `ptcPresentation` declares this session's tools in PTC mode from the second
+# turn on: the wire collapses to the reserved `run_code` transport and every
+# other tool is reached inside the program through the generated SDK, which the
+# injected catalog names because `minimal-prompt` filters the harness's own
+# `tools:sdk` and `tools:ptc-only` sections out of the prompt. The declaration
+# is per session (`agent.ctx.tools.presentAs`), needs a mounted code runtime,
+# and degrades to the native surface with a one-time warning when either is
+# missing. Set `false` to restore the pre-PTC behavior: the full native roster
+# on the wire from the second turn.
 - id: minimal-prompt
   name: ./minimal-prompt.mjs
   config:
     keepPlanPolicy: true
-    instructionHint: true
+    instructionSource: system-prompt
+    instructionMaxBytes: 65536
 
 - id: tool-catalog
   name: ./tool-catalog.mjs
   config:
     descriptionMaxLength: 200
-    anchorTools: [bash, str_replace_editor, exit_plan_mode, skill]
+    anchorTools: [bash]
+    ptcPresentation: true
 
-# Workspace instructions arrive as an ordinary injection; `minimal-prompt`
-# turns the first one into the reference-file hint.
+# The harness's workspace-instruction loader. Under the default
+# `instructionSource: system-prompt` the content reaches the model through the
+# system prompt instead, and this row's injections are dropped by
+# `minimal-prompt`; the row stays mounted so `instructionSource: hint` keeps
+# its pointer behavior working, and its `maxBytes` remains that mode's budget.
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:
@@ -347,8 +365,13 @@
       config:
         provider: spawn
 
+    # Keep the engine above for `ralph`, but do not publish a second
+    # model-authored orchestration surface beside `run_code`: this is the one
+    # roster difference the builtin `ptc` preset ships with, and the mode's
+    # whole promoted surface is run_code.
     - id: tool-workflow
       name: '@deepseek-ai/dsh-tool-workflow'
+      disabled: true
 
     - id: tool-ralph
       name: '@deepseek-ai/dsh-tool-ralph'

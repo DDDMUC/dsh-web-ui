@@ -9,14 +9,15 @@
  * surface (plugin config) or the profile patch. No browser half, no routes,
  * no agent tools — the preset itself provides the tools.
  *
- * The preset is the "minimal persona + standard catalog" idea shipped as a
- * named mode: the system prompt stays the builtin Minimal preset's exact
+ * The preset is the "minimal persona + promoted tool surface" idea shipped as
+ * a named mode: the system prompt stays the builtin Minimal preset's exact
  * one-line persona for the whole session, the session's first (anchor) turn
- * runs the minimal surface — a small `anchorTools` schema set — and from the
- * second turn the wire carries the builtin Standard preset's complete tool
- * catalog, announced by the tool list injected as a durable message after the
- * user's own message the way the skill catalog is. The one transition is the
- * deterministic turn boundary.
+ * runs the builtin Minimal surface exactly — `bash` alone, natively presented —
+ * and from the second turn this session presents its tools in PTC mode, so the
+ * wire carries the single `run_code` transport while the generated SDK
+ * bindings and the collapse rule travel in the tool list injected as a durable
+ * message after the user's own message, the way the skill catalog is. The one
+ * transition is the deterministic turn boundary.
  */
 
 import { mkdirSync } from 'node:fs'
@@ -59,7 +60,7 @@ const DEFAULT_ANNOUNCE = false
 const SECTION_ORDER = 150
 
 /** Model-facing announcement: plugin presence, principle, and limits. */
-export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：系统提示词永久保持官方 Minimal 的一行 persona（minimal-prompt 只放行该段与 plan 模式的 plan:policy），persona 内置本模式的工作纪律（思维循环即断、先理解需求与方案再实现、YAGNI/PDCA、代码不加注释），并在组装时追加一行工作区目录 Your working directory is <cwd>.；工具清单（完整标准目录，名称加一行摘要）由 tool-catalog 从第一条用户消息起以 user 消息注入在用户消息之后，形如 skill catalog，仅当工具集变化或该消息离开可见面（压缩、恢复）时重发；wire 上的 schema 按锚定回合分层：首个回合只保留 bash、str_replace_editor、exit_plan_mode、skill 四个 schema，第二个回合起换成官方 Standard 的完整工具目录（工具执行按名字解析会话注册表，不依赖请求里是否声明），没有 PTC 切换、没有输出预算上限。工作区指令的全文注入被替换为一次性的引用文件提示（instructionHint）。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
+export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：系统提示词永久保持官方 Minimal 的一行 persona（minimal-prompt 只放行该段与 plan 模式的 plan:policy），persona 内置本模式的工作纪律（思维循环即断、先理解需求与方案再实现、YAGNI/PDCA、代码不加注释），并在组装时追加一行工作区目录 Your working directory is <cwd>.；工具清单（工具名 + 参数签名 + 一行摘要，取自注册表的 PTC 面 ctx.tools.sdkSchemas）由 tool-catalog 从第一条用户消息起以 user 消息注入在用户消息之后，形如 skill catalog，仅当工具集变化或该消息离开可见面（压缩、恢复）时重发；wire 上的 schema 按回合分层：首个回合原生呈现且只保留 bash 一个 schema（官方 Minimal 的锚定面），第二个回合起该会话切换为 PTC 呈现（wire 上只有 run_code，其余工具在程序里以 await tools.<name>({...}) 调用）——因为 minimal-prompt 会连同 tools:sdk 与 tools:ptc-only 段一起裁掉，注入消息是模型了解 SDK、程序契约（一段程序编排多步：独立只读调用用 Promise.all 并发、ToolCallError 处理、输出自己挑选）与「只有 run_code 可直接调用」这条规则的唯一来源；没有输出预算上限。AGENTS.md 类工作区指令（$DSH_HOME/AGENTS.md 与项目根到 cwd 的祖先链）在组装时读取并作为 workspace-instructions 段注入系统提示词尾部（instructionSource: system-prompt，65536 字节预算，每次组装重读），宿主的 agent-instructions 全文注入被丢弃。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
 // The harness-home resolution (DSH_HOME override with the platform-home
 // fallback and ~ expansion) lives in the family-shared copy ./dsh-home.ts.
 // Re-export it so the plugin surface stays stable while the implementation is
