@@ -4997,7 +4997,7 @@ window.__ModuleLoader__.load({
 					high = Number(b);
 				} else if (isDigits(range)) {
 					low = Number(range);
-					high = Number(range);
+					high = stepRaw === void 0 ? low : max;
 				} else return false;
 				if (low < min || high > max || low > high) return false;
 				const step = stepRaw === void 0 ? 1 : isDigits(stepRaw) ? Number(stepRaw) : NaN;
@@ -7673,10 +7673,10 @@ window.__ModuleLoader__.load({
 											}),
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
 												className: board_module_css_default.executionList,
-												children: current.handover.references.map((reference) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
+												children: current.handover.references.map((reference, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
 													className: board_module_css_default.executionRow,
 													children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", { children: reference })
-												}, reference))
+												}, `${reference}-${index}`))
 											}),
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 												className: board_module_css_default.detailMeta,
@@ -10118,6 +10118,8 @@ window.__ModuleLoader__.load({
 			if (cleaned === "" || cleaned === "." || cleaned === "..") return null;
 			return cleaned;
 		}
+		new TextEncoder();
+		new TextDecoder();
 		/**
 		* Pure mirror of `git check-ref-format --branch` short-name rules, for
 		* instant client-side feedback; the host's check-ref-format call stays the
@@ -17143,6 +17145,55 @@ window.__ModuleLoader__.load({
 			return previous !== null && JSON.stringify(previous) === JSON.stringify(next);
 		}
 		//#endregion
+		//#region ../dsh-pet/src/client/work-tick-gate.ts
+		/**
+		* Page-wide work-tick gate for the pet's work mode. Hot reloads can leave
+		* several GameplayHud instances alive, each running its own work interval;
+		* without a shared gate every interval would call workTick and each stale call
+		* re-rolls, re-grants treats and re-plays the success/fail track, so the
+		* outcome appears to play several times per window. The gate accepts the first
+		* adjudication of a window and silently suppresses the duplicates that follow.
+		*
+		* The window is the active pet's own `gameplay.work.tickMs`, not a constant: a
+		* pet configured with a shorter cadence must actually adjudicate that often,
+		* while a fixed window would downgrade it without saying so (#1494).
+		* @module @linxin666/dsh-pet/client/work-tick-gate
+		*/
+		/** Window used when the active pet declares no work cadence. */
+		const DEFAULT_WORK_TICK_MS = 1e4;
+		/** Manifest bounds for `gameplay.work.tickMs` (src/gameplay.ts). */
+		const MIN_WORK_TICK_MS = 1e3;
+		const MAX_WORK_TICK_MS = 6e4;
+		/**
+		* The gate window for one pet: its configured cadence, clamped to the manifest's
+		* own bounds so a malformed registry entry cannot disable or flood the gate.
+		* @param tickMs - the active definition's `gameplay.work.tickMs`, when it has one.
+		* @returns the window in milliseconds.
+		*/
+		function workTickWindowMs(tickMs) {
+			if (typeof tickMs !== "number" || !Number.isFinite(tickMs)) return DEFAULT_WORK_TICK_MS;
+			return Math.min(MAX_WORK_TICK_MS, Math.max(MIN_WORK_TICK_MS, tickMs));
+		}
+		/**
+		* Create a gate.
+		* @param now - the clock, injectable so tests control the window.
+		* @returns the gate over that clock.
+		*/
+		function createWorkTickGate(now = Date.now) {
+			let lastAdjudicatedAt = 0;
+			return {
+				allow: (tickMs) => {
+					const at = now();
+					if (at - lastAdjudicatedAt < workTickWindowMs(tickMs)) return false;
+					lastAdjudicatedAt = at;
+					return true;
+				},
+				reset: () => {
+					lastAdjudicatedAt = 0;
+				}
+			};
+		}
+		//#endregion
 		//#region ../dsh-pet/src/announce.ts
 		/** Whether an announcement is still fresh at `now`. */
 		function announcementFresh(announcement, now) {
@@ -18465,6 +18516,7 @@ window.__ModuleLoader__.load({
 					busyRef.current = true;
 					api.workTick().then((result) => {
 						busyRef.current = false;
+						if (modeRef.current !== "work") return;
 						applyResult(result);
 						if (result.ok !== true || result.outcome === void 0) return;
 						const resultTrack = trackOf(result.outcome === "success" ? work.successState : work.failState);
@@ -20865,16 +20917,17 @@ window.__ModuleLoader__.load({
 		* first-level settings section.
 		* @param ctx - client root context.
 		*/
+		/** The page-wide work-tick gate; its window follows the active pet's cadence. */
+		const workTickGate = createWorkTickGate();
 		/**
-		* Module-wide work-tick throttle (ms). Hot reloads can leave several
-		* GameplayHud instances alive, each running its own 10s work interval;
-		* without a shared gate every interval would call workTick and each stale
-		* call re-rolls, re-grants treats and re-plays the success/fail track, so
-		* the outcome appears to play several times per window. This shared marker
-		* accepts the first adjudication of a window and silently suppresses the
-		* duplicates that follow. Reset when (re-)entering work mode.
+		* The work cadence the active pet declares, when its registry entry is known.
+		* @param store - the pet store holding the host snapshot and the registry list.
+		* @returns the configured `gameplay.work.tickMs`, or undefined when unknown.
 		*/
-		let lastWorkTickAt = 0;
+		function activeWorkTickMs(store) {
+			const state = store.getSnapshot();
+			return state.pets.find((entry) => entry.id === state.snapshot?.pet.id)?.gameplay?.work?.tickMs;
+		}
 		function apply$11(ctx) {
 			reportDailyHeartbeat$5([{ name: "@linxin666/dsh-pet" }]);
 			ctx.effect(() => {
@@ -21044,13 +21097,11 @@ window.__ModuleLoader__.load({
 								error: "transport"
 							})),
 							setMode: async (mode) => {
-								if (mode === "work") lastWorkTickAt = 0;
+								if (mode === "work") workTickGate.reset();
 								return petApi.gameplaySetMode(mode);
 							},
 							workTick: async () => {
-								const now = Date.now();
-								if (now - lastWorkTickAt < 8500) return { ok: true };
-								lastWorkTickAt = now;
+								if (!workTickGate.allow(activeWorkTickMs(petStore))) return { ok: true };
 								return petApi.gameplayWorkTick();
 							},
 							buy: (item) => petApi.gameplayBuy(item)
@@ -45307,6 +45358,7 @@ window.__ModuleLoader__.load({
 			"usage.updated": "更新于 {time}",
 			"usage.loading": "正在加载用量数据…",
 			"usage.error": "加载失败：{error}",
+			"usage.disabled": "插件已停用：勾选下方「启用插件」即可恢复统计。",
 			"usage.current": "当前",
 			"usage.today": "今日用量",
 			"usage.today.cost": "今日消费（估算）",
@@ -45362,6 +45414,7 @@ window.__ModuleLoader__.load({
 			"usage.updated": "Updated {time}",
 			"usage.loading": "Loading usage data…",
 			"usage.error": "Failed to load: {error}",
+			"usage.disabled": "Plugin disabled. Tick \"Enable plugin\" below to resume statistics.",
 			"usage.current": "Current",
 			"usage.today": "Today",
 			"usage.today.cost": "Today spend (estimated)",
@@ -46239,7 +46292,11 @@ window.__ModuleLoader__.load({
 			const settingsValue = settingsSnapshot.value ?? {};
 			const [tab, setTab] = (0, react.useState)("usage");
 			const [refreshing, setRefreshing] = (0, react.useState)(false);
+			const [, bumpSettings] = (0, react.useState)(0);
+			(0, react.useEffect)(() => settings.subscribe(() => bumpSettings((count) => count + 1)), [settings]);
+			const enabled = settingsValue.enabled ?? true;
 			(0, react.useEffect)(() => {
+				if (!enabled) return void 0;
 				poll();
 				let timer;
 				const start = () => {
@@ -46260,7 +46317,7 @@ window.__ModuleLoader__.load({
 					if (timer !== void 0) window.clearInterval(timer);
 					document.removeEventListener("visibilitychange", onVisibility);
 				};
-			}, [poll]);
+			}, [poll, enabled]);
 			const snapshot = ui.snapshot;
 			const onRefresh = () => {
 				setRefreshing(true);
@@ -46270,15 +46327,18 @@ window.__ModuleLoader__.load({
 					window.setTimeout(() => setRefreshing(false), 3e3);
 				}
 			};
-			if (ui.status === "error") return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+			if (!enabled || ui.status === "error" || snapshot === null) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: usage_module_css_default.section,
 				"data-dsh-plugin": "usage",
-				children: t$2("usage.error", { error: ui.error ?? "" })
-			});
-			if (snapshot === null) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-				className: usage_module_css_default.section,
-				"data-dsh-plugin": "usage",
-				children: t$2("usage.loading")
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: usage_module_css_default.muted,
+					"data-dsh-part": "status-line",
+					children: !enabled ? t$2("usage.disabled") : ui.status === "error" ? t$2("usage.error", { error: ui.error ?? "" }) : t$2("usage.loading")
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SettingsRow, {
+					settings,
+					snapshot: settingsSnapshot.status === "ready" ? settingsSnapshot : void 0,
+					value: settingsValue
+				})]
 			});
 			const current = snapshot.current;
 			const currentProvider = snapshot.providers.find((provider) => provider.provider === current.provider);
@@ -46866,9 +46926,9 @@ window.__ModuleLoader__.load({
 				usageApi.overview().then((snapshot) => {
 					if (seq !== pollSeq) return;
 					store.actions.setSnapshot(snapshot);
-				}, () => {
+				}, (error) => {
 					if (seq !== pollSeq) return;
-					store.actions.setState("error", "usage.overview transport error");
+					store.actions.setState("error", error instanceof Error ? error.message : String(error));
 				});
 			};
 			const refresh = () => {
@@ -46877,9 +46937,9 @@ window.__ModuleLoader__.load({
 				usageApi.refresh().then((snapshot) => {
 					pollSeq = seq;
 					store.actions.setSnapshot(snapshot);
-				}, () => {
+				}, (error) => {
 					if (seq !== pollSeq) return;
-					store.actions.setState("error", "usage.refresh transport error");
+					store.actions.setState("error", error instanceof Error ? error.message : String(error));
 				});
 			};
 			const face = () => ({
@@ -55141,9 +55201,12 @@ window.__ModuleLoader__.load({
     /* #1117: The upstream recommended badge pairs two background-fill tokens
        as bg + text — in dark mode, skins like Blue Fantasy collapse them to
        near-identical dark navy values (contrast ~1:1). Override the text
-       color to a readable foreground and tweak the background for contrast. */
-    body[data-ds-dark-theme] ${scoped("[data-question-key] [class*=\"_badge\"]")},
-    body[data-ds-dark-theme] ${scoped("[data-question-scroll] [class*=\"_badge\"]")} {
+       color to a readable foreground and tweak the background for contrast.
+       The dark-theme attribute lives on <body>, so it belongs inside the
+       scoped selector: prefixing the already-scoped list produced
+       "body ... html ...", a descendant chain that can never match (#1490). */
+    ${scoped("body[data-ds-dark-theme] [data-question-key] [class*=\"_badge\"]")},
+    ${scoped("body[data-ds-dark-theme] [data-question-scroll] [class*=\"_badge\"]")} {
       color: var(--dsw-alias-label-primary, #ffffff) !important;
       background: var(--dsw-alias-interactive-bg-active, color-mix(in srgb, var(--dsw-alias-button-info-fill, #4a5fa8) 50%, transparent)) !important;
     }
