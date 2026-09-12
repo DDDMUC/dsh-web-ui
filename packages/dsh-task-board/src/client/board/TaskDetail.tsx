@@ -347,8 +347,10 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
               </p>
               <p className={css.detailText}><strong>{t('detail.handover.references')}</strong></p>
               <ul className={css.executionList}>
-                {current.handover.references.map(reference => (
-                  <li key={reference} className={css.executionRow}><code>{reference}</code></li>
+                {current.handover.references.map((reference, index) => (
+                  // References are free text from the freeze block, so the same
+                  // string can appear twice; the index keeps the key unique (#1492).
+                  <li key={`${reference}-${index}`} className={css.executionRow}><code>{reference}</code></li>
                 ))}
               </ul>
               <p className={css.detailMeta}>{t('detail.handover.bundledAt', { time: formatHostTimestamp(current.handover.bundledAt, timeZone) })}</p>
