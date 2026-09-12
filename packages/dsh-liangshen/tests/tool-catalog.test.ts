@@ -19,8 +19,14 @@ interface Harness {
   listeners: Map<string, { listener: Listener, options: any }>
   presentCalls: string[]
   warnings: string[]
+  /** The inputs of the assembly in flight, reused when the plugin re-enters it. */
+  assemblyInput?: { tools: unknown[]; sections: unknown[] }
+  /** Declarations already landed when the effective assembly's providers were read. */
+  declarationsBeforeNext: number
   /** Replace the surface the registry projects, as a mid-session tool change would. */
   setSdk(schemas: unknown[]): void
+  /** Make the projection start throwing, as a mid-session breakage would. */
+  failSdk(): void
 }
 
 interface HarnessOptions {
@@ -32,6 +38,8 @@ interface HarnessOptions {
   sdkThrows?: boolean
   /** When false the context exposes no code runtime. */
   codeRuntime?: boolean
+  /** When true the context exposes no SystemPrompt, so nothing can re-assemble. */
+  noPromptService?: boolean
 }
 
 const SDK_SURFACE = [
@@ -52,9 +60,10 @@ function register(config: Record<string, unknown> = {}, options: HarnessOptions 
   const presentCalls: string[] = []
   const warnings: string[] = []
   let sdk = options.sdk ?? SDK_SURFACE
+  let sdkFails = options.sdkThrows === true
   const tools: Record<string, unknown> = {
     sdkSchemas: () => {
-      if (options.sdkThrows === true) throw new Error('unsupported schema')
+      if (sdkFails) throw new Error('unsupported schema')
       return sdk
     },
   }
@@ -69,12 +78,23 @@ function register(config: Record<string, unknown> = {}, options: HarnessOptions 
     logger: { warn: (message: string) => { warnings.push(message) } },
   }
   apply(ctx, config)
-  return {
+  const harness: Harness = {
     listeners,
     presentCalls,
     warnings,
     setSdk(next: unknown[]) { sdk = next },
+    failSdk() { sdkFails = true },
   }
+  // A faithful SystemPrompt: it snapshots the presentation before the waterfall runs
+  // -- which is exactly why a declaration made inside one cannot reach that same
+  // assembly -- and re-entering it is what a promotion relies on. A stub whose wire
+  // ignored the declared mode could not tell those two apart.
+  if (options.noPromptService !== true) {
+    services.systemPrompt = {
+      assemble: async (context: any) => (await runAssembly(harness, context?.agent)).assembled,
+    }
+  }
+  return harness
 }
 
 function listener(harness: Harness, event: string): Listener {
@@ -104,14 +124,19 @@ function agentOf(
 ) {
   const session: any = { snapshotEvents: () => events }
   if (surface !== undefined) session.surface = { nodes: surface }
-  return {
+  const agent: any = {
     session,
+    // The scope's current presentation, exactly as the real registry tracks it: a
+    // declaration changes what the NEXT assembly collects, not the one in flight.
+    ptcMode: undefined as string | undefined,
     ctx: {
       tools: {
         presentAs(mode: string) {
           if (options?.presentThrows) throw new Error('PTC declaration rejected by host policy')
           harness?.presentCalls.push(mode)
+          agent.ptcMode = mode
           const disposer = () => {
+            agent.ptcMode = undefined
             options?.disposers?.push(disposer)
           }
           return disposer
@@ -119,6 +144,7 @@ function agentOf(
       },
     },
   }
+  return agent
 }
 
 /** Dispatch a session event to the plugin's listener, as the harness does on append. */
@@ -128,18 +154,32 @@ function emitSession(harness: Harness, session: unknown, event: unknown) {
   entry!.listener(session, event)
 }
 
-/** Assemble and record how many presentation declarations had landed by the time `next()` ran. */
-async function assemble(harness: Harness, agent: unknown, tools: unknown[] = WIRE, sections: unknown[] = []) {
-  let declarationsBeforeNext = -1
+/**
+ * One assembly, as the harness performs it: the wire is built from the presentation
+ * the agent had BEFORE the waterfall ran, and the count of declarations already
+ * landed is recorded at that same moment.
+ */
+async function runAssembly(harness: Harness, agent: any, tools: unknown[] = WIRE, sections: unknown[] = []) {
+  // The caller's inputs are remembered, so a re-entry triggered from inside the
+  // waterfall assembles the SAME prompt rather than falling back to the defaults.
+  if (tools !== WIRE || sections.length > 0) harness.assemblyInput = { tools, sections }
+  const input = harness.assemblyInput ?? { tools: WIRE, sections: [] }
+  const wire = agent?.ptcMode === 'ptc' ? [{ name: 'run_code', description: 'Run a program.' }] : input.tools
+  harness.declarationsBeforeNext = -1
   const assembled = await listener(harness, 'system-prompt/assemble')(
-    { sections },
+    { sections: input.sections },
     { agent },
     async () => {
-      declarationsBeforeNext = harness.presentCalls.length
-      return { sections, contexts: [], tools, variables: {} }
+      harness.declarationsBeforeNext = harness.presentCalls.length
+      return { sections: input.sections, contexts: [], tools: wire, variables: {} }
     },
   )
-  return { assembled, declarationsBeforeNext }
+  return { assembled, declarationsBeforeNext: harness.declarationsBeforeNext }
+}
+
+/** Assemble through the same entry the harness uses, so re-entry behaves identically. */
+async function assemble(harness: Harness, agent: unknown, tools: unknown[] = WIRE, sections: unknown[] = []) {
+  return runAssembly(harness, agent, tools, sections)
 }
 
 async function preStep(harness: Harness, agent: unknown, messages: unknown[] = [{ id: 'user', source: { kind: 'user' } }]) {
@@ -386,7 +426,9 @@ describe('liangshen-tool-catalog', () => {
     expect(harness.presentCalls).toEqual(['ptc'])
 
     const promoted = await assemble(harness, agent)
-    expect(promoted.assembled.tools).toBe(WIRE)
+    // The promoted wire is the collapsed transport the declaration produces, not
+    // the narrowed anchor face and not the assembled native roster.
+    expect(promoted.assembled.tools.map((tool: any) => tool.name)).toEqual(['run_code'])
     expect(harness.presentCalls).toEqual(['ptc'])
   })
 
@@ -400,7 +442,9 @@ describe('liangshen-tool-catalog', () => {
     emitSession(harness, agent.session, { type: 'turn/start' })
     emitSession(harness, agent.session, { type: 'turn/end' })
     expect(harness.presentCalls).toEqual(['ptc'])
-    expect((await assemble(harness, agent)).assembled.tools).toBe(WIRE)
+    // Declared once, and the wire stays on the collapsed transport rather than
+    // being narrowed back to the anchor names.
+    expect((await assemble(harness, agent)).assembled.tools.map((tool: any) => tool.name)).toEqual(['run_code'])
   })
 
   test('the assembly listener re-asserts the declaration for an unobserved boundary', async () => {
@@ -411,10 +455,11 @@ describe('liangshen-tool-catalog', () => {
     const { assembled, declarationsBeforeNext } = await assemble(harness, agent)
     expect(declarationsBeforeNext).toBe(1)
     expect(harness.presentCalls).toEqual(['ptc'])
-    // The wire is whatever the registry produced for that assembly; the plugin
-    // must not narrow it to the anchor names any more.
-    expect(assembled.tools).toBe(WIRE)
-    expect((await assemble(harness, agent)).assembled.tools).toBe(WIRE)
+    // The declaration is re-asserted from the assembly listener, and its
+    // re-assembly means even that first request carries the collapsed transport
+    // rather than the native roster.
+    expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['run_code'])
+    expect((await assemble(harness, agent)).assembled.tools.map((tool: any) => tool.name)).toEqual(['run_code'])
     expect(harness.presentCalls).toEqual(['ptc'])
   })
 
@@ -500,11 +545,27 @@ describe('liangshen-tool-catalog', () => {
     expect(harness.warnings[0]).toContain('keeping the native tool surface')
   })
 
-  test('staging off: the first request carries the assembled wire', async () => {
+  test('never announces a transport its own assembly wire does not carry', async () => {
+    // The declaration succeeds, but this deployment offers nothing to re-assemble
+    // with, so the collapse cannot reach the request in flight. The catalog
+    // describes the WIRE, so it must keep describing native tools.
+    const harness = register({}, { noPromptService: true })
+    const agent = agentOf([], undefined, harness)
+    const { assembled } = await assemble(harness, agent)
+    expect(harness.presentCalls).toEqual(['ptc'])
+    expect(assembled.tools).toBe(WIRE)
+    const text = catalogText((await preStep(harness, agent)).messages)
+    expect(text).not.toContain('presents these tools through `run_code`')
+    expect(text).toContain('- `bash')
+  })
+
+  test('staging off: the promotion lands on the first assembly', async () => {
     const harness = register()
     const agent = agentOf([{ type: 'turn/start' }], undefined, harness)
     const { assembled } = await assemble(harness, agent)
-    expect(assembled.tools).toBe(WIRE)
+    // With no anchor tools there is nothing to stage, so the declaration happens
+    // during this assembly and the re-assembly carries it into this same request.
+    expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['run_code'])
     expect(catalogOf((await preStep(harness, agent)).messages)).toBeDefined()
   })
 
@@ -625,11 +686,15 @@ describe('liangshen-tool-catalog', () => {
 
   test('wire carrying only run_code reverts PTC when SDK projection is unavailable', async () => {
     const disposers: (() => void)[] = []
-    const harness = register({}, { sdkThrows: true })
+    const harness = register()
     // With history previously published
     const priorCatalog = createCatalogMessage([{ name: 'prior_tool', signature: '()', description: 'Prior' }], false)
     const agent = agentOf([durableEvent(2, priorCatalog)], [2], harness, { disposers })
-    // Wire only has run_code
+    // The session promotes while the projection still works...
+    await assemble(harness, agent)
+    expect(harness.presentCalls).toEqual(['ptc'])
+    // ...and then the projection breaks under the already-collapsed wire.
+    harness.failSdk()
     const { assembled } = await assemble(harness, agent, [{ name: 'run_code', description: 'transport' }])
     expect(disposers.length).toBeGreaterThanOrEqual(1)
     expect(harness.warnings.some(w => w.includes('tool schemas available') || w.includes('native tool surface'))).toBe(true)

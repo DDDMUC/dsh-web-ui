@@ -336,16 +336,35 @@ describe('liangshen-minimal-prompt', () => {
     expect(await loadInstructionText(project())).toContain('home rule')
   })
 
-  test('drops every agent-instructions injection in the default mode', async () => {
+  test('condenses a covered baseline injection, and drops only what the prompt already carries', async () => {
+    const cwd = project()
+    writeFileSync(join(cwd, 'AGENTS.md'), 'project rule', 'utf8')
     const harness = register()
-    const agent = agentOf()
-    const first = await preStep(harness, agent, [
-      { id: 'user', source: { kind: 'user' } },
-      instructionsMessage('a', ['/repo/AGENTS.md']),
+    const agent = agentAt(cwd)
+    // This assembly is what puts the baseline into the system prompt.
+    await assemble(harness, FULL_SECTIONS, undefined, agent)
+
+    const covered = join(cwd, 'AGENTS.md')
+    const marked = {
+      id: 'a',
+      role: 'user',
+      content: [{ type: 'text', text: `Instructions from: ${covered}` }],
+      source: { kind: 'agent-instructions', baseline: true, baselineIdentity: 'identity-1' },
+    }
+    const first = await preStep(harness, agent, [{ id: 'user', source: { kind: 'user' } }, marked])
+    const kept = first.messages.filter((message: any) => message.id === 'a')
+    // The marker survives — it is what the host reads to stop re-injecting — while
+    // the duplicated prose is replaced by a pointer to the prompt.
+    expect(kept).toHaveLength(1)
+    expect(kept[0].content[0].text).toContain('active in the system prompt')
+    expect(kept[0].source.baseline).toBe(true)
+    expect(kept[0].source.baselineIdentity).toBe('identity-1')
+    expect(kept[0].content[0].text).not.toContain('project rule')
+
+    // An unmarked duplicate of the same covered baseline has nothing to add.
+    const second = await preStep(harness, agent, [
+      { ...marked, id: 'b', source: { kind: 'agent-instructions' } },
     ])
-    expect(first.messages.map((message: any) => message.id)).toEqual(['user'])
-    // No per-session state: later injections are dropped too, with no hint.
-    const second = await preStep(harness, agent, [instructionsMessage('b', ['/repo/AGENTS.md'])])
     expect(second.messages).toEqual([])
   })
 

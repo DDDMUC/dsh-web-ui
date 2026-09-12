@@ -600,29 +600,34 @@ export function filterInstructionMessages(messages, baselineFiles = [], baseline
 
     const pureBaseline = isMessagePureBaseline(message, cwd, baselinePaths)
 
-    if (pureBaseline) {
-      // If message is a covered baseline without baseline marker, drop it
-      if (message?.source?.baseline !== true) {
-        continue
-      }
-      // If baseline instructions were loaded in system prompt, condense into a concise legal message
-      if (baselineLoaded) {
-        const covered = baselineFiles.map(f => f.displayPath).filter(Boolean)
-        const text = covered.length > 0
-          ? `<system-reminder>\nWorkspace baseline instructions (${covered.join(', ')}) are active in the system prompt.\n</system-reminder>`
-          : '<system-reminder>\nWorkspace baseline instructions are active in the system prompt.\n</system-reminder>'
-        kept.push({
-          ...message,
-          content: [{ type: 'text', text }],
-        })
-      } else {
-        // Baseline loading failed or was missing: pass through untouched!
-        kept.push(message)
-      }
-    } else {
-      // Dynamic subdirectory instructions or mixed changes: keep safely!
+    if (!pureBaseline) {
+      // Dynamic subdirectory instructions or mixed changes: keep safely.
       kept.push(message)
+      continue
     }
+
+    // The message duplicates content the system prompt carries, so it is
+    // redundant ONLY when that prompt really carries it. A failed or empty
+    // baseline read must never cost the model its instructions, whatever shape
+    // the message has: pass it through untouched.
+    if (!baselineLoaded) {
+      kept.push(message)
+      continue
+    }
+
+    // A marked baseline keeps a short marker message, which is what the host's
+    // baseline detector reads to stop re-injecting the same baseline every step.
+    // An unmarked one has nothing to contribute on top of the prompt.
+    if (message?.source?.baseline !== true) continue
+
+    const covered = baselineFiles.map(f => f.displayPath).filter(Boolean)
+    const text = covered.length > 0
+      ? `<system-reminder>\nWorkspace baseline instructions (${covered.join(', ')}) are active in the system prompt.\n</system-reminder>`
+      : '<system-reminder>\nWorkspace baseline instructions are active in the system prompt.\n</system-reminder>'
+    kept.push({
+      ...message,
+      content: [{ type: 'text', text }],
+    })
   }
   return kept
 }

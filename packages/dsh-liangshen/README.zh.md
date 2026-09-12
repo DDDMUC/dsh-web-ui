@@ -52,7 +52,7 @@ DeepSeek V4 模型在选择执行轨迹时，会受到初始提示词与首轮�
 | `instructionMaxBytes` | `65536` | 渲染后的 workspace-instructions 段的字节预算（system-prompt 模式）：最宽的文件先被省略，最具体的文件最后被截断。 |
 | `descriptionMaxLength` | `200` | 注入目录中单个工具一行摘要的长度上限。完整关键参数语义与契约仍由 SDK 自身完整保留。 |
 | `anchorTools` | `[bash, str_replace_editor, exit_plan_mode, skill]` | 首轮整个 user turn wire 上原生呈现的工具集；晋升面从第二个回合起生效。出厂默认包含基础四工具，亦可按需配置为 `[bash]` 进行单 shell 实验（无需额外注册预设，无需修改注册表）。留空则关闭分层。 |
-| `ptcPresentation` | `true` | 从第二个回合起尝试为该会话声明 PTC 呈现，成功激活后 wire 收拢为 `run_code`，保留完整输入输出关键参数语义。需要挂载 code runtime；缺失或激活失败时优雅回退至原生呈现并只告警一次。置 `false` 则从第二个回合起 wire 上仍是组装出的原生清单。 |
+| `ptcPresentation` | `true` | 从第二个回合起尝试为该会话声明 PTC 呈现，成功激活后 wire 收拢为 `run_code`，保留完整输入输出关键参数语义。需要挂载 code runtime 与可读取的工具投影；缺失任一项时保持原生呈现并只告警一次。注入目录始终描述该次请求 wire 实际携带的传输方式，声明无法在本回合生效时不会宣告 PTC。置 `false` 则从第二个回合起 wire 上仍是组装出的原生清单。 |
 
 ## 安装
 

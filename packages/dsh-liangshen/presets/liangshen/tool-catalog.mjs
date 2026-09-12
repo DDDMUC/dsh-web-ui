@@ -358,7 +358,7 @@ export function apply(ctx, config) {
   /**
    * Abort/revert PTC declaration if active, restoring presentation back to native.
    */
-  const revertPtc = (agent, reason) => {
+  const revertPtc = (agent, reason, retryable = false) => {
     if (agent === undefined) return
     const disposer = agentPtcDisposers.get(agent)
     if (typeof disposer === 'function') {
@@ -370,7 +370,10 @@ export function apply(ctx, config) {
       agentPtcDisposers.delete(agent)
     }
     agentPtcDeclared.delete(agent)
-    agentPtcFailed.add(agent)
+    // A declaration the host itself refused is permanent for this agent. One that
+    // merely failed to reach a wire is not: the next turn boundary may declare
+    // again, and latching it would strand the session on the native surface.
+    if (!retryable) agentPtcFailed.add(agent)
     warnOnce(reason)
   }
 
@@ -445,7 +448,9 @@ export function apply(ctx, config) {
     presentPtc(agent)
   })
 
-  let inReassemble = false
+  // Per-agent, not one process-wide flag: two sessions assembling at once would
+  // otherwise let one skip the promotion re-assembly the other is running.
+  const reassembling = new WeakSet()
 
   ctx.on('system-prompt/assemble', async (assembly, context, next) => {
     const agent = context?.agent
@@ -458,19 +463,37 @@ export function apply(ctx, config) {
     let ptcDeclared = false
     if (!staged && ptcPlanReady()) {
       if (!agentPtcDeclared.has(agent)) {
-        ptcDeclared = presentPtc(agent)
-        // If declared inside assemble, re-assemble to ensure wire schemas and tools:sdk
-        // are freshly evaluated with no window/mismatch.
-        if (ptcDeclared && !inReassemble) {
+        // A promotion collapses the wire to the single `run_code` transport and
+        // lists the tools from their SDK projection. Where no projection can be read
+        // at all, declaring would collapse the executor and then have to undo it,
+        // losing the native wire on the way out. Stay native instead.
+        const projectable = publicSchemas(agent)
+        if (projectable === undefined || projectable.length === 0) {
+          warnOnce('no tool schema projection available; keeping the native tool surface')
+          ptcDeclared = false
+        } else {
+          ptcDeclared = presentPtc(agent)
+        }
+        // A declaration made here cannot reach THIS assembly: the harness collects
+        // the tool providers before the waterfall runs. Re-assemble so the collapse
+        // and the generated SDK land on the assembly the model actually receives.
+        if (ptcDeclared && !reassembling.has(agent)) {
           const sp = ctx.get('systemPrompt')
           if (typeof sp?.assemble === 'function') {
-            inReassemble = true
+            reassembling.add(agent)
             try {
               return await sp.assemble(context)
+            } catch (error) {
+              warnOnce(`re-assembling after the PTC declaration failed: ${error instanceof Error ? error.message : String(error)}`)
             } finally {
-              inReassemble = false
+              reassembling.delete(agent)
             }
           }
+          // Nothing re-assembled, so this wire stays native. Collapsing the executor
+          // under it would announce a transport the request never names, so drop back
+          // to native for this assembly and let the next turn boundary declare again.
+          revertPtc(agent, 'the PTC declaration did not reach this assembly wire', true)
+          ptcDeclared = false
         }
       } else {
         ptcDeclared = true
@@ -488,12 +511,16 @@ export function apply(ctx, config) {
 
     // If wire carries only run_code but public schemas are unavailable or empty:
     // Revert PTC to native and restore wire to native schemas.
+    // The replacement travels in the RETURNED assembly: the waterfall's returned
+    // value is the authoritative one, and mutating the object the harness handed
+    // downstream would be a side effect no other listener can see.
+    let correctedWire
     if (wireOnlyRunCode && (surface === undefined || surface.length === 0)) {
       revertPtc(agent, 'no tool schema projection available under PTC')
       ptcDeclared = false
       const nativeSchemas = publicSchemas(agent) ?? []
       surface = nativeSchemas
-      assembled.tools = nativeSchemas
+      correctedWire = nativeSchemas
     }
 
     // Fresh fallback to assembled wire tools (excluding run_code)
@@ -501,7 +528,10 @@ export function apply(ctx, config) {
       surface = wireTools.filter(t => t?.name && t.name !== 'run_code')
     }
 
-    const isActualPtc = !staged && ptcDeclared && (wireHasRunCode || ptcDeclared) && surface.length > 0
+    // PTC is what the WIRE carries, not what the configuration intends: the catalog
+    // must describe the transport this request actually names, or the model is told
+    // to call `run_code` on a request that offers only native tools.
+    const isActualPtc = !staged && wireHasRunCode && surface.length > 0
 
     const entries = catalogEntries(surface, descriptionMaxLength)
 
@@ -513,8 +543,9 @@ export function apply(ctx, config) {
       })
     }
 
-    if (!staged) return assembled
-    return { ...assembled, tools: anchorToolsOf(assembled.tools, anchorNames) }
+    const wire = correctedWire ?? assembled.tools
+    if (!staged) return correctedWire === undefined ? assembled : { ...assembled, tools: correctedWire }
+    return { ...assembled, tools: anchorToolsOf(wire, anchorNames) }
   }, { prepend: true })
 
   ctx.on('agent/pre-step', async (payload, next) => {

@@ -22,9 +22,11 @@ Status: implemented
 
 - `presets/liangshen/agent.cordis.yml` 将出厂默认 `anchorTools` 恢复为 `[bash, str_replace_editor, exit_plan_mode, skill]`。保留 `[bash]` 的单 shell 配置实验，用户可通过配置直接启用，无需额外注册预设或变更注册表。
 - 锚定回合明确定义为首轮整个 user turn（持久日志中少于两个 `turn/start` 事件），确保首轮多步执行均能稳定使用基础工具。
-- PTC 模式仅在运行时实际声明成功时激活（`agent.ctx.tools.presentAs('ptc')` 且存在 code runtime）。若缺少 code runtime 或声明失败，优雅回退至原生呈现并发出一次性告警。
+- PTC 模式仅在运行时实际声明成功时激活（`agent.ctx.tools.presentAs('ptc')`、存在 code runtime，且能读取到工具投影）。缺少任一条件时保持原生呈现并只告警一次：在投影不可读时声明，只会先收拢执行器再撤销，并在撤销途中丢失原生 wire。
+- 注入目录描述的是该次请求 wire 实际携带的传输方式，而不是配置的意图：只有 wire 上确实出现 `run_code` 才附带 PTC 程序契约。声明无法在本次组装生效时（例如该部署没有可重入的组装入口），插件撤销声明并让执行器、wire 与目录三者保持一致，而不是宣告一个请求里并不存在的传输方式。
 - 注入的工具目录保留注册表 SDK 投影的完整输入输出关键参数语义。`descriptionMaxLength: 200` 仅限制一行摘要文本长度，不裁剪关键参数结构。允许在呈现切换边界进行一次契约更新，不再坚持上下文绝对不变。
-- 工作区子目录动态规则后续将支持注册文件工具（含 `str_replace_editor`）及 PTC 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现。
+- 工作区子目录动态规则支持注册文件工具（含 `str_replace_editor`）及 PTC 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现。
+- 工作区指令只在其内容确实已进入系统提示词时才被视为冗余：基线读取失败或为空时，宿主的 `agent-instructions` 消息原样透传，不因缺少 `source.baseline` 标记而被丢弃；只有提示词已覆盖且带标记的基线才压缩为一条提醒，未带标记的重复注入才被丢弃。
 - 移除过度承诺：删除与 Minimal 完全一致、社区评测分数证明本版更好、以及缓存等于行为的陈述。
 - 强化安全模型：明确阐述宿主文件沙箱策略约束与 Windows Git Bash 运行限制（非常驻进程、无 OS 沙箱隔离、禁止修改 custom-bash）。
 - 建立三层验证标准：真实推理探针 ≠ 模式集成通过 ≠ 统计效果提升。
@@ -32,7 +34,9 @@ Status: implemented
 ## Testing
 
 - `tests/preset-composition.test.ts` 验证出厂 `agent.cordis.yml` 包含 `anchorTools: [bash, str_replace_editor, exit_plan_mode, skill]`，通过预设结构校验，并验证 bash-only 配置实验在无需修改注册表的前提下结构合法。
-- `tests/tool-catalog.test.ts` 与 `tests/minimal-prompt.test.ts` 继续覆盖回合边界判定、签名渲染、优雅降级与指令预算裁剪。
+- `tests/tool-catalog.test.ts` 与 `tests/minimal-prompt.test.ts` 覆盖回合边界判定、签名渲染、优雅降级与指令预算裁剪。
+- `tests/tool-catalog.test.ts` 钉住两条不变量：声明无法抵达本次 wire 时目录不宣告 PTC（旧实现的判据是恒真式，会在此处谎报），以及投影在会话中途失效时撤销声明并恢复原生 wire。测试桩据此如实建模——wire 由组装开始时的呈现方式决定，重组装复用调用方输入——因此重新组装路径本身也被覆盖。
+- `tests/minimal-prompt.test.ts` 钉住指令冗余判据：提示词已覆盖且带标记的基线压缩为提醒并保留 `baselineIdentity`，未带标记的重复注入被丢弃，而基线未加载时消息一律透传。
 - 验证流程明确要求区分最小推理探针、模式完整集成与统计学多轮评测。
 
 ## Alternatives considered
