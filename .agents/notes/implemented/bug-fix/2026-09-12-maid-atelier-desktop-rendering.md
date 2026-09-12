@@ -42,12 +42,22 @@ correct in Chrome on the same machine and stylesheet:
   (`assets/skins/maid-atelier/patches.css`, `assets/skins/maid-atelier.zip`, `styles.js`,
   `tryon-assets/skins/maid-atelier/patches.css`) and `pnpm market:check` passes, so the stylesheet
   still parses and transforms through the market pipeline.
-- `pnpm --filter @linxin666/dsh-client-ui-skin-center test` and `pnpm skin-center:check` pass.
-- **No live GUI or Desktop evidence was captured.** Exercising the skin needs the updated files in
-  `~/.dsh/skins/maid-atelier` plus an active-skin switch in the running GUI, which is the user's
-  environment; Electron could not be reproduced locally either. The paint-order reasoning above is the
-  strongest evidence obtained, and item 2 in particular follows the reporter's own Desktop-verified
-  bypass rather than a local reproduction.
+- `pnpm --filter @linxin666/dsh-client-ui-skin-center test` (39 files, 637 tests) and
+  `pnpm skin-center:check` pass. `tests/maid-atelier-patches.spec.ts` pins all three fixes inside the
+  stylesheet: the backing layer's `z-index: -1`, the card's `isolation: isolate` precondition, the
+  stage's `z-index: 0` with no `contain`, and the four statistics-strip rules.
+- A Playwright probe against the system Edge (Chromium 152) loaded the real `patches.css` over a
+  composer fixture and reported: the strip computes to `rgb(51, 65, 95)`, so the new rule matches; the
+  strip is **not** inside `[data-slot="conversation.composer.dock"]`, and that dock selector matches
+  only the dock row, so the old rule could never have reached it; the stage computes to `z-index: 0`,
+  `contain: none`, `pointer-events: none`. Two screenshots of the same card differing only in the
+  backing layer's z-index show the mechanism: with `-1` the bare in-flow text renders, with the
+  previous `0` it disappears under the inherited opaque gradient.
+- **No DSH Desktop or live-GUI evidence exists yet.** The running GUI serves this checkout, but it
+  answers 401 without its per-process token and that token was deliberately not used; the Electron
+  compositor cannot be reproduced here. Item 2 therefore still rests on the reporter's own
+  Desktop-verified bypass rather than a local reproduction, and the residual risk under Consequences
+  stands.
 
 ## Alternatives considered
 

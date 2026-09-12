@@ -35,11 +35,9 @@ Status: implemented
   （`assets/skins/maid-atelier/patches.css`、`assets/skins/maid-atelier.zip`、`styles.js`、
    `tryon-assets/skins/maid-atelier/patches.css`），且 `pnpm market:check` 通过，说明样式表仍能被市场
    构建管线解析与变换。
-- `pnpm --filter @linxin666/dsh-client-ui-skin-center test` 与 `pnpm skin-center:check` 通过。
-- **未采集到实时 GUI 或 Desktop 证据。** 验证该皮肤需要把更新后的文件放进
-  `~/.dsh/skins/maid-atelier` 并在运行中的 GUI 里切换激活皮肤，那属于用户环境；本机也无法复现
-   Electron。上述绘制顺序推理是本次能取得的最强证据，其中第 2 项遵循的是报告者自己在该环境验证过的
-   绕过方式，而非本地复现。
+- `pnpm --filter @linxin666/dsh-client-ui-skin-center test`（39 个文件、637 条测试）与 `pnpm skin-center:check` 通过。`tests/maid-atelier-patches.spec.ts` 在样式表内部钉住三处修复：背衬的 `z-index: -1`、卡片的 `isolation: isolate` 前提、舞台的 `z-index: 0` 且无 `contain`，以及统计条的四条规则。
+- Playwright 探针（本机 Edge / Chromium 152）在 composer fixture 上加载真实 `patches.css`：统计条计算色为 `rgb(51, 65, 95)`，说明新规则命中；统计条不在 `[data-slot="conversation.composer.dock"]` 之内，且该 dock 选择器只匹配到 dock 行，说明旧规则本就不可能到达它；舞台计算值为 `z-index: 0`、`contain: none`、`pointer-events: none`。同一张卡片仅改变背衬 z-index 的两张截图展示了机制：`-1` 时裸露的常规流文字正常渲染，原来的 `0` 时被继承来的不透明渐变完全盖住。
+- **仍无 DSH Desktop 或实时 GUI 证据。** 运行中的 GUI 确实服务本检出，但缺少其进程级令牌时返回 401，而该令牌被有意未使用；本机也无法复现 Electron 合成器。因此第 2 项仍建立在报告者自己在该环境验证过的绕过方式上，Consequences 中的残留风险依然成立。
 
 ## Alternatives considered
 
