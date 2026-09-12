@@ -1,13 +1,21 @@
 ---
 name: dsh-web-release
-description: Release and publish the dsh-web monorepo (DSH Web GUI plugin family + skin collection) — bump all packages to one unified version, commit and tag (tags are cut from main after dev integration; dev is the integration branch), push the vX.Y.Z tag that triggers the GitHub Actions publish pipeline, and verify the npm publish + GitHub Release. Defaults an unspecified target to the next patch after the previous published release. Covers automatic-upgrade compatibility audits, migration and rollback fixes, post-release verification, and bad-version recovery. Use when the user asks to 发布/发版/release/bump 版本/publish a new version of dsh-web or any @linxin666/dsh-* package.
-whenToUse: The user wants to release dsh-web (发布新版、发个版本、release、tag、publish @linxin666/dsh-* 包), audit or repair automatic-upgrade compatibility, build or change the release pipeline (release 管线、CI 发布), or recover from a bad published version (坏包、回滚、deprecate). Not for routine commits, skin development (see dsh-web-skin-developer skill), or CI-only changes without a release.
+description: Execute an explicitly authorized dsh-web release, or consult release-specific compatibility gates and recovery guidance without publishing. Loading this skill, CI repairs, and version audits do not authorize a release.
+whenToUse: Explicit dsh-web release/publish requests; release-pipeline, automatic-upgrade, or published-version audits and repairs use only the relevant sections. Not routine commits or skin development.
 ---
 
 # dsh-web 发布（release / publish）
 
 本技能固化 dsh-web 全家桶的完整发版流程：全仓统一版本 → 提交 → 打 tag → 推送触发
 GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发布后验证。
+
+## 授权与按需入口
+
+- **先区分任务，不因加载本技能而执行发版。** 发布管线/配置修复、版本核对、兼容性审计只读取相关章节并执行已授权的检查或修复；修复完成后交付证据，不自动 bump、合入 `main`、创建/推送 tag、npm publish、创建/修改 GitHub Release 或触发发布 dispatch。
+- 只有用户当前明确要求实际发布时才进入完整流程；目标版本未指定时才适用下一 patch 默认。token、`NPM_PUBLISH_ENABLED`、已有 tag、历史发布许可和 CI 全绿均不是当前发布授权。
+- 坏版本调查先只读核实影响。deprecate、删除/重推 tag、补发、回滚和修改已发布说明须在当前明确授权范围内；越界则报告所需决定，不自行补救历史未经授权发布。
+- [根规则](../../../AGENTS.md)管安全与常规 dev 同步；本技能只补充获授权的发布集成与发布后版本提交回流。切分支/整合前遵循共享 checkout 保护，先核对基线、索引及其他会话占用；命令块是步骤示例，不是可整段无条件执行的脚本。
+- 审计自动升级读第 0 节；实际发布依次完成版本选择、兼容门禁、dev 集成、main 发版与第 4 节验证；失败时读取第 3 节恢复规则。只改文档无需构建、迁移矩阵或发布动作。
 
 ## 仓库事实（先读，决定每一步怎么做）
 
