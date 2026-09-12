@@ -27,4 +27,4 @@ Status: implemented
 
 ## Consequences
 
-本地 web profile 由此带有一处树外补丁；profile 安装与插件更新会静默回退它。未来会话再见到该 pageerror 时，先查本笔记与备份文件，不必重新推导归因。同日对用户报告「dsh web 启动后 Chrome 反复崩溃」的调查在所有层面均未发现 Chrome 崩溃——无 Crashpad 转储、无 macOS DiagnosticReports、无 jetsam 杀进程、Chrome 自身稳定性计数干净；感知到的崩溃循环是浏览器自动化守护进程反复拉起 Chrome，叠加 Chrome 远程调试授权后的重启，发生在验证期间。
+本地 web profile 由此带有一处树外补丁；profile 安装与插件更新会静默回退它。未来会话再见到该 pageerror 时，先查本笔记与备份文件，不必重新推导归因。同日补充（修正本笔记最初对崩溃循环的归因）：用户报告的 Chrome 反复关闭，经现场布控溯源到无关的 `demo2/wandering-earth-jupiter` 截图自动化——其 `tools/batch.sh` 以无差别 `pkill -9 -f "Google Chrome"` 收尾，且其 `tools/shots.sh` 的 headless 实例在截图后常挂起、直到 100 秒等待上限才被清理，因此每轮批次收尾都会 SIGKILL 机器上的所有 Chrome，用户的图形界面浏览器概莫能外。两次预测的死亡（12:50:11、12:55:48）与「png 落盘时间 + 100 秒」公式逐秒吻合；Chrome 逐 profile 的 `exit_type=Crashed`、崩溃转储全无、死亡秒快照中 Chrome 进程清零，共同构成取证特征。浏览器自动化守护进程与 Chrome 远程调试授权重启只提供噪声，不构成关闭。
