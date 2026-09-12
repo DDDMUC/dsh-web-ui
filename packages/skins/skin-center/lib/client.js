@@ -4083,9 +4083,12 @@ window.__ModuleLoader__.load({
     /* #1117: The upstream recommended badge pairs two background-fill tokens
        as bg + text — in dark mode, skins like Blue Fantasy collapse them to
        near-identical dark navy values (contrast ~1:1). Override the text
-       color to a readable foreground and tweak the background for contrast. */
-    body[data-ds-dark-theme] ${scoped("[data-question-key] [class*=\"_badge\"]")},
-    body[data-ds-dark-theme] ${scoped("[data-question-scroll] [class*=\"_badge\"]")} {
+       color to a readable foreground and tweak the background for contrast.
+       The dark-theme attribute lives on <body>, so it belongs inside the
+       scoped selector: prefixing the already-scoped list produced
+       "body ... html ...", a descendant chain that can never match (#1490). */
+    ${scoped("body[data-ds-dark-theme] [data-question-key] [class*=\"_badge\"]")},
+    ${scoped("body[data-ds-dark-theme] [data-question-scroll] [class*=\"_badge\"]")} {
       color: var(--dsw-alias-label-primary, #ffffff) !important;
       background: var(--dsw-alias-interactive-bg-active, color-mix(in srgb, var(--dsw-alias-button-info-fill, #4a5fa8) 50%, transparent)) !important;
     }

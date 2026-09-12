@@ -59,6 +59,12 @@ jobs:
       - name: Community index consistency
         run: pnpm community:check
 
+      # Fingerprints the committed lib/ bundles against the sources they were
+      # built from; it must run BEFORE the Build step, which would otherwise
+      # leave the working tree freshly rebuilt and mask a stale commit.
+      - name: Committed lib artifact fingerprints
+        run: pnpm libs:check
+
       - name: Build
         run: pnpm build
 

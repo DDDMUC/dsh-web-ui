@@ -110,7 +110,7 @@ function petDefinition(): PetDefinition {
   }
 }
 
-function snapshot(view: PetGameplayStateView): PetStateView {
+function snapshot(view: PetGameplayStateView, skin?: string): PetStateView {
   return {
     animation: 'idle',
     phase: 'idle',
@@ -121,6 +121,7 @@ function snapshot(view: PetGameplayStateView): PetStateView {
     pet: { id: 'miku', displayName: 'Miku', description: '' },
     name: 'Miku',
     treats: { stocked: 0, max: 5 },
+    ...(skin === undefined ? {} : { skin }),
     gameplay: view,
   }
 }
@@ -128,7 +129,7 @@ function snapshot(view: PetGameplayStateView): PetStateView {
 interface Harness {
   store: PetStoreInstance
   bus: GameplayBus
-  api: GameplayApi & { touch: ReturnType<typeof vi.fn>; setMode: ReturnType<typeof vi.fn>; workTick: ReturnType<typeof vi.fn>; buy: ReturnType<typeof vi.fn> }
+  api: GameplayApi & { touch: ReturnType<typeof vi.fn>; setMode: ReturnType<typeof vi.fn>; workTick: ReturnType<typeof vi.fn>; buy: ReturnType<typeof vi.fn>; setSkin: ReturnType<typeof vi.fn> }
   setTrack: ReturnType<typeof vi.fn>
   drag: ReturnType<typeof createDragStream>
   setView: (view: PetGameplayStateView) => void
@@ -147,6 +148,7 @@ function harness(view: PetGameplayStateView = gameplayView()): Harness {
     setMode: vi.fn(async (mode: 'work' | 'sleep' | null) => ok({ view: gameplayView({ mode }) })),
     workTick: vi.fn(async () => ok({ outcome: 'success' as const, view: gameplayView({ mode: 'work' }) })),
     buy: vi.fn(async () => ok({ view: gameplayView() })),
+    setSkin: vi.fn(async () => ({ ok: true })),
   }
   const setView = (next: PetGameplayStateView): void => store.actions.setSnapshot(snapshot(next))
   render(<GameplayHud definition={petDefinition()} store={store} api={api} bus={bus} drag={drag} t={t} />)
@@ -284,6 +286,7 @@ describe('GameplayHud', () => {
     const api = {
       touch: vi.fn(async () => ({ ok: true, view: gameplayView() })),
       setMode: vi.fn(), workTick: vi.fn(), buy: vi.fn(),
+      setSkin: vi.fn(async () => ({ ok: true })),
     } as unknown as Harness['api']
     const setTrack = vi.fn()
     const bus: GameplayBus = { setTrack }
@@ -316,6 +319,7 @@ describe('GameplayHud', () => {
     const api = {
       touch: vi.fn(async () => ({ ok: true, view: gameplayView() })),
       setMode: vi.fn(), workTick: vi.fn(), buy: vi.fn(),
+      setSkin: vi.fn(async () => ({ ok: true })),
     } as unknown as Harness['api']
     const setTrack = vi.fn()
     const bus: GameplayBus = { setTrack }
@@ -333,6 +337,101 @@ describe('GameplayHud', () => {
     vi.restoreAllMocks()
     expect(setTrack).toHaveBeenCalledWith('lanhainishang-lift-skirt')
     expect(api.touch).not.toHaveBeenCalledWith('head')
+  })
+
+  it('restores the host-persisted skin and pushes its idle track on mount', () => {
+    // Reload / client restart: the state view carries the last choice, so the
+    // renderer repaints the selected skin without any interaction.
+    const def = petDefinition()
+    def.frames2d!.skins = [
+      { id: 'lanhainishang', label: '蓝海霓裳', idleTrack: 'lanhainishang-idle' },
+    ]
+    const store = createPetStore().create()
+    store.actions.setSnapshot(snapshot(gameplayView(), 'lanhainishang'))
+    const setSkin = vi.fn(async () => ({ ok: true }))
+    const api = { touch: vi.fn(), setMode: vi.fn(), workTick: vi.fn(), buy: vi.fn(), setSkin } as unknown as Harness['api']
+    const setIdleTrack = vi.fn()
+    const bus: GameplayBus = { setTrack: vi.fn(), setIdleTrack }
+    render(<GameplayHud definition={def} store={store} api={api} bus={bus} drag={createDragStream()} t={t} />)
+    expect(setIdleTrack).toHaveBeenLastCalledWith('lanhainishang-idle')
+    // Latched on the bus too, so a later (re)mount re-applies it.
+    expect(bus.idleTrack).toBe('lanhainishang-idle')
+    // Restoring is read-only: mounting never writes the choice back.
+    expect(setSkin).not.toHaveBeenCalled()
+  })
+
+  it('persists the skin selection through the host API', async () => {
+    const def = petDefinition()
+    def.frames2d!.skins = [
+      { id: 'lanhainishang', label: '蓝海霓裳', idleTrack: 'lanhainishang-idle' },
+    ]
+    const store = createPetStore().create()
+    store.actions.setSnapshot(snapshot(gameplayView()))
+    const setSkin = vi.fn(async () => ({ ok: true }))
+    const api = { touch: vi.fn(), setMode: vi.fn(), workTick: vi.fn(), buy: vi.fn(), setSkin } as unknown as Harness['api']
+    const setIdleTrack = vi.fn()
+    const bus: GameplayBus = { setTrack: vi.fn(), setIdleTrack }
+    render(<GameplayHud definition={def} store={store} api={api} bus={bus} drag={createDragStream()} t={t} />)
+    await act(async () => {
+      bus.openCard?.()
+    })
+    fireEvent.click(screen.getByText('皮肤'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('蓝海霓裳'))
+    })
+    expect(setIdleTrack).toHaveBeenLastCalledWith('lanhainishang-idle')
+    expect(setSkin).toHaveBeenCalledWith('lanhainishang')
+  })
+
+  it('clears the persisted skin when the default look is picked', async () => {
+    const def = petDefinition()
+    def.frames2d!.skins = [
+      { id: 'lanhainishang', label: '蓝海霓裳', idleTrack: 'lanhainishang-idle' },
+    ]
+    const store = createPetStore().create()
+    store.actions.setSnapshot(snapshot(gameplayView(), 'lanhainishang'))
+    const setSkin = vi.fn(async () => ({ ok: true }))
+    const api = { touch: vi.fn(), setMode: vi.fn(), workTick: vi.fn(), buy: vi.fn(), setSkin } as unknown as Harness['api']
+    const setIdleTrack = vi.fn()
+    const bus: GameplayBus = { setTrack: vi.fn(), setIdleTrack }
+    render(<GameplayHud definition={def} store={store} api={api} bus={bus} drag={createDragStream()} t={t} />)
+    await act(async () => {
+      bus.openCard?.()
+    })
+    fireEvent.click(screen.getByText('皮肤'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('默认'))
+    })
+    expect(setSkin).toHaveBeenCalledWith(undefined)
+    expect(setIdleTrack).toHaveBeenLastCalledWith(undefined)
+  })
+
+  it('falls back to the served skin when the host rejects the choice', async () => {
+    const def = petDefinition()
+    def.frames2d!.skins = [
+      { id: 'lanhainishang', label: '蓝海霓裳', idleTrack: 'lanhainishang-idle' },
+    ]
+    const store = createPetStore().create()
+    store.actions.setSnapshot(snapshot(gameplayView()))
+    const setSkin = vi.fn(async () => ({ ok: false, error: 'unknown-skin' }))
+    const api = { touch: vi.fn(), setMode: vi.fn(), workTick: vi.fn(), buy: vi.fn(), setSkin } as unknown as Harness['api']
+    const setIdleTrack = vi.fn()
+    const bus: GameplayBus = { setTrack: vi.fn(), setIdleTrack }
+    render(<GameplayHud definition={def} store={store} api={api} bus={bus} drag={createDragStream()} t={t} />)
+    await act(async () => {
+      bus.openCard?.()
+    })
+    fireEvent.click(screen.getByText('皮肤'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('蓝海霓裳'))
+      // The rejected write settles on a later microtask; flush it so the
+      // rollback render reaches the bus before the assertion.
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(setSkin).toHaveBeenCalledWith('lanhainishang')
+    // The rejected optimistic swap rolls back to what the host still serves.
+    expect(setIdleTrack).toHaveBeenLastCalledWith(undefined)
   })
 
   it('runs the idle director: weighted act rolls on the interval', async () => {
@@ -370,6 +469,70 @@ describe('GameplayHud', () => {
     expect(h.setTrack).toHaveBeenLastCalledWith('work')
     // The tick view lands in the store (treats ride the panel ledger, not the view).
     expect(h.store.getSnapshot().snapshot?.gameplay?.mode).toBe('work')
+  })
+
+  it('drops a late work adjudication once the mode has been left', async () => {
+    // #1495: the tick RPC can still be in flight when the user exits work mode;
+    // its result must not write the work view back or play the result track.
+    const h = harness(gameplayView({ mode: 'work' }))
+    let resolveTick: ((result: PetGameplayVerbResult) => void) | undefined
+    h.api.workTick.mockImplementationOnce(() => new Promise<PetGameplayVerbResult>((resolve) => { resolveTick = resolve }))
+    await act(async () => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(h.api.workTick).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      h.setView(gameplayView({ mode: null }))
+    })
+    await act(async () => {
+      resolveTick?.({ ok: true, outcome: 'success', view: gameplayView({ mode: 'work' }) })
+      await Promise.resolve()
+    })
+    expect(h.store.getSnapshot().snapshot?.gameplay?.mode).toBeNull()
+    expect(h.setTrack).not.toHaveBeenCalledWith('success')
+  })
+
+  it('drives the skin work loop and its skin result animation on the shared 10s rule', async () => {
+    // A skin supplies its own work / result art, but the adjudication rule
+    // (10s tick, 50% roll, result hold) stays the pet-level gameplay.work rule.
+    const def = petDefinition()
+    def.frames2d!.tracks['skin-work'] = { frames: ['/pet/miku/skin-work_1.webp'], durations: [200], loop: true }
+    def.frames2d!.tracks['skin-success'] = { frames: ['/pet/miku/skin-ok_1.webp'], durations: [200], loop: false, fallback: 'skin-work' }
+    def.frames2d!.skins = [
+      {
+        id: 'skin', label: 'Skin', idleTrack: 'idle',
+        // The override key is the manifest's successState ('success' in this fixture).
+        gameplayTracks: { work: 'skin-work', success: 'skin-success' },
+      },
+    ]
+    const store = createPetStore().create()
+    store.actions.setSnapshot(snapshot(gameplayView({ mode: 'work' }), 'skin'))
+    const setTrack = vi.fn()
+    const bus: GameplayBus = { setTrack }
+    const api = {
+      touch: vi.fn(), setMode: vi.fn(),
+      workTick: vi.fn(async () => ({ ok: true, outcome: 'success' as const, view: gameplayView({ mode: 'work' }) })),
+      buy: vi.fn(), setSkin: vi.fn(async () => ({ ok: true })),
+    } as unknown as Harness['api']
+    render(<GameplayHud definition={def} store={store} api={api} bus={bus} drag={createDragStream()} t={t} />)
+    // The mode hold uses the skin's own work loop, not the manifest track.
+    expect(setTrack).toHaveBeenCalledWith('skin-work')
+    await act(async () => {
+      vi.advanceTimersByTime(10_000)
+    })
+    // One adjudication per 10s window, then the skin's own result animation.
+    expect(api.workTick).toHaveBeenCalledTimes(1)
+    expect(setTrack).toHaveBeenCalledWith('skin-success')
+    await act(async () => {
+      vi.advanceTimersByTime(1300)
+    })
+    // The result holds for resultMs, then the skin work loop resumes ...
+    expect(setTrack).toHaveBeenLastCalledWith('skin-work')
+    await act(async () => {
+      vi.advanceTimersByTime(10_000)
+    })
+    // ... and the next 10s round adjudicates again.
+    expect(api.workTick).toHaveBeenCalledTimes(2)
   })
 
   it('holds the sleep track and wakes on drag', async () => {

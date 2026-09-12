@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   installShellRenderingAdapter,
+  shellRenderingCss,
   SHELL_RENDERING_STYLE_ATTR,
 } from '../src/client/runtime/shell-rendering.ts'
 
@@ -249,5 +250,32 @@ describe('shell rendering adapter DOM work', () => {
     expect(querySpy).not.toHaveBeenCalled()
     expect(appliedHeight()).toBe('96px')
     dispose()
+  })
+})
+
+/**
+ * #1490: the dark-theme badge correction shipped for #1117 prefixed the
+ * already-scoped selector list with body[data-ds-dark-theme], which emits
+ * "body ... html ..." — the attribute sits on <body>, so no element can ever
+ * match that descendant chain and the whole rule was dead CSS.
+ */
+describe('shell rendering dark-theme badge correction', () => {
+  it('scopes the dark-theme badge rule under the active visual selectors', () => {
+    const css = shellRenderingCss()
+    expect(css).toContain('html[data-dsh-skin] body[data-ds-dark-theme] [data-question-key] [class*="_badge"]')
+    expect(css).toContain('html[data-dsh-skin] body[data-ds-dark-theme] [data-question-scroll] [class*="_badge"]')
+  })
+
+  it('never orders a scoped html prefix after a body attribute', () => {
+    // The dead-CSS shape: a body-prefixed selector whose target then requires an
+    // html ancestor. Guard the whole sheet, not just the badge rule.
+    const offenders = shellRenderingCss()
+      .split(',')
+      .filter((selector) => {
+        const body = selector.indexOf('body[')
+        const html = selector.indexOf('html[')
+        return body !== -1 && html !== -1 && body < html
+      })
+    expect(offenders).toEqual([])
   })
 })
