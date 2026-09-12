@@ -13,7 +13,7 @@
  * Packages receive this file as a generated copy via scripts/sync-shared.mjs;
  * edit the shared source and re-run the sync instead of editing a copy.
  */
-import { subscribeBodyMutations } from './body-mutations.ts'
+import { subscribeBodyInvalidations } from './body-mutations.ts'
 
 /** Per-package configuration for one sidebar entry row. */
 export interface SidebarEntryOptions {
@@ -196,7 +196,7 @@ export function mountSidebarEntry(options: SidebarEntryOptions): () => void {
   // the page-wide hub (shared/client/body-mutations.ts): every family plugin
   // used to hold its own body subtree observer, so the per-mutation cost grew
   // with the number of installed plugins; the hub keeps exactly one.
-  const unsubscribeBody = subscribeBodyMutations(() => { tryPlace() })
+  const unsubscribeBody = subscribeBodyInvalidations(() => { tryPlace() })
 
   // Self-heal: if a React re-render displaces the row, re-insert it in the
   // same frame (microtask before paint -> no visible flicker).

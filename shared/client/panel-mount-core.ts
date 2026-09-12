@@ -19,11 +19,11 @@
  * (shared/client/sidebar-entry-core.ts, synced copy).
  */
 import { createRoot, type Root } from 'react-dom/client'
-import { subscribeBodyMutations } from './body-mutations.ts'
+import { subscribeBodyInvalidations } from './body-mutations.ts'
 
 /** Options for mountCenterPanel; dsh-ssh mount.tsx and dsh-task-board board-mount.tsx are the canonical consumers. */
 export interface CenterPanelMountOptions {
-  /** Render the panel React tree into a root (initial mount, remount, locale refresh). */
+  /** Render the panel tree (first open, remount while open, locale refresh). */
   render: (root: Root) => void
   /** dataset key of the injected container's view attribute, e.g. `dshSshView` for `data-dsh-ssh-view`. */
   viewDatasetKey: string
@@ -79,21 +79,25 @@ export function mountCenterPanel(options: CenterPanelMountOptions): () => void {
   } catch { /* locale service absent: the panel follows its next natural re-render */ }
 
   const ensure = (): void => {
-    if (container !== undefined) {
-      if (container.isConnected) return
+    if (container !== undefined && !container.isConnected) {
       // The conversation pane was replaced; drop the stale tree and remount.
       root?.unmount()
       root = undefined
       container.remove()
       container = undefined
     }
-    const column = conversationColumn()
-    if (column === undefined) return
-    container = document.createElement('div')
-    container.dataset[options.viewDatasetKey] = ''
-    container.dataset.dshPlugin = options.pluginName
-    container.className = options.viewClassName
-    column.appendChild(container)
+    if (container === undefined) {
+      const column = conversationColumn()
+      if (column === undefined) return
+      container = document.createElement('div')
+      container.dataset[options.viewDatasetKey] = ''
+      container.dataset.dshPlugin = options.pluginName
+      container.className = options.viewClassName
+      column.appendChild(container)
+    }
+    // Keep a visited tree mounted so drafts and terminal sessions survive
+    // close/reopen; an unused panel needs neither a React root nor effects.
+    if (root !== undefined || !options.isOpen()) return
     root = createRoot(container)
     options.render(root)
   }
@@ -102,10 +106,11 @@ export function mountCenterPanel(options: CenterPanelMountOptions): () => void {
   // The observation is the page-wide hub (shared/client/body-mutations.ts):
   // every family panel used to hold its own document.body subtree observer, so
   // the per-mutation cost grew with the number of installed plugins.
-  const unsubscribeBody = subscribeBodyMutations(() => { ensure() })
+  const unsubscribeBody = subscribeBodyInvalidations(() => { ensure() })
 
   const applyActive = (): void => {
     if (options.isOpen()) {
+      ensure()
       // Single-occupant center column: opening this panel must evict the
       // sibling panel, both its html attribute and its controller state,
       // otherwise the two panels' visibility rules fight and the second

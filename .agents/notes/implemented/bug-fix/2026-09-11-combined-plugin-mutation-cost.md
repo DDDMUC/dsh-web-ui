@@ -22,6 +22,8 @@ Measured with a controlled Chromium harness (real modules bundled by tsdown from
 
 ## Measured effect
 
+The follow-up [idle resources in plugin combinations](2026-09-12-plugin-composition-idle-resources.md) adds record-free invalidation subscriptions, pending-frame cleanup, and a single shared-frame shim pass. The original record-delivery API remains available. The measurements below describe this note's original observer consolidation.
+
 Same harness, same three runs, visible storm (301 frames per 5 s):
 
 | Metric (mean of 3) | Before | After | Change |

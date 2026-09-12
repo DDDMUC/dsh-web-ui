@@ -22,6 +22,8 @@ Supersession check: 没有现行 note 拥有家族插件 DOM 观察成本这一�
 
 ## Measured effect
 
+后续的[插件组合闲置资源](2026-09-12-plugin-composition-idle-resources.md)补充了不保存记录的失效通知订阅、待处理帧清理，以及直接在共享帧中运行的 shim 检查。原有记录交付 API 继续可用。下列测量描述本 note 最初的观察器合并。
+
 同一基准、同样三轮、可见风暴（每 5 秒 301 帧）：
 
 | 指标（三轮均值） | 改动前 | 改动后 | 变化 |

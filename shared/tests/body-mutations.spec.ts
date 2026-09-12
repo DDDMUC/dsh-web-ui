@@ -4,7 +4,7 @@
  * delivered and clean teardown of the last subscriber.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { subscribeBodyMutations } from '../client/body-mutations.ts'
+import { subscribeBodyInvalidations, subscribeBodyMutations } from '../client/body-mutations.ts'
 
 const HUB_KEY = Symbol.for('dsh-web.body-mutation-hub')
 
@@ -44,18 +44,20 @@ function spyOnMutationObserver(): MutationObserverSpy {
 
 /** Controllable animation-frame queue (jsdom's rAF timing is not deterministic here). */
 function stubAnimationFrame(): { flush: () => void; pending: () => number } {
-  const queue: FrameRequestCallback[] = []
+  const queue = new Map<number, FrameRequestCallback>()
+  let id = 0
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-    queue.push(callback)
-    return queue.length
+    queue.set(++id, callback)
+    return id
   })
-  vi.stubGlobal('cancelAnimationFrame', () => {})
+  vi.stubGlobal('cancelAnimationFrame', (frame: number) => { queue.delete(frame) })
   return {
     flush: () => {
-      const batch = queue.splice(0, queue.length)
+      const batch = [...queue.values()]
+      queue.clear()
       for (const callback of batch) callback(0)
     },
-    pending: () => queue.length,
+    pending: () => queue.size,
   }
 }
 
@@ -157,5 +159,144 @@ describe('subscribeBodyMutations', () => {
     vi.stubGlobal('MutationObserver', undefined)
     const dispose = subscribeBodyMutations(() => {})
     expect(() => dispose()).not.toThrow()
+  })
+
+  it('coalesces invalidations without retaining detached subtrees while frames are paused', async () => {
+    const frames = stubAnimationFrame()
+    const listener = vi.fn()
+    const dispose = subscribeBodyInvalidations(listener)
+    const region = document.createElement('section')
+    document.body.appendChild(region)
+    for (let index = 0; index < 1000; index += 1) region.replaceChildren(document.createElement('article'))
+    await Promise.resolve()
+
+    const hub = (globalThis as unknown as Record<symbol, { pending: MutationRecord[] }>)[HUB_KEY]
+    expect(hub.pending).toHaveLength(0)
+    expect(listener).not.toHaveBeenCalled()
+    expect(frames.pending()).toBe(1)
+    frames.flush()
+    expect(listener).toHaveBeenCalledOnce()
+    expect(listener).toHaveBeenCalledWith()
+    dispose()
+    region.remove()
+  })
+
+  it('preserves complete records when record consumers coexist with invalidation consumers', async () => {
+    const frames = stubAnimationFrame()
+    const invalidated = vi.fn()
+    const recorded = vi.fn()
+    const disposeInvalidated = subscribeBodyInvalidations(invalidated)
+    const disposeRecorded = subscribeBodyMutations(recorded)
+    const node = document.createElement('article')
+    document.body.appendChild(node)
+    node.remove()
+    await Promise.resolve()
+    frames.flush()
+
+    const records = recorded.mock.calls[0][0] as MutationRecord[]
+    expect(records.some(record => Array.from(record.addedNodes).includes(node))).toBe(true)
+    expect(records.some(record => Array.from(record.removedNodes).includes(node))).toBe(true)
+    expect(invalidated).toHaveBeenCalledOnce()
+    disposeRecorded()
+
+    document.body.appendChild(node)
+    await Promise.resolve()
+    const hub = (globalThis as unknown as Record<symbol, { pending: MutationRecord[] }>)[HUB_KEY]
+    expect(hub.pending).toHaveLength(0)
+    frames.flush()
+    expect(invalidated).toHaveBeenCalledTimes(2)
+    disposeInvalidated()
+    node.remove()
+  })
+
+  it('releases queued records when only invalidation subscribers remain', async () => {
+    const frames = stubAnimationFrame()
+    const invalidated = vi.fn()
+    const disposeInvalidated = subscribeBodyInvalidations(invalidated)
+    const disposeRecorded = subscribeBodyMutations(() => {})
+    document.body.appendChild(document.createElement('div'))
+    await Promise.resolve()
+    const hub = (globalThis as unknown as Record<symbol, { pending: MutationRecord[] }>)[HUB_KEY]
+    expect(hub.pending.length).toBeGreaterThan(0)
+    disposeRecorded()
+    expect(hub.pending).toHaveLength(0)
+    expect(frames.pending()).toBe(1)
+    frames.flush()
+    expect(invalidated).toHaveBeenCalledOnce()
+    disposeInvalidated()
+  })
+
+  it('shares one hub across separately evaluated module copies', async () => {
+    const spy = spyOnMutationObserver()
+    const frames = stubAnimationFrame()
+    const first = vi.fn()
+    const second = vi.fn()
+    const disposeFirst = subscribeBodyInvalidations(first)
+    vi.resetModules()
+    const copy = await import('../client/body-mutations.ts')
+    const disposeSecond = copy.subscribeBodyInvalidations(second)
+    document.body.appendChild(document.createElement('div'))
+    await Promise.resolve()
+    frames.flush()
+    expect(spy.instances).toBe(1)
+    expect(first).toHaveBeenCalledOnce()
+    expect(second).toHaveBeenCalledOnce()
+    disposeFirst()
+    expect(spy.disconnects).toBe(0)
+    disposeSecond()
+    expect(spy.disconnects).toBe(1)
+  })
+
+  it('can join an older hub whose subscribers still receive records', () => {
+    const observer = { disconnect: vi.fn() }
+    const subscribers = new Set<(records: MutationRecord[]) => void>()
+    const registry = globalThis as unknown as Record<symbol, unknown>
+    registry[HUB_KEY] = { observer, subscribers, pending: [], scheduled: false }
+    const listener = vi.fn()
+    const dispose = subscribeBodyInvalidations(listener)
+    for (const subscribed of subscribers) subscribed([])
+    expect(listener).toHaveBeenCalledOnce()
+    dispose()
+    expect(observer.disconnect).toHaveBeenCalledOnce()
+    expect(registry[HUB_KEY]).toBeUndefined()
+  })
+
+  it('cancels a pending frame and releases its records after the last unsubscribe', async () => {
+    const frames = stubAnimationFrame()
+    const listener = vi.fn()
+    const dispose = subscribeBodyMutations(listener)
+    document.body.appendChild(document.createElement('div'))
+    await Promise.resolve()
+    const hub = (globalThis as unknown as Record<symbol, { pending: MutationRecord[] }>)[HUB_KEY]
+    expect(hub.pending.length).toBeGreaterThan(0)
+    dispose()
+    dispose()
+    expect(hub.pending).toHaveLength(0)
+    expect(frames.pending()).toBe(0)
+    frames.flush()
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('does not invoke a listener unsubscribed by an earlier listener in the same flush', async () => {
+    const frames = stubAnimationFrame()
+    const second = vi.fn()
+    let disposeSecond = () => {}
+    const disposeFirst = subscribeBodyInvalidations(() => { disposeSecond() })
+    disposeSecond = subscribeBodyInvalidations(second)
+    document.body.appendChild(document.createElement('div'))
+    await Promise.resolve()
+    frames.flush()
+    expect(second).not.toHaveBeenCalled()
+    disposeFirst()
+  })
+
+  it('delivers invalidations without animation-frame support', async () => {
+    vi.stubGlobal('requestAnimationFrame', undefined)
+    const listener = vi.fn()
+    const dispose = subscribeBodyInvalidations(listener)
+    document.body.appendChild(document.createElement('div'))
+    await Promise.resolve()
+    expect(listener).toHaveBeenCalledOnce()
+    dispose()
   })
 })

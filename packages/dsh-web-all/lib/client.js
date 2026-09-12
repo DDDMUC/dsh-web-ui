@@ -8075,6 +8075,23 @@ window.__ModuleLoader__.load({
 		//#region ../dsh-task-board/src/client/body-mutations.ts
 		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
 		const HUB_KEY$3 = Symbol.for("dsh-web.body-mutation-hub");
+		const INVALIDATION_ONLY$3 = Symbol.for("dsh-web.body-mutation-invalidation");
+		function needsRecords$3(subscribers) {
+			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$3]) return true;
+			return false;
+		}
+		/**
+		* Subscribe to a coalesced DOM re-check without retaining mutation records.
+		* The marked wrapper also works with an older hub, which delivers records
+		* that it simply ignores until a page reload picks up the updated hub.
+		*/
+		function subscribeBodyInvalidations$3(subscriber) {
+			const listener = () => {
+				subscriber();
+			};
+			listener[INVALIDATION_ONLY$3] = true;
+			return subscribeBodyMutations$3(listener);
+		}
 		/**
 		* Subscribe to body-level childList mutations.
 		* @param subscriber - called at most once per animation frame with the records
@@ -8096,21 +8113,25 @@ window.__ModuleLoader__.load({
 					scheduled: false
 				};
 				const flush = () => {
+					created.frame = void 0;
 					created.scheduled = false;
 					const batch = created.pending;
 					created.pending = [];
-					for (const listener of [...subscribers]) try {
-						listener(batch);
-					} catch {}
+					for (const listener of [...subscribers]) {
+						if (!subscribers.has(listener)) continue;
+						try {
+							listener(batch);
+						} catch {}
+					}
 				};
 				const schedule = () => {
 					if (created.scheduled) return;
 					created.scheduled = true;
-					if (typeof requestAnimationFrame === "function") requestAnimationFrame(flush);
+					if (typeof requestAnimationFrame === "function") created.frame = requestAnimationFrame(flush);
 					else flush();
 				};
 				created.observer = new MutationObserver((records) => {
-					for (const record of records) created.pending.push(record);
+					if (needsRecords$3(subscribers)) for (const record of records) created.pending.push(record);
 					schedule();
 				});
 				created.observer.observe(document.body ?? document.documentElement, {
@@ -8127,8 +8148,13 @@ window.__ModuleLoader__.load({
 				if (!subscribed) return;
 				subscribed = false;
 				active.subscribers.delete(subscriber);
+				if (!needsRecords$3(active.subscribers)) active.pending = [];
 				if (active.subscribers.size === 0 && registry[HUB_KEY$3] === active) {
 					active.observer.disconnect();
+					if (active.frame !== void 0 && typeof cancelAnimationFrame === "function") cancelAnimationFrame(active.frame);
+					active.frame = void 0;
+					active.pending = [];
+					active.scheduled = false;
 					delete registry[HUB_KEY$3];
 				}
 			};
@@ -8178,28 +8204,31 @@ window.__ModuleLoader__.load({
 				});
 			} catch {}
 			const ensure = () => {
-				if (container !== void 0) {
-					if (container.isConnected) return;
+				if (container !== void 0 && !container.isConnected) {
 					root?.unmount();
 					root = void 0;
 					container.remove();
 					container = void 0;
 				}
-				const column = conversationColumn$1();
-				if (column === void 0) return;
-				container = document.createElement("div");
-				container.dataset[options.viewDatasetKey] = "";
-				container.dataset.dshPlugin = options.pluginName;
-				container.className = options.viewClassName;
-				column.appendChild(container);
+				if (container === void 0) {
+					const column = conversationColumn$1();
+					if (column === void 0) return;
+					container = document.createElement("div");
+					container.dataset[options.viewDatasetKey] = "";
+					container.dataset.dshPlugin = options.pluginName;
+					container.className = options.viewClassName;
+					column.appendChild(container);
+				}
+				if (root !== void 0 || !options.isOpen()) return;
 				root = (0, react_dom_client.createRoot)(container);
 				options.render(root);
 			};
-			const unsubscribeBody = subscribeBodyMutations$3(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$3(() => {
 				ensure();
 			});
 			const applyActive = () => {
 				if (options.isOpen()) {
+					ensure();
 					document.documentElement.removeAttribute(options.siblingActiveAttribute);
 					document.documentElement.setAttribute(options.activeAttribute, "");
 					document.dispatchEvent(new CustomEvent(ACTIVATE_EVENT$1, { detail: options.panelName }));
@@ -8363,7 +8392,7 @@ window.__ModuleLoader__.load({
 					subtree: true
 				});
 			};
-			const unsubscribeBody = subscribeBodyMutations$3(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$3(() => {
 				tryPlace();
 			});
 			const rootObserver = new MutationObserver(() => {
@@ -36568,10 +36597,10 @@ window.__ModuleLoader__.load({
 		//#region ../dsh-ssh/src/client/panel/TunnelsTab.tsx
 		/**
 		* Tunnels tab: the live local port-forward list (auto-refresh every 5s while
-		* mounted) with per-row stop, a stop-all action scoped to the selected alias,
+		* visible) with per-row stop, a stop-all action scoped to the selected alias,
 		* and a new-tunnel form.
 		*/
-		/** Live-tunnel polling interval while the tab is mounted (ms). */
+		/** Live-tunnel polling interval while the tab and page are visible (ms). */
 		const TUNNEL_POLL_MS = 5e3;
 		/**
 		* Return `next` only when the tunnel list changed in a user-visible way
@@ -36590,7 +36619,7 @@ window.__ModuleLoader__.load({
 			return null;
 		}
 		/** The tunnels tab. */
-		function TunnelsTab({ api }) {
+		function TunnelsTab({ api, active = true }) {
 			const [hosts, setHosts] = (0, react.useState)([]);
 			const [tunnels, setTunnels] = (0, react.useState)(null);
 			const [error, setError] = (0, react.useState)(null);
@@ -36613,27 +36642,61 @@ window.__ModuleLoader__.load({
 				};
 			}, [api]);
 			const seqRef = (0, react.useRef)(0);
+			const automaticRead = (0, react.useRef)({ running: false });
 			(0, react.useEffect)(() => {
+				if (!active) return;
+				let disposed = false;
+				const read = automaticRead.current;
+				let timer;
 				const load = async () => {
+					if (disposed || read.running || document.visibilityState === "hidden") return;
+					read.running = true;
 					const seq = ++seqRef.current;
 					try {
 						const list = await api.listTunnels();
-						if (seq !== seqRef.current) return;
+						if (disposed || seq !== seqRef.current) return;
 						setTunnels((prev) => diffTunnels(prev, list) ?? prev);
 						setError(null);
 					} catch (cause) {
-						if (seq !== seqRef.current) return;
+						if (disposed || seq !== seqRef.current) return;
 						setError(errorMessage(cause));
+					} finally {
+						read.running = false;
+						const resume = read.resume;
+						read.resume = void 0;
+						resume?.();
 					}
 				};
-				load();
-				const timer = setInterval(() => {
-					load();
-				}, TUNNEL_POLL_MS);
-				return () => {
-					clearInterval(timer);
+				const resume = () => {
+					if (disposed || document.visibilityState === "hidden") return;
+					if (read.running) read.resume = resume;
+					else load();
 				};
-			}, [api]);
+				const stop = () => {
+					if (timer !== void 0) clearInterval(timer);
+					timer = void 0;
+				};
+				const onVisibility = () => {
+					if (document.visibilityState === "hidden") {
+						stop();
+						if (read.resume === resume) read.resume = void 0;
+					} else if (timer === void 0) {
+						resume();
+						timer = setInterval(() => {
+							load();
+						}, TUNNEL_POLL_MS);
+					}
+				};
+				document.addEventListener("visibilitychange", onVisibility);
+				onVisibility();
+				return () => {
+					disposed = true;
+					seqRef.current += 1;
+					if (read.resume === resume) read.resume = void 0;
+					stop();
+					document.removeEventListener("visibilitychange", onVisibility);
+				};
+			}, [api, active]);
 			const refresh = async () => {
 				const seq = ++seqRef.current;
 				try {
@@ -36877,6 +36940,7 @@ window.__ModuleLoader__.load({
 		];
 		/** The tabbed SSH panel. */
 		function SshPanel({ controller, api, terminalFont }) {
+			const panelOpen = (0, react.useSyncExternalStore)((0, react.useCallback)((listener) => controller.subscribe(listener), [controller]), (0, react.useCallback)(() => controller.getSnapshot().panelOpen, [controller]));
 			const [activeTab, setActiveTab] = (0, react.useState)("hosts");
 			const [connectRequest, setConnectRequest] = (0, react.useState)(null);
 			const handleConnect = (alias) => {
@@ -36940,7 +37004,10 @@ window.__ModuleLoader__.load({
 								terminalFont
 							}),
 							activeTab === "transfer" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TransferTab, { api }),
-							activeTab === "tunnels" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TunnelsTab, { api }),
+							activeTab === "tunnels" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TunnelsTab, {
+								api,
+								active: panelOpen
+							}),
 							activeTab === "cluster" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ClusterTab, { api })
 						]
 					})
@@ -36951,6 +37018,23 @@ window.__ModuleLoader__.load({
 		//#region ../dsh-ssh/src/client/body-mutations.ts
 		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
 		const HUB_KEY$2 = Symbol.for("dsh-web.body-mutation-hub");
+		const INVALIDATION_ONLY$2 = Symbol.for("dsh-web.body-mutation-invalidation");
+		function needsRecords$2(subscribers) {
+			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$2]) return true;
+			return false;
+		}
+		/**
+		* Subscribe to a coalesced DOM re-check without retaining mutation records.
+		* The marked wrapper also works with an older hub, which delivers records
+		* that it simply ignores until a page reload picks up the updated hub.
+		*/
+		function subscribeBodyInvalidations$2(subscriber) {
+			const listener = () => {
+				subscriber();
+			};
+			listener[INVALIDATION_ONLY$2] = true;
+			return subscribeBodyMutations$2(listener);
+		}
 		/**
 		* Subscribe to body-level childList mutations.
 		* @param subscriber - called at most once per animation frame with the records
@@ -36972,21 +37056,25 @@ window.__ModuleLoader__.load({
 					scheduled: false
 				};
 				const flush = () => {
+					created.frame = void 0;
 					created.scheduled = false;
 					const batch = created.pending;
 					created.pending = [];
-					for (const listener of [...subscribers]) try {
-						listener(batch);
-					} catch {}
+					for (const listener of [...subscribers]) {
+						if (!subscribers.has(listener)) continue;
+						try {
+							listener(batch);
+						} catch {}
+					}
 				};
 				const schedule = () => {
 					if (created.scheduled) return;
 					created.scheduled = true;
-					if (typeof requestAnimationFrame === "function") requestAnimationFrame(flush);
+					if (typeof requestAnimationFrame === "function") created.frame = requestAnimationFrame(flush);
 					else flush();
 				};
 				created.observer = new MutationObserver((records) => {
-					for (const record of records) created.pending.push(record);
+					if (needsRecords$2(subscribers)) for (const record of records) created.pending.push(record);
 					schedule();
 				});
 				created.observer.observe(document.body ?? document.documentElement, {
@@ -37003,8 +37091,13 @@ window.__ModuleLoader__.load({
 				if (!subscribed) return;
 				subscribed = false;
 				active.subscribers.delete(subscriber);
+				if (!needsRecords$2(active.subscribers)) active.pending = [];
 				if (active.subscribers.size === 0 && registry[HUB_KEY$2] === active) {
 					active.observer.disconnect();
+					if (active.frame !== void 0 && typeof cancelAnimationFrame === "function") cancelAnimationFrame(active.frame);
+					active.frame = void 0;
+					active.pending = [];
+					active.scheduled = false;
 					delete registry[HUB_KEY$2];
 				}
 			};
@@ -37054,28 +37147,31 @@ window.__ModuleLoader__.load({
 				});
 			} catch {}
 			const ensure = () => {
-				if (container !== void 0) {
-					if (container.isConnected) return;
+				if (container !== void 0 && !container.isConnected) {
 					root?.unmount();
 					root = void 0;
 					container.remove();
 					container = void 0;
 				}
-				const column = conversationColumn();
-				if (column === void 0) return;
-				container = document.createElement("div");
-				container.dataset[options.viewDatasetKey] = "";
-				container.dataset.dshPlugin = options.pluginName;
-				container.className = options.viewClassName;
-				column.appendChild(container);
+				if (container === void 0) {
+					const column = conversationColumn();
+					if (column === void 0) return;
+					container = document.createElement("div");
+					container.dataset[options.viewDatasetKey] = "";
+					container.dataset.dshPlugin = options.pluginName;
+					container.className = options.viewClassName;
+					column.appendChild(container);
+				}
+				if (root !== void 0 || !options.isOpen()) return;
 				root = (0, react_dom_client.createRoot)(container);
 				options.render(root);
 			};
-			const unsubscribeBody = subscribeBodyMutations$2(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$2(() => {
 				ensure();
 			});
 			const applyActive = () => {
 				if (options.isOpen()) {
+					ensure();
 					document.documentElement.removeAttribute(options.siblingActiveAttribute);
 					document.documentElement.setAttribute(options.activeAttribute, "");
 					document.dispatchEvent(new CustomEvent(ACTIVATE_EVENT, { detail: options.panelName }));
@@ -37278,7 +37374,7 @@ window.__ModuleLoader__.load({
 					subtree: true
 				});
 			};
-			const unsubscribeBody = subscribeBodyMutations$2(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$2(() => {
 				tryPlace();
 			});
 			const rootObserver = new MutationObserver(() => {
@@ -41406,6 +41502,23 @@ window.__ModuleLoader__.load({
 		//#region ../dsh-skill-explorer/src/client/body-mutations.ts
 		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
 		const HUB_KEY$1 = Symbol.for("dsh-web.body-mutation-hub");
+		const INVALIDATION_ONLY$1 = Symbol.for("dsh-web.body-mutation-invalidation");
+		function needsRecords$1(subscribers) {
+			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$1]) return true;
+			return false;
+		}
+		/**
+		* Subscribe to a coalesced DOM re-check without retaining mutation records.
+		* The marked wrapper also works with an older hub, which delivers records
+		* that it simply ignores until a page reload picks up the updated hub.
+		*/
+		function subscribeBodyInvalidations$1(subscriber) {
+			const listener = () => {
+				subscriber();
+			};
+			listener[INVALIDATION_ONLY$1] = true;
+			return subscribeBodyMutations$1(listener);
+		}
 		/**
 		* Subscribe to body-level childList mutations.
 		* @param subscriber - called at most once per animation frame with the records
@@ -41427,21 +41540,25 @@ window.__ModuleLoader__.load({
 					scheduled: false
 				};
 				const flush = () => {
+					created.frame = void 0;
 					created.scheduled = false;
 					const batch = created.pending;
 					created.pending = [];
-					for (const listener of [...subscribers]) try {
-						listener(batch);
-					} catch {}
+					for (const listener of [...subscribers]) {
+						if (!subscribers.has(listener)) continue;
+						try {
+							listener(batch);
+						} catch {}
+					}
 				};
 				const schedule = () => {
 					if (created.scheduled) return;
 					created.scheduled = true;
-					if (typeof requestAnimationFrame === "function") requestAnimationFrame(flush);
+					if (typeof requestAnimationFrame === "function") created.frame = requestAnimationFrame(flush);
 					else flush();
 				};
 				created.observer = new MutationObserver((records) => {
-					for (const record of records) created.pending.push(record);
+					if (needsRecords$1(subscribers)) for (const record of records) created.pending.push(record);
 					schedule();
 				});
 				created.observer.observe(document.body ?? document.documentElement, {
@@ -41458,8 +41575,13 @@ window.__ModuleLoader__.load({
 				if (!subscribed) return;
 				subscribed = false;
 				active.subscribers.delete(subscriber);
+				if (!needsRecords$1(active.subscribers)) active.pending = [];
 				if (active.subscribers.size === 0 && registry[HUB_KEY$1] === active) {
 					active.observer.disconnect();
+					if (active.frame !== void 0 && typeof cancelAnimationFrame === "function") cancelAnimationFrame(active.frame);
+					active.frame = void 0;
+					active.pending = [];
+					active.scheduled = false;
 					delete registry[HUB_KEY$1];
 				}
 			};
@@ -41569,7 +41691,7 @@ window.__ModuleLoader__.load({
 					subtree: true
 				});
 			};
-			const unsubscribeBody = subscribeBodyMutations$1(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$1(() => {
 				tryPlace();
 			});
 			const rootObserver = new MutationObserver(() => {
@@ -56548,6 +56670,23 @@ window.__ModuleLoader__.load({
 		//#region src/client/body-mutations.ts
 		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
 		const HUB_KEY = Symbol.for("dsh-web.body-mutation-hub");
+		const INVALIDATION_ONLY = Symbol.for("dsh-web.body-mutation-invalidation");
+		function needsRecords(subscribers) {
+			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY]) return true;
+			return false;
+		}
+		/**
+		* Subscribe to a coalesced DOM re-check without retaining mutation records.
+		* The marked wrapper also works with an older hub, which delivers records
+		* that it simply ignores until a page reload picks up the updated hub.
+		*/
+		function subscribeBodyInvalidations(subscriber) {
+			const listener = () => {
+				subscriber();
+			};
+			listener[INVALIDATION_ONLY] = true;
+			return subscribeBodyMutations(listener);
+		}
 		/**
 		* Subscribe to body-level childList mutations.
 		* @param subscriber - called at most once per animation frame with the records
@@ -56569,21 +56708,25 @@ window.__ModuleLoader__.load({
 					scheduled: false
 				};
 				const flush = () => {
+					created.frame = void 0;
 					created.scheduled = false;
 					const batch = created.pending;
 					created.pending = [];
-					for (const listener of [...subscribers]) try {
-						listener(batch);
-					} catch {}
+					for (const listener of [...subscribers]) {
+						if (!subscribers.has(listener)) continue;
+						try {
+							listener(batch);
+						} catch {}
+					}
 				};
 				const schedule = () => {
 					if (created.scheduled) return;
 					created.scheduled = true;
-					if (typeof requestAnimationFrame === "function") requestAnimationFrame(flush);
+					if (typeof requestAnimationFrame === "function") created.frame = requestAnimationFrame(flush);
 					else flush();
 				};
 				created.observer = new MutationObserver((records) => {
-					for (const record of records) created.pending.push(record);
+					if (needsRecords(subscribers)) for (const record of records) created.pending.push(record);
 					schedule();
 				});
 				created.observer.observe(document.body ?? document.documentElement, {
@@ -56600,8 +56743,13 @@ window.__ModuleLoader__.load({
 				if (!subscribed) return;
 				subscribed = false;
 				active.subscribers.delete(subscriber);
+				if (!needsRecords(active.subscribers)) active.pending = [];
 				if (active.subscribers.size === 0 && registry[HUB_KEY] === active) {
 					active.observer.disconnect();
+					if (active.frame !== void 0 && typeof cancelAnimationFrame === "function") cancelAnimationFrame(active.frame);
+					active.frame = void 0;
+					active.pending = [];
+					active.scheduled = false;
 					delete registry[HUB_KEY];
 				}
 			};
@@ -56913,25 +57061,6 @@ window.__ModuleLoader__.load({
 			if (frame !== null) changed = stampSemanticParts(frame) || changed;
 			return changed;
 		}
-		/**
-		* Coalesce mutation bursts into one pass per frame. React renders burst
-		* dozens of subtree mutations per commit; stamping on every single mutation
-		* callback turned each render into many querySelector sweeps. A scheduled
-		* rAF plus a done flag folds the whole burst into a single pass, and the
-		* idempotence check stops the work entirely once every attribute is set.
-		*/
-		function schedulePass() {
-			if (shimScheduled) return;
-			shimScheduled = true;
-			requestAnimationFrame(() => {
-				shimScheduled = false;
-				applyShims();
-				shimAfterPass?.();
-			});
-		}
-		/** True while a coalesced pass is pending. */
-		let shimScheduled = false;
-		let shimAfterPass;
 		function installBootShield() {
 			if (typeof document === "undefined") return {
 				dismiss: () => {},
@@ -56992,9 +57121,8 @@ window.__ModuleLoader__.load({
 					dismissFrame = frame;
 				};
 				ensureMobileDismiss();
-				shimAfterPass = ensureMobileDismiss;
-				const unsubscribeBody = subscribeBodyMutations(() => {
-					schedulePass();
+				const unsubscribeBody = subscribeBodyInvalidations(() => {
+					applyShims();
 					ensureMobileDismiss();
 				});
 				return () => {
@@ -57002,8 +57130,6 @@ window.__ModuleLoader__.load({
 					bootShield.remove();
 					responsiveStyle.remove();
 					removeMobileDismiss();
-					shimAfterPass = void 0;
-					shimScheduled = false;
 				};
 			});
 		}

@@ -27,6 +27,8 @@ A hot-pluggable DeepSeek Harness (DSH) Web GUI plugin with a Host-authoritative 
 
 ## Architecture and protocol
 
+The board view renders on first open and keeps its local view state when closed and reopened. Host synchronization, scheduling and execution remain active independently of the view.
+
 - `src/index.ts` mounts the Host service through the official `@deepseek-ai/dsh-api-gateway`, `@deepseek-ai/dsh-workspace`, and `@deepseek-ai/dsh-host-webserver` SDKs.
 - `src/host-ledger.ts` serializes actions and persists `{ schemaVersion: 3, revision, tasks, scheduler, recentRequests }` through a temporary file plus atomic rename.
 - `src/host-service.ts` owns cron ticks, missed-trigger skipping, runner launch, restart reconciliation, and power reasons.
