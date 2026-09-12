@@ -18455,7 +18455,10 @@ window.__ModuleLoader__.load({
 			(0, react.useEffect)(() => {
 				const work = def?.work;
 				if (def === void 0 || work === void 0 || view?.mode !== "work") return void 0;
-				bus.setTrack?.(work.state);
+				const skinGameplay = definition.frames2d?.skins?.find((skin) => skin.id === skinIdRef.current)?.gameplayTracks;
+				/** The state's track, swapped for the skin's override when it declares one. */
+				const trackOf = (state) => skinGameplay?.[state] ?? state;
+				bus.setTrack?.(trackOf(work.state));
 				let resultTimer = 0;
 				const timer = window.setInterval(() => {
 					if (busyRef.current) return;
@@ -18464,11 +18467,11 @@ window.__ModuleLoader__.load({
 						busyRef.current = false;
 						applyResult(result);
 						if (result.ok !== true || result.outcome === void 0) return;
-						const resultTrack = result.outcome === "success" ? work.successState : work.failState;
+						const resultTrack = trackOf(result.outcome === "success" ? work.successState : work.failState);
 						const hold = result.outcome === "success" ? work.resultMs?.success ?? 1300 : work.resultMs?.fail ?? 1900;
 						bus.setTrack?.(resultTrack);
 						resultTimer = window.setTimeout(() => {
-							if (modeRef.current === "work") bus.setTrack?.(work.state);
+							if (modeRef.current === "work") bus.setTrack?.(trackOf(work.state));
 						}, hold);
 					}, () => {
 						busyRef.current = false;
@@ -18482,7 +18485,8 @@ window.__ModuleLoader__.load({
 			}, [
 				definition.id,
 				def,
-				view?.mode
+				view?.mode,
+				skinId
 			]);
 			(0, react.useEffect)(() => {
 				const sleep = def?.sleep;
