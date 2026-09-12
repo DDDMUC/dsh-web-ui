@@ -18148,6 +18148,7 @@ window.__ModuleLoader__.load({
 					gameplayBus.setIdleTrack = (track) => {
 						handleRef.current?.setIdleTrack(track);
 					};
+					if (gameplayBus.idleTrack !== void 0) handle.setIdleTrack(gameplayBus.idleTrack);
 					cleanups.push(() => {
 						gameplayBus.setTrack = void 0;
 						gameplayBus.setIdleTrack = void 0;
@@ -18523,8 +18524,13 @@ window.__ModuleLoader__.load({
 			}, [definition.id, persistedSkin]);
 			(0, react.useEffect)(() => {
 				const skin = definition.frames2d?.skins?.find((candidate) => candidate.id === skinId);
+				bus.idleTrack = skin?.idleTrack;
 				bus.setIdleTrack?.(skin?.idleTrack);
-			}, [definition.id, skinId]);
+			}, [
+				definition.id,
+				skinId,
+				persistedSkin
+			]);
 			const skins = definition.frames2d?.skins;
 			/** The base idle track one skin id resolves to (undefined = default look). */
 			const skinTrackOf = (id) => id === void 0 ? void 0 : definition.frames2d?.skins?.find((candidate) => candidate.id === id)?.idleTrack;
