@@ -98,9 +98,12 @@ export function apply(ctx: ClientContext): void {
     usageApi.overview().then((snapshot) => {
       if (seq !== pollSeq) return
       store.actions.setSnapshot(snapshot)
-    }, () => {
+    }, (error: unknown) => {
       if (seq !== pollSeq) return
-      store.actions.setState('error', 'usage.overview transport error')
+      // Surface the transport's own message: a 404 here means the host has no
+      // /api/dsh-usage/overview route (plugin disabled), which the panel must be
+      // able to tell apart from a genuine failure.
+      store.actions.setState('error', error instanceof Error ? error.message : String(error))
     })
   }
   // The refresh response is authoritative: it reflects the completed probe
@@ -112,9 +115,9 @@ export function apply(ctx: ClientContext): void {
     usageApi.refresh().then((snapshot) => {
       pollSeq = seq
       store.actions.setSnapshot(snapshot)
-    }, () => {
+    }, (error: unknown) => {
       if (seq !== pollSeq) return
-      store.actions.setState('error', 'usage.refresh transport error')
+      store.actions.setState('error', error instanceof Error ? error.message : String(error))
     })
   }
 

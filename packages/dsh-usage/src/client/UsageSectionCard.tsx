@@ -154,11 +154,20 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
   const settingsValue = settingsSnapshot.value ?? {}
   const [tab, setTab] = useState<'usage' | 'plans' | 'bank'>('usage')
   const [refreshing, setRefreshing] = useState(false)
+  // The enable checkbox writes through the settings scope, so subscribing here
+  // keeps the flag below live: the poll starts and stops with it instead of
+  // waiting for an unrelated render.
+  const [, bumpSettings] = useState(0)
+  useEffect(() => settings.subscribe(() => bumpSettings((count) => count + 1)), [settings])
+  const enabled = settingsValue.enabled ?? true
 
-  // Poll while mounted and visible; the overview is cheap (no probes — the
-  // host's own cycle owns those) so 10 s keeps balances fresh-ish between
+  // Poll while mounted, enabled and visible; the overview is cheap (no probes —
+  // the host's own cycle owns those) so 10 s keeps balances fresh-ish between
   // manual refreshes.
   useEffect(() => {
+    // A disabled plugin deregisters its host routes, so the poll must stop with
+    // it; the section re-enables by writing the flag back through the checkbox.
+    if (!enabled) return undefined
     poll()
     let timer: number | undefined
     const start = (): void => {
@@ -179,7 +188,7 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
       if (timer !== undefined) window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [poll])
+  }, [poll, enabled])
 
   const snapshot = ui.snapshot
 
@@ -193,11 +202,22 @@ export function UsageSectionCard(props: UsageSectionProps): ReactNode {
     }
   }
 
-  if (ui.status === 'error') {
-    return <div className={styles.section} data-dsh-plugin="usage">{t('usage.error', { error: ui.error ?? '' })}</div>
-  }
-  if (snapshot === null) {
-    return <div className={styles.section} data-dsh-plugin="usage">{t('usage.loading')}</div>
+  // Disabled, failed and still-loading states keep the settings row mounted:
+  // it owns the enable checkbox, so replacing the whole panel would leave the
+  // user no way back from the UI.
+  if (!enabled || ui.status === 'error' || snapshot === null) {
+    return (
+      <div className={styles.section} data-dsh-plugin="usage">
+        <span className={styles.muted} data-dsh-part="status-line">
+          {!enabled
+            ? t('usage.disabled')
+            : ui.status === 'error'
+              ? t('usage.error', { error: ui.error ?? '' })
+              : t('usage.loading')}
+        </span>
+        <SettingsRow settings={settings} snapshot={settingsSnapshot.status === 'ready' ? settingsSnapshot : undefined} value={settingsValue} />
+      </div>
+    )
   }
 
   const current = snapshot.current

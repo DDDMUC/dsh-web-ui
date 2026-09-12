@@ -8,8 +8,8 @@
  * "nothing configured" from "configured but no balance endpoint".
  */
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { UsageSectionCard, type UsageSettings } from '../src/client/UsageSectionCard.tsx'
@@ -45,7 +45,32 @@ function fakeStore(state: UsageUiState): UsageStoreInstance {
 const settings = {
   getSnapshot: () => ({ status: 'ready', writable: true, value: {} }),
   set: async () => {},
+  subscribe: () => () => {},
 } as unknown as SettingsScope<UsageSettings>
+
+/**
+ * Mutable settings scope fake: `set` writes the value and notifies subscribers,
+ * so a test drives the enable flag the way the section's checkbox does.
+ */
+function liveSettings(initial: UsageSettings): { scope: SettingsScope<UsageSettings>; set: (patch: UsageSettings) => void } {
+  let value: UsageSettings = { ...initial }
+  let listeners: Array<() => void> = []
+  const scope = {
+    getSnapshot: () => ({ status: 'ready', writable: true, value }),
+    set: async () => {},
+    subscribe: (listener: () => void) => {
+      listeners.push(listener)
+      return () => { listeners = listeners.filter((candidate) => candidate !== listener) }
+    },
+  } as unknown as SettingsScope<UsageSettings>
+  return {
+    scope,
+    set: (patch: UsageSettings) => {
+      value = { ...value, ...patch }
+      for (const listener of [...listeners]) listener()
+    },
+  }
+}
 
 function cardProps(snapshot: UsageOverviewView): ComponentProps<typeof UsageSectionCard> {
   return {
@@ -152,5 +177,38 @@ describe('Token 银行 tab', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Token 银行' }))
     expect(screen.getByText('统计窗口 2026-01-01 ~ 2026-01-01')).toBeTruthy()
     expect(screen.getByRole('button', { name: '保存图片' })).toBeTruthy()
+  })
+})
+
+/**
+ * #1500: disabling the plugin deregisters the host routes, so the panel must
+ * stop polling, say why, and keep the enable checkbox reachable — the earlier
+ * panel-wide error return left no way back from the UI.
+ */
+describe('UsageSectionCard disabled and failed states', () => {
+  it('stops polling and keeps the enable checkbox while the plugin is disabled', () => {
+    const poll = vi.fn()
+    const { scope } = liveSettings({ enabled: false })
+    render(<UsageSectionCard {...cardProps(overview(mixed))} poll={poll} settings={scope} />)
+    expect(poll).not.toHaveBeenCalled()
+    expect(screen.getByText(/插件已停用/)).toBeTruthy()
+    expect(screen.getByRole('checkbox')).toBeTruthy()
+  })
+
+  it('resumes polling once the plugin is enabled again', () => {
+    const poll = vi.fn()
+    const { scope, set } = liveSettings({ enabled: false })
+    render(<UsageSectionCard {...cardProps(overview(mixed))} poll={poll} settings={scope} />)
+    expect(poll).not.toHaveBeenCalled()
+    act(() => { set({ enabled: true }) })
+    expect(poll).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/插件已停用/)).toBeNull()
+  })
+
+  it('keeps the settings controls mounted when the overview transport fails', () => {
+    const failing = fakeStore({ snapshot: null, status: 'error', error: 'usage /api/dsh-usage/overview failed: 500' })
+    render(<UsageSectionCard {...cardProps(overview(mixed))} store={failing} />)
+    expect(screen.getByText(/failed: 500/)).toBeTruthy()
+    expect(screen.getByRole('checkbox')).toBeTruthy()
   })
 })
