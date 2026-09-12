@@ -25,6 +25,11 @@ export interface GameplayApi {
   setMode: (mode: 'work' | 'sleep' | null) => Promise<PetGameplayVerbResult>
   workTick: () => Promise<PetGameplayVerbResult>
   buy: (item: string) => Promise<PetGameplayVerbResult>
+  /**
+   * Persist the selected skin for the current pet (host-authoritative;
+   * `undefined` restores the pet's default look).
+   */
+  setSkin: (skin: string | undefined) => Promise<{ ok: boolean; error?: string }>
 }
 
 /**
@@ -37,6 +42,13 @@ export interface GameplayBus {
   setTrack?: (track?: string) => void
   /** Swap the pet's base idle track (skin switch); undefined restores default. */
   setIdleTrack?: (track?: string) => void
+  /**
+   * The base idle track the HUD wants right now, latched on the bus so a
+   * renderer that registers late (or remounts: hidden/summoned, StrictMode's
+   * double mount) still applies the restored skin instead of snapping back to
+   * the default look. Mutating it never requires a re-render.
+   */
+  idleTrack?: string
   tap?: (fx: number, fy: number) => void
   /**
    * Card open/close request from the chrome (the hover panel's 玩法 action):
@@ -70,6 +82,8 @@ export function GameplayHud(props: {
   const def = definition.gameplay
   const view = ui.snapshot?.gameplay
   const phase = ui.snapshot?.phase ?? 'idle'
+  // Host-persisted skin selection for this pet (undefined = default look).
+  const persistedSkin = ui.snapshot?.skin
 
   const [open, setOpen] = useState(false)
   const [page, setPage] = useState<HudPage>('root')
@@ -284,11 +298,15 @@ export function GameplayHud(props: {
 
   // Work loop: hold the work track, adjudicate one round per tick, play the
   // result track for its hold window, then resume. Leaving the mode
-  // releases the override so the phase mapping takes over.
+  // releases the override so the phase mapping takes over. A skin that
+  // declares gameplayTracks for the work states plays its own art instead.
   useEffect(() => {
     const work = def?.work
     if (def === undefined || work === undefined || view?.mode !== 'work') return undefined
-    bus.setTrack?.(work.state)
+    const skinGameplay = definition.frames2d?.skins?.find(skin => skin.id === skinIdRef.current)?.gameplayTracks
+    /** The state's track, swapped for the skin's override when it declares one. */
+    const trackOf = (state: string): string => skinGameplay?.[state] ?? state
+    bus.setTrack?.(trackOf(work.state))
     let resultTimer = 0
     const timer = window.setInterval(() => {
       if (busyRef.current) return
@@ -297,11 +315,11 @@ export function GameplayHud(props: {
         busyRef.current = false
         applyResult(result)
         if (result.ok !== true || result.outcome === undefined) return
-        const resultTrack = result.outcome === 'success' ? work.successState : work.failState
+        const resultTrack = trackOf(result.outcome === 'success' ? work.successState : work.failState)
         const hold = result.outcome === 'success' ? work.resultMs?.success ?? 1300 : work.resultMs?.fail ?? 1900
         bus.setTrack?.(resultTrack)
         resultTimer = window.setTimeout(() => {
-          if (modeRef.current === 'work') bus.setTrack?.(work.state)
+          if (modeRef.current === 'work') bus.setTrack?.(trackOf(work.state))
         }, hold)
       }, () => { busyRef.current = false })
     }, work.tickMs)
@@ -310,8 +328,8 @@ export function GameplayHud(props: {
       window.clearTimeout(resultTimer)
       bus.setTrack?.(undefined)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the loop keys on the mode value
-  }, [definition.id, def, view?.mode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the loop keys on the mode and the selected skin
+  }, [definition.id, def, view?.mode, skinId])
 
   // Sleep loop: hold the sleep track; restore is host-side (lazy settle).
   // While a skin with a gameplayTracks.sleep override is selected, the skin's
@@ -352,10 +370,44 @@ export function GameplayHud(props: {
     void api.setMode(next).then(applyResult, () => undefined)
   }
 
+  // Skin selection is persisted host-side (per pet): re-seed the menu from
+  // every fresh state view, so a page reload or client restart keeps the last
+  // choice instead of snapping back to the default look.
+  useEffect(() => {
+    setSkinId(persistedSkin)
+  }, [definition.id, persistedSkin])
+
+  // Push the resolved base idle track into the renderer whenever the pet or
+  // the selection changes. The value is latched on the bus first: the visual
+  // may register later, or remount later (hidden/summoned), and reads the
+  // latch back on activation so a restored skin never falls back to default.
+  useEffect(() => {
+    const skin = definition.frames2d?.skins?.find(candidate => candidate.id === skinId)
+    bus.idleTrack = skin?.idleTrack
+    bus.setIdleTrack?.(skin?.idleTrack)
+    // persistedSkin rides the deps so the host's value also re-pushes on
+    // arrival (a renderer that mounted early still converges).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one push per selection
+  }, [definition.id, skinId, persistedSkin])
+
   const skins = definition.frames2d?.skins
+  /** The base idle track one skin id resolves to (undefined = default look). */
+  const skinTrackOf = (id: string | undefined): string | undefined =>
+    id === undefined ? undefined : definition.frames2d?.skins?.find(candidate => candidate.id === id)?.idleTrack
+
   const selectSkin = (skin: PetSkinDefinition | undefined): void => {
     setSkinId(skin?.id)
     bus.setIdleTrack?.(skin?.idleTrack)
+    // The host owns the choice: a refusal (unknown skin) restores both the
+    // menu highlight and the renderer to the value it still serves.
+    const restore = (): void => {
+      setSkinId(persistedSkin)
+      bus.setIdleTrack?.(skinTrackOf(persistedSkin))
+    }
+    void api.setSkin(skin?.id).then((result) => {
+      if (result.ok) return
+      restore()
+    }, restore)
   }
 
   return (

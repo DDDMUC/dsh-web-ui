@@ -18148,6 +18148,7 @@ window.__ModuleLoader__.load({
 					gameplayBus.setIdleTrack = (track) => {
 						handleRef.current?.setIdleTrack(track);
 					};
+					if (gameplayBus.idleTrack !== void 0) handle.setIdleTrack(gameplayBus.idleTrack);
 					cleanups.push(() => {
 						gameplayBus.setTrack = void 0;
 						gameplayBus.setIdleTrack = void 0;
@@ -18261,6 +18262,7 @@ window.__ModuleLoader__.load({
 			const def = definition.gameplay;
 			const view = ui.snapshot?.gameplay;
 			const phase = ui.snapshot?.phase ?? "idle";
+			const persistedSkin = ui.snapshot?.skin;
 			const [open, setOpen] = (0, react.useState)(false);
 			const [page, setPage] = (0, react.useState)("root");
 			const [skinId, setSkinId] = (0, react.useState)(void 0);
@@ -18453,7 +18455,10 @@ window.__ModuleLoader__.load({
 			(0, react.useEffect)(() => {
 				const work = def?.work;
 				if (def === void 0 || work === void 0 || view?.mode !== "work") return void 0;
-				bus.setTrack?.(work.state);
+				const skinGameplay = definition.frames2d?.skins?.find((skin) => skin.id === skinIdRef.current)?.gameplayTracks;
+				/** The state's track, swapped for the skin's override when it declares one. */
+				const trackOf = (state) => skinGameplay?.[state] ?? state;
+				bus.setTrack?.(trackOf(work.state));
 				let resultTimer = 0;
 				const timer = window.setInterval(() => {
 					if (busyRef.current) return;
@@ -18462,11 +18467,11 @@ window.__ModuleLoader__.load({
 						busyRef.current = false;
 						applyResult(result);
 						if (result.ok !== true || result.outcome === void 0) return;
-						const resultTrack = result.outcome === "success" ? work.successState : work.failState;
+						const resultTrack = trackOf(result.outcome === "success" ? work.successState : work.failState);
 						const hold = result.outcome === "success" ? work.resultMs?.success ?? 1300 : work.resultMs?.fail ?? 1900;
 						bus.setTrack?.(resultTrack);
 						resultTimer = window.setTimeout(() => {
-							if (modeRef.current === "work") bus.setTrack?.(work.state);
+							if (modeRef.current === "work") bus.setTrack?.(trackOf(work.state));
 						}, hold);
 					}, () => {
 						busyRef.current = false;
@@ -18480,7 +18485,8 @@ window.__ModuleLoader__.load({
 			}, [
 				definition.id,
 				def,
-				view?.mode
+				view?.mode,
+				skinId
 			]);
 			(0, react.useEffect)(() => {
 				const sleep = def?.sleep;
@@ -18517,10 +18523,32 @@ window.__ModuleLoader__.load({
 			const setMode = (next) => {
 				api.setMode(next).then(applyResult, () => void 0);
 			};
+			(0, react.useEffect)(() => {
+				setSkinId(persistedSkin);
+			}, [definition.id, persistedSkin]);
+			(0, react.useEffect)(() => {
+				const skin = definition.frames2d?.skins?.find((candidate) => candidate.id === skinId);
+				bus.idleTrack = skin?.idleTrack;
+				bus.setIdleTrack?.(skin?.idleTrack);
+			}, [
+				definition.id,
+				skinId,
+				persistedSkin
+			]);
 			const skins = definition.frames2d?.skins;
+			/** The base idle track one skin id resolves to (undefined = default look). */
+			const skinTrackOf = (id) => id === void 0 ? void 0 : definition.frames2d?.skins?.find((candidate) => candidate.id === id)?.idleTrack;
 			const selectSkin = (skin) => {
 				setSkinId(skin?.id);
 				bus.setIdleTrack?.(skin?.idleTrack);
+				const restore = () => {
+					setSkinId(persistedSkin);
+					bus.setIdleTrack?.(skinTrackOf(persistedSkin));
+				};
+				api.setSkin(skin?.id).then((result) => {
+					if (result.ok) return;
+					restore();
+				}, restore);
 			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				ref: hudRef,
@@ -20812,6 +20840,7 @@ window.__ModuleLoader__.load({
 			setConfig: (patch) => petFetch("/api/pet/set-config", patch),
 			setName: (name) => petFetch("/api/pet/set-name", { name }),
 			setPet: (petId) => petFetch("/api/pet/set-pet", { petId }),
+			setSkin: (skin) => petFetch("/api/pet/set-skin", skin === void 0 ? {} : { skin }),
 			gameplayTouch: (zone) => petFetch("/api/pet/gameplay/touch", zone === void 0 ? {} : { zone }),
 			gameplaySetMode: (mode) => petFetch("/api/pet/gameplay/mode", { mode }),
 			gameplayWorkTick: () => petFetch("/api/pet/gameplay/work-tick", {}),
@@ -21007,6 +21036,13 @@ window.__ModuleLoader__.load({
 						},
 						gameplay: {
 							touch: (zone) => petApi.gameplayTouch(zone),
+							setSkin: (skin) => petApi.setSkin(skin).then((result) => {
+								if (result.ok) pollNow();
+								return result;
+							}, () => ({
+								ok: false,
+								error: "transport"
+							})),
 							setMode: async (mode) => {
 								if (mode === "work") lastWorkTickAt = 0;
 								return petApi.gameplaySetMode(mode);
