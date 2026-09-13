@@ -1,4 +1,5 @@
 import type { TaskRecord } from '../core/tasks.ts'
+import { t } from './locales.ts'
 import {
   TASK_BOARD_API_PREFIX,
   type TaskBoardAction,
@@ -11,15 +12,67 @@ const IMPORT_MARKER = 'dsh.taskBoard.v2.hostImported'
 const SOURCE_KEY = 'dsh.taskBoard.v2.sourceId'
 const IMPORT_REQUEST_KEY = 'dsh.taskBoard.v2.importRequestId'
 const REQUEST_TIMEOUT_MS = 15_000
+/** Re-notify the panel at most this often while the event stream stays broken. */
+const STREAM_ERROR_NOTIFY_MS = 15_000
+
+/**
+ * Failure classes of the Host API, in the language the panel renders
+ * (issue #1528). The Host is the only part that knows whether a task-board
+ * route exists at all, so a raw fetch/parse error must never reach the user:
+ * "Unexpected token 'o', \"not found\" is not valid JSON" is what a missing
+ * Host half looks like today.
+ */
+export type HostApiFailure = 'not-mounted' | 'unauthorized' | 'locked' | 'rejected' | 'timeout' | 'unreachable' | 'unexpected'
+
+/** Transport failure carrying a stable class next to its user-facing message. */
+export class HostApiError extends Error {
+  constructor(readonly failure: HostApiFailure, message: string, readonly status?: number) {
+    super(message)
+    this.name = 'HostApiError'
+  }
+}
 
 function uuid(): string {
   return globalThis.crypto?.randomUUID?.() ?? `browser-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
+/**
+ * Read one Host response without ever handing a non-JSON body to JSON.parse:
+ * the core webserver answers an unmounted `/api/*` path with the plain text
+ * "not found", which used to surface as a JavaScript parse error in the panel.
+ */
 async function readJson<T>(response: Response): Promise<T> {
-  const body = await response.json() as T & { error?: string }
-  if (!response.ok) throw new Error(body.error ?? `task-board request failed: ${response.status}`)
-  return body
+  const text = await response.text()
+  let parsed: unknown
+  let readable = false
+  if (text.trim() !== '') {
+    try {
+      parsed = JSON.parse(text)
+      readable = true
+    } catch {
+      readable = false
+    }
+  }
+  const hostError = readable && typeof parsed === 'object' && parsed !== null && typeof (parsed as { error?: unknown }).error === 'string'
+    ? (parsed as { error: string }).error
+    : undefined
+  if (response.ok) {
+    if (!readable) throw new HostApiError('unexpected', t('board.hostError.unexpected', { status: String(response.status) }), response.status)
+    return parsed as T
+  }
+  if (hostError !== undefined) {
+    // The Host answered with a reason of its own. A ledger lock is the one
+    // class worth naming in the panel's words; the authentication fence and
+    // every other action rejection are reported as they arrive.
+    if (hostError === 'forbidden') throw new HostApiError('unauthorized', t('board.hostError.unauthorized'), response.status)
+    if (response.status === 503 || /lock/i.test(hostError)) {
+      throw new HostApiError('locked', t('board.hostError.locked', { detail: hostError }), response.status)
+    }
+    throw new HostApiError('rejected', hostError, response.status)
+  }
+  if (response.status === 404) throw new HostApiError('not-mounted', t('board.hostError.notMounted'), 404)
+  if (response.status === 401 || response.status === 403) throw new HostApiError('unauthorized', t('board.hostError.unauthorized'), response.status)
+  throw new HostApiError('unexpected', t('board.hostError.unexpected', { status: String(response.status) }), response.status)
 }
 
 export interface TaskBoardHostTransport {
@@ -76,8 +129,11 @@ export class HttpTaskBoardHostTransport implements TaskBoardHostTransport {
     try {
       return await readJson<TaskBoardSnapshot>(await fetch(url, { ...init, signal: controller.signal }))
     } catch (error) {
-      if (controller.signal.aborted) throw new Error(`task-board Host request timed out after ${REQUEST_TIMEOUT_MS / 1_000}s`)
-      throw error
+      if (error instanceof HostApiError) throw error
+      if (controller.signal.aborted) throw new HostApiError('timeout', t('board.hostError.timeout', { seconds: String(REQUEST_TIMEOUT_MS / 1_000) }))
+      // fetch itself failed (server stopped, connection reset, DNS): the panel
+      // says so in its own words instead of leaking "Failed to fetch".
+      throw new HostApiError('unreachable', t('board.hostError.unreachable'))
     } finally {
       globalThis.clearTimeout(timeout)
     }
@@ -85,6 +141,7 @@ export class HttpTaskBoardHostTransport implements TaskBoardHostTransport {
 
   subscribe(listener: (event?: TaskBoardEventPayload) => void): () => void {
     const events = new EventSource(`${TASK_BOARD_API_PREFIX}/events`)
+    let lastStreamErrorNotify = 0
     events.onmessage = (message: MessageEvent<string>): void => {
       try {
         const parsed = JSON.parse(message.data) as TaskBoardEventPayload
@@ -93,6 +150,15 @@ export class HttpTaskBoardHostTransport implements TaskBoardHostTransport {
       } catch {
         listener()
       }
+    }
+    // A stream that cannot connect at all (unmounted route, refused socket) is
+    // how a Host half that never mounted looks from the browser; nudge the
+    // panel into one state read so the failure becomes visible (#1528).
+    events.onerror = (): void => {
+      const now = Date.now()
+      if (now - lastStreamErrorNotify < STREAM_ERROR_NOTIFY_MS) return
+      lastStreamErrorNotify = now
+      listener()
     }
     const onVisible = (): void => { if (document.visibilityState === 'visible') listener() }
     document.addEventListener('visibilitychange', onVisible)

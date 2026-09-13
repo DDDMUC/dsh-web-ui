@@ -367,6 +367,21 @@ describe('HostTaskLedger', () => {
     expect(message).toContain(lockFile)
   })
 
+  it('reclaims a truncated lock left by an unclean shutdown (issue #1528)', () => {
+    const root = tempRoot()
+    const lockFile = join(root, 'ledger-v2.lock')
+    // The reported Host found a 0-byte lock whose mtime was two days old: the
+    // owner died between creating the file and writing its record. Nothing can
+    // still be writing a lock that old, so the next start reclaims it instead
+    // of leaving the Host half unmounted until someone deletes it by hand.
+    writeFileSync(lockFile, '', { encoding: 'utf8' })
+    const past = NOW - 2 * 24 * 60 * 60 * 1000
+    utimesSync(lockFile, past / 1000, past / 1000)
+    const ledger = new HostTaskLedger(root, () => NOW)
+    expect(ledger.state().scheduler.ledgerId).toBeDefined()
+    ledger.dispose()
+  })
+
   it('takes over a lock owned by an unreaped zombie process', () => {
     const zombie = spawnZombie()
     if (zombie === undefined) return // environment reaps orphans; cannot exercise

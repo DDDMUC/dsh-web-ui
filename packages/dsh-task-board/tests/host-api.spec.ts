@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTask } from '../src/core/tasks.ts'
-import { HttpTaskBoardHostTransport } from '../src/client/host-api.ts'
+import { HostApiError, HttpTaskBoardHostTransport, type HostApiFailure } from '../src/client/host-api.ts'
 import type { TaskBoardEventPayload, TaskBoardSnapshot } from '../src/protocol.ts'
 
 const snapshot: TaskBoardSnapshot = {
@@ -35,7 +35,9 @@ describe('HttpTaskBoardHostTransport migration', () => {
     }))
     const legacy = [createTask({ title: 'legacy', description: '', prompt: '' }, 1, 'legacy')]
     const transport = new HttpTaskBoardHostTransport(storage)
-    await expect(transport.bootstrap(legacy)).rejects.toThrow('offline')
+    // A refused connection is reported as an unreachable Host, never as the
+    // raw fetch rejection (#1528).
+    await expect(transport.bootstrap(legacy)).rejects.toMatchObject({ failure: 'unreachable' })
     expect(storage.getItem('dsh.taskBoard.v2.hostImported')).toBeNull()
     fail = false
     await expect(transport.bootstrap(legacy)).resolves.toEqual(snapshot)
@@ -75,7 +77,7 @@ describe('HttpTaskBoardHostTransport migration', () => {
         init?.signal?.addEventListener('abort', () => { reject(new DOMException('aborted', 'AbortError')) })
       })))
       const pending = new HttpTaskBoardHostTransport(new MemoryStorage()).state()
-      const rejected = expect(pending).rejects.toThrow('timed out after 15s')
+      const rejected = expect(pending).rejects.toMatchObject({ failure: 'timeout', message: expect.stringContaining('15') })
       await vi.advanceTimersByTimeAsync(15_000)
       await rejected
     } finally {
@@ -84,10 +86,72 @@ describe('HttpTaskBoardHostTransport migration', () => {
   })
 })
 
+describe('HttpTaskBoardHostTransport Host failure classes (#1528)', () => {
+  async function failureOf(response: () => Response | Promise<Response>): Promise<HostApiError> {
+    vi.stubGlobal('fetch', vi.fn(async () => await response()))
+    try {
+      await new HttpTaskBoardHostTransport(new MemoryStorage()).state()
+    } catch (error) {
+      if (error instanceof HostApiError) return error
+      throw error
+    }
+    throw new Error('the transport was expected to fail')
+  }
+
+  it('names an unmounted Host API instead of leaking a JSON parse error', async () => {
+    // The core webserver answers an unmounted /api path with plain "not found";
+    // JSON.parse over that text used to be the whole error message.
+    const failure: HostApiError = await failureOf(() => new Response('not found', { status: 404, headers: { 'content-type': 'text/plain' } }))
+    expect(failure.failure).toBe('not-mounted')
+    expect(failure.message).toContain('挂载')
+    expect(failure.message).not.toContain('JSON')
+  })
+
+  it('reports the authentication fence as a signed-out session', async () => {
+    const failure = await failureOf(() => new Response(JSON.stringify({ ok: false, error: 'forbidden' }), { status: 403 }))
+    expect(failure.failure).toBe('unauthorized')
+  })
+
+  it('surfaces a locked ledger with the Host reason attached', async () => {
+    const failure = await failureOf(() => new Response(
+      JSON.stringify({ ok: false, error: 'task-board ledger is already owned by process 4242' }),
+      { status: 503 },
+    ))
+    expect(failure.failure).toBe('locked')
+    expect(failure.message).toContain('4242')
+  })
+
+  it('keeps non-JSON failures on unknown statuses explicit', async () => {
+    const failure = await failureOf(() => new Response('<html>gateway</html>', { status: 502 }))
+    expect(failure.failure).toBe('unexpected')
+    expect(failure.message).toContain('502')
+  })
+
+  it('reports a refused connection as an unreachable Host', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
+    const failure = await new HttpTaskBoardHostTransport(new MemoryStorage()).state().catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(HostApiError)
+    expect((failure as HostApiError).failure).toBe('unreachable')
+    expect((failure as HostApiError).message).not.toContain('Failed to fetch')
+  })
+
+  it('passes an action rejection through unchanged', async () => {
+    const failure = await failureOf(() => new Response(JSON.stringify({ ok: false, error: 'task has already been executed' }), { status: 400 }))
+    expect(failure.failure).toBe('rejected')
+    expect(failure.message).toBe('task has already been executed')
+  })
+
+  it('lists every failure class the panel can render', () => {
+    const classes: HostApiFailure[] = ['not-mounted', 'unauthorized', 'locked', 'rejected', 'timeout', 'unreachable', 'unexpected']
+    expect(new Set(classes).size).toBe(classes.length)
+  })
+})
+
 describe('HttpTaskBoardHostTransport SSE subscription', () => {
   class FakeEventSource {
     static instances: FakeEventSource[] = []
     onmessage: ((message: MessageEvent<string>) => void) | null = null
+    onerror: (() => void) | null = null
     closed = false
     constructor(readonly url: string) { FakeEventSource.instances.push(this) }
     close(): void { this.closed = true }
@@ -127,6 +191,19 @@ describe('HttpTaskBoardHostTransport SSE subscription', () => {
     expect(calls[1]).toBeUndefined()
     unsubscribe()
     expect(source.closed).toBe(true)
+  })
+
+  it('nudges the panel into a state read when the event stream cannot connect (#1528)', () => {
+    const transport = new HttpTaskBoardHostTransport(new MemoryStorage())
+    const calls: Array<TaskBoardEventPayload | undefined> = []
+    transport.subscribe(event => { calls.push(event) })
+    const source = FakeEventSource.instances.at(-1)
+    if (source === undefined) throw new Error('EventSource was not constructed')
+    source.onerror?.()
+    expect(calls).toEqual([undefined])
+    // Repeated reconnect errors must not turn into a request per retry.
+    source.onerror?.()
+    expect(calls).toEqual([undefined])
   })
 
   it('calls the listener on visibilitychange while the tab is visible', () => {
