@@ -6,10 +6,10 @@ import { useEffect, useState } from 'react'
 import type { BoardController } from '../../core/controller.ts'
 import { isValidCron, nextRunAtMs } from '../../core/schedule.ts'
 import { parseFreezeRequest } from '../../core/freeze-snapshot.ts'
-import { TASK_PERMISSIONS, type TaskPermission, type TaskRecord } from '../../core/tasks.ts'
+import { collectKnownTags, TASK_PERMISSIONS, type TaskPermission, type TaskRecord, type TaskTag } from '../../core/tasks.ts'
 import { t, type TaskBoardKey } from '../locales.ts'
 import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
-import { ModalShell, TaskContentFields } from './TaskForm.tsx'
+import { ModalShell, TaskContentFields, TaskTagFields, cleanTags } from './TaskForm.tsx'
 import css from '../board.module.css'
 
 export interface NewTaskModalProps {
@@ -40,6 +40,7 @@ export function NewTaskModal({ controller, onClose, initialTask, onDuplicateSucc
   const [handoverText, setHandoverText] = useState(
     initialTask?.handover?.references !== undefined ? initialTask.handover.references.join('\n') : '',
   )
+  const [tags, setTags] = useState<TaskTag[]>(initialTask?.tags ?? [])
   const [archiveOriginal, setArchiveOriginal] = useState(true)
   const [error, setError] = useState<string | undefined>(undefined)
   const [pending, setPending] = useState(false)
@@ -81,6 +82,9 @@ export function NewTaskModal({ controller, onClose, initialTask, onDuplicateSucc
       mode: mode === '' ? undefined : mode,
       permission: permission === '' ? undefined : permission as TaskPermission,
     }
+    // Blank rows never reach the wire: the protocol rejects a tag with an
+    // empty name, and an empty list is expressed by omitting the field.
+    const tagList = cleanTags(tags)
     setPending(true)
     const task = await controller.createTaskConfirmed({
       title,
@@ -93,6 +97,7 @@ export function NewTaskModal({ controller, onClose, initialTask, onDuplicateSucc
       permission: permission === '' ? undefined : permission as TaskPermission,
       model: model === '' ? undefined : model,
       ...(reuseSession ? { reuseSession: true } : {}),
+      ...(tagList.length > 0 ? { tags: tagList } : {}),
       schedule: scheduleEnabled ? { enabled: true, cron: scheduleCron.trim() } : undefined,
     })
     if (task === undefined) {
@@ -135,6 +140,8 @@ export function NewTaskModal({ controller, onClose, initialTask, onDuplicateSucc
         onDescriptionChange={setDescription}
         onPromptChange={setPrompt}
       />
+
+      <TaskTagFields tags={tags} knownTags={collectKnownTags(controller.getSnapshot().tasks)} onChange={setTags} />
 
         <label className={css.field}>
           <span className={css.fieldLabel}>{t('new.freeze')}</span>

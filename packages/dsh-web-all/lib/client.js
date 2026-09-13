@@ -4655,8 +4655,58 @@ window.__ModuleLoader__.load({
 				}
 			});
 		}
-		//#endregion
-		//#region ../dsh-task-board/src/core/tasks.ts
+		/**
+		* Repair a persisted tag list: keep the well-formed entries, trim, drop
+		* blanks and repeats, cap the count, and collapse a blank prompt line to
+		* "display-only". Returns undefined when nothing usable remains, so the caller
+		* clears the field instead of storing an empty array.
+		*/
+		function normalizeTags(value) {
+			if (!Array.isArray(value)) return void 0;
+			const tags = [];
+			const seen = /* @__PURE__ */ new Set();
+			for (const entry of value) {
+				if (typeof entry !== "object" || entry === null || Array.isArray(entry)) continue;
+				const row = entry;
+				if (typeof row.name !== "string") continue;
+				const name = row.name.trim();
+				if (name === "" || name.length > 32 || seen.has(name)) continue;
+				const raw = typeof row.promptPrefix === "string" ? row.promptPrefix.trim() : "";
+				const promptPrefix = raw === "" ? void 0 : raw.slice(0, 200);
+				seen.add(name);
+				tags.push(promptPrefix === void 0 ? { name } : {
+					name,
+					promptPrefix
+				});
+				if (tags.length >= 8) break;
+			}
+			return tags.length === 0 ? void 0 : tags;
+		}
+		/**
+		* Stable palette slot (0..5) for a tag name. The same label always lands on the
+		* same tone, so a badge needs no stored colour and two tasks sharing a label
+		* cannot disagree about it.
+		*/
+		function tagTone(name) {
+			let hash = 0;
+			for (const char of name) hash = hash * 31 + (char.codePointAt(0) ?? 0) >>> 0;
+			return hash % 6;
+		}
+		/**
+		* Union of the labels already carried by `tasks`, first occurrence wins (the
+		* oldest task's hint is the one offered). Feeds the editor's name datalist and
+		* the board's tag filter, so a label defined once can be reused everywhere.
+		*/
+		function collectKnownTags(tasks) {
+			const known = [];
+			const seen = /* @__PURE__ */ new Set();
+			for (const task of tasks) for (const tag of task.tags ?? []) {
+				if (seen.has(tag.name)) continue;
+				seen.add(tag.name);
+				known.push(tag);
+			}
+			return known;
+		}
 		/**
 		* Statuses a task may be archived from: every status but `running`, whose
 		* execution the runner still owns until it settles. A settled-only gate made
@@ -4741,6 +4791,7 @@ window.__ModuleLoader__.load({
 		}
 		/** Create a task from user input. */
 		function createTask(input, now, id) {
+			const tags = normalizeTags(input.tags);
 			return {
 				id,
 				title: input.title.trim(),
@@ -4759,7 +4810,8 @@ window.__ModuleLoader__.load({
 				...input.handover === void 0 ? {} : { handover: {
 					...input.handover,
 					bundledAt: now
-				} }
+				} },
+				...tags === void 0 ? {} : { tags }
 			};
 		}
 		/** Clone a task with an updated status and a fresh updatedAt. */
@@ -5172,7 +5224,7 @@ window.__ModuleLoader__.load({
 		function applyUpdateTask(tasks, id, patch, now) {
 			return tasks.map((task) => {
 				if (task.id !== id) return task;
-				const { freeze: freezePatch, handover: handoverPatch, ...rest } = patch;
+				const { freeze: freezePatch, handover: handoverPatch, tags: tagsPatch, ...rest } = patch;
 				const workspaceId = "workspaceId" in patch ? normalizeTargetId(patch.workspaceId) : void 0;
 				const mode = "mode" in patch ? normalizeTargetId(patch.mode) : void 0;
 				const permission = "permission" in patch ? normalizePermission(task.permission, patch.permission) : void 0;
@@ -5192,6 +5244,7 @@ window.__ModuleLoader__.load({
 					...handoverPatch,
 					bundledAt: now
 				};
+				if ("tags" in patch) next.tags = tagsPatch == null ? void 0 : normalizeTags(tagsPatch);
 				if ("permission" in patch && patch.permission !== void 0 && patch.permission !== task.permission || "handover" in patch) next.permissionConfirmedAt = void 0;
 				if ("reuseSession" in patch) next.reuseSession = patch.reuseSession === true ? true : void 0;
 				if (workspaceId !== void 0 || "workspaceId" in patch) next.workspaceId = workspaceId;
@@ -6053,6 +6106,7 @@ window.__ModuleLoader__.load({
 				task.reuseSession = row.reuseSession === true ? true : void 0;
 				task.freeze = normalizeFreeze(row.freeze);
 				task.handover = normalizeHandover(row.handover);
+				task.tags = normalizeTags(row.tags);
 				task.permissionConfirmedAt = typeof row.permissionConfirmedAt === "number" && Number.isFinite(row.permissionConfirmedAt) ? row.permissionConfirmedAt : void 0;
 				tasks.push(task);
 			}
@@ -6193,6 +6247,17 @@ window.__ModuleLoader__.load({
 			"detail.handover": "交接包",
 			"detail.handover.bundledAt": "打包于 {time}",
 			"detail.handover.references": "引用",
+			"new.tags": "标签（可选）",
+			"new.tagsHint": "标签用于卡片徽章与顶栏筛选；填了「执行提示」的行会在每次执行前注入 Prompt，留空则只作展示。",
+			"new.tagName": "标签名",
+			"new.tagNamePlaceholder": "例如：工作",
+			"new.tagPrompt": "执行提示（可选）",
+			"new.tagPromptPlaceholder": "例如：产物归档到 02-工作/",
+			"new.tagAdd": "添加标签",
+			"new.tagRemove": "移除标签 {name}",
+			"board.tagFilter": "按标签筛选",
+			"board.tagFilterClear": "清除标签筛选",
+			"board.tagEmpty": "没有同时带这些标签的任务",
 			"detail.permissionPending": "权限待确认：本卡有效权限（{permission}）高于会话默认，手动执行与定时调度都会被拒绝，需人工确认后才能运行。",
 			"detail.permissionConfirm": "确认权限绑定",
 			"detail.permissionConfirmed": "已确认权限绑定 · {time}",
@@ -6345,6 +6410,17 @@ window.__ModuleLoader__.load({
 			"detail.handover": "Handover bundle",
 			"detail.handover.bundledAt": "Bundled at {time}",
 			"detail.handover.references": "References",
+			"new.tags": "Tags (optional)",
+			"new.tagsHint": "Tags drive the card badges and the board filter; a row with an execution hint is injected ahead of the prompt on every run, an empty one is display-only.",
+			"new.tagName": "Tag name",
+			"new.tagNamePlaceholder": "e.g. Work",
+			"new.tagPrompt": "Execution hint (optional)",
+			"new.tagPromptPlaceholder": "e.g. Archive artefacts under 02-work/",
+			"new.tagAdd": "Add tag",
+			"new.tagRemove": "Remove tag {name}",
+			"board.tagFilter": "Filter by tag",
+			"board.tagFilterClear": "Clear tag filter",
+			"board.tagEmpty": "No task carries all of these tags",
 			"detail.permissionPending": "Permission pending confirmation: this card's effective permission ({permission}) is above the session default; manual runs and cron are refused until a human confirms.",
 			"detail.permissionConfirm": "Confirm permission binding",
 			"detail.permissionConfirmed": "Permission confirmed · {time}",
@@ -6472,7 +6548,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-task-board/src/client/board.module.css.mjs
-		const css$20 = "[data-pane=conversation],[class*=centerCol]{position:relative}[data-dsh-taskboard-view]{z-index:60;background:var(--dsw-alias-bg-base);display:none;position:absolute;inset:0;container:_7D6uKa_task-board-view/inline-size}html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [data-dsh-taskboard-view]{display:block}html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [data-pane=conversation]>:not([data-dsh-taskboard-view]),html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [class*=centerCol]>:not([data-dsh-taskboard-view]){display:none!important}._7D6uKa_entry{box-sizing:border-box;width:100%;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 10px;font-size:13px;display:flex}._7D6uKa_entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}._7D6uKa_entry[data-active]{background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary);font-weight:600}._7D6uKa_entryIcon{flex:none;justify-content:center;align-items:center;width:24px;height:24px;display:inline-flex}._7D6uKa_entryIcon svg{width:18px;height:18px;display:block}._7D6uKa_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] ._7D6uKa_entry,[data-sidebar-collapsed] ._7D6uKa_entry{border-radius:50%;justify-content:center;width:36px;height:36px;margin:0 auto 12px;padding:0}[data-dsh-frame][data-sidebar-collapsed] ._7D6uKa_entryLabel,[data-sidebar-collapsed] ._7D6uKa_entryLabel{display:none}._7D6uKa_board{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:12px;padding:14px 16px 16px;display:flex}._7D6uKa_boardHeader{flex:none;align-items:center;gap:10px;display:flex}._7D6uKa_boardTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;margin:0;font-size:16px;font-weight:700}._7D6uKa_backButton{align-items:center;gap:4px;display:inline-flex}._7D6uKa_search{min-width:120px;color:var(--dsw-alias-label-primary);background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;outline:none;flex:0 260px;padding:6px 10px;font-size:13px}._7D6uKa_search::placeholder{color:var(--dsw-alias-label-tertiary)}._7D6uKa_columns{overscroll-behavior-inline:contain;scrollbar-color:var(--dsw-alias-border-l3) var(--dsw-alias-interactive-bg-hover);scrollbar-width:thin;flex:1;grid-auto-columns:minmax(220px,1fr);grid-auto-flow:column;gap:12px;min-height:0;padding-bottom:6px;display:grid;overflow:auto hidden}._7D6uKa_columns::-webkit-scrollbar{height:10px}._7D6uKa_columns::-webkit-scrollbar-track{background:var(--dsw-alias-interactive-bg-hover);border-radius:999px}._7D6uKa_columns::-webkit-scrollbar-thumb{background:var(--dsw-alias-border-l3);background-clip:content-box;border:2px solid #0000;border-radius:999px}._7D6uKa_columns::-webkit-scrollbar-thumb:hover{background:var(--dsw-alias-border-l4);background-clip:content-box}._7D6uKa_column{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;flex-direction:column;min-height:0;display:flex;overflow:hidden}._7D6uKa_columnHeader{flex:none;align-items:center;gap:6px;padding:10px 12px;display:flex}._7D6uKa_columnTitle{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;margin:0;font-size:13px;font-weight:700;overflow:hidden}._7D6uKa_columnCount{min-width:0;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-interactive-bg-hover);border-radius:999px;flex:none;padding:1px 8px;font-size:12px}._7D6uKa_statusDot{border-radius:50%;flex:none;width:8px;height:8px}._7D6uKa_statusDot[data-status=backlog]{background:var(--dsw-alias-label-tertiary)}._7D6uKa_statusDot[data-status=todo]{background:var(--dsw-alias-state-business-primary)}._7D6uKa_statusDot[data-status=running]{background:var(--dsw-alias-state-warn-primary)}._7D6uKa_statusDot[data-status=done]{background:var(--dsw-alias-state-success-primary)}._7D6uKa_statusDot[data-status=failed]{background:var(--dsw-alias-state-error-primary)}._7D6uKa_cards{flex-direction:column;flex:1;gap:8px;min-height:0;padding:2px 8px 10px;display:flex;overflow-y:auto}._7D6uKa_columnEmpty{text-align:center;color:var(--dsw-alias-label-tertiary);padding:24px 8px;font-size:12px}._7D6uKa_card{text-align:left;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;color:var(--dsw-alias-label-primary);border-radius:10px;flex-direction:column;gap:6px;padding:10px 12px;font-family:inherit;transition:box-shadow .12s,border-color .12s,transform .12s;display:flex}._7D6uKa_card:hover{box-shadow:var(--dsw-shadow-lv2);border-color:var(--dsw-alias-border-l3);transform:translateY(-1px)}._7D6uKa_card[data-status=running]{border-color:var(--dsw-alias-state-warn-primary)}._7D6uKa_cardTitle{-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13px;font-weight:600;line-height:1.35;display:-webkit-box;overflow:hidden}._7D6uKa_cardExcerpt{color:var(--dsw-alias-label-secondary);-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:12px;line-height:1.4;display:-webkit-box;overflow:hidden}._7D6uKa_cardMeta{color:var(--dsw-alias-label-tertiary);align-items:center;gap:8px;font-size:11px;display:flex}._7D6uKa_cardTime{text-overflow:ellipsis;white-space:nowrap;flex:1;overflow:hidden}._7D6uKa_cardSchedule{white-space:nowrap;min-width:0;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover);border-radius:999px;flex:none;padding:2px 6px;font-size:12px;line-height:1}._7D6uKa_cardRun{flex:none}._7D6uKa_cardRun[data-result=failed]{color:var(--dsw-alias-state-error-primary)}._7D6uKa_cardRun[data-result=succeeded]{color:var(--dsw-alias-state-success-primary)}._7D6uKa_cardSession{color:var(--dsw-alias-state-business-primary);flex:none}._7D6uKa_cardRunningLabel{color:var(--dsw-alias-state-warn-primary);font-size:11px}._7D6uKa_cardSpinner{border:2px solid var(--dsw-alias-state-warn-primary);border-top-color:#0000;border-radius:50%;flex:none;width:10px;height:10px;animation:.8s linear infinite _7D6uKa_dshTbSpin}@keyframes _7D6uKa_dshTbSpin{to{transform:rotate(360deg)}}._7D6uKa_primaryButton{color:var(--dsw-alias-label-primary-foreground);background:var(--dsw-alias-button-info-fill);cursor:pointer;white-space:nowrap;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600}._7D6uKa_primaryButton:hover:not(:disabled){background:var(--dsw-alias-button-info-hover)}._7D6uKa_primaryButton:disabled{opacity:.5;cursor:default}._7D6uKa_ghostButton{color:var(--dsw-alias-label-primary);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;background:0 0;border-radius:8px;padding:5px 12px;font-size:12px}._7D6uKa_ghostButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}._7D6uKa_ghostButton:disabled{opacity:.45;cursor:default}._7D6uKa_dangerButton{color:#fff;background:var(--dsw-alias-state-error-primary);cursor:pointer;white-space:nowrap;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600}._7D6uKa_dangerButton:hover:not(:disabled){filter:brightness(1.08)}._7D6uKa_dangerButton:active:not(:disabled){filter:brightness(.94)}._7D6uKa_dangerButton:disabled{opacity:.5;cursor:default}._7D6uKa_iconButton{width:26px;height:26px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:6px;justify-content:center;align-items:center;padding:0;font-size:13px;display:inline-flex}._7D6uKa_iconButton:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}._7D6uKa_linkButton{color:var(--dsw-alias-state-business-primary);cursor:pointer;white-space:nowrap;background:0 0;border:none;padding:0;font-size:12px}._7D6uKa_linkButton:hover{text-decoration:underline}._7D6uKa_modalBackdrop{z-index:1300;background:var(--dsw-alias-bg-mask-1);justify-content:center;align-items:center;display:flex;position:fixed;inset:0}._7D6uKa_modal{background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);width:min(520px,100vw - 48px);max-height:calc(100vh - 96px);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-primary);border-radius:14px;flex-direction:column;gap:12px;padding:18px;display:flex;overflow-y:auto}._7D6uKa_modalTitle{margin:0;font-size:15px;font-weight:700}._7D6uKa_confirmMessage{color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font-size:13px;line-height:1.5}._7D6uKa_modalFooter{justify-content:flex-end;gap:10px;margin-top:4px;display:flex}._7D6uKa_field{flex-direction:column;gap:5px;display:flex}._7D6uKa_fieldLabel{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:600}._7D6uKa_input{color:var(--dsw-alias-label-primary);background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);resize:vertical;border-radius:8px;outline:none;padding:7px 10px;font-family:inherit;font-size:13px}._7D6uKa_input:focus{border-color:var(--dsw-alias-state-business-primary)}._7D6uKa_select{color:var(--dsw-alias-label-primary);background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;outline:none;max-width:100%;padding:7px 10px;font-family:inherit;font-size:13px}._7D6uKa_input::placeholder{color:var(--dsw-alias-label-tertiary)}._7D6uKa_formError{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px}._7D6uKa_detail{background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);width:min(640px,100vw - 48px);max-height:calc(100vh - 80px);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-primary);border-radius:14px;flex-direction:column;display:flex;overflow:hidden}._7D6uKa_detailHeader{border-bottom:1px solid var(--dsw-alias-separator-primary);flex:none;align-items:center;gap:10px;padding:14px 18px;display:flex}._7D6uKa_detailTitle{overflow-wrap:anywhere;flex:1;margin:0;font-size:15px;font-weight:700}._7D6uKa_statusBadge{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);border-radius:999px;flex:none;padding:2px 10px;font-size:12px}._7D6uKa_statusBadge[data-status=running]{color:var(--dsw-alias-state-warn-primary);border-color:var(--dsw-alias-state-warn-primary)}._7D6uKa_statusBadge[data-status=done]{color:var(--dsw-alias-state-success-primary);border-color:var(--dsw-alias-state-success-primary)}._7D6uKa_statusBadge[data-status=failed]{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}._7D6uKa_detailBody{flex-direction:column;flex:1;gap:16px;padding:14px 18px;display:flex;overflow-y:auto}._7D6uKa_detailSection{flex-direction:column;gap:6px;display:flex}._7D6uKa_detailSection h4{color:var(--dsw-alias-label-tertiary);text-transform:none;margin:0;font-size:12px;font-weight:700}._7D6uKa_detailText{color:var(--dsw-alias-label-primary);white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font-size:13px;line-height:1.55}._7D6uKa_scheduleToggle{color:var(--dsw-alias-label-primary);cursor:pointer;user-select:none;align-items:center;gap:8px;font-size:13px;display:flex}._7D6uKa_scheduleToggle input{accent-color:var(--dsw-alias-state-business-primary)}._7D6uKa_scheduleRow{align-items:center;gap:8px;display:flex}._7D6uKa_scheduleInput{min-width:0;font-family:var(--dsw-font-markdown-code-block-small);flex:1;font-size:12.5px}._7D6uKa_scheduleInputInvalid,._7D6uKa_scheduleInputInvalid:focus{border-color:var(--dsw-alias-state-error-primary)}._7D6uKa_schedulePreset{color:var(--dsw-alias-label-primary);background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;outline:none;flex:none;padding:7px 8px;font-size:12.5px}._7D6uKa_scheduleMeta{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}._7D6uKa_promptBlock{font-size:12.5px;line-height:1.5;font-family:var(--dsw-font-markdown-code-block-small);color:var(--dsw-alias-label-primary);background:var(--dsw-alias-markdown-code-block);border:1px solid var(--dsw-alias-border-l1);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:240px;margin:0;padding:10px 12px;overflow-y:auto}._7D6uKa_executionList{flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;display:flex}._7D6uKa_executionRow{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 10px;display:flex}._7D6uKa_executionBadge{color:var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-state-warn-secondary);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:600}._7D6uKa_executionBadge[data-result=succeeded]{color:var(--dsw-alias-state-success-primary);background:0 0}._7D6uKa_executionBadge[data-result=failed]{color:var(--dsw-alias-state-error-primary);background:0 0}._7D6uKa_executionBadge[data-result=cancelled]{color:var(--dsw-alias-label-tertiary);background:0 0}._7D6uKa_executionTimes{color:var(--dsw-alias-label-secondary);font-size:12px}._7D6uKa_executionError{width:100%;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;font-size:12px}._7D6uKa_moveRow{flex-wrap:wrap;gap:8px;display:flex}._7D6uKa_detailFooter{border-top:1px solid var(--dsw-alias-separator-primary);flex:none;align-items:center;gap:10px;padding:12px 18px;display:flex}._7D6uKa_detailMeta{color:var(--dsw-alias-label-tertiary);margin-left:auto;font-size:11px}@container _7D6uKa_task-board-view (width<=768px){._7D6uKa_board{gap:10px;padding:10px}._7D6uKa_boardHeader{flex-wrap:wrap;align-items:center;gap:8px}._7D6uKa_backButton{flex:none;order:1}._7D6uKa_boardTitle{flex:auto;order:2}._7D6uKa_boardHeader>._7D6uKa_detailMeta{flex:1 0 100%;order:3;margin-left:0}._7D6uKa_search{flex:1 0 100%;order:4;min-width:0}._7D6uKa_boardHeader>button:not(._7D6uKa_backButton){flex:1 1 0;order:5;min-width:0}._7D6uKa_columns{scroll-snap-type:inline mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;grid-auto-columns:86cqw;gap:10px;padding-inline:2px 14cqw;scroll-padding-inline:2px}._7D6uKa_columns::-webkit-scrollbar{display:none}._7D6uKa_column{scroll-snap-align:start;scroll-snap-stop:always}}@container _7D6uKa_task-board-view (width<=720px){._7D6uKa_boardHeader>._7D6uKa_detailMeta{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}}@container _7D6uKa_task-board-view (width<=600px){._7D6uKa_board{padding-inline:8px}}@media (width<=768px){[data-dsh-taskboard-view]{height:100dvh}._7D6uKa_entry,._7D6uKa_card,._7D6uKa_primaryButton,._7D6uKa_ghostButton,._7D6uKa_dangerButton,._7D6uKa_iconButton,._7D6uKa_linkButton,._7D6uKa_search,._7D6uKa_input,._7D6uKa_select,._7D6uKa_schedulePreset,._7D6uKa_scheduleToggle{min-height:44px}._7D6uKa_search,._7D6uKa_input,._7D6uKa_select,._7D6uKa_schedulePreset{box-sizing:border-box;font-size:16px}._7D6uKa_modalBackdrop{justify-content:stretch;align-items:stretch;width:100vw;height:100dvh}._7D6uKa_modal,._7D6uKa_detail{box-sizing:border-box;border:0;border-radius:0;width:100vw;height:100dvh;max-height:none}._7D6uKa_modal{padding-top:max(16px, env(safe-area-inset-top));padding-right:max(16px, env(safe-area-inset-right));padding-bottom:max(16px, env(safe-area-inset-bottom));padding-left:max(16px, env(safe-area-inset-left))}._7D6uKa_modalFooter{z-index:1;background:var(--dsw-alias-bg-base);flex-wrap:wrap;padding-top:8px;position:sticky;bottom:0}._7D6uKa_modalFooter>button{flex:120px}._7D6uKa_detailHeader{padding-top:max(12px, env(safe-area-inset-top));padding-right:max(14px, env(safe-area-inset-right));padding-left:max(14px, env(safe-area-inset-left));flex-wrap:wrap}._7D6uKa_detailTitle{min-width:0}._7D6uKa_detailBody{overscroll-behavior-y:contain;padding-right:max(14px, env(safe-area-inset-right));padding-left:max(14px, env(safe-area-inset-left))}._7D6uKa_detailFooter{padding-right:max(14px, env(safe-area-inset-right));padding-bottom:max(12px, env(safe-area-inset-bottom));padding-left:max(14px, env(safe-area-inset-left));flex-wrap:wrap}._7D6uKa_detailFooter>button{flex:96px}._7D6uKa_detailFooter>._7D6uKa_detailMeta{text-align:end;flex:1 0 100%;margin-left:0}._7D6uKa_scheduleRow{flex-direction:column;align-items:stretch}._7D6uKa_schedulePreset{width:100%}}._7D6uKa_entry:focus-visible,._7D6uKa_card:focus-visible,._7D6uKa_primaryButton:focus-visible,._7D6uKa_ghostButton:focus-visible,._7D6uKa_dangerButton:focus-visible,._7D6uKa_iconButton:focus-visible,._7D6uKa_linkButton:focus-visible,._7D6uKa_search:focus-visible,._7D6uKa_input:focus-visible,._7D6uKa_select:focus-visible,._7D6uKa_schedulePreset:focus-visible,._7D6uKa_scheduleToggle input:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}._7D6uKa_entry,._7D6uKa_primaryButton,._7D6uKa_ghostButton,._7D6uKa_dangerButton,._7D6uKa_iconButton,._7D6uKa_linkButton,._7D6uKa_search,._7D6uKa_input,._7D6uKa_select,._7D6uKa_schedulePreset,._7D6uKa_scheduleToggle input{transition:background-color .12s,color .12s,border-color .12s,outline-color .12s,box-shadow .12s,transform .12s}._7D6uKa_card:active{box-shadow:var(--dsw-shadow-lv1);transform:translateY(0)}._7D6uKa_entry:active,._7D6uKa_primaryButton:active:not(:disabled),._7D6uKa_ghostButton:active:not(:disabled),._7D6uKa_dangerButton:active:not(:disabled),._7D6uKa_iconButton:active:not(:disabled),._7D6uKa_linkButton:active:not(:disabled){transform:translateY(1px)}._7D6uKa_entry[data-active]:hover{background:var(--dsw-specific-sidebar-nav-item-active)}._7D6uKa_iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}._7D6uKa_linkButton:hover:not(:disabled){text-decoration:underline}._7D6uKa_iconButton:disabled,._7D6uKa_linkButton:disabled{opacity:.45;cursor:default}._7D6uKa_search:focus,._7D6uKa_select:focus,._7D6uKa_schedulePreset:focus{border-color:var(--dsw-alias-state-business-primary)}._7D6uKa_scheduleToggle input{margin:0}@media (prefers-reduced-motion:reduce){._7D6uKa_entry,._7D6uKa_card,._7D6uKa_primaryButton,._7D6uKa_ghostButton,._7D6uKa_dangerButton,._7D6uKa_iconButton,._7D6uKa_linkButton,._7D6uKa_search,._7D6uKa_input,._7D6uKa_select,._7D6uKa_schedulePreset,._7D6uKa_scheduleToggle input{transition:none}._7D6uKa_cardSpinner{animation:none}}";
+		const css$20 = "[data-pane=conversation],[class*=centerCol]{position:relative}[data-dsh-taskboard-view]{z-index:60;background:var(--dsw-alias-bg-base);display:none;position:absolute;inset:0;container:_7D6uKa_task-board-view/inline-size}html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [data-dsh-taskboard-view]{display:block}html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [data-pane=conversation]>:not([data-dsh-taskboard-view]),html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [class*=centerCol]>:not([data-dsh-taskboard-view]){display:none!important}._7D6uKa_entry{box-sizing:border-box;width:100%;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 10px;font-size:13px;display:flex}._7D6uKa_entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}._7D6uKa_entry[data-active]{background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary);font-weight:600}._7D6uKa_entryIcon{flex:none;justify-content:center;align-items:center;width:24px;height:24px;display:inline-flex}._7D6uKa_entryIcon svg{width:18px;height:18px;display:block}._7D6uKa_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] ._7D6uKa_entry,[data-sidebar-collapsed] ._7D6uKa_entry{border-radius:50%;justify-content:center;width:36px;height:36px;margin:0 auto 12px;padding:0}[data-dsh-frame][data-sidebar-collapsed] ._7D6uKa_entryLabel,[data-sidebar-collapsed] ._7D6uKa_entryLabel{display:none}._7D6uKa_board{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:12px;padding:14px 16px 16px;display:flex}._7D6uKa_boardHeader{flex:none;align-items:center;gap:10px;display:flex}._7D6uKa_boardTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;margin:0;font-size:16px;font-weight:700}._7D6uKa_backButton{align-items:center;gap:4px;display:inline-flex}._7D6uKa_search{min-width:120px;color:var(--dsw-alias-label-primary);background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;outline:none;flex:0 260px;padding:6px 10px;font-size:13px}._7D6uKa_search::placeholder{color:var(--dsw-alias-label-tertiary)}._7D6uKa_columns{overscroll-behavior-inline:contain;scrollbar-color:var(--dsw-alias-border-l3) var(--dsw-alias-interactive-bg-hover);scrollbar-width:thin;flex:1;grid-auto-columns:minmax(220px,1fr);grid-auto-flow:column;gap:12px;min-height:0;padding-bottom:6px;display:grid;overflow:auto hidden}._7D6uKa_columns::-webkit-scrollbar{height:10px}._7D6uKa_columns::-webkit-scrollbar-track{background:var(--dsw-alias-interactive-bg-hover);border-radius:999px}._7D6uKa_columns::-webkit-scrollbar-thumb{background:var(--dsw-alias-border-l3);background-clip:content-box;border:2px solid #0000;border-radius:999px}._7D6uKa_columns::-webkit-scrollbar-thumb:hover{background:var(--dsw-alias-border-l4);background-clip:content-box}._7D6uKa_column{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;flex-direction:column;min-height:0;display:flex;overflow:hidden}._7D6uKa_columnHeader{flex:none;align-items:center;gap:6px;padding:10px 12px;display:flex}._7D6uKa_columnTitle{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;margin:0;font-size:13px;font-weight:700;overflow:hidden}._7D6uKa_columnCount{min-width:0;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-interactive-bg-hover);border-radius:999px;flex:none;padding:1px 8px;font-size:12px}._7D6uKa_statusDot{border-radius:50%;flex:none;width:8px;height:8px}._7D6uKa_statusDot[data-status=backlog]{background:var(--dsw-alias-label-tertiary)}._7D6uKa_statusDot[data-status=todo]{background:var(--dsw-alias-state-business-primary)}._7D6uKa_statusDot[data-status=running]{background:var(--dsw-alias-state-warn-primary)}._7D6uKa_statusDot[data-status=done]{background:var(--dsw-alias-state-success-primary)}._7D6uKa_statusDot[data-status=failed]{background:var(--dsw-alias-state-error-primary)}._7D6uKa_cards{flex-direction:column;flex:1;gap:8px;min-height:0;padding:2px 8px 10px;display:flex;overflow-y:auto}._7D6uKa_columnEmpty{text-align:center;color:var(--dsw-alias-label-tertiary);padding:24px 8px;font-size:12px}._7D6uKa_card{text-align:left;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;color:var(--dsw-alias-label-primary);border-radius:10px;flex-direction:column;gap:6px;padding:10px 12px;font-family:inherit;transition:box-shadow .12s,border-color .12s,transform .12s;display:flex}._7D6uKa_card:hover{box-shadow:var(--dsw-shadow-lv2);border-color:var(--dsw-alias-border-l3);transform:translateY(-1px)}._7D6uKa_card[data-status=running]{border-color:var(--dsw-alias-state-warn-primary)}._7D6uKa_cardTitle{-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13px;font-weight:600;line-height:1.35;display:-webkit-box;overflow:hidden}._7D6uKa_cardExcerpt{color:var(--dsw-alias-label-secondary);-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:12px;line-height:1.4;display:-webkit-box;overflow:hidden}._7D6uKa_cardMeta{color:var(--dsw-alias-label-tertiary);align-items:center;gap:8px;font-size:11px;display:flex}._7D6uKa_cardTime{text-overflow:ellipsis;white-space:nowrap;flex:1;overflow:hidden}._7D6uKa_cardSchedule{white-space:nowrap;min-width:0;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover);border-radius:999px;flex:none;padding:2px 6px;font-size:12px;line-height:1}._7D6uKa_cardRun{flex:none}._7D6uKa_cardRun[data-result=failed]{color:var(--dsw-alias-state-error-primary)}._7D6uKa_cardRun[data-result=succeeded]{color:var(--dsw-alias-state-success-primary)}._7D6uKa_cardSession{color:var(--dsw-alias-state-business-primary);flex:none}._7D6uKa_cardRunningLabel{color:var(--dsw-alias-state-warn-primary);font-size:11px}._7D6uKa_cardSpinner{border:2px solid var(--dsw-alias-state-warn-primary);border-top-color:#0000;border-radius:50%;flex:none;width:10px;height:10px;animation:.8s linear infinite _7D6uKa_dshTbSpin}@keyframes _7D6uKa_dshTbSpin{to{transform:rotate(360deg)}}._7D6uKa_primaryButton{color:var(--dsw-alias-label-primary-foreground);background:var(--dsw-alias-button-info-fill);cursor:pointer;white-space:nowrap;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600}._7D6uKa_primaryButton:hover:not(:disabled){background:var(--dsw-alias-button-info-hover)}._7D6uKa_primaryButton:disabled{opacity:.5;cursor:default}._7D6uKa_ghostButton{color:var(--dsw-alias-label-primary);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;background:0 0;border-radius:8px;padding:5px 12px;font-size:12px}._7D6uKa_ghostButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}._7D6uKa_ghostButton:disabled{opacity:.45;cursor:default}._7D6uKa_dangerButton{color:#fff;background:var(--dsw-alias-state-error-primary);cursor:pointer;white-space:nowrap;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600}._7D6uKa_dangerButton:hover:not(:disabled){filter:brightness(1.08)}._7D6uKa_dangerButton:active:not(:disabled){filter:brightness(.94)}._7D6uKa_dangerButton:disabled{opacity:.5;cursor:default}._7D6uKa_iconButton{width:26px;height:26px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:6px;justify-content:center;align-items:center;padding:0;font-size:13px;display:inline-flex}._7D6uKa_iconButton:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}._7D6uKa_linkButton{color:var(--dsw-alias-state-business-primary);cursor:pointer;white-space:nowrap;background:0 0;border:none;padding:0;font-size:12px}._7D6uKa_linkButton:hover{text-decoration:underline}._7D6uKa_modalBackdrop{z-index:1300;background:var(--dsw-alias-bg-mask-1);justify-content:center;align-items:center;display:flex;position:fixed;inset:0}._7D6uKa_modal{background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);width:min(520px,100vw - 48px);max-height:calc(100vh - 96px);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-primary);border-radius:14px;flex-direction:column;gap:12px;padding:18px;display:flex;overflow-y:auto}._7D6uKa_modalTitle{margin:0;font-size:15px;font-weight:700}._7D6uKa_confirmMessage{color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font-size:13px;line-height:1.5}._7D6uKa_modalFooter{justify-content:flex-end;gap:10px;margin-top:4px;display:flex}._7D6uKa_field{flex-direction:column;gap:5px;display:flex}._7D6uKa_fieldLabel{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:600}._7D6uKa_input{color:var(--dsw-alias-label-primary);background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);resize:vertical;border-radius:8px;outline:none;padding:7px 10px;font-family:inherit;font-size:13px}._7D6uKa_input:focus{border-color:var(--dsw-alias-state-business-primary)}._7D6uKa_select{color:var(--dsw-alias-label-primary);background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;outline:none;max-width:100%;padding:7px 10px;font-family:inherit;font-size:13px}._7D6uKa_input::placeholder{color:var(--dsw-alias-label-tertiary)}._7D6uKa_formError{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px}._7D6uKa_detail{background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);width:min(640px,100vw - 48px);max-height:calc(100vh - 80px);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-primary);border-radius:14px;flex-direction:column;display:flex;overflow:hidden}._7D6uKa_detailHeader{border-bottom:1px solid var(--dsw-alias-separator-primary);flex:none;align-items:center;gap:10px;padding:14px 18px;display:flex}._7D6uKa_detailTitle{overflow-wrap:anywhere;flex:1;margin:0;font-size:15px;font-weight:700}._7D6uKa_statusBadge{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);border-radius:999px;flex:none;padding:2px 10px;font-size:12px}._7D6uKa_statusBadge[data-status=running]{color:var(--dsw-alias-state-warn-primary);border-color:var(--dsw-alias-state-warn-primary)}._7D6uKa_statusBadge[data-status=done]{color:var(--dsw-alias-state-success-primary);border-color:var(--dsw-alias-state-success-primary)}._7D6uKa_statusBadge[data-status=failed]{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}._7D6uKa_detailBody{flex-direction:column;flex:1;gap:16px;padding:14px 18px;display:flex;overflow-y:auto}._7D6uKa_detailSection{flex-direction:column;gap:6px;display:flex}._7D6uKa_detailSection h4{color:var(--dsw-alias-label-tertiary);text-transform:none;margin:0;font-size:12px;font-weight:700}._7D6uKa_detailText{color:var(--dsw-alias-label-primary);white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font-size:13px;line-height:1.55}._7D6uKa_scheduleToggle{color:var(--dsw-alias-label-primary);cursor:pointer;user-select:none;align-items:center;gap:8px;font-size:13px;display:flex}._7D6uKa_scheduleToggle input{accent-color:var(--dsw-alias-state-business-primary)}._7D6uKa_scheduleRow{align-items:center;gap:8px;display:flex}._7D6uKa_scheduleInput{min-width:0;font-family:var(--dsw-font-markdown-code-block-small);flex:1;font-size:12.5px}._7D6uKa_scheduleInputInvalid,._7D6uKa_scheduleInputInvalid:focus{border-color:var(--dsw-alias-state-error-primary)}._7D6uKa_schedulePreset{color:var(--dsw-alias-label-primary);background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;outline:none;flex:none;padding:7px 8px;font-size:12.5px}._7D6uKa_scheduleMeta{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}._7D6uKa_promptBlock{font-size:12.5px;line-height:1.5;font-family:var(--dsw-font-markdown-code-block-small);color:var(--dsw-alias-label-primary);background:var(--dsw-alias-markdown-code-block);border:1px solid var(--dsw-alias-border-l1);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:240px;margin:0;padding:10px 12px;overflow-y:auto}._7D6uKa_executionList{flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;display:flex}._7D6uKa_executionRow{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 10px;display:flex}._7D6uKa_executionBadge{color:var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-state-warn-secondary);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:600}._7D6uKa_executionBadge[data-result=succeeded]{color:var(--dsw-alias-state-success-primary);background:0 0}._7D6uKa_executionBadge[data-result=failed]{color:var(--dsw-alias-state-error-primary);background:0 0}._7D6uKa_executionBadge[data-result=cancelled]{color:var(--dsw-alias-label-tertiary);background:0 0}._7D6uKa_executionTimes{color:var(--dsw-alias-label-secondary);font-size:12px}._7D6uKa_executionError{width:100%;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;font-size:12px}._7D6uKa_moveRow{flex-wrap:wrap;gap:8px;display:flex}._7D6uKa_detailFooter{border-top:1px solid var(--dsw-alias-separator-primary);flex:none;align-items:center;gap:10px;padding:12px 18px;display:flex}._7D6uKa_detailMeta{color:var(--dsw-alias-label-tertiary);margin-left:auto;font-size:11px}@container _7D6uKa_task-board-view (width<=768px){._7D6uKa_board{gap:10px;padding:10px}._7D6uKa_boardHeader{flex-wrap:wrap;align-items:center;gap:8px}._7D6uKa_backButton{flex:none;order:1}._7D6uKa_boardTitle{flex:auto;order:2}._7D6uKa_boardHeader>._7D6uKa_detailMeta{flex:1 0 100%;order:3;margin-left:0}._7D6uKa_search{flex:1 0 100%;order:4;min-width:0}._7D6uKa_boardHeader>button:not(._7D6uKa_backButton){flex:1 1 0;order:5;min-width:0}._7D6uKa_columns{scroll-snap-type:inline mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;grid-auto-columns:86cqw;gap:10px;padding-inline:2px 14cqw;scroll-padding-inline:2px}._7D6uKa_columns::-webkit-scrollbar{display:none}._7D6uKa_column{scroll-snap-align:start;scroll-snap-stop:always}}@container _7D6uKa_task-board-view (width<=720px){._7D6uKa_boardHeader>._7D6uKa_detailMeta{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}}@container _7D6uKa_task-board-view (width<=600px){._7D6uKa_board{padding-inline:8px}}@media (width<=768px){[data-dsh-taskboard-view]{height:100dvh}._7D6uKa_entry,._7D6uKa_card,._7D6uKa_primaryButton,._7D6uKa_ghostButton,._7D6uKa_dangerButton,._7D6uKa_iconButton,._7D6uKa_linkButton,._7D6uKa_search,._7D6uKa_input,._7D6uKa_select,._7D6uKa_schedulePreset,._7D6uKa_scheduleToggle{min-height:44px}._7D6uKa_search,._7D6uKa_input,._7D6uKa_select,._7D6uKa_schedulePreset{box-sizing:border-box;font-size:16px}._7D6uKa_modalBackdrop{justify-content:stretch;align-items:stretch;width:100vw;height:100dvh}._7D6uKa_modal,._7D6uKa_detail{box-sizing:border-box;border:0;border-radius:0;width:100vw;height:100dvh;max-height:none}._7D6uKa_modal{padding-top:max(16px, env(safe-area-inset-top));padding-right:max(16px, env(safe-area-inset-right));padding-bottom:max(16px, env(safe-area-inset-bottom));padding-left:max(16px, env(safe-area-inset-left))}._7D6uKa_modalFooter{z-index:1;background:var(--dsw-alias-bg-base);flex-wrap:wrap;padding-top:8px;position:sticky;bottom:0}._7D6uKa_modalFooter>button{flex:120px}._7D6uKa_detailHeader{padding-top:max(12px, env(safe-area-inset-top));padding-right:max(14px, env(safe-area-inset-right));padding-left:max(14px, env(safe-area-inset-left));flex-wrap:wrap}._7D6uKa_detailTitle{min-width:0}._7D6uKa_detailBody{overscroll-behavior-y:contain;padding-right:max(14px, env(safe-area-inset-right));padding-left:max(14px, env(safe-area-inset-left))}._7D6uKa_detailFooter{padding-right:max(14px, env(safe-area-inset-right));padding-bottom:max(12px, env(safe-area-inset-bottom));padding-left:max(14px, env(safe-area-inset-left));flex-wrap:wrap}._7D6uKa_detailFooter>button{flex:96px}._7D6uKa_detailFooter>._7D6uKa_detailMeta{text-align:end;flex:1 0 100%;margin-left:0}._7D6uKa_scheduleRow{flex-direction:column;align-items:stretch}._7D6uKa_schedulePreset{width:100%}}._7D6uKa_entry:focus-visible,._7D6uKa_card:focus-visible,._7D6uKa_primaryButton:focus-visible,._7D6uKa_ghostButton:focus-visible,._7D6uKa_dangerButton:focus-visible,._7D6uKa_iconButton:focus-visible,._7D6uKa_linkButton:focus-visible,._7D6uKa_search:focus-visible,._7D6uKa_input:focus-visible,._7D6uKa_select:focus-visible,._7D6uKa_schedulePreset:focus-visible,._7D6uKa_scheduleToggle input:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}._7D6uKa_entry,._7D6uKa_primaryButton,._7D6uKa_ghostButton,._7D6uKa_dangerButton,._7D6uKa_iconButton,._7D6uKa_linkButton,._7D6uKa_search,._7D6uKa_input,._7D6uKa_select,._7D6uKa_schedulePreset,._7D6uKa_scheduleToggle input{transition:background-color .12s,color .12s,border-color .12s,outline-color .12s,box-shadow .12s,transform .12s}._7D6uKa_card:active{box-shadow:var(--dsw-shadow-lv1);transform:translateY(0)}._7D6uKa_entry:active,._7D6uKa_primaryButton:active:not(:disabled),._7D6uKa_ghostButton:active:not(:disabled),._7D6uKa_dangerButton:active:not(:disabled),._7D6uKa_iconButton:active:not(:disabled),._7D6uKa_linkButton:active:not(:disabled){transform:translateY(1px)}._7D6uKa_entry[data-active]:hover{background:var(--dsw-specific-sidebar-nav-item-active)}._7D6uKa_iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}._7D6uKa_linkButton:hover:not(:disabled){text-decoration:underline}._7D6uKa_iconButton:disabled,._7D6uKa_linkButton:disabled{opacity:.45;cursor:default}._7D6uKa_search:focus,._7D6uKa_select:focus,._7D6uKa_schedulePreset:focus{border-color:var(--dsw-alias-state-business-primary)}._7D6uKa_scheduleToggle input{margin:0}@media (prefers-reduced-motion:reduce){._7D6uKa_entry,._7D6uKa_card,._7D6uKa_primaryButton,._7D6uKa_ghostButton,._7D6uKa_dangerButton,._7D6uKa_iconButton,._7D6uKa_linkButton,._7D6uKa_search,._7D6uKa_input,._7D6uKa_select,._7D6uKa_schedulePreset,._7D6uKa_scheduleToggle input{transition:none}._7D6uKa_cardSpinner{animation:none}}._7D6uKa_cardTags{flex-wrap:wrap;gap:4px;display:flex}._7D6uKa_cardTag{border:1px solid var(--dsh-task-tag-border);background:var(--dsh-task-tag-fill);max-width:100%;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;border-radius:999px;padding:0 7px;font-size:10px;line-height:16px;overflow:hidden}._7D6uKa_tagFilter{flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;display:flex}._7D6uKa_tagFilterLabel{color:var(--dsw-alias-label-tertiary);font-size:11px}._7D6uKa_tagChip{border:1px solid var(--dsh-task-tag-border);color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border-radius:999px;padding:1px 9px;font-family:inherit;font-size:11px;line-height:18px}._7D6uKa_tagChip[data-active=true]{background:var(--dsh-task-tag-fill);color:var(--dsw-alias-label-primary)}._7D6uKa_cardTag[data-tag-tone=\"0\"],._7D6uKa_tagChip[data-tag-tone=\"0\"]{--dsh-task-tag-fill:#4e93e82e;--dsh-task-tag-border:#4e93e866}._7D6uKa_cardTag[data-tag-tone=\"1\"],._7D6uKa_tagChip[data-tag-tone=\"1\"]{--dsh-task-tag-fill:#2ea36a2e;--dsh-task-tag-border:#2ea36a66}._7D6uKa_cardTag[data-tag-tone=\"2\"],._7D6uKa_tagChip[data-tag-tone=\"2\"]{--dsh-task-tag-fill:#d08a2a2e;--dsh-task-tag-border:#d08a2a66}._7D6uKa_cardTag[data-tag-tone=\"3\"],._7D6uKa_tagChip[data-tag-tone=\"3\"]{--dsh-task-tag-fill:#b456c82e;--dsh-task-tag-border:#b456c866}._7D6uKa_cardTag[data-tag-tone=\"4\"],._7D6uKa_tagChip[data-tag-tone=\"4\"]{--dsh-task-tag-fill:#cf5f7a2e;--dsh-task-tag-border:#cf5f7a66}._7D6uKa_cardTag[data-tag-tone=\"5\"],._7D6uKa_tagChip[data-tag-tone=\"5\"]{--dsh-task-tag-fill:#4a9fb52e;--dsh-task-tag-border:#4a9fb566}._7D6uKa_fieldHint{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:1.4}._7D6uKa_tagRow{align-items:center;gap:6px;display:flex}._7D6uKa_tagRow ._7D6uKa_input{flex:1 1 0;min-width:0}._7D6uKa_tagRow ._7D6uKa_ghostButton{flex:none}._7D6uKa_tagAddButton{align-self:flex-start}";
 		const tagId$20 = "@linxin666/dsh-web-all/packages/dsh-task-board/src/client/board.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$20) + "]") === null) {
 			const tag = document.createElement("style");
@@ -6494,6 +6570,8 @@ window.__ModuleLoader__.load({
 			"cardSchedule": "_7D6uKa_cardSchedule",
 			"cardSession": "_7D6uKa_cardSession",
 			"cardSpinner": "_7D6uKa_cardSpinner",
+			"cardTag": "_7D6uKa_cardTag",
+			"cardTags": "_7D6uKa_cardTags",
 			"cardTime": "_7D6uKa_cardTime",
 			"cardTitle": "_7D6uKa_cardTitle",
 			"cards": "_7D6uKa_cards",
@@ -6523,6 +6601,7 @@ window.__ModuleLoader__.load({
 			"executionRow": "_7D6uKa_executionRow",
 			"executionTimes": "_7D6uKa_executionTimes",
 			"field": "_7D6uKa_field",
+			"fieldHint": "_7D6uKa_fieldHint",
 			"fieldLabel": "_7D6uKa_fieldLabel",
 			"formError": "_7D6uKa_formError",
 			"ghostButton": "_7D6uKa_ghostButton",
@@ -6546,6 +6625,11 @@ window.__ModuleLoader__.load({
 			"select": "_7D6uKa_select",
 			"statusBadge": "_7D6uKa_statusBadge",
 			"statusDot": "_7D6uKa_statusDot",
+			"tagAddButton": "_7D6uKa_tagAddButton",
+			"tagChip": "_7D6uKa_tagChip",
+			"tagFilter": "_7D6uKa_tagFilter",
+			"tagFilterLabel": "_7D6uKa_tagFilterLabel",
+			"tagRow": "_7D6uKa_tagRow",
 			"task-board-view": "_7D6uKa_task-board-view"
 		};
 		//#endregion
@@ -6571,6 +6655,8 @@ window.__ModuleLoader__.load({
 		];
 		//#endregion
 		//#region ../dsh-task-board/src/client/board/TaskForm.tsx
+		/** DOM id shared by the tag-name inputs and their datalist (one board at a time). */
+		const TAG_NAME_LIST_ID = "dsh-task-board-tag-names";
 		/** Modal overlay: closes on backdrop press, submits through the form. */
 		function ModalShell({ ariaLabel, title, error, pending, submitLabel, onSubmit, onClose, children }) {
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
@@ -6658,6 +6744,104 @@ window.__ModuleLoader__.load({
 				})
 			] });
 		}
+		/**
+		* Task labels (issue #1521): one row per label holding the badge name and an
+		* optional execution hint. The name inputs offer the labels already used on the
+		* board through a datalist, and picking one adopts its hint when the row has
+		* none — so a business line is defined once and reused by every later task.
+		*/
+		function TaskTagFields({ tags, knownTags, onChange }) {
+			const update = (index, patch) => {
+				onChange(tags.map((tag, position) => position === index ? {
+					...tag,
+					...patch
+				} : tag));
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: board_module_css_default.field,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: board_module_css_default.fieldLabel,
+						children: t$6("new.tags")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: board_module_css_default.fieldHint,
+						children: t$6("new.tagsHint")
+					}),
+					tags.map((tag, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: board_module_css_default.tagRow,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								className: board_module_css_default.input,
+								list: TAG_NAME_LIST_ID,
+								value: tag.name,
+								maxLength: 32,
+								placeholder: t$6("new.tagNamePlaceholder"),
+								"aria-label": t$6("new.tagName"),
+								onChange: (event) => {
+									const name = event.target.value;
+									const known = knownTags.find((candidate) => candidate.name === name);
+									const adoptsHint = known?.promptPrefix !== void 0 && (tag.promptPrefix ?? "").trim() === "";
+									update(index, adoptsHint ? {
+										name,
+										promptPrefix: known.promptPrefix
+									} : { name });
+								}
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								className: board_module_css_default.input,
+								value: tag.promptPrefix ?? "",
+								maxLength: 200,
+								placeholder: t$6("new.tagPromptPlaceholder"),
+								"aria-label": t$6("new.tagPrompt"),
+								onChange: (event) => {
+									update(index, { promptPrefix: event.target.value });
+								}
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: board_module_css_default.ghostButton,
+								"aria-label": t$6("new.tagRemove", { name: tag.name }),
+								onClick: () => {
+									onChange(tags.filter((_, position) => position !== index));
+								},
+								children: "×"
+							})
+						]
+					}, index)),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("datalist", {
+						id: TAG_NAME_LIST_ID,
+						children: knownTags.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", { value: tag.name }, tag.name))
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+						type: "button",
+						className: board_module_css_default.ghostButton + " " + board_module_css_default.tagAddButton,
+						disabled: tags.length >= 8,
+						onClick: () => {
+							onChange([...tags, { name: "" }]);
+						},
+						children: ["+ ", t$6("new.tagAdd")]
+					})
+				]
+			});
+		}
+		/**
+		* Drop blank rows and trim what survives, so the wire always carries a valid
+		* tag list (the protocol rejects a list with a blank name or an empty array).
+		*/
+		function cleanTags(tags) {
+			const cleaned = [];
+			for (const tag of tags) {
+				const name = tag.name.trim();
+				if (name === "") continue;
+				const promptPrefix = tag.promptPrefix?.trim();
+				cleaned.push(promptPrefix === void 0 || promptPrefix === "" ? { name } : {
+					name,
+					promptPrefix
+				});
+			}
+			return cleaned;
+		}
 		//#endregion
 		//#region ../dsh-task-board/src/client/board/NewTaskModal.tsx
 		/**
@@ -6681,6 +6865,7 @@ window.__ModuleLoader__.load({
 			const [freezeText, setFreezeText] = (0, react.useState)("");
 			const [freezeError, setFreezeError] = (0, react.useState)(void 0);
 			const [handoverText, setHandoverText] = (0, react.useState)(initialTask?.handover?.references !== void 0 ? initialTask.handover.references.join("\n") : "");
+			const [tags, setTags] = (0, react.useState)(initialTask?.tags ?? []);
 			const [archiveOriginal, setArchiveOriginal] = (0, react.useState)(true);
 			const [error, setError] = (0, react.useState)(void 0);
 			const [pending, setPending] = (0, react.useState)(false);
@@ -6713,6 +6898,7 @@ window.__ModuleLoader__.load({
 					mode: mode === "" ? void 0 : mode,
 					permission: permission === "" ? void 0 : permission
 				};
+				const tagList = cleanTags(tags);
 				setPending(true);
 				if (await controller.createTaskConfirmed({
 					title,
@@ -6725,6 +6911,7 @@ window.__ModuleLoader__.load({
 					permission: permission === "" ? void 0 : permission,
 					model: model === "" ? void 0 : model,
 					...reuseSession ? { reuseSession: true } : {},
+					...tagList.length > 0 ? { tags: tagList } : {},
 					schedule: scheduleEnabled ? {
 						enabled: true,
 						cron: scheduleCron.trim()
@@ -6762,6 +6949,11 @@ window.__ModuleLoader__.load({
 						},
 						onDescriptionChange: setDescription,
 						onPromptChange: setPrompt
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(TaskTagFields, {
+						tags,
+						knownTags: collectKnownTags(controller.getSnapshot().tasks),
+						onChange: setTags
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
 						className: board_module_css_default.field,
@@ -7039,6 +7231,17 @@ window.__ModuleLoader__.load({
 						className: board_module_css_default.cardTitle,
 						children: task.title
 					}),
+					task.tags !== void 0 && task.tags.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: board_module_css_default.cardTags,
+						children: task.tags.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: board_module_css_default.cardTag,
+							"data-tag-tone": tagTone(tag.name),
+							"data-dsh-part": "tag-badge",
+							"data-tag-hint": tag.promptPrefix === void 0 ? void 0 : tag.promptPrefix,
+							title: tag.promptPrefix === void 0 ? tag.name : tag.promptPrefix,
+							children: tag.name
+						}, tag.name))
+					}),
 					task.description !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 						className: board_module_css_default.cardExcerpt,
 						children: task.description
@@ -7154,6 +7357,7 @@ window.__ModuleLoader__.load({
 			const [title, setTitle] = (0, react.useState)(task.title);
 			const [description, setDescription] = (0, react.useState)(task.description);
 			const [prompt, setPrompt] = (0, react.useState)(task.prompt);
+			const [tags, setTags] = (0, react.useState)(task.tags ?? []);
 			const [error, setError] = (0, react.useState)(void 0);
 			const [pending, setPending] = (0, react.useState)(false);
 			const submit = async () => {
@@ -7162,18 +7366,21 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				setPending(true);
-				if (await controller.updateTask(task.id, {
+				const tagList = cleanTags(tags);
+				const patch = {
 					title,
 					description,
-					prompt
-				})) {
+					prompt,
+					...tagList.length > 0 ? { tags: tagList } : task.tags === void 0 ? {} : { tags: null }
+				};
+				if (await controller.updateTask(task.id, patch)) {
 					onClose();
 					return;
 				}
 				setPending(false);
 				setError(controller.getSnapshot().transportError ?? t$6("new.required"));
 			};
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ModalShell, {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(ModalShell, {
 				ariaLabel: t$6("edit.title"),
 				title: t$6("edit.title"),
 				error,
@@ -7183,7 +7390,7 @@ window.__ModuleLoader__.load({
 					submit();
 				},
 				onClose,
-				children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TaskContentFields, {
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(TaskContentFields, {
 					title,
 					description,
 					prompt,
@@ -7193,7 +7400,11 @@ window.__ModuleLoader__.load({
 					},
 					onDescriptionChange: setDescription,
 					onPromptChange: setPrompt
-				})
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TaskTagFields, {
+					tags,
+					knownTags: collectKnownTags(controller.getSnapshot().tasks),
+					onChange: setTags
+				})]
 			});
 		}
 		//#endregion
@@ -7870,13 +8081,28 @@ window.__ModuleLoader__.load({
 		* active. Cards open the task detail (never execute directly); the header
 		* offers filter, new-task, and a back-to-chat escape.
 		*/
-		/** Case-insensitive title/description/freeze-snapshot match. */
+		/** Case-insensitive title/description/tag/freeze-snapshot match. */
 		function matchesFilter(task, filter) {
 			if (filter.trim() === "") return true;
 			const needle = filter.trim().toLowerCase();
-			const haystacks = [task.title, task.description];
+			const haystacks = [
+				task.title,
+				task.description,
+				...(task.tags ?? []).map((tag) => tag.name)
+			];
 			if (task.freeze !== void 0) haystacks.push(task.freeze.goal, task.freeze.progress, task.freeze.next);
 			return haystacks.some((text) => text.toLowerCase().includes(needle));
+		}
+		/**
+		* Whether a task carries every selected label (issue #1521). Multi-select is
+		* conjunctive: adding a label narrows the board instead of widening it, which
+		* is the only reading that keeps "工作" selected from dragging unrelated cards
+		* back in when a second label is added.
+		*/
+		function matchesTagFilter(task, selected) {
+			if (selected.length === 0) return true;
+			const names = new Set((task.tags ?? []).map((tag) => tag.name));
+			return selected.every((name) => names.has(name));
 		}
 		/**
 		* Memoized per-card adapter: with a stable `onOpen` from the board and an
@@ -7899,10 +8125,15 @@ window.__ModuleLoader__.load({
 			const [snapshot, setSnapshot] = (0, react.useState)(controller.getSnapshot());
 			(0, react.useEffect)(() => controller.subscribe(() => setSnapshot(controller.getSnapshot())), [controller]);
 			const [filter, setFilter] = (0, react.useState)("");
+			const [tagFilter, setTagFilter] = (0, react.useState)([]);
 			const [showNew, setShowNew] = (0, react.useState)(false);
 			const selected = selectedTaskOf(snapshot);
 			const archiveView = snapshot.archiveView;
-			const visible = snapshot.tasks.filter((task) => (archiveView ? task.archivedAt !== void 0 : task.archivedAt === void 0) && matchesFilter(task, filter));
+			const knownTags = collectKnownTags(snapshot.tasks);
+			const visible = snapshot.tasks.filter((task) => (archiveView ? task.archivedAt !== void 0 : task.archivedAt === void 0) && matchesFilter(task, filter) && matchesTagFilter(task, tagFilter));
+			const toggleTag = (0, react.useCallback)((name) => {
+				setTagFilter((current) => current.includes(name) ? current.filter((entry) => entry !== name) : [...current, name]);
+			}, []);
 			const openTask = (0, react.useCallback)((id) => {
 				controller.openTask(id);
 			}, [controller]);
@@ -7966,6 +8197,40 @@ window.__ModuleLoader__.load({
 							})
 						]
 					}),
+					!archiveView && knownTags.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: board_module_css_default.tagFilter,
+						"data-dsh-part": "tag-filter",
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: board_module_css_default.tagFilterLabel,
+								children: t$6("board.tagFilter")
+							}),
+							knownTags.map((tag) => {
+								const active = tagFilter.includes(tag.name);
+								return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: board_module_css_default.tagChip,
+									"data-dsh-part": "tag-chip",
+									"data-tag-tone": tagTone(tag.name),
+									"data-active": active ? "true" : void 0,
+									"aria-pressed": active,
+									title: tag.promptPrefix === void 0 ? tag.name : tag.promptPrefix,
+									onClick: () => {
+										toggleTag(tag.name);
+									},
+									children: tag.name
+								}, tag.name);
+							}),
+							tagFilter.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: board_module_css_default.linkButton,
+								onClick: () => {
+									setTagFilter([]);
+								},
+								children: t$6("board.tagFilterClear")
+							})
+						]
+					}),
 					snapshot.transportError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: board_module_css_default.formError,
 						children: [
@@ -8005,7 +8270,7 @@ window.__ModuleLoader__.load({
 									onOpen: openTask
 								}, task.id)), visible.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 									className: board_module_css_default.columnEmpty,
-									children: t$6("archive.empty")
+									children: tagFilter.length > 0 ? t$6("board.tagEmpty") : t$6("archive.empty")
 								})]
 							})]
 						}) : COLUMNS.map((column) => {
@@ -8052,7 +8317,7 @@ window.__ModuleLoader__.load({
 										onOpen: openTask
 									}, task.id)), tasks.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 										className: board_module_css_default.columnEmpty,
-										children: t$6("board.empty")
+										children: tagFilter.length > 0 ? t$6("board.tagEmpty") : t$6("board.empty")
 									})]
 								})]
 							}, column.status);

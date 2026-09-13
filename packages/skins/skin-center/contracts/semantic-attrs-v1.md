@@ -70,6 +70,9 @@ family / 插件区域：
 | `column` | task-board | 状态列；`section[data-status]` |
 | `card` | task-board | 任务卡；列内 `[data-status]` 条目 |
 | `detail` | task-board | 任务详情面板 |
+| `tag-filter` | task-board | 标签筛选条；`[data-dsh-taskboard-board] [data-dsh-part="tag-filter"]` |
+| `tag-chip` | task-board | 筛选条内的标签胶囊；`[data-dsh-part="tag-chip"]`，`data-tag-tone` 为 0-5 调色板槽 |
+| `tag-badge` | task-board | 卡片上的标签徽章；`[data-dsh-part="tag-badge"]`，`data-tag-tone` 同上 |
 | `tab-bar` / `tab` | ssh | 页签条/页签；`[role="tablist"]` / `[role="tab"]` |
 | `host-table` / `host-row` | ssh | 主机表/行；`[data-dsh-ssh-view]` 内 table/tr |
 | `terminal` | ssh | xterm 终端；面板内 termContainer（.xterm 辅锚） |

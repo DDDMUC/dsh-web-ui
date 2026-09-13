@@ -1121,3 +1121,122 @@ html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [class*='centerCol'] 
     animation: none;
   }
 }
+
+/* --- task tags (issue #1521) ---------------------------------------------------
+ * A badge takes its tone from a fixed six-colour palette chosen by hashing the
+ * name, so one label always paints the same way and nothing per-tag has to be
+ * stored. The fill is translucent and the text keeps the theme's own primary
+ * label colour, so badges stay readable on light, dark, and every skin without
+ * depending on a token a skin may not define.
+ * ----------------------------------------------------------------------------- */
+
+.cardTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cardTag {
+  max-width: 100%;
+  padding: 0 7px;
+  overflow: hidden;
+  border: 1px solid var(--dsh-task-tag-border);
+  border-radius: 999px;
+  background: var(--dsh-task-tag-fill);
+  color: var(--dsw-alias-label-primary);
+  font-size: 10px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tagFilter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.tagFilterLabel {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+}
+
+.tagChip {
+  padding: 1px 9px;
+  border: 1px solid var(--dsh-task-tag-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.tagChip[data-active='true'] {
+  background: var(--dsh-task-tag-fill);
+  color: var(--dsw-alias-label-primary);
+}
+
+.cardTag[data-tag-tone='0'],
+.tagChip[data-tag-tone='0'] {
+  --dsh-task-tag-fill: #4e93e82e;
+  --dsh-task-tag-border: #4e93e866;
+}
+
+.cardTag[data-tag-tone='1'],
+.tagChip[data-tag-tone='1'] {
+  --dsh-task-tag-fill: #2ea36a2e;
+  --dsh-task-tag-border: #2ea36a66;
+}
+
+.cardTag[data-tag-tone='2'],
+.tagChip[data-tag-tone='2'] {
+  --dsh-task-tag-fill: #d08a2a2e;
+  --dsh-task-tag-border: #d08a2a66;
+}
+
+.cardTag[data-tag-tone='3'],
+.tagChip[data-tag-tone='3'] {
+  --dsh-task-tag-fill: #b456c82e;
+  --dsh-task-tag-border: #b456c866;
+}
+
+.cardTag[data-tag-tone='4'],
+.tagChip[data-tag-tone='4'] {
+  --dsh-task-tag-fill: #cf5f7a2e;
+  --dsh-task-tag-border: #cf5f7a66;
+}
+
+.cardTag[data-tag-tone='5'],
+.tagChip[data-tag-tone='5'] {
+  --dsh-task-tag-fill: #4a9fb52e;
+  --dsh-task-tag-border: #4a9fb566;
+}
+
+.fieldHint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tagRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tagRow .input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.tagRow .ghostButton {
+  flex: none;
+}
+
+.tagAddButton {
+  align-self: flex-start;
+}

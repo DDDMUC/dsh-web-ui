@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useState } from 'react'
 import { selectedTaskOf, type BoardController } from '../../core/controller.ts'
-import { COLUMNS, canMoveManually, type TaskRecord } from '../../core/tasks.ts'
+import { COLUMNS, canMoveManually, collectKnownTags, tagTone, type TaskRecord } from '../../core/tasks.ts'
 import { t } from '../locales.ts'
 import css from '../board.module.css'
 import { NewTaskModal } from './NewTaskModal.tsx'
@@ -13,13 +13,25 @@ import { STATUS_KEY } from './status-key.ts'
 import { TaskCard } from './TaskCard.tsx'
 import { TaskDetail } from './TaskDetail.tsx'
 
-/** Case-insensitive title/description/freeze-snapshot match. */
+/** Case-insensitive title/description/tag/freeze-snapshot match. */
 export function matchesFilter(task: TaskRecord, filter: string): boolean {
   if (filter.trim() === '') return true
   const needle = filter.trim().toLowerCase()
-  const haystacks = [task.title, task.description]
+  const haystacks = [task.title, task.description, ...(task.tags ?? []).map(tag => tag.name)]
   if (task.freeze !== undefined) haystacks.push(task.freeze.goal, task.freeze.progress, task.freeze.next)
   return haystacks.some(text => text.toLowerCase().includes(needle))
+}
+
+/**
+ * Whether a task carries every selected label (issue #1521). Multi-select is
+ * conjunctive: adding a label narrows the board instead of widening it, which
+ * is the only reading that keeps "工作" selected from dragging unrelated cards
+ * back in when a second label is added.
+ */
+export function matchesTagFilter(task: TaskRecord, selected: readonly string[]): boolean {
+  if (selected.length === 0) return true
+  const names = new Set((task.tags ?? []).map(tag => tag.name))
+  return selected.every(name => names.has(name))
 }
 
 /**
@@ -41,14 +53,24 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
     [controller],
   )
   const [filter, setFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState<string[]>([])
   const [showNew, setShowNew] = useState(false)
   const selected = selectedTaskOf(snapshot)
   const archiveView = snapshot.archiveView
+  // Every label in use across the ledger (board and archive alike), so the
+  // filter never loses an option just because its task was archived.
+  const knownTags = collectKnownTags(snapshot.tasks)
   // Archived tasks leave the columns; the archive view shows them instead.
   const visible = snapshot.tasks.filter(task =>
     (archiveView ? task.archivedAt !== undefined : task.archivedAt === undefined)
-    && matchesFilter(task, filter),
+    && matchesFilter(task, filter)
+    && matchesTagFilter(task, tagFilter),
   )
+  const toggleTag = useCallback((name: string): void => {
+    setTagFilter(current => current.includes(name)
+      ? current.filter(entry => entry !== name)
+      : [...current, name])
+  }, [])
   const openTask = useCallback((id: string): void => { controller.openTask(id) }, [controller])
 
   return (
@@ -100,6 +122,35 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
         </button>
       </header>
 
+      {!archiveView && knownTags.length > 0 && (
+        <div className={css.tagFilter} data-dsh-part="tag-filter">
+          <span className={css.tagFilterLabel}>{t('board.tagFilter')}</span>
+          {knownTags.map(tag => {
+            const active = tagFilter.includes(tag.name)
+            return (
+              <button
+                key={tag.name}
+                type="button"
+                className={css.tagChip}
+                data-dsh-part="tag-chip"
+                data-tag-tone={tagTone(tag.name)}
+                data-active={active ? 'true' : undefined}
+                aria-pressed={active}
+                title={tag.promptPrefix === undefined ? tag.name : tag.promptPrefix}
+                onClick={() => { toggleTag(tag.name) }}
+              >
+                {tag.name}
+              </button>
+            )
+          })}
+          {tagFilter.length > 0 && (
+            <button type="button" className={css.linkButton} onClick={() => { setTagFilter([]) }}>
+              {t('board.tagFilterClear')}
+            </button>
+          )}
+        </div>
+      )}
+
       {snapshot.transportError !== undefined && (
         <div className={css.formError}>
           {t('board.hostError', { error: snapshot.transportError })}{' '}
@@ -120,7 +171,9 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
               {visible.map(task => (
                 <MemoTaskCard key={task.id} task={task} pending={snapshot.pendingTaskIds.includes(task.id)} timeZone={snapshot.host?.scheduler.timeZone} onOpen={openTask} />
               ))}
-              {visible.length === 0 && <div className={css.columnEmpty}>{t('archive.empty')}</div>}
+              {visible.length === 0 && (
+                <div className={css.columnEmpty}>{tagFilter.length > 0 ? t('board.tagEmpty') : t('archive.empty')}</div>
+              )}
             </div>
           </section>
         ) : (
@@ -156,7 +209,9 @@ export function TaskBoard({ controller }: { controller: BoardController }) {
                   {tasks.map(task => (
                     <MemoTaskCard key={task.id} task={task} pending={snapshot.pendingTaskIds.includes(task.id)} timeZone={snapshot.host?.scheduler.timeZone} onOpen={openTask} />
                   ))}
-                  {tasks.length === 0 && <div className={css.columnEmpty}>{t('board.empty')}</div>}
+                  {tasks.length === 0 && (
+                    <div className={css.columnEmpty}>{tagFilter.length > 0 ? t('board.tagEmpty') : t('board.empty')}</div>
+                  )}
                 </div>
               </section>
             )

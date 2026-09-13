@@ -1,5 +1,5 @@
 import type { TaskUpdatePatch } from './core/use-cases/task-update.ts'
-import { isTaskPermission, isTaskStatus, type NewTaskInput, type TaskPermission, type TaskRecord, type TaskStatus } from './core/tasks.ts'
+import { isTaskPermission, isTaskStatus, isTaskTagList, type NewTaskInput, type TaskPermission, type TaskRecord, type TaskStatus } from './core/tasks.ts'
 import { parseLedger } from './core/store.ts'
 import { sanitizeFreezeSnapshot, type FreezeSnapshot } from './core/freeze-snapshot.ts'
 import { sanitizeHandover, type TaskHandoverInput } from './core/handover.ts'
@@ -101,6 +101,10 @@ function optionalFiniteNumber(value: unknown): boolean {
 }
 
 function validImportedKnownFields(value: Record<string, unknown>): boolean {
+  // Tags are validated (not repaired) on the import path: an imported task
+  // must carry a well-formed list or none at all, so a hand-edited export
+  // cannot smuggle a malformed tag past the gate.
+  if (value.tags !== undefined && !isTaskTagList(value.tags)) return false
   if (value.schedule !== undefined) {
     const schedule = record(value.schedule)
     if (schedule === undefined || typeof schedule.enabled !== 'boolean' || typeof schedule.cron !== 'string') return false
@@ -161,6 +165,7 @@ function importedTask(value: unknown): TaskRecord | undefined {
     ...(task.archivedAt === undefined ? {} : { archivedAt: task.archivedAt }),
     ...(task.freeze === undefined ? {} : { freeze: task.freeze }),
     ...(task.handover === undefined ? {} : { handover: task.handover }),
+    ...(task.tags === undefined ? {} : { tags: task.tags }),
     // 安全门（对抗场景 b）：import 不是人工确认动作，确认戳一律剥除——
     // 高于会话默认权限的绑定经 import 进入后必须重新武装 confirm-permission 门。
   }
@@ -194,11 +199,12 @@ function handoverPayload(value: unknown): TaskHandoverInput | undefined {
 
 function createInput(value: unknown): value is NewTaskInput {
   const input = record(value)
-  if (input === undefined || !exactKeys(input, ['title', 'description', 'prompt', 'workspaceId', 'mode', 'permission', 'schedule', 'freeze', 'handover', 'model', 'reuseSession'])) return false
+  if (input === undefined || !exactKeys(input, ['title', 'description', 'prompt', 'workspaceId', 'mode', 'permission', 'schedule', 'freeze', 'handover', 'model', 'reuseSession', 'tags'])) return false
   if (typeof input.title !== 'string' || typeof input.description !== 'string' || typeof input.prompt !== 'string') return false
   if (!optionalString(input.workspaceId) || !optionalString(input.mode) || !optionalString(input.model)) return false
   if (input.reuseSession !== undefined && typeof input.reuseSession !== 'boolean') return false
   if (input.permission !== undefined && !isTaskPermission(input.permission)) return false
+  if (input.tags !== undefined && !isTaskTagList(input.tags)) return false
   if (input.freeze !== undefined && freezePayload(input.freeze) === undefined) return false
   if (input.handover !== undefined && handoverPayload(input.handover) === undefined) return false
   if (input.schedule !== undefined) {
@@ -211,13 +217,15 @@ function createInput(value: unknown): value is NewTaskInput {
 
 function updatePatch(value: unknown): boolean {
   const patch = record(value)
-  if (patch === undefined || !exactKeys(patch, ['title', 'description', 'prompt', 'workspaceId', 'mode', 'permission', 'freeze', 'handover', 'model', 'reuseSession'])) return false
+  if (patch === undefined || !exactKeys(patch, ['title', 'description', 'prompt', 'workspaceId', 'mode', 'permission', 'freeze', 'handover', 'model', 'reuseSession', 'tags'])) return false
   // null (or false) clears the reuse opt-in; only a real boolean is accepted.
   if (patch.reuseSession !== undefined && patch.reuseSession !== null && typeof patch.reuseSession !== 'boolean') return false
   for (const key of ['title', 'description', 'prompt', 'workspaceId', 'mode', 'model'] as const) {
     if (!optionalString(patch[key])) return false
   }
   if (patch.permission !== undefined && !isTaskPermission(patch.permission)) return false
+  // null clears the label set; a present array must be a well-formed list.
+  if (patch.tags !== undefined && patch.tags !== null && !isTaskTagList(patch.tags)) return false
   // null clears the snapshot; an object must pass the freeze gate.
   if (patch.freeze !== undefined && patch.freeze !== null && freezePayload(patch.freeze) === undefined) return false
   // Same convention for the handover bundle.
