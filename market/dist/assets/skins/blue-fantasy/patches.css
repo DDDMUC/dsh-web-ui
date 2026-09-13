@@ -286,9 +286,11 @@ body[data-ds-dark-theme] [data-phase="active"] [class*="composerSeat"]:before {
  * Both knobs come from the skin-center Background card and are read as optional
  * variables with fallbacks: the blur is var(--dsh-skin-bubble-blur, 10px), and
  * every text plate alpha rides var(--dsh-skin-bubble-alpha, .5). Each plate keeps
- * its own ratio so the default 50% reproduces the values this layer first shipped
- * with. The "Bubble opacity" slider therefore drives everything painted *behind
- * text* -- markdown blocks, tool output, the turn-process row -- and nothing else.
+ * its own ratio so the default reproduces the values this layer first shipped
+ * with -- the user's own bubble runs at 120% on both knobs, which is what its
+ * hand-tuned 12px / 60% used to be. The "Bubble opacity" slider therefore drives
+ * everything painted *behind text* -- markdown blocks, tool output, the
+ * turn-process row -- and nothing else.
  * The window chrome (header, right sidebar) is deliberately not on that slider:
  * it is frame, not bubble, and it keeps a fixed density.
  *
@@ -597,12 +599,18 @@ body[data-ds-dark-theme] [data-slot="conversation.session"] [class*="callRow"] [
 
 /* Keep the accent fill the skin already assigns, add translucency to it and
    frost what shows through. The compound selector matters: a bare
-   [class*="bubble"] would also catch unrelated bubbles elsewhere in the shell. */
+   [class*="bubble"] would also catch unrelated bubbles elsewhere in the shell.
+
+   The user's own bubble has always been the frosted one of the two -- deeper
+   than the plates around it -- so it rides the same slider at 120%: the default
+   10px reproduces the 12px this rule carried before the variable existed, and
+   the knob scales it in step with everything else. The alpha above uses the
+   same ratio for the same reason. */
 [data-slot="main.conversation"] [class*="userStack"] [class*="bubble"] {
   /* 120% of the slider reproduces the 60% body this layer shipped with. */
   background: color-mix(in srgb, var(--dsw-specific-bubble) calc(var(--dsh-skin-bubble-alpha, .5) * 120%), transparent);
-  -webkit-backdrop-filter: blur(var(--dsh-skin-bubble-blur, 12px)) saturate(1.3);
-  backdrop-filter: blur(var(--dsh-skin-bubble-blur, 12px)) saturate(1.3);
+  -webkit-backdrop-filter: blur(calc(var(--dsh-skin-bubble-blur, 10px) * 1.2)) saturate(1.3);
+  backdrop-filter: blur(calc(var(--dsh-skin-bubble-blur, 10px) * 1.2)) saturate(1.3);
 }
 
 /* --- deliverables row (this turn's produced files) ------------------------ */
