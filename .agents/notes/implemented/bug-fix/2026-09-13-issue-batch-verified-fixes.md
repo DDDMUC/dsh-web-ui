@@ -15,6 +15,9 @@ On 2026-09-12 the tracker gained thirteen new issues. Triage against `dev` (`d56
 5. Describe-image orphan attachments (#1508): `client/send-hook.ts` reads every file before uploading any, so a local read failure returns to the original send with nothing stored on the host. Upload failures can still strand earlier uploads: the official attachment service exposes no delete and never collects unreferenced objects.
 6. Ice-princess tooltip (#1515): the skin sets a dark tooltip chip (`--dsw-alias-tooltip-bg: #1d315a`, `--dsw-alias-tooltip-fg: #eaf3ff`) in both theme blocks. The official tooltip paints its label with the static white `--dsw-static-neutral-bluish-00`, so a light background makes every hint unreadable and the skin's own `-fg` token is inert.
 7. Remote access hint (#1517): `status.lanRequiredHint` names the surface the LAN toggle actually lives on (Settings → Web Plugins → Remote access) in zh, en, and mirrored ru, instead of pointing at a settings card that does not exist inside the pairing panel.
+8. Collapsed rail versus the settings dialog (#1510): the official settings panel renders inside the sidebar foot, which the aggregate's narrow-screen collapse rule hides (`display: none !important`) while the collapsed pane also sets `pointer-events: none`. The responsive shell now restores exactly the sidebar subtree carrying an open dialog (`:has([role="dialog"], [aria-modal="true"])`, `display: flex !important` plus `pointer-events: auto`), leaving the collapsed rail untouched when no dialog is open.
+
+Records that own a subset of these decisions were kept current in the same change: [the session archive manager](../feature/2026-08-31-session-archive-manager.md) (delete-plan rules), [git worktree parallel sessions](../feature/2026-08-26-git-worktree-parallel-sessions.md) (auto-isolation), and [the capability cache invalidation note](2026-08-25-native-image-capability-cache-invalidation.md) (#1509).
 
 ## Rejected alternatives
 
@@ -25,8 +28,8 @@ On 2026-09-12 the tracker gained thirteen new issues. Triage against `dev` (`d56
 
 ## Deferred
 
-- #1510 (narrow-viewport settings dialog): the `dsh-web-all` collapse rule does hide a settings panel that the official sidebar renders inside its foot, but the report's trigger depends on the third-party `dsh-better-sidebar` collapsing the rail, and the skin named in the report is not involved. Left open for GUI evidence instead of a speculative CSS exemption.
 - #1498 (taskbar flash plus audio): an enhancement, already largely covered by the community `dsh-notifier` plugin; taskbar flashing needs the Electron shell rather than a web plugin.
+- Narrow-viewport GUI validation for #1510: the mechanism is proven from source (the official sidebar snapshot places `.footArea` — which hosts the `sidebar.settings` slot and the settings overlay — as a non-first child the collapse rule hides, and the overlay is `position: fixed` with `role="dialog"`), and the shell contract is unit-tested, but this checkout cannot drive a real phone-width GUI, so the reporter still has to confirm the fix on a device.
 
 ## Consequences
 
