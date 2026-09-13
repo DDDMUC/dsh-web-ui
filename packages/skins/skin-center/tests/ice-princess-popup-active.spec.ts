@@ -16,6 +16,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { transformSkinCss } from '../src/core/css-safety/transform.ts'
 
 const CSS = readFileSync(new URL('../skins/ice-princess/patches.css', import.meta.url), 'utf8')
 
@@ -83,5 +84,24 @@ describe('ice-princess composer suggestion highlight', () => {
 
   it('reads as a distinct row on the menu surface', () => {
     expect(contrast(ACTIVE_FILL, MENU_SURFACE)).toBeGreaterThanOrEqual(2.5)
+  })
+
+  it('survives the serve-time scoping transform, prefixed to the skin root', () => {
+    // The market and the Skin Center serve the TRANSFORMED stylesheet, so the
+    // fix is only real if the scoping pass keeps both the narrowed tool-key
+    // rule and the ARIA fallback under html[data-dsh-skin].
+    const { code } = transformSkinCss(CSS, { skinId: 'ice-princess', filename: 'patches.css' })
+    // Every rule is scoped under the skin root; quote style and spacing are the
+    // transform's business, so the assertions tolerate both.
+    expect(code).toMatch(/html\[data-dsh-skin="ice-princess"\]/)
+    expect(code).toMatch(
+      /\[data-composer-card\] button:not\(\[role=?['"]?menuitem['"]?\]\):not\(\[role=?['"]?option['"]?\]\)/,
+    )
+    expect(code).toMatch(
+      /\[data-composer-card\] \[role=?['"]?option['"]?\][\s\S]{0,40}\[aria-selected=?['"]?true['"]?\]/,
+    )
+    expect(code).toMatch(/#2a5ea8/i)
+    // The un-narrowed selector must not come back through the pipeline.
+    expect(code).not.toMatch(/\[data-composer-card\] button\s*\{/)
   })
 })
