@@ -1,6 +1,6 @@
 {
   "packages/dsh-market": "1d12be49add54f26070087b97c394f039d3bf4af2042d3a6bdcdcc072db3752c",
   "packages/dsh-preset-center": "0da55ce5253969dfb254a6f9b2286fdfd343118d60f5d537e3902707bf9f780e",
-  "packages/dsh-web-all": "0dc44ece83a0dc64483041c90b2979c2c5f1f4ca43d19ccb9f793f955ee087d2",
-  "packages/skins/skin-center": "88174f436ee4c0ff344c68326c6eab9e720d5f3efe943e8f53aa8a436ce4e992"
+  "packages/dsh-web-all": "53dcd284a9c0b4ce9406d5650aa82fa4959199c1eb4218616864c051054d7415",
+  "packages/skins/skin-center": "5e4c577d457aed8ae419ee62aca68b9662ad82f02e44e9368a78db52697e8593"
 }
