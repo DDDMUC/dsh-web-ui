@@ -1,10 +1,13 @@
 import type { TaskRecord } from '../core/tasks.ts'
 import { t } from './locales.ts'
 import {
+  isTaskParseDraft,
   TASK_BOARD_API_PREFIX,
   type TaskBoardAction,
   type TaskBoardActionEnvelope,
   type TaskBoardEventPayload,
+  type TaskBoardParseDraft,
+  type TaskBoardParseRequest,
   type TaskBoardSnapshot,
 } from '../protocol.ts'
 
@@ -14,6 +17,8 @@ const IMPORT_REQUEST_KEY = 'dsh.taskBoard.v2.importRequestId'
 const REQUEST_TIMEOUT_MS = 15_000
 /** Re-notify the panel at most this often while the event stream stays broken. */
 const STREAM_ERROR_NOTIFY_MS = 15_000
+/** Mirrors the Host's own parse budget; only used to phrase the timeout. */
+const TASK_PARSE_TIMEOUT_SECONDS = 45
 
 /**
  * Failure classes of the Host API, in the language the panel renders
@@ -80,6 +85,8 @@ export interface TaskBoardHostTransport {
   state(): Promise<TaskBoardSnapshot>
   action(action: TaskBoardAction, initiator?: string): Promise<TaskBoardSnapshot>
   subscribe(listener: (event?: TaskBoardEventPayload) => void): () => void
+  /** One-shot model parse of pasted text (issue #1540). */
+  parseDraft(request: TaskBoardParseRequest, signal?: AbortSignal): Promise<TaskBoardParseDraft>
 }
 
 export class HttpTaskBoardHostTransport implements TaskBoardHostTransport {
@@ -137,6 +144,52 @@ export class HttpTaskBoardHostTransport implements TaskBoardHostTransport {
     } finally {
       globalThis.clearTimeout(timeout)
     }
+  }
+
+  /**
+   * Ask the Host to turn pasted text into task fields. The route answers a
+   * typed failure (no model, timeout, unparseable reply) already phrased for
+   * the form, so the UI never renders a raw status code (issue #1540).
+   */
+  async parseDraft(request: TaskBoardParseRequest, signal?: AbortSignal): Promise<TaskBoardParseDraft> {
+    let response: Response
+    try {
+      response = await fetch(`${TASK_BOARD_API_PREFIX}/parse`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+        ...(signal === undefined ? {} : { signal }),
+      })
+    } catch {
+      // A cancelled parse and a stopped Host look the same to fetch; the form
+      // checks its own abort flag before showing anything.
+      throw new HostApiError('unreachable', t('board.hostError.unreachable'))
+    }
+    const text = await response.text()
+    let parsed: unknown
+    let readable = false
+    if (text.trim() !== '') {
+      try {
+        parsed = JSON.parse(text)
+        readable = true
+      } catch {
+        readable = false
+      }
+    }
+    const record = readable && typeof parsed === 'object' && parsed !== null
+      ? parsed as { code?: unknown; error?: unknown; draft?: unknown }
+      : undefined
+    if (response.ok) {
+      if (record !== undefined && isTaskParseDraft(record.draft)) return record.draft
+      throw new HostApiError('unexpected', t('new.aiParseFailed', { error: t('board.hostError.unexpected', { status: String(response.status) }) }), response.status)
+    }
+    if (response.status === 404) throw new HostApiError('not-mounted', t('new.aiParseUnavailable'), 404)
+    if (response.status === 401 || response.status === 403) throw new HostApiError('unauthorized', t('board.hostError.unauthorized'), response.status)
+    const code = typeof record?.code === 'string' ? record.code : undefined
+    if (code === 'no-model') throw new HostApiError('rejected', t('new.aiParseNoModel'), response.status)
+    if (code === 'timeout') throw new HostApiError('timeout', t('new.aiParseTimeout', { seconds: String(TASK_PARSE_TIMEOUT_SECONDS) }), response.status)
+    const detail = typeof record?.error === 'string' && record.error !== '' ? record.error : String(response.status)
+    throw new HostApiError('rejected', t('new.aiParseFailed', { error: detail }), response.status)
   }
 
   subscribe(listener: (event?: TaskBoardEventPayload) => void): () => void {

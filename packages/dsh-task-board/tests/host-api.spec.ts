@@ -147,6 +147,41 @@ describe('HttpTaskBoardHostTransport Host failure classes (#1528)', () => {
   })
 })
 
+describe('HttpTaskBoardHostTransport task parsing (#1540)', () => {
+  const draft = { title: 'Parsed', description: 'From the model', prompt: 'Do it' }
+
+  function transportFor(handler: () => Response | Promise<Response>): HttpTaskBoardHostTransport {
+    vi.stubGlobal('fetch', vi.fn(async () => await handler()))
+    return new HttpTaskBoardHostTransport(new MemoryStorage())
+  }
+
+  it('returns the draft the Host parsed', async () => {
+    const transport = transportFor(() => new Response(JSON.stringify({ ok: true, draft }), { status: 200 }))
+    await expect(transport.parseDraft({ text: 'note', model: 'deepseek/deepseek-chat' })).resolves.toEqual(draft)
+  })
+
+  it('names a deployment without a model instead of a status code', async () => {
+    const transport = transportFor(() => new Response(JSON.stringify({ ok: false, code: 'no-model', error: 'task-board parsing is unavailable' }), { status: 503 }))
+    const failure = await transport.parseDraft({ text: 'note' }).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(HostApiError)
+    expect((failure as HostApiError).failure).toBe('rejected')
+    expect((failure as HostApiError).message).toContain('模型')
+    expect((failure as HostApiError).message).not.toContain('503')
+  })
+
+  it('phrases the Host timeout and the unmounted route differently', async () => {
+    const timedOut = transportFor(() => new Response(JSON.stringify({ ok: false, code: 'timeout' }), { status: 504 }))
+    await expect(timedOut.parseDraft({ text: 'note', model: 'p/m' })).rejects.toMatchObject({ failure: 'timeout' })
+    const missing = transportFor(() => new Response('not found', { status: 404 }))
+    await expect(missing.parseDraft({ text: 'note' })).rejects.toMatchObject({ failure: 'not-mounted' })
+  })
+
+  it('refuses a 200 that carries no usable draft', async () => {
+    const transport = transportFor(() => new Response(JSON.stringify({ ok: true, draft: { title: 7 } }), { status: 200 }))
+    await expect(transport.parseDraft({ text: 'note', model: 'p/m' })).rejects.toMatchObject({ failure: 'unexpected' })
+  })
+})
+
 describe('HttpTaskBoardHostTransport SSE subscription', () => {
   class FakeEventSource {
     static instances: FakeEventSource[] = []

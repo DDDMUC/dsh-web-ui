@@ -15,7 +15,9 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-api-gateway'
 import type {} from '@deepseek-ai/dsh-workspace'
 import type {} from '@deepseek-ai/dsh-host-webserver'
+import type { LlmRuntime } from '@deepseek-ai/dsh-llm'
 import { TaskBoardHostService } from './host-service.ts'
+import { parseTaskDraft, TaskParseError } from './host-ai.ts'
 import { TASK_PERMISSIONS, type TaskPermission } from './core/tasks.ts'
 import { DEFAULT_SESSION_PERMISSION } from './core/handover.ts'
 import { makeTaskBoardRoutes } from './host-routes.ts'
@@ -89,6 +91,22 @@ export function resolveProxyAccess(config: Config | undefined, env: NodeJS.Proce
 const DEFAULT_ANNOUNCE = false
 
 /**
+ * Read the optional `llm` service. The board deliberately does not inject it:
+ * a deployment without a model must still mount the board, and the parse route
+ * answers a typed failure instead of the plugin failing to load (issue #1540).
+ * @param ctx - the plugin context.
+ * @returns the llm service, or undefined when this deployment serves none.
+ */
+export function resolveLlmRuntime(ctx: Context): LlmRuntime | undefined {
+  try {
+    const llm = ctx.get('llm') as LlmRuntime | undefined
+    return llm !== undefined && typeof (llm as { stream?: unknown }).stream === 'function' ? llm : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Register the board's announcement section, gated on the composition entry's
  * `announceToAgent` (and the live settings value once the web settings
  * surface is served). The section is re-registered whenever the source
@@ -115,7 +133,14 @@ function applyImpl(ctx: Context, config?: Config): void {
   ctx.effect(() => {
     const disposers: Array<() => void> = []
     try {
-      for (const route of makeTaskBoardRoutes(host, resolveProxyAccess(config))) disposers.push(ctx.webServer.register(route))
+      const routes = makeTaskBoardRoutes(host, resolveProxyAccess(config), {
+        parseTask: async (request, signal) => {
+          const llm = resolveLlmRuntime(ctx)
+          if (llm === undefined) throw new TaskParseError('no-model', 'this deployment serves no llm service')
+          return await parseTaskDraft(llm, request, signal)
+        },
+      })
+      for (const route of routes) disposers.push(ctx.webServer.register(route))
     } catch (error) {
       for (const dispose of disposers) dispose()
       host.dispose()

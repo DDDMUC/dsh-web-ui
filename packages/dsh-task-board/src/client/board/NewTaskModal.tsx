@@ -2,7 +2,7 @@
  * New-task modal: title + description + the prompt that execution will send.
  * Creates through the Host and closes only after the Host confirms it.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BoardController } from '../../core/controller.ts'
 import { isValidCron, nextRunAtMs } from '../../core/schedule.ts'
 import { parseFreezeRequest } from '../../core/freeze-snapshot.ts'
@@ -50,6 +50,15 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
   const [error, setError] = useState<string | undefined>(undefined)
   const [pending, setPending] = useState(false)
   const [options, setOptions] = useState(controller.getSnapshot().executionOptions)
+  // "Parse pasted text" (issue #1540) exists only when the deployment carries a
+  // parse face; the section stays hidden otherwise.
+  const [canParse] = useState(controller.getSnapshot().canParseTask === true)
+  const [parseText, setParseText] = useState('')
+  const [parseModel, setParseModel] = useState('')
+  const [parsePending, setParsePending] = useState(false)
+  const [parseError, setParseError] = useState<string | undefined>(undefined)
+  const parseAbort = useRef<AbortController | undefined>(undefined)
+  const parseModels = options.models ?? []
 
   // The workspace list and preset roster arrive from the runtime after mount;
   // follow them so the pickers never freeze on an empty snapshot.
@@ -57,6 +66,36 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
     () => controller.subscribe(() => setOptions(controller.getSnapshot().executionOptions)),
     [controller],
   )
+
+  // The model roster arrives asynchronously: default to its first entry, which
+  // the user can change before parsing.
+  useEffect(() => {
+    if (parseModel === '' && parseModels.length > 0) setParseModel(parseModels[0]!.id)
+  }, [parseModel, options.models])
+
+  const runParse = async (): Promise<void> => {
+    const text = parseText.trim()
+    if (text === '') {
+      setParseError(t('new.aiParseEmpty'))
+      return
+    }
+    const abort = new AbortController()
+    parseAbort.current = abort
+    setParsePending(true)
+    setParseError(undefined)
+    try {
+      const draft = await controller.parseTaskDraft({ text, ...(parseModel === '' ? {} : { model: parseModel }) }, abort.signal)
+      setTitle(draft.title)
+      setDescription(draft.description)
+      setPrompt(draft.prompt)
+    } catch (parseFailure) {
+      // A cancelled parse reports nothing: the user asked for it to stop.
+      if (!abort.signal.aborted) setParseError(parseFailure instanceof Error ? parseFailure.message : String(parseFailure))
+    } finally {
+      parseAbort.current = undefined
+      setParsePending(false)
+    }
+  }
 
   const submit = async (): Promise<void> => {
     if (scheduleEnabled) {
@@ -137,6 +176,50 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
       onSubmit={() => { void submit() }}
       onClose={onClose}
     >
+      {canParse && (
+        <section className={css.aiParse} data-dsh-part="ai-parse">
+          <span className={css.fieldLabel}>{t('new.aiParse')}</span>
+          <p className={css.fieldHint}>{t('new.aiParseHint')}</p>
+          <textarea
+            className={css.input}
+            rows={3}
+            value={parseText}
+            placeholder={t('new.aiParsePlaceholder')}
+            spellCheck={false}
+            onChange={event => { setParseText(event.target.value); setParseError(undefined) }}
+          />
+          <div className={css.aiParseRow}>
+            <select
+              className={css.select}
+              value={parseModel}
+              aria-label={t('new.aiParseModel')}
+              onChange={event => { setParseModel(event.target.value) }}
+            >
+              {parseModels.map(option => (
+                <option key={option.id} value={option.id}>{option.name ?? option.id}</option>
+              ))}
+            </select>
+            {parsePending
+              ? (
+                <button type="button" className={css.ghostButton} onClick={() => { parseAbort.current?.abort() }}>
+                  {t('new.aiParseCancel')}
+                </button>
+                )
+              : (
+                <button
+                  type="button"
+                  className={css.primaryButton}
+                  disabled={parseText.trim() === ''}
+                  onClick={() => { void runParse() }}
+                >
+                  {t('new.aiParseRun')}
+                </button>
+                )}
+          </div>
+          {parseError !== undefined && <p className={css.formError}>{parseError}</p>}
+        </section>
+      )}
+
       <TaskContentFields
         title={title}
         description={description}

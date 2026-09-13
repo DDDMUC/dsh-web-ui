@@ -18,7 +18,13 @@ import { applyCreateTask } from './use-cases/task-create.ts'
 import { applyDeleteTask } from './use-cases/task-delete.ts'
 import { applyScheduleNextRun as applyScheduleRollForward, applySetSchedule } from './use-cases/task-schedule.ts'
 import { applyUpdateTask, type TaskUpdatePatch } from './use-cases/task-update.ts'
-import type { TaskBoardAction, TaskBoardEventPayload, TaskBoardSnapshot } from '../protocol.ts'
+import type {
+  TaskBoardAction,
+  TaskBoardEventPayload,
+  TaskBoardParseDraft,
+  TaskBoardParseRequest,
+  TaskBoardSnapshot,
+} from '../protocol.ts'
 
 export interface TaskBoardTransport {
   bootstrap(legacy: readonly TaskRecord[]): Promise<TaskBoardSnapshot>
@@ -29,6 +35,11 @@ export interface TaskBoardTransport {
    */
   action(action: TaskBoardAction, initiator?: string): Promise<TaskBoardSnapshot>
   subscribe(listener: (event?: TaskBoardEventPayload) => void): () => void
+  /**
+   * One-shot model parse of pasted text (issue #1540). Optional: a deployment
+   * that cannot parse simply omits it, and the form hides the section.
+   */
+  parseDraft?(request: TaskBoardParseRequest, signal?: AbortSignal): Promise<TaskBoardParseDraft>
 }
 
 /** The sessions face the controller needs for navigation awareness. */
@@ -108,6 +119,8 @@ export interface ControllerSnapshot {
   pendingTaskIds: readonly string[]
   /** Whether the board may offer "register a new project" (issue #1536). */
   canCreateWorkspace?: boolean
+  /** Whether this deployment can parse pasted text into task fields (issue #1540). */
+  canParseTask?: boolean
   transportError?: string
   host?: Pick<TaskBoardSnapshot, 'revision' | 'scheduler' | 'power' | 'sessionDefaultPermission'>
 }
@@ -204,6 +217,7 @@ export class BoardController {
       executionOptions: this.executionOptions,
       pendingTaskIds: [...this.pendingTaskIds],
       ...(this.workspaceCreator === undefined ? {} : { canCreateWorkspace: true }),
+      ...(typeof this.deps.transport?.parseDraft === 'function' ? { canParseTask: true } : {}),
       ...(this.transportError === undefined ? {} : { transportError: this.transportError }),
       ...(this.hostState === undefined ? {} : { host: this.hostState }),
     }
@@ -330,6 +344,22 @@ export class BoardController {
   async createWorkspace(path: string): Promise<{ workspaceId: string }> {
     if (this.workspaceCreator === undefined) throw new Error('workspace creation is unavailable')
     return await this.workspaceCreator(path)
+  }
+
+  /** Whether this deployment can parse pasted text into task fields (issue #1540). */
+  canParseTask(): boolean {
+    return typeof this.deps.transport?.parseDraft === 'function'
+  }
+
+  /**
+   * Parse pasted text into task fields through the Host. The transport already
+   * phrases every failure for the user, so its message surfaces unchanged.
+   */
+  async parseTaskDraft(request: TaskBoardParseRequest, signal?: AbortSignal): Promise<TaskBoardParseDraft> {
+    const transport = this.deps.transport
+    const parse = transport?.parseDraft
+    if (transport === undefined || parse === undefined) throw new Error('task parsing is unavailable')
+    return await parse.call(transport, request, signal)
   }
 
   moveTask(id: string, status: TaskStatus): void {
