@@ -73,6 +73,8 @@ family / 插件区域：
 | `tag-filter` | task-board | 标签筛选条；`[data-dsh-taskboard-board] [data-dsh-part="tag-filter"]` |
 | `tag-chip` | task-board | 筛选条内的标签胶囊；`[data-dsh-part="tag-chip"]`，`data-tag-tone` 为 0-5 调色板槽 |
 | `tag-badge` | task-board | 卡片上的标签徽章；`[data-dsh-part="tag-badge"]`，`data-tag-tone` 同上 |
+| `project-filter` | task-board | 项目分区下拉；`[data-dsh-part="project-filter"]`，筛选项为工作区 id，空值为「全部项目」 |
+| `project-dialog` | task-board | 看板内新建项目表单；`[data-dsh-part="project-dialog"]`，含一个绝对路径输入与创建/取消按钮 |
 | `tab-bar` / `tab` | ssh | 页签条/页签；`[role="tablist"]` / `[role="tab"]` |
 | `host-table` / `host-row` | ssh | 主机表/行；`[data-dsh-ssh-view]` 内 table/tr |
 | `terminal` | ssh | xterm 终端；面板内 termContainer（.xterm 辅锚） |

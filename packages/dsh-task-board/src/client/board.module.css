@@ -1240,3 +1240,36 @@ html[data-dsh-taskboard-active]:not([data-dsh-ssh-active]) [class*='centerCol'] 
 .tagAddButton {
   align-self: flex-start;
 }
+
+/* --- project partition (#1536) ------------------------------------------------ */
+
+.projectFilter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.projectFilterLabel {
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
+.projectDialog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  background: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+}
+
+.projectDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

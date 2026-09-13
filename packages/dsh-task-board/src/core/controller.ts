@@ -57,6 +57,13 @@ export interface ControllerDeps {
   transport?: TaskBoardTransport
 }
 
+/**
+ * Register one host directory as a DSH project (workspace). Wired by the
+ * browser apply() to the runtime's workspace controller; without it the board
+ * hides its "new project" action instead of offering a dead control (#1536).
+ */
+export type WorkspaceCreator = (path: string) => Promise<{ workspaceId: string }>
+
 /** One workspace option the execution-target pickers offer. */
 export interface ExecutionWorkspaceOption {
   workspaceId: string
@@ -99,6 +106,8 @@ export interface ControllerSnapshot {
   /** Picker option sets (workspace list + agent-preset roster). */
   executionOptions: ExecutionOptionsSnapshot
   pendingTaskIds: readonly string[]
+  /** Whether the board may offer "register a new project" (issue #1536). */
+  canCreateWorkspace?: boolean
   transportError?: string
   host?: Pick<TaskBoardSnapshot, 'revision' | 'scheduler' | 'power' | 'sessionDefaultPermission'>
 }
@@ -139,6 +148,7 @@ export class BoardController {
   private archiveView = false
   private selectedTaskId: string | undefined
   private executionOptions: ExecutionOptionsSnapshot = { workspaces: [], presets: [], models: [] }
+  private workspaceCreator: WorkspaceCreator | undefined
   private listeners = new Set<() => void>()
   private disposers: Array<() => void> = []
   private readonly now: () => number
@@ -193,6 +203,7 @@ export class BoardController {
       selectedTaskId: this.selectedTaskId,
       executionOptions: this.executionOptions,
       pendingTaskIds: [...this.pendingTaskIds],
+      ...(this.workspaceCreator === undefined ? {} : { canCreateWorkspace: true }),
       ...(this.transportError === undefined ? {} : { transportError: this.transportError }),
       ...(this.hostState === undefined ? {} : { host: this.hostState }),
     }
@@ -304,6 +315,21 @@ export class BoardController {
   setExecutionOptions(patch: Partial<ExecutionOptionsSnapshot>): void {
     this.executionOptions = { ...this.executionOptions, ...patch }
     this.notify()
+  }
+
+  /** Wire (or clear) the runtime's project registration face (issue #1536). */
+  setWorkspaceCreator(creator: WorkspaceCreator | undefined): void {
+    this.workspaceCreator = creator
+    this.notify()
+  }
+
+  /**
+   * Register an existing host directory as a DSH project, exactly as the GUI's
+   * own "add project" does; the runtime's failure message surfaces unchanged.
+   */
+  async createWorkspace(path: string): Promise<{ workspaceId: string }> {
+    if (this.workspaceCreator === undefined) throw new Error('workspace creation is unavailable')
+    return await this.workspaceCreator(path)
   }
 
   moveTask(id: string, status: TaskStatus): void {
