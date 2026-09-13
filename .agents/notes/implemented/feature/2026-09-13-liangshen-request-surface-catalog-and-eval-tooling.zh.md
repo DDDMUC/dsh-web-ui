@@ -16,15 +16,15 @@ Status: implemented
 - PTC 呈现的条目取自注册表投影（即经 SDK 可达的工具面），程序契约明确只有 `run_code` 可直接调用，列出的每个工具都要在程序内部触达。过时的"首轮只有 shell"表述已删除。
 - `catalogStateFor` 在 pre-step 从当前呈现状态解析目录，因此晋升回合第一步描述的就已经是晋升面，而不是锚定回合组装时留存的状态。
 - 回退、撤销、压缩恢复、会话恢复与去重的行为保持不变。
-- `tools/benchmark-live-run.mjs` 在隔离的 preset 副本中运行候选矩阵：`B`（出厂 persona 与两阶段策略）、`P`（候选 persona）、`T`（候选 persona，首轮即用 PTC）、`N`（候选 persona，全程原生工具）、`M`（内置包官方 Minimal preset，外部参照）。它记录基线（仓库提交、出厂 preset hash、变体 preset hash、DSH 版本、固定 route、任务版本与上限），为任务写入初始工作区，用 Node 验收检查判分，把语言风格指标排除在结果之外，并在达到会话数或费用上限时停止而不自动扩样。
-- `tools/benchmark-report.mjs` 把运行记录汇总为按组的成功率与 Wilson 区间、按任务配对差值与置信区间、token 与费用合计，并单独列出基础设施失败。`tools/tasks/liangshen-v41-flash.json` 是覆盖代码修复、首轮专用工具、多轮修改、失败恢复与工作区指令遵循的种子任务集。
+- `tools/benchmark-live-run.mjs` 在隔离的 preset 副本中运行候选矩阵：`B`（出厂 persona 与两阶段策略）、`P`（候选 persona）、`T`（候选 persona，首轮即用 PTC）、`N`（候选 persona，全程原生工具）、`M`（内置包官方 Minimal preset，外部参照）。它记录基线（仓库提交、出厂 preset hash、变体 preset hash、DSH 版本、固定 route、任务版本与上限），为任务写入初始工作区，用 Node 验收检查判分，把语言风格指标排除在结果之外，并在达到会话数或费用上限时停止而不自动扩样。矩阵按任务交错运行各组，因此被上限截断时每个组仍有会话；无法计价的预算会直接拒绝运行，而不是让预算门永不触发。
+- `tools/benchmark-report.mjs` 把运行记录汇总为按组的成功率与 Wilson 区间、按任务配对差值与置信区间、token 与费用合计，并单独列出基础设施失败。超时计入任务失败并在单独的列里报告，只有"没有任何 request"或"未被判分"才算基础设施失败。报告只读取本次 suite 清单内的记录，并拒绝基线不一致的目录。`tools/tasks/liangshen-v41-flash.json` 是覆盖代码修复、首轮专用工具、多轮修改、失败恢复与工作区指令遵循的种子任务集。
 - 出厂默认仍是四工具锚定加 PTC。尚未运行任何真实对照，而计划规定的规则是：在证据无法排除退化时落地契约修复并保留当前策略。
 
 ## Testing
 
 - `tests/tool-catalog.test.ts` 钉住请求面契约：锚定回合在首轮每一步都恰好列出锚定 wire，晋升回合第一步在其自身组装之前就已描述晋升面，PTC 契约声明 `run_code` 是唯一可直接调用的工具且不再声称首轮只有 shell，会话恢复与恶意投影都会回退且不宣告 PTC。
-- `tests/benchmark-live-run.test.ts` 钉住各变体重写（出厂默认、候选 persona、空锚定、关闭 PTC、官方 Minimal），用仓库自有的 preset schema 校验每个派生组合，验证 persona 块标量的改写在下一个组合行前停止，读取持久会话形状，合计 usage 且不重复计数，并确认每个种子任务在初始工作区上都不通过，从而没有任何任务可以不做事就通过。
-- `tests/benchmark-report.test.ts` 钉住汇总：Wilson 边界、按任务配对的均值差值与区间、基础设施失败不进入分母，以及报告必须携带的处理说明。
+- `tests/benchmark-live-run.test.ts` 钉住各变体重写（出厂默认、候选 persona、空锚定、关闭 PTC、官方 Minimal），用仓库自有的 preset schema 校验每个派生组合，验证 persona 块标量的改写在下一个组合行前停止，读取持久会话形状，合计 usage 且不重复计数，并确认每个种子任务在初始工作区上都不通过，从而没有任何任务可以不做事就通过，还拒绝费率缺失或不可用的预算表，并把任务超时排除在基础设施桶之外。
+- `tests/benchmark-report.test.ts` 钉住汇总：Wilson 边界、按任务配对的均值差值与区间、超时计入失败而基础设施失败不进入分母、suite 清单排除复用目录中的旧记录、基线不符被拒绝、单个配对任务不产生区间，以及报告必须携带的处理说明。
 
 ## Alternatives considered
 

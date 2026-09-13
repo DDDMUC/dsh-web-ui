@@ -42,7 +42,9 @@ export function meanConfidenceInterval(values, confidence = 0.95) {
   const clean = values.filter((value) => typeof value === 'number' && Number.isFinite(value))
   if (clean.length === 0) return null
   const mean = clean.reduce((total, value) => total + value, 0) / clean.length
-  if (clean.length === 1) return { mean, low: mean, high: mean, n: 1, sd: 0 }
+  // One observation cannot estimate spread: report the point estimate and leave
+  // the interval unestimable rather than manufacturing a zero-width one.
+  if (clean.length === 1) return { mean, low: null, high: null, n: 1, sd: null }
   const variance = clean.reduce((total, value) => total + (value - mean) ** 2, 0) / (clean.length - 1)
   const sd = Math.sqrt(variance)
   const standardError = sd / Math.sqrt(clean.length)
@@ -51,13 +53,14 @@ export function meanConfidenceInterval(values, confidence = 0.95) {
 }
 
 /**
- * A run that never produced a gradeable model attempt: it timed out or the
- * session log carries no request at all. These are infrastructure failures, are
- * reported separately, and stay out of every success-rate denominator.
+ * A run that produced no gradeable model attempt: the session log carries no
+ * request, or nothing graded it. These stay out of every success-rate
+ * denominator. A task timeout is NOT an infrastructure failure: the model ran
+ * and did not finish, so it counts as a task failure and is reported as a
+ * timeout separately.
  */
 export function isInfrastructureFailure(run) {
-  return run?.timedOut === true
-    || (run?.requests?.length ?? 0) === 0
+  return (run?.requests?.length ?? 0) === 0
     || run?.passed === null
     || run?.passed === undefined
 }
@@ -92,6 +95,7 @@ export function aggregateGroups(runs) {
       sessions: entries.length,
       graded: graded.length,
       infrastructureFailures: entries.length - graded.length,
+      timeouts: entries.filter((run) => run.timedOut === true).length,
       passed,
       successRate: graded.length === 0 ? null : passed / graded.length,
       successInterval: wilsonInterval(passed, graded.length),
@@ -137,15 +141,18 @@ export function pairedComparison(runs, baselineGroup, candidateGroup) {
     })
   }
   const interval = meanConfidenceInterval(deltas)
+  const estimable = interval !== null && interval.low !== null && interval.high !== null
   return {
     baseline: baselineGroup,
     candidate: candidateGroup,
     tasks: perTask.length,
     pairedMeanDelta: interval?.mean ?? null,
     // A difference of two rates cannot leave [-1, 1]; a tiny sample's t interval can.
-    low: interval === null ? null : Math.max(-1, interval.low),
-    high: interval === null ? null : Math.min(1, interval.high),
+    low: estimable ? Math.max(-1, interval.low) : null,
+    high: estimable ? Math.min(1, interval.high) : null,
     sd: interval?.sd ?? null,
+    // Fewer than two paired tasks cannot support an interval at all.
+    insufficientEvidence: perTask.length < 2,
     perTask,
   }
 }
@@ -161,25 +168,65 @@ export function plannedComparisons(runs, baselineGroup = 'B') {
   return comparisons
 }
 
-/** Every live-*.json run record in one results directory. */
-export function loadRuns(dir) {
+/**
+ * The run-record file names a report may read. A suite index records exactly the
+ * files it wrote, so a reused results directory does not silently mix a previous
+ * run's records into this one; without an index the directory is scanned.
+ */
+export function runFileNames(dir, suite) {
+  if (Array.isArray(suite?.runs)) {
+    const names = suite.runs
+      .map((entry) => String(entry?.file ?? entry?.name ?? '').replaceAll('\\', '/').split('/').pop())
+      .filter((name) => typeof name === 'string' && name.startsWith('live-') && name.endsWith('.json'))
+    return [...new Set(names)].sort()
+  }
+  return readdirSync(dir).filter((name) => name.startsWith('live-') && name.endsWith('.json')).sort()
+}
+
+/** Read the named run records from one directory. */
+export function loadRuns(dir, names) {
+  const files = names ?? runFileNames(dir, undefined)
   const runs = []
-  for (const name of readdirSync(dir)) {
-    if (!name.startsWith('live-') || !name.endsWith('.json')) continue
-    runs.push(JSON.parse(readFileSync(join(dir, name), 'utf8')))
+  for (const name of files) {
+    const path = join(dir, name)
+    if (!existsSync(path)) continue
+    runs.push(JSON.parse(readFileSync(path, 'utf8')))
   }
   return runs
 }
 
-/** Assemble the full report object from a results directory. */
+/** The facts that make two runs comparable; a mismatch invalidates the report. */
+export function baselineIdentity(baseline) {
+  return JSON.stringify({
+    commit: baseline?.repository?.commit ?? null,
+    presetSourceHash: baseline?.presetSourceHash ?? null,
+    dshVersion: baseline?.dshVersion ?? null,
+    route: baseline?.route ?? null,
+    taskRevision: baseline?.taskRevision ?? null,
+  })
+}
+
+/**
+ * Assemble the full report object from a results directory. Only the suite index
+ * own records are read when an index exists, and a record whose baseline does not
+ * match the index baseline is rejected instead of being averaged in.
+ */
 export function buildReport(dir, baselineGroup = 'B') {
-  const runs = loadRuns(dir)
   const suitePath = join(dir, 'suite.json')
+  const suite = existsSync(suitePath) ? JSON.parse(readFileSync(suitePath, 'utf8')) : null
+  const runs = loadRuns(dir, runFileNames(dir, suite))
+  const baseline = suite?.baseline ?? runs[0]?.baseline ?? null
+  const expected = baselineIdentity(baseline)
+  for (const run of runs) {
+    if (baselineIdentity(run.baseline) !== expected) {
+      throw new Error('benchmark-report: the results directory mixes runs from different baselines; re-run into a fresh directory')
+    }
+  }
   return {
     generatedAt: new Date().toISOString(),
     baselineGroup,
-    baseline: runs[0]?.baseline ?? null,
-    suite: existsSync(suitePath) ? JSON.parse(readFileSync(suitePath, 'utf8')) : null,
+    baseline,
+    suite,
     groups: aggregateGroups(runs),
     comparisons: plannedComparisons(runs, baselineGroup),
     runs: runs.length,
@@ -226,8 +273,8 @@ export function renderMarkdown(report) {
   }
   lines.push('## Group results')
   lines.push('')
-  lines.push('| Group | Sessions | Graded | Passed | Success rate (95% CI) | Infra failures | Input tokens | Output tokens | Cache read | Tool calls | Tool errors | Interventions | Cost USD |')
-  lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |')
+  lines.push('| Group | Sessions | Graded | Passed | Success rate (95% CI) | Infra failures | Timeouts | Input tokens | Output tokens | Cache read | Tool calls | Tool errors | Interventions | Cost USD |')
+  lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |')
   for (const group of GROUP_ORDER) {
     const stats = report.groups[group]
     if (stats === undefined) continue
@@ -238,6 +285,7 @@ export function renderMarkdown(report) {
       stats.passed,
       percent(stats.successRate) + ' (' + interval(stats.successInterval) + ')',
       stats.infrastructureFailures,
+      stats.timeouts,
       stats.uncachedInputTokens,
       stats.outputTokens,
       stats.cacheReadTokens,
@@ -262,13 +310,18 @@ export function renderMarkdown(report) {
     const key = comparison.baseline + '-' + comparison.candidate
     const spread = comparison.pairedMeanDelta === null
       ? 'n/a'
-      : signed(comparison.pairedMeanDelta) + ' (' + signed(comparison.low) + '..' + signed(comparison.high) + ')'
+      : comparison.insufficientEvidence
+        ? signed(comparison.pairedMeanDelta) + ' (interval not estimable)'
+        : signed(comparison.pairedMeanDelta) + ' (' + signed(comparison.low) + '..' + signed(comparison.high) + ')'
     lines.push('| ' + key + ' | ' + (purposes[key] ?? '') + ' | ' + comparison.tasks + ' | ' + spread + ' |')
   }
   lines.push('')
   lines.push('## Treatment notes')
   lines.push('')
-  lines.push('- Infrastructure failures (timeout, or a session log with no request) are reported separately and excluded from every success-rate denominator.')
+  lines.push('- Infrastructure failures (a session log with no request, or an ungraded run) are reported separately and excluded from every success-rate denominator.')
+  lines.push('- A task timeout counts as a task failure; timeouts are reported in their own column so the two failure modes stay distinguishable.')
+  lines.push('- A paired comparison over fewer than two tasks reports its point estimate with no interval: one paired task cannot support a confidence statement.')
+  lines.push('- The report reads only the run records listed in the suite index and rejects a directory whose runs disagree on commit, preset hash, route, or task revision.')
   lines.push('- Group M is the bundle-provided Minimal preset as an external reference; it is not a single-factor arm.')
   lines.push('- Group N is the full native roster, not Minimal and not a curated minimal toolset.')
   lines.push('- Language-style counters (we and let me) stay with tools/analyze-session.mjs and are not part of the outcome measures here.')

@@ -12,7 +12,7 @@
 | --- | --- |
 | `packages/dsh-liangshen/presets/liangshen/tool-catalog.mjs` | 原生目录只宣告该次请求自己 wire 上的工具；PTC 下宣告经 SDK 可达的工具面并声明 `run_code` 是唯一可直接调用的工具 |
 | `packages/dsh-liangshen/tools/benchmark-live-run.mjs` | 隔离 preset 副本中的有界运行器：B/P/T/N/M 矩阵、基线记录、任务工作区、Node 验收判分、会话与费用上限 |
-| `packages/dsh-liangshen/tools/benchmark-report.mjs` | 汇总：按组成功率与 Wilson 区间、按任务配对差值与置信区间、token 与费用、单独的基础设施失败 |
+| `packages/dsh-liangshen/tools/benchmark-report.mjs` | 汇总：按组成功率与 Wilson 区间、按任务配对差值与置信区间、token 与费用、单独的基础设施失败与超时，且只读取本次 suite 清单内的记录 |
 | `packages/dsh-liangshen/tools/tasks/liangshen-v41-flash.json` | 种子任务集（11 个任务，覆盖代码修复、首轮专用工具、多轮修改、失败恢复、工作区指令遵循） |
 
 ## 基线与对照矩阵
@@ -40,14 +40,17 @@
 
 - 主指标是独立验收的任务成功率：每个任务由 `node --input-type=module -e <check>` 在任务工作区里判分，退出码为 0 且会话进程正常退出才算通过。
 - 同时记录工具错误、人工介入（`ask_user_question` 调用）、审批请求、耗时、token 与费用。
-- 基础设施失败（超时，或会话日志里没有任何 request）单独记录，并从所有成功率分母中排除；报告中明确说明该处理方式。
+- 基础设施失败仅指"会话日志里没有任何 request"或"没有被判分"的运行：单独记录并从成功率分母中排除。**超时不算基础设施失败**——模型跑过但没在时限内完成，计入任务失败；超时数量在报告中单列，便于区分两种失败模式。
+- 矩阵按任务交错运行各组（同一任务的各组在进入下一个任务前跑完），因此会话/费用上限截断的是整块任务臂，不会让排在后面的组得到零会话。
+- 报告只读取 `suite.json` 清单记录的运行文件，并拒绝基线不一致（提交、preset hash、route、任务版本）的记录，避免复用结果目录时把旧数据混入统计。
+- 配对任务少于 2 个时只报点估计并标注"区间不可估计"，不制造零宽度的"95% 置信区间"。
 - 费用上限需要价格表：`--budget-usd` 必须配合 `--prices <file>`（键为该 provider/model 每百万 token 的 `input`/`output`/`cacheRead`/`cacheWrite` 费率），否则 runner 直接拒绝运行，避免无法计价的预算门形同虚设；同时未提供任何上限时会向 stderr 提示矩阵将跑到任务集末尾。
 - 相同任务在隔离环境可重复执行：preset 副本写在临时 root 并用 roster 自己的 `roots` 选中，会话持久化改写到运行目录，不追加真实会话历史。
 - M 组是官方 Minimal，只作外部参照；N 组是完整原生工具面，不标记为 Minimal，也不是重新筛选的精简工具集。
 
 ## 本轮验证证据
 
-- `pnpm --filter @linxin666/dsh-liangshen test`：15 个测试文件、218 个测试通过（含请求面目录契约、变体重写、种子任务在初始工作区必失败、汇总统计，以及无法计价的预算门被拒绝）。
+- `pnpm --filter @linxin666/dsh-liangshen test`：15 个测试文件、226 个测试通过（含请求面目录契约、变体重写、种子任务在初始工作区必失败、超时计入失败、suite 清单隔离与基线不符拒绝、单任务不产生置信区间、无法计价/费率不完整的预算门被拒绝、任务交错的运行计划）。
 - `node --check` 通过两个新工具文件；用合成运行记录跑通 `benchmark-report.mjs`，生成的 Markdown 含分组表、配对比较与处理说明。
 - 全仓门禁结果见交付说明；`packages/dsh-liangshen` 插件源码已改动，运行中的 DSH 宿主需重启后新的目录行为才生效。
 
@@ -55,7 +58,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 生产基线提交 | `0d78d391b5f67ec4d9f04d47558b76352c74ee48`（本改动落地时的 HEAD，工作区含本次改动） |
+| 生产基线提交 | `e3d2b8503bcd0827af7ef7223e0a1192466fb753`（本次改动 rebase 后的父提交，即当时的 `origin/dev`） |
 | 出厂 preset 源码 hash | `4cf50f4db4b1520f1f89a081f5441319b8baa17a4c1d01b695db1cbe73aba3e9`（presets/liangshen 全树，sha256） |
 | DSH 版本 | `0.1.5-rc.1` |
 | 固定 route | `deepseek-official/deepseek-flash/max` |

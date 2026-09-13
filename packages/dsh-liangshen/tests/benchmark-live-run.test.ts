@@ -24,14 +24,17 @@ import { validateAgentCordis } from '../src/schema.ts'
 import {
   CANDIDATE_PERSONA,
   LIVE_VARIANTS,
+  assertPriceEntry,
   evaluateCheck,
   hashTree,
   loadTaskFile,
   materializePreset,
   officialMinimalPresetDir,
   priceRun,
+  routePrices,
   runLiveSuite,
   replacePersonaPrefix,
+  suitePlan,
   summarizeSession,
   summarizeUsage,
   taskRevision,
@@ -174,6 +177,26 @@ describe('benchmark task corpus and acceptance checks', () => {
     })).rejects.toThrow(/--budget-usd needs a price entry/)
   })
 
+  it('rejects a budget whose price table has no usable rates', async () => {
+    const corpus = { id: 'stub', version: 1, tasks: [{ id: 't', turns: ['do it'], files: {}, check: 'true' }] }
+    await expect(runLiveSuite({
+      tasks: corpus,
+      groups: ['B'],
+      maxSessions: 1,
+      budgetUsd: 5,
+      prices: { 'deepseek-flash': {} },
+      outDir: scratchDir(),
+    })).rejects.toThrow(/needs a finite non-negative input rate/)
+  })
+
+  it('interleaves every group inside each task so a limit cannot starve later groups', () => {
+    const plan = suitePlan(['B', 'P', 'T', 'N', 'M'], [{ id: 't1' }, { id: 't2' }], 2)
+    expect(plan).toHaveLength(20)
+    expect(plan.slice(0, 5).map((entry: { group: string }) => entry.group)).toEqual(['B', 'P', 'T', 'N', 'M'])
+    expect(plan.slice(0, 5).every((entry: { task: { id: string } }) => entry.task.id === 't1')).toBe(true)
+    expect(plan[5]).toMatchObject({ group: 'B', repetition: 2 })
+  })
+
   it('grades a task by running its Node check in the workspace', async () => {
     const dir = scratchDir()
     writeFileSync(join(dir, 'value.mjs'), 'export const value = 7\n', 'utf8')
@@ -213,6 +236,16 @@ describe('benchmark usage accounting', () => {
     expect(priceRun(usage, null, { provider: 'deepseek-official', model: 'deepseek-flash' })).toBeNull()
     const cost = priceRun(usage, { 'deepseek-official/deepseek-flash': { input: 1, output: 2 } }, { provider: 'deepseek-official', model: 'deepseek-flash' })
     expect(cost).toBeCloseTo(2, 6)
+  })
+
+  it('resolves a route price by provider/model or bare model and refuses unusable rates', () => {
+    const route = { provider: 'deepseek-official', model: 'deepseek-flash' }
+    expect(routePrices({ 'deepseek-flash': { input: 1, output: 2 } }, route)).toEqual({ input: 1, output: 2 })
+    expect(routePrices({ 'other/model': { input: 1, output: 2 } }, route)).toBeUndefined()
+    expect(() => assertPriceEntry({}, 'deepseek-official/deepseek-flash')).toThrow(/needs a finite non-negative input rate/)
+    expect(() => assertPriceEntry({ input: 1, output: -1 }, 'deepseek-official/deepseek-flash')).toThrow(/output rate/)
+    expect(() => priceRun({ uncachedInputTokens: 10, outputTokens: 10 }, { 'deepseek-flash': {} }, route))
+      .toThrow(/needs a finite non-negative input rate/)
   })
 })
 

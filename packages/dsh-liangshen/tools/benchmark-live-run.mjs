@@ -460,17 +460,44 @@ export async function evaluateCheck(workspace, check, timeoutMs = 120000) {
   }
 }
 
+/** Whether a value is a usable per-million price rate. */
+function isRate(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+}
+
+/** The price entry a route resolves to, keyed "provider/model" or by bare model. */
+export function routePrices(prices, route) {
+  if (prices === null || prices === undefined) return undefined
+  return prices[route.provider + '/' + route.model] ?? prices[route.model]
+}
+
+/**
+ * Validate a price entry before a run spends anything. A missing or non-numeric
+ * rate would otherwise silently price every run at zero and disable a budget stop.
+ */
+export function assertPriceEntry(entry, routeKey) {
+  for (const key of ['input', 'output']) {
+    if (!isRate(entry?.[key])) {
+      throw new Error('benchmark: the price entry for ' + routeKey + ' needs a finite non-negative ' + key + ' rate per million tokens')
+    }
+  }
+  for (const key of ['cacheRead', 'cacheWrite']) {
+    if (entry[key] !== undefined && !isRate(entry[key])) {
+      throw new Error('benchmark: the price entry for ' + routeKey + ' has a non-finite ' + key + ' rate')
+    }
+  }
+}
+
 /** Estimated USD for one run's usage under an optional per-million price table. */
 export function priceRun(usage, prices, route) {
-  if (prices === null || prices === undefined) return null
-  const entry = prices[`${route.provider}/${route.model}`] ?? prices[route.model]
+  const entry = routePrices(prices, route)
   if (entry === undefined) return null
-  const rate = (value) => (typeof value === 'number' ? value : 0)
+  assertPriceEntry(entry, route.provider + '/' + route.model)
   const cost = (tokens, perMillion) => ((countOf(tokens) ?? 0) / 1_000_000) * perMillion
-  return cost(usage.uncachedInputTokens, rate(entry.input))
-    + cost(usage.outputTokens, rate(entry.output))
-    + cost(usage.cacheReadTokens, rate(entry.cacheRead ?? entry.input))
-    + cost(usage.cacheWriteTokens, rate(entry.cacheWrite ?? entry.input))
+  return cost(usage.uncachedInputTokens, entry.input)
+    + cost(usage.outputTokens, entry.output)
+    + cost(usage.cacheReadTokens, entry.cacheRead ?? entry.input)
+    + cost(usage.cacheWriteTokens, entry.cacheWrite ?? entry.input)
 }
 
 /** Build the variant patch that redirects persistence and selects the isolated preset. */
@@ -596,6 +623,23 @@ export async function runLiveVariant(options) {
 }
 
 /**
+/**
+ * The ordered run plan: every group inside each task and repetition. A group-major
+ * walk would let a session or cost limit exhaust the first groups and leave the
+ * rest with zero sessions, so the plan keeps each task's arms together and lets a
+ * truncated run still support a paired comparison.
+ */
+export function suitePlan(groups, tasks, repeat) {
+  const plan = []
+  for (const task of tasks) {
+    for (let repetition = 1; repetition <= repeat; repetition += 1) {
+      for (const group of groups) plan.push({ group, task, repetition })
+    }
+  }
+  return plan
+}
+
+/**
  * Run the staged matrix over a task corpus: every group, task, and repetition in
  * order, stopping at the session or cost limit instead of expanding on its own.
  */
@@ -610,12 +654,13 @@ export async function runLiveSuite(options) {
   const timeoutMs = options.timeoutMs ?? 300000
   const prices = options.prices ?? null
 
-  const routeKey = `${FIXED_ROUTE.provider}/${FIXED_ROUTE.model}`
-  const routePrice = prices === null ? undefined : (prices[routeKey] ?? prices[FIXED_ROUTE.model])
+  const routeKey = FIXED_ROUTE.provider + '/' + FIXED_ROUTE.model
+  const routePrice = routePrices(prices, FIXED_ROUTE)
   // A budget gate that cannot price a run would silently never trigger, which is
-  // exactly the unbounded spend the plan forbids; refuse instead of pretending.
+  // exactly the unbounded spend the plan forbids; validate instead of pretending.
+  if (routePrice !== undefined) assertPriceEntry(routePrice, routeKey)
   if (Number.isFinite(budgetUsd) && routePrice === undefined) {
-    throw new Error(`benchmark: --budget-usd needs a price entry for ${routeKey}; pass --prices <file>`)
+    throw new Error('benchmark: --budget-usd needs a price entry for ' + routeKey + '; pass --prices <file>')
   }
   if (!Number.isFinite(maxSessions) && !Number.isFinite(budgetUsd)) {
     process.stderr.write('benchmark: no --max-sessions or --budget-usd bound was given; the matrix will run to the end of the corpus\n')
@@ -636,30 +681,32 @@ export async function runLiveSuite(options) {
   let estimatedCostUsd = 0
   let stopReason = 'completed'
 
-  outer: for (const group of groups) {
-    if (LIVE_VARIANTS[group] === undefined) throw new Error(`benchmark: unknown variant "${group}"`)
-    for (const task of corpus.tasks) {
-      for (let repetition = 1; repetition <= repeat; repetition += 1) {
-        if (sessions >= maxSessions) { stopReason = 'session-limit'; break outer }
-        if (estimatedCostUsd >= budgetUsd) { stopReason = 'budget-limit'; break outer }
-        const run = await runLiveCase({
-          variant: group,
-          task,
-          turns: task.turns,
-          repetition,
-          timeoutMs,
-          keep: options.keep === true,
-        })
-        sessions += 1
-        const costUsd = priceRun(run.usage, prices, FIXED_ROUTE)
-        if (costUsd !== null) estimatedCostUsd += costUsd
-        const record = { baseline, costUsd, ...run }
-        const file = join(outDir, `live-${group}-${task.id}-r${repetition}.json`)
-        writeFileSync(file, JSON.stringify(record, null, 2))
-        runs.push({ file, group, taskId: task.id, repetition, passed: run.passed, costUsd })
-        process.stdout.write(`${group} ${task.id} r${repetition}: ${run.passed === true ? 'pass' : run.passed === false ? 'fail' : 'n/a'} in ${run.durationMs}ms${costUsd === null ? '' : ` $${costUsd.toFixed(4)}`}\n`)
-      }
-    }
+  for (const group of groups) {
+    if (LIVE_VARIANTS[group] === undefined) throw new Error('benchmark: unknown variant "' + group + '"')
+  }
+
+  outer: for (const step of suitePlan(groups, corpus.tasks, repeat)) {
+    const group = step.group
+    const task = step.task
+    const repetition = step.repetition
+    if (sessions >= maxSessions) { stopReason = 'session-limit'; break outer }
+    if (estimatedCostUsd >= budgetUsd) { stopReason = 'budget-limit'; break outer }
+    const run = await runLiveCase({
+      variant: group,
+      task,
+      turns: task.turns,
+      repetition,
+      timeoutMs,
+      keep: options.keep === true,
+    })
+    sessions += 1
+    const costUsd = priceRun(run.usage, prices, FIXED_ROUTE)
+    if (costUsd !== null) estimatedCostUsd += costUsd
+    const record = { baseline, costUsd, ...run }
+    const file = join(outDir, 'live-' + group + '-' + task.id + '-r' + repetition + '.json')
+    writeFileSync(file, JSON.stringify(record, null, 2))
+    runs.push({ file, group, taskId: task.id, repetition, passed: run.passed, costUsd })
+    process.stdout.write(group + ' ' + task.id + ' r' + repetition + ': ' + (run.passed === true ? 'pass' : run.passed === false ? 'fail' : 'n/a') + ' in ' + run.durationMs + 'ms' + (costUsd === null ? '' : ' $' + costUsd.toFixed(4)) + '\n')
   }
 
   const suite = {
