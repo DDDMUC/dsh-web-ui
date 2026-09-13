@@ -12,6 +12,9 @@
  * 6. If SDK/tools are unavailable, reverts PTC and synchronizes wire to native.
  * 7. Removes the false statement about schemas traveling with tool definition.
  * 8. Maintains deduplication and compaction recovery.
+ * 9. Native presentation lists exactly the tools this request's wire carries; under
+ *    PTC the list is the SDK-reachable registry projection and the program contract
+ *    marks `run_code` as the only directly callable transport.
  */
 
 /** Cordis plugin name used by loader diagnostics. */
@@ -180,7 +183,7 @@ const PTC_PROGRAM_LINES = [
   '- a failed call rejects with `ToolCallError`, whose `toolName` and human-readable message identify it — `try/catch` it to continue;',
   '- only what you `return` or `console.log` becomes program output; every other intermediate result stays out of the conversation, so extract just what the next decision needs, and an image a tool returns is attached after the run.',
   '',
-  "`run_code` is the only tool that can be called directly once it is on the wire; the session's first turn carries the shell alone.",
+  "`run_code` is the only tool that can be called directly once it is on the wire: every tool listed above is reached from inside the program.",
 ]
 
 /**
@@ -209,6 +212,30 @@ export function renderCatalogText(entries, ptc) {
     ...(ptc ? ['', ...PTC_PROGRAM_LINES] : []),
     '</system-reminder>',
   ].join('\n')
+}
+
+/**
+ * Overlay the registry projection's fuller schema onto each wire entry, keyed by
+ * name, so a narrowed native list keeps complete argument semantics even when the
+ * assembly's own tool object carries a thinner definition. Entries the projection
+ * does not name, and every entry when no projection is readable, stay untouched.
+ */
+export function mergeProjectedSchemas(wireTools, projection) {
+  if (!Array.isArray(projection) || projection.length === 0) return wireTools
+  const byName = new Map()
+  for (const schema of projection) {
+    if (typeof schema?.name === 'string' && schema.name !== '') byName.set(schema.name, schema)
+  }
+  return wireTools.map((tool) => {
+    const projected = byName.get(tool?.name)
+    if (projected === undefined) return tool
+    const merged = { ...tool }
+    if (projected.parameters !== undefined) merged.parameters = projected.parameters
+    if (typeof projected.description === 'string' && projected.description.length > 0) {
+      merged.description = projected.description
+    }
+    return merged
+  })
 }
 
 /** Build the durable catalog message for one entry list. */
@@ -425,6 +452,26 @@ export function apply(ctx, config) {
     return undefined
   }
 
+  /**
+   * The catalog the NEXT request will expose, resolved from the current
+   * presentation state rather than from the previous assembly.
+   *
+   * A turn boundary declares PTC before the promoted turn's first step, but that
+   * turn's assembly has not run yet, so the stored state would still describe the
+   * anchor wire. Resolving the projection here keeps the published catalog in step
+   * with the transport the request is about to carry.
+   */
+  const catalogStateFor = (agent) => {
+    if (agent === undefined) return undefined
+    if (!anchoring(agent) && ptcPlanReady() && agentPtcDeclared.has(agent)) {
+      const schemas = publicSchemas(agent)
+      if (schemas !== undefined && schemas.length > 0) {
+        return { entries: catalogEntries(schemas, descriptionMaxLength), ptc: true }
+      }
+    }
+    return agentCatalogState.get(agent)
+  }
+
   // Early lifecycle hooks: declare PTC ahead of prompt assembly
   ctx.on('agent/created', (agent) => {
     if (agent?.session !== undefined) agentBySession.set(agent.session, agent)
@@ -500,7 +547,10 @@ export function apply(ctx, config) {
       }
     }
 
-    // Obtain visible tool schemas via public API
+    // The registry projection names every tool the session can reach. Under PTC the
+    // request opens only `run_code`, so the projection is what the catalog lists;
+    // under native presentation the catalog must name exactly the tools this request
+    // carries, or the model is told about a surface it cannot call.
     let surface = agent !== undefined ? publicSchemas(agent) : undefined
 
     const assembled = await next()
@@ -523,17 +573,21 @@ export function apply(ctx, config) {
       correctedWire = nativeSchemas
     }
 
-    // Fresh fallback to assembled wire tools (excluding run_code)
-    if (surface === undefined) {
-      surface = wireTools.filter(t => t?.name && t.name !== 'run_code')
-    }
-
     // PTC is what the WIRE carries, not what the configuration intends: the catalog
     // must describe the transport this request actually names, or the model is told
     // to call `run_code` on a request that offers only native tools.
-    const isActualPtc = !staged && wireHasRunCode && surface.length > 0
+    const isActualPtc = !staged && wireHasRunCode && surface !== undefined && surface.length > 0
 
-    const entries = catalogEntries(surface, descriptionMaxLength)
+    // The effective wire of THIS request includes the anchor narrowing, so the native
+    // catalog narrows with the schemas the model can actually call instead of
+    // advertising the promoted roster the anchor turn does not expose.
+    const effectiveWire = correctedWire ?? assembled.tools
+    const nativeTools = (Array.isArray(effectiveWire) ? effectiveWire : [])
+      .filter(t => t?.name && t.name !== 'run_code')
+    const anchoredTools = staged ? anchorToolsOf(nativeTools, anchorNames) : nativeTools
+    const catalogTools = isActualPtc ? surface : mergeProjectedSchemas(anchoredTools, surface)
+
+    const entries = catalogEntries(catalogTools, descriptionMaxLength)
 
     // Store fresh state on agent
     if (agent !== undefined) {
@@ -543,16 +597,15 @@ export function apply(ctx, config) {
       })
     }
 
-    const wire = correctedWire ?? assembled.tools
     if (!staged) return correctedWire === undefined ? assembled : { ...assembled, tools: correctedWire }
-    return { ...assembled, tools: anchorToolsOf(wire, anchorNames) }
+    return { ...assembled, tools: anchorToolsOf(effectiveWire, anchorNames) }
   }, { prepend: true })
 
   ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next()
     if (decision.kind !== 'enter') return decision
     const agent = payload?.agent
-    const state = agent === undefined ? undefined : agentCatalogState.get(agent)
+    const state = catalogStateFor(agent)
     if (state === undefined) return decision
 
     const { entries, ptc } = state

@@ -13,10 +13,12 @@
 # collapse rule that `minimal-prompt` filters out of the prompt along with
 # every other section — arrive instead as a durable `tool-catalog` message
 # appended after the user's own message from the FIRST turn on, the way the
-# skill catalog is injected; it names the PTC surface (each tool's argument
-# signature plus a one-line summary) from the start, so the model knows the
-# promoted surface before the schemas arrive. The one wire transition is the
-# deterministic turn boundary: no reasoning-block gating, no output budget cap.
+# skill catalog is injected; it names exactly the tools the current request
+# opens (each tool's argument signature plus a one-line summary) — the anchor
+# set natively during the anchor turn, the SDK-reachable roster under PTC —
+# so the declared surface and the request's own wire never disagree. The one
+# wire transition is the deterministic turn boundary: no reasoning-block
+# gating, no output budget cap.
 #
 # The persistent shell replaces the Standard ephemeral shell for the whole
 # session (both register the name `bash`), and the editor inherits the host
@@ -86,14 +88,16 @@
 # user's own message from the first turn on, the way `dsh-tool-skill` injects
 # the skill catalog. It republishes only when that catalog's content changes or
 # the published copy left the visible surface (compaction, resume), so the
-# catalog is not appended once per step. `descriptionMaxLength` caps each
-# one-line summary; the full description stays in the tool schema.
+# catalog is not appended once per step. The content follows the presentation
+# the next request will carry: the anchor wire before the boundary, the SDK
+# roster after it. `descriptionMaxLength` caps each one-line summary; the full
+# description stays in the tool schema.
 #
 # `anchorTools` stages the tool SCHEMAS behind the anchor turn: during the
 # session's entire first user turn the assembled wire narrows to these schemas
-# and the session keeps native presentation, while the catalog already names
-# the promoted surface (entries come from the registry, not from the narrowed
-# wire). The shipped default anchor tools are `[bash, str_replace_editor, exit_plan_mode, skill]`.
+# and the session keeps native presentation, and the catalog narrows with the
+# wire, so the model is never told about a tool this request does not expose.
+# The shipped default anchor tools are `[bash, str_replace_editor, exit_plan_mode, skill]`.
 # The bash-only configuration experiment (`anchorTools: [bash]`) is preserved
 # and supported via config without requiring extra preset registration or
 # registry changes. Set it to an empty list to disable the narrowing entirely.

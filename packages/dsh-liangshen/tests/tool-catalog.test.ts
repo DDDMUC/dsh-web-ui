@@ -237,6 +237,10 @@ describe('liangshen-tool-catalog', () => {
     expect(text).toContain('`Promise.all`')
     expect(text).toContain('`ToolCallError`')
     expect(text).toContain('only tool that can be called directly')
+    // The listed tools are reachable through the program; the contract names
+    // `run_code` as the one direct transport and drops the stale shell-only claim.
+    expect(text).toContain('- `bash')
+    expect(text).not.toContain("the session's first turn carries the shell alone")
   })
 
   test('marks the message with the minimal plugin source shape', async () => {
@@ -406,9 +410,53 @@ describe('liangshen-tool-catalog', () => {
     const { assembled } = await assemble(harness, agent)
     expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['bash'])
     expect(harness.presentCalls).toEqual([])
-    // The catalog still names the promoted surface — the entries come from the
-    // registry, not from the narrowed wire.
-    expect(catalogText((await preStep(harness, agent)).messages)).toContain('- `read`')
+    // The catalog names exactly the anchor wire: `read` is registered but not open
+    // in this request, so the model must not be told it can call it.
+    const text = catalogText((await preStep(harness, agent)).messages)
+    expect(text).toContain('- `bash')
+    expect(text).not.toContain('- `read`')
+    expect(text).not.toContain('presents these tools through `run_code`')
+  })
+
+  test('the anchor catalog narrows to the anchor wire for the entire first turn', async () => {
+    const harness = register({ anchorTools: ['bash', 'read'] })
+    const agent = agentOf([{ type: 'turn/start', seq: 1 }], undefined, harness)
+    for (let step = 0; step < 3; step += 1) {
+      const { assembled } = await assemble(harness, agent)
+      expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read'])
+      const text = catalogText((await preStep(harness, agent, [{ id: 'user', source: { kind: 'user' } }])).messages)
+      expect(text).toContain('- `bash')
+      expect(text).toContain('- `read')
+      // `web_search` is registered but not open during the whole anchor turn.
+      expect(text).not.toContain('web_search')
+      expect(text).not.toContain('presents these tools through `run_code`')
+    }
+    expect(harness.presentCalls).toEqual([])
+  })
+
+  test('the first step of the promoted turn already describes the promoted surface', async () => {
+    const harness = register({ anchorTools: ['bash', 'read'] })
+    const events: any[] = [{ type: 'turn/start', seq: 1 }]
+    const agent = agentOf(events, undefined, harness)
+    await assemble(harness, agent)
+    const anchorStep = await preStep(harness, agent, [{ id: 'user', source: { kind: 'user' } }])
+    const anchorCatalog = catalogOf(anchorStep.messages)
+    expect(anchorCatalog.content[0].text).not.toContain('web_search')
+
+    // The first turn ends: the boundary declares PTC before the promoted turn
+    // assembles, so the stored anchor state is already stale for the next request.
+    events.push({ type: 'turn/end', seq: 2 })
+    emitSession(harness, agent.session, { type: 'turn/end' })
+    expect(harness.presentCalls).toEqual(['ptc'])
+
+    const promotedStep = await preStep(harness, agent, [
+      { id: 'user', source: { kind: 'user' } },
+      anchorCatalog,
+    ])
+    const promoted = catalogOf(promotedStep.messages)
+    expect(promoted.content[0].text).toContain('presents these tools through `run_code`')
+    expect(promoted.content[0].text).toContain('- `read')
+    expect(promoted.content[0].text).toContain('only tool that can be called directly')
   })
 
   test('the anchor turn ends at turn/end and declares PTC before the next assembly', async () => {
@@ -461,6 +509,10 @@ describe('liangshen-tool-catalog', () => {
     expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['run_code'])
     expect((await assemble(harness, agent)).assembled.tools.map((tool: any) => tool.name)).toEqual(['run_code'])
     expect(harness.presentCalls).toEqual(['ptc'])
+    // A resumed session's next step carries the promoted catalog, not the anchor one.
+    const text = catalogText((await preStep(harness, agent)).messages)
+    expect(text).toContain('presents these tools through `run_code`')
+    expect(text).toContain('- `read')
   })
 
   test('declares PTC once per agent, updates to full SDK at boundary, and stabilizes afterwards', async () => {
