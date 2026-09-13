@@ -206,10 +206,17 @@ function createWindow() {
   // page after each document load. The splash and error pages get nothing.
   window.webContents.on('did-finish-load', () => {
     if (!isGuiUrl(window.webContents.getURL())) return;
-    void window.webContents.executeJavaScript(attentionObserverScript(), true).catch((error) => {
-      pushLogLine('[desktop] attention observer failed to install: '
+    // Reminders are a convenience: an unreadable observer script or a rejected
+    // injection must never take the window (or the host it is showing) down.
+    try {
+      void window.webContents.executeJavaScript(attentionObserverScript(), true).catch((error) => {
+        pushLogLine('[desktop] attention observer failed to install: '
+          + String(error && error.message ? error.message : error));
+      });
+    } catch (error) {
+      pushLogLine('[desktop] attention observer unavailable: '
         + String(error && error.message ? error.message : error));
-    });
+    }
   });
   // A window the user has come back to is no longer asking for attention:
   // flashFrame(true) keeps flashing until it is explicitly cleared.
