@@ -11066,12 +11066,21 @@ window.__ModuleLoader__.load({
 				const currentWorkspaceId = current === void 0 ? void 0 : snapshot.items.find((item) => item.sessionIds.includes(current))?.workspaceId;
 				return workspaceId ?? currentWorkspaceId ?? snapshot.recentWorkspaceId;
 			};
+			/**
+			* Targets with a routing flow already in flight. The new-session button
+			* fires `startSession` on every click and nothing upstream debounces it, so
+			* a fast double click would otherwise run two isolation flows and create two
+			* worktrees; the second click is absorbed while the first is routing.
+			*/
+			const routing = /* @__PURE__ */ new Set();
 			const routed = (workspaceId) => {
 				const target = resolveTarget(workspaceId);
 				if (target === void 0) {
 					original.call(workspaces);
 					return;
 				}
+				if (routing.has(target)) return;
+				routing.add(target);
 				(async () => {
 					const configResult = await git.config();
 					if (!configResult.ok || !configResult.value.autoIsolate) {
@@ -11102,10 +11111,17 @@ window.__ModuleLoader__.load({
 						original.call(workspaces, target);
 						return;
 					}
+					let registeredId;
 					try {
 						const workspace = await workspaces.create({ path: created.value.path });
+						registeredId = workspace.workspaceId;
 						original.call(workspaces, workspace.workspaceId);
 					} catch (error) {
+						if (registeredId !== void 0 && typeof workspaces.delete === "function") try {
+							await workspaces.delete(registeredId);
+						} catch (cleanupError) {
+							console.warn(`${TAG} could not drop the failed workspace registration`, cleanupError);
+						}
 						await git.removeWorktree(item.path, created.value.path, { force: true });
 						console.warn(`${TAG} workspace registration failed; rolled back the worktree`, error);
 						original.call(workspaces, target);
@@ -11113,6 +11129,8 @@ window.__ModuleLoader__.load({
 				})().catch((error) => {
 					console.warn(`${TAG} routing failed; using the official behavior`, error);
 					original.call(workspaces, target);
+				}).finally(() => {
+					routing.delete(target);
 				});
 			};
 			try {
@@ -15174,7 +15192,7 @@ window.__ModuleLoader__.load({
 			"status.disconnected": "已配对设备离线",
 			"status.stopped": "已停止远程访问",
 			"status.lanRequired": "此功能需要局域网绑定或公网地址才能使用",
-			"status.lanRequiredHint": "当前服务仅绑定在 127.0.0.1 且未配置公网地址，手机无法访问。可在下方设置卡片打开“局域网访问”，或用 dsh web --host 0.0.0.0 重新启动，或填写内网穿透的公网地址。",
+			"status.lanRequiredHint": "当前服务仅绑定在 127.0.0.1 且未配置公网地址，手机无法访问。请在「设置 → Web 插件 → 远程访问设置」卡片中打开“局域网访问”，或用 dsh web --host 0.0.0.0 重新启动，或填写内网穿透的公网地址。",
 			"status.loopbackRequired": "配对面板仅限本机使用",
 			"status.loopbackRequiredHint": "请通过 http://127.0.0.1 打开此页面后重试；手机请使用配对链接访问。",
 			"status.unreachable": "无法连接配对服务",
@@ -15339,7 +15357,7 @@ window.__ModuleLoader__.load({
 			"status.disconnected": "Paired devices offline",
 			"status.stopped": "Remote access stopped",
 			"status.lanRequired": "This feature needs a LAN bind or a public address",
-			"status.lanRequiredHint": "The server is bound to 127.0.0.1 and no public address is configured, so a phone cannot reach it. Turn on LAN access in the settings card below, restart with dsh web --host 0.0.0.0, or set the tunneled public address in settings.",
+			"status.lanRequiredHint": "The server is bound to 127.0.0.1 and no public address is configured, so a phone cannot reach it. Turn on LAN access in the settings card under Settings → Web Plugins → Remote access, or restart with dsh web --host 0.0.0.0, or set the tunneled public address.",
 			"status.loopbackRequired": "The pairing panel works on this machine only",
 			"status.loopbackRequiredHint": "Open this page at http://127.0.0.1 to mint a QR code; phones use the paired link.",
 			"status.unreachable": "Cannot reach the pairing service",
@@ -17455,12 +17473,13 @@ window.__ModuleLoader__.load({
 					const delta = now - last;
 					last = now;
 					elapsed += delta;
-					const duration = decoration.durations[index] ?? 120;
+					let duration = decoration.durations[index] ?? 120;
 					if (elapsed >= duration) {
 						do {
 							elapsed -= duration;
 							if (index < segment.to) index += 1;
 							else if (decoration.loop) index = segment.from;
+							duration = decoration.durations[index] ?? 120;
 						} while (elapsed >= duration);
 						el.style.backgroundPosition = position(index);
 					}
@@ -37805,11 +37824,19 @@ window.__ModuleLoader__.load({
 				}
 				const attachments = face.draftImages(imageIds);
 				if (attachments.length !== imageIds.length) return original.call(face, session, text, imageIds, mode, signal);
-				const refs = [];
+				const payloads = [];
 				for (const attachment of attachments) {
 					const read = await readFileAsBase64(attachment.file);
-					if (!read.ok) break;
-					const upload = await uploadImageForDescribe(read.base64, attachment.file.type, attachment.file.name);
+					if (!read.ok) return original.call(face, session, text, imageIds, mode, signal);
+					payloads.push({
+						base64: read.base64,
+						type: attachment.file.type,
+						name: attachment.file.name
+					});
+				}
+				const refs = [];
+				for (const payload of payloads) {
+					const upload = await uploadImageForDescribe(payload.base64, payload.type, payload.name);
 					if (!upload.ok) break;
 					refs.push(upload.markdown);
 				}
@@ -37851,16 +37878,30 @@ window.__ModuleLoader__.load({
 				clearTimeout(timer);
 			}
 		}
-		/** Registry of live checker caches for module-level invalidation on setting toggle. */
-		const activeCaches = /* @__PURE__ */ new Set();
+		/** Registry of live checkers for module-level invalidation on setting toggle. */
+		const activeStores = /* @__PURE__ */ new Set();
+		/**
+		* Drop cached verdicts and any in-flight probe for one store. Dropping the
+		* in-flight entry is what makes the invalidation stick: the pending probe still
+		* resolves for its caller, but the write-back in `createImageCapabilityChecker`
+		* refuses to publish a verdict that started before the invalidation.
+		*/
+		function invalidateStore(store, sessionId) {
+			if (typeof sessionId === "string") {
+				store.cache.delete(sessionId);
+				store.inflight.delete(sessionId);
+			} else {
+				store.cache.clear();
+				store.inflight.clear();
+			}
+		}
 		/**
 		* Invalidate cached capability verdicts across all active checkers (or for a specific session).
 		* Called after changing the native image request setting so subsequent sends immediately probe fresh.
 		* @param sessionId - optional session id to invalidate; if omitted, clears all session caches.
 		*/
 		function invalidateImageCapabilityCaches(sessionId) {
-			for (const cache of activeCaches) if (typeof sessionId === "string") cache.delete(sessionId);
-			else cache.clear();
+			for (const store of activeStores) invalidateStore(store, sessionId);
 		}
 		/**
 		* Create the send-hook's capability checker: per-session cached, in-flight
@@ -37871,9 +37912,12 @@ window.__ModuleLoader__.load({
 		function createImageCapabilityChecker(options = {}) {
 			const ttl = options.ttlMs ?? 3e4;
 			const timeout = options.timeoutMs ?? 1500;
-			const cache = /* @__PURE__ */ new Map();
-			const inflight = /* @__PURE__ */ new Map();
-			activeCaches.add(cache);
+			const store = {
+				cache: /* @__PURE__ */ new Map(),
+				inflight: /* @__PURE__ */ new Map()
+			};
+			const { cache, inflight } = store;
+			activeStores.add(store);
 			const checker = (session) => {
 				const id = sessionIdOf(session);
 				if (id === void 0) return Promise.resolve(false);
@@ -37884,24 +37928,26 @@ window.__ModuleLoader__.load({
 				const task = fetchSessionAcceptsImages(id, timeout);
 				inflight.set(id, task);
 				return task.then((value) => {
-					cache.set(id, {
-						at: Date.now(),
-						value
-					});
-					inflight.delete(id);
+					if (inflight.get(id) === task) {
+						inflight.delete(id);
+						cache.set(id, {
+							at: Date.now(),
+							value
+						});
+					}
 					return value;
 				}, () => {
-					inflight.delete(id);
+					if (inflight.get(id) === task) inflight.delete(id);
 					return false;
 				});
 			};
 			checker.invalidate = (sessionId) => {
-				if (typeof sessionId === "string") cache.delete(sessionId);
-				else cache.clear();
+				invalidateStore(store, sessionId);
 			};
 			checker.dispose = () => {
-				activeCaches.delete(cache);
+				activeStores.delete(store);
 				cache.clear();
+				inflight.clear();
 			};
 			return checker;
 		}
@@ -47111,18 +47157,28 @@ window.__ModuleLoader__.load({
 		*   family is left untouched.
 		* - A family (direct id plus all descendants) containing ANY protected member
 		*   is skipped whole with `family-protected` — never a half-deleted family.
+		* - Every id appears at most once in `skipped`; a directly selected protected
+		*   id keeps its own reason even when a relative's family also covers it.
 		* - Everything else in the union of safe families is deleted.
 		*/
 		function planDelete(rows, directIds, protectedReason) {
 			const byId = new Map(rows.map((row) => [row.id, row]));
 			const targets = /* @__PURE__ */ new Set();
 			const skipped = [];
+			const skippedIds = /* @__PURE__ */ new Set();
+			const directSet = new Set(directIds);
 			const seenDirect = /* @__PURE__ */ new Set();
+			/** Record one skip once: an id reachable through several families stays single. */
+			const pushSkipped = (entry) => {
+				if (skippedIds.has(entry.id)) return;
+				skippedIds.add(entry.id);
+				skipped.push(entry);
+			};
 			for (const id of directIds) {
 				if (seenDirect.has(id)) continue;
 				seenDirect.add(id);
 				if (byId.get(id) === void 0) {
-					skipped.push({
+					pushSkipped({
 						id,
 						status: "skipped",
 						reason: "not-found"
@@ -47131,7 +47187,7 @@ window.__ModuleLoader__.load({
 				}
 				const ownReason = protectedReason.get(id);
 				if (ownReason !== void 0) {
-					skipped.push({
+					pushSkipped({
 						id,
 						status: "skipped",
 						reason: ownReason
@@ -47141,12 +47197,16 @@ window.__ModuleLoader__.load({
 				const family = [id, ...descendantsOf(rows, id)];
 				const blocker = family.find((member) => protectedReason.has(member));
 				if (blocker !== void 0) {
-					for (const member of family) if (!targets.has(member)) skipped.push({
-						id: member,
-						status: "skipped",
-						reason: "family-protected",
-						detail: `${blocker}:${protectedReason.get(blocker)}`
-					});
+					for (const member of family) {
+						if (targets.has(member) || skippedIds.has(member)) continue;
+						if (directSet.has(member) && protectedReason.has(member)) continue;
+						pushSkipped({
+							id: member,
+							status: "skipped",
+							reason: "family-protected",
+							detail: `${blocker}:${protectedReason.get(blocker)}`
+						});
+					}
 					continue;
 				}
 				for (const member of family) targets.add(member);
@@ -47282,8 +47342,11 @@ window.__ModuleLoader__.load({
 					return a.id.localeCompare(b.id);
 				}
 				if (key === "size") {
-					const av = a.sizeBytes ?? -1;
-					const bv = b.sizeBytes ?? -1;
+					const av = a.sizeBytes;
+					const bv = b.sizeBytes;
+					if (av === void 0 && bv === void 0) return a.id.localeCompare(b.id);
+					if (av === void 0) return 1;
+					if (bv === void 0) return -1;
 					if (av !== bv) return sign * (av - bv);
 					return a.id.localeCompare(b.id);
 				}
@@ -56911,6 +56974,14 @@ window.__ModuleLoader__.load({
   [data-dsh-frame][data-sidebar-collapsed] [data-pane="sidebar"] [data-dsh-responsive-part="sidebar-toggle"] {
     pointer-events: auto;
     display: inline-flex !important;
+  }
+  /* The official settings dialog renders inside the sidebar foot, so collapsing
+     the rail would both hide it (the rule above) and freeze it (a collapsed pane
+     sets pointer-events: none). Restore only the subtree that actually carries an
+     open dialog; with no dialog open the collapsed rail is unchanged (issue #1510). */
+  [data-dsh-frame][data-sidebar-collapsed] [data-pane="sidebar"] > [data-slot="sidebar"] > :first-child > :not(:first-child):has([role="dialog"], [aria-modal="true"]) {
+    display: flex !important;
+    pointer-events: auto;
   }
   /* Center-view plugins own this marker; the aggregate shell owns its mobile offset. */
   [data-dsh-frame][data-sidebar-collapsed] [data-dsh-center-view-back] {

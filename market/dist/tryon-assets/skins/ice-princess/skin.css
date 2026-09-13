@@ -102,8 +102,8 @@ html[data-dsh-skin="ice-princess"] body {
   --dsw-alias-state-warn-tertiary: #f2c98a24;
   --dsw-alias-toast-bg: #eaf3ff;
   --dsw-alias-toast-fg: #0f1a33;
-  --dsw-alias-tooltip-bg: #eaf3ff;
-  --dsw-alias-tooltip-fg: #0f1a33;
+  --dsw-alias-tooltip-bg: #1d315a;
+  --dsw-alias-tooltip-fg: #eaf3ff;
   --dsw-alias-shadow-lv1: 0 1px 2px #00000073;
   --dsw-alias-shadow-lv2: 0 4px 12px #00000080;
   --dsw-alias-shadow-lv3: 0 12px 32px #0000008c;
@@ -136,7 +136,7 @@ html[data-dsh-skin="ice-princess"] body {
   --dsw-linear-think-select: #63b8f047;
   --dsw-shadow-lv1-blur: 3px;
   --dsw-alias-toast-fg: #0f1a33;
-  --dsw-alias-tooltip-fg: #0f1a33;
+  --dsw-alias-tooltip-fg: #eaf3ff;
   --dsw-alias-brand-primary-new-colorprimary-new-color: #4E93E8;
   --ice-princess-cta-ink: #1a1208;
 
@@ -336,8 +336,8 @@ html[data-dsh-skin="ice-princess"] body {
   --dsw-alias-state-warn-tertiary: #f2c98a24;
   --dsw-alias-toast-bg: #eaf3ff;
   --dsw-alias-toast-fg: #0f1a33;
-  --dsw-alias-tooltip-bg: #eaf3ff;
-  --dsw-alias-tooltip-fg: #0f1a33;
+  --dsw-alias-tooltip-bg: #1d315a;
+  --dsw-alias-tooltip-fg: #eaf3ff;
   --dsw-alias-shadow-lv1: 0 1px 2px #00000073;
   --dsw-alias-shadow-lv2: 0 4px 12px #00000080;
   --dsw-alias-shadow-lv3: 0 12px 32px #0000008c;
@@ -370,7 +370,7 @@ html[data-dsh-skin="ice-princess"] body {
   --dsw-linear-think-select: #63b8f047;
   --dsw-shadow-lv1-blur: 3px;
   --dsw-alias-toast-fg: #0f1a33;
-  --dsw-alias-tooltip-fg: #0f1a33;
+  --dsw-alias-tooltip-fg: #eaf3ff;
   --dsw-alias-brand-primary-new-colorprimary-new-color: #4E93E8;
   --ice-princess-cta-ink: #1a1208;
   --ice-princess-metal: #4E93E8;
@@ -466,8 +466,8 @@ html[data-dsh-skin="ice-princess"] body[data-ds-dark-theme] {
   --dsw-alias-state-warn-tertiary: #f2c98a24;
   --dsw-alias-toast-bg: #eaf3ff;
   --dsw-alias-toast-fg: #0f1a33;
-  --dsw-alias-tooltip-bg: #eaf3ff;
-  --dsw-alias-tooltip-fg: #0f1a33;
+  --dsw-alias-tooltip-bg: #1d315a;
+  --dsw-alias-tooltip-fg: #eaf3ff;
   --dsw-alias-shadow-lv1: 0 1px 2px #00000073;
   --dsw-alias-shadow-lv2: 0 4px 12px #00000080;
   --dsw-alias-shadow-lv3: 0 12px 32px #0000008c;
@@ -500,7 +500,7 @@ html[data-dsh-skin="ice-princess"] body[data-ds-dark-theme] {
   --dsw-linear-think-select: #63b8f047;
   --dsw-shadow-lv1-blur: 3px;
   --dsw-alias-toast-fg: #0f1a33;
-  --dsw-alias-tooltip-fg: #0f1a33;
+  --dsw-alias-tooltip-fg: #eaf3ff;
   --dsw-alias-brand-primary-new-colorprimary-new-color: #4E93E8;
   --ice-princess-cta-ink: #1a1208;
 

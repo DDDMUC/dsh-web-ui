@@ -56,6 +56,16 @@ describe('aggregate responsive compat contract', () => {
     expect(RESPONSIVE_CSS).not.toMatch(/class\*=/)
   })
 
+  it('keeps an open settings dialog reachable in the collapsed narrow rail (#1510)', () => {
+    // The official settings panel renders inside the sidebar foot, which the
+    // collapse rule hides and the collapsed pane freezes with pointer-events:
+    // none; the shell must restore exactly the subtree carrying a dialog.
+    expect(RESPONSIVE_CSS).toContain(':has([role="dialog"], [aria-modal="true"])')
+    const rule = RESPONSIVE_CSS.match(/:has\(\[role="dialog"\], \[aria-modal="true"\]\)\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(rule).toContain('display: flex !important')
+    expect(rule).toContain('pointer-events: auto')
+  })
+
   it('stamps the session header from its stable slot wrapper', () => {
     document.body.innerHTML = `
       <main class="shell_frame">
