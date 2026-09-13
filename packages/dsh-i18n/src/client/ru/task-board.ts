@@ -16,7 +16,7 @@ export const ru: Record<string, string> = {
   'board.filterAll': 'Все',
   'board.hostError': 'Не удалось выполнить действие Host: {error}',
   'board.hostError.locked': 'Реестр доски задач заблокирован: {detail}',
-  'board.hostError.notMounted': 'API Host доски задач не подключён; перезапустите службу DSH и повторите',
+  'board.hostError.notMounted': 'API Host доски задач не подключён: возможно, Host не загрузил плагин или реестр занят другим экземпляром DSH. Перезапустите службу DSH и повторите',
   'board.hostError.timeout': 'Host не ответил за {seconds} с; повторите позже',
   'board.hostError.unauthorized': 'Сессия больше не авторизована; обновите страницу и повторите',
   'board.hostError.unexpected': 'Host вернул нераспознанный ответ (HTTP {status})',
