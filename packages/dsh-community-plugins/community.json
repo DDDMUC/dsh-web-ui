@@ -679,5 +679,29 @@
     "npm": "dsh-taskfold",
     "category": "tools",
     "subcategory": "context"
+  },
+  {
+    "id": "dsh-auto-review",
+    "name": "AI 自动复核",
+    "nameEn": "AI Auto Review",
+    "author": "PerryLink",
+    "description": "DeepSeek Harness 审批的第二模型 AI 自动复核：一个只读审查子代理在审批应答链上给出允许/拒绝裁决，默认失败关闭，并记录完整会话日志供审计回溯。",
+    "descriptionEn": "Second-model AI auto-review for DeepSeek Harness approval requests: a read-only reviewer subagent decides allow/deny on the approval answerer chain, with fail-closed fallback and a full session-log audit.",
+    "repo": "https://github.com/perrylink/dsh-auto-review",
+    "npm": "dsh-auto-review",
+    "category": "security",
+    "subcategory": "policy"
+  },
+  {
+    "id": "dsh-permission-rules",
+    "name": "声明式权限规则",
+    "nameEn": "Permission Rules",
+    "author": "PerryLink",
+    "description": "DeepSeek Harness 的 Claude Code 风格声明式权限规则与 Codex 风格进程级网络策略：按序 allow/deny/ask 规则匹配工具名、参数（glob/正则）、工作区路径与网络目标（域名/IP/端口/协议），内置本地 HTTP/CONNECT 代理管控 shell 子进程流量，三种网络模式映射官方沙箱预设，附会话日志审计、规则热重载与含规则编辑器的设置页。",
+    "descriptionEn": "Declarative Claude Code-style permission rules plus a Codex-style process-level network policy for DeepSeek Harness: ordered allow/deny/ask rules matching tool names, arguments (glob/regex), workspace paths and network targets (domain/IP/port/scheme), a built-in local HTTP/CONNECT proxy governing shell subprocess traffic, three network modes mapped onto the official sandbox presets, full session-log audit, HMR rule reload, and a settings page with a rule editor.",
+    "repo": "https://github.com/perrylink/dsh-permission-rules",
+    "npm": "dsh-permission-rules",
+    "category": "security",
+    "subcategory": "policy"
   }
 ]
