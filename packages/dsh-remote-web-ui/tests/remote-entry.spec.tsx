@@ -129,6 +129,9 @@ describe('RemoteEntry', () => {
     mount({ ok: false, code: 'lan-required' })
     fireEvent.click(screen.getByRole('button', { name: 'Remote access' }))
     await waitFor(() => expect(screen.getByText('This feature needs a LAN bind or a public address')).toBeTruthy())
+    // The hint must name the surface the toggle actually lives on: the panel
+    // itself carries no settings card (#1517).
+    expect(screen.getByText(/Settings → Web Plugins → Remote access/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
     expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
     // The status stream stays open on the lan-required banner: the
