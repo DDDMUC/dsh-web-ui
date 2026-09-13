@@ -5,7 +5,7 @@
 dsh-web 是 DeepSeek Harness（DSH）Web GUI 的开源插件集合，为 AI 编程工作台提供任务自动化、手机远程控制、SSH 终端、Git 可视化和自定义主题。既可将插件全家桶安装到 `dsh web`，也可下载内置运行时与插件的 macOS / Windows 桌面客户端 DSH Desktop。
 
 <p align="center">
-  <img src="docs/dsh-web-banner.png" alt="dsh-web — DeepSeek Harness Web GUI 插件与主题" width="100%">
+  <img src="docs/dsh-web-banner.zh.jpg" alt="dsh-web — DeepSeek Harness Web GUI 插件与主题" width="100%">
 </p>
 
 <p align="center">
