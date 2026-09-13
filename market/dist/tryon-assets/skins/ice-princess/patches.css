@@ -391,18 +391,30 @@ html[data-dsh-skin="ice-princess"] [data-dsh-surface='session-header'] {
       alias- 前缀，所以皮肤的值从未被读到，基座的浅色值一直生效。已经在 token-set 里按
       正确名字输出，这两条覆盖就不再需要。 */
 
-/* 2. 真正不读 token、自己在模块 CSS 里写死明暗两套的：输入卡的工具键。 */
+/* 2. 真正不读 token、自己在模块 CSS 里写死明暗两套的：输入卡的工具键。
+   通配 button 必须排除弹层条目（issue #1520）：ui-input-trigger 的 MenuView 与
+   ui-commands 的 PopupSelectView 把候选项渲染成 role="option" / "menuitem" 的
+   按钮，挂在同一个 [data-composer-card] 里，模块 CSS 的选中底色是
+   --dsw-alias-interactive-bg-hover（无 !important）。皮肤用工具键底色盖住它们
+   之后，方向键的选中行与普通行几乎同色，只剩 :hover 分支还能看出点变化。
+   排除之后再用语义属性补一条选中态兜底：既不吃掉插件自己的哈希类名，
+   也不受皮肤把该 token 压到接近菜单底色（#0f1a33）的影响。 */
 
-html[data-dsh-skin="ice-princess"] [data-composer-card] button {
+html[data-dsh-skin="ice-princess"] [data-composer-card] button:not([role='menuitem']):not([role='option']) {
   background-color: #17264ae6 !important;
 }
 
-html[data-dsh-skin="ice-princess"] [data-composer-card] button:hover:not(:disabled) {
+html[data-dsh-skin="ice-princess"] [data-composer-card] button:not([role='menuitem']):not([role='option']):hover:not(:disabled) {
   background-color: #4e93e838 !important;
 }
 
-html[data-dsh-skin="ice-princess"] [data-composer-card] button:disabled {
+html[data-dsh-skin="ice-princess"] [data-composer-card] button:not([role='menuitem']):not([role='option']):disabled {
   background-color: #17264a73 !important;
+}
+
+html[data-dsh-skin="ice-princess"] [data-composer-card] [role='option'][aria-selected='true'],
+html[data-dsh-skin="ice-princess"] [data-composer-card] [role='menuitem'][aria-selected='true'] {
+  background-color: #2a5ea8 !important;
 }
 
 /* ── 修掉「靠 data-ds-dark-theme 属性分支 + 静态色阶」的四处 ──────────────
