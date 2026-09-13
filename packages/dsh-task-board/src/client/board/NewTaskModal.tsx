@@ -17,17 +17,22 @@ export interface NewTaskModalProps {
   onClose: () => void
   /** Optional task template to clone/duplicate from. */
   initialTask?: TaskRecord
+  /**
+   * Workspace the board's project filter has selected (#1536): a task created
+   * while a project is open belongs to that project unless the user changes it.
+   */
+  defaultWorkspaceId?: string
   /** Optional callback after successful duplication (e.g. to archive source). */
   onDuplicateSuccess?: (sourceTaskId: string) => Promise<void>
 }
 
 /** New-task form overlay. */
-export function NewTaskModal({ controller, onClose, initialTask, onDuplicateSuccess }: NewTaskModalProps) {
+export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspaceId, onDuplicateSuccess }: NewTaskModalProps) {
   const isDuplicate = initialTask !== undefined
   const [title, setTitle] = useState(initialTask?.title ?? '')
   const [description, setDescription] = useState(initialTask?.description ?? '')
   const [prompt, setPrompt] = useState(initialTask?.prompt ?? '')
-  const [workspaceId, setWorkspaceId] = useState(initialTask?.workspaceId ?? '')
+  const [workspaceId, setWorkspaceId] = useState(initialTask?.workspaceId ?? defaultWorkspaceId ?? '')
   const [mode, setMode] = useState(initialTask?.mode ?? '')
   const [permission, setPermission] = useState(initialTask?.permission ?? '')
   const [model, setModel] = useState(initialTask?.model ?? '')

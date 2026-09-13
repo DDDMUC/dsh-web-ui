@@ -216,6 +216,16 @@ function ownProcessStartTimeMs(): number | undefined {
  */
 const LEGACY_START_TOLERANCE_MS = 2000
 
+/**
+ * How long an unreadable lock must sit untouched before it may be reclaimed.
+ * The owner writes and fsyncs its record immediately after creating the file
+ * with O_EXCL, so a lock that cannot be parsed may still be mid-write by a
+ * live owner; only one that has been unreadable for longer than any write can
+ * take is treated as an unclean-shutdown leftover (issue #1528: a 0-byte lock
+ * kept the Host half from mounting until it was deleted by hand).
+ */
+const UNREADABLE_LOCK_GRACE_MS = 60_000
+
 /** Whether the recorded start time proves the recorded PID is another process. */
 function startTimeMismatch(recorded: number, actual: number, exact: boolean): boolean {
   return exact ? recorded !== actual : Math.abs(recorded - actual) > LEGACY_START_TOLERANCE_MS
@@ -842,9 +852,21 @@ export class HostTaskLedger {
           if (typeof owner.startedAt === 'number') ownerStartedAt = owner.startedAt
           ownerExact = owner.probe === 'exact'
         } catch {
-          // A power-loss mid-write can leave a truncated lock; the same event
-          // killed the writer, so fail closed but explain the recovery.
-          throw new Error(`task-board ledger lock is unreadable: ${this.lockFile}; if this is a leftover from an unclean shutdown and no other DSH host is running, remove it manually and retry`)
+          // A power-loss mid-write can leave an empty or truncated lock. Such a
+          // lock still fails closed while it is fresh (a live owner may be
+          // mid-write); once it is older than the grace window nothing can be
+          // writing it, so the leftover is reclaimed instead of blocking every
+          // later start until someone deletes it by hand (issue #1528).
+          const age = (() => {
+            try { return this.now() - statSync(this.lockFile).mtimeMs } catch { return Number.POSITIVE_INFINITY }
+          })()
+          if (age < UNREADABLE_LOCK_GRACE_MS) {
+            throw new Error(`task-board ledger lock is unreadable: ${this.lockFile}; if this is a leftover from an unclean shutdown and no other DSH host is running, remove it manually and retry`)
+          }
+          try { unlinkSync(this.lockFile) } catch (unlinkError) {
+            if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') throw unlinkError
+          }
+          continue
         }
         if (pid !== undefined && processIsAlive(pid)) {
           const actualStartedAt = pid === process.pid ? ownProcessStartTimeMs() : processStartTimeMs(pid)

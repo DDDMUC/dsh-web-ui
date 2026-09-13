@@ -230,6 +230,13 @@ export function apply(ctx: ClientContext): void {
     }
     pushWorkspaceOptions()
     disposers.push(workspaces.list.subscribe(pushWorkspaceOptions))
+    // "New project" on the board is the GUI's own add-project call (#1536);
+    // the runtime emits the created Workspace through workspaces.list, which
+    // refreshes the filter above without a local re-read.
+    controller.setWorkspaceCreator(async path => {
+      const created = await workspaces.create({ path })
+      return { workspaceId: created.workspaceId }
+    })
     const pushPresetOptions = async (): Promise<void> => {
       try {
         const roster = await readPresetRoster(ctx, remote)
