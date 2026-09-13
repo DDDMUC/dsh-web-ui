@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词保持极简 persona——外加本模式的固定工作纪律、会话工作区目录与 AGENTS.md 类工作区指令——并从第一条用户消息起就把工具面作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致——而 wire 按回合分层：首轮整个 user turn 原生呈现基础锚定工具集（默认 `[bash, str_replace_editor, exit_plan_mode, skill]`，并保留 bash-only 配置实验），从第二个回合起在 PTC 成功激活后以 PTC 模式呈现工具，wire 上只有 `run_code` 这一条传输工具，其余工具都在程序里经生成的 SDK 调用。PTC 实际激活时发生确定性的回合边界跃迁，保留完整输入输出关键参数语义，没有推理内容门控、没有输出预算上限。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
+把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词保持极简 persona——外加本模式的固定工作纪律、会话工作区目录与 AGENTS.md 类工作区指令——并从第一条用户消息起就把工具面作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致，且只宣告该次请求实际开放的工具——而 wire 按回合分层：首轮整个 user turn 原生呈现基础锚定工具集（默认 `[bash, str_replace_editor, exit_plan_mode, skill]`，并保留 bash-only 配置实验），从第二个回合起在 PTC 成功激活后以 PTC 模式呈现工具，wire 上只有 `run_code` 这一条传输工具，其余工具都在程序里经生成的 SDK 调用。PTC 实际激活时发生确定性的回合边界跃迁，保留完整输入输出关键参数语义，没有推理内容门控、没有输出预算上限。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
 
 ## 原理
 
@@ -15,7 +15,7 @@ DeepSeek V4 模型在选择执行轨迹时，会受到初始提示词与首轮�
 1. `minimal-prompt` 把每次组装出的提示词收窄到 persona 一段——一行 persona、本模式的固定工作纪律（思维循环即断、先理解需求与方案再实现验证、YAGNI/PDCA、代码不加冗余注释）、以及一行从会话头读取的方位信息 `Your working directory is <cwd>.`——因此 harness identity、web surface、工具用法、文件引用与结构化输出等 section 默认不会到达模型；plan mode 的 `plan:policy` 保留，因为该 section 是 plan mode 唯一的执行依据（它的退出工具在任何模式下都保持注册）；
 2. AGENTS.md 类工作区指令直接进入系统提示词本身：组装时 `minimal-prompt` 读取 harness 的基线链（`$DSH_HOME/AGENTS.md`，再从项目根到会话 cwd 沿途的 `AGENTS.md` / `CLAUDE.md` 及其 `.local` 覆盖层），把内容作为一段 `workspace-instructions` 追加在稳定前缀之后，受字节预算约束——放不下时先省略最宽的文件、最后才截断最具体的文件；读取在每次组装时都发生，文件改动无需持久消息即可在下次请求生效，harness 自己的 agent-instructions 注入则被丢弃以免与提示词重复。工作区子目录动态规则后续将支持注册文件工具（含 `str_replace_editor`）及 PTC 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
 3. 锚定回合（会话的首轮整个 user turn，而非仅第一步单次请求）把 wire 保持在基础锚定工具集上：默认 `[bash, str_replace_editor, exit_plan_mode, skill]`，原生呈现（`anchorTools`）；同时保留 `[bash]` 的单 shell 实验配置（无需额外注册预设，无需更改注册表）。从第二个回合起，在 code runtime 存在且声明成功时，`tool-catalog` 为该会话激活 PTC 呈现（`agent.ctx.tools.presentAs('ptc')`，在锚定回合结束时声明），wire 收拢为 `run_code` 这一条传输工具，其余工具都在程序里经生成的 SDK 调用；若缺少 code runtime 或激活失败，则优雅回退至原生工具面并发出一次性告警；
-4. `tool-catalog` 把工具清单从第一条用户消息起作为持久 user 消息追加在用户消息之后，保留完整输入输出关键参数语义而非 200 字唯一契约（`descriptionMaxLength: 200` 仅作为一行摘要长度上限，不裁剪关键参数结构）。PTC 下该消息还承载程序契约：一段程序完成一个意图而不是一步一次调用、`run_code` 的 `code`/`description` 形状、独立只读调用用 `Promise.all` 并发、`ToolCallError` 的处理、程序输出需要自己挑选，以及 `run_code` 一旦在 wire 上就是唯一可直接调用的工具。只在工具面变化、或已发布副本离开可见面（压缩、恢复）时重发；允许在呈现切换边界进行一次契约更新，不再坚持上下文绝对不变；
+4. `tool-catalog` 把工具清单从第一条用户消息起作为持久 user 消息追加在用户消息之后，保留完整输入输出关键参数语义而非 200 字唯一契约（`descriptionMaxLength: 200` 仅作为一行摘要长度上限，不裁剪关键参数结构）。目录只宣告该次请求实际开放的工具：原生锚定回合是锚定工具集，PTC 下则是经 SDK 可达的完整工具面，并附带程序契约：一段程序完成一个意图而不是一步一次调用、`run_code` 的 `code`/`description` 形状、独立只读调用用 `Promise.all` 并发、`ToolCallError` 的处理、程序输出需要自己挑选，以及 `run_code` 一旦在 wire 上就是唯一可直接调用的工具。只在工具面变化、或已发布副本离开可见面（压缩、恢复）时重发，因此晋升边界会进行一次契约更新，不再坚持上下文绝对不变；
 5. 运行时上下文（sandbox 与 approval 快照）与 skill 目录按 Standard 模式正常注入。
 
 ## 安全模型
@@ -76,7 +76,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 - 第一份 header 的 `system` 应恰好是 persona 块（极简 persona、工作纪律清单、工作区目录行 `Your working directory is <cwd>.`），plan mode 开启时另加其策略段，再另加承载 AGENTS.md 链的 `workspace-instructions` 段；
 - 首轮整个 user turn 的 header tools 应恰好是锚定面——默认 `[bash, str_replace_editor, exit_plan_mode, skill]`，原生呈现——既不是全量晋升清单，也不会是未激活的 `run_code`；
-- 首个回合放行的消息里应有一条来自 `liangshen-tool-catalog` 的 `plugin` 消息，位于用户消息之后，按参数签名列出晋升面并写明完整关键参数语义与 `run_code` 契约；
+- 锚定回合放行的消息里应有一条来自 `liangshen-tool-catalog` 的 `plugin` 消息，位于用户消息之后，按参数签名恰好列出锚定工具；从晋升回合起，该消息改为列出经 SDK 可达的完整工具面并写明 `run_code` 程序契约，其中 `run_code` 是唯一可直接调用的工具；
 - 从第二个回合起，在 PTC 成功激活的前提下，header 上恰好只有一条工具 `run_code`（PTC 呈现）；若无 code runtime 则优雅回退到原生清单并伴随一次性告警；
 - 压缩之后目录会重发一次，形式为替换清单，且会话保持当前呈现模式；
 - 文件写入受宿主文件沙箱策略约束，不存在裸本地文件系统绕过。
@@ -89,7 +89,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
    - **真实推理探针**：仅验证链路连通性与模型对特定格式的最小响应能力（例如使用 headless 探针验证模型是否能正常解析输出）；单次探针成功仅代表功能未阻断，绝不证明模式集成已达标。
    - **模式集成通过**：要求在真实完整会话中，验证完整 header、工具分层流转、PTC 真实激活、SDK 参数语义解析与沙箱策略执行无误。
    - **统计显著性提升**：必须在固定 route 与源码 hash 记录的隔离环境中进行多轮对比评测，综合评估任务完成率、工具失败率、规则违反率、人工介入次数与耗时/token 开销。单次或少数 smoke 运行不构成效果提升的证据。
-2. **评测工具文档**：评测 agent 正在构建隔离的 benchmark runner（基于固定 route 与源码 hash，先执行最多 12 次 smoke 验证）。具体评测工具路径与 CLI 调用说明待父 agent 提供确定路径后补充接入。
+2. **评测工具**：隔离 runner 位于 `packages/dsh-liangshen/tools/benchmark-live-run.mjs`：它把被评测 preset 写入临时目录并通过 roster 自己的 `roots` 配置选中，把会话持久化改写到本次运行目录，并为每次运行记录基线（仓库提交、出厂 preset hash、DSH 版本、固定 route、任务版本）。候选矩阵为 `B`（出厂 persona 与两阶段策略）、`P`（候选 persona）、`T`（候选 persona，首轮即用 PTC）、`N`（候选 persona，全程原生工具）与 `M`（内置包官方 Minimal preset，仅作外部参照而非单因素对照）。单次 smoke 用 `node tools/benchmark-live-run.mjs --variant B`，按种子任务集跑有界矩阵用 `node tools/benchmark-live-run.mjs --tasks tools/tasks/liangshen-v41-flash.json --groups B,P,T,N,M --repeat 3 --max-sessions 60 --budget-usd 5`，再用 `node tools/benchmark-report.mjs .benchmark-results` 汇总结果目录：按组给出成功率与 Wilson 区间、按任务配对差值与置信区间、token 与费用合计、单独列出的基础设施失败以及记录的基线。smoke 只验证协议与费用估算，不构成通用编码能力提升的证据。
 
 ## 配置
 
@@ -104,7 +104,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 - 系统提示词在整个会话中保持稳定：persona 块（persona、工作纪律、工作区目录），plan mode 开启时另加其策略段，另加 workspace-instructions 段。工具调用后不会再追加内容，也不施加任何输出预算上限；
 - workspace-instructions 段在每次组装时重新读取，指令文件的改动无需持久消息即可在下一次请求生效；该段渲染在稳定前缀之后的最后位置，锚定的缓存前缀不受影响。工作区子目录动态规则后续将扩展支持注册文件工具（含 `str_replace_editor`）及 PTC 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
-- wire 的 schema 集在首轮整个 user turn 保持在基础锚定工具集（默认 `[bash, str_replace_editor, exit_plan_mode, skill]`，且支持 `[bash]` 实验）；在第二个回合起且仅在 PTC 成功激活时收拢为 `run_code`；目录消息本身每会话写一次（另在压缩遮蔽时替换一次），允许在呈现切换边界进行一次契约更新；
+- wire 的 schema 集在首轮整个 user turn 保持在基础锚定工具集（默认 `[bash, str_replace_editor, exit_plan_mode, skill]`，且支持 `[bash]` 实验）；在第二个回合起且仅在 PTC 成功激活时收拢为 `run_code`；目录消息每会话写一次，另在工具面变化（含晋升边界）或压缩遮蔽时替换一次；
 - 注入的目录是持久消息：每个会话写入一次，另在工具面变化或压缩遮蔽已发布副本时替换一次，并留在历史中供后续请求使用；
 - 未观测到 prompt 组装的步不注入任何内容——目录绝不会由过期视图推测；
 - 若组合中不存在任何被接受的 persona section 名（`deployment:persona-prefix`、`deployment:persona`、`persona`），过滤器会保留组装结果并只告警一次，而不是发出空系统提示词；
