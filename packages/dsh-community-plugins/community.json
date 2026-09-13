@@ -703,5 +703,17 @@
     "npm": "dsh-permission-rules",
     "category": "security",
     "subcategory": "policy"
+  },
+  {
+    "id": "dsh-delete-session",
+    "name": "会话删除",
+    "nameEn": "Delete Session",
+    "author": "DDDMUC",
+    "description": "在侧边栏会话菜单里直接删除会话：风险确认（可勾选不再询问）后真正删除会话日志、工作区记账与宿主内存状态；自动等待被占用会话的写所有权释放，中英双语，宿主路由仅限本机回环。",
+    "descriptionEn": "Delete sessions straight from the sidebar session menu: a risk-consent dialog (with a dont-ask-again option) then a real delete of the log, workspace accounting and live state; waits out the write lease of an occupied session, bilingual, loopback-only host route.",
+    "repo": "https://github.com/DDDMUC/dsh-delete-session",
+    "npm": "dsh-delete-session",
+    "category": "utility",
+    "subcategory": "cleanup"
   }
 ]
