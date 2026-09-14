@@ -765,6 +765,18 @@
       "npm": "dsh-permission-rules",
       "category": "security",
       "subcategory": "policy"
+    },
+    {
+      "id": "dsh-stalled-turn-continue",
+      "name": "推理后停滞续跑",
+      "rank": 61,
+      "nameEn": "Stalled Turn Continue",
+      "author": "4evercool",
+      "description": "当回合以 completed（或 no-visible-output）结束、且最后一条助手消息只有推理内容、既没有文本也没有工具调用时，等待 graceMs 后通过 agent 注册表发送一条续跑消息。与 dsh-client-auto-continue 分工：不处理 error / interrupted / max-tokens；由 cooldownMs 与 maxConsecutive 限制连续续跑次数，用户消息或有可见输出的回合会重置计数。",
+      "descriptionEn": "Resumes a turn that ends completed (or no-visible-output) when the last assistant message carried reasoning only, with no text and no tool call: after graceMs it sends one follow-up through the agent registry. Complements dsh-client-auto-continue and never touches error / interrupted / max-tokens; cooldownMs and maxConsecutive bound repeated resumes, and a user message or a turn with visible output resets the counter.",
+      "repo": "https://github.com/4evercool/dsh-stalled-turn-continue",
+      "category": "tools",
+      "subcategory": "dev"
     }
   ]
 }
