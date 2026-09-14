@@ -201,7 +201,7 @@ node scripts/release-notes.mjs "vX.Y.Z" > /tmp/notes-draft.md
 
 # 发版提交：全部家族 package.json 版本 bump + 发布相关变更（管线、skill、AGENTS.md、.agents/notes/）
 # + docs/release-notes/vX.Y.Z.md
-git add packages/**/package.json .github/workflows/release.yml .dsh/skills/ AGENTS.md .agents/notes/ docs/release-notes/
+git add packages/**/package.json .github/workflows/release.yml .agents/skills/ AGENTS.md .agents/notes/ docs/release-notes/
 git commit -m "chore(release): bump to X.Y.Z"
 
 git tag "vX.Y.Z"                    # tag 命名固定 v 前缀；tag 即版本事实源

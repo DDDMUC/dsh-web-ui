@@ -76,7 +76,7 @@ Market build order: build `market/shell` first (`npm run build` in `market/shell
 
 ## Release
 
-Only an explicit current release request authorizes publication; CI/configuration repair, available credentials, and enabled workflows do not. Follow [dsh-web-release](.dsh/skills/dsh-web-release/SKILL.md) for unified versions, dev-to-main release integration, tag-driven gates, npm switching, and bilingual release notes. Do not bypass that process with ad-hoc version edits.
+Only an explicit current release request authorizes publication; CI/configuration repair, available credentials, and enabled workflows do not. Follow [dsh-web-release](.agents/skills/dsh-web-release/SKILL.md) for unified versions, dev-to-main release integration, tag-driven gates, npm switching, and bilingual release notes. Do not bypass that process with ad-hoc version edits.
 
 ## Instruction Layers
 
