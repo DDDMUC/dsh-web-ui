@@ -59,6 +59,7 @@ export const ru: Record<string, string> = {
   'detail.duplicate': 'Дублировать как новую задачу',
   'detail.duplicateAndEdit': 'Изменить копию как новую задачу',
   'detail.edit': 'Редактировать',
+  'detail.editTags': 'Изменить теги',
   'detail.execution': 'История запусков',
   'detail.execution.initiator': 'Инициировано сессией {session}',
   'detail.executionEnded': 'Завершено',

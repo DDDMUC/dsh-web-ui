@@ -6317,6 +6317,7 @@ window.__ModuleLoader__.load({
 			"detail.permissionConfirmed": "已确认权限绑定 · {time}",
 			"detail.title": "任务详情",
 			"detail.edit": "编辑",
+			"detail.editTags": "编辑标签",
 			"detail.duplicate": "复制为新任务",
 			"detail.duplicateAndEdit": "修改并新建副本",
 			"detail.close": "关闭",
@@ -6504,6 +6505,7 @@ window.__ModuleLoader__.load({
 			"detail.permissionConfirmed": "Permission confirmed · {time}",
 			"detail.title": "Task Detail",
 			"detail.edit": "Edit",
+			"detail.editTags": "Edit tags",
 			"detail.duplicate": "Duplicate Task",
 			"detail.duplicateAndEdit": "Edit as New Copy",
 			"detail.close": "Close",
@@ -6910,21 +6912,11 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/**
-		* Drop blank rows and trim what survives, so the wire always carries a valid
-		* tag list (the protocol rejects a list with a blank name or an empty array).
+		* Clean a tag list via normalizeTags: trim, drop blanks and duplicates, cap
+		* lengths and count, so the wire always carries a valid tag list.
 		*/
 		function cleanTags(tags) {
-			const cleaned = [];
-			for (const tag of tags) {
-				const name = tag.name.trim();
-				if (name === "") continue;
-				const promptPrefix = tag.promptPrefix?.trim();
-				cleaned.push(promptPrefix === void 0 || promptPrefix === "" ? { name } : {
-					name,
-					promptPrefix
-				});
-			}
-			return cleaned;
+			return normalizeTags(tags) ?? [];
 		}
 		//#endregion
 		//#region ../dsh-task-board/src/client/board/NewTaskModal.tsx
@@ -7585,6 +7577,39 @@ window.__ModuleLoader__.load({
 				})]
 			});
 		}
+		/** Edit-tags modal: edit labels only, shown for tasks after first execution. */
+		function EditTagsModal({ controller, task, onClose }) {
+			const [tags, setTags] = (0, react.useState)(task.tags ?? []);
+			const [error, setError] = (0, react.useState)(void 0);
+			const [pending, setPending] = (0, react.useState)(false);
+			const submit = async () => {
+				setPending(true);
+				const tagList = cleanTags(tags);
+				const patch = { tags: tagList.length > 0 ? tagList : null };
+				if (await controller.updateTask(task.id, patch)) {
+					onClose();
+					return;
+				}
+				setPending(false);
+				setError(controller.getSnapshot().transportError ?? t$6("new.required"));
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ModalShell, {
+				ariaLabel: t$6("detail.editTags"),
+				title: t$6("detail.editTags"),
+				error,
+				pending,
+				submitLabel: t$6("edit.save"),
+				onSubmit: () => {
+					submit();
+				},
+				onClose,
+				children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TaskTagFields, {
+					tags,
+					knownTags: collectKnownTags(controller.getSnapshot().tasks),
+					onChange: setTags
+				})
+			});
+		}
 		//#endregion
 		//#region ../dsh-task-board/src/client/board/TaskDetail.tsx
 		/**
@@ -7916,6 +7941,7 @@ window.__ModuleLoader__.load({
 		function TaskDetail({ controller, task }) {
 			const [confirmDelete, setConfirmDelete] = (0, react.useState)(false);
 			const [showEdit, setShowEdit] = (0, react.useState)(false);
+			const [showEditTags, setShowEditTags] = (0, react.useState)(false);
 			const [showDuplicate, setShowDuplicate] = (0, react.useState)(false);
 			const [latest, setLatest] = (0, react.useState)(task);
 			(0, react.useEffect)(() => {
@@ -7923,6 +7949,7 @@ window.__ModuleLoader__.load({
 			}, [task]);
 			(0, react.useEffect)(() => {
 				setShowEdit(false);
+				setShowEditTags(false);
 				setShowDuplicate(false);
 			}, [task.id]);
 			const current = latest;
@@ -7990,6 +8017,21 @@ window.__ModuleLoader__.load({
 										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", { children: t$6("detail.description") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 											className: board_module_css_default.detailText,
 											children: current.description !== "" ? current.description : "—"
+										})]
+									}),
+									current.tags !== void 0 && current.tags.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+										className: board_module_css_default.detailSection,
+										"data-dsh-part": "tags",
+										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", { children: t$6("new.tags") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+											className: board_module_css_default.cardTags,
+											children: current.tags.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: board_module_css_default.cardTag,
+												"data-tag-tone": tagTone(tag.name),
+												"data-dsh-part": "tag-badge",
+												"data-tag-hint": tag.promptPrefix === void 0 ? void 0 : tag.promptPrefix,
+												title: tag.promptPrefix === void 0 ? tag.name : tag.promptPrefix,
+												children: tag.name
+											}, tag.name))
 										})]
 									}),
 									current.freeze !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
@@ -8158,6 +8200,15 @@ window.__ModuleLoader__.load({
 										},
 										children: t$6("detail.edit")
 									}),
+									!archived && !canEditTaskContent(current) && current.status !== "running" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: board_module_css_default.ghostButton,
+										disabled: pending,
+										onClick: () => {
+											setShowEditTags(true);
+										},
+										children: t$6("detail.editTags")
+									}),
 									!archived && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 										type: "button",
 										className: board_module_css_default.ghostButton,
@@ -8236,6 +8287,13 @@ window.__ModuleLoader__.load({
 						task: current,
 						onClose: () => {
 							setShowEdit(false);
+						}
+					}),
+					showEditTags && !archived && current.status !== "running" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(EditTagsModal, {
+						controller,
+						task: current,
+						onClose: () => {
+							setShowEditTags(false);
 						}
 					}),
 					showDuplicate && !archived && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(NewTaskModal, {
@@ -18266,15 +18324,36 @@ window.__ModuleLoader__.load({
 			const panelShows = (action) => panel?.actions === void 0 || panel.actions.includes(action);
 			(0, react.useEffect)(() => {
 				if (props.visual !== void 0) return;
+				setImageReady(false);
 				let cancelled = false;
-				const img = new Image();
-				img.onload = () => {
-					if (!cancelled) setImageReady(true);
+				let retryTimer;
+				let attempt = 0;
+				const maxAttempts = 3;
+				let activeImg = null;
+				const loadAtlas = () => {
+					const img = new Image();
+					activeImg = img;
+					img.onload = () => {
+						if (!cancelled) setImageReady(true);
+					};
+					img.onerror = () => {
+						if (cancelled) return;
+						if (attempt < maxAttempts) {
+							attempt += 1;
+							const delay = Math.min(1e3 * Math.pow(2, attempt - 1), 8e3);
+							retryTimer = setTimeout(loadAtlas, delay);
+						}
+					};
+					img.src = definition.atlasUrl;
 				};
-				img.src = definition.atlasUrl;
+				loadAtlas();
 				return () => {
 					cancelled = true;
-					img.onload = null;
+					if (retryTimer !== void 0) clearTimeout(retryTimer);
+					if (activeImg !== null) {
+						activeImg.onload = null;
+						activeImg.onerror = null;
+					}
 				};
 			}, [definition.atlasUrl, props.visual]);
 			const spriteScale = display.size / cell.height;

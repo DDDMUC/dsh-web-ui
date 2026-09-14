@@ -5,7 +5,7 @@
  * are controlled components.
  */
 import type { ReactNode } from 'react'
-import { TAG_NAME_MAX_LENGTH, TAG_PROMPT_MAX_LENGTH, TASK_TAG_LIMIT, type TaskTag } from '../../core/tasks.ts'
+import { TAG_NAME_MAX_LENGTH, TAG_PROMPT_MAX_LENGTH, TASK_TAG_LIMIT, normalizeTags, type TaskTag } from '../../core/tasks.ts'
 import { t } from '../locales.ts'
 import css from '../board.module.css'
 
@@ -188,16 +188,9 @@ export function TaskTagFields({
 }
 
 /**
- * Drop blank rows and trim what survives, so the wire always carries a valid
- * tag list (the protocol rejects a list with a blank name or an empty array).
+ * Clean a tag list via normalizeTags: trim, drop blanks and duplicates, cap
+ * lengths and count, so the wire always carries a valid tag list.
  */
 export function cleanTags(tags: readonly TaskTag[]): TaskTag[] {
-  const cleaned: TaskTag[] = []
-  for (const tag of tags) {
-    const name = tag.name.trim()
-    if (name === '') continue
-    const promptPrefix = tag.promptPrefix?.trim()
-    cleaned.push(promptPrefix === undefined || promptPrefix === '' ? { name } : { name, promptPrefix })
-  }
-  return cleaned
+  return normalizeTags(tags) ?? []
 }
