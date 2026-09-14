@@ -21,7 +21,8 @@
  *   manifest.js window.SKIN_MANIFEST = { skins: [...] }  (preview.html compat)
  *   sitemap.xml                         generated from the skin catalog
  *   manifest/skins.json  pets.json  plugins.json  presets.json
- *   assets/...                            previews, background media, pet media
+ *   assets/...                            previews, background media, pet media,
+ *                                         market/src/assets/** site artwork
  *
  * All emitted paths are site-root-relative ("assets/..."), so the deployed
  * static site resolves them directly. Output is deterministic: no absolute
@@ -672,6 +673,14 @@ async function main() {
   // binary assets — full tree copy per skin/pet so a consumer can install
   // the exact directory from the static site (files list mirrors this layout)
   const binary = new Map()
+  // site-owned artwork (market/src/assets/**) — copied verbatim so the
+  // deployed site can reference it like any other static asset.
+  const SRC_ASSETS = path.join(SRC_DIR, 'assets')
+  if (fs.existsSync(SRC_ASSETS)) {
+    for (const rel of listFiles(SRC_ASSETS)) {
+      binary.set('assets/' + rel, path.join(SRC_ASSETS, rel))
+    }
+  }
   for (const { name, dir, item } of skins) {
     for (const rel of item.files) {
       binary.set(`assets/skins/${name}/${rel}`, assertInside(dir, rel, 'skin file'))
