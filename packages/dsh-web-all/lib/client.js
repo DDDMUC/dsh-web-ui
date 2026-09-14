@@ -17880,12 +17880,17 @@ window.__ModuleLoader__.load({
 		* follows the pet's own size so a shrunk pet does not carry a full-size
 		* bubble, and the user's multiplier rides on top. The result is a CSS ratio
 		* against {@link BUBBLE_BASE_FONT_PX}, bounded so the text never drops below
-		* the readability floor or outgrows the pet.
-		* @param display - persisted display config (size + bubbleScale).
-		* @returns the ratio written to `--pet-bubble-scale`.
+		* the readability floor or outgrows the pet. `bubbleScale` is optional at
+		* runtime: a host that predates the field (a rolling update, or any snapshot
+		* that omits it) falls back to the baseline, because a NaN ratio written into
+		* `--pet-bubble-scale` collapses every bubble's text to zero.
+		* @param display - display config; `bubbleScale` may be absent on older hosts.
+		* @returns the ratio written to `--pet-bubble-scale` (always finite).
 		*/
 		function bubbleScaleFor(display) {
-			const scaled = display.size / 160 * display.bubbleScale;
+			const size = Number.isFinite(display.size) ? display.size : 160;
+			const multiplier = typeof display.bubbleScale === "number" && Number.isFinite(display.bubbleScale) ? display.bubbleScale : 1;
+			const scaled = size / 160 * multiplier;
 			return Math.round(Math.min(24 / 12, Math.max(10 / 12, scaled)) * 100) / 100;
 		}
 		//#endregion
