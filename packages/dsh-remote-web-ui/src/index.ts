@@ -37,6 +37,7 @@ import { loadRelayIdentity, RelayRegistrar, type RelayState } from './relay-regi
 import { desiredBindHost, desiredBindPort, firewallActionNeeded, pendingRestartOf, type AppliedFirewallState, type StartupFacts } from './lan-bind-plan.ts'
 import { createInnerAuth } from './inner-auth.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
+import { PublicBaseKeeper } from './public-base.ts'
 import {
   checkUpdates,
   fetchGitHubReleaseNotes,
@@ -343,17 +344,18 @@ function applyImpl(ctx: Context, config?: Config): void {
   // raw quick URL is used, exactly as before. Named tunnels keep their fixed
   // dashboard hostname and never touch the relay.
   let relayRegistrar: RelayRegistrar | undefined
-  let relayUrl: string | undefined
-  let rawTunnelUrl: string | undefined
+  /**
+   * The public base the pairing fence trusts. A tunnel reconnect must not
+   * strip the host the QR still shows: named and relay hosts never change,
+   * and a quick tunnel's host survives a bounded grace window (issue #1547).
+   */
+  const publicBase = new PublicBaseKeeper((base) => { service.setPublicBaseUrl(base) })
   /** The tunnel target the registrar last announced (dedupes sync re-runs). */
   let relayAnnouncedFor: string | undefined
-  const setPublicBase = (): void => {
-    service.setPublicBaseUrl(relayUrl ?? rawTunnelUrl)
-  }
   const disposeRelayRegistrar = (unregister: boolean = false): void => {
     const registrar = relayRegistrar
     relayRegistrar = undefined
-    relayUrl = undefined
+    publicBase.setRelay(undefined)
     relayAnnouncedFor = undefined
     if (registrar === undefined) return
     // Toggle-off removes the registry row so the stable origin stops
@@ -371,16 +373,15 @@ function applyImpl(ctx: Context, config?: Config): void {
         relayRegistrar = new RelayRegistrar(identity, (state: RelayState) => {
           service.setRelayStatus(state.state === 'off' ? undefined : state)
           if (state.state === 'running') {
-            relayUrl = state.url
+            publicBase.setRelay(state.url)
           } else if (state.state === 'off') {
-            relayUrl = undefined
+            publicBase.setRelay(undefined)
           } else if (state.state === 'failed') {
             // Keep the last relay URL on failures: the phone origin only
             // breaks when the mapping itself goes stale, not when one
             // refresh call fails. The registrar retries with backoff.
             console.warn(`remote-web-ui: relay registration failed (${state.error}) — the stable origin may serve its offline page until the retry lands`)
           }
-          setPublicBase()
         })
       } catch (error) {
         console.warn(`remote-web-ui: relay registry unavailable (${error instanceof Error ? error.message : String(error)}) — the quick URL is the QR base`)
@@ -399,27 +400,28 @@ function applyImpl(ctx: Context, config?: Config): void {
   tunnel.onPhase((info: TunnelInfo) => {
     if (tunnelMode === 'off') return
     if (info.phase === 'running' && info.url !== undefined) {
-      rawTunnelUrl = info.url
-      setPublicBase()
+      publicBase.markRunning(info.url)
       service.setTunnelStatus({ state: 'running', url: info.url })
       const registrar = tunnelMode === 'quick' ? ensureRelayRegistrar() : undefined
       if (registrar !== undefined) announceRelay(registrar, info.url)
       runPostureProbe()
     } else if (info.phase === 'starting') {
-      // A restart mints a NEW hostname: the previous URL dies with the old
-      // process, so clear it now rather than advertising a dead link.
-      rawTunnelUrl = undefined
-      relayUrl = undefined
-      setPublicBase()
+      // A quick-tunnel restart mints a new hostname, but the old one is not
+      // dropped at once: the edge may still deliver a connection the phone
+      // already opened, and the reconnect usually lands inside the grace
+      // window (issue #1547). A named tunnel keeps its fixed hostname, and a
+      // registered relay its stable subdomain, so neither is ever dropped
+      // here — the previous code cleared the relay base on every restart.
+      publicBase.markReconnecting()
       service.setTunnelStatus({ state: 'starting' })
     } else if (info.phase === 'failed') {
-      rawTunnelUrl = undefined
-      setPublicBase()
+      publicBase.markReconnecting()
       service.setTunnelStatus(info.error === undefined ? { state: 'failed' } : { state: 'failed', error: info.error })
     }
   })
   ctx.effect(() => () => {
     disposeRelayRegistrar()
+    publicBase.dispose()
     tunnel.dispose()
   }, 'remote-web-ui: auto tunnel')
   // The bind facts are known by now (webServer is an inject edge): the LAN
@@ -768,22 +770,24 @@ function applyImpl(ctx: Context, config?: Config): void {
     // publicBaseUrl applies only when no tunnel runs.
     const plan = tunnelPlanOf(value, ctx.webServer.port)
     tunnelMode = plan.mode
+    publicBase.setMode(plan.mode)
+    const liveTunnelUrl = publicBase.quickUrl()
     if (plan.mode !== 'quick') {
       // The relay only fronts the quick tunnel; named mode owns its fixed
       // dashboard hostname and the off mode has no public base at all.
       disposeRelayRegistrar()
-      if (plan.mode !== 'named') setPublicBase()
+      if (plan.mode !== 'named') publicBase.refresh()
     } else if (value.relay === false) {
       // The relay toggle is off: no stable origin, the raw quick URL is the
       // QR base exactly as before the relay existed.
       disposeRelayRegistrar(true)
-      setPublicBase()
-    } else if (rawTunnelUrl !== undefined) {
+      publicBase.refresh()
+    } else if (liveTunnelUrl !== undefined) {
       // The relay just turned on (or the registrar is new) while the tunnel
       // already runs: announce now — no phase event will fire for an
       // unchanged target.
       const registrar = ensureRelayRegistrar()
-      if (registrar !== undefined) announceRelay(registrar, rawTunnelUrl)
+      if (registrar !== undefined) announceRelay(registrar, liveTunnelUrl)
     }
     if (plan.mode === 'quick') {
       for (const ignored of plan.ignored) {

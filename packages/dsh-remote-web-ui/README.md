@@ -66,6 +66,8 @@ Restart the profile (`dsh web`), then open the phone icon in the sidebar foot. T
 
 ## Remote access over the internet (tunnels)
 
+A tunnel process restart — most often a mobile network dropping and reconnecting — used to drop the public host from the pairing fence the moment the tunnel left `running`, so the address still printed in the QR code answered 403, including on the deliberately public `/api/pair/status` (issue #1547). A named tunnel's fixed hostname and a registered relay origin never change, so both now stay trusted throughout the reconnect; a quick tunnel's previous host stays trusted for a 60 s grace window, because the edge may still be delivering a connection the phone already opened, and is dropped only if the tunnel has not come back by then.
+
 ### One-click public tunnel (recommended)
 
 Set **自动公网隧道** (autoTunnel) in the settings card. The plugin runs its own Cloudflare quick tunnel (`cloudflared` ships with the package), feeds the minted public URL into the QR base and the pairing fence dynamically, and keeps the posture probe informed — a phone anywhere can pair at any time. The manual public address and the named-tunnel token below are ignored while this is on. The minted hostname is ephemeral and changes on every `dsh web` restart — the stable-hostname relay below keeps the phone's origin fixed across those restarts.
