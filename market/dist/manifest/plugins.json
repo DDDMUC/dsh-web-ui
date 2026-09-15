@@ -779,9 +779,22 @@
       "subcategory": "panel"
     },
     {
+      "id": "dsh-desktop-shell",
+      "name": "DSH 桌面外壳",
+      "rank": 62,
+      "nameEn": "DSH Desktop Shell",
+      "author": "RINGOLINK",
+      "description": "仅 Windows。把 DSH WebUI 变成本机桌面应用：预编译启动器（WebView2 独立窗口 + 托盘常驻，关闭窗口最小化到托盘，托盘右键才退出）。安装会在 %USERPROFILE%\\dsh-desktop 写入 DSHLauncher.exe 与 WebView2 DLL，并创建桌面/开始菜单快捷方式；登录自启默认关闭，需要时在设置里开启。启动器未托管后端时，「重启后端」会对整个后端进程树执行 taskkill /T /F 强杀再按原参数拉起（会中断进行中的会话）。设置里提供安装/修复、重建快捷方式、登录自启开关、清理安装（删除上述文件与快捷方式）与重启。",
+      "descriptionEn": "Windows only. Turns the DSH Web UI into a desktop app: a prebuilt launcher with its own WebView2 window and tray icon (closing the window hides it; only the tray menu exits and stops the backend). Installing writes DSHLauncher.exe and the WebView2 DLLs to %USERPROFILE%\\dsh-desktop and creates desktop/start-menu shortcuts; sign-in autostart is off by default and can be enabled in the settings row. When no launcher manages the backend, restarting it force-kills the whole backend process tree (taskkill /T /F) and relaunches it with the original arguments, interrupting in-flight sessions. The settings row offers install/repair, shortcut rebuild, the autostart switch, removal (deletes those files and shortcuts) and restart.",
+      "repo": "https://github.com/RINGOLINK/dsh-desktop-shell",
+      "npm": "dsh-desktop-shell",
+      "category": "tools",
+      "subcategory": "dev"
+    },
+    {
       "id": "dsh-stalled-turn-continue",
       "name": "推理后停滞续跑",
-      "rank": 62,
+      "rank": 63,
       "nameEn": "Stalled Turn Continue",
       "author": "4evercool",
       "description": "当回合以 completed（或 no-visible-output）结束、且最后一条助手消息只有推理内容、既没有文本也没有工具调用时，等待 graceMs 后通过 agent 注册表发送一条续跑消息。与 dsh-client-auto-continue 分工：不处理 error / interrupted / max-tokens；由 cooldownMs 与 maxConsecutive 限制连续续跑次数，用户消息或有可见输出的回合会重置计数。",
