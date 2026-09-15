@@ -58,4 +58,4 @@ pnpm build
 node scripts/verify-version.mjs 0.3.23
 ```
 
-CI 与发布挂载冒烟测试挂载目标为 `@deepseek-ai/dsh@0.1.5-rc.1`，与家族包通过 `dsh.engines.dsh >=0.1.5-rc.1` 声明的最低宿主版本一致。
+CI 与发布挂载冒烟测试挂载目标为 `@deepseek-ai/dsh@0.1.6-alpha.1`，与家族包通过 `dsh.engines.dsh >=0.1.6-alpha.1` 声明的最低宿主版本一致。

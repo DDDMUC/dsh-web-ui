@@ -74,6 +74,13 @@ function restingRoute(ctx: Context, agent: AgentFace): { provider: string; model
  * picked for a fresh session must hide the tool from turn one). All
  * wiring failures are contained — visibility is advisory, and the send hook
  * independently guards image delivery.
+ *
+ * The 0.1.6 cohort made agent/created async serial (it replaced
+ * agent/session-start): the host holds the first model request until every
+ * listener settles, so the listener awaits the resting verdict instead of
+ * racing that request's toolset assembly, and it never rejects — a failed
+ * listener would abort agent creation, while a failed probe only has to keep
+ * the global registration.
  * @param ctx - registrant context; the listeners unwind with the plugin.
  * @param resolveRoute - shared exact-route resolver (same instance as the capability probe).
  */
@@ -107,14 +114,24 @@ export function installToolVisibility(ctx: Context, resolveRoute: RouteCapabilit
     restrictions.delete(agentId)
   }
 
-  const evaluateResting = (agent: AgentFace): void => {
+  const evaluateResting = async (agent: AgentFace): Promise<void> => {
     const route = restingRoute(ctx, agent)
     if (route === undefined) return
-    void resolveRoute(route).then((capability) => applyVerdict(agent, capability.acceptsImages))
+    try {
+      const capability = await resolveRoute(route)
+      applyVerdict(agent, capability.acceptsImages)
+    } catch {
+      // Visibility is advisory: an unresolvable route keeps the global
+      // registration, and a rejected listener would abort agent creation.
+    }
   }
 
-  ctx.on('agent/created', ({ agent }: { agent: AgentFace }) => {
-    evaluateResting(agent)
+  // Async serial since the 0.1.6 cohort: the host waits for this listener
+  // before releasing the queued first request, so awaiting here applies the
+  // mask before that request's toolset is assembled.
+  ctx.on('agent/created', async ({ agent }: { agent: AgentFace }): Promise<undefined> => {
+    await evaluateResting(agent)
+    return undefined
   })
 
   ctx.on('agent/disposed', ({ agent }: { agent: AgentFace }) => {
@@ -137,6 +154,6 @@ export function installToolVisibility(ctx: Context, resolveRoute: RouteCapabilit
     // the first message hides the tool from turn one. Sessions with a logged
     // route keep it until the next request records the exact route.
     const agents = optionalService<AgentRegistryFace>(ctx, 'agents')
-    for (const agent of agents?.list() ?? []) evaluateResting(agent)
+    for (const agent of agents?.list() ?? []) void evaluateResting(agent)
   })
 }

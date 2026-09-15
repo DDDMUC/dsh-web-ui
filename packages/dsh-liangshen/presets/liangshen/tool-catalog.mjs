@@ -652,7 +652,11 @@ export function apply(ctx, config) {
 
 
   const registry = () => ctx.get('tools')
-  const transportReady = () => presentation !== 'native' && ctx.get('codeRuntime') !== undefined
+  // The 0.1.6 cohort renamed the service face from `codeRuntime` to
+  // `ptcRuntime` (package `@deepseek-ai/dsh-code-runtime` became
+  // `@deepseek-ai/dsh-ptc-runtime`); the old key is gone, so reading it would
+  // silently disable PTC staging for every session.
+  const transportReady = () => presentation !== 'native' && ctx.get('ptcRuntime') !== undefined
 
   /**
    * Declare this agent scope's presentation through the public
@@ -774,14 +778,18 @@ export function apply(ctx, config) {
     return undefined
   }
 
-  // Early lifecycle hooks: declare the presentation and page the scope as soon
+  // Early lifecycle hook: declare the presentation and page the scope as soon
   // as it exists.
   //
-  // The payload is destructured ON PURPOSE: `agent/created` and
-  // `agent/session-start` pass their payload OBJECT as the first argument, not
-  // the agent itself. Reading that parameter as the agent yields an object
-  // with no `session` and no `ctx`, so the declaration is skipped and paging
-  // silently never engages.
+  // The 0.1.6 cohort folded the former `agent/session-start` into the async
+  // serial `agent/created`, which carries the same payload object and runs
+  // before the first prompt assembly; the host waits for this listener, so the
+  // declaration is already in place when that assembly reads the presentation.
+  //
+  // The payload is destructured ON PURPOSE: `agent/created` passes its payload
+  // OBJECT as the first argument, not the agent itself. Reading that parameter
+  // as the agent yields an object with no `session` and no `ctx`, so the
+  // declaration is skipped and paging silently never engages.
   ctx.on('agent/created', ({ agent }) => {
     if (agent?.session !== undefined) agentBySession.set(agent.session, agent)
     if (transportReady()) declarePresentation(agent)
@@ -812,14 +820,6 @@ export function apply(ctx, config) {
     syncBeforeAssembly(exec?.agent)
     return next()
   }, { prepend: true })
-
-  ctx.on('agent/session-start', ({ agent }) => {
-    if (agent?.session !== undefined) agentBySession.set(agent.session, agent)
-    if (transportReady()) declarePresentation(agent)
-    // The last point before the first turn assembles a prompt: a resumed
-    // session starts its first request already paged.
-    syncBeforeAssembly(agent)
-  })
 
   // Per-agent, not one process-wide flag: two sessions assembling at once would
   // otherwise let one skip the re-assembly the other is running.

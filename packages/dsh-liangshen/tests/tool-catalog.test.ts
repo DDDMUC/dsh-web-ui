@@ -37,7 +37,7 @@ interface HarnessOptions {
   /** When true `sdkSchemas` throws, as a hostile definition would. */
   sdkThrows?: boolean
   /** When false the context exposes no code runtime. */
-  codeRuntime?: boolean
+  ptcRuntime?: boolean
   /** When true the context exposes no SystemPrompt, so nothing can re-assemble. */
   noPromptService?: boolean
 }
@@ -80,7 +80,7 @@ function register(config: Record<string, unknown> = {}, options: HarnessOptions 
   }
   if (options.noSdkSchemas === true) delete tools.sdkSchemas
   const services: Record<string, unknown> = { tools }
-  if (options.codeRuntime !== false) services.codeRuntime = { language: 'typescript' }
+  if (options.ptcRuntime !== false) services.ptcRuntime = { language: 'typescript' }
   const ctx = {
     on(event: string, callback: Listener, opts?: any) {
       listeners.set(event, { listener: callback, options: opts })
@@ -572,8 +572,8 @@ describe('liangshen-tool-catalog', () => {
     expect(text).toContain('Paged-out namespaces below stay off the NATIVE wire but stay reachable through the SDK inside a program even before activation')
   })
 
-  test('stays native and says nothing about run_code without a code runtime', async () => {
-    const harness = register({}, { codeRuntime: false })
+  test('stays native and says nothing about run_code without a PTC runtime', async () => {
+    const harness = register({}, { ptcRuntime: false })
     const agent = agentOf([], undefined, harness)
     const { assembled } = await assemble(harness, agent)
     expect(harness.presentCalls).toEqual([])
