@@ -154,6 +154,12 @@
 - id: web-ui-doctor
   disabled: true
 
+# superseded foreign rows: this aggregate replaces these rows from another bundle with
+# its own entry, so the composition does not show two near-identical first-level entries.
+# A user-layer "disabled: false" override still wins.
+- id: ui-settings-unarchive-sessions
+  disabled: true
+
 # external bundle: dsh-better-sidebar
 
 # from external bundle dsh-better-sidebar (insert row web-ui-better-sidebar)

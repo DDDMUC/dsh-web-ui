@@ -134,6 +134,34 @@ test('web-ui-all ships the opt-in family rows disabled by default', () => {
   }
 })
 
+test('web-ui-all retires the official archived-sessions page it supersedes', () => {
+  // Native-first decision (2026-09-15): dsh-session-archive takes over the
+  // official `archived-sessions` settings section (same id and order), so the
+  // aggregate disables the row dsh-web-app inserts. Without the retirement,
+  // Settings would show two near-identical archive entries.
+  const yml = readFileSync(join(ROOT, 'packages/dsh-web-all/aggregate.yml'), 'utf8')
+  let section = null
+  const retire = []
+  for (const raw of yml.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    const sectionMatch = line.match(/^[A-Za-z0-9_-]+:\s*$/)
+    if (sectionMatch) {
+      section = line.slice(0, -1)
+      continue
+    }
+    if (section === 'retire' && line.startsWith('- ')) retire.push(line.slice(2).trim())
+  }
+  assert.ok(retire.includes('ui-settings-unarchive-sessions'), 'aggregate.yml should retire the official archived-sessions row')
+  const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
+  for (const id of retire) {
+    // A retired row belongs to another bundle's layer, so its id is written
+    // verbatim and must never be namespaced like this aggregate's own rows.
+    assert.doesNotMatch(patch, new RegExp('^- id: web-ui-' + id + '$', 'm'), 'retired foreign row must not be namespaced: ' + id)
+    assert.match(patch, new RegExp('^- id: ' + id + '\n  disabled: true$', 'm'), 'retired foreign row missing its disabled override: ' + id)
+  }
+})
+
 test('web-ui-all leaves the deprecated @morlay/better-session integration out', () => {
   const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
   // The deprecated integration was removed from the aggregate; these rows must

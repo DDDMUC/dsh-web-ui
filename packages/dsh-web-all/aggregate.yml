@@ -86,6 +86,13 @@ inactive:
   - web-ui-liangshen
   - web-ui-skill-explorer
   - web-ui-doctor
+# 被本聚合取代的官方行（2026-09-15 原生优先决策）：官方 web-app 常量挂载
+# ui-settings-unarchive-sessions（settings.section id archived-sessions、order 25），
+# dsh-session-archive 现在用同一个 section id 接管该入口，把「原生恢复列表 +
+# 家族批量归档/删除/自动策略」放在同一页。这里关闭官方行，设置界面只保留一条
+# 「已归档会话」一级入口，不再出现两个近似入口。用户层 disabled:false 覆盖仍然优先。
+retire:
+  - ui-settings-unarchive-sessions
 # 兼容退役子插件导出：避免老用户 profile 残留旧条目时 Node.js 抛出 ERR_PACKAGE_PATH_NOT_EXPORTED
 tombstones:
   - desktop-launcher

@@ -6,6 +6,7 @@
  */
 
 export const ru: Record<string, string> = {
+  'arch.nav': 'Архивные сессии',
   'arch.title': 'Менеджер архива сессий',
   'arch.refresh': 'Обновить',
   'arch.refreshing': 'Обновление…',

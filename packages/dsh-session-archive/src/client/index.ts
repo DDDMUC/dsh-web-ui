@@ -1,8 +1,14 @@
 /**
- * dsh-session-archive browser half — seats the first-level 会话归档管理
- * settings section. All session enumeration and mutation happens in the
- * host half over loopback-fenced routes; this bundle renders the inventory
- * document and drives the batch pipelines.
+ * dsh-session-archive browser half — takes over the official
+ * `archived-sessions` settings section instead of seating a parallel
+ * first-level entry. The official
+ * `@deepseek-ai/dsh-client-ui-settings-unarchive-sessions` page owns that
+ * section id at order 25, and `dsh-web-all` retires its row, so exactly one
+ * 「已归档会话」 nav entry remains and it carries both the native restore
+ * behaviour (the section opens on the archived view) and this plugin's batch,
+ * delete and retention surfaces. All session enumeration and mutation happens
+ * in the host half over loopback-fenced routes; this bundle renders the
+ * inventory document and drives the batch pipelines.
  * @module @linxin666/dsh-session-archive/client
  */
 
@@ -35,8 +41,14 @@ interface SessionsFace {
 /** Settings namespace the section edits (the host plugin registers it). */
 const ARCHIVE_SETTINGS_NS = 'dsh-session-archive'
 
-/** First-level nav position: below Workshop (150) and dsh-usage (151). */
-const SECTION_ORDER = 152
+/**
+ * Nav position (and id) of the official archived-sessions entry this plugin
+ * supersedes: the native page seats `settings.section` id
+ * `archived-sessions` at order 25, so taking over the id and the order keeps
+ * the single entry exactly where users already look for it.
+ */
+const SECTION_ID = 'archived-sessions'
+const SECTION_ORDER = 25
 
 /** Required services. */
 export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote', 'sessions']
@@ -91,9 +103,9 @@ export function apply(ctx: ClientContext): void {
     try {
       const unregister = ctx.slots.register({
         name: 'settings.section',
-        id: 'dsh-session-archive',
+        id: SECTION_ID,
         order: SECTION_ORDER,
-        label: () => ctx.locale.bind(NS)('arch.title'),
+        label: () => ctx.locale.bind(NS)('arch.nav'),
         locale: NS,
         inject: face,
       }, SessionArchiveCard)

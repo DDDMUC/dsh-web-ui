@@ -10,6 +10,7 @@ export const NS = 'dsh-web-ui-session-archive'
 
 /** Chinese copy (key source). */
 export const zh = {
+  'arch.nav': '已归档会话',
   'arch.title': '会话归档管理',
   'arch.refresh': '刷新',
   'arch.refreshing': '刷新中…',
@@ -138,6 +139,7 @@ export type ArchKey = keyof typeof zh
 
 /** English mirror (same key set). */
 export const en: Record<ArchKey, string> = {
+  'arch.nav': 'Archived sessions',
   'arch.title': 'Session Archive Manager',
   'arch.refresh': 'Refresh',
   'arch.refreshing': 'Refreshing…',

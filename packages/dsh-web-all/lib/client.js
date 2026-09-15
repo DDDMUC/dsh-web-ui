@@ -4649,7 +4649,7 @@ window.__ModuleLoader__.load({
 			inject: () => inject$15
 		});
 		const MARKET_NS = "dsh-web-ui-market";
-		const SECTION_ID = "dsh-workshop";
+		const SECTION_ID$1 = "dsh-workshop";
 		const inject$15 = [
 			"slots",
 			"locale",
@@ -4676,7 +4676,7 @@ window.__ModuleLoader__.load({
 				try {
 					const unregister = ctx.slots.register({
 						name: "settings.section",
-						id: SECTION_ID,
+						id: SECTION_ID$1,
 						order: 150,
 						label: () => ctx.locale.bind(MARKET_NS)("settings.title"),
 						locale: MARKET_NS,
@@ -51326,6 +51326,7 @@ window.__ModuleLoader__.load({
 		const NS$3 = "dsh-web-ui-session-archive";
 		/** Chinese copy (key source). */
 		const zh$3 = {
+			"arch.nav": "已归档会话",
 			"arch.title": "会话归档管理",
 			"arch.refresh": "刷新",
 			"arch.refreshing": "刷新中…",
@@ -51451,6 +51452,7 @@ window.__ModuleLoader__.load({
 		};
 		/** English mirror (same key set). */
 		const en$3 = {
+			"arch.nav": "Archived sessions",
 			"arch.title": "Session Archive Manager",
 			"arch.refresh": "Refresh",
 			"arch.refreshing": "Refreshing…",
@@ -52785,8 +52787,14 @@ window.__ModuleLoader__.load({
 		});
 		/** Settings namespace the section edits (the host plugin registers it). */
 		const ARCHIVE_SETTINGS_NS = "dsh-session-archive";
-		/** First-level nav position: below Workshop (150) and dsh-usage (151). */
-		const SECTION_ORDER = 152;
+		/**
+		* Nav position (and id) of the official archived-sessions entry this plugin
+		* supersedes: the native page seats `settings.section` id
+		* `archived-sessions` at order 25, so taking over the id and the order keeps
+		* the single entry exactly where users already look for it.
+		*/
+		const SECTION_ID = "archived-sessions";
+		const SECTION_ORDER = 25;
 		/** Required services. */
 		const inject$4 = [
 			"slots",
@@ -52835,9 +52843,9 @@ window.__ModuleLoader__.load({
 				try {
 					const unregister = ctx.slots.register({
 						name: "settings.section",
-						id: "dsh-session-archive",
+						id: SECTION_ID,
 						order: SECTION_ORDER,
-						label: () => ctx.locale.bind(NS$3)("arch.title"),
+						label: () => ctx.locale.bind(NS$3)("arch.nav"),
 						locale: NS$3,
 						inject: face
 					}, SessionArchiveCard);
