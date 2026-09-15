@@ -43,6 +43,7 @@ const PETS_DIR = path.join(ROOT, 'packages', 'dsh-pet', 'assets')
 const PLUGINS_FILE = path.join(ROOT, 'packages', 'dsh-community-plugins', 'community.json')
 const PRESETS_DIR = path.join(ROOT, 'packages', 'dsh-preset-center', 'presets')
 const PRESET_CATALOG = path.join(PRESETS_DIR, 'catalog.json')
+const INSTALLER_SOURCE = path.join(ROOT, 'packages', 'dsh-market', 'src', 'core', 'installer.ts')
 const SRC_DIR = path.join(ROOT, 'market', 'src')
 const DIST_DIR = path.join(ROOT, 'market', 'dist')
 const CHECK = process.argv.includes('--check')
@@ -54,6 +55,35 @@ const GENERATED_DATE = CHECK && fs.existsSync(committedManifest)
 function fail(msg) {
   console.error('market-build: ' + msg)
   process.exit(1)
+}
+
+/**
+ * Read the installer's per-asset file cap from its source, so the content
+ * pipeline and the installer policy can never drift apart again: jyn shipped
+ * 1565 files and passed every content check while the installer refused
+ * anything over 200, making the asset uninstallable for every user
+ * (issue #1578).
+ */
+function installerMaxFiles() {
+  const text = fs.readFileSync(INSTALLER_SOURCE, 'utf8')
+  const m = /export const MAX_FILES_PER_ASSET = (\d+)/.exec(text)
+  if (!m) throw new Error('MAX_FILES_PER_ASSET not found in ' + INSTALLER_SOURCE)
+  return Number(m[1])
+}
+
+/** Every catalog asset must stay installable by the market installer. */
+function assertInstallableFileCounts(maxFiles, groups) {
+  for (const { kind, entries } of groups) {
+    for (const { item } of entries) {
+      const count = Array.isArray(item.files) ? item.files.length : 0
+      if (count > maxFiles) {
+        throw new Error(
+          kind + ' ' + item.id + ': declares ' + count + ' files, over the installer limit of ' +
+          maxFiles + ' (packages/dsh-market/src/core/installer.ts MAX_FILES_PER_ASSET)',
+        )
+      }
+    }
+  }
 }
 
 function assertInside(base, rel, label) {
@@ -654,12 +684,19 @@ function verifyTryonManifest(outDir) {
 }
 
 async function main() {
-  const skinCenter = await import(pathToFileURL(path.join(ROOT, 'packages', 'skins', 'skin-center', 'lib', 'index.js')).href)
-  const transformSkinCss = skinCenter.transformSkinCss
   const skins = scanSkins()
   const pets = scanPets()
   const plugins = scanPlugins()
   const presets = scanPresets()
+  // Policy gate first: the catalog is pure source data, so a content/policy
+  // mismatch is reported before the build needs its generated inputs.
+  assertInstallableFileCounts(installerMaxFiles(), [
+    { kind: 'skin', entries: skins },
+    { kind: 'pet', entries: pets },
+    { kind: 'preset', entries: presets },
+  ])
+  const skinCenter = await import(pathToFileURL(path.join(ROOT, 'packages', 'skins', 'skin-center', 'lib', 'index.js')).href)
+  const transformSkinCss = skinCenter.transformSkinCss
 
   // static sources
   const files = new Map()

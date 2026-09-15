@@ -78,7 +78,7 @@ The browser half sends one anonymous install heartbeat per UTC day to dsh-market
   cannot drive them.
 - All downloaded content comes from `https://dsh-market.com` (asset URLs are rebuilt from the
   validated manifest); skin CSS is sanitized by the Skin Center runtime before it is applied.
-- The manifest (1 MiB), the per-asset file count (200) and the per-file size (200 MiB) are capped and
+- The manifest (1 MiB), the per-asset file count (2000) and the per-file size (200 MiB) are capped and
   every fetch has a 30 s timeout; a manifest or download exceeding a cap or timing out fails cleanly
   and leaves the existing asset directory untouched.
 - Presets install into an inert library, never into a discovery root: a preset is code (its composition

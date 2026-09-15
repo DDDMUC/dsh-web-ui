@@ -207,6 +207,9 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
   const originalFetch = window.fetch
   const OriginalWebSocket = window.WebSocket
   const OriginalEventSource = window.EventSource
+  // Publish the official upload hook before the file-upload service reads it
+  // (issue #1580); removed again by the restore below.
+  const restoreUploadHook = installFileUploadHook(window as unknown as UploadHookWindow)
 
   const sameOrigin = (url: URL): boolean => url.origin === window.location.origin
   const rewrite = (raw: string): string => rewriteRawUrl(raw, window.location.href, window.location.origin)
@@ -301,6 +304,67 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
     window.WebSocket = OriginalWebSocket
     if (OriginalEventSource !== undefined) window.EventSource = OriginalEventSource
     for (const restore of restoreSrc) restore()
+    restoreUploadHook()
+  }
+}
+
+/** Page global the official pre-Cordis upload hook is published under. */
+export const FILE_UPLOAD_HOOK_GLOBAL = '__DSH_FILE_UPLOAD__'
+
+/** The subset of window the upload hook needs (injectable for tests). */
+export interface UploadHookWindow {
+  fetch: typeof globalThis.fetch
+  location: { href: string; origin: string }
+  /** Pre-existing hook owner; left untouched when present. */
+  __DSH_FILE_UPLOAD__?: {
+    fetch: (input: string | URL, init?: RequestInit) => Promise<Response>
+  }
+}
+
+/**
+ * Publish the official pre-Cordis upload hook so background uploads keep
+ * riding the patched main-thread fetch (issue #1580).
+ *
+ * `@deepseek-ai/dsh-client-file-upload` reads `globalThis.__DSH_FILE_UPLOAD__`
+ * once when its runtime is constructed; without it the carrier is a Web
+ * Worker, whose own globals no main-thread patch reaches. That worker's XHR
+ * goes straight to `<origin>/api/session/uploadFileBinary` with neither the
+ * `/remote` rewrite nor the cookieless device credential, so the harness
+ * browser-auth fence answers 401 and every upload from a paired browser
+ * fails. Rewriting the worker URL cannot fix it: a worker context carries
+ * neither the pairing cookie nor the device header.
+ *
+ * The hook hands the runtime the same transport the rest of the page uses -
+ * the boot script publishes an identical one (remote-channel-boot.ts), and
+ * this is the fallback for pages served without it.
+ *
+ * @param window - the browser window (or a test double), BEFORE the channel patch.
+ * @returns a function retiring the hook (a pre-existing one is left alone).
+ */
+export function installFileUploadHook(window: UploadHookWindow): () => void {
+  if (window.__DSH_FILE_UPLOAD__ !== undefined) return () => {}
+  const originalFetch = window.fetch
+  const hook = {
+    fetch: (input: string | URL, init?: RequestInit): Promise<Response> => {
+      const raw = typeof input === 'string' ? input : input.href
+      let url: URL
+      try {
+        url = new URL(raw, window.location.href)
+      } catch {
+        return originalFetch.call(window, input, init)
+      }
+      // Delegate the whole decision to the patched fetch: rewriting the path
+      // here first would make it skip its own rewrite branch and drop the
+      // device credential the fence requires.
+      if (url.origin === window.location.origin && url.pathname === RULES.uploadPath) {
+        return window.fetch.call(window, raw, init)
+      }
+      return originalFetch.call(window, input, init)
+    },
+  }
+  window.__DSH_FILE_UPLOAD__ = hook
+  return () => {
+    if (window.__DSH_FILE_UPLOAD__ === hook) delete window.__DSH_FILE_UPLOAD__
   }
 }
 

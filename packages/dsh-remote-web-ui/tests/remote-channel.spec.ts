@@ -121,6 +121,7 @@ function makeWindow(origin = 'https://tunnel.example.com', body = '{}', status =
     fetch: fakeFetch,
     WebSocket: FakeWebSocket as unknown as typeof WebSocket,
     location: { origin, href: base },
+    sessionStorage: { getItem: () => null },
     state,
   }
 }
@@ -203,6 +204,55 @@ describe('installRemoteChannel', () => {
     } finally {
       restore()
     }
+  })
+
+  it('publishes the pre-Cordis upload hook and routes it onto the gated path (issue #1580)', async () => {
+    const window = makeWindow()
+    window.sessionStorage = { getItem: () => 'dev-7' }
+    const restore = installRemoteChannel(window)
+    try {
+      const hook = (window as unknown as {
+        __DSH_FILE_UPLOAD__?: { fetch: (input: string | URL, init?: RequestInit) => Promise<Response> }
+      }).__DSH_FILE_UPLOAD__
+      expect(hook).toBeDefined()
+      const body = new Blob(['bytes'])
+      await hook!.fetch(new URL('https://tunnel.example.com/api/session/uploadFileBinary?sessionId=s1'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/octet-stream' },
+        body,
+      })
+      expect(window.state.fetchCalls.map(call => call.url))
+        .toEqual(['https://tunnel.example.com/remote/api/session/uploadFileBinary?sessionId=s1'])
+    } finally {
+      restore()
+    }
+  })
+
+  it('leaves a pre-existing page-owned upload hook and other routes alone', async () => {
+    const window = makeWindow() as ReturnType<typeof makeWindow> & {
+      __DSH_FILE_UPLOAD__?: { fetch: () => Promise<Response> }
+    }
+    const existing = { fetch: () => Promise.resolve(new Response('{}')) }
+    window.__DSH_FILE_UPLOAD__ = existing
+    const restore = installRemoteChannel(window)
+    try {
+      expect(window.__DSH_FILE_UPLOAD__).toBe(existing)
+      // A non-upload route never rides the hook.
+      const hook = window.__DSH_FILE_UPLOAD__
+      await hook!.fetch()
+      expect(window.state.fetchCalls).toHaveLength(0)
+    } finally {
+      restore()
+    }
+  })
+
+  it('retires the upload hook with the channel', async () => {
+    const window = makeWindow()
+    const restore = installRemoteChannel(window)
+    const published = (window as unknown as { __DSH_FILE_UPLOAD__?: unknown }).__DSH_FILE_UPLOAD__
+    expect(published).toBeDefined()
+    restore()
+    expect((window as unknown as { __DSH_FILE_UPLOAD__?: unknown }).__DSH_FILE_UPLOAD__).toBeUndefined()
   })
 
   it('restores the originals', async () => {

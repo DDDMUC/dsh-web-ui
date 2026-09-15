@@ -15,7 +15,7 @@
  *  - the download URL is rebuilt from the validated rel, never taken from
  *    the client (the client only sends the asset id);
  *  - the manifest and every downloaded file are size-capped (1 MiB manifest,
- *    200 files per asset, 200 MiB per file) and every fetch has a 30 s
+ *    2000 files per asset, 200 MiB per file) and every fetch has a 30 s
  *    timeout, so a hostile manifest cannot exhaust host memory or disk;
  *  - writes are staged in a temp dir next to the destination and renamed
  *    into place only after every file downloaded successfully, so a failed
@@ -57,8 +57,14 @@ export interface InstallProvenance {
 /** Manifest response size cap (bytes). */
 export const MANIFEST_MAX_BYTES = 1024 * 1024
 
-/** Max files one asset may declare. */
-export const MAX_FILES_PER_ASSET = 200
+/**
+ * Max files one asset may declare. Frame-sequence (frames2d) pets are
+ * per-frame image sets that legitimately run past a thousand files (issue
+ * #1578), so the cap must clear the largest published asset; installer.test.ts
+ * pins the exact value and scripts/market-build rejects any catalog entry that
+ * crosses it, so content and installer policy cannot drift apart.
+ */
+export const MAX_FILES_PER_ASSET = 2000
 
 /** Per-file download size cap (bytes). */
 export const FILE_MAX_BYTES = 200 * 1024 * 1024

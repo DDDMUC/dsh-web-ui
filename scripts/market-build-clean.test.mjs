@@ -25,6 +25,9 @@ function fixture() {
     [join(ROOT, 'packages', 'dsh-pet', 'assets'), join(dir, 'packages', 'dsh-pet', 'assets')],
     [join(ROOT, 'packages', 'dsh-preset-center', 'presets'), join(dir, 'packages', 'dsh-preset-center', 'presets')],
     [join(ROOT, 'packages', 'dsh-community-plugins', 'community.json'), join(dir, 'packages', 'dsh-community-plugins', 'community.json')],
+    // The installer source carries MAX_FILES_PER_ASSET; market-build reads the
+    // cap from it to reject catalog assets the installer could not install.
+    [join(ROOT, 'packages', 'dsh-market', 'src', 'core', 'installer.ts'), join(dir, 'packages', 'dsh-market', 'src', 'core', 'installer.ts')],
   ]
   for (const [from, to] of pairs) {
     mkdirSync(join(to, '..'), { recursive: true })
