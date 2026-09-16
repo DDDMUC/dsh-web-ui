@@ -86,10 +86,13 @@ describe('resolveNamespaceEntry', () => {
     expect(resolveNamespaceEntry('market')).toBe('dsh-market')
     expect(resolveNamespaceEntry('skin-custom-theme')).toBe('skin-custom-theme')
     expect(resolveNamespaceEntry('skin-wallpaper')).toBe('skin-wallpaper')
-    expect(resolveNamespaceEntry('usage')).toBe('usage')
+    // These four plugins register a `dsh-` prefixed namespace, so the bare family
+    // name is an alias for it -- resolving to the bare name would drop the entry
+    // against the registered set and hide the form (the drift this pins).
+    expect(resolveNamespaceEntry('usage')).toBe('dsh-usage')
     expect(resolveNamespaceEntry('doctor')).toBe('doctor')
-    expect(resolveNamespaceEntry('liangshen')).toBe('liangshen')
-    expect(resolveNamespaceEntry('session-archive')).toBe('session-archive')
+    expect(resolveNamespaceEntry('liangshen')).toBe('dsh-liangshen')
+    expect(resolveNamespaceEntry('session-archive')).toBe('dsh-session-archive')
   })
 
   it('ignores packages without a settings namespace and unknown names', () => {
@@ -100,6 +103,8 @@ describe('resolveNamespaceEntry', () => {
 })
 
 describe('composeAllowlist', () => {
+  // The namespaces the family plugins actually register, plus an unrelated one
+  // the allowlist must never invent.
   const registered = [
     'dsh-ssh',
     'task-board',
@@ -143,5 +148,47 @@ describe('composeAllowlist', () => {
   it('drops namespaces not registered in the settings seam', () => {
     expect(composeAllowlist(['dsh-ssh'], ['web-search-deepseek'])).toEqual([])
     expect(composeAllowlist([], [])).toEqual([])
+  })
+
+  it('keeps every family namespace whose plugin registers a dsh- prefixed name', () => {
+    // The family drifted once: usage, liangshen and session-archive register a
+    // dsh- prefixed namespace while the fallback list still carried the bare
+    // name. The intersection then emptied and four configuration forms vanished
+    // with no error anywhere. This pins the composed list against the names the
+    // plugins actually register.
+    const actuallyRegistered = [
+      'dsh-ssh',
+      'task-board',
+      'remote-web-ui',
+      'pet',
+      'describe-image',
+      'skin-background',
+      'skin-wallpaper',
+      'dsh-web-ui-market',
+      'dsh-usage',
+      'dsh-model-capabilities',
+      'doctor',
+      'dsh-liangshen',
+      'dsh-session-archive',
+    ]
+    const composed = composeAllowlist([], actuallyRegistered)
+    expect(composed).toContain('dsh-usage')
+    expect(composed).toContain('dsh-liangshen')
+    expect(composed).toContain('dsh-session-archive')
+    expect(composed).toContain('dsh-model-capabilities')
+    // And the bare names must not be handed back as if they were real namespaces:
+    // nothing registered them, so targeting one would write nowhere.
+    for (const bare of ['usage', 'liangshen', 'session-archive']) {
+      expect(composed).not.toContain(bare)
+    }
+  })
+
+  it('resolves a user entry written as the bare family name onto the real namespace', () => {
+    // A user who wrote the old bare name must still reach the plugin: the alias
+    // maps it forward rather than resolving to a namespace no one registered.
+    const registered = ['dsh-usage', 'dsh-liangshen', 'dsh-session-archive']
+    expect(composeAllowlist(['usage'], registered)).toEqual(['dsh-usage'])
+    expect(composeAllowlist(['liangshen'], registered)).toEqual(['dsh-liangshen'])
+    expect(composeAllowlist(['session-archive'], registered)).toEqual(['dsh-session-archive'])
   })
 })

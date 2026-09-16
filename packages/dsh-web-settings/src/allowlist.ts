@@ -13,7 +13,16 @@
  * seam, so an unknown entry can never surface a form or accept a write.
  */
 
-/** Settings namespaces the dsh-web family plugins register. */
+/**
+ * Settings namespaces the dsh-web family plugins register.
+ *
+ * Each entry must be the namespace a plugin ACTUALLY registers, because
+ * {@link composeAllowlist} intersects this list with the registered set: a
+ * name no plugin registers resolves to nothing and its configuration form
+ * never appears. The family drifted here once — usage, liangshen and
+ * session-archive each register a `dsh-` prefixed namespace while this list
+ * still carried the bare name, which silently hid four plugins' forms.
+ */
 export const FAMILY_NAMESPACES = [
   'dsh-ssh',
   'task-board',
@@ -26,10 +35,11 @@ export const FAMILY_NAMESPACES = [
   'community-plugins',
   'dsh-web-ui-market',
   'dsh-market',
-  'usage',
+  'dsh-usage',
+  'dsh-model-capabilities',
   'doctor',
-  'liangshen',
-  'session-archive',
+  'dsh-liangshen',
+  'dsh-session-archive',
 ] as const
 
 /**
@@ -63,14 +73,19 @@ const NAMESPACE_ALIASES: Readonly<Record<string, string | null>> = {
   'dsh-client-ui-market': 'dsh-web-ui-market',
   'dsh-web-ui-market': 'dsh-web-ui-market',
   market: 'dsh-market',
-  usage: 'usage',
-  'dsh-usage': 'usage',
+  usage: 'dsh-usage',
+  'dsh-usage': 'dsh-usage',
+  'dsh-client-ui-usage': 'dsh-usage',
   doctor: 'doctor',
   'dsh-doctor': 'doctor',
-  liangshen: 'liangshen',
-  'dsh-liangshen': 'liangshen',
-  'session-archive': 'session-archive',
-  'dsh-session-archive': 'session-archive',
+  liangshen: 'dsh-liangshen',
+  'dsh-liangshen': 'dsh-liangshen',
+  'dsh-client-ui-liangshen': 'dsh-liangshen',
+  'dsh-model-capabilities': 'dsh-model-capabilities',
+  'dsh-client-ui-model-capabilities': 'dsh-model-capabilities',
+  'session-archive': 'dsh-session-archive',
+  'dsh-session-archive': 'dsh-session-archive',
+  'dsh-client-ui-session-archive': 'dsh-session-archive',
   'dsh-git-graph': null,
   'dsh-client-ui-git-graph': null,
   'dsh-web': null,
