@@ -167,6 +167,7 @@
 - id: reasoning-effort
   name: ./reasoning-effort.mjs
   config:
+    autoEffortByPhase: false
     planningEffort: 'high'
     executionEffort: 'low'
 

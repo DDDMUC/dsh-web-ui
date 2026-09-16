@@ -106,10 +106,13 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 | `enabled` | `true` | 总开关：关闭后预设同步与公告都不执行。 |
 | `announceToAgent` | `false` | 按需开启：开启后向 agent 系统提示注入本插件公告。默认关闭，保持系统提示词干净。 |
 | `presentation` | `ptc` | 写入同步后 preset 之 `tool-catalog` 行的 wire 呈现：`ptc` 把 wire 收拢为 `run_code`，`native` 保持组装出的原生清单，`both` 让清单与传输工具同驻。改动在下次 DSH 启动重新同步 preset 时生效。 |
-| `planningEffort` | `high` | 规划模式仍在成形工作时，preset 请求的推理档位。取值 `off`、`low`、`high`、`max` 之一。 |
-| `executionEffort` | `low` | 单步执行轮次中 preset 请求的推理档位。取值 `off`、`low`、`high`、`max` 之一。 |
+| `autoEffortByPhase` | `false` | 开启后由 preset 接管请求的推理档位并按阶段切换。默认关闭：开关关闭时插件根本不注册请求监听，模型选择器携带的档位原样生效。开启后从下一个阶段边界起覆盖该选择器取值。 |
+| `planningEffort` | `high` | 规划模式仍在成形工作时请求的推理档位。取值 `off`、`low`、`high`、`max` 之一。仅在 `autoEffortByPhase` 开启时使用。 |
+| `executionEffort` | `low` | 单步执行轮次中请求的推理档位。取值 `off`、`low`、`high`、`max` 之一。仅在 `autoEffortByPhase` 开启时使用。 |
 
-五个字段都可在 Web 设置界面（插件配置）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。其中三个塑造 preset 的字段经预设同步抵达会话：插件在拷贝 bundle 的同时把它们写入同步产出的 `agent.cordis.yml`，因此真正被会话运行的是设置界面的取值，而不是包内文件。组合里没有的键绝不会被凭空写入——覆写只会收窄出厂配置。改动需重启 DSH 生效。
+各字段都可在 Web 设置界面（插件配置）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。其中塑造 preset 的字段经预设同步抵达会话：插件在拷贝 bundle 的同时把它们写入同步产出的 `agent.cordis.yml`，因此真正被会话运行的是设置界面的取值，而不是包内文件。组合里没有的键绝不会被凭空写入——覆写只会收窄出厂配置。改动需重启 DSH 生效。
+
+**与模型选择器的关系。** 模型选择器旁的推理档位是用户显式做出的会话级选择。`autoEffortByPhase` 关闭（默认）时这里不碰它——插件不订阅任何请求监听，选择器的档位就是每个请求携带的档位。开关打开后，preset 从下一个阶段边界起接管：选择器的档位作用于消费它的那次请求，此后由阶段档位决定。若部署的 route 关闭了思考，则只有 `off` 合法，非 `off` 档位会以 `UNSUPPORTED_REASONING_EFFORT` 使调用失败——这正是该开关出厂关闭的原因。
 
 ## 行为与限制
 

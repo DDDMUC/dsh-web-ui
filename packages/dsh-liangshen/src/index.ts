@@ -61,9 +61,21 @@ export interface Config {
    * keeps the assembled roster; `both` keeps the roster and the transport.
    */
   presentation?: (typeof PRESENTATION_OPTIONS)[number]
-  /** Reasoning level the preset requests while plan mode is forming the work. */
+  /**
+   * When true, the preset takes over the request's reasoning level and switches
+   * it by phase; when false (the default) the preset does not touch it at all and
+   * whatever the model picker carries stands.
+   *
+   * Off by default because taking over is a behavior change the user should opt
+   * into: a session's reasoning level is a visible, explicit choice in the model
+   * picker, and silently overriding it would make that choice look broken. Off
+   * also means the plugin registers no request listener at all, so a disabled
+   * switch costs nothing and cannot affect a request.
+   */
+  autoEffortByPhase?: boolean
+  /** Reasoning level requested while plan mode is forming the work (only when `autoEffortByPhase` is on). */
   planningEffort?: (typeof EFFORT_OPTIONS)[number]
-  /** Reasoning level the preset requests for single-step execution turns. */
+  /** Reasoning level requested for single-step execution turns (only when `autoEffortByPhase` is on). */
   executionEffort?: (typeof EFFORT_OPTIONS)[number]
 }
 
@@ -71,6 +83,7 @@ export const Config: z<Config> = z.object({
   enabled: z.boolean().default(true),
   announceToAgent: z.boolean().default(false),
   presentation: z.union([...PRESENTATION_OPTIONS]).default('ptc'),
+  autoEffortByPhase: z.boolean().default(false),
   planningEffort: z.union([...EFFORT_OPTIONS]).default('high'),
   executionEffort: z.union([...EFFORT_OPTIONS]).default('low'),
 })
@@ -78,6 +91,7 @@ export const Config: z<Config> = z.object({
 /** Schema defaults, re-read for hand-built test contexts. */
 const DEFAULT_ANNOUNCE = false
 const DEFAULT_PRESENTATION = 'ptc'
+const DEFAULT_AUTO_EFFORT = false
 const DEFAULT_PLANNING_EFFORT = 'high'
 const DEFAULT_EXECUTION_EFFORT = 'low'
 
@@ -117,6 +131,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     announceToAgent: current().announceToAgent ?? DEFAULT_ANNOUNCE,
     enabled: current().enabled ?? true,
     presentation: current().presentation ?? DEFAULT_PRESENTATION,
+    autoEffortByPhase: current().autoEffortByPhase ?? DEFAULT_AUTO_EFFORT,
     planningEffort: current().planningEffort ?? DEFAULT_PLANNING_EFFORT,
     executionEffort: current().executionEffort ?? DEFAULT_EXECUTION_EFFORT,
   })
@@ -130,6 +145,7 @@ function applyImpl(ctx: Context, config?: Config): void {
       // shape a session live in the preset's rows; the sync is where the two meet.
       const result = syncPresetTrees(bundledPresetsRoot(), targetRoot, ['liangshen-exact'], {
         presentation: settings.presentation,
+        autoEffortByPhase: settings.autoEffortByPhase,
         planningEffort: settings.planningEffort,
         executionEffort: settings.executionEffort,
       })

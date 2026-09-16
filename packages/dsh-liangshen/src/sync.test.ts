@@ -52,6 +52,7 @@ describe('renderPresetOverrides', () => {
     "- id: reasoning-effort",
     "  name: ./reasoning-effort.mjs",
     "  config:",
+    "    autoEffortByPhase: false",
     "    planningEffort: 'high'",
     "    executionEffort: 'low'",
     "",
@@ -72,6 +73,17 @@ describe('renderPresetOverrides', () => {
     // The comment that mentions the key is not a config line and stays put.
     expect(out).toContain("# a comment that names presentation: 'ptc'")
     expect(out).toContain('- id: reasoning-effort')
+  })
+
+  it('renders the boolean switch bare, never as a quoted string', () => {
+    // A quoted 'false' is a truthy YAML string: it would silently invert the
+    // switch, which is the one failure mode this assertion exists to catch.
+    const on = renderPresetOverrides(SOURCE, { autoEffortByPhase: true })
+    expect(on).toContain('autoEffortByPhase: true')
+    expect(on).not.toContain("autoEffortByPhase: 'true'")
+    const off = renderPresetOverrides(SOURCE, { autoEffortByPhase: false })
+    expect(off).toContain('autoEffortByPhase: false')
+    expect(off).not.toContain("autoEffortByPhase: 'false'")
   })
 
   it('leaves absent settings and unknown rows alone', () => {

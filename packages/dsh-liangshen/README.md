@@ -106,10 +106,13 @@ When validating mode behavior and evaluating performance, verification tiers mus
 | `enabled` | `true` | Master switch: when false, neither preset sync nor announcement runs. |
 | `announceToAgent` | `false` | Opt-in: when true, a system-prompt section announces the plugin. Off by default so agent system prompts stay clean. |
 | `presentation` | `ptc` | Wire presentation written into the synced preset's `tool-catalog` row: `ptc` collapses the wire to `run_code`, `native` keeps the assembled roster, `both` keeps the roster and the transport co-resident. A change takes effect on the next DSH start, when the preset is re-synced. |
-| `planningEffort` | `high` | Reasoning level the preset requests while plan mode is forming the work. One of `off`, `low`, `high`, `max`. |
-| `executionEffort` | `low` | Reasoning level the preset requests for single-step execution turns. One of `off`, `low`, `high`, `max`. |
+| `autoEffortByPhase` | `false` | When on, the preset takes over the request's reasoning level and switches it by phase. Off by default: with the switch off the plugin registers no request listener at all, so the level the model picker carries stands untouched. Turning it on overrides that picker choice from the second phase boundary on. |
+| `planningEffort` | `high` | Reasoning level requested while plan mode is forming the work. One of `off`, `low`, `high`, `max`. Only used when `autoEffortByPhase` is on. |
+| `executionEffort` | `low` | Reasoning level requested for single-step execution turns. One of `off`, `low`, `high`, `max`. Only used when `autoEffortByPhase` is on. |
 
-All five fields are editable in the web settings surface (plugin config) or through the profile patch (`dsh plugin` / `cordis.patch.yml`). The three preset-shaping fields reach a session through the preset sync: the plugin writes them into the synced `agent.cordis.yml` as it copies the bundle, so the settings surface — not the bundled file — is what the operator's sessions actually run. A key the composition does not carry is never invented: the overlay only narrows the shipped configuration. Restart DSH for a change to take effect.
+All fields are editable in the web settings surface (plugin config) or through the profile patch (`dsh plugin` / `cordis.patch.yml`). The preset-shaping fields reach a session through the preset sync: the plugin writes them into the synced `agent.cordis.yml` as it copies the bundle, so the settings surface — not the bundled file — is what the operator's sessions actually run. A key the composition does not carry is never invented: the overlay only narrows the shipped configuration. Restart DSH for a change to take effect.
+
+**How this interacts with the model picker.** The reasoning level beside the model selector is a session-level choice the user makes explicitly. With `autoEffortByPhase` off (the default) nothing here touches it — the plugin subscribes to no request listener, so the picker's level is what every request carries. With the switch on, the preset takes over from the next phase boundary: the picker's level applies to the request that consumes it, and after that the phase levels govern. A deployment whose route disables thinking accepts only `off`; a non-`off` level there fails the call with `UNSUPPORTED_REASONING_EFFORT`, which is why the switch ships off.
 
 ## Behavior and limits
 

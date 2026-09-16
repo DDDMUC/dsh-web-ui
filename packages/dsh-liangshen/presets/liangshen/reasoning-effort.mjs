@@ -9,6 +9,11 @@
  * agent-scoped: the listener receives `{ agent, turn, step, signal }` and returns
  * the `LlmCallConfig` the request will use.
  *
+ * THE SWITCH. `autoEffortByPhase` defaults to OFF and gates everything: off
+ * registers no listener, so the preset does not touch the request and whatever
+ * the model picker carries stands. Taking over a session's reasoning level is a
+ * behavior change the user opts into, not one they discover.
+ *
  * TWO CONSTRAINTS SHAPE THE DESIGN:
  *
  * 1. `reasoningEffort` is a branded id whose legal values are the levels the
@@ -97,9 +102,18 @@ export function effortForPhase(options) {
 
 /**
  * Register the request-waterfall listener that swaps the reasoning budget at a
- * plan-mode boundary.
+ * plan-mode boundary — but only when the phase switch is on.
+ *
+ * The switch defaults to OFF, and off registers no listener at all: the host
+ * dispatches the waterfall for every request, so a listener that merely calls
+ * `next()` would still be work on the hot path for a feature the operator never
+ * asked for. Leaving the event unsubscribed makes the disabled state cost
+ * nothing and guarantees the request is byte-for-byte what the deployment would
+ * have sent anyway.
  */
 export function apply(ctx, config) {
+  const auto = config?.autoEffortByPhase === true
+  if (!auto) return
   const planning = effortValue(config?.planningEffort, 'planningEffort', DEFAULT_PLANNING_EFFORT)
   const execution = effortValue(config?.executionEffort, 'executionEffort', DEFAULT_EXECUTION_EFFORT)
 

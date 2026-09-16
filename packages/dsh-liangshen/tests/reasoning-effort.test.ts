@@ -13,17 +13,27 @@ import {
 
 type Listener = (payload: any, next: () => Promise<any>) => Promise<any>
 
-/** One live context: the request listener plus the services a switch may read. */
+/**
+ * One live context. The phase switch defaults to OFF, so every listener test
+ * turns it on explicitly: a helper that silently enabled it would hide the one
+ * behavior the switch exists for. Use \`registerRaw\` to observe the off state.
+ */
 function register(config: Record<string, unknown> = {}, services: Record<string, unknown> = {}) {
+  const harness = registerRaw({ autoEffortByPhase: true, ...config }, services)
+  const listener = harness.listeners.get(REQUEST_EVENT)
+  expect(listener).toBeDefined()
+  return { listener: listener!, listeners: harness.listeners }
+}
+
+/** Register without assuming the switch, so its off state is observable. */
+function registerRaw(config: Record<string, unknown> = {}, services: Record<string, unknown> = {}) {
   const listeners = new Map<string, Listener>()
   const ctx = {
     on(event: string, callback: Listener) { listeners.set(event, callback) },
     get: (service: string) => services[service],
   }
   apply(ctx, config)
-  const listener = listeners.get(REQUEST_EVENT)
-  expect(listener).toBeDefined()
-  return { listener: listener!, listeners }
+  return { listeners }
 }
 
 /** Run one request through the waterfall with a frozen config the machine would use. */
@@ -118,6 +128,16 @@ describe('liangshen-reasoning-effort', () => {
     expect(harness.listeners.size).toBe(1)
     expect(() => register({ planningEffort: 'very-high' })).toThrow(/planningEffort must be one of/)
     expect(() => register({ executionEffort: 75 })).toThrow(/executionEffort must be one of/)
+  })
+
+  test('the phase switch is off by default and registers nothing while off', () => {
+    // Off is the default: no config at all must still mean "do not touch requests".
+    expect(registerRaw().listeners.size).toBe(0)
+    expect(registerRaw({ autoEffortByPhase: false }).listeners.size).toBe(0)
+    // An explicit on is the only thing that subscribes.
+    expect(registerRaw({ autoEffortByPhase: true }).listeners.size).toBe(1)
+    // A truthy non-boolean does not silently enable it.
+    expect(registerRaw({ autoEffortByPhase: 'yes' }).listeners.size).toBe(0)
   })
 
   test('never fails the request: an unreadable session leaves it frozen', async () => {

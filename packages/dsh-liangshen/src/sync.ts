@@ -139,15 +139,24 @@ function copyTreeSync(sourceDir: string, targetDir: string): void {
 export interface PresetOverrides {
   /** The `tool-catalog` row's `presentation` value. */
   presentation?: string
+  /** The `reasoning-effort` row's `autoEffortByPhase` switch. */
+  autoEffortByPhase?: boolean
   /** The `reasoning-effort` row's `planningEffort` value. */
   planningEffort?: string
   /** The `reasoning-effort` row's `executionEffort` value. */
   executionEffort?: string
 }
 
-/** Replace one indented `key: 'value'` line inside the block of `- id: <row>`. */
-function setRowValue(text: string, rowId: string, key: string, value: string | undefined): string {
+/**
+ * Replace one indented `key: <value>` line inside the block of `- id: <row>`.
+ *
+ * Strings render single-quoted and booleans render bare: YAML reads an unquoted
+ * `false` as a boolean, while `'false'` would be a truthy string and silently
+ * invert the switch.
+ */
+function setRowValue(text: string, rowId: string, key: string, value: string | boolean | undefined): string {
   if (value === undefined) return text
+  const literal = typeof value === 'boolean' ? String(value) : `'${value}'`
   const rowStart = text.indexOf(`- id: ${rowId}
 `)
   if (rowStart < 0) return text
@@ -161,7 +170,7 @@ function setRowValue(text: string, rowId: string, key: string, value: string | u
   const tail = boundary < 0 ? '' : rest.slice(boundary)
   const pattern = new RegExp(`^(\\s*)${key}:\\s*.*$`, 'm')
   const rewritten = pattern.test(body)
-    ? body.replace(pattern, `$1${key}: '${value}'`)
+    ? body.replace(pattern, `$1${key}: ${literal}`)
     : body
   return text.slice(0, afterRow) + rewritten + tail
 }
@@ -181,6 +190,7 @@ function setRowValue(text: string, rowId: string, key: string, value: string | u
 export function renderPresetOverrides(text: string, overrides: PresetOverrides): string {
   let out = text
   out = setRowValue(out, 'tool-catalog', 'presentation', overrides.presentation)
+  out = setRowValue(out, 'reasoning-effort', 'autoEffortByPhase', overrides.autoEffortByPhase)
   out = setRowValue(out, 'reasoning-effort', 'planningEffort', overrides.planningEffort)
   out = setRowValue(out, 'reasoning-effort', 'executionEffort', overrides.executionEffort)
   return out

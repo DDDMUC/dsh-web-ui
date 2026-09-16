@@ -263,7 +263,7 @@ You are a helpful software engineer assistant.
 ### 8.2 按 plan-mode 动态调节 reasoning_effort
 - **动机**：§4.4 的双相推理节律（规划 75 / 执行 40~50）需要从请求组装管线读取 plan-mode 状态并写入请求参数；
 - **改动面（更正）**：**此前的"属上游需求"判断有误**。宿主已提供插件可用的接缝：`agent/request` 是一个水位（waterfall）事件，签名为 `(payload: { agent, turn, step, signal }, next: () => Promise<LlmCallConfig>) => LlmCallConfig`，按 agent 作用域派发。DSH 自带测试即用例证：`ctx.on('agent/request', async (_payload, next) => ({ ...await next(), temperature: 0.5 }))` 可在插件内改写配置字段，回调同时可读到 `turn`/`step`。因此 preset 插件可以订阅该事件、从会话事件流折叠出 plan-mode 状态、返回改写后的 `reasoningEffort`，**无需修改 DSH 核心**；
-- **现状**：**已实现**（`presets/liangshen/reasoning-effort.mjs`，挂载为 `reasoning-effort` 行，`planningEffort: 'high'` / `executionEffort: 'low'`）。只在 plan-mode 边界切换：该字段参与请求头快照并决定缓存复用，逐回合翻转会为省推理 token 而每回合付一次缓存未命中。档位取值在加载时经 `'off' | 'low' | 'high' | 'max'` 校验。**插件刻意不在请求时校验路由是否提供该档位**：宿主的 llm 服务没有暴露"某模型已声明的档位集合"查询（公开面只有 providers / models / prepareCall 等），因此任何此类守卫都永远不会触发，只会暗示一个并不存在的检查。路由拒绝所配档位会以其自身的调用失败显现，由运维收窄配置。
+- **现状**：**已实现**（`presets/liangshen/reasoning-effort.mjs`，挂载为 `reasoning-effort` 行，`planningEffort: 'high'` / `executionEffort: 'low'`），但由 `autoEffortByPhase` 开关把关且**出厂关闭**：关闭时插件不注册任何请求监听，模型选择器携带的档位原样生效；开启后从下一个阶段边界起接管。之所以默认关闭，是因为会话档位是选择器里可见且显式的用户选择，静默覆盖会让它看起来像坏了。只在 plan-mode 边界切换：该字段参与请求头快照并决定缓存复用，逐回合翻转会为省推理 token 而每回合付一次缓存未命中。档位取值在加载时经 `'off' | 'low' | 'high' | 'max'` 校验。**插件刻意不在请求时校验路由是否提供该档位**：宿主的 llm 服务没有暴露"某模型已声明的档位集合"查询（公开面只有 providers / models / prepareCall 等），因此任何此类守卫都永远不会触发，只会暗示一个并不存在的检查。路由拒绝所配档位会以其自身的调用失败显现，由运维收窄配置。
 
 ### 8.3 分发引擎的读并发 / 写串行栅栏
 - **现状**：**不属于上游缺口**（更正）。宿主早已实现该栅栏：`dsh-tools.executionMode()` 按每个工具自报的 `isConcurrencySafe` 分类，只读调用并发、变动调用独占成栅栏，结果按提交顺序提交。preset 能施加的影响是**为自己的工具正确声明该能力**，已在 §7.4 落地（`tool_activate` 声明为并发安全）。
