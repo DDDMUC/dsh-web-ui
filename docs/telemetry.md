@@ -27,7 +27,7 @@ UV（独立实例数）= 当日去重访客 ID 数；因此「安装量」读作
 curl -s 'https://dsh-market.com/api/telemetry/summary?days=30'
 ```
 
-返回最近 N 天（1-365）的站点 PV/UV 日序列与热门路径、各包的累计实例数与当日活跃数。聚合由滚存缓存提供（cron 轮转预热仪表盘常用窗口并按需刷新；30 天内窗口最多滞后 30 分钟，90/365 天窗口最多 12 小时；实时聚合无法完成时回退上一份缓存），天数与分页窗口的组合即缓存键。热门路径与心跳条目按服务端分页返回：`paths_limit`/`paths_offset`（默认 20，上限 100，总量见响应的 `site.paths_total`）与 `items_limit`/`items_offset`（默认 200，上限 200，总量见 `plugins.totals.items`）。机器可读契约见 `/openapi.json` 中 `/api/telemetry/*` 两项。汇总接口由 `TELEMETRY_READ_KEY` secret 保护：只能通过 `x-telemetry-key` 请求头携带（URL `?key=` 参数不再接受，避免密钥落入边缘日志、浏览器历史与 referrer）。
+返回最近 N 天（1-365）的站点 PV/UV 日序列与热门路径、各包的累计实例数与当日活跃数。聚合由滚存缓存提供（cron 轮转预热仪表盘常用窗口并按需刷新；30 天内窗口最多滞后 30 分钟，90/365 天窗口最多 12 小时；实时聚合无法完成时回退上一份缓存），天数与分页窗口的组合即缓存键。每个载荷带 `generated_at`（滚存计算时刻的 epoch 毫秒，读缓存不刷新该值）与 `degraded`（因 D1 记忆体压力被跳过的辅助分布标签，`channels`/`versions`；日序列、条目页与总数始终精确计算）。热门路径与心跳条目按服务端分页返回：`paths_limit`/`paths_offset`（默认 20，上限 100，总量见响应的 `site.paths_total`）与 `items_limit`/`items_offset`（默认 200，上限 200，总量见 `plugins.totals.items`）。机器可读契约见 `/openapi.json` 中 `/api/telemetry/*` 两项。汇总接口由 `TELEMETRY_READ_KEY` secret 保护：只能通过 `x-telemetry-key` 请求头携带（URL `?key=` 参数不再接受，避免密钥落入边缘日志、浏览器历史与 referrer）。
 
 ### 公开徽章端点
 
@@ -40,7 +40,7 @@ GitHub README 展示用两个无需密钥的 shields 端点徽章（只返回聚
 
 ### 私有实时视图
 
-`market/telemetry-view`（部署为 worker `dsh-market-telemetry-view`，地址 `tv.dsh-market.com`）是只读仪表盘：读取汇总接口的滚存缓存并渲染 KPI 卡片、日活跃实例趋势图（心跳 UV）与站点日 PV/UV 趋势图、分页的热门路径与各包/皮肤安装量（含当日活跃、渠道分布与版本分布），自身不存任何数据。仪表盘页内切换时间范围与翻页经由同源 `/data` JSON 代理（同样校验 Access JWT）调用汇总接口的分页参数，不刷新整页。访问保护双层：路由应挂 Cloudflare Access 自托管应用（邮箱验证），worker 内部同时校验 Access JWT 签名（`ACCESS_TEAM` + `ACCESS_AUD` secret，未配置前默认拒绝服务）。路由上 `tv.dsh-market.com` 落在主 worker 的 `*.dsh-market.com` 通配 zone 路由内，由主 worker 在 fetch 入口把整个主机名经 `TELEMETRY_VIEW` 服务绑定转发给本 worker（Access JWT 头随请求透传；`/app.js` 与 `/data` 相应列入主 worker 的 `run_worker_first`，主站自己的 `/app.js` 资源由 worker 显式回退到 ASSETS 提供）。看板取数相应经反向的 `MARKET` 服务绑定直调主 worker：本 worker 运行在主 worker 的调用链内，公开 fetch 回 `dsh-market.com` 会在同一请求上下文里二次进入主 worker，触发 Cloudflare 环路保护并回落占位源站（522）。
+`market/telemetry-view`（部署为 worker `dsh-market-telemetry-view`，地址 `tv.dsh-market.com`）是只读仪表盘：读取汇总接口的滚存缓存并渲染 KPI 卡片、日活跃实例趋势图（心跳 UV）与站点日 PV/UV 趋势图、分页的热门路径与各包/皮肤安装量（含当日活跃、渠道分布与版本分布），自身不存任何数据。页面同时显示滚存的生成时间与滞后时长，并在滚存滞后或辅助分布被降级跳过时给出醒目提示——滞后的缓存是「聚合暂时受限」，不是数据丢失。仪表盘页内切换时间范围与翻页经由同源 `/data` JSON 代理（同样校验 Access JWT）调用汇总接口的分页参数，不刷新整页。访问保护双层：路由应挂 Cloudflare Access 自托管应用（邮箱验证），worker 内部同时校验 Access JWT 签名（`ACCESS_TEAM` + `ACCESS_AUD` secret，未配置前默认拒绝服务）。路由上 `tv.dsh-market.com` 落在主 worker 的 `*.dsh-market.com` 通配 zone 路由内，由主 worker 在 fetch 入口把整个主机名经 `TELEMETRY_VIEW` 服务绑定转发给本 worker（Access JWT 头随请求透传；`/app.js` 与 `/data` 相应列入主 worker 的 `run_worker_first`，主站自己的 `/app.js` 资源由 worker 显式回退到 ASSETS 提供）。看板取数相应经反向的 `MARKET` 服务绑定直调主 worker：本 worker 运行在主 worker 的调用链内，公开 fetch 回 `dsh-market.com` 会在同一请求上下文里二次进入主 worker，触发 Cloudflare 环路保护并回落占位源站（522）。
 
 ## 接入新包
 

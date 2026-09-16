@@ -151,29 +151,48 @@ export async function telemetrySummary(env, days, page = {}) {
   const today = utcDay()
   const paths = page.paths || { limit: 20, offset: 0 }
   const items = page.items || { limit: 200, offset: 0 }
-  // Nine aggregates, four batches: D1 rejects a batch whose transaction
+  // Nine aggregates, five batches: D1 rejects a batch whose transaction
   // runtime exceeds its limits, and even indexed, the heartbeat grouping
   // scans take tens of seconds at current volume — each heavy statement
   // needs its own transaction. Cross-chunk consistency is irrelevant:
   // every chunk reads the same append-only event table.
   const batch = async (statements) => (await env.DB.batch(statements)).map((result) => result.results || [])
-  const [dailyPv, dailyHb, topPaths, pathsTotal, itemsToday, itemsChannels] = await batch([
+  // The channel/version breakdowns are auxiliary: their COUNT(DISTINCT)
+  // scans overflow D1's memory at multi-million-row windows (SQLITE_NOMEM,
+  // observed from 2026-09-14 at ~4.4M rows). Degrade them to empty instead
+  // of failing the whole window — the daily series, item page and totals
+  // stay fresh, and the payload flags what is missing.
+  const degraded = []
+  const auxBatch = async (statement, label) => {
+    try {
+      return (await env.DB.batch([statement]))[0].results || []
+    } catch (error) {
+      degraded.push(label)
+      console.log('[summary-aux] ' + label + ' skipped: ' + ((error && error.message) || error))
+      return []
+    }
+  }
+  const [dailyPv, dailyHb, topPaths, pathsTotal, itemsToday] = await batch([
     env.DB.prepare("SELECT day, COUNT(*) AS pv, COUNT(DISTINCT visitor) AS uv FROM telemetry_events WHERE kind = 'pv' AND day >= ?1 GROUP BY day ORDER BY day").bind(since),
     env.DB.prepare("SELECT day, COUNT(*) AS pv, COUNT(DISTINCT visitor) AS uv FROM telemetry_events WHERE kind = 'hb' AND day >= ?1 GROUP BY day ORDER BY day").bind(since),
     env.DB.prepare("SELECT subject, COUNT(*) AS pv FROM telemetry_events WHERE kind = 'pv' AND day >= ?1 GROUP BY subject ORDER BY pv DESC, subject LIMIT ?2 OFFSET ?3").bind(since, paths.limit, paths.offset),
     env.DB.prepare("SELECT COUNT(DISTINCT subject) AS n FROM telemetry_events WHERE kind = 'pv' AND day >= ?1").bind(since),
     env.DB.prepare("SELECT subject, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND day = ?1 GROUP BY subject").bind(today),
-    env.DB.prepare("SELECT subject, channel, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND channel != '' AND day >= ?1 GROUP BY subject, channel").bind(since),
   ])
+  const itemsChannels = await auxBatch(
+    env.DB.prepare("SELECT subject, channel, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND channel != '' AND day >= ?1 GROUP BY subject, channel").bind(since),
+    'channels',
+  )
   const [itemsPage] = await batch([
     env.DB.prepare("SELECT subject, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND day >= ?1 GROUP BY subject ORDER BY visitors DESC, subject LIMIT ?2 OFFSET ?3").bind(since, items.limit, items.offset),
   ])
   const [itemsTotal] = await batch([
     env.DB.prepare("SELECT COUNT(DISTINCT subject) AS n FROM telemetry_events WHERE kind = 'hb' AND day >= ?1").bind(since),
   ])
-  const [itemsVersions] = await batch([
+  const itemsVersions = await auxBatch(
     env.DB.prepare("SELECT subject, version, COUNT(DISTINCT visitor) AS visitors FROM telemetry_events WHERE kind = 'hb' AND version != '' AND day >= ?1 GROUP BY subject, version ORDER BY visitors DESC").bind(since),
-  ])
+    'versions',
+  )
   const activeToday = new Map(itemsToday.map((row) => [row.subject, row.visitors]))
   const channelsByItem = new Map()
   for (const row of itemsChannels) {
@@ -190,7 +209,13 @@ export async function telemetrySummary(env, days, page = {}) {
   const totalOf = (rows) => Number(rows[0] && rows[0].n || 0)
   return {
     ok: true,
+    // When this rollup was computed. Cache reads (including the stale
+    // fallback) keep the original stamp, so readers can tell a frozen
+    // rollup from live data — a 09-13 stamp served on 09-16 once read as
+    // "lost days" instead of a lagging cache.
+    generated_at: Date.now(),
     range: { days, since },
+    degraded,
     site: {
       totals: { pv: sumPv(dailyPv), uv_daily_sum: sumUv(dailyPv) },
       daily: dailyPv.map((row) => ({ day: row.day, pv: row.pv, uv: row.uv })),
