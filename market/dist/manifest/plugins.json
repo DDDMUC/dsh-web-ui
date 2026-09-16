@@ -948,9 +948,21 @@
       "subcategory": "dev"
     },
     {
+      "id": "dsh-thread-tools",
+      "name": "会话线程工具",
+      "rank": 75,
+      "nameEn": "Thread Tools",
+      "author": "wig123",
+      "description": "把 Codex 的线程工具搬到 DSH 上：让模型列出你开着的那些会话、按正文检索它们、给某个正在跑的会话递消息并读回它的回答，还能新建空会话或从已有会话的已完成轮次分叉。",
+      "descriptionEn": "Codex's thread tools on DSH: the model can list the sessions you have open, search their content, hand one of them a message and read the answer back, open a fresh session, or branch one from its completed turns.",
+      "repo": "https://github.com/wig123/dsh-thread-tools",
+      "category": "tools",
+      "subcategory": "dev"
+    },
+    {
       "id": "dsh-usage-panel",
       "name": "消耗统计面板",
-      "rank": 75,
+      "rank": 76,
       "nameEn": "Usage Panel",
       "author": "AlfredChaos",
       "description": "设置页 Token 用量统计：累计 KPI 与侧边栏会话列表同口径、半年活跃热力图、按模型堆叠的每日柱状图、模型环形图、Top 会话与 provider 分布，支持 JSON/CSV 导出。基于投影增量聚合、只读重算会话日志；fork/seed 历史去重、resume 会话完整保留、子代理消耗独立归属——历史账单的准确记账，与实时监控类插件互补。",
