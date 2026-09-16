@@ -23,15 +23,16 @@ dsh-web 是 DeepSeek Harness Web 的插件 monorepo（皮肤以「皮肤」插�
 
 ```sh
 pnpm install
-pnpm -r build          # 全仓构建
-pnpm typecheck        # 全仓类型检查
-pnpm test             # 全仓单测
-pnpm docs:check       # 文档一致性（链接 / README / i18n 配对）
+pnpm build             # 全仓构建
+pnpm dev:watch         # 监听重编浏览器产物（dsh web 宿主自动刷新 GUI）
+pnpm typecheck         # 全仓类型检查
+pnpm test              # 全仓单测
+pnpm docs:check        # 文档一致性（链接 / README / i18n 配对）
+pnpm i18n:check        # 双语与第三语言俄语键集一致性及 CJK 泄漏审计
+pnpm libs:check        # 校验已提交 lib/ 产物与源码指纹一致性
 ```
 
-改动提交前至少跑 `pnpm typecheck && pnpm test && pnpm docs:check`；CI 会
-全量跑所有门禁（typecheck / build / test / aggregate / market /
-skin-center / docs / emoji）。
+改动提交前至少跑 `pnpm typecheck && pnpm test && pnpm docs:check && pnpm i18n:check`；涉及聚合包、市场或皮肤中心时运行对应 `pnpm aggregate:check` / `pnpm market:check` / `pnpm skin-center:check`；CI 会全量跑所有门禁。
 
 ## 常见任务
 
@@ -101,6 +102,17 @@ dsh web                            # 重启后侧边栏出现插件入口
 发布流程见 [publish-prep.md](publish-prep.md) 与 .github/workflows/
 release.yml：推送 vX.Y.Z tag 触发发布，tag 是版本唯一来源，
 `scripts/verify-version.mjs` 在发布前校验每个包版本与 tag 一致。
+
+### 多代理并行开发资源纪律
+
+多子代理并发工作流（如 wave 批量实施、并行 worktree 开发）与本机 DSH Web GUI 共享同一台机器的 CPU 与内存。具体并发硬上限、worktree 管理与防卡顿规则见 [multi-agent-resources.md](multi-agent-resources.md)。
+
+## 架构与跨包指引
+
+- 架构总览与全景图见 [architecture.md](architecture.md)；
+- 新插件脚手架与入桶流程见 [plugins.md](plugins.md)；
+- 匿名安装遥测机制见 [telemetry.md](telemetry.md)；
+- 双语文档配对契约见 [i18n.md](i18n.md)。
 
 ## 文档纪律
 

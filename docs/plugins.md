@@ -44,9 +44,10 @@ packages/<name>/
 
 ### 4. 重新生成聚合包
 
+聚合行 id 自动加 `web-ui-` 前缀，可与独立包共存；规则见 [packages/AGENTS.md](../packages/AGENTS.md)。
+
 ```sh
 node scripts/aggregate.mjs          # 重新生成聚合包 cordis.patch.yml + 依赖
-聚合行 id 自动加 `web-ui-` 前缀，可与独立包共存；规则见 packages/AGENTS.md。
 node scripts/aggregate.mjs --check  # 校验模式：漂移即失败（CI 用）
 ```
 
@@ -123,7 +124,7 @@ dsh plugin --profile web add link:<dsh-web>/packages/dsh-web-all
 ```
 
 - **类型来源（只能基于官方 NPM SDK）**：各包把用到的 `@deepseek-ai/*` 包声明为 `devDependencies`
-  （`^0.1.0-rc.7`；cordis 用 `^4.0.1`），TS 从 node_modules 自动解析类型
+  （`^0.1.5-rc.1`；cordis 用 `^4.0.2`），TS 从 node_modules 自动解析类型
   （SDK 包的 `exports["."].types` 统一指向 `lib/types/index.d.ts`，client 半区子路径
   `./client` 同理）。**禁止** tsconfig `extends` / `paths` / `references` 指向任何 DSH 源码
   checkout（历史形态：`../../../test-zhu1090093659` 相对路径、`~/.dsh/source/current` 绝对
@@ -146,6 +147,8 @@ dsh plugin --profile web add link:<dsh-web>/packages/dsh-web-all
 - **设置页插件配置（20260811+ 可选能力）**：DSH web 设置的「插件配置」区展示每插件一张卡片（`settings.plugin.item` 槽）。Web 插件组、皮肤中心、社区插件、桌面宠物各注册一级设置分区（`settings.section`，`label` 用 thunk 跟随语言，内容直接展开）；Web 插件组声明 `web-ui.plugin.item` 子槽归组 task-board 等卡片。插件接入只需两步：
   1. **host 半区**：`installSettingsSection(ctx, settingsNamespace('<ns>'), <z-schema>, <composition entry>, { setSource, onChange })`（`@deepseek-ai/dsh-settings`）注册命名空间；`setSource` 注入动态读取器，`onChange` 让已派生的行为跟随已提交的修改，无需重启。
   2. **browser 半区**：注入 `settingsScope`（`@deepseek-ai/dsh-client-ui-settings` 提供 `ctx.settingsScope`；`bind()` 还要求注入 `connection` 与 `remote`），`ctx.settingsScope.bind({ namespace })` 读写该命名空间，并注册卡片：归组用 `web-ui.plugin.item`，插件配置页用 `settings.plugin.item`，一级菜单用 `settings.section`（自行 `declare module '@deepseek-ai/dsh-client-ui-slots'` 声明该槽，shape 与官方一致；`order` 用 100+；一级分区卡片加 `alwaysOpen` 直接展开）。样板见 `packages/dsh-remote-web-ui`（自包含 staged 表单，不依赖兄弟 UI 包）。
-- **皮肤类插件**：改用 `scripts/dsh-skin-new` 脚手架（皮肤规范见 skin-center / 各皮肤包 README），不经过本流程第 3-4 步的 `dsh-web-all` 注册。皮肤中心（skin-center）虽是皮肤聚合，其 GUI 是一级设置分区（设置 → 皮肤中心），自带启用开关。## 移植 harness 插件的挂载约束
+- **皮肤类插件**：改用 `scripts/dsh-skin-new` 脚手架（皮肤规范见 skin-center / 各皮肤包 README），不经过本流程第 3-4 步的 `dsh-web-all` 注册。皮肤中心（skin-center）虽是皮肤聚合，其 GUI 是一级设置分区（设置 → 皮肤中心），自带启用开关。
+
+## 移植 harness 插件的挂载约束
 
 聚合包 insert 行不带 `config`，loader 调 `apply` 前会用插件 schema 默认值填充配置；`apply` 若无条件加载时校验会把填充后的空配置当配置而抛错，profile 加载失败。应改为：组合条目配置了关键字段才在加载时校验，否则调用时提示「未配置」（settings section 提交仍严格校验）。参考 `packages/dsh-tool-describe-image`。
