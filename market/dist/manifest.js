@@ -432,6 +432,35 @@ window.SKIN_MANIFEST = {
       }
     },
     {
+      "id": "hive-maw",
+      "name": "虫巢",
+      "nameEn": "Hive Maw",
+      "author": "lingfeng.zhang",
+      "tagline": "几丁质壁 · 卵囊光点 · 隧道肋弧 · 垂棘刻度",
+      "description": "巢穴隧道内壁：几丁质的双缝接缝、成簇的卵囊光点、向深处收束的隧道肋弧。生物荧光绿是全场唯一有彩度的线，只走缝、走点、走刻度；红只留给深处那对眼睛——也就是审批与危险。中性层是带绿调的夜黑，只带色温不带彩度。母题是巢穴本身：壁面接缝、卵室柜格、垂棘横梁，加上首屏的隧道环与卵囊簇。",
+      "accent": "#8fe3a6",
+      "preview": {
+        "light": "assets/skins/hive-maw/preview/light.jpg",
+        "dark": "assets/skins/hive-maw/preview/dark.jpg"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/skins/hive-maw/assets/hive-bg.jpg",
+            "scrim": "linear-gradient(180deg, rgba(4,8,5,0.34) 0%, rgba(4,8,5,0.46) 45%, rgba(4,8,5,0.66) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/skins/hive-maw/assets/hive-bg.jpg",
+            "scrim": "linear-gradient(180deg, rgba(4,8,5,0.34) 0%, rgba(4,8,5,0.46) 45%, rgba(4,8,5,0.66) 100%)"
+          }
+        }
+      }
+    },
+    {
       "id": "starry-nocturne",
       "name": "星夜夜曲",
       "nameEn": "Starry Nocturne",
@@ -455,6 +484,35 @@ window.SKIN_MANIFEST = {
             "type": "image",
             "src": "assets/skins/starry-nocturne/assets/background-dark.webp",
             "scrim": "linear-gradient(rgba(12, 16, 38, 0.22) 0%, rgba(12, 16, 38, 0.34) 50%, rgba(11, 14, 34, 0.42) 100%)"
+          }
+        }
+      }
+    },
+    {
+      "id": "ember-fall",
+      "name": "余烬",
+      "nameEn": "Ember Fall",
+      "author": "lingfeng.zhang",
+      "tagline": "枪铁灰 · 焊疤接缝 · 危标斜纹 · 灰烬烟幕",
+      "description": "坠机现场回收站：枪铁灰的壁面、焊珠虚线的接缝、45° 危标斜纹的审批区。余烬橙是全场唯一暖色，只走焊缝、走铆点、走地平线那道火光；紫火花是点睛，一颗一颗散在烟里。中性层是冷灰，压住背景里 burning 的天幕。母题是残骸回收：焊板输入壳、弹药柜格、烟幕横梁，加上首屏的坠毁剪影与地平火光。",
+      "accent": "#e8a860",
+      "preview": {
+        "light": "assets/skins/ember-fall/preview/light.jpg",
+        "dark": "assets/skins/ember-fall/preview/dark.jpg"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/skins/ember-fall/assets/ember-bg.jpg",
+            "scrim": "linear-gradient(180deg, rgba(8,10,13,0.44) 0%, rgba(8,10,13,0.54) 45%, rgba(8,10,13,0.72) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/skins/ember-fall/assets/ember-bg.jpg",
+            "scrim": "linear-gradient(180deg, rgba(8,10,13,0.44) 0%, rgba(8,10,13,0.54) 45%, rgba(8,10,13,0.72) 100%)"
           }
         }
       }
@@ -511,6 +569,35 @@ window.SKIN_MANIFEST = {
             "type": "image",
             "src": "assets/skins/abyssal-serenade/assets/background-dark.webp",
             "scrim": "linear-gradient(rgba(6, 18, 31, 0.14) 0%, rgba(6, 18, 31, 0.22) 52%, rgba(5, 16, 28, 0.3) 100%)"
+          }
+        }
+      }
+    },
+    {
+      "id": "astral-choir",
+      "name": "星辉教团",
+      "nameEn": "Astral Choir",
+      "author": "lingfeng.zhang",
+      "tagline": "夜紫 · 极光光带 · 尖塔光环 · 信众眼光",
+      "description": "朝圣之夜：垂直的极光光带掠过壁面，尖塔顶端的球体散开光环，信众的眼睛在暗处一点一点亮。夜紫是结构色，走框、走缝、走柜格；极光青是信号色，只走光带、走眼光点、走球体。中性层是带紫调的夜黑。母题是仪式本身：光环输入壳、圣龛柜格、光环横梁，加上首屏的尖塔与极光弧。",
+      "accent": "#9fe4f0",
+      "preview": {
+        "light": "assets/skins/astral-choir/preview/light.jpg",
+        "dark": "assets/skins/astral-choir/preview/dark.jpg"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/skins/astral-choir/assets/astral-bg.jpg",
+            "scrim": "linear-gradient(180deg, rgba(8,6,16,0.36) 0%, rgba(8,6,16,0.48) 45%, rgba(8,6,16,0.68) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/skins/astral-choir/assets/astral-bg.jpg",
+            "scrim": "linear-gradient(180deg, rgba(8,6,16,0.36) 0%, rgba(8,6,16,0.48) 45%, rgba(8,6,16,0.68) 100%)"
           }
         }
       }
