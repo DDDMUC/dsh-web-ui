@@ -105,8 +105,11 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 | --- | --- | --- |
 | `enabled` | `true` | 总开关：关闭后预设同步与公告都不执行。 |
 | `announceToAgent` | `false` | 按需开启：开启后向 agent 系统提示注入本插件公告。默认关闭，保持系统提示词干净。 |
+| `presentation` | `ptc` | 写入同步后 preset 之 `tool-catalog` 行的 wire 呈现：`ptc` 把 wire 收拢为 `run_code`，`native` 保持组装出的原生清单，`both` 让清单与传输工具同驻。改动在下次 DSH 启动重新同步 preset 时生效。 |
+| `planningEffort` | `high` | 规划模式仍在成形工作时，preset 请求的推理档位。取值 `off`、`low`、`high`、`max` 之一。 |
+| `executionEffort` | `low` | 单步执行轮次中 preset 请求的推理档位。取值 `off`、`low`、`high`、`max` 之一。 |
 
-两个字段都可在 Web 设置界面（插件配置，即时生效）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。
+五个字段都可在 Web 设置界面（插件配置）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。其中三个塑造 preset 的字段经预设同步抵达会话：插件在拷贝 bundle 的同时把它们写入同步产出的 `agent.cordis.yml`，因此真正被会话运行的是设置界面的取值，而不是包内文件。组合里没有的键绝不会被凭空写入——覆写只会收窄出厂配置。改动需重启 DSH 生效。
 
 ## 行为与限制
 

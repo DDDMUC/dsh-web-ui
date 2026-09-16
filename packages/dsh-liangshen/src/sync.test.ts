@@ -2,10 +2,30 @@ import { describe, expect, it } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { syncOnePreset, syncPresetTrees } from './sync.ts'
+import { renderPresetOverrides, syncOnePreset, syncPresetTrees } from './sync.ts'
 
-/** Minimal structurally valid agent.cordis.yml used by the sync fixtures. */
-const VALID_AGENT_YAML = "- id: persona\n  name: '@deepseek-ai/dsh-persona'\n"
+/**
+ * Minimal structurally valid agent.cordis.yml used by the sync fixtures. It
+ * carries the two rows the settings overlay writes into, because the overlay
+ * only rewrites keys that already exist in the source — a fixture without them
+ * could not tell "left alone" from "wrote nothing".
+ */
+const VALID_AGENT_YAML = [
+  "- id: persona",
+  "  name: '@deepseek-ai/dsh-persona'",
+  "",
+  "- id: tool-catalog",
+  "  name: ./tool-catalog.mjs",
+  "  config:",
+  "    presentation: 'ptc'",
+  "",
+  "- id: reasoning-effort",
+  "  name: ./reasoning-effort.mjs",
+  "  config:",
+  "    planningEffort: 'high'",
+  "    executionEffort: 'low'",
+  "",
+].join('\n')
 
 function fixture(): { source: string; target: string; dispose: () => void } {
   const base = mkdtempSync(join(tmpdir(), 'dsh-liangshen-'))
@@ -17,6 +37,56 @@ function fixture(): { source: string; target: string; dispose: () => void } {
   writeFileSync(join(source, 'liangshen', 'preset.yml'), 'name: 梁神模式\n')
   return { source, target, dispose: () => rmSync(base, { recursive: true, force: true }) }
 }
+
+describe('renderPresetOverrides', () => {
+  const SOURCE = [
+    "# a comment that names presentation: 'ptc'",
+    "- id: tool-catalog",
+    "  name: ./tool-catalog.mjs",
+    "  config:",
+    "    descriptionMaxLength: 200",
+    "    presentation: 'ptc'",
+    "    pagedToolPatterns: ['mcp__*']",
+    "",
+    "# another comment",
+    "- id: reasoning-effort",
+    "  name: ./reasoning-effort.mjs",
+    "  config:",
+    "    planningEffort: 'high'",
+    "    executionEffort: 'low'",
+    "",
+  ].join('\n')
+
+  it('rewrites exactly the targeted keys and nothing else', () => {
+    const out = renderPresetOverrides(SOURCE, {
+      presentation: 'native',
+      planningEffort: 'max',
+      executionEffort: 'off',
+    })
+    expect(out).toContain("presentation: 'native'")
+    expect(out).toContain("planningEffort: 'max'")
+    expect(out).toContain("executionEffort: 'off'")
+    // Untouched values and the surrounding rows survive verbatim.
+    expect(out).toContain('descriptionMaxLength: 200')
+    expect(out).toContain("pagedToolPatterns: ['mcp__*']")
+    // The comment that mentions the key is not a config line and stays put.
+    expect(out).toContain("# a comment that names presentation: 'ptc'")
+    expect(out).toContain('- id: reasoning-effort')
+  })
+
+  it('leaves absent settings and unknown rows alone', () => {
+    expect(renderPresetOverrides(SOURCE, {})).toBe(SOURCE)
+    // A row the composition does not mount is never invented.
+    const out = renderPresetOverrides("- id: persona\n  name: x\n", { presentation: 'native' })
+    expect(out).toBe("- id: persona\n  name: x\n")
+  })
+
+  it('does not write a key the target row does not carry', () => {
+    const noEffort = "- id: tool-catalog\n  name: x\n  config:\n    presentation: 'ptc'\n"
+    const out = renderPresetOverrides(noEffort, { planningEffort: 'max' })
+    expect(out).toBe(noEffort)
+  })
+})
 
 describe('syncPresetTrees', () => {
   it('copies the bundled preset tree into the target root', () => {
@@ -160,18 +230,45 @@ describe('syncPresetTrees', () => {
 })
 
 describe('mtime fast path', () => {
-  it('re-syncs a byte-identical file whose mtime drifted beyond tolerance', () => {
+  it('re-syncs an ordinary file whose mtime drifted beyond tolerance', () => {
+    // Plain copies keep the size-and-mtime fast path: a gap beyond tolerance
+    // proves the pair cannot be byte-identical, so the read is skipped and the
+    // tree counts as moved.
     const f = fixture()
     try {
       syncPresetTrees(f.source, f.target)
-      const dest = join(f.target, 'liangshen', 'agent.cordis.yml')
+      const dest = join(f.target, 'liangshen', 'preset.yml')
       const stat = statSync(dest)
-      // Bump mtime a day into the future, keep the bytes identical.
       utimesSync(dest, stat.atime, new Date(stat.mtimeMs + 86400_000))
       const second = syncPresetTrees(f.source, f.target)
       expect(second.synced).toEqual(['liangshen'])
       expect(second.current).toEqual([])
-      expect(readFileSync(dest, 'utf8')).toBe(VALID_AGENT_YAML)
+    } finally { f.dispose() }
+  })
+
+  it('treats the composition as current when its bytes match the overlaid source', () => {
+    // The composition is the one file the overlay may legitimately make differ
+    // from the raw source, so it is compared by content: an unchanged tree must
+    // report `current`, never a rewrite on every start.
+    const f = fixture()
+    try {
+      syncPresetTrees(f.source, f.target, [], { presentation: 'native' })
+      const dest = join(f.target, 'liangshen', 'agent.cordis.yml')
+      expect(readFileSync(dest, 'utf8')).toContain("presentation: 'native'")
+      const second = syncPresetTrees(f.source, f.target, [], { presentation: 'native' })
+      expect(second.current).toEqual(['liangshen'])
+      expect(second.synced).toEqual([])
+    } finally { f.dispose() }
+  })
+
+  it('rewrites the composition when the settings change', () => {
+    const f = fixture()
+    try {
+      syncPresetTrees(f.source, f.target, [], { presentation: 'native' })
+      const dest = join(f.target, 'liangshen', 'agent.cordis.yml')
+      const second = syncPresetTrees(f.source, f.target, [], { presentation: 'both' })
+      expect(second.synced).toEqual(['liangshen'])
+      expect(readFileSync(dest, 'utf8')).toContain("presentation: 'both'")
     } finally { f.dispose() }
   })
 

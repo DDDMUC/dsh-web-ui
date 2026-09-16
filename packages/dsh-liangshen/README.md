@@ -105,8 +105,11 @@ When validating mode behavior and evaluating performance, verification tiers mus
 | --- | --- | --- |
 | `enabled` | `true` | Master switch: when false, neither preset sync nor announcement runs. |
 | `announceToAgent` | `false` | Opt-in: when true, a system-prompt section announces the plugin. Off by default so agent system prompts stay clean. |
+| `presentation` | `ptc` | Wire presentation written into the synced preset's `tool-catalog` row: `ptc` collapses the wire to `run_code`, `native` keeps the assembled roster, `both` keeps the roster and the transport co-resident. A change takes effect on the next DSH start, when the preset is re-synced. |
+| `planningEffort` | `high` | Reasoning level the preset requests while plan mode is forming the work. One of `off`, `low`, `high`, `max`. |
+| `executionEffort` | `low` | Reasoning level the preset requests for single-step execution turns. One of `off`, `low`, `high`, `max`. |
 
-Both fields are editable in the web settings surface (plugin config, live) or through the profile patch (`dsh plugin` / `cordis.patch.yml`).
+All five fields are editable in the web settings surface (plugin config) or through the profile patch (`dsh plugin` / `cordis.patch.yml`). The three preset-shaping fields reach a session through the preset sync: the plugin writes them into the synced `agent.cordis.yml` as it copies the bundle, so the settings surface — not the bundled file — is what the operator's sessions actually run. A key the composition does not carry is never invented: the overlay only narrows the shipped configuration. Restart DSH for a change to take effect.
 
 ## Behavior and limits
 

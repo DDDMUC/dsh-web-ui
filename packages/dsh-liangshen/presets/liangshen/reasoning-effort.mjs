@@ -15,10 +15,12 @@
  *    deployment DECLARED for the routed model (the DeepSeek adapter accepts
  *    `'off' | 'low' | 'high' | 'max'`; a profile may narrow that set, and a model
  *    with `reasoningEfforts: false` accepts none). A plugin cannot invent a level,
- *    so the configured values are validated against this plugin's own allowlist
- *    and every switch is guarded by the level actually offered at runtime when it
- *    is readable — an unmappable request leaves the config untouched rather than
- *    failing the call.
+ *    so the configured values are validated against that set at load time. The
+ *    plugin deliberately does NOT try to verify the level against the route at
+ *    request time: the harness exposes no query for a model's declared levels, so
+ *    a "guard" could never fire and would only suggest a check that does not
+ *    happen. A deployment whose route rejects a configured level surfaces that as
+ *    its own call failure, and the operator narrows the configuration.
  *
  * 2. The effort is part of the request-header snapshot that governs cache reuse
  *    (`dsh-llm/call-config`), so every change invalidates the cached prefix once.
@@ -79,16 +81,17 @@ export function isPlanningRequest(events, turn) {
 /**
  * The effort one request should carry, or undefined when nothing should change.
  *
- * `offered` is the level set the deployment declares for the routed model, when
- * a caller can read it; an unreadable set is treated as "do not second-guess the
- * route" and the request passes through unchanged.
+ * The level is taken from configuration alone. Whether the routed model actually
+ * accepts it is the deployment's business: the harness exposes no query for a
+ * model's declared levels (the llm service offers providers, models and call
+ * preparation, not the effort set), so this plugin does not pretend to check it.
+ * A route that rejects the level fails its own call, which is visible, rather
+ * than being silently masked by a guard that can never fire.
  */
 export function effortForPhase(options) {
-  const { events, turn, offered, planning, execution } = options
-  if (offered !== undefined && !(Array.isArray(offered) && offered.length > 0)) return undefined
+  const { events, turn, planning, execution } = options
   const wanted = isPlanningRequest(events, turn) ? planning : execution
   if (wanted === undefined) return undefined
-  if (Array.isArray(offered) && !offered.includes(wanted)) return undefined
   return wanted
 }
 
@@ -100,48 +103,15 @@ export function apply(ctx, config) {
   const planning = effortValue(config?.planningEffort, 'planningEffort', DEFAULT_PLANNING_EFFORT)
   const execution = effortValue(config?.executionEffort, 'executionEffort', DEFAULT_EXECUTION_EFFORT)
 
-  /**
-   * The level set the routed model offers, or `null` when a projection exists but
-   * could not be read.
-   *
-   * The distinction matters: no projection at all means the deployment does not
-   * expose the catalog here, so the configured levels stand. A projection that
-   * THROWS means we cannot confirm the route accepts the level we are about to
-   * request — and sending a level the route rejects would fail the call, so the
-   * conservative answer is to leave the frozen configuration alone.
-   */
-  const offeredEfforts = (agent) => {
-    const attempts = [
-      () => agent?.ctx?.llm?.reasoningEfforts?.(agent),
-      () => ctx.get('llm')?.reasoningEfforts?.(agent),
-      () => ctx.get('llm')?.catalog?.reasoningEfforts?.(agent),
-    ]
-    let sawProjection = false
-    for (const attempt of attempts) {
-      try {
-        const value = attempt()
-        if (Array.isArray(value) && value.length > 0) return value
-        if (value !== undefined) sawProjection = true
-      } catch {
-        return null
-      }
-    }
-    return sawProjection ? null : undefined
-  }
-
   ctx.on(REQUEST_EVENT, async (payload, next) => {
     const current = await next()
     try {
       const agent = payload?.agent
       const events = sessionEvents(agent?.session)
-      const offered = offeredEfforts(agent)
-      const wanted = effortForPhase({ events, turn: payload?.turn, offered, planning, execution })
+      const wanted = effortForPhase({ events, turn: payload?.turn, planning, execution })
       // Only replace the config at a phase boundary: this field governs cache
       // reuse, so restating the same value (or flipping it every turn) is worse
       // than leaving the frozen header alone.
-      // `null` = a projection exists but failed to read; skip rather than risk a
-      // level the route may reject.
-      if (offered === null) return current
       if (wanted === undefined || current?.reasoningEffort === wanted) return current
       return { ...current, reasoningEffort: wanted }
     } catch {

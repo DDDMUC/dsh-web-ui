@@ -43,27 +43,49 @@ export const LIANGSHEN_SETTINGS_NAMESPACE = 'dsh-liangshen' as SettingsNamespace
 /** Prompt assembly must exist before the announcement section can register. */
 export const inject = ['systemPrompt']
 
+/** The wire presentations the preset's tool catalog accepts. */
+export const PRESENTATION_OPTIONS = ['ptc', 'native', 'both'] as const
+
+/** The reasoning levels the DeepSeek adapter declares. */
+export const EFFORT_OPTIONS = ['off', 'low', 'high', 'max'] as const
+
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
   /** Master switch: when false, neither sync nor announcement runs. */
   enabled?: boolean
   /** When true, a system-prompt section announces the plugin (default false — keep prompts clean unless the user opts in). */
   announceToAgent?: boolean
+  /**
+   * Wire presentation written into the synced preset's tool-catalog row.
+   * `ptc` (default) collapses the wire to the `run_code` transport; `native`
+   * keeps the assembled roster; `both` keeps the roster and the transport.
+   */
+  presentation?: (typeof PRESENTATION_OPTIONS)[number]
+  /** Reasoning level the preset requests while plan mode is forming the work. */
+  planningEffort?: (typeof EFFORT_OPTIONS)[number]
+  /** Reasoning level the preset requests for single-step execution turns. */
+  executionEffort?: (typeof EFFORT_OPTIONS)[number]
 }
 
 export const Config: z<Config> = z.object({
   enabled: z.boolean().default(true),
   announceToAgent: z.boolean().default(false),
+  presentation: z.union([...PRESENTATION_OPTIONS]).default('ptc'),
+  planningEffort: z.union([...EFFORT_OPTIONS]).default('high'),
+  executionEffort: z.union([...EFFORT_OPTIONS]).default('low'),
 })
 
-/** Schema default, re-read for hand-built test contexts. */
+/** Schema defaults, re-read for hand-built test contexts. */
 const DEFAULT_ANNOUNCE = false
+const DEFAULT_PRESENTATION = 'ptc'
+const DEFAULT_PLANNING_EFFORT = 'high'
+const DEFAULT_EXECUTION_EFFORT = 'low'
 
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 150
 
 /** Model-facing announcement: plugin presence, principle, and limits. */
-export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：系统提示词保持极简 persona（minimal-prompt 放行该段与 plan 模式的 plan:policy），persona 内置本模式工作纪律（反思熔断——同一假设推演不超过两轮、缺事实立即闭合思考并调用原生检测工具；行动导向——思考只决定下一步具体操作、不在思考中预演代码实现；YAGNI/PDCA——单步验证单一假设、不写冗余注释），并在组装时追加工作区目录行 Your working directory is <cwd>. 与 AGENTS.md 工作区指令（workspace-instructions 段，65536 字节预算，每次组装重读；win32 下另追加 Git Bash 临时 shell 纪律行）。wire 呈现由 tool-catalog 按会话一次声明：默认 \'both\'（完整原生工具面与 run_code 传输工具同驻 wire——日常调用走原生 DSML，run_code 仅用于程序化批量计算与并发编排），可配置为 \'native\' 或 \'ptc\'；缺少 code runtime 或声明被拒时优雅回退原生面并只告警一次。温和工具分页：匹配 pagedToolPatterns（默认 mcp__*）的工具在激活前不上 wire，目录消息列出常驻工具签名与未激活命名空间摘要，调用 tool_activate({ namespace }) 按需激活（LRU 上限 3 个活跃命名空间，驱逐最久未用）；激活状态从持久会话事件流重建，resume/压缩后自然恢复。working-context 插件在 pre-step 注入单行 [Working Context: ...] 就近状态投射（plan 模式、活跃命名空间、进行中 todo 标题，全部从事件流折叠，读不到则省略，全部为空则不注入）。历史工具结果修剪为 4096 字符阈值（head 1500 / tail 500）。文件操作受宿主沙箱约束，Windows 下 bash 为 Git Bash 子进程且状态不跨调用保留。真实推理探针通过不等于模式集成通过，更不等于统计效果提升。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
+export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：系统提示词保持极简 persona（minimal-prompt 放行该段与 plan 模式的 plan:policy），persona 内置本模式工作纪律（反思熔断——同一假设推演不超过两轮、缺事实立即闭合思考并调用原生检测工具；行动导向——思考只决定下一步具体操作、不在思考中预演代码实现；YAGNI/PDCA——单步验证单一假设、不写冗余注释），并在组装时追加工作区目录行 Your working directory is <cwd>. 与 AGENTS.md 工作区指令（workspace-instructions 段，65536 字节预算，每次组装重读；win32 下另追加 Git Bash 临时 shell 纪律行）。wire 呈现由 tool-catalog 按会话一次声明，取值 \'ptc\'（默认：wire 收拢为唯一的 run_code，其余工具经生成的 SDK 触达）、\'native\'（组装出的原生清单）或 \'both\'（两者同驻），并可在插件设置界面切换（同步 preset 时写入 tool-catalog 行）；未挂载 code runtime 时不做声明，会话运行原生工具面。reasoning-effort 插件加入宿主的 agent/request 水位，在 plan-mode 边界切换推理档位（默认规划 \'high\'、执行 \'low\'），档位同样可在设置界面调整；只在边界切换，因为该字段决定缓存复用。温和工具分页：匹配 pagedToolPatterns（默认 mcp__*）的工具在激活前不上 wire，目录消息列出常驻工具签名与未激活命名空间摘要，调用 tool_activate({ namespace }) 按需激活（LRU 上限 3 个活跃命名空间，驱逐最久未用）；激活状态从持久会话事件流重建，resume/压缩后自然恢复。working-context 插件在 pre-step 注入单行 [Working Context: ...] 就近状态投射（plan 模式、活跃命名空间、进行中 todo 标题，全部从事件流折叠，读不到则省略，全部为空则不注入）。历史工具结果修剪为 4096 字符阈值（head 1500 / tail 500）。文件操作受宿主沙箱约束，Windows 下 bash 为 Git Bash 子进程且状态不跨调用保留。真实推理探针通过不等于模式集成通过，更不等于统计效果提升。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
 // The harness-home resolution (DSH_HOME override with the platform-home
 // fallback and ~ expansion) lives in the family-shared copy ./dsh-home.ts.
 // Re-export it so the plugin surface stays stable while the implementation is
@@ -94,13 +116,23 @@ function applyImpl(ctx: Context, config?: Config): void {
   const resolve = (): Config => ({
     announceToAgent: current().announceToAgent ?? DEFAULT_ANNOUNCE,
     enabled: current().enabled ?? true,
+    presentation: current().presentation ?? DEFAULT_PRESENTATION,
+    planningEffort: current().planningEffort ?? DEFAULT_PLANNING_EFFORT,
+    executionEffort: current().executionEffort ?? DEFAULT_EXECUTION_EFFORT,
   })
 
   const sync = (): void => {
     const targetRoot = join(dshHome(), '.agent-presets')
     try {
       mkdirSync(targetRoot, { recursive: true })
-      const result = syncPresetTrees(bundledPresetsRoot(), targetRoot, ['liangshen-exact'])
+      const settings = resolve()
+      // The settings surface edits this plugin's namespace, while the values that
+      // shape a session live in the preset's rows; the sync is where the two meet.
+      const result = syncPresetTrees(bundledPresetsRoot(), targetRoot, ['liangshen-exact'], {
+        presentation: settings.presentation,
+        planningEffort: settings.planningEffort,
+        executionEffort: settings.executionEffort,
+      })
       for (const { id, error } of result.failed) {
         ctx.logger?.warn?.(`dsh-liangshen: preset ${id} sync failed: ${error}`)
       }

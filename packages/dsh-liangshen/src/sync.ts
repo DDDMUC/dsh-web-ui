@@ -15,7 +15,7 @@
  * can observe (and surface) a broken preset rather than silently shipping it.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { validateAgentCordis } from './schema.ts'
 
@@ -126,24 +126,113 @@ function copyTreeSync(sourceDir: string, targetDir: string): void {
   }
 }
 
+/**
+ * The preset-row settings the plugin exposes in the web settings surface, as the
+ * overrides to write into the synced `agent.cordis.yml`.
+ *
+ * The settings surface edits the PLUGIN's namespace, while the values that shape
+ * a session live in the preset's rows. Writing the chosen values into the synced
+ * tree is what connects the two: the bundled source stays the shipped default,
+ * and the operator's choice rides on top of it. Every field is optional — an
+ * absent value leaves the shipped row exactly as it is.
+ */
+export interface PresetOverrides {
+  /** The `tool-catalog` row's `presentation` value. */
+  presentation?: string
+  /** The `reasoning-effort` row's `planningEffort` value. */
+  planningEffort?: string
+  /** The `reasoning-effort` row's `executionEffort` value. */
+  executionEffort?: string
+}
+
+/** Replace one indented `key: 'value'` line inside the block of `- id: <row>`. */
+function setRowValue(text: string, rowId: string, key: string, value: string | undefined): string {
+  if (value === undefined) return text
+  const rowStart = text.indexOf(`- id: ${rowId}
+`)
+  if (rowStart < 0) return text
+  const afterRow = rowStart + `- id: ${rowId}
+`.length
+  // The row body ends at the first line that is not indented (the next top-level
+  // entry or a comment block).
+  const rest = text.slice(afterRow)
+  const boundary = rest.search(/^\S/m)
+  const body = boundary < 0 ? rest : rest.slice(0, boundary)
+  const tail = boundary < 0 ? '' : rest.slice(boundary)
+  const pattern = new RegExp(`^(\\s*)${key}:\\s*.*$`, 'm')
+  const rewritten = pattern.test(body)
+    ? body.replace(pattern, `$1${key}: '${value}'`)
+    : body
+  return text.slice(0, afterRow) + rewritten + tail
+}
+
+/**
+ * Render `agent.cordis.yml` with the settings overrides applied.
+ *
+ * Rows are matched by their `- id:` marker, so the transform does not depend on
+ * line numbers or on the values the shipped file happens to carry. A row or key
+ * the source does not contain is left alone rather than invented: the overlay
+ * narrows the shipped configuration, it never adds a mount the preset did not
+ * have.
+ * @param text - the bundled preset composition.
+ * @param overrides - the operator's settings-surface choices.
+ * @returns the composition to write into the synced tree.
+ */
+export function renderPresetOverrides(text: string, overrides: PresetOverrides): string {
+  let out = text
+  out = setRowValue(out, 'tool-catalog', 'presentation', overrides.presentation)
+  out = setRowValue(out, 'reasoning-effort', 'planningEffort', overrides.planningEffort)
+  out = setRowValue(out, 'reasoning-effort', 'executionEffort', overrides.executionEffort)
+  return out
+}
+
 /** Copy `sourceRoot/<id>` into `targetRoot/<id>`, idempotently. */
-export function syncOnePreset(sourceDir: string, targetDir: string): 'synced' | 'current' {
+export function syncOnePreset(sourceDir: string, targetDir: string, overrides: PresetOverrides = {}): 'synced' | 'current' {
   const sourceFiles = filesUnder(sourceDir)
   const sourceSet = new Set(sourceFiles.map(file => relative(sourceDir, file)))
 
   if (existsSync(targetDir) && !statSync(targetDir).isDirectory()) {
     rmSync(targetDir, { recursive: true, force: true })
   }
+  const applyOverrides = (): void => {
+    const agentFile = join(targetDir, 'agent.cordis.yml')
+    if (!existsSync(agentFile)) return
+    const rendered = renderPresetOverrides(readFileSync(agentFile, 'utf8'), overrides)
+    if (rendered !== readFileSync(agentFile, 'utf8')) writeFileSync(agentFile, rendered)
+  }
+
   if (!existsSync(targetDir)) {
     copyTreeSync(sourceDir, targetDir)
     pruneExtras(targetDir, sourceSet)
+    applyOverrides()
     return 'synced'
   }
+
+  // The composition is compared against the SOURCE AFTER the overlay, because the
+  // target legitimately carries the operator's settings there. Every other file
+  // is a plain copy, so it keeps the original size-and-mtime fast path — the
+  // overlay is the one thing that can make target bytes differ from source bytes
+  // on purpose.
+  const agentEntry = join(sourceDir, 'agent.cordis.yml')
+  const expectedAgent = existsSync(agentEntry)
+    ? Buffer.from(renderPresetOverrides(readFileSync(agentEntry, 'utf8'), overrides))
+    : undefined
 
   let dirty = false
   for (const file of sourceFiles) {
     const dest = join(targetDir, relative(sourceDir, file))
-    if (!existsSync(dest) || !sameFile(file, dest)) {
+    if (!existsSync(dest)) {
+      dirty = true
+      break
+    }
+    if (file === agentEntry) {
+      if (expectedAgent === undefined || !expectedAgent.equals(readFileSync(dest))) {
+        dirty = true
+        break
+      }
+      continue
+    }
+    if (!sameFile(file, dest)) {
       dirty = true
       break
     }
@@ -156,13 +245,25 @@ export function syncOnePreset(sourceDir: string, targetDir: string): 'synced' | 
       }
     }
   }
-  if (!dirty) return 'current'
+  if (!dirty) {
+    // Content matches, but a previous run may have written the tree before the
+    // overlay existed (or under different settings). Re-apply so an upgrade and
+    // a settings change both converge without a spurious "synced" report.
+    const before = readFileSync(join(targetDir, 'agent.cordis.yml'), 'utf8')
+    const after = renderPresetOverrides(before, overrides)
+    if (after !== before) {
+      writeFileSync(join(targetDir, 'agent.cordis.yml'), after)
+      return 'synced'
+    }
+    return 'current'
+  }
 
   // Drop target-only entries first so file/dir type clashes never reach the
   // copy, then copy and prune again per the post-copy contract.
   pruneExtras(targetDir, sourceSet)
   copyTreeSync(sourceDir, targetDir)
   pruneExtras(targetDir, sourceSet)
+  applyOverrides()
   return 'synced'
 }
 
@@ -180,7 +281,7 @@ export function syncOnePreset(sourceDir: string, targetDir: string): 'synced' | 
  * @param targetRoot - dsh agent-presets discovery root (e.g. <home>/.dsh/.agent-presets).
  * @param retire - previously bundled preset ids to remove when absent from the source.
  */
-export function syncPresetTrees(sourceRoot: string, targetRoot: string, retire: string[] = []): SyncResult {
+export function syncPresetTrees(sourceRoot: string, targetRoot: string, retire: string[] = [], overrides: PresetOverrides = {}): SyncResult {
   const result: SyncResult = { synced: [], current: [], failed: [], retired: [] }
   mkdirSync(targetRoot, { recursive: true })
   if (existsSync(sourceRoot)) {
@@ -191,7 +292,7 @@ export function syncPresetTrees(sourceRoot: string, targetRoot: string, retire: 
       const targetDir = join(targetRoot, id)
       let outcome: 'synced' | 'current'
       try {
-        outcome = syncOnePreset(source, targetDir)
+        outcome = syncOnePreset(source, targetDir, overrides)
       } catch (error) {
         result.failed.push({ id, error: error instanceof Error ? error.message : String(error) })
         continue

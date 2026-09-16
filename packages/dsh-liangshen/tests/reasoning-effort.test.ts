@@ -57,17 +57,22 @@ describe('liangshen-reasoning-effort', () => {
     expect(isPlanningRequest([], 4)).toBe(false)
   })
 
-  test('resolves one effort per phase, and skips what the route does not offer', () => {
+  test('resolves one effort per phase from configuration alone', () => {
     const base = { planning: 'high', execution: 'low' }
     expect(effortForPhase({ ...base, events: PLAN_ON, turn: 3 })).toBe('high')
     expect(effortForPhase({ ...base, events: PLAN_OFF, turn: 3 })).toBe('low')
-    expect(effortForPhase({ ...base, events: PLAN_ON, turn: 3, offered: ['low', 'high'] })).toBe('high')
-    // The route offers no planning level: leave the frozen config alone.
-    expect(effortForPhase({ ...base, events: PLAN_ON, turn: 3, offered: ['low'] })).toBeUndefined()
-    // An unreadable offer set means "do not second-guess the route".
-    expect(effortForPhase({ ...base, events: PLAN_ON, turn: 3, offered: [] })).toBeUndefined()
-    // Nothing to want at all.
+    // First turn with no plan/mode event is planning.
+    expect(effortForPhase({ ...base, events: [], turn: 1 })).toBe('high')
+    // Nothing configured for the phase means nothing to apply.
     expect(effortForPhase({ events: PLAN_ON, turn: 3, planning: undefined, execution: undefined })).toBeUndefined()
+  })
+
+  test('does not second-guess the route: no level check exists at request time', () => {
+    // The harness exposes no query for a model's declared levels, so the plugin
+    // takes the configured level as given. A route that rejects it fails its own
+    // call, visibly, instead of a guard that can never fire masking the misuse.
+    const result = effortForPhase({ events: PLAN_ON, turn: 3, planning: 'high', execution: 'low' })
+    expect(result).toBe('high')
   })
 
   test('replaces the frozen configuration when the phase and the level differ', async () => {
@@ -100,15 +105,10 @@ describe('liangshen-reasoning-effort', () => {
     }
   })
 
-  test('skips the switch when the routed model does not offer the level', async () => {
-    const harness = register({}, { llm: { reasoningEfforts: () => ['low'] } })
-    const frozen = { provider: 'p', model: 'm', reasoningEffort: 'max' }
-    const result = await request(harness, { agent: agentOf(PLAN_ON), turn: 2 }, frozen)
-    expect(result).toBe(frozen)
-  })
-
-  test('switches when the offered levels include the wanted one', async () => {
-    const harness = register({}, { llm: { reasoningEfforts: () => ['low', 'high', 'max'] } })
+  test('applies the configured level without consulting the route', async () => {
+    // No llm service is available in this context at all: the switch still lands,
+    // because the plugin takes the configured level as given.
+    const harness = register()
     const result = await request(harness, { agent: agentOf(PLAN_ON), turn: 2 })
     expect(result.reasoningEffort).toBe('high')
   })
@@ -120,15 +120,16 @@ describe('liangshen-reasoning-effort', () => {
     expect(() => register({ executionEffort: 75 })).toThrow(/executionEffort must be one of/)
   })
 
-  test('never fails the request: a hostile projection or listener leaves it frozen', async () => {
-    const hostile = register({}, { llm: { reasoningEfforts: () => { throw new Error('boom') } } })
+  test('never fails the request: an unreadable session leaves it frozen', async () => {
     const frozen = { provider: 'p', model: 'm', reasoningEffort: 'max' }
-    expect(await request(hostile, { agent: agentOf(PLAN_ON), turn: 2 }, frozen)).toBe(frozen)
-
-    // An agent whose session blows up while folding still yields the frozen config.
+    // An agent whose session blows up while folding yields the frozen config.
     const broken = register()
     const exploding = { session: { snapshotEvents: () => { throw new Error('boom') } } }
     expect(await request(broken, { agent: exploding, turn: 2 }, frozen)).toBe(frozen)
+    // A session that simply reports no events is not an error: with no plan/mode
+    // record the fold falls back to the first-turn rule, which is planning.
+    const empty = await request(broken, { agent: { session: null }, turn: 1 }, frozen)
+    expect(empty.reasoningEffort).toBe('high')
   })
 
   test('tolerates a payload with no agent at all', async () => {
