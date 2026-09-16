@@ -2,7 +2,7 @@
 
 Status: implemented
 
-部分取代[极简 persona 加注入式工具目录](../../implemented/feature/2026-09-11-liangshen-minimal-prompt-tool-catalog.md)：目录改为索引当前请求实际开放的工具面，而不是完整注册表，因此其文本不再跨呈现边界保持稳定。延伸[四工具锚定与 PTC 语义修正](../../implemented/feature/2026-09-12-liangshen-anchor-tools-and-ptc-refinement.md)。落实[梁神模式针对 DeepSeek V4.1 Flash 的改进计划](../../proposed/feature/2026-09-13-liangshen-v41-flash-improvement-plan.md)的第 1–4 阶段，该计划的默认值选择阶段仍未完成。
+部分取代[极简 persona 加注入式工具目录](../../implemented/feature/2026-09-11-liangshen-minimal-prompt-tool-catalog.md)：目录改为索引当前请求实际开放的工具面，而不是完整注册表，因此其文本不再跨呈现边界保持稳定。延伸[四工具锚定与 PTC 语义修正](../../implemented/feature/2026-09-12-liangshen-anchor-tools-and-ptc-refinement.md)。落实[梁神模式针对 DeepSeek V4.1 Flash 的改进计划](../../proposed/feature/2026-09-13-liangshen-v41-flash-improvement-plan.md)的第 1–4 阶段，该计划的默认值选择阶段仍未完成。部分被[V4.1 Flash 原生重构](2026-09-16-liangshen-v41-flash-native-rebuild.zh.md)取代：目录跟踪的呈现边界不复存在——wire 在整个会话中保持单一呈现，被分页扣留的命名空间在激活前以摘要出现；「恰好宣告请求开放的面」原则与评测工具继续有效。
 
 ## Problem
 

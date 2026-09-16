@@ -2,7 +2,7 @@
 
 Status: implemented
 
-Partially supersedes [minimal persona with an injected tool catalog](../../implemented/feature/2026-09-11-liangshen-minimal-prompt-tool-catalog.md): the catalog indexes the surface the current request opens rather than the full registry, so its text is no longer stable across the presentation boundary. Extends [four-tool anchoring and PTC contract refinement](../../implemented/feature/2026-09-12-liangshen-anchor-tools-and-ptc-refinement.md). Delivers stages 1-4 of [the LiangShen V4.1 Flash improvement plan](../../proposed/feature/2026-09-13-liangshen-v41-flash-improvement-plan.md) and leaves that plan's default-selection stage open.
+Partially supersedes [minimal persona with an injected tool catalog](../../implemented/feature/2026-09-11-liangshen-minimal-prompt-tool-catalog.md): the catalog indexes the surface the current request opens rather than the full registry, so its text is no longer stable across the presentation boundary. Extends [four-tool anchoring and PTC contract refinement](../../implemented/feature/2026-09-12-liangshen-anchor-tools-and-ptc-refinement.md). Delivers stages 1-4 of [the LiangShen V4.1 Flash improvement plan](../../proposed/feature/2026-09-13-liangshen-v41-flash-improvement-plan.md) and leaves that plan's default-selection stage open. Partially superseded by [the V4.1 Flash native rebuild](2026-09-16-liangshen-v41-flash-native-rebuild.md): the presentation boundary the catalog tracked is gone — the wire keeps one presentation for the whole session, and paged namespaces surface as summaries until activated — while the declare-exactly-what-the-request-opens principle and the evaluation tooling still hold.
 
 ## Problem
 
