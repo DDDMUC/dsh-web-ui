@@ -21,7 +21,7 @@ test('market/dist 核心文件齐全', () => {
   for (const f of ['index.html', 'app.js', 'preview.html', 'styles.js', 'manifest.js', '_headers', 'official-facade.js']) {
     assert.ok(exists(f), f + ' missing')
   }
-  for (const f of ['skins.json', 'pets.json', 'plugins.json', 'presets.json']) {
+  for (const f of ['skins.json', 'pets.json', 'plugins.json', 'presets.json', 'editor-picks.json']) {
     assert.ok(exists('manifest/' + f), 'manifest/' + f + ' missing')
   }
 })
@@ -131,6 +131,30 @@ test('宠物卡片预览完整居中且不裁切', () => {
   const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8')
   assert.ok(app.includes("media.classList.add('mk-card-media-pet')"), 'pet media class missing')
   assert.ok(html.includes('max-height: calc(100% - 16px);'), 'pet contain rule missing')
+})
+
+test('editor-picks.json 固定清单只引用真实存在的皮肤 / 宠物 / 插件', () => {
+  const picks = readJson('manifest/editor-picks.json')
+  assert.ok(Array.isArray(picks.items) && picks.items.length > 0, 'editor picks empty')
+  const catalogs = {
+    skin: new Set(readJson('manifest/skins.json').items.map((i) => i.id)),
+    pet: new Set(readJson('manifest/pets.json').items.map((i) => i.id)),
+    plugin: new Set(readJson('manifest/plugins.json').items.map((i) => i.id)),
+  }
+  const seen = new Set()
+  for (const pick of picks.items) {
+    assert.ok(catalogs[pick.kind], 'editor pick kind must be skin / pet / plugin: ' + pick.kind)
+    assert.ok(catalogs[pick.kind].has(pick.id), 'editor pick target missing: ' + pick.kind + ':' + pick.id)
+    const key = pick.kind + ':' + pick.id
+    assert.ok(!seen.has(key), 'duplicate editor pick: ' + key)
+    seen.add(key)
+  }
+})
+
+test('editor-picks.json 与手写清单顺序一致', () => {
+  const source = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'market', 'editor-picks.json'), 'utf8'))
+  const emitted = readJson('manifest/editor-picks.json')
+  assert.deepEqual(emitted.items, source.items.map(({ kind, id }) => ({ kind, id })))
 })
 
 test('styles.js 为全部皮肤生成 SKIN_STYLES', () => {

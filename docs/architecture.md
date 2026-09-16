@@ -115,7 +115,7 @@ flowchart LR
 
 ## 创意工坊与市场站
 
-仓库是市场内容的唯一事实源：皮肤取 skin-center 的 skin.json、宠物取 dsh-pet 的 pet.json、插件取 community.json、预设取 dsh-preset-center 的 presets/，[scripts/market-build](../scripts/market-build) 派生 `market/dist`（`manifest/{skins,pets,plugins,presets}.json`、预览与试穿资产；产物提交进仓，`market:check` 校验一致）。tryon 试穿壳来自 market/shell 的构建产物，拷入 `dist/tryon/`。部署经 [scripts/deploy-market](../scripts/deploy-market)：先 `market-build --check`，再 wrangler 应用 D1 migrations 并部署 [Worker](../market/worker/wrangler.jsonc)（ASSETS 绑定 dist、Turnstile secret 守卫）；push 到 dev 且触及市场相关路径时由 [deploy-market.yml](../.github/workflows/deploy-market.yml) 自动上架。匿名点赞必须保持 Turnstile 门控并经单个 D1 batch 写入（信任边界见根 [AGENTS.md](../AGENTS.md)）。
+仓库是市场内容的唯一事实源：皮肤取 skin-center 的 skin.json、宠物取 dsh-pet 的 pet.json、插件取 community.json、预设取 dsh-preset-center 的 presets/、编辑推荐取 market/editor-picks.json（手工维护的皮肤 / 宠物 / 插件引用清单，构建时逐条校验可解析），[scripts/market-build](../scripts/market-build) 派生 `market/dist`（`manifest/{skins,pets,plugins,presets,editor-picks}.json`、预览与试穿资产；产物提交进仓，`market:check` 校验一致）。tryon 试穿壳来自 market/shell 的构建产物，拷入 `dist/tryon/`。部署经 [scripts/deploy-market](../scripts/deploy-market)：先 `market-build --check`，再 wrangler 应用 D1 migrations 并部署 [Worker](../market/worker/wrangler.jsonc)（ASSETS 绑定 dist、Turnstile secret 守卫）；push 到 dev 且触及市场相关路径时由 [deploy-market.yml](../.github/workflows/deploy-market.yml) 自动上架。匿名点赞必须保持 Turnstile 门控并经单个 D1 batch 写入（信任边界见根 [AGENTS.md](../AGENTS.md)）。
 
 ```mermaid
 flowchart LR
@@ -124,11 +124,13 @@ flowchart LR
         S2["dsh-pet：assets 目录各宠物 pet.json"]
         S3["dsh-community-plugins：community.json"]
         S4["dsh-preset-center：presets 目录"]
+        S5["market/editor-picks.json：编辑推荐固定清单"]
     end
     S1 --> MB["node scripts/market-build"]
     S2 --> MB
     S3 --> MB
     S4 --> MB
+    S5 --> MB
     SHELL["market/shell 构建：浏览器版试穿壳"] --> DIST["market/dist（提交产物）"]
     MB --> DIST
     DIST -- "node scripts/deploy-market：wrangler deploy + D1 migrations" --> W["Cloudflare Worker：ASSETS、D1、Turnstile、定时任务"]

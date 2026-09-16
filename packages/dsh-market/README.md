@@ -6,11 +6,16 @@ Workshop store card for the DSH Web GUI settings page: one first-level Workshop
 section that browses [dsh-market.com](https://dsh-market.com) from inside the GUI and installs skins,
 pets, plugins and community presets locally with one click; installed items are managed by their own
 surfaces (Skin Center, Pet, the plugin manager in the official Plugins section, and the Presets panel
-this card's preset tab renders).
+this card's preset tab renders). The leading 编辑推荐 (Editor's Picks) tab pins a small fixed
+selection of skins, pets and community plugins.
 
 ## What it does
 
-- Four-category catalog (skins / pets / plugins / presets) with the same ranking used by the Workshop site:
+- Five tabs: a fixed 编辑推荐 (Editor's Picks) category leading the four catalog kinds. It pins a
+  hand-curated skins / pets / community-plugins list, never presets, in the published order, with no
+  search box and no category chips; each entry keeps its own kind's install, like and preview
+  affordances, and references this deployment cannot resolve are dropped.
+- Catalog tabs (skins / pets / plugins / presets) with the same ranking used by the Workshop site:
   device-backed likes first (tie-broken by the manifest order), a search box, and per-card preview
   links (skins open the live try-on simulator).
 - One-click asset install (loopback browsers): skins download into `$DSH_HOME/skins/<id>/` and pets
@@ -34,7 +39,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-market
 ```
 
 Restart `dsh web`; the Workshop section appears in the settings page and opens this store card
-directly (skins / pets / plugins / presets tabs). The Skin Center, the Pet section and the plugin
+directly (编辑推荐 / skins / pets / plugins / presets tabs). The Skin Center, the Pet section and the plugin
 manager in the official Plugins section are separate first-level settings entries; the presets tab is
 rendered by `@linxin666/dsh-client-ui-preset-center`, which contributes it into the child slot this
 card declares.
@@ -68,6 +73,10 @@ The browser half sends one anonymous install heartbeat per UTC day to dsh-market
   file lists.
 - Every market asset carries an explicit file list, so a new skin pack ships to installs automatically
   as soon as `scripts/market-build` regenerates `market/dist`.
+- The 编辑推荐 category reads `manifest/editor-picks.json`: a hand-authored reference list
+  (`market/editor-picks.json`, skins / pets / plugins only) that `scripts/market-build` validates
+  against the catalogs it emits, so a pick naming a removed or renamed asset fails the build instead
+  of disappearing silently.
 - The card declares the keyed child slot `dsh-workshop.panel` and renders one cell per contributed
   kind; the Presets panel registers the `preset` cell and receives the catalog records and the download
   gateway as owner props, so the store keeps one catalog fetch and one gateway for every kind.

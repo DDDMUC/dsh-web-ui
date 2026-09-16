@@ -3505,6 +3505,18 @@ window.__ModuleLoader__.load({
 			plugin: "tab.plugin",
 			preset: "tab.preset"
 		};
+		/** Tab order: the curated picks category leads the catalog kinds. */
+		const TAB_ORDER = [
+			"picks",
+			"skin",
+			"pet",
+			"plugin",
+			"preset"
+		];
+		const TAB_LABEL = {
+			picks: "tab.picks",
+			...KIND_LABEL
+		};
 		function deviceFp() {
 			const key = "dsh-market-web-fp";
 			let fp = "";
@@ -3591,8 +3603,9 @@ window.__ModuleLoader__.load({
 					fetchJson$1("https://dsh-market.com/manifest/plugins.json"),
 					fetchJson$1("https://dsh-market.com/manifest/presets.json").catch(() => ({ items: [] })),
 					fetchJson$1("https://dsh-market.com/api/stats"),
+					fetchJsonOptional("https://dsh-market.com/manifest/editor-picks.json"),
 					downloadsLoader()
-				]).then(([skins, pets, plugins, presets, stats, downloads]) => {
+				]).then(([skins, pets, plugins, presets, stats, picks, downloads]) => {
 					if (!alive) return;
 					const s = stats ?? {
 						skin: {},
@@ -3613,7 +3626,8 @@ window.__ModuleLoader__.load({
 							plugin: s.plugin ?? {},
 							preset: s.preset ?? {},
 							installs: s.installs ?? void 0
-						}
+						},
+						picks: picks?.items ?? []
 					});
 					if (downloads && typeof downloads === "object" && downloads.downloads) {
 						const list = downloads.downloads;
@@ -3975,8 +3989,35 @@ window.__ModuleLoader__.load({
 				if (isOn) cls.push(market_module_css_default.filterChipOn);
 				return cls.join(" ");
 			};
-			const visible = sorted(tab).filter(matches);
-			const total = (data?.items[tab] ?? []).length;
+			/**
+			* Resolve the fixed 编辑推荐 references against the loaded catalogs,
+			* preserving the editorial order and dropping any reference this
+			* deployment cannot resolve.
+			*/
+			const pickEntries = () => {
+				const out = [];
+				const seen = /* @__PURE__ */ new Set();
+				for (const pick of data?.picks ?? []) {
+					const kind = pick.kind;
+					if (kind !== "skin" && kind !== "pet" && kind !== "plugin") continue;
+					const id = pick.id;
+					if (!id || seen.has(kind + ":" + id)) continue;
+					const item = (data?.items[kind] ?? []).find((candidate) => candidate.id === id);
+					if (!item) continue;
+					seen.add(kind + ":" + id);
+					out.push({
+						kind,
+						item
+					});
+				}
+				return out;
+			};
+			const picks = pickEntries();
+			const entries = tab === "picks" ? picks : sorted(tab).filter(matches).map((item) => ({
+				kind: tab,
+				item
+			}));
+			const total = tab === "picks" ? picks.length : (data?.items[tab] ?? []).length;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(PluginSettingsCard$5, {
 				t,
 				titleKey: "settings.title",
@@ -4020,28 +4061,23 @@ window.__ModuleLoader__.load({
 								className: market_module_css_default.tabs,
 								role: "tablist",
 								"aria-label": t("settings.title"),
-								children: [
-									"skin",
-									"pet",
-									"plugin",
-									"preset"
-								].map((kind) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+								children: TAB_ORDER.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 									type: "button",
 									role: "tab",
-									"aria-selected": tab === kind,
-									className: tab === kind ? market_module_css_default.tab + " " + market_module_css_default.tabActive : market_module_css_default.tab,
+									"aria-selected": tab === entry,
+									className: tab === entry ? market_module_css_default.tab + " " + market_module_css_default.tabActive : market_module_css_default.tab,
 									onClick: () => {
-										setTab(kind);
+										setTab(entry);
 										setCat("all");
 										setSubcat("all");
 									},
-									children: [t(KIND_LABEL[kind]), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									children: [t(TAB_LABEL[entry]), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: market_module_css_default.tabCount,
-										children: (data?.items[kind] ?? []).length
+										children: entry === "picks" ? picks.length : (data?.items[entry] ?? []).length
 									})]
-								}, kind))
+								}, entry))
 							}),
-							tab === "preset" ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							tab === "preset" || tab === "picks" ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 								className: market_module_css_default.search,
 								type: "search",
 								"aria-label": t("search.label"),
@@ -4151,19 +4187,19 @@ window.__ModuleLoader__.load({
 								className: market_module_css_default.empty,
 								role: "status",
 								children: t("loading")
-							}) : visible.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							}) : entries.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 								className: market_module_css_default.empty,
 								role: "status",
-								children: total === 0 ? t("empty") : t("noMatch")
+								children: tab === "picks" ? t("picks.empty") : total === 0 ? t("empty") : t("noMatch")
 							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
 								className: market_module_css_default.grid,
-								children: visible.map((item) => {
+								children: entries.map(({ kind, item }) => {
 									const name = item.name ?? item.displayName ?? item.id;
 									const id = item.id;
-									const installedHere = tab === "skin" ? installed.skins.includes(id) : tab === "pet" ? installed.pets.includes(id) : entryInstalled(item, pluginList ?? []) !== null;
-									const isInstalling = installing === tab + ":" + id || installing === "plugin:" + id;
-									const command = tab === "plugin" ? installCommand(item) : "";
-									const thumb = tab === "skin" ? item.preview?.light : tab === "pet" ? item.previews?.[0] ?? item.spritesheet : "";
+									const installedHere = kind === "skin" ? installed.skins.includes(id) : kind === "pet" ? installed.pets.includes(id) : entryInstalled(item, pluginList ?? []) !== null;
+									const isInstalling = installing === kind + ":" + id || installing === "plugin:" + id;
+									const command = kind === "plugin" ? installCommand(item) : "";
+									const thumb = kind === "skin" ? item.preview?.light : kind === "pet" ? item.previews?.[0] ?? item.spritesheet : "";
 									return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 										className: market_module_css_default.card,
 										children: [thumb ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
@@ -4216,7 +4252,7 @@ window.__ModuleLoader__.load({
 												}) : null,
 												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 													className: market_module_css_default.metrics,
-													children: [installsOf(tab, id) > 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("installs", { count: formatCount(installsOf(tab, id)) }) }) : null, item.npm && npmDownloads[item.npm] !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("npmDownloads", { count: formatCount(npmDownloads[item.npm] ?? 0) }) }) : null]
+													children: [installsOf(kind, id) > 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("installs", { count: formatCount(installsOf(kind, id)) }) }) : null, item.npm && npmDownloads[item.npm] !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("npmDownloads", { count: formatCount(npmDownloads[item.npm] ?? 0) }) }) : null]
 												}),
 												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 													className: market_module_css_default.cardFooter,
@@ -4227,23 +4263,23 @@ window.__ModuleLoader__.load({
 																type: "button",
 																className: market_module_css_default.like,
 																onClick: () => {
-																	onLike(tab, id);
+																	onLike(kind, id);
 																},
 																children: [
 																	t("like"),
 																	" ",
-																	votesOf(tab, id)
+																	votesOf(kind, id)
 																]
 															}),
 															/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 																type: "button",
 																className: market_module_css_default.previewLink,
 																onClick: () => {
-																	window.open(tab === "skin" ? "https://dsh-market.com/preview.html?skin=" + encodeURIComponent(id) + "&theme=light&chrome=0" : "https://dsh-market.com/", "_blank", "noopener");
+																	window.open(kind === "skin" ? "https://dsh-market.com/preview.html?skin=" + encodeURIComponent(id) + "&theme=light&chrome=0" : "https://dsh-market.com/", "_blank", "noopener");
 																},
 																children: t("preview")
 															}),
-															(tab === "plugin" || tab === "skin") && item.repo ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+															(kind === "plugin" || kind === "skin") && item.repo ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
 																className: market_module_css_default.previewLink,
 																href: item.repo,
 																target: "_blank",
@@ -4251,10 +4287,10 @@ window.__ModuleLoader__.load({
 																children: t("repository")
 															}) : null
 														]
-													}), tab === "plugin" || gateway !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+													}), kind === "plugin" || gateway !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 														className: market_module_css_default.actionRowPrimary,
 														children: [
-															tab === "plugin" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+															kind === "plugin" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 																type: "button",
 																className: market_module_css_default.install,
 																title: command,
@@ -4263,7 +4299,7 @@ window.__ModuleLoader__.load({
 																},
 																children: copiedId === id ? t("copied") : t("copyCommand")
 															}) : null,
-															tab === "plugin" && faceLoopback && !installedHere ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+															kind === "plugin" && faceLoopback && !installedHere ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 																type: "button",
 																className: market_module_css_default.install + " " + market_module_css_default.installPrimary,
 																disabled: installing !== null,
@@ -4272,12 +4308,12 @@ window.__ModuleLoader__.load({
 																},
 																children: isInstalling ? t("installing") : t("installNow")
 															}) : null,
-															(tab === "skin" || tab === "pet") && gateway !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+															(kind === "skin" || kind === "pet") && gateway !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 																type: "button",
 																className: market_module_css_default.install + " " + market_module_css_default.installPrimary,
 																disabled: installing !== null || installedHere,
 																onClick: () => {
-																	onInstallAsset(tab, id);
+																	onInstallAsset(kind, id);
 																},
 																children: isInstalling ? t("installing") : installedHere ? t("installed") : t("installNow")
 															}) : null
@@ -4294,7 +4330,7 @@ window.__ModuleLoader__.load({
 												}) : null
 											]
 										})]
-									}, id);
+									}, kind + ":" + id);
 								})
 							}),
 							gateway === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
@@ -4360,10 +4396,12 @@ window.__ModuleLoader__.load({
 			"settings.descriptionSuffix": " 的皮肤、宠物与社区插件，一键安装到本机 dsh。",
 			"settings.enable": "启用创意工坊卡片",
 			"settings.enableHint": "关闭后隐藏创意工坊内容，仅保留开关本身。",
+			"tab.picks": "编辑推荐",
 			"tab.skin": "皮肤",
 			"tab.pet": "宠物",
 			"tab.plugin": "插件",
 			"tab.preset": "预设",
+			"picks.empty": "暂无编辑推荐条目。",
 			"presetPanel.missing": "未安装预设中心插件（@linxin666/dsh-client-ui-preset-center），无法管理社区预设。",
 			"search.label": "搜索名称、作者或描述…",
 			"filter.all": "全部",
@@ -4457,10 +4495,12 @@ window.__ModuleLoader__.load({
 			"settings.descriptionSuffix": " and install them locally with one click.",
 			"settings.enable": "Enable the Workshop card",
 			"settings.enableHint": "Hides the Workshop content and keeps the switch only.",
+			"tab.picks": "Editor's Picks",
 			"tab.skin": "Skins",
 			"tab.pet": "Pets",
 			"tab.plugin": "Plugins",
 			"tab.preset": "Presets",
+			"picks.empty": "No editor picks available yet.",
 			"presetPanel.missing": "The preset center plugin (@linxin666/dsh-client-ui-preset-center) is not installed, so community presets cannot be managed.",
 			"search.label": "Search name, author or description…",
 			"filter.all": "All",

@@ -1,11 +1,11 @@
 /** @vitest-environment jsdom */
 
 /**
- * Market card smoke contract: renders the three tabs from injected remote
- * data, the asset install buttons call the injected gateway, plugin installs
- * go through the injected pluginManager face, and likes post to the market
- * origin. The gateway is injected — the live host routes are covered by the
- * installer core tests.
+ * Market card smoke contract: renders the catalog tabs and the fixed
+ * editor-picks category from injected remote data, the asset install buttons
+ * call the injected gateway, plugin installs go through the injected
+ * pluginManager face, and likes post to the market origin. The gateway is
+ * injected — the live host routes are covered by the installer core tests.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -451,6 +451,66 @@ describe('MarketCard', () => {
     expect(typeof owner.install).toBe('function')
     void owner.install?.('demo-preset', false)
     expect(install).toHaveBeenCalledWith('preset', 'demo-preset', false)
+  })
+
+  /** Card text of the store grid (the settings chrome renders list items too). */
+  const gridCards = (): string[] => {
+    const market = screen.getByRole('tablist').parentElement
+    return market ? Array.from(market.querySelectorAll('li')).map((li) => li.textContent ?? '') : []
+  }
+
+  it('renders the fixed editor-picks category in editorial order with mixed kinds', () => {
+    const remote = {
+      ...REMOTE,
+      picks: [
+        { kind: 'plugin', id: 'dsh-tui' },
+        { kind: 'skin', id: 'whale-song' },
+        { kind: 'pet', id: 'whale-girl' },
+      ],
+    }
+    render(<MarketCard {...cardProps(new FakeScope({}), { remote, gateway: null, pluginManager: null })} />)
+    const picksTab = screen.getByRole('tab', { name: /编辑推荐/ })
+    expect(picksTab.textContent).toContain('3')
+    fireEvent.click(picksTab)
+    // Manifest order wins over the vote/rank sorting the catalog tabs use.
+    const cards = gridCards()
+    expect(cards).toHaveLength(3)
+    expect(cards[0]).toContain('dsh-TUI')
+    expect(cards[1]).toContain('鲸吟')
+    expect(cards[2]).toContain('鲸鱼娘（原版）')
+    // A pinned showcase has no browsing controls.
+    expect(screen.queryByRole('searchbox')).toBeNull()
+    expect(screen.queryByRole('group', { name: '分类筛选' })).toBeNull()
+    // Every entry keeps the affordances of its own kind.
+    expect(screen.getByRole('button', { name: /复制安装命令/ })).toBeTruthy()
+    const likes = cards.map((text) => /赞 (\d+)/.exec(text)?.[1] ?? '')
+    expect(likes).not.toContain('')
+  })
+
+  it('drops unresolvable editor picks and shows the empty state when none survive', () => {
+    const remote = {
+      ...REMOTE,
+      picks: [
+        { kind: 'preset', id: 'demo-preset' },
+        { kind: 'skin', id: 'never-shipped' },
+        { kind: 'plugin' },
+        { kind: 'skin', id: 'whale-song' },
+        { kind: 'skin', id: 'whale-song' },
+      ],
+    }
+    render(<MarketCard {...cardProps(new FakeScope({}), { remote, gateway: null, pluginManager: null })} />)
+    const picksTab = screen.getByRole('tab', { name: /编辑推荐/ })
+    expect(picksTab.textContent).toContain('1')
+    fireEvent.click(picksTab)
+    const cards = gridCards()
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toContain('鲸吟')
+  })
+
+  it('renders the editor-picks empty state when the manifest is missing or unresolved', () => {
+    render(<MarketCard {...cardProps(new FakeScope({}), { remote: REMOTE, gateway: null, pluginManager: null })} />)
+    fireEvent.click(screen.getByRole('tab', { name: /编辑推荐/ }))
+    expect(screen.getByText('暂无编辑推荐条目。')).toBeTruthy()
   })
 
   it('renders the preset tab fallback when no panel plugin is installed', () => {

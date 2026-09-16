@@ -2,10 +2,11 @@
 
 [English](README.md) | 中文
 
-DSH Web GUI 设置页的创意工坊商店卡片：唯一的「创意工坊」一级分区在 GUI 内浏览 [dsh-market.com](https://dsh-market.com) 的皮肤、宠物、插件与社区预设，并一键安装到本机；已安装内容由各自界面管理（皮肤中心、宠物、官方插件分区内的插件管理，以及本卡片预设标签页渲染的预设面板）。
+DSH Web GUI 设置页的创意工坊商店卡片：唯一的「创意工坊」一级分区在 GUI 内浏览 [dsh-market.com](https://dsh-market.com) 的皮肤、宠物、插件与社区预设，并一键安装到本机；已安装内容由各自界面管理（皮肤中心、宠物、官方插件分区内的插件管理，以及本卡片预设标签页渲染的预设面板）；最前的「编辑推荐」标签固定展示一小份皮肤、宠物与社区插件清单。
 
 ## 功能
 
+- 五个标签页：最前的「编辑推荐」固定类别 + 四类目录。「编辑推荐」按发布顺序钉住一份手工维护的皮肤 / 宠物 / 社区插件清单（不含预设），没有搜索框与分类筛选；每个条目保留其所属类别自身的安装、点赞与预览能力，本部署解析不到的引用会被丢弃。
 - 四类目录（皮肤 / 宠物 / 插件 / 预设），排序与创意工坊站一致：设备点赞优先（同票回落清单顺序）、搜索框、每卡预览链接（皮肤打开实时试穿模拟器）。
 - 一键安装资产（回环浏览器）：皮肤下载到 `$DSH_HOME/skins/<id>/`，宠物下载到 `$DSH_HOME/pets/<id>/` —— 这两个正是皮肤中心与宠物注册表已扫描的 DSH home 目录，无需重启（重新打开卡片即生效）。预设下载到惰性库 `$DSH_HOME/agent-presets/<id>/`，没有任何发现根扫描它；启用由预设面板把它移入 roster 的用户根。覆盖已有目录前弹确认并原子替换。
 - 一键安装插件：通过可选的 `pluginManager` 服务（由 `@linxin666/dsh-client-ui-plugin-manager` 提供）；未安装时降级为复制命令索引。
@@ -18,7 +19,7 @@ DSH Web GUI 设置页的创意工坊商店卡片：唯一的「创意工坊」�
 dsh plugin --profile web add @linxin666/dsh-client-ui-market
 ```
 
-重启 `dsh web` 后，设置页出现「创意工坊」分区，直接展开本商店卡片（皮肤 / 宠物 / 插件 / 预设四个类目）。皮肤中心、宠物与官方「插件」分区里的插件管理各自是独立的设置分区；预设标签页由 `@linxin666/dsh-client-ui-preset-center` 注入到本卡片声明的子槽位中渲染。
+重启 `dsh web` 后，设置页出现「创意工坊」分区，直接展开本商店卡片（编辑推荐 / 皮肤 / 宠物 / 插件 / 预设五个类目）。皮肤中心、宠物与官方「插件」分区里的插件管理各自是独立的设置分区；预设标签页由 `@linxin666/dsh-client-ui-preset-center` 注入到本卡片声明的子槽位中渲染。
 
 ## 配置
 
@@ -40,6 +41,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-market
 - host 半区（`src/index.ts`）注册 `dsh-web-ui-market` 设置命名空间并挂载仅回环的网关（`/api/market/installed`、`/api/market/install-skin`、`/api/market/install-pet`、`/api/market/install-preset`）。
 - 安装器核心（`src/core/installer.ts`）自行从 `dsh-market.com` 拉取清单、按保守白名单校验每个路径、原子写入（临时目录后 rename）——失败下载不会留下半成品目录；客户端从不提供 URL 或文件列表。
 - 创意工坊每项资产带明确的文件清单，`scripts/market-build` 重新生成 `market/dist` 后，新皮肤包即自动可装。
+- 「编辑推荐」类别读取 `manifest/editor-picks.json`：一份手工维护的引用清单（`market/editor-picks.json`，只含皮肤 / 宠物 / 插件），`scripts/market-build` 会对照自己生成的目录校验它——指向已删除或改名资产的条目会让构建失败，而不是静默消失。
 - 卡片声明 keyed 子槽位 `dsh-workshop.panel`，按类目渲染一格；预设面板注册 `preset` 格并以 owner props 收到目录记录与下载网关，因此商店对所有类目只做一次清单抓取、只维护一个网关。
 
 ## 安全模型
