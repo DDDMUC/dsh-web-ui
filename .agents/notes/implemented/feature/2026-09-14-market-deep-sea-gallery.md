@@ -11,10 +11,10 @@ The dsh-market.com creative-workshop home page presented the catalog as an inter
 `market/src/index.html` and `market/src/app.js` implement the deep-sea gallery layout while keeping the production data layer intact.
 
 - Backdrop: a fixed WebGL fluid-wave canvas under a screen-blended whale-tail overlay; the whale image is the site-owned asset `market/src/assets/ocean-whale.webp`.
-- Header: brand "DSH Market / 创意工坊"; nav tabs 探索 / 皮肤 / 宠物 / 插件 / 预设 with 探索 (the new `all` kind) as the default; search; GitHub star link.
+- Header: brand "DSH Market / 创意工坊"; nav tabs 编辑推荐 / 探索 / 皮肤 / 宠物 / 插件 / 预设 with 探索 (the new `all` kind) as the default; search; GitHub star link.
 - Hero and showcase: the serif headline 让工具，长成你喜欢的样子。 and a three-card popularity showcase (one main plus two side cards) shown only on 探索. The showcase ranks skins by votes, then by catalog rank.
 - Discovery list: the 发现更多 section carries the result count, a sort select (按人气 / 按安装量 / 按默认 / 名称排序), the 我的收藏 filter, a chip row, a four-column card grid, and a load-more control.
-- Filters: plugins and presets keep the two-level category plus subcategory chips; skins and pets, and any search or favorites view, show curated tag chips.
+- Filters: plugins and presets keep the two-level category plus subcategory chips; skins and pets, and any search or favorites view, show curated tag chips. 编辑推荐 (added later, see [the editor-picks note](2026-09-16-workshop-editor-picks.md)) shows no chip row, keeps its fixed manifest order and disables the sort select.
 - Favorites: 我的收藏 persists a device-local `kind:id` list in `localStorage` (`dsh-market-saved`) and is toggled from the detail dialog; favorites never reach the server.
 - Cards: skins show their light preview, pets their first preview contained inside a fixed-ratio media box, and plugins and presets a text card (icon, category, description). Skin, plugin, and preset names still link to `item.repo`.
 - Detail dialog: per-kind media and install instructions are unchanged (skin light and dark preview plus 实时试穿, pet previews and spritesheet, plugin npm command with copy, preset install steps), now ending with a like button and a 收藏作品 action.

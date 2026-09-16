@@ -120,6 +120,15 @@ test('预设分区由市场站渲染', () => {
   assert.ok(app.includes("roleplay: '角色扮演'"), 'preset category label missing')
 })
 
+test('编辑推荐分区由市场站渲染固定清单', () => {
+  const app = fs.readFileSync(path.join(DIST, 'app.js'), 'utf8')
+  const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8')
+  assert.ok(html.includes('data-kind="picks"'), 'editor-picks tab missing from the site markup')
+  assert.ok(app.includes("picks: '编辑推荐'"), 'editor-picks kind label missing')
+  assert.ok(app.includes("fetchJson('manifest/editor-picks.json')"), 'editor-picks manifest fetch missing')
+  assert.ok(app.includes('function pickEntries()'), 'editor-picks resolver missing')
+})
+
 test('皮肤与插件卡片名称以源码仓库链接渲染', () => {
   const app = fs.readFileSync(path.join(DIST, 'app.js'), 'utf8')
   assert.ok(app.includes("el('a', 'mk-card-name'"), 'card name must be an anchor for repo-backed items')

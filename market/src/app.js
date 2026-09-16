@@ -188,8 +188,8 @@
   // 市场应用
   // ====================================================================
   var KINDS = ['skin', 'pet', 'plugin', 'preset']
-  var KIND_LABEL = { all: '探索', skin: '皮肤', pet: '宠物', plugin: '插件', preset: '预设' }
-  var LIST_LABEL = { all: '发现更多', skin: '皮肤画廊', pet: '桌面伙伴', plugin: '扩展你的工具', preset: '找到你的 Agent' }
+  var KIND_LABEL = { picks: '编辑推荐', all: '探索', skin: '皮肤', pet: '宠物', plugin: '插件', preset: '预设' }
+  var LIST_LABEL = { picks: '编辑推荐', all: '发现更多', skin: '皮肤画廊', pet: '桌面伙伴', plugin: '扩展你的工具', preset: '找到你的 Agent' }
   var KIND_ICON = { plugin: '</>', preset: 'Aa' }
   var CAT_LABEL = {
     agent: 'Agent', ui: '界面', tools: '工具', knowledge: '知识',
@@ -234,6 +234,8 @@
     motionOn: true,
     item: null,
     data: { skin: [], pet: [], plugin: [], preset: [] },
+    // 编辑推荐固定清单（{ kind, id } 引用），由 manifest/editor-picks.json 提供。
+    picks: [],
     votes: { skin: {}, pet: {}, plugin: {}, preset: {} },
     installs: { skin: {}, pet: {}, plugin: {}, preset: {} },
     npmDownloads: {},
@@ -313,6 +315,7 @@
       safe(fetchJson('manifest/pets.json')).then(function (x) { state.data.pet = x ? x.items : [] }),
       safe(fetchJson('manifest/plugins.json')).then(function (x) { state.data.plugin = x ? x.items : [] }),
       safe(fetchJson('manifest/presets.json')).then(function (x) { state.data.preset = x ? x.items : [] }),
+      safe(fetchJson('manifest/editor-picks.json')).then(function (x) { state.picks = (x && x.items) || [] }),
       safe(fetchJson('/api/stats')).then(function (s) {
         state.apiOk = !!s
         if (s && s.skin) state.votes = { skin: s.skin || {}, pet: s.pet || {}, plugin: s.plugin || {}, preset: s.preset || {} }
@@ -327,7 +330,24 @@
     })
   }
 
-  function entriesOf(kind) { return state.data[kind].map(function (it) { return entryOf(kind, it) }) }
+  // 编辑推荐：把固定引用解析成真实类别条目（保持清单顺序，丢弃重复 / 越界 / 解析不到的引用）。
+  function pickEntries() {
+    var out = [], seen = {}
+    state.picks.forEach(function (pick) {
+      var kind = pick && pick.kind, id = pick && pick.id
+      if (kind !== 'skin' && kind !== 'pet' && kind !== 'plugin') return
+      if (!id || seen[kind + ':' + id]) return
+      var item = (state.data[kind] || []).filter(function (it) { return it.id === id })[0]
+      if (!item) return
+      seen[kind + ':' + id] = true
+      out.push(entryOf(kind, item))
+    })
+    return out
+  }
+  function entriesOf(kind) {
+    if (kind === 'picks') return pickEntries()
+    return state.data[kind].map(function (it) { return entryOf(kind, it) })
+  }
   function allEntries() {
     var out = []
     KINDS.forEach(function (k) { state.data[k].forEach(function (it) { out.push(entryOf(k, it)) }) })
@@ -368,6 +388,8 @@
   }
   function visibleEntries() {
     var list = baseEntries()
+    // 编辑推荐只固定展示清单本身：保持清单顺序，不做分类 / 标签筛选，也不参与排序。
+    if (state.kind === 'picks') return list
     if (state.kind === 'plugin' || state.kind === 'preset') {
       if (state.cat !== 'all') list = list.filter(function (e) { return e.item.category === state.cat })
       if (state.subcat !== 'all') list = list.filter(function (e) { return e.item.subcategory === state.subcat })
@@ -513,6 +535,7 @@
   function renderFilters() {
     var box = $('#filters')
     box.innerHTML = ''
+    if (state.kind === 'picks') { state.tag = 'all'; return }
     if (state.kind === 'plugin' || state.kind === 'preset') {
       var items = state.data[state.kind]
       var cats = {}
@@ -599,7 +622,8 @@
       tab.setAttribute('aria-pressed', String(on))
     })
     var sort = $('#sort')
-    if (sort) sort.value = state.sort
+    // 编辑推荐的顺序由清单固定，排序下拉在该分区禁用。
+    if (sort) { sort.value = state.sort; sort.disabled = state.kind === 'picks' }
     var saved = $('#savedFilter')
     if (saved) saved.setAttribute('aria-pressed', String(state.savedOnly))
   }
