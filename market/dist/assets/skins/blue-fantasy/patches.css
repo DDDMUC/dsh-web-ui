@@ -292,7 +292,9 @@ body[data-ds-dark-theme] [data-phase="active"] [class*="composerSeat"]:before {
  * everything painted *behind text* -- markdown blocks, tool output, the
  * turn-process row -- and nothing else.
  * The window chrome (header, right sidebar) is deliberately not on that slider:
- * it is frame, not bubble, and it keeps a fixed density.
+ * it is frame, not bubble. It does follow the Wallpaper scrim like the left
+ * pane does -- the three columns share one token so they stay one surface at
+ * every scrim value (issue #1579).
  *
  * The light base is the left pane's measured rgb(242 245 250) (dark:
  * rgb(16 22 42)) instead of pure white, so the plates sit in the same colour
@@ -542,11 +544,17 @@ body[data-ds-dark-theme] [data-slot="main.conversation"] [data-turn-process] {
 
 /* --- chrome: the top bar and the right sidebar ---------------------------- */
 
-/* The three columns only read as one surface if they share a base, so the
-   conversation header and the right sidebar reuse the left pane's measured
-   rgb(242 245 250) at the same density instead of plain white. The density is
-   fixed rather than tied to --dsh-skin-bubble-alpha: this is window chrome, and
-   dragging the Bubble opacity slider should fade bubbles, not the frame.
+/* The three columns only read as one surface if they share a base AND a
+   density, so the conversation header and the right sidebar reuse the left
+   pane's own token (--dsw-specific-sidebar-fill) instead of a pinned fill. That
+   token already tracks the Wallpaper scrim, so all three columns now breathe
+   together at every scrim value (issue #1579): with a fixed 0.75 the columns
+   only matched at scrim 0.5, reading 0.25 too solid at scrim 0 and 0.25 too
+   faint at scrim 1.
+
+   What stays excluded is --dsh-skin-bubble-alpha: this is window chrome, and
+   dragging the Bubble opacity slider must fade bubbles, not the frame. The
+   sidebar-fill token is a scrim-only function, so that boundary is unchanged.
 
    The right sidebar renders as [class*="rightbarCol"] > [data-slot="rightbar"]
    > [data-slot="rightbar.session"] > [class*="panel"]. The two slot hosts are
@@ -564,7 +572,7 @@ body[data-ds-dark-theme] [data-slot="main.conversation"] [data-turn-process] {
 [data-slot="main.conversation"] header,
 [data-slot="rightbar.session"] > *,
 [class*="rightbarCol"] [class*="panel"]:not([class*="panelBody"]) {
-  background: rgba(242, 245, 250, 0.75);
+  background: var(--dsw-specific-sidebar-fill);
 }
 
 [data-slot="main.conversation"] header {
@@ -574,7 +582,7 @@ body[data-ds-dark-theme] [data-slot="main.conversation"] [data-turn-process] {
 body[data-ds-dark-theme] [data-slot="main.conversation"] header,
 body[data-ds-dark-theme] [data-slot="rightbar.session"] > *,
 body[data-ds-dark-theme] [class*="rightbarCol"] [class*="panel"]:not([class*="panelBody"]) {
-  background: rgba(16, 22, 42, 0.75);
+  background: var(--dsw-specific-sidebar-fill);
 }
 
 /* The right panel and the left pane are one frame, but the shell paints the

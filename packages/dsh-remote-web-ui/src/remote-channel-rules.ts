@@ -33,6 +33,10 @@ export interface RemoteChannelRules {
   readonly deviceKey: string
   /** Query parameter carrying it on WebSocket upgrades. */
   readonly deviceQuery: string
+  /** Raw upload route the boot hook keeps on the gated channel. */
+  readonly uploadPath: string
+  /** Page global the pre-Cordis upload hook is published under. */
+  readonly uploadHookGlobal: string
 }
 
 /** The live rule set. */
@@ -57,6 +61,8 @@ export const REMOTE_CHANNEL_RULES: RemoteChannelRules = {
   deviceHeader: REMOTE_DEVICE_HEADER,
   deviceKey: 'dsh-remote-device',
   deviceQuery: REMOTE_DEVICE_QUERY,
+  uploadPath: '/api/session/uploadFileBinary',
+  uploadHookGlobal: '__DSH_FILE_UPLOAD__',
 }
 
 /** The window global the boot patch publishes its seat under. */

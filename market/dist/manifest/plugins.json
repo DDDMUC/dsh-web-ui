@@ -933,6 +933,32 @@
       "npm": "@hyzyn/dsh-search",
       "category": "ui",
       "subcategory": "panel"
+    },
+    {
+      "id": "dsh-stalled-turn-continue",
+      "name": "推理后停滞续跑",
+      "rank": 74,
+      "nameEn": "Stalled Turn Continue",
+      "author": "4evercool",
+      "description": "当回合以 completed（或 no-visible-output）结束、且最后一条助手消息只有推理内容、既没有文本也没有工具调用时，等待 graceMs 后通过 agent 注册表发送一条续跑消息。与 dsh-client-auto-continue 分工：不处理 error / interrupted / max-tokens；由 cooldownMs 与 maxConsecutive 限制连续续跑次数，用户消息或有可见输出的回合会重置计数。",
+      "descriptionEn": "Resumes a turn that ends completed (or no-visible-output) when the last assistant message carried reasoning only, with no text and no tool call: after graceMs it sends one follow-up through the agent registry. Complements dsh-client-auto-continue and never touches error / interrupted / max-tokens; cooldownMs and maxConsecutive bound repeated resumes, and a user message or a turn with visible output resets the counter.",
+      "repo": "https://github.com/4evercool/dsh-stalled-turn-continue",
+      "npm": "dsh-stalled-turn-continue",
+      "category": "tools",
+      "subcategory": "dev"
+    },
+    {
+      "id": "dsh-usage-panel",
+      "name": "消耗统计面板",
+      "rank": 75,
+      "nameEn": "Usage Panel",
+      "author": "AlfredChaos",
+      "description": "设置页 Token 用量统计：累计 KPI 与侧边栏会话列表同口径、半年活跃热力图、按模型堆叠的每日柱状图、模型环形图、Top 会话与 provider 分布，支持 JSON/CSV 导出。基于投影增量聚合、只读重算会话日志；fork/seed 历史去重、resume 会话完整保留、子代理消耗独立归属——历史账单的准确记账，与实时监控类插件互补。",
+      "descriptionEn": "A Settings-page token usage panel for DSH: cumulative KPIs aligned with the visible session list, a six-month activity heatmap, per-model stacked daily bars, a model donut, top sessions and provider breakdown, with JSON/CSV export. Incremental projection over session logs, strictly read-only; fork/seed history deduplicated, resumed sessions kept whole, subagent spend attributed separately — authoritative historical accounting, complementary to live monitoring plugins.",
+      "repo": "https://github.com/AlfredChaos/dsh-usage-panel",
+      "npm": "dsh-usage-panel",
+      "category": "utility",
+      "subcategory": "stats"
     }
   ]
 }

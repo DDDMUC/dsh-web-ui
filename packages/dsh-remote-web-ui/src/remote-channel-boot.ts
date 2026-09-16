@@ -17,8 +17,11 @@
  * transport hook `__DSH_TRANSPORT__ = { ownsHost: true }` before the
  * connection plugin reads it: the paired remote desktop gets the full
  * settings/credentials/presets surface, and every call still rides the
- * gated /remote channel. The script self-skips on loopback origins and
- * never throws.
+ * gated /remote channel. It finally publishes the official pre-Cordis
+ * upload hook (`__DSH_FILE_UPLOAD__`), because the background upload
+ * transport otherwise runs inside a Web Worker whose own globals the
+ * main-thread rewrite cannot reach (issue #1580). The script self-skips on
+ * loopback origins and never throws.
  * @module @linxin666/dsh-remote-web-ui/remote-channel-boot
  */
 
@@ -142,6 +145,29 @@ export function buildRemoteChannelBootScript(rules: RemoteChannelRules = REMOTE_
     'Object.defineProperty(C.prototype,"src",{configurable:true,enumerable:d.enumerable!==false,get:d.get,set:function(v){os.call(this,rr(String(v)))}});' +
     'restores.push(function(){Object.defineProperty(C.prototype,"src",d)})}' +
     'patchSrc(w.HTMLImageElement);patchSrc(w.HTMLScriptElement);patchSrc(w.HTMLIFrameElement);' +
+    // Background uploads must stay on the patched main-thread fetch
+    // (issue #1580). Without this hook @deepseek-ai/dsh-client-file-upload
+    // runs its carrier in a Web Worker, whose own globals no main-thread
+    // patch reaches: the worker's XHR goes straight to <origin>/api/...
+    // without the /remote rewrite and without the device credential, so the
+    // harness browser-auth fence answers 401 and every upload from a paired
+    // browser fails. The hook is the official pre-Cordis seam (the runtime
+    // reads it once in its constructor) and rewriting the worker URL is
+    // provably insufficient - a worker context carries neither the pairing
+    // cookie nor the device header. Hand the runtime the patched fetch
+    // instead: it takes the absolute route URL and a RequestInit, and hands
+    // both to the patched w.fetch, which owns the /remote rewrite AND the
+    // cookieless device header. Delegating the whole decision is deliberate:
+    // rewriting the path here first would make w.fetch see an already-gated
+    // /remote/api path, skip its own rewrite branch, and drop the device
+    // credential that the fence requires.
+    'function uf(u,init){' +
+    'var raw=typeof u==="string"?u:u.href;' +
+    'if(typeof raw!=="string")return of.call(w,u,init||{});' +
+    'var q=new URL(raw,loc.href);' +
+    'if(so(q)&&q.pathname===R.uploadPath)return w.fetch(raw,init||{});' +
+    'return of.call(w,u,init||{})}' +
+    'try{if(w[R.uploadHookGlobal]===undefined)w[R.uploadHookGlobal]={fetch:uf}}catch(e){}' +
     'seat.restore=function(){' +
     'w.fetch=of;' +
     'w.WebSocket=OW;' +

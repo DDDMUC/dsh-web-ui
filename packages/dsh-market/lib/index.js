@@ -143,7 +143,7 @@ function isLoopbackRequest(request) {
 *  - the download URL is rebuilt from the validated rel, never taken from
 *    the client (the client only sends the asset id);
 *  - the manifest and every downloaded file are size-capped (1 MiB manifest,
-*    200 files per asset, 200 MiB per file) and every fetch has a 30 s
+*    2000 files per asset, 200 MiB per file) and every fetch has a 30 s
 *    timeout, so a hostile manifest cannot exhaust host memory or disk;
 *  - writes are staged in a temp dir next to the destination and renamed
 *    into place only after every file downloaded successfully, so a failed
@@ -159,6 +159,14 @@ function isLoopbackRequest(request) {
 const MARKET_ORIGIN = "https://dsh-market.com";
 /** Provenance manifest written into every installed asset directory. */
 const PROVENANCE_FILENAME = "dsh-market.provenance.json";
+/**
+* Max files one asset may declare. Frame-sequence (frames2d) pets are
+* per-frame image sets that legitimately run past a thousand files (issue
+* #1578), so the cap must clear the largest published asset; installer.test.ts
+* pins the exact value and scripts/market-build rejects any catalog entry that
+* crosses it, so content and installer policy cannot drift apart.
+*/
+const MAX_FILES_PER_ASSET = 2e3;
 /** DSH home directory per asset kind (presets land in the inert library). */
 const KIND_DIR = {
 	skin: "skins",
@@ -192,7 +200,7 @@ function assetBase(kind, id) {
 function planDownload(kind, id, files) {
 	if (!id || !KIND_ID_RE[kind].test(id)) throw new Error(`invalid asset id: ${id}`);
 	if (!Array.isArray(files) || files.length === 0) throw new Error(`asset ${id} declares no files`);
-	if (files.length > 200) throw new Error(`asset ${id} declares too many files (${files.length}, max 200)`);
+	if (files.length > 2e3) throw new Error(`asset ${id} declares too many files (${files.length}, max ${MAX_FILES_PER_ASSET})`);
 	const base = assetBase(kind, id);
 	const plan = [];
 	const seen = /* @__PURE__ */ new Set();
