@@ -64,7 +64,7 @@ export const apply = mountOnce('@linxin666/dsh-usage', (ctx: Context, config?: C
         // still pending; only start if this instance is still the live one.
         if (service !== next) return
         next.start()
-        const disposers = [makeUsageOverviewRoute(next), makeUsageRefreshRoute(next)]
+        const disposers = [makeUsageOverviewRoute(ctx, next), makeUsageRefreshRoute(ctx, next)]
           .map((route) => ctx.webServer.register(route))
         disposeRoutes = () => {
           for (const dispose of disposers) {

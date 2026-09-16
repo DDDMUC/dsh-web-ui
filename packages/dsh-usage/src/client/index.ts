@@ -15,8 +15,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the ctx.slots merge (the renderer owns the slot registry since 0.1.2).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { createElement } from 'react'
 import { createUsageStore, type UsageStoreInstance } from './usage-store.ts'
+import { mountSidebarEntry } from './sidebar-entry.ts'
+import { mountUsagePanel } from './sidebar-panel-mount.tsx'
 import { UsageSectionCard, type UsageSectionFace, type UsageSettings } from './UsageSectionCard.tsx'
 import { NS, en, zh } from './locales.ts'
 import type { UsageOverviewView } from '../core/types.ts'
@@ -122,6 +123,21 @@ export function apply(ctx: ClientContext): void {
   }
 
   const face = (): UsageSectionFace => ({ store, poll, refresh, settings: settingsScope })
+
+  // Sidebar surface (issue #1592): the entry row plus the collapsible panel
+  // directly under it, reading the same overview document. Mounted after the
+  // entry row first exists; the panel self-heals its placement with the shared
+  // body-mutation hub, and the entry row highlights while it is expanded.
+  const panel = mountUsagePanel({ store, poll, refresh })
+  const disposeEntry = mountSidebarEntry(() => { panel.toggle() }, () => panel.isOpen(), ctx.locale)
+  ctx.effect(() => () => {
+    try {
+      disposeEntry()
+    } catch {
+      // Entry row already gone (teardown race).
+    }
+    panel.dispose()
+  }, 'dsh-usage: sidebar panel')
 
   ctx.slots.inject('settings.section', () => {
     try {

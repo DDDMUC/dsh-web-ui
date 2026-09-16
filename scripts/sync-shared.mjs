@@ -47,6 +47,21 @@ const MANIFEST = [
     targets: SETTINGS_CARD_CONSUMERS.map(pkg => `packages/${pkg}/src/client/settings-card.module.css`),
   },
   {
+    // Family plugin-card seat: one card component, dispatched into whichever
+    // plugin-card seat the running host declares (the family group's list seat
+    // or the official keyed one), with the refusal logged instead of swallowed
+    // (issue #1589).
+    file: 'plugin-card-seat.ts',
+    source: 'shared/client/settings/plugin-card-seat.ts',
+    targets: [
+      'packages/dsh-remote-web-ui/src/client/plugin-card-seat.ts',
+      'packages/dsh-task-board/src/client/plugin-card-seat.ts',
+      'packages/dsh-tool-describe-image/src/client/plugin-card-seat.ts',
+      'packages/dsh-doctor/src/client/plugin-card-seat.ts',
+      'packages/dsh-liangshen/src/client/plugin-card-seat.ts',
+    ],
+  },
+  {
     file: 'poll-guard.ts',
     source: 'shared/host/poll-guard.ts',
     targets: [
@@ -149,7 +164,7 @@ const MANIFEST = [
   {
     file: 'pair-access.ts',
     source: 'shared/host/pair-access.ts',
-    targets: ['packages/dsh-git-graph/src/host/pair-access.ts', 'packages/dsh-pet/src/pair-access.ts', 'packages/dsh-skill-explorer/src/pair-access.ts'],
+    targets: ['packages/dsh-git-graph/src/host/pair-access.ts', 'packages/dsh-pet/src/pair-access.ts', 'packages/dsh-skill-explorer/src/pair-access.ts', 'packages/dsh-usage/src/host/pair-access.ts'],
   },
   {
     file: 'loopback.ts',
@@ -196,6 +211,7 @@ const MANIFEST = [
       'packages/dsh-ssh/src/client/body-mutations.ts',
       'packages/dsh-task-board/src/client/body-mutations.ts',
       'packages/dsh-skill-explorer/src/client/body-mutations.ts',
+      'packages/dsh-usage/src/client/body-mutations.ts',
       'packages/dsh-web-all/src/client/body-mutations.ts',
     ],
   },
@@ -206,6 +222,18 @@ const MANIFEST = [
       'packages/dsh-ssh/src/client/sidebar-entry-core.ts',
       'packages/dsh-task-board/src/client/sidebar-entry-core.ts',
       'packages/dsh-skill-explorer/src/client/sidebar-entry-core.ts',
+      'packages/dsh-usage/src/client/sidebar-entry-core.ts',
+    ],
+  },
+  {
+    // Child-process output capture: byte accumulation with a single decode so
+    // a Windows console's code page (CP936/GBK) never becomes replacement
+    // characters, and a character split across two `data` reads is restored.
+    file: 'console-output.ts',
+    source: 'shared/host/console-output.ts',
+    targets: [
+      'packages/dsh-plugin-manager/src/host/console-output.ts',
+      'packages/dsh-remote-web-ui/src/console-output.ts',
     ],
   },
   {

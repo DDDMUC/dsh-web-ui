@@ -61,7 +61,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-plugin-manager
 ## 已知限制
 
 - 仅限本机：LAN 或远程浏览器只显示「仅限本机操作」提示（与官方安装器 Tab 同一边界；网关对非 loopback 请求返回 403）。
-- npm 发布的官方 web 上，网关写入经官方 CLI 执行。网关先从 host 进程 PATH 解析 `dsh`，再从运行中 host 入口上层各项目根的 `node_modules/.bin` 回退查找，覆盖本地包装器与 npx 启动；两处都没有 CLI 时才不可写。git 源安装可能耗时数分钟，以后台任务运行。网关更新只适用于 npm registry 源，由 host 解析最新版本，且仅当同一已装包报告该精确版本时才算成功。
+- npm 发布的官方 web 上，网关写入经官方 CLI 执行。网关先从 host 进程 PATH 解析 `dsh`，再从运行中 host 入口上层各项目根的 `node_modules/.bin` 回退查找，最后回退到运行中 host 包自身的 `lib/bin.js`——覆盖本地包装器与 npx 启动，以及桌面安装包运行时（CLI 与 host 进程同处一树，且安装包会剥除所有 `.bin` shim 目录）；解析到的 `bin.js` 由 host 自身的 Node 解释器执行。全部来源都没有 CLI 时才不可写。CLI 输出按字节一次性解码，Windows 中文控制台（CP936/GBK）的报错文本可读而不再是替换字符。git 源安装可能耗时数分钟，以后台任务运行。网关更新只适用于 npm registry 源，由 host 解析最新版本，且仅当同一已装包报告该精确版本时才算成功。
 - 兼容性门禁只在目标清单声明了最低 DSH 版本时生效；未声明 `dsh.engines.dsh` 的包更新不被检查，官方安装器运行时（DSHCode 与 checkout 版 web）不经过本门禁（其更新走官方安装器）。
 - npm 发布的官方 web 没有启动失败环与安全模式：这两处界面降级为空，只有安装错误提供修复转交。
 - npm 运行时上的启停显示下次启动的真实生效值：profile 覆盖行优先，其次由所装 bundle 自带的 `disabled` 行决定（聚合包的按需开启家族），两层都未提及的行视为启用。开启一个被 bundle 停用的行会写入显式 `disabled: false` 覆盖行——只删除用户行只会退回 bundle 默认值；该运行时 loader 在下次启动时认读这些行，但这条路径不如官方桌面写入器经过充分锻炼。

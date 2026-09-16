@@ -32,6 +32,7 @@ import { installConversationImagePreview, type ConversationImagePreview } from '
 import { DescribeImageSettingsCard, DescribeImageSettingsCardController, type DescribeImageSettings } from './DescribeImageSettingsCard.tsx'
 import { dictionaries, setLanguage, type DescribeImageClientKey } from './locales.ts'
 import { reportDailyHeartbeat } from './telemetry.ts'
+import { installPluginCard } from './plugin-card-seat.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -144,23 +145,17 @@ export function apply(ctx: ClientContext): void {
       // Live toggle: re-scan (or restore) the moment a settings save settles.
       unsubscribeSettings = settingsScope.subscribe(() => previewRef?.refresh())
       const settingsCard = new DescribeImageSettingsCardController(settingsScope)
-      slots.inject('web-ui.plugin.item', () => {
-        try {
-          const unregister = slots.register({
-            name: 'web-ui.plugin.item',
-            id: 'describe-image',
-            order: 115,
-            locale: NS,
-            inject: () => settingsCard.inject(),
-          }, DescribeImageSettingsCard)
-          return () => {
-            settingsCard.dispose()
-            unregister()
-          }
-        } catch {
-          return () => {}
-        }
+      // Card seat: the family group's list seat, or the official keyed seat of
+      // the plugin-configuration tab when the group is not installed (issue #1589).
+      installPluginCard(settingsCtx, {
+        namespace: NS,
+        id: 'describe-image',
+        order: 115,
+        locale: NS,
+        inject: () => settingsCard.inject(),
+        component: DescribeImageSettingsCard,
       })
+      settingsCtx.effect(() => () => { settingsCard.dispose() }, 'describe-image: settings card')
     })
   })
 }

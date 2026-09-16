@@ -127,6 +127,7 @@ family / 插件区域：
 | `settings-row` | usage | 插件设置行；`[data-dsh-part="settings-row"]` |
 | `plan-card` / `plan-window` | usage | 套餐卡 / 套餐窗口行（个人套餐页签）；`[data-dsh-part="plan-card"]` 内窗口行 |
 | `bank-card` | usage | Token 银行卡（鲸元券，无官方用量时为空状态）；`[data-dsh-part="bank-card"]` |
+| `sidebar-panel` | usage | 侧栏用量面板（挂在 `[data-dsh-usage-entry]` 行的下一行，折叠时随面板隐藏）；面板内 provider 行 `[data-dsh-part="sidebar-provider"]`、窗口行 `[data-dsh-part="sidebar-window"]` |
 | `voucher-preview` | usage | 票面 canvas 容器；bank-card 内 `[data-dsh-part="voucher-preview"]` |
 | `panel` | model-capabilities | 提供方卡片能力扩展区根；`[data-dsh-plugin="model-capabilities"][data-dsh-part="panel"]` |
 | `toggle` | model-capabilities | 扩展区折叠头按钮；panel 内 `button[data-dsh-part="toggle"]` |
@@ -157,7 +158,7 @@ family / 插件区域：
 | `dsh-web-ui-market` | dsh-market | 创意工坊商店一级页（settings.section id `dsh-web-ui-market`），商店卡与目录条目容器 |
 | `skin-center` | skins/skin-center | 一级设置分区 settings.section id `skin-center`（列已安装皮肤，属内置源时显式标记） |
 | `session-id` | dsh-session-id | footer action slot entry id `session-id`；`[data-dsh-plugin="session-id"]`（面板 overlay 根 + 入口触发器） |
-| `usage` | dsh-usage | 一级设置分区 settings.section id `dsh-usage`（创意工坊下方）；`[data-dsh-plugin="usage"]` |
+| `usage` | dsh-usage | 一级设置分区 settings.section id `dsh-usage`（创意工坊下方）；`[data-dsh-plugin="usage"]`；侧栏入口 `[data-dsh-usage-entry]` 与面板根 `[data-dsh-usage-view]` |
 | `model-capabilities` | dsh-model-capabilities | Models 页 `settings.models.provider-card` keyed 槽 key `llm-pi-ai`（提供方卡片扩展区）+ `settings.models.footer` 槽 entry id `ui-model-capabilities`（存档区）；`[data-dsh-plugin="model-capabilities"]` |
 | `preset-center` | dsh-preset-center | 创意工坊卡片的「预设」标签页面板（`dsh-workshop.panel` keyed 槽 key `preset`）；`[data-dsh-plugin="preset-center"]` |
 | `liangshen` | dsh-liangshen | 首页输入框内的梁神模式拨杆；`[data-dsh-plugin="liangshen"][data-dsh-part="lever"]`，slot entry id `liangshen-lever` |

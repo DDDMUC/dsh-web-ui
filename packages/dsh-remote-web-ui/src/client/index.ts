@@ -39,6 +39,7 @@ import {
 import { FenceNotice } from './FenceNotice.tsx'
 import { reportDailyHeartbeat } from './telemetry.ts'
 import { startMobileAdapt, type RemoteAdaptGlobal } from './mobile-adapt.ts'
+import { installPluginCard } from './plugin-card-seat.ts'
 
 // Portrait-touch adaptation of the official UI: installed under the plugin
 // lifecycle (apply) so disabling the plugin in cordis patch (disabled: true)
@@ -232,25 +233,20 @@ export function apply(ctx: ClientContext): void {
   })
 
   // Plugin configuration card: one staged form over the `remote-web-ui`
-  // settings namespace, contributed to the Web UI plugin group.
+  // settings namespace, contributed to whichever plugin-card seat the running
+  // host declares (the family group's list seat, or the official keyed seat of
+  // the plugin-configuration tab when dsh-web-settings is not installed —
+  // issue #1589).
   const remoteSettings = new RemoteSettingsCardController(settingsScope)
-  ctx.slots.inject('web-ui.plugin.item', () => {
-    try {
-      const unregister = ctx.slots.register({
-        name: 'web-ui.plugin.item',
-        id: 'remote-web-ui',
-        order: 90,
-        locale: NS,
-        inject: () => remoteSettings.inject(),
-      }, RemoteSettingsCard)
-      return () => {
-        remoteSettings.dispose()
-        unregister()
-      }
-    } catch {
-      return () => {}
-    }
+  installPluginCard(ctx, {
+    namespace: REMOTE_WEB_UI_NS,
+    id: 'remote-web-ui',
+    order: 90,
+    locale: NS,
+    inject: () => remoteSettings.inject(),
+    component: RemoteSettingsCard,
   })
+  ctx.effect(() => () => { remoteSettings.dispose() }, 'remote-web-ui: settings card')
 
   // Phone-side boot flow + heartbeats. Loopback pages (the desktop) never
   // heartbeat; the server ignores unpaired heartbeats anyway. Both run only

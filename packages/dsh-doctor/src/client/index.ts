@@ -41,6 +41,7 @@ import {
 } from './DoctorSettingsCard.tsx'
 import { en, zh, type DoctorKey } from './locales.ts'
 import { reportDailyHeartbeat } from './telemetry.ts'
+import { installPluginCard } from './plugin-card-seat.ts'
 
 /** Locale namespace owned by this plugin. */
 export const NS = 'doctor'
@@ -149,35 +150,27 @@ export function apply(ctx: ClientContext): void {
     cardController = new DoctorSettingsCardController(scope)
   })
 
-  ctx.slots.inject('web-ui.plugin.item', () => {
-    const dispose = controller === undefined || cardController === undefined ? undefined : safeRegister(ctx, controller, cardController)
-    return () => { dispose?.() }
-  })
-}
-
-/** Register the card; returns the disposer or undefined on failure. */
-function safeRegister(
-  ctx: Parameters<typeof apply>[0],
-  controller: DoctorController,
-  cardController: DoctorSettingsCardController,
-): (() => void) | undefined {
-  try {
-    return ctx.slots.register({
-      name: 'web-ui.plugin.item',
+  // Locale label of the family list seat; the official keyed seat dispatches
+  // by settings namespace and carries no label (issue #1589).
+  const label = (): string => {
+    try {
+      return ctx.locale.bind(NS)('settings.title')
+    } catch {
+      return 'Doctor'
+    }
+  }
+  const card = cardController
+  const doctor = controller
+  if (doctor !== undefined && card !== undefined) {
+    installPluginCard(ctx, {
+      namespace: NS,
       id: NS,
       order: 140,
-      label: () => {
-        try {
-          return ctx.locale.bind(NS)('settings.title')
-        } catch {
-          return 'Doctor'
-        }
-      },
+      label,
       locale: NS,
-      inject: () => ({ ...cardController.inject(), controller }) satisfies DoctorSettingsCardFace,
-    }, DoctorSettingsCard)
-  } catch {
-    return undefined
+      inject: () => ({ ...card.inject(), controller: doctor }) satisfies DoctorSettingsCardFace,
+      component: DoctorSettingsCard,
+    })
   }
 }
 

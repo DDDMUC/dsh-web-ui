@@ -8713,10 +8713,10 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-task-board/src/client/body-mutations.ts
 		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
-		const HUB_KEY$3 = Symbol.for("dsh-web.body-mutation-hub");
-		const INVALIDATION_ONLY$3 = Symbol.for("dsh-web.body-mutation-invalidation");
-		function needsRecords$3(subscribers) {
-			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$3]) return true;
+		const HUB_KEY$4 = Symbol.for("dsh-web.body-mutation-hub");
+		const INVALIDATION_ONLY$4 = Symbol.for("dsh-web.body-mutation-invalidation");
+		function needsRecords$4(subscribers) {
+			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$4]) return true;
 			return false;
 		}
 		/**
@@ -8724,12 +8724,12 @@ window.__ModuleLoader__.load({
 		* The marked wrapper also works with an older hub, which delivers records
 		* that it simply ignores until a page reload picks up the updated hub.
 		*/
-		function subscribeBodyInvalidations$3(subscriber) {
+		function subscribeBodyInvalidations$4(subscriber) {
 			const listener = () => {
 				subscriber();
 			};
-			listener[INVALIDATION_ONLY$3] = true;
-			return subscribeBodyMutations$3(listener);
+			listener[INVALIDATION_ONLY$4] = true;
+			return subscribeBodyMutations$4(listener);
 		}
 		/**
 		* Subscribe to body-level childList mutations.
@@ -8738,11 +8738,11 @@ window.__ModuleLoader__.load({
 		* @returns the disposer removing this subscriber (and the observer when it was
 		*   the last one).
 		*/
-		function subscribeBodyMutations$3(subscriber) {
+		function subscribeBodyMutations$4(subscriber) {
 			if (typeof globalThis === "undefined" || typeof document === "undefined") return () => {};
 			if (typeof MutationObserver !== "function") return () => {};
 			const registry = globalThis;
-			let hub = registry[HUB_KEY$3];
+			let hub = registry[HUB_KEY$4];
 			if (hub === void 0) {
 				const subscribers = /* @__PURE__ */ new Set();
 				const created = {
@@ -8770,14 +8770,14 @@ window.__ModuleLoader__.load({
 					else flush();
 				};
 				created.observer = new MutationObserver((records) => {
-					if (needsRecords$3(subscribers)) for (const record of records) created.pending.push(record);
+					if (needsRecords$4(subscribers)) for (const record of records) created.pending.push(record);
 					schedule();
 				});
 				created.observer.observe(document.body ?? document.documentElement, {
 					childList: true,
 					subtree: true
 				});
-				registry[HUB_KEY$3] = created;
+				registry[HUB_KEY$4] = created;
 				hub = created;
 			}
 			const active = hub;
@@ -8787,14 +8787,14 @@ window.__ModuleLoader__.load({
 				if (!subscribed) return;
 				subscribed = false;
 				active.subscribers.delete(subscriber);
-				if (!needsRecords$3(active.subscribers)) active.pending = [];
-				if (active.subscribers.size === 0 && registry[HUB_KEY$3] === active) {
+				if (!needsRecords$4(active.subscribers)) active.pending = [];
+				if (active.subscribers.size === 0 && registry[HUB_KEY$4] === active) {
 					active.observer.disconnect();
 					if (active.frame !== void 0 && typeof cancelAnimationFrame === "function") cancelAnimationFrame(active.frame);
 					active.frame = void 0;
 					active.pending = [];
 					active.scheduled = false;
-					delete registry[HUB_KEY$3];
+					delete registry[HUB_KEY$4];
 				}
 			};
 		}
@@ -8862,7 +8862,7 @@ window.__ModuleLoader__.load({
 				root = (0, react_dom_client.createRoot)(container);
 				options.render(root);
 			};
-			const unsubscribeBody = subscribeBodyInvalidations$3(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$4(() => {
 				ensure();
 			});
 			const applyActive = () => {
@@ -8944,19 +8944,19 @@ window.__ModuleLoader__.load({
 		* edit the shared source and re-run the sync instead of editing a copy.
 		*/
 		/** Find the sidebar shell root element, or undefined while not yet mounted. */
-		function sidebarRoot$2() {
+		function sidebarRoot$3() {
 			const column = document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
 			if (column === null) return void 0;
 			return column.querySelector("[class*=\"logoRow\"]")?.parentElement ?? column.firstElementChild;
 		}
 		/** The New Session button: nested in the logo row on current shells, a direct child on legacy shells. */
-		function newSessionButton$2(root) {
+		function newSessionButton$3(root) {
 			const nested = root.querySelector("button[class*=\"newSession\"]");
 			if (nested !== null) return nested;
 			for (const child of root.children) if (child.tagName === "BUTTON") return child;
 		}
 		/** Build the entry row (a detached button; insert once the shell is up). */
-		function createEntry$2(options) {
+		function createEntry$3(options) {
 			const entry = document.createElement("button");
 			entry.type = "button";
 			entry.setAttribute(options.rowAttribute, "");
@@ -8984,8 +8984,8 @@ window.__ModuleLoader__.load({
 			};
 		}
 		/** Re-insert the entry after the New Session row (before the browser region). */
-		function placeEntry$2(root, entry, options) {
-			const button = newSessionButton$2(root);
+		function placeEntry$3(root, entry, options) {
+			const button = newSessionButton$3(root);
 			if (button === void 0) return false;
 			if (entry.parentElement !== root) {
 				const row = button.closest("[class*=\"logoRow\"]");
@@ -9002,9 +9002,9 @@ window.__ModuleLoader__.load({
 		* @param options - the row's attribute/icon/copy/action/ordering configuration.
 		* @returns disposer removing the entry and its observers.
 		*/
-		function mountSidebarEntry$5(options) {
+		function mountSidebarEntry$7(options) {
 			if (typeof document !== "undefined" && document.querySelector(options.rowSelector) !== null) return () => {};
-			const { entry, applyLabel } = createEntry$2(options);
+			const { entry, applyLabel } = createEntry$3(options);
 			let root;
 			let placed = false;
 			let unsubscribeRefresh;
@@ -9023,15 +9023,15 @@ window.__ModuleLoader__.load({
 					root = void 0;
 					placed = false;
 				}
-				root ??= sidebarRoot$2();
+				root ??= sidebarRoot$3();
 				if (root === void 0) return;
-				placed = placeEntry$2(root, entry, options);
+				placed = placeEntry$3(root, entry, options);
 				if (placed) rootObserver.observe(root, {
 					childList: true,
 					subtree: true
 				});
 			};
-			const unsubscribeBody = subscribeBodyInvalidations$3(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$4(() => {
 				tryPlace();
 			});
 			const rootObserver = new MutationObserver(() => {
@@ -9040,7 +9040,7 @@ window.__ModuleLoader__.load({
 					tryPlace();
 					return;
 				}
-				if (!root.contains(entry)) placed = placeEntry$2(root, entry, options);
+				if (!root.contains(entry)) placed = placeEntry$3(root, entry, options);
 			});
 			const unsubscribeActive = options.active === void 0 ? void 0 : (() => {
 				const syncActive = () => {
@@ -9063,9 +9063,9 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-task-board/src/client/sidebar-entry.ts
 		/** Stable data attribute identifying the injected entry row. */
-		const ENTRY_SELECTOR$2 = "[data-dsh-taskboard-entry]";
+		const ENTRY_SELECTOR$3 = "[data-dsh-taskboard-entry]";
 		/** Inline icon normalized to the shell's 18px navigation glyph size. */
-		const ICON$2 = "<svg viewBox=\"0 0 16 16\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"2\" y=\"2.5\" width=\"12\" height=\"11\" rx=\"1.5\"/><path d=\"M2 6.5h12M6.5 6.5v7\"/></svg>";
+		const ICON$3 = "<svg viewBox=\"0 0 16 16\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"2\" y=\"2.5\" width=\"12\" height=\"11\" rx=\"1.5\"/><path d=\"M2 6.5h12M6.5 6.5v7\"/></svg>";
 		/**
 		* Mount the sidebar entry, waiting for the shell to render and self-healing
 		* on later React re-renders.
@@ -9074,12 +9074,12 @@ window.__ModuleLoader__.load({
 		*   a Language switch (the plain-DOM row otherwise keeps the mount-time copy).
 		* @returns disposer removing the entry and its observers.
 		*/
-		function mountSidebarEntry$4(controller, locale) {
-			return mountSidebarEntry$5({
+		function mountSidebarEntry$6(controller, locale) {
+			return mountSidebarEntry$7({
 				rowAttribute: "data-dsh-taskboard-entry",
-				rowSelector: ENTRY_SELECTOR$2,
+				rowSelector: ENTRY_SELECTOR$3,
 				plugin: "task-board",
-				icon: ICON$2,
+				icon: ICON$3,
 				css: board_module_css_default,
 				label: () => t$6("entry.label"),
 				refresh: locale === void 0 ? void 0 : { subscribe: (listener) => locale.subscribe(listener) },
@@ -10172,6 +10172,66 @@ window.__ModuleLoader__.load({
 			} catch {}
 		}
 		//#endregion
+		//#region ../dsh-task-board/src/client/plugin-card-seat.ts
+		/** Whether the running host declares the official keyed plugin-card seat. */
+		function officialPluginCardSeatDeclared$4(ctx) {
+			const spec = ctx.slots.spec;
+			if (typeof spec !== "function") return false;
+			try {
+				return spec.call(ctx.slots, "settings.plugin.item") !== void 0;
+			} catch {
+				return false;
+			}
+		}
+		/** Report a refused registration instead of leaving the user with no card. */
+		function warnRefusedSeat$4(seat, error) {
+			try {
+				console.warn(`[dsh-web] plugin card registration into "${seat}" was refused; the card will not render`, error);
+			} catch {}
+		}
+		/**
+		* Contribute one family plugin card to the seat this host declares.
+		* @param ctx - client context (its slot registry decides the seat).
+		* @param seat - the card contribution.
+		*/
+		function installPluginCard$4(ctx, seat) {
+			const slots = ctx.slots;
+			const component = seat.component;
+			if (officialPluginCardSeatDeclared$4(ctx)) {
+				const inject = seat.inject;
+				slots.inject("settings.plugin.item", () => {
+					try {
+						return slots.register({
+							name: "settings.plugin.item",
+							key: seat.namespace,
+							locale: seat.locale,
+							...seat.inject === void 0 ? {} : { inject }
+						}, component);
+					} catch (error) {
+						warnRefusedSeat$4("settings.plugin.item", error);
+						return () => {};
+					}
+				});
+				return;
+			}
+			const inject = seat.inject;
+			slots.inject("web-ui.plugin.item", () => {
+				try {
+					return slots.register({
+						name: "web-ui.plugin.item",
+						id: seat.id,
+						...seat.order === void 0 ? {} : { order: seat.order },
+						...seat.label === void 0 ? {} : { label: seat.label },
+						locale: seat.locale,
+						...seat.inject === void 0 ? {} : { inject }
+					}, component);
+				} catch (error) {
+					warnRefusedSeat$4("web-ui.plugin.item", error);
+					return () => {};
+				}
+			});
+		}
+		//#endregion
 		//#region ../dsh-task-board/src/client/index.ts
 		var client_exports$13 = /* @__PURE__ */ __exportAll({
 			apply: () => apply$14,
@@ -10222,23 +10282,17 @@ window.__ModuleLoader__.load({
 			} catch {}
 			const settingsScope = (ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: TASK_BOARD_NS });
 			const settingsCard = new TaskBoardSettingsCardController(settingsScope);
-			ctx.slots.inject("web-ui.plugin.item", () => {
-				try {
-					const unregister = ctx.slots.register({
-						name: "web-ui.plugin.item",
-						id: "task-board",
-						order: 110,
-						locale: NS$12,
-						inject: () => settingsCard.inject()
-					}, TaskBoardSettingsCard);
-					return () => {
-						settingsCard.dispose();
-						unregister();
-					};
-				} catch {
-					return () => {};
-				}
+			installPluginCard$4(ctx, {
+				namespace: TASK_BOARD_NS,
+				id: "task-board",
+				order: 110,
+				locale: NS$12,
+				inject: () => settingsCard.inject(),
+				component: TaskBoardSettingsCard
 			});
+			ctx.effect(() => () => {
+				settingsCard.dispose();
+			}, "task-board: settings card");
 			let uiDisposer;
 			const mountUi = () => {
 				if (uiDisposer !== void 0) return;
@@ -10327,7 +10381,7 @@ window.__ModuleLoader__.load({
 					pushModelOptions();
 				}));
 				try {
-					disposers.push(mountSidebarEntry$4(controller, ctx.locale));
+					disposers.push(mountSidebarEntry$6(controller, ctx.locale));
 					disposers.push(mountBoard(controller, ctx.locale));
 				} catch (error) {
 					console.error("[dsh-task-board] mount failed:", error);
@@ -17682,6 +17736,66 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
+		//#region ../dsh-remote-web-ui/src/client/plugin-card-seat.ts
+		/** Whether the running host declares the official keyed plugin-card seat. */
+		function officialPluginCardSeatDeclared$3(ctx) {
+			const spec = ctx.slots.spec;
+			if (typeof spec !== "function") return false;
+			try {
+				return spec.call(ctx.slots, "settings.plugin.item") !== void 0;
+			} catch {
+				return false;
+			}
+		}
+		/** Report a refused registration instead of leaving the user with no card. */
+		function warnRefusedSeat$3(seat, error) {
+			try {
+				console.warn(`[dsh-web] plugin card registration into "${seat}" was refused; the card will not render`, error);
+			} catch {}
+		}
+		/**
+		* Contribute one family plugin card to the seat this host declares.
+		* @param ctx - client context (its slot registry decides the seat).
+		* @param seat - the card contribution.
+		*/
+		function installPluginCard$3(ctx, seat) {
+			const slots = ctx.slots;
+			const component = seat.component;
+			if (officialPluginCardSeatDeclared$3(ctx)) {
+				const inject = seat.inject;
+				slots.inject("settings.plugin.item", () => {
+					try {
+						return slots.register({
+							name: "settings.plugin.item",
+							key: seat.namespace,
+							locale: seat.locale,
+							...seat.inject === void 0 ? {} : { inject }
+						}, component);
+					} catch (error) {
+						warnRefusedSeat$3("settings.plugin.item", error);
+						return () => {};
+					}
+				});
+				return;
+			}
+			const inject = seat.inject;
+			slots.inject("web-ui.plugin.item", () => {
+				try {
+					return slots.register({
+						name: "web-ui.plugin.item",
+						id: seat.id,
+						...seat.order === void 0 ? {} : { order: seat.order },
+						...seat.label === void 0 ? {} : { label: seat.label },
+						locale: seat.locale,
+						...seat.inject === void 0 ? {} : { inject }
+					}, component);
+				} catch (error) {
+					warnRefusedSeat$3("web-ui.plugin.item", error);
+					return () => {};
+				}
+			});
+		}
+		//#endregion
 		//#region ../dsh-remote-web-ui/src/client/index.ts
 		/**
 		* Remote control — browser half. Registers the `remote` dictionaries, the
@@ -17786,23 +17900,17 @@ window.__ModuleLoader__.load({
 				};
 			});
 			const remoteSettings = new RemoteSettingsCardController(settingsScope);
-			ctx.slots.inject("web-ui.plugin.item", () => {
-				try {
-					const unregister = ctx.slots.register({
-						name: "web-ui.plugin.item",
-						id: "remote-web-ui",
-						order: 90,
-						locale: NS$10,
-						inject: () => remoteSettings.inject()
-					}, RemoteSettingsCard);
-					return () => {
-						remoteSettings.dispose();
-						unregister();
-					};
-				} catch {
-					return () => {};
-				}
+			installPluginCard$3(ctx, {
+				namespace: REMOTE_WEB_UI_NS,
+				id: "remote-web-ui",
+				order: 90,
+				locale: NS$10,
+				inject: () => remoteSettings.inject(),
+				component: RemoteSettingsCard
 			});
+			ctx.effect(() => () => {
+				remoteSettings.dispose();
+			}, "remote-web-ui: settings card");
 			let disposeRuntime;
 			const syncRuntime = () => {
 				if (enabled() && disposeRuntime === void 0) disposeRuntime = ctx.effect(() => {
@@ -37961,10 +38069,10 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-ssh/src/client/body-mutations.ts
 		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
-		const HUB_KEY$2 = Symbol.for("dsh-web.body-mutation-hub");
-		const INVALIDATION_ONLY$2 = Symbol.for("dsh-web.body-mutation-invalidation");
-		function needsRecords$2(subscribers) {
-			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$2]) return true;
+		const HUB_KEY$3 = Symbol.for("dsh-web.body-mutation-hub");
+		const INVALIDATION_ONLY$3 = Symbol.for("dsh-web.body-mutation-invalidation");
+		function needsRecords$3(subscribers) {
+			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$3]) return true;
 			return false;
 		}
 		/**
@@ -37972,12 +38080,12 @@ window.__ModuleLoader__.load({
 		* The marked wrapper also works with an older hub, which delivers records
 		* that it simply ignores until a page reload picks up the updated hub.
 		*/
-		function subscribeBodyInvalidations$2(subscriber) {
+		function subscribeBodyInvalidations$3(subscriber) {
 			const listener = () => {
 				subscriber();
 			};
-			listener[INVALIDATION_ONLY$2] = true;
-			return subscribeBodyMutations$2(listener);
+			listener[INVALIDATION_ONLY$3] = true;
+			return subscribeBodyMutations$3(listener);
 		}
 		/**
 		* Subscribe to body-level childList mutations.
@@ -37986,11 +38094,11 @@ window.__ModuleLoader__.load({
 		* @returns the disposer removing this subscriber (and the observer when it was
 		*   the last one).
 		*/
-		function subscribeBodyMutations$2(subscriber) {
+		function subscribeBodyMutations$3(subscriber) {
 			if (typeof globalThis === "undefined" || typeof document === "undefined") return () => {};
 			if (typeof MutationObserver !== "function") return () => {};
 			const registry = globalThis;
-			let hub = registry[HUB_KEY$2];
+			let hub = registry[HUB_KEY$3];
 			if (hub === void 0) {
 				const subscribers = /* @__PURE__ */ new Set();
 				const created = {
@@ -38018,14 +38126,14 @@ window.__ModuleLoader__.load({
 					else flush();
 				};
 				created.observer = new MutationObserver((records) => {
-					if (needsRecords$2(subscribers)) for (const record of records) created.pending.push(record);
+					if (needsRecords$3(subscribers)) for (const record of records) created.pending.push(record);
 					schedule();
 				});
 				created.observer.observe(document.body ?? document.documentElement, {
 					childList: true,
 					subtree: true
 				});
-				registry[HUB_KEY$2] = created;
+				registry[HUB_KEY$3] = created;
 				hub = created;
 			}
 			const active = hub;
@@ -38035,14 +38143,14 @@ window.__ModuleLoader__.load({
 				if (!subscribed) return;
 				subscribed = false;
 				active.subscribers.delete(subscriber);
-				if (!needsRecords$2(active.subscribers)) active.pending = [];
-				if (active.subscribers.size === 0 && registry[HUB_KEY$2] === active) {
+				if (!needsRecords$3(active.subscribers)) active.pending = [];
+				if (active.subscribers.size === 0 && registry[HUB_KEY$3] === active) {
 					active.observer.disconnect();
 					if (active.frame !== void 0 && typeof cancelAnimationFrame === "function") cancelAnimationFrame(active.frame);
 					active.frame = void 0;
 					active.pending = [];
 					active.scheduled = false;
-					delete registry[HUB_KEY$2];
+					delete registry[HUB_KEY$3];
 				}
 			};
 		}
@@ -38110,7 +38218,7 @@ window.__ModuleLoader__.load({
 				root = (0, react_dom_client.createRoot)(container);
 				options.render(root);
 			};
-			const unsubscribeBody = subscribeBodyInvalidations$2(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$3(() => {
 				ensure();
 			});
 			const applyActive = () => {
@@ -38231,19 +38339,19 @@ window.__ModuleLoader__.load({
 		* edit the shared source and re-run the sync instead of editing a copy.
 		*/
 		/** Find the sidebar shell root element, or undefined while not yet mounted. */
-		function sidebarRoot$1() {
+		function sidebarRoot$2() {
 			const column = document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
 			if (column === null) return void 0;
 			return column.querySelector("[class*=\"logoRow\"]")?.parentElement ?? column.firstElementChild;
 		}
 		/** The New Session button: nested in the logo row on current shells, a direct child on legacy shells. */
-		function newSessionButton$1(root) {
+		function newSessionButton$2(root) {
 			const nested = root.querySelector("button[class*=\"newSession\"]");
 			if (nested !== null) return nested;
 			for (const child of root.children) if (child.tagName === "BUTTON") return child;
 		}
 		/** Build the entry row (a detached button; insert once the shell is up). */
-		function createEntry$1(options) {
+		function createEntry$2(options) {
 			const entry = document.createElement("button");
 			entry.type = "button";
 			entry.setAttribute(options.rowAttribute, "");
@@ -38271,8 +38379,8 @@ window.__ModuleLoader__.load({
 			};
 		}
 		/** Re-insert the entry after the New Session row (before the browser region). */
-		function placeEntry$1(root, entry, options) {
-			const button = newSessionButton$1(root);
+		function placeEntry$2(root, entry, options) {
+			const button = newSessionButton$2(root);
 			if (button === void 0) return false;
 			if (entry.parentElement !== root) {
 				const row = button.closest("[class*=\"logoRow\"]");
@@ -38289,9 +38397,9 @@ window.__ModuleLoader__.load({
 		* @param options - the row's attribute/icon/copy/action/ordering configuration.
 		* @returns disposer removing the entry and its observers.
 		*/
-		function mountSidebarEntry$3(options) {
+		function mountSidebarEntry$5(options) {
 			if (typeof document !== "undefined" && document.querySelector(options.rowSelector) !== null) return () => {};
-			const { entry, applyLabel } = createEntry$1(options);
+			const { entry, applyLabel } = createEntry$2(options);
 			let root;
 			let placed = false;
 			let unsubscribeRefresh;
@@ -38310,15 +38418,15 @@ window.__ModuleLoader__.load({
 					root = void 0;
 					placed = false;
 				}
-				root ??= sidebarRoot$1();
+				root ??= sidebarRoot$2();
 				if (root === void 0) return;
-				placed = placeEntry$1(root, entry, options);
+				placed = placeEntry$2(root, entry, options);
 				if (placed) rootObserver.observe(root, {
 					childList: true,
 					subtree: true
 				});
 			};
-			const unsubscribeBody = subscribeBodyInvalidations$2(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$3(() => {
 				tryPlace();
 			});
 			const rootObserver = new MutationObserver(() => {
@@ -38327,7 +38435,7 @@ window.__ModuleLoader__.load({
 					tryPlace();
 					return;
 				}
-				if (!root.contains(entry)) placed = placeEntry$1(root, entry, options);
+				if (!root.contains(entry)) placed = placeEntry$2(root, entry, options);
 			});
 			const unsubscribeActive = options.active === void 0 ? void 0 : (() => {
 				const syncActive = () => {
@@ -38350,9 +38458,9 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-ssh/src/client/sidebar-entry.ts
 		/** Stable data attribute identifying the injected entry row. */
-		const ENTRY_SELECTOR$1 = "[data-dsh-ssh-entry]";
+		const ENTRY_SELECTOR$2 = "[data-dsh-ssh-entry]";
 		/** Inline terminal glyph sized to the shell's current sidebar navigation icons. */
-		const ICON$1 = "<svg viewBox=\"0 0 16 16\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"1.75\" y=\"2.25\" width=\"12.5\" height=\"11.5\" rx=\"1.75\"/><path d=\"M4.25 5.25l2.75 2.75-2.75 2.75\"/><path d=\"M8.5 10.75h3.25\"/></svg>";
+		const ICON$2 = "<svg viewBox=\"0 0 16 16\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"1.75\" y=\"2.25\" width=\"12.5\" height=\"11.5\" rx=\"1.75\"/><path d=\"M4.25 5.25l2.75 2.75-2.75 2.75\"/><path d=\"M8.5 10.75h3.25\"/></svg>";
 		/**
 		* Mount the sidebar entry, waiting for the shell to render and self-healing
 		* on later React re-renders.
@@ -38361,12 +38469,12 @@ window.__ModuleLoader__.load({
 		*   a Language switch (the plain-DOM row otherwise keeps the mount-time copy).
 		* @returns disposer removing the entry and its observers.
 		*/
-		function mountSidebarEntry$2(controller, locale) {
-			return mountSidebarEntry$3({
+		function mountSidebarEntry$4(controller, locale) {
+			return mountSidebarEntry$5({
 				rowAttribute: "data-dsh-ssh-entry",
-				rowSelector: ENTRY_SELECTOR$1,
+				rowSelector: ENTRY_SELECTOR$2,
 				plugin: "ssh",
-				icon: ICON$1,
+				icon: ICON$2,
 				css: panel_module_css_default,
 				label: () => tt$1("entry.label"),
 				tooltip: () => tt$1("entry.tooltip"),
@@ -38499,7 +38607,7 @@ window.__ModuleLoader__.load({
 			};
 			const disposers = [];
 			try {
-				disposers.push(mountSidebarEntry$2(controller, ctx.locale));
+				disposers.push(mountSidebarEntry$4(controller, ctx.locale));
 				disposers.push(mountPanel$1(controller, api, terminalFont, ctx.locale));
 			} catch (error) {
 				console.warn("[dsh-ssh] mount failed:", error);
@@ -40884,6 +40992,66 @@ window.__ModuleLoader__.load({
 			} catch {}
 		}
 		//#endregion
+		//#region ../dsh-tool-describe-image/src/client/plugin-card-seat.ts
+		/** Whether the running host declares the official keyed plugin-card seat. */
+		function officialPluginCardSeatDeclared$2(ctx) {
+			const spec = ctx.slots.spec;
+			if (typeof spec !== "function") return false;
+			try {
+				return spec.call(ctx.slots, "settings.plugin.item") !== void 0;
+			} catch {
+				return false;
+			}
+		}
+		/** Report a refused registration instead of leaving the user with no card. */
+		function warnRefusedSeat$2(seat, error) {
+			try {
+				console.warn(`[dsh-web] plugin card registration into "${seat}" was refused; the card will not render`, error);
+			} catch {}
+		}
+		/**
+		* Contribute one family plugin card to the seat this host declares.
+		* @param ctx - client context (its slot registry decides the seat).
+		* @param seat - the card contribution.
+		*/
+		function installPluginCard$2(ctx, seat) {
+			const slots = ctx.slots;
+			const component = seat.component;
+			if (officialPluginCardSeatDeclared$2(ctx)) {
+				const inject = seat.inject;
+				slots.inject("settings.plugin.item", () => {
+					try {
+						return slots.register({
+							name: "settings.plugin.item",
+							key: seat.namespace,
+							locale: seat.locale,
+							...seat.inject === void 0 ? {} : { inject }
+						}, component);
+					} catch (error) {
+						warnRefusedSeat$2("settings.plugin.item", error);
+						return () => {};
+					}
+				});
+				return;
+			}
+			const inject = seat.inject;
+			slots.inject("web-ui.plugin.item", () => {
+				try {
+					return slots.register({
+						name: "web-ui.plugin.item",
+						id: seat.id,
+						...seat.order === void 0 ? {} : { order: seat.order },
+						...seat.label === void 0 ? {} : { label: seat.label },
+						locale: seat.locale,
+						...seat.inject === void 0 ? {} : { inject }
+					}, component);
+				} catch (error) {
+					warnRefusedSeat$2("web-ui.plugin.item", error);
+					return () => {};
+				}
+			});
+		}
+		//#endregion
 		//#region ../dsh-tool-describe-image/src/client/index.ts
 		var client_exports$8 = /* @__PURE__ */ __exportAll({
 			NS: () => NS$8,
@@ -40924,7 +41092,7 @@ window.__ModuleLoader__.load({
 			}, "dsh-tool-describe-image: language mirror");
 			ctx.inject(["slots", "conversation"], (scope) => {
 				const conversation = scope.conversation;
-				const slots = scope.slots;
+				scope.slots;
 				let settingsScopeRef;
 				let unsubscribeSettings;
 				installSendHook(conversation, () => settingsScopeRef?.getSnapshot().value?.interceptImageSend !== false, createImageCapabilityChecker());
@@ -40946,23 +41114,17 @@ window.__ModuleLoader__.load({
 					settingsScopeRef = settingsScope;
 					unsubscribeSettings = settingsScope.subscribe(() => previewRef?.refresh());
 					const settingsCard = new DescribeImageSettingsCardController(settingsScope);
-					slots.inject("web-ui.plugin.item", () => {
-						try {
-							const unregister = slots.register({
-								name: "web-ui.plugin.item",
-								id: "describe-image",
-								order: 115,
-								locale: NS$8,
-								inject: () => settingsCard.inject()
-							}, DescribeImageSettingsCard);
-							return () => {
-								settingsCard.dispose();
-								unregister();
-							};
-						} catch {
-							return () => {};
-						}
+					installPluginCard$2(settingsCtx, {
+						namespace: NS$8,
+						id: "describe-image",
+						order: 115,
+						locale: NS$8,
+						inject: () => settingsCard.inject(),
+						component: DescribeImageSettingsCard
 					});
+					settingsCtx.effect(() => () => {
+						settingsCard.dispose();
+					}, "describe-image: settings card");
 				});
 			});
 		}
@@ -42521,6 +42683,66 @@ window.__ModuleLoader__.load({
 			"effort.max": "max (deepest)"
 		};
 		//#endregion
+		//#region ../dsh-liangshen/src/client/plugin-card-seat.ts
+		/** Whether the running host declares the official keyed plugin-card seat. */
+		function officialPluginCardSeatDeclared$1(ctx) {
+			const spec = ctx.slots.spec;
+			if (typeof spec !== "function") return false;
+			try {
+				return spec.call(ctx.slots, "settings.plugin.item") !== void 0;
+			} catch {
+				return false;
+			}
+		}
+		/** Report a refused registration instead of leaving the user with no card. */
+		function warnRefusedSeat$1(seat, error) {
+			try {
+				console.warn(`[dsh-web] plugin card registration into "${seat}" was refused; the card will not render`, error);
+			} catch {}
+		}
+		/**
+		* Contribute one family plugin card to the seat this host declares.
+		* @param ctx - client context (its slot registry decides the seat).
+		* @param seat - the card contribution.
+		*/
+		function installPluginCard$1(ctx, seat) {
+			const slots = ctx.slots;
+			const component = seat.component;
+			if (officialPluginCardSeatDeclared$1(ctx)) {
+				const inject = seat.inject;
+				slots.inject("settings.plugin.item", () => {
+					try {
+						return slots.register({
+							name: "settings.plugin.item",
+							key: seat.namespace,
+							locale: seat.locale,
+							...seat.inject === void 0 ? {} : { inject }
+						}, component);
+					} catch (error) {
+						warnRefusedSeat$1("settings.plugin.item", error);
+						return () => {};
+					}
+				});
+				return;
+			}
+			const inject = seat.inject;
+			slots.inject("web-ui.plugin.item", () => {
+				try {
+					return slots.register({
+						name: "web-ui.plugin.item",
+						id: seat.id,
+						...seat.order === void 0 ? {} : { order: seat.order },
+						...seat.label === void 0 ? {} : { label: seat.label },
+						locale: seat.locale,
+						...seat.inject === void 0 ? {} : { inject }
+					}, component);
+				} catch (error) {
+					warnRefusedSeat$1("web-ui.plugin.item", error);
+					return () => {};
+				}
+			});
+		}
+		//#endregion
 		//#region ../dsh-liangshen/src/client/index.ts
 		var client_exports$7 = /* @__PURE__ */ __exportAll({
 			LIANGSHEN_PRESET_ID: () => LIANGSHEN_PRESET_ID,
@@ -42574,23 +42796,17 @@ window.__ModuleLoader__.load({
 			} catch {}
 			try {
 				const settingsCard = new LiangShenSettingsCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: SETTINGS_NAMESPACE }));
-				ctx.slots.inject("web-ui.plugin.item", () => {
-					try {
-						const unregister = ctx.slots.register({
-							name: "web-ui.plugin.item",
-							id: "liangshen",
-							order: 120,
-							locale: NS$7,
-							inject: () => settingsCard.inject()
-						}, LiangShenSettingsCard);
-						return () => {
-							settingsCard.dispose();
-							unregister();
-						};
-					} catch {
-						return () => {};
-					}
+				installPluginCard$1(ctx, {
+					namespace: SETTINGS_NAMESPACE,
+					id: "liangshen",
+					order: 120,
+					locale: NS$7,
+					inject: () => settingsCard.inject(),
+					component: LiangShenSettingsCard
 				});
+				ctx.effect(() => () => {
+					settingsCard.dispose();
+				}, "liangshen: settings card");
 			} catch {}
 			ctx.slots.inject("conversation.input.right", () => {
 				try {
@@ -43498,10 +43714,10 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-skill-explorer/src/client/body-mutations.ts
 		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
-		const HUB_KEY$1 = Symbol.for("dsh-web.body-mutation-hub");
-		const INVALIDATION_ONLY$1 = Symbol.for("dsh-web.body-mutation-invalidation");
-		function needsRecords$1(subscribers) {
-			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$1]) return true;
+		const HUB_KEY$2 = Symbol.for("dsh-web.body-mutation-hub");
+		const INVALIDATION_ONLY$2 = Symbol.for("dsh-web.body-mutation-invalidation");
+		function needsRecords$2(subscribers) {
+			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$2]) return true;
 			return false;
 		}
 		/**
@@ -43509,12 +43725,12 @@ window.__ModuleLoader__.load({
 		* The marked wrapper also works with an older hub, which delivers records
 		* that it simply ignores until a page reload picks up the updated hub.
 		*/
-		function subscribeBodyInvalidations$1(subscriber) {
+		function subscribeBodyInvalidations$2(subscriber) {
 			const listener = () => {
 				subscriber();
 			};
-			listener[INVALIDATION_ONLY$1] = true;
-			return subscribeBodyMutations$1(listener);
+			listener[INVALIDATION_ONLY$2] = true;
+			return subscribeBodyMutations$2(listener);
 		}
 		/**
 		* Subscribe to body-level childList mutations.
@@ -43523,11 +43739,11 @@ window.__ModuleLoader__.load({
 		* @returns the disposer removing this subscriber (and the observer when it was
 		*   the last one).
 		*/
-		function subscribeBodyMutations$1(subscriber) {
+		function subscribeBodyMutations$2(subscriber) {
 			if (typeof globalThis === "undefined" || typeof document === "undefined") return () => {};
 			if (typeof MutationObserver !== "function") return () => {};
 			const registry = globalThis;
-			let hub = registry[HUB_KEY$1];
+			let hub = registry[HUB_KEY$2];
 			if (hub === void 0) {
 				const subscribers = /* @__PURE__ */ new Set();
 				const created = {
@@ -43555,14 +43771,14 @@ window.__ModuleLoader__.load({
 					else flush();
 				};
 				created.observer = new MutationObserver((records) => {
-					if (needsRecords$1(subscribers)) for (const record of records) created.pending.push(record);
+					if (needsRecords$2(subscribers)) for (const record of records) created.pending.push(record);
 					schedule();
 				});
 				created.observer.observe(document.body ?? document.documentElement, {
 					childList: true,
 					subtree: true
 				});
-				registry[HUB_KEY$1] = created;
+				registry[HUB_KEY$2] = created;
 				hub = created;
 			}
 			const active = hub;
@@ -43572,14 +43788,14 @@ window.__ModuleLoader__.load({
 				if (!subscribed) return;
 				subscribed = false;
 				active.subscribers.delete(subscriber);
-				if (!needsRecords$1(active.subscribers)) active.pending = [];
-				if (active.subscribers.size === 0 && registry[HUB_KEY$1] === active) {
+				if (!needsRecords$2(active.subscribers)) active.pending = [];
+				if (active.subscribers.size === 0 && registry[HUB_KEY$2] === active) {
 					active.observer.disconnect();
 					if (active.frame !== void 0 && typeof cancelAnimationFrame === "function") cancelAnimationFrame(active.frame);
 					active.frame = void 0;
 					active.pending = [];
 					active.scheduled = false;
-					delete registry[HUB_KEY$1];
+					delete registry[HUB_KEY$2];
 				}
 			};
 		}
@@ -43601,19 +43817,19 @@ window.__ModuleLoader__.load({
 		* edit the shared source and re-run the sync instead of editing a copy.
 		*/
 		/** Find the sidebar shell root element, or undefined while not yet mounted. */
-		function sidebarRoot() {
+		function sidebarRoot$1() {
 			const column = document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
 			if (column === null) return void 0;
 			return column.querySelector("[class*=\"logoRow\"]")?.parentElement ?? column.firstElementChild;
 		}
 		/** The New Session button: nested in the logo row on current shells, a direct child on legacy shells. */
-		function newSessionButton(root) {
+		function newSessionButton$1(root) {
 			const nested = root.querySelector("button[class*=\"newSession\"]");
 			if (nested !== null) return nested;
 			for (const child of root.children) if (child.tagName === "BUTTON") return child;
 		}
 		/** Build the entry row (a detached button; insert once the shell is up). */
-		function createEntry(options) {
+		function createEntry$1(options) {
 			const entry = document.createElement("button");
 			entry.type = "button";
 			entry.setAttribute(options.rowAttribute, "");
@@ -43641,8 +43857,8 @@ window.__ModuleLoader__.load({
 			};
 		}
 		/** Re-insert the entry after the New Session row (before the browser region). */
-		function placeEntry(root, entry, options) {
-			const button = newSessionButton(root);
+		function placeEntry$1(root, entry, options) {
+			const button = newSessionButton$1(root);
 			if (button === void 0) return false;
 			if (entry.parentElement !== root) {
 				const row = button.closest("[class*=\"logoRow\"]");
@@ -43659,9 +43875,9 @@ window.__ModuleLoader__.load({
 		* @param options - the row's attribute/icon/copy/action/ordering configuration.
 		* @returns disposer removing the entry and its observers.
 		*/
-		function mountSidebarEntry$1(options) {
+		function mountSidebarEntry$3(options) {
 			if (typeof document !== "undefined" && document.querySelector(options.rowSelector) !== null) return () => {};
-			const { entry, applyLabel } = createEntry(options);
+			const { entry, applyLabel } = createEntry$1(options);
 			let root;
 			let placed = false;
 			let unsubscribeRefresh;
@@ -43680,15 +43896,15 @@ window.__ModuleLoader__.load({
 					root = void 0;
 					placed = false;
 				}
-				root ??= sidebarRoot();
+				root ??= sidebarRoot$1();
 				if (root === void 0) return;
-				placed = placeEntry(root, entry, options);
+				placed = placeEntry$1(root, entry, options);
 				if (placed) rootObserver.observe(root, {
 					childList: true,
 					subtree: true
 				});
 			};
-			const unsubscribeBody = subscribeBodyInvalidations$1(() => {
+			const unsubscribeBody = subscribeBodyInvalidations$2(() => {
 				tryPlace();
 			});
 			const rootObserver = new MutationObserver(() => {
@@ -43697,7 +43913,7 @@ window.__ModuleLoader__.load({
 					tryPlace();
 					return;
 				}
-				if (!root.contains(entry)) placed = placeEntry(root, entry, options);
+				if (!root.contains(entry)) placed = placeEntry$1(root, entry, options);
 			});
 			const unsubscribeActive = options.active === void 0 ? void 0 : (() => {
 				const syncActive = () => {
@@ -43732,9 +43948,9 @@ window.__ModuleLoader__.load({
 		* the skill center overlay (see SkillPanel.tsx).
 		*/
 		/** Stable data attribute identifying the injected entry row. */
-		const ENTRY_SELECTOR = "[data-dsh-skill-explorer-entry]";
+		const ENTRY_SELECTOR$1 = "[data-dsh-skill-explorer-entry]";
 		/** Inline book icon normalized to the shell's 18px navigation glyph size. */
-		const ICON = "<svg viewBox=\"0 0 16 16\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M8 3.2C6.6 2 4.5 2 3 2v10.5c1.5 0 3.6 0 5 1.3 1.4-1.3 3.5-1.3 5-1.3V2c-1.5 0-3.6 0-5 1.2z\"/><path d=\"M8 3.2v10.6\"/></svg>";
+		const ICON$1 = "<svg viewBox=\"0 0 16 16\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M8 3.2C6.6 2 4.5 2 3 2v10.5c1.5 0 3.6 0 5 1.3 1.4-1.3 3.5-1.3 5-1.3V2c-1.5 0-3.6 0-5 1.2z\"/><path d=\"M8 3.2v10.6\"/></svg>";
 		/**
 		* Mount the sidebar entry, waiting for the shell to render and self-healing
 		* on later React re-renders.
@@ -43743,12 +43959,12 @@ window.__ModuleLoader__.load({
 		*   a Language switch (the plain-DOM row otherwise keeps the mount-time copy).
 		* @returns disposer removing the entry and its observers.
 		*/
-		function mountSidebarEntry(onClick, locale) {
-			return mountSidebarEntry$1({
+		function mountSidebarEntry$2(onClick, locale) {
+			return mountSidebarEntry$3({
 				rowAttribute: "data-dsh-skill-explorer-entry",
-				rowSelector: ENTRY_SELECTOR,
+				rowSelector: ENTRY_SELECTOR$1,
 				plugin: "skill-explorer",
-				icon: ICON,
+				icon: ICON$1,
 				css: skill_panel_module_css_default,
 				label: () => tt("entry.label"),
 				tooltip: () => tt("entry.tooltip"),
@@ -43864,7 +44080,7 @@ window.__ModuleLoader__.load({
 			const panel = mountPanel(new SkillApi(), ctx.locale);
 			const disposers = [];
 			try {
-				disposers.push(mountSidebarEntry(() => panel.toggle(), ctx.locale));
+				disposers.push(mountSidebarEntry$2(() => panel.toggle(), ctx.locale));
 				disposers.push(() => panel.dispose());
 			} catch (error) {
 				console.warn("[skill-explorer] mount failed:", error);
@@ -47229,6 +47445,66 @@ window.__ModuleLoader__.load({
 			} catch {}
 		}
 		//#endregion
+		//#region ../dsh-doctor/src/client/plugin-card-seat.ts
+		/** Whether the running host declares the official keyed plugin-card seat. */
+		function officialPluginCardSeatDeclared(ctx) {
+			const spec = ctx.slots.spec;
+			if (typeof spec !== "function") return false;
+			try {
+				return spec.call(ctx.slots, "settings.plugin.item") !== void 0;
+			} catch {
+				return false;
+			}
+		}
+		/** Report a refused registration instead of leaving the user with no card. */
+		function warnRefusedSeat(seat, error) {
+			try {
+				console.warn(`[dsh-web] plugin card registration into "${seat}" was refused; the card will not render`, error);
+			} catch {}
+		}
+		/**
+		* Contribute one family plugin card to the seat this host declares.
+		* @param ctx - client context (its slot registry decides the seat).
+		* @param seat - the card contribution.
+		*/
+		function installPluginCard(ctx, seat) {
+			const slots = ctx.slots;
+			const component = seat.component;
+			if (officialPluginCardSeatDeclared(ctx)) {
+				const inject = seat.inject;
+				slots.inject("settings.plugin.item", () => {
+					try {
+						return slots.register({
+							name: "settings.plugin.item",
+							key: seat.namespace,
+							locale: seat.locale,
+							...seat.inject === void 0 ? {} : { inject }
+						}, component);
+					} catch (error) {
+						warnRefusedSeat("settings.plugin.item", error);
+						return () => {};
+					}
+				});
+				return;
+			}
+			const inject = seat.inject;
+			slots.inject("web-ui.plugin.item", () => {
+				try {
+					return slots.register({
+						name: "web-ui.plugin.item",
+						id: seat.id,
+						...seat.order === void 0 ? {} : { order: seat.order },
+						...seat.label === void 0 ? {} : { label: seat.label },
+						locale: seat.locale,
+						...seat.inject === void 0 ? {} : { inject }
+					}, component);
+				} catch (error) {
+					warnRefusedSeat("web-ui.plugin.item", error);
+					return () => {};
+				}
+			});
+		}
+		//#endregion
 		//#region ../dsh-doctor/src/client/index.ts
 		var client_exports$5 = /* @__PURE__ */ __exportAll({
 			NS: () => NS$5,
@@ -47304,36 +47580,27 @@ window.__ModuleLoader__.load({
 			safe(() => {
 				cardController = new DoctorSettingsCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: NS$5 }));
 			});
-			ctx.slots.inject("web-ui.plugin.item", () => {
-				const dispose = controller === void 0 || cardController === void 0 ? void 0 : safeRegister(ctx, controller, cardController);
-				return () => {
-					dispose?.();
-				};
+			const label = () => {
+				try {
+					return ctx.locale.bind(NS$5)("settings.title");
+				} catch {
+					return "Doctor";
+				}
+			};
+			const card = cardController;
+			const doctor = controller;
+			if (doctor !== void 0 && card !== void 0) installPluginCard(ctx, {
+				namespace: NS$5,
+				id: NS$5,
+				order: 140,
+				label,
+				locale: NS$5,
+				inject: () => ({
+					...card.inject(),
+					controller: doctor
+				}),
+				component: DoctorSettingsCard
 			});
-		}
-		/** Register the card; returns the disposer or undefined on failure. */
-		function safeRegister(ctx, controller, cardController) {
-			try {
-				return ctx.slots.register({
-					name: "web-ui.plugin.item",
-					id: NS$5,
-					order: 140,
-					label: () => {
-						try {
-							return ctx.locale.bind(NS$5)("settings.title");
-						} catch {
-							return "Doctor";
-						}
-					},
-					locale: NS$5,
-					inject: () => ({
-						...cardController.inject(),
-						controller
-					})
-				}, DoctorSettingsCard);
-			} catch {
-				return;
-			}
 		}
 		/** Run one guarded step; never rethrows. */
 		function safe(step) {
@@ -47433,7 +47700,16 @@ window.__ModuleLoader__.load({
 			"usage.bank.window": "统计窗口 {from} ~ {to}",
 			"usage.bank.save": "保存图片",
 			"usage.bank.share": "分享",
-			"usage.bank.drawError": "票券生成失败：{error}"
+			"usage.bank.drawError": "票券生成失败：{error}",
+			"usage.sidebar.entry.label": "用量",
+			"usage.sidebar.entry.tooltip": "用量面板：套餐配额与余额",
+			"usage.sidebar.title": "用量",
+			"usage.sidebar.toggle.collapse": "折叠",
+			"usage.sidebar.toggle.expand": "展开",
+			"usage.sidebar.empty": "没有已配置的套餐或余额数据。",
+			"usage.sidebar.error": "加载失败：{error}",
+			"usage.sidebar.loading": "正在加载用量数据…",
+			"usage.sidebar.balanceLeft": "剩余 {balance}"
 		};
 		/** English mirror; every zh key present. */
 		const en$4 = {
@@ -47489,7 +47765,16 @@ window.__ModuleLoader__.load({
 			"usage.bank.window": "Window {from} - {to}",
 			"usage.bank.save": "Save image",
 			"usage.bank.share": "Share",
-			"usage.bank.drawError": "Failed to render the voucher: {error}"
+			"usage.bank.drawError": "Failed to render the voucher: {error}",
+			"usage.sidebar.entry.label": "Usage",
+			"usage.sidebar.entry.tooltip": "Usage panel: plan quotas and balances",
+			"usage.sidebar.title": "Usage",
+			"usage.sidebar.toggle.collapse": "Collapse",
+			"usage.sidebar.toggle.expand": "Expand",
+			"usage.sidebar.empty": "No plan or balance data configured.",
+			"usage.sidebar.error": "Loading failed: {error}",
+			"usage.sidebar.loading": "Loading usage data…",
+			"usage.sidebar.balanceLeft": "{balance} left"
 		};
 		/**
 		* Active dictionary, picked by the document language at call time. The
@@ -47507,7 +47792,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-usage/src/client/usage.module.css.mjs
-		const css$4 = ".cvtkAW_section{color:inherit;flex-direction:column;gap:16px;display:flex}.cvtkAW_header{justify-content:space-between;align-items:center;gap:12px;display:flex}.cvtkAW_currentProvider{opacity:.75;font-size:13px}.cvtkAW_refreshBtn{appearance:none;color:inherit;font:inherit;cursor:pointer;opacity:.85;background:0 0;border:1px solid;border-radius:8px;padding:4px 12px;font-size:12px;transition:opacity .12s,background-color .12s}.cvtkAW_refreshBtn:hover:not(:disabled){opacity:1;background:color-mix(in srgb, currentColor 8%, transparent)}.cvtkAW_refreshBtn:disabled{cursor:default;opacity:.5}.cvtkAW_refreshBtn:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_tabs{border-bottom:1px solid color-mix(in srgb, currentColor 14%, transparent);gap:4px;display:flex}.cvtkAW_tab{appearance:none;color:inherit;font:inherit;cursor:pointer;opacity:.65;background:0 0;border:none;border-bottom:2px solid #0000;margin-bottom:-1px;padding:6px 14px;font-size:13px}.cvtkAW_tab:hover{opacity:.9}.cvtkAW_tab:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_tabActive{opacity:1;border-bottom-color:currentColor;font-weight:600}.cvtkAW_card{border:1px solid color-mix(in srgb, currentColor 14%, transparent);border-radius:12px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.cvtkAW_cardTitle{letter-spacing:.04em;text-transform:uppercase;opacity:.6;font-size:12px;font-weight:600}.cvtkAW_statRow{flex-wrap:wrap;gap:18px;display:flex}.cvtkAW_stat{flex-direction:column;gap:2px;display:flex}.cvtkAW_statValue{font-variant-numeric:tabular-nums;font-size:18px;font-weight:600}.cvtkAW_statLabel{opacity:.6;font-size:11px}.cvtkAW_providerRow{border-top:1px solid color-mix(in srgb, currentColor 8%, transparent);justify-content:space-between;align-items:center;gap:12px;padding:6px 0;font-size:13px;display:flex}.cvtkAW_providerRow:first-of-type{border-top:none}.cvtkAW_providerName{align-items:center;gap:8px;min-width:0;display:flex}.cvtkAW_providerTokens{font-variant-numeric:tabular-nums;opacity:.75;white-space:nowrap}.cvtkAW_providerBalance{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}.cvtkAW_currentBadge{border:1px solid color-mix(in srgb, currentColor 35%, transparent);opacity:.8;border-radius:999px;flex:none;padding:1px 7px;font-size:10px;font-weight:600}.cvtkAW_chart{flex-direction:column;gap:12px;display:flex}.cvtkAW_chartProvider{flex-direction:column;gap:4px;display:flex}.cvtkAW_chartHead{justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;display:flex}.cvtkAW_chartTokens{font-variant-numeric:tabular-nums;opacity:.65;white-space:nowrap;font-size:11px}.cvtkAW_chartBar{background:color-mix(in srgb, currentColor 8%, transparent);border-radius:999px;height:8px;display:block;overflow:hidden}.cvtkAW_chartFill{background:color-mix(in srgb, currentColor 55%, transparent);border-radius:999px;height:100%;transition:width .3s;display:block}.cvtkAW_chartModel{opacity:.8;grid-template-columns:minmax(80px,180px) 1fr auto;align-items:center;gap:8px;padding-left:14px;font-size:11px;display:grid}.cvtkAW_chartModelName{text-overflow:ellipsis;white-space:nowrap;opacity:.8;overflow:hidden}.cvtkAW_chartModelBar{background:color-mix(in srgb, currentColor 6%, transparent);border-radius:999px;height:4px;display:block;overflow:hidden}.cvtkAW_chartModelFill{background:color-mix(in srgb, currentColor 35%, transparent);border-radius:999px;height:100%;transition:width .3s;display:block}.cvtkAW_trendAxis{opacity:.5;font-variant-numeric:tabular-nums;justify-content:space-between;font-size:10px;display:flex}.cvtkAW_muted{opacity:.6;font-size:12px}.cvtkAW_voucherPreview canvas{border-radius:8px;width:100%;height:auto;display:block}.cvtkAW_buttonRow{gap:8px;display:flex}.cvtkAW_errorLine{opacity:.75;font-size:12px}.cvtkAW_planCard{flex-direction:column;gap:8px;display:flex}.cvtkAW_planHead{justify-content:space-between;align-items:baseline;gap:10px;display:flex}.cvtkAW_planName{font-size:14px;font-weight:600}.cvtkAW_windowRow{flex-direction:column;gap:4px;display:flex}.cvtkAW_windowLabel{opacity:.8;font-variant-numeric:tabular-nums;justify-content:space-between;font-size:12px;display:flex}.cvtkAW_bar{background:color-mix(in srgb, currentColor 10%, transparent);border-radius:999px;height:6px;overflow:hidden}.cvtkAW_barFill{background:color-mix(in srgb, currentColor 55%, transparent);border-radius:999px;height:100%;transition:width .3s}.cvtkAW_barWarn{background:#d97706}.cvtkAW_barLow{background:#dc2626}.cvtkAW_resetLine{opacity:.55;font-variant-numeric:tabular-nums;font-size:11px}.cvtkAW_settingsGrid{flex-wrap:wrap;align-items:center;gap:16px;display:flex}.cvtkAW_settingItem{align-items:center;gap:8px;font-size:13px;display:flex}.cvtkAW_settingItem input[type=checkbox]{accent-color:currentColor}.cvtkAW_settingItem input[type=number]{border:1px solid color-mix(in srgb, currentColor 25%, transparent);width:90px;color:inherit;font:inherit;background:0 0;border-radius:6px;padding:3px 8px;font-size:13px}.cvtkAW_settingItem select{border:1px solid color-mix(in srgb, currentColor 25%, transparent);color:inherit;font:inherit;background:0 0;border-radius:6px;padding:3px 8px;font-size:13px}.cvtkAW_settingItem input:focus-visible,.cvtkAW_settingItem select:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}";
+		const css$4 = ".cvtkAW_section{color:inherit;flex-direction:column;gap:16px;display:flex}.cvtkAW_header{justify-content:space-between;align-items:center;gap:12px;display:flex}.cvtkAW_currentProvider{opacity:.75;font-size:13px}.cvtkAW_refreshBtn{appearance:none;color:inherit;font:inherit;cursor:pointer;opacity:.85;background:0 0;border:1px solid;border-radius:8px;padding:4px 12px;font-size:12px;transition:opacity .12s,background-color .12s}.cvtkAW_refreshBtn:hover:not(:disabled){opacity:1;background:color-mix(in srgb, currentColor 8%, transparent)}.cvtkAW_refreshBtn:disabled{cursor:default;opacity:.5}.cvtkAW_refreshBtn:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_tabs{border-bottom:1px solid color-mix(in srgb, currentColor 14%, transparent);gap:4px;display:flex}.cvtkAW_tab{appearance:none;color:inherit;font:inherit;cursor:pointer;opacity:.65;background:0 0;border:none;border-bottom:2px solid #0000;margin-bottom:-1px;padding:6px 14px;font-size:13px}.cvtkAW_tab:hover{opacity:.9}.cvtkAW_tab:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_tabActive{opacity:1;border-bottom-color:currentColor;font-weight:600}.cvtkAW_card{border:1px solid color-mix(in srgb, currentColor 14%, transparent);border-radius:12px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.cvtkAW_cardTitle{letter-spacing:.04em;text-transform:uppercase;opacity:.6;font-size:12px;font-weight:600}.cvtkAW_statRow{flex-wrap:wrap;gap:18px;display:flex}.cvtkAW_stat{flex-direction:column;gap:2px;display:flex}.cvtkAW_statValue{font-variant-numeric:tabular-nums;font-size:18px;font-weight:600}.cvtkAW_statLabel{opacity:.6;font-size:11px}.cvtkAW_providerRow{border-top:1px solid color-mix(in srgb, currentColor 8%, transparent);justify-content:space-between;align-items:center;gap:12px;padding:6px 0;font-size:13px;display:flex}.cvtkAW_providerRow:first-of-type{border-top:none}.cvtkAW_providerName{align-items:center;gap:8px;min-width:0;display:flex}.cvtkAW_providerTokens{font-variant-numeric:tabular-nums;opacity:.75;white-space:nowrap}.cvtkAW_providerBalance{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}.cvtkAW_currentBadge{border:1px solid color-mix(in srgb, currentColor 35%, transparent);opacity:.8;border-radius:999px;flex:none;padding:1px 7px;font-size:10px;font-weight:600}.cvtkAW_chart{flex-direction:column;gap:12px;display:flex}.cvtkAW_chartProvider{flex-direction:column;gap:4px;display:flex}.cvtkAW_chartHead{justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;display:flex}.cvtkAW_chartTokens{font-variant-numeric:tabular-nums;opacity:.65;white-space:nowrap;font-size:11px}.cvtkAW_chartBar{background:color-mix(in srgb, currentColor 8%, transparent);border-radius:999px;height:8px;display:block;overflow:hidden}.cvtkAW_chartFill{background:color-mix(in srgb, currentColor 55%, transparent);border-radius:999px;height:100%;transition:width .3s;display:block}.cvtkAW_chartModel{opacity:.8;grid-template-columns:minmax(80px,180px) 1fr auto;align-items:center;gap:8px;padding-left:14px;font-size:11px;display:grid}.cvtkAW_chartModelName{text-overflow:ellipsis;white-space:nowrap;opacity:.8;overflow:hidden}.cvtkAW_chartModelBar{background:color-mix(in srgb, currentColor 6%, transparent);border-radius:999px;height:4px;display:block;overflow:hidden}.cvtkAW_chartModelFill{background:color-mix(in srgb, currentColor 35%, transparent);border-radius:999px;height:100%;transition:width .3s;display:block}.cvtkAW_trendAxis{opacity:.5;font-variant-numeric:tabular-nums;justify-content:space-between;font-size:10px;display:flex}.cvtkAW_muted{opacity:.6;font-size:12px}.cvtkAW_voucherPreview canvas{border-radius:8px;width:100%;height:auto;display:block}.cvtkAW_buttonRow{gap:8px;display:flex}.cvtkAW_errorLine{opacity:.75;font-size:12px}.cvtkAW_planCard{flex-direction:column;gap:8px;display:flex}.cvtkAW_planHead{justify-content:space-between;align-items:baseline;gap:10px;display:flex}.cvtkAW_planName{font-size:14px;font-weight:600}.cvtkAW_windowRow{flex-direction:column;gap:4px;display:flex}.cvtkAW_windowLabel{opacity:.8;font-variant-numeric:tabular-nums;justify-content:space-between;font-size:12px;display:flex}.cvtkAW_bar{background:color-mix(in srgb, currentColor 10%, transparent);border-radius:999px;height:6px;overflow:hidden}.cvtkAW_barFill{background:color-mix(in srgb, currentColor 55%, transparent);border-radius:999px;height:100%;transition:width .3s}.cvtkAW_barWarn{background:#d97706}.cvtkAW_barLow{background:#dc2626}.cvtkAW_resetLine{opacity:.55;font-variant-numeric:tabular-nums;font-size:11px}.cvtkAW_settingsGrid{flex-wrap:wrap;align-items:center;gap:16px;display:flex}.cvtkAW_settingItem{align-items:center;gap:8px;font-size:13px;display:flex}.cvtkAW_settingItem input[type=checkbox]{accent-color:currentColor}.cvtkAW_settingItem input[type=number]{border:1px solid color-mix(in srgb, currentColor 25%, transparent);width:90px;color:inherit;font:inherit;background:0 0;border-radius:6px;padding:3px 8px;font-size:13px}.cvtkAW_settingItem select{border:1px solid color-mix(in srgb, currentColor 25%, transparent);color:inherit;font:inherit;background:0 0;border-radius:6px;padding:3px 8px;font-size:13px}.cvtkAW_settingItem input:focus-visible,.cvtkAW_settingItem select:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_entry{box-sizing:border-box;width:100%;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 10px;font-size:13px;display:flex}.cvtkAW_entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.cvtkAW_entryIcon{flex:none;justify-content:center;align-items:center;width:24px;height:24px;display:inline-flex}.cvtkAW_entryIcon svg{width:18px;height:18px;display:block}.cvtkAW_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_entry,[data-sidebar-collapsed] .cvtkAW_entry{border-radius:50%;justify-content:center;width:36px;height:36px;margin:0 auto 12px;padding:0}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_entryLabel,[data-sidebar-collapsed] .cvtkAW_entryLabel{display:none}.cvtkAW_sidebarPanel{border:1px solid color-mix(in srgb, currentColor 14%, transparent);color:inherit;background:color-mix(in srgb, currentColor 4%, transparent);border-radius:10px;flex-direction:column;gap:8px;margin:0 4px 12px;padding:10px 10px 12px;display:flex}.cvtkAW_sidebarPanelHead{opacity:.85;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:600;display:flex}.cvtkAW_sidebarToggle{appearance:none;color:inherit;cursor:pointer;font:inherit;opacity:.7;background:0 0;border:none;padding:0 4px;font-size:12px}.cvtkAW_sidebarToggle:hover{opacity:1}.cvtkAW_sidebarProvider{flex-direction:column;gap:4px;display:flex}.cvtkAW_sidebarProviderHead{justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;display:flex}.cvtkAW_sidebarProviderName{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.cvtkAW_sidebarBalance{opacity:.75;flex:none}.cvtkAW_sidebarWindowRow{opacity:.85;align-items:center;gap:6px;font-size:11px;display:flex}.cvtkAW_sidebarBar{background:color-mix(in srgb, currentColor 14%, transparent);border-radius:2px;flex:1;height:4px;overflow:hidden}.cvtkAW_sidebarBarFill{background:currentColor;border-radius:2px;height:100%;display:block}.cvtkAW_sidebarMuted{opacity:.6;font-size:11px}";
 		const tagId$4 = "@linxin666/dsh-web-all/packages/dsh-usage/src/client/usage.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
 			const tag = document.createElement("style");
@@ -47536,6 +47821,9 @@ window.__ModuleLoader__.load({
 			"chartTokens": "cvtkAW_chartTokens",
 			"currentBadge": "cvtkAW_currentBadge",
 			"currentProvider": "cvtkAW_currentProvider",
+			"entry": "cvtkAW_entry",
+			"entryIcon": "cvtkAW_entryIcon",
+			"entryLabel": "cvtkAW_entryLabel",
 			"errorLine": "cvtkAW_errorLine",
 			"header": "cvtkAW_header",
 			"muted": "cvtkAW_muted",
@@ -47551,6 +47839,17 @@ window.__ModuleLoader__.load({
 			"section": "cvtkAW_section",
 			"settingItem": "cvtkAW_settingItem",
 			"settingsGrid": "cvtkAW_settingsGrid",
+			"sidebarBalance": "cvtkAW_sidebarBalance",
+			"sidebarBar": "cvtkAW_sidebarBar",
+			"sidebarBarFill": "cvtkAW_sidebarBarFill",
+			"sidebarMuted": "cvtkAW_sidebarMuted",
+			"sidebarPanel": "cvtkAW_sidebarPanel",
+			"sidebarPanelHead": "cvtkAW_sidebarPanelHead",
+			"sidebarProvider": "cvtkAW_sidebarProvider",
+			"sidebarProviderHead": "cvtkAW_sidebarProviderHead",
+			"sidebarProviderName": "cvtkAW_sidebarProviderName",
+			"sidebarToggle": "cvtkAW_sidebarToggle",
+			"sidebarWindowRow": "cvtkAW_sidebarWindowRow",
 			"stat": "cvtkAW_stat",
 			"statLabel": "cvtkAW_statLabel",
 			"statRow": "cvtkAW_statRow",
@@ -47564,6 +47863,483 @@ window.__ModuleLoader__.load({
 			"windowRow": "cvtkAW_windowRow"
 		};
 		//#endregion
+		//#region ../dsh-usage/src/client/body-mutations.ts
+		/** Cross-bundle registry key; `Symbol.for` so every module copy agrees. */
+		const HUB_KEY$1 = Symbol.for("dsh-web.body-mutation-hub");
+		const INVALIDATION_ONLY$1 = Symbol.for("dsh-web.body-mutation-invalidation");
+		function needsRecords$1(subscribers) {
+			for (const listener of subscribers) if (!listener[INVALIDATION_ONLY$1]) return true;
+			return false;
+		}
+		/**
+		* Subscribe to a coalesced DOM re-check without retaining mutation records.
+		* The marked wrapper also works with an older hub, which delivers records
+		* that it simply ignores until a page reload picks up the updated hub.
+		*/
+		function subscribeBodyInvalidations$1(subscriber) {
+			const listener = () => {
+				subscriber();
+			};
+			listener[INVALIDATION_ONLY$1] = true;
+			return subscribeBodyMutations$1(listener);
+		}
+		/**
+		* Subscribe to body-level childList mutations.
+		* @param subscriber - called at most once per animation frame with the records
+		*   collected since the previous flush; must be safe to run repeatedly.
+		* @returns the disposer removing this subscriber (and the observer when it was
+		*   the last one).
+		*/
+		function subscribeBodyMutations$1(subscriber) {
+			if (typeof globalThis === "undefined" || typeof document === "undefined") return () => {};
+			if (typeof MutationObserver !== "function") return () => {};
+			const registry = globalThis;
+			let hub = registry[HUB_KEY$1];
+			if (hub === void 0) {
+				const subscribers = /* @__PURE__ */ new Set();
+				const created = {
+					observer: void 0,
+					subscribers,
+					pending: [],
+					scheduled: false
+				};
+				const flush = () => {
+					created.frame = void 0;
+					created.scheduled = false;
+					const batch = created.pending;
+					created.pending = [];
+					for (const listener of [...subscribers]) {
+						if (!subscribers.has(listener)) continue;
+						try {
+							listener(batch);
+						} catch {}
+					}
+				};
+				const schedule = () => {
+					if (created.scheduled) return;
+					created.scheduled = true;
+					if (typeof requestAnimationFrame === "function") created.frame = requestAnimationFrame(flush);
+					else flush();
+				};
+				created.observer = new MutationObserver((records) => {
+					if (needsRecords$1(subscribers)) for (const record of records) created.pending.push(record);
+					schedule();
+				});
+				created.observer.observe(document.body ?? document.documentElement, {
+					childList: true,
+					subtree: true
+				});
+				registry[HUB_KEY$1] = created;
+				hub = created;
+			}
+			const active = hub;
+			active.subscribers.add(subscriber);
+			let subscribed = true;
+			return () => {
+				if (!subscribed) return;
+				subscribed = false;
+				active.subscribers.delete(subscriber);
+				if (!needsRecords$1(active.subscribers)) active.pending = [];
+				if (active.subscribers.size === 0 && registry[HUB_KEY$1] === active) {
+					active.observer.disconnect();
+					if (active.frame !== void 0 && typeof cancelAnimationFrame === "function") cancelAnimationFrame(active.frame);
+					active.frame = void 0;
+					active.pending = [];
+					active.scheduled = false;
+					delete registry[HUB_KEY$1];
+				}
+			};
+		}
+		//#endregion
+		//#region ../dsh-usage/src/client/sidebar-entry-core.ts
+		/**
+		* Shared sidebar entry injection core.
+		*
+		* dsh's sidebar shell exposes no slot an external plugin can register into,
+		* so the entry row is injected between the shell's New Session button and the
+		* workspace browser. The injection self-heals: a MutationObserver watches the
+		* sidebar root and re-inserts the row whenever a React re-render displaces it
+		* (re-insertion happens in the same frame, before paint, so no flicker).
+		*
+		* The row is plain DOM (no React tree) so it can never disturb the shell's
+		* reconciliation; the view it toggles is a separate root owned by the caller.
+		*
+		* Packages receive this file as a generated copy via scripts/sync-shared.mjs;
+		* edit the shared source and re-run the sync instead of editing a copy.
+		*/
+		/** Find the sidebar shell root element, or undefined while not yet mounted. */
+		function sidebarRoot() {
+			const column = document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
+			if (column === null) return void 0;
+			return column.querySelector("[class*=\"logoRow\"]")?.parentElement ?? column.firstElementChild;
+		}
+		/** The New Session button: nested in the logo row on current shells, a direct child on legacy shells. */
+		function newSessionButton(root) {
+			const nested = root.querySelector("button[class*=\"newSession\"]");
+			if (nested !== null) return nested;
+			for (const child of root.children) if (child.tagName === "BUTTON") return child;
+		}
+		/** Build the entry row (a detached button; insert once the shell is up). */
+		function createEntry(options) {
+			const entry = document.createElement("button");
+			entry.type = "button";
+			entry.setAttribute(options.rowAttribute, "");
+			if (options.plugin !== void 0) {
+				entry.setAttribute("data-dsh-plugin", options.plugin);
+				entry.setAttribute("data-dsh-part", "sidebar-entry");
+			}
+			entry.className = options.css["entry"] ?? "";
+			const labelSpan = document.createElement("span");
+			labelSpan.className = options.css["entryLabel"] ?? "";
+			const iconSpan = document.createElement("span");
+			iconSpan.className = options.css["entryIcon"] ?? "";
+			iconSpan.innerHTML = options.icon;
+			entry.append(iconSpan, labelSpan);
+			const applyLabel = () => {
+				entry.setAttribute("aria-label", options.label());
+				if (options.tooltip !== void 0) entry.setAttribute("title", options.tooltip());
+				labelSpan.textContent = options.label();
+			};
+			applyLabel();
+			entry.addEventListener("click", options.onToggle);
+			return {
+				entry,
+				applyLabel
+			};
+		}
+		/** Re-insert the entry after the New Session row (before the browser region). */
+		function placeEntry(root, entry, options) {
+			const button = newSessionButton(root);
+			if (button === void 0) return false;
+			if (entry.parentElement !== root) {
+				const row = button.closest("[class*=\"logoRow\"]");
+				const base = row !== null && row.parentElement === root ? row : button;
+				const family = Array.from(root.children).filter((el) => el instanceof HTMLElement && el.matches(options.familySelectors.join(", ")));
+				const anchor = options.position === "before" ? family.length > 0 ? family[0] : base.nextElementSibling : family.length > 0 ? family[family.length - 1].nextElementSibling : base.nextElementSibling;
+				root.insertBefore(entry, anchor);
+			}
+			return true;
+		}
+		/**
+		* Mount the sidebar entry, waiting for the shell to render and self-healing
+		* on later React re-renders.
+		* @param options - the row's attribute/icon/copy/action/ordering configuration.
+		* @returns disposer removing the entry and its observers.
+		*/
+		function mountSidebarEntry$1(options) {
+			if (typeof document !== "undefined" && document.querySelector(options.rowSelector) !== null) return () => {};
+			const { entry, applyLabel } = createEntry(options);
+			let root;
+			let placed = false;
+			let unsubscribeRefresh;
+			if (options.refresh !== void 0) try {
+				unsubscribeRefresh = options.refresh.subscribe(applyLabel);
+			} catch {}
+			const tryPlace = () => {
+				if (root !== void 0 && !root.isConnected) {
+					rootObserver.disconnect();
+					root = void 0;
+					placed = false;
+				}
+				if (placed) {
+					if (document.body.contains(entry)) return;
+					rootObserver.disconnect();
+					root = void 0;
+					placed = false;
+				}
+				root ??= sidebarRoot();
+				if (root === void 0) return;
+				placed = placeEntry(root, entry, options);
+				if (placed) rootObserver.observe(root, {
+					childList: true,
+					subtree: true
+				});
+			};
+			const unsubscribeBody = subscribeBodyInvalidations$1(() => {
+				tryPlace();
+			});
+			const rootObserver = new MutationObserver(() => {
+				if (root === void 0 || !root.isConnected) {
+					placed = false;
+					tryPlace();
+					return;
+				}
+				if (!root.contains(entry)) placed = placeEntry(root, entry, options);
+			});
+			const unsubscribeActive = options.active === void 0 ? void 0 : (() => {
+				const syncActive = () => {
+					if (options.active.isOpen()) entry.dataset.active = "true";
+					else delete entry.dataset.active;
+				};
+				const unsubscribe = options.active.subscribe(syncActive);
+				syncActive();
+				return unsubscribe;
+			})();
+			tryPlace();
+			return () => {
+				unsubscribeBody();
+				rootObserver.disconnect();
+				unsubscribeRefresh?.();
+				unsubscribeActive?.();
+				entry.remove();
+			};
+		}
+		//#endregion
+		//#region ../dsh-usage/src/client/sidebar-entry.ts
+		/**
+		* Sidebar entry injection for the usage panel (issue #1592) — wiring over the
+		* shared core. Unlike the panel-takeover family (task board / SSH / skill
+		* center) this row does not participate in the family block, so it is placed
+		* directly under the New Session row and ordered after those entries.
+		* @module @linxin666/dsh-usage/client/sidebar-entry
+		*/
+		/** Stable data attribute identifying the injected entry row. */
+		const ENTRY_SELECTOR = "[data-dsh-usage-entry]";
+		/** Inline gauge glyph normalized to the shell's 18px navigation glyph size. */
+		const ICON = "<svg viewBox=\"0 0 16 16\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2.5 12.5a7 7 0 0 1 11 -4.3\"/><path d=\"M8 12.5V8.2l2.9-2.1\"/><circle cx=\"8\" cy=\"12.5\" r=\"1\"/></svg>";
+		/**
+		* Mount the usage sidebar entry.
+		* @param onToggle - toggles the panel below the row.
+		* @param isOpen - reads the panel's expanded state (row highlight).
+		* @param locale - locale-change source; when given, re-applies the label on a
+		*   Language switch (the plain-DOM row otherwise keeps the mount-time copy).
+		* @returns disposer removing the entry and its observers.
+		*/
+		function mountSidebarEntry(onToggle, isOpen, locale) {
+			return mountSidebarEntry$1({
+				rowAttribute: "data-dsh-usage-entry",
+				rowSelector: ENTRY_SELECTOR,
+				plugin: "usage",
+				icon: ICON,
+				css: usage_module_css_default,
+				label: () => t$2("usage.sidebar.entry.label"),
+				tooltip: () => t$2("usage.sidebar.entry.tooltip"),
+				refresh: locale === void 0 ? void 0 : { subscribe: (listener) => locale.subscribe(listener) },
+				onToggle,
+				position: "after",
+				familySelectors: [
+					"[data-dsh-taskboard-entry]",
+					"[data-dsh-ssh-entry]",
+					"[data-dsh-skill-explorer-entry]",
+					"[data-dsh-usage-entry]"
+				],
+				active: {
+					subscribe: (listener) => {
+						return () => {};
+					},
+					isOpen
+				}
+			});
+		}
+		//#endregion
+		//#region ../dsh-usage/src/client/UsageSidebarPanel.tsx
+		/**
+		* Sidebar usage panel (issue #1592): a collapsible usage surface in the
+		* sidebar, mounted directly under the family entry block. It reads the same
+		* /api/dsh-usage/overview document the settings section renders — plan
+		* providers show their quota windows, balance-only providers their remaining
+		* amount — and polls only while the panel is expanded and the page visible.
+		* @module @linxin666/dsh-usage/client/UsageSidebarPanel
+		*/
+		/** Poll cadence while the panel is expanded and the page visible. */
+		const PANEL_POLL_MS = 1e4;
+		/** localStorage key holding the collapsed flag ('1' = collapsed). */
+		const COLLAPSED_STORAGE_KEY = "dsh-usage.sidebar.collapsed";
+		/** Bar tone, matching the settings section's thresholds. */
+		function tone(percent) {
+			if (percent >= 90) return usage_module_css_default.barLow;
+			if (percent >= 70) return usage_module_css_default.barWarn;
+			return usage_module_css_default.sidebarBarFill;
+		}
+		/** Read the persisted collapsed flag (absent = expanded). */
+		function readCollapsed() {
+			try {
+				return window.localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
+			} catch {
+				return false;
+			}
+		}
+		/** A provider is worth listing when it is configured and carries a fact. */
+		function listable(provider) {
+			return provider.credential !== "none" && (provider.plan !== void 0 || provider.balance !== void 0);
+		}
+		/** One provider row: plan windows when present, otherwise the balance line. */
+		function ProviderBlock(props) {
+			const { provider } = props;
+			const windows = provider.plan?.windows ?? [];
+			if (windows.length > 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: usage_module_css_default.sidebarProvider,
+				"data-dsh-part": "sidebar-provider",
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: usage_module_css_default.sidebarProviderHead,
+					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarProviderName,
+						children: provider.displayName
+					})
+				}), windows.map((window) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: usage_module_css_default.sidebarWindowRow,
+					"data-dsh-part": "sidebar-window",
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: window.name ?? t$2(`usage.plan.windows.${window.key}`) }), window.percent !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarBar,
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: tone(window.percent),
+							style: { width: `${Math.min(100, Math.max(0, window.percent))}%` }
+						})
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [window.percent >= 10 ? Math.round(window.percent) : window.percent.toFixed(1), "%"] })] })]
+				}, window.key))]
+			});
+			if (provider.balance !== void 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: usage_module_css_default.sidebarProvider,
+				"data-dsh-part": "sidebar-provider",
+				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: usage_module_css_default.sidebarProviderHead,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarProviderName,
+						children: provider.displayName
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarBalance,
+						children: t$2("usage.sidebar.balanceLeft", { balance: `${provider.balance.currency} ${provider.balance.totalBalance}` })
+					})]
+				})
+			});
+			return null;
+		}
+		/**
+		* Render the sidebar usage panel.
+		* @param props - store plus the poll/refresh callbacks of the apply body.
+		* @returns the panel body (no wrapper: the entry row owns the placement).
+		*/
+		function UsageSidebarPanel(props) {
+			const { store, poll, refresh } = props;
+			const ui = (0, react.useSyncExternalStore)(store.subscribe, store.getSnapshot);
+			const [collapsed, setCollapsed] = (0, react.useState)(readCollapsed);
+			const [refreshing, setRefreshing] = (0, react.useState)(false);
+			const toggle = () => {
+				setCollapsed((current) => {
+					const next = !current;
+					try {
+						window.localStorage.setItem(COLLAPSED_STORAGE_KEY, next ? "1" : "0");
+					} catch {}
+					return next;
+				});
+			};
+			(0, react.useEffect)(() => {
+				if (collapsed) return void 0;
+				poll();
+				let timer;
+				const start = () => {
+					if (timer === void 0 && document.visibilityState === "visible") timer = window.setInterval(poll, PANEL_POLL_MS);
+				};
+				const onVisibility = () => {
+					if (document.visibilityState === "visible") {
+						poll();
+						start();
+					} else if (timer !== void 0) {
+						window.clearInterval(timer);
+						timer = void 0;
+					}
+				};
+				start();
+				document.addEventListener("visibilitychange", onVisibility);
+				return () => {
+					if (timer !== void 0) window.clearInterval(timer);
+					document.removeEventListener("visibilitychange", onVisibility);
+				};
+			}, [poll, collapsed]);
+			const onRefresh = () => {
+				setRefreshing(true);
+				refresh();
+				window.setTimeout(() => setRefreshing(false), 3e3);
+			};
+			const snapshot = ui.snapshot;
+			const providers = snapshot === null ? [] : snapshot.providers.filter(listable);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: usage_module_css_default.sidebarPanel,
+				"data-dsh-plugin": "usage",
+				"data-dsh-part": "sidebar-panel",
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: usage_module_css_default.sidebarPanelHead,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t$2("usage.sidebar.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [!collapsed && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: usage_module_css_default.sidebarToggle,
+						onClick: onRefresh,
+						disabled: refreshing,
+						children: refreshing ? t$2("usage.refreshing") : t$2("usage.refresh")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: usage_module_css_default.sidebarToggle,
+						"aria-expanded": !collapsed,
+						onClick: toggle,
+						children: collapsed ? t$2("usage.sidebar.toggle.expand") : t$2("usage.sidebar.toggle.collapse")
+					})] })]
+				}), !collapsed && (ui.status === "error" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: usage_module_css_default.sidebarMuted,
+					children: t$2("usage.sidebar.error", { error: ui.error ?? "" })
+				}) : snapshot === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: usage_module_css_default.sidebarMuted,
+					children: t$2("usage.sidebar.loading")
+				}) : providers.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: usage_module_css_default.sidebarMuted,
+					children: t$2("usage.sidebar.empty")
+				}) : providers.map((provider) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ProviderBlock, { provider }, provider.provider)))]
+			});
+		}
+		//#endregion
+		//#region ../dsh-usage/src/client/sidebar-panel-mount.tsx
+		/**
+		* Sidebar usage panel mounting (issue #1592).
+		*
+		* The panel is a plain DOM row inserted into the sidebar right below the
+		* usage entry row, carrying its own React root. Placement self-heals with the
+		* same page-wide body-mutation hub the entry row uses; the entry row stays the
+		* anchor, so the sidebar order never depends on this module's timing.
+		* @module @linxin666/dsh-usage/client/sidebar-panel-mount
+		*/
+		/**
+		* Mount the sidebar usage panel below its entry row.
+		* @param props - the store and poll/refresh callbacks of the apply body.
+		* @returns the panel controller.
+		*/
+		function mountUsagePanel(props) {
+			const container = document.createElement("div");
+			container.setAttribute("data-dsh-usage-view", "");
+			const root = (0, react_dom_client.createRoot)(container);
+			root.render((0, react.createElement)(UsageSidebarPanel, props));
+			const listeners = /* @__PURE__ */ new Set();
+			let open = true;
+			const emit = () => {
+				for (const listener of [...listeners]) listener();
+			};
+			/** Keep the panel as the row directly after the usage entry. */
+			const place = () => {
+				const entry = document.querySelector(ENTRY_SELECTOR);
+				if (entry === null || entry.parentElement === null) return;
+				if (container.parentElement !== entry.parentElement || entry.nextElementSibling !== container) entry.parentElement.insertBefore(container, entry.nextElementSibling);
+			};
+			place();
+			const unsubscribeBody = subscribeBodyInvalidations$1(place);
+			return {
+				isOpen: () => open,
+				subscribe: (listener) => {
+					listeners.add(listener);
+					return () => {
+						listeners.delete(listener);
+					};
+				},
+				toggle: () => {
+					open = !open;
+					container.style.display = open ? "" : "none";
+					emit();
+				},
+				dispose: () => {
+					unsubscribeBody();
+					root.unmount();
+					container.remove();
+					listeners.clear();
+				}
+			};
+		}
+		//#endregion
 		//#region ../dsh-usage/src/core/adapters.ts
 		/** Parse a string/number into a finite number, else undefined. */
 		function toNum(value) {
@@ -47576,6 +48352,10 @@ window.__ModuleLoader__.load({
 		/** Read a string field that must be a non-empty string. */
 		function str(value) {
 			return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
+		}
+		/** Clamp a provider percentage into the renderable 0-100 band. */
+		function clampPercent(value) {
+			return Math.max(0, Math.min(100, value));
 		}
 		/** Format a number to a fixed 2-decimal display string. */
 		function money(value) {
@@ -47709,7 +48489,28 @@ window.__ModuleLoader__.load({
 				}
 			}
 		};
-		/** GLM Coding Plan quota; auth is the RAW key without a Bearer prefix. */
+		/**
+		* GLM Coding Plan quota windows, keyed by the provider's own `unit` code
+		* rather than by row position so an added or reordered limit cannot shift a
+		* window's meaning: 3 = the rolling 5-hour window, 6 = the weekly window,
+		* 5 = the monthly one. Two row kinds carry quota — `TOKENS_LIMIT` (token
+		* plans) and `CREDIT_LIMIT` (credit plans, whose exact ratio is
+		* `currentValue` / `usage`) — while `TIME_LIMIT` is the MCP request cap and
+		* is not a plan window at all. Auth is the RAW key without a Bearer prefix.
+		*/
+		const GLM_UNIT_KEYS = {
+			3: "5h",
+			5: "month",
+			6: "week"
+		};
+		/** Percent from a credit row's exact ratio, else the provider's own percentage. */
+		function glmCreditPercent(row) {
+			const used = toNum(row.currentValue);
+			const limit = toNum(row.usage);
+			if (used !== void 0 && limit !== void 0 && limit > 0) return clampPercent(used / limit * 100);
+			const percentage = toNum(row.percentage);
+			return percentage === void 0 ? void 0 : clampPercent(percentage);
+		}
 		function glmPlan(host, ids) {
 			return {
 				ids,
@@ -47734,11 +48535,17 @@ window.__ModuleLoader__.load({
 						for (const entry of limits) {
 							if (typeof entry !== "object" || entry === null) continue;
 							const row = entry;
-							const unit = toNum(row.unit);
-							const percent = toNum(row.percentage);
+							const kind = str(row.type);
+							if (kind === "TIME_LIMIT") continue;
+							const key = GLM_UNIT_KEYS[toNum(row.unit) ?? NaN];
+							if (key === void 0) continue;
+							if (kind !== "TOKENS_LIMIT" && kind !== "CREDIT_LIMIT") continue;
 							windows.push({
-								key: unit === 3 ? "5h" : unit === 6 ? "week" : unit !== void 0 ? `unit-${unit}` : "window",
-								percent: percent === void 0 ? void 0 : Math.max(0, Math.min(100, percent)),
+								key,
+								percent: kind === "CREDIT_LIMIT" ? glmCreditPercent(row) : (() => {
+									const percentage = toNum(row.percentage);
+									return percentage === void 0 ? void 0 : clampPercent(percentage);
+								})(),
 								resetsAt: toIso(row.nextResetTime)
 							});
 						}
@@ -47952,7 +48759,7 @@ window.__ModuleLoader__.load({
 			moonshotBalance("api.moonshot.ai", "USD", ["moonshotai"]),
 			KIMI_CODING,
 			glmPlan("open.bigmodel.cn", ["zai-coding-cn"]),
-			glmPlan("api.z.ai", ["zai-coding"]),
+			glmPlan("api.z.ai", ["zai", "zai-coding"]),
 			OPENCODE_GO,
 			minimaxPlan("api.minimaxi.com", ["minimax-cn"]),
 			minimaxPlan("api.minimax.io", ["minimax"]),
@@ -48980,6 +49787,20 @@ window.__ModuleLoader__.load({
 				refresh,
 				settings: settingsScope
 			});
+			const panel = mountUsagePanel({
+				store,
+				poll,
+				refresh
+			});
+			const disposeEntry = mountSidebarEntry(() => {
+				panel.toggle();
+			}, () => panel.isOpen(), ctx.locale);
+			ctx.effect(() => () => {
+				try {
+					disposeEntry();
+				} catch {}
+				panel.dispose();
+			}, "dsh-usage: sidebar panel");
 			ctx.slots.inject("settings.section", () => {
 				try {
 					const unregister = ctx.slots.register({

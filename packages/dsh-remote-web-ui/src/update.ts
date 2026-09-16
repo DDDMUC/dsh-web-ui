@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { spawn } from 'node:child_process'
+import { decodeConsoleBytes } from './console-output.ts'
 
 /** npm registry base used for version probes. */
 export const NPM_REGISTRY = 'https://registry.npmjs.org'
@@ -573,18 +574,12 @@ const WIN_CMD_MISSING_RE = /not recognized as an internal or external command|ä¸
 /**
  * Decode process output with tolerant decoding:
  * Defaults to UTF-8; if invalid byte sequences are encountered (common on
- * Windows consoles using code page 936/GBK), falls back to GBK via TextDecoder.
+ * Windows consoles using code page 936/GBK), falls back to the code page that
+ * loses the least text. Bytes are decoded once per whole chunk by the caller's
+ * accumulator â€” decoding per \`data\` event would split multi-byte characters.
  */
 function decodeProcessChunk(chunk: Buffer): string {
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(chunk)
-  } catch {
-    try {
-      return new TextDecoder('gbk').decode(chunk)
-    } catch {
-      return chunk.toString('utf8')
-    }
-  }
+  return decodeConsoleBytes(chunk)
 }
 
 /**

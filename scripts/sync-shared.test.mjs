@@ -24,9 +24,9 @@ test('copies cover the settings trio for all consumers plus host and http helper
   // The total is every generated copy in the manifest; the single-instance
   // guard alone contributes one mount-once.ts per host half (17 today). The
   // buckets below partition the same set by target location.
-  assert.equal(entries.length, 114)
+  assert.equal(entries.length, 127)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
-  assert.equal(clientTrio.length, 41)
+  assert.equal(clientTrio.length, 51)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')
@@ -34,7 +34,7 @@ test('copies cover the settings trio for all consumers plus host and http helper
     || entry.target.includes('/src/pair-access.ts')
     || entry.target.includes('/src/agent/')
     || entry.target.endsWith('/packages/dsh-task-board/src/http.ts'))
-  assert.equal(hostCopies.length, 61)
+  assert.equal(hostCopies.length, 63)
 })
 
 test('checkSync detects drift and applySync repairs it', async () => {
@@ -46,6 +46,7 @@ test('checkSync detects drift and applySync repairs it', async () => {
     await writeFile(join(sourceDir, 'settings-form.ts'), 'export const good = 1' + String.fromCharCode(10))
     await writeFile(join(sourceDir, 'PluginSettingsCard.tsx'), 'export const card = 1' + String.fromCharCode(10))
     await writeFile(join(sourceDir, 'settings-card.module.css'), '.card { color: red }' + String.fromCharCode(10))
+    await writeFile(join(sourceDir, 'plugin-card-seat.ts'), 'export const seat = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'telemetry.ts'), 'export const beat = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sse-leader.ts'), 'export const leader = 1' + String.fromCharCode(10))
     await writeFile(join(root, 'shared', 'client', 'sidebar-entry-core.ts'), 'export const sidecore = 1' + String.fromCharCode(10))
@@ -63,6 +64,7 @@ test('checkSync detects drift and applySync repairs it', async () => {
     await writeFile(join(hostDir, 'http.ts'), 'export const http = 1' + String.fromCharCode(10))
     await writeFile(join(hostDir, 'legacy-migration.ts'), 'export const legacy = 1' + String.fromCharCode(10))
     await writeFile(join(hostDir, 'run-guarded.ts'), 'export const guard2 = 1' + String.fromCharCode(10))
+    await writeFile(join(hostDir, 'console-output.ts'), 'export const capture = 1' + String.fromCharCode(10))
     const targetDir = join(root, 'packages', 'dsh-pet', 'src', 'client')
     await mkdir(targetDir, { recursive: true })
     await writeFile(join(targetDir, 'settings-form.ts'), renderCopy('export const bad = 2' + String.fromCharCode(10), 'settings-form.ts', 'shared/client/settings/settings-form.ts'))

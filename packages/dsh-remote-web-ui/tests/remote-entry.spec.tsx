@@ -315,6 +315,9 @@ describe('apply registration', () => {
       slots: {
         inject: (key: string) => { injected.push(key); return () => {} },
         register: () => () => {},
+        // No official plugin-card seat on this host: the card falls back to
+        // the family group's list seat (issue #1589).
+        spec: () => undefined,
       },
       settingsScope: {
         bind: () => ({
@@ -353,6 +356,7 @@ describe('apply registration', () => {
           registered.push(entry.name)
           return () => {}
         },
+        spec: () => undefined,
       },
       settingsScope: {
         bind: () => ({

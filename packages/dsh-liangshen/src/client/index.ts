@@ -31,6 +31,7 @@ import { LiangShenLever } from './LiangShenLever.tsx'
 import { LeverController } from './lever-controller.ts'
 import { LiangShenSettingsCard, LiangShenSettingsCardController, type LiangShenSettings } from './LiangShenSettingsCard.tsx'
 import { en, zh, type LiangShenKey } from './locales.ts'
+import { installPluginCard } from './plugin-card-seat.ts'
 
 /** Locale namespace this half owns. */
 export const NS = 'liangshen'
@@ -115,23 +116,17 @@ export function apply(ctx: ClientContext): void {
     const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
     const settingsScope = binder.bind<LiangShenSettings>({ namespace: SETTINGS_NAMESPACE })
     const settingsCard = new LiangShenSettingsCardController(settingsScope)
-    ctx.slots.inject('web-ui.plugin.item', () => {
-      try {
-        const unregister = ctx.slots.register({
-          name: 'web-ui.plugin.item',
-          id: 'liangshen',
-          order: 120,
-          locale: NS,
-          inject: () => settingsCard.inject(),
-        }, LiangShenSettingsCard)
-        return () => {
-          settingsCard.dispose()
-          unregister()
-        }
-      } catch {
-        return () => {}
-      }
+    // Card seat: the family group's list seat, or the official keyed seat of
+    // the plugin-configuration tab when the group is not installed (issue #1589).
+    installPluginCard(ctx, {
+      namespace: SETTINGS_NAMESPACE,
+      id: 'liangshen',
+      order: 120,
+      locale: NS,
+      inject: () => settingsCard.inject(),
+      component: LiangShenSettingsCard,
     })
+    ctx.effect(() => () => { settingsCard.dispose() }, 'liangshen: settings card')
   } catch {
     // A missing settings surface leaves the lever working and the card absent;
     // one unavailable service must not take the browser half down.

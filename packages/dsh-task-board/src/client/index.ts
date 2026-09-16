@@ -30,6 +30,7 @@ import { TaskBoardSettingsCard, TaskBoardSettingsCardController, type TaskBoardS
 import { en, zh, setRuntimeTranslate, type TaskBoardKey } from './locales.ts'
 import { HttpTaskBoardHostTransport } from './host-api.ts'
 import { reportDailyHeartbeat } from './telemetry.ts'
+import { installPluginCard } from './plugin-card-seat.ts'
 
 /** Locale namespace this plugin owns. */
 const NS = 'task-board'
@@ -164,27 +165,20 @@ export function apply(ctx: ClientContext): void {
   try { setRuntimeTranslate(ctx.locale.bind(NS)) } catch { /* locale missing: document-language fallback stays */ }
 
   // Plugin configuration card: one staged form over the `task-board` settings
-  // namespace, contributed to the Web UI plugin group.
+  // namespace, contributed to whichever plugin-card seat this host declares
+  // (issue #1589).
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
   const settingsScope = binder.bind<TaskBoardSettings>({ namespace: TASK_BOARD_NS })
   const settingsCard = new TaskBoardSettingsCardController(settingsScope)
-  ctx.slots.inject('web-ui.plugin.item', () => {
-    try {
-      const unregister = ctx.slots.register({
-        name: 'web-ui.plugin.item',
-        id: 'task-board',
-        order: 110,
-        locale: NS,
-        inject: () => settingsCard.inject(),
-      }, TaskBoardSettingsCard)
-      return () => {
-        settingsCard.dispose()
-        unregister()
-      }
-    } catch {
-      return () => {}
-    }
+  installPluginCard(ctx, {
+    namespace: TASK_BOARD_NS,
+    id: 'task-board',
+    order: 110,
+    locale: NS,
+    inject: () => settingsCard.inject(),
+    component: TaskBoardSettingsCard,
   })
+  ctx.effect(() => () => { settingsCard.dispose() }, 'task-board: settings card')
 
   // The sidebar entry and board view mount once the settings scope settles;
   // while the scope is still loading, the composition default is unknown, so
