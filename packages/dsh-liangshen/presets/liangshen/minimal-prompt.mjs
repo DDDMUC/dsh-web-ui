@@ -1,17 +1,26 @@
 /**
  * minimal-prompt — keep this preset's system prompt on the builtin Minimal
  * preset's one-line persona (plus the session's workspace directory) while the
- * tool surface is staged behind the anchor turn and handed to PTC presentation
- * after it.
+ * sibling tool-catalog plugin owns the wire: one presentation declaration per
+ * session ('native' | 'ptc' | 'both') and gentle paging for high-fan-out
+ * namespaces.
  *
  * The assembled prompt is filtered down to the persona section, plus the plan
- * policy when plan mode is active and the official PTC tool SDK sections
- * (`tools:sdk` and `tools:ptc-only`) when PTC mode is active: the harness
+ * policy when plan mode is active, plus the official PTC tool SDK sections
+ * (`tools:sdk` and `tools:ptc-only`) exactly when the assembled wire carries
+ * the `run_code` transport (presentations 'ptc' and 'both'; an unreadable wire
+ * keeps them, matching the harness's own empty-section drop): the harness
  * identity, web-surface, tool-guidance, file-reference, and structured-output
- * sections never reach the model. Under PTC presentation, keeping the official
- * `tools:sdk` and `tools:ptc-only` sections ensures the model receives the
- * complete generated tool signatures, argument types, output schemas, and
- * parameter comments without private SDK schemas or renderer duplication.
+ * sections never reach the model. Keeping the official SDK sections when the
+ * transport is present ensures the model receives the complete generated tool
+ * signatures, argument types, output schemas, and parameter comments without
+ * private SDK schemas or renderer duplication.
+ *
+ * PLATFORM LINE: on win32 the persona block gains one standing discipline line
+ * — the Windows shell is a fresh Git Bash subprocess per call, so the working
+ * directory and environment do not persist across calls and chained operations
+ * belong in one compound command. The line is constant per platform, so the
+ * prompt prefix stays byte-stable on a given host.
  *
  * WORKSPACE LINE: the bare persona says nothing about where the session
  * operates, so the selected workspace directory is appended to the persona at
@@ -661,16 +670,32 @@ export function withWorkspaceLine(sections, agent) {
     : section)
 }
 
+/**
+ * The win32 shell discipline line the persona gains: custom-bash runs every
+ * command in a fresh Git Bash subprocess, so state does not survive between
+ * calls. The marker substring keeps the append idempotent across re-assemblies.
+ */
+export const WIN32_SHELL_LINE = '\n\nCurrent platform: Windows (Git Bash). Shell processes are ephemeral — the working directory and environment variables do not persist across calls, so chain dependent operations in one compound command (for example `cd path && command`).'
+const WIN32_SHELL_LINE_MARKER = 'Current platform: Windows (Git Bash).'
+
+/** Append the win32 shell discipline line to the persona section, once. */
+export function withPlatformLine(sections, platform = process.platform) {
+  if (platform !== 'win32') return sections
+  const persona = sections.find(section =>
+    PERSONA_SECTION_NAMES.includes(section?.name)
+    && typeof section?.text === 'string'
+    && !section.text.includes(WIN32_SHELL_LINE_MARKER))
+  if (persona === undefined) return sections
+  return sections.map(section => section === persona
+    ? { ...section, text: `${section.text}${WIN32_SHELL_LINE}` }
+    : section)
+}
+
 /** Register the section filter, workspace-instruction source, and dynamic discovery hooks. */
 export function apply(ctx, config) {
   const keepPlanPolicy = optionalBoolean(config?.keepPlanPolicy, 'keepPlanPolicy', true)
   const instructionSource = optionalSource(config?.instructionSource, 'instructionSource', 'system-prompt')
   const instructionMaxBytes = optionalByteSize(config?.instructionMaxBytes, 'instructionMaxBytes', DEFAULT_INSTRUCTION_MAX_BYTES)
-  const keep = new Set([
-    ...PERSONA_SECTION_NAMES,
-    ...(keepPlanPolicy ? [PLAN_POLICY_SECTION_NAME] : []),
-    ...PTC_SECTION_NAMES,
-  ])
 
   // Per-session state tracking (durable across steps, recoverable on replay)
   const sessionStateMap = new WeakMap()
@@ -724,13 +749,24 @@ export function apply(ctx, config) {
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembled = await next()
     if (!Array.isArray(assembled.sections)) return assembled
+    // The official SDK sections belong to the run_code transport: keep them
+    // exactly when this assembly's wire carries it ('ptc' and 'both'), drop
+    // them from a native wire they would only confuse. An unreadable wire keeps
+    // them, matching the harness's own empty-section drop under 'native'.
+    const wire = Array.isArray(assembled?.tools) ? assembled.tools : undefined
+    const wireHasRunCode = wire === undefined ? true : wire.some(tool => tool?.name === 'run_code')
+    const keep = new Set([
+      ...PERSONA_SECTION_NAMES,
+      ...(keepPlanPolicy ? [PLAN_POLICY_SECTION_NAME] : []),
+      ...(wireHasRunCode ? PTC_SECTION_NAMES : []),
+    ])
     const sections = assembled.sections.filter(section => keep.has(section?.name))
     if (sections.length === 0) {
       warnOnce(`${name}: no section matched ${JSON.stringify([...keep])} — `
         + 'keeping the assembled prompt instead of sending an empty one')
       return assembled
     }
-    const narrowed = withWorkspaceLine(sections, context?.agent)
+    const narrowed = withPlatformLine(withWorkspaceLine(sections, context?.agent))
     if (instructionSource !== 'system-prompt') return { ...assembled, sections: narrowed }
 
     let text

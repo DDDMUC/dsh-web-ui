@@ -9,16 +9,18 @@
  * surface (plugin config) or the profile patch. No browser half, no routes,
  * no agent tools — the preset itself provides the tools.
  *
- * The preset combines a minimal persona with a staged, promoted tool surface:
- * the system prompt keeps a minimal persona with standing working discipline
- * and workspace instructions, the session's entire first user turn runs a native
- * foundational tool surface ([bash, str_replace_editor, exit_plan_mode, skill],
- * with bash-only preserved as a configuration experiment), and from the second
- * turn this session presents its tools in PTC mode upon successful activation,
- * so the wire carries the single `run_code` transport while the generated SDK
- * bindings and collapse rule travel in the tool list injected as a durable
- * message after the user's message, preserving full input and output key
- * parameter semantics.
+ * The preset combines a minimal persona with a lifetime-declared tool
+ * presentation: the system prompt keeps a minimal persona with standing
+ * working discipline and workspace instructions, and the wire runs the SDK's
+ * 'both' presentation by default — the full native roster with the `run_code`
+ * transport co-resident, declared once per session instead of staged across a
+ * turn boundary. High-fan-out tool families (default `mcp__*`) stay paged out
+ * of the wire until the preset's own `tool_activate` tool loads their
+ * namespace (LRU cap three), with the activation state replayed from the
+ * durable session event stream. The tool catalog — listing exactly the
+ * on-wire tools plus the paged-out namespace summaries — and a one-line
+ * working-context projection travel as durable user messages, republished
+ * only on change.
  */
 
 import { mkdirSync } from 'node:fs'
@@ -61,7 +63,7 @@ const DEFAULT_ANNOUNCE = false
 const SECTION_ORDER = 150
 
 /** Model-facing announcement: plugin presence, principle, and limits. */
-export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：系统提示词保持极简 persona（minimal-prompt 放行该段与 plan 模式的 plan:policy），persona 内置本模式工作纪律（思维循环即断、先理解需求与方案再实现验证、YAGNI/PDCA、代码不加冗余注释），并在组装时追加工作区目录 Your working directory is <cwd>. 与 AGENTS.md 工作区指令（workspace-instructions 段，65536 字节预算，每次组装重读）；工具清单由 tool-catalog 从第一条用户消息起以 user 消息注入在用户消息之后，形如 skill catalog，仅当工具集变化或该消息离开可见面（压缩、恢复）时重发；wire 上的 schema 按回合分层：首轮整个 user turn 原生呈现基础锚定工具集（默认 [bash, str_replace_editor, exit_plan_mode, skill]，且保留 bash-only 配置实验），第二个回合起在 PTC 成功激活后切换为 PTC 呈现（wire 上只有 run_code，其余工具在程序里以 await tools.<name>({...}) 调用，保留完整输入输出关键参数语义而非 200 字唯一契约；缺失 code runtime 时优雅回退至原生呈现）；注入消息承载 SDK 绑定、程序契约（一段程序编排多步：独立只读调用用 Promise.all 并发、ToolCallError 处理、输出自选）与「激活后只有 run_code 可直接调用」的规则。工作区子目录动态指令支持注册文件工具含 str_replace_editor 及 PTC 内子调用触达的目录（不解析任意 bash/program 代码）。文件操作受宿主沙箱约束，Windows 下 bash 为 Git Bash 子进程且状态不跨调用保留。真实推理探针通过不等于模式集成通过，更不等于统计效果提升。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
+export const LIANGSHEN_GUIDANCE = '本机已安装 dsh-liangshen 插件（梁神模式 agent preset）：新建会话的预设选择器中可选「梁神模式」。原理：系统提示词保持极简 persona（minimal-prompt 放行该段与 plan 模式的 plan:policy），persona 内置本模式工作纪律（反思熔断——同一假设推演不超过两轮、缺事实立即闭合思考并调用原生检测工具；行动导向——思考只决定下一步具体操作、不在思考中预演代码实现；YAGNI/PDCA——单步验证单一假设、不写冗余注释），并在组装时追加工作区目录行 Your working directory is <cwd>. 与 AGENTS.md 工作区指令（workspace-instructions 段，65536 字节预算，每次组装重读；win32 下另追加 Git Bash 临时 shell 纪律行）。wire 呈现由 tool-catalog 按会话一次声明：默认 \'both\'（完整原生工具面与 run_code 传输工具同驻 wire——日常调用走原生 DSML，run_code 仅用于程序化批量计算与并发编排），可配置为 \'native\' 或 \'ptc\'；缺少 code runtime 或声明被拒时优雅回退原生面并只告警一次。温和工具分页：匹配 pagedToolPatterns（默认 mcp__*）的工具在激活前不上 wire，目录消息列出常驻工具签名与未激活命名空间摘要，调用 tool_activate({ namespace }) 按需激活（LRU 上限 3 个活跃命名空间，驱逐最久未用）；激活状态从持久会话事件流重建，resume/压缩后自然恢复。working-context 插件在 pre-step 注入单行 [Working Context: ...] 就近状态投射（plan 模式、活跃命名空间、进行中 todo 标题，全部从事件流折叠，读不到则省略，全部为空则不注入）。历史工具结果修剪为 4096 字符阈值（head 1500 / tail 500）。文件操作受宿主沙箱约束，Windows 下 bash 为 Git Bash 子进程且状态不跨调用保留。真实推理探针通过不等于模式集成通过，更不等于统计效果提升。preset 文件由插件维护于 ~/.dsh/.agent-presets，升级插件时自动更新；默认预设由用户自行选择。用户提到「梁神模式 / 锚定模式 / anchored standard」时即指本插件，请据此协作。'
 // The harness-home resolution (DSH_HOME override with the platform-home
 // fallback and ~ expansion) lives in the family-shared copy ./dsh-home.ts.
 // Re-export it so the plugin surface stays stable while the implementation is

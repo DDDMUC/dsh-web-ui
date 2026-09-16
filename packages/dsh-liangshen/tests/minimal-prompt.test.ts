@@ -18,8 +18,13 @@ import {
   name,
   PTC_SECTION_NAMES,
   renderInstructionSection,
+  WIN32_SHELL_LINE,
+  withPlatformLine,
   WORKSPACE_INSTRUCTIONS_SECTION_NAME,
 } from '../presets/liangshen/minimal-prompt.mjs'
+
+/** The persona text this runner's platform produces: the win32 shell discipline line applies on Windows. */
+const PLATFORM_LINE = process.platform === 'win32' ? WIN32_SHELL_LINE : ''
 
 type Listener = (first: any, second: any, third: any) => Promise<any>
 
@@ -68,11 +73,12 @@ async function assemble(
   sections: unknown[] = FULL_SECTIONS,
   contexts: unknown[] = [{ name: 'sandbox:policy', text: 'Current DSH file policy: workspace-write.' }],
   agent: unknown = agentOf(),
+  tools: unknown[] = [],
 ) {
   return listener(harness, 'system-prompt/assemble')(
     undefined,
     { agent },
-    async () => ({ sections, contexts, tools: [], variables: {} }),
+    async () => ({ sections, contexts, tools, variables: {} }),
   )
 }
 
@@ -153,7 +159,7 @@ describe('liangshen-minimal-prompt', () => {
   test('narrows the assembled prompt to the persona and the plan policy', async () => {
     const result = await assemble(register())
     expect(result.sections.map((section: any) => section.name)).toEqual(['deployment:persona-prefix', 'plan:policy'])
-    expect(result.sections[0].text).toBe(PERSONA.text)
+    expect(result.sections[0].text).toBe(PERSONA.text + PLATFORM_LINE)
   })
 
   test('leaves runtime contexts and tools untouched', async () => {
@@ -198,7 +204,7 @@ describe('liangshen-minimal-prompt', () => {
     const cwd = project()
     const result = await assemble(register(), FULL_SECTIONS, undefined, agentAt(cwd))
     expect(result.sections[0].text)
-      .toBe(`You are a helpful software engineer assistant.\n\nYour working directory is ${cwd}.`)
+      .toBe(`You are a helpful software engineer assistant.\n\nYour working directory is ${cwd}.${PLATFORM_LINE}`)
     // The plan policy is not orientation: it stays verbatim.
     expect(result.sections.find((section: any) => section.name === 'plan:policy').text).toBe(PLAN.text)
   })
@@ -225,7 +231,8 @@ describe('liangshen-minimal-prompt', () => {
   test('keeps the bare persona when the session reports no cwd', async () => {
     const agent = { session: { header: {} } }
     const result = await assemble(register(), FULL_SECTIONS, undefined, agent)
-    expect(result.sections[0].text).toBe(PERSONA.text)
+    // No workspace line without a cwd; the platform line still applies on win32.
+    expect(result.sections[0].text).toBe(PERSONA.text + PLATFORM_LINE)
   })
 
   test('appends the workspace-instructions section after the stable prefix', async () => {
@@ -250,6 +257,30 @@ describe('liangshen-minimal-prompt', () => {
     // instruction file (the harness's dynamic reconciliation territory) is
     // not part of the section.
     expect(text).not.toContain('nested rule')
+  })
+
+  test('keeps the stable prefix byte-identical across edits to the instruction files', async () => {
+    // The encoder's KV cache is reused only while the prefix does not move, so a
+    // workspace-instruction edit must change ONLY the appended section's value:
+    // the persona/plan-policy prefix and the appended section's own text stay put.
+    writeHome('AGENTS.md', 'first revision')
+    const cwd = project({ 'AGENTS.md': 'project rule v1' })
+    const before = await assemble(register(), FULL_SECTIONS, undefined, agentAt(cwd))
+    const prefixBefore = before.sections
+      .filter((section: any) => section.name !== WORKSPACE_INSTRUCTIONS_SECTION_NAME)
+      .map((section: any) => [section.name, section.text])
+
+    writeHome('AGENTS.md', 'second revision')
+    const after = await assemble(register(), FULL_SECTIONS, undefined, agentAt(cwd))
+    const prefixAfter = after.sections
+      .filter((section: any) => section.name !== WORKSPACE_INSTRUCTIONS_SECTION_NAME)
+      .map((section: any) => [section.name, section.text])
+
+    expect(prefixAfter).toEqual(prefixBefore)
+    // The appended section is still the same reference text, only its variable moved.
+    expect(after.sections.at(-1).text).toBe('{{workspace_instructions}}')
+    expect(before.variables.workspace_instructions).toContain('first revision')
+    expect(after.variables.workspace_instructions).toContain('second revision')
   })
 
   test('renders the appended section through the harness renderer verbatim', async () => {
@@ -444,7 +475,9 @@ describe('liangshen-minimal-prompt', () => {
   })
 
   describe('PTC prompt sections retention', () => {
-    test('retains tools:ptc-only and tools:sdk sections when present under PTC mode', async () => {
+    const RUN_CODE_WIRE = [{ name: 'run_code', description: 'Run a program.' }]
+
+    test('retains tools:ptc-only and tools:sdk sections exactly when the wire carries run_code', async () => {
       const sdkText = 'interface ToolArgsMap { read: { file_path: string } }'
       const ptcOnlyText = '`run_code` is the only tool you can call directly.'
       const ptcSections = [
@@ -453,13 +486,41 @@ describe('liangshen-minimal-prompt', () => {
         { name: 'tools:sdk', text: sdkText },
         { name: 'web:surface', text: 'ignore' },
       ]
-      const result = await assemble(register(), ptcSections)
+      // 'both' / 'ptc' wire: the transport is present, so the SDK sections stay.
+      const result = await assemble(register(), ptcSections, undefined, agentOf(), RUN_CODE_WIRE)
       const names = result.sections.map((s: any) => s.name)
       expect(names).toContain('tools:ptc-only')
       expect(names).toContain('tools:sdk')
       expect(names).not.toContain('web:surface')
       expect(result.sections.find((s: any) => s.name === 'tools:sdk').text).toBe(sdkText)
       expect(result.sections.find((s: any) => s.name === 'tools:ptc-only').text).toBe(ptcOnlyText)
+    })
+
+    test('drops tools:ptc-only and tools:sdk from a native wire without run_code', async () => {
+      const ptcSections = [
+        PERSONA,
+        { name: 'tools:ptc-only', text: '`run_code` only' },
+        { name: 'tools:sdk', text: 'interface ToolArgsMap {}' },
+        { name: 'web:surface', text: 'ignore' },
+      ]
+      const result = await assemble(register(), ptcSections, undefined, agentOf(), [
+        { name: 'bash', description: 'shell' },
+        { name: 'read', description: 'read' },
+      ])
+      expect(result.sections.map((s: any) => s.name)).toEqual(['deployment:persona-prefix'])
+    })
+
+    test('keeps the SDK sections when the wire is unreadable', async () => {
+      const ptcSections = [
+        PERSONA,
+        { name: 'tools:sdk', text: 'interface ToolArgsMap {}' },
+      ]
+      const result = await listener(register(), 'system-prompt/assemble')(
+        undefined,
+        { agent: agentOf() },
+        async () => ({ sections: ptcSections, contexts: [], variables: {} }),
+      )
+      expect(result.sections.map((s: any) => s.name)).toContain('tools:sdk')
     })
 
     test('renders tools:sdk section through renderPrompt with variables intact', async () => {
@@ -471,12 +532,45 @@ describe('liangshen-minimal-prompt', () => {
         { name: 'tools:ptc-only', text: '`run_code` only' },
         { name: 'tools:sdk', text: sdkText },
       ]
-      const result = await assemble(register(), ptcSections, undefined, agentAt(cwd))
+      const result = await assemble(register(), ptcSections, undefined, agentAt(cwd), RUN_CODE_WIRE)
       const rendered = renderPrompt({ sections: result.sections, variables: result.variables })
       expect(rendered).toContain(sdkText)
       expect(rendered).toContain('`run_code` only')
       expect(rendered).toContain('user-global rule')
       expect(rendered).toContain('repo rule')
+    })
+  })
+
+  describe('win32 shell discipline line', () => {
+    test('appends the ephemeral-shell discipline to the persona on win32 only', () => {
+      const sections = [{ name: 'deployment:persona-prefix', text: PERSONA.text }]
+      const win = withPlatformLine(sections, 'win32')
+      expect(win[0].text).toBe(PERSONA.text + WIN32_SHELL_LINE)
+      expect(win[0].text).toContain('Windows (Git Bash)')
+      expect(win[0].text).toContain('do not persist across calls')
+      expect(win[0].text).toContain('cd path && command')
+      // Other platforms leave the persona untouched.
+      const linux = withPlatformLine(sections, 'linux')
+      expect(linux[0].text).toBe(PERSONA.text)
+    })
+
+    test('does not duplicate the platform line on re-assembly', () => {
+      const once = withPlatformLine([{ name: 'deployment:persona-prefix', text: PERSONA.text }], 'win32')
+      const twice = withPlatformLine(once, 'win32')
+      expect(twice[0].text).toBe(once[0].text)
+      expect(twice[0].text.split('Current platform: Windows (Git Bash).').length - 1).toBe(1)
+    })
+
+    test('appends the platform line after the workspace line in the assembled prompt', async () => {
+      const cwd = project()
+      const result = await assemble(register(), FULL_SECTIONS, undefined, agentAt(cwd))
+      const text = result.sections[0].text
+      if (process.platform === 'win32') {
+        expect(text).toContain(`Your working directory is ${cwd}.`)
+        expect(text.indexOf('Your working directory is')).toBeLessThan(text.indexOf('Current platform: Windows (Git Bash).'))
+      } else {
+        expect(text).not.toContain('Current platform: Windows')
+      }
     })
   })
 

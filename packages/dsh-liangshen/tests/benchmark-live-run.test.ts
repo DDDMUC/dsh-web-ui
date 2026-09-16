@@ -4,8 +4,8 @@
  * The harness exists so a comparison cannot quietly measure the wrong thing, so
  * these tests pin every place that could:
  * - `materializePreset` rewrites the variant's composition. The shipped file also
- *   names `anchorTools: [bash]` inside its prose, so a rewrite that matched the
- *   first occurrence would report a variant it never applied.
+ *   names the presentation key inside its prose, so a rewrite that matched a
+ *   comment would report a variant it never applied.
  * - `replacePersonaPrefix` edits a YAML block scalar, so it must stop at the
  *   next composition row and keep the candidate text indented inside the scalar.
  * - `summarizeSession` reads the durable session shapes. The tool surface and the
@@ -58,35 +58,32 @@ function composition(variantId: string): string {
 }
 
 describe('benchmark variant materialization', () => {
-  it('keeps the shipped persona and tool strategy for the baseline group', () => {
+  it('keeps the shipped persona and presentation for the baseline group', () => {
     const text = composition('B')
-    expect(text).toMatch(/^\s*anchorTools: \[bash, str_replace_editor, exit_plan_mode, skill\]$/m)
-    expect(text).toMatch(/^\s*ptcPresentation: true$/m)
+    expect(text).toMatch(/^\s*presentation: 'ptc'$/m)
     expect(text).toContain('You are a helpful software engineer assistant.')
-    expect(text).toContain('Avoid falling into repetitive loops during thinking')
+    expect(text).toContain('Thinking Disruption')
   })
 
-  it('applies the candidate persona without touching the anchor config', () => {
+  it('applies the candidate persona without touching the presentation config', () => {
     const text = composition('P')
-    expect(text).toMatch(/^\s*anchorTools: \[bash, str_replace_editor, exit_plan_mode, skill\]$/m)
+    expect(text).toMatch(/^\s*presentation: 'ptc'$/m)
     for (const line of CANDIDATE_PERSONA.split('\n')) {
       if (line === '') continue
       expect(text).toContain(line)
     }
-    expect(text).not.toContain('Avoid falling into repetitive loops during thinking')
-    expect(text).not.toContain('without pre-rehearsing specific code implementation')
+    expect(text).not.toContain('Thinking Disruption')
+    expect(text).not.toContain('Do not mentally pre-rehearse full code implementations')
   })
 
-  it('stages PTC from the first turn for group T by emptying the anchor list', () => {
+  it("switches group T to the 'both' presentation", () => {
     const text = composition('T')
-    expect(text).toMatch(/^\s*anchorTools: \[\]$/m)
-    expect(text).toMatch(/^\s*ptcPresentation: true$/m)
+    expect(text).toMatch(/^\s*presentation: 'both'$/m)
   })
 
-  it('turns PTC off and disables staging for the native group', () => {
+  it('switches group N to the native presentation', () => {
     const text = composition('N')
-    expect(text).toMatch(/^\s*anchorTools: \[\]$/m)
-    expect(text).toMatch(/^\s*ptcPresentation: false$/m)
+    expect(text).toMatch(/^\s*presentation: 'native'$/m)
   })
 
   it('uses the official Minimal preset for the external reference group', () => {
@@ -94,7 +91,7 @@ describe('benchmark variant materialization', () => {
     const text = composition('M')
     expect(text).toContain('complete: true')
     expect(text).not.toContain('liangshen-tool-catalog')
-    expect(text).not.toContain('anchorTools')
+    expect(text).not.toContain('tool_activate')
   })
 
   it('keeps every derived composition structurally valid for the preset loader', () => {

@@ -14,11 +14,13 @@
  *   history is never appended to.
  *
  * The candidate matrix follows the LiangShen V4.1 Flash improvement plan:
- * B (current persona), P (candidate persona), T (candidate persona + PTC from the
- * first turn), N (candidate persona + native tools throughout), and M (the
- * official bundle's Minimal preset as an external reference). Persona wording and
- * tool strategy vary independently, and a run records the baseline it ran against
- * so an aggregated report can attribute a difference to one factor.
+ * B (current persona), P (candidate persona), T (candidate persona + PTC-only
+ * presentation), T (candidate persona + 'both' presentation), N (candidate
+ * persona + native presentation throughout), and M
+ * (the official bundle's Minimal preset as an external reference). Persona
+ * wording and tool presentation vary independently, and a run records the
+ * baseline it ran against so an aggregated report can attribute a difference to
+ * one factor.
  *
  * Usage:
  *   node tools/benchmark-live-run.mjs --variant B [--timeout 300000] [--keep]
@@ -67,39 +69,34 @@ export const CANDIDATE_PERSONA = [
 
 /**
  * Variant definitions: what changes in the evaluated preset copy. `persona` picks
- * the prompt wording, `anchors` the staged tool surface (`null` keeps the shipped
- * default, an empty list disables staging), `ptc` the presentation after the
- * boundary, and `official` selects the bundle's Minimal preset untouched.
+ * the prompt wording, `presentation` the wire presentation (`null` keeps the
+ * shipped default), and `official` selects the bundle's Minimal preset
+ * untouched.
  */
 export const LIVE_VARIANTS = {
   B: {
     persona: 'current',
-    anchors: null,
-    ptc: true,
-    note: 'baseline: shipped persona, four-tool anchor, PTC after the boundary',
+    presentation: null,
+    note: "baseline: shipped persona, shipped 'ptc' presentation",
   },
   P: {
     persona: 'candidate',
-    anchors: null,
-    ptc: true,
-    note: 'candidate persona, four-tool anchor, PTC after the boundary',
+    presentation: null,
+    note: "candidate persona, shipped 'ptc' presentation",
   },
   T: {
     persona: 'candidate',
-    anchors: [],
-    ptc: true,
-    note: 'candidate persona, PTC from the first turn',
+    presentation: 'both',
+    note: "candidate persona, 'both' presentation (native roster plus run_code)",
   },
   N: {
     persona: 'candidate',
-    anchors: [],
-    ptc: false,
-    note: 'candidate persona, full native roster throughout',
+    presentation: 'native',
+    note: 'candidate persona, native roster throughout',
   },
   M: {
     persona: 'minimal',
-    anchors: null,
-    ptc: null,
+    presentation: null,
     official: true,
     note: 'external reference: the official Minimal preset, official configuration',
   },
@@ -201,18 +198,12 @@ export function materializePreset(root, variantId, variant) {
   cpSync(variant.official === true ? officialMinimalPresetDir() : PRESET_SOURCE, target, { recursive: true })
   if (variant.official === true) return target
   const composition = join(target, 'agent.cordis.yml')
-  if (variant.anchors !== null && variant.anchors !== undefined) {
+  if (variant.presentation !== null && variant.presentation !== undefined) {
     const text = readFileSync(composition, 'utf8')
-    // Anchor on the config line: the composition also NAMES `anchorTools: [bash]`
+    // Anchor on the config line: the composition also NAMES the presentation key
     // inside its prose, and rewriting a comment would leave the real surface alone.
-    const replaced = text.replace(/^(\s*)anchorTools: \[[^\]]*\]/m, `$1anchorTools: [${variant.anchors.join(', ')}]`)
-    if (replaced === text) throw new Error('benchmark: the preset composition carries no anchorTools line to vary')
-    writeFileSync(composition, replaced)
-  }
-  if (variant.ptc === false) {
-    const text = readFileSync(composition, 'utf8')
-    const replaced = text.replace(/ptcPresentation: true/, 'ptcPresentation: false')
-    if (replaced === text) throw new Error('benchmark: the preset composition carries no ptcPresentation line to vary')
+    const replaced = text.replace(/^(\s*)presentation: '[^']*'/m, `$1presentation: '${variant.presentation}'`)
+    if (replaced === text) throw new Error('benchmark: the preset composition carries no presentation line to vary')
     writeFileSync(composition, replaced)
   }
   if (variant.persona === 'candidate') {
