@@ -122,8 +122,14 @@ function callArguments(data) {
   return args !== null && typeof args === 'object' ? args : undefined
 }
 
-/** Whether one tool/result event reports a failure. */
-function resultIsError(data) {
+/**
+ * Whether one tool/result event reports a failure.
+ *
+ * Exported because the phase logic reads the same signal: a failed dispatch opens
+ * the review stretch, and one definition of "failed" keeps the two mechanisms
+ * from disagreeing about what a failure is.
+ */
+export function resultIsError(data) {
   if (data?.error !== undefined && data?.error !== null) return true
   const message = data?.message
   if (message?.isError === true) return true

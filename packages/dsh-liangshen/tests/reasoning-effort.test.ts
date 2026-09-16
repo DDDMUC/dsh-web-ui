@@ -8,6 +8,7 @@ import {
   apply,
   effortForPhase,
   isPlanningRequest,
+  isReviewRequest,
   name,
 } from '../presets/liangshen/reasoning-effort.mjs'
 
@@ -43,6 +44,18 @@ function request(harness: { listener: Listener }, payload: any, frozen: any = { 
 
 const PLAN_ON = [{ type: 'plan/mode', data: { active: true } }]
 const PLAN_OFF = [{ type: 'plan/mode', data: { active: false } }]
+
+/** One tool dispatch in the durable log: the call and its settled result. */
+function dispatch(callId: string, ok: boolean) {
+  const call = { type: 'tool/call', data: { callId, name: 'bash', arguments: '{}' } }
+  const result = ok
+    ? { type: 'tool/result', data: { message: { source: { callId }, content: [{ type: 'text', text: 'ok' }] } } }
+    : {
+        type: 'tool/result',
+        data: { message: { source: { callId }, isError: true, content: [{ type: 'text', text: 'boom' }] } },
+      }
+  return [call, result]
+}
 
 /** One agent whose session log is the supplied events. */
 function agentOf(events: unknown[] = []) {
@@ -128,6 +141,38 @@ describe('liangshen-reasoning-effort', () => {
     expect(harness.listeners.size).toBe(1)
     expect(() => register({ planningEffort: 'very-high' })).toThrow(/planningEffort must be one of/)
     expect(() => register({ executionEffort: 75 })).toThrow(/executionEffort must be one of/)
+  })
+
+  test('a failed dispatch opens a review stretch and the next success closes it', () => {
+    // No failures: never in review.
+    expect(isReviewRequest([...dispatch('a', true), ...dispatch('b', true)])).toBe(false)
+    // A failure opens it.
+    expect(isReviewRequest([...dispatch('a', true), ...dispatch('b', false)])).toBe(true)
+    // The next success closes it — one failure does not pin the session deep.
+    expect(isReviewRequest([...dispatch('a', false), ...dispatch('b', true)])).toBe(false)
+    // Several failures in a row stay open until something works.
+    expect(isReviewRequest([...dispatch('a', false), ...dispatch('b', false)])).toBe(true)
+    // An empty log is not a review.
+    expect(isReviewRequest([])).toBe(false)
+  })
+
+  test('resolves the review level after a failure and returns to execution after the fix', () => {
+    const base = { planning: 'high', execution: 'low', review: 'high' }
+    const failing = [...dispatch('a', false)]
+    const fixed = [...dispatch('a', false), ...dispatch('b', true)]
+    expect(effortForPhase({ ...base, events: failing, turn: 4 })).toBe('high')
+    expect(effortForPhase({ ...base, events: fixed, turn: 5 })).toBe('low')
+  })
+
+  test('plan mode outranks a failure-derived review stretch', () => {
+    // The user is deliberately deciding the work, not reacting to a breakage.
+    const events = [...PLAN_ON, ...dispatch('a', false)]
+    expect(effortForPhase({ events, turn: 4, planning: 'max', execution: 'low', review: 'high' })).toBe('max')
+  })
+
+  test('the review level falls back to the planning level when unset', () => {
+    const events = [...dispatch('a', false)]
+    expect(effortForPhase({ events, turn: 4, planning: 'high', execution: 'low' })).toBe('high')
   })
 
   test('the phase switch is off by default and registers nothing while off', () => {

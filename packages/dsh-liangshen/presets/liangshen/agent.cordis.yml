@@ -170,6 +170,7 @@
     autoEffortByPhase: false
     planningEffort: 'high'
     executionEffort: 'low'
+    reviewEffort: 'high'
 
 # The harness's workspace-instruction loader. Under the default
 # `instructionSource: system-prompt` the content reaches the model through the

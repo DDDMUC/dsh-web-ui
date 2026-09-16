@@ -35,6 +35,7 @@
  *    long execution stretch keeps one effort and one stable prefix.
  */
 
+import { resultIsError } from './paging.mjs'
 import { planModeState } from './working-context.mjs'
 
 /** Cordis plugin name used by loader diagnostics. */
@@ -56,7 +57,14 @@ export const DEFAULT_PLANNING_EFFORT = 'high'
 /** Default execution effort: one notch down, for single-step tool work. */
 export const DEFAULT_EXECUTION_EFFORT = 'low'
 
-/** Validate one configured effort against the accept set. */
+/**
+ * Default review effort: the level used after a failed step, until a fix lands.
+ * Falls back to the planning level when unset, because diagnosing a failure is
+ * the same kind of work as forming a plan.
+ */
+export const DEFAULT_REVIEW_EFFORT = undefined
+
+/** Validate one configured effort against the accept set (an absent value keeps the fallback). */
 function effortValue(value, field, fallback) {
   if (value === undefined) return fallback
   if (typeof value !== 'string' || !KNOWN_EFFORTS.includes(value)) {
@@ -84,6 +92,39 @@ export function isPlanningRequest(events, turn) {
 }
 
 /**
+ * Whether the session currently sits in the review that follows a failure.
+ *
+ * The signal is the tool log: a failed dispatch opens a review stretch, and the
+ * next SUCCESSFUL dispatch closes it. That pairing is what keeps the switch from
+ * toggling on every call — inside one 'fix it' loop the level stays deep from the
+ * failure until the fix actually works, instead of flapping between levels as
+ * each command lands.
+ *
+ * A turn boundary reopens nothing: the stretch is a property of the log, so a
+ * resume or a compaction folds the same state back. Only the tool events matter,
+ * which is why a session that never fails never enters the stretch at all.
+ */
+export function isReviewRequest(events) {
+  const list = Array.isArray(events) ? events : []
+  // Pair every result with its call first, so a failure can be attributed to the
+  // call that produced it rather than to positional order.
+  const failed = new Set()
+  for (const event of list) {
+    if (event?.type !== 'tool/result') continue
+    const callId = event.data?.message?.source?.callId ?? event.data?.callId
+    if (callId !== undefined && resultIsError(event.data)) failed.add(String(callId))
+  }
+  let reviewing = false
+  for (const event of list) {
+    if (event?.type !== 'tool/call') continue
+    const callId = event.data?.callId
+    if (callId === undefined) continue
+    reviewing = failed.has(String(callId))
+  }
+  return reviewing
+}
+
+/**
  * The effort one request should carry, or undefined when nothing should change.
  *
  * The level is taken from configuration alone. Whether the routed model actually
@@ -94,10 +135,14 @@ export function isPlanningRequest(events, turn) {
  * than being silently masked by a guard that can never fire.
  */
 export function effortForPhase(options) {
-  const { events, turn, planning, execution } = options
-  const wanted = isPlanningRequest(events, turn) ? planning : execution
-  if (wanted === undefined) return undefined
-  return wanted
+  const { events, turn, planning, execution, review } = options
+  // Planning first: an explicit plan mode outranks a failure-derived stretch,
+  // because the user is deliberately deciding the work rather than reacting to it.
+  if (isPlanningRequest(events, turn)) return planning
+  // A failure opens a review stretch; the fix that clears it returns the session
+  // to execution. The review level defaults to the planning one when unset.
+  if (isReviewRequest(events)) return review ?? planning
+  return execution
 }
 
 /**
@@ -116,16 +161,17 @@ export function apply(ctx, config) {
   if (!auto) return
   const planning = effortValue(config?.planningEffort, 'planningEffort', DEFAULT_PLANNING_EFFORT)
   const execution = effortValue(config?.executionEffort, 'executionEffort', DEFAULT_EXECUTION_EFFORT)
+  const review = effortValue(config?.reviewEffort, 'reviewEffort', DEFAULT_REVIEW_EFFORT)
 
   ctx.on(REQUEST_EVENT, async (payload, next) => {
     const current = await next()
     try {
       const agent = payload?.agent
       const events = sessionEvents(agent?.session)
-      const wanted = effortForPhase({ events, turn: payload?.turn, planning, execution })
-      // Only replace the config at a phase boundary: this field governs cache
-      // reuse, so restating the same value (or flipping it every turn) is worse
-      // than leaving the frozen header alone.
+      const wanted = effortForPhase({ events, turn: payload?.turn, planning, execution, review })
+      // Replace the config only when the phase actually asks for a different
+      // level: restating the same value would log a header change for nothing,
+      // and the level is request-header state the host treats as cache-relevant.
       if (wanted === undefined || current?.reasoningEffort === wanted) return current
       return { ...current, reasoningEffort: wanted }
     } catch {

@@ -77,6 +77,12 @@ export interface Config {
   planningEffort?: (typeof EFFORT_OPTIONS)[number]
   /** Reasoning level requested for single-step execution turns (only when `autoEffortByPhase` is on). */
   executionEffort?: (typeof EFFORT_OPTIONS)[number]
+  /**
+   * Reasoning level requested after a failed step, until a fix lands (only when
+   * `autoEffortByPhase` is on). Diagnosing a failure is the same kind of work as
+   * forming a plan, so this defaults to the planning level.
+   */
+  reviewEffort?: (typeof EFFORT_OPTIONS)[number]
 }
 
 export const Config: z<Config> = z.object({
@@ -86,6 +92,7 @@ export const Config: z<Config> = z.object({
   autoEffortByPhase: z.boolean().default(false),
   planningEffort: z.union([...EFFORT_OPTIONS]).default('high'),
   executionEffort: z.union([...EFFORT_OPTIONS]).default('low'),
+  reviewEffort: z.union([...EFFORT_OPTIONS]).default('high'),
 })
 
 /** Schema defaults, re-read for hand-built test contexts. */
@@ -94,6 +101,7 @@ const DEFAULT_PRESENTATION = 'ptc'
 const DEFAULT_AUTO_EFFORT = false
 const DEFAULT_PLANNING_EFFORT = 'high'
 const DEFAULT_EXECUTION_EFFORT = 'low'
+const DEFAULT_REVIEW_EFFORT = 'high'
 
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 150
@@ -134,6 +142,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     autoEffortByPhase: current().autoEffortByPhase ?? DEFAULT_AUTO_EFFORT,
     planningEffort: current().planningEffort ?? DEFAULT_PLANNING_EFFORT,
     executionEffort: current().executionEffort ?? DEFAULT_EXECUTION_EFFORT,
+    reviewEffort: current().reviewEffort ?? DEFAULT_REVIEW_EFFORT,
   })
 
   const sync = (): void => {
@@ -148,6 +157,7 @@ function applyImpl(ctx: Context, config?: Config): void {
         autoEffortByPhase: settings.autoEffortByPhase,
         planningEffort: settings.planningEffort,
         executionEffort: settings.executionEffort,
+        reviewEffort: settings.reviewEffort,
       })
       for (const { id, error } of result.failed) {
         ctx.logger?.warn?.(`dsh-liangshen: preset ${id} sync failed: ${error}`)

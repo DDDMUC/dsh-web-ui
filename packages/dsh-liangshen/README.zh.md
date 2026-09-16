@@ -20,7 +20,7 @@ DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官
 6. 最小版 working-context 行——plan-mode 状态、已激活的分页命名空间、进行中的 todo——只在其来源可读时注入到最新消息尾部，让当前状态落在模型的局部注意力窗口内；运行时上下文（sandbox 与 approval 快照）与 skill 目录按 Standard 模式正常注入；
 7. 目录把已激活分页家族的工具归在 `namespace `<名称>` (activated):` 标题之下，而不是把一个服务端的工具散落在字母序清单里；未被分页的工具仍保持扁平条目；
 8. `maxResidentTokens`（默认 6000）估算常驻 wire 面并在超过时告警一次，列出最重的工具并把 `pagedToolPatterns` 指为处置手段。该守卫从不截断：静默丢掉会话需要的工具，等于用可度量的上下文成本换取不可度量的能力损失。
-9. `reasoning-effort` 插件加入宿主的 `agent/request` 水位，在 plan-mode 边界为请求切换推理档位（规划时深、单步执行时浅）。只在边界切换——该字段决定缓存复用，逐回合翻转会每回合付一次缓存未命中；也绝不请求路由未提供的档位，因此档位集合不可读或更窄时，冻结的配置原样保留。
+9. `reasoning-effort` 插件加入宿主的 `agent/request` 水位，在阶段边界为请求切换推理档位。识别三个阶段：规划（显式进入计划模式，或日志尚无模式记录时的首轮）、复核（一次失败的调用开启了区间，且此后尚无成功的调用关闭它）、执行（其余情况）。只有阶段确实要求不同档位时才切换。档位是请求头状态的一部分，宿主对它的描述是"可能影响缓存复用"，并把"哪些字段属于缓存纪元级别"列为尚未定论的 TODO；插件因此不据此宣称任何缓存结论，只在阶段边界切换，把变更次数压到最低。
 
 ## 安全模型
 
@@ -57,7 +57,7 @@ DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官
 | `descriptionMaxLength` | `200` | 注入目录中单个工具一行摘要的长度上限。完整关键参数语义保持完整。 |
 | `presentation` | `ptc` | 整个会话的 wire 呈现方式。`ptc` 把 wire 收拢为 `run_code`，其余工具经生成的 SDK 调用——静态上下文最省，也是出厂默认；`native` 保持组装出的原生清单，官方脚手架横评在两个代码 Agent 基准上都把它排在前面；`both` 保持完整原生清单并同驻一个 `run_code`。`ptc` 与 `both` 需要挂载的 code runtime；没有时插件根本不做声明，会话直接运行原生工具面。 |
 | `pagedToolPatterns` | `['mcp__*']` | 命中这些 glob 模式的工具被扣留在 wire 之外，直到模型通过 `tool_activate({ namespace })` 激活其命名空间；被扣留的命名空间在目录中以一行摘要出现。最多同时保持三个已激活的分页命名空间，激活状态从持久事件流重建，跨越压缩与恢复。置空则关闭分页。 |
-| `planningEffort` / `executionEffort` | `high` / `low` | `reasoning-effort` 插件经宿主的 `agent/request` 水位为请求设定的推理档位：规划模式仍在成形工作时给深档位，单步执行时给浅档位。只在 plan-mode 边界切换——该字段决定缓存复用，逐回合翻转会每回合付一次缓存未命中。档位经 DeepSeek adapter 的取值集（`off`/`low`/`high`/`max`）校验；当路由声明的档位集合可读且不含目标档位时跳过切换。 |
+| `planningEffort` / `executionEffort` | `high` / `low` | `reasoning-effort` 插件经宿主的 `agent/request` 水位为请求设定的推理档位：规划阶段给深档位，执行阶段与失败后的复核阶段给浅/深档位。档位经 DeepSeek adapter 的取值集（`off`/`low`/`high`/`max`）校验。切换会让宿主记下一次请求头变更；该变更对服务端缓存的影响未经本仓库验证，插件只在阶段边界切换以把变更次数压到最低。 |
 | `maxResidentTokens` | `6000` | 常驻 wire 面的估算 token 上限（按序列化 schema 约四字符一 token），校准在出厂清单之上，用于发现真实增长而非出厂配置本身。超过时告警一次、列出最重的工具并指向 `pagedToolPatterns`；不会截断工具清单。 |
 | `ptcPresentation` | （已退役） | 旧别名：`true` 映射为 `presentation: 'ptc'`，`false` 映射为 `'native'`，两者都伴随弃用告警。 |
 | `anchorTools` | （已退役） | 首回合锚定收窄已移除；设置该键会收到告警，且不再收窄 wire。 |
@@ -109,6 +109,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 | `autoEffortByPhase` | `false` | 开启后由 preset 接管请求的推理档位并按阶段切换。默认关闭：开关关闭时插件根本不注册请求监听，模型选择器携带的档位原样生效。开启后从下一个阶段边界起覆盖该选择器取值。 |
 | `planningEffort` | `high` | 规划模式仍在成形工作时请求的推理档位。取值 `off`、`low`、`high`、`max` 之一。仅在 `autoEffortByPhase` 开启时使用。 |
 | `executionEffort` | `low` | 单步执行轮次中请求的推理档位。取值 `off`、`low`、`high`、`max` 之一。仅在 `autoEffortByPhase` 开启时使用。 |
+| `reviewEffort` | `high` | 某一步失败后、直到修复落地为止请求的推理档位。一次失败的调用开启这个区间，其后**第一次成功**的调用关闭它，因此「修复—验证」的过程从失败到修复成功全程保持深档位，而不是每次调用都来回跳。诊断失败与制定方案是同类工作，因此默认取规划档位。 |
 
 各字段都可在 Web 设置界面（插件配置）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。其中塑造 preset 的字段经预设同步抵达会话：插件在拷贝 bundle 的同时把它们写入同步产出的 `agent.cordis.yml`，因此真正被会话运行的是设置界面的取值，而不是包内文件。组合里没有的键绝不会被凭空写入——覆写只会收窄出厂配置。改动需重启 DSH 生效。
 

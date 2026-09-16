@@ -145,6 +145,8 @@ export interface PresetOverrides {
   planningEffort?: string
   /** The `reasoning-effort` row's `executionEffort` value. */
   executionEffort?: string
+  /** The `reasoning-effort` row's `reviewEffort` value. */
+  reviewEffort?: string
 }
 
 /**
@@ -193,6 +195,7 @@ export function renderPresetOverrides(text: string, overrides: PresetOverrides):
   out = setRowValue(out, 'reasoning-effort', 'autoEffortByPhase', overrides.autoEffortByPhase)
   out = setRowValue(out, 'reasoning-effort', 'planningEffort', overrides.planningEffort)
   out = setRowValue(out, 'reasoning-effort', 'executionEffort', overrides.executionEffort)
+  out = setRowValue(out, 'reasoning-effort', 'reviewEffort', overrides.reviewEffort)
   return out
 }
 

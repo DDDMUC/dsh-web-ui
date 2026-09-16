@@ -1,5 +1,5 @@
 # Bilingual-pair consistency record (docs/i18n.md): the git blob hash of each
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with git hash-object.
-2026-09-16-liangshen-v41-flash-native-rebuild.md: 1f89784f43c4b81042f37b51810819c9274c1ce3
-2026-09-16-liangshen-v41-flash-native-rebuild.zh.md: 8c1cee9aa897cb49e187b352314569dca19f111a
+2026-09-16-liangshen-v41-flash-native-rebuild.md: b15aabe984e8e80c9c96d56b7bba1de1f662a99b
+2026-09-16-liangshen-v41-flash-native-rebuild.zh.md: b9510d5af91e121f1abddd6f84fb6ac4de789969

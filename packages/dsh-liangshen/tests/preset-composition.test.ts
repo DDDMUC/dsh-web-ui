@@ -93,6 +93,7 @@ describe('liangshen preset composition', () => {
     expect(effort).toContain('autoEffortByPhase: false')
     expect(effort).toContain("planningEffort: 'high'")
     expect(effort).toContain("executionEffort: 'low'")
+    expect(effort).toContain("reviewEffort: 'high'")
   })
 
   it('keeps the native and both presentation variants structurally valid', () => {

@@ -232,7 +232,9 @@ You are a helpful software engineer assistant.
     return { ...config, reasoningEffort: reasoningEffortFor(planning) }
   })
   ```
-  在规划模式与首轮赋予高档位（默认 `'high'`），进入执行阶段后降级（默认 `'low'`），平滑切换且无需人工干预。`reasoningEffort` 是 branded id，取值须来自部署已声明的档位集合而非任意数字（DeepSeek adapter 接受 `'off' | 'low' | 'high' | 'max'`，profile 可再收窄）。**注意**：该字段参与请求头快照，中途变更会使缓存前缀失效一次——因此**只在 plan-mode 边界切换**，而不是逐回合翻转；长执行段保持同一档位与同一前缀。
+  阶段判定识别三种情形，平滑切换且无需人工干预：**规划**（显式计划模式，或日志尚无模式记录时的首轮）取高档位（默认 `'high'`）；**复核**（一次失败的派发开启了区间，且此后尚无成功的派发关闭它）取复核档位（默认同规划档位，因为诊断失败与制定方案是同类工作）；**执行**（其余情况）取低档位（默认 `'low'`）。失败与成功配对成区间，是让「修复—验证」循环从失败到修复成功全程保持深档位，而不是每次工具调用都来回切换。
+
+`reasoningEffort` 是 branded id，取值须来自部署已声明的档位集合而非任意数字（DeepSeek adapter 接受 `'off' | 'low' | 'high' | 'max'`，profile 可再收窄）。**关于缓存（更正）**：宿主把档位列为"可能影响缓存复用"的请求头状态，并把"哪些字段属于缓存纪元级别"写成尚未定论的 TODO；本仓库**没有**验证过档位变更对服务端前缀缓存的实际影响，因此此前"变更会使缓存前缀失效一次"的断言已删除。插件仍只在阶段边界切换、且仅在档位确实不同时才替换，把变更次数压到最低——这是无论服务端如何实现都安全的选择。
 
 ### 7.4 原生并发调用的“读并发 / 写串行”安全屏障（Concurrency Safety Barrier）
 - **痛点**：模型在单个回复中输出多个 `<｜DSML｜ invoke>` 时，若多个写操作（如同时编辑同一文件的不同区域，或同时执行互相冲突的 bash 命令）并发运行，会导致严重的数据破坏与竞争条件（Race Condition）；
@@ -263,7 +265,7 @@ You are a helpful software engineer assistant.
 ### 8.2 按 plan-mode 动态调节 reasoning_effort
 - **动机**：§4.4 的双相推理节律（规划 75 / 执行 40~50）需要从请求组装管线读取 plan-mode 状态并写入请求参数；
 - **改动面（更正）**：**此前的"属上游需求"判断有误**。宿主已提供插件可用的接缝：`agent/request` 是一个水位（waterfall）事件，签名为 `(payload: { agent, turn, step, signal }, next: () => Promise<LlmCallConfig>) => LlmCallConfig`，按 agent 作用域派发。DSH 自带测试即用例证：`ctx.on('agent/request', async (_payload, next) => ({ ...await next(), temperature: 0.5 }))` 可在插件内改写配置字段，回调同时可读到 `turn`/`step`。因此 preset 插件可以订阅该事件、从会话事件流折叠出 plan-mode 状态、返回改写后的 `reasoningEffort`，**无需修改 DSH 核心**；
-- **现状**：**已实现**（`presets/liangshen/reasoning-effort.mjs`，挂载为 `reasoning-effort` 行，`planningEffort: 'high'` / `executionEffort: 'low'`），但由 `autoEffortByPhase` 开关把关且**出厂关闭**：关闭时插件不注册任何请求监听，模型选择器携带的档位原样生效；开启后从下一个阶段边界起接管。之所以默认关闭，是因为会话档位是选择器里可见且显式的用户选择，静默覆盖会让它看起来像坏了。只在 plan-mode 边界切换：该字段参与请求头快照并决定缓存复用，逐回合翻转会为省推理 token 而每回合付一次缓存未命中。档位取值在加载时经 `'off' | 'low' | 'high' | 'max'` 校验。**插件刻意不在请求时校验路由是否提供该档位**：宿主的 llm 服务没有暴露"某模型已声明的档位集合"查询（公开面只有 providers / models / prepareCall 等），因此任何此类守卫都永远不会触发，只会暗示一个并不存在的检查。路由拒绝所配档位会以其自身的调用失败显现，由运维收窄配置。
+- **现状**：**已实现**（`presets/liangshen/reasoning-effort.mjs`，挂载为 `reasoning-effort` 行，`planningEffort: 'high'` / `executionEffort: 'low'` / `reviewEffort: 'high'`），但由 `autoEffortByPhase` 开关把关且**出厂关闭**：关闭时插件不注册任何请求监听，模型选择器携带的档位原样生效；开启后从下一个阶段边界起接管。之所以默认关闭，是因为会话档位是选择器里可见且显式的用户选择，静默覆盖会让它看起来像坏了。只在 plan-mode 边界切换：该字段参与请求头快照并决定缓存复用，逐回合翻转会为省推理 token 而每回合付一次缓存未命中。档位取值在加载时经 `'off' | 'low' | 'high' | 'max'` 校验。**插件刻意不在请求时校验路由是否提供该档位**：宿主的 llm 服务没有暴露"某模型已声明的档位集合"查询（公开面只有 providers / models / prepareCall 等），因此任何此类守卫都永远不会触发，只会暗示一个并不存在的检查。路由拒绝所配档位会以其自身的调用失败显现，由运维收窄配置。
 
 ### 8.3 分发引擎的读并发 / 写串行栅栏
 - **现状**：**不属于上游缺口**（更正）。宿主早已实现该栅栏：`dsh-tools.executionMode()` 按每个工具自报的 `isConcurrencySafe` 分类，只读调用并发、变动调用独占成栅栏，结果按提交顺序提交。preset 能施加的影响是**为自己的工具正确声明该能力**，已在 §7.4 落地（`tool_activate` 声明为并发安全）。
