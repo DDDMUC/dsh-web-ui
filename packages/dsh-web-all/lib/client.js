@@ -46359,7 +46359,7 @@ window.__ModuleLoader__.load({
 			"usage.config.bubbleMode.change": "仅变化时",
 			"usage.config.bubbleMode.off": "关闭",
 			"usage.bank.title": "鲸元券",
-			"usage.bank.hint": "官方 API 每消耗 1000 tokens 铸造 1 鲸元；保存或分享这张票券。",
+			"usage.bank.hint": "官方 API 每消耗 100 万 tokens 铸造 1 鲸元；保存或分享这张票券。",
 			"usage.bank.noUsage": "暂无 DeepSeek 官方用量数据（统计自插件启用起）",
 			"usage.bank.minted": "累计铸造 {minted} 鲸元（{tokens} tokens）",
 			"usage.bank.spend.observed": "官方余额实测花费 ¥{cost}（自 {since} 起）",
@@ -46415,7 +46415,7 @@ window.__ModuleLoader__.load({
 			"usage.config.bubbleMode.change": "On change",
 			"usage.config.bubbleMode.off": "Off",
 			"usage.bank.title": "Whale-yuan voucher",
-			"usage.bank.hint": "Every 1,000 tokens spent on the official API mint one whale yuan; save or share the note.",
+			"usage.bank.hint": "Every 1,000,000 tokens spent on the official API mint one whale yuan; save or share the note.",
 			"usage.bank.noUsage": "No official DeepSeek usage yet (counting starts when the plugin is enabled)",
 			"usage.bank.minted": "Minted {minted} whale yuan ({tokens} tokens)",
 			"usage.bank.spend.observed": "Spent ¥{cost} observed on the official balance (watching since {since})",
@@ -46985,8 +46985,8 @@ window.__ModuleLoader__.load({
 		* section renders as its failure line.
 		* @module @linxin666/dsh-usage/client/voucher
 		*/
-		/** Anti-inflation exchange rate: 1000 tokens mint one whale yuan. */
-		const TOKENS_PER_WHALE_YUAN = 1e3;
+		/** Anti-inflation exchange rate: 1,000,000 tokens mint one whale yuan. */
+		const TOKENS_PER_WHALE_YUAN = 1e6;
 		/** The note's face value in whale yuan; the smallest denomination is 1. */
 		function faceValue(tokens) {
 			return Math.max(1, Math.round(tokens / TOKENS_PER_WHALE_YUAN));
@@ -47577,7 +47577,7 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* The Token 银行 card: the DeepSeek official family's retained-ledger usage
-		* minted onto the whale-yuan note at 1000 tokens per whale yuan. The window
+		* minted onto the whale-yuan note at 1,000,000 tokens per whale yuan. The window
 		* prefers the host's whole-ledger aggregate and falls back to the 30-day
 		* trend when an older host serves no `all`; the spend line prefers the
 		* official balance watch and falls back to the fold-time estimate; the

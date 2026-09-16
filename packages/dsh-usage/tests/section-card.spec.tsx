@@ -140,8 +140,8 @@ describe('Token 银行 tab', () => {
     }
     render(<UsageSectionCard {...cardProps(snapshot)} />)
     fireEvent.click(screen.getByRole('tab', { name: 'Token 银行' }))
-    // 1,234,567 tokens mint 1,235 whale yuan at the 1000:1 exchange rate.
-    expect(screen.getByText('累计铸造 1,235 鲸元（1.23M tokens）')).toBeTruthy()
+    // 1,234,567 tokens mint 1 whale yuan at the 1,000,000:1 exchange rate.
+    expect(screen.getByText('累计铸造 1 鲸元（1.23M tokens）')).toBeTruthy()
     expect(screen.getByText('消费估算：约 ¥3.50')).toBeTruthy()
     expect(screen.getByText('12 次调用')).toBeTruthy()
     expect(screen.getByText('统计窗口 2025-12-01 ~ 2026-01-01')).toBeTruthy()
@@ -160,7 +160,7 @@ describe('Token 银行 tab', () => {
     snapshot.usage.observedSpend = { cny: 12.5, since: new Date(2026, 0, 2, 12).getTime() }
     render(<UsageSectionCard {...cardProps(snapshot)} />)
     fireEvent.click(screen.getByRole('tab', { name: 'Token 银行' }))
-    expect(screen.getByText('累计铸造 50 鲸元（50k tokens）')).toBeTruthy()
+    expect(screen.getByText('累计铸造 1 鲸元（50k tokens）')).toBeTruthy()
     expect(screen.getByText('官方余额实测花费 ¥12.50（自 2026-01-02 起）')).toBeTruthy()
     expect(screen.queryByText(/消费估算/)).toBeNull()
   })

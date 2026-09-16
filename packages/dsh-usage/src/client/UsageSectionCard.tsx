@@ -401,7 +401,7 @@ function totalOf(totals: UsageTokenTotals): number {
 
 /**
  * The Token 银行 card: the DeepSeek official family's retained-ledger usage
- * minted onto the whale-yuan note at 1000 tokens per whale yuan. The window
+ * minted onto the whale-yuan note at 1,000,000 tokens per whale yuan. The window
  * prefers the host's whole-ledger aggregate and falls back to the 30-day
  * trend when an older host serves no `all`; the spend line prefers the
  * official balance watch and falls back to the fold-time estimate; the
