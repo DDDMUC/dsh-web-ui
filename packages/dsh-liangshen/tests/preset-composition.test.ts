@@ -85,6 +85,13 @@ describe('liangshen preset composition', () => {
     expect(row('working-context')).toContain('name: ./working-context.mjs')
   })
 
+  it('mounts the phase-aware reasoning-effort plugin with its two levels', () => {
+    const effort = row('reasoning-effort')
+    expect(effort).toContain('name: ./reasoning-effort.mjs')
+    expect(effort).toContain("planningEffort: 'high'")
+    expect(effort).toContain("executionEffort: 'low'")
+  })
+
   it('keeps the native and both presentation variants structurally valid', () => {
     for (const mode of ['native', 'both']) {
       const variant = preset.replace("presentation: 'ptc'", `presentation: '${mode}'`)

@@ -156,6 +156,20 @@
 - id: working-context
   name: ./working-context.mjs
 
+# `reasoning-effort` joins the host's agent/request waterfall and swaps the
+# request's reasoningEffort at a plan-mode boundary: a deep budget while the plan
+# is being formed, a shallow one for single-step execution. It switches only at
+# that boundary because the field governs cache reuse — flipping it every turn
+# would pay a cache miss per turn to save reasoning tokens. Configured levels are
+# validated against the DeepSeek adapter's set ('off' | 'low' | 'high' | 'max'),
+# and the switch is skipped whenever the routed model's offered levels are
+# readable and do not include the wanted one.
+- id: reasoning-effort
+  name: ./reasoning-effort.mjs
+  config:
+    planningEffort: 'high'
+    executionEffort: 'low'
+
 # The harness's workspace-instruction loader. Under the default
 # `instructionSource: system-prompt` the content reaches the model through the
 # system prompt instead, and this row's injections are dropped by

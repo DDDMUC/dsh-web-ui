@@ -102,6 +102,15 @@ export function apply(ctx, config) {
       },
       render: (_args, value) => [{ type: 'text', text: value.text }],
     },
+    /**
+     * Activation is concurrency-safe: the handler only reads the session's event
+     * stream and returns a report. The activation itself is the durable tool/call
+     * event the runtime appends for this call, so overlapping activations of
+     * different namespaces cannot corrupt shared state — the next assembly simply
+     * replays whatever the log holds. Declaring it lets independent activations
+     * (and any other read-only sibling) overlap instead of forming a barrier.
+     */
+    isConcurrencySafe: () => true,
     async execute(args, exec) {
       const namespace = args.namespace
       const agent = exec?.agent

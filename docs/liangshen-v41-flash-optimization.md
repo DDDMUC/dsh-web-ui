@@ -1,6 +1,6 @@
 # 梁神模式针对 DeepSeek-V4.1-Flash 的原生架构优化与重构方案
 
-> 实施状态：本方案中可由插件自承载的部分已落地于 `dsh-liangshen`——`presentation` 三态配置（**出厂默认 `ptc`**：wire 收拢为唯一的 `run_code`，其余工具经生成的 SDK 触达；缺 code runtime 时回退 `native` 并一次性告警）。**该默认值是一次未测量的取舍**：它取的是静态上下文成本（原生清单的 schema 负载离开每个请求），而本方案 §1.2 引用的同一份官方横评把 `ptc` 排在原生面之后（DeepSWE v1.1 低 5.0、Terminal-Bench 2.1 低 4.8）。本仓库尚未运行 §6 的评测矩阵来裁决该取舍；`presentation: 'native'` 可一行切回官方数据支持的面。、旧键 `ptcPresentation` 映射 `'ptc'`/`'native'` 并告警、`anchorTools` 首回合锚定退役（设置则告警，不再收窄 wire）、温和 Tool Paging（`pagedToolPatterns` 默认 `['mcp__*']`、`tool_activate({ namespace })` 激活、LRU 上限 3、激活状态从持久事件流重建，压缩与恢复安全）、§4.3 persona 纪律替换、`tool-result-pruner` 4096/1500/500、win32 临时 shell 纪律行与最小版 working-context 投射（plan-mode/活跃命名空间/进行中 todo，可读才注入）。此外，§2.3 的命名空间呈现以预设内可实现的形式落地：已激活分页家族的工具在目录中归在 `namespace \`<名称>\` (activated):` 标题之下，未分页工具保持扁平条目；§3.1 的常驻集预算以 `maxResidentTokens`（默认 6000，校准在出厂清单之上，因此标记的是真实增长而非出厂配置本身）落地为一次性告警守卫（估算序列化 schema 约四字符一 token，超限时列出最重的工具并指向 `pagedToolPatterns`，从不截断清单）；§4.1 的输出纪律已作为 `Bounded Output` 一条写入 persona 本体（过滤后再读，禁止把大段命令输出倾泻进会话）；§4.5 的稳定前缀不变量由 `minimal-prompt` 的回归测试守住（指令文件改动只影响 appended 段的值，前缀逐字节不变）。§7.1（命名空间映射）与 §7.4（并发调度栅栏）依赖 DSH 核心（宿主）能力，属上游需求，本仓库不实现，现状见 §8。§7.3（动态 reasoning_effort）经核实**不属于上游需求**：宿主已提供插件可用的 `agent/request` 水位事件，preset 侧即可实现，目前尚未实施。
+> 实施状态：本方案中可由插件自承载的部分已落地于 `dsh-liangshen`——`presentation` 三态配置（**出厂默认 `ptc`**：wire 收拢为唯一的 `run_code`，其余工具经生成的 SDK 触达；缺 code runtime 时回退 `native` 并一次性告警）。**该默认值是一次未测量的取舍**：它取的是静态上下文成本（原生清单的 schema 负载离开每个请求），而本方案 §1.2 引用的同一份官方横评把 `ptc` 排在原生面之后（DeepSWE v1.1 低 5.0、Terminal-Bench 2.1 低 4.8）。本仓库尚未运行 §6 的评测矩阵来裁决该取舍；`presentation: 'native'` 可一行切回官方数据支持的面。、旧键 `ptcPresentation` 映射 `'ptc'`/`'native'` 并告警、`anchorTools` 首回合锚定退役（设置则告警，不再收窄 wire）、温和 Tool Paging（`pagedToolPatterns` 默认 `['mcp__*']`、`tool_activate({ namespace })` 激活、LRU 上限 3、激活状态从持久事件流重建，压缩与恢复安全）、§4.3 persona 纪律替换、`tool-result-pruner` 4096/1500/500、win32 临时 shell 纪律行与最小版 working-context 投射（plan-mode/活跃命名空间/进行中 todo，可读才注入）。此外，§2.3 的命名空间呈现以预设内可实现的形式落地：已激活分页家族的工具在目录中归在 `namespace \`<名称>\` (activated):` 标题之下，未分页工具保持扁平条目；§3.1 的常驻集预算以 `maxResidentTokens`（默认 6000，校准在出厂清单之上，因此标记的是真实增长而非出厂配置本身）落地为一次性告警守卫（估算序列化 schema 约四字符一 token，超限时列出最重的工具并指向 `pagedToolPatterns`，从不截断清单）；§4.1 的输出纪律已作为 `Bounded Output` 一条写入 persona 本体（过滤后再读，禁止把大段命令输出倾泻进会话）；§4.5 的稳定前缀不变量由 `minimal-prompt` 的回归测试守住（指令文件改动只影响 appended 段的值，前缀逐字节不变）。§7.3（动态 reasoning_effort）与 §7.4（并发调度栅栏）经核实**均不属于上游需求**，已在 preset 内落地（前者经 `agent/request` 水位切换档位，后者为 `tool_activate` 声明 `isConcurrencySafe` 以复用宿主既有的分类调度）。仅 §7.1（`namespace::function` 映射）确需 DSH 核心支持：出站工具名须在 `dsh-tools` 的 schema 投影层改写，插件无法替换；插件侧只能做入站别名容错，收益有限，故不实现。
 
 ## 1. 背景与现实工程痛点
 
@@ -232,12 +232,13 @@ You are a helpful software engineer assistant.
     return { ...config, reasoningEffort: reasoningEffortFor(planning) }
   })
   ```
-  在规划模式与首轮赋予高档位，在常规工具轮次降级，平滑切换且无需人工干预。`reasoningEffort` 是 branded id，取值须来自部署已声明的 profile 而不是任意数字。**注意**：该字段参与请求头快照，中途变更会使缓存前缀失效一次——是否值得，取决于切换频率与省下的推理 token。
+  在规划模式与首轮赋予高档位（默认 `'high'`），进入执行阶段后降级（默认 `'low'`），平滑切换且无需人工干预。`reasoningEffort` 是 branded id，取值须来自部署已声明的档位集合而非任意数字（DeepSeek adapter 接受 `'off' | 'low' | 'high' | 'max'`，profile 可再收窄）。**注意**：该字段参与请求头快照，中途变更会使缓存前缀失效一次——因此**只在 plan-mode 边界切换**，而不是逐回合翻转；长执行段保持同一档位与同一前缀。
 
 ### 7.4 原生并发调用的“读并发 / 写串行”安全屏障（Concurrency Safety Barrier）
 - **痛点**：模型在单个回复中输出多个 `<｜DSML｜ invoke>` 时，若多个写操作（如同时编辑同一文件的不同区域，或同时执行互相冲突的 bash 命令）并发运行，会导致严重的数据破坏与竞争条件（Race Condition）；
-- **执行器安全栅栏**：
-  宿主工具分发引擎必须对并发调用进行分类调度：
+- **执行器安全栅栏（已由宿主实现，更正）**：**此前的"宿主未实现"判断有误**。`dsh-tools` 的 `executionMode()` 已按工具自报的 `isConcurrencySafe` 分类：只有精确返回 `true` 的调用加入并发组，其余一律 exclusive 并形成栅栏；开始严格按提交顺序、结果按 head-of-line 游标依序提交，`maxParallelSubCalls` 设为 1 即恢复严格串行（实现见 `packages/core/tools/src/index.ts` 与 Agent Note `2026-07-10-parallel-tool-call-execution`）。宿主工具（`read`、`read-image`、`web search/fetch`、`session-query`、`subagent`）已声明该能力；
+- **preset 侧的实际缺口**：`dsh-liangshen` 此前 0 处声明，自有工具全部退化为 exclusive。已为 `tool_activate` 声明（该处理器只读事件流并返回报告，激活本身由运行时为该调用落下的 `tool/call` 事件承载，因此并发安全）。
+- **原方案设想的形态**（供参考，宿主已以更通用的方式覆盖）：
   - **只读调用群（read, grep, glob, codegraph）**：通过 `Promise.all` 纯并行调度，榨干 I/O 与并发性能；
   - **变动调用群（write, edit, bash）**：自动排入串行队列（FIFO Submission Order），顺序执行并依次捕获结果；
   - 返回时按调用顺序对齐整合进同一个 user message 的多个 `<tool_result>` 中。
@@ -262,10 +263,8 @@ You are a helpful software engineer assistant.
 ### 8.2 按 plan-mode 动态调节 reasoning_effort
 - **动机**：§4.4 的双相推理节律（规划 75 / 执行 40~50）需要从请求组装管线读取 plan-mode 状态并写入请求参数；
 - **改动面（更正）**：**此前的"属上游需求"判断有误**。宿主已提供插件可用的接缝：`agent/request` 是一个水位（waterfall）事件，签名为 `(payload: { agent, turn, step, signal }, next: () => Promise<LlmCallConfig>) => LlmCallConfig`，按 agent 作用域派发。DSH 自带测试即用例证：`ctx.on('agent/request', async (_payload, next) => ({ ...await next(), temperature: 0.5 }))` 可在插件内改写配置字段，回调同时可读到 `turn`/`step`。因此 preset 插件可以订阅该事件、从会话事件流折叠出 plan-mode 状态、返回改写后的 `reasoningEffort`，**无需修改 DSH 核心**；
-- **现状**：未实现（可在 preset 内实现）。当前推理努力度由部署的固定 route 配置决定，会话一旦开始不随阶段变化。
+- **现状**：**已实现**（`presets/liangshen/reasoning-effort.mjs`，挂载为 `reasoning-effort` 行，`planningEffort: 'high'` / `executionEffort: 'low'`）。只在 plan-mode 边界切换：该字段参与请求头快照并决定缓存复用，逐回合翻转会为省推理 token 而每回合付一次缓存未命中。档位取值经 `'off' | 'low' | 'high' | 'max'` 校验，且当路由声明的档位集合可读而不含目标档位时跳过切换；投影抛错视为"无法确认"并同样跳过，而不是冒险发送路由可能拒绝的档位。
 
 ### 8.3 分发引擎的读并发 / 写串行栅栏
-- **动机**：§7.4 的并发安全——模型在单回复中输出多个 invoke 时，只读调用应并发、变动调用应串行，避免写竞争；
-- **改动面**：宿主工具分发引擎——对同一回复内的并发调用按只读/变动分类调度（只读 `Promise.all` 并发，变动 FIFO 串行），并按调用顺序对齐结果；
-- **现状**：未实现。当前宿主按自身调度策略执行同回复的多调用，预设侧无法施加该栅栏。
+- **现状**：**不属于上游缺口**（更正）。宿主早已实现该栅栏：`dsh-tools.executionMode()` 按每个工具自报的 `isConcurrencySafe` 分类，只读调用并发、变动调用独占成栅栏，结果按提交顺序提交。preset 能施加的影响是**为自己的工具正确声明该能力**，已在 §7.4 落地（`tool_activate` 声明为并发安全）。
 

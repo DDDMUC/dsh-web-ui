@@ -18,7 +18,9 @@ preset 在整个会话中保持单一 wire 呈现，并把外部工具发现迁�
 - 温和工具分页：`pagedToolPatterns`（默认 `['mcp__*']`）把匹配工具扣留在 wire 之外，直到模型通过 `tool_activate({ namespace })` 激活其命名空间。被扣留的命名空间在注入目录中以一行摘要出现；同时最多三个分页命名空间保持激活（激活第四个时逐出最近最少使用的那个，退回摘要状态）；激活状态从持久会话事件流重建，压缩与恢复都会还原出同一张工具面。
 - persona 的工作纪律替换为行动触发式规则：同一假设的推演不超过两轮，随后立即闭合思考并调用检查工具；思考只决定下一步具体操作而不预演代码；正确性以工具实际输出验证。`tool-result-pruner` 收紧为 4096/1500/500 字符（阈值/头部/尾部）。win32 下 persona 块携带一行临时 shell 纪律。最小版 working-context 行（plan-mode 状态、已激活的分页命名空间、进行中的 todo）只在其来源可读时注入到最新消息尾部。
 - 静态 schema 面本身受一个诊断守卫看护：`maxResidentTokens`（默认 6000）按序列化 schema 约四字符一 token 估算常驻 wire 面，超过阈值时每次会话告警一次、列出最重的工具并指向 `pagedToolPatterns` 作为处置手段。该默认值刻意校准在本 preset 出厂清单之上——温和分页让全部非 `mcp__*` 工具常驻，出厂清单本身就在数千 token 量级，阈值若低于出厂基线会在每个寻常会话上误报，反而训练读者忽略它。该守卫只告警不截断——静默丢掉会话需要的工具，等于用可度量的上下文成本换取不可度量的能力损失。已激活分页家族的工具在目录中归在其命名空间标题下，未分页工具保持扁平条目；persona 另增 `Bounded Output` 一条纪律（在源头用 grep/head/tail/wc 过滤，禁止把大段命令输出倾泻进会话），因为长程注意力是有界预算，原始日志会把会话自身的约束挤出该预算。
-- 三项能力被刻意留给 DSH 核心而非在本仓库实现，记录于 `docs/liangshen-v41-flash-optimization.md` 第 8 节：`namespace::function` 工具映射（`dsh-tools` 注册表与 wire 序列化）、按 plan-mode 动态调节的 `reasoning_effort`（`dsh-llm` 请求组装钩子）、工具分发引擎的读并发/写串行栅栏。
+- `reasoning-effort` 插件加入宿主的 `agent/request` 水位（官方目录写明该事件为 waterfall，摘要即 "Replace the frozen call configuration"，按 agent 作用域派发），在 plan-mode 边界把请求的 `reasoningEffort` 从规划档位（默认 `'high'`）切到执行档位（默认 `'low'`）。只在边界切换，因为该字段参与请求头快照并决定缓存复用——逐回合翻转会为省推理 token 每回合付一次缓存未命中。档位经 `'off' | 'low' | 'high' | 'max'` 校验；路由声明的档位集合可读且不含目标档位时跳过切换；投影抛错一律视为"无法确认"并跳过，而不是冒险发送路由可能拒绝的档位。
+- `tool_activate` 声明 `isConcurrencySafe: () => true`。宿主的分发器早已按该自报能力分类（`executionMode()`：只有精确 `true` 加入并发组，其余 exclusive 并形成栅栏，结果按提交顺序提交），而本 preset 此前 0 处声明，自有工具全部退化为独占。该处理器只读事件流并返回报告，激活本身由运行时为此调用落下的 `tool/call` 事件承载，因此并发安全。
+- 仅一项能力确需 DSH 核心而非在本仓库实现，记录于 `docs/liangshen-v41-flash-optimization.md` 第 8 节：`namespace::function` 工具映射（`dsh-tools` 注册表与 wire 序列化）、按 plan-mode 动态调节的 `reasoning_effort`（`dsh-llm` 请求组装钩子）、工具分发引擎的读并发/写串行栅栏。
 
 ## Testing
 
@@ -27,6 +29,7 @@ preset 在整个会话中保持单一 wire 呈现，并把外部工具发现迁�
 - minimal-prompt 测试钉住替换后的纪律文本、win32 临时 shell 行与 working-context 投射的可读门控；preset-composition 测试校验随包发布的 `agent.cordis.yml` 在新键下结构合法。
 - 常驻预算守卫与目录分组各有覆盖：估算器对空面、不可序列化的畸形 schema 与四字符一 token 的换算；超限告警每次会话只发一次、未超限保持静默、提高阈值即静默，且非正阈值被配置校验拒绝。分组覆盖「已激活家族出现在其命名空间标题下且每个工具只出现一次」，以及未配置分页模式时不产生命名空间字段。
 - 稳定前缀不变量有回归测试：改动工作区指令文件后，persona 与 plan-policy 段逐字节不变，只有 appended 段的变量值随之改变——这是编码器前缀 KV 缓存得以复用的前提。
+- `reasoning-effort` 的测试钉住：阶段判定（plan/mode 事件优先，无事件时首轮视为规划）、按阶段解析档位、被提供的档位集合排除目标档位时不切换、已等于目标档位时**保持对象同一性**（不替换即不造成请求头快照抖动）、长执行段内多次请求持续保持同一性、投影抛错时保守跳过、配置档位非法值被拒，以及载荷缺少 agent 或会话折叠抛错时一律不使请求失败。
 - 本次改动的仓库门禁为 `pnpm i18n:check` 与 `pnpm docs:check`。本次改动不包含付费 A/B：默认值依据官方已发表的脚手架横评，评测矩阵仍是未来任何统计结论的度量工具。
 
 ## Alternatives considered

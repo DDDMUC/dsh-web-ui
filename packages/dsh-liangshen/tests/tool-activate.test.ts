@@ -161,6 +161,19 @@ describe('liangshen-tool-activate', () => {
     expect(mod.inject).toEqual(['tools'])
   })
 
+  it('declares the activation call concurrency-safe so it can overlap', () => {
+    // The host scheduler classifies a call through `isConcurrencySafe`: only an
+    // exact true joins a parallel group, everything else forms a barrier. The
+    // handler only reads the event stream and reports, so it must not serialize
+    // against independent read-only siblings.
+    const m = makeCtx()
+    apply(m.ctx, {})
+    const tool = m.registered[0]
+    const classify = tool.isConcurrencySafe as (args: Record<string, unknown>) => unknown
+    expect(typeof classify).toBe('function')
+    expect(classify({ namespace: 'github' })).toBe(true)
+  })
+
   it('registers a minimal namespace-only schema', () => {
     const m = makeCtx()
     apply(m.ctx, {})
