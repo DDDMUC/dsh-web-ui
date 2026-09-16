@@ -24,12 +24,47 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the ui-conversation SlotMap merge (the composer tool row).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import type { SettingsScopeSpec } from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { LiangShenLever } from './LiangShenLever.tsx'
 import { LeverController } from './lever-controller.ts'
+import { LiangShenSettingsCard, LiangShenSettingsCardController, type LiangShenSettings } from './LiangShenSettingsCard.tsx'
 import { en, zh, type LiangShenKey } from './locales.ts'
 
 /** Locale namespace this half owns. */
 export const NS = 'liangshen'
+
+/** Settings namespace the settings card edits (the Host plugin registers it). */
+export const SETTINGS_NAMESPACE = 'dsh-liangshen'
+
+/** Owner share of a plugin card (the section supplies nothing). */
+export interface SettingsPluginItemOwnerProps {
+  /** Marker field: card owner props are intentionally empty. */
+  children?: never
+}
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SlotMap {
+    /**
+     * The child slot the Web UI plugin group declares; this card registers into
+     * the group instead of the top-level `settings.plugin.item` list. Declared
+     * here so this package needs no dependency on the sibling UI package.
+     */
+    'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+  }
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /**
+     * Optional compatibility binder provided by dsh-web-settings; absent when
+     * that group plugin is not installed, so callers fall back to the official
+     * settings scope.
+     */
+    webUiSettings?: { bind<S>(spec: SettingsScopeSpec<S>): import('@deepseek-ai/dsh-client-ui-settings/client').SettingsScope<S> }
+  }
+}
 
 /**
  * Required client services: the slot registry, locale, sessions, and the roster
@@ -37,7 +72,7 @@ export const NS = 'liangshen'
  * proxy refuses an uninjected service, and a nested service name does not imply
  * its parent, so reading `ctx.remote.agentPresets` needs `remote` as well.
  */
-export const inject = ['slots', 'locale', 'sessions', 'remote', 'remote.agentPresets']
+export const inject = ['slots', 'locale', 'sessions', 'settingsScope', 'remote', 'remote.agentPresets']
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -71,6 +106,35 @@ export function apply(ctx: ClientContext): void {
   } catch {
     // An unavailable sessions or Remote service leaves the lever inert; the
     // view still renders and reports what it knows.
+  }
+
+  // Plugin configuration card: one staged form over the `dsh-liangshen`
+  // settings namespace, contributed to the Web UI plugin group beside the
+  // remote-access and task-board cards.
+  try {
+    const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
+    const settingsScope = binder.bind<LiangShenSettings>({ namespace: SETTINGS_NAMESPACE })
+    const settingsCard = new LiangShenSettingsCardController(settingsScope)
+    ctx.slots.inject('web-ui.plugin.item', () => {
+      try {
+        const unregister = ctx.slots.register({
+          name: 'web-ui.plugin.item',
+          id: 'liangshen',
+          order: 120,
+          locale: NS,
+          inject: () => settingsCard.inject(),
+        }, LiangShenSettingsCard)
+        return () => {
+          settingsCard.dispose()
+          unregister()
+        }
+      } catch {
+        return () => {}
+      }
+    })
+  } catch {
+    // A missing settings surface leaves the lever working and the card absent;
+    // one unavailable service must not take the browser half down.
   }
 
   ctx.slots.inject('conversation.input.right', () => {
