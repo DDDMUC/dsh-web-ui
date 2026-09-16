@@ -59,7 +59,7 @@ function pnpmInstall(part) {
     shell: process.platform === 'win32',
   };
   for (let attempt = 1; attempt <= attempts; attempt++) {
-    const result = spawnSync('pnpm', ['install'], spawnOptions);
+    const result = spawnSync('pnpm', ['install', '--no-frozen-lockfile'], spawnOptions);
     if (result.status === 0) {
       console.log(String(result.stdout).split('\n').slice(-6).join('\n'));
       return;
