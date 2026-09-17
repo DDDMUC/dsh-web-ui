@@ -16,14 +16,19 @@ interface FakeOptions {
 }
 
 function fakeCtx(options: FakeOptions = {}) {
+  // `readonly.current` names the Session the main view owns: the catalog carries
+  // no global selection since 0.1.6-alpha.2, so the row itself carries the
+  // main-view ownership marker the controller derives from.
   const current = options.readonly?.current ?? 'session-1'
   const byId: Record<string, unknown> = {
     [current]: {
+      id: current,
       blank: options.readonly?.blank ?? true,
       projectionValues: { agentPreset: options.readonly?.agentPreset ?? 'standard' },
+      retainedBy: { mainView: 1 },
     },
   }
-  const state = { current: current as never, byId: byId as never }
+  const state = { ids: [current as never], byId: byId as never }
   const rows = (options.presets ?? [
     { id: 'standard', isDefault: true, name: 'Standard' },
     { id: 'liangshen', name: '梁神模式' },
@@ -101,7 +106,9 @@ describe('LeverController', () => {
     await Promise.resolve()
     await Promise.resolve()
     // The host records the switch; the next session read reports it.
-    state.byId['session-1'] = { blank: true, projectionValues: { agentPreset: 'liangshen' } } as never
+    state.byId['session-1'] = {
+      id: 'session-1', blank: true, projectionValues: { agentPreset: 'liangshen' }, retainedBy: { mainView: 1 },
+    } as never
     controller.refresh()
     expect(controller.snapshot().getSnapshot().state).toBe('on')
     controller.face().push()
@@ -204,7 +211,12 @@ describe('LeverController service resolution', () => {
   it('stays inert instead of throwing when the remote service is refused', async () => {
     const ctx = {
       get sessions() {
-        return { list: { getSnapshot: () => ({ current: 'session-1', byId: {} }), subscribe: () => () => {} } }
+        return {
+          list: {
+            getSnapshot: () => ({ byId: { 'session-1': { id: 'session-1', retainedBy: { mainView: 1 } } } }),
+            subscribe: () => () => {},
+          },
+        }
       },
       get remote(): never { throw new Error('cannot get property "remote" without inject') },
       locale: { bind: () => (key: string) => key },

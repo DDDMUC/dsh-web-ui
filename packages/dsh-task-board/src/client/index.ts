@@ -21,7 +21,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: pulls the workspace plugin's Context merge (ctx.uiWorkspace), the
+// multi-instance navigation face that replaced ISessions.open().
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { BoardController } from '../core/controller.ts'
+import { mainViewSessionId } from './main-session.ts'
 import { LocalStorageTaskStore } from '../core/store.ts'
 import { claimTaskboardApply, releaseTaskboardApply } from './apply-guard.ts'
 import { mountBoard } from './board-mount.tsx'
@@ -81,7 +85,7 @@ declare module '@deepseek-ai/cordis' {
  * on hosts below that cohort, which serve the same roster through the
  * connection RPC face.
  */
-export const inject = ['slots', 'sessions', 'workspaces', 'connection', 'settingsScope', 'locale', 'remote', 'remote.session']
+export const inject = ['slots', 'sessions', 'workspaces', 'connection', 'settingsScope', 'locale', 'remote', 'remote.session', 'uiWorkspace']
 
 /** One agent-preset row the mode picker consumes (either face's wire shape). */
 interface PresetRosterRow {
@@ -200,8 +204,12 @@ export function apply(ctx: ClientContext): void {
       store,
       transport: new HttpTaskBoardHostTransport(),
       sessions: {
-        list: sessions.list,
-        open: id => sessions.open(id as never),
+        // The main-view Session comes from the catalog's per-source ownership
+        // counts; navigation belongs to the workspace UI since the
+        // multi-instance Client Session model.
+        current: () => mainViewSessionId(sessions.list.getSnapshot().byId),
+        open: id => ctx.uiWorkspace.openSession(id as never),
+        subscribe: fn => sessions.list.subscribe(fn),
       },
     })
     controller.start()

@@ -28,13 +28,14 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // package's single tsc program. The face is read via a duck-typed cast.
 import { createElement } from 'react'
 import { ArchiveController } from './archive-controller.ts'
+import { mainViewSessionId } from './main-session.ts'
 import { SessionArchiveCard, type SessionArchiveFace } from './SessionArchiveCard.tsx'
 import { NS, en, zh } from './locales.ts'
 import type { SessionArchiveConfig } from '../core/config.ts'
 
 /** Minimal duck-typed face of the browser sessions service. */
 interface SessionsFace {
-  list: { getSnapshot(): { current?: string } }
+  list: { getSnapshot(): { byId?: Record<string, { id: string; retainedBy?: Readonly<Partial<Record<string, number>>> | undefined } | undefined> } }
   refresh?: () => Promise<void>
 }
 
@@ -90,7 +91,14 @@ export function apply(ctx: ClientContext): void {
       const sessions = (ctx as unknown as { get(name: string): unknown }).get('sessions') as SessionsFace | undefined
       if (sessions === undefined) return undefined
       const refresh = typeof sessions.refresh === 'function' ? sessions.refresh.bind(sessions) : undefined
-      return { list: sessions.list, ...(refresh !== undefined ? { refresh: () => refresh() } : {}) }
+      const current = (): string | undefined => {
+        try {
+          return mainViewSessionId(sessions.list?.getSnapshot?.()?.byId)
+        } catch {
+          return undefined
+        }
+      }
+      return { current, ...(refresh !== undefined ? { refresh: () => refresh() } : {}) }
     } catch {
       return undefined
     }

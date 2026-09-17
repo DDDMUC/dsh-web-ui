@@ -2141,7 +2141,8 @@ window.__ModuleLoader__.load({
 			"locale",
 			"connection",
 			"workspaces",
-			"sessions"
+			"sessions",
+			"uiWorkspace"
 		];
 		/**
 		* Build the dual-channel face once: official-channel and gateway-channel
@@ -2326,7 +2327,7 @@ window.__ModuleLoader__.load({
 					text: message
 				}], "queue");
 				if (!result.ok) throw new Error(`plugin-manager: repair prompt failed: ${result.error.code}: ${result.error.message}`);
-				ctx.sessions.open(sessionId);
+				ctx.uiWorkspace.openSession(sessionId);
 			};
 			/** Listeners subscribed through onChange; fired after successful mutations. */
 			const listeners = /* @__PURE__ */ new Set();
@@ -5297,7 +5298,7 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-task-board/src/core/controller.ts
 		function currentOf(sessions) {
-			return sessions?.list.getSnapshot().current;
+			return sessions?.current();
 		}
 		/** The selected task (resolved from the ledger), or undefined. */
 		function selectedTaskOf(snapshot) {
@@ -5358,7 +5359,7 @@ window.__ModuleLoader__.load({
 					this.notify();
 				}) : void 0;
 				if (unsubscribeExternal !== void 0) this.disposers.push(unsubscribeExternal);
-				this.disposers.push(this.deps.sessions.list.subscribe(() => {
+				this.disposers.push(this.deps.sessions.subscribe(() => {
 					this.onSessionsChanged();
 				}));
 				this.notify();
@@ -5788,6 +5789,21 @@ window.__ModuleLoader__.load({
 				for (const fn of [...this.listeners]) fn();
 			}
 		};
+		//#endregion
+		//#region ../dsh-task-board/src/client/main-session.ts
+		/**
+		* Resolve the Session the main view currently shows.
+		*
+		* Reads the catalog's rows rather than a per-id retain-info source: ownership
+		* counts ride the list snapshot, so this neither allocates observers nor opens
+		* history, and a subscription to the list still fires when the selection moves.
+		* @param byId - the session catalog's rows (`SessionListState.byId`), when available.
+		* @returns the main-view session id, or undefined when the main view shows none.
+		*/
+		function mainViewSessionId$5(byId) {
+			if (byId === void 0 || byId === null) return void 0;
+			for (const row of Object.values(byId)) if (row !== void 0 && (row.retainedBy?.mainView ?? 0) > 0) return row.id;
+		}
 		/** Marker replacing every sensitive match. */
 		const REDACTED_MARKER = "[REDACTED]";
 		const BEGIN = "<<<FREEZE";
@@ -10430,7 +10446,8 @@ window.__ModuleLoader__.load({
 			"settingsScope",
 			"locale",
 			"remote",
-			"remote.session"
+			"remote.session",
+			"uiWorkspace"
 		];
 		/**
 		* Mount the task board.
@@ -10476,8 +10493,9 @@ window.__ModuleLoader__.load({
 					store: new LocalStorageTaskStore(),
 					transport: new HttpTaskBoardHostTransport(),
 					sessions: {
-						list: sessions.list,
-						open: (id) => sessions.open(id)
+						current: () => mainViewSessionId$5(sessions.list.getSnapshot().byId),
+						open: (id) => ctx.uiWorkspace.openSession(id),
+						subscribe: (fn) => sessions.list.subscribe(fn)
 					}
 				});
 				controller.start();
@@ -11986,6 +12004,21 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region ../dsh-git-graph/src/client/main-session.ts
+		/**
+		* Resolve the Session the main view currently shows.
+		*
+		* Reads the catalog's rows rather than a per-id retain-info source: ownership
+		* counts ride the list snapshot, so this neither allocates observers nor opens
+		* history, and a subscription to the list still fires when the selection moves.
+		* @param byId - the session catalog's rows (`SessionListState.byId`), when available.
+		* @returns the main-view session id, or undefined when the main view shows none.
+		*/
+		function mainViewSessionId$4(byId) {
+			if (byId === void 0 || byId === null) return void 0;
+			for (const row of Object.values(byId)) if (row !== void 0 && (row.retainedBy?.mainView ?? 0) > 0) return row.id;
+		}
+		//#endregion
 		//#region ../dsh-git-graph/src/client/auto-isolation.ts
 		/** Log line prefix for every auto-isolation diagnostic. */
 		const TAG = "[git-graph] auto-isolation";
@@ -12022,7 +12055,7 @@ window.__ModuleLoader__.load({
 			/** The official target resolution (explicit > current session's workspace > recent). */
 			const resolveTarget = (workspaceId) => {
 				const snapshot = workspaces.list.getSnapshot();
-				const current = scope.sessions.list.getSnapshot().current;
+				const current = mainViewSessionId$4(scope.sessions.list.getSnapshot().byId);
 				const currentWorkspaceId = current === void 0 ? void 0 : snapshot.items.find((item) => item.sessionIds.includes(current))?.workspaceId;
 				return workspaceId ?? currentWorkspaceId ?? snapshot.recentWorkspaceId;
 			};
@@ -12358,7 +12391,11 @@ window.__ModuleLoader__.load({
 				}
 			}, "dsh-git-graph: dictionaries");
 			const git = new GitApi();
-			ctx.inject(["workspaces", "sessions"], (worktreeScope) => {
+			ctx.inject([
+				"workspaces",
+				"sessions",
+				"uiWorkspace"
+			], (worktreeScope) => {
 				worktreeScope.effect(() => installAutoIsolation(worktreeScope, git), "dsh-git-graph: auto-isolation");
 			});
 			let fallbackTimer;
@@ -12368,7 +12405,8 @@ window.__ModuleLoader__.load({
 			ctx.inject([
 				"slots",
 				"conversation",
-				"sessions"
+				"sessions",
+				"uiWorkspace"
 			], (scope) => {
 				const sessions = scope.sessions;
 				/** The session's workspace root, resolved at call time from the sessions baseline. */
@@ -12450,7 +12488,7 @@ window.__ModuleLoader__.load({
 							try {
 								const workspace = await scope.workspaces.create({ path: created.value.path });
 								const createdSessionId = await scope.sessions.create({ workspaceId: workspace.workspaceId });
-								scope.sessions.open(createdSessionId);
+								scope.uiWorkspace.openSession(createdSessionId);
 							} catch (error) {
 								await git.removeWorktree(resolved.path, created.value.path, { force: true });
 								return {
@@ -22236,6 +22274,21 @@ window.__ModuleLoader__.load({
 			return text;
 		}
 		//#endregion
+		//#region ../dsh-pet/src/client/main-session.ts
+		/**
+		* Resolve the Session the main view currently shows.
+		*
+		* Reads the catalog's rows rather than a per-id retain-info source: ownership
+		* counts ride the list snapshot, so this neither allocates observers nor opens
+		* history, and a subscription to the list still fires when the selection moves.
+		* @param byId - the session catalog's rows (`SessionListState.byId`), when available.
+		* @returns the main-view session id, or undefined when the main view shows none.
+		*/
+		function mainViewSessionId$3(byId) {
+			if (byId === void 0 || byId === null) return void 0;
+			for (const row of Object.values(byId)) if (row !== void 0 && (row.retainedBy?.mainView ?? 0) > 0) return row.id;
+		}
+		//#endregion
 		//#region ../dsh-pet/src/client/telemetry.ts
 		const VISITOR_KEY$5 = "dsh-web-ui-telemetry-visitor";
 		const DAY_KEY_PREFIX$5 = "dsh-web-ui-telemetry-day:";
@@ -22347,7 +22400,8 @@ window.__ModuleLoader__.load({
 			"connection",
 			"settingsScope",
 			"remote",
-			"sessions"
+			"sessions",
+			"uiWorkspace"
 		];
 		/**
 		* Client plugin body: register dictionaries, mount the global pet entry and
@@ -22423,10 +22477,7 @@ window.__ModuleLoader__.load({
 					const setState = petStore.actions.setState;
 					const setFeedback = petStore.actions.setFeedback;
 					const sessions = ctx.sessions;
-					const currentSessionId = () => {
-						const current = sessions.list.getSnapshot().current;
-						return current === void 0 ? void 0 : String(current);
-					};
+					const currentSessionId = () => mainViewSessionId$3(sessions.list.getSnapshot().byId);
 					let petsLoaded = false;
 					let stateSeq = 0;
 					const pollNow = () => {
@@ -22475,7 +22526,7 @@ window.__ModuleLoader__.load({
 					}, "pet: current-session watch");
 					const openSession = (sessionId) => {
 						if (sessions.list.getSnapshot().byId[sessionId] === void 0) return;
-						sessions.open(sessionId);
+						ctx.uiWorkspace.openSession(sessionId);
 					};
 					const injected = () => ({
 						store: petStore,
@@ -41910,6 +41961,21 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region ../dsh-liangshen/src/client/main-session.ts
+		/**
+		* Resolve the Session the main view currently shows.
+		*
+		* Reads the catalog's rows rather than a per-id retain-info source: ownership
+		* counts ride the list snapshot, so this neither allocates observers nor opens
+		* history, and a subscription to the list still fires when the selection moves.
+		* @param byId - the session catalog's rows (`SessionListState.byId`), when available.
+		* @returns the main-view session id, or undefined when the main view shows none.
+		*/
+		function mainViewSessionId$2(byId) {
+			if (byId === void 0 || byId === null) return void 0;
+			for (const row of Object.values(byId)) if (row !== void 0 && (row.retainedBy?.mainView ?? 0) > 0) return row.id;
+		}
+		//#endregion
 		//#region ../dsh-liangshen/src/core/lever.ts
 		/**
 		* LiangShen lever logic — framework-free, no DOM, compiled by both programs.
@@ -42128,12 +42194,11 @@ window.__ModuleLoader__.load({
 				};
 			}
 			currentSessionId() {
-				const current = this.sessions?.list.getSnapshot().current;
-				return current === void 0 ? void 0 : String(current);
+				return mainViewSessionId$2(this.sessions?.list.getSnapshot().byId);
 			}
 			currentSession() {
 				const state = this.sessions?.list.getSnapshot();
-				const current = state?.current;
+				const current = mainViewSessionId$2(state?.byId);
 				if (state === void 0 || current === void 0) return void 0;
 				return state.byId[current];
 			}
@@ -45751,6 +45816,21 @@ window.__ModuleLoader__.load({
 			}
 		};
 		//#endregion
+		//#region ../dsh-doctor/src/client/main-session.ts
+		/**
+		* Resolve the Session the main view currently shows.
+		*
+		* Reads the catalog's rows rather than a per-id retain-info source: ownership
+		* counts ride the list snapshot, so this neither allocates observers nor opens
+		* history, and a subscription to the list still fires when the selection moves.
+		* @param byId - the session catalog's rows (`SessionListState.byId`), when available.
+		* @returns the main-view session id, or undefined when the main view shows none.
+		*/
+		function mainViewSessionId$1(byId) {
+			if (byId === void 0 || byId === null) return void 0;
+			for (const row of Object.values(byId)) if (row !== void 0 && (row.retainedBy?.mainView ?? 0) > 0) return row.id;
+		}
+		//#endregion
 		//#region ../dsh-doctor/src/client/harness-send.ts
 		/**
 		* Build the real port over ctx.sessions. Returns undefined when no sessions
@@ -45765,7 +45845,7 @@ window.__ModuleLoader__.load({
 				current: () => {
 					try {
 						const list = s.list?.getSnapshot?.();
-						const id = list?.current;
+						const id = mainViewSessionId$1(list?.byId);
 						if (id === void 0) return void 0;
 						return {
 							id,
@@ -51171,10 +51251,10 @@ window.__ModuleLoader__.load({
 				this.store = deps.store ?? createArchiveStore().create();
 				this.sessions = deps.sessions;
 			}
-			/** The persisted current-selection id from the sessions feed, when available. */
+			/** The main-view Session id from the sessions face, when available. */
 			getCurrentSessionId() {
 				try {
-					return this.sessions?.list.getSnapshot().current;
+					return this.sessions?.current?.();
 				} catch {
 					return;
 				}
@@ -51314,6 +51394,21 @@ window.__ModuleLoader__.load({
 				await this.refreshAutoPreview();
 			}
 		};
+		//#endregion
+		//#region ../dsh-session-archive/src/client/main-session.ts
+		/**
+		* Resolve the Session the main view currently shows.
+		*
+		* Reads the catalog's rows rather than a per-id retain-info source: ownership
+		* counts ride the list snapshot, so this neither allocates observers nor opens
+		* history, and a subscription to the list still fires when the selection moves.
+		* @param byId - the session catalog's rows (`SessionListState.byId`), when available.
+		* @returns the main-view session id, or undefined when the main view shows none.
+		*/
+		function mainViewSessionId(byId) {
+			if (byId === void 0 || byId === null) return void 0;
+			for (const row of Object.values(byId)) if (row !== void 0 && (row.retainedBy?.mainView ?? 0) > 0) return row.id;
+		}
 		//#endregion
 		//#region ../dsh-session-archive/src/client/locales.ts
 		/**
@@ -52827,8 +52922,15 @@ window.__ModuleLoader__.load({
 					const sessions = ctx.get("sessions");
 					if (sessions === void 0) return void 0;
 					const refresh = typeof sessions.refresh === "function" ? sessions.refresh.bind(sessions) : void 0;
+					const current = () => {
+						try {
+							return mainViewSessionId(sessions.list?.getSnapshot?.()?.byId);
+						} catch {
+							return;
+						}
+					};
 					return {
-						list: sessions.list,
+						current,
 						...refresh !== void 0 ? { refresh: () => refresh() } : {}
 					};
 				} catch {

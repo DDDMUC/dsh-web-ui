@@ -3,7 +3,7 @@
  *
  * The view stays pure; every fact and verb comes from here. The roster arrives
  * over the agent-preset Remote namespace (the same one the official surfaces
- * read), the current session comes from the browser sessions service, and the
+ * read), the main-view session comes from the catalog's ownership marker, and the
  * switch goes through `agentPresets.select`, which the host accepts only while
  * the session is still blank.
  *
@@ -17,6 +17,7 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { AgentPresetRoster } from '@deepseek-ai/dsh-agent-presets/types'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import { mainViewSessionId } from './main-session.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { LIANGSHEN_PRESET_ID, isActionable, leverState, restoreTarget, type LeverFacts, type LeverState } from '../core/lever.ts'
@@ -260,13 +261,12 @@ export class LeverController {
   }
 
   private currentSessionId(): string | undefined {
-    const current = this.sessions?.list.getSnapshot().current
-    return current === undefined ? undefined : String(current)
+    return mainViewSessionId(this.sessions?.list.getSnapshot().byId)
   }
 
   private currentSession(): { blank?: boolean, projectionValues?: Record<string, unknown> } | undefined {
     const state = this.sessions?.list.getSnapshot()
-    const current = state?.current
+    const current = mainViewSessionId(state?.byId)
     if (state === undefined || current === undefined) return undefined
     return state.byId[current] as unknown as { blank?: boolean, projectionValues?: Record<string, unknown> } | undefined
   }

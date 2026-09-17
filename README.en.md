@@ -23,7 +23,7 @@ dsh-web is a modular plugin ecosystem and desktop workstation for the DeepSeek H
   &nbsp;
   <a href="https://dsh-market.com"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fdsh-market.com%2Fapi%2Ftelemetry%2Fbadge%2Fusers&style=flat-square&label=users" alt="users"></a>
   &nbsp;
-  <a href="https://www.npmjs.com/package/@deepseek-ai/dsh"><img src="https://img.shields.io/badge/DSH-%3E%3D0.1.6--alpha.1-4c6ef5?style=flat-square&amp;labelColor=454a54" alt="DSH"></a>
+  <a href="https://www.npmjs.com/package/@deepseek-ai/dsh"><img src="https://img.shields.io/badge/DSH-%3E%3D0.1.6--alpha.2-4c6ef5?style=flat-square&amp;labelColor=454a54" alt="DSH"></a>
   &nbsp;
   <img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License">
 </p>
@@ -161,7 +161,7 @@ Configure model-level parameters for custom providers directly within "Settings 
 
 ### Right Panel（右侧面板）
 
-The right panel is provided by community plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar). It embeds a file explorer, inline code editor, auxiliary terminal, Git interface, and web browser, while allowing third-party plugin panels to dock cleanly. The alpha branch's aggregate does not bundle it (its 0.19.1 peers declare `^0.1.5-rc.1`, which this branch's 0.1.6-alpha.1 cohort does not satisfy); install it on demand with `dsh plugin --profile web add dsh-better-sidebar@latest`. Architecture and setup details are available in its [repository](https://github.com/omdsh-dev/DSH-better-sidebar).
+The right panel is provided by community plugin [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar). It embeds a file explorer, inline code editor, auxiliary terminal, Git interface, and web browser, while allowing third-party plugin panels to dock cleanly. The alpha branch's aggregate does not bundle it (its 0.19.1 peers declare `^0.1.5-rc.1`, which this branch's 0.1.6-alpha.2 cohort does not satisfy); install it on demand with `dsh plugin --profile web add dsh-better-sidebar@latest`. Architecture and setup details are available in its [repository](https://github.com/omdsh-dev/DSH-better-sidebar).
 
 ![Right Panel](docs/screenshots/19-right-panel.png)
 
