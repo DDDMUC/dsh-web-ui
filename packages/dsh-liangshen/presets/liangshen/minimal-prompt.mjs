@@ -16,12 +16,6 @@
  * signatures, argument types, output schemas, and parameter comments without
  * private SDK schemas or renderer duplication.
  *
- * PLATFORM LINE: on win32 the persona block gains one standing discipline line
- * — the Windows shell is a fresh Git Bash subprocess per call, so the working
- * directory and environment do not persist across calls and chained operations
- * belong in one compound command. The line is constant per platform, so the
- * prompt prefix stays byte-stable on a given host.
- *
  * WORKSPACE LINE: the bare persona says nothing about where the session
  * operates, so the selected workspace directory is appended to the persona at
  * assembly time (`Your working directory is <cwd>.`), read from the session
@@ -688,27 +682,6 @@ export function withWorkspaceLine(sections, agent) {
     : section)
 }
 
-/**
- * The win32 shell discipline line the persona gains: custom-bash runs every
- * command in a fresh Git Bash subprocess, so state does not survive between
- * calls. The marker substring keeps the append idempotent across re-assemblies.
- */
-export const WIN32_SHELL_LINE = '\n\nCurrent platform: Windows (Git Bash). Shell processes are ephemeral — the working directory and environment variables do not persist across calls, so chain dependent operations in one compound command (for example `cd path && command`).'
-const WIN32_SHELL_LINE_MARKER = 'Current platform: Windows (Git Bash).'
-
-/** Append the win32 shell discipline line to the persona section, once. */
-export function withPlatformLine(sections, platform = process.platform) {
-  if (platform !== 'win32') return sections
-  const persona = sections.find(section =>
-    PERSONA_SECTION_NAMES.includes(section?.name)
-    && typeof section?.text === 'string'
-    && !section.text.includes(WIN32_SHELL_LINE_MARKER))
-  if (persona === undefined) return sections
-  return sections.map(section => section === persona
-    ? { ...section, text: `${section.text}${WIN32_SHELL_LINE}` }
-    : section)
-}
-
 /** Register the section filter, workspace-instruction source, and dynamic discovery hooks. */
 export function apply(ctx, config) {
   const keepPlanPolicy = optionalBoolean(config?.keepPlanPolicy, 'keepPlanPolicy', true)
@@ -784,7 +757,7 @@ export function apply(ctx, config) {
         + 'keeping the assembled prompt instead of sending an empty one')
       return assembled
     }
-    const narrowed = withPlatformLine(withWorkspaceLine(sections, context?.agent))
+    const narrowed = withWorkspaceLine(sections, context?.agent)
     // 'host' and 'hint' append no workspace-instructions section: the harness's
     // own agent-instructions row carries the content (or the hint replaces it).
     if (instructionSource !== 'system-prompt') return { ...assembled, sections: narrowed }

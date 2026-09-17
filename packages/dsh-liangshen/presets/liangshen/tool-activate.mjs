@@ -2,12 +2,18 @@
  * tool-activate — the LiangShen preset's `tool_activate` tool: the activation
  * handle for the gentle tool paging the sibling tool-catalog plugin applies.
  *
- * Tools whose names match the paging patterns (default `mcp__*`) stay off the
- * wire until their namespace is activated here. The activation itself is the
- * durable `tool/call` event this call appends to the session log: the wire
- * partition at the next prompt assembly replays the event stream, so the
- * namespace's tools come back on the wire from the next request on, and a
- * resume or compaction rebuilds the same state without any process memory.
+ * Tools whose names match the paging patterns (default `mcp__*`) stay out of
+ * reach until their namespace is activated here: off the wire, and — under a
+ * presentation whose wire has already collapsed to the single `run_code`
+ * transport, where the wire carries nothing left to filter — also out of the
+ * scope's registry view, which is what the generated SDK and every program
+ * dispatch resolve against. The activation itself is the durable `tool/call`
+ * event this call appends to the session log: the catalog plugin re-pages the
+ * scope at the end of the call (its `tools/post-execute` hook) and the wire
+ * partition replays the same event stream at the next assembly, so both halves
+ * of paging follow the log — the namespace's tools come back from the next
+ * request on, and a resume or compaction rebuilds the same state without any
+ * process memory.
  *
  * At most MAX namespaces stay active at once (LRU): activating beyond the cap
  * evicts the least recently used namespace back to the paged summary, and the
@@ -76,7 +82,7 @@ export function apply(ctx, config) {
   ctx.tools.register({
     name: 'tool_activate',
     description: [
-      `Load one paged tool namespace onto this session's wire. The session catalog summarizes the paged namespaces; activating one makes its tools directly callable from the next request on.`,
+      `Load one paged tool namespace back into this session's reach — onto the wire, and the generated SDK along with it. The session catalog summarizes the paged namespaces; activating one makes its tools callable from the next request on.`,
       `At most ${maxActiveNamespaces} namespaces stay active at once: activating beyond the cap evicts the least recently used namespace back to the catalog summary.`,
       'The target must be a paged, currently inactive namespace exactly as the catalog names it.',
     ].join('\n'),

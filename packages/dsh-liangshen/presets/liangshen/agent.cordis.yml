@@ -18,14 +18,20 @@
 # and boolean `ptcPresentation` keys are still accepted (the latter mapping
 # true -> 'ptc' and false -> 'native') but only warn once.
 #
-# Gentle tool paging keeps high-fan-out families off the wire until needed:
+# Gentle tool paging keeps high-fan-out families out of reach until needed:
 # tools matching `pagedToolPatterns` (default `mcp__*`) stay paged out, the
 # durable tool-catalog message summarizes their namespaces with an activation
 # pointer, and the preset's own `tool_activate` tool (the tool-activate row)
-# loads one namespace onto the wire — at most three stay active, LRU eviction
-# pages the oldest back out. The activation state replays from the durable
-# session event stream on every assembly, so resume and compaction rebuild it
-# without process memory.
+# loads one namespace back — at most three stay active, LRU eviction pages the
+# oldest back out. The activation state replays from the durable session event
+# stream on every assembly, so resume and compaction rebuild it without process
+# memory. Paging is enforced twice, because the wire is not the only surface a
+# tool can be reached through: the assembled tool list loses the paged families,
+# and the agent scope is restricted (agent.ctx.tools.restrict) so the same names
+# vanish from the generated SDK and from every program dispatch. The second half
+# is what makes paging real under the default `ptc` presentation, where the wire
+# has already collapsed to `run_code` and a wire-only filter would withhold
+# nothing the model can observe.
 #
 # The capability facts the Standard system prompt would carry as tool-guidance
 # prose arrive instead as a durable `tool-catalog` message appended after the
@@ -38,9 +44,9 @@
 # session event stream, republished only when it changes.
 #
 # The persistent shell replaces the Standard ephemeral shell for the whole
-# session (both register the name `bash`), and the editor inherits the host
-# file sandbox instead of mounting a bare local filesystem — see the shell and
-# filesystem sections below.
+# session — `bash` on POSIX, `pwsh` on win32, exactly one per host — and the
+# editor inherits the host file sandbox instead of mounting a bare local
+# filesystem — see the shell and filesystem sections below.
 #
 # Adapted from the builtin `minimal` and `standard` presets.
 #
@@ -89,10 +95,11 @@
 #
 # `minimal-prompt` keeps the system prompt on the persona above, plus the
 # session's workspace directory appended at assembly time (`Your working
-# directory is <cwd>.` — the one orientation fact the persona block carries)
-# and, on win32, one standing line about the ephemeral Git Bash shell. The
-# official `tools:sdk` and `tools:ptc-only` sections are kept exactly when the
-# assembly's wire carries the `run_code` transport.
+# directory is <cwd>.` — the one orientation fact the persona block carries),
+# with no platform-conditional text: both platform shells are persistent, so
+# the persona block is byte-identical on every host. The official `tools:sdk`
+# and `tools:ptc-only` sections are kept exactly when the assembly's wire
+# carries the `run_code` transport.
 #
 # `instructionSource` chooses where the AGENTS.md-style instruction files reach
 # the model. The default, `host`, appends nothing and leaves the pre-step
@@ -132,9 +139,11 @@
 # names exactly the tools the current request's wire carries (each tool's
 # argument signature plus a one-line summary capped by
 # `descriptionMaxLength`; the full description stays in the tool schema) and
-# summarizes the paged-out namespaces with their `tool_activate` pointer. It
-# republishes only when the content changes or the published copy left the
-# visible surface (compaction, resume).
+# summarizes the paged-out namespaces with their `tool_activate` pointer —
+# including under `ptc`, where those namespaces really are unreachable until
+# activated and the program contract says so. It republishes only when the
+# content changes or the published copy left the visible surface (compaction,
+# resume).
 #
 # `tool-activate` registers the `tool_activate` tool the catalog points at:
 # it validates the target against the session's paged, inactive namespaces and
@@ -197,13 +206,16 @@
 # The PTY registry is an agent-owned service, so it lives in an entry-local
 # realm. The backend still consumes the host sandbox policy and subprocess
 # implementation, while the tool registers into this agent's scoped catalog.
-# This persistent `bash` replaces the Standard ephemeral shell for the WHOLE
-# session (both tools register the name `bash`), so shell state survives across
-# calls.
+# This persistent shell replaces the Standard ephemeral shell for the WHOLE
+# session, so shell state survives across calls. Exactly one shell stack mounts
+# per host, mirroring the builtin `minimal` preset: the bash stack gates off
+# win32 and its pwsh twin gates off POSIX, so each platform ends up with
+# exactly ONE shell tool — `bash` on POSIX, `pwsh` on win32. Both twins are
+# the official upstream rows (terminal-bash in its `pwsh` shellDialect, and
+# tool-pwsh-persistent); this preset ships no shell implementation of its own.
 - id: persistent-shell
   name: cordis:group
   group: true
-  disabled: !!js process.platform === 'win32'
   isolate:
     terminals: true
   config:
@@ -212,11 +224,13 @@
 
     - id: terminal-bash
       name: '@deepseek-ai/dsh-terminal-bash'
+      disabled: !!js process.platform === 'win32'
       config:
         timeoutMs: 300000
 
     - id: persistent-bash
       name: '@deepseek-ai/dsh-tool-bash-persistent'
+      disabled: !!js process.platform === 'win32'
       config:
         timeoutMs: 300000
         description: |-
@@ -229,16 +243,30 @@
           * Please avoid commands that may produce a very large amount of output.
           * Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.
 
-# Windows-only `bash` tool (custom-bash.mjs): the PTY backend above is
-# linux/darwin-only, so win32 disables the persistent-shell group and
-# registers this `bash` through the ordinary cross-platform subprocess seam
-# (Git Bash). Both platforms end up with exactly one tool named `bash`.
-# Non-zero exit is reported not thrown; state does NOT persist across calls on
-# this path; no OS sandbox confinement on Windows. `bashPath` is optional
-# (defaults to Git Bash inference); set it explicitly when git is not on PATH.
-- id: custom-bash
-  name: ./custom-bash.mjs
-  disabled: !!js process.platform !== 'win32'
+    # The pwsh twin of the bash stack above: the SAME terminal-bash backend in
+    # its `pwsh` shellDialect (which is what selects the argv, environment, and
+    # prompt-bootstrap for PowerShell) plus the upstream persistent pwsh tool.
+    # Both gate off POSIX, so a host mounts exactly one of the two stacks.
+    - id: terminal-pwsh
+      name: '@deepseek-ai/dsh-terminal-bash'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        shellDialect: pwsh
+        timeoutMs: 300000
+
+    - id: persistent-pwsh
+      name: '@deepseek-ai/dsh-tool-pwsh-persistent'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        timeoutMs: 300000
+        description: |-
+          Run commands in a PowerShell shell
+          * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
+          * You don't have access to the internet via this tool.
+          * State is persistent across command calls and discussions with the user.
+          * Use native Windows paths (C:\...) and $env:NAME variables; this is PowerShell, not bash.
+          * Please avoid commands that may produce a very large amount of output.
+          * Please run long lived commands in the background, e.g. 'Start-Job' or start a server with Start-Process.
 
 # ── filesystem ──────────────────────────────────────────────────────────────
 

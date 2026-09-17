@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
@@ -19,13 +19,9 @@ import {
   name,
   PTC_SECTION_NAMES,
   renderInstructionSection,
-  WIN32_SHELL_LINE,
-  withPlatformLine,
   WORKSPACE_INSTRUCTIONS_SECTION_NAME,
 } from '../presets/liangshen/minimal-prompt.mjs'
-
-/** The persona text this runner's platform produces: the win32 shell discipline line applies on Windows. */
-const PLATFORM_LINE = process.platform === 'win32' ? WIN32_SHELL_LINE : ''
+import * as promptModule from '../presets/liangshen/minimal-prompt.mjs'
 
 type Listener = (first: any, second: any, third: any) => Promise<any>
 
@@ -160,7 +156,7 @@ describe('liangshen-minimal-prompt', () => {
   test('narrows the assembled prompt to the persona and the plan policy', async () => {
     const result = await assemble(register())
     expect(result.sections.map((section: any) => section.name)).toEqual(['deployment:persona-prefix', 'plan:policy'])
-    expect(result.sections[0].text).toBe(PERSONA.text + PLATFORM_LINE)
+    expect(result.sections[0].text).toBe(PERSONA.text)
   })
 
   test('leaves runtime contexts and tools untouched', async () => {
@@ -205,7 +201,7 @@ describe('liangshen-minimal-prompt', () => {
     const cwd = project()
     const result = await assemble(register(), FULL_SECTIONS, undefined, agentAt(cwd))
     expect(result.sections[0].text)
-      .toBe(`You are a helpful software engineer assistant.\n\nYour working directory is ${cwd}.${PLATFORM_LINE}`)
+      .toBe(`You are a helpful software engineer assistant.\n\nYour working directory is ${cwd}.`)
     // The plan policy is not orientation: it stays verbatim.
     expect(result.sections.find((section: any) => section.name === 'plan:policy').text).toBe(PLAN.text)
   })
@@ -232,8 +228,8 @@ describe('liangshen-minimal-prompt', () => {
   test('keeps the bare persona when the session reports no cwd', async () => {
     const agent = { session: { header: {} } }
     const result = await assemble(register(), FULL_SECTIONS, undefined, agent)
-    // No workspace line without a cwd; the platform line still applies on win32.
-    expect(result.sections[0].text).toBe(PERSONA.text + PLATFORM_LINE)
+    // No workspace line without a cwd: the bare persona is what remains.
+    expect(result.sections[0].text).toBe(PERSONA.text)
   })
 
   test('appends the workspace-instructions section after the stable prefix', async () => {
@@ -643,36 +639,45 @@ describe('liangshen-minimal-prompt', () => {
     })
   })
 
-  describe('win32 shell discipline line', () => {
-    test('appends the ephemeral-shell discipline to the persona on win32 only', () => {
-      const sections = [{ name: 'deployment:persona-prefix', text: PERSONA.text }]
-      const win = withPlatformLine(sections, 'win32')
-      expect(win[0].text).toBe(PERSONA.text + WIN32_SHELL_LINE)
-      expect(win[0].text).toContain('Windows (Git Bash)')
-      expect(win[0].text).toContain('do not persist across calls')
-      expect(win[0].text).toContain('cd path && command')
-      // Other platforms leave the persona untouched.
-      const linux = withPlatformLine(sections, 'linux')
-      expect(linux[0].text).toBe(PERSONA.text)
+  describe('platform-neutral persona block', () => {
+    test('exports no platform-conditional persona line', () => {
+      // The shell is upstream and persistent on BOTH platforms (bash on POSIX,
+      // pwsh on win32), so the persona block carries no shell discipline line
+      // and no platform switch: the removed win32-only surface must stay gone
+      // rather than be re-added under another name.
+      for (const removed of ['WIN32_SHELL_LINE', 'withPlatformLine']) {
+        expect(removed in promptModule, removed).toBe(false)
+      }
+      expect(promptModule.WIN32_SHELL_LINE).toBeUndefined()
+      expect(promptModule.withPlatformLine).toBeUndefined()
     })
 
-    test('does not duplicate the platform line on re-assembly', () => {
-      const once = withPlatformLine([{ name: 'deployment:persona-prefix', text: PERSONA.text }], 'win32')
-      const twice = withPlatformLine(once, 'win32')
-      expect(twice[0].text).toBe(once[0].text)
-      expect(twice[0].text.split('Current platform: Windows (Git Bash).').length - 1).toBe(1)
-    })
-
-    test('appends the platform line after the workspace line in the assembled prompt', async () => {
+    test('produces the same persona text on win32 and on POSIX', async () => {
+      // The assembled prompt is a pure function of the session cwd, so the two
+      // platforms cannot diverge: nothing in the persona depends on the host.
       const cwd = project()
       const result = await assemble(register(), FULL_SECTIONS, undefined, agentAt(cwd))
       const text = result.sections[0].text
-      if (process.platform === 'win32') {
-        expect(text).toContain(`Your working directory is ${cwd}.`)
-        expect(text.indexOf('Your working directory is')).toBeLessThan(text.indexOf('Current platform: Windows (Git Bash).'))
-      } else {
-        expect(text).not.toContain('Current platform: Windows')
-      }
+      expect(text).toBe(`You are a helpful software engineer assistant.\n\nYour working directory is ${cwd}.`)
+      expect(text).not.toContain('Current platform')
+      expect(text).not.toContain('Git Bash')
+      expect(text).not.toContain('ephemeral')
+      // The persona stays the workspace line plus the shipped discipline only:
+      // no third appended paragraph.
+      expect(text.split('\n\n')).toHaveLength(2)
+    })
+
+    test('carries no platform-conditional code on the prompt-assembly path', () => {
+      // The regression guard the removed line needs: a future platform append
+      // would reintroduce a host-dependent system prompt. Assert at the source
+      // level, because the tests themselves run on only ONE platform.
+      const source = readFileSync(
+        join(process.cwd(), 'presets/liangshen/minimal-prompt.mjs'),
+        'utf8',
+      )
+      expect(source).not.toContain('process.platform')
+      expect(source).not.toMatch(/win32/)
+      expect(source).not.toMatch(/Git Bash/)
     })
   })
 

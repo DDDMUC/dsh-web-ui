@@ -109,6 +109,38 @@ export function partitionWireTools(tools, patterns, activeNamespaces) {
   return { resident, inactive: sorted }
 }
 
+/**
+ * The tool names one full (pre-restriction) surface must withhold at the
+ * REGISTRY for a given active set: every paged tool whose namespace is not
+ * active. Reserved names are never returned — the official transport cannot
+ * be named by a restriction, and paging must not be the reason a session
+ * loses it.
+ *
+ * Deliberately the same partition the wire uses, so the two halves of paging
+ * cannot disagree about which tools are resident.
+ */
+export function withheldToolNames(tools, patterns, activeNamespaces, reserved = ['run_code']) {
+  const blocked = new Set(reserved)
+  const names = []
+  for (const group of partitionWireTools(tools, patterns, activeNamespaces).inactive.values()) {
+    for (const tool of group) {
+      if (typeof tool?.name !== 'string' || tool.name === '') continue
+      if (blocked.has(tool.name)) continue
+      names.push(tool.name)
+    }
+  }
+  return names.sort()
+}
+
+/**
+ * The paged namespaces of one full (pre-restriction) surface, keyed like
+ * {@link partitionWireTools} does and sorted the same way, so a catalog can
+ * summarize what a restriction withheld without a second matching rule.
+ */
+export function inactiveNamespaces(tools, patterns, activeNamespaces) {
+  return partitionWireTools(tools, patterns, activeNamespaces).inactive
+}
+
 /** Parse one tool/call event's arguments, tolerating the JSON-string form. */
 function callArguments(data) {
   let args = data?.arguments

@@ -2,21 +2,21 @@
 
 [English](README.md) | 中文
 
-把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词保持极简 persona——外加本模式的固定工作纪律与会话工作区目录——AGENTS.md 类工作区指令交由 harness 以自己的 user 角色消息送达；工具面则从第一条用户消息起作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致，且只宣告该次请求实际开放的工具。wire 在整个会话中保持由 `presentation` 选定的同一种呈现（默认 `presentation: 'ptc'`）：wire 收拢为唯一的 `run_code` 传输工具，其余工具都在程序内经生成的 SDK 触达，原生清单的 schema 负载因此离开每一个请求；未挂载 code runtime 的部署回退为原生呈现并一次性告警，而不是宣告一个该请求无法承载的传输工具。被分页扣留的匹配工具（默认 `mcp__*`）在目录中以命名空间摘要出现，经 `tool_activate` 激活后才挂载到 wire。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
+把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词保持极简 persona——外加本模式的固定工作纪律与会话工作区目录——AGENTS.md 类工作区指令交由 harness 以自己的 user 角色消息送达；工具面则从第一条用户消息起作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致，且只宣告该次请求实际开放的工具。wire 在整个会话中保持由 `presentation` 选定的同一种呈现（默认 `presentation: 'ptc'`）：wire 收拢为唯一的 `run_code` 传输工具，其余工具都在程序内经生成的 SDK 触达，原生清单的 schema 负载因此离开每一个请求；未挂载 code runtime 的部署回退为原生呈现并一次性告警，而不是宣告一个该请求无法承载的传输工具。被分页扣留的匹配工具（默认 `mcp__*`）在激活前不可达：它们以命名空间摘要出现在目录里，`ptc` 下同时不出现在生成的 SDK 中——分页是注册表级限制，不只是 wire 过滤。`tool_activate` 把一个命名空间挂回整个可达面。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
 
 ## 原理
 
 DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官方脚手架横评中代码 Agent 基准上原生极简面领先于程序化（PTC）面（DeepSWE v1.1：72.6% 对 67.6%；Terminal-Bench 2.1：90.6% 对 85.8%）。而真实工程会话依赖 MCP 服务与插件生态——封闭的 4 工具极简面在物理上够不到它们，无边界平铺的全量清单又会把会话内容埋在工具定义之下。
 
-梁神模式因此在整个会话中保持由 `presentation` 选定的同一种呈现。出厂默认为 `ptc`：wire 收拢为唯一的 `run_code` 传输工具，其余工具都在程序内经生成的 SDK 触达；这是三种模式里静态上下文最省的一种，因为原生清单的 schema 负载离开了每一个请求。该默认值取的是静态上下文成本，而不是经过测量的收益——同一份官方横评在两个代码 Agent 基准上把这个呈现排在原生呈现之后（DeepSWE v1.1：67.6% 对 72.6%；Terminal-Bench 2.1：85.8% 对 90.6%），而本仓库尚未运行可用于裁决该取舍的评测矩阵。要切到官方数据更看好的面，把 `presentation` 设为 `'native'`（或 `'both'`）。被分页模式匹配的外部工具（默认 `mcp__*`）先以命名空间摘要宣告，经 `tool_activate` 激活后才挂载到 wire，静态 Schema 面因此保持小巧。本模式不承诺基准领先，只保证「目录宣告的面」与「请求 wire 实际携带的面」永不矛盾。
+梁神模式因此在整个会话中保持由 `presentation` 选定的同一种呈现。出厂默认为 `ptc`：wire 收拢为唯一的 `run_code` 传输工具，其余工具都在程序内经生成的 SDK 触达；这是三种模式里静态上下文最省的一种，因为原生清单的 schema 负载离开了每一个请求。该默认值取的是静态上下文成本，而不是经过测量的收益——同一份官方横评在两个代码 Agent 基准上把这个呈现排在原生呈现之后（DeepSWE v1.1：67.6% 对 72.6%；Terminal-Bench 2.1：85.8% 对 90.6%），而本仓库尚未运行可用于裁决该取舍的评测矩阵。要切到官方数据更看好的面，把 `presentation` 设为 `'native'`（或 `'both'`）。被分页模式匹配的外部工具（默认 `mcp__*`）先以命名空间摘要宣告，`tool_activate` 激活前既不在 wire 上、`ptc` 下也不在生成的 SDK 中（分页施加在程序分派所依据的注册表上），静态 Schema 面因此保持小巧。本模式不承诺基准领先，只保证「目录宣告的面」与「请求 wire 实际携带的面」永不矛盾。
 
 ## 工作机制
 
 1. `minimal-prompt` 把每次组装出的提示词收窄到 persona 一段——一行 persona、本模式的固定工作纪律（同一假设的思考推演不超过两轮，缺少事实时立即闭合思考并调用检查工具而非空想；思考只决定下一步具体操作，不预演完整代码实现；正确性一律在执行阶段以工具实际输出验证；YAGNI 与 PDCA；不写冗余注释）、以及一行从会话头读取的方位信息 `Your working directory is <cwd>.`——因此 harness identity、web surface、工具用法、文件引用与结构化输出等 section 默认不会到达模型；plan mode 的 `plan:policy` 保留，因为该 section 是 plan mode 唯一的执行依据（它的退出工具在任何模式下都保持注册）；
 2. AGENTS.md 类工作区指令经 `instructionSource` 送达模型：默认（`host`）下 preset 不追加任何自有段，也不改动宿主自己的送达，工作区指令以宿主的 user 角色消息抵达——一条持久基线，加上触碰目录后的增量、替换与移除；`system-prompt` 下它们直接进入系统提示词本身：组装时 `minimal-prompt` 读取 harness 的基线链（`$DSH_HOME/AGENTS.md`，再从项目根到会话 cwd 沿途的 `AGENTS.md` / `CLAUDE.md` 及其 `.local` 覆盖层），把内容作为一段 `workspace-instructions` 追加在稳定前缀之后，受字节预算约束——放不下时先省略最宽的文件、最后才截断最具体的文件；读取在每次组装时都发生，文件改动无需持久消息即可在下次请求生效，harness 自己的 agent-instructions 注入则被丢弃以免与提示词重复。工作区子目录动态规则后续将支持注册文件工具（含 `str_replace_editor`）及 `run_code` 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
 3. wire 在整个会话中保持由 `presentation` 选定的同一种呈现：`ptc`（默认）把 wire 收拢为 `run_code`、其余工具经生成的 SDK 调用，`native` 携带组装出的原生清单，`both` 让清单与传输工具同驻；`ptc` 与 `both` 需要挂载的 code runtime；没有时插件不做声明，会话直接运行原生工具面。旧键 `ptcPresentation` 映射到 `ptc`/`native` 并发出弃用告警，已退役的 `anchorTools` 首回合收窄不再生效——设置它会收到告警；
-4. `tool-catalog` 把工具清单作为持久 user 消息追加在用户消息之后，保留完整输入输出关键参数语义（`descriptionMaxLength: 200` 仅限制一行摘要长度）。目录只宣告该次请求实际开放的工具——原生清单加上同驻时的 `run_code`——并在分页开启时为被扣留的命名空间附上一行摘要。只在工具面变化、或已发布副本离开可见面（压缩、恢复）时重发；
-5. 工具分页把匹配工具（默认 `mcp__*`）扣留在 wire 之外直到激活：模型调用 `tool_activate({ namespace })`，该命名空间的工具从下一个请求起进入 wire，同时最多保持三个已激活的分页命名空间——激活第四个时，最近最少使用的那个被逐回摘要状态。激活状态从持久会话事件流重建，压缩与恢复都会还原出同一张工具面；
+4. `tool-catalog` 把工具清单作为持久 user 消息追加在用户消息之后，保留完整输入输出关键参数语义（`descriptionMaxLength: 200` 仅限制一行摘要长度）。目录只宣告该次请求实际开放的工具——原生清单加上同驻时的 `run_code`——并在分页开启时为被扣留的命名空间附上一行摘要；`ptc` 下这些摘要代表真正不可达的命名空间——既不在该请求的 `tools:sdk` 段中，也不能在 `run_code` 程序内调用——直到 `tool_activate`；只在工具面变化、或已发布副本离开可见面（压缩、恢复）时重发；
+5. 工具分页把匹配工具（默认 `mcp__*`）扣留在 wire 之外——`ptc` 下还包括作用域的注册表可见面，也就是 `tools:sdk` 段渲染、程序可分派的那份集合——直到激活：模型调用 `tool_activate({ namespace })`，该命名空间从下一个请求起重新可达，同时最多保持三个已激活的分页命名空间——激活第四个时，最近最少使用的那个被逐回摘要状态。激活状态从持久会话事件流重建，压缩与恢复都会还原出同一张工具面；
 6. 最小版 working-context 行——plan-mode 状态、已激活的分页命名空间、进行中的 todo——只在其来源可读时注入到最新消息尾部，让当前状态落在模型的局部注意力窗口内；运行时上下文（sandbox 与 approval 快照）与 skill 目录按 Standard 模式正常注入；
 7. 目录把已激活分页家族的工具归在 `namespace `<名称>` (activated):` 标题之下，而不是把一个服务端的工具散落在字母序清单里；未被分页的工具仍保持扁平条目；
 8. `maxResidentTokens`（默认 6000）估算常驻 wire 面并在超过时告警一次，列出最重的工具并把 `pagedToolPatterns` 指为处置手段。该守卫从不截断：静默丢掉会话需要的工具，等于用可度量的上下文成本换取不可度量的能力损失。
@@ -27,11 +27,7 @@ DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官
 本模式坚持在官方宿主安全架构内运行，严格遵守沙箱策略：
 
 - **宿主沙箱约束**：所有文件工具——原生呈现的 Standard 文件工具，以及 `run_code` 程序经 SDK 分发的任何文件操作——均受宿主文件沙箱策略约束，继承当前会话的沙箱级别（如 `danger-full-access` 或只读/工作区受限）。不存在裸本地文件系统访问（不挂载 `dsh-fs-local`），所有跨越工作区的读写均受宿主策略拦截。
-- **Windows 平台现有限制与 Git Bash**：DSH 的 PTY 后端仅支持 Linux/Darwin。在 Windows (win32) 下，持久 shell 组被禁用，`bash` 由 `presets/liangshen/custom-bash.mjs` 调用系统 Git Bash 子进程提供：
-  - Windows Git Bash 运行于普通子进程通道，受 Windows 平台限制，不具备 Linux 下基于 namespace/cgroups 的 OS 沙箱隔离；
-  - shell 进程不跨调用常驻，命令状态（环境变量、当前目录等）不跨调用保留——预设在 win32 下向 persona 块追加一行临时 shell 纪律，引导模型把链式操作合并进单次调用；
-  - 非零退出码以结果返回而非抛错；
-  - 用户与开发者切勿修改 `custom-bash.mjs` 去尝试规避安全策略；高权限操作需遵从宿主提示和环境安全规范。
+- **两个平台都挂持久 shell**：本 preset 在每个宿主上挂载上游的持久 PTY 栈，与内置 Minimal 一致。POSIX 挂 `bash` 栈；win32 挂它的 pwsh 孪生——`@deepseek-ai/dsh-terminal-bash` 后端配 `shellDialect: pwsh`，加 `@deepseek-ai/dsh-tool-pwsh-persistent`。每个平台恰好暴露一个 shell 工具（POSIX 为 `bash`，win32 为 `pwsh`），shell 状态在两个平台都跨调用保留。本 preset 不自带任何 shell 实现。
 - **代码运行时沙箱**：`run_code` 程序运行于独立的 worker thread 隔离上下文，其对系统资源的访问完全受限于 SDK 暴露的 tools 边界。
 
 ## 拨杆
@@ -55,8 +51,8 @@ DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官
 | `instructionSource` | `host` | 工作区指令送达模型的方式。`host`（默认）不追加任何自有段，也不改动宿主的 agent-instructions 注入，工作区指令以宿主自己的 user 角色消息送达：一条持久基线，加上触碰目录后的增量、替换与移除；`system-prompt` 在组装时读取 AGENTS.md 链并追加进系统提示词（harness 自己的注入被丢弃）；`hint` 把首次注入替换为一次性的、非命令式的参考文件提示，后续注入丢弃。 |
 | `instructionMaxBytes` | `65536` | 渲染后的 workspace-instructions 段的字节预算，仅在 `system-prompt` 模式下生效：最宽的文件先被省略，最具体的文件最后被截断。 |
 | `descriptionMaxLength` | `200` | 注入目录中单个工具一行摘要的长度上限。完整关键参数语义保持完整。 |
-| `presentation` | `ptc` | 整个会话的 wire 呈现方式。`ptc` 把 wire 收拢为 `run_code`，其余工具经生成的 SDK 调用——静态上下文最省，也是出厂默认；`native` 保持组装出的原生清单，官方脚手架横评在两个代码 Agent 基准上都把它排在前面；`both` 保持完整原生清单并同驻一个 `run_code`。`ptc` 与 `both` 需要挂载的 code runtime；没有时插件根本不做声明，会话直接运行原生工具面。 |
-| `pagedToolPatterns` | `['mcp__*']` | 命中这些 glob 模式的工具被扣留在 wire 之外，直到模型通过 `tool_activate({ namespace })` 激活其命名空间；被扣留的命名空间在目录中以一行摘要出现。最多同时保持三个已激活的分页命名空间，激活状态从持久事件流重建，跨越压缩与恢复。置空则关闭分页。 |
+| `presentation` | `ptc` | 整个会话的 wire 呈现方式。`ptc` 把 wire 收拢为 `run_code`，其余工具经生成的 SDK 调用——静态上下文最省，也是出厂默认；`native` 保持组装出的原生清单，官方脚手架横评在两个代码 Agent 基准上都把它排在前面；`both` 保持完整原生清单并同驻一个 `run_code`。`ptc` 与 `both` 需要挂载的 code runtime；没有时插件根本不做声明，会话直接运行原生工具面。`ptc` 下分页同时施加在注册表上，因为折叠后的 wire 已没有可过滤的对象；`native` 与 `both` 仍只是 wire 过滤，`both` 因此保留文档中的 SDK 逃生通道。 |
+| `pagedToolPatterns` | `['mcp__*']` | 命中这些 glob 模式的工具被扣留在 wire 之外，直到模型通过 `tool_activate({ namespace })` 激活其命名空间；被扣留的命名空间在目录中以一行摘要出现。`ptc` 下这些名字同时离开生成的 SDK，因此**从第一个请求起**就不可达——未激活的命名空间既不在 `tools:sdk` 段中，也不能在 `run_code` 程序内调用。最多同时保持三个已激活的分页命名空间，激活状态从持久事件流重建，跨越压缩与恢复。置空则关闭分页。 |
 | `planningEffort` / `executionEffort` | `high` / `low` | `reasoning-effort` 插件经宿主的 `agent/request` 水位为请求设定的推理档位：规划阶段给深档位，执行阶段与失败后的复核阶段给浅/深档位。档位经 DeepSeek adapter 的取值集（`off`/`low`/`high`/`max`）校验。切换会让宿主记下一次请求头变更；该变更对服务端缓存的影响未经本仓库验证，插件只在阶段边界切换以把变更次数压到最低。 |
 | `maxResidentTokens` | `6000` | 常驻 wire 面的估算 token 上限（按序列化 schema 约四字符一 token），校准在出厂清单之上，用于发现真实增长而非出厂配置本身。超过时告警一次、列出最重的工具并指向 `pagedToolPatterns`；不会截断工具清单。 |
 | `ptcPresentation` | （已退役） | 旧别名：`true` 映射为 `presentation: 'ptc'`，`false` 映射为 `'native'`，两者都伴随弃用告警。 |
@@ -82,9 +78,10 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 导出 session JSONL，检查 `request/header`：
 
-- `instructionSource: host` 下第一份 header 的 `system` 应恰好是 persona 块（极简 persona、工作纪律清单、工作区目录行 `Your working directory is <cwd>.`）加上 plan mode 开启时的策略段——win32 下 persona 块还带临时 shell 纪律行——AGENTS.md 链则以宿主自己的 user 角色消息抵达；`instructionSource: system-prompt` 下 `system` 改为多出一段 `workspace-instructions`；
-- 每份 header 在整个会话中保持同一种呈现：默认 `presentation: 'both'` 下工具是完整原生清单加 `run_code`，任何回合边界都不会收窄 wire；
+- `instructionSource: host` 下第一份 header 的 `system` 应恰好是 persona 块（极简 persona、工作纪律清单、工作区目录行 `Your working directory is <cwd>.`）加上 plan mode 开启时的策略段——AGENTS.md 链则以宿主自己的 user 角色消息抵达；`instructionSource: system-prompt` 下 `system` 改为多出一段 `workspace-instructions`；
+- 每份 header 在整个会话中保持同一种呈现：默认 `presentation: 'ptc'` 下 wire 只携带 `run_code`，任何回合边界都不会再收窄 wire；
 - 放行的消息里应有一条来自 `liangshen-tool-catalog` 的 `plugin` 消息，位于用户消息之后，按参数签名恰好列出该次请求开放的工具；被分页扣留的工具以一行命名空间摘要出现；
+- `ptc` 下未激活的命名空间既不出现在该请求的 `tools:sdk` 段中，也不能在 `run_code` 程序内调用——**从第一个请求起**成立，而不是晚一个请求；
 - `tool_activate({ namespace })` 成功后，该命名空间的工具从下一个请求起进入 wire，且同时激活的分页命名空间不超过三个；
 - 压缩之后目录会重发一次，形式为替换清单，分页激活状态从持久事件流重建，呈现模式保持不变；
 - 文件写入受宿主文件沙箱策略约束，不存在裸本地文件系统绕过。
@@ -117,9 +114,9 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 ## 行为与限制
 
-- 系统提示词在整个会话中保持稳定：persona 块（persona、工作纪律、工作区目录，以及 win32 下的临时 shell 纪律行），plan mode 开启时另加其策略段，`system-prompt` 模式下另加 workspace-instructions 段。工具调用后不会再追加内容，也不施加任何输出预算上限；
+- 系统提示词在整个会话中保持稳定：persona 块（persona、工作纪律、工作区目录），plan mode 开启时另加其策略段，`system-prompt` 模式下另加 workspace-instructions 段。工具调用后不会再追加内容，也不施加任何输出预算上限；
 - `system-prompt` 模式下 workspace-instructions 段在每次组装时重新读取，指令文件的改动无需持久消息即可在下一次请求生效；该段渲染在稳定前缀之后的最后位置，缓存前缀不受影响。工作区子目录动态规则后续将扩展支持注册文件工具（含 `str_replace_editor`）及 `run_code` 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
-- wire 在整个会话中保持同一种呈现——不存在回合边界跃迁：`native` 携带组装出的原生清单，`both`（默认）同驻一个 `run_code`，`ptc` 把 wire 收拢为 `run_code` 一条，其余工具经生成的 SDK 调用；
+- wire 在整个会话中保持同一种呈现——不存在回合边界跃迁：`native` 携带组装出的原生清单，`both` 同驻一个 `run_code`，`ptc`（默认）把 wire 收拢为 `run_code` 一条，其余工具经生成的 SDK 调用；
 - 注入的目录是持久消息：每个会话写入一次，另在工具面变化（分页激活、呈现变更）或压缩遮蔽已发布副本时替换一次，并留在历史中供后续请求使用；
 - 未观测到 prompt 组装的步不注入任何内容——目录绝不会由过期视图推测；
 - 若组合中不存在任何被接受的 persona section 名（`deployment:persona-prefix`、`deployment:persona`、`persona`），过滤器会保留组装结果并只告警一次，而不是发出空系统提示词；
@@ -129,7 +126,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 - 工具结果超过 4096 字符即被修剪，保留 1500 字符头部与 500 字符尾部，避免超大输出挤占上下文；
 - `run_code` 需要挂载的 code runtime（随包发布的 web 与 headless 组合都挂载 `dsh-code-runtime-worker-thread`）；没有时 `ptc` 与 `both` 不做声明，会话运行原生工具面；
 - 清单不发布 `workflow` 工具，而 workflow 引擎仍为 `ralph` 保留挂载；
-- 持久 `bash` 会替代 Standard 的一次性 shell 直到会话结束（两个工具都注册 `bash` 名字），因此 shell 状态跨调用保留；win32 上由 `custom-bash` 经 Git Bash 提供同名工具，无 OS 沙箱约束且状态不跨调用保留；
+- 持久 shell 会替代 Standard 的一次性 shell 直到会话结束，因此 shell 状态跨调用保留：POSIX 注册持久 `bash`，win32 改注册上游持久 `pwsh`——每个宿主恰好挂一个 shell 工具；
 - 文件工具继承宿主文件沙箱（不挂载裸 `dsh-fs-local`）；
 - preset 与 shell 访问具有相同信任等级，安装前可自行审阅 `presets/liangshen/`；
 - 插件不发起网络请求，也不增加遥测；
@@ -138,4 +135,4 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 ## 许可
 
-插件本体 Apache-2.0（zhu1090093659）。`presets/liangshen/agent.cordis.yml` 基于 DeepSeek Harness 内置 Minimal、Standard 与 PTC preset 修改（MIT），`custom-bash.mjs` 来自 xiaobright/dsh-anchored-standard（MIT），版权与许可声明见 preset 的 `NOTICE`。
+插件本体 Apache-2.0（zhu1090093659）。`presets/liangshen/agent.cordis.yml` 基于 DeepSeek Harness 内置 Minimal、Standard 与 PTC preset 修改（MIT），版权与许可声明见 preset 的 `NOTICE`。

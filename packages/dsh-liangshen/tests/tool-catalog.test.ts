@@ -540,13 +540,21 @@ describe('liangshen-tool-catalog', () => {
     expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read', 'web_search'])
   })
 
-  test("paging does not apply under the collapsed 'ptc' wire", async () => {
+  test("the collapsed 'ptc' wire still pages the SDK projection the wire cannot carry", async () => {
+    // The wire itself has nothing left to filter, so this assertion is about the
+    // OTHER half of paging: the per-scope registry restriction is exercised in
+    // tool-paging-registry.test.ts against a faithful registry stub. What this
+    // test pins is the catalog's side under a scope that exposes no restriction
+    // API at all: no crash, no false claim that a namespace is unreachable.
+    // This harness declares the presentation but exposes no restrict() API, so
+    // paging cannot be enforced here. What it pins is the fallback: paging must
+    // never cost the session its tools, and the catalog must not claim a
+    // namespace is unreachable when nothing withheld it.
     const harness = register({ presentation: 'ptc' }, { sdk: [...SDK_SURFACE, ...MCP_TOOLS] })
-    const agent = agentOf()
+    const agent = agentOf([], undefined, harness)
     const { assembled } = await assemble(harness, agent, [...WIRE, ...MCP_TOOLS])
     expect(assembled.tools.map((tool: any) => tool.name)).toEqual(['run_code'])
     const text = catalogText((await preStep(harness, agent)).messages)
-    // The SDK projection reaches every tool, paged or not; no namespace summary.
     expect(text).toContain('- `mcp__github__create_issue')
     expect(text).not.toContain('<inactive_namespaces>')
   })
@@ -558,7 +566,10 @@ describe('liangshen-tool-catalog', () => {
     const text = catalogText((await preStep(harness, agent)).messages)
     expect(text).toContain('- `run_code({ code: string, description: string })`')
     expect(text).toContain('<inactive_namespaces>')
-    expect(text).toContain('Paged-out namespaces below stay reachable through the SDK inside a program even before activation.')
+    // 'both' is the one presentation that leaves the registry unrestricted: the
+    // page is on the NATIVE wire only, so the SDK inside a program still reaches
+    // a paged namespace before activation. Only 'ptc' pages the whole surface.
+    expect(text).toContain('Paged-out namespaces below stay off the NATIVE wire but stay reachable through the SDK inside a program even before activation')
   })
 
   test('stays native and says nothing about run_code without a code runtime', async () => {

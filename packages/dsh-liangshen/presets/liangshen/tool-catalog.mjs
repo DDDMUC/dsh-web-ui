@@ -28,6 +28,31 @@
  * process-memory state. At most a few namespaces stay active; the LRU
  * eviction falls out of the same replay.
  *
+ * Paging is enforced in TWO places, because the wire is not the only surface a
+ * tool can be reached through:
+ * - the wire partition below (resident tools returned, paged tools lifted) and
+ * - a per-scope registry restriction (agent.ctx.tools.restrict) that removes
+ *   the paged names exactly as the wire does.
+ * The second one is what makes paging real under the `ptc` presentation,
+ * where the wire has already collapsed to the single `run_code` transport and
+ * every other tool is reached from inside a program. Under a collapsed wire
+ * the visible set is the whole surface: it renders the `tools:sdk` prompt
+ * section and it is what a program may dispatch to, so filtering the assembled
+ * `tools` array alone would withhold nothing the model can observe. The
+ * restriction is derived from the same pattern match as the partition
+ * (`withheldToolNames`) and is lifted before a new one is applied, so repeated
+ * collections do not accumulate filters.
+ *
+ * TIMING: that restriction is installed from OUTSIDE the assembly waterfall.
+ * `SystemPrompt.assemble()` collects the tool providers and calls every
+ * section's `text(context)` BEFORE it runs the `system-prompt/assemble`
+ * waterfall, so a restriction installed inside that waterfall could only take
+ * effect one assembly later — leaving a request whose catalog claims a
+ * namespace is paged while that request's own `tools:sdk` section still lists
+ * it. `syncBeforeAssembly` therefore runs at scope creation, session start,
+ * and after each tool call that can move the active set, so the FIRST `ptc`
+ * request already renders a page-consistent SDK section.
+ *
  * CATALOG: the durable user message appended after the user's own message
  * names exactly the tools the current request's wire carries (each tool's
  * argument signature plus a one-line summary), then summarizes the paged-out
@@ -46,12 +71,14 @@
 import {
   DEFAULT_MAX_ACTIVE_NAMESPACES,
   DEFAULT_PAGED_TOOL_PATTERNS,
+  inactiveNamespaces,
   integerAtLeast,
   namespaceOf,
   partitionWireTools,
   replayActivations,
   summarizeInactive,
   validatePagedToolPatterns,
+  withheldToolNames,
 } from './paging.mjs'
 
 /** Cordis plugin name used by loader diagnostics. */
@@ -284,6 +311,8 @@ const PTC_PROGRAM_LINES = [
   '- only what you `return` or `console.log` becomes program output; every other intermediate result stays out of the conversation, so extract just what the next decision needs, and an image a tool returns is attached after the run.',
   '',
   '`run_code` is the only tool that can be called directly once it is on the wire: every tool listed above is reached from inside the program.',
+  '',
+  'A namespace this session has not activated with `tool_activate({ namespace: "..." })` is not listed above and cannot be reached from inside a program either: the page is a page on the whole surface, not only on the wire, and the paged-out list below names exactly what is withheld. Activating one puts its tools back into this list and back into a program from the next request on.',
 ]
 
 /**
@@ -293,7 +322,8 @@ const PTC_PROGRAM_LINES = [
  * through the SDK inside a program even before activation.
  */
 const BOTH_PROGRAM_LINES = [
-  'Call the tools above directly by name for ordinary work. `run_code` is also on the wire for the cases one intent is easier as a program: an async TypeScript body (`code`, with a short `description`) that reaches tools as `await tools.<name>({ ... })`, overlaps independent read-only calls under `Promise.all`, and catches `ToolCallError` to continue — use it for programmatic batch computation or wide fan-out, not for single ordinary calls. Paged-out namespaces below stay reachable through the SDK inside a program even before activation.',
+  'Call the tools above directly by name for ordinary work. `run_code` is also on the wire for the cases one intent is easier as a program: an async TypeScript body (`code`, with a short `description`) that reaches tools as `await tools.<name>({ ... })`, overlaps independent read-only calls under `Promise.all`, and catches `ToolCallError` to continue — use it for programmatic batch computation or wide fan-out, not for single ordinary calls.',
+  'Paged-out namespaces below stay off the NATIVE wire but stay reachable through the SDK inside a program even before activation; activating one also puts its tools back on the direct surface.',
 ]
 
 /**
@@ -513,9 +543,115 @@ export function apply(ctx, config) {
   const agentDeclareFailed = new WeakSet()
   const agentDisposers = new WeakMap()
 
-  const registry = () => ctx.get('tools')
+  // Registry-level paging state, one entry per agent scope: the names the live
+  // restriction withholds and the exact disposer that lifts it. Keyed by agent
+  // so two sessions assembling at once cannot lift each other's filter, and
+  // released with the agent so a departed scope leaves no filter behind.
+  const agentPaging = new WeakMap()
 
-  /** Whether this session wants the run_code transport and the deployment can run it. */
+  /** Lift one agent scope's live restriction, if it has one. */
+  const clearScopePaging = (agent) => {
+    const state = agentPaging.get(agent)
+    if (state === undefined) return
+    agentPaging.delete(agent)
+    try {
+      state.dispose()
+    } catch (err) {
+      warnOnce('paging-dispose', `lifting an earlier tool restriction failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  /**
+   * Recompute one agent scope's page from the durable session event stream and
+   * make the registry match it: `deny` masks exactly the names the wire
+   * partition would withhold, so the scope still inherits everything else.
+   * Scoped registrations are exempt by the registry's own rule, so
+   * preset-owned tools can never be filtered away by this.
+   *
+   * The restriction is what paging MEANS under a collapsed `ptc` wire, where
+   * filtering the assembled `tools` array changes nothing a program can reach.
+   * It also stores the namespaces it withheld, so the catalog and the live
+   * restriction are read from ONE fact instead of two computations.
+   *
+   * Called OUTSIDE the assembly waterfall, deliberately: see
+   * {@link syncBeforeAssembly} for why an in-waterfall sync cannot fix the
+   * request it runs in. Returns the stored state, or undefined when the scope
+   * needs none — nothing paged, an unusable scoped view, or a refused filter.
+   */
+  const syncScopePaging = (agent) => {
+    clearScopePaging(agent)
+
+    const tools = agent?.ctx?.tools
+    if (tools === undefined || typeof tools.restrict !== 'function') {
+      warnOnce('paging-runtime', 'no scoped tools view to page through — the paged namespaces stay reachable through a program in this session')
+      return undefined
+    }
+
+    // Read with the restriction lifted (clearScopePaging above), or the
+    // withheld names would already be missing and the next sync would find
+    // nothing left to withhold. Silent on an unreadable surface: a sync may
+    // run before the registry is populated, and "no tools yet" is not the
+    // assembly-path emergency that warning describes.
+    const fullSurface = quietSchemas(agent) ?? []
+    if (fullSurface.length === 0) return undefined
+    const active = replayActivations(sessionEvents(agent?.session), maxActiveNamespaces, pagedToolPatterns).active
+    const withheld = withheldToolNames(fullSurface, pagedToolPatterns, active)
+    if (withheld.length === 0) return undefined
+
+    try {
+      const dispose = tools.restrict({ deny: withheld })
+      if (typeof dispose !== 'function') {
+        warnOnce('paging-runtime', 'the tool registry did not confirm the paging restriction — the paged namespaces stay reachable through a program in this session')
+        return undefined
+      }
+      const state = { active, inactive: inactiveNamespaces(fullSurface, pagedToolPatterns, active), dispose }
+      agentPaging.set(agent, state)
+      return state
+    } catch (err) {
+      // A registry that refuses the filter (a name that vanished mid-assembly,
+      // a scope that is not scoped after all) must not cost the session its
+      // tools: the refused restriction simply does not apply.
+      warnOnce('paging-runtime', `paging could not restrict this scope's tools: ${err instanceof Error ? err.message : String(err)} — the paged namespaces stay reachable through a program in this session`)
+      return undefined
+    }
+  }
+
+  /**
+   * Bring a scope's page up to date from OUTSIDE the assembly waterfall.
+   *
+   * `SystemPrompt.assemble()` collects the tool providers AND calls every
+   * section's `text(context)` before it runs the `system-prompt/assemble`
+   * waterfall, so a restriction installed inside that waterfall cannot change
+   * the request it runs for: the `tools:sdk` section has already been rendered
+   * from the unrestricted registry. It would take effect one assembly later,
+   * leaving a request whose catalog claims a namespace is paged while that
+   * request's own SDK section still lists it. Syncing before the providers are
+   * collected is what keeps the two consistent from the FIRST `ptc` request.
+   *
+   * GATED ON THE WIRE ACTUALLY COLLAPSING, not on the configuration asking for
+   * it. Both halves of that gate matter, and each covers a deployment where
+   * paging at the registry would be wrong:
+   * - `presentation === 'ptc'` is what the operator configured, and it excludes
+   *   `both`, whose documented contract is that a paged-out namespace stays
+   *   reachable through the SDK inside a program before activation. Installing
+   *   the restriction there would break that contract for the first request;
+   * - `agentDeclared.has(agent)` is the scope's own declaration actually
+   *   landing, which is NOT the same as `transportReady()`. A deployment with
+   *   no mounted code runtime (and one whose host declines the declaration)
+   *   keeps the native wire: the assembled array carries paging by itself, and
+   *   a registry restriction installed anyway would strip the paged families
+   *   from that request's native wire — the first request would lose tools it
+   *   is supposed to have, and the catalog would announce namespaces as
+   *   withheld that nothing withheld.
+   */
+  const syncBeforeAssembly = (agent) => {
+    if (agent === undefined || presentation !== 'ptc') return undefined
+    if (!agentDeclared.has(agent)) return undefined
+    return syncScopePaging(agent)
+  }
+
+
+  const registry = () => ctx.get('tools')
   const transportReady = () => presentation !== 'native' && ctx.get('codeRuntime') !== undefined
 
   /**
@@ -587,6 +723,25 @@ export function apply(ctx, config) {
     return scoped ?? reg
   }
 
+  /**
+   * Read the scope's model-facing surface without the assembly path's warning.
+   * Returns undefined when no projection is readable at all.
+   */
+  const quietSchemas = (agent) => {
+    const tools = resolveToolsService(agent)
+    if (tools === undefined) return undefined
+    for (const method of ['schemas', 'sdkSchemas']) {
+      if (typeof tools[method] !== 'function') continue
+      try {
+        const schemas = tools[method](agent)
+        if (Array.isArray(schemas)) return schemas.filter(entry => entry?.name && entry.name !== 'run_code')
+      } catch {
+        // Try the next source; an unreadable registry is not fatal here.
+      }
+    }
+    return undefined
+  }
+
   const publicSchemas = (agent) => {
     const tools = resolveToolsService(agent)
     if (tools === undefined) return undefined
@@ -619,15 +774,51 @@ export function apply(ctx, config) {
     return undefined
   }
 
-  // Early lifecycle hooks: declare the presentation as soon as the scope exists.
-  ctx.on('agent/created', (agent) => {
+  // Early lifecycle hooks: declare the presentation and page the scope as soon
+  // as it exists.
+  //
+  // The payload is destructured ON PURPOSE: `agent/created` and
+  // `agent/session-start` pass their payload OBJECT as the first argument, not
+  // the agent itself. Reading that parameter as the agent yields an object
+  // with no `session` and no `ctx`, so the declaration is skipped and paging
+  // silently never engages.
+  ctx.on('agent/created', ({ agent }) => {
     if (agent?.session !== undefined) agentBySession.set(agent.session, agent)
     if (transportReady()) declarePresentation(agent)
+    // The session log is readable here, and this runs before the first turn
+    // assembles a prompt, so a scope created over an existing (resumed)
+    // session is paged before its FIRST assembly rather than one request late.
+    syncBeforeAssembly(agent)
   })
 
-  ctx.on('agent/session-start', (agent, session) => {
-    if (session !== undefined && agent !== undefined) agentBySession.set(session, agent)
+  // A departed scope must not keep a registry restriction behind: the layer is
+  // keyed by the agent, and a recycled key would inherit a stale filter.
+  ctx.on('agent/disposed', ({ agent }) => {
+    agentCatalogState.delete(agent)
+    clearScopePaging(agent)
+  })
+
+  /**
+   * Re-sync after a call that can move the active set.
+   *
+   * Every window between assemblies is the right one to fix the NEXT one, and
+   * this fires at the end of each tool call: a `tool_activate` and the calls
+   * that refresh a namespace's recency are exactly the events the paging
+   * replay reads, so the restriction and the catalog are back in step long
+   * before the next prompt is assembled. Declared concurrency-safe so it never
+   * serializes independent read-only calls.
+   */
+  ctx.on('tools/post-execute', (exec, _result, next) => {
+    syncBeforeAssembly(exec?.agent)
+    return next()
+  }, { prepend: true })
+
+  ctx.on('agent/session-start', ({ agent }) => {
+    if (agent?.session !== undefined) agentBySession.set(agent.session, agent)
     if (transportReady()) declarePresentation(agent)
+    // The last point before the first turn assembles a prompt: a resumed
+    // session starts its first request already paged.
+    syncBeforeAssembly(agent)
   })
 
   // Per-agent, not one process-wide flag: two sessions assembling at once would
@@ -676,13 +867,48 @@ export function apply(ctx, config) {
       }
     }
 
-    let surface = agent !== undefined ? publicSchemas(agent) : undefined
+    // A declaration that just landed here (a scope no lifecycle hook could
+    // reach) pages the scope before the re-assembly collects its providers, so
+    // that request renders a page-consistent SDK section too. Idempotent: a
+    // scope already paged by its lifecycle hook re-derives the same state.
+    if (agent !== undefined && agentDeclared.has(agent)) syncBeforeAssembly(agent)
 
+    // Delegate first: the assembled value stays authoritative for the wire (a
+    // presentation declared inside this waterfall reaches the NEXT assembly,
+    // which is why a declaration is followed by a re-assembly).
     const assembled = await next()
 
     const assembledTools = Array.isArray(assembled?.tools) ? assembled.tools : undefined
     const wireHasRunCode = (assembledTools ?? []).some(t => t?.name === 'run_code')
     const wireOnlyRunCode = assembledTools !== undefined && assembledTools.length > 0 && assembledTools.every(t => t?.name === 'run_code')
+
+    // The paging restriction was installed OUTSIDE this waterfall (see
+    // {@link syncBeforeAssembly}) because `assemble()` renders the sections and
+    // collects the providers before the waterfall runs: installing it here
+    // would leave the request it runs for with a catalog that claims a
+    // namespace is paged and a `tools:sdk` section that still lists it. What
+    // this waterfall does with it is read the SAME state the restriction was
+    // built from, so the catalog never describes a different page than the one
+    // the registry enforces.
+    const pagingState = agent === undefined ? undefined : agentPaging.get(agent)
+
+    // Under a collapsed `ptc` wire the registry is the ONLY surface a tool can
+    // be reached through, so the page is expressed as a registry restriction.
+    // Every other wire still carries paging by itself on the assembled array,
+    // and `both` deliberately stays unrestricted: that is what keeps its
+    // documented "paged namespaces stay reachable through the SDK inside a
+    // program" behavior intact. A wire that carries the native roster again (a
+    // reverted declaration) must also drop a page left over from a collapsed
+    // assembly, or the filter would keep hiding tools that wire just handed
+    // back.
+    let surface = agent !== undefined ? publicSchemas(agent) : undefined
+    // The wire partition replays the durable log itself: `pagingState` exists
+    // only where a restriction was installed (the collapsed ptc wire), and
+    // native/both still page the assembled array from the same event stream.
+    const activeNamespaces = new Set(
+      replayActivations(sessionEvents(agent?.session), maxActiveNamespaces, pagedToolPatterns).active,
+    )
+    if (agent !== undefined && !wireOnlyRunCode && pagingState !== undefined) clearScopePaging(agent)
 
     // If the wire carries only run_code but no projection is readable, revert to
     // native and restore the native wire. The replacement travels in the RETURNED
@@ -706,12 +932,9 @@ export function apply(ctx, config) {
     // native roster is 'both', and anything else is native.
     const effectivePresentation = effectiveOnlyRunCode ? 'ptc' : (effectiveHasRunCode ? 'both' : 'native')
 
-    // Gentle paging: replay the active namespaces from the durable event stream
-    // and lift paged-but-inactive tools off the wire. run_code and the resident
-    // roster never match the paging patterns.
-    const activeNamespaces = new Set(
-      replayActivations(sessionEvents(agent?.session), maxActiveNamespaces, pagedToolPatterns).active,
-    )
+    // Gentle paging: the active namespaces were replayed from the durable event
+    // stream above; here the paged-but-inactive tools come off the wire itself.
+    // run_code and the resident roster never match the paging patterns.
     const { resident, inactive } = partitionWireTools(effectiveWire, pagedToolPatterns, activeNamespaces)
 
     // Diagnostic guard on the always-on-wire surface. It warns rather than
@@ -729,6 +952,16 @@ export function apply(ctx, config) {
       warnOnce('resident-budget', `the resident tool surface is about ${residentTokens} tokens across ${resident.length} tools, over the ${maxResidentTokens}-token budget; heaviest: ${heaviest} — add matching families to pagedToolPatterns so they are held off the wire until activated`)
     }
 
+    // The catalog describes this request's ACTUAL surface: with a live page it
+    // summarizes exactly the namespaces that page withholds (the same fact the
+    // restriction was built from), and otherwise the namespaces the WIRE
+    // partition found — which under `both` stay reachable through the SDK
+    // inside a program, as the programmatic-escape note below states.
+    const catalogInactive = summarizeInactive(
+      pagingState?.inactive ?? inactive,
+      describe => catalogDescription(describe, descriptionMaxLength),
+    )
+
     let entries
     if (effectivePresentation === 'ptc') {
       // Under the collapsed transport the request opens only run_code, so the
@@ -741,9 +974,7 @@ export function apply(ctx, config) {
         patterns: pagedToolPatterns,
       })
     }
-    const inactiveSummary = effectivePresentation === 'ptc'
-      ? []
-      : summarizeInactive(inactive, description => catalogDescription(description, descriptionMaxLength))
+    const inactiveSummary = catalogInactive
 
     // Store fresh state on agent
     if (agent !== undefined) {
