@@ -36,3 +36,12 @@
 
 皮肤工程（`skin.json` / `skin.css` / `patches.css` 与调色板重映射）由作者制作，
 按 CC BY-NC-SA 4.0 发布——该许可**不涵盖**上述官方素材。详见 [NOTICE](NOTICE)。
+
+依据《绝区零》官方「素材使用及同人创作」公告，此处为非商业性质的个人使用，并放置
+官方要求的著作权标识与法律宣告：
+
+> © All rights reserved by miHoYo
+>
+> Other properties and any right, title, and interest thereof and therein
+> (intellectual property rights included) not derived from 《绝区零》 belong to
+> their respective owners.

@@ -42,3 +42,13 @@ is not affiliated with or endorsed by miHoYo.
 The skin engineering (`skin.json` / `skin.css` / `patches.css` and the palette remap)
 is the author's work, released under CC BY-NC-SA 4.0 — that license does NOT extend to
 the official artwork above. See [NOTICE](NOTICE).
+
+Per the official Zenless Zone Zero notice on asset use and fan creation, this is
+non-commercial personal use, and the required copyright mark and legal notice are
+reproduced here:
+
+> © All rights reserved by miHoYo
+>
+> Other properties and any right, title, and interest thereof and therein
+> (intellectual property rights included) not derived from 《絕區零》 belong to
+> their respective owners.
