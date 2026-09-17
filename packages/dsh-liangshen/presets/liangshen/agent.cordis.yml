@@ -90,19 +90,26 @@
 # `minimal-prompt` keeps the system prompt on the persona above, plus the
 # session's workspace directory appended at assembly time (`Your working
 # directory is <cwd>.` — the one orientation fact the persona block carries)
-# and, on win32, one standing line about the ephemeral Git Bash shell. It also
-# lifts the AGENTS.md-style instruction files into the system prompt itself: at
-# assembly time it reads the harness's baseline chain ($DSH_HOME/AGENTS.md,
-# then the project root's ancestors down to the cwd) and appends the content
-# as one `workspace-instructions` section after the stable prefix, re-read on
-# every request so file edits propagate, and drops the harness's own
-# agent-instructions injections (they would duplicate the prompt). The official
-# `tools:sdk` and `tools:ptc-only` sections are kept exactly when the
-# assembly's wire carries the `run_code` transport. Set
-# `instructionSource: hint` to restore the one-time non-imperative pointer to
-# the reference files instead (issue #388, upstream dsh-anchored-standard #49:
-# a full-text dump as context measurably flips the trajectory), or
-# `keepPlanPolicy: false` to drop plan mode's policy section as well.
+# and, on win32, one standing line about the ephemeral Git Bash shell. The
+# official `tools:sdk` and `tools:ptc-only` sections are kept exactly when the
+# assembly's wire carries the `run_code` transport.
+#
+# `instructionSource` chooses where the AGENTS.md-style instruction files reach
+# the model. The default, `host`, appends nothing and leaves the pre-step
+# message batch untouched, so the `agent-instructions` row below delivers the
+# baseline and the dynamic subdirectory instructions as the user-role messages
+# the harness itself produces — the prompt stays the bare persona and the
+# preset adds no instruction prose of its own. `system-prompt` instead reads
+# the harness's baseline chain ($DSH_HOME/AGENTS.md, then the project root's
+# ancestors down to the cwd) at assembly time and appends the content as one
+# `workspace-instructions` section after the stable prefix, re-read on every
+# request so file edits propagate, dropping the harness's own injections (they
+# would duplicate the prompt). `hint` restores the one-time non-imperative
+# pointer to the reference files (issue #388, upstream dsh-anchored-standard
+# #49: a full-text dump as context measurably flips the trajectory). Both
+# non-default modes trade the harness's own channel for a preset-owned one; the
+# default keeps the upstream contract. Set `keepPlanPolicy: false` to drop
+# plan mode's policy section as well.
 #
 # `tool-catalog` owns the wire presentation and the model-visible catalog.
 # `presentation` selects the SDK ToolPresentationMode for the session's whole
@@ -139,7 +146,7 @@
   name: ./minimal-prompt.mjs
   config:
     keepPlanPolicy: true
-    instructionSource: system-prompt
+    instructionSource: host
     instructionMaxBytes: 65536
 
 - id: tool-catalog
@@ -173,10 +180,13 @@
     reviewEffort: 'high'
 
 # The harness's workspace-instruction loader. Under the default
+# `instructionSource: host` this row owns the channel: its baseline and dynamic
+# user-role messages reach the model untouched. Under
 # `instructionSource: system-prompt` the content reaches the model through the
-# system prompt instead, and this row's injections are dropped by
-# `minimal-prompt`; the row stays mounted so `instructionSource: hint` keeps
-# its pointer behavior working, and its `maxBytes` remains that mode's budget.
+# system prompt instead and these injections are condensed or dropped by
+# `minimal-prompt`; under `hint` the first is replaced by a pointer and the
+# rest dropped. The row stays mounted in every mode: it is the default's whole
+# delivery path, and its `maxBytes` remains the budget the other two consult.
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:

@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词保持极简 persona——外加本模式的固定工作纪律、会话工作区目录与 AGENTS.md 类工作区指令——并从第一条用户消息起把工具面作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致，且只宣告该次请求实际开放的工具。wire 在整个会话中保持由 `presentation` 选定的同一种呈现（默认 `presentation: 'ptc'`）：wire 收拢为唯一的 `run_code` 传输工具，其余工具都在程序内经生成的 SDK 触达，原生清单的 schema 负载因此离开每一个请求；未挂载 code runtime 的部署回退为原生呈现并一次性告警，而不是宣告一个该请求无法承载的传输工具。被分页扣留的匹配工具（默认 `mcp__*`）在目录中以命名空间摘要出现，经 `tool_activate` 激活后才挂载到 wire。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
+把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词保持极简 persona——外加本模式的固定工作纪律与会话工作区目录——AGENTS.md 类工作区指令交由 harness 以自己的 user 角色消息送达；工具面则从第一条用户消息起作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致，且只宣告该次请求实际开放的工具。wire 在整个会话中保持由 `presentation` 选定的同一种呈现（默认 `presentation: 'ptc'`）：wire 收拢为唯一的 `run_code` 传输工具，其余工具都在程序内经生成的 SDK 触达，原生清单的 schema 负载因此离开每一个请求；未挂载 code runtime 的部署回退为原生呈现并一次性告警，而不是宣告一个该请求无法承载的传输工具。被分页扣留的匹配工具（默认 `mcp__*`）在目录中以命名空间摘要出现，经 `tool_activate` 激活后才挂载到 wire。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
 
 ## 原理
 
@@ -13,7 +13,7 @@ DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官
 ## 工作机制
 
 1. `minimal-prompt` 把每次组装出的提示词收窄到 persona 一段——一行 persona、本模式的固定工作纪律（同一假设的思考推演不超过两轮，缺少事实时立即闭合思考并调用检查工具而非空想；思考只决定下一步具体操作，不预演完整代码实现；正确性一律在执行阶段以工具实际输出验证；YAGNI 与 PDCA；不写冗余注释）、以及一行从会话头读取的方位信息 `Your working directory is <cwd>.`——因此 harness identity、web surface、工具用法、文件引用与结构化输出等 section 默认不会到达模型；plan mode 的 `plan:policy` 保留，因为该 section 是 plan mode 唯一的执行依据（它的退出工具在任何模式下都保持注册）；
-2. AGENTS.md 类工作区指令直接进入系统提示词本身：组装时 `minimal-prompt` 读取 harness 的基线链（`$DSH_HOME/AGENTS.md`，再从项目根到会话 cwd 沿途的 `AGENTS.md` / `CLAUDE.md` 及其 `.local` 覆盖层），把内容作为一段 `workspace-instructions` 追加在稳定前缀之后，受字节预算约束——放不下时先省略最宽的文件、最后才截断最具体的文件；读取在每次组装时都发生，文件改动无需持久消息即可在下次请求生效，harness 自己的 agent-instructions 注入则被丢弃以免与提示词重复。工作区子目录动态规则后续将支持注册文件工具（含 `str_replace_editor`）及 `run_code` 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
+2. AGENTS.md 类工作区指令经 `instructionSource` 送达模型：默认（`host`）下 preset 不追加任何自有段，也不改动宿主自己的送达，工作区指令以宿主的 user 角色消息抵达——一条持久基线，加上触碰目录后的增量、替换与移除；`system-prompt` 下它们直接进入系统提示词本身：组装时 `minimal-prompt` 读取 harness 的基线链（`$DSH_HOME/AGENTS.md`，再从项目根到会话 cwd 沿途的 `AGENTS.md` / `CLAUDE.md` 及其 `.local` 覆盖层），把内容作为一段 `workspace-instructions` 追加在稳定前缀之后，受字节预算约束——放不下时先省略最宽的文件、最后才截断最具体的文件；读取在每次组装时都发生，文件改动无需持久消息即可在下次请求生效，harness 自己的 agent-instructions 注入则被丢弃以免与提示词重复。工作区子目录动态规则后续将支持注册文件工具（含 `str_replace_editor`）及 `run_code` 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
 3. wire 在整个会话中保持由 `presentation` 选定的同一种呈现：`ptc`（默认）把 wire 收拢为 `run_code`、其余工具经生成的 SDK 调用，`native` 携带组装出的原生清单，`both` 让清单与传输工具同驻；`ptc` 与 `both` 需要挂载的 code runtime；没有时插件不做声明，会话直接运行原生工具面。旧键 `ptcPresentation` 映射到 `ptc`/`native` 并发出弃用告警，已退役的 `anchorTools` 首回合收窄不再生效——设置它会收到告警；
 4. `tool-catalog` 把工具清单作为持久 user 消息追加在用户消息之后，保留完整输入输出关键参数语义（`descriptionMaxLength: 200` 仅限制一行摘要长度）。目录只宣告该次请求实际开放的工具——原生清单加上同驻时的 `run_code`——并在分页开启时为被扣留的命名空间附上一行摘要。只在工具面变化、或已发布副本离开可见面（压缩、恢复）时重发；
 5. 工具分页把匹配工具（默认 `mcp__*`）扣留在 wire 之外直到激活：模型调用 `tool_activate({ namespace })`，该命名空间的工具从下一个请求起进入 wire，同时最多保持三个已激活的分页命名空间——激活第四个时，最近最少使用的那个被逐回摘要状态。激活状态从持久会话事件流重建，压缩与恢复都会还原出同一张工具面；
@@ -52,8 +52,8 @@ DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官
 | 键 | 默认值 | 行为 |
 | --- | --- | --- |
 | `keepPlanPolicy` | `true` | 在只有一行 persona 的系统提示词中保留 plan mode 的 `plan:policy` 段。置 `false` 得到严格的一行表面，此时 plan mode 背后没有任何策略文本。 |
-| `instructionSource` | `system-prompt` | 工作区指令送达模型的方式。`system-prompt` 在组装时读取 AGENTS.md 链并追加进系统提示词（harness 自己的注入被丢弃）；`hint` 恢复指针行为：首次注入替换为一次性的、非命令式的参考文件提示，后续注入丢弃。 |
-| `instructionMaxBytes` | `65536` | 渲染后的 workspace-instructions 段的字节预算（system-prompt 模式）：最宽的文件先被省略，最具体的文件最后被截断。 |
+| `instructionSource` | `host` | 工作区指令送达模型的方式。`host`（默认）不追加任何自有段，也不改动宿主的 agent-instructions 注入，工作区指令以宿主自己的 user 角色消息送达：一条持久基线，加上触碰目录后的增量、替换与移除；`system-prompt` 在组装时读取 AGENTS.md 链并追加进系统提示词（harness 自己的注入被丢弃）；`hint` 把首次注入替换为一次性的、非命令式的参考文件提示，后续注入丢弃。 |
+| `instructionMaxBytes` | `65536` | 渲染后的 workspace-instructions 段的字节预算，仅在 `system-prompt` 模式下生效：最宽的文件先被省略，最具体的文件最后被截断。 |
 | `descriptionMaxLength` | `200` | 注入目录中单个工具一行摘要的长度上限。完整关键参数语义保持完整。 |
 | `presentation` | `ptc` | 整个会话的 wire 呈现方式。`ptc` 把 wire 收拢为 `run_code`，其余工具经生成的 SDK 调用——静态上下文最省，也是出厂默认；`native` 保持组装出的原生清单，官方脚手架横评在两个代码 Agent 基准上都把它排在前面；`both` 保持完整原生清单并同驻一个 `run_code`。`ptc` 与 `both` 需要挂载的 code runtime；没有时插件根本不做声明，会话直接运行原生工具面。 |
 | `pagedToolPatterns` | `['mcp__*']` | 命中这些 glob 模式的工具被扣留在 wire 之外，直到模型通过 `tool_activate({ namespace })` 激活其命名空间；被扣留的命名空间在目录中以一行摘要出现。最多同时保持三个已激活的分页命名空间，激活状态从持久事件流重建，跨越压缩与恢复。置空则关闭分页。 |
@@ -82,7 +82,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 导出 session JSONL，检查 `request/header`：
 
-- 第一份 header 的 `system` 应恰好是 persona 块（极简 persona、工作纪律清单、工作区目录行 `Your working directory is <cwd>.`），plan mode 开启时另加其策略段，再另加承载 AGENTS.md 链的 `workspace-instructions` 段——win32 下 persona 块还带临时 shell 纪律行；
+- `instructionSource: host` 下第一份 header 的 `system` 应恰好是 persona 块（极简 persona、工作纪律清单、工作区目录行 `Your working directory is <cwd>.`）加上 plan mode 开启时的策略段——win32 下 persona 块还带临时 shell 纪律行——AGENTS.md 链则以宿主自己的 user 角色消息抵达；`instructionSource: system-prompt` 下 `system` 改为多出一段 `workspace-instructions`；
 - 每份 header 在整个会话中保持同一种呈现：默认 `presentation: 'both'` 下工具是完整原生清单加 `run_code`，任何回合边界都不会收窄 wire；
 - 放行的消息里应有一条来自 `liangshen-tool-catalog` 的 `plugin` 消息，位于用户消息之后，按参数签名恰好列出该次请求开放的工具；被分页扣留的工具以一行命名空间摘要出现；
 - `tool_activate({ namespace })` 成功后，该命名空间的工具从下一个请求起进入 wire，且同时激活的分页命名空间不超过三个；
@@ -117,8 +117,8 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 
 ## 行为与限制
 
-- 系统提示词在整个会话中保持稳定：persona 块（persona、工作纪律、工作区目录，以及 win32 下的临时 shell 纪律行），plan mode 开启时另加其策略段，另加 workspace-instructions 段。工具调用后不会再追加内容，也不施加任何输出预算上限；
-- workspace-instructions 段在每次组装时重新读取，指令文件的改动无需持久消息即可在下一次请求生效；该段渲染在稳定前缀之后的最后位置，缓存前缀不受影响。工作区子目录动态规则后续将扩展支持注册文件工具（含 `str_replace_editor`）及 `run_code` 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
+- 系统提示词在整个会话中保持稳定：persona 块（persona、工作纪律、工作区目录，以及 win32 下的临时 shell 纪律行），plan mode 开启时另加其策略段，`system-prompt` 模式下另加 workspace-instructions 段。工具调用后不会再追加内容，也不施加任何输出预算上限；
+- `system-prompt` 模式下 workspace-instructions 段在每次组装时重新读取，指令文件的改动无需持久消息即可在下一次请求生效；该段渲染在稳定前缀之后的最后位置，缓存前缀不受影响。工作区子目录动态规则后续将扩展支持注册文件工具（含 `str_replace_editor`）及 `run_code` 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
 - wire 在整个会话中保持同一种呈现——不存在回合边界跃迁：`native` 携带组装出的原生清单，`both`（默认）同驻一个 `run_code`，`ptc` 把 wire 收拢为 `run_code` 一条，其余工具经生成的 SDK 调用；
 - 注入的目录是持久消息：每个会话写入一次，另在工具面变化（分页激活、呈现变更）或压缩遮蔽已发布副本时替换一次，并留在历史中供后续请求使用；
 - 未观测到 prompt 组装的步不注入任何内容——目录绝不会由过期视图推测；

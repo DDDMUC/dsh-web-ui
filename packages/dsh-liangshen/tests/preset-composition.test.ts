@@ -68,7 +68,9 @@ describe('liangshen preset composition', () => {
 
   it('declares the plugin configs explicitly', () => {
     expect(row('minimal-prompt')).toContain('keepPlanPolicy: true')
-    expect(row('minimal-prompt')).toContain('instructionSource: system-prompt')
+    // The shipped default hands workspace instructions back to the harness's
+    // own agent-instructions row; the other two sources stay opt-in.
+    expect(row('minimal-prompt')).toContain('instructionSource: host')
     expect(row('minimal-prompt')).toContain('instructionMaxBytes: 65536')
     expect(row('tool-catalog')).toContain('descriptionMaxLength: 200')
   })
