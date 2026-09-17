@@ -99,7 +99,7 @@ function cardProps(
   overrides: Partial<MarketCardProps> = {},
 ): ComponentProps<typeof MarketCard> {
   const controller = new MarketCardController(scope)
-  const face = controller.inject()
+  const face = controller.inject(() => {})
   const { hooks, ...actions } = face
   const useMarketCard = <S,>(selector: (snapshot: ReturnType<typeof hooks.marketCard.getSnapshot>) => S) =>
     useSyncExternalStore(

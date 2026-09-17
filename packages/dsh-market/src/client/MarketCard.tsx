@@ -50,6 +50,11 @@ export interface MarketCardFace extends CardActions {
   hooks: {
     marketCard: SnapshotStore<MarketCardState>
   }
+  /**
+   * Open one external URL in the official sidebar browser, or in a new browser
+   * tab when this shell declares no browser tab type.
+   */
+  openExternal: (url: string) => void
 }
 
 /** Bridges the market scope onto the card's staged form. */
@@ -72,9 +77,12 @@ export class MarketCardController {
     }
   }
 
-  /** Build the face the card's slot registration injects. */
-  inject(): MarketCardFace {
-    return { hooks: { marketCard: this.store }, ...this.form.actions() }
+  /**
+   * Build the face the card's slot registration injects.
+   * @param openExternal - the shell-bound external-link opener.
+   */
+  inject(openExternal: (url: string) => void): MarketCardFace {
+    return { hooks: { marketCard: this.store }, openExternal, ...this.form.actions() }
   }
 
   /** Release the scope subscription; the slot disposer calls this on teardown. */
@@ -645,7 +653,15 @@ export function MarketCard(props: MarketCardProps): ReactNode {
       descriptionNode={(
         <>
           {t('settings.descriptionPrefix')}
-          <a className={css.previewLink} href={MARKET_ORIGIN} target="_blank" rel="noreferrer">{t('badge.market')}</a>
+          <a
+            className={css.previewLink}
+            href={MARKET_ORIGIN}
+            target="_blank"
+            rel="noreferrer"
+            onClick={event => { event.preventDefault(); props.openExternal(MARKET_ORIGIN) }}
+          >
+            {t('badge.market')}
+          </a>
           {t('settings.descriptionSuffix')}
         </>
       )}
@@ -761,7 +777,14 @@ export function MarketCard(props: MarketCardProps): ReactNode {
                     {thumb ? <img className={css.thumb} src={MARKET_ORIGIN + '/' + thumb} alt="" loading="lazy" /> : null}
                     <span className={css.cardBody}>
                       {item.repo ? (
-                        <a className={css.cardName} href={item.repo} target="_blank" rel="noreferrer" title={name}>
+                        <a
+                          className={css.cardName}
+                          href={item.repo}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={name}
+                          onClick={event => { event.preventDefault(); props.openExternal(item.repo ?? MARKET_ORIGIN) }}
+                        >
                           {name}
                           {item.version ? <span className={css.cardVersion}>v{item.version}</span> : null}
                         </a>
@@ -793,19 +816,25 @@ export function MarketCard(props: MarketCardProps): ReactNode {
                             type="button"
                             className={css.previewLink}
                             onClick={() => {
-                              window.open(
+                              props.openExternal(
                                 kind === 'skin'
                                   ? MARKET_ORIGIN + '/preview.html?skin=' + encodeURIComponent(id) + '&theme=light&chrome=0'
                                   : MARKET_ORIGIN + '/',
-                                '_blank',
-                                'noopener',
                               )
                             }}
                           >
                             {t('preview')}
                           </button>
                           {(kind === 'plugin' || kind === 'skin') && item.repo ? (
-                            <a className={css.previewLink} href={item.repo} target="_blank" rel="noreferrer">{t('repository')}</a>
+                            <a
+                              className={css.previewLink}
+                              href={item.repo}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={event => { event.preventDefault(); props.openExternal(item.repo ?? MARKET_ORIGIN) }}
+                            >
+                              {t('repository')}
+                            </a>
                           ) : null}
                         </span>
                         {kind === 'plugin' || gateway !== null ? (

@@ -28,6 +28,9 @@ selection of skins, pets and community plugins.
   `@linxin666/dsh-client-ui-plugin-manager`); without it the card degrades to the copy-command index.
 - Remote browsers see the read-only catalog: install buttons are hidden, the Workshop site link and
   copy-command fallbacks stay available.
+- External links — the Workshop site, a card name, a repository, a skin preview — open in the
+  official right-sidebar browser when the shell registers that tab type (alpha.2), and in a new
+  browser tab otherwise.
 - Each card also shows an independent Workshop install count next to likes, plus a plugin npm
   last-30-day download count (npm-backed plugins only); install counts record successful install
   events, npm downloads use the public registry convention, and neither merges with likes.

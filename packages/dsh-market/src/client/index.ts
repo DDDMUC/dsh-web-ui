@@ -21,6 +21,7 @@ import {
   type WorkshopPanelKeyProps,
   type WorkshopPanelOwnerProps,
 } from './MarketCard.tsx'
+import { createExternalLinkOpener } from './external-link.ts'
 import { en, zh, type MarketKey } from './locales.ts'
 import { bridgePluginManager } from './plugin-manager-bridge.ts'
 import { reportDailyHeartbeat } from './telemetry.ts'
@@ -104,7 +105,7 @@ export function apply(ctx: ClientContext): void {
         label: () => ctx.locale.bind(MARKET_NS)('settings.title'),
         locale: MARKET_NS,
         children: { 'dsh-workshop.panel': { kind: 'keyed', scope: 'root' } },
-        inject: () => controller.inject(),
+        inject: () => controller.inject(createExternalLinkOpener(ctx)),
       }, MarketSection)
       return () => {
         unregister()

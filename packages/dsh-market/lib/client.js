@@ -1099,10 +1099,14 @@ window.__ModuleLoader__.load({
 					enabled: this.form.field("enabled")
 				};
 			}
-			/** Build the face the card's slot registration injects. */
-			inject() {
+			/**
+			* Build the face the card's slot registration injects.
+			* @param openExternal - the shell-bound external-link opener.
+			*/
+			inject(openExternal) {
 				return {
 					hooks: { marketCard: this.store },
+					openExternal,
 					...this.form.actions()
 				};
 			}
@@ -1641,6 +1645,10 @@ window.__ModuleLoader__.load({
 						href: MARKET_ORIGIN,
 						target: "_blank",
 						rel: "noreferrer",
+						onClick: (event) => {
+							event.preventDefault();
+							props.openExternal(MARKET_ORIGIN);
+						},
 						children: t("badge.market")
 					}),
 					t("settings.descriptionSuffix")
@@ -1828,6 +1836,10 @@ window.__ModuleLoader__.load({
 													target: "_blank",
 													rel: "noreferrer",
 													title: name,
+													onClick: (event) => {
+														event.preventDefault();
+														props.openExternal(item.repo ?? MARKET_ORIGIN);
+													},
 													children: [name, item.version ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 														className: market_module_css_default.cardVersion,
 														children: ["v", item.version]
@@ -1887,7 +1899,7 @@ window.__ModuleLoader__.load({
 																type: "button",
 																className: market_module_css_default.previewLink,
 																onClick: () => {
-																	window.open(kind === "skin" ? "https://dsh-market.com/preview.html?skin=" + encodeURIComponent(id) + "&theme=light&chrome=0" : "https://dsh-market.com/", "_blank", "noopener");
+																	props.openExternal(kind === "skin" ? "https://dsh-market.com/preview.html?skin=" + encodeURIComponent(id) + "&theme=light&chrome=0" : "https://dsh-market.com/");
 																},
 																children: t("preview")
 															}),
@@ -1896,6 +1908,10 @@ window.__ModuleLoader__.load({
 																href: item.repo,
 																target: "_blank",
 																rel: "noreferrer",
+																onClick: (event) => {
+																	event.preventDefault();
+																	props.openExternal(item.repo ?? MARKET_ORIGIN);
+																},
 																children: t("repository")
 															}) : null
 														]
@@ -1980,6 +1996,54 @@ window.__ModuleLoader__.load({
 		}
 		function MarketSection(props) {
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MarketCard, { ...props });
+		}
+		//#endregion
+		//#region src/client/external-link.ts
+		/**
+		* External-link opener for the Workshop card, with the official right-sidebar
+		* browser as the first seat.
+		*
+		* alpha.2 registers a `browser` tab type in the right sidebar and the official
+		* chat routes an external link there through `sidebarRight.openTab`, falling
+		* back to a new browser tab when the type is absent. The store card's market,
+		* preview and repository links use the same probe, read through the structural
+		* slices below so this package needs no sidebar SDK dependency (the browser
+		* half may only type-import official packages).
+		*
+		* @module @linxin666/dsh-client-ui-market/client/external-link
+		*/
+		/** The tab kind the official sidebar browser registers. */
+		const BROWSER_TAB_KIND = "browser";
+		/** Open one URL in a new browser tab: the fallback when no sidebar browser exists. */
+		function openInNewTab(url) {
+			window.open(url, "_blank", "noopener,noreferrer");
+		}
+		/**
+		* Build the card's external-link opener.
+		* @param ctx - client context (its services decide the seat).
+		* @param fallback - what to do when the sidebar browser is unavailable; tests inject a recorder.
+		* @returns an opener that never throws.
+		*/
+		function createExternalLinkOpener(ctx, fallback = openInNewTab) {
+			return (url) => {
+				let registry;
+				try {
+					registry = ctx.get?.call(ctx, "sidebarRightTabs");
+				} catch {
+					registry = void 0;
+				}
+				let declared = false;
+				try {
+					declared = typeof registry?.get === "function" && registry.get("browser") !== void 0;
+				} catch {
+					declared = false;
+				}
+				if (declared && ctx.sidebarRight !== void 0) {
+					ctx.sidebarRight.openTab(BROWSER_TAB_KIND, { params: { url } });
+					return;
+				}
+				fallback(url);
+			};
 		}
 		//#endregion
 		//#region src/client/locales.ts
@@ -2292,7 +2356,7 @@ window.__ModuleLoader__.load({
 							kind: "keyed",
 							scope: "root"
 						} },
-						inject: () => controller.inject()
+						inject: () => controller.inject(createExternalLinkOpener(ctx))
 					}, MarketSection);
 					return () => {
 						unregister();
