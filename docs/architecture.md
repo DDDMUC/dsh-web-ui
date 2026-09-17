@@ -79,7 +79,7 @@ flowchart LR
 flowchart LR
     A["aggregate.yml：patchFrom、deps、rows、inactive"] -- "node scripts/aggregate.mjs 生成" --> B["dsh-web-all：cordis.patch.yml + package.json"]
     B -- "dsh plugin --profile web add link" --> C["web profile（hoisted 布局）"]
-    C -- "web-ui-* 行逐条挂载" --> D["19 个家族子包 + 外部 dsh-better-sidebar 行"]
+    C -- "web-ui-* 行逐条挂载" --> D["19 个家族子包（alpha 分支不挂外部插件行）"]
     E["mount-once 防重：双源只注册一次"] -.-> D
     F["inactive：ssh、describe-image、liangshen、skill-explorer、doctor 出厂默认关闭"] -.-> D
 ```

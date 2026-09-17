@@ -91,13 +91,14 @@ test('no aggregate deps entry resolves to a private workspace package', () => {
   }
 })
 
-test('web-ui-all mounts dsh-better-sidebar as an external row', () => {
+test('web-ui-all leaves the unbundled dsh-better-sidebar out of the patch', () => {
   const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
-  const lines = patch.split(/\r?\n/)
-  const idx = lines.findIndex((line) => /^ {4}- id: web-ui-better-sidebar$/.test(line))
-  assert.ok(idx >= 0, 'web-ui-better-sidebar row is missing from the aggregate patch')
-  // The paired name line resolves the row from the profile root (npm package).
-  assert.match(lines[idx + 1] ?? '', /^ {6}name: 'dsh-better-sidebar'$/)
+  // Alpha-branch decision (2026-09-17): the plugin's 0.19.1 peers declare
+  // ^0.1.5-rc.1, which does not cover this branch's 0.1.6-alpha.1 cohort, so the
+  // aggregate neither mounts nor depends on it. Re-add the row in aggregate.yml
+  // together with this assertion when the branch bundles it again.
+  assert.doesNotMatch(patch, /^ {4}- id: web-ui-better-sidebar$/m, 'dsh-better-sidebar must not be a bundled row on the alpha branch')
+  assert.doesNotMatch(patch, /^ {6}name: 'dsh-better-sidebar'$/m)
 })
 
 test('web-ui-all does not mount the dsh-client-runtime-dependent @mlgbnb/dsh-archive-manager', () => {

@@ -22,7 +22,7 @@
  *     - ../skins/skin-center
  *     - ../skins/xp
  *   rows:
- *     - {"id": "better-sidebar", "name": "dsh-better-sidebar"}
+ *     - {"id": "external-id", "name": "some-external-plugin"}
  *
  *   - patchFrom entries contribute their child's cordis.patch.yml insert rows
  *     to the aggregate patch (nested aggregates expand recursively, in

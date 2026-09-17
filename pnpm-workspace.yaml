@@ -97,9 +97,11 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-subprocess@0.1.6-alpha.1'
   - '@deepseek-ai/dsh-token-meter@0.1.6-alpha.1'
   - '@deepseek-ai/dsh-tools@0.1.6-alpha.1'
-  # The repo root carries the host faces in better-sidebar's static import
-  # closure (see package.json) so the linked web profile resolves them from
-  # the repo top level; the util faces joined the closure at 0.1.2-alpha.2.
+  # The repo root carries the host faces a linked profile resolves from the repo
+  # top level (see package.json). dsh-util-values is imported by the family's own
+  # client sources; dsh-util-crypto and dsh-util-time come from external-plugin
+  # static import closures (better-sidebar's, which the alpha branch no longer
+  # bundles but a profile may still install on demand).
   - '@deepseek-ai/dsh-util-crypto@0.1.6-alpha.1'
   - '@deepseek-ai/dsh-util-time@0.1.6-alpha.1'
   - '@deepseek-ai/dsh-util-values@0.1.6-alpha.1'
@@ -116,12 +118,6 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-jobs@0.1.6-alpha.1'
   - '@deepseek-ai/dsh-typert-protocol@0.1.6-alpha.1'
   - '@deepseek-ai/dsh-user-questions@0.1.6-alpha.1'
-  # The aggregate bundle pins dsh-better-sidebar at exactly 0.19.1 (the stable
-  # release of 2026-09-11; peers declare ^0.1.5-rc.1 and the inject list adds
-  # the optional dsh-client-ui-sidebar-right face); pnpm 11's minimum-release-age
-  # guard must not reject the fresh version. Scoped to that exact version so
-  # later upstream publishes get no cooldown bypass.
-  - 'dsh-better-sidebar@0.19.1'
   # The aggregate bundle mounts @mlgbnb/dsh-archive-manager at exactly 1.0.7;
   # pnpm 11's minimum-release-age guard must not reject the fresh version.
   # Scoped to that exact version so later upstream publishes get no cooldown bypass.

@@ -37,7 +37,7 @@ function makeTarballPkg(dir) {
     dependencies: {
       '@linxin666/dsh-a': '0.1.0',
       '@linxin666/dsh-b': '0.2.0',
-      'dsh-better-sidebar': '0.13.0',
+      'dsh-external-fixture': '0.13.0',
       react: '^18.3.1',
     },
   })
@@ -84,7 +84,7 @@ test('auto mode: published deps stay on npm, unpublished deps rewrite to file:',
   assert.equal(pkg.dependencies['@linxin666/dsh-a'], '0.1.0')
   assert.match(pkg.dependencies['@linxin666/dsh-b'], /^file:.*dsh-b\.tgz$/)
   assert.equal(pkg.dependencies['react'], '^18.3.1')
-  assert.equal(pkg.dependencies['dsh-better-sidebar'], '0.13.0')
+  assert.equal(pkg.dependencies['dsh-external-fixture'], '0.13.0')
   assert.equal(packed.length, 1)
   assert.match(packed[0], /dsh-b$/)
   assert.ok(report.some(line => line.includes('npm 已发布')))
@@ -228,21 +228,6 @@ test('family-dir mode: missing tarball fails loudly', async () => {
     rewriteDependencies({ pkgPath, root: tmp, familyDir }),
     /缺少本地 tarball/,
   )
-})
-
-test('better-sidebar manual override rewrites only that dep', async () => {
-  const tmp = makeTmp()
-  const pkgPath = makeTarballPkg(path.join(tmp, 'tarball'))
-  const published = new Set(['@linxin666/dsh-a@0.1.0', '@linxin666/dsh-b@0.2.0'])
-  await rewriteDependencies({
-    pkgPath,
-    root: tmp,
-    betterSidebarTgz: '/tmp/bs.tgz',
-    checkPublished: async (name, version) => published.has(name + '@' + version),
-  })
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
-  assert.equal(pkg.dependencies['dsh-better-sidebar'], 'file:/tmp/bs.tgz')
-  assert.equal(pkg.dependencies['@linxin666/dsh-a'], '0.1.0')
 })
 
 test('auto mode: nested unpublished family deps rewrite inside the packed tarball', async () => {

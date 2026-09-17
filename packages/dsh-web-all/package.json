@@ -100,7 +100,6 @@
     "@linxin666/dsh-client-ui-preset-center": "workspace:*",
     "@linxin666/dsh-client-ui-web-ui-settings": "workspace:*",
     "@linxin666/dsh-client-ui-skin-center": "workspace:*",
-    "@linxin666/dsh-i18n": "workspace:*",
-    "dsh-better-sidebar": "0.19.1"
+    "@linxin666/dsh-i18n": "workspace:*"
   }
 }

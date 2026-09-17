@@ -159,10 +159,3 @@
 # A user-layer "disabled: false" override still wins.
 - id: ui-settings-unarchive-sessions
   disabled: true
-
-# external bundle: dsh-better-sidebar
-
-# from external bundle dsh-better-sidebar (insert row web-ui-better-sidebar)
-- insert:
-    - id: web-ui-better-sidebar
-      name: 'dsh-better-sidebar'
