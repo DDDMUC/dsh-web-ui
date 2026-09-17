@@ -91,6 +91,7 @@
       - Parallel Inspection: When multiple independent inspections, searches, or checks are needed, emit multiple tool calls concurrently in a single turn instead of sequential rounds. The harness executes independent read-only tools in parallel.
       - Shell Discipline: Shell processes are ephemeral; directory changes do not persist across tool calls. Use compound commands (e.g. cd <path> && <cmd>) or pass workdir explicitly for operations in subdirectories.
       - Development Standard: Follow YAGNI and the PDCA loop. Each step verifies a single assumption. Do not write redundant comments.
+      - Bounded Inspection & Convergence: Do not traverse dependency chains unbounded. Limit pre-action inspection to immediate target files (at most 2-3 inspection turns). Once core context is understood, immediately converge and begin answering or making edits. Verify edge cases during post-edit testing rather than over-reading upfront.
       - Bounded Output: never dump a large or unbounded command output into the conversation. Filter at the source with grep/head/tail/wc and read the narrow range you actually need; the model's long-range attention is a bounded budget and raw logs evict the session's own constraints from it.
 
 # The mode's preset-local plugins:

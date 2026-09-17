@@ -60,6 +60,8 @@ describe('liangshen preset composition', () => {
     expect(persona).toContain('Parallel Inspection: When multiple independent inspections, searches, or checks are needed')
     expect(persona).toContain('Follow YAGNI and the PDCA loop')
     expect(persona).toContain('Do not write redundant comments.')
+    expect(persona).toContain('Bounded Inspection & Convergence: Do not traverse dependency chains unbounded')
+    expect(persona).toContain('Limit pre-action inspection to immediate target files')
     expect(persona).not.toContain('text:')
     expect(persona).not.toContain('complete:')
     // Runtime contexts are durable user-role messages, not prompt text: they
@@ -110,7 +112,7 @@ describe('liangshen preset composition', () => {
   it('keeps run_code the only model-authored orchestration surface', () => {
     // The builtin PTC preset's one roster difference: the engine row stays for
     // `ralph`, the workflow tool does not publish beside `run_code`.
-    const workflow = row('workflow-worker-thread')
+    const workflow = row('workflow-ptc')
     expect(workflow).toContain("name: '@deepseek-ai/dsh-tool-workflow'")
     expect(workflow).toContain('disabled: true')
   })
