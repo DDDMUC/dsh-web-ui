@@ -13,7 +13,6 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 // entry the card's PropsRuntime names) into this program without executing it.
 import type {} from '../src/client/index.ts'
 import {
-  EFFORT_CHOICES,
   PRESENTATION_CHOICES,
   LiangShenSettingsCard,
   LiangShenSettingsCardController,
@@ -41,10 +40,6 @@ function baseState(overrides: Partial<LiangShenSettingsCardState> = {}): LiangSh
     enabled: field,
     announceToAgent: field,
     presentation: field,
-    autoEffortByPhase: field,
-    planningEffort: field,
-    executionEffort: field,
-    reviewEffort: field,
     ...overrides,
   }
 }
@@ -89,27 +84,9 @@ describe('LiangShenSettingsCard', () => {
       'settings-liangshen-enabled',
       'settings-liangshen-announce',
       'settings-liangshen-presentation',
-      'settings-liangshen-auto-effort',
-      'settings-liangshen-planning-effort',
-      'settings-liangshen-execution-effort',
-      'settings-liangshen-review-effort',
     ]) {
       expect(document.getElementById(id), id).not.toBeNull()
     }
-  })
-
-  it('offers the effort choices with the inherit option leading', () => {
-    // The locale stub echoes the copy key, so the rendered labels name the
-    // choices; the inherit option always leads.
-    renderCard(baseState())
-    const effort = openChoices('settings-liangshen-execution-effort')
-    expect(effort.map(option => option.textContent)).toEqual([
-      'settings.inherit',
-      'effort.off',
-      'effort.low',
-      'effort.high',
-      'effort.max',
-    ])
   })
 
   it('offers the presentation choices with the inherit option leading', () => {
@@ -128,13 +105,6 @@ describe('LiangShenSettingsCard', () => {
     const presentation = openChoices('settings-liangshen-presentation')
     fireEvent.click(presentation[2]!)   // presentation.native
     expect(edit).toHaveBeenCalledWith('presentation', 'native')
-  })
-
-  it('stages the execution level a choice selects', () => {
-    const { edit } = renderCard(baseState())
-    const effort = openChoices('settings-liangshen-execution-effort')
-    fireEvent.click(effort[1]!)         // effort.off
-    expect(edit).toHaveBeenCalledWith('executionEffort', 'off')
   })
 
   it('disables every control when the document is not writable', () => {
@@ -171,11 +141,10 @@ describe('LiangShenSettingsCard', () => {
   })
 
   it('keeps the exported choice lists aligned with the Host schema', () => {
-    // These mirror the Host's PRESENTATION_OPTIONS / EFFORT_OPTIONS; a drift
+    // These mirror the Host's PRESENTATION_OPTIONS; a drift
     // would offer a value the Host rejects or hide one it accepts.
     expect([...PRESENTATION_CHOICES]).toEqual(['ptc', 'native', 'both'])
-    expect([...EFFORT_CHOICES]).toEqual(['off', 'low', 'high', 'max'])
-    const settings: LiangShenSettings = { presentation: 'ptc', autoEffortByPhase: false }
+    const settings: LiangShenSettings = { presentation: 'ptc', enabled: true }
     expect(Object.keys(settings).length).toBe(2)
   })
 })

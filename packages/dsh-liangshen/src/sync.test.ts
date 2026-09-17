@@ -19,12 +19,6 @@ const VALID_AGENT_YAML = [
   "  config:",
   "    presentation: 'ptc'",
   "",
-  "- id: reasoning-effort",
-  "  name: ./reasoning-effort.mjs",
-  "  config:",
-  "    planningEffort: 'high'",
-  "    executionEffort: 'low'",
-  "",
 ].join('\n')
 
 function fixture(): { source: string; target: string; dispose: () => void } {
@@ -48,42 +42,18 @@ describe('renderPresetOverrides', () => {
     "    presentation: 'ptc'",
     "    pagedToolPatterns: ['mcp__*']",
     "",
-    "# another comment",
-    "- id: reasoning-effort",
-    "  name: ./reasoning-effort.mjs",
-    "  config:",
-    "    autoEffortByPhase: false",
-    "    planningEffort: 'high'",
-    "    executionEffort: 'low'",
-    "",
   ].join('\n')
 
   it('rewrites exactly the targeted keys and nothing else', () => {
     const out = renderPresetOverrides(SOURCE, {
       presentation: 'native',
-      planningEffort: 'max',
-      executionEffort: 'off',
     })
     expect(out).toContain("presentation: 'native'")
-    expect(out).toContain("planningEffort: 'max'")
-    expect(out).toContain("executionEffort: 'off'")
     // Untouched values and the surrounding rows survive verbatim.
     expect(out).toContain('descriptionMaxLength: 200')
     expect(out).toContain("pagedToolPatterns: ['mcp__*']")
     // The comment that mentions the key is not a config line and stays put.
     expect(out).toContain("# a comment that names presentation: 'ptc'")
-    expect(out).toContain('- id: reasoning-effort')
-  })
-
-  it('renders the boolean switch bare, never as a quoted string', () => {
-    // A quoted 'false' is a truthy YAML string: it would silently invert the
-    // switch, which is the one failure mode this assertion exists to catch.
-    const on = renderPresetOverrides(SOURCE, { autoEffortByPhase: true })
-    expect(on).toContain('autoEffortByPhase: true')
-    expect(on).not.toContain("autoEffortByPhase: 'true'")
-    const off = renderPresetOverrides(SOURCE, { autoEffortByPhase: false })
-    expect(off).toContain('autoEffortByPhase: false')
-    expect(off).not.toContain("autoEffortByPhase: 'false'")
   })
 
   it('leaves absent settings and unknown rows alone', () => {
@@ -94,9 +64,9 @@ describe('renderPresetOverrides', () => {
   })
 
   it('does not write a key the target row does not carry', () => {
-    const noEffort = "- id: tool-catalog\n  name: x\n  config:\n    presentation: 'ptc'\n"
-    const out = renderPresetOverrides(noEffort, { planningEffort: 'max' })
-    expect(out).toBe(noEffort)
+    const noPresentation = "- id: persona\n  name: x\n  config:\n    name: 'test'\n"
+    const out = renderPresetOverrides(noPresentation, { presentation: 'native' })
+    expect(out).toBe(noPresentation)
   })
 })
 

@@ -42566,13 +42566,6 @@ window.__ModuleLoader__.load({
 			"native",
 			"both"
 		];
-		/** Reasoning levels the DeepSeek adapter declares (mirrors the Host schema). */
-		const EFFORT_CHOICES = [
-			"off",
-			"low",
-			"high",
-			"max"
-		];
 		/** Bridges the `dsh-liangshen` scope onto the card's staged form. */
 		var LiangShenSettingsCardController = class {
 			form;
@@ -42582,11 +42575,7 @@ window.__ModuleLoader__.load({
 				this.form = new CardForm$1(scope, [
 					booleanField$1("enabled"),
 					booleanField$1("announceToAgent"),
-					choiceField("presentation", PRESENTATION_CHOICES),
-					booleanField$1("autoEffortByPhase"),
-					choiceField("planningEffort", EFFORT_CHOICES),
-					choiceField("executionEffort", EFFORT_CHOICES),
-					choiceField("reviewEffort", EFFORT_CHOICES)
+					choiceField("presentation", PRESENTATION_CHOICES)
 				]);
 				this.store = this.form.bind(() => this.projection());
 			}
@@ -42595,11 +42584,7 @@ window.__ModuleLoader__.load({
 					...this.form.shell(),
 					enabled: this.form.field("enabled"),
 					announceToAgent: this.form.field("announceToAgent"),
-					presentation: this.form.field("presentation"),
-					autoEffortByPhase: this.form.field("autoEffortByPhase"),
-					planningEffort: this.form.field("planningEffort"),
-					executionEffort: this.form.field("executionEffort"),
-					reviewEffort: this.form.field("reviewEffort")
+					presentation: this.form.field("presentation")
 				};
 			}
 			/**
@@ -42632,10 +42617,6 @@ window.__ModuleLoader__.load({
 				disabled: !state.writable,
 				inheritLabel: t("settings.inherit")
 			};
-			const effortChoices = EFFORT_CHOICES.map((choice) => ({
-				value: choice,
-				label: t(`effort.${choice}`)
-			}));
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(PluginSettingsCard$1, {
 				t,
 				titleKey: "settings.title",
@@ -42691,63 +42672,6 @@ window.__ModuleLoader__.load({
 						onReset: () => {
 							props.resetField("presentation");
 						}
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$1, {
-						id: "settings-liangshen-auto-effort",
-						label: t("settings.autoEffortByPhase"),
-						hint: t("settings.autoEffortByPhaseHint"),
-						onLabel: t("settings.on"),
-						offLabel: t("settings.off"),
-						...fieldProps,
-						...state.autoEffortByPhase,
-						onEdit: (text) => {
-							props.edit("autoEffortByPhase", text);
-						},
-						onReset: () => {
-							props.resetField("autoEffortByPhase");
-						}
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ChoiceField, {
-						id: "settings-liangshen-planning-effort",
-						label: t("settings.planningEffort"),
-						hint: t("settings.planningEffortHint"),
-						choices: effortChoices,
-						...fieldProps,
-						...state.planningEffort,
-						onEdit: (text) => {
-							props.edit("planningEffort", text);
-						},
-						onReset: () => {
-							props.resetField("planningEffort");
-						}
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ChoiceField, {
-						id: "settings-liangshen-execution-effort",
-						label: t("settings.executionEffort"),
-						hint: t("settings.executionEffortHint"),
-						choices: effortChoices,
-						...fieldProps,
-						...state.executionEffort,
-						onEdit: (text) => {
-							props.edit("executionEffort", text);
-						},
-						onReset: () => {
-							props.resetField("executionEffort");
-						}
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ChoiceField, {
-						id: "settings-liangshen-review-effort",
-						label: t("settings.reviewEffort"),
-						hint: t("settings.reviewEffortHint"),
-						choices: effortChoices,
-						...fieldProps,
-						...state.reviewEffort,
-						onEdit: (text) => {
-							props.edit("reviewEffort", text);
-						},
-						onReset: () => {
-							props.resetField("reviewEffort");
-						}
 					})
 				]
 			});
@@ -42777,21 +42701,13 @@ window.__ModuleLoader__.load({
 			"burst.line1": "三秒，三辈子的代码",
 			"burst.line2": "文言文 · 二进制 · 摩斯电码",
 			"settings.title": "梁神模式",
-			"settings.description": "控制本插件、工具面呈现方式与分阶段推理档位。",
+			"settings.description": "控制本插件与工具面呈现方式。",
 			"settings.enabled": "启用梁神模式",
 			"settings.enabledHint": "关闭后预设同步与 agent 公告都不执行。",
 			"settings.announceToAgent": "向 agent 公告本插件",
 			"settings.announceToAgentHint": "开启后向每一轮 agent 系统提示注入本插件公告；默认关闭以保持提示词干净。",
 			"settings.presentation": "工具面呈现方式",
 			"settings.presentationHint": "写入同步后的预设：ptc 把 wire 收拢为 run_code；native 保持原生工具清单；both 让两者同驻。改动需重启 DSH 生效。",
-			"settings.autoEffortByPhase": "按阶段自动调整推理档位",
-			"settings.autoEffortByPhaseHint": "关闭（默认）时不干预请求，模型选择器里的档位全程有效；开启后由下面的分阶段档位接管。",
-			"settings.planningEffort": "规划档位",
-			"settings.planningEffortHint": "规划模式成形工作、或首轮尚未确定任务形态时使用。仅在自动调整开启时生效。",
-			"settings.executionEffort": "执行档位",
-			"settings.executionEffortHint": "单步执行轮次使用（读文件、改代码、跑命令）。仅在自动调整开启时生效。",
-			"settings.reviewEffort": "复核档位",
-			"settings.reviewEffortHint": "某一步失败后，直到修复落地前使用；诊断失败与制定方案是同类工作。",
 			"settings.on": "开",
 			"settings.off": "关",
 			"settings.inherit": "继承（跟随部署默认）",
@@ -42809,11 +42725,7 @@ window.__ModuleLoader__.load({
 			"settings.invalidValue": "该取值不被接受",
 			"presentation.ptc": "ptc（仅 run_code）",
 			"presentation.native": "native（原生工具清单）",
-			"presentation.both": "both（两者同驻）",
-			"effort.off": "off（不思考）",
-			"effort.low": "low（轻度）",
-			"effort.high": "high（较深）",
-			"effort.max": "max（最深）"
+			"presentation.both": "both（两者同驻）"
 		};
 		/** English counterpart; the key set mirrors {@link zh} exactly. */
 		const en$7 = {
@@ -42833,21 +42745,13 @@ window.__ModuleLoader__.load({
 			"burst.line1": "Three seconds, three lifetimes of code",
 			"burst.line2": "Classical Chinese · Binary · Morse code",
 			"settings.title": "LiangShen mode",
-			"settings.description": "Controls this plugin, the wire presentation, and the phase-based reasoning levels.",
+			"settings.description": "Controls this plugin and the wire presentation.",
 			"settings.enabled": "Enable LiangShen mode",
 			"settings.enabledHint": "When off, neither preset sync nor the agent announcement runs.",
 			"settings.announceToAgent": "Announce this plugin to agents",
 			"settings.announceToAgentHint": "Adds this plugin announcement to every agent system prompt; off by default so prompts stay clean.",
 			"settings.presentation": "Wire presentation",
 			"settings.presentationHint": "Written into the synced preset: ptc collapses the wire to run_code; native keeps the native roster; both keeps them co-resident. Restart DSH for a change to take effect.",
-			"settings.autoEffortByPhase": "Adjust the reasoning level by phase",
-			"settings.autoEffortByPhaseHint": "Off (default) leaves requests untouched, so the model picker level stands all session; on lets the phase levels below take over.",
-			"settings.planningEffort": "Planning level",
-			"settings.planningEffortHint": "Used while plan mode is forming the work, and on a first turn whose shape is still undecided. Only active when the switch above is on.",
-			"settings.executionEffort": "Execution level",
-			"settings.executionEffortHint": "Used for single-step execution turns (reading files, editing, running commands). Only active when the switch above is on.",
-			"settings.reviewEffort": "Review level",
-			"settings.reviewEffortHint": "Used after a failed step, until a fix lands; diagnosing a failure is the same kind of work as forming a plan.",
 			"settings.on": "On",
 			"settings.off": "Off",
 			"settings.inherit": "Inherit (deployment default)",
@@ -42862,14 +42766,10 @@ window.__ModuleLoader__.load({
 			"settings.discard": "Discard",
 			"settings.unsaved": "Unsaved",
 			"settings.saveFailed": "The deployment did not accept these values; they were left for you to correct.",
-			"settings.invalidValue": "That value is not accepted",
+			"settings.invalidValue": "The value is not accepted",
 			"presentation.ptc": "ptc (run_code only)",
-			"presentation.native": "native (native roster)",
-			"presentation.both": "both (co-resident)",
-			"effort.off": "off (no thinking)",
-			"effort.low": "low (light)",
-			"effort.high": "high (deep)",
-			"effort.max": "max (deepest)"
+			"presentation.native": "native (native tool roster)",
+			"presentation.both": "both (both co-resident)"
 		};
 		//#endregion
 		//#region ../dsh-liangshen/src/client/plugin-card-seat.ts

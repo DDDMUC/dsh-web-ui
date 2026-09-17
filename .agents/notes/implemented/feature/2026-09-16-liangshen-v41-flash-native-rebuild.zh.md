@@ -2,7 +2,7 @@
 
 Status: implemented
 
-部分取代[极简 persona 加注入式标准工具目录](2026-09-11-liangshen-minimal-prompt-tool-catalog.zh.md)的 persona 文本与分层 wire：工作纪律替换为行动触发式规则，锚定回合与第二回合 PTC 晋升退役；极简 persona 机制、注入目录机制与消息来源决定继续有效。部分取代[恢复四工具锚定与 PTC 语义修正](2026-09-12-liangshen-anchor-tools-and-ptc-refinement.zh.md)：`anchorTools` 首回合收窄被移除，`ptcPresentation` 由三态 `presentation` 键取代；如实激活语义、请求面目录契约与三层验证标准继续有效。部分取代[请求面工具目录与评测工具](2026-09-13-liangshen-request-surface-catalog-and-eval-tooling.zh.md)所跟踪的呈现边界——wire 不再在回合边界变化——其「恰好宣告请求开放的面」原则与评测工具继续有效。以官方已发表的评测证据（而非本地付费矩阵）了结[梁神模式针对 DeepSeek V4.1 Flash 的改进计划](../../proposed/feature/2026-09-13-liangshen-v41-flash-improvement-plan.zh.md)的默认值选择阶段。完整设计推演见 `docs/liangshen-v41-flash-optimization.md`。
+部分取代[极简 persona 加注入式标准工具目录](2026-09-11-liangshen-minimal-prompt-tool-catalog.zh.md)的 persona 文本与分层 wire：工作纪律替换为行动触发式规则，锚定回合与第二回合 PTC 晋升退役；极简 persona 机制、注入目录机制与消息来源决定继续有效。部分取代[恢复四工具锚定与 PTC 语义修正](2026-09-12-liangshen-anchor-tools-and-ptc-refinement.zh.md)：`anchorTools` 首回合收窄被移除，`ptcPresentation` 由三态 `presentation` 键取代；如实激活语义、请求面目录契约与三层验证标准继续有效。部分取代[请求面工具目录与评测工具](2026-09-13-liangshen-request-surface-catalog-and-eval-tooling.zh.md)所跟踪的呈现边界——wire 不再在回合边界变化——其「恰好宣告请求开放的面」原则与评测工具继续有效。部分被[清理梁神模式动态推理努力度](../simplification/2026-09-17-remove-liangshen-dynamic-reasoning-effort.zh.md)取代：移除分阶段动态推理努力度机制与设置字段。以官方已发表的评测证据（而非本地付费矩阵）了结[梁神模式针对 DeepSeek V4.1 Flash 的改进计划](../../proposed/feature/2026-09-13-liangshen-v41-flash-improvement-plan.zh.md)的默认值选择阶段。完整设计推演见 `docs/liangshen-v41-flash-optimization.md`。
 
 ## Problem
 

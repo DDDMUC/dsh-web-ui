@@ -1,12 +1,12 @@
 /**
- * LiangShen settings card: availability, the wire presentation, and the
- * phase-based reasoning levels. Registers into the `web-ui.plugin.item` child
- * slot the Web UI plugin group renders, bound to the `dsh-liangshen` namespace.
+ * LiangShen settings card: availability and the wire presentation. Registers
+ * into the `web-ui.plugin.item` child slot the Web UI plugin group renders,
+ * bound to the `dsh-liangshen` namespace.
  *
- * The presentation and effort fields do not act on this client half: the Host
- * writes them into the synced preset composition, so a session reads them from
- * its preset. This card is the operator's only handle on them, which is why
- * every field the Host schema carries appears here.
+ * The presentation field does not act on this client half: the Host writes it
+ * into the synced preset composition, so a session reads it from its preset.
+ * This card is the operator's only handle on it, which is why every field the
+ * Host schema carries appears here.
  */
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -18,9 +18,6 @@ import { CardForm, booleanField, choiceField, type CardActions, type CardShell, 
 /** Wire presentations the tool catalog accepts (mirrors the Host schema). */
 export const PRESENTATION_CHOICES = ['ptc', 'native', 'both'] as const
 
-/** Reasoning levels the DeepSeek adapter declares (mirrors the Host schema). */
-export const EFFORT_CHOICES = ['off', 'low', 'high', 'max'] as const
-
 /** The LiangShen fields this card edits (the namespace's full schema). */
 export interface LiangShenSettings {
   /** Master switch for the plugin. */
@@ -29,14 +26,6 @@ export interface LiangShenSettings {
   announceToAgent?: boolean
   /** Wire presentation written into the synced preset. */
   presentation?: string
-  /** Whether the preset takes over the request's reasoning level by phase. */
-  autoEffortByPhase?: boolean
-  /** Reasoning level while plan mode is forming the work. */
-  planningEffort?: string
-  /** Reasoning level for single-step execution turns. */
-  executionEffort?: string
-  /** Reasoning level after a failed step, until a fix lands. */
-  reviewEffort?: string
 }
 
 /** What the LiangShen card renders. */
@@ -44,10 +33,6 @@ export interface LiangShenSettingsCardState extends CardShell {
   enabled: CardFieldState
   announceToAgent: CardFieldState
   presentation: CardFieldState
-  autoEffortByPhase: CardFieldState
-  planningEffort: CardFieldState
-  executionEffort: CardFieldState
-  reviewEffort: CardFieldState
 }
 
 /** The registration-side face the card's slot entry injects. */
@@ -69,10 +54,6 @@ export class LiangShenSettingsCardController {
       booleanField('enabled'),
       booleanField('announceToAgent'),
       choiceField('presentation', PRESENTATION_CHOICES),
-      booleanField('autoEffortByPhase'),
-      choiceField('planningEffort', EFFORT_CHOICES),
-      choiceField('executionEffort', EFFORT_CHOICES),
-      choiceField('reviewEffort', EFFORT_CHOICES),
     ])
     this.store = this.form.bind(() => this.projection())
   }
@@ -83,10 +64,6 @@ export class LiangShenSettingsCardController {
       enabled: this.form.field('enabled'),
       announceToAgent: this.form.field('announceToAgent'),
       presentation: this.form.field('presentation'),
-      autoEffortByPhase: this.form.field('autoEffortByPhase'),
-      planningEffort: this.form.field('planningEffort'),
-      executionEffort: this.form.field('executionEffort'),
-      reviewEffort: this.form.field('reviewEffort'),
     }
   }
 
@@ -125,7 +102,6 @@ export function LiangShenSettingsCard(props: LiangShenSettingsCardProps) {
     disabled: !state.writable,
     inheritLabel: t('settings.inherit'),
   }
-  const effortChoices = EFFORT_CHOICES.map(choice => ({ value: choice, label: t(`effort.${choice}`) }))
   return (
     <PluginSettingsCard
       t={t}
@@ -167,47 +143,6 @@ export function LiangShenSettingsCard(props: LiangShenSettingsCardProps) {
         {...state.presentation}
         onEdit={(text) => { props.edit('presentation', text) }}
         onReset={() => { props.resetField('presentation') }}
-      />
-      <BooleanField
-        id="settings-liangshen-auto-effort"
-        label={t('settings.autoEffortByPhase')}
-        hint={t('settings.autoEffortByPhaseHint')}
-        onLabel={t('settings.on')}
-        offLabel={t('settings.off')}
-        {...fieldProps}
-        {...state.autoEffortByPhase}
-        onEdit={(text) => { props.edit('autoEffortByPhase', text) }}
-        onReset={() => { props.resetField('autoEffortByPhase') }}
-      />
-      <ChoiceField
-        id="settings-liangshen-planning-effort"
-        label={t('settings.planningEffort')}
-        hint={t('settings.planningEffortHint')}
-        choices={effortChoices}
-        {...fieldProps}
-        {...state.planningEffort}
-        onEdit={(text) => { props.edit('planningEffort', text) }}
-        onReset={() => { props.resetField('planningEffort') }}
-      />
-      <ChoiceField
-        id="settings-liangshen-execution-effort"
-        label={t('settings.executionEffort')}
-        hint={t('settings.executionEffortHint')}
-        choices={effortChoices}
-        {...fieldProps}
-        {...state.executionEffort}
-        onEdit={(text) => { props.edit('executionEffort', text) }}
-        onReset={() => { props.resetField('executionEffort') }}
-      />
-      <ChoiceField
-        id="settings-liangshen-review-effort"
-        label={t('settings.reviewEffort')}
-        hint={t('settings.reviewEffortHint')}
-        choices={effortChoices}
-        {...fieldProps}
-        {...state.reviewEffort}
-        onEdit={(text) => { props.edit('reviewEffort', text) }}
-        onReset={() => { props.resetField('reviewEffort') }}
       />
     </PluginSettingsCard>
   )

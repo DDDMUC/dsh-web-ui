@@ -139,14 +139,6 @@ function copyTreeSync(sourceDir: string, targetDir: string): void {
 export interface PresetOverrides {
   /** The `tool-catalog` row's `presentation` value. */
   presentation?: string
-  /** The `reasoning-effort` row's `autoEffortByPhase` switch. */
-  autoEffortByPhase?: boolean
-  /** The `reasoning-effort` row's `planningEffort` value. */
-  planningEffort?: string
-  /** The `reasoning-effort` row's `executionEffort` value. */
-  executionEffort?: string
-  /** The `reasoning-effort` row's `reviewEffort` value. */
-  reviewEffort?: string
 }
 
 /**
@@ -192,10 +184,6 @@ function setRowValue(text: string, rowId: string, key: string, value: string | b
 export function renderPresetOverrides(text: string, overrides: PresetOverrides): string {
   let out = text
   out = setRowValue(out, 'tool-catalog', 'presentation', overrides.presentation)
-  out = setRowValue(out, 'reasoning-effort', 'autoEffortByPhase', overrides.autoEffortByPhase)
-  out = setRowValue(out, 'reasoning-effort', 'planningEffort', overrides.planningEffort)
-  out = setRowValue(out, 'reasoning-effort', 'executionEffort', overrides.executionEffort)
-  out = setRowValue(out, 'reasoning-effort', 'reviewEffort', overrides.reviewEffort)
   return out
 }
 

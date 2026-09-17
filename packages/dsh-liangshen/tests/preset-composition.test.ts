@@ -87,15 +87,8 @@ describe('liangshen preset composition', () => {
     expect(row('working-context')).toContain('name: ./working-context.mjs')
   })
 
-  it('mounts the phase-aware reasoning-effort plugin with its two levels', () => {
-    const effort = row('reasoning-effort')
-    expect(effort).toContain('name: ./reasoning-effort.mjs')
-    // The phase switch ships OFF: taking over a session's reasoning level is
-    // something the operator opts into, not something they discover.
-    expect(effort).toContain('autoEffortByPhase: false')
-    expect(effort).toContain("planningEffort: 'high'")
-    expect(effort).toContain("executionEffort: 'low'")
-    expect(effort).toContain("reviewEffort: 'high'")
+  it('does not mount reasoning-effort plugin', () => {
+    expect(row('reasoning-effort')).toBe('')
   })
 
   it('keeps the native and both presentation variants structurally valid', () => {
