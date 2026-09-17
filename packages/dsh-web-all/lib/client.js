@@ -53043,16 +53043,6 @@ window.__ModuleLoader__.load({
 			return declared;
 		}
 		/**
-		* One entry's image-input claim: `true`/`false` when the entry declares
-		* `input` explicitly, undefined while it inherits (field absent).
-		*/
-		function imageInputOf(entry) {
-			const input = entry["input"];
-			if (input === void 0) return void 0;
-			if (!Array.isArray(input)) return void 0;
-			return input.includes("image");
-		}
-		/**
 		* Validate one draft against the rules the pi-ai adapter enforces on apply
 		* (an invalid write would be refused after the fact; this reports it before):
 		* a levels dict must declare at least one level beyond `off`, and every
@@ -53070,14 +53060,6 @@ window.__ModuleLoader__.load({
 				};
 			}
 			if (!hasBeyondOff) return { kind: "effortsOffOnly" };
-		}
-		/** Immutable draft update: set the image-input claim (explicit text-only or text+image). */
-		function withImageInput(entry, image) {
-			const input = image ? ["text", "image"] : ["text"];
-			return {
-				...entry,
-				input
-			};
 		}
 		/**
 		* Immutable draft update: set the reasoning disposition.
@@ -53299,7 +53281,7 @@ window.__ModuleLoader__.load({
 		/** Chinese copy (key source). */
 		const zh$2 = {
 			"caps.title": "模型能力",
-			"caps.hint": "为目录里的每个模型声明图片输入与推理档位，保存写入设置文档并立即生效。",
+			"caps.hint": "为目录里的每个模型声明推理档位，保存写入设置文档并立即生效。",
 			"caps.loading": "正在读取模型能力…",
 			"caps.loadFailed": "读取失败：{error}",
 			"caps.reload": "重新读取",
@@ -53308,9 +53290,6 @@ window.__ModuleLoader__.load({
 			"caps.model.count": "{n} 个模型",
 			"caps.model.expand": "展开模型能力",
 			"caps.model.collapse": "收起模型能力",
-			"caps.model.image": "图片输入",
-			"caps.model.image.hint": "勾选后 DSH 才允许向该模型发送图片附件。",
-			"caps.model.image.inherit": "未声明（默认仅文本）",
 			"caps.model.efforts": "推理档位",
 			"caps.efforts.inherit": "不声明",
 			"caps.efforts.none": "无推理",
@@ -53322,8 +53301,6 @@ window.__ModuleLoader__.load({
 			"caps.wire.placeholder": "请求参数取值",
 			"caps.wire.offHint": "off 可留空：表示「支持，但发送时不带参数」。",
 			"caps.preset.common": "填入常用 low / medium / high",
-			"caps.summary.image": "图片",
-			"caps.summary.textOnly": "仅文本",
 			"caps.summary.noReasoning": "无推理",
 			"caps.summary.efforts": "推理：{levels}",
 			"caps.save": "保存",
@@ -53353,7 +53330,7 @@ window.__ModuleLoader__.load({
 		/** English copy (full key parity with zh). */
 		const en$2 = {
 			"caps.title": "Model capabilities",
-			"caps.hint": "Declare image input and reasoning efforts per catalog model; saving writes the settings document and applies immediately.",
+			"caps.hint": "Declare reasoning efforts per catalog model; saving writes the settings document and applies immediately.",
 			"caps.loading": "Loading model capabilities…",
 			"caps.loadFailed": "Failed to load: {error}",
 			"caps.reload": "Reload",
@@ -53362,9 +53339,6 @@ window.__ModuleLoader__.load({
 			"caps.model.count": "{n} models",
 			"caps.model.expand": "Expand model capabilities",
 			"caps.model.collapse": "Collapse model capabilities",
-			"caps.model.image": "Image input",
-			"caps.model.image.hint": "DSH only offers image attachments to this model when checked.",
-			"caps.model.image.inherit": "Undeclared (defaults to text only)",
 			"caps.model.efforts": "Reasoning efforts",
 			"caps.efforts.inherit": "Undeclared",
 			"caps.efforts.none": "No reasoning",
@@ -53376,8 +53350,6 @@ window.__ModuleLoader__.load({
 			"caps.wire.placeholder": "request parameter value",
 			"caps.wire.offHint": "off may stay empty: \"supported, but send nothing when chosen\".",
 			"caps.preset.common": "Fill the common low / medium / high",
-			"caps.summary.image": "image",
-			"caps.summary.textOnly": "text only",
 			"caps.summary.noReasoning": "no reasoning",
 			"caps.summary.efforts": "reasoning: {levels}",
 			"caps.save": "Save",
@@ -53485,9 +53457,11 @@ window.__ModuleLoader__.load({
 		* `provider.settingsPath` address the profile inside the settings document)
 		* and the apply body injects the settings namespace face plus the refresh
 		* bus; this panel reads the redacted namespace views over the remote settings
-		* wire, drafts image-input and reasoning-effort declarations per model, and
-		* saves them as one whole-array path op with revision fencing — the same
-		* write granularity and conflict posture the official card uses.
+		* wire, drafts reasoning-effort declarations per model, and saves them as one
+		* whole-array path op with revision fencing — the same write granularity and
+		* conflict posture the official card uses. Model input types belong to the
+		* Models page's own editor since 0.1.6-alpha.2, so the draft preserves the
+		* `input` claim instead of rewriting it.
 		*
 		* The toggle uses the plugin's archive namespace: disabling stashes the
 		* user-layer profile and unsets `providers.<route>` (the official
@@ -53868,13 +53842,12 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/**
-		* One model row: a collapsed summary header (image claim + reasoning levels)
-		* and the expanded tri-state editor with per-level wire spellings.
+		* One model row: a collapsed summary header (reasoning levels) and the
+		* expanded tri-state editor with per-level wire spellings.
 		*/
 		function ModelRow(props) {
 			const { entry, expanded, disabled, onToggle, onChange } = props;
 			const radioName = (0, react.useId)();
-			const image = imageInputOf(entry);
 			const mode = effortsModeOf(entry);
 			const levels = declaredLevelsOf(entry);
 			/** Stored wire map (editors toggle against it). */
@@ -53903,8 +53876,6 @@ window.__ModuleLoader__.load({
 				onChange(withEffortsMode(entry, "levels", new Map(COMMON_EFFORTS_PRESET.map(([level, wire]) => [level, wire]))));
 			};
 			const summaryChips = [];
-			if (image === true) summaryChips.push(t("caps.summary.image"));
-			else if (image === false) summaryChips.push(t("caps.summary.textOnly"));
 			if (mode === "none") summaryChips.push(t("caps.summary.noReasoning"));
 			else if (mode === "levels") {
 				const named = levels.filter(({ level }) => level !== "off").map(({ level }) => level);
@@ -53953,126 +53924,105 @@ window.__ModuleLoader__.load({
 					]
 				}), expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: capabilities_module_css_default.rowBody,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: capabilities_module_css_default.field,
-							"data-dsh-part": "image-input",
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-								className: capabilities_module_css_default.checkLabel,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									type: "checkbox",
-									checked: image === true,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: capabilities_module_css_default.field,
+						"data-dsh-part": "efforts-mode",
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: capabilities_module_css_default.fieldLabel,
+								children: t("caps.model.efforts")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: capabilities_module_css_default.modeGroup,
+								role: "radiogroup",
+								"aria-label": t("caps.model.efforts"),
+								children: [
+									[
+										"inherit",
+										t("caps.efforts.inherit"),
+										t("caps.efforts.inheritHint")
+									],
+									[
+										"none",
+										t("caps.efforts.none"),
+										t("caps.efforts.noneHint")
+									],
+									[
+										"levels",
+										t("caps.efforts.levels"),
+										t("caps.efforts.levelsHint")
+									]
+								].map(([value, label, hint]) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+									className: mode === value ? `${capabilities_module_css_default.modeOption} ${capabilities_module_css_default.modeOptionActive}` : capabilities_module_css_default.modeOption,
+									title: hint,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+										type: "radio",
+										name: `${radioName}-efforts`,
+										value,
+										checked: mode === value,
+										disabled,
+										onChange: () => {
+											setEffortsMode(value);
+										}
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: label })]
+								}, value))
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: capabilities_module_css_default.hint,
+								children: mode === "inherit" ? t("caps.efforts.inheritHint") : mode === "none" ? t("caps.efforts.noneHint") : t("caps.efforts.levelsHint")
+							})
+						]
+					}), mode === "levels" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: capabilities_module_css_default.levels,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: capabilities_module_css_default.ghost,
+								disabled,
+								onClick: applyCommonPreset,
+								children: t("caps.preset.common")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: capabilities_module_css_default.levelChips,
+								children: THINKING_LEVELS.map((level) => {
+									const active = levels.some(({ level: declared }) => declared === level);
+									return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: active ? `${capabilities_module_css_default.levelChip} ${capabilities_module_css_default.levelChipActive}` : capabilities_module_css_default.levelChip,
+										"aria-pressed": active,
+										disabled,
+										onClick: () => {
+											toggleLevel(level);
+										},
+										children: level
+									}, level);
+								})
+							}),
+							levels.map(({ level, wire }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: capabilities_module_css_default.wireRow,
+								"data-dsh-part": "wire-input",
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+									className: capabilities_module_css_default.wireLabel,
+									htmlFor: `${radioName}-wire-${level}`,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", { children: level }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("caps.wire.label") })]
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									id: `${radioName}-wire-${level}`,
+									className: capabilities_module_css_default.wireInput,
+									type: "text",
+									value: wire,
+									placeholder: level,
 									disabled,
 									onChange: (event) => {
-										onChange(withImageInput(entry, event.target.checked));
+										setWire(level, event.target.value);
 									}
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("caps.model.image") })]
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								})]
+							}, level)),
+							levels.some(({ level }) => level === "off") ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 								className: capabilities_module_css_default.hint,
-								children: image === void 0 ? t("caps.model.image.inherit") : t("caps.model.image.hint")
-							})]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: capabilities_module_css_default.field,
-							"data-dsh-part": "efforts-mode",
-							children: [
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-									className: capabilities_module_css_default.fieldLabel,
-									children: t("caps.model.efforts")
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-									className: capabilities_module_css_default.modeGroup,
-									role: "radiogroup",
-									"aria-label": t("caps.model.efforts"),
-									children: [
-										[
-											"inherit",
-											t("caps.efforts.inherit"),
-											t("caps.efforts.inheritHint")
-										],
-										[
-											"none",
-											t("caps.efforts.none"),
-											t("caps.efforts.noneHint")
-										],
-										[
-											"levels",
-											t("caps.efforts.levels"),
-											t("caps.efforts.levelsHint")
-										]
-									].map(([value, label, hint]) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-										className: mode === value ? `${capabilities_module_css_default.modeOption} ${capabilities_module_css_default.modeOptionActive}` : capabilities_module_css_default.modeOption,
-										title: hint,
-										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-											type: "radio",
-											name: `${radioName}-efforts`,
-											value,
-											checked: mode === value,
-											disabled,
-											onChange: () => {
-												setEffortsMode(value);
-											}
-										}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: label })]
-									}, value))
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-									className: capabilities_module_css_default.hint,
-									children: mode === "inherit" ? t("caps.efforts.inheritHint") : mode === "none" ? t("caps.efforts.noneHint") : t("caps.efforts.levelsHint")
-								})
-							]
-						}),
-						mode === "levels" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: capabilities_module_css_default.levels,
-							children: [
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: capabilities_module_css_default.ghost,
-									disabled,
-									onClick: applyCommonPreset,
-									children: t("caps.preset.common")
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-									className: capabilities_module_css_default.levelChips,
-									children: THINKING_LEVELS.map((level) => {
-										const active = levels.some(({ level: declared }) => declared === level);
-										return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: active ? `${capabilities_module_css_default.levelChip} ${capabilities_module_css_default.levelChipActive}` : capabilities_module_css_default.levelChip,
-											"aria-pressed": active,
-											disabled,
-											onClick: () => {
-												toggleLevel(level);
-											},
-											children: level
-										}, level);
-									})
-								}),
-								levels.map(({ level, wire }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-									className: capabilities_module_css_default.wireRow,
-									"data-dsh-part": "wire-input",
-									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-										className: capabilities_module_css_default.wireLabel,
-										htmlFor: `${radioName}-wire-${level}`,
-										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", { children: level }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("caps.wire.label") })]
-									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-										id: `${radioName}-wire-${level}`,
-										className: capabilities_module_css_default.wireInput,
-										type: "text",
-										value: wire,
-										placeholder: level,
-										disabled,
-										onChange: (event) => {
-											setWire(level, event.target.value);
-										}
-									})]
-								}, level)),
-								levels.some(({ level }) => level === "off") ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-									className: capabilities_module_css_default.hint,
-									children: t("caps.wire.offHint")
-								}) : null
-							]
-						}) : null
-					]
+								children: t("caps.wire.offHint")
+							}) : null
+						]
+					}) : null]
 				}) : null]
 			});
 		}

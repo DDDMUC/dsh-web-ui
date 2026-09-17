@@ -89,7 +89,7 @@
     "packages/dsh-market/tests/market-card.spec.tsx": {"no-ad-hoc-mock":3,"bdd-title":24,"given-when-then":24,"tautological-assertion":26},
     "packages/dsh-market/tests/routes.spec.ts": {"bdd-title":5,"given-when-then":5},
     "packages/dsh-market/tests/turnstile.spec.ts": {"bdd-title":2,"given-when-then":2},
-    "packages/dsh-model-capabilities/tests/capabilities.spec.ts": {"bdd-title":25,"given-when-then":25},
+    "packages/dsh-model-capabilities/tests/capabilities.spec.ts": {"bdd-title":22,"given-when-then":22},
     "packages/dsh-model-capabilities/tests/panel.spec.tsx": {"bdd-title":7,"given-when-then":7,"tautological-assertion":11},
     "packages/dsh-model-capabilities/tests/provider-toggle.spec.ts": {"bdd-title":15,"given-when-then":15},
     "packages/dsh-model-capabilities/tests/toggle-ui.spec.tsx": {"bdd-title":12,"given-when-then":12,"tautological-assertion":18},

@@ -137,7 +137,7 @@ describe('CapabilitiesPanel disable/enable', () => {
       expect(screen.getByText('该提供方已禁用：模型不出现在输入框模型选择器与子代理可选列表中。配置已存档，启用即恢复。')).toBeTruthy()
     })
     expect(screen.getByRole('button', { name: '启用' })).toBeTruthy()
-    expect(screen.queryByRole('checkbox', { name: '图片输入' })).toBeNull()
+    expect(screen.queryByRole('radio', { name: '无推理' })).toBeNull()
   })
 
   it('disables through two mutations: archive first, then the route unset', async () => {
@@ -216,7 +216,7 @@ describe('CapabilitiesPanel disable/enable', () => {
       expect(screen.getByText('gpt-x')).toBeTruthy()
     })
     fireEvent.click(screen.getByRole('button', { name: /展开模型能力: gpt-x/ }))
-    fireEvent.click(screen.getByRole('checkbox', { name: '图片输入' }))
+    fireEvent.click(screen.getByRole('radio', { name: '无推理' }))
 
     // Another surface rewrites the provider while the draft is open.
     setUserSection(world.llm, { providers: { 'acme-gateway': { models: [{ ...STORED_ROW, name: 'Renamed' }] } } })
@@ -227,7 +227,7 @@ describe('CapabilitiesPanel disable/enable', () => {
       expect(screen.getByText('配置已被其他界面修改；你的未保存修改仍保留，保存时会再次校验。')).toBeTruthy()
     })
     // The draft survived, and the write stays fenced at the revision it read.
-    expect((screen.getByRole('checkbox', { name: '图片输入' }) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByRole('radio', { name: '无推理' }) as HTMLInputElement).checked).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => {
       expect(world.calls).toHaveLength(1)

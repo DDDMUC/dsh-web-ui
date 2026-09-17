@@ -2,8 +2,8 @@
  * Browser-half entry for the dsh-model-capabilities plugin — runs inside the dsh web GUI.
  *
  * Seats two Models-page extension areas for the `llm-pi-ai` adapter family:
- * the `settings.models.provider-card` capability editor (image input +
- * reasoning efforts + provider disable/enable) on every custom-provider card,
+ * the `settings.models.provider-card` capability editor (reasoning efforts +
+ * provider disable/enable) on every custom-provider card,
  * and the `settings.models.footer` archive listing where disabled providers
  * come back. Both read and write the official `llm-pi-ai` settings namespace
  * plus the plugin's own archive namespace over the standard remote settings

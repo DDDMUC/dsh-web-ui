@@ -6,9 +6,11 @@
  * `provider.settingsPath` address the profile inside the settings document)
  * and the apply body injects the settings namespace face plus the refresh
  * bus; this panel reads the redacted namespace views over the remote settings
- * wire, drafts image-input and reasoning-effort declarations per model, and
- * saves them as one whole-array path op with revision fencing — the same
- * write granularity and conflict posture the official card uses.
+ * wire, drafts reasoning-effort declarations per model, and saves them as one
+ * whole-array path op with revision fencing — the same write granularity and
+ * conflict posture the official card uses. Model input types belong to the
+ * Models page's own editor since 0.1.6-alpha.2, so the draft preserves the
+ * `input` claim instead of rewriting it.
  *
  * The toggle uses the plugin's archive namespace: disabling stashes the
  * user-layer profile and unsets `providers.<route>` (the official
@@ -26,14 +28,12 @@ import {
   buildModelsOp,
   declaredLevelsOf,
   effortsModeOf,
-  imageInputOf,
   modelsArrayOf,
   readAt,
   sanitizeEntry,
   THINKING_LEVELS,
   validateEntry,
   withEffortsMode,
-  withImageInput,
   COMMON_EFFORTS_PRESET,
   type CapabilitiesIssue,
   type ModelEntryDraft,
@@ -441,13 +441,12 @@ interface ModelRowProps {
 }
 
 /**
- * One model row: a collapsed summary header (image claim + reasoning levels)
- * and the expanded tri-state editor with per-level wire spellings.
+ * One model row: a collapsed summary header (reasoning levels) and the
+ * expanded tri-state editor with per-level wire spellings.
  */
 function ModelRow(props: ModelRowProps) {
   const { entry, expanded, disabled, onToggle, onChange } = props
   const radioName = useId()
-  const image = imageInputOf(entry)
   const mode = effortsModeOf(entry)
   const levels = declaredLevelsOf(entry)
 
@@ -486,8 +485,6 @@ function ModelRow(props: ModelRowProps) {
   }
 
   const summaryChips: string[] = []
-  if (image === true) summaryChips.push(t('caps.summary.image'))
-  else if (image === false) summaryChips.push(t('caps.summary.textOnly'))
   if (mode === 'none') summaryChips.push(t('caps.summary.noReasoning'))
   else if (mode === 'levels') {
     const named = levels.filter(({ level }) => level !== 'off').map(({ level }) => level)
@@ -523,18 +520,6 @@ function ModelRow(props: ModelRowProps) {
       {expanded
         ? (
             <div className={css.rowBody}>
-              <div className={css.field} data-dsh-part="image-input">
-                <label className={css.checkLabel}>
-                  <input
-                    type="checkbox"
-                    checked={image === true}
-                    disabled={disabled}
-                    onChange={event => { onChange(withImageInput(entry, event.target.checked)) }}
-                  />
-                  <span>{t('caps.model.image')}</span>
-                </label>
-                <p className={css.hint}>{image === undefined ? t('caps.model.image.inherit') : t('caps.model.image.hint')}</p>
-              </div>
               <div className={css.field} data-dsh-part="efforts-mode">
                 <span className={css.fieldLabel}>{t('caps.model.efforts')}</span>
                 <div className={css.modeGroup} role="radiogroup" aria-label={t('caps.model.efforts')}>
