@@ -16,6 +16,7 @@ import type { TokenUsage } from '@deepseek-ai/dsh-llm'
 import { dshHome } from '../dsh-home.ts'
 import { adapterFor, isDeepSeekProviderRoute, providerErrorMessage } from '../core/adapters.ts'
 import type { BalanceParse, PlanParse } from '../core/adapters.ts'
+import { foldAliasRoutes } from '../core/provider-routes.ts'
 import { deepseekModelSpend } from '../core/pricing.ts'
 import { createLedgerDocument, deserializeLedger, foldUsage, ledgerDayKeys, localDateKey, pruneLedger, summarizeDays, totalTokens } from '../core/ledger.ts'
 import type { BalanceView, CredentialKind, ObservedSpendView, PlanView, ProviderSnapshotState, ProviderSnapshotView, UsageLedgerDocument, UsageOverviewView, UsageTokenTotals } from '../core/types.ts'
@@ -46,10 +47,12 @@ interface ResolvedCredential {
   accountId?: string
 }
 
-/** One live LLM provider route the service knows about. */
+/** One LLM provider route the service knows about. */
 interface ProviderRoute {
   id: string
   displayName: string
+  /** Whether the LLM runtime serves requests on this route; a catalog-only entry is dormant. */
+  live: boolean
 }
 
 /** Poll-loop options; re-applied live on settings change. */
@@ -541,22 +544,28 @@ export class UsageService {
     return cycle
   }
 
+  /**
+   * Every route the service probes and renders: the runtime's live providers
+   * plus the configurable directory's catalog entries, then alias-folded so a
+   * dormant catalog entry cannot shadow the live route of the same adapter
+   * family (see foldAliasRoutes).
+   */
   private listProviderRoutes(): ProviderRoute[] {
-    const routes = new Map<string, string>()
+    const routes = new Map<string, ProviderRoute>()
     const runtime = service<{ listProviders(): Array<{ id: string; name: string }>; listConfigurableProviders(): Array<{ provider: string; displayName: string }> }>(this.ctx, 'llm')
     if (runtime !== undefined) {
       try {
         for (const provider of runtime.listProviders()) {
-          if (provider.id !== '') routes.set(provider.id, provider.name)
+          if (provider.id !== '') routes.set(provider.id, { id: provider.id, displayName: provider.name, live: true })
         }
         for (const provider of runtime.listConfigurableProviders()) {
-          if (!routes.has(provider.provider)) routes.set(provider.provider, provider.displayName)
+          if (!routes.has(provider.provider)) routes.set(provider.provider, { id: provider.provider, displayName: provider.displayName, live: false })
         }
       } catch {
         // Registry hiccups degrade to an empty list; the next poll retries.
       }
     }
-    return [...routes].map(([id, displayName]) => ({ id, displayName }))
+    return foldAliasRoutes([...routes.values()])
   }
 
   private async probeRoute(route: ProviderRoute, adapter: NonNullable<ReturnType<typeof adapterFor>>): Promise<void> {

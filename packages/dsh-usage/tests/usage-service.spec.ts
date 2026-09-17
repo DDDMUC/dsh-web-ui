@@ -236,6 +236,37 @@ describe('probes and per-fact errors', () => {
   })
 })
 
+describe('alias route folding', () => {
+  it('user sees one DeepSeek row when the catalog alias shadows the live route', async () => {
+    // Given the runtime serves deepseek-official while the catalog still lists deepseek
+    const probes: string[] = []
+    stubFetch((url) => {
+      probes.push(url)
+      return url.includes('api.deepseek.com') ? jsonResponse(BALANCE_BODY) : jsonResponse({}, 404)
+    })
+    const llm = {
+      listProviders: LLM_DEEPSEEK_OFFICIAL.listProviders,
+      listConfigurableProviders: () => [{ provider: 'deepseek', displayName: 'deepseek' }],
+    }
+    const { ctx } = makeCtx({ llm, credentials: CREDENTIALS_ENV })
+    const service = new UsageService(ctx, OPTIONS)
+
+    // When the poll cycle probes the configured providers
+    await service.refresh()
+
+    // Then the account renders once under the live route's name and is probed once
+    const providers = service.overview().providers
+    expect(providers.map((row) => row.provider)).toEqual(['deepseek-official'])
+    expect(providers[0]).toMatchObject({
+      displayName: 'DeepSeek',
+      credential: 'env',
+      balance: { currency: 'CNY', totalBalance: '110.00' },
+    })
+    expect(probes).toEqual(['https://api.deepseek.com/user/balance'])
+    service.stop()
+  })
+})
+
 describe('DeepSeek real-spend watch', () => {
   it('accrues observed balance decreases, skips top-ups, and survives a restart', async () => {
     const fetchMock = stubFetch(() => jsonResponse(BALANCE_BODY))
