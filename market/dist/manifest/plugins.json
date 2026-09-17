@@ -971,6 +971,18 @@
       "npm": "dsh-usage-panel",
       "category": "utility",
       "subcategory": "stats"
+    },
+    {
+      "id": "dsh-workbench",
+      "name": "工作台：迭代时间轴与技能库",
+      "rank": 77,
+      "nameEn": "Workbench: Iteration Timeline & Skill Library",
+      "author": "liiydong",
+      "description": "DSH Web 左栏的「工作台」面板，三页签。① 迭代（默认）：把「AI 改 Markdown → 生成 Word/PDF/Excel → 你审这一版」变成一条时间轴——按产线分组、产线内按天分小节，一轮一行显示时间 / 产物类型 / 这一版干了什么 / 改自哪几个 md / 审批状态；鼠标悬停浮出摘要卡（摘要、产出时间与体积、生成命令、改动来源、快照路径、你的历史意见）；点开一轮可【通过】【要改】【重置为待审】，写进产线目录下的 .versions/decisions.jsonl。② 技能库：读核心 ctx.skills 注册表（模型实际加载的同一份目录），可搜索、按来源过滤、读 SKILL.md 全文。③ 文档：把 md 源与 docx/pdf 产物按主干配对，把「产物比源旧」排最前。自带假数据演示项目（3 条产线 27 轮），零运行时依赖。",
+      "descriptionEn": "A Workbench panel for the DSH Web sidebar with three tabs. Iteration (default) turns \"AI edits Markdown, regenerates Word/PDF/Excel, you review that build\" into one timeline: grouped by production line and by day, one row per build showing time, artifact kind, what that build did, which Markdown sources it came from and your approval state; a hover card shows the summary, size, generating command, changed sources, snapshot path and your earlier notes; clicking a build offers Approve / Needs-work / Reset, appended to .versions/decisions.jsonl. Skill Library reads the core ctx.skills registry (search, filter by source, read the full SKILL.md). Documents pairs Markdown sources with their docx/pdf artifacts by stem and floats stale artifacts to the top. Ships a fake demo project (3 lines, 27 builds). Zero runtime dependencies.",
+      "repo": "https://github.com/liiydong/dsh-workbench",
+      "category": "ui",
+      "subcategory": "panel"
     }
   ]
 }
