@@ -8,7 +8,7 @@
 
 - **全家桶设置分区**：在 DSH 设置页注册一级菜单项，以静态标题和卡片归组其余 dsh web UI 全家桶插件（task-board、remote-web-ui、describe-image）。各插件卡默认折叠，独立展开后显示启用开关与配置表单。
 - **一级设置分区**：皮肤中心、桌面宠物与「创意工坊」（商店卡片）各自作为一级设置分区注册，直接展开；官方「插件」分区内置安装器，插件管理 Tab 由 `dsh-plugin-manager` 提供。
-- **家族插件不依赖本分组**：本包声明家族卡片注册的 list 槽 `web-ui.plugin.item`。只装家族插件、未装本分组的 profile 只带官方「插件」分区的 keyed 槽 `settings.plugin.item`，各家族插件会改为注册到该槽（以自身设置命名空间为 key），卡片不会静默消失。
+- **家族插件不依赖本分组**：本包声明家族卡片注册的 list 槽 `web-ui.plugin.item`。本包已加载时家族插件注册进该槽；本包缺席时改注册官方「插件」分区的 keyed 槽 `settings.plugin.item`（以自身设置命名空间为 key），因此只装家族插件、未装本分组的 profile 同样能触达每张卡片。
 
 ## 安装
 

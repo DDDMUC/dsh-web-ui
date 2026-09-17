@@ -1,90 +1,129 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { installPluginCard, officialPluginCardSeatDeclared } from '../src/client/plugin-card-seat.ts'
+import {
+  FAMILY_PLUGIN_CARD_SEAT,
+  OFFICIAL_PLUGIN_CARD_SEAT,
+  familyGroupLoaded,
+  installPluginCard,
+} from '../src/client/plugin-card-seat.ts'
 
-/** Minimal client context double for the seat probe. */
-function context(options: { officialSeat?: boolean; refuse?: boolean } = {}): {
+/**
+ * Minimal client context double. `group` models a page whose settings group is
+ * loaded (the `webUiSettings` service is provided); `refuse` makes the seat
+ * registration throw, the shape a host with an undeclared slot produces.
+ */
+function context(options: { group?: boolean; refuse?: boolean } = {}): {
   ctx: unknown
-  injected: string[]
+  listeners: Array<() => void>
   registrations: Array<Record<string, unknown>>
-  warns: string[]
+  warnings: string[]
 } {
-  const injected: string[] = []
+  const listeners: Array<() => void> = []
   const registrations: Array<Record<string, unknown>> = []
-  const warns: string[] = []
+  const warnings: string[] = []
+  vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+    warnings.push(String(args[0]))
+  })
   const ctx = {
+    get: (name: string) => (options.group === true && name === 'webUiSettings' ? { bind: () => ({}) } : undefined),
+    on: (_event: string, listener: () => void) => {
+      listeners.push(listener)
+      return () => {}
+    },
     slots: {
-      spec: (key: string) => (options.officialSeat === true && key === 'settings.plugin.item' ? { kind: 'keyed' } : undefined),
-      inject: (key: string, factory: () => unknown) => {
-        injected.push(key)
-        factory()
-        return () => {}
-      },
       register: (entry: Record<string, unknown>) => {
-        if (options.refuse === true) throw new Error('slot "settings.plugin.item" is not declared')
+        if (options.refuse === true) throw new Error('slot "' + String(entry.name) + '" is not declared')
         registrations.push(entry)
         return () => {}
       },
     },
   }
-  return { ctx, injected, registrations, warns }
+  return { ctx, listeners, registrations, warnings }
 }
 
 const Card = (): null => null
+
+/** One card contribution; cases override the fields they exercise. */
+function seat(overrides: Record<string, unknown> = {}): never {
+  return {
+    namespace: 'remote-web-ui',
+    id: 'remote-web-ui',
+    order: 90,
+    locale: 'remote',
+    inject: () => ({ ready: true }),
+    component: Card,
+    ...overrides,
+  } as never
+}
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('installPluginCard (issue #1589)', () => {
-  it('contributes to the official keyed seat when the host declares it', () => {
-    const harness = context({ officialSeat: true })
-    installPluginCard(harness.ctx as never, {
-      namespace: 'remote-web-ui',
-      id: 'remote-web-ui',
-      order: 90,
-      locale: 'remote',
-      inject: () => ({ ready: true }),
-      component: Card,
-    })
-    expect(harness.injected).toEqual(['settings.plugin.item'])
+describe('installPluginCard seat selection', () => {
+  it('contributes to the family list seat while the group is loaded, even though the host declares the official seat', () => {
+    const harness = context({ group: true })
+    installPluginCard(harness.ctx as never, seat())
     expect(harness.registrations).toHaveLength(1)
-    expect(harness.registrations[0]).toMatchObject({ name: 'settings.plugin.item', key: 'remote-web-ui' })
-    expect(harness.registrations[0]).not.toHaveProperty('id')
-  })
-
-  it('contributes to the family list seat when the official seat is absent', () => {
-    const harness = context()
-    installPluginCard(harness.ctx as never, {
-      namespace: 'remote-web-ui',
-      id: 'remote-web-ui',
-      order: 90,
-      locale: 'remote',
-      component: Card,
-    })
-    expect(harness.injected).toEqual(['web-ui.plugin.item'])
-    expect(harness.registrations[0]).toMatchObject({ name: 'web-ui.plugin.item', id: 'remote-web-ui', order: 90 })
+    expect(harness.registrations[0]).toMatchObject({ name: FAMILY_PLUGIN_CARD_SEAT, id: 'remote-web-ui', order: 90 })
     expect(harness.registrations[0]).not.toHaveProperty('key')
   })
 
-  it('reports a refused registration instead of leaving the card silently missing', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const harness = context({ officialSeat: true, refuse: true })
-    installPluginCard(harness.ctx as never, {
-      namespace: 'remote-web-ui',
-      id: 'remote-web-ui',
-      locale: 'remote',
-      component: Card,
-    })
-    expect(harness.registrations).toHaveLength(0)
-    expect(warn).toHaveBeenCalledTimes(1)
-    expect(String(warn.mock.calls[0]?.[0])).toContain('settings.plugin.item')
+  it('contributes to the official keyed seat when the group package is absent', () => {
+    const harness = context()
+    installPluginCard(harness.ctx as never, seat())
+    expect(harness.registrations).toHaveLength(1)
+    expect(harness.registrations[0]).toMatchObject({ name: OFFICIAL_PLUGIN_CARD_SEAT, key: 'remote-web-ui' })
+    expect(harness.registrations[0]).not.toHaveProperty('id')
   })
 
-  it('treats an unreadable slot surface as "official seat absent"', () => {
-    expect(officialPluginCardSeatDeclared({ slots: {} } as never)).toBe(false)
-    expect(officialPluginCardSeatDeclared({
-      slots: { spec: () => { throw new Error('older service surface') } },
+  it('moves the card from the official seat to the family seat when the group applies later', () => {
+    const harness = context()
+    let disposed = 0
+    const registered: string[] = []
+    const ctx = harness.ctx as {
+      slots: { register: (entry: Record<string, unknown>) => () => void }
+      get: (name: string) => unknown
+    }
+    ctx.slots.register = (entry) => {
+      registered.push(String(entry.name))
+      return () => { disposed += 1 }
+    }
+    let group: unknown
+    ctx.get = (name: string) => (name === 'webUiSettings' ? group : undefined)
+
+    installPluginCard(harness.ctx as never, seat({ namespace: 'task-board', id: 'task-board' }))
+    expect(registered).toEqual([OFFICIAL_PLUGIN_CARD_SEAT])
+
+    // The group applies and publishes its service.
+    group = { bind: () => ({}) }
+    for (const listener of harness.listeners) listener()
+
+    expect(registered).toEqual([OFFICIAL_PLUGIN_CARD_SEAT, FAMILY_PLUGIN_CARD_SEAT])
+    expect(disposed).toBe(1)
+  })
+
+  it('does not re-register while the seat is unchanged', () => {
+    const harness = context({ group: true })
+    installPluginCard(harness.ctx as never, seat({ namespace: 'task-board', id: 'task-board' }))
+    for (let i = 0; i < 4; i += 1) for (const listener of harness.listeners) listener()
+    expect(harness.registrations).toHaveLength(1)
+  })
+
+  it('reports a refused registration instead of leaving the card silently missing', () => {
+    const harness = context({ group: true, refuse: true })
+    installPluginCard(harness.ctx as never, seat())
+    expect(harness.registrations).toHaveLength(0)
+    expect(harness.warnings).toHaveLength(1)
+    expect(harness.warnings[0]).toContain(FAMILY_PLUGIN_CARD_SEAT)
+  })
+
+  it('treats a context without the group service as "group absent"', () => {
+    expect(familyGroupLoaded({ slots: {} } as never)).toBe(false)
+    expect(familyGroupLoaded({ slots: {}, get: () => undefined } as never)).toBe(false)
+    expect(familyGroupLoaded({
+      slots: {},
+      get: () => { throw new Error('context inactive') },
     } as never)).toBe(false)
-    expect(officialPluginCardSeatDeclared({ slots: { spec: () => ({ kind: 'keyed' }) } } as never)).toBe(true)
+    expect(familyGroupLoaded({ slots: {}, get: (name: string) => (name === 'webUiSettings' ? {} : undefined) } as never)).toBe(true)
   })
 })
