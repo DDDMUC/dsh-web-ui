@@ -1652,7 +1652,10 @@
         "dark": "assets/skins/remiel-starlit/preview/dark.jpg"
       },
       "files": [
+        "LICENSE",
         "NOTICE",
+        "README.md",
+        "README.zh.md",
         "assets/remiel-calm.jpg",
         "assets/remiel-nocturne.jpg",
         "assets/remiel-settings-dark.jpg",
