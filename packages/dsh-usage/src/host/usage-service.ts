@@ -127,7 +127,7 @@ export class UsageService {
   private spendWatch: SpendWatch | undefined
   /** Per-live-session route attribution (WeakMap: disposed sessions age out). */
   private readonly sessionRoutes = new WeakMap<Session, { provider: string; model: string }>()
-  /** The most recent route seen this boot; the pet bubble follows it. */
+  /** The most recent route seen this boot; the sidebar strip and the header highlight follow it. */
   private current: { provider?: string; model?: string; source: 'live' | 'default' } = { source: 'default' }
 
   private sessionListenerDisposer: (() => void) | undefined
@@ -504,7 +504,7 @@ export class UsageService {
   }
 
   /**
-   * One poll cycle: enumerate routes, resolve credentials, probe, announce.
+   * One poll cycle: enumerate routes, resolve credentials, probe.
    * A call while a cycle is already running joins that cycle instead of
    * returning immediately, so a manual refresh always waits for real probes.
    */
