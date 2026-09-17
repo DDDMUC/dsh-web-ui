@@ -33,6 +33,12 @@ Light ([preview/light.jpg](preview/light.jpg)) · Dark ([preview/dark.jpg](previ
 
 ## Copyright
 
-The depicted character is from Zenless Zone Zero, (c) miHoYo / HoYoverse. This is a
-personal, non-commercial fan work; the artwork and palette are the author's, released
-under CC BY-NC-SA 4.0. See [NOTICE](NOTICE).
+The character and the artwork are from Zenless Zone Zero, (c) miHoYo / HoYoverse.
+The backdrop and dialog images in `assets/` are taken from official material
+published by miHoYo (downloaded from the official website); the skin author claims
+no rights to them. Their use here is personal, non-commercial fan display only, and
+is not affiliated with or endorsed by miHoYo.
+
+The skin engineering (`skin.json` / `skin.css` / `patches.css` and the palette remap)
+is the author's work, released under CC BY-NC-SA 4.0 — that license does NOT extend to
+the official artwork above. See [NOTICE](NOTICE).

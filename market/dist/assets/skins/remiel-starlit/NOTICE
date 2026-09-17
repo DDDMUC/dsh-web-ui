@@ -1,32 +1,40 @@
 remiel-starlit (蕾米埃尔·星翎 · Remiel Starlit)
 ================================================
 
-角色出处 (character provenance)
--------------------------------
+角色与素材出处 (character and artwork provenance)
+------------------------------------------------
 
-1. 《绝区零》(Zenless Zone Zero) 中的角色形象，该作品与角色形象著作权归
-   米哈游 (miHoYo / HoYoverse) 所有。
-   The depicted character is from Zenless Zone Zero, © miHoYo / HoYoverse.
-   All rights to the original character design belong to miHoYo.
+1. 《绝区零》(Zenless Zone Zero) 由米哈游 (miHoYo / HoYoverse) 开发并运营，
+   其中的角色形象与官方美术素材著作权归米哈游所有。
+   Zenless Zone Zero and its characters are created by miHoYo / HoYoverse.
+   All rights to the characters and the original artwork belong to miHoYo.
 
-2. 本皮肤素材 (assets/) 为作者制作的粉丝同人再创作，仅用于个人、非商业的
-   同人展示用途；不代表官方，与米哈游无隶属或背书关系，不得用于任何商业场景。
-   The artwork in assets/ is fan-created derivative work for personal,
-   non-commercial fan use only. Not affiliated with or endorsed by miHoYo.
+2. assets/ 中的背景图与设置弹窗方图取自米哈游官方公开发布的素材（官网下载）。
+   本皮肤作者不对这些素材主张任何权利。
+   The backdrop and dialog artwork in assets/ is taken from official Zenless
+   Zone Zero material published by miHoYo (downloaded from the official
+   website). The skin author claims no rights to that material.
 
-3. 皮肤工程 (skin.json / skin.css / patches.css) 与调色板由本皮肤作者制作，
-   按 CC BY-NC-SA 4.0 发布。
-   The skin engineering (skin.json / skin.css / patches.css) and its palette are
-   the author's work, released under CC BY-NC-SA 4.0.
+3. 此处使用仅为个人、非商业的粉丝同人展示用途；不代表官方，与米哈游无隶属
+   或背书关系；不得用于任何商业场景。
+   Use here is personal, non-commercial fan display only. Not affiliated with
+   or endorsed by miHoYo. Commercial use is not permitted.
 
-许可 (license)
---------------
+皮肤工程与许可 (skin engineering and license)
+--------------------------------------------
+
+4. 皮肤工程（skin.json / skin.css / patches.css 与调色板重映射）由本皮肤作者
+   制作，按 CC BY-NC-SA 4.0 发布。
+   The skin engineering (skin.json / skin.css / patches.css and the palette
+   remap) is the author's work, released under CC BY-NC-SA 4.0.
+
+5. 该许可只覆盖第 4 条的皮肤工程，**不涵盖**第 2 条中的官方素材；官方素材的
+   权利与使用条件完全由米哈游决定。
+   That license covers only the skin engineering in item 4 and does NOT extend
+   to the official material in item 2, whose rights and terms remain with miHoYo.
+
+许可文本 (license text)
+-----------------------
 
 Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
 https://creativecommons.org/licenses/by-nc-sa/4.0/
-
-第三方素材 (third-party material)
----------------------------------
-
-无。全部背景图与设置弹窗方图均由本皮肤作者制作，未使用第三方素材。
-None. Every backdrop and dialog artwork was produced by this skin's author.
