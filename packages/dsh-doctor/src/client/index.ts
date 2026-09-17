@@ -163,7 +163,7 @@ export function apply(ctx: ClientContext): void {
   const doctor = controller
   if (doctor !== undefined && card !== undefined) {
     installPluginCard(ctx, {
-      namespace: NS,
+      bundle: '@linxin666/dsh-doctor',
       id: NS,
       order: 140,
       label,

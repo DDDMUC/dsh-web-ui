@@ -49,8 +49,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /**
      * The child slot the Web UI plugin group declares; this card registers into
-     * the group instead of the top-level `settings.plugin.item` list. Declared
-     * here so this package needs no dependency on the sibling UI package.
+     * the group's list seat rather than the official bundle-configuration
+     * seat. Declared here so this package needs no dependency on the sibling UI
+     * package.
      */
     'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
@@ -116,10 +117,10 @@ export function apply(ctx: ClientContext): void {
     const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
     const settingsScope = binder.bind<LiangShenSettings>({ namespace: SETTINGS_NAMESPACE })
     const settingsCard = new LiangShenSettingsCardController(settingsScope)
-    // Card seat: the family group's list seat, or the official keyed seat of
-    // the plugin-configuration tab when the group is not installed (issue #1589).
+    // Card seat: the family group's list seat, or the official
+    // bundle-configuration seat when the group is not installed.
     installPluginCard(ctx, {
-      namespace: SETTINGS_NAMESPACE,
+      bundle: '@linxin666/dsh-liangshen',
       id: 'liangshen',
       order: 120,
       locale: NS,

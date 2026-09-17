@@ -373,15 +373,15 @@ describe('apply registration', () => {
       },
     }
     apply(ctx as never)
-    expect(registered).toEqual(['settings.plugin.item'])
+    expect(registered).toEqual(['plugins.bundle.config'])
 
     snapshot = { status: 'ready' as const, writable: true, value: { enabled: false } }
     notify()
-    expect(registered).toEqual(['settings.plugin.item'])
+    expect(registered).toEqual(['plugins.bundle.config'])
 
     snapshot = { status: 'ready' as const, writable: true, value: { enabled: true } }
     notify()
-    expect(registered).toEqual(['settings.plugin.item', 'sidebar.footer.action'])
+    expect(registered).toEqual(['plugins.bundle.config', 'sidebar.footer.action'])
   })
 
   it('registers the card into the family list seat when the settings group is loaded', async () => {
@@ -416,6 +416,6 @@ describe('apply registration', () => {
     // The group declares the family seat, so the card belongs there even
     // though the harness host declares the official keyed seat too.
     expect(registered).toContainEqual(expect.objectContaining({ name: 'web-ui.plugin.item', id: 'remote-web-ui' }))
-    expect(registered.some(entry => entry.name === 'settings.plugin.item')).toBe(false)
+    expect(registered.some(entry => entry.name === 'plugins.bundle.config')).toBe(false)
   })
 })

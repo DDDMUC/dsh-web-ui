@@ -67,9 +67,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     /**
      * The child slot the Web UI plugin group declares; this card registers
-     * into the group instead of the top-level `settings.plugin.item` list.
-     * Spelled here with the same shape so this package can register without
-     * depending on the sibling UI package.
+     * into the group's list seat rather than the official
+     * bundle-configuration seat. Spelled here with the same shape so this
+     * package can register without depending on the sibling UI package.
      */
     'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
@@ -234,12 +234,12 @@ export function apply(ctx: ClientContext): void {
 
   // Plugin configuration card: one staged form over the `remote-web-ui`
   // settings namespace, contributed to whichever plugin-card seat the running
-  // host declares (the family group's list seat, or the official keyed seat of
-  // the plugin-configuration tab when dsh-web-settings is not installed —
-  // issue #1589).
+  // host declares (the family group's list seat, or the official
+  // bundle-configuration seat on the plugin manager page when dsh-web-settings
+  // is not installed).
   const remoteSettings = new RemoteSettingsCardController(settingsScope)
   installPluginCard(ctx, {
-    namespace: REMOTE_WEB_UI_NS,
+    bundle: '@linxin666/dsh-remote-web-ui',
     id: 'remote-web-ui',
     order: 90,
     locale: NS,

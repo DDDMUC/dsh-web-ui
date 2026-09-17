@@ -145,10 +145,10 @@ export function apply(ctx: ClientContext): void {
       // Live toggle: re-scan (or restore) the moment a settings save settles.
       unsubscribeSettings = settingsScope.subscribe(() => previewRef?.refresh())
       const settingsCard = new DescribeImageSettingsCardController(settingsScope)
-      // Card seat: the family group's list seat, or the official keyed seat of
-      // the plugin-configuration tab when the group is not installed (issue #1589).
+      // Card seat: the family group's list seat, or the official
+      // bundle-configuration seat when the group is not installed.
       installPluginCard(settingsCtx, {
-        namespace: NS,
+        bundle: '@linxin666/dsh-tool-describe-image',
         id: 'describe-image',
         order: 115,
         locale: NS,

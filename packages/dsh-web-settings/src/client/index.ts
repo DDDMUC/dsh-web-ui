@@ -32,8 +32,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /**
      * The child slot one family plugin card registers into, declared by the
-     * group section. Shape mirrors `settings.plugin.item` so the family
-     * plugins can reuse their existing card implementations.
+     * group section. A list seat keyed by entry id, so the family plugins can
+     * reuse their existing card implementations.
      */
     'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }

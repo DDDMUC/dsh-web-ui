@@ -10307,17 +10307,19 @@ window.__ModuleLoader__.load({
 		*
 		* - `web-ui.plugin.item` — the list seat declared by the dsh-web-settings
 		*   group section (this family's own first-level "Web UI plugins" section);
-		* - `settings.plugin.item` — the official keyed seat of the harness's
-		*   `ui-settings-plugins` tab, keyed by the settings namespace the card edits.
+		* - `plugins.bundle.config` — the official keyed seat of the harness's plugin
+		*   manager page, keyed by the bundle's package name and rendered on that
+		*   bundle's page. alpha.2 removed the `settings.plugin.item` keyed seat of the
+		*   `ui-settings-plugins` tab that this helper used before, so a card keyed by
+		*   its settings namespace has no seat to land in any more.
 		*
-		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official `ui-settings-plugins`
-		* row belongs to the harness bundle and its `configurable` tab always declares
-		* `settings.plugin.item` before any external plugin's `apply()` runs, so
-		* "is the official seat declared?" answers yes even in the deployment whose
-		* whole point is the family group. Choosing on that probe sends every family
-		* card to the official Plugins tab and leaves the group's own section
-		* permanently empty — the family of reports where the section renders its
-		* heading and zero cards.
+		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official plugin surface
+		* belongs to the harness bundle and declares its seats before any external
+		* plugin's `apply()` runs, so "is the official seat declared?" answers yes even
+		* in the deployment whose whole point is the family group. Choosing on that
+		* probe sends every family card to the official page and leaves the group's own
+		* section permanently empty — the family of reports where the section renders
+		* its heading and zero cards.
 		*
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
@@ -10338,8 +10340,8 @@ window.__ModuleLoader__.load({
 		*/
 		/** The family list seat key. */
 		const FAMILY_PLUGIN_CARD_SEAT$4 = "web-ui.plugin.item";
-		/** The official keyed plugin-card seat key. */
-		const OFFICIAL_PLUGIN_CARD_SEAT$4 = "settings.plugin.item";
+		/** The official keyed plugin-card seat key (the alpha.2 bundle-configuration seat). */
+		const OFFICIAL_PLUGIN_CARD_SEAT$4 = "plugins.bundle.config";
 		/** The service dsh-web-settings publishes while it is loaded. */
 		const FAMILY_GROUP_SERVICE$4 = "webUiSettings";
 		/**
@@ -10402,7 +10404,7 @@ window.__ModuleLoader__.load({
 						...seat.inject === void 0 ? {} : { inject }
 					} : {
 						name: OFFICIAL_PLUGIN_CARD_SEAT$4,
-						key: seat.namespace,
+						key: seat.bundle,
 						locale: seat.locale,
 						...seat.inject === void 0 ? {} : { inject }
 					}, component);
@@ -10473,7 +10475,7 @@ window.__ModuleLoader__.load({
 			const settingsScope = (ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: TASK_BOARD_NS });
 			const settingsCard = new TaskBoardSettingsCardController(settingsScope);
 			installPluginCard$4(ctx, {
-				namespace: TASK_BOARD_NS,
+				bundle: "@linxin666/dsh-client-ui-task-board",
 				id: "task-board",
 				order: 110,
 				locale: NS$12,
@@ -17969,17 +17971,19 @@ window.__ModuleLoader__.load({
 		*
 		* - `web-ui.plugin.item` — the list seat declared by the dsh-web-settings
 		*   group section (this family's own first-level "Web UI plugins" section);
-		* - `settings.plugin.item` — the official keyed seat of the harness's
-		*   `ui-settings-plugins` tab, keyed by the settings namespace the card edits.
+		* - `plugins.bundle.config` — the official keyed seat of the harness's plugin
+		*   manager page, keyed by the bundle's package name and rendered on that
+		*   bundle's page. alpha.2 removed the `settings.plugin.item` keyed seat of the
+		*   `ui-settings-plugins` tab that this helper used before, so a card keyed by
+		*   its settings namespace has no seat to land in any more.
 		*
-		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official `ui-settings-plugins`
-		* row belongs to the harness bundle and its `configurable` tab always declares
-		* `settings.plugin.item` before any external plugin's `apply()` runs, so
-		* "is the official seat declared?" answers yes even in the deployment whose
-		* whole point is the family group. Choosing on that probe sends every family
-		* card to the official Plugins tab and leaves the group's own section
-		* permanently empty — the family of reports where the section renders its
-		* heading and zero cards.
+		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official plugin surface
+		* belongs to the harness bundle and declares its seats before any external
+		* plugin's `apply()` runs, so "is the official seat declared?" answers yes even
+		* in the deployment whose whole point is the family group. Choosing on that
+		* probe sends every family card to the official page and leaves the group's own
+		* section permanently empty — the family of reports where the section renders
+		* its heading and zero cards.
 		*
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
@@ -18000,8 +18004,8 @@ window.__ModuleLoader__.load({
 		*/
 		/** The family list seat key. */
 		const FAMILY_PLUGIN_CARD_SEAT$3 = "web-ui.plugin.item";
-		/** The official keyed plugin-card seat key. */
-		const OFFICIAL_PLUGIN_CARD_SEAT$3 = "settings.plugin.item";
+		/** The official keyed plugin-card seat key (the alpha.2 bundle-configuration seat). */
+		const OFFICIAL_PLUGIN_CARD_SEAT$3 = "plugins.bundle.config";
 		/** The service dsh-web-settings publishes while it is loaded. */
 		const FAMILY_GROUP_SERVICE$3 = "webUiSettings";
 		/**
@@ -18064,7 +18068,7 @@ window.__ModuleLoader__.load({
 						...seat.inject === void 0 ? {} : { inject }
 					} : {
 						name: OFFICIAL_PLUGIN_CARD_SEAT$3,
-						key: seat.namespace,
+						key: seat.bundle,
 						locale: seat.locale,
 						...seat.inject === void 0 ? {} : { inject }
 					}, component);
@@ -18188,7 +18192,7 @@ window.__ModuleLoader__.load({
 			});
 			const remoteSettings = new RemoteSettingsCardController(settingsScope);
 			installPluginCard$3(ctx, {
-				namespace: REMOTE_WEB_UI_NS,
+				bundle: "@linxin666/dsh-remote-web-ui",
 				id: "remote-web-ui",
 				order: 90,
 				locale: NS$10,
@@ -41540,17 +41544,19 @@ window.__ModuleLoader__.load({
 		*
 		* - `web-ui.plugin.item` — the list seat declared by the dsh-web-settings
 		*   group section (this family's own first-level "Web UI plugins" section);
-		* - `settings.plugin.item` — the official keyed seat of the harness's
-		*   `ui-settings-plugins` tab, keyed by the settings namespace the card edits.
+		* - `plugins.bundle.config` — the official keyed seat of the harness's plugin
+		*   manager page, keyed by the bundle's package name and rendered on that
+		*   bundle's page. alpha.2 removed the `settings.plugin.item` keyed seat of the
+		*   `ui-settings-plugins` tab that this helper used before, so a card keyed by
+		*   its settings namespace has no seat to land in any more.
 		*
-		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official `ui-settings-plugins`
-		* row belongs to the harness bundle and its `configurable` tab always declares
-		* `settings.plugin.item` before any external plugin's `apply()` runs, so
-		* "is the official seat declared?" answers yes even in the deployment whose
-		* whole point is the family group. Choosing on that probe sends every family
-		* card to the official Plugins tab and leaves the group's own section
-		* permanently empty — the family of reports where the section renders its
-		* heading and zero cards.
+		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official plugin surface
+		* belongs to the harness bundle and declares its seats before any external
+		* plugin's `apply()` runs, so "is the official seat declared?" answers yes even
+		* in the deployment whose whole point is the family group. Choosing on that
+		* probe sends every family card to the official page and leaves the group's own
+		* section permanently empty — the family of reports where the section renders
+		* its heading and zero cards.
 		*
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
@@ -41571,8 +41577,8 @@ window.__ModuleLoader__.load({
 		*/
 		/** The family list seat key. */
 		const FAMILY_PLUGIN_CARD_SEAT$2 = "web-ui.plugin.item";
-		/** The official keyed plugin-card seat key. */
-		const OFFICIAL_PLUGIN_CARD_SEAT$2 = "settings.plugin.item";
+		/** The official keyed plugin-card seat key (the alpha.2 bundle-configuration seat). */
+		const OFFICIAL_PLUGIN_CARD_SEAT$2 = "plugins.bundle.config";
 		/** The service dsh-web-settings publishes while it is loaded. */
 		const FAMILY_GROUP_SERVICE$2 = "webUiSettings";
 		/**
@@ -41635,7 +41641,7 @@ window.__ModuleLoader__.load({
 						...seat.inject === void 0 ? {} : { inject }
 					} : {
 						name: OFFICIAL_PLUGIN_CARD_SEAT$2,
-						key: seat.namespace,
+						key: seat.bundle,
 						locale: seat.locale,
 						...seat.inject === void 0 ? {} : { inject }
 					}, component);
@@ -41717,7 +41723,7 @@ window.__ModuleLoader__.load({
 					unsubscribeSettings = settingsScope.subscribe(() => previewRef?.refresh());
 					const settingsCard = new DescribeImageSettingsCardController(settingsScope);
 					installPluginCard$2(settingsCtx, {
-						namespace: NS$8,
+						bundle: "@linxin666/dsh-tool-describe-image",
 						id: "describe-image",
 						order: 115,
 						locale: NS$8,
@@ -43212,17 +43218,19 @@ window.__ModuleLoader__.load({
 		*
 		* - `web-ui.plugin.item` — the list seat declared by the dsh-web-settings
 		*   group section (this family's own first-level "Web UI plugins" section);
-		* - `settings.plugin.item` — the official keyed seat of the harness's
-		*   `ui-settings-plugins` tab, keyed by the settings namespace the card edits.
+		* - `plugins.bundle.config` — the official keyed seat of the harness's plugin
+		*   manager page, keyed by the bundle's package name and rendered on that
+		*   bundle's page. alpha.2 removed the `settings.plugin.item` keyed seat of the
+		*   `ui-settings-plugins` tab that this helper used before, so a card keyed by
+		*   its settings namespace has no seat to land in any more.
 		*
-		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official `ui-settings-plugins`
-		* row belongs to the harness bundle and its `configurable` tab always declares
-		* `settings.plugin.item` before any external plugin's `apply()` runs, so
-		* "is the official seat declared?" answers yes even in the deployment whose
-		* whole point is the family group. Choosing on that probe sends every family
-		* card to the official Plugins tab and leaves the group's own section
-		* permanently empty — the family of reports where the section renders its
-		* heading and zero cards.
+		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official plugin surface
+		* belongs to the harness bundle and declares its seats before any external
+		* plugin's `apply()` runs, so "is the official seat declared?" answers yes even
+		* in the deployment whose whole point is the family group. Choosing on that
+		* probe sends every family card to the official page and leaves the group's own
+		* section permanently empty — the family of reports where the section renders
+		* its heading and zero cards.
 		*
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
@@ -43243,8 +43251,8 @@ window.__ModuleLoader__.load({
 		*/
 		/** The family list seat key. */
 		const FAMILY_PLUGIN_CARD_SEAT$1 = "web-ui.plugin.item";
-		/** The official keyed plugin-card seat key. */
-		const OFFICIAL_PLUGIN_CARD_SEAT$1 = "settings.plugin.item";
+		/** The official keyed plugin-card seat key (the alpha.2 bundle-configuration seat). */
+		const OFFICIAL_PLUGIN_CARD_SEAT$1 = "plugins.bundle.config";
 		/** The service dsh-web-settings publishes while it is loaded. */
 		const FAMILY_GROUP_SERVICE$1 = "webUiSettings";
 		/**
@@ -43307,7 +43315,7 @@ window.__ModuleLoader__.load({
 						...seat.inject === void 0 ? {} : { inject }
 					} : {
 						name: OFFICIAL_PLUGIN_CARD_SEAT$1,
-						key: seat.namespace,
+						key: seat.bundle,
 						locale: seat.locale,
 						...seat.inject === void 0 ? {} : { inject }
 					}, component);
@@ -43380,7 +43388,7 @@ window.__ModuleLoader__.load({
 			try {
 				const settingsCard = new LiangShenSettingsCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: SETTINGS_NAMESPACE }));
 				installPluginCard$1(ctx, {
-					namespace: SETTINGS_NAMESPACE,
+					bundle: "@linxin666/dsh-liangshen",
 					id: "liangshen",
 					order: 120,
 					locale: NS$7,
@@ -48307,17 +48315,19 @@ window.__ModuleLoader__.load({
 		*
 		* - `web-ui.plugin.item` — the list seat declared by the dsh-web-settings
 		*   group section (this family's own first-level "Web UI plugins" section);
-		* - `settings.plugin.item` — the official keyed seat of the harness's
-		*   `ui-settings-plugins` tab, keyed by the settings namespace the card edits.
+		* - `plugins.bundle.config` — the official keyed seat of the harness's plugin
+		*   manager page, keyed by the bundle's package name and rendered on that
+		*   bundle's page. alpha.2 removed the `settings.plugin.item` keyed seat of the
+		*   `ui-settings-plugins` tab that this helper used before, so a card keyed by
+		*   its settings namespace has no seat to land in any more.
 		*
-		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official `ui-settings-plugins`
-		* row belongs to the harness bundle and its `configurable` tab always declares
-		* `settings.plugin.item` before any external plugin's `apply()` runs, so
-		* "is the official seat declared?" answers yes even in the deployment whose
-		* whole point is the family group. Choosing on that probe sends every family
-		* card to the official Plugins tab and leaves the group's own section
-		* permanently empty — the family of reports where the section renders its
-		* heading and zero cards.
+		* SEAT SELECTION IS NOT A DECLARATION PROBE. The official plugin surface
+		* belongs to the harness bundle and declares its seats before any external
+		* plugin's `apply()` runs, so "is the official seat declared?" answers yes even
+		* in the deployment whose whole point is the family group. Choosing on that
+		* probe sends every family card to the official page and leaves the group's own
+		* section permanently empty — the family of reports where the section renders
+		* its heading and zero cards.
 		*
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
@@ -48338,8 +48348,8 @@ window.__ModuleLoader__.load({
 		*/
 		/** The family list seat key. */
 		const FAMILY_PLUGIN_CARD_SEAT = "web-ui.plugin.item";
-		/** The official keyed plugin-card seat key. */
-		const OFFICIAL_PLUGIN_CARD_SEAT = "settings.plugin.item";
+		/** The official keyed plugin-card seat key (the alpha.2 bundle-configuration seat). */
+		const OFFICIAL_PLUGIN_CARD_SEAT = "plugins.bundle.config";
 		/** The service dsh-web-settings publishes while it is loaded. */
 		const FAMILY_GROUP_SERVICE = "webUiSettings";
 		/**
@@ -48402,7 +48412,7 @@ window.__ModuleLoader__.load({
 						...seat.inject === void 0 ? {} : { inject }
 					} : {
 						name: OFFICIAL_PLUGIN_CARD_SEAT,
-						key: seat.namespace,
+						key: seat.bundle,
 						locale: seat.locale,
 						...seat.inject === void 0 ? {} : { inject }
 					}, component);
@@ -48506,7 +48516,7 @@ window.__ModuleLoader__.load({
 			const card = cardController;
 			const doctor = controller;
 			if (doctor !== void 0 && card !== void 0) installPluginCard(ctx, {
-				namespace: NS$5,
+				bundle: "@linxin666/dsh-doctor",
 				id: NS$5,
 				order: 140,
 				label,

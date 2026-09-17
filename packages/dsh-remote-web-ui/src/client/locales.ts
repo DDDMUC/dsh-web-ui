@@ -72,7 +72,7 @@ export const zh = {
   'relay.registering': '正在把临时隧道同步到固定域名（<id>.dsh-market.com）…',
   'relay.failed': '固定域名同步失败：{error}。正在自动重试，期间二维码可能使用临时地址。',
   'close.label': '关闭远程访问面板',
-  // 插件设置卡片（settings.plugin.item 席位）。
+  // 插件设置卡片（家族 list 席位，或官方 plugins.bundle.config 席位）。
   'settings.title': '远程访问设置',
   'settings.description': '配对安全与设备限额。',
   'settings.enabled': '启用远程访问',
@@ -246,7 +246,7 @@ export const en = {
   'relay.registering': 'Syncing the ephemeral tunnel to the stable hostname (<id>.dsh-market.com)…',
   'relay.failed': 'Stable-hostname sync failed: {error}. Retrying automatically; the QR may use the ephemeral address meanwhile.',
   'close.label': 'Close remote access panel',
-  // Plugin settings card (the `settings.plugin.item` seat).
+  // Plugin settings card (the family list seat, or the official bundle-config seat).
   'settings.title': 'Remote access settings',
   'settings.description': 'Pairing security and device limits.',
   'settings.enabled': 'Enable remote access',

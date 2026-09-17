@@ -86,7 +86,7 @@ flowchart LR
 
 ## 设置页槽位体系
 
-设置页的家族入口分两级：一级设置分区（`settings.section`）由 dsh-web-settings（Web UI 插件组）、皮肤中心、桌宠、创意工坊（`dsh-workshop`）各自注册；组内插件卡走 `web-ui.plugin.item` 子槽，创意工坊的资产面板走 `dsh-workshop.panel` 子槽（Presets 面板由 dsh-preset-center 注入）。host 侧用 `installSettingsSection` 注册命名空间，browser 侧用 `settingsScope.bind` 读写；官方 `settings.plugin.item` 槽承载每插件一卡（插件管理页）。
+设置页的家族入口分两级：一级设置分区（`settings.section`）由 dsh-web-settings（Web UI 插件组）、皮肤中心、桌宠、创意工坊（`dsh-workshop`）各自注册；组内插件卡走 `web-ui.plugin.item` 子槽，创意工坊的资产面板走 `dsh-workshop.panel` 子槽（Presets 面板由 dsh-preset-center 注入）。host 侧用 `installSettingsSection` 注册命名空间，browser 侧用 `settingsScope.bind` 读写；官方插件管理页用 `plugins.bundle.config` 槽承载插件自带配置（按 bundle 包名分派，渲染在该 bundle 的页面上），alpha.2 起旧的 `settings.plugin.item` 槽已不存在。
 
 ```mermaid
 flowchart TB
@@ -97,7 +97,7 @@ flowchart TB
     S --> W["settings.section：创意工坊 dsh-workshop（dsh-market）"]
     W -- "dsh-workshop.panel 子槽" --> F["皮肤、宠物、插件、预设资产面板"]
     F -- "dsh-preset-center 注入" --> F1["Presets 面板"]
-    S --> O["settings.plugin.item：官方每插件一卡（dsh-plugin-manager 管理页）"]
+    S --> O["plugins.bundle.config：官方 bundle 配置卡（插件管理页）"]
 ```
 
 ## 皮肤系统

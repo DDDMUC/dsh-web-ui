@@ -51,9 +51,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /**
      * The child slot the Web UI plugin group declares; this card registers
-     * into the group instead of the top-level `settings.plugin.item` list.
-     * Spelled here with the same shape so this package can register without
-     * depending on the sibling UI package.
+     * into the group's list seat rather than the official
+     * bundle-configuration seat. Spelled here with the same shape so this
+     * package can register without depending on the sibling UI package.
      */
     'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
   }
@@ -170,12 +170,12 @@ export function apply(ctx: ClientContext): void {
 
   // Plugin configuration card: one staged form over the `task-board` settings
   // namespace, contributed to whichever plugin-card seat this host declares
-  // (issue #1589).
+  // (the family group's list seat, or the official bundle-configuration seat).
   const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
   const settingsScope = binder.bind<TaskBoardSettings>({ namespace: TASK_BOARD_NS })
   const settingsCard = new TaskBoardSettingsCardController(settingsScope)
   installPluginCard(ctx, {
-    namespace: TASK_BOARD_NS,
+    bundle: '@linxin666/dsh-client-ui-task-board',
     id: 'task-board',
     order: 110,
     locale: NS,
