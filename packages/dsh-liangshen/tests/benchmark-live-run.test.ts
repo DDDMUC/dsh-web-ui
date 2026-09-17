@@ -60,14 +60,14 @@ function composition(variantId: string): string {
 describe('benchmark variant materialization', () => {
   it('keeps the shipped persona and presentation for the baseline group', () => {
     const text = composition('B')
-    expect(text).toMatch(/^\s*presentation: 'ptc'$/m)
+    expect(text).toMatch(/^\s*presentation: 'both'$/m)
     expect(text).toContain('You are a helpful software engineer assistant.')
     expect(text).toContain('Thinking Disruption')
   })
 
   it('applies the candidate persona without touching the presentation config', () => {
     const text = composition('P')
-    expect(text).toMatch(/^\s*presentation: 'ptc'$/m)
+    expect(text).toMatch(/^\s*presentation: 'both'$/m)
     for (const line of CANDIDATE_PERSONA.split('\n')) {
       if (line === '') continue
       expect(text).toContain(line)
@@ -76,9 +76,9 @@ describe('benchmark variant materialization', () => {
     expect(text).not.toContain('Do not mentally pre-rehearse full code implementations')
   })
 
-  it("switches group T to the 'both' presentation", () => {
+  it("switches group T to the 'ptc' presentation", () => {
     const text = composition('T')
-    expect(text).toMatch(/^\s*presentation: 'both'$/m)
+    expect(text).toMatch(/^\s*presentation: 'ptc'$/m)
   })
 
   it('switches group N to the native presentation', () => {

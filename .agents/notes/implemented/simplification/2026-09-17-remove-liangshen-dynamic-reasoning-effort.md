@@ -1,44 +1,43 @@
-# Agent Note: remove liangshen dynamic reasoning effort
+# Agent Note: liangshen mode modernization and simplification
 
 Status: implemented
 
-Partially supersedes [LiangShen preset V4.1 Flash native rebuild](../feature/2026-09-16-liangshen-v41-flash-native-rebuild.md): removes the preset-local `reasoning-effort` plugin, its configuration keys (`autoEffortByPhase`, `planningEffort`, `executionEffort`, `reviewEffort`), and its settings card controls. The preset's minimal persona, tool presentation modes, and gentle tool paging remain fully in effect.
+Partially supersedes [LiangShen preset V4.1 Flash native rebuild](../feature/2026-09-16-liangshen-v41-flash-native-rebuild.md) and [LiangShen shell and paging](../feature/2026-09-17-liangshen-shell-and-paging-ptc-surface.md): removes the preset-local `reasoning-effort` plugin, replaces the PTY persistent shell with the upstream standard Stdio shell (`tool-bash` / `tool-pwsh`), switches the default presentation to `both`, leaves tools unpaged by default, and relaxes compaction pruning to standard budgets.
 
 ## Problem
 
-The phase-aware reasoning effort mechanism in `dsh-liangshen` (`reasoning-effort.mjs`) attempted to switch the LLM call's `reasoningEffort` dynamically between planning (`high`), execution (`low`), and review (`high`) stages.
-
-In real-world usage, this mechanism provided negligible practical value and introduced several liabilities:
-1. **Ineffectiveness and defaults**: `autoEffortByPhase` shipped disabled by default (`autoEffortByPhase: false`) because overriding the user's explicit model picker choice violated user expectations; in practice, users rarely enabled it.
-2. **Cache invalidation and friction**: When enabled, altering `reasoningEffort` across phase boundaries modifies the request header snapshot and invalidates server-side prefix KV cache reuse, increasing latency and prompt prefill cost.
-3. **Redundancy with persona fuses**: In single-step execution turns, prompt-level working discipline (Thinking Disruption fuses: immediate termination of reasoning after two passes without new facts) already prevents runaway thinking loops without manipulating request-level effort parameters.
-4. **Maintenance overhead**: Maintaining phase tracking, fallback logic, settings card form fields, bilingual dictionaries, and preset sync rewrites added significant complexity across the host, client, and preset layers.
+The LiangShen mode had accumulated several engineering frictions that degraded real-world performance:
+1. **Dynamic reasoning overhead**: `reasoning-effort.mjs` attempted phase-based effort switching, which invalidated server-side prefix KV caches, conflicted with explicit model picker choices, and shipped disabled by default.
+2. **PTY shell cards**: `tool-pwsh-persistent` had no `description` parameter, hardcoding `args.command` as the card title and flooding the UI with raw commands, while risking terminal escape sequence noise.
+3. **PTC lock-in & fragility**: Shipped with `presentation: 'ptc'` as the default, forcing all interactions through JavaScript scripts inside `run_code` and incurring a 5% SWE-bench penalty compared to native tool calling.
+4. **Paging friction**: `pagedToolPatterns: ['mcp__*']` hid MCP tools (like CodeGraph) behind an extra `tool_activate` round, causing models to miss tools or waste turns.
+5. **Over-aggressive truncation**: `tool-result-pruner` at 4096 characters clipped crucial stack traces and test outputs in the middle.
 
 ## Decision
 
-The dynamic reasoning effort feature is removed completely from `dsh-liangshen`:
-- Deleted `presets/liangshen/reasoning-effort.mjs` and its row under `presets/liangshen/agent.cordis.yml`.
-- Removed `autoEffortByPhase`, `planningEffort`, `executionEffort`, and `reviewEffort` from the plugin's `Config` interface, Schemastery schema, default constants, and guidance text in `src/index.ts`.
-- Removed `PresetOverrides` effort fields and row rewriting in `src/sync.ts`.
-- Cleaned up `LiangShenSettingsCard.tsx` and `src/client/locales.ts` to expose only `enabled`, `announceToAgent`, and `presentation`.
-- Cleaned up corresponding keys in `packages/dsh-i18n/src/client/ru/liangshen.ts`.
-- Deleted `tests/reasoning-effort.test.ts` and updated `preset-composition.test.ts`, `settings-card.spec.tsx`, and `sync.test.ts`.
+The LiangShen preset is modernized and simplified across all four layers:
+- **Cleaned up dynamic reasoning**: Deleted `presets/liangshen/reasoning-effort.mjs`, its row in `agent.cordis.yml`, its settings card controls, its tests, and its sync overrides.
+- **Switched to standard Stdio shell**: Replaced `persistent-shell` with upstream `@deepseek-ai/dsh-tool-bash` (POSIX) and `@deepseek-ai/dsh-tool-pwsh` (Windows), recovering concise active-voice description title cards and deterministic exit codes.
+- **Set default presentation to `both`**: Both native DSML tools and `run_code` co-reside by default, allowing native multi-invoke parallel exploration while retaining `run_code` for computation.
+- **Updated persona discipline**: Added `Parallel Inspection` (encourage single-turn multi-tool batching) and `Shell Discipline` (compound commands / explicit workdir for ephemeral subshells).
+- **Unpaged tools by default**: Set `pagedToolPatterns: []` in `agent.cordis.yml` and removed `tool-activate` row so tools are resident and callable on turn 1.
+- **Relaxed compaction pruning**: Set `tool-result-pruner` to `thresholdChars: 8192`, `headChars: 4096`, `tailChars: 1024`.
 
 ## Alternatives considered
 
-- **Keep the plugin dormant with default off**: Rejected. Retaining dormant code and dead settings options misleads users and burdens ongoing maintenance, testing, and synchronization.
-- **Convert effort adjustment into prompt guidance**: Rejected. The persona working discipline already establishes the necessary cognitive boundaries (two-pass hypothesis cap, action-oriented execution).
+- **Retain PTY shell**: Rejected. PTY on Windows introduces escape codes, wrapper nonces, and lacks description parameters for clean title cards.
+- **Keep presentation fixed to PTC**: Rejected. Official benchmarks prove native calling achieves 72.6% vs 67.6% on SWE-bench, and native multi-invoke delivers the turn-reduction benefit without script fragility.
 
 ## Consequences
 
-- The `dsh-liangshen` preset and settings UI now focus solely on tool presentation modes (`ptc`, `native`, `both`), minimal persona discipline, and gentle tool paging.
-- The model picker's explicit reasoning level choice governs all turns consistently throughout the session without unexpected interference or phase-boundary cache invalidation.
-- Preset sync automatically retires stale `reasoning-effort.mjs` files on next startup.
+- Sessions on the LiangShen preset enjoy clean active-voice shell title cards, native tool execution, and unpaged MCP availability.
+- Model picker reasoning levels remain untouched with 100% prefix KV cache stability.
+- Stale preset files are automatically cleaned up on next restart.
 
 ## Testing
 
-- Unit tests in `packages/dsh-liangshen`: all 18 test files (296 tests) pass cleanly via `vitest run`.
-- Type checking passes with zero diagnostics across `packages/dsh-liangshen` and `packages/dsh-i18n`.
-- Locale verification: `pnpm i18n:check` confirms complete zh/en/ru key parity with zero errors.
-- Documentation verification: `pnpm docs:check` passes across all documentation pairs.
-- Artifact verification: `pnpm libs:check` passes after rebuilding and updating fingerprints.
+- Unit tests: all 18 test files (295 tests) in `packages/dsh-liangshen` pass via `vitest run`.
+- Type checking: `pnpm typecheck` passes with zero errors across the monorepo.
+- Code style: `git diff --check` passes with zero whitespace or line-ending warnings.
+- Documentation & i18n: `pnpm docs:check` and `pnpm i18n:check` pass cleanly.
+- Artifact fingerprints: `pnpm libs:check` passes.

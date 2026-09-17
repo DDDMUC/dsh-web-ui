@@ -86,8 +86,10 @@
     prefix: |-
       You are a helpful software engineer assistant.
 
-      - Thinking Disruption: Do not repeat reasoning on the same hypothesis more than twice. If necessary facts are missing, immediately close </think> and call native inspection tools (read, grep, bash) instead of speculating in thought.
+      - Thinking Disruption: Do not repeat reasoning on the same hypothesis more than twice. If necessary facts are missing, immediately close </think> and call native inspection tools (read, grep, bash/pwsh) instead of speculating in thought.
       - Action-Oriented: Thinking must focus solely on determining the next concrete operation. Do not mentally pre-rehearse full code implementations. All correctness verification must be conducted against actual tool outputs during the execution phase.
+      - Parallel Inspection: When multiple independent inspections, searches, or checks are needed, emit multiple tool calls concurrently in a single turn instead of sequential rounds. The harness executes independent read-only tools in parallel.
+      - Shell Discipline: Shell processes are ephemeral; directory changes do not persist across tool calls. Use compound commands (e.g. cd <path> && <cmd>) or pass workdir explicitly for operations in subdirectories.
       - Development Standard: Follow YAGNI and the PDCA loop. Each step verifies a single assumption. Do not write redundant comments.
       - Bounded Output: never dump a large or unbounded command output into the conversation. Filter at the source with grep/head/tail/wc and read the narrow range you actually need; the model's long-range attention is a bounded budget and raw logs evict the session's own constraints from it.
 
@@ -162,12 +164,9 @@
   name: ./tool-catalog.mjs
   config:
     descriptionMaxLength: 200
-    presentation: 'ptc'
-    pagedToolPatterns: ['mcp__*']
+    presentation: 'both'
+    pagedToolPatterns: []
     maxResidentTokens: 6000
-
-- id: tool-activate
-  name: ./tool-activate.mjs
 
 - id: working-context
   name: ./working-context.mjs
@@ -187,70 +186,15 @@
 
 # ── shell ───────────────────────────────────────────────────────────────────
 
-# The PTY registry is an agent-owned service, so it lives in an entry-local
-# realm. The backend still consumes the host sandbox policy and subprocess
-# implementation, while the tool registers into this agent's scoped catalog.
-# This persistent shell replaces the Standard ephemeral shell for the WHOLE
-# session, so shell state survives across calls. Exactly one shell stack mounts
-# per host, mirroring the builtin `minimal` preset: the bash stack gates off
-# win32 and its pwsh twin gates off POSIX, so each platform ends up with
-# exactly ONE shell tool — `bash` on POSIX, `pwsh` on win32. Both twins are
-# the official upstream rows (terminal-bash in its `pwsh` shellDialect, and
-# tool-pwsh-persistent); this preset ships no shell implementation of its own.
-- id: persistent-shell
-  name: cordis:group
-  group: true
-  isolate:
-    terminals: true
-  config:
-    - id: pty
-      name: '@deepseek-ai/dsh-terminal'
+# Standard Stdio shell tools: fresh subprocess per command with active-voice description
+# cards, structured exit codes, and background job support. Exactly one mounts per host.
+- id: tool-bash
+  name: '@deepseek-ai/dsh-tool-bash'
+  disabled: !!js process.platform === 'win32'
 
-    - id: terminal-bash
-      name: '@deepseek-ai/dsh-terminal-bash'
-      disabled: !!js process.platform === 'win32'
-      config:
-        timeoutMs: 300000
-
-    - id: persistent-bash
-      name: '@deepseek-ai/dsh-tool-bash-persistent'
-      disabled: !!js process.platform === 'win32'
-      config:
-        timeoutMs: 300000
-        description: |-
-          Run commands in a bash shell
-          * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
-          * You don't have access to the internet via this tool.
-          * You do have access to a mirror of common linux and python packages via apt and pip.
-          * State is persistent across command calls and discussions with the user.
-          * To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.
-          * Please avoid commands that may produce a very large amount of output.
-          * Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.
-
-    # The pwsh twin of the bash stack above: the SAME terminal-bash backend in
-    # its `pwsh` shellDialect (which is what selects the argv, environment, and
-    # prompt-bootstrap for PowerShell) plus the upstream persistent pwsh tool.
-    # Both gate off POSIX, so a host mounts exactly one of the two stacks.
-    - id: terminal-pwsh
-      name: '@deepseek-ai/dsh-terminal-bash'
-      disabled: !!js process.platform !== 'win32'
-      config:
-        shellDialect: pwsh
-        timeoutMs: 300000
-
-    - id: persistent-pwsh
-      name: '@deepseek-ai/dsh-tool-pwsh-persistent'
-      disabled: !!js process.platform !== 'win32'
-      config:
-        timeoutMs: 300000
-        description: |-
-          Run commands in a PowerShell shell
-          * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
-          * You don't have access to the internet via this tool.
-          * State is persistent across command calls and discussions with the user.
-          * Use native Windows paths (C:\...) and $env:NAME variables; this is PowerShell, not bash.
-          * Please avoid commands that may produce a very large amount of output.
-          * Please run long lived commands in the background, e.g. 'Start-Job' or start a server with Start-Process.
+- id: tool-pwsh
+  name: '@deepseek-ai/dsh-tool-pwsh'
+  disabled: !!js process.platform !== 'win32'
 
 # ── filesystem ──────────────────────────────────────────────────────────────
 
@@ -366,9 +310,9 @@
     - id: tool-result-pruner
       name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
       config:
-        thresholdChars: 4096
-        headChars: 1500
-        tailChars: 500
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024
 
 # ── delegation and workflows ────────────────────────────────────────────────
 

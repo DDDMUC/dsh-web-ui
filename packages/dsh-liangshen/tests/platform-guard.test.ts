@@ -72,11 +72,11 @@ function mountedShellRows(platform: string): Row[] {
   return rows().filter(row => mountsOn(row, platform))
 }
 
-const BASH_ROWS = ['terminal-bash', 'persistent-bash']
-const PWSH_ROWS = ['terminal-pwsh', 'persistent-pwsh']
+const BASH_ROWS = ['tool-bash']
+const PWSH_ROWS = ['tool-pwsh']
 
 describe('per-platform shell mount', () => {
-  it('mounts the bash stack on POSIX and the pwsh stack on win32', () => {
+  it('mounts the bash tool on POSIX and the pwsh tool on win32', () => {
     for (const platform of ['linux', 'darwin']) {
       const mounted = mountedShellRows(platform).map(row => row.id)
       for (const id of BASH_ROWS) expect(mounted, `${platform} mounts ${id}`).toContain(id)
@@ -85,18 +85,6 @@ describe('per-platform shell mount', () => {
     const windows = mountedShellRows('win32').map(row => row.id)
     for (const id of PWSH_ROWS) expect(windows, `win32 mounts ${id}`).toContain(id)
     for (const id of BASH_ROWS) expect(windows, `win32 omits ${id}`).not.toContain(id)
-  })
-
-  it('never disables the persistent-shell group itself', () => {
-    // The retired win32 gate disabled the WHOLE group, which is exactly what
-    // left win32 without the upstream PTY stack.
-    const group = rows().find(row => row.id === 'persistent-shell')
-    expect(group).toBeDefined()
-    expect(group?.disabled).toBeUndefined()
-    // Raw-text check, independent of the parser above: nothing between the
-    // group header and its first child may carry a gate.
-    const header = preset.slice(preset.indexOf('- id: persistent-shell'), preset.indexOf('- id: pty'))
-    expect(header).not.toContain('disabled:')
   })
 
   it('pairs each gate polarity exactly, so no platform can double-mount a shell', () => {
@@ -110,24 +98,21 @@ describe('per-platform shell mount', () => {
   })
 
   it('keeps exactly one shell TOOL name per platform', () => {
-    // The tools register the wire names `bash` / `pwsh`; the backends beside
-    // them register no tool. One name, one owner, per platform.
-    const bashTool = rows().find(row => row.id === 'persistent-bash')
-    const pwshTool = rows().find(row => row.id === 'persistent-pwsh')
-    expect(bashTool?.name).toBe('@deepseek-ai/dsh-tool-bash-persistent')
-    expect(pwshTool?.name).toBe('@deepseek-ai/dsh-tool-pwsh-persistent')
+    const bashTool = rows().find(row => row.id === 'tool-bash')
+    const pwshTool = rows().find(row => row.id === 'tool-pwsh')
+    expect(bashTool?.name).toBe('@deepseek-ai/dsh-tool-bash')
+    expect(pwshTool?.name).toBe('@deepseek-ai/dsh-tool-pwsh')
     for (const platform of ['linux', 'darwin', 'win32']) {
       const tools = [bashTool, pwshTool].filter(row => row !== undefined && mountsOn(row, platform))
       expect(tools, `${platform} shell tool count`).toHaveLength(1)
     }
   })
 
-  it('ships the pwsh dialect through the upstream terminal-bash row', () => {
-    // No preset-local shell implementation: win32 reuses the same upstream
-    // backend package with `shellDialect: pwsh`, exactly as builtin minimal does.
-    const terminalPwsh = rows().find(row => row.id === 'terminal-pwsh')
-    expect(terminalPwsh?.name).toBe('@deepseek-ai/dsh-terminal-bash')
-    expect(preset).toMatch(/- id: terminal-pwsh\n(?:[^\n]*\n)*?\s+shellDialect: pwsh/)
+  it('mounts upstream tool-bash and tool-pwsh rows', () => {
+    const bash = rows().find(row => row.id === 'tool-bash')
+    const pwsh = rows().find(row => row.id === 'tool-pwsh')
+    expect(bash?.name).toBe('@deepseek-ai/dsh-tool-bash')
+    expect(pwsh?.name).toBe('@deepseek-ai/dsh-tool-pwsh')
   })
 })
 
