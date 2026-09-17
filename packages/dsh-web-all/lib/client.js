@@ -8955,10 +8955,12 @@ window.__ModuleLoader__.load({
 			if (nested !== null) return nested;
 			for (const child of root.children) if (child.tagName === "BUTTON") return child;
 		}
-		/** Build the entry row (a detached button; insert once the shell is up). */
+		/** Build the entry row (detached; inserted once the shell is up). */
 		function createEntry$3(options) {
-			const entry = document.createElement("button");
-			entry.type = "button";
+			const actions = options.actions ?? [];
+			const composite = actions.length > 0;
+			const entry = document.createElement(composite ? "div" : "button");
+			if (!composite) entry.type = "button";
 			entry.setAttribute(options.rowAttribute, "");
 			if (options.plugin !== void 0) {
 				entry.setAttribute("data-dsh-plugin", options.plugin);
@@ -8970,17 +8972,57 @@ window.__ModuleLoader__.load({
 			const iconSpan = document.createElement("span");
 			iconSpan.className = options.css["entryIcon"] ?? "";
 			iconSpan.innerHTML = options.icon;
-			entry.append(iconSpan, labelSpan);
+			const main = composite ? document.createElement("button") : entry;
+			if (composite) {
+				main.type = "button";
+				main.className = options.css["entryMain"] ?? "";
+				main.append(iconSpan, labelSpan);
+				entry.append(main);
+			} else entry.append(iconSpan, labelSpan);
+			const actionButtons = [];
+			for (const action of actions) {
+				const button = document.createElement("button");
+				button.type = "button";
+				button.className = options.css["entryAction"] ?? "";
+				button.setAttribute("data-dsh-entry-action", action.id);
+				button.innerHTML = action.icon;
+				button.addEventListener("click", () => {
+					action.onClick(button);
+				});
+				entry.append(button);
+				actionButtons.push({
+					action,
+					button
+				});
+			}
+			let open = false;
+			const applyActions = () => {
+				for (const { action, button } of actionButtons) {
+					button.innerHTML = open || action.inactiveIcon === void 0 ? action.icon : action.inactiveIcon;
+					const text = action.label(open);
+					button.setAttribute("aria-label", text);
+					button.setAttribute("title", text);
+					if (action.inactiveIcon !== void 0) button.setAttribute("aria-expanded", String(open));
+				}
+			};
 			const applyLabel = () => {
-				entry.setAttribute("aria-label", options.label());
-				if (options.tooltip !== void 0) entry.setAttribute("title", options.tooltip());
+				main.setAttribute("aria-label", options.label());
+				if (options.tooltip !== void 0) main.setAttribute("title", options.tooltip());
 				labelSpan.textContent = options.label();
+				applyActions();
 			};
 			applyLabel();
-			entry.addEventListener("click", options.onToggle);
+			main.addEventListener("click", options.onToggle);
+			if (composite) entry.addEventListener("click", (event) => {
+				if (event.target === entry) options.onToggle();
+			});
 			return {
 				entry,
-				applyLabel
+				applyLabel,
+				setOpen: (next) => {
+					open = next;
+					applyActions();
+				}
 			};
 		}
 		/** Re-insert the entry after the New Session row (before the browser region). */
@@ -9004,7 +9046,7 @@ window.__ModuleLoader__.load({
 		*/
 		function mountSidebarEntry$7(options) {
 			if (typeof document !== "undefined" && document.querySelector(options.rowSelector) !== null) return () => {};
-			const { entry, applyLabel } = createEntry$3(options);
+			const { entry, applyLabel, setOpen } = createEntry$3(options);
 			let root;
 			let placed = false;
 			let unsubscribeRefresh;
@@ -9044,8 +9086,10 @@ window.__ModuleLoader__.load({
 			});
 			const unsubscribeActive = options.active === void 0 ? void 0 : (() => {
 				const syncActive = () => {
-					if (options.active.isOpen()) entry.dataset.active = "true";
+					const open = options.active.isOpen();
+					if (open) entry.dataset.active = "true";
 					else delete entry.dataset.active;
+					setOpen(open);
 				};
 				const unsubscribe = options.active.subscribe(syncActive);
 				syncActive();
@@ -38476,10 +38520,12 @@ window.__ModuleLoader__.load({
 			if (nested !== null) return nested;
 			for (const child of root.children) if (child.tagName === "BUTTON") return child;
 		}
-		/** Build the entry row (a detached button; insert once the shell is up). */
+		/** Build the entry row (detached; inserted once the shell is up). */
 		function createEntry$2(options) {
-			const entry = document.createElement("button");
-			entry.type = "button";
+			const actions = options.actions ?? [];
+			const composite = actions.length > 0;
+			const entry = document.createElement(composite ? "div" : "button");
+			if (!composite) entry.type = "button";
 			entry.setAttribute(options.rowAttribute, "");
 			if (options.plugin !== void 0) {
 				entry.setAttribute("data-dsh-plugin", options.plugin);
@@ -38491,17 +38537,57 @@ window.__ModuleLoader__.load({
 			const iconSpan = document.createElement("span");
 			iconSpan.className = options.css["entryIcon"] ?? "";
 			iconSpan.innerHTML = options.icon;
-			entry.append(iconSpan, labelSpan);
+			const main = composite ? document.createElement("button") : entry;
+			if (composite) {
+				main.type = "button";
+				main.className = options.css["entryMain"] ?? "";
+				main.append(iconSpan, labelSpan);
+				entry.append(main);
+			} else entry.append(iconSpan, labelSpan);
+			const actionButtons = [];
+			for (const action of actions) {
+				const button = document.createElement("button");
+				button.type = "button";
+				button.className = options.css["entryAction"] ?? "";
+				button.setAttribute("data-dsh-entry-action", action.id);
+				button.innerHTML = action.icon;
+				button.addEventListener("click", () => {
+					action.onClick(button);
+				});
+				entry.append(button);
+				actionButtons.push({
+					action,
+					button
+				});
+			}
+			let open = false;
+			const applyActions = () => {
+				for (const { action, button } of actionButtons) {
+					button.innerHTML = open || action.inactiveIcon === void 0 ? action.icon : action.inactiveIcon;
+					const text = action.label(open);
+					button.setAttribute("aria-label", text);
+					button.setAttribute("title", text);
+					if (action.inactiveIcon !== void 0) button.setAttribute("aria-expanded", String(open));
+				}
+			};
 			const applyLabel = () => {
-				entry.setAttribute("aria-label", options.label());
-				if (options.tooltip !== void 0) entry.setAttribute("title", options.tooltip());
+				main.setAttribute("aria-label", options.label());
+				if (options.tooltip !== void 0) main.setAttribute("title", options.tooltip());
 				labelSpan.textContent = options.label();
+				applyActions();
 			};
 			applyLabel();
-			entry.addEventListener("click", options.onToggle);
+			main.addEventListener("click", options.onToggle);
+			if (composite) entry.addEventListener("click", (event) => {
+				if (event.target === entry) options.onToggle();
+			});
 			return {
 				entry,
-				applyLabel
+				applyLabel,
+				setOpen: (next) => {
+					open = next;
+					applyActions();
+				}
 			};
 		}
 		/** Re-insert the entry after the New Session row (before the browser region). */
@@ -38525,7 +38611,7 @@ window.__ModuleLoader__.load({
 		*/
 		function mountSidebarEntry$5(options) {
 			if (typeof document !== "undefined" && document.querySelector(options.rowSelector) !== null) return () => {};
-			const { entry, applyLabel } = createEntry$2(options);
+			const { entry, applyLabel, setOpen } = createEntry$2(options);
 			let root;
 			let placed = false;
 			let unsubscribeRefresh;
@@ -38565,8 +38651,10 @@ window.__ModuleLoader__.load({
 			});
 			const unsubscribeActive = options.active === void 0 ? void 0 : (() => {
 				const syncActive = () => {
-					if (options.active.isOpen()) entry.dataset.active = "true";
+					const open = options.active.isOpen();
+					if (open) entry.dataset.active = "true";
 					else delete entry.dataset.active;
+					setOpen(open);
 				};
 				const unsubscribe = options.active.subscribe(syncActive);
 				syncActive();
@@ -43980,10 +44068,12 @@ window.__ModuleLoader__.load({
 			if (nested !== null) return nested;
 			for (const child of root.children) if (child.tagName === "BUTTON") return child;
 		}
-		/** Build the entry row (a detached button; insert once the shell is up). */
+		/** Build the entry row (detached; inserted once the shell is up). */
 		function createEntry$1(options) {
-			const entry = document.createElement("button");
-			entry.type = "button";
+			const actions = options.actions ?? [];
+			const composite = actions.length > 0;
+			const entry = document.createElement(composite ? "div" : "button");
+			if (!composite) entry.type = "button";
 			entry.setAttribute(options.rowAttribute, "");
 			if (options.plugin !== void 0) {
 				entry.setAttribute("data-dsh-plugin", options.plugin);
@@ -43995,17 +44085,57 @@ window.__ModuleLoader__.load({
 			const iconSpan = document.createElement("span");
 			iconSpan.className = options.css["entryIcon"] ?? "";
 			iconSpan.innerHTML = options.icon;
-			entry.append(iconSpan, labelSpan);
+			const main = composite ? document.createElement("button") : entry;
+			if (composite) {
+				main.type = "button";
+				main.className = options.css["entryMain"] ?? "";
+				main.append(iconSpan, labelSpan);
+				entry.append(main);
+			} else entry.append(iconSpan, labelSpan);
+			const actionButtons = [];
+			for (const action of actions) {
+				const button = document.createElement("button");
+				button.type = "button";
+				button.className = options.css["entryAction"] ?? "";
+				button.setAttribute("data-dsh-entry-action", action.id);
+				button.innerHTML = action.icon;
+				button.addEventListener("click", () => {
+					action.onClick(button);
+				});
+				entry.append(button);
+				actionButtons.push({
+					action,
+					button
+				});
+			}
+			let open = false;
+			const applyActions = () => {
+				for (const { action, button } of actionButtons) {
+					button.innerHTML = open || action.inactiveIcon === void 0 ? action.icon : action.inactiveIcon;
+					const text = action.label(open);
+					button.setAttribute("aria-label", text);
+					button.setAttribute("title", text);
+					if (action.inactiveIcon !== void 0) button.setAttribute("aria-expanded", String(open));
+				}
+			};
 			const applyLabel = () => {
-				entry.setAttribute("aria-label", options.label());
-				if (options.tooltip !== void 0) entry.setAttribute("title", options.tooltip());
+				main.setAttribute("aria-label", options.label());
+				if (options.tooltip !== void 0) main.setAttribute("title", options.tooltip());
 				labelSpan.textContent = options.label();
+				applyActions();
 			};
 			applyLabel();
-			entry.addEventListener("click", options.onToggle);
+			main.addEventListener("click", options.onToggle);
+			if (composite) entry.addEventListener("click", (event) => {
+				if (event.target === entry) options.onToggle();
+			});
 			return {
 				entry,
-				applyLabel
+				applyLabel,
+				setOpen: (next) => {
+					open = next;
+					applyActions();
+				}
 			};
 		}
 		/** Re-insert the entry after the New Session row (before the browser region). */
@@ -44029,7 +44159,7 @@ window.__ModuleLoader__.load({
 		*/
 		function mountSidebarEntry$3(options) {
 			if (typeof document !== "undefined" && document.querySelector(options.rowSelector) !== null) return () => {};
-			const { entry, applyLabel } = createEntry$1(options);
+			const { entry, applyLabel, setOpen } = createEntry$1(options);
 			let root;
 			let placed = false;
 			let unsubscribeRefresh;
@@ -44069,8 +44199,10 @@ window.__ModuleLoader__.load({
 			});
 			const unsubscribeActive = options.active === void 0 ? void 0 : (() => {
 				const syncActive = () => {
-					if (options.active.isOpen()) entry.dataset.active = "true";
+					const open = options.active.isOpen();
+					if (open) entry.dataset.active = "true";
 					else delete entry.dataset.active;
+					setOpen(open);
 				};
 				const unsubscribe = options.active.subscribe(syncActive);
 				syncActive();
@@ -47902,10 +48034,6 @@ window.__ModuleLoader__.load({
 			"usage.config.title": "设置",
 			"usage.config.enabled": "启用插件",
 			"usage.config.pollIntervalSec": "轮询间隔（秒）",
-			"usage.config.bubbleMode": "宠物气泡",
-			"usage.config.bubbleMode.always": "常驻显示",
-			"usage.config.bubbleMode.change": "仅变化时",
-			"usage.config.bubbleMode.off": "关闭",
 			"usage.bank.title": "鲸元券",
 			"usage.bank.hint": "官方 API 每消耗 100 万 tokens 铸造 1 鲸元；保存或分享这张票券。",
 			"usage.bank.noUsage": "暂无 DeepSeek 官方用量数据（统计自插件启用起）",
@@ -47918,13 +48046,13 @@ window.__ModuleLoader__.load({
 			"usage.bank.drawError": "票券生成失败：{error}",
 			"usage.sidebar.entry.label": "用量",
 			"usage.sidebar.entry.tooltip": "用量面板：套餐配额与余额",
-			"usage.sidebar.title": "用量",
 			"usage.sidebar.toggle.collapse": "折叠",
 			"usage.sidebar.toggle.expand": "展开",
 			"usage.sidebar.empty": "没有已配置的套餐或余额数据。",
 			"usage.sidebar.error": "加载失败：{error}",
 			"usage.sidebar.loading": "正在加载用量数据…",
-			"usage.sidebar.balanceLeft": "剩余 {balance}"
+			"usage.sidebar.balanceLeft": "剩余 {balance}",
+			"usage.sidebar.todayUsage": "今日 {tokens} tokens"
 		};
 		/** English mirror; every zh key present. */
 		const en$4 = {
@@ -47967,10 +48095,6 @@ window.__ModuleLoader__.load({
 			"usage.config.title": "Settings",
 			"usage.config.enabled": "Enable plugin",
 			"usage.config.pollIntervalSec": "Poll interval (seconds)",
-			"usage.config.bubbleMode": "Pet bubble",
-			"usage.config.bubbleMode.always": "Always visible",
-			"usage.config.bubbleMode.change": "On change",
-			"usage.config.bubbleMode.off": "Off",
 			"usage.bank.title": "Whale-yuan voucher",
 			"usage.bank.hint": "Every 1,000,000 tokens spent on the official API mint one whale yuan; save or share the note.",
 			"usage.bank.noUsage": "No official DeepSeek usage yet (counting starts when the plugin is enabled)",
@@ -47983,13 +48107,13 @@ window.__ModuleLoader__.load({
 			"usage.bank.drawError": "Failed to render the voucher: {error}",
 			"usage.sidebar.entry.label": "Usage",
 			"usage.sidebar.entry.tooltip": "Usage panel: plan quotas and balances",
-			"usage.sidebar.title": "Usage",
 			"usage.sidebar.toggle.collapse": "Collapse",
 			"usage.sidebar.toggle.expand": "Expand",
 			"usage.sidebar.empty": "No plan or balance data configured.",
 			"usage.sidebar.error": "Loading failed: {error}",
 			"usage.sidebar.loading": "Loading usage data…",
-			"usage.sidebar.balanceLeft": "{balance} left"
+			"usage.sidebar.balanceLeft": "{balance} left",
+			"usage.sidebar.todayUsage": "{tokens} tokens today"
 		};
 		/**
 		* Active dictionary, picked by the document language at call time. The
@@ -48007,7 +48131,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-usage/src/client/usage.module.css.mjs
-		const css$4 = ".cvtkAW_section{color:inherit;flex-direction:column;gap:16px;display:flex}.cvtkAW_header{justify-content:space-between;align-items:center;gap:12px;display:flex}.cvtkAW_currentProvider{opacity:.75;font-size:13px}.cvtkAW_refreshBtn{appearance:none;color:inherit;font:inherit;cursor:pointer;opacity:.85;background:0 0;border:1px solid;border-radius:8px;padding:4px 12px;font-size:12px;transition:opacity .12s,background-color .12s}.cvtkAW_refreshBtn:hover:not(:disabled){opacity:1;background:color-mix(in srgb, currentColor 8%, transparent)}.cvtkAW_refreshBtn:disabled{cursor:default;opacity:.5}.cvtkAW_refreshBtn:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_tabs{border-bottom:1px solid color-mix(in srgb, currentColor 14%, transparent);gap:4px;display:flex}.cvtkAW_tab{appearance:none;color:inherit;font:inherit;cursor:pointer;opacity:.65;background:0 0;border:none;border-bottom:2px solid #0000;margin-bottom:-1px;padding:6px 14px;font-size:13px}.cvtkAW_tab:hover{opacity:.9}.cvtkAW_tab:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_tabActive{opacity:1;border-bottom-color:currentColor;font-weight:600}.cvtkAW_card{border:1px solid color-mix(in srgb, currentColor 14%, transparent);border-radius:12px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.cvtkAW_cardTitle{letter-spacing:.04em;text-transform:uppercase;opacity:.6;font-size:12px;font-weight:600}.cvtkAW_statRow{flex-wrap:wrap;gap:18px;display:flex}.cvtkAW_stat{flex-direction:column;gap:2px;display:flex}.cvtkAW_statValue{font-variant-numeric:tabular-nums;font-size:18px;font-weight:600}.cvtkAW_statLabel{opacity:.6;font-size:11px}.cvtkAW_providerRow{border-top:1px solid color-mix(in srgb, currentColor 8%, transparent);justify-content:space-between;align-items:center;gap:12px;padding:6px 0;font-size:13px;display:flex}.cvtkAW_providerRow:first-of-type{border-top:none}.cvtkAW_providerName{align-items:center;gap:8px;min-width:0;display:flex}.cvtkAW_providerTokens{font-variant-numeric:tabular-nums;opacity:.75;white-space:nowrap}.cvtkAW_providerBalance{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}.cvtkAW_currentBadge{border:1px solid color-mix(in srgb, currentColor 35%, transparent);opacity:.8;border-radius:999px;flex:none;padding:1px 7px;font-size:10px;font-weight:600}.cvtkAW_chart{flex-direction:column;gap:12px;display:flex}.cvtkAW_chartProvider{flex-direction:column;gap:4px;display:flex}.cvtkAW_chartHead{justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;display:flex}.cvtkAW_chartTokens{font-variant-numeric:tabular-nums;opacity:.65;white-space:nowrap;font-size:11px}.cvtkAW_chartBar{background:color-mix(in srgb, currentColor 8%, transparent);border-radius:999px;height:8px;display:block;overflow:hidden}.cvtkAW_chartFill{background:color-mix(in srgb, currentColor 55%, transparent);border-radius:999px;height:100%;transition:width .3s;display:block}.cvtkAW_chartModel{opacity:.8;grid-template-columns:minmax(80px,180px) 1fr auto;align-items:center;gap:8px;padding-left:14px;font-size:11px;display:grid}.cvtkAW_chartModelName{text-overflow:ellipsis;white-space:nowrap;opacity:.8;overflow:hidden}.cvtkAW_chartModelBar{background:color-mix(in srgb, currentColor 6%, transparent);border-radius:999px;height:4px;display:block;overflow:hidden}.cvtkAW_chartModelFill{background:color-mix(in srgb, currentColor 35%, transparent);border-radius:999px;height:100%;transition:width .3s;display:block}.cvtkAW_trendAxis{opacity:.5;font-variant-numeric:tabular-nums;justify-content:space-between;font-size:10px;display:flex}.cvtkAW_muted{opacity:.6;font-size:12px}.cvtkAW_voucherPreview canvas{border-radius:8px;width:100%;height:auto;display:block}.cvtkAW_buttonRow{gap:8px;display:flex}.cvtkAW_errorLine{opacity:.75;font-size:12px}.cvtkAW_planCard{flex-direction:column;gap:8px;display:flex}.cvtkAW_planHead{justify-content:space-between;align-items:baseline;gap:10px;display:flex}.cvtkAW_planName{font-size:14px;font-weight:600}.cvtkAW_windowRow{flex-direction:column;gap:4px;display:flex}.cvtkAW_windowLabel{opacity:.8;font-variant-numeric:tabular-nums;justify-content:space-between;font-size:12px;display:flex}.cvtkAW_bar{background:color-mix(in srgb, currentColor 10%, transparent);border-radius:999px;height:6px;overflow:hidden}.cvtkAW_barFill{background:color-mix(in srgb, currentColor 55%, transparent);border-radius:999px;height:100%;transition:width .3s}.cvtkAW_barWarn{background:#d97706}.cvtkAW_barLow{background:#dc2626}.cvtkAW_resetLine{opacity:.55;font-variant-numeric:tabular-nums;font-size:11px}.cvtkAW_settingsGrid{flex-wrap:wrap;align-items:center;gap:16px;display:flex}.cvtkAW_settingItem{align-items:center;gap:8px;font-size:13px;display:flex}.cvtkAW_settingItem input[type=checkbox]{accent-color:currentColor}.cvtkAW_settingItem input[type=number]{border:1px solid color-mix(in srgb, currentColor 25%, transparent);width:90px;color:inherit;font:inherit;background:0 0;border-radius:6px;padding:3px 8px;font-size:13px}.cvtkAW_settingItem select{border:1px solid color-mix(in srgb, currentColor 25%, transparent);color:inherit;font:inherit;background:0 0;border-radius:6px;padding:3px 8px;font-size:13px}.cvtkAW_settingItem input:focus-visible,.cvtkAW_settingItem select:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_entry{box-sizing:border-box;width:100%;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 10px;font-size:13px;display:flex}.cvtkAW_entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.cvtkAW_entryIcon{flex:none;justify-content:center;align-items:center;width:24px;height:24px;display:inline-flex}.cvtkAW_entryIcon svg{width:18px;height:18px;display:block}.cvtkAW_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_entry,[data-sidebar-collapsed] .cvtkAW_entry{border-radius:50%;justify-content:center;width:36px;height:36px;margin:0 auto 12px;padding:0}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_entryLabel,[data-sidebar-collapsed] .cvtkAW_entryLabel{display:none}.cvtkAW_sidebarPanel{border:1px solid color-mix(in srgb, currentColor 14%, transparent);color:inherit;background:color-mix(in srgb, currentColor 4%, transparent);border-radius:10px;flex-direction:column;gap:8px;margin:0 4px 12px;padding:10px 10px 12px;display:flex}.cvtkAW_sidebarPanelHead{opacity:.85;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:600;display:flex}.cvtkAW_sidebarToggle{appearance:none;color:inherit;cursor:pointer;font:inherit;opacity:.7;background:0 0;border:none;padding:0 4px;font-size:12px}.cvtkAW_sidebarToggle:hover{opacity:1}.cvtkAW_sidebarProvider{flex-direction:column;gap:4px;display:flex}.cvtkAW_sidebarProviderHead{justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;display:flex}.cvtkAW_sidebarProviderName{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.cvtkAW_sidebarBalance{opacity:.75;flex:none}.cvtkAW_sidebarWindowRow{opacity:.85;align-items:center;gap:6px;font-size:11px;display:flex}.cvtkAW_sidebarBar{background:color-mix(in srgb, currentColor 14%, transparent);border-radius:2px;flex:1;height:4px;overflow:hidden}.cvtkAW_sidebarBarFill{background:currentColor;border-radius:2px;height:100%;display:block}.cvtkAW_sidebarMuted{opacity:.6;font-size:11px}";
+		const css$4 = ".cvtkAW_section{color:inherit;flex-direction:column;gap:16px;display:flex}.cvtkAW_header{justify-content:space-between;align-items:center;gap:12px;display:flex}.cvtkAW_currentProvider{opacity:.75;font-size:13px}.cvtkAW_refreshBtn{appearance:none;color:inherit;font:inherit;cursor:pointer;opacity:.85;background:0 0;border:1px solid;border-radius:8px;padding:4px 12px;font-size:12px;transition:opacity .12s,background-color .12s}.cvtkAW_refreshBtn:hover:not(:disabled){opacity:1;background:color-mix(in srgb, currentColor 8%, transparent)}.cvtkAW_refreshBtn:disabled{cursor:default;opacity:.5}.cvtkAW_refreshBtn:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_tabs{border-bottom:1px solid color-mix(in srgb, currentColor 14%, transparent);gap:4px;display:flex}.cvtkAW_tab{appearance:none;color:inherit;font:inherit;cursor:pointer;opacity:.65;background:0 0;border:none;border-bottom:2px solid #0000;margin-bottom:-1px;padding:6px 14px;font-size:13px}.cvtkAW_tab:hover{opacity:.9}.cvtkAW_tab:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_tabActive{opacity:1;border-bottom-color:currentColor;font-weight:600}.cvtkAW_card{border:1px solid color-mix(in srgb, currentColor 14%, transparent);border-radius:12px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.cvtkAW_cardTitle{letter-spacing:.04em;text-transform:uppercase;opacity:.6;font-size:12px;font-weight:600}.cvtkAW_statRow{flex-wrap:wrap;gap:18px;display:flex}.cvtkAW_stat{flex-direction:column;gap:2px;display:flex}.cvtkAW_statValue{font-variant-numeric:tabular-nums;font-size:18px;font-weight:600}.cvtkAW_statLabel{opacity:.6;font-size:11px}.cvtkAW_providerRow{border-top:1px solid color-mix(in srgb, currentColor 8%, transparent);justify-content:space-between;align-items:center;gap:12px;padding:6px 0;font-size:13px;display:flex}.cvtkAW_providerRow:first-of-type{border-top:none}.cvtkAW_providerName{align-items:center;gap:8px;min-width:0;display:flex}.cvtkAW_providerTokens{font-variant-numeric:tabular-nums;opacity:.75;white-space:nowrap}.cvtkAW_providerBalance{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}.cvtkAW_currentBadge{border:1px solid color-mix(in srgb, currentColor 35%, transparent);opacity:.8;border-radius:999px;flex:none;padding:1px 7px;font-size:10px;font-weight:600}.cvtkAW_chart{flex-direction:column;gap:12px;display:flex}.cvtkAW_chartProvider{flex-direction:column;gap:4px;display:flex}.cvtkAW_chartHead{justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;display:flex}.cvtkAW_chartTokens{font-variant-numeric:tabular-nums;opacity:.65;white-space:nowrap;font-size:11px}.cvtkAW_chartBar{background:color-mix(in srgb, currentColor 8%, transparent);border-radius:999px;height:8px;display:block;overflow:hidden}.cvtkAW_chartFill{background:color-mix(in srgb, currentColor 55%, transparent);border-radius:999px;height:100%;transition:width .3s;display:block}.cvtkAW_chartModel{opacity:.8;grid-template-columns:minmax(80px,180px) 1fr auto;align-items:center;gap:8px;padding-left:14px;font-size:11px;display:grid}.cvtkAW_chartModelName{text-overflow:ellipsis;white-space:nowrap;opacity:.8;overflow:hidden}.cvtkAW_chartModelBar{background:color-mix(in srgb, currentColor 6%, transparent);border-radius:999px;height:4px;display:block;overflow:hidden}.cvtkAW_chartModelFill{background:color-mix(in srgb, currentColor 35%, transparent);border-radius:999px;height:100%;transition:width .3s;display:block}.cvtkAW_trendAxis{opacity:.5;font-variant-numeric:tabular-nums;justify-content:space-between;font-size:10px;display:flex}.cvtkAW_muted{opacity:.6;font-size:12px}.cvtkAW_voucherPreview canvas{border-radius:8px;width:100%;height:auto;display:block}.cvtkAW_buttonRow{gap:8px;display:flex}.cvtkAW_errorLine{opacity:.75;font-size:12px}.cvtkAW_planCard{flex-direction:column;gap:8px;display:flex}.cvtkAW_planHead{justify-content:space-between;align-items:baseline;gap:10px;display:flex}.cvtkAW_planName{font-size:14px;font-weight:600}.cvtkAW_windowRow{flex-direction:column;gap:4px;display:flex}.cvtkAW_windowLabel{opacity:.8;font-variant-numeric:tabular-nums;justify-content:space-between;font-size:12px;display:flex}.cvtkAW_bar{background:color-mix(in srgb, currentColor 10%, transparent);border-radius:999px;height:6px;overflow:hidden}.cvtkAW_barFill{background:color-mix(in srgb, currentColor 55%, transparent);border-radius:999px;height:100%;transition:width .3s}.cvtkAW_barWarn{background:#d97706}.cvtkAW_barLow{background:#dc2626}.cvtkAW_resetLine{opacity:.55;font-variant-numeric:tabular-nums;font-size:11px}.cvtkAW_settingsGrid{flex-wrap:wrap;align-items:center;gap:16px;display:flex}.cvtkAW_settingItem{align-items:center;gap:8px;font-size:13px;display:flex}.cvtkAW_settingItem input[type=checkbox]{accent-color:currentColor}.cvtkAW_settingItem input[type=number]{border:1px solid color-mix(in srgb, currentColor 25%, transparent);width:90px;color:inherit;font:inherit;background:0 0;border-radius:6px;padding:3px 8px;font-size:13px}.cvtkAW_settingItem select{border:1px solid color-mix(in srgb, currentColor 25%, transparent);color:inherit;font:inherit;background:0 0;border-radius:6px;padding:3px 8px;font-size:13px}.cvtkAW_settingItem input:focus-visible,.cvtkAW_settingItem select:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_entry{box-sizing:border-box;width:100%;height:36px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 10px;font-size:13px;display:flex}.cvtkAW_entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.cvtkAW_entryIcon{flex:none;justify-content:center;align-items:center;width:24px;height:24px;display:inline-flex}.cvtkAW_entryIcon svg{width:18px;height:18px;display:block}.cvtkAW_entryLabel{text-overflow:ellipsis;overflow:hidden}.cvtkAW_entryMain{appearance:none;min-width:0;height:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;flex:1;align-items:center;gap:8px;padding:0;display:flex}.cvtkAW_entryAction{appearance:none;width:22px;height:22px;color:inherit;cursor:pointer;opacity:.55;background:0 0;border:none;border-radius:6px;flex:none;justify-content:center;align-items:center;padding:0;transition:opacity .12s,background-color .12s;display:inline-flex}.cvtkAW_entry:hover .cvtkAW_entryAction{opacity:.8}.cvtkAW_entryAction:hover{opacity:1;background:color-mix(in srgb, currentColor 10%, transparent)}.cvtkAW_entryAction:focus-visible,.cvtkAW_entryMain:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);outline:none}.cvtkAW_entryAction:disabled{cursor:default;opacity:.4}.cvtkAW_entryAction svg{width:14px;height:14px;display:block}.cvtkAW_entryAction:disabled svg{animation:.9s linear infinite cvtkAW_usageEntrySpin}@keyframes cvtkAW_usageEntrySpin{to{transform:rotate(360deg)}}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_entry,[data-sidebar-collapsed] .cvtkAW_entry{border-radius:50%;justify-content:center;width:36px;height:36px;margin:0 auto 12px;padding:0}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_entryMain,[data-sidebar-collapsed] .cvtkAW_entryMain{flex:none;justify-content:center;width:100%}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_entryAction,[data-sidebar-collapsed] .cvtkAW_entryAction{display:none}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_sidebarSummary,[data-sidebar-collapsed] .cvtkAW_sidebarSummary{display:none}[data-dsh-frame][data-sidebar-collapsed] .cvtkAW_entryLabel,[data-sidebar-collapsed] .cvtkAW_entryLabel{display:none}.cvtkAW_sidebarSummary{color:inherit;opacity:.75;white-space:nowrap;align-items:baseline;gap:6px;margin:0 4px 12px;padding:0 10px;font-size:11px;display:flex;overflow:hidden}.cvtkAW_sidebarSummaryName{text-overflow:ellipsis;flex:none;max-width:40%;font-weight:600;overflow:hidden}.cvtkAW_sidebarSummaryFacts{text-overflow:ellipsis;font-variant-numeric:tabular-nums;overflow:hidden}.cvtkAW_sidebarPanel{border:1px solid color-mix(in srgb, currentColor 14%, transparent);color:inherit;background:color-mix(in srgb, currentColor 4%, transparent);border-radius:10px;flex-direction:column;gap:8px;margin:0 4px 12px;padding:10px 10px 12px;display:flex}.cvtkAW_sidebarProvider{flex-direction:column;gap:4px;display:flex}.cvtkAW_sidebarProviderHead{justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;display:flex}.cvtkAW_sidebarProviderName{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.cvtkAW_sidebarBalance{opacity:.75;flex:none}.cvtkAW_sidebarWindowRow{opacity:.85;align-items:center;gap:6px;font-size:11px;display:flex}.cvtkAW_sidebarBar{background:color-mix(in srgb, currentColor 14%, transparent);border-radius:2px;flex:1;height:4px;overflow:hidden}.cvtkAW_sidebarBarFill{background:currentColor;border-radius:2px;height:100%;display:block}.cvtkAW_sidebarMuted{opacity:.6;font-size:11px}";
 		const tagId$4 = "@linxin666/dsh-web-all/packages/dsh-usage/src/client/usage.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
 			const tag = document.createElement("style");
@@ -48037,8 +48161,10 @@ window.__ModuleLoader__.load({
 			"currentBadge": "cvtkAW_currentBadge",
 			"currentProvider": "cvtkAW_currentProvider",
 			"entry": "cvtkAW_entry",
+			"entryAction": "cvtkAW_entryAction",
 			"entryIcon": "cvtkAW_entryIcon",
 			"entryLabel": "cvtkAW_entryLabel",
+			"entryMain": "cvtkAW_entryMain",
 			"errorLine": "cvtkAW_errorLine",
 			"header": "cvtkAW_header",
 			"muted": "cvtkAW_muted",
@@ -48059,11 +48185,12 @@ window.__ModuleLoader__.load({
 			"sidebarBarFill": "cvtkAW_sidebarBarFill",
 			"sidebarMuted": "cvtkAW_sidebarMuted",
 			"sidebarPanel": "cvtkAW_sidebarPanel",
-			"sidebarPanelHead": "cvtkAW_sidebarPanelHead",
 			"sidebarProvider": "cvtkAW_sidebarProvider",
 			"sidebarProviderHead": "cvtkAW_sidebarProviderHead",
 			"sidebarProviderName": "cvtkAW_sidebarProviderName",
-			"sidebarToggle": "cvtkAW_sidebarToggle",
+			"sidebarSummary": "cvtkAW_sidebarSummary",
+			"sidebarSummaryFacts": "cvtkAW_sidebarSummaryFacts",
+			"sidebarSummaryName": "cvtkAW_sidebarSummaryName",
 			"sidebarWindowRow": "cvtkAW_sidebarWindowRow",
 			"stat": "cvtkAW_stat",
 			"statLabel": "cvtkAW_statLabel",
@@ -48073,6 +48200,7 @@ window.__ModuleLoader__.load({
 			"tabActive": "cvtkAW_tabActive",
 			"tabs": "cvtkAW_tabs",
 			"trendAxis": "cvtkAW_trendAxis",
+			"usageEntrySpin": "cvtkAW_usageEntrySpin",
 			"voucherPreview": "cvtkAW_voucherPreview",
 			"windowLabel": "cvtkAW_windowLabel",
 			"windowRow": "cvtkAW_windowRow"
@@ -48194,10 +48322,12 @@ window.__ModuleLoader__.load({
 			if (nested !== null) return nested;
 			for (const child of root.children) if (child.tagName === "BUTTON") return child;
 		}
-		/** Build the entry row (a detached button; insert once the shell is up). */
+		/** Build the entry row (detached; inserted once the shell is up). */
 		function createEntry(options) {
-			const entry = document.createElement("button");
-			entry.type = "button";
+			const actions = options.actions ?? [];
+			const composite = actions.length > 0;
+			const entry = document.createElement(composite ? "div" : "button");
+			if (!composite) entry.type = "button";
 			entry.setAttribute(options.rowAttribute, "");
 			if (options.plugin !== void 0) {
 				entry.setAttribute("data-dsh-plugin", options.plugin);
@@ -48209,17 +48339,57 @@ window.__ModuleLoader__.load({
 			const iconSpan = document.createElement("span");
 			iconSpan.className = options.css["entryIcon"] ?? "";
 			iconSpan.innerHTML = options.icon;
-			entry.append(iconSpan, labelSpan);
+			const main = composite ? document.createElement("button") : entry;
+			if (composite) {
+				main.type = "button";
+				main.className = options.css["entryMain"] ?? "";
+				main.append(iconSpan, labelSpan);
+				entry.append(main);
+			} else entry.append(iconSpan, labelSpan);
+			const actionButtons = [];
+			for (const action of actions) {
+				const button = document.createElement("button");
+				button.type = "button";
+				button.className = options.css["entryAction"] ?? "";
+				button.setAttribute("data-dsh-entry-action", action.id);
+				button.innerHTML = action.icon;
+				button.addEventListener("click", () => {
+					action.onClick(button);
+				});
+				entry.append(button);
+				actionButtons.push({
+					action,
+					button
+				});
+			}
+			let open = false;
+			const applyActions = () => {
+				for (const { action, button } of actionButtons) {
+					button.innerHTML = open || action.inactiveIcon === void 0 ? action.icon : action.inactiveIcon;
+					const text = action.label(open);
+					button.setAttribute("aria-label", text);
+					button.setAttribute("title", text);
+					if (action.inactiveIcon !== void 0) button.setAttribute("aria-expanded", String(open));
+				}
+			};
 			const applyLabel = () => {
-				entry.setAttribute("aria-label", options.label());
-				if (options.tooltip !== void 0) entry.setAttribute("title", options.tooltip());
+				main.setAttribute("aria-label", options.label());
+				if (options.tooltip !== void 0) main.setAttribute("title", options.tooltip());
 				labelSpan.textContent = options.label();
+				applyActions();
 			};
 			applyLabel();
-			entry.addEventListener("click", options.onToggle);
+			main.addEventListener("click", options.onToggle);
+			if (composite) entry.addEventListener("click", (event) => {
+				if (event.target === entry) options.onToggle();
+			});
 			return {
 				entry,
-				applyLabel
+				applyLabel,
+				setOpen: (next) => {
+					open = next;
+					applyActions();
+				}
 			};
 		}
 		/** Re-insert the entry after the New Session row (before the browser region). */
@@ -48243,7 +48413,7 @@ window.__ModuleLoader__.load({
 		*/
 		function mountSidebarEntry$1(options) {
 			if (typeof document !== "undefined" && document.querySelector(options.rowSelector) !== null) return () => {};
-			const { entry, applyLabel } = createEntry(options);
+			const { entry, applyLabel, setOpen } = createEntry(options);
 			let root;
 			let placed = false;
 			let unsubscribeRefresh;
@@ -48283,8 +48453,10 @@ window.__ModuleLoader__.load({
 			});
 			const unsubscribeActive = options.active === void 0 ? void 0 : (() => {
 				const syncActive = () => {
-					if (options.active.isOpen()) entry.dataset.active = "true";
+					const open = options.active.isOpen();
+					if (open) entry.dataset.active = "true";
 					else delete entry.dataset.active;
+					setOpen(open);
 				};
 				const unsubscribe = options.active.subscribe(syncActive);
 				syncActive();
@@ -48305,22 +48477,54 @@ window.__ModuleLoader__.load({
 		* Sidebar entry injection for the usage panel (issue #1592) — wiring over the
 		* shared core. Unlike the panel-takeover family (task board / SSH / skill
 		* center) this row does not participate in the family block, so it is placed
-		* directly under the New Session row and ordered after those entries.
+		* directly under the New Session row and ordered after those entries. The row
+		* seats the panel's controls as trailing actions: a refresh command and a
+		* collapse chevron mirroring the open state, so the panel below renders only
+		* its content.
 		* @module @linxin666/dsh-usage/client/sidebar-entry
 		*/
 		/** Stable data attribute identifying the injected entry row. */
 		const ENTRY_SELECTOR = "[data-dsh-usage-entry]";
 		/** Inline gauge glyph normalized to the shell's 18px navigation glyph size. */
 		const ICON = "<svg viewBox=\"0 0 16 16\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2.5 12.5a7 7 0 0 1 11 -4.3\"/><path d=\"M8 12.5V8.2l2.9-2.1\"/><circle cx=\"8\" cy=\"12.5\" r=\"1\"/></svg>";
+		/** Refresh glyph: a clockwise circular arrow, 14px like the sibling action icons. */
+		const REFRESH_ICON = "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M13.4 8a5.4 5.4 0 1 1-1.58-3.82\"/><path d=\"M13.4 2.6v2.7h-2.7\"/></svg>";
+		/** Disclosure chevrons: down while expanded, right while collapsed. */
+		const CHEVRON_OPEN_ICON = "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m4 6 4 4 4-4\"/></svg>";
+		const CHEVRON_CLOSED_ICON = "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 4 4 4-4 4\"/></svg>";
+		/** Refresh cooldown: one forced probe cycle per click, the icon spins meanwhile. */
+		const REFRESH_COOLDOWN_MS = 3e3;
+		/** Trailing actions seated at the row's right edge. */
+		function entryActions(handlers) {
+			return [{
+				id: "refresh",
+				icon: REFRESH_ICON,
+				label: () => t$2("usage.refresh"),
+				onClick: (button) => {
+					handlers.onRefresh();
+					button.disabled = true;
+					window.setTimeout(() => {
+						button.disabled = false;
+					}, REFRESH_COOLDOWN_MS);
+				}
+			}, {
+				id: "collapse",
+				icon: CHEVRON_OPEN_ICON,
+				inactiveIcon: CHEVRON_CLOSED_ICON,
+				label: (open) => t$2(open ? "usage.sidebar.toggle.collapse" : "usage.sidebar.toggle.expand"),
+				onClick: () => {
+					handlers.onToggle();
+				}
+			}];
+		}
 		/**
 		* Mount the usage sidebar entry.
-		* @param onToggle - toggles the panel below the row.
-		* @param isOpen - reads the panel's expanded state (row highlight).
+		* @param handlers - the panel's toggle/refresh callbacks and open-state face.
 		* @param locale - locale-change source; when given, re-applies the label on a
-		*   Language switch (the plain-DOM row otherwise keeps the mount-time copy).
+		*   language switch (the plain-DOM row otherwise keeps the mount-time copy).
 		* @returns disposer removing the entry and its observers.
 		*/
-		function mountSidebarEntry(onToggle, isOpen, locale) {
+		function mountSidebarEntry(handlers, locale) {
 			return mountSidebarEntry$1({
 				rowAttribute: "data-dsh-usage-entry",
 				rowSelector: ENTRY_SELECTOR,
@@ -48330,7 +48534,8 @@ window.__ModuleLoader__.load({
 				label: () => t$2("usage.sidebar.entry.label"),
 				tooltip: () => t$2("usage.sidebar.entry.tooltip"),
 				refresh: locale === void 0 ? void 0 : { subscribe: (listener) => locale.subscribe(listener) },
-				onToggle,
+				onToggle: handlers.onToggle,
+				actions: entryActions(handlers),
 				position: "after",
 				familySelectors: [
 					"[data-dsh-taskboard-entry]",
@@ -48339,220 +48544,10 @@ window.__ModuleLoader__.load({
 					"[data-dsh-usage-entry]"
 				],
 				active: {
-					subscribe: (listener) => {
-						return () => {};
-					},
-					isOpen
+					subscribe: handlers.subscribeOpen,
+					isOpen: handlers.isOpen
 				}
 			});
-		}
-		//#endregion
-		//#region ../dsh-usage/src/client/UsageSidebarPanel.tsx
-		/**
-		* Sidebar usage panel (issue #1592): a collapsible usage surface in the
-		* sidebar, mounted directly under the family entry block. It reads the same
-		* /api/dsh-usage/overview document the settings section renders — plan
-		* providers show their quota windows, balance-only providers their remaining
-		* amount — and polls only while the panel is expanded and the page visible.
-		* @module @linxin666/dsh-usage/client/UsageSidebarPanel
-		*/
-		/** Poll cadence while the panel is expanded and the page visible. */
-		const PANEL_POLL_MS = 1e4;
-		/** localStorage key holding the collapsed flag ('1' = collapsed). */
-		const COLLAPSED_STORAGE_KEY = "dsh-usage.sidebar.collapsed";
-		/** Bar tone, matching the settings section's thresholds. */
-		function tone(percent) {
-			if (percent >= 90) return usage_module_css_default.barLow;
-			if (percent >= 70) return usage_module_css_default.barWarn;
-			return usage_module_css_default.sidebarBarFill;
-		}
-		/** Read the persisted collapsed flag (absent = expanded). */
-		function readCollapsed() {
-			try {
-				return window.localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
-			} catch {
-				return false;
-			}
-		}
-		/** A provider is worth listing when it is configured and carries a fact. */
-		function listable(provider) {
-			return provider.credential !== "none" && (provider.plan !== void 0 || provider.balance !== void 0);
-		}
-		/** One provider row: plan windows when present, otherwise the balance line. */
-		function ProviderBlock(props) {
-			const { provider } = props;
-			const windows = provider.plan?.windows ?? [];
-			if (windows.length > 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-				className: usage_module_css_default.sidebarProvider,
-				"data-dsh-part": "sidebar-provider",
-				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					className: usage_module_css_default.sidebarProviderHead,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-						className: usage_module_css_default.sidebarProviderName,
-						children: provider.displayName
-					})
-				}), windows.map((window) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: usage_module_css_default.sidebarWindowRow,
-					"data-dsh-part": "sidebar-window",
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: window.name ?? t$2(`usage.plan.windows.${window.key}`) }), window.percent !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-						className: usage_module_css_default.sidebarBar,
-						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: tone(window.percent),
-							style: { width: `${Math.min(100, Math.max(0, window.percent))}%` }
-						})
-					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [window.percent >= 10 ? Math.round(window.percent) : window.percent.toFixed(1), "%"] })] })]
-				}, window.key))]
-			});
-			if (provider.balance !== void 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-				className: usage_module_css_default.sidebarProvider,
-				"data-dsh-part": "sidebar-provider",
-				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: usage_module_css_default.sidebarProviderHead,
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-						className: usage_module_css_default.sidebarProviderName,
-						children: provider.displayName
-					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-						className: usage_module_css_default.sidebarBalance,
-						children: t$2("usage.sidebar.balanceLeft", { balance: `${provider.balance.currency} ${provider.balance.totalBalance}` })
-					})]
-				})
-			});
-			return null;
-		}
-		/**
-		* Render the sidebar usage panel.
-		* @param props - store plus the poll/refresh callbacks of the apply body.
-		* @returns the panel body (no wrapper: the entry row owns the placement).
-		*/
-		function UsageSidebarPanel(props) {
-			const { store, poll, refresh } = props;
-			const ui = (0, react.useSyncExternalStore)(store.subscribe, store.getSnapshot);
-			const [collapsed, setCollapsed] = (0, react.useState)(readCollapsed);
-			const [refreshing, setRefreshing] = (0, react.useState)(false);
-			const toggle = () => {
-				setCollapsed((current) => {
-					const next = !current;
-					try {
-						window.localStorage.setItem(COLLAPSED_STORAGE_KEY, next ? "1" : "0");
-					} catch {}
-					return next;
-				});
-			};
-			(0, react.useEffect)(() => {
-				if (collapsed) return void 0;
-				poll();
-				let timer;
-				const start = () => {
-					if (timer === void 0 && document.visibilityState === "visible") timer = window.setInterval(poll, PANEL_POLL_MS);
-				};
-				const onVisibility = () => {
-					if (document.visibilityState === "visible") {
-						poll();
-						start();
-					} else if (timer !== void 0) {
-						window.clearInterval(timer);
-						timer = void 0;
-					}
-				};
-				start();
-				document.addEventListener("visibilitychange", onVisibility);
-				return () => {
-					if (timer !== void 0) window.clearInterval(timer);
-					document.removeEventListener("visibilitychange", onVisibility);
-				};
-			}, [poll, collapsed]);
-			const onRefresh = () => {
-				setRefreshing(true);
-				refresh();
-				window.setTimeout(() => setRefreshing(false), 3e3);
-			};
-			const snapshot = ui.snapshot;
-			const providers = snapshot === null ? [] : snapshot.providers.filter(listable);
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-				className: usage_module_css_default.sidebarPanel,
-				"data-dsh-plugin": "usage",
-				"data-dsh-part": "sidebar-panel",
-				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: usage_module_css_default.sidebarPanelHead,
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t$2("usage.sidebar.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [!collapsed && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: usage_module_css_default.sidebarToggle,
-						onClick: onRefresh,
-						disabled: refreshing,
-						children: refreshing ? t$2("usage.refreshing") : t$2("usage.refresh")
-					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: usage_module_css_default.sidebarToggle,
-						"aria-expanded": !collapsed,
-						onClick: toggle,
-						children: collapsed ? t$2("usage.sidebar.toggle.expand") : t$2("usage.sidebar.toggle.collapse")
-					})] })]
-				}), !collapsed && (ui.status === "error" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-					className: usage_module_css_default.sidebarMuted,
-					children: t$2("usage.sidebar.error", { error: ui.error ?? "" })
-				}) : snapshot === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-					className: usage_module_css_default.sidebarMuted,
-					children: t$2("usage.sidebar.loading")
-				}) : providers.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-					className: usage_module_css_default.sidebarMuted,
-					children: t$2("usage.sidebar.empty")
-				}) : providers.map((provider) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ProviderBlock, { provider }, provider.provider)))]
-			});
-		}
-		//#endregion
-		//#region ../dsh-usage/src/client/sidebar-panel-mount.tsx
-		/**
-		* Sidebar usage panel mounting (issue #1592).
-		*
-		* The panel is a plain DOM row inserted into the sidebar right below the
-		* usage entry row, carrying its own React root. Placement self-heals with the
-		* same page-wide body-mutation hub the entry row uses; the entry row stays the
-		* anchor, so the sidebar order never depends on this module's timing.
-		* @module @linxin666/dsh-usage/client/sidebar-panel-mount
-		*/
-		/**
-		* Mount the sidebar usage panel below its entry row.
-		* @param props - the store and poll/refresh callbacks of the apply body.
-		* @returns the panel controller.
-		*/
-		function mountUsagePanel(props) {
-			const container = document.createElement("div");
-			container.setAttribute("data-dsh-usage-view", "");
-			const root = (0, react_dom_client.createRoot)(container);
-			root.render((0, react.createElement)(UsageSidebarPanel, props));
-			const listeners = /* @__PURE__ */ new Set();
-			let open = true;
-			const emit = () => {
-				for (const listener of [...listeners]) listener();
-			};
-			/** Keep the panel as the row directly after the usage entry. */
-			const place = () => {
-				const entry = document.querySelector(ENTRY_SELECTOR);
-				if (entry === null || entry.parentElement === null) return;
-				if (container.parentElement !== entry.parentElement || entry.nextElementSibling !== container) entry.parentElement.insertBefore(container, entry.nextElementSibling);
-			};
-			place();
-			const unsubscribeBody = subscribeBodyInvalidations$1(place);
-			return {
-				isOpen: () => open,
-				subscribe: (listener) => {
-					listeners.add(listener);
-					return () => {
-						listeners.delete(listener);
-					};
-				},
-				toggle: () => {
-					open = !open;
-					container.style.display = open ? "" : "none";
-					emit();
-				},
-				dispose: () => {
-					unsubscribeBody();
-					root.unmount();
-					container.remove();
-					listeners.clear();
-				}
-			};
 		}
 		//#endregion
 		//#region ../dsh-usage/src/core/adapters.ts
@@ -49043,6 +49038,31 @@ window.__ModuleLoader__.load({
 				peak: false,
 				boundaryMs: ms + 864e5
 			};
+		}
+		//#endregion
+		//#region ../dsh-usage/src/core/types.ts
+		/** A zeroed totals bucket. */
+		function emptyTotals() {
+			return {
+				inputTokens: 0,
+				outputTokens: 0,
+				cacheReadTokens: 0,
+				cacheWriteTokens: 0,
+				reasoningTokens: 0,
+				calls: 0,
+				cost: 0
+			};
+		}
+		/** Add `right` into `left` in place. */
+		function addTotals(left, right) {
+			left.inputTokens += right.inputTokens;
+			left.outputTokens += right.outputTokens;
+			left.cacheReadTokens += right.cacheReadTokens;
+			left.cacheWriteTokens += right.cacheWriteTokens;
+			left.reasoningTokens += right.reasoningTokens;
+			left.calls += right.calls;
+			left.cost += right.cost;
+			return left;
 		}
 		//#endregion
 		//#region ../dsh-usage/src/core/ledger.ts
@@ -49855,11 +49875,6 @@ window.__ModuleLoader__.load({
 		function SettingsRow(props) {
 			const { settings, snapshot, value } = props;
 			const disabled = snapshot === void 0 || !snapshot.writable;
-			const bubbleMode = typeof value.bubbleMode === "string" && [
-				"always",
-				"change",
-				"off"
-			].includes(value.bubbleMode) ? value.bubbleMode : "always";
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: usage_module_css_default.card,
 				"data-dsh-part": "settings-row",
@@ -49868,59 +49883,286 @@ window.__ModuleLoader__.load({
 					children: t$2("usage.config.title")
 				}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: usage_module_css_default.settingsGrid,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-							className: usage_module_css_default.settingItem,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								type: "checkbox",
-								checked: value.enabled ?? true,
-								disabled,
-								onChange: (event) => {
-									settings.set("enabled", event.target.checked);
-								}
-							}), t$2("usage.config.enabled")]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-							className: usage_module_css_default.settingItem,
-							children: [t$2("usage.config.pollIntervalSec"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								type: "number",
-								min: 30,
-								max: 3600,
-								value: typeof value.pollIntervalSec === "number" ? value.pollIntervalSec : 60,
-								disabled,
-								onChange: (event) => {
-									const parsed = Number(event.target.value);
-									if (Number.isFinite(parsed) && parsed >= 30 && parsed <= 3600) settings.set("pollIntervalSec", Math.round(parsed));
-								}
-							})]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-							className: usage_module_css_default.settingItem,
-							children: [t$2("usage.config.bubbleMode"), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-								value: bubbleMode,
-								disabled,
-								onChange: (event) => {
-									settings.set("bubbleMode", event.target.value);
-								},
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-										value: "always",
-										children: t$2("usage.config.bubbleMode.always")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-										value: "change",
-										children: t$2("usage.config.bubbleMode.change")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-										value: "off",
-										children: t$2("usage.config.bubbleMode.off")
-									})
-								]
-							})]
-						})
-					]
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: usage_module_css_default.settingItem,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							type: "checkbox",
+							checked: value.enabled ?? true,
+							disabled,
+							onChange: (event) => {
+								settings.set("enabled", event.target.checked);
+							}
+						}), t$2("usage.config.enabled")]
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: usage_module_css_default.settingItem,
+						children: [t$2("usage.config.pollIntervalSec"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							type: "number",
+							min: 30,
+							max: 3600,
+							value: typeof value.pollIntervalSec === "number" ? value.pollIntervalSec : 60,
+							disabled,
+							onChange: (event) => {
+								const parsed = Number(event.target.value);
+								if (Number.isFinite(parsed) && parsed >= 30 && parsed <= 3600) settings.set("pollIntervalSec", Math.round(parsed));
+							}
+						})]
+					})]
 				})]
 			});
+		}
+		//#endregion
+		//#region ../dsh-usage/src/client/UsageSidebarPanel.tsx
+		/**
+		* Sidebar usage panel (issue #1592): the usage body seated directly under the
+		* sidebar entry row. The row carries the panel's controls (refresh, collapse
+		* chevron), so this component renders only the content: expanded, plan
+		* providers show their quota windows and balance-only providers their
+		* remaining amount; collapsed, a one-line strip shows the current session
+		* provider's today usage (tokens, calls, and cost when priced) from the same
+		* /api/dsh-usage/overview document the settings section renders. The open
+		* state lives in the mount (persisted to localStorage) and arrives through
+		* the open face; polling runs at 10s expanded, 30s collapsed, and pauses
+		* while the page is hidden.
+		* @module @linxin666/dsh-usage/client/UsageSidebarPanel
+		*/
+		/** Poll cadence while the panel is expanded and the page visible. */
+		const PANEL_POLL_MS = 1e4;
+		/**
+		* Poll cadence of the collapsed strip: the current session's usage should
+		* stay visibly live, but a collapsed surface pays a relaxed cadence instead
+		* of the expanded one.
+		*/
+		const COLLAPSED_POLL_MS = 3e4;
+		/** Bar tone, matching the settings section's thresholds. */
+		function tone(percent) {
+			if (percent >= 90) return usage_module_css_default.barLow;
+			if (percent >= 70) return usage_module_css_default.barWarn;
+			return usage_module_css_default.sidebarBarFill;
+		}
+		/**
+		* The collapsed-strip facts for the current provider: display name plus
+		* today's adapter-family totals (tokens, calls, cost). The host serves them
+		* strip-ready inside `current`; an older host document is derived against
+		* here. Undefined on a day without usage — a strip about nothing is noise.
+		*/
+		function collapsedSummary(snapshot) {
+			const provider = snapshot.current.provider;
+			if (provider === void 0) return void 0;
+			const name = snapshot.current.displayName ?? snapshot.providers.find((entry) => entry.provider === provider)?.displayName ?? provider;
+			if (snapshot.current.today !== void 0) {
+				const totals = snapshot.current.today;
+				return totals.calls > 0 && totalTokens(totals) > 0 ? {
+					name,
+					totals
+				} : void 0;
+			}
+			const family = adapterFor(provider);
+			let merged = emptyTotals();
+			for (const row of snapshot.usage.today.providers) if (family === void 0 ? row.provider === provider : adapterFor(row.provider) === family) merged = addTotals(merged, row.totals);
+			return merged.calls > 0 && totalTokens(merged) > 0 ? {
+				name,
+				totals: merged
+			} : void 0;
+		}
+		/** A provider is worth listing when it is configured and carries a fact. */
+		function listable(provider) {
+			return provider.credential !== "none" && (provider.plan !== void 0 || provider.balance !== void 0);
+		}
+		/** One provider row: plan windows when present, otherwise the balance line. */
+		function ProviderBlock(props) {
+			const { provider } = props;
+			const windows = provider.plan?.windows ?? [];
+			if (windows.length > 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: usage_module_css_default.sidebarProvider,
+				"data-dsh-part": "sidebar-provider",
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: usage_module_css_default.sidebarProviderHead,
+					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarProviderName,
+						children: provider.displayName
+					})
+				}), windows.map((window) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: usage_module_css_default.sidebarWindowRow,
+					"data-dsh-part": "sidebar-window",
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: window.name ?? t$2(`usage.plan.windows.${window.key}`) }), window.percent !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarBar,
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: tone(window.percent),
+							style: { width: `${Math.min(100, Math.max(0, window.percent))}%` }
+						})
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [window.percent >= 10 ? Math.round(window.percent) : window.percent.toFixed(1), "%"] })] })]
+				}, window.key))]
+			});
+			if (provider.balance !== void 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: usage_module_css_default.sidebarProvider,
+				"data-dsh-part": "sidebar-provider",
+				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: usage_module_css_default.sidebarProviderHead,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarProviderName,
+						children: provider.displayName
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarBalance,
+						children: t$2("usage.sidebar.balanceLeft", { balance: `${provider.balance.currency} ${provider.balance.totalBalance}` })
+					})]
+				})
+			});
+			return null;
+		}
+		/**
+		* Render the sidebar usage panel body.
+		* @param props - store, the poll callback, and the mount's open-state face.
+		* @returns the panel content, or null while collapsed.
+		*/
+		function UsageSidebarPanel(props) {
+			const { store, poll, open: openState } = props;
+			const ui = (0, react.useSyncExternalStore)(store.subscribe, store.getSnapshot);
+			const open = (0, react.useSyncExternalStore)(openState.subscribe, openState.isOpen);
+			(0, react.useEffect)(() => {
+				poll();
+				const cadence = open ? PANEL_POLL_MS : COLLAPSED_POLL_MS;
+				let timer;
+				const start = () => {
+					if (timer === void 0 && document.visibilityState === "visible") timer = window.setInterval(poll, cadence);
+				};
+				const onVisibility = () => {
+					if (document.visibilityState === "visible") {
+						poll();
+						start();
+					} else if (timer !== void 0) {
+						window.clearInterval(timer);
+						timer = void 0;
+					}
+				};
+				start();
+				document.addEventListener("visibilitychange", onVisibility);
+				return () => {
+					if (timer !== void 0) window.clearInterval(timer);
+					document.removeEventListener("visibilitychange", onVisibility);
+				};
+			}, [poll, open]);
+			const snapshot = ui.snapshot;
+			if (!open) {
+				const summary = snapshot === null ? void 0 : collapsedSummary(snapshot);
+				if (summary === void 0) return null;
+				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: usage_module_css_default.sidebarSummary,
+					"data-dsh-plugin": "usage",
+					"data-dsh-part": "sidebar-summary",
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.sidebarSummaryName,
+						children: summary.name
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+						className: usage_module_css_default.sidebarSummaryFacts,
+						children: [
+							t$2("usage.sidebar.todayUsage", { tokens: formatTokens(totalTokens(summary.totals)) }),
+							" · ",
+							t$2("usage.calls", { n: summary.totals.calls }),
+							summary.totals.cost > 0 ? ` · ¥${summary.totals.cost.toFixed(2)}` : ""
+						]
+					})]
+				});
+			}
+			const providers = snapshot === null ? [] : snapshot.providers.filter(listable);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: usage_module_css_default.sidebarPanel,
+				"data-dsh-plugin": "usage",
+				"data-dsh-part": "sidebar-panel",
+				children: ui.status === "error" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: usage_module_css_default.sidebarMuted,
+					children: t$2("usage.sidebar.error", { error: ui.error ?? "" })
+				}) : snapshot === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: usage_module_css_default.sidebarMuted,
+					children: t$2("usage.sidebar.loading")
+				}) : providers.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: usage_module_css_default.sidebarMuted,
+					children: t$2("usage.sidebar.empty")
+				}) : providers.map((provider) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ProviderBlock, { provider }, provider.provider))
+			});
+		}
+		//#endregion
+		//#region ../dsh-usage/src/client/sidebar-panel-mount.tsx
+		/**
+		* Sidebar usage panel mounting (issue #1592).
+		*
+		* The panel is a plain DOM row inserted into the sidebar right below the
+		* usage entry row, carrying its own React root. Placement self-heals with the
+		* same page-wide body-mutation hub the entry row uses; the entry row stays the
+		* anchor, so the sidebar order never depends on this module's timing.
+		*
+		* The mount owns the panel's single open state: initialized from localStorage,
+		* flipped by the entry row's toggle controls, and mirrored to the React body
+		* through the subscribe/isOpen face (the same face the entry row's chevron
+		* and highlight read).
+		* @module @linxin666/dsh-usage/client/sidebar-panel-mount
+		*/
+		/** localStorage key holding the collapsed flag ('1' = collapsed). */
+		const COLLAPSED_STORAGE_KEY = "dsh-usage.sidebar.collapsed";
+		/** Read the persisted collapsed flag (absent = expanded). */
+		function readCollapsed() {
+			try {
+				return window.localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
+			} catch {
+				return false;
+			}
+		}
+		/** Persist the collapsed flag; storage failures keep the session state. */
+		function writeCollapsed(collapsed) {
+			try {
+				window.localStorage.setItem(COLLAPSED_STORAGE_KEY, collapsed ? "1" : "0");
+			} catch {}
+		}
+		/**
+		* Mount the sidebar usage panel below its entry row.
+		* @param props - the store and poll callback of the apply body.
+		* @returns the panel controller.
+		*/
+		function mountUsagePanel(props) {
+			const container = document.createElement("div");
+			container.setAttribute("data-dsh-usage-view", "");
+			const listeners = /* @__PURE__ */ new Set();
+			let open = !readCollapsed();
+			const emit = () => {
+				for (const listener of [...listeners]) listener();
+			};
+			const openState = {
+				subscribe: (listener) => {
+					listeners.add(listener);
+					return () => {
+						listeners.delete(listener);
+					};
+				},
+				isOpen: () => open
+			};
+			const root = (0, react_dom_client.createRoot)(container);
+			root.render((0, react.createElement)(UsageSidebarPanel, {
+				store: props.store,
+				poll: props.poll,
+				open: openState
+			}));
+			/** Keep the panel as the row directly after the usage entry. */
+			const place = () => {
+				const entry = document.querySelector(ENTRY_SELECTOR);
+				if (entry === null || entry.parentElement === null) return;
+				if (container.parentElement !== entry.parentElement || entry.nextElementSibling !== container) entry.parentElement.insertBefore(container, entry.nextElementSibling);
+			};
+			place();
+			const unsubscribeBody = subscribeBodyInvalidations$1(place);
+			return {
+				isOpen: () => open,
+				subscribe: openState.subscribe,
+				toggle: () => {
+					open = !open;
+					writeCollapsed(!open);
+					emit();
+				},
+				dispose: () => {
+					unsubscribeBody();
+					root.unmount();
+					container.remove();
+					listeners.clear();
+				}
+			};
 		}
 		//#endregion
 		//#region ../dsh-usage/src/client/index.ts
@@ -50004,12 +50246,18 @@ window.__ModuleLoader__.load({
 			});
 			const panel = mountUsagePanel({
 				store,
-				poll,
-				refresh
+				poll
 			});
-			const disposeEntry = mountSidebarEntry(() => {
-				panel.toggle();
-			}, () => panel.isOpen(), ctx.locale);
+			const disposeEntry = mountSidebarEntry({
+				onToggle: () => {
+					panel.toggle();
+				},
+				onRefresh: () => {
+					refresh();
+				},
+				isOpen: () => panel.isOpen(),
+				subscribeOpen: (listener) => panel.subscribe(listener)
+			}, ctx.locale);
 			ctx.effect(() => () => {
 				try {
 					disposeEntry();

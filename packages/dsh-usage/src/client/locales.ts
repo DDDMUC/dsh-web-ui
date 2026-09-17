@@ -48,10 +48,6 @@ export const zh = {
   'usage.config.title': '设置',
   'usage.config.enabled': '启用插件',
   'usage.config.pollIntervalSec': '轮询间隔（秒）',
-  'usage.config.bubbleMode': '宠物气泡',
-  'usage.config.bubbleMode.always': '常驻显示',
-  'usage.config.bubbleMode.change': '仅变化时',
-  'usage.config.bubbleMode.off': '关闭',
   'usage.bank.title': '鲸元券',
   'usage.bank.hint': '官方 API 每消耗 100 万 tokens 铸造 1 鲸元；保存或分享这张票券。',
   'usage.bank.noUsage': '暂无 DeepSeek 官方用量数据（统计自插件启用起）',
@@ -64,13 +60,13 @@ export const zh = {
   'usage.bank.drawError': '票券生成失败：{error}',
   'usage.sidebar.entry.label': '用量',
   'usage.sidebar.entry.tooltip': '用量面板：套餐配额与余额',
-  'usage.sidebar.title': '用量',
   'usage.sidebar.toggle.collapse': '折叠',
   'usage.sidebar.toggle.expand': '展开',
   'usage.sidebar.empty': '没有已配置的套餐或余额数据。',
   'usage.sidebar.error': '加载失败：{error}',
   'usage.sidebar.loading': '正在加载用量数据…',
   'usage.sidebar.balanceLeft': '剩余 {balance}',
+  'usage.sidebar.todayUsage': '今日 {tokens} tokens',
 }
 
 /** English mirror; every zh key present. */
@@ -114,10 +110,6 @@ export const en: Record<UsageKey, string> = {
   'usage.config.title': 'Settings',
   'usage.config.enabled': 'Enable plugin',
   'usage.config.pollIntervalSec': 'Poll interval (seconds)',
-  'usage.config.bubbleMode': 'Pet bubble',
-  'usage.config.bubbleMode.always': 'Always visible',
-  'usage.config.bubbleMode.change': 'On change',
-  'usage.config.bubbleMode.off': 'Off',
   'usage.bank.title': 'Whale-yuan voucher',
   'usage.bank.hint': 'Every 1,000,000 tokens spent on the official API mint one whale yuan; save or share the note.',
   'usage.bank.noUsage': 'No official DeepSeek usage yet (counting starts when the plugin is enabled)',
@@ -130,13 +122,13 @@ export const en: Record<UsageKey, string> = {
   'usage.bank.drawError': 'Failed to render the voucher: {error}',
   'usage.sidebar.entry.label': 'Usage',
   'usage.sidebar.entry.tooltip': 'Usage panel: plan quotas and balances',
-  'usage.sidebar.title': 'Usage',
   'usage.sidebar.toggle.collapse': 'Collapse',
   'usage.sidebar.toggle.expand': 'Expand',
   'usage.sidebar.empty': 'No plan or balance data configured.',
   'usage.sidebar.error': 'Loading failed: {error}',
   'usage.sidebar.loading': 'Loading usage data…',
   'usage.sidebar.balanceLeft': '{balance} left',
+  'usage.sidebar.todayUsage': '{tokens} tokens today',
 }
 
 export type UsageKey = keyof typeof zh

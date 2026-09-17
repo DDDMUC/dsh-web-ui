@@ -22,7 +22,6 @@ import type { ObservedSpendView, ProviderSnapshotView, UsageOverviewView, UsageP
 export interface UsageSettings {
   enabled?: boolean
   pollIntervalSec?: number
-  bubbleMode?: string
 }
 
 /** The registration-side face the section's slot entry injects. */
@@ -541,7 +540,6 @@ function SettingsRow(props: {
 }): ReactNode {
   const { settings, snapshot, value } = props
   const disabled = snapshot === undefined || !snapshot.writable
-  const bubbleMode = typeof value.bubbleMode === 'string' && ['always', 'change', 'off'].includes(value.bubbleMode) ? value.bubbleMode : 'always'
   return (
     <div className={styles.card} data-dsh-part="settings-row">
       <span className={styles.cardTitle}>{t('usage.config.title')}</span>
@@ -568,18 +566,6 @@ function SettingsRow(props: {
               if (Number.isFinite(parsed) && parsed >= 30 && parsed <= 3600) void settings.set('pollIntervalSec', Math.round(parsed))
             }}
           />
-        </label>
-        <label className={styles.settingItem}>
-          {t('usage.config.bubbleMode')}
-          <select
-            value={bubbleMode}
-            disabled={disabled}
-            onChange={(event) => { void settings.set('bubbleMode', event.target.value) }}
-          >
-            <option value="always">{t('usage.config.bubbleMode.always')}</option>
-            <option value="change">{t('usage.config.bubbleMode.change')}</option>
-            <option value="off">{t('usage.config.bubbleMode.off')}</option>
-          </select>
         </label>
       </div>
     </div>

@@ -124,12 +124,17 @@ export function apply(ctx: ClientContext): void {
 
   const face = (): UsageSectionFace => ({ store, poll, refresh, settings: settingsScope })
 
-  // Sidebar surface (issue #1592): the entry row plus the collapsible panel
-  // directly under it, reading the same overview document. Mounted after the
-  // entry row first exists; the panel self-heals its placement with the shared
-  // body-mutation hub, and the entry row highlights while it is expanded.
-  const panel = mountUsagePanel({ store, poll, refresh })
-  const disposeEntry = mountSidebarEntry(() => { panel.toggle() }, () => panel.isOpen(), ctx.locale)
+  // Sidebar surface (issue #1592): the entry row seats the panel's controls
+  // (refresh, collapse chevron); the collapsible panel directly under it reads
+  // the same overview document. The mount owns the persisted open state; the
+  // entry row mirrors it as highlight and chevron direction.
+  const panel = mountUsagePanel({ store, poll })
+  const disposeEntry = mountSidebarEntry({
+    onToggle: () => { panel.toggle() },
+    onRefresh: () => { refresh() },
+    isOpen: () => panel.isOpen(),
+    subscribeOpen: (listener) => panel.subscribe(listener),
+  }, ctx.locale)
   ctx.effect(() => () => {
     try {
       disposeEntry()

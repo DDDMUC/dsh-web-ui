@@ -14,8 +14,6 @@ export interface Config {
   enabled?: boolean
   /** Provider probe cycle in seconds; 30-3600. */
   pollIntervalSec?: number
-  /** Pet bubble mode: always (refreshes each poll), change (only on value change), off. */
-  bubbleMode?: string
   /** Ledger retention in local days. */
   retainDays?: number
 }
@@ -23,7 +21,6 @@ export interface Config {
 export const Config: z<Config> = z.object({
   enabled: z.boolean().default(true),
   pollIntervalSec: z.number().min(30).max(3600).default(60),
-  bubbleMode: z.string().default('always'),
   retainDays: z.number().min(7).max(730).default(180),
 })
 
@@ -32,11 +29,9 @@ export interface ResolvedConfig extends UsageServiceOptions {
 }
 
 export function resolveConfig(config?: Config): ResolvedConfig {
-  const bubbleMode = config?.bubbleMode === 'change' || config?.bubbleMode === 'off' ? config.bubbleMode : 'always'
   return {
     enabled: config?.enabled ?? true,
     pollIntervalSec: typeof config?.pollIntervalSec === 'number' ? config.pollIntervalSec : 60,
-    bubbleMode,
     retainDays: typeof config?.retainDays === 'number' ? config.retainDays : 180,
   }
 }

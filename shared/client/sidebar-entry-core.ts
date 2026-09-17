@@ -15,6 +15,33 @@
  */
 import { subscribeBodyInvalidations } from './body-mutations.ts'
 
+/**
+ * One trailing action button seated at the entry row's right edge (e.g. a
+ * refresh command or a collapse chevron). Rows with actions switch from the
+ * classic single-button structure to a container with a main button plus the
+ * action buttons (nested interactive elements are invalid HTML); rows without
+ * actions keep the classic structure untouched.
+ */
+export interface SidebarEntryAction {
+  /** Stable id stamped as data-dsh-entry-action="<id>" (CSS hooks and tests). */
+  id: string
+  /** Inline icon markup while the row is active (always, when inactiveIcon is unset). */
+  icon: string
+  /**
+   * Optional icon while the row is inactive. Setting it makes the action a
+   * state mirror (a collapse chevron): the core swaps the icon and stamps
+   * aria-expanded on every active-state change. Requires the active bridge.
+   */
+  inactiveIcon?: string
+  /** Localized accessible label (aria-label + title); receives the active state. */
+  label(active: boolean): string
+  /**
+   * Click handler; receives the button so the caller can drive transient
+   * affordances (a refresh cooldown) without a re-render.
+   */
+  onClick(button: HTMLButtonElement): void
+}
+
 /** Per-package configuration for one sidebar entry row. */
 export interface SidebarEntryOptions {
   /** Full attribute name identifying the injected row (idempotency key), e.g. 'data-dsh-ssh-entry'. */
@@ -46,6 +73,12 @@ export interface SidebarEntryOptions {
   refresh?: { subscribe(listener: () => void): () => void }
   /** Click action (open/toggle the owning panel). */
   onToggle(): void
+  /**
+   * Optional trailing action buttons at the row's right edge. Requires the
+   * package CSS to seat entryMain / entryAction; empty keeps the classic
+   * single-button row.
+   */
+  actions?: readonly SidebarEntryAction[]
   /** Family-block position: 'before' inserts ahead of sibling plugin rows, 'after' behind them. */
   position: 'before' | 'after'
   /**
@@ -83,10 +116,12 @@ function newSessionButton(root: HTMLElement): HTMLButtonElement | undefined {
   return undefined
 }
 
-/** Build the entry row (a detached button; insert once the shell is up). */
-function createEntry(options: SidebarEntryOptions): { entry: HTMLButtonElement; applyLabel: () => void } {
-  const entry = document.createElement('button')
-  entry.type = 'button'
+/** Build the entry row (detached; inserted once the shell is up). */
+function createEntry(options: SidebarEntryOptions): { entry: HTMLElement; applyLabel: () => void; setOpen: (open: boolean) => void } {
+  const actions = options.actions ?? []
+  const composite = actions.length > 0
+  const entry = document.createElement(composite ? 'div' : 'button') as HTMLElement
+  if (!composite) (entry as HTMLButtonElement).type = 'button'
   entry.setAttribute(options.rowAttribute, '')
   if (options.plugin !== undefined) {
     entry.setAttribute('data-dsh-plugin', options.plugin)
@@ -98,19 +133,66 @@ function createEntry(options: SidebarEntryOptions): { entry: HTMLButtonElement; 
   const iconSpan = document.createElement('span')
   iconSpan.className = options.css['entryIcon'] ?? ''
   iconSpan.innerHTML = options.icon
-  entry.append(iconSpan, labelSpan)
+  // The main hit area: the classic row IS the button; with trailing actions
+  // the row becomes a container and the main area its own button, so the row
+  // never nests interactive elements.
+  const main = composite ? document.createElement('button') : (entry as HTMLButtonElement)
+  if (composite) {
+    main.type = 'button'
+    main.className = options.css['entryMain'] ?? ''
+    main.append(iconSpan, labelSpan)
+    entry.append(main)
+  } else {
+    entry.append(iconSpan, labelSpan)
+  }
+  const actionButtons: { action: SidebarEntryAction; button: HTMLButtonElement }[] = []
+  for (const action of actions) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = options.css['entryAction'] ?? ''
+    button.setAttribute('data-dsh-entry-action', action.id)
+    button.innerHTML = action.icon
+    button.addEventListener('click', () => { action.onClick(button) })
+    entry.append(button)
+    actionButtons.push({ action, button })
+  }
+  let open = false
+  const applyActions = (): void => {
+    for (const { action, button } of actionButtons) {
+      button.innerHTML = open || action.inactiveIcon === undefined ? action.icon : action.inactiveIcon
+      const text = action.label(open)
+      button.setAttribute('aria-label', text)
+      button.setAttribute('title', text)
+      if (action.inactiveIcon !== undefined) button.setAttribute('aria-expanded', String(open))
+    }
+  }
   const applyLabel = (): void => {
-    entry.setAttribute('aria-label', options.label())
-    if (options.tooltip !== undefined) entry.setAttribute('title', options.tooltip())
+    main.setAttribute('aria-label', options.label())
+    if (options.tooltip !== undefined) main.setAttribute('title', options.tooltip())
     labelSpan.textContent = options.label()
+    applyActions()
   }
   applyLabel()
-  entry.addEventListener('click', options.onToggle)
-  return { entry, applyLabel }
+  main.addEventListener('click', options.onToggle)
+  if (composite) {
+    // The old row was clickable edge to edge; keep the padding between the
+    // main area and the action buttons a toggle target as well.
+    entry.addEventListener('click', (event) => {
+      if (event.target === entry) options.onToggle()
+    })
+  }
+  return {
+    entry,
+    applyLabel,
+    setOpen: (next: boolean) => {
+      open = next
+      applyActions()
+    },
+  }
 }
 
 /** Re-insert the entry after the New Session row (before the browser region). */
-function placeEntry(root: HTMLElement, entry: HTMLButtonElement, options: SidebarEntryOptions): boolean {
+function placeEntry(root: HTMLElement, entry: HTMLElement, options: SidebarEntryOptions): boolean {
   const button = newSessionButton(root)
   if (button === undefined) return false
   if (entry.parentElement !== root) {
@@ -148,7 +230,7 @@ export function mountSidebarEntry(options: SidebarEntryOptions): () => void {
   if (typeof document !== 'undefined' && document.querySelector(options.rowSelector) !== null) {
     return () => {}
   }
-  const { entry, applyLabel } = createEntry(options)
+  const { entry, applyLabel, setOpen } = createEntry(options)
   let root: HTMLElement | undefined
   let placed = false
   let unsubscribeRefresh: (() => void) | undefined
@@ -216,8 +298,10 @@ export function mountSidebarEntry(options: SidebarEntryOptions): () => void {
   // row permanently highlighted — delete the attribute instead.
   const unsubscribeActive = options.active === undefined ? undefined : (() => {
     const syncActive = (): void => {
-      if (options.active!.isOpen()) entry.dataset.active = 'true'
+      const open = options.active!.isOpen()
+      if (open) entry.dataset.active = 'true'
       else delete entry.dataset.active
+      setOpen(open)
     }
     const unsubscribe = options.active.subscribe(syncActive)
     syncActive()
