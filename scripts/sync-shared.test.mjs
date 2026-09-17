@@ -24,9 +24,9 @@ test('copies cover the settings trio for all consumers plus host and http helper
   // The total is every generated copy in the manifest; the single-instance
   // guard alone contributes one mount-once.ts per host half (17 today). The
   // buckets below partition the same set by target location.
-  assert.equal(entries.length, 134)
+  assert.equal(entries.length, 132)
   const clientTrio = entries.filter(entry => entry.target.includes('/src/client/'))
-  assert.equal(clientTrio.length, 58)
+  assert.equal(clientTrio.length, 56)
   const hostCopies = entries.filter(entry => entry.target.includes('/src/host/')
     || entry.target.includes('/src/dsh-home.ts')
     || entry.target.includes('/src/mount-once.ts')
