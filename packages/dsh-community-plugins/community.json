@@ -904,5 +904,16 @@
     "repo": "https://github.com/liiydong/dsh-workbench",
     "category": "ui",
     "subcategory": "panel"
+  },
+  {
+    "id": "dsh-ppt-studio",
+    "name": "PPT 工作室",
+    "nameEn": "PPT Studio",
+    "author": "zbsph",
+    "description": "把做 PPT 变成带门禁的工程流程：四类任务工作流（从头 / 补完 / 修改 / 总结）+ 21 个 ppt_* 工具（建工程、渲染、数字审阅、视觉截图、导出、导入、只改一页）+ PPTD 中间层（deck.yaml + pages/*.yaml，1px = 1pt）+ 设计意图声明制（有意重叠逐对声明，内容互压永远拦下）+ 内置模板库与 Office 真渲染抽检；改既有 PPT 的某一页走 splice（其余页逐字节不变），单页交付走 slice，贴模板走 patch；另附四本内置技能手册（叙事版式 / 图表数据 / 中文文案 / 答疑）与「PPT 工作室」agent 预设。默认一条命令 `dsh plugin add <仓库 URL>` 装成 profile bundle——该 profile 的所有会话都能用这些工具与手册；若想让它们**只在选中「PPT 工作室」预设的会话里出现**，在解压后的发布包里跑 `node scripts/install.mjs --isolate` 即可切到会话级隔离（两条路互斥，各一句命令来回切，详见仓库 README §0.7）。",
+    "descriptionEn": "Turns deck making into a gated engineering workflow: a four-task pipeline (from scratch / augment / edit / summarize), 21 ppt_* tools (scaffold, render, numeric review, screenshots, export, import, single-page edit), the PPTD intermediate layer (deck.yaml + pages/*.yaml, 1px = 1pt), design-intent declarations (intentional overlaps are declared pair by pair, content collisions are always blocked), a built-in template library and Office real-render spot checks. Editing one page of an existing deck goes through splice (every other page stays byte-identical), single-page delivery through slice and template patching through patch, plus four bundled skill manuals (narrative and layout, charts and data, Chinese copy, Q&A) and a PPT Studio agent preset. Install with a single command (`dsh plugin add <repo URL>`) as a profile bundle, which makes the tools and manuals available to every session in that profile; to scope them to sessions that select the \"PPT Studio\" preset instead, run `node scripts/install.mjs --isolate` from the unpacked release (the two mount paths are mutually exclusive and switch with one command each; see README section 0.7).",
+    "repo": "https://github.com/zbsph/dsh-ppt-studio",
+    "category": "tools",
+    "subcategory": "dev"
   }
 ]
