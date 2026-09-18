@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-17",
+  "generated": "2026-09-18",
   "items": [
     {
       "id": "whale-song",
@@ -1969,7 +1969,7 @@
         "glass",
         "translucent"
       ],
-      "version": "0.2.1",
+      "version": "0.2.2",
       "accent": "#0d1627",
       "preview": {
         "light": "assets/skins/wallpaper-exclusive/preview/light.jpg",
