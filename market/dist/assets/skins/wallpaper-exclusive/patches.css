@@ -65,8 +65,10 @@ body:not([data-ds-dark-theme]) [class*="md-code-block"] {
 /* The board frame (data-dsh-plugin="task-board") and its columns/cards above are
    already on the fixed glass; the search field is the one surface still painted
    with the shell's flat 50% white, so it takes the shared hover glass to keep the
-   whole board on one translucent material. */
-[data-dsh-taskboard-view] input {
+   whole board on one translucent material. Anchored on input[type="search"] (the
+   board renders exactly one, TaskBoard.tsx) so the new-task modal's text, date and
+   checkbox inputs keep the shell's own material. */
+[data-dsh-taskboard-view] input[type="search"] {
   background-color: var(--dsw-wallpaper-glass-hover) !important;
 }
 
