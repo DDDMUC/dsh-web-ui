@@ -6,7 +6,7 @@
 # turn boundary.
 #
 # The presentation is the SDK's ToolPresentationMode, picked by the
-# tool-catalog row's `presentation` key (default `'both'`): `'native'` keeps
+# tool-catalog row's `presentation` key (default `'ptc'`): `'native'` keeps
 # the assembled roster on the wire, `'ptc'` collapses the wire to the single
 # `run_code` transport, and `'both'` keeps the full native roster AND the
 # `run_code` transport co-resident — native calls carry ordinary work while
@@ -165,7 +165,7 @@
   name: ./tool-catalog.mjs
   config:
     descriptionMaxLength: 200
-    presentation: 'both'
+    presentation: 'ptc'
     pagedToolPatterns: []
     maxResidentTokens: 6000
 

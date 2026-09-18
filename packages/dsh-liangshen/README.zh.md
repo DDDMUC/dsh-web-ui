@@ -14,7 +14,7 @@ DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官
 
 1. `minimal-prompt` 把每次组装出的提示词收窄到 persona 一段——一行 persona、本模式的固定工作纪律（同一假设的思考推演不超过两轮，缺少事实时立即闭合思考并调用检查工具而非空想；思考只决定下一步具体操作，不预演完整代码实现；多处独立检查或搜索在单轮内并发发射多个工具调用；Shell 为无状态进程，跨调用目录不保留，子目录操作使用复合命令或显式 workdir；正确性一律在执行阶段以工具实际输出验证；YAGNI 与 PDCA；不写冗余注释）、以及一行从会话头读取的方位信息 `Your working directory is <cwd>.`——因此 harness identity、web surface、工具用法、文件引用与结构化输出等 section 默认不会到达模型；plan mode 的 `plan:policy` 保留，因为该 section 是 plan mode 唯一的执行依据（它的退出工具在任何模式下都保持注册）；
 2. AGENTS.md 类工作区指令经 `instructionSource` 送达模型：默认（`host`）下 preset 不追加任何自有段，也不改动宿主自己的送达，工作区指令以宿主的 user 角色消息抵达——一条持久基线，加上触碰目录后的增量、替换与移除；`system-prompt` 下它们直接进入系统提示词本身：组装时 `minimal-prompt` 读取 harness 的基线链（`$DSH_HOME/AGENTS.md`，再从项目根到会话 cwd 沿途的 `AGENTS.md` / `CLAUDE.md` 及其 `.local` 覆盖层），把内容作为一段 `workspace-instructions` 追加在稳定前缀之后，受字节预算约束——放不下时先省略最宽的文件、最后才截断最具体的文件；读取在每次组装时都发生，文件改动无需持久消息即可在下次请求生效，harness 自己的 agent-instructions 注入则被丢弃以免与提示词重复。工作区子目录动态规则后续将支持注册文件工具（含 `str_replace_editor`）及 `run_code` 内子调用触达的目录；不解析任意 bash/program 代码，不保证 shell 自行文件访问的自动发现；
-3. wire 在整个会话中保持由 `presentation` 选定的同一种呈现：`both`（默认）让原生清单与传输工具同驻，兼顾原生最高胜率与特化计算；`ptc` 把 wire 收拢为 `run_code`、其余工具经生成的 SDK 调用；`native` 携带组装出的原生清单；`ptc` 与 `both` 需要挂载的 code runtime；没有时插件不做声明，会话直接运行原生工具面。旧键 `ptcPresentation` 映射到 `ptc`/`native` 并发出弃用告警，已退役的 `anchorTools` 首回合收窄不再生效——设置它会收到告警；
+3. wire 在整个会话中保持由 `presentation` 选定的同一种呈现：`ptc`（默认）把 wire 收拢为 `run_code`、其余工具经生成的 SDK 调用；`native` 携带组装出的原生清单；`both` 让原生清单与传输工具同驻，兼顾原生最高胜率与特化计算；`ptc` 与 `both` 需要挂载的 code runtime；没有时插件不做声明，会话直接运行原生工具面。旧键 `ptcPresentation` 映射到 `ptc`/`native` 并发出弃用告警，已退役的 `anchorTools` 首回合收窄不再生效——设置它会收到告警；
 4. `tool-catalog` 把工具清单作为持久 user 消息追加在用户消息之后，保留完整输入输出关键参数语义（`descriptionMaxLength: 200` 仅限制一行摘要长度）。目录只宣告该次请求实际开放的工具——原生清单加上同驻时的 `run_code`——并在分页开启时为被扣留的命名空间附上一行摘要；`ptc` 下这些摘要代表真正不可达的命名空间——既不在该请求的 `tools:sdk` 段中，也不能在 `run_code` 程序内调用——直到 `tool_activate`；只在工具面变化、或已发布副本离开可见面（压缩、恢复）时重发；
 5. 工具默认常驻 wire 开箱可用；若配置 `pagedToolPatterns` 则启用温和分页，把匹配工具扣留在 wire 之外直到模型经 `tool_activate` 激活：激活的命名空间从下一个请求起重新可达，最多保持三个已激活的分页命名空间（激活第四个时将最久未用的逐回摘要状态）。激活状态从持久事件流重建，压缩与恢复均可还原；
 6. 最小版 working-context 行——plan-mode 状态、已激活的分页命名空间、进行中的 todo——只在其来源可读时注入到最新消息尾部，让当前状态落在模型的局部注意力窗口内；运行时上下文（sandbox 与 approval 快照）与 skill 目录按 Standard 模式正常注入；
@@ -50,7 +50,7 @@ DeepSeek V4.1 Flash 的后训练直接对齐其原生 DSML 工具调用面，官
 | `instructionSource` | `host` | 工作区指令送达模型的方式。`host`（默认）不追加任何自有段，也不改动宿主的 agent-instructions 注入，工作区指令以宿主自己的 user 角色消息送达：一条持久基线，加上触碰目录后的增量、替换与移除；`system-prompt` 在组装时读取 AGENTS.md 链并追加进系统提示词（harness 自己的注入被丢弃）；`hint` 把首次注入替换为一次性的、非命令式的参考文件提示，后续注入丢弃。 |
 | `instructionMaxBytes` | `65536` | 渲染后的 workspace-instructions 段的字节预算，仅在 `system-prompt` 模式下生效：最宽的文件先被省略，最具体的文件最后被截断。 |
 | `descriptionMaxLength` | `200` | 注入目录中单个工具一行摘要的长度上限。完整关键参数语义保持完整。 |
-| `presentation` | `both` | 整个会话的 wire 呈现方式。`both`（出厂默认）保持完整原生清单并同驻一个 `run_code`，兼顾原生高胜率与特化计算；`ptc` 把 wire 收拢为 `run_code`，其余工具经生成的 SDK 调用；`native` 保持组装出的原生清单。`ptc` 与 `both` 需要挂载的 code runtime；没有时插件根本不做声明，会话直接运行原生工具面。 |
+| `presentation` | `ptc` | 整个会话的 wire 呈现方式。`ptc`（出厂默认）把 wire 收拢为 `run_code`，其余工具经生成的 SDK 调用；`native` 保持组装出的原生清单；`both` 保持完整原生清单并同驻一个 `run_code`，兼顾原生高胜率与特化计算。`ptc` 与 `both` 需要挂载的 code runtime；没有时插件根本不做声明，会话直接运行原生工具面。 |
 | `pagedToolPatterns` | `[]` | 预设默认置空（全量常驻开箱可用）；若配置 glob 模式，命中工具被扣留在 wire 之外，直到模型通过 `tool_activate({ namespace })` 激活其命名空间。被扣留的命名空间在目录中以一行摘要出现。最多同时保持三个已激活的分页命名空间，激活状态从持久事件流重建。 |
 | `maxResidentTokens` | `6000` | 常驻 wire 面的估算 token 上限（按序列化 schema 约四字符一 token），校准在出厂清单之上，用于发现真实增长而非出厂配置本身。超过时告警一次、列出最重的工具并指向 `pagedToolPatterns`；不会截断工具清单。 |
 | `ptcPresentation` | （已退役） | 旧别名：`true` 映射为 `presentation: 'ptc'`，`false` 映射为 `'native'`，两者都伴随弃用告警。 |
@@ -100,7 +100,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 | --- | --- | --- |
 | `enabled` | `true` | 总开关：关闭后预设同步与公告都不执行。 |
 | `announceToAgent` | `false` | 按需开启：开启后向 agent 系统提示注入本插件公告。默认关闭，保持系统提示词干净。 |
-| `presentation` | `both` | 写入同步后 preset 之 `tool-catalog` 行的 wire 呈现：`both`（默认）让清单与传输工具同驻；`ptc` 把 wire 收拢为 `run_code`；`native` 保持组装出的原生清单。改动在下次 DSH 启动重新同步 preset 时生效。 |
+| `presentation` | `ptc` | 写入同步后 preset 之 `tool-catalog` 行的 wire 呈现：`ptc`（默认）把 wire 收拢为 `run_code`；`native` 保持组装出的原生清单；`both` 让清单与传输工具同驻。改动在下次 DSH 启动重新同步 preset 时生效。 |
 
 各字段都可在 Web 设置界面（插件配置）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。其中塑造 preset 的 presentation 字段经预设同步抵达会话：插件在拷贝 bundle 的同时把它写入同步产出的 `agent.cordis.yml`，因此真正被会话运行的是设置界面的取值，而不是包内文件。组合里没有的键绝不会被凭空写入——覆写只会收窄出厂配置。改动需重启 DSH 生效。
 

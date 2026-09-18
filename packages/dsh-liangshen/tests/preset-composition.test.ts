@@ -78,8 +78,8 @@ describe('liangshen preset composition', () => {
     expect(row('tool-catalog')).toContain('descriptionMaxLength: 200')
   })
 
-  it("declares the 'both' presentation with no paged patterns by default, and no retired keys", () => {
-    expect(row('tool-catalog')).toContain("presentation: 'both'")
+  it("declares the 'ptc' presentation with no paged patterns by default, and no retired keys", () => {
+    expect(row('tool-catalog')).toContain("presentation: 'ptc'")
     expect(row('tool-catalog')).toContain("pagedToolPatterns: []")
     expect(row('tool-catalog')).not.toContain('ptcPresentation')
     expect(row('tool-catalog')).not.toContain('anchorTools')
@@ -94,9 +94,9 @@ describe('liangshen preset composition', () => {
     expect(row('reasoning-effort')).toBe('')
   })
 
-  it('keeps the native and ptc presentation variants structurally valid', () => {
-    for (const mode of ['native', 'ptc']) {
-      const variant = preset.replace("presentation: 'both'", `presentation: '${mode}'`)
+  it('keeps the native and both presentation variants structurally valid', () => {
+    for (const mode of ['native', 'both']) {
+      const variant = preset.replace("presentation: 'ptc'", `presentation: '${mode}'`)
       expect(variant).not.toBe(preset)
       expect(validateAgentCordis(variant), mode).toEqual([])
     }

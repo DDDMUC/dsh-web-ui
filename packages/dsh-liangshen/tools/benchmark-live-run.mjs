@@ -77,12 +77,12 @@ export const LIVE_VARIANTS = {
   B: {
     persona: 'current',
     presentation: null,
-    note: "baseline: shipped persona, shipped 'both' presentation",
+    note: "baseline: shipped persona, shipped 'ptc' presentation",
   },
   P: {
     persona: 'candidate',
     presentation: null,
-    note: "candidate persona, shipped 'both' presentation",
+    note: "candidate persona, shipped 'ptc' presentation",
   },
   T: {
     persona: 'candidate',
@@ -202,8 +202,9 @@ export function materializePreset(root, variantId, variant) {
     const text = readFileSync(composition, 'utf8')
     // Anchor on the config line: the composition also NAMES the presentation key
     // inside its prose, and rewriting a comment would leave the real surface alone.
-    const replaced = text.replace(/^(\s*)presentation: '[^']*'/m, `$1presentation: '${variant.presentation}'`)
-    if (replaced === text) throw new Error('benchmark: the preset composition carries no presentation line to vary')
+    const pattern = /^(\s*)presentation: '[^']*'/m
+    if (!pattern.test(text)) throw new Error('benchmark: the preset composition carries no presentation line to vary')
+    const replaced = text.replace(pattern, `$1presentation: '${variant.presentation}'`)
     writeFileSync(composition, replaced)
   }
   if (variant.persona === 'candidate') {
