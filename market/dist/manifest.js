@@ -375,6 +375,35 @@ window.SKIN_MANIFEST = {
       }
     },
     {
+      "id": "island-life",
+      "name": "无人岛生活",
+      "nameEn": "Island Life",
+      "author": "wertyq111",
+      "tagline": "海岛白昼 / 星空夜景插画 · 奶油木纹面板 · 薄荷胶囊按钮",
+      "description": "致敬「动森」氛围的原创海岛皮肤：浅色模式是阳光海滩，深色模式是同构图的星空夜景；奶油米白面板、暖棕文字、薄荷青绿主色，按钮与输入卡带游戏按键式立体底影。纯 CSS，无 hooks。",
+      "accent": "#19c8b9",
+      "preview": {
+        "light": "assets/skins/island-life/preview/light.jpg",
+        "dark": "assets/skins/island-life/preview/dark.jpg"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/skins/island-life/assets/island-day.webp",
+            "scrim": "linear-gradient(rgba(248, 248, 240, 0.18) 0%, rgba(248, 246, 236, 0.34) 55%, rgba(247, 243, 223, 0.46) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/skins/island-life/assets/island-night.webp",
+            "scrim": "linear-gradient(rgba(14, 18, 38, 0.22) 0%, rgba(16, 20, 40, 0.34) 60%, rgba(18, 20, 36, 0.46) 100%)"
+          }
+        }
+      }
+    },
+    {
       "id": "observatory",
       "name": "天文台",
       "nameEn": "Observatory",
@@ -691,6 +720,35 @@ window.SKIN_MANIFEST = {
       },
       "contributes": {
         "stylesheet": "skin.css"
+      }
+    },
+    {
+      "id": "remiel-starlit",
+      "name": "蕾米埃尔·星翎",
+      "nameEn": "Remiel Starlit",
+      "author": "oh-wang",
+      "tagline": "粉樱冰翎，明暗皆星光",
+      "description": "以蕾米埃尔的樱粉发色、冰蓝羽翼与夜靛礼装构成半透明玻璃质感。浅色如晨雾羽光，深色以紫红与靛黑承接更沉浸的场景背景。",
+      "accent": "#d75b8d",
+      "preview": {
+        "light": "assets/skins/remiel-starlit/preview/light.jpg",
+        "dark": "assets/skins/remiel-starlit/preview/dark.jpg"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/skins/remiel-starlit/assets/remiel-calm.jpg",
+            "scrim": "linear-gradient(rgba(255, 247, 252, 0.08) 0%, rgba(255, 247, 252, 0.08) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/skins/remiel-starlit/assets/remiel-nocturne.jpg",
+            "scrim": "linear-gradient(rgba(18, 10, 25, 0.32) 0%, rgba(18, 10, 25, 0.32) 100%)"
+          }
+        }
       }
     },
     {

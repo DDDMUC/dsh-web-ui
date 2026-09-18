@@ -92,6 +92,11 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://dsh-market.com/tryon/?skin=island-life</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://dsh-market.com/tryon/?skin=observatory</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -148,6 +153,11 @@
   </url>
   <url>
     <loc>https://dsh-market.com/tryon/?skin=mint</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=remiel-starlit</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
