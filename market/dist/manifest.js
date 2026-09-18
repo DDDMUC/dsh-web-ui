@@ -723,6 +723,35 @@ window.SKIN_MANIFEST = {
       }
     },
     {
+      "id": "remiel-starlit",
+      "name": "蕾米埃尔·星翎",
+      "nameEn": "Remiel Starlit",
+      "author": "oh-wang",
+      "tagline": "粉樱冰翎，明暗皆星光",
+      "description": "以蕾米埃尔的樱粉发色、冰蓝羽翼与夜靛礼装构成半透明玻璃质感。浅色如晨雾羽光，深色以紫红与靛黑承接更沉浸的场景背景。",
+      "accent": "#d75b8d",
+      "preview": {
+        "light": "assets/skins/remiel-starlit/preview/light.jpg",
+        "dark": "assets/skins/remiel-starlit/preview/dark.jpg"
+      },
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css",
+        "backgroundMedia": {
+          "light": {
+            "type": "image",
+            "src": "assets/skins/remiel-starlit/assets/remiel-calm.jpg",
+            "scrim": "linear-gradient(rgba(255, 247, 252, 0.08) 0%, rgba(255, 247, 252, 0.08) 100%)"
+          },
+          "dark": {
+            "type": "image",
+            "src": "assets/skins/remiel-starlit/assets/remiel-nocturne.jpg",
+            "scrim": "linear-gradient(rgba(18, 10, 25, 0.32) 0%, rgba(18, 10, 25, 0.32) 100%)"
+          }
+        }
+      }
+    },
+    {
       "id": "cyber-night",
       "name": "赛博夜城",
       "nameEn": "Cyber Night",
