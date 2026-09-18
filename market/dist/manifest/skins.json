@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-17",
+  "generated": "2026-09-18",
   "items": [
     {
       "id": "whale-song",
@@ -1455,6 +1455,63 @@
             "scrim": "linear-gradient(180deg, rgba(8,6,16,0.36) 0%, rgba(8,6,16,0.48) 45%, rgba(8,6,16,0.68) 100%)"
           }
         }
+      }
+    },
+    {
+      "id": "pixel-anime",
+      "name": "二次元像素",
+      "nameEn": "Anime Pixel",
+      "author": "stushansusu",
+      "rank": 35,
+      "tagline": "椰影沙滩 · 银河星海 · 棋盘抖动 · 精灵描边",
+      "description": "同一个海岸的两段时间。明亮是白昼的沙滩椰林：暖沙地、湿沙的水痕、断断续续的浪线、近岸泛青的海，椰子树用二十格高的点阵剪影立在沙上，天上挂着一颗带八条光芒的阶梯太阳和四朵点阵云；暗色是深夜的星空银河：夜空蓝黑、二百三十颗点阵星加一条由淡点堆出来的银河拱、右上角一枚下弦月，海平线往上是月亮照亮的暖褐滩涂，水里压着几道月光与星光。两套都不靠渐变——明暗是 8px 一格的棋盘抖动堆出来的，像素画里没有平滑 ramp。所有圆角归零（像素画只有直角和 45 度），每张卡片一圈 2px 精灵描边加 4px 实心投影。整片海岸画在画布层（沙 286px、海 134px，锚在底边），而画布与机壳之间不留任何中间层：bg-base 全透明，会话背景与主页背景是同一幅画。侧栏的文件夹行是沙台、选中行下缘压一道碎浪，输入卡下缘也是碎浪、发送键是落日橙（夜里银河紫），工具行与用户气泡共用同一个实心底色。",
+      "tags": [
+        "anime",
+        "pixel",
+        "16bit",
+        "dither",
+        "retro",
+        "beach",
+        "palm",
+        "milky-way",
+        "starfield",
+        "css-only",
+        "dual-theme"
+      ],
+      "version": "1.0.0",
+      "accent": "#0F7182",
+      "preview": {
+        "light": "assets/skins/pixel-anime/preview/light.jpg",
+        "dark": "assets/skins/pixel-anime/preview/dark.jpg"
+      },
+      "files": [
+        "LICENSE",
+        "README.md",
+        "README.zh.md",
+        "assets/pixel-cloud.svg",
+        "assets/pixel-grass-dark.svg",
+        "assets/pixel-grass.svg",
+        "assets/pixel-gull.svg",
+        "assets/pixel-moon-dark.svg",
+        "assets/pixel-palm-dark.svg",
+        "assets/pixel-palm.svg",
+        "assets/pixel-print-dark.svg",
+        "assets/pixel-print.svg",
+        "assets/pixel-shell-dark.svg",
+        "assets/pixel-shell.svg",
+        "assets/pixel-starfish-dark.svg",
+        "assets/pixel-starfish.svg",
+        "assets/pixel-stars-dark.svg",
+        "patches.css",
+        "preview/dark.jpg",
+        "preview/light.jpg",
+        "skin.css",
+        "skin.json"
+      ],
+      "repo": "https://github.com/zhu1090093659/dsh-web/tree/dev/packages/skins/skin-center/skins/pixel-anime",
+      "contributes": {
+        "stylesheet": "skin.css",
+        "patches": "patches.css"
       }
     },
     {
