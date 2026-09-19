@@ -55,12 +55,20 @@ describe('restoreTarget', () => {
 
   it('never restores the LiangShen preset itself', () => {
     expect(restoreTarget({ ...base, previous: LIANGSHEN_PRESET_ID })).toBe('standard')
-    expect(restoreTarget({ ...base, fallback: LIANGSHEN_PRESET_ID, previous: LIANGSHEN_PRESET_ID })).toBeUndefined()
+    expect(restoreTarget({ ...base, fallback: LIANGSHEN_PRESET_ID, previous: LIANGSHEN_PRESET_ID })).toBe('standard')
+  })
+
+  it('falls back to the first available non-liangshen preset when deployment default is liangshen', () => {
+    expect(restoreTarget({ ...base, fallback: LIANGSHEN_PRESET_ID, previous: undefined })).toBe('standard')
+  })
+
+  it('prefers a remembered preset even when deployment default is liangshen', () => {
+    expect(restoreTarget({ ...base, fallback: LIANGSHEN_PRESET_ID, previous: 'master' })).toBe('master')
   })
 
   it('skips a remembered preset the roster no longer supplies', () => {
     expect(restoreTarget({ ...base, previous: 'retired' })).toBe('standard')
-    expect(restoreTarget({ ...base, previous: 'retired', fallback: 'also-retired' })).toBeUndefined()
+    expect(restoreTarget({ ...base, available: [LIANGSHEN_PRESET_ID], previous: 'retired', fallback: 'also-retired' })).toBeUndefined()
   })
 
   it('returns nothing when the roster supplies only the LiangShen preset', () => {

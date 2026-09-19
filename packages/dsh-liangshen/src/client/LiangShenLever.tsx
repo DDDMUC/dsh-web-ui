@@ -65,7 +65,10 @@ export function LiangShenLever(face: LeverFace): ReactElement | null {
   // blank-session window: a started session reports `locked`, a deployment
   // without the preset reports `missing`, and both mean the row renders
   // nothing instead of a dead control in the composer of a running session.
-  if (state === 'locked' || state === 'missing') return null
+  // An `on` lever with an empty restore label has nothing to return to either
+  // (the roster supplies no other usable preset), so a push there would be the
+  // same dead control: render nothing rather than a switch that eats gestures.
+  if (state === 'locked' || state === 'missing' || (state === 'on' && restoreLabel === '')) return null
 
   const toggle = (): void => {
     if (!actionable) return
