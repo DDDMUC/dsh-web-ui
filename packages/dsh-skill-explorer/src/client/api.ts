@@ -84,9 +84,12 @@ export class SkillApi {
   }
 
   private async request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+    const headers = options.body === undefined
+      ? new Headers()
+      : new Headers({ 'content-type': 'application/json' })
     const response = await fetch(path, {
       method: options.method ?? 'GET',
-      headers: options.body === undefined ? undefined : { 'content-type': 'application/json' },
+      headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     })
     let body: unknown
