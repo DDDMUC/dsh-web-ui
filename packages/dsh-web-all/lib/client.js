@@ -19644,7 +19644,6 @@ window.__ModuleLoader__.load({
 			const ui = (0, react.useSyncExternalStore)(store.subscribe, store.getSnapshot);
 			const def = definition.gameplay;
 			const view = ui.snapshot?.gameplay;
-			const phase = ui.snapshot?.phase ?? "idle";
 			const persistedSkin = ui.snapshot?.skin;
 			const [open, setOpen] = (0, react.useState)(false);
 			const [page, setPage] = (0, react.useState)("root");
@@ -19659,8 +19658,6 @@ window.__ModuleLoader__.load({
 			/** Live gameplay view for the interval loops (def identity is stable, view is not). */
 			const viewRef = (0, react.useRef)(view);
 			viewRef.current = view;
-			const phaseRef = (0, react.useRef)(phase);
-			phaseRef.current = phase;
 			const draggingRef = (0, react.useRef)(false);
 			const touchLockUntilRef = (0, react.useRef)(0);
 			const missRef = (0, react.useRef)(0);
@@ -19819,7 +19816,6 @@ window.__ModuleLoader__.load({
 				if (total <= 0) return void 0;
 				let actTimer = 0;
 				const timer = window.setInterval(() => {
-					if (phaseRef.current !== "idle") return;
 					if (modeRef.current !== null || draggingRef.current) return;
 					if (Date.now() < touchLockUntilRef.current) return;
 					if (roamHeldRef.current) return;
