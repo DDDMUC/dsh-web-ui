@@ -492,4 +492,3 @@ describe('persistence', () => {
     await service.stop()
   })
 })
-
