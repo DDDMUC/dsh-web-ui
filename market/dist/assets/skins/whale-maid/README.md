@@ -87,3 +87,10 @@ artwork fell short.
 
 `preview/light.jpg` and `preview/dark.jpg` are rendered from the market preview
 harness (`node scripts/capture-previews whale-maid`).
+
+## License
+
+The skin engineering (`skin.json` / `skin.css` / `patches.css` and the palette
+remap) and every asset in `assets/` — the matched day/night backdrops and the
+generated SVG decorations — are the author's original work, released under
+[CC BY-NC-SA 4.0](LICENSE): attribution required, non-commercial, share-alike.

@@ -6,6 +6,9 @@
   "nameEn": "Whale Girl · Sea Gaze",
   "version": "1.0.0",
   "author": "stushansusu",
+  "license": "CC BY-NC-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "attribution": "皮肤工程与 assets/ 中的两张背景插画（whale-day.webp / whale-night.webp）及全部装饰 SVG 均为作者 stushansusu 原创，按 CC BY-NC-SA 4.0 发布。",
   "tagline": "白昼海岸 · 蓝发女仆抱鲸 · 蕾丝白纱 · 深海夜",
   "description": "两套光共用一张画：白昼是原图的海岸午后（蓝天、白浪、灯塔、抱着鲸鱼玩偶的蓝发女仆），夜里把同一张画重新打光成月下的深海，人物与构图一个像素都不移动。界面走赛璐璐的画法——墨线、硬投影、平涂——但面全部换成「白纱」：有颜色、有玻璃、有蕾丝网眼，看得见后面的人。海的纹样只有三种：蕾丝网眼（两组错开半个周期的点阵）、青海波鳞纹（两层错开的半圆浪线），以及从海底升上来的两层视差气泡。",
   "tags": [

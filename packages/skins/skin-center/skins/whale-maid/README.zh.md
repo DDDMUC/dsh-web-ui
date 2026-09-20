@@ -69,3 +69,9 @@ Markdown 表格单独给了一块薄面 —— 表格单元格自己没有面，
 
 `preview/light.jpg` / `preview/dark.jpg` 由市场预览渲染器产出
 （`node scripts/capture-previews whale-maid`）。
+
+## 许可证
+
+皮肤工程（`skin.json` / `skin.css` / `patches.css` 与调色板重映射）与 `assets/` 中的全部素材
+（成对的白昼／夜海背景画与生成的装饰 SVG）均为作者原创，按
+[CC BY-NC-SA 4.0](LICENSE) 发布——署名、非商业、相同方式共享。

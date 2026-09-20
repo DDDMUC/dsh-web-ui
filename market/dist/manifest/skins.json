@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-19",
+  "generated": "2026-09-20",
   "items": [
     {
       "id": "whale-song",
@@ -2454,6 +2454,7 @@
         "dark": "assets/skins/whale-maid/preview/dark.jpg"
       },
       "files": [
+        "LICENSE",
         "README.md",
         "README.zh.md",
         "assets/bubble-dark.svg",
