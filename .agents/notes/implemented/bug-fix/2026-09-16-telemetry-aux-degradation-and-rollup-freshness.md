@@ -12,7 +12,7 @@ Measured against production during the incident: the 30-day heartbeat day-series
 
 - The channel/version breakdowns are auxiliary and now fail soft: each runs as its own single-statement batch, and when its COUNT(DISTINCT) scan fails (SQLITE_NOMEM), `telemetrySummary` logs `[summary-aux] <label> skipped`, returns an empty breakdown and flags the payload with `degraded: ["channels" | "versions"]`. The daily series, item page, totals and today-activity stay exact; if one of those scans fails, the whole window still falls back to the stale rollup as before.
 - Every summary payload carries `generated_at` (epoch ms of the rollup compute; cache reads keep the original stamp, so the fallback's age is visible). The dashboard renders the stamp ("数据滚存于") next to the fetch time, warns when the rollup is older than twice its TTL (one hour for windows up to 30 days, 24 hours beyond) and lists skipped breakdowns — a frozen rollup can no longer masquerade as missing data.
-- The nine aggregates now run as five D1 batches (was four): one light chunk (pv day-series, hb day-series, top paths, paths total, today's items) plus one statement per chunk for channels, item page, item totals and versions.
+- The nine aggregates now run as five D1 batches (was four): one light chunk (pv day-series, hb day-series, top paths, paths total, today's items) plus one statement per chunk for channels, item page, item totals and versions. [The per-day rollup pipeline](2026-09-20-telemetry-daily-rollup-pipeline.md) supersedes that shape: the summary reads the rollup tables in three batches, and the fail-soft path stays for the auxiliary breakdowns.
 
 ## Testing
 
@@ -27,6 +27,6 @@ Measured against production during the incident: the 30-day heartbeat day-series
 
 ## Consequences
 
-- 30-day windows (the dashboard's first paint) recompute again while D1 is under load, at the cost of occasionally empty version distribution; consumers must read `degraded`.
+- 30-day windows (the dashboard's first paint) recompute again while D1 is under load, at the cost of occasionally empty version distribution; consumers must read `degraded`. [The per-day rollup pipeline](2026-09-20-telemetry-daily-rollup-pipeline.md) lifts that cost out of the read path.
 - Degraded payloads are cached for the TTL like any rollup; the flag travels with the cached bytes.
-- 90/365-day windows still freeze at their last successful rollup under D1 memory pressure; the freshness stamp now makes that legible instead of silent. The fact table remains the next structural step.
+- 90/365-day windows still freeze at their last successful rollup under D1 memory pressure; the freshness stamp now makes that legible instead of silent. The deferred structural step shipped as [the per-day rollup pipeline](2026-09-20-telemetry-daily-rollup-pipeline.md): the aggregation reads per-day rollup tables instead of scanning the event table.
