@@ -19,6 +19,8 @@ const roots: Root[] = []
 afterEach(() => {
   for (const root of roots.splice(0)) act(() => { root.unmount() })
   document.body.replaceChildren()
+  // The remembered parse model lives in localStorage; keep tests independent.
+  window.localStorage.clear()
 })
 
 const draft = { title: 'Parsed title', description: 'Parsed description', prompt: 'Parsed prompt' }
@@ -70,6 +72,14 @@ function typeInto(element: HTMLInputElement | HTMLTextAreaElement, value: string
   })
 }
 
+function chooseOption(select: HTMLSelectElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!
+  act(() => {
+    setter.call(select, value)
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+}
+
 function parseButton(container: HTMLElement): HTMLButtonElement {
   const button = [...container.querySelectorAll('button')].find(candidate => candidate.textContent === t('new.aiParseRun'))
   if (button === undefined) throw new Error('no parse button')
@@ -86,8 +96,10 @@ describe('new-task AI parse section (#1540)', () => {
     const { container, parseTaskDraft } = renderModal()
     const section = container.querySelector('[data-dsh-part="ai-parse"]')
     expect(section).not.toBeNull()
-    // The model roster arrives from the runtime: the first entry is preselected.
-    expect(section!.querySelector('select')!.value).toBe('deepseek/deepseek-chat')
+    // Issue #1621: with nothing remembered the picker starts on the Host
+    // default, not on the roster's first entry.
+    expect(section!.querySelector('select')!.value).toBe('')
+    chooseOption(section!.querySelector('select')!, 'deepseek/deepseek-chat')
     expect(parseButton(container).disabled).toBe(true)
 
     typeInto(field(container, t('new.aiParsePlaceholder')), '  下周三前把报价发给张工  ')
@@ -115,5 +127,27 @@ describe('new-task AI parse section (#1540)', () => {
     typeInto(field(container, t('new.aiParsePlaceholder')), 'some note')
     await act(async () => { parseButton(container).dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     expect(field(container, t('new.titlePlaceholder'))).toHaveProperty('value', '手工写的标题')
+  })
+
+  it('starts from the model this browser used last (#1621)', () => {
+    window.localStorage.setItem('dsh-task-board.parse-model', 'deepseek/deepseek-chat')
+    const { container } = renderModal()
+    expect(container.querySelector<HTMLSelectElement>('[data-dsh-part="ai-parse"] select')!.value).toBe('deepseek/deepseek-chat')
+  })
+
+  it('drops a remembered model the deployment no longer offers (#1621)', () => {
+    window.localStorage.setItem('dsh-task-board.parse-model', 'vendor/gone')
+    const { container } = renderModal()
+    expect(container.querySelector<HTMLSelectElement>('[data-dsh-part="ai-parse"] select')!.value).toBe('')
+    expect(window.localStorage.getItem('dsh-task-board.parse-model')).toBe('')
+  })
+
+  it('remembers the model picked for the next modal (#1621)', () => {
+    const { container } = renderModal()
+    const select = container.querySelector<HTMLSelectElement>('[data-dsh-part="ai-parse"] select')!
+    chooseOption(select, 'deepseek/deepseek-chat')
+    expect(window.localStorage.getItem('dsh-task-board.parse-model')).toBe('deepseek/deepseek-chat')
+    chooseOption(select, '')
+    expect(window.localStorage.getItem('dsh-task-board.parse-model')).toBe('')
   })
 })

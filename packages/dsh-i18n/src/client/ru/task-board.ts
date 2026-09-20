@@ -149,6 +149,7 @@ export const ru: Record<string, string> = {
   'new.promptPlaceholder': 'Полная инструкция для агента (если оставить пустым, будет использован заголовок)',
   'new.required': 'Заголовок не может быть пустым',
   'new.submit': 'Создать',
+  'new.createAndRun': 'Создать и запустить',
   'new.tagAdd': 'Добавить метку',
   'new.tagName': 'Имя метки',
   'new.tagNamePlaceholder': 'напр. Работа',
