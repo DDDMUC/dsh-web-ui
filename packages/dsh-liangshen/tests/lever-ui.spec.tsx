@@ -123,6 +123,9 @@ describe('LiangShenLever', () => {
 
     const missing = fakeFace({ state: 'missing' })
     expect(mount(missing.face).querySelector('[data-dsh-plugin="liangshen"]')).toBeNull()
+
+    const unswitchableOn = fakeFace({ state: 'on', restoreLabel: '' })
+    expect(mount(unswitchableOn.face).querySelector('[data-dsh-plugin="liangshen"]')).toBeNull()
   })
 
   it('leaves the composer row when the session leaves the blank window and returns on a blank one', () => {

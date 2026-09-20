@@ -41488,7 +41488,7 @@ window.__ModuleLoader__.load({
 					clearTimeout(timer);
 				};
 			}, [burstKey]);
-			if (state === "locked" || state === "missing") return null;
+			if (state === "locked" || state === "missing" || state === "on" && restoreLabel === "") return null;
 			const toggle = () => {
 				if (!actionable) return;
 				if (on) face.push();
@@ -41661,15 +41661,19 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* The preset a push-up restores: the preset the user was on before pulling the
-		* lever, else the deployment default. A candidate is skipped when it is the
-		* LiangShen preset itself (restoring it would be a no-op) or when the roster
-		* no longer supplies it.
+		* lever, else the deployment default, else the first usable roster row that is
+		* not the LiangShen preset. A candidate is skipped when it is the LiangShen
+		* preset itself (restoring it would be a no-op) or when the roster no longer
+		* supplies it. That last resort is what keeps the push direction alive when the
+		* deployment default IS LiangShen mode: `fallback` is skipped then, and after a
+		* reload `previous` is gone, so without it the gesture would have no target.
 		*/
 		function restoreTarget(facts) {
 			for (const candidate of [facts.previous, facts.fallback]) {
 				if (candidate === void 0 || candidate === "liangshen") continue;
 				if (facts.available.includes(candidate)) return candidate;
 			}
+			return facts.available.find((candidate) => candidate !== LIANGSHEN_PRESET_ID);
 		}
 		/** Whether the lever can act at all in its current state. */
 		function isActionable(state) {
@@ -43115,9 +43119,10 @@ window.__ModuleLoader__.load({
 				});
 			}
 			async request(path, options = {}) {
+				const headers = options.body === void 0 ? new Headers() : new Headers({ "content-type": "application/json" });
 				const response = await fetch(path, {
 					method: options.method ?? "GET",
-					headers: options.body === void 0 ? void 0 : { "content-type": "application/json" },
+					headers,
 					body: options.body === void 0 ? void 0 : JSON.stringify(options.body)
 				});
 				let body;
@@ -43553,6 +43558,7 @@ window.__ModuleLoader__.load({
 					setError(void 0);
 				} catch (err) {
 					if (seq !== loadSeq.current) return;
+					console.error("[dsh-skill-explorer] failed to load skills:", err);
 					setError(tt("list.loadFailed", { error: err instanceof Error ? err.message : String(err) }));
 				}
 			};

@@ -163,6 +163,7 @@ function ListTab({ api, refreshTick, onCwd }: { api: SkillApi; refreshTick: numb
       setError(undefined)
     } catch (err) {
       if (seq !== loadSeq.current) return
+      console.error('[dsh-skill-explorer] failed to load skills:', err)
       setError(tt('list.loadFailed', { error: err instanceof Error ? err.message : String(err) }))
     }
   }
