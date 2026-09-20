@@ -134,6 +134,11 @@ export function processIsAlive(pid: number): boolean {
 }
 
 const PROCESS_PROBE_TIMEOUT_MS = 3000
+/**
+ * The CIM fallback pays a WMI cold start, so it gets a wider budget than the
+ * direct `Get-Process` read it backs up.
+ */
+const CIM_PROBE_TIMEOUT_MS = 8000
 
 let ownStartTime: number | undefined
 let ownStartTimeResolved = false
@@ -161,6 +166,59 @@ function linuxStartTimeMs(pid: number): number | undefined {
   }
 }
 
+/** Runs one PowerShell script and returns its trimmed stdout. */
+export type PowerShellProbe = (script: string, timeoutMs: number) => string | undefined
+
+/** Default probe: one hidden, profile-free PowerShell process per script. */
+const runPowerShellProbe: PowerShellProbe = (script, timeoutMs) => {
+  const probe = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    timeout: timeoutMs,
+    windowsHide: true,
+  })
+  if (probe.status !== 0 || probe.stdout.length === 0) return undefined
+  return probe.stdout.toString('utf8').trim()
+}
+
+/** The epoch-millisecond reading a probe printed, or undefined when unusable. */
+function parseProbeEpochMs(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw.trim() === '') return undefined
+  const started = Number(raw.trim())
+  return Number.isFinite(started) ? started : undefined
+}
+
+/** Start time through Get-Process: precise, but empty for protected processes. */
+function getProcessStartScript(pid: number): string {
+  return '[DateTimeOffset]::FromFileTime((Get-Process -Id ' + String(pid)
+    + ' -ErrorAction SilentlyContinue).StartTime.ToUniversalTime().ToFileTime()).ToUnixTimeMilliseconds()'
+}
+
+/** Start time through Win32_Process: readable for System/svchost too. */
+function cimStartScript(pid: number): string {
+  return '$p=Get-CimInstance Win32_Process -Filter "ProcessId=' + String(pid)
+    + '" -ErrorAction SilentlyContinue;if($p -ne $null){[DateTimeOffset]::FromFileTime($p.CreationDate.ToUniversalTime().ToFileTime()).ToUnixTimeMilliseconds()}'
+}
+
+/**
+ * Windows start time (Unix epoch ms) of a live process.
+ *
+ * `Get-Process` is the precise first choice, but an unprivileged caller cannot
+ * read `.StartTime` for a protected process (System, svchost): the property is
+ * empty, so the probe returns nothing. Without a fallback, a crash leftover
+ * lock whose PID was reused by such a process could never be proven stale and
+ * blocked every startup until the lock was deleted by hand (issue #1629).
+ * Win32_Process through CIM reports the same CreationDate for those processes
+ * at the same millisecond precision, so it is the second identity source. The
+ * probe is injectable so the fallback chain is testable off Windows.
+ */
+export function win32StartTimeMs(pid: number, probe: PowerShellProbe = runPowerShellProbe): number | undefined {
+  // The pid is interpolated into a PowerShell script, so it must be a plain
+  // positive integer before any probe runs.
+  if (!Number.isSafeInteger(pid) || pid <= 0) return undefined
+  const direct = parseProbeEpochMs(probe(getProcessStartScript(pid), PROCESS_PROBE_TIMEOUT_MS))
+  if (direct !== undefined) return direct
+  return parseProbeEpochMs(probe(cimStartScript(pid), CIM_PROBE_TIMEOUT_MS))
+}
+
 /**
  * Best-effort start time (Unix epoch ms) of a live process. Used to prove
  * whether the ledger lock really belongs to the PID recorded in it, so a
@@ -170,17 +228,7 @@ function linuxStartTimeMs(pid: number): number | undefined {
  */
 function processStartTimeMs(pid: number): number | undefined {
   if (process.platform === 'linux') return linuxStartTimeMs(pid)
-  if (process.platform === 'win32') {
-    const probe = spawnSync(
-      'powershell',
-      ['-NoProfile', '-NonInteractive', '-Command',
-        '[DateTimeOffset]::FromFileTime((Get-Process -Id ' + String(pid) + ' -ErrorAction SilentlyContinue).StartTime.ToUniversalTime().ToFileTime()).ToUnixTimeMilliseconds()'],
-      { timeout: PROCESS_PROBE_TIMEOUT_MS, windowsHide: true },
-    )
-    if (probe.status !== 0 || probe.stdout.length === 0) return undefined
-    const started = Number(probe.stdout.toString('utf8').trim())
-    return Number.isFinite(started) ? started : undefined
-  }
+  if (process.platform === 'win32') return win32StartTimeMs(pid)
   // Other POSIX (macOS...): ps lstart with a forced English locale, falling
   // back to the elapsed-seconds column when lstart cannot be parsed.
   const env = { ...process.env, LC_ALL: 'C' }

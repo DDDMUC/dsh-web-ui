@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { parseFrontmatter, setFrontmatterField } from '../src/frontmatter.ts'
+import { parseFrontmatter, setFrontmatterField, stripFrontmatter } from '../src/frontmatter.ts'
 
 const TMP = mkdtempSync(join(tmpdir(), 'skill-explorer-fm-'))
 afterAll(() => { rmSync(TMP, { recursive: true, force: true }) })
@@ -51,6 +51,20 @@ describe('parseFrontmatter', () => {
     const fm = parseFrontmatter('---\nname: "quoted-name"\ndescription: \'单引号\'\n---\n')
     expect(fm.name).toBe('quoted-name')
     expect(fm.description).toBe('单引号')
+  })
+})
+
+describe('stripFrontmatter', () => {
+  it('drops the leading block and keeps the body verbatim', () => {
+    expect(stripFrontmatter('---\nname: a\ndescription: d\n---\n\n# Body\n')).toBe('\n# Body\n')
+  })
+
+  it('keeps a body whose own text starts with a fence', () => {
+    expect(stripFrontmatter('---\nname: a\n---\n\n---\nnot frontmatter\n')).toBe('\n---\nnot frontmatter\n')
+  })
+
+  it('returns the input when there is no frontmatter block', () => {
+    expect(stripFrontmatter('# Just a body\n')).toBe('# Just a body\n')
   })
 })
 

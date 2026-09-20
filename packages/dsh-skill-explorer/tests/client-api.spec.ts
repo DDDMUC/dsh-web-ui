@@ -69,6 +69,44 @@ describe('SkillApi', () => {
     })
   })
 
+  it('reads one skill by name and path, both URL-encoded', async () => {
+    let capturedUrl: string | undefined
+    globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
+      capturedUrl = String(url)
+      return new Response(JSON.stringify({ name: 'my skill', path: '/a b/SKILL.md', description: 'd', content: 'body' }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const api = new SkillApi()
+    const result = await api.read('my skill', '/a b/SKILL.md')
+
+    expect(capturedUrl).toBe('/api/dsh-skill-explorer/read?name=my%20skill&path=%2Fa%20b%2FSKILL.md')
+    expect(result.content).toBe('body')
+  })
+
+  it('posts the edited fields to the update route', async () => {
+    let capturedInit: RequestInit | undefined
+    let capturedUrl: string | undefined
+    globalThis.fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      capturedUrl = String(url)
+      capturedInit = init
+      return new Response(JSON.stringify({ ok: true, name: 'test-skill', path: '/path/SKILL.md', disabled: false }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const api = new SkillApi()
+    await api.update({ name: 'test-skill', path: '/path/SKILL.md', description: 'new', whenToUse: 'when', content: 'body' })
+
+    expect(capturedUrl).toBe('/api/dsh-skill-explorer/update')
+    expect(capturedInit?.method).toBe('POST')
+    expect((capturedInit?.headers as Headers).get('content-type')).toBe('application/json')
+    expect(JSON.parse(capturedInit?.body as string)).toEqual({
+      name: 'test-skill',
+      path: '/path/SKILL.md',
+      description: 'new',
+      whenToUse: 'when',
+      content: 'body',
+    })
+  })
+
   it('throws ApiError with error message from server on non-ok response', async () => {
     globalThis.fetch = vi.fn(async () => {
       return new Response(JSON.stringify({ error: 'skill is locked' }), { status: 400 })

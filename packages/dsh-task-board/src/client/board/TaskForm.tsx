@@ -21,6 +21,7 @@ export function ModalShell({
   submitLabel,
   onSubmit,
   onClose,
+  secondaryAction,
   children,
 }: {
   ariaLabel: string
@@ -30,6 +31,8 @@ export function ModalShell({
   submitLabel: string
   onSubmit: () => void
   onClose: () => void
+  /** Optional second action beside the primary submit (e.g. create and run). */
+  secondaryAction?: { label: string; onSubmit: () => void }
   children: ReactNode
 }) {
   return (
@@ -50,6 +53,16 @@ export function ModalShell({
           <button type="button" className={css.ghostButton} onClick={onClose}>
             {t('new.cancel')}
           </button>
+          {secondaryAction !== undefined && (
+            <button
+              type="button"
+              className={css.ghostButton}
+              disabled={pending}
+              onClick={secondaryAction.onSubmit}
+            >
+              {secondaryAction.label}
+            </button>
+          )}
           <button type="submit" className={css.primaryButton} disabled={pending}>
             {submitLabel}
           </button>

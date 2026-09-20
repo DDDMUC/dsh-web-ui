@@ -10,6 +10,7 @@ import { collectKnownTags, TASK_PERMISSIONS, type TaskPermission, type TaskRecor
 import { t, type TaskBoardKey } from '../locales.ts'
 import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
 import { ModalShell, TaskContentFields, TaskTagFields, cleanTags } from './TaskForm.tsx'
+import { readParseModelPreference, writeParseModelPreference } from './parse-model-pref.ts'
 import css from '../board.module.css'
 
 export interface NewTaskModalProps {
@@ -54,7 +55,9 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
   // parse face; the section stays hidden otherwise.
   const [canParse] = useState(controller.getSnapshot().canParseTask === true)
   const [parseText, setParseText] = useState('')
-  const [parseModel, setParseModel] = useState('')
+  // Issue #1621: start from the model this browser used last, not from the
+  // roster's first entry; '' is the Host default and stays valid.
+  const [parseModel, setParseModel] = useState(() => readParseModelPreference())
   const [parsePending, setParsePending] = useState(false)
   const [parseError, setParseError] = useState<string | undefined>(undefined)
   const parseAbort = useRef<AbortController | undefined>(undefined)
@@ -67,10 +70,14 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
     [controller],
   )
 
-  // The model roster arrives asynchronously: default to its first entry, which
-  // the user can change before parsing.
+  // The model roster arrives asynchronously. A remembered model the deployment
+  // no longer offers falls back to the Host default; an empty value is the
+  // Host-default choice and is never overwritten by the roster (issue #1621).
   useEffect(() => {
-    if (parseModel === '' && parseModels.length > 0) setParseModel(parseModels[0]!.id)
+    if (parseModel === '' || parseModels.length === 0) return
+    if (parseModels.some(option => option.id === parseModel)) return
+    setParseModel('')
+    writeParseModelPreference('')
   }, [parseModel, options.models])
 
   const runParse = async (): Promise<void> => {
@@ -97,7 +104,13 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
     }
   }
 
-  const submit = async (): Promise<void> => {
+  /**
+   * Create the task through the Host, then optionally start it.
+   * @param runAfterCreate - true for the "create and run" action: the task is
+   * committed either way, and a refused start opens the task instead of
+   * reporting the creation as failed.
+   */
+  const submit = async (runAfterCreate: boolean): Promise<void> => {
     if (scheduleEnabled) {
       const cron = scheduleCron.trim()
       if (cron === '' || !isValidCron(cron)) {
@@ -156,6 +169,14 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
         await controller.archiveTask(initialTask.id)
       }
     }
+    if (runAfterCreate) {
+      // The task exists from here on, so a refused start (a permission above
+      // the session default, a pinned target that went stale) must not read as
+      // a failed creation: open the task, whose detail view owns the
+      // confirmation step and the refusal message.
+      const started = await controller.runTask(task.id)
+      if (!started) controller.openTask(task.id)
+    }
     onClose()
   }
 
@@ -173,8 +194,9 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
       error={error}
       pending={pending}
       submitLabel={t('new.submit')}
-      onSubmit={() => { void submit() }}
+      onSubmit={() => { void submit(false) }}
       onClose={onClose}
+      secondaryAction={{ label: t('new.createAndRun'), onSubmit: () => { void submit(true) } }}
     >
       {canParse && (
         <section className={css.aiParse} data-dsh-part="ai-parse">
@@ -193,8 +215,12 @@ export function NewTaskModal({ controller, onClose, initialTask, defaultWorkspac
               className={css.select}
               value={parseModel}
               aria-label={t('new.aiParseModel')}
-              onChange={event => { setParseModel(event.target.value) }}
+              onChange={event => {
+                setParseModel(event.target.value)
+                writeParseModelPreference(event.target.value)
+              }}
             >
+              <option value="">{t('exec.model.default')}</option>
               {parseModels.map(option => (
                 <option key={option.id} value={option.id}>{option.name ?? option.id}</option>
               ))}
