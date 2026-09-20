@@ -55,16 +55,37 @@ describe('parseFrontmatter', () => {
 })
 
 describe('stripFrontmatter', () => {
-  it('drops the leading block and keeps the body verbatim', () => {
-    expect(stripFrontmatter('---\nname: a\ndescription: d\n---\n\n# Body\n')).toBe('\n# Body\n')
+  it('user sees the body verbatim once the leading block is dropped', () => {
+    // Given a document with a frontmatter block followed by a body
+    const source = '---\nname: a\ndescription: d\n---\n\n# Body\n'
+
+    // When the frontmatter block is stripped
+    const body = stripFrontmatter(source)
+
+    // Then only the body survives, verbatim
+    expect(body).toBe('\n# Body\n')
   })
 
-  it('keeps a body whose own text starts with a fence', () => {
-    expect(stripFrontmatter('---\nname: a\n---\n\n---\nnot frontmatter\n')).toBe('\n---\nnot frontmatter\n')
+  it('user keeps a body whose own text starts with a fence', () => {
+    // Given a document whose body itself starts with a fence
+    const source = '---\nname: a\n---\n\n---\nnot frontmatter\n'
+
+    // When the frontmatter block is stripped
+    const body = stripFrontmatter(source)
+
+    // Then the body's own fence is not mistaken for frontmatter
+    expect(body).toBe('\n---\nnot frontmatter\n')
   })
 
-  it('returns the input when there is no frontmatter block', () => {
-    expect(stripFrontmatter('# Just a body\n')).toBe('# Just a body\n')
+  it('user gets the input back when there is no frontmatter block', () => {
+    // Given a body without any frontmatter block
+    const source = '# Just a body\n'
+
+    // When the frontmatter block is stripped
+    const body = stripFrontmatter(source)
+
+    // Then the input is returned unchanged
+    expect(body).toBe('# Just a body\n')
   })
 })
 

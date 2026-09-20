@@ -66,42 +66,53 @@ function actionButton(container: HTMLElement, label: string): HTMLButtonElement 
 }
 
 describe('new-task "create and run" (#1621)', () => {
-  it('creates the task and starts it in the same gesture', async () => {
+  it('user creating and running gets the task started in the same gesture', async () => {
+    // Given an open new-task modal
     const { container, createTaskConfirmed, runTask, openTask, onClose } = renderModal()
 
+    // When the user submits the "create and run" action
     await act(async () => {
       actionButton(container, t('new.createAndRun')).dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
+    // Then the task is created, started, and the modal closes on the start
     expect(createTaskConfirmed).toHaveBeenCalledOnce()
     expect(runTask).toHaveBeenCalledWith('task-new')
     expect(openTask).not.toHaveBeenCalled()
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('keeps the created task and opens it when the start is refused', async () => {
-    // A permission above the session default needs confirmation first; the
-    // creation itself already succeeded, so the user must land on the task.
+  it('user whose start is refused lands on the created task', async () => {
+    // Given a start that needs confirmation first, so the run is refused while
+    // the creation itself already succeeded
     const { container, runTask, openTask, onClose } = renderModal({ started: false })
 
+    // When the user submits the "create and run" action
     await act(async () => {
       actionButton(container, t('new.createAndRun')).dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
+    // Then the created task is opened instead of the creation reading as failed
     expect(runTask).toHaveBeenCalledWith('task-new')
     expect(openTask).toHaveBeenCalledWith('task-new')
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('leaves the plain create action without an execution', async () => {
+  it('user submitting the plain create action gets an unscheduled task without an execution', async () => {
+    // Given an open new-task modal with an empty form
     const { container, createTaskConfirmed, runTask } = renderModal()
     const form = container.querySelector('form')
     if (form === null) throw new Error('no modal form')
 
+    // When the user submits the plain create action
     await act(async () => {
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     })
 
+    // Then the Host receives one plain, unscheduled task and no run is requested
+    const payload = createTaskConfirmed.mock.calls[0]![0] as { title: string; schedule?: unknown }
+    expect(payload.title).toBe('')
+    expect(payload.schedule).toBeUndefined()
     expect(createTaskConfirmed).toHaveBeenCalledOnce()
     expect(runTask).not.toHaveBeenCalled()
   })

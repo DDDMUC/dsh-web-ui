@@ -39,17 +39,26 @@ describe('wallpaper-exclusive better-sidebar host shells', () => {
     ['patches.css', resolve(__dirname, '../skins/wallpaper-exclusive/patches.css')],
   ]
 
-  it('never makes a plugin host shell the containing block of its fixed panels', () => {
+  it('user opening the sidebar gets no host shell painted as a containing block', () => {
+    // Given the wallpaper-exclusive sheets that style the plugin host shells
+    const offenders: string[] = []
+
+    // When every rule whose subject is a shell is scanned for the declarations
+    // that would make it the containing block of its fixed panels
     for (const [filename, file] of sheets) {
       const stripped = readFileSync(file, 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
       const rules = stripped.match(/[^{}]+\{[^{}]*\}/g) ?? []
-      const offenders = rules.filter((rule) => {
+      for (const rule of rules) {
         const brace = rule.indexOf('{')
         const selector = rule.slice(0, brace)
         const body = rule.slice(brace)
-        return paintsShell(selector) && FORBIDDEN.some((pattern) => pattern.test(body))
-      })
-      expect(offenders, filename + ' paints a better-sidebar host shell: ' + offenders.join(' | ')).toEqual([])
+        if (paintsShell(selector) && FORBIDDEN.some((pattern) => pattern.test(body))) {
+          offenders.push(filename + ': ' + selector.trim())
+        }
+      }
     }
+
+    // Then no host shell is painted
+    expect(offenders).toEqual([])
   })
 })

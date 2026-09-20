@@ -192,11 +192,11 @@ describe('SkillPanel mutation identity', () => {
     await flush()
     const badges = Array.from(mount_.container.querySelectorAll('span'))
     const providerBadge = badges.find(b => b.textContent?.trim() === '文件系统')
-    expect(providerBadge).toBeDefined()
+    expect(providerBadge).toBeInstanceOf(HTMLSpanElement)
     expect(providerBadge?.getAttribute('title')).toBe('技能来源：文件系统')
 
     const invokableBadge = badges.find(b => b.textContent?.includes('可调用'))
-    expect(invokableBadge).toBeDefined()
+    expect(invokableBadge).toBeInstanceOf(HTMLSpanElement)
     expect(invokableBadge?.getAttribute('title')).toBe('模型可自动调用该技能；手动 /skill 指令不受影响')
     mount_.dispose()
   })
@@ -277,7 +277,8 @@ describe('SkillPanel search filter (#1423)', () => {
 describe('SkillPanel edit flow (#1622)', () => {
   afterEach(() => { document.body.innerHTML = '' })
 
-  it('opens the editor from a card and saves the edited fields', async () => {
+  it('user editing a skill from its card saves the edited fields', async () => {
+    // Given a panel listing one skill, with a host that reads and updates it
     const read = vi.fn(async (name: string, path: string) => ({ name, path, description: '旧描述', whenToUse: '旧场景', content: '# 旧正文' }))
     const update = vi.fn(async (payload: { name: string; path: string; description: string; whenToUse?: string; content: string }) => ({
       ok: true as const,
@@ -289,9 +290,9 @@ describe('SkillPanel edit flow (#1622)', () => {
     const mount_ = mount(api, () => {})
     await flush()
 
-    // The card offers Edit next to Delete.
+    // When the user opens the card editor (Edit sits next to Delete)
     const editButton = Array.from(mount_.container.querySelectorAll('button')).find((b) => b.textContent?.trim() === '编辑')
-    expect(editButton).toBeDefined()
+    expect(editButton).toBeInstanceOf(HTMLButtonElement)
     await act(async () => { editButton!.click() })
     // Two turns: the host read resolves, then the form re-renders with it.
     await flush()
@@ -300,10 +301,11 @@ describe('SkillPanel edit flow (#1622)', () => {
     expect(read).toHaveBeenCalledWith('demo-skill', '/work/demo-skill/SKILL.md')
     // The form is prefilled from the host read, and the name is fixed.
     const description = Array.from(mount_.container.querySelectorAll('input')).find((input) => input.value === '旧描述') as HTMLInputElement
-    expect(description).toBeDefined()
+    expect(description).toBeInstanceOf(HTMLInputElement)
     expect(Array.from(mount_.container.querySelectorAll('input')).some((input) => input.value === 'demo-skill' && input.readOnly)).toBe(true)
     expect((mount_.container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('# 旧正文')
 
+    // When the user edits the description and submits the form
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
       setter.call(description, '新描述')
@@ -315,6 +317,7 @@ describe('SkillPanel edit flow (#1622)', () => {
     })
     await flush()
 
+    // Then the host receives the edited fields
     expect(update).toHaveBeenCalledOnce()
     expect(update.mock.calls[0]![0]).toMatchObject({
       name: 'demo-skill',
@@ -325,22 +328,27 @@ describe('SkillPanel edit flow (#1622)', () => {
     })
     // The list refetch settles before the panel goes back to its list view.
     await flush()
-    // Saving returns to the list so the refreshed card shows the new copy.
-    expect(mount_.container.querySelector('[data-dsh-part="skill-row"]')).not.toBeNull()
+
+    // And saving returns to the list, where the refreshed card is back
+    const savedRow = mount_.container.querySelector('[data-dsh-part="skill-row"]')
+    expect(savedRow?.textContent).toContain('demo-skill')
     mount_.dispose()
   })
 
-  it('reports a failed load instead of showing an empty form', async () => {
+  it('user whose skill read fails sees the failure instead of an empty form', async () => {
+    // Given a panel listing one skill whose host read fails
     const read = vi.fn(async () => { throw new Error('gone') })
     const api = fakeApi([async () => payload(['demo-skill'])], { read })
     const mount_ = mount(api, () => {})
     await flush()
 
+    // When the user opens the card editor
     const editButton = Array.from(mount_.container.querySelectorAll('button')).find((b) => b.textContent?.trim() === '编辑')
     await act(async () => { editButton!.click() })
     await flush()
     await flush()
 
+    // Then the panel reports the failure instead of an empty form
     expect(mount_.container.textContent).toContain('读取失败：gone')
     mount_.dispose()
   })

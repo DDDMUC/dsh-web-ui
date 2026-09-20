@@ -129,24 +129,41 @@ describe('new-task AI parse section (#1540)', () => {
     expect(field(container, t('new.titlePlaceholder'))).toHaveProperty('value', '手工写的标题')
   })
 
-  it('starts from the model this browser used last (#1621)', () => {
+  it('user sees the picker start from the model this browser used last (#1621)', () => {
+    // Given this browser remembered the parse model deepseek/deepseek-chat
     window.localStorage.setItem('dsh-task-board.parse-model', 'deepseek/deepseek-chat')
+
+    // When the new-task modal opens
     const { container } = renderModal()
+
+    // Then the picker starts on the remembered model rather than the roster default
     expect(container.querySelector<HTMLSelectElement>('[data-dsh-part="ai-parse"] select')!.value).toBe('deepseek/deepseek-chat')
   })
 
-  it('drops a remembered model the deployment no longer offers (#1621)', () => {
+  it('user sees a remembered model the roster dropped fall back to the default (#1621)', () => {
+    // Given this browser remembered a model the deployment no longer offers
     window.localStorage.setItem('dsh-task-board.parse-model', 'vendor/gone')
+
+    // When the new-task modal opens
     const { container } = renderModal()
+
+    // Then the picker falls back to the Host default and forgets the stale model
     expect(container.querySelector<HTMLSelectElement>('[data-dsh-part="ai-parse"] select')!.value).toBe('')
     expect(window.localStorage.getItem('dsh-task-board.parse-model')).toBe('')
   })
 
-  it('remembers the model picked for the next modal (#1621)', () => {
+  it('user sees the model picked for the next modal remembered (#1621)', () => {
+    // Given an open new-task modal
     const { container } = renderModal()
     const select = container.querySelector<HTMLSelectElement>('[data-dsh-part="ai-parse"] select')!
+
+    // When a model is picked
     chooseOption(select, 'deepseek/deepseek-chat')
+
+    // Then it is remembered for the next modal
     expect(window.localStorage.getItem('dsh-task-board.parse-model')).toBe('deepseek/deepseek-chat')
+
+    // And clearing the picker forgets it
     chooseOption(select, '')
     expect(window.localStorage.getItem('dsh-task-board.parse-model')).toBe('')
   })

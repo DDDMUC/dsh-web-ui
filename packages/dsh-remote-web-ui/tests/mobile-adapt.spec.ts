@@ -389,16 +389,20 @@ describe('startMobileAdapt', () => {
     expect(document.documentElement.style.getPropertyValue('--dsh-remote-header-actions-reserve')).toBe('8px')
   })
 
-  it('caps the tabs row against the painted actions and releases the reserve', async () => {
+  it('user in portrait gets the tabs row capped against the painted actions and the reserve released', async () => {
+    // Given a portrait coarse-pointer viewport
     media.portrait = true
     media.coarse = true
     setWidth(390)
     const start = await freshStart()
+
+    // When the adaptation layer installs
     start()
     const css = document.querySelector('style[data-plugin-css="dsh-remote-web-ui/mobile-adapt.css"]')?.textContent ?? ''
-    // Regression (issue #1635): padding alone did not move the labels out from
-    // under the painted actions, because a nowrap flex row overflows its own
-    // padding box; the row must cap its width and scroll instead.
+
+    // Then the row caps its own width and scrolls: issue #1635 showed padding
+    // alone does not move the labels out from under the painted actions,
+    // because a nowrap flex row overflows its own padding box
     expect(css).toContain('max-width:max(0px,calc(100% - var(--dsh-remote-header-actions-reserve,0px)))')
     expect(css).toContain('overflow-x:auto')
     const header = document.createElement('div')

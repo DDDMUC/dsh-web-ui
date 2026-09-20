@@ -58,12 +58,26 @@ describe('restoreTarget', () => {
     expect(restoreTarget({ ...base, fallback: LIANGSHEN_PRESET_ID, previous: LIANGSHEN_PRESET_ID })).toBe('standard')
   })
 
-  it('falls back to the first available non-liangshen preset when deployment default is liangshen', () => {
-    expect(restoreTarget({ ...base, fallback: LIANGSHEN_PRESET_ID, previous: undefined })).toBe('standard')
+  it('user with a liangshen deployment default restores the first available non-liangshen preset', () => {
+    // Given a deployment whose default preset is LiangShen and nothing remembered
+    const facts: LeverFacts = { ...base, fallback: LIANGSHEN_PRESET_ID, previous: undefined }
+
+    // When the restore target is computed
+    const target = restoreTarget(facts)
+
+    // Then the first available preset that is not LiangShen wins
+    expect(target).toBe('standard')
   })
 
-  it('prefers a remembered preset even when deployment default is liangshen', () => {
-    expect(restoreTarget({ ...base, fallback: LIANGSHEN_PRESET_ID, previous: 'master' })).toBe('master')
+  it('user who remembered a preset gets it back even when the deployment default is liangshen', () => {
+    // Given a remembered preset and a LiangShen deployment default
+    const facts: LeverFacts = { ...base, fallback: LIANGSHEN_PRESET_ID, previous: 'master' }
+
+    // When the restore target is computed
+    const target = restoreTarget(facts)
+
+    // Then the remembered preset is restored
+    expect(target).toBe('master')
   })
 
   it('skips a remembered preset the roster no longer supplies', () => {

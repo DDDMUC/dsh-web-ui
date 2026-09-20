@@ -43,7 +43,10 @@ describe('whale-mom pet bubble contrast', () => {
       .map((selector) => ({ selector, body: rule.body })),
   )
 
-  it('colors the shell-wide bubble rule from the theme token', () => {
+  it('user sees the shell-wide bubble color come from the theme token', () => {
+    // Given the whale-mom patches with the shell-wide [class*="bubble"] rules
+    // When those rules are inspected
+    // Then one of them colors the bubble from the theme token
     expect(
       bubbleRules.some(
         (rule) =>
@@ -54,13 +57,18 @@ describe('whale-mom pet bubble contrast', () => {
     ).toBe(true)
   })
 
-  it('restores the pet bubble text color with equal-or-higher specificity', () => {
+  it('user sees the pet bubble text color restored with equal-or-higher specificity', () => {
+    // Given the pet-scoped guards beside the shell-wide bubble rule
     const shellWide = bubbleRules.filter((rule) => rule.selector === '[class*="bubble"]')
     const guards = bubbleRules.filter((rule) => rule.selector.includes('[data-dsh-pet-root]'))
+
+    // When the guards are compared with the shell-wide rule
     expect(guards.length, 'no [data-dsh-pet-root] guard for the bubble color').toBeGreaterThan(0)
     const light = guards.filter((rule) => rule.body.includes('color: ' + PET_TEXT_COLOR))
     expect(light.length, 'pet bubble guard does not set ' + PET_TEXT_COLOR).toBeGreaterThan(0)
     const maxShell = Math.max(...shellWide.map((rule) => specificity(rule.selector)))
+
+    // Then a pet guard sets the pet text color with strictly higher specificity
     expect(
       light.some((rule) => specificity(rule.selector) > maxShell),
       'pet bubble guard must out-specify the shell-wide rule (source order is not enough once skin-center prefixes both)',
