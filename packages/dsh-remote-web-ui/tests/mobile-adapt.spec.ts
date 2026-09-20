@@ -26,6 +26,9 @@ function setWidth(px: number): void {
 beforeEach(() => {
   document.head.innerHTML = ''
   document.body.innerHTML = ''
+  // The header-actions reserve rides <html>, which the head/body wipe above
+  // does not touch; clear it so one test cannot inherit another's value.
+  document.documentElement.removeAttribute('style')
   window.sessionStorage.clear()
   // jsdom's localStorage in this vitest build lacks clear(); the adapt layer
   // only reads it (inside try/catch), so stale keys are harmless here.
@@ -380,7 +383,43 @@ describe('startMobileAdapt', () => {
     // transform move it visually (a re-parented node breaks React's anchors).
     expect(actions.parentElement).toBe(cluster)
     expect(actions.style.transform).toBe('translate(0px, 0px)')
-    expect(tabs.style.paddingRight).toBe('8px')
+    // v80: the painted width is reserved through a CSS variable on <html>, so
+    // the row caps its own width with it (and scrolls) instead of reserving
+    // padding that a nowrap flex row overflows anyway.
+    expect(document.documentElement.style.getPropertyValue('--dsh-remote-header-actions-reserve')).toBe('8px')
+  })
+
+  it('caps the tabs row against the painted actions and releases the reserve', async () => {
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    const start = await freshStart()
+    start()
+    const css = document.querySelector('style[data-plugin-css="dsh-remote-web-ui/mobile-adapt.css"]')?.textContent ?? ''
+    // Regression (issue #1635): padding alone did not move the labels out from
+    // under the painted actions, because a nowrap flex row overflows its own
+    // padding box; the row must cap its width and scroll instead.
+    expect(css).toContain('max-width:max(0px,calc(100% - var(--dsh-remote-header-actions-reserve,0px)))')
+    expect(css).toContain('overflow-x:auto')
+    const header = document.createElement('div')
+    header.className = 'chat_header'
+    const cluster = document.createElement('div')
+    cluster.className = 'chat_titleCluster'
+    const actions = document.createElement('div')
+    actions.className = 'chat_headerActions'
+    cluster.appendChild(actions)
+    const tabs = document.createElement('div')
+    tabs.className = 'chat_tabs'
+    tabs.innerHTML = '<button class="chat_tab">Chat</button>'
+    header.append(cluster, tabs)
+    document.body.appendChild(header)
+    await vi.waitFor(() => { expect(document.body.classList.contains('dsh-remote-header-seated')).toBe(true) })
+    expect(document.documentElement.style.getPropertyValue('--dsh-remote-header-actions-reserve')).toBe('8px')
+    // Reverting the layer releases the reserve, so a portrait-to-desktop flip
+    // leaves the official row width untouched.
+    const adapt = (window as unknown as { __dshRemoteAdapt?: { setEnabled: (on: boolean) => void } }).__dshRemoteAdapt
+    adapt?.setEnabled(false)
+    expect(document.documentElement.style.getPropertyValue('--dsh-remote-header-actions-reserve')).toBe('')
   })
 
   it('drills into the picker sheet by structure when the cell labels are localized', async () => {
