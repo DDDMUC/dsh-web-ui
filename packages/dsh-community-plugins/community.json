@@ -915,5 +915,89 @@
     "repo": "https://github.com/zbsph/dsh-ppt-studio",
     "category": "tools",
     "subcategory": "dev"
+  },
+  {
+    "id": "dsh-cert-mcp",
+    "name": "插件认证 MCP",
+    "nameEn": "Plugin Certification MCP",
+    "author": "PerryLink",
+    "description": "只读 MCP 服务器，把 DSH 插件认证注册表开放给任何 MCP 客户端：查询某个插件的认证等级、快照以及支撑该等级的五维证据。",
+    "descriptionEn": "Read-only MCP server that exposes the DSH plugin certification registry to any MCP client: query a plugin certification grade, its snapshot, and the five-dimension evidence behind it.",
+    "repo": "https://github.com/PerryLink/dsh-cert-mcp",
+    "npm": "dsh-cert-mcp",
+    "category": "integration",
+    "subcategory": "bridge"
+  },
+  {
+    "id": "dsh-github",
+    "name": "GitHub 集成",
+    "nameEn": "GitHub Integration",
+    "author": "PerryLink",
+    "description": "把 GitHub 接进 DSH：PR / Issue / 仓库 / 文件工具，带幂等行内评论与状态门禁的审查机器人，以及一个可复用的 GitHub Action；所有写操作都需要人工审批。",
+    "descriptionEn": "GitHub integration for DSH: pull request, issue, repository and file tools, a review bot with idempotent inline comments and a status-check gate, and a reusable GitHub Action, with every write gated by human approval.",
+    "repo": "https://github.com/PerryLink/dsh-github",
+    "npm": "@perrylink/dsh-github",
+    "category": "integration",
+    "subcategory": "bridge"
+  },
+  {
+    "id": "dsh-library",
+    "name": "本地文档知识库",
+    "nameEn": "Local Document Library",
+    "author": "PerryLink",
+    "description": "工作区本地文档知识库：添加、列出与检索资料，混合语义与关键词召回、多样性重排、带引用注入与完整性校验，索引存在本地 SQLite，不下载任何模型。",
+    "descriptionEn": "Local document knowledge base for the workspace: add, list and search a library with hybrid semantic and keyword retrieval, diversity re-ranking, citation-aware injection and integrity checks, over a local SQLite index with no model downloads.",
+    "repo": "https://github.com/PerryLink/dsh-library",
+    "npm": "dsh-library",
+    "category": "knowledge",
+    "subcategory": "reading"
+  },
+  {
+    "id": "dsh-mcp-panel",
+    "name": "MCP 管理面板",
+    "nameEn": "MCP Panel",
+    "author": "PerryLink",
+    "description": "官方 DSH MCP 客户端的管理控制台：/mcp 命令提供健康诊断，设置页支持审批门禁的服务器增删改与自动备份，并在官方工具管线上提供试调台。",
+    "descriptionEn": "Management console for the official DSH MCP client: a /mcp command with health diagnostics, a Settings tab with approval-gated server CRUD and automatic backups, and a trial console over the official tool pipeline.",
+    "repo": "https://github.com/PerryLink/dsh-mcp-panel",
+    "npm": "dsh-mcp-panel",
+    "category": "tools",
+    "subcategory": "dev"
+  },
+  {
+    "id": "dsh-plugin-doctor",
+    "name": "插件体检",
+    "nameEn": "Plugin Doctor",
+    "author": "PerryLink",
+    "description": "DSH 插件零依赖检测器：包结构检查、cordis 契约扫描、无密钥无头沙箱冒烟与生态收录校验，一次运行全部覆盖。",
+    "descriptionEn": "Zero-dependency detector for DSH plugins: package-structure checks, cordis contract scanning, a keyless headless sandbox smoke run and ecosystem-listing verification in one pass.",
+    "repo": "https://github.com/PerryLink/dsh-plugin-doctor",
+    "npm": "@perrylink/dsh-plugin-doctor",
+    "category": "tools",
+    "subcategory": "dev"
+  },
+  {
+    "id": "dsh-plugin-upgrade",
+    "name": "插件升级走廊",
+    "nameEn": "Plugin Upgrade",
+    "author": "PerryLink",
+    "description": "面向插件作者的升级技能：一个包内只放一份走廊索引，读取调用方声明支持的 DSH 版本区间并路由到对应已封版的升级卡片，另附零依赖接缝扫描器。",
+    "descriptionEn": "Upgrade skill for plugin authors: one package carrying one corridor index that reads the caller declared DSH range and routes it to the matching closed corridor card, plus a zero-dependency seam scanner.",
+    "repo": "https://github.com/PerryLink/dsh-plugin-upgrade",
+    "npm": "dsh-plugin-upgrade",
+    "category": "tools",
+    "subcategory": "dev"
+  },
+  {
+    "id": "dsh-ticktick",
+    "name": "滴答清单任务桥",
+    "nameEn": "TickTick Task Bridge",
+    "author": "PerryLink",
+    "description": "TickTick（滴答清单）任务桥：会话头部任务面板支持筛选、搜索与拖拽排序，附带十一个精选代理工具与设置卡片，走官方 TickTick MCP 端点。",
+    "descriptionEn": "TickTick (Dida365) task bridge: a session-header task panel with filtering, search and drag reordering, eleven curated agent tools and a settings card, over the official TickTick MCP endpoint.",
+    "repo": "https://github.com/PerryLink/dsh-ticktick",
+    "npm": "@perrylink/dsh-ticktick",
+    "category": "integration",
+    "subcategory": "bridge"
   }
 ]
