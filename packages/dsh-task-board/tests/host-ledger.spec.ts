@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTask, EXECUTION_HISTORY_LIMIT, startExecution, withSchedule, type TaskRecord } from '../src/core/tasks.ts'
-import { HostTaskLedger, processIsAlive, processState } from '../src/host-ledger.ts'
+import { HostTaskLedger, processIsAlive, processState, win32StartTimeMs, type PowerShellProbe } from '../src/host-ledger.ts'
 
 const roots: string[] = []
 const NOW = new Date(2026, 7, 16, 10, 0, 30).getTime()
@@ -721,3 +721,56 @@ describe('ledger schema v3 migration', () => {
     reloaded.dispose()
   })
 })
+describe('win32StartTimeMs', () => {
+  /** Records every script the fallback chain runs and answers per script. */
+  function recordingProbe(answers: (script: string) => string | undefined): { probe: PowerShellProbe; scripts: string[] } {
+    const scripts: string[] = []
+    return {
+      scripts,
+      probe: (script) => {
+        scripts.push(script)
+        return answers(script)
+      },
+    }
+  }
+
+  it('falls back to Win32_Process CreationDate when Get-Process reads nothing', () => {
+    // Issue #1629: an unprivileged caller gets no StartTime for a protected
+    // process (System, svchost), so the direct probe prints nothing. The CIM
+    // fallback must still supply the identity of the PID the lock named.
+    const { probe, scripts } = recordingProbe(script => script.includes('Win32_Process') ? '1789782344683' : '')
+
+    expect(win32StartTimeMs(4, probe)).toBe(1789782344683)
+    expect(scripts).toHaveLength(2)
+    expect(scripts[0]).toContain('Get-Process -Id 4')
+    expect(scripts[1]).toContain('Win32_Process -Filter "ProcessId=4"')
+    expect(scripts[1]).toContain('CreationDate')
+  })
+
+  it('keeps the Get-Process reading and skips the CIM probe when it answers', () => {
+    const { probe, scripts } = recordingProbe(() => '1789782344683')
+
+    expect(win32StartTimeMs(1234, probe)).toBe(1789782344683)
+    expect(scripts).toHaveLength(1)
+    expect(scripts[0]).toContain('Get-Process -Id 1234')
+  })
+
+  it('reports no start time when neither probe answers', () => {
+    // Both probes empty is still the fail-closed input the lock treats as
+    // "cannot prove PID reuse"; the caller must not read it as a timestamp.
+    const { probe, scripts } = recordingProbe(() => undefined)
+
+    expect(win32StartTimeMs(4, probe)).toBeUndefined()
+    expect(scripts).toHaveLength(2)
+  })
+
+  it('rejects a pid that is not a positive integer before building any script', () => {
+    let invocations = 0
+
+    expect(win32StartTimeMs(0, () => { invocations += 1; return '1' })).toBeUndefined()
+    expect(win32StartTimeMs(-4, () => { invocations += 1; return '1' })).toBeUndefined()
+    expect(win32StartTimeMs(1.5, () => { invocations += 1; return '1' })).toBeUndefined()
+    expect(invocations).toBe(0)
+  })
+})
+
