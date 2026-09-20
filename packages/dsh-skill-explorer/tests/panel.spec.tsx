@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SkillPanel } from '../src/client/SkillPanel.tsx'
 import type { ListPayload } from '../src/client/api.ts'
 
-/** Minimal fake api: list is controllable per call, other methods never used here. */
-function fakeApi(listResults: Array<() => Promise<ListPayload>>) {
+/** Minimal fake api: list is controllable per call, other methods overridable. */
+function fakeApi(listResults: Array<() => Promise<ListPayload>>, overrides: Record<string, unknown> = {}) {
   let calls = 0
   return {
     calls: () => calls,
@@ -17,6 +17,9 @@ function fakeApi(listResults: Array<() => Promise<ListPayload>>) {
     setEnabled: async () => ({ name: '', enabled: true }),
     remove: async () => ({ ok: true as const, name: '', moved: '' }),
     create: async () => { throw new Error('unused') },
+    read: async (name: string, path: string) => ({ name, path, description: '', content: '' }),
+    update: async () => ({ ok: true as const, name: '', path: '', disabled: false }),
+    ...overrides,
   }
 }
 
@@ -270,4 +273,77 @@ describe('SkillPanel search filter (#1423)', () => {
     mount_.dispose()
   })
 })
+
+describe('SkillPanel edit flow (#1622)', () => {
+  afterEach(() => { document.body.innerHTML = '' })
+
+  it('opens the editor from a card and saves the edited fields', async () => {
+    const read = vi.fn(async (name: string, path: string) => ({ name, path, description: '旧描述', whenToUse: '旧场景', content: '# 旧正文' }))
+    const update = vi.fn(async (payload: { name: string; path: string; description: string; whenToUse?: string; content: string }) => ({
+      ok: true as const,
+      name: payload.name,
+      path: payload.path,
+      disabled: false,
+    }))
+    const api = fakeApi([async () => payload(['demo-skill'])], { read, update })
+    const mount_ = mount(api, () => {})
+    await flush()
+
+    // The card offers Edit next to Delete.
+    const editButton = Array.from(mount_.container.querySelectorAll('button')).find((b) => b.textContent?.trim() === '编辑')
+    expect(editButton).toBeDefined()
+    await act(async () => { editButton!.click() })
+    // Two turns: the host read resolves, then the form re-renders with it.
+    await flush()
+    await flush()
+
+    expect(read).toHaveBeenCalledWith('demo-skill', '/work/demo-skill/SKILL.md')
+    // The form is prefilled from the host read, and the name is fixed.
+    const description = Array.from(mount_.container.querySelectorAll('input')).find((input) => input.value === '旧描述') as HTMLInputElement
+    expect(description).toBeDefined()
+    expect(Array.from(mount_.container.querySelectorAll('input')).some((input) => input.value === 'demo-skill' && input.readOnly)).toBe(true)
+    expect((mount_.container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('# 旧正文')
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      setter.call(description, '新描述')
+      description.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const form = mount_.container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    await flush()
+
+    expect(update).toHaveBeenCalledOnce()
+    expect(update.mock.calls[0]![0]).toMatchObject({
+      name: 'demo-skill',
+      path: '/work/demo-skill/SKILL.md',
+      description: '新描述',
+      whenToUse: '旧场景',
+      content: '# 旧正文',
+    })
+    // The list refetch settles before the panel goes back to its list view.
+    await flush()
+    // Saving returns to the list so the refreshed card shows the new copy.
+    expect(mount_.container.querySelector('[data-dsh-part="skill-row"]')).not.toBeNull()
+    mount_.dispose()
+  })
+
+  it('reports a failed load instead of showing an empty form', async () => {
+    const read = vi.fn(async () => { throw new Error('gone') })
+    const api = fakeApi([async () => payload(['demo-skill'])], { read })
+    const mount_ = mount(api, () => {})
+    await flush()
+
+    const editButton = Array.from(mount_.container.querySelectorAll('button')).find((b) => b.textContent?.trim() === '编辑')
+    await act(async () => { editButton!.click() })
+    await flush()
+    await flush()
+
+    expect(mount_.container.textContent).toContain('读取失败：gone')
+    mount_.dispose()
+  })
+})
+
 

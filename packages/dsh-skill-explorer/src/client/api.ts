@@ -6,8 +6,10 @@
 /** Route paths mirrored from the host (src/routes.ts ROUTES). */
 const API = {
   list: '/api/dsh-skill-explorer/list',
+  read: '/api/dsh-skill-explorer/read',
   setEnabled: '/api/dsh-skill-explorer/set-enabled',
   create: '/api/dsh-skill-explorer/create',
+  update: '/api/dsh-skill-explorer/update',
   delete: '/api/dsh-skill-explorer/delete',
 } as const
 
@@ -76,6 +78,16 @@ export class SkillApi {
   /** Create a skill file under the user or project root. */
   async create(payload: { root: 'user' | 'project'; name: string; description: string; whenToUse?: string; content: string; cwd: string }): Promise<{ ok: true; name: string; path: string }> {
     return this.request(API.create, { method: 'POST', body: payload })
+  }
+
+  /** One skill's editable fields and body, resolved from the panel's path. */
+  async read(name: string, path: string): Promise<{ name: string; path: string; description: string; whenToUse?: string; content: string }> {
+    return this.request(`${API.read}?name=${encodeURIComponent(name)}&path=${encodeURIComponent(path)}`)
+  }
+
+  /** Rewrite an existing skill file in place (name and location unchanged). */
+  async update(payload: { name: string; path: string; description: string; whenToUse?: string; content: string }): Promise<{ ok: true; name: string; path: string; disabled: boolean }> {
+    return this.request(API.update, { method: 'POST', body: payload })
   }
 
   /** Delete a skill (moves it into .trash). */

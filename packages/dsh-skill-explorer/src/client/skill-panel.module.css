@@ -336,6 +336,20 @@
   left: 16px;
 }
 
+.editButton {
+  border: none;
+  background: #f2f3f5;
+  color: var(--dsw-alias-label-primary, #3a3f4b);
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.editButton:hover {
+  background: #e7e8ea;
+}
+
 .deleteButton {
   border: none;
   background: #feeceb;
@@ -419,6 +433,35 @@ select.formInput {
   min-height: 120px;
   resize: vertical;
   font-family: ui-monospace, monospace;
+}
+
+.formActionsRow {
+  display: flex;
+  gap: 8px;
+}
+
+.formButtonGhost {
+  border: none;
+  background: #f2f3f5;
+  color: var(--dsw-alias-label-primary, #3a3f4b);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.formButtonGhost:hover {
+  background: #e7e8ea;
+}
+
+body[data-ds-dark-theme] .formButtonGhost {
+  background: #2a2a2c;
+  color: #e5e5ea;
+}
+
+body[data-ds-dark-theme] .formButtonGhost:hover {
+  background: #3a3a3c;
 }
 
 .formButton {
