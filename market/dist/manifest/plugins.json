@@ -1110,7 +1110,8 @@
       "descriptionEn": "Interactive long-session background agents: start a durable continuable child agent, watch its progress in the Web UI sidebar, message it at any time and interrupt it.",
       "repo": "https://github.com/PerryLink/dsh-background-agents",
       "npm": "dsh-background-agents",
-      "category": "agent"
+      "category": "tools",
+      "subcategory": "dev"
     },
     {
       "id": "dsh-budget",
@@ -1135,7 +1136,8 @@
       "descriptionEn": "Session, workspace and config three-state checkpoints with one-shot /checkpoint and /rewind rollback, a checkpoint tool, interval snapshots and a Settings timeline with pairwise diffs.",
       "repo": "https://github.com/PerryLink/dsh-checkpoint-rewind",
       "npm": "dsh-checkpoint-rewind",
-      "category": "tools"
+      "category": "tools",
+      "subcategory": "context"
     },
     {
       "id": "dsh-claude-move",
@@ -1147,7 +1149,8 @@
       "descriptionEn": "Four-source migration wizard: move Claude Code, Codex, OpenCode and Hermes sessions, memories, skills, instructions and slash commands into DSH, resumable, approval-gated and idempotent.",
       "repo": "https://github.com/PerryLink/dsh-claude-move",
       "npm": "dsh-claude-move",
-      "category": "integration"
+      "category": "integration",
+      "subcategory": "external-ai"
     },
     {
       "id": "dsh-click",
@@ -1159,7 +1162,8 @@
       "descriptionEn": "Cross-platform native desktop control (Windows first): screen_shot, screen_read, click, type, scroll, key and app launch, approval-gated and never stealing foreground focus.",
       "repo": "https://github.com/PerryLink/dsh-click",
       "npm": "dsh-click",
-      "category": "tools"
+      "category": "tools",
+      "subcategory": "api"
     },
     {
       "id": "dsh-composer-history",
@@ -1184,7 +1188,8 @@
       "descriptionEn": "Deterministic data profiling, cleaning and verification: a DAMA-style scorecard, content-hash dedupe, metric expectations and drift checks, exposed as tools and a capability seam.",
       "repo": "https://github.com/PerryLink/dsh-data-quality",
       "npm": "dsh-data-quality",
-      "category": "tools"
+      "category": "tools",
+      "subcategory": "api"
     },
     {
       "id": "dsh-defend",
@@ -1222,7 +1227,8 @@
       "descriptionEn": "Unified static-image generation: one image_generate tool with standard parameters, config-driven engine routing (OpenAI Images, Zhipu CogView and compatible endpoints), health-aware fallback and per-session quota.",
       "repo": "https://github.com/PerryLink/dsh-draw",
       "npm": "dsh-draw",
-      "category": "tools"
+      "category": "tools",
+      "subcategory": "model"
     },
     {
       "id": "dsh-fast",
@@ -1247,7 +1253,8 @@
       "descriptionEn": "Deterministic research reports for Chinese public mutual funds: public-source collection, manager and holdings analysis, performance decomposition and sealed source snapshots.",
       "repo": "https://github.com/PerryLink/dsh-fund-research",
       "npm": "dsh-fund-research",
-      "category": "knowledge"
+      "category": "knowledge",
+      "subcategory": "qa"
     },
     {
       "id": "dsh-industry-research",
@@ -1259,7 +1266,8 @@
       "descriptionEn": "Industry and company research pack: methodology skills, industry-chain mapping, public-source policy and news tracking, company research cards and auditable reports.",
       "repo": "https://github.com/PerryLink/dsh-industry-research",
       "npm": "dsh-industry-research",
-      "category": "knowledge"
+      "category": "knowledge",
+      "subcategory": "qa"
     },
     {
       "id": "dsh-local-ai",
@@ -1388,7 +1396,8 @@
       "descriptionEn": "Verifiable research-report engine: a content-addressed evidence ledger that binds claims to snapshots, plus versioned sealed reports with per-claim verification verdicts.",
       "repo": "https://github.com/PerryLink/dsh-research-report",
       "npm": "dsh-research-report",
-      "category": "knowledge"
+      "category": "knowledge",
+      "subcategory": "qa"
     },
     {
       "id": "dsh-score",
@@ -1465,7 +1474,8 @@
       "descriptionEn": "Persistent shared rooms across independent sessions: a message bus, a shared task board and a timeline, extracted from dsh-background-agents.",
       "repo": "https://github.com/PerryLink/dsh-team-rooms",
       "npm": "dsh-team-rooms",
-      "category": "agent"
+      "category": "integration",
+      "subcategory": "bridge"
     },
     {
       "id": "dsh-test-drive",
