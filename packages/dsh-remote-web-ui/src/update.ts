@@ -661,7 +661,11 @@ export function runUpdate(deps: UpdateRunDeps): Promise<UpdateRunResult> {
         const pid = (currentChild as { pid?: number } | undefined)?.pid
         if (pid !== undefined && pid > 0) {
           try {
-            spawnImpl('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' })
+            // A spawn failure arrives as an asynchronous 'error' event, which
+            // the try/catch cannot see; an emitter with no error listener throws
+            // and would take the host process down on this path.
+            const killer = spawnImpl('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' })
+            killer.on?.('error', () => {})
           } catch {
             // Best-effort kill; fall through to the timeout result.
           }

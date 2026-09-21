@@ -652,17 +652,24 @@ export function startMobileAdapt(): void {
   }
 
   /**
+   * Write one row's recorded official draggable state back onto it.
+   * @param row - the tracked row element.
+   * @param original - the recorded attribute value, or null when it was absent.
+   */
+  function restoreRowDragState(row: Element, original: string | null): void {
+    if (original === null) row.removeAttribute('draggable')
+    else row.setAttribute('draggable', original)
+  }
+
+  /**
    * Restore the official draggable state this layer overrode while active.
    * Rows are React-owned and may have been re-created meanwhile, so only the
-   * tracked elements are touched; a detached element is skipped.
+   * tracked elements are touched; a detached element is written back too
+   * (harmless, and it keeps the entry prunable at every tick).
    */
   function restoreRowDrag(): void {
     if (dragOverridden.size === 0) return
-    for (const [row, original] of dragOverridden) {
-      if (!row.isConnected) continue
-      if (original === null) row.removeAttribute('draggable')
-      else row.setAttribute('draggable', original)
-    }
+    for (const [row, original] of dragOverridden) restoreRowDragState(row, original)
     dragOverridden.clear()
   }
 
@@ -698,6 +705,17 @@ export function startMobileAdapt(): void {
         if (!dragOverridden.has(row)) dragOverridden.set(row, row.getAttribute('draggable'))
         row.setAttribute('draggable', 'false')
       }
+    }
+    // React replaces rows as the session list re-renders; a detached row can
+    // never be restored by a later revert, so keeping it here would retain the
+    // whole detached subtree (and its children) for the page lifetime. Its
+    // official state goes back on the node itself and the entry is dropped:
+    // a node React re-attaches is recorded again on the next tick.
+    if (dragOverridden.size === 0) return
+    for (const [row, original] of dragOverridden) {
+      if (row.isConnected) continue
+      restoreRowDragState(row, original)
+      dragOverridden.delete(row)
     }
   }
 

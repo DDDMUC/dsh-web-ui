@@ -45,8 +45,9 @@ export function buildRemoteChannelBootScript(rules: RemoteChannelRules = REMOTE_
   return '(function(){' +
     'try{' +
     'var w=window,loc=w.location,h=loc.hostname;' +
-    // Loopback origins keep the original paths (mirrors isLoopbackHostname).
-    "if(h==='localhost'||h==='::1'||/^127(\\.\\d{1,3}){3}$/.test(h))return;" +
+    // Loopback origins (including the bracketed IPv6 literal WHATWG returns)
+    // keep the original paths (mirrors isLoopbackHostname).
+    "if(h==='localhost'||h==='::1'||h==='[::1]'||/^127(\\.\\d{1,3}){3}$/.test(h))return;" +
     'var R=' + json + ';' +
     // Host mode is server-granted: only the device-gated app landing
     // publishes the grant marker (in a capture script that runs ahead of

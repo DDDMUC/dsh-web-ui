@@ -83,7 +83,16 @@ export function isTrustedHost(request: IncomingMessage, trustedHosts: readonly s
   return isLoopbackClient(request) || trustedHosts.some(entry => {
     // A port-less entry matches the hostname on any port; an exact host:port
     // entry matches that authority verbatim (WHATWG normalization both sides).
-    const entryUrl = new URL(`http://${entry}`)
+    // A malformed entry (a config or DSH_REMOTE_TRUSTED_HOSTS typo) contributes
+    // no trust instead of throwing out of the fence: every pairing request from
+    // a non-loopback origin would otherwise answer 400 with only a generic
+    // webserver warning, and the valid entries would never be consulted.
+    let entryUrl: URL
+    try {
+      entryUrl = new URL(`http://${entry}`)
+    } catch {
+      return false
+    }
     return entryUrl.port === '' ? entryUrl.hostname === hostname : entryUrl.host === hostUrl.host
   })
 }
@@ -183,19 +192,33 @@ const MAX_BODY_BYTES = 4096
 
 /**
  * The rate-limit bucket key for one accept attempt (pure; unit-tested).
- * The first client-visible XFF hop separates buckets behind the auto-tunnel
- * (every internet client arrives from 127.0.0.1 there) — but only for
- * loopback peers, since a direct LAN client can rotate the header freely.
+ * A forwarded hop separates buckets behind the auto-tunnel (every internet
+ * client arrives from 127.0.0.1 there) — but only for loopback peers, since a
+ * direct LAN client can rotate the header freely. The caller passes the hop it
+ * trusts (the edge-appended LAST one; see rateLimitAccept), and the hop is
+ * truncated so one oversized header cannot mint a huge key.
  * @param socketIp - the socket peer address.
- * @param forwarded - the first XFF hop, already trimmed, if any.
+ * @param forwarded - the trusted XFF hop, already trimmed, if any.
  * @param bucket - page (GET /pair-accept) vs api (POST /api/pair/accept).
  */
 export function acceptLimitKey(socketIp: string, forwarded: string | undefined, bucket: 'page' | 'api'): string {
   if (isLoopbackAddress(socketIp) && forwarded !== undefined && forwarded !== '') {
-    return `${bucket}|${socketIp}|${forwarded}`
+    return `${bucket}|${socketIp}|${forwarded.slice(0, MAX_FORWARDED_KEY_CHARS)}`
   }
   return `${bucket}|${socketIp}`
 }
+
+/** Longest forwarded hop kept in a bucket key (the header is caller-sized). */
+const MAX_FORWARDED_KEY_CHARS = 64
+
+/**
+ * Hard cap on live accept buckets. The key is caller-influenced (a forwarded
+ * hop), so a rotating flood must not grow the table without bound: past the
+ * cap the oldest bucket is evicted, the same FIFO stance as
+ * {@link addBounded}. A legitimate client that loses its bucket merely starts
+ * a fresh window.
+ */
+export const MAX_ACCEPT_BUCKETS = 1024
 
 /**
  * Cap on the dynamically trusted hosts (see {@link addBounded}): room for
@@ -282,7 +305,7 @@ export function appShellCaptureScript(deviceId: string): string {
   const safeId = JSON.stringify(deviceId)
   const grantGlobal = JSON.stringify(REMOTE_HOST_GRANT_GLOBAL)
   const register = `try{if('serviceWorker' in navigator){navigator.serviceWorker.register(${JSON.stringify(PAIR_PATHS.appServiceWorker)},{scope:'/'}).catch(function(e){})}}catch(e){}`
-  return `<script>(function(){try{sessionStorage.setItem(${JSON.stringify(APP_DEVICE_STORAGE_KEY)},${safeId});localStorage.setItem(${JSON.stringify(APP_DEVICE_STORAGE_KEY)},${safeId});}catch(e){}try{history.replaceState(null,'','/')}catch(e){}try{window[${grantGlobal}]=true}catch(e){}${register}})()</script>`
+  return `<script>(function(){try{sessionStorage.setItem(${JSON.stringify(APP_DEVICE_STORAGE_KEY)},${safeId});}catch(e){}try{history.replaceState(null,'','/')}catch(e){}try{window[${grantGlobal}]=true}catch(e){}${register}})()</script>`
 }
 
 /**
@@ -611,26 +634,48 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
    *   count separately: a QR re-scan (page navigation) must not consume a
    *   brute-force budget that belongs to token guessing (and vice versa).
    */
+  /**
+   * Drop expired buckets from the FRONT of the insertion-ordered table, then
+   * FIFO-evict past the hard cap. The front always holds the oldest window
+   * because a re-armed bucket is re-inserted at the tail, so this is amortized
+   * O(1) per request: every iteration deletes an entry that was inserted once.
+   * It replaces a full-table scan that ran on every pairing request once the
+   * table passed 256 entries (and deleted nothing while all windows were
+   * fresh).
+   */
+  const pruneAcceptAttempts = (nowMs: number): void => {
+    while (acceptAttempts.size > 0) {
+      const oldest = acceptAttempts.keys().next().value
+      if (oldest === undefined) break
+      const attempt = acceptAttempts.get(oldest)
+      if (attempt !== undefined && nowMs - attempt.windowStart <= ACCEPT_WINDOW_MS) break
+      acceptAttempts.delete(oldest)
+    }
+    while (acceptAttempts.size > MAX_ACCEPT_BUCKETS) {
+      const oldest = acceptAttempts.keys().next().value
+      if (oldest === undefined) break
+      acceptAttempts.delete(oldest)
+    }
+  }
+
   const rateLimitAccept = (req: IncomingMessage, bucket: 'page' | 'api'): boolean => {
     const socketIp = (req.socket as { remoteAddress?: string } | undefined)?.remoteAddress ?? 'unknown'
     // XFF is honored only for loopback peers (the tunnel edge); see
     // acceptLimitKey. It is untrusted for authentication and never grants
-    // access.
-    const forwarded = typeof req.headers['x-forwarded-for'] === 'string'
-      ? (req.headers['x-forwarded-for'].split(',')[0] ?? '').trim()
-      : undefined
+    // access. Only the LAST hop is used: an edge APPENDS the address it saw, so
+    // any earlier hop is whatever the client sent — keying on the first one let
+    // an attacker rotate the header for a fresh brute-force budget per request.
+    const hops = typeof req.headers['x-forwarded-for'] === 'string'
+      ? req.headers['x-forwarded-for'].split(',')
+      : []
+    const forwarded = (hops[hops.length - 1] ?? '').trim()
     const ip = acceptLimitKey(socketIp, forwarded, bucket)
     const nowMs = Date.now()
-    // The map lives as long as the plugin: prune expired windows once the
-    // table grows past a modest size so distinct source IPs (LAN clients,
-    // brute-force scans) cannot accumulate forever.
-    if (acceptAttempts.size > 256) {
-      for (const [key, attempt] of acceptAttempts) {
-        if (nowMs - attempt.windowStart > ACCEPT_WINDOW_MS) acceptAttempts.delete(key)
-      }
-    }
+    pruneAcceptAttempts(nowMs)
     const entry = acceptAttempts.get(ip)
     if (entry === undefined || nowMs - entry.windowStart > ACCEPT_WINDOW_MS) {
+      // Re-insert at the tail so insertion order stays window order.
+      acceptAttempts.delete(ip)
       acceptAttempts.set(ip, { count: 1, windowStart: nowMs })
       return false
     }

@@ -170,9 +170,25 @@ export async function revokePair(deviceId: string): Promise<void> {
   if (!response.ok) throw new Error(`remote-web-ui: revoke failed with ${String(response.status)}`)
 }
 
-/** Presence heartbeat from a paired phone (unpaired heartbeats 401 harmlessly). */
-export async function sendHeartbeat(): Promise<void> {
-  await fetch('/api/pair/heartbeat', { method: 'POST' })
+/**
+ * Presence heartbeat from a paired phone.
+ * @returns the response status, so the caller can stop polling once the server
+ *   proves this page is not paired (see {@link shouldStopHeartbeat}).
+ */
+export async function sendHeartbeat(): Promise<number> {
+  const response = await fetch('/api/pair/heartbeat', { method: 'POST' })
+  return response.status
+}
+
+/**
+ * Whether a heartbeat answer means "this page can never be accepted again" and
+ * the 10 s wake source should stop: 401 (unpaired, or the device was revoked)
+ * and 403 (the fence refused it) are permanent for this page, while a network
+ * error or a 5xx is transient and keeps the cadence.
+ * @param status - the heartbeat response status.
+ */
+export function shouldStopHeartbeat(status: number): boolean {
+  return status === 401 || status === 403
 }
 
 /** Whether the current page URL carries a pairing token. */

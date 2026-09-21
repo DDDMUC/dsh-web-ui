@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net'
 import type { Server } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { PairingService } from '../src/pairing.ts'
-import { MAX_DYNAMIC_TRUSTED_HOSTS, acceptLimitKey, addBounded, makeRoutes, patchAppShell, PAIR_PATHS } from '../src/routes.ts'
+import { MAX_DYNAMIC_TRUSTED_HOSTS, acceptLimitKey, addBounded, isTrustedHost, makeRoutes, patchAppShell, PAIR_PATHS } from '../src/routes.ts'
 import { createPairGrantStore, type PairGrantStore } from '../src/pair-grant.ts'
 import { REMOTE_HOST_GRANT_GLOBAL } from '../src/remote-channel-rules.ts'
 
@@ -528,6 +528,25 @@ describe('/api/pair routes', () => {
     }
   })
 
+  it('operator gets a routable QR link when the public base ends with a slash', async () => {
+    // Given a public base in the shape a browser address-bar copy produces.
+    const service = makeService()
+    service.setPublicBaseUrl('https://phone.example.com/')
+    const { port, close } = await serve(makeRoutes({ service }))
+    try {
+      // When the panel mints a pairing link.
+      const issued = await call(port, 'POST', '/api/pair/issue', {})
+      // Then the base is canonicalized: untrimmed it would be
+      // https://host//pair-accept, which WHATWG resolves as authority
+      // "pair-accept" on path "/" and no route ever matches.
+      expect(issued.status).toBe(200)
+      expect(service.publicBaseUrl).toBe('https://phone.example.com')
+      expect(issued.body.url).toBe('https://phone.example.com/pair-accept?pair=tok-1')
+    } finally {
+      await close()
+    }
+  })
+
   it('publicBaseUrl alone satisfies the reachable-bind requirement (loopback-only server)', async () => {
     const service = makeService()
     service.setLanBases([])
@@ -590,6 +609,34 @@ describe('/api/pair routes', () => {
       expect(paired.body).toHaveProperty('deviceCount')
       expect(paired.body).toHaveProperty('onlineCount')
       expect(paired.body).toHaveProperty('tokenExpiresAt')
+    } finally {
+      await close()
+    }
+  })
+
+  it('operator is protected from a rotated XFF prefix minting fresh accept budgets', async () => {
+    // Given a pairing server whose requests arrive through the tunnel edge.
+    const service = makeService()
+    const { port, close } = await serve(makeRoutes({ service }))
+    try {
+      // When one client rotates the hop it prepends while the edge-appended
+      // hop stays constant (the edge APPENDS the address it saw; only that hop
+      // is trusted, so the bucket cannot be rotated).
+      for (let index = 0; index < 10; index += 1) {
+        const attempt = await call(port, 'POST', '/api/pair/accept', {
+          host: '192.168.1.5:3080',
+          body: { token: 'nope' },
+          headers: { 'x-forwarded-for': '10.0.0.' + String(index) + ', 198.51.100.7' },
+        })
+        expect(attempt.status).not.toBe(429)
+      }
+      const limited = await call(port, 'POST', '/api/pair/accept', {
+        host: '192.168.1.5:3080',
+        body: { token: 'nope' },
+        headers: { 'x-forwarded-for': '10.0.0.250, 198.51.100.7' },
+      })
+      // Then every attempt counted against the one edge-appended client.
+      expect(limited.status).toBe(429)
     } finally {
       await close()
     }
@@ -866,5 +913,19 @@ describe('/api/pair body failure contract (shared readJsonBody)', () => {
     } finally {
       await close()
     }
+  })
+
+  it('operator keeps pairing reachable with a malformed trusted-host entry', () => {
+    // Given a non-loopback pairing request and a config/env typo in the
+    // trusted-host list (here an unclosed IPv6 literal).
+    const request = {
+      headers: { host: 'proxy.example:3080' },
+      socket: { remoteAddress: '192.168.1.9' },
+    } as unknown as import('node:http').IncomingMessage
+    // When the fence consults the list, then the typo contributes no trust
+    // instead of throwing out of the handler (which used to make every
+    // non-loopback pairing request answer 400) and the valid entry still works.
+    expect(isTrustedHost(request, ['[fe80::1'])).toBe(false)
+    expect(isTrustedHost(request, ['[fe80::1', 'proxy.example:3080'])).toBe(true)
   })
 })

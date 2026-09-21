@@ -9,8 +9,11 @@
  * Security model:
  * - While `requirePairingForLan` is on (default), every request must carry a
  *   live paired-device cookie, enforced before any bytes are forwarded and
- *   before any host call. With the policy off, the cookie gate is skipped
- *   (the local-only denials below still apply).
+ *   before any host call. With the policy off the cookie gate is skipped (the
+ *   local-only denials below still apply), but the process credential is then
+ *   attached ONLY to a request that still presented a live device credential:
+ *   the credential authorizes as the machine owner, so an unpaired caller is
+ *   proxied without it and the inner route answers 401.
  * - A paired remote desktop is a full-control credential: the browser half
  *   flips the official UI into host mode (the transport ownsHost hook), so
  *   the configuration plane (settings, credentials, presets, deliverables)
@@ -150,13 +153,17 @@ export function makeRemoteApiRoutes(deps: RemoteApiDeps): WebRoute[] {
     // With the live policy off, untrusted-but-policy-open callers are proxied
     // (a stale client rewrite must not 403); loopback-only denials stay below.
     const require = typeof requirePairingForLan === 'function' ? requirePairingForLan() : requirePairingForLan
-    if (require) {
-      const paired = pairedDeviceIdOf(req, service)
-      if (paired === undefined) {
-        req.resume()
-        envelopeError(res, 403, 'invalid-request', 'unpaired', 'this device is not paired with the desktop')
-        return
-      }
+    // The device credential is resolved BEFORE the policy branch because it
+    // also decides whether the process's inner browser-auth credential may
+    // ride the re-issued request: that credential authorizes as the machine
+    // owner, so it is attached only to a request a live pairing authenticated.
+    // With the policy off an unpaired caller is therefore proxied without it
+    // (the inner route answers 401) instead of inheriting machine-owner access.
+    const paired = pairedDeviceIdOf(req, service)
+    if (require && paired === undefined) {
+      req.resume()
+      envelopeError(res, 403, 'invalid-request', 'unpaired', 'this device is not paired with the desktop')
+      return
     }
 
     const method = req.method ?? 'GET'
@@ -180,7 +187,7 @@ export function makeRemoteApiRoutes(deps: RemoteApiDeps): WebRoute[] {
       return
     }
 
-    proxyLoopbackHttp(req, res, port, `${inner}${url.search}`, deps.auth)
+    proxyLoopbackHttp(req, res, port, `${inner}${url.search}`, paired !== undefined ? deps.auth : undefined)
   }
 
   return [{ kind: 'prefix', path: REMOTE_PREFIX, handler }]
@@ -213,20 +220,21 @@ export function makeRemoteApiUpgradeRoutes(deps: RemoteApiDeps): WebUpgradeRoute
 
   const handlerFor = (fallbackPath: string) => (req: IncomingMessage, socket: Duplex, head: Buffer): void => {
     const require = typeof requirePairingForLan === 'function' ? requirePairingForLan() : requirePairingForLan
-    if (require) {
-      // WebSocket handshakes cannot carry headers from the Web API, so the
-      // cookieless credential rides the query; the cookie stays the primary.
-      let queryDevice: string | undefined
-      try {
-        queryDevice = new URL(req.url ?? '/', 'http://127.0.0.1').searchParams.get(REMOTE_DEVICE_QUERY) ?? undefined
-      } catch { /* fall through to the cookie */ }
-      const deviceId = pairedDeviceIdOf(req, service)
-      const paired = deviceId ?? (queryDevice !== undefined && service.touchDevice(queryDevice) ? queryDevice : undefined)
-      if (paired === undefined) {
-        socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
-        socket.destroy()
-        return
-      }
+    // Same rule as the HTTP handler: the device credential decides whether the
+    // process's inner browser-auth credential may be attached, so it is
+    // resolved regardless of the live policy.
+    // WebSocket handshakes cannot carry headers from the Web API, so the
+    // cookieless credential rides the query; the cookie stays the primary.
+    let queryDevice: string | undefined
+    try {
+      queryDevice = new URL(req.url ?? '/', 'http://127.0.0.1').searchParams.get(REMOTE_DEVICE_QUERY) ?? undefined
+    } catch { /* fall through to the cookie */ }
+    const paired = pairedDeviceIdOf(req, service)
+      ?? (queryDevice !== undefined && service.touchDevice(queryDevice) ? queryDevice : undefined)
+    if (require && paired === undefined) {
+      socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
+      socket.destroy()
+      return
     }
     const inner = upgradeInnerPath(req.url, fallbackPath)
     const denied = loopbackOnlyDenial(inner.split('?')[0] ?? inner)
@@ -239,7 +247,7 @@ export function makeRemoteApiUpgradeRoutes(deps: RemoteApiDeps): WebUpgradeRoute
     // event-stream route enforces it); resolving it is async, so the
     // handshake bytes are written once it settles. A missing credential
     // proceeds as before — the gateway route then refuses.
-    void Promise.resolve(deps.auth?.ready())
+    void Promise.resolve(paired === undefined ? undefined : deps.auth?.ready())
       .catch(() => undefined)
       .then((cookie) => {
         if (socket.destroyed) return

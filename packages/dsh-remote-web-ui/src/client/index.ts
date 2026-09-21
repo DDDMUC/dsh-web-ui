@@ -27,7 +27,7 @@ import { PairFailedNotice } from './PairFailedNotice.tsx'
 import { RemoteSettingsCard, RemoteSettingsCardController, type RemoteSettings } from './RemoteSettingsCard.tsx'
 import { en, zh, type RemoteKey } from './locales.ts'
 import { PAIR_FAILED_MARKER, runPairBootFlow } from './deep-link.ts'
-import { readPairGatePolicy, sendHeartbeat } from './pair-api.ts'
+import { readPairGatePolicy, sendHeartbeat, shouldStopHeartbeat } from './pair-api.ts'
 import {
   channelTransition,
   installRemoteChannel,
@@ -259,7 +259,14 @@ export function apply(ctx: ClientContext): void {
         const loopback = connection?.isLoopback ?? true
         runPairBootFlow(ctx, window.location.search)
         if (loopback) return () => {}
-        const timer = window.setInterval(() => { void sendHeartbeat().catch(() => {}) }, HEARTBEAT_INTERVAL_MS)
+        const timer = window.setInterval(() => {
+          void sendHeartbeat().then((status) => {
+            // A revoked (401) or fenced-off (403) page can never be accepted
+            // again without re-pairing, so the 10 s wake source stops instead of
+            // polling a refusal for the lifetime of the tab.
+            if (shouldStopHeartbeat(status)) window.clearInterval(timer)
+          }).catch(() => {})
+        }, HEARTBEAT_INTERVAL_MS)
         return () => { window.clearInterval(timer) }
       }, 'remote-web-ui: pair flow + heartbeats')
     } else if (!enabled() && disposeRuntime !== undefined) {

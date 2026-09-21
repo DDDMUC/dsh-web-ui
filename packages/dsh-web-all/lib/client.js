@@ -13811,9 +13811,23 @@ window.__ModuleLoader__.load({
 			if (response.status === 404) return;
 			if (!response.ok) throw new Error(`remote-web-ui: revoke failed with ${String(response.status)}`);
 		}
-		/** Presence heartbeat from a paired phone (unpaired heartbeats 401 harmlessly). */
+		/**
+		* Presence heartbeat from a paired phone.
+		* @returns the response status, so the caller can stop polling once the server
+		*   proves this page is not paired (see {@link shouldStopHeartbeat}).
+		*/
 		async function sendHeartbeat() {
-			await fetch("/api/pair/heartbeat", { method: "POST" });
+			return (await fetch("/api/pair/heartbeat", { method: "POST" })).status;
+		}
+		/**
+		* Whether a heartbeat answer means "this page can never be accepted again" and
+		* the 10 s wake source should stop: 401 (unpaired, or the device was revoked)
+		* and 403 (the fence refused it) are permanent for this page, while a network
+		* error or a 5xx is transient and keeps the cadence.
+		* @param status - the heartbeat response status.
+		*/
+		function shouldStopHeartbeat(status) {
+			return status === 401 || status === 403;
 		}
 		/** Whether the current page URL carries a pairing token. */
 		function readPairParams(search) {
@@ -16600,7 +16614,7 @@ window.__ModuleLoader__.load({
 		* @returns true for localhost, IPv6 loopback, or any 127/8 literal.
 		*/
 		function isLoopbackHostname(hostname) {
-			if (hostname === "localhost" || hostname === "::1") return true;
+			if (hostname === "localhost" || hostname === "::1" || hostname === "[::1]") return true;
 			const parts = hostname.split(".");
 			return parts.length === 4 && parts[0] === "127" && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255);
 		}
@@ -16744,7 +16758,7 @@ window.__ModuleLoader__.load({
 					rewritten.pathname = rewritePath(url.pathname);
 					const next = typeof input === "string" || input instanceof URL ? rewritten.toString() : new Request(rewritten, input);
 					return Promise.resolve(originalFetch.call(window, next, attach(init))).then(async (response) => {
-						if (await isUnpairedDenied(response.clone())) options.onUnpaired?.();
+						if (response.status === 403 && await isUnpairedDenied(response.clone())) options.onUnpaired?.();
 						else options.onPaired?.();
 						return response;
 					});
@@ -17496,17 +17510,23 @@ window.__ModuleLoader__.load({
 				document.body.appendChild(whale);
 			}
 			/**
+			* Write one row's recorded official draggable state back onto it.
+			* @param row - the tracked row element.
+			* @param original - the recorded attribute value, or null when it was absent.
+			*/
+			function restoreRowDragState(row, original) {
+				if (original === null) row.removeAttribute("draggable");
+				else row.setAttribute("draggable", original);
+			}
+			/**
 			* Restore the official draggable state this layer overrode while active.
 			* Rows are React-owned and may have been re-created meanwhile, so only the
-			* tracked elements are touched; a detached element is skipped.
+			* tracked elements are touched; a detached element is written back too
+			* (harmless, and it keeps the entry prunable at every tick).
 			*/
 			function restoreRowDrag() {
 				if (dragOverridden.size === 0) return;
-				for (const [row, original] of dragOverridden) {
-					if (!row.isConnected) continue;
-					if (original === null) row.removeAttribute("draggable");
-					else row.setAttribute("draggable", original);
-				}
+				for (const [row, original] of dragOverridden) restoreRowDragState(row, original);
 				dragOverridden.clear();
 			}
 			/** Restore a dragged position when the whale becomes visible again. */
@@ -17531,6 +17551,12 @@ window.__ModuleLoader__.load({
 				for (const row of rows) if (row.getAttribute("draggable") !== "false") {
 					if (!dragOverridden.has(row)) dragOverridden.set(row, row.getAttribute("draggable"));
 					row.setAttribute("draggable", "false");
+				}
+				if (dragOverridden.size === 0) return;
+				for (const [row, original] of dragOverridden) {
+					if (row.isConnected) continue;
+					restoreRowDragState(row, original);
+					dragOverridden.delete(row);
 				}
 			}
 			function syncWhale() {
@@ -18168,7 +18194,9 @@ window.__ModuleLoader__.load({
 					runPairBootFlow(ctx, window.location.search);
 					if (loopback) return () => {};
 					const timer = window.setInterval(() => {
-						sendHeartbeat().catch(() => {});
+						sendHeartbeat().then((status) => {
+							if (shouldStopHeartbeat(status)) window.clearInterval(timer);
+						}).catch(() => {});
 					}, HEARTBEAT_INTERVAL_MS);
 					return () => {
 						window.clearInterval(timer);

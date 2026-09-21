@@ -23,6 +23,14 @@ function setWidth(px: number): void {
   vi.stubGlobal('innerWidth', px)
 }
 
+/**
+ * Interval ids the layer started. freshStart() builds a new module instance per
+ * test while the previous one keeps its page-lifetime listeners and sync tick,
+ * so without this teardown a stale layer would keep re-suppressing rows on the
+ * shared document (and the suite would accumulate live timers).
+ */
+let adaptTimers: number[] = []
+
 beforeEach(() => {
   document.head.innerHTML = ''
   document.body.innerHTML = ''
@@ -33,9 +41,18 @@ beforeEach(() => {
   // jsdom's localStorage in this vitest build lacks clear(); the adapt layer
   // only reads it (inside try/catch), so stale keys are harmless here.
   stubMatchMedia()
+  adaptTimers = []
+  const realSetInterval = globalThis.setInterval
+  vi.stubGlobal('setInterval', (fn: () => void, ms?: number, ...args: unknown[]): number => {
+    const id = realSetInterval(fn, ms, ...args) as unknown as number
+    adaptTimers.push(id)
+    return id
+  })
 })
 
 afterEach(() => {
+  for (const id of adaptTimers) globalThis.clearInterval(id)
+  adaptTimers = []
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -332,6 +349,35 @@ describe('startMobileAdapt', () => {
     start()
     await vi.waitFor(() => { expect(row.getAttribute('draggable')).toBe('false') })
     ;(window as unknown as { __dshRemoteAdapt?: { evaluate: () => void } }).__dshRemoteAdapt?.evaluate()
+    media.portrait = false
+    ;(window as unknown as { __dshRemoteAdapt?: { evaluate: () => void } }).__dshRemoteAdapt?.evaluate()
+    expect(row.getAttribute('draggable')).toBe('true')
+  })
+
+  it('user does not retain a detached session row for the page lifetime', async () => {
+    // Given a portrait touch viewport with one draggable official session row.
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    const sidebar = document.createElement('div')
+    sidebar.className = 'app_sidebarCol'
+    const row = document.createElement('div')
+    row.className = 'x_sessionRow x_flatSessionRowWithoutStatus'
+    row.setAttribute('draggable', 'true')
+    sidebar.appendChild(row)
+    document.body.appendChild(sidebar)
+    const start = await freshStart()
+    start()
+    // When the layer suppresses the row's native drag.
+    await vi.waitFor(() => { expect(row.getAttribute('draggable')).toBe('false') })
+    // And React then replaces it (the detached node can never be restored by a
+    // later revert, so tracking it would retain the whole detached subtree).
+    sidebar.remove()
+    // Then the detached node is forgotten and hands its official state back.
+    await vi.waitFor(() => { expect(row.getAttribute('draggable')).toBe('true') })
+    // And a node React re-attaches is recorded again and restores on revert.
+    document.body.appendChild(sidebar)
+    await vi.waitFor(() => { expect(row.getAttribute('draggable')).toBe('false') })
     media.portrait = false
     ;(window as unknown as { __dshRemoteAdapt?: { evaluate: () => void } }).__dshRemoteAdapt?.evaluate()
     expect(row.getAttribute('draggable')).toBe('true')

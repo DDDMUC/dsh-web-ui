@@ -100,7 +100,7 @@ export interface Config {
   maxDevices?: number
   /**
    * Idle sessions older than this (ms) are deleted from memory and disk.
-   * Default is 7 days; a leftover cookie no longer authorizes after expiry.
+   * Default is 30 days; a leftover cookie no longer authorizes after expiry.
    */
   idleExpireMs?: number
   /** Cookie name carrying the paired device id. */
@@ -115,7 +115,11 @@ export interface Config {
    * so a harness browser credential a device has already redeemed is not
    * invalidated by stop() — see the README security model. Set false to keep
    * the desktop on plain `/api` (only useful when that origin is already
-   * trusted for `/api`).
+   * trusted for `/api`). Turning the policy off does NOT open the channel:
+   * the /remote proxy attaches the process's own browser-auth credential only
+   * when the request itself presents a live paired-device credential, so an
+   * unpaired LAN/tunnel caller is forwarded without it and the inner route
+   * answers 401.
    */
   requirePairingForLan?: boolean
   /**
@@ -583,7 +587,13 @@ function applyImpl(ctx: Context, config?: Config): void {
       const response = await fetch(`http://127.0.0.1:${String(ctx.webServer.port)}/`, {
         headers: cookie !== undefined ? { cookie } : undefined,
       })
-      if (!response.ok) return undefined
+      if (!response.ok) {
+        // A stale credential (secret rotation, 30-day TTL) must not wedge every
+        // later landing: drop it so the next attempt re-redeems, exactly as the
+        // proxy path does on an upstream 401.
+        if (response.status === 401 || response.status === 403) innerAuth.invalidate()
+        return undefined
+      }
       const html = await response.text()
       appShellCache = { at: Date.now(), html }
       return html

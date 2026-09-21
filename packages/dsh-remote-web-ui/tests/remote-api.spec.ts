@@ -494,6 +494,60 @@ describe('remote desktop channel (/remote)', () => {
     }
   })
 
+  it('operator gets no process credential on an unpaired request with the policy off', async () => {
+    // Given the pairing policy is off and a caller that never paired.
+    const service = makeService()
+    let redemptions = 0
+    const upstream = await startUpstream((req) => {
+      if (req.url === '/?token=launch-1') {
+        redemptions += 1
+        return { status: 303, headers: { 'set-cookie': 'dsh-auth-test=v1.1; Path=/' }, body: '' }
+      }
+      return { status: 200, body: JSON.stringify({ type: 'server-response', rpcId: 'rpc-open', result: { ok: true } }) }
+    })
+    const auth = createInnerAuth(() => `http://127.0.0.1:${String(upstream.port)}/?token=launch-1`)
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port, requirePairingForLan: false, auth }))
+    try {
+      // When it drives the gated channel.
+      const result = await call(port, 'POST', '/remote/api/session.list', { body: ENVELOPE('rpc-open', 'session.list', {}) })
+      // Then the stale rewrite is still proxied (no 403) but without the
+      // machine-owner credential: the inner route answers 401, so an unpaired
+      // LAN/tunnel caller cannot drive the host API.
+      expect(result.status).toBe(200)
+      expect(upstream.hits.map(hit => hit.url)).toEqual(['/api/session.list'])
+      expect(upstream.hits[0].cookie).toBeUndefined()
+      expect(redemptions).toBe(0)
+    } finally {
+      await close()
+      await upstream.close()
+    }
+  })
+
+  it('operator keeps the process credential on a paired device with the policy off', async () => {
+    // Given the pairing policy is off and a device with a live session.
+    const service = makeService()
+    const cookie = pairedCookie(service)
+    const upstream = await startUpstream((req) => {
+      if (req.url === '/?token=launch-1') {
+        return { status: 303, headers: { 'set-cookie': 'dsh-auth-test=v1.1; Path=/' }, body: '' }
+      }
+      return { status: 200, body: JSON.stringify({ type: 'server-response', rpcId: 'rpc-paired-open', result: { ok: true } }) }
+    })
+    const auth = createInnerAuth(() => `http://127.0.0.1:${String(upstream.port)}/?token=launch-1`)
+    const { port, close } = await serve(makeRemoteApiRoutes({ service, port: upstream.port, requirePairingForLan: false, auth }))
+    try {
+      // When it drives the gated channel, then the process credential still
+      // rides the request (its live pairing authenticated it).
+      const result = await call(port, 'POST', '/remote/api/session.list', { body: ENVELOPE('rpc-paired-open', 'session.list', {}), cookie })
+      expect(result.status).toBe(200)
+      const rpc = upstream.hits[upstream.hits.length - 1]
+      expect(rpc.cookie).toBe('dsh-auth-test=v1.1')
+    } finally {
+      await close()
+      await upstream.close()
+    }
+  })
+
   it('invalidates the inner credential after an upstream 401 and re-redeems', async () => {
     const service = makeService()
     const cookie = pairedCookie(service)

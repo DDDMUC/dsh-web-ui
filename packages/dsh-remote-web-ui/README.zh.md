@@ -168,6 +168,7 @@ pnpm run build
 - **撤销按请求生效**：停止落地时已在途的请求会完成；下一个请求 403。
 - **配对设备会话默认持久化**：设备会话（非一次性 QR 令牌）写入 `$DSH_HOME/remote-web-ui-devices.json`（0600，临时文件 + 原子改名）。`dsh web` 重启后配对 cookie 依然有效。刷新二维码铸造新令牌；重启不会恢复当前二维码。空闲超过 `idleExpireMs`（默认 30 天；重开 service worker 每次接管导航都会刷新该窗口）的会话被删除并须重新配对。设备 id 即会话凭据。需要时可用 `devicesFile` 指定其他绝对路径。更换 `cookieName` 会使现有设备失效（预期行为）。
 - **局域网绑定块拥有 webserver 行**：开关翻过后受管块固定绑定；插件每次启动重断言，显式 `--host`/`--port` 旗标通过重写块获胜。手工编辑该块会被检测并在卡片展示（`blockHost` 显示字面量）。
+- **关闭配对策略不会打开 `/remote`**：`/remote` 前缀仍会代理过期客户端的同源改写请求，但只有在请求自身携带有效配对设备凭据时，才会附上进程内部的 `dsh-auth-*` 凭据。局域网或隧道部署下未配对的调用会被转发但不带该凭据，内层路由返回 401——`requirePairingForLan: false` 绝不会把机器所有者访问权交给未配对的调用方。
 - **桌面栅栏策略公开**：`/api/pair/status` 只暴露布尔 `requirePairingForLan` 策略，供远程桌面在设置作用域可用前选择正确传输。该字段不是凭据，不暴露令牌、设备、计数或隧道 URL。
 - **快速隧道主机名每次运行都变**：`trycloudflare.com` URL 每次 `cloudflared` 启动都随机，`publicBaseUrl`（或自动隧道）须随之刷新。固定域名中继会把一个固定的 `<id>.dsh-market.com` 源前置在该临时地址上（随自动隧道默认开启）；命名隧道模式（`tunnelToken`）是自带域名的替代路径。Token 本身作为设置密文存储（读取脱敏），不会写日志，也不会回传浏览器半区。
 - **中继只改变访问源，不改变信任根**：中继开启时，手机访问的是 `https://<id>.dsh-market.com`——一个 dsh-market 的 Cloudflare Worker，它查询实例当前的隧道地址并逐字节转发请求——配对 Cookie 与所有应用层校验仍留在实例上，worker 不终结任何配对。变化的是传输路径：中继流量经过包作者在 Cloudflare 边缘运营的基础设施，作者的 worker 可以观察到这些流量——这与 Cloudflare 自身对裸 `trycloudflare.com` 快速隧道的可见性相同。注册表把每个 id 绑定到一个 256 位密钥的 SHA-256 哈希（明文只存于 `$DSH_HOME`，0600），只接受 `*.trycloudflare.com` 目标，对注册做限流，且除映射外不存储任何数据；关闭中继即可让部署完全留在临时源上。

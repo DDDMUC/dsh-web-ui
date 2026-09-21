@@ -7,9 +7,9 @@
  * Security invariants:
  * - One active token at a time; `issue()` replaces it, so a refreshed QR
  *   immediately invalidates the previous link.
- * - A token stays re-usable until it expires or is replaced: the first
- *   successful `accept()` marks it consumed, but the same link may pair
- *   again within the window (each re-accept mints a fresh device session).
+ * - A token is a bearer credential for its whole window: it is refused only
+ *   when unknown, expired, or after `stop()`, and the same link may pair
+ *   repeatedly within that window (each accept mints a fresh device session).
  *   Mobile flows routinely split across cookie contexts (camera preview to
  *   in-app browser to the system browser), and the later context must be
  *   able to complete its own pairing from the same link.
@@ -45,8 +45,6 @@ export interface TokenRecord {
   issuedAt: number
   /** Absolute expiry (ms epoch); accept() past this is refused. */
   expiresAt: number
-  /** Consumed by the first successful accept(). */
-  consumed: boolean
   /** Opaque, non-secret identifier surfaced in snapshots (never the pairing secret). */
   id: string
   /** Workspace the QR link should land the phone in (optional). */
@@ -167,7 +165,13 @@ export interface PairingConfig {
   devicesFile?: string
 }
 
-/** Result of one accept() attempt. */
+/**
+ * Result of one accept() attempt. `used` is never produced by this state
+ * machine (a token stays redeemable for its whole window, see the module doc):
+ * it stays in the wire contract as the 409 branch the client already handles,
+ * so an older or third-party host answering "already used" still degrades to
+ * the intended refusal copy instead of an unparsed status.
+ */
 export type AcceptResult =
   | { ok: true; deviceId: string }
   | { ok: false; code: 'invalid' | 'used' }
@@ -343,9 +347,14 @@ export class PairingService {
     return this.publicBase
   }
 
-  /** Set or clear the public base URL (a tunnel in front of this server). */
+  /**
+   * Set or clear the public base URL (a tunnel in front of this server). The
+   * value is canonicalized to its origin: a trailing slash (what a browser
+   * address-bar copy produces) or a path would mint a dead `//pair-accept`
+   * link, which WHATWG resolves as an authority rather than a path.
+   */
   setPublicBaseUrl(url: string | undefined): void {
-    this.publicBase = url
+    this.publicBase = url === undefined ? undefined : canonicalBaseUrl(url)
     this.notify()
   }
 
@@ -395,7 +404,6 @@ export class PairingService {
       id: `t${this.tokenSerial}`,
       issuedAt: now,
       expiresAt: now + this.config.tokenTtlMs,
-      consumed: false,
       ...(workspaceId !== undefined ? { workspaceId } : {}),
       ...(address !== undefined ? { address } : {}),
     })
@@ -404,21 +412,20 @@ export class PairingService {
   }
 
   /**
-   * Consume a token and bind a device session. One-time: the second
-   * successful call for the same token is impossible because the first
-   * consumes it.
+   * Redeem a token and bind a device session. The token is a bearer
+   * credential for its whole window, not a single-use nonce: it is refused
+   * only when unknown, past its expiry, or after stop(), and every successful
+   * call — including a repeat within the same window — mints a fresh device
+   * session (see the module doc for the mobile cookie-context rationale).
    * @param token - the token secret from the QR link.
    * @param userAgent - optional User-Agent header captured at accept.
    * @returns the new device id, or a refusal code.
    */
   accept(token: string, userAgent?: string): AcceptResult {
     const record = this.tokens.get(token)
-    // A consumed token stays a valid bearer credential until expiry or
-    // replacement (see the module doc): re-accept mints a fresh device.
     if (record === undefined || this.stopped || this.clock.now() > record.expiresAt) {
       return { ok: false, code: 'invalid' }
     }
-    record.consumed = true
     const deviceId = this.clock.randomToken()
     const now = this.clock.now()
     if (this.devices.size >= this.config.maxDevices) {
@@ -647,6 +654,20 @@ function relayEqual(a: RelayStatus | undefined, b: RelayStatus | undefined): boo
 /** Element-wise string list equality (interface order is meaningful). */
 function sameStrings(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index])
+}
+
+/**
+ * Canonical origin of a public base URL. An unparsable value is returned
+ * verbatim so the caller's malformed-base warning stays the single owner of
+ * that case.
+ * @param url - the configured public base.
+ */
+export function canonicalBaseUrl(url: string): string {
+  try {
+    return new URL(url).origin
+  } catch {
+    return url
+  }
 }
 
 /** Strip control characters and cap the User-Agent stored with a session. */
