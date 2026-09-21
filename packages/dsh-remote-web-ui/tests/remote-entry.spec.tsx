@@ -288,6 +288,41 @@ describe('RemoteEntry', () => {
     await waitFor(() => expect(screen.getByText('Paired devices offline')).toBeTruthy())
   })
 
+  it('operator keeps the device row when the server refuses the unpair', async () => {
+    // Given an open panel showing one paired device.
+    mount()
+    const trigger = screen.getByRole('button', { name: 'Remote access' })
+    fireEvent.click(trigger)
+    await waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('true'))
+    FakeEventSource.instances[0]?.emit({
+      type: 'state',
+      phase: 'connected',
+      lanAvailable: true,
+      tokenId: 'tok-1',
+      tokenExpiresAt: Date.now() + 60_000,
+      deviceCount: 1,
+      onlineCount: 1,
+      devices: [{
+        id: 'dev-live',
+        createdAt: Date.now() - 10_000,
+        lastSeenAt: Date.now(),
+        online: true,
+        userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/151.0.0.0 Mobile Safari/537.36',
+      }],
+    })
+    const unpair = await screen.findByRole('button', { name: 'Unpair this device' })
+    // When the operator unpairs it and the server refuses the request.
+    const refused = vi.fn(async () => new Response(JSON.stringify({ ok: false, code: 'forbidden' }), { status: 403, headers: { 'content-type': 'application/json' } }))
+    vi.stubGlobal('fetch', refused)
+    fireEvent.click(unpair)
+    await waitFor(() => expect(refused).toHaveBeenCalledWith('/api/pair/revoke', expect.objectContaining({ method: 'POST' })))
+    // Then the row stays: the session is still live server-side, so the panel
+    // must not claim a revocation that did not happen.
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Unpair this device' }).length).toBe(1))
+    // The roster still holds exactly the one live row.
+    expect(screen.getAllByRole('listitem').length).toBe(1)
+  })
+
   it('stop posts the revocation; refresh mints a new QR; the link copies once', async () => {
     const { fetch } = mount()
     fireEvent.click(screen.getByRole('button', { name: 'Remote access' }))

@@ -14925,19 +14925,21 @@ window.__ModuleLoader__.load({
 			}, [state]);
 			(0, react.useEffect)(() => closeEventSource, [closeEventSource]);
 			const handleStop = (0, react.useCallback)(() => {
-				stopPair().catch(() => {});
-				setState((previous) => previous.kind === "ready" ? {
-					...previous,
-					phase: "stopped",
-					devices: []
-				} : previous);
+				stopPair().then(() => {
+					setState((previous) => previous.kind === "ready" ? {
+						...previous,
+						phase: "stopped",
+						devices: []
+					} : previous);
+				}).catch(() => {});
 			}, []);
 			const handleRevoke = (0, react.useCallback)((deviceId) => {
-				revokePair(deviceId).catch(() => {});
-				setState((previous) => previous.kind === "ready" ? {
-					...previous,
-					devices: previous.devices.filter((device) => device.id !== deviceId)
-				} : previous);
+				revokePair(deviceId).then(() => {
+					setState((previous) => previous.kind === "ready" ? {
+						...previous,
+						devices: previous.devices.filter((device) => device.id !== deviceId)
+					} : previous);
+				}).catch(() => {});
 			}, []);
 			const handleRefresh = (0, react.useCallback)(() => {
 				mint().then(setState);
