@@ -16550,6 +16550,7 @@ window.__ModuleLoader__.load({
 				"/api/remote.mux",
 				"/sidebar/ws/terminal",
 				"/sidebar/ws/agent-terminals",
+				"/sidebar/ws/agent-opens",
 				"/api/dsh-ssh/terminal"
 			],
 			deviceHeader: REMOTE_DEVICE_HEADER,

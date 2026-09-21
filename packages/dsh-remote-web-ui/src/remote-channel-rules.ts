@@ -56,6 +56,7 @@ export const REMOTE_CHANNEL_RULES: RemoteChannelRules = {
     '/api/remote.mux',
     '/sidebar/ws/terminal',
     '/sidebar/ws/agent-terminals',
+    '/sidebar/ws/agent-opens',
     '/api/dsh-ssh/terminal',
   ],
   deviceHeader: REMOTE_DEVICE_HEADER,

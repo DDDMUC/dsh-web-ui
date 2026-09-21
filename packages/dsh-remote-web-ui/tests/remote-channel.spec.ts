@@ -50,6 +50,9 @@ describe('rewrite rules', () => {
     expect(shouldRewriteWsPath('/api/events.host')).toBe(false)
     expect(shouldRewriteWsPath('/sidebar/ws/terminal')).toBe(true)
     expect(shouldRewriteWsPath('/sidebar/ws/agent-terminals')).toBe(true)
+    // The sidebar's model-opened push socket (issue #1646): same family as the
+    // two above, and without it sidebar_open never reaches a paired device.
+    expect(shouldRewriteWsPath('/sidebar/ws/agent-opens')).toBe(true)
     expect(shouldRewriteWsPath('/api/dsh-ssh/terminal')).toBe(true)
     expect(shouldRewriteWsPath('/api/session.list')).toBe(false)
     expect(shouldRewriteWsPath('/m/api/remote.mux')).toBe(false)
