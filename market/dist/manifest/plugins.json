@@ -149,7 +149,7 @@
       "description": "给模型输出配交互式 UI：助手回复内联渲染 dsh-ui 围栏（布局、图表、表格、表单、Mermaid、3D、原生音视频），双通道渲染兼容原版 DSH 与新构建，支持流式渲染、面板停靠与组件交互回传模型。",
       "descriptionEn": "Interactive UI inside assistant replies via the dsh-ui fence: layouts, charts, tables, forms, quizzes, Mermaid, 3D and native audio/video. Dual-channel rendering covers stock DSH and newer builds, with streaming render, panel docking and component actions that loop back to the model.",
       "repo": "https://github.com/omdsh-dev/dsh-genui",
-      "npm": "@omdsh-dev/dsh-genui",
+      "npm": "@changfenhuang/dsh-genui",
       "category": "ui",
       "subcategory": "render"
     },
@@ -1502,6 +1502,18 @@
       "npm": "dsh-translate",
       "category": "tools",
       "subcategory": "api"
+    },
+    {
+      "id": "dsh-mcptoon",
+      "name": "mcptoon MCP 接入",
+      "rank": 118,
+      "nameEn": "mcptoon MCP Bridge",
+      "author": "activeing123",
+      "description": "把 mcptoon 作为一条 stdio MCP 服务接入，让 agent 通过 mcptoon 的压缩视图发现已配置 MCP server 的工具，而非每轮支付完整 JSON schema。附带 doctor CLI：校验 mcptoon 可执行文件能否解析，不能时打印精确的 command/args 覆盖配置。",
+      "descriptionEn": "Mounts the mcptoon MCP bridge as one stdio server, so the agent discovers the tools of every MCP server you have configured through mcptoon's compressed view instead of full JSON schemas on each turn. Ships a doctor CLI that checks the mcptoon executable resolves and prints the exact command/args override when it does not.",
+      "repo": "https://github.com/activeing123/dsh-mcptoon",
+      "category": "tools",
+      "subcategory": "dev"
     }
   ]
 }

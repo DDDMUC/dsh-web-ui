@@ -107,9 +107,11 @@ export interface Config {
   cookieName?: string
   /**
    * When true (default), a desktop Web GUI opened at a non-loopback origin
-   * rides the gated `/remote/api` channel and must carry a live paired-device
-   * cookie — the QR is the only way into remote desktop, and stop()/revoke()
-   * cut the /remote channel and the pairing cookie off immediately. Scope
+   * rides the gated `/remote/api` channel, whose requests must carry a live
+   * paired-device cookie — the QR is the only way into remote desktop, and
+   * stop()/revoke() cut the channel and the pairing cookie off immediately.
+   * This policy selects the transport; it never loosens the channel, whose
+   * gate is unconditional (issue #1665). Scope
    * note for this cohort: direct /api is governed by the harness fence +
    * browser-auth cookie (the api/gate seam has no emitter on 0.1.2-alpha.2),
    * so a harness browser credential a device has already redeemed is not
@@ -618,15 +620,15 @@ function applyImpl(ctx: Context, config?: Config): void {
         return list
       },
     }),
-    // The remote desktop channel: policy-gated `/remote` prefix that
-    // re-issues fenced paths to loopback (see remote-api.ts). The live
-    // requirePairingForLan is re-read per request, same as the gate listener
-    // and routes above, so a stale client rewrite on an open-LAN deployment
-    // proxies instead of 403ing.
+    // The remote desktop channel: a paired-credential-gated `/remote` prefix
+    // that re-issues fenced paths to loopback (see remote-api.ts). The gate is
+    // unconditional — requirePairingForLan governs the plain /api surface and
+    // the desktop's client-side rewrite only; it is never an authorization
+    // input here, because this channel attaches the process's own browser
+    // credential to everything it forwards (issue #1665).
     ...makeRemoteApiRoutes({
       service,
       port: ctx.webServer.port,
-      requirePairingForLan: () => resolve().requirePairingForLan,
       auth: innerAuth,
     }),
     ...updateRoutes,
@@ -634,7 +636,6 @@ function applyImpl(ctx: Context, config?: Config): void {
   const upgrades = makeRemoteApiUpgradeRoutes({
     service,
     port: ctx.webServer.port,
-    requirePairingForLan: () => resolve().requirePairingForLan,
     auth: innerAuth,
   })
   const gate = makeGateListener(service, () => resolve().requirePairingForLan, () => resolve().enabled)
