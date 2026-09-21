@@ -34,6 +34,8 @@ import {
   validatePagedToolPatterns,
 } from './paging.mjs'
 
+import { foldFactLedger, renderLedgerField } from './fact-ledger.mjs'
+
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'liangshen-working-context'
 
@@ -109,6 +111,12 @@ export function renderWorkingContext(events, options) {
     const rest = titles.length - shown.length
     fields.push(`in progress: ${shown.join('; ')}${rest > 0 ? `; +${rest} more` : ''}`)
   }
+
+  // The key-fact register: facts the model pinned with fact_register, folded
+  // from the same event stream, ride this line so they land inside the local
+  // attention window every step.
+  const ledgerField = renderLedgerField(foldFactLedger(events))
+  if (ledgerField !== undefined) fields.push(ledgerField)
 
   return fields.length === 0 ? undefined : `[Working Context: ${fields.join(' | ')}]`
 }

@@ -270,7 +270,7 @@ describe('liangshen-tool-catalog', () => {
     const text = catalogText((await preStep(harness, agent)).messages)
     expect(text).toContain('- `run_code({ code: string, description: string })`: Execute a TypeScript program against the available tools.')
     expect(text).toContain('- `bash')
-    expect(text).toContain('Call the tools above directly by name for ordinary work.')
+    expect(text).toContain('Prefer calling the tools above directly by name')
     expect(text).toContain('`await tools.<name>({ ... })`')
     expect(text).toContain('`Promise.all`')
     expect(text).toContain('`ToolCallError`')
@@ -746,7 +746,7 @@ describe('liangshen-tool-catalog', () => {
     expect(renderCatalogText([], 'ptc')).toContain('Compose one program per intent')
     expect(renderCatalogText([], 'native')).not.toContain('Promise.all')
     const both = renderCatalogText([{ name: 'run_code', signature: '()', description: 'Run a program.' }], 'both')
-    expect(both).toContain('Call the tools above directly by name')
+    expect(both).toContain('Prefer calling the tools above directly by name')
     expect(both).not.toContain('only tool that can be called directly')
     const paged = renderCatalogText([], 'native', [
       { namespace: 'github', count: 2, sample: 'mcp__github__create_issue', description: 'Create a GitHub issue.' },
@@ -829,7 +829,7 @@ describe('liangshen-tool-catalog', () => {
     await assemble(harness, agent, roster)
     expect(harness.warnings.filter(w => w.includes('resident tool surface'))).toHaveLength(0)
     // And real growth beyond that baseline still trips it.
-    const grown = [...roster, ...Array.from({ length: 30 }, (_, index) => ({
+    const grown = [...roster, ...Array.from({ length: 70 }, (_, index) => ({
       name: `extra_${index}`,
       description: 'y'.repeat(400),
       parameters: { type: 'object', properties: { b: { type: 'string' } }, required: ['b'] },

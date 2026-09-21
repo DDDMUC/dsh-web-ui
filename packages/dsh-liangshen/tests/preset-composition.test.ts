@@ -54,10 +54,10 @@ describe('liangshen preset composition', () => {
     expect(persona).toContain('You are a helpful software engineer assistant.')
     // The standing working discipline ships inside the persona prefix: the
     // thinking-disruption fuse, action-oriented steps, and YAGNI/PDCA.
-    expect(persona).toContain('Thinking Disruption: Do not repeat reasoning on the same hypothesis more than twice')
-    expect(persona).toContain('immediately close </think> and call native inspection tools')
-    expect(persona).toContain('Action-Oriented: Thinking must focus solely on determining the next concrete operation')
-    expect(persona).toContain('Parallel Inspection: When multiple independent inspections, searches, or checks are needed')
+    expect(persona).toContain('Thinking Disruption: Never reason through the same hypothesis more than twice')
+    expect(persona).toContain('stop thinking and call a native inspection tool')
+    expect(persona).toContain('Action-Oriented: Use thinking only to pick the next concrete operation')
+    expect(persona).toContain('Parallel Inspection: When several independent inspections, searches, or checks are needed')
     expect(persona).toContain('Follow YAGNI and the PDCA loop')
     expect(persona).toContain('Do not write redundant comments.')
     expect(persona).toContain('Bounded Inspection & Convergence: Do not traverse dependency chains unbounded')
@@ -78,25 +78,26 @@ describe('liangshen preset composition', () => {
     expect(row('tool-catalog')).toContain('descriptionMaxLength: 200')
   })
 
-  it("declares the 'ptc' presentation with no paged patterns by default, and no retired keys", () => {
-    expect(row('tool-catalog')).toContain("presentation: 'ptc'")
-    expect(row('tool-catalog')).toContain("pagedToolPatterns: []")
+  it("declares the 'both' presentation with MCP paging on by default, and no retired keys", () => {
+    expect(row('tool-catalog')).toContain("presentation: 'both'")
+    expect(row('tool-catalog')).toContain("pagedToolPatterns: ['mcp__*']")
     expect(row('tool-catalog')).not.toContain('ptcPresentation')
     expect(row('tool-catalog')).not.toContain('anchorTools')
   })
 
-  it('mounts working-context and does not mount tool-activate', () => {
-    expect(row('tool-activate')).toBe('')
+  it('mounts working-context, tool-activate, and the guard', () => {
+    expect(row('tool-activate')).toContain('name: ./tool-activate.mjs')
     expect(row('working-context')).toContain('name: ./working-context.mjs')
+    expect(row('guard')).toContain('name: ./guard.mjs')
   })
 
   it('does not mount reasoning-effort plugin', () => {
     expect(row('reasoning-effort')).toBe('')
   })
 
-  it('keeps the native and both presentation variants structurally valid', () => {
-    for (const mode of ['native', 'both']) {
-      const variant = preset.replace("presentation: 'ptc'", `presentation: '${mode}'`)
+  it('keeps the native and ptc presentation variants structurally valid', () => {
+    for (const mode of ['native', 'ptc']) {
+      const variant = preset.replace("presentation: 'both'", `presentation: '${mode}'`)
       expect(variant).not.toBe(preset)
       expect(validateAgentCordis(variant), mode).toEqual([])
     }
@@ -104,8 +105,8 @@ describe('liangshen preset composition', () => {
 
   it('ships the balanced tool-result pruning budgets', () => {
     const pruner = row('compaction')
-    expect(pruner).toContain('thresholdChars: 8192')
-    expect(pruner).toContain('headChars: 4096')
+    expect(pruner).toContain('thresholdChars: 4096')
+    expect(pruner).toContain('headChars: 2048')
     expect(pruner).toContain('tailChars: 1024')
   })
 

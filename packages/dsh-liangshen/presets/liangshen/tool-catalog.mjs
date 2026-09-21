@@ -125,9 +125,13 @@ export const DEFAULT_PRESENTATION = 'ptc'
  * growth — a deployment adding tool families of its own — instead of the shipped
  * configuration. The guard warns once per session and never truncates: silently
  * dropping a tool the session needs would trade a measurable context cost for an
- * unmeasurable capability loss.
+ * unmeasurable capability loss. The budget was re-estimated for DeepSeek-V4.1:
+ * its KV cache is a quarter of V4-Flash's (890 bytes/token), so the same schema
+ * load occupies a quarter of the sparse-index slots and the threshold moved from
+ * 6000 to 8000 — still calibrated above the shipped roster so only real growth
+ * trips it.
  */
-export const DEFAULT_MAX_RESIDENT_TOKENS = 6000
+export const DEFAULT_MAX_RESIDENT_TOKENS = 8000
 
 /**
  * Rough token estimate for one tool surface: the serialized schema is the
@@ -322,7 +326,7 @@ const PTC_PROGRAM_LINES = [
  * through the SDK inside a program even before activation.
  */
 const BOTH_PROGRAM_LINES = [
-  'Call the tools above directly by name for ordinary work. `run_code` is also on the wire for the cases one intent is easier as a program: an async TypeScript body (`code`, with a short `description`) that reaches tools as `await tools.<name>({ ... })`, overlaps independent read-only calls under `Promise.all`, and catches `ToolCallError` to continue — use it for programmatic batch computation or wide fan-out, not for single ordinary calls.',
+  'Prefer calling the tools above directly by name: ordinary single-step work (read, edit, bash, one search) goes through the native call, never through `run_code`. Reserve `run_code` for what a direct call cannot do — an async TypeScript body (`code`, with a short `description`) that reaches tools as `await tools.<name>({ ... })`, overlaps independent read-only calls under `Promise.all`, and catches `ToolCallError` to continue: programmatic batch computation, wide fan-out, or multi-step data shaping. Routing everyday calls through a program adds a wrapping layer with no payoff.',
   'Paged-out namespaces below stay off the NATIVE wire but stay reachable through the SDK inside a program even before activation; activating one also puts its tools back on the direct surface.',
 ]
 

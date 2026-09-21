@@ -77,12 +77,12 @@ export const LIVE_VARIANTS = {
   B: {
     persona: 'current',
     presentation: null,
-    note: "baseline: shipped persona, shipped 'ptc' presentation",
+    note: "baseline: shipped persona, shipped 'both' presentation",
   },
   P: {
     persona: 'candidate',
     presentation: null,
-    note: "candidate persona, shipped 'ptc' presentation",
+    note: "candidate persona, shipped 'both' presentation",
   },
   T: {
     persona: 'candidate',
