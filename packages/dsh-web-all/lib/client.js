@@ -16556,7 +16556,8 @@ window.__ModuleLoader__.load({
 			deviceKey: "dsh-remote-device",
 			deviceQuery: REMOTE_DEVICE_QUERY,
 			uploadPath: "/api/session/uploadFileBinary",
-			uploadHookGlobal: "__DSH_FILE_UPLOAD__"
+			uploadHookGlobal: "__DSH_FILE_UPLOAD__",
+			hostGrantGlobal: "__DSH_REMOTE_HOST_GRANT__"
 		};
 		/** The window global the boot patch publishes its seat under. */
 		const REMOTE_CHANNEL_BOOT_GLOBAL = "__DSH_REMOTE_CHANNEL_BOOT__";
