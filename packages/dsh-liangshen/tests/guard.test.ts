@@ -27,48 +27,63 @@ function failingCall(callId, tool = 'bash', args = '{"cmd":"pytest"}') {
 
 describe('guard foldGuardSignal', () => {
   it('operator sees no signal on an empty or healthy stream', () => {
-    // Given an empty stream and a healthy stream with outputs.
+    // Given an empty stream and a healthy stream whose steps all produce output.
     const healthy = [
       ...step(3000, { toolCall: true }),
       ...step(2500, { visibleText: true }),
-      ...step(100, {}),
+      ...step(2000, { toolCall: true }),
     ]
     // When the fold runs, Then neither reports a degeneration signal.
     expect(foldGuardSignal([]).signal).toBeUndefined()
     expect(foldGuardSignal(healthy).signal).toBeUndefined()
   })
 
-  it('operator sees a stall after N consecutive zero-output long-reasoning steps', () => {
-    // Given three steps that each reason long and produce nothing.
-    const events = [
-      ...step(3000, {}),
-      ...step(2500, {}),
-      ...step(4000, {}),
-    ]
-    // When the fold runs, Then it reports a stall with the streak length.
+  it('operator sees a stall on ONE runaway zero-output reasoning step (384K-scale)', () => {
+    // Given a single step whose reasoning alone runs to the model's official
+    // max-output scale (384K) with no tool call and no reply — the #5976 shape.
+    const events = [...step(384000, {})]
+    // When the fold runs, Then the per-step ladder fires immediately: waiting
+    // for a second such step would burn another 384K-scale generation.
     const verdict = foldGuardSignal(events)
     expect(verdict.signal).toBe('stall')
-    expect(verdict.detail).toContain('3')
   })
 
-  it('operator sees no stall below the threshold or when output breaks the streak', () => {
-    // Given streaks that are too short or broken by a tool call.
-    const two = [...step(3000, {}), ...step(3000, {})]
-    const broken = [
-      ...step(3000, {}),
-      ...step(3000, { toolCall: true }),
-      ...step(3000, {}),
-      ...step(3000, {}),
+  it('operator sees a stall on one zero-output step above the 8K character floor', () => {
+    // Given one step reasoning past the 8000-char floor and producing nothing.
+    const events = [...step(9000, {})]
+    // When the fold runs, Then the per-step ladder fires.
+    expect(foldGuardSignal(events).signal).toBe('stall')
+  })
+
+  it('operator sees no per-step stall on ordinary-brief zero-output steps', () => {
+    // Given steps under the 8K floor that produce nothing but are individually
+    // small — below the slow-burn cap, so neither ladder may fire.
+    const events = [...step(3000, {}), ...step(3000, {}), ...step(3000, {})]
+    // When the fold runs, Then no stall is reported.
+    expect(foldGuardSignal(events).signal).toBeUndefined()
+  })
+
+  it('operator sees a slow-burn stall after four consecutive output-free reasoning steps', () => {
+    // Given four steps that each really thought (>= 200 chars) but produced no
+    // tool call and no reply — the closed loop of small plausible steps.
+    const events = [...step(300, {}), ...step(500, {}), ...step(400, {}), ...step(600, {})]
+    // When the fold runs, Then the global ladder fires even though no single
+    // step was enormous.
+    expect(foldGuardSignal(events).signal).toBe('stall')
+  })
+
+  it('operator sees the slow-burn streak reset by any output', () => {
+    // Given three output-free reasoning steps, then a tool call, then three more.
+    const events = [
+      ...step(300, {}),
+      ...step(300, {}),
+      ...step(300, {}),
+      ...step(2000, { toolCall: true }),
+      ...step(300, {}),
+      ...step(300, {}),
+      ...step(300, {}),
     ]
-    // When the fold runs, Then neither reaches the stall threshold.
-    expect(foldGuardSignal(two).signal).toBeUndefined()
-    expect(foldGuardSignal(broken).signal).toBeUndefined()
-  })
-
-  it('operator sees short-reasoning steps ignored (real answers with brief thought)', () => {
-    // Given steps whose reasoning stays under the character floor.
-    const events = [...step(500, {}), ...step(800, {}), ...step(100, {})]
-    // When the fold runs, Then no step counts toward a stall.
+    // When the fold runs, Then neither ladder reaches its cap.
     expect(foldGuardSignal(events).signal).toBeUndefined()
   })
 
@@ -107,12 +122,13 @@ describe('guard foldGuardSignal', () => {
   })
 
   it('operator can tune the thresholds', () => {
-    // Given streams below the default thresholds.
-    const events = [...step(3000, {}), ...step(3000, {})]
-    const smallChars = [...step(600, {}), ...step(600, {}), ...step(600, {})]
-    // When the fold runs with tighter thresholds, Then both fire.
-    expect(foldGuardSignal(events, { stallSteps: 2 }).signal).toBe('stall')
-    expect(foldGuardSignal(smallChars, { stallReasoningChars: 500 }).signal).toBe('stall')
+    // Given streams under the default floors and caps.
+    const sub8k = [...step(3000, {})]
+    const slow = [...step(300, {}), ...step(300, {}), ...step(300, {})]
+    // When the fold runs with a lower character floor or a lower slow-burn cap,
+    // Then each fires on the ladder it tunes.
+    expect(foldGuardSignal(sub8k, { stallReasoningChars: 2000 }).signal).toBe('stall')
+    expect(foldGuardSignal(slow, { globalStallCap: 3 }).signal).toBe('stall')
   })
 })
 

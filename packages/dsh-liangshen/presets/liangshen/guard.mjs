@@ -46,14 +46,45 @@
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'liangshen-guard'
 
-/** How many consecutive zero-output reasoning steps constitute a stall. */
-export const DEFAULT_STALL_STEPS = 3
+/**
+ * How many consecutive runaway-reasoning zero-output steps trip the per-step
+ * ladder. ONE is deliberate: a single step whose reasoning alone blows past
+ * the character floor with no output is already the runaway-generation shape
+ * (#5976's first symptom), and waiting for a second one just lets the episode
+ * burn another 384K-scale generation. The slow-burn ladder below carries the
+ * burden of proof for smaller steps, so this ladder staying hair-trigger does
+ * not raise the false-positive rate — a step has to be individually enormous
+ * AND output-free to count.
+ */
+export const DEFAULT_STALL_STEPS = 1
 
-/** Minimum reasoning characters per step for that step to count as "long". */
-export const DEFAULT_STALL_REASONING_CHARS = 2000
+/**
+ * Minimum reasoning characters per step for that step to count as "long".
+ *
+ * Calibrated against DeepSeek-V4.1's official MAX OUTPUT of 384K: a step the
+ * breaker should care about is not a couple of paragraphs of ordinary thought
+ * (2K chars fires on normal answers) but a runaway generation. 8K chars is
+ * roughly 2-4K thinking tokens — far beyond any healthy single step, yet far
+ * below the 384K ceiling a true #5976-style degeneration runs to, so the floor
+ * catches the episode early in its first step instead of never matching at
+ * all. Steps between 2K and 8K with no output still reset the streak via the
+ * step-count branch below, which is the real guard against slow burn.
+ */
+export const DEFAULT_STALL_REASONING_CHARS = 8000
 
 /** How many identical-argument failures in a row constitute an echo loop. */
 export const DEFAULT_ECHO_FAILURES = 3
+
+/**
+ * Steps with at least this much reasoning count toward the global (slow-burn)
+ * stall ladder. Deliberately low: the ladder exists to catch the loop of many
+ * individually-plausible-but-output-free steps, so any step that really thought
+ * counts; a step that barely reasoned (a tool ack, an empty turn) must not.
+ */
+export const GLOBAL_MIN_REASONING_CHARS = 200
+
+/** How many consecutive output-free reasoning steps trip the slow-burn ladder. */
+export const DEFAULT_GLOBAL_STALL_CAP = 4
 
 /** Requests the temporary effort step-down stays on for after firing. */
 export const DEFAULT_STEP_DOWN_REQUESTS = 3
@@ -139,21 +170,37 @@ export function foldGuardSignal(events, options) {
   const stallSteps = options?.stallSteps ?? DEFAULT_STALL_STEPS
   const stallChars = options?.stallReasoningChars ?? DEFAULT_STALL_REASONING_CHARS
   const echoFailures = options?.echoFailures ?? DEFAULT_ECHO_FAILURES
+  const globalCap = options?.globalStallCap ?? DEFAULT_GLOBAL_STALL_CAP
 
-  // Stall: count consecutive trailing steps that reason long and produce
-  // nothing. We walk the stream forward and keep the current streak.
+  // Stall, two independent ladders walked in parallel:
+  //  1. PER-STEP: one step whose reasoning alone blows past the character floor
+  //     with no output — the runaway-generation shape (#5976's first symptom).
+  //  2. GLOBAL: N consecutive steps with NO output at all, regardless of each
+  //     step's size — the slow-burn closed loop. This ladder is bounded by a
+  //     hard global cap so a legitimately long investigation (many small
+  //     read-only steps) cannot trip it by accumulation alone: the streak only
+  //     counts while the steps are also individually reasoning-heavy.
   let stallStreak = 0
+  let globalStreak = 0
   // pending holds, for the current step, whether we saw reasoning and whether
   // we saw any output (tool call or visible text).
   let pendingReasoning = 0
   let pendingOutput = false
 
   const closeStep = () => {
+    // Per-step ladder: one bloated zero-output step is enough to advance it.
     if (pendingReasoning >= stallChars && !pendingOutput) {
       stallStreak += 1
     } else if (pendingOutput || pendingReasoning > 0) {
-      // Any output — or a short-thought step — breaks the stall streak.
       stallStreak = 0
+    }
+    // Global ladder: any output resets; an output-free step advances it only
+    // while the step also carried real reasoning (a bare tool-ack or an empty
+    // thought must not count toward a stall).
+    if (pendingOutput) {
+      globalStreak = 0
+    } else if (pendingReasoning >= GLOBAL_MIN_REASONING_CHARS) {
+      globalStreak = Math.min(globalStreak + 1, globalCap)
     }
     pendingReasoning = 0
     pendingOutput = false
@@ -205,7 +252,10 @@ export function foldGuardSignal(events, options) {
   closeStep()
 
   if (stallStreak >= stallSteps) {
-    return { signal: 'stall', detail: `${stallStreak} consecutive zero-output long-reasoning steps` }
+    return { signal: 'stall', detail: `${stallStreak} consecutive runaway-reasoning steps (${stallChars}+ chars each)` }
+  }
+  if (globalStreak >= globalCap) {
+    return { signal: 'stall', detail: `${globalStreak} consecutive output-free reasoning steps (slow burn)` }
   }
   if (failStreak >= echoFailures) {
     return { signal: 'echo', detail: `${failStreak} consecutive identical-argument tool failures` }
@@ -238,9 +288,10 @@ export function renderGuardMessage(verdict) {
 export function apply(ctx, config) {
   const enabled = config?.enabled !== false
   if (!enabled) return
-  const stallSteps = integerAtLeast(config?.stallSteps, 'stallSteps', 2, DEFAULT_STALL_STEPS)
+  const stallSteps = integerAtLeast(config?.stallSteps, 'stallSteps', 1, DEFAULT_STALL_STEPS)
   const stallReasoningChars = integerAtLeast(config?.stallReasoningChars, 'stallReasoningChars', 200, DEFAULT_STALL_REASONING_CHARS)
   const echoFailures = integerAtLeast(config?.echoFailures, 'echoFailures', 2, DEFAULT_ECHO_FAILURES)
+  const globalStallCap = integerAtLeast(config?.globalStallCap, 'globalStallCap', 2, DEFAULT_GLOBAL_STALL_CAP)
   const stepDownRequests = integerAtLeast(config?.stepDownRequests, 'stepDownRequests', 1, DEFAULT_STEP_DOWN_REQUESTS)
   const refireCooldown = integerAtLeast(config?.refireCooldownSteps, 'refireCooldownSteps', 1, DEFAULT_REFIRE_COOLDOWN_STEPS)
 
@@ -270,7 +321,7 @@ export function apply(ctx, config) {
     if (agent === undefined) return decision
     const state = stateOf(agent)
 
-    const verdict = foldGuardSignal(sessionEvents(agent.session), { stallSteps, stallReasoningChars, echoFailures })
+    const verdict = foldGuardSignal(sessionEvents(agent.session), { stallSteps, stallReasoningChars, echoFailures, globalStallCap })
 
     if (verdict.signal !== undefined && state.cooldown === 0) {
       // Fire: inject the breaker message and arm the effort step-down.
