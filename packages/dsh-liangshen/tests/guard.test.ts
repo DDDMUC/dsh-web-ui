@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foldGuardSignal, renderGuardMessage, stepDownEffort, name } from '../presets/liangshen/guard.mjs'
+import { foldGuardSignal, renderGuardMessage, resolveThresholds, stepDownEffort, STALL_REASONING_CHARS_BY_EFFORT, DEFAULT_STALL_REASONING_CHARS, name } from '../presets/liangshen/guard.mjs'
 
 /** Build a step's events: optional reasoning chars, optional output. */
 function step(reasoningChars, { toolCall = false, visibleText = false } = {}) {
@@ -48,11 +48,12 @@ describe('guard foldGuardSignal', () => {
     expect(verdict.signal).toBe('stall')
   })
 
-  it('operator sees a stall on one zero-output step above the 8K character floor', () => {
-    // Given one step reasoning past the 8000-char floor and producing nothing.
+  it('operator sees a stall on one zero-output step above the max-effort floor', () => {
+    // Given one step reasoning past max effort's 8000-char floor and producing nothing.
     const events = [...step(9000, {})]
-    // When the fold runs, Then the per-step ladder fires.
-    expect(foldGuardSignal(events).signal).toBe('stall')
+    // When the fold runs at that floor, Then the per-step ladder fires. (The
+    // floor is effort-adaptive: the same step stays under high/low's floor.)
+    expect(foldGuardSignal(events, { stallReasoningChars: STALL_REASONING_CHARS_BY_EFFORT.max }).signal).toBe('stall')
   })
 
   it('operator sees no per-step stall on ordinary-brief zero-output steps', () => {
@@ -129,6 +130,51 @@ describe('guard foldGuardSignal', () => {
     // Then each fires on the ladder it tunes.
     expect(foldGuardSignal(sub8k, { stallReasoningChars: 2000 }).signal).toBe('stall')
     expect(foldGuardSignal(slow, { globalStallCap: 3 }).signal).toBe('stall')
+  })
+})
+
+describe('guard resolveThresholds (adaptive by effort and sensitivity)', () => {
+  it('operator sees the floor follow the current reasoning effort', () => {
+    // Given each named effort and an unknown one.
+    // When thresholds resolve, Then the floor follows the budget the model was
+    // asked to spend: lowest at max (where runaways happen), highest at low.
+    expect(resolveThresholds({ effort: 'max' }).stallReasoningChars).toBe(STALL_REASONING_CHARS_BY_EFFORT.max)
+    expect(resolveThresholds({ effort: 'high' }).stallReasoningChars).toBe(STALL_REASONING_CHARS_BY_EFFORT.high)
+    expect(resolveThresholds({ effort: 'low' }).stallReasoningChars).toBe(STALL_REASONING_CHARS_BY_EFFORT.low)
+    expect(resolveThresholds({ effort: 75 }).stallReasoningChars).toBe(DEFAULT_STALL_REASONING_CHARS)
+    expect(resolveThresholds({}).stallReasoningChars).toBe(DEFAULT_STALL_REASONING_CHARS)
+  })
+
+  it('operator can scale every threshold with a sensitivity preset', () => {
+    // Given the balanced default and the two other presets at max effort.
+    // When thresholds resolve, Then conservative raises and aggressive lowers
+    // both the floor and the slow-burn cap, never below their minimums.
+    expect(resolveThresholds({ effort: 'max', sensitivity: 'conservative' }).stallReasoningChars).toBe(12000)
+    expect(resolveThresholds({ effort: 'max', sensitivity: 'balanced' }).stallReasoningChars).toBe(8000)
+    expect(resolveThresholds({ effort: 'max', sensitivity: 'aggressive' }).stallReasoningChars).toBe(4000)
+    expect(resolveThresholds({ sensitivity: 'conservative' }).globalStallCap).toBe(6)
+    expect(resolveThresholds({ sensitivity: 'balanced' }).globalStallCap).toBe(4)
+    expect(resolveThresholds({ sensitivity: 'aggressive' }).globalStallCap).toBe(2)
+  })
+
+  it('operator fine-tuning overrides win over the adaptive table', () => {
+    // Given an explicit override for each threshold.
+    // When thresholds resolve, Then the override beats the effort table and the
+    // sensitivity scale for that field only.
+    expect(resolveThresholds({ effort: 'max', stallReasoningChars: 5000 }).stallReasoningChars).toBe(5000)
+    expect(resolveThresholds({ globalStallCap: 7 }).globalStallCap).toBe(7)
+    expect(resolveThresholds({ echoFailures: 9 }).echoFailures).toBe(9)
+    // Untouched fields still follow the table.
+    expect(resolveThresholds({ effort: 'low', stallReasoningChars: 5000 }).globalStallCap).toBe(4)
+  })
+
+  it('operator sees the fold honour the resolved floor per effort', () => {
+    // Given one zero-output step of 9000 reasoning chars.
+    const events = [...step(9000, {})]
+    // When the fold runs at max effort's floor versus low effort's floor, Then
+    // the same step trips the max-effort ladder but stays under the low one.
+    expect(foldGuardSignal(events, resolveThresholds({ effort: 'max' })).signal).toBe('stall')
+    expect(foldGuardSignal(events, resolveThresholds({ effort: 'low' })).signal).toBeUndefined()
   })
 })
 

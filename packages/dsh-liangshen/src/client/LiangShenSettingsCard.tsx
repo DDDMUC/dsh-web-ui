@@ -18,6 +18,9 @@ import { CardForm, booleanField, choiceField, numberField, type CardActions, typ
 /** Wire presentations the tool catalog accepts (mirrors the Host schema). */
 export const PRESENTATION_CHOICES = ['ptc', 'native', 'both'] as const
 
+/** Sensitivity presets for the circuit breaker (mirrors the Host schema). */
+export const SENSITIVITY_CHOICES = ['conservative', 'balanced', 'aggressive'] as const
+
 /** The LiangShen fields this card edits (the namespace's full schema). */
 export interface LiangShenSettings {
   /** Master switch for the plugin. */
@@ -28,6 +31,8 @@ export interface LiangShenSettings {
   presentation?: string
   /** Master switch for the runtime degeneration circuit breaker. */
   guardEnabled?: boolean
+  /** Sensitivity preset scaling the breaker's adaptive thresholds. */
+  guardSensitivity?: string
   /** Per-step reasoning-character floor for the breaker's runaway ladder. */
   guardStallReasoningChars?: number
   /** Consecutive output-free reasoning steps for the breaker's slow-burn ladder. */
@@ -42,6 +47,7 @@ export interface LiangShenSettingsCardState extends CardShell {
   announceToAgent: CardFieldState
   presentation: CardFieldState
   guardEnabled: CardFieldState
+  guardSensitivity: CardFieldState
   guardStallReasoningChars: CardFieldState
   guardGlobalStallCap: CardFieldState
   guardEchoFailures: CardFieldState
@@ -67,6 +73,7 @@ export class LiangShenSettingsCardController {
       booleanField('announceToAgent'),
       choiceField('presentation', PRESENTATION_CHOICES),
       booleanField('guardEnabled'),
+      choiceField('guardSensitivity', SENSITIVITY_CHOICES),
       numberField('guardStallReasoningChars', { integer: true, min: 200 }),
       numberField('guardGlobalStallCap', { integer: true, min: 2 }),
       numberField('guardEchoFailures', { integer: true, min: 2 }),
@@ -81,6 +88,7 @@ export class LiangShenSettingsCardController {
       announceToAgent: this.form.field('announceToAgent'),
       presentation: this.form.field('presentation'),
       guardEnabled: this.form.field('guardEnabled'),
+      guardSensitivity: this.form.field('guardSensitivity'),
       guardStallReasoningChars: this.form.field('guardStallReasoningChars'),
       guardGlobalStallCap: this.form.field('guardGlobalStallCap'),
       guardEchoFailures: this.form.field('guardEchoFailures'),
@@ -174,6 +182,16 @@ export function LiangShenSettingsCard(props: LiangShenSettingsCardProps) {
         {...state.guardEnabled}
         onEdit={(text) => { props.edit('guardEnabled', text) }}
         onReset={() => { props.resetField('guardEnabled') }}
+      />
+      <ChoiceField
+        id="settings-liangshen-guard-sensitivity"
+        label={t('settings.guardSensitivity')}
+        hint={t('settings.guardSensitivityHint')}
+        choices={SENSITIVITY_CHOICES.map(choice => ({ value: choice, label: t(`sensitivity.${choice}`) }))}
+        {...fieldProps}
+        {...state.guardSensitivity}
+        onEdit={(text) => { props.edit('guardSensitivity', text) }}
+        onReset={() => { props.resetField('guardSensitivity') }}
       />
       <ValueField
         id="settings-liangshen-guard-stall-chars"

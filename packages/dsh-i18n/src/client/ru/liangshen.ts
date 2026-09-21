@@ -53,6 +53,11 @@ export const ru: Record<string, string> = {
   'settings.guardStallCharsHint': 'Один блок рассуждения такой длины без вывода вызывает срабатывание (калибровано по официальному максимуму 384K V4.1; по умолчанию 8000, примерно 2-4K токенов мышления).',
   'settings.guardGlobalCap': 'Число шагов медленного затухания',
   'settings.guardGlobalCapHint': 'Сколько подряд шагов с реальным рассуждением, но без вывода, вызывает срабатывание медленной ступени (по умолчанию 4; меньше — чувствительнее, для долгих исследований увеличьте).',
+  'settings.guardSensitivity': 'Чувствительность автомата',
+  'settings.guardSensitivityHint': 'Масштабирует все пороги: conservative (меньше прерываний, x1.5), balanced (калиброванные значения по умолчанию), aggressive (раннее срабатывание, x0.5). Пороги адаптируются к уровню reasoning effort: 8000 при max / 12000 при high / 20000 при low.',
+  'sensitivity.conservative': 'Conservative (меньше прерываний)',
+  'sensitivity.balanced': 'Balanced (по умолчанию)',
+  'sensitivity.aggressive': 'Aggressive (раннее срабатывание)',
   'settings.guardEchoFailures': 'Ошибки с одинаковыми аргументами',
   'settings.guardEchoFailuresHint': 'Сколько подряд ошибок одного инструмента с одинаковыми аргументами вызывает срабатывание ступени «эхо» (по умолчанию 3).',
 }

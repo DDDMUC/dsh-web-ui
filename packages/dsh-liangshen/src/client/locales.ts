@@ -53,6 +53,11 @@ export const zh = {
   'settings.guardStallCharsHint': '单条推理达到该字符数且零产出即触发熔断（按 V4.1 官方 384K 最大输出校准；默认 8000，约 2-4K 思考 token）。',
   'settings.guardGlobalCap': '慢烧连续步数',
   'settings.guardGlobalCapHint': '连续多少步有真实推理但零产出触发慢烧熔断（默认 4；步数越小越敏感，真实长调查建议调大）。',
+  'settings.guardSensitivity': '熔断灵敏度',
+  'settings.guardSensitivityHint': '整体缩放熔断阈值：保守（更少打断，阈值×1.5）、均衡（出厂校准值）、激进（更早触发，阈值×0.5）。阈值随推理档位自适应：max 档 8000 / high 档 12000 / low 档 20000 字符。',
+  'sensitivity.conservative': '保守（少打断）',
+  'sensitivity.balanced': '均衡（默认）',
+  'sensitivity.aggressive': '激进（早触发）',
   'settings.guardEchoFailures': '同参连续失败次数',
   'settings.guardEchoFailuresHint': '同一工具以相同参数连续失败多少次触发空转熔断（默认 3）。',
 }
@@ -106,6 +111,11 @@ export const en: Record<keyof typeof zh, string> = {
   'settings.guardStallCharsHint': 'One reasoning block reaching this many characters with no output fires the breaker (calibrated against V4.1\'s official 384K max output; default 8000, roughly 2-4K thinking tokens).',
   'settings.guardGlobalCap': 'Slow-burn step count',
   'settings.guardGlobalCapHint': 'Consecutive output-free steps of real reasoning that fire the slow-burn ladder (default 4; lower is more sensitive — raise it for genuinely long investigations).',
+  'settings.guardSensitivity': 'Breaker sensitivity',
+  'settings.guardSensitivityHint': 'Scales every breaker threshold: conservative (fewer interruptions, x1.5), balanced (the calibrated defaults), aggressive (fires earlier, x0.5). Thresholds adapt to the reasoning effort: 8000 at max / 12000 at high / 20000 at low.',
+  'sensitivity.conservative': 'Conservative (fewer interruptions)',
+  'sensitivity.balanced': 'Balanced (default)',
+  'sensitivity.aggressive': 'Aggressive (fires earlier)',
   'settings.guardEchoFailures': 'Identical-argument failures',
   'settings.guardEchoFailuresHint': 'Identical-argument failures of the same tool in a row that fire the echo ladder (default 3).',
 }

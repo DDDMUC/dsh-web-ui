@@ -59,18 +59,27 @@ export const name = 'liangshen-guard'
 export const DEFAULT_STALL_STEPS = 1
 
 /**
- * Minimum reasoning characters per step for that step to count as "long".
+ * The per-step reasoning-character floor for a step to count as "long",
+ * keyed by the request's CURRENT reasoning effort. The floor follows the
+ * budget the model was asked to spend: max effort produces the longest
+ * trajectories (official data: 1.6-1.8x the sweet spot) and is where every
+ * documented runaway happened, so its floor is the lowest; low effort thinks
+ * briefly by design, so a zero-output step that still runs long is almost
+ * certainly abnormal and the floor can sit higher without false positives.
  *
- * Calibrated against DeepSeek-V4.1's official MAX OUTPUT of 384K: a step the
- * breaker should care about is not a couple of paragraphs of ordinary thought
- * (2K chars fires on normal answers) but a runaway generation. 8K chars is
- * roughly 2-4K thinking tokens — far beyond any healthy single step, yet far
- * below the 384K ceiling a true #5976-style degeneration runs to, so the floor
- * catches the episode early in its first step instead of never matching at
- * all. Steps between 2K and 8K with no output still reset the streak via the
- * step-count branch below, which is the real guard against slow burn.
+ * Calibration anchor: DeepSeek-V4.1's official MAX OUTPUT is 384K. The max-
+ * effort floor of 8000 chars (roughly 2-4K thinking tokens) is far beyond any
+ * healthy single step yet catches a runaway in its first 2% — waiting for a
+ * higher floor just lets the episode burn more of the 384K budget.
  */
-export const DEFAULT_STALL_REASONING_CHARS = 8000
+export const STALL_REASONING_CHARS_BY_EFFORT = {
+  max: 8000,
+  high: 12000,
+  low: 20000,
+}
+/** Floor for unknown effort levels (numeric efforts, off): the per-step ladder
+ * stays armed at the high-effort floor; the slow-burn ladder carries the rest. */
+export const DEFAULT_STALL_REASONING_CHARS = 12000
 
 /** How many identical-argument failures in a row constitute an echo loop. */
 export const DEFAULT_ECHO_FAILURES = 3
@@ -85,6 +94,19 @@ export const GLOBAL_MIN_REASONING_CHARS = 200
 
 /** How many consecutive output-free reasoning steps trip the slow-burn ladder. */
 export const DEFAULT_GLOBAL_STALL_CAP = 4
+
+/**
+ * Sensitivity presets: a whole-scale multiplier over the adaptive thresholds,
+ * for operators who know they fear false interruptions more than missed
+ * episodes (or the reverse) without hand-tuning four numbers.
+ * - conservative: every floor and cap x 1.5, rounded — fewest interruptions.
+ * - balanced: x 1.0, the calibrated defaults.
+ * - aggressive: every floor x 0.5 and every cap - 1 (floored at the minimums) —
+ *   catches episodes earlier at the cost of more false positives.
+ */
+export const SENSITIVITY_OPTIONS = ['conservative', 'balanced', 'aggressive']
+export const DEFAULT_SENSITIVITY = 'balanced'
+const SENSITIVITY_SCALE = { conservative: 1.5, balanced: 1.0, aggressive: 0.5 }
 
 /** Requests the temporary effort step-down stays on for after firing. */
 export const DEFAULT_STEP_DOWN_REQUESTS = 3
@@ -263,6 +285,29 @@ export function foldGuardSignal(events, options) {
   return { signal: undefined, detail: '' }
 }
 
+/**
+ * Resolve the concrete thresholds for one request: the adaptive floor for the
+ * current effort, scaled by the sensitivity preset, with any explicit fine-
+ * tuning override winning over the table. All inputs are optional; the result
+ * is always a complete, valid set.
+ */
+export function resolveThresholds(options) {
+  const effort = options?.effort
+  const sensitivity = SENSITIVITY_SCALE[options?.sensitivity] !== undefined ? options.sensitivity : DEFAULT_SENSITIVITY
+  const scale = SENSITIVITY_SCALE[sensitivity]
+  const baseFloor = STALL_REASONING_CHARS_BY_EFFORT[effort] ?? DEFAULT_STALL_REASONING_CHARS
+  const stallReasoningChars = options?.stallReasoningChars !== undefined
+    ? options.stallReasoningChars
+    : Math.max(200, Math.round(baseFloor * scale))
+  const globalStallCap = options?.globalStallCap !== undefined
+    ? options.globalStallCap
+    : Math.max(2, Math.round(DEFAULT_GLOBAL_STALL_CAP * scale))
+  const echoFailures = options?.echoFailures !== undefined
+    ? options.echoFailures
+    : Math.max(2, Math.round(DEFAULT_ECHO_FAILURES * scale))
+  return { stallReasoningChars, globalStallCap, echoFailures }
+}
+
 /** One notch down the effort ladder, or undefined when the level is unknown. */
 export function stepDownEffort(effort) {
   const index = EFFORT_LADDER.indexOf(effort)
@@ -288,21 +333,32 @@ export function renderGuardMessage(verdict) {
 export function apply(ctx, config) {
   const enabled = config?.enabled !== false
   if (!enabled) return
+  const sensitivity = SENSITIVITY_OPTIONS.includes(config?.sensitivity) ? config.sensitivity : DEFAULT_SENSITIVITY
+  // Fine-tuning overrides: when the operator sets one, it wins over the
+  // adaptive table for every effort level; absent, the table applies.
+  const overrideStallChars = config?.stallReasoningChars !== undefined
+    ? integerAtLeast(config.stallReasoningChars, 'stallReasoningChars', 200, DEFAULT_STALL_REASONING_CHARS)
+    : undefined
+  const overrideGlobalCap = config?.globalStallCap !== undefined
+    ? integerAtLeast(config.globalStallCap, 'globalStallCap', 2, DEFAULT_GLOBAL_STALL_CAP)
+    : undefined
+  const overrideEcho = config?.echoFailures !== undefined
+    ? integerAtLeast(config.echoFailures, 'echoFailures', 2, DEFAULT_ECHO_FAILURES)
+    : undefined
   const stallSteps = integerAtLeast(config?.stallSteps, 'stallSteps', 1, DEFAULT_STALL_STEPS)
-  const stallReasoningChars = integerAtLeast(config?.stallReasoningChars, 'stallReasoningChars', 200, DEFAULT_STALL_REASONING_CHARS)
-  const echoFailures = integerAtLeast(config?.echoFailures, 'echoFailures', 2, DEFAULT_ECHO_FAILURES)
-  const globalStallCap = integerAtLeast(config?.globalStallCap, 'globalStallCap', 2, DEFAULT_GLOBAL_STALL_CAP)
   const stepDownRequests = integerAtLeast(config?.stepDownRequests, 'stepDownRequests', 1, DEFAULT_STEP_DOWN_REQUESTS)
   const refireCooldown = integerAtLeast(config?.refireCooldownSteps, 'refireCooldownSteps', 1, DEFAULT_REFIRE_COOLDOWN_STEPS)
 
-  // Per-agent breaker state. This is RUNTIME state (armed / fired cooldown /
-  // remaining step-down requests); the SIGNAL itself always re-derives from
-  // the durable event stream, so a resume never inherits a stale verdict.
+  // Per-agent runtime state: the breaker cooldown / step-down window AND the
+  // current reasoning effort the request waterfall observed. The signal itself
+  // always re-derives from the durable event stream, so a resume never
+  // inherits a stale verdict; the effort is a read-only observation, never a
+  // rewrite outside a fired episode.
   const stateByAgent = new WeakMap()
   const stateOf = (agent) => {
     let state = stateByAgent.get(agent)
     if (state === undefined) {
-      state = { cooldown: 0, firedVerdict: undefined, stepDownLeft: 0 }
+      state = { cooldown: 0, firedVerdict: undefined, stepDownLeft: 0, currentEffort: undefined }
       stateByAgent.set(agent, state)
     }
     return state
@@ -310,10 +366,29 @@ export function apply(ctx, config) {
 
   ctx.on('agent/disposed', ({ agent }) => { stateByAgent.delete(agent) })
 
-  // Fold the signal once per step boundary and remember the verdict; the
-  // pre-step hook below injects the message. step/start is not emitted as a
-  // ctx event on every host, so the fold runs inside pre-step instead — the
-  // one hook guaranteed before each model request.
+  // One listener, two jobs ordered by where the information lives: the request
+  // waterfall sees the effort FIRST (it is part of the resolved call config),
+  // so it records the current effort for the NEXT pre-step's threshold
+  // resolution, and — only inside a fired episode's window — steps it down.
+  ctx.on('agent/request', async (payload, next) => {
+    const resolved = await next()
+    const agent = payload?.agent
+    if (agent === undefined) return resolved
+    const state = stateOf(agent)
+    // Read-only observation: the effort the route actually resolved. This never
+    // changes the request by itself.
+    if (typeof resolved?.reasoningEffort === 'string') state.currentEffort = resolved.reasoningEffort
+    if (state.stepDownLeft === 0) return resolved
+    state.stepDownLeft -= 1
+    const lowered = stepDownEffort(resolved?.reasoningEffort)
+    if (lowered === undefined) return resolved
+    return { ...resolved, reasoningEffort: lowered }
+  })
+
+  // Fold the signal and inject the breaker message. step/start is not emitted
+  // as a ctx event on every host, so the fold runs inside pre-step — the one
+  // hook guaranteed before each model request — using the effort the most
+  // recent agent/request observation recorded (undefined until the first one).
   ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next()
     if (decision.kind !== 'enter') return decision
@@ -321,7 +396,14 @@ export function apply(ctx, config) {
     if (agent === undefined) return decision
     const state = stateOf(agent)
 
-    const verdict = foldGuardSignal(sessionEvents(agent.session), { stallSteps, stallReasoningChars, echoFailures, globalStallCap })
+    const thresholds = resolveThresholds({
+      effort: state.currentEffort,
+      sensitivity,
+      stallReasoningChars: overrideStallChars,
+      globalStallCap: overrideGlobalCap,
+      echoFailures: overrideEcho,
+    })
+    const verdict = foldGuardSignal(sessionEvents(agent.session), { stallSteps, ...thresholds })
 
     if (verdict.signal !== undefined && state.cooldown === 0) {
       // Fire: inject the breaker message and arm the effort step-down.
@@ -334,26 +416,11 @@ export function apply(ctx, config) {
         content: [{ type: 'text', text: renderGuardMessage(verdict) }],
         source: { kind: 'plugin', plugin: name },
       }
-      try { ctx.logger?.warn?.(`${name}: circuit breaker fired (${verdict.detail})`) } catch {}
+      try { ctx.logger?.warn?.(`${name}: circuit breaker fired (${verdict.detail}) [${thresholds.stallReasoningChars}ch/${thresholds.globalStallCap}steps/${thresholds.echoFailures}fails, ${sensitivity}, effort ${state.currentEffort ?? 'unknown'}]`) } catch {}
       return { ...decision, messages: [...decision.messages, message] }
     }
 
     if (state.cooldown > 0) state.cooldown -= 1
     return decision
-  })
-
-  // The temporary effort step-down, riding the request waterfall only while a
-  // fired episode has requests left in its window. With no fired episode this
-  // listener is a pass-through — it never rewrites a request.
-  ctx.on('agent/request', async (payload, next) => {
-    const resolved = await next()
-    const agent = payload?.agent
-    if (agent === undefined) return resolved
-    const state = stateByAgent.get(agent)
-    if (state === undefined || state.stepDownLeft === 0) return resolved
-    state.stepDownLeft -= 1
-    const lowered = stepDownEffort(resolved?.reasoningEffort)
-    if (lowered === undefined) return resolved
-    return { ...resolved, reasoningEffort: lowered }
   })
 }

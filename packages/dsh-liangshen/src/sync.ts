@@ -141,6 +141,8 @@ export interface PresetOverrides {
   presentation?: string
   /** The `guard` row's `enabled` switch. */
   guardEnabled?: boolean
+  /** The `guard` row's sensitivity preset. */
+  guardSensitivity?: string
   /** The `guard` row's per-step reasoning-character floor. */
   guardStallReasoningChars?: number
   /** The `guard` row's slow-burn step cap. */
@@ -196,6 +198,7 @@ export function renderPresetOverrides(text: string, overrides: PresetOverrides):
   let out = text
   out = setRowValue(out, 'tool-catalog', 'presentation', overrides.presentation)
   out = setRowValue(out, 'guard', 'enabled', overrides.guardEnabled)
+  out = setRowValue(out, 'guard', 'sensitivity', overrides.guardSensitivity)
   out = setRowValue(out, 'guard', 'stallReasoningChars', overrides.guardStallReasoningChars)
   out = setRowValue(out, 'guard', 'globalStallCap', overrides.guardGlobalStallCap)
   out = setRowValue(out, 'guard', 'echoFailures', overrides.guardEchoFailures)

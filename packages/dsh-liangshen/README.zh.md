@@ -104,9 +104,10 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 | `announceToAgent` | `false` | 按需开启：开启后向 agent 系统提示注入本插件公告。默认关闭，保持系统提示词干净。 |
 | `presentation` | `both` | 写入同步后 preset 之 `tool-catalog` 行的 wire 呈现：`both`（默认）让原生清单与 `run_code` 同驻；`native` 保持组装出的原生清单；`ptc` 把 wire 收拢为 `run_code`。改动在下次 DSH 启动重新同步 preset 时生效。 |
 | `guardEnabled` | `true` | 运行时退化熔断器总开关：检测连续零产出长思考与同参重复失败，触发时注入熔断提示并临时下调推理档位；关闭后不干预任何请求。 |
-| `guardStallReasoningChars` | `8000` | 熔断器单步暴走梯的字符阈值：单条推理达到该字符数且零产出即触发（按 V4.1 官方 384K 最大输出校准，约 2-4K 思考 token）。 |
-| `guardGlobalStallCap` | `4` | 熔断器慢烧梯的连续步数：连续多少步有真实推理但零产出触发（越小越敏感，真实长调查建议调大）。 |
-| `guardEchoFailures` | `3` | 熔断器空转梯：同一工具以相同参数连续失败多少次触发。以上四个熔断字段与 `presentation` 一样写入同步后的 preset 生效。 |
+| `guardSensitivity` | `balanced` | 熔断灵敏度预设：整体缩放阈值——`conservative`（更少打断，×1.5）、`balanced`（出厂校准值）、`aggressive`（更早触发，×0.5）。 |
+| `guardStallReasoningChars` | `8000` | 单步暴走梯字符阈值的**覆写值**：阈值默认随推理档位自适应（max 档 8000 / high 档 12000 / low 档 20000，按 V4.1 官方 384K 最大输出校准），设置本字段则以本值为准、覆盖所有档位的自适应表。 |
+| `guardGlobalStallCap` | `4` | 熔断器慢烧梯连续步数的**覆写值**：默认随灵敏度预设缩放（balanced 为 4），设置本字段则以本值为准。 |
+| `guardEchoFailures` | `3` | 熔断器空转梯的**覆写值**：同一工具以相同参数连续失败多少次触发。以上熔断字段与 `presentation` 一样写入同步后的 preset 生效。 |
 
 各字段都可在 Web 设置界面（插件配置）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。其中塑造 preset 的 presentation 字段经预设同步抵达会话：插件在拷贝 bundle 的同时把它写入同步产出的 `agent.cordis.yml`，因此真正被会话运行的是设置界面的取值，而不是包内文件。组合里没有的键绝不会被凭空写入——覆写只会收窄出厂配置。改动需重启 DSH 生效。
 

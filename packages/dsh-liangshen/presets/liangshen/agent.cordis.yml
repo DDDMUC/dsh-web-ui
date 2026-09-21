@@ -185,6 +185,7 @@
   name: ./guard.mjs
   config:
     enabled: true
+    sensitivity: 'balanced'
     stallReasoningChars: 8000
     globalStallCap: 4
     echoFailures: 3

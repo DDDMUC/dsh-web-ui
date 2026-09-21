@@ -49,6 +49,9 @@ export const inject = ['systemPrompt']
 /** The wire presentations the preset's tool catalog accepts. */
 export const PRESENTATION_OPTIONS = ['ptc', 'native', 'both'] as const
 
+/** Sensitivity presets for the circuit breaker's adaptive thresholds. */
+export const SENSITIVITY_OPTIONS = ['conservative', 'balanced', 'aggressive'] as const
+
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
   /** Master switch: when false, neither sync nor announcement runs. */
@@ -64,6 +67,11 @@ export interface Config {
   presentation?: (typeof PRESENTATION_OPTIONS)[number]
   /** Master switch for the runtime degeneration circuit breaker (default true). */
   guardEnabled?: boolean
+  /**
+   * Sensitivity preset scaling the breaker's adaptive thresholds
+   * (default 'balanced'). 'conservative' interrupts less, 'aggressive' fires earlier.
+   */
+  guardSensitivity?: (typeof SENSITIVITY_OPTIONS)[number]
   /**
    * Reasoning characters one zero-output step must reach for the per-step
    * ladder to fire (default 8000, calibrated against V4.1's 384K max output).
@@ -83,6 +91,7 @@ export const Config: z<Config> = z.object({
   announceToAgent: z.boolean().default(false),
   presentation: z.union([...PRESENTATION_OPTIONS]).default('both'),
   guardEnabled: z.boolean().default(true),
+  guardSensitivity: z.union([...SENSITIVITY_OPTIONS]).default('balanced'),
   guardStallReasoningChars: z.number().default(8000),
   guardGlobalStallCap: z.number().default(4),
   guardEchoFailures: z.number().default(3),
@@ -129,6 +138,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     enabled: current().enabled ?? true,
     presentation: current().presentation ?? DEFAULT_PRESENTATION,
     guardEnabled: current().guardEnabled ?? true,
+    guardSensitivity: current().guardSensitivity ?? 'balanced',
     guardStallReasoningChars: current().guardStallReasoningChars ?? 8000,
     guardGlobalStallCap: current().guardGlobalStallCap ?? 4,
     guardEchoFailures: current().guardEchoFailures ?? 3,
@@ -144,6 +154,7 @@ function applyImpl(ctx: Context, config?: Config): void {
       const result = syncPresetTrees(bundledPresetsRoot(), targetRoot, ['liangshen-exact'], {
         presentation: settings.presentation,
         guardEnabled: settings.guardEnabled,
+        guardSensitivity: settings.guardSensitivity,
         guardStallReasoningChars: settings.guardStallReasoningChars,
         guardGlobalStallCap: settings.guardGlobalStallCap,
         guardEchoFailures: settings.guardEchoFailures,

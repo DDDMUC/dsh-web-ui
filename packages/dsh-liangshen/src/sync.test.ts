@@ -46,6 +46,7 @@ describe('renderPresetOverrides', () => {
     "  name: ./guard.mjs",
     "  config:",
     "    enabled: true",
+    "    sensitivity: 'balanced'",
     "    stallReasoningChars: 8000",
     "    globalStallCap: 4",
     "    echoFailures: 3",
@@ -70,11 +71,13 @@ describe('renderPresetOverrides', () => {
     // numbers render bare (never quoted) inside that row only.
     const out = renderPresetOverrides(SOURCE, {
       guardEnabled: false,
+      guardSensitivity: 'aggressive',
       guardStallReasoningChars: 12000,
       guardGlobalStallCap: 6,
       guardEchoFailures: 5,
     })
     expect(out).toContain('enabled: false')
+    expect(out).toContain("sensitivity: 'aggressive'")
     expect(out).toContain('stallReasoningChars: 12000')
     expect(out).toContain('globalStallCap: 6')
     expect(out).toContain('echoFailures: 5')

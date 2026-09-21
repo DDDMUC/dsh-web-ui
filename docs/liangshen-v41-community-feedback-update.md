@@ -116,7 +116,7 @@
 | 文档条目 | 状态 | 实现 |
 | :--- | :--- | :--- |
 | P0-1 默认 `presentation: 'both'` | 已落地 | [index.ts](../packages/dsh-liangshen/src/index.ts) `DEFAULT_PRESENTATION`、schema 默认、[agent.cordis.yml](../packages/dsh-liangshen/presets/liangshen/agent.cordis.yml) tool-catalog 行 |
-| P0-2 运行时退化熔断器 | 已落地（阈值经 384K 尺度校准） | [guard.mjs](../packages/dsh-liangshen/presets/liangshen/guard.mjs)：双梯停摆检测——**单步暴走梯**（单条推理 ≥8000 字符且零产出，1 步即触发，对准 V4.1 官方 MAX OUTPUT 384K 的暴走形态，第一步就拦截）与**慢烧梯**（连续 4 步有真实推理但零产出，每步 ≥200 字符，接住小步空转闭环）；空转梯（同参连续失败 3 次）。触发后 pre-step 注入 `[Circuit Breaker]` 消息并经 `agent/request` 把推理档位下调一档（max→high→low，窗口 3 个请求）；无信号时纯 pass-through。**四个参数已进插件设置界面**：`guardEnabled`（总开关）、`guardStallReasoningChars`（单步暴走字符阈值，默认 8000）、`guardGlobalStallCap`（慢烧连续步数，默认 4）、`guardEchoFailures`（同参连续失败，默认 3），随 preset 同步生效 |
+| P0-2 运行时退化熔断器 | 已落地（阈值经 384K 尺度校准） | [guard.mjs](../packages/dsh-liangshen/presets/liangshen/guard.mjs)：双梯停摆检测——**单步暴走梯**（单条推理 ≥8000 字符且零产出，1 步即触发，对准 V4.1 官方 MAX OUTPUT 384K 的暴走形态，第一步就拦截）与**慢烧梯**（连续 4 步有真实推理但零产出，每步 ≥200 字符，接住小步空转闭环）；空转梯（同参连续失败 3 次）。触发后 pre-step 注入 `[Circuit Breaker]` 消息并经 `agent/request` 把推理档位下调一档（max→high→low，窗口 3 个请求）；无信号时纯 pass-through。**五个参数已进插件设置界面**：`guardEnabled`（总开关）、`guardSensitivity`（灵敏度三档：conservative×1.5 / balanced / aggressive×0.5，默认 balanced）、`guardStallReasoningChars`（单步暴走字符阈值**覆写**，默认随推理档位自适应：max 8000 / high 12000 / low 20000）、`guardGlobalStallCap`（慢烧连续步数**覆写**，默认 4）、`guardEchoFailures`（同参连续失败**覆写**，默认 3），随 preset 同步生效。阈值按 A+D 方案自适应：A 档按 reasoningEffort 走表，D 档灵敏度整体缩放，细调字段设了则以用户为准 |
 | P0-3 分页出厂开启 | 已落地 | agent.cordis.yml `pagedToolPatterns: ['mcp__*']`，并补挂此前遗漏的 `tool-activate` 行 |
 | P0-4 pruner 4096/2048/1024 | 已落地 | agent.cordis.yml compaction 组 |
 | P1-1 Fact Ledger | 已落地 | [fact-ledger.mjs](../packages/dsh-liangshen/presets/liangshen/fact-ledger.mjs)（`fact_register` 工具，append/revoke 均从事件流折叠）+ working-context 渲染 `key facts:` 字段 |
@@ -134,7 +134,7 @@
    node tools/benchmark-report.mjs .benchmark-results
    ```
    裁决口径：若 `both` 完成率不优于 `native`，P0-1 回退为 `native`；若 `ptc` 意外反超，记录任务形态再议。
-2. **熔断器阈值标定（P2-2）**：收集 #5976 形态会话导出（连续零产出长思考、同参重复失败序列），用 `node tools/analyze-session.mjs <session.jsonl>` 量出真实「停摆步长 × 思考字符」分布。出厂阈值已经 384K 官方 MAX OUTPUT 尺度校准（单步暴走 8000 字符 1 步触发 / 慢烧 4 步 × 200 字符 / 同参失败 3 次 / 降档窗口 3 请求 / 冷却 5 步），标定目标是**复核两梯在真实轨迹上不漏报、不误中断**——阈值直接在**插件设置界面**调整（`guardStallReasoningChars` / `guardGlobalStallCap` / `guardEchoFailures` / `guardEnabled`，随 preset 同步生效），或经 `guard.mjs` 的 config 键（`stallSteps` / `stepDownRequests` / `refireCooldownSteps` 仅 preset 内可调），不要为标定改代码。
+2. **熔断器阈值标定（P2-2）**：收集 #5976 形态会话导出（连续零产出长思考、同参重复失败序列），用 `node tools/analyze-session.mjs <session.jsonl>` 量出真实「停摆步长 × 思考字符」分布。出厂阈值已经 384K 官方 MAX OUTPUT 尺度校准（单步暴走 8000 字符 1 步触发 / 慢烧 4 步 × 200 字符 / 同参失败 3 次 / 降档窗口 3 请求 / 冷却 5 步），标定目标是**复核两梯在真实轨迹上不漏报、不误中断**——阈值直接在**插件设置界面**调整（`guardSensitivity` 一键缩放，或 `guardStallReasoningChars` / `guardGlobalStallCap` / `guardEchoFailures` 细调覆写，随 preset 同步生效），或经 `guard.mjs` 的 config 键（`stallSteps` / `stepDownRequests` / `refireCooldownSteps` 仅 preset 内可调），不要为标定改代码。
 3. **长会话遗忘测试（P2-3 → 现为 Fact Ledger 验收）**：构造 100+ 轮、含 3 个中途确立硬约束的会话，开/关 `fact_register` 各跑 3 次，统计约束遵守率；预期开登记簿时约束在 `[Working Context: ...]` 行中全程可见。
 4. **成本回归**：改动前后同一任务集对比总 token 与费用；目标完成率不降、token 不升（熔断器应在退化 episode 上净省 token）。
 
