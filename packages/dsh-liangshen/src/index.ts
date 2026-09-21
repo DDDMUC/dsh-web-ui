@@ -62,12 +62,30 @@ export interface Config {
    * the transport.
    */
   presentation?: (typeof PRESENTATION_OPTIONS)[number]
+  /** Master switch for the runtime degeneration circuit breaker (default true). */
+  guardEnabled?: boolean
+  /**
+   * Reasoning characters one zero-output step must reach for the per-step
+   * ladder to fire (default 8000, calibrated against V4.1's 384K max output).
+   */
+  guardStallReasoningChars?: number
+  /**
+   * Consecutive output-free reasoning steps that trip the slow-burn ladder
+   * (default 4).
+   */
+  guardGlobalStallCap?: number
+  /** Identical-argument tool failures in a row that trip the echo ladder (default 3). */
+  guardEchoFailures?: number
 }
 
 export const Config: z<Config> = z.object({
   enabled: z.boolean().default(true),
   announceToAgent: z.boolean().default(false),
   presentation: z.union([...PRESENTATION_OPTIONS]).default('both'),
+  guardEnabled: z.boolean().default(true),
+  guardStallReasoningChars: z.number().default(8000),
+  guardGlobalStallCap: z.number().default(4),
+  guardEchoFailures: z.number().default(3),
 })
 
 /** Schema defaults, re-read for hand-built test contexts. */
@@ -110,6 +128,10 @@ function applyImpl(ctx: Context, config?: Config): void {
     announceToAgent: current().announceToAgent ?? DEFAULT_ANNOUNCE,
     enabled: current().enabled ?? true,
     presentation: current().presentation ?? DEFAULT_PRESENTATION,
+    guardEnabled: current().guardEnabled ?? true,
+    guardStallReasoningChars: current().guardStallReasoningChars ?? 8000,
+    guardGlobalStallCap: current().guardGlobalStallCap ?? 4,
+    guardEchoFailures: current().guardEchoFailures ?? 3,
   })
 
   const sync = (): void => {
@@ -121,6 +143,10 @@ function applyImpl(ctx: Context, config?: Config): void {
       // shape a session live in the preset's rows; the sync is where the two meet.
       const result = syncPresetTrees(bundledPresetsRoot(), targetRoot, ['liangshen-exact'], {
         presentation: settings.presentation,
+        guardEnabled: settings.guardEnabled,
+        guardStallReasoningChars: settings.guardStallReasoningChars,
+        guardGlobalStallCap: settings.guardGlobalStallCap,
+        guardEchoFailures: settings.guardEchoFailures,
       })
       for (const { id, error } of result.failed) {
         ctx.logger?.warn?.(`dsh-liangshen: preset ${id} sync failed: ${error}`)

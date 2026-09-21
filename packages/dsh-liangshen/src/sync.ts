@@ -139,6 +139,14 @@ function copyTreeSync(sourceDir: string, targetDir: string): void {
 export interface PresetOverrides {
   /** The `tool-catalog` row's `presentation` value. */
   presentation?: string
+  /** The `guard` row's `enabled` switch. */
+  guardEnabled?: boolean
+  /** The `guard` row's per-step reasoning-character floor. */
+  guardStallReasoningChars?: number
+  /** The `guard` row's slow-burn step cap. */
+  guardGlobalStallCap?: number
+  /** The `guard` row's identical-argument failure count. */
+  guardEchoFailures?: number
 }
 
 /**
@@ -148,9 +156,12 @@ export interface PresetOverrides {
  * `false` as a boolean, while `'false'` would be a truthy string and silently
  * invert the switch.
  */
-function setRowValue(text: string, rowId: string, key: string, value: string | boolean | undefined): string {
+function setRowValue(text: string, rowId: string, key: string, value: string | boolean | number | undefined): string {
   if (value === undefined) return text
-  const literal = typeof value === 'boolean' ? String(value) : `'${value}'`
+  // Strings render single-quoted; booleans and numbers render bare. YAML reads
+  // an unquoted `false`/`8000` as a boolean/number, while `'false'` would
+  // be a truthy string and silently invert the switch.
+  const literal = typeof value === 'string' ? `'${value}'` : String(value)
   const rowStart = text.indexOf(`- id: ${rowId}
 `)
   if (rowStart < 0) return text
@@ -184,6 +195,10 @@ function setRowValue(text: string, rowId: string, key: string, value: string | b
 export function renderPresetOverrides(text: string, overrides: PresetOverrides): string {
   let out = text
   out = setRowValue(out, 'tool-catalog', 'presentation', overrides.presentation)
+  out = setRowValue(out, 'guard', 'enabled', overrides.guardEnabled)
+  out = setRowValue(out, 'guard', 'stallReasoningChars', overrides.guardStallReasoningChars)
+  out = setRowValue(out, 'guard', 'globalStallCap', overrides.guardGlobalStallCap)
+  out = setRowValue(out, 'guard', 'echoFailures', overrides.guardEchoFailures)
   return out
 }
 

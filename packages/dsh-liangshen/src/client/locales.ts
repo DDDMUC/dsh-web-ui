@@ -47,6 +47,14 @@ export const zh = {
   'presentation.ptc': 'ptc（仅 run_code）',
   'presentation.native': 'native（原生工具清单）',
   'presentation.both': 'both（两者同驻）',
+  'settings.guardEnabled': '启用退化熔断器',
+  'settings.guardEnabledHint': '运行时检测思考退化（连续零产出长思考 / 同参重复失败），触发时注入熔断提示并临时下调推理档位。关闭后不干预任何请求。',
+  'settings.guardStallChars': '单步暴走字符阈值',
+  'settings.guardStallCharsHint': '单条推理达到该字符数且零产出即触发熔断（按 V4.1 官方 384K 最大输出校准；默认 8000，约 2-4K 思考 token）。',
+  'settings.guardGlobalCap': '慢烧连续步数',
+  'settings.guardGlobalCapHint': '连续多少步有真实推理但零产出触发慢烧熔断（默认 4；步数越小越敏感，真实长调查建议调大）。',
+  'settings.guardEchoFailures': '同参连续失败次数',
+  'settings.guardEchoFailuresHint': '同一工具以相同参数连续失败多少次触发空转熔断（默认 3）。',
 }
 
 /** English counterpart; the key set mirrors {@link zh} exactly. */
@@ -92,6 +100,14 @@ export const en: Record<keyof typeof zh, string> = {
   'presentation.ptc': 'ptc (run_code only)',
   'presentation.native': 'native (native tool roster)',
   'presentation.both': 'both (both co-resident)',
+  'settings.guardEnabled': 'Degeneration circuit breaker',
+  'settings.guardEnabledHint': 'Detects reasoning degeneration at runtime (consecutive zero-output long reasoning / repeated identical-argument failures), injecting a breaker message and stepping the reasoning effort down when it fires. Disabled means requests are never touched.',
+  'settings.guardStallChars': 'Runaway reasoning character floor',
+  'settings.guardStallCharsHint': 'One reasoning block reaching this many characters with no output fires the breaker (calibrated against V4.1\'s official 384K max output; default 8000, roughly 2-4K thinking tokens).',
+  'settings.guardGlobalCap': 'Slow-burn step count',
+  'settings.guardGlobalCapHint': 'Consecutive output-free steps of real reasoning that fire the slow-burn ladder (default 4; lower is more sensitive — raise it for genuinely long investigations).',
+  'settings.guardEchoFailures': 'Identical-argument failures',
+  'settings.guardEchoFailuresHint': 'Identical-argument failures of the same tool in a row that fire the echo ladder (default 3).',
 }
 
 /** Every key in the locale catalog. */

@@ -15070,7 +15070,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/** A staged value field. `numeric` only hints the keypad: which drafts a field accepts is decided by its spec. */
-		function ValueField$2(props) {
+		function ValueField$3(props) {
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: settings_card_module_css_default$4.field,
 				children: [
@@ -15339,7 +15339,7 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-remote-web-ui/src/client/settings-form.ts
 		/** A whole- or decimal-number field. An empty draft clears the field; any other draft that is not a finite number within the constraints blocks the save. */
-		function numberField$2(field, constraints = {}) {
+		function numberField$3(field, constraints = {}) {
 			const { integer = false, min } = constraints;
 			return {
 				field,
@@ -15666,10 +15666,10 @@ window.__ModuleLoader__.load({
 			constructor(scope) {
 				this.form = new CardForm$4(scope, [
 					booleanField$4("enabled"),
-					numberField$2("tokenTtlMs"),
-					numberField$2("offlineAfterMs"),
-					numberField$2("maxDevices"),
-					numberField$2("idleExpireMs"),
+					numberField$3("tokenTtlMs"),
+					numberField$3("offlineAfterMs"),
+					numberField$3("maxDevices"),
+					numberField$3("idleExpireMs"),
 					textField$1("cookieName"),
 					booleanField$4("requirePairingForLan"),
 					textField$1("publicBaseUrl"),
@@ -15755,7 +15755,7 @@ window.__ModuleLoader__.load({
 							props.resetField("enabled");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$3, {
 						id: "settings-remote-token-ttl",
 						label: t("settings.tokenTtlMs"),
 						hint: t("settings.tokenTtlMsHint"),
@@ -15769,7 +15769,7 @@ window.__ModuleLoader__.load({
 							props.resetField("tokenTtlMs");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$3, {
 						id: "settings-remote-offline",
 						label: t("settings.offlineAfterMs"),
 						hint: t("settings.offlineAfterMsHint"),
@@ -15783,7 +15783,7 @@ window.__ModuleLoader__.load({
 							props.resetField("offlineAfterMs");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$3, {
 						id: "settings-remote-max-devices",
 						label: t("settings.maxDevices"),
 						hint: t("settings.maxDevicesHint"),
@@ -15797,7 +15797,7 @@ window.__ModuleLoader__.load({
 							props.resetField("maxDevices");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$3, {
 						id: "settings-remote-idle-expire",
 						label: t("settings.idleExpireMs"),
 						hint: t("settings.idleExpireMsHint"),
@@ -15811,7 +15811,7 @@ window.__ModuleLoader__.load({
 							props.resetField("idleExpireMs");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$3, {
 						id: "settings-remote-cookie",
 						label: t("settings.cookieName"),
 						hint: t("settings.cookieNameHint"),
@@ -15840,7 +15840,7 @@ window.__ModuleLoader__.load({
 							props.resetField("requirePairingForLan");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$3, {
 						id: "settings-remote-public-base",
 						label: t("settings.publicBaseUrl"),
 						hint: t("settings.publicBaseUrlHint"),
@@ -15870,7 +15870,7 @@ window.__ModuleLoader__.load({
 							props.resetField("autoTunnel");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$3, {
 						id: "settings-remote-tunnel-token",
 						label: t("settings.tunnelToken"),
 						hint: t("settings.tunnelTokenHint"),
@@ -20963,7 +20963,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/** A staged value field. `numeric` only hints the keypad: which drafts a field accepts is decided by its spec. */
-		function ValueField$1(props) {
+		function ValueField$2(props) {
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: settings_card_module_css_default$3.field,
 				children: [
@@ -21275,7 +21275,7 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-pet/src/client/settings-form.ts
 		/** A whole- or decimal-number field. An empty draft clears the field; any other draft that is not a finite number within the constraints blocks the save. */
-		function numberField$1(field, constraints = {}) {
+		function numberField$2(field, constraints = {}) {
 			const { integer = false, min } = constraints;
 			return {
 				field,
@@ -21623,10 +21623,10 @@ window.__ModuleLoader__.load({
 					booleanField$3("enabled"),
 					booleanField$3("decorationEnabled"),
 					booleanField$3("visible"),
-					numberField$1("size"),
-					numberField$1("right"),
-					numberField$1("bottom"),
-					numberField$1("bubbleScale"),
+					numberField$2("size"),
+					numberField$2("right"),
+					numberField$2("bottom"),
+					numberField$2("bubbleScale"),
 					choiceField$2("petId", this.petChoices)
 				]);
 				this.store = this.form.bind(() => this.projection());
@@ -21807,7 +21807,7 @@ window.__ModuleLoader__.load({
 							props.resetField("visible");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
 						id: "settings-pet-size",
 						label: t("settings.size"),
 						hint: t("settings.sizeHint"),
@@ -21821,7 +21821,7 @@ window.__ModuleLoader__.load({
 							props.resetField("size");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
 						id: "settings-pet-right",
 						label: t("settings.right"),
 						hint: t("settings.rightHint"),
@@ -21835,7 +21835,7 @@ window.__ModuleLoader__.load({
 							props.resetField("right");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
 						id: "settings-pet-bottom",
 						label: t("settings.bottom"),
 						hint: t("settings.bottomHint"),
@@ -21849,7 +21849,7 @@ window.__ModuleLoader__.load({
 							props.resetField("bottom");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
 						id: "settings-pet-bubble-scale",
 						label: t("settings.bubbleScale"),
 						hint: t("settings.bubbleScaleHint"),
@@ -39819,7 +39819,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/** A staged value field. `numeric` only hints the keypad: which drafts a field accepts is decided by its spec. */
-		function ValueField(props) {
+		function ValueField$1(props) {
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: settings_card_module_css_default$2.field,
 				children: [
@@ -40131,7 +40131,7 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-tool-describe-image/src/client/settings-form.ts
 		/** A whole- or decimal-number field. An empty draft clears the field; any other draft that is not a finite number within the constraints blocks the save. */
-		function numberField(field, constraints = {}) {
+		function numberField$1(field, constraints = {}) {
 			const { integer = false, min } = constraints;
 			return {
 				field,
@@ -40770,9 +40770,9 @@ window.__ModuleLoader__.load({
 					choiceField$1("rotationMode", ["round-robin", "failover"]),
 					booleanField$2("retryNextOnFailure"),
 					textField("defaultPrompt"),
-					numberField("maxBytes"),
-					numberField("maxOutputTokens"),
-					numberField("timeoutMs"),
+					numberField$1("maxBytes"),
+					numberField$1("maxOutputTokens"),
+					numberField$1("timeoutMs"),
 					booleanField$2("renderImagePreview"),
 					booleanField$2("interceptImageSend")
 				]);
@@ -40923,7 +40923,7 @@ window.__ModuleLoader__.load({
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
 						id: "settings-describe-image-baseurl",
 						label: t$3("field.baseURL"),
 						hint: t$3("field.baseURL.hint"),
@@ -41060,7 +41060,7 @@ window.__ModuleLoader__.load({
 							props.resetField("apiStyle");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
 						id: "settings-describe-image-apikey",
 						label: t$3("field.apiKey"),
 						hint: t$3("field.apiKey.hint"),
@@ -41073,7 +41073,7 @@ window.__ModuleLoader__.load({
 							props.resetField("apiKey");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
 						id: "settings-describe-image-apikeyenv",
 						label: t$3("field.apiKeyEnv"),
 						hint: t$3("field.apiKeyEnv.hint"),
@@ -41086,7 +41086,7 @@ window.__ModuleLoader__.load({
 							props.resetField("apiKeyEnv");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
 						id: "settings-describe-image-defaultprompt",
 						label: t$3("field.defaultPrompt"),
 						hint: t$3("field.defaultPrompt.hint"),
@@ -41099,7 +41099,7 @@ window.__ModuleLoader__.load({
 							props.resetField("defaultPrompt");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
 						id: "settings-describe-image-maxbytes",
 						label: t$3("field.maxBytes"),
 						hint: t$3("field.maxBytes.hint"),
@@ -41113,7 +41113,7 @@ window.__ModuleLoader__.load({
 							props.resetField("maxBytes");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
 						id: "settings-describe-image-maxoutputtokens",
 						label: t$3("field.maxOutputTokens"),
 						hint: t$3("field.maxOutputTokens.hint"),
@@ -41127,7 +41127,7 @@ window.__ModuleLoader__.load({
 							props.resetField("maxOutputTokens");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$1, {
 						id: "settings-describe-image-timeoutms",
 						label: t$3("field.timeoutMs"),
 						hint: t$3("field.timeoutMs.hint"),
@@ -42215,6 +42215,51 @@ window.__ModuleLoader__.load({
 				}) : null]
 			});
 		}
+		/** A staged value field. `numeric` only hints the keypad: which drafts a field accepts is decided by its spec. */
+		function ValueField(props) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: settings_card_module_css_default$1.field,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: settings_card_module_css_default$1.head,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("label", {
+							className: settings_card_module_css_default$1.label,
+							htmlFor: props.id,
+							children: props.label
+						}), props.overridden ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+							className: settings_card_module_css_default$1.badges,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: settings_card_module_css_default$1.badge,
+								children: props.overriddenLabel
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: settings_card_module_css_default$1.reset,
+								disabled: props.disabled,
+								onClick: props.onReset,
+								children: props.resetLabel
+							})]
+						}) : null]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+						id: props.id,
+						className: props.invalid ? settings_card_module_css_default$1.inputInvalid : settings_card_module_css_default$1.input,
+						type: "text",
+						...props.numeric === true ? { inputMode: "numeric" } : {},
+						...props.invalid ? { "aria-invalid": true } : {},
+						value: props.text,
+						placeholder: props.placeholder ?? "",
+						disabled: props.disabled,
+						onChange: (event) => {
+							props.onEdit(event.target.value);
+						}
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: props.invalid ? settings_card_module_css_default$1.invalid : settings_card_module_css_default$1.hint,
+						children: props.invalid ? props.invalidLabel : props.hint
+					})
+				]
+			});
+		}
 		const NON_SKIN_BODY_MARKERS$1 = /* @__PURE__ */ new Set(["dshSkinCenter", "dshSidebarCollapsed"]);
 		function isSkinActive$1() {
 			return Object.keys(document.body.dataset).some((key) => key.startsWith("dsh") && !NON_SKIN_BODY_MARKERS$1.has(key));
@@ -42482,6 +42527,26 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-liangshen/src/client/settings-form.ts
+		/** A whole- or decimal-number field. An empty draft clears the field; any other draft that is not a finite number within the constraints blocks the save. */
+		function numberField(field, constraints = {}) {
+			const { integer = false, min } = constraints;
+			return {
+				field,
+				format: (value) => typeof value === "number" ? String(value) : "",
+				parse: (text) => {
+					const trimmed = text.trim();
+					if (trimmed === "") return { kind: "clear" };
+					const parsed = Number(trimmed);
+					if (!Number.isFinite(parsed)) return void 0;
+					if (integer && !Number.isInteger(parsed)) return void 0;
+					if (min !== void 0 && parsed < min) return void 0;
+					return {
+						kind: "set",
+						value: parsed
+					};
+				}
+			};
+		}
 		/** A boolean field, edited through true/false draft text. */
 		function booleanField$1(field) {
 			return {
@@ -42780,7 +42845,20 @@ window.__ModuleLoader__.load({
 				this.form = new CardForm$1(scope, [
 					booleanField$1("enabled"),
 					booleanField$1("announceToAgent"),
-					choiceField("presentation", PRESENTATION_CHOICES)
+					choiceField("presentation", PRESENTATION_CHOICES),
+					booleanField$1("guardEnabled"),
+					numberField("guardStallReasoningChars", {
+						integer: true,
+						min: 200
+					}),
+					numberField("guardGlobalStallCap", {
+						integer: true,
+						min: 2
+					}),
+					numberField("guardEchoFailures", {
+						integer: true,
+						min: 2
+					})
 				]);
 				this.store = this.form.bind(() => this.projection());
 			}
@@ -42789,7 +42867,11 @@ window.__ModuleLoader__.load({
 					...this.form.shell(),
 					enabled: this.form.field("enabled"),
 					announceToAgent: this.form.field("announceToAgent"),
-					presentation: this.form.field("presentation")
+					presentation: this.form.field("presentation"),
+					guardEnabled: this.form.field("guardEnabled"),
+					guardStallReasoningChars: this.form.field("guardStallReasoningChars"),
+					guardGlobalStallCap: this.form.field("guardGlobalStallCap"),
+					guardEchoFailures: this.form.field("guardEchoFailures")
 				};
 			}
 			/**
@@ -42877,6 +42959,66 @@ window.__ModuleLoader__.load({
 						onReset: () => {
 							props.resetField("presentation");
 						}
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$1, {
+						id: "settings-liangshen-guard-enabled",
+						label: t("settings.guardEnabled"),
+						hint: t("settings.guardEnabledHint"),
+						onLabel: t("settings.on"),
+						offLabel: t("settings.off"),
+						...fieldProps,
+						...state.guardEnabled,
+						onEdit: (text) => {
+							props.edit("guardEnabled", text);
+						},
+						onReset: () => {
+							props.resetField("guardEnabled");
+						}
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+						id: "settings-liangshen-guard-stall-chars",
+						numeric: true,
+						label: t("settings.guardStallChars"),
+						hint: t("settings.guardStallCharsHint"),
+						placeholder: "8000",
+						...fieldProps,
+						...state.guardStallReasoningChars,
+						onEdit: (text) => {
+							props.edit("guardStallReasoningChars", text);
+						},
+						onReset: () => {
+							props.resetField("guardStallReasoningChars");
+						}
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+						id: "settings-liangshen-guard-global-cap",
+						numeric: true,
+						label: t("settings.guardGlobalCap"),
+						hint: t("settings.guardGlobalCapHint"),
+						placeholder: "4",
+						...fieldProps,
+						...state.guardGlobalStallCap,
+						onEdit: (text) => {
+							props.edit("guardGlobalStallCap", text);
+						},
+						onReset: () => {
+							props.resetField("guardGlobalStallCap");
+						}
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+						id: "settings-liangshen-guard-echo",
+						numeric: true,
+						label: t("settings.guardEchoFailures"),
+						hint: t("settings.guardEchoFailuresHint"),
+						placeholder: "3",
+						...fieldProps,
+						...state.guardEchoFailures,
+						onEdit: (text) => {
+							props.edit("guardEchoFailures", text);
+						},
+						onReset: () => {
+							props.resetField("guardEchoFailures");
+						}
 					})
 				]
 			});
@@ -42930,7 +43072,15 @@ window.__ModuleLoader__.load({
 			"settings.invalidValue": "该取值不被接受",
 			"presentation.ptc": "ptc（仅 run_code）",
 			"presentation.native": "native（原生工具清单）",
-			"presentation.both": "both（两者同驻）"
+			"presentation.both": "both（两者同驻）",
+			"settings.guardEnabled": "启用退化熔断器",
+			"settings.guardEnabledHint": "运行时检测思考退化（连续零产出长思考 / 同参重复失败），触发时注入熔断提示并临时下调推理档位。关闭后不干预任何请求。",
+			"settings.guardStallChars": "单步暴走字符阈值",
+			"settings.guardStallCharsHint": "单条推理达到该字符数且零产出即触发熔断（按 V4.1 官方 384K 最大输出校准；默认 8000，约 2-4K 思考 token）。",
+			"settings.guardGlobalCap": "慢烧连续步数",
+			"settings.guardGlobalCapHint": "连续多少步有真实推理但零产出触发慢烧熔断（默认 4；步数越小越敏感，真实长调查建议调大）。",
+			"settings.guardEchoFailures": "同参连续失败次数",
+			"settings.guardEchoFailuresHint": "同一工具以相同参数连续失败多少次触发空转熔断（默认 3）。"
 		};
 		/** English counterpart; the key set mirrors {@link zh} exactly. */
 		const en$7 = {
@@ -42974,7 +43124,15 @@ window.__ModuleLoader__.load({
 			"settings.invalidValue": "The value is not accepted",
 			"presentation.ptc": "ptc (run_code only)",
 			"presentation.native": "native (native tool roster)",
-			"presentation.both": "both (both co-resident)"
+			"presentation.both": "both (both co-resident)",
+			"settings.guardEnabled": "Degeneration circuit breaker",
+			"settings.guardEnabledHint": "Detects reasoning degeneration at runtime (consecutive zero-output long reasoning / repeated identical-argument failures), injecting a breaker message and stepping the reasoning effort down when it fires. Disabled means requests are never touched.",
+			"settings.guardStallChars": "Runaway reasoning character floor",
+			"settings.guardStallCharsHint": "One reasoning block reaching this many characters with no output fires the breaker (calibrated against V4.1's official 384K max output; default 8000, roughly 2-4K thinking tokens).",
+			"settings.guardGlobalCap": "Slow-burn step count",
+			"settings.guardGlobalCapHint": "Consecutive output-free steps of real reasoning that fire the slow-burn ladder (default 4; lower is more sensitive — raise it for genuinely long investigations).",
+			"settings.guardEchoFailures": "Identical-argument failures",
+			"settings.guardEchoFailuresHint": "Identical-argument failures of the same tool in a row that fire the echo ladder (default 3)."
 		};
 		//#endregion
 		//#region ../dsh-liangshen/src/client/plugin-card-seat.ts

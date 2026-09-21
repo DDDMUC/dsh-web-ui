@@ -183,6 +183,11 @@
 # reasoning effort to this triggered-only form.
 - id: guard
   name: ./guard.mjs
+  config:
+    enabled: true
+    stallReasoningChars: 8000
+    globalStallCap: 4
+    echoFailures: 3
 
 # The paging activation handle the catalog points at: with `pagedToolPatterns`
 # non-empty this row is what lets `tool_activate({ namespace })` bring one

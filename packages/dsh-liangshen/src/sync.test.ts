@@ -42,6 +42,14 @@ describe('renderPresetOverrides', () => {
     "    presentation: 'ptc'",
     "    pagedToolPatterns: ['mcp__*']",
     "",
+    "- id: guard",
+    "  name: ./guard.mjs",
+    "  config:",
+    "    enabled: true",
+    "    stallReasoningChars: 8000",
+    "    globalStallCap: 4",
+    "    echoFailures: 3",
+    "",
   ].join('\n')
 
   it('rewrites exactly the targeted keys and nothing else', () => {
@@ -54,6 +62,26 @@ describe('renderPresetOverrides', () => {
     expect(out).toContain("pagedToolPatterns: ['mcp__*']")
     // The comment that mentions the key is not a config line and stays put.
     expect(out).toContain("# a comment that names presentation: 'ptc'")
+  })
+
+  it('operator sees the guard row values they chose rewritten', () => {
+    // Given a composition carrying the guard row's shipped defaults.
+    // When the overlay applies the operator's guard settings, Then booleans and
+    // numbers render bare (never quoted) inside that row only.
+    const out = renderPresetOverrides(SOURCE, {
+      guardEnabled: false,
+      guardStallReasoningChars: 12000,
+      guardGlobalStallCap: 6,
+      guardEchoFailures: 5,
+    })
+    expect(out).toContain('enabled: false')
+    expect(out).toContain('stallReasoningChars: 12000')
+    expect(out).toContain('globalStallCap: 6')
+    expect(out).toContain('echoFailures: 5')
+    // The catalog row is untouched by guard overrides, and no value is quoted.
+    expect(out).toContain("presentation: 'ptc'")
+    expect(out).not.toContain("'false'")
+    expect(out).not.toContain("'12000'")
   })
 
   it('leaves absent settings and unknown rows alone', () => {

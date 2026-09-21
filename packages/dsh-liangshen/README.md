@@ -103,6 +103,10 @@ When validating mode behavior and evaluating performance, verification tiers mus
 | `enabled` | `true` | Master switch: when false, neither preset sync nor announcement runs. |
 | `announceToAgent` | `false` | Opt-in: when true, a system-prompt section announces the plugin. Off by default so agent system prompts stay clean. |
 | `presentation` | `both` | Wire presentation written into the synced preset's `tool-catalog` row: `both` (default) keeps the roster and transport co-resident; `native` keeps the assembled roster; `ptc` collapses the wire to `run_code`. A change takes effect on the next DSH start, when the preset is re-synced. |
+| `guardEnabled` | `true` | Master switch for the runtime degeneration circuit breaker: detects consecutive zero-output long reasoning and repeated identical-argument failures, injecting a breaker message and stepping the reasoning effort down when it fires; disabled means requests are never touched. |
+| `guardStallReasoningChars` | `8000` | Character floor for the breaker's per-step runaway ladder: one reasoning block reaching this length with no output fires it (calibrated against V4.1's official 384K max output, roughly 2-4K thinking tokens). |
+| `guardGlobalStallCap` | `4` | Step count for the breaker's slow-burn ladder: consecutive output-free steps of real reasoning that fire it (lower is more sensitive — raise it for genuinely long investigations). |
+| `guardEchoFailures` | `3` | Echo ladder: identical-argument failures of the same tool in a row that fire the breaker. All four guard fields reach the session through the synced preset, exactly like `presentation`. |
 
 All fields are editable in the web settings surface (plugin config) or through the profile patch (`dsh plugin` / `cordis.patch.yml`). The preset-shaping presentation field reaches a session through the preset sync: the plugin writes it into the synced `agent.cordis.yml` as it copies the bundle, so the settings surface — not the bundled file — is what the operator's sessions actually run. A key the composition does not carry is never invented: the overlay only narrows the shipped configuration. Restart DSH for a change to take effect.
 
