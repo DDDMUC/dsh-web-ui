@@ -113,6 +113,61 @@ html[data-dsh-skin="whale-mom"] body[data-ds-dark-theme] [class$="modal"] {
   background: #1c2646f5;
 }
 
+/* The plugin manager page (dsh-client-ui-plugin-manager) paints no surface of
+   its own: the page column, the official/installed groups and the plugin rows
+   all sit straight on the skin's full-bleed artwork, and with the skin-center
+   background scrim at its default 0 the whale-mom layers there are fully
+   transparent, so titles and descriptions drown in the illustration (#1683).
+   These rules give that page a surface in both themes; the dark one also
+   lifts it with a small backdrop blur so it does not read as a flat block.
+   Every selector is one of the plugin manager's stable data-plugin-* hooks
+   (not its hashed CSS-module names), and the whole block is scoped to them,
+   so no other surface can inherit the change. */
+html[data-dsh-skin="whale-mom"] [data-plugin-panel],
+html[data-dsh-skin="whale-mom"] [data-plugin-detail] {
+  background: rgba(240, 247, 253, 0.55);
+  border: 1px solid rgba(22, 36, 70, 0.1);
+  border-radius: 20px;
+}
+
+html[data-dsh-skin="whale-mom"] [data-plugin-group] {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  padding: 14px 12px;
+}
+
+html[data-dsh-skin="whale-mom"] [data-plugin-item]:hover,
+html[data-dsh-skin="whale-mom"] [data-plugin-package]:hover {
+  background: rgba(22, 36, 70, 0.06);
+  border-radius: 12px;
+}
+
+html[data-dsh-skin="whale-mom"] [data-plugin-panel] *,
+html[data-dsh-skin="whale-mom"] [data-plugin-detail] * {
+  text-shadow: 0 1px 2px rgba(236, 244, 252, 0.55);
+}
+
+html[data-dsh-skin="whale-mom"] body[data-ds-dark-theme] [data-plugin-panel],
+html[data-dsh-skin="whale-mom"] body[data-ds-dark-theme] [data-plugin-detail] {
+  background: rgba(30, 44, 86, 0.6);
+  border-color: rgba(151, 169, 216, 0.28);
+  backdrop-filter: blur(10px) saturate(1.2);
+}
+
+html[data-dsh-skin="whale-mom"] body[data-ds-dark-theme] [data-plugin-group] {
+  background: rgba(38, 54, 102, 0.4);
+}
+
+html[data-dsh-skin="whale-mom"] body[data-ds-dark-theme] [data-plugin-item]:hover,
+html[data-dsh-skin="whale-mom"] body[data-ds-dark-theme] [data-plugin-package]:hover {
+  background: rgba(151, 169, 216, 0.16);
+}
+
+html[data-dsh-skin="whale-mom"] body[data-ds-dark-theme] [data-plugin-panel] *,
+html[data-dsh-skin="whale-mom"] body[data-ds-dark-theme] [data-plugin-detail] * {
+  text-shadow: 0 1px 2px rgba(4, 7, 15, 0.6);
+}
+
 html[data-dsh-skin="whale-mom"] [id="root"] { background: transparent; }
 
 html[data-dsh-skin="whale-mom"] body { --shiki-background: var(--dsw-alias-markdown-code-block); }
