@@ -8357,7 +8357,22 @@ function webPropertyDefaults(projectRoot) {
 const WE_API_PREFIX = "/api/skin-center/we";
 /** Sanitize a wallpaper id into a safe store directory name. */
 function safeStoreId(id) {
-	return id.replace(/[^a-zA-Z0-9._-]/g, "_");
+	return id.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.{1,2}$/, (dots) => "_".repeat(dots.length));
+}
+/**
+* Resolve a wallpaper id to its directory inside the import store, or null
+* when the joined result would not stay below the store root. Containment is
+* asserted on the resolved path rather than trusted from `safeStoreId`: that
+* staying-inside property is what the recursive deletes in /reimport and
+* /remove actually depend on, and sanitizing a single segment cannot prove it
+* (#1668).
+*/
+function storeEntryPath(storeDir, id) {
+	if (/^\.{1,2}$/.test(id)) return null;
+	const dest = join(storeDir, safeStoreId(id));
+	const rootWithSep = storeDir.endsWith(sep) ? storeDir : storeDir + sep;
+	if (!dest.startsWith(rootWithSep)) return null;
+	return dest;
 }
 /** Minimal mime map for wallpaper payloads. */
 function mimeFor(absPath) {
@@ -9207,7 +9222,14 @@ function makeWeRoutes(deps) {
 			});
 			return;
 		}
-		const dest = join(deps.storeDir, safeStoreId(id));
+		const dest = storeEntryPath(deps.storeDir, id);
+		if (dest === null) {
+			writeJson(res, 400, {
+				ok: false,
+				error: "bad-id"
+			});
+			return;
+		}
 		if (existsSync(dest)) {
 			writeJson(res, 409, {
 				ok: false,
@@ -9231,7 +9253,14 @@ function makeWeRoutes(deps) {
 			return;
 		}
 		const sourceId = id.slice(9);
-		const dest = join(deps.storeDir, safeStoreId(sourceId));
+		const dest = storeEntryPath(deps.storeDir, sourceId);
+		if (dest === null) {
+			writeJson(res, 400, {
+				ok: false,
+				error: "bad-id"
+			});
+			return;
+		}
 		if (!existsSync(dest)) {
 			writeJson(res, 404, {
 				ok: false,
@@ -9266,7 +9295,14 @@ function makeWeRoutes(deps) {
 			});
 			return;
 		}
-		const dest = join(deps.storeDir, safeStoreId(id.slice(9)));
+		const dest = storeEntryPath(deps.storeDir, id.slice(9));
+		if (dest === null) {
+			writeJson(res, 400, {
+				ok: false,
+				error: "bad-id"
+			});
+			return;
+		}
 		if (!existsSync(dest)) {
 			writeJson(res, 404, {
 				ok: false,
