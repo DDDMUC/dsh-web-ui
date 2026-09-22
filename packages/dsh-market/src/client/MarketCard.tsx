@@ -668,6 +668,7 @@ export function MarketCard(props: MarketCardProps): ReactNode {
       state={state}
       alwaysOpen
       renderChildrenWhenNotExposed
+      hideNotExposedNotice
       onSave={props.save}
       onDiscard={props.discard}
     >

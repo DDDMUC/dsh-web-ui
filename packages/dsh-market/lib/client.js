@@ -214,17 +214,20 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
-			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
-				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: settings_card_module_css_default.body,
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-						className: settings_card_module_css_default.notExposed,
-						role: "status",
-						children: props.t("settings.notExposed")
-					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
-				}) : null]
-			});
+			if (!state.exposed) {
+				const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true;
+				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+					className: cardClass,
+					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: settings_card_module_css_default.body,
+						children: [showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: settings_card_module_css_default.notExposed,
+							role: "status",
+							children: props.t("settings.notExposed")
+						}) : null, props.renderChildrenWhenNotExposed === true ? props.children : null]
+					}) : null]
+				});
+			}
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
 				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -1657,6 +1660,7 @@ window.__ModuleLoader__.load({
 				state,
 				alwaysOpen: true,
 				renderChildrenWhenNotExposed: true,
+				hideNotExposedNotice: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [

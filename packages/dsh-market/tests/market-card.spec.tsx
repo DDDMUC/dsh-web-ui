@@ -57,6 +57,7 @@ class FakeScope implements ConfigForm<MarketSettings> {
   base: MarketSettings
   user: Partial<MarketSettings> = {}
   writable = true
+  status: ConfigFormSnapshot<MarketSettings>['status'] = 'ready'
   /** The Host answer every queued write settles with: true accepts, false refuses. */
   accepts = true
   /**
@@ -79,9 +80,10 @@ class FakeScope implements ConfigForm<MarketSettings> {
     this.reflect()
     return true
   })
-  constructor(value: MarketSettings) {
+  constructor(value: MarketSettings, status: ConfigFormSnapshot<MarketSettings>['status'] = 'ready') {
     this.value = value
     this.base = value
+    this.status = status
   }
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
@@ -105,7 +107,7 @@ class FakeScope implements ConfigForm<MarketSettings> {
   })
   getSnapshot(): ConfigFormSnapshot<MarketSettings> {
     return {
-      status: 'ready',
+      status: this.status,
       writable: this.writable,
       value: this.value,
       base: this.base,
@@ -602,6 +604,20 @@ describe('MarketCard', () => {
     // The off draft is still on screen and the save is retryable.
     expect(document.getElementById('settings-market-enabled')?.textContent).toBe('关')
     expect(screen.getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(false)
+  })
+
+  it('user sees market content without notExposed banner when host namespace is unexposed', async () => {
+    // Given an unexposed scope whose status is unavailable
+    const scope = new FakeScope({ enabled: true }, 'unavailable')
+    const props = cardProps(scope, { remote: REMOTE, gateway: null, pluginManager: null })
+
+    // When the market card renders with unexposed namespace
+    render(<MarketCard {...props} />)
+
+    // Then it renders the market catalog without displaying the notExposed banner
+    expect(screen.queryByText('该设置段未暴露（宿主命名空间缺失）')).toBeNull()
+    expect(screen.getByRole('tab', { name: /皮肤/ }).textContent).toContain('皮肤')
+    expect(screen.getByText('鲸吟').textContent).toBe('鲸吟')
   })
 })
 
