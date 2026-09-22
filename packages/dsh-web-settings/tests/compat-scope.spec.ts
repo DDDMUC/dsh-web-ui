@@ -397,4 +397,23 @@ describe('createCompatScope batch mutate', () => {
     expect(result.code).toBe('settings-rejected')
     expect(result.message).toBe('describe-image: incoherent baseURL/model pair')
   })
+
+  it('preserves multi-segment path array when mutating through bridge fallback', async () => {
+    const calls: { url: string; body: any }[] = []
+    const { fetchFn } = fakeFetch(async (url, init) => {
+      if (url === WEB_UI_SETTINGS_BRIDGE_PREFIX + '/describe') {
+        return describeResult([batchView('skin-background', {}, 1, { user: {} })])
+      }
+      calls.push({ url, body: JSON.parse(String(init.body)) })
+      return { ok: true, value: batchView('skin-background', {}, 2, { user: { 'skin-wallpaper': { enabled: true } } }) }
+    })
+    const scope = createCompatScope({ namespace: 'skin-background', fetchFn })
+    await vi.waitFor(() => { expect(scope.getSnapshot().status).toBe('ready') })
+    const accepted = await scope.mutate([{ op: 'set', path: ['skin-wallpaper', 'enabled'], value: true }])
+    expect(accepted).toBe(true)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].body.ops).toEqual([
+      { op: 'set', path: ['skin-wallpaper', 'enabled'], value: true },
+    ])
+  })
 })

@@ -22,7 +22,6 @@
     "./session-archive": "./lib/shells/shell.js",
     "./settings": "./lib/shells/shell.js",
     "./skill-explorer": "./lib/shells/shell.js",
-    "./skin-center": "./lib/shells/shell.js",
     "./ssh": "./lib/shells/shell.js",
     "./task-board": "./lib/shells/shell.js",
     "./usage": "./lib/shells/shell.js",

@@ -152,11 +152,12 @@ function collectShellSubpaths(blocks, tombstones = []) {
 
 /**
  * Source packages exempted from shell wrapping (relative patchFrom spellings).
- * The compat shim (self) and the i18n language pack stay direct: the self row
- * IS the shell package's own plugin, and dsh-i18n's host half is an empty
- * function that cannot fail meaningfully — wrapping would only obscure it.
+ * - self: compat shim IS the shell package's own plugin;
+ * - dsh-i18n: host half is a no-op;
+ * - skins/skin-center: carries the Config schema for background/custom-theme/wallpaper,
+ *   which the DSH 0.1.7+ SettingsForms loader must inspect directly to permit volatile writes.
  */
-const SHELL_EXEMPT = new Set(['../dsh-i18n'])
+const SHELL_EXEMPT = new Set(['../dsh-i18n', '../skins/skin-center'])
 
 /** Directories directly under a path (non-recursive, sorted). */
 function listSubdirs(dir) {

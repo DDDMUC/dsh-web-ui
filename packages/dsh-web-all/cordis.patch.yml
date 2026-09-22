@@ -132,9 +132,7 @@
 # from ../skins/skin-center
 - insert:
     - id: web-ui-skin-center
-      name: '@linxin666/dsh-web-all/skin-center'
-      config:
-        plugin: '@linxin666/dsh-client-ui-skin-center'
+      name: '@linxin666/dsh-client-ui-skin-center'
 
 # from ../dsh-i18n
 - insert:

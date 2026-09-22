@@ -5315,6 +5315,30 @@ window.__ModuleLoader__.load({
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
 		/**
+		* Profile entry id the family aggregate's generated row carries.
+		*/
+		const AGGREGATE_ENTRY_ID = "web-ui-skin-center";
+		/**
+		* Profile entry ids this package's two patch rows carry: the aggregate's
+		* generated row and the standalone bundle patch's row (`ui-skin-center`), plus
+		* the legacy background namespace as the last resort.
+		*/
+		const SKIN_CENTER_ENTRY_IDS = [
+			AGGREGATE_ENTRY_ID,
+			"ui-skin-center",
+			SKIN_BACKGROUND_NS
+		];
+		function servedEntryId(forms) {
+			let served;
+			try {
+				served = forms.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
+			} catch {
+				served = void 0;
+			}
+			if (served === void 0) return AGGREGATE_ENTRY_ID;
+			return SKIN_CENTER_ENTRY_IDS.find((id) => served.includes(id)) ?? "skin-background";
+		}
+		/**
 		* The configuration form of this plugin's own profile entry.
 		*
 		* `ctx.configForms` addresses one form per profile entry id and carries no
@@ -5331,8 +5355,8 @@ window.__ModuleLoader__.load({
 		*/
 		function bindConfigForm(ctx) {
 			const binder = ctx.get("webUiSettings");
-			if (binder !== void 0) return binder.bind({ namespace: SKIN_BACKGROUND_NS });
-			return ctx.configForms.get(SKIN_BACKGROUND_NS);
+			if (binder !== void 0 && typeof binder.bind === "function") return binder.bind({ namespace: SKIN_BACKGROUND_NS });
+			return ctx.configForms.get(servedEntryId(ctx.configForms));
 		}
 		/** Required services: slots + locale (plugin card), theme (preview toggle), configForms (settings sections), and remote (wallpaper directory picker). */
 		const inject = [

@@ -68,6 +68,8 @@ export interface BridgeBatchOp {
   op: 'set' | 'unset'
   /** Value for op set (absent for unset). */
   value?: unknown
+  /** Preserved ordered path segments for nested sections. */
+  path?: string[]
 }
 
 /** Per-field outcome of one batched form mutation. */
@@ -126,6 +128,17 @@ export function createBridgeApi(fetchFn: typeof fetch): BridgeSettingsFace {
   }
 }
 
+function readPathInLayer(target: unknown, path: readonly string[]): { found: boolean; value?: unknown } {
+  let curr: unknown = target
+  for (const seg of path) {
+    if (typeof curr !== 'object' || curr === null || !Object.hasOwn(curr, seg)) {
+      return { found: false }
+    }
+    curr = (curr as Record<string, unknown>)[seg]
+  }
+  return { found: true, value: curr }
+}
+
 /**
  * Judge each requested field against a redacted namespace view. A secret
  * field is redacted from the user layer, so it is judged by the view's
@@ -136,14 +149,17 @@ export function createBridgeApi(fetchFn: typeof fetch): BridgeSettingsFace {
 function judgeLandedFields(fields: BridgeBatchOp[], view: { user?: unknown; secrets?: { path: string[]; set: boolean }[] }): BridgeBatchFieldResult[] {
   const secretSet = new Map<string, boolean>()
   for (const secret of view.secrets ?? []) secretSet.set(secret.path.join('.'), secret.set)
-  const user = view.user as Record<string, unknown> | undefined
-  return fields.map(({ field, op, value }) => {
-    const secretFlag = secretSet.get(field)
+  const user = view.user
+  return fields.map(({ field, op, value, path }) => {
+    const keyPath = path ?? [field]
+    const secretKey = path ? path.join('.') : field
+    const secretFlag = secretSet.get(secretKey)
     if (secretFlag !== undefined) return { field, landed: secretFlag }
+    const read = readPathInLayer(user, keyPath)
     if (op === 'set') {
-      return { field, landed: user !== undefined && Object.hasOwn(user, field) && user[field] === value }
+      return { field, landed: read.found && read.value === value }
     }
-    return { field, landed: user === undefined || !Object.hasOwn(user, field) }
+    return { field, landed: !read.found }
   })
 }
 
@@ -230,8 +246,8 @@ class BridgeScopeController<T> implements ConfigForm<T> {
    */
   mutate(fields: readonly SettingsPathOpView[], expectedRevision?: number): Promise<boolean> {
     const bridgeFields: BridgeBatchOp[] = fields.map(field => 'value' in field
-      ? { field: field.path.join('.'), op: field.op, value: field.value }
-      : { field: field.path.join('.'), op: field.op })
+      ? { field: field.path.join('.'), op: field.op, value: field.value, path: [...field.path] }
+      : { field: field.path.join('.'), op: field.op, path: [...field.path] })
     return this.enqueue(async () => (await this.writeBatch(bridgeFields, expectedRevision)).ok)
   }
 
@@ -316,9 +332,9 @@ class BridgeScopeController<T> implements ConfigForm<T> {
 
   private async writeBatch(fields: BridgeBatchOp[], expectedRevision?: number): Promise<BridgeBatchResult> {
     const revision = expectedRevision ?? this.getSnapshot().revision
-    const ops = fields.map(({ field, op, value }) => op === 'set'
-      ? { op, path: [field], value }
-      : { op, path: [field] })
+    const ops = fields.map(({ field, op, value, path }) => op === 'set'
+      ? { op, path: path ?? [field], value }
+      : { op, path: path ?? [field] })
     let response: { result: BridgeMutateResult }
     try {
       response = await this.api.settings.mutate({
@@ -516,9 +532,9 @@ export function createCompatScope<T>(options: CompatScopeOptions<T>): CompatScop
 
   /** The native batch surface: one atomic mutate, per-field landed flags read back. */
   const nativeBatch = (form: ConfigForm<T>) => async (fields: BridgeBatchOp[], expectedRevision?: number): Promise<BridgeBatchResult> => {
-    const ops: SettingsPathOpView[] = fields.map(({ field, op, value }) => op === 'set'
-      ? { op, path: [field], value: value as WireValue }
-      : { op, path: [field] })
+    const ops: SettingsPathOpView[] = fields.map(({ field, op, value, path }) => op === 'set'
+      ? { op, path: (path ?? [field]) as unknown as string[], value: value as WireValue }
+      : { op, path: (path ?? [field]) as unknown as string[] })
     const accepted = await form.mutate(ops, expectedRevision ?? form.getSnapshot().revision)
     if (!accepted) {
       return { ok: false, fields: [], code: 'settings-rejected', message: 'the Host refused the settings mutation' }

@@ -19,7 +19,7 @@
  * that one form (see settings-section.ts).
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm, ConfigForms } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -87,6 +87,29 @@ interface SkinCenterSettings {
 }
 
 /**
+ * Profile entry id the family aggregate's generated row carries.
+ */
+const AGGREGATE_ENTRY_ID = 'web-ui-skin-center'
+
+/**
+ * Profile entry ids this package's two patch rows carry: the aggregate's
+ * generated row and the standalone bundle patch's row (`ui-skin-center`), plus
+ * the legacy background namespace as the last resort.
+ */
+const SKIN_CENTER_ENTRY_IDS: readonly string[] = [AGGREGATE_ENTRY_ID, 'ui-skin-center', SKIN_BACKGROUND_NS]
+
+function servedEntryId(forms: ConfigForms): string {
+  let served: readonly string[] | undefined
+  try {
+    served = forms.describe().getSnapshot().view?.namespaces.map(view => view.ns)
+  } catch {
+    served = undefined
+  }
+  if (served === undefined) return AGGREGATE_ENTRY_ID
+  return SKIN_CENTER_ENTRY_IDS.find(id => served.includes(id)) ?? SKIN_BACKGROUND_NS
+}
+
+/**
  * The configuration form of this plugin's own profile entry.
  *
  * `ctx.configForms` addresses one form per profile entry id and carries no
@@ -103,8 +126,10 @@ interface SkinCenterSettings {
  */
 function bindConfigForm(ctx: ClientContext): ConfigForm<SkinCenterSettings> {
   const binder = ctx.get('webUiSettings')
-  if (binder !== undefined) return binder.bind<SkinCenterSettings>({ namespace: SKIN_BACKGROUND_NS })
-  return ctx.configForms.get<SkinCenterSettings>(SKIN_BACKGROUND_NS)
+  if (binder !== undefined && typeof binder.bind === 'function') {
+    return binder.bind<SkinCenterSettings>({ namespace: SKIN_BACKGROUND_NS })
+  }
+  return ctx.configForms.get<SkinCenterSettings>(servedEntryId(ctx.configForms))
 }
 
 /** Required services: slots + locale (plugin card), theme (preview toggle), configForms (settings sections), and remote (wallpaper directory picker). */
