@@ -1,7 +1,8 @@
 /**
  * Composition guard for the shipped preset file: the committed
- * `agent.cordis.yml` must stay structurally valid, mount the preset-local
- * plugins, and keep the persona row on the schema the installed SDK accepts.
+ * `agent.cordis.yml` must stay readable by the declaration reader, mount the
+ * preset-local plugins, and keep the persona row on the schema the installed
+ * SDK accepts.
  *
  * The persona section-name assertion is the regression guard for the class of
  * defect where a harness rename silently stops matching a hardcoded name —
@@ -17,9 +18,20 @@ import { describe, expect, it } from 'vitest'
 
 import { PERSONA_SECTION_NAMES, PLAN_POLICY_SECTION_NAME, name as promptName } from '../presets/liangshen/minimal-prompt.mjs'
 import { name as catalogName } from '../presets/liangshen/tool-catalog.mjs'
-import { validateAgentCordis } from '../src/schema.ts'
+import { readCompositionRows } from '../src/composition.ts'
 
 const preset = readFileSync(join(process.cwd(), 'presets/liangshen/agent.cordis.yml'), 'utf8')
+const presetDir = join(process.cwd(), 'presets', 'liangshen')
+
+/** Whether the composition parses into the rows a registry declaration takes. */
+function readable(text: string): boolean {
+  try {
+    readCompositionRows(text, presetDir)
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * The text of one top-level `- id: <id>` row: its own line and the indented
@@ -36,7 +48,7 @@ function row(id: string): string {
 
 describe('liangshen preset composition', () => {
   it('is structurally valid for the preset loader', () => {
-    expect(validateAgentCordis(preset)).toEqual([])
+    expect(readable(preset)).toBe(true)
   })
 
   it('mounts the minimal-prompt and tool-catalog plugins', () => {
@@ -99,7 +111,7 @@ describe('liangshen preset composition', () => {
     for (const mode of ['native', 'ptc']) {
       const variant = preset.replace("presentation: 'both'", `presentation: '${mode}'`)
       expect(variant).not.toBe(preset)
-      expect(validateAgentCordis(variant), mode).toEqual([])
+      expect(readable(variant), mode).toBe(true)
     }
   })
 

@@ -55,7 +55,7 @@ export const zh = {
   'caps.error.routeExists': '该提供方已存在新配置，无法恢复存档；请先移除现有配置再启用。',
   'caps.error.partialEnable': '已启用，但清理存档失败：{error}',
   'caps.error.baseProfile': '该提供方在组合层也声明了配置，禁用无法让它下线，因此不提供此操作。',
-  'caps.error.unavailable': '无法切换：插件的存档命名空间未注册。',
+  'caps.error.unavailable': '无法切换：未找到插件的存档设置项。',
 }
 
 export type CapsKey = keyof typeof zh
@@ -107,7 +107,7 @@ export const en: Record<CapsKey, string> = {
   'caps.error.routeExists': 'The provider already has a newer configuration; the archive cannot be restored. Remove the current configuration first, then enable.',
   'caps.error.partialEnable': 'Enabled, but clearing the archive failed: {error}',
   'caps.error.baseProfile': 'The composition layer also declares this provider, so disabling cannot take it down; the action is not offered.',
-  'caps.error.unavailable': 'Cannot toggle: the plugin archive namespace is not registered.',
+  'caps.error.unavailable': 'Cannot toggle: the plugin archive settings entry is not served.',
 }
 
 /**

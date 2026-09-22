@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-把梁神模式做成 DSH 全家桶里的一键安装插件：Host 启动时把内置 preset 同步到 `~/.dsh/.agent-presets`，新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词保持极简 persona——外加本模式的固定工作纪律与会话工作区目录——AGENTS.md 类工作区指令交由 harness 以自己的 user 角色消息送达；工具面则从第一条用户消息起作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致，且只宣告该次请求实际开放的工具。wire 在整个会话中保持由 `presentation` 选定的同一种呈现（出厂默认 `presentation: 'both'`）：原生清单与 `run_code` 传输工具同驻——日常单步工作走原生直调，程序化批处理、并发扇出与多步数据塑形走 `run_code`；未挂载 code runtime 的部署回退为原生呈现并一次性告警，而不是宣告一个该请求无法承载的传输工具。被分页扣留的匹配工具（默认 `mcp__*`）在激活前不可达：它们以命名空间摘要出现在目录里，`ptc` 下同时不出现在生成的 SDK 中——分页是注册表级限制，不只是 wire 过滤。`tool_activate` 把一个命名空间挂回整个可达面。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
+把梁神模式做成 DSH 全家桶里的一键安装插件：Host 半区在激活时把内置 preset 直接声明给 harness 的 agent-preset registry（声明即启用），新建会话即可在预设选择器中选择「梁神模式」，浏览器半区还在新建会话页的模型选择器旁提供一台老虎机拨杆来开关该模式。该 preset 让系统提示词保持极简 persona——外加本模式的固定工作纪律与会话工作区目录——AGENTS.md 类工作区指令交由 harness 以自己的 user 角色消息送达；工具面则从第一条用户消息起作为持久 user 消息注入在用户消息之后——形状与 harness 注入 skill 目录一致，且只宣告该次请求实际开放的工具。wire 在整个会话中保持由 `presentation` 选定的同一种呈现（出厂默认 `presentation: 'both'`）：原生清单与 `run_code` 传输工具同驻——日常单步工作走原生直调，程序化批处理、并发扇出与多步数据塑形走 `run_code`；未挂载 code runtime 的部署回退为原生呈现并一次性告警，而不是宣告一个该请求无法承载的传输工具。被分页扣留的匹配工具（默认 `mcp__*`）在激活前不可达：它们以命名空间摘要出现在目录里，`ptc` 下同时不出现在生成的 SDK 中——分页是注册表级限制，不只是 wire 过滤。`tool_activate` 把一个命名空间挂回整个可达面。全部通过官方 NPM SDK 实现，不修改 DSH 源码。
 
 ## 原理
 
@@ -72,7 +72,7 @@ dsh plugin --profile web add @linxin666/dsh-liangshen@latest
 dsh plugin --profile web remove @linxin666/dsh-liangshen
 ```
 
-装完**完整重启 `dsh web`**，新建空 session，预设选择「梁神模式」。插件会在启动时把 presets 同步进 `~/.dsh/.agent-presets`（升级插件后重启即自动更新）。
+装完**完整重启 `dsh web`**，新建空 session，预设选择「梁神模式」。插件在激活时用包内自带文件声明该 preset，插件（或其行）卸载时注销；不会向 `~/.dsh/.agent-presets` 写入任何内容，升级后在下次启动即生效。
 
 ## 验证
 
@@ -94,22 +94,22 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
    - **真实推理探针**：仅验证链路连通性与模型对特定格式的最小响应能力（例如使用 headless 探针验证模型是否能正常解析输出）；单次探针成功仅代表功能未阻断，绝不证明模式集成已达标。
    - **模式集成通过**：要求在真实完整会话中，验证完整 header、所配置呈现行为、分页激活与驱逐、`run_code` 下的 SDK 参数语义解析与沙箱策略执行无误。
    - **统计显著性提升**：必须在固定 route 与源码 hash 记录的隔离环境中进行多轮对比评测，综合评估任务完成率、工具失败率、规则违反率、人工介入次数与耗时/token 开销。单次或少数 smoke 运行不构成效果提升的证据。
-2. **评测工具**：隔离 runner 位于 `packages/dsh-liangshen/tools/benchmark-live-run.mjs`：它把被评测 preset 写入临时目录并通过 roster 自己的 `roots` 配置选中，把会话持久化改写到本次运行目录，并为每次运行记录基线（仓库提交、出厂 preset hash、DSH 版本、固定 route、任务版本）。候选矩阵隔离 persona 与呈现策略两个因素：`B`（出厂默认）、`P`（候选 persona）、呈现臂 `T`（候选 persona，首轮即 PTC）与 `N`（候选 persona，全程原生清单）、以及 `M`（内置包官方 Minimal preset，仅作外部参照而非单因素对照）。单次 smoke 用 `node tools/benchmark-live-run.mjs --variant B`，按种子任务集跑有界矩阵用 `node tools/benchmark-live-run.mjs --tasks tools/tasks/liangshen-v41-flash.json --groups B,P,T,N,M --repeat 3 --max-sessions 60 --budget-usd 5`，再用 `node tools/benchmark-report.mjs .benchmark-results` 汇总结果目录：按组给出成功率与 Wilson 区间、按任务配对差值与置信区间、token 与费用合计、单独列出的基础设施失败以及记录的基线。smoke 只验证协议与费用估算，不构成通用编码能力提升的证据。
+2. **评测工具**：隔离 runner 位于 `packages/dsh-liangshen/tools/benchmark-live-run.mjs`：它把被评测 preset 物化到临时目录，并通过 variant patch 在本轮自己的 agent-preset registry 中声明它，把会话持久化改写到本次运行目录，并为每次运行记录基线（仓库提交、出厂 preset hash、DSH 版本、固定 route、任务版本）。候选矩阵隔离 persona 与呈现策略两个因素：`B`（出厂默认）、`P`（候选 persona）、呈现臂 `T`（候选 persona，首轮即 PTC）与 `N`（候选 persona，全程原生清单）、以及 `M`（内置包官方 Minimal preset，仅作外部参照而非单因素对照）。单次 smoke 用 `node tools/benchmark-live-run.mjs --variant B`，按种子任务集跑有界矩阵用 `node tools/benchmark-live-run.mjs --tasks tools/tasks/liangshen-v41-flash.json --groups B,P,T,N,M --repeat 3 --max-sessions 60 --budget-usd 5`，再用 `node tools/benchmark-report.mjs .benchmark-results` 汇总结果目录：按组给出成功率与 Wilson 区间、按任务配对差值与置信区间、token 与费用合计、单独列出的基础设施失败以及记录的基线。smoke 只验证协议与费用估算，不构成通用编码能力提升的证据。
 
 ## 配置
 
 | 键 | 默认值 | 行为 |
 | --- | --- | --- |
-| `enabled` | `true` | 总开关：关闭后预设同步与公告都不执行。 |
+| `enabled` | `true` | 总开关：关闭后不声明预设、也不发公告。 |
 | `announceToAgent` | `false` | 按需开启：开启后向 agent 系统提示注入本插件公告。默认关闭，保持系统提示词干净。 |
-| `presentation` | `both` | 写入同步后 preset 之 `tool-catalog` 行的 wire 呈现：`both`（默认）让原生清单与 `run_code` 同驻；`native` 保持组装出的原生清单；`ptc` 把 wire 收拢为 `run_code`。改动在下次 DSH 启动重新同步 preset 时生效。 |
+| `presentation` | `both` | 写入本插件所声明 preset 之 `tool-catalog` 行的 wire 呈现：`both`（默认）让原生清单与 `run_code` 同驻；`native` 保持组装出的原生清单；`ptc` 把 wire 收拢为 `run_code`。Host 提交改动后立即重新声明 preset，此后新建的会话即采用新值；已开始的会话保持其已声明的组合。 |
 | `guardEnabled` | `true` | 运行时退化熔断器总开关：检测连续零产出长思考与同参重复失败，触发时注入熔断提示并临时下调推理档位；关闭后不干预任何请求。 |
 | `guardSensitivity` | `balanced` | 熔断灵敏度预设：整体缩放阈值——`conservative`（更少打断，×1.5）、`balanced`（出厂校准值）、`aggressive`（更早触发，×0.5）。 |
 | `guardStallReasoningChars` | `8000` | 单步暴走梯字符阈值的**覆写值**：阈值默认随推理档位自适应（max 档 8000 / high 档 12000 / low 档 20000，按 V4.1 官方 384K 最大输出校准），设置本字段则以本值为准、覆盖所有档位的自适应表。 |
 | `guardGlobalStallCap` | `4` | 熔断器慢烧梯连续步数的**覆写值**：默认随灵敏度预设缩放（balanced 为 4），设置本字段则以本值为准。 |
-| `guardEchoFailures` | `3` | 熔断器空转梯的**覆写值**：同一工具以相同参数连续失败多少次触发。以上熔断字段与 `presentation` 一样写入同步后的 preset 生效。 |
+| `guardEchoFailures` | `3` | 熔断器空转梯的**覆写值**：同一工具以相同参数连续失败多少次触发。以上熔断字段与 `presentation` 一样写入所声明的 preset 生效。 |
 
-各字段都可在 Web 设置界面（插件配置）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。其中塑造 preset 的 presentation 字段经预设同步抵达会话：插件在拷贝 bundle 的同时把它写入同步产出的 `agent.cordis.yml`，因此真正被会话运行的是设置界面的取值，而不是包内文件。组合里没有的键绝不会被凭空写入——覆写只会收窄出厂配置。改动需重启 DSH 生效。
+各字段都可在 Web 设置界面（插件配置）或 profile patch（`dsh plugin` / `cordis.patch.yml`）中编辑。0.1.7 的设置契约下，插件自身的 Config 就是它的设置页：Host 为每个 profile entry 生成一张表单（entry id 为 `liangshen`，聚合安装下为生成的 `web-ui-liangshen` 行），每个字段都声明为 `volatile()`，因此写入被提交进运行中的插件实例，而不是重挂该行。塑造 preset 的 presentation 字段再经声明抵达会话：插件把已提交的取值应用到 `presets/liangshen/agent.cordis.yml` 的对应行并重新声明 preset，因此真正被会话运行的是设置界面的取值，而不是包内文件。组合里没有的行或键绝不会被凭空写入——覆写只会收窄出厂配置。改动对之后新建的会话生效；已开始的会话保持其已声明的组合，因为 registry 拒绝重组已开始的会话。
 
 ## 行为与限制
 
@@ -130,7 +130,7 @@ dsh plugin --profile web remove @linxin666/dsh-liangshen
 - preset 与 shell 访问具有相同信任等级，安装前可自行审阅 `presets/liangshen/`；
 - 插件不发起网络请求，也不增加遥测；
 - 不要在已经产生内容的会话中途切换 preset；
-- 需要 DSH 0.1.6-alpha.2+（preset 机制、`system-prompt/assemble` 瀑布、persona 的 `prefix` schema，以及 PTC 呈现 API）。
+- 需要 DSH 0.1.7-alpha.1+（preset 机制、`system-prompt/assemble` 瀑布、persona 的 `prefix` schema，以及 PTC 呈现 API）。
 
 ## 许可
 

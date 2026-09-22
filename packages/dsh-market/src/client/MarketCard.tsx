@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ComponentProps,
 import { marketTurnstileToken, TURNSTILE_ACTION_INSTALL } from './turnstile.ts'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { PluginSettingsCard, BooleanField } from './PluginSettingsCard.tsx'
 import { CardForm, booleanField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
@@ -34,7 +34,7 @@ import css from './market.module.css'
 
 const MARKET_ORIGIN = 'https://dsh-market.com'
 
-/** The settings fields this card edits (the namespace's full schema). */
+/** The configuration fields this card edits (the settings entry's own schema). */
 export interface MarketSettings {
   /** Master switch for the market card. */
   enabled?: boolean
@@ -57,13 +57,13 @@ export interface MarketCardFace extends CardActions {
   openExternal: (url: string) => void
 }
 
-/** Bridges the market scope onto the card's staged form. */
+/** Bridges the market config form onto the card's staged form. */
 export class MarketCardController {
   private readonly form: CardForm<MarketSettings>
   private readonly store: SnapshotStore<MarketCardState>
 
-  /** @param scope - the bound settings scope for the dsh-web-ui-market namespace. */
-  constructor(scope: SettingsScope<MarketSettings>) {
+  /** @param scope - the bound configuration form of the market card's settings entry. */
+  constructor(scope: ConfigForm<MarketSettings>) {
     this.form = new CardForm(scope, [
       booleanField('enabled'),
     ])
@@ -85,7 +85,7 @@ export class MarketCardController {
     return { hooks: { marketCard: this.store }, openExternal, ...this.form.actions() }
   }
 
-  /** Release the scope subscription; the slot disposer calls this on teardown. */
+  /** Release the form subscription; the slot disposer calls this on teardown. */
   dispose(): void {
     this.form.dispose()
   }

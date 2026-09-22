@@ -23,7 +23,7 @@ It covers the official DeepSeek routes only — relay traffic billed elsewhere (
 
 ## Install
 
-Requires DSH 0.1.2-alpha.2 or later: the plugin is developed against the 0.1.2-alpha.2 DSH cohort and its `@deepseek-ai/*` runtime imports are provided by the host itself.
+Requires DSH 0.1.7-alpha.1 or later: the plugin is developed against the 0.1.7-alpha.1 DSH cohort (its settings page is the Host-generated page of the plugin's own Config schema) and its `@deepseek-ai/*` runtime imports are provided by the host itself.
 
 In your profile (e.g. `~/.dsh/profiles/web`):
 
@@ -46,7 +46,7 @@ Restart `dsh web` for the host half; the client half applies on refresh. The sec
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `true` | Master switch; off = no listeners, no probes, no routes |
-| `pollIntervalSec` | `60` | Provider probe cycle (30-3600 s, hot-swappable) |
+| `pollIntervalSec` | `60` | Provider probe cycle (30-3600 s; a change reloads the plugin row) |
 | `retainDays` | `180` | Ledger retention in local days (7-730) |
 
 ## Known limitations

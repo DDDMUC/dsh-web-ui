@@ -15,7 +15,7 @@
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { AgentPresetRoster } from '@deepseek-ai/dsh-agent-presets/types'
+import type { AgentPresetRoster } from '@deepseek-ai/dsh-agent-preset-registry/types'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import { mainViewSessionId } from './main-session.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
@@ -43,6 +43,15 @@ export type LeverError =
 
 /** How long one preset switch may stay in flight before it is reported as timed out. */
 export const SELECT_TIMEOUT_MS = 10_000
+
+/**
+ * Settings entry ids whose writes can move the roster this lever reads: the
+ * agent-preset registry's own entry (its default and selection policy) and this
+ * plugin's row under either install shape — the aggregate's generated row id
+ * and the standalone row id — because disabling the plugin unregisters the
+ * preset it declares.
+ */
+export const ROSTER_SETTINGS_ENTRY_IDS: readonly string[] = ['agent-preset-registry', 'web-ui-liangshen', 'liangshen']
 
 /** What the lever view renders. */
 export interface LeverSnapshot {
@@ -143,7 +152,7 @@ export class LeverController {
     )
     if (typeof remote?.$on === 'function') {
       this.disposers.push(remote.$on('settings/document-updated', (ns: string) => {
-        if (ns === 'agent-presets') void this.load()
+        if (ROSTER_SETTINGS_ENTRY_IDS.includes(ns)) void this.load()
       }))
     }
     this.refresh()

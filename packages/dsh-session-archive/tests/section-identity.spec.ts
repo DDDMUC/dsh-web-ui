@@ -18,11 +18,12 @@ interface Registration {
 /** Mount the browser half against a capture-only ctx. */
 function mountClient(): Registration[] {
   const registrations: Registration[] = []
-  const settingsScope = {
-    get: () => undefined,
-    set: async () => {},
+  const configForm = {
+    getSnapshot: () => ({ status: 'ready', value: {}, base: {}, user: {}, revision: 1, writable: true, mode: 'host' }),
     subscribe: () => () => {},
-    getSnapshot: () => ({}),
+    set: async () => true,
+    unset: async () => true,
+    mutate: async () => true,
   }
   const ctx = {
     effect: (run: () => unknown) => {
@@ -30,7 +31,7 @@ function mountClient(): Registration[] {
       return () => {}
     },
     get: () => undefined,
-    settingsScope: { bind: () => settingsScope },
+    configForms: { get: () => configForm },
     locale: {
       register: () => () => {},
       bind: () => (key: string) => (zh as Record<string, string>)[key] ?? key,

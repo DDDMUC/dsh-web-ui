@@ -61,34 +61,35 @@ window.__ModuleLoader__.load({
 		* Settings-bridge protocol shared by the host and client halves of
 		* dsh-web-settings.
 		*
-		* DSH 0.1.0-rc.6 host-apiproxy serves only its hard-coded settings allowlist
-		* (WEB_SETTINGS_NAMESPACES plus product namespaces), so every third-party
-		* namespace answers "settings-not-exposed" and the family plugin cards can
-		* only explain the gap. This bridge re-serves the dsh-web family
-		* namespaces through the host settings seam over a same-origin, loopback-only
-		* HTTP pair, gated by the user's web_settings_namespaces allowlist from
-		* settings.yaml with a built-in family fallback list. On hosts whose
-		* apiproxy already exposes the namespaces, the official settings scope stays
-		* the primary transport and this bridge never activates.
+		* The Host settings surface (`ctx.settings`, the new SettingsForms service)
+		* describes ONE form per active profile entry id and writes by that id; the
+		* settings namespace a family plugin used to register no longer exists as a
+		* separate key. The bridge keeps serving the family plugins their own view of
+		* that surface over a same-origin, loopback-only HTTP pair, gated by the
+		* user's web_settings_namespaces allowlist from settings.yaml with a built-in
+		* family fallback list: each view now carries the profile entry id
+		* ({@link BridgeNamespaceView.entryId}) that owns the namespace, and the
+		* client half uses it to bind the native `ctx.configForms` form. The bridge
+		* HTTP transport stays the fallback for pages whose entry id cannot be
+		* resolved.
 		*/
 		/** Bridge route prefix (same-origin, loopback-only). */
 		const WEB_UI_SETTINGS_BRIDGE_PREFIX = "/api/dsh-web-ui-settings";
 		//#endregion
 		//#region ../dsh-web-settings/src/client/compat-settings-scope.ts
 		/**
-		* rc.6-compatible settings scope for the Web UI plugin group.
+		* Family settings transport for the Web UI plugin group.
 		*
-		* The official settings scope answers "unavailable" for every third-party
-		* namespace on rc.6 hosts (the apiproxy allowlist is hard-coded), which turns
-		* every family plugin card into a read-only explanation. This binder wraps
-		* the official scope: when it reports the namespace ready, the wrapper is a
-		* pass-through; when it reports unavailable, a same-origin
-		* bridge controller takes over and serves the same SettingsScope contract
-		* from this package's host-side bridge routes (/api/dsh-web-ui-settings).
-		* The Host keeps the bridge loopback-only by default and may explicitly admit
-		* an authenticated same-host reverse proxy. Family plugins opt in through
-		* ctx.get('webUiSettings') without a hard service dependency, so a deployment
-		* without this package keeps the previous behavior.
+		* The 0.1.7 settings surface addresses ONE form per active profile entry id
+		* (`ctx.configForms.get(entryId)`) and carries no package identity at all, so
+		* a family plugin that only knows its own settings namespace cannot reach its
+		* form directly. This binder bridges the gap: it asks the host bridge which
+		* profile entry id owns the requested namespace, binds the native
+		* `ctx.configForms` form for that id, and keeps the loopback bridge controller
+		* as the fallback for pages the entry id never reaches (a deployment whose
+		* profile row the bridge cannot trace). Family plugins opt in through
+		* `ctx.get('webUiSettings')` without a hard service dependency, so a
+		* deployment without this package keeps the previous behavior.
 		*/
 		/** True when the value is a well-formed bridge RPC result (the inner result payload the route answers). */
 		function isBridgeResult(value) {
@@ -142,8 +143,8 @@ window.__ModuleLoader__.load({
 		* Judge each requested field against a redacted namespace view. A secret
 		* field is redacted from the user layer, so it is judged by the view's
 		* secret-set marker; every other field is judged by user-layer
-		* presence/value. Shared by the bridge controller and the official batch
-		* path (both answer the same redacted view shape).
+		* presence/value. Shared by the bridge controller and the native batch
+		* surface (both answer the same redacted view shape).
 		*/
 		function judgeLandedFields(fields, view) {
 			const secretSet = /* @__PURE__ */ new Map();
@@ -165,31 +166,47 @@ window.__ModuleLoader__.load({
 				};
 			});
 		}
+		/** The snapshots a form publishes before any Host answer, stable per status. */
+		const PENDING_SNAPSHOTS = /* @__PURE__ */ new Map();
+		/** The snapshot a page with no Host answer yet reports. */
+		function pendingSnapshot(status) {
+			const held = PENDING_SNAPSHOTS.get(status);
+			if (held !== void 0) return held;
+			const snapshot = {
+				status,
+				value: void 0,
+				base: void 0,
+				user: void 0,
+				revision: void 0,
+				writable: false,
+				mode: "host"
+			};
+			PENDING_SNAPSHOTS.set(status, snapshot);
+			return snapshot;
+		}
+		/** The snapshot a page with no settings transport at all reports. */
+		function unavailableSnapshot() {
+			return pendingSnapshot("unavailable");
+		}
 		/**
-		* A minimal SettingsScopeController over the bridge face. Mirrors the
-		* official controller's ordering (serialized queue, revision-fenced writes,
-		* recovery read after a refusal) but trusts the Host-seam value without
-		* re-running the wire-schema validation: the seam already validated it, and
-		* the family cards bind without a narrowing decoder.
+		* A ConfigForm over the bridge face. Mirrors the native controller's ordering
+		* (serialized queue, revision-fenced writes, recovery read after a refusal)
+		* but trusts the Host-answered view without re-running the wire-schema
+		* validation: the Host already validated it, and the family cards bind
+		* without a narrowing decoder.
 		*/
 		var BridgeScopeController = class {
 			api;
-			spec;
 			store;
+			spec;
 			tail = Promise.resolve();
 			disposed = false;
+			/** Profile entry id the last accepted view carried; undefined until the Host answers one. */
+			entryId;
 			constructor(api, spec) {
 				this.api = api;
 				this.spec = spec;
-				this.store = createSnapshotStore({
-					status: "loading",
-					value: void 0,
-					base: void 0,
-					user: void 0,
-					revision: void 0,
-					writable: false,
-					mode: "host"
-				});
+				this.store = createSnapshotStore(pendingSnapshot("loading"));
 			}
 			getSnapshot() {
 				return this.store.getSnapshot();
@@ -217,9 +234,11 @@ window.__ModuleLoader__.load({
 			/**
 			* Write every staged op in one bridge /mutate so the Host validate hook
 			* judges the whole batch (baseURL+model together) instead of each field in
-			* isolation. Reports per-field success from the returned view.
+			* isolation.
 			* @param fields - the operations to apply, in order.
-			* @returns the batch outcome and per-field landed flags.
+			* @param expectedRevision - revision the caller read, when it holds one.
+			* @returns whether the Host accepted the whole batch; a refusal recovers
+			*   with a fresh view and answers false.
 			*/
 			mutate(fields, expectedRevision) {
 				const bridgeFields = fields.map((field) => "value" in field ? {
@@ -230,14 +249,15 @@ window.__ModuleLoader__.load({
 					field: field.path.join("."),
 					op: field.op
 				});
-				return this.enqueue(async () => {
-					const result = await this.writeBatch(bridgeFields, expectedRevision);
-					if (!result.ok) throw new Error(result.message ?? result.code ?? "settings mutation rejected");
-				});
+				return this.enqueue(async () => (await this.writeBatch(bridgeFields, expectedRevision)).ok);
 			}
 			/** Compatibility batch result used by generated settings forms. */
 			mutateBatch(fields, expectedRevision) {
 				return this.enqueue(() => this.writeBatch(fields, expectedRevision));
+			}
+			/** The profile entry id the Host's last answer reported, when it reported one. */
+			resolvedEntryId() {
+				return this.entryId;
 			}
 			/** Stop queued operations and wait for the current bridge call to settle. */
 			async dispose() {
@@ -272,6 +292,7 @@ window.__ModuleLoader__.load({
 				const { namespaces, writable } = response.result.value;
 				const view = namespaces.find((candidate) => candidate.ns === this.spec.namespace);
 				if (view === void 0) {
+					this.entryId = void 0;
 					this.store.update((draft) => {
 						draft.status = "unavailable";
 						draft.writable = writable;
@@ -291,13 +312,14 @@ window.__ModuleLoader__.load({
 					});
 				} catch {
 					await this.read();
-					return;
+					return false;
 				}
 				if (!response.result.ok || this.disposed) {
 					await this.read();
-					return;
+					return false;
 				}
 				this.accept(response.result.value.value, response.result.value, void 0);
+				return true;
 			}
 			async writeBatch(fields, expectedRevision) {
 				const revision = expectedRevision ?? this.getSnapshot().revision;
@@ -341,16 +363,13 @@ window.__ModuleLoader__.load({
 				this.accept(response.result.value.value, response.result.value, void 0);
 				return {
 					ok: true,
-					fields: this.landedFields(fields, response.result.value)
+					fields: judgeLandedFields(fields, response.result.value)
 				};
-			}
-			/** Judge each requested field against the read-back view. */
-			landedFields(fields, view) {
-				return judgeLandedFields(fields, view);
 			}
 			/** Publish one accepted Host view (value narrowed by the optional decoder). */
 			accept(section, view, writable) {
 				const decoded = this.spec.decode === void 0 ? section : this.spec.decode(section);
+				this.entryId = view.entryId;
 				this.store.update((draft) => {
 					draft.revision = view.revision;
 					draft.base = view.base;
@@ -363,21 +382,124 @@ window.__ModuleLoader__.load({
 			}
 		};
 		/**
-		* Wrap the official settings scope with the bridge fallback. The official
-		* scope stays authoritative whenever it serves the namespace; the bridge
-		* controller answers only its unavailable state on a loopback connection.
-		* @param options - the official scope, the namespace, and the loopback fetch.
-		* @returns the compatibility scope implementing the SettingsScope contract.
+		* Narrow one ready native snapshot's section, keeping the value a previous
+		* decode accepted when the decoder refuses the section.
+		*/
+		function projectDecoded(source, decode, previous) {
+			const value = decode(source.value);
+			if (value !== void 0) return {
+				...source,
+				value
+			};
+			if (previous === void 0) return {
+				...source,
+				status: "loading",
+				value: void 0
+			};
+			return {
+				...source,
+				status: previous.status,
+				value: previous.value
+			};
+		}
+		/**
+		* Wrap the family transport: the native per-entry form when the Host serves
+		* one for this namespace, the loopback bridge controller otherwise.
+		* @param options - the namespace, the shared forms service, and the fetch seat.
+		* @returns the compatibility form implementing the ConfigForm contract.
 		*/
 		function createCompatScope(options) {
-			const { namespace, primary } = options;
-			const fallback = options.fetchFn === void 0 ? void 0 : new BridgeScopeController(createBridgeApi(options.fetchFn), { namespace });
-			const reloadPrimary = async () => {
-				await primary.load?.();
+			const { namespace, configForms, decode } = options;
+			const fallback = options.fetchFn === void 0 ? void 0 : new BridgeScopeController(createBridgeApi(options.fetchFn), {
+				namespace,
+				...decode === void 0 ? {} : { decode }
+			});
+			/** The native per-entry form, bound the moment its profile entry id is known. */
+			let native;
+			let nativeEntryId;
+			let nativeUnsubscribe;
+			let decoded;
+			/** Project one native form's snapshot through this scope's decoder (stable references). */
+			const projectNative = (form) => {
+				const source = form.getSnapshot();
+				if (decode === void 0) return source;
+				if (decoded !== void 0 && decoded.source === source) return decoded.projected;
+				const projected = source.status === "ready" ? projectDecoded(source, decode, decoded?.projected) : source;
+				decoded = {
+					source,
+					projected
+				};
+				return projected;
 			};
-			const officialBatch = options.official === void 0 ? void 0 : async (fields, expectedRevision) => {
-				const official = options.official;
-				const revision = expectedRevision ?? primary.getSnapshot().revision;
+			function project() {
+				if (native !== void 0) return projectNative(native);
+				return fallback?.getSnapshot() ?? unavailableSnapshot();
+			}
+			const store = createSnapshotStore(project());
+			const publish = () => {
+				store.set(project());
+			};
+			/**
+			* The profile entry ids the shared mirror serves, or undefined while it has
+			* no answer yet: an unanswered mirror is not evidence of absence.
+			*/
+			const servedEntryIds = () => {
+				try {
+					return configForms?.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
+				} catch {
+					return [];
+				}
+			};
+			/** Bind the native form of one profile entry id, if this page serves one. */
+			const bindNative = (entryId) => {
+				if (configForms === void 0 || native !== void 0) return;
+				let form;
+				try {
+					form = configForms.get(entryId);
+				} catch {
+					return;
+				}
+				native = form;
+				nativeEntryId = entryId;
+				nativeUnsubscribe = form.subscribe(() => {
+					if (native !== void 0) publish();
+				});
+				publish();
+			};
+			/**
+			* Promote the transport to the native form the moment its profile entry id
+			* is known: through the bridge, which is the only place the namespace to
+			* entry-id mapping lives, or — for a caller that already binds by entry id —
+			* by the namespace itself being one of the served entry ids. A mirror that
+			* explicitly lacks the resolved id keeps the bridge: the native form would
+			* only report the namespace unavailable.
+			*/
+			const promote = () => {
+				if (native !== void 0) return;
+				const served = servedEntryIds();
+				const resolved = fallback?.resolvedEntryId();
+				if (resolved !== void 0 && (served === void 0 || served.includes(resolved))) {
+					bindNative(resolved);
+					return;
+				}
+				if (native === void 0 && served?.includes(namespace) === true) bindNative(namespace);
+			};
+			const unsubscribes = [];
+			if (fallback !== void 0) unsubscribes.push(fallback.subscribe(() => {
+				promote();
+				if (native === void 0) publish();
+			}));
+			if (configForms !== void 0) try {
+				unsubscribes.push(configForms.describe().subscribe(() => {
+					promote();
+					if (native === void 0) publish();
+				}));
+			} catch {}
+			promote();
+			if (native === void 0) if (fallback !== void 0) fallback.load();
+			else publish();
+			/** The native batch surface: one atomic mutate, per-field landed flags read back. */
+			const nativeBatch = (form) => async (fields, expectedRevision) => {
 				const ops = fields.map(({ field, op, value }) => op === "set" ? {
 					op,
 					path: [field],
@@ -386,123 +508,94 @@ window.__ModuleLoader__.load({
 					op,
 					path: [field]
 				});
-				let response;
-				try {
-					response = await official.mutate({
-						ns: namespace,
-						ops,
-						...revision === void 0 ? {} : { expectedRevision: revision }
-					});
-				} catch {
-					await reloadPrimary();
-					return {
-						ok: false,
-						fields: [],
-						code: "internal",
-						message: "settings transport unreachable"
-					};
-				}
-				const result = response.result;
-				if (!result.ok) {
-					await reloadPrimary();
-					return {
-						ok: false,
-						fields: [],
-						code: result.error.code,
-						message: result.error.message
-					};
-				}
-				await reloadPrimary();
+				if (!await form.mutate(ops, expectedRevision ?? form.getSnapshot().revision)) return {
+					ok: false,
+					fields: [],
+					code: "settings-rejected",
+					message: "the Host refused the settings mutation"
+				};
+				const view = configForms?.describe().getSnapshot().view?.namespaces.find((candidate) => candidate.ns === nativeEntryId);
 				return {
 					ok: true,
-					fields: judgeLandedFields(fields, result.value)
+					fields: judgeLandedFields(fields, {
+						user: form.getSnapshot().user,
+						...view?.secrets === void 0 ? {} : { secrets: [...view.secrets] }
+					})
 				};
 			};
-			const store = createSnapshotStore(project());
-			let fallbackStarted = false;
-			const publish = () => {
-				store.set(project());
-			};
-			const startFallback = () => {
-				if (fallback === void 0 || fallbackStarted) return;
-				fallbackStarted = true;
-				fallback.load();
-			};
-			function project() {
-				const primarySnapshot = primary.getSnapshot();
-				if (primarySnapshot.status === "ready" || fallback === void 0) return primarySnapshot;
-				if (primarySnapshot.status === "loading") return primarySnapshot;
-				const bridgeSnapshot = fallback.getSnapshot();
-				if (bridgeSnapshot.status === "ready") return bridgeSnapshot;
-				if (bridgeSnapshot.status === "loading") return {
-					...primarySnapshot,
-					status: "loading"
-				};
-				return primarySnapshot;
-			}
-			const unsubscribes = [];
-			unsubscribes.push(primary.subscribe(() => {
-				publish();
-				if (primary.getSnapshot().status === "unavailable") startFallback();
-			}));
-			if (fallback !== void 0) unsubscribes.push(fallback.subscribe(publish));
-			if (primary.getSnapshot().status === "unavailable") startFallback();
 			return {
 				dispose: () => {
 					for (const unsubscribe of unsubscribes.splice(0)) unsubscribe();
+					nativeUnsubscribe?.();
+					nativeUnsubscribe = void 0;
+					native = void 0;
 					fallback?.dispose();
 				},
+				entryId: () => nativeEntryId ?? fallback?.resolvedEntryId(),
 				getSnapshot: () => store.getSnapshot(),
 				subscribe: (listener) => store.subscribe(listener),
-				mutate: (ops, expectedRevision) => {
-					return active().mutate(ops, expectedRevision);
-				},
-				set: (field, value) => active().set(field, value),
-				unset: (field) => active().unset(field),
+				mutate: (ops, expectedRevision) => native?.mutate(ops, expectedRevision) ?? fallback?.mutate(ops, expectedRevision) ?? Promise.resolve(false),
+				set: (field, value) => native?.set(field, value) ?? fallback?.set(field, value) ?? Promise.resolve(false),
+				unset: (field) => native?.unset(field) ?? fallback?.unset(field) ?? Promise.resolve(false),
 				load: async () => {
-					fallbackStarted = true;
+					if (native !== void 0) return;
 					await fallback?.load();
 				},
 				get mutateBatch() {
-					const backend = active();
-					if (backend === fallback && fallback !== void 0) return fallback.mutateBatch.bind(fallback);
-					if (backend === primary && officialBatch !== void 0) return officialBatch;
+					if (native !== void 0) return nativeBatch(native);
+					return fallback?.mutateBatch.bind(fallback);
 				}
 			};
-			function active() {
-				return primary.getSnapshot().status === "ready" ? primary : fallback ?? primary;
-			}
+		}
+		/** True when the value is the shared configuration forms service. */
+		function isConfigFormsFace(value) {
+			if (typeof value !== "object" || value === null) return false;
+			const face = value;
+			return typeof face.get === "function" && typeof face.describe === "function";
+		}
+		/** True when the value exposes the settings invalidation face the wrapper listens to. */
+		function isRemoteFace(value) {
+			return typeof value === "object" && value !== null && typeof value.$on === "function";
 		}
 		/**
-		* The rc.6 compatibility binder, provided as the webUiSettings service. Its
-		* bind() rides the official binder first and hands the bridge controller in
-		* only when the official scope settles as unavailable, so official behavior
-		* stays untouched wherever it works and the Host remains the authority for
-		* loopback or explicitly configured authenticated-proxy access.
+		* The family settings binder, provided as the webUiSettings service. Its
+		* bind() resolves the profile entry id through the bridge and hands back the
+		* native shared form, falling back to the loopback bridge controller for a
+		* page the entry id never reaches.
 		*/
 		var WebUiSettingsBinder = class extends _deepseek_ai_cordis.Service {
 			constructor(ctx) {
 				super(ctx, "webUiSettings");
 			}
+			/**
+			* The binder itself under the previous cohort's seat name.
+			* @deprecated The 0.1.7 client serves no `ctx.settingsScope` service; this
+			* alias only keeps call sites written as
+			* `ctx.get('webUiSettings') ?? ctx.settingsScope` compiling while they are
+			* migrated to `ctx.get('webUiSettings')`.
+			*/
+			get settingsScope() {
+				return this;
+			}
+			/**
+			* Bind one family settings namespace.
+			* @param spec - the namespace and an optional narrowing decoder.
+			* @returns the form the caller stages and saves through.
+			*/
 			bind(spec) {
 				const ctx = this.ctx;
-				const official = ctx.get("settingsScope");
-				if (!isBinderFace(official)) throw new Error("webUiSettings: the official settingsScope binder is unavailable");
-				const primary = official.bind(spec);
-				const connection = ctx.get("connection");
-				const officialFace = isOfficialConnectionFace(connection) && connection.isLoopback !== false ? connection.api.settings : void 0;
+				const forms = ctx.get("configForms");
 				const scope = createCompatScope({
 					namespace: spec.namespace,
-					primary,
-					fetchFn: (input, init) => fetch(input, init),
-					...officialFace === void 0 ? {} : { official: officialFace }
+					...spec.decode === void 0 ? {} : { decode: spec.decode },
+					...isConfigFormsFace(forms) ? { configForms: forms } : {},
+					...typeof fetch === "function" ? { fetchFn: (input, init) => fetch(input, init) } : {}
 				});
 				ctx.effect(() => {
-					const remoteValue = ctx.get("remote");
-					const remote = isRemoteFace(remoteValue) ? remoteValue : void 0;
 					const disposers = [];
-					if (remote !== void 0) disposers.push(remote.$on("settings/document-updated", (namespace) => {
-						if (namespace !== void 0 && namespace !== spec.namespace) return;
+					const remote = ctx.get("remote");
+					if (isRemoteFace(remote)) disposers.push(remote.$on("settings/document-updated", (namespace) => {
+						if (namespace !== void 0 && String(namespace) !== spec.namespace && String(namespace) !== scope.entryId()) return;
 						scope.load();
 					}));
 					disposers.push(ctx.on("connection/reset", () => {
@@ -512,26 +605,10 @@ window.__ModuleLoader__.load({
 						for (const dispose of disposers) dispose();
 						scope.dispose();
 					};
-				}, "web-ui-settings: compat scope invalidation");
+				}, "web-ui-settings: compat form invalidation");
 				return scope;
 			}
 		};
-		/** True when the value exposes the official settings binder's bind() seam. */
-		function isBinderFace(value) {
-			return typeof value === "object" && value !== null && typeof value.bind === "function";
-		}
-		/** True when the value is the client connection handle with a settings wire face. */
-		function isOfficialConnectionFace(value) {
-			if (typeof value !== "object" || value === null) return false;
-			const api = value.api;
-			if (typeof api !== "object" || api === null) return false;
-			const settings = api.settings;
-			return typeof settings === "object" && settings !== null && typeof settings.mutate === "function";
-		}
-		/** True when the value exposes the settings invalidation face the wrapper listens to. */
-		function isRemoteFace(value) {
-			return typeof value === "object" && value !== null && typeof value.$on === "function";
-		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-web-settings/src/client/web-ui-settings.module.css.mjs
 		const css$25 = ".HfjcPG_section{flex-direction:column;display:flex}.HfjcPG_heading{color:var(--dsw-alias-label-primary);margin:0 0 4px;font-size:17px;font-weight:600;line-height:1.4}.HfjcPG_lede{color:var(--dsw-alias-label-tertiary);margin:0 0 12px;font-size:13px;line-height:1.5}.HfjcPG_sectionList{margin:0;padding:0;list-style:none}.HfjcPG_subcards{flex-direction:column;gap:10px;margin:0;padding:0;list-style:none;display:flex}[class*=_navList]:has(>[class*=_navCell]:nth-child(8)):not(:has(>[class*=_navCell]:nth-child(9)))>[class*=_navCell]:nth-child(5)>[class*=_navIcon],[class*=_navList]:has(>[class*=_navCell]:nth-child(8)):not(:has(>[class*=_navCell]:nth-child(9)))>[class*=_navCell]:nth-child(6)>[class*=_navIcon],[class*=_navList]:has(>[class*=_navCell]:nth-child(8)):not(:has(>[class*=_navCell]:nth-child(9)))>[class*=_navCell]:nth-child(7)>[class*=_navIcon],[class*=_navList]:has(>[class*=_navCell]:nth-child(8)):not(:has(>[class*=_navCell]:nth-child(9)))>[class*=_navCell]:nth-child(8)>[class*=_navIcon]{display:none}[class*=_navList]:has(>[class*=_navCell]:nth-child(8)):not(:has(>[class*=_navCell]:nth-child(9)))>[class*=_navCell]:nth-child(5):before{content:\"\";background:currentColor;flex:none;width:16px;height:16px;-webkit-mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z'/%3E%3C/svg%3E\") 50%/contain no-repeat;mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z'/%3E%3C/svg%3E\") 50%/contain no-repeat}[class*=_navList]:has(>[class*=_navCell]:nth-child(8)):not(:has(>[class*=_navCell]:nth-child(9)))>[class*=_navCell]:nth-child(6):before{content:\"\";background:currentColor;flex:none;width:16px;height:16px;-webkit-mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 14a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm0-4a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'/%3E%3C/svg%3E\") 50%/contain no-repeat;mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 14a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm0-4a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'/%3E%3C/svg%3E\") 50%/contain no-repeat}[class*=_navList]:has(>[class*=_navCell]:nth-child(8)):not(:has(>[class*=_navCell]:nth-child(9)))>[class*=_navCell]:nth-child(7):before{content:\"\";background:currentColor;flex:none;width:16px;height:16px;-webkit-mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cellipse cx='8' cy='11' rx='4.2' ry='2.8'/%3E%3Ccircle cx='2.8' cy='6.2' r='1.9'/%3E%3Ccircle cx='8' cy='4.6' r='1.9'/%3E%3Ccircle cx='13.2' cy='6.2' r='1.9'/%3E%3C/svg%3E\") 50%/contain no-repeat;mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cellipse cx='8' cy='11' rx='4.2' ry='2.8'/%3E%3Ccircle cx='2.8' cy='6.2' r='1.9'/%3E%3Ccircle cx='8' cy='4.6' r='1.9'/%3E%3Ccircle cx='13.2' cy='6.2' r='1.9'/%3E%3C/svg%3E\") 50%/contain no-repeat}[class*=_navList]:has(>[class*=_navCell]:nth-child(8)):not(:has(>[class*=_navCell]:nth-child(9)))>[class*=_navCell]:nth-child(8):before{content:\"\";background:currentColor;flex:none;width:16px;height:16px;-webkit-mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='5.5' cy='5.5' r='3'/%3E%3Ccircle cx='11' cy='5.5' r='3'/%3E%3Cpath d='M2.5 13.5c0-3 2-4.2 3-4.2H11c1.5 0 3 1.2 3 4.2z'/%3E%3C/svg%3E\") 50%/contain no-repeat;mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='5.5' cy='5.5' r='3'/%3E%3Ccircle cx='11' cy='5.5' r='3'/%3E%3Cpath d='M2.5 13.5c0-3 2-4.2 3-4.2H11c1.5 0 3 1.2 3 4.2z'/%3E%3C/svg%3E\") 50%/contain no-repeat}";
@@ -671,7 +748,7 @@ window.__ModuleLoader__.load({
 			"slots",
 			"locale",
 			"connection",
-			"settingsScope",
+			"configForms",
 			"remote"
 		];
 		/**
@@ -1671,7 +1748,7 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region ../dsh-plugin-manager/src/core/protocol.ts
 		/** Whether a decoded value is a non-array object. */
-		function isRecord$3(value) {
+		function isRecord$4(value) {
 			return typeof value === "object" && value !== null && !Array.isArray(value);
 		}
 		/** Whether a decoded value is a string. */
@@ -1680,7 +1757,7 @@ window.__ModuleLoader__.load({
 		}
 		/** Validate one aggregate child row. */
 		function parsePluginChild(value, rowIndex, childIndex) {
-			if (!isRecord$3(value) || !isString(value.id) || !isString(value.name) || typeof value.enabled !== "boolean") throw new Error(`plugin-manager: plugin row ${String(rowIndex)} child ${String(childIndex)} is invalid`);
+			if (!isRecord$4(value) || !isString(value.id) || !isString(value.name) || typeof value.enabled !== "boolean") throw new Error(`plugin-manager: plugin row ${String(rowIndex)} child ${String(childIndex)} is invalid`);
 			return {
 				id: value.id,
 				name: value.name,
@@ -1690,7 +1767,7 @@ window.__ModuleLoader__.load({
 		}
 		/** Validate one installed-plugin row. */
 		function parsePlugin(value, index) {
-			if (!isRecord$3(value) || !isString(value.id) || !isString(value.name) || !isString(value.version) || !isString(value.installedAt) || typeof value.enabled !== "boolean" || !isRecord$3(value.source) || value.source.kind !== "npm" && value.source.kind !== "git" || !isString(value.source.spec)) throw new Error(`plugin-manager: plugin row ${String(index)} is invalid`);
+			if (!isRecord$4(value) || !isString(value.id) || !isString(value.name) || !isString(value.version) || !isString(value.installedAt) || typeof value.enabled !== "boolean" || !isRecord$4(value.source) || value.source.kind !== "npm" && value.source.kind !== "git" || !isString(value.source.spec)) throw new Error(`plugin-manager: plugin row ${String(index)} is invalid`);
 			if (value.children !== void 0 && !Array.isArray(value.children)) throw new Error(`plugin-manager: plugin row ${String(index)} children is invalid`);
 			const children = value.children?.map((child, childIndex) => parsePluginChild(child, index, childIndex));
 			return {
@@ -1713,7 +1790,7 @@ window.__ModuleLoader__.load({
 		* @returns typed installed-plugin rows.
 		*/
 		function parsePluginList(value) {
-			if (!isRecord$3(value) || !Array.isArray(value.plugins)) throw new Error("plugin-manager: response must contain a plugins array");
+			if (!isRecord$4(value) || !Array.isArray(value.plugins)) throw new Error("plugin-manager: response must contain a plugins array");
 			return value.plugins.map((plugin, index) => parsePlugin(plugin, index));
 		}
 		/**
@@ -1722,7 +1799,7 @@ window.__ModuleLoader__.load({
 		* @returns the typed installed-plugin row.
 		*/
 		function parseInstalledPlugin(value) {
-			if (!isRecord$3(value) || value.plugin === void 0) throw new Error("plugin-manager: response must contain a plugin row");
+			if (!isRecord$4(value) || value.plugin === void 0) throw new Error("plugin-manager: response must contain a plugin row");
 			return parsePlugin(value.plugin, 0);
 		}
 		/**
@@ -1731,9 +1808,9 @@ window.__ModuleLoader__.load({
 		* @returns the typed control items.
 		*/
 		function parsePluginControlSnapshot(value) {
-			if (!isRecord$3(value) || !Array.isArray(value.controls)) throw new Error("plugin-manager: response must contain a controls array");
+			if (!isRecord$4(value) || !Array.isArray(value.controls)) throw new Error("plugin-manager: response must contain a controls array");
 			return value.controls.map((control, index) => {
-				if (!isRecord$3(control) || !isString(control.id) || !isString(control.name) || !isString(control.repository) || control.state !== "enabled" && control.state !== "disabled" && control.state !== "mixed" && control.state !== "unavailable" && control.state !== "uninstalled") throw new Error(`plugin-manager: control row ${String(index)} is invalid`);
+				if (!isRecord$4(control) || !isString(control.id) || !isString(control.name) || !isString(control.repository) || control.state !== "enabled" && control.state !== "disabled" && control.state !== "mixed" && control.state !== "unavailable" && control.state !== "uninstalled") throw new Error(`plugin-manager: control row ${String(index)} is invalid`);
 				return {
 					id: control.id,
 					name: control.name,
@@ -1748,7 +1825,7 @@ window.__ModuleLoader__.load({
 		* @returns the typed progress state.
 		*/
 		function parseInstallStatus(value) {
-			if (!isRecord$3(value) || !isRecord$3(value.progress) || value.progress.kind !== "idle" && value.progress.kind !== "install" && value.progress.kind !== "update" || value.progress.stage !== "fetch" && value.progress.stage !== "download" && value.progress.stage !== "extract" && value.progress.stage !== "write" || value.progress.percent !== void 0 && (typeof value.progress.percent !== "number" || !Number.isFinite(value.progress.percent))) throw new Error("plugin-manager: response must contain a valid progress state");
+			if (!isRecord$4(value) || !isRecord$4(value.progress) || value.progress.kind !== "idle" && value.progress.kind !== "install" && value.progress.kind !== "update" || value.progress.stage !== "fetch" && value.progress.stage !== "download" && value.progress.stage !== "extract" && value.progress.stage !== "write" || value.progress.percent !== void 0 && (typeof value.progress.percent !== "number" || !Number.isFinite(value.progress.percent))) throw new Error("plugin-manager: response must contain a valid progress state");
 			return {
 				kind: value.progress.kind,
 				stage: value.progress.stage,
@@ -1761,9 +1838,9 @@ window.__ModuleLoader__.load({
 		* @returns typed update rows.
 		*/
 		function parseUpdateList(value) {
-			if (!isRecord$3(value) || !Array.isArray(value.updates)) throw new Error("plugin-manager: response must contain an updates array");
+			if (!isRecord$4(value) || !Array.isArray(value.updates)) throw new Error("plugin-manager: response must contain an updates array");
 			return value.updates.map((update, index) => {
-				if (!isRecord$3(update) || !isString(update.id) || !isString(update.current) || !isString(update.latest)) throw new Error(`plugin-manager: update row ${String(index)} is invalid`);
+				if (!isRecord$4(update) || !isString(update.id) || !isString(update.current) || !isString(update.latest)) throw new Error(`plugin-manager: update row ${String(index)} is invalid`);
 				const kind = update.kind === void 0 ? "update" : update.kind;
 				if (kind !== "update" && kind !== "migrate") throw new Error(`plugin-manager: update row ${String(index)} is invalid`);
 				const row = {
@@ -1794,10 +1871,10 @@ window.__ModuleLoader__.load({
 		* @returns the typed failures snapshot.
 		*/
 		function parseFailuresSnapshot(value) {
-			if (!isRecord$3(value) || !Array.isArray(value.items) || !isString(value.pluginRoot) || typeof value.safeMode !== "boolean") throw new Error("plugin-manager: response must contain a failures snapshot");
+			if (!isRecord$4(value) || !Array.isArray(value.items) || !isString(value.pluginRoot) || typeof value.safeMode !== "boolean") throw new Error("plugin-manager: response must contain a failures snapshot");
 			return {
 				items: value.items.map((item, index) => {
-					if (!isRecord$3(item) || !isString(item.pluginId) || item.kind !== "load-failure" && item.kind !== "hang" && item.kind !== "late-rejection" || !isString(item.message) || !isString(item.stack) || !isString(item.installPath) || !isString(item.at)) throw new Error(`plugin-manager: failure row ${String(index)} is invalid`);
+					if (!isRecord$4(item) || !isString(item.pluginId) || item.kind !== "load-failure" && item.kind !== "hang" && item.kind !== "late-rejection" || !isString(item.message) || !isString(item.stack) || !isString(item.installPath) || !isString(item.at)) throw new Error(`plugin-manager: failure row ${String(index)} is invalid`);
 					return {
 						pluginId: item.pluginId,
 						kind: item.kind,
@@ -2696,31 +2773,31 @@ window.__ModuleLoader__.load({
 			specs;
 			staged = /* @__PURE__ */ new Map();
 			listeners = /* @__PURE__ */ new Set();
-			/** The scope subscription installed in the constructor; released by dispose(). */
-			disposeScope;
+			/** The form subscription installed in the constructor; released by dispose(). */
+			disposeForm;
 			disposed = false;
 			saving = false;
 			failed = false;
 			failedReason;
-			/** @param scope - the bound settings scope for this card's namespace. */
+			/** @param scope - the bound configuration form for this card's namespace. */
 			constructor(scope, specs) {
 				this.scope = scope;
 				this.specs = new Map(specs.map((spec) => [spec.field, spec]));
-				this.disposeScope = scope.subscribe(() => {
+				this.disposeForm = scope.subscribe(() => {
 					this.publish();
 				});
 			}
 			/**
-			* Release the scope subscription and every bound store listener. The card
+			* Release the form subscription and every bound store listener. The card
 			* must call this on teardown; later calls are no-ops.
 			*/
 			dispose() {
 				if (this.disposed) return;
 				this.disposed = true;
-				this.disposeScope();
+				this.disposeForm();
 				this.listeners.clear();
 			}
-			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
+			/** Publish a projection of this form, rebuilt whenever the form or a draft changes. */
 			bind(project) {
 				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
@@ -2787,19 +2864,19 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* Write every staged edit in one atomic form mutation, then re-seed from
 			* what the Host accepted.
 			*
 			* The whole batch rides one mutate, so cross-field validate hooks
 			* (baseURL+model) judge it as a unit: the Host either applies every write
-			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
-			* mutation — the scope recovers with a fresh Host view and resolves — so
-			* resolution alone proves nothing: the outcome is judged by reading the
-			* settled snapshot back, one planned write at a time, and one missed write
-			* fails the whole save. A scope that still rejects on refusal (the dsh-web
-			* bridge scope) reports through the same failure path with its rejection
-			* message. A save that did not land keeps its drafts, so the user can
-			* correct them instead of retyping.
+			* or refuses the batch. The form contract answers a refusal or a skipped
+			* write with `false` (it recovers with a fresh Host view instead of
+			* throwing), so the outcome is judged twice: the answer itself, and then the
+			* settled snapshot read back one planned write at a time. One missed write
+			* fails the whole save. A transport that rejects instead (the dsh-web bridge
+			* controller on a dead connection) reports through the same failure path
+			* with its rejection message. A save that did not land keeps its drafts, so
+			* the user can correct them instead of retyping.
 			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
@@ -2821,12 +2898,13 @@ window.__ModuleLoader__.load({
 					path: [item.field]
 				});
 				let failedReason;
+				let accepted = false;
 				try {
-					await this.scope.mutate(ops);
+					accepted = await this.scope.mutate(ops);
 				} catch (error) {
 					failedReason = error instanceof Error ? error.message : String(error);
 				}
-				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				const landed = accepted && failedReason === void 0 && valid.every((item) => item.judge());
 				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
 				this.failed = !landed;
@@ -3247,11 +3325,11 @@ window.__ModuleLoader__.load({
 		* optional pluginManager service (with the copy-command degradation).
 		*/
 		const MARKET_ORIGIN = "https://dsh-market.com";
-		/** Bridges the market scope onto the card's staged form. */
+		/** Bridges the market config form onto the card's staged form. */
 		var MarketCardController = class {
 			form;
 			store;
-			/** @param scope - the bound settings scope for the dsh-web-ui-market namespace. */
+			/** @param scope - the bound configuration form of the market card's settings entry. */
 			constructor(scope) {
 				this.form = new CardForm$6(scope, [booleanField$6("enabled")]);
 				this.store = this.form.bind(() => this.projection());
@@ -3273,7 +3351,7 @@ window.__ModuleLoader__.load({
 					...this.form.actions()
 				};
 			}
-			/** Release the scope subscription; the slot disposer calls this on teardown. */
+			/** Release the form subscription; the slot disposer calls this on teardown. */
 			dispose() {
 				this.form.dispose();
 			}
@@ -4493,7 +4571,7 @@ window.__ModuleLoader__.load({
 			"slots",
 			"locale",
 			"connection",
-			"settingsScope",
+			"configForms",
 			"remote"
 		];
 		/** Register the market section and the plugin-manager bridge. */
@@ -4510,7 +4588,8 @@ window.__ModuleLoader__.load({
 				}
 			}, "dsh-web-ui-market: dictionaries");
 			bridgePluginManager(ctx);
-			const controller = new MarketCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: MARKET_NS }));
+			const binder = ctx.get("webUiSettings");
+			const controller = new MarketCardController(binder !== void 0 ? binder.bind({ namespace: MARKET_NS }) : ctx.configForms.get(MARKET_NS));
 			ctx.slots.inject("settings.section", () => {
 				try {
 					const unregister = ctx.slots.register({
@@ -9454,31 +9533,31 @@ window.__ModuleLoader__.load({
 			specs;
 			staged = /* @__PURE__ */ new Map();
 			listeners = /* @__PURE__ */ new Set();
-			/** The scope subscription installed in the constructor; released by dispose(). */
-			disposeScope;
+			/** The form subscription installed in the constructor; released by dispose(). */
+			disposeForm;
 			disposed = false;
 			saving = false;
 			failed = false;
 			failedReason;
-			/** @param scope - the bound settings scope for this card's namespace. */
+			/** @param scope - the bound configuration form for this card's namespace. */
 			constructor(scope, specs) {
 				this.scope = scope;
 				this.specs = new Map(specs.map((spec) => [spec.field, spec]));
-				this.disposeScope = scope.subscribe(() => {
+				this.disposeForm = scope.subscribe(() => {
 					this.publish();
 				});
 			}
 			/**
-			* Release the scope subscription and every bound store listener. The card
+			* Release the form subscription and every bound store listener. The card
 			* must call this on teardown; later calls are no-ops.
 			*/
 			dispose() {
 				if (this.disposed) return;
 				this.disposed = true;
-				this.disposeScope();
+				this.disposeForm();
 				this.listeners.clear();
 			}
-			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
+			/** Publish a projection of this form, rebuilt whenever the form or a draft changes. */
 			bind(project) {
 				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
@@ -9545,19 +9624,19 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* Write every staged edit in one atomic form mutation, then re-seed from
 			* what the Host accepted.
 			*
 			* The whole batch rides one mutate, so cross-field validate hooks
 			* (baseURL+model) judge it as a unit: the Host either applies every write
-			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
-			* mutation — the scope recovers with a fresh Host view and resolves — so
-			* resolution alone proves nothing: the outcome is judged by reading the
-			* settled snapshot back, one planned write at a time, and one missed write
-			* fails the whole save. A scope that still rejects on refusal (the dsh-web
-			* bridge scope) reports through the same failure path with its rejection
-			* message. A save that did not land keeps its drafts, so the user can
-			* correct them instead of retyping.
+			* or refuses the batch. The form contract answers a refusal or a skipped
+			* write with `false` (it recovers with a fresh Host view instead of
+			* throwing), so the outcome is judged twice: the answer itself, and then the
+			* settled snapshot read back one planned write at a time. One missed write
+			* fails the whole save. A transport that rejects instead (the dsh-web bridge
+			* controller on a dead connection) reports through the same failure path
+			* with its rejection message. A save that did not land keeps its drafts, so
+			* the user can correct them instead of retyping.
 			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
@@ -9579,12 +9658,13 @@ window.__ModuleLoader__.load({
 					path: [item.field]
 				});
 				let failedReason;
+				let accepted = false;
 				try {
-					await this.scope.mutate(ops);
+					accepted = await this.scope.mutate(ops);
 				} catch (error) {
 					failedReason = error instanceof Error ? error.message : String(error);
 				}
-				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				const landed = accepted && failedReason === void 0 && valid.every((item) => item.judge());
 				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
 				this.failed = !landed;
@@ -9691,11 +9771,11 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region ../dsh-task-board/src/client/TaskBoardSettingsCard.tsx
-		/** Bridges the `task-board` scope onto the card's staged form. */
+		/** Bridges the `task-board` settings form onto the card's staged form. */
 		var TaskBoardSettingsCardController = class {
 			form;
 			store;
-			/** @param scope - the bound settings scope for the `task-board` namespace. */
+			/** @param scope - the bound configuration form for the `task-board` namespace. */
 			constructor(scope) {
 				this.form = new CardForm$5(scope, [
 					booleanField$5("enabled"),
@@ -9723,7 +9803,7 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Release the card's scope subscription and bound stores; the slot
+			* Release the card's form subscription and bound stores; the slot
 			* disposer calls this on teardown.
 			*/
 			dispose() {
@@ -10118,7 +10198,7 @@ window.__ModuleLoader__.load({
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
 		* it publishes the `webUiSettings` service during `apply()`, which every
-		* family plugin already reads for its settings scope. Group loaded -> the family
+		* family plugin already reads for its settings form. Group loaded -> the family
 		* seat; group absent -> the official seat.
 		*
 		* The decision is re-evaluated on every `slots/changed` because the group may
@@ -10220,12 +10300,31 @@ window.__ModuleLoader__.load({
 		//#region ../dsh-task-board/src/client/index.ts
 		var client_exports$13 = /* @__PURE__ */ __exportAll({
 			apply: () => apply$14,
+			bindSettingsForm: () => bindSettingsForm,
 			inject: () => inject$14
 		});
 		/** Locale namespace this plugin owns. */
 		const NS$12 = "task-board";
-		/** Settings namespace the settings card edits (the Host plugin registers it). */
+		/** Settings namespace this card edits (the family identity of the plugin's own settings form). */
 		const TASK_BOARD_NS = "task-board";
+		/**
+		* Profile entry id the family aggregate's generated row carries — the
+		* deployment shape nearly every user runs. Under 0.1.7 a settings form is
+		* addressed by profile entry id, so the shared-forms fallback below has to
+		* name it; the family binder resolves the family namespace instead.
+		*/
+		const AGGREGATE_ENTRY_ID$1 = "web-ui-task-board";
+		/**
+		* Profile entry ids this package's two patch rows carry: the aggregate's
+		* generated row and the standalone bundle patch's row (`ui-task-board`), plus
+		* the bare namespace as the last resort for a Host whose descriptor is keyed
+		* by the family namespace itself.
+		*/
+		const TASK_BOARD_ENTRY_IDS = [
+			AGGREGATE_ENTRY_ID$1,
+			"ui-task-board",
+			TASK_BOARD_NS
+		];
 		/**
 		* Required services (fiber inject waiting — the runtime must be up first).
 		* The generated remote faces are probed at use time instead of injected:
@@ -10239,7 +10338,7 @@ window.__ModuleLoader__.load({
 			"sessions",
 			"workspaces",
 			"connection",
-			"settingsScope",
+			"configForms",
 			"locale",
 			"remote",
 			"remote.session",
@@ -10266,8 +10365,8 @@ window.__ModuleLoader__.load({
 			try {
 				setRuntimeTranslate$2(ctx.locale.bind(NS$12));
 			} catch {}
-			const settingsScope = (ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: TASK_BOARD_NS });
-			const settingsCard = new TaskBoardSettingsCardController(settingsScope);
+			const settingsForm = bindSettingsForm(ctx);
+			const settingsCard = new TaskBoardSettingsCardController(settingsForm);
 			installPluginCard$4(ctx, {
 				bundle: "@linxin666/dsh-client-ui-task-board",
 				id: "task-board",
@@ -10380,12 +10479,51 @@ window.__ModuleLoader__.load({
 				};
 			};
 			const syncEnabled = () => {
-				const snapshot = settingsScope.getSnapshot();
+				const snapshot = settingsForm.getSnapshot();
 				if (snapshot.status === "ready" ? snapshot.value?.enabled ?? true : snapshot.status === "unavailable") mountUi();
 				else uiDisposer?.();
 			};
-			settingsScope.subscribe(syncEnabled);
+			settingsForm.subscribe(syncEnabled);
 			syncEnabled();
+		}
+		/**
+		* Bind the settings form this card stages over.
+		*
+		* The family binder (`ctx.get('webUiSettings')`, published by dsh-web-settings)
+		* comes first: it is what traces this package's family namespace onto the
+		* profile entry id the Host serves the form under, and it keeps the loopback
+		* bridge as its own fallback. A page without that group falls back to the
+		* shared configuration forms service bound directly at one of this package's
+		* own profile entry ids.
+		* @param ctx - client root context.
+		* @returns the form the settings card reads and writes.
+		*/
+		function bindSettingsForm(ctx) {
+			const binder = ctx.get("webUiSettings");
+			if (binder !== void 0 && typeof binder.bind === "function") return binder.bind({ namespace: TASK_BOARD_NS });
+			return ctx.configForms.get(servedEntryId(ctx.configForms));
+		}
+		/**
+		* The profile entry id this package's own row carries.
+		*
+		* The shared describe mirror is the only local evidence of which row id this
+		* profile actually serves, but it answers asynchronously: at plugin
+		* activation it usually holds nothing yet. An unanswered mirror therefore
+		* binds the aggregate row id rather than guessing among the candidates —
+		* the form is bound once for the session, so a wrong guess would leave the
+		* card reporting an unserved namespace even after the mirror settles.
+		* @param forms - the shared configuration forms service.
+		* @returns the entry id to bind.
+		*/
+		function servedEntryId(forms) {
+			let served;
+			try {
+				served = forms.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
+			} catch {
+				served = void 0;
+			}
+			if (served === void 0) return AGGREGATE_ENTRY_ID$1;
+			return TASK_BOARD_ENTRY_IDS.find((id) => served.includes(id)) ?? TASK_BOARD_NS;
 		}
 		//#endregion
 		//#region ../dsh-git-graph/src/client/sse-leader.ts
@@ -10691,7 +10829,7 @@ window.__ModuleLoader__.load({
 						title: label,
 						children: label
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineMedium, {
 						className: context_module_css_default.chipChevron,
 						size: 12
 					})
@@ -10795,7 +10933,7 @@ window.__ModuleLoader__.load({
 				children: [
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: context_module_css_default.searchBox,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSearchOutline16, { size: 14 }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSearchOutlineRegular, { size: 14 }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 							className: context_module_css_default.searchInput,
 							value: query,
 							onChange: (event) => {
@@ -10850,7 +10988,7 @@ window.__ModuleLoader__.load({
 							},
 							disabled: pending !== null,
 							children: [
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, { size: 14 }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutlineRegular, { size: 14 }),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 									className: context_module_css_default.itemText,
 									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
@@ -10859,7 +10997,7 @@ window.__ModuleLoader__.load({
 										children: branch.name
 									})
 								}),
-								branch.current && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutline14, {
+								branch.current && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineMedium, {
 									className: context_module_css_default.check,
 									size: 14
 								})
@@ -10881,27 +11019,27 @@ window.__ModuleLoader__.load({
 								type: "button",
 								className: context_module_css_default.footerItem,
 								onClick: onCreate,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, { size: 14 }), t("branch.create")]
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutlineRegular, { size: 14 }), t("branch.create")]
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 								type: "button",
 								className: context_module_css_default.footerItem,
 								onClick: onGraph,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, { size: 14 }), t("branch.graph")]
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutlineRegular, { size: 14 }), t("branch.graph")]
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 								type: "button",
 								className: context_module_css_default.footerItem,
 								onClick: onCreateWorktree,
 								"data-dsh-part": "worktree-create",
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, { size: 14 }), t("worktree.create")]
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutlineRegular, { size: 14 }), t("worktree.create")]
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 								type: "button",
 								className: context_module_css_default.footerItem,
 								onClick: onManageWorktrees,
 								"data-dsh-part": "worktree-manage",
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, { size: 14 }), t("worktree.manage")]
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutlineRegular, { size: 14 }), t("worktree.manage")]
 							})
 						]
 					})
@@ -11255,7 +11393,7 @@ window.__ModuleLoader__.load({
 										/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 											className: context_module_css_default.managerHeadline,
 											children: [
-												/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, { size: 13 }),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutlineRegular, { size: 13 }),
 												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 													className: context_module_css_default.managerBranch,
 													children: item.branch === "" ? t("worktree.manager.detached") : item.branch
@@ -11478,7 +11616,7 @@ window.__ModuleLoader__.load({
 							className: context_module_css_default.dialogClose,
 							onClick: onClose,
 							"aria-label": t("graph.close"),
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutline16, { size: 16 })
+							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, { size: 16 })
 						})]
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
@@ -11725,7 +11863,7 @@ window.__ModuleLoader__.load({
 						className: context_module_css_default.chipWrap,
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Chip, {
 							hero: heroSeat,
-							icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, { size: 14 }),
+							icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutlineRegular, { size: 14 }),
 							label: repo.branch === "" ? props.t("branch.detached") : repo.branch,
 							ariaLabel: props.t("chip.aria.branch"),
 							open: branchOpen,
@@ -13867,7 +14005,7 @@ window.__ModuleLoader__.load({
 						className: remote_module_css_default.close,
 						"aria-label": t("close.label"),
 						onClick: onClose,
-						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutline16, { size: 14 })
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, { size: 14 })
 					})]
 				}), state.kind === "lan-required" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: remote_module_css_default.banner,
@@ -13972,7 +14110,7 @@ window.__ModuleLoader__.load({
 								type: "button",
 								className: remote_module_css_default.copyLink,
 								onClick: () => onCopy(state.url),
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCopyOutline16, { size: 14 }), copied ? t("action.copied") : t("action.copyLink")]
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCopyOutlineRegular, { size: 14 }), copied ? t("action.copied") : t("action.copyLink")]
 							})]
 						}), state.token !== void 0 && state.token !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: remote_module_css_default.pairLinkRow,
@@ -13990,7 +14128,7 @@ window.__ModuleLoader__.load({
 								type: "button",
 								className: remote_module_css_default.copyLink,
 								onClick: () => onCopyToken ? onCopyToken(state.token) : onCopy(state.token),
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCopyOutline16, { size: 14 }), copiedToken ? t("action.copiedToken") : t("action.copyToken")]
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCopyOutlineRegular, { size: 14 }), copiedToken ? t("action.copiedToken") : t("action.copyToken")]
 							})]
 						})]
 					}),
@@ -14071,12 +14209,12 @@ window.__ModuleLoader__.load({
 							type: "button",
 							className: remote_module_css_default.action,
 							onClick: onStop,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconStopFill16, { size: 14 }), t("action.stop")]
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconStopFillRegular, { size: 14 }), t("action.stop")]
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 							type: "button",
 							className: remote_module_css_default.action,
 							onClick: onRefresh,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutline16, { size: 14 }), t("action.refresh")]
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutlineRegular, { size: 14 }), t("action.refresh")]
 						})]
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
@@ -14228,7 +14366,7 @@ window.__ModuleLoader__.load({
 							className: remote_module_css_default.close,
 							"aria-label": t("update.close"),
 							onClick: onClose,
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutline16, {})
+							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, {})
 						})]
 					}),
 					view.kind === "checking" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
@@ -14283,7 +14421,7 @@ window.__ModuleLoader__.load({
 							className: remote_module_css_default.updateRetry,
 							onClick: onRecheck,
 							children: [
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutline16, {}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutlineRegular, {}),
 								" ",
 								t("update.retry")
 							]
@@ -14589,7 +14727,7 @@ window.__ModuleLoader__.load({
 				"aria-expanded": open,
 				title: updateLabel,
 				onClick: openPanel,
-				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDownloadOutline16, { size: wide ? 16 : 18 }), updateAvailable && wide && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDownloadOutlineRegular, { size: wide ? 16 : 18 }), updateAvailable && wide && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 					className: remote_module_css_default.updateBadgeText,
 					children: t("update.badge")
 				})]
@@ -15416,31 +15554,31 @@ window.__ModuleLoader__.load({
 			specs;
 			staged = /* @__PURE__ */ new Map();
 			listeners = /* @__PURE__ */ new Set();
-			/** The scope subscription installed in the constructor; released by dispose(). */
-			disposeScope;
+			/** The form subscription installed in the constructor; released by dispose(). */
+			disposeForm;
 			disposed = false;
 			saving = false;
 			failed = false;
 			failedReason;
-			/** @param scope - the bound settings scope for this card's namespace. */
+			/** @param scope - the bound configuration form for this card's namespace. */
 			constructor(scope, specs) {
 				this.scope = scope;
 				this.specs = new Map(specs.map((spec) => [spec.field, spec]));
-				this.disposeScope = scope.subscribe(() => {
+				this.disposeForm = scope.subscribe(() => {
 					this.publish();
 				});
 			}
 			/**
-			* Release the scope subscription and every bound store listener. The card
+			* Release the form subscription and every bound store listener. The card
 			* must call this on teardown; later calls are no-ops.
 			*/
 			dispose() {
 				if (this.disposed) return;
 				this.disposed = true;
-				this.disposeScope();
+				this.disposeForm();
 				this.listeners.clear();
 			}
-			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
+			/** Publish a projection of this form, rebuilt whenever the form or a draft changes. */
 			bind(project) {
 				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
@@ -15507,19 +15645,19 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* Write every staged edit in one atomic form mutation, then re-seed from
 			* what the Host accepted.
 			*
 			* The whole batch rides one mutate, so cross-field validate hooks
 			* (baseURL+model) judge it as a unit: the Host either applies every write
-			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
-			* mutation — the scope recovers with a fresh Host view and resolves — so
-			* resolution alone proves nothing: the outcome is judged by reading the
-			* settled snapshot back, one planned write at a time, and one missed write
-			* fails the whole save. A scope that still rejects on refusal (the dsh-web
-			* bridge scope) reports through the same failure path with its rejection
-			* message. A save that did not land keeps its drafts, so the user can
-			* correct them instead of retyping.
+			* or refuses the batch. The form contract answers a refusal or a skipped
+			* write with `false` (it recovers with a fresh Host view instead of
+			* throwing), so the outcome is judged twice: the answer itself, and then the
+			* settled snapshot read back one planned write at a time. One missed write
+			* fails the whole save. A transport that rejects instead (the dsh-web bridge
+			* controller on a dead connection) reports through the same failure path
+			* with its rejection message. A save that did not land keeps its drafts, so
+			* the user can correct them instead of retyping.
 			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
@@ -15541,12 +15679,13 @@ window.__ModuleLoader__.load({
 					path: [item.field]
 				});
 				let failedReason;
+				let accepted = false;
 				try {
-					await this.scope.mutate(ops);
+					accepted = await this.scope.mutate(ops);
 				} catch (error) {
 					failedReason = error instanceof Error ? error.message : String(error);
 				}
-				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				const landed = accepted && failedReason === void 0 && valid.every((item) => item.judge());
 				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
 				this.failed = !landed;
@@ -15656,13 +15795,13 @@ window.__ModuleLoader__.load({
 		/**
 		* The remote-control settings card: pairing security and device limits.
 		* Registers into the `web-ui.plugin.item` child slot the Web UI plugin group
-		* renders, bound to the `remote-web-ui` settings namespace.
+		* renders, bound to the `remote-web-ui` profile entry's configuration form.
 		*/
-		/** Bridges the `remote-web-ui` scope onto the card's staged form. */
+		/** Bridges the `remote-web-ui` form onto the card's staged form. */
 		var RemoteSettingsCardController = class {
 			form;
 			store;
-			/** @param scope - the bound settings scope for the `remote-web-ui` namespace. */
+			/** @param scope - the configuration form for the `remote-web-ui` entry. */
 			constructor(scope) {
 				this.form = new CardForm$4(scope, [
 					booleanField$4("enabled"),
@@ -15708,7 +15847,7 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Release the card's scope subscription and bound stores; the slot
+			* Release the card's form subscription and bound stores; the slot
 			* disposer calls this on teardown.
 			*/
 			dispose() {
@@ -17783,7 +17922,7 @@ window.__ModuleLoader__.load({
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
 		* it publishes the `webUiSettings` service during `apply()`, which every
-		* family plugin already reads for its settings scope. Group loaded -> the family
+		* family plugin already reads for its settings form. Group loaded -> the family
 		* seat; group absent -> the official seat.
 		*
 		* The decision is re-evaluated on every `slots/changed` because the group may
@@ -17907,7 +18046,7 @@ window.__ModuleLoader__.load({
 			"slots",
 			"locale",
 			"connection",
-			"settingsScope",
+			"configForms",
 			"remote"
 		];
 		/**
@@ -17950,15 +18089,16 @@ window.__ModuleLoader__.load({
 			};
 			const t = ctx.locale.bind(NS$10);
 			if (adapt !== void 0) adapt.translate = t;
-			const settingsScope = (ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: REMOTE_WEB_UI_NS });
+			const family = ctx.get("webUiSettings");
+			const settingsForm = family === void 0 ? ctx.configForms.get(REMOTE_WEB_UI_NS) : family.bind({ namespace: REMOTE_WEB_UI_NS });
 			const enabled = () => {
-				const snapshot = settingsScope.getSnapshot();
+				const snapshot = settingsForm.getSnapshot();
 				return snapshot.status === "ready" ? snapshot.value?.enabled ?? true : snapshot.status === "unavailable";
 			};
 			const syncAdaptEnabled = () => {
 				window.__dshRemoteAdapt?.setEnabled?.(enabled());
 			};
-			settingsScope.subscribe(syncAdaptEnabled);
+			settingsForm.subscribe(syncAdaptEnabled);
 			syncAdaptEnabled();
 			try {
 				adapt?.flushCloseDetails?.();
@@ -17978,14 +18118,14 @@ window.__ModuleLoader__.load({
 						disposeEntry = void 0;
 					}
 				};
-				const unsubscribe = settingsScope.subscribe(syncEntry);
+				const unsubscribe = settingsForm.subscribe(syncEntry);
 				syncEntry();
 				return () => {
 					unsubscribe();
 					disposeEntry?.();
 				};
 			});
-			const remoteSettings = new RemoteSettingsCardController(settingsScope);
+			const remoteSettings = new RemoteSettingsCardController(settingsForm);
 			installPluginCard$3(ctx, {
 				bundle: "@linxin666/dsh-remote-web-ui",
 				id: "remote-web-ui",
@@ -18015,7 +18155,7 @@ window.__ModuleLoader__.load({
 					disposeRuntime = void 0;
 				}
 			};
-			settingsScope.subscribe(syncRuntime);
+			settingsForm.subscribe(syncRuntime);
 			syncRuntime();
 			let disposeChannel;
 			let hostPairingPolicy;
@@ -18045,13 +18185,13 @@ window.__ModuleLoader__.load({
 				fenceNotice = void 0;
 			};
 			const handleUnpaired = () => {
-				if (settingsScope.getSnapshot().status !== "ready" && hostPairingPolicy === void 0) {
+				if (settingsForm.getSnapshot().status !== "ready" && hostPairingPolicy === void 0) {
 					unpairedWhilePolicyPending = true;
 					return;
 				}
 				showFenceNotice();
 			};
-			const channelActive = () => remoteChannelRequired(window.location.hostname, settingsScope.getSnapshot(), hostPairingPolicy);
+			const channelActive = () => remoteChannelRequired(window.location.hostname, settingsForm.getSnapshot(), hostPairingPolicy);
 			const bootSeat = () => window[REMOTE_CHANNEL_BOOT_GLOBAL];
 			const syncChannel = () => {
 				const transition = channelTransition(channelActive(), disposeChannel !== void 0);
@@ -18081,9 +18221,9 @@ window.__ModuleLoader__.load({
 					hideFenceNotice();
 				} else if (transition === "none" && !channelActive()) bootSeat()?.restore();
 			};
-			settingsScope.subscribe(syncChannel);
+			settingsForm.subscribe(syncChannel);
 			syncChannel();
-			if (!isLoopbackHostname(window.location.hostname) && settingsScope.getSnapshot().status !== "ready") readPairGatePolicy().then((policy) => {
+			if (!isLoopbackHostname(window.location.hostname) && settingsForm.getSnapshot().status !== "ready") readPairGatePolicy().then((policy) => {
 				hostPairingPolicy = policy.requirePairingForLan;
 				syncChannel();
 				if (hostPairingPolicy && unpairedWhilePolicyPending) showFenceNotice();
@@ -20401,15 +20541,15 @@ window.__ModuleLoader__.load({
 		*/
 		/** Stall watchdog period: a looping track stuck longer re-kicks its chain. */
 		const WATCHDOG_MS = 1200;
-		function isRecord$2(value) {
+		function isRecord$3(value) {
 			return typeof value === "object" && value !== null && !Array.isArray(value);
 		}
 		/** Fail-closed client-side validation of the served frames2d block. */
 		function validateFrames2dConfig(config) {
-			if (!isRecord$2(config) || !isRecord$2(config.tracks) || !isRecord$2(config.phases)) throw new Error("frames2d config requires tracks and phases objects");
+			if (!isRecord$3(config) || !isRecord$3(config.tracks) || !isRecord$3(config.phases)) throw new Error("frames2d config requires tracks and phases objects");
 			const tracks = {};
 			for (const [name, raw] of Object.entries(config.tracks)) {
-				if (!isRecord$2(raw) || !Array.isArray(raw.frames) || raw.frames.length === 0 || raw.frames.some((f) => typeof f !== "string" || f === "") || !Array.isArray(raw.durations) || raw.durations.length !== raw.frames.length || raw.durations.some((d) => typeof d !== "number" || !(d > 0))) throw new Error("frames2d track " + JSON.stringify(name) + " needs same-length frames/durations");
+				if (!isRecord$3(raw) || !Array.isArray(raw.frames) || raw.frames.length === 0 || raw.frames.some((f) => typeof f !== "string" || f === "") || !Array.isArray(raw.durations) || raw.durations.length !== raw.frames.length || raw.durations.some((d) => typeof d !== "number" || !(d > 0))) throw new Error("frames2d track " + JSON.stringify(name) + " needs same-length frames/durations");
 				tracks[name] = {
 					frames: raw.frames,
 					durations: raw.durations,
@@ -20423,14 +20563,14 @@ window.__ModuleLoader__.load({
 			if (Array.isArray(config.skins)) {
 				const resolved = [];
 				for (const skin of config.skins) {
-					if (!isRecord$2(skin) || typeof skin.id !== "string" || typeof skin.label !== "string" || typeof skin.idleTrack !== "string" || skin.idleTrack === "") continue;
+					if (!isRecord$3(skin) || typeof skin.id !== "string" || typeof skin.label !== "string" || typeof skin.idleTrack !== "string" || skin.idleTrack === "") continue;
 					const target = tracks[skin.idleTrack];
 					if (target === void 0 || !target.loop) continue;
 					let clickActions;
 					if (Array.isArray(skin.clickActions)) {
 						const kept = [];
 						for (const action of skin.clickActions) {
-							if (!isRecord$2(action) || typeof action.track !== "string" || action.track === "" || typeof action.probability !== "number" || !(action.probability > 0) || action.probability > 1) continue;
+							if (!isRecord$3(action) || typeof action.track !== "string" || action.track === "" || typeof action.probability !== "number" || !(action.probability > 0) || action.probability > 1) continue;
 							if (tracks[action.track] === void 0) continue;
 							kept.push({
 								track: action.track,
@@ -20441,7 +20581,7 @@ window.__ModuleLoader__.load({
 						if (kept.length > 0) clickActions = kept;
 					}
 					let gameplayTracks;
-					if (isRecord$2(skin.gameplayTracks)) {
+					if (isRecord$3(skin.gameplayTracks)) {
 						const kept = {};
 						for (const [state, trackName] of Object.entries(skin.gameplayTracks)) {
 							if (typeof trackName !== "string" || trackName === "" || tracks[trackName] === void 0) continue;
@@ -21341,31 +21481,31 @@ window.__ModuleLoader__.load({
 			specs;
 			staged = /* @__PURE__ */ new Map();
 			listeners = /* @__PURE__ */ new Set();
-			/** The scope subscription installed in the constructor; released by dispose(). */
-			disposeScope;
+			/** The form subscription installed in the constructor; released by dispose(). */
+			disposeForm;
 			disposed = false;
 			saving = false;
 			failed = false;
 			failedReason;
-			/** @param scope - the bound settings scope for this card's namespace. */
+			/** @param scope - the bound configuration form for this card's namespace. */
 			constructor(scope, specs) {
 				this.scope = scope;
 				this.specs = new Map(specs.map((spec) => [spec.field, spec]));
-				this.disposeScope = scope.subscribe(() => {
+				this.disposeForm = scope.subscribe(() => {
 					this.publish();
 				});
 			}
 			/**
-			* Release the scope subscription and every bound store listener. The card
+			* Release the form subscription and every bound store listener. The card
 			* must call this on teardown; later calls are no-ops.
 			*/
 			dispose() {
 				if (this.disposed) return;
 				this.disposed = true;
-				this.disposeScope();
+				this.disposeForm();
 				this.listeners.clear();
 			}
-			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
+			/** Publish a projection of this form, rebuilt whenever the form or a draft changes. */
 			bind(project) {
 				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
@@ -21432,19 +21572,19 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* Write every staged edit in one atomic form mutation, then re-seed from
 			* what the Host accepted.
 			*
 			* The whole batch rides one mutate, so cross-field validate hooks
 			* (baseURL+model) judge it as a unit: the Host either applies every write
-			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
-			* mutation — the scope recovers with a fresh Host view and resolves — so
-			* resolution alone proves nothing: the outcome is judged by reading the
-			* settled snapshot back, one planned write at a time, and one missed write
-			* fails the whole save. A scope that still rejects on refusal (the dsh-web
-			* bridge scope) reports through the same failure path with its rejection
-			* message. A save that did not land keeps its drafts, so the user can
-			* correct them instead of retyping.
+			* or refuses the batch. The form contract answers a refusal or a skipped
+			* write with `false` (it recovers with a fresh Host view instead of
+			* throwing), so the outcome is judged twice: the answer itself, and then the
+			* settled snapshot read back one planned write at a time. One missed write
+			* fails the whole save. A transport that rejects instead (the dsh-web bridge
+			* controller on a dead connection) reports through the same failure path
+			* with its rejection message. A save that did not land keeps its drafts, so
+			* the user can correct them instead of retyping.
 			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
@@ -21466,12 +21606,13 @@ window.__ModuleLoader__.load({
 					path: [item.field]
 				});
 				let failedReason;
+				let accepted = false;
 				try {
-					await this.scope.mutate(ops);
+					accepted = await this.scope.mutate(ops);
 				} catch (error) {
 					failedReason = error instanceof Error ? error.message : String(error);
 				}
-				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				const landed = accepted && failedReason === void 0 && valid.every((item) => item.judge());
 				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
 				this.failed = !landed;
@@ -21618,7 +21759,7 @@ window.__ModuleLoader__.load({
 			disposed = false;
 			/** Pending deferred-load or retry timer; cancelled by dispose(). */
 			pendingTimer;
-			/** @param scope - the bound settings scope for the 'pet' namespace. */
+			/** @param scope - the bound configuration form for the 'pet' entry. */
 			constructor(scope) {
 				this.form = new CardForm$3(scope, [
 					booleanField$3("enabled"),
@@ -22190,18 +22331,36 @@ window.__ModuleLoader__.load({
 		};
 		/** Poll interval for the host snapshot. */
 		const POLL_MS = 2e3;
-		/** Settings namespace the pet settings card edits (the Host plugin registers it). */
+		/** Settings namespace of the pet's settings page. It is the profile entry id the Host serves a form for. */
 		const PET_SETTINGS_NS = "pet";
 		/** Required services (sessions powers bubble-to-session navigation). */
 		const inject$11 = [
 			"slots",
 			"locale",
 			"connection",
-			"settingsScope",
+			"configForms",
 			"remote",
 			"sessions",
 			"uiWorkspace"
 		];
+		/**
+		* The configuration form the settings card stages and saves through: the
+		* family binder when dsh-web-settings is mounted, otherwise the shared form of
+		* this plugin's own profile entry.
+		*
+		* The two are not interchangeable by name. A plugin's settings ARE its own
+		* config on 0.1.7, so the form belongs to the profile entry that carries the
+		* plugin — and only the family binder knows which entry that is, because the
+		* family bundle renames child rows ('pet' becomes 'web-ui-pet' there) while a
+		* standalone install keeps the package's own id.
+		* @param ctx - client root context.
+		* @returns the form for the pet's settings page.
+		*/
+		function petSettingsForm(ctx) {
+			const binder = ctx.get("webUiSettings");
+			if (binder !== void 0) return binder.bind({ namespace: PET_SETTINGS_NS });
+			return ctx.configForms.get(PET_SETTINGS_NS);
+		}
 		/**
 		* Client plugin body: register dictionaries, mount the global pet entry and
 		* poll loop while the plugin is enabled, and seat the settings card as a
@@ -22233,12 +22392,12 @@ window.__ModuleLoader__.load({
 			}, "pet: dictionaries");
 			defaultPetRendererRegistry.register(live2dRenderer);
 			defaultPetRendererRegistry.register(frames2dRenderer);
-			const settingsScope = (ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: PET_SETTINGS_NS });
+			const settingsForm = petSettingsForm(ctx);
 			const enabled = () => {
-				const snapshot = settingsScope.getSnapshot();
+				const snapshot = settingsForm.getSnapshot();
 				return snapshot.status === "ready" ? snapshot.value?.enabled ?? true : snapshot.status === "unavailable";
 			};
-			const petSettings = new PetSettingsCardController(settingsScope);
+			const petSettings = new PetSettingsCardController(settingsForm);
 			ctx.slots.inject("settings.section", () => {
 				try {
 					const unregister = ctx.slots.register({
@@ -22428,7 +22587,7 @@ window.__ModuleLoader__.load({
 					disposeUi = void 0;
 				}
 			};
-			const unsubscribeSettings = settingsScope.subscribe(syncUi);
+			const unsubscribeSettings = settingsForm.subscribe(syncUi);
 			ctx.effect(() => () => {
 				unsubscribeSettings();
 				killUi();
@@ -38616,6 +38775,108 @@ window.__ModuleLoader__.load({
 			}
 		};
 		//#endregion
+		//#region ../dsh-ssh/src/client/settings-binding.ts
+		/**
+		* The snapshot a reader reports before the Host has answered with this
+		* plugin's entry: nothing is readable yet, and no write is attempted.
+		*/
+		const PENDING_SNAPSHOT = {
+			status: "loading",
+			value: void 0,
+			base: void 0,
+			user: void 0,
+			revision: void 0,
+			writable: false,
+			mode: "host"
+		};
+		/** Whether one Host namespace section carries a field this plugin's schema declares. */
+		function carriesField(section, field) {
+			return typeof section === "object" && section !== null && Object.hasOwn(section, field);
+		}
+		/**
+		* Reader over the shared configuration forms service.
+		*
+		* The 0.1.7 surface carries no package identity, so this plugin recognises its
+		* own entry by the field its Config schema declares. The entry list arrives
+		* asynchronously with the shared describe mirror, and an id the Host has not
+		* answered with yet is not evidence of absence: the reader re-resolves on every
+		* mirror change and reports `loading` until it holds a form.
+		*/
+		var SharedFormsReader = class {
+			forms;
+			field;
+			listeners = /* @__PURE__ */ new Set();
+			unsubscribeMirror;
+			unsubscribeForm;
+			form;
+			snapshot = PENDING_SNAPSHOT;
+			/**
+			* @param forms - the shared configuration forms service (`ctx.configForms`).
+			* @param field - the field this plugin's own schema declares, which is what identifies its entry.
+			*/
+			constructor(forms, field) {
+				this.forms = forms;
+				this.field = field;
+				this.unsubscribeMirror = forms.describe().subscribe(() => {
+					this.bind();
+					this.publish();
+				});
+				this.bind();
+			}
+			getSnapshot() {
+				return this.snapshot;
+			}
+			subscribe(listener) {
+				this.listeners.add(listener);
+				return () => {
+					this.listeners.delete(listener);
+				};
+			}
+			/** Release the mirror and form subscriptions and drop every listener. */
+			dispose() {
+				this.unsubscribeMirror();
+				this.unsubscribeForm?.();
+				this.unsubscribeForm = void 0;
+				this.listeners.clear();
+			}
+			/** Bind the entry form once the shared mirror names this plugin's entry. */
+			bind() {
+				if (this.form !== void 0) return;
+				const entry = (this.forms.describe().getSnapshot().view?.namespaces)?.find((candidate) => carriesField(candidate.value, this.field));
+				if (entry === void 0) return;
+				const form = this.forms.get(entry.ns);
+				if (form === void 0) return;
+				this.form = form;
+				this.snapshot = form.getSnapshot();
+				this.unsubscribeForm = form.subscribe(() => {
+					this.snapshot = form.getSnapshot();
+					this.publish();
+				});
+			}
+			publish() {
+				for (const listener of this.listeners) listener();
+			}
+		};
+		/**
+		* Bind this plugin's settings reader.
+		* @param ctx - client context carrying the family binder and/or the shared forms service.
+		* @param namespace - the family settings namespace this plugin owns.
+		* @param field - the field this plugin's own schema declares, used to recognise its entry when the family binder is absent.
+		* @returns the reader and the release of its subscriptions.
+		*/
+		function bindSettingsReader(ctx, namespace, field) {
+			const family = ctx.get("webUiSettings");
+			if (family !== void 0) {
+				const form = family.bind({ namespace });
+				return {
+					getSnapshot: () => form.getSnapshot(),
+					subscribe: (listener) => form.subscribe(listener),
+					dispose: () => {}
+				};
+			}
+			return new SharedFormsReader(ctx.configForms, field);
+		}
+		//#endregion
 		//#region ../dsh-ssh/src/client/sidebar-entry-core.ts
 		/**
 		* Shared sidebar entry injection core.
@@ -38862,13 +39123,18 @@ window.__ModuleLoader__.load({
 		});
 		/** Locale namespace this plugin owns. */
 		const NS$9 = "dsh-ssh";
-		/** Settings namespace the terminal-font preference lives in (issue #577). */
+		/**
+		* Family settings namespace the terminal-font preference is addressed by
+		* (issue #577); dsh-web-settings maps it to the owning profile entry id.
+		*/
 		const SETTINGS_NS = "dsh-ssh";
+		/** The one field this plugin's own Config schema declares (its entry identity on the shared settings surface). */
+		const TERMINAL_FONT_FIELD = "terminalFontFamily";
 		/** Required services (fiber inject waiting — the runtime must be up first). */
 		const inject$10 = [
 			"slots",
 			"locale",
-			"settingsScope"
+			"configForms"
 		];
 		/**
 		* Mount the SSH panel.
@@ -38891,14 +39157,17 @@ window.__ModuleLoader__.load({
 			} catch {}
 			const controller = new PanelController();
 			const api = new SshApi();
-			const scope = (ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: SETTINGS_NS });
+			const settings = bindSettingsReader(ctx, SETTINGS_NS, TERMINAL_FONT_FIELD);
 			const terminalFont = {
 				get: () => {
-					const snapshot = scope.getSnapshot();
+					const snapshot = settings.getSnapshot();
 					return snapshot.status === "ready" ? snapshot.value?.terminalFontFamily : void 0;
 				},
-				subscribe: (listener) => scope.subscribe(listener)
+				subscribe: (listener) => settings.subscribe(listener)
 			};
+			ctx.effect(() => () => {
+				settings.dispose();
+			}, "dsh-ssh: settings binding");
 			const disposers = [];
 			try {
 				disposers.push(mountSidebarEntry$2(controller, ctx.locale));
@@ -40223,31 +40492,31 @@ window.__ModuleLoader__.load({
 			specs;
 			staged = /* @__PURE__ */ new Map();
 			listeners = /* @__PURE__ */ new Set();
-			/** The scope subscription installed in the constructor; released by dispose(). */
-			disposeScope;
+			/** The form subscription installed in the constructor; released by dispose(). */
+			disposeForm;
 			disposed = false;
 			saving = false;
 			failed = false;
 			failedReason;
-			/** @param scope - the bound settings scope for this card's namespace. */
+			/** @param scope - the bound configuration form for this card's namespace. */
 			constructor(scope, specs) {
 				this.scope = scope;
 				this.specs = new Map(specs.map((spec) => [spec.field, spec]));
-				this.disposeScope = scope.subscribe(() => {
+				this.disposeForm = scope.subscribe(() => {
 					this.publish();
 				});
 			}
 			/**
-			* Release the scope subscription and every bound store listener. The card
+			* Release the form subscription and every bound store listener. The card
 			* must call this on teardown; later calls are no-ops.
 			*/
 			dispose() {
 				if (this.disposed) return;
 				this.disposed = true;
-				this.disposeScope();
+				this.disposeForm();
 				this.listeners.clear();
 			}
-			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
+			/** Publish a projection of this form, rebuilt whenever the form or a draft changes. */
 			bind(project) {
 				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
@@ -40314,19 +40583,19 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* Write every staged edit in one atomic form mutation, then re-seed from
 			* what the Host accepted.
 			*
 			* The whole batch rides one mutate, so cross-field validate hooks
 			* (baseURL+model) judge it as a unit: the Host either applies every write
-			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
-			* mutation — the scope recovers with a fresh Host view and resolves — so
-			* resolution alone proves nothing: the outcome is judged by reading the
-			* settled snapshot back, one planned write at a time, and one missed write
-			* fails the whole save. A scope that still rejects on refusal (the dsh-web
-			* bridge scope) reports through the same failure path with its rejection
-			* message. A save that did not land keeps its drafts, so the user can
-			* correct them instead of retyping.
+			* or refuses the batch. The form contract answers a refusal or a skipped
+			* write with `false` (it recovers with a fresh Host view instead of
+			* throwing), so the outcome is judged twice: the answer itself, and then the
+			* settled snapshot read back one planned write at a time. One missed write
+			* fails the whole save. A transport that rejects instead (the dsh-web bridge
+			* controller on a dead connection) reports through the same failure path
+			* with its rejection message. A save that did not land keeps its drafts, so
+			* the user can correct them instead of retyping.
 			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
@@ -40348,12 +40617,13 @@ window.__ModuleLoader__.load({
 					path: [item.field]
 				});
 				let failedReason;
+				let accepted = false;
 				try {
-					await this.scope.mutate(ops);
+					accepted = await this.scope.mutate(ops);
 				} catch (error) {
 					failedReason = error instanceof Error ? error.message : String(error);
 				}
-				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				const landed = accepted && failedReason === void 0 && valid.every((item) => item.judge());
 				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
 				this.failed = !landed;
@@ -40747,7 +41017,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-tool-describe-image/src/client/DescribeImageSettingsCard.tsx
-		/** Bridges the `describe-image` scope onto the card's staged form. */
+		/** Bridges this plugin's configuration form onto the card's staged form. */
 		var DescribeImageSettingsCardController = class {
 			form;
 			store;
@@ -40756,7 +41026,7 @@ window.__ModuleLoader__.load({
 				models: []
 			};
 			disposed = false;
-			/** @param scope - the bound settings scope for the `describe-image` namespace. */
+			/** @param scope - the bound configuration form for the `describe-image` entry. */
 			constructor(scope) {
 				this.form = new CardForm$2(scope, [
 					textField("baseURL"),
@@ -40892,7 +41162,7 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Release the card's scope subscription and bound stores; the slot
+			* Release the card's form subscription and bound stores; the slot
 			* disposer calls this on teardown. A request still in flight settles into
 			* nothing once disposed.
 			*/
@@ -41312,7 +41582,7 @@ window.__ModuleLoader__.load({
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
 		* it publishes the `webUiSettings` service during `apply()`, which every
-		* family plugin already reads for its settings scope. Group loaded -> the family
+		* family plugin already reads for its settings form. Group loaded -> the family
 		* seat; group absent -> the official seat.
 		*
 		* The decision is re-evaluated on every `slots/changed` because the group may
@@ -41417,13 +41687,16 @@ window.__ModuleLoader__.load({
 			apply: () => apply$9,
 			inject: () => inject$9
 		});
-		/** Locale namespace of the browser half. */
+		/**
+		* Locale namespace of the browser half, and the family settings namespace its
+		* card binds — the profile entry id of a standalone install of this bundle.
+		*/
 		const NS$8 = "describe-image";
-		/** Required services: slots for the settings card, conversation for the send hook, settings scope and locale for the card copy. */
+		/** Required services: slots for the settings card, conversation for the send hook, the shared configuration forms and locale for the card copy. */
 		const inject$9 = [
 			"slots",
 			"conversation",
-			"settingsScope",
+			"configForms",
 			"locale"
 		];
 		/** Apply the browser half. */
@@ -41452,27 +41725,28 @@ window.__ModuleLoader__.load({
 			ctx.inject(["slots", "conversation"], (scope) => {
 				const conversation = scope.conversation;
 				scope.slots;
-				let settingsScopeRef;
+				let settingsFormRef;
 				let unsubscribeSettings;
-				installSendHook(conversation, () => settingsScopeRef?.getSnapshot().value?.interceptImageSend !== false, createImageCapabilityChecker());
+				installSendHook(conversation, () => settingsFormRef?.getSnapshot().value?.interceptImageSend !== false, createImageCapabilityChecker());
 				let previewRef;
 				ctx.effect(() => {
-					const handle = installConversationImagePreview(() => settingsScopeRef?.getSnapshot().value?.renderImagePreview !== false);
+					const handle = installConversationImagePreview(() => settingsFormRef?.getSnapshot().value?.renderImagePreview !== false);
 					previewRef = handle;
 					return () => {
 						previewRef = void 0;
 						unsubscribeSettings?.();
 						unsubscribeSettings = void 0;
-						settingsScopeRef = void 0;
+						settingsFormRef = void 0;
 						handle.dispose();
 					};
 				}, "dsh-tool-describe-image: conversation image preview");
-				ctx.inject(["settingsScope"], (settingsCtx) => {
-					const settingsScope = (settingsCtx.get("webUiSettings") ?? settingsCtx.settingsScope).bind({ namespace: NS$8 });
+				ctx.inject(["configForms"], (settingsCtx) => {
+					const binder = settingsCtx.get("webUiSettings");
+					const settingsForm = binder !== void 0 ? binder.bind({ namespace: NS$8 }) : settingsCtx.configForms.get(NS$8);
 					unsubscribeSettings?.();
-					settingsScopeRef = settingsScope;
-					unsubscribeSettings = settingsScope.subscribe(() => previewRef?.refresh());
-					const settingsCard = new DescribeImageSettingsCardController(settingsScope);
+					settingsFormRef = settingsForm;
+					unsubscribeSettings = settingsForm.subscribe(() => previewRef?.refresh());
+					const settingsCard = new DescribeImageSettingsCardController(settingsForm);
 					installPluginCard$2(settingsCtx, {
 						bundle: "@linxin666/dsh-tool-describe-image",
 						id: "describe-image",
@@ -41794,6 +42068,18 @@ window.__ModuleLoader__.load({
 		function isActionable(state) {
 			return state === "on" || state === "off";
 		}
+		/**
+		* Settings entry ids whose writes can move the roster this lever reads: the
+		* agent-preset registry's own entry (its default and selection policy) and this
+		* plugin's row under either install shape — the aggregate's generated row id
+		* and the standalone row id — because disabling the plugin unregisters the
+		* preset it declares.
+		*/
+		const ROSTER_SETTINGS_ENTRY_IDS = [
+			"agent-preset-registry",
+			"web-ui-liangshen",
+			"liangshen"
+		];
 		/** Read the preset a session summary reports, when it reports one. */
 		function presetOf(session) {
 			const value = session?.projectionValues?.["agentPreset"];
@@ -41843,7 +42129,7 @@ window.__ModuleLoader__.load({
 				}));
 				const remote = readService(() => this.ctx.remote);
 				if (typeof remote?.$on === "function") this.disposers.push(remote.$on("settings/document-updated", (ns) => {
-					if (ns === "agent-presets") this.load();
+					if (ROSTER_SETTINGS_ENTRY_IDS.includes(ns)) this.load();
 				}));
 				this.refresh();
 				if (this.remote !== void 0) this.load();
@@ -42594,31 +42880,31 @@ window.__ModuleLoader__.load({
 			specs;
 			staged = /* @__PURE__ */ new Map();
 			listeners = /* @__PURE__ */ new Set();
-			/** The scope subscription installed in the constructor; released by dispose(). */
-			disposeScope;
+			/** The form subscription installed in the constructor; released by dispose(). */
+			disposeForm;
 			disposed = false;
 			saving = false;
 			failed = false;
 			failedReason;
-			/** @param scope - the bound settings scope for this card's namespace. */
+			/** @param scope - the bound configuration form for this card's namespace. */
 			constructor(scope, specs) {
 				this.scope = scope;
 				this.specs = new Map(specs.map((spec) => [spec.field, spec]));
-				this.disposeScope = scope.subscribe(() => {
+				this.disposeForm = scope.subscribe(() => {
 					this.publish();
 				});
 			}
 			/**
-			* Release the scope subscription and every bound store listener. The card
+			* Release the form subscription and every bound store listener. The card
 			* must call this on teardown; later calls are no-ops.
 			*/
 			dispose() {
 				if (this.disposed) return;
 				this.disposed = true;
-				this.disposeScope();
+				this.disposeForm();
 				this.listeners.clear();
 			}
-			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
+			/** Publish a projection of this form, rebuilt whenever the form or a draft changes. */
 			bind(project) {
 				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
@@ -42685,19 +42971,19 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* Write every staged edit in one atomic form mutation, then re-seed from
 			* what the Host accepted.
 			*
 			* The whole batch rides one mutate, so cross-field validate hooks
 			* (baseURL+model) judge it as a unit: the Host either applies every write
-			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
-			* mutation — the scope recovers with a fresh Host view and resolves — so
-			* resolution alone proves nothing: the outcome is judged by reading the
-			* settled snapshot back, one planned write at a time, and one missed write
-			* fails the whole save. A scope that still rejects on refusal (the dsh-web
-			* bridge scope) reports through the same failure path with its rejection
-			* message. A save that did not land keeps its drafts, so the user can
-			* correct them instead of retyping.
+			* or refuses the batch. The form contract answers a refusal or a skipped
+			* write with `false` (it recovers with a fresh Host view instead of
+			* throwing), so the outcome is judged twice: the answer itself, and then the
+			* settled snapshot read back one planned write at a time. One missed write
+			* fails the whole save. A transport that rejects instead (the dsh-web bridge
+			* controller on a dead connection) reports through the same failure path
+			* with its rejection message. A save that did not land keeps its drafts, so
+			* the user can correct them instead of retyping.
 			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
@@ -42719,12 +43005,13 @@ window.__ModuleLoader__.load({
 					path: [item.field]
 				});
 				let failedReason;
+				let accepted = false;
 				try {
-					await this.scope.mutate(ops);
+					accepted = await this.scope.mutate(ops);
 				} catch (error) {
 					failedReason = error instanceof Error ? error.message : String(error);
 				}
-				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				const landed = accepted && failedReason === void 0 && valid.every((item) => item.judge());
 				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
 				this.failed = !landed;
@@ -42843,11 +43130,11 @@ window.__ModuleLoader__.load({
 			"balanced",
 			"aggressive"
 		];
-		/** Bridges the `dsh-liangshen` scope onto the card's staged form. */
+		/** Bridges the `liangshen` settings form onto the card's staged form. */
 		var LiangShenSettingsCardController = class {
 			form;
 			store;
-			/** @param scope - the bound settings scope for the `dsh-liangshen` namespace. */
+			/** @param scope - the bound configuration form of the entry that owns this namespace. */
 			constructor(scope) {
 				this.form = new CardForm$1(scope, [
 					booleanField$1("enabled"),
@@ -43076,11 +43363,11 @@ window.__ModuleLoader__.load({
 			"settings.title": "梁神模式",
 			"settings.description": "控制本插件与工具面呈现方式。",
 			"settings.enabled": "启用梁神模式",
-			"settings.enabledHint": "关闭后预设同步与 agent 公告都不执行。",
+			"settings.enabledHint": "关闭后不声明预设、也不发 agent 公告。",
 			"settings.announceToAgent": "向 agent 公告本插件",
 			"settings.announceToAgentHint": "开启后向每一轮 agent 系统提示注入本插件公告；默认关闭以保持提示词干净。",
 			"settings.presentation": "工具面呈现方式",
-			"settings.presentationHint": "写入同步后的预设：both（出厂默认）让原生清单与 run_code 同驻（原生直调优先）；native 保持原生工具清单；ptc 把 wire 收拢为 run_code。改动需重启 DSH 生效。",
+			"settings.presentationHint": "写入本插件声明的预设的 tool-catalog 行：both（出厂默认）让原生清单与 run_code 同驻（原生直调优先）；native 保持原生工具清单；ptc 把 wire 收拢为 run_code。改动立即生效，但已开始的会话保持其已声明的组合。",
 			"settings.on": "开",
 			"settings.off": "关",
 			"settings.inherit": "继承（跟随部署默认）",
@@ -43133,11 +43420,11 @@ window.__ModuleLoader__.load({
 			"settings.title": "LiangShen mode",
 			"settings.description": "Controls this plugin and the wire presentation.",
 			"settings.enabled": "Enable LiangShen mode",
-			"settings.enabledHint": "When off, neither preset sync nor the agent announcement runs.",
+			"settings.enabledHint": "When off, the preset is not declared and the agent announcement does not run.",
 			"settings.announceToAgent": "Announce this plugin to agents",
 			"settings.announceToAgentHint": "Adds this plugin announcement to every agent system prompt; off by default so prompts stay clean.",
 			"settings.presentation": "Wire presentation",
-			"settings.presentationHint": "Written into the synced preset: both (the shipped default) keeps the roster and run_code co-resident (direct native calls first); native keeps the native roster; ptc collapses the wire to run_code. Restart DSH for a change to take effect.",
+			"settings.presentationHint": "Written into the tool-catalog row of the preset this plugin declares: both (the shipped default) keeps the roster and run_code co-resident (direct native calls first); native keeps the native roster; ptc collapses the wire to run_code. A change re-declares the preset immediately; sessions that already started keep the composition they declared.",
 			"settings.on": "On",
 			"settings.off": "Off",
 			"settings.inherit": "Inherit (deployment default)",
@@ -43197,7 +43484,7 @@ window.__ModuleLoader__.load({
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
 		* it publishes the `webUiSettings` service during `apply()`, which every
-		* family plugin already reads for its settings scope. Group loaded -> the family
+		* family plugin already reads for its settings form. Group loaded -> the family
 		* seat; group absent -> the official seat.
 		*
 		* The decision is re-evaluated on every `slots/changed` because the group may
@@ -43310,19 +43597,26 @@ window.__ModuleLoader__.load({
 		});
 		/** Locale namespace this half owns. */
 		const NS$7 = "liangshen";
-		/** Settings namespace the settings card edits (the Host plugin registers it). */
-		const SETTINGS_NAMESPACE = "dsh-liangshen";
 		/**
-		* Required client services: the slot registry, locale, sessions, and the roster
-		* Remote. Both `remote` and `remote.agentPresets` are declared: the context
-		* proxy refuses an uninjected service, and a nested service name does not imply
-		* its parent, so reading `ctx.remote.agentPresets` needs `remote` as well.
+		* Settings namespace the settings card edits. Under the 0.1.7 settings
+		* contract the namespace IS the Host profile entry id, so this names the
+		* standalone row; the aggregate install mounts the generated
+		* `web-ui-liangshen` row instead and the family binder resolves between the
+		* two. Without that binder the card binds the entry id directly.
+		*/
+		const SETTINGS_NAMESPACE = "liangshen";
+		/**
+		* Required client services: the slot registry, locale, sessions, the shared
+		* configuration forms, and the roster Remote. Both `remote` and
+		* `remote.agentPresets` are declared: the context proxy refuses an uninjected
+		* service, and a nested service name does not imply its parent, so reading
+		* `ctx.remote.agentPresets` needs `remote` as well.
 		*/
 		const inject$8 = [
 			"slots",
 			"locale",
 			"sessions",
-			"settingsScope",
+			"configForms",
 			"remote",
 			"remote.agentPresets"
 		];
@@ -43348,7 +43642,8 @@ window.__ModuleLoader__.load({
 				controller.start();
 			} catch {}
 			try {
-				const settingsCard = new LiangShenSettingsCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: SETTINGS_NAMESPACE }));
+				const binder = ctx.get("webUiSettings");
+				const settingsCard = new LiangShenSettingsCardController(binder !== void 0 ? binder.bind({ namespace: SETTINGS_NAMESPACE }) : ctx.configForms.get(SETTINGS_NAMESPACE));
 				installPluginCard$1(ctx, {
 					bundle: "@linxin666/dsh-liangshen",
 					id: "liangshen",
@@ -46486,31 +46781,31 @@ window.__ModuleLoader__.load({
 			specs;
 			staged = /* @__PURE__ */ new Map();
 			listeners = /* @__PURE__ */ new Set();
-			/** The scope subscription installed in the constructor; released by dispose(). */
-			disposeScope;
+			/** The form subscription installed in the constructor; released by dispose(). */
+			disposeForm;
 			disposed = false;
 			saving = false;
 			failed = false;
 			failedReason;
-			/** @param scope - the bound settings scope for this card's namespace. */
+			/** @param scope - the bound configuration form for this card's namespace. */
 			constructor(scope, specs) {
 				this.scope = scope;
 				this.specs = new Map(specs.map((spec) => [spec.field, spec]));
-				this.disposeScope = scope.subscribe(() => {
+				this.disposeForm = scope.subscribe(() => {
 					this.publish();
 				});
 			}
 			/**
-			* Release the scope subscription and every bound store listener. The card
+			* Release the form subscription and every bound store listener. The card
 			* must call this on teardown; later calls are no-ops.
 			*/
 			dispose() {
 				if (this.disposed) return;
 				this.disposed = true;
-				this.disposeScope();
+				this.disposeForm();
 				this.listeners.clear();
 			}
-			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
+			/** Publish a projection of this form, rebuilt whenever the form or a draft changes. */
 			bind(project) {
 				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
@@ -46577,19 +46872,19 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* Write every staged edit in one atomic form mutation, then re-seed from
 			* what the Host accepted.
 			*
 			* The whole batch rides one mutate, so cross-field validate hooks
 			* (baseURL+model) judge it as a unit: the Host either applies every write
-			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
-			* mutation — the scope recovers with a fresh Host view and resolves — so
-			* resolution alone proves nothing: the outcome is judged by reading the
-			* settled snapshot back, one planned write at a time, and one missed write
-			* fails the whole save. A scope that still rejects on refusal (the dsh-web
-			* bridge scope) reports through the same failure path with its rejection
-			* message. A save that did not land keeps its drafts, so the user can
-			* correct them instead of retyping.
+			* or refuses the batch. The form contract answers a refusal or a skipped
+			* write with `false` (it recovers with a fresh Host view instead of
+			* throwing), so the outcome is judged twice: the answer itself, and then the
+			* settled snapshot read back one planned write at a time. One missed write
+			* fails the whole save. A transport that rejects instead (the dsh-web bridge
+			* controller on a dead connection) reports through the same failure path
+			* with its rejection message. A save that did not land keeps its drafts, so
+			* the user can correct them instead of retyping.
 			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
@@ -46611,12 +46906,13 @@ window.__ModuleLoader__.load({
 					path: [item.field]
 				});
 				let failedReason;
+				let accepted = false;
 				try {
-					await this.scope.mutate(ops);
+					accepted = await this.scope.mutate(ops);
 				} catch (error) {
 					failedReason = error instanceof Error ? error.message : String(error);
 				}
-				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				const landed = accepted && failedReason === void 0 && valid.every((item) => item.judge());
 				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
 				this.failed = !landed;
@@ -47730,11 +48026,11 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-doctor/src/client/DoctorSettingsCard.tsx
-		/** Bridges the `doctor` scope onto the card staged form. */
+		/** Bridges the `doctor` settings form onto the card staged form. */
 		var DoctorSettingsCardController = class {
 			form;
 			store;
-			/** @param scope - the bound settings scope for the `doctor` namespace. */
+			/** @param scope - the bound configuration form for the `doctor` settings entry. */
 			constructor(scope) {
 				this.form = new CardForm(scope, [
 					booleanField("enabled"),
@@ -48250,7 +48546,7 @@ window.__ModuleLoader__.load({
 		* The signal that actually distinguishes the two deployments is whether
 		* dsh-web-settings is loaded: it is the package that owns the group section and
 		* it publishes the `webUiSettings` service during `apply()`, which every
-		* family plugin already reads for its settings scope. Group loaded -> the family
+		* family plugin already reads for its settings form. Group loaded -> the family
 		* seat; group absent -> the official seat.
 		*
 		* The decision is re-evaluated on every `slots/changed` because the group may
@@ -48360,11 +48656,25 @@ window.__ModuleLoader__.load({
 		const NS$5 = "doctor";
 		/** Semantic plugin short name used on the console root container. */
 		const PLUGIN_SHORT_NAME = "doctor";
+		/**
+		* Profile entry id the family aggregate's generated row carries — the
+		* deployment shape nearly every user runs. Under 0.1.7 a settings form is
+		* addressed by profile entry id, so the shared-forms fallback below has to
+		* name it; the family binder resolves the family namespace instead.
+		*/
+		const AGGREGATE_ENTRY_ID = "web-ui-doctor";
+		/**
+		* Entry ids this package's rows carry, most common deployment first: the
+		* aggregate's generated row, then the bare family namespace — which is both
+		* the standalone bundle patch row id and the descriptor key a Host that keys
+		* rows by the plugin's own namespace reports.
+		*/
+		const DOCTOR_ENTRY_IDS = [AGGREGATE_ENTRY_ID, NS$5];
 		/** Services required by the browser half. */
 		const inject$6 = [
 			"slots",
 			"locale",
-			"settingsScope"
+			"configForms"
 		];
 		/** Apply-guard: a duplicated client injection must not mount a second card. */
 		let claimed = false;
@@ -48422,7 +48732,8 @@ window.__ModuleLoader__.load({
 			});
 			let cardController;
 			safe(() => {
-				cardController = new DoctorSettingsCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: NS$5 }));
+				const binder = ctx.get("webUiSettings");
+				cardController = new DoctorSettingsCardController(binder === void 0 || typeof binder.bind !== "function" ? ctx.configForms.get(doctorEntryId(ctx.configForms)) : binder.bind({ namespace: NS$5 }));
 			});
 			const label = () => {
 				try {
@@ -48451,6 +48762,28 @@ window.__ModuleLoader__.load({
 			try {
 				step();
 			} catch {}
+		}
+		/**
+		* The profile entry id this page serves the doctor config under.
+		*
+		* The shared describe mirror is the only local evidence of which row id this
+		* profile actually carries, but it answers asynchronously: at plugin
+		* activation it usually holds nothing yet. An unanswered mirror therefore
+		* binds the aggregate row id rather than guessing among the candidates — the
+		* form is bound once for the session, so a wrong guess would leave the card
+		* reporting an unserved namespace even after the mirror settles.
+		* @param forms - the shared configuration forms service.
+		* @returns the entry id to bind.
+		*/
+		function doctorEntryId(forms) {
+			let served;
+			try {
+				served = forms.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
+			} catch {
+				served = void 0;
+			}
+			if (served === void 0) return AGGREGATE_ENTRY_ID;
+			return DOCTOR_ENTRY_IDS.find((id) => served.includes(id)) ?? "doctor";
 		}
 		//#endregion
 		//#region ../dsh-usage/src/client/usage-store.ts
@@ -48531,6 +48864,7 @@ window.__ModuleLoader__.load({
 			"usage.config.title": "设置",
 			"usage.config.enabled": "启用插件",
 			"usage.config.pollIntervalSec": "轮询间隔（秒）",
+			"usage.config.saveFailed": "保存失败：设置未被接受。",
 			"usage.bank.title": "鲸元券",
 			"usage.bank.hint": "官方 API 每消耗 100 万 tokens 铸造 1 鲸元；保存或分享这张票券。",
 			"usage.bank.noUsage": "暂无 DeepSeek 官方用量数据（统计自插件启用起）",
@@ -48583,6 +48917,7 @@ window.__ModuleLoader__.load({
 			"usage.config.title": "Settings",
 			"usage.config.enabled": "Enable plugin",
 			"usage.config.pollIntervalSec": "Poll interval (seconds)",
+			"usage.config.saveFailed": "Save failed: the deployment did not accept the setting.",
 			"usage.bank.title": "Whale-yuan voucher",
 			"usage.bank.hint": "Every 1,000,000 tokens spent on the official API mint one whale yuan; save or share the note.",
 			"usage.bank.noUsage": "No official DeepSeek usage yet (counting starts when the plugin is enabled)",
@@ -49964,42 +50299,72 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
+		/**
+		* The compact settings row. Both controls write through the shared form the
+		* moment the user changes them, and the Host answers each write with a
+		* boolean: a refused (or transport-failed) write is surfaced as a failed save,
+		* because a value that did not land must never read as applied.
+		*/
 		function SettingsRow(props) {
 			const { settings, snapshot, value } = props;
 			const disabled = snapshot === void 0 || !snapshot.writable;
+			const [failure, setFailure] = (0, react.useState)(void 0);
+			const write = (field, next) => {
+				setFailure(void 0);
+				let answer;
+				try {
+					answer = settings.set(field, next);
+				} catch (error) {
+					setFailure(error instanceof Error ? error.message : String(error));
+					return;
+				}
+				Promise.resolve(answer).then((accepted) => {
+					if (!accepted) setFailure("");
+				}, (error) => {
+					setFailure(error instanceof Error ? error.message : String(error));
+				});
+			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: usage_module_css_default.card,
 				"data-dsh-part": "settings-row",
-				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-					className: usage_module_css_default.cardTitle,
-					children: t$2("usage.config.title")
-				}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: usage_module_css_default.settingsGrid,
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-						className: usage_module_css_default.settingItem,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-							type: "checkbox",
-							checked: value.enabled ?? true,
-							disabled,
-							onChange: (event) => {
-								settings.set("enabled", event.target.checked);
-							}
-						}), t$2("usage.config.enabled")]
-					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-						className: usage_module_css_default.settingItem,
-						children: [t$2("usage.config.pollIntervalSec"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-							type: "number",
-							min: 30,
-							max: 3600,
-							value: typeof value.pollIntervalSec === "number" ? value.pollIntervalSec : 60,
-							disabled,
-							onChange: (event) => {
-								const parsed = Number(event.target.value);
-								if (Number.isFinite(parsed) && parsed >= 30 && parsed <= 3600) settings.set("pollIntervalSec", Math.round(parsed));
-							}
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: usage_module_css_default.cardTitle,
+						children: t$2("usage.config.title")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: usage_module_css_default.settingsGrid,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+							className: usage_module_css_default.settingItem,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								type: "checkbox",
+								checked: value.enabled ?? true,
+								disabled,
+								onChange: (event) => {
+									write("enabled", event.target.checked);
+								}
+							}), t$2("usage.config.enabled")]
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+							className: usage_module_css_default.settingItem,
+							children: [t$2("usage.config.pollIntervalSec"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								type: "number",
+								min: 30,
+								max: 3600,
+								value: typeof value.pollIntervalSec === "number" ? value.pollIntervalSec : 60,
+								disabled,
+								onChange: (event) => {
+									const parsed = Number(event.target.value);
+									if (Number.isFinite(parsed) && parsed >= 30 && parsed <= 3600) write("pollIntervalSec", Math.round(parsed));
+								}
+							})]
 						})]
-					})]
-				})]
+					}),
+					failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+						className: usage_module_css_default.errorLine,
+						role: "status",
+						children: [t$2("usage.config.saveFailed"), failure === "" ? "" : " - " + failure]
+					})
+				]
 			});
 		}
 		//#endregion
@@ -50022,7 +50387,7 @@ window.__ModuleLoader__.load({
 			overview: () => usageFetch("/api/dsh-usage/overview", "GET"),
 			refresh: () => usageFetch("/api/dsh-usage/refresh", "POST")
 		};
-		/** Settings namespace the section edits (the host plugin registers it). */
+		/** Settings namespace the section edits (dsh-web-settings maps it onto this row's profile entry id). */
 		const USAGE_SETTINGS_NS = "dsh-usage";
 		/** First-level nav position: directly below the Workshop section (order 150). */
 		const SECTION_ORDER$1 = 151;
@@ -50031,7 +50396,7 @@ window.__ModuleLoader__.load({
 			"slots",
 			"locale",
 			"connection",
-			"settingsScope",
+			"configForms",
 			"remote"
 		];
 		/**
@@ -50051,7 +50416,8 @@ window.__ModuleLoader__.load({
 					return () => {};
 				}
 			}, "dsh-usage: dictionaries");
-			const settingsScope = (ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: USAGE_SETTINGS_NS });
+			const binder = ctx.get("webUiSettings");
+			const settingsForm = binder !== void 0 ? binder.bind({ namespace: USAGE_SETTINGS_NS }) : ctx.configForms.get(USAGE_SETTINGS_NS);
 			const store = createUsageStore().create();
 			let pollSeq = 0;
 			const poll = () => {
@@ -50080,7 +50446,7 @@ window.__ModuleLoader__.load({
 				store,
 				poll,
 				refresh,
-				settings: settingsScope
+				settings: settingsForm
 			});
 			ctx.slots.inject("settings.section", () => {
 				try {
@@ -50790,6 +51156,7 @@ window.__ModuleLoader__.load({
 			"arch.auto.neverRun": "尚未运行",
 			"arch.auto.basis": "口径说明：自动归档按会话最后活动时间判断（不是创建时间）；自动删除按归档时间判断（不是文件时间）。归档时间未知的历史归档会话不会被自动删除，恢复后再次归档将重新计算保留期。运行中、当前正在查看以及有运行中子会话的会话始终受保护。",
 			"arch.auto.cycleRunning": "自动检查正在运行…",
+			"arch.auto.saveFailed": "保存失败：宿主未接受该设置，请重试",
 			"arch.auto.runError": "执行失败：{error}",
 			"arch.time.unknown": "未知",
 			"arch.current.badge": "当前"
@@ -50916,6 +51283,7 @@ window.__ModuleLoader__.load({
 			"arch.auto.neverRun": "Never run",
 			"arch.auto.basis": "How it counts: auto-archive uses the session last-activity time (not creation time); auto-delete uses the recorded archive time (not file times). Historical archives with unknown archive time are never auto-deleted; restoring and re-archiving restarts the retention clock. Running sessions, the session you are viewing, and sessions with running children are always protected.",
 			"arch.auto.cycleRunning": "An automatic check is running…",
+			"arch.auto.saveFailed": "Save failed: the Host did not accept the setting; please retry",
 			"arch.auto.runError": "Run failed: {error}",
 			"arch.time.unknown": "unknown",
 			"arch.current.badge": "current"
@@ -51383,6 +51751,14 @@ window.__ModuleLoader__.load({
 			const autoPreview = ui.autoPreview;
 			const autoPreviewLoading = ui.autoPreviewLoading;
 			const cycleRunning = props.auto?.cycleRunning === true;
+			const [saveFailed, setSaveFailed] = (0, react.useState)(false);
+			const write = (field, value) => {
+				props.settings.set(field, value).then((accepted) => {
+					setSaveFailed(!accepted);
+				}, () => {
+					setSaveFailed(true);
+				});
+			};
 			const runStatsLine = (stats, key) => {
 				if (stats === void 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 					className: archive_module_css_default.muted,
@@ -51416,7 +51792,7 @@ window.__ModuleLoader__.load({
 								type: "checkbox",
 								checked: value.autoArchiveEnabled === true,
 								onChange: (event) => {
-									props.settings.set("autoArchiveEnabled", event.target.checked);
+									write("autoArchiveEnabled", event.target.checked);
 								}
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t$1("arch.auto.archiveToggle") })]
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DaysInput, {
@@ -51425,7 +51801,7 @@ window.__ModuleLoader__.load({
 							max: AUTO_ARCHIVE_DAYS_MAX,
 							label: t$1("arch.auto.archiveDays"),
 							onSave: (value) => {
-								props.settings.set("autoArchiveDays", value);
+								write("autoArchiveDays", value);
 							}
 						})]
 					}),
@@ -51437,7 +51813,7 @@ window.__ModuleLoader__.load({
 								type: "checkbox",
 								checked: value.autoDeleteEnabled === true,
 								onChange: (event) => {
-									props.settings.set("autoDeleteEnabled", event.target.checked);
+									write("autoDeleteEnabled", event.target.checked);
 								}
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t$1("arch.auto.deleteToggle") })]
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DaysInput, {
@@ -51446,9 +51822,15 @@ window.__ModuleLoader__.load({
 							max: AUTO_DELETE_DAYS_MAX,
 							label: t$1("arch.auto.deleteDays"),
 							onSave: (value) => {
-								props.settings.set("autoDeleteDays", value);
+								write("autoDeleteDays", value);
 							}
 						})]
+					}),
+					saveFailed && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: archive_module_css_default.failText,
+						role: "status",
+						"data-dsh-part": "settings-save-failed",
+						children: t$1("arch.auto.saveFailed")
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: archive_module_css_default.autoActions,
@@ -52129,8 +52511,14 @@ window.__ModuleLoader__.load({
 			apply: () => apply$4,
 			inject: () => inject$4
 		});
-		/** Settings namespace the section edits (the host plugin registers it). */
-		const ARCHIVE_SETTINGS_NS = "dsh-session-archive";
+		/**
+		* Settings this section edits. The family binder (`ctx.get('webUiSettings')`)
+		* resolves it onto the row's profile entry id — `web-ui-session-archive` under
+		* the aggregate, `session-archive` standalone — while a deployment without the
+		* group plugin addresses the entry id directly, which is the bundle patch row
+		* id this package installs under.
+		*/
+		const ARCHIVE_SETTINGS_NS = "session-archive";
 		/**
 		* Nav position (and id) of the official archived-sessions entry this plugin
 		* supersedes: the native page seats `settings.section` id
@@ -52144,7 +52532,7 @@ window.__ModuleLoader__.load({
 			"slots",
 			"locale",
 			"connection",
-			"settingsScope",
+			"configForms",
 			"remote",
 			"sessions"
 		];
@@ -52165,7 +52553,8 @@ window.__ModuleLoader__.load({
 					return () => {};
 				}
 			}, "dsh-session-archive: dictionaries");
-			const settingsScope = (ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: ARCHIVE_SETTINGS_NS });
+			const binder = ctx.get("webUiSettings");
+			const settingsForm = binder !== void 0 ? binder.bind({ namespace: ARCHIVE_SETTINGS_NS }) : ctx.configForms.get(ARCHIVE_SETTINGS_NS);
 			const controller = new ArchiveController({ sessions: (() => {
 				try {
 					const sessions = ctx.get("sessions");
@@ -52188,7 +52577,7 @@ window.__ModuleLoader__.load({
 			})() });
 			const face = () => ({
 				controller,
-				settings: settingsScope
+				settings: settingsForm
 			});
 			ctx.slots.inject("settings.section", () => {
 				try {
@@ -52364,8 +52753,70 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../dsh-model-capabilities/src/core/provider-toggle.ts
-		/** This plugin's own settings namespace (registered by the host half). */
-		const CAPS_SETTINGS_NAMESPACE = "dsh-model-capabilities";
+		/**
+		* Profile entry ids this plugin's own row carries, in resolution order.
+		*
+		* The 0.1.7 settings surface addresses one form per ACTIVE PROFILE ENTRY ID
+		* (`ctx.configForms.get(entryId)`, `settings.describe()` keyed by entry id)
+		* and carries no package identity, so this plugin's own settings entry is the
+		* profile row that mounts it — and that row id differs per install source: the
+		* package's own cordis.patch.yml inserts `ui-model-capabilities`, while the
+		* aggregate bundle namespaces every child row as `web-ui-*`
+		* (scripts/aggregate.mjs) and mounts the same plugin under
+		* `web-ui-model-capabilities`.
+		*/
+		const CAPS_ENTRY_IDS = ["ui-model-capabilities", "web-ui-model-capabilities"];
+		/** Whether a value is a plain data object (not an array or null). */
+		function isRecord$2(value) {
+			return typeof value === "object" && value !== null && !Array.isArray(value);
+		}
+		/**
+		* Resolve one node of a serialized schema. A schemastery `toJSON()` envelope
+		* keeps every node in `refs` and refers to it by uid, so a field reference is
+		* either that uid or — in a hand-built schema — the node itself.
+		*/
+		function schemaNode(value, refs) {
+			if (isRecord$2(value) && typeof value["type"] === "string") return value;
+			const key = isRecord$2(value) ? value["uid"] : value;
+			if (key === void 0) return void 0;
+			const node = refs[String(key)];
+			return isRecord$2(node) ? node : void 0;
+		}
+		/**
+		* Whether one served form schema is this plugin's own archive schema: a single
+		* open-typed `disabled` field, exactly the shape the host half's Config
+		* declares. Identifies this plugin's entry when the profile renamed the row.
+		*/
+		function isArchiveSchema(schema) {
+			if (!isRecord$2(schema)) return false;
+			const refs = isRecord$2(schema["refs"]) ? schema["refs"] : {};
+			const root = schemaNode(schema, refs);
+			if (root?.["type"] !== "object" || !isRecord$2(root["dict"])) return false;
+			const fields = Object.keys(root["dict"]);
+			if (fields.length !== 1 || fields[0] !== "disabled") return false;
+			return schemaNode(root["dict"][fields[0]], refs)?.["type"] === "any";
+		}
+		/**
+		* Resolve the served settings form that is this plugin's own settings entry:
+		* the row id this deployment mounts it under, or the entry whose form schema
+		* is this plugin's archive schema (a profile that renamed the row).
+		* @param namespaces - every form the Host served in one describe answer.
+		* @returns the entry id and its view, or undefined when nothing served is this plugin's entry.
+		*/
+		function resolveArchiveEntry(namespaces) {
+			for (const id of CAPS_ENTRY_IDS) {
+				const view = namespaces.find((form) => form.ns === id);
+				if (view !== void 0) return {
+					entryId: id,
+					view
+				};
+			}
+			const view = namespaces.find((form) => isArchiveSchema(form.schema));
+			return view === void 0 ? void 0 : {
+				entryId: view.ns,
+				view
+			};
+		}
 		/** Whether a value is a plain data object (not an array, null, or class instance). */
 		function isPlainObject(value) {
 			return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -52466,8 +52917,8 @@ window.__ModuleLoader__.load({
 			const described = await face.describe();
 			if (!described.ok) return refused(described.error);
 			const llmView = viewOf(described.value.namespaces, llmNs);
-			const capsView = viewOf(described.value.namespaces, CAPS_SETTINGS_NAMESPACE);
-			if (llmView === void 0 || capsView === void 0) return { kind: "unavailable" };
+			const archive = resolveArchiveEntry(described.value.namespaces);
+			if (llmView === void 0 || archive === void 0) return { kind: "unavailable" };
 			const profile = profileAt(llmView.user, route);
 			if (profile === void 0) return { kind: "no-profile" };
 			if (hasNonUserProfile(llmView, route)) return { kind: "base-profile" };
@@ -52475,8 +52926,8 @@ window.__ModuleLoader__.load({
 				profile,
 				...displayName !== void 0 ? { displayName } : {}
 			};
-			const stashed = await face.mutate(CAPS_SETTINGS_NAMESPACE, [buildStashOp(route, stash)], capsView.revision);
-			if (!stashed.ok) return failureOf(CAPS_SETTINGS_NAMESPACE, stashed.error);
+			const stashed = await face.mutate(archive.entryId, [buildStashOp(route, stash)], archive.view.revision);
+			if (!stashed.ok) return failureOf(archive.entryId, stashed.error);
 			const taken = await face.mutate(llmNs, [buildUnsetProviderOp(route)], llmView.revision);
 			if (!taken.ok) return failureOf(llmNs, taken.error);
 			return { kind: "ok" };
@@ -52493,14 +52944,14 @@ window.__ModuleLoader__.load({
 			const described = await face.describe();
 			if (!described.ok) return refused(described.error);
 			const llmView = viewOf(described.value.namespaces, llmNs);
-			const capsView = viewOf(described.value.namespaces, CAPS_SETTINGS_NAMESPACE);
-			if (llmView === void 0 || capsView === void 0) return { kind: "unavailable" };
+			const archive = resolveArchiveEntry(described.value.namespaces);
+			if (llmView === void 0 || archive === void 0) return { kind: "unavailable" };
 			if (hasProfileAt(llmView.user, route)) return { kind: "route-exists" };
-			const stash = readDisabledStore(capsView.value)[route];
+			const stash = readDisabledStore(archive.view.value)[route];
 			if (stash === void 0) return { kind: "no-stash" };
 			const restored = await face.mutate(llmNs, [buildRestoreProviderOp(route, stash.profile)], llmView.revision);
 			if (!restored.ok) return failureOf(llmNs, restored.error);
-			const cleared = await face.mutate(CAPS_SETTINGS_NAMESPACE, [buildUnstashOp(route)], capsView.revision);
+			const cleared = await face.mutate(archive.entryId, [buildUnstashOp(route)], archive.view.revision);
 			if (!cleared.ok) return {
 				kind: "partial",
 				message: cleared.error.message
@@ -52564,7 +53015,7 @@ window.__ModuleLoader__.load({
 			"caps.error.routeExists": "该提供方已存在新配置，无法恢复存档；请先移除现有配置再启用。",
 			"caps.error.partialEnable": "已启用，但清理存档失败：{error}",
 			"caps.error.baseProfile": "该提供方在组合层也声明了配置，禁用无法让它下线，因此不提供此操作。",
-			"caps.error.unavailable": "无法切换：插件的存档命名空间未注册。"
+			"caps.error.unavailable": "无法切换：未找到插件的存档设置项。"
 		};
 		/** English copy (full key parity with zh). */
 		const en$2 = {
@@ -52613,7 +53064,7 @@ window.__ModuleLoader__.load({
 			"caps.error.routeExists": "The provider already has a newer configuration; the archive cannot be restored. Remove the current configuration first, then enable.",
 			"caps.error.partialEnable": "Enabled, but clearing the archive failed: {error}",
 			"caps.error.baseProfile": "The composition layer also declares this provider, so disabling cannot take it down; the action is not offered.",
-			"caps.error.unavailable": "Cannot toggle: the plugin archive namespace is not registered."
+			"caps.error.unavailable": "Cannot toggle: the plugin archive settings entry is not served."
 		};
 		/**
 		* Active dictionary, picked by the document language at call time (the same
@@ -52695,17 +53146,17 @@ window.__ModuleLoader__.load({
 		* The slot owner passes the card's directory row (`provider.settingsNs` /
 		* `provider.settingsPath` address the profile inside the settings document)
 		* and the apply body injects the settings namespace face plus the refresh
-		* bus; this panel reads the redacted namespace views over the remote settings
+		* bus; this panel reads the redacted entry views over the remote settings
 		* wire, drafts reasoning-effort declarations per model, and saves them as one
 		* whole-array path op with revision fencing — the same write granularity and
 		* conflict posture the official card uses. Model input types belong to the
 		* Models page's own editor since 0.1.6-alpha.2, so the draft preserves the
 		* `input` claim instead of rewriting it.
 		*
-		* The toggle uses the plugin's archive namespace: disabling stashes the
+		* The toggle uses this plugin's own settings entry: disabling stashes the
 		* user-layer profile and unsets `providers.<route>` (the official
 		* Remove-provider seam), which takes the provider out of the model catalog
-		* both pickers read; enabling restores it. A missing namespace or a refused
+		* both pickers read; enabling restores it. A missing entry or a refused
 		* read renders the failure inline, never a blank.
 		* @module @linxin666/dsh-client-ui-model-capabilities/client/CapabilitiesPanel
 		*/
@@ -52747,9 +53198,9 @@ window.__ModuleLoader__.load({
 					if (!described.ok) throw new Error(failureText(described.error));
 					const namespaces = described.value.namespaces;
 					const view = namespaces.find((candidate) => candidate.ns === provider.settingsNs);
-					if (view === void 0) throw new Error(`settings namespace "${provider.settingsNs}" is not registered on this host`);
-					const capsView = namespaces.find((candidate) => candidate.ns === CAPS_SETTINGS_NAMESPACE);
-					const stash = readDisabledStore(capsView?.value);
+					if (view === void 0) throw new Error(`settings entry "${provider.settingsNs}" is not served on this host`);
+					const archive = resolveArchiveEntry(namespaces);
+					const stash = readDisabledStore(archive?.view.value);
 					const userProfile = hasProfileAt(view.user, provider.provider);
 					const userModels = modelsArrayOf(readAt(view.user, modelsPath));
 					const effective = userModels ?? modelsArrayOf(readAt(view.value, modelsPath)) ?? [];
@@ -52762,7 +53213,7 @@ window.__ModuleLoader__.load({
 						userProfile,
 						baseProfile: hasNonUserProfile(view, provider.provider),
 						disabledHere: stash[provider.provider] !== void 0 && !userProfile,
-						capsKnown: capsView !== void 0
+						capsKnown: archive !== void 0
 					});
 					if (basis === void 0) setDraft(null);
 					setStaleDraft(basis !== void 0 && basis !== view.revision);
@@ -53303,9 +53754,9 @@ window.__ModuleLoader__.load({
 				try {
 					const described = await face.describe();
 					if (!described.ok) return;
-					const view = described.value.namespaces.find((candidate) => candidate.ns === CAPS_SETTINGS_NAMESPACE);
-					if (view === void 0) return;
-					setStash(readDisabledStore(view.value));
+					const archive = resolveArchiveEntry(described.value.namespaces);
+					if (archive === void 0) return;
+					setStash(readDisabledStore(archive.view.value));
 					setLlmView(described.value.namespaces.find((candidate) => candidate.ns === PI_AI_SETTINGS_NAMESPACE));
 					setKnown(true);
 				} catch {}
@@ -53479,7 +53930,7 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => {
 				try {
 					return ctx.remote.$on("settings/document-updated", (ns) => {
-						if (ns === "llm-pi-ai" || ns === "dsh-model-capabilities") refresh.notify();
+						if (ns === "llm-pi-ai" || CAPS_ENTRY_IDS.includes(ns)) refresh.notify();
 					});
 				} catch {
 					return () => {};
@@ -53562,14 +54013,14 @@ window.__ModuleLoader__.load({
 		//#region ../dsh-preset-center/src/client/PresetPanel.tsx
 		/**
 		* The Workshop's Presets panel: browse the community preset catalog and drive
-		* the host library (install into `$DSH_HOME/agent-presets/<id>`, enable into
-		* the discovery root, disable back, uninstall), with the composition profile
-		* shown before anything executable is enabled.
+		* the host library (install into `$DSH_HOME/agent-presets/<id>` and declare it
+		* to the agent-preset registry, disable, uninstall), with the composition
+		* profile shown before anything executable is declared.
 		*
 		* The panel owns no catalog fetch: the Workshop card already fetches
 		* `manifest/presets.json` and passes the records down, so one store section
 		* makes one catalog request. Preset state comes from the preset-center host
-		* routes, which derive it from disk on every read.
+		* routes, which derive it from disk and the live declarations on every read.
 		* @module @linxin666/dsh-client-ui-preset-center/client/PresetPanel
 		*/
 		const EMPTY_PROFILE = {
@@ -53641,7 +54092,7 @@ window.__ModuleLoader__.load({
 		}
 		/** Whether the catalog advertises a version newer than the installed one. */
 		function hasUpdate(record, row) {
-			if (row === void 0 || !row.installed && !row.enabled) return false;
+			if (row === void 0 || !row.installed) return false;
 			if (record.version === void 0 || row.assetVersion === void 0) return false;
 			return compareVersions(record.version, row.assetVersion) > 0;
 		}
@@ -53654,7 +54105,7 @@ window.__ModuleLoader__.load({
 			const [busy, setBusy] = (0, react.useState)(null);
 			const [notes, setNotes] = (0, react.useState)({});
 			const [viewer, setViewer] = (0, react.useState)(null);
-			const [confirmEnable, setConfirmEnable] = (0, react.useState)(null);
+			const [confirmInstall, setConfirmInstall] = (0, react.useState)(null);
 			const [confirmUninstall, setConfirmUninstall] = (0, react.useState)(null);
 			const [reload, setReload] = (0, react.useState)(0);
 			(0, react.useEffect)(() => {
@@ -53704,6 +54155,42 @@ window.__ModuleLoader__.load({
 					setBusy(null);
 				}
 			};
+			/** Declare one installed preset, asking for confirmation when it carries code. */
+			const declareNow = async (record, confirm, success) => {
+				const res = await postJson("/api/preset-center/install", {
+					id: record.id,
+					confirm
+				});
+				if (res.data.ok === true) {
+					setConfirmInstall(null);
+					note(record.id, t(success, {}));
+					refresh();
+					return;
+				}
+				if (res.data.error === "confirmation-required") {
+					setConfirmInstall({
+						id: record.id,
+						name: displayName(record),
+						profile: res.data.profile ?? EMPTY_PROFILE
+					});
+					return;
+				}
+				if (res.data.error === "broken" || res.data.error === "invalid-composition") {
+					note(record.id, t("note.broken", { reason: res.data.message ?? "" }));
+					refresh();
+					return;
+				}
+				if (res.data.error === "shadowed") {
+					note(record.id, t("note.shadowed", {}));
+					refresh();
+					return;
+				}
+				if (res.data.error === "roster-unavailable") {
+					note(record.id, t("note.rosterUnavailable", {}));
+					return;
+				}
+				note(record.id, t("note.actionFailed", { reason: res.data.message ?? res.data.error ?? "HTTP " + res.status }));
+			};
 			const install = (record, force) => run(record.id, "install", async () => {
 				if (props.install === void 0) return;
 				try {
@@ -53717,8 +54204,8 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				props.reportInstall?.(record.id).catch(() => {});
-				note(record.id, force ? t("note.updated", {}) : t("state.installed", {}));
 				refresh();
+				await declareNow(record, false, force ? "note.updated" : "note.enabled");
 			});
 			const update = (record, row) => run(record.id, "update", async () => {
 				if (props.install === void 0) return;
@@ -53739,52 +54226,14 @@ window.__ModuleLoader__.load({
 				}
 				props.reportInstall?.(record.id).catch(() => {});
 				if (wasEnabled) {
-					const on = await postJson("/api/preset-center/enable", {
-						id: record.id,
-						confirm: true
-					});
-					if (on.data.ok !== true) {
-						note(record.id, t("note.broken", { reason: on.data.message ?? on.data.error ?? "HTTP " + on.status }));
-						refresh();
-						return;
-					}
+					await declareNow(record, true, "note.updated");
+					return;
 				}
 				note(record.id, t("note.updated", {}));
 				refresh();
 			});
-			const enable = (record, row, confirm) => run(record.id, "enable", async () => {
-				const res = await postJson("/api/preset-center/enable", {
-					id: record.id,
-					confirm
-				});
-				if (res.data.ok === true) {
-					setConfirmEnable(null);
-					note(record.id, t("note.enabled", {}));
-					refresh();
-					return;
-				}
-				if (res.data.error === "confirmation-required") {
-					setConfirmEnable({
-						id: record.id,
-						name: displayName(record),
-						profile: res.data.profile ?? row.profile
-					});
-					return;
-				}
-				if (res.data.error === "broken") {
-					note(record.id, t("note.broken", { reason: res.data.message ?? "" }));
-					refresh();
-					return;
-				}
-				if (res.data.error === "shadowed") {
-					note(record.id, t("note.shadowed", {}));
-					return;
-				}
-				if (res.data.error === "roster-unavailable") {
-					note(record.id, t("note.rosterUnavailable", {}));
-					return;
-				}
-				note(record.id, t("note.actionFailed", { reason: res.data.message ?? res.data.error ?? "HTTP " + res.status }));
+			const enable = (record, confirm) => run(record.id, "enable", async () => {
+				await declareNow(record, confirm, "note.enabled");
 			});
 			const disable = (record) => run(record.id, "disable", async () => {
 				const res = await postJson("/api/preset-center/disable", { id: record.id });
@@ -53851,10 +54300,6 @@ window.__ModuleLoader__.load({
 					key: "state.local",
 					tone: preset_center_module_css_default.badgeWarn
 				};
-				if (row.conflict) return {
-					key: "state.conflict",
-					tone: preset_center_module_css_default.badgeWarn
-				};
 				if (row.integrity === "modified") return {
 					key: "state.modified",
 					tone: preset_center_module_css_default.badgeWarn
@@ -53912,7 +54357,7 @@ window.__ModuleLoader__.load({
 							const profile = row?.profile ?? EMPTY_PROFILE;
 							const updateAvailable = hasUpdate(record, row);
 							const busyHere = busy === record.id;
-							const blockedByLocal = row !== void 0 && !row.managed && (row.installed || row.enabled);
+							const blockedByLocal = row !== void 0 && !row.managed && row.installed;
 							const installable = gateway && props.install !== void 0 && !occupied.has(record.id) && !blockedByLocal;
 							const installs = props.installs?.[record.id] ?? 0;
 							return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -53985,11 +54430,11 @@ window.__ModuleLoader__.load({
 												className: preset_center_module_css_default.primary,
 												disabled: !gateway || busyNow || occupied.has(record.id),
 												onClick: () => {
-													enable(record, row, false);
+													enable(record, false);
 												},
 												children: busyHere ? t("installing", {}) : t("action.enable", {})
 											}) : null,
-											row !== void 0 && row.managed && row.enabled && !row.conflict ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+											row !== void 0 && row.managed && row.enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 												className: preset_center_module_css_default.secondary,
 												disabled: !gateway || busyNow,
 												onClick: () => {
@@ -54052,34 +54497,33 @@ window.__ModuleLoader__.load({
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
 						title: t("confirm.title", {}),
-						open: confirmEnable !== null,
+						open: confirmInstall !== null,
 						onClose: () => {
-							setConfirmEnable(null);
+							setConfirmInstall(null);
 						},
 						closeLabel: t("action.cancel", {}),
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: t("confirm.text", {
-							name: confirmEnable?.name ?? "",
+							name: confirmInstall?.name ?? "",
 							detail: t("code.detail", {
-								files: String(confirmEnable?.profile.codeFiles.length ?? 0),
-								expressions: String(confirmEnable?.profile.inlineExpressions ?? 0),
-								plugins: String(confirmEnable?.profile.plugins.length ?? 0)
+								files: String(confirmInstall?.profile.codeFiles.length ?? 0),
+								expressions: String(confirmInstall?.profile.inlineExpressions ?? 0),
+								plugins: String(confirmInstall?.profile.plugins.length ?? 0)
 							})
 						}) }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: preset_center_module_css_default.modalActions,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								className: preset_center_module_css_default.primary,
 								onClick: () => {
-									const target = confirmEnable;
-									setConfirmEnable(null);
+									const target = confirmInstall;
+									setConfirmInstall(null);
 									const record = rows.find((entry) => entry.id === target?.id);
-									const row = target === null ? void 0 : stateById.get(target.id);
-									if (record !== void 0 && row !== void 0) enable(record, row, true);
+									if (record !== void 0) enable(record, true);
 								},
 								children: t("action.enable", {})
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								className: preset_center_module_css_default.secondary,
 								onClick: () => {
-									setConfirmEnable(null);
+									setConfirmInstall(null);
 								},
 								children: t("action.cancel", {})
 							})]
@@ -54130,13 +54574,13 @@ window.__ModuleLoader__.load({
 			"state.modified": "本地已修改",
 			"state.conflict": "目录状态异常",
 			"state.local": "本地自建同名预设",
-			"state.shadowed": "id 已被内置或其它来源占用",
+			"state.shadowed": "id 已被其它插件声明的预设占用",
 			"state.newVersion": "有新版本 {version}",
 			"state.broken": "无法加载",
 			"action.install": "安装",
 			"action.update": "更新",
 			"action.enable": "启用",
-			"action.disable": "禁用",
+			"action.disable": "停用",
 			"action.uninstall": "卸载",
 			"action.view": "查看组合",
 			"action.cancel": "取消",
@@ -54145,23 +54589,23 @@ window.__ModuleLoader__.load({
 			"code.inline": "含内联表达式",
 			"code.none": "仅组合已安装插件",
 			"code.detail": "{files} 个代码文件 · {expressions} 个 !!js 表达式 · {plugins} 个插件",
-			"confirm.title": "启用可执行预设",
-			"confirm.text": "「{name}」启用后会在 DSH 主进程内加载其组合内容，权限等同 shell 访问。{detail} 确认继续？",
+			"confirm.title": "安装可执行预设",
+			"confirm.text": "「{name}」安装后会在 DSH 主进程内加载其组合内容，权限等同 shell 访问。{detail} 确认继续？",
 			"uninstall.title": "卸载预设",
-			"uninstall.text": "将删除「{name}」的本地文件（库与启用目录中的副本）。已使用该预设的会话不受影响。",
+			"uninstall.text": "将注销「{name}」并删除其本地文件（$DSH_HOME/agent-presets 中的副本）。已使用该预设的会话不受影响。",
 			"viewer.title": "{name} · agent.cordis.yml",
 			"viewer.empty": "（组合文件为空或不可读）",
 			"note.installFailed": "安装失败：{reason}",
 			"note.conflict": "本地已存在同名目录，未覆盖任何文件",
 			"note.actionFailed": "操作失败：{reason}",
-			"note.enabled": "已启用，刷新页面后出现在「设置 → Agent 预设」",
-			"note.disabled": "已禁用，该预设已从「设置 → Agent 预设」移除",
+			"note.enabled": "已安装并启用；刷新页面后在「设置 → Agent 预设」中可见",
+			"note.disabled": "已停用；文件仍保留在预设库中，可随时重新启用",
 			"note.uninstalled": "已卸载",
 			"note.updated": "已更新到最新版本",
-			"note.broken": "无法启用：{reason}",
-			"note.shadowed": "该 id 已被内置或其它来源的预设占用，启用不会生效",
+			"note.broken": "无法加载：{reason}",
+			"note.shadowed": "该 id 已被另一插件声明的预设占用，无法声明",
 			"note.defaultPreset": "这是当前默认预设，请先在「设置 → Agent 预设」切换默认值",
-			"note.rosterUnavailable": "宿主未提供 agent-presets 服务，无法校验预设 id",
+			"note.rosterUnavailable": "宿主未提供 agent-preset 注册表服务，无法声明预设",
 			"note.gatewayUnavailable": "本机网关不可用：远程浏览器或 host 路由未挂载，无法安装或启用",
 			"note.loadFailed": "读取预设状态失败：{reason}",
 			"note.emptyCatalog": "社区预设目录为空",
@@ -54178,7 +54622,7 @@ window.__ModuleLoader__.load({
 			"state.modified": "Modified locally",
 			"state.conflict": "Directory state conflict",
 			"state.local": "Local preset with this id",
-			"state.shadowed": "Id taken by a built-in or another root",
+			"state.shadowed": "Id taken by a preset another plugin declares",
 			"state.newVersion": "Update {version} available",
 			"state.broken": "Cannot load",
 			"action.install": "Install",
@@ -54193,23 +54637,23 @@ window.__ModuleLoader__.load({
 			"code.inline": "Has inline expressions",
 			"code.none": "Composes installed plugins only",
 			"code.detail": "{files} code files - {expressions} !!js expressions - {plugins} plugins",
-			"confirm.title": "Enable an executable preset",
-			"confirm.text": "Enabling \"{name}\" loads its composition inside the DSH host process, which carries the same trust as shell access. {detail} Continue?",
+			"confirm.title": "Install an executable preset",
+			"confirm.text": "Installing \"{name}\" loads its composition inside the DSH host process, which carries the same trust as shell access. {detail} Continue?",
 			"uninstall.title": "Uninstall preset",
-			"uninstall.text": "Deletes the local files of \"{name}\" (both the library and enabled copies). Sessions already using it keep running.",
+			"uninstall.text": "Unregisters \"{name}\" and deletes its local files (the copy under $DSH_HOME/agent-presets). Sessions already using it keep running.",
 			"viewer.title": "{name} - agent.cordis.yml",
 			"viewer.empty": "(composition file is empty or unreadable)",
 			"note.installFailed": "Install failed: {reason}",
 			"note.conflict": "A directory with this id already exists locally; nothing was overwritten",
 			"note.actionFailed": "Action failed: {reason}",
-			"note.enabled": "Enabled; refresh the page to see it under Settings - Agent presets",
-			"note.disabled": "Disabled; the preset is gone from Settings - Agent presets",
+			"note.enabled": "Installed and enabled; refresh the page to see it under Settings - Agent presets",
+			"note.disabled": "Disabled; the files stay in the preset library and can be enabled again",
 			"note.uninstalled": "Uninstalled",
 			"note.updated": "Updated to the newest version",
-			"note.broken": "Cannot enable: {reason}",
-			"note.shadowed": "A built-in or another root already supplies this id; enabling would not take effect",
+			"note.broken": "Cannot load: {reason}",
+			"note.shadowed": "A preset another plugin declares already owns this id, so it cannot be declared",
 			"note.defaultPreset": "This is the current default preset; change the default under Settings - Agent presets first",
-			"note.rosterUnavailable": "The host exposes no agent-presets service, so preset ids cannot be checked",
+			"note.rosterUnavailable": "The host exposes no agent-preset registry service, so presets cannot be declared",
 			"note.gatewayUnavailable": "Local gateway unavailable: remote browser or host routes not mounted; install and enable are disabled",
 			"note.loadFailed": "Reading preset state failed: {reason}",
 			"note.emptyCatalog": "The community preset catalog is empty",
@@ -54770,7 +55214,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../skins/skin-center/src/client/wallpaper.ts
-		/** The namespace string the Host registers (mirrors src/index.ts). */
+		/** The section key the Host schema declares (mirrors src/index.ts). */
 		const SKIN_WALLPAPER_NS = "skin-wallpaper";
 		const clamp = (value, min, max) => Math.max(min, Math.min(max, Math.round(value)));
 		/** Style one fixed, non-interactive, under-everything wallpaper layer. */
@@ -54858,8 +55302,9 @@ window.__ModuleLoader__.load({
 			}
 		}
 		/**
-		* Own the skin-wallpaper scope: keep the mounted layers in sync with the
-		* persisted selection and the card-driven descriptor resolution.
+		* Own the skin-wallpaper configuration section: keep the mounted layers in
+		* sync with the persisted selection and the card-driven descriptor
+		* resolution.
 		*/
 		var WallpaperController = class {
 			enabledValue = true;
@@ -54878,6 +55323,8 @@ window.__ModuleLoader__.load({
 			unsubscribe;
 			options;
 			doc;
+			/** Rejection message of the last settings write that did not land, if any. */
+			writeErrorValue = null;
 			/** The descriptor of the applied selection, resolved by the card. */
 			applied = null;
 			/** The try-on descriptor while a preview is up. */
@@ -54900,7 +55347,7 @@ window.__ModuleLoader__.load({
 			/** Detached frame-capture video; released on error/abort/loadeddata and on
 			*  teardown so it never keeps buffering the source file. */
 			captureVideo = null;
-			/** Guard flag: suppresses readAll during applyThemeDefaults scope writes
+			/** Guard flag: suppresses readAll during applyThemeDefaults settings writes
 			*  to prevent mid-write listener cascades from resetting values. */
 			seeding = false;
 			constructor(scope, options = {}) {
@@ -55038,14 +55485,14 @@ window.__ModuleLoader__.load({
 				if (trimmed === "" || this.dirsValue.includes(trimmed)) return;
 				this.dirsValue = [...this.dirsValue, trimmed];
 				this.publish();
-				this.scope.set("weLibraryDirs", this.dirsValue);
+				this.persist("weLibraryDirs", this.dirsValue);
 			}
 			removeDir(dir) {
 				const next = this.dirsValue.filter((d) => d !== dir);
 				if (next.length === this.dirsValue.length) return;
 				this.dirsValue = next;
 				this.publish();
-				this.scope.set("weLibraryDirs", this.dirsValue);
+				this.persist("weLibraryDirs", this.dirsValue);
 			}
 			failedIds = /* @__PURE__ */ new Set();
 			isDisplaying = () => {
@@ -55057,64 +55504,87 @@ window.__ModuleLoader__.load({
 				return this.mediaLayer !== null && current !== null ? current.id : null;
 			};
 			trying = () => this.previewing !== null;
+			writeError = () => this.writeErrorValue;
 			subscribe = (listener) => {
 				this.listeners.add(listener);
 				return () => {
 					this.listeners.delete(listener);
 				};
 			};
+			/**
+			* Queue one preference write and judge its answer.
+			*
+			* The form contract answers `false` for a write the Host refused or
+			* skipped and rejects on a broken transport; neither is a saved setting, so
+			* both clear the previous error or raise a new one instead of being
+			* dropped. The rendered value stays as the user set it either way — the
+			* card is the only place that can tell them it did not persist.
+			*/
+			persist(field, value) {
+				this.scope.set(field, value).then((accepted) => {
+					this.reportWrite(accepted ? null : "the Host did not accept the wallpaper setting");
+				}, (error) => {
+					this.reportWrite(error instanceof Error ? error.message : String(error));
+				});
+			}
+			/** Publish one write verdict (null = the last write landed). */
+			reportWrite(error) {
+				if (this.writeErrorValue === error) return;
+				this.writeErrorValue = error;
+				this.publish();
+			}
 			setEnabled(value) {
 				this.enabledValue = value;
 				this.render();
 				this.publish();
-				this.scope.set("enabled", value);
+				this.persist("enabled", value);
 			}
 			setMode(mode) {
 				this.modeValue = mode;
 				this.render();
 				this.publish();
-				this.scope.set("mode", mode);
+				this.persist("mode", mode);
 			}
 			setFit(fit) {
 				this.fitValue = fit;
 				this.render();
 				this.publish();
-				this.scope.set("fit", fit);
+				this.persist("fit", fit);
 			}
 			setDim(value) {
 				this.dimValue = clamp(value, 0, 90);
 				this.render();
 				this.publish();
-				this.scope.set("dim", this.dimValue);
+				this.persist("dim", this.dimValue);
 			}
 			setBlur(value) {
 				this.blurValue = clamp(value, 0, 60);
 				this.render();
 				this.publish();
-				this.scope.set("wallpaperBlur", this.blurValue);
+				this.persist("wallpaperBlur", this.blurValue);
 			}
 			setOpacity(value) {
 				this.opacityValue = clamp(value, 0, 100);
 				this.render();
 				this.publish();
-				this.scope.set("wallpaperOpacity", this.opacityValue);
+				this.persist("wallpaperOpacity", this.opacityValue);
 			}
 			setPauseOnHidden(value) {
 				this.pauseOnHiddenValue = value;
 				this.publish();
-				this.scope.set("pauseOnHidden", value);
+				this.persist("pauseOnHidden", value);
 			}
 			setSound(value) {
 				this.soundValue = value;
 				this.applySound();
 				this.publish();
-				this.scope.set("sound", value);
+				this.persist("sound", value);
 			}
 			setVolume(value) {
 				this.volumeValue = clamp(value, 0, 100);
 				this.applySound();
 				this.publish();
-				this.scope.set("volume", this.volumeValue);
+				this.persist("volume", this.volumeValue);
 			}
 			applySelection(descriptor) {
 				this.failedIds.delete(descriptor.id);
@@ -55123,7 +55593,7 @@ window.__ModuleLoader__.load({
 				this.selectionValue = descriptor.id;
 				this.render();
 				this.publish();
-				this.scope.set("selection", descriptor.id);
+				this.persist("selection", descriptor.id);
 				this.probeSceneCapabilitiesIfNeeded(descriptor);
 			}
 			clearSelection() {
@@ -55132,7 +55602,7 @@ window.__ModuleLoader__.load({
 				this.selectionValue = "";
 				this.render();
 				this.publish();
-				this.scope.set("selection", "");
+				this.persist("selection", "");
 			}
 			sync(descriptor) {
 				if (descriptor !== null && this.applied?.id === descriptor.id) descriptor = {
@@ -55201,8 +55671,8 @@ window.__ModuleLoader__.load({
 				}
 				this.seeding = true;
 				try {
-					this.scope.set("dim", this.dimValue);
-					this.scope.set("wallpaperOpacity", this.opacityValue);
+					this.scope.set("dim", this.dimValue).catch(() => {});
+					this.scope.set("wallpaperOpacity", this.opacityValue).catch(() => {});
 				} catch {}
 				this.seeding = false;
 			}
@@ -55882,6 +56352,7 @@ window.__ModuleLoader__.load({
 			const activeId = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.activeId);
 			const trying = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.trying);
 			const dirs = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.dirs);
+			const writeError = (0, react.useSyncExternalStore)(wallpaper.subscribe, wallpaper.writeError);
 			const [shownDim, setShownDim] = useLiveValue$1(dim);
 			const [shownBlur, setShownBlur] = useLiveValue$1(blur);
 			const [shownOpacity, setShownOpacity] = useLiveValue$1(opacity);
@@ -56331,6 +56802,15 @@ window.__ModuleLoader__.load({
 					actionError !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: skin_center_module_css_default.error,
 						children: actionError
+					}),
+					writeError !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: skin_center_module_css_default.error,
+						role: "alert",
+						children: [
+							t("wallpaperSaveFailed"),
+							": ",
+							writeError
+						]
 					}),
 					items !== null && items.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: skin_center_module_css_default.wallpaperToolbar,
@@ -57849,6 +58329,7 @@ window.__ModuleLoader__.load({
 			wallpaperDirBrowse: "Browse…",
 			wallpaperDirBrowseHint: "Pick a folder with the system file manager (Finder / Explorer)",
 			wallpaperDirBrowseFailed: "Could not open the system folder picker — type the path manually instead",
+			wallpaperSaveFailed: "Could not save wallpaper settings.",
 			wallpaperRatingAll: "All",
 			wallpaperRatingG: "G",
 			wallpaperRatingPg13: "PG-13",
@@ -57971,6 +58452,7 @@ window.__ModuleLoader__.load({
 			wallpaperDirBrowse: "浏览…",
 			wallpaperDirBrowseHint: "通过系统文件管理器（访达 / 资源管理器）选择文件夹",
 			wallpaperDirBrowseFailed: "无法打开系统目录选择框——请手动输入路径",
+			wallpaperSaveFailed: "壁纸设置保存失败。",
 			wallpaperRatingAll: "全部",
 			wallpaperRatingG: "G",
 			wallpaperRatingPg13: "PG-13",
@@ -59190,7 +59672,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region ../skins/skin-center/src/client/custom-theme-controller.ts
-		/** Owns the custom-theme settings snapshot and its inert-by-default style. */
+		/** Owns the custom-theme configuration section and its inert-by-default style. */
 		var CustomThemeController = class {
 			scope;
 			doc;
@@ -59374,7 +59856,7 @@ window.__ModuleLoader__.load({
 					const write = this.writeQueue.shift();
 					if (write === void 0) break;
 					try {
-						await this.scope.set(write.field, write.value);
+						if (!await this.scope.set(write.field, write.value)) throw new Error("the Host did not accept the custom theme setting");
 					} catch (error) {
 						settled.push({
 							write,
@@ -59398,6 +59880,59 @@ window.__ModuleLoader__.load({
 				else result.write.reject(result.error);
 			}
 		};
+		//#endregion
+		//#region ../skins/skin-center/src/client/settings-section.ts
+		/** Read one object-shaped layer of a form snapshot. */
+		function layerOf(layer, key) {
+			return typeof layer === "object" && layer !== null ? layer[key] : void 0;
+		}
+		/**
+		* Project one entry form onto the section behind `key`.
+		* @param parent - the form of the profile entry that owns this section.
+		* @param key - the section key inside the entry's Config.
+		* @returns the section's form: its own value/user/base layers, and writes
+		*   addressed at `[key, field]` on the parent.
+		*/
+		function settingsSection(parent, key) {
+			let source;
+			let projected;
+			const project = () => {
+				const snapshot = parent.getSnapshot();
+				if (projected !== void 0 && source === snapshot) return projected;
+				source = snapshot;
+				projected = {
+					status: snapshot.status,
+					value: layerOf(snapshot.value, key),
+					base: layerOf(snapshot.base, key),
+					user: layerOf(snapshot.user, key),
+					revision: snapshot.revision,
+					writable: snapshot.writable,
+					mode: snapshot.mode
+				};
+				return projected;
+			};
+			return {
+				getSnapshot: project,
+				subscribe: (listener) => parent.subscribe(listener),
+				set: (field, value) => parent.mutate([{
+					op: "set",
+					path: [key, field],
+					value
+				}]),
+				unset: (field) => parent.mutate([{
+					op: "unset",
+					path: [key, field]
+				}]),
+				mutate: (ops, expectedRevision) => parent.mutate(ops.map((op) => "value" in op ? {
+					op: "set",
+					path: [key, ...op.path],
+					value: op.value
+				} : {
+					op: "unset",
+					path: [key, ...op.path]
+				}), expectedRevision)
+			};
+		}
 		//#endregion
 		//#region ../skins/skin-center/src/client/telemetry.ts
 		const VISITOR_KEY = "dsh-web-ui-telemetry-visitor";
@@ -59478,12 +60013,32 @@ window.__ModuleLoader__.load({
 		});
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
-		/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and remote (wallpaper directory picker). */
+		/**
+		* The configuration form of this plugin's own profile entry.
+		*
+		* `ctx.configForms` addresses one form per profile entry id and carries no
+		* package identity, so the entry is reached through the family binder, whose
+		* namespace-to-entry mapping the settings group owns: `skin-background` is
+		* the namespace this package has always owned, and the bridge resolves it to
+		* whichever entry id the profile gave this row. A deployment without the
+		* group serves no such mapping — the family namespace then stands in for the
+		* entry id (a profile that names the row after it serves the same form), and
+		* a page that serves neither reports the form unavailable, which each feature
+		* already handles by keeping its defaults and reporting a failed save.
+		* @param ctx - client root context.
+		* @returns the entry form carrying every preference family.
+		*/
+		function bindConfigForm(ctx) {
+			const binder = ctx.get("webUiSettings");
+			if (binder !== void 0) return binder.bind({ namespace: SKIN_BACKGROUND_NS });
+			return ctx.configForms.get(SKIN_BACKGROUND_NS);
+		}
+		/** Required services: slots + locale (plugin card), theme (preview toggle), configForms (settings sections), and remote (wallpaper directory picker). */
 		const inject$1 = [
 			"slots",
 			"locale",
 			"theme",
-			"settingsScope",
+			"configForms",
 			"connection",
 			"remote"
 		];
@@ -59534,7 +60089,7 @@ window.__ModuleLoader__.load({
 				};
 			}, "ui-skin-center: body scope");
 			const theme = ctx.get("theme");
-			const binder = ctx.get("webUiSettings") ?? ctx.settingsScope;
+			const settings = bindConfigForm(ctx);
 			const V2_ACTIVE_URL = "/api/skin-center/v2/active";
 			let persistTimer = null;
 			const postBackground = (next, keepalive = false) => {
@@ -59558,16 +60113,16 @@ window.__ModuleLoader__.load({
 				persistTimer = null;
 				postBackground(background.snapshot(), true);
 			};
-			const backgroundScope = binder.bind({ namespace: SKIN_BACKGROUND_NS });
+			const backgroundSection = settingsSection(settings, SKIN_BACKGROUND_NS);
 			const scopeConfig = () => {
-				const value = backgroundScope.getSnapshot().value;
+				const value = backgroundSection.getSnapshot().value;
 				if (value === void 0 || value === null) return null;
 				return value;
 			};
 			const background = new BackgroundController(scopeConfig(), persistBackground);
-			let reconcileState = initialSkinBackgroundReconcileState(backgroundScope.getSnapshot());
+			let reconcileState = initialSkinBackgroundReconcileState(backgroundSection.getSnapshot());
 			const reconcileScope = () => {
-				const result = reconcileSkinBackgroundPublication(reconcileState, background.snapshot(), backgroundScope.getSnapshot());
+				const result = reconcileSkinBackgroundPublication(reconcileState, background.snapshot(), backgroundSection.getSnapshot());
 				reconcileState = result.state;
 				if (result.patch === null) return;
 				const currentSnapshot = background.snapshot();
@@ -59591,14 +60146,14 @@ window.__ModuleLoader__.load({
 				};
 				reconcileScope();
 			});
-			ctx.effect(() => backgroundScope.subscribe(reconcileScope), "ui-skin-center: background scope sync");
+			ctx.effect(() => backgroundSection.subscribe(reconcileScope), "ui-skin-center: background section sync");
 			ctx.effect(() => () => {
 				flushBackground();
 				background.dispose();
 			}, "ui-skin-center: background dispose");
-			const customTheme = new CustomThemeController(binder.bind({ namespace: SKIN_CUSTOM_THEME_NS }));
+			const customTheme = new CustomThemeController(settingsSection(settings, SKIN_CUSTOM_THEME_NS));
 			ctx.effect(() => () => customTheme.dispose(), "ui-skin-center: custom theme dispose");
-			const wallpaper = new WallpaperController(binder.bind({ namespace: SKIN_WALLPAPER_NS }));
+			const wallpaper = new WallpaperController(settingsSection(settings, SKIN_WALLPAPER_NS));
 			ctx.effect(() => () => wallpaper.dispose(), "ui-skin-center: wallpaper dispose");
 			installBootRestore(wallpaper);
 			const runtime = bootSkinRuntime({ suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.isDisplaying() });
@@ -59656,6 +60211,7 @@ window.__ModuleLoader__.load({
 					},
 					activeId: () => wallpaper.activeId(),
 					trying: () => wallpaper.trying(),
+					writeError: () => wallpaper.writeError(),
 					subscribe: (listener) => wallpaper.subscribe(listener),
 					setEnabled: (value) => wallpaper.setEnabled(value),
 					setMode: (value) => wallpaper.setMode(value),

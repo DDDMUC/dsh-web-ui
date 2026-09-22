@@ -13,10 +13,10 @@
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-// Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
+// Type-only: pulls the shared-forms Context merge (ctx.configForms).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the ctx.slots merge (the renderer owns the slot registry since 0.1.2).
@@ -39,8 +39,14 @@ interface SessionsFace {
   refresh?: () => Promise<void>
 }
 
-/** Settings namespace the section edits (the host plugin registers it). */
-const ARCHIVE_SETTINGS_NS = 'dsh-session-archive'
+/**
+ * Settings this section edits. The family binder (`ctx.get('webUiSettings')`)
+ * resolves it onto the row's profile entry id — `web-ui-session-archive` under
+ * the aggregate, `session-archive` standalone — while a deployment without the
+ * group plugin addresses the entry id directly, which is the bundle patch row
+ * id this package installs under.
+ */
+const ARCHIVE_SETTINGS_NS = 'session-archive'
 
 /**
  * Nav position (and id) of the official archived-sessions entry this plugin
@@ -52,19 +58,31 @@ const SECTION_ID = 'archived-sessions'
 const SECTION_ORDER = 25
 
 /** Required services. */
-export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote', 'sessions']
+export const inject = ['slots', 'locale', 'connection', 'configForms', 'remote', 'sessions']
 
 export type { SessionArchiveFace } from './SessionArchiveCard.tsx'
 export type { SessionArchiveConfig }
 
+/**
+ * One settings namespace a family card binds. The 0.1.7 client exports no spec
+ * type (the form controller takes it privately), so the binder's input shape is
+ * restated here.
+ */
+export interface SessionArchiveFormSpec<T> {
+  /** Settings namespace registered by the owning host plugin. */
+  namespace: string
+  /** Narrow one wire section; undefined keeps the last accepted value. */
+  decode?: (section: unknown) => T | undefined
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /**
-     * Optional rc.6 compatibility binder provided by dsh-web-settings;
-     * absent when that group plugin is not installed, so callers fall back to
-     * the official settings scope.
+     * Optional family settings binder provided by dsh-web-settings; absent when
+     * that group plugin is not installed, so callers bind the shared forms
+     * service (`ctx.configForms`) by profile entry id directly.
      */
-    webUiSettings?: { bind<S>(spec: SettingsScopeSpec<S>): SettingsScope<S> }
+    webUiSettings?: { bind<S>(spec: SessionArchiveFormSpec<S>): ConfigForm<S> }
   }
 }
 
@@ -83,8 +101,13 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'dsh-session-archive: dictionaries')
 
-  const binder = ctx.get('webUiSettings') ?? ctx.settingsScope
-  const settingsScope = binder.bind<SessionArchiveConfig>({ namespace: ARCHIVE_SETTINGS_NS })
+  // The family binder resolves the family namespace onto this row's profile
+  // entry id and binds the native shared form; a deployment without the group
+  // plugin addresses the entry id directly (the bundle row id is the entry id).
+  const binder = ctx.get('webUiSettings')
+  const settingsForm = binder !== undefined
+    ? binder.bind<SessionArchiveConfig>({ namespace: ARCHIVE_SETTINGS_NS })
+    : ctx.configForms.get<SessionArchiveConfig>(ARCHIVE_SETTINGS_NS)
 
   const sessionsFace = (() => {
     try {
@@ -105,7 +128,7 @@ export function apply(ctx: ClientContext): void {
   })()
 
   const controller = new ArchiveController({ sessions: sessionsFace })
-  const face = (): SessionArchiveFace => ({ controller, settings: settingsScope })
+  const face = (): SessionArchiveFace => ({ controller, settings: settingsForm })
 
   ctx.slots.inject('settings.section', () => {
     try {

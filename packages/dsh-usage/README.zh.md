@@ -23,7 +23,7 @@ dsh Web GUI 的使用统计插件：多 provider 余额与编程套餐用量检�
 
 ## 安装
 
-要求 DSH 0.1.2-alpha.2 或更高：插件基于 0.1.2-alpha.2 DSH cohort 开发，其 `@deepseek-ai/*` 运行时导入由宿主本体提供。
+要求 DSH 0.1.7-alpha.1 或更高：插件基于 0.1.7-alpha.1 DSH cohort 开发（其设置页即宿主根据插件自身 Config schema 生成的页面），`@deepseek-ai/*` 运行时导入由宿主本体提供。
 
 在 profile（如 `~/.dsh/profiles/web`）中：
 
@@ -46,7 +46,7 @@ pnpm add @linxin666/dsh-usage
 | 键 | 默认 | 含义 |
 | --- | --- | --- |
 | `enabled` | `true` | 总开关；关闭后不监听、不探测、不注册路由 |
-| `pollIntervalSec` | `60` | provider 探测周期（30-3600 秒，热切换） |
+| `pollIntervalSec` | `60` | provider 探测周期（30-3600 秒；改动由宿主重载插件行生效） |
 | `retainDays` | `180` | 台账按本地日保留天数（7-730） |
 
 ## 已知限制

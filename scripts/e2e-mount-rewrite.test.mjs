@@ -17,6 +17,9 @@ function makeTmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-rewrite-test-'))
 }
 
+/** GNU tar reads a `C:\...` argument as a remote host spec; --force-local keeps it a local path. */
+const TAR_LOCAL = process.platform === 'win32' ? ['--force-local'] : []
+
 function writePkg(dir, body) {
   fs.mkdirSync(dir, { recursive: true })
   const file = path.join(dir, 'package.json')
@@ -47,7 +50,7 @@ function makeTgz(dir, pkgBody) {
   const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-tgz-stage-'))
   writePkg(path.join(staging, 'package'), pkgBody)
   const tgz = path.join(dir, pkgBody.name.split('/').pop() + '.tgz')
-  execFileSync('tar', ['-czf', tgz, '-C', staging, 'package'])
+  execFileSync('tar', [...TAR_LOCAL, '-czf', tgz, '-C', staging, 'package'])
   fs.rmSync(staging, { recursive: true, force: true })
   return tgz
 }
@@ -63,7 +66,7 @@ function packFake(packed) {
 
 /** Read the package.json embedded in a tarball. */
 function readTgzPkg(tgz) {
-  const raw = execFileSync('tar', ['-xzf', tgz, '-O', 'package/package.json'], { stdio: 'pipe' }).toString()
+  const raw = execFileSync('tar', [...TAR_LOCAL, '-xzf', tgz, '-O', 'package/package.json'], { stdio: 'pipe' }).toString()
   return JSON.parse(raw)
 }
 
@@ -164,7 +167,7 @@ test('auto mode: default packWorkspace packs and patches unpublished deps', asyn
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
   assert.match(pkg.dependencies['@linxin666/dsh-b'], /^file:.*dsh-b.*\.tgz$/)
   // The packed tarball is a real tar and survives the in-place patch.
-  assert.equal(JSON.parse(execFileSync('tar', ['-xzf', pkg.dependencies['@linxin666/dsh-b'].slice(5), '-O', 'package/package.json'], { stdio: 'pipe' }).toString()).name, '@linxin666/dsh-b')
+  assert.equal(JSON.parse(execFileSync('tar', [...TAR_LOCAL, '-xzf', pkg.dependencies['@linxin666/dsh-b'].slice(5), '-O', 'package/package.json'], { stdio: 'pipe' }).toString()).name, '@linxin666/dsh-b')
 })
 
 test('auto mode: unpublished dep missing from the workspace fails loudly', async () => {

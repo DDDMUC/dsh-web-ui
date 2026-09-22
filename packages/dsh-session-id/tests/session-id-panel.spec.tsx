@@ -56,8 +56,9 @@ function makeList(sessions: Array<{
     ids: sessions.map(row => sid(row.id)) as never,
     byId,
     phase: 'ready',
-    subagentsByParent: {},
-    jobsBySession: {},
+    // No Session projections were read in this fixture; the panel only reads
+    // `ids` and `byId`, so the empty map keeps the snapshot shape complete.
+    projectionsBySession: {},
   }
 }
 

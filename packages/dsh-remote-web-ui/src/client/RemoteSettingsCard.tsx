@@ -1,12 +1,12 @@
 /**
  * The remote-control settings card: pairing security and device limits.
  * Registers into the `web-ui.plugin.item` child slot the Web UI plugin group
- * renders, bound to the `remote-web-ui` settings namespace.
+ * renders, bound to the `remote-web-ui` profile entry's configuration form.
  */
 
 import { useEffect, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { PluginSettingsCard, ValueField, BooleanField } from './PluginSettingsCard.tsx'
 import { CardForm, booleanField, numberField, secretField, textField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
@@ -88,13 +88,13 @@ export interface RemoteSettingsCardFace extends CardActions {
   }
 }
 
-/** Bridges the `remote-web-ui` scope onto the card's staged form. */
+/** Bridges the `remote-web-ui` form onto the card's staged form. */
 export class RemoteSettingsCardController {
   private readonly form: CardForm<RemoteSettings>
   private readonly store: SnapshotStore<RemoteSettingsCardState>
 
-  /** @param scope - the bound settings scope for the `remote-web-ui` namespace. */
-  constructor(scope: SettingsScope<RemoteSettings>) {
+  /** @param scope - the configuration form for the `remote-web-ui` entry. */
+  constructor(scope: ConfigForm<RemoteSettings>) {
     this.form = new CardForm(scope, [
       booleanField('enabled'),
       numberField('tokenTtlMs'),
@@ -139,7 +139,7 @@ export class RemoteSettingsCardController {
   }
 
   /**
-   * Release the card's scope subscription and bound stores; the slot
+   * Release the card's form subscription and bound stores; the slot
    * disposer calls this on teardown.
    */
   dispose(): void {

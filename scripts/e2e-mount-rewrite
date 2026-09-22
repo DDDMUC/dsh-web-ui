@@ -38,6 +38,9 @@ const { execFileSync } = require('node:child_process')
 const FAMILY_SCOPE = '@linxin666/'
 const REGISTRY = 'https://registry.npmjs.org'
 
+/** GNU tar reads a `C:\...` argument as a remote host spec; --force-local keeps it a local path. */
+const TAR_LOCAL = process.platform === 'win32' ? ['--force-local'] : []
+
 /** Default registry probe: true when name@version exists on npm. */
 async function checkPublished(name, version) {
   const res = await fetch(REGISTRY + '/' + name.replace('/', '%2f'))
@@ -82,20 +85,20 @@ function findWorkspacePackage(root, name) {
 
 /** Read a tarball's embedded package name (family-dir manual mode). */
 function readTgzName(tgz) {
-  const raw = execFileSync('tar', ['-xzf', tgz, '-O', 'package/package.json'], { stdio: 'pipe' }).toString()
+  const raw = execFileSync('tar', [...TAR_LOCAL, '-xzf', tgz, '-O', 'package/package.json'], { stdio: 'pipe' }).toString()
   return JSON.parse(raw).name
 }
 
 /** Extract a tarball into a fresh staging directory. */
 function extractTarball(tgz) {
   const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-tgz-extract-'))
-  execFileSync('tar', ['-xzf', tgz, '-C', staging], { stdio: 'pipe' })
+  execFileSync('tar', [...TAR_LOCAL, '-xzf', tgz, '-C', staging], { stdio: 'pipe' })
   return staging
 }
 
 /** Repack the staging package/ dir as the given tarball, then drop staging. */
 function repackTarball(tgz, staging) {
-  execFileSync('tar', ['-czf', tgz, '-C', staging, 'package'], { stdio: 'pipe' })
+  execFileSync('tar', [...TAR_LOCAL, '-czf', tgz, '-C', staging, 'package'], { stdio: 'pipe' })
   fs.rmSync(staging, { recursive: true, force: true })
 }
 

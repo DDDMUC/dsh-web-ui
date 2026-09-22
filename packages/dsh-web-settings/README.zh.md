@@ -9,6 +9,7 @@
 - **全家桶设置分区**：在 DSH 设置页注册一级菜单项，以静态标题和卡片归组其余 dsh web UI 全家桶插件（task-board、remote-web-ui、describe-image）。各插件卡默认折叠，独立展开后显示启用开关与配置表单。
 - **一级设置分区**：皮肤中心、桌面宠物与「创意工坊」（商店卡片）各自作为一级设置分区注册，直接展开；官方「插件」分区内置安装器，插件管理 Tab 由 `dsh-plugin-manager` 提供。
 - **家族插件不依赖本分组**：本包声明家族卡片注册的 list 槽 `web-ui.plugin.item`。本包已加载时家族插件注册进该槽；本包缺席时改注册官方插件管理页的 keyed 槽 `plugins.bundle.config`（以自身 bundle 包名为 key），因此只装家族插件、未装本分组的 profile 同样能触达每张卡片。
+- **原生设置通道**：0.1.7 的设置面以 profile entry id 定位每个配置表单。Host 侧桥接按 profile 行反查各全家桶命名空间所属的 entry id，并在 describe 响应里回传；浏览器半区据此绑定原生共享表单（`ctx.configForms`）。无法解析 entry id 的页面才退回 loopback HTTP 通道。
 
 ## 安装
 
@@ -51,7 +52,7 @@ reverse_proxy 127.0.0.1:3080 {
 
 带值的 `header_up` 会覆盖客户端提供的同名请求头。不要再同时删除同一字段：Caddy 2.6 会在分组操作中先设置、后删除。如果 Caddy 的 systemd 单元以 `caddy run --environ` 启动，请去掉该参数或严格保护其输出，因为该参数会在启动时打印环境变量。
 
-`settings.yaml` 中的 `web_settings_namespaces` 继续决定桥接开放哪些全家桶命名空间；未配置时使用内置全家桶列表。修改插件配置需要重启 DSH，`web_settings_namespaces` 则在每次桥接调用时重新读取。
+`settings.yaml` 中的 `web_settings_namespaces` 继续决定桥接开放哪些全家桶命名空间；未配置时使用内置全家桶列表。Host 首次启动时会一次性导入 `settings.yaml` 并重命名为 `settings.yaml.imported`，因此桥接依次读取该改名文件、0.1.7 之前的旧文档，只有在文件名确实指向设置文档时才把 Host 上报的 profile patch 当作设置文档。修改插件配置需要重启 DSH，`web_settings_namespaces` 则在每次桥接调用时重新读取。
 
 ## 安全模型
 

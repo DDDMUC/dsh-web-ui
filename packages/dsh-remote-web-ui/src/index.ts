@@ -84,9 +84,12 @@ export const name = 'remote-web-ui'
 export const inject = ['webServer', 'typertGateway', 'connection']
 
 /**
- * Settings namespace of the remote-control capability — the section the web
- * settings surface edits. Spelled here rather than imported: the browser
- * half spells the same value and must not depend on a Host package.
+ * Settings namespace of the remote-control capability. Under the 0.1.7
+ * settings model the namespace IS the Host profile entry id, so this is also
+ * the id the browser half asks `ctx.configForms` for (the family binder
+ * resolves the same value to the owning entry). Spelled here rather than
+ * imported: the browser half spells the same value and must not depend on a
+ * Host package.
  */
 export const REMOTE_WEB_UI_SETTINGS_NAMESPACE = 'remote-web-ui' as SettingsNamespace
 
@@ -239,9 +242,8 @@ type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl' | 'trustedHosts' | '
 
 /**
  * The single mapping from resolved plugin config to the pairing service
- * config. Both the constructed service and every live settings sync reuse
- * it, so no field can be silently dropped when the web settings surface
- * pushes a new value into the running service.
+ * config. Both the constructed service and every later apply of this row
+ * reuse it, so no field can be silently dropped.
  */
 export function pairingConfigOf(resolved: Pick<
   ResolvedConfig,
@@ -307,30 +309,12 @@ function applyImpl(ctx: Context, config?: Config): void {
     profile: config?.profile ?? process.env.DSH_PROFILE ?? DEFAULTS.profile,
     enabled: config?.enabled ?? DEFAULTS.enabled,
   }
-  // The live source the pairing service and the gate read: the settings
-  // section once the web settings surface is served, the composition entry
-  // otherwise (installSection swaps it when the namespace registers).
-  let current: () => Config = () => config ?? {}
-  const resolve = (): ResolvedConfig => {
-    const value = current()
-    return {
-      tokenTtlMs: value.tokenTtlMs ?? DEFAULTS.tokenTtlMs,
-      offlineAfterMs: value.offlineAfterMs ?? DEFAULTS.offlineAfterMs,
-      maxDevices: value.maxDevices ?? DEFAULTS.maxDevices,
-      idleExpireMs: value.idleExpireMs ?? DEFAULTS.idleExpireMs,
-      cookieName: value.cookieName ?? DEFAULTS.cookieName,
-      requirePairingForLan: value.requirePairingForLan ?? DEFAULTS.requirePairingForLan,
-      publicBaseUrl: value.publicBaseUrl ?? envPublicBase,
-      trustedHosts: value.trustedHosts,
-      devicesFile: value.devicesFile ?? DEFAULTS.devicesFile,
-      autoTunnel: value.autoTunnel ?? DEFAULTS.autoTunnel,
-      tunnelToken: value.tunnelToken,
-      relay: value.relay ?? DEFAULTS.relay,
-      lanBind: value.lanBind,
-      profile: value.profile ?? process.env.DSH_PROFILE ?? DEFAULTS.profile,
-      enabled: value.enabled ?? DEFAULTS.enabled,
-    }
-  }
+  // The effective configuration this activation runs on: under the 0.1.7
+  // settings model the plugin's own Config IS its settings document, so the
+  // Host serves the settings page from this schema and reloads the row after a
+  // save — a live edit re-enters apply() with the new value instead of being
+  // pushed into a running instance.
+  const resolve = (): ResolvedConfig => resolved
   const service = new PairingService(pairingConfigOf(resolved))
 
   // ── auto tunnel ─────────────────────────────────────────────────────────
@@ -444,13 +428,14 @@ function applyImpl(ctx: Context, config?: Config): void {
     service.setLanBases(lanBases)
   }
 
-  // Push a committed settings section into the service and gate. The service
+  // Push the effective configuration into the service and gate. The service
   // config object is read per operation (token mint, touch, sweep), and the
-  // gate re-reads its fence flag per request, so a live edit takes effect
-  // without a restart. When `enabled` turns off, the pairing routes and
-  // sweep timer are dropped and all device/token state is revoked, but the
-  // gate listener stays mounted so a LAN-exposed /api stays behind pairing
-  // (now vetoing every non-loopback request) instead of opening the fence.
+  // gate re-reads its fence flag per request, so a saved edit takes effect
+  // without a restart (the Host reloads this row, and apply re-runs). When
+  // `enabled` is off, the pairing routes and sweep timer are dropped and all
+  // device/token state is revoked, but the gate listener stays mounted so a
+  // LAN-exposed /api stays behind pairing (now vetoing every non-loopback
+  // request) instead of opening the fence.
   let disposeRoutes: (() => void) | undefined
   let disposeSweep: (() => void) | undefined
   // ── remote update ────────────────────────────────────────────────────────
@@ -719,6 +704,9 @@ function applyImpl(ctx: Context, config?: Config): void {
     console.warn('remote-web-ui: LAN-exposed bind — pairing gates the /remote channel; direct /api stays under the harness fence + browser auth (stop() does not revoke an already-redeemed browser credential)')
   }
 
+  // Apply the effective configuration to the running surfaces once per
+  // activation: the service tunables, the LAN-bind block/firewall, the tunnel
+  // plan, the pairing routes, the presence sweep, and the posture probe.
   const sync = (): void => {
     const value = resolve()
     service.config = pairingConfigOf(value)
@@ -878,25 +866,8 @@ function applyImpl(ctx: Context, config?: Config): void {
     table.push({ kind: 'script', placement: 'head', text: REMOTE_CHANNEL_BOOT_SCRIPT })
   }), 'remote-web-ui: remote channel boot patch')
 
-  ctx.inject(['settings'], (settingsCtx) => {
-    try {
-      if (typeof settingsCtx.settings?.installSection === 'function') {
-        settingsCtx.settings.installSection(ctx, REMOTE_WEB_UI_SETTINGS_NAMESPACE, Config, config ?? {}, {
-          setSource: (source) => {
-            current = source
-            sync()
-          },
-          onChange: sync,
-        })
-      } else if (typeof settingsCtx.settings?.register === 'function') {
-        const scope = settingsCtx.settings.register(REMOTE_WEB_UI_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
-        current = () => scope?.get?.() ?? (config ?? {})
-        scope?.watch?.(() => { sync() })
-        sync()
-      }
-    } catch {
-      // Defensive fallback against settings registration differences
-    }
-  })
+  // No settings registration: the Host derives this plugin's settings page
+  // from the exported `Config` schema and reloads the row after a save, so
+  // every write re-enters apply() with the new config (see `resolve`).
   sync()
 }

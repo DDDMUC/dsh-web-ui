@@ -32,8 +32,9 @@ function fakeCtx(options: FakeOptions = {}) {
   const rows = (options.presets ?? [
     { id: 'standard', isDefault: true, name: 'Standard' },
     { id: 'liangshen', name: '梁神模式' },
-  ]).map(row => ({ trust: 'user' as const, isDefault: false, ...row }))
+  ]).map(row => ({ isDefault: false, ...row }))
   const selections: [string, string][] = []
+  const documentEvents: ((ns: string) => void)[] = []
   const ctx = {
     sessions: {
       list: {
@@ -43,18 +44,21 @@ function fakeCtx(options: FakeOptions = {}) {
     },
     remote: {
       agentPresets: {
-        list: async () => ({ ok: true as const, value: { presets: rows, authorable: true } }),
+        list: async () => ({ ok: true as const, value: { presets: rows, modeSelectionEnabled: true } }),
         select: async (sessionId: string, presetId: string) => {
           selections.push([sessionId, presetId])
           if (options.select !== undefined) return options.select(sessionId, presetId)
           return { ok: true as const, value: presetId }
         },
       },
-      $on: () => () => {},
+      $on: (event: string, listener: (ns: string) => void) => {
+        if (event === 'settings/document-updated') documentEvents.push(listener)
+        return () => {}
+      },
     },
     locale: { bind: () => (key: string, vars?: Record<string, unknown>) => (vars === undefined ? key : `${key}${JSON.stringify(vars)}`) },
   }
-  return { ctx: ctx as never, selections, state }
+  return { ctx: ctx as never, selections, state, rows, documentEvents }
 }
 
 async function started(options: FakeOptions = {}) {
@@ -198,6 +202,30 @@ describe('LeverController', () => {
     expect(controller.face().t('lever.a11y')).toBe('lever.a11y')
     expect(controller.face().t('lever.hint.push', { preset: 'Standard' })).toBe('lever.hint.push{"preset":"Standard"}')
   })
+
+  it('operator sees the roster re-read when a committed write can move it', async () => {
+    // Given a lever following a roster, When the operator commits a settings
+    // write to an entry that can move it, Then the lever re-reads the roster
+    // while a write to any other namespace leaves what it reports alone.
+    const fake = fakeCtx({ presets: [{ id: 'standard', isDefault: true }] })
+    const controller = new LeverController(fake.ctx)
+    controller.start()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(controller.snapshot().getSnapshot().state).toBe('missing')
+
+    fake.rows.push({ id: 'liangshen', isDefault: false, name: '梁神模式' })
+    for (const listener of fake.documentEvents) listener('settings-other')
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(controller.snapshot().getSnapshot().state).toBe('missing')
+
+    for (const listener of fake.documentEvents) listener('agent-preset-registry')
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(controller.snapshot().getSnapshot().state).toBe('off')
+    controller.dispose()
+  })
 })
 
 /**
@@ -231,7 +259,7 @@ describe('LeverController service resolution', () => {
   })
 
   it('stays inert when the sessions service is refused', async () => {
-    const roster = { presets: [{ id: 'liangshen', trust: 'user' as const, isDefault: false }], authorable: false }
+    const roster = { presets: [{ id: 'liangshen', isDefault: false }], modeSelectionEnabled: false }
     const ctx = {
       get sessions(): never { throw new Error('cannot get property "sessions" without inject') },
       remote: {

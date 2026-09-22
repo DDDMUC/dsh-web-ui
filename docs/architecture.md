@@ -162,8 +162,7 @@ flowchart LR
 | `$DSH_HOME/profiles/<name>/` | profile：插件行与 node_modules（`@linxin666` 命名空间可被 link-profile 链接到本地构建） | `dsh plugin`、scripts/link-profile.mjs |
 | `$DSH_HOME/skins/<id>/` | 用户皮肤资产，同 id 遮蔽内置 | 皮肤中心、创意工坊按需安装 |
 | `$DSH_HOME/pets/` | 宠物资产、装饰与语音配置 | dsh-pet、创意工坊按需安装 |
-| `$DSH_HOME/agent-presets/<id>/` | 惰性预设库（未启用） | dsh-preset-center |
-| `$DSH_HOME/.agent-presets/<id>/` | 启用中的预设（发现根） | dsh-preset-center 启停 |
+| `$DSH_HOME/agent-presets/<id>/` | 预设库：市场下载落盘于此；宿主半区把它声明给 agent preset 注册表后才生效 | dsh-preset-center、dsh-liangshen |
 
 ## 家族包一览
 

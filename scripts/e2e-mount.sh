@@ -105,7 +105,11 @@ fi
 say "解析聚合包 tarball 依赖（auto=仅未发布走本地；FAMILY_TGZS_DIR=${FAMILY_TGZS_DIR:-无}）"
 REWRITE_DIR="$SCRATCH/tarball-rewrite"
 mkdir -p "$REWRITE_DIR"
-tar -xzf "$TARBALL" -C "$REWRITE_DIR"
+# GNU tar reads a "C:\..." argument as a remote host spec; --force-local keeps
+# it a local path on the Windows/MSYS lane. Empty everywhere else.
+TAR_LOCAL=()
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) TAR_LOCAL=(--force-local) ;; esac
+tar "${TAR_LOCAL[@]}" -xzf "$TARBALL" -C "$REWRITE_DIR"
 PACKAGE_JSON="$REWRITE_DIR/package/package.json"
 REWRITE_ARGS=(--root "$ROOT")
 if [ -n "$FAMILY_TGZS_DIR" ]; then
@@ -113,7 +117,7 @@ if [ -n "$FAMILY_TGZS_DIR" ]; then
 fi
 node "$ROOT/scripts/e2e-mount-rewrite" "$PACKAGE_JSON" "${REWRITE_ARGS[@]}"
 TARBALL="$SCRATCH/dsh-web-all-rewritten.tgz"
-tar -czf "$TARBALL" -C "$REWRITE_DIR" package
+tar "${TAR_LOCAL[@]}" -czf "$TARBALL" -C "$REWRITE_DIR" package
 say "改写后 tarball: $TARBALL"
 
 # 步骤 2：引导 scratch profile（web 模板；先写 pnpm-workspace.yaml 的

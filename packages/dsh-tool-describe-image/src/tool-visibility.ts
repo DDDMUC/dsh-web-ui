@@ -13,7 +13,7 @@
  * applied through the tools service's per-agent restriction mask:
  * `agent.ctx.tools.restrict({ deny: ['describe_image'] })`. Each request
  * re-resolves the exact route and corrects the mask, and a change to the
- * agent-default-model settings (the wire's session.selectModel persists
+ * agent-default-model entry (the wire's session.selectModel persists
  * there) re-runs the resting evaluation for every live agent, so a model
  * picked for a fresh session hides the tool from its very first turn.
  * @module @linxin666/dsh-tool-describe-image/tool-visibility
@@ -26,7 +26,7 @@ import { optionalService } from './model-capability.ts'
 /** The model-facing tool name this controller masks. */
 const DESCRIBE_IMAGE_TOOL = 'describe_image'
 
-/** The settings namespace the wire's session.selectModel persists into. */
+/** The profile entry id the wire's session.selectModel persists into. */
 const AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE = 'agent-default-model'
 
 /** Minimal face of one live agent. */
@@ -147,8 +147,8 @@ export function installToolVisibility(ctx: Context, resolveRoute: RouteCapabilit
     return resolved
   })
 
-  ctx.on('settings/updated', (namespace: string) => {
-    if (namespace !== AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE) return
+  ctx.on('settings/document-updated', (namespace) => {
+    if (String(namespace) !== AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE) return
     // A model selection moved somewhere: fresh sessions (no logged route)
     // re-derive their verdict from the new default, so a model picked before
     // the first message hides the tool from turn one. Sessions with a logged

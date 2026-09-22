@@ -24,6 +24,7 @@ export const ru: Record<string, string> = {
   'usage.config.enabled': 'Включить плагин',
   'usage.config.pollIntervalSec': 'Интервал опроса (в секундах)',
   'usage.config.title': 'Настройки',
+  'usage.config.saveFailed': 'Не удалось сохранить: настройка не принята.',
   'usage.disabled': 'Плагин отключён. Чтобы возобновить статистику, установите флажок «Включить плагин» ниже.',
   'usage.current': 'Текущий',
   'usage.error': 'Не удалось загрузить: {error}',

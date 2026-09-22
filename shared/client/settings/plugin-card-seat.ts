@@ -23,7 +23,7 @@
  * The signal that actually distinguishes the two deployments is whether
  * dsh-web-settings is loaded: it is the package that owns the group section and
  * it publishes the `webUiSettings` service during `apply()`, which every
- * family plugin already reads for its settings scope. Group loaded -> the family
+ * family plugin already reads for its settings form. Group loaded -> the family
  * seat; group absent -> the official seat.
  *
  * The decision is re-evaluated on every `slots/changed` because the group may

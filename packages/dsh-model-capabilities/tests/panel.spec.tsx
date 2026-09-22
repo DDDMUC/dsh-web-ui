@@ -36,6 +36,7 @@ const STORED_ROW = {
 function namespaceView(overrides?: Partial<SettingsNamespaceView>): SettingsNamespaceView {
   return {
     ns: 'llm-pi-ai',
+    autoGenerate: true,
     schema: {},
     value: { providers: { 'acme-gateway': { models: [STORED_ROW] } } },
     user: { providers: { 'acme-gateway': { models: [{ ...STORED_ROW }] } } },

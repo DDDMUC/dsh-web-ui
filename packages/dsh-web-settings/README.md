@@ -9,6 +9,7 @@ The dsh web UI plugin group for the DSH settings page: it adds a first-level set
 - **One section for the family**: on the DSH settings page it registers a first-level section with a static heading and cards for the remaining dsh web UI family plugins (task-board, remote-web-ui, describe-image). Each plugin card is collapsed by default and expands independently to show its enable switch and configuration form.
 - **First-level sections**: the Skin Center, the Desktop Pet and the Workshop (store card) each register as their own first-level settings section that opens directly expanded; the official Plugins section ships the official installer beside the plugin-manager tab provided by `dsh-plugin-manager`.
 - **The group is optional for the family plugins**: this package declares the `web-ui.plugin.item` list seat the family cards register into. A family plugin registers into that seat while this package is loaded, and into the official keyed `plugins.bundle.config` seat of the plugin manager page when it is not (keyed by the bundle's package name), so a profile that installs a family plugin without this group still reaches every card.
+- **Native settings transport**: the 0.1.7 settings surface addresses every configuration form by profile entry id. The host bridge resolves the entry id that owns each family namespace from the profile roster and reports it on its describe response, so the browser half binds the native shared form (`ctx.configForms`); the loopback HTTP pair stays the fallback for a page where no entry id resolves.
 
 ## Install
 
@@ -51,7 +52,7 @@ reverse_proxy 127.0.0.1:3080 {
 
 `header_up` with a value replaces any client-supplied value. Do not combine that line with a deletion of the same field: Caddy 2.6 applies grouped deletes after sets. If the Caddy systemd unit starts `caddy run --environ`, remove that flag or otherwise protect its output because it prints environment variables at startup.
 
-`web_settings_namespaces` in `settings.yaml` still decides which family namespaces the bridge serves; when absent, the built-in family list applies. Config changes require a DSH restart, while `web_settings_namespaces` is re-read for every bridge call.
+`web_settings_namespaces` in `settings.yaml` still decides which family namespaces the bridge serves; when absent, the built-in family list applies. The Host imports `settings.yaml` once on first boot and renames it to `settings.yaml.imported`, so the bridge reads the renamed import first, the pre-0.1.7 document second, and treats the Host-reported profile patch as a settings document only when its name says it is one. Config changes require a DSH restart, while `web_settings_namespaces` is re-read for every bridge call.
 
 ## Security model
 

@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-Update, conflict and repair tab for the dsh web GUI Plugins settings section: it keeps the surfaces the official plugin manager page does not own — registry update checks with DSH-runtime compatibility gating, the host-recorded install-conflict ledger with undo and a repair handoff, the boot-failure ring, and the safe-mode banner — and renders the plugin inventory read-only. Installing, uninstalling and switching plugins belong to the official page since 0.1.6-alpha.2.
+Update, conflict and repair tab for the dsh web GUI Plugins settings section: it keeps the surfaces the official plugin manager page does not own — registry update checks with DSH-runtime compatibility gating, the host-recorded install-conflict ledger with undo and a repair handoff, the boot-failure ring, and the safe-mode banner — and renders the plugin inventory read-only. Installing, uninstalling and switching plugins belong to the official page since 0.1.7-alpha.1.
 
 ## What it does
 

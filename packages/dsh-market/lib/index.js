@@ -552,21 +552,10 @@ function makeMarketRoutes(deps = {}) {
 const name = "ui-market";
 /** Services the routes need; the gateway requires the host webserver. */
 const inject = ["webServer"];
-/** Settings namespace of the card's enable switch. */
-const MARKET_SETTINGS_NAMESPACE = "dsh-web-ui-market";
 const Config = z.object({ enabled: z.boolean().default(true) });
-/** Register the namespace and mount the install gateway (once). */
+/** Mount the install gateway (once). */
 const apply = mountOnce("@linxin666/dsh-client-ui-market", applyImpl);
 function applyImpl(ctx) {
-	ctx.inject(["settings"], (settingsCtx) => {
-		try {
-			if (typeof settingsCtx.settings?.installSection === "function") settingsCtx.settings.installSection(ctx, MARKET_SETTINGS_NAMESPACE, Config, {}, {
-				setSource: () => {},
-				onChange: () => {}
-			});
-			else if (typeof settingsCtx.settings?.register === "function") settingsCtx.settings.register(MARKET_SETTINGS_NAMESPACE, Config, { base: {} });
-		} catch {}
-	});
 	const routes = makeMarketRoutes();
 	for (const route of routes) try {
 		ctx.effect(() => {
@@ -578,4 +567,4 @@ function applyImpl(ctx) {
 	} catch {}
 }
 //#endregion
-export { Config, MARKET_API_PREFIX, MARKET_ORIGIN, MARKET_SETTINGS_NAMESPACE, PROVENANCE_FILENAME, apply, inject, installAsset, isSafeRel, makeMarketRoutes, name, planDownload };
+export { Config, MARKET_API_PREFIX, MARKET_ORIGIN, PROVENANCE_FILENAME, apply, inject, installAsset, isSafeRel, makeMarketRoutes, name, planDownload };

@@ -533,31 +533,31 @@ window.__ModuleLoader__.load({
 			specs;
 			staged = /* @__PURE__ */ new Map();
 			listeners = /* @__PURE__ */ new Set();
-			/** The scope subscription installed in the constructor; released by dispose(). */
-			disposeScope;
+			/** The form subscription installed in the constructor; released by dispose(). */
+			disposeForm;
 			disposed = false;
 			saving = false;
 			failed = false;
 			failedReason;
-			/** @param scope - the bound settings scope for this card's namespace. */
+			/** @param scope - the bound configuration form for this card's namespace. */
 			constructor(scope, specs) {
 				this.scope = scope;
 				this.specs = new Map(specs.map((spec) => [spec.field, spec]));
-				this.disposeScope = scope.subscribe(() => {
+				this.disposeForm = scope.subscribe(() => {
 					this.publish();
 				});
 			}
 			/**
-			* Release the scope subscription and every bound store listener. The card
+			* Release the form subscription and every bound store listener. The card
 			* must call this on teardown; later calls are no-ops.
 			*/
 			dispose() {
 				if (this.disposed) return;
 				this.disposed = true;
-				this.disposeScope();
+				this.disposeForm();
 				this.listeners.clear();
 			}
-			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
+			/** Publish a projection of this form, rebuilt whenever the form or a draft changes. */
 			bind(project) {
 				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
@@ -624,19 +624,19 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* Write every staged edit in one atomic form mutation, then re-seed from
 			* what the Host accepted.
 			*
 			* The whole batch rides one mutate, so cross-field validate hooks
 			* (baseURL+model) judge it as a unit: the Host either applies every write
-			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
-			* mutation — the scope recovers with a fresh Host view and resolves — so
-			* resolution alone proves nothing: the outcome is judged by reading the
-			* settled snapshot back, one planned write at a time, and one missed write
-			* fails the whole save. A scope that still rejects on refusal (the dsh-web
-			* bridge scope) reports through the same failure path with its rejection
-			* message. A save that did not land keeps its drafts, so the user can
-			* correct them instead of retyping.
+			* or refuses the batch. The form contract answers a refusal or a skipped
+			* write with `false` (it recovers with a fresh Host view instead of
+			* throwing), so the outcome is judged twice: the answer itself, and then the
+			* settled snapshot read back one planned write at a time. One missed write
+			* fails the whole save. A transport that rejects instead (the dsh-web bridge
+			* controller on a dead connection) reports through the same failure path
+			* with its rejection message. A save that did not land keeps its drafts, so
+			* the user can correct them instead of retyping.
 			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
@@ -658,12 +658,13 @@ window.__ModuleLoader__.load({
 					path: [item.field]
 				});
 				let failedReason;
+				let accepted = false;
 				try {
-					await this.scope.mutate(ops);
+					accepted = await this.scope.mutate(ops);
 				} catch (error) {
 					failedReason = error instanceof Error ? error.message : String(error);
 				}
-				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				const landed = accepted && failedReason === void 0 && valid.every((item) => item.judge());
 				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
 				this.failed = !landed;
@@ -1084,11 +1085,11 @@ window.__ModuleLoader__.load({
 		* optional pluginManager service (with the copy-command degradation).
 		*/
 		const MARKET_ORIGIN = "https://dsh-market.com";
-		/** Bridges the market scope onto the card's staged form. */
+		/** Bridges the market config form onto the card's staged form. */
 		var MarketCardController = class {
 			form;
 			store;
-			/** @param scope - the bound settings scope for the dsh-web-ui-market namespace. */
+			/** @param scope - the bound configuration form of the market card's settings entry. */
 			constructor(scope) {
 				this.form = new CardForm(scope, [booleanField("enabled")]);
 				this.store = this.form.bind(() => this.projection());
@@ -1110,7 +1111,7 @@ window.__ModuleLoader__.load({
 					...this.form.actions()
 				};
 			}
-			/** Release the scope subscription; the slot disposer calls this on teardown. */
+			/** Release the form subscription; the slot disposer calls this on teardown. */
 			dispose() {
 				this.form.dispose();
 			}
@@ -2326,7 +2327,7 @@ window.__ModuleLoader__.load({
 			"slots",
 			"locale",
 			"connection",
-			"settingsScope",
+			"configForms",
 			"remote"
 		];
 		/** Register the market section and the plugin-manager bridge. */
@@ -2343,7 +2344,8 @@ window.__ModuleLoader__.load({
 				}
 			}, "dsh-web-ui-market: dictionaries");
 			bridgePluginManager(ctx);
-			const controller = new MarketCardController((ctx.get("webUiSettings") ?? ctx.settingsScope).bind({ namespace: MARKET_NS }));
+			const binder = ctx.get("webUiSettings");
+			const controller = new MarketCardController(binder !== void 0 ? binder.bind({ namespace: MARKET_NS }) : ctx.configForms.get(MARKET_NS));
 			ctx.slots.inject("settings.section", () => {
 				try {
 					const unregister = ctx.slots.register({

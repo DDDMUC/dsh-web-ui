@@ -1,17 +1,17 @@
 /**
  * LiangShen settings card: availability and the wire presentation. Registers
  * into the `web-ui.plugin.item` child slot the Web UI plugin group renders,
- * bound to the `dsh-liangshen` namespace.
+ * bound to the `liangshen` settings namespace (the Host profile entry id).
  *
- * The presentation field does not act on this client half: the Host writes it
- * into the synced preset composition, so a session reads it from its preset.
- * This card is the operator's only handle on it, which is why every field the
- * Host schema carries appears here.
+ * The presentation field does not act on this client half: the Host applies it
+ * to the preset it declares to the agent-preset registry, so a session reads it
+ * from its preset. This card is the operator's only handle on it, which is why
+ * every field the Host schema carries appears here.
  */
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { BooleanField, ChoiceField, PluginSettingsCard, ValueField } from './PluginSettingsCard.tsx'
 import { CardForm, booleanField, choiceField, numberField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
 
@@ -27,7 +27,7 @@ export interface LiangShenSettings {
   enabled?: boolean
   /** Whether the plugin announces itself in every agent's system prompt. */
   announceToAgent?: boolean
-  /** Wire presentation written into the synced preset. */
+  /** Wire presentation the Host applies to the preset's tool-catalog row. */
   presentation?: string
   /** Master switch for the runtime degeneration circuit breaker. */
   guardEnabled?: boolean
@@ -61,13 +61,13 @@ export interface LiangShenSettingsCardFace extends CardActions {
   }
 }
 
-/** Bridges the `dsh-liangshen` scope onto the card's staged form. */
+/** Bridges the `liangshen` settings form onto the card's staged form. */
 export class LiangShenSettingsCardController {
   private readonly form: CardForm<LiangShenSettings>
   private readonly store: SnapshotStore<LiangShenSettingsCardState>
 
-  /** @param scope - the bound settings scope for the `dsh-liangshen` namespace. */
-  constructor(scope: SettingsScope<LiangShenSettings>) {
+  /** @param scope - the bound configuration form of the entry that owns this namespace. */
+  constructor(scope: ConfigForm<LiangShenSettings>) {
     this.form = new CardForm(scope, [
       booleanField('enabled'),
       booleanField('announceToAgent'),
