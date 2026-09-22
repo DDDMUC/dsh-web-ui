@@ -3193,6 +3193,8 @@ window.__ModuleLoader__.load({
 			persist;
 			/** The fixed backdrop-filter element, present only while active blur > 0. */
 			blurElement = null;
+			/** Currently applied backdrop-filter blur px (cached to avoid redundant style writes during streaming). */
+			appliedBlur = null;
 			/** The body MutationObserver, installed lazily once a blur is active. */
 			observer = null;
 			/** Pending requestAnimationFrame id for a coalesced recheck. */
@@ -3402,7 +3404,10 @@ window.__ModuleLoader__.load({
 					element.setAttribute("aria-hidden", "true");
 					this.blurElement = element;
 					document.body.appendChild(element);
+					this.appliedBlur = null;
 				}
+				if (this.appliedBlur === active) return;
+				this.appliedBlur = active;
 				const blur = "blur(" + active + "px)";
 				this.blurElement.style.backdropFilter = blur;
 				this.blurElement.style.setProperty("-webkit-backdrop-filter", blur);
@@ -3412,6 +3417,7 @@ window.__ModuleLoader__.load({
 				if (this.blurElement === null) return;
 				this.blurElement.remove();
 				this.blurElement = null;
+				this.appliedBlur = null;
 			}
 			/**
 			* Install the MutationObserver on document.body only when either blur

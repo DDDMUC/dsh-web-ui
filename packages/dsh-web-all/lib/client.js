@@ -2485,13 +2485,13 @@ window.__ModuleLoader__.load({
 			});
 			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: settings_card_module_css_default$6.body,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: settings_card_module_css_default$6.notExposed,
 						role: "status",
 						children: props.t("settings.notExposed")
-					})
+					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
 				}) : null]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -3912,10 +3912,11 @@ window.__ModuleLoader__.load({
 				] }),
 				state,
 				alwaysOpen: true,
+				renderChildrenWhenNotExposed: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$6, {
+					state.exposed ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$6, {
 						id: "settings-market-enabled",
 						label: t("settings.enable"),
 						hint: t("settings.enableHint"),
@@ -3930,7 +3931,7 @@ window.__ModuleLoader__.load({
 						onReset: () => {
 							props.resetField("enabled");
 						}
-					}),
+					}) : null,
 					cardVisible ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: market_module_css_default.market,
 						children: [
@@ -9245,13 +9246,13 @@ window.__ModuleLoader__.load({
 			});
 			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: settings_card_module_css_default$5.body,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: settings_card_module_css_default$5.notExposed,
 						role: "status",
 						children: props.t("settings.notExposed")
-					})
+					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
 				}) : null]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -15175,13 +15176,13 @@ window.__ModuleLoader__.load({
 			});
 			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: settings_card_module_css_default$4.body,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: settings_card_module_css_default$4.notExposed,
 						role: "status",
 						children: props.t("settings.notExposed")
-					})
+					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
 				}) : null]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -21071,13 +21072,13 @@ window.__ModuleLoader__.load({
 			});
 			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: settings_card_module_css_default$3.body,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: settings_card_module_css_default$3.notExposed,
 						role: "status",
 						children: props.t("settings.notExposed")
-					})
+					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
 				}) : null]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -40056,13 +40057,13 @@ window.__ModuleLoader__.load({
 			});
 			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: settings_card_module_css_default$2.body,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: settings_card_module_css_default$2.notExposed,
 						role: "status",
 						children: props.t("settings.notExposed")
-					})
+					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
 				}) : null]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -41868,9 +41869,11 @@ window.__ModuleLoader__.load({
 					clearTimeout(timer);
 				};
 			}, [burstKey]);
+			const prevState = (0, react.useRef)(state);
 			(0, react.useEffect)(() => {
 				if (state === "on") syncHeroChip(face.t("lever.name"));
-				else if (state === "off" && restoreLabel !== "") syncHeroChip(restoreLabel);
+				else if (prevState.current === "on" && state === "off" && restoreLabel !== "") syncHeroChip(restoreLabel);
+				prevState.current = state;
 			}, [
 				state,
 				restoreLabel,
@@ -42247,7 +42250,10 @@ window.__ModuleLoader__.load({
 					this.refresh();
 					return;
 				}
-				this.previous = direction === "down" ? facts.agentPreset : void 0;
+				if (direction === "down") {
+					const prev = facts.agentPreset ?? this.detectPreset();
+					if (prev !== void 0 && prev !== "liangshen") this.rememberPrevious(prev);
+				}
 				const next = this.store.getSnapshot();
 				this.store.set({
 					...next,
@@ -42257,17 +42263,48 @@ window.__ModuleLoader__.load({
 				});
 				this.refresh();
 			}
+			/**
+			* Try to detect the active preset from the DOM hero chip or storage
+			* when session.projectionValues.agentPreset is absent.
+			*/
+			detectPreset() {
+				try {
+					if (typeof document !== "undefined") {
+						const text = (document.querySelector("button[aria-haspopup=\"menu\"] span[class*=\"seatLabel\"]") ?? Array.from(document.querySelectorAll("button[aria-haspopup=\"menu\"] span")).find((s) => s.className.includes("seatLabel")))?.textContent?.trim();
+						if (text) {
+							const matched = this.rows.find((row) => (row.name === text || row.id === text) && row.id !== "liangshen");
+							if (matched) return matched.id;
+						}
+					}
+				} catch {}
+				try {
+					if (typeof sessionStorage !== "undefined") {
+						const stored = sessionStorage.getItem("dsh-liangshen:previous-preset");
+						if (stored && stored !== "liangshen" && this.rows.some((r) => r.id === stored)) return stored;
+					}
+				} catch {}
+			}
+			rememberPrevious(presetId) {
+				if (presetId === void 0 || presetId === "liangshen") return;
+				this.previous = presetId;
+				try {
+					if (typeof sessionStorage !== "undefined") sessionStorage.setItem("dsh-liangshen:previous-preset", presetId);
+				} catch {}
+			}
 			/** The facts one decision reads, from the live session and the roster. */
 			facts() {
 				const summary = this.currentSession();
 				const available = this.rows.filter((row) => row.broken === void 0).map((row) => row.id);
 				const fallback = this.rows.find((row) => row.isDefault)?.id;
+				const currentPreset = presetOf(summary);
+				if (currentPreset !== void 0 && currentPreset !== "liangshen") this.rememberPrevious(currentPreset);
+				const previous = this.previous ?? this.detectPreset();
 				return {
 					blank: summary?.blank === true,
-					agentPreset: presetOf(summary),
+					agentPreset: currentPreset,
 					available,
 					fallback,
-					previous: this.previous
+					previous
 				};
 			}
 			currentSessionId() {
@@ -42470,13 +42507,13 @@ window.__ModuleLoader__.load({
 			});
 			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: settings_card_module_css_default$1.body,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: settings_card_module_css_default$1.notExposed,
 						role: "status",
 						children: props.t("settings.notExposed")
-					})
+					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
 				}) : null]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -46493,13 +46530,13 @@ window.__ModuleLoader__.load({
 			});
 			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: settings_card_module_css_default.body,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: settings_card_module_css_default.notExposed,
 						role: "status",
 						children: props.t("settings.notExposed")
-					})
+					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
 				}) : null]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {

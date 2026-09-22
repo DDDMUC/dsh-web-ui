@@ -216,13 +216,13 @@ window.__ModuleLoader__.load({
 			});
 			if (!state.exposed) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: cardClass,
-				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: settings_card_module_css_default.body,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: settings_card_module_css_default.notExposed,
 						role: "status",
 						children: props.t("settings.notExposed")
-					})
+					}), props.renderChildrenWhenNotExposed === true ? props.children : null]
 				}) : null]
 			});
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -1656,10 +1656,11 @@ window.__ModuleLoader__.load({
 				] }),
 				state,
 				alwaysOpen: true,
+				renderChildrenWhenNotExposed: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField, {
+					state.exposed ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField, {
 						id: "settings-market-enabled",
 						label: t("settings.enable"),
 						hint: t("settings.enableHint"),
@@ -1674,7 +1675,7 @@ window.__ModuleLoader__.load({
 						onReset: () => {
 							props.resetField("enabled");
 						}
-					}),
+					}) : null,
 					cardVisible ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: market_module_css_default.market,
 						children: [

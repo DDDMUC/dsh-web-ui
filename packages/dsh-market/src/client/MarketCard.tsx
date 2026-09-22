@@ -667,21 +667,24 @@ export function MarketCard(props: MarketCardProps): ReactNode {
       )}
       state={state}
       alwaysOpen
+      renderChildrenWhenNotExposed
       onSave={props.save}
       onDiscard={props.discard}
     >
-      <BooleanField
-        id="settings-market-enabled"
-        label={t('settings.enable')}
-        hint={t('settings.enableHint')}
-        inheritLabel={t('settings.inherit')}
-        onLabel={t('settings.on')}
-        offLabel={t('settings.off')}
-        {...fieldProps}
-        {...state.enabled}
-        onEdit={(value) => { props.edit('enabled', value) }}
-        onReset={() => { props.resetField('enabled') }}
-      />
+      {state.exposed ? (
+        <BooleanField
+          id="settings-market-enabled"
+          label={t('settings.enable')}
+          hint={t('settings.enableHint')}
+          inheritLabel={t('settings.inherit')}
+          onLabel={t('settings.on')}
+          offLabel={t('settings.off')}
+          {...fieldProps}
+          {...state.enabled}
+          onEdit={(value) => { props.edit('enabled', value) }}
+          onReset={() => { props.resetField('enabled') }}
+        />
+      ) : null}
       {cardVisible ? (
         <div className={css.market}>
           <div className={css.tabs} role="tablist" aria-label={t('settings.title')}>

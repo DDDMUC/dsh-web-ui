@@ -226,6 +226,62 @@ describe('LeverController', () => {
     expect(controller.snapshot().getSnapshot().state).toBe('off')
     controller.dispose()
   })
+
+  it('user restores previous preset from remembered state across multiple pulls without regressing to fallback', async () => {
+    // Given a blank session running an explicit non-default preset
+    const { controller, selections, state } = await started({
+      presets: [
+        { id: 'standard', isDefault: true, name: 'Standard' },
+        { id: 'command-code', name: 'Command Code' },
+        { id: 'liangshen', name: '梁神模式' },
+      ],
+      readonly: { agentPreset: 'command-code' },
+    })
+
+    // When the user pulls down into LiangShen mode and pushes back up
+    controller.face().pull()
+    await Promise.resolve()
+    await Promise.resolve()
+    state.byId['session-1'] = {
+      id: 'session-1', blank: true, projectionValues: { agentPreset: 'liangshen' }, retainedBy: { mainView: 1 },
+    } as never
+    controller.refresh()
+    expect(controller.snapshot().getSnapshot().state).toBe('on')
+
+    controller.face().push()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // Then the original non-default preset is restored
+    expect(selections).toEqual([['session-1', 'liangshen'], ['session-1', 'command-code']])
+
+    // When the user repeats the pull and push cycle
+    state.byId['session-1'] = {
+      id: 'session-1', blank: true, projectionValues: { agentPreset: 'command-code' }, retainedBy: { mainView: 1 },
+    } as never
+    controller.refresh()
+    expect(controller.snapshot().getSnapshot().state).toBe('off')
+
+    controller.face().pull()
+    await Promise.resolve()
+    await Promise.resolve()
+    state.byId['session-1'] = {
+      id: 'session-1', blank: true, projectionValues: { agentPreset: 'liangshen' }, retainedBy: { mainView: 1 },
+    } as never
+    controller.refresh()
+
+    controller.face().push()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // Then the remembered preset is still restored instead of falling back to default
+    expect(selections).toEqual([
+      ['session-1', 'liangshen'],
+      ['session-1', 'command-code'],
+      ['session-1', 'liangshen'],
+      ['session-1', 'command-code'],
+    ])
+  })
 })
 
 /**

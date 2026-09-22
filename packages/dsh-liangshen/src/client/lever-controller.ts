@@ -249,10 +249,60 @@ export class LeverController {
     }
     // The switch landed: remember where to return, then celebrate only the
     // pull that turned the mode on.
-    this.previous = direction === 'down' ? facts.agentPreset : undefined
+    if (direction === 'down') {
+      const prev = facts.agentPreset ?? this.detectPreset()
+      if (prev !== undefined && prev !== LIANGSHEN_PRESET_ID) {
+        this.rememberPrevious(prev)
+      }
+    }
     const next = this.store.getSnapshot()
     this.store.set({ ...next, busy: false, error: undefined, burst: direction === 'down' ? next.burst + 1 : next.burst })
     this.refresh()
+  }
+
+  /**
+   * Try to detect the active preset from the DOM hero chip or storage
+   * when session.projectionValues.agentPreset is absent.
+   */
+  private detectPreset(): string | undefined {
+    try {
+      if (typeof document !== 'undefined') {
+        const chip = document.querySelector<HTMLElement>('button[aria-haspopup="menu"] span[class*="seatLabel"]')
+          ?? Array.from(document.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"] span')).find(s => s.className.includes('seatLabel'))
+        const text = chip?.textContent?.trim()
+        if (text) {
+          const matched = this.rows.find(row => (row.name === text || row.id === text) && row.id !== LIANGSHEN_PRESET_ID)
+          if (matched) return matched.id
+        }
+      }
+    } catch {
+      // Defensive
+    }
+
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const stored = sessionStorage.getItem('dsh-liangshen:previous-preset')
+        if (stored && stored !== LIANGSHEN_PRESET_ID && this.rows.some(r => r.id === stored)) {
+          return stored
+        }
+      }
+    } catch {
+      // Defensive
+    }
+
+    return undefined
+  }
+
+  private rememberPrevious(presetId: string | undefined): void {
+    if (presetId === undefined || presetId === LIANGSHEN_PRESET_ID) return
+    this.previous = presetId
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('dsh-liangshen:previous-preset', presetId)
+      }
+    } catch {
+      // Defensive
+    }
   }
 
   /** The facts one decision reads, from the live session and the roster. */
@@ -260,12 +310,20 @@ export class LeverController {
     const summary = this.currentSession()
     const available = this.rows.filter(row => row.broken === undefined).map(row => row.id)
     const fallback = this.rows.find(row => row.isDefault)?.id
+    const currentPreset = presetOf(summary)
+
+    if (currentPreset !== undefined && currentPreset !== LIANGSHEN_PRESET_ID) {
+      this.rememberPrevious(currentPreset)
+    }
+
+    const previous = this.previous ?? this.detectPreset()
+
     return {
       blank: summary?.blank === true,
-      agentPreset: presetOf(summary),
+      agentPreset: currentPreset,
       available,
       fallback,
-      previous: this.previous,
+      previous,
     }
   }
 

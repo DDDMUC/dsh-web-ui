@@ -11,7 +11,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import z from 'schemastery'
+import z from '@deepseek-ai/schemastery'
 import { mountOnce } from './mount-once.ts'
 import { makeMarketRoutes } from './routes.ts'
 
@@ -27,8 +27,8 @@ export interface Config {
   enabled?: boolean
 }
 
-export const Config: z<Config> = z.object({
-  enabled: z.boolean().default(true),
+export const Config = z.object({
+  enabled: z.boolean().default(true).volatile(),
 })
 
 /** Mount the install gateway (once). */

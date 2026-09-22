@@ -76,12 +76,14 @@ export function LiangShenLever(face: LeverFace): ReactElement | null {
   }, [burstKey])
 
   // Keep the hero preset chip above the composer in sync with the lever's selection
+  const prevState = useRef(state)
   useEffect(() => {
     if (state === 'on') {
       syncHeroChip(face.t('lever.name'))
-    } else if (state === 'off' && restoreLabel !== '') {
+    } else if (prevState.current === 'on' && state === 'off' && restoreLabel !== '') {
       syncHeroChip(restoreLabel)
     }
+    prevState.current = state
   }, [state, restoreLabel, face])
 
   // The lever exists only while the preset can still change, which is the
