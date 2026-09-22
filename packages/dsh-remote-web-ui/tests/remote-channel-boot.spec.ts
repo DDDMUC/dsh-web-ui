@@ -31,6 +31,7 @@ const WS_MATRIX = [
   '/api/remote.mux',
   '/sidebar/ws/terminal',
   '/sidebar/ws/agent-terminals',
+  '/sidebar/ws/agent-opens',
   '/api/dsh-ssh/terminal',
   '/api/events.mux',
   '/api/session.list',
