@@ -53,9 +53,15 @@ beforeEach(() => {
 afterEach(() => {
   for (const id of adaptTimers) globalThis.clearInterval(id)
   adaptTimers = []
+  // The layer patches HTMLElement.prototype.focus globally; restore the page's
+  // own function so one test's patch cannot stack onto the next one's.
+  HTMLElement.prototype.focus = TRUE_FOCUS
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
+
+/** The page's own focus function (captured before any layer instance patches it). */
+const TRUE_FOCUS = HTMLElement.prototype.focus
 
 /**
  * A fresh module instance: startMobileAdapt is a page-lifetime singleton
@@ -152,6 +158,53 @@ describe('startMobileAdapt', () => {
     expect(whale).not.toBeNull()
     expect(parseFloat(whale?.style.left ?? 'NaN')).toBeLessThanOrEqual(390 - 38)
     expect(parseFloat(whale?.style.top ?? 'NaN')).toBeLessThanOrEqual(700 - 38)
+  })
+
+  it('user keeps the whale reachable after the viewport shrinks', async () => {
+    // Given a visible whale positioned against a 390px-wide portrait viewport.
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    vi.stubGlobal('innerHeight', 700)
+    const store: Record<string, string> = { 'dsh-remote-whale-pos': JSON.stringify({ x: 352, y: 100 }) }
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => { store[key] = value },
+      removeItem: (key: string) => { delete store[key] },
+    })
+    const frame = document.createElement('div')
+    frame.className = 'app_frame'
+    frame.setAttribute('data-dsh-frame', '')
+    frame.setAttribute('data-sidebar-collapsed', '')
+    document.body.appendChild(frame)
+    const start = await freshStart()
+    start()
+    const whale = document.getElementById('dshRemoteWhale') as HTMLElement | null
+    expect(parseFloat(whale?.style.left ?? 'NaN')).toBe(352)
+    // When the viewport shrinks while the whale stays visible (split-screen).
+    setWidth(200)
+    window.dispatchEvent(new Event('resize'))
+    // Then it is re-clamped into the new viewport instead of parking off-screen,
+    // where it would be unreachable (the only portrait sidebar entry).
+    expect(parseFloat(whale?.style.left ?? 'NaN')).toBe(200 - 38)
+  })
+
+  it('user keeps the original focus behavior when the layer is disabled', async () => {
+    // Given a portrait touch viewport and the page's own focus function.
+    media.portrait = true
+    media.coarse = true
+    setWidth(390)
+    const original = HTMLElement.prototype.focus
+    const start = await freshStart()
+    start()
+    const adapt = (window as unknown as { __dshRemoteAdapt?: { setEnabled: (on: boolean) => void } }).__dshRemoteAdapt
+    // When the layer is active, then the composer-focus guard is installed.
+    expect(HTMLElement.prototype.focus).not.toBe(original)
+    // And disabling it hands the prototype back (a re-enable installs it again).
+    adapt?.setEnabled(false)
+    expect(HTMLElement.prototype.focus).toBe(original)
+    adapt?.setEnabled(true)
+    expect(HTMLElement.prototype.focus).not.toBe(original)
   })
 
   it('Enter inserts a newline but an IME-confirm Enter (keyCode 229) does not', async () => {

@@ -22,7 +22,7 @@
  */
 
 import { randomBytes } from 'node:crypto'
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { PostureSnapshot } from './posture.ts'
 
@@ -166,15 +166,13 @@ export interface PairingConfig {
 }
 
 /**
- * Result of one accept() attempt. `used` is never produced by this state
- * machine (a token stays redeemable for its whole window, see the module doc):
- * it stays in the wire contract as the 409 branch the client already handles,
- * so an older or third-party host answering "already used" still degrades to
- * the intended refusal copy instead of an unparsed status.
+ * Result of one accept() attempt. A token is a bearer credential for its whole
+ * window (see the module doc), so the only refusal is `invalid`: unknown,
+ * expired, or after stop(). There is no "already used" outcome.
  */
 export type AcceptResult =
   | { ok: true; deviceId: string }
-  | { ok: false; code: 'invalid' | 'used' }
+  | { ok: false; code: 'invalid' }
 
 /** Thrown by issue() for an address outside the sampled LAN literals. */
 export class UnknownLanAddressError extends Error {
@@ -191,6 +189,12 @@ export class UnknownLanAddressError extends Error {
 export interface PairingClock {
   now(): number
   randomToken(): string
+}
+
+/** File-operation seam for the revocation-durability step (tests). */
+export interface PairingFsSeams {
+  /** Remove the stale device store (defaults to fs.rmSync with force). */
+  removeFile?(path: string): void
 }
 
 /** Real clock/entropy: 32 random hex chars per token. */
@@ -235,6 +239,7 @@ export class PairingService {
   constructor(
     public config: PairingConfig,
     private readonly clock: PairingClock = defaultClock,
+    private readonly fs: PairingFsSeams = {},
   ) {
     this.loadPersisted()
   }
@@ -267,7 +272,7 @@ export class PairingService {
         })
       }
       this.clampToMaxDevices()
-      if (this.evictIdle()) this.persist()
+      if (this.evictIdle()) this.persistRevocation()
     } catch {
       // Unreadable/corrupt: start empty rather than refusing to boot.
     }
@@ -305,9 +310,9 @@ export class PairingService {
    * cookie's device id), so the file is written 0600 via a temp file and
    * atomic rename; a crash mid-write can never leave a half-written store.
    */
-  private persist(): void {
+  private persist(): boolean {
     const file = this.config.devicesFile
-    if (file === undefined) return
+    if (file === undefined) return true
     try {
       mkdirSync(dirname(file), { recursive: true })
       const temp = `${file}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`
@@ -316,8 +321,32 @@ export class PairingService {
       writeFileSync(temp, JSON.stringify(payload), { mode: 0o600 })
       renameSync(temp, file)
       this.dirty = false
+      return true
     } catch (error) {
       console.error('remote-web-ui: failed to persist paired devices', error)
+      return false
+    }
+  }
+
+  /**
+   * Persist a table change that REVOKES access (stop, per-device revoke, idle
+   * eviction). A failed write would leave the revoked session on disk, and
+   * {@link loadPersisted} restores that file verbatim on the next start — the
+   * device's still-valid cookie would authorize again after an explicit
+   * revocation. When the write cannot be made durable, the stale store is
+   * removed instead (a missing file already loads as an empty table), so the
+   * failure costs a re-pair rather than silently undoing the revocation.
+   */
+  private persistRevocation(): void {
+    if (this.persist()) return
+    const file = this.config.devicesFile
+    if (file === undefined) return
+    try {
+      if (this.fs.removeFile !== undefined) this.fs.removeFile(file)
+      else rmSync(file, { force: true })
+      console.error('remote-web-ui: the device revocation could not be persisted; removed the stale device store so a restart cannot restore it')
+    } catch (error) {
+      console.error('remote-web-ui: the device revocation could not be persisted and the stale device store could not be removed', error)
     }
   }
 
@@ -455,7 +484,7 @@ export class PairingService {
   stop(): void {
     this.tokens.clear()
     this.devices.clear()
-    this.persist()
+    this.persistRevocation()
     this.stopped = true
     this.notify()
   }
@@ -469,7 +498,7 @@ export class PairingService {
   revoke(deviceId: string): boolean {
     if (this.stopped) return false
     if (!this.devices.delete(deviceId)) return false
-    this.persist()
+    this.persistRevocation()
     this.notify()
     return true
   }
@@ -508,7 +537,8 @@ export class PairingService {
    */
   sweep(): void {
     const evicted = this.evictIdle()
-    if (evicted || this.dirty) this.persist()
+    if (evicted) this.persistRevocation()
+    else if (this.dirty) this.persist()
     this.notify()
   }
 
@@ -566,7 +596,7 @@ export class PairingService {
     const limit = this.config.idleExpireMs ?? DEFAULT_IDLE_EXPIRE_MS
     if (this.clock.now() - session.lastSeenAt > limit) {
       this.devices.delete(deviceId)
-      this.persist()
+      this.persistRevocation()
       this.notify()
       return undefined
     }

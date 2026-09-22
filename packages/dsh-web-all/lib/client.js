@@ -13780,13 +13780,9 @@ window.__ModuleLoader__.load({
 				body: JSON.stringify({ token })
 			});
 			if (response.ok) return { ok: true };
-			if (response.status === 404) return {
+			if (response.status === 404 || response.status === 409) return {
 				ok: false,
 				code: "invalid"
-			};
-			if (response.status === 409) return {
-				ok: false,
-				code: "used"
 			};
 			return {
 				ok: false,
@@ -13834,11 +13830,34 @@ window.__ModuleLoader__.load({
 			const pair = new URLSearchParams(search).get("pair");
 			return pair !== null && pair !== "" ? { pair } : {};
 		}
+		/** A failed LAN-bind read, carrying the HTTP status when the server answered. */
+		var LanBindStatusError = class extends Error {
+			status;
+			/**
+			* @param status - the response status, or undefined when the request failed
+			*   before a response (network error).
+			* @param message - the diagnostic message.
+			*/
+			constructor(status, message) {
+				super(message);
+				this.status = status;
+				this.name = "LanBindStatusError";
+			}
+		};
 		/** Read the LAN-bind facts (loopback-only endpoint). */
 		async function readLanBindStatus() {
 			const response = await fetch("/api/pair/lan-bind");
-			if (!response.ok) throw new Error(`remote-web-ui: lan-bind status failed with ${String(response.status)}`);
+			if (!response.ok) throw new LanBindStatusError(response.status, `remote-web-ui: lan-bind status failed with ${String(response.status)}`);
 			return await response.json();
+		}
+		/**
+		* Whether a LAN-bind status failure means this origin can never read the
+		* endpoint (401/403 from the loopback-only fence), so a poll should stop
+		* instead of retrying a known refusal; a transient error keeps the cadence.
+		* @param status - the response status, or undefined for a network failure.
+		*/
+		function shouldStopLanBindPoll(status) {
+			return status === 401 || status === 403;
 		}
 		/** Human-readable expiry clock, e.g. "10:35". */
 		function formatClock$1(epochMs) {
@@ -13995,6 +14014,20 @@ window.__ModuleLoader__.load({
 		* actions (stop / refresh / copy). Pure presentation — all state and
 		* actions arrive through props from the entry's behavior component.
 		*/
+		/**
+		* The QR symbol, memoized on the link: the panel re-renders on every SSE state
+		* frame (a paired phone heartbeats every 10s), and qrcode.react rebuilds the
+		* SVG path and element tree on each render.
+		*/
+		const PairQrCode = (0, react.memo)(function PairQrCode({ url, className }) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(QRCodeSVG, {
+				value: url,
+				size: 184,
+				level: "M",
+				marginSize: 1,
+				className
+			});
+		});
 		/** Badge text + tone per phase (ready states only). */
 		function statusOf(t, state) {
 			switch (state.phase) {
@@ -14113,11 +14146,8 @@ window.__ModuleLoader__.load({
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 								className: remote_module_css_default.qrWrap,
 								"data-testid": "remote-qr",
-								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(QRCodeSVG, {
-									value: state.url,
-									size: 184,
-									level: "M",
-									marginSize: 1,
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(PairQrCode, {
+									url: state.url,
 									className: remote_module_css_default.qr
 								})
 							}),
@@ -16115,10 +16145,12 @@ window.__ModuleLoader__.load({
 				const read = () => {
 					readLanBindStatus().then((value) => {
 						if (alive) setFrame(value);
-					}).catch(() => {});
+					}).catch((error) => {
+						if (error instanceof LanBindStatusError && shouldStopLanBindPoll(error.status)) window.clearInterval(timer);
+					});
 				};
-				read();
 				const timer = window.setInterval(read, 1e4);
+				read();
 				return () => {
 					alive = false;
 					window.clearInterval(timer);
@@ -16184,9 +16216,9 @@ window.__ModuleLoader__.load({
 			"pair.linkLabel": "配对链接",
 			"pair.tokenLabel": "配对令牌",
 			"pair.dockerHint": "Docker 或反向代理环境下，可直接复制此令牌并在目标设备配对页面输入。",
-			"pair.oneTimeHint": "链接含一次性令牌；任一设备配对成功后立即失效，配对下一台设备请刷新二维码。",
+			"pair.oneTimeHint": "链接含限时令牌；在令牌过期或刷新二维码之前，同一链接可为多台设备完成配对（每次配对各自生成独立设备会话）。",
 			"pair.failed.title": "配对失败",
-			"pair.failed.detail": "链接无效或已使用，请回到电脑端刷新二维码后重新扫码。",
+			"pair.failed.detail": "链接无效或已过期，请回到电脑端刷新二维码后重新扫码。",
 			"fence.unpaired.title": "此设备未配对，无法访问工作区数据",
 			"fence.unpaired.eyebrow": "需要设备配对",
 			"fence.unpaired.hint": "为保护工作区、会话与插件数据，远程电脑必须先通过主电脑授权。",
@@ -16198,7 +16230,6 @@ window.__ModuleLoader__.load({
 			"fence.unpaired.pairAction": "立即配对",
 			"fence.unpaired.pairing": "配对中…",
 			"fence.unpaired.tokenInvalid": "配对链接或 Token 无效已过期",
-			"fence.unpaired.tokenUsed": "该配对链接已被使用",
 			"fence.unpaired.tokenFailed": "配对失败，请检查网络或重新获取链接",
 			"fence.unpaired.footnote": "请勿使用他人提供的配对链接；管理员可随时取消此设备的授权。",
 			"posture.exposed": "/api 通道对未配对设备敞开",
@@ -16349,9 +16380,9 @@ window.__ModuleLoader__.load({
 			"pair.linkLabel": "Pairing link",
 			"pair.tokenLabel": "Pairing token",
 			"pair.dockerHint": "In Docker or reverse proxy environments, copy this token to pair directly on the target device.",
-			"pair.oneTimeHint": "The link carries one single-use token; it dies as soon as any device pairs. Refresh the QR to pair the next device.",
+			"pair.oneTimeHint": "The link carries a time-limited token: until it expires or the QR is refreshed, the same link can pair several devices, each with its own device session.",
 			"pair.failed.title": "Pairing failed",
-			"pair.failed.detail": "The link is invalid or was already used. Refresh the QR code on your computer and scan again.",
+			"pair.failed.detail": "The link is invalid or has expired. Refresh the QR code on your computer and scan again.",
 			"fence.unpaired.title": "This device is not paired and cannot reach workspace data",
 			"fence.unpaired.eyebrow": "Device pairing required",
 			"fence.unpaired.hint": "To protect workspace, session, and plugin data, a remote computer must first be authorized by the primary computer.",
@@ -16363,7 +16394,6 @@ window.__ModuleLoader__.load({
 			"fence.unpaired.pairAction": "Pair Now",
 			"fence.unpaired.pairing": "Pairing…",
 			"fence.unpaired.tokenInvalid": "Pairing link or token is invalid or expired",
-			"fence.unpaired.tokenUsed": "This pairing link has already been used",
 			"fence.unpaired.tokenFailed": "Pairing failed, please check network or issue a new link",
 			"fence.unpaired.footnote": "Do not use pairing links from people you do not trust. An administrator can revoke this device at any time.",
 			"posture.exposed": "The /api channel is open to unpaired devices",
@@ -16734,10 +16764,14 @@ window.__ModuleLoader__.load({
 			const attach = (init) => {
 				if (device === null) return init;
 				const headers = init?.headers;
-				if (typeof Headers !== "undefined" && headers instanceof Headers) {
-					try {
-						headers.set(RULES.deviceHeader, device);
-					} catch {}
+				if (typeof Headers !== "undefined" && headers instanceof Headers) try {
+					const copy = new Headers(headers);
+					copy.set(RULES.deviceHeader, device);
+					return {
+						...init,
+						headers: copy
+					};
+				} catch {
 					return init;
 				}
 				if (typeof headers === "object" && headers !== null) return {
@@ -16904,7 +16938,6 @@ window.__ModuleLoader__.load({
 						return;
 					}
 					if (result.code === "invalid") setErrorMsg(t("fence.unpaired.tokenInvalid"));
-					else if (result.code === "used") setErrorMsg(t("fence.unpaired.tokenUsed"));
 					else setErrorMsg(t("fence.unpaired.tokenFailed"));
 				} catch {
 					setErrorMsg(t("fence.unpaired.tokenFailed"));
@@ -17256,7 +17289,7 @@ window.__ModuleLoader__.load({
 			* rail compaction) while the body class stays.
 			*/
 			function ensureAdaptStyle() {
-				if (document.querySelector(`style[data-plugin-css="${ADAPT_CSS_ID}"]`) !== null) return;
+				if (nodeOf(`style[data-plugin-css="${ADAPT_CSS_ID}"]`) !== null) return;
 				const tag = document.createElement("style");
 				tag.dataset.plugin = "remote-web-ui";
 				tag.dataset.pluginCss = ADAPT_CSS_ID;
@@ -17296,6 +17329,7 @@ window.__ModuleLoader__.load({
 					savedViewportContent = null;
 				}
 				if (whaleEl !== null) whaleEl.style.display = "none";
+				whaleShown = false;
 				setWhaleTimer(false);
 				if (whaleObserver !== null) {
 					whaleObserver.disconnect();
@@ -17358,7 +17392,7 @@ window.__ModuleLoader__.load({
 			}
 			function syncCompactPicker() {
 				if (!active) return;
-				const tools = document.querySelector("[class$=\"_composerSeat\"] [class$=\"_tools\"]");
+				const tools = nodeOf("[class$=\"_composerSeat\"] [class$=\"_tools\"]");
 				const trigger = tools?.parentElement?.querySelector("[class$=\"_triggerEffort\"]")?.parentElement;
 				if (tools === null || trigger === null) {
 					removeCompactPicker();
@@ -17561,6 +17595,28 @@ window.__ModuleLoader__.load({
 					dragOverridden.delete(row);
 				}
 			}
+			/**
+			* Official nodes resolved through the document and cached while they stay
+			* connected. The sync tick runs every 600ms for the page lifetime, and these
+			* selectors (suffix class matches, :has()) cannot use Blink's fast paths, so
+			* every miss walks the whole mounted DOM — the official chat keeps the whole
+			* conversation mounted, i.e. tens of thousands of elements. React replaces a
+			* node on a major re-render, which the isConnected guard detects.
+			*/
+			const nodeCache = /* @__PURE__ */ new Map();
+			function nodeOf(selector) {
+				const cached = nodeCache.get(selector);
+				if (cached !== void 0 && cached.isConnected) return cached;
+				const found = document.querySelector(selector);
+				if (found === null) nodeCache.delete(selector);
+				else nodeCache.set(selector, found);
+				return found;
+			}
+			/** The official application frame, through the same cached lookup. */
+			function frameEl() {
+				const frame = nodeOf(APP_FRAME_SELECTOR);
+				return frame instanceof HTMLElement ? frame : null;
+			}
 			function syncWhale() {
 				if (active) ensureAdaptStyle();
 				if (whaleEl === null) return;
@@ -17568,8 +17624,8 @@ window.__ModuleLoader__.load({
 					whaleEl.style.display = "none";
 					return;
 				}
-				const collapsed = appFrame()?.hasAttribute("data-sidebar-collapsed") === true;
-				const overlayUp = document.querySelector("[class$=\"_overlay\"]") !== null;
+				const collapsed = frameEl()?.hasAttribute("data-sidebar-collapsed") === true;
+				const overlayUp = nodeOf("[class$=\"_overlay\"]") !== null;
 				const show = collapsed && !overlayUp;
 				if (show && !whaleShown) applyWhalePos();
 				whaleEl.style.display = show ? "" : "none";
@@ -17585,7 +17641,7 @@ window.__ModuleLoader__.load({
 			}
 			function seatHeaderActions() {
 				if (!active) return;
-				const header = document.querySelector("[class$=\"_header\"]");
+				const header = nodeOf("[class$=\"_header\"]");
 				const tabs = header !== null ? header.querySelector("[class$=\"_tabs\"]") : null;
 				const actions = header !== null ? header.querySelector("[class$=\"_titleCluster\"] [class$=\"_headerActions\"]") : null;
 				const seated = header !== null && tabs !== null && actions !== null;
@@ -17594,7 +17650,7 @@ window.__ModuleLoader__.load({
 			}
 			function alignActionsText() {
 				if (!active) return;
-				const header = document.querySelector("[class$=\"_header\"]");
+				const header = nodeOf("[class$=\"_header\"]");
 				if (header === null) return;
 				const tabs = header.querySelector("[class$=\"_tabs\"]");
 				const actions = header.querySelector("[class$=\"_titleCluster\"] [class$=\"_headerActions\"]");
@@ -17701,6 +17757,7 @@ window.__ModuleLoader__.load({
 				if (isMobilePortrait()) {
 					apply();
 					ensureWhaleObserver();
+					if (active && drag === null) applyWhalePos();
 				} else revert();
 			}
 			evaluate();
@@ -17768,7 +17825,7 @@ window.__ModuleLoader__.load({
 				}
 				const t = e.target;
 				const editable = t instanceof HTMLElement && t.isContentEditable;
-				if (t instanceof Element && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || editable || t.closest(`#${WHALE_ID}`) !== null || insideHScrollable(t) || t.closest("table, [class$=\"_table\"], [class$=\"_tablePane\"]") !== null)) {
+				if (t instanceof Element && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || editable || t.closest(`#${WHALE_ID}`) !== null || t.closest("table, [class$=\"_table\"], [class$=\"_tablePane\"]") !== null)) {
 					swipeTouch = null;
 					return;
 				}
@@ -17777,7 +17834,8 @@ window.__ModuleLoader__.load({
 				swipeTouch = {
 					x: ct.clientX,
 					y: ct.clientY,
-					id: ct.identifier
+					id: ct.identifier,
+					el: t instanceof Element ? t : null
 				};
 			}, {
 				capture: true,
@@ -17790,12 +17848,14 @@ window.__ModuleLoader__.load({
 				if (ct === void 0 || ct.identifier !== swipeTouch.id) return;
 				const dx = ct.clientX - swipeTouch.x;
 				const dy = ct.clientY - swipeTouch.y;
+				const start = swipeTouch;
 				swipeTouch = null;
 				if (!active) return;
 				if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-				const frame = appFrame();
+				if (start.el !== null && insideHScrollable(start.el)) return;
+				const frame = frameEl();
 				if (frame === null) return;
-				if (document.querySelector("[class$=\"_overlay\"], [class$=\"_dialog\"], [class$=\"_menu\"], [class*=\"_portal\"]") !== null) return;
+				if (nodeOf("[class$=\"_overlay\"], [class$=\"_dialog\"], [class$=\"_menu\"], [class*=\"_portal\"]") !== null) return;
 				const collapsed = frame.hasAttribute("data-sidebar-collapsed");
 				if (dx < 0 && !collapsed) collapseSidebar();
 				else if (dx > 0 && collapsed) toggleSidebarVerified();
@@ -17927,10 +17987,23 @@ window.__ModuleLoader__.load({
 				return isComposerField(el) ? el : null;
 			};
 			const lanOrigFocus = HTMLElement.prototype.focus;
-			HTMLElement.prototype.focus = function(options) {
+			const patchedFocus = function(options) {
 				if (active && isComposerField(this) && Date.now() - lastComposerTap >= 800) return;
 				lanOrigFocus.call(this, options);
 			};
+			/** (Re-)install the composer-focus guard (see setEnabled). */
+			const installFocusPatch = () => {
+				HTMLElement.prototype.focus = patchedFocus;
+			};
+			/**
+			* Remove the guard when the layer is disabled. A patch another plugin
+			* installed after ours is left alone (identity check), so disabling this
+			* layer never removes someone else's behavior.
+			*/
+			const restoreFocusPatch = () => {
+				if (HTMLElement.prototype.focus === patchedFocus) HTMLElement.prototype.focus = lanOrigFocus;
+			};
+			installFocusPatch();
 			document.addEventListener("pointerdown", (e) => {
 				if (!active) return;
 				if (composerFieldOf(e.target) !== null) lastComposerTap = Date.now();
@@ -17942,8 +18015,13 @@ window.__ModuleLoader__.load({
 				translate: null,
 				setEnabled(on) {
 					adaptEnabled = on;
-					if (on) evaluate();
-					else revert();
+					if (on) {
+						installFocusPatch();
+						evaluate();
+					} else {
+						revert();
+						restoreFocusPatch();
+					}
 				},
 				flushCloseDetails() {
 					if (active) w.__dshRemoteAdapt?.closeDetails?.();

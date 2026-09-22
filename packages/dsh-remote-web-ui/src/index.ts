@@ -225,6 +225,13 @@ export const Config: z<Config> = z.object({
 const SWEEP_INTERVAL_MS = 10_000
 
 /**
+ * How long one update-status probe answer is reused. The probe fans out one
+ * registry GET per family package plus a GitHub call, and the sidebar update
+ * entry asks for the status on every GUI page load.
+ */
+const UPDATE_STATUS_TTL_MS = 60_000
+
+/**
  * Fully resolved config: every field non-optional except `publicBaseUrl`,
  * which legitimately resolves to `undefined` when unset (the schema keeps it
  * optional, so `Required` alone would over-narrow it to `string`).
@@ -482,16 +489,32 @@ function applyImpl(ctx: Context, config?: Config): void {
     releaseNotesCache.set(version, { at: Date.now(), notes })
     return notes
   }
-  const updateRoutes = makeUpdateRoutes({
-    // Control endpoints are host-surface only: a LAN/phone origin must never
-    // trigger a real install on this machine.
-    fence: request => isTrustedApiRequest(request, []),
-    check: () => checkUpdates({
+  // The status probe fans out one registry GET per family package (plus a
+  // GitHub release-notes call), and the sidebar update entry asks for it on
+  // every GUI page load — so the answer is memoized briefly and concurrent
+  // callers share one probe. A completed update invalidates it.
+  let updateStatusCache: { at: number; value: Awaited<ReturnType<typeof checkUpdates>> } | undefined
+  let updateStatusInFlight: Promise<Awaited<ReturnType<typeof checkUpdates>>> | undefined
+  const checkStatusCached = (): Promise<Awaited<ReturnType<typeof checkUpdates>>> => {
+    const cached = updateStatusCache
+    if (cached !== undefined && Date.now() - cached.at < UPDATE_STATUS_TTL_MS) return Promise.resolve(cached.value)
+    if (updateStatusInFlight !== undefined) return updateStatusInFlight
+    updateStatusInFlight = checkUpdates({
       anchorManifestPath: resolveAnchorPath(),
       resolve: hostResolve,
       fetchLatest: name => fetchLatestVersion(name, fetch),
       fetchReleaseNotes: fetchReleaseNotesCached,
-    }),
+    }).then((value) => {
+      updateStatusCache = { at: Date.now(), value }
+      return value
+    }).finally(() => { updateStatusInFlight = undefined })
+    return updateStatusInFlight
+  }
+  const updateRoutes = makeUpdateRoutes({
+    // Control endpoints are host-surface only: a LAN/phone origin must never
+    // trigger a real install on this machine.
+    fence: request => isTrustedApiRequest(request, []),
+    check: () => checkStatusCached(),
     run: async (): Promise<UpdateRunResult> => {
       const target = resolveUpdateTarget({ anchorManifestPath: resolveAnchorPath() })
       if ('error' in target) {
@@ -508,7 +531,7 @@ function applyImpl(ctx: Context, config?: Config): void {
       // 11 minimumReleaseAge gate can silently keep the installed versions
       // (same-day releases), which a plain exit-0 check would report as
       // success — the user then restarts and nothing changed.
-      return runUpdateVerified({
+      const result = await runUpdateVerified({
         run: { profileDir: target.profileDir, packages: target.packages },
         check: {
           anchorManifestPath: resolveAnchorPath(),
@@ -517,6 +540,9 @@ function applyImpl(ctx: Context, config?: Config): void {
           fetchReleaseNotes: fetchReleaseNotesCached,
         },
       })
+      // The install moved (or failed) the versions the cached status reported.
+      updateStatusCache = undefined
+      return result
     },
   })
   // LAN-bind facts for the settings card, re-read per request so a hot
@@ -815,6 +841,10 @@ function applyImpl(ctx: Context, config?: Config): void {
         ? plan.targetUrl
         : { kind: 'quick', targetUrl: plan.targetUrl, originHostHeader })
     } else if (plan.mode === 'named') {
+      // The hostname is fixed and known before the process runs, so publish it
+      // now: a named tunnel that fails to start must not leave the previous
+      // mode's ephemeral host as the QR and fence base.
+      publicBase.markRunning(plan.publicUrl)
       tunnel.start({ kind: 'named', token: plan.token, publicUrl: plan.publicUrl })
     } else {
       tunnel.stop()
@@ -834,7 +864,17 @@ function applyImpl(ctx: Context, config?: Config): void {
       }
     }
     const enabled = value.enabled
-    if (!enabled) service.stop()
+    if (!enabled) {
+      service.stop()
+      // The tunnel branch above follows the plan, not the master switch, so an
+      // explicit "off" must also drop the public ingress it started: otherwise
+      // the cloudflared child keeps a live public URL (and the relay keeps its
+      // stable row) while the panel says remote control is stopped. The relay
+      // row is deliberately kept so re-enabling reuses the same origin.
+      tunnel.stop()
+      disposeRelayRegistrar()
+      publicBase.reset()
+    }
     if (disposeRoutes === undefined && enabled) {
       disposeRoutes = ctx.effect(
         () => {

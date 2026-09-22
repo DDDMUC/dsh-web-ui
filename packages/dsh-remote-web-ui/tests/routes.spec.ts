@@ -915,6 +915,27 @@ describe('/api/pair body failure contract (shared readJsonBody)', () => {
     }
   })
 
+  it('operator does not disclose the LAN literals to an unpaired caller', async () => {
+    // Given a paired-capable server with one live token and no device cookie.
+    const service = makeService()
+    service.issue()
+    const { port, close } = await serve(makeRoutes({ service }))
+    try {
+      // When an unpaired tunnel/LAN caller reads the status.
+      const remote = await call(port, 'GET', '/api/pair/status', { host: '192.168.1.5:3080' })
+      // Then only the pairing-relevant fields come back: the private network
+      // layout stays behind a live pairing or the loopback desktop.
+      expect(remote.status).toBe(200)
+      expect(remote.body).toMatchObject({ paired: false, phase: 'waiting', lanAvailable: true })
+      expect(remote.body).not.toHaveProperty('lanAddresses')
+      // And the loopback desktop still sees them (its panel lists the literals).
+      const local = await call(port, 'GET', '/api/pair/status', { host: '127.0.0.1:' + String(port) })
+      expect(local.body.lanAddresses).toEqual(['192.168.1.5'])
+    } finally {
+      await close()
+    }
+  })
+
   it('operator keeps pairing reachable with a malformed trusted-host entry', () => {
     // Given a non-loopback pairing request and a config/env typo in the
     // trusted-host list (here an unclosed IPv6 literal).

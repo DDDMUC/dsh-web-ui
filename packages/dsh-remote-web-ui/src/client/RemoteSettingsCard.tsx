@@ -10,7 +10,7 @@ import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { PluginSettingsCard, ValueField, BooleanField } from './PluginSettingsCard.tsx'
 import { CardForm, booleanField, numberField, secretField, textField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
-import { readLanBindStatus, type LanBindFrame } from './pair-api.ts'
+import { LanBindStatusError, readLanBindStatus, shouldStopLanBindPoll, type LanBindFrame } from './pair-api.ts'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
 /** The remote-control fields this card edits (the namespace's full schema). */
@@ -325,10 +325,15 @@ function LanBindStatus({ t }: { t: TranslateNS<'remote'> }) {
     const read = (): void => {
       void readLanBindStatus().then((value) => {
         if (alive) setFrame(value)
-      }).catch(() => {})
+      }).catch((error: unknown) => {
+        // The endpoint is loopback-only: a 401/403 means this origin (a paired
+        // phone) can never read it, so the 10s poll stops instead of retrying a
+        // known refusal for as long as the card stays expanded.
+        if (error instanceof LanBindStatusError && shouldStopLanBindPoll(error.status)) window.clearInterval(timer)
+      })
     }
-    read()
     const timer = window.setInterval(read, 10_000)
+    read()
     return () => {
       alive = false
       window.clearInterval(timer)

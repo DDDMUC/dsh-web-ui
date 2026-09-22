@@ -232,8 +232,16 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
     if (device === null) return init
     const headers = init?.headers
     if (typeof Headers !== 'undefined' && headers instanceof Headers) {
-      try { headers.set(RULES.deviceHeader, device) } catch { /* ignore */ }
-      return init
+      // Copy instead of mutating: the instance belongs to the caller, which may
+      // reuse it for a request this channel does not rewrite (the device
+      // credential must not ride along there).
+      try {
+        const copy = new Headers(headers)
+        copy.set(RULES.deviceHeader, device)
+        return { ...init, headers: copy }
+      } catch {
+        return init
+      }
     }
     if (typeof headers === 'object' && headers !== null) {
       return { ...init, headers: { ...(headers as Record<string, string>), [RULES.deviceHeader]: device } } as RequestInit

@@ -754,7 +754,7 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
         writeJson(res, 403, { ok: false, code: 'forbidden' })
         return
       }
-      writeJson(res, result.code === 'used' ? 409 : 404, { ok: false, code: result.code })
+      writeJson(res, 404, { ok: false, code: result.code })
       return
     }
     if (privateLanHost !== undefined) {
@@ -831,6 +831,11 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     }
     const deviceId = readCookie(req.headers.cookie, service.config.cookieName)
     const paired = deviceId !== undefined && service.hasDevice(deviceId)
+    // The desktop (loopback) keeps the full pairing-relevant view; the LAN IP
+    // literals stay behind a live pairing or loopback so an unauthenticated
+    // caller on a tunnel cannot map the internal network. A phone already knows
+    // its usable literal from the URL it opened.
+    const local = isLoopbackClient(req)
     const snapshot = service.snapshot()
     // Unpaired LAN/tunnel clients get only the pairing-relevant fields; the
     // token expiry, public tunnel URL, and counts are an oracle for targeting
@@ -838,9 +843,9 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
     // session credentials) is never returned here — only the loopback events
     // stream carries it to the desktop panel.
     const { devices: _devices, ...rest } = snapshot
-    const visible = paired
+    const visible = paired || local
       ? rest
-      : { phase: snapshot.phase, lanAvailable: snapshot.lanAvailable, lanAddresses: snapshot.lanAddresses }
+      : { phase: snapshot.phase, lanAvailable: snapshot.lanAvailable }
     writeJson(res, 200, { ok: true, paired, requirePairingForLan: pairingRequired(), ...visible })
   }
 
