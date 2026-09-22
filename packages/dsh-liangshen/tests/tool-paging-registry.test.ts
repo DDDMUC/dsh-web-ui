@@ -173,7 +173,7 @@ function harness(config: Record<string, unknown> = {}, options: HarnessOptions =
         { agent, messages: [{ id: 'user', source: { kind: 'user' } }], turn: 1, step: 1, signal: {} },
         async () => ({ kind: 'enter', messages: [{ id: 'user', source: { kind: 'user' } }] }),
       )
-      return decision.messages.find((message: any) => message?.source?.plugin === name)?.content[0].text ?? ''
+      return decision.messages.find((message: any) => message?.source?.kind === name || message?.source?.plugin === name)?.content[0].text ?? ''
     },
   }
   // A faithful SystemPrompt: the presentation a scope declares lands on the NEXT

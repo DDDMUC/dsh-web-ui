@@ -214,7 +214,7 @@ async function preStep(harness: Harness, agent: unknown, messages: unknown[] = [
 }
 
 function catalogOf(messages: unknown[]) {
-  return messages.find((message: any) => message?.source?.plugin === name)
+  return messages.find((message: any) => message?.source?.kind === name || message?.source?.plugin === name)
 }
 
 function catalogText(messages: unknown[]): string {
@@ -371,7 +371,7 @@ describe('liangshen-tool-catalog', () => {
     const catalog = catalogOf((await preStep(harness, agent)).messages)
     // The durable validator whitelists `kind`, `plugin`, `form`, `sections`
     // and `summary` for a plugin source; anything else risks rejection.
-    expect(catalog.source).toEqual({ kind: 'plugin', plugin: name })
+    expect(catalog.source).toEqual({ kind: name })
     expect(typeof catalog.id).toBe('string')
     expect(catalog.id.length).toBeGreaterThan(0)
   })

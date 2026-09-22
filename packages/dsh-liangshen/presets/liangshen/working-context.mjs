@@ -133,7 +133,7 @@ function textOf(message) {
 /** Whether one message is this plugin's working-context line. */
 function isContextMessage(message) {
   const source = message?.source
-  return source?.kind === 'plugin' && source?.plugin === name
+  return source?.kind === name || (source?.kind === 'plugin' && source?.plugin === name)
 }
 
 /** Visible surface positions, or undefined when the session exposes none. */
@@ -168,7 +168,7 @@ export function createContextMessage(line) {
     id: globalThis.crypto.randomUUID(),
     role: 'user',
     content: [{ type: 'text', text: line }],
-    source: { kind: 'plugin', plugin: name },
+    source: { kind: name },
   }
 }
 

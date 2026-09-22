@@ -427,7 +427,7 @@ export function createCatalogMessage(entries, presentation = 'native', inactive 
     id: globalThis.crypto.randomUUID(),
     role: 'user',
     content: [{ type: 'text', text: renderCatalogText(entries, presentation, inactive) }],
-    source: { kind: 'plugin', plugin: name },
+    source: { kind: name },
   }
 }
 
@@ -443,7 +443,7 @@ function textOf(message) {
 /** Whether one message is this plugin's catalog. */
 function isCatalogMessage(message) {
   const source = message?.source
-  return source?.kind === 'plugin' && source?.plugin === name
+  return source?.kind === name || (source?.kind === 'plugin' && source?.plugin === name)
 }
 
 /**

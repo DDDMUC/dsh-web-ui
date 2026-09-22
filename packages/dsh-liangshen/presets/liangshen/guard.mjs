@@ -414,7 +414,7 @@ export function apply(ctx, config) {
         id: globalThis.crypto.randomUUID(),
         role: 'user',
         content: [{ type: 'text', text: renderGuardMessage(verdict) }],
-        source: { kind: 'plugin', plugin: name },
+        source: { kind: name },
       }
       try { ctx.logger?.warn?.(`${name}: circuit breaker fired (${verdict.detail}) [${thresholds.stallReasoningChars}ch/${thresholds.globalStallCap}steps/${thresholds.echoFailures}fails, ${sensitivity}, effort ${state.currentEffort ?? 'unknown'}]`) } catch {}
       return { ...decision, messages: [...decision.messages, message] }
