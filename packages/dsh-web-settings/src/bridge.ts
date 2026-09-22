@@ -14,7 +14,7 @@
 
 import { timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { SettingsDescriptor, SettingsForms, SettingsPathOp } from '@deepseek-ai/dsh-settings'
+import type { SettingsDescribeOptions, SettingsDescriptor, SettingsForms, SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { composeAllowlist, extractWebSettingsNamespaces, resolveNamespaceEntry } from './allowlist.ts'
@@ -144,8 +144,8 @@ export interface BridgeProfileEntry {
 }
 
 /** One live namespace the bridge can serve. */
-interface ServedNamespace {
-  /** The Host's descriptor for the profile entry (redacted). */
+export interface ServedNamespace {
+  /** The Host's descriptor for the profile entry, read under the caller's describe options. */
   descriptor: SettingsDescriptor
   /**
    * Profile entry id owning this namespace. Undefined when the descriptor is
@@ -153,6 +153,20 @@ interface ServedNamespace {
    * surface predates the profile-entry identity).
    */
   entryId: string | undefined
+}
+
+/** The settings view one namespace projection needs. */
+export interface SettingsSurface {
+  /** The live Host settings view, one descriptor per served entry. */
+  describe(options?: SettingsDescribeOptions): SettingsDescriptor[]
+}
+
+/** Minimal dependencies of the namespace projection (the bridge handlers need more). */
+export interface NamespaceProjectionDeps {
+  /** The Host settings surface. */
+  settings: SettingsSurface
+  /** Live profile entries (`configEditor.entries()`), the only place a package identity survives. */
+  entries?: () => BridgeProfileEntry[]
 }
 
 /** The package identities one profile row declares, in resolution order. */
@@ -197,16 +211,18 @@ function entryNamespace(entry: BridgeProfileEntry): string | undefined {
  * The descriptor's `ns` is a profile entry id on the new surface, so each one
  * is traced back to its family namespace through the profile row that owns it.
  * @param deps - the settings surface and the profile-entry reader.
+ * @param options - describe options; secret redaction is the wire default and
+ *   is relaxed only by an in-process reader that must see what a user holds.
  * @returns one entry per family namespace, keyed by that namespace.
  */
-function servedNamespaces(deps: BridgeDeps): Map<string, ServedNamespace> {
+export function servedNamespaces(deps: NamespaceProjectionDeps, options?: SettingsDescribeOptions): Map<string, ServedNamespace> {
   const byId = new Map<string, BridgeProfileEntry>()
   for (const entry of deps.entries?.() ?? []) {
     const id = entryIdOf(entry)
     if (id !== undefined) byId.set(id, entry)
   }
   const served = new Map<string, ServedNamespace>()
-  for (const descriptor of deps.settings.describe({ redactSecrets: true })) {
+  for (const descriptor of deps.settings.describe(options ?? { redactSecrets: true })) {
     const ns = String(descriptor.ns)
     const owner = byId.get(ns)
     const family = owner === undefined ? undefined : entryNamespace(owner)

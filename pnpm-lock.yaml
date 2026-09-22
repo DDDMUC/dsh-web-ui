@@ -1605,6 +1605,9 @@ importers:
       schemastery:
         specifier: ^3.18.0
         version: 3.18.0
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: ^4.0.3

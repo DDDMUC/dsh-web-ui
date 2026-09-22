@@ -8,6 +8,12 @@
  * without changing the default. Each view reports the profile entry id that
  * owns the namespace so the browser half can bind the native
  * ctx.configForms form; the bridge HTTP transport is the fallback.
+ *
+ * It also adopts the family settings the 0.1.7 settings subsystem left
+ * orphaned in the renamed legacy document: once the composition has settled,
+ * each family section there is written into the entry that serves its
+ * namespace, exactly once (see legacy-import.ts). The repair never blocks
+ * activation and never overwrites a field an entry's user layer holds.
  */
 
 import { readFileSync } from 'node:fs'
@@ -20,7 +26,22 @@ import type {} from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type { BridgeProfileEntry } from './bridge.ts'
 import { makeBridgeRoutes } from './bridge.ts'
+import type { LegacyImportOutcome } from './legacy-import.ts'
+import { compositionSettled, importLegacyFamilySections, legacyImportMarkerPath } from './legacy-import.ts'
 import { mountOnce } from './mount-once.ts'
+
+export {
+  LEGACY_IMPORT_MARKER_FILE,
+  LEGACY_IMPORT_MARKER_VERSION,
+  readLegacyImportMarkerState,
+  legacyImportMarkerPath,
+} from './legacy-import.ts'
+export type {
+  LegacyImportMarker,
+  LegacyImportMarkerState,
+  LegacyImportOutcome,
+  LegacyImportRecord,
+} from './legacy-import.ts'
 
 /** Default environment variable holding the reverse-proxy shared token. */
 export const DEFAULT_PROXY_TOKEN_ENV = 'DSH_WEB_UI_SETTINGS_PROXY_TOKEN'
@@ -173,5 +194,29 @@ function applyImpl(ctx: Context, config?: Config): void {
         for (const dispose of disposers) dispose()
       }
     }, 'web-ui-settings: settings bridge')
+    // After the bridge is in place, pick up the family sections the settings
+    // surface left orphaned in the renamed legacy document.
+    void importLegacyFamilySettings(sctx, candidates)
+  })
+}
+
+/**
+ * Adopt the orphaned family sections once the composition has settled.
+ * Fire-and-forget by construction: the import is a repair, so a failure is
+ * logged and activation proceeds with whatever the profile already holds.
+ * @param sctx - the injected host context carrying the settings surface.
+ * @param candidates - candidate legacy settings documents, most authoritative first.
+ * @returns a promise that resolves once the import settled (never rejects).
+ */
+function importLegacyFamilySettings(sctx: Context, candidates: readonly string[]): Promise<void> {
+  const run = (): Promise<LegacyImportOutcome> => importLegacyFamilySections({
+    settings: sctx.settings,
+    entries: () => readProfileEntries(sctx),
+    readSettingsYaml: () => readSettingsYamlDocument(candidates),
+    logger: sctx.logger,
+    markerPath: legacyImportMarkerPath(),
+  })
+  return compositionSettled(sctx.root).then(run).then(() => undefined, (error: unknown) => {
+    sctx.logger.warn('web-ui-settings: the legacy family settings import failed: %s', error instanceof Error ? error.message : String(error))
   })
 }
