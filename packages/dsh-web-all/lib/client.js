@@ -2483,17 +2483,17 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
-			if (!state.exposed) {
-				const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true;
+			if (!state.exposed && props.renderChildrenWhenNotExposed !== true) {
+				const showNotice = props.hideNotExposedNotice !== true;
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 					className: cardClass,
-					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: settings_card_module_css_default$6.body,
-						children: [showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						children: showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: settings_card_module_css_default$6.notExposed,
 							role: "status",
 							children: props.t("settings.notExposed")
-						}) : null, props.renderChildrenWhenNotExposed === true ? props.children : null]
+						}) : null
 					}) : null]
 				});
 			}
@@ -9248,17 +9248,17 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
-			if (!state.exposed) {
-				const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true;
+			if (!state.exposed && props.renderChildrenWhenNotExposed !== true) {
+				const showNotice = props.hideNotExposedNotice !== true;
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 					className: cardClass,
-					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: settings_card_module_css_default$5.body,
-						children: [showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						children: showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: settings_card_module_css_default$5.notExposed,
 							role: "status",
 							children: props.t("settings.notExposed")
-						}) : null, props.renderChildrenWhenNotExposed === true ? props.children : null]
+						}) : null
 					}) : null]
 				});
 			}
@@ -9870,6 +9870,8 @@ window.__ModuleLoader__.load({
 				descriptionKey: "settings.description",
 				defaultOpen: false,
 				state,
+				renderChildrenWhenNotExposed: true,
+				hideNotExposedNotice: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [
@@ -10525,7 +10527,7 @@ window.__ModuleLoader__.load({
 		function bindSettingsForm(ctx) {
 			const binder = ctx.get("webUiSettings");
 			if (binder !== void 0 && typeof binder.bind === "function") return binder.bind({ namespace: TASK_BOARD_NS });
-			return ctx.configForms.get(servedEntryId(ctx.configForms));
+			return ctx.configForms.get(servedEntryId$4(ctx.configForms));
 		}
 		/**
 		* The profile entry id this package's own row carries.
@@ -10539,7 +10541,7 @@ window.__ModuleLoader__.load({
 		* @param forms - the shared configuration forms service.
 		* @returns the entry id to bind.
 		*/
-		function servedEntryId(forms) {
+		function servedEntryId$4(forms) {
 			let served;
 			try {
 				served = forms.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
@@ -15227,17 +15229,17 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
-			if (!state.exposed) {
-				const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true;
+			if (!state.exposed && props.renderChildrenWhenNotExposed !== true) {
+				const showNotice = props.hideNotExposedNotice !== true;
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 					className: cardClass,
-					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: settings_card_module_css_default$4.body,
-						children: [showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						children: showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: settings_card_module_css_default$4.notExposed,
 							role: "status",
 							children: props.t("settings.notExposed")
-						}) : null, props.renderChildrenWhenNotExposed === true ? props.children : null]
+						}) : null
 					}) : null]
 				});
 			}
@@ -15948,6 +15950,8 @@ window.__ModuleLoader__.load({
 				descriptionKey: "settings.description",
 				defaultOpen: false,
 				state,
+				renderChildrenWhenNotExposed: true,
+				hideNotExposedNotice: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [
@@ -18173,6 +18177,21 @@ window.__ModuleLoader__.load({
 		const NS$9 = "remote";
 		/** Settings namespace the remote-control card edits (the Host plugin registers it). */
 		const REMOTE_WEB_UI_NS = "remote-web-ui";
+		const REMOTE_WEB_UI_ENTRY_IDS = [
+			"web-ui-remote-web-ui",
+			"ui-remote-web-ui",
+			REMOTE_WEB_UI_NS
+		];
+		function servedEntryId$3(forms) {
+			let served;
+			try {
+				served = forms.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
+			} catch {
+				served = void 0;
+			}
+			if (!served || served.length === 0) return REMOTE_WEB_UI_NS;
+			return REMOTE_WEB_UI_ENTRY_IDS.find((id) => served.includes(id)) ?? REMOTE_WEB_UI_NS;
+		}
 		/** Heartbeat cadence from a paired phone (presence + revocation liveness). */
 		const HEARTBEAT_INTERVAL_MS = 1e4;
 		/** Services required by this plugin. */
@@ -18224,7 +18243,7 @@ window.__ModuleLoader__.load({
 			const t = ctx.locale.bind(NS$9);
 			if (adapt !== void 0) adapt.translate = t;
 			const family = ctx.get("webUiSettings");
-			const settingsForm = family === void 0 ? ctx.configForms.get(REMOTE_WEB_UI_NS) : family.bind({ namespace: REMOTE_WEB_UI_NS });
+			const settingsForm = family !== void 0 && typeof family.bind === "function" ? family.bind({ namespace: REMOTE_WEB_UI_NS }) : ctx.configForms.get(servedEntryId$3(ctx.configForms));
 			const enabled = () => {
 				const snapshot = settingsForm.getSnapshot();
 				return snapshot.status === "ready" ? snapshot.value?.enabled ?? true : snapshot.status === "unavailable";
@@ -21189,17 +21208,17 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
-			if (!state.exposed) {
-				const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true;
+			if (!state.exposed && props.renderChildrenWhenNotExposed !== true) {
+				const showNotice = props.hideNotExposedNotice !== true;
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 					className: cardClass,
-					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: settings_card_module_css_default$3.body,
-						children: [showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						children: showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: settings_card_module_css_default$3.notExposed,
 							role: "status",
 							children: props.t("settings.notExposed")
-						}) : null, props.renderChildrenWhenNotExposed === true ? props.children : null]
+						}) : null
 					}) : null]
 				});
 			}
@@ -22010,6 +22029,8 @@ window.__ModuleLoader__.load({
 				titleKey: "settings.title",
 				descriptionKey: "settings.description",
 				state,
+				renderChildrenWhenNotExposed: true,
+				hideNotExposedNotice: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				alwaysOpen: true,
@@ -22482,23 +22503,25 @@ window.__ModuleLoader__.load({
 			"sessions",
 			"uiWorkspace"
 		];
-		/**
-		* The configuration form the settings card stages and saves through: the
-		* family binder when dsh-web-settings is mounted, otherwise the shared form of
-		* this plugin's own profile entry.
-		*
-		* The two are not interchangeable by name. A plugin's settings ARE its own
-		* config on 0.1.7, so the form belongs to the profile entry that carries the
-		* plugin — and only the family binder knows which entry that is, because the
-		* family bundle renames child rows ('pet' becomes 'web-ui-pet' there) while a
-		* standalone install keeps the package's own id.
-		* @param ctx - client root context.
-		* @returns the form for the pet's settings page.
-		*/
+		const PET_ENTRY_IDS = [
+			"web-ui-pet",
+			"ui-pet",
+			PET_SETTINGS_NS
+		];
+		function servedEntryId$2(forms) {
+			let served;
+			try {
+				served = forms.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
+			} catch {
+				served = void 0;
+			}
+			if (!served || served.length === 0) return PET_SETTINGS_NS;
+			return PET_ENTRY_IDS.find((id) => served.includes(id)) ?? PET_SETTINGS_NS;
+		}
 		function petSettingsForm(ctx) {
 			const binder = ctx.get("webUiSettings");
-			if (binder !== void 0) return binder.bind({ namespace: PET_SETTINGS_NS });
-			return ctx.configForms.get(PET_SETTINGS_NS);
+			if (binder !== void 0 && typeof binder.bind === "function") return binder.bind({ namespace: PET_SETTINGS_NS });
+			return ctx.configForms.get(servedEntryId$2(ctx.configForms));
 		}
 		/**
 		* Client plugin body: register dictionaries, mount the global pet entry and
@@ -40177,17 +40200,17 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
-			if (!state.exposed) {
-				const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true;
+			if (!state.exposed && props.renderChildrenWhenNotExposed !== true) {
+				const showNotice = props.hideNotExposedNotice !== true;
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 					className: cardClass,
-					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: settings_card_module_css_default$2.body,
-						children: [showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						children: showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: settings_card_module_css_default$2.notExposed,
 							role: "status",
 							children: props.t("settings.notExposed")
-						}) : null, props.renderChildrenWhenNotExposed === true ? props.children : null]
+						}) : null
 					}) : null]
 				});
 			}
@@ -41333,6 +41356,8 @@ window.__ModuleLoader__.load({
 				descriptionKey: "card.description",
 				defaultOpen: false,
 				state,
+				renderChildrenWhenNotExposed: true,
+				hideNotExposedNotice: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [
@@ -41834,6 +41859,21 @@ window.__ModuleLoader__.load({
 		* card binds — the profile entry id of a standalone install of this bundle.
 		*/
 		const NS$7 = "describe-image";
+		const DESCRIBE_IMAGE_ENTRY_IDS = [
+			"web-ui-describe-image",
+			"ui-describe-image",
+			NS$7
+		];
+		function servedEntryId$1(forms) {
+			let served;
+			try {
+				served = forms.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
+			} catch {
+				served = void 0;
+			}
+			if (!served || served.length === 0) return NS$7;
+			return DESCRIBE_IMAGE_ENTRY_IDS.find((id) => served.includes(id)) ?? "describe-image";
+		}
 		/** Required services: slots for the settings card, conversation for the send hook, the shared configuration forms and locale for the card copy. */
 		const inject$8 = [
 			"slots",
@@ -41884,7 +41924,7 @@ window.__ModuleLoader__.load({
 				}, "dsh-tool-describe-image: conversation image preview");
 				ctx.inject(["configForms"], (settingsCtx) => {
 					const binder = settingsCtx.get("webUiSettings");
-					const settingsForm = binder !== void 0 ? binder.bind({ namespace: NS$7 }) : settingsCtx.configForms.get(NS$7);
+					const settingsForm = binder !== void 0 && typeof binder.bind === "function" ? binder.bind({ namespace: NS$7 }) : settingsCtx.configForms.get(servedEntryId$1(settingsCtx.configForms));
 					unsubscribeSettings?.();
 					settingsFormRef = settingsForm;
 					unsubscribeSettings = settingsForm.subscribe(() => previewRef?.refresh());
@@ -42630,17 +42670,17 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
-			if (!state.exposed) {
-				const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true;
+			if (!state.exposed && props.renderChildrenWhenNotExposed !== true) {
+				const showNotice = props.hideNotExposedNotice !== true;
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 					className: cardClass,
-					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: settings_card_module_css_default$1.body,
-						children: [showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						children: showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: settings_card_module_css_default$1.notExposed,
 							role: "status",
 							children: props.t("settings.notExposed")
-						}) : null, props.renderChildrenWhenNotExposed === true ? props.children : null]
+						}) : null
 					}) : null]
 				});
 			}
@@ -43387,6 +43427,8 @@ window.__ModuleLoader__.load({
 				descriptionKey: "settings.description",
 				defaultOpen: false,
 				state,
+				renderChildrenWhenNotExposed: true,
+				hideNotExposedNotice: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [
@@ -43786,6 +43828,21 @@ window.__ModuleLoader__.load({
 		* two. Without that binder the card binds the entry id directly.
 		*/
 		const SETTINGS_NAMESPACE = "liangshen";
+		const LIANGSHEN_ENTRY_IDS = [
+			"web-ui-liangshen",
+			"ui-liangshen",
+			SETTINGS_NAMESPACE
+		];
+		function servedEntryId(forms) {
+			let served;
+			try {
+				served = forms.describe().getSnapshot().view?.namespaces.map((view) => view.ns);
+			} catch {
+				served = void 0;
+			}
+			if (!served || served.length === 0) return SETTINGS_NAMESPACE;
+			return LIANGSHEN_ENTRY_IDS.find((id) => served.includes(id)) ?? "liangshen";
+		}
 		/**
 		* Required client services: the slot registry, locale, sessions, the shared
 		* configuration forms, and the roster Remote. Both `remote` and
@@ -43824,7 +43881,7 @@ window.__ModuleLoader__.load({
 			} catch {}
 			try {
 				const binder = ctx.get("webUiSettings");
-				const settingsCard = new LiangShenSettingsCardController(binder !== void 0 ? binder.bind({ namespace: SETTINGS_NAMESPACE }) : ctx.configForms.get(SETTINGS_NAMESPACE));
+				const settingsCard = new LiangShenSettingsCardController(binder !== void 0 && typeof binder.bind === "function" ? binder.bind({ namespace: SETTINGS_NAMESPACE }) : ctx.configForms.get(servedEntryId(ctx.configForms)));
 				installPluginCard$1(ctx, {
 					bundle: "@linxin666/dsh-liangshen",
 					id: "liangshen",
@@ -46656,17 +46713,17 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
-			if (!state.exposed) {
-				const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true;
+			if (!state.exposed && props.renderChildrenWhenNotExposed !== true) {
+				const showNotice = props.hideNotExposedNotice !== true;
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 					className: cardClass,
-					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					children: [header, expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: settings_card_module_css_default.body,
-						children: [showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						children: showNotice ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: settings_card_module_css_default.notExposed,
 							role: "status",
 							children: props.t("settings.notExposed")
-						}) : null, props.renderChildrenWhenNotExposed === true ? props.children : null]
+						}) : null
 					}) : null]
 				});
 			}
@@ -48261,6 +48318,8 @@ window.__ModuleLoader__.load({
 				descriptionKey: "settings.description",
 				defaultOpen: false,
 				state,
+				renderChildrenWhenNotExposed: true,
+				hideNotExposedNotice: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				children: [

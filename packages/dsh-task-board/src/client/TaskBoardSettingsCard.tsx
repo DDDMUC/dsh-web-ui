@@ -126,6 +126,8 @@ export function TaskBoardSettingsCard(props: TaskBoardSettingsCardProps) {
       descriptionKey="settings.description"
       defaultOpen={false}
       state={state}
+      renderChildrenWhenNotExposed
+      hideNotExposedNotice
       onSave={props.save}
       onDiscard={props.discard}
     >

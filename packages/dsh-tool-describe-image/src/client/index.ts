@@ -19,7 +19,7 @@
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm, ConfigForms } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the ctx.slots merge (the renderer owns the slot registry since 0.1.2).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -89,6 +89,19 @@ interface DescribeImageFormSpec<T> {
  * card binds — the profile entry id of a standalone install of this bundle.
  */
 export const NS = 'describe-image' as const
+const AGGREGATE_ENTRY_ID = 'web-ui-describe-image'
+const DESCRIBE_IMAGE_ENTRY_IDS: readonly string[] = [AGGREGATE_ENTRY_ID, 'ui-describe-image', NS]
+
+function servedEntryId(forms: ConfigForms): string {
+  let served: readonly string[] | undefined
+  try {
+    served = forms.describe().getSnapshot().view?.namespaces.map(view => view.ns)
+  } catch {
+    served = undefined
+  }
+  if (!served || served.length === 0) return NS
+  return DESCRIBE_IMAGE_ENTRY_IDS.find(id => served.includes(id)) ?? NS
+}
 
 /** Required services: slots for the settings card, conversation for the send hook, the shared configuration forms and locale for the card copy. */
 export const inject = ['slots', 'conversation', 'configForms', 'locale']
@@ -162,9 +175,9 @@ export function apply(ctx: ClientContext): void {
     // shared configuration forms are keyed by.
     ctx.inject(['configForms'], (settingsCtx: ClientContext) => {
       const binder = settingsCtx.get('webUiSettings')
-      const settingsForm = binder !== undefined
+      const settingsForm = binder !== undefined && typeof binder.bind === 'function'
         ? binder.bind<DescribeImageSettings>({ namespace: NS })
-        : settingsCtx.configForms.get<DescribeImageSettings>(NS)
+        : settingsCtx.configForms.get<DescribeImageSettings>(servedEntryId(settingsCtx.configForms))
       unsubscribeSettings?.()
       settingsFormRef = settingsForm
       // Live toggle: re-scan (or restore) the moment a settings save settles.

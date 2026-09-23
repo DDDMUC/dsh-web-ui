@@ -231,6 +231,8 @@ export function DescribeImageSettingsCard(props: DescribeImageSettingsCardProps)
       descriptionKey="card.description"
       defaultOpen={false}
       state={state}
+      renderChildrenWhenNotExposed
+      hideNotExposedNotice
       onSave={props.save}
       onDiscard={props.discard}
     >

@@ -10,7 +10,7 @@
 import { createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm, ConfigForms } from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale) and the
 // ui-sidebar SlotMap merge (the 'sidebar.footer.action' hole).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -111,6 +111,19 @@ const NS = 'remote'
 
 /** Settings namespace the remote-control card edits (the Host plugin registers it). */
 const REMOTE_WEB_UI_NS = 'remote-web-ui'
+const AGGREGATE_ENTRY_ID = 'web-ui-remote-web-ui'
+const REMOTE_WEB_UI_ENTRY_IDS: readonly string[] = [AGGREGATE_ENTRY_ID, 'ui-remote-web-ui', REMOTE_WEB_UI_NS]
+
+function servedEntryId(forms: ConfigForms): string {
+  let served: readonly string[] | undefined
+  try {
+    served = forms.describe().getSnapshot().view?.namespaces.map(view => view.ns)
+  } catch {
+    served = undefined
+  }
+  if (!served || served.length === 0) return REMOTE_WEB_UI_NS
+  return REMOTE_WEB_UI_ENTRY_IDS.find(id => served.includes(id)) ?? REMOTE_WEB_UI_NS
+}
 
 /** Heartbeat cadence from a paired phone (presence + revocation liveness). */
 const HEARTBEAT_INTERVAL_MS = 10_000
@@ -191,9 +204,9 @@ export function apply(ctx: ClientContext): void {
   // namespace IS the owning entry id, so the official service is addressed
   // directly.
   const family = ctx.get('webUiSettings')
-  const settingsForm: ConfigForm<RemoteSettings> = family === undefined
-    ? ctx.configForms.get<RemoteSettings>(REMOTE_WEB_UI_NS)
-    : family.bind<RemoteSettings>({ namespace: REMOTE_WEB_UI_NS })
+  const settingsForm: ConfigForm<RemoteSettings> = family !== undefined && typeof family.bind === 'function'
+    ? family.bind<RemoteSettings>({ namespace: REMOTE_WEB_UI_NS })
+    : ctx.configForms.get<RemoteSettings>(servedEntryId(ctx.configForms))
   const enabled = (): boolean => {
     const snapshot = settingsForm.getSnapshot()
     return snapshot.status === 'ready'

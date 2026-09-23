@@ -175,6 +175,8 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
       descriptionKey="settings.description"
       defaultOpen={false}
       state={state}
+      renderChildrenWhenNotExposed
+      hideNotExposedNotice
       onSave={props.save}
       onDiscard={props.discard}
     >
