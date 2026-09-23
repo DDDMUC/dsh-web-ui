@@ -419,7 +419,6 @@ dsh plugin --profile web add dsh-better-sidebar@latest                          
 **插件**
 
 - **dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-web-settings / dsh-ssh / dsh-skill-explorer / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-all** — 本仓库原创（zhu1090093659），Apache-2.0（zhu1090093659）
-- **dsh-tool-describe-image** — 移植自 [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image)（deepseek-harness `packages/vision/tool-describe-image`），Apache-2.0（zhu1090093659）
 - **dsh-better-sidebar** — 外部集成插件 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（右侧面板，alpha 分支按需安装、非内置依赖），MIT（omdsh-dev）
 - **dsh-ssh** — 依据 [badseal/ssh-skill](https://github.com/badseal/ssh-skill) 的能力清单实现；代码为本仓库 Apache-2.0（zhu1090093659），上游能力清单归属 badseal/ssh-skill
 - **社区插件索引** — 37 项外部插件，来源与版权由各作者声明，登记于 [community.json](packages/dsh-community-plugins/community.json)，可在「设置 → 社区插件」与 dsh-market.com 查看

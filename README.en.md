@@ -419,7 +419,6 @@ Licensed under [Apache-2.0](LICENSE). Imported third-party code must retain orig
 **Plugins**
 
 - **dsh-task-board / dsh-git-graph / dsh-pet / dsh-remote-web-ui / dsh-web-settings / dsh-ssh / dsh-skill-explorer / dsh-market / dsh-plugin-manager / dsh-community-plugins / dsh-web-all** — authored by zhu1090093659, Apache-2.0 (zhu1090093659)
-- **dsh-tool-describe-image** — ported from [whitelonng/dsh-plugin-describe-image](https://github.com/whitelonng/dsh-plugin-describe-image) (deepseek-harness `packages/vision/tool-describe-image`), Apache-2.0 (zhu1090093659)
 - **dsh-better-sidebar** — external integrated plugin [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (right panel, an on-demand install on the alpha branch rather than a bundled dependency), MIT (omdsh-dev)
 - **dsh-ssh** — implemented against the capability list of [badseal/ssh-skill](https://github.com/badseal/ssh-skill); code is this repository's Apache-2.0 (zhu1090093659), the upstream capability list belongs to badseal/ssh-skill
 - **Community plugin index** — 37 external plugins with sources and licenses declared by their authors, registered in [community.json](packages/dsh-community-plugins/community.json), browsable in Settings → Community Plugins and on dsh-market.com

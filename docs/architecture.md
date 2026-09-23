@@ -79,9 +79,9 @@ flowchart LR
 flowchart LR
     A["aggregate.yml：patchFrom、deps、rows、inactive"] -- "node scripts/aggregate.mjs 生成" --> B["dsh-web-all：cordis.patch.yml + package.json"]
     B -- "dsh plugin --profile web add link" --> C["web profile（hoisted 布局）"]
-    C -- "web-ui-* 行逐条挂载" --> D["19 个家族子包（alpha 分支不挂外部插件行）"]
+    C -- "web-ui-* 行逐条挂载" --> D["17 个家族子包（alpha 分支不挂外部插件行）"]
     E["mount-once 防重：双源只注册一次"] -.-> D
-    F["inactive：ssh、describe-image、liangshen、skill-explorer、doctor 出厂默认关闭"] -.-> D
+    F["inactive：ssh、liangshen、skill-explorer 出厂默认关闭"] -.-> D
 ```
 
 ## 设置页槽位体系
@@ -91,7 +91,7 @@ flowchart LR
 ```mermaid
 flowchart TB
     S["Web 设置页"] --> G["settings.section：Web UI 插件组（dsh-web-settings）"]
-    G -- "web-ui.plugin.item 子槽" --> C["task-board、remote-web-ui、describe-image、liangshen 等插件卡"]
+    G -- "web-ui.plugin.item 子槽" --> C["task-board、remote-web-ui、liangshen 等插件卡"]
     S --> K["settings.section：皮肤中心（skin-center）"]
     S --> P["settings.section：桌宠（dsh-pet）"]
     S --> W["settings.section：创意工坊 dsh-workshop（dsh-market）"]
@@ -185,10 +185,8 @@ flowchart LR
 | dsh-session-archive | 会话归档：批量归档恢复、级联删除、自动清理策略 |
 | dsh-session-id | 侧栏底部 Session ID 面板（纯浏览器半区） |
 | dsh-usage | 用量统计：provider 余额、套餐配额与实时 token 流水 |
-| dsh-doctor | profile 事务性抢救模式与本地恢复控制台 |
 | dsh-skill-explorer | 技能中心：按来源浏览、启停、创建技能 |
 | dsh-model-capabilities | 自定义 provider 的按模型能力声明 |
-| dsh-tool-describe-image | 面向模型的 describe_image 工具（VLM 图像理解） |
 | dsh-liangshen | 梁神 agent 预设与模式拨杆 |
 | dsh-i18n | 俄语语言包与全家族 ru 词典 |
 

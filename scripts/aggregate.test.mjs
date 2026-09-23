@@ -111,6 +111,21 @@ test('web-ui-all does not mount the dsh-client-runtime-dependent @mlgbnb/dsh-arc
   assert.doesNotMatch(patch, /^ {4}- id: web-ui-archive-manager$/m, '@mlgbnb/dsh-archive-manager must not be mounted on the alpha.2 cohort')
 })
 
+test('web-ui-all keeps the removed doctor/describe-image plugins out but their tombstone exports alive', () => {
+  // 2026-09-23 product decision: dsh-doctor and dsh-tool-describe-image were
+  // removed from the family. No patch row or workspace dependency may name
+  // them again without an explicit re-adoption decision; their shell subpath
+  // exports stay as tombstones so a stale profile row fails soft instead of
+  // aborting the boot with ERR_PACKAGE_PATH_NOT_EXPORTED.
+  const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
+  assert.doesNotMatch(patch, /web-ui-(doctor|describe-image)/, 'removed plugins must not reappear as patch rows')
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'packages/dsh-web-all/package.json'), 'utf8'))
+  assert.ok(!('@linxin666/dsh-doctor' in pkg.dependencies), 'dsh-doctor must not be a workspace dependency')
+  assert.ok(!('@linxin666/dsh-tool-describe-image' in pkg.dependencies), 'dsh-tool-describe-image must not be a workspace dependency')
+  assert.equal(pkg.exports['./doctor'], './lib/shells/shell.js', 'doctor tombstone export must survive')
+  assert.equal(pkg.exports['./describe-image'], './lib/shells/shell.js', 'describe-image tombstone export must survive')
+})
+
 test('web-ui-all ships the opt-in family rows disabled by default', () => {
   // The manifest's inactive list renders trailing bare "disabled: true"
   // overrides; users opt in per row in the plugin manager (a user-layer
@@ -135,11 +150,15 @@ test('web-ui-all ships the opt-in family rows disabled by default', () => {
   }
 })
 
-test('web-ui-all retires the official archived-sessions page it supersedes', () => {
-  // Native-first decision (2026-09-15): dsh-session-archive takes over the
-  // official `archived-sessions` settings section (same id and order), so the
-  // aggregate disables the row dsh-web-app inserts. Without the retirement,
-  // Settings would show two near-identical archive entries.
+test('web-ui-all declares no retire target the current cohort no longer mounts', () => {
+  // The official bundles alpha.2 ships mount no row this aggregate supersedes:
+  // the official archived-sessions page (`ui-settings-unarchive-sessions`) is
+  // gone from dsh-web-app, so a retire override for it changed nothing while
+  // making the loader warn `patch: entry ... not found` on every profile boot.
+  // `dsh-session-archive` owning the official `archived-sessions` section id
+  // (2026-09-15 native-first decision) stands on its own. Declaring a target
+  // again requires proving the foreign row exists in the SAME cohort with
+  // `dsh --profile <name> --dump-config`, then updating this test.
   const yml = readFileSync(join(ROOT, 'packages/dsh-web-all/aggregate.yml'), 'utf8')
   let section = null
   const retire = []
@@ -153,14 +172,9 @@ test('web-ui-all retires the official archived-sessions page it supersedes', () 
     }
     if (section === 'retire' && line.startsWith('- ')) retire.push(line.slice(2).trim())
   }
-  assert.ok(retire.includes('ui-settings-unarchive-sessions'), 'aggregate.yml should retire the official archived-sessions row')
+  assert.deepEqual(retire, [], 'retire targets must be verified against the installed cohort before being declared')
   const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
-  for (const id of retire) {
-    // A retired row belongs to another bundle's layer, so its id is written
-    // verbatim and must never be namespaced like this aggregate's own rows.
-    assert.doesNotMatch(patch, new RegExp('^- id: web-ui-' + id + '$', 'm'), 'retired foreign row must not be namespaced: ' + id)
-    assert.match(patch, new RegExp('^- id: ' + id + '\n  disabled: true$', 'm'), 'retired foreign row missing its disabled override: ' + id)
-  }
+  assert.doesNotMatch(patch, /^- id: ui-settings-unarchive-sessions$/m, 'the aggregate must not patch a foreign row no bundle mounts')
 })
 
 test('web-ui-all leaves the deprecated @morlay/better-session integration out', () => {

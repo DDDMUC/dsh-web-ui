@@ -2,12 +2,11 @@
 
 ## 范围
 
-本版本统一发布 `packages/` 与 `packages/skins/` 下由 `scripts/lib/family-packages.mjs` 发现的 21 个公开家族包；根 package.json 与 shared 私有包不发布。所有家族包采用统一版本号（当前为 0.3.24），皮肤中心只随包分发 `blue-fantasy`，其余皮肤由 Workshop 按需安装。
+本版本统一发布 `packages/` 与 `packages/skins/` 下由 `scripts/lib/family-packages.mjs` 发现的 19 个公开家族包；根 package.json 与 shared 私有包不发布。所有家族包采用统一版本号（当前为 0.3.24），皮肤中心只随包分发 `blue-fantasy`，其余皮肤由 Workshop 按需安装。
 
 | 目录 | npm 包 | 版本 | 发布状态 |
 | --- | --- | --- | --- |
 | packages/dsh-community-plugins | @linxin666/dsh-client-ui-community-plugins | 0.3.24 | public |
-| packages/dsh-doctor | @linxin666/dsh-doctor | 0.3.24 | public |
 | packages/dsh-git-graph | @linxin666/dsh-client-ui-git-graph | 0.3.24 | public |
 | packages/dsh-i18n | @linxin666/dsh-i18n | 0.3.24 | public |
 | packages/dsh-liangshen | @linxin666/dsh-liangshen | 0.3.24 | public |
@@ -22,7 +21,6 @@
 | packages/dsh-skill-explorer | @linxin666/dsh-client-ui-skill-explorer | 0.3.24 | public |
 | packages/dsh-ssh | @linxin666/dsh-ssh | 0.3.24 | public |
 | packages/dsh-task-board | @linxin666/dsh-client-ui-task-board | 0.3.24 | public |
-| packages/dsh-tool-describe-image | @linxin666/dsh-tool-describe-image | 0.3.24 | public |
 | packages/dsh-usage | @linxin666/dsh-usage | 0.3.24 | public |
 | packages/dsh-web-all | @linxin666/dsh-web-all | 0.3.24 | public |
 | packages/dsh-web-settings | @linxin666/dsh-client-ui-web-ui-settings | 0.3.24 | public |
