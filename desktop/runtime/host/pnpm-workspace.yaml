@@ -358,3 +358,7 @@ overrides:
   '@deepseek-ai/dsh-util-time': 0.1.7-alpha.2
   '@deepseek-ai/dsh-util-workspace-path': 0.1.7-alpha.2
   '@deepseek-ai/dsh-workflow': 0.1.7-alpha.2
+  # libreoffice-kit@0.0.1 pins fflate 0.8.2 exactly; 0.8.3 is the security
+  # patch (GHSA-px8p-9vwx-vf98: unzipSync infinite loop on malformed ZIP64),
+  # ABI-compatible.
+  fflate: 0.8.3
