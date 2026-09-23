@@ -24,7 +24,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the ui-conversation SlotMap merge (the composer tool row).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
-import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm, ConfigForms } from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the settings-surface Context merge (ctx.configForms).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { LiangShenLever } from './LiangShenLever.tsx'
@@ -44,6 +44,19 @@ export const NS = 'liangshen'
  * two. Without that binder the card binds the entry id directly.
  */
 export const SETTINGS_NAMESPACE = 'liangshen'
+const AGGREGATE_ENTRY_ID = 'web-ui-liangshen'
+const LIANGSHEN_ENTRY_IDS: readonly string[] = [AGGREGATE_ENTRY_ID, 'ui-liangshen', SETTINGS_NAMESPACE]
+
+function servedEntryId(forms: ConfigForms): string {
+  let served: readonly string[] | undefined
+  try {
+    served = forms.describe().getSnapshot().view?.namespaces.map(view => view.ns)
+  } catch {
+    served = undefined
+  }
+  if (!served || served.length === 0) return SETTINGS_NAMESPACE
+  return LIANGSHEN_ENTRY_IDS.find(id => served.includes(id)) ?? SETTINGS_NAMESPACE
+}
 
 /** Owner share of a plugin card (the section supplies nothing). */
 export interface SettingsPluginItemOwnerProps {
@@ -137,9 +150,9 @@ export function apply(ctx: ClientContext): void {
     // entry id and binds the native shared form; a deployment without the group
     // plugin addresses the entry id directly (the standalone bundle row id).
     const binder = ctx.get('webUiSettings')
-    const settingsForm = binder !== undefined
+    const settingsForm = binder !== undefined && typeof binder.bind === 'function'
       ? binder.bind<LiangShenSettings>({ namespace: SETTINGS_NAMESPACE })
-      : ctx.configForms.get<LiangShenSettings>(SETTINGS_NAMESPACE)
+      : ctx.configForms.get<LiangShenSettings>(servedEntryId(ctx.configForms))
     const settingsCard = new LiangShenSettingsCardController(settingsForm)
     // Card seat: the family group's list seat, or the official
     // bundle-configuration seat when the group is not installed.
