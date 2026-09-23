@@ -8,7 +8,7 @@ import clsx from 'clsx'
 import { memo } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
-  IconCloseOutline16, IconCopyOutline16, IconRefreshOutline16, IconStopFill16,
+  IconCloseOutlineRegular, IconCopyOutlineRegular, IconRefreshOutlineRegular, IconStopFillRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
@@ -125,7 +125,7 @@ export function RemotePanel({
           <p className={css.subtitle}>{t('subtitle')}</p>
         </div>
         <button type="button" className={css.close} aria-label={t('close.label')} onClick={onClose}>
-          <IconCloseOutline16 size={14} />
+          <IconCloseOutlineRegular size={14} />
         </button>
       </div>
 
@@ -180,7 +180,7 @@ export function RemotePanel({
                 <code className={css.link} title={state.url}>{state.url}</code>
               </div>
               <button type="button" className={css.copyLink} onClick={() => onCopy(state.url)}>
-                <IconCopyOutline16 size={14} />
+                <IconCopyOutlineRegular size={14} />
                 {copied ? t('action.copied') : t('action.copyLink')}
               </button>
             </div>
@@ -195,7 +195,7 @@ export function RemotePanel({
                   className={css.copyLink}
                   onClick={() => onCopyToken ? onCopyToken(state.token!) : onCopy(state.token!)}
                 >
-                  <IconCopyOutline16 size={14} />
+                  <IconCopyOutlineRegular size={14} />
                   {copiedToken ? t('action.copiedToken') : t('action.copyToken')}
                 </button>
               </div>
@@ -256,11 +256,11 @@ export function RemotePanel({
 
           <div className={css.actions}>
             <button type="button" className={css.action} onClick={onStop}>
-              <IconStopFill16 size={14} />
+              <IconStopFillRegular size={14} />
               {t('action.stop')}
             </button>
             <button type="button" className={css.action} onClick={onRefresh}>
-              <IconRefreshOutline16 size={14} />
+              <IconRefreshOutlineRegular size={14} />
               {t('action.refresh')}
             </button>
           </div>

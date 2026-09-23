@@ -344,6 +344,7 @@ describe('apply registration', () => {
   it('registers the sidebar entry and the plugin settings card', async () => {
     const { apply } = await import('../src/client/index.ts')
     const injected: string[] = []
+    const requested: string[] = []
     const ctx = {
       effect: (fn: () => unknown) => fn(),
       locale: { register: () => () => {}, bind: () => (key: string) => key },
@@ -352,13 +353,19 @@ describe('apply registration', () => {
         register: () => () => {},
         spec: () => undefined,
       },
-      settingsScope: {
-        bind: () => ({
-          getSnapshot: () => ({ status: 'unavailable' as const, writable: false }),
-          subscribe: () => () => {},
-          set: async () => {},
-          unset: async () => {},
-        }),
+      // No webUiSettings face: the official per-entry form service carries the
+      // card, addressed by the profile entry id this plugin's namespace is.
+      configForms: {
+        get: (entryId: string) => {
+          requested.push(entryId)
+          return {
+            getSnapshot: () => ({ status: 'unavailable' as const, writable: false }),
+            subscribe: () => () => {},
+            set: async () => true,
+            unset: async () => true,
+            mutate: async () => true,
+          }
+        },
       },
       get: (name: string) => {
         if (name === 'connection') return { isLoopback: true }
@@ -370,6 +377,7 @@ describe('apply registration', () => {
     // keyed seat here, because this double provides no webUiSettings face);
     // only the sidebar entry rides a declaration-lifetime injection.
     expect(injected).toEqual(['sidebar.footer.action'])
+    expect(requested).toEqual(['remote-web-ui'])
   })
 
   it('waits for the settings snapshot before mounting the sidebar entry and runtime', async () => {
@@ -394,12 +402,13 @@ describe('apply registration', () => {
         },
         spec: () => undefined,
       },
-      settingsScope: {
-        bind: () => ({
+      configForms: {
+        get: () => ({
           getSnapshot: () => snapshot,
           subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } },
-          set: async () => {},
-          unset: async () => {},
+          set: async () => true,
+          unset: async () => true,
+          mutate: async () => true,
         }),
       },
       get: (name: string) => {
@@ -408,20 +417,21 @@ describe('apply registration', () => {
       },
     }
     apply(ctx as never)
-    expect(registered).toEqual(['settings.plugin.item'])
+    expect(registered).toEqual(['plugins.bundle.config'])
 
     snapshot = { status: 'ready' as const, writable: true, value: { enabled: false } }
     notify()
-    expect(registered).toEqual(['settings.plugin.item'])
+    expect(registered).toEqual(['plugins.bundle.config'])
 
     snapshot = { status: 'ready' as const, writable: true, value: { enabled: true } }
     notify()
-    expect(registered).toEqual(['settings.plugin.item', 'sidebar.footer.action'])
+    expect(registered).toEqual(['plugins.bundle.config', 'sidebar.footer.action'])
   })
 
   it('registers the card into the family list seat when the settings group is loaded', async () => {
     const { apply } = await import('../src/client/index.ts')
     const registered: Array<{ name: string; id?: string; key?: string }> = []
+    const boundNamespaces: string[] = []
     const ctx = {
       effect: (fn: () => unknown) => fn(),
       locale: { register: () => () => {}, bind: () => (key: string) => key },
@@ -433,17 +443,24 @@ describe('apply registration', () => {
         },
         spec: () => ({ kind: 'keyed' }),
       },
-      settingsScope: {
-        bind: () => ({
-          getSnapshot: () => ({ status: 'ready' as const, writable: true, value: { enabled: false } }),
-          subscribe: () => () => {},
-          set: async () => {},
-          unset: async () => {},
-        }),
-      },
       get: (name: string) => {
         if (name === 'connection') return { isLoopback: true }
-        if (name === 'webUiSettings') return { bind: () => ctx.settingsScope.bind() }
+        // The family group's binder: it takes the family settings namespace
+        // and hands back the owning entry's shared form.
+        if (name === 'webUiSettings') {
+          return {
+            bind: (spec: { namespace: string }) => {
+              boundNamespaces.push(spec.namespace)
+              return {
+                getSnapshot: () => ({ status: 'ready' as const, writable: true, value: { enabled: false } }),
+                subscribe: () => () => {},
+                set: async () => true,
+                unset: async () => true,
+                mutate: async () => true,
+              }
+            },
+          }
+        }
         return undefined
       },
     }
@@ -451,6 +468,7 @@ describe('apply registration', () => {
     // The group declares the family seat, so the card belongs there even
     // though the harness host declares the official keyed seat too.
     expect(registered).toContainEqual(expect.objectContaining({ name: 'web-ui.plugin.item', id: 'remote-web-ui' }))
-    expect(registered.some(entry => entry.name === 'settings.plugin.item')).toBe(false)
+    expect(registered.some(entry => entry.name === 'plugins.bundle.config')).toBe(false)
+    expect(boundNamespaces).toEqual(['remote-web-ui'])
   })
 })

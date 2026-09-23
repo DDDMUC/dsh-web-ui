@@ -1,6 +1,6 @@
 {
-  "packages/dsh-market": "0a92be6a05200a30a182d5b5cdbbf241a2f238629332ec564b24099480c64435",
-  "packages/dsh-preset-center": "0da55ce5253969dfb254a6f9b2286fdfd343118d60f5d537e3902707bf9f780e",
-  "packages/dsh-web-all": "95319e915675e2d7a3d3f1a4988039d6ace9bfff7f471308123e94718cfd3f1b",
-  "packages/skins/skin-center": "7435c722efbdc0f024ed7090daf532de8a689f18cb5d081f1d88f8b557d0d062"
+  "packages/dsh-market": "41c29f1eb0c5f824afaa131546e2a9890013688c724ee97ab6d9393e1dd9d8ac",
+  "packages/dsh-preset-center": "71d8ddcbce1c6ab6deaf3a2ca70c0e7196084f0a3d120da7d2380934c98812bf",
+  "packages/dsh-web-all": "d846b9f6d27bbaedae5086856ed9cedcf64c68d7852c5b0488f2f5ccc696bb0d",
+  "packages/skins/skin-center": "381adbbf85384fca667e8048064096dd6fe8c11f6d8d20f8abeac4058b92f7dc"
 }

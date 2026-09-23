@@ -63,6 +63,10 @@ export interface PluginSettingsCardProps<TKey extends string = string> {
    * edits, so the footer would sit there permanently disabled.
    */
   hideFooter?: boolean
+  /** Render children even when the settings namespace is not exposed by the host. */
+  renderChildrenWhenNotExposed?: boolean
+  /** Hide the 'not exposed' warning banner when the settings namespace is not exposed. */
+  hideNotExposedNotice?: boolean
   /** The plugin's controls. */
   children: ReactNode
 }
@@ -126,13 +130,15 @@ export function PluginSettingsCard<TKey extends string = string>(props: PluginSe
   // that explains the gap instead of vanishing, so a missing card never
   // reads as a missing plugin.
   if (!state.exposed) {
+    const showNotice = props.hideNotExposedNotice !== true && props.renderChildrenWhenNotExposed !== true
     return (
       <li className={cardClass}>
         {header}
         {expanded
           ? (
             <div className={css.body}>
-              <p className={css.notExposed} role="status">{props.t('settings.notExposed')}</p>
+              {showNotice ? <p className={css.notExposed} role="status">{props.t('settings.notExposed')}</p> : null}
+              {props.renderChildrenWhenNotExposed === true ? props.children : null}
             </div>
           )
           : null}
