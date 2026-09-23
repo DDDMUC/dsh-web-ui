@@ -97,16 +97,6 @@ family / 插件区域：
 | `tab-bar` / `tab` | skill-explorer | 技能中心页签条/页签；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="tab-bar"]` / `[data-dsh-plugin="skill-explorer"] [data-dsh-part="tab"]` |
 | `skill-row` | skill-explorer | 技能卡行；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="skill-row"]` |
 | `filter-bar` | skill-explorer | 技能列表筛选条（搜索框 + 工作区选择）；`[data-dsh-plugin="skill-explorer"] [data-dsh-part="filter-bar"]` |
-| `header` | doctor | 救助控制台头部；`[data-dsh-plugin="doctor"] [data-dsh-part="header"]` |
-| `enable` | doctor | 救助模式启用行 |
-| `status` | doctor | 系统状态卡 |
-| `profiles` | doctor | 受保护 profile 列表 |
-| `incidents` | doctor | 故障事件列表 |
-| `probe` | doctor | 客户端故障探针列表 |
-| `plugin-row-actions` | doctor | 失败插件行「复制错误 / 禁用并重启」动作组 |
-| `actions` | doctor | 诊断/修复动作组 |
-| `boundary` | doctor | 错误边界回退提示；`role="alert"` |
-| `harness-target` | doctor | “发送给 Harness” 对话框内的目标会话行 |
 | `entry` | session-id | 侧栏 footer 触发器；`button[data-dsh-part="entry"]`（`[data-dsh-plugin="session-id"]` 容器内） |
 | `panel` | session-id | 会话 ID 模态面板；`[role="dialog"]` 根（`[data-dsh-part="panel"]`） |
 | `row` | session-id | 会话列表行；面板内行容器（`[data-dsh-part="row"]`） |
@@ -142,7 +132,7 @@ family / 插件区域：
 | `lever-burst` | liangshen | 拨下命中后的中奖特效浮层（闪光 / 冲击环 / 火花 / 横幅）；`[data-dsh-part="lever-burst"]`，`prefers-reduced-motion` 下退化为淡出 |
 | `lever-banner` | liangshen | 特效中的梁神横幅（模式名 + 文言文/二进制/摩斯三行）；burst 内 `[data-dsh-part="lever-banner"]` |
 
-## plugin 组（15 个）
+## plugin 组（13 个）
 
 | data-dsh-plugin | owner | 锚定方式 |
 | --- | --- | --- |
@@ -153,7 +143,6 @@ family / 插件区域：
 | `remote-web-ui` | dsh-remote-web-ui | slot entry id `remote-web-ui` |
 | `web-ui-settings` | dsh-web-settings | settings.section id `web-ui-plugins` |
 | `skill-explorer` | dsh-skill-explorer | `[data-dsh-skill-explorer-view]` / `[data-dsh-skill-explorer-entry]` |
-| `doctor` | dsh-doctor | web-ui.plugin.item 槽 entry id `doctor`（设置 → Web 插件 → Doctor 卡片）；卡片内 `[data-dsh-plugin="doctor"]` |
 | `dsh-web-ui-market` | dsh-market | 创意工坊商店一级页（settings.section id `dsh-web-ui-market`），商店卡与目录条目容器 |
 | `skin-center` | skins/skin-center | 一级设置分区 settings.section id `skin-center`（列已安装皮肤，属内置源时显式标记） |
 | `session-id` | dsh-session-id | footer action slot entry id `session-id`；`[data-dsh-plugin="session-id"]`（面板 overlay 根 + 入口触发器） |
