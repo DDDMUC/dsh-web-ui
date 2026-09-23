@@ -21905,6 +21905,14 @@ window.__ModuleLoader__.load({
 			if (!response.ok) throw new Error("pet diagnostics failed: " + response.status);
 			return (await response.json()).diagnostics ?? [];
 		}
+		/** Read the selection from the same persisted state the pet renders. */
+		async function fetchSelectedPetId() {
+			const response = await fetch("/api/pet/state");
+			if (!response.ok) throw new Error("pet state failed: " + response.status);
+			const body = await response.json();
+			if (typeof body.pet?.id !== "string") throw new Error("pet state has no selected pet");
+			return body.pet.id;
+		}
 		/** Bridges the 'pet' scope onto the card's staged form. */
 		var PetSettingsCardController = class {
 			form;
@@ -21912,6 +21920,10 @@ window.__ModuleLoader__.load({
 			petChoices = [];
 			petLabels = /* @__PURE__ */ new Map();
 			diagnostics = [];
+			selectedPetId;
+			stagedPetId;
+			savingPet = false;
+			petSaveFailed = false;
 			loaded = false;
 			attempts = 0;
 			disposed = false;
@@ -21935,6 +21947,7 @@ window.__ModuleLoader__.load({
 					if (this.disposed) return;
 					this.loadPets();
 					this.loadDiagnostics();
+					this.loadSelectedPet();
 				}, 0);
 			}
 			/** Fetch registry diagnostics once (soft-fail: an empty list on error). */
@@ -21967,9 +21980,57 @@ window.__ModuleLoader__.load({
 					}, 3e3);
 				}
 			}
+			async loadSelectedPet() {
+				try {
+					const petId = await fetchSelectedPetId();
+					if (this.disposed) return;
+					this.selectedPetId = petId;
+					this.store.set(this.projection());
+				} catch {}
+			}
+			fallback() {
+				const shell = this.form.shell();
+				return shell.available && !shell.exposed && this.selectedPetId !== void 0;
+			}
+			async savePetSelection() {
+				const petId = this.stagedPetId;
+				if (petId === void 0 || this.savingPet || !this.petChoices.includes(petId)) return;
+				this.savingPet = true;
+				this.petSaveFailed = false;
+				this.store.set(this.projection());
+				try {
+					const response = await fetch("/api/pet/set-pet", {
+						method: "POST",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({ petId })
+					});
+					const result = await response.json();
+					if (!response.ok || result.ok !== true || result.petId !== petId || await fetchSelectedPetId() !== petId) throw new Error("pet selection was not persisted");
+					this.selectedPetId = petId;
+					if (this.stagedPetId === petId) this.stagedPetId = void 0;
+				} catch {
+					this.petSaveFailed = true;
+				} finally {
+					this.savingPet = false;
+					if (!this.disposed) this.store.set(this.projection());
+				}
+			}
 			projection() {
+				const fallback = this.fallback();
+				const shell = this.form.shell();
+				const configuredPet = this.form.field("petId");
 				return {
-					...this.form.shell(),
+					...shell,
+					...fallback ? {
+						exposed: true,
+						writable: true,
+						dirty: this.stagedPetId !== void 0 && this.stagedPetId !== this.selectedPetId,
+						invalid: this.stagedPetId !== void 0 && !this.petChoices.includes(this.stagedPetId),
+						saving: this.savingPet,
+						failed: this.petSaveFailed,
+						failedReason: void 0
+					} : {},
+					petSelectionFallback: fallback,
 					enabled: this.form.field("enabled"),
 					decorationEnabled: this.form.field("decorationEnabled"),
 					visible: this.form.field("visible"),
@@ -21977,7 +22038,14 @@ window.__ModuleLoader__.load({
 					right: this.form.field("right"),
 					bottom: this.form.field("bottom"),
 					bubbleScale: this.form.field("bubbleScale"),
-					petId: this.form.field("petId"),
+					petId: fallback ? {
+						text: this.stagedPetId ?? this.selectedPetId ?? "",
+						overridden: false,
+						invalid: this.stagedPetId !== void 0 && !this.petChoices.includes(this.stagedPetId)
+					} : configuredPet.text === "" && this.selectedPetId !== void 0 ? {
+						...configuredPet,
+						text: this.selectedPetId
+					} : configuredPet,
 					petChoices: this.petChoices.map((id) => ({
 						value: id,
 						label: this.petLabels.get(id) ?? id
@@ -21990,9 +22058,33 @@ window.__ModuleLoader__.load({
 			* @returns the card's snapshot and its form actions.
 			*/
 			inject() {
+				const actions = this.form.actions();
 				return {
 					hooks: { petSettingsCard: this.store },
-					...this.form.actions()
+					edit: (field, value) => {
+						if (!this.fallback()) return actions.edit(field, value);
+						if (field !== "petId") return;
+						this.stagedPetId = value === "" ? void 0 : value;
+						this.petSaveFailed = false;
+						this.store.set(this.projection());
+					},
+					resetField: (field) => {
+						if (!this.fallback()) return actions.resetField(field);
+						if (field !== "petId") return;
+						this.stagedPetId = void 0;
+						this.petSaveFailed = false;
+						this.store.set(this.projection());
+					},
+					save: () => {
+						if (this.fallback()) this.savePetSelection();
+						else actions.save();
+					},
+					discard: () => {
+						if (!this.fallback()) return actions.discard();
+						this.stagedPetId = void 0;
+						this.petSaveFailed = false;
+						this.store.set(this.projection());
+					}
 				};
 			}
 			/**
@@ -22028,14 +22120,13 @@ window.__ModuleLoader__.load({
 				t,
 				titleKey: "settings.title",
 				descriptionKey: "settings.description",
+				descriptionNode: state.petSelectionFallback ? t("settings.petHint") : void 0,
 				state,
-				renderChildrenWhenNotExposed: true,
-				hideNotExposedNotice: true,
 				onSave: props.save,
 				onDiscard: props.discard,
 				alwaysOpen: true,
 				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$3, {
+					state.petSelectionFallback ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$3, {
 						id: "settings-pet-enabled",
 						label: t("settings.enabled"),
 						hint: t("settings.enabledHint"),
@@ -22051,7 +22142,7 @@ window.__ModuleLoader__.load({
 							props.resetField("enabled");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$3, {
+					state.petSelectionFallback ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$3, {
 						id: "settings-pet-decoration",
 						label: t("settings.decoration"),
 						hint: t("settings.decorationHint"),
@@ -22093,7 +22184,7 @@ window.__ModuleLoader__.load({
 							children: diagnostic.message
 						}, index)) })]
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$3, {
+					state.petSelectionFallback ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(BooleanField$3, {
 						id: "settings-pet-visible",
 						label: t("settings.visible"),
 						hint: t("settings.visibleHint"),
@@ -22109,7 +22200,7 @@ window.__ModuleLoader__.load({
 							props.resetField("visible");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					state.petSelectionFallback ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
 						id: "settings-pet-size",
 						label: t("settings.size"),
 						hint: t("settings.sizeHint"),
@@ -22123,7 +22214,7 @@ window.__ModuleLoader__.load({
 							props.resetField("size");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					state.petSelectionFallback ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
 						id: "settings-pet-right",
 						label: t("settings.right"),
 						hint: t("settings.rightHint"),
@@ -22137,7 +22228,7 @@ window.__ModuleLoader__.load({
 							props.resetField("right");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					state.petSelectionFallback ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
 						id: "settings-pet-bottom",
 						label: t("settings.bottom"),
 						hint: t("settings.bottomHint"),
@@ -22151,7 +22242,7 @@ window.__ModuleLoader__.load({
 							props.resetField("bottom");
 						}
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
+					state.petSelectionFallback ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField$2, {
 						id: "settings-pet-bubble-scale",
 						label: t("settings.bubbleScale"),
 						hint: t("settings.bubbleScaleHint"),
